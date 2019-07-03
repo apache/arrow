@@ -296,25 +296,11 @@ public class BitVector extends BaseFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from      source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, BitVector from) {
+  @Override
+  public void copyFrom(int fromIndex, int thisIndex, BaseFixedWidthVector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
-    BitVectorHelper.setValidityBit(valueBuffer, thisIndex, from.getBit(fromIndex));
+    BitVectorHelper.setValidityBit(valueBuffer, thisIndex, ((BitVector) from).getBit(fromIndex));
   }
-
-  /**
-   * Same as {@link #copyFrom(int, int, BitVector)} except that
-   * it handles the case when the capacity of the vector needs to be expanded
-   * before copy.
-   *
-   * @param fromIndex position to copy from in source vector
-   * @param thisIndex position to copy to in this vector
-   * @param from      source vector
-   */
-  public void copyFromSafe(int fromIndex, int thisIndex, BitVector from) {
-    handleSafe(thisIndex);
-    copyFrom(fromIndex, thisIndex, from);
-  }
-
 
   /*----------------------------------------------------------------*
    |                                                                |

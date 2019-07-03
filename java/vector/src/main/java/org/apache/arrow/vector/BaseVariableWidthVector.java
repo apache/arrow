@@ -1277,4 +1277,61 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
     return buffer;
   }
+
+  /**
+   * Copy a cell value from a particular index in source vector to a particular
+   * position in this vector.
+   *
+   * @param fromIndex position to copy from in source vector
+   * @param thisIndex position to copy to in this vector
+   * @param from source vector
+   */
+  public void copyFrom(int fromIndex, int thisIndex, BaseVariableWidthVector from) {
+    if (from.isNull(fromIndex)) {
+      fillHoles(thisIndex);
+      BitVectorHelper.setValidityBit(this.validityBuffer, thisIndex, 0);
+      final int copyStart = offsetBuffer.getInt(thisIndex * OFFSET_WIDTH);
+      offsetBuffer.setInt((thisIndex + 1) * OFFSET_WIDTH, copyStart);
+    } else {
+      final int start = from.offsetBuffer.getInt(fromIndex * OFFSET_WIDTH);
+      final int end = from.offsetBuffer.getInt((fromIndex + 1) * OFFSET_WIDTH);
+      final int length = end - start;
+      fillHoles(thisIndex);
+      BitVectorHelper.setValidityBit(this.validityBuffer, thisIndex, 1);
+      final int copyStart = offsetBuffer.getInt(thisIndex * OFFSET_WIDTH);
+      from.valueBuffer.getBytes(start, this.valueBuffer, copyStart, length);
+      offsetBuffer.setInt((thisIndex + 1) * OFFSET_WIDTH, copyStart + length);
+    }
+    lastSet = thisIndex;
+  }
+
+  /**
+   * Same as {@link #copyFrom(int, int, BaseVariableWidthVector)} except that
+   * it handles the case when the capacity of the vector needs to be expanded
+   * before copy.
+   *
+   * @param fromIndex position to copy from in source vector
+   * @param thisIndex position to copy to in this vector
+   * @param from source vector
+   */
+  public void copyFromSafe(int fromIndex, int thisIndex, BaseVariableWidthVector from) {
+    if (from.isNull(fromIndex)) {
+      handleSafe(thisIndex, 0);
+      fillHoles(thisIndex);
+      BitVectorHelper.setValidityBit(this.validityBuffer, thisIndex, 0);
+      final int copyStart = offsetBuffer.getInt(thisIndex * OFFSET_WIDTH);
+      offsetBuffer.setInt((thisIndex + 1) * OFFSET_WIDTH, copyStart);
+    } else {
+      final int start = from.offsetBuffer.getInt(fromIndex * OFFSET_WIDTH);
+      final int end = from.offsetBuffer.getInt((fromIndex + 1) * OFFSET_WIDTH);
+      final int length = end - start;
+      handleSafe(thisIndex, length);
+      fillHoles(thisIndex);
+      BitVectorHelper.setValidityBit(this.validityBuffer, thisIndex, 1);
+      final int copyStart = offsetBuffer.getInt(thisIndex * OFFSET_WIDTH);
+      from.valueBuffer.getBytes(start, this.valueBuffer, copyStart, length);
+      offsetBuffer.setInt((thisIndex + 1) * OFFSET_WIDTH, copyStart + length);
+    }
+    lastSet = thisIndex;
+  }
 }
