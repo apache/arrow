@@ -25,7 +25,6 @@ import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
@@ -52,16 +51,14 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   /**
    * Constructs a new instance.
    *
-   * @param name The name of the vector.
+   * @param field field materialized by this vector
    * @param allocator The allocator to use for allocating memory for the vector.
-   * @param fieldType The type of the buffer.
    * @param typeWidth The width in bytes of the type.
    */
-  public BaseFixedWidthVector(final String name, final BufferAllocator allocator,
-                                      FieldType fieldType, final int typeWidth) {
-    super(name, allocator);
+  public BaseFixedWidthVector(Field field, final BufferAllocator allocator, final int typeWidth) {
+    super(allocator);
     this.typeWidth = typeWidth;
-    field = new Field(name, fieldType, null);
+    this.field = field;
     valueCount = 0;
     allocationMonitor = 0;
     validityBuffer = allocator.getEmpty();
@@ -69,6 +66,11 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     lastValueCapacity = INITIAL_VALUE_ALLOCATION;
   }
 
+
+  @Override
+  public String getName() {
+    return field.getName();
+  }
 
   /* TODO:
    * see if getNullCount() can be made faster -- O(1)
@@ -533,7 +535,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return getTransferPair(name, allocator);
+    return getTransferPair(getName(), allocator);
   }
 
   /**

@@ -28,6 +28,7 @@ import org.apache.arrow.vector.holders.DecimalHolder;
 import org.apache.arrow.vector.holders.NullableDecimalHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.DecimalUtility;
 import org.apache.arrow.vector.util.TransferPair;
@@ -68,8 +69,19 @@ public class DecimalVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public DecimalVector(String name, FieldType fieldType, BufferAllocator allocator) {
-    super(name, allocator, fieldType, TYPE_WIDTH);
-    ArrowType.Decimal arrowType = (ArrowType.Decimal) fieldType.getType();
+    this(new Field(name, fieldType, null), allocator);
+  }
+
+  /**
+   * Instantiate a DecimalVector. This doesn't allocate any memory for
+   * the data in vector.
+   *
+   * @param field field materialized by this vector
+   * @param allocator allocator for memory management.
+   */
+  public DecimalVector(Field field, BufferAllocator allocator) {
+    super(field, allocator, TYPE_WIDTH);
+    ArrowType.Decimal arrowType = (ArrowType.Decimal) field.getFieldType().getType();
     reader = new DecimalReaderImpl(DecimalVector.this);
     this.precision = arrowType.getPrecision();
     this.scale = arrowType.getScale();

@@ -39,10 +39,33 @@ public abstract class ExtensionTypeVector<T extends BaseValueVector & FieldVecto
     FieldVector {
 
   private final T underlyingVector;
+  private final String name;
 
+  /**
+   * Instantiate an extension type vector.
+   * @param name name of the vector
+   * @param allocator allocator for memory management
+   * @param underlyingVector underlying filed vector
+   */
   public ExtensionTypeVector(String name, BufferAllocator allocator, T underlyingVector) {
-    super(name, allocator);
+    super(allocator);
+    this.name = name;
     this.underlyingVector = underlyingVector;
+  }
+
+  /**
+   * Instantiate an extension type vector.
+   * @param field field materialized by this vector.
+   * @param allocator allocator for memory management
+   * @param underlyingVector underlying filed vector
+   */
+  public ExtensionTypeVector(Field field, BufferAllocator allocator, T underlyingVector) {
+    this(field.getName(), allocator, underlyingVector);
+  }
+
+  @Override
+  public String getName() {
+    return name;
   }
 
   /** Get the underlying vector. */

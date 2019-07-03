@@ -29,6 +29,7 @@ import org.apache.arrow.vector.holders.NullableDurationHolder;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -54,10 +55,20 @@ public class DurationVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public DurationVector(String name, FieldType fieldType, BufferAllocator allocator) {
-    super(name, allocator, fieldType, TYPE_WIDTH);
-    reader = new DurationReaderImpl(DurationVector.this);
-    this.unit =  ((ArrowType.Duration)fieldType.getType()).getUnit();
+    this(new Field(name, fieldType, null), allocator);
+  }
 
+  /**
+   * Instantiate a DurationVector. This doesn't allocate any memory for
+   * the data in vector.
+   *
+   * @param field field materialized by this vector
+   * @param allocator allocator for memory management.
+   */
+  public DurationVector(Field field, BufferAllocator allocator) {
+    super(field, allocator, TYPE_WIDTH);
+    reader = new DurationReaderImpl(DurationVector.this);
+    this.unit =  ((ArrowType.Duration)field.getFieldType().getType()).getUnit();
   }
 
   /**
