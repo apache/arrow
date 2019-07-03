@@ -55,10 +55,6 @@ class SourceTest < Test::Unit::TestCase
   end
 
   def test_glib_configure
-    unless ENV["ARROW_TEST_SOURCE_GLIB"] == "yes"
-      omit("This takes a long time. " +
-           "Set ARROW_TEST_SOURCE_GLIB=yes environment variable to test this.")
-    end
     source("GLIB")
     Dir.chdir("#{@tag_name}/c_glib") do
       assert_equal([
