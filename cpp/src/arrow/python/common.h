@@ -36,7 +36,15 @@ class Result;
 
 namespace py {
 
+// Convert current Python error to a Status.  The Python error state is cleared
+// and can be restored with RestorePyError().
 ARROW_PYTHON_EXPORT Status ConvertPyError(StatusCode code = StatusCode::UnknownError);
+// Same as ConvertPyError(), but returns Status::OK() if no Python error is set.
+ARROW_PYTHON_EXPORT Status PassPyError();
+// Query whether the given Status is a Python error (as wrapped by ConvertPyError()).
+ARROW_PYTHON_EXPORT bool IsPyError(const Status& status);
+// Restore a Python error wrapped in a Status.
+ARROW_PYTHON_EXPORT void RestorePyError(const Status& status);
 
 // Catch a pending Python exception and return the corresponding Status.
 // If no exception is pending, Status::OK() is returned.
@@ -48,9 +56,6 @@ inline Status CheckPyError(StatusCode code = StatusCode::UnknownError) {
   }
 }
 
-ARROW_PYTHON_EXPORT Status PassPyError();
-
-// TODO(wesm): We can just let errors pass through. To be explored later
 #define RETURN_IF_PYERROR() ARROW_RETURN_NOT_OK(CheckPyError());
 
 #define PY_RETURN_IF_ERROR(CODE) ARROW_RETURN_NOT_OK(CheckPyError(CODE));
@@ -97,6 +102,18 @@ class ARROW_PYTHON_EXPORT PyAcquireGIL {
   ARROW_DISALLOW_COPY_AND_ASSIGN(PyAcquireGIL);
 };
 
+// A RAII-style helper that releases the GIL until the end of a lexical block
+class ARROW_PYTHON_EXPORT PyReleaseGIL {
+ public:
+  PyReleaseGIL() { saved_state_ = PyEval_SaveThread(); }
+
+  ~PyReleaseGIL() { PyEval_RestoreThread(saved_state_); }
+
+ private:
+  PyThreadState* saved_state_;
+  ARROW_DISALLOW_COPY_AND_ASSIGN(PyReleaseGIL);
+};
+
 // A helper to call safely into the Python interpreter from arbitrary C++ code.
 // The GIL is acquired, and the current thread's error status is preserved.
 template <typename Function>
@@ -109,7 +126,7 @@ Status SafeCallIntoPython(Function&& func) {
   Status st = std::forward<Function>(func)();
   // If the return Status is a "Python error", the current Python error status
   // describes the error and shouldn't be clobbered.
-  if (!st.IsPythonError() && exc_type != NULLPTR) {
+  if (!IsPyError(st) && exc_type != NULLPTR) {
     PyErr_Restore(exc_type, exc_value, exc_traceback);
   }
   return st;

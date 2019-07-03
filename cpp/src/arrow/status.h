@@ -17,6 +17,7 @@
 
 #include <cstring>
 #include <iosfwd>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -85,23 +86,30 @@ enum class StatusCode : char {
   UnknownError = 9,
   NotImplemented = 10,
   SerializationError = 11,
-  PythonError = 12,
   RError = 13,
-  PlasmaObjectExists = 20,
-  PlasmaObjectNonexistent = 21,
-  PlasmaStoreFull = 22,
-  PlasmaObjectAlreadySealed = 23,
-  StillExecuting = 24,
   // Gandiva range of errors
   CodeGenError = 40,
   ExpressionValidationError = 41,
-  ExecutionError = 42
+  ExecutionError = 42,
+  // Continue generic codes.
+  AlreadyExists = 45
 };
 
 #if defined(__clang__)
 // Only clang supports warn_unused_result as a type annotation.
 class ARROW_MUST_USE_RESULT ARROW_EXPORT Status;
 #endif
+
+/// \brief An opaque class that allows subsystems to retain
+/// additional information inside the Status.
+class ARROW_EXPORT StatusDetail {
+ public:
+  virtual ~StatusDetail() = default;
+  // Return a unique id for the type of the StatusDetail
+  // (effectively a poor man's substitude for RTTI).
+  virtual const char* type_id() const = 0;
+  virtual std::string ToString() const = 0;
+};
 
 /// \brief Status outcome object (success or error)
 ///
@@ -124,6 +132,8 @@ class ARROW_EXPORT Status {
   }
 
   Status(StatusCode code, const std::string& msg);
+  /// \brief Pluggable constructor for use by sub-systems.  detail cannot be null.
+  Status(StatusCode code, std::string msg, std::shared_ptr<StatusDetail> detail);
 
   // Copy the specified status.
   inline Status(const Status& s);
@@ -222,32 +232,6 @@ class ARROW_EXPORT Status {
   }
 
   template <typename... Args>
-  static Status PlasmaObjectExists(Args&&... args) {
-    return Status(StatusCode::PlasmaObjectExists,
-                  util::StringBuilder(std::forward<Args>(args)...));
-  }
-
-  template <typename... Args>
-  static Status PlasmaObjectNonexistent(Args&&... args) {
-    return Status(StatusCode::PlasmaObjectNonexistent,
-                  util::StringBuilder(std::forward<Args>(args)...));
-  }
-
-  template <typename... Args>
-  static Status PlasmaObjectAlreadySealed(Args&&... args) {
-    return Status(StatusCode::PlasmaObjectAlreadySealed,
-                  util::StringBuilder(std::forward<Args>(args)...));
-  }
-
-  template <typename... Args>
-  static Status PlasmaStoreFull(Args&&... args) {
-    return Status(StatusCode::PlasmaStoreFull,
-                  util::StringBuilder(std::forward<Args>(args)...));
-  }
-
-  static Status StillExecuting() { return Status(StatusCode::StillExecuting, ""); }
-
-  template <typename... Args>
   static Status CodeGenError(Args&&... args) {
     return Status(StatusCode::CodeGenError,
                   util::StringBuilder(std::forward<Args>(args)...));
@@ -290,22 +274,6 @@ class ARROW_EXPORT Status {
   bool IsSerializationError() const { return code() == StatusCode::SerializationError; }
   /// Return true iff the status indicates a R-originated error.
   bool IsRError() const { return code() == StatusCode::RError; }
-  /// Return true iff the status indicates a Python-originated error.
-  bool IsPythonError() const { return code() == StatusCode::PythonError; }
-  /// Return true iff the status indicates an already existing Plasma object.
-  bool IsPlasmaObjectExists() const { return code() == StatusCode::PlasmaObjectExists; }
-  /// Return true iff the status indicates a non-existent Plasma object.
-  bool IsPlasmaObjectNonexistent() const {
-    return code() == StatusCode::PlasmaObjectNonexistent;
-  }
-  /// Return true iff the status indicates an already sealed Plasma object.
-  bool IsPlasmaObjectAlreadySealed() const {
-    return code() == StatusCode::PlasmaObjectAlreadySealed;
-  }
-  /// Return true iff the status indicates the Plasma store reached its capacity limit.
-  bool IsPlasmaStoreFull() const { return code() == StatusCode::PlasmaStoreFull; }
-
-  bool IsStillExecuting() const { return code() == StatusCode::StillExecuting; }
 
   bool IsCodeGenError() const { return code() == StatusCode::CodeGenError; }
 
@@ -330,6 +298,17 @@ class ARROW_EXPORT Status {
   /// \brief Return the specific error message attached to this status.
   std::string message() const { return ok() ? "" : state_->msg; }
 
+  /// \brief Return the status detail attached to this message.
+  std::shared_ptr<StatusDetail> detail() const {
+    return state_ == NULLPTR ? NULLPTR : state_->detail;
+  }
+
+  /// \brief Returns a new Status copying the existing status, but
+  /// updating with the existing detail.
+  Status WithDetail(std::shared_ptr<StatusDetail> new_detail) {
+    return Status(code(), message(), std::move(new_detail));
+  }
+
   [[noreturn]] void Abort() const;
   [[noreturn]] void Abort(const std::string& message) const;
 
@@ -341,6 +320,7 @@ class ARROW_EXPORT Status {
   struct State {
     StatusCode code;
     std::string msg;
+    std::shared_ptr<StatusDetail> detail;
   };
   // OK status has a `NULL` state_.  Otherwise, `state_` points to
   // a `State` structure containing the error code and message(s)
