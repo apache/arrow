@@ -2140,6 +2140,9 @@ macro(build_grpc)
       -DCMAKE_INSTALL_LIBDIR=lib
       "-DProtobuf_PROTOC_LIBRARY=${GRPC_Protobuf_PROTOC_LIBRARY}"
       -DBUILD_SHARED_LIBS=OFF)
+  if(OPENSSL_ROOT_DIR)
+    list(APPEND GRPC_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
+  endif()
 
   # XXX the gRPC git checkout is huge and takes a long time
   # Ideally, we should be able to use the tarballs, but they don't contain
