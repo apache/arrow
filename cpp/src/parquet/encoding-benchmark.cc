@@ -26,8 +26,8 @@
 #include "arrow/type.h"
 
 #include "parquet/encoding.h"
+#include "parquet/platform.h"
 #include "parquet/schema.h"
-#include "parquet/util/memory.h"
 
 #include <random>
 

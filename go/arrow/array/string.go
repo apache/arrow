@@ -46,7 +46,11 @@ func NewStringData(data *Data) *String {
 }
 
 // Value returns the slice at index i. This value should not be mutated.
-func (a *String) Value(i int) string { return a.values[a.offsets[i]:a.offsets[i+1]] }
+func (a *String) Value(i int) string {
+	i = i + a.array.data.offset
+	return a.values[a.offsets[i]:a.offsets[i+1]]
+}
+func (a *String) ValueOffset(i int) int { return int(a.offsets[i]) }
 
 func (a *String) String() string {
 	o := new(strings.Builder)
@@ -81,6 +85,18 @@ func (a *String) setData(data *Data) {
 	if offsets := data.buffers[1]; offsets != nil {
 		a.offsets = arrow.Int32Traits.CastFromBytes(offsets.Bytes())
 	}
+}
+
+func arrayEqualString(left, right *String) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
 }
 
 // A StringBuilder is used to build a String array using the Append methods.

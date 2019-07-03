@@ -1,0 +1,3 @@
+usr/lib/*/libgandiva.a
+usr/lib/*/libgandiva.so
+usr/lib/*/pkgconfig/gandiva.pc

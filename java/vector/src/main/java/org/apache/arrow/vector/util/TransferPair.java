@@ -19,12 +19,15 @@ package org.apache.arrow.vector.util;
 
 import org.apache.arrow.vector.ValueVector;
 
+/**
+ * Interface for copying values between a pair of two vectors of the same type.
+ */
 public interface TransferPair {
-  public void transfer();
+  void transfer();
 
-  public void splitAndTransfer(int startIndex, int length);
+  void splitAndTransfer(int startIndex, int length);
 
-  public ValueVector getTo();
+  ValueVector getTo();
 
-  public void copyValueSafe(int from, int to);
+  void copyValueSafe(int from, int to);
 }

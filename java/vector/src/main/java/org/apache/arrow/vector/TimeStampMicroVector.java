@@ -18,7 +18,6 @@
 package org.apache.arrow.vector;
 
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeStampMicroReaderImpl;
@@ -26,6 +25,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableTimeStampMicroHolder;
 import org.apache.arrow.vector.holders.TimeStampMicroHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.DateUtility;
 import org.apache.arrow.vector.util.TransferPair;
@@ -59,6 +59,18 @@ public class TimeStampMicroVector extends TimeStampVector {
    */
   public TimeStampMicroVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, fieldType, allocator);
+    reader = new TimeStampMicroReaderImpl(TimeStampMicroVector.this);
+  }
+
+  /**
+   * Instantiate a TimeStampMicroVector. This doesn't allocate any memory for
+   * the data in vector.
+   *
+   * @param field Field materialized by this vector
+   * @param allocator allocator for memory management.
+   */
+  public TimeStampMicroVector(Field field, BufferAllocator allocator) {
+    super(field, allocator);
     reader = new TimeStampMicroReaderImpl(TimeStampMicroVector.this);
   }
 

@@ -19,7 +19,6 @@
 #define ARROW_BUFFER_BUILDER_H
 
 #include <algorithm>
-#include <array>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -30,6 +29,7 @@
 #include "arrow/status.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/ubsan.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -43,7 +43,12 @@ namespace arrow {
 class ARROW_EXPORT BufferBuilder {
  public:
   explicit BufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
-      : pool_(pool), data_(NULLPTR), capacity_(0), size_(0) {}
+      : pool_(pool),
+        data_(/*ensure never null to make ubsan happy and avoid check penalties below*/
+              &util::internal::non_null_filler),
+
+        capacity_(0),
+        size_(0) {}
 
   /// \brief Resize the buffer to the nearest multiple of 64 bytes
   ///
@@ -57,7 +62,6 @@ class ARROW_EXPORT BufferBuilder {
     if (new_capacity == 0) {
       return Status::OK();
     }
-    int64_t old_capacity = capacity_;
     if (buffer_ == NULLPTR) {
       ARROW_RETURN_NOT_OK(AllocateResizableBuffer(pool_, new_capacity, &buffer_));
     } else {
@@ -65,9 +69,6 @@ class ARROW_EXPORT BufferBuilder {
     }
     capacity_ = buffer_->capacity();
     data_ = buffer_->mutable_data();
-    if (capacity_ > old_capacity) {
-      memset(data_ + old_capacity, 0, capacity_ - old_capacity);
-    }
     return Status::OK();
   }
 
@@ -75,25 +76,23 @@ class ARROW_EXPORT BufferBuilder {
   /// without the need to perform allocations
   ///
   /// \param[in] additional_bytes number of additional bytes to make space for
-  /// \param[in] grow_by_factor if true, round up allocations using the
-  /// strategy in BufferBuilder::GrowByFactor
   /// \return Status
-  Status Reserve(const int64_t additional_bytes, bool grow_by_factor = false) {
+  Status Reserve(const int64_t additional_bytes) {
     auto min_capacity = size_ + additional_bytes;
-    if (min_capacity <= capacity_) return Status::OK();
-    if (grow_by_factor) {
-      min_capacity = GrowByFactor(min_capacity);
+    if (min_capacity <= capacity_) {
+      return Status::OK();
     }
-    return Resize(min_capacity, false);
+    return Resize(GrowByFactor(capacity_, min_capacity), false);
   }
 
-  /// \brief Return a capacity expanded by a growth factor of 2
-  static int64_t GrowByFactor(const int64_t min_capacity) {
-    // If the capacity was not already a multiple of 2, do so here
-    // TODO(emkornfield) doubling isn't great default allocation practice
+  /// \brief Return a capacity expanded by an unspecified growth factor
+  static int64_t GrowByFactor(int64_t current_capacity, int64_t new_capacity) {
+    // NOTE: Doubling isn't a great overallocation practice
     // see https://github.com/facebook/folly/blob/master/folly/docs/FBVector.md
-    // for discussion
-    return BitUtil::NextPower2(min_capacity);
+    // for discussion.
+    // Grow exactly if a large upsize (the caller might know the exact final size).
+    // Otherwise overallocate by 1.5 to keep a linear amortized cost.
+    return std::max(new_capacity, current_capacity * 3 / 2);
   }
 
   /// \brief Append the given data to the buffer
@@ -101,7 +100,7 @@ class ARROW_EXPORT BufferBuilder {
   /// The buffer is automatically expanded if necessary.
   Status Append(const void* data, const int64_t length) {
     if (ARROW_PREDICT_FALSE(size_ + length > capacity_)) {
-      ARROW_RETURN_NOT_OK(Resize(GrowByFactor(size_ + length), false));
+      ARROW_RETURN_NOT_OK(Resize(GrowByFactor(capacity_, size_ + length), false));
     }
     UnsafeAppend(data, length);
     return Status::OK();
@@ -111,20 +110,8 @@ class ARROW_EXPORT BufferBuilder {
   ///
   /// The buffer is automatically expanded if necessary.
   Status Append(const int64_t num_copies, uint8_t value) {
-    ARROW_RETURN_NOT_OK(Reserve(num_copies, true));
+    ARROW_RETURN_NOT_OK(Reserve(num_copies));
     UnsafeAppend(num_copies, value);
-    return Status::OK();
-  }
-
-  /// \brief Append the given data to the buffer
-  ///
-  /// The buffer is automatically expanded if necessary.
-  template <size_t NBYTES>
-  Status Append(const std::array<uint8_t, NBYTES>& data) {
-    constexpr auto nbytes = static_cast<int64_t>(NBYTES);
-    ARROW_RETURN_NOT_OK(Reserve(NBYTES, true));
-    std::copy(data.cbegin(), data.cend(), data_ + size_);
-    size_ += nbytes;
     return Status::OK();
   }
 
@@ -158,6 +145,9 @@ class ARROW_EXPORT BufferBuilder {
     ARROW_RETURN_NOT_OK(Resize(size_, shrink_to_fit));
     if (size_ != 0) buffer_->ZeroPadding();
     *out = buffer_;
+    if (*out == NULLPTR) {
+      ARROW_RETURN_NOT_OK(AllocateBuffer(pool_, 0, out));
+    }
     Reset();
     return Status::OK();
   }
@@ -166,6 +156,12 @@ class ARROW_EXPORT BufferBuilder {
     buffer_ = NULLPTR;
     capacity_ = size_ = 0;
   }
+
+  /// \brief Set size to a smaller value without modifying builder
+  /// contents. For reusable BufferBuilder classes
+  /// \param[in] position must be non-negative and less than or equal
+  /// to the current length()
+  void Rewind(int64_t position) { size_ = position; }
 
   int64_t capacity() const { return capacity_; }
   int64_t length() const { return size_; }
@@ -200,8 +196,7 @@ class TypedBufferBuilder<T, typename std::enable_if<std::is_arithmetic<T>::value
   }
 
   Status Append(const int64_t num_copies, T value) {
-    ARROW_RETURN_NOT_OK(
-        Resize(BufferBuilder::GrowByFactor(num_copies + length()), false));
+    ARROW_RETURN_NOT_OK(Reserve(num_copies + length()));
     UnsafeAppend(num_copies, value);
     return Status::OK();
   }
@@ -266,19 +261,19 @@ class TypedBufferBuilder<bool> {
       : bytes_builder_(pool) {}
 
   Status Append(bool value) {
-    ARROW_RETURN_NOT_OK(ResizeWithGrowthFactor(bit_length_ + 1));
+    ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppend(value);
     return Status::OK();
   }
 
   Status Append(const uint8_t* valid_bytes, int64_t num_elements) {
-    ARROW_RETURN_NOT_OK(ResizeWithGrowthFactor(bit_length_ + num_elements));
+    ARROW_RETURN_NOT_OK(Reserve(num_elements));
     UnsafeAppend(valid_bytes, num_elements);
     return Status::OK();
   }
 
   Status Append(const int64_t num_copies, bool value) {
-    ARROW_RETURN_NOT_OK(ResizeWithGrowthFactor(bit_length_ + num_copies));
+    ARROW_RETURN_NOT_OK(Reserve(num_copies));
     UnsafeAppend(num_copies, value);
     return Status::OK();
   }
@@ -327,9 +322,14 @@ class TypedBufferBuilder<bool> {
 
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
     const int64_t old_byte_capacity = bytes_builder_.capacity();
-    const int64_t new_byte_capacity = BitUtil::BytesForBits(new_capacity);
-    ARROW_RETURN_NOT_OK(bytes_builder_.Resize(new_byte_capacity, shrink_to_fit));
+    ARROW_RETURN_NOT_OK(
+        bytes_builder_.Resize(BitUtil::BytesForBits(new_capacity), shrink_to_fit));
+    // Resize() may have chosen a larger capacity (e.g. for padding),
+    // so ask it again before calling memset().
+    const int64_t new_byte_capacity = bytes_builder_.capacity();
     if (new_byte_capacity > old_byte_capacity) {
+      // The additional buffer space is 0-initialized for convenience,
+      // so that other methods can simply bump the length.
       memset(mutable_data() + old_byte_capacity, 0,
              static_cast<size_t>(new_byte_capacity - old_byte_capacity));
     }
@@ -337,13 +337,16 @@ class TypedBufferBuilder<bool> {
   }
 
   Status Reserve(const int64_t additional_elements) {
-    return Resize(bit_length_ + additional_elements, false);
+    return Resize(
+        BufferBuilder::GrowByFactor(bit_length_, bit_length_ + additional_elements),
+        false);
   }
 
   Status Advance(const int64_t length) {
+    ARROW_RETURN_NOT_OK(Reserve(length));
     bit_length_ += length;
     false_count_ += length;
-    return ResizeWithGrowthFactor(bit_length_);
+    return Status::OK();
   }
 
   Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {
@@ -366,9 +369,6 @@ class TypedBufferBuilder<bool> {
   int64_t false_count() const { return false_count_; }
 
  private:
-  Status ResizeWithGrowthFactor(const int64_t min_capacity) {
-    return Resize(BufferBuilder::GrowByFactor(min_capacity), false);
-  }
   BufferBuilder bytes_builder_;
   int64_t bit_length_ = 0;
   int64_t false_count_ = 0;

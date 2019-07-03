@@ -25,10 +25,23 @@ mkdir -p /build/java
 
 arrow_src=/build/java/arrow
 
+# Remove any pre-existing artifacts
+rm -rf $arrow_src
+
 pushd /arrow
-  rsync -a header java format integration $arrow_src
+rsync -a header java format integration $arrow_src
 popd
 
+JAVA_ARGS=
+if [ "$ARROW_JAVA_RUN_TESTS" != "1" ]; then
+  JAVA_ARGS=-DskipTests
+fi
+
 pushd $arrow_src/java
-  mvn -B -DskipTests -Drat.skip=true install
+mvn -B $JAVA_ARGS -Drat.skip=true install
+
+if [ "$ARROW_JAVADOC" == "1" ]; then
+  export MAVEN_OPTS="$MAVEN_OPTS -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
+  mvn -B site
+fi
 popd

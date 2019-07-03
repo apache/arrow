@@ -18,11 +18,16 @@
 #' @include R6.R
 
 `arrow::StructType` <- R6Class("arrow::StructType",
-  inherit = `arrow::NestedType`
+  inherit = `arrow::NestedType`,
+  public = list(
+    GetFieldByName = function(name) shared_ptr(`arrow::Field`, StructType__GetFieldByName(self, name)),
+    GetFieldIndex = function(name) StructType__GetFieldIndex(self, name)
+  )
 )
 
 #' @rdname DataType
 #' @export
 struct <- function(...){
-  shared_ptr(`arrow::StructType`, struct_(.fields(list(...))))
+  xp <- struct_(.fields(list(...)))
+  shared_ptr(`arrow::StructType`, xp)
 }

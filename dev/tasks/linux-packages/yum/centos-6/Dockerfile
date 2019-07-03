@@ -45,7 +45,6 @@ RUN \
   yum install -y ${quiet} \
     centos-release-scl && \
   yum install -y ${quiet} \
-    boost-devel \
     cmake3 \
     devtoolset-6 \
     gflags-devel \

@@ -26,9 +26,12 @@ import collections
 import datetime
 import decimal
 import itertools
+import traceback
+import sys
+
 import numpy as np
-import six
 import pytz
+import six
 
 
 int_type_pairs = [
@@ -51,6 +54,19 @@ class StrangeIterable:
 
     def __iter__(self):
         return self.lst.__iter__()
+
+
+class MyInt:
+    def __init__(self, value):
+        self.value = value
+
+    def __int__(self):
+        return self.value
+
+
+class MyBrokenInt:
+    def __int__(self):
+        1/0  # MARKER
 
 
 def check_struct_type(ty, expected):
@@ -191,7 +207,7 @@ def test_nested_lists(seq):
 @parametrize_with_iterable_types
 def test_list_with_non_list(seq):
     # List types don't accept non-sequences
-    with pytest.raises(pa.ArrowTypeError):
+    with pytest.raises(TypeError):
         pa.array(seq([[], [1, 2], 3]), type=pa.list_(pa.int64()))
 
 
@@ -290,12 +306,8 @@ def test_sequence_numpy_integer(seq, np_scalar_pa_type):
 def test_sequence_numpy_integer_inferred(seq, np_scalar_pa_type):
     np_scalar, pa_type = np_scalar_pa_type
     expected = [np_scalar(1), None, np_scalar(3), None]
-    if np_scalar != np.uint64:
-        expected += [np_scalar(np.iinfo(np_scalar).min),
-                     np_scalar(np.iinfo(np_scalar).max)]
-    else:
-        # max(uint64) is too large for the inferred int64 type
-        expected += [0, np.iinfo(np.int64).max]
+    expected += [np_scalar(np.iinfo(np_scalar).min),
+                 np_scalar(np.iinfo(np_scalar).max)]
     arr = pa.array(seq(expected))
     assert len(arr) == 6
     assert arr.null_count == 2
@@ -303,8 +315,34 @@ def test_sequence_numpy_integer_inferred(seq, np_scalar_pa_type):
     assert arr.to_pylist() == expected
 
 
+@parametrize_with_iterable_types
+def test_sequence_custom_integers(seq):
+    expected = [0, 42, 2**33 + 1, -2**63]
+    data = list(map(MyInt, expected))
+    arr = pa.array(seq(data), type=pa.int64())
+    assert arr.to_pylist() == expected
+
+
+@parametrize_with_iterable_types
+def test_broken_integers(seq):
+    data = [MyBrokenInt()]
+    with pytest.raises(ZeroDivisionError) as exc_info:
+        pa.array(seq(data), type=pa.int64())
+    # Original traceback is kept
+    tb_lines = traceback.format_tb(exc_info.tb)
+    assert "# MARKER" in tb_lines[-1]
+
+
+def test_numpy_scalars_mixed_type():
+    # ARROW-4324
+    data = [np.int32(10), np.float32(0.5)]
+    arr = pa.array(data)
+    expected = pa.array([10, 0.5], type='float64')
+    assert arr.equals(expected)
+
+
 @pytest.mark.xfail(reason="Type inference for uint64 not implemented",
-                   raises=pa.ArrowException)
+                   raises=OverflowError)
 def test_uint64_max_convert():
     data = [0, np.iinfo(np.uint64).max]
 
@@ -319,20 +357,20 @@ def test_uint64_max_convert():
 @pytest.mark.parametrize("bits", [8, 16, 32, 64])
 def test_signed_integer_overflow(bits):
     ty = getattr(pa, "int%d" % bits)()
-    # XXX ideally would raise OverflowError
-    with pytest.raises((ValueError, pa.ArrowException)):
+    # XXX ideally would always raise OverflowError
+    with pytest.raises((OverflowError, pa.ArrowInvalid)):
         pa.array([2 ** (bits - 1)], ty)
-    with pytest.raises((ValueError, pa.ArrowException)):
+    with pytest.raises((OverflowError, pa.ArrowInvalid)):
         pa.array([-2 ** (bits - 1) - 1], ty)
 
 
 @pytest.mark.parametrize("bits", [8, 16, 32, 64])
 def test_unsigned_integer_overflow(bits):
     ty = getattr(pa, "uint%d" % bits)()
-    # XXX ideally would raise OverflowError
-    with pytest.raises((ValueError, pa.ArrowException)):
+    # XXX ideally would always raise OverflowError
+    with pytest.raises((OverflowError, pa.ArrowInvalid)):
         pa.array([2 ** bits], ty)
-    with pytest.raises((ValueError, pa.ArrowException)):
+    with pytest.raises((OverflowError, pa.ArrowInvalid)):
         pa.array([-1], ty)
 
 
@@ -435,9 +473,13 @@ def test_mixed_sequence_errors():
 
 
 @parametrize_with_iterable_types
-@pytest.mark.parametrize("np_scalar", [np.float16, np.float32, np.float64])
+@pytest.mark.parametrize("np_scalar,pa_type", [
+    (np.float16, pa.float16()),
+    (np.float32, pa.float32()),
+    (np.float64, pa.float64())
+])
 @pytest.mark.parametrize("from_pandas", [True, False])
-def test_sequence_numpy_double(seq, np_scalar, from_pandas):
+def test_sequence_numpy_double(seq, np_scalar, pa_type, from_pandas):
     data = [np_scalar(1.5), np_scalar(1), None, np_scalar(2.5), None, np.nan]
     arr = pa.array(seq(data), from_pandas=from_pandas)
     assert len(arr) == 6
@@ -445,7 +487,12 @@ def test_sequence_numpy_double(seq, np_scalar, from_pandas):
         assert arr.null_count == 3
     else:
         assert arr.null_count == 2
-    assert arr.type == pa.float64()
+    if from_pandas:
+        # The NaN is skipped in type inference, otherwise it forces a
+        # float64 promotion
+        assert arr.type == pa_type
+    else:
+        assert arr.type == pa.float64()
 
     assert arr.to_pylist()[:4] == data[:4]
     if from_pandas:
@@ -473,6 +520,62 @@ def test_ndarray_nested_numpy_double(from_pandas, inner_seq):
     else:
         np.testing.assert_equal(arr.to_pylist(),
                                 [[1., 2.], [1., 2., 3.], [np.nan], None])
+
+
+def test_nested_ndarray_in_object_array():
+    # ARROW-4350
+    arr = np.empty(2, dtype=object)
+    arr[:] = [np.array([1, 2], dtype=np.int64),
+              np.array([2, 3], dtype=np.int64)]
+
+    arr2 = np.empty(2, dtype=object)
+    arr2[0] = [3, 4]
+    arr2[1] = [5, 6]
+
+    expected_type = pa.list_(pa.list_(pa.int64()))
+    assert pa.infer_type([arr]) == expected_type
+
+    result = pa.array([arr, arr2])
+    expected = pa.array([[[1, 2], [2, 3]], [[3, 4], [5, 6]]],
+                        type=expected_type)
+
+    assert result.equals(expected)
+
+    # test case for len-1 arrays to ensure they are interpreted as
+    # sublists and not scalars
+    arr = np.empty(2, dtype=object)
+    arr[:] = [np.array([1]), np.array([2])]
+    result = pa.array([arr, arr])
+    assert result.to_pylist() == [[[1], [2]], [[1], [2]]]
+
+
+@pytest.mark.xfail(reason=("Type inference for multidimensional ndarray "
+                           "not yet implemented"),
+                   raises=AssertionError)
+def test_multidimensional_ndarray_as_nested_list():
+    # TODO(wesm): see ARROW-5645
+    arr = np.array([[1, 2], [2, 3]], dtype=np.int64)
+    arr2 = np.array([[3, 4], [5, 6]], dtype=np.int64)
+
+    expected_type = pa.list_(pa.list_(pa.int64()))
+    assert pa.infer_type([arr]) == expected_type
+
+    result = pa.array([arr, arr2])
+    expected = pa.array([[[1, 2], [2, 3]], [[3, 4], [5, 6]]],
+                        type=expected_type)
+
+    assert result.equals(expected)
+
+
+def test_array_ignore_nan_from_pandas():
+    # See ARROW-4324, this reverts logic that was introduced in
+    # ARROW-2240
+    with pytest.raises(ValueError):
+        pa.array([np.nan, 'str'])
+
+    arr = pa.array([np.nan, 'str'], from_pandas=True)
+    expected = pa.array([None, 'str'])
+    assert arr.equals(expected)
 
 
 def test_nested_ndarray_different_dtypes():
@@ -592,7 +695,7 @@ def test_sequence_explicit_types(input):
 def test_date32_overflow():
     # Overflow
     data3 = [2**32, None]
-    with pytest.raises(pa.ArrowException):
+    with pytest.raises((OverflowError, pa.ArrowException)):
         pa.array(data3, type=pa.date32())
 
 
@@ -762,12 +865,19 @@ def test_sequence_timestamp_from_int_with_unit():
     assert repr(arr_ns[0]) == "Timestamp('1970-01-01 00:00:00.000000001')"
     assert str(arr_ns[0]) == "1970-01-01 00:00:00.000000001"
 
-    with pytest.raises(pa.ArrowException):
-        class CustomClass():
-            pass
-        pa.array([1, CustomClass()], type=ns)
-        pa.array([1, CustomClass()], type=pa.date32())
-        pa.array([1, CustomClass()], type=pa.date64())
+    if sys.version_info >= (3,):
+        expected_exc = TypeError
+    else:
+        # Can have "AttributeError: CustomClass instance
+        # has no attribute '__trunc__'"
+        expected_exc = (TypeError, AttributeError)
+
+    class CustomClass():
+        pass
+
+    for ty in [ns, pa.date32(), pa.date64()]:
+        with pytest.raises(expected_exc):
+            pa.array([1, CustomClass()], type=ty)
 
 
 def test_sequence_nesting_levels():

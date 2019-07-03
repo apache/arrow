@@ -19,8 +19,9 @@ package arrow
 // NullType describes a degenerate array, with zero physical storage.
 type NullType struct{}
 
-func (*NullType) ID() Type     { return NULL }
-func (*NullType) Name() string { return "null" }
+func (*NullType) ID() Type       { return NULL }
+func (*NullType) Name() string   { return "null" }
+func (*NullType) String() string { return "null" }
 
 var (
 	Null *NullType

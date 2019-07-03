@@ -21,17 +21,14 @@ set -ex
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
-source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
-
-conda create -n meson -y -q python=3.6
-conda activate meson
-
-pip install meson
-
 if [ $TRAVIS_OS_NAME = "osx" ]; then
   export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/opt/libffi/lib/pkgconfig
   export XML_CATALOG_FILES=/usr/local/etc/xml/catalog
 else
+  source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
+  conda create -n meson -y -q python=3.6
+  conda activate meson
+  pip install meson
   sudo apt-get install -y -q \
     autoconf-archive \
     gtk-doc-tools \
@@ -56,7 +53,8 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib
 # Build with GNU Autotools
 ./autogen.sh
 CONFIGURE_OPTIONS="--prefix=$ARROW_C_GLIB_INSTALL_AUTOTOOLS"
-CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS --enable-gtk-doc"
+# TODO(ARROW-5307): Enable this
+# CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS --enable-gtk-doc"
 CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS CFLAGS=-DARROW_NO_DEPRECATED_API"
 CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS CXXFLAGS=-DARROW_NO_DEPRECATED_API"
 mkdir -p build
@@ -69,7 +67,8 @@ rm -rf build
 
 # Build with Meson
 MESON_OPTIONS="--prefix=$ARROW_C_GLIB_INSTALL_MESON"
-MESON_OPTIONS="$MESON_OPTIONS -Dgtk_doc=true"
+# TODO(ARROW-5307): Enable this
+# MESON_OPTIONS="$MESON_OPTIONS -Dgtk_doc=true"
 mkdir -p build
 env \
   CFLAGS="-DARROW_NO_DEPRECATED_API" \

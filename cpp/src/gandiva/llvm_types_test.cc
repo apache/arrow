@@ -57,9 +57,4 @@ TEST_F(TestLLVMTypes, TestNotFound) {
   EXPECT_EQ(types_->DataVecType(arrow::null()), nullptr);
 }
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
-
 }  // namespace gandiva

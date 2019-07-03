@@ -15,10 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_JSON_API_H
-#define ARROW_JSON_API_H
+#pragma once
 
 #include "arrow/json/options.h"
 #include "arrow/json/reader.h"
-
-#endif  // ARROW_JSON_API_H

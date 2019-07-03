@@ -18,22 +18,16 @@
 #include "benchmark/benchmark.h"
 
 #include <vector>
-#ifdef _MSC_VER
-#include <intrin.h>
-#else
-#include <immintrin.h>
-#endif
 
 #include "arrow/builder.h"
+#include "arrow/compute/benchmark-util.h"
+#include "arrow/compute/context.h"
+#include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/sum.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/cpu-info.h"
-
-#include "arrow/compute/context.h"
-#include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/sum.h"
 
 namespace arrow {
 namespace compute {
@@ -43,12 +37,7 @@ namespace compute {
 #include <iostream>
 #include <random>
 
-using internal::CpuInfo;
-static CpuInfo* cpu_info = CpuInfo::GetInstance();
-
-static const int64_t kL1Size = cpu_info->CacheSize(CpuInfo::L1_CACHE);
-static const int64_t kL2Size = cpu_info->CacheSize(CpuInfo::L2_CACHE);
-static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::L3_CACHE);
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 
 namespace BitUtil = arrow::BitUtil;
 using arrow::internal::BitmapReader;
@@ -286,7 +275,7 @@ struct SumBitmapVectorizeUnroll : public Summer<T> {
 };
 
 template <typename Functor>
-void BenchSum(benchmark::State& state) {
+void ReferenceSum(benchmark::State& state) {
   using T = typename Functor::ValueType;
 
   const int64_t array_size = state.range(0) / sizeof(int64_t);
@@ -308,37 +297,17 @@ void BenchSum(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * array_size * sizeof(T));
 }
 
-template <typename Func>
-struct BenchmarkArgsType;
+BENCHMARK_TEMPLATE(ReferenceSum, SumNoNulls<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumNoNullsUnrolled<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumSentinel<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumSentinelUnrolled<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapNaive<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapReader<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapVectorizeUnroll<int64_t>)
+    ->Apply(BenchmarkSetArgs);
+#endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
-template <typename Values>
-struct BenchmarkArgsType<benchmark::internal::Benchmark* (
-    benchmark::internal::Benchmark::*)(const std::vector<Values>&)> {
-  using type = Values;
-};
-
-static void SetArgs(benchmark::internal::Benchmark* bench) {
-  // Benchmark changed its parameter type between releases from
-  // int to int64_t. As it doesn't have version macros, we need
-  // to apply C++ template magic.
-  using ArgsType =
-      typename BenchmarkArgsType<decltype(&benchmark::internal::Benchmark::Args)>::type;
-  bench->Unit(benchmark::kMicrosecond);
-
-  for (auto size : {kL1Size, kL2Size, kL3Size, kL3Size * 4})
-    for (auto nulls : std::vector<ArgsType>({0, 1, 10, 50}))
-      bench->Args({static_cast<ArgsType>(size), nulls});
-}
-
-BENCHMARK_TEMPLATE(BenchSum, SumNoNulls<int64_t>)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumNoNullsUnrolled<int64_t>)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumSentinel<int64_t>)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumSentinelUnrolled<int64_t>)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumBitmapNaive<int64_t>)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumBitmapReader<int64_t>)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumBitmapVectorizeUnroll<int64_t>)->Apply(SetArgs);
-
-static void BenchSumKernel(benchmark::State& state) {
+static void SumKernel(benchmark::State& state) {
   const int64_t array_size = state.range(0) / sizeof(int64_t);
   const double null_percent = static_cast<double>(state.range(1)) / 100.0;
   auto rand = random::RandomArrayGenerator(1923);
@@ -357,7 +326,7 @@ static void BenchSumKernel(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * array_size * sizeof(int64_t));
 }
 
-BENCHMARK(BenchSumKernel)->Apply(SetArgs);
+BENCHMARK(SumKernel)->Apply(RegressionSetArgs);
 
 }  // namespace compute
 }  // namespace arrow

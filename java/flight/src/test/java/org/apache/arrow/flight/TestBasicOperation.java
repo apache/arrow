@@ -17,16 +17,14 @@
 
 package org.apache.arrow.flight;
 
-import java.util.concurrent.Callable;
+import java.net.URISyntaxException;
+import java.util.Iterator;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import org.apache.arrow.flight.FlightClient.ClientStreamListener;
-import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.FlightDescriptor.DescriptorType;
-import org.apache.arrow.flight.impl.Flight.FlightGetInfo;
-import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -70,8 +68,23 @@ public class TestBasicOperation {
   @Test
   public void doAction() throws Exception {
     test(c -> {
-      Result r = c.doAction(new Action("hello")).next();
-      System.out.println(new String(r.getBody(), Charsets.UTF_8));
+      Iterator<Result> stream = c.doAction(new Action("hello"));
+
+      Assert.assertTrue(stream.hasNext());
+      Result r = stream.next();
+      Assert.assertArrayEquals("world".getBytes(Charsets.UTF_8), r.getBody());
+    });
+    test(c -> {
+      Iterator<Result> stream = c.doAction(new Action("hellooo"));
+
+      Assert.assertTrue(stream.hasNext());
+      Result r = stream.next();
+      Assert.assertArrayEquals("world".getBytes(Charsets.UTF_8), r.getBody());
+
+      Assert.assertTrue(stream.hasNext());
+      r = stream.next();
+      Assert.assertArrayEquals("!".getBytes(Charsets.UTF_8), r.getBody());
+      Assert.assertFalse(stream.hasNext());
     });
   }
 
@@ -83,7 +96,8 @@ public class TestBasicOperation {
       IntVector iv = new IntVector("c1", a);
 
       VectorSchemaRoot root = VectorSchemaRoot.of(iv);
-      ClientStreamListener listener = c.startPut(FlightDescriptor.path("hello"), root);
+      ClientStreamListener listener = c
+          .startPut(FlightDescriptor.path("hello"), root, new AsyncPutListener());
 
       //batch 1
       root.allocateNew();
@@ -139,10 +153,12 @@ public class TestBasicOperation {
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
         FlightServer s =
-            FlightTestUtil.getStartedServer((port) -> new FlightServer(a, port, producer, ServerAuthHandler.NO_OP))) {
+            FlightTestUtil.getStartedServer(
+                (location) -> FlightServer.builder(a, location, producer).build()
+            )) {
 
       try (
-          FlightClient c = new FlightClient(a, new Location(FlightTestUtil.LOCALHOST, s.getPort()));
+          FlightClient c = FlightClient.builder(a, s.getLocation()).build()
       ) {
         try (BufferAllocator testAllocator = a.newChildAllocator("testcase", 0, Long.MAX_VALUE)) {
           consumer.accept(c, testAllocator);
@@ -154,7 +170,7 @@ public class TestBasicOperation {
   /**
    * An example FlightProducer for test purposes.
    */
-  public class Producer implements FlightProducer, AutoCloseable {
+  public static class Producer implements FlightProducer, AutoCloseable {
 
     private final BufferAllocator allocator;
 
@@ -164,30 +180,36 @@ public class TestBasicOperation {
     }
 
     @Override
-    public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener) {
-      FlightGetInfo getInfo = FlightGetInfo.newBuilder()
+    public void listFlights(CallContext context, Criteria criteria,
+        StreamListener<FlightInfo> listener) {
+      Flight.FlightInfo getInfo = Flight.FlightInfo.newBuilder()
           .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
               .setType(DescriptorType.CMD)
               .setCmd(ByteString.copyFrom("cool thing", Charsets.UTF_8)))
           .build();
-      listener.onNext(new FlightInfo(getInfo));
+      try {
+        listener.onNext(new FlightInfo(getInfo));
+      } catch (URISyntaxException e) {
+        listener.onError(e);
+        return;
+      }
       listener.onCompleted();
     }
 
     @Override
-    public Callable<PutResult> acceptPut(FlightStream flightStream) {
+    public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
       return () -> {
         try (VectorSchemaRoot root = flightStream.getRoot()) {
           while (flightStream.next()) {
 
           }
-          return PutResult.getDefaultInstance();
         }
       };
     }
 
     @Override
-    public void getStream(Ticket ticket, ServerStreamListener listener) {
+    public void getStream(CallContext context, Ticket ticket,
+        ServerStreamListener listener) {
       final int size = 10;
 
       IntVector iv = new IntVector("c1", allocator);
@@ -222,27 +244,43 @@ public class TestBasicOperation {
     }
 
     @Override
-    public FlightInfo getFlightInfo(FlightDescriptor descriptor) {
-      FlightGetInfo getInfo = FlightGetInfo.newBuilder()
+    public FlightInfo getFlightInfo(CallContext context,
+        FlightDescriptor descriptor) {
+      Flight.FlightInfo getInfo = Flight.FlightInfo.newBuilder()
           .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
               .setType(DescriptorType.CMD)
               .setCmd(ByteString.copyFrom("cool thing", Charsets.UTF_8)))
           .build();
-      return new FlightInfo(getInfo);
-    }
-
-    @Override
-    public Result doAction(Action action) {
-      switch (action.getType()) {
-        case "hello":
-          return new Result("world".getBytes(Charsets.UTF_8));
-        default:
-          throw new UnsupportedOperationException();
+      try {
+        return new FlightInfo(getInfo);
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(e);
       }
     }
 
     @Override
-    public void listActions(StreamListener<ActionType> listener) {
+    public void doAction(CallContext context, Action action,
+        StreamListener<Result> listener) {
+      switch (action.getType()) {
+        case "hello": {
+          listener.onNext(new Result("world".getBytes(Charsets.UTF_8)));
+          listener.onCompleted();
+          break;
+        }
+        case "hellooo": {
+          listener.onNext(new Result("world".getBytes(Charsets.UTF_8)));
+          listener.onNext(new Result("!".getBytes(Charsets.UTF_8)));
+          listener.onCompleted();
+          break;
+        }
+        default:
+          listener.onError(new UnsupportedOperationException());
+      }
+    }
+
+    @Override
+    public void listActions(CallContext context,
+        StreamListener<ActionType> listener) {
       listener.onNext(new ActionType("get", ""));
       listener.onNext(new ActionType("put", ""));
       listener.onNext(new ActionType("hello", ""));

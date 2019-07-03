@@ -15,16 +15,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow._flight import (Action,  # noqa
-                             ActionType,
-                             DescriptorType,
-                             FlightClient,
-                             FlightDescriptor,
-                             FlightEndpoint,
-                             FlightInfo,
-                             FlightServerBase,
-                             GeneratorStream,
-                             Location,
-                             Ticket,
-                             RecordBatchStream,
-                             Result)
+from __future__ import absolute_import
+
+import sys
+
+if sys.version_info < (3,):
+    raise ImportError("Python Flight bindings require Python 3")
+
+from pyarrow._flight import (  # noqa
+    Action,
+    ActionType,
+    CertKeyPair,
+    DescriptorType,
+    FlightCallOptions,
+    FlightClient,
+    FlightDescriptor,
+    FlightEndpoint,
+    FlightInfo,
+    FlightServerBase,
+    GeneratorStream,
+    Location,
+    Ticket,
+    RecordBatchStream,
+    Result,
+    ClientAuthHandler,
+    ServerAuthHandler,
+)

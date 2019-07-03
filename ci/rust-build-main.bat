@@ -19,6 +19,7 @@
 
 @rem Retrieve git submodules, configure env var for Parquet unit tests
 git submodule update --init || exit /B
+set ARROW_TEST_DATA=%CD%\testing\data
 set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
 pushd rust
 
@@ -28,7 +29,7 @@ pushd rust
 
 rustup default nightly
 rustup show
-cargo build --target %TARGET% --release || exit /B
+cargo build --target %TARGET% --all-targets --release || exit /B
 @echo
 @echo Test (release)
 @echo --------------

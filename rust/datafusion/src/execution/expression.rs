@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Runtime expression support
+//! Evaluation of expressions against RecordBatch instances.
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -46,7 +46,7 @@ pub enum AggregateType {
     Avg,
 }
 
-/// Compiled expression
+/// Compiled expression that can be invoked against a RecordBatch to produce an Array
 pub(super) struct CompiledExpr {
     name: String,
     f: ArrayFunction,
@@ -91,8 +91,8 @@ impl CompiledAggregateExpression {
         &self.t
     }
 
-    /// invoke the compiled expression
-    pub fn invoke(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+    /// invoke the compiled expression for the input to the aggregate function
+    pub fn evaluate_arg(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         self.args[0].invoke(batch)
     }
 }
@@ -121,6 +121,7 @@ pub(super) fn compile_aggregate_expr(
                 "max" => Ok(AggregateType::Max),
                 "count" => Ok(AggregateType::Count),
                 "sum" => Ok(AggregateType::Sum),
+                "avg" => Ok(AggregateType::Avg),
                 _ => Err(ExecutionError::General(format!(
                     "Unsupported aggregate function '{}'",
                     name
@@ -180,7 +181,10 @@ macro_rules! math_ops {
             (DataType::Float64, DataType::Float64) => {
                 binary_op!(left_values, right_values, $OP, Float64Array)
             }
-            _ => Err(ExecutionError::ExecutionError(format!("math_ops"))),
+            (l, r) => Err(ExecutionError::ExecutionError(format!(
+                "Cannot perform math operation on {:?} and {:?}",
+                l, r
+            ))),
         }
     }};
 }
@@ -220,8 +224,10 @@ macro_rules! comparison_ops {
             (DataType::Float64, DataType::Float64) => {
                 binary_op!(left_values, right_values, $OP, Float64Array)
             }
-            //TODO other types
-            _ => Err(ExecutionError::ExecutionError(format!("comparison_ops"))),
+            (l, r) => Err(ExecutionError::ExecutionError(format!(
+                "Cannot compare {:?} with {:?}",
+                l, r
+            ))),
         }
     }};
 }
@@ -285,15 +291,26 @@ pub(super) fn compile_expr(
             ScalarValue::Float32(n) => literal_array!(n, Float32Array, Float32),
             ScalarValue::Float64(n) => literal_array!(n, Float64Array, Float64),
             other => Err(ExecutionError::ExecutionError(format!(
-                "No support for literal type {:?}",
+                "Unsupported literal type {:?}",
                 other
             ))),
         },
-        &Expr::Column(index) => Ok(CompiledExpr {
-            name: input_schema.field(index).name().clone(),
-            f: Rc::new(move |batch: &RecordBatch| Ok((*batch.column(index)).clone())),
-            t: input_schema.field(index).data_type().clone(),
-        }),
+        &Expr::Column(index) => {
+            if index < input_schema.fields().len() {
+                Ok(CompiledExpr {
+                    name: input_schema.field(index).name().clone(),
+                    f: Rc::new(move |batch: &RecordBatch| {
+                        Ok((*batch.column(index)).clone())
+                    }),
+                    t: input_schema.field(index).data_type().clone(),
+                })
+            } else {
+                Err(ExecutionError::InvalidColumn(format!(
+                    "Column index {} out of bounds",
+                    index
+                )))
+            }
+        }
         &Expr::Cast {
             ref expr,
             ref data_type,
@@ -310,40 +327,21 @@ pub(super) fn compile_expr(
                     }),
                 })
             }
-            &Expr::Literal(ref value) => {
-                //NOTE this is all very inefficient and needs to be optimized - tracking
-                // issue is https://github.com/andygrove/datafusion/issues/191
-                match value {
-                    ScalarValue::Int64(n) => {
-                        let nn = *n;
-                        match data_type {
-                            DataType::Float64 => Ok(CompiledExpr {
-                                name: "lit".to_string(),
-                                f: Rc::new(move |batch: &RecordBatch| {
-                                    let mut b = Float64Array::builder(batch.num_rows());
-                                    for _ in 0..batch.num_rows() {
-                                        b.append_value(nn as f64)?;
-                                    }
-                                    Ok(Arc::new(b.finish()) as ArrayRef)
-                                }),
-                                t: data_type.clone(),
-                            }),
-                            other => Err(ExecutionError::NotImplemented(format!(
-                                "CAST from Int64 to {:?}",
-                                other
-                            ))),
-                        }
-                    }
-                    other => Err(ExecutionError::NotImplemented(format!(
-                        "CAST from {:?} to {:?}",
-                        other, data_type
-                    ))),
-                }
+            other => {
+                let compiled_expr = compile_expr(ctx, other, input_schema)?;
+                let dt = data_type.clone();
+                Ok(CompiledExpr {
+                    name: "CAST".to_string(),
+                    t: data_type.clone(),
+                    f: Rc::new(move |batch: &RecordBatch| {
+                        // evaluate the expression
+                        let array = compiled_expr.invoke(batch)?;
+                        // cast the result
+                        compute::cast(&array, &dt)
+                            .map_err(|e| ExecutionError::ArrowError(e))
+                    }),
+                })
             }
-            other => Err(ExecutionError::General(format!(
-                "CAST not implemented for expression {:?}",
-                other
-            ))),
         },
         &Expr::BinaryExpr {
             ref left,
@@ -439,14 +437,14 @@ pub(super) fn compile_expr(
                     }),
                     t: op_type,
                 }),
-                other => Err(ExecutionError::ExecutionError(format!(
-                    "operator: {:?}",
+                other => Err(ExecutionError::NotImplemented(format!(
+                    "Unsupported operator: {:?}",
                     other
                 ))),
             }
         }
-        other => Err(ExecutionError::ExecutionError(format!(
-            "expression {:?}",
+        other => Err(ExecutionError::NotImplemented(format!(
+            "Unsupported expression {:?}",
             other
         ))),
     }

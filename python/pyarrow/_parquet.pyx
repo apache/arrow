@@ -19,97 +19,116 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
-from cython.operator cimport dereference as deref
-from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport *
-from pyarrow.lib cimport (Array, Schema,
-                          check_status,
-                          MemoryPool, maybe_unbox_memory_pool,
-                          Table,
-                          pyarrow_wrap_chunked_array,
-                          pyarrow_wrap_schema,
-                          pyarrow_wrap_table,
-                          NativeFile, get_reader, get_writer)
+from __future__ import absolute_import
 
-from pyarrow.compat import tobytes, frombytes
-from pyarrow.lib import ArrowException, NativeFile, _stringify_path
-from pyarrow.util import indent
-
+import io
 import six
 import warnings
 
+import numpy as np
 
-cdef class RowGroupStatistics:
+from cython.operator cimport dereference as deref
+from pyarrow.includes.common cimport *
+from pyarrow.includes.libarrow cimport *
+from pyarrow.lib cimport (Buffer, Array, Schema,
+                          check_status,
+                          MemoryPool, maybe_unbox_memory_pool,
+                          Table, NativeFile,
+                          pyarrow_wrap_chunked_array,
+                          pyarrow_wrap_schema,
+                          pyarrow_wrap_table,
+                          pyarrow_wrap_buffer,
+                          NativeFile, get_reader, get_writer)
+
+from pyarrow.compat import tobytes, frombytes
+from pyarrow.lib import (ArrowException, NativeFile, _stringify_path,
+                         BufferOutputStream,
+                         _datetime_conversion_functions,
+                         _box_time_milli,
+                         _box_time_micro)
+from pyarrow.util import indent
+
+cimport cpython as cp
+
+
+cdef class Statistics:
     cdef:
-        shared_ptr[CRowGroupStatistics] statistics
+        shared_ptr[CStatistics] statistics
 
     def __cinit__(self):
         pass
 
-    cdef init(self, const shared_ptr[CRowGroupStatistics]& statistics):
+    cdef init(self, const shared_ptr[CStatistics]& statistics):
         self.statistics = statistics
 
     def __repr__(self):
-        return """{0}
-  has_min_max: {1}
-  min: {2}
-  max: {3}
-  null_count: {4}
-  distinct_count: {5}
-  num_values: {6}
-  physical_type: {7}""".format(object.__repr__(self),
-                               self.has_min_max,
-                               self.min,
-                               self.max,
-                               self.null_count,
-                               self.distinct_count,
-                               self.num_values,
-                               self.physical_type)
+        return """{}
+  has_min_max: {}
+  min: {}
+  max: {}
+  null_count: {}
+  distinct_count: {}
+  num_values: {}
+  physical_type: {}
+  logical_type: {}
+  converted_type (legacy): {}""".format(object.__repr__(self),
+                                        self.has_min_max,
+                                        self.min,
+                                        self.max,
+                                        self.null_count,
+                                        self.distinct_count,
+                                        self.num_values,
+                                        self.physical_type,
+                                        str(self.logical_type),
+                                        self.converted_type)
 
-    cdef inline _cast_statistic(self, object value):
-        # Input value is bytes
-        cdef ParquetType physical_type = self.statistics.get().physical_type()
-        if physical_type == ParquetType_BOOLEAN:
-            return bool(int(value))
-        elif physical_type == ParquetType_INT32:
-            return int(value)
-        elif physical_type == ParquetType_INT64:
-            return int(value)
-        elif physical_type == ParquetType_INT96:
-            # Leave as PyBytes
-            return value
-        elif physical_type == ParquetType_FLOAT:
-            return float(value)
-        elif physical_type == ParquetType_DOUBLE:
-            return float(value)
-        elif physical_type == ParquetType_BYTE_ARRAY:
-            # Leave as PyBytes
-            return value
-        elif physical_type == ParquetType_FIXED_LEN_BYTE_ARRAY:
-            # Leave as PyBytes
-            return value
-        else:
-            raise ValueError('Unknown physical ParquetType')
+    def to_dict(self):
+        d = dict(
+            has_min_max=self.has_min_max,
+            min=self.min,
+            max=self.max,
+            null_count=self.null_count,
+            distinct_count=self.distinct_count,
+            num_values=self.num_values,
+            physical_type=self.physical_type
+        )
+        return d
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def equals(self, Statistics other):
+        # TODO(kszucs): implement native Equals method for Statistics
+        return (self.has_min_max == other.has_min_max and
+                self.min == other.min and
+                self.max == other.max and
+                self.null_count == other.null_count and
+                self.distinct_count == other.distinct_count and
+                self.num_values == other.num_values and
+                self.physical_type == other.physical_type)
 
     @property
     def has_min_max(self):
         return self.statistics.get().HasMinMax()
 
     @property
-    def min(self):
-        raw_physical_type = self.statistics.get().physical_type()
-        encode_min = self.statistics.get().EncodeMin()
+    def min_raw(self):
+        return _cast_statistic_raw_min(self.statistics.get())
 
-        min_value = FormatStatValue(raw_physical_type, encode_min)
-        return self._cast_statistic(min_value)
+    @property
+    def max_raw(self):
+        return _cast_statistic_raw_max(self.statistics.get())
+
+    @property
+    def min(self):
+        return _cast_statistic_min(self.statistics.get())
 
     @property
     def max(self):
-        raw_physical_type = self.statistics.get().physical_type()
-        encode_max = self.statistics.get().EncodeMax()
-
-        max_value = FormatStatValue(raw_physical_type, encode_max)
-        return self._cast_statistic(max_value)
+        return _cast_statistic_max(self.statistics.get())
 
     @property
     def null_count(self):
@@ -127,6 +146,145 @@ cdef class RowGroupStatistics:
     def physical_type(self):
         raw_physical_type = self.statistics.get().physical_type()
         return physical_type_name_from_enum(raw_physical_type)
+
+    @property
+    def logical_type(self):
+        return wrap_logical_type(self.statistics.get().descr().logical_type())
+
+    @property
+    def converted_type(self):
+        raw_converted_type = self.statistics.get().descr().converted_type()
+        return converted_type_name_from_enum(raw_converted_type)
+
+
+cdef class ParquetLogicalType:
+    cdef:
+        shared_ptr[const CParquetLogicalType] type
+
+    def __cinit__(self):
+        pass
+
+    cdef init(self, const shared_ptr[const CParquetLogicalType]& type):
+        self.type = type
+
+    def __str__(self):
+        return frombytes(self.type.get().ToString())
+
+    def to_json(self):
+        return frombytes(self.type.get().ToJSON())
+
+    @property
+    def type(self):
+        return logical_type_name_from_enum(self.type.get().type())
+
+
+cdef wrap_logical_type(const shared_ptr[const CParquetLogicalType]& type):
+    cdef ParquetLogicalType out = ParquetLogicalType()
+    out.init(type)
+    return out
+
+
+cdef _cast_statistic_raw_min(CStatistics* statistics):
+    cdef ParquetType physical_type = statistics.physical_type()
+    cdef uint32_t type_length = statistics.descr().type_length()
+    if physical_type == ParquetType_BOOLEAN:
+        return (<CBoolStatistics*> statistics).min()
+    elif physical_type == ParquetType_INT32:
+        return (<CInt32Statistics*> statistics).min()
+    elif physical_type == ParquetType_INT64:
+        return (<CInt64Statistics*> statistics).min()
+    elif physical_type == ParquetType_FLOAT:
+        return (<CFloatStatistics*> statistics).min()
+    elif physical_type == ParquetType_DOUBLE:
+        return (<CDoubleStatistics*> statistics).min()
+    elif physical_type == ParquetType_BYTE_ARRAY:
+        return _box_byte_array((<CByteArrayStatistics*> statistics).min())
+    elif physical_type == ParquetType_FIXED_LEN_BYTE_ARRAY:
+        return _box_flba((<CFLBAStatistics*> statistics).min(), type_length)
+
+
+cdef _cast_statistic_raw_max(CStatistics* statistics):
+    cdef ParquetType physical_type = statistics.physical_type()
+    cdef uint32_t type_length = statistics.descr().type_length()
+    if physical_type == ParquetType_BOOLEAN:
+        return (<CBoolStatistics*> statistics).max()
+    elif physical_type == ParquetType_INT32:
+        return (<CInt32Statistics*> statistics).max()
+    elif physical_type == ParquetType_INT64:
+        return (<CInt64Statistics*> statistics).max()
+    elif physical_type == ParquetType_FLOAT:
+        return (<CFloatStatistics*> statistics).max()
+    elif physical_type == ParquetType_DOUBLE:
+        return (<CDoubleStatistics*> statistics).max()
+    elif physical_type == ParquetType_BYTE_ARRAY:
+        return _box_byte_array((<CByteArrayStatistics*> statistics).max())
+    elif physical_type == ParquetType_FIXED_LEN_BYTE_ARRAY:
+        return _box_flba((<CFLBAStatistics*> statistics).max(), type_length)
+
+
+cdef _cast_statistic_min(CStatistics* statistics):
+    min_raw = _cast_statistic_raw_min(statistics)
+    return _box_logical_type_value(min_raw, statistics.descr())
+
+
+cdef _cast_statistic_max(CStatistics* statistics):
+    max_raw = _cast_statistic_raw_max(statistics)
+    return _box_logical_type_value(max_raw, statistics.descr())
+
+
+cdef _box_logical_type_value(object value, const ColumnDescriptor* descr):
+    cdef:
+        const CParquetLogicalType* ltype = descr.logical_type().get()
+        ParquetTimeUnit time_unit
+        const CParquetIntType* itype
+        const CParquetTimestampType* ts_type
+
+    if ltype.type() == ParquetLogicalType_STRING:
+        return value.decode('utf8')
+    elif ltype.type() == ParquetLogicalType_TIME:
+        time_unit = (<const CParquetTimeType*> ltype).time_unit()
+        if time_unit == ParquetTimeUnit_MILLIS:
+            return _box_time_milli(value)
+        else:
+            return _box_time_micro(value)
+    elif ltype.type() == ParquetLogicalType_TIMESTAMP:
+        ts_type = <const CParquetTimestampType*> ltype
+        time_unit = ts_type.time_unit()
+        if time_unit == ParquetTimeUnit_MILLIS:
+            converter = _datetime_conversion_functions()[TimeUnit_MILLI]
+        elif time_unit == ParquetTimeUnit_MICROS:
+            converter = _datetime_conversion_functions()[TimeUnit_MICRO]
+        elif time_unit == ParquetTimeUnit_NANOS:
+            converter = _datetime_conversion_functions()[TimeUnit_NANO]
+        else:
+            raise ValueError("Unsupported time unit")
+
+        if ts_type.is_adjusted_to_utc():
+            import pytz
+            tzinfo = pytz.utc
+        else:
+            tzinfo = None
+
+        return converter(value, tzinfo)
+    elif ltype.type() == ParquetLogicalType_INT:
+        itype = <const CParquetIntType*> ltype
+        if not itype.is_signed() and itype.bit_width() == 32:
+            return int(np.int32(value).view(np.uint32))
+        elif not itype.is_signed() and itype.bit_width() == 64:
+            return int(np.int64(value).view(np.uint64))
+        else:
+            return value
+    else:
+        # No logical boxing defined
+        return value
+
+
+cdef _box_byte_array(ParquetByteArray val):
+    return cp.PyBytes_FromStringAndSize(<char*> val.ptr, <Py_ssize_t> val.len)
+
+
+cdef _box_flba(ParquetFLBA val, uint32_t len):
+    return cp.PyBytes_FromStringAndSize(<char*> val.ptr, <Py_ssize_t> len)
 
 
 cdef class ColumnChunkMetaData:
@@ -174,6 +332,48 @@ cdef class ColumnChunkMetaData:
                                           self.total_compressed_size,
                                           self.total_uncompressed_size)
 
+    def to_dict(self):
+        d = dict(
+            file_offset=self.file_offset,
+            file_path=self.file_path,
+            physical_type=self.physical_type,
+            num_values=self.num_values,
+            path_in_schema=self.path_in_schema,
+            is_stats_set=self.is_stats_set,
+            statistics=self.statistics.to_dict(),
+            compression=self.compression,
+            encodings=self.encodings,
+            has_dictionary_page=self.has_dictionary_page,
+            dictionary_page_offset=self.dictionary_page_offset,
+            data_page_offset=self.data_page_offset,
+            total_compressed_size=self.total_compressed_size,
+            total_uncompressed_size=self.total_uncompressed_size
+        )
+        return d
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def equals(self, ColumnChunkMetaData other):
+        # TODO(kszucs): implement native Equals method for CColumnChunkMetaData
+        return (self.file_offset == other.file_offset and
+                self.file_path == other.file_path and
+                self.physical_type == other.physical_type and
+                self.num_values == other.num_values and
+                self.path_in_schema == other.path_in_schema and
+                self.is_stats_set == other.is_stats_set and
+                self.statistics == other.statistics and
+                self.compression == other.compression and
+                self.encodings == other.encodings and
+                self.has_dictionary_page == other.has_dictionary_page and
+                self.dictionary_page_offset == other.dictionary_page_offset and
+                self.data_page_offset == other.data_page_offset and
+                self.total_compressed_size == other.total_compressed_size and
+                self.total_uncompressed_size == other.total_uncompressed_size)
+
     @property
     def file_offset(self):
         return self.metadata.file_offset()
@@ -203,7 +403,7 @@ cdef class ColumnChunkMetaData:
     def statistics(self):
         if not self.metadata.is_stats_set():
             return None
-        statistics = RowGroupStatistics()
+        statistics = Statistics()
         statistics.init(self.metadata.statistics())
         return statistics
 
@@ -249,16 +449,39 @@ cdef class ColumnChunkMetaData:
 
 cdef class RowGroupMetaData:
     cdef:
+        int index  # for pickling support
         unique_ptr[CRowGroupMetaData] up_metadata
         CRowGroupMetaData* metadata
         FileMetaData parent
 
-    def __cinit__(self, FileMetaData parent, int i):
-        if i < 0 or i >= parent.num_row_groups:
-            raise IndexError('{0} out of bounds'.format(i))
-        self.up_metadata = parent._metadata.RowGroup(i)
+    def __cinit__(self, FileMetaData parent, int index):
+        if index < 0 or index >= parent.num_row_groups:
+            raise IndexError('{0} out of bounds'.format(index))
+        self.up_metadata = parent._metadata.RowGroup(index)
         self.metadata = self.up_metadata.get()
         self.parent = parent
+        self.index = index
+
+    def __reduce__(self):
+        return RowGroupMetaData, (self.parent, self.index)
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def equals(self, RowGroupMetaData other):
+        if not (self.num_columns == other.num_columns and
+                self.num_rows == other.num_rows and
+                self.total_byte_size == other.total_byte_size):
+            return False
+
+        for i in range(self.num_columns):
+            if self.column(i) != other.column(i):
+                return False
+
+        return True
 
     def column(self, int i):
         chunk = ColumnChunkMetaData()
@@ -274,6 +497,18 @@ cdef class RowGroupMetaData:
                                  self.num_rows,
                                  self.total_byte_size)
 
+    def to_dict(self):
+        columns = []
+        d = dict(
+            num_columns=self.num_columns,
+            num_rows=self.num_rows,
+            total_byte_size=self.total_byte_size,
+            columns=columns,
+        )
+        for i in range(self.num_columns):
+            columns.append(self.column(i).to_dict())
+        return d
+
     @property
     def num_columns(self):
         return self.metadata.num_columns()
@@ -285,6 +520,17 @@ cdef class RowGroupMetaData:
     @property
     def total_byte_size(self):
         return self.metadata.total_byte_size()
+
+
+def _reconstruct_filemetadata(Buffer serialized):
+    cdef:
+        FileMetaData metadata = FileMetaData.__new__(FileMetaData)
+        CBuffer *buffer = serialized.buffer.get()
+        uint32_t metadata_len = <uint32_t>buffer.size()
+
+    metadata.init(CFileMetaData_Make(buffer.data(), &metadata_len))
+
+    return metadata
 
 
 cdef class FileMetaData:
@@ -300,6 +546,16 @@ cdef class FileMetaData:
         self.sp_metadata = metadata
         self._metadata = metadata.get()
 
+    def __reduce__(self):
+        cdef:
+            NativeFile sink = BufferOutputStream()
+            OutputStream* c_sink = sink.get_output_stream().get()
+        with nogil:
+            self._metadata.WriteTo(c_sink)
+
+        cdef Buffer buffer = sink.getvalue()
+        return _reconstruct_filemetadata, (buffer,)
+
     def __repr__(self):
         return """{0}
   created_by: {1}
@@ -312,6 +568,21 @@ cdef class FileMetaData:
                                  self.num_rows, self.num_row_groups,
                                  self.format_version,
                                  self.serialized_size)
+
+    def to_dict(self):
+        row_groups = []
+        d = dict(
+            created_by=self.created_by,
+            num_columns=self.num_columns,
+            num_rows=self.num_rows,
+            num_row_groups=self.num_row_groups,
+            row_groups=row_groups,
+            format_version=self.format_version,
+            serialized_size=self.serialized_size
+        )
+        for i in range(self.num_row_groups):
+            row_groups.append(self.row_group(i).to_dict())
+        return d
 
     def __eq__(self, other):
         try:
@@ -381,6 +652,45 @@ cdef class FileMetaData:
     def row_group(self, int i):
         return RowGroupMetaData(self, i)
 
+    def set_file_path(self, path):
+        """
+        Modify the file_path field of each ColumnChunk in the
+        FileMetaData to be a particular value
+        """
+        cdef:
+            c_string c_path = tobytes(path)
+        self._metadata.set_file_path(c_path)
+
+    def append_row_groups(self, FileMetaData other):
+        """
+        Append row groups of other FileMetaData object
+        """
+        cdef shared_ptr[CFileMetaData] c_metadata
+
+        c_metadata = other.sp_metadata
+        self._metadata.AppendRowGroups(deref(c_metadata))
+
+    def write_metadata_file(self, where):
+        """
+        Write the metadata object to a metadata-only file
+        """
+        cdef:
+            shared_ptr[OutputStream] sink
+            c_string c_where
+
+        try:
+            where = _stringify_path(where)
+        except TypeError:
+            get_writer(where, &sink)
+        else:
+            c_where = tobytes(where)
+            with nogil:
+                check_status(FileOutputStream.Open(c_where, &sink))
+
+        with nogil:
+            check_status(
+                WriteMetaDataFile(deref(self._metadata), sink.get()))
+
 
 cdef class ParquetSchema:
     cdef:
@@ -398,13 +708,16 @@ cdef class ParquetSchema:
             col = self.column(i)
             logical_type = col.logical_type
             formatted = '{0}: {1}'.format(col.path, col.physical_type)
-            if logical_type != 'NONE':
-                formatted += ' {0}'.format(logical_type)
+            if logical_type.type != 'NONE':
+                formatted += ' {0}'.format(str(logical_type))
             elements.append(formatted)
 
         return """{0}
 {1}
  """.format(object.__repr__(self), '\n'.join(elements))
+
+    def __reduce__(self):
+        return ParquetSchema, (self.parent,)
 
     def __len__(self):
         return self.schema.num_columns()
@@ -454,18 +767,23 @@ cdef class ParquetSchema:
 
 cdef class ColumnSchema:
     cdef:
+        int index
         ParquetSchema parent
         const ColumnDescriptor* descr
 
-    def __cinit__(self, ParquetSchema schema, int i):
+    def __cinit__(self, ParquetSchema schema, int index):
         self.parent = schema
-        self.descr = schema.schema.Column(i)
+        self.index = index  # for pickling support
+        self.descr = schema.schema.Column(index)
 
     def __eq__(self, other):
         try:
             return self.equals(other)
         except TypeError:
             return NotImplemented
+
+    def __reduce__(self):
+        return ColumnSchema, (self.parent, self.index)
 
     def equals(self, ColumnSchema other):
         """
@@ -475,13 +793,13 @@ cdef class ColumnSchema:
 
     def __repr__(self):
         physical_type = self.physical_type
-        logical_type = self.logical_type
-        if logical_type == 'DECIMAL':
-            logical_type = 'DECIMAL({0}, {1})'.format(self.precision,
-                                                      self.scale)
+        converted_type = self.converted_type
+        if converted_type == 'DECIMAL':
+            converted_type = 'DECIMAL({0}, {1})'.format(self.precision,
+                                                        self.scale)
         elif physical_type == 'FIXED_LEN_BYTE_ARRAY':
-            logical_type = ('FIXED_LEN_BYTE_ARRAY(length={0})'
-                            .format(self.length))
+            converted_type = ('FIXED_LEN_BYTE_ARRAY(length={0})'
+                              .format(self.length))
 
         return """<ParquetColumnSchema>
   name: {0}
@@ -489,9 +807,13 @@ cdef class ColumnSchema:
   max_definition_level: {2}
   max_repetition_level: {3}
   physical_type: {4}
-  logical_type: {5}""".format(self.name, self.path, self.max_definition_level,
-                              self.max_repetition_level, physical_type,
-                              logical_type)
+  logical_type: {5}
+  converted_type (legacy): {6}""".format(self.name, self.path,
+                                         self.max_definition_level,
+                                         self.max_repetition_level,
+                                         physical_type,
+                                         str(self.logical_type),
+                                         converted_type)
 
     @property
     def name(self):
@@ -515,7 +837,15 @@ cdef class ColumnSchema:
 
     @property
     def logical_type(self):
-        return logical_type_name_from_enum(self.descr.logical_type())
+        return wrap_logical_type(self.descr.logical_type())
+
+    @property
+    def converted_type(self):
+        return converted_type_name_from_enum(self.descr.converted_type())
+
+    @property
+    def logical_type(self):
+        return wrap_logical_type(self.descr.logical_type())
 
     # FIXED_LEN_BYTE_ARRAY attribute
     @property
@@ -545,31 +875,50 @@ cdef physical_type_name_from_enum(ParquetType type_):
     }.get(type_, 'UNKNOWN')
 
 
-cdef logical_type_name_from_enum(ParquetLogicalType type_):
+cdef logical_type_name_from_enum(ParquetLogicalTypeId type_):
     return {
-        ParquetLogicalType_NONE: 'NONE',
-        ParquetLogicalType_UTF8: 'UTF8',
+        ParquetLogicalType_UNKNOWN: 'UNKNOWN',
+        ParquetLogicalType_STRING: 'STRING',
         ParquetLogicalType_MAP: 'MAP',
-        ParquetLogicalType_MAP_KEY_VALUE: 'MAP_KEY_VALUE',
         ParquetLogicalType_LIST: 'LIST',
         ParquetLogicalType_ENUM: 'ENUM',
         ParquetLogicalType_DECIMAL: 'DECIMAL',
         ParquetLogicalType_DATE: 'DATE',
-        ParquetLogicalType_TIME_MILLIS: 'TIME_MILLIS',
-        ParquetLogicalType_TIME_MICROS: 'TIME_MICROS',
-        ParquetLogicalType_TIMESTAMP_MILLIS: 'TIMESTAMP_MILLIS',
-        ParquetLogicalType_TIMESTAMP_MICROS: 'TIMESTAMP_MICROS',
-        ParquetLogicalType_UINT_8: 'UINT_8',
-        ParquetLogicalType_UINT_16: 'UINT_16',
-        ParquetLogicalType_UINT_32: 'UINT_32',
-        ParquetLogicalType_UINT_64: 'UINT_64',
-        ParquetLogicalType_INT_8: 'INT_8',
-        ParquetLogicalType_INT_16: 'INT_16',
-        ParquetLogicalType_INT_32: 'INT_32',
-        ParquetLogicalType_INT_64: 'UINT_64',
+        ParquetLogicalType_TIME: 'TIME',
+        ParquetLogicalType_TIMESTAMP: 'TIMESTAMP',
+        ParquetLogicalType_INT: 'INT',
         ParquetLogicalType_JSON: 'JSON',
         ParquetLogicalType_BSON: 'BSON',
-        ParquetLogicalType_INTERVAL: 'INTERVAL',
+        ParquetLogicalType_UUID: 'UUID',
+        ParquetLogicalType_NONE: 'NONE',
+    }.get(type_, 'UNKNOWN')
+
+
+cdef converted_type_name_from_enum(ParquetConvertedType type_):
+    return {
+        ParquetConvertedType_NONE: 'NONE',
+        ParquetConvertedType_UTF8: 'UTF8',
+        ParquetConvertedType_MAP: 'MAP',
+        ParquetConvertedType_MAP_KEY_VALUE: 'MAP_KEY_VALUE',
+        ParquetConvertedType_LIST: 'LIST',
+        ParquetConvertedType_ENUM: 'ENUM',
+        ParquetConvertedType_DECIMAL: 'DECIMAL',
+        ParquetConvertedType_DATE: 'DATE',
+        ParquetConvertedType_TIME_MILLIS: 'TIME_MILLIS',
+        ParquetConvertedType_TIME_MICROS: 'TIME_MICROS',
+        ParquetConvertedType_TIMESTAMP_MILLIS: 'TIMESTAMP_MILLIS',
+        ParquetConvertedType_TIMESTAMP_MICROS: 'TIMESTAMP_MICROS',
+        ParquetConvertedType_UINT_8: 'UINT_8',
+        ParquetConvertedType_UINT_16: 'UINT_16',
+        ParquetConvertedType_UINT_32: 'UINT_32',
+        ParquetConvertedType_UINT_64: 'UINT_64',
+        ParquetConvertedType_INT_8: 'INT_8',
+        ParquetConvertedType_INT_16: 'INT_16',
+        ParquetConvertedType_INT_32: 'INT_32',
+        ParquetConvertedType_INT_64: 'UINT_64',
+        ParquetConvertedType_JSON: 'JSON',
+        ParquetConvertedType_BSON: 'BSON',
+        ParquetConvertedType_INTERVAL: 'INTERVAL',
     }.get(type_, 'UNKNOWN')
 
 
@@ -813,13 +1162,17 @@ cdef class ParquetWriter:
         object allow_truncated_timestamps
         object compression
         object version
+        object write_statistics
         int row_group_size
+        int64_t data_page_size
 
     def __cinit__(self, where, Schema schema, use_dictionary=None,
                   compression=None, version=None,
+                  write_statistics=None,
                   MemoryPool memory_pool=None,
                   use_deprecated_int96_timestamps=False,
                   coerce_timestamps=None,
+                  data_page_size=None,
                   allow_truncated_timestamps=False):
         cdef:
             shared_ptr[WriterProperties] properties
@@ -841,6 +1194,7 @@ cdef class ParquetWriter:
         self.use_dictionary = use_dictionary
         self.compression = compression
         self.version = version
+        self.write_statistics = write_statistics
         self.use_deprecated_int96_timestamps = use_deprecated_int96_timestamps
         self.coerce_timestamps = coerce_timestamps
         self.allow_truncated_timestamps = allow_truncated_timestamps
@@ -849,12 +1203,18 @@ cdef class ParquetWriter:
         self._set_version(&properties_builder)
         self._set_compression_props(&properties_builder)
         self._set_dictionary_props(&properties_builder)
+        self._set_statistics_props(&properties_builder)
+
+        if data_page_size is not None:
+            properties_builder.data_pagesize(data_page_size)
+
         properties = properties_builder.build()
 
         cdef ArrowWriterProperties.Builder arrow_properties_builder
         self._set_int96_support(&arrow_properties_builder)
         self._set_coerce_timestamps(&arrow_properties_builder)
         self._set_allow_truncated_timestamps(&arrow_properties_builder)
+
         arrow_properties = arrow_properties_builder.build()
 
         pool = maybe_unbox_memory_pool(memory_pool)
@@ -917,6 +1277,18 @@ cdef class ParquetWriter:
             for column in self.use_dictionary:
                 props.enable_dictionary(column)
 
+    cdef void _set_statistics_props(self, WriterProperties.Builder* props):
+        if isinstance(self.write_statistics, bool):
+            if self.write_statistics:
+                props.enable_statistics()
+            else:
+                props.disable_statistics()
+        elif self.write_statistics is not None:
+            # Deactivate statistics by default and enable for specified columns
+            props.disable_statistics()
+            for column in self.write_statistics:
+                props.enable_statistics(tobytes(column))
+
     def close(self):
         with nogil:
             check_status(self.writer.get().Close())
@@ -938,3 +1310,17 @@ cdef class ParquetWriter:
         with nogil:
             check_status(self.writer.get()
                          .WriteTable(deref(ctable), c_row_group_size))
+
+    @property
+    def metadata(self):
+        cdef:
+            shared_ptr[CFileMetaData] metadata
+            FileMetaData result
+        with nogil:
+            metadata = self.writer.get().metadata()
+        if metadata:
+            result = FileMetaData()
+            result.init(metadata)
+            return result
+        raise RuntimeError(
+            'file metadata is only available after writer close')

@@ -83,6 +83,9 @@ def test_python_file_write():
     f.close()
     assert f.closed
 
+    with pytest.raises(TypeError, match="binary file expected"):
+        pa.PythonFile(StringIO())
+
 
 def test_python_file_read():
     data = b'some sample data'
@@ -112,6 +115,26 @@ def test_python_file_read():
     assert not f.closed
     f.close()
     assert f.closed
+
+    with pytest.raises(TypeError, match="binary file expected"):
+        pa.PythonFile(StringIO(), mode='r')
+
+
+def test_python_file_read_at():
+    data = b'some sample data'
+
+    buf = BytesIO(data)
+    f = pa.PythonFile(buf, mode='r')
+
+    # test simple read at
+    v = f.read_at(nbytes=5, offset=3)
+    assert v == b'e sam'
+    assert len(v) == 5
+
+    # test reading entire file when nbytes > len(file)
+    w = f.read_at(nbytes=50, offset=0)
+    assert w == data
+    assert len(w) == 16
 
 
 def test_python_file_readall():
@@ -316,6 +339,15 @@ def test_buffer_invalid():
     with pytest.raises(TypeError,
                        match="(bytes-like object|buffer interface)"):
         pa.py_buffer(None)
+
+
+@pytest.mark.parametrize('val, expected_hex_buffer',
+                         [(b'check', b'636865636B'),
+                          (b'\a0', b'0730'),
+                          (b'', b'')])
+def test_buffer_hex(val, expected_hex_buffer):
+    buf = pa.py_buffer(val)
+    assert buf.hex() == expected_hex_buffer
 
 
 def test_buffer_to_numpy():

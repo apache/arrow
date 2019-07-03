@@ -19,17 +19,18 @@ if(DoubleConversion_ROOT)
   find_library(DoubleConversion_LIB
                NAMES double-conversion
                PATHS ${DoubleConversion_ROOT}
-               NO_DEFAULT_PATH)
+               NO_DEFAULT_PATH
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
   find_path(DoubleConversion_INCLUDE_DIR
             NAMES double-conversion/double-conversion.h
             PATHS ${DoubleConversion_ROOT}
             NO_DEFAULT_PATH
-            PATH_SUFFIXES "include")
+            PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 else()
   find_library(DoubleConversion_LIB NAMES double-conversion)
   find_path(DoubleConversion_INCLUDE_DIR
             NAMES double-conversion/double-conversion.h
-            PATH_SUFFIXES "include")
+            PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 endif()
 
 find_package_handle_standard_args(DoubleConversion REQUIRED_VARS DoubleConversion_LIB

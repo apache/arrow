@@ -35,4 +35,7 @@ void gdv_xlarge_scale_up_and_divide(int64_t x_high, uint64_t x_low, int64_t y_hi
 void gdv_xlarge_mod(int64_t x_high, uint64_t x_low, int32_t x_scale, int64_t y_high,
                     uint64_t y_low, int32_t y_scale, int64_t* out_high,
                     uint64_t* out_low);
+
+int32_t gdv_xlarge_compare(int64_t x_high, uint64_t x_low, int32_t x_scale,
+                           int64_t y_high, uint64_t y_low, int32_t y_scale);
 }

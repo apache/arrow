@@ -99,7 +99,6 @@ const createClosureArgs = (entry_point, externs) => ({
     // formatting: `PRETTY_PRINT`,
     // debug: true,
     compilation_level: `ADVANCED`,
-    allow_method_call_decomposing: true,
     package_json_entry_names: `module,jsnext:main,main`,
     assume_function_wrapper: true,
     js_output_file: `${mainExport}.js`,

@@ -19,6 +19,14 @@ namespace Apache.Arrow
 {
     public class FloatArray : PrimitiveArray<float>
     {
+        public class Builder : PrimitiveArrayBuilder<float, FloatArray, Builder>
+        {
+            protected override FloatArray Build(
+                ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
+                int length, int nullCount, int offset) =>
+                new FloatArray(valueBuffer, nullBitmapBuffer, length, nullCount, offset);
+        }
+
         public FloatArray(
             ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
             int length, int nullCount, int offset)

@@ -20,17 +20,14 @@
 
 #include <climits>
 #include <cstdint>
+#include <iosfwd>
 #include <memory>
-#include <ostream>
 #include <string>
-#include <type_traits>
-#include <unordered_map>
 #include <vector>
 
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/key_value_metadata.h"  // IWYU pragma: export
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visitor.h"  // IWYU pragma: keep
@@ -129,15 +126,37 @@ struct Type {
     /// Unions of logical types
     UNION,
 
-    /// Dictionary aka Category type
+    /// Dictionary-encoded type, also called "categorical" or "factor"
+    /// in other programming languages. Holds the dictionary value
+    /// type but not the dictionary itself, which is part of the
+    /// ArrayData struct
     DICTIONARY,
 
     /// Map, a repeated struct logical type
     MAP,
 
     /// Custom data type, implemented by user
-    EXTENSION
+    EXTENSION,
+
+    /// Fixed size list of some logical type
+    FIXED_SIZE_LIST,
+
+    /// Measure of elapsed time in either seconds, milliseconds, microseconds
+    /// or nanoseconds.
+    DURATION
   };
+};
+
+struct ARROW_EXPORT DataTypeLayout {
+  // The bit width for each buffer in this DataType's representation
+  // (kVariableSizeBuffer if the item size for a given buffer is unknown or variable,
+  //  kAlwaysNullBuffer if the buffer is always null).
+  // Child types are not included, they should be inspected separately.
+  std::vector<int64_t> bit_widths;
+  bool has_dictionary;
+
+  static constexpr int64_t kAlwaysNullBuffer = 0;
+  static constexpr int64_t kVariableSizeBuffer = -1;
 };
 
 /// \brief Base class for all data types
@@ -180,6 +199,11 @@ class ARROW_EXPORT DataType {
   /// \since 0.7.0
   virtual std::string name() const = 0;
 
+  /// \brief Return the data type layout.  Children are not included.
+  ///
+  /// \note Experimental API
+  virtual DataTypeLayout layout() const = 0;
+
   /// \brief Return the type category
   Type::type id() const { return id_; }
 
@@ -191,10 +215,7 @@ class ARROW_EXPORT DataType {
   ARROW_DISALLOW_COPY_AND_ASSIGN(DataType);
 };
 
-inline std::ostream& operator<<(std::ostream& os, const DataType& type) {
-  os << type.ToString();
-  return os;
-}
+std::ostream& operator<<(std::ostream& os, const DataType& type);
 
 /// \brief Base class for all fixed-width data types
 class ARROW_EXPORT FixedWidthType : public DataType {
@@ -211,22 +232,22 @@ class ARROW_EXPORT PrimitiveCType : public FixedWidthType {
 };
 
 /// \brief Base class for all numeric data types
-class ARROW_EXPORT Number : public PrimitiveCType {
+class ARROW_EXPORT NumberType : public PrimitiveCType {
  public:
   using PrimitiveCType::PrimitiveCType;
 };
 
 /// \brief Base class for all integral data types
-class ARROW_EXPORT Integer : public Number {
+class ARROW_EXPORT IntegerType : public NumberType {
  public:
-  using Number::Number;
+  using NumberType::NumberType;
   virtual bool is_signed() const = 0;
 };
 
 /// \brief Base class for all floating-point data types
-class ARROW_EXPORT FloatingPoint : public Number {
+class ARROW_EXPORT FloatingPointType : public NumberType {
  public:
-  using Number::Number;
+  using NumberType::NumberType;
   enum Precision { HALF, SINGLE, DOUBLE };
   virtual Precision precision() const = 0;
 };
@@ -270,6 +291,9 @@ class ARROW_EXPORT Field {
   /// \brief Return a copy of this field with the replaced type.
   std::shared_ptr<Field> WithType(const std::shared_ptr<DataType>& type) const;
 
+  /// \brief Return a copy of this field with the replaced name.
+  std::shared_ptr<Field> WithName(const std::string& name) const;
+
   std::vector<std::shared_ptr<Field>> Flatten() const;
 
   bool Equals(const Field& other, bool check_metadata = true) const;
@@ -285,6 +309,8 @@ class ARROW_EXPORT Field {
   /// \brief Return whether the field is nullable
   bool nullable() const { return nullable_; }
 
+  std::shared_ptr<Field> Copy() const;
+
  private:
   // Field name
   std::string name_;
@@ -297,6 +323,8 @@ class ARROW_EXPORT Field {
 
   // The field's metadata, if any
   std::shared_ptr<const KeyValueMetadata> metadata_;
+
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Field);
 };
 
 namespace detail {
@@ -311,11 +339,13 @@ class ARROW_EXPORT CTypeImpl : public BASE {
 
   int bit_width() const override { return static_cast<int>(sizeof(C_TYPE) * CHAR_BIT); }
 
+  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
+
   std::string ToString() const override { return this->name(); }
 };
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
-class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, Integer, TYPE_ID, C_TYPE> {
+class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, IntegerType, TYPE_ID, C_TYPE> {
   bool is_signed() const override { return std::is_signed<C_TYPE>::value; }
 };
 
@@ -330,6 +360,10 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
 
   std::string ToString() const override;
 
+  DataTypeLayout layout() const override {
+    return {{DataTypeLayout::kAlwaysNullBuffer}, false};
+  }
+
   std::string name() const override { return "null"; }
 };
 
@@ -341,6 +375,8 @@ class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
   BooleanType() : FixedWidthType(Type::BOOL) {}
 
   std::string ToString() const override;
+
+  DataTypeLayout layout() const override { return {{1, 1}, false}; }
 
   int bit_width() const override { return 1; }
   std::string name() const override { return "bool"; }
@@ -404,7 +440,8 @@ class ARROW_EXPORT Int64Type
 
 /// Concrete type class for 16-bit floating-point data
 class ARROW_EXPORT HalfFloatType
-    : public detail::CTypeImpl<HalfFloatType, FloatingPoint, Type::HALF_FLOAT, uint16_t> {
+    : public detail::CTypeImpl<HalfFloatType, FloatingPointType, Type::HALF_FLOAT,
+                               uint16_t> {
  public:
   Precision precision() const override;
   std::string name() const override { return "halffloat"; }
@@ -412,7 +449,7 @@ class ARROW_EXPORT HalfFloatType
 
 /// Concrete type class for 32-bit floating-point data (C "float")
 class ARROW_EXPORT FloatType
-    : public detail::CTypeImpl<FloatType, FloatingPoint, Type::FLOAT, float> {
+    : public detail::CTypeImpl<FloatType, FloatingPointType, Type::FLOAT, float> {
  public:
   Precision precision() const override;
   std::string name() const override { return "float"; }
@@ -420,7 +457,7 @@ class ARROW_EXPORT FloatType
 
 /// Concrete type class for 64-bit floating-point data (C "double")
 class ARROW_EXPORT DoubleType
-    : public detail::CTypeImpl<DoubleType, FloatingPoint, Type::DOUBLE, double> {
+    : public detail::CTypeImpl<DoubleType, FloatingPointType, Type::DOUBLE, double> {
  public:
   Precision precision() const override;
   std::string name() const override { return "double"; }
@@ -447,9 +484,69 @@ class ARROW_EXPORT ListType : public NestedType {
 
   std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
 
+  DataTypeLayout layout() const override {
+    return {{1, CHAR_BIT * sizeof(int32_t)}, false};
+  }
+
   std::string ToString() const override;
 
   std::string name() const override { return "list"; }
+};
+
+/// \brief Concrete type class for map data
+///
+/// Map data is nested data where each value is a variable number of
+/// key-item pairs.  Maps can be recursively nested, for example
+/// map(utf8, map(utf8, int32)).
+class ARROW_EXPORT MapType : public ListType {
+ public:
+  static constexpr Type::type type_id = Type::MAP;
+
+  MapType(const std::shared_ptr<DataType>& key_type,
+          const std::shared_ptr<DataType>& item_type, bool keys_sorted = false);
+
+  std::shared_ptr<DataType> key_type() const { return value_type()->child(0)->type(); }
+
+  std::shared_ptr<DataType> item_type() const { return value_type()->child(1)->type(); }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "map"; }
+
+  bool keys_sorted() const { return keys_sorted_; }
+
+ private:
+  bool keys_sorted_;
+};
+
+/// \brief Concrete type class for fixed size list data
+class ARROW_EXPORT FixedSizeListType : public NestedType {
+ public:
+  static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
+
+  // List can contain any other logical value type
+  FixedSizeListType(const std::shared_ptr<DataType>& value_type, int32_t list_size)
+      : FixedSizeListType(std::make_shared<Field>("item", value_type), list_size) {}
+
+  FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
+      : NestedType(type_id), list_size_(list_size) {
+    children_ = {value_field};
+  }
+
+  std::shared_ptr<Field> value_field() const { return children_[0]; }
+
+  std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
+
+  DataTypeLayout layout() const override { return {{1}, false}; }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "fixed_size_list"; }
+
+  int32_t list_size() const { return list_size_; }
+
+ protected:
+  int32_t list_size_;
 };
 
 /// \brief Concrete type class for variable-size binary data
@@ -458,6 +555,10 @@ class ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
   static constexpr Type::type type_id = Type::BINARY;
 
   BinaryType() : BinaryType(Type::BINARY) {}
+
+  DataTypeLayout layout() const override {
+    return {{1, CHAR_BIT * sizeof(int32_t), DataTypeLayout::kVariableSizeBuffer}, false};
+  }
 
   std::string ToString() const override;
   std::string name() const override { return "binary"; }
@@ -479,6 +580,8 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
 
   std::string ToString() const override;
   std::string name() const override { return "fixed_size_binary"; }
+
+  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
 
   int32_t byte_width() const { return byte_width_; }
   int bit_width() const override;
@@ -505,6 +608,10 @@ class ARROW_EXPORT StructType : public NestedType {
 
   explicit StructType(const std::vector<std::shared_ptr<Field>>& fields);
 
+  ~StructType() override;
+
+  DataTypeLayout layout() const override { return {{1}, false}; }
+
   std::string ToString() const override;
   std::string name() const override { return "struct"; }
 
@@ -528,7 +635,8 @@ class ARROW_EXPORT StructType : public NestedType {
   int GetChildIndex(const std::string& name) const;
 
  private:
-  std::unordered_multimap<std::string, int> name_to_index_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 /// \brief Base type class for (fixed-size) decimal data
@@ -571,6 +679,8 @@ class ARROW_EXPORT UnionType : public NestedType {
             const std::vector<uint8_t>& type_codes,
             UnionMode::type mode = UnionMode::SPARSE);
 
+  DataTypeLayout layout() const override;
+
   std::string ToString() const override;
   std::string name() const override { return "union"; }
 
@@ -592,8 +702,16 @@ class ARROW_EXPORT UnionType : public NestedType {
 
 enum class DateUnit : char { DAY = 0, MILLI = 1 };
 
+/// \brief Base type for all date and time types
+class ARROW_EXPORT TemporalType : public FixedWidthType {
+ public:
+  using FixedWidthType::FixedWidthType;
+
+  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
+};
+
 /// \brief Base type class for date data
-class ARROW_EXPORT DateType : public FixedWidthType {
+class ARROW_EXPORT DateType : public TemporalType {
  public:
   virtual DateUnit unit() const = 0;
 
@@ -642,26 +760,10 @@ struct TimeUnit {
   enum type { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
 };
 
-static inline std::ostream& operator<<(std::ostream& os, TimeUnit::type unit) {
-  switch (unit) {
-    case TimeUnit::SECOND:
-      os << "s";
-      break;
-    case TimeUnit::MILLI:
-      os << "ms";
-      break;
-    case TimeUnit::MICRO:
-      os << "us";
-      break;
-    case TimeUnit::NANO:
-      os << "ns";
-      break;
-  }
-  return os;
-}
+std::ostream& operator<<(std::ostream& os, TimeUnit::type unit);
 
 /// Base type class for time data
-class ARROW_EXPORT TimeType : public FixedWidthType, public ParametricType {
+class ARROW_EXPORT TimeType : public TemporalType, public ParametricType {
  public:
   TimeUnit::type unit() const { return unit_; }
 
@@ -670,6 +772,8 @@ class ARROW_EXPORT TimeType : public FixedWidthType, public ParametricType {
   TimeUnit::type unit_;
 };
 
+/// Concrete type class for 32-bit time data (as number of seconds or milliseconds
+/// since midnight)
 class ARROW_EXPORT Time32Type : public TimeType {
  public:
   static constexpr Type::type type_id = Type::TIME32;
@@ -684,6 +788,8 @@ class ARROW_EXPORT Time32Type : public TimeType {
   std::string name() const override { return "time32"; }
 };
 
+/// Concrete type class for 64-bit time data (as number of microseconds or nanoseconds
+/// since midnight)
 class ARROW_EXPORT Time64Type : public TimeType {
  public:
   static constexpr Type::type type_id = Type::TIME64;
@@ -691,14 +797,46 @@ class ARROW_EXPORT Time64Type : public TimeType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  explicit Time64Type(TimeUnit::type unit = TimeUnit::MILLI);
+  explicit Time64Type(TimeUnit::type unit = TimeUnit::NANO);
 
   std::string ToString() const override;
 
   std::string name() const override { return "time64"; }
 };
 
-class ARROW_EXPORT TimestampType : public FixedWidthType, public ParametricType {
+/// \brief Concrete type class for datetime data (as number of seconds, milliseconds,
+/// microseconds or nanoseconds since UNIX epoch)
+///
+/// If supplied, the timezone string should take either the form (i) "Area/Location",
+/// with values drawn from the names in the IANA Time Zone Database (such as
+/// "Europe/Zurich"); or (ii) "(+|-)HH:MM" indicating an absolute offset from GMT
+/// (such as "-08:00").  To indicate a native UTC timestamp, one of the strings "UTC",
+/// "Etc/UTC" or "+00:00" should be used.
+///
+/// If any non-empty string is supplied as the timezone for a TimestampType, then the
+/// Arrow field containing that timestamp type (and by extension the column associated
+/// with such a field) is considered "timezone-aware".  The integer arrays that comprise
+/// a timezone-aware column must contain UTC normalized datetime values, regardless of
+/// the contents of their timezone string.  More precisely, (i) the producer of a
+/// timezone-aware column must populate its constituent arrays with valid UTC values
+/// (performing offset conversions from non-UTC values if necessary); and (ii) the
+/// consumer of a timezone-aware column may assume that the column's values are directly
+/// comparable (that is, with no offset adjustment required) to the values of any other
+/// timezone-aware column or to any other valid UTC datetime value (provided all values
+/// are expressed in the same units).
+///
+/// If a TimestampType is constructed without a timezone (or, equivalently, if the
+/// timezone supplied is an empty string) then the resulting Arrow field (column) is
+/// considered "timezone-naive".  The producer of a timezone-naive column may populate
+/// its constituent integer arrays with datetime values from any timezone; the consumer
+/// of a timezone-naive column should make no assumptions about the interoperability or
+/// comparability of the values of such a column with those of any other timestamp
+/// column or datetime value.
+///
+/// If a timezone-aware field contains a recognized timezone, its values may be
+/// localized to that locale upon display; the values of timezone-naive fields must
+/// always be displayed "as is", with no localization performed on them.
+class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
  public:
   using Unit = TimeUnit;
 
@@ -708,10 +846,10 @@ class ARROW_EXPORT TimestampType : public FixedWidthType, public ParametricType 
   int bit_width() const override { return static_cast<int>(sizeof(int64_t) * CHAR_BIT); }
 
   explicit TimestampType(TimeUnit::type unit = TimeUnit::MILLI)
-      : FixedWidthType(Type::TIMESTAMP), unit_(unit) {}
+      : TemporalType(Type::TIMESTAMP), unit_(unit) {}
 
   explicit TimestampType(TimeUnit::type unit, const std::string& timezone)
-      : FixedWidthType(Type::TIMESTAMP), unit_(unit), timezone_(timezone) {}
+      : TemporalType(Type::TIMESTAMP), unit_(unit), timezone_(timezone) {}
 
   std::string ToString() const override;
   std::string name() const override { return "timestamp"; }
@@ -724,70 +862,134 @@ class ARROW_EXPORT TimestampType : public FixedWidthType, public ParametricType 
   std::string timezone_;
 };
 
-class ARROW_EXPORT IntervalType : public FixedWidthType {
+// Base class for the different kinds of intervals.
+class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
  public:
-  enum class Unit : char { YEAR_MONTH = 0, DAY_TIME = 1 };
+  enum type { MONTHS, DAY_TIME };
+  IntervalType() : TemporalType(Type::INTERVAL) {}
 
-  using c_type = int64_t;
+  virtual type interval_type() const = 0;
+  virtual ~IntervalType() = default;
+};
+
+/// \brief Represents a some number of months.
+///
+/// Type representing a number of months.  Corresponeds to YearMonth type
+/// in Schema.fbs (Years are defined as 12 months).
+class ARROW_EXPORT MonthIntervalType : public IntervalType {
+ public:
+  using c_type = int32_t;
   static constexpr Type::type type_id = Type::INTERVAL;
+
+  IntervalType::type interval_type() const override { return IntervalType::MONTHS; }
+
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
+
+  MonthIntervalType() : IntervalType() {}
+
+  std::string ToString() const override { return name(); }
+  std::string name() const override { return "month_interval"; }
+};
+
+/// \brief Represents a number of days and milliseconds (fraction of day).
+class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
+ public:
+  struct DayMilliseconds {
+    int32_t days;
+    int32_t milliseconds;
+    bool operator==(DayMilliseconds other) const {
+      return this->days == other.days && this->milliseconds == other.milliseconds;
+    }
+    bool operator!=(DayMilliseconds other) const { return !(*this == other); }
+  };
+  using c_type = DayMilliseconds;
+  static_assert(sizeof(DayMilliseconds) == 8,
+                "DayMilliseconds struct assumed to be of size 8 bytes");
+  static constexpr Type::type type_id = Type::INTERVAL;
+  IntervalType::type interval_type() const override { return IntervalType::DAY_TIME; }
+
+  DayTimeIntervalType() : IntervalType() {}
+
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
+
+  std::string ToString() const override { return name(); }
+  std::string name() const override { return "day_time_interval"; }
+};
+
+// \brief Represents an amount of elapsed time without any relation to a calendar
+// artifact.
+class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
+ public:
+  using Unit = TimeUnit;
+
+  static constexpr Type::type type_id = Type::DURATION;
+  using c_type = int64_t;
 
   int bit_width() const override { return static_cast<int>(sizeof(int64_t) * CHAR_BIT); }
 
-  explicit IntervalType(Unit unit = Unit::YEAR_MONTH)
-      : FixedWidthType(Type::INTERVAL), unit_(unit) {}
+  explicit DurationType(TimeUnit::type unit = TimeUnit::MILLI)
+      : TemporalType(Type::DURATION), unit_(unit) {}
 
-  std::string ToString() const override { return name(); }
-  std::string name() const override { return "interval"; }
+  std::string ToString() const override;
+  std::string name() const override { return "duration"; }
 
-  Unit unit() const { return unit_; }
+  TimeUnit::type unit() const { return unit_; }
 
  private:
-  Unit unit_;
+  TimeUnit::type unit_;
 };
 
 // ----------------------------------------------------------------------
-// DictionaryType (for categorical or dictionary-encoded data)
+// Dictionary type (for representing categorical or dictionary-encoded
+// in memory)
 
-/// Concrete type class for dictionary data
+/// \brief Dictionary-encoded value type with data-dependent
+/// dictionary
 class ARROW_EXPORT DictionaryType : public FixedWidthType {
  public:
   static constexpr Type::type type_id = Type::DICTIONARY;
 
   DictionaryType(const std::shared_ptr<DataType>& index_type,
-                 const std::shared_ptr<Array>& dictionary, bool ordered = false);
-
-  int bit_width() const override;
-
-  std::shared_ptr<DataType> index_type() const { return index_type_; }
-
-  std::shared_ptr<Array> dictionary() const;
+                 const std::shared_ptr<DataType>& value_type, bool ordered = false);
 
   std::string ToString() const override;
   std::string name() const override { return "dictionary"; }
 
+  int bit_width() const override;
+
+  DataTypeLayout layout() const override;
+
+  std::shared_ptr<DataType> index_type() const { return index_type_; }
+  std::shared_ptr<DataType> value_type() const { return value_type_; }
+
   bool ordered() const { return ordered_; }
 
-  /// \brief Unify several dictionary types
+  /// \brief Unify dictionaries types
   ///
   /// Compute a resulting dictionary that will allow the union of values
   /// of all input dictionary types.  The input types must all have the
   /// same value type.
   /// \param[in] pool Memory pool to allocate dictionary values from
   /// \param[in] types A sequence of input dictionary types
+  /// \param[in] dictionaries A sequence of input dictionaries
+  /// corresponding to each type
   /// \param[out] out_type The unified dictionary type
+  /// \param[out] out_dictionary The unified dictionary
   /// \param[out] out_transpose_maps (optionally) A sequence of integer vectors,
   ///     one per input type.  Each integer vector represents the transposition
   ///     of input type indices into unified type indices.
   // XXX Should we return something special (an empty transpose map?) when
   // the transposition is the identity function?
   static Status Unify(MemoryPool* pool, const std::vector<const DataType*>& types,
+                      const std::vector<const Array*>& dictionaries,
                       std::shared_ptr<DataType>* out_type,
+                      std::shared_ptr<Array>* out_dictionary,
                       std::vector<std::vector<int32_t>>* out_transpose_maps = NULLPTR);
 
- private:
+ protected:
   // Must be an integer type (not currently checked)
   std::shared_ptr<DataType> index_type_;
-  std::shared_ptr<Array> dictionary_;
+  std::shared_ptr<DataType> value_type_;
   bool ordered_;
 };
 
@@ -805,13 +1007,22 @@ class ARROW_EXPORT Schema {
   explicit Schema(std::vector<std::shared_ptr<Field>>&& fields,
                   const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
-  virtual ~Schema() = default;
+  Schema(const Schema&);
+
+  virtual ~Schema();
 
   /// Returns true if all of the schema fields are equal
   bool Equals(const Schema& other, bool check_metadata = true) const;
 
+  /// \brief Return the number of fields (columns) in the schema
+  int num_fields() const;
+
   /// Return the ith schema element. Does not boundscheck
-  std::shared_ptr<Field> field(int i) const { return fields_[i]; }
+  std::shared_ptr<Field> field(int i) const;
+
+  const std::vector<std::shared_ptr<Field>>& fields() const;
+
+  std::vector<std::string> field_names() const;
 
   /// Returns null if name not found
   std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
@@ -824,10 +1035,6 @@ class ARROW_EXPORT Schema {
 
   /// Return the indices of all fields having this name
   std::vector<int> GetAllFieldIndices(const std::string& name) const;
-
-  const std::vector<std::shared_ptr<Field>>& fields() const { return fields_; }
-
-  std::vector<std::string> field_names() const;
 
   /// \brief The custom key-value metadata, if any
   ///
@@ -856,15 +1063,9 @@ class ARROW_EXPORT Schema {
   /// \brief Indicates that Schema has non-empty KevValueMetadata
   bool HasMetadata() const;
 
-  /// \brief Return the number of fields (columns) in the schema
-  int num_fields() const { return static_cast<int>(fields_.size()); }
-
  private:
-  std::vector<std::shared_ptr<Field>> fields_;
-
-  std::unordered_multimap<std::string, int> name_to_index_;
-
-  std::shared_ptr<const KeyValueMetadata> metadata_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 // ----------------------------------------------------------------------
@@ -874,7 +1075,7 @@ class ARROW_EXPORT Schema {
 /// \addtogroup type-factories
 /// @{
 
-/// \brief Create a FixedSizeBinaryType instance
+/// \brief Create a FixedSizeBinaryType instance.
 ARROW_EXPORT
 std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
 
@@ -889,6 +1090,31 @@ std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_type);
 /// \brief Create a ListType instance from its child DataType
 ARROW_EXPORT
 std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type);
+
+/// \brief Create a MapType instance from its key and value DataTypes
+ARROW_EXPORT
+std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
+                              const std::shared_ptr<DataType>& value_type,
+                              bool keys_sorted = false);
+
+/// \brief Create a FixedSizeListType instance from its child Field type
+ARROW_EXPORT
+std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_type,
+                                          int32_t list_size);
+
+/// \brief Create a FixedSizeListType instance from its child DataType
+ARROW_EXPORT
+std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
+                                          int32_t list_size);
+/// \brief Return an Duration instance (naming use _type to avoid namespace conflict with
+/// built in time clases).
+std::shared_ptr<DataType> ARROW_EXPORT duration(TimeUnit::type unit);
+
+/// \brief Return an DayTimeIntervalType instance
+std::shared_ptr<DataType> ARROW_EXPORT day_time_interval();
+
+/// \brief Return an MonthIntervalType instance
+std::shared_ptr<DataType> ARROW_EXPORT month_interval();
 
 /// \brief Create a TimestampType instance from its unit
 ARROW_EXPORT
@@ -920,12 +1146,34 @@ union_(const std::vector<std::shared_ptr<Field>>& child_fields,
 /// \brief Create a UnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Array>>& children,
-       UnionMode::type mode = UnionMode::SPARSE);
+       const std::vector<std::string>& field_names,
+       const std::vector<uint8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+
+/// \brief Create a UnionType instance
+inline std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Array>>& children,
+       const std::vector<std::string>& field_names,
+       UnionMode::type mode = UnionMode::SPARSE) {
+  return union_(children, field_names, {}, mode);
+}
+
+/// \brief Create a UnionType instance
+inline std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Array>>& children,
+       UnionMode::type mode = UnionMode::SPARSE) {
+  return union_(children, {}, {}, mode);
+}
 
 /// \brief Create a DictionaryType instance
-std::shared_ptr<DataType> ARROW_EXPORT
-dictionary(const std::shared_ptr<DataType>& index_type,
-           const std::shared_ptr<Array>& values, bool ordered = false);
+/// \param[in] index_type the type of the dictionary indices (must be
+/// a signed integer)
+/// \param[in] dict_type the type of the values in the variable dictionary
+/// \param[in] ordered true if the order of the dictionary values has
+/// semantic meaning and should be preserved where possible
+ARROW_EXPORT
+std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,
+                                     const std::shared_ptr<DataType>& dict_type,
+                                     bool ordered = false);
 
 /// @}
 

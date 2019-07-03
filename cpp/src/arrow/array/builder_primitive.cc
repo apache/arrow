@@ -21,7 +21,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -50,7 +49,7 @@ BooleanBuilder::BooleanBuilder(MemoryPool* pool)
 
 BooleanBuilder::BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
     : BooleanBuilder(pool) {
-  DCHECK_EQ(Type::BOOL, type->id());
+  ARROW_CHECK_EQ(Type::BOOL, type->id());
 }
 
 void BooleanBuilder::Reset() {
@@ -66,9 +65,9 @@ Status BooleanBuilder::Resize(int64_t capacity) {
 }
 
 Status BooleanBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  std::shared_ptr<Buffer> data, null_bitmap;
-  RETURN_NOT_OK(data_builder_.Finish(&data));
+  std::shared_ptr<Buffer> null_bitmap, data;
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
+  RETURN_NOT_OK(data_builder_.Finish(&data));
 
   *out = ArrayData::Make(boolean(), length_, {null_bitmap, data}, null_count_);
 
@@ -125,6 +124,13 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values) {
   int64_t i = 0;
   data_builder_.UnsafeAppend<false>(length,
                                     [&values, &i]() -> bool { return values[i++]; });
+  ArrayBuilder::UnsafeSetNotNull(length);
+  return Status::OK();
+}
+
+Status BooleanBuilder::AppendValues(int64_t length, bool value) {
+  RETURN_NOT_OK(Reserve(length));
+  data_builder_.UnsafeAppend(length, value);
   ArrayBuilder::UnsafeSetNotNull(length);
   return Status::OK();
 }

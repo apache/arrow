@@ -18,7 +18,7 @@
 import '../../jest-extensions';
 import * as generate from '../../generate-test-data';
 import {
-    Table, Schema, Field, DataType, Dictionary, Int32, Float32, Utf8, Null
+    Table, Schema, Field, DataType, Dictionary, Int32, Float32, Utf8, Null, Int32Vector
 } from '../../Arrow';
 
 const toSchema = (...xs: [string, DataType][]) => new Schema(xs.map((x) => new Field(...x)));
@@ -33,6 +33,17 @@ function createTable<T extends { [key: string]: DataType } = any>(schema: Schema
 }
 
 describe('Table#serialize()', () => {
+
+    test(`doesn't swap the order of buffers that share the same underlying ArrayBuffer but are in a different order`, () => {
+        const values = new Int32Array([0, 1, 2, 3, 4, 5, 6, 7]);
+        const expected = values.slice();
+        const x = Int32Vector.from(values.subarray(4, 8)); // back
+        const y = Int32Vector.from(values.subarray(0, 4)); // front
+        const source = Table.new([x, y], ['x', 'y']);
+        const table = Table.from(source.serialize());
+        expect(table.getColumn('x').toArray()).toEqual(expected.subarray(4, 8));
+        expect(table.getColumn('y').toArray()).toEqual(expected.subarray(0, 4));
+    });
 
     test(`Table#empty round-trips through serialization`, () => {
         const source = Table.empty();

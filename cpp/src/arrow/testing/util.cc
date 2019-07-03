@@ -17,6 +17,9 @@
 
 #include "arrow/testing/util.h"
 
+#include <chrono>
+#include <random>
+
 #ifndef _WIN32
 #include <sys/stat.h>  // IWYU pragma: keep
 #include <sys/wait.h>  // IWYU pragma: keep
@@ -24,8 +27,14 @@
 #endif
 
 #include "arrow/table.h"
+#include "arrow/testing/random.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
+
+uint64_t random_seed() {
+  return std::chrono::high_resolution_clock::now().time_since_epoch().count();
+}
 
 void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes) {
   const int random_seed = 0;
@@ -35,8 +44,8 @@ void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes) {
                 [&d, &gen, &pct_null] { return d(gen) > pct_null; });
 }
 
-void random_is_valid(int64_t n, double pct_null, std::vector<bool>* is_valid) {
-  const int random_seed = 0;
+void random_is_valid(int64_t n, double pct_null, std::vector<bool>* is_valid,
+                     int random_seed) {
   std::default_random_engine gen(random_seed);
   std::uniform_real_distribution<double> d(0.0, 1.0);
   is_valid->resize(n, false);

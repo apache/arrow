@@ -332,8 +332,8 @@ Status SequenceBuilder::AppendDict(PyObject* context, PyObject* dict,
 
 Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* elem,
                           PyObject** result) {
-  *result = NULL;
   if (context == Py_None) {
+    *result = NULL;
     return Status::SerializationError("error while calling callback on ",
                                       internal::PyObject_StdStringRepr(elem),
                                       ": handler not registered");
@@ -341,7 +341,6 @@ Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* el
     *result = PyObject_CallMethodObjArgs(context, method_name, elem, NULL);
     return PassPyError();
   }
-  return Status::OK();
 }
 
 Status CallSerializeCallback(PyObject* context, PyObject* value,
@@ -516,7 +515,7 @@ Status AppendArray(PyObject* context, PyArrayObject* array, SequenceBuilder* bui
           builder->AppendNdarray(static_cast<int32_t>(blobs_out->ndarrays.size())));
       std::shared_ptr<Tensor> tensor;
       RETURN_NOT_OK(NdarrayToTensor(default_memory_pool(),
-                                    reinterpret_cast<PyObject*>(array), &tensor));
+                                    reinterpret_cast<PyObject*>(array), {}, &tensor));
       blobs_out->ndarrays.push_back(tensor);
     } break;
     default: {
@@ -540,7 +539,6 @@ std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
 Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out) {
   PyAcquireGIL lock;
   PyDateTime_IMPORT;
-  import_pyarrow();
   SequenceBuilder builder;
   RETURN_NOT_OK(internal::VisitIterable(
       sequence, [&](PyObject* obj, bool* keep_going /* unused */) {

@@ -35,6 +35,10 @@
 #include "arrow/flight/perf.pb.h"
 #include "arrow/flight/test-util.h"
 
+DEFINE_string(server_host, "",
+              "An existing performance server to benchmark against (leave blank to spawn "
+              "one automatically)");
+DEFINE_int32(server_port, 31337, "The port to connect to");
 DEFINE_int32(num_servers, 1, "Number of performance servers to run");
 DEFINE_int32(num_streams, 4, "Number of streams for each server");
 DEFINE_int32(num_threads, 4, "Number of concurrent gets");
@@ -63,7 +67,7 @@ struct PerformanceStats {
   }
 };
 
-Status RunPerformanceTest(const int port) {
+Status RunPerformanceTest(const std::string& hostname, const int port) {
   // TODO(wesm): Multiple servers
   // std::vector<std::unique_ptr<TestServer>> servers;
 
@@ -75,7 +79,9 @@ Status RunPerformanceTest(const int port) {
 
   // Construct client and plan the query
   std::unique_ptr<FlightClient> client;
-  RETURN_NOT_OK(FlightClient::Connect("localhost", port, &client));
+  Location location;
+  RETURN_NOT_OK(Location::ForGrpcTcp("localhost", port, &location));
+  RETURN_NOT_OK(FlightClient::Connect(location, &client));
 
   FlightDescriptor descriptor;
   descriptor.type = FlightDescriptor::CMD;
@@ -86,21 +92,24 @@ Status RunPerformanceTest(const int port) {
 
   // Read the streams in parallel
   std::shared_ptr<Schema> schema;
-  RETURN_NOT_OK(plan->GetSchema(&schema));
+  ipc::DictionaryMemo dict_memo;
+  RETURN_NOT_OK(plan->GetSchema(&dict_memo, &schema));
 
   PerformanceStats stats;
-  auto ConsumeStream = [&stats, &schema, &port](const FlightEndpoint& endpoint) {
+  auto ConsumeStream = [&stats, &port](const FlightEndpoint& endpoint) {
     // TODO(wesm): Use location from endpoint, same host/port for now
     std::unique_ptr<FlightClient> client;
-    RETURN_NOT_OK(FlightClient::Connect("localhost", port, &client));
+    Location location;
+    RETURN_NOT_OK(Location::ForGrpcTcp("localhost", port, &location));
+    RETURN_NOT_OK(FlightClient::Connect(location, &client));
 
     perf::Token token;
     token.ParseFromString(endpoint.ticket.ticket);
 
-    std::unique_ptr<RecordBatchReader> reader;
+    std::unique_ptr<FlightStreamReader> reader;
     RETURN_NOT_OK(client->DoGet(endpoint.ticket, &reader));
 
-    std::shared_ptr<RecordBatch> batch;
+    FlightStreamChunk batch;
 
     // This is hard-coded for right now, 4 columns each with int64
     const int bytes_per_record = 32;
@@ -111,26 +120,26 @@ Status RunPerformanceTest(const int port) {
     int64_t num_bytes = 0;
     int64_t num_records = 0;
     while (true) {
-      RETURN_NOT_OK(reader->ReadNext(&batch));
-      if (!batch) {
+      RETURN_NOT_OK(reader->Next(&batch));
+      if (!batch.data) {
         break;
       }
 
       if (verify) {
-        auto values =
-            reinterpret_cast<const int64_t*>(batch->column_data(0)->buffers[1]->data());
+        auto values = reinterpret_cast<const int64_t*>(
+            batch.data->column_data(0)->buffers[1]->data());
         const int64_t start = token.start() + num_records;
-        for (int64_t i = 0; i < batch->num_rows(); ++i) {
+        for (int64_t i = 0; i < batch.data->num_rows(); ++i) {
           if (values[i] != start + i) {
             return Status::Invalid("verification failure");
           }
         }
       }
 
-      num_records += batch->num_rows();
+      num_records += batch.data->num_rows();
 
       // Hard-coded
-      num_bytes += batch->num_rows() * bytes_per_record;
+      num_bytes += batch.data->num_rows() * bytes_per_record;
     }
     stats.Update(num_records, num_bytes);
     return Status::OK();
@@ -182,12 +191,26 @@ Status RunPerformanceTest(const int port) {
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  const int port = 31337;
-  arrow::flight::TestServer server("arrow-flight-perf-server", port);
-  server.Start();
+  std::unique_ptr<arrow::flight::TestServer> server;
+  std::string hostname = "localhost";
+  if (FLAGS_server_host == "") {
+    std::cout << "Using remote server: false" << std::endl;
+    server.reset(
+        new arrow::flight::TestServer("arrow-flight-perf-server", FLAGS_server_port));
+    server->Start();
+  } else {
+    std::cout << "Using remote server: true" << std::endl;
+    hostname = FLAGS_server_host;
+  }
 
-  arrow::Status s = arrow::flight::RunPerformanceTest(port);
-  server.Stop();
+  std::cout << "Server host: " << hostname << std::endl
+            << "Server port: " << FLAGS_server_port << std::endl;
+
+  arrow::Status s = arrow::flight::RunPerformanceTest(hostname, FLAGS_server_port);
+
+  if (server) {
+    server->Stop();
+  }
 
   if (!s.ok()) {
     std::cerr << "Failed with error: << " << s.ToString() << std::endl;

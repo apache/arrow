@@ -80,7 +80,7 @@ TEST_F(TestHash, TestSimple) {
   // Validate results
   auto int32_arr = std::dynamic_pointer_cast<arrow::Int32Array>(outputs.at(0));
   EXPECT_EQ(int32_arr->null_count(), 0);
-  EXPECT_EQ(int32_arr->Value(0), 0);
+  EXPECT_EQ(int32_arr->Value(0), 10);
   for (int i = 1; i < num_records; ++i) {
     EXPECT_NE(int32_arr->Value(i), int32_arr->Value(i - 1));
   }
@@ -141,7 +141,7 @@ TEST_F(TestHash, TestBuf) {
 
   auto int64_arr = std::dynamic_pointer_cast<arrow::Int64Array>(outputs.at(1));
   EXPECT_EQ(int64_arr->null_count(), 0);
-  EXPECT_EQ(int64_arr->Value(0), 0);
+  EXPECT_EQ(int64_arr->Value(0), 10);
   for (int i = 1; i < num_records; ++i) {
     EXPECT_NE(int64_arr->Value(i), int64_arr->Value(i - 1));
   }

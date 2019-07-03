@@ -38,27 +38,37 @@ CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
 # may not have NumPy (which is required for python-test)
 export ZLIB_HOME=$CONDA_ENV_DIR
 
+CONDA_FILES=""
+CONDA_PACKAGES=""
+
+if [ "$ARROW_TRAVIS_PYTHON_GANDIVA" == "1" ]; then
+    CONDA_FILES="$CONDA_FILES --file=$TRAVIS_BUILD_DIR/ci/conda_env_gandiva.yml"
+fi
+
 if [ "$ARROW_TRAVIS_PYTHON_JVM" == "1" ]; then
-  CONDA_JVM_DEPS="jpype1"
+    JPYPE_VERSION=0.6.3
+    CONDA_PACKAGES="$CONDA_PACKAGES jpype1=$JPYPE_VERSION"
 fi
 
 conda create -y -q -p $CONDA_ENV_DIR \
       --file $TRAVIS_BUILD_DIR/ci/conda_env_cpp.yml \
+      --file $TRAVIS_BUILD_DIR/ci/conda_env_unix.yml \
       --file $TRAVIS_BUILD_DIR/ci/conda_env_python.yml \
+      ${CONDA_FILES} \
       nomkl \
       pip \
       numpy=1.14 \
       'libgfortran<4' \
       python=${PYTHON_VERSION} \
       compilers \
-      ${CONDA_JVM_DEPS}
+      ${CONDA_PACKAGES}
 
 conda activate $CONDA_ENV_DIR
 
 python --version
 which python
 
-if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
+if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ]; then
   # Install documentation dependencies
   conda install -y --file ci/conda_env_sphinx.yml
 fi
@@ -89,6 +99,10 @@ pushd $ARROW_CPP_BUILD_DIR
 CMAKE_COMMON_FLAGS="-DARROW_EXTRA_ERROR_CONTEXT=ON"
 
 PYTHON_CPP_BUILD_TARGETS="arrow_python-all plasma parquet"
+
+if [ "$ARROW_TRAVIS_FLIGHT" == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_FLIGHT=ON"
+fi
 
 if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GENERATE_COVERAGE=ON"
@@ -135,9 +149,7 @@ $ARROW_CPP_BUILD_DIR/$ARROW_BUILD_TYPE/arrow-python-test
 
 pushd $ARROW_PYTHON_DIR
 
-if [ "$PYTHON_VERSION" == "3.6" ]; then
-    pip install -q pickle5
-fi
+pip install -q pickle5
 if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     export PYARROW_GENERATE_COVERAGE=1
     pip install -q coverage
@@ -152,6 +164,9 @@ export PYARROW_BUILD_TYPE=$ARROW_BUILD_TYPE
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 export PYARROW_WITH_ORC=1
+if [ "$ARROW_TRAVIS_FLIGHT" == "1" ]; then
+  export PYARROW_WITH_FLIGHT=1
+fi
 if [ "$ARROW_TRAVIS_PYTHON_GANDIVA" == "1" ]; then
   export PYARROW_WITH_GANDIVA=1
 fi
@@ -203,7 +218,7 @@ if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     popd   # $TRAVIS_BUILD_DIR
 fi
 
-if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
+if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ]; then
   pushd ../cpp/apidoc
   doxygen
   popd
@@ -213,7 +228,7 @@ fi
 
 popd  # $ARROW_PYTHON_DIR
 
-if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
+if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ]; then
   # Check the ASV benchmarking setup.
   # Unfortunately this won't ensure that all benchmarks succeed
   # (see https://github.com/airspeed-velocity/asv/issues/449)

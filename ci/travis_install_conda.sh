@@ -58,7 +58,6 @@ else
   bash miniconda.sh -b -p $MINICONDA
   source $MINICONDA/etc/profile.d/conda.sh
 
-  conda update -y -q conda
   conda config --set auto_update_conda false
   conda info -a
 

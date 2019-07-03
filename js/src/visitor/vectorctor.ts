@@ -19,7 +19,7 @@ import { Data } from '../data';
 import { Type } from '../enum';
 import { DataType } from '../type';
 import { Visitor } from '../visitor';
-import { Vector, VectorCtor } from '../interfaces';
+import { VectorType, VectorCtor } from '../interfaces';
 
 import { BinaryVector } from '../vector/binary';
 import { BoolVector } from '../vector/bool';
@@ -40,13 +40,15 @@ import { TimeVector, TimeSecondVector, TimeMillisecondVector, TimeMicrosecondVec
 import { UnionVector, DenseUnionVector, SparseUnionVector } from '../vector/union';
 import { Utf8Vector } from '../vector/utf8';
 
+/** @ignore */
 export interface GetVectorConstructor extends Visitor {
     visit<T extends Type>(node: T): VectorCtor<T>;
     visitMany <T extends Type>(nodes: T[]): VectorCtor<T>[];
     getVisitFn<T extends Type>(node: T): () => VectorCtor<T>;
-    getVisitFn<T extends DataType>(node: Vector<T> | Data<T> | T): () => VectorCtor<T>;
+    getVisitFn<T extends DataType>(node: VectorType<T> | Data<T> | T): () => VectorCtor<T>;
 }
 
+/** @ignore */
 export class GetVectorConstructor extends Visitor {
     public visitNull                 () { return NullVector; }
     public visitBool                 () { return BoolVector; }

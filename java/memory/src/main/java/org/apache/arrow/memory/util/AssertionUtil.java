@@ -17,6 +17,9 @@
 
 package org.apache.arrow.memory.util;
 
+/**
+ * Utility class to that provides {@link #ASSERT_ENABLED} constant to determine if assertions are enabled.
+ */
 public class AssertionUtil {
 
   public static final boolean ASSERT_ENABLED;

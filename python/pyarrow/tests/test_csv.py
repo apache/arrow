@@ -17,6 +17,7 @@
 
 import bz2
 from datetime import datetime
+from decimal import Decimal
 import gzip
 import io
 import itertools
@@ -132,6 +133,10 @@ def test_convert_options():
     opts.check_utf8 = False
     assert opts.check_utf8 is False
 
+    assert opts.strings_can_be_null is False
+    opts.strings_can_be_null = True
+    assert opts.strings_can_be_null is True
+
     assert opts.column_types == {}
     # Pass column_types as mapping
     opts.column_types = {'b': pa.int16(), 'c': pa.float32()}
@@ -157,11 +162,23 @@ def test_convert_options():
     opts.null_values = ['xxx', 'yyy']
     assert opts.null_values == ['xxx', 'yyy']
 
+    assert isinstance(opts.true_values, list)
+    opts.true_values = ['xxx', 'yyy']
+    assert opts.true_values == ['xxx', 'yyy']
+
+    assert isinstance(opts.false_values, list)
+    opts.false_values = ['xxx', 'yyy']
+    assert opts.false_values == ['xxx', 'yyy']
+
     opts = cls(check_utf8=False, column_types={'a': pa.null()},
-               null_values=['xxx', 'yyy'])
+               null_values=['N', 'nn'], true_values=['T', 'tt'],
+               false_values=['F', 'ff'], strings_can_be_null=True)
     assert opts.check_utf8 is False
     assert opts.column_types == {'a': pa.null()}
-    assert opts.null_values == ['xxx', 'yyy']
+    assert opts.null_values == ['N', 'nn']
+    assert opts.false_values == ['F', 'ff']
+    assert opts.true_values == ['T', 'tt']
+    assert opts.strings_can_be_null is True
 
 
 class BaseTestCSVRead:
@@ -173,12 +190,29 @@ class BaseTestCSVRead:
         assert table.num_columns == len(names)
         assert [c.name for c in table.columns] == names
 
+    def test_file_object(self):
+        data = b"a,b\n1,2\n"
+        expected_data = {'a': [1], 'b': [2]}
+        bio = io.BytesIO(data)
+        table = self.read_csv(bio)
+        assert table.to_pydict() == expected_data
+        # Text files not allowed
+        sio = io.StringIO(data.decode())
+        with pytest.raises(TypeError):
+            self.read_csv(sio)
+
     def test_header(self):
         rows = b"abc,def,gh\n"
         table = self.read_bytes(rows)
         assert isinstance(table, pa.Table)
         self.check_names(table, ["abc", "def", "gh"])
         assert table.num_rows == 0
+
+    def test_bom(self):
+        rows = b"\xef\xbb\xbfa,b\n1,2\n"
+        expected_data = {'a': [1], 'b': [2]}
+        table = self.read_bytes(rows)
+        assert table.to_pydict() == expected_data
 
     def test_simple_ints(self):
         # Infer integer columns
@@ -196,30 +230,33 @@ class BaseTestCSVRead:
 
     def test_simple_varied(self):
         # Infer various kinds of data
-        rows = b"a,b,c\n1,2,3\n4.0,-5,foo\n"
+        rows = b"a,b,c,d\n1,2,3,0\n4.0,-5,foo,True\n"
         table = self.read_bytes(rows)
         schema = pa.schema([('a', pa.float64()),
                             ('b', pa.int64()),
-                            ('c', pa.string())])
+                            ('c', pa.string()),
+                            ('d', pa.bool_())])
         assert table.schema == schema
         assert table.to_pydict() == {
             'a': [1.0, 4.0],
             'b': [2, -5],
             'c': [u"3", u"foo"],
+            'd': [False, True],
             }
 
     def test_simple_nulls(self):
         # Infer various kinds of data, with nulls
-        rows = (b"a,b,c,d,e\n"
-                b"1,2,,,3\n"
-                b"nan,-5,foo,,nan\n"
-                b"4.5,#N/A,nan,,\xff\n")
+        rows = (b"a,b,c,d,e,f\n"
+                b"1,2,,,3,N/A\n"
+                b"nan,-5,foo,,nan,TRUE\n"
+                b"4.5,#N/A,nan,,\xff,false\n")
         table = self.read_bytes(rows)
         schema = pa.schema([('a', pa.float64()),
                             ('b', pa.int64()),
                             ('c', pa.string()),
                             ('d', pa.null()),
-                            ('e', pa.binary())])
+                            ('e', pa.binary()),
+                            ('f', pa.bool_())])
         assert table.schema == schema
         assert table.to_pydict() == {
             'a': [1.0, None, 4.5],
@@ -227,6 +264,7 @@ class BaseTestCSVRead:
             'c': [u"", u"foo", u"nan"],
             'd': [None, None, None],
             'e': [b"3", b"nan", b"\xff"],
+            'f': [None, True, False],
             }
 
     def test_simple_timestamps(self):
@@ -258,6 +296,16 @@ class BaseTestCSVRead:
             'd': [2, None],
             }
 
+        opts = ConvertOptions(null_values=['Xxx', 'Zzz'],
+                              strings_can_be_null=True)
+        table = self.read_bytes(rows, convert_options=opts)
+        assert table.to_pydict() == {
+            'a': [None, None],
+            'b': [None, u"#N/A"],
+            'c': [u"1", u""],
+            'd': [2, None],
+            }
+
         opts = ConvertOptions(null_values=[])
         rows = b"a,b\n#N/A,\n"
         table = self.read_bytes(rows, convert_options=opts)
@@ -269,23 +317,47 @@ class BaseTestCSVRead:
             'b': [u""],
             }
 
+    def test_custom_bools(self):
+        # Infer booleans with custom values
+        opts = ConvertOptions(true_values=['T', 'yes'],
+                              false_values=['F', 'no'])
+        rows = (b"a,b,c\n"
+                b"True,T,t\n"
+                b"False,F,f\n"
+                b"True,yes,yes\n"
+                b"False,no,no\n"
+                b"N/A,N/A,N/A\n")
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.string()),
+                            ('b', pa.bool_()),
+                            ('c', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': ["True", "False", "True", "False", "N/A"],
+            'b': [True, False, True, False, None],
+            'c': ["t", "f", "yes", "no", "N/A"],
+            }
+
     def test_column_types(self):
         # Ask for specific column types in ConvertOptions
         opts = ConvertOptions(column_types={'b': 'float32',
                                             'c': 'string',
                                             'd': 'boolean',
+                                            'e': pa.decimal128(11, 2),
                                             'zz': 'null'})
-        rows = b"a,b,c,d\n1,2,3,true\n4,-5,6,false\n"
+        rows = b"a,b,c,d,e\n1,2,3,true,1.0\n4,-5,6,false,0\n"
         table = self.read_bytes(rows, convert_options=opts)
         schema = pa.schema([('a', pa.int64()),
                             ('b', pa.float32()),
                             ('c', pa.string()),
-                            ('d', pa.bool_())])
+                            ('d', pa.bool_()),
+                            ('e', pa.decimal128(11, 2))])
         expected = {
             'a': [1, 4],
             'b': [2.0, -5.0],
             'c': ["3", "6"],
             'd': [True, False],
+            'e': [Decimal("1.00"), Decimal("0.00")]
             }
         assert table.schema == schema
         assert table.to_pydict() == expected
@@ -294,12 +366,13 @@ class BaseTestCSVRead:
             column_types=pa.schema([('b', pa.float32()),
                                     ('c', pa.string()),
                                     ('d', pa.bool_()),
+                                    ('e', pa.decimal128(11, 2)),
                                     ('zz', pa.bool_())]))
         table = self.read_bytes(rows, convert_options=opts)
         assert table.schema == schema
         assert table.to_pydict() == expected
         # One of the columns in column_types fails converting
-        rows = b"a,b,c,d\n1,XXX,3,true\n4,-5,6,false\n"
+        rows = b"a,b,c,d,e\n1,XXX,3,true,5\n4,-5,6,false,7\n"
         with pytest.raises(pa.ArrowInvalid) as exc:
             self.read_bytes(rows, convert_options=opts)
         err = str(exc.value)
@@ -427,3 +500,10 @@ class TestBZ2CSVRead(BaseTestCompressedCSVRead, unittest.TestCase):
     def write_file(self, path, contents):
         with bz2.BZ2File(path, 'w') as f:
             f.write(contents)
+
+
+def test_read_csv_does_not_close_passed_file_handles():
+    # ARROW-4823
+    buf = io.BytesIO(b"a,b,c\n1,2,3\n4,5,6")
+    read_csv(buf)
+    assert not buf.closed

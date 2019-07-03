@@ -17,4 +17,4 @@
 
 arrow_install_all_headers("arrow/vendored")
 
-add_subdirectory(variant)
+add_subdirectory(datetime)

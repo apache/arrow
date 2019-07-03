@@ -58,6 +58,10 @@ quick_error! {
               description(message)
               from(e: ArrowError) -> (format!("underlying Arrow error: {:?}", e))
       }
+      IndexOutOfBound(index: usize, bound: usize) {
+          display("Index {} out of bound: {}", index, bound)
+              description("Index out of bound error")
+      }
   }
 }
 

@@ -19,6 +19,7 @@ package arrow
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 type Metadata struct {
@@ -63,6 +64,30 @@ func MetadataFrom(kv map[string]string) Metadata {
 func (md Metadata) Len() int         { return len(md.keys) }
 func (md Metadata) Keys() []string   { return md.keys }
 func (md Metadata) Values() []string { return md.values }
+
+func (md Metadata) String() string {
+	o := new(strings.Builder)
+	fmt.Fprintf(o, "[")
+	for i := range md.keys {
+		if i > 0 {
+			fmt.Fprintf(o, ", ")
+		}
+		fmt.Fprintf(o, "%q: %q", md.keys[i], md.values[i])
+	}
+	fmt.Fprintf(o, "]")
+	return o.String()
+}
+
+// FindKey returns the index of the key-value pair with the provided key name,
+// or -1 if such a key does not exist.
+func (md Metadata) FindKey(k string) int {
+	for i, v := range md.keys {
+		if v == k {
+			return i
+		}
+	}
+	return -1
+}
 
 func (md Metadata) clone() Metadata {
 	if len(md.keys) == 0 {
@@ -157,4 +182,19 @@ func (sc *Schema) Equal(o *Schema) bool {
 		}
 	}
 	return true
+}
+
+func (s *Schema) String() string {
+	o := new(strings.Builder)
+	fmt.Fprintf(o, "schema:\n  fields: %d\n", len(s.Fields()))
+	for i, f := range s.Fields() {
+		if i > 0 {
+			o.WriteString("\n")
+		}
+		fmt.Fprintf(o, "    - %v", f)
+	}
+	if meta := s.Metadata(); meta.Len() > 0 {
+		fmt.Fprintf(o, "\n  metadata: %v", meta)
+	}
+	return o.String()
 }

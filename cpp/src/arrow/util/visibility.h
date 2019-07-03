@@ -43,14 +43,4 @@
 #endif
 #endif  // Non-Windows
 
-// This is a complicated topic, some reading on it:
-// http://www.codesynthesis.com/~boris/blog/2010/01/18/dll-export-cxx-templates/
-#if defined(_MSC_VER) || defined(__clang__)
-#define ARROW_TEMPLATE_CLASS_EXPORT
-#define ARROW_TEMPLATE_EXPORT ARROW_EXPORT
-#else
-#define ARROW_TEMPLATE_CLASS_EXPORT ARROW_EXPORT
-#define ARROW_TEMPLATE_EXPORT
-#endif
-
 #endif  // ARROW_UTIL_VISIBILITY_H

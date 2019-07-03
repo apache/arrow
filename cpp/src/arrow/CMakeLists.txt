@@ -19,7 +19,12 @@ add_custom_target(arrow-all)
 add_custom_target(arrow)
 add_custom_target(arrow-benchmarks)
 add_custom_target(arrow-tests)
-add_dependencies(arrow-all arrow arrow-tests arrow-benchmarks)
+add_custom_target(arrow-integration)
+add_dependencies(arrow-all
+                 arrow
+                 arrow-tests
+                 arrow-benchmarks
+                 arrow-integration)
 
 # Adding unit tests part of the "arrow" portion of the test suite
 function(ADD_ARROW_TEST REL_TEST_NAME)
@@ -85,12 +90,14 @@ set(ARROW_SRCS
     array/builder_nested.cc
     array/builder_primitive.cc
     array/builder_union.cc
+    array/concatenate.cc
     buffer.cc
     compare.cc
     extension_type.cc
     memory_pool.cc
     pretty_print.cc
     record_batch.cc
+    result.cc
     scalar.cc
     sparse_tensor.cc
     status.cc
@@ -105,20 +112,28 @@ set(ARROW_SRCS
     csv/options.cc
     csv/parser.cc
     csv/reader.cc
+    filesystem/filesystem.cc
+    filesystem/localfs.cc
+    filesystem/mockfs.cc
+    filesystem/path-util.cc
+    filesystem/util-internal.cc
     json/options.cc
+    json/chunked-builder.cc
     json/chunker.cc
+    json/converter.cc
     json/parser.cc
     json/reader.cc
     io/buffered.cc
     io/compressed.cc
     io/file.cc
+    io/hdfs.cc
+    io/hdfs-internal.cc
     io/interfaces.cc
     io/memory.cc
     io/readahead.cc
     testing/util.cc
     util/basic_decimal.cc
     util/bit-util.cc
-    util/concatenate.cc
     util/compression.cc
     util/cpu-info.cc
     util/decimal.cc
@@ -127,12 +142,16 @@ set(ARROW_SRCS
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
+    util/string_builder.cc
     util/task-group.cc
     util/thread-pool.cc
     util/trie.cc
-    util/uri.cc
     util/utf8.cc
     vendored/datetime/tz.cpp)
+
+if(ARROW_WITH_URIPARSER)
+  set(ARROW_SRCS ${ARROW_SRCS} util/uri.cc)
+endif()
 
 if("${COMPILER_FAMILY}" STREQUAL "clang")
   set_property(SOURCE util/io-util.cc
@@ -154,10 +173,13 @@ if(ARROW_COMPUTE)
       compute/kernels/aggregate.cc
       compute/kernels/boolean.cc
       compute/kernels/cast.cc
+      compute/kernels/compare.cc
       compute/kernels/count.cc
       compute/kernels/hash.cc
+      compute/kernels/filter.cc
       compute/kernels/mean.cc
       compute/kernels/sum.cc
+      compute/kernels/take.cc
       compute/kernels/util-internal.cc
       compute/operations/cast.cc
       compute/operations/literal.cc)
@@ -212,10 +234,6 @@ if(ARROW_TENSORFLOW)
   add_subdirectory(adapters/tensorflow)
 endif()
 
-if(NOT ARROW_BOOST_HEADER_ONLY)
-  set(ARROW_SRCS ${ARROW_SRCS} io/hdfs.cc io/hdfs-internal.cc)
-endif()
-
 if(ARROW_IPC)
   add_subdirectory(ipc)
 
@@ -238,8 +256,9 @@ if(NOT APPLE AND NOT MSVC)
   # Localize thirdparty symbols using a linker version script. This hides them
   # from the client application. The OS X linker does not support the
   # version-script option.
-  set(ARROW_SHARED_LINK_FLAGS
+  set(ARROW_VERSION_SCRIPT_FLAGS
       "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
+  set(ARROW_SHARED_LINK_FLAGS ${ARROW_VERSION_SCRIPT_FLAGS})
 endif()
 
 set(ARROW_ALL_SRCS ${ARROW_SRCS})
@@ -270,10 +289,13 @@ if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
 endif()
 
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
   # that depend on gtest
   add_arrow_lib(arrow_testing
                 SOURCES
+                io/test-common.cc
+                ipc/test-common.cc
+                filesystem/test-util.cc
                 testing/gtest_util.cc
                 testing/random.cc
                 OUTPUTS
@@ -286,6 +308,9 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
                 STATIC_LINK_LIBS
                 arrow_static)
 
+  add_custom_target(arrow_testing)
+  add_dependencies(arrow_testing ${ARROW_TESTING_LIBRARIES})
+
   if(ARROW_BUILD_STATIC AND WIN32)
     target_compile_definitions(arrow_testing_static PUBLIC ARROW_STATIC)
   endif()
@@ -293,14 +318,16 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_LIBRARIES ${ARROW_LIBRARIES} ${ARROW_TESTING_LIBRARIES})
 endif()
 
-find_package(Backtrace)
+if(ARROW_WITH_BACKTRACE)
+  find_package(Backtrace)
 
-foreach(LIB_TARGET ${ARROW_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
-  if(Backtrace_FOUND AND ARROW_WITH_BACKTRACE)
-    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_WITH_BACKTRACE)
-  endif()
-endforeach()
+  foreach(LIB_TARGET ${ARROW_LIBRARIES})
+    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
+    if(Backtrace_FOUND AND ARROW_WITH_BACKTRACE)
+      target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_WITH_BACKTRACE)
+    endif()
+  endforeach()
+endif()
 
 # Headers: top level
 arrow_install_all_headers("arrow")
@@ -313,24 +340,15 @@ arrow_add_pkg_config("arrow")
 #
 
 add_arrow_test(allocator-test)
-
-if(WIN32)
-  add_arrow_test(array-test
-                 SOURCES
-                 array-test.cc
-                 array-binary-test.cc
-                 array-list-test.cc
-                 array-struct-test.cc)
-else()
-  add_arrow_test(array-test
-                 SOURCES
-                 array-test.cc
-                 array-binary-test.cc
-                 array-dict-test.cc
-                 array-list-test.cc
-                 array-struct-test.cc)
-endif()
-
+add_arrow_test(array-test
+               SOURCES
+               array-test.cc
+               array-binary-test.cc
+               array-dict-test.cc
+               array-list-test.cc
+               array-struct-test.cc
+               array-union-test.cc
+               array-view-test.cc)
 add_arrow_test(buffer-test)
 
 if(ARROW_IPC)
@@ -341,6 +359,7 @@ endif()
 add_arrow_test(memory_pool-test)
 add_arrow_test(pretty_print-test)
 add_arrow_test(public-api-test)
+add_arrow_test(result-test)
 add_arrow_test(scalar-test)
 add_arrow_test(status-test)
 add_arrow_test(stl-test)
@@ -355,10 +374,15 @@ add_arrow_benchmark(column-benchmark)
 
 add_subdirectory(array)
 add_subdirectory(csv)
+add_subdirectory(filesystem)
 add_subdirectory(json)
 add_subdirectory(io)
 add_subdirectory(util)
 add_subdirectory(vendored)
+
+if(ARROW_DATASET)
+  add_subdirectory(dataset)
+endif()
 
 if(ARROW_FLIGHT)
   add_subdirectory(flight)

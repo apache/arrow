@@ -23,6 +23,7 @@
 
 #include <arrow-glib/column.hpp>
 #include <arrow-glib/data-type.hpp>
+#include <arrow-glib/enums.h>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
@@ -54,6 +55,9 @@ G_BEGIN_DECLS
  * file format from input.
  *
  * #GArrowCSVReader is a class for reading table in CSV format from
+ * input.
+ *
+ * #GArrowJSONReader is a class for reading table in JSON format from
  * input.
  */
 
@@ -897,15 +901,13 @@ garrow_feather_file_reader_read_names(GArrowFeatherFileReader *reader,
 
 
 typedef struct GArrowCSVReadOptionsPrivate_ {
-  arrow::MemoryPool *pool;
   arrow::csv::ReadOptions read_options;
   arrow::csv::ParseOptions parse_options;
   arrow::csv::ConvertOptions convert_options;
 } GArrowCSVReadOptionsPrivate;
 
 enum {
-  PROP_POOL = 1,
-  PROP_USE_THREADS,
+  PROP_USE_THREADS = 1,
   PROP_BLOCK_SIZE,
   PROP_DELIMITER,
   PROP_IS_QUOTED,
@@ -916,7 +918,8 @@ enum {
   PROP_ALLOW_NEWLINES_IN_VALUES,
   PROP_IGNORE_EMPTY_LINES,
   PROP_N_HEADER_ROWS,
-  PROP_CHECK_UTF8
+  PROP_CHECK_UTF8,
+  PROP_ALLOW_NULL_STRINGS
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowCSVReadOptions,
@@ -937,9 +940,6 @@ garrow_csv_read_options_set_property(GObject *object,
   auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
-  case PROP_POOL:
-    priv->pool = static_cast<arrow::MemoryPool *>(g_value_get_pointer(value));
-    break;
   case PROP_USE_THREADS:
     priv->read_options.use_threads = g_value_get_boolean(value);
     break;
@@ -975,6 +975,9 @@ garrow_csv_read_options_set_property(GObject *object,
     break;
   case PROP_CHECK_UTF8:
     priv->convert_options.check_utf8 = g_value_get_boolean(value);
+    break;
+  case PROP_ALLOW_NULL_STRINGS:
+    priv->convert_options.strings_can_be_null = g_value_get_boolean(value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1027,6 +1030,9 @@ garrow_csv_read_options_get_property(GObject *object,
   case PROP_CHECK_UTF8:
     g_value_set_boolean(value, priv->convert_options.check_utf8);
     break;
+  case PROP_ALLOW_NULL_STRINGS:
+    g_value_set_boolean(value, priv->convert_options.strings_can_be_null);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -1037,7 +1043,6 @@ static void
 garrow_csv_read_options_init(GArrowCSVReadOptions *object)
 {
   auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(object);
-  priv->pool = arrow::default_memory_pool();
   priv->read_options = arrow::csv::ReadOptions::Defaults();
   priv->parse_options = arrow::csv::ParseOptions::Defaults();
   priv->convert_options = arrow::csv::ConvertOptions::Defaults();
@@ -1052,13 +1057,6 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
 
   gobject_class->set_property = garrow_csv_read_options_set_property;
   gobject_class->get_property = garrow_csv_read_options_get_property;
-
-  spec = g_param_spec_pointer("pool",
-                              "Pool",
-                              "The raw arrow::MemoryPool *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_POOL, spec);
 
   auto read_options = arrow::csv::ReadOptions::Defaults();
 
@@ -1088,7 +1086,7 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
                           "Block size",
                           "Block size we request from the IO layer; "
                           "also determines the size of chunks "
-                          "when ::use-threads is %TRUE",
+                          "when ::use-threads is TRUE",
                           0,
                           G_MAXINT,
                           read_options.block_size,
@@ -1218,7 +1216,7 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
   spec = g_param_spec_boolean("ignore-empty-lines",
                               "Ignore empty lines",
                               "Whether empty lines are ignored. "
-                              "If %FALSE, an empty line represents "
+                              "If FALSE, an empty line represents "
                               "a simple empty value "
                               "(assuming a one-column CSV file).",
                               parse_options.ignore_empty_lines,
@@ -1262,6 +1260,24 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
                               convert_options.check_utf8,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_CHECK_UTF8, spec);
+
+  /**
+   * GArrowCSVReadOptions:allow-null-strings:
+   *
+   * Whether string / binary columns can have null values.
+   * If %TRUE, then strings in "null_values" are considered null for string columns.
+   * If %FALSE, then all strings are valid string values.
+   *
+   * Since: 0.14.0
+   */
+  spec = g_param_spec_boolean("allow-null-strings",
+                              "Allow null strings",
+                              "Whether string / binary columns can have null values. "
+                              "If TRUE, then strings in null_values are considered null for string columns. "
+                              "If FALSE, then all strings are valid string values.",
+                              convert_options.strings_can_be_null,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_ALLOW_NULL_STRINGS, spec);
 }
 
 /**
@@ -1274,9 +1290,7 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
 GArrowCSVReadOptions *
 garrow_csv_read_options_new(void)
 {
-  auto csv_read_options = g_object_new(GARROW_TYPE_CSV_READ_OPTIONS,
-                                       "pool", arrow::default_memory_pool(),
-                                       NULL);
+  auto csv_read_options = g_object_new(GARROW_TYPE_CSV_READ_OPTIONS, NULL);
   return GARROW_CSV_READ_OPTIONS(csv_read_options);
 }
 
@@ -1345,6 +1359,201 @@ garrow_csv_read_options_get_column_types(GArrowCSVReadOptions *options)
                         garrow_data_type_new_raw(&arrow_data_type));
   }
   return types;
+}
+
+/**
+ * garrow_csv_read_options_set_null_values:
+ * @options: A #GArrowCSVReadOptions.
+ * @null_values: (array length=n_null_values):
+ *   The values to be processed as null.
+ * @n_null_values: The number of the specified null values.
+ *
+ * Since: 0.14.0
+ */
+void
+garrow_csv_read_options_set_null_values(GArrowCSVReadOptions *options,
+                                        const gchar **null_values,
+                                        gsize n_null_values)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  priv->convert_options.null_values.resize(n_null_values);
+  for (gsize i = 0; i < n_null_values; ++i) {
+    priv->convert_options.null_values[i] = null_values[i];
+  }
+}
+
+/**
+ * garrow_csv_read_options_get_null_values:
+ * @options: A #GArrowCSVReadOptions.
+ *
+ * Return: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
+ *   The values to be processed as null. It's a %NULL-terminated string array.
+ *   If the number of values is zero, this returns %NULL.
+ *   It must be freed with g_strfreev() when no longer needed.
+ *
+ * Since: 0.14.0
+ */
+gchar **
+garrow_csv_read_options_get_null_values(GArrowCSVReadOptions *options)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  const auto &arrow_null_values = priv->convert_options.null_values;
+  if (arrow_null_values.empty()) {
+    return NULL;
+  } else {
+    auto n = arrow_null_values.size();
+    gchar **null_values = g_new(gchar *, n + 1);
+    for (size_t i = 0; i < n; ++i) {
+      null_values[i] = g_strdup(arrow_null_values[i].c_str());
+    }
+    null_values[n] = NULL;
+    return null_values;
+  }
+}
+
+/**
+ * garrow_csv_read_options_add_null_value:
+ * @options: A #GArrowCSVReadOptions.
+ * @null_value: The value to be processed as null.
+ *
+ * Since: 0.14.0
+ */
+void
+garrow_csv_read_options_add_null_value(GArrowCSVReadOptions *options,
+                                       const gchar *null_value)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  priv->convert_options.null_values.push_back(null_value);
+}
+
+/**
+ * garrow_csv_read_options_set_true_values:
+ * @options: A #GArrowCSVReadOptions.
+ * @true_values: (array length=n_true_values):
+ *   The values to be processed as true.
+ * @n_true_values: The number of the specified true values.
+ *
+ * Since: 0.14.0
+ */
+void
+garrow_csv_read_options_set_true_values(GArrowCSVReadOptions *options,
+                                        const gchar **true_values,
+                                        gsize n_true_values)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  priv->convert_options.true_values.resize(n_true_values);
+  for (gsize i = 0; i < n_true_values; ++i) {
+    priv->convert_options.true_values[i] = true_values[i];
+  }
+}
+
+/**
+ * garrow_csv_read_options_get_true_values:
+ * @options: A #GArrowCSVReadOptions.
+ *
+ * Return: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
+ *   The values to be processed as true. It's a %NULL-terminated string array.
+ *   If the number of values is zero, this returns %NULL.
+ *   It must be freed with g_strfreev() when no longer needed.
+ *
+ * Since: 0.14.0
+ */
+gchar **
+garrow_csv_read_options_get_true_values(GArrowCSVReadOptions *options)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  const auto &arrow_true_values = priv->convert_options.true_values;
+  if (arrow_true_values.empty()) {
+    return NULL;
+  } else {
+    auto n = arrow_true_values.size();
+    gchar **true_values = g_new(gchar *, n + 1);
+    for (size_t i = 0; i < n; ++i) {
+      true_values[i] = g_strdup(arrow_true_values[i].c_str());
+    }
+    true_values[n] = NULL;
+    return true_values;
+  }
+}
+
+/**
+ * garrow_csv_read_options_add_true_value:
+ * @options: A #GArrowCSVReadOptions.
+ * @true_value: The value to be processed as true.
+ *
+ * Since: 0.14.0
+ */
+void
+garrow_csv_read_options_add_true_value(GArrowCSVReadOptions *options,
+                                       const gchar *true_value)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  priv->convert_options.true_values.push_back(true_value);
+}
+
+/**
+ * garrow_csv_read_options_set_false_values:
+ * @options: A #GArrowCSVReadOptions.
+ * @false_values: (array length=n_false_values):
+ *   The values to be processed as false.
+ * @n_false_values: The number of the specified false values.
+ *
+ * Since: 0.14.0
+ */
+void
+garrow_csv_read_options_set_false_values(GArrowCSVReadOptions *options,
+                                         const gchar **false_values,
+                                         gsize n_false_values)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  priv->convert_options.false_values.resize(n_false_values);
+  for (gsize i = 0; i < n_false_values; ++i) {
+    priv->convert_options.false_values[i] = false_values[i];
+  }
+}
+
+/**
+ * garrow_csv_read_options_get_false_values:
+ * @options: A #GArrowCSVReadOptions.
+ *
+ * Return: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
+ *   The values to be processed as false. It's a %NULL-terminated string array.
+ *   If the number of values is zero, this returns %NULL.
+ *   It must be freed with g_strfreev() when no longer needed.
+ *
+ * Since: 0.14.0
+ */
+gchar **
+garrow_csv_read_options_get_false_values(GArrowCSVReadOptions *options)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  const auto &arrow_false_values = priv->convert_options.false_values;
+  if (arrow_false_values.empty()) {
+    return NULL;
+  } else {
+    auto n = arrow_false_values.size();
+    gchar **false_values = g_new(gchar *, n + 1);
+    for (size_t i = 0; i < n; ++i) {
+      false_values[i] = g_strdup(arrow_false_values[i].c_str());
+    }
+    false_values[n] = NULL;
+    return false_values;
+  }
+}
+
+/**
+ * garrow_csv_read_options_add_false_value:
+ * @options: A #GArrowCSVReadOptions.
+ * @false_value: The value to be processed as false.
+ *
+ * Since: 0.14.0
+ */
+void
+garrow_csv_read_options_add_false_value(GArrowCSVReadOptions *options,
+                                        const gchar *false_value)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  priv->convert_options.false_values.push_back(false_value);
 }
 
 
@@ -1451,7 +1660,7 @@ garrow_csv_reader_new(GArrowInputStream *input,
   std::shared_ptr<arrow::csv::TableReader> arrow_reader;
   if (options) {
     auto options_priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
-    status = arrow::csv::TableReader::Make(options_priv->pool,
+    status = arrow::csv::TableReader::Make(arrow::default_memory_pool(),
                                            arrow_input,
                                            options_priv->read_options,
                                            options_priv->parse_options,
@@ -1491,6 +1700,392 @@ garrow_csv_reader_read(GArrowCSVReader *reader,
   std::shared_ptr<arrow::Table> arrow_table;
   auto status = arrow_reader->Read(&arrow_table);
   if (garrow_error_check(error, status, "[csv-reader][read]")) {
+    return garrow_table_new_raw(&arrow_table);
+  } else {
+    return NULL;
+  }
+}
+
+
+typedef struct GArrowJSONReadOptionsPrivate_ {
+  arrow::json::ReadOptions read_options;
+  arrow::json::ParseOptions parse_options;
+  GArrowSchema *schema;
+} GArrowJSONReadOptionsPrivate;
+
+enum {
+  PROP_JSON_READER_USE_THREADS = 1,
+  PROP_JSON_READER_BLOCK_SIZE,
+  PROP_JSON_READER_ALLOW_NEWLINES_IN_VALUES,
+  PROP_JSON_READER_UNEXPECTED_FIELD_BEHAVIOR,
+  PROP_JSON_READER_SCHEMA
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowJSONReadOptions,
+                           garrow_json_read_options,
+                           G_TYPE_OBJECT)
+
+#define GARROW_JSON_READ_OPTIONS_GET_PRIVATE(object) \
+  static_cast<GArrowJSONReadOptionsPrivate *>(       \
+    garrow_json_read_options_get_instance_private(   \
+      GARROW_JSON_READ_OPTIONS(object)))
+
+static void
+garrow_json_read_options_dispose(GObject *object)
+{
+  auto priv = GARROW_JSON_READ_OPTIONS_GET_PRIVATE(object);
+
+  if (priv->schema) {
+    g_object_unref(priv->schema);
+    priv->schema = nullptr;
+  }
+
+  G_OBJECT_CLASS(garrow_json_read_options_parent_class)->dispose(object);
+}
+
+static void
+garrow_json_read_options_set_property(GObject *object,
+                                      guint prop_id,
+                                      const GValue *value,
+                                      GParamSpec *pspec)
+{
+  auto priv = GARROW_JSON_READ_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_JSON_READER_USE_THREADS:
+    priv->read_options.use_threads = g_value_get_boolean(value);
+    break;
+  case PROP_JSON_READER_BLOCK_SIZE:
+    priv->read_options.block_size = g_value_get_int(value);
+    break;
+  case PROP_JSON_READER_ALLOW_NEWLINES_IN_VALUES:
+    priv->parse_options.newlines_in_values = g_value_get_boolean(value);
+    break;
+  case PROP_JSON_READER_UNEXPECTED_FIELD_BEHAVIOR:
+    priv->parse_options.unexpected_field_behavior =
+      static_cast<arrow::json::UnexpectedFieldBehavior>(g_value_get_enum(value));
+    break;
+  case PROP_JSON_READER_SCHEMA:
+    {
+      if (priv->schema) {
+        g_object_unref(priv->schema);
+      }
+      auto schema = g_value_dup_object(value);
+      if (schema) {
+        priv->schema = GARROW_SCHEMA(schema);
+        priv->parse_options.explicit_schema = garrow_schema_get_raw(priv->schema);
+      } else {
+        priv->schema = NULL;
+        priv->parse_options.explicit_schema = nullptr;
+      }
+      break;
+    }
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_json_read_options_get_property(GObject *object,
+                                      guint prop_id,
+                                      GValue *value,
+                                      GParamSpec *pspec)
+{
+  auto priv = GARROW_JSON_READ_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_JSON_READER_USE_THREADS:
+    g_value_set_boolean(value, priv->read_options.use_threads);
+    break;
+  case PROP_JSON_READER_BLOCK_SIZE:
+    g_value_set_int(value, priv->read_options.block_size);
+    break;
+  case PROP_JSON_READER_ALLOW_NEWLINES_IN_VALUES:
+    g_value_set_boolean(value, priv->parse_options.newlines_in_values);
+    break;
+  case PROP_JSON_READER_UNEXPECTED_FIELD_BEHAVIOR:
+    g_value_set_enum(value, static_cast<int>(priv->parse_options.unexpected_field_behavior));
+    break;
+  case PROP_JSON_READER_SCHEMA:
+    g_value_set_object(value, priv->schema);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_json_read_options_init(GArrowJSONReadOptions *object)
+{
+  auto priv = GARROW_JSON_READ_OPTIONS_GET_PRIVATE(object);
+  priv->read_options = arrow::json::ReadOptions::Defaults();
+  priv->parse_options = arrow::json::ParseOptions::Defaults();
+}
+
+static void
+garrow_json_read_options_class_init(GArrowJSONReadOptionsClass *klass)
+{
+  GParamSpec *spec;
+
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose      = garrow_json_read_options_dispose;
+  gobject_class->set_property = garrow_json_read_options_set_property;
+  gobject_class->get_property = garrow_json_read_options_get_property;
+
+  auto read_options = arrow::json::ReadOptions::Defaults();
+
+  /**
+   * GArrowJSONReadOptions:use-threads:
+   *
+   * Whether to use the global CPU thread pool.
+   *
+   * Since: 0.14.0
+   */
+  spec = g_param_spec_boolean("use-threads",
+                              "Use threads",
+                              "Whether to use the global CPU thread pool",
+                              read_options.use_threads,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_JSON_READER_USE_THREADS,
+                                  spec);
+
+  /**
+   * GArrowJSONReadOptions:block-size:
+   *
+   * Block size we request from the IO layer; also determines the size
+   * of chunks when #GArrowJSONReadOptions:use-threads is %TRUE.
+   *
+   * Since: 0.14.0
+   */
+  spec = g_param_spec_int("block-size",
+                          "Block size",
+                          "Block size we request from the IO layer; "
+                          "also determines the size of chunks "
+                          "when ::use-threads is TRUE",
+                          0,
+                          G_MAXINT,
+                          read_options.block_size,
+                          static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_JSON_READER_BLOCK_SIZE,
+                                  spec);
+
+
+  auto parse_options = arrow::json::ParseOptions::Defaults();
+
+  /**
+   * GArrowJSONReadOptions:allow-newlines-in-values:
+   *
+   * Whether objects may be printed across multiple lines (for example pretty printed).
+   * if %FALSE, input must end with an empty line.
+   *
+   * Since: 0.14.0
+   */
+  spec = g_param_spec_boolean("allow-newlines-in-values",
+                              "Allow newlines in values",
+                              "Whether objects may be printed across multiple lines "
+                              "(for example pretty printed). "
+                              "if FALSE, input must end with an empty line.",
+                              parse_options.newlines_in_values,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_JSON_READER_ALLOW_NEWLINES_IN_VALUES,
+                                  spec);
+
+  /**
+   * GArrowJSONReadOptions:unexpected-field-behavior:
+   *
+   * How to parse handle fields outside the explicit schema.
+   *
+   * Since: 0.14.0
+   */
+  spec = g_param_spec_enum("unexpected-field-behavior",
+                           "UnexpectedFieldBehavior",
+                           "How to parse handle fields outside the explicit schema.",
+                           GARROW_TYPE_JSON_READ_UNEXPECTED_FIELD_BEHAVIOR,
+                           GARROW_JSON_READ_INFER_TYPE,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_JSON_READER_UNEXPECTED_FIELD_BEHAVIOR,
+                                  spec);
+
+  /**
+   * GArrowJSONReadOptions:schema:
+   *
+   * Schema for passing custom conversion rules.
+   *
+   * Since: 0.14.0
+   */
+  spec = g_param_spec_object("schema",
+                             "Schema",
+                             "Schema for passing custom conversion rules.",
+                              GARROW_TYPE_SCHEMA,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_JSON_READER_SCHEMA,
+                                  spec);
+}
+
+/**
+ * garrow_json_read_options_new:
+ *
+ * Returns: A newly created #GArrowJSONReadOptions.
+ *
+ * Since: 0.14.0
+ */
+GArrowJSONReadOptions *
+garrow_json_read_options_new(void)
+{
+  auto json_read_options = g_object_new(GARROW_TYPE_JSON_READ_OPTIONS, NULL);
+  return GARROW_JSON_READ_OPTIONS(json_read_options);
+}
+
+
+typedef struct GArrowJSONReaderPrivate_ {
+  std::shared_ptr<arrow::json::TableReader> reader;
+} GArrowJSONReaderPrivate;
+
+enum {
+  PROP_JSON_TABLE_READER = 1
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowJSONReader,
+                           garrow_json_reader,
+                           G_TYPE_OBJECT)
+
+#define GARROW_JSON_READER_GET_PRIVATE(object)   \
+  static_cast<GArrowJSONReaderPrivate *>(        \
+    garrow_json_reader_get_instance_private(     \
+      GARROW_JSON_READER(object)))
+
+static void
+garrow_json_reader_dispose(GObject *object)
+{
+  auto priv = GARROW_JSON_READER_GET_PRIVATE(object);
+
+  priv->reader = nullptr;
+
+  G_OBJECT_CLASS(garrow_json_reader_parent_class)->dispose(object);
+}
+
+static void
+garrow_json_reader_set_property(GObject *object,
+                                guint prop_id,
+                                const GValue *value,
+                                GParamSpec *pspec)
+{
+  auto priv = GARROW_JSON_READER_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_JSON_TABLE_READER:
+    priv->reader =
+      *static_cast<std::shared_ptr<arrow::json::TableReader> *>(g_value_get_pointer(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_json_reader_get_property(GObject *object,
+                                guint prop_id,
+                                GValue *value,
+                                GParamSpec *pspec)
+{
+  switch (prop_id) {
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_json_reader_init(GArrowJSONReader *object)
+{
+}
+
+static void
+garrow_json_reader_class_init(GArrowJSONReaderClass *klass)
+{
+  GParamSpec *spec;
+
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose      = garrow_json_reader_dispose;
+  gobject_class->set_property = garrow_json_reader_set_property;
+  gobject_class->get_property = garrow_json_reader_get_property;
+
+  spec = g_param_spec_pointer("json-table-reader",
+                              "JSON table reader",
+                              "The raw std::shared<arrow::json::TableReader> *",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_JSON_TABLE_READER, spec);
+}
+
+/**
+ * garrow_json_reader_new:
+ * @input: The input to be read.
+ * @options: (nullable): A #GArrowJSONReadOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowJSONReader or %NULL on error.
+ *
+ * Since: 0.14.0
+ */
+GArrowJSONReader *
+garrow_json_reader_new(GArrowInputStream *input,
+                       GArrowJSONReadOptions *options,
+                       GError **error)
+{
+  auto arrow_input = garrow_input_stream_get_raw(input);
+  arrow::Status status;
+  std::shared_ptr<arrow::json::TableReader> arrow_reader;
+  if (options) {
+    auto options_priv = GARROW_JSON_READ_OPTIONS_GET_PRIVATE(options);
+    status = arrow::json::TableReader::Make(arrow::default_memory_pool(),
+                                            arrow_input,
+                                            options_priv->read_options,
+                                            options_priv->parse_options,
+                                            &arrow_reader);
+  } else {
+    status =
+      arrow::json::TableReader::Make(arrow::default_memory_pool(),
+                                     arrow_input,
+                                     arrow::json::ReadOptions::Defaults(),
+                                     arrow::json::ParseOptions::Defaults(),
+                                     &arrow_reader);
+  }
+
+  if (garrow_error_check(error, status, "[json-reader][new]")) {
+    return garrow_json_reader_new_raw(&arrow_reader);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_json_reader_read:
+ * @reader: A #GArrowJSONReader.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): A read #GArrowTable or %NULL on error.
+ *
+ * Since: 0.14.0
+ */
+GArrowTable *
+garrow_json_reader_read(GArrowJSONReader *reader,
+                        GError **error)
+{
+  auto arrow_reader = garrow_json_reader_get_raw(reader);
+  std::shared_ptr<arrow::Table> arrow_table;
+  auto status = arrow_reader->Read(&arrow_table);
+  if (garrow_error_check(error, status, "[json-reader][read]")) {
     return garrow_table_new_raw(&arrow_table);
   } else {
     return NULL;
@@ -1586,5 +2181,21 @@ std::shared_ptr<arrow::csv::TableReader>
 garrow_csv_reader_get_raw(GArrowCSVReader *reader)
 {
   auto priv = GARROW_CSV_READER_GET_PRIVATE(reader);
+  return priv->reader;
+}
+
+GArrowJSONReader *
+garrow_json_reader_new_raw(std::shared_ptr<arrow::json::TableReader> *arrow_reader)
+{
+  auto reader = GARROW_JSON_READER(g_object_new(GARROW_TYPE_JSON_READER,
+                                                "json-table-reader", arrow_reader,
+                                                NULL));
+  return reader;
+}
+
+std::shared_ptr<arrow::json::TableReader>
+garrow_json_reader_get_raw(GArrowJSONReader *reader)
+{
+  auto priv = GARROW_JSON_READER_GET_PRIVATE(reader);
   return priv->reader;
 }

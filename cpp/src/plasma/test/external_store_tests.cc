@@ -22,13 +22,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <chrono>
-#include <random>
+#include <memory>
 #include <thread>
 
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/io-util.h"
 
 #include "plasma/client.h"
 #include "plasma/common.h"
@@ -38,6 +38,8 @@
 #include "plasma/test-util.h"
 
 namespace plasma {
+
+using arrow::internal::TemporaryDir;
 
 std::string external_test_executable;  // NOLINT
 
@@ -52,10 +54,8 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
   // TODO(pcm): At the moment, stdout of the test gets mixed up with
   // stdout of the object store. Consider changing that.
   void SetUp() override {
-    uint64_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-    std::mt19937 rng(static_cast<uint32_t>(seed));
-    std::string store_index = std::to_string(rng());
-    store_socket_name_ = "/tmp/store_with_external" + store_index;
+    ARROW_CHECK_OK(TemporaryDir::Make("ext-test-", &temp_dir_));
+    store_socket_name_ = temp_dir_->path().ToString() + "store";
 
     std::string plasma_directory =
         external_test_executable.substr(0, external_test_executable.find_last_of('/'));
@@ -67,6 +67,7 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
     PLASMA_CHECK_SYSTEM(system(plasma_command.c_str()));
     ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
   }
+
   void TearDown() override {
     ARROW_CHECK_OK(client_.Disconnect());
     // Kill plasma_store process that we started
@@ -85,6 +86,7 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
 
  protected:
   PlasmaClient client_;
+  std::unique_ptr<TemporaryDir> temp_dir_;
   std::string store_socket_name_;
 };
 

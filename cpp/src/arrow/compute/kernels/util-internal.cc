@@ -58,7 +58,7 @@ Status AllocateValueBuffer(FunctionContext* ctx, const DataType& type, int64_t l
     if (bit_width == 1) {
       buffer_size = BitUtil::BytesForBits(length);
     } else {
-      DCHECK_EQ(bit_width % 8, 0)
+      ARROW_CHECK_EQ(bit_width % 8, 0)
           << "Only bit widths with multiple of 8 are currently supported";
       buffer_size = length * fw_type.bit_width() / 8;
     }
@@ -182,7 +182,7 @@ Datum WrapArraysLike(const Datum& value,
   } else if (value.kind() == Datum::CHUNKED_ARRAY) {
     return Datum(std::make_shared<ChunkedArray>(arrays));
   } else {
-    DCHECK(false) << "unhandled datum kind";
+    ARROW_LOG(FATAL) << "unhandled datum kind";
     return Datum();
   }
 }
@@ -200,7 +200,7 @@ Datum WrapDatumsLike(const Datum& value, const std::vector<Datum>& datums) {
     }
     return Datum(std::make_shared<ChunkedArray>(arrays));
   } else {
-    DCHECK(false) << "unhandled datum kind";
+    ARROW_LOG(FATAL) << "unhandled datum kind";
     return Datum();
   }
 }
@@ -236,6 +236,31 @@ Status PropagateNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* o
   return Status::OK();
 }
 
+Status PropagateNulls(FunctionContext* ctx, const ArrayData& lhs, const ArrayData& rhs,
+                      ArrayData* output) {
+  return AssignNullIntersection(ctx, lhs, rhs, output);
+}
+
+Status SetAllNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* output) {
+  const int64_t length = input.length;
+  if (output->buffers.size() == 0) {
+    // Ensure we can assign a buffer
+    output->buffers.resize(1);
+  }
+
+  // Handle validity bitmap
+  if (output->buffers[0] == nullptr) {
+    std::shared_ptr<Buffer> buffer;
+    RETURN_NOT_OK(ctx->Allocate(BitUtil::BytesForBits(length), &buffer));
+    output->buffers[0] = std::move(buffer);
+  }
+
+  output->null_count = length;
+  BitUtil::SetBitsTo(output->buffers[0]->mutable_data(), 0, length, false);
+
+  return Status::OK();
+}
+
 Status AssignNullIntersection(FunctionContext* ctx, const ArrayData& left,
                               const ArrayData& right, ArrayData* output) {
   if (output->buffers.size() == 0) {
@@ -262,16 +287,11 @@ Status AssignNullIntersection(FunctionContext* ctx, const ArrayData& left,
 
 Status PrimitiveAllocatingUnaryKernel::Call(FunctionContext* ctx, const Datum& input,
                                             Datum* out) {
-  std::vector<std::shared_ptr<Buffer>> data_buffers;
-  const ArrayData& in_data = *input.array();
-
   DCHECK_EQ(out->kind(), Datum::ARRAY);
-
   ArrayData* result = out->array().get();
-
   result->buffers.resize(2);
 
-  const int64_t length = in_data.length;
+  const int64_t length = input.length();
   // Allocate the value buffer
   RETURN_NOT_OK(AllocateValueBuffer(ctx, *out_type(), length, &(result->buffers[1])));
   return delegate_->Call(ctx, input, out);
@@ -286,19 +306,11 @@ PrimitiveAllocatingBinaryKernel::PrimitiveAllocatingBinaryKernel(BinaryKernel* d
 
 Status PrimitiveAllocatingBinaryKernel::Call(FunctionContext* ctx, const Datum& left,
                                              const Datum& right, Datum* out) {
-  std::vector<std::shared_ptr<Buffer>> data_buffers;
-  DCHECK_EQ(left.kind(), Datum::ARRAY);
-  DCHECK_EQ(right.kind(), Datum::ARRAY);
-  const ArrayData& left_data = *left.array();
-  DCHECK_EQ(left_data.length, right.array()->length);
-
   DCHECK_EQ(out->kind(), Datum::ARRAY);
-
   ArrayData* result = out->array().get();
-
   result->buffers.resize(2);
 
-  const int64_t length = left_data.length;
+  const int64_t length = result->length;
   RETURN_NOT_OK(AllocateValueBuffer(ctx, *out_type(), length, &(result->buffers[1])));
 
   // Allocate the value buffer

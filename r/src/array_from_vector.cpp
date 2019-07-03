@@ -16,6 +16,7 @@
 // under the License.
 
 #include "./arrow_types.h"
+#if defined(ARROW_R_WITH_ARROW)
 
 namespace arrow {
 namespace r {
@@ -141,8 +142,11 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
       ArrayData::Make(std::make_shared<Type>(), n, std::move(buffers), null_count, 0);
   auto array_indices = MakeArray(array_indices_data);
 
+  SEXP levels = Rf_getAttrib(factor, R_LevelsSymbol);
+  auto dict = MakeStringArray(levels);
+
   std::shared_ptr<Array> out;
-  STOP_IF_NOT_OK(DictionaryArray::FromArrays(type, array_indices, &out));
+  STOP_IF_NOT_OK(DictionaryArray::FromArrays(type, array_indices, dict, &out));
   return out;
 }
 
@@ -157,6 +161,15 @@ std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor,
   } else {
     return MakeFactorArrayImpl<arrow::Int32Type>(factor, type);
   }
+}
+
+std::shared_ptr<Array> MakeStructArray(SEXP df, const std::shared_ptr<DataType>& type) {
+  int n = type->num_children();
+  std::vector<std::shared_ptr<Array>> children(n);
+  for (int i = 0; i < n; i++) {
+    children[i] = Array__from_vector(VECTOR_ELT(df, i), type->child(i)->type(), true);
+  }
+  return std::make_shared<StructArray>(type, children[0]->length(), children);
 }
 
 template <typename T>
@@ -182,9 +195,25 @@ using internal::checked_cast;
 
 namespace internal {
 
-template <typename T, typename Target>
+template <typename T, typename Target,
+          typename std::enable_if<std::is_signed<Target>::value, Target>::type = 0>
 Status int_cast(T x, Target* out) {
   if (x < std::numeric_limits<Target>::min() || x > std::numeric_limits<Target>::max()) {
+    return Status::Invalid("Value is too large to fit in C integer type");
+  }
+  *out = static_cast<Target>(x);
+  return Status::OK();
+}
+
+template <typename T>
+struct usigned_type;
+
+template <typename T, typename Target,
+          typename std::enable_if<std::is_unsigned<Target>::value, Target>::type = 0>
+Status int_cast(T x, Target* out) {
+  // we need to compare between unsigned integers
+  uint64_t x64 = x;
+  if (x64 < 0 || x64 > std::numeric_limits<Target>::max()) {
     return Status::Invalid("Value is too large to fit in C integer type");
   }
   *out = static_cast<Target>(x);
@@ -251,8 +280,7 @@ class VectorConverter {
   virtual Status Ingest(SEXP obj) = 0;
 
   virtual Status GetResult(std::shared_ptr<arrow::Array>* result) {
-    RETURN_NOT_OK(builder_->Finish(result));
-    return Status::OK();
+    return builder_->Finish(result);
   }
 
   ArrayBuilder* builder() const { return builder_; }
@@ -280,7 +308,7 @@ struct Unbox<Type, enable_if_integer<Type>> {
           return IngestRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)),
                                       XLENGTH(obj), NA_INT64);
         }
-      // TODO: handle aw and logical
+      // TODO: handle raw and logical
       default:
         break;
     }
@@ -297,7 +325,7 @@ struct Unbox<Type, enable_if_integer<Type>> {
       if (*p == na) {
         builder->UnsafeAppendNull();
       } else {
-        CType value;
+        CType value = 0;
         RETURN_NOT_OK(internal::int_cast(*p, &value));
         builder->UnsafeAppend(value);
       }
@@ -375,7 +403,7 @@ struct Unbox<FloatType> {
       if (*p == NA_INTEGER) {
         builder->UnsafeAppendNull();
       } else {
-        float value;
+        float value = 0;
         RETURN_NOT_OK(internal::float_cast(*p, &value));
         builder->UnsafeAppend(value);
       }
@@ -709,14 +737,12 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(DATE32, Date32Converter);
     SIMPLE_CONVERTER_CASE(DATE64, Date64Converter);
 
-      // TODO: probably after we merge ARROW-3628
-      // case Type::DECIMAL:
+    // TODO: probably after we merge ARROW-3628
+    // case Type::DECIMAL:
 
-    case Type::DICTIONARY:
-
-      TIME_CONVERTER_CASE(TIME32, Time32Type, Time32Converter);
-      TIME_CONVERTER_CASE(TIME64, Time64Type, Time64Converter);
-      TIME_CONVERTER_CASE(TIMESTAMP, TimestampType, TimestampConverter);
+    TIME_CONVERTER_CASE(TIME32, Time32Type, Time32Converter);
+    TIME_CONVERTER_CASE(TIME64, Time64Type, Time64Converter);
+    TIME_CONVERTER_CASE(TIMESTAMP, TimestampType, TimestampConverter);
 
     default:
       break;
@@ -725,27 +751,32 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
 }
 
 template <typename Type>
-std::shared_ptr<arrow::DataType> GetFactorTypeImpl(Rcpp::IntegerVector_ factor) {
-  auto dict_values = MakeStringArray(Rf_getAttrib(factor, R_LevelsSymbol));
-  auto dict_type =
-      dictionary(std::make_shared<Type>(), dict_values, Rf_inherits(factor, "ordered"));
-  return dict_type;
+std::shared_ptr<arrow::DataType> GetFactorTypeImpl(bool ordered) {
+  return dictionary(std::make_shared<Type>(), arrow::utf8(), ordered);
 }
 
 std::shared_ptr<arrow::DataType> GetFactorType(SEXP factor) {
   SEXP levels = Rf_getAttrib(factor, R_LevelsSymbol);
+  bool is_ordered = Rf_inherits(factor, "ordered");
   int n = Rf_length(levels);
   if (n < 128) {
-    return GetFactorTypeImpl<arrow::Int8Type>(factor);
+    return GetFactorTypeImpl<arrow::Int8Type>(is_ordered);
   } else if (n < 32768) {
-    return GetFactorTypeImpl<arrow::Int16Type>(factor);
+    return GetFactorTypeImpl<arrow::Int16Type>(is_ordered);
   } else {
-    return GetFactorTypeImpl<arrow::Int32Type>(factor);
+    return GetFactorTypeImpl<arrow::Int32Type>(is_ordered);
   }
 }
 
 std::shared_ptr<arrow::DataType> InferType(SEXP x) {
   switch (TYPEOF(x)) {
+    case ENVSXP:
+      if (Rf_inherits(x, "arrow::Array")) {
+        Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Array>> array(
+            x);
+        return static_cast<std::shared_ptr<arrow::Array>>(array)->type();
+      }
+      break;
     case LGLSXP:
       return boolean();
     case INTSXP:
@@ -777,6 +808,18 @@ std::shared_ptr<arrow::DataType> InferType(SEXP x) {
       return int8();
     case STRSXP:
       return utf8();
+    case VECSXP:
+      if (Rf_inherits(x, "data.frame")) {
+        R_xlen_t n = XLENGTH(x);
+        SEXP names = Rf_getAttrib(x, R_NamesSymbol);
+        std::vector<std::shared_ptr<arrow::Field>> fields(n);
+        for (R_xlen_t i = 0; i < n; i++) {
+          fields[i] = std::make_shared<arrow::Field>(CHAR(STRING_ELT(names, i)),
+                                                     InferType(VECTOR_ELT(x, i)));
+        }
+        return std::make_shared<StructType>(std::move(fields));
+      }
+      break;
     default:
       break;
   }
@@ -864,7 +907,7 @@ std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
   }
 
   auto data = ArrayData::Make(std::make_shared<Type>(), LENGTH(x), std::move(buffers),
-                              null_count, 0);
+                              null_count, 0 /*offset*/);
 
   // return the right Array class
   return std::make_shared<typename TypeTraits<Type>::ArrayType>(data);
@@ -880,7 +923,7 @@ std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x) {
       }
       return MakeSimpleArray<REALSXP, DoubleType>(x);
     case RAWSXP:
-      return MakeSimpleArray<RAWSXP, Int8Type>(x);
+      return MakeSimpleArray<RAWSXP, UInt8Type>(x);
     default:
       break;
   }
@@ -893,25 +936,47 @@ bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& typ
 
   arrow::DictionaryType* dict_type =
       arrow::checked_cast<arrow::DictionaryType*>(type.get());
-  auto dictionary = dict_type->dictionary();
-  if (dictionary->type() != utf8()) return false;
+  return dict_type->value_type() == utf8();
+}
 
-  // then compare levels
-  auto typed_dict = checked_cast<arrow::StringArray*>(dictionary.get());
-  SEXP levels = Rf_getAttrib(obj, R_LevelsSymbol);
-
-  R_xlen_t n = XLENGTH(levels);
-  if (n != typed_dict->length()) return false;
-
-  for (R_xlen_t i = 0; i < n; i++) {
-    if (typed_dict->GetString(i) != CHAR(STRING_ELT(levels, i))) return false;
+arrow::Status CheckCompatibleStruct(SEXP obj,
+                                    const std::shared_ptr<arrow::DataType>& type) {
+  if (!Rf_inherits(obj, "data.frame")) {
+    return Status::RError("Conversion to struct arrays requires a data.frame");
   }
 
-  return true;
+  // check the number of columns
+  int num_fields = type->num_children();
+  if (XLENGTH(obj) != num_fields) {
+    return Status::RError("Number of fields in struct (", num_fields,
+                          ") incompatible with number of columns in the data frame (",
+                          XLENGTH(obj), ")");
+  }
+
+  // check the names of each column
+  //
+  // the columns themselves are not checked against the
+  // types of the fields, because Array__from_vector will error
+  // when not compatible.
+  SEXP names = Rf_getAttrib(obj, R_NamesSymbol);
+  for (int i = 0; i < num_fields; i++) {
+    if (type->child(i)->name() != CHAR(STRING_ELT(names, i))) {
+      return Status::RError("Field name in position ", i, " (", type->child(i)->name(),
+                            ") does not match the name of the column of the data frame (",
+                            CHAR(STRING_ELT(names, i)), ")");
+    }
+  }
+
+  return Status::OK();
 }
 
 std::shared_ptr<arrow::Array> Array__from_vector(
     SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_infered) {
+  // short circuit if `x` is already an Array
+  if (Rf_inherits(x, "arrow::Array")) {
+    return Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Array>>(x);
+  }
+
   // special case when we can just use the data from the R vector
   // directly. This still needs to handle the null bitmap
   if (arrow::r::can_reuse_memory(x, type)) {
@@ -931,6 +996,15 @@ std::shared_ptr<arrow::Array> Array__from_vector(
     }
 
     Rcpp::stop("Object incompatible with dictionary type");
+  }
+
+  // struct types
+  if (type->id() == Type::STRUCT) {
+    if (!type_infered) {
+      STOP_IF_NOT_OK(arrow::r::CheckCompatibleStruct(x, type));
+    }
+
+    return arrow::r::MakeStructArray(x, type);
   }
 
   // general conversion with converter and builder
@@ -953,12 +1027,12 @@ std::shared_ptr<arrow::Array> Array__from_vector(
 }  // namespace r
 }  // namespace arrow
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x) {
   return arrow::r::InferType(x);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
   // the type might be NULL, in which case we need to infer it from the data
   // we keep track of whether it was infered or supplied
@@ -973,7 +1047,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
   return arrow::r::Array__from_vector(x, type, type_infered);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks,
                                                              SEXP s_type) {
   std::vector<std::shared_ptr<arrow::Array>> vec;
@@ -1014,3 +1088,5 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks,
 
   return std::make_shared<arrow::ChunkedArray>(std::move(vec));
 }
+
+#endif

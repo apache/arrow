@@ -18,6 +18,7 @@
 #![feature(specialization)]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
+#![allow(bare_trait_objects)]
 
 #[macro_use]
 pub mod errors;
@@ -30,10 +31,10 @@ pub use self::util::memory;
 
 #[macro_use]
 mod util;
+pub mod arrow;
 pub mod column;
 pub mod compression;
 mod encodings;
 pub mod file;
-pub mod reader;
 pub mod record;
 pub mod schema;

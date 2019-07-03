@@ -18,6 +18,7 @@
 package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 
 import io.netty.buffer.ArrowBuf;
@@ -27,6 +28,8 @@ import io.netty.buffer.ArrowBuf;
  * External use of this class is not recommended.
  */
 public class BitVectorHelper {
+
+  private BitVectorHelper() {}
 
   /**
    * Get the index of byte corresponding to bit index in validity buffer.
@@ -123,7 +126,7 @@ public class BitVectorHelper {
    * @return buffer size
    */
   public static int getValidityBufferSize(int valueCount) {
-    return ((int) Math.ceil(valueCount / 8.0));
+    return DataSizeRoundingUtil.divideBy8Ceil(valueCount);
   }
 
   /**
@@ -161,14 +164,28 @@ public class BitVectorHelper {
     return 8 * sizeInBytes - count;
   }
 
+  /** Returns the byte at index from data right-shifted by offset. */
   public static byte getBitsFromCurrentByte(final ArrowBuf data, final int index, final int offset) {
     return (byte) ((data.getByte(index) & 0xFF) >>> offset);
   }
 
+  /**
+   * Returns the byte at <code>index</code> from left-shifted by (8 - <code>offset</code>).
+   */
   public static byte getBitsFromNextByte(ArrowBuf data, int index, int offset) {
     return (byte) ((data.getByte(index) << (8 - offset)));
   }
 
+  /**
+   * Returns a new buffer if the source validity buffer is either all null or all
+   * not-null, otherwise returns a buffer pointing to the same memory as source.
+   *
+   * @param fieldNode The fieldNode containing the null count
+   * @param sourceValidityBuffer The source validity buffer that will have its
+   *     position copied if there is a mix of null and non-null values
+   * @param allocator The allocator to use for creating a new buffer if necessary.
+   * @return A new buffer that is either allocated or points to the same memory as sourceValidityBuffer.
+   */
   public static ArrowBuf loadValidityBuffer(final ArrowFieldNode fieldNode,
                                             final ArrowBuf sourceValidityBuffer,
                                             final BufferAllocator allocator) {
@@ -196,7 +213,7 @@ public class BitVectorHelper {
       /* mixed byte pattern -- create another ArrowBuf associated with the
        * target allocator
        */
-      newBuffer = sourceValidityBuffer.retain(allocator);
+      newBuffer = sourceValidityBuffer.getReferenceManager().retain(sourceValidityBuffer, allocator);
     }
 
     return newBuffer;

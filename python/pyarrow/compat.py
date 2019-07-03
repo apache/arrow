@@ -17,6 +17,8 @@
 
 # flake8: noqa
 
+from __future__ import absolute_import
+
 import itertools
 
 import numpy as np
@@ -44,6 +46,8 @@ if PY2:
         from cdecimal import Decimal
     except ImportError:
         from decimal import Decimal
+
+    from collections import Iterable, Mapping, Sequence
 
     unicode_type = unicode
     file_type = file
@@ -81,6 +85,8 @@ else:
     except ImportError:
         import pickle as builtin_pickle
 
+    from collections.abc import Iterable, Mapping, Sequence
+
     unicode_type = str
     file_type = None
     def lzip(*x):
@@ -111,6 +117,15 @@ else:
 
     def unichar(s):
         return chr(s)
+
+
+if sys.version_info >= (3, 7):
+    # Starting with Python 3.7, dicts are guaranteed to be insertion-ordered.
+    ordered_dict = dict
+else:
+    import collections
+    ordered_dict = collections.OrderedDict
+
 
 try:
     import cloudpickle as pickle

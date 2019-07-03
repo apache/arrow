@@ -19,8 +19,8 @@ import { Data } from './data';
 import { Field } from './schema';
 import { DataType } from './type';
 import { Vector } from './vector';
-import { VectorCtorArgs, Vector as V } from './interfaces';
 import { Clonable, Sliceable, Applicative } from './vector';
+import { VectorCtorArgs, VectorType as V } from './interfaces';
 import { Chunked, SearchContinuation } from './vector/chunked';
 
 export interface Column<T extends DataType = any> {
@@ -49,7 +49,7 @@ export class Column<T extends DataType = any>
 
         if (typeof field === 'string') {
             const type = chunks[0].data.type;
-            field = new Field(field, type, chunks.some(({ nullCount }) => nullCount > 0));
+            field = new Field(field, type, true);
         } else if (!field.nullable && chunks.some(({ nullCount }) => nullCount > 0)) {
             field = field.clone({ nullable: true });
         }
@@ -98,6 +98,7 @@ export class Column<T extends DataType = any>
     }
 }
 
+/** @ignore */
 class SingleChunkColumn<T extends DataType = any> extends Column<T> {
     protected _chunk: Vector<T>;
     constructor(field: Field<T>, vector: Vector<T>, offsets?: Uint32Array) {

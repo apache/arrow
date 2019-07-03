@@ -26,6 +26,7 @@ arrow-src.tar.gz
 *.py[ocd]
 *.so
 *.so.*
+*.bundle
 *.dylib
 .build_cache_dir
 dependency-reduced-pom.xml
@@ -50,6 +51,8 @@ docs/example1.dat
 docs/example3.dat
 python/.eggs/
 python/doc/
+# Egg metadata
+*.egg-info
 
 .vscode
 .idea/
@@ -58,3 +61,6 @@ pkgs
 .Rproj.user
 arrow.Rcheck/
 docker_cache
+.gdb_history
+.DS_Store
+*.orig

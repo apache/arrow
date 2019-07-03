@@ -22,6 +22,7 @@
 #include <cstring>
 #include <limits>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 #include "arrow/array.h"
@@ -35,6 +36,7 @@
 #include "arrow/ipc/util.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/result_internal.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -43,12 +45,14 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/stl.h"
 #include "arrow/visitor.h"
 
 namespace arrow {
 
 using internal::checked_cast;
 using internal::CopyBitmap;
+using internal::make_unique;
 
 namespace ipc {
 
@@ -271,6 +275,30 @@ class RecordBatchSerializer : public ArrayVisitor {
     return Status::OK();
   }
 
+  Status VisitList(const ListArray& array) {
+    std::shared_ptr<Buffer> value_offsets;
+    RETURN_NOT_OK(GetZeroBasedValueOffsets<ListArray>(array, &value_offsets));
+    out_->body_buffers.emplace_back(value_offsets);
+
+    --max_recursion_depth_;
+    std::shared_ptr<Array> values = array.values();
+
+    int32_t values_offset = 0;
+    int32_t values_length = 0;
+    if (value_offsets) {
+      values_offset = array.value_offset(0);
+      values_length = array.value_offset(array.length()) - values_offset;
+    }
+
+    if (array.offset() != 0 || values_length < values->length()) {
+      // Must also slice the values
+      values = values->Slice(values_offset, values_length);
+    }
+    RETURN_NOT_OK(VisitArray(*values));
+    ++max_recursion_depth_;
+    return Status::OK();
+  }
+
   Status Visit(const BooleanArray& array) override {
     std::shared_ptr<Buffer> data;
     RETURN_NOT_OK(
@@ -301,6 +329,9 @@ class RecordBatchSerializer : public ArrayVisitor {
   VISIT_FIXED_WIDTH(Date32Array)
   VISIT_FIXED_WIDTH(Date64Array)
   VISIT_FIXED_WIDTH(TimestampArray)
+  VISIT_FIXED_WIDTH(DurationArray)
+  VISIT_FIXED_WIDTH(MonthIntervalArray)
+  VISIT_FIXED_WIDTH(DayTimeIntervalArray)
   VISIT_FIXED_WIDTH(Time32Array)
   VISIT_FIXED_WIDTH(Time64Array)
   VISIT_FIXED_WIDTH(FixedSizeBinaryArray)
@@ -312,25 +343,15 @@ class RecordBatchSerializer : public ArrayVisitor {
 
   Status Visit(const BinaryArray& array) override { return VisitBinary(array); }
 
-  Status Visit(const ListArray& array) override {
-    std::shared_ptr<Buffer> value_offsets;
-    RETURN_NOT_OK(GetZeroBasedValueOffsets<ListArray>(array, &value_offsets));
-    out_->body_buffers.emplace_back(value_offsets);
+  Status Visit(const ListArray& array) override { return VisitList(array); }
 
+  Status Visit(const MapArray& array) override { return VisitList(array); }
+
+  Status Visit(const FixedSizeListArray& array) override {
     --max_recursion_depth_;
-    std::shared_ptr<Array> values = array.values();
+    auto size = array.list_type()->list_size();
+    auto values = array.values()->Slice(array.offset() * size, array.length() * size);
 
-    int32_t values_offset = 0;
-    int32_t values_length = 0;
-    if (value_offsets) {
-      values_offset = array.value_offset(0);
-      values_length = array.value_offset(array.length()) - values_offset;
-    }
-
-    if (array.offset() != 0 || values_length < values->length()) {
-      // Must also slice the values
-      values = values->Slice(values_offset, values_length);
-    }
     RETURN_NOT_OK(VisitArray(*values));
     ++max_recursion_depth_;
     return Status::OK();
@@ -529,17 +550,24 @@ Status WriteIpcPayload(const IpcPayload& payload, io::OutputStream* dst,
   return Status::OK();
 }
 
-Status GetSchemaPayload(const Schema& schema, MemoryPool* pool,
-                        DictionaryMemo* dictionary_memo, IpcPayload* out) {
-  out->type = Message::Type::SCHEMA;
-  out->body_buffers.clear();
-  out->body_length = 0;
-  RETURN_NOT_OK(SerializeSchema(schema, pool, &out->metadata));
+Status GetSchemaPayload(const Schema& schema, DictionaryMemo* dictionary_memo,
+                        IpcPayload* out) {
+  out->type = Message::SCHEMA;
   return WriteSchemaMessage(schema, dictionary_memo, &out->metadata);
+}
+
+Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary,
+                            MemoryPool* pool, IpcPayload* out) {
+  out->type = Message::DICTIONARY_BATCH;
+  // Frame of reference is 0, see ARROW-384
+  DictionaryWriter writer(id, pool, /*buffer_start_offset=*/0, ipc::kMaxNestingDepth,
+                          true /* allow_64bit */, out);
+  return writer.Assemble(dictionary);
 }
 
 Status GetRecordBatchPayload(const RecordBatch& batch, MemoryPool* pool,
                              IpcPayload* out) {
+  out->type = Message::RECORD_BATCH;
   RecordBatchSerializer writer(pool, 0, kMaxNestingDepth, true, out);
   return writer.Assemble(batch);
 }
@@ -566,8 +594,8 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
 
 Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& batches,
                               io::OutputStream* dst) {
-  std::shared_ptr<RecordBatchWriter> writer;
-  RETURN_NOT_OK(RecordBatchStreamWriter::Open(dst, batches[0]->schema(), &writer));
+  ASSIGN_OR_RAISE(std::shared_ptr<RecordBatchWriter> writer,
+                  RecordBatchStreamWriter::Open(dst, batches[0]->schema()));
   for (const auto& batch : batches) {
     // allow sizes > INT32_MAX
     DCHECK(batch->schema()->Equals(*batches[0]->schema())) << "Schemas unequal";
@@ -790,9 +818,7 @@ Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dict
                        int64_t buffer_start_offset, io::OutputStream* dst,
                        int32_t* metadata_length, int64_t* body_length, MemoryPool* pool) {
   internal::IpcPayload payload;
-  internal::DictionaryWriter writer(dictionary_id, pool, buffer_start_offset,
-                                    kMaxNestingDepth, true, &payload);
-  RETURN_NOT_OK(writer.Assemble(dictionary));
+  RETURN_NOT_OK(GetDictionaryPayload(dictionary_id, dictionary, pool, &payload));
 
   // The body size is computed in the payload
   *body_length = payload.body_length;
@@ -846,11 +872,116 @@ Status RecordBatchWriter::WriteTable(const Table& table, int64_t max_chunksize) 
 Status RecordBatchWriter::WriteTable(const Table& table) { return WriteTable(table, -1); }
 
 // ----------------------------------------------------------------------
-// Stream writer implementation
+// Payload writer implementation
+
+namespace internal {
+
+IpcPayloadWriter::~IpcPayloadWriter() {}
+
+Status IpcPayloadWriter::Start() { return Status::OK(); }
+
+}  // namespace internal
+
+namespace {
+
+/// A RecordBatchWriter implementation that writes to a IpcPayloadWriter.
+class RecordBatchPayloadWriter : public RecordBatchWriter {
+ public:
+  ~RecordBatchPayloadWriter() override = default;
+
+  RecordBatchPayloadWriter(std::unique_ptr<internal::IpcPayloadWriter> payload_writer,
+                           const Schema& schema, DictionaryMemo* out_memo = nullptr)
+      : payload_writer_(std::move(payload_writer)),
+        schema_(schema),
+        pool_(default_memory_pool()),
+        dictionary_memo_(out_memo) {
+    if (out_memo == nullptr) {
+      dictionary_memo_ = &internal_dict_memo_;
+    }
+  }
+
+  // A Schema-owning constructor variant
+  RecordBatchPayloadWriter(std::unique_ptr<internal::IpcPayloadWriter> payload_writer,
+                           const std::shared_ptr<Schema>& schema,
+                           DictionaryMemo* out_memo = nullptr)
+      : RecordBatchPayloadWriter(std::move(payload_writer), *schema, out_memo) {
+    shared_schema_ = schema;
+  }
+
+  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override {
+    if (!batch.schema()->Equals(schema_, false /* check_metadata */)) {
+      return Status::Invalid("Tried to write record batch with different schema");
+    }
+
+    RETURN_NOT_OK(CheckStarted());
+
+    if (!wrote_dictionaries_) {
+      RETURN_NOT_OK(WriteDictionaries(batch));
+      wrote_dictionaries_ = true;
+    }
+
+    // TODO(wesm): Check for delta dictionaries. Can we scan for
+    // deltas while computing the RecordBatch payload to save time?
+
+    internal::IpcPayload payload;
+    RETURN_NOT_OK(GetRecordBatchPayload(batch, pool_, &payload));
+    return payload_writer_->WritePayload(payload);
+  }
+
+  Status Close() override {
+    RETURN_NOT_OK(CheckStarted());
+    return payload_writer_->Close();
+  }
+
+  void set_memory_pool(MemoryPool* pool) override { pool_ = pool; }
+
+  Status Start() {
+    started_ = true;
+    RETURN_NOT_OK(payload_writer_->Start());
+
+    internal::IpcPayload payload;
+    RETURN_NOT_OK(GetSchemaPayload(schema_, dictionary_memo_, &payload));
+    return payload_writer_->WritePayload(payload);
+  }
+
+ protected:
+  Status CheckStarted() {
+    if (!started_) {
+      return Start();
+    }
+    return Status::OK();
+  }
+
+  Status WriteDictionaries(const RecordBatch& batch) {
+    RETURN_NOT_OK(CollectDictionaries(batch, dictionary_memo_));
+
+    for (auto& pair : dictionary_memo_->id_to_dictionary()) {
+      internal::IpcPayload payload;
+      int64_t dictionary_id = pair.first;
+      const auto& dictionary = pair.second;
+
+      RETURN_NOT_OK(GetDictionaryPayload(dictionary_id, dictionary, pool_, &payload));
+      RETURN_NOT_OK(payload_writer_->WritePayload(payload));
+    }
+    return Status::OK();
+  }
+
+ protected:
+  std::unique_ptr<internal::IpcPayloadWriter> payload_writer_;
+  std::shared_ptr<Schema> shared_schema_;
+  const Schema& schema_;
+  MemoryPool* pool_;
+  DictionaryMemo* dictionary_memo_;
+  DictionaryMemo internal_dict_memo_;
+  bool started_ = false;
+  bool wrote_dictionaries_ = false;
+};
+
+// ----------------------------------------------------------------------
+// Stream and file writer implementation
 
 class StreamBookKeeper {
  public:
-  StreamBookKeeper() : sink_(nullptr), position_(-1) {}
   explicit StreamBookKeeper(io::OutputStream* sink) : sink_(sink), position_(-1) {}
 
   Status UpdatePosition() { return sink_->Tell(&position_); }
@@ -883,140 +1014,134 @@ class StreamBookKeeper {
   int64_t position_;
 };
 
-class SchemaWriter : public StreamBookKeeper {
- public:
-  SchemaWriter(const Schema& schema, DictionaryMemo* dictionary_memo, MemoryPool* pool,
-               io::OutputStream* sink)
-      : StreamBookKeeper(sink),
-        pool_(pool),
-        schema_(schema),
-        dictionary_memo_(dictionary_memo) {}
+// End of stream marker
+constexpr int32_t kEos = 0;
 
-  Status WriteSchema() {
+/// A IpcPayloadWriter implementation that writes to a IPC stream
+/// (with an end-of-stream marker)
+class PayloadStreamWriter : public internal::IpcPayloadWriter,
+                            protected StreamBookKeeper {
+ public:
+  explicit PayloadStreamWriter(io::OutputStream* sink) : StreamBookKeeper(sink) {}
+
+  ~PayloadStreamWriter() override = default;
+
+  Status WritePayload(const internal::IpcPayload& payload) override {
 #ifndef NDEBUG
     // Catch bug fixed in ARROW-3236
     RETURN_NOT_OK(UpdatePositionCheckAligned());
 #endif
 
-    std::shared_ptr<Buffer> schema_fb;
-    RETURN_NOT_OK(internal::WriteSchemaMessage(schema_, dictionary_memo_, &schema_fb));
-
-    int32_t metadata_length = 0;
-    RETURN_NOT_OK(internal::WriteMessage(*schema_fb, 8, sink_, &metadata_length));
+    int32_t metadata_length = 0;  // unused
+    RETURN_NOT_OK(WriteIpcPayload(payload, sink_, &metadata_length));
     RETURN_NOT_OK(UpdatePositionCheckAligned());
     return Status::OK();
   }
 
-  Status WriteDictionaries(std::vector<FileBlock>* dictionaries) {
-    const DictionaryMap& id_to_dictionary = dictionary_memo_->id_to_dictionary();
-
-    dictionaries->resize(id_to_dictionary.size());
-
-    // TODO(wesm): does sorting by id yield any benefit?
-    int dict_index = 0;
-    for (const auto& entry : id_to_dictionary) {
-      FileBlock* block = &(*dictionaries)[dict_index++];
-
-      block->offset = position_;
-
-      // Frame of reference in file format is 0, see ARROW-384
-      const int64_t buffer_start_offset = 0;
-      RETURN_NOT_OK(WriteDictionary(entry.first, entry.second, buffer_start_offset, sink_,
-                                    &block->metadata_length, &block->body_length, pool_));
-      RETURN_NOT_OK(UpdatePositionCheckAligned());
-    }
-
-    return Status::OK();
-  }
-
-  Status Write(std::vector<FileBlock>* dictionaries) {
-    RETURN_NOT_OK(WriteSchema());
-
-    // If there are any dictionaries, write them as the next messages
-    return WriteDictionaries(dictionaries);
-  }
-
- private:
-  MemoryPool* pool_;
-  const Schema& schema_;
-  DictionaryMemo* dictionary_memo_;
-};
-
-class RecordBatchStreamWriter::RecordBatchStreamWriterImpl : public StreamBookKeeper {
- public:
-  RecordBatchStreamWriterImpl(io::OutputStream* sink,
-                              const std::shared_ptr<Schema>& schema)
-      : StreamBookKeeper(sink),
-        schema_(schema),
-        pool_(default_memory_pool()),
-        started_(false) {}
-
-  virtual ~RecordBatchStreamWriterImpl() = default;
-
-  virtual Status Start() {
-    SchemaWriter schema_writer(*schema_, &dictionary_memo_, pool_, sink_);
-    RETURN_NOT_OK(schema_writer.Write(&dictionaries_));
-    started_ = true;
-    return Status::OK();
-  }
-
-  virtual Status Close() {
-    // Write the schema if not already written
-    // User is responsible for closing the OutputStream
-    RETURN_NOT_OK(CheckStarted());
-
+  Status Close() override {
     // Write 0 EOS message
-    const int32_t kEos = 0;
     return Write(&kEos, sizeof(int32_t));
   }
+};
 
-  Status CheckStarted() {
-    if (!started_) {
-      return Start();
-    }
-    return Status::OK();
-  }
+/// A IpcPayloadWriter implementation that writes to a IPC file
+/// (with a footer as defined in File.fbs)
+class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBookKeeper {
+ public:
+  PayloadFileWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema)
+      : StreamBookKeeper(sink), schema_(schema) {}
 
-  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit, FileBlock* block) {
-    RETURN_NOT_OK(CheckStarted());
-    RETURN_NOT_OK(UpdatePosition());
+  ~PayloadFileWriter() override = default;
 
-    block->offset = position_;
+  Status WritePayload(const internal::IpcPayload& payload) override {
+#ifndef NDEBUG
+    // Catch bug fixed in ARROW-3236
+    RETURN_NOT_OK(UpdatePositionCheckAligned());
+#endif
 
-    // Frame of reference in file format is 0, see ARROW-384
-    const int64_t buffer_start_offset = 0;
-    RETURN_NOT_OK(arrow::ipc::WriteRecordBatch(
-        batch, buffer_start_offset, sink_, &block->metadata_length, &block->body_length,
-        pool_, kMaxNestingDepth, allow_64bit));
+    // Metadata length must include padding, it's computed by WriteIpcPayload()
+    FileBlock block = {position_, 0, payload.body_length};
+    RETURN_NOT_OK(WriteIpcPayload(payload, sink_, &block.metadata_length));
     RETURN_NOT_OK(UpdatePositionCheckAligned());
 
+    // Record position and size of some message types, to list them in the footer
+    switch (payload.type) {
+      case Message::DICTIONARY_BATCH:
+        dictionaries_.push_back(block);
+        break;
+      case Message::RECORD_BATCH:
+        record_batches_.push_back(block);
+        break;
+      default:
+        break;
+    }
+
     return Status::OK();
   }
 
-  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit) {
-    // Push an empty FileBlock. Can be written in the footer later
-    if (!batch.schema()->Equals(*schema_, false /* check_metadata */)) {
-      return Status::Invalid("Tried to write record batch with different schema");
-    }
+  Status Start() override {
+    // ARROW-3236: The initial position -1 needs to be updated to the stream's
+    // current position otherwise an incorrect amount of padding will be
+    // written to new files.
+    RETURN_NOT_OK(UpdatePosition());
 
-    record_batches_.push_back({0, 0, 0});
-    return WriteRecordBatch(batch, allow_64bit,
-                            &record_batches_[record_batches_.size() - 1]);
+    // It is only necessary to align to 8-byte boundary at the start of the file
+    RETURN_NOT_OK(Write(kArrowMagicBytes, strlen(kArrowMagicBytes)));
+    RETURN_NOT_OK(Align());
+
+    return Status::OK();
   }
 
-  void set_memory_pool(MemoryPool* pool) { pool_ = pool; }
+  Status Close() override {
+    // Write 0 EOS message for compatibility with sequential readers
+    RETURN_NOT_OK(Write(&kEos, sizeof(int32_t)));
+
+    // Write file footer
+    RETURN_NOT_OK(UpdatePosition());
+    int64_t initial_position = position_;
+    RETURN_NOT_OK(WriteFileFooter(*schema_, dictionaries_, record_batches_, sink_));
+
+    // Write footer length
+    RETURN_NOT_OK(UpdatePosition());
+    int32_t footer_length = static_cast<int32_t>(position_ - initial_position);
+    if (footer_length <= 0) {
+      return Status::Invalid("Invalid file footer");
+    }
+
+    RETURN_NOT_OK(Write(&footer_length, sizeof(int32_t)));
+
+    // Write magic bytes to end file
+    return Write(kArrowMagicBytes, strlen(kArrowMagicBytes));
+  }
 
  protected:
   std::shared_ptr<Schema> schema_;
-  MemoryPool* pool_;
-  bool started_;
-
-  // When writing out the schema, we keep track of all the dictionaries we
-  // encounter, as they must be written out first in the stream
-  DictionaryMemo dictionary_memo_;
-
   std::vector<FileBlock> dictionaries_;
   std::vector<FileBlock> record_batches_;
+};
+
+}  // namespace
+
+class RecordBatchStreamWriter::RecordBatchStreamWriterImpl
+    : public RecordBatchPayloadWriter {
+ public:
+  RecordBatchStreamWriterImpl(io::OutputStream* sink,
+                              const std::shared_ptr<Schema>& schema)
+      : RecordBatchPayloadWriter(
+            std::unique_ptr<internal::IpcPayloadWriter>(new PayloadStreamWriter(sink)),
+            schema) {}
+
+  ~RecordBatchStreamWriterImpl() = default;
+};
+
+class RecordBatchFileWriter::RecordBatchFileWriterImpl : public RecordBatchPayloadWriter {
+ public:
+  RecordBatchFileWriterImpl(io::OutputStream* sink, const std::shared_ptr<Schema>& schema)
+      : RecordBatchPayloadWriter(std::unique_ptr<internal::IpcPayloadWriter>(
+                                     new PayloadFileWriter(sink, schema)),
+                                 schema) {}
+
+  ~RecordBatchFileWriterImpl() = default;
 };
 
 RecordBatchStreamWriter::RecordBatchStreamWriter() {}
@@ -1035,67 +1160,19 @@ void RecordBatchStreamWriter::set_memory_pool(MemoryPool* pool) {
 Status RecordBatchStreamWriter::Open(io::OutputStream* sink,
                                      const std::shared_ptr<Schema>& schema,
                                      std::shared_ptr<RecordBatchWriter>* out) {
-  // ctor is private
-  auto result = std::shared_ptr<RecordBatchStreamWriter>(new RecordBatchStreamWriter());
-  result->impl_.reset(new RecordBatchStreamWriterImpl(sink, schema));
-  *out = result;
+  ASSIGN_OR_RAISE(*out, Open(sink, schema));
   return Status::OK();
 }
 
+Result<std::shared_ptr<RecordBatchWriter>> RecordBatchStreamWriter::Open(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema) {
+  // ctor is private
+  auto result = std::shared_ptr<RecordBatchStreamWriter>(new RecordBatchStreamWriter());
+  result->impl_.reset(new RecordBatchStreamWriterImpl(sink, schema));
+  return std::move(result);
+}
+
 Status RecordBatchStreamWriter::Close() { return impl_->Close(); }
-
-// ----------------------------------------------------------------------
-// File writer implementation
-
-class RecordBatchFileWriter::RecordBatchFileWriterImpl
-    : public RecordBatchStreamWriter::RecordBatchStreamWriterImpl {
- public:
-  using BASE = RecordBatchStreamWriter::RecordBatchStreamWriterImpl;
-
-  RecordBatchFileWriterImpl(io::OutputStream* sink, const std::shared_ptr<Schema>& schema)
-      : BASE(sink, schema) {}
-
-  Status Start() override {
-    // ARROW-3236: The initial position -1 needs to be updated to the stream's
-    // current position otherwise an incorrect amount of padding will be
-    // written to new files.
-    RETURN_NOT_OK(UpdatePosition());
-
-    // It is only necessary to align to 8-byte boundary at the start of the file
-    RETURN_NOT_OK(Write(kArrowMagicBytes, strlen(kArrowMagicBytes)));
-    RETURN_NOT_OK(Align());
-
-    // We write the schema at the start of the file (and the end). This also
-    // writes all the dictionaries at the beginning of the file
-    return BASE::Start();
-  }
-
-  Status Close() override {
-    // Write the schema if not already written
-    // User is responsible for closing the OutputStream
-    RETURN_NOT_OK(CheckStarted());
-
-    // Write metadata
-    RETURN_NOT_OK(UpdatePosition());
-
-    int64_t initial_position = position_;
-    RETURN_NOT_OK(WriteFileFooter(*schema_, dictionaries_, record_batches_,
-                                  &dictionary_memo_, sink_));
-    RETURN_NOT_OK(UpdatePosition());
-
-    // Write footer length
-    int32_t footer_length = static_cast<int32_t>(position_ - initial_position);
-
-    if (footer_length <= 0) {
-      return Status::Invalid("Invalid file footer");
-    }
-
-    RETURN_NOT_OK(Write(&footer_length, sizeof(int32_t)));
-
-    // Write magic bytes to end file
-    return Write(kArrowMagicBytes, strlen(kArrowMagicBytes));
-  }
-};
 
 RecordBatchFileWriter::RecordBatchFileWriter() {}
 
@@ -1104,11 +1181,16 @@ RecordBatchFileWriter::~RecordBatchFileWriter() {}
 Status RecordBatchFileWriter::Open(io::OutputStream* sink,
                                    const std::shared_ptr<Schema>& schema,
                                    std::shared_ptr<RecordBatchWriter>* out) {
+  ASSIGN_OR_RAISE(*out, Open(sink, schema));
+  return Status::OK();
+}
+
+Result<std::shared_ptr<RecordBatchWriter>> RecordBatchFileWriter::Open(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema) {
   // ctor is private
   auto result = std::shared_ptr<RecordBatchFileWriter>(new RecordBatchFileWriter());
   result->file_impl_.reset(new RecordBatchFileWriterImpl(sink, schema));
-  *out = result;
-  return Status::OK();
+  return std::move(result);
 }
 
 Status RecordBatchFileWriter::WriteRecordBatch(const RecordBatch& batch,
@@ -1117,6 +1199,24 @@ Status RecordBatchFileWriter::WriteRecordBatch(const RecordBatch& batch,
 }
 
 Status RecordBatchFileWriter::Close() { return file_impl_->Close(); }
+
+namespace internal {
+
+Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
+                             const std::shared_ptr<Schema>& schema,
+                             std::unique_ptr<RecordBatchWriter>* out) {
+  ASSIGN_OR_RAISE(*out, OpenRecordBatchWriter(std::move(sink), schema));
+  return Status::OK();
+}
+
+Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
+    std::unique_ptr<IpcPayloadWriter> sink, const std::shared_ptr<Schema>& schema) {
+  // XXX should we call Start()?
+  return std::unique_ptr<RecordBatchWriter>(
+      new RecordBatchPayloadWriter(std::move(sink), schema));
+}
+
+}  // namespace internal
 
 // ----------------------------------------------------------------------
 // Serialization public APIs
@@ -1142,18 +1242,15 @@ Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
                           kMaxNestingDepth, true);
 }
 
-Status SerializeSchema(const Schema& schema, MemoryPool* pool,
-                       std::shared_ptr<Buffer>* out) {
+Status SerializeSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
+                       MemoryPool* pool, std::shared_ptr<Buffer>* out) {
   std::shared_ptr<io::BufferOutputStream> stream;
   RETURN_NOT_OK(io::BufferOutputStream::Create(1024, pool, &stream));
 
-  DictionaryMemo memo;
-  SchemaWriter schema_writer(schema, &memo, pool, stream.get());
-
-  // Unused
-  std::vector<FileBlock> dictionary_blocks;
-
-  RETURN_NOT_OK(schema_writer.Write(&dictionary_blocks));
+  auto payload_writer = make_unique<PayloadStreamWriter>(stream.get());
+  RecordBatchPayloadWriter writer(std::move(payload_writer), schema, dictionary_memo);
+  // Write schema and populate fields (but not dictionaries) in dictionary_memo
+  RETURN_NOT_OK(writer.Start());
   return stream->Finish(out);
 }
 

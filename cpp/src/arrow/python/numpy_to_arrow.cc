@@ -28,7 +28,6 @@
 #include <cstring>
 #include <limits>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -234,13 +233,8 @@ class NumPyConverter {
 
   Status Visit(const FixedSizeBinaryType& type);
 
-  Status Visit(const Decimal128Type& type) { return TypeNotImplemented(type.ToString()); }
-
-  Status Visit(const DictionaryType& type) { return TypeNotImplemented(type.ToString()); }
-
-  Status Visit(const NestedType& type) { return TypeNotImplemented(type.ToString()); }
-
-  Status Visit(const ExtensionType& type) { return TypeNotImplemented(type.ToString()); }
+  // Default case
+  Status Visit(const DataType& type) { return TypeNotImplemented(type.ToString()); }
 
  protected:
   Status InitNullBitmap() {

@@ -1,20 +1,3 @@
-# Licensed to the Apache Software Foundation (ASF) under one
-# or more contributor license agreements.  See the NOTICE file
-# distributed with this work for additional information
-# regarding copyright ownership.  The ASF licenses this file
-# to you under the Apache License, Version 2.0 (the
-# "License"); you may not use this file except in compliance
-# with the License.  You may obtain a copy of the License at
-#
-#   http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an
-# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-# KIND, either express or implied.  See the License for the
-# specific language governing permissions and limitations
-# under the License.
-
 package:
   name: arrow-cpp
   version: {{ ARROW_VERSION }}
@@ -23,35 +6,40 @@ source:
   path: ../../../../
 
 build:
+  build:
   number: 0
-  skip: true  # [win32]
-  skip: true  # [win and py<35]
-  features:
-    - vc14  # [win and py>=35]
+  skip: true  # [win and vc<14]
+  run_exports:
+    - {{ pin_subpackage("arrow-cpp", max_pin="x.x") }}
 
 requirements:
   build:
-    - autoconf  # [unix]
     - cmake
+    - autoconf  # [unix]
     - ninja
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
   host:
     - boost-cpp
     - brotli
+    - c-ares
     - double-conversion
     - flatbuffers
     - gflags
     - glog
+    - grpc-cpp
     - libprotobuf
+    - clangdev 7.*
     - llvmdev 7.*
     - lz4-c
     - numpy 1.14.*
+    - orc  # [unix]
     - python
     - rapidjson
     - re2
     - snappy
     - thrift-cpp >=0.11
+    - uriparser
     - zlib
     - zstd
 
@@ -59,12 +47,16 @@ requirements:
     - {{ pin_compatible('numpy', lower_bound='1.14') }}
     - boost-cpp
     - brotli
+    - c-ares
+    - double-conversion
     - gflags
     - glog
+    - grpc-cpp
     - lz4-c
     - python
     - re2
     - snappy
+    - uriparser
     - zlib
     - zstd
 
@@ -72,6 +64,7 @@ test:
   commands:
     # headers
     - test -f $PREFIX/include/arrow/api.h              # [unix]
+    - test -f $PREFIX/include/arrow/flight/types.h     # [unix]
     - test -f $PREFIX/include/plasma/client.h          # [unix]
     - test -f $PREFIX/include/gandiva/engine.h         # [unix]
     - test -f $PREFIX/include/parquet/api/reader.h     # [unix]
@@ -81,17 +74,20 @@ test:
 
     # static
     - test -f $PREFIX/lib/libarrow.a         # [unix]
+    - test -f $PREFIX/lib/libarrow_flight.a  # [unix]
     - test -f $PREFIX/lib/libarrow_python.a  # [unix]
     - test -f $PREFIX/lib/libplasma.a        # [unix]
     - test -f $PREFIX/lib/libparquet.a       # [unix]
     - test -f $PREFIX/lib/libgandiva.a       # [unix]
     - if not exist %PREFIX%\\Library\\lib\\arrow_static.lib exit 1         # [win]
+    - if not exist %PREFIX%\\Library\\lib\\arrow_flight_static.lib exit 1  # [win]
     - if not exist %PREFIX%\\Library\\lib\\arrow_python_static.lib exit 1  # [win]
     - if not exist %PREFIX%\\Library\\lib\\parquet_static.lib exit 1       # [win]
     - if not exist %PREFIX%\\Library\\lib\\gandiva_static.lib exit 1       # [win]
 
     # shared
     - test -f $PREFIX/lib/libarrow.so            # [linux]
+    - test -f $PREFIX/lib/libarrow_flight.so     # [linux]
     - test -f $PREFIX/lib/libarrow_python.so     # [linux]
     - test -f $PREFIX/lib/libparquet.so          # [linux]
     - test -f $PREFIX/lib/libgandiva.so          # [linux]
@@ -102,6 +98,7 @@ test:
     - test -f $PREFIX/lib/libparquet.dylib       # [osx]
     - test -f $PREFIX/lib/libplasma.dylib        # [osx]
     - if not exist %PREFIX%\\Library\\bin\\arrow.dll exit 1         # [win]
+    - if not exist %PREFIX%\\Library\\bin\\arrow_flight.dll exit 1  # [win]
     - if not exist %PREFIX%\\Library\\bin\\arrow_python.dll exit 1  # [win]
     - if not exist %PREFIX%\\Library\\bin\\parquet.dll exit 1       # [win]
     - if not exist %PREFIX%\\Library\\bin\\gandiva.dll exit 1       # [win]

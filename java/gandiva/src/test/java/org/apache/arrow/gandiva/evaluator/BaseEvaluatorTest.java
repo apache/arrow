@@ -18,7 +18,6 @@
 package org.apache.arrow.gandiva.evaluator;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -133,9 +132,9 @@ class BaseEvaluatorTest {
 
   interface DataAndVectorGenerator {
 
-    public void writeData(ArrowBuf buffer);
+    void writeData(ArrowBuf buffer);
 
-    public ValueVector generateOutputVector(int numRowsInBatch);
+    ValueVector generateOutputVector(int numRowsInBatch);
   }
 
   class Int32DataAndVectorGenerator implements DataAndVectorGenerator {
@@ -278,7 +277,7 @@ class BaseEvaluatorTest {
     List<ArrowBuf> buffers = recordBatch.getBuffers();
     recordBatch.close();
     for (ArrowBuf buf : buffers) {
-      buf.release();
+      buf.getReferenceManager().release();
     }
   }
 

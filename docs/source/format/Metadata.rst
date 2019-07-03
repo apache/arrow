@@ -29,9 +29,6 @@ systems to communicate the
 * "Data headers" indicating the physical locations of memory buffers sufficient
   to reconstruct a Arrow data structures without copying memory.
 
-Canonical implementation
-------------------------
-
 We are using `Flatbuffers`_ for low-overhead reading and writing of the Arrow
 metadata. See ``Message.fbs``.
 
@@ -65,98 +62,8 @@ the columns. The Flatbuffers IDL for a field is: ::
 The ``type`` is the logical type of the field. Nested types, such as List,
 Struct, and Union, have a sequence of child fields.
 
-A JSON representation of the schema is also provided:
-
-Field: ::
-
-    {
-      "name" : "name_of_the_field",
-      "nullable" : false,
-      "type" : /* Type */,
-      "children" : [ /* Field */ ],
-    }
-
-Type: ::
-
-    {
-      "name" : "null|struct|list|union|int|floatingpoint|utf8|binary|fixedsizebinary|bool|decimal|date|time|timestamp|interval"
-      // fields as defined in the Flatbuffer depending on the type name
-    }
-
-Union: ::
-
-    {
-      "name" : "union",
-      "mode" : "Sparse|Dense",
-      "typeIds" : [ /* integer */ ]
-    }
-
-The ``typeIds`` field in the Union are the codes used to denote each type, which
-may be different from the index of the child array. This is so that the union
-type ids do not have to be enumerated from 0.
-
-Int: ::
-
-    {
-      "name" : "int",
-      "bitWidth" : /* integer */,
-      "isSigned" : /* boolean */
-    }
-
-FloatingPoint: ::
-
-    {
-      "name" : "floatingpoint",
-      "precision" : "HALF|SINGLE|DOUBLE"
-    }
-
-Decimal: ::
-
-    {
-      "name" : "decimal",
-      "precision" : /* integer */,
-      "scale" : /* integer */
-    }
-
-Timestamp: ::
-
-    {
-      "name" : "timestamp",
-      "unit" : "SECOND|MILLISECOND|MICROSECOND|NANOSECOND"
-    }
-
-Date: ::
-
-    {
-      "name" : "date",
-      "unit" : "DAY|MILLISECOND"
-    }
-
-Time: ::
-
-    {
-      "name" : "time",
-      "unit" : "SECOND|MILLISECOND|MICROSECOND|NANOSECOND",
-      "bitWidth": /* integer: 32 or 64 */
-    }
-
-Interval: ::
-
-    {
-      "name" : "interval",
-      "unit" : "YEAR_MONTH|DAY_TIME"
-    }
-
-Schema: ::
-
-    {
-      "fields" : [
-        /* Field */
-      ]
-    }
-
-Record data headers
--------------------
+Record Batch Data Headers
+-------------------------
 
 A record batch is a collection of top-level named, equal length Arrow arrays
 (or vectors). If one of the arrays contains nested data, its child arrays are
@@ -280,117 +187,156 @@ categories:
 * Types having equivalent memory layout to a physical nested type (e.g. strings
   use the list representation, but logically are not nested types)
 
-Integers
-~~~~~~~~
+Refer to `Schema.fbs`_ for up-to-date descriptions of each built-in
+logical type.
 
-In the first version of Arrow we provide the standard 8-bit through 64-bit size
-standard C integer types, both signed and unsigned:
+Custom Application Metadata
+---------------------------
 
-* Signed types: Int8, Int16, Int32, Int64
-* Unsigned types: UInt8, UInt16, UInt32, UInt64
+We provide a ``custom_metadata`` field at three levels to provide a
+mechanism for developers to pass application-specific metadata in
+Arrow protocol messages. This includes ``Field``, ``Schema``, and
+``Message``.
 
-The IDL looks like: ::
+The colon symbol ``:`` is to be used as a namespace separator. It can
+be used multiple times in a key.
 
-    table Int {
-      bitWidth: int;
-      is_signed: bool;
-    }
+The ``ARROW`` pattern is a reserved namespace for internal Arrow use
+in the ``custom_metadata`` fields. For example,
+``ARROW:extension:name``.
 
-The integer endianness is currently set globally at the schema level. If a
-schema is set to be little-endian, then all integer types occurring within must
-be little-endian. Integers that are part of other data representations, such as
-list offsets and union types, must have the same endianness as the entire
-record batch.
+Extension Types
+---------------
 
-Floating point numbers
-~~~~~~~~~~~~~~~~~~~~~~
+User-defined "extension" types can be defined setting certain
+``KeyValue`` pairs in ``custom_metadata`` in the ``Field`` metadata
+structure. These extension keys are:
 
-We provide 3 types of floating point numbers as fixed bit-width primitive array
+* ``'ARROW:extension:name'`` for the string name identifying the
+  custom data type. We recommend that you use a "namespace"-style
+  prefix for extension type names to minimize the possibility of
+  conflicts with multiple Arrow readers and writers in the same
+  application. For example, use ``myorg.name_of_type`` instead of
+  simply ``name_of_type``
+* ``'ARROW:extension:metadata'`` for a serialized representation
+  of the ``ExtensionType`` necessary to reconstruct the custom type
 
-- Half precision, 16-bit width
-- Single precision, 32-bit width
-- Double precision, 64-bit width
+This extension metadata can annotate any of the built-in Arrow logical
+types. The intent is that an implementation that does not support an
+extension type can still handle the underlying data. For example a
+16-byte UUID value could be embedded in ``FixedSizeBinary(16)``, and
+implementations that do not have this extension type can still work
+with the underlying binary values and pass along the
+``custom_metadata`` in subsequent Arrow protocol messages.
 
-The IDL looks like: ::
+Extension types may or may not use the
+``'ARROW:extension:metadata'`` field. Let's consider some example
+extension types:
 
-    enum Precision:int {HALF, SINGLE, DOUBLE}
+* ``uuid`` represented as ``FixedSizeBinary(16)`` with empty metadata
+* ``latitude-longitude`` represented as ``struct<latitude: double,
+  longitude: double>``, and empty metadata
+* ``tensor`` (multidimensional array) stored as ``Binary`` values and
+  having serialized metadata indicating the data type and shape of
+  each value. This could be JSON like ``{'type': 'int8', 'shape': [4,
+  5]}`` for a 4x5 cell tensor.
+* ``trading-time`` represented as ``Timestamp`` with serialized
+  metadata indicating the market trading calendar the data corresponds
+  to
 
-    table FloatingPoint {
-      precision: Precision;
-    }
-
-Boolean
-~~~~~~~
-
-The Boolean logical type is represented as a 1-bit wide primitive physical
-type. The bits are numbered using least-significant bit (LSB) ordering.
-
-Like other fixed bit-width primitive types, boolean data appears as 2 buffers
-in the data header (one bitmap for the validity vector and one for the values).
-
-List
-~~~~
-
-The ``List`` logical type is the logical (and identically-named) counterpart to
-the List physical type.
-
-In data header form, the list field node contains 2 buffers:
-
-* Validity bitmap
-* List offsets
-
-The buffers associated with a list's child field are handled recursively
-according to the child logical type (e.g. ``List<Utf8>`` vs. ``List<Boolean>``).
-
-Utf8 and Binary
-~~~~~~~~~~~~~~~
-
-We specify two logical types for variable length bytes:
-
-* ``Utf8`` data is Unicode values with UTF-8 encoding
-* ``Binary`` is any other variable length bytes
-
-These types both have the same memory layout as the nested type ``List<UInt8>``,
-with the constraint that the inner bytes can contain no null values. From a
-logical type perspective they are primitive, not nested types.
-
-In data header form, while ``List<UInt8>`` would appear as 2 field nodes (``List``
-and ``UInt8``) and 4 buffers (2 for each of the nodes, as per above), these types
-have a simplified representation single field node (of ``Utf8`` or ``Binary``
-logical type, which have no children) and 3 buffers:
-
-* Validity bitmap
-* List offsets
-* Byte data
-
-Decimal
-~~~~~~~
-
-Decimals are represented as a 2's complement 128-bit (16 byte) signed integer
-in little-endian byte order.
-
-Timestamp
-~~~~~~~~~
-
-All timestamps are stored as a 64-bit integer, with one of four unit
-resolutions: second, millisecond, microsecond, and nanosecond.
-
-Date
-~~~~
-
-We support two different date types:
-
-* Days since the UNIX epoch as a 32-bit integer
-* Milliseconds since the UNIX epoch as a 64-bit integer
-
-Time
-~~~~
-
-Time supports the same unit resolutions: second, millisecond, microsecond, and
-nanosecond. We represent time as the smallest integer accommodating the
-indicated unit. For second and millisecond: 32-bit, for the others 64-bit.
-
-Dictionary encoding
+Integration Testing
 -------------------
 
+A JSON representation of the schema is provided for cross-language
+integration testing purposes.
+
+Schema: ::
+
+    {
+      "fields" : [
+        /* Field */
+      ]
+    }
+
+Field: ::
+
+    {
+      "name" : "name_of_the_field",
+      "nullable" : false,
+      "type" : /* Type */,
+      "children" : [ /* Field */ ],
+    }
+
+Type: ::
+
+    {
+      "name" : "null|struct|list|union|int|floatingpoint|utf8|binary|fixedsizebinary|bool|decimal|date|time|timestamp|interval"
+      // fields as defined in the Flatbuffer depending on the type name
+    }
+
+Union: ::
+
+    {
+      "name" : "union",
+      "mode" : "Sparse|Dense",
+      "typeIds" : [ /* integer */ ]
+    }
+
+The ``typeIds`` field in the Union are the codes used to denote each type, which
+may be different from the index of the child array. This is so that the union
+type ids do not have to be enumerated from 0.
+
+Int: ::
+
+    {
+      "name" : "int",
+      "bitWidth" : /* integer */,
+      "isSigned" : /* boolean */
+    }
+
+FloatingPoint: ::
+
+    {
+      "name" : "floatingpoint",
+      "precision" : "HALF|SINGLE|DOUBLE"
+    }
+
+Decimal: ::
+
+    {
+      "name" : "decimal",
+      "precision" : /* integer */,
+      "scale" : /* integer */
+    }
+
+Timestamp: ::
+
+    {
+      "name" : "timestamp",
+      "unit" : "SECOND|MILLISECOND|MICROSECOND|NANOSECOND"
+    }
+
+Date: ::
+
+    {
+      "name" : "date",
+      "unit" : "DAY|MILLISECOND"
+    }
+
+Time: ::
+
+    {
+      "name" : "time",
+      "unit" : "SECOND|MILLISECOND|MICROSECOND|NANOSECOND",
+      "bitWidth": /* integer: 32 or 64 */
+    }
+
+Interval: ::
+
+    {
+      "name" : "interval",
+      "unit" : "YEAR_MONTH|DAY_TIME"
+    }
+
 .. _Flatbuffers: http://github.com/google/flatbuffers
+.. _Schema.fbs: https://github.com/apache/arrow/blob/master/format/Schema.fbs

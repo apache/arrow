@@ -21,6 +21,7 @@
   local:
     # devtoolset / static-libstdc++ symbols
     __cxa_*;
+    __once_proxy;
 
     extern "C++" {
       # boost
@@ -34,5 +35,6 @@
       # a system with an older libstdc++ which doesn't include the necessary
       # c++11 symbols.
       std::*;
+      *std::__once_call*;
     };
 };

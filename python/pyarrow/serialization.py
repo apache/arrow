@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from __future__ import absolute_import
+
 import collections
 import six
 import sys
@@ -53,6 +55,25 @@ def _deserialize_numpy_array_list(data):
         return data[0].view(data[1])
     else:
         return np.array(data[0], dtype=np.dtype(data[1]))
+
+
+def _serialize_numpy_matrix(obj):
+    if obj.dtype.str != '|O':
+        # Make the array c_contiguous if necessary so that we can call change
+        # the view.
+        if not obj.flags.c_contiguous:
+            obj = np.ascontiguousarray(obj.A)
+        return obj.A.view('uint8'), obj.A.dtype.str
+    else:
+        return obj.A.tolist(), obj.A.dtype.str
+
+
+def _deserialize_numpy_matrix(data):
+    if data[1] != '|O':
+        assert data[0].dtype == np.uint8
+        return np.matrix(data[0].view(data[1]), copy=False)
+    else:
+        return np.matrix(data[0], dtype=np.dtype(data[1]), copy=False)
 
 
 # ----------------------------------------------------------------------
@@ -209,10 +230,19 @@ def register_torch_serialization_handlers(serialization_context):
         import torch
 
         def _serialize_torch_tensor(obj):
-            return obj.detach().numpy()
+            if obj.is_sparse:
+                # TODO(pcm): Once ARROW-4453 is resolved, return sparse
+                # tensor representation here
+                return (obj._indices().detach().numpy(),
+                        obj._values().detach().numpy(), list(obj.shape))
+            else:
+                return obj.detach().numpy()
 
         def _deserialize_torch_tensor(data):
-            return torch.from_numpy(data)
+            if isinstance(data, tuple):
+                return torch.sparse_coo_tensor(data[0], data[1], data[2])
+            else:
+                return torch.from_numpy(data)
 
         for t in [torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor,
                   torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
@@ -296,6 +326,11 @@ def register_default_serialization_handlers(serialization_context):
         pickle=True)
 
     serialization_context.register_type(type, "type", pickle=True)
+
+    serialization_context.register_type(
+        np.matrix, 'np.matrix',
+        custom_serializer=_serialize_numpy_matrix,
+        custom_deserializer=_deserialize_numpy_matrix)
 
     serialization_context.register_type(
         np.ndarray, 'np.array',

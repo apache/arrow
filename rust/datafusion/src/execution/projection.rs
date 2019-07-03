@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines the projection relation. A projection determines which columns or expressions are
-//! returned from a query. The SQL statement `SELECT a, b, a+b FROM t1` is an example of a
-//! projection on table `t1` where the expressions `a`, `b`, and `a+b` are the projection
-//! expressions.
+//! Defines the projection relation. A projection determines which columns or expressions
+//! are returned from a query. The SQL statement `SELECT a, b, a+b FROM t1` is an example
+//! of a projection on table `t1` where the expressions `a`, `b`, and `a+b` are the
+//! projection expressions.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -93,6 +93,7 @@ mod tests {
     use crate::execution::relation::DataSourceRelation;
     use crate::logicalplan::Expr;
     use arrow::datatypes::{DataType, Field, Schema};
+    use std::env;
     use std::sync::Mutex;
 
     #[test]
@@ -113,8 +114,10 @@ mod tests {
             Field::new("c12", DataType::Utf8, false),
         ]));
 
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+
         let ds = CsvBatchIterator::new(
-            "../../testing/data/csv/aggregate_test_100.csv",
+            &format!("{}/csv/aggregate_test_100.csv", testdata),
             schema.clone(),
             true,
             &None,

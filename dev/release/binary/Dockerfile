@@ -29,7 +29,6 @@ RUN \
     createrepo \
     devscripts \
     gpg \
-    jq \
     openssh-server \
     rpm \
     sudo && \

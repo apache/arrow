@@ -290,7 +290,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
       for (final ArrowBuf buf : vector.getBuffers(false)) {
         buffers.add(buf);
         if (clear) {
-          buf.retain(1);
+          buf.getReferenceManager().retain(1);
         }
       }
       if (clear) {

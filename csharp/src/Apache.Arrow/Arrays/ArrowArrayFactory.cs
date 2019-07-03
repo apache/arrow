@@ -18,70 +18,59 @@ using System;
 
 namespace Apache.Arrow
 {
-    public class ArrowArrayFactory
+    public static class ArrowArrayFactory
     {
-        private class FactoryTypeVisitor :
-            IArrowTypeVisitor<Int8Type>,
-            IArrowTypeVisitor<Int16Type>,
-            IArrowTypeVisitor<Int32Type>,
-            IArrowTypeVisitor<Int64Type>,
-            IArrowTypeVisitor<UInt8Type>,
-            IArrowTypeVisitor<UInt16Type>,
-            IArrowTypeVisitor<UInt32Type>,
-            IArrowTypeVisitor<UInt64Type>,
-            IArrowTypeVisitor<BooleanType>,
-            IArrowTypeVisitor<FloatType>,
-            IArrowTypeVisitor<DoubleType>,
-            IArrowTypeVisitor<StructType>,
-            IArrowTypeVisitor<UnionType>,
-            IArrowTypeVisitor<ListType>,
-            IArrowTypeVisitor<TimestampType>,
-            IArrowTypeVisitor<StringType>,
-            IArrowTypeVisitor<BinaryType>
-        {
-            private readonly ArrayData _data;
-            private IArrowArray _array;
-
-            public FactoryTypeVisitor(ArrayData data)
-            {
-                _data = data;
-            }
-
-            public IArrowArray CreateArray()
-            {
-                _data.DataType.Accept(this);
-                return _array;
-            }
-
-            public void Visit(Int8Type type) => _array = new Int8Array(_data);
-            public void Visit(Int16Type type) => _array = new Int16Array(_data);
-            public void Visit(Int32Type type) => _array = new Int32Array(_data);
-            public void Visit(Int64Type type) => _array = new Int64Array(_data);
-            public void Visit(UInt8Type type) => _array = new UInt8Array(_data);
-            public void Visit(UInt16Type type) => _array = new UInt16Array(_data);
-            public void Visit(UInt32Type type) => _array = new UInt32Array(_data);
-            public void Visit(UInt64Type type) => _array = new UInt64Array(_data);
-            public void Visit(BooleanType type) => _array = new BooleanArray(_data);
-            public void Visit(FloatType type) => _array = new FloatArray(_data);
-            public void Visit(DoubleType type) => _array = new DoubleArray(_data);
-            public void Visit(StructType type) => _array = new StructArray(_data);
-            public void Visit(UnionType type) => _array = new UnionArray(_data);
-            public void Visit(ListType type) => _array = new ListArray(_data);
-            public void Visit(TimestampType type) => _array = new TimestampArray(_data);
-            public void Visit(BinaryType type) => _array = new BinaryArray(_data);
-            public void Visit(StringType type) => _array = new StringArray(_data);
-
-            public void Visit(IArrowType type)
-            {
-                throw new NotImplementedException();
-            }
-        }
-
         public static IArrowArray BuildArray(ArrayData data)
         {
-            var visitor = new FactoryTypeVisitor(data);
-            var array = visitor.CreateArray();
-            return array;
+            switch (data.DataType.TypeId)
+            {
+                case ArrowTypeId.Boolean:
+                    return new BooleanArray(data);
+                case ArrowTypeId.UInt8:
+                    return new UInt8Array(data);
+                case ArrowTypeId.Int8:
+                    return new Int8Array(data);
+                case ArrowTypeId.UInt16:
+                    return new UInt16Array(data);
+                case ArrowTypeId.Int16:
+                    return new Int16Array(data);
+                case ArrowTypeId.UInt32:
+                    return new UInt32Array(data);
+                case ArrowTypeId.Int32:
+                    return new Int32Array(data);
+                case ArrowTypeId.UInt64:
+                    return new UInt64Array(data);
+                case ArrowTypeId.Int64:
+                    return new Int64Array(data);
+                case ArrowTypeId.Float:
+                    return new FloatArray(data);
+                case ArrowTypeId.Double:
+                    return new DoubleArray(data);
+                case ArrowTypeId.String:
+                    return new StringArray(data);
+                case ArrowTypeId.Binary:
+                    return new BinaryArray(data);
+                case ArrowTypeId.Timestamp:
+                    return new TimestampArray(data);
+                case ArrowTypeId.List:
+                    return new ListArray(data);
+                case ArrowTypeId.Struct:
+                    return new StructArray(data);
+                case ArrowTypeId.Union:
+                    return new UnionArray(data);
+                case ArrowTypeId.Date64:
+                case ArrowTypeId.Date32:
+                case ArrowTypeId.Decimal:
+                case ArrowTypeId.Dictionary:
+                case ArrowTypeId.FixedSizedBinary:
+                case ArrowTypeId.HalfFloat:
+                case ArrowTypeId.Interval:
+                case ArrowTypeId.Map:
+                case ArrowTypeId.Time32:
+                case ArrowTypeId.Time64:
+                default:
+                    throw new NotSupportedException($"An ArrowArray cannot be built for type {data.DataType.TypeId}.");
+            }
         }
     }
 }

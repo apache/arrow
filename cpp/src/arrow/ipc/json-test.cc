@@ -27,6 +27,7 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/json-integration.h"
 #include "arrow/ipc/json-internal.h"
 #include "arrow/ipc/test-common.h"
@@ -34,6 +35,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 
@@ -42,21 +44,28 @@ namespace ipc {
 namespace internal {
 namespace json {
 
+using namespace ::arrow::ipc::test;  // NOLINT
+
 void TestSchemaRoundTrip(const Schema& schema) {
   rj::StringBuffer sb;
   rj::Writer<rj::StringBuffer> writer(sb);
 
+  DictionaryMemo out_memo;
+
   writer.StartObject();
-  ASSERT_OK(WriteSchema(schema, &writer));
+  ASSERT_OK(WriteSchema(schema, &out_memo, &writer));
   writer.EndObject();
 
   std::string json_schema = sb.GetString();
 
   rj::Document d;
-  d.Parse(json_schema);
+  // Pass explicit size to avoid ASAN issues with
+  // SIMD loads in RapidJson.
+  d.Parse(json_schema.data(), json_schema.size());
 
+  DictionaryMemo in_memo;
   std::shared_ptr<Schema> out;
-  if (!ReadSchema(d, default_memory_pool(), &out).ok()) {
+  if (!ReadSchema(d, default_memory_pool(), &in_memo, &out).ok()) {
     FAIL() << "Unable to read JSON schema: " << json_schema;
   }
 
@@ -76,14 +85,19 @@ void TestArrayRoundTrip(const Array& array) {
   std::string array_as_json = sb.GetString();
 
   rj::Document d;
-  d.Parse(array_as_json);
+  // Pass explicit size to avoid ASAN issues with
+  // SIMD loads in RapidJson.
+  d.Parse(array_as_json.data(), array_as_json.size());
 
   if (d.HasParseError()) {
     FAIL() << "JSON parsing failed";
   }
 
+  DictionaryMemo out_memo;
+
   std::shared_ptr<Array> out;
-  ASSERT_OK(ReadArray(default_memory_pool(), d, array.type(), &out));
+  ASSERT_OK(ReadArray(default_memory_pool(), d, ::arrow::field(name, array.type()),
+                      &out_memo, &out));
 
   // std::cout << array_as_json << std::endl;
   CompareArraysDetailed(0, *out, array);
@@ -190,6 +204,21 @@ TEST(TestJsonArrayWriter, NestedTypes) {
 
   TestArrayRoundTrip(list_array);
 
+  // Map
+  auto map_type = map(utf8(), int32());
+  auto keys_array = ArrayFromJSON(utf8(), R"(["a", "b", "c", "d", "a", "b", "c"])");
+
+  MapArray map_array(map_type, 5, offsets_buffer, keys_array, values_array, list_bitmap,
+                     1);
+
+  TestArrayRoundTrip(map_array);
+
+  // FixedSizeList
+  FixedSizeListArray fixed_size_list_array(fixed_size_list(value_type, 2), 3,
+                                           values_array->Slice(1), list_bitmap, 1);
+
+  TestArrayRoundTrip(fixed_size_list_array);
+
   // Struct
   std::vector<bool> struct_is_valid = {true, false, true, true, true, false, true};
   std::shared_ptr<Buffer> struct_bitmap;
@@ -280,7 +309,7 @@ TEST(TestJsonFileReadWrite, BasicRoundTrip) {
   for (int i = 0; i < nbatches; ++i) {
     std::shared_ptr<RecordBatch> batch;
     ASSERT_OK(reader->ReadRecordBatch(i, &batch));
-    ASSERT_RECORD_BATCHES_EQUAL(*batch, *batches[i]);
+    ASSERT_BATCHES_EQUAL(*batch, *batches[i]);
   }
 }
 
@@ -361,12 +390,13 @@ TEST(TestJsonFileReadWrite, MinimalFormatExample) {
   ASSERT_TRUE(batch->column(1)->Equals(bar));
 }
 
-#define BATCH_CASES()                                                                   \
-  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
-                    &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,                  \
-                    &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion,      \
-                    &MakeDates, &MakeTimestamps, &MakeTimes, &MakeFWBinary,             \
-                    &MakeDecimal, &MakeDictionary);
+#define BATCH_CASES()                                                              \
+  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch,                     \
+                    &MakeFixedSizeListRecordBatch, &MakeNonNullRecordBatch,        \
+                    &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,             \
+                    &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion, \
+                    &MakeDates, &MakeTimestamps, &MakeTimes, &MakeFWBinary,        \
+                    &MakeDecimal, &MakeDictionary, &MakeIntervals)
 
 class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
  public:

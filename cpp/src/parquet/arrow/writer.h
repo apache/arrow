@@ -21,9 +21,9 @@
 #include <cstdint>
 #include <memory>
 
+#include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"
-#include "parquet/util/visibility.h"
 
 #include "arrow/type.h"
 
@@ -46,7 +46,6 @@ class OutputStream;
 namespace parquet {
 
 class FileMetaData;
-class OutputStream;
 class ParquetFileWriter;
 
 namespace arrow {
@@ -142,18 +141,6 @@ class PARQUET_EXPORT FileWriter {
                  default_arrow_writer_properties());
 
   static ::arrow::Status Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
-                              const std::shared_ptr<OutputStream>& sink,
-                              const std::shared_ptr<WriterProperties>& properties,
-                              std::unique_ptr<FileWriter>* writer);
-
-  static ::arrow::Status Open(
-      const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
-      const std::shared_ptr<OutputStream>& sink,
-      const std::shared_ptr<WriterProperties>& properties,
-      const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
-      std::unique_ptr<FileWriter>* writer);
-
-  static ::arrow::Status Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                               const std::shared_ptr<::arrow::io::OutputStream>& sink,
                               const std::shared_ptr<WriterProperties>& properties,
                               std::unique_ptr<FileWriter>* writer);
@@ -181,33 +168,29 @@ class PARQUET_EXPORT FileWriter {
 
   ::arrow::MemoryPool* memory_pool() const;
 
+  const std::shared_ptr<FileMetaData> metadata() const;
+
  private:
   class PARQUET_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
   std::shared_ptr<::arrow::Schema> schema_;
 };
 
-/// \brief Write Parquet file metadata only to indicated OutputStream
-PARQUET_EXPORT
-::arrow::Status WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink);
-
 /// \brief Write Parquet file metadata only to indicated Arrow OutputStream
 PARQUET_EXPORT
 ::arrow::Status WriteFileMetaData(const FileMetaData& file_metadata,
-                                  const std::shared_ptr<::arrow::io::OutputStream>& sink);
+                                  ::arrow::io::OutputStream* sink);
+
+/// \brief Write metadata-only Parquet file to indicated Arrow OutputStream
+PARQUET_EXPORT
+::arrow::Status WriteMetaDataFile(const FileMetaData& file_metadata,
+                                  ::arrow::io::OutputStream* sink);
 
 /**
  * Write a Table to Parquet.
  *
  * The table shall only consist of columns of primitive type or of primitive lists.
  */
-::arrow::Status PARQUET_EXPORT WriteTable(
-    const ::arrow::Table& table, ::arrow::MemoryPool* pool,
-    const std::shared_ptr<OutputStream>& sink, int64_t chunk_size,
-    const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
-    const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
-        default_arrow_writer_properties());
-
 ::arrow::Status PARQUET_EXPORT WriteTable(
     const ::arrow::Table& table, ::arrow::MemoryPool* pool,
     const std::shared_ptr<::arrow::io::OutputStream>& sink, int64_t chunk_size,
@@ -228,8 +211,9 @@ inline void ArrowTimestampToImpalaTimestamp(const int64_t time, Int96* impala_ti
   (*impala_timestamp).value[2] = (uint32_t)julian_days;
 
   int64_t last_day_units = time % UnitPerDay;
-  int64_t* impala_last_day_nanos = reinterpret_cast<int64_t*>(impala_timestamp);
-  *impala_last_day_nanos = last_day_units * NanosecondsPerUnit;
+  auto last_day_nanos = last_day_units * NanosecondsPerUnit;
+  // Strage might be unaligned, so use mempcy instead of reinterpret_cast
+  std::memcpy(impala_timestamp, &last_day_nanos, sizeof(int64_t));
 }
 
 constexpr int64_t kSecondsInNanos = INT64_C(1000000000);

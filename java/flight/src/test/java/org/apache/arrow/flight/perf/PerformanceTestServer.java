@@ -21,22 +21,14 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
 
-import org.apache.arrow.flight.Action;
-import org.apache.arrow.flight.ActionType;
-import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
-import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
-import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
-import org.apache.arrow.flight.Result;
+import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Ticket;
-import org.apache.arrow.flight.auth.ServerAuthHandler;
-import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.flight.perf.impl.PerfOuterClass.Perf;
 import org.apache.arrow.flight.perf.impl.PerfOuterClass.Token;
 import org.apache.arrow.memory.BufferAllocator;
@@ -64,7 +56,7 @@ public class PerformanceTestServer implements AutoCloseable {
     this.allocator = incomingAllocator.newChildAllocator("perf-server", 0, Long.MAX_VALUE);
     this.location = location;
     this.producer = new PerfProducer();
-    this.flightServer = new FlightServer(this.allocator, location.getPort(), producer, ServerAuthHandler.NO_OP);
+    this.flightServer = FlightServer.builder(this.allocator, location, producer).build();
   }
 
   public Location getLocation() {
@@ -80,10 +72,11 @@ public class PerformanceTestServer implements AutoCloseable {
     AutoCloseables.close(flightServer, allocator);
   }
 
-  private final class PerfProducer implements FlightProducer {
+  private final class PerfProducer extends NoOpFlightProducer {
 
     @Override
-    public void getStream(Ticket ticket, ServerStreamListener listener) {
+    public void getStream(CallContext context, Ticket ticket,
+        ServerStreamListener listener) {
       VectorSchemaRoot root = null;
       try {
         Token token = Token.parseFrom(ticket.getBytes());
@@ -146,11 +139,8 @@ public class PerformanceTestServer implements AutoCloseable {
     }
 
     @Override
-    public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener) {
-    }
-
-    @Override
-    public FlightInfo getFlightInfo(FlightDescriptor descriptor) {
+    public FlightInfo getFlightInfo(CallContext context,
+        FlightDescriptor descriptor) {
       try {
         Preconditions.checkArgument(descriptor.isCommand());
         Perf exec = Perf.parseFrom(descriptor.getCommand());
@@ -179,21 +169,6 @@ public class PerformanceTestServer implements AutoCloseable {
         throw new RuntimeException(e);
       }
     }
-
-    @Override
-    public Callable<PutResult> acceptPut(FlightStream flightStream) {
-      return null;
-    }
-
-    @Override
-    public Result doAction(Action action) {
-      return null;
-    }
-
-    @Override
-    public void listActions(StreamListener<ActionType> listener) {
-    }
-
   }
 }
 

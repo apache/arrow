@@ -21,6 +21,6 @@ pushd go\arrow
 
 %GOROOT%\bin\go version
 %GOROOT%\bin\go get -v ./... || exit /B
-%GOROOT%\bin\go test -race ./... || exit /B
+%GOROOT%\bin\go test   ./... || exit /B
 
 popd

@@ -33,7 +33,8 @@ use crate::execution::relation::Relation;
 pub(super) struct LimitRelation {
     /// The relation which the limit is being applied to
     input: Rc<RefCell<Relation>>,
-    /// The schema for the limit relation, which is always the same as the schema of the input relation
+    /// The schema for the limit relation, which is always the same as the schema of the
+    /// input relation
     schema: Arc<Schema>,
     /// The number of rows returned by this relation
     limit: usize,

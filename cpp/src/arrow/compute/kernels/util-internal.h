@@ -72,6 +72,26 @@ Status InvokeBinaryArrayKernel(FunctionContext* ctx, BinaryKernel* kernel,
 ARROW_EXPORT
 Status PropagateNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* output);
 
+/// \brief Assign validity bitmap to output, copying and computing the
+/// intersection bitmap if necessary, but zero-copy if possible, so that the
+/// same value slots are valid/not-null in the output (sliced arrays).
+///
+/// \param[in] ctx the kernel FunctionContext
+/// \param[in] left the left input array
+/// \param[in] right the right input array
+/// \param[out] output the output array.  Must have length set correctly.
+ARROW_EXPORT
+Status PropagateNulls(FunctionContext* ctx, const ArrayData& left, const ArrayData& right,
+                      ArrayData* output);
+
+/// \brief Set validity bitmap in output with all null values.
+///
+/// \param[in] ctx the kernel FunctionContext
+/// \param[in] input the input array
+/// \param[out] output the output array.  Must have length and buffer set correctly.
+ARROW_EXPORT
+Status SetAllNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* output);
+
 /// \brief Assign validity bitmap to output, taking the intersection of left and right
 /// null bitmaps if necessary, but zero-copy otherwise.
 ///
@@ -111,7 +131,7 @@ class ARROW_EXPORT PrimitiveAllocatingUnaryKernel : public UnaryKernel {
 /// \brief Kernel used to preallocate outputs for primitive types.
 class ARROW_EXPORT PrimitiveAllocatingBinaryKernel : public BinaryKernel {
  public:
-  // \brief Construct with a kernel to delegate operatoions to.
+  // \brief Construct with a kernel to delegate operations to.
   //
   // Ownership is not taken of the delegate kernel, it must outlive
   // the life time of this object.

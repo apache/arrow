@@ -65,7 +65,15 @@ if [ -z "${BINTRAY_PASSWORD}" ]; then
   exit 1
 fi
 
+if ! jq --help > /dev/null 2>&1; then
+  echo "jq is required"
+  exit 1
+fi
+
 : ${BINTRAY_REPOSITORY:=apache/arrow}
+: ${SOURCE_BINTRAY_REPOSITORY:=${BINTRAY_REPOSITORY}}
+
+BINTRAY_DOWNLOAD_URL_BASE=https://dl.bintray.com
 
 docker_run() {
   docker \
@@ -82,13 +90,22 @@ docker_run() {
 docker_gpg_ssh() {
   local ssh_port=$1
   shift
-  ssh \
-    -o StrictHostKeyChecking=no \
-    -i "${docker_ssh_key}" \
-    -p ${ssh_port} \
-    -R "/home/arrow/.gnupg/S.gpg-agent:${gpg_agent_extra_socket}" \
-    arrow@127.0.0.1 \
-    "$@"
+  local known_hosts_file=$(mktemp -t "arrow-binary-gpg-ssh-known-hosts.XXXXX")
+  local exit_code=
+  if ssh \
+      -o StrictHostKeyChecking=no \
+      -o UserKnownHostsFile=${known_hosts_file} \
+      -i "${docker_ssh_key}" \
+      -p ${ssh_port} \
+      -R "/home/arrow/.gnupg/S.gpg-agent:${gpg_agent_extra_socket}" \
+      arrow@127.0.0.1 \
+      "$@"; then
+    exit_code=$?;
+  else
+    exit_code=$?;
+  fi
+  rm -f ${known_hosts_file}
+  return ${exit_code}
 }
 
 docker_run_gpg_ready() {
@@ -119,15 +136,6 @@ fi
   docker_gpg_ssh ${ssh_port} "cd /host && $@"
   docker kill ${container_id}
   rm -rf ${container_id_dir}
-}
-
-jq() {
-  docker \
-    run \
-    --rm \
-    --interactive \
-    ${docker_image_name} \
-    jq "$@"
 }
 
 bintray() {
@@ -178,16 +186,17 @@ download_files() {
 
   local files=$(
     bintray \
-      GET /packages/${BINTRAY_REPOSITORY}/${target}-rc/versions/${version_name}/files | \
+      GET /packages/${SOURCE_BINTRAY_REPOSITORY}/${target}-rc/versions/${version_name}/files | \
       jq -r ".[].path")
 
+  local file=
   for file in ${files}; do
     mkdir -p "$(dirname ${file})"
     curl \
       --fail \
       --location \
       --output ${file} \
-      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file} &
+      ${BINTRAY_DOWNLOAD_URL_BASE}/${SOURCE_BINTRAY_REPOSITORY}/${file} &
   done
 }
 
@@ -237,8 +246,19 @@ sign_and_upload_file() {
   local local_path=$4
   local upload_path=$5
 
+  local sha256=$(shasum -a 256 ${local_path} | awk '{print $1}')
+  local download_path=/${BINTRAY_REPOSITORY}/${target}-rc/${upload_path}
+  if curl \
+       --fail \
+       --head \
+       ${BINTRAY_DOWNLOAD_URL_BASE}${download_path} | \
+         grep -q "^X-Checksum-Sha2: ${sha256}"; then
+    return 0
+  fi
+
   upload_file ${version} ${rc} ${target} ${local_path} ${upload_path}
 
+  local suffix=
   for suffix in asc sha256 sha512; do
     pushd $(dirname ${local_path})
     local local_path_base=$(basename ${local_path})
@@ -293,9 +313,11 @@ upload_deb() {
   local distribution=$3
   local code_name=$4
 
+  local base_path=
   for base_path in *; do
     upload_deb_file ${version} ${rc} ${distribution} ${code_name} ${base_path} &
   done
+  wait
 }
 
 upload_apt() {
@@ -327,6 +349,7 @@ upload_apt() {
     ${keyring_name} \
     ${keyring_name} &
 
+  local pool_code_name=
   for pool_code_name in pool/*; do
     local code_name=$(basename ${pool_code_name})
     local dist=dists/${code_name}/main
@@ -363,6 +386,7 @@ upload_apt() {
       --output dists/${code_name}/Release.gpg \
       dists/${code_name}/Release
 
+    local path=
     for path in $(find dists/${code_name}/ -type f); do
       sign_and_upload_file \
         ${version} \
@@ -415,6 +439,7 @@ upload_rpm() {
   local distribution=$3
   local distribution_version=$4
 
+  local rpm_path=
   for rpm_path in *.rpm; do
     upload_rpm_file \
       ${version} \
@@ -423,6 +448,7 @@ upload_rpm() {
       ${distribution_version} \
       ${rpm_path} &
   done
+  wait
 }
 
 upload_yum() {
@@ -449,6 +475,9 @@ upload_yum() {
     ${distribution} \
     ${keyring_name} \
     ${keyring_name} &
+  local version_dir=
+  local arch_dir=
+  local repo_path=
   for version_dir in $(find . -mindepth 1 -maxdepth 1 -type d); do
     for arch_dir in ${version_dir}/*; do
       mkdir -p ${arch_dir}/repodata/
@@ -475,6 +504,7 @@ upload_python() {
   local rc=$2
   local target=python
 
+  local base_path=
   for base_path in *; do
     case ${base_path} in
       *.asc|*.sha256|*.sha512)
@@ -488,11 +518,24 @@ upload_python() {
       ${base_path} \
       ${version}-rc${rc}/${base_path} &
   done
+  wait
 }
 
 docker build -t ${docker_image_name} ${SOURCE_DIR}/binary
 
 chmod go-rwx "${docker_ssh_key}"
+
+# By default upload all artifacts.
+# To deactivate one category, deactivate the category and all of its dependents.
+# To explicitly select one category, set UPLOAD_DEFAULT=0 UPLOAD_X=1.
+: ${UPLOAD_DEFAULT:=1}
+: ${UPLOAD_CENTOS_RPM:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_CENTOS_YUM:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_DEBIAN_APT:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_DEBIAN_DEB:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_PYTHON:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_UBUNTU_APT:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_UBUNTU_DEB:=${UPLOAD_DEFAULT}}
 
 have_debian=no
 have_ubuntu=no
@@ -530,18 +573,34 @@ for dir in *; do
 
   if [ ${is_deb} = "yes" ]; then
     pushd ${dir}
-    ensure_version ${version} ${rc} ${distribution}
-    upload_deb ${version} ${rc} ${distribution} ${code_name} &
+    case ${distribution} in
+      debian)
+        if [ ${UPLOAD_DEBIAN_DEB} -gt 0 ]; then
+          ensure_version ${version} ${rc} ${distribution}
+          upload_deb ${version} ${rc} ${distribution} ${code_name} &
+        fi
+        ;;
+      ubuntu)
+        if [ ${UPLOAD_UBUNTU_DEB} -gt 0 ]; then
+          ensure_version ${version} ${rc} ${distribution}
+          upload_deb ${version} ${rc} ${distribution} ${code_name} &
+        fi
+        ;;
+    esac
     popd
   elif [ ${is_rpm} = "yes" ]; then
     pushd ${dir}
-    ensure_version ${version} ${rc} ${distribution}
-    upload_rpm ${version} ${rc} ${distribution} ${distribution_version} &
+    if [ ${UPLOAD_CENTOS_RPM} -gt 0 ]; then
+      ensure_version ${version} ${rc} ${distribution}
+      upload_rpm ${version} ${rc} ${distribution} ${distribution_version} &
+    fi
     popd
   elif [ ${is_python} = "yes" ]; then
     pushd ${dir}
-    ensure_version ${version} ${rc} python
-    upload_python ${version} ${rc} &
+    if [ ${UPLOAD_PYTHON} -gt 0 ]; then
+      ensure_version ${version} ${rc} python
+      upload_python ${version} ${rc} &
+    fi
     popd
   fi
 done
@@ -549,13 +608,22 @@ wait
 popd
 
 if [ ${have_debian} = "yes" ]; then
-  upload_apt ${version} ${rc} debian
+  if [ ${UPLOAD_DEBIAN_APT} -gt 0 ]; then
+    ensure_version ${version} ${rc} debian
+    upload_apt ${version} ${rc} debian
+  fi
 fi
 if [ ${have_ubuntu} = "yes" ]; then
-  upload_apt ${version} ${rc} ubuntu
+  if [ ${UPLOAD_UBUNTU_APT} -gt 0 ]; then
+    ensure_version ${version} ${rc} ubuntu
+    upload_apt ${version} ${rc} ubuntu
+  fi
 fi
 if [ ${have_centos} = "yes" ]; then
-  upload_yum ${version} ${rc} centos
+  if [ ${UPLOAD_CENTOS_YUM} -gt 0 ]; then
+    ensure_version ${version} ${rc} centos
+    upload_yum ${version} ${rc} centos
+  fi
 fi
 
 echo "Success! The release candidate binaries are available here:"

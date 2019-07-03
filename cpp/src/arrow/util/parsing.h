@@ -23,9 +23,7 @@
 #include <cassert>
 #include <chrono>
 #include <limits>
-#include <locale>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <type_traits>
 
@@ -47,7 +45,7 @@ namespace internal {
 ///
 /// The class may have a non-trivial construction cost in some cases,
 /// so it's recommended to use a single instance many times, if doing bulk
-/// conversion.
+/// conversion. Instances of this class are not guaranteed to be thread-safe.
 ///
 template <typename ARROW_TYPE, typename Enable = void>
 class StringConverter;
@@ -55,6 +53,8 @@ class StringConverter;
 template <>
 class StringConverter<BooleanType> {
  public:
+  explicit StringConverter(const std::shared_ptr<DataType>& = NULLPTR) {}
+
   using value_type = bool;
 
   bool operator()(const char* s, size_t length, value_type* out) {
@@ -97,7 +97,7 @@ class StringToFloatConverterMixin {
  public:
   using value_type = typename ARROW_TYPE::c_type;
 
-  StringToFloatConverterMixin()
+  explicit StringToFloatConverterMixin(const std::shared_ptr<DataType>& = NULLPTR)
       : main_converter_(flags_, main_junk_value_, main_junk_value_, "inf", "nan"),
         fallback_converter_(flags_, fallback_junk_value_, fallback_junk_value_, "inf",
                             "nan") {}
@@ -148,10 +148,14 @@ class StringToFloatConverterMixin {
 };
 
 template <>
-class StringConverter<FloatType> : public StringToFloatConverterMixin<FloatType> {};
+class StringConverter<FloatType> : public StringToFloatConverterMixin<FloatType> {
+  using StringToFloatConverterMixin<FloatType>::StringToFloatConverterMixin;
+};
 
 template <>
-class StringConverter<DoubleType> : public StringToFloatConverterMixin<DoubleType> {};
+class StringConverter<DoubleType> : public StringToFloatConverterMixin<DoubleType> {
+  using StringToFloatConverterMixin<DoubleType>::StringToFloatConverterMixin;
+};
 
 // NOTE: HalfFloatType would require a half<->float conversion library
 
@@ -277,6 +281,9 @@ class StringToUnsignedIntConverterMixin {
  public:
   using value_type = typename ARROW_TYPE::c_type;
 
+  explicit StringToUnsignedIntConverterMixin(const std::shared_ptr<DataType>& = NULLPTR) {
+  }
+
   bool operator()(const char* s, size_t length, value_type* out) {
     if (ARROW_PREDICT_FALSE(length == 0)) {
       return false;
@@ -291,18 +298,23 @@ class StringToUnsignedIntConverterMixin {
 };
 
 template <>
-class StringConverter<UInt8Type> : public StringToUnsignedIntConverterMixin<UInt8Type> {};
+class StringConverter<UInt8Type> : public StringToUnsignedIntConverterMixin<UInt8Type> {
+  using StringToUnsignedIntConverterMixin<UInt8Type>::StringToUnsignedIntConverterMixin;
+};
 
 template <>
 class StringConverter<UInt16Type> : public StringToUnsignedIntConverterMixin<UInt16Type> {
+  using StringToUnsignedIntConverterMixin<UInt16Type>::StringToUnsignedIntConverterMixin;
 };
 
 template <>
 class StringConverter<UInt32Type> : public StringToUnsignedIntConverterMixin<UInt32Type> {
+  using StringToUnsignedIntConverterMixin<UInt32Type>::StringToUnsignedIntConverterMixin;
 };
 
 template <>
 class StringConverter<UInt64Type> : public StringToUnsignedIntConverterMixin<UInt64Type> {
+  using StringToUnsignedIntConverterMixin<UInt64Type>::StringToUnsignedIntConverterMixin;
 };
 
 template <class ARROW_TYPE>
@@ -310,6 +322,8 @@ class StringToSignedIntConverterMixin {
  public:
   using value_type = typename ARROW_TYPE::c_type;
   using unsigned_type = typename std::make_unsigned<value_type>::type;
+
+  explicit StringToSignedIntConverterMixin(const std::shared_ptr<DataType>& = NULLPTR) {}
 
   bool operator()(const char* s, size_t length, value_type* out) {
     static constexpr unsigned_type max_positive =
@@ -356,16 +370,24 @@ class StringToSignedIntConverterMixin {
 };
 
 template <>
-class StringConverter<Int8Type> : public StringToSignedIntConverterMixin<Int8Type> {};
+class StringConverter<Int8Type> : public StringToSignedIntConverterMixin<Int8Type> {
+  using StringToSignedIntConverterMixin<Int8Type>::StringToSignedIntConverterMixin;
+};
 
 template <>
-class StringConverter<Int16Type> : public StringToSignedIntConverterMixin<Int16Type> {};
+class StringConverter<Int16Type> : public StringToSignedIntConverterMixin<Int16Type> {
+  using StringToSignedIntConverterMixin<Int16Type>::StringToSignedIntConverterMixin;
+};
 
 template <>
-class StringConverter<Int32Type> : public StringToSignedIntConverterMixin<Int32Type> {};
+class StringConverter<Int32Type> : public StringToSignedIntConverterMixin<Int32Type> {
+  using StringToSignedIntConverterMixin<Int32Type>::StringToSignedIntConverterMixin;
+};
 
 template <>
-class StringConverter<Int64Type> : public StringToSignedIntConverterMixin<Int64Type> {};
+class StringConverter<Int64Type> : public StringToSignedIntConverterMixin<Int64Type> {
+  using StringToSignedIntConverterMixin<Int64Type>::StringToSignedIntConverterMixin;
+};
 
 template <>
 class StringConverter<TimestampType> {
@@ -381,7 +403,7 @@ class StringConverter<TimestampType> {
     // - "YYYY-MM-DD[ T]hh:mm:ss"
     // - "YYYY-MM-DD[ T]hh:mm:ssZ"
     // UTC is always assumed, and the DataType's timezone is ignored.
-    arrow::util::date::year_month_day ymd;
+    arrow_vendored::date::year_month_day ymd;
     if (ARROW_PREDICT_FALSE(length < 10)) {
       return false;
     }
@@ -389,7 +411,7 @@ class StringConverter<TimestampType> {
       if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(s, &ymd))) {
         return false;
       }
-      return ConvertTimePoint(arrow::util::date::sys_days(ymd), out);
+      return ConvertTimePoint(arrow_vendored::date::sys_days(ymd), out);
     }
     if (ARROW_PREDICT_FALSE(s[10] != ' ') && ARROW_PREDICT_FALSE(s[10] != 'T')) {
       return false;
@@ -405,7 +427,7 @@ class StringConverter<TimestampType> {
       if (ARROW_PREDICT_FALSE(!ParseHH_MM_SS(s + 11, &seconds))) {
         return false;
       }
-      return ConvertTimePoint(arrow::util::date::sys_days(ymd) + seconds, out);
+      return ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, out);
     }
     return false;
   }
@@ -434,7 +456,7 @@ class StringConverter<TimestampType> {
     return true;
   }
 
-  bool ParseYYYY_MM_DD(const char* s, arrow::util::date::year_month_day* out) {
+  bool ParseYYYY_MM_DD(const char* s, arrow_vendored::date::year_month_day* out) {
     uint16_t year;
     uint8_t month, day;
     if (ARROW_PREDICT_FALSE(s[4] != '-') || ARROW_PREDICT_FALSE(s[7] != '-')) {
@@ -449,8 +471,8 @@ class StringConverter<TimestampType> {
     if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 8, 2, &day))) {
       return false;
     }
-    *out = {arrow::util::date::year{year}, arrow::util::date::month{month},
-            arrow::util::date::day{day}};
+    *out = {arrow_vendored::date::year{year}, arrow_vendored::date::month{month},
+            arrow_vendored::date::day{day}};
     return out->ok();
   }
 

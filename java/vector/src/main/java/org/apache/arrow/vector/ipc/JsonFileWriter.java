@@ -17,10 +17,7 @@
 
 package org.apache.arrow.vector.ipc;
 
-import static org.apache.arrow.vector.BufferLayout.BufferType.DATA;
-import static org.apache.arrow.vector.BufferLayout.BufferType.OFFSET;
-import static org.apache.arrow.vector.BufferLayout.BufferType.TYPE;
-import static org.apache.arrow.vector.BufferLayout.BufferType.VALIDITY;
+import static org.apache.arrow.vector.BufferLayout.BufferType.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -38,11 +35,14 @@ import org.apache.arrow.vector.BufferLayout.BufferType;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
@@ -58,6 +58,10 @@ import org.apache.arrow.vector.TimeStampSecTZVector;
 import org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.TypeLayout;
+import org.apache.arrow.vector.UInt1Vector;
+import org.apache.arrow.vector.UInt2Vector;
+import org.apache.arrow.vector.UInt4Vector;
+import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
@@ -76,8 +80,15 @@ import com.fasterxml.jackson.databind.MappingJsonFactory;
 
 import io.netty.buffer.ArrowBuf;
 
+/**
+ * A writer that converts binary Vectors into a JSON format suitable
+ * for integration testing.
+ */
 public class JsonFileWriter implements AutoCloseable {
 
+  /**
+   * Configuration POJO for writing JSON files.
+   */
   public static final class JSONWriteConfig {
     private final boolean pretty;
 
@@ -101,10 +112,16 @@ public class JsonFileWriter implements AutoCloseable {
   private final JsonGenerator generator;
   private Schema schema;
 
+  /**
+   * Constructs a new writer that will output to  <code>outputFile</code>.
+   */
   public JsonFileWriter(File outputFile) throws IOException {
     this(outputFile, config());
   }
 
+  /**
+   * Constructs a new writer that will output to  <code>outputFile</code> with the given options.
+   */
   public JsonFileWriter(File outputFile, JSONWriteConfig config) throws IOException {
     MappingJsonFactory jsonFactory = new MappingJsonFactory();
     this.generator = jsonFactory.createGenerator(outputFile, JsonEncoding.UTF8);
@@ -117,6 +134,9 @@ public class JsonFileWriter implements AutoCloseable {
     this.generator.configure(JsonGenerator.Feature.QUOTE_NON_NUMERIC_NUMBERS, false);
   }
 
+  /**
+   * Writes out the "header" of the file including the schema and any dictionaries required.
+   */
   public void start(Schema schema, DictionaryProvider provider) throws IOException {
     List<Field> fields = new ArrayList<>(schema.getFields().size());
     Set<Long> dictionaryIdsUsed = new HashSet<>();
@@ -160,6 +180,7 @@ public class JsonFileWriter implements AutoCloseable {
     generator.writeEndArray();
   }
 
+  /** Writes the record batch to the JSON file. */
   public void write(VectorSchemaRoot recordBatch) throws IOException {
     if (!recordBatch.getSchema().equals(schema)) {
       throw new IllegalArgumentException("record batches must have the same schema: " + schema);
@@ -254,6 +275,18 @@ public class JsonFileWriter implements AutoCloseable {
         case BIGINT:
           generator.writeNumber(BigIntVector.get(buffer, index));
           break;
+        case UINT1:
+          generator.writeNumber(UInt1Vector.getNoOverflow(buffer, index));
+          break;
+        case UINT2:
+          generator.writeNumber(UInt2Vector.get(buffer, index));
+          break;
+        case UINT4:
+          generator.writeNumber(UInt4Vector.getNoOverflow(buffer, index));
+          break;
+        case UINT8:
+          generator.writeNumber(UInt8Vector.getNoOverflow(buffer, index));
+          break;
         case FLOAT4:
           generator.writeNumber(Float4Vector.get(buffer, index));
           break;
@@ -301,6 +334,18 @@ public class JsonFileWriter implements AutoCloseable {
           break;
         case TIMESTAMPNANOTZ:
           generator.writeNumber(TimeStampNanoTZVector.get(buffer, index));
+          break;
+        case DURATION:
+          generator.writeNumber(DurationVector.get(buffer, index));
+          break;
+        case INTERVALYEAR:
+          generator.writeNumber(IntervalYearVector.getTotalMonths(buffer, index));
+          break;
+        case INTERVALDAY:
+          generator.writeStartObject();
+          generator.writeObjectField("days", IntervalDayVector.getDays(buffer, index));
+          generator.writeObjectField("milliseconds", IntervalDayVector.getMilliseconds(buffer, index));
+          generator.writeEndObject();
           break;
         case BIT:
           generator.writeNumber(BitVectorHelper.get(buffer, index));

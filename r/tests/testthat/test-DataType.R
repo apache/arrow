@@ -297,6 +297,8 @@ test_that("list type works as expected", {
     x$children(),
     list(field("item", int32()))
   )
+  expect_equal(x$value_type, int32())
+  expect_equal(x$value_field, field("item", int32()))
 })
 
 test_that("struct type works as expected", {
@@ -311,10 +313,17 @@ test_that("struct type works as expected", {
     x$children(),
     list(field("x", int32()), field("y", boolean()))
   )
+  expect_equal(x$GetFieldIndex("x"), 0L)
+  expect_equal(x$GetFieldIndex("y"), 1L)
+  expect_equal(x$GetFieldIndex("z"), -1L)
+
+  expect_equal(x$GetFieldByName("x"), field("x", int32()))
+  expect_equal(x$GetFieldByName("y"), field("y", boolean()))
+  expect_null(x$GetFieldByName("z"))
 })
 
 test_that("DictionaryType works as expected (ARROW-3355)", {
-  d <- dictionary(int32(), array(c("foo", "bar", "baz")))
+  d <- dictionary(int32(), utf8())
   expect_equal(d, d)
   expect_true(d == d)
   expect_false(d == int32())
@@ -322,5 +331,5 @@ test_that("DictionaryType works as expected (ARROW-3355)", {
   expect_equal(d$bit_width, 32L)
   expect_equal(d$ToString(), "dictionary<values=string, indices=int32, ordered=0>")
   expect_equal(d$index_type, int32())
-  expect_equal(d$dictionary, array(c("foo", "bar", "baz")))
+  expect_equal(d$value_type, utf8())
 })

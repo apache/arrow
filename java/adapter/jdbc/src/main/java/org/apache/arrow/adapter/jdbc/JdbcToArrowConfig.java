@@ -141,7 +141,7 @@ public final class JdbcToArrowConfig {
   /**
    * Returns the array sub-type {@link JdbcFieldInfo} defined for the provided column name.
    *
-   * @param index The {@link java.sql.ResultSetMetaData} column name of an {@link java.sql.Types#ARRAY} type.
+   * @param name The {@link java.sql.ResultSetMetaData} column name of an {@link java.sql.Types#ARRAY} type.
    * @return The {@link JdbcFieldInfo} for that array's sub-type, or <code>null</code> if not defined.
    */
   public JdbcFieldInfo getArraySubTypeByColumnName(String name) {

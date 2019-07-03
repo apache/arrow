@@ -16,7 +16,9 @@
 # under the License.
 ---
 Checks:          'clang-diagnostic-*,clang-analyzer-*,-clang-analyzer-alpha*,google-*,modernize-*,readability-*'
-HeaderFilterRegex: 'arrow/.*'
+# produce HeaderFilterRegex from cpp/build-support/lint_exclusions.txt with:
+# echo -n '^('; sed -e 's/*/\.*/g' cpp/build-support/lint_exclusions.txt | tr '\n' '|'; echo ')$'
+HeaderFilterRegex: '^(.*codegen.*|.*_generated.*|.*windows_compatibility.h|.*pyarrow_api.h|.*pyarrow_lib.h|.*python/config.h|.*python/platform.h|.*thirdparty/ae/.*|.*vendored/.*|.*RcppExports.cpp.*|)$'
 AnalyzeTemporaryDtors: true
 CheckOptions:
   - key:             google-readability-braces-around-statements.ShortStatementLines

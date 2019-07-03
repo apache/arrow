@@ -224,6 +224,13 @@ Status PlasmaStore::AllocateCudaMemory(
   // The IPC handle will keep the buffer memory alive
   return cuda_buffer->ExportForIpc(out_ipc_handle);
 }
+
+Status PlasmaStore::FreeCudaMemory(int device_num, int64_t size, uint8_t* pointer) {
+  std::shared_ptr<CudaContext> context_;
+  RETURN_NOT_OK(manager_->GetContext(device_num - 1, &context_));
+  RETURN_NOT_OK(context_->Free(pointer, size));
+  return Status::OK();
+}
 #endif
 
 // Create a new object buffer in the hash table.
@@ -503,7 +510,14 @@ Status PlasmaStore::ProcessGetRequest(const std::shared_ptr<ClientConnection>& c
 
 void PlasmaStore::EraseFromObjectTable(const ObjectID& object_id) {
   auto& object = store_info_.objects[object_id];
-  PlasmaAllocator::Free(object->pointer, object->data_size + object->metadata_size);
+  auto buff_size = object->data_size + object->metadata_size;
+  if (object->device_num == 0) {
+    PlasmaAllocator::Free(object->pointer, buff_size);
+  } else {
+#ifdef PLASMA_CUDA
+    ARROW_CHECK_OK(FreeCudaMemory(object->device_num, buff_size, object->pointer));
+#endif
+  }
   store_info_.objects.erase(object_id);
 }
 
@@ -553,6 +567,7 @@ int PlasmaStore::AbortObject(const ObjectID& object_id,
   if (client->ObjectIDExists(object_id)) {
     // The client requesting the abort is the creator. Free the object.
     EraseFromObjectTable(object_id);
+    client->object_ids.erase(it);
     return 1;
   } else {
     return 0;
@@ -745,7 +760,8 @@ void PlasmaStore::ReleaseClientResources(
       sealed_objects[it->first] = it->second.get();
     } else {
       // Abort unsealed object.
-      AbortObject(it->first, client);
+      // Don't call AbortObject() because client->object_ids would be modified.
+      EraseFromObjectTable(object_id);
     }
   }
 

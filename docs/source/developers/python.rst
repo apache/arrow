@@ -39,6 +39,14 @@ build. Check for style errors before submitting your pull request with:
    flake8 .
    flake8 --config=.flake8.cython .
 
+The package ``autopep8`` (also available from pip or conda) can automatically
+fix many of the errors reported by ``flake8``:
+
+.. code-block:: shell
+
+   autopep8 --in-place ../integration/integration_test.py
+   autopep8 --in-place --global-config=.flake8.cython pyarrow/table.pxi
+
 Unit Testing
 ============
 
@@ -51,7 +59,7 @@ like so:
    pytest pyarrow
 
 Package requirements to run the unit tests are found in
-``requirements-test.txt`` and can be installed if needed with ``pip -r
+``requirements-test.txt`` and can be installed if needed with ``pip install -r
 requirements-test.txt``.
 
 The project has a number of custom command line options for its test
@@ -98,7 +106,7 @@ Building on Linux and MacOS
 System Requirements
 -------------------
 
-On macOS, any modern XCode (6.4 or higher; the current version is 8.3.1) is
+On macOS, any modern XCode (6.4 or higher; the current version is 10) is
 sufficient.
 
 On Linux, for this guide, we require a minimum of gcc 4.8, or clang 3.7 or
@@ -138,10 +146,18 @@ You should now see
 Using Conda
 ~~~~~~~~~~~
 
+.. note::
+
+   Using conda to build Arrow on macOS is complicated by the
+   fact that the `conda-forge compilers require an older macOS SDK <https://stackoverflow.com/a/55798942>`_.
+   Conda offers some `installation instructions <https://docs.conda.io/projects/conda-build/en/latest/resources/compiler-tools.html#macos-sdk>`_;
+   the alternative would be to use :ref:`Homebrew <python-homebrew>` and
+   ``pip`` instead.
+
 Let's create a conda environment with all the C++ build and Python dependencies
 from conda-forge, targeting development for Python 3.7:
 
-On Linux and OSX:
+On Linux and macOS:
 
 .. code-block:: shell
 
@@ -152,9 +168,12 @@ On Linux and OSX:
         compilers \
         python=3.7
 
-As of January 2019, the `compilers` package is needed on many Linux distributions to use packages from conda-forge.
+As of January 2019, the ``compilers`` package is needed on many Linux
+distributions to use packages from conda-forge.
 
 With this out of the way, you can now activate the conda environment
+
+.. code-block:: shell
 
    conda activate pyarrow-dev
 
@@ -177,12 +196,17 @@ Using pip
    to manage your development. Please follow the conda-based development
    instructions instead.
 
-On macOS, install all dependencies through Homebrew that are required for
+.. _python-homebrew:
+
+On macOS, use Homebrew to install all dependencies required for
 building Arrow C++:
 
 .. code-block:: shell
 
-   brew update && brew bundle --file=arrow/python/Brewfile
+   brew update && brew bundle --file=arrow/cpp/Brewfile
+
+See :ref:`here <cpp-build-dependency-management>` for a list of dependencies you
+may need.
 
 On Debian/Ubuntu, you need the following minimal set of dependencies. All other
 dependencies will be automatically built by Arrow's third-party toolchain.
@@ -213,7 +237,7 @@ folder as the repositories and a target installation folder:
 
    virtualenv pyarrow
    source ./pyarrow/bin/activate
-   pip install six numpy pandas cython pytest
+   pip install six numpy pandas cython pytest hypothesis
 
    # This is the folder where we will install the Arrow libraries during
    # development
@@ -266,7 +290,7 @@ to ``OFF``:
 If multiple versions of Python are installed in your environment, you may have
 to pass additional parameters to cmake so that it can find the right
 executable, headers and libraries.  For example, specifying
-`-DPYTHON_EXECUTABLE=$VIRTUAL_ENV/bin/python` (assuming that you're in
+``-DPYTHON_EXECUTABLE=$VIRTUAL_ENV/bin/python`` (assuming that you're in
 virtualenv) enables cmake to choose the python executable which you are using.
 
 .. note::
@@ -275,6 +299,16 @@ virtualenv) enables cmake to choose the python executable which you are using.
    ``make`` may install libraries in the ``lib64`` directory by default. For
    this reason we recommend passing ``-DCMAKE_INSTALL_LIBDIR=lib`` because the
    Python build scripts assume the library directory is ``lib``
+
+.. note::
+
+   If you have conda installed but are not using it to manage dependencies,
+   and you have trouble building the C++ library, you may need to set
+   ``-DARROW_DEPENDENCY_SOURCE=AUTO`` or some other value (described
+   :ref:`here <cpp-build-dependency-management>`)
+   to explicitly tell CMake not to use conda.
+
+For any other C++ build challenges, see :ref:`cpp-development`.
 
 Now, build pyarrow:
 
@@ -285,30 +319,14 @@ Now, build pyarrow:
    export PYARROW_WITH_GANDIVA=1
    export PYARROW_WITH_ORC=1
    export PYARROW_WITH_PARQUET=1
-   python setup.py build_ext --build-type=$ARROW_BUILD_TYPE --inplace
+   python setup.py build_ext --inplace
    popd
 
 If you did not build one of the optional components, set the corresponding
 ``PYARROW_WITH_$COMPONENT`` environment variable to 0.
 
-You should be able to run the unit tests with:
-
-.. code-block:: shell
-
-   $ py.test pyarrow
-   ================================ test session starts ====================
-   platform linux -- Python 3.6.1, pytest-3.0.7, py-1.4.33, pluggy-0.4.0
-   rootdir: /home/wesm/arrow-clone/python, inifile:
-
-   collected 1061 items / 1 skipped
-
-   [... test output not shown here ...]
-
-   ============================== warnings summary ===============================
-
-   [... many warnings not shown here ...]
-
-   ====== 1000 passed, 56 skipped, 6 xfailed, 19 warnings in 26.52 seconds =======
+Now you are ready to install test dependencies and run `Unit Testing`_, as
+described above.
 
 To build a self-contained wheel (including the Arrow and Parquet C++
 libraries), one can set ``--bundle-arrow-cpp``:
@@ -330,6 +348,32 @@ environment variable when building pyarrow:
 .. code-block:: shell
 
    export PYARROW_WITH_CUDA=1
+
+Debugging
+---------
+
+Since pyarrow depends on the Arrow C++ libraries, debugging can
+frequently involve crossing between Python and C++ shared libraries.
+
+Using gdb on Linux
+~~~~~~~~~~~~~~~~~~
+
+To debug the C++ libraries with gdb while running the Python unit
+   test, first start pytest with gdb:
+
+.. code-block:: shell
+
+   gdb --args python -m pytest pyarrow/tests/test_to_run.py -k $TEST_TO_MATCH
+
+To set a breakpoint, use the same gdb syntax that you would when
+debugging a C++ unitttest, for example:
+
+.. code-block:: shell
+
+   (gdb) b src/arrow/python/arrow_to_pandas.cc:1874
+   No source file named src/arrow/python/arrow_to_pandas.cc.
+   Make breakpoint pending on future shared library load? (y or [n]) y
+   Breakpoint 1 (src/arrow/python/arrow_to_pandas.cc:1874) pending.
 
 Building on Windows
 ===================

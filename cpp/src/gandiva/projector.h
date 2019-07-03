@@ -64,6 +64,19 @@ class GANDIVA_EXPORT Projector {
                      std::shared_ptr<Configuration> configuration,
                      std::shared_ptr<Projector>* projector);
 
+  /// Build a projector for the given schema to evaluate the vector of expressions.
+  /// Customize the projector with runtime configuration.
+  ///
+  /// \param[in] schema schema for the record batches, and the expressions.
+  /// \param[in] exprs vector of expressions.
+  /// \param[in] selection_vector_mode mode of selection vector
+  /// \param[in] configuration run time configuration.
+  /// \param[out] projector the returned projector object
+  static Status Make(SchemaPtr schema, const ExpressionVector& exprs,
+                     SelectionVector::Mode selection_vector_mode,
+                     std::shared_ptr<Configuration> configuration,
+                     std::shared_ptr<Projector>* projector);
+
   /// Evaluate the specified record batch, and return the allocated and populated output
   /// arrays. The output arrays will be allocated from the memory pool 'pool', and added
   /// to the vector 'output'.
@@ -109,8 +122,8 @@ class GANDIVA_EXPORT Projector {
             const FieldVector& output_fields, std::shared_ptr<Configuration>);
 
   /// Allocate an ArrowData of length 'length'.
-  Status AllocArrayData(const DataTypePtr& type, int64_t length, arrow::MemoryPool* pool,
-                        ArrayDataPtr* array_data);
+  Status AllocArrayData(const DataTypePtr& type, int64_t num_records,
+                        arrow::MemoryPool* pool, ArrayDataPtr* array_data);
 
   /// Validate that the ArrayData has sufficient capacity to accomodate 'num_records'.
   Status ValidateArrayDataCapacity(const arrow::ArrayData& array_data,

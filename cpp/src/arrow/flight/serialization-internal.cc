@@ -22,10 +22,12 @@
 #include <string>
 #include <vector>
 
-#include "arrow/util/config.h"
+#include "arrow/flight/platform.h"
 
+#include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl_lite.h>
 #include <google/protobuf/wire_format_lite.h>
+
 #include <grpc/byte_buffer_reader.h>
 #ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
@@ -148,7 +150,9 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
   // Write the descriptor if present
   int32_t descriptor_size = 0;
   if (msg.descriptor != nullptr) {
-    DCHECK_LT(msg.descriptor->size(), kInt32Max);
+    if (msg.descriptor->size() > kInt32Max) {
+      return ToGrpcStatus(Status::CapacityError("Descriptor size overflow (>= 2**31)"));
+    }
     descriptor_size = static_cast<int32_t>(msg.descriptor->size());
     header_size += 1 + WireFormatLite::LengthDelimitedSize(descriptor_size);
   }
@@ -161,6 +165,14 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
   // 1 byte for metadata tag
   header_size += 1 + WireFormatLite::LengthDelimitedSize(metadata_size);
 
+  // App metadata tag if appropriate
+  int32_t app_metadata_size = 0;
+  if (msg.app_metadata && msg.app_metadata->size() > 0) {
+    DCHECK_LT(msg.app_metadata->size(), kInt32Max);
+    app_metadata_size = static_cast<int32_t>(msg.app_metadata->size());
+    header_size += 1 + WireFormatLite::LengthDelimitedSize(app_metadata_size);
+  }
+
   for (const auto& buffer : ipc_msg.body_buffers) {
     // Buffer may be null when the row length is zero, or when all
     // entries are invalid.
@@ -169,9 +181,11 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
     body_size += static_cast<size_t>(BitUtil::RoundUpToMultipleOf8(buffer->size()));
   }
 
+  bool has_body = ipc::Message::HasBody(ipc_msg.type);
+  DCHECK(has_body || ipc_msg.body_length == 0);
+
   // 2 bytes for body tag
-  // Only written when there are body buffers
-  if (ipc_msg.body_length > 0) {
+  if (has_body) {
     // We write the body tag in the header but not the actual body data
     header_size += 2 + WireFormatLite::LengthDelimitedSize(body_size) - body_size;
   }
@@ -210,8 +224,16 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
   header_stream.WriteRawMaybeAliased(ipc_msg.metadata->data(),
                                      static_cast<int>(ipc_msg.metadata->size()));
 
-  // Don't write body tag if there are no body buffers
-  if (ipc_msg.body_length > 0) {
+  // Write app metadata
+  if (app_metadata_size > 0) {
+    WireFormatLite::WriteTag(pb::FlightData::kAppMetadataFieldNumber,
+                             WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
+    header_stream.WriteVarint32(app_metadata_size);
+    header_stream.WriteRawMaybeAliased(msg.app_metadata->data(),
+                                       static_cast<int>(msg.app_metadata->size()));
+  }
+
+  if (has_body) {
     // Write body tag
     WireFormatLite::WriteTag(pb::FlightData::kDataBodyFieldNumber,
                              WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
@@ -289,6 +311,12 @@ grpc::Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out) {
                               "Unable to read FlightData metadata");
         }
       } break;
+      case pb::FlightData::kAppMetadataFieldNumber: {
+        if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->app_metadata)) {
+          return grpc::Status(grpc::StatusCode::INTERNAL,
+                              "Unable to read FlightData application metadata");
+        }
+      } break;
       case pb::FlightData::kDataBodyFieldNumber: {
         if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->body)) {
           return grpc::Status(grpc::StatusCode::INTERNAL,
@@ -306,6 +334,54 @@ grpc::Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out) {
 
   return grpc::Status::OK;
 }
+
+Status FlightData::OpenMessage(std::unique_ptr<ipc::Message>* message) {
+  return ipc::Message::Open(metadata, body, message);
+}
+
+// The pointer bitcast hack below causes legitimate warnings, silence them.
+#ifndef _WIN32
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
+
+// Pointer bitcast explanation: grpc::*Writer<T>::Write() and grpc::*Reader<T>::Read()
+// both take a T* argument (here pb::FlightData*).  But they don't do anything
+// with that argument except pass it to SerializationTraits<T>::Serialize() and
+// SerializationTraits<T>::Deserialize().
+//
+// Since we control SerializationTraits<pb::FlightData>, we can interpret the
+// pointer argument whichever way we want, including cast it back to the original type.
+// (see customize_protobuf.h).
+
+bool WritePayload(const FlightPayload& payload,
+                  grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* writer) {
+  // Pretend to be pb::FlightData and intercept in SerializationTraits
+  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
+                       grpc::WriteOptions());
+}
+
+bool WritePayload(const FlightPayload& payload,
+                  grpc::ServerWriter<pb::FlightData>* writer) {
+  // Pretend to be pb::FlightData and intercept in SerializationTraits
+  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
+                       grpc::WriteOptions());
+}
+
+bool ReadPayload(grpc::ClientReader<pb::FlightData>* reader, FlightData* data) {
+  // Pretend to be pb::FlightData and intercept in SerializationTraits
+  return reader->Read(reinterpret_cast<pb::FlightData*>(data));
+}
+
+bool ReadPayload(grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader,
+                 FlightData* data) {
+  // Pretend to be pb::FlightData and intercept in SerializationTraits
+  return reader->Read(reinterpret_cast<pb::FlightData*>(data));
+}
+
+#ifndef _WIN32
+#pragma GCC diagnostic pop
+#endif
 
 }  // namespace internal
 }  // namespace flight

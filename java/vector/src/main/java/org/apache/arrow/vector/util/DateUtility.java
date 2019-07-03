@@ -26,9 +26,9 @@ import java.time.temporal.ChronoUnit;
 
 import com.carrotsearch.hppc.ObjectIntHashMap;
 
-// Utility class for Date, DateTime, TimeStamp, Interval data types
+/** Utility class for Date, DateTime, TimeStamp, Interval data types. */
 public class DateUtility {
-
+  private DateUtility() {}
 
   /* We have a hashmap that stores the timezone as the key and an index as the value
    * While storing the timezone in value vectors, holders we only use this index. As we
@@ -643,7 +643,7 @@ public class DateUtility {
     return timezoneList[index];
   }
 
-  // Function returns the date time formatter used to parse date strings
+  /** Returns the date time formatter used to parse date strings. */
   public static DateTimeFormatter getDateTimeFormatter() {
 
     if (dateTimeTZFormat == null) {
@@ -659,7 +659,7 @@ public class DateUtility {
     return dateTimeTZFormat;
   }
 
-  // Function returns time formatter used to parse time strings
+  /** Returns time formatter used to parse time strings. */
   public static DateTimeFormatter getTimeFormatter() {
     if (timeFormat == null) {
       DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");

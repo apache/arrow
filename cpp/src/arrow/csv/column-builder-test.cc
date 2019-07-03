@@ -189,6 +189,34 @@ TEST(InferringColumnBuilder, MultipleChunkInteger) {
   AssertChunkedEqual(*expected, *actual);
 }
 
+TEST(InferringColumnBuilder, SingleChunkBoolean) {
+  auto tg = TaskGroup::MakeSerial();
+  std::shared_ptr<ColumnBuilder> builder;
+  ASSERT_OK(ColumnBuilder::Make(0, ConvertOptions::Defaults(), tg, &builder));
+
+  std::shared_ptr<ChunkedArray> actual;
+  AssertBuilding(builder, {{"", "0", "FALSE"}}, &actual);
+
+  std::shared_ptr<ChunkedArray> expected;
+  ChunkedArrayFromVector<BooleanType, bool>({{false, true, true}},
+                                            {{false, false, false}}, &expected);
+  AssertChunkedEqual(*expected, *actual);
+}
+
+TEST(InferringColumnBuilder, MultipleChunkBoolean) {
+  auto tg = TaskGroup::MakeSerial();
+  std::shared_ptr<ColumnBuilder> builder;
+  ASSERT_OK(ColumnBuilder::Make(0, ConvertOptions::Defaults(), tg, &builder));
+
+  std::shared_ptr<ChunkedArray> actual;
+  AssertBuilding(builder, {{""}, {"1", "True", "0"}}, &actual);
+
+  std::shared_ptr<ChunkedArray> expected;
+  ChunkedArrayFromVector<BooleanType, bool>({{false}, {true, true, true}},
+                                            {{false}, {true, true, false}}, &expected);
+  AssertChunkedEqual(*expected, *actual);
+}
+
 TEST(InferringColumnBuilder, SingleChunkReal) {
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
@@ -315,6 +343,9 @@ TEST(InferringColumnBuilder, MultipleChunkBinary) {
       {{true}, {true}, {true, true}}, {{""}, {"008"}, {"NaN", "baré\xff"}}, &expected);
   AssertChunkedEqual(*expected, *actual);
 }
+
+// Parallel parsing is tested more comprehensively on the Python side
+// (see python/pyarrow/tests/test_csv.py)
 
 TEST(InferringColumnBuilder, MultipleChunkIntegerParallel) {
   auto tg = TaskGroup::MakeThreaded(GetCpuThreadPool());

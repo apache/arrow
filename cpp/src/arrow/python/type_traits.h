@@ -291,7 +291,7 @@ static inline int NumPyTypeSize(int npy_type) {
     case NPY_OBJECT:
       return sizeof(void*);
     default:
-      DCHECK(false) << "unhandled numpy type";
+      ARROW_CHECK(false) << "unhandled numpy type";
       break;
   }
   return -1;

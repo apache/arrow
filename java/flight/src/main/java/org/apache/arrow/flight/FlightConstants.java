@@ -17,8 +17,11 @@
 
 package org.apache.arrow.flight;
 
+/**
+ * String constants relevant to flight implementations.
+ */
 public interface FlightConstants {
 
-  public static final String SERVICE = "arrow.flight.protocol.FlightService";
+  String SERVICE = "arrow.flight.protocol.FlightService";
 
 }

@@ -46,6 +46,7 @@ public class ComplexCopier {
       switch (mt) {
 
       case LIST:
+      case MAP:
         if (reader.isSet()) {
           writer.startList();
           while (reader.next()) {

@@ -54,5 +54,14 @@ namespace Apache.Arrow
             var offsets = ValueOffsets;
             return offsets[index + 1] - offsets[index];
         }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Values?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
     }
 }

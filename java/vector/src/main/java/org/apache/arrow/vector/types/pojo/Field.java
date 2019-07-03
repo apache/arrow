@@ -36,7 +36,10 @@ import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.TypeLayout;
-import org.apache.arrow.vector.types.pojo.ArrowType.Int;
+import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -45,7 +48,12 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.flatbuffers.FlatBufferBuilder;
 
+/**
+ * A POJO abstraction for the Flatbuffer description of Vector Type.
+ */
 public class Field {
+
+  private static final Logger logger = LoggerFactory.getLogger(Field.class);
 
   public static Field nullablePrimitive(String name, ArrowType.PrimitiveType type) {
     return nullable(name, type);
@@ -76,13 +84,17 @@ public class Field {
     this.children = children == null ? Collections.emptyList() : children.stream().collect(Collectors.toList());
   }
 
-  // deprecated, use FieldType or static constructor instead
+  /**
+   * @deprecated Use FieldType or static constructor instead.
+   */
   @Deprecated
   public Field(String name, boolean nullable, ArrowType type, List<Field> children) {
     this(name, new FieldType(nullable, type, null, null), children);
   }
 
-  // deprecated, use FieldType or static constructor instead
+  /**
+   * @deprecated Use FieldType or static constructor instead.
+   */
   @Deprecated
   public Field(String name, boolean nullable, ArrowType type, DictionaryEncoding dictionary, List<Field> children) {
     this(name, new FieldType(nullable, type, dictionary, null), children);
@@ -92,23 +104,50 @@ public class Field {
     this(name, fieldType, children, fieldType == null ? null : TypeLayout.getTypeLayout(fieldType.getType()));
   }
 
+  /**
+   * Construct a new vector of this type using the given allocator.
+   */
   public FieldVector createVector(BufferAllocator allocator) {
-    FieldVector vector = fieldType.createNewSingleVector(name, allocator, null);
+    FieldVector vector = fieldType.createNewSingleVector(this, allocator, null);
     vector.initializeChildrenFromFields(children);
     return vector;
   }
 
+  /**
+   * Constructs a new instance from a flatbuffer representation of the field.
+   */
   public static Field convertField(org.apache.arrow.flatbuf.Field field) {
+    Map<String, String> metadata = new HashMap<>();
+    for (int i = 0; i < field.customMetadataLength(); i++) {
+      KeyValue kv = field.customMetadata(i);
+      String key = kv.key();
+      String value = kv.value();
+      metadata.put(key == null ? "" : key, value == null ? "" : value);
+    }
+    metadata = Collections.unmodifiableMap(metadata);
+
     String name = field.name();
     boolean nullable = field.nullable();
     ArrowType type = getTypeForField(field);
+
+    if (metadata.containsKey(ExtensionType.EXTENSION_METADATA_KEY_NAME)) {
+      final String extensionName = metadata.get(ExtensionType.EXTENSION_METADATA_KEY_NAME);
+      final String extensionMetadata = metadata.getOrDefault(ExtensionType.EXTENSION_METADATA_KEY_METADATA, "");
+      ExtensionType extensionType = ExtensionTypeRegistry.lookup(extensionName);
+      if (extensionType != null) {
+        type = extensionType.deserialize(type, extensionMetadata);
+      }
+      // Otherwise, we haven't registered the type
+      logger.info("Unrecognized extension type: {}", extensionName);
+    }
+
     DictionaryEncoding dictionary = null;
     org.apache.arrow.flatbuf.DictionaryEncoding dictionaryFB = field.dictionary();
     if (dictionaryFB != null) {
-      Int indexType = null;
+      ArrowType.Int indexType = null;
       org.apache.arrow.flatbuf.Int indexTypeFB = dictionaryFB.indexType();
       if (indexTypeFB != null) {
-        indexType = new Int(indexTypeFB.bitWidth(), indexTypeFB.isSigned());
+        indexType = new ArrowType.Int(indexTypeFB.bitWidth(), indexTypeFB.isSigned());
       }
       dictionary = new DictionaryEncoding(dictionaryFB.id(), dictionaryFB.isOrdered(), indexType);
     }
@@ -119,14 +158,6 @@ public class Field {
       children.add(childField);
     }
     children = Collections.unmodifiableList(children);
-    Map<String, String> metadata = new HashMap<>();
-    for (int i = 0; i < field.customMetadataLength(); i++) {
-      KeyValue kv = field.customMetadata(i);
-      String key = kv.key();
-      String value = kv.value();
-      metadata.put(key == null ? "" : key, value == null ? "" : value);
-    }
-    metadata = Collections.unmodifiableMap(metadata);
     return new Field(name, nullable, type, dictionary, children, metadata);
   }
 
@@ -151,6 +182,9 @@ public class Field {
     return originalChildField;
   }
 
+  /**
+   * Puts this object into <code>builder</code> and returns the length of the serialized flatbuffer.
+   */
   public int getField(FlatBufferBuilder builder) {
     int nameOffset = name == null ? -1 : builder.createString(name);
     int typeOffset = getType().getType(builder);

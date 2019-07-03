@@ -20,7 +20,6 @@
 use chrono::Timelike;
 
 use crate::array::*;
-use crate::builder::Int32Builder;
 use crate::datatypes::*;
 use crate::error::Result;
 

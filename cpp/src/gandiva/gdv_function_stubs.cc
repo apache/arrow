@@ -72,6 +72,31 @@ bool gdv_fn_in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len,
       reinterpret_cast<gandiva::InHolder<std::string>*>(ptr);
   return holder->HasValue(std::string(data, data_len));
 }
+
+int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
+                                      int32_t* offsets, int64_t slot,
+                                      const char* entry_buf, int32_t entry_len) {
+  auto buffer = reinterpret_cast<arrow::ResizableBuffer*>(data_ptr);
+  int32_t offset = static_cast<int32_t>(buffer->size());
+
+  // This also sets the size in the buffer.
+  auto status = buffer->Resize(offset + entry_len, false /*shrink*/);
+  if (!status.ok()) {
+    gandiva::ExecutionContext* context =
+        reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+
+    context->set_error_msg(status.message().c_str());
+    return -1;
+  }
+
+  // append the new entry.
+  memcpy(buffer->mutable_data() + offset, entry_buf, entry_len);
+
+  // update offsets buffer.
+  offsets[slot] = offset;
+  offsets[slot + 1] = offset + entry_len;
+  return 0;
+}
 }
 
 namespace gandiva {
@@ -135,6 +160,18 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_utf8",
                                   types->i1_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_in_expr_lookup_utf8));
+
+  // gdv_fn_populate_varlen_vector
+  args = {types->i64_type(),      // int64_t execution_context
+          types->i8_ptr_type(),   // int8_t* data ptr
+          types->i32_ptr_type(),  // int32_t* offsets ptr
+          types->i64_type(),      // int64_t slot
+          types->i8_ptr_type(),   // const char* entry_buf
+          types->i32_type()};     // int32_t entry__len
+
+  engine->AddGlobalMappingForFunc("gdv_fn_populate_varlen_vector",
+                                  types->i32_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_populate_varlen_vector));
 }
 
 }  // namespace gandiva

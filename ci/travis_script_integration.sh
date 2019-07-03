@@ -40,6 +40,20 @@ npm run build -- -t apache-arrow
 
 popd
 
+pushd $ARROW_GO_DIR/arrow
+
+eval $(gimme 1.12.x)
+
+export GO111MODULE=on
+export GOBIN=`pwd`/bin
+
+which go
+go version
+go env
+go get -v ./...
+
+popd
+
 pushd $ARROW_INTEGRATION_DIR
 
 conda activate $CPP_TOOLCHAIN
@@ -51,7 +65,7 @@ conda install -y -q python=3.6 six numpy
 INTEGRATION_TEMPDIR=$TRAVIS_BUILD_DIR/integration_temp
 mkdir -p $INTEGRATION_TEMPDIR
 
-python integration_test.py --debug --tempdir=$INTEGRATION_TEMPDIR
+python integration_test.py --debug --tempdir=$INTEGRATION_TEMPDIR --run_flight
 
 popd
 

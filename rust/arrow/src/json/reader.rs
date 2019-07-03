@@ -51,7 +51,6 @@ use std::sync::Arc;
 use serde_json::Value;
 
 use crate::array::*;
-use crate::builder::*;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
@@ -342,6 +341,29 @@ impl<R: Read> Reader<R> {
             projection,
             reader,
             batch_size,
+        }
+    }
+
+    /// Returns the schema of the reader, useful for getting the schema without reading
+    /// record batches
+    pub fn schema(&self) -> Arc<Schema> {
+        match &self.projection {
+            Some(projection) => {
+                let fields = self.schema.fields();
+                let projected_fields: Vec<Field> = fields
+                    .iter()
+                    .filter_map(|field| {
+                        if projection.contains(field.name()) {
+                            Some(field.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                Arc::new(Schema::new(projected_fields))
+            }
+            None => self.schema.clone(),
         }
     }
 
@@ -742,7 +764,9 @@ mod tests {
         assert_eq!(4, batch.num_columns());
         assert_eq!(12, batch.num_rows());
 
-        let schema = batch.schema();
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(&schema, batch_schema);
 
         let a = schema.column_with_name("a").unwrap();
         assert_eq!(0, a.0);
@@ -798,7 +822,9 @@ mod tests {
         assert_eq!(4, batch.num_columns());
         assert_eq!(12, batch.num_rows());
 
-        let schema = batch.schema();
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(&schema, batch_schema);
 
         let a = schema.column_with_name("a").unwrap();
         assert_eq!(&DataType::Int64, a.1.data_type());
@@ -855,10 +881,12 @@ mod tests {
 
         let mut reader: Reader<File> = Reader::new(
             BufReader::new(File::open("test/data/basic.json").unwrap()),
-            Arc::new(schema),
+            Arc::new(schema.clone()),
             1024,
             None,
         );
+        let reader_schema = reader.schema();
+        assert_eq!(reader_schema, Arc::new(schema));
         let batch = reader.next().unwrap().unwrap();
 
         assert_eq!(4, batch.num_columns());
@@ -909,6 +937,13 @@ mod tests {
             1024,
             Some(vec!["a".to_string(), "c".to_string()]),
         );
+        let reader_schema = reader.schema();
+        let expected_schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("c", DataType::Boolean, false),
+        ]));
+        assert_eq!(reader_schema.clone(), expected_schema);
+
         let batch = reader.next().unwrap().unwrap();
 
         assert_eq!(2, batch.num_columns());
@@ -916,6 +951,7 @@ mod tests {
         assert_eq!(12, batch.num_rows());
 
         let schema = batch.schema();
+        assert_eq!(&reader_schema, schema);
 
         let a = schema.column_with_name("a").unwrap();
         assert_eq!(0, a.0);

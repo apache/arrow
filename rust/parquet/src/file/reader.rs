@@ -33,6 +33,7 @@ use parquet_format::{
 use thrift::protocol::TCompactInputProtocol;
 
 use crate::basic::{ColumnOrder, Compression, Encoding, Type};
+use crate::column::page::PageIterator;
 use crate::column::{
     page::{Page, PageReader},
     reader::{ColumnReader, ColumnReaderImpl},
@@ -41,7 +42,10 @@ use crate::compression::{create_codec, Codec};
 use crate::errors::{ParquetError, Result};
 use crate::file::{metadata::*, statistics, FOOTER_SIZE, PARQUET_MAGIC};
 use crate::record::reader::RowIter;
-use crate::schema::types::{self, SchemaDescriptor, Type as SchemaType};
+use crate::record::Row;
+use crate::schema::types::{
+    self, ColumnDescPtr, SchemaDescPtr, SchemaDescriptor, Type as SchemaType,
+};
 use crate::util::{io::FileSource, memory::ByteBufferPtr};
 
 // ----------------------------------------------------------------------
@@ -310,6 +314,17 @@ impl<'a> TryFrom<&'a str> for SerializedFileReader<File> {
     }
 }
 
+/// Conversion into a [`RowIter`](crate::record::reader::RowIter)
+/// using the full file schema over all row groups.
+impl IntoIterator for SerializedFileReader<File> {
+    type Item = Row;
+    type IntoIter = RowIter<'static>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        RowIter::from_file_into(Box::new(self))
+    }
+}
+
 /// A serialized implementation for Parquet [`RowGroupReader`].
 pub struct SerializedRowGroupReader<R: ParquetReader> {
     buf: BufReader<R>,
@@ -560,6 +575,75 @@ impl<T: Read> PageReader for SerializedPageReader<T> {
     }
 }
 
+/// Implementation of page iterator for parquet file.
+pub struct FilePageIterator {
+    column_index: usize,
+    row_group_indices: Box<Iterator<Item = usize>>,
+    file_reader: Rc<FileReader>,
+}
+
+impl FilePageIterator {
+    /// Creates a page iterator for all row groups in file.
+    pub fn new(column_index: usize, file_reader: Rc<FileReader>) -> Result<Self> {
+        let num_row_groups = file_reader.metadata().num_row_groups();
+
+        let row_group_indices = Box::new(0..num_row_groups);
+
+        Self::with_row_groups(column_index, row_group_indices, file_reader)
+    }
+
+    /// Create page iterator from parquet file reader with only some row groups.
+    pub fn with_row_groups(
+        column_index: usize,
+        row_group_indices: Box<Iterator<Item = usize>>,
+        file_reader: Rc<FileReader>,
+    ) -> Result<Self> {
+        // Check that column_index is valid
+        let num_columns = file_reader
+            .metadata()
+            .file_metadata()
+            .schema_descr_ptr()
+            .num_columns();
+
+        if column_index >= num_columns {
+            return Err(ParquetError::IndexOutOfBound(column_index, num_columns));
+        }
+
+        // We don't check iterators here because iterator may be infinite
+        Ok(Self {
+            column_index,
+            row_group_indices,
+            file_reader,
+        })
+    }
+}
+
+impl Iterator for FilePageIterator {
+    type Item = Result<Box<PageReader>>;
+
+    fn next(&mut self) -> Option<Result<Box<PageReader>>> {
+        self.row_group_indices.next().map(|row_group_index| {
+            self.file_reader
+                .get_row_group(row_group_index)
+                .and_then(|r| r.get_column_page_reader(self.column_index))
+        })
+    }
+}
+
+impl PageIterator for FilePageIterator {
+    fn schema(&mut self) -> Result<SchemaDescPtr> {
+        Ok(self
+            .file_reader
+            .metadata()
+            .file_metadata()
+            .schema_descr_ptr())
+    }
+
+    fn column_schema(&mut self) -> Result<ColumnDescPtr> {
+        self.schema().map(|s| s.column(self.column_index))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -567,6 +651,8 @@ mod tests {
     use parquet_format::TypeDefinedOrder;
 
     use crate::basic::SortOrder;
+    use crate::record::RowAccessor;
+    use crate::schema::parser::parse_message_type;
     use crate::util::test_common::{get_temp_file, get_test_file, get_test_path};
 
     #[test]
@@ -722,6 +808,47 @@ mod tests {
 
         let reader = SerializedFileReader::try_from(test_path_str.to_string());
         assert!(reader.is_err());
+    }
+
+    #[test]
+    fn test_file_reader_into_iter() -> Result<()> {
+        let path = get_test_path("alltypes_plain.parquet");
+        let vec = vec![path.clone(), path.clone()]
+            .iter()
+            .map(|p| SerializedFileReader::try_from(p.as_path()).unwrap())
+            .flat_map(|r| r.into_iter())
+            .flat_map(|r| r.get_int(0))
+            .collect::<Vec<_>>();
+
+        // rows in the parquet file are not sorted by "id"
+        // each file contains [id:4, id:5, id:6, id:7, id:2, id:3, id:0, id:1]
+        assert_eq!(vec, vec![4, 5, 6, 7, 2, 3, 0, 1, 4, 5, 6, 7, 2, 3, 0, 1]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_file_reader_into_iter_project() -> Result<()> {
+        let path = get_test_path("alltypes_plain.parquet");
+        let result = vec![path]
+            .iter()
+            .map(|p| SerializedFileReader::try_from(p.as_path()).unwrap())
+            .flat_map(|r| {
+                let schema = "message schema { OPTIONAL INT32 id; }";
+                let proj = parse_message_type(&schema).ok();
+
+                r.into_iter().project(proj).unwrap()
+            })
+            .map(|r| format!("{}", r))
+            .collect::<Vec<_>>()
+            .join(",");
+
+        assert_eq!(
+            result,
+            "{id: 4},{id: 5},{id: 6},{id: 7},{id: 2},{id: 3},{id: 0},{id: 1}"
+        );
+
+        Ok(())
     }
 
     #[test]
@@ -924,5 +1051,36 @@ mod tests {
             page_count += 1;
         }
         assert_eq!(page_count, 2);
+    }
+
+    #[test]
+    fn test_page_iterator() {
+        let file = get_test_file("alltypes_plain.parquet");
+        let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
+
+        let mut page_iterator = FilePageIterator::new(0, file_reader.clone()).unwrap();
+
+        // read first page
+        let page = page_iterator.next();
+        assert!(page.is_some());
+        assert!(page.unwrap().is_ok());
+
+        // reach end of file
+        let page = page_iterator.next();
+        assert!(page.is_none());
+
+        let row_group_indices = Box::new(0..1);
+        let mut page_iterator =
+            FilePageIterator::with_row_groups(0, row_group_indices, file_reader.clone())
+                .unwrap();
+
+        // read first page
+        let page = page_iterator.next();
+        assert!(page.is_some());
+        assert!(page.unwrap().is_ok());
+
+        // reach end of file
+        let page = page_iterator.next();
+        assert!(page.is_none());
     }
 }

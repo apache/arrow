@@ -25,17 +25,17 @@ ARROW_SRC=$(realpath "${PWD}/..")
 : ${DOCKER_COMPOSE_CONF:="${ARROW_SRC}/docker-compose.yml"}
 
 docker_compose() {
-  ${DOCKER_COMPOSE} -f ${DOCKER_COMPOSE_CONF} $@
+  ${DOCKER_COMPOSE} -f ${DOCKER_COMPOSE_CONF} "$@"
 }
 
 main() {
-  docker_compose build $@
-  docker_compose run --rm $@
+  docker_compose build "$1"
+  docker_compose run --rm "$@"
 }
 
 if [ $# -lt 1 ]; then
-    echo "Usage: $0 <docker-compose-service>" >&2
+    echo "Usage: $0 <docker-compose-service> <docker-compose-run-options>" >&2
     exit 1
 fi
 
-main $@
+main "$@"

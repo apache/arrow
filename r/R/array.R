@@ -103,10 +103,41 @@
   )
 )
 
+`arrow::DictionaryArray` <- R6Class("arrow::DictionaryArray", inherit = `arrow::Array`,
+  public = list(
+    indices = function() `arrow::Array`$dispatch(DictionaryArray__indices(self)),
+    dictionary = function() `arrow::Array`$dispatch(DictionaryArray__dictionary(self))
+  )
+)
+
+`arrow::StructArray` <- R6Class("arrow::StructArray", inherit = `arrow::Array`,
+  public = list(
+    field = function(i) `arrow::Array`$dispatch(StructArray__field(self, i)),
+    GetFieldByName = function(name) `arrow::Array`$dispatch(StructArray__GetFieldByName(self, name)),
+    Flatten = function() map(StructArray__Flatten(self), ~ `arrow::Array`$dispatch(.x))
+  )
+)
+
+`arrow::ListArray` <- R6Class("arrow::ListArray", inherit = `arrow::Array`,
+  public = list(
+    values = function() `arrow::Array`$dispatch(ListArray__values(self)),
+    value_length = function(i) ListArray__value_length(self, i),
+    value_offset = function(i) ListArray__value_offset(self, i),
+    raw_value_offsets = function() ListArray__raw_value_offsets(self)
+  ),
+  active = list(
+    value_type = function() `arrow::DataType`$dispatch(ListArray__value_type(self))
+  )
+)
+
 `arrow::Array`$dispatch <- function(xp){
   a <- shared_ptr(`arrow::Array`, xp)
-  if(a$type_id() == Type$DICTIONARY){
+  if (a$type_id() == Type$DICTIONARY){
     a <- shared_ptr(`arrow::DictionaryArray`, xp)
+  } else if (a$type_id() == Type$STRUCT) {
+    a <- shared_ptr(`arrow::StructArray`, xp)
+  } else if (a$type_id() == Type$LIST) {
+    a <- shared_ptr(`arrow::ListArray`, xp)
   }
   a
 }
@@ -122,16 +153,7 @@
 #' @param x R object
 #' @param type Explicit [type][arrow__DataType], or NULL (the default) to infer from the data
 #'
-#' @importFrom rlang warn
 #' @export
 array <- function(x, type = NULL){
   `arrow::Array`$dispatch(Array__from_vector(x, type))
 }
-
-`arrow::DictionaryArray` <- R6Class("arrow::DictionaryArray", inherit = `arrow::Array`,
-  public = list(
-    indices = function() `arrow::Array`$dispatch(DictionaryArray__indices(self)),
-    dictionary = function() `arrow::Array`$dispatch(DictionaryArray__dictionary(self))
-  )
-)
-

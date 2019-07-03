@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from __future__ import absolute_import
+
 import os
 import posixpath
 import sys
@@ -123,7 +125,9 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
 
 
 def _maybe_set_hadoop_classpath():
-    if 'hadoop' in os.environ.get('CLASSPATH', ''):
+    import re
+
+    if re.search(r'hadoop-common[^/]+.jar', os.environ.get('CLASSPATH', '')):
         return
 
     if 'HADOOP_HOME' in os.environ:

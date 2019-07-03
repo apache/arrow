@@ -26,20 +26,75 @@
 namespace arrow {
 namespace Decimal {
 
-static void BM_FromString(benchmark::State& state) {  // NOLINT non-const reference
-  std::vector<std::string> values = {"0", "1.23", "12.345e6", "-12.345e-6"};
+static void FromString(benchmark::State& state) {  // NOLINT non-const reference
+  std::vector<std::string> values = {"0",
+                                     "1.23",
+                                     "12.345e6",
+                                     "-12.345e-6",
+                                     "123456789.123456789",
+                                     "1231234567890.451234567890"};
 
   while (state.KeepRunning()) {
     for (const auto& value : values) {
       Decimal128 dec;
       int32_t scale, precision;
-      ARROW_UNUSED(Decimal128::FromString(value, &dec, &scale, &precision));
+      benchmark::DoNotOptimize(Decimal128::FromString(value, &dec, &scale, &precision));
     }
   }
   state.SetItemsProcessed(state.iterations() * values.size());
 }
 
-BENCHMARK(BM_FromString)->Repetitions(3)->Unit(benchmark::kMicrosecond);
+static void BinaryCompareOp(benchmark::State& state) {  // NOLINT non-const reference
+  BasicDecimal128 d1(546, 123), d2(123, 456);
+  while (state.KeepRunning()) {
+    benchmark::DoNotOptimize(d1 == d2);
+    benchmark::DoNotOptimize(d1 <= d2);
+    benchmark::DoNotOptimize(d1 >= d2);
+    benchmark::DoNotOptimize(d1 >= d1);
+  }
+}
+
+static void BinaryMathOp(benchmark::State& state) {  // NOLINT non-const reference
+  BasicDecimal128 d1(546, 123), d2(123, 456), d3(0, 10);
+  while (state.KeepRunning()) {
+    benchmark::DoNotOptimize(d1 - d2);
+    benchmark::DoNotOptimize(d1 + d2);
+    benchmark::DoNotOptimize(d1 * d2);
+    benchmark::DoNotOptimize(d1 / d2);
+    benchmark::DoNotOptimize(d1 % d3);
+  }
+}
+
+static void UnaryOp(benchmark::State& state) {  // NOLINT non-const reference
+  BasicDecimal128 d1(-546, 123), d2(-123, 456);
+  while (state.KeepRunning()) {
+    benchmark::DoNotOptimize(d1.Abs());
+    benchmark::DoNotOptimize(d2.Negate());
+  }
+}
+
+static void Constants(benchmark::State& state) {  // NOLINT non-const reference
+  BasicDecimal128 d1(-546, 123), d2(-123, 456);
+  while (state.KeepRunning()) {
+    benchmark::DoNotOptimize(BasicDecimal128::GetMaxValue() - d1);
+    benchmark::DoNotOptimize(BasicDecimal128::GetScaleMultiplier(3) + d2);
+  }
+}
+
+static void BinaryBitOp(benchmark::State& state) {  // NOLINT non-const reference
+  BasicDecimal128 d1(546, 123), d2(123, 456);
+  while (state.KeepRunning()) {
+    benchmark::DoNotOptimize(d1 |= d2);
+    benchmark::DoNotOptimize(d1 &= d2);
+  }
+}
+
+BENCHMARK(FromString);
+BENCHMARK(BinaryMathOp);
+BENCHMARK(BinaryCompareOp);
+BENCHMARK(BinaryBitOp);
+BENCHMARK(UnaryOp);
+BENCHMARK(Constants);
 
 }  // namespace Decimal
 }  // namespace arrow

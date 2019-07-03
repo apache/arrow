@@ -24,8 +24,8 @@ use arrow::datatypes::{DataType, Field, Schema};
 use crate::error::{ExecutionError, Result};
 use crate::logicalplan::Expr;
 
-/// Recursively walk a list of expression trees, collecting the unique set of column indexes
-/// referenced in the expression
+/// Recursively walk a list of expression trees, collecting the unique set of column
+/// indexes referenced in the expression
 pub fn exprlist_to_column_indices(expr: &Vec<Expr>, accum: &mut HashSet<usize>) {
     expr.iter().for_each(|e| expr_to_column_indices(e, accum));
 }

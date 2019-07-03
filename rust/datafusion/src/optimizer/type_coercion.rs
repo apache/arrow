@@ -17,8 +17,8 @@
 
 //! The type_coercion optimizer rule ensures that all binary operators are operating on
 //! compatible types by adding explicit cast operations to expressions. For example,
-//! the operation `c_float + c_int` would be rewritten as `c_float + CAST(c_int AS float)`.
-//! This keeps the runtime query execution code much simpler.
+//! the operation `c_float + c_int` would be rewritten as `c_float + CAST(c_int AS
+//! float)`. This keeps the runtime query execution code much simpler.
 
 use std::sync::Arc;
 

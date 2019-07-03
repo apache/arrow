@@ -40,6 +40,7 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/lazy.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -377,7 +378,7 @@ class ORCFileReader::Impl {
     if (!include_indices.empty()) {
       RETURN_NOT_OK(SelectIndices(&opts, include_indices));
     }
-    StripeInformation stripe_info;
+    StripeInformation stripe_info({0, 0, 0, 0});
     RETURN_NOT_OK(SelectStripeWithRowNumber(&opts, current_row_, &stripe_info));
     std::shared_ptr<Schema> schema;
     RETURN_NOT_OK(ReadSchema(opts, &schema));

@@ -32,10 +32,16 @@ set(PRECOMPILED_SRCS
 
 if(MSVC)
   # clang pretends to be a particular version of MSVC. Version 1900 is
-  # Visual Studio 2015, and the standard library uses C++14 features,
-  # so we have to use that -std version to get the IR compilation to
-  # work
-  set(PLATFORM_CLANG_OPTIONS -std=c++14 -fms-compatibility -fms-compatibility-version=19)
+  # Visual Studio 2015, 191[0-9] is Visual Studio 2017, and the standard
+  # library uses C++14 features, so we have to use that -std version to
+  # get the IR compilation to work
+  if(MSVC_VERSION MATCHES "^191[0-9]$")
+    set(FMS_COMPATIBILITY 19.10)
+  else()
+    set(FMS_COMPATIBILITY 19)
+  endif()
+  set(PLATFORM_CLANG_OPTIONS -std=c++14 -fms-compatibility
+                             -fms-compatibility-version=${FMS_COMPATIBILITY})
 else()
   set(PLATFORM_CLANG_OPTIONS -std=c++11)
 endif()
@@ -72,65 +78,54 @@ add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_BC_PATH}
                            ${BC_FILES}
                    DEPENDS ${BC_FILES})
 
-# write a cmake script to replace precompiled bitcode file's content into a .cc file
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/WritePrecompiledCC.cmake" "\
-  file(READ \"${GANDIVA_PRECOMPILED_BC_PATH}\" HEXCONTENT HEX)
-  string(REGEX REPLACE
-         \"([0-9a-f][0-9a-f])\"
-         \"'\\\\\\\\x\\\\1',\"
-         GANDIVA_PRECOMPILED_BITCODE_CHARS
-         \"\${HEXCONTENT}\")
-  configure_file(${GANDIVA_PRECOMPILED_CC_IN_PATH}
-                 ${GANDIVA_PRECOMPILED_CC_PATH})
-")
-
-# add the previous command to the execution chain
+# turn the bitcode file into a C++ static data variable.
 add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_CC_PATH}
-                   COMMAND ${CMAKE_COMMAND} -P
-                           "${CMAKE_CURRENT_BINARY_DIR}/WritePrecompiledCC.cmake"
+                   COMMAND python
+                           "${CMAKE_CURRENT_SOURCE_DIR}/../make_precompiled_bitcode.py"
+                           ${GANDIVA_PRECOMPILED_CC_IN_PATH}
+                           ${GANDIVA_PRECOMPILED_BC_PATH}
+                           ${GANDIVA_PRECOMPILED_CC_PATH}
                    DEPENDS ${GANDIVA_PRECOMPILED_CC_IN_PATH}
                            ${GANDIVA_PRECOMPILED_BC_PATH})
 
 add_custom_target(precompiled ALL
                   DEPENDS ${GANDIVA_PRECOMPILED_BC_PATH} ${GANDIVA_PRECOMPILED_CC_PATH})
 
-function(add_precompiled_unit_test REL_TEST_NAME)
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
-
-  set(TEST_NAME "gandiva-precompiled-${TEST_NAME}")
-
-  add_executable(${TEST_NAME} ${REL_TEST_NAME} ${ARGN})
-  target_include_directories(${TEST_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
-  target_link_libraries(${TEST_NAME} PRIVATE ${ARROW_TEST_LINK_LIBS} RE2::re2)
-  target_compile_definitions(${TEST_NAME}
+# testing
+if(ARROW_BUILD_TESTS)
+  add_executable(gandiva-precompiled-test
+                 ../context_helper.cc
+                 bitmap_test.cc
+                 bitmap.cc
+                 epoch_time_point_test.cc
+                 time_test.cc
+                 time.cc
+                 timestamp_arithmetic.cc
+                 ../cast_time.cc
+                 ../../arrow/vendored/datetime/tz.cpp
+                 hash_test.cc
+                 hash.cc
+                 string_ops_test.cc
+                 string_ops.cc
+                 arithmetic_ops_test.cc
+                 arithmetic_ops.cc
+                 extended_math_ops_test.cc
+                 extended_math_ops.cc
+                 decimal_ops_test.cc
+                 decimal_ops.cc
+                 ../decimal_type_util.cc
+                 ../decimal_xlarge.cc)
+  target_include_directories(gandiva-precompiled-test PRIVATE ${CMAKE_SOURCE_DIR}/src)
+  target_link_libraries(gandiva-precompiled-test PRIVATE ${ARROW_TEST_LINK_LIBS} RE2::re2)
+  target_compile_definitions(gandiva-precompiled-test
                              PRIVATE
                              GANDIVA_UNIT_TEST=1
                              ARROW_STATIC
                              GANDIVA_STATIC)
-  set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
-  add_test(${TEST_NAME} ${TEST_PATH})
-  set_property(TEST ${TEST_NAME} APPEND PROPERTY LABELS "unittest;gandiva-tests")
-  add_dependencies(gandiva-tests ${TEST_NAME})
-endfunction(add_precompiled_unit_test REL_TEST_NAME)
-
-# testing
-if(ARROW_BUILD_TESTS)
-  add_precompiled_unit_test(bitmap_test.cc bitmap.cc)
-  add_precompiled_unit_test(epoch_time_point_test.cc)
-  add_precompiled_unit_test(time_test.cc
-                            time.cc
-                            timestamp_arithmetic.cc
-                            ../context_helper.cc
-                            ../cast_time.cc
-                            ../../arrow/vendored/datetime/tz.cpp)
-  add_precompiled_unit_test(hash_test.cc hash.cc)
-  add_precompiled_unit_test(string_ops_test.cc string_ops.cc ../context_helper.cc)
-  add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc ../context_helper.cc)
-  add_precompiled_unit_test(extended_math_ops_test.cc extended_math_ops.cc
-                            ../context_helper.cc)
-  add_precompiled_unit_test(decimal_ops_test.cc
-                            decimal_ops.cc
-                            ../decimal_type_util.cc
-                            ../decimal_xlarge.cc
-                            ../context_helper.cc)
+  set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/gandiva-precompiled-test")
+  add_test(gandiva-precompiled-test ${TEST_PATH})
+  set_property(TEST gandiva-precompiled-test
+               APPEND
+               PROPERTY LABELS "unittest;gandiva-tests")
+  add_dependencies(gandiva-tests gandiva-precompiled-test)
 endif()

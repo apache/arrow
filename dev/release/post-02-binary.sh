@@ -36,18 +36,14 @@ if [ -z "${BINTRAY_PASSWORD}" ]; then
   exit 1
 fi
 
+if ! jq --help > /dev/null 2>&1; then
+  echo "jq is required"
+  exit 1
+fi
+
 : ${BINTRAY_REPOSITORY:=apache/arrow}
 
 docker_image_name=apache-arrow/release-binary
-
-jq() {
-  docker \
-    run \
-    --rm \
-    --interactive \
-    ${docker_image_name} \
-    jq "$@"
-}
 
 bintray() {
   local command=$1
@@ -97,14 +93,16 @@ download_files() {
       GET /packages/${BINTRAY_REPOSITORY}/${target}-rc/versions/${version_name}/files | \
       jq -r ".[].path")
 
+  local file
   for file in ${files}; do
     mkdir -p "$(dirname ${file})"
     curl \
       --fail \
       --location \
       --output ${file} \
-      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file}
+      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file} &
   done
+  wait
 }
 
 delete_file() {
@@ -154,8 +152,9 @@ for target in debian ubuntu centos python; do
     mv ${version}-rc${rc} ${version}
   fi
   for file in $(find . -type f); do
-    upload_file ${version} ${target} ${file}
+    upload_file ${version} ${target} ${file} &
   done
+  wait
   popd
   popd
   rm -rf ${tmp_dir}

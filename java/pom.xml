@@ -20,12 +20,12 @@
 
   <groupId>org.apache.arrow</groupId>
   <artifactId>arrow-java-root</artifactId>
-  <version>0.13.0-SNAPSHOT</version>
+  <version>0.14.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Apache Arrow Java Root POM</name>
   <description>Apache Arrow is open source, in-memory columnar data structures and low-overhead messaging</description>
-  <url>http://arrow.apache.org/</url>
+  <url>https://arrow.apache.org/</url>
 
   <properties>
     <target.gen.source.path>${project.basedir}/target/generated-sources</target.gen.source.path>
@@ -33,7 +33,7 @@
     <dep.junit.jupiter.version>5.4.0</dep.junit.jupiter.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava.version>20.0</dep.guava.version>
-    <dep.netty.version>4.1.22.Final</dep.netty.version>
+    <dep.netty.version>4.1.27.Final</dep.netty.version>
     <dep.jackson.version>2.9.8</dep.jackson.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <dep.fbs.version>1.9.0</dep.fbs.version>
@@ -55,20 +55,20 @@
       <subscribe>dev-subscribe@arrow.apache.org</subscribe>
       <unsubscribe>dev-unsubscribe@arrow.apache.org</unsubscribe>
       <post>dev@arrow.apache.org</post>
-      <archive>http://mail-archives.apache.org/mod_mbox/arrow-dev/</archive>
+      <archive>https://mail-archives.apache.org/mod_mbox/arrow-dev/</archive>
     </mailingList>
     <mailingList>
       <name>Commits List</name>
       <subscribe>commits-subscribe@arrow.apache.org</subscribe>
       <unsubscribe>commits-unsubscribe@arrow.apache.org</unsubscribe>
       <post>commits@arrow.apache.org</post>
-      <archive>http://mail-archives.apache.org/mod_mbox/arrow-commits/</archive>
+      <archive>https://mail-archives.apache.org/mod_mbox/arrow-commits/</archive>
     </mailingList>
     <mailingList>
       <name>Issues List</name>
       <subscribe>issues-subscribe@arrow.apache.org</subscribe>
       <unsubscribe>issues-unsubscribe@arrow.apache.org</unsubscribe>
-      <archive>http://mail-archives.apache.org/mod_mbox/arrow-issues/</archive>
+      <archive>https://mail-archives.apache.org/mod_mbox/arrow-issues/</archive>
     </mailingList>
   </mailingLists>
 
@@ -158,7 +158,7 @@
             <manifestEntries>
               <Extension-Name>org.apache.arrow</Extension-Name>
               <Built-By>${username}</Built-By>
-              <url>http://arrow.apache.org/</url>
+              <url>https://arrow.apache.org/</url>
             </manifestEntries>
           </archive>
         </configuration>
@@ -381,6 +381,7 @@
             <reuseForks>true</reuseForks>
             <systemPropertyVariables>
               <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
+              <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
             </systemPropertyVariables>
             <!-- Note: changing the below configuration might increase the max allocation size for a vector
             which in turn can cause OOM. -->
@@ -652,6 +653,8 @@
     <module>adapter/jdbc</module>
     <module>plasma</module>
     <module>flight</module>
+    <module>performance</module>
+    <module>algorithm</module>
   </modules>
 
   <profiles>
@@ -667,16 +670,11 @@
     </profile>
 
     <profile>
-      <!-- gandiva java depends on gandiva cpp, and gandiva cpp isn't enabled by default yet -->
-      <id>gandiva</id>
+      <!-- orc java depends on arrow cpp, and arrow cpp isn't enabled by default yet -->
+      <id>arrow-jni</id>
       <modules>
-        <module>format</module>
-        <module>memory</module>
-        <module>vector</module>
-        <module>tools</module>
-        <module>adapter/jdbc</module>
-        <module>plasma</module>
-        <module>flight</module>
+        <!-- these have dependency on cpp -->
+        <module>adapter/orc</module>
         <module>gandiva</module>
       </modules>
     </profile>

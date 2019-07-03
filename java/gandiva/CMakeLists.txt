@@ -23,12 +23,40 @@ include(UseJava)
 include(FindJNI)
 
 message("generating headers to ${JNI_HEADERS_DIR}/jni")
-add_jar(gandiva_java
-        src/main/java/org/apache/arrow/gandiva/evaluator/ConfigurationBuilder.java
-        src/main/java/org/apache/arrow/gandiva/evaluator/JniWrapper.java
-        src/main/java/org/apache/arrow/gandiva/evaluator/ExpressionRegistryJniHelper.java
-        src/main/java/org/apache/arrow/gandiva/exceptions/GandivaException.java
-        GENERATE_NATIVE_HEADERS
-        gandivajni_headers
-        DESTINATION
-        ${JNI_HEADERS_DIR}/jni)
+
+# generate_native_headers is available only from java8
+# centos5 does not have java8 images, so supporting java 7 too.
+# unfortunately create_javah does not work in java8 correctly.
+if(ARROW_GANDIVA_JAVA7)
+  add_jar(
+    gandiva_java
+    src/main/java/org/apache/arrow/gandiva/evaluator/ConfigurationBuilder.java
+    src/main/java/org/apache/arrow/gandiva/evaluator/JniWrapper.java
+    src/main/java/org/apache/arrow/gandiva/evaluator/ExpressionRegistryJniHelper.java
+    src/main/java/org/apache/arrow/gandiva/exceptions/GandivaException.java)
+
+  create_javah(TARGET
+               gandiva_jni_headers
+               CLASSES
+               org.apache.arrow.gandiva.evaluator.ConfigurationBuilder
+               org.apache.arrow.gandiva.evaluator.JniWrapper
+               org.apache.arrow.gandiva.evaluator.ExpressionRegistryJniHelper
+               org.apache.arrow.gandiva.exceptions.GandivaException
+               DEPENDS
+               gandiva_java
+               CLASSPATH
+               gandiva_java
+               OUTPUT_DIR
+               ${JNI_HEADERS_DIR}/jni)
+else()
+  add_jar(
+    gandiva_java
+    src/main/java/org/apache/arrow/gandiva/evaluator/ConfigurationBuilder.java
+    src/main/java/org/apache/arrow/gandiva/evaluator/JniWrapper.java
+    src/main/java/org/apache/arrow/gandiva/evaluator/ExpressionRegistryJniHelper.java
+    src/main/java/org/apache/arrow/gandiva/exceptions/GandivaException.java
+    GENERATE_NATIVE_HEADERS
+    gandiva_jni_headers
+    DESTINATION
+    ${JNI_HEADERS_DIR}/jni)
+endif()

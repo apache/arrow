@@ -19,6 +19,7 @@
 #include <memory>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -26,6 +27,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 
@@ -137,6 +139,26 @@ TEST_F(TestChunkedArray, SliceEquals) {
   ASSERT_EQ(slice5->length(), 0);
   ASSERT_EQ(slice5->num_chunks(), 0);
   ASSERT_TRUE(slice5->type()->Equals(one_->type()));
+}
+
+TEST_F(TestChunkedArray, Validate) {
+  // Valid if empty
+  ArrayVector empty = {};
+  auto no_chunks = std::make_shared<ChunkedArray>(empty, utf8());
+  ASSERT_OK(no_chunks->Validate());
+
+  random::RandomArrayGenerator gen(0);
+  arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
+  Construct();
+  ASSERT_OK(one_->Validate());
+
+  arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
+  Construct();
+  ASSERT_OK(one_->Validate());
+
+  arrays_one_.push_back(gen.String(50, 0, 10, 0.1));
+  Construct();
+  ASSERT_RAISES(Invalid, one_->Validate());
 }
 
 class TestColumn : public TestChunkedArray {
@@ -401,6 +423,41 @@ TEST_F(TestTable, FromRecordBatchesZeroLength) {
   ASSERT_TRUE(result->schema()->Equals(*schema_));
 }
 
+TEST_F(TestTable, CombineChunksEmptyTable) {
+  MakeExample1(10);
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(Table::FromRecordBatches(schema_, {}, &table));
+  ASSERT_EQ(0, table->num_rows());
+
+  std::shared_ptr<Table> compacted;
+  ASSERT_OK(table->CombineChunks(default_memory_pool(), &compacted));
+
+  EXPECT_TRUE(compacted->Equals(*table));
+}
+
+TEST_F(TestTable, CombineChunks) {
+  MakeExample1(10);
+  auto batch1 = RecordBatch::Make(schema_, 10, arrays_);
+
+  MakeExample1(15);
+  auto batch2 = RecordBatch::Make(schema_, 15, arrays_);
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(Table::FromRecordBatches({batch1, batch2}, &table));
+  for (int i = 0; i < table->num_columns(); ++i) {
+    ASSERT_EQ(2, table->column(i)->data()->num_chunks());
+  }
+
+  std::shared_ptr<Table> compacted;
+  ASSERT_OK(table->CombineChunks(default_memory_pool(), &compacted));
+
+  EXPECT_TRUE(compacted->Equals(*table));
+  for (int i = 0; i < compacted->num_columns(); ++i) {
+    EXPECT_EQ(1, compacted->column(i)->data()->num_chunks());
+  }
+}
+
 TEST_F(TestTable, ConcatenateTables) {
   const int64_t length = 10;
 
@@ -430,6 +487,23 @@ TEST_F(TestTable, ConcatenateTables) {
   ASSERT_OK(Table::FromRecordBatches({batch3}, &t3));
 
   ASSERT_RAISES(Invalid, ConcatenateTables({t1, t3}, &result));
+}
+
+TEST_F(TestTable, Slice) {
+  const int64_t length = 10;
+
+  MakeExample1(length);
+  auto batch = RecordBatch::Make(schema_, length, arrays_);
+
+  std::shared_ptr<Table> half, whole, three;
+  ASSERT_OK(Table::FromRecordBatches({batch}, &half));
+  ASSERT_OK(Table::FromRecordBatches({batch, batch}, &whole));
+  ASSERT_OK(Table::FromRecordBatches({batch, batch, batch}, &three));
+
+  AssertTablesEqual(*whole->Slice(0, length), *half);
+  AssertTablesEqual(*whole->Slice(length), *half);
+  AssertTablesEqual(*whole->Slice(length / 3, 2 * (length - length / 3)),
+                    *three->Slice(length + length / 3, 2 * (length - length / 3)));
 }
 
 TEST_F(TestTable, RemoveColumn) {
@@ -479,6 +553,19 @@ TEST_F(TestTable, SetColumn) {
 
   auto expected = Table::Make(ex_schema, ex_columns);
   ASSERT_TRUE(result->Equals(*expected));
+}
+
+TEST_F(TestTable, RenameColumns) {
+  MakeExample1(10);
+  auto table = Table::Make(schema_, columns_);
+  EXPECT_THAT(table->ColumnNames(), testing::ElementsAre("f0", "f1", "f2"));
+
+  std::shared_ptr<Table> renamed;
+  ASSERT_OK(table->RenameColumns({"zero", "one", "two"}, &renamed));
+  EXPECT_THAT(renamed->ColumnNames(), testing::ElementsAre("zero", "one", "two"));
+  ASSERT_OK(renamed->Validate());
+
+  ASSERT_RAISES(Invalid, table->RenameColumns({"hello", "world"}, &renamed));
 }
 
 TEST_F(TestTable, RemoveColumnEmpty) {

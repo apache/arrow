@@ -31,11 +31,13 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
 import org.apache.arrow.vector.types.pojo.ArrowType.Bool;
 import org.apache.arrow.vector.types.pojo.ArrowType.Date;
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
+import org.apache.arrow.vector.types.pojo.ArrowType.Duration;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
+import org.apache.arrow.vector.types.pojo.ArrowType.Map;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.ArrowType.Time;
@@ -50,6 +52,9 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
  */
 public class TypeLayout {
 
+  /**
+   * Constructs a new {@TypeLayout} for the given <code>arrowType</code>.
+   */
   public static TypeLayout getTypeLayout(final ArrowType arrowType) {
     TypeLayout layout = arrowType.accept(new ArrowTypeVisitor<TypeLayout>() {
 
@@ -107,6 +112,15 @@ public class TypeLayout {
       public TypeLayout visit(FixedSizeList type) {
         List<BufferLayout> vectors = asList(
             BufferLayout.validityVector()
+        );
+        return new TypeLayout(vectors);
+      }
+
+      @Override
+      public TypeLayout visit(Map type) {
+        List<BufferLayout> vectors = asList(
+            BufferLayout.validityVector(),
+            BufferLayout.offsetBuffer()
         );
         return new TypeLayout(vectors);
       }
@@ -202,6 +216,11 @@ public class TypeLayout {
         }
       }
 
+      @Override
+      public TypeLayout visit(Duration type) {
+            return newFixedWidthTypeLayout(BufferLayout.dataBuffer(64));
+      }
+
     });
     return layout;
   }
@@ -217,11 +236,18 @@ public class TypeLayout {
     this(asList(bufferLayouts));
   }
 
-
+  /**
+   * Returns the individual {@linkplain BufferLayout}s for the given type.
+   */
   public List<BufferLayout> getBufferLayouts() {
     return bufferLayouts;
   }
 
+  /**
+   * Returns the types of each buffer for this layout.  A layout can consist
+   * of multiple buffers for example a validity bitmap buffer, a value buffer or
+   * an offset buffer.
+   */
   public List<BufferType> getBufferTypes() {
     List<BufferType> types = new ArrayList<>(bufferLayouts.size());
     for (BufferLayout vector : bufferLayouts) {

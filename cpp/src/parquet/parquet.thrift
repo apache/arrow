@@ -17,7 +17,7 @@
  * under the License.
  */
 
-cpp_include "parquet/util/windows_compatibility.h"
+cpp_include "parquet/windows_compatibility.h"
 
 /**
  * File format description for the parquet file format
@@ -35,7 +35,7 @@ enum Type {
   BOOLEAN = 0;
   INT32 = 1;
   INT64 = 2;
-  INT96 = 3;
+  INT96 = 3;  // deprecated, only used by legacy implementations.
   FLOAT = 4;
   DOUBLE = 5;
   BYTE_ARRAY = 6;
@@ -259,9 +259,11 @@ struct DecimalType {
 /** Time units for logical types */
 struct MilliSeconds {}
 struct MicroSeconds {}
+struct NanoSeconds {}
 union TimeUnit {
   1: MilliSeconds MILLIS
   2: MicroSeconds MICROS
+  3: NanoSeconds NANOS
 }
 
 /**
@@ -277,7 +279,7 @@ struct TimestampType {
 /**
  * Time logical type annotation
  *
- * Allowed for physical types: INT32 (millis), INT64 (micros)
+ * Allowed for physical types: INT32 (millis), INT64 (micros, nanos)
  */
 struct TimeType {
   1: required bool isAdjustedToUTC
@@ -320,19 +322,27 @@ struct BsonType {
  * following table.
  */
 union LogicalType {
-  1:  StringType STRING       // use ConvertedType UTF8 if encoding is UTF-8
+  1:  StringType STRING       // use ConvertedType UTF8
   2:  MapType MAP             // use ConvertedType MAP
   3:  ListType LIST           // use ConvertedType LIST
   4:  EnumType ENUM           // use ConvertedType ENUM
   5:  DecimalType DECIMAL     // use ConvertedType DECIMAL
   6:  DateType DATE           // use ConvertedType DATE
-  7:  TimeType TIME           // use ConvertedType TIME_MICROS or TIME_MILLIS
-  8:  TimestampType TIMESTAMP // use ConvertedType TIMESTAMP_MICROS or TIMESTAMP_MILLIS
+
+  // use ConvertedType TIME_MICROS for TIME(isAdjustedToUTC = true, unit = MICROS)
+  // use ConvertedType TIME_MILLIS for TIME(isAdjustedToUTC = true, unit = MILLIS)
+  7:  TimeType TIME
+
+  // use ConvertedType TIMESTAMP_MICROS for TIMESTAMP(isAdjustedToUTC = true, unit = MICROS)
+  // use ConvertedType TIMESTAMP_MILLIS for TIMESTAMP(isAdjustedToUTC = true, unit = MILLIS)
+  8:  TimestampType TIMESTAMP
+
   // 9: reserved for INTERVAL
   10: IntType INTEGER         // use ConvertedType INT_* or UINT_*
   11: NullType UNKNOWN        // no compatible ConvertedType
   12: JsonType JSON           // use ConvertedType JSON
   13: BsonType BSON           // use ConvertedType BSON
+  14: UUIDType UUID
 }
 
 /**
@@ -637,7 +647,7 @@ struct ColumnMetaData {
   /** total byte size of all uncompressed pages in this column chunk (including the headers) **/
   6: required i64 total_uncompressed_size
 
-  /** total byte size of all compressed, and potentially encrypted, pages 
+  /** total byte size of all compressed, and potentially encrypted, pages
    *  in this column chunk (including the headers) **/
   7: required i64 total_compressed_size
 
@@ -668,7 +678,7 @@ struct EncryptionWithFooterKey {
 struct EncryptionWithColumnKey {
   /** Column path in schema **/
   1: required list<string> path_in_schema
-  
+
   /** Retrieval metadata of column encryption key **/
   2: optional binary key_metadata
 }
@@ -707,7 +717,7 @@ struct ColumnChunk {
 
   /** Crypto metadata of encrypted columns **/
   8: optional ColumnCryptoMetaData crypto_metadata
-  
+
   /** Encrypted column metadata for this chunk **/
   9: optional binary encrypted_column_metadata
 }
@@ -733,10 +743,10 @@ struct RowGroup {
    * in this row group **/
   5: optional i64 file_offset
 
-  /** Total byte size of all compressed (and potentially encrypted) column data 
+  /** Total byte size of all compressed (and potentially encrypted) column data
    *  in this row group **/
   6: optional i64 total_compressed_size
-  
+
   /** Row group ordinal in the file **/
   7: optional i16 ordinal
 }
@@ -864,7 +874,7 @@ struct AesGcmV1 {
 
   /** Unique file identifier part of AAD suffix **/
   2: optional binary aad_file_unique
-  
+
   /** In files encrypted with AAD prefix without storing it,
    * readers must supply the prefix **/
   3: optional bool supply_aad_prefix
@@ -876,7 +886,7 @@ struct AesGcmCtrV1 {
 
   /** Unique file identifier part of AAD suffix **/
   2: optional binary aad_file_unique
-  
+
   /** In files encrypted with AAD prefix without storing it,
    * readers must supply the prefix **/
   3: optional bool supply_aad_prefix
@@ -931,32 +941,30 @@ struct FileMetaData {
    */
   7: optional list<ColumnOrder> column_orders;
 
-  /** 
+  /**
    * Encryption algorithm. This field is set only in encrypted files
    * with plaintext footer. Files with encrypted footer store algorithm id
    * in FileCryptoMetaData structure.
    */
   8: optional EncryptionAlgorithm encryption_algorithm
 
-  /** 
-   * Retrieval metadata of key used for signing the footer. 
-   * Used only in encrypted files with plaintext footer. 
-   */ 
+  /**
+   * Retrieval metadata of key used for signing the footer.
+   * Used only in encrypted files with plaintext footer.
+   */
   9: optional binary footer_signing_key_metadata
 }
 
 /** Crypto metadata for files with encrypted footer **/
 struct FileCryptoMetaData {
-  /** 
+  /**
    * Encryption algorithm. This field is only used for files
    * with encrypted footer. Files with plaintext footer store algorithm id
    * inside footer (FileMetaData structure).
    */
   1: required EncryptionAlgorithm encryption_algorithm
-    
-  /** Retrieval metadata of key used for encryption of footer, 
+
+  /** Retrieval metadata of key used for encryption of footer,
    *  and (possibly) columns **/
   2: optional binary key_metadata
 }
-
-

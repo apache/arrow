@@ -31,6 +31,7 @@
 #endif
 
 #include <algorithm>
+#include <atomic>
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
@@ -56,7 +57,7 @@ namespace io {
 
 class OSFile {
  public:
-  OSFile() : fd_(-1), is_open_(false), size_(-1) {}
+  OSFile() : fd_(-1), is_open_(false), size_(-1), need_seeking_(false) {}
 
   ~OSFile() {}
 
@@ -113,36 +114,62 @@ class OSFile {
     return Status::OK();
   }
 
+  Status CheckClosed() const {
+    if (!is_open_) {
+      return Status::Invalid("Invalid operation on closed file");
+    }
+    return Status::OK();
+  }
+
   Status Close() {
     if (is_open_) {
       // Even if closing fails, the fd will likely be closed (perhaps it's
       // already closed).
       is_open_ = false;
-      RETURN_NOT_OK(internal::FileClose(fd_));
+      int fd = fd_;
+      fd_ = -1;
+      RETURN_NOT_OK(internal::FileClose(fd));
     }
     return Status::OK();
   }
 
   Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+    RETURN_NOT_OK(CheckClosed());
+    RETURN_NOT_OK(CheckPositioned());
     return internal::FileRead(fd_, reinterpret_cast<uint8_t*>(out), nbytes, bytes_read);
   }
 
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* out) {
+    RETURN_NOT_OK(CheckClosed());
+    // ReadAt() leaves the file position undefined, so require that we seek
+    // before calling Read() or Write().
+    need_seeking_.store(true);
     return internal::FileReadAt(fd_, reinterpret_cast<uint8_t*>(out), position, nbytes,
                                 bytes_read);
   }
 
   Status Seek(int64_t pos) {
+    RETURN_NOT_OK(CheckClosed());
     if (pos < 0) {
       return Status::Invalid("Invalid position");
     }
-    return internal::FileSeek(fd_, pos);
+    Status st = internal::FileSeek(fd_, pos);
+    if (st.ok()) {
+      need_seeking_.store(false);
+    }
+    return st;
   }
 
-  Status Tell(int64_t* pos) const { return internal::FileTell(fd_, pos); }
+  Status Tell(int64_t* pos) const {
+    RETURN_NOT_OK(CheckClosed());
+    return internal::FileTell(fd_, pos);
+  }
 
   Status Write(const void* data, int64_t length) {
+    RETURN_NOT_OK(CheckClosed());
+
     std::lock_guard<std::mutex> guard(lock_);
+    RETURN_NOT_OK(CheckPositioned());
     if (length < 0) {
       return Status::IOError("Length must be non-negative");
     }
@@ -169,6 +196,15 @@ class OSFile {
     return SetFileName(ss.str());
   }
 
+  Status CheckPositioned() {
+    if (need_seeking_.load()) {
+      return Status::Invalid(
+          "Need seeking after ReadAt() before "
+          "calling implicitly-positioned operation");
+    }
+    return Status::OK();
+  }
+
   internal::PlatformFilename file_name_;
 
   std::mutex lock_;
@@ -180,6 +216,8 @@ class OSFile {
 
   bool is_open_;
   int64_t size_;
+  // Whether ReadAt made the file position non-deterministic.
+  std::atomic<bool> need_seeking_;
 };
 
 // ----------------------------------------------------------------------
@@ -226,7 +264,7 @@ class ReadableFile::ReadableFileImpl : public OSFile {
 
 ReadableFile::ReadableFile(MemoryPool* pool) { impl_.reset(new ReadableFileImpl(pool)); }
 
-ReadableFile::~ReadableFile() { DCHECK_OK(impl_->Close()); }
+ReadableFile::~ReadableFile() { ARROW_CHECK_OK(impl_->Close()); }
 
 Status ReadableFile::Open(const std::string& path, std::shared_ptr<ReadableFile>* file) {
   return Open(path, default_memory_pool(), file);
@@ -299,7 +337,7 @@ FileOutputStream::FileOutputStream() { impl_.reset(new FileOutputStreamImpl()); 
 
 FileOutputStream::~FileOutputStream() {
   // This can fail; better to explicitly call close
-  DCHECK_OK(impl_->Close());
+  ARROW_CHECK_OK(impl_->Close());
 }
 
 Status FileOutputStream::Open(const std::string& path,
@@ -355,11 +393,10 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
   MemoryMap() : MutableBuffer(nullptr, 0) {}
 
   ~MemoryMap() {
-    DCHECK_OK(Close());
+    ARROW_CHECK_OK(Close());
     if (mutable_data_ != nullptr) {
       int result = munmap(mutable_data_, static_cast<size_t>(size_));
-      DCHECK_EQ(result, 0);
-      ARROW_UNUSED(result);
+      ARROW_CHECK_EQ(result, 0) << "munmap failed";
     }
   }
 

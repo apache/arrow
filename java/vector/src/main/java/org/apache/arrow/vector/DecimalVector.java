@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
 import java.math.BigDecimal;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -26,6 +28,7 @@ import org.apache.arrow.vector.holders.DecimalHolder;
 import org.apache.arrow.vector.holders.NullableDecimalHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.DecimalUtility;
 import org.apache.arrow.vector.util.TransferPair;
@@ -66,8 +69,19 @@ public class DecimalVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public DecimalVector(String name, FieldType fieldType, BufferAllocator allocator) {
-    super(name, allocator, fieldType, TYPE_WIDTH);
-    ArrowType.Decimal arrowType = (ArrowType.Decimal) fieldType.getType();
+    this(new Field(name, fieldType, null), allocator);
+  }
+
+  /**
+   * Instantiate a DecimalVector. This doesn't allocate any memory for
+   * the data in vector.
+   *
+   * @param field field materialized by this vector
+   * @param allocator allocator for memory management.
+   */
+  public DecimalVector(Field field, BufferAllocator allocator) {
+    super(field, allocator, TYPE_WIDTH);
+    ArrowType.Decimal arrowType = (ArrowType.Decimal) field.getFieldType().getType();
     reader = new DecimalReaderImpl(DecimalVector.this);
     this.precision = arrowType.getPrecision();
     this.scale = arrowType.getScale();
@@ -109,7 +123,7 @@ public class DecimalVector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public ArrowBuf get(int index) throws IllegalStateException {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
     return valueBuffer.slice(index * TYPE_WIDTH, TYPE_WIDTH);
@@ -146,34 +160,6 @@ public class DecimalVector extends BaseFixedWidthVector {
     } else {
       return DecimalUtility.getBigDecimalFromArrowBuf(valueBuffer, index, scale);
     }
-  }
-
-  /**
-   * Copy a cell value from a particular index in source vector to a particular
-   * position in this vector.
-   *
-   * @param fromIndex position to copy from in source vector
-   * @param thisIndex position to copy to in this vector
-   * @param from source vector
-   */
-  public void copyFrom(int fromIndex, int thisIndex, DecimalVector from) {
-    BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
-    from.valueBuffer.getBytes(fromIndex * TYPE_WIDTH, valueBuffer,
-            thisIndex * TYPE_WIDTH, TYPE_WIDTH);
-  }
-
-  /**
-   * Same as {@link #copyFrom(int, int, DecimalVector)} except that
-   * it handles the case when the capacity of the vector needs to be expanded
-   * before copy.
-   *
-   * @param fromIndex position to copy from in source vector
-   * @param thisIndex position to copy to in this vector
-   * @param from source vector
-   */
-  public void copyFromSafe(int fromIndex, int thisIndex, DecimalVector from) {
-    handleSafe(thisIndex);
-    copyFrom(fromIndex, thisIndex, from);
   }
 
   /**
@@ -333,6 +319,17 @@ public class DecimalVector extends BaseFixedWidthVector {
   }
 
   /**
+   * Set the element at the given index to the given value.
+   *
+   * @param index   position of element
+   * @param value   long value.
+   */
+  public void set(int index, long value) {
+    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    DecimalUtility.writeLongToArrowBuf(value, valueBuffer, index);
+  }
+
+  /**
    * Set the element at the given index to the value set in data holder.
    * If the value in holder is not indicated as set, element in the
    * at the given index will be null.
@@ -408,6 +405,19 @@ public class DecimalVector extends BaseFixedWidthVector {
    * @param value   BigDecimal containing decimal value.
    */
   public void setSafe(int index, BigDecimal value) {
+    handleSafe(index);
+    set(index, value);
+  }
+
+  /**
+   * Same as {@link #set(int, long)} except that it handles the
+   * case when index is greater than or equal to existing
+   * value capacity {@link #getValueCapacity()}.
+   *
+   * @param index   position of element
+   * @param value   long value.
+   */
+  public void setSafe(int index, long value) {
     handleSafe(index);
     set(index, value);
   }

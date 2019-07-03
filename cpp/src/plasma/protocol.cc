@@ -29,6 +29,7 @@
 #ifdef PLASMA_CUDA
 #include "arrow/gpu/cuda_api.h"
 #endif
+#include "arrow/util/ubsan.h"
 
 namespace fb = plasma::flatbuf;
 
@@ -50,7 +51,7 @@ ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb, const ObjectID* object_ids,
   for (int64_t i = 0; i < num_objects; i++) {
     results.push_back(fbb->CreateString(object_ids[i].binary()));
   }
-  return fbb->CreateVector(results);
+  return fbb->CreateVector(arrow::util::MakeNonNull(results.data()), results.size());
 }
 
 // Helper function to create a vector of elements from Data (Request/Reply struct).
@@ -70,11 +71,14 @@ Status PlasmaErrorStatus(fb::PlasmaError plasma_error) {
     case fb::PlasmaError::OK:
       return Status::OK();
     case fb::PlasmaError::ObjectExists:
-      return Status::PlasmaObjectExists("object already exists in the plasma store");
+      return MakePlasmaError(PlasmaErrorCode::PlasmaObjectExists,
+                             "object already exists in the plasma store");
     case fb::PlasmaError::ObjectNonexistent:
-      return Status::PlasmaObjectNonexistent("object does not exist in the plasma store");
+      return MakePlasmaError(PlasmaErrorCode::PlasmaObjectNonexistent,
+                             "object does not exist in the plasma store");
     case fb::PlasmaError::OutOfMemory:
-      return Status::PlasmaStoreFull("object does not fit in the plasma store");
+      return MakePlasmaError(PlasmaErrorCode::PlasmaStoreFull,
+                             "object does not fit in the plasma store");
     default:
       ARROW_LOG(FATAL) << "unknown plasma error code " << static_cast<int>(plasma_error);
   }
@@ -369,8 +373,9 @@ Status SendDeleteReply(const std::shared_ptr<ClientConnection>& client,
   auto message = fb::CreatePlasmaDeleteReply(
       fbb, static_cast<int32_t>(object_ids.size()),
       ToFlatbuffer(&fbb, &object_ids[0], object_ids.size()),
-      fbb.CreateVector(reinterpret_cast<const int32_t*>(&errors[0]), object_ids.size()));
-  fbb.Finish(message);
+      fbb.CreateVector(
+          arrow::util::MakeNonNull(reinterpret_cast<const int32_t*>(errors.data())),
+          object_ids.size()));
   return PlasmaSend(client, MessageType::PlasmaDeleteReply, &fbb);
 }
 
@@ -457,8 +462,9 @@ Status SendListReply(const std::shared_ptr<ClientConnection>& client,
                                      entry.second->construct_duration, digest);
     object_infos.push_back(info);
   }
-  auto message = fb::CreatePlasmaListReply(fbb, fbb.CreateVector(object_infos));
-  fbb.Finish(message);
+  auto message = fb::CreatePlasmaListReply(
+      fbb, fbb.CreateVector(arrow::util::MakeNonNull(object_infos.data()),
+                            object_infos.size()));
   return PlasmaSend(client, MessageType::PlasmaListReply, &fbb);
 }
 
@@ -592,10 +598,10 @@ Status SendGetReply(const std::shared_ptr<ClientConnection>& client,
   }
   auto message = fb::CreatePlasmaGetReply(
       fbb, ToFlatbuffer(&fbb, object_ids, num_objects),
-      fbb.CreateVectorOfStructs(objects.data(), num_objects), fbb.CreateVector(store_fds),
-      fbb.CreateVector(mmap_sizes), fbb.CreateVector(handles));
-
-  fbb.Finish(message);
+      fbb.CreateVectorOfStructs(arrow::util::MakeNonNull(objects.data()), num_objects),
+      fbb.CreateVector(arrow::util::MakeNonNull(store_fds.data()), store_fds.size()),
+      fbb.CreateVector(arrow::util::MakeNonNull(mmap_sizes.data()), mmap_sizes.size()),
+      fbb.CreateVector(arrow::util::MakeNonNull(handles.data()), handles.size()));
   return PlasmaSend(client, MessageType::PlasmaGetReply, &fbb);
 }
 

@@ -15,10 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <sstream>
+
+#include <sys/types.h>
+#include <unistd.h>
+
 #include <gtest/gtest.h>
 #include <memory>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/io-util.h"
+
 #include "plasma/common.h"
 #include "plasma/io/connection.h"
 #include "plasma/protocol.h"
@@ -185,12 +192,13 @@ TEST_F(TestPlasmaSerialization, GetReply) {
 
   ASSERT_EQ(object_ids[0], object_ids_return[0]);
   ASSERT_EQ(object_ids[1], object_ids_return[1]);
-  ASSERT_EQ(memcmp(&plasma_objects[object_ids[0]], &plasma_objects_return[0],
-                   sizeof(PlasmaObject)),
-            0);
-  ASSERT_EQ(memcmp(&plasma_objects[object_ids[1]], &plasma_objects_return[1],
-                   sizeof(PlasmaObject)),
-            0);
+
+  PlasmaObject po, po2;
+  for (int i = 0; i < 2; ++i) {
+    po = plasma_objects[object_ids[i]];
+    po2 = plasma_objects_return[i];
+    ASSERT_EQ(po, po2);
+  }
   ASSERT_TRUE(store_fds == store_fds_return);
   ASSERT_TRUE(mmap_sizes == mmap_sizes_return);
 }
@@ -217,6 +225,7 @@ TEST_F(TestPlasmaSerialization, ReleaseReply) {
 }
 
 TEST_F(TestPlasmaSerialization, DeleteRequest) {
+  int fd = CreateTemporaryFile();
   ObjectID object_id1 = random_object_id();
   ASSERT_OK(SendDeleteRequest(client_, std::vector<ObjectID>{object_id1}));
   std::vector<uint8_t> data;

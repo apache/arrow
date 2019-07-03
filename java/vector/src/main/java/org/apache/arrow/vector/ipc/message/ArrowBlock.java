@@ -21,12 +21,20 @@ import org.apache.arrow.flatbuf.Block;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
+/** Metadata for an arrow message in a channel. */
 public class ArrowBlock implements FBSerializable {
 
   private final long offset;
   private final int metadataLength;
   private final long bodyLength;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param offset The offset into the channel file where the block was written.
+   * @param metadataLength  The length of the flatbuffer metadata in the block.
+   * @param bodyLength The length of data in the block.
+   */
   public ArrowBlock(long offset, int metadataLength, long bodyLength) {
     super();
     this.offset = offset;

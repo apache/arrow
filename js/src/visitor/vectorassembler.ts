@@ -20,7 +20,7 @@ import { Vector } from '../vector';
 import { Visitor } from '../visitor';
 import { Type, UnionMode } from '../enum';
 import { RecordBatch } from '../recordbatch';
-import { Vector as VType } from '../interfaces';
+import { VectorType as V } from '../interfaces';
 import { rebaseValueOffsets } from '../util/buffer';
 import { packBools, truncateBitmap } from '../util/bit';
 import { selectVectorChildrenArgs } from '../util/args';
@@ -31,30 +31,32 @@ import {
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
 } from '../type';
 
+/** @ignore */
 export interface VectorAssembler extends Visitor {
     visit<T extends Vector>(node: T): this;
     visitMany<T extends Vector>(nodes: T[]): this[];
-    getVisitFn<T extends Type>(node: T): (vector: VType<T>) => this;
-    getVisitFn<T extends DataType>(node: VType<T> | Data<T> | T): (vector: VType<T>) => this;
+    getVisitFn<T extends Type>(node: T): (vector: V<T>) => this;
+    getVisitFn<T extends DataType>(node: V<T> | Data<T> | T): (vector: V<T>) => this;
 
-    visitBool                 <T extends Bool>            (vector: VType<T>): this;
-    visitInt                  <T extends Int>             (vector: VType<T>): this;
-    visitFloat                <T extends Float>           (vector: VType<T>): this;
-    visitUtf8                 <T extends Utf8>            (vector: VType<T>): this;
-    visitBinary               <T extends Binary>          (vector: VType<T>): this;
-    visitFixedSizeBinary      <T extends FixedSizeBinary> (vector: VType<T>): this;
-    visitDate                 <T extends Date_>           (vector: VType<T>): this;
-    visitTimestamp            <T extends Timestamp>       (vector: VType<T>): this;
-    visitTime                 <T extends Time>            (vector: VType<T>): this;
-    visitDecimal              <T extends Decimal>         (vector: VType<T>): this;
-    visitList                 <T extends List>            (vector: VType<T>): this;
-    visitStruct               <T extends Struct>          (vector: VType<T>): this;
-    visitUnion                <T extends Union>           (vector: VType<T>): this;
-    visitInterval             <T extends Interval>        (vector: VType<T>): this;
-    visitFixedSizeList        <T extends FixedSizeList>   (vector: VType<T>): this;
-    visitMap                  <T extends Map_>            (vector: VType<T>): this;
+    visitBool                 <T extends Bool>            (vector: V<T>): this;
+    visitInt                  <T extends Int>             (vector: V<T>): this;
+    visitFloat                <T extends Float>           (vector: V<T>): this;
+    visitUtf8                 <T extends Utf8>            (vector: V<T>): this;
+    visitBinary               <T extends Binary>          (vector: V<T>): this;
+    visitFixedSizeBinary      <T extends FixedSizeBinary> (vector: V<T>): this;
+    visitDate                 <T extends Date_>           (vector: V<T>): this;
+    visitTimestamp            <T extends Timestamp>       (vector: V<T>): this;
+    visitTime                 <T extends Time>            (vector: V<T>): this;
+    visitDecimal              <T extends Decimal>         (vector: V<T>): this;
+    visitList                 <T extends List>            (vector: V<T>): this;
+    visitStruct               <T extends Struct>          (vector: V<T>): this;
+    visitUnion                <T extends Union>           (vector: V<T>): this;
+    visitInterval             <T extends Interval>        (vector: V<T>): this;
+    visitFixedSizeList        <T extends FixedSizeList>   (vector: V<T>): this;
+    visitMap                  <T extends Map_>            (vector: V<T>): this;
 }
 
+/** @ignore */
 export class VectorAssembler extends Visitor {
 
     /** @nocollapse */
@@ -82,10 +84,10 @@ export class VectorAssembler extends Visitor {
         return super.visit(vector);
     }
 
-    public visitNull<T extends Null>(_nullV: VType<T>) {
+    public visitNull<T extends Null>(_nullV: V<T>) {
         return addBuffer.call(this, new Uint8Array(0));
     }
-    public visitDictionary<T extends Dictionary>(vector: VType<T>) {
+    public visitDictionary<T extends Dictionary>(vector: V<T>) {
         // Assemble the indices here, Dictionary assembled separately.
         return this.visit(vector.indices);
     }
@@ -111,7 +113,7 @@ function addBuffer(this: VectorAssembler, values: ArrayBufferView) {
 }
 
 /** @ignore */
-function assembleUnion<T extends Union>(this: VectorAssembler, vector: VType<T>) {
+function assembleUnion<T extends Union>(this: VectorAssembler, vector: V<T>) {
     const { type, length, typeIds, valueOffsets } = vector;
     // All Union Vectors have a typeIds buffer
     addBuffer.call(this, typeIds);
@@ -160,7 +162,7 @@ function assembleUnion<T extends Union>(this: VectorAssembler, vector: VType<T>)
 }
 
 /** @ignore */
-function assembleBoolVector<T extends Bool>(this: VectorAssembler, vector: VType<T>) {
+function assembleBoolVector<T extends Bool>(this: VectorAssembler, vector: V<T>) {
     // Bool vector is a special case of FlatVector, as its data buffer needs to stay packed
     let values: Uint8Array;
     if (vector.nullCount >= vector.length) {
@@ -179,12 +181,12 @@ function assembleBoolVector<T extends Bool>(this: VectorAssembler, vector: VType
 }
 
 /** @ignore */
-function assembleFlatVector<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval>(this: VectorAssembler, vector: VType<T>) {
+function assembleFlatVector<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval>(this: VectorAssembler, vector: V<T>) {
     return addBuffer.call(this, vector.values.subarray(0, vector.length * vector.stride));
 }
 
 /** @ignore */
-function assembleFlatListVector<T extends Utf8 | Binary>(this: VectorAssembler, vector: VType<T>) {
+function assembleFlatListVector<T extends Utf8 | Binary>(this: VectorAssembler, vector: V<T>) {
     const { length, values, valueOffsets } = vector;
     const firstOffset = valueOffsets[0];
     const lastOffset = valueOffsets[length];
@@ -196,7 +198,7 @@ function assembleFlatListVector<T extends Utf8 | Binary>(this: VectorAssembler, 
 }
 
 /** @ignore */
-function assembleListVector<T extends List | FixedSizeList>(this: VectorAssembler, vector: VType<T>) {
+function assembleListVector<T extends List | FixedSizeList>(this: VectorAssembler, vector: V<T>) {
     const { length, valueOffsets } = vector;
     // If we have valueOffsets (ListVector), push that buffer first
     if (valueOffsets) {
@@ -207,7 +209,7 @@ function assembleListVector<T extends List | FixedSizeList>(this: VectorAssemble
 }
 
 /** @ignore */
-function assembleNestedVector<T extends Struct | Map_ | Union>(this: VectorAssembler, vector: VType<T>) {
+function assembleNestedVector<T extends Struct | Map_ | Union>(this: VectorAssembler, vector: V<T>) {
     return this.visitMany(vector.type.children.map((_, i) => vector.getChildAt(i)!).filter(Boolean))[0];
 }
 

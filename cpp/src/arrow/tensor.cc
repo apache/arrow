@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "arrow/compare.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
@@ -77,7 +78,7 @@ Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buff
                const std::vector<int64_t>& shape, const std::vector<int64_t>& strides,
                const std::vector<std::string>& dim_names)
     : type_(type), data_(data), shape_(shape), strides_(strides), dim_names_(dim_names) {
-  DCHECK(is_tensor_supported(type->id()));
+  ARROW_CHECK(is_tensor_supported(type->id()));
   if (shape.size() > 0 && strides.size() == 0) {
     ComputeRowMajorStrides(checked_cast<const FixedWidthType&>(*type_), shape, &strides_);
   }
@@ -96,7 +97,7 @@ const std::string& Tensor::dim_name(int i) const {
   if (dim_names_.size() == 0) {
     return kEmpty;
   } else {
-    DCHECK_LT(i, static_cast<int>(dim_names_.size()));
+    ARROW_CHECK_LT(i, static_cast<int>(dim_names_.size()));
     return dim_names_[i];
   }
 }
@@ -169,14 +170,14 @@ struct NonZeroCounter {
       : tensor_(tensor), result_(result) {}
 
   template <typename TYPE>
-  typename std::enable_if<!std::is_base_of<Number, TYPE>::value, Status>::type Visit(
+  typename std::enable_if<!is_number_type<TYPE>::value, Status>::type Visit(
       const TYPE& type) {
-    DCHECK(!is_tensor_supported(type.id()));
+    ARROW_CHECK(!is_tensor_supported(type.id()));
     return Status::NotImplemented("Tensor of ", type.ToString(), " is not implemented");
   }
 
   template <typename TYPE>
-  typename std::enable_if<std::is_base_of<Number, TYPE>::value, Status>::type Visit(
+  typename std::enable_if<is_number_type<TYPE>::value, Status>::type Visit(
       const TYPE& type) {
     *result_ = TensorCountNonZero<TYPE>(tensor_);
     return Status::OK();

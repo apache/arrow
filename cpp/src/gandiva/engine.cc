@@ -66,7 +66,7 @@
 
 namespace gandiva {
 
-extern const char kPrecompiledBitcode[];
+extern const unsigned char kPrecompiledBitcode[];
 extern const size_t kPrecompiledBitcodeSize;
 
 std::once_flag init_once_flag;
@@ -130,7 +130,8 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
 
 // Handling for pre-compiled IR libraries.
 Status Engine::LoadPreCompiledIR() {
-  auto bitcode = llvm::StringRef(kPrecompiledBitcode, kPrecompiledBitcodeSize);
+  auto bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
+                                 kPrecompiledBitcodeSize);
 
   /// Read from file into memory buffer.
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> buffer_or_error =
@@ -146,11 +147,12 @@ Status Engine::LoadPreCompiledIR() {
   llvm::Expected<std::unique_ptr<llvm::Module>> module_or_error =
       llvm::getOwningLazyBitcodeModule(move(buffer), *context());
   if (!module_or_error) {
-    std::string error_string;
-    llvm::handleAllErrors(module_or_error.takeError(), [&](llvm::ErrorInfoBase& eib) {
-      error_string = eib.message();
-    });
-    return Status::CodeGenError(error_string);
+    // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
+    // (ARROW-5148)
+    std::string str;
+    llvm::raw_string_ostream stream(str);
+    stream << module_or_error.takeError();
+    return Status::CodeGenError(stream.str());
   }
   std::unique_ptr<llvm::Module> ir_module = move(module_or_error.get());
 

@@ -1,3 +1,20 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 import { Data } from '../../src/data';
 import { Field } from '../../src/schema';
 import { Column } from '../../src/column';
@@ -17,8 +34,8 @@ expect(typeof boolVector.get(0) === 'boolean').toBe(true);
 expect(typeof boolColumn.get(0) === 'boolean').toBe(true);
 
 type NamedSchema = {
-    a: Int8,
-    b: Utf8,
+    a: Int8;
+    b: Utf8;
     c: Dictionary<List<Bool>>;
 };
 
@@ -44,8 +61,8 @@ console.log(a1, b1, c1);
 console.log(a2, b2, c2);
 
 type IndexSchema = {
-    0: Int8,
-    1: Utf8,
+    0: Int8;
+    1: Utf8;
     2: Dictionary<List<Bool>>;
 };
 

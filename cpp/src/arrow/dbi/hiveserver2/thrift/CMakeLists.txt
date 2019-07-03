@@ -44,20 +44,29 @@ function(HS2_THRIFT_GEN VAR)
     # All the output files we can determine based on filename.
     #   - Does not include .skeleton.cpp files
     #   - Does not include java output files
-    set(OUTPUT_BE_FILE
-        "${GEN_DIR}/${FIL_WE}_types.cpp"
-        "${GEN_DIR}/${FIL_WE}_types.h"
-        "${GEN_DIR}/${FIL_WE}_constants.cpp"
-        "${GEN_DIR}/${FIL_WE}_constants.h")
+    set(OUTPUT_BE_FILE "${GEN_DIR}/${FIL_WE}_types.cpp" "${GEN_DIR}/${FIL_WE}_types.h"
+                       "${GEN_DIR}/${FIL_WE}_constants.cpp"
+                       "${GEN_DIR}/${FIL_WE}_constants.h")
     list(APPEND ${VAR} ${OUTPUT_BE_FILE})
 
     # BeeswaxService thrift generation
     # It depends on hive_meta_store, which in turn depends on fb303.
     # The java dependency is handled by maven.
     # We need to generate C++ src file for the parent dependencies using the "-r" option.
-    set(CPP_ARGS -nowarn --gen cpp -out ${GEN_DIR})
+    set(CPP_ARGS
+        -nowarn
+        --gen
+        cpp
+        -out
+        ${GEN_DIR})
     if(FIL STREQUAL "beeswax.thrift")
-      set(CPP_ARGS -r -nowarn --gen cpp -out ${GEN_DIR})
+      set(CPP_ARGS
+          -r
+          -nowarn
+          --gen
+          cpp
+          -out
+          ${GEN_DIR})
     endif(FIL STREQUAL "beeswax.thrift")
 
     # Be able to include generated ErrorCodes.thrift file

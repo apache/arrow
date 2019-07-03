@@ -34,11 +34,11 @@
 #include "arrow/buffer-builder.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
-#include "arrow/ipc/test-common.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -275,10 +275,9 @@ TEST_F(TestBuilder, TestReserve) {
   ASSERT_OK(builder.Resize(1000));
   ASSERT_EQ(1000, builder.capacity());
 
-  // Builder only contains 0 elements, but calling Reserve will result in a round
-  // up to next power of 2
+  // Reserve overallocates for small upsizes.
   ASSERT_OK(builder.Reserve(1030));
-  ASSERT_EQ(BitUtil::NextPower2(1030), builder.capacity());
+  ASSERT_GE(builder.capacity(), 1500);
 }
 
 TEST_F(TestBuilder, TestResizeDownsize) {
@@ -517,9 +516,16 @@ typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PIn
 TYPED_TEST_CASE(TestPrimitiveBuilder, Primitives);
 
 TYPED_TEST(TestPrimitiveBuilder, TestInit) {
-  int64_t n = 1000;
-  ASSERT_OK(this->builder_->Reserve(n));
-  ASSERT_EQ(BitUtil::NextPower2(n), this->builder_->capacity());
+  ASSERT_OK(this->builder_->Reserve(1000));
+  ASSERT_EQ(1000, this->builder_->capacity());
+
+  // Small upsize => should overallocate
+  ASSERT_OK(this->builder_->Reserve(1200));
+  ASSERT_GE(1500, this->builder_->capacity());
+
+  // Large upsize => should allocate exactly
+  ASSERT_OK(this->builder_->Reserve(32768));
+  ASSERT_EQ(32768, this->builder_->capacity());
 
   // unsure if this should go in all builder classes
   ASSERT_EQ(0, this->builder_->num_children());
@@ -679,10 +685,10 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   ASSERT_EQ(null_count, this->builder_->null_count());
 
   ASSERT_EQ(1000, this->builder_->length());
-  ASSERT_EQ(1024, this->builder_->capacity());
+  ASSERT_EQ(1000, this->builder_->capacity());
 
   ASSERT_EQ(1000, this->builder_nn_->length());
-  ASSERT_EQ(1024, this->builder_nn_->capacity());
+  ASSERT_EQ(1000, this->builder_nn_->capacity());
 
   ASSERT_OK(this->builder_->Reserve(size - 1000));
   ASSERT_OK(this->builder_nn_->Reserve(size - 1000));
@@ -698,10 +704,10 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   }
 
   ASSERT_EQ(size, this->builder_->length());
-  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
+  ASSERT_GE(size, this->builder_->capacity());
 
   ASSERT_EQ(size, this->builder_nn_->length());
-  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_nn_->capacity());
+  ASSERT_GE(size, this->builder_nn_->capacity());
 
   this->Check(this->builder_, true);
   this->Check(this->builder_nn_, false);
@@ -723,10 +729,10 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
   ASSERT_OK(this->builder_nn_->AppendValues(draws.data(), K));
 
   ASSERT_EQ(1000, this->builder_->length());
-  ASSERT_EQ(1024, this->builder_->capacity());
+  ASSERT_EQ(1000, this->builder_->capacity());
 
   ASSERT_EQ(1000, this->builder_nn_->length());
-  ASSERT_EQ(1024, this->builder_nn_->capacity());
+  ASSERT_EQ(1000, this->builder_nn_->capacity());
 
   // Append the next 9000
   ASSERT_OK(
@@ -734,13 +740,33 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
   ASSERT_OK(this->builder_nn_->AppendValues(draws.data() + K, size - K));
 
   ASSERT_EQ(size, this->builder_->length());
-  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
+  ASSERT_GE(size, this->builder_->capacity());
 
   ASSERT_EQ(size, this->builder_nn_->length());
-  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_nn_->capacity());
+  ASSERT_GE(size, this->builder_nn_->capacity());
 
   this->Check(this->builder_, true);
   this->Check(this->builder_nn_, false);
+}
+
+TYPED_TEST(TestPrimitiveBuilder, TestTypedFinish) {
+  DECL_T();
+
+  int64_t size = 1000;
+  this->RandomData(size);
+
+  std::vector<T>& draws = this->draws_;
+  std::vector<uint8_t>& valid_bytes = this->valid_bytes_;
+
+  ASSERT_OK(this->builder_->AppendValues(draws.data(), size, valid_bytes.data()));
+  std::shared_ptr<Array> result_untyped;
+  ASSERT_OK(this->builder_->Finish(&result_untyped));
+
+  ASSERT_OK(this->builder_->AppendValues(draws.data(), size, valid_bytes.data()));
+  std::shared_ptr<typename TestFixture::ArrayType> result;
+  ASSERT_OK(this->builder_->Finish(&result));
+
+  AssertArraysEqual(*result_untyped, *result);
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIter) {
@@ -752,7 +778,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIter) {
   ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin(), this->draws_.end()));
 
   ASSERT_EQ(size, this->builder_->length());
-  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
+  ASSERT_GE(size, this->builder_->capacity());
 
   this->Check(this->builder_, true);
   this->Check(this->builder_nn_, false);
@@ -766,7 +792,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterNullValid) {
                                             this->draws_.begin() + size / 2,
                                             static_cast<uint8_t*>(nullptr)));
 
-  ASSERT_EQ(BitUtil::NextPower2(size / 2), this->builder_nn_->capacity());
+  ASSERT_GE(size / 2, this->builder_nn_->capacity());
 
   ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin() + size / 2,
                                             this->draws_.end(),
@@ -837,10 +863,10 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
   ASSERT_OK(this->builder_nn_->AppendValues(cast_values.begin(), cast_values.end()));
 
   ASSERT_EQ(size, this->builder_->length());
-  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
+  ASSERT_GE(size, this->builder_->capacity());
 
   ASSERT_EQ(size, this->builder_->length());
-  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
+  ASSERT_GE(size, this->builder_->capacity());
 
   this->Check(this->builder_, true);
   this->Check(this->builder_nn_, false);
@@ -885,9 +911,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesStdBool) {
   ASSERT_OK(this->builder_nn_->AppendValues(draws.data(), K));
 
   ASSERT_EQ(1000, this->builder_->length());
-  ASSERT_EQ(1024, this->builder_->capacity());
+  ASSERT_EQ(1000, this->builder_->capacity());
   ASSERT_EQ(1000, this->builder_nn_->length());
-  ASSERT_EQ(1024, this->builder_nn_->capacity());
+  ASSERT_EQ(1000, this->builder_nn_->capacity());
 
   // Append the next 9000
   is_valid.clear();
@@ -901,10 +927,10 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesStdBool) {
   ASSERT_OK(this->builder_nn_->AppendValues(partial_draws));
 
   ASSERT_EQ(size, this->builder_->length());
-  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
+  ASSERT_GE(size, this->builder_->capacity());
 
   ASSERT_EQ(size, this->builder_nn_->length());
-  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
+  ASSERT_GE(size, this->builder_->capacity());
 
   this->Check(this->builder_, true);
   this->Check(this->builder_nn_, false);
@@ -935,13 +961,14 @@ TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
   ASSERT_EQ(0, this->builder_->length());
   ASSERT_EQ(kMinBuilderCapacity, this->builder_->capacity());
 
-  ASSERT_OK(this->builder_->Reserve(90));
+  ASSERT_OK(this->builder_->Reserve(100));
+  ASSERT_EQ(0, this->builder_->length());
+  ASSERT_GE(100, this->builder_->capacity());
   ASSERT_OK(this->builder_->Advance(100));
-  ASSERT_OK(this->builder_->Reserve(kMinBuilderCapacity));
+  ASSERT_EQ(100, this->builder_->length());
+  ASSERT_GE(100, this->builder_->capacity());
 
   ASSERT_RAISES(Invalid, this->builder_->Resize(1));
-
-  ASSERT_EQ(BitUtil::NextPower2(kMinBuilderCapacity + 100), this->builder_->capacity());
 }
 
 TEST(TestBooleanBuilder, AppendNullsAdvanceBuilder) {
@@ -1284,7 +1311,7 @@ TEST_F(TestFWBinaryArray, ZeroSize) {
   const auto& fw_array = checked_cast<const FixedSizeBinaryArray&>(*array);
 
   // data is never allocated
-  ASSERT_TRUE(fw_array.values() == nullptr);
+  ASSERT_EQ(fw_array.values()->size(), 0);
   ASSERT_EQ(0, fw_array.byte_width());
 
   ASSERT_EQ(6, array->length());
@@ -1690,45 +1717,6 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
   }
 }
 
-// ----------------------------------------------------------------------
-// Union tests
-
-TEST(TestUnionArrayAdHoc, TestSliceEquals) {
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(ipc::MakeUnion(&batch));
-
-  const int64_t size = batch->num_rows();
-
-  auto CheckUnion = [&size](std::shared_ptr<Array> array) {
-    std::shared_ptr<Array> slice, slice2;
-    slice = array->Slice(2);
-    ASSERT_EQ(size - 2, slice->length());
-
-    slice2 = array->Slice(2);
-    ASSERT_EQ(size - 2, slice->length());
-
-    ASSERT_TRUE(slice->Equals(slice2));
-    ASSERT_TRUE(array->RangeEquals(2, array->length(), 0, slice));
-
-    // Chained slices
-    slice2 = array->Slice(1)->Slice(1);
-    ASSERT_TRUE(slice->Equals(slice2));
-
-    slice = array->Slice(1, 5);
-    slice2 = array->Slice(1, 5);
-    ASSERT_EQ(5, slice->length());
-
-    ASSERT_TRUE(slice->Equals(slice2));
-    ASSERT_TRUE(array->RangeEquals(1, 6, 0, slice));
-
-    AssertZeroPadded(*array);
-    TestInitialized(*array);
-  };
-
-  CheckUnion(batch->column(1));
-  CheckUnion(batch->column(2));
-}
-
 using DecimalVector = std::vector<Decimal128>;
 
 class DecimalTest : public ::testing::TestWithParam<int> {
@@ -1785,7 +1773,7 @@ class DecimalTest : public ::testing::TestWithParam<int> {
 
     std::shared_ptr<Array> lhs = out->Slice(offset);
     std::shared_ptr<Array> rhs = expected->Slice(offset);
-    ASSERT_TRUE(lhs->Equals(rhs));
+    ASSERT_ARRAYS_EQUAL(*rhs, *lhs);
   }
 };
 

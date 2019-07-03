@@ -17,17 +17,14 @@
 
 //! Computation kernels on Arrow Arrays
 
-pub mod arithmetic_kernels;
 pub mod array_ops;
-pub mod boolean_kernels;
-pub mod comparison_kernels;
 pub mod kernels;
 
 mod util;
 
-pub use self::arithmetic_kernels::*;
 pub use self::array_ops::*;
-pub use self::boolean_kernels::*;
-pub use self::comparison_kernels::*;
+pub use self::kernels::arithmetic::*;
+pub use self::kernels::boolean::*;
 pub use self::kernels::cast::*;
+pub use self::kernels::comparison::*;
 pub use self::kernels::temporal::*;

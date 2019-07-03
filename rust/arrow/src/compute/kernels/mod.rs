@@ -17,5 +17,8 @@
 
 //! Computation kernels on Arrow Arrays
 
+pub mod arithmetic;
+pub mod boolean;
 pub mod cast;
+pub mod comparison;
 pub mod temporal;

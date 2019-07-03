@@ -142,8 +142,8 @@ impl ProjectionPushDown {
                 schema,
                 ..
             } => {
-                // once we reach the table scan, we can use the accumulated set of column indexes as
-                // the projection in the table scan
+                // once we reach the table scan, we can use the accumulated set of column
+                // indexes as the projection in the table scan
                 let mut projection: Vec<usize> = Vec::with_capacity(accum.len());
                 accum.iter().for_each(|i| projection.push(*i));
 
@@ -158,9 +158,10 @@ impl ProjectionPushDown {
                 }
                 let projected_schema = Schema::new(projected_fields);
 
-                // now that the table scan is returning a different schema we need to create a
-                // mapping from the original column index to the new column index so that we
-                // can rewrite expressions as we walk back up the tree
+                // now that the table scan is returning a different schema we need to
+                // create a mapping from the original column index to the
+                // new column index so that we can rewrite expressions as
+                // we walk back up the tree
 
                 if mapping.len() != 0 {
                     return Err(ExecutionError::InternalError(
@@ -190,6 +191,19 @@ impl ProjectionPushDown {
                 expr: expr.clone(),
                 input: input.clone(),
                 schema: schema.clone(),
+            })),
+            LogicalPlan::CreateExternalTable {
+                schema,
+                name,
+                location,
+                file_type,
+                header_row,
+            } => Ok(Arc::new(LogicalPlan::CreateExternalTable {
+                schema: schema.clone(),
+                name: name.to_string(),
+                location: location.to_string(),
+                file_type: file_type.clone(),
+                header_row: *header_row,
             })),
         }
     }

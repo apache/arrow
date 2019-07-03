@@ -19,10 +19,14 @@ package org.apache.arrow.flight.auth;
 
 import org.apache.arrow.flight.FlightConstants;
 
+import io.grpc.Context;
 import io.grpc.Metadata.BinaryMarshaller;
 import io.grpc.Metadata.Key;
 import io.grpc.MethodDescriptor;
 
+/**
+ * Constants used in authorization of flight connections.
+ */
 public final class AuthConstants {
 
   public static final String HANDSHAKE_DESCRIPTOR_NAME = MethodDescriptor
@@ -40,6 +44,8 @@ public final class AuthConstants {
       return serialized;
     }
   });
+
+  public static final Context.Key<String> PEER_IDENTITY_KEY = Context.keyWithDefault("arrow-flight-peer-identity", "");
 
   private AuthConstants() {}
 }

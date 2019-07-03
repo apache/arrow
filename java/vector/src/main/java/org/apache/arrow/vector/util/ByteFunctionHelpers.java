@@ -22,8 +22,13 @@ import org.apache.arrow.memory.BoundsChecking;
 import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
 
+/**
+ * Utility methods for memory comparison at a byte level.
+ */
 public class ByteFunctionHelpers {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ByteFunctionHelpers.class);
+
+  private ByteFunctionHelpers() {}
 
   /**
    * Helper function to check for equality of bytes in two ArrowBufs.
@@ -44,7 +49,7 @@ public class ByteFunctionHelpers {
     return memEqual(left.memoryAddress(), lStart, lEnd, right.memoryAddress(), rStart, rEnd);
   }
 
-  private static final int memEqual(final long laddr, int lStart, int lEnd, final long raddr, int rStart,
+  private static int memEqual(final long laddr, int lStart, int lEnd, final long raddr, int rStart,
                                     final int rEnd) {
 
     int n = lEnd - lStart;
@@ -104,7 +109,7 @@ public class ByteFunctionHelpers {
     return memcmp(left.memoryAddress(), lStart, lEnd, right.memoryAddress(), rStart, rEnd);
   }
 
-  private static final int memcmp(
+  private static int memcmp(
       final long laddr,
       int lStart,
       int lEnd,
@@ -185,7 +190,7 @@ public class ByteFunctionHelpers {
   }
 
 
-  private static final int memcmp(
+  private static int memcmp(
       final long laddr,
       int lStart,
       int lEnd,

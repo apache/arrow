@@ -366,5 +366,22 @@ void BitmapXor(const uint8_t* left, int64_t left_offset, const uint8_t* right,
       left, left_offset, right, right_offset, length, out_offset, out);
 }
 
+Status BitmapAllButOne(MemoryPool* pool, int64_t length, int64_t straggler_pos,
+                       std::shared_ptr<Buffer>* output, bool value) {
+  if (straggler_pos < 0 || straggler_pos >= length) {
+    return Status::Invalid("invalid straggler_pos ", straggler_pos);
+  }
+
+  if (*output == nullptr) {
+    RETURN_NOT_OK(AllocateBuffer(pool, BitUtil::BytesForBits(length), output));
+  }
+
+  auto bitmap_data = output->get()->mutable_data();
+  BitUtil::SetBitsTo(bitmap_data, 0, length, value);
+  BitUtil::SetBitTo(bitmap_data, straggler_pos, !value);
+
+  return Status::OK();
+}
+
 }  // namespace internal
 }  // namespace arrow

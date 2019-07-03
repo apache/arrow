@@ -16,15 +16,19 @@
 # under the License.
 
 if(Snappy_ROOT)
-  find_library(Snappy_LIB NAMES snappy PATHS ${Snappy_ROOT} NO_DEFAULT_PATH)
+  find_library(Snappy_LIB
+               NAMES snappy
+               PATHS ${Snappy_ROOT}
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
   find_path(Snappy_INCLUDE_DIR
             NAMES snappy.h
             PATHS ${Snappy_ROOT}
             NO_DEFAULT_PATH
-            PATH_SUFFIXES "include")
+            PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 else()
   find_library(Snappy_LIB NAMES snappy)
-  find_path(Snappy_INCLUDE_DIR NAMES snappy.h PATH_SUFFIXES "include")
+  find_path(Snappy_INCLUDE_DIR NAMES snappy.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 endif()
 
 find_package_handle_standard_args(SnappyAlt REQUIRED_VARS Snappy_LIB Snappy_INCLUDE_DIR)

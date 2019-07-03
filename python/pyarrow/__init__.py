@@ -17,6 +17,8 @@
 
 # flake8: noqa
 
+from __future__ import absolute_import
+
 import os as _os
 import sys as _sys
 
@@ -56,12 +58,16 @@ from pyarrow.lib import (null, bool_,
                          DataType, DictionaryType, ListType, StructType,
                          UnionType, TimestampType, Time32Type, Time64Type,
                          FixedSizeBinaryType, Decimal128Type,
+                         BaseExtensionType, ExtensionType,
+                         UnknownExtensionType,
+                         DictionaryMemo,
                          Field,
                          Schema,
                          schema,
                          Array, Tensor,
-                         array, chunked_array, column,
-                         from_numpy_dtype,
+                         array, chunked_array, column, table,
+                         SparseTensorCSR, SparseTensorCOO,
+                         infer_type, from_numpy_dtype,
                          NullArray,
                          NumericArray, IntegerArray, FloatingPointArray,
                          BooleanArray,
@@ -75,7 +81,7 @@ from pyarrow.lib import (null, bool_,
                          DictionaryArray,
                          Date32Array, Date64Array,
                          TimestampArray, Time32Array, Time64Array,
-                         Decimal128Array, StructArray,
+                         Decimal128Array, StructArray, ExtensionArray,
                          ArrayValue, Scalar, NA, _NULL as NULL,
                          BooleanValue,
                          Int8Value, Int16Value, Int32Value, Int64Value,
@@ -106,7 +112,7 @@ from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
                          MockOutputStream, input_stream, output_stream)
 
 from pyarrow.lib import (ChunkedArray, Column, RecordBatch, Table,
-                         concat_tables)
+                         concat_arrays, concat_tables)
 
 # Exceptions
 from pyarrow.lib import (ArrowException,
@@ -116,8 +122,7 @@ from pyarrow.lib import (ArrowException,
                          ArrowMemoryError,
                          ArrowNotImplementedError,
                          ArrowTypeError,
-                         ArrowSerializationError,
-                         PlasmaObjectExists)
+                         ArrowSerializationError)
 
 # Serialization
 from pyarrow.lib import (deserialize_from, deserialize,

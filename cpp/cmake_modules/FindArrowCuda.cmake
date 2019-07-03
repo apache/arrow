@@ -49,6 +49,7 @@ endif()
 
 find_path(ARROW_CUDA_INCLUDE_DIR arrow/gpu/cuda_api.h
           PATHS ${ARROW_SEARCH_HEADER_PATHS}
+          PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES}
           NO_DEFAULT_PATH)
 
 if(NOT (ARROW_CUDA_INCLUDE_DIR STREQUAL ARROW_INCLUDE_DIR))
@@ -63,6 +64,7 @@ endif()
 find_library(ARROW_CUDA_LIB_PATH
              NAMES arrow_cuda
              PATHS ${ARROW_SEARCH_LIB_PATH}
+             PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
              NO_DEFAULT_PATH)
 get_filename_component(ARROW_CUDA_LIBS ${ARROW_CUDA_LIB_PATH} DIRECTORY)
 
@@ -70,9 +72,9 @@ if(MSVC)
   find_library(ARROW_CUDA_SHARED_LIBRARIES
                NAMES arrow_cuda
                PATHS ${ARROW_HOME}
-               NO_DEFAULT_PATH
-               PATH_SUFFIXES "bin")
-  get_filename_component(ARROW_CUDA_SHARED_LIBS ${ARROW_CUDA_SHARED_LIBRARIES} PATH)
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
+  get_filename_component(ARROW_CUDA_SHARED_LIBS ${ARROW_CUDA_SHARED_LIBRARIES} DIRECTORY)
 endif()
 
 if(ARROW_CUDA_INCLUDE_DIR AND ARROW_CUDA_LIBS)

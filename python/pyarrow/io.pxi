@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 import warnings
-from io import BufferedIOBase, IOBase, UnsupportedOperation
+from io import BufferedIOBase, IOBase, TextIOBase, UnsupportedOperation
 
 from pyarrow.util import _stringify_path
 from pyarrow.compat import (
@@ -317,6 +317,44 @@ cdef class NativeFile:
         cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AS_STRING(<object> obj)
         with nogil:
             check_status(handle.get().Read(c_nbytes, &bytes_read, buf))
+
+        if bytes_read < c_nbytes:
+            cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
+
+        return PyObject_to_object(obj)
+
+    def read_at(self, nbytes, offset):
+        """
+        Read indicated number of bytes at offset from the file
+
+        Parameters
+        ----------
+        nbytes : int
+        offset : int
+
+        Returns
+        -------
+        data : bytes
+        """
+        cdef:
+            int64_t c_nbytes
+            int64_t c_offset
+            int64_t bytes_read = 0
+            PyObject* obj
+
+        c_nbytes = nbytes
+
+        c_offset = offset
+
+        handle = self.get_random_access_file()
+
+        # Allocate empty write space
+        obj = PyBytes_FromStringAndSizeNative(NULL, c_nbytes)
+
+        cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AS_STRING(<object> obj)
+        with nogil:
+            check_status(handle.get().
+                         ReadAt(c_offset, c_nbytes, &bytes_read, buf))
 
         if bytes_read < c_nbytes:
             cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
@@ -627,6 +665,10 @@ cdef class PythonFile(NativeFile):
                         raise TypeError("writable file expected")
             # (other duck-typed file-like objects are possible)
 
+        # If possible, check the file is a binary file
+        if isinstance(handle, TextIOBase):
+            raise TypeError("binary file expected, got text file")
+
         if kind == 'r':
             self.set_random_access_file(
                 shared_ptr[RandomAccessFile](new PyReadableFile(handle)))
@@ -863,6 +905,16 @@ cdef class Buffer:
         The buffer's address, as an integer.
         """
         return <uintptr_t> self.buffer.get().data()
+
+    def hex(self):
+        """
+        Compute hexadecimal representation of the buffer.
+
+        Returns
+        -------
+        : bytes
+        """
+        return self.buffer.get().ToHexString()
 
     @property
     def is_mutable(self):

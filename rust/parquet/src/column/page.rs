@@ -20,6 +20,7 @@
 use crate::basic::{Encoding, PageType};
 use crate::errors::Result;
 use crate::file::{metadata::ColumnChunkMetaData, statistics::Statistics};
+use crate::schema::types::{ColumnDescPtr, SchemaDescPtr};
 use crate::util::memory::ByteBufferPtr;
 
 /// Parquet Page definition.
@@ -56,7 +57,7 @@ pub enum Page {
 }
 
 impl Page {
-    /// Returns [`PageType`](`::basic::PageType`) for this page.
+    /// Returns [`PageType`](crate::basic::PageType) for this page.
     pub fn page_type(&self) -> PageType {
         match self {
             &Page::DataPage { .. } => PageType::DATA_PAGE,
@@ -83,7 +84,7 @@ impl Page {
         }
     }
 
-    /// Returns this page [`Encoding`](`::basic::Encoding`).
+    /// Returns this page [`Encoding`](crate::basic::Encoding).
     pub fn encoding(&self) -> Encoding {
         match self {
             &Page::DataPage { encoding, .. } => encoding,
@@ -92,7 +93,7 @@ impl Page {
         }
     }
 
-    /// Returns optional [`Statistics`](`::file::metadata::Statistics`).
+    /// Returns optional [`Statistics`](crate::file::metadata::Statistics).
     pub fn statistics(&self) -> Option<&Statistics> {
         match self {
             &Page::DataPage { ref statistics, .. } => statistics.as_ref(),
@@ -215,6 +216,15 @@ pub trait PageWriter {
     /// Closes resources and flushes underlying sink.
     /// Page writer should not be used after this method is called.
     fn close(&mut self) -> Result<()>;
+}
+
+/// An iterator over pages of some specific column in a parquet file.
+pub trait PageIterator: Iterator<Item = Result<Box<PageReader>>> {
+    /// Get schema of parquet file.
+    fn schema(&mut self) -> Result<SchemaDescPtr>;
+
+    /// Get column schema of this page iterator.
+    fn column_schema(&mut self) -> Result<ColumnDescPtr>;
 }
 
 #[cfg(test)]

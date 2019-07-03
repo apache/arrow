@@ -42,11 +42,11 @@ class ColumnReader;
 // ParquetFilePrinter::DebugPrint
 
 // the fixed initial size is just for an example
-#define COL_WIDTH "30"
+#define COL_WIDTH 30
 
 void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selected_columns,
-                                    bool print_values, bool print_key_value_metadata,
-                                    const char* filename) {
+                                    bool print_values, bool format_dump,
+                                    bool print_key_value_metadata, const char* filename) {
   const FileMetaData* file_metadata = fileReader->metadata().get();
 
   stream << "File Name: " << filename << "\n";
@@ -54,7 +54,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
   stream << "Created By: " << file_metadata->created_by() << "\n";
   stream << "Total rows: " << file_metadata->num_rows() << "\n";
 
-  if (print_key_value_metadata) {
+  if (print_key_value_metadata && file_metadata->key_value_metadata()) {
     auto key_value_metadata = file_metadata->key_value_metadata();
     int64_t size_of_key_value_metadata = key_value_metadata->size();
     stream << "Key Value File Metadata: " << size_of_key_value_metadata << " entries\n";
@@ -84,26 +84,33 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
   stream << "Number of Selected Columns: " << selected_columns.size() << "\n";
   for (auto i : selected_columns) {
     const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
-    stream << "Column " << i << ": " << descr->name() << " ("
-           << TypeToString(descr->physical_type()) << ")" << std::endl;
+    stream << "Column " << i << ": " << descr->path()->ToDotString() << " ("
+           << TypeToString(descr->physical_type());
+    if (descr->converted_type() != ConvertedType::NONE) {
+      stream << "/" << ConvertedTypeToString(descr->converted_type());
+    }
+    if (descr->converted_type() == ConvertedType::DECIMAL) {
+      stream << "(" << descr->type_precision() << "," << descr->type_scale() << ")";
+    }
+    stream << ")" << std::endl;
   }
 
   for (int r = 0; r < file_metadata->num_row_groups(); ++r) {
-    stream << "--- Row Group " << r << " ---\n";
+    stream << "--- Row Group: " << r << " ---\n";
 
     auto group_reader = fileReader->RowGroup(r);
     std::unique_ptr<RowGroupMetaData> group_metadata = file_metadata->RowGroup(r);
 
-    stream << "--- Total Bytes " << group_metadata->total_byte_size() << " ---\n";
-    stream << "  Rows: " << group_metadata->num_rows() << "---\n";
+    stream << "--- Total Bytes: " << group_metadata->total_byte_size() << " ---\n";
+    stream << "--- Rows: " << group_metadata->num_rows() << " ---\n";
 
     // Print column metadata
     for (auto i : selected_columns) {
       auto column_chunk = group_metadata->ColumnChunk(i);
-      std::shared_ptr<RowGroupStatistics> stats = column_chunk->statistics();
+      std::shared_ptr<Statistics> stats = column_chunk->statistics();
 
       const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
-      stream << "Column " << i << std::endl << ", Values: " << column_chunk->num_values();
+      stream << "Column " << i << std::endl << "  Values: " << column_chunk->num_values();
       if (column_chunk->is_stats_set()) {
         std::string min = stats->EncodeMin(), max = stats->EncodeMax();
         stream << ", Null Values: " << stats->null_count()
@@ -115,9 +122,9 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
       }
       stream << std::endl
              << "  Compression: " << CompressionToString(column_chunk->compression())
-             << ", Encodings: ";
+             << ", Encodings:";
       for (auto encoding : column_chunk->encodings()) {
-        stream << EncodingToString(encoding) << " ";
+        stream << " " << EncodingToString(encoding);
       }
       stream << std::endl
              << "  Uncompressed Size: " << column_chunk->total_uncompressed_size()
@@ -128,8 +135,9 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
     if (!print_values) {
       continue;
     }
+    stream << "--- Values ---\n";
 
-    static constexpr int bufsize = 25;
+    static constexpr int bufsize = COL_WIDTH + 1;
     char buffer[bufsize];
 
     // Create readers for selected columns and print contents
@@ -137,18 +145,25 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
     int j = 0;
     for (auto i : selected_columns) {
       std::shared_ptr<ColumnReader> col_reader = group_reader->Column(i);
-
-      std::stringstream ss;
-      ss << "%-" << COL_WIDTH << "s";
-      std::string fmt = ss.str();
-
-      snprintf(buffer, bufsize, fmt.c_str(),
-               file_metadata->schema()->Column(i)->name().c_str());
-      stream << buffer;
-
       // This is OK in this method as long as the RowGroupReader does not get
       // deleted
-      scanners[j++] = Scanner::Make(col_reader);
+      auto& scanner = scanners[j++] = Scanner::Make(col_reader);
+
+      if (format_dump) {
+        stream << "Column " << i << std::endl;
+        while (scanner->HasNext()) {
+          scanner->PrintNext(stream, 0, true);
+          stream << "\n";
+        }
+        continue;
+      }
+
+      snprintf(buffer, bufsize, "%-*s", COL_WIDTH,
+               file_metadata->schema()->Column(i)->name().c_str());
+      stream << buffer << '|';
+    }
+    if (format_dump) {
+      continue;
     }
     stream << "\n";
 
@@ -158,7 +173,8 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
       for (auto scanner : scanners) {
         if (scanner->HasNext()) {
           hasRow = true;
-          scanner->PrintNext(stream, 27);
+          scanner->PrintNext(stream, COL_WIDTH);
+          stream << '|';
         }
       }
       stream << "\n";
@@ -197,8 +213,9 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
     const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
     stream << "     { \"Id\": \"" << i << "\", \"Name\": \"" << descr->name() << "\","
            << " \"PhysicalType\": \"" << TypeToString(descr->physical_type()) << "\","
-           << " \"LogicalType\": \"" << LogicalTypeToString(descr->logical_type())
-           << "\" }";
+           << " \"ConvertedType\": \"" << ConvertedTypeToString(descr->converted_type())
+           << "\","
+           << " \"LogicalType\": " << (descr->logical_type())->ToJSON() << " }";
     c++;
     if (c != static_cast<int>(selected_columns.size())) {
       stream << ",\n";
@@ -220,7 +237,7 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
     int c1 = 0;
     for (auto i : selected_columns) {
       auto column_chunk = group_metadata->ColumnChunk(i);
-      std::shared_ptr<RowGroupStatistics> stats = column_chunk->statistics();
+      std::shared_ptr<Statistics> stats = column_chunk->statistics();
 
       const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
       stream << "          {\"Id\": \"" << i << "\", \"Values\": \""

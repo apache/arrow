@@ -28,6 +28,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
+/** Footer metadata for the arrow file format. */
 public class ArrowFooter implements FBSerializable {
 
   private final Schema schema;
@@ -36,12 +37,22 @@ public class ArrowFooter implements FBSerializable {
 
   private final List<ArrowBlock> recordBatches;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param schema The schema for record batches in the file.
+   * @param dictionaries  The dictionaries relevant to the file.
+   * @param recordBatches  The recordBatches written to the file.
+   */
   public ArrowFooter(Schema schema, List<ArrowBlock> dictionaries, List<ArrowBlock> recordBatches) {
     this.schema = schema;
     this.dictionaries = dictionaries;
     this.recordBatches = recordBatches;
   }
 
+  /**
+   * Constructs from the corresponding Flatbuffer message.
+   */
   public ArrowFooter(Footer footer) {
     this(
         Schema.convertSchema(footer.schema()),

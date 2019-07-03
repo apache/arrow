@@ -116,6 +116,20 @@ namespace Apache.Arrow.Tests
                 Assert.True(expectedArray.NullBitmapBuffer.Span.SequenceEqual(actualArray.NullBitmapBuffer.Span));
                 Assert.True(expectedArray.Values.Slice(0, expectedArray.Length).SequenceEqual(actualArray.Values.Slice(0, actualArray.Length)));
             }
+
+            private void CompareArrays(BooleanArray actualArray)
+            {
+                Assert.IsAssignableFrom<BooleanArray>(_expectedArray);
+                BooleanArray expectedArray = (BooleanArray)_expectedArray;
+
+                Assert.Equal(expectedArray.Length, actualArray.Length);
+                Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
+                Assert.Equal(expectedArray.Offset, actualArray.Offset);
+
+                Assert.True(expectedArray.NullBitmapBuffer.Span.SequenceEqual(actualArray.NullBitmapBuffer.Span));
+                int booleanByteCount = BitUtility.ByteCount(expectedArray.Length);
+                Assert.True(expectedArray.Values.Slice(0, booleanByteCount).SequenceEqual(actualArray.Values.Slice(0, booleanByteCount)));
+            }
         }
     }
 }

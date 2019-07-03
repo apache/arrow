@@ -40,14 +40,14 @@ const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target) {
     const esnextUmdSourceMapsGlob = `${targetDir(`esnext`, `umd`)}/*.map`;
     return Observable.forkJoin(
         observableFromStreams(gulp.src(dtsGlob),                 gulp.dest(out)), // copy d.ts files
-        observableFromStreams(gulp.src(cjsGlob),                 gulp.dest(out)), // copy es2015 cjs files
-        observableFromStreams(gulp.src(cjsSourceMapsGlob),       gulp.dest(out)), // copy es2015 cjs sourcemaps
-        observableFromStreams(gulp.src(esmSourceMapsGlob),       gulp.dest(out)), // copy es2015 esm sourcemaps
+        observableFromStreams(gulp.src(cjsGlob),                 gulp.dest(out)), // copy esnext cjs files
+        observableFromStreams(gulp.src(cjsSourceMapsGlob),       gulp.dest(out)), // copy esnext cjs sourcemaps
+        observableFromStreams(gulp.src(esmSourceMapsGlob),       gulp.dest(out)), // copy esnext esm sourcemaps
         observableFromStreams(gulp.src(es5UmdSourceMapsGlob),    gulp.dest(out)), // copy es5 umd sourcemap files, but don't rename
-        observableFromStreams(gulp.src(esnextUmdSourceMapsGlob), gulp.dest(out)), // copy es2015 umd sourcemap files, but don't rename
-        observableFromStreams(gulp.src(esmGlob),       gulpRename((p) => { p.extname = '.mjs'; }),          gulp.dest(out)), // copy es2015 esm files and rename to `.mjs`
+        observableFromStreams(gulp.src(esnextUmdSourceMapsGlob), gulp.dest(out)), // copy esnext umd sourcemap files, but don't rename
+        observableFromStreams(gulp.src(esmGlob),       gulpRename((p) => { p.extname = '.mjs'; }),          gulp.dest(out)), // copy esnext esm files and rename to `.mjs`
         observableFromStreams(gulp.src(es5UmdGlob),    gulpRename((p) => { p.basename += `.es5.min`; }),    gulp.dest(out)), // copy es5 umd files and add `.min`
-        observableFromStreams(gulp.src(esnextUmdGlob), gulpRename((p) => { p.basename += `.es2015.min`; }), gulp.dest(out)), // copy es2015 umd files and add `.es2015.min`
+        observableFromStreams(gulp.src(esnextUmdGlob), gulpRename((p) => { p.basename += `.esnext.min`; }), gulp.dest(out)), // copy esnext umd files and add `.esnext.min`
     ).publish(new ReplaySubject()).refCount();
 }))({});
 

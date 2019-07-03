@@ -81,7 +81,11 @@
 // clang-format off
 // [[deprecated]] is only available in C++14, use this for the time being
 // This macro takes an optional deprecation message
-#if __cplusplus <= 201103L
+#ifdef __COVERITY__
+#  define ARROW_DEPRECATED(...)
+#elif __cplusplus > 201103L
+#  define ARROW_DEPRECATED(...) [[deprecated(__VA_ARGS__)]]
+#else
 # ifdef __GNUC__
 #  define ARROW_DEPRECATED(...) __attribute__((deprecated(__VA_ARGS__)))
 # elif defined(_MSC_VER)
@@ -89,8 +93,6 @@
 # else
 #  define ARROW_DEPRECATED(...)
 # endif
-#else
-#  define ARROW_DEPRECATED(...) [[deprecated(__VA_ARGS__)]]
 #endif
 
 // ----------------------------------------------------------------------

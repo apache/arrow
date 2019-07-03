@@ -15,9 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "./arrow_types.h"
+#if defined(ARROW_R_WITH_ARROW)
+
 #include <arrow/util/parallel.h>
 #include <arrow/util/task-group.h>
-#include "./arrow_types.h"
 
 namespace arrow {
 namespace r {
@@ -113,7 +115,7 @@ Status SomeNull_Ingest(SEXP data, R_xlen_t start, R_xlen_t n,
   if (array->null_count()) {
     arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
                                                 array->offset(), n);
-    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data, ++p_values) {
+    for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data, ++p_values) {
       *p_data = bitmap_reader.IsSet() ? lambda(*p_values) : default_value<RTYPE>();
     }
   } else {
@@ -251,11 +253,11 @@ class Converter_Boolean : public Converter {
       arrow::internal::BitmapReader null_reader(array->null_bitmap()->data(),
                                                 array->offset(), n);
 
-      for (size_t i = 0; i < n; i++, data_reader.Next(), null_reader.Next(), ++p_data) {
+      for (R_xlen_t i = 0; i < n; i++, data_reader.Next(), null_reader.Next(), ++p_data) {
         *p_data = null_reader.IsSet() ? data_reader.IsSet() : NA_LOGICAL;
       }
     } else {
-      for (size_t i = 0; i < n; i++, data_reader.Next(), ++p_data) {
+      for (R_xlen_t i = 0; i < n; i++, data_reader.Next(), ++p_data) {
         *p_data = data_reader.IsSet();
       }
     }
@@ -341,6 +343,65 @@ class Converter_Dictionary : public Converter {
     return SomeNull_Ingest<INTSXP, value_type>(
         data, start, n, indices->data()->GetValues<value_type>(1), indices, to_r_index);
   }
+};
+
+class Converter_Struct : public Converter {
+ public:
+  explicit Converter_Struct(const ArrayVector& arrays) : Converter(arrays), converters() {
+    auto first_array =
+        internal::checked_cast<arrow::StructArray*>(Converter::arrays_[0].get());
+    int nf = first_array->num_fields();
+    for (int i = 0; i < nf; i++) {
+      converters.push_back(Converter::Make({first_array->field(i)}));
+    }
+  }
+
+  SEXP Allocate(R_xlen_t n) const {
+    // allocate a data frame column to host each array
+    auto first_array =
+        internal::checked_cast<arrow::StructArray*>(Converter::arrays_[0].get());
+    auto type = first_array->struct_type();
+    int nf = first_array->num_fields();
+    Rcpp::List out(nf);
+    Rcpp::CharacterVector colnames(nf);
+    for (int i = 0; i < nf; i++) {
+      out[i] = converters[i]->Allocate(n);
+      colnames[i] = type->child(i)->name();
+    }
+    IntegerVector rn(2);
+    rn[0] = NA_INTEGER;
+    rn[1] = -n;
+    Rf_setAttrib(out, symbols::row_names, rn);
+    Rf_setAttrib(out, R_NamesSymbol, colnames);
+    Rf_setAttrib(out, R_ClassSymbol, Rf_mkString("data.frame"));
+    return out;
+  }
+
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    int nf = converters.size();
+    for (int i = 0; i < nf; i++) {
+      STOP_IF_NOT_OK(converters[i]->Ingest_all_nulls(VECTOR_ELT(data, i), start, n));
+    }
+    return Status::OK();
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
+    auto struct_array = internal::checked_cast<arrow::StructArray*>(array.get());
+    int nf = converters.size();
+    // Flatten() deals with merging of nulls
+    ArrayVector arrays(nf);
+    STOP_IF_NOT_OK(struct_array->Flatten(default_memory_pool(), &arrays));
+    for (int i = 0; i < nf; i++) {
+      STOP_IF_NOT_OK(
+          converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), arrays[i], start, n));
+    }
+
+    return Status::OK();
+  }
+
+ private:
+  std::vector<std::shared_ptr<Converter>> converters;
 };
 
 double ms_to_seconds(int64_t ms) { return static_cast<double>(ms / 1000); }
@@ -472,13 +533,54 @@ class Converter_Decimal : public Converter {
       internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
                                            n);
 
-      for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
+      for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
         *p_data = bitmap_reader.IsSet() ? std::stod(decimals_arr.FormatValue(i).c_str())
                                         : NA_REAL;
       }
     } else {
-      for (size_t i = 0; i < n; i++, ++p_data) {
+      for (R_xlen_t i = 0; i < n; i++, ++p_data) {
         *p_data = std::stod(decimals_arr.FormatValue(i).c_str());
+      }
+    }
+
+    return Status::OK();
+  }
+};
+
+class Converter_List : public Converter {
+ public:
+  explicit Converter_List(const ArrayVector& arrays) : Converter(arrays) {}
+
+  SEXP Allocate(R_xlen_t n) const { return Rcpp::List(no_init(n)); }
+
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    // nothing to do, list contain NULL by default
+    return Status::OK();
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
+    using internal::checked_cast;
+    auto list_array = checked_cast<arrow::ListArray*>(array.get());
+    auto values_array = list_array->values();
+
+    auto ingest_one = [&](R_xlen_t i) {
+      auto slice =
+          values_array->Slice(list_array->value_offset(i), list_array->value_length(i));
+      SET_VECTOR_ELT(data, i + start, Array__as_vector(slice));
+    };
+
+    if (array->null_count()) {
+      internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
+                                           n);
+
+      for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next()) {
+        if (bitmap_reader.IsSet()) ingest_one(i);
+      }
+
+    } else {
+      for (R_xlen_t i = 0; i < n; i++) {
+        ingest_one(i);
       }
     }
 
@@ -514,7 +616,7 @@ class Converter_Int64 : public Converter {
     if (array->null_count()) {
       internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
                                            n);
-      for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
+      for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
         *p_data = bitmap_reader.IsSet() ? p_values[i] : NA_INT64;
       }
     } else {
@@ -528,9 +630,6 @@ class Converter_Int64 : public Converter {
 std::shared_ptr<Converter> Converter::Make(const ArrayVector& arrays) {
   switch (arrays[0]->type_id()) {
     // direct support
-    case Type::INT8:
-      return std::make_shared<arrow::r::Converter_SimpleArray<RAWSXP>>(arrays);
-
     case Type::INT32:
       return std::make_shared<arrow::r::Converter_SimpleArray<INTSXP>>(arrays);
 
@@ -555,6 +654,10 @@ std::shared_ptr<Converter> Converter::Make(const ArrayVector& arrays) {
       return std::make_shared<arrow::r::Converter_Date64>(arrays);
 
       // promotions to integer vector
+    case Type::INT8:
+      return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::Int8Type>>(
+          arrays);
+
     case Type::UINT8:
       return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::UInt8Type>>(
           arrays);
@@ -595,6 +698,13 @@ std::shared_ptr<Converter> Converter::Make(const ArrayVector& arrays) {
 
     case Type::DECIMAL:
       return std::make_shared<arrow::r::Converter_Decimal>(arrays);
+
+      // nested
+    case Type::STRUCT:
+      return std::make_shared<arrow::r::Converter_Struct>(arrays);
+
+    case Type::LIST:
+      return std::make_shared<arrow::r::Converter_List>(arrays);
 
     default:
       break;
@@ -664,18 +774,18 @@ Rcpp::List to_dataframe_parallel(
 }  // namespace r
 }  // namespace arrow
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
   return arrow::r::ArrayVector__as_vector(array->length(), {array});
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return arrow::r::ArrayVector__as_vector(chunked_array->length(),
                                           chunked_array->chunks());
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch,
                                      bool use_threads) {
   int64_t nc = batch->num_columns();
@@ -697,7 +807,7 @@ Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& 
   }
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table,
                                bool use_threads) {
   int64_t nc = table->num_columns();
@@ -716,3 +826,5 @@ Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table,
     return arrow::r::to_dataframe_serial(nr, nc, names, converters);
   }
 }
+
+#endif

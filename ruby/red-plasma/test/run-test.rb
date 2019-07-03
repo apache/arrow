@@ -21,6 +21,10 @@ $VERBOSE = true
 
 require "pathname"
 
+(ENV["ARROW_DLL_PATH"] || "").split(File::PATH_SEPARATOR).each do |path|
+  RubyInstaller::Runtime.add_dll_directory(path)
+end
+
 base_dir = Pathname.new(__dir__).parent.expand_path
 arrow_base_dir = base_dir.parent + "red-arrow"
 

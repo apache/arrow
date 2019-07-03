@@ -98,6 +98,9 @@ public abstract class ArrowWriter implements AutoCloseable {
     ensureStarted();
   }
 
+  /**
+   * Writes the record batch currently loaded in this instance's VectorSchemaRoot.
+   */
   public void writeBatch() throws IOException {
     ensureStarted();
     try (ArrowRecordBatch batch = unloader.getRecordBatch()) {

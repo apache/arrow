@@ -35,17 +35,19 @@ import org.apache.arrow.vector.ipc.ArrowStreamReader;
  * Converts an Arrow stream to an Arrow file.
  */
 public class StreamToFile {
+  /**
+   *  Reads an Arrow stream from <code>in</code> and writes it to <code>out</code>.
+   */
   public static void convert(InputStream in, OutputStream out) throws IOException {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator)) {
       VectorSchemaRoot root = reader.getVectorSchemaRoot();
-      // load the first batch before instantiating the writer so that we have any dictionaries
-      if (!reader.loadNextBatch()) {
-        throw new IOException("Unable to read first record batch");
-      }
+      // load the first batch before instantiating the writer so that we have any dictionaries.
+      // Only writeBatches if we load the first one.
+      boolean writeBatches = reader.loadNextBatch();
       try (ArrowFileWriter writer = new ArrowFileWriter(root, reader, Channels.newChannel(out))) {
         writer.start();
-        while (true) {
+        while (writeBatches) {
           writer.writeBatch();
           if (!reader.loadNextBatch()) {
             break;
@@ -56,6 +58,11 @@ public class StreamToFile {
     }
   }
 
+  /**
+   * Main method.  Defaults to reading from standard in and standard out.
+   * If there are two arguments the first is interpreted as the input file path,
+   * the second is the output file path.
+   */
   public static void main(String[] args) throws IOException {
     InputStream in = System.in;
     OutputStream out = System.out;

@@ -258,8 +258,7 @@ cdef class Time32Value(ArrayValue):
             delta = datetime.timedelta(seconds=ap.Value(self.index))
             return (datetime.datetime(1970, 1, 1) + delta).time()
         else:
-            delta = datetime.timedelta(milliseconds=ap.Value(self.index))
-            return (datetime.datetime(1970, 1, 1) + delta).time()
+            return _box_time_milli(ap.Value(self.index))
 
 
 cdef class Time64Value(ArrayValue):
@@ -277,17 +276,27 @@ cdef class Time64Value(ArrayValue):
 
         cdef int64_t val = ap.Value(self.index)
         if dtype.unit() == TimeUnit_MICRO:
-            return (datetime.datetime(1970, 1, 1) +
-                    datetime.timedelta(microseconds=val)).time()
+            return _box_time_micro(val)
         else:
             return (datetime.datetime(1970, 1, 1) +
                     datetime.timedelta(microseconds=val / 1000)).time()
 
 
+cpdef _box_time_milli(int64_t val):
+    delta = datetime.timedelta(milliseconds=val)
+    return (datetime.datetime(1970, 1, 1) + delta).time()
+
+
+cpdef _box_time_micro(int64_t val):
+    return (datetime.datetime(1970, 1, 1) +
+            datetime.timedelta(microseconds=val)).time()
+
+
 cdef dict _DATETIME_CONVERSION_FUNCTIONS = {}
 cdef c_bool _datetime_conversion_initialized = False
 
-cdef _datetime_conversion_functions():
+
+def _datetime_conversion_functions():
     global _datetime_conversion_initialized
     if _datetime_conversion_initialized:
         return _DATETIME_CONVERSION_FUNCTIONS

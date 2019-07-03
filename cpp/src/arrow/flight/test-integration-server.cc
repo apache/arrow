@@ -32,6 +32,7 @@
 
 #include "arrow/flight/internal.h"
 #include "arrow/flight/server.h"
+#include "arrow/flight/server_auth.h"
 #include "arrow/flight/test-util.h"
 
 DEFINE_int32(port, 31337, "Server port to listen on");
@@ -40,7 +41,7 @@ namespace arrow {
 namespace flight {
 
 class FlightIntegrationTestServer : public FlightServerBase {
-  Status GetFlightInfo(const FlightDescriptor& request,
+  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
                        std::unique_ptr<FlightInfo>* info) override {
     if (request.type == FlightDescriptor::PATH) {
       if (request.path.size() == 0) {
@@ -70,7 +71,7 @@ class FlightIntegrationTestServer : public FlightServerBase {
     }
   }
 
-  Status DoGet(const Ticket& request,
+  Status DoGet(const ServerCallContext& context, const Ticket& request,
                std::unique_ptr<FlightDataStream>* data_stream) override {
     auto data = uploaded_chunks.find(request.ticket);
     if (data == uploaded_chunks.end()) {
@@ -78,13 +79,16 @@ class FlightIntegrationTestServer : public FlightServerBase {
     }
     auto flight = data->second;
 
-    *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(
-        std::shared_ptr<RecordBatchReader>(new TableBatchReader(*flight))));
+    *data_stream = std::unique_ptr<FlightDataStream>(
+        new NumberingStream(std::unique_ptr<FlightDataStream>(new RecordBatchStream(
+            std::shared_ptr<RecordBatchReader>(new TableBatchReader(*flight))))));
 
     return Status::OK();
   }
 
-  Status DoPut(std::unique_ptr<FlightMessageReader> reader) override {
+  Status DoPut(const ServerCallContext& context,
+               std::unique_ptr<FlightMessageReader> reader,
+               std::unique_ptr<FlightMetadataWriter> writer) override {
     const FlightDescriptor& descriptor = reader->descriptor();
 
     if (descriptor.type != FlightDescriptor::DescriptorType::PATH) {
@@ -96,11 +100,14 @@ class FlightIntegrationTestServer : public FlightServerBase {
     std::string key = descriptor.path[0];
 
     std::vector<std::shared_ptr<arrow::RecordBatch>> retrieved_chunks;
-    std::shared_ptr<arrow::RecordBatch> chunk;
+    arrow::flight::FlightStreamChunk chunk;
     while (true) {
-      RETURN_NOT_OK(reader->ReadNext(&chunk));
-      if (chunk == nullptr) break;
-      retrieved_chunks.push_back(chunk);
+      RETURN_NOT_OK(reader->Next(&chunk));
+      if (chunk.data == nullptr) break;
+      retrieved_chunks.push_back(chunk.data);
+      if (chunk.app_metadata) {
+        RETURN_NOT_OK(writer->WriteMetadata(*chunk.app_metadata));
+      }
     }
     std::shared_ptr<arrow::Table> retrieved_data;
     RETURN_NOT_OK(arrow::Table::FromRecordBatches(reader->schema(), retrieved_chunks,
@@ -122,7 +129,11 @@ int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   g_server.reset(new arrow::flight::FlightIntegrationTestServer);
-  ARROW_CHECK_OK(g_server->Init(FLAGS_port));
+  arrow::flight::Location location;
+  ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
+  arrow::flight::FlightServerOptions options(location);
+
+  ARROW_CHECK_OK(g_server->Init(options));
   // Exit with a clean error code (0) on SIGTERM
   ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
 

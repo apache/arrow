@@ -27,6 +27,7 @@
 #include "arrow/python/platform.h"
 
 #include <cstdint>
+#include <sstream>
 #include <string>
 
 namespace arrow {
@@ -168,6 +169,15 @@ inline bool PyIntScalar_Check(PyObject* obj) {
 
 inline bool PyBoolScalar_Check(PyObject* obj) {
   return PyBool_Check(obj) || PyArray_IsScalar(obj, Bool);
+}
+
+static inline PyArray_Descr* GetSafeNumPyDtype(int type) {
+  if (type == NPY_DATETIME) {
+    // It is not safe to mutate the result of DescrFromType
+    return PyArray_DescrNewFromType(type);
+  } else {
+    return PyArray_DescrFromType(type);
+  }
 }
 
 }  // namespace internal

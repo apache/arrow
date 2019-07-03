@@ -17,13 +17,8 @@
 
 package org.apache.arrow.gandiva.expression;
 
-import java.nio.charset.Charset;
-
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
-
-import com.google.protobuf.ByteString;
-
 
 /**
  * Used to represent expression tree nodes representing decimal constants.

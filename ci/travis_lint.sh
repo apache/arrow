@@ -31,7 +31,7 @@ pre-commit install
 pre-commit run hadolint -a
 
 # CMake formatting check
-pip install cmake_format
+pip install cmake_format==0.5.2
 $TRAVIS_BUILD_DIR/run-cmake-format.py --check
 
 # C++ code linting

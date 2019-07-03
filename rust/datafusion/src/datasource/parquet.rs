@@ -21,15 +21,16 @@ use std::fs::File;
 use std::string::String;
 use std::sync::{Arc, Mutex};
 
-use arrow::array::{Array, PrimitiveArray};
-use arrow::builder::{BinaryBuilder, PrimitiveBuilder, TimestampNanosecondBuilder};
+use arrow::array::{
+    Array, BinaryBuilder, PrimitiveArray, PrimitiveBuilder, TimestampNanosecondBuilder,
+};
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
+use parquet::arrow::schema::parquet_to_arrow_schema;
 use parquet::column::reader::*;
 use parquet::data_type::{ByteArray, Int96};
 use parquet::file::reader::*;
-use parquet::reader::schema::parquet_to_arrow_schema;
 
 use crate::datasource::{RecordBatchIterator, ScanResult, TableProvider};
 use crate::error::{ExecutionError, Result};
@@ -678,7 +679,8 @@ mod tests {
     }
 
     fn load_table(name: &str) -> Box<TableProvider> {
-        let testdata = env::var("PARQUET_TEST_DATA").unwrap();
+        let testdata =
+            env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
         let filename = format!("{}/{}", testdata, name);
         let table = ParquetTable::try_new(&filename).unwrap();
         Box::new(table)
