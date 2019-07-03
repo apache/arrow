@@ -948,7 +948,7 @@ TEST(TestDictionary, TransposeNulls) {
   AssertArraysEqual(*expected, *out);
 }
 
-TEST(TestDictionary, ListOfDictionary) {
+TEST(TestDictionary, DISABLED_ListOfDictionary) {
   std::unique_ptr<ArrayBuilder> root_builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), list(dictionary(int8(), utf8())),
                         &root_builder));
