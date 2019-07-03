@@ -157,7 +157,6 @@ MANIFEST.in
 __init__.pxd
 __init__.py
 requirements.txt
-c_glib/autom4te.cache/*
 c_glib/configure
 c_glib/version
 c_glib/m4/*.m4

@@ -27,6 +27,7 @@ tar xf /arrow/${archive_name}.tar
 # Run autogen.sh to create c_glib/ source archive containing the configure script
 cd ${archive_name}/c_glib
 ./autogen.sh
+rm -rf autom4te.cache
 cd -
 mv ${archive_name}/c_glib/ c_glib/
 tar czf /arrow/${c_glib_including_configure_tar_gz} c_glib
