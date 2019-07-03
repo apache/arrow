@@ -30,6 +30,7 @@ import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
 import io.netty.buffer.ArrowBuf;
+import io.netty.util.internal.PlatformDependent;
 
 /**
  * BaseFixedWidthVector provides an abstract interface for
@@ -803,5 +804,37 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
       decrementAllocationMonitor();
       reAlloc();
     }
+  }
+
+  /**
+   * Copy a cell value from a particular index in source vector to a particular
+   * position in this vector.
+   *
+   * @param fromIndex position to copy from in source vector
+   * @param thisIndex position to copy to in this vector
+   * @param from      source vector
+   */
+  public void copyFrom(int fromIndex, int thisIndex, BaseFixedWidthVector from) {
+    if (from.isNull(fromIndex)) {
+      BitVectorHelper.setValidityBit(this.getValidityBuffer(), thisIndex, 0);
+    } else {
+      BitVectorHelper.setValidityBit(this.getValidityBuffer(), thisIndex, 1);
+      PlatformDependent.copyMemory(from.getDataBuffer().memoryAddress() + fromIndex * typeWidth,
+              this.getDataBuffer().memoryAddress() + thisIndex * typeWidth, typeWidth);
+    }
+  }
+
+  /**
+   * Same as {@link #copyFrom(int, int, BaseFixedWidthVector)} except that
+   * it handles the case when the capacity of the vector needs to be expanded
+   * before copy.
+   *
+   * @param fromIndex position to copy from in source vector
+   * @param thisIndex position to copy to in this vector
+   * @param from      source vector
+   */
+  public void copyFromSafe(int fromIndex, int thisIndex, BaseFixedWidthVector from) {
+    handleSafe(thisIndex);
+    copyFrom(fromIndex, thisIndex, from);
   }
 }
