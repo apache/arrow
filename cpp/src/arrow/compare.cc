@@ -970,7 +970,13 @@ bool TensorEquals(const Tensor& left, const Tensor& right) {
   } else if (left.size() == 0) {
     are_equal = true;
   } else {
-    if (!left.is_contiguous() || !right.is_contiguous()) {
+    const bool left_row_major_p = left.is_row_major();
+    const bool left_column_major_p = left.is_column_major();
+    const bool right_row_major_p = right.is_row_major();
+    const bool right_column_major_p = right.is_column_major();
+
+    if (!(left_row_major_p && right_row_major_p) &&
+        !(left_column_major_p && right_column_major_p)) {
       const auto& shape = left.shape();
       if (shape != right.shape()) {
         are_equal = false;
