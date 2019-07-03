@@ -564,13 +564,16 @@ int PlasmaStore::AbortObject(const ObjectID& object_id,
   ARROW_CHECK(entry != nullptr) << "To abort an object it must be in the object table.";
   ARROW_CHECK(entry->state != ObjectState::PLASMA_SEALED)
       << "To abort an object it must not have been sealed.";
-  if (client->ObjectIDExists(object_id)) {
+  auto it = client->object_ids.find(object_id);
+  if (it == client->object_ids.end()) {
+    // If the client requesting the abort is not the creator, do not
+    // perform the abort.
+    return 0;
+  } else {
     // The client requesting the abort is the creator. Free the object.
     EraseFromObjectTable(object_id);
     client->object_ids.erase(it);
     return 1;
-  } else {
-    return 0;
   }
 }
 

@@ -931,7 +931,7 @@ Status PlasmaClient::Impl::DecodeNotification(const uint8_t* buffer, ObjectID* o
                                               int64_t* metadata_size) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
 
-  auto object_info = flatbuffers::GetRoot<fb::ObjectInfo>(buffer);
+  auto object_info = flatbuffers::GetRoot<flatbuf::ObjectInfo>(buffer);
   if (object_info->object_id()->size() != sizeof(ObjectID)) {
     return Status::Invalid(
         "The size of ObjectID in the message is different from the size "

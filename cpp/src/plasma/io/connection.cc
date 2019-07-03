@@ -94,7 +94,7 @@ Status ServerConnection::ReadMessage(int64_t type, std::vector<uint8_t>* message
   }
   // If there was no error, make sure the protocol version matches.
   if (read_version != kPlasmaProtocolVersion) {
-    return Status::ProtocolError(
+    return Status::IOError(
         "Expected Plasma message protocol version: ", kPlasmaProtocolVersion,
         ", got protocol version: ", read_version);
   }
@@ -213,7 +213,7 @@ void ClientConnection::ProcessMessageHeader(const std::error_code& ec) {
 
   // If there was no error, make sure the protocol version matches.
   if (read_version_ != kPlasmaProtocolVersion) {
-    status = Status::ProtocolError(
+    status = Status::IOError(
         "Expected Plasma message protocol version: ", kPlasmaProtocolVersion,
         ", got protocol version: ", read_version_);
     ProcessError(status);
