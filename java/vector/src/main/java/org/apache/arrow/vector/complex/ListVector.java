@@ -568,7 +568,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   @Override
   public Field getField() {
-    return new Field(name, fieldType, Collections.singletonList(getDataVector().getField()));
+    return new Field(getName(), fieldType, Collections.singletonList(getDataVector().getField()));
   }
 
   @Override

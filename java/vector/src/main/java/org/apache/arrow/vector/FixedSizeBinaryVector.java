@@ -26,6 +26,7 @@ import org.apache.arrow.vector.holders.FixedSizeBinaryHolder;
 import org.apache.arrow.vector.holders.NullableFixedSizeBinaryHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -61,9 +62,20 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public FixedSizeBinaryVector(String name, FieldType fieldType, BufferAllocator allocator) {
-    super(name, allocator, fieldType, ((FixedSizeBinary) fieldType.getType()).getByteWidth());
+    this(new Field(name, fieldType, null), allocator);
+  }
+
+  /**
+   * Instantiate a FixedSizeBinaryVector. This doesn't allocate any memory for
+   * the data in vector.
+   *
+   * @param field field materialized by this vector
+   * @param allocator allocator for memory management.
+   */
+  public FixedSizeBinaryVector(Field field, BufferAllocator allocator) {
+    super(field, allocator, ((FixedSizeBinary) field.getFieldType().getType()).getByteWidth());
     reader = new FixedSizeBinaryReaderImpl(FixedSizeBinaryVector.this);
-    byteWidth = ((FixedSizeBinary) fieldType.getType()).getByteWidth();
+    byteWidth = ((FixedSizeBinary) field.getFieldType().getType()).getByteWidth();
   }
 
   /**

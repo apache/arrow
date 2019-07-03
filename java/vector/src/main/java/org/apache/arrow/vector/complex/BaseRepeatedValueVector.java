@@ -55,17 +55,24 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   protected final CallBack callBack;
   protected int valueCount;
   protected int offsetAllocationSizeInBytes = INITIAL_VALUE_ALLOCATION * OFFSET_WIDTH;
+  private final String name;
 
   protected BaseRepeatedValueVector(String name, BufferAllocator allocator, CallBack callBack) {
     this(name, allocator, DEFAULT_DATA_VECTOR, callBack);
   }
 
   protected BaseRepeatedValueVector(String name, BufferAllocator allocator, FieldVector vector, CallBack callBack) {
-    super(name, allocator);
+    super(allocator);
+    this.name = name;
     this.offsetBuffer = allocator.getEmpty();
     this.vector = Preconditions.checkNotNull(vector, "data vector cannot be null");
     this.callBack = callBack;
     this.valueCount = 0;
+  }
+
+  @Override
+  public String getName() {
+    return name;
   }
 
   @Override

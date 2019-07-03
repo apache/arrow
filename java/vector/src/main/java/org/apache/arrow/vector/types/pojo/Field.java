@@ -108,7 +108,7 @@ public class Field {
    * Construct a new vector of this type using the given allocator.
    */
   public FieldVector createVector(BufferAllocator allocator) {
-    FieldVector vector = fieldType.createNewSingleVector(name, allocator, null);
+    FieldVector vector = fieldType.createNewSingleVector(this, allocator, null);
     vector.initializeChildrenFromFields(children);
     return vector;
   }

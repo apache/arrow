@@ -27,6 +27,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.IntervalYearHolder;
 import org.apache.arrow.vector.holders.NullableIntervalYearHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -61,7 +62,18 @@ public class IntervalYearVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public IntervalYearVector(String name, FieldType fieldType, BufferAllocator allocator) {
-    super(name, allocator, fieldType, TYPE_WIDTH);
+    this(new Field(name, fieldType, null), allocator);
+  }
+
+  /**
+   * Instantiate a IntervalYearVector. This doesn't allocate any memory for
+   * the data in vector.
+   *
+   * @param field field materialized by this vector
+   * @param allocator allocator for memory management.
+   */
+  public IntervalYearVector(Field field, BufferAllocator allocator) {
+    super(field, allocator, TYPE_WIDTH);
     reader = new IntervalYearReaderImpl(IntervalYearVector.this);
   }
 

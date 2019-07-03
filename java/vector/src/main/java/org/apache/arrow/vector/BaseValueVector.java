@@ -50,16 +50,16 @@ public abstract class BaseValueVector implements ValueVector {
   public static final int INITIAL_VALUE_ALLOCATION = 3970;
 
   protected final BufferAllocator allocator;
-  protected final String name;
 
-  protected BaseValueVector(String name, BufferAllocator allocator) {
+  protected BaseValueVector(BufferAllocator allocator) {
     this.allocator = Preconditions.checkNotNull(allocator, "allocator cannot be null");
-    this.name = name;
   }
+
+  public abstract String getName();
 
   @Override
   public String toString() {
-    return super.toString() + "[name = " + name + ", ...]";
+    return super.toString() + "[name = " + getName() + ", ...]";
   }
 
   @Override
@@ -73,7 +73,7 @@ public abstract class BaseValueVector implements ValueVector {
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return getTransferPair(name, allocator);
+    return getTransferPair(getName(), allocator);
   }
 
   @Override

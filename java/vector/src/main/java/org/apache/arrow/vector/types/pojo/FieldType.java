@@ -98,4 +98,9 @@ public class FieldType {
     return minorType.getNewVector(name, this, allocator, schemaCallBack);
   }
 
+  public FieldVector createNewSingleVector(Field field, BufferAllocator allocator, CallBack schemaCallBack) {
+    MinorType minorType = Types.getMinorTypeForArrowType(type);
+    return minorType.getNewVector(field, allocator, schemaCallBack);
+  }
+
 }
