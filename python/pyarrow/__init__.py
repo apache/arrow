@@ -148,11 +148,6 @@ from pyarrow.ipc import (Message, MessageReader,
                          serialize_pandas, deserialize_pandas)
 import pyarrow.ipc as ipc
 
-try:
-    from pyarrow.plasma import PlasmaObjectExists, PlasmaStoreFull
-except:
-    pass
-
 
 def open_stream(source):
     """
