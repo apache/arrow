@@ -211,8 +211,8 @@ inline void ArrowTimestampToImpalaTimestamp(const int64_t time, Int96* impala_ti
   (*impala_timestamp).value[2] = (uint32_t)julian_days;
 
   int64_t last_day_units = time % UnitPerDay;
-  int64_t* impala_last_day_nanos = reinterpret_cast<int64_t*>(impala_timestamp);
-  *impala_last_day_nanos = last_day_units * NanosecondsPerUnit;
+  int64_t day_nanos = last_day_units * NanosecondsPerUnit;
+  std::memcpy(impala_timestamp, day_nanos, sizeof(day_nanos));
 }
 
 constexpr int64_t kSecondsInNanos = INT64_C(1000000000);
