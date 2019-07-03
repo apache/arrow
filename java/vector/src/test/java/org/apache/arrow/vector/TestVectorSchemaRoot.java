@@ -17,10 +17,24 @@
 
 package org.apache.arrow.vector;
 
+import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.types.pojo.Schema;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -74,5 +88,84 @@ public class TestVectorSchemaRoot {
     assertEquals(vec1.getValueCount(), count);
     assertEquals(vec2.getValueCount(), count);
     assertEquals(vsr.getRowCount(), count);
+  }
+
+  private VectorSchemaRoot createBatch() {
+    FieldType varCharType = new FieldType(true, new ArrowType.Utf8(), /*dictionary=*/null);
+    FieldType listType = new FieldType(true, new ArrowType.List(), /*dictionary=*/null);
+
+    // create the schema
+    List<Field> schemaFields  = new ArrayList<>();
+    Field childField = new Field("varCharCol", varCharType, null);
+    List<Field> childFields = new ArrayList<>();
+    childFields.add(childField);
+    schemaFields.add(new Field("listCol", listType, childFields));
+    Schema schema = new Schema(schemaFields);
+
+    VectorSchemaRoot schemaRoot = VectorSchemaRoot.create(schema, allocator);
+    // get and allocate the vector
+    ListVector vector = (ListVector) schemaRoot.getVector("listCol");
+    vector.allocateNew();
+
+    // write data to the vector
+    UnionListWriter writer = vector.getWriter();
+
+    writer.setPosition(0);
+
+    // write data vector(0)
+    writer.startList();
+
+    // write data vector(0)(0)
+    writer.list().startList();
+
+    // According to the schema above, the list element should have varchar type.
+    // When we write a big int, the original writer cannot handle this, so the writer will
+    // be promoted, and the vector structure will be different from the schema.
+    writer.list().bigInt().writeBigInt(0);
+    writer.list().bigInt().writeBigInt(1);
+    writer.list().endList();
+
+    // write data vector(0)(1)
+    writer.list().startList();
+    writer.list().float8().writeFloat8(3.0D);
+    writer.list().float8().writeFloat8(7.0D);
+    writer.list().endList();
+
+    // finish data vector(0)
+    writer.endList();
+
+    writer.setPosition(1);
+
+    // write data vector(1)
+    writer.startList();
+
+    // write data vector(1)(0)
+    writer.list().startList();
+    writer.list().integer().writeInt(3);
+    writer.list().integer().writeInt(2);
+    writer.list().endList();
+
+    // finish data vector(1)
+    writer.endList();
+
+    vector.setValueCount(2);
+
+    return schemaRoot;
+  }
+
+  @Test
+  public void testSchemaSync() {
+    //create vector schema root
+    try (VectorSchemaRoot schemaRoot = createBatch()) {
+      Schema newSchema = new Schema(
+              schemaRoot.getFieldVectors().stream().map(vec -> vec.getField()).collect(Collectors.toList()));
+
+      assertNotEquals(newSchema, schemaRoot.getSchema());
+      assertTrue(schemaRoot.syncSchema());
+      assertEquals(newSchema, schemaRoot.getSchema());
+
+      // no schema update this time.
+      assertFalse(schemaRoot.syncSchema());
+    }
   }
 }
