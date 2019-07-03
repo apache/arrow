@@ -35,7 +35,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
  */
 public class VectorSchemaRoot implements AutoCloseable {
 
-  private final Schema schema;
+  private Schema schema;
   private int rowCount;
   private final List<FieldVector> fieldVectors;
   private final Map<String, FieldVector> fieldVectorsMap = new HashMap<>();
@@ -205,5 +205,25 @@ public class VectorSchemaRoot implements AutoCloseable {
       printRow(sb, row);
     }
     return sb.toString();
+  }
+
+  /**
+   * Synchronizes the schema from the current vectors.
+   * In some cases, the schema and the actual vector structure may be different.
+   * This can be caused by a promoted writer (For details, please see
+   * {@link org.apache.arrow.vector.complex.impl.PromotableWriter}).
+   * For example, when writing different types of data to a {@link org.apache.arrow.vector.complex.ListVector}
+   * may lead to such a case.
+   * When this happens, this method should be called to bring the schema and vector structure in a synchronized state.
+   * @return true if the schema is updated, false otherwise.
+   */
+  public boolean syncSchema() {
+    List<Field> oldFields = this.schema.getFields();
+    List<Field> newFields = this.fieldVectors.stream().map(ValueVector::getField).collect(Collectors.toList());
+    if (!oldFields.equals(newFields)) {
+      this.schema = new Schema(newFields);
+      return true;
+    }
+    return false;
   }
 }

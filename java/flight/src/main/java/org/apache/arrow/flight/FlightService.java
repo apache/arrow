@@ -191,6 +191,7 @@ class FlightService extends FlightServiceImplBase {
             StreamPipe.wrap(responseObserver, PutResult::toProtocol)).run();
         responseObserver.onCompleted();
       } catch (Exception ex) {
+        logger.error("Failed to process custom put.", ex);
         responseObserver.onError(ex);
         // The client may have terminated, so the exception here is effectively swallowed.
         // Log the error as well so -something- makes it to the developer.
