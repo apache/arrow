@@ -19,7 +19,6 @@ package org.apache.arrow.vector.dictionary;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -106,13 +105,13 @@ public class DictionaryEncoderBenchmarks {
   }
 
   /**
-   * Test set/get int values for {@link HashMap}.
+   * Test encode for {@link DictionaryEncoder}.
    * @return useless. To avoid DCE by JIT.
    */
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
-  public int testEncodeDecode() {
+  public int testEncode() {
     Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
     final ValueVector encoded = DictionaryEncoder.encode(vector, dictionary);
     encoded.close();
