@@ -164,8 +164,11 @@ TEST(TestTensor, Equals) {
   Tensor tc2(int64(), Buffer::Wrap(c_values), shape, c_strides);
 
   std::vector<int64_t> f_values = {1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15, 4, 8, 12, 16};
+  Tensor tc3(int64(), Buffer::Wrap(f_values), shape, c_strides);
+
   std::vector<int64_t> f_strides = {8, 32};
   Tensor tf1(int64(), Buffer::Wrap(f_values), shape, f_strides);
+  Tensor tf2(int64(), Buffer::Wrap(c_values), shape, f_strides);
 
   std::vector<int64_t> nc_values = {1, 0, 5, 0, 9,  0, 13, 0, 2, 0, 6, 0, 10, 0, 14, 0,
                                     3, 0, 7, 0, 11, 0, 15, 0, 4, 0, 8, 0, 12, 0, 16, 0};
@@ -187,15 +190,19 @@ TEST(TestTensor, Equals) {
 
   // different objects
   EXPECT_TRUE(tc1.Equals(tc2));
+  EXPECT_FALSE(tc1.Equals(tc3));
 
   // row-major and column-major
   EXPECT_TRUE(tc1.Equals(tf1));
+  EXPECT_FALSE(tc3.Equals(tf1));
 
   // row-major and non-contiguous
   EXPECT_TRUE(tc1.Equals(tnc));
+  EXPECT_FALSE(tc3.Equals(tnc));
 
   // column-major and non-contiguous
   EXPECT_TRUE(tf1.Equals(tnc));
+  EXPECT_FALSE(tf2.Equals(tnc));
 }
 
 TEST(TestNumericTensor, ElementAccessWithRowMajorStrides) {
