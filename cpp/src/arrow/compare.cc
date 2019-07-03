@@ -236,7 +236,7 @@ class RangeEqualsVisitor {
     // Define a mapping from the type id to child number
     const std::vector<uint8_t>& type_codes = left_type.type_codes();
     std::vector<uint8_t> type_id_to_child_num(left.union_type()->max_type_code() + 1, 0);
-    for (size_t i = 0; i < type_codes.size(); ++i) {
+    for (uint8_t i = 0; i < type_codes.size(); ++i) {
       type_id_to_child_num[type_codes[i]] = i;
     }
 
