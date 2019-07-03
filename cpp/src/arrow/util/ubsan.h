@@ -22,14 +22,13 @@
 #include <memory>
 
 #include "arrow/util/macros.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace util {
 
 namespace internal {
 
-ARROW_EXPORT extern uint8_t non_null_filler;
+extern uint8_t non_null_filler;
 
 }  // namespace internal
 
