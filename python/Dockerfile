@@ -19,11 +19,14 @@ FROM arrow:cpp
 
 # install python specific packages
 ARG PYTHON_VERSION=3.6
-COPY ci/conda_env_python.yml /arrow/ci/
+COPY ci/conda_env_python.yml ci/conda_env_sphinx.yml /arrow/ci/
 RUN conda install -q \
         --file arrow/ci/conda_env_python.yml \
+        --file arrow/ci/conda_env_sphinx.yml \
+        --file arrow/ci/conda_env_gandiva.yml \
         python=$PYTHON_VERSION \
         nomkl && \
+    conda install -y -q pytorch torchvision -c soumith && \
     conda clean --all
 
 ENV ARROW_PYTHON=ON \

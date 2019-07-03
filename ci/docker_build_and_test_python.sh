@@ -20,4 +20,4 @@ set -e
 
 /arrow/ci/docker_build_cpp.sh
 /arrow/ci/docker_build_python.sh
-pytest -v --pyargs pyarrow
+/arrow/ci/docker_test_python.sh
