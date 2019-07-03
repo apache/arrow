@@ -21,11 +21,17 @@
 
 namespace arrow {
 
-Status::Status(StatusCode code, const std::string& msg) {
+Status::Status(StatusCode code, const std::string& msg)
+    : Status::Status(code, msg, nullptr) {}
+
+Status::Status(StatusCode code, std::string msg, std::shared_ptr<StatusDetail> detail) {
   ARROW_CHECK_NE(code, StatusCode::OK) << "Cannot construct ok status with message";
   state_ = new State;
   state_->code = code;
-  state_->msg = msg;
+  state_->msg = std::move(msg);
+  if (detail != nullptr) {
+    state_->detail = std::move(detail);
+  }
 }
 
 void Status::CopyFrom(const Status& s) {
@@ -77,21 +83,6 @@ std::string Status::CodeAsString() const {
     case StatusCode::SerializationError:
       type = "Serialization error";
       break;
-    case StatusCode::PythonError:
-      type = "Python error";
-      break;
-    case StatusCode::PlasmaObjectExists:
-      type = "Plasma object exists";
-      break;
-    case StatusCode::PlasmaObjectNonexistent:
-      type = "Plasma object is nonexistent";
-      break;
-    case StatusCode::PlasmaStoreFull:
-      type = "Plasma store is full";
-      break;
-    case StatusCode::PlasmaObjectAlreadySealed:
-      type = "Plasma object is already sealed";
-      break;
     case StatusCode::CodeGenError:
       type = "CodeGenError in Gandiva";
       break;
@@ -110,11 +101,16 @@ std::string Status::CodeAsString() const {
 
 std::string Status::ToString() const {
   std::string result(CodeAsString());
-  if (state_ == NULL) {
+  if (state_ == nullptr) {
     return result;
   }
   result += ": ";
   result += state_->msg;
+  if (state_->detail != nullptr) {
+    result += ". Detail: ";
+    result += state_->detail->ToString();
+  }
+
   return result;
 }
 

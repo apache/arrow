@@ -332,8 +332,8 @@ Status SequenceBuilder::AppendDict(PyObject* context, PyObject* dict,
 
 Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* elem,
                           PyObject** result) {
-  *result = NULL;
   if (context == Py_None) {
+    *result = NULL;
     return Status::SerializationError("error while calling callback on ",
                                       internal::PyObject_StdStringRepr(elem),
                                       ": handler not registered");

@@ -227,7 +227,7 @@ class TestPlasmaClient(object):
         # Make sure that creating the same object twice raises an exception.
         object_id = random_object_id()
         self.plasma_client.create_and_seal(object_id, b'a', b'b')
-        with pytest.raises(pa.PlasmaObjectExists):
+        with pytest.raises(pa.plasma.PlasmaObjectExists):
             self.plasma_client.create_and_seal(object_id, b'a', b'b')
 
         # Make sure that these objects can be evicted.
@@ -852,7 +852,7 @@ class TestPlasmaClient(object):
         for _ in range(2):
             create_object(self.plasma_client2, DEFAULT_PLASMA_STORE_MEMORY, 0)
         # Verify that an object that is too large does not fit.
-        with pytest.raises(pa.lib.PlasmaStoreFull):
+        with pytest.raises(pa.plasma.PlasmaStoreFull):
             create_object(self.plasma_client2,
                           DEFAULT_PLASMA_STORE_MEMORY + SMALL_OBJECT_SIZE, 0)
 

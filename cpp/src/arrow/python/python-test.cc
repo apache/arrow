@@ -40,21 +40,12 @@ using internal::checked_cast;
 
 namespace py {
 
-TEST(PyBuffer, InvalidInputObject) {
-  std::shared_ptr<Buffer> res;
-  PyObject* input = Py_None;
-  auto old_refcnt = Py_REFCNT(input);
-  ASSERT_RAISES(PythonError, PyBuffer::FromPyObject(input, &res));
-  PyErr_Clear();
-  ASSERT_EQ(old_refcnt, Py_REFCNT(input));
-}
-
 TEST(OwnedRef, TestMoves) {
-  PyAcquireGIL lock;
   std::vector<OwnedRef> vec;
   PyObject *u, *v;
   u = PyList_New(0);
   v = PyList_New(0);
+
   {
     OwnedRef ref(u);
     vec.push_back(std::move(ref));
@@ -66,31 +57,42 @@ TEST(OwnedRef, TestMoves) {
 }
 
 TEST(OwnedRefNoGIL, TestMoves) {
-  std::vector<OwnedRefNoGIL> vec;
-  PyObject *u, *v;
+  PyAcquireGIL lock;
+  lock.release();
+
   {
-    PyAcquireGIL lock;
-    u = PyList_New(0);
-    v = PyList_New(0);
+    std::vector<OwnedRef> vec;
+    PyObject *u, *v;
+    {
+      lock.acquire();
+      u = PyList_New(0);
+      v = PyList_New(0);
+      lock.release();
+    }
+    {
+      OwnedRefNoGIL ref(u);
+      vec.push_back(std::move(ref));
+      ASSERT_EQ(ref.obj(), nullptr);
+    }
+    vec.emplace_back(v);
+    ASSERT_EQ(Py_REFCNT(u), 1);
+    ASSERT_EQ(Py_REFCNT(v), 1);
   }
-  {
-    OwnedRefNoGIL ref(u);
-    vec.push_back(std::move(ref));
-    ASSERT_EQ(ref.obj(), nullptr);
-  }
-  vec.emplace_back(v);
-  ASSERT_EQ(Py_REFCNT(u), 1);
-  ASSERT_EQ(Py_REFCNT(v), 1);
 }
 
 TEST(CheckPyError, TestStatus) {
-  PyAcquireGIL lock;
   Status st;
 
-  auto check_error = [](Status& st, const char* expected_message = "some error") {
+  auto check_error = [](Status& st, const char* expected_message = "some error",
+                        const char* expected_detail = nullptr) {
     st = CheckPyError();
     ASSERT_EQ(st.message(), expected_message);
     ASSERT_FALSE(PyErr_Occurred());
+    if (expected_detail) {
+      auto detail = st.detail();
+      ASSERT_NE(detail, nullptr);
+      ASSERT_EQ(detail->ToString(), expected_detail);
+    }
   };
 
   for (PyObject* exc_type : {PyExc_Exception, PyExc_SyntaxError}) {
@@ -100,7 +102,7 @@ TEST(CheckPyError, TestStatus) {
   }
 
   PyErr_SetString(PyExc_TypeError, "some error");
-  check_error(st);
+  check_error(st, "some error", "Python exception: TypeError");
   ASSERT_TRUE(st.IsTypeError());
 
   PyErr_SetString(PyExc_ValueError, "some error");
@@ -118,7 +120,7 @@ TEST(CheckPyError, TestStatus) {
   }
 
   PyErr_SetString(PyExc_NotImplementedError, "some error");
-  check_error(st);
+  check_error(st, "some error", "Python exception: NotImplementedError");
   ASSERT_TRUE(st.IsNotImplemented());
 
   // No override if a specific status code is given
@@ -127,6 +129,52 @@ TEST(CheckPyError, TestStatus) {
   ASSERT_TRUE(st.IsSerializationError());
   ASSERT_EQ(st.message(), "some error");
   ASSERT_FALSE(PyErr_Occurred());
+}
+
+TEST(CheckPyError, TestStatusNoGIL) {
+  PyAcquireGIL lock;
+  {
+    Status st;
+    PyErr_SetString(PyExc_ZeroDivisionError, "zzzt");
+    st = ConvertPyError();
+    ASSERT_FALSE(PyErr_Occurred());
+    lock.release();
+    ASSERT_TRUE(st.IsUnknownError());
+    ASSERT_EQ(st.message(), "zzzt");
+    ASSERT_EQ(st.detail()->ToString(), "Python exception: ZeroDivisionError");
+  }
+}
+
+TEST(RestorePyError, Basics) {
+  PyErr_SetString(PyExc_ZeroDivisionError, "zzzt");
+  auto st = ConvertPyError();
+  ASSERT_FALSE(PyErr_Occurred());
+  ASSERT_TRUE(st.IsUnknownError());
+  ASSERT_EQ(st.message(), "zzzt");
+  ASSERT_EQ(st.detail()->ToString(), "Python exception: ZeroDivisionError");
+
+  RestorePyError(st);
+  ASSERT_TRUE(PyErr_Occurred());
+  PyObject* exc_type;
+  PyObject* exc_value;
+  PyObject* exc_traceback;
+  PyErr_Fetch(&exc_type, &exc_value, &exc_traceback);
+  ASSERT_TRUE(PyErr_GivenExceptionMatches(exc_type, PyExc_ZeroDivisionError));
+  std::string py_message;
+  ASSERT_OK(internal::PyObject_StdStringStr(exc_value, &py_message));
+  ASSERT_EQ(py_message, "zzzt");
+}
+
+TEST(PyBuffer, InvalidInputObject) {
+  std::shared_ptr<Buffer> res;
+  PyObject* input = Py_None;
+  auto old_refcnt = Py_REFCNT(input);
+  {
+    Status st = PyBuffer::FromPyObject(input, &res);
+    ASSERT_TRUE(IsPyError(st)) << st.ToString();
+    ASSERT_FALSE(PyErr_Occurred());
+  }
+  ASSERT_EQ(old_refcnt, Py_REFCNT(input));
 }
 
 class DecimalTest : public ::testing::Test {
@@ -253,8 +301,6 @@ TEST(PandasConversionTest, TestObjectBlockWriteFails) {
 }
 
 TEST(BuiltinConversionTest, TestMixedTypeFails) {
-  PyAcquireGIL lock;
-
   OwnedRef list_ref(PyList_New(3));
   PyObject* list = list_ref.obj();
 
@@ -405,8 +451,6 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScale) {
 }
 
 TEST_F(DecimalTest, TestMixedPrecisionAndScaleSequenceConvert) {
-  PyAcquireGIL lock;
-
   PyObject* value1 = this->CreatePythonDecimal("0.01").detach();
   ASSERT_NE(value1, nullptr);
 
