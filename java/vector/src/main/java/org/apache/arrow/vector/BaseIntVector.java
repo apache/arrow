@@ -23,7 +23,7 @@ package org.apache.arrow.vector;
 public interface BaseIntVector extends ValueVector {
 
   /**
-   * set the encoded value from a {@link org.apache.arrow.vector.dictionary.Dictionary}.
+   * set value at specific index, note this value may need to be need truncated.
    */
-  void setEncodedValue(int index, int value);
+  void setWithPossibleTruncate(int index, long value);
 }
