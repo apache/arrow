@@ -26,7 +26,6 @@ Status::Status(StatusCode code, const std::string& msg)
 
 Status::Status(StatusCode code, std::string msg, std::shared_ptr<StatusDetail> detail) {
   ARROW_CHECK_NE(code, StatusCode::OK) << "Cannot construct ok status with message";
-  assert(code != StatusCode::OK);
   state_ = new State;
   state_->code = code;
   state_->msg = std::move(msg);

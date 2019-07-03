@@ -48,7 +48,7 @@ enum class PlasmaErrorCode : int8_t {
   PlasmaObjectAlreadySealed = 4,
 };
 
-ARROW_EXPORT arrow::Status MakePlasmaError(std::string message, PlasmaErrorCode code);
+ARROW_EXPORT arrow::Status MakePlasmaError(PlasmaErrorCode code, std::string message);
 /// Return true iff the status indicates an already existing Plasma object.
 ARROW_EXPORT bool IsPlasmaObjectExists(const arrow::Status& status);
 /// Return true iff the status indicates a non-existent Plasma object.

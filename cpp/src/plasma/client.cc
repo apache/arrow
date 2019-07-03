@@ -791,12 +791,12 @@ Status PlasmaClient::Impl::Seal(const ObjectID& object_id) {
   auto object_entry = objects_in_use_.find(object_id);
 
   if (object_entry == objects_in_use_.end()) {
-    return MakePlasmaError("Seal() called on an object without a reference to it",
-                           PlasmaErrorCode::PlasmaObjectNonexistent);
+    return MakePlasmaError(PlasmaErrorCode::PlasmaObjectNonexistent,"Seal() called on an object without a reference to it"
+                           );
   }
   if (object_entry->second->is_sealed) {
-    return MakePlasmaError("Seal() called on an already sealed object",
-                           PlasmaErrorCode::PlasmaObjectAlreadySealed);
+    return MakePlasmaError(PlasmaErrorCode::PlasmaObjectAlreadySealed,"Seal() called on an already sealed object"
+                           );
   }
 
   object_entry->second->is_sealed = true;
@@ -897,7 +897,7 @@ Status PlasmaClient::Impl::Hash(const ObjectID& object_id, uint8_t* digest) {
   RETURN_NOT_OK(Get({object_id}, 0, &object_buffers));
   // If the object was not retrieved, return false.
   if (!object_buffers[0].data) {
-    return MakePlasmaError("Object not found", PlasmaErrorCode::PlasmaObjectNonexistent);
+    return MakePlasmaError(PlasmaErrorCode::PlasmaObjectNonexistent, "Object not found");
   }
   // Compute the hash.
   uint64_t hash = ComputeObjectHash(object_buffers[0]);

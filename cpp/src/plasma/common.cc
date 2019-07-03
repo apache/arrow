@@ -30,7 +30,7 @@ namespace plasma {
 
 namespace {
 
-const char kErrorDetailTypeId[] = "plasma status detail";
+const char kErrorDetailTypeId[] = "plasma::PlasmaStatusDetail";
 
 class PlasmaStatusDetail : public arrow::StatusDetail {
  public:
@@ -76,7 +76,7 @@ bool IsPlasmaStatus(const arrow::Status& status, PlasmaErrorCode code) {
 
 using arrow::Status;
 
-arrow::Status MakePlasmaError(std::string message, PlasmaErrorCode code) {
+arrow::Status MakePlasmaError(PlasmaErrorCode code, std::string message) {
   arrow::StatusCode arrow_code = arrow::StatusCode::UnknownError;
   switch (code) {
     case PlasmaErrorCode::PlasmaObjectExists:
