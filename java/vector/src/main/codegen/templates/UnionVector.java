@@ -17,6 +17,7 @@
 
 import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.ReferenceManager;
+import org.apache.arrow.vector.types.pojo.FieldType;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/UnionVector.java" />
@@ -74,14 +75,18 @@ public class UnionVector implements FieldVector {
   private int singleType = 0;
   private ValueVector singleVector;
 
-  private static final byte TYPE_WIDTH = 1;
   private final CallBack callBack;
   private int typeBufferAllocationSizeInBytes;
+
+  private static final byte TYPE_WIDTH = 1;
+  private static final FieldType INTERNAL_STRUCT_TYPE = new FieldType(false /*nullable*/,
+      ArrowType.Struct.INSTANCE, null /*dictionary*/, null /*metadata*/);
 
   public UnionVector(String name, BufferAllocator allocator, CallBack callBack) {
     this.name = name;
     this.allocator = allocator;
-    this.internalStruct = new NonNullableStructVector("internal", allocator, new FieldType(false, ArrowType.Struct.INSTANCE, null, null), callBack);
+    this.internalStruct = new NonNullableStructVector("internal", allocator, INTERNAL_STRUCT_TYPE,
+        callBack);
     this.typeBuffer = allocator.getEmpty();
     this.callBack = callBack;
     this.typeBufferAllocationSizeInBytes = BaseValueVector.INITIAL_VALUE_ALLOCATION * TYPE_WIDTH;

@@ -65,6 +65,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   private ArrowBuf validityBuffer;
   private final int listSize;
   private final FieldType fieldType;
+  private final String name;
 
   private UnionFixedSizeListReader reader;
   private int valueCount;
@@ -94,8 +95,9 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
                              BufferAllocator allocator,
                              FieldType fieldType,
                              CallBack unusedSchemaChangeCallback) {
-    super(name, allocator);
+    super(allocator);
 
+    this.name = name;
     this.validityBuffer = allocator.getEmpty();
     this.vector = ZeroVector.INSTANCE;
     this.fieldType = fieldType;
@@ -115,6 +117,11 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   @Override
   public MinorType getMinorType() {
     return MinorType.FIXED_SIZE_LIST;
+  }
+
+  @Override
+  public String getName() {
+    return name;
   }
 
   /** Get the fixed size for each list. */
