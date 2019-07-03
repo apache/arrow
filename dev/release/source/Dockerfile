@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ubuntu:18.04
+FROM debian:buster
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -29,5 +29,3 @@ RUN apt update && \
     pkg-config && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*
-
-COPY build.sh /build.sh

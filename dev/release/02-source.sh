@@ -66,21 +66,17 @@ if [ ${SOURCE_GLIB} -gt 0 ]; then
   archive_name=tmp-apache-arrow
   (cd "${SOURCE_TOP_DIR}" && \
     git archive ${release_hash} --prefix ${archive_name}/) \
-    > ${archive_name}.tar
+    > "${SOURCE_TOP_DIR}/${archive_name}.tar"
   c_glib_including_configure_tar_gz=c_glib.tar.gz
-  docker_image_name=apache-arrow/release-source
-  DEBUG=yes docker build -t ${docker_image_name} "${SOURCE_DIR}/source"
-  docker \
-    run \
-    --rm \
-    --interactive \
-    --volume "$PWD":/host \
-    ${docker_image_name} \
-    /build.sh ${archive_name} ${c_glib_including_configure_tar_gz}
-  rm -f ${archive_name}.tar
+  "${SOURCE_TOP_DIR}/dev/run_docker_compose.sh" \
+    release-source \
+    /arrow/dev/release/source/build.sh \
+    ${archive_name} \
+    ${c_glib_including_configure_tar_gz}
+  rm -f "${SOURCE_TOP_DIR}/${archive_name}.tar"
   rm -rf ${tag}/c_glib
-  tar xf ${c_glib_including_configure_tar_gz} -C ${tag}
-  rm -f ${c_glib_including_configure_tar_gz}
+  tar xf "${SOURCE_TOP_DIR}/${c_glib_including_configure_tar_gz}" -C ${tag}
+  rm -f "${SOURCE_TOP_DIR}/${c_glib_including_configure_tar_gz}"
 fi
 
 # Resolve all hard and symbolic links
