@@ -149,25 +149,6 @@ public class UInt8Vector extends BaseFixedWidthVector implements BaseIntVector {
     }
   }
 
-  /**
-   * Copy a value and validity setting from fromIndex in <code>from</code> to this
-   * Vector at thisIndex.
-   */
-  public void copyFrom(int fromIndex, int thisIndex, UInt8Vector from) {
-    BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
-    final long value = from.valueBuffer.getLong(fromIndex * TYPE_WIDTH);
-    valueBuffer.setLong(thisIndex * TYPE_WIDTH, value);
-  }
-
-  /**
-   * Same as {@link #copyFrom(int, int, UInt8Vector)} but reallocates if thisIndex is
-   * larger then current capacity.
-   */
-  public void copyFromSafe(int fromIndex, int thisIndex, UInt8Vector from) {
-    handleSafe(thisIndex);
-    copyFrom(fromIndex, thisIndex, from);
-  }
-
 
   /*----------------------------------------------------------------*
    |                                                                |

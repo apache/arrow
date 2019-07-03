@@ -144,25 +144,6 @@ public class UInt4Vector extends BaseFixedWidthVector implements BaseIntVector {
     }
   }
 
-  /**
-   * Copies a value and validity setting to the thisIndex position from the given vector
-   * at fromIndex.
-   */
-  public void copyFrom(int fromIndex, int thisIndex, UInt4Vector from) {
-    BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
-    final int value = from.valueBuffer.getInt(fromIndex * TYPE_WIDTH);
-    valueBuffer.setInt(thisIndex * TYPE_WIDTH, value);
-  }
-
-  /**
-   * Same as {@link #copyFrom(int, int, UInt4Vector)} but will allocate additional space
-   * if fromIndex is larger than current capacity.
-   */
-  public void copyFromSafe(int fromIndex, int thisIndex, UInt4Vector from) {
-    handleSafe(thisIndex);
-    copyFrom(fromIndex, thisIndex, from);
-  }
-
 
   /*----------------------------------------------------------------*
    |                                                                |
