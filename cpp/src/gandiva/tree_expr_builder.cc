@@ -100,7 +100,7 @@ NodePtr TreeExprBuilder::MakeNull(DataTypePtr data_type) {
       return std::make_shared<LiteralNode>(data_type, LiteralHolder((int64_t)0), true);
     case arrow::Type::DECIMAL: {
       std::shared_ptr<arrow::DecimalType> decimal_type =
-          std::dynamic_pointer_cast<arrow::DecimalType>(data_type);
+          arrow::internal::checked_pointer_cast<arrow::DecimalType>(data_type);
       DecimalScalar128 literal(decimal_type->precision(), decimal_type->scale());
       return std::make_shared<LiteralNode>(data_type, LiteralHolder(literal), true);
     }
