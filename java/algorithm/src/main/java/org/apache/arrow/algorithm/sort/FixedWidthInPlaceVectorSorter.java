@@ -17,7 +17,6 @@
 
 package org.apache.arrow.algorithm.sort;
 
-import org.apache.arrow.algorithm.move.VectorDataCopier;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 
 /**
@@ -44,15 +43,18 @@ public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> imple
 
   @Override
   public void sortInPlace(V vec, VectorValueComparator<V> comparator) {
-    this.vec = vec;
-    this.comparator = comparator;
-    this.typeWidth = comparator.valueWidth;
-    this.pivotBuffer = (V) vec.getField().createVector(vec.getAllocator());
-    this.pivotBuffer.allocateNew(1);
+    try {
+      this.vec = vec;
+      this.comparator = comparator;
+      this.typeWidth = comparator.valueWidth;
+      this.pivotBuffer = (V) vec.getField().createVector(vec.getAllocator());
+      this.pivotBuffer.allocateNew(1);
 
-    comparator.attachVectors(vec, pivotBuffer);
-    quickSort(0, vec.getValueCount() - 1);
-    this.pivotBuffer.close();
+      comparator.attachVectors(vec, pivotBuffer);
+      quickSort(0, vec.getValueCount() - 1);
+    } finally {
+      this.pivotBuffer.close();
+    }
   }
 
   private void quickSort(int low, int high) {
@@ -64,22 +66,21 @@ public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> imple
   }
 
   private int partition(int low, int high) {
-    VectorDataCopier.fixedWidthDataCopy(vec, low, pivotBuffer, 0, typeWidth);
+    pivotBuffer.copyFrom(low, 0, vec);
 
     while (low < high) {
       while (low < high && comparator.compare(high, 0) >= 0) {
         high -= 1;
       }
-
-      VectorDataCopier.fixedWidthDataCopy(vec, high, vec, low, typeWidth);
+      vec.copyFrom(high, low, vec);
 
       while (low < high && comparator.compare(low, 0) <= 0) {
         low += 1;
       }
-      VectorDataCopier.fixedWidthDataCopy(vec, low, vec, high, typeWidth);
+      vec.copyFrom(low, high, vec);
     }
 
-    VectorDataCopier.fixedWidthDataCopy(pivotBuffer, 0, vec, low, typeWidth);
+    vec.copyFrom(0, low, pivotBuffer);
     return low;
   }
 }
