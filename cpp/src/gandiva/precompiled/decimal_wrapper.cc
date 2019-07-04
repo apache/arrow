@@ -362,12 +362,14 @@ boolean is_distinct_from_decimal128_decimal128_internal(
 FORCE_INLINE
 void castDECIMAL_utf8_internal(const char* in, int32_t in_length, int32_t out_precision,
                                int32_t out_scale, int64_t* out_high, uint64_t* out_low) {
-  auto dec = std::make_shared<arrow::Decimal128>();
+  int64_t dec_high_from_str;
+  uint64_t dec_low_from_str;
   int32_t precision_from_str;
   int32_t scale_from_str;
-  auto status = dec->FromString(std::string(in, in_length), dec.get(),
-                                &precision_from_str, &scale_from_str);
-  gandiva::BasicDecimalScalar128 x({dec->high_bits(), dec->low_bits()},
+  gdv_fn_dec_from_string(in, in_length, &precision_from_str, &scale_from_str,
+                         &dec_high_from_str, &dec_low_from_str);
+
+  gandiva::BasicDecimalScalar128 x({dec_high_from_str, dec_low_from_str},
                                    precision_from_str, scale_from_str);
   bool overflow = false;
   auto out = gandiva::decimalops::Convert(x, out_precision, out_scale, &overflow);
@@ -380,19 +382,16 @@ char* castVARCHAR_decimal128_int64_internal(int64_t context, int64_t x_high,
                                             uint64_t x_low, int32_t x_precision,
                                             int32_t x_scale, int64_t out_len_param,
                                             int32_t* out_length) {
-  arrow::Decimal128 dec(arrow::BasicDecimal128(x_high, x_low));
-  std::string full_dec_str = dec.ToString(x_scale);
-  std::string trunc_dec_str =
-      out_len_param < full_dec_str.length()
-          ? full_dec_str.substr(0, static_cast<int32_t>(out_len_param))
-          : full_dec_str;
-  if (trunc_dec_str == "-") {
-    trunc_dec_str = "0";
+  int32_t full_dec_str_len;
+  char* dec_str =
+      gdv_fn_dec_to_string(context, x_high, x_low, x_scale, &full_dec_str_len);
+  int32_t trunc_dec_str_len =
+      out_len_param < full_dec_str_len ? out_len_param : full_dec_str_len;
+  if (trunc_dec_str_len == 1 && dec_str[0] == '-') {
+    dec_str[0] = '0';
   }
-  *out_length = trunc_dec_str.length();
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_length));
-  memcpy(ret, trunc_dec_str.data(), *out_length);
-  return ret;
+  *out_length = trunc_dec_str_len;
+  return dec_str;
 }
 
 }  // extern "C"
