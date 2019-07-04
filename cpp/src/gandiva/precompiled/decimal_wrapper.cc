@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/decimal.h"
 #include "gandiva/precompiled/decimal_ops.h"
 #include "gandiva/precompiled/types.h"
 
