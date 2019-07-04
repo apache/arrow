@@ -20,6 +20,8 @@
 #include "arrow/io/file.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io-util.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/windows_compatibility.h"
 
 #include "benchmark/benchmark.h"
 
@@ -30,7 +32,11 @@
 #include <thread>
 #include <valarray>
 
-#ifndef _WIN32
+#ifdef _WIN32
+
+#include <io.h>
+
+#else
 
 #include <fcntl.h>
 #include <poll.h>
@@ -40,17 +46,82 @@
 
 namespace arrow {
 
-#ifndef _WIN32
-
-std::string GetNullFile() { return "/dev/null"; }
+std::string GetNullFile() {
+#ifdef _WIN32
+  return "NUL";
+#else
+  return "/dev/null";
+#endif
+}
 
 const std::valarray<int64_t> small_sizes = {8, 24, 33, 1, 32, 192, 16, 40};
 const std::valarray<int64_t> large_sizes = {8192, 100000};
 
 constexpr int64_t kBufferSize = 4096;
 
+#ifdef _WIN32
+
 class BackgroundReader {
   // A class that reads data in the background from a file descriptor
+  // (Windows implementation)
+
+ public:
+  static std::shared_ptr<BackgroundReader> StartReader(int fd) {
+    std::shared_ptr<BackgroundReader> reader(new BackgroundReader(fd));
+    reader->worker_.reset(new std::thread([=] { reader->LoopReading(); }));
+    return reader;
+  }
+  void Stop() { ARROW_CHECK(SetEvent(event_)); }
+  void Join() { worker_->join(); }
+
+  ~BackgroundReader() {
+    ABORT_NOT_OK(internal::FileClose(fd_));
+    ARROW_CHECK(CloseHandle(event_));
+  }
+
+ protected:
+  explicit BackgroundReader(int fd) : fd_(fd), total_bytes_(0) {
+    file_handle_ = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
+    ARROW_CHECK_NE(file_handle_, INVALID_HANDLE_VALUE);
+    event_ =
+        CreateEvent(nullptr, /* bManualReset=*/TRUE, /* bInitialState=*/FALSE, nullptr);
+    ARROW_CHECK_NE(event_, INVALID_HANDLE_VALUE);
+  }
+
+  void LoopReading() {
+    const HANDLE handles[] = {file_handle_, event_};
+    while (true) {
+      DWORD ret = WaitForMultipleObjects(2, handles, /* bWaitAll=*/FALSE, INFINITE);
+      ARROW_CHECK_NE(ret, WAIT_FAILED);
+      if (ret == WAIT_OBJECT_0 + 1) {
+        // Got stop request
+        break;
+      } else if (ret == WAIT_OBJECT_0) {
+        // File ready for reading
+        int64_t bytes_read;
+        ARROW_CHECK_OK(internal::FileRead(fd_, buffer_, buffer_size_, &bytes_read));
+        total_bytes_ += bytes_read;
+      } else {
+        ARROW_LOG(FATAL) << "Unexpected WaitForMultipleObjects return value " << ret;
+      }
+    }
+  }
+
+  int fd_;
+  HANDLE file_handle_, event_;
+  int64_t total_bytes_;
+
+  static const int64_t buffer_size_ = 16384;
+  uint8_t buffer_[buffer_size_];
+
+  std::unique_ptr<std::thread> worker_;
+};
+
+#else
+
+class BackgroundReader {
+  // A class that reads data in the background from a file descriptor
+  // (Unix implementation)
 
  public:
   static std::shared_ptr<BackgroundReader> StartReader(int fd) {
@@ -116,6 +187,8 @@ class BackgroundReader {
   std::unique_ptr<std::thread> worker_;
 };
 
+#endif
+
 // Set up a pipe with an OutputStream at one end and a BackgroundReader at
 // the other end.
 static void SetupPipeWriter(std::shared_ptr<io::OutputStream>* stream,
@@ -139,6 +212,9 @@ static void BenchmarkStreamingWrites(benchmark::State& state,
       ABORT_NOT_OK(stream->Write(data, size));
     }
   }
+  // For Windows: need to close writer before joining reader thread.
+  ABORT_NOT_OK(stream->Close());
+
   const int64_t total_bytes = static_cast<int64_t>(state.iterations()) * sum_sizes;
   state.SetBytesProcessed(total_bytes);
 
@@ -147,7 +223,6 @@ static void BenchmarkStreamingWrites(benchmark::State& state,
     reader->Stop();
     reader->Join();
   }
-  ABORT_NOT_OK(stream->Close());
 }
 
 // Benchmark writing to /dev/null
@@ -231,7 +306,5 @@ BENCHMARK(FileOutputStreamLargeWritesToPipe)->UseRealTime();
 BENCHMARK(BufferedOutputStreamSmallWritesToNull)->UseRealTime();
 BENCHMARK(BufferedOutputStreamSmallWritesToPipe)->UseRealTime();
 BENCHMARK(BufferedOutputStreamLargeWritesToPipe)->UseRealTime();
-
-#endif  // ifndef _WIN32
 
 }  // namespace arrow
