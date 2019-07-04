@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <cstring>
 #include <memory>
 
 #include "arrow/util/macros.h"
