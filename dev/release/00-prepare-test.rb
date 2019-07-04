@@ -86,6 +86,13 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "ci/PKGBUILD",
+                     hunks: [
+                       ["-pkgver=#{@previous_version}.9000",
+                        "+pkgver=#{@release_version}"],
+                     ],
+                   },
+                   {
                      path: "cpp/CMakeLists.txt",
                      hunks: [
                        ["-set(ARROW_VERSION \"#{@snapshot_version}\")",
@@ -232,6 +239,13 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-version = '#{@release_version}'",
                         "+version = '#{@next_version}-SNAPSHOT'"],
+                     ],
+                   },
+                   {
+                     path: "ci/PKGBUILD",
+                     hunks: [
+                       ["-pkgver=#{@release_version}",
+                        "+pkgver=#{@release_version}.9000"],
                      ],
                    },
                    {
