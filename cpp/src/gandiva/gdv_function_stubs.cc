@@ -112,7 +112,7 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
                            int32_t x_scale, int32_t* dec_str_len) {
   arrow::Decimal128 dec(arrow::BasicDecimal128(x_high, x_low));
   std::string dec_str = dec.ToString(x_scale);
-  *dec_str_len = dec_str.length();
+  *dec_str_len = static_cast<int32_t>(dec_str.length());
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *dec_str_len));
   memcpy(ret, dec_str.data(), *dec_str_len);
   return ret;
