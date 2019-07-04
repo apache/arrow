@@ -376,7 +376,7 @@ class BaseTestCSVRead:
         with pytest.raises(pa.ArrowInvalid) as exc:
             self.read_bytes(rows, convert_options=opts)
         err = str(exc.value)
-        assert "In column #1: " in err
+        assert "In CSV column #1: " in err
         assert "CSV conversion error to float: invalid value 'XXX'" in err
 
     def test_no_ending_newline(self):

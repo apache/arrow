@@ -22,7 +22,6 @@
 #include <functional>
 #include <limits>
 #include <memory>
-#include <sstream>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -46,26 +45,25 @@
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
-#define FUNC_RETURN_NOT_OK(s)                                                       \
-  do {                                                                              \
-    Status _s = (s);                                                                \
-    if (ARROW_PREDICT_FALSE(!_s.ok())) {                                            \
-      std::stringstream ss;                                                         \
-      ss << __FILE__ << ":" << __LINE__ << " code: " << #s << "\n" << _s.message(); \
-      ctx->SetStatus(Status(_s.code(), ss.str(), s.detail()));                      \
-      return;                                                                       \
-    }                                                                               \
+#define FUNC_RETURN_NOT_OK(expr)                     \
+  do {                                               \
+    Status _st = (expr);                             \
+    if (ARROW_PREDICT_FALSE(!_st.ok())) {            \
+      _st.AddContextLine(__FILE__, __LINE__, #expr); \
+      ctx->SetStatus(_st);                           \
+      return;                                        \
+    }                                                \
   } while (0)
 
 #else
 
-#define FUNC_RETURN_NOT_OK(s)            \
-  do {                                   \
-    Status _s = (s);                     \
-    if (ARROW_PREDICT_FALSE(!_s.ok())) { \
-      ctx->SetStatus(_s);                \
-      return;                            \
-    }                                    \
+#define FUNC_RETURN_NOT_OK(expr)          \
+  do {                                    \
+    Status _st = (expr);                  \
+    if (ARROW_PREDICT_FALSE(!_st.ok())) { \
+      ctx->SetStatus(_st);                \
+      return;                             \
+    }                                     \
   } while (0)
 
 #endif  // ARROW_EXTRA_ERROR_CONTEXT

@@ -303,10 +303,16 @@ class ARROW_EXPORT Status {
     return state_ == NULLPTR ? NULLPTR : state_->detail;
   }
 
-  /// \brief Returns a new Status copying the existing status, but
+  /// \brief Return a new Status copying the existing status, but
   /// updating with the existing detail.
-  Status WithDetail(std::shared_ptr<StatusDetail> new_detail) {
+  Status WithDetail(std::shared_ptr<StatusDetail> new_detail) const {
     return Status(code(), message(), std::move(new_detail));
+  }
+
+  /// \brief Return a new Status with changed message, copying the
+  /// existing status code and detail.
+  Status WithMessage(std::string message) const {
+    return Status(code(), std::move(message), detail());
   }
 
   [[noreturn]] void Abort() const;
