@@ -44,7 +44,7 @@ if(ARROW_VERSION_MAJOR STREQUAL "0")
   set(ARROW_SO_VERSION "${ARROW_VERSION_MINOR}")
   set(ARROW_FULL_SO_VERSION "${ARROW_SO_VERSION}.${ARROW_VERSION_PATCH}.0")
 else()
-  # Arrow 1.x.y => SO version is "10x", full SO version is "x.y.0"
+  # Arrow 1.x.y => SO version is "10x", full SO version is "10x.y.0"
   MATH(EXPR ARROW_SO_VERSION "${ARROW_VERSION_MAJOR} * 100 + ${ARROW_VERSION_MINOR}")
   set(ARROW_FULL_SO_VERSION "${ARROW_SO_VERSION}.${ARROW_VERSION_PATCH}.0")
 endif()
