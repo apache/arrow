@@ -118,7 +118,7 @@ class GrpcClientAuthReader : public ClientAuthReader {
   Status Read(std::string* token) override {
     pb::HandshakeResponse request;
     if (stream_->Read(&request)) {
-      *token = std::move(*request.release_payload());
+      *token = std::move(*request.mutable_payload());
       return Status::OK();
     }
     return internal::FromGrpcStatus(stream_->Finish());
@@ -368,7 +368,7 @@ class GrpcMetadataReader : public FlightMetadataReader {
   Status ReadMetadata(std::shared_ptr<Buffer>* out) override {
     pb::PutResult message;
     if (reader_->Read(&message)) {
-      *out = Buffer::FromString(std::move(*message.release_app_metadata()));
+      *out = Buffer::FromString(std::move(*message.mutable_app_metadata()));
     } else {
       // Stream finished
       *out = nullptr;
