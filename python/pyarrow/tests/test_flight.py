@@ -280,7 +280,7 @@ class HttpBasicServerAuthHandler(ServerAuthHandler):
     """An example implementation of HTTP basic authentication."""
 
     def __init__(self, creds):
-        super().__init__()
+        super(HttpBasicServerAuthHandler, self).__init__()
         self.creds = creds
 
     def authenticate(self, outgoing, incoming):
@@ -302,7 +302,7 @@ class HttpBasicClientAuthHandler(ClientAuthHandler):
     """An example implementation of HTTP basic authentication."""
 
     def __init__(self, username, password):
-        super().__init__()
+        super(HttpBasicClientAuthHandler, self).__init__()
         self.username = tobytes(username)
         self.password = tobytes(password)
 
@@ -317,7 +317,7 @@ class TokenServerAuthHandler(ServerAuthHandler):
     """An example implementation of authentication via handshake."""
 
     def __init__(self, creds):
-        super().__init__()
+        super(TokenServerAuthHandler, self).__init__()
         self.creds = creds
 
     def authenticate(self, outgoing, incoming):
@@ -339,7 +339,7 @@ class TokenClientAuthHandler(ClientAuthHandler):
     """An example implementation of authentication via handshake."""
 
     def __init__(self, username, password):
-        super().__init__()
+        super(TokenClientAuthHandler, self).__init__()
         self.username = username
         self.password = password
         self.token = b''
