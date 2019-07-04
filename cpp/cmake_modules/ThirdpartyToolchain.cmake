@@ -2295,7 +2295,7 @@ macro(build_orc)
     endif()
     if("${COMPILER_VERSION}" VERSION_GREATER "4.0")
       set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
--Wno-inconsistent-missing-destructor-override ")
+-Wno-inconsistent-missing-destructor-override -Wno-error=undef ")
     endif()
   endif()
 
