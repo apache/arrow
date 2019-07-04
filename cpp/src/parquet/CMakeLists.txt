@@ -330,7 +330,6 @@ if(ARROW_USE_OPENSSL)
   add_parquet_test(encryption-test
                    SOURCES
                    encryption-configuration-encrypted-columns-and-footer.cc
-                   encryption-configuration-encrypted-columns-plaintext-footer.cc
                    encryption-properties-test.cc
                    test-util.cc)
 endif()
