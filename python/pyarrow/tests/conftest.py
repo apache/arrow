@@ -47,7 +47,8 @@ groups = [
     'parquet',
     'plasma',
     's3',
-    'tensorflow'
+    'tensorflow',
+    'flight'
 ]
 
 
@@ -61,7 +62,8 @@ defaults = {
     'parquet': False,
     'plasma': False,
     's3': False,
-    'tensorflow': False
+    'tensorflow': False,
+    'flight': False,
 }
 
 try:
@@ -100,6 +102,13 @@ except ImportError:
 try:
     import tensorflow  # noqa
     defaults['tensorflow'] = True
+except ImportError:
+    pass
+
+
+try:
+    import pyarrow.flight  # noqa
+    defaults['flight'] = True
 except ImportError:
     pass
 
