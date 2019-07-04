@@ -99,7 +99,9 @@ NodePtr TreeExprBuilder::MakeNull(DataTypePtr data_type) {
     case arrow::Type::TIMESTAMP:
       return std::make_shared<LiteralNode>(data_type, LiteralHolder((int64_t)0), true);
     case arrow::Type::DECIMAL: {
-      DecimalScalar128 literal(0, 0);
+      std::shared_ptr<arrow::DecimalType> decimal_type =
+          arrow::internal::checked_pointer_cast<arrow::DecimalType>(data_type);
+      DecimalScalar128 literal(decimal_type->precision(), decimal_type->scale());
       return std::make_shared<LiteralNode>(data_type, LiteralHolder(literal), true);
     }
     default:
