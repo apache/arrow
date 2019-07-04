@@ -787,4 +787,60 @@ TEST_F(TestDecimal, TestHash64WithSeed) {
   // hash with, without seed are not equal
   EXPECT_NE(int64_arr_WS->Value(4), int64_arr->Value(4));
 }
+
+TEST_F(TestDecimal, TestNullDecimalConstant) {
+  // schema for input fields
+  constexpr int32_t precision = 36;
+  constexpr int32_t scale = 18;
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+  auto field_b = field("b", decimal_type);
+  auto field_c = field("c", arrow::boolean());
+  auto schema = arrow::schema({field_b, field_c});
+
+  // output fields
+  auto field_result = field("res", decimal_type);
+
+  // build expression.
+  // if (c)
+  //   null
+  // else
+  //   b
+  auto node_a = TreeExprBuilder::MakeNull(decimal_type);
+  auto node_b = TreeExprBuilder::MakeField(field_b);
+  auto node_c = TreeExprBuilder::MakeField(field_c);
+  auto if_node = TreeExprBuilder::MakeIf(node_c, node_a, node_b, decimal_type);
+
+  auto expr = TreeExprBuilder::MakeExpression(if_node, field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  DCHECK_OK(status);
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+
+  auto array_b =
+      MakeArrowArrayDecimal(decimal_type, MakeDecimalVector({"2", "3", "4", "5"}, scale),
+                            {true, true, true, true});
+
+  auto array_c = MakeArrowArrayBool({true, false, true, false}, {true, true, true, true});
+
+  // expected output
+  auto exp =
+      MakeArrowArrayDecimal(decimal_type, MakeDecimalVector({"0", "3", "3", "5"}, scale),
+                            {false, true, false, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_b, array_c});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  DCHECK_OK(status);
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
 }  // namespace gandiva
