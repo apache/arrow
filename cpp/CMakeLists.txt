@@ -52,6 +52,7 @@ endif()
 message(STATUS "Arrow version: "
                "${ARROW_VERSION_MAJOR}.${ARROW_VERSION_MINOR}.${ARROW_VERSION_PATCH} "
                "(full: '${ARROW_VERSION}')")
+message(STATUS "Arrow SO version: ${ARROW_SO_VERSION} (full: ${ARROW_FULL_SO_VERSION})")
 
 set(ARROW_SOURCE_DIR ${PROJECT_SOURCE_DIR})
 set(ARROW_BINARY_DIR ${PROJECT_BINARY_DIR})

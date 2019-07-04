@@ -30,24 +30,24 @@ namespace internal {
 // emulate them with unsafe ops on gcc 4.x.
 
 template <class T>
-std::shared_ptr<T> atomic_load(const std::shared_ptr<T>* p) {
+inline std::shared_ptr<T> atomic_load(const std::shared_ptr<T>* p) {
   return *p;
 }
 
 template <class T>
-void atomic_store(std::shared_ptr<T>* p, std::shared_ptr<T> r) {
+inline void atomic_store(std::shared_ptr<T>* p, std::shared_ptr<T> r) {
   *p = r;
 }
 
 #else
 
 template <class T>
-std::shared_ptr<T> atomic_load(const std::shared_ptr<T>* p) {
+inline std::shared_ptr<T> atomic_load(const std::shared_ptr<T>* p) {
   return std::atomic_load(p);
 }
 
 template <class T>
-void atomic_store(std::shared_ptr<T>* p, std::shared_ptr<T> r) {
+inline void atomic_store(std::shared_ptr<T>* p, std::shared_ptr<T> r) {
   std::atomic_store(p, std::move(r));
 }
 
