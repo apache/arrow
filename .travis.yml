@@ -51,28 +51,12 @@ matrix:
   include:
   - name: "C++ unit tests w/ clang 7.0, system packages"
     os: linux
-    env:
-    - ARROW_TRAVIS_USE_SYSTEM=1
-    - ARROW_TRAVIS_PLASMA=1
-    - ARROW_TRAVIS_ORC=1
-    - ARROW_TRAVIS_PARQUET=1
-    - ARROW_TRAVIS_GANDIVA=1
-    - ARROW_TRAVIS_VERBOSE=1
-    - ARROW_TRAVIS_USE_SYSTEM_JAVA=1
-    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    - ARROW_USE_ASAN=1
-    - ARROW_USE_UBSAN=1
-    - CC="clang-7"
-    - CXX="clang++-7"
     before_script:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    # If either C++ or Python changed, we must install the C++ libraries
     - git submodule update --init
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
+    - docker-compose pull cpp-ci
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
+    - docker-compose run cpp-ci
 
 after_failure:
 - |

@@ -114,8 +114,26 @@ services:
     build:
       context: .
       dockerfile: cpp/Dockerfile
+    volumes: *ubuntu-volumes
+
+  cpp-ci:
+    # Usage:
+    #   docker-compose build cpp-no-conda
+    #   docker-compose run cpp-no-conda
+    image: ursalab/arrow:cpp-ci
+    shm_size: 2G
+    cap_add:
+      # LeakSanitizer and gdb requires ptrace(2)
+      - SYS_PTRACE
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.ubuntu-bionic
+      args:
+        LLVM_VERSION: 7
     environment:
-      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+      ARROW_FLIGHT: "ON"
+      ARROW_USE_ASAN: "ON"
+      ARROW_USE_UBSAN: "ON"
     volumes: *ubuntu-volumes
 
   cpp-release:
