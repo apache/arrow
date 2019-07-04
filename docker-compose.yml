@@ -118,8 +118,8 @@ services:
 
   cpp-ci:
     # Usage:
-    #   docker-compose build cpp-no-conda
-    #   docker-compose run cpp-no-conda
+    #   docker-compose build cpp-ci
+    #   docker-compose run cpp-ci
     image: ursalab/arrow:cpp-ci
     shm_size: 2G
     cap_add:
@@ -131,10 +131,13 @@ services:
       args:
         LLVM_VERSION: 7
     environment:
-      ARROW_FLIGHT: "ON"
+      ARROW_FLIGHT: "OFF"
       ARROW_USE_ASAN: "ON"
       ARROW_USE_UBSAN: "ON"
-    volumes: *ubuntu-volumes
+    volumes:
+      - .:/arrow:delegated
+      - ubuntu-cache:/build:delegated
+      - ${HOME}/.ccache:/build/ccache:cached
 
   cpp-release:
     # Usage:
