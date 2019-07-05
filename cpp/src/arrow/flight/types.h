@@ -51,6 +51,60 @@ class Uri;
 
 namespace flight {
 
+/// \brief A Flight-specific status code.
+enum class FlightStatusCode : int8_t {
+  /// An implementation error has occurred.
+  Internal,
+  /// A request timed out.
+  TimedOut,
+  /// A request was cancelled.
+  Cancelled,
+  /// We are not authenticated to the remote service.
+  Unauthenticated,
+  /// We do not have permission to make this request.
+  Unauthorized,
+  /// The remote service cannot handle this request at the moment.
+  Unavailable,
+};
+
+// Silence warning
+// "non dll-interface class RecordBatchReader used as base for dll-interface class"
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4275)
+#endif
+
+/// \brief Flight-specific information in a Status.
+class ARROW_FLIGHT_EXPORT FlightStatusDetail : public arrow::StatusDetail {
+ public:
+  explicit FlightStatusDetail(FlightStatusCode code) : code_{code} {}
+  const char* type_id() const override;
+  std::string ToString() const override;
+
+  /// \brief Get the Flight status code.
+  FlightStatusCode code() const;
+  /// \brief Get the human-readable name of the status code.
+  std::string CodeAsString() const;
+
+  /// \brief Try to extract a \a FlightStatusDetail from any Arrow
+  /// status.
+  ///
+  /// \return a \a FlightStatusDetail if it could be unwrapped, \a
+  /// nullptr otherwise
+  static std::shared_ptr<FlightStatusDetail> UnwrapStatus(const arrow::Status& status);
+
+ private:
+  FlightStatusCode code_;
+};
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
+/// \brief Make an appropriate Arrow status for the given Flight status.
+ARROW_FLIGHT_EXPORT
+Status MakeFlightError(FlightStatusCode code, const std::string& message);
+
 /// \brief A TLS certificate plus key.
 struct ARROW_FLIGHT_EXPORT CertKeyPair {
   /// \brief The certificate in PEM format.
