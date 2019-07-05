@@ -31,6 +31,8 @@ public class DecimalUtility {
   private DecimalUtility() {}
 
   public static final int DECIMAL_BYTE_LENGTH = 16;
+  public static final byte [] zeroes = new byte[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+  public static final byte [] minus_one = new byte[] {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
 
   /**
    * Read an ArrowType.Decimal at the given value index in the ArrowBuf and convert to a BigDecimal
@@ -100,8 +102,7 @@ public class DecimalUtility {
    */
   public static void writeBigDecimalToArrowBuf(BigDecimal value, ArrowBuf bytebuf, int index) {
     final byte[] bytes = value.unscaledValue().toByteArray();
-    final int padValue = value.signum() == -1 ? 0xFF : 0;
-    writeByteArrayToArrowBuf(bytes, bytebuf, index, padValue);
+    writeByteArrayToArrowBufHelper(bytes, bytebuf, index);
   }
 
   /**
@@ -120,10 +121,10 @@ public class DecimalUtility {
    * width.
    */
   public static void writeByteArrayToArrowBuf(byte[] bytes, ArrowBuf bytebuf, int index) {
-    writeByteArrayToArrowBuf(bytes, bytebuf, index, 0);
+    writeByteArrayToArrowBufHelper(bytes, bytebuf, index);
   }
 
-  private static void writeByteArrayToArrowBuf(byte[] bytes, ArrowBuf bytebuf, int index, int padValue) {
+  private static void writeByteArrayToArrowBufHelper(byte[] bytes, ArrowBuf bytebuf, int index) {
     final int startIndex = index * DECIMAL_BYTE_LENGTH;
     if (bytes.length > DECIMAL_BYTE_LENGTH) {
       throw new UnsupportedOperationException("Decimal size greater than 16 bytes");
@@ -131,23 +132,13 @@ public class DecimalUtility {
 
     // Decimal stored as little endian, need to swap data bytes before writing to ArrowBuf
     byte[] bytesLE = new byte[bytes.length];
-    int stop = bytes.length / 2;
-    for (int i = 0, j; i < stop; i++) {
-      j = (bytes.length - 1) - i;
-      bytesLE[i] = bytes[j];
-      bytesLE[j] = bytes[i];
-    }
-    if (bytes.length % 2 != 0) {
-      int i = (bytes.length / 2);
-      bytesLE[i] = bytes[i];
+    for (int i = 0; i < bytes.length; i++) {
+      bytesLE[i] = bytes[bytes.length - 1 - i];
     }
 
     // Write LE data
+    byte [] padByes = bytes[0] < 0 ? minus_one : zeroes;
     bytebuf.setBytes(startIndex, bytesLE, 0, bytes.length);
-
-    // Write padding after data
-    for (int i = bytes.length; i < DECIMAL_BYTE_LENGTH; i++) {
-      bytebuf.setByte(startIndex + i, padValue);
-    }
+    bytebuf.setBytes(startIndex + bytes.length, padByes, 0, DECIMAL_BYTE_LENGTH - bytes.length);
   }
 }
