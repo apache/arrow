@@ -214,7 +214,7 @@ namespace {
 struct DecimalComponents {
   util::string_view whole_digits;
   util::string_view fractional_digits;
-  int32_t exponent;
+  int32_t exponent = 0;
   char sign = 0;
   bool has_exponent = false;
 };

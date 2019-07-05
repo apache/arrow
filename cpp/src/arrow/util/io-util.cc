@@ -564,8 +564,9 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
     return StatusFromErrno("Cannot get file handle: ");
   }
 
-  LONG new_size_low = static_cast<LONG>(new_size & 0xFFFFFFFFL);
-  LONG new_size_high = static_cast<LONG>((new_size >> 32) & 0xFFFFFFFFL);
+  uint64_t new_size64 = new_size;
+  LONG new_size_low = static_cast<LONG>(new_size64 & 0xFFFFFFFFUL);
+  LONG new_size_high = static_cast<LONG>((new_size64 >> 32) & 0xFFFFFFFFUL);
 
   SetFilePointer(h, new_size_low, &new_size_high, FILE_BEGIN);
   SetEndOfFile(h);
@@ -892,7 +893,7 @@ Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDi
   BOOST_FILESYSTEM_CATCH
 
   PlatformFilename fn(path.native());
-  bool created;
+  bool created = false;
   RETURN_NOT_OK(CreateDir(fn, &created));
   if (!created) {
     // XXX Should we retry?
