@@ -48,7 +48,8 @@ static void TakeInt64(benchmark::State& state) {
 
   auto values = rand.Int64(array_size, -100, 100, args.null_proportion);
 
-  auto indices = rand.Int32(array_size, 0, array_size - 1, args.null_proportion);
+  auto indices = rand.Int32(static_cast<int32_t>(array_size), 0,
+                            static_cast<int32_t>(array_size - 1), args.null_proportion);
 
   TakeBenchmark(state, values, indices);
 }
@@ -64,7 +65,8 @@ static void TakeFixedSizeList1Int64(benchmark::State& state) {
       fixed_size_list(int64(), 1), array_size, int_array, int_array->null_bitmap(),
       int_array->null_count());
 
-  auto indices = rand.Int32(array_size, 0, array_size - 1, args.null_proportion);
+  auto indices = rand.Int32(static_cast<int32_t>(array_size), 0,
+                            static_cast<int32_t>(array_size - 1), args.null_proportion);
 
   TakeBenchmark(state, values, indices);
 }
@@ -110,7 +112,8 @@ static void TakeString(benchmark::State& state) {
   auto values = std::static_pointer_cast<StringArray>(rand.String(
       array_size, string_min_length, string_max_length, args.null_proportion));
 
-  auto indices = rand.Int32(array_size, 0, array_size - 1, args.null_proportion);
+  auto indices = rand.Int32(static_cast<int32_t>(array_size), 0,
+                            static_cast<int32_t>(array_size - 1), args.null_proportion);
 
   TakeBenchmark(state, values, indices);
 }
