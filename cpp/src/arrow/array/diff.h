@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
@@ -55,8 +56,6 @@ ARROW_EXPORT
 Status Diff(const Array& base, const Array& target, MemoryPool* pool,
             std::shared_ptr<Array>* out);
 
-// XXX would it be less confusing to switch vocabulary to actual/expected?
-
 /// \brief visitor interface for easy traversal of an edit script
 ///
 /// Implement whichever methods correspond to edits you are interested in then
@@ -77,5 +76,10 @@ class ARROW_EXPORT DiffVisitor {
   /// \brief visit each insertion, deletion, or run of edits
   Status Visit(const Array& edits);
 };
+
+/// \brief return a DiffVisitor which will format an edit script in unified
+/// diff format
+ARROW_EXPORT Result<std::unique_ptr<DiffVisitor>> MakeUnifiedDiffFormatter(
+    std::ostream& os, const Array& base, const Array& target);
 
 }  // namespace arrow

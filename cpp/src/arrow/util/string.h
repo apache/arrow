@@ -39,12 +39,38 @@ static inline std::string HexEncode(const uint8_t* data, size_t length) {
   return hex_string;
 }
 
+static inline std::string Escape(const char* data, size_t length) {
+  std::string escaped_string;
+  escaped_string.reserve(length);
+  for (size_t j = 0; j < length; ++j) {
+    switch (data[j]) {
+      case '"':
+        escaped_string += R"(\")";
+      case '\\':
+        escaped_string += R"(\\)";
+      case '\t':
+        escaped_string += R"(\t)";
+      case '\r':
+        escaped_string += R"(\r)";
+      case '\n':
+        escaped_string += R"(\n)";
+      default:
+        escaped_string.push_back(data[j]);
+    }
+  }
+  return escaped_string;
+}
+
 static inline std::string HexEncode(const char* data, size_t length) {
   return HexEncode(reinterpret_cast<const uint8_t*>(data), length);
 }
 
 static inline std::string HexEncode(util::string_view str) {
   return HexEncode(str.data(), str.size());
+}
+
+static inline std::string Escape(util::string_view str) {
+  return Escape(str.data(), str.size());
 }
 
 static inline Status ParseHexValue(const char* data, uint8_t* out) {

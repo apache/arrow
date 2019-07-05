@@ -30,6 +30,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/lazy.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visitor_inline.h"
 
@@ -210,7 +211,8 @@ struct DiffImplVisitor {
   enable_if_binary_like<T, Status> Visit(const T&) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
     struct ViewGenerator {
-      ViewGenerator(const Array& arr) : arr_(checked_cast<const ArrayType&>(arr)) {}
+      explicit ViewGenerator(const Array& arr)
+          : arr_(checked_cast<const ArrayType&>(arr)) {}
 
       util::string_view operator()(int64_t i) const { return arr_.GetView(i); }
 
@@ -259,11 +261,17 @@ Status Diff(const Array& base, const Array& target, MemoryPool* pool,
 }
 
 Status DiffVisitor::Visit(const Array& edits) {
-  // FIXME add some assertions here: edits.type(), inserts.Value(0), edits.length()...
+  static const auto edits_type =
+      struct_({field("insert", boolean()), field("run_length", uint64())});
+  DCHECK(edits.type()->Equals(*edits_type));
+  DCHECK_GE(edits.length(), 1);
+
   auto insert = checked_pointer_cast<BooleanArray>(
       checked_cast<const StructArray&>(edits).field(0));
   auto run_lengths =
       checked_pointer_cast<UInt64Array>(checked_cast<const StructArray&>(edits).field(1));
+
+  DCHECK(!insert->Value(0));
 
   auto length = run_lengths->Value(0);
   RETURN_NOT_OK(Run(length));
@@ -283,6 +291,111 @@ Status DiffVisitor::Visit(const Array& edits) {
     target_index += length;
   }
   return Status::OK();
+}
+
+// format Numerics with std::ostream defaults
+template <typename T>
+void Format(std::ostream& os, const NumericArray<T>& arr, int64_t index) {
+  os << arr.Value(index) << std::endl;
+}
+
+// format Binary and FixedSizeBinary in hexadecimal
+template <typename A>
+enable_if_binary_like<A> Format(std::ostream& os, const A& arr, int64_t index) {
+  os << HexEncode(arr.GetView(index)) << std::endl;
+}
+
+// format Strings with \"\n\r\t\\ escaped
+void Format(std::ostream& os, const StringArray& arr, int64_t index) {
+  os << "\"" << Escape(arr.GetView(index)) << "\"" << std::endl;
+}
+
+// format Decimals with Decimal128Array::FormatValue
+void Format(std::ostream& os, const Decimal128Array& arr, int64_t index) {
+  os << arr.FormatValue(index) << std::endl;
+}
+
+template <typename ArrayType>
+class UnifiedDiffFormatter : public DiffVisitor {
+ public:
+  UnifiedDiffFormatter(std::ostream& os, const Array& base, const Array& target)
+      : os_(os),
+        base_(checked_cast<const ArrayType&>(base)),
+        target_(checked_cast<const ArrayType&>(target)) {
+    os_ << std::endl;
+  }
+
+  Status Insert(int64_t target_index) override {
+    ++target_end_;
+    return Status::OK();
+  }
+
+  Status Delete(int64_t base_index) override {
+    ++base_end_;
+    return Status::OK();
+  }
+
+  Status Run(int64_t length) override {
+    if (target_begin_ == target_end_ && base_begin_ == base_end_) {
+      // this is the first run, so don't write the preceding (empty) hunk
+      base_begin_ = base_end_ = target_begin_ = target_end_ = length;
+      return Status::OK();
+    }
+    if (length == 0) {
+      return Status::OK();
+    }
+    // non trivial run- finalize the current hunk
+    os_ << "@@ -" << base_begin_ << ", +" << target_begin_ << " @@" << std::endl;
+    for (; base_begin_ < base_end_; ++base_begin_) {
+      Format(os_ << "-", base_, base_begin_);
+    }
+    for (; target_begin_ < target_end_; ++target_begin_) {
+      Format(os_ << "+", target_, target_begin_);
+    }
+    return Status::OK();
+  }
+
+ private:
+  std::ostream& os_;
+  int64_t base_begin_ = 0, base_end_ = 0, target_begin_ = 0, target_end_ = 0;
+  const ArrayType& base_;
+  const ArrayType& target_;
+};
+
+struct MakeUnifiedDiffFormatterImpl {
+  template <typename A>
+  Status Visit(const A&, decltype(Format(std::declval<std::ostream&>(),
+                                         std::declval<const A&>(), 0))* = nullptr) {
+    out_.reset(new UnifiedDiffFormatter<A>(os_, base_, target_));
+    return Status::OK();
+  }
+
+  Status Visit(const Array&) {
+    return Status::NotImplemented("formatting diffs between arrays of type ",
+                                  *base_.type());
+  }
+
+  Result<std::unique_ptr<DiffVisitor>> Make() {
+    RETURN_NOT_OK(VisitArrayInline(base_, this));
+    return std::move(out_);
+  }
+
+  std::ostream& os_;
+  const Array& base_;
+  const Array& target_;
+  std::unique_ptr<DiffVisitor> out_;
+};
+
+Result<std::unique_ptr<DiffVisitor>> MakeUnifiedDiffFormatter(std::ostream& os,
+                                                              const Array& base,
+                                                              const Array& target) {
+  if (!base.type()->Equals(target.type())) {
+    return Status::TypeError(
+        "diffs may only be generated between arrays of like type, got ", *base.type(),
+        " and ", *target.type());
+  }
+
+  return MakeUnifiedDiffFormatterImpl{os, base, target, nullptr}.Make();
 }
 
 }  // namespace arrow
