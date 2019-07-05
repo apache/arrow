@@ -26,10 +26,6 @@
   <name>Arrow AVRO Adapter</name>
   <url>http://maven.apache.org</url>
 
-  <properties>
-    <avro.generated.files>${project.build.directory}/generated-sources/flatc</avro.generated.files>
-  </properties>
-
   <dependencies>
 
     <dependency>
