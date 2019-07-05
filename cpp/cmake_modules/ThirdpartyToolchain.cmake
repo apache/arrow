@@ -180,6 +180,19 @@ macro(resolve_dependency DEPENDENCY_NAME)
   endif()
 endmacro()
 
+macro(resolve_dependency_with_version DEPENDENCY_NAME REQUIRED_VERSION)
+  if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
+    find_package(${DEPENDENCY_NAME} ${REQUIRED_VERSION} MODULE)
+    if(NOT ${${DEPENDENCY_NAME}_FOUND})
+      build_dependency(${DEPENDENCY_NAME})
+    endif()
+  elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "BUNDLED")
+    build_dependency(${DEPENDENCY_NAME})
+  elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM")
+    find_package(${DEPENDENCY_NAME} ${REQUIRED_VERSION} REQUIRED)
+  endif()
+endmacro()
+
 # ----------------------------------------------------------------------
 # Thirdparty versions, environment variables, source URLs
 
@@ -1282,7 +1295,12 @@ macro(build_protobuf)
 endmacro()
 
 if(ARROW_WITH_PROTOBUF)
-  resolve_dependency(Protobuf)
+  if(ARROW_WITH_GRPC)
+    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.6.0")
+  else()
+    set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
+  endif()
+  resolve_dependency_with_version(Protobuf ${ARROW_PROTOBUF_REQUIRED_VERSION})
 
   if(ARROW_PROTOBUF_USE_SHARED AND MSVC)
     add_definitions(-DPROTOBUF_USE_DLLS)
