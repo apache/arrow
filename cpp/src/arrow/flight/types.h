@@ -319,6 +319,43 @@ struct ARROW_FLIGHT_EXPORT FlightPayload {
   ipc::internal::IpcPayload ipc_message;
 };
 
+/// \brief Schema result returned after a schema request RPC
+struct ARROW_FLIGHT_EXPORT SchemaResult {
+ public:
+  struct Data {
+    std::string schema;
+    FlightDescriptor descriptor;
+  };
+
+  explicit SchemaResult(const Data& data) : data_(data), reconstructed_schema_(false) {}
+  explicit SchemaResult(Data&& data)
+    : data_(std::move(data)), reconstructed_schema_(false) {}
+  explicit SchemaResult(const std::string& schema, const FlightDescriptor& descriptor)
+    : reconstructed_schema_(false) {
+      data_ = Data();
+      data_.descriptor = descriptor;
+      data_.schema = schema;
+  }
+    /// \brief Deserialize the Arrow schema of the dataset, to be passed
+    /// to each call to DoGet. Populate any dictionary encoded fields
+    /// into a DictionaryMemo for bookkeeping
+    /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
+    /// be modified
+    /// \param[out] out the reconstructed Schema
+    Status GetSchema(ipc::DictionaryMemo* dictionary_memo,
+                     std::shared_ptr<Schema>* out) const;
+
+    const std::string& serialized_schema() const { return data_.schema; }
+
+    /// The descriptor associated with this flight, may not be set
+    const FlightDescriptor& descriptor() const { return data_.descriptor; }
+
+ private:
+    Data data_;
+    mutable std::shared_ptr<Schema> schema_;
+    mutable bool reconstructed_schema_;
+};
+
 /// \brief The access coordinates for retireval of a dataset, returned by
 /// GetFlightInfo
 class ARROW_FLIGHT_EXPORT FlightInfo {

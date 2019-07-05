@@ -106,6 +106,15 @@ Status PyFlightServer::GetFlightInfo(const arrow::flight::ServerCallContext& con
   });
 }
 
+Status PyFlightServer::GetFlightSchema(const arrow::flight::ServerCallContext& context,
+                                     const arrow::flight::FlightDescriptor& request,
+                                     std::unique_ptr<arrow::flight::SchemaResult>* info) {
+    return SafeCallIntoPython([&] {
+        vtable_.get_flight_schema(server_.obj(), context, request, info);
+        return CheckPyError();
+    });
+}
+
 Status PyFlightServer::DoGet(const arrow::flight::ServerCallContext& context,
                              const arrow::flight::Ticket& request,
                              std::unique_ptr<arrow::flight::FlightDataStream>* stream) {
@@ -243,6 +252,17 @@ Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
   arrow::flight::FlightInfo value(flight_data);
   *out = std::unique_ptr<arrow::flight::FlightInfo>(new arrow::flight::FlightInfo(value));
   return Status::OK();
+}
+
+Status CreateSchemaResult(const std::shared_ptr<arrow::Schema>& schema,
+                        const arrow::flight::FlightDescriptor& descriptor,
+                        std::unique_ptr<arrow::flight::SchemaResult>* out) {
+    arrow::flight::SchemaResult::Data flight_data;
+    RETURN_NOT_OK(arrow::flight::internal::SchemaToString(*schema, &flight_data.schema));
+    flight_data.descriptor = descriptor;
+    arrow::flight::SchemaResult value(flight_data);
+    *out = std::unique_ptr<arrow::flight::SchemaResult>(new arrow::flight::SchemaResult(value));
+    return Status::OK();
 }
 
 }  // namespace flight

@@ -523,6 +523,26 @@ class FlightClient::FlightClientImpl {
     return Status::OK();
   }
 
+  Status GetFlightSchema(const FlightCallOptions& options,
+                       const FlightDescriptor& descriptor,
+                       std::unique_ptr<SchemaResult>* info) {
+    pb::FlightDescriptor pb_descriptor;
+    pb::SchemaResult pb_response;
+
+    RETURN_NOT_OK(internal::ToProto(descriptor, &pb_descriptor));
+
+    ClientRpc rpc(options);
+    RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
+    Status s = internal::FromGrpcStatus(
+        stub_->GetFlightSchema(&rpc.context, pb_descriptor, &pb_response));
+    RETURN_NOT_OK(s);
+
+    SchemaResult::Data info_data;
+    RETURN_NOT_OK(internal::FromProto(pb_response, &info_data));
+    info->reset(new SchemaResult(std::move(info_data)));
+    return Status::OK();
+  }
+
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
                std::unique_ptr<FlightStreamReader>* out) {
     pb::Ticket pb_ticket;
@@ -593,6 +613,12 @@ Status FlightClient::GetFlightInfo(const FlightCallOptions& options,
                                    const FlightDescriptor& descriptor,
                                    std::unique_ptr<FlightInfo>* info) {
   return impl_->GetFlightInfo(options, descriptor, info);
+}
+
+Status FlightClient::GetFlightSchema(const FlightCallOptions& options,
+                       const FlightDescriptor& descriptor,
+                       std::unique_ptr<SchemaResult>* info) {
+    return impl_->GetFlightSchema(options, descriptor, info);
 }
 
 Status FlightClient::ListFlights(std::unique_ptr<FlightListing>* listing) {

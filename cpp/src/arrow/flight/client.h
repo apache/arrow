@@ -167,6 +167,21 @@ class ARROW_FLIGHT_EXPORT FlightClient {
     return GetFlightInfo({}, descriptor, info);
   }
 
+  /// \brief Request schema for a single flight, which may be an existing
+  /// dataset or a command to be executed
+  /// \param[in] options Per-RPC options
+  /// \param[in] descriptor the dataset request, whether a named dataset or
+  /// command
+  /// \param[out] info the SchemaResult describing the dataset schema
+  /// \return Status
+  Status GetFlightSchema(const FlightCallOptions& options,
+                       const FlightDescriptor& descriptor,
+                       std::unique_ptr<SchemaResult>* info);
+  Status GetFlightSchema(const FlightDescriptor& descriptor,
+                       std::unique_ptr<SchemaResult>* info) {
+    return GetFlightSchema({}, descriptor, info);
+  }
+
   /// \brief List all available flights known to the server
   /// \param[out] listing an iterator that returns a FlightInfo for each flight
   /// \return Status
