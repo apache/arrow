@@ -16,20 +16,20 @@
  * limitations under the License.
  */
 
-#ifndef avro_Validating_hh__
-#define avro_Validating_hh__
+#pragma once
 
 #include <stdint.h>
-#include <boost/noncopyable.hpp>
 #include <vector>
 
-#include "Config.hh"
-#include "Types.hh"
-#include "ValidSchema.hh"
+#include "arrow/dataset/avro/types.h"
+#include "arrow/dataset/avro/valid_schema.h"
+#include "arrow/util/macros.h"
 
+namespace arrow {
 namespace avro {
 
-class AVRO_DECL NullValidator : private boost::noncopyable {
+class NullValidator {
+ DISCLAIMS
  public:
   explicit NullValidator(const ValidSchema& schema) {}
   NullValidator() {}
@@ -131,5 +131,6 @@ class AVRO_DECL Validator : private boost::noncopyable {
 };
 
 }  // namespace avro
+} 
 
 #endif

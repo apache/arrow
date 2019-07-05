@@ -15,24 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef avro_Parser_hh__
-#define avro_Parser_hh__
+#pragma once
 
 #include "Config.hh"
 #include "Reader.hh"
 
 #include <array>
 
+namespace arrow {
 namespace avro {
 
 ///
-/// Class that wraps a reader or ValidatingReade with an interface that uses
+/// Class that wraps a reader or ValidatingReader with an interface that uses
 /// explicit get* names instead of getValue
 ///
 
 template <class Reader>
-class Parser : private boost::noncopyable {
+class Parser {
+ ARROW_DISALLOW_COPY_AND_ASSIGN(Parser);
+
  public:
   // Constructor only works with Writer
   explicit Parser(const InputBuffer& in) : reader_(in) {}
@@ -40,85 +41,80 @@ class Parser : private boost::noncopyable {
   /// Constructor only works with ValidatingWriter
   Parser(const ValidSchema& schema, const InputBuffer& in) : reader_(schema, in) {}
 
-  void readNull() {
+  // Note Result<T> not used here because this is expected to be in an inner loop.
+
+  Status ReadNull() {
     Null null;
-    reader_.readValue(null);
+    return reader_.ReadValue(null);
   }
 
-  bool readBool() {
+  Status ReadBool(bool* out) {
     bool val;
-    reader_.readValue(val);
+    reader_.ReadValue(val);
     return val;
   }
 
-  int32_t readInt() {
-    int32_t val;
-    reader_.readValue(val);
-    return val;
+  Status ReadInt(int32_t* val) {
+    return reader_.ReadValue(val);
   }
 
-  int64_t readLong() {
-    int64_t val;
-    reader_.readValue(val);
-    return val;
+  Status ReadLong(int64_t* val) {
+    return reader_.ReadValue(val);
   }
 
-  float readFloat() {
-    float val;
-    reader_.readValue(val);
-    return val;
+  Status ReadFloat(float* val) {
+    return reader_.ReadValue(val);
   }
 
-  double readDouble() {
-    double val;
-    reader_.readValue(val);
-    return val;
+  Status ReadDouble(double* val) {
+    return reader_.ReadValue(val);
   }
 
-  void readString(std::string& val) { reader_.readValue(val); }
+  Status ReadString(std::string* val) { reader_.ReadValue(val); }
 
-  void readBytes(std::vector<uint8_t>& val) { reader_.readBytes(val); }
+  Status ReadBytes(std::vector<uint8_t>* val) { return reader_.ReadBytes(val); }
 
   template <size_t N>
-  void readFixed(uint8_t (&val)[N]) {
-    reader_.readFixed(val);
+  Status ReadFixed(uint8_t* val) {
+    return reader_.ReadFixed(val);
   }
 
   template <size_t N>
-  void readFixed(std::array<uint8_t, N>& val) {
-    reader_.readFixed(val);
+  Status readFixed(std::array<uint8_t, N>* val) {
+    return reader_.ReadFixed(val);
   }
 
-  void readRecord() { reader_.readRecord(); }
+  Status ReadRecord() { reader_.ReadRecord(); }
 
-  void readRecordEnd() { reader_.readRecordEnd(); }
+  Status ReadRecordEnd() { reader_.ReadRecordEnd(); }
 
-  int64_t readArrayBlockSize() { return reader_.readArrayBlockSize(); }
+  Status ReadArrayBlockSize(int64_t* val) { return reader_.ReadArrayBlockSize(val); }
 
-  int64_t readUnion() { return reader_.readUnion(); }
+  Status ReadUnion(int64_t* val) { return reader_.ReadUnion(val); }
 
-  int64_t readEnum() { return reader_.readEnum(); }
+  Status ReadEnum(int64_t* val) { return reader_.ReadEnum(val); }
 
-  int64_t readMapBlockSize() { return reader_.readMapBlockSize(); }
+  Status ReadMapBlockSize(int64_t* val) { return reader_.ReadMapBlockSize(val); }
 
  private:
-  friend Type nextType(Parser<ValidatingReader>& p);
-  friend bool currentRecordName(Parser<ValidatingReader>& p, std::string& name);
-  friend bool nextFieldName(Parser<ValidatingReader>& p, std::string& name);
+  friend Type NextType(Parser<ValidatingReader>& p);
+  friend bool CurrentRecordName(Parser<ValidatingReader>& p, std::string& name);
+  friend bool NextFieldName(Parser<ValidatingReader>& p, std::string& name);
 
   Reader reader_;
 };
 
-inline Type nextType(Parser<ValidatingReader>& p) { return p.reader_.nextType(); }
+inline Type NextType(Parser<ValidatingReader>& p) { return p.reader_.nextType(); }
 
-inline bool currentRecordName(Parser<ValidatingReader>& p, std::string& name) {
-  return p.reader_.currentRecordName(name);
+inline bool CurrentRecordName(Parser<ValidatingReader>& p, std::string& name) {
+  return p.reader_.CurrentRecordName(name);
 }
 
-inline bool nextFieldName(Parser<ValidatingReader>& p, std::string& name) {
-  return p.reader_.nextFieldName(name);
+inline bool NextFieldName(Parser<ValidatingReader>& p, std::string& name) {
+  return p.reader_.NextFieldName(name);
 }
 
 }  // namespace avro
+}  // namespace arrow
 
 #endif

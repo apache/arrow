@@ -16,17 +16,16 @@
  * limitations under the License.
  */
 
-#ifndef avro_ValidSchema_hh__
-#define avro_ValidSchema_hh__
+#pragma once
 
-#include "Config.hh"
-#include "Node.hh"
+#include "arrow/dataset/avro/node.h"
 
+namespace arrow {
 namespace avro {
 
-class AVRO_DECL Schema;
+class Schema;
 
-/// A ValidSchema is basically a non-mutable Schema that has passed some
+/// A ValidSchema is basically a immutable Schema that has passed some
 /// minumum of sanity checks.  Once valididated, any Schema that is part of
 /// this ValidSchema is considered locked, and cannot be modified (an attempt
 /// to modify a locked Schema will throw).  Also, as it is validated, any
@@ -37,28 +36,29 @@ class AVRO_DECL Schema;
 /// parsers/serializers, converted to a json schema, etc.
 ///
 
-class AVRO_DECL ValidSchema {
+class ValidSchema {
  public:
   explicit ValidSchema(const NodePtr& root);
   explicit ValidSchema(const Schema& schema);
   ValidSchema();
 
-  void setSchema(const Schema& schema);
+  void SetSchema(const Schema& schema);
 
-  const NodePtr& root() const { return root_; }
+  const std::shared_ptr<Node>& root() const { return root_; }
 
-  void toJson(std::ostream& os) const;
-  std::string toJson(bool prettyPrint = true) const;
+  void ToJson(std::ostream& os) const;
+  std::string ToJson(bool prettyPrint = true) const;
 
-  void toFlatList(std::ostream& os) const;
+  void ToFlatList(std::ostream& os) const;
 
  protected:
-  NodePtr root_;
+  std::shared_ptr<Node> root_;
 
  private:
-  static std::string compactSchema(const std::string& schema);
+  static std::string CompactSchema(const std::string& schema);
 };
 
 }  // namespace avro
+}
 
 #endif

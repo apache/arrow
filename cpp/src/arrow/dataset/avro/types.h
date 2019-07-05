@@ -15,43 +15,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef avro_Types_hh__
-#define avro_Types_hh__
+#pragma once
 
 #include <iostream>
 
-#include "Config.hh"
+#include "arrow/util/visibility.h"
 
+namespace arrow {
 namespace avro {
 
 /**
  * The "type" for the schema.
  */
-enum Type {
+enum class AvroType {
 
-  AVRO_STRING, /*!< String */
-  AVRO_BYTES,  /*!< Sequence of variable length bytes data */
-  AVRO_INT,    /*!< 32-bit integer */
-  AVRO_LONG,   /*!< 64-bit integer */
-  AVRO_FLOAT,  /*!< Floating point number */
-  AVRO_DOUBLE, /*!< Double precision floating point number */
-  AVRO_BOOL,   /*!< Boolean value */
-  AVRO_NULL,   /*!< Null */
+  kString, /*!< String */
+  kBytes,  /*!< kSequence of variable length bytes data */
+  kInt,    /*!< 32-bit integer */
+  kLong,   /*!< 64-bit integer */
+  kFloat,  /*!< Floating point number */
+  kDouble, /*!< Double precision floating point number */
+  kBool,   /*!< Boolean value */
+  kNull,   /*!< Null */
 
-  AVRO_RECORD, /*!< Record, a sequence of fields */
-  AVRO_ENUM,   /*!< Enumeration */
-  AVRO_ARRAY,  /*!< Homogeneous array of some specific type */
-  AVRO_MAP,    /*!< Homogeneous map from string to some specific type */
-  AVRO_UNION,  /*!< Union of one or more types */
-  AVRO_FIXED,  /*!< Fixed number of bytes */
+  kRecord, /*!< Record, a sequence of fields */
+  kEnum,   /*!< Enumeration */
+  kArray,  /*!< Homogeneous array of some specific type */
+  kMap,    /*!< Homogeneous map from string to some specific type */
+  kUnion,  /*!< Union of one or more types */
+  kFixed,  /*!< Fixed number of bytes */
 
-  AVRO_NUM_TYPES, /*!< Marker */
+  kNumkTypes, /*!< Marker */
 
   // The following is a pseudo-type used in implementation
 
-  AVRO_SYMBOLIC = AVRO_NUM_TYPES, /*!< User internally to avoid circular references. */
-  AVRO_UNKNOWN = -1               /*!< Used internally. */
+  kSymbolic = kkNumkTypes, /*!< User internally to avoid circular references. */
+  kUnknown = -1               /*!< Used internally. */
 
 };
 
@@ -60,40 +59,40 @@ enum Type {
  * Primitive types are: string, bytes, int, long, float, double, boolean
  * and null
  */
-inline bool isPrimitive(Type t) { return (t >= AVRO_STRING) && (t < AVRO_RECORD); }
+inline bool IsPrimitive(Type t) { return (t >= AvroType::kString) && (t < AvroType::kRecord); }
 
 /**
  * Returns true if and only if the given type is a non primitive valid type.
  * Primitive types are: string, bytes, int, long, float, double, boolean
  * and null
  */
-inline bool isCompound(Type t) { return (t >= AVRO_RECORD) && (t < AVRO_NUM_TYPES); }
+inline bool IsCompound(Type t) { return (t >= AvroType::kRecord) && (t < AvroType::kNumTypes); }
 
 /**
  * Returns true if and only if the given type is a valid avro type.
  */
-inline bool isAvroType(Type t) { return (t >= AVRO_STRING) && (t < AVRO_NUM_TYPES); }
+inline bool IsAvroType(Type t) { return (t >= AvroType::kString) && (t < AvroType::kNumTypes); }
 
 /**
  * Returns true if and only if the given type is within the valid range
  * of enumeration.
  */
-inline bool isAvroTypeOrPseudoType(Type t) {
-  return (t >= AVRO_STRING) && (t <= AVRO_NUM_TYPES);
+inline bool IsAvroTypeOrPseudoType(Type t) {
+  return (t >= AvroType::kString) && (t <= AvroType::kNumTypes);
 }
 
 /**
  * Converts the given type into a string. Useful for generating messages.
  */
-AVRO_DECL const std::string& toString(Type type);
+ARROW_EXPORT const std::string& ToString(Type type);
 
 /**
  * Writes a string form of the given type into the given ostream.
  */
-AVRO_DECL std::ostream& operator<<(std::ostream& os, avro::Type type);
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, Type type);
 
 /// define a type to identify Null in template functions
-struct AVRO_DECL Null {};
+struct ARROW_EXPORT Null {};
 
 /**
  * Writes schema for null \p null type to \p os.
@@ -103,5 +102,6 @@ struct AVRO_DECL Null {};
 std::ostream& operator<<(std::ostream& os, const Null& null);
 
 }  // namespace avro
+} 
 
 #endif

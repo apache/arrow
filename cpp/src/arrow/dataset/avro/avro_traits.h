@@ -15,19 +15,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef avro_AvroTraits_hh__
-#define avro_AvroTraits_hh__
+#pragma once
 
 #include <stdint.h>
 #include <type_traits>
-#include "Config.hh"
-#include "Types.hh"
+
+#include "arrow/dataset/avro/config.h"
+#include "arrow/dataset/avro/types.h"
 
 /** @file
  *
  * This header contains type traits and similar utilities used by the library.
  */
+namespace arrow {
 namespace avro {
 
 /**
@@ -35,13 +35,13 @@ namespace avro {
  * New types will need to define the trait as well.
  */
 template <typename T>
-struct is_serializable : public std::false_type {};
+struct IsSerializable : public std::false_type {};
 
 template <typename T>
-struct is_promotable : public std::false_type {};
+struct IsPromotable : public std::false_type {};
 
 template <typename T>
-struct type_to_avro {
+struct TypeToAvro {
   static const Type type = AVRO_NUM_TYPES;
 };
 
@@ -121,5 +121,6 @@ DEFINE_PRIMITIVE(std::string, AVRO_STRING)
 DEFINE_PRIMITIVE(std::vector<uint8_t>, AVRO_BYTES)
 
 }  // namespace avro
+}  // namespace arrow
 
 #endif

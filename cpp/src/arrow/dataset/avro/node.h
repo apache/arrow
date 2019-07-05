@@ -16,31 +16,23 @@
  * limitations under the License.
  */
 
-#ifndef avro_Node_hh__
-#define avro_Node_hh__
+#pragma once
 
-#include "Config.hh"
 
-#include <boost/noncopyable.hpp>
 #include <cassert>
 #include <memory>
 
-#include "Exception.hh"
-#include "LogicalType.hh"
-#include "SchemaResolution.hh"
-#include "Types.hh"
+#include "arrow/dataset/avro/exception.h"
+#include "arrow/dataset/avro/logical_type.h"
+#include "arrow/dataset/avro/schema_resolution.h"
+#include "arrow/dataset/avro/types.h"
 
+namespace arrow {
 namespace avro {
 
-class Node;
 class GenericDatum;
 
-typedef std::shared_ptr<Node> NodePtr;
-
-class AVRO_DECL Name {
-  std::string ns_;
-  std::string simpleName_;
-
+class Name {
  public:
   Name() {}
   Name(const std::string& fullname);
@@ -49,13 +41,13 @@ class AVRO_DECL Name {
     check();
   }
 
-  const std::string fullname() const;
+  const std::string FullName() const;
   const std::string& ns() const { return ns_; }
-  const std::string& simpleName() const { return simpleName_; }
+  const std::string& simple_name() const { return simpleName_; }
 
-  void ns(const std::string& n) { ns_ = n; }
-  void simpleName(const std::string& n) { simpleName_ = n; }
-  void fullname(const std::string& n);
+  void set_ns(const std::string& n) { ns_ = n; }
+  void set_simple_name(const std::string& n) { simpleName_ = n; }
+  void SetFullName(const std::string& n);
 
   bool operator<(const Name& n) const;
   void check() const;
@@ -66,6 +58,11 @@ class AVRO_DECL Name {
     simpleName_.clear();
   }
   operator std::string() const { return fullname(); }
+ private:
+  std::string ns_;
+  std::string simpleName_;
+
+
 };
 
 inline std::ostream& operator<<(std::ostream& os, const Name& n) {
@@ -87,57 +84,62 @@ inline std::ostream& operator<<(std::ostream& os, const Name& n) {
 /// different node types.
 ///
 
-class AVRO_DECL Node : private boost::noncopyable {
+class Node {
+ ARROW_DISALLOW_COPY_AND_ASSIGN(Node);
  public:
-  Node(Type type) : type_(type), logicalType_(LogicalType::NONE), locked_(false) {}
+  explicit Node(Type type) : type_(type), logicalType_(LogicalType::NONE), locked_(false) {}
 
   virtual ~Node();
 
   Type type() const { return type_; }
 
-  LogicalType logicalType() const { return logicalType_; }
+  LogicalType logical_type() const { return logicalType_; }
 
-  void setLogicalType(LogicalType logicalType);
+  void set_logical_type(LogicalType logicalType);
 
   void lock() { locked_ = true; }
 
   bool locked() const { return locked_; }
 
-  virtual bool hasName() const = 0;
+  virtual bool HasName() const = 0;
 
-  void setName(const Name& name) {
-    checkLock();
-    checkName(name);
-    doSetName(name);
+  Status set_name(const Name& name) {
+    RETURN_NOT_OK(CheckLock());
+    RETURN_NOT_OK(CheckName(name));
+    DoSetName(name);
+    return Status::OK();
   }
   virtual const Name& name() const = 0;
 
-  virtual const std::string& getDoc() const = 0;
-  void setDoc(const std::string& doc) {
-    checkLock();
-    doSetDoc(doc);
+  virtual const std::string& doc() const = 0;
+  Status set_doc(const std::string& doc) {
+    RETURN_NOT_OK(CheckLock());
+    DoSetDoc(doc);
+    return Status::OK();
   }
 
-  void addLeaf(const NodePtr& newLeaf) {
-    checkLock();
-    doAddLeaf(newLeaf);
+  Status AddLeaf(const NodePtr& newLeaf) {
+    RETURN_NOT_OK(CheckLock());
+    DoAddLeaf(newLeaf);
+    return Status::OK();
   }
   virtual size_t leaves() const = 0;
-  virtual const NodePtr& leafAt(int index) const = 0;
-  virtual const GenericDatum& defaultValueAt(int index) {
-    throw Exception(boost::format("No default value at: %1%") % index);
+  virtual const NodePtr& LeafAt(int index) const = 0;
+  virtual Result<const GenericDatum&> DefaultValueAt(int index) {
+    return Status::KeyError("No default value at: ", index);
   }
 
-  void addName(const std::string& name) {
-    checkLock();
-    checkName(name);
-    doAddName(name);
+  void AddName(const std::string& name) {
+    RETURN_NOT_OK(CheckLock());
+    RETURN_NOT_OK(CheckName(name));
+    DoAddName(name);
+    return Status::OK();
   }
-  virtual size_t names() const = 0;
-  virtual const std::string& nameAt(int index) const = 0;
-  virtual bool nameIndex(const std::string& name, size_t& index) const = 0;
+  virtual size_t Names() const = 0;
+  virtual const Result<std::string&> NameAt(int index) const = 0;
+  virtual bool NameIndex(const std::string& name, size_t& index) const = 0;
 
-  void setFixedSize(int size) {
+  void SetFixedSize(int size) {
     checkLock();
     doSetFixedSize(size);
   }
@@ -147,32 +149,32 @@ class AVRO_DECL Node : private boost::noncopyable {
 
   virtual SchemaResolution resolve(const Node& reader) const = 0;
 
-  virtual void printJson(std::ostream& os, int depth) const = 0;
+  virtual void PrintJson(std::ostream& os, int depth) const = 0;
 
-  virtual void printBasicInfo(std::ostream& os) const = 0;
+  virtual void PrintBasicInfo(std::ostream& os) const = 0;
 
-  virtual void setLeafToSymbolic(int index, const NodePtr& node) = 0;
+  virtual void SetLeafToSymbolic(int index, const NodePtr& node) = 0;
 
   // Serialize the default value GenericDatum g for the node contained
   // in a record node.
-  virtual void printDefaultToJson(const GenericDatum& g, std::ostream& os,
+  virtual void PrintDefaultToJson(const GenericDatum& g, std::ostream& os,
                                   int depth) const = 0;
 
  protected:
-  void checkLock() const {
-    if (locked()) {
-      throw Exception("Cannot modify locked schema");
+  Status CheckLock() const {
+    if (ARROW_PREDICT_FALSE(locked())) {
+      return Status::Unknown("Cannot modify locked schema");
     }
   }
 
-  virtual void checkName(const Name& name) const { name.check(); }
+  virtual Status CheckName(const Name& name) const { return name.Check(); }
 
-  virtual void doSetName(const Name& name) = 0;
-  virtual void doSetDoc(const std::string& name) = 0;
+  virtual void DoSetName(const Name& name) = 0;
+  virtual void DoSetDoc(const std::string& name) = 0;
 
-  virtual void doAddLeaf(const NodePtr& newLeaf) = 0;
-  virtual void doAddName(const std::string& name) = 0;
-  virtual void doSetFixedSize(int size) = 0;
+  virtual void DoAddLeaf(const NodePtr& newLeaf) = 0;
+  virtual void DoAddName(const std::string& name) = 0;
+  virtual void DoSetFixedSize(int size) = 0;
 
  private:
   const Type type_;
@@ -181,10 +183,11 @@ class AVRO_DECL Node : private boost::noncopyable {
 };
 
 }  // namespace avro
+}
 
 namespace std {
 inline std::ostream& operator<<(std::ostream& os, const avro::Node& n) {
-  n.printJson(os, 0);
+  n.PrintJson(os, 0);
   return os;
 }
 }  // namespace std

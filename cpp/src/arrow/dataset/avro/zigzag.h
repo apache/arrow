@@ -15,27 +15,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef avro_Encoding_hh__
-#define avro_Encoding_hh__
+#pragma once
 
 #include <stdint.h>
 #include <array>
 
-#include "Config.hh"
 /// Functions for encoding and decoding integers with zigzag compression
 
+namespace arrow {
 namespace avro {
 
-AVRO_DECL uint64_t encodeZigzag64(int64_t input);
-AVRO_DECL int64_t decodeZigzag64(uint64_t input);
+uint64_t EncodeZigzag64(int64_t input);
+int64_t DecodeZigzag64(uint64_t input);
 
-AVRO_DECL uint32_t encodeZigzag32(int32_t input);
-AVRO_DECL int32_t decodeZigzag32(uint32_t input);
+uint32_t EncodeZigzag32(int32_t input);
+int32_t DecodeZigzag32(uint32_t input);
 
-AVRO_DECL size_t encodeInt32(int32_t input, std::array<uint8_t, 5>& output);
-AVRO_DECL size_t encodeInt64(int64_t input, std::array<uint8_t, 10>& output);
+size_t EncodeInt32(int32_t input, std::array<uint8_t, 5>* output);
+size_t EncodeInt64(int64_t input, std::array<uint8_t, 10>* output);
 
 }  // namespace avro
+}  // namespace arrow
 
 #endif

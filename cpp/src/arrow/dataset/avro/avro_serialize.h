@@ -15,31 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
-#ifndef avro_AvroSerialize_hh__
-#define avro_AvroSerialize_hh__
-
-#include "AvroTraits.hh"
-#include "Config.hh"
+#include "arrow/dataset/avro/avro_traits.h"
 
 ///
 /// Standalone serialize functions for Avro types.
-
+namespace arrow {
 namespace avro {
 
 /// The main serializer entry point function.  Takes a serializer (either validating or
 /// plain) and the object that should be serialized.
 
 template <typename Writer, typename T>
-void serialize(Writer& s, const T& val) {
-  serialize(s, val, is_serializable<T>());
+Status Serialize(Writer& s, const T& val) {
+  return Serialize(s, val, is_serializable<T>());
 }
 
 /// Type trait should be set to is_serializable in otherwise force the compiler to
 /// complain.
 
 template <typename Writer, typename T>
-void serialize(Writer& s, const T& val, const std::false_type&) {
+Status Serialize(Writer& s, const T& val, const std::false_type&) {
   static_assert(sizeof(T) == 0, "Not a valid type to serialize");
 }
 
@@ -48,17 +45,18 @@ void serialize(Writer& s, const T& val, const std::false_type&) {
 // @{
 
 template <typename Writer, typename T>
-void serialize(Writer& s, T val, const std::true_type&) {
-  s.writeValue(val);
+Status Serialize(Writer& s, T val, const std::true_type&) {
+  return s.WriteValue(val);
 }
 
 template <typename Writer>
-void serialize(Writer& s, const std::vector<uint8_t>& val, const std::true_type&) {
-  s.writeBytes(val.data(), val.size());
+Status serialize(Writer& s, const std::vector<uint8_t>& val, const std::true_type&) {
+  return s.WriteBytes(val.data(), val.size());
 }
 
 // @}
 
 }  // namespace avro
+}
 
 #endif

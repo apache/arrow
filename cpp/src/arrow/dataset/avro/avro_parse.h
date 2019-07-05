@@ -15,42 +15,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
-#ifndef avro_AvroParse_hh__
-#define avro_AvroParse_hh__
-
-#include "AvroTraits.hh"
-#include "Config.hh"
-#include "ResolvingReader.hh"
+#include "arrow/dataset/avro/avro_raits.h"
+#include "arrow/dataset/avro/resolving_reader.h"
 
 ///
 /// Standalone parse functions for Avro types.
 
+namespace arrow {
 namespace avro {
 
 /// The main parse entry point function.  Takes a parser (either validating or
 /// plain) and the object that should receive the parsed data.
 
 template <typename Reader, typename T>
-void parse(Reader& p, T& val) {
-  parse(p, val, is_serializable<T>());
+Status Parse(Reader& p, T& val) {
+  return Parse(p, val, is_serializable<T>());
 }
 
 template <typename T>
-void parse(ResolvingReader& p, T& val) {
-  translatingParse(p, val, is_serializable<T>());
+Status Parse(ResolvingReader& p, T& val) {
+  return TranslatingParse(p, val, is_serializable<T>());
 }
 
 /// Type trait should be set to is_serializable in otherwise force the compiler to
 /// complain.
 
 template <typename Reader, typename T>
-void parse(Reader& p, T& val, const std::false_type&) {
+void Parse(Reader& p, T& val, const std::false_type&) {
   static_assert(sizeof(T) == 0, "Not a valid type to parse");
 }
 
 template <typename Reader, typename T>
-void translatingParse(Reader& p, T& val, const std::false_type&) {
+Status TranslatingParse(Reader& p, T& val, const std::false_type&) {
   static_assert(sizeof(T) == 0, "Not a valid type to parse");
 }
 
@@ -59,22 +57,23 @@ void translatingParse(Reader& p, T& val, const std::false_type&) {
 /// The remainder of the file includes default implementations for serializable types.
 
 template <typename Reader, typename T>
-void parse(Reader& p, T& val, const std::true_type&) {
-  p.readValue(val);
+Status Parse(Reader& p, T& val, const std::true_type&) {
+  return p.ReadValue(val);
 }
 
 template <typename Reader>
-void parse(Reader& p, std::vector<uint8_t>& val, const std::true_type&) {
-  p.readBytes(val);
+Status Parse(Reader& p, std::vector<uint8_t>& val, const std::true_type&) {
+  return p.ReadBytes(val);
 }
 
 template <typename T>
-void translatingParse(ResolvingReader& p, T& val, const std::true_type&) {
-  p.parse(val);
+Status TranslatingParse(ResolvingReader& p, T& val, const std::true_type&) {
+  return p.Parse(val);
 }
 
 // @}
 
 }  // namespace avro
+}  // namespace arrow 
 
 #endif

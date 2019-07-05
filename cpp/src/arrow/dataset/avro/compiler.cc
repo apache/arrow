@@ -18,13 +18,10 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <sstream>
 
-#include "Compiler.hh"
-#include "Schema.hh"
-#include "Stream.hh"
-#include "Types.hh"
-#include "ValidSchema.hh"
-
-#include "json/JsonDom.hh"
+#include "arrow/dataset/avro/compiler.h"
+#include "arrow/dataset/avro/schema.h"
+#include "arrow/dataset/avro/types.hh"
+#include "arrow/dataset/avro/valid_schema.hh"
 
 using std::make_pair;
 using std::map;
@@ -42,29 +39,29 @@ typedef map<Name, NodePtr> SymbolTable;
 
 // #define DEBUG_VERBOSE
 
-static NodePtr makePrimitive(const string& t) {
+static NodePtr MakePrimitive(const string& t) {
   if (t == "null") {
-    return NodePtr(new NodePrimitive(AVRO_NULL));
+    return std::make_shared<NodePrimitive>(AvroType::kNull));
   } else if (t == "boolean") {
-    return NodePtr(new NodePrimitive(AVRO_BOOL));
+    return std::make_shared<NodePrimitive>(AvroType::kBool));
   } else if (t == "int") {
-    return NodePtr(new NodePrimitive(AVRO_INT));
+    return std::make_shared<NodePrimitive>(AvroType::kInt));
   } else if (t == "long") {
-    return NodePtr(new NodePrimitive(AVRO_LONG));
+    return std::make_shared<NodePrimitive>(AvroType::kLong));
   } else if (t == "float") {
-    return NodePtr(new NodePrimitive(AVRO_FLOAT));
+    return std::make_shared<NodePrimitive>(AvroType::kFloat));
   } else if (t == "double") {
-    return NodePtr(new NodePrimitive(AVRO_DOUBLE));
+    return std::make_shared<NodePrimitive>(AvroType::kDouble));
   } else if (t == "string") {
-    return NodePtr(new NodePrimitive(AVRO_STRING));
+    return std::make_shared<NodePrimitive>(AvroType::kString));
   } else if (t == "bytes") {
-    return NodePtr(new NodePrimitive(AVRO_BYTES));
+    return std::make_shared<NodePrimitive>(AvroType::kBytes));
   } else {
-    return NodePtr();
+    return std::shared_ptr<NodePrimitive>();
   }
 }
 
-static NodePtr makeNode(const json::Entity& e, SymbolTable& st, const string& ns);
+static NodePtr MakeNode(const json::Entity& e, SymbolTable& st, const string& ns);
 
 template <typename T>
 concepts::SingleAttribute<T> asSingleAttribute(const T& t) {
@@ -73,34 +70,34 @@ concepts::SingleAttribute<T> asSingleAttribute(const T& t) {
   return n;
 }
 
-static bool isFullName(const string& s) { return s.find('.') != string::npos; }
+static bool IsFullName(const string& s) { return s.find('.') != string::npos; }
 
-static Name getName(const string& name, const string& ns) {
+static Name GetName(const string& name, const string& ns) {
   return (isFullName(name)) ? Name(name) : Name(name, ns);
 }
 
-static NodePtr makeNode(const string& t, SymbolTable& st, const string& ns) {
-  NodePtr result = makePrimitive(t);
+static Result<std::shared_ptr<Node>> MakeNode(const string& t, SymbolTable& st, const string& ns) {
+  std::shared_ptr<Node> result = MakePrimitive(t);
   if (result) {
     return result;
   }
-  Name n = getName(t, ns);
+  Name n = GetName(t, ns);
 
   SymbolTable::const_iterator it = st.find(n);
   if (it != st.end()) {
-    return NodePtr(new NodeSymbolic(asSingleAttribute(n), it->second));
+    return std::make_shared<NodeSymbolic>(asSingleAttribute(n), it->second);
   }
-  throw Exception(boost::format("Unknown type: %1%") % n.fullname());
+  return Status::Invalid("Unknown type", n.fullname());
 }
 
 /** Returns "true" if the field is in the container */
 // e.g.: can be false for non-mandatory fields
-bool containsField(const Object& m, const string& fieldName) {
+bool ContainsField(const Object& m, const string& fieldName) {
   Object::const_iterator it = m.find(fieldName);
   return (it != m.end());
 }
 
-const json::Object::const_iterator findField(const Entity& e, const Object& m,
+const json::Object::const_iterator FindField(const Entity& e, const Object& m,
                                              const string& fieldName) {
   Object::const_iterator it = m.find(fieldName);
   if (it == m.end()) {
@@ -112,23 +109,22 @@ const json::Object::const_iterator findField(const Entity& e, const Object& m,
 }
 
 template <typename T>
-void ensureType(const Entity& e, const string& name) {
+Status EnsureType(const Entity& e, const string& name) {
   if (e.type() != json::type_traits<T>::type()) {
-    throw Exception(boost::format("Json field \"%1%\" is not a %2%: %3%") % name %
-                    json::type_traits<T>::name() % e.toString());
+    return Status::Invalid("Json field \"", name, "\" is not a ", json::type_traits<T>::name(), e.ToString());
   }
 }
 
-string getStringField(const Entity& e, const Object& m, const string& fieldName) {
+string GetStringField(const Entity& e, const Object& m, const string& fieldName) {
   Object::const_iterator it = findField(e, m, fieldName);
-  ensureType<string>(it->second, fieldName);
+  EnsureType<string>(it->second, fieldName);
   return it->second.stringValue();
 }
 
-const Array& getArrayField(const Entity& e, const Object& m, const string& fieldName) {
+const Array& GetArrayField(const Entity& e, const Object& m, const string& fieldName) {
   Object::const_iterator it = findField(e, m, fieldName);
-  ensureType<Array>(it->second, fieldName);
-  return it->second.arrayValue();
+  EnsureType<Array>(it->second, fieldName);
+  return it->second.ArrayValue();
 }
 
 const int64_t getLongField(const Entity& e, const Object& m, const string& fieldName) {
@@ -141,7 +137,7 @@ const int64_t getLongField(const Entity& e, const Object& m, const string& field
 // method NodeImpl::escape() which is used for serialization.
 static void unescape(string& s) { boost::replace_all(s, "\\\"", "\""); }
 
-const string getDocField(const Entity& e, const Object& m) {
+const string GetDocField(const Entity& e, const Object& m) {
   string doc = getStringField(e, m, "doc");
   unescape(doc);
   return doc;
@@ -149,21 +145,21 @@ const string getDocField(const Entity& e, const Object& m) {
 
 struct Field {
   const string name;
-  const NodePtr schema;
+  const std::shared_ptr<Node> schema;
   const GenericDatum defaultValue;
   Field(const string& n, const NodePtr& v, GenericDatum dv)
       : name(n), schema(v), defaultValue(dv) {}
 };
 
-static void assertType(const Entity& e, EntityType et) {
+static void AssertType(const Entity& e, EntityType et) {
   if (e.type() != et) {
-    throw Exception(boost::format("Unexpected type for default value: "
-                                  "Expected %1%, but found %2% in line %3%") %
-                    json::typeToString(et) % json::typeToString(e.type()) % e.line());
+    return Status::Invalid("Unexpected type for default value.  Expected ", json::TypeToString(et), " but found ", json::TypetoString(e.type()),
+   " in line ", e.line());  
   }
+  return Status::OK();
 }
 
-static vector<uint8_t> toBin(const string& s) {
+static vector<uint8_t> ToBin(const string& s) {
   vector<uint8_t> result(s.size());
   if (s.size() > 0) {
     std::copy(s.c_str(), s.c_str() + s.size(), result.data());
@@ -171,7 +167,7 @@ static vector<uint8_t> toBin(const string& s) {
   return result;
 }
 
-static GenericDatum makeGenericDatum(NodePtr n, const Entity& e, const SymbolTable& st) {
+static Result<GenericDatum> MakeGenericDatum(NodePtr n, const Entity& e, const SymbolTable& st) {
   Type t = n->type();
   EntityType dt = e.type();
 
@@ -180,99 +176,103 @@ static GenericDatum makeGenericDatum(NodePtr n, const Entity& e, const SymbolTab
     t = n->type();
   }
   switch (t) {
-    case AVRO_STRING:
-      assertType(e, json::etString);
+    case AvroType::kString:
+      RETURN_NOT_OK(AssertType(e, json::etString));
       return GenericDatum(e.stringValue());
-    case AVRO_BYTES:
-      assertType(e, json::etString);
+    case AvroType::kBytes:
+      RETURN_NOT_OK(AssertType(e, json::etString));
       return GenericDatum(toBin(e.bytesValue()));
-    case AVRO_INT:
-      assertType(e, json::etLong);
+    case AvroType::kInt:
+      RETURN_NOT_OK(AssertType(e, json::etLong));
       return GenericDatum(static_cast<int32_t>(e.longValue()));
-    case AVRO_LONG:
-      assertType(e, json::etLong);
+    case AvroType::kLong:
+      RETURN_NOT_OK(AssertType(e, json::etLong));
       return GenericDatum(e.longValue());
-    case AVRO_FLOAT:
+    case AvroType::kFloat:
       if (dt == json::etLong) {
         return GenericDatum(static_cast<float>(e.longValue()));
       }
       assertType(e, json::etDouble);
       return GenericDatum(static_cast<float>(e.doubleValue()));
-    case AVRO_DOUBLE:
+    case AvroType::kDouble:
       if (dt == json::etLong) {
         return GenericDatum(static_cast<double>(e.longValue()));
       }
-      assertType(e, json::etDouble);
+      RETURN_NOT_OK(AssertType(e, json::etDouble));
       return GenericDatum(e.doubleValue());
-    case AVRO_BOOL:
-      assertType(e, json::etBool);
+    case AvroType::kBool:
+      RETURN_NOT_OK(AssertType(e, json::etBool));
       return GenericDatum(e.boolValue());
-    case AVRO_NULL:
-      assertType(e, json::etNull);
+    case AvroType::kNull:
+      RETURN_NOT_OK(AssertType(e, json::etNull));
       return GenericDatum();
-    case AVRO_RECORD: {
-      assertType(e, json::etObject);
+    case AvroType::kRecord: {
+      RETURN_NOT_OK(AssertType(e, json::etObject));
       GenericRecord result(n);
       const map<string, Entity>& v = e.objectValue();
       for (size_t i = 0; i < n->leaves(); ++i) {
         map<string, Entity>::const_iterator it = v.find(n->nameAt(i));
         if (it == v.end()) {
-          throw Exception(boost::format("No value found in default for %1%") %
-                          n->nameAt(i));
+          return Status::KeyError("No value found in default for ", n->NameAt(i));
         }
-        result.setFieldAt(i, makeGenericDatum(n->leafAt(i), it->second, st));
+        ASSIGN_OR_RAISE(auto datum, MakeGenericDatum(n->leafAt(i), it->second, st));
+        result.SetFieldAt(i, std::move(datum));
       }
       return GenericDatum(n, result);
     }
-    case AVRO_ENUM:
-      assertType(e, json::etString);
+    case AvroType::kEnum:
+      RETURN_NOT_OK(AssertType(e, json::etString));
       return GenericDatum(n, GenericEnum(n, e.stringValue()));
-    case AVRO_ARRAY: {
-      assertType(e, json::etArray);
+    case AvroType::kArray: {
+      RETURN_NOT_OK(AssertType(e, json::etArray));
       GenericArray result(n);
       const vector<Entity>& elements = e.arrayValue();
       for (vector<Entity>::const_iterator it = elements.begin(); it != elements.end();
            ++it) {
-        result.value().push_back(makeGenericDatum(n->leafAt(0), *it, st));
+         ASSIGN_OR_RAISE(auto datum, MakeGenericDatum(n->leafAt(0), *it, st));
+        result.value().push_back(datum);
       }
       return GenericDatum(n, result);
     }
-    case AVRO_MAP: {
-      assertType(e, json::etObject);
+    case AvroType::kMap: {
+      RETURN_NOT_OK(AssertType(e, json::etObject));
       GenericMap result(n);
       const map<string, Entity>& v = e.objectValue();
       for (map<string, Entity>::const_iterator it = v.begin(); it != v.end(); ++it) {
+        ASSIGN_OR_RAISE(auto datum, MakeGenericDatum(n->leafAt(1), it->second, st));
         result.value().push_back(
-            make_pair(it->first, makeGenericDatum(n->leafAt(1), it->second, st)));
+            make_pair(it->first, datum);
       }
       return GenericDatum(n, result);
     }
-    case AVRO_UNION: {
+    case AvroType::kUnion: {
       GenericUnion result(n);
       result.selectBranch(0);
-      result.datum() = makeGenericDatum(n->leafAt(0), e, st);
+      ASSIGN_OR_RAISE(result.datum(), MakeGenericDatum(n->leafAt(0), e, st));
       return GenericDatum(n, result);
     }
-    case AVRO_FIXED:
+    case AvroType::kFixed:
       assertType(e, json::etString);
       return GenericDatum(n, GenericFixed(n, toBin(e.bytesValue())));
     default:
-      throw Exception(boost::format("Unknown type: %1%") % t);
+      return Status::Invalid("Unknown type: ", t);
   }
   return GenericDatum();
 }
 
-static Field makeField(const Entity& e, SymbolTable& st, const string& ns) {
+static Result<Field> MakeField(const Entity& e, SymbolTable& st, const string& ns) {
   const Object& m = e.objectValue();
-  const string& n = getStringField(e, m, "name");
+  const string& n = GetStringField(e, m, "name");
   Object::const_iterator it = findField(e, m, "type");
   map<string, Entity>::const_iterator it2 = m.find("default");
-  NodePtr node = makeNode(it->second, st, ns);
+  NodePtr node = MakeNode(it->second, st, ns);
   if (containsField(m, "doc")) {
     node->setDoc(getDocField(e, m));
   }
-  GenericDatum d =
-      (it2 == m.end()) ? GenericDatum() : makeGenericDatum(node, it2->second, st);
+  GenericDatum d;
+  if (it2 != m.end()) {
+    ASSIGN_OR_RAISE(d, it2->second, set);
+  }
   return Field(n, node, d);
 }
 
