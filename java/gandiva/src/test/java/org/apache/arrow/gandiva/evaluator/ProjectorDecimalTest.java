@@ -674,7 +674,6 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
       eval.evaluate(batch, output);
 
       // compare the outputs.
-
       for (int i = 0; i < numRows; i++) {
         assertTrue(resultVector.getObject(i).booleanValue());
       }
@@ -734,7 +733,6 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
       eval.evaluate(batch, output);
 
       // compare the outputs.
-
       for (int i = 0; i < numRows; i++) {
         assertTrue("mismatch in result for " +
             "field " + resultVector.getField().getName() +
