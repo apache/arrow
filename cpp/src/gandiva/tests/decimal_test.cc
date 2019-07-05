@@ -956,4 +956,97 @@ TEST_F(TestDecimal, TestCastDecimalVarChar) {
   EXPECT_ARROW_ARRAY_EQUALS(array_dec, outputs[0]);
 }
 
+TEST_F(TestDecimal, TestCastDecimalVarCharInvalidInput) {
+  // schema for input fields
+  constexpr int32_t precision = 38;
+  constexpr int32_t scale = 0;
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+
+  auto field_str = field("in_str", utf8());
+  auto schema = arrow::schema({field_str});
+
+  // output fields
+  auto res_dec = field("res_dec", decimal_type);
+
+  // build expressions.
+  auto node_str = TreeExprBuilder::MakeField(field_str);
+  auto cast_decimal =
+      TreeExprBuilder::MakeFunction("castDECIMAL", {node_str}, decimal_type);
+  auto expr = TreeExprBuilder::MakeExpression(cast_decimal, res_dec);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+
+  // imvalid input
+  auto invalid_in = MakeArrowArrayUtf8({"a10.5134", "-0.0", "-0.1", "10.516", "-1000"},
+                                       {true, false, true, true, true});
+
+  // prepare input record batch
+  auto in_batch_1 = arrow::RecordBatch::Make(schema, num_records, {invalid_in});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs_1;
+  status = projector->Evaluate(*in_batch_1, pool_, &outputs_1);
+  EXPECT_TRUE(status.message().find("not a valid decimal number") != std::string::npos);
+}
+
+TEST_F(TestDecimal, TestVarCharDecimalNestedCast) {
+  // schema for input fields
+  constexpr int32_t precision = 38;
+  constexpr int32_t scale = 2;
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+
+  auto field_dec = field("dec", decimal_type);
+  auto schema = arrow::schema({field_dec});
+
+  // output fields
+  auto field_dec_res = field("dec_res", decimal_type);
+
+  // build expressions.
+  auto node_dec = TreeExprBuilder::MakeField(field_dec);
+
+  // limits decimal string to input length
+  auto str_len_limit = TreeExprBuilder::MakeLiteral(static_cast<int64_t>(5));
+  auto cast_varchar =
+      TreeExprBuilder::MakeFunction("castVARCHAR", {node_dec, str_len_limit}, utf8());
+  auto cast_decimal =
+      TreeExprBuilder::MakeFunction("castDECIMAL", {cast_varchar}, decimal_type);
+
+  auto expr = TreeExprBuilder::MakeExpression(cast_decimal, field_dec_res);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+  auto array_dec = MakeArrowArrayDecimal(
+      decimal_type,
+      MakeDecimalVector({"10.51", "1.23", "100.23", "-1000.23", "-0000.10"}, scale),
+      {true, false, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_dec});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  auto array_dec_res = MakeArrowArrayDecimal(
+      decimal_type,
+      MakeDecimalVector({"10.51", "1.23", "100.20", "-1000.00", "-0.10"}, scale),
+      {true, false, true, true, true});
+  EXPECT_ARROW_ARRAY_EQUALS(array_dec_res, outputs[0]);
+}
+
 }  // namespace gandiva

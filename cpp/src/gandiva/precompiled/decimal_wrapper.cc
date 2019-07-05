@@ -359,14 +359,19 @@ boolean is_distinct_from_decimal128_decimal128_internal(
 }
 
 FORCE_INLINE
-void castDECIMAL_utf8_internal(const char* in, int32_t in_length, int32_t out_precision,
-                               int32_t out_scale, int64_t* out_high, uint64_t* out_low) {
+void castDECIMAL_utf8_internal(int64_t context, const char* in, int32_t in_length,
+                               int32_t out_precision, int32_t out_scale,
+                               int64_t* out_high, uint64_t* out_low) {
   int64_t dec_high_from_str;
   uint64_t dec_low_from_str;
   int32_t precision_from_str;
   int32_t scale_from_str;
-  gdv_fn_dec_from_string(in, in_length, &precision_from_str, &scale_from_str,
-                         &dec_high_from_str, &dec_low_from_str);
+  int32_t status =
+      gdv_fn_dec_from_string(context, in, in_length, &precision_from_str, &scale_from_str,
+                             &dec_high_from_str, &dec_low_from_str);
+  if (status != 0) {
+    return;
+  }
 
   gandiva::BasicDecimalScalar128 x({dec_high_from_str, dec_low_from_str},
                                    precision_from_str, scale_from_str);

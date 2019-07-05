@@ -826,6 +826,7 @@ Status DecimalIR::AddFunctions(Engine* engine) {
 
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("castDECIMAL_utf8", i128,
                                                        {
+                                                           {"context", i64},
                                                            {"in", i8_ptr},
                                                            {"in_len", i32},
                                                            {"out_precision", i32},
