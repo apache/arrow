@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
 
 eval "${MATRIX_EVAL}"
 

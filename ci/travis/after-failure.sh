@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
 
 if [[ "${TRAVIS_OS_NAME}" = "osx" ]]; then
   COREFILE=$(find /cores -maxdepth 1 -type f -name "core.*" | head -n 1)
