@@ -609,6 +609,16 @@ services:
 
   # TODO(kszucs): hive-integration
 
+  ################################# Release ###################################
+
+  release-source:
+    image: arrow:release-source
+    build:
+      context: .
+      dockerfile: dev/release/source/Dockerfile
+    volumes:
+      - .:/arrow:delegated
+
   ######################## Verification Containers ############################
 
   debian-stretch:
