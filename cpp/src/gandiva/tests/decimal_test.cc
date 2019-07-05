@@ -892,7 +892,7 @@ TEST_F(TestDecimal, TestCastVarCharDecimal) {
   auto array_str_res = MakeArrowArrayUtf8({"10.51", "-null-", "100.2", "-1000", "-0.10"},
                                           {true, false, true, true, true});
   auto array_str_res_1 =
-      MakeArrowArrayUtf8({"1", "-null-", "1", "0", "0"}, {true, false, true, true, true});
+      MakeArrowArrayUtf8({"1", "-null-", "1", "-", "-"}, {true, false, true, true, true});
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records,
                                            {array_dec, array_str_res, array_str_res_1});

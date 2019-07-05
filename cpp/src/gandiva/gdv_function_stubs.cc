@@ -102,8 +102,8 @@ void gdv_fn_dec_from_string(const char* in, int32_t in_length,
                             int32_t* precision_from_str, int32_t* scale_from_str,
                             int64_t* dec_high_from_str, uint64_t* dec_low_from_str) {
   arrow::Decimal128 dec;
-  auto status = dec.FromString(std::string(in, in_length), &dec, precision_from_str,
-                               scale_from_str);
+  auto status = arrow::Decimal128::FromString(std::string(in, in_length), &dec,
+                                              precision_from_str, scale_from_str);
   *dec_high_from_str = dec.high_bits();
   *dec_low_from_str = dec.low_bits();
 }

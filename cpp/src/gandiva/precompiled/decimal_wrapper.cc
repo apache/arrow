@@ -386,9 +386,6 @@ char* castVARCHAR_decimal128_int64_internal(int64_t context, int64_t x_high,
       gdv_fn_dec_to_string(context, x_high, x_low, x_scale, &full_dec_str_len);
   int32_t trunc_dec_str_len =
       out_len_param < full_dec_str_len ? out_len_param : full_dec_str_len;
-  if (trunc_dec_str_len == 1 && dec_str[0] == '-') {
-    dec_str[0] = '0';
-  }
   *out_length = trunc_dec_str_len;
   return dec_str;
 }
