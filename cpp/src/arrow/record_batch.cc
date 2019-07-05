@@ -18,6 +18,7 @@
 #include "arrow/record_batch.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstdlib>
 #include <memory>
 #include <string>
@@ -27,6 +28,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
 
@@ -85,11 +87,12 @@ class SimpleRecordBatch : public RecordBatch {
   }
 
   std::shared_ptr<Array> column(int i) const override {
-    if (!boxed_columns_[i]) {
-      boxed_columns_[i] = MakeArray(columns_[i]);
+    std::shared_ptr<Array> result = internal::atomic_load(&boxed_columns_[i]);
+    if (!result) {
+      result = MakeArray(columns_[i]);
+      internal::atomic_store(&boxed_columns_[i], result);
     }
-    DCHECK(boxed_columns_[i]);
-    return boxed_columns_[i];
+    return result;
   }
 
   std::shared_ptr<ArrayData> column_data(int i) const override { return columns_[i]; }

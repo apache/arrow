@@ -1042,9 +1042,6 @@ class ARROW_EXPORT UnionArray : public Array {
   // For dense unions, the returned array is unchanged.
   std::shared_ptr<Array> child(int pos) const;
 
-  /// Only use this while the UnionArray is in scope
-  const Array* UnsafeChild(int pos) const;
-
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);
 

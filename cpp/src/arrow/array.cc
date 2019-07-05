@@ -31,6 +31,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
@@ -530,7 +531,8 @@ const StructType* StructArray::struct_type() const {
 }
 
 std::shared_ptr<Array> StructArray::field(int i) const {
-  if (!boxed_fields_[i]) {
+  std::shared_ptr<Array> result = internal::atomic_load(&boxed_fields_[i]);
+  if (!result) {
     std::shared_ptr<ArrayData> field_data;
     if (data_->offset != 0 || data_->child_data[i]->length != data_->length) {
       field_data = std::make_shared<ArrayData>(
@@ -538,9 +540,10 @@ std::shared_ptr<Array> StructArray::field(int i) const {
     } else {
       field_data = data_->child_data[i];
     }
-    boxed_fields_[i] = MakeArray(field_data);
+    result = MakeArray(field_data);
+    internal::atomic_store(&boxed_fields_[i], result);
   }
-  return boxed_fields_[i];
+  return result;
 }
 
 std::shared_ptr<Array> StructArray::GetFieldByName(const std::string& name) const {
@@ -709,7 +712,8 @@ Status UnionArray::MakeSparse(const Array& type_ids,
 }
 
 std::shared_ptr<Array> UnionArray::child(int i) const {
-  if (!boxed_fields_[i]) {
+  std::shared_ptr<Array> result = internal::atomic_load(&boxed_fields_[i]);
+  if (!result) {
     std::shared_ptr<ArrayData> child_data = data_->child_data[i]->Copy();
     if (mode() == UnionMode::SPARSE) {
       // Sparse union: need to adjust child if union is sliced
@@ -719,16 +723,10 @@ std::shared_ptr<Array> UnionArray::child(int i) const {
         *child_data = child_data->Slice(data_->offset, data_->length);
       }
     }
-    boxed_fields_[i] = MakeArray(child_data);
+    result = MakeArray(child_data);
+    internal::atomic_store(&boxed_fields_[i], result);
   }
-  return boxed_fields_[i];
-}
-
-const Array* UnionArray::UnsafeChild(int i) const {
-  if (!boxed_fields_[i]) {
-    boxed_fields_[i] = MakeArray(data_->child_data[i]);
-  }
-  return boxed_fields_[i].get();
+  return result;
 }
 
 // ----------------------------------------------------------------------
