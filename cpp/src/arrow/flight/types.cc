@@ -31,6 +31,11 @@
 namespace arrow {
 namespace flight {
 
+const char* kSchemeGrpc = "grpc";
+const char* kSchemeGrpcTcp = "grpc+tcp";
+const char* kSchemeGrpcUnix = "grpc+unix";
+const char* kSchemeGrpcTls = "grpc+tls";
+
 bool FlightDescriptor::Equals(const FlightDescriptor& other) const {
   if (type != other.type) {
     return false;
