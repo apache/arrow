@@ -32,7 +32,25 @@ import pyarrow as pa
 from pyarrow.compat import tobytes
 from pyarrow.util import pathlib
 
-flight = pytest.importorskip("pyarrow.flight")
+try:
+    from pyarrow import flight
+    from pyarrow.flight import (
+        FlightServerBase, ServerAuthHandler, ClientAuthHandler
+    )
+except ImportError:
+    flight = None
+    FlightServerBase = object
+    ServerAuthHandler, ClientAuthHandler = object, object
+
+
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not flight'
+pytestmark = pytest.mark.flight
+
+
+def test_import():
+    # So we see the ImportError somewhere
+    import pyarrow.flight  # noqa
 
 
 def resource_root():
@@ -92,7 +110,7 @@ def simple_dicts_table():
     return pa.Table.from_arrays(data, names=['some_dicts'])
 
 
-class ConstantFlightServer(flight.FlightServerBase):
+class ConstantFlightServer(FlightServerBase):
     """A Flight server that always returns the same data.
 
     See ARROW-4796: this server implementation will segfault if Flight
@@ -114,7 +132,7 @@ class ConstantFlightServer(flight.FlightServerBase):
         return flight.RecordBatchStream(table)
 
 
-class MetadataFlightServer(flight.FlightServerBase):
+class MetadataFlightServer(FlightServerBase):
     """A Flight server that numbers incoming/outgoing data."""
 
     def do_get(self, context, ticket):
@@ -151,7 +169,7 @@ class MetadataFlightServer(flight.FlightServerBase):
             yield batch, buf
 
 
-class EchoFlightServer(flight.FlightServerBase):
+class EchoFlightServer(FlightServerBase):
     """A Flight server that returns the last data uploaded."""
 
     def __init__(self, expected_schema=None):
@@ -185,7 +203,7 @@ class EchoStreamFlightServer(EchoFlightServer):
         raise NotImplementedError
 
 
-class GetInfoFlightServer(flight.FlightServerBase):
+class GetInfoFlightServer(FlightServerBase):
     """A Flight server that tests GetFlightInfo."""
 
     def get_flight_info(self, context, descriptor):
@@ -204,7 +222,7 @@ class GetInfoFlightServer(flight.FlightServerBase):
         )
 
 
-class CheckTicketFlightServer(flight.FlightServerBase):
+class CheckTicketFlightServer(FlightServerBase):
     """A Flight server that compares the given ticket to an expected value."""
 
     def __init__(self, expected_ticket):
@@ -221,7 +239,7 @@ class CheckTicketFlightServer(flight.FlightServerBase):
         self.last_message = reader.read_all()
 
 
-class InvalidStreamFlightServer(flight.FlightServerBase):
+class InvalidStreamFlightServer(FlightServerBase):
     """A Flight server that tries to return messages with differing schemas."""
 
     schema = pa.schema([('a', pa.int32())])
@@ -237,7 +255,7 @@ class InvalidStreamFlightServer(flight.FlightServerBase):
         return flight.GeneratorStream(self.schema, [table1, table2])
 
 
-class SlowFlightServer(flight.FlightServerBase):
+class SlowFlightServer(FlightServerBase):
     """A Flight server that delays its responses to test timeouts."""
 
     def do_get(self, context, ticket):
@@ -258,11 +276,11 @@ class SlowFlightServer(flight.FlightServerBase):
         yield pa.Table.from_arrays(data1, names=['a'])
 
 
-class HttpBasicServerAuthHandler(flight.ServerAuthHandler):
+class HttpBasicServerAuthHandler(ServerAuthHandler):
     """An example implementation of HTTP basic authentication."""
 
     def __init__(self, creds):
-        super().__init__()
+        super(HttpBasicServerAuthHandler, self).__init__()
         self.creds = creds
 
     def authenticate(self, outgoing, incoming):
@@ -280,11 +298,11 @@ class HttpBasicServerAuthHandler(flight.ServerAuthHandler):
         return username
 
 
-class HttpBasicClientAuthHandler(flight.ClientAuthHandler):
+class HttpBasicClientAuthHandler(ClientAuthHandler):
     """An example implementation of HTTP basic authentication."""
 
     def __init__(self, username, password):
-        super().__init__()
+        super(HttpBasicClientAuthHandler, self).__init__()
         self.username = tobytes(username)
         self.password = tobytes(password)
 
@@ -295,11 +313,11 @@ class HttpBasicClientAuthHandler(flight.ClientAuthHandler):
         return base64.b64encode(self.username + b':' + self.password)
 
 
-class TokenServerAuthHandler(flight.ServerAuthHandler):
+class TokenServerAuthHandler(ServerAuthHandler):
     """An example implementation of authentication via handshake."""
 
     def __init__(self, creds):
-        super().__init__()
+        super(TokenServerAuthHandler, self).__init__()
         self.creds = creds
 
     def authenticate(self, outgoing, incoming):
@@ -317,11 +335,11 @@ class TokenServerAuthHandler(flight.ServerAuthHandler):
         return token[7:]
 
 
-class TokenClientAuthHandler(flight.ClientAuthHandler):
+class TokenClientAuthHandler(ClientAuthHandler):
     """An example implementation of authentication via handshake."""
 
     def __init__(self, username, password):
-        super().__init__()
+        super(TokenClientAuthHandler, self).__init__()
         self.username = username
         self.password = password
         self.token = b''
