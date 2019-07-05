@@ -21,9 +21,153 @@ include "Tensor.fbs";
 
 namespace org.apache.arrow.flatbuf;
 
+/// ------------------------------------------------------
+/// Buffer encoding schemes.
+/// -------------------------------------------------------
+
+/// Encoding for buffers representing integer as offsets from a reference value.
+/// This encoding uses less bits then the logical type indicates.
+/// It saves space when all values in the buffer can be represented with a
+/// small bit width (e.g. if all values in an int64 column are between -128
+/// and 127, then a bit-width of 8 can be be used) offset from the
+/// reference value.
+table FrameOfReferenceIntEncoding {
+  /// The value that all values in the buffer are relative to.
+  reference_value: long = 0;
+  /// The range of integers the set may contain. Unsigned integers up to 32 bit
+  /// and signed integers up to 64 bit are supported
+  offset_type : Int;
+}
+
+/// An encoding that efficiently encodes set of integers where most values
+/// are either included or not included in the set.
+/// Integers are stored in sorted order where each integer indicates set
+/// membership according to index_indicator.
+///
+/// This is a sparse representation for validity buffers and boolean value
+/// buffers.
+enum IndexValueIndicator: short { IN_SET, NOT_IN_SET }
+table SparseIntegerSetEncoding {
+  // The encoding of the integers used in the set.
+  encoding : FrameOfReferenceIntEncoding;
+  /// Whether an indicates membership or exclusion from the set.
+  index_indicator : IndexValueIndicator;
+}
+
+
+union BufferEncodingType {
+  /// NONE indicates Dense encoding (e.g. bitmaps for validity buffers).
+  SparseIntegerSetEncoding = 1,
+  FrameOfReferenceIntEncoding = 2,
+  /// We use the following scheme for managing extensions.  We define a slot
+  /// as the location within a nested-flatbuffer hierarchy reserved for a type.
+  /// We define a type ID as an unique unsigned integer that has a 1-to-1 mapping
+  /// with a type and slot.
+  ///
+  /// We use the following slot reservations in this union:
+  /// - Slots 1-63 (inclusive) are reserved for additional concrete types (tables)
+  /// - Slots 64-250 (inclusive) are reserved for tables containing a single union
+  ///   which in turn contains concrete types.  This facilitates
+  ///   an type ID range of from 1 to ~47,748.
+  /// - Slots 251-255 are reserved for further extension.
+  ///
+  /// Type IDs 1 - 63 are reserved for official Arrow use-cases.
+  /// The remaining type IDs are available for extension.  A Type ID is
+  /// reserved by using the number of a PR you previously had merged to the
+  /// repository (where PR# >63).  Mapping from an type ID to a slot
+  /// is done by with following pseudo-code:
+  ///      if (type_id <= 63) {
+  ///         type = BufferEncodingType[type_id]
+  ///      } else {
+  ///         type = BufferEncodingType[(type_id-64)/255 + 64][(type_id-64) % 255) + 1]
+  ///      }
+
+  /// The following is an example of how an extension beyond type ID 63 is modelled.
+  /// First the following structures are defined external to this union:
+  ///
+  /// table SampleBufferEncodingExtensionType {}
+  /// union BufferEncodingExtensionType_64 { SampleBufferEncodingExtensionType = 1 }
+  /// table BufferEncodingExtensionTable_64 { type : BufferEncodingExtensionType_64;}
+  ///
+  /// Then a new entry is added to this union:
+  /// BufferEncodingExtensionTable_64 = 64
+  ///
+  /// This extension mechanism is designed so users of Arrow can prototype
+  /// extensions and contribute them back with minimal effort.
+}
+
+/// Buffer compression schemes.
+
+/// Zstandard Compression (https://en.wikipedia.org/wiki/Zstandard).
+table ZstdCompression {}
+
+
+union CompressionType {
+  // NONE indicates uncompressed
+  ZstdCompression = 1
+  /// See documentation on BufferEncodingType for slot numbering and reservation
+  /// scheme.
+}
+
+
+/// A buffer that represents values encoded in a specific manner.
+table EncodedBuffer {
+  /// Pointer to buffer in memory (the length of the buffer is the size
+  /// after all compression/encodings have been applied).
+  buffer : Buffer;
+
+  /// The size of the buffer after the buffer it is decompressed.
+  decompressed_length: long;
+
+  /// Compression applied to the buffer.  For Arrow, compression is intended
+  /// solely to reduce the size of the buffer for transport.  In general, a
+  /// buffer must decompressed before any processing can be done on it.
+  compression : CompressionType;
+
+  /// Encodings are meant to enable more efficient processing of the buffer
+  /// by representing data in manner that makes better use of CPU cycles.
+  /// In many cases encodings will also reduce the size of the buffer.
+  encoding : BufferEncodingType;
+}
+
 /// ----------------------------------------------------------------------
 /// Data structures for describing a table row batch (a collection of
 /// equal-length Arrow arrays)
+
+/// -------------------------------
+/// Array Encodings
+/// -------------------------------
+
+/// Value and offset buffers are packed (null values have no space allocated to them).
+/// The validity buffer always uses SparseIntegerSetEncoding.  This is useful when
+/// nulls appears uniformly randomly at a high rate in the data (e.g. 50% nulls
+/// where nulls every other value is null).
+table PackedSparseEncoding {}
+
+/// An extra buffer is added preceding all the other buffers in the depth-first
+/// traversal of the array.  The buffer holds a list of boolean values (i.e
+/// bitmask) where each true/set value indicates the end of a run of values at
+/// the given index.
+/// Therefore the list of values has a logical length equal to the array length
+/// and the last index is always set.
+/// The prepended buffer will always use SparseIntegerSetEncoding to ensure
+/// sublinear access to data elements is possible.
+///
+/// The remaining buffers model an array with a logical length corresponding to the number
+/// of runs indicated by the first buffer (also contained in metadata as number_of_runs).
+table RunEndEncoding {
+  /// The number of distinct value runs in the array.
+  number_of_runs : long;
+}
+
+union ArrayEncodingType {
+  /// NONE indicates Dense Encoding
+  PackedSparseEncoding = 1,
+  RunEndEncoding = 2
+
+  /// See documentation on BufferEncodingType for slot numbering and reservation
+  /// scheme.
+}
 
 /// Metadata about a field at some level of a nested type tree (but not
 /// its children).
@@ -40,6 +184,17 @@ struct FieldNode {
   /// to write their physical validity bitmap out as a materialized buffer,
   /// instead setting the length of the bitmap buffer to 0.
   null_count: long;
+}
+
+/// A composite of the field node with additional metadata for
+/// encoding/compression.
+table SparseFieldNode {
+  /// The field node the metadata applies to
+  node : FieldNode;
+  /// The index of the field in the depth first traversal of the schema.
+  array_id: int;
+  /// The encoding the field uses.
+  encoding: ArrayEncodingType;
 }
 
 /// A data header describing the shared memory layout of a "record" or "row"
@@ -62,10 +217,41 @@ table RecordBatch {
   buffers: [Buffer];
 }
 
+/// A data header describing the shared memory layout of a "record" or "row"
+/// batches that supports sparsity and compressoin.
+/// Some systems call this a "sparse row batch" internally and others a
+/// "sparserecord batch".
+table SparseRecordBatch {
+  /// number of records / rows. The arrays in the batch should all have this
+  /// length
+  length: long;
+
+  /// Nodes correspond to the pre-ordered flattened logical schema.  Not all
+  /// fields are necessarily present.  Specifically, "empty" fields may be
+  /// elided if they are either:
+  ///    - a top-level field in the schema,
+  ///    - a child field of a struct field
+  ///    - a child of a union-field, that is not referenced by the type buffer
+  ///    - their parent field was elided.
+  nodes: [SparseFieldNode];
+
+  /// Buffers correspond to the pre-ordered flattened buffer FieldNodeMetadata
+  /// nodes above.
+  ///
+  /// The number of buffers appended to this list depends on the schema and
+  /// encoding.
+  ///
+  /// For example, most primitive dense arrays will have 2 buffers, 1 for the
+  /// validity bitmap and 1 for the values. For struct arrays, there will only
+  /// be a single buffer for the validity (nulls) bitmap
+  buffers: [EncodedBuffer];
+}
+
+
 /// For sending dictionary encoding information. Any Field can be
 /// dictionary-encoded, but in this case none of its children may be
 /// dictionary-encoded.
-/// There is one vector / column per dictionary, but that vector / column
+/// There is one array / column per dictionary, but that array / column
 /// may be spread across multiple dictionary batches by using the isDelta
 /// flag
 
@@ -79,6 +265,34 @@ table DictionaryBatch {
   isDelta: bool = false;
 }
 
+table Xxhash64 {
+}
+
+table ExtensionDigest {
+  configuration : [KeyValue];
+}
+
+// Types of digests accepted.
+union DigestType  {
+  Xxhash64 = 1
+  /// See documentation on BufferEncodingType for slot numbering and reservation
+  /// scheme.
+}
+
+/// Contains a digest of the immediately preceding message in the stream.
+/// The main use-case for digest is for interchange formats where there
+/// is no external means of ensuring data fidelity (e.g. a file streamed
+/// to a remote storage service).
+///
+/// Digest messages are optional.  The producer for a stream may decide
+/// to include them or not.
+table Digest {
+  digest_type : DigestType;
+
+  // Digest of preceding record batch.
+  digest : [byte];
+}
+
 /// ----------------------------------------------------------------------
 /// The root Message type
 
@@ -89,7 +303,8 @@ table DictionaryBatch {
 /// which may include experimental metadata types. For maximum compatibility,
 /// it is best to send data using RecordBatch
 union MessageHeader {
-  Schema, DictionaryBatch, RecordBatch, Tensor, SparseTensor
+  Schema, DictionaryBatch, RecordBatch, Tensor, SparseTensor, Digest,
+  SparseRecordBatch
 }
 
 table Message {
