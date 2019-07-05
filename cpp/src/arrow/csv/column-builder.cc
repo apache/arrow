@@ -75,8 +75,8 @@ class TypedColumnBuilder : public ColumnBuilder {
       return st;
     } else {
       std::stringstream ss;
-      ss << "In column #" << col_index_ << ": " << st.message();
-      return Status(st.code(), ss.str(), st.detail());
+      ss << "In CSV column #" << col_index_ << ": " << st.message();
+      return st.WithMessage(ss.str());
     }
   }
 
