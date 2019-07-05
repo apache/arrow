@@ -27,10 +27,10 @@ import json
 from collections import defaultdict
 
 client = HTTPSConnection('api.github.com')
-client.request('GET', 
-    '/repos/apache/arrow/pulls?state=open&per_page=100', 
-    headers={'User-Agent': 'ApacheArrowRebaser'}) 
-response = client.getresponse();
+client.request('GET',
+               '/repos/apache/arrow/pulls?state=open&per_page=100',
+               headers={'User-Agent': 'ApacheArrowRebaser'})
+response = client.getresponse()
 json_content = response.read()
 if response.status != 200:
     error_msg = 'Github connection error:{}'.format(json_content)
@@ -38,7 +38,7 @@ if response.status != 200:
 
 parsed_content = json.loads(json_content)
 if len(parsed_content) >= 100:
-   raise NotImplementedError("The script only supports <= 100 PRs")
+    raise NotImplementedError("The script only supports <= 100 PRs")
 
 repos = defaultdict(list)
 for pr in parsed_content:
@@ -51,11 +51,11 @@ for repo, labels in repos.items():
     print('git remote add upstream https://github.com/apache/arrow.git')
     print('git fetch --all --prune --tags --force')
     for label in labels:
-      # Labels are in the form 'user:branch'
-      print('git checkout {}'.format(label[label.find(':')+1:]))
-      print('(git rebase upstream/master && git push --force) || ' +
-	    '(echo "Rebase failed for {} && '.format(label) + 
-            'git rebase --abort)')
-      print('git push --force')
+        # Labels are in the form 'user:branch'
+        print('git checkout {}'.format(label[label.find(':')+1:]))
+        print('(git rebase upstream/master && git push --force) || ' +
+              '(echo "Rebase failed for {} && '.format(label) +
+              'git rebase --abort)')
+        print('git push --force')
     print('cd ..')
     print('rm -rf arrow')
