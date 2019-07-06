@@ -376,6 +376,7 @@ Status SendDeleteReply(const std::shared_ptr<ClientConnection>& client,
       fbb.CreateVector(
           arrow::util::MakeNonNull(reinterpret_cast<const int32_t*>(errors.data())),
           object_ids.size()));
+  fbb.Finish(message);
   return PlasmaSend(client, MessageType::PlasmaDeleteReply, &fbb);
 }
 
@@ -465,6 +466,7 @@ Status SendListReply(const std::shared_ptr<ClientConnection>& client,
   auto message = fb::CreatePlasmaListReply(
       fbb, fbb.CreateVector(arrow::util::MakeNonNull(object_infos.data()),
                             object_infos.size()));
+  fbb.Finish(message);
   return PlasmaSend(client, MessageType::PlasmaListReply, &fbb);
 }
 
