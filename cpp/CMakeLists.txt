@@ -18,7 +18,7 @@
 cmake_minimum_required(VERSION 3.2)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
-set(ARROW_VERSION "0.14.0-SNAPSHOT")
+set(ARROW_VERSION "1.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -39,17 +39,20 @@ if(ARROW_VERSION_MAJOR STREQUAL ""
 endif()
 
 # The SO version is also the ABI version
-if(arrow_VERSION_MAJOR STREQUAL "0")
+if(ARROW_VERSION_MAJOR STREQUAL "0")
   # Arrow 0.x.y => SO version is "x", full SO version is "x.y.0"
   set(ARROW_SO_VERSION "${ARROW_VERSION_MINOR}")
   set(ARROW_FULL_SO_VERSION "${ARROW_SO_VERSION}.${ARROW_VERSION_PATCH}.0")
 else()
-  message(FATAL_ERROR "Need to implement SO version generation for Arrow 1.0+")
+  # Arrow 1.x.y => SO version is "10x", full SO version is "10x.y.0"
+  math(EXPR ARROW_SO_VERSION "${ARROW_VERSION_MAJOR} * 100 + ${ARROW_VERSION_MINOR}")
+  set(ARROW_FULL_SO_VERSION "${ARROW_SO_VERSION}.${ARROW_VERSION_PATCH}.0")
 endif()
 
 message(STATUS "Arrow version: "
                "${ARROW_VERSION_MAJOR}.${ARROW_VERSION_MINOR}.${ARROW_VERSION_PATCH} "
                "(full: '${ARROW_VERSION}')")
+message(STATUS "Arrow SO version: ${ARROW_SO_VERSION} (full: ${ARROW_FULL_SO_VERSION})")
 
 set(ARROW_SOURCE_DIR ${PROJECT_SOURCE_DIR})
 set(ARROW_BINARY_DIR ${PROJECT_BINARY_DIR})

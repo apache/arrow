@@ -25,6 +25,7 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace util {

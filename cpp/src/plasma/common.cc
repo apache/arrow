@@ -22,6 +22,8 @@
 
 #include "arrow/util/ubsan.h"
 
+#include "arrow/util/ubsan.h"
+
 namespace plasma {
 
 namespace {

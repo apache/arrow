@@ -42,6 +42,8 @@ namespace arrow {
 namespace flight {
 namespace internal {
 
+const char* kGrpcAuthHeader = "auth-token-bin";
+
 Status FromGrpcStatus(const grpc::Status& grpc_status) {
   if (grpc_status.ok()) {
     return Status::OK();

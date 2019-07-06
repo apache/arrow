@@ -18,7 +18,7 @@
 _realname=arrow
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=0.13.0.9000
+pkgver=0.14.0.9000
 pkgrel=8000
 pkgdesc="Apache Arrow is a cross-language development platform for in-memory data (mingw-w64)"
 arch=("any")
@@ -46,6 +46,8 @@ cmake_build_type=release
 cpp_build_dir=build-${CARCH}-cpp
 
 pkgver() {
+  # The only purpose of this here is to cause the job to error if the
+  # version in pkgver is different from what is in r/DESCRIPTION
   cd "$source_dir"
   grep Version r/DESCRIPTION | cut -d " " -f 2
 }

@@ -399,7 +399,7 @@ tasks:
       - libarrow14_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
-      - libgandiva-glib-doc_{no_rc_version}-1_all.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_amd64.deb
       - libgandiva-glib14-dbgsym_{no_rc_version}-1_amd64.deb
       - libgandiva-glib14_{no_rc_version}-1_amd64.deb
       - libgandiva14-dbgsym_{no_rc_version}-1_amd64.deb
@@ -413,7 +413,7 @@ tasks:
       - libparquet14_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
-      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib-doc_{no_rc_version}-1_amd64.deb
       - libplasma-glib14-dbgsym_{no_rc_version}-1_amd64.deb
       - libplasma-glib14_{no_rc_version}-1_amd64.deb
       - libplasma14-dbgsym_{no_rc_version}-1_amd64.deb
@@ -507,7 +507,7 @@ tasks:
       - libarrow14_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
-      - libgandiva-glib-doc_{no_rc_version}-1_all.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_amd64.deb
       - libgandiva-glib14-dbgsym_{no_rc_version}-1_amd64.deb
       - libgandiva-glib14_{no_rc_version}-1_amd64.deb
       - libgandiva14-dbgsym_{no_rc_version}-1_amd64.deb
@@ -521,7 +521,7 @@ tasks:
       - libparquet14_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
-      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib-doc_{no_rc_version}-1_amd64.deb
       - libplasma-glib14-dbgsym_{no_rc_version}-1_amd64.deb
       - libplasma-glib14_{no_rc_version}-1_amd64.deb
       - libplasma14-dbgsym_{no_rc_version}-1_amd64.deb
@@ -620,7 +620,7 @@ tasks:
       - libarrow14_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
-      - libgandiva-glib-doc_{no_rc_version}-1_all.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_amd64.deb
       - libgandiva-glib14_{no_rc_version}-1_amd64.deb
       - libgandiva14_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
@@ -630,7 +630,7 @@ tasks:
       - libparquet14_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
-      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib-doc_{no_rc_version}-1_amd64.deb
       - libplasma-glib14_{no_rc_version}-1_amd64.deb
       - libplasma14_{no_rc_version}-1_amd64.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
@@ -675,7 +675,7 @@ tasks:
       - libarrow14_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
-      - libgandiva-glib-doc_{no_rc_version}-1_all.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_amd64.deb
       - libgandiva-glib14_{no_rc_version}-1_amd64.deb
       - libgandiva14_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
@@ -685,7 +685,7 @@ tasks:
       - libparquet14_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
-      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib-doc_{no_rc_version}-1_amd64.deb
       - libplasma-glib14_{no_rc_version}-1_amd64.deb
       - libplasma14_{no_rc_version}-1_amd64.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
@@ -730,7 +730,7 @@ tasks:
       - libarrow14_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
-      - libgandiva-glib-doc_{no_rc_version}-1_all.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_amd64.deb
       - libgandiva-glib14_{no_rc_version}-1_amd64.deb
       - libgandiva14_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
@@ -740,7 +740,7 @@ tasks:
       - libparquet14_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
-      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib-doc_{no_rc_version}-1_amd64.deb
       - libplasma-glib14_{no_rc_version}-1_amd64.deb
       - libplasma14_{no_rc_version}-1_amd64.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb

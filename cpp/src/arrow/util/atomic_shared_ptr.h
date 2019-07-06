@@ -14,15 +14,44 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-#include "arrow/util/ubsan.h"
+
+#pragma once
+
+#include <atomic>
+#include <memory>
+#include <utility>
 
 namespace arrow {
-namespace util {
-
 namespace internal {
 
-uint8_t non_null_filler = 0xFF;
+#if !defined(__clang__) && defined(__GNUC__) && __GNUC__ < 5
+
+// atomic shared_ptr operations only appeared in gcc 5,
+// emulate them with unsafe ops on gcc 4.x.
+
+template <class T>
+inline std::shared_ptr<T> atomic_load(const std::shared_ptr<T>* p) {
+  return *p;
+}
+
+template <class T>
+inline void atomic_store(std::shared_ptr<T>* p, std::shared_ptr<T> r) {
+  *p = r;
+}
+
+#else
+
+template <class T>
+inline std::shared_ptr<T> atomic_load(const std::shared_ptr<T>* p) {
+  return std::atomic_load(p);
+}
+
+template <class T>
+inline void atomic_store(std::shared_ptr<T>* p, std::shared_ptr<T> r) {
+  std::atomic_store(p, std::move(r));
+}
+
+#endif
 
 }  // namespace internal
-}  // namespace util
 }  // namespace arrow

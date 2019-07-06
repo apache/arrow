@@ -125,7 +125,7 @@ if [ "${have_python}" = "yes" ]; then
 fi
 
 apt install -y -V libplasma-glib-dev=${deb_version}
-# apt install -y -V libplasma-glib-doc=${deb_version}
+apt install -y -V libplasma-glib-doc=${deb_version}
 apt install -y -V plasma-store-server=${deb_version}
 
 if [ "${have_gandiva}" = "yes" ]; then

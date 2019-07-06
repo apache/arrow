@@ -29,7 +29,7 @@ Add this to your Cargo.toml:
 
 ```toml
 [dependencies]
-datafusion = "0.14.0-SNAPSHOT"
+datafusion = "1.0.0-SNAPSHOT"
 ```
 
 #### Use as a bin

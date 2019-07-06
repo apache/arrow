@@ -20,35 +20,14 @@
 set -e
 
 archive_name=$1
-dist_c_glib_tar_gz=$2
+c_glib_including_configure_tar_gz=$2
 
-tar xf /host/${archive_name}.tar
+tar xf /arrow/${archive_name}.tar
 
-# build Apache Arrow C++ before building Apache Arrow GLib because
-# Apache Arrow GLib requires Apache Arrow C++.
-mkdir -p ${archive_name}/cpp/build
-cpp_install_dir=${PWD}/${archive_name}/cpp/install
-cd ${archive_name}/cpp/build
-cmake .. \
-  -DCMAKE_INSTALL_PREFIX=${cpp_install_dir} \
-  -DCMAKE_INSTALL_LIBDIR=lib \
-  -DARROW_PLASMA=yes \
-  -DARROW_GANDIVA=yes \
-  -DARROW_PARQUET=yes
-make -j8
-make install
-cd -
-
-# build source archive for Apache Arrow GLib by "make dist".
+# Run autogen.sh to create c_glib/ source archive containing the configure script
 cd ${archive_name}/c_glib
 ./autogen.sh
-./configure \
-  PKG_CONFIG_PATH=${cpp_install_dir}/lib/pkgconfig \
-  --enable-gtk-doc
-LD_LIBRARY_PATH=${cpp_install_dir}/lib make -j8
-make dist
-tar xzf *.tar.gz
-rm *.tar.gz
+rm -rf autom4te.cache
 cd -
-mv ${archive_name}/c_glib/apache-arrow-glib-* c_glib/
-tar czf /host/${dist_c_glib_tar_gz} c_glib
+mv ${archive_name}/c_glib/ c_glib/
+tar czf /arrow/${c_glib_including_configure_tar_gz} c_glib
