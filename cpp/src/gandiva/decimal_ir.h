@@ -37,6 +37,10 @@ class DecimalIR : public FunctionIRBuilder {
 
   void EnableTraces() { enable_ir_traces_ = true; }
 
+  llvm::Value* CallDecimalFunction(const std::string& function_name,
+                                   llvm::Type* return_type,
+                                   const std::vector<llvm::Value*>& args);
+
  private:
   /// The intrinsic fn for divide with small divisors is about 10x slower, so not
   /// using these.
