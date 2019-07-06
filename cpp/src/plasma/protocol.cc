@@ -602,6 +602,7 @@ Status SendGetReply(const std::shared_ptr<ClientConnection>& client,
       fbb.CreateVector(arrow::util::MakeNonNull(store_fds.data()), store_fds.size()),
       fbb.CreateVector(arrow::util::MakeNonNull(mmap_sizes.data()), mmap_sizes.size()),
       fbb.CreateVector(arrow::util::MakeNonNull(handles.data()), handles.size()));
+  fbb.Finish(message);
   return PlasmaSend(client, MessageType::PlasmaGetReply, &fbb);
 }
 
