@@ -225,7 +225,6 @@ TEST_F(TestPlasmaSerialization, ReleaseReply) {
 }
 
 TEST_F(TestPlasmaSerialization, DeleteRequest) {
-  int fd = CreateTemporaryFile();
   ObjectID object_id1 = random_object_id();
   ASSERT_OK(SendDeleteRequest(client_, std::vector<ObjectID>{object_id1}));
   std::vector<uint8_t> data;
