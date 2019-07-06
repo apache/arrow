@@ -35,7 +35,7 @@ git:
   depth: 250
 
 before_install:
-  - ci/travis/before-install.sh
+  - source ci/travis/before-install.sh
 
 matrix:
   fast_finish: true
@@ -341,10 +341,10 @@ matrix:
     - Rscript ../ci/travis_upload_r_coverage.R
 
 after_failure:
-  - ci/travis/after-failure.sh
+  - source ci/travis/after-failure.sh
 
 after_script:
-  - ci/travis/after-script.sh
+  - source ci/travis/after-script.sh
 
 env:
   global:
