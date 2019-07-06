@@ -256,13 +256,13 @@ TEST(TestTime, TimeStampAdd) {
       StringToTimestamp("1998-11-01 10:20:34"));
 
   // date_add
-  EXPECT_EQ(date_add_int32_timestamp(7, StringToTimestamp("2000-05-01 00:00:00")),
+  EXPECT_EQ(date_add_timestamp_int32(StringToTimestamp("2000-05-01 00:00:00"), 7),
             StringToTimestamp("2000-05-08 00:00:00"));
 
   EXPECT_EQ(add_int32_timestamp(4, StringToTimestamp("2000-05-01 00:00:00")),
             StringToTimestamp("2000-05-05 00:00:00"));
 
-  EXPECT_EQ(add_int64_timestamp(7, StringToTimestamp("2000-05-01 00:00:00")),
+  EXPECT_EQ(add_timestamp_int64(StringToTimestamp("2000-05-01 00:00:00"), 7),
             StringToTimestamp("2000-05-08 00:00:00"));
 
   EXPECT_EQ(date_add_int64_timestamp(4, StringToTimestamp("2000-05-01 00:00:00")),
@@ -272,19 +272,19 @@ TEST(TestTime, TimeStampAdd) {
             StringToTimestamp("2000-03-02 00:00:00"));
 
   // date_sub
-  EXPECT_EQ(date_sub_int32_timestamp(7, StringToTimestamp("2000-05-01 00:00:00")),
+  EXPECT_EQ(date_sub_timestamp_int32(StringToTimestamp("2000-05-01 00:00:00"), 7),
             StringToTimestamp("2000-04-24 00:00:00"));
 
-  EXPECT_EQ(subtract_int32_timestamp(-7, StringToTimestamp("2000-05-01 00:00:00")),
+  EXPECT_EQ(subtract_timestamp_int32(StringToTimestamp("2000-05-01 00:00:00"), -7),
             StringToTimestamp("2000-05-08 00:00:00"));
 
-  EXPECT_EQ(date_diff_int64_timestamp(365, StringToTimestamp("2000-05-01 00:00:00")),
+  EXPECT_EQ(date_diff_timestamp_int64(StringToTimestamp("2000-05-01 00:00:00"), 365),
             StringToTimestamp("1999-05-02 00:00:00"));
 
-  EXPECT_EQ(date_diff_int64_timestamp(1, StringToTimestamp("2000-03-01 00:00:00")),
+  EXPECT_EQ(date_diff_timestamp_int64(StringToTimestamp("2000-03-01 00:00:00"), 1),
             StringToTimestamp("2000-02-29 00:00:00"));
 
-  EXPECT_EQ(date_diff_int64_timestamp(365, StringToTimestamp("2000-02-29 00:00:00")),
+  EXPECT_EQ(date_diff_timestamp_int64(StringToTimestamp("2000-02-29 00:00:00"), 365),
             StringToTimestamp("1999-03-01 00:00:00"));
 }
 
