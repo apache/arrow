@@ -993,6 +993,7 @@ TEST_F(TestDecimal, TestCastDecimalVarCharInvalidInput) {
   // Evaluate expression
   arrow::ArrayVector outputs_1;
   status = projector->Evaluate(*in_batch_1, pool_, &outputs_1);
+  EXPECT_FALSE(status.ok()) << status.message();
   EXPECT_TRUE(status.message().find("not a valid decimal number") != std::string::npos);
 }
 
