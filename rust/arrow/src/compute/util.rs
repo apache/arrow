@@ -61,30 +61,30 @@ pub(super) fn take_value_indices_from_list(
         .map(|i| list.value_offset(i) as u32)
         .collect();
     let mut new_offsets = Vec::with_capacity(indices.len());
+    let mut values = Vec::new();
     let mut current_offset = 0;
     // add first offset
     new_offsets.push(0);
-    let values: Vec<Option<u32>> = (0..indices.len())
-        .flat_map(|i: usize| {
-            if indices.is_valid(i) {
-                let ix = indices.value(i) as usize;
-                let start = offsets[ix];
-                let end = offsets[ix + 1];
-                current_offset += (end - start) as i32;
-                new_offsets.push(current_offset);
-                // type annotation needed to guide compiler a bit
-                (start..end).map(|v| Some(v)).collect::<Vec<Option<u32>>>()
-            } else {
-                new_offsets.push(current_offset);
-                vec![None]
+    // compute the value indices, and set offsets accordingly
+    for i in 0..indices.len() {
+        if indices.is_valid(i) {
+            let ix = indices.value(i) as usize;
+            let start = offsets[ix];
+            let end = offsets[ix + 1];
+            current_offset += (end - start) as i32;
+            new_offsets.push(current_offset);
+            // type annotation needed to guide compiler a bit
+            let mut offsets: Vec<Option<u32>> =
+                (start..end).map(|v| Some(v)).collect::<Vec<Option<u32>>>();
+            if !offsets.is_empty() {
+                // if offsets are empty, there are no values to append, and thus we create a null slot
+                values.append(&mut offsets);
             }
-        })
-        .map(|x| {
-            dbg!(&x);
-            x
-        })
-        .collect();
-    dbg!(&values);
+        } else {
+            new_offsets.push(current_offset);
+            // values.push(None);
+        }
+    }
     (UInt32Array::from(values), new_offsets)
 }
 
@@ -94,7 +94,7 @@ mod tests {
 
     use std::sync::Arc;
 
-    use crate::array_data::ArrayData;
+    use crate::array::ArrayData;
     use crate::datatypes::{DataType, ToByteSlice};
 
     #[test]

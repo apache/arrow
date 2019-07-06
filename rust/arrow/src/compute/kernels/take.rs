@@ -20,12 +20,13 @@
 use std::sync::Arc;
 
 use crate::array::*;
-use crate::array_data::ArrayData;
-use crate::buffer::Buffer;
-use crate::builder::*;
+use crate::buffer::{Buffer, MutableBuffer};
 use crate::compute::util::take_value_indices_from_list;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
+use crate::util::bit_util;
+
+use TimeUnit::*;
 
 /// Take elements from `ArrayRef` by supplying an array of indices.
 ///
@@ -37,8 +38,6 @@ pub fn take(
     indices: &UInt32Array,
     options: Option<TakeOptions>,
 ) -> Result<ArrayRef> {
-    use TimeUnit::*;
-
     let options = options.clone().unwrap_or(Default::default());
     if options.check_bounds {
         let len = values.len();
@@ -54,40 +53,40 @@ pub fn take(
         }
     }
     match values.data_type() {
-        DataType::Boolean => take_bool(values, indices),
-        DataType::Int8 => take_numeric::<Int8Type>(values, indices),
-        DataType::Int16 => take_numeric::<Int16Type>(values, indices),
-        DataType::Int32 => take_numeric::<Int32Type>(values, indices),
-        DataType::Int64 => take_numeric::<Int64Type>(values, indices),
-        DataType::UInt8 => take_numeric::<UInt8Type>(values, indices),
-        DataType::UInt16 => take_numeric::<UInt16Type>(values, indices),
-        DataType::UInt32 => take_numeric::<UInt32Type>(values, indices),
-        DataType::UInt64 => take_numeric::<UInt64Type>(values, indices),
-        DataType::Float32 => take_numeric::<Float32Type>(values, indices),
-        DataType::Float64 => take_numeric::<Float64Type>(values, indices),
-        DataType::Date32(_) => take_numeric::<Date32Type>(values, indices),
-        DataType::Date64(_) => take_numeric::<Date64Type>(values, indices),
-        DataType::Time32(Second) => take_numeric::<Time32SecondType>(values, indices),
+        DataType::Boolean => take_primitive::<BooleanType>(values, indices),
+        DataType::Int8 => take_primitive::<Int8Type>(values, indices),
+        DataType::Int16 => take_primitive::<Int16Type>(values, indices),
+        DataType::Int32 => take_primitive::<Int32Type>(values, indices),
+        DataType::Int64 => take_primitive::<Int64Type>(values, indices),
+        DataType::UInt8 => take_primitive::<UInt8Type>(values, indices),
+        DataType::UInt16 => take_primitive::<UInt16Type>(values, indices),
+        DataType::UInt32 => take_primitive::<UInt32Type>(values, indices),
+        DataType::UInt64 => take_primitive::<UInt64Type>(values, indices),
+        DataType::Float32 => take_primitive::<Float32Type>(values, indices),
+        DataType::Float64 => take_primitive::<Float64Type>(values, indices),
+        DataType::Date32(_) => take_primitive::<Date32Type>(values, indices),
+        DataType::Date64(_) => take_primitive::<Date64Type>(values, indices),
+        DataType::Time32(Second) => take_primitive::<Time32SecondType>(values, indices),
         DataType::Time32(Millisecond) => {
-            take_numeric::<Time32MillisecondType>(values, indices)
+            take_primitive::<Time32MillisecondType>(values, indices)
         }
         DataType::Time64(Microsecond) => {
-            take_numeric::<Time64MicrosecondType>(values, indices)
+            take_primitive::<Time64MicrosecondType>(values, indices)
         }
         DataType::Time64(Nanosecond) => {
-            take_numeric::<Time64NanosecondType>(values, indices)
+            take_primitive::<Time64NanosecondType>(values, indices)
         }
         DataType::Timestamp(Second) => {
-            take_numeric::<TimestampSecondType>(values, indices)
+            take_primitive::<TimestampSecondType>(values, indices)
         }
         DataType::Timestamp(Millisecond) => {
-            take_numeric::<TimestampMillisecondType>(values, indices)
+            take_primitive::<TimestampMillisecondType>(values, indices)
         }
         DataType::Timestamp(Microsecond) => {
-            take_numeric::<TimestampMicrosecondType>(values, indices)
+            take_primitive::<TimestampMicrosecondType>(values, indices)
         }
         DataType::Timestamp(Nanosecond) => {
-            take_numeric::<TimestampNanosecondType>(values, indices)
+            take_primitive::<TimestampNanosecondType>(values, indices)
         }
         DataType::Utf8 => take_binary(values, indices),
         DataType::List(_) => take_list(values, indices),
@@ -111,7 +110,9 @@ pub fn take(
 /// Options that define how `take` should behave
 #[derive(Clone)]
 pub struct TakeOptions {
-    /// perform bounds check before taking
+    /// Perform bounds check before taking indices from values.
+    /// If enabled, an `ArrowError` is returned if the indices are out of bounds.
+    /// If not enabled, and indices exceed bounds, the kernel will panic.
     pub check_bounds: bool,
 }
 
@@ -123,14 +124,13 @@ impl Default for TakeOptions {
     }
 }
 
-/// `take` implementation for numeric arrays
-fn take_numeric<T>(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef>
+/// `take` implementation for primitive arrays
+fn take_primitive<T>(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef>
 where
-    T: ArrowNumericType,
+    T: ArrowPrimitiveType,
 {
     let mut builder = PrimitiveBuilder::<T>::new(indices.len());
     let a = values.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-    dbg!(&a);
     for i in 0..indices.len() {
         if indices.is_null(i) {
             builder.append_null()?;
@@ -158,25 +158,6 @@ fn take_binary(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
             if a.is_null(ix) {
                 builder.append(false)?;
             } else {
-                builder.append_values(a.value(ix))?;
-            }
-        }
-    }
-    Ok(Arc::new(builder.finish()) as ArrayRef)
-}
-
-/// `take` implementation for boolean arrays
-fn take_bool(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
-    let mut builder = BooleanBuilder::new(indices.len());
-    let a = values.as_any().downcast_ref::<BooleanArray>().unwrap();
-    for i in 0..indices.len() {
-        if indices.is_null(i) {
-            builder.append_null()?;
-        } else {
-            let ix = indices.value(i) as usize;
-            if a.is_null(ix) {
-                builder.append_null()?;
-            } else {
                 builder.append_value(a.value(ix))?;
             }
         }
@@ -190,22 +171,39 @@ fn take_bool(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
 /// applying `take` on the inner array, then reconstructing a list array
 /// with the indexed offsets
 fn take_list(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
+    // TODO Some optimizations can be done here such as if it is taking the whole list or a contiguous sublist
     let list: &ListArray = values.as_any().downcast_ref::<ListArray>().unwrap();
     let (list_indices, offsets) = take_value_indices_from_list(values, indices);
-    dbg!((&list_indices, &offsets));
     let taken = take(&list.values(), &list_indices, None)?;
+    // determine null count and null buffer, because they are now a function of `values` and `indices`
+    let mut null_count = 0;
+    let num_bytes = bit_util::ceil(indices.len(), 8);
+    let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+    {
+        let null_slice = null_buf.data_mut();
+        &offsets[..]
+            .windows(2)
+            .enumerate()
+            .for_each(|(i, window): (usize, &[i32])| {
+                if window[0] != window[1] {
+                    // offsets are unequal, slot is not null
+                    bit_util::set_bit(null_slice, i);
+                } else {
+                    null_count += 1;
+                }
+            });
+    }
     let value_offsets = Buffer::from(offsets[..].to_byte_slice());
     // create a new list with
-    let list_data = ArrayData::new(
-        list.data_type().clone(),
-        indices.len(),
-        Some(indices.null_count()),
-        taken.data().null_bitmap().clone().map(|bitmap| bitmap.bits),
-        0,
-        vec![value_offsets],
-        vec![taken.data()],
-    );
-    let list_array = Arc::new(ListArray::from(Arc::new(list_data))) as ArrayRef;
+    let list_data = ArrayDataBuilder::new(list.data_type().clone())
+        .len(indices.len())
+        .null_count(null_count)
+        .null_bit_buffer(null_buf.freeze())
+        .offset(0)
+        .add_child_data(taken.data())
+        .add_buffer(value_offsets)
+        .build();
+    let list_array = Arc::new(ListArray::from(list_data)) as ArrayRef;
     Ok(list_array)
 }
 
@@ -213,17 +211,20 @@ fn take_list(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
 mod tests {
     use super::*;
 
-    fn test_take_numeric<'a, T>(
+    fn test_take_primitive_arrays<'a, T>(
         data: Vec<Option<T::Native>>,
         index: &UInt32Array,
         options: Option<TakeOptions>,
-    ) -> ArrayRef
-    where
-        T: ArrowNumericType,
-        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+        expected_data: Vec<Option<T::Native>>,
+    ) where
+        T: ArrowPrimitiveType,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>> + ArrayEqual,
     {
-        let a = PrimitiveArray::<T>::from(data);
-        take(&(Arc::new(a) as ArrayRef), index, options).unwrap()
+        let output = PrimitiveArray::<T>::from(data);
+        let expected = PrimitiveArray::<T>::from(expected_data);
+        let output = take(&(Arc::new(output) as ArrayRef), index, options).unwrap();
+        let output = output.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
+        assert!(output.equals(&expected))
     }
 
     // create a simple struct for testing purposes
@@ -248,103 +249,61 @@ mod tests {
         let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(2)]);
 
         // uint8
-        let a = test_take_numeric::<UInt8Type>(
+        test_take_primitive_arrays::<UInt8Type>(
             vec![Some(0), None, Some(2), Some(3), None],
             &index,
             None,
+            vec![Some(3), None, None, Some(3), Some(2)],
         );
-        assert_eq!(index.len(), a.len());
-        let a = a.as_any().downcast_ref::<UInt8Array>().unwrap();
-        assert_eq!(2, a.null_count());
-        assert_eq!(3, a.value(0));
-        assert_eq!(true, a.is_null(1));
-        assert_eq!(true, a.is_null(2));
-        assert_eq!(3, a.value(3));
-        assert_eq!(2, a.value(4));
 
         // uint16
-        let a = test_take_numeric::<UInt16Type>(
+        test_take_primitive_arrays::<UInt16Type>(
             vec![Some(0), None, Some(2), Some(3), None],
             &index,
             None,
+            vec![Some(3), None, None, Some(3), Some(2)],
         );
-        assert_eq!(index.len(), a.len());
-        let a = a.as_any().downcast_ref::<UInt16Array>().unwrap();
-        assert_eq!(2, a.null_count());
-        assert_eq!(3, a.value(0));
-        assert_eq!(true, a.is_null(1));
-        assert_eq!(true, a.is_null(2));
-        assert_eq!(3, a.value(3));
-        assert_eq!(2, a.value(4));
 
         // uint32
-        let a = test_take_numeric::<UInt32Type>(
+        test_take_primitive_arrays::<UInt32Type>(
             vec![Some(0), None, Some(2), Some(3), None],
             &index,
             None,
+            vec![Some(3), None, None, Some(3), Some(2)],
         );
-        assert_eq!(index.len(), a.len());
-        let a = a.as_any().downcast_ref::<UInt32Array>().unwrap();
-        assert_eq!(2, a.null_count());
-        assert_eq!(3, a.value(0));
-        assert_eq!(true, a.is_null(1));
-        assert_eq!(true, a.is_null(2));
-        assert_eq!(3, a.value(3));
-        assert_eq!(2, a.value(4));
 
         // int64
-        let a = test_take_numeric::<Int64Type>(
+        test_take_primitive_arrays::<Int64Type>(
             vec![Some(0), None, Some(2), Some(-15), None],
             &index,
             None,
+            vec![Some(-15), None, None, Some(-15), Some(2)],
         );
-        assert_eq!(index.len(), a.len());
-        let a = a.as_any().downcast_ref::<Int64Array>().unwrap();
-        assert_eq!(2, a.null_count());
-        assert_eq!(-15, a.value(0));
-        assert_eq!(true, a.is_null(1));
-        assert_eq!(true, a.is_null(2));
-        assert_eq!(-15, a.value(3));
-        assert_eq!(2, a.value(4));
 
         // float32
-        let a = test_take_numeric::<Float64Type>(
+        test_take_primitive_arrays::<Float32Type>(
             vec![Some(0.0), None, Some(2.21), Some(-3.1), None],
             &index,
             None,
+            vec![Some(-3.1), None, None, Some(-3.1), Some(2.21)],
         );
-        assert_eq!(index.len(), a.len());
-        let a = a.as_any().downcast_ref::<Float64Array>().unwrap();
-        assert_eq!(2, a.null_count());
-        assert_eq!(-3.1, a.value(0));
-        assert_eq!(true, a.is_null(1));
-        assert_eq!(true, a.is_null(2));
-        assert_eq!(-3.1, a.value(3));
-        assert_eq!(2.21, a.value(4));
-    }
 
-    #[test]
-    fn test_take_bool() {
-        let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(4)]);
-        let array = BooleanArray::from(vec![
-            Some(true),
-            Some(false),
+        // float64
+        test_take_primitive_arrays::<Float64Type>(
+            vec![Some(0.0), None, Some(2.21), Some(-3.1), None],
+            &index,
             None,
-            Some(false),
-            Some(true),
+            vec![Some(-3.1), None, None, Some(-3.1), Some(2.21)],
+        );
+
+        // boolean
+        // float32
+        test_take_primitive_arrays::<BooleanType>(
+            vec![Some(false), None, Some(true), Some(false), None],
+            &index,
             None,
-        ]);
-        let array = Arc::new(array) as ArrayRef;
-        let a = take(&array, &index, None).unwrap();
-        assert_eq!(a.len(), index.len());
-        let b = BooleanArray::from(vec![
-            Some(false),
-            None,
-            Some(false),
-            Some(false),
-            Some(true),
-        ]);
-        assert_eq!(a.data(), b.data());
+            vec![Some(false), None, None, Some(false), Some(true)],
+        );
     }
 
     #[test]
@@ -388,31 +347,41 @@ mod tests {
 
         let a = take(&list_array, &index, None).unwrap();
         let a: &ListArray = a.as_any().downcast_ref::<ListArray>().unwrap();
-        assert_eq!(5, a.len());
-        let b = a.values();
-        let b = Int32Array::from(b.data());
 
-        let taken_offsets = Buffer::from(&[0, 2, 2, 5, 7, 10].to_byte_slice());
-        assert_eq!(1, b.null_count());
-        assert_eq!(11, b.len());
-        assert_eq!(2, b.value(0));
-        assert_eq!(3, b.value(1));
-        assert_eq!(true, b.is_null(2));
-        assert_eq!(-1, b.value(3));
-        assert_eq!(-2, b.value(4));
-        assert_eq!(-1, b.value(5));
-        assert_eq!(2, b.value(6));
-        assert_eq!(3, b.value(7));
-        assert_eq!(0, b.value(8));
-        assert_eq!(0, b.value(9));
-        assert_eq!(0, b.value(9));
-        // list offsets should be the same
-        assert_eq!(a.data_ref().buffers(), &[taken_offsets]);
+        // construct a value aray with expected results:
+        // [[2,3], null, [-1,-2,-1], [2,3], [0,0,0]]
+        let expected_data = Int32Array::from(vec![
+            Some(2),
+            Some(3),
+            Some(-1),
+            Some(-2),
+            Some(-1),
+            Some(2),
+            Some(3),
+            Some(0),
+            Some(0),
+            Some(0),
+        ])
+        .data();
+        // construct offsets
+        let expected_offsets = Buffer::from(&[0, 2, 2, 5, 7, 10].to_byte_slice());
+        // construct list array from the two
+        let expected_list_data = ArrayData::builder(list_data_type.clone())
+            .len(5)
+            .null_count(1)
+            // null buffer remains the same as only the indices have nulls
+            .null_bit_buffer(index.data().null_bitmap().as_ref().unwrap().bits.clone())
+            .add_buffer(expected_offsets.clone())
+            .add_child_data(expected_data.clone())
+            .build();
+        let expected_list_array = ListArray::from(expected_list_data);
+
+        assert!(a.equals(&expected_list_array));
     }
 
     #[test]
     fn test_take_list_with_value_nulls() {
-        // Construct a value array, [[0,null,0], [-1,-2,3], [null], [2,null]]
+        // Construct a value array, [[0,null,0], [-1,-2,3], [null], [5,null]]
         let value_data = Int32Array::from(vec![
             Some(0),
             None,
@@ -438,36 +407,45 @@ mod tests {
             .build();
         let list_array = Arc::new(ListArray::from(list_data)) as ArrayRef;
 
-        // index returns: [[null], null, [-1,-2,-1], [2,null], [0,null,0]]
+        // index returns: [[null], null, [-1,-2,3], [2,null], [0,null,0]]
         let index = UInt32Array::from(vec![Some(2), None, Some(1), Some(3), Some(0)]);
 
         let a = take(&list_array, &index, None).unwrap();
         let a: &ListArray = a.as_any().downcast_ref::<ListArray>().unwrap();
-        assert_eq!(5, a.len());
-        assert_eq!(1, a.null_count());
-        let b = a.values();
-        let b = Int32Array::from(b.data());
 
-        let taken_offsets = Buffer::from(&[0, 1, 1, 4, 6, 9].to_byte_slice());
-        assert_eq!(4, b.null_count());
-        assert_eq!(10, b.len());
-        assert_eq!(true, b.is_null(0));
-        assert_eq!(true, b.is_null(1));
-        assert_eq!(-1, b.value(2));
-        assert_eq!(-2, b.value(3));
-        assert_eq!(3, b.value(4));
-        assert_eq!(5, b.value(5));
-        assert_eq!(true, b.is_null(6));
-        assert_eq!(0, b.value(7));
-        assert_eq!(true, b.is_null(8));
-        assert_eq!(0, b.value(9));
-        // list offsets should be the same
-        assert_eq!(a.data_ref().buffers(), &[taken_offsets]);
+        // construct a value aray with expected results:
+        // [[null], null, [-1,-2,3], [5,null], [0,null,0]]
+        let expected_data = Int32Array::from(vec![
+            None,
+            Some(-1),
+            Some(-2),
+            Some(3),
+            Some(5),
+            None,
+            Some(0),
+            None,
+            Some(0),
+        ])
+        .data();
+        // construct offsets
+        let expected_offsets = Buffer::from(&[0, 1, 1, 4, 6, 9].to_byte_slice());
+        // construct list array from the two
+        let expected_list_data = ArrayData::builder(list_data_type.clone())
+            .len(5)
+            .null_count(1)
+            // null buffer remains the same as only the indices have nulls
+            .null_bit_buffer(index.data().null_bitmap().as_ref().unwrap().bits.clone())
+            .add_buffer(expected_offsets.clone())
+            .add_child_data(expected_data.clone())
+            .build();
+        let expected_list_array = ListArray::from(expected_list_data);
+
+        assert!(a.equals(&expected_list_array));
     }
 
     #[test]
     fn test_take_list_with_list_nulls() {
-        // Construct a value array, [[0,null,0], [-1,-2,3], null, [2,null]]
+        // Construct a value array, [[0,null,0], [-1,-2,3], null, [5,null]]
         let value_data = Int32Array::from(vec![
             Some(0),
             None,
@@ -492,32 +470,43 @@ mod tests {
             .build();
         let list_array = Arc::new(ListArray::from(list_data)) as ArrayRef;
 
-        // index returns: [null, null, [-1,-2,-1], [2,null], [0,null,0]]
+        // index returns: [null, null, [-1,-2,3], [5,null], [0,null,0]]
         let index = UInt32Array::from(vec![Some(2), None, Some(1), Some(3), Some(0)]);
 
         let a = take(&list_array, &index, None).unwrap();
         let a: &ListArray = a.as_any().downcast_ref::<ListArray>().unwrap();
-        assert_eq!(5, a.len());
-        assert_eq!(1, a.null_count());
-        let b = a.values();
-        let b = Int32Array::from(b.data());
 
-        dbg!(&b);
+        // construct a value aray with expected results:
+        // [null, null, [-1,-2,3], [5,null], [0,null,0]]
+        let expected_data = Int32Array::from(vec![
+            Some(-1),
+            Some(-2),
+            Some(3),
+            Some(5),
+            None,
+            Some(0),
+            None,
+            Some(0),
+        ])
+        .data();
+        // construct offsets
+        let expected_offsets = Buffer::from(&[0, 0, 0, 3, 5, 8].to_byte_slice());
+        // construct list array from the two
+        let mut null_bits: [u8; 1] = [0; 1];
+        bit_util::set_bit(&mut null_bits, 2);
+        bit_util::set_bit(&mut null_bits, 3);
+        bit_util::set_bit(&mut null_bits, 4);
+        let expected_list_data = ArrayData::builder(list_data_type.clone())
+            .len(5)
+            .null_count(2)
+            // null buffer must be recalculated as both values and indices have nulls
+            .null_bit_buffer(Buffer::from(null_bits))
+            .add_buffer(expected_offsets.clone())
+            .add_child_data(expected_data.clone())
+            .build();
+        let expected_list_array = ListArray::from(expected_list_data);
 
-        let taken_offsets = Buffer::from(&[0, 0, 0, 3, 5, 8].to_byte_slice());
-        // list offsets should be the same
-        assert_eq!(a.data_ref().buffers(), &[taken_offsets]);
-        assert_eq!(3, b.null_count());
-        assert_eq!(9, b.len());
-        assert_eq!(true, b.is_null(0));
-        assert_eq!(-1, b.value(1));
-        assert_eq!(-2, b.value(2));
-        assert_eq!(3, b.value(3));
-        assert_eq!(5, b.value(4));
-        assert_eq!(true, b.is_null(5));
-        assert_eq!(0, b.value(6));
-        assert_eq!(true, b.is_null(7));
-        assert_eq!(0, b.value(8));
+        assert!(a.equals(&expected_list_array));
     }
 
     #[test]
@@ -530,16 +519,20 @@ mod tests {
         assert_eq!(index.len(), a.len());
         assert_eq!(0, a.null_count());
 
-        let b = BooleanArray::from(vec![true, true, false, true, false]);
-        let c = Int32Array::from(vec![42, 31, 28, 42, 19]);
-        let bools = a.column(0);
-        let bools = bools.as_any().downcast_ref::<BooleanArray>().unwrap();
-        let ints = a.column(1);
-        let ints = ints.as_any().downcast_ref::<Int32Array>().unwrap();
-        assert_eq!(format!("{:?}", bools), format!("{:?}", b));
-        assert_eq!(format!("{:?}", ints), format!("{:?}", c));
-        assert_eq!(b.data(), bools.data());
-        assert_eq!(c.data(), ints.data());
+        let expected_bool_data =
+            BooleanArray::from(vec![true, true, false, true, false]).data();
+        let expected_int_data = Int32Array::from(vec![42, 31, 28, 42, 19]).data();
+        let mut field_types = vec![];
+        field_types.push(Field::new("a", DataType::Boolean, true));
+        field_types.push(Field::new("b", DataType::Int32, true));
+        let struct_array_data = ArrayData::builder(DataType::Struct(field_types))
+            .len(5)
+            .null_count(0)
+            .add_child_data(expected_bool_data)
+            .add_child_data(expected_int_data)
+            .build();
+        let struct_array = StructArray::from(struct_array_data);
+        assert!(a.equals(&struct_array));
     }
 
     #[test]
@@ -552,14 +545,24 @@ mod tests {
         assert_eq!(index.len(), a.len());
         assert_eq!(0, a.null_count());
 
-        let b = BooleanArray::from(vec![None, Some(true), Some(false), None, Some(true)]);
-        let c = Int32Array::from(vec![None, Some(31), Some(28), None, Some(42)]);
-        let bools = a.column(0);
-        let bools = bools.as_any().downcast_ref::<BooleanArray>().unwrap();
-        let ints = a.column(1);
-        let ints = ints.as_any().downcast_ref::<Int32Array>().unwrap();
-        assert_eq!(format!("{:?}", bools), format!("{:?}", b));
-        assert_eq!(format!("{:?}", ints), format!("{:?}", c));
+        let expected_bool_data =
+            BooleanArray::from(vec![None, Some(true), Some(false), None, Some(true)])
+                .data();
+        let expected_int_data =
+            Int32Array::from(vec![None, Some(31), Some(28), None, Some(42)]).data();
+
+        let mut field_types = vec![];
+        field_types.push(Field::new("a", DataType::Boolean, true));
+        field_types.push(Field::new("b", DataType::Int32, true));
+        let struct_array_data = ArrayData::builder(DataType::Struct(field_types))
+            .len(5)
+            // TODO see https://issues.apache.org/jira/browse/ARROW-5408 for why count != 2
+            .null_count(0)
+            .add_child_data(expected_bool_data)
+            .add_child_data(expected_int_data)
+            .build();
+        let struct_array = StructArray::from(struct_array_data);
+        assert!(a.equals(&struct_array));
     }
 
     #[test]
@@ -571,10 +574,11 @@ mod tests {
         let take_opt = TakeOptions { check_bounds: true };
 
         // int64
-        test_take_numeric::<Int64Type>(
+        test_take_primitive_arrays::<Int64Type>(
             vec![Some(0), None, Some(2), Some(3), None],
             &index,
             Some(take_opt),
+            vec![None],
         );
     }
 }

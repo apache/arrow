@@ -994,7 +994,7 @@ impl StructArray {
     pub fn num_columns(&self) -> usize {
         self.boxed_fields.len()
     }
-    
+
     /// Returns the fields of the struct array
     pub fn columns(&self) -> Vec<&ArrayRef> {
         self.boxed_fields.iter().collect()
