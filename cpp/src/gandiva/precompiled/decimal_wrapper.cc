@@ -208,12 +208,24 @@ void castDECIMAL_int64(int64_t in, int32_t x_precision, int32_t x_scale,
 }
 
 FORCE_INLINE
+void castDECIMAL_int32(int32_t in, int32_t x_precision, int32_t x_scale,
+                       int64_t* out_high, uint64_t* out_low) {
+  castDECIMAL_int64(in, x_precision, x_scale, out_high, out_low);
+}
+
+FORCE_INLINE
 void castDECIMAL_float64(double in, int32_t x_precision, int32_t x_scale,
                          int64_t* out_high, uint64_t* out_low) {
   bool overflow = false;
   auto out = gandiva::decimalops::FromDouble(in, x_precision, x_scale, &overflow);
   *out_high = out.high_bits();
   *out_low = out.low_bits();
+}
+
+FORCE_INLINE
+void castDECIMAL_float32(float in, int32_t x_precision, int32_t x_scale,
+                         int64_t* out_high, uint64_t* out_low) {
+  castDECIMAL_float64(in, x_precision, x_scale, out_high, out_low);
 }
 
 FORCE_INLINE
