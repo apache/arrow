@@ -145,21 +145,36 @@ public class BitVectorHelper {
     final int sizeInBytes = getValidityBufferSize(valueCount);
     // If value count is not a multiple of 8, then calculate number of used bits in the last byte
     final int remainder = valueCount % 8;
+    final int fullBytesCount = remainder == 0 ? sizeInBytes : sizeInBytes - 1;
 
-    final int sizeInBytesMinus1 = sizeInBytes - 1;
-    for (int i = 0; i < sizeInBytesMinus1; i++) {
-      byte byteValue = validityBuffer.getByte(i);
-      count += Integer.bitCount(byteValue & 0xFF);
+    int index = 0;
+    while (index + 8 <= fullBytesCount) {
+      long longValue = validityBuffer.getLong(index);
+      count += Long.bitCount(longValue);
+      index += 8;
     }
 
-    // handling with the last byte
-    byte byteValue = validityBuffer.getByte(sizeInBytes - 1);
+    while (index + 4 <= fullBytesCount) {
+      int intValue = validityBuffer.getInt(index);
+      count += Integer.bitCount(intValue);
+      index += 4;
+    }
+
+    while (index < fullBytesCount) {
+      byte byteValue = validityBuffer.getByte(index);
+      count += Integer.bitCount(byteValue & 0xFF);
+      index += 1;
+    }
+
+    // handling with the last bits
     if (remainder != 0) {
+      byte byteValue = validityBuffer.getByte(sizeInBytes - 1);
+
       // making the remaining bits all 1s if it is not fully filled
       byte mask = (byte) (0xFF << remainder);
       byteValue = (byte) (byteValue | mask);
+      count += Integer.bitCount(byteValue & 0xFF);
     }
-    count += Integer.bitCount(byteValue & 0xFF);
 
     return 8 * sizeInBytes - count;
   }
