@@ -25,7 +25,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
-      wget software-properties-common gpg-agent
+      wget software-properties-common gpg-agent && \
+      apt-get clean && rm -rf /var/lib/apt/lists*
 
 # Installs LLVM toolchain, for gandiva and testing other compilers
 #
@@ -44,10 +45,12 @@ RUN apt-get install -y -q --no-install-recommends \
       clang-${LLVM_VERSION} \
       clang-format-${LLVM_VERSION} \
       clang-tidy-${LLVM_VERSION} \
-      llvm-${LLVM_VERSION}-dev
+      llvm-${LLVM_VERSION}-dev && \
+      apt-get clean && rm -rf /var/lib/apt/lists*
 
 # Installs C++ toolchain and dependencies
-RUN apt-get install -y -q --no-install-recommends \
+RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
       autoconf \
       bison \
       ca-certificates \
@@ -76,7 +79,8 @@ RUN apt-get install -y -q --no-install-recommends \
       pkg-config \
       rapidjson-dev \
       thrift-compiler \
-      tzdata
+      tzdata && \
+      apt-get clean && rm -rf /var/lib/apt/lists*
 
 # The following dependencies will be downloaded due to missing/invalid packages
 # provided by the distribution:
