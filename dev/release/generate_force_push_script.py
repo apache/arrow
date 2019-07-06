@@ -33,12 +33,12 @@ client.request('GET',
 response = client.getresponse()
 json_content = response.read()
 if response.status != 200:
-    error_msg = 'Github connection error:{}'.format(json_content)
+    error_msg = 'GitHub connection error:{}'.format(json_content)
     raise Exception(error_msg)
 
 parsed_content = json.loads(json_content)
-if len(parsed_content) >= 100:
-    raise NotImplementedError("The script only supports <= 100 PRs")
+if len(parsed_content) == 100:
+    print("# WARNING: Only the most recent 100 PRs will be processed")
 
 repos = defaultdict(list)
 for pr in parsed_content:
@@ -52,10 +52,10 @@ for repo, labels in repos.items():
     print('git fetch --all --prune --tags --force')
     for label in labels:
         # Labels are in the form 'user:branch'
-        print('git checkout {}'.format(label[label.find(':')+1:]))
+        owner, branch = label.split(':')
+        print('git checkout {}'.format(branch))
         print('(git rebase upstream/master && git push --force) || ' +
-              '(echo "Rebase failed for {} && '.format(label) +
+              '(echo "Rebase failed for {}" && '.format(label) +
               'git rebase --abort)')
-        print('git push --force')
     print('cd ..')
     print('rm -rf arrow')
