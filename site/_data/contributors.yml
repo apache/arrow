@@ -16,10 +16,13 @@
 # Database of contributors to Apache Arrow (WIP)
 # Blogs and other pages use this data
 #
+- name: Apache Arrow Community
+  githubId: apache
+  homepage: https://arrow.apache.org
 - name: Wes McKinney
   apacheId: wesm
   githubId: wesm
-  homepage: http://wesmckinney.com
+  homepage: https://wesmckinney.com
   role: PMC
 - name: Uwe Korn
   apacheId: uwe
