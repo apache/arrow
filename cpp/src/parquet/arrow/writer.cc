@@ -49,8 +49,7 @@ using arrow::ChunkedArray;
 using arrow::Decimal128Array;
 using arrow::Field;
 using arrow::FixedSizeBinaryArray;
-using arrow::Int16Array;
-using arrow::Int16Builder;
+using Int16BufferBuilder = arrow::TypedBufferBuilder<uint16_t>;
 using arrow::ListArray;
 using arrow::MemoryPool;
 using arrow::NumericArray;
@@ -82,7 +81,7 @@ namespace {
 class LevelBuilder {
  public:
   explicit LevelBuilder(MemoryPool* pool)
-      : def_levels_(::arrow::int16(), pool), rep_levels_(::arrow::int16(), pool) {}
+      : def_levels_(pool), rep_levels_(pool) {}
 
   Status VisitInline(const Array& array);
 
@@ -179,15 +178,9 @@ class LevelBuilder {
       RETURN_NOT_OK(rep_levels_.Append(0));
       RETURN_NOT_OK(HandleListEntries(0, 0, 0, array.length()));
 
-      std::shared_ptr<Array> def_levels_array;
-      std::shared_ptr<Array> rep_levels_array;
-
-      RETURN_NOT_OK(def_levels_.Finish(&def_levels_array));
-      RETURN_NOT_OK(rep_levels_.Finish(&rep_levels_array));
-
-      *def_levels_out = static_cast<PrimitiveArray*>(def_levels_array.get())->values();
-      *rep_levels_out = static_cast<PrimitiveArray*>(rep_levels_array.get())->values();
-      *num_levels = rep_levels_array->length();
+      RETURN_NOT_OK(def_levels_.Finish(def_levels_out));
+      RETURN_NOT_OK(rep_levels_.Finish(rep_levels_out));
+      *num_levels = (*rep_levels_out)->size() / sizeof(int16_t);
     }
 
     return Status::OK();
@@ -261,8 +254,8 @@ class LevelBuilder {
   }
 
  private:
-  Int16Builder def_levels_;
-  Int16Builder rep_levels_;
+  Int16BufferBuilder def_levels_;
+  Int16BufferBuilder rep_levels_;
 
   std::vector<int64_t> null_counts_;
   std::vector<const uint8_t*> valid_bitmaps_;
@@ -307,7 +300,7 @@ struct ColumnWriterContext {
 Status GetLeafType(const ::arrow::DataType& type, ::arrow::Type::type* leaf_type) {
   if (type.id() == ::arrow::Type::LIST || type.id() == ::arrow::Type::STRUCT) {
     if (type.num_children() != 1) {
-      return Status::Invalid("Nested column branch had multiple children");
+      return Status::Invalid("Nested column branch had multiple children: ", type.ToString());
     }
     return GetLeafType(*type.child(0)->type(), leaf_type);
   } else {
