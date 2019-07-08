@@ -20,13 +20,14 @@
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
 
-use crate::array::ArrayRef;
-use crate::array_data::ArrayData;
+use crate::array::*;
 use crate::buffer::Buffer;
+use crate::compute::cast;
 use crate::datatypes::{DataType, Schema};
 use crate::error::{ArrowError, Result};
 use crate::ipc;
 use crate::record_batch::RecordBatch;
+use DataType::*;
 
 static ARROW_MAGIC: [u8; 6] = [b'A', b'R', b'R', b'O', b'W', b'1'];
 
@@ -38,7 +39,15 @@ fn read_buffer(buf: &ipc::Buffer, a_data: &Vec<u8>) -> Buffer {
     Buffer::from(&buf_data)
 }
 
-/// Coordinates reading arrays based on data types
+/// Coordinates reading arrays based on data types.
+///
+/// Notes:
+/// * In the IPC format, null buffers are always set, but may be empty. We discard them if an array has 0 nulls
+/// * Numeric values inside list arrays are often stored as 64-bit values regardless of their data type size.
+///   We thus:
+///     - check if the bit width of non-64-bit numbers is 64, and
+///     - read the buffer as 64-bit (signed integer or float), and
+///     - cast the 64-bit array to the appropriate data type
 fn create_array(
     nodes: &[ipc::FieldNode],
     data_type: &DataType,
@@ -106,12 +115,17 @@ fn create_array(
                 buffer_index = triple.2;
                 struct_arrays.push((struct_field.clone(), triple.0));
             }
-            // create struct array from fields, arrays and null data
-            let struct_array = crate::array::StructArray::from((
-                struct_arrays,
-                null_buffer,
-                struct_node.null_count() as usize,
-            ));
+            let null_count = struct_node.null_count() as usize;
+            let struct_array = if null_count > 0 {
+                // create struct array from fields, arrays and null data
+                StructArray::from((
+                    struct_arrays,
+                    null_buffer,
+                    struct_node.null_count() as usize,
+                ))
+            } else {
+                StructArray::from(struct_arrays)
+            };
             Arc::new(struct_array)
         }
         _ => {
@@ -138,37 +152,94 @@ fn create_primitive_array(
     data_type: &DataType,
     buffers: Vec<Buffer>,
 ) -> ArrayRef {
-    use DataType::*;
     let length = field_node.length() as usize;
     let null_count = field_node.null_count() as usize;
     let array_data = match data_type {
         Utf8 => {
             // read 3 buffers
-            ArrayData::new(
-                data_type.clone(),
-                length,
-                Some(null_count),
-                Some(buffers[0].clone()),
-                0,
-                buffers[1..3].to_vec(),
-                vec![],
-            )
+            let mut builder = ArrayData::builder(data_type.clone())
+                .len(length)
+                .buffers(buffers[1..3].to_vec())
+                .offset(0);
+            if null_count > 0 {
+                builder = builder
+                    .null_count(null_count)
+                    .null_bit_buffer(buffers[0].clone())
+            }
+            builder.build()
         }
-        Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float32
-        | Boolean | Float64 | Time32(_) | Time64(_) | Timestamp(_) | Date32(_)
-        | Date64(_) => ArrayData::new(
-            data_type.clone(),
-            length,
-            Some(null_count),
-            Some(buffers[0].clone()),
-            0,
-            buffers[1..].to_vec(),
-            vec![],
-        ),
+        Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 | Time32(_) | Date32(_) => {
+            if buffers[1].len() / 8 == length {
+                // interpret as a signed i64, and cast appropriately
+                let mut builder = ArrayData::builder(DataType::Int64)
+                    .len(length)
+                    .buffers(buffers[1..].to_vec())
+                    .offset(0);
+                if null_count > 0 {
+                    builder = builder
+                        .null_count(null_count)
+                        .null_bit_buffer(buffers[0].clone())
+                }
+                let values = Arc::new(Int64Array::from(builder.build())) as ArrayRef;
+                let casted = cast(&values, data_type).unwrap();
+                casted.data()
+            } else {
+                let mut builder = ArrayData::builder(data_type.clone())
+                    .len(length)
+                    .buffers(buffers[1..].to_vec())
+                    .offset(0);
+                if null_count > 0 {
+                    builder = builder
+                        .null_count(null_count)
+                        .null_bit_buffer(buffers[0].clone())
+                }
+                builder.build()
+            }
+        }
+        Float32 => {
+            if buffers[1].len() / 8 == length {
+                // interpret as a f64, and cast appropriately
+                let mut builder = ArrayData::builder(DataType::Float64)
+                    .len(length)
+                    .buffers(buffers[1..].to_vec())
+                    .offset(0);
+                if null_count > 0 {
+                    builder = builder
+                        .null_count(null_count)
+                        .null_bit_buffer(buffers[0].clone())
+                }
+                let values = Arc::new(Float64Array::from(builder.build())) as ArrayRef;
+                let casted = cast(&values, data_type).unwrap();
+                casted.data()
+            } else {
+                let mut builder = ArrayData::builder(data_type.clone())
+                    .len(length)
+                    .buffers(buffers[1..].to_vec())
+                    .offset(0);
+                if null_count > 0 {
+                    builder = builder
+                        .null_count(null_count)
+                        .null_bit_buffer(buffers[0].clone())
+                }
+                builder.build()
+            }
+        }
+        Boolean | Int64 | UInt64 | Float64 | Time64(_) | Timestamp(_) | Date64(_) => {
+            let mut builder = ArrayData::builder(data_type.clone())
+                .len(length)
+                .buffers(buffers[1..].to_vec())
+                .offset(0);
+            if null_count > 0 {
+                builder = builder
+                    .null_count(null_count)
+                    .null_bit_buffer(buffers[0].clone())
+            }
+            builder.build()
+        }
         t @ _ => panic!("Data type {:?} either unsupported or not primitive", t),
     };
 
-    crate::array::make_array(Arc::new(array_data))
+    make_array(array_data)
 }
 
 fn create_list_array(
@@ -178,16 +249,18 @@ fn create_list_array(
     child_array: ArrayRef,
 ) -> ArrayRef {
     if let &DataType::List(_) = data_type {
-        let array_data = ArrayData::new(
-            data_type.clone(),
-            field_node.length() as usize,
-            Some(field_node.null_count() as usize),
-            Some(buffers[0].clone()),
-            0,
-            buffers[1..2].to_vec(),
-            vec![child_array.data()],
-        );
-        crate::array::make_array(Arc::new(array_data))
+        let null_count = field_node.null_count() as usize;
+        let mut builder = ArrayData::builder(data_type.clone())
+            .len(field_node.length() as usize)
+            .buffers(buffers[1..2].to_vec())
+            .offset(0)
+            .child_data(vec![child_array.data()]);
+        if null_count > 0 {
+            builder = builder
+                .null_count(null_count)
+                .null_bit_buffer(buffers[0].clone())
+        }
+        make_array(builder.build())
     } else {
         panic!("Cannot create list array from {:?}", data_type)
     }
@@ -381,8 +454,6 @@ impl<R: Read + Seek> Reader<R> {
 mod tests {
     use super::*;
 
-    use crate::array::*;
-    use crate::builder::{BinaryBuilder, Int32Builder, ListBuilder};
     use crate::datatypes::*;
     use std::fs::File;
 
@@ -418,13 +489,14 @@ mod tests {
                 Field::new("bools", Boolean, true),
                 Field::new("int8s", Int8, true),
                 Field::new("varbinary", Utf8, true),
-                Field::new("numericlist", List(Box::new(Int32)), true),
+                Field::new("numericlist", List(Box::new(Int8)), true),
+                Field::new("floatlist", List(Box::new(Float32)), true),
             ]),
-            false,
+            true,
         )]);
 
         // batch contents
-        let list_values_builder = Int32Builder::new(10);
+        let list_values_builder = Int8Builder::new(10);
         let mut list_builder = ListBuilder::new(list_values_builder);
         // [[1,2,3,4], null, [5,6], [7], [8,9,10]]
         list_builder.values().append_value(1).unwrap();
@@ -442,7 +514,28 @@ mod tests {
         list_builder.values().append_value(9).unwrap();
         list_builder.values().append_value(10).unwrap();
         list_builder.append(true).unwrap();
-        let _list_array = list_builder.finish();
+        let list_array: ListArray = list_builder.finish();
+
+        // floats
+        let list_values_builder = Float32Builder::new(10);
+        let mut list_builder = ListBuilder::new(list_values_builder);
+        // [[1.1,2.2,3.3,4.4], null, [5.5,6.6], [7.7], [8.8,9.9,10.0]]
+        list_builder.values().append_value(1.1).unwrap();
+        list_builder.values().append_value(2.2).unwrap();
+        list_builder.values().append_value(3.3).unwrap();
+        list_builder.values().append_value(4.4).unwrap();
+        list_builder.append(true).unwrap();
+        list_builder.append(false).unwrap();
+        list_builder.values().append_value(5.5).unwrap();
+        list_builder.values().append_value(6.6).unwrap();
+        list_builder.append(true).unwrap();
+        list_builder.values().append_value(7.7).unwrap();
+        list_builder.append(true).unwrap();
+        list_builder.values().append_value(8.8).unwrap();
+        list_builder.values().append_value(9.9).unwrap();
+        list_builder.values().append_value(10.0).unwrap();
+        list_builder.append(true).unwrap();
+        let float_list_array: ListArray = list_builder.finish();
 
         let mut binary_builder = BinaryBuilder::new(100);
         binary_builder.append_string("foo").unwrap();
@@ -451,37 +544,38 @@ mod tests {
         binary_builder.append_string("qux").unwrap();
         binary_builder.append_string("quux").unwrap();
         let binary_array = binary_builder.finish();
-        // let _struct_array = StructArray::from((
-        //     vec![
-        //         (
-        //             Field::new("bools", Boolean, true),
-        //             Arc::new(BooleanArray::from(vec![
-        //                 Some(true),
-        //                 None,
-        //                 None,
-        //                 Some(false),
-        //                 Some(true),
-        //             ])) as Arc<Array>,
-        //         ),
-        //         (
-        //             Field::new("int8s", Int8, true),
-        //             Arc::new(Int8Array::from(vec![
-        //                 Some(-1),
-        //                 None,
-        //                 None,
-        //                 Some(-4),
-        //                 Some(-5),
-        //             ])),
-        //         ),
-        //         (Field::new("varbinary", Utf8, true), Arc::new(binary_array)),
-        //         (
-        //             Field::new("numericlist", List(Box::new(Int32)), true),
-        //             Arc::new(list_array),
-        //         ),
-        //     ],
-        //     Buffer::from([]),
-        //     0,
-        // ));
+        // create struct array
+        let struct_array = StructArray::from(vec![
+            (
+                Field::new("bools", Boolean, true),
+                Arc::new(BooleanArray::from(vec![
+                    Some(true),
+                    None,
+                    None,
+                    Some(false),
+                    Some(true),
+                ])) as Arc<Array>,
+            ),
+            (
+                Field::new("int8s", Int8, true),
+                Arc::new(Int8Array::from(vec![
+                    Some(-1),
+                    None,
+                    None,
+                    Some(-4),
+                    Some(-5),
+                ])),
+            ),
+            (Field::new("varbinary", Utf8, true), Arc::new(binary_array)),
+            (
+                Field::new("numericlist", List(Box::new(Int8)), true),
+                Arc::new(list_array),
+            ),
+            (
+                Field::new("floatlist", List(Box::new(Float32)), true),
+                Arc::new(float_list_array),
+            ),
+        ]);
 
         let mut reader = Reader::try_new(file).unwrap();
         assert_eq!(3, reader.num_batches());
@@ -495,28 +589,15 @@ mod tests {
                 .as_any()
                 .downcast_ref::<StructArray>()
                 .unwrap();
-            let struct_col_1: &BooleanArray = struct_col
-                .column(0)
-                .as_any()
-                .downcast_ref::<BooleanArray>()
-                .unwrap();
-            assert_eq!("PrimitiveArray<Boolean>\n[\n  true,\n  null,\n  null,\n  false,\n  true,\n]", format!("{:?}", struct_col_1));
-            // TODO failing tests
-            // assert_eq!(
-            //     struct_col_1.data(),
-            //     BooleanArray::from(
-            //         vec![Some(true), None, None, Some(false), Some(true),]
-            //     )
-            //     .data()
-            // );
-            // assert_eq!(struct_col.data(), struct_array.data());
+            // test equality of struct columns
+            assert!(struct_col.equals(&struct_array));
         }
         // try read a batch after all batches are exhausted
         let batch = reader.next().unwrap();
         assert!(batch.is_none());
 
         // seek a specific batch
-        let batch = reader.read_batch(2).unwrap().unwrap();
+        reader.read_batch(2).unwrap().unwrap();
         // validate_batch(batch);
         // try read a batch after seeking to the last batch
         let batch = reader.next().unwrap();

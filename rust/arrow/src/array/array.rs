@@ -1564,7 +1564,7 @@ impl From<(Vec<(Field, ArrayRef)>, Buffer, usize)> for StructArray {
         }
 
         let data = ArrayData::builder(DataType::Struct(field_types))
-            .add_buffer(triple.1)
+            .null_bit_buffer(triple.1)
             .child_data(field_values.into_iter().map(|a| a.data()).collect())
             .len(length)
             .null_count(triple.2)
