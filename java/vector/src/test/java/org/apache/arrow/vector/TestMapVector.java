@@ -324,7 +324,7 @@ public class TestMapVector {
 
       mapVector.setValueCount(5);
 
-      assertEquals(5, mapVector.getLastSet());
+      assertEquals(4, mapVector.getLastSet());
 
       /* get offset buffer */
       final ArrowBuf offsetBuffer = mapVector.getOffsetBuffer();
@@ -552,7 +552,7 @@ public class TestMapVector {
 
       mapWriter.endMap();
 
-      assertEquals(2, mapVector.getLastSet());
+      assertEquals(1, mapVector.getLastSet());
 
       mapWriter.setValueCount(2);
 

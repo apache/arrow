@@ -643,7 +643,7 @@ public class BaseFileTest {
     }
 
     // ListVector lastSet should be the index of last value + 1
-    Assert.assertEquals(listVector.getLastSet(), count);
+    Assert.assertEquals(listVector.getLastSet(), count - 1);
 
     // VarBinaryVector lastSet should be the index of last value
     VarBinaryVector binaryVector = (VarBinaryVector) listVector.getChildrenFromFields().get(0);

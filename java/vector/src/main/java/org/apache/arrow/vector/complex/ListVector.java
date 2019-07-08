@@ -781,13 +781,11 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     vector.setValueCount(childValueCount);
   }
 
-  @Deprecated
   public void setLastSet(int value) {
-    lastSet = value - 1;
+    lastSet = value;
   }
 
-  @Deprecated
   public int getLastSet() {
-    return lastSet + 1;
+    return lastSet;
   }
 }
