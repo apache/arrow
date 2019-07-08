@@ -56,6 +56,8 @@ cmake -GNinja \
       -DCMAKE_CXX_FLAGS=$CXXFLAGS \
       -DBOOST_SOURCE=${ARROW_BOOST_SOURCE:-AUTO} \
       -Duriparser_SOURCE=AUTO \
+      -DARROW_FUZZING=${ARROW_FUZZING:-OFF} \
+      -DARROW_USE_ASAN=${ARROW_USE_ASAN:-OFF} \
       ${CMAKE_ARGS} \
       ${source_dir}
 ninja

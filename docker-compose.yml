@@ -398,6 +398,17 @@ services:
     command: arrow/dev/lint/run_linters.sh
     volumes: *ubuntu-volumes
 
+  fuzzit:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose build fuzzit
+    #   docker-compose run fuzzit
+    image: arrow:fuzzit
+    build:
+      context: .
+      dockerfile: dev/fuzzit/Dockerfile
+    volumes: *ubuntu-volumes
+
   iwyu:
     # Usage:
     #   export PYTHON_VERSION=3.6
