@@ -73,6 +73,8 @@ install:
 
   # move built wheels to a top level directory
   - mv -v arrow/python/dist/* dist/
+  # reinstall openssl because travis' deployment script depends on it
+  - brew install openssl
 
 deploy:
   provider: releases
