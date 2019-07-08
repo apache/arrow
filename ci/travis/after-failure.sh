@@ -31,3 +31,5 @@ else
     gdb -c "$COREFILE" example -ex "thread apply all bt" -ex "set pagination 0" -batch
   fi
 fi
+
+set +ex

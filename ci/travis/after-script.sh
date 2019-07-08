@@ -21,3 +21,5 @@ set -ex
 if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
   ccache --show-stats
 fi
+
+set +ex

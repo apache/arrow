@@ -31,3 +31,5 @@ if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
 fi
 
 eval "$(python ${TRAVIS_BUILD_DIR}/ci/detect-changes.py)"
+
+set +ex
