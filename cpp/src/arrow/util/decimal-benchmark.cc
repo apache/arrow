@@ -34,7 +34,7 @@ static void FromString(benchmark::State& state) {  // NOLINT non-const reference
                                      "123456789.123456789",
                                      "1231234567890.451234567890"};
 
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     for (const auto& value : values) {
       Decimal128 dec;
       int32_t scale, precision;
@@ -44,57 +44,127 @@ static void FromString(benchmark::State& state) {  // NOLINT non-const reference
   state.SetItemsProcessed(state.iterations() * values.size());
 }
 
+constexpr int32_t kValueSize = 10;
+
 static void BinaryCompareOp(benchmark::State& state) {  // NOLINT non-const reference
-  BasicDecimal128 d1(546, 123), d2(123, 456);
-  while (state.KeepRunning()) {
-    benchmark::DoNotOptimize(d1 == d2);
-    benchmark::DoNotOptimize(d1 <= d2);
-    benchmark::DoNotOptimize(d1 >= d2);
-    benchmark::DoNotOptimize(d1 >= d1);
+  std::vector<BasicDecimal128> v1, v2;
+  for (int x = 0; x < kValueSize; x++) {
+    v1.emplace_back(100 + x, 100 + x);
+    v2.emplace_back(200 + x, 200 + x);
   }
+  for (auto _ : state) {
+    for (int x = 0; x < kValueSize; x += 4) {
+      benchmark::DoNotOptimize(v1[x] == v2[x]);
+      benchmark::DoNotOptimize(v1[x + 1] <= v2[x + 1]);
+      benchmark::DoNotOptimize(v1[x + 2] >= v2[x + 2]);
+      benchmark::DoNotOptimize(v1[x + 3] >= v1[x + 3]);
+    }
+  }
+  state.SetItemsProcessed(state.iterations() * kValueSize);
+}
+
+static void BinaryCompareOpConstant(
+    benchmark::State& state) {  // NOLINT non-const reference
+  std::vector<BasicDecimal128> v1;
+  for (int x = 0; x < kValueSize; x++) {
+    v1.emplace_back(100 + x, 100 + x);
+  }
+  BasicDecimal128 constant(313, 212);
+  for (auto _ : state) {
+    for (int x = 0; x < kValueSize; x += 4) {
+      benchmark::DoNotOptimize(v1[x] == constant);
+      benchmark::DoNotOptimize(v1[x + 1] <= constant);
+      benchmark::DoNotOptimize(v1[x + 2] >= constant);
+      benchmark::DoNotOptimize(v1[x + 3] != constant);
+    }
+  }
+  state.SetItemsProcessed(state.iterations() * kValueSize);
+}
+
+static void BinaryMathOpAggregate(
+    benchmark::State& state) {  // NOLINT non-const reference
+  std::vector<BasicDecimal128> v;
+  for (int x = 0; x < kValueSize; x++) {
+    v.emplace_back(100 + x, 100 + x);
+  }
+
+  for (auto _ : state) {
+    BasicDecimal128 result;
+    for (int x = 0; x < 100; x++) {
+      result += v[x];
+    }
+    benchmark::DoNotOptimize(result);
+  }
+  state.SetItemsProcessed(state.iterations() * kValueSize);
 }
 
 static void BinaryMathOp(benchmark::State& state) {  // NOLINT non-const reference
-  BasicDecimal128 d1(546, 123), d2(123, 456), d3(0, 10);
-  while (state.KeepRunning()) {
-    benchmark::DoNotOptimize(d1 - d2);
-    benchmark::DoNotOptimize(d1 + d2);
-    benchmark::DoNotOptimize(d1 * d2);
-    benchmark::DoNotOptimize(d1 / d2);
-    benchmark::DoNotOptimize(d1 % d3);
+  std::vector<BasicDecimal128> v1, v2;
+  for (int x = 0; x < kValueSize; x++) {
+    v1.emplace_back(100 + x, 100 + x);
+    v2.emplace_back(200 + x, 200 + x);
   }
+
+  for (auto _ : state) {
+    for (int x = 0; x < kValueSize; x += 5) {
+      benchmark::DoNotOptimize(v1[x] - v2[x]);
+      benchmark::DoNotOptimize(v1[x + 1] + v2[x + 1]);
+      benchmark::DoNotOptimize(v1[x + 2] * v2[x + 2]);
+      benchmark::DoNotOptimize(v1[x + 3] / v2[x + 3]);
+      benchmark::DoNotOptimize(v1[x + 4] % v2[x + 4]);
+    }
+  }
+  state.SetItemsProcessed(state.iterations() * kValueSize);
 }
 
 static void UnaryOp(benchmark::State& state) {  // NOLINT non-const reference
-  BasicDecimal128 d1(-546, 123), d2(-123, 456);
-  while (state.KeepRunning()) {
-    benchmark::DoNotOptimize(d1.Abs());
-    benchmark::DoNotOptimize(d2.Negate());
+  std::vector<BasicDecimal128> v;
+  for (int x = 0; x < kValueSize; x++) {
+    v.emplace_back(100 + x, 100 + x);
   }
+
+  for (auto _ : state) {
+    for (int x = 0; x < kValueSize; x += 2) {
+      benchmark::DoNotOptimize(v[x].Abs());
+      benchmark::DoNotOptimize(v[x + 1].Negate());
+    }
+  }
+  state.SetItemsProcessed(state.iterations() * kValueSize);
 }
 
 static void Constants(benchmark::State& state) {  // NOLINT non-const reference
   BasicDecimal128 d1(-546, 123), d2(-123, 456);
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     benchmark::DoNotOptimize(BasicDecimal128::GetMaxValue() - d1);
     benchmark::DoNotOptimize(BasicDecimal128::GetScaleMultiplier(3) + d2);
   }
+  state.SetItemsProcessed(state.iterations() * 2);
 }
 
 static void BinaryBitOp(benchmark::State& state) {  // NOLINT non-const reference
-  BasicDecimal128 d1(546, 123), d2(123, 456);
-  while (state.KeepRunning()) {
-    benchmark::DoNotOptimize(d1 |= d2);
-    benchmark::DoNotOptimize(d1 &= d2);
+  std::vector<BasicDecimal128> v1, v2;
+  for (int x = 0; x < kValueSize; x++) {
+    v1.emplace_back(100 + x, 100 + x);
+    v2.emplace_back(200 + x, 200 + x);
   }
+
+  for (auto _ : state) {
+    for (int x = 0; x < kValueSize; x += 2) {
+      benchmark::DoNotOptimize(v1[x] |= v2[x]);
+      benchmark::DoNotOptimize(v1[x + 1] &= v2[x + 1]);
+    }
+  }
+  state.SetItemsProcessed(state.iterations() * kValueSize);
 }
 
 BENCHMARK(FromString);
 BENCHMARK(BinaryMathOp);
+BENCHMARK(BinaryMathOpAggregate);
 BENCHMARK(BinaryCompareOp);
-BENCHMARK(BinaryBitOp);
+BENCHMARK(BinaryCompareOpConstant);
 BENCHMARK(UnaryOp);
 BENCHMARK(Constants);
+BENCHMARK(BinaryBitOp);
 
 }  // namespace Decimal
 }  // namespace arrow
