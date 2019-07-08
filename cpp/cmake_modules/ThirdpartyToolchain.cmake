@@ -2055,22 +2055,14 @@ endmacro()
 
 if(ARROW_WITH_GRPC)
   if(c-ares_SOURCE STREQUAL "AUTO")
-    find_package(c-ares QUIET)
+    find_package(c-ares QUIET CONFIG)
     if(NOT c-ares_FOUND)
-      # Fedora doesn't package the CMake config
-      find_package(c-aresAlt)
-    endif()
-    if(NOT c-ares_FOUND AND NOT c-aresAlt_FOUND)
       build_cares()
     endif()
   elseif(c-ares_SOURCE STREQUAL "BUNDLED")
     build_cares()
   elseif(c-ares_SOURCE STREQUAL "SYSTEM")
-    find_package(c-ares QUIET)
-    if(NOT c-ares_FOUND)
-      # Fedora doesn't package the CMake config
-      find_package(c-aresAlt REQUIRED)
-    endif()
+    find_package(c-ares REQUIRED CONFIG)
   endif()
 
   # TODO: Don't use global includes but rather target_include_directories
