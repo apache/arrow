@@ -1219,9 +1219,9 @@ bool LogicalType::Impl::Timestamp::is_compatible(
     schema::DecimalMetadata converted_decimal_metadata) const {
   if (converted_decimal_metadata.isset) {
     return false;
-  } else if (adjusted_ && unit_ == LogicalType::TimeUnit::MILLIS) {
+  } else if (unit_ == LogicalType::TimeUnit::MILLIS) {
     return converted_type == ConvertedType::TIMESTAMP_MILLIS;
-  } else if (adjusted_ && unit_ == LogicalType::TimeUnit::MICROS) {
+  } else if (unit_ == LogicalType::TimeUnit::MICROS) {
     return converted_type == ConvertedType::TIMESTAMP_MICROS;
   } else {
     return (converted_type == ConvertedType::NONE) ||
@@ -1232,12 +1232,10 @@ bool LogicalType::Impl::Timestamp::is_compatible(
 ConvertedType::type LogicalType::Impl::Timestamp::ToConvertedType(
     schema::DecimalMetadata* out_decimal_metadata) const {
   reset_decimal_metadata(out_decimal_metadata);
-  if (adjusted_) {
-    if (unit_ == LogicalType::TimeUnit::MILLIS) {
-      return ConvertedType::TIMESTAMP_MILLIS;
-    } else if (unit_ == LogicalType::TimeUnit::MICROS) {
-      return ConvertedType::TIMESTAMP_MICROS;
-    }
+  if (unit_ == LogicalType::TimeUnit::MILLIS) {
+    return ConvertedType::TIMESTAMP_MILLIS;
+  } else if (unit_ == LogicalType::TimeUnit::MICROS) {
+    return ConvertedType::TIMESTAMP_MICROS;
   }
   return ConvertedType::NONE;
 }
