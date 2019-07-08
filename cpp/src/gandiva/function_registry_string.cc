@@ -61,6 +61,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "castVARCHAR_utf8_int64",
                      NativeFunction::kNeedsContext),
 
+      NativeFunction("castVARCHAR", DataTypeVector{decimal128(), int64()}, utf8(),
+                     kResultNullIfNull, "castVARCHAR_decimal128_int64",
+                     NativeFunction::kNeedsContext),
+
       NativeFunction("like", DataTypeVector{utf8(), utf8()}, boolean(), kResultNullIfNull,
                      "gdv_fn_like_utf8_utf8", NativeFunction::kNeedsFunctionHolder)};
 

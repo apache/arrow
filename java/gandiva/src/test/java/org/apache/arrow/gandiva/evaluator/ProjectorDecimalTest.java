@@ -35,6 +35,7 @@ import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -625,4 +626,130 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
       eval.close();
     }
   }
+
+  @Test
+  public void testCastToString() throws GandivaException {
+    Decimal decimalType = new Decimal(38, 2);
+    Field dec = Field.nullable("dec", decimalType);
+    Field str = Field.nullable("str", new ArrowType.Utf8());
+    TreeNode field = TreeBuilder.makeField(dec);
+    TreeNode literal = TreeBuilder.makeLiteral(5L);
+    List<TreeNode> args = Lists.newArrayList(field, literal);
+    TreeNode cast = TreeBuilder.makeFunction("castVARCHAR", args, new ArrowType.Utf8());
+    TreeNode root = TreeBuilder.makeFunction("equal",
+        Lists.newArrayList(cast, TreeBuilder.makeField(str)), new ArrowType.Bool());
+    ExpressionTree tree = TreeBuilder.makeExpression(root, Field.nullable("are_equal", new ArrowType.Bool()));
+
+    Schema schema = new Schema(Lists.newArrayList(dec, str));
+    Projector eval = Projector.make(schema, Lists.newArrayList(tree)
+    );
+
+    List<ValueVector> output = null;
+    ArrowRecordBatch batch = null;
+    try {
+      int numRows = 4;
+      String[] aValues = new String[]{"10.51", "100.23", "-1000.23", "-0000.10"};
+      String[] expected = {"10.51", "100.2", "-1000", "-0.10"};
+      DecimalVector valuesa = decimalVector(aValues, decimalType.getPrecision(), decimalType.getScale());
+      VarCharVector result = varcharVector(expected);
+      batch = new ArrowRecordBatch(
+          numRows,
+          Lists.newArrayList(
+              new ArrowFieldNode(numRows, 0)
+          ),
+          Lists.newArrayList(
+              valuesa.getValidityBuffer(),
+              valuesa.getDataBuffer(),
+              result.getValidityBuffer(),
+              result.getOffsetBuffer(),
+              result.getDataBuffer()
+          )
+      );
+
+      BitVector resultVector = new BitVector("res", allocator);
+      resultVector.allocateNew();
+      output = new ArrayList<>(Arrays.asList(resultVector));
+
+      // evaluate expressions.
+      eval.evaluate(batch, output);
+
+      // compare the outputs.
+      for (int i = 0; i < numRows; i++) {
+        assertTrue(resultVector.getObject(i).booleanValue());
+      }
+    } finally {
+      // free buffers
+      if (batch != null) {
+        releaseRecordBatch(batch);
+      }
+      if (output != null) {
+        releaseValueVectors(output);
+      }
+      eval.close();
+    }
+  }
+
+  @Test
+  public void testCastStringToDecimal() throws GandivaException {
+    Decimal decimalType = new Decimal(4, 2);
+    Field dec = Field.nullable("dec", decimalType);
+
+    Field str = Field.nullable("str", new ArrowType.Utf8());
+    TreeNode field = TreeBuilder.makeField(str);
+    List<TreeNode> args = Lists.newArrayList(field);
+    TreeNode cast = TreeBuilder.makeFunction("castDECIMAL", args, decimalType);
+    ExpressionTree tree = TreeBuilder.makeExpression(cast, Field.nullable("dec_str", decimalType));
+
+    Schema schema = new Schema(Lists.newArrayList(str));
+    Projector eval = Projector.make(schema, Lists.newArrayList(tree)
+    );
+
+    List<ValueVector> output = null;
+    ArrowRecordBatch batch = null;
+    try {
+      int numRows = 4;
+      String[] aValues = new String[]{"10.5134", "-0.1", "10.516", "-1000"};
+      VarCharVector valuesa = varcharVector(aValues);
+      batch = new ArrowRecordBatch(
+          numRows,
+          Lists.newArrayList(
+              new ArrowFieldNode(numRows, 0)
+          ),
+          Lists.newArrayList(
+              valuesa.getValidityBuffer(),
+              valuesa.getOffsetBuffer(),
+              valuesa.getDataBuffer()
+          )
+      );
+
+      DecimalVector resultVector = new DecimalVector("res", allocator,
+          decimalType.getPrecision(), decimalType.getScale());
+      resultVector.allocateNew();
+      output = new ArrayList<>(Arrays.asList(resultVector));
+
+      BigDecimal[] expected = {BigDecimal.valueOf(10.51), BigDecimal.valueOf(-0.10),
+          BigDecimal.valueOf(10.52), BigDecimal.valueOf(0.00)};
+      // evaluate expressions.
+      eval.evaluate(batch, output);
+
+      // compare the outputs.
+      for (int i = 0; i < numRows; i++) {
+        assertTrue("mismatch in result for " +
+            "field " + resultVector.getField().getName() +
+            " for row " + i +
+            " expected " + expected[i] +
+            ", got " + resultVector.getObject(i),expected[i].compareTo(resultVector.getObject(i)) == 0);
+      }
+    } finally {
+      // free buffers
+      if (batch != null) {
+        releaseRecordBatch(batch);
+      }
+      if (output != null) {
+        releaseValueVectors(output);
+      }
+      eval.close();
+    }
+  }
 }
+

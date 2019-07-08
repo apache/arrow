@@ -49,6 +49,7 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       UNARY_SAFE_NULL_IF_NULL(castDECIMAL, int64, decimal128),
       UNARY_SAFE_NULL_IF_NULL(castDECIMAL, float64, decimal128),
       UNARY_SAFE_NULL_IF_NULL(castDECIMAL, decimal128, decimal128),
+      UNARY_UNSAFE_NULL_IF_NULL(castDECIMAL, utf8, decimal128),
 
       UNARY_SAFE_NULL_IF_NULL(castDATE, int64, date64),
 
