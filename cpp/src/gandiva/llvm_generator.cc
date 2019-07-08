@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "gandiva/bitmap_accumulator.h"
+#include "gandiva/decimal_ir.h"
 #include "gandiva/dex.h"
 #include "gandiva/expr_decomposer.h"
 #include "gandiva/expression.h"
@@ -1112,6 +1113,7 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
   auto types = generator_->types();
   auto arrow_return_type_id = arrow_return_type->id();
   auto llvm_return_type = types->IRType(arrow_return_type_id);
+  DecimalIR decimalIR(generator_->engine_.get());
 
   if (arrow_return_type_id == arrow::Type::DECIMAL) {
     // For decimal fns, the output precision/scale are passed along as parameters.
@@ -1127,10 +1129,16 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
     params->push_back(ret_lvalue->scale());
 
     // Make the function call
-    auto out = generator_->AddFunctionCall(func->pc_name(), llvm_return_type, *params);
+    auto out = decimalIR.CallDecimalFunction(func->pc_name(), llvm_return_type, *params);
     ret_lvalue->set_data(out);
     return std::move(ret_lvalue);
   } else {
+    bool isDecimalFunction = false;
+    for (auto& arg : *params) {
+      if (arg->getType() == types->i128_type()) {
+        isDecimalFunction = true;
+      }
+    }
     // add extra arg for return length for variable len return types (alloced on stack).
     llvm::AllocaInst* result_len_ptr = nullptr;
     if (arrow::is_binary_like(arrow_return_type_id)) {
@@ -1142,7 +1150,10 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
 
     // Make the function call
     llvm::IRBuilder<>* builder = ir_builder();
-    auto value = generator_->AddFunctionCall(func->pc_name(), llvm_return_type, *params);
+    auto value =
+        isDecimalFunction
+            ? decimalIR.CallDecimalFunction(func->pc_name(), llvm_return_type, *params)
+            : generator_->AddFunctionCall(func->pc_name(), llvm_return_type, *params);
     auto value_len =
         (result_len_ptr == nullptr) ? nullptr : builder->CreateLoad(result_len_ptr);
     return std::make_shared<LValue>(value, value_len);
