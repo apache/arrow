@@ -58,7 +58,7 @@ class DiffImpl {
         base_end_(base_end),
         target_begin_(target_begin),
         target_end_(target_end),
-        endpoint_base_({ExtendFrom({base_begin_, target_begin_})}),
+        endpoint_base_({ExtendFrom({base_begin_, target_begin_}).base}),
         insert_({true}) {
     if (std::distance(base_begin_, base_end_) ==
             std::distance(target_begin_, target_end_) &&
@@ -81,13 +81,27 @@ class DiffImpl {
     return {endpoint_base_[index], target_begin_ + (base_distance - k)};
   }
 
-  Iterator ExtendFrom(EditPoint p) const {
+  EditPoint DeleteOne(EditPoint p) const {
+    if (p.base != base_end_) {
+      ++p.base;
+    }
+    return p;
+  }
+
+  EditPoint InsertOne(EditPoint p) const {
+    if (p.target != target_end_) {
+      ++p.target;
+    }
+    return p;
+  }
+
+  EditPoint ExtendFrom(EditPoint p) const {
     for (; p.base != base_end_ && p.target != target_end_; ++p.base, ++p.target) {
       if (*p.base != *p.target) {
         break;
       }
     }
-    return p.base;
+    return p;
   }
 
   void Next() {
@@ -97,9 +111,7 @@ class DiffImpl {
     // try deleting from base first
     for (uint64_t i = begin(edit_count_), i_out = end(edit_count_); i != end(edit_count_);
          ++i, ++i_out) {
-      auto stepped = GetEditPoint(edit_count_, i);
-      ++stepped.base;
-      endpoint_base_[i_out] = ExtendFrom(stepped);
+      endpoint_base_[i_out] = ExtendFrom(DeleteOne(GetEditPoint(edit_count_, i))).base;
     }
 
     // check if inserting from target could do better
@@ -107,9 +119,7 @@ class DiffImpl {
          i != end(edit_count_); ++i, ++i_out) {
       auto x_endpoint = GetEditPoint(edit_count_ + 1, i_out);
 
-      auto stepped = GetEditPoint(edit_count_, i);
-      ++stepped.target;
-      endpoint_base_[i_out] = ExtendFrom(stepped);
+      endpoint_base_[i_out] = ExtendFrom(InsertOne(GetEditPoint(edit_count_, i))).base;
       auto y_endpoint = GetEditPoint(edit_count_ + 1, i_out);
 
       if (y_endpoint.base - x_endpoint.base >= 0) {
@@ -341,17 +351,20 @@ class UnifiedDiffFormatter : public DiffVisitor {
       base_begin_ = base_end_ = target_begin_ = target_end_ = length;
       return Status::OK();
     }
-    if (length == 0) {
+    if (length == 0 &&
+        !(base_end_ == base_.length() && target_end_ == target_.length())) {
       return Status::OK();
     }
     // non trivial run- finalize the current hunk
     os_ << "@@ -" << base_begin_ << ", +" << target_begin_ << " @@" << std::endl;
-    for (; base_begin_ < base_end_; ++base_begin_) {
-      Format(os_ << "-", base_, base_begin_);
+    for (int64_t i = base_begin_; i < base_end_; ++i) {
+      Format(os_ << "-", base_, i);
     }
-    for (; target_begin_ < target_end_; ++target_begin_) {
-      Format(os_ << "+", target_, target_begin_);
+    base_begin_ = base_end_ += length;
+    for (int64_t i = target_begin_; i < target_end_; ++i) {
+      Format(os_ << "+", target_, i);
     }
+    target_begin_ = target_end_ += length;
     return Status::OK();
   }
 

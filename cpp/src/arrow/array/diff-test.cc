@@ -96,7 +96,7 @@ class DiffTest : public ::testing::Test {
     run_lengths_ = checked_pointer_cast<UInt64Array>(edits.field(1));
   }
 
-  void DoFormat(std::string* out) {
+  void DoDiffAndFormat(std::string* out) {
     DoDiff();
     std::stringstream ss;
     auto formatter = MakeUnifiedDiffFormatter(ss, *base_, *target_);
@@ -174,27 +174,37 @@ TYPED_TEST(DiffTestWithNumeric, Basics) {
   ASSERT_EQ(this->run_lengths_->Value(1), 0);
   ASSERT_EQ(this->insert_->Value(2), true);
   ASSERT_EQ(this->run_lengths_->Value(2), 2);
+
+  // append some
+  this->base_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, 4, 5]");
+  this->target_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, 4, 5, 6, 7, 8, 9]");
+  this->DoDiff();
+  ASSERT_EQ(this->edits_->length(), 5);
+  ASSERT_EQ(this->insert_->Value(0), false);
+  ASSERT_EQ(this->run_lengths_->Value(0), 5);
+  for (int64_t i = 1; i < this->edits_->length(); ++i) {
+    ASSERT_EQ(this->insert_->Value(i), true);
+    ASSERT_EQ(this->run_lengths_->Value(i), 0);
+  }
 }
 
 TYPED_TEST(DiffTestWithNumeric, CompareRandomNumeric) {
   compute::FunctionContext ctx;
   for (auto null_probability : {0.0}) {
     auto values =
-        this->rng_.template Numeric<TypeParam>(1 << 13, 0, 127, null_probability);
-    for (size_t j = 0; j < 13; j++) {
-      const int64_t length = static_cast<int64_t>(1ULL << j);
-      const double filter_probability = static_cast<double>(length) / values->length();
+        this->rng_.template Numeric<TypeParam>(1 << 10, 0, 127, null_probability);
+    for (const double filter_probability : {0.99, 0.9, 0.75, 0.5}) {
       auto filter_1 = this->rng_.Boolean(values->length(), filter_probability, 0.0);
       auto filter_2 = this->rng_.Boolean(values->length(), filter_probability, 0.0);
 
       ASSERT_OK(compute::Filter(&ctx, *values, *filter_1, &this->base_));
       ASSERT_OK(compute::Filter(&ctx, *values, *filter_2, &this->target_));
-      this->DoDiff();
+
+      std::string formatted;
+      this->DoDiffAndFormat(&formatted);
       auto st = AssertEditScript{*this->base_, *this->target_}.Visit(*this->edits_);
       if (!st.ok()) {
-        std::string formatted;
-        this->DoFormat(&formatted);
-        ASSERT_TRUE(false) << formatted;
+        ASSERT_OK(Status(st.code(), st.message() + "\n" + formatted));
       }
     }
   }
@@ -240,7 +250,7 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
   // insert one
   base_ = ArrayFromJSON(utf8(), R"(["give", "a", "break"])");
   target_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break"])");
-  DoFormat(&formatted);
+  DoDiffAndFormat(&formatted);
   ASSERT_EQ(formatted, R"(
 @@ -1, +1 @@
 +"me"
@@ -249,7 +259,7 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
   // delete one
   base_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break"])");
   target_ = ArrayFromJSON(utf8(), R"(["give", "a", "break"])");
-  DoFormat(&formatted);
+  DoDiffAndFormat(&formatted);
   ASSERT_EQ(formatted, R"(
 @@ -1, +1 @@
 -"me"
@@ -258,11 +268,46 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
   // change one
   base_ = ArrayFromJSON(utf8(), R"(["give", "a", "break"])");
   target_ = ArrayFromJSON(utf8(), R"(["gimme", "a", "break"])");
-  DoFormat(&formatted);
+  DoDiffAndFormat(&formatted);
   ASSERT_EQ(formatted, R"(
 @@ -0, +0 @@
 -"give"
 +"gimme"
+)");
+
+  // small difference
+  base_ = ArrayFromJSON(uint16(), "[0, 1, 2, 3, 5, 8, 11, 13, 17]");
+  target_ = ArrayFromJSON(uint16(), "[2, 3, 5, 7, 11, 13, 17, 19]");
+  DoDiffAndFormat(&formatted);
+  ASSERT_EQ(formatted, R"(
+@@ -0, +0 @@
+-0
+-1
+@@ -5, +3 @@
+-8
++7
+@@ -9, +7 @@
++19
+)");
+
+  // large difference
+  base_ = ArrayFromJSON(uint16(), "[57, 10, 22, 126, 42]");
+  target_ = ArrayFromJSON(uint16(), "[58, 57, 75, 93, 53, 8, 22, 42, 79, 11]");
+  DoDiffAndFormat(&formatted);
+  ASSERT_EQ(formatted, R"(
+@@ -0, +0 @@
++58
+@@ -1, +2 @@
+-10
++75
++93
++53
++8
+@@ -3, +7 @@
+-126
+@@ -5, +8 @@
++79
++11
 )");
 }
 

@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/diff.h"
 #include "arrow/buffer.h"
 #include "arrow/scalar.h"
 #include "arrow/sparse_tensor.h"
@@ -929,14 +930,40 @@ class ScalarEqualsVisitor {
   bool result_;
 };
 
+Status PrintDiff(const Array& left, const Array& right, std::ostream* os) {
+  if (os == nullptr) {
+    return Status::OK();
+  }
+
+  if (!left.type()->Equals(right.type())) {
+    *os << "# Array types disagree: " << *left.type() << " vs " << *right.type();
+    return Status::OK();
+  }
+
+  std::shared_ptr<Array> edits;
+  RETURN_NOT_OK(Diff(left, right, default_memory_pool(), &edits));
+  ARROW_ASSIGN_OR_RAISE(auto formatter, MakeUnifiedDiffFormatter(*os, left, right));
+  return formatter->Visit(*edits);
+}
+
 }  // namespace internal
 
 bool ArrayEquals(const Array& left, const Array& right, const EqualOptions& opts) {
-  return internal::ArrayEqualsImpl<internal::ArrayEqualsVisitor>(left, right, opts);
+  bool are_equal =
+      internal::ArrayEqualsImpl<internal::ArrayEqualsVisitor>(left, right, opts);
+  if (!are_equal) {
+    DCHECK_OK(internal::PrintDiff(left, right, opts.diff_sink()));
+  }
+  return are_equal;
 }
 
 bool ArrayApproxEquals(const Array& left, const Array& right, const EqualOptions& opts) {
-  return internal::ArrayEqualsImpl<internal::ApproxEqualsVisitor>(left, right, opts);
+  bool are_equal =
+      internal::ArrayEqualsImpl<internal::ApproxEqualsVisitor>(left, right, opts);
+  if (!are_equal) {
+    DCHECK_OK(internal::PrintDiff(left, right, opts.diff_sink()));
+  }
+  return are_equal;
 }
 
 bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,
