@@ -80,8 +80,7 @@ namespace {
 
 class LevelBuilder {
  public:
-  explicit LevelBuilder(MemoryPool* pool)
-      : def_levels_(pool), rep_levels_(pool) {}
+  explicit LevelBuilder(MemoryPool* pool) : def_levels_(pool), rep_levels_(pool) {}
 
   Status VisitInline(const Array& array);
 
@@ -101,6 +100,7 @@ class LevelBuilder {
     null_counts_.push_back(array.null_count());
     offsets_.push_back(array.raw_value_offsets());
 
+    // Min offset isn't always zero in the case of sliced Arrays.
     min_offset_idx_ = array.value_offset(min_offset_idx_);
     max_offset_idx_ = array.value_offset(max_offset_idx_);
 
@@ -133,7 +133,6 @@ class LevelBuilder {
     *num_values = max_offset_idx_ - min_offset_idx_;
     *values_offset = min_offset_idx_;
     *values_array = values_array_;
-
     // Walk downwards to extract nullability
     std::shared_ptr<Field> current_field = field;
     nullable_.push_back(current_field->nullable());
@@ -175,6 +174,9 @@ class LevelBuilder {
       }
       *num_levels = array.length();
     } else {
+      def_levels_.Reserve(num_values);
+      rep_levels_.Reserve(num_values);
+
       RETURN_NOT_OK(rep_levels_.Append(0));
       RETURN_NOT_OK(HandleListEntries(0, 0, 0, array.length()));
 
@@ -192,7 +194,7 @@ class LevelBuilder {
           BitUtil::GetBit(valid_bitmaps_[rep_level], index + array_offsets_[rep_level])) {
         return HandleNonNullList(static_cast<int16_t>(def_level + 1), rep_level, index);
       } else {
-        return def_levels_.Append(def_level);
+        return def_levels_.UnsafeAppend(def_level);
       }
     } else {
       return HandleNonNullList(def_level, rep_level, index);
@@ -216,26 +218,31 @@ class LevelBuilder {
       const int64_t level_null_count = null_counts_[recursion_level];
       const uint8_t* level_valid_bitmap = valid_bitmaps_[recursion_level];
 
-      for (int64_t i = 0; i < inner_length; i++) {
-        if (i > 0) {
-          RETURN_NOT_OK(rep_levels_.Append(static_cast<int16_t>(rep_level + 1)));
-        }
-        if (level_null_count && level_valid_bitmap == nullptr) {
-          // Special case: this is a null array (all elements are null)
-          RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 1)));
-        } else if (nullable_level &&
-                   ((level_null_count == 0) ||
-                    BitUtil::GetBit(
-                        level_valid_bitmap,
-                        inner_offset + i + array_offsets_[recursion_level]))) {
-          // Non-null element in a null level
-          RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 2)));
-        } else {
-          // This can be produced in two case:
-          //  * elements are nullable and this one is null (i.e. max_def_level = def_level
-          //  + 2)
-          //  * elements are non-nullable (i.e. max_def_level = def_level + 1)
-          RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 1)));
+      if (inner_length >= 1) {
+        RETURN_NOT_OK(
+            rep_levels_.Append(inner_length - 1, static_cast<int16_t>(rep_level + 1)));
+      }
+
+      // Special case: this is a null array (all elements are null)
+      if (level_null_count && level_valid_bitmap == nullptr) {
+        RETURN_NOT_OK(
+            def_levels_.Append(inner_length, static_cast<int16_t>(def_level + 1)));
+      } else {
+        for (int64_t i = 0; i < inner_length; i++) {
+          if (nullable_level &&
+              ((level_null_count == 0) ||
+               BitUtil::GetBit(level_valid_bitmap,
+                               inner_offset + i + array_offsets_[recursion_level]))) {
+            // Non-null element in a null level
+            RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 2)));
+          } else {
+            // This can be produced in two case:
+            //  * elements are nullable and this one is null (i.e. max_def_level =
+            //  def_level
+            //  + 2)
+            //  * elements are non-nullable (i.e. max_def_level = def_level + 1)
+            RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 1)));
+          }
         }
       }
       return Status::OK();
@@ -246,7 +253,7 @@ class LevelBuilder {
                            int64_t length) {
     for (int64_t i = 0; i < length; i++) {
       if (i > 0) {
-        RETURN_NOT_OK(rep_levels_.Append(rep_level));
+        RETURN_NOT_OK(rep_levels_.UnsafeAppend(rep_level));
       }
       RETURN_NOT_OK(HandleList(def_level, rep_level, offset + i));
     }
@@ -300,7 +307,8 @@ struct ColumnWriterContext {
 Status GetLeafType(const ::arrow::DataType& type, ::arrow::Type::type* leaf_type) {
   if (type.id() == ::arrow::Type::LIST || type.id() == ::arrow::Type::STRUCT) {
     if (type.num_children() != 1) {
-      return Status::Invalid("Nested column branch had multiple children: ", type.ToString());
+      return Status::Invalid("Nested column branch had multiple children: ",
+                             type.ToString());
     }
     return GetLeafType(*type.child(0)->type(), leaf_type);
   } else {
