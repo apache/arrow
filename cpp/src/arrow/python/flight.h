@@ -37,45 +37,45 @@ namespace flight {
 /// Python.
 class ARROW_PYTHON_EXPORT PyFlightServerVtable {
  public:
-  std::function<void(PyObject*, const arrow::flight::ServerCallContext&,
-                     const arrow::flight::Criteria*,
-                     std::unique_ptr<arrow::flight::FlightListing>*)>
+  std::function<Status(PyObject*, const arrow::flight::ServerCallContext&,
+                       const arrow::flight::Criteria*,
+                       std::unique_ptr<arrow::flight::FlightListing>*)>
       list_flights;
-  std::function<void(PyObject*, const arrow::flight::ServerCallContext&,
-                     const arrow::flight::FlightDescriptor&,
-                     std::unique_ptr<arrow::flight::FlightInfo>*)>
+  std::function<Status(PyObject*, const arrow::flight::ServerCallContext&,
+                       const arrow::flight::FlightDescriptor&,
+                       std::unique_ptr<arrow::flight::FlightInfo>*)>
       get_flight_info;
-  std::function<void(PyObject*, const arrow::flight::ServerCallContext&,
-                     const arrow::flight::Ticket&,
-                     std::unique_ptr<arrow::flight::FlightDataStream>*)>
+  std::function<Status(PyObject*, const arrow::flight::ServerCallContext&,
+                       const arrow::flight::Ticket&,
+                       std::unique_ptr<arrow::flight::FlightDataStream>*)>
       do_get;
-  std::function<void(PyObject*, const arrow::flight::ServerCallContext&,
-                     std::unique_ptr<arrow::flight::FlightMessageReader>,
-                     std::unique_ptr<arrow::flight::FlightMetadataWriter>)>
+  std::function<Status(PyObject*, const arrow::flight::ServerCallContext&,
+                       std::unique_ptr<arrow::flight::FlightMessageReader>,
+                       std::unique_ptr<arrow::flight::FlightMetadataWriter>)>
       do_put;
-  std::function<void(PyObject*, const arrow::flight::ServerCallContext&,
-                     const arrow::flight::Action&,
-                     std::unique_ptr<arrow::flight::ResultStream>*)>
+  std::function<Status(PyObject*, const arrow::flight::ServerCallContext&,
+                       const arrow::flight::Action&,
+                       std::unique_ptr<arrow::flight::ResultStream>*)>
       do_action;
-  std::function<void(PyObject*, const arrow::flight::ServerCallContext&,
-                     std::vector<arrow::flight::ActionType>*)>
+  std::function<Status(PyObject*, const arrow::flight::ServerCallContext&,
+                       std::vector<arrow::flight::ActionType>*)>
       list_actions;
 };
 
 class ARROW_PYTHON_EXPORT PyServerAuthHandlerVtable {
  public:
-  std::function<void(PyObject*, arrow::flight::ServerAuthSender*,
-                     arrow::flight::ServerAuthReader*)>
+  std::function<Status(PyObject*, arrow::flight::ServerAuthSender*,
+                       arrow::flight::ServerAuthReader*)>
       authenticate;
-  std::function<void(PyObject*, const std::string&, std::string*)> is_valid;
+  std::function<Status(PyObject*, const std::string&, std::string*)> is_valid;
 };
 
 class ARROW_PYTHON_EXPORT PyClientAuthHandlerVtable {
  public:
-  std::function<void(PyObject*, arrow::flight::ClientAuthSender*,
-                     arrow::flight::ClientAuthReader*)>
+  std::function<Status(PyObject*, arrow::flight::ClientAuthSender*,
+                       arrow::flight::ClientAuthReader*)>
       authenticate;
-  std::function<void(PyObject*, std::string*)> get_token;
+  std::function<Status(PyObject*, std::string*)> get_token;
 };
 
 /// \brief A helper to implement an auth mechanism in Python.
@@ -138,7 +138,7 @@ class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBas
 };
 
 /// \brief A callback that obtains the next result from a Flight action.
-typedef std::function<void(PyObject*, std::unique_ptr<arrow::flight::Result>*)>
+typedef std::function<Status(PyObject*, std::unique_ptr<arrow::flight::Result>*)>
     PyFlightResultStreamCallback;
 
 /// \brief A ResultStream built around a Python callback.
@@ -174,7 +174,7 @@ class ARROW_PYTHON_EXPORT PyFlightDataStream : public arrow::flight::FlightDataS
 };
 
 /// \brief A callback that obtains the next payload from a Flight result stream.
-typedef std::function<void(PyObject*, arrow::flight::FlightPayload*)>
+typedef std::function<Status(PyObject*, arrow::flight::FlightPayload*)>
     PyGeneratorFlightDataStreamCallback;
 
 /// \brief A FlightDataStream built around a Python callback.

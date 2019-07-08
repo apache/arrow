@@ -127,6 +127,7 @@ grpc::Status ToGrpcStatus(const Status& arrow_status) {
   grpc::StatusCode grpc_code = grpc::StatusCode::UNKNOWN;
   std::string message = arrow_status.message();
   if (arrow_status.detail()) {
+    message += ". Detail: ";
     message += arrow_status.detail()->ToString();
   }
 

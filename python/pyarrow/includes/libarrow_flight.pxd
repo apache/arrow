@@ -243,33 +243,58 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
                       unique_ptr[CFlightStreamWriter]* stream,
                       unique_ptr[CFlightMetadataReader]* reader)
 
+    cdef cppclass CFlightStatusCode" arrow::flight::FlightStatusCode":
+        bint operator==(CFlightStatusCode)
+
+    CFlightStatusCode CFlightStatusInternal \
+        " arrow::flight::FlightStatusCode::Internal"
+    CFlightStatusCode CFlightStatusTimedOut \
+        " arrow::flight::FlightStatusCode::TimedOut"
+    CFlightStatusCode CFlightStatusCancelled \
+        " arrow::flight::FlightStatusCode::Cancelled"
+    CFlightStatusCode CFlightStatusUnauthenticated \
+        " arrow::flight::FlightStatusCode::Unauthenticated"
+    CFlightStatusCode CFlightStatusUnauthorized \
+        " arrow::flight::FlightStatusCode::Unauthorized"
+    CFlightStatusCode CFlightStatusUnavailable \
+        " arrow::flight::FlightStatusCode::Unavailable"
+
+    cdef cppclass FlightStatusDetail" arrow::flight::FlightStatusDetail":
+        CFlightStatusCode code()
+        @staticmethod
+        shared_ptr[FlightStatusDetail] UnwrapStatus(const CStatus& status)
+
+    cdef CStatus MakeFlightError" arrow::flight::MakeFlightError" \
+        (CFlightStatusCode code, const c_string& message)
+
 
 # Callbacks for implementing Flight servers
-# Use typedef to emulate syntax for std::function<void(...)>
-ctypedef void cb_list_flights(object, const CServerCallContext&,
-                              const CCriteria*,
-                              unique_ptr[CFlightListing]*)
-ctypedef void cb_get_flight_info(object, const CServerCallContext&,
-                                 const CFlightDescriptor&,
-                                 unique_ptr[CFlightInfo]*)
-ctypedef void cb_do_put(object, const CServerCallContext&,
-                        unique_ptr[CFlightMessageReader],
-                        unique_ptr[CFlightMetadataWriter])
-ctypedef void cb_do_get(object, const CServerCallContext&,
-                        const CTicket&,
-                        unique_ptr[CFlightDataStream]*)
-ctypedef void cb_do_action(object, const CServerCallContext&, const CAction&,
-                           unique_ptr[CResultStream]*)
-ctypedef void cb_list_actions(object, const CServerCallContext&,
-                              vector[CActionType]*)
-ctypedef void cb_result_next(object, unique_ptr[CFlightResult]*)
-ctypedef void cb_data_stream_next(object, CFlightPayload*)
-ctypedef void cb_server_authenticate(object, CServerAuthSender*,
-                                     CServerAuthReader*)
-ctypedef void cb_is_valid(object, const c_string&, c_string*)
-ctypedef void cb_client_authenticate(object, CClientAuthSender*,
-                                     CClientAuthReader*)
-ctypedef void cb_get_token(object, c_string*)
+# Use typedef to emulate syntax for std::function<void(..)>
+ctypedef CStatus cb_list_flights(object, const CServerCallContext&,
+                                 const CCriteria*,
+                                 unique_ptr[CFlightListing]*)
+ctypedef CStatus cb_get_flight_info(object, const CServerCallContext&,
+                                    const CFlightDescriptor&,
+                                    unique_ptr[CFlightInfo]*)
+ctypedef CStatus cb_do_put(object, const CServerCallContext&,
+                           unique_ptr[CFlightMessageReader],
+                           unique_ptr[CFlightMetadataWriter])
+ctypedef CStatus cb_do_get(object, const CServerCallContext&,
+                           const CTicket&,
+                           unique_ptr[CFlightDataStream]*)
+ctypedef CStatus cb_do_action(object, const CServerCallContext&,
+                              const CAction&,
+                              unique_ptr[CResultStream]*)
+ctypedef CStatus cb_list_actions(object, const CServerCallContext&,
+                                 vector[CActionType]*)
+ctypedef CStatus cb_result_next(object, unique_ptr[CFlightResult]*)
+ctypedef CStatus cb_data_stream_next(object, CFlightPayload*)
+ctypedef CStatus cb_server_authenticate(object, CServerAuthSender*,
+                                        CServerAuthReader*)
+ctypedef CStatus cb_is_valid(object, const c_string&, c_string*)
+ctypedef CStatus cb_client_authenticate(object, CClientAuthSender*,
+                                        CClientAuthReader*)
+ctypedef CStatus cb_get_token(object, c_string*)
 
 cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef cppclass PyFlightServerVtable:
