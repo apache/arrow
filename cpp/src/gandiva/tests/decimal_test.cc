@@ -412,15 +412,22 @@ TEST_F(TestDecimal, TestCastFunctions) {
   constexpr int32_t scale = 2;
   auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
   auto decimal_type_scale_1 = std::make_shared<arrow::Decimal128Type>(precision, 1);
-  auto field_int64 = field("intt64", arrow::int64());
+  auto field_int32 = field("int32", arrow::int32());
+  auto field_int64 = field("int64", arrow::int64());
+  auto field_float32 = field("float32", arrow::float32());
   auto field_float64 = field("float64", arrow::float64());
   auto field_dec = field("dec", decimal_type);
-  auto schema = arrow::schema({field_int64, field_float64, field_dec});
+  auto schema =
+      arrow::schema({field_int32, field_int64, field_float32, field_float64, field_dec});
 
   // build expressions
   auto exprs = std::vector<ExpressionPtr>{
+      TreeExprBuilder::MakeExpression("castDECIMAL", {field_int32},
+                                      field("int32_to_dec", decimal_type)),
       TreeExprBuilder::MakeExpression("castDECIMAL", {field_int64},
                                       field("int64_to_dec", decimal_type)),
+      TreeExprBuilder::MakeExpression("castDECIMAL", {field_float32},
+                                      field("float32_to_dec", decimal_type)),
       TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64},
                                       field("float64_to_dec", decimal_type)),
       TreeExprBuilder::MakeExpression("castDECIMAL", {field_dec},
@@ -440,15 +447,18 @@ TEST_F(TestDecimal, TestCastFunctions) {
   int num_records = 4;
   auto validity = {true, true, true, true};
 
+  auto array_int32 = MakeArrowArrayInt32({123, 158, -123, -158});
   auto array_int64 = MakeArrowArrayInt64({123, 158, -123, -158});
+  auto array_float32 = MakeArrowArrayFloat32({1.23f, 1.58f, -1.23f, -1.58f});
   auto array_float64 = MakeArrowArrayFloat64({1.23, 1.58, -1.23, -1.58});
   auto array_dec = MakeArrowArrayDecimal(
       decimal_type, MakeDecimalVector({"1.23", "1.58", "-1.23", "-1.58"}, scale),
       validity);
 
   // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records,
-                                           {array_int64, array_float64, array_dec});
+  auto in_batch = arrow::RecordBatch::Make(
+      schema, num_records,
+      {array_int32, array_int64, array_float32, array_float64, array_dec});
 
   // Evaluate expression
   arrow::ArrayVector outputs;
@@ -457,28 +467,34 @@ TEST_F(TestDecimal, TestCastFunctions) {
 
   // Validate results
 
-  // castDECIMAL(int64)
+  // castDECIMAL(int32)
   EXPECT_ARROW_ARRAY_EQUALS(
       MakeArrowArrayDecimal(decimal_type,
                             MakeDecimalVector({"123", "158", "-123", "-158"}, scale),
                             validity),
       outputs[0]);
 
+  // castDECIMAL(int64)
+  EXPECT_ARROW_ARRAY_EQUALS(array_dec, outputs[2]);
+
+  // castDECIMAL(float32)
+  EXPECT_ARROW_ARRAY_EQUALS(array_dec, outputs[2]);
+
   // castDECIMAL(float64)
-  EXPECT_ARROW_ARRAY_EQUALS(array_dec, outputs[1]);
+  EXPECT_ARROW_ARRAY_EQUALS(array_dec, outputs[3]);
 
   // castDECIMAL(decimal)
   EXPECT_ARROW_ARRAY_EQUALS(
       MakeArrowArrayDecimal(arrow::decimal(precision, 1),
                             MakeDecimalVector({"1.2", "1.6", "-1.2", "-1.6"}, 1),
                             validity),
-      outputs[2]);
+      outputs[4]);
 
   // castBIGINT(decimal)
-  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayInt64({1, 1, -1, -1}), outputs[3]);
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayInt64({1, 1, -1, -1}), outputs[5]);
 
   // castDOUBLE(decimal)
-  EXPECT_ARROW_ARRAY_EQUALS(array_float64, outputs[4]);
+  EXPECT_ARROW_ARRAY_EQUALS(array_float64, outputs[6]);
 }
 
 // isnull, isnumeric
