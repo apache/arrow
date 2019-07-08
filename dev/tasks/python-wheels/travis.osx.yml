@@ -68,11 +68,13 @@ install:
 
   # test the built wheels, remove llvm and grpc dependencies to ensure
   # things are properly statically-linked
-  - brew uninstall llvm@7 grpc c-ares
+  - brew uninstall --ignore-dependencies llvm@7 grpc c-ares openssl
   - install_run arrow
 
   # move built wheels to a top level directory
   - mv -v arrow/python/dist/* dist/
+  # reinstall openssl because travis' deployment script depends on it
+  - brew install openssl
 
 deploy:
   provider: releases
