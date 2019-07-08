@@ -57,7 +57,7 @@ matrix:
     before_script:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ]; then exit; fi
     - git submodule update --init
-    - docker-compose pull cpp-ci
+    - docker-compose build --pull cpp-ci
     script:
     - docker-compose run cpp-ci
   # Separating Valgrind and C++ coverage makes individual jobs shorter
@@ -180,7 +180,7 @@ matrix:
     os: linux
     before_script:
     - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
-    - docker-compose pull java-all-jdks
+    - docker-compose build --pull java-all-jdks
     script:
     - docker-compose run java-all-jdks
   - name: "Integration w/ OpenJDK 8, conda-forge toolchain"
