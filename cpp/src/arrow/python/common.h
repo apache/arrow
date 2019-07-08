@@ -70,6 +70,7 @@ T GetResultValue(Result<T>& result) {
   } else {
     int r = internal::check_status(result.status());
     assert(r == -1);  // should have errored out
+    ARROW_UNUSED(r);
     return {};
   }
 }

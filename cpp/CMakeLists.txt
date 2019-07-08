@@ -39,12 +39,14 @@ if(ARROW_VERSION_MAJOR STREQUAL ""
 endif()
 
 # The SO version is also the ABI version
-if(arrow_VERSION_MAJOR STREQUAL "0")
+if(ARROW_VERSION_MAJOR STREQUAL "0")
   # Arrow 0.x.y => SO version is "x", full SO version is "x.y.0"
   set(ARROW_SO_VERSION "${ARROW_VERSION_MINOR}")
   set(ARROW_FULL_SO_VERSION "${ARROW_SO_VERSION}.${ARROW_VERSION_PATCH}.0")
 else()
-  message(FATAL_ERROR "Need to implement SO version generation for Arrow 1.0+")
+  # Arrow 1.x.y => SO version is "10x", full SO version is "10x.y.0"
+  math(EXPR ARROW_SO_VERSION "${ARROW_VERSION_MAJOR} * 100 + ${ARROW_VERSION_MINOR}")
+  set(ARROW_FULL_SO_VERSION "${ARROW_SO_VERSION}.${ARROW_VERSION_PATCH}.0")
 endif()
 
 message(STATUS "Arrow version: "
