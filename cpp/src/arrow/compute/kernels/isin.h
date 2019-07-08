@@ -32,7 +32,7 @@ namespace compute {
 /// \brief IsIn returns boolean values if the value
 /// is in both left and right arrays.
 ///
-/// If null occurs in left, if null_count in right is not 0,
+/// If null occurs in left, if null count in right is not 0,
 /// it returns true, else returns null.
 ///
 /// \param[in] context the FunctionContext

@@ -106,7 +106,7 @@ class IsInKernel : public IsInKernelImpl {
   IsInKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
       : type_(type), pool_(pool) {}
 
-  // \brief if null_count in right is not 0, then append true to the
+  // \brief if null count in right is not 0, then append true to the
   // BooleanBuilder when left array has a null, else append null.
   Status VisitNull() {
     if (right_null_count != 0) {
@@ -144,13 +144,15 @@ class IsInKernel : public IsInKernelImpl {
     MemoTableRight<Type, Scalar> func;
     func.Reset();
 
-    if (right.kind() == Datum::CHUNKED_ARRAY) {
+    if (right.kind() == Datum::ARRAY) {
+      func.Append(ctx, right);
+    } else if (right.kind() == Datum::CHUNKED_ARRAY) {
       const ChunkedArray& right_array = *right.chunked_array();
       for (int i = 0; i < right_array.num_chunks(); i++) {
         func.Append(ctx, right_array.chunk(i));
       }
     } else {
-      func.Append(ctx, right);
+      return Status::Invalid("Input Datum was not array-like");
     }
 
     memo_table_ = std::move(func.memo_table_);
@@ -175,9 +177,6 @@ class IsInKernel : public IsInKernelImpl {
 // ----------------------------------------------------------------------
 // (NullType has a separate implementation)
 
-// \brief When array is NullType, based on the null_count for the arrays,
-// append true to the BooleanBuilder else propagate to all nulls
-
 class NullIsInKernel : public IsInKernelImpl {
  public:
   NullIsInKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool) {}
@@ -187,6 +186,8 @@ class NullIsInKernel : public IsInKernelImpl {
     return Status::OK();
   }
 
+  // \brief When array is NullType, based on the null count for the arrays,
+  // append true to the BooleanBuilder else propagate to all nulls
   Status Compute(FunctionContext* ctx, const Datum& left, Datum* out) override {
     const ArrayData& left_data = *left.array();
     left_null_count = left_data.GetNullCount();
@@ -207,14 +208,16 @@ class NullIsInKernel : public IsInKernelImpl {
   }
 
   Status ConstructRight(FunctionContext* ctx, const Datum& right) override {
-    if (right.kind() == Datum::CHUNKED_ARRAY) {
+    if (right.kind() == Datum::ARRAY) {
+      const ArrayData& right_data = *right.array();
+      right_null_count = right_data.GetNullCount();
+    } else if (right.kind() == Datum::CHUNKED_ARRAY) {
       const ChunkedArray& right_array = *right.chunked_array();
       for (int i = 0; i < right_array.num_chunks(); i++) {
         right_null_count += right_array.chunk(i)->null_count();
       }
     } else {
-      const ArrayData& right_data = *right.array();
-      right_null_count = right_data.GetNullCount();
+      return Status::Invalid("Input Datum was not array-like");
     }
     return Status::OK();
   }
