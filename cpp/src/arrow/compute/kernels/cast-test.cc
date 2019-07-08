@@ -263,7 +263,7 @@ std::vector<O> UnsafeVectorCast(const std::vector<I>& v) {
 
   for (size_t i = 0; i < v.size(); i++) result[i] = static_cast<O>(v[i]);
 
-  return std::move(result);
+  return result;
 }
 
 TEST_F(TestCast, IntegerSignedToUnsigned) {

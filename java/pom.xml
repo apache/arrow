@@ -655,6 +655,7 @@
     <module>flight</module>
     <module>performance</module>
     <module>algorithm</module>
+    <module>adapter/avro</module>
   </modules>
 
   <profiles>

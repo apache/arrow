@@ -135,10 +135,14 @@ struct ARROW_FLIGHT_EXPORT Ticket {
 class FlightClient;
 class FlightServerBase;
 
-static const char* kSchemeGrpc = "grpc";
-static const char* kSchemeGrpcTcp = "grpc+tcp";
-static const char* kSchemeGrpcUnix = "grpc+unix";
-static const char* kSchemeGrpcTls = "grpc+tls";
+ARROW_FLIGHT_EXPORT
+extern const char* kSchemeGrpc;
+ARROW_FLIGHT_EXPORT
+extern const char* kSchemeGrpcTcp;
+ARROW_FLIGHT_EXPORT
+extern const char* kSchemeGrpcUnix;
+ARROW_FLIGHT_EXPORT
+extern const char* kSchemeGrpcTls;
 
 /// \brief A host location (a URI)
 struct ARROW_FLIGHT_EXPORT Location {

@@ -94,6 +94,7 @@ The test groups currently include:
 * ``plasma``: Plasma Object Store tests
 * ``s3``: Tests for Amazon S3
 * ``tensorflow``: Tests that involve TensorFlow
+* ``flight``: Flight RPC tests
 
 Benchmarking
 ------------
