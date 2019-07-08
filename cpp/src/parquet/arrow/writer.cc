@@ -133,6 +133,7 @@ class LevelBuilder {
     *num_values = max_offset_idx_ - min_offset_idx_;
     *values_offset = min_offset_idx_;
     *values_array = values_array_;
+
     // Walk downwards to extract nullability
     std::shared_ptr<Field> current_field = field;
     nullable_.push_back(current_field->nullable());
@@ -174,9 +175,11 @@ class LevelBuilder {
       }
       *num_levels = array.length();
     } else {
-      def_levels_.Reserve(num_values);
-      rep_levels_.Reserve(num_values);
-
+      // Note it is hard to estimate memory consumption due to zero length
+      // arrays otherwise we would preallocate.  An upper boun on memory
+      // is the sum of the length of each list array  + number of elements
+      // but this might be too loose of an upper bound so we choose to use
+      // safe methods.
       RETURN_NOT_OK(rep_levels_.Append(0));
       RETURN_NOT_OK(HandleListEntries(0, 0, 0, array.length()));
 
@@ -194,7 +197,7 @@ class LevelBuilder {
           BitUtil::GetBit(valid_bitmaps_[rep_level], index + array_offsets_[rep_level])) {
         return HandleNonNullList(static_cast<int16_t>(def_level + 1), rep_level, index);
       } else {
-        return def_levels_.UnsafeAppend(def_level);
+        return def_levels_.Append(def_level);
       }
     } else {
       return HandleNonNullList(def_level, rep_level, index);
@@ -245,15 +248,15 @@ class LevelBuilder {
           }
         }
       }
-      return Status::OK();
     }
+    return Status::OK();
   }
 
   Status HandleListEntries(int16_t def_level, int16_t rep_level, int64_t offset,
                            int64_t length) {
     for (int64_t i = 0; i < length; i++) {
       if (i > 0) {
-        RETURN_NOT_OK(rep_levels_.UnsafeAppend(rep_level));
+        RETURN_NOT_OK(rep_levels_.Append(rep_level));
       }
       RETURN_NOT_OK(HandleList(def_level, rep_level, offset + i));
     }
