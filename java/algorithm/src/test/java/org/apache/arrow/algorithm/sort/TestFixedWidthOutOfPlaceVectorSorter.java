@@ -251,7 +251,7 @@ public class TestFixedWidthOutOfPlaceVectorSorter {
       vec.set(5, 17f);
       vec.setNull(6);
       vec.set(7, 23f);
-      vec.set(8, 35f);
+      vec.set(8, Float.NaN);
       vec.set(9, 2f);
 
       // sort the vector
@@ -276,7 +276,7 @@ public class TestFixedWidthOutOfPlaceVectorSorter {
       Assert.assertEquals(12f, sortedVec.get(6), 0f);
       Assert.assertEquals(17f, sortedVec.get(7), 0f);
       Assert.assertEquals(23f, sortedVec.get(8), 0f);
-      Assert.assertEquals(35f, sortedVec.get(9), 0f);
+      Assert.assertEquals(Float.NaN, sortedVec.get(9), 0f);
 
       sortedVec.close();
     }
@@ -296,7 +296,7 @@ public class TestFixedWidthOutOfPlaceVectorSorter {
       vec.set(4, 12);
       vec.set(5, 17);
       vec.setNull(6);
-      vec.set(7, 23);
+      vec.set(7, Double.NaN);
       vec.set(8, 35);
       vec.set(9, 2);
 
@@ -321,8 +321,8 @@ public class TestFixedWidthOutOfPlaceVectorSorter {
       Assert.assertEquals(10, sortedVec.get(5), 0);
       Assert.assertEquals(12, sortedVec.get(6), 0);
       Assert.assertEquals(17, sortedVec.get(7), 0);
-      Assert.assertEquals(23, sortedVec.get(8), 0);
-      Assert.assertEquals(35, sortedVec.get(9), 0);
+      Assert.assertEquals(35, sortedVec.get(8), 0);
+      Assert.assertEquals(Double.NaN, sortedVec.get(9), 0);
 
       sortedVec.close();
     }

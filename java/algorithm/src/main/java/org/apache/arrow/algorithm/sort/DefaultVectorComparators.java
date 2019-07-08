@@ -126,6 +126,19 @@ public class DefaultVectorComparators {
       float value1 = vector1.get(index1);
       float value2 = vector2.get(index2);
 
+      boolean isNan1 = Float.isNaN(value1);
+      boolean isNan2 = Float.isNaN(value2);
+      if (isNan1 || isNan2) {
+        if (isNan1 && isNan2) {
+          return 0;
+        } else if (isNan1) {
+          // nan is greater than any normal value
+          return 1;
+        } else {
+          return -1;
+        }
+      }
+
       float result = value1 - value2;
       if (result < 0f) {
         return -1;
@@ -151,6 +164,19 @@ public class DefaultVectorComparators {
     public int compareNotNull(int index1, int index2) {
       double value1 = vector1.get(index1);
       double value2 = vector2.get(index2);
+
+      boolean isNan1 = Double.isNaN(value1);
+      boolean isNan2 = Double.isNaN(value2);
+      if (isNan1 || isNan2) {
+        if (isNan1 && isNan2) {
+          return 0;
+        } else if (isNan1) {
+          // nan is greater than any normal value
+          return 1;
+        } else {
+          return -1;
+        }
+      }
 
       double result = value1 - value2;
       if (result < 0) {
