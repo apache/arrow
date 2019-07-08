@@ -68,7 +68,7 @@ install:
 
   # test the built wheels, remove llvm and grpc dependencies to ensure
   # things are properly statically-linked
-  - brew uninstall llvm@7 grpc c-ares openssl
+  - brew uninstall --ignore-dependencies llvm@7 grpc c-ares openssl
   - install_run arrow
 
   # move built wheels to a top level directory
