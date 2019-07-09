@@ -179,6 +179,109 @@ public class BitVectorHelper {
     return 8 * sizeInBytes - count;
   }
 
+  /**
+   * Tests if all bits in a validity buffer are 0.
+   * @param validityBuffer the validity buffer.
+   * @param valueCount the bit count.
+   * @return true if all bits are 0, and false otherwise.
+   */
+  public static boolean allBitsNull(final ArrowBuf validityBuffer, final int valueCount) {
+    if (valueCount == 0) {
+      return true;
+    }
+    final int sizeInBytes = getValidityBufferSize(valueCount);
+    // If value count is not a multiple of 8, then calculate number of used bits in the last byte
+    final int remainder = valueCount % 8;
+    final int fullBytesCount = remainder == 0 ? sizeInBytes : sizeInBytes - 1;
+
+    int index = 0;
+    while (index + 8 <= fullBytesCount) {
+      long longValue = validityBuffer.getLong(index);
+      if (longValue != 0L) {
+        return false;
+      }
+      index += 8;
+    }
+
+    while (index + 4 <= fullBytesCount) {
+      int intValue = validityBuffer.getInt(index);
+      if (intValue != 0) {
+        return false;
+      }
+      index += 4;
+    }
+
+    while (index < fullBytesCount) {
+      byte byteValue = validityBuffer.getByte(index);
+      if (byteValue != (byte) 0) {
+        return false;
+      }
+      index += 1;
+    }
+
+    // handling with the last bits
+    if (remainder != 0) {
+      byte byteValue = validityBuffer.getByte(sizeInBytes - 1);
+      byte mask = (byte) ((1 << remainder) - 1);
+      byteValue = (byte) (byteValue & mask);
+      if (byteValue != (byte) 0) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Tests if all bits in a validity buffer are 1.
+   * @param validityBuffer the validity buffer.
+   * @param valueCount the bit count.
+   * @return true if all bits are 1, and false otherwise.
+   */
+  public static boolean allBitsSet(final ArrowBuf validityBuffer, final int valueCount) {
+    if (valueCount == 0) {
+      return true;
+    }
+    final int sizeInBytes = getValidityBufferSize(valueCount);
+    // If value count is not a multiple of 8, then calculate number of used bits in the last byte
+    final int remainder = valueCount % 8;
+    final int fullBytesCount = remainder == 0 ? sizeInBytes : sizeInBytes - 1;
+
+    int index = 0;
+    while (index + 8 <= fullBytesCount) {
+      long longValue = validityBuffer.getLong(index);
+      if (longValue != -1L) {
+        return false;
+      }
+      index += 8;
+    }
+
+    while (index + 4 <= fullBytesCount) {
+      int intValue = validityBuffer.getInt(index);
+      if (intValue != -1) {
+        return false;
+      }
+      index += 4;
+    }
+
+    while (index < fullBytesCount) {
+      byte byteValue = validityBuffer.getByte(index);
+      if (byteValue != (byte) -1) {
+        return false;
+      }
+      index += 1;
+    }
+
+    // handling with the last bits
+    if (remainder != 0) {
+      byte byteValue = validityBuffer.getByte(sizeInBytes - 1);
+      byte mask = (byte) ((1 << remainder) - 1);
+      if ((mask & byteValue) != mask) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /** Returns the byte at index from data right-shifted by offset. */
   public static byte getBitsFromCurrentByte(final ArrowBuf data, final int index, final int offset) {
     return (byte) ((data.getByte(index) & 0xFF) >>> offset);
