@@ -53,9 +53,9 @@ class GANDIVA_EXPORT ExpressionRegistry {
     fs_iterator operator++(int);
 
    private:
-    nf_iterator nf_it_;
-    nf_iterator nf_it_end_;
-    fs_iterator fs_it_;
+    nf_iterator native_func_it_;
+    const nf_iterator native_func_it_end_;
+    fs_iterator func_sig_it_;
   };
   const FunctionSignatureIterator function_signature_begin();
   const FunctionSignatureIterator function_signature_end() const;
