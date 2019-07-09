@@ -286,7 +286,7 @@ struct TupleSetter {
         typename TypeTraits<typename ConversionTraits<Element>::ArrowType>::ArrayType;
 
     auto iter = rows->begin();
-    const ChunkedArray& chunked_array = *table.column(N - 1)->data();
+    const ChunkedArray& chunked_array = *table.column(N - 1);
     for (int i = 0; i < chunked_array.num_chunks(); i++) {
       const ArrayType& array =
           ::arrow::internal::checked_cast<const ArrayType&>(*chunked_array.chunk(i));

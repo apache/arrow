@@ -570,8 +570,7 @@ TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveType) {
 TEST_F(TestPrettyPrint, TablePrimitive) {
   std::shared_ptr<Field> int_field = field("column", int32());
   auto array = ArrayFromJSON(int_field->type(), "[0, 1, null, 3, null]");
-  std::shared_ptr<Column> column =
-      std::make_shared<Column>(int_field, ArrayVector({array}));
+  auto column = std::make_shared<ChunkedArray>(ArrayVector({array}));
   std::shared_ptr<Schema> table_schema = schema({int_field});
   std::shared_ptr<Table> table = Table::Make(table_schema, {column});
 
