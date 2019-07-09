@@ -54,7 +54,7 @@ pub(super) fn take_value_indices_from_list(
     values: &ArrayRef,
     indices: &UInt32Array,
 ) -> (UInt32Array, Vec<i32>) {
-    // TODO benchmark this function, there might be a faster unsafe alternative
+    // TODO: benchmark this function, there might be a faster unsafe alternative
     // get list array's offsets
     let list: &ListArray = values.as_any().downcast_ref::<ListArray>().unwrap();
     let offsets: Vec<u32> = (0..=list.len())
@@ -73,16 +73,15 @@ pub(super) fn take_value_indices_from_list(
             let end = offsets[ix + 1];
             current_offset += (end - start) as i32;
             new_offsets.push(current_offset);
-            // type annotation needed to guide compiler a bit
-            let mut offsets: Vec<Option<u32>> =
-                (start..end).map(|v| Some(v)).collect::<Vec<Option<u32>>>();
-            if !offsets.is_empty() {
-                // if offsets are empty, there are no values to append, and thus we create a null slot
+            // if start == end, this slot is empty
+            if start != end {
+                // type annotation needed to guide compiler a bit
+                let mut offsets: Vec<Option<u32>> =
+                    (start..end).map(|v| Some(v)).collect::<Vec<Option<u32>>>();
                 values.append(&mut offsets);
             }
         } else {
             new_offsets.push(current_offset);
-            // values.push(None);
         }
     }
     (UInt32Array::from(values), new_offsets)

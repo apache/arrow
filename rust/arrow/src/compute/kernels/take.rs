@@ -38,7 +38,7 @@ pub fn take(
     indices: &UInt32Array,
     options: Option<TakeOptions>,
 ) -> Result<ArrayRef> {
-    let options = options.clone().unwrap_or(Default::default());
+    let options = options.unwrap_or(Default::default());
     if options.check_bounds {
         let len = values.len();
         for i in 0..indices.len() {
@@ -125,6 +125,14 @@ impl Default for TakeOptions {
 }
 
 /// `take` implementation for primitive arrays
+///
+/// This checks if an `indices` slot is populated, and gets the value from `values`
+///  as the populated index.
+/// If the `indices` slot is null, a null value is returned.
+/// For example, given:
+///     values:  [1, 2, 3, null, 5]
+///     indices: [0, null, 4, 3]
+/// The result is: [1 (slot 0), null (null slot), 5 (slot 4), null (slot 3)]
 fn take_primitive<T>(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef>
 where
     T: ArrowPrimitiveType,
@@ -133,8 +141,10 @@ where
     let a = values.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
     for i in 0..indices.len() {
         if indices.is_null(i) {
+            // populate with null if index is null
             builder.append_null()?;
         } else {
+            // get index value to use in looking up the value from `values`
             let ix = indices.value(i) as usize;
             if a.is_valid(ix) {
                 builder.append_value(a.value(ix))?;
@@ -171,11 +181,12 @@ fn take_binary(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
 /// applying `take` on the inner array, then reconstructing a list array
 /// with the indexed offsets
 fn take_list(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
-    // TODO Some optimizations can be done here such as if it is taking the whole list or a contiguous sublist
+    // TODO: Some optimizations can be done here such as if it is
+    // taking the whole list or a contiguous sublist
     let list: &ListArray = values.as_any().downcast_ref::<ListArray>().unwrap();
     let (list_indices, offsets) = take_value_indices_from_list(values, indices);
     let taken = take(&list.values(), &list_indices, None)?;
-    // determine null count and null buffer, because they are now a function of `values` and `indices`
+    // determine null count and null buffer, which are a function of `values` and `indices`
     let mut null_count = 0;
     let num_bytes = bit_util::ceil(indices.len(), 8);
     let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
@@ -194,7 +205,7 @@ fn take_list(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
             });
     }
     let value_offsets = Buffer::from(offsets[..].to_byte_slice());
-    // create a new list with
+    // create a new list with taken data and computed null information
     let list_data = ArrayDataBuilder::new(list.data_type().clone())
         .len(indices.len())
         .null_count(null_count)
@@ -237,8 +248,8 @@ mod tests {
         let struct_array_data = ArrayData::builder(DataType::Struct(field_types))
             .len(4)
             .null_count(0)
-            .add_child_data(boolean_data.clone())
-            .add_child_data(int_data.clone())
+            .add_child_data(boolean_data)
+            .add_child_data(int_data)
             .build();
         let struct_array = StructArray::from(struct_array_data);
         Arc::new(struct_array) as ArrayRef
@@ -337,8 +348,8 @@ mod tests {
         let list_data_type = DataType::List(Box::new(DataType::Int32));
         let list_data = ArrayData::builder(list_data_type.clone())
             .len(3)
-            .add_buffer(value_offsets.clone())
-            .add_child_data(value_data.clone())
+            .add_buffer(value_offsets)
+            .add_child_data(value_data)
             .build();
         let list_array = Arc::new(ListArray::from(list_data)) as ArrayRef;
 
@@ -371,8 +382,8 @@ mod tests {
             .null_count(1)
             // null buffer remains the same as only the indices have nulls
             .null_bit_buffer(index.data().null_bitmap().as_ref().unwrap().bits.clone())
-            .add_buffer(expected_offsets.clone())
-            .add_child_data(expected_data.clone())
+            .add_buffer(expected_offsets)
+            .add_child_data(expected_data)
             .build();
         let expected_list_array = ListArray::from(expected_list_data);
 
@@ -400,10 +411,10 @@ mod tests {
         let list_data_type = DataType::List(Box::new(DataType::Int32));
         let list_data = ArrayData::builder(list_data_type.clone())
             .len(4)
-            .add_buffer(value_offsets.clone())
+            .add_buffer(value_offsets)
             .null_count(0)
             .null_bit_buffer(Buffer::from([0b10111101, 0b00000000]))
-            .add_child_data(value_data.clone())
+            .add_child_data(value_data)
             .build();
         let list_array = Arc::new(ListArray::from(list_data)) as ArrayRef;
 
@@ -435,8 +446,8 @@ mod tests {
             .null_count(1)
             // null buffer remains the same as only the indices have nulls
             .null_bit_buffer(index.data().null_bitmap().as_ref().unwrap().bits.clone())
-            .add_buffer(expected_offsets.clone())
-            .add_child_data(expected_data.clone())
+            .add_buffer(expected_offsets)
+            .add_child_data(expected_data)
             .build();
         let expected_list_array = ListArray::from(expected_list_data);
 
@@ -463,10 +474,10 @@ mod tests {
         let list_data_type = DataType::List(Box::new(DataType::Int32));
         let list_data = ArrayData::builder(list_data_type.clone())
             .len(4)
-            .add_buffer(value_offsets.clone())
+            .add_buffer(value_offsets)
             .null_count(1)
             .null_bit_buffer(Buffer::from([0b01111101]))
-            .add_child_data(value_data.clone())
+            .add_child_data(value_data)
             .build();
         let list_array = Arc::new(ListArray::from(list_data)) as ArrayRef;
 
@@ -501,8 +512,8 @@ mod tests {
             .null_count(2)
             // null buffer must be recalculated as both values and indices have nulls
             .null_bit_buffer(Buffer::from(null_bits))
-            .add_buffer(expected_offsets.clone())
-            .add_child_data(expected_data.clone())
+            .add_buffer(expected_offsets)
+            .add_child_data(expected_data)
             .build();
         let expected_list_array = ListArray::from(expected_list_data);
 
@@ -556,7 +567,7 @@ mod tests {
         field_types.push(Field::new("b", DataType::Int32, true));
         let struct_array_data = ArrayData::builder(DataType::Struct(field_types))
             .len(5)
-            // TODO see https://issues.apache.org/jira/browse/ARROW-5408 for why count != 2
+            // TODO: see https://issues.apache.org/jira/browse/ARROW-5408 for why count != 2
             .null_count(0)
             .add_child_data(expected_bool_data)
             .add_child_data(expected_int_data)
