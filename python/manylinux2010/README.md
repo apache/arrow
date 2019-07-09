@@ -27,7 +27,7 @@ The process is split up in two parts:
 
 1. There are base Docker images that contain the build dependencies for
    Arrow.  Those images do not need to be rebuilt frequently, and are hosted
-   on the public quay.io service.
+   on the public Docker Hub service.
 
 2. Based on on these images, there is a bash script (`build_arrow.sh`) that
    the PyArrow wheels for all supported Python versions, and place them
@@ -42,7 +42,7 @@ use `PYTHON_VERSION="2.7"` with `UNICODE_WIDTH=32`):
 
 ```bash
 # Build the python packages
-docker run --env PYTHON_VERSION="2.7" --env UNICODE_WIDTH=16 --shm-size=2g --rm -t -i -v $PWD:/io -v $PWD/../../:/arrow quay.io/ursa-labs/arrow_manylinux2010_x86_64_base:latest /io/build_arrow.sh
+docker run --env PYTHON_VERSION="2.7" --env UNICODE_WIDTH=16 --shm-size=2g --rm -t -i -v $PWD:/io -v $PWD/../../:/arrow ursalab/arrow_manylinux2010_x86_64_base:latest /io/build_arrow.sh
 # Now the new packages are located in the dist/ folder
 ls -l dist/
 ```
@@ -65,46 +65,12 @@ installation of a dependency is persisted in the Docker image.
 
 ### Publishing a new build image
 
-If you have write access to the `quay.io` Ursa Labs account, you can directly
+If you have write access to the Docker Hub Ursa Labs account, you can directly
 publish a build image that you built locally.
 
-For that you need to first tag your image for quay.io upload:
 ```bash
-$ docker image tag arrow_manylinux2010_x86_64_base:latest quay.io/ursa-labs/arrow_manylinux2010_x86_64_base
-```
-
-Then you can push it:
-```bash
-$ docker image push quay.io/ursa-labs/arrow_manylinux2010_x86_64_base
-The push refers to repository [quay.io/ursa-labs/arrow_manylinux2010_x86_64_base]
+$ docker push ursalab/arrow_manylinux2010_x86_64_base
+The push refers to repository [ursalab/arrow_manylinux2010_x86_64_base]
 a1ab88d27acc: Pushing [==============>                                    ]  492.5MB/1.645GB
 [... etc. ...]
 ```
-
-### Using quay.io to trigger and build the docker image
-
-You can also create your own `quay.io` repository and trigger builds there from
-your Github fork of the Arrow repository.
-
-1.  Make the change in the build scripts (eg. to modify the boost build, update `scripts/boost.sh`).
-
-2.  Setup an account on quay.io and link to your GitHub account
-
-3.  In quay.io,  Add a new repository using :
-
-    1.  Link to GitHub repository push
-    2.  Trigger build on changes to a specific branch (eg. myquay) of the repo (eg. `pravindra/arrow`)
-    3.  Set Dockerfile location to `/python/manylinux2010/Dockerfile-x86_64_base`
-    4.  Set Context location to `/python/manylinux2010`
-
-4.  Push change (in step 1) to the branch specified in step 3.ii
-
-    *  This should trigger a build in quay.io, the build takes about 2 hrs to finish.
-
-5.  Add a tag `latest` to the build after step 4 finishes, save the build ID (eg. `quay.io/pravindra/arrow_manylinux2010_x86_64_base:latest`)
-
-6.  In your arrow PR,
-
-    *  include the change from 1.
-    *  modify the `python-manylinux2010` entry in `docker-compose.yml`
-       to switch to the location from step 5 for the docker image.
