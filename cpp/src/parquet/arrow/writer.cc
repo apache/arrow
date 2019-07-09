@@ -1195,8 +1195,7 @@ Status FileWriter::WriteTable(const Table& table, int64_t chunk_size) {
   auto WriteRowGroup = [&](int64_t offset, int64_t size) {
     RETURN_NOT_OK(NewRowGroup(size));
     for (int i = 0; i < table.num_columns(); i++) {
-      auto chunked_data = table.column(i)->data();
-      RETURN_NOT_OK(WriteColumnChunk(chunked_data, offset, size));
+      RETURN_NOT_OK(WriteColumnChunk(table.column(i), offset, size));
     }
     return Status::OK();
   };
