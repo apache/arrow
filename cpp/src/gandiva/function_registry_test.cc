@@ -31,7 +31,8 @@ TEST_F(TestFunctionRegistry, TestFound) {
 
   const NativeFunction* function = registry_.LookupSignature(add_i32_i32);
   EXPECT_NE(function, nullptr);
-  EXPECT_EQ(function->signature(), add_i32_i32);
+  EXPECT_TRUE(std::find(function->signatures().begin(), function->signatures().end(),
+                        add_i32_i32) != function->signatures().end());
   EXPECT_EQ(function->pc_name(), "add_int32_int32");
 }
 

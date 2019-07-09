@@ -20,53 +20,55 @@
 
 namespace gandiva {
 
-#define BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(name) \
-  VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, name)
+#define BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(name, ALIASES) \
+  VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, name, ALIASES)
 
-#define BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(name) \
-  BINARY_RELATIONAL_SAFE_NULL_IF_NULL(name, utf8)
+#define BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(name, ALIASES) \
+  BINARY_RELATIONAL_SAFE_NULL_IF_NULL(name, ALIASES, utf8)
 
-#define UNARY_OCTET_LEN_FN(name) \
-  UNARY_SAFE_NULL_IF_NULL(name, utf8, int32), UNARY_SAFE_NULL_IF_NULL(name, binary, int32)
+#define UNARY_OCTET_LEN_FN(name, ALIASES)              \
+  UNARY_SAFE_NULL_IF_NULL(name, ALIASES, utf8, int32), \
+      UNARY_SAFE_NULL_IF_NULL(name, ALIASES, binary, int32)
 
-#define UNARY_SAFE_NULL_NEVER_BOOL_FN(name) \
-  VAR_LEN_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, name)
+#define UNARY_SAFE_NULL_NEVER_BOOL_FN(name, ALIASES) \
+  VAR_LEN_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, name, ALIASES)
 
 std::vector<NativeFunction> GetStringFunctionRegistry() {
   static std::vector<NativeFunction> string_fn_registry_ = {
-      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(equal),
-      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(not_equal),
-      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(less_than),
-      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(less_than_or_equal_to),
-      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(greater_than),
-      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(greater_than_or_equal_to),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(equal, {}),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(not_equal, {}),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(less_than, {}),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(less_than_or_equal_to, {}),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(greater_than, {}),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(greater_than_or_equal_to, {}),
 
-      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(starts_with),
-      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(ends_with),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(starts_with, {}),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(ends_with, {}),
 
-      UNARY_OCTET_LEN_FN(octet_length),
-      UNARY_OCTET_LEN_FN(bit_length),
+      UNARY_OCTET_LEN_FN(octet_length, {}),
+      UNARY_OCTET_LEN_FN(bit_length, {}),
 
-      UNARY_UNSAFE_NULL_IF_NULL(char_length, utf8, int32),
-      UNARY_UNSAFE_NULL_IF_NULL(length, utf8, int32),
-      UNARY_UNSAFE_NULL_IF_NULL(lengthUtf8, binary, int32),
+      UNARY_UNSAFE_NULL_IF_NULL(char_length, {}, utf8, int32),
+      UNARY_UNSAFE_NULL_IF_NULL(length, {}, utf8, int32),
+      UNARY_UNSAFE_NULL_IF_NULL(lengthUtf8, {}, binary, int32),
 
-      UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull),
-      UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull),
+      UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull, {}),
+      UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull, {}),
 
-      NativeFunction("upper", DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
+      NativeFunction("upper", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
                      "upper_utf8", NativeFunction::kNeedsContext),
 
-      NativeFunction("castVARCHAR", DataTypeVector{utf8(), int64()}, utf8(),
+      NativeFunction("castVARCHAR", {}, DataTypeVector{utf8(), int64()}, utf8(),
                      kResultNullIfNull, "castVARCHAR_utf8_int64",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("castVARCHAR", DataTypeVector{decimal128(), int64()}, utf8(),
+      NativeFunction("castVARCHAR", {}, DataTypeVector{decimal128(), int64()}, utf8(),
                      kResultNullIfNull, "castVARCHAR_decimal128_int64",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("like", DataTypeVector{utf8(), utf8()}, boolean(), kResultNullIfNull,
-                     "gdv_fn_like_utf8_utf8", NativeFunction::kNeedsFunctionHolder)};
+      NativeFunction("like", {}, DataTypeVector{utf8(), utf8()}, boolean(),
+                     kResultNullIfNull, "gdv_fn_like_utf8_utf8",
+                     NativeFunction::kNeedsFunctionHolder)};
 
   return string_fn_registry_;
 }

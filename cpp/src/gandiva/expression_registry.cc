@@ -30,28 +30,46 @@ ExpressionRegistry::ExpressionRegistry() {
 
 ExpressionRegistry::~ExpressionRegistry() {}
 
+ExpressionRegistry::FunctionSignatureIterator::FunctionSignatureIterator(
+    nf_iterator nf_it, nf_iterator nf_it_end)
+    : nf_it_(nf_it), nf_it_end_(nf_it_end), fs_it_(&(nf_it->signatures().front())) {}
+ExpressionRegistry::FunctionSignatureIterator::FunctionSignatureIterator(
+    fs_iterator fs_it)
+    : fs_it_(fs_it) {}
+
 const ExpressionRegistry::FunctionSignatureIterator
 ExpressionRegistry::function_signature_begin() {
-  return FunctionSignatureIterator(function_registry_->begin());
+  return FunctionSignatureIterator(function_registry_->begin(),
+                                   function_registry_->end());  // nf_it ctr
 }
 
 const ExpressionRegistry::FunctionSignatureIterator
 ExpressionRegistry::function_signature_end() const {
-  return FunctionSignatureIterator(function_registry_->end());
+  return FunctionSignatureIterator(
+      &(*(function_registry_->back()->signatures().end())));  // fs_it ctr
 }
 
 bool ExpressionRegistry::FunctionSignatureIterator::operator!=(
     const FunctionSignatureIterator& func_sign_it) {
-  return func_sign_it.it_ != this->it_;
+  return func_sign_it.fs_it_ != this->fs_it_;
 }
 
 FunctionSignature ExpressionRegistry::FunctionSignatureIterator::operator*() {
-  return (*it_).signature();
+  return *fs_it_;
 }
 
-ExpressionRegistry::iterator ExpressionRegistry::FunctionSignatureIterator::operator++(
+ExpressionRegistry::fs_iterator ExpressionRegistry::FunctionSignatureIterator::operator++(
     int increment) {
-  return it_++;
+  ++fs_it_;
+  // point fs_it_ to first signature of next nativefunction if fs_it_ is pointing to end
+  if (fs_it_ == &(*nf_it_->signatures().end())) {
+    ++nf_it_;
+    if (nf_it_ == nf_it_end_) {  // last native function
+      return fs_it_;
+    }
+    fs_it_ = &(nf_it_->signatures().front());
+  }
+  return fs_it_;
 }
 
 DataTypeVector ExpressionRegistry::supported_types_ =
