@@ -18,12 +18,14 @@
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.holders.ComplexHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -98,6 +100,28 @@ public class TestStructVector {
        */
       Assert.assertEquals(vector.getValidityBuffer().capacity(), savedValidityBufferCapacity);
       Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+    }
+  }
+
+  @Test
+  public void testReadNullValue() {
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("k1", "v1");
+    FieldType type = new FieldType(true, Struct.INSTANCE, null, metadata);
+    try (StructVector vector = new StructVector("struct", allocator, type, null)) {
+      MinorType childtype = MinorType.INT;
+      vector.addOrGet("intchild", FieldType.nullable(childtype.getType()), IntVector.class);
+      vector.setValueCount(2);
+
+      IntVector intVector = (IntVector) vector.getChild("intchild");
+      intVector.setSafe(0, 100);
+      intVector.setNull(1);
+
+      ComplexHolder holder = new ComplexHolder();
+      vector.get(1, holder);
+
+      assertEquals(0, holder.isSet);
+      assertNull(holder.reader);
     }
   }
 }

@@ -482,6 +482,9 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   @Override
   public void get(int index, ComplexHolder holder) {
     holder.isSet = isSet(index);
+    if (holder.isSet == 0) {
+      return;
+    }
     super.get(index, holder);
   }
 
