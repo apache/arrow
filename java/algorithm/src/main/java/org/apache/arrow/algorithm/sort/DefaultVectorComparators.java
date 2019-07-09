@@ -100,14 +100,7 @@ public class DefaultVectorComparators {
       long value1 = vector1.get(index1);
       long value2 = vector2.get(index2);
 
-      long result = value1 - value2;
-      if (result < 0L) {
-        return -1;
-      } else if (result > 0L) {
-        return 1;
-      } else {
-        return 0;
-      }
+      return Long.signum(value1 - value2);
     }
   }
 
@@ -139,7 +132,7 @@ public class DefaultVectorComparators {
         }
       }
 
-      float result = value1 - value2;
+      float result = Math.signum(value1 - value2);
       if (result < 0f) {
         return -1;
       } else if (result > 0f) {
@@ -178,7 +171,7 @@ public class DefaultVectorComparators {
         }
       }
 
-      double result = value1 - value2;
+      double result = Math.signum(value1 - value2);
       if (result < 0) {
         return -1;
       } else if (result > 0) {
