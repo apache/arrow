@@ -30,4 +30,4 @@ make install PREFIX=${PREFIX}
 popd
 rm -rf lz4-${LZ4_VERSION}.tar.gz lz4-${LZ4_VERSION}
 # We don't want to link against shared libs
-rm -rf /usr/lib/liblz4.so*
+rm -rf ${PREFIX}/lib/liblz4.so*

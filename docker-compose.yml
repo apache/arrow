@@ -484,7 +484,7 @@ services:
     #     $ docker-compose pull python-manylinux2010
     #   an then run:
     #     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux2010
-    image: quay.io/ursa-labs/arrow_manylinux2010_x86_64_base:latest
+    image: ursalab/arrow_manylinux2010_x86_64_base:latest
     build:
       context: python/manylinux2010
       dockerfile: Dockerfile-x86_64_base
