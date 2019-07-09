@@ -116,11 +116,11 @@ services:
       dockerfile: cpp/Dockerfile
     volumes: *ubuntu-volumes
 
-  cpp-ci:
+  cpp-system-deps:
     # Usage:
-    #   docker-compose build cpp-ci
-    #   docker-compose run cpp-ci
-    image: ursalab/arrow:cpp-ci
+    #   docker-compose build cpp-system-deps
+    #   docker-compose run cpp-system-deps
+    image: ursalab/arrow:cpp-system-deps
     shm_size: 2G
     cap_add:
       # LeakSanitizer and gdb requires ptrace(2)
@@ -131,7 +131,7 @@ services:
       args:
         LLVM_VERSION: 7
     environment:
-      ARROW_FLIGHT: "OFF"
+      ARROW_FLIGHT: "ON"
       ARROW_USE_ASAN: "ON"
       ARROW_USE_UBSAN: "ON"
     volumes:

@@ -57,9 +57,9 @@ matrix:
     before_script:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ]; then exit; fi
     - git submodule update --init
-    - docker-compose build --pull cpp-ci
+    - docker-compose build --pull cpp-system-deps
     script:
-    - docker-compose run cpp-ci
+    - docker-compose run cpp-system-deps
   # Separating Valgrind and C++ coverage makes individual jobs shorter
   - name: "C++ unit tests w/ conda-forge toolchain, coverage"
     compiler: gcc

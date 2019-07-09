@@ -39,8 +39,8 @@ ARG LLVM_VERSION=7
 ENV LLVM_VERSION=${LLVM_VERSION}
 ARG LLVM_APT_URL="http://apt.llvm.org/bionic/"
 ARG LLVM_APT_ARCH="llvm-toolchain-bionic-${LLVM_VERSION}"
-RUN wget -q -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - &&
-    apt-add-repository -y --update "deb ${LLVM_APT_URL} ${LLVM_APT_ARCH} main" &&
+RUN wget -q -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    apt-add-repository -y --update "deb ${LLVM_APT_URL} ${LLVM_APT_ARCH} main" && \
     apt-get install -y -q --no-install-recommends \
       clang-${LLVM_VERSION} \
       clang-format-${LLVM_VERSION} \
