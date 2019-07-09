@@ -201,15 +201,15 @@ class HashTable {
     operator bool() const { return h != kSentinel; }
   };
 
-  explicit HashTable(MemoryPool* pool, uint64_t capacity) : pool_(pool) {
+  explicit HashTable(MemoryPool* pool, uint64_t capacity) : entries_builder_(pool) {
     DCHECK_NE(pool, nullptr);
     // Presize for at least 512 elements
     capacity = std::max(capacity, static_cast<uint64_t>(512U));
-    size_ = BitUtil::NextPower2(capacity * 4U);
-    size_mask_ = size_ - 1;
-    n_filled_ = 0;
-    // This will zero out hash entries, marking them empty
-    entries_.resize(size_);
+    capacity_ = BitUtil::NextPower2(capacity * 4U);
+    capacity_mask_ = capacity_ - 1;
+    size_ = 0;
+
+    DCHECK_OK(UpsizeBuffer(capacity_));
   }
 
   // Lookup with non-linear probing
@@ -217,14 +217,14 @@ class HashTable {
   // Return a (Entry*, found) pair.
   template <typename CmpFunc>
   std::pair<Entry*, bool> Lookup(hash_t h, CmpFunc&& cmp_func) {
-    auto p = Lookup<DoCompare, CmpFunc>(h, entries_.data(), size_mask_,
+    auto p = Lookup<DoCompare, CmpFunc>(h, entries_, capacity_mask_,
                                         std::forward<CmpFunc>(cmp_func));
     return {&entries_[p.first], p.second};
   }
 
   template <typename CmpFunc>
   std::pair<const Entry*, bool> Lookup(hash_t h, CmpFunc&& cmp_func) const {
-    auto p = Lookup<DoCompare, CmpFunc>(h, entries_.data(), size_mask_,
+    auto p = Lookup<DoCompare, CmpFunc>(h, entries_, capacity_mask_,
                                         std::forward<CmpFunc>(cmp_func));
     return {&entries_[p.first], p.second};
   }
@@ -234,20 +234,21 @@ class HashTable {
     assert(!*entry);
     entry->h = FixHash(h);
     entry->payload = payload;
-    ++n_filled_;
+    ++size_;
     if (NeedUpsizing()) {
       // Resizing is expensive, avoid doing it too often
-      Upsize(size_ * 4);
+      DCHECK_OK(Upsize(capacity_ * 4));
     }
   }
 
-  uint64_t size() const { return n_filled_; }
+  uint64_t size() const { return size_; }
 
   // Visit all non-empty entries in the table
   // The visit_func should have signature void(const Entry*)
   template <typename VisitFunc>
   void VisitEntries(VisitFunc&& visit_func) const {
-    for (const auto& entry : entries_) {
+    for (uint64_t i = 0; i < capacity_; i++) {
+      const auto& entry = entries_[i];
       if (entry) {
         visit_func(&entry);
       }
@@ -277,7 +278,7 @@ class HashTable {
         // Found
         return {index, true};
       }
-      if (entry->h == 0U) {
+      if (entry->h == kSentinel) {
         // Empty slot
         return {index, false};
       }
@@ -301,37 +302,57 @@ class HashTable {
 
   bool NeedUpsizing() const {
     // Keep the load factor <= 1/2
-    return n_filled_ * 2U >= size_;
+    return size_ * 2U >= capacity_;
   }
 
-  void Upsize(uint64_t new_size) {
-    assert(new_size > size_);
-    uint64_t new_mask = new_size - 1;
-    assert((new_size & new_mask) == 0);  // it's a power of two
+  Status UpsizeBuffer(uint64_t capacity) {
+    RETURN_NOT_OK(entries_builder_.Reserve(capacity));
+    entries_ = entries_builder_.mutable_data();
+    memset(entries_, 0, capacity * sizeof(Entry));
 
-    std::vector<Entry> new_entries(new_size);
-    for (auto& entry : entries_) {
+    return Status::OK();
+  }
+
+  Status Upsize(uint64_t new_capacity) {
+    assert(new_capacity > capacity_);
+    uint64_t new_mask = new_capacity - 1;
+    assert((new_capacity & new_mask) == 0);  // it's a power of two
+
+    // Stash old entries and seal builder, effectively resetting the Buffer
+    const Entry* old_entries = entries_;
+    std::shared_ptr<Buffer> previous;
+    RETURN_NOT_OK(entries_builder_.Finish(&previous));
+    // Allocate new buffer
+    RETURN_NOT_OK(UpsizeBuffer(new_capacity));
+
+    for (uint64_t i = 0; i < capacity_; i++) {
+      const auto& entry = old_entries[i];
       if (entry) {
         // Dummy compare function (will not be called)
         auto cmp_func = [](const Payload*) { return false; };
-        // Non-empty slot, move into new
-        auto p = Lookup<NoCompare>(entry.h, new_entries.data(), new_mask, cmp_func);
-        assert(!p.second);  // shouldn't have found a matching entry
-        new_entries[p.first] = entry;
+        auto p = Lookup<NoCompare>(entry.h, entries_, new_mask, cmp_func);
+        // Lookup<NoCompare> (and CompareEntry<NoCompare>) ensure that an
+        // empty slots is always returned
+        assert(!p.second);
+        entries_[p.first] = entry;
       }
     }
-    std::swap(entries_, new_entries);
-    size_ = new_size;
-    size_mask_ = new_mask;
+    capacity_ = new_capacity;
+    capacity_mask_ = new_mask;
+
+    return Status::OK();
   }
 
   hash_t FixHash(hash_t h) const { return (h == kSentinel) ? 42U : h; }
 
+  // The number of slots available in the hash table array.
+  uint64_t capacity_;
+  uint64_t capacity_mask_;
+  // The number of used slots in the hash table array.
   uint64_t size_;
-  uint64_t size_mask_;
-  uint64_t n_filled_;
-  std::vector<Entry> entries_;
-  MemoryPool* pool_;
+
+  Entry* entries_;
+  TypedBufferBuilder<Entry> entries_builder_;
 };
 
 // XXX typedef memo_index_t int32_t ?
