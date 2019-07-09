@@ -48,7 +48,7 @@ import com.google.common.collect.ImmutableList;
 
 import io.grpc.StatusRuntimeException;
 
-public class TestAuth {
+public class TestBasicAuth {
   final String PERMISSION_DENIED = "PERMISSION_DENIED";
 
   private static final String USERNAME = "flight";

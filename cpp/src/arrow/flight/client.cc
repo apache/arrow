@@ -430,7 +430,12 @@ class FlightClient::FlightClientImpl {
     GrpcClientAuthSender outgoing{stream};
     GrpcClientAuthReader incoming{stream};
     RETURN_NOT_OK(auth_handler_->Authenticate(&outgoing, &incoming));
+    // Explicitly close our side of the connection
+    bool finished_writes = stream->WritesDone();
     RETURN_NOT_OK(internal::FromGrpcStatus(stream->Finish()));
+    if (!finished_writes) {
+      return Status::UnknownError("Could not finish writing before closing");
+    }
     return Status::OK();
   }
 
