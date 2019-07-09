@@ -60,13 +60,13 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       BINARY_SYMMETRIC_FN(add, {}), BINARY_SYMMETRIC_FN(subtract, {}),
       BINARY_SYMMETRIC_FN(multiply, {}),
       NUMERIC_TYPES(BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL, divide, {"div"}),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, {}, int64, int32, int32),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, {}, int64, int64, int64),
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, {"modulo"}, int64, int32, int32),
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, {"modulo"}, int64, int64, int64),
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(add, {}, decimal128),
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(subtract, {}, decimal128),
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(multiply, {}, decimal128),
-      BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(divide, {}, decimal128),
-      BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(mod, {}, decimal128),
+      BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(divide, {"div"}, decimal128),
+      BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(mod, {"modulo"}, decimal128),
 
       // compare functions
       BINARY_RELATIONAL_SAFE_NULL_IF_NULL(equal, {}, decimal128),

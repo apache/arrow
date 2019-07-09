@@ -51,7 +51,7 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
 
       MATH_BINARY_UNSAFE(log, {}),
 
-      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(power, {}, float64),
+      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(power, {"pow"}, float64),
 
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull, {}),
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull, {}),
@@ -66,9 +66,10 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
       UNARY_SAFE_NULL_IF_NULL(ceil, {}, decimal128, decimal128),
       UNARY_SAFE_NULL_IF_NULL(floor, {}, decimal128, decimal128),
       UNARY_SAFE_NULL_IF_NULL(round, {}, decimal128, decimal128),
-      UNARY_SAFE_NULL_IF_NULL(truncate, {}, decimal128, decimal128),
+      UNARY_SAFE_NULL_IF_NULL(truncate, {"trunc"}, decimal128, decimal128),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(round, {}, decimal128, int32, decimal128),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(truncate, {}, decimal128, int32, decimal128),
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(truncate, {"trunc"}, decimal128, int32,
+                                       decimal128),
   };
 
   return math_fn_registry_;
