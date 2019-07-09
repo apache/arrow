@@ -126,7 +126,7 @@ TIMESTAMP_DIFF(timestamp)
 #define ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(TYPE, NAME, TO_MILLIS) \
   FORCE_INLINE                                                    \
   TYPE NAME##_int64_##TYPE(int64 count, TYPE millis) {            \
-    return millis + TO_MILLIS * (TYPE)count;                      \
+    return millis + TO_MILLIS * static_cast<TYPE>(count);         \
   }
 
 #define ADD_INT32_TO_TIMESTAMP_FIXED_UNITS(TYPE, NAME, TO_MILLIS) \
@@ -138,7 +138,7 @@ TIMESTAMP_DIFF(timestamp)
 #define ADD_TIMESTAMP_TO_INT32_FIXED_UNITS(TYPE, NAME, TO_MILLIS) \
   FORCE_INLINE                                                    \
   TYPE NAME##_int32_##TYPE(int32 count, TYPE millis) {            \
-    return millis + TO_MILLIS * (TYPE)count;                      \
+    return millis + TO_MILLIS * static_cast<TYPE>(count);         \
   }
 
 #define TIMESTAMP_ADD_INT32(TYPE)                                             \
