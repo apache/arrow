@@ -28,7 +28,8 @@ import com.google.common.base.Preconditions;
  * This class configures the JDBC-to-Arrow conversion process.
  * <p>
  * The allocator is used to construct the {@link org.apache.arrow.vector.VectorSchemaRoot},
- * and the calendar is used to define the time zone of any {@link org.apache.arrow.vector.types.pojo.ArrowType.Timestamp}
+ * and the calendar is used to define the time zone of any
+ * {@link org.apache.arrow.vector.types.pojo.ArrowType.Timestamp}
  * fields that are created during the conversion.  Neither field may be <code>null</code>.
  * </p>
  * <p>
