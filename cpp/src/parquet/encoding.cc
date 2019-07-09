@@ -358,7 +358,7 @@ DictEncoderImpl<DType>::DictEncoderImpl(const ColumnDescriptor* desc,
                                         ::arrow::MemoryPool* pool)
     : EncoderImpl(desc, Encoding::PLAIN_DICTIONARY, pool),
       dict_encoded_size_(0),
-      memo_table_(INITIAL_HASH_TABLE_SIZE) {}
+      memo_table_(pool, INITIAL_HASH_TABLE_SIZE) {}
 
 template <typename DType>
 int64_t DictEncoderImpl<DType>::EstimatedDataEncodedSize() {

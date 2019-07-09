@@ -201,7 +201,8 @@ class HashTable {
     operator bool() const { return h != kSentinel; }
   };
 
-  explicit HashTable(uint64_t capacity) {
+  explicit HashTable(MemoryPool* pool, uint64_t capacity) : pool_(pool) {
+    DCHECK_NE(pool, nullptr);
     // Presize for at least 512 elements
     capacity = std::max(capacity, static_cast<uint64_t>(512U));
     size_ = BitUtil::NextPower2(capacity * 4U);
@@ -330,6 +331,7 @@ class HashTable {
   uint64_t size_mask_;
   uint64_t n_filled_;
   std::vector<Entry> entries_;
+  MemoryPool* pool_;
 };
 
 // XXX typedef memo_index_t int32_t ?
@@ -355,8 +357,8 @@ class MemoTable {
 template <typename Scalar, template <class> class HashTableTemplateType = HashTable>
 class ScalarMemoTable : public MemoTable {
  public:
-  explicit ScalarMemoTable(int64_t entries = 0)
-      : hash_table_(static_cast<uint64_t>(entries)) {}
+  explicit ScalarMemoTable(MemoryPool* pool, int64_t entries = 0)
+      : hash_table_(pool, static_cast<uint64_t>(entries)) {}
 
   int32_t Get(const Scalar& value) const {
     auto cmp_func = [value](const Payload* payload) -> bool {
@@ -472,7 +474,7 @@ struct SmallScalarTraits<Scalar,
 template <typename Scalar, template <class> class HashTableTemplateType = HashTable>
 class SmallScalarMemoTable : public MemoTable {
  public:
-  explicit SmallScalarMemoTable(int64_t entries = 0) {
+  explicit SmallScalarMemoTable(MemoryPool* pool, int64_t entries = 0) {
     std::fill(value_to_index_, value_to_index_ + cardinality + 1, kKeyNotFound);
     index_to_value_.reserve(cardinality);
   }
@@ -555,8 +557,9 @@ class SmallScalarMemoTable : public MemoTable {
 
 class BinaryMemoTable : public MemoTable {
  public:
-  explicit BinaryMemoTable(int64_t entries = 0, int64_t values_size = -1)
-      : hash_table_(static_cast<uint64_t>(entries)) {
+  explicit BinaryMemoTable(MemoryPool* pool, int64_t entries = 0,
+                           int64_t values_size = -1)
+      : hash_table_(pool, static_cast<uint64_t>(entries)) {
     offsets_.reserve(entries + 1);
     offsets_.push_back(0);
     if (values_size == -1) {
