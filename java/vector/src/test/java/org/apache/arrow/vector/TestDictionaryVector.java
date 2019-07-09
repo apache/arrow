@@ -23,6 +23,8 @@ import static org.junit.Assert.assertEquals;
 import java.nio.charset.StandardCharsets;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
@@ -136,6 +138,101 @@ public class TestDictionaryVector {
           assertEquals(vector.getClass(), decoded.getClass());
           assertEquals(vector.getValueCount(), decoded.getValueCount());
           for (int i = 0; i < count; ++i) {
+            assertEquals(vector.getObject(i), decoded.getObject(i));
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testEncodeList() {
+    // Create a new value vector
+    try (final ListVector vector = ListVector.empty("vector", allocator);
+        final ListVector dictionaryVector = ListVector.empty("dict", allocator);) {
+
+      UnionListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      // set some values
+      writer.setPosition(0);
+      writer.startList();
+      writer.integer().writeInt(10);
+      writer.integer().writeInt(20);
+      writer.endList();
+
+      writer.setPosition(1);
+      writer.startList();
+      writer.integer().writeInt(10);
+      writer.integer().writeInt(20);
+      writer.endList();
+
+      writer.setPosition(2);
+      writer.startList();
+      writer.integer().writeInt(10);
+      writer.integer().writeInt(20);
+      writer.endList();
+
+      writer.setPosition(3);
+      writer.startList();
+      writer.integer().writeInt(30);
+      writer.integer().writeInt(40);
+      writer.integer().writeInt(50);
+      writer.endList();
+
+      writer.setPosition(4);
+      writer.startList();
+      writer.integer().writeInt(30);
+      writer.integer().writeInt(40);
+      writer.integer().writeInt(50);
+      writer.endList();
+
+      writer.setPosition(5);
+      writer.startList();
+      writer.integer().writeInt(10);
+      writer.integer().writeInt(20);
+      writer.endList();
+
+      writer.setValueCount(6);
+
+      UnionListWriter dictWriter = dictionaryVector.getWriter();
+      dictWriter.allocate();
+
+      dictWriter.setPosition(0);
+      dictWriter.startList();
+      dictWriter.integer().writeInt(10);
+      dictWriter.integer().writeInt(20);
+      dictWriter.endList();
+
+      dictWriter.setPosition(1);
+      dictWriter.startList();
+      dictWriter.integer().writeInt(30);
+      dictWriter.integer().writeInt(40);
+      dictWriter.integer().writeInt(50);
+      dictWriter.endList();
+
+      dictWriter.setValueCount(2);
+
+      Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+
+      try (final ValueVector encoded = (FieldVector) DictionaryEncoder.encode(vector, dictionary)) {
+        // verify indices
+        assertEquals(IntVector.class, encoded.getClass());
+
+        IntVector index = ((IntVector)encoded);
+        assertEquals(6, index.getValueCount());
+        assertEquals(0, index.get(0));
+        assertEquals(0, index.get(1));
+        assertEquals(0, index.get(2));
+        assertEquals(1, index.get(3));
+        assertEquals(1, index.get(4));
+        assertEquals(0, index.get(5));
+
+        // now run through the decoder and verify we get the original back
+        try (ValueVector decoded = DictionaryEncoder.decode(encoded, dictionary)) {
+          assertEquals(vector.getClass(), decoded.getClass());
+          assertEquals(vector.getValueCount(), decoded.getValueCount());
+          for (int i = 0; i < 5; i++) {
             assertEquals(vector.getObject(i), decoded.getObject(i));
           }
         }
