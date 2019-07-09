@@ -510,16 +510,6 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
   return Status::OK();
 }
 
-Status PrettyPrint(const Column& column, const PrettyPrintOptions& options,
-                   std::ostream* sink) {
-  for (int i = 0; i < options.indent; ++i) {
-    (*sink) << " ";
-  }
-  (*sink) << column.field()->ToString() << "\n";
-
-  return PrettyPrint(*column.data(), options, sink);
-}
-
 Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& options,
                    std::string* result) {
   std::ostringstream sink;
@@ -552,7 +542,7 @@ Status PrettyPrint(const Table& table, const PrettyPrintOptions& options,
       (*sink) << " ";
     }
     (*sink) << table.schema()->field(i)->name() << ":\n";
-    RETURN_NOT_OK(PrettyPrint(*table.column(i)->data(), column_options, sink));
+    RETURN_NOT_OK(PrettyPrint(*table.column(i), column_options, sink));
     (*sink) << "\n";
   }
   (*sink) << std::flush;

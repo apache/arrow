@@ -31,7 +31,6 @@
 namespace arrow {
 
 class Array;
-class Column;
 class Status;
 class Table;
 
@@ -91,7 +90,7 @@ class ARROW_EXPORT TableReader {
   /// \return Status
   ///
   /// This function is zero-copy if the file source supports zero-copy reads
-  Status GetColumn(int i, std::shared_ptr<Column>* out);
+  Status GetColumn(int i, std::shared_ptr<Array>* out);
 
   /// \brief Read all columns from the file as an arrow::Table.
   ///

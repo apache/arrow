@@ -254,11 +254,11 @@ struct EnsureColumnTypes {
 
     if (!table.schema()->field(N - 1)->type()->Equals(*expected_type)) {
       compute::Datum casted;
-      ARROW_RETURN_NOT_OK(compute::Cast(ctx, compute::Datum(table.column(N - 1)->data()),
+      ARROW_RETURN_NOT_OK(compute::Cast(ctx, compute::Datum(table.column(N - 1)),
                                         expected_type, cast_options, &casted));
-      std::shared_ptr<Column> new_column = std::make_shared<Column>(
-          table.schema()->field(N - 1)->WithType(expected_type), casted.chunked_array());
-      ARROW_RETURN_NOT_OK(table.SetColumn(N - 1, new_column, table_owner));
+      auto new_field = table.schema()->field(N - 1)->WithType(expected_type);
+      ARROW_RETURN_NOT_OK(
+          table.SetColumn(N - 1, new_field, casted.chunked_array(), table_owner));
       *result = **table_owner;
     }
 

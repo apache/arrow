@@ -434,27 +434,25 @@ class TableReader::TableReaderImpl {
     return col_meta->name()->str();
   }
 
-  Status GetColumn(int i, std::shared_ptr<Column>* out) {
+  Status GetColumn(int i, std::shared_ptr<Array>* out) {
     const fbs::Column* col_meta = metadata_->column(i);
 
     // auto user_meta = column->user_metadata();
     // if (user_meta->size() > 0) { user_metadata_ = user_meta->str(); }
 
     std::shared_ptr<Array> values;
-    RETURN_NOT_OK(LoadValues(col_meta->values(), col_meta->metadata_type(),
-                             col_meta->metadata(), &values));
-    out->reset(new Column(col_meta->name()->str(), values));
-    return Status::OK();
+    return LoadValues(col_meta->values(), col_meta->metadata_type(), col_meta->metadata(),
+                      out);
   }
 
   Status Read(std::shared_ptr<Table>* out) {
     std::vector<std::shared_ptr<Field>> fields;
-    std::vector<std::shared_ptr<Column>> columns;
+    std::vector<std::shared_ptr<Array>> columns;
     for (int i = 0; i < num_columns(); ++i) {
-      std::shared_ptr<Column> column;
+      std::shared_ptr<Array> column;
       RETURN_NOT_OK(GetColumn(i, &column));
       columns.push_back(column);
-      fields.push_back(column->field());
+      fields.push_back(::arrow::field(GetColumnName(i), column->type()));
     }
     *out = Table::Make(schema(fields), columns);
     return Status::OK();
@@ -462,7 +460,7 @@ class TableReader::TableReaderImpl {
 
   Status Read(const std::vector<int>& indices, std::shared_ptr<Table>* out) {
     std::vector<std::shared_ptr<Field>> fields;
-    std::vector<std::shared_ptr<Column>> columns;
+    std::vector<std::shared_ptr<Array>> columns;
     for (int i = 0; i < num_columns(); ++i) {
       bool found = false;
       for (auto j : indices) {
@@ -474,10 +472,10 @@ class TableReader::TableReaderImpl {
       if (!found) {
         continue;
       }
-      std::shared_ptr<Column> column;
+      std::shared_ptr<Array> column;
       RETURN_NOT_OK(GetColumn(i, &column));
       columns.push_back(column);
-      fields.push_back(column->field());
+      fields.push_back(::arrow::field(GetColumnName(i), column->type()));
     }
     *out = Table::Make(schema(fields), columns);
     return Status::OK();
@@ -485,7 +483,7 @@ class TableReader::TableReaderImpl {
 
   Status Read(const std::vector<std::string>& names, std::shared_ptr<Table>* out) {
     std::vector<std::shared_ptr<Field>> fields;
-    std::vector<std::shared_ptr<Column>> columns;
+    std::vector<std::shared_ptr<Array>> columns;
     for (int i = 0; i < num_columns(); ++i) {
       auto name = GetColumnName(i);
       bool found = false;
@@ -498,10 +496,10 @@ class TableReader::TableReaderImpl {
       if (!found) {
         continue;
       }
-      std::shared_ptr<Column> column;
+      std::shared_ptr<Array> column;
       RETURN_NOT_OK(GetColumn(i, &column));
       columns.push_back(column);
-      fields.push_back(column->field());
+      fields.push_back(::arrow::field(name, column->type()));
     }
     *out = Table::Make(schema(fields), columns);
     return Status::OK();
@@ -539,7 +537,7 @@ int64_t TableReader::num_columns() const { return impl_->num_columns(); }
 
 std::string TableReader::GetColumnName(int i) const { return impl_->GetColumnName(i); }
 
-Status TableReader::GetColumn(int i, std::shared_ptr<Column>* out) {
+Status TableReader::GetColumn(int i, std::shared_ptr<Array>* out) {
   return impl_->GetColumn(i, out);
 }
 
@@ -813,9 +811,8 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
   Status Write(const Table& table) {
     for (int i = 0; i < table.num_columns(); ++i) {
       auto column = table.column(i);
-      current_column_ = metadata_.AddColumn(column->name());
-      auto chunked_array = column->data();
-      for (const auto chunk : chunked_array->chunks()) {
+      current_column_ = metadata_.AddColumn(table.field(i)->name());
+      for (const auto chunk : column->chunks()) {
         RETURN_NOT_OK(chunk->Accept(this));
       }
       RETURN_NOT_OK(current_column_->Finish());

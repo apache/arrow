@@ -120,7 +120,6 @@ typedef ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type
 
 class Array;
 class ChunkedArray;
-class Column;
 class RecordBatch;
 class Table;
 

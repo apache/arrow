@@ -567,46 +567,6 @@ TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveType) {
   CheckStream(chunked_array_2, {0}, expected_2);
 }
 
-TEST_F(TestPrettyPrint, ColumnPrimitiveType) {
-  std::shared_ptr<Field> int_field = field("column", int32());
-  auto array = ArrayFromJSON(int_field->type(), "[0, 1, null, 3, null]");
-  Column column(int_field, ArrayVector({array}));
-
-  static const char* expected = R"expected(column: int32
-[
-  [
-    0,
-    1,
-    null,
-    3,
-    null
-  ]
-])expected";
-  CheckStream(column, {0}, expected);
-
-  Column column_2(int_field, {array, array});
-
-  static const char* expected_2 = R"expected(column: int32
-[
-  [
-    0,
-    1,
-    null,
-    3,
-    null
-  ],
-  [
-    0,
-    1,
-    null,
-    3,
-    null
-  ]
-])expected";
-
-  CheckStream(column_2, {0}, expected_2);
-}
-
 TEST_F(TestPrettyPrint, TablePrimitive) {
   std::shared_ptr<Field> int_field = field("column", int32());
   auto array = ArrayFromJSON(int_field->type(), "[0, 1, null, 3, null]");

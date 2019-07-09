@@ -492,28 +492,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         CStatus Validate() const
 
-    cdef cppclass CColumn" arrow::Column":
-        CColumn(const shared_ptr[CField]& field,
-                const shared_ptr[CArray]& data)
-
-        CColumn(const shared_ptr[CField]& field,
-                const vector[shared_ptr[CArray]]& chunks)
-
-        CColumn(const shared_ptr[CField]& field,
-                const shared_ptr[CChunkedArray]& data)
-
-        c_bool Equals(const CColumn& other)
-
-        CStatus Flatten(CMemoryPool* pool, vector[shared_ptr[CColumn]]* out)
-
-        shared_ptr[CField] field()
-
-        int64_t length()
-        int64_t null_count()
-        const c_string& name()
-        shared_ptr[CDataType] type()
-        shared_ptr[CChunkedArray] data()
-
     cdef cppclass CRecordBatch" arrow::RecordBatch":
         @staticmethod
         shared_ptr[CRecordBatch] Make(
@@ -539,12 +517,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CTable" arrow::Table":
         CTable(const shared_ptr[CSchema]& schema,
-               const vector[shared_ptr[CColumn]]& columns)
+               const vector[shared_ptr[CChunkedArray]]& columns)
 
         @staticmethod
         shared_ptr[CTable] Make(
             const shared_ptr[CSchema]& schema,
-            const vector[shared_ptr[CColumn]]& columns)
+            const vector[shared_ptr[CChunkedArray]]& columns)
 
         @staticmethod
         CStatus FromRecordBatches(
@@ -558,12 +536,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool Equals(const CTable& other)
 
         shared_ptr[CSchema] schema()
-        shared_ptr[CColumn] column(int i)
+        shared_ptr[CChunkedArray] column(int i)
 
-        CStatus AddColumn(int i, const shared_ptr[CColumn]& column,
+        CStatus AddColumn(int i, shared_ptr[CField] field,
+                          shared_ptr[CChunkedArray] column,
                           shared_ptr[CTable]* out)
         CStatus RemoveColumn(int i, shared_ptr[CTable]* out)
-        CStatus SetColumn(int i, const shared_ptr[CColumn]& column,
+        CStatus SetColumn(int i, shared_ptr[CField] field,
+                          shared_ptr[CChunkedArray] column,
                           shared_ptr[CTable]* out)
 
         vector[c_string] ColumnNames()
@@ -1055,7 +1035,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
         shared_ptr[CSchema] schema()
 
-        CStatus GetColumn(int i, shared_ptr[CColumn]* out)
+        CStatus GetColumn(int i, shared_ptr[CArray]* out)
         c_string GetColumnName(int i)
 
         CStatus Read(shared_ptr[CTable]* out)
@@ -1279,10 +1259,6 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CStatus ConvertChunkedArrayToPandas(const PandasOptions& options,
                                         const shared_ptr[CChunkedArray]& arr,
                                         object py_ref, PyObject** out)
-
-    CStatus ConvertColumnToPandas(const PandasOptions& options,
-                                  const shared_ptr[CColumn]& arr,
-                                  object py_ref, PyObject** out)
 
     CStatus ConvertTableToPandas(
         const PandasOptions& options,
