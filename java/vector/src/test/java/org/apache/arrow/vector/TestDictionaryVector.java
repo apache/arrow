@@ -24,10 +24,14 @@ import java.nio.charset.StandardCharsets;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -239,4 +243,99 @@ public class TestDictionaryVector {
       }
     }
   }
+
+  @Test
+  public void testEncodeStruct() {
+    // Create a new value vector
+    try (final StructVector vector = StructVector.empty("vector", allocator);
+        final StructVector dictionaryVector = StructVector.empty("dict", allocator);) {
+      vector.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
+      vector.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
+      dictionaryVector.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
+      dictionaryVector.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
+
+      NullableStructWriter writer = vector.getWriter();
+      writer.allocate();
+
+      writer.start();
+      writer.integer("f0").writeInt(1);
+      writer.bigInt("f1").writeBigInt(10L);
+      writer.end();
+
+      writer.start();
+      writer.integer("f0").writeInt(1);
+      writer.bigInt("f1").writeBigInt(10L);
+      writer.end();
+
+      writer.start();
+      writer.integer("f0").writeInt(1);
+      writer.bigInt("f1").writeBigInt(10L);
+      writer.end();
+
+      writer.start();
+      writer.integer("f0").writeInt(2);
+      writer.bigInt("f1").writeBigInt(20L);
+      writer.end();
+
+      writer.start();
+      writer.integer("f0").writeInt(2);
+      writer.bigInt("f1").writeBigInt(20L);
+      writer.end();
+
+      writer.start();
+      writer.integer("f0").writeInt(2);
+      writer.bigInt("f1").writeBigInt(20L);
+      writer.end();
+
+      writer.start();
+      writer.integer("f0").writeInt(1);
+      writer.bigInt("f1").writeBigInt(10L);
+      writer.end();
+
+      writer.setValueCount(7);
+
+      NullableStructWriter dictWriter = dictionaryVector.getWriter();
+      dictWriter.allocate();
+
+      dictWriter.start();
+      dictWriter.integer("f0").writeInt(1);
+      dictWriter.bigInt("f1").writeBigInt(10L);
+      dictWriter.end();
+
+      dictWriter.start();
+      dictWriter.integer("f0").writeInt(2);
+      dictWriter.bigInt("f1").writeBigInt(20L);
+      dictWriter.end();
+
+
+      dictionaryVector.setValueCount(2);
+
+      Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+
+      try (final ValueVector encoded = DictionaryEncoder.encode(vector, dictionary)) {
+        // verify indices
+        assertEquals(IntVector.class, encoded.getClass());
+
+        IntVector index = ((IntVector)encoded);
+        assertEquals(7, index.getValueCount());
+        assertEquals(0, index.get(0));
+        assertEquals(0, index.get(1));
+        assertEquals(0, index.get(2));
+        assertEquals(1, index.get(3));
+        assertEquals(1, index.get(4));
+        assertEquals(1, index.get(5));
+        assertEquals(0, index.get(6));
+
+        // now run through the decoder and verify we get the original back
+        try (ValueVector decoded = DictionaryEncoder.decode(encoded, dictionary)) {
+          assertEquals(vector.getClass(), decoded.getClass());
+          assertEquals(vector.getValueCount(), decoded.getValueCount());
+          for (int i = 0; i < 5; i++) {
+            assertEquals(vector.getObject(i), decoded.getObject(i));
+          }
+        }
+      }
+    }
+  }
+
 }
