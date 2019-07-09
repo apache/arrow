@@ -161,7 +161,7 @@ tasks:
   wheel-manylinux1-cp27m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 2.7
       unicode_width: 16
@@ -173,7 +173,7 @@ tasks:
   wheel-manylinux1-cp27mu:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 2.7
       unicode_width: 32
@@ -186,7 +186,7 @@ tasks:
   wheel-manylinux1-cp35m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 3.5
       unicode_width: 16
@@ -199,7 +199,7 @@ tasks:
   wheel-manylinux1-cp36m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 3.6
       unicode_width: 16
@@ -212,7 +212,7 @@ tasks:
   wheel-manylinux1-cp37m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 3.7
       unicode_width: 16
@@ -225,7 +225,7 @@ tasks:
   wheel-manylinux2010-cp27m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 2.7
       unicode_width: 16
@@ -237,7 +237,7 @@ tasks:
   wheel-manylinux2010-cp27mu:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 2.7
       unicode_width: 32
@@ -250,7 +250,7 @@ tasks:
   wheel-manylinux2010-cp35m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 3.5
       unicode_width: 16
@@ -263,7 +263,7 @@ tasks:
   wheel-manylinux2010-cp36m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 3.6
       unicode_width: 16
@@ -276,7 +276,7 @@ tasks:
   wheel-manylinux2010-cp37m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 3.7
       unicode_width: 16

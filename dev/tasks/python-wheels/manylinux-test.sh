@@ -19,6 +19,9 @@
 
 set -e
 
+# Force remove system shared libraries to fail loudly if they are bundled incorrectly
+ldconfig -p | grep grep "lib\(lz4\|z\|boost\)" | awk -F'> ' '{print $2}' | xargs rm -f
+
 # Install built wheel
 pip install -q /arrow/python/$WHEEL_TAG/dist/*.whl
 
