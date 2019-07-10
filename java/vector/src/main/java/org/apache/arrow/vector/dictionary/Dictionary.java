@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector.dictionary;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 import org.apache.arrow.vector.FieldVector;
@@ -63,11 +64,40 @@ public class Dictionary {
       return false;
     }
     Dictionary that = (Dictionary) o;
-    return Objects.equals(encoding, that.encoding) && Objects.equals(dictionary, that.dictionary);
+    return Objects.equals(encoding, that.encoding) && equals(dictionary, that.dictionary);
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(encoding, dictionary);
+  }
+
+  private boolean equals(FieldVector vector1, FieldVector vector2) {
+
+    if (vector1.getClass() != vector2.getClass()) {
+      return false;
+    }
+    int valueCount = vector1.getValueCount();
+    if (valueCount != vector2.getValueCount()) {
+      return false;
+    }
+    ArrowType fieldType = vector1.getField().getType();
+    for (int j = 0; j < valueCount; j++) {
+      Object obj1 = vector1.getObject(j);
+      Object obj2 = vector2.getObject(j);
+      if (!equals(fieldType, obj1, obj2)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private boolean equals(ArrowType type, final Object o1, final Object o2) {
+    if (type instanceof ArrowType.Binary || type instanceof ArrowType.FixedSizeBinary) {
+      //TODO use ByteArrayWrapper to compare, see ARROW-5835
+      return Arrays.equals((byte[]) o1, (byte[]) o2);
+    }
+
+    return Objects.equals(o1, o2);
   }
 }
