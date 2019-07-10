@@ -774,5 +774,24 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
             )
     );
   }
+
+  @Test
+  public void testInvalidDecimalGt38() throws GandivaException {
+    exception.expect(IllegalArgumentException.class);
+    exception.expectMessage("Gandiva only supports decimals of upto 38 precision. Input precision" +
+            " : 42");
+    Decimal decimalType = new Decimal(42, 0);
+    Field int64f = Field.nullable("int64", int64);
+
+    Schema schema = new Schema(Lists.newArrayList(int64f));
+    Projector eval = Projector.make(schema,
+            Lists.newArrayList(
+                    TreeBuilder.makeExpression("castDECIMAL",
+                            Lists.newArrayList(int64f),
+                            Field.nullable("invalid_dec", decimalType)
+                    )
+            )
+    );
+  }
 }
 

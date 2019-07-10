@@ -116,8 +116,8 @@ public class ArrowTypeHelper {
   private static void initArrowTypeDecimal(ArrowType.Decimal decimalType,
                                            GandivaTypes.ExtGandivaType.Builder builder) {
     Preconditions.checkArgument(decimalType.getPrecision() > 0 &&
-            decimalType.getPrecision() < 38, "Gandiva only supports decimals of upto 38 precision" +
-            ". Input precision : " + decimalType.getPrecision());
+            decimalType.getPrecision() <= 38, "Gandiva only supports decimals of upto 38 " +
+            "precision. Input precision : " + decimalType.getPrecision());
     builder.setPrecision(decimalType.getPrecision());
     builder.setScale(decimalType.getScale());
     builder.setType(GandivaTypes.GandivaType.DECIMAL);
