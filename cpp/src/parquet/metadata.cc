@@ -518,8 +518,7 @@ class FileMetaData::FileMetaDataImpl {
   }
 
 #ifdef PARQUET_ENCRYPTION
-  bool VerifySignature(std::shared_ptr<FooterSigningEncryptor> encryptor,
-                       const void* signature) {
+  bool VerifySignature(InternalFileDecryptor* file_decryptor, const void* signature) {
     // serialize the footer
     uint8_t* serialized_data;
     uint32_t serialized_len = metadata_len_;
@@ -531,10 +530,20 @@ class FileMetaData::FileMetaDataImpl {
     uint8_t* tag = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(signature)) +
                    encryption::kNonceLength;
 
-    std::vector<uint8_t> encrypted_buffer(encryptor->CiphertextSizeDelta() +
+    std::string key = file_decryptor->GetFooterKey();
+    std::string aad = encryption::CreateFooterAad(file_decryptor->file_aad());
+
+    auto aes_encryptor = encryption::AesEncryptor::Make(
+        file_decryptor->algorithm(), static_cast<int>(key.size()), true, NULLPTR);
+
+    std::vector<uint8_t> encrypted_buffer(aes_encryptor->CiphertextSizeDelta() +
                                           serialized_len);
-    uint32_t encrypted_len = encryptor->SignedFooterEncrypt(
-        serialized_data, serialized_len, nonce, encrypted_buffer.data());
+    uint32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
+        serialized_data, serialized_len, str2bytes(key), static_cast<int>(key.size()),
+        str2bytes(aad), static_cast<int>(aad.size()), nonce, encrypted_buffer.data());
+    // Delete AES encryptor object. It was created only to verify the footer signature.
+    aes_encryptor->WipeOut();
+    delete aes_encryptor;
     return 0 ==
            memcmp(encrypted_buffer.data() + encrypted_len - encryption::kGcmTagLength,
                   tag, encryption::kGcmTagLength);
@@ -705,9 +714,9 @@ std::unique_ptr<RowGroupMetaData> FileMetaData::RowGroup(int i) const {
 }
 
 #ifdef PARQUET_ENCRYPTION
-bool FileMetaData::VerifySignature(std::shared_ptr<FooterSigningEncryptor> encryptor,
+bool FileMetaData::VerifySignature(InternalFileDecryptor* file_decryptor,
                                    const void* signature) {
-  return impl_->VerifySignature(encryptor, signature);
+  return impl_->VerifySignature(file_decryptor, signature);
 }
 #endif
 

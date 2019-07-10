@@ -212,8 +212,7 @@ class PARQUET_EXPORT FileMetaData {
   /// Verify signature of FileMetadata when file is encrypted but footer is not encrypted
   /// (plaintext footer).
   /// Signature is 28 bytes (12 byte nonce and 16 byte tags) when encrypting FileMetadata
-  bool VerifySignature(std::shared_ptr<FooterSigningEncryptor> encryptor,
-                       const void* signature);
+  bool VerifySignature(InternalFileDecryptor* file_decryptor, const void* signature);
 #endif
 
   // file metadata

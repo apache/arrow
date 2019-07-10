@@ -21,29 +21,6 @@
 
 namespace parquet {
 
-// FooterSigningEncryptor
-
-FooterSigningEncryptor::FooterSigningEncryptor(ParquetCipher::type algorithm,
-                                               const std::string& key,
-                                               const std::string& file_aad,
-                                               const std::string& aad)
-    : key_(key), file_aad_(file_aad), aad_(aad) {
-  aes_encryptor_.reset(encryption::AesEncryptor::Make(
-      algorithm, static_cast<int>(key_.size()), true, NULLPTR));
-}
-
-int FooterSigningEncryptor::CiphertextSizeDelta() {
-  return aes_encryptor_->CiphertextSizeDelta();
-}
-
-int FooterSigningEncryptor::SignedFooterEncrypt(const uint8_t* footer, int footer_len,
-                                                uint8_t* nonce,
-                                                uint8_t* encrypted_footer) {
-  return aes_encryptor_->SignedFooterEncrypt(
-      footer, footer_len, str2bytes(key_), static_cast<int>(key_.size()), str2bytes(aad_),
-      static_cast<int>(aad_.size()), nonce, encrypted_footer);
-}
-
 // Decryptor
 Decryptor::Decryptor(encryption::AesDecryptor* aes_decryptor, const std::string& key,
                      const std::string& file_aad, const std::string& aad,
@@ -88,9 +65,7 @@ void InternalFileDecryptor::WipeOutDecryptionKeys() {
   }
 }
 
-std::shared_ptr<FooterSigningEncryptor>
-InternalFileDecryptor::GetFooterSigningEncryptor() {
-  if (footer_signing_encryptor_ != NULLPTR) return footer_signing_encryptor_;
+std::string InternalFileDecryptor::GetFooterKey() {
   std::string footer_key = properties_->footer_key();
   // ignore footer key metadata if footer key is explicitly set via API
   if (footer_key.empty()) {
@@ -111,12 +86,7 @@ InternalFileDecryptor::GetFooterSigningEncryptor() {
         "Footer key unavailable. Could not verify "
         "plaintext footer metadata");
   }
-
-  std::string aad = encryption::CreateFooterAad(file_aad_);
-
-  footer_signing_encryptor_ =
-      std::make_shared<FooterSigningEncryptor>(algorithm_, footer_key, file_aad_, aad);
-  return footer_signing_encryptor_;
+  return footer_key;
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor() {

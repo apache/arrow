@@ -330,7 +330,7 @@ add_parquet_test(arrow-test
 if(ARROW_USE_OPENSSL)
   add_parquet_test(encryption-test
                    SOURCES
-                   encryption-configuration-encrypted-columns-and-footer.cc
+                   encryption-configurations-test.cc
                    encryption-properties-test.cc
                    test-util.cc)
 endif()

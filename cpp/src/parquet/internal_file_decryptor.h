@@ -34,22 +34,6 @@ class AesEncryptor;
 
 class FileDecryptionProperties;
 
-class FooterSigningEncryptor {
- public:
-  FooterSigningEncryptor(ParquetCipher::type algorithm, const std::string& key,
-                         const std::string& file_aad, const std::string& aad);
-  int CiphertextSizeDelta();
-  int SignedFooterEncrypt(const uint8_t* footer, int footer_len, uint8_t* nonce,
-                          uint8_t* encrypted_footer);
-
- private:
-  std::string key_;
-  std::string file_aad_;
-  std::string aad_;
-
-  std::shared_ptr<encryption::AesEncryptor> aes_encryptor_;
-};
-
 class Decryptor {
  public:
   Decryptor(encryption::AesDecryptor* decryptor, const std::string& key,
@@ -81,11 +65,11 @@ class InternalFileDecryptor {
 
   std::string& file_aad() { return file_aad_; }
 
+  std::string GetFooterKey();
+
   ParquetCipher::type algorithm() { return algorithm_; }
 
   std::string& footer_key_metadata() { return footer_key_metadata_; }
-
-  std::shared_ptr<FooterSigningEncryptor> GetFooterSigningEncryptor();
 
   FileDecryptionProperties* properties() { return properties_; }
 
@@ -116,7 +100,6 @@ class InternalFileDecryptor {
   std::shared_ptr<Decryptor> footer_data_decryptor_;
   ParquetCipher::type algorithm_;
   std::string footer_key_metadata_;
-  std::shared_ptr<FooterSigningEncryptor> footer_signing_encryptor_;
   std::vector<encryption::AesDecryptor*> all_decryptors_;
 
   /// Key must be 16, 24 or 32 bytes in length. Thus there could be up to three

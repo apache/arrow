@@ -433,8 +433,7 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
             "Invalid parquet file. Cannot verify plaintext mode footer.");
       }
 
-      auto encryptor = file_decryptor_->GetFooterSigningEncryptor();
-      if (!file_metadata_->VerifySignature(encryptor,
+      if (!file_metadata_->VerifySignature(file_decryptor_.get(),
                                            metadata_buffer->data() + read_metadata_len)) {
         throw ParquetException(
             "Invalid parquet file. Could not verify plaintext "
