@@ -24,6 +24,7 @@ check_cxx_compiler_flag("-msse4.2" CXX_SUPPORTS_SSE4_2)
 check_cxx_compiler_flag("-maltivec" CXX_SUPPORTS_ALTIVEC)
 # Arm64 compiler flags
 check_cxx_compiler_flag("-march=armv8-a+crc" CXX_SUPPORTS_ARMCRC)
+check_cxx_compiler_flag("-march=armv8-a+crc+crypto" CXX_SUPPORTS_ARMV8_CRC_CRYPTO)
 
 # Support C11
 set(CMAKE_C_STANDARD 11)
@@ -265,7 +266,11 @@ if(CXX_SUPPORTS_ALTIVEC AND ARROW_ALTIVEC)
 endif()
 
 if(CXX_SUPPORTS_ARMCRC)
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=armv8-a+crc")
+  if(CXX_SUPPORTS_ARMV8_CRC_CRYPTO)
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=armv8-a+crc+crypto")
+  else()
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=armv8-a+crc")
+  endif()
 endif()
 
 if(ARROW_USE_SIMD)
