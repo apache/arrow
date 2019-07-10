@@ -16,6 +16,7 @@
 using Apache.Arrow.Ipc;
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
@@ -89,6 +90,39 @@ namespace Apache.Arrow.Tests
         {
             RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 0);
 
+            await TestRoundTripRecordBatch(originalBatch);
+        }
+
+        [Fact]
+        public async Task WriteBatchWithNulls()
+        {
+            RecordBatch originalBatch = new RecordBatch.Builder()
+                .Append("Column1", false, col => col.Int32(array => array.AppendRange(Enumerable.Range(0, 10))))
+                .Append("Column2", true, new Int32Array(
+                    valueBuffer: new ArrowBuffer.Builder<int>().AppendRange(Enumerable.Range(0, 10)).Build(),
+                    nullBitmapBuffer: new ArrowBuffer.Builder<byte>().Append(0xfd).Append(0xff).Build(),
+                    length: 10,
+                    nullCount: 2,
+                    offset: 0))
+                .Append("Column3", true, new Int32Array(
+                    valueBuffer: new ArrowBuffer.Builder<int>().AppendRange(Enumerable.Range(0, 10)).Build(),
+                    nullBitmapBuffer: new ArrowBuffer.Builder<byte>().Append(0x00).Append(0x00).Build(),
+                    length: 10,
+                    nullCount: 10,
+                    offset: 0))
+                .Append("NullableBooleanColumn", true, new BooleanArray(
+                    valueBuffer: new ArrowBuffer.Builder<byte>().Append(0xfd).Append(0xff).Build(),
+                    nullBitmapBuffer: new ArrowBuffer.Builder<byte>().Append(0xed).Append(0xff).Build(),
+                    length: 10,
+                    nullCount: 3,
+                    offset: 0))
+                .Build();
+
+            await TestRoundTripRecordBatch(originalBatch);
+        }
+
+        private static async Task TestRoundTripRecordBatch(RecordBatch originalBatch)
+        {
             using (MemoryStream stream = new MemoryStream())
             {
                 using (var writer = new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: true))
