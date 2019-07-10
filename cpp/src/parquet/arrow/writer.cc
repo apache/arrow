@@ -228,7 +228,7 @@ class LevelBuilder {
 
     // Special case: this is a null array (all elements are null)
     if (level_null_count && level_valid_bitmap == nullptr) {
-      return def_levels_.Append(inner_length, static_cast<int16_t>(def_level + 1)));
+      return def_levels_.Append(inner_length, static_cast<int16_t>(def_level + 1));
     }
     for (int64_t i = 0; i < inner_length; i++) {
       if (nullable_level &&
@@ -239,7 +239,7 @@ class LevelBuilder {
         RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 2)));
       } else {
         // This can be produced in two cases:
-        //  * elements are nullable and this one is null 
+        //  * elements are nullable and this one is null
         //   (i.e. max_def_level = def_level + 2)
         //  * elements are non-nullable (i.e. max_def_level = def_level + 1)
         RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 1)));
@@ -306,8 +306,7 @@ struct ColumnWriterContext {
 Status GetLeafType(const ::arrow::DataType& type, ::arrow::Type::type* leaf_type) {
   if (type.id() == ::arrow::Type::LIST || type.id() == ::arrow::Type::STRUCT) {
     if (type.num_children() != 1) {
-      return Status::Invalid("Nested column branch had multiple children: ", *type);
-                             type.ToString());
+      return Status::Invalid("Nested column branch had multiple children: ", type);
     }
     return GetLeafType(*type.child(0)->type(), leaf_type);
   } else {
