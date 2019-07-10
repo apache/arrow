@@ -49,7 +49,7 @@ using arrow::ChunkedArray;
 using arrow::Decimal128Array;
 using arrow::Field;
 using arrow::FixedSizeBinaryArray;
-using UInt16BufferBuilder = arrow::TypedBufferBuilder<uint16_t>;
+using Int16BufferBuilder = arrow::TypedBufferBuilder<int16_t>;
 using arrow::ListArray;
 using arrow::MemoryPool;
 using arrow::NumericArray;
@@ -260,8 +260,8 @@ class LevelBuilder {
   }
 
  private:
-  UInt16BufferBuilder def_levels_;
-  UInt16BufferBuilder rep_levels_;
+  Int16BufferBuilder def_levels_;
+  Int16BufferBuilder rep_levels_;
 
   std::vector<int64_t> null_counts_;
   std::vector<const uint8_t*> valid_bitmaps_;
