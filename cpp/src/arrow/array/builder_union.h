@@ -53,7 +53,7 @@ class ARROW_EXPORT BasicUnionBuilder : public ArrayBuilder {
   /// allowing type to be inferred. You will need to call AppendChild for each of the
   /// children builders you want to use.
   explicit BasicUnionBuilder(MemoryPool* pool, UnionMode::type mode)
-      : ArrayBuilder(nullptr, pool), mode_(mode), types_builder_(pool) {}
+      : ArrayBuilder(NULLPTR, pool), mode_(mode), types_builder_(pool) {}
 
   /// Use this constructor to specify the type explicitly.
   /// You can still add child builders to the union after using this constructor
@@ -62,6 +62,7 @@ class ARROW_EXPORT BasicUnionBuilder : public ArrayBuilder {
                     const std::shared_ptr<DataType>& type);
 
   UnionMode::type mode_;
+  std::vector<std::shared_ptr<ArrayBuilder>> type_id_to_children_;
   int8_t dense_type_id_ = 0;
   TypedBufferBuilder<int8_t> types_builder_;
   std::vector<std::string> field_names_;
@@ -107,12 +108,12 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
   /// is called.
   Status Append(int8_t next_type) {
     ARROW_RETURN_NOT_OK(types_builder_.Append(next_type));
-    if (children_[next_type]->length() == kListMaximumElements) {
+    if (type_id_to_children_[next_type]->length() == kListMaximumElements) {
       return Status::CapacityError(
           "a dense UnionArray cannot contain more than 2^31 - 1 elements from a single "
           "child");
     }
-    auto offset = static_cast<int32_t>(children_[next_type]->length());
+    auto offset = static_cast<int32_t>(type_id_to_children_[next_type]->length());
     ARROW_RETURN_NOT_OK(offsets_builder_.Append(offset));
     return AppendToBitmap(true);
   }

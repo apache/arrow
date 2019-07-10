@@ -31,19 +31,21 @@ Status BasicUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
   RETURN_NOT_OK(types_builder_.Finish(&types));
 
-  // If the type has not been specified in the constructor, gather type_ids
-  std::vector<uint8_t> type_ids;
+  // If the type has not been specified in the constructor, gather type_codes
+  std::vector<uint8_t> type_codes;
   if (type_ == nullptr) {
     for (size_t i = 0; i < children_.size(); ++i) {
-      type_ids.push_back(static_cast<uint8_t>(i));
+      if (type_id_to_children_[i] != nullptr) {
+        type_codes.push_back(static_cast<uint8_t>(i));
+      }
     }
   } else {
-    type_ids = checked_cast<const UnionType&>(*type_).type_codes();
+    type_codes = checked_cast<const UnionType&>(*type_).type_codes();
   }
 
-  std::vector<std::shared_ptr<ArrayData>> child_data(type_ids.size());
-  for (size_t i = 0; i < type_ids.size(); ++i) {
-    RETURN_NOT_OK(children_[type_ids[i]]->FinishInternal(&child_data[i]));
+  std::vector<std::shared_ptr<ArrayData>> child_data(type_codes.size());
+  for (size_t i = 0; i < children_.size(); ++i) {
+    RETURN_NOT_OK(children_[i]->FinishInternal(&child_data[i]));
   }
 
   // If the type has not been specified in the constructor, infer it
@@ -53,7 +55,7 @@ Status BasicUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
     for (auto&& data : child_data) {
       fields.push_back(field(*field_names_it++, data->type));
     }
-    type_ = union_(fields, type_ids, mode_);
+    type_ = union_(fields, type_codes, mode_);
   }
 
   *out = ArrayData::Make(type_, length(), {null_bitmap, types, nullptr}, null_count_);
@@ -70,14 +72,13 @@ BasicUnionBuilder::BasicUnionBuilder(
   DCHECK_NE(union_type, nullptr);
   DCHECK_EQ(union_type->mode(), mode);
 
-  // NB: children_ is indexed by the child array's type_id, *not* by the index
-  // of the child_data in the Finished array data
-  children_.resize(union_type->max_type_code() + 1, nullptr);
+  children_ = children;
+  type_id_to_children_.resize(union_type->max_type_code() + 1, nullptr);
 
   auto field_it = type->children().begin();
   auto children_it = children.begin();
   for (auto type_id : union_type->type_codes()) {
-    children_[type_id] = *children_it++;
+    type_id_to_children_[type_id] = *children_it++;
     field_names_.push_back((*field_it++)->name());
   }
   DCHECK_EQ(children_it, children.end());
@@ -90,17 +91,17 @@ int8_t BasicUnionBuilder::AppendChild(const std::shared_ptr<ArrayBuilder>& new_c
   type_ = nullptr;
 
   field_names_.push_back(field_name);
+  children_.push_back(new_child);
 
-  for (int8_t type_id = dense_type_id_; static_cast<size_t>(type_id) < children_.size();
-       ++type_id) {
-    if (children_[type_id] == NULLPTR) {
-      children_[type_id] = new_child;
-      return type_id;
+  for (; static_cast<size_t>(dense_type_id_) < type_id_to_children_.size();
+       ++dense_type_id_) {
+    if (type_id_to_children_[dense_type_id_] == nullptr) {
+      type_id_to_children_[dense_type_id_] = new_child;
+      return dense_type_id_++;
     }
-    dense_type_id_ = type_id;
   }
 
-  children_.push_back(new_child);
+  type_id_to_children_.push_back(new_child);
   return dense_type_id_++;
 }
 
