@@ -290,11 +290,11 @@ gparquet_arrow_file_reader_select_schema(GParquetArrowFileReader *reader,
  * @column_index: Index integer of the column to be read.
  * @error: (nullable): Return locatipcn for a #GError or %NULL.
  *
- * Returns: (transfer full) (nullable): A read #GArrowColumn.
+ * Returns: (transfer full) (nullable): A read #GArrowChunkedArray.
  *
  * Since: 0.12.0
  */
-GArrowColumn *
+GArrowChunkedArray *
 gparquet_arrow_file_reader_read_column(GParquetArrowFileReader *reader,
                                        gint column_index,
                                        GError **error)
@@ -318,9 +318,7 @@ gparquet_arrow_file_reader_read_column(GParquetArrowFileReader *reader,
     return NULL;
   }
 
-  auto arrow_field = arrow_schema->field(0);
-  auto arrow_column = std::make_shared<arrow::Column>(arrow_field, arrow_chunked_array);
-  return garrow_column_new_raw(&arrow_column);
+  return garrow_chunked_array_new_raw(&arrow_chunked_array);
 }
 
 /**

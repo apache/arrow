@@ -206,6 +206,29 @@ cdef class ChunkedArray(_PandasConvertible):
 
         return wrap_datum(out)
 
+    def flatten(self, MemoryPool memory_pool=None):
+        """
+        Flatten this ChunkedArray.  If it has a struct type, the column is
+        flattened into one array per struct field.
+
+        Parameters
+        ----------
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise use default pool
+
+        Returns
+        -------
+        result : List[ChunkedArray]
+        """
+        cdef:
+            vector[shared_ptr[CChunkedArray]] flattened
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+
+        with nogil:
+            check_status(self.chunked_array.Flatten(pool, &flattened))
+
+        return [pyarrow_wrap_chunked_array(col) for col in flattened]
+
     def unique(self):
         """
         Compute distinct elements in array

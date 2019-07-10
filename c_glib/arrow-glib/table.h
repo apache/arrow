@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <arrow-glib/column.h>
+#include <arrow-glib/chunked-array.h>
 #include <arrow-glib/record-batch.h>
 #include <arrow-glib/schema.h>
 #include <arrow-glib/version.h>
@@ -48,10 +48,10 @@ GArrowTable *
 garrow_table_new_values(GArrowSchema *schema,
                         GList *values,
                         GError **error);
-GARROW_AVAILABLE_IN_0_12
+
 GArrowTable *
 garrow_table_new_columns(GArrowSchema *schema,
-                         GArrowColumn **columns,
+                         GArrowChunkedArray **columns,
                          gsize n_columns,
                          GError **error);
 GARROW_AVAILABLE_IN_0_12
@@ -70,22 +70,25 @@ garrow_table_new_record_batches(GArrowSchema *schema,
 gboolean        garrow_table_equal         (GArrowTable *table,
                                             GArrowTable *other_table);
 
-GArrowSchema   *garrow_table_get_schema    (GArrowTable *table);
-GArrowColumn   *garrow_table_get_column    (GArrowTable *table,
-                                            guint i);
+GArrowSchema        *garrow_table_get_schema    (GArrowTable *table);
+GArrowChunkedArray  *garrow_table_get_column    (GArrowTable *table,
+                                                 guint i);
+
 guint           garrow_table_get_n_columns (GArrowTable *table);
 guint64         garrow_table_get_n_rows    (GArrowTable *table);
 
 GArrowTable    *garrow_table_add_column    (GArrowTable *table,
                                             guint i,
-                                            GArrowColumn *column,
+                                            GArrowField *field,
+                                            GArrowChunkedArray *column,
                                             GError **error);
 GArrowTable    *garrow_table_remove_column (GArrowTable *table,
                                             guint i,
                                             GError **error);
 GArrowTable    *garrow_table_replace_column(GArrowTable *table,
                                             guint i,
-                                            GArrowColumn *column,
+                                            GArrowField *field,
+                                            GArrowChunkedArray *column,
                                             GError **error);
 gchar          *garrow_table_to_string     (GArrowTable *table,
                                             GError **error);

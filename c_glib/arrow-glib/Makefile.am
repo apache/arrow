@@ -55,7 +55,6 @@ libarrow_glib_la_headers =			\
 	buffer.h				\
 	chunked-array.h				\
 	codec.h					\
-	column.h				\
 	composite-array.h			\
 	composite-data-type.h			\
 	data-type.h				\
@@ -107,7 +106,6 @@ libarrow_glib_la_sources =			\
 	buffer.cpp				\
 	chunked-array.cpp			\
 	codec.cpp				\
-	column.cpp				\
 	composite-array.cpp			\
 	composite-data-type.cpp			\
 	decimal128.cpp				\
@@ -153,7 +151,6 @@ libarrow_glib_la_cpp_headers =			\
 	buffer.hpp				\
 	chunked-array.hpp			\
 	codec.hpp				\
-	column.hpp				\
 	data-type.hpp				\
 	decimal128.hpp				\
 	error.hpp				\

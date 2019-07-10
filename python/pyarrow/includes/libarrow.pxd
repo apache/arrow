@@ -490,6 +490,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CChunkedArray] Slice(int64_t offset, int64_t length) const
         shared_ptr[CChunkedArray] Slice(int64_t offset) const
 
+        CStatus Flatten(CMemoryPool* pool,
+                        vector[shared_ptr[CChunkedArray]]* out)
+
         CStatus Validate() const
 
     cdef cppclass CRecordBatch" arrow::RecordBatch":

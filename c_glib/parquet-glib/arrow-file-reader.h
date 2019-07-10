@@ -54,7 +54,7 @@ gparquet_arrow_file_reader_select_schema(GParquetArrowFileReader *reader,
                                          gsize n_column_indexes,
                                          GError **error);
 
-GArrowColumn *
+GArrowChunkedArray *
 gparquet_arrow_file_reader_read_column(GParquetArrowFileReader *reader,
                                        gint column_index,
                                        GError **error);

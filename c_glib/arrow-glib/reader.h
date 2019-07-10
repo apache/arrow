@@ -222,7 +222,7 @@ gint64 garrow_feather_file_reader_get_n_columns(
 gchar *garrow_feather_file_reader_get_column_name(
   GArrowFeatherFileReader *reader,
   gint i);
-GArrowColumn *garrow_feather_file_reader_get_column(
+GArrowArray *garrow_feather_file_reader_get_column(
   GArrowFeatherFileReader *reader,
   gint i,
   GError **error);
