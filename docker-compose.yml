@@ -114,9 +114,30 @@ services:
     build:
       context: .
       dockerfile: cpp/Dockerfile
-    environment:
-      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-volumes
+
+  cpp-system-deps:
+    # Usage:
+    #   docker-compose build cpp-system-deps
+    #   docker-compose run cpp-system-deps
+    image: ursalab/arrow:cpp-system-deps
+    shm_size: 2G
+    cap_add:
+      # LeakSanitizer and gdb requires ptrace(2)
+      - SYS_PTRACE
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.ubuntu-bionic
+      args:
+        LLVM_VERSION: 7
+    environment:
+      ARROW_FLIGHT: "ON"
+      ARROW_USE_ASAN: "ON"
+      ARROW_USE_UBSAN: "ON"
+    volumes:
+      - .:/arrow:delegated
+      - ubuntu-cache:/build:delegated
+      - ${HOME}/.ccache:/build/ccache:cached
 
   cpp-release:
     # Usage:
