@@ -36,26 +36,27 @@ class FunctionRegistry;
 /// data types and functions supported by Gandiva.
 class GANDIVA_EXPORT ExpressionRegistry {
  public:
-  using nf_iterator = const NativeFunction*;
-  using fs_iterator = const FunctionSignature*;
+  using native_func_iterator_type = const NativeFunction*;
+  using func_sig_iterator_type = const FunctionSignature*;
   ExpressionRegistry();
   ~ExpressionRegistry();
   static DataTypeVector supported_types() { return supported_types_; }
   class GANDIVA_EXPORT FunctionSignatureIterator {
    public:
-    explicit FunctionSignatureIterator(nf_iterator nf_it, nf_iterator nf_it_end_);
-    explicit FunctionSignatureIterator(fs_iterator fs_it);
+    explicit FunctionSignatureIterator(native_func_iterator_type nf_it,
+                                       native_func_iterator_type nf_it_end_);
+    explicit FunctionSignatureIterator(func_sig_iterator_type fs_it);
 
     bool operator!=(const FunctionSignatureIterator& func_sign_it);
 
     FunctionSignature operator*();
 
-    fs_iterator operator++(int);
+    func_sig_iterator_type operator++(int);
 
    private:
-    nf_iterator native_func_it_;
-    const nf_iterator native_func_it_end_;
-    fs_iterator func_sig_it_;
+    native_func_iterator_type native_func_it_;
+    const native_func_iterator_type native_func_it_end_;
+    func_sig_iterator_type func_sig_it_;
   };
   const FunctionSignatureIterator function_signature_begin();
   const FunctionSignatureIterator function_signature_end() const;

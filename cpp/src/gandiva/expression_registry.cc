@@ -32,14 +32,14 @@ ExpressionRegistry::~ExpressionRegistry() {}
 
 // to be used only to create function_signature_start
 ExpressionRegistry::FunctionSignatureIterator::FunctionSignatureIterator(
-    nf_iterator nf_it, nf_iterator nf_it_end)
+    native_func_iterator_type nf_it, native_func_iterator_type nf_it_end)
     : native_func_it_{nf_it},
       native_func_it_end_{nf_it_end},
       func_sig_it_{&(nf_it->signatures().front())} {}
 
 // to be used only to create function_signature_end
 ExpressionRegistry::FunctionSignatureIterator::FunctionSignatureIterator(
-    fs_iterator fs_it)
+    func_sig_iterator_type fs_it)
     : native_func_it_{nullptr}, native_func_it_end_{nullptr}, func_sig_it_{fs_it} {}
 
 const ExpressionRegistry::FunctionSignatureIterator
@@ -62,8 +62,8 @@ FunctionSignature ExpressionRegistry::FunctionSignatureIterator::operator*() {
   return *func_sig_it_;
 }
 
-ExpressionRegistry::fs_iterator ExpressionRegistry::FunctionSignatureIterator::operator++(
-    int increment) {
+ExpressionRegistry::func_sig_iterator_type ExpressionRegistry::FunctionSignatureIterator::
+operator++(int increment) {
   ++func_sig_it_;
   // point func_sig_it_ to first signature of next nativefunction if func_sig_it_ is
   // pointing to end
