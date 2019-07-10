@@ -50,9 +50,12 @@ public class TestVectorSearcher {
 
   @Test
   public void testBinarySearchInt() {
-    try (IntVector rawVector = new IntVector("", allocator)) {
+    try (IntVector rawVector = new IntVector("", allocator);
+         IntVector negVector = new IntVector("", allocator)) {
       rawVector.allocateNew(VECTOR_LENGTH);
       rawVector.setValueCount(VECTOR_LENGTH);
+      negVector.allocateNew(1);
+      negVector.setValueCount(1);
 
       // prepare data in sorted order
       for (int i = 0; i < VECTOR_LENGTH; i++) {
@@ -62,6 +65,7 @@ public class TestVectorSearcher {
           rawVector.set(i, i);
         }
       }
+      negVector.set(0, -333);
 
       // do search
       VectorValueComparator<IntVector> comparator = new DefaultVectorComparators.IntComparator();
@@ -69,14 +73,20 @@ public class TestVectorSearcher {
         int result = VectorSearcher.binarySearch(rawVector, comparator, rawVector, i);
         assertEquals(i, result);
       }
+
+      // negative case
+      assertEquals(-1, VectorSearcher.binarySearch(rawVector, comparator, negVector, 0));
     }
   }
 
   @Test
   public void testLinearSearchInt() {
-    try (IntVector rawVector = new IntVector("", allocator)) {
+    try (IntVector rawVector = new IntVector("", allocator);
+         IntVector negVector = new IntVector("", allocator)) {
       rawVector.allocateNew(VECTOR_LENGTH);
       rawVector.setValueCount(VECTOR_LENGTH);
+      negVector.allocateNew(1);
+      negVector.setValueCount(1);
 
       // prepare data in sorted order
       for (int i = 0; i < VECTOR_LENGTH; i++) {
@@ -86,6 +96,7 @@ public class TestVectorSearcher {
           rawVector.set(i, i);
         }
       }
+      negVector.set(0, -333);
 
       // do search
       VectorValueComparator<IntVector> comparator = new DefaultVectorComparators.IntComparator();
@@ -93,14 +104,20 @@ public class TestVectorSearcher {
         int result = VectorSearcher.linearSearch(rawVector, comparator, rawVector, i);
         assertEquals(i, result);
       }
+
+      // negative case
+      assertEquals(-1, VectorSearcher.linearSearch(rawVector, comparator, negVector, 0));
     }
   }
 
   @Test
   public void testBinarySearchVarChar() {
-    try (VarCharVector rawVector = new VarCharVector("", allocator)) {
+    try (VarCharVector rawVector = new VarCharVector("", allocator);
+         VarCharVector negVector = new VarCharVector("", allocator)) {
       rawVector.allocateNew(VECTOR_LENGTH * 16, VECTOR_LENGTH);
       rawVector.setValueCount(VECTOR_LENGTH);
+      negVector.allocateNew(VECTOR_LENGTH, 1);
+      negVector.setValueCount(1);
 
       byte[] content = new byte[2];
 
@@ -117,6 +134,7 @@ public class TestVectorSearcher {
           rawVector.set(i, content);
         }
       }
+      negVector.set(0, "abcd".getBytes());
 
       // do search
       VectorValueComparator<VarCharVector> comparator = new DefaultVectorComparators.VarCharComparator();
@@ -124,14 +142,20 @@ public class TestVectorSearcher {
         int result = VectorSearcher.binarySearch(rawVector, comparator, rawVector, i);
         assertEquals(i, result);
       }
+
+      // negative case
+      assertEquals(-1, VectorSearcher.binarySearch(rawVector, comparator, negVector, 0));
     }
   }
 
   @Test
   public void testLinearSearchVarChar() {
-    try (VarCharVector rawVector = new VarCharVector("", allocator)) {
+    try (VarCharVector rawVector = new VarCharVector("", allocator);
+         VarCharVector negVector = new VarCharVector("", allocator)) {
       rawVector.allocateNew(VECTOR_LENGTH * 16, VECTOR_LENGTH);
       rawVector.setValueCount(VECTOR_LENGTH);
+      negVector.allocateNew(VECTOR_LENGTH, 1);
+      negVector.setValueCount(1);
 
       byte[] content = new byte[2];
 
@@ -148,6 +172,7 @@ public class TestVectorSearcher {
           rawVector.set(i, content);
         }
       }
+      negVector.set(0, "abcd".getBytes());
 
       // do search
       VectorValueComparator<VarCharVector> comparator = new DefaultVectorComparators.VarCharComparator();
@@ -155,6 +180,9 @@ public class TestVectorSearcher {
         int result = VectorSearcher.linearSearch(rawVector, comparator, rawVector, i);
         assertEquals(i, result);
       }
+
+      // negative case
+      assertEquals(-1, VectorSearcher.linearSearch(rawVector, comparator, negVector, 0));
     }
   }
 }
