@@ -20,11 +20,19 @@
 namespace arrow {
 
 #if defined(__aarch64__) || defined(__AARCH64__)
+
 #ifdef __ARM_FEATURE_CRC32
 #define ARROW_HAVE_ARM_CRC
 #include <arm_acle.h>
-#endif
-#endif
+
+#ifdef __ARM_FEATURE_CRYPTO
+#include <arm_neon.h>
+#define ARROW_HAVE_ARMV8_CRYPTO
+#endif  // __ARM_FEATURE_CRYPTO
+
+#endif  // __ARM_FEATURE_CRC32
+
+#endif  // defined(__aarch64__) || defined(__AARCH64__)
 
 #if defined(__GNUC__) && defined(__linux__) && defined(ARROW_HAVE_ARM_CRC)
 

@@ -167,8 +167,12 @@ hash_t ComputeStringHash(const void* data, int64_t length) {
   }
 
   if (HashUtil::have_hardware_crc32) {
+#ifdef ARROW_HAVE_ARMV8_CRYPTO
+    auto h = HashUtil::Armv8CrcHashParallel(data, static_cast<int32_t>(length), AlgNum);
+#else
     // DoubleCrcHash is faster that Murmur2.
     auto h = HashUtil::DoubleCrcHash(data, static_cast<int32_t>(length), AlgNum);
+#endif
     return ScalarHelper<uint64_t, AlgNum>::ComputeHash(h);
   } else {
     // Fall back on 64-bit Murmur2 for longer strings.
