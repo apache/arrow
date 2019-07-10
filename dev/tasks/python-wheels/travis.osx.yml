@@ -71,10 +71,12 @@ install:
   - brew uninstall --ignore-dependencies llvm@7 grpc c-ares openssl zlib
   # install the built wheel and test dependencies
   - install_wheel arrow
+  # run unit tests before removing the system libraries
+  - run_unit_tests
   # remove libz to ensure that it is properly bundled
   - find /usr -name libz.* | xargs rm -v -f
-  # run the tests
-  - test_wheel
+  # run the import tests
+  - run_import_tests
 
   # move built wheels to a top level directory
   - mv -v arrow/python/dist/* dist/

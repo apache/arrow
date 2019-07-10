@@ -188,10 +188,12 @@ function install_wheel {
     popd
 }
 
-function test_wheel {
-    # Runs tests on installed distribution from an empty directory
-    python --version
+function run_unit_tests {
+    # Run pyarrow tests
+    py.test --pyargs pyarrow
+}
 
+function run_import_tests {
     # Test optional dependencies
     python -c "
 import sys
@@ -204,7 +206,4 @@ if sys.version_info.major > 2:
     import pyarrow.flight
     import pyarrow.gandiva
 "
-
-    # Run pyarrow tests
-    py.test --pyargs pyarrow
 }
