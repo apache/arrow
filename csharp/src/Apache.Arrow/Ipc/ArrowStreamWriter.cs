@@ -109,7 +109,7 @@ namespace Apache.Arrow.Ipc
 
             private void CreateBuffers(BooleanArray array)
             {
-                _buffers.Add(CreateBuffer(ArrowBuffer.Empty));
+                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
                 _buffers.Add(CreateBuffer(array.ValueBuffer));
             }
 
@@ -181,28 +181,26 @@ namespace Apache.Arrow.Ipc
                 HasWrittenSchema = true;
             }
 
-            var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder();
-
             Builder.Clear();
 
             // Serialize field nodes
 
             var fieldCount = Schema.Fields.Count;
-            var fieldNodeOffsets = new Offset<Flatbuf.FieldNode>[fieldCount];
 
             Flatbuf.RecordBatch.StartNodesVector(Builder, fieldCount);
 
-            for (var i = 0; i < fieldCount; i++)
+            // flatbuffer struct vectors have to be created in reverse order
+            for (var i = fieldCount - 1; i >= 0; i--)
             {
                 var fieldArray = recordBatch.Column(i);
-                fieldNodeOffsets[i] =
-                    Flatbuf.FieldNode.CreateFieldNode(Builder, fieldArray.Length, fieldArray.NullCount);
+                Flatbuf.FieldNode.CreateFieldNode(Builder, fieldArray.Length, fieldArray.NullCount);
             }
 
             var fieldNodesVectorOffset = Builder.EndVector();
 
             // Serialize buffers
 
+            var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder();
             for (var i = 0; i < fieldCount; i++)
             {
                 var fieldArray = recordBatch.Column(i);
@@ -213,6 +211,7 @@ namespace Apache.Arrow.Ipc
 
             Flatbuf.RecordBatch.StartBuffersVector(Builder, buffers.Count);
 
+            // flatbuffer struct vectors have to be created in reverse order
             for (var i = buffers.Count - 1; i >= 0; i--)
             {
                 Flatbuf.Buffer.CreateBuffer(Builder,
