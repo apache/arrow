@@ -36,6 +36,8 @@ public interface ServerAuthHandler {
   /**
    * Handle the initial handshake with the client.
    *
+   * @param outgoing A writer to send messages to the client.
+   * @param incoming An iterator of messages from the client.
    * @return true if client is authenticated, false otherwise.
    */
   boolean authenticate(ServerAuthSender outgoing, Iterator<byte[]> incoming);
