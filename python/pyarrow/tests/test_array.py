@@ -1147,6 +1147,17 @@ def test_array_from_masked():
         pa.array(ma, mask=np.array([True, False, False, False]))
 
 
+def test_array_from_invalid_dim_raises():
+    msg = "only handle 1-dimensional arrays"
+    arr2d = np.array([[1, 2, 3], [4, 5, 6]])
+    with pytest.raises(ValueError, match=msg):
+        pa.array(arr2d)
+
+    arr0d = np.array(0)
+    with pytest.raises(ValueError, match=msg):
+        pa.array(arr0d)
+
+
 def test_buffers_primitive():
     a = pa.array([1, 2, None, 4], type=pa.int16())
     buffers = a.buffers()
