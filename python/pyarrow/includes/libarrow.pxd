@@ -537,6 +537,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         shared_ptr[CSchema] schema()
         shared_ptr[CChunkedArray] column(int i)
+        shared_ptr[CField] field(int i)
 
         CStatus AddColumn(int i, shared_ptr[CField] field,
                           shared_ptr[CChunkedArray] column,

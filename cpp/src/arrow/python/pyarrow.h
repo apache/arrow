@@ -30,7 +30,6 @@ namespace arrow {
 
 class Array;
 class Buffer;
-class Column;
 class DataType;
 class Field;
 class RecordBatch;
@@ -80,10 +79,6 @@ ARROW_PYTHON_EXPORT Status
 unwrap_sparse_tensor_csr(PyObject* sparse_tensor, std::shared_ptr<SparseTensorCSR>* out);
 ARROW_PYTHON_EXPORT PyObject* wrap_sparse_tensor_csr(
     const std::shared_ptr<SparseTensorCSR>& sparse_tensor);
-
-ARROW_PYTHON_EXPORT bool is_column(PyObject* column);
-ARROW_PYTHON_EXPORT Status unwrap_column(PyObject* column, std::shared_ptr<Column>* out);
-ARROW_PYTHON_EXPORT PyObject* wrap_column(const std::shared_ptr<Column>& column);
 
 ARROW_PYTHON_EXPORT bool is_table(PyObject* table);
 ARROW_PYTHON_EXPORT Status unwrap_table(PyObject* table, std::shared_ptr<Table>* out);

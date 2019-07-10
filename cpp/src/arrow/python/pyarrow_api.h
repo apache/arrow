@@ -36,8 +36,6 @@ static PyObject *(*__pyx_api_f_7pyarrow_3lib_pyarrow_wrap_batch)(std::shared_ptr
 #define pyarrow_wrap_batch __pyx_api_f_7pyarrow_3lib_pyarrow_wrap_batch
 static PyObject *(*__pyx_api_f_7pyarrow_3lib_pyarrow_wrap_buffer)(std::shared_ptr< arrow::Buffer>  const &) = 0;
 #define pyarrow_wrap_buffer __pyx_api_f_7pyarrow_3lib_pyarrow_wrap_buffer
-static PyObject *(*__pyx_api_f_7pyarrow_3lib_pyarrow_wrap_column)(std::shared_ptr< arrow::Column>  const &) = 0;
-#define pyarrow_wrap_column __pyx_api_f_7pyarrow_3lib_pyarrow_wrap_column
 static PyObject *(*__pyx_api_f_7pyarrow_3lib_pyarrow_wrap_data_type)(std::shared_ptr< arrow::DataType>  const &) = 0;
 #define pyarrow_wrap_data_type __pyx_api_f_7pyarrow_3lib_pyarrow_wrap_data_type
 static PyObject *(*__pyx_api_f_7pyarrow_3lib_pyarrow_wrap_field)(std::shared_ptr< arrow::Field>  const &) = 0;
@@ -60,8 +58,6 @@ static std::shared_ptr< arrow::RecordBatch>  (*__pyx_api_f_7pyarrow_3lib_pyarrow
 #define pyarrow_unwrap_batch __pyx_api_f_7pyarrow_3lib_pyarrow_unwrap_batch
 static std::shared_ptr< arrow::Buffer>  (*__pyx_api_f_7pyarrow_3lib_pyarrow_unwrap_buffer)(PyObject *) = 0;
 #define pyarrow_unwrap_buffer __pyx_api_f_7pyarrow_3lib_pyarrow_unwrap_buffer
-static std::shared_ptr< arrow::Column>  (*__pyx_api_f_7pyarrow_3lib_pyarrow_unwrap_column)(PyObject *) = 0;
-#define pyarrow_unwrap_column __pyx_api_f_7pyarrow_3lib_pyarrow_unwrap_column
 static std::shared_ptr< arrow::DataType>  (*__pyx_api_f_7pyarrow_3lib_pyarrow_unwrap_data_type)(PyObject *) = 0;
 #define pyarrow_unwrap_data_type __pyx_api_f_7pyarrow_3lib_pyarrow_unwrap_data_type
 static std::shared_ptr< arrow::Field>  (*__pyx_api_f_7pyarrow_3lib_pyarrow_unwrap_field)(PyObject *) = 0;
@@ -96,8 +92,6 @@ static int (*__pyx_api_f_7pyarrow_3lib_pyarrow_is_sparse_tensor_csr)(PyObject *)
 #define pyarrow_is_sparse_tensor_csr __pyx_api_f_7pyarrow_3lib_pyarrow_is_sparse_tensor_csr
 static int (*__pyx_api_f_7pyarrow_3lib_pyarrow_is_sparse_tensor_coo)(PyObject *) = 0;
 #define pyarrow_is_sparse_tensor_coo __pyx_api_f_7pyarrow_3lib_pyarrow_is_sparse_tensor_coo
-static int (*__pyx_api_f_7pyarrow_3lib_pyarrow_is_column)(PyObject *) = 0;
-#define pyarrow_is_column __pyx_api_f_7pyarrow_3lib_pyarrow_is_column
 static int (*__pyx_api_f_7pyarrow_3lib_pyarrow_is_table)(PyObject *) = 0;
 #define pyarrow_is_table __pyx_api_f_7pyarrow_3lib_pyarrow_is_table
 static int (*__pyx_api_f_7pyarrow_3lib_pyarrow_is_batch)(PyObject *) = 0;
@@ -172,7 +166,6 @@ static int import_pyarrow__lib(void) {
   if (__Pyx_ImportFunction(module, "pyarrow_wrap_chunked_array", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_wrap_chunked_array, "PyObject *(std::shared_ptr< arrow::ChunkedArray>  const &)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "pyarrow_wrap_batch", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_wrap_batch, "PyObject *(std::shared_ptr< arrow::RecordBatch>  const &)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "pyarrow_wrap_buffer", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_wrap_buffer, "PyObject *(std::shared_ptr< arrow::Buffer>  const &)") < 0) goto bad;
-  if (__Pyx_ImportFunction(module, "pyarrow_wrap_column", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_wrap_column, "PyObject *(std::shared_ptr< arrow::Column>  const &)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "pyarrow_wrap_data_type", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_wrap_data_type, "PyObject *(std::shared_ptr< arrow::DataType>  const &)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "pyarrow_wrap_field", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_wrap_field, "PyObject *(std::shared_ptr< arrow::Field>  const &)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "pyarrow_wrap_resizable_buffer", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_wrap_resizable_buffer, "PyObject *(std::shared_ptr< arrow::ResizableBuffer>  const &)") < 0) goto bad;
@@ -184,7 +177,6 @@ static int import_pyarrow__lib(void) {
   if (__Pyx_ImportFunction(module, "pyarrow_unwrap_array", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_unwrap_array, "std::shared_ptr< arrow::Array>  (PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "pyarrow_unwrap_batch", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_unwrap_batch, "std::shared_ptr< arrow::RecordBatch>  (PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "pyarrow_unwrap_buffer", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_unwrap_buffer, "std::shared_ptr< arrow::Buffer>  (PyObject *)") < 0) goto bad;
-  if (__Pyx_ImportFunction(module, "pyarrow_unwrap_column", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_unwrap_column, "std::shared_ptr< arrow::Column>  (PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "pyarrow_unwrap_data_type", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_unwrap_data_type, "std::shared_ptr< arrow::DataType>  (PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "pyarrow_unwrap_field", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_unwrap_field, "std::shared_ptr< arrow::Field>  (PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "pyarrow_unwrap_schema", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_unwrap_schema, "std::shared_ptr< arrow::Schema>  (PyObject *)") < 0) goto bad;
@@ -202,7 +194,6 @@ static int import_pyarrow__lib(void) {
   if (__Pyx_ImportFunction(module, "pyarrow_is_tensor", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_is_tensor, "int (PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "pyarrow_is_sparse_tensor_csr", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_is_sparse_tensor_csr, "int (PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "pyarrow_is_sparse_tensor_coo", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_is_sparse_tensor_coo, "int (PyObject *)") < 0) goto bad;
-  if (__Pyx_ImportFunction(module, "pyarrow_is_column", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_is_column, "int (PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "pyarrow_is_table", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_is_table, "int (PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "pyarrow_is_batch", (void (**)(void))&__pyx_api_f_7pyarrow_3lib_pyarrow_is_batch, "int (PyObject *)") < 0) goto bad;
   Py_DECREF(module); module = 0;
