@@ -66,8 +66,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool IsIndexError()
         c_bool IsSerializationError()
 
-cdef extern from "arrow/result.h" namespace "arrow::internal" nogil:
-    cdef cppclass CResult[T]:
+cdef extern from "arrow/result.h" namespace "arrow" nogil:
+    cdef cppclass CResult "arrow::Result"[T]:
         c_bool ok()
         CStatus status()
         T operator*()
