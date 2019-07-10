@@ -260,8 +260,8 @@ class LevelBuilder {
   }
 
  private:
-  Int16BufferBuilder def_levels_;
-  Int16BufferBuilder rep_levels_;
+  UInt16BufferBuilder def_levels_;
+  UInt16BufferBuilder rep_levels_;
 
   std::vector<int64_t> null_counts_;
   std::vector<const uint8_t*> valid_bitmaps_;
