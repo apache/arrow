@@ -311,7 +311,7 @@ struct ColumnWriterContext {
 Status GetLeafType(const ::arrow::DataType& type, ::arrow::Type::type* leaf_type) {
   if (type.id() == ::arrow::Type::LIST || type.id() == ::arrow::Type::STRUCT) {
     if (type.num_children() != 1) {
-      return Status::Invalid("Nested column branch had multiple children: ",
+      return Status::Invalid("Nested column branch had multiple children: ", *type);
                              type.ToString());
     }
     return GetLeafType(*type.child(0)->type(), leaf_type);
