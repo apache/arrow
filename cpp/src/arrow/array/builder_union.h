@@ -77,7 +77,7 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
   /// allowing type to be inferred. You will need to call AppendChild for each of the
   /// children builders you want to use.
   explicit DenseUnionBuilder(MemoryPool* pool)
-      : BasicUnionBuilder(pool, UnionMode::DENSE) {}
+      : BasicUnionBuilder(pool, UnionMode::DENSE), offsets_builder_(pool) {}
 
   /// Use this constructor to specify the type explicitly.
   /// You can still add child builders to the union after using this constructor
