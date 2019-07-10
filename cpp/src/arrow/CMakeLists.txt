@@ -180,6 +180,7 @@ if(ARROW_COMPUTE)
       compute/kernels/mean.cc
       compute/kernels/sum.cc
       compute/kernels/take.cc
+      compute/kernels/isin.cc
       compute/kernels/util-internal.cc
       compute/operations/cast.cc
       compute/operations/literal.cc)
