@@ -240,7 +240,8 @@ class LevelBuilder {
             RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 2)));
           } else {
             // This can be produced in two case:
-            //  * elements are nullable and this one is null (i.e. max_def_level =
+            //  * elements are nullable and this one is null
+            //    (i.e. max_def_level = def_level + 2)
             //  def_level
             //  + 2)
             //  * elements are non-nullable (i.e. max_def_level = def_level + 1)
