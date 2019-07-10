@@ -28,7 +28,7 @@ namespace avro {
 /// plain) and the object that should be serialized.
 
 template <typename Writer, typename T>
-Status Serialize(Writer& s, const T& val) {
+Status Serialize(Writer* s, const T* val) {
   return Serialize(s, val, is_serializable<T>());
 }
 
@@ -36,7 +36,7 @@ Status Serialize(Writer& s, const T& val) {
 /// complain.
 
 template <typename Writer, typename T>
-Status Serialize(Writer& s, const T& val, const std::false_type&) {
+Status Serialize(Writer* s, const T* val, const std::false_type&) {
   static_assert(sizeof(T) == 0, "Not a valid type to serialize");
 }
 
@@ -45,12 +45,12 @@ Status Serialize(Writer& s, const T& val, const std::false_type&) {
 // @{
 
 template <typename Writer, typename T>
-Status Serialize(Writer& s, T val, const std::true_type&) {
+Status Serialize(Writer* s, T val, const std::true_type&) {
   return s.WriteValue(val);
 }
 
 template <typename Writer>
-Status serialize(Writer& s, const std::vector<uint8_t>& val, const std::true_type&) {
+Status serialize(Writer* s, const std::vector<uint8_t>* val, const std::true_type&) {
   return s.WriteBytes(val.data(), val.size());
 }
 

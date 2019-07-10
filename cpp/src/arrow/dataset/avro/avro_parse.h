@@ -30,12 +30,12 @@ namespace avro {
 /// plain) and the object that should receive the parsed data.
 
 template <typename Reader, typename T>
-Status Parse(Reader& p, T& val) {
+Status Parse(Reader* p, T* val) {
   return Parse(p, val, is_serializable<T>());
 }
 
 template <typename T>
-Status Parse(ResolvingReader& p, T& val) {
+Status Parse(ResolvingReader* p, T* val) {
   return TranslatingParse(p, val, is_serializable<T>());
 }
 
@@ -43,12 +43,12 @@ Status Parse(ResolvingReader& p, T& val) {
 /// complain.
 
 template <typename Reader, typename T>
-void Parse(Reader& p, T& val, const std::false_type&) {
+void Parse(Reader* p, T* val, const std::false_type&) {
   static_assert(sizeof(T) == 0, "Not a valid type to parse");
 }
 
 template <typename Reader, typename T>
-Status TranslatingParse(Reader& p, T& val, const std::false_type&) {
+Status TranslatingParse(Reader* p, T* val, const std::false_type&) {
   static_assert(sizeof(T) == 0, "Not a valid type to parse");
 }
 
@@ -57,17 +57,17 @@ Status TranslatingParse(Reader& p, T& val, const std::false_type&) {
 /// The remainder of the file includes default implementations for serializable types.
 
 template <typename Reader, typename T>
-Status Parse(Reader& p, T& val, const std::true_type&) {
+Status Parse(Reader* p, T* val, const std::true_type&) {
   return p.ReadValue(val);
 }
 
 template <typename Reader>
-Status Parse(Reader& p, std::vector<uint8_t>& val, const std::true_type&) {
+Status Parse(Reader* p, std::vector<uint8_t>* val, const std::true_type&) {
   return p.ReadBytes(val);
 }
 
 template <typename T>
-Status TranslatingParse(ResolvingReader& p, T& val, const std::true_type&) {
+Status TranslatingParse(ResolvingReader* p, T* val, const std::true_type&) {
   return p.Parse(val);
 }
 
