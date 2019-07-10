@@ -61,7 +61,7 @@ class GANDIVA_EXPORT NativeFunction {
         flags_(flags),
         result_nullable_type_(result_nullable_type),
         pc_name_(pc_name) {
-    aliases.push_back(base_name);
+    aliases.insert(aliases.begin(), base_name);
     for (auto& func_name : aliases) {
       signatures_.push_back(FunctionSignature(func_name, param_types, ret_type));
     }
