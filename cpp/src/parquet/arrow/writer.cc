@@ -49,7 +49,7 @@ using arrow::ChunkedArray;
 using arrow::Decimal128Array;
 using arrow::Field;
 using arrow::FixedSizeBinaryArray;
-using Int16BufferBuilder = arrow::TypedBufferBuilder<uint16_t>;
+using UInt16BufferBuilder = arrow::TypedBufferBuilder<uint16_t>;
 using arrow::ListArray;
 using arrow::MemoryPool;
 using arrow::NumericArray;
