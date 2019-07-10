@@ -106,7 +106,7 @@ ggandiva_native_function_get_signature(GGandivaNativeFunction *native_function)
 {
   auto gandiva_native_function =
     ggandiva_native_function_get_raw(native_function);
-  auto &gandiva_function_signature = gandiva_native_function->signature();
+  auto &gandiva_function_signature = gandiva_native_function->signatures().back();
   return ggandiva_function_signature_new_raw(&gandiva_function_signature);
 }
 
@@ -145,7 +145,7 @@ ggandiva_native_function_to_string(GGandivaNativeFunction *native_function)
 {
   auto gandiva_native_function =
     ggandiva_native_function_get_raw(native_function);
-  auto gandiva_function_signature = gandiva_native_function->signature();
+  auto gandiva_function_signature = gandiva_native_function->signatures().back();
   return g_strdup(gandiva_function_signature.ToString().c_str());
 }
 
