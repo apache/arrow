@@ -132,14 +132,7 @@ public class DefaultVectorComparators {
         }
       }
 
-      float result = Math.signum(value1 - value2);
-      if (result < 0f) {
-        return -1;
-      } else if (result > 0f) {
-        return 1;
-      } else {
-        return 0;
-      }
+      return (int) Math.signum(value1 - value2);
     }
   }
 
@@ -171,14 +164,7 @@ public class DefaultVectorComparators {
         }
       }
 
-      double result = Math.signum(value1 - value2);
-      if (result < 0) {
-        return -1;
-      } else if (result > 0) {
-        return 1;
-      } else {
-        return 0;
-      }
+      return (int) Math.signum(value1 - value2);
     }
   }
 
