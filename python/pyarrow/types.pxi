@@ -811,7 +811,7 @@ cdef class Schema:
             metadata=self.metadata
         )
 
-    def equals(self, other, bint check_metadata=True):
+    def equals(self, Schema other not None, bint check_metadata=True):
         """
         Test if this schema is equal to the other
 
@@ -825,8 +825,7 @@ cdef class Schema:
         -------
         is_equal : boolean
         """
-        cdef Schema _other = other
-        return self.sp_schema.get().Equals(deref(_other.schema),
+        return self.sp_schema.get().Equals(deref(other.schema),
                                            check_metadata)
 
     @classmethod

@@ -42,7 +42,7 @@ import io.netty.buffer.ArrowBuf;
  * specifically typed writer cannot handle. A new UnionVector is created, wrapping the original vector, and replaces the
  * original vector in the parent vector, which can be either an AbstractStructVector or a ListVector.
  *
- * <p>The writer used can either be for single elements (struct) or  lists.</p>
+ * <p>The writer used can either be for single elements (struct) or lists.</p>
  */
 public class PromotableWriter extends AbstractPromotableFieldWriter {
 

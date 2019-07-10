@@ -800,6 +800,9 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pa
   if (!PyArray_Check(ao)) {
     return Status::Invalid("Input object was not a NumPy array");
   }
+  if (PyArray_NDIM(reinterpret_cast<PyArrayObject*>(ao)) != 1) {
+    return Status::Invalid("only handle 1-dimensional arrays");
+  }
 
   NumPyConverter converter(pool, ao, mo, type, from_pandas, cast_options);
   RETURN_NOT_OK(converter.Convert());

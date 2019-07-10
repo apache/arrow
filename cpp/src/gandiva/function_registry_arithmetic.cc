@@ -67,6 +67,7 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(multiply, {}, decimal128),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(divide, {"div"}, decimal128),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(mod, {"modulo"}, decimal128),
+      BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(mod, {"modulo"}, float64),
 
       // compare functions
       BINARY_RELATIONAL_SAFE_NULL_IF_NULL(equal, {}, decimal128),

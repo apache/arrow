@@ -128,7 +128,7 @@ public class JdbcToArrowUtils {
    * {@link org.apache.arrow.vector.types.pojo.ArrowType} for each field in the {@link java.sql.ResultSetMetaData}.
    * </p>
    * <p>
-   * If {@link JdbcToArrowConfig#getIncludeMetadata()} returns <code>true</code>, the following fields
+   * If {@link JdbcToArrowConfig#shouldIncludeMetadata()} returns <code>true</code>, the following fields
    * will be added to the {@link FieldType#getMetadata()}:
    * <ul>
    *  <li>{@link Constants#SQL_CATALOG_NAME_KEY} representing {@link ResultSetMetaData#getCatalogName(int)}</li>
