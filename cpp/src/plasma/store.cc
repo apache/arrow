@@ -262,7 +262,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   entry->construct_duration = -1;
 
 #ifdef PLASMA_CUDA
-  entry->ipc_handle = ipc_handle;
+  entry->ipc_handle = result->ipc_handle;
 #endif
 
   result->store_fd = fd;
