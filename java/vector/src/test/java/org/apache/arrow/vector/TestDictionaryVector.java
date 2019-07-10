@@ -149,6 +149,14 @@ public class TestDictionaryVector {
     }
   }
 
+  private void writeListVector(UnionListWriter writer, int[] values) {
+    writer.startList();
+    for (int v: values) {
+      writer.integer().writeInt(v);
+    }
+    writer.endList();
+  }
+
   @Test
   public void testEncodeList() {
     // Create a new value vector
@@ -158,62 +166,21 @@ public class TestDictionaryVector {
       UnionListWriter writer = vector.getWriter();
       writer.allocate();
 
-      // set some values
-      writer.setPosition(0);
-      writer.startList();
-      writer.integer().writeInt(10);
-      writer.integer().writeInt(20);
-      writer.endList();
-
-      writer.setPosition(1);
-      writer.startList();
-      writer.integer().writeInt(10);
-      writer.integer().writeInt(20);
-      writer.endList();
-
-      writer.setPosition(2);
-      writer.startList();
-      writer.integer().writeInt(10);
-      writer.integer().writeInt(20);
-      writer.endList();
-
-      writer.setPosition(3);
-      writer.startList();
-      writer.integer().writeInt(30);
-      writer.integer().writeInt(40);
-      writer.integer().writeInt(50);
-      writer.endList();
-
-      writer.setPosition(4);
-      writer.startList();
-      writer.integer().writeInt(30);
-      writer.integer().writeInt(40);
-      writer.integer().writeInt(50);
-      writer.endList();
-
-      writer.setPosition(5);
-      writer.startList();
-      writer.integer().writeInt(10);
-      writer.integer().writeInt(20);
-      writer.endList();
+      //set some values
+      writeListVector(writer, new int[]{10, 20});
+      writeListVector(writer, new int[]{10, 20});
+      writeListVector(writer, new int[]{10, 20});
+      writeListVector(writer, new int[]{30, 40, 50});
+      writeListVector(writer, new int[]{30, 40, 50});
+      writeListVector(writer, new int[]{10, 20});
 
       writer.setValueCount(6);
 
       UnionListWriter dictWriter = dictionaryVector.getWriter();
       dictWriter.allocate();
 
-      dictWriter.setPosition(0);
-      dictWriter.startList();
-      dictWriter.integer().writeInt(10);
-      dictWriter.integer().writeInt(20);
-      dictWriter.endList();
-
-      dictWriter.setPosition(1);
-      dictWriter.startList();
-      dictWriter.integer().writeInt(30);
-      dictWriter.integer().writeInt(40);
-      dictWriter.integer().writeInt(50);
-      dictWriter.endList();
+      writeListVector(dictWriter, new int[]{10, 20});
+      writeListVector(dictWriter, new int[]{30, 40, 50});
 
       dictWriter.setValueCount(2);
 
@@ -244,6 +211,13 @@ public class TestDictionaryVector {
     }
   }
 
+  private void writeStructVector(NullableStructWriter writer, int value1, long value2) {
+    writer.start();
+    writer.integer("f0").writeInt(value1);
+    writer.bigInt("f1").writeBigInt(value2);
+    writer.end();
+  }
+
   @Test
   public void testEncodeStruct() {
     // Create a new value vector
@@ -257,55 +231,21 @@ public class TestDictionaryVector {
       NullableStructWriter writer = vector.getWriter();
       writer.allocate();
 
-      writer.start();
-      writer.integer("f0").writeInt(1);
-      writer.bigInt("f1").writeBigInt(10L);
-      writer.end();
-
-      writer.start();
-      writer.integer("f0").writeInt(1);
-      writer.bigInt("f1").writeBigInt(10L);
-      writer.end();
-
-      writer.start();
-      writer.integer("f0").writeInt(1);
-      writer.bigInt("f1").writeBigInt(10L);
-      writer.end();
-
-      writer.start();
-      writer.integer("f0").writeInt(2);
-      writer.bigInt("f1").writeBigInt(20L);
-      writer.end();
-
-      writer.start();
-      writer.integer("f0").writeInt(2);
-      writer.bigInt("f1").writeBigInt(20L);
-      writer.end();
-
-      writer.start();
-      writer.integer("f0").writeInt(2);
-      writer.bigInt("f1").writeBigInt(20L);
-      writer.end();
-
-      writer.start();
-      writer.integer("f0").writeInt(1);
-      writer.bigInt("f1").writeBigInt(10L);
-      writer.end();
+      writeStructVector(writer, 1, 10L);
+      writeStructVector(writer, 1, 10L);
+      writeStructVector(writer, 1, 10L);
+      writeStructVector(writer, 2, 20L);
+      writeStructVector(writer, 2, 20L);
+      writeStructVector(writer, 2, 20L);
+      writeStructVector(writer, 1, 10L);
 
       writer.setValueCount(7);
 
       NullableStructWriter dictWriter = dictionaryVector.getWriter();
       dictWriter.allocate();
 
-      dictWriter.start();
-      dictWriter.integer("f0").writeInt(1);
-      dictWriter.bigInt("f1").writeBigInt(10L);
-      dictWriter.end();
-
-      dictWriter.start();
-      dictWriter.integer("f0").writeInt(2);
-      dictWriter.bigInt("f1").writeBigInt(20L);
-      dictWriter.end();
+      writeStructVector(dictWriter, 1, 10L);
+      writeStructVector(dictWriter, 2, 20L);
 
 
       dictionaryVector.setValueCount(2);
