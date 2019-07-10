@@ -121,6 +121,7 @@ double months_between_timestamp_timestamp(uint64, uint64);
 int32 mem_compare(const char* left, int32 left_len, const char* right, int32 right_len);
 
 int32 mod_int64_int32(int64 left, int32 right);
+float64 mod_float64_float64(int64 context, float64 left, float64 right);
 
 int64 divide_int64_int64(int64 context, int64 in1, int64 in2);
 
