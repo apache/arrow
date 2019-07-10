@@ -371,6 +371,15 @@ def test_schema_equals_propagates_check_metadata():
     assert schema1.equals(schema2, check_metadata=False)
 
 
+def test_schema_equals_invalid_type():
+    # ARROW-5873
+    schema = pa.schema([pa.field("a", pa.int64())])
+
+    for val in [None, 'string', pa.array([1, 2])]:
+        with pytest.raises(TypeError):
+            schema.equals(val)
+
+
 def test_schema_equality_operators():
     fields = [
         pa.field('foo', pa.int32()),
