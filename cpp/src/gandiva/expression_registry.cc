@@ -40,7 +40,7 @@ ExpressionRegistry::FunctionSignatureIterator::FunctionSignatureIterator(
 // to be used only to create function_signature_end
 ExpressionRegistry::FunctionSignatureIterator::FunctionSignatureIterator(
     fs_iterator fs_it)
-    : native_func_it_{NULLPTR}, native_func_it_end_{NULLPTR}, func_sig_it_{fs_it} {}
+    : native_func_it_{nullptr}, native_func_it_end_{nullptr}, func_sig_it_{fs_it} {}
 
 const ExpressionRegistry::FunctionSignatureIterator
 ExpressionRegistry::function_signature_begin() {
