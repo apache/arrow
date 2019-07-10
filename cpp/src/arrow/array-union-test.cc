@@ -188,15 +188,6 @@ TEST_F(TestUnionArrayFactories, TestMakeSparse) {
                   type_codes);
 }
 
-// FIXME(bkietz):
-// segfault in test_serialization.py: trying to roundtrip {(): 2}
-// this is a dict -> list<struct<
-//                               union<list<union<>>>,
-//                               union<int64>
-//                             >>
-// This breaks when trying to deserialize the *values* array, which has null offsets for
-// some reason
-
 template <typename B>
 class UnionBuilderTest : public ::testing::Test {
  public:
