@@ -173,18 +173,22 @@ function build_wheel {
     popd
 }
 
-# overrides multibuild's default install_run
-function install_run {
+function install_wheel {
     multibuild_dir=`realpath $MULTIBUILD_DIR`
 
     pushd $1  # enter arrow's directory
-
     wheelhouse="$PWD/python/dist"
 
     # Install compatible wheel
     pip install $(pip_opts) \
         $(python $multibuild_dir/supported_wheels.py $wheelhouse/*.whl)
 
+    # Install test dependencies
+    pip install $(pip_opts) -r python/requirements-test.txt
+    popd
+}
+
+function test_wheel {
     # Runs tests on installed distribution from an empty directory
     python --version
 
@@ -202,9 +206,5 @@ if sys.version_info.major > 2:
 "
 
     # Run pyarrow tests
-    pip install $(pip_opts) -r python/requirements-test.txt
-
     py.test --pyargs pyarrow
-
-    popd
 }

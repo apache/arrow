@@ -26,7 +26,7 @@ pip install -q /arrow/python/$WHEEL_TAG/dist/*.whl
 # Install test dependencies (pip won't work after removing system zlib)
 pip install -q -r /arrow/python/requirements-test.txt
 
-echo "Removing the following libraris to fail loudly if they are bundled incorrectly:"
+echo "Removing the following libraries to fail loudly if they are bundled incorrectly:"
 ldconfig -p | grep "lib\(lz4\|z\|boost\)" | awk -F'> ' '{print $2}' | xargs rm -v -f
 
 # Runs tests on installed distribution from an empty directory
