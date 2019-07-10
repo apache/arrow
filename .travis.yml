@@ -35,16 +35,7 @@ git:
   depth: 250
 
 before_install:
-  # Common pre-install steps for all builds
-  - eval "${MATRIX_EVAL}"
-  - ulimit -c unlimited -S
-  - |
-      if [ $TRAVIS_OS_NAME == "linux" ]; then
-        sudo bash -c "echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' > /etc/apt/apt.conf.d/99-travis-retry"
-        sudo apt-get update -qq
-      fi
-  - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
-  - if [ $TRAVIS_OS_NAME == "linux" ]; then ccache -s; fi
+  - source ci/travis/before-install.sh
 
 matrix:
   fast_finish: true
@@ -62,28 +53,13 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_release_test.sh
   - name: "C++ unit tests w/ clang 7.0, system packages"
     os: linux
-    env:
-    - ARROW_TRAVIS_USE_SYSTEM=1
-    - ARROW_TRAVIS_PLASMA=1
-    - ARROW_TRAVIS_ORC=1
-    - ARROW_TRAVIS_PARQUET=1
-    - ARROW_TRAVIS_GANDIVA=1
-    - ARROW_TRAVIS_VERBOSE=1
-    - ARROW_TRAVIS_USE_SYSTEM_JAVA=1
-    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    - ARROW_USE_ASAN=1
-    - ARROW_USE_UBSAN=1
-    - CC="clang-7"
-    - CXX="clang++-7"
+    language: cpp
     before_script:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    # If either C++ or Python changed, we must install the C++ libraries
     - git submodule update --init
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
+    - docker-compose build --pull cpp-system-deps
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
+    - docker-compose run cpp-system-deps
   # Separating Valgrind and C++ coverage makes individual jobs shorter
   - name: "C++ unit tests w/ conda-forge toolchain, coverage"
     compiler: gcc
@@ -204,7 +180,7 @@ matrix:
     os: linux
     before_script:
     - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
-    - docker-compose pull java-all-jdks
+    - docker-compose build --pull java-all-jdks
     script:
     - docker-compose run java-all-jdks
   - name: "Integration w/ OpenJDK 8, conda-forge toolchain"
@@ -365,23 +341,10 @@ matrix:
     - Rscript ../ci/travis_upload_r_coverage.R
 
 after_failure:
-- |
-    if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-      COREFILE=$(find /cores -maxdepth 1 -type f -name "core.*" | head -n 1)
-      if [[ -f "$COREFILE" ]]; then
-        lldb -c "$COREFILE" --batch --one-line "thread backtrace all -e true"
-      fi
-      ls -la ~/Library/Logs/DiagnosticReports/
-      cat ~/Library/Logs/DiagnosticReports/*.crash
-    else
-      COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
-      if [[ -f "$COREFILE" ]]; then
-        gdb -c "$COREFILE" example -ex "thread apply all bt" -ex "set pagination 0" -batch
-      fi
-    fi
+  - source ci/travis/after-failure.sh
 
 after_script:
-  - if [ $TRAVIS_OS_NAME == "linux" ]; then ccache -s; fi
+  - source ci/travis/after-script.sh
 
 env:
   global:

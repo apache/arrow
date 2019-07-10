@@ -181,7 +181,7 @@ class GrpcServerAuthReader : public ServerAuthReader {
   Status Read(std::string* token) override {
     pb::HandshakeRequest request;
     if (stream_->Read(&request)) {
-      *token = std::move(*request.release_payload());
+      *token = std::move(*request.mutable_payload());
       return Status::OK();
     }
     return Status::IOError("Stream is closed.");

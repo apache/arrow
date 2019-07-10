@@ -135,7 +135,7 @@ TEST(TestFlightDescriptor, ToFromProto) {
 }
 #endif
 
-TEST(TestFlight, StartStopTestServer) {
+TEST(TestFlight, DISABLED_StartStopTestServer) {
   TestServer server("flight-test-server");
   server.Start();
   ASSERT_TRUE(server.IsRunning());

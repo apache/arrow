@@ -17,78 +17,102 @@
 
 FROM ubuntu:bionic
 
+# pipefail is enabled for proper error detection in the `wget | apt-key add`
+# step
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends wget software-properties-common gpg-agent && \
-    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-    apt-add-repository -y "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-7 main" && \
-    apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
-        autoconf \
-        bison \
-        ca-certificates \
-        ccache \
-        clang-7 \
-        cmake \
-        flex \
-        g++ \
-        gcc \
-        git \
-        libbenchmark-dev \
-        libboost-all-dev \
-        libbrotli-dev \
-        libbz2-dev \
-        libc-ares-dev \
-        libdouble-conversion-dev \
-        libgflags-dev \
-        libgoogle-glog-dev \
-        libgrpc-dev \
-        libgrpc++-dev \
-        liblz4-dev \
-        libprotoc-dev \
-        libprotobuf-dev \
-        libre2-dev \
-        libsnappy-dev \
-        libssl-dev \
-        libzstd-dev \
-        llvm-7-dev \
-        make \
-        ninja-build \
-        pkg-config \
-        protobuf-compiler \
-        protobuf-compiler-grpc \
-        rapidjson-dev \
-        tzdata \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Ubuntu's gtest just provides sources, the compiled version is only available
-# from Ubuntu Cosmic on.
-# ARROW_GANDIVA_JAVA requires CMake 3.11
-# TODO: gRPC is too old on Bionic and c-ares CMake config is not installed thus
-#   we need to build both from source.
-# protobuf does not come with PHP but grpc needs it to built, thus also
-# built Protobuf from source: https://github.com/grpc/grpc/issues/15949
-ENV CC=gcc \
-     CXX=g++ \
-     ARROW_BUILD_BENCHMARKS=ON \
-     ARROW_BUILD_TESTS=ON \
-     ARROW_DEPENDENCY_SOURCE=SYSTEM \
-     ARROW_FLIGHT=ON \
-     ARROW_GANDIVA=ON \
-     ARROW_GANDIVA_JAVA=OFF \
-     ARROW_PARQUET=ON \
-     ARROW_HOME=/usr \
-     ARROW_WITH_ZSTD=ON \
-     CMAKE_ARGS="-DThrift_SOURCE=BUNDLED \
+RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+      wget software-properties-common gpg-agent && \
+      apt-get clean && rm -rf /var/lib/apt/lists*
+
+# Installs LLVM toolchain, for gandiva and testing other compilers
+#
+# Note that this is installed before the base packages to improve iteration
+# while debugging package list with docker build due to slow download speed of
+# llvm compared to ubuntu apt mirrors.
+ARG LLVM_VERSION=7
+# Args are only exposed in the "build" step, this ensure that LLVM_VERSION is
+# found in the "run" step.
+ENV LLVM_VERSION=${LLVM_VERSION}
+ARG LLVM_APT_URL="http://apt.llvm.org/bionic/"
+ARG LLVM_APT_ARCH="llvm-toolchain-bionic-${LLVM_VERSION}"
+RUN wget -q -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    apt-add-repository -y --update "deb ${LLVM_APT_URL} ${LLVM_APT_ARCH} main" && \
+    apt-get install -y -q --no-install-recommends \
+      clang-${LLVM_VERSION} \
+      clang-format-${LLVM_VERSION} \
+      clang-tidy-${LLVM_VERSION} \
+      llvm-${LLVM_VERSION}-dev && \
+      apt-get clean && rm -rf /var/lib/apt/lists*
+
+# Installs C++ toolchain and dependencies
+RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+      autoconf \
+      bison \
+      ca-certificates \
+      ccache \
+      cmake \
+      flex \
+      g++ \
+      gcc \
+      git \
+      libbenchmark-dev \
+      libboost-filesystem-dev \
+      libboost-regex-dev \
+      libboost-system-dev \
+      libbrotli-dev \
+      libbz2-dev \
+      libdouble-conversion-dev \
+      libgflags-dev \
+      libgoogle-glog-dev \
+      liblz4-dev \
+      liblzma-dev \
+      libre2-dev \
+      libsnappy-dev \
+      libssl-dev \
+      libzstd-dev \
+      ninja-build \
+      pkg-config \
+      rapidjson-dev \
+      thrift-compiler \
+      tzdata && \
+      apt-get clean && rm -rf /var/lib/apt/lists*
+
+# The following dependencies will be downloaded due to missing/invalid packages
+# provided by the distribution:
+# - libc-ares-dev does not install CMake config files
+# - flatbuffer is not packaged
+# - libgtest-dev only provide sources
+# - libprotobuf-dev only provide sources
+# - thrift is too old
+ENV CMAKE_ARGS="-DThrift_SOURCE=BUNDLED \
 -DFlatbuffers_SOURCE=BUNDLED \
 -DGTest_SOURCE=BUNDLED \
--DgRPC_SOURCE=BUNDLED \
--Dc-ares_SOURCE=BUNDLED \
 -DORC_SOURCE=BUNDLED \
--DProtobuf_SOURCE=BUNDLED"
+-Dc-ares_SOURCE=BUNDLED \
+-DgRPC_SOURCE=BUNDLED \
+-DProtobuf_SOURCE=BUNDLED ${CMAKE_ARGS}"
 
-# build and test
+# Prioritize system packages and local installation
+ENV ARROW_DEPENDENCY_SOURCE=SYSTEM \
+    ARROW_FLIGHT=ON \
+    ARROW_GANDIVA=ON \
+    ARROW_HDFS=ON \
+    ARROW_ORC=ON \
+    ARROW_PARQUET=ON \
+    ARROW_PLASMA=ON \
+    ARROW_USE_ASAN=ON \
+    ARROW_USE_UBSAN=ON \
+    ARROW_NO_DEPRECATED_API=ON \
+    ARROW_INSTALL_NAME_RPATH=OFF \
+    ARROW_WITH_BZ2=ON \
+    ARROW_WITH_ZSTD=ON
+
+ENV CC=clang-${LLVM_VERSION} \
+    CXX=clang++-${LLVM_VERSION}
+
 CMD ["arrow/ci/docker_build_and_test_cpp.sh"]
