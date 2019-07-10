@@ -74,7 +74,7 @@ install:
   # run unit tests before removing the system libraries
   - run_unit_tests
   # remove libz to ensure that it is properly bundled
-  - find /usr -name libz.* | xargs rm -v -f
+  - find /usr -name libz.* | xargs sudo rm -v -f
   # run the import tests
   - run_import_tests
 
