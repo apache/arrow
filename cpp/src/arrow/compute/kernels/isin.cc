@@ -133,7 +133,7 @@ class IsInKernel : public IsInKernelImpl {
 
   Status Compute(FunctionContext* ctx, const Datum& left, Datum* out) override {
     const ArrayData& left_data = *left.array();
-    bool_builder_.Reserve(left_data.length);
+    RETURN_NOT_OK(bool_builder_.Reserve(left_data.length));
     ArrayDataVisitor<Type>::Visit(left_data, this);
     RETURN_NOT_OK(bool_builder_.FinishInternal(&output));
     out->value = std::move(output);
