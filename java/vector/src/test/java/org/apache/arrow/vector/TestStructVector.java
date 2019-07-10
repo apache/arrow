@@ -18,6 +18,8 @@
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 import java.util.HashMap;
@@ -29,6 +31,7 @@ import org.apache.arrow.vector.holders.ComplexHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.FieldType;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -115,11 +118,16 @@ public class TestStructVector {
 
       IntVector intVector = (IntVector) vector.getChild("intchild");
       intVector.setSafe(0, 100);
+      vector.setIndexDefined(0);
       intVector.setNull(1);
+      vector.setNull(1);
 
       ComplexHolder holder = new ComplexHolder();
-      vector.get(1, holder);
+      vector.get(0, holder);
+      assertNotEquals(0, holder.isSet);
+      assertNotNull(holder.reader);
 
+      vector.get(1, holder);
       assertEquals(0, holder.isSet);
       assertNull(holder.reader);
     }
