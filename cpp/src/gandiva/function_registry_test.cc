@@ -19,6 +19,8 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <algorithm>
+#include <string>
 #include <unordered_set>
 
 namespace gandiva {
@@ -52,7 +54,6 @@ TEST_F(TestFunctionRegistry, TestDuplicates) {
   std::unordered_set<std::string> duplicates;
   for (auto native_func_it = registry_.begin(); native_func_it != registry_.end();
        ++native_func_it) {
-    //      for(auto& sig : native_func_it->signature()) {
     auto& sig = native_func_it->signature();
     auto pc_func_sig =
         FunctionSignature(native_func_it->pc_name(), sig.param_types(), sig.ret_type())
