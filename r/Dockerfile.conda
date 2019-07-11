@@ -17,7 +17,7 @@
 
 FROM arrow:cpp
 
-# install python specific packages
+# install R specific packages
 ARG R_VERSION=3.5.1
 COPY ci/conda_env_r.yml /arrow/ci/
 RUN conda install -q \
