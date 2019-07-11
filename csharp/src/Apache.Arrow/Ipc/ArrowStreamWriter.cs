@@ -49,15 +49,11 @@ namespace Apache.Arrow.Ipc
             {
                 public readonly ArrowBuffer DataBuffer;
                 public readonly int Offset;
-                public readonly int Length;
-                public readonly int Padding;
 
-                public Buffer(ArrowBuffer buffer, int offset, int length, int padding)
+                public Buffer(ArrowBuffer buffer, int offset)
                 {
                     DataBuffer = buffer;
                     Offset = offset;
-                    Length = length;
-                    Padding = padding;
                 }
             }
 
@@ -129,8 +125,7 @@ namespace Apache.Arrow.Ipc
                 int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(buffer.Length));
                 TotalLength += paddedLength;
 
-                int padding = paddedLength - buffer.Length;
-                return new Buffer(buffer, offset, buffer.Length, padding);
+                return new Buffer(buffer, offset);
             }
 
             public void Visit(IArrowArray array)
@@ -219,7 +214,7 @@ namespace Apache.Arrow.Ipc
             for (var i = buffers.Count - 1; i >= 0; i--)
             {
                 Flatbuf.Buffer.CreateBuffer(Builder,
-                    buffers[i].Offset, buffers[i].Length);
+                    buffers[i].Offset, buffers[i].DataBuffer.Length);
             }
 
             var buffersVectorOffset = Builder.EndVector();
@@ -242,12 +237,20 @@ namespace Apache.Arrow.Ipc
 
             for (var i = 0; i < buffers.Count; i++)
             {
-                if (buffers[i].DataBuffer.IsEmpty)
+                ArrowBuffer buffer = buffers[i].DataBuffer;
+                if (buffer.IsEmpty)
                     continue;
 
-                await WriteBufferAsync(buffers[i].DataBuffer, cancellationToken).ConfigureAwait(false);
-                await WritePaddingAsync(buffers[i].Padding).ConfigureAwait(false);
-                bodyLength += buffers[i].DataBuffer.Length + buffers[i].Padding;
+                await WriteBufferAsync(buffer, cancellationToken).ConfigureAwait(false);
+
+                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(buffer.Length));
+                int padding = paddedLength - buffer.Length;
+                if (padding > 0)
+                {
+                    await WritePaddingAsync(padding).ConfigureAwait(false);
+                }
+
+                bodyLength += paddedLength;
             }
 
             // Write padding so the record batch message body length is a multiple of 8 bytes
@@ -337,7 +340,7 @@ namespace Apache.Arrow.Ipc
             where T: struct
         {
             var messageOffset = Flatbuf.Message.CreateMessage(
-                Builder, CurrentMetadataVersion, headerType, headerOffset.Value, 
+                Builder, CurrentMetadataVersion, headerType, headerOffset.Value,
                 bodyLength);
 
             Builder.Finish(messageOffset.Value);
