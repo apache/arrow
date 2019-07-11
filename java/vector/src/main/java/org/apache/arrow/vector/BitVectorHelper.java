@@ -184,12 +184,15 @@ public class BitVectorHelper {
   }
 
   /**
-   * Tests if all bits in a validity buffer are 0.
+   * Tests if all bits in a validity buffer are equal 0 or 1, according to the specified parameter.
    * @param validityBuffer the validity buffer.
    * @param valueCount the bit count.
-   * @return true if all bits are 0, and false otherwise.
+   * @param  checkOneBits if set to true, the method checks if all bits are equal to 1;
+   *                      otherwise, it checks if all bits are equal to 0.
+   * @return true if all bits are 0 or 1 according to the parameter, and false otherwise.
    */
-  public static boolean allBitsNull(final ArrowBuf validityBuffer, final int valueCount) {
+  public static boolean checkAllBitsEqualTo(
+          final ArrowBuf validityBuffer, final int valueCount, final boolean checkOneBits) {
     if (valueCount == 0) {
       return true;
     }
@@ -202,10 +205,13 @@ public class BitVectorHelper {
     final int remainder = valueCount % 8;
     final int fullBytesCount = remainder == 0 ? sizeInBytes : sizeInBytes - 1;
 
+    // the integer number to compare against
+    final int intToCompare = checkOneBits ? -1 : 0;
+
     int index = 0;
     while (index + 8 <= fullBytesCount) {
       long longValue = getLong(validityBuffer.memoryAddress() + index);
-      if (longValue != 0L) {
+      if (longValue != (long) intToCompare) {
         return false;
       }
       index += 8;
@@ -213,7 +219,7 @@ public class BitVectorHelper {
 
     while (index + 4 <= fullBytesCount) {
       int intValue = getInt(validityBuffer.memoryAddress() + index);
-      if (intValue != 0) {
+      if (intValue != intToCompare) {
         return false;
       }
       index += 4;
@@ -221,7 +227,7 @@ public class BitVectorHelper {
 
     while (index < fullBytesCount) {
       byte byteValue = getByte(validityBuffer.memoryAddress() + index);
-      if (byteValue != (byte) 0) {
+      if (byteValue != (byte) intToCompare) {
         return false;
       }
       index += 1;
@@ -232,63 +238,14 @@ public class BitVectorHelper {
       byte byteValue = getByte(validityBuffer.memoryAddress() + sizeInBytes - 1);
       byte mask = (byte) ((1 << remainder) - 1);
       byteValue = (byte) (byteValue & mask);
-      if (byteValue != (byte) 0) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  /**
-   * Tests if all bits in a validity buffer are 1.
-   * @param validityBuffer the validity buffer.
-   * @param valueCount the bit count.
-   * @return true if all bits are 1, and false otherwise.
-   */
-  public static boolean allBitsSet(final ArrowBuf validityBuffer, final int valueCount) {
-    if (valueCount == 0) {
-      return true;
-    }
-    final int sizeInBytes = getValidityBufferSize(valueCount);
-
-    // boundary check
-    validityBuffer.checkBytes(0, sizeInBytes);
-
-    // If value count is not a multiple of 8, then calculate number of used bits in the last byte
-    final int remainder = valueCount % 8;
-    final int fullBytesCount = remainder == 0 ? sizeInBytes : sizeInBytes - 1;
-
-    int index = 0;
-    while (index + 8 <= fullBytesCount) {
-      long longValue = getLong(validityBuffer.memoryAddress() + index);
-      if (longValue != -1L) {
-        return false;
-      }
-      index += 8;
-    }
-
-    while (index + 4 <= fullBytesCount) {
-      int intValue = getInt(validityBuffer.memoryAddress() + index);
-      if (intValue != -1) {
-        return false;
-      }
-      index += 4;
-    }
-
-    while (index < fullBytesCount) {
-      byte byteValue = getByte(validityBuffer.memoryAddress() + index);
-      if (byteValue != (byte) -1) {
-        return false;
-      }
-      index += 1;
-    }
-
-    // handling with the last bits
-    if (remainder != 0) {
-      byte byteValue = getByte(validityBuffer.memoryAddress() + sizeInBytes - 1);
-      byte mask = (byte) ((1 << remainder) - 1);
-      if ((mask & byteValue) != mask) {
-        return false;
+      if (checkOneBits) {
+        if ((mask & byteValue) != mask) {
+          return false;
+        }
+      } else {
+        if (byteValue != (byte) 0) {
+          return false;
+        }
       }
     }
     return true;

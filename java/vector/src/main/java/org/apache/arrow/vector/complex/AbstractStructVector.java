@@ -140,7 +140,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
   }
 
   private boolean nullFilled(ValueVector vector) {
-    return BitVectorHelper.allBitsNull(vector.getValidityBuffer(), vector.getValueCount());
+    return BitVectorHelper.checkAllBitsEqualTo(vector.getValidityBuffer(), vector.getValueCount(), false);
   }
 
   /**
