@@ -361,7 +361,13 @@ void Format(std::ostream& os, const BooleanArray& arr, int64_t index) {
 // format Numerics with std::ostream defaults
 template <typename T>
 void Format(std::ostream& os, const NumericArray<T>& arr, int64_t index) {
-  os << arr.Value(index);
+  if (sizeof(decltype(arr.Value(index))) == sizeof(char)) {
+    // override std::ostream defaults for /(u|)int8_t/ since they are
+    // formatted as potentially unprintable/tty borking characters
+    os << static_cast<int16_t>(arr.Value(index));
+  } else {
+    os << arr.Value(index);
+  }
 }
 
 // format Binary and FixedSizeBinary in hexadecimal
