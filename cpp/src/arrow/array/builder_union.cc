@@ -42,8 +42,9 @@ Status BasicUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   } else {
     type_codes = checked_cast<const UnionType&>(*type_).type_codes();
   }
+  DCHECK_EQ(type_codes.size(), children_.size());
 
-  std::vector<std::shared_ptr<ArrayData>> child_data(type_codes.size());
+  std::vector<std::shared_ptr<ArrayData>> child_data(children_.size());
   for (size_t i = 0; i < children_.size(); ++i) {
     RETURN_NOT_OK(children_[i]->FinishInternal(&child_data[i]));
   }
@@ -74,6 +75,7 @@ BasicUnionBuilder::BasicUnionBuilder(
 
   children_ = children;
   type_id_to_children_.resize(union_type->max_type_code() + 1, nullptr);
+  DCHECK_LT(type_id_to_children_.size(), std::numeric_limits<int8_t>::max());
 
   auto field_it = type->children().begin();
   auto children_it = children.begin();
@@ -93,6 +95,9 @@ int8_t BasicUnionBuilder::AppendChild(const std::shared_ptr<ArrayBuilder>& new_c
   field_names_.push_back(field_name);
   children_.push_back(new_child);
 
+  // Find type_id such that type_id_to_children_[type_id] == nullptr
+  // and use that for the new child. Start searching at dense_type_id_
+  // since type_id_to_children_ is densely packed up at least up to dense_type_id_
   for (; static_cast<size_t>(dense_type_id_) < type_id_to_children_.size();
        ++dense_type_id_) {
     if (type_id_to_children_[dense_type_id_] == nullptr) {
@@ -101,6 +106,9 @@ int8_t BasicUnionBuilder::AppendChild(const std::shared_ptr<ArrayBuilder>& new_c
     }
   }
 
+  DCHECK_LT(type_id_to_children_.size(), std::numeric_limits<int8_t>::max());
+
+  // type_id_to_children_ is already densely packed, so just append the new child
   type_id_to_children_.push_back(new_child);
   return dense_type_id_++;
 }

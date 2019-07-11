@@ -63,6 +63,7 @@ class ARROW_EXPORT BasicUnionBuilder : public ArrayBuilder {
 
   UnionMode::type mode_;
   std::vector<std::shared_ptr<ArrayBuilder>> type_id_to_children_;
+  // for all type_id < dense_type_id_, type_id_to_children_[type_id] != nullptr
   int8_t dense_type_id_ = 0;
   TypedBufferBuilder<int8_t> types_builder_;
   std::vector<std::string> field_names_;
