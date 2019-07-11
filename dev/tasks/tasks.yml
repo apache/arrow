@@ -167,6 +167,7 @@ tasks:
       unicode_width: 16
       wheel_tag: manylinux1
       test_docker_images: []
+      test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp27-cp27m-manylinux1_x86_64.whl
 
@@ -180,6 +181,7 @@ tasks:
       wheel_tag: manylinux1
       test_docker_images:
         - python:2.7-slim  # debian ucs4
+      test_remove_system_libs: false
     artifacts:
       - pyarrow-{no_rc_version}-cp27-cp27mu-manylinux1_x86_64.whl
 
@@ -193,6 +195,7 @@ tasks:
       wheel_tag: manylinux1
       test_docker_images:
         - python:3.5-slim
+      test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp35-cp35m-manylinux1_x86_64.whl
 
@@ -206,6 +209,7 @@ tasks:
       wheel_tag: manylinux1
       test_docker_images:
         - python:3.6-slim
+      test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux1_x86_64.whl
 
@@ -219,6 +223,7 @@ tasks:
       wheel_tag: manylinux1
       test_docker_images:
         - python:3.7-slim
+      test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux1_x86_64.whl
 
@@ -231,6 +236,7 @@ tasks:
       unicode_width: 16
       wheel_tag: manylinux2010
       test_docker_images: []
+      test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp27-cp27m-manylinux2010_x86_64.whl
 
@@ -244,6 +250,7 @@ tasks:
       wheel_tag: manylinux2010
       test_docker_images:
         - python:2.7-slim  # debian ucs4
+      test_remove_system_libs: false
     artifacts:
       - pyarrow-{no_rc_version}-cp27-cp27mu-manylinux2010_x86_64.whl
 
@@ -257,6 +264,7 @@ tasks:
       wheel_tag: manylinux2010
       test_docker_images:
         - python:3.5-slim
+      test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp35-cp35m-manylinux2010_x86_64.whl
 
@@ -270,6 +278,7 @@ tasks:
       wheel_tag: manylinux2010
       test_docker_images:
         - python:3.6-slim
+      test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2010_x86_64.whl
 
@@ -283,6 +292,7 @@ tasks:
       wheel_tag: manylinux2010
       test_docker_images:
         - python:3.7-slim
+      test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2010_x86_64.whl
 

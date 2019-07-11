@@ -29,9 +29,11 @@ pip install -q -r /arrow/python/requirements-test.txt
 # Run pyarrow tests
 pytest -v --pyargs pyarrow
 
-# Run import tests after removing the bundled dependencies from the system
-echo "Removing the following libraries to fail loudly if they are bundled incorrectly:"
-ldconfig -p | grep "lib\(lz4\|z\|boost\)" | awk -F'> ' '{print $2}' | xargs rm -v -f
+if [[ "$1" == "--remove-system-libs" ]]; then
+  # Run import tests after removing the bundled dependencies from the system
+  echo "Removing the following libraries to fail loudly if they are bundled incorrectly:"
+  ldconfig -p | grep "lib\(lz4\|z\|boost\)" | awk -F'> ' '{print $2}' | xargs rm -v -f
+fi
 
 # Test import and optional dependencies
 python -c "
