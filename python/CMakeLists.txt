@@ -506,7 +506,6 @@ if(PYARROW_BUILD_FLIGHT)
         bundle_arrow_implib(ARROW_FLIGHT_SHARED_IMP_LIB)
         bundle_arrow_dependency(cares)
         bundle_arrow_dependency(libprotobuf)
-        bundle_arrow_dependency(uriparser)
         # XXX Hardcoded library names because CMake is too stupid to give us
         # the shared library paths.
         # https://gitlab.kitware.com/cmake/cmake/issues/16210
