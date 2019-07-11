@@ -34,6 +34,7 @@ import org.apache.arrow.vector.util.DecimalUtility;
 import org.apache.arrow.vector.util.TransferPair;
 
 import io.netty.buffer.ArrowBuf;
+import io.netty.util.internal.PlatformDependent;
 
 /**
  * DecimalVector implements a fixed width vector (16 bytes) of
@@ -206,41 +207,30 @@ public class DecimalVector extends BaseFixedWidthVector {
   public void setBigEndian(int index, byte[] value) {
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
     final int length = value.length;
-    int startIndex = index * TYPE_WIDTH;
-    if (length == TYPE_WIDTH) {
-      for (int i = TYPE_WIDTH - 1; i >= 3; i -= 4) {
-        valueBuffer.setByte(startIndex, value[i]);
-        valueBuffer.setByte(startIndex + 1, value[i - 1]);
-        valueBuffer.setByte(startIndex + 2, value[i - 2]);
-        valueBuffer.setByte(startIndex + 3, value[i - 3]);
-        startIndex += 4;
-      }
 
+    // do the bound check.
+    valueBuffer.checkBytes(index * TYPE_WIDTH, (index + 1) * TYPE_WIDTH);
+
+    long outAddress = valueBuffer.memoryAddress() + index * TYPE_WIDTH;
+    // swap bytes to convert BE to LE
+    for (int byteIdx = 0; byteIdx < length; ++byteIdx) {
+      PlatformDependent.putByte(outAddress + byteIdx, value[length - 1 - byteIdx]);
+    }
+
+    if (length == TYPE_WIDTH) {
       return;
     }
 
     if (length == 0) {
-      valueBuffer.setZero(startIndex, TYPE_WIDTH);
-      return;
-    }
-
-    if (length < 16) {
-      for (int i = length - 1; i >= 0; i--) {
-        valueBuffer.setByte(startIndex, value[i]);
-        startIndex++;
-      }
-
+      PlatformDependent.setMemory(outAddress, DecimalVector.TYPE_WIDTH, (byte)0);
+    } else if (length < TYPE_WIDTH) {
+      // sign extend
       final byte pad = (byte) (value[0] < 0 ? 0xFF : 0x00);
-      final int maxStartIndex = (index + 1) * TYPE_WIDTH;
-      while (startIndex < maxStartIndex) {
-        valueBuffer.setByte(startIndex, pad);
-        startIndex++;
-      }
-
-      return;
+      PlatformDependent.setMemory(outAddress + length, DecimalVector.TYPE_WIDTH - length, pad);
+    } else {
+      throw new IllegalArgumentException(
+          "Invalid decimal value length. Valid length in [1 - 16], got " + length);
     }
-
-    throw new IllegalArgumentException("Invalid decimal value length. Valid length in [1 - 16], got " + length);
   }
 
   /**
@@ -265,17 +255,19 @@ public class DecimalVector extends BaseFixedWidthVector {
   public void setSafe(int index, int start, ArrowBuf buffer, int length) {
     handleSafe(index);
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-    int startIndexInVector = index * TYPE_WIDTH;
-    valueBuffer.setBytes(startIndexInVector, buffer, start, length);
+
+    // do the bound checks.
+    buffer.checkBytes(start, start + length);
+    valueBuffer.checkBytes(index * TYPE_WIDTH, (index + 1) * TYPE_WIDTH);
+
+    long inAddress = buffer.memoryAddress() + start;
+    long outAddress = valueBuffer.memoryAddress() + index * TYPE_WIDTH;
+    PlatformDependent.copyMemory(inAddress, outAddress, length);
     // sign extend
     if (length < 16) {
-      byte msb = buffer.getByte(start + length - 1);
+      byte msb = PlatformDependent.getByte(inAddress + length - 1);
       final byte pad = (byte) (msb < 0 ? 0xFF : 0x00);
-      int startIndex = startIndexInVector + length;
-      int endIndex = startIndexInVector + TYPE_WIDTH;
-      for (int i = startIndex; i < endIndex; i++) {
-        valueBuffer.setByte(i, pad);
-      }
+      PlatformDependent.setMemory(outAddress + length, DecimalVector.TYPE_WIDTH - length, pad);
     }
   }
 
@@ -290,19 +282,24 @@ public class DecimalVector extends BaseFixedWidthVector {
   public void setBigEndianSafe(int index, int start, ArrowBuf buffer, int length) {
     handleSafe(index);
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-    int startIndexInVector = index * TYPE_WIDTH;
-    for (int i = start + length - 1; i >= start; i--) {
-      valueBuffer.setByte(startIndexInVector, buffer.getByte(i));
-      startIndexInVector++;
+
+    // do the bound checks.
+    buffer.checkBytes(start, start + length);
+    valueBuffer.checkBytes(index * TYPE_WIDTH, (index + 1) * TYPE_WIDTH);
+
+    // not using buffer.getByte() to avoid boundary checks for every byte.
+    long inAddress = buffer.memoryAddress() + start;
+    long outAddress = valueBuffer.memoryAddress() + index * TYPE_WIDTH;
+    // swap bytes to convert BE to LE
+    for (int byteIdx = 0; byteIdx < length; ++byteIdx) {
+      byte val = PlatformDependent.getByte((inAddress + length - 1) - byteIdx);
+      PlatformDependent.putByte(outAddress + byteIdx, val);
     }
     // sign extend
     if (length < 16) {
-      byte msb = buffer.getByte(start);
+      byte msb = PlatformDependent.getByte(inAddress);
       final byte pad = (byte) (msb < 0 ? 0xFF : 0x00);
-      int endIndex = startIndexInVector + TYPE_WIDTH - length;
-      for (int i = startIndexInVector; i < endIndex; i++) {
-        valueBuffer.setByte(i, pad);
-      }
+      PlatformDependent.setMemory(outAddress + length, DecimalVector.TYPE_WIDTH - length, pad);
     }
   }
 
