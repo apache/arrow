@@ -1398,28 +1398,34 @@ TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
        R"({"Type": "Time", "isAdjustedToUTC": false, "timeUnit": "nanoseconds"})"},
       {LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
        "Timestamp(isAdjustedToUTC=true, timeUnit=milliseconds, "
-       "force_set_converted_type=false)",
-       R"({"Type": "Timestamp", "isAdjustedToUTC": true, "timeUnit": "milliseconds", "force_set_converted_type": false})"},
+       "is_from_converted_type=false, force_set_converted_type=false)",
+       R"({"Type": "Timestamp", "isAdjustedToUTC": true, "timeUnit": "milliseconds", )"
+       R"("is_from_converted_type": false, "force_set_converted_type": false})"},
       {LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
        "Timestamp(isAdjustedToUTC=true, timeUnit=microseconds, "
-       "force_set_converted_type=false)",
-       R"({"Type": "Timestamp", "isAdjustedToUTC": true, "timeUnit": "microseconds", "force_set_converted_type": false})"},
+       "is_from_converted_type=false, force_set_converted_type=false)",
+       R"({"Type": "Timestamp", "isAdjustedToUTC": true, "timeUnit": "microseconds", )"
+       R"("is_from_converted_type": false, "force_set_converted_type": false})"},
       {LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
        "Timestamp(isAdjustedToUTC=true, timeUnit=nanoseconds, "
-       "force_set_converted_type=false)",
-       R"({"Type": "Timestamp", "isAdjustedToUTC": true, "timeUnit": "nanoseconds", "force_set_converted_type": false})"},
-      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS, true),
+       "is_from_converted_type=false, force_set_converted_type=false)",
+       R"({"Type": "Timestamp", "isAdjustedToUTC": true, "timeUnit": "nanoseconds", )"
+       R"("is_from_converted_type": false, "force_set_converted_type": false})"},
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS, true, true),
        "Timestamp(isAdjustedToUTC=false, timeUnit=milliseconds, "
-       "force_set_converted_type=true)",
-       R"({"Type": "Timestamp", "isAdjustedToUTC": false, "timeUnit": "milliseconds", "force_set_converted_type": true})"},
+       "is_from_converted_type=true, force_set_converted_type=true)",
+       R"({"Type": "Timestamp", "isAdjustedToUTC": false, "timeUnit": "milliseconds", )"
+       R"("is_from_converted_type": true, "force_set_converted_type": true})"},
       {LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS),
        "Timestamp(isAdjustedToUTC=false, timeUnit=microseconds, "
-       "force_set_converted_type=false)",
-       R"({"Type": "Timestamp", "isAdjustedToUTC": false, "timeUnit": "microseconds", "force_set_converted_type": false})"},
+       "is_from_converted_type=false, force_set_converted_type=false)",
+       R"({"Type": "Timestamp", "isAdjustedToUTC": false, "timeUnit": "microseconds", )"
+       R"("is_from_converted_type": false, "force_set_converted_type": false})"},
       {LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS),
        "Timestamp(isAdjustedToUTC=false, timeUnit=nanoseconds, "
-       "force_set_converted_type=false)",
-       R"({"Type": "Timestamp", "isAdjustedToUTC": false, "timeUnit": "nanoseconds", "force_set_converted_type": false})"},
+       "is_from_converted_type=false, force_set_converted_type=false)",
+       R"({"Type": "Timestamp", "isAdjustedToUTC": false, "timeUnit": "nanoseconds", )"
+       R"("is_from_converted_type": false, "force_set_converted_type": false})"},
       {LogicalType::Interval(), "Interval", R"({"Type": "Interval"})"},
       {LogicalType::Int(8, false), "Int(bitWidth=8, isSigned=false)",
        R"({"Type": "Int", "bitWidth": 8, "isSigned": false})"},
@@ -1673,6 +1679,16 @@ struct SchemaElementConstructionArguments {
   std::function<bool()> check_logicalType;
 };
 
+struct LegacySchemaElementConstructionArguments {
+  std::string name;
+  Type::type physical_type;
+  int physical_length;
+  bool expect_converted_type;
+  ConvertedType::type converted_type;
+  bool expect_logicalType;
+  std::function<bool()> check_logicalType;
+};
+
 class TestSchemaElementConstruction : public ::testing::Test {
  public:
   TestSchemaElementConstruction* Reconstruct(
@@ -1680,6 +1696,23 @@ class TestSchemaElementConstruction : public ::testing::Test {
     // Make node, create serializable Thrift object from it ...
     node_ = PrimitiveNode::Make(c.name, Repetition::REQUIRED, c.logical_type,
                                 c.physical_type, c.physical_length);
+    element_.reset(new format::SchemaElement);
+    node_->ToParquet(element_.get());
+
+    // ... then set aside some values for later inspection.
+    name_ = c.name;
+    expect_converted_type_ = c.expect_converted_type;
+    converted_type_ = c.converted_type;
+    expect_logicalType_ = c.expect_logicalType;
+    check_logicalType_ = c.check_logicalType;
+    return this;
+  }
+
+  TestSchemaElementConstruction* LegacyReconstruct(
+      const LegacySchemaElementConstructionArguments& c) {
+    // Make node, create serializable Thrift object from it ...
+    node_ = PrimitiveNode::Make(c.name, Repetition::REQUIRED, c.physical_type,
+                                c.converted_type, c.physical_length);
     element_.reset(new format::SchemaElement);
     node_->ToParquet(element_.get());
 
@@ -1776,6 +1809,17 @@ TEST_F(TestSchemaElementConstruction, SimpleCases) {
 
   for (const SchemaElementConstructionArguments& c : cases) {
     this->Reconstruct(c)->Inspect();
+  }
+
+  std::vector<LegacySchemaElementConstructionArguments> legacy_cases = {
+      {"timestamp_ms", Type::INT64, -1, true, ConvertedType::TIMESTAMP_MILLIS, false,
+       check_nothing},
+      {"timestamp_us", Type::INT64, -1, true, ConvertedType::TIMESTAMP_MICROS, false,
+       check_nothing},
+  };
+
+  for (const LegacySchemaElementConstructionArguments& c : legacy_cases) {
+    this->LegacyReconstruct(c)->Inspect();
   }
 }
 
@@ -1920,6 +1964,7 @@ TEST_F(TestTemporalSchemaElementConstruction, TemporalCases) {
        Type::INT64, -1, false, ConvertedType::NA, true, check_TIMESTAMP},
       {"timestamp_F_ms_force",
        LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS,
+                              /*is_from_converted_type=*/false,
                               /*force_set_converted_type=*/true),
        Type::INT64, -1, true, ConvertedType::TIMESTAMP_MILLIS, true, check_TIMESTAMP},
       {"timestamp_T_us", LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
@@ -1928,6 +1973,7 @@ TEST_F(TestTemporalSchemaElementConstruction, TemporalCases) {
        Type::INT64, -1, false, ConvertedType::NA, true, check_TIMESTAMP},
       {"timestamp_F_us_force",
        LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS,
+                              /*is_from_converted_type=*/false,
                               /*force_set_converted_type=*/true),
        Type::INT64, -1, true, ConvertedType::TIMESTAMP_MILLIS, true, check_TIMESTAMP},
       {"timestamp_T_ns", LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
