@@ -112,7 +112,9 @@ class DiffTest : public ::testing::Test {
     ASSERT_EQ(formatted.str(), formatted_expected) << "formatted diff incorrectly";
     formatted.str("");
 
-    base_->Equals(*target_, EqualOptions().diff_sink(&formatted));
+    if (base_->Equals(*target_, EqualOptions().diff_sink(&formatted))) {
+      formatted << std::endl;
+    }
     ASSERT_EQ(formatted.str(), formatted_expected)
         << "Array::Equals formatted diff incorrectly";
   }
@@ -159,13 +161,22 @@ class DiffTestWithNumeric : public DiffTest {
 };
 
 TEST_F(DiffTest, Errors) {
+  std::stringstream formatted;
+
   base_ = ArrayFromJSON(int32(), "[]");
   target_ = ArrayFromJSON(utf8(), "[]");
   ASSERT_RAISES(TypeError, Diff(*base_, *target_, default_memory_pool(), &edits_));
 
+  ASSERT_FALSE(base_->Equals(*target_, EqualOptions().diff_sink(&formatted)));
+  ASSERT_EQ(formatted.str(), R"(# Array types differed: int32 vs string)");
+
   base_ = ArrayFromJSON(struct_({}), "[]");
-  target_ = ArrayFromJSON(struct_({}), "[]");
+  target_ = ArrayFromJSON(struct_({}), "[{}]");
   ASSERT_RAISES(NotImplemented, Diff(*base_, *target_, default_memory_pool(), &edits_));
+
+  formatted.str("");
+  ASSERT_FALSE(base_->Equals(*target_, EqualOptions().diff_sink(&formatted)));
+  ASSERT_EQ(formatted.str(), R"(# Nested arrays of struct<> differed)");
 }
 
 TYPED_TEST_CASE(DiffTestWithNumeric, NumericArrowTypes);
@@ -297,6 +308,12 @@ TEST_F(DiffTest, BasicsWithStrings) {
 }
 
 TEST_F(DiffTest, UnifiedDiffFormatter) {
+  // no changes
+  base_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break"])");
+  target_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break"])");
+  AssertDiffAndFormat(R"(
+)");
+
   // insert one
   base_ = ArrayFromJSON(utf8(), R"(["give", "a", "break"])");
   target_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break"])");
@@ -362,6 +379,51 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
 @@ -5, +8 @@
 +79
 +11
+)");
+}
+
+TEST_F(DiffTest, DictionaryDiffFormatter) {
+  std::stringstream formatted;
+
+  // differing indices
+  auto base_dict = ArrayFromJSON(utf8(), R"(["a", "b", "c"])");
+  auto base_indices = ArrayFromJSON(int8(), "[0, 1, 2, 2, 0, 1]");
+  ASSERT_OK(
+      DictionaryArray::FromArrays(dictionary(base_indices->type(), base_dict->type()),
+                                  base_indices, base_dict, &base_));
+
+  auto target_dict = base_dict;
+  auto target_indices = ArrayFromJSON(int8(), "[0, 1, 2, 2, 1, 1]");
+  ASSERT_OK(
+      DictionaryArray::FromArrays(dictionary(target_indices->type(), target_dict->type()),
+                                  target_indices, target_dict, &target_));
+
+  base_->Equals(*target_, EqualOptions().diff_sink(&formatted));
+  ASSERT_EQ(formatted.str(), R"(# Dictionary arrays differed
+## dictionary diff
+## indices diff
+@@ -4, +4 @@
+-0
+@@ -6, +5 @@
++1
+)");
+
+  // differing dictionaries
+  target_dict = ArrayFromJSON(utf8(), R"(["b", "c", "a"])");
+  target_indices = base_indices;
+  ASSERT_OK(
+      DictionaryArray::FromArrays(dictionary(target_indices->type(), target_dict->type()),
+                                  target_indices, target_dict, &target_));
+
+  formatted.str("");
+  base_->Equals(*target_, EqualOptions().diff_sink(&formatted));
+  ASSERT_EQ(formatted.str(), R"(# Dictionary arrays differed
+## dictionary diff
+@@ -0, +0 @@
+-"a"
+@@ -3, +2 @@
++"a"
+## indices diff
 )");
 }
 

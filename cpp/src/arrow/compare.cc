@@ -936,18 +936,39 @@ Status PrintDiff(const Array& left, const Array& right, std::ostream* os) {
   }
 
   if (!left.type()->Equals(right.type())) {
-    *os << "# Array types disagree: " << *left.type() << " vs " << *right.type();
+    *os << "# Array types differed: " << *left.type() << " vs " << *right.type();
     return Status::OK();
   }
 
-  if (left.type()->num_children() != 0) {
-    *os << "# Nested arrays differed";
-    return Status::OK();
+  for (auto nested_id :
+       {Type::LIST, Type::FIXED_SIZE_LIST, Type::MAP, Type::STRUCT, Type::UNION}) {
+    if (left.type_id() == nested_id) {
+      *os << "# Nested arrays of " << *left.type() << " differed";
+      return Status::OK();
+    }
   }
 
   if (left.type()->id() == Type::DICTIONARY) {
-    *os << "# Dictionary arrays differed";
-    return Status::OK();
+    *os << "# Dictionary arrays differed" << std::endl;
+
+    std::shared_ptr<Array> edits;
+    const auto& left_dict = checked_cast<const DictionaryArray&>(left);
+    const auto& right_dict = checked_cast<const DictionaryArray&>(right);
+
+    *os << "## dictionary diff";
+    RETURN_NOT_OK(Diff(*left_dict.dictionary(), *right_dict.dictionary(),
+                       default_memory_pool(), &edits));
+    ARROW_ASSIGN_OR_RAISE(
+        auto formatter,
+        MakeUnifiedDiffFormatter(*os, *left_dict.dictionary(), *right_dict.dictionary()));
+    RETURN_NOT_OK(formatter->Visit(*edits));
+
+    *os << "## indices diff";
+    RETURN_NOT_OK(
+        Diff(*left_dict.indices(), *right_dict.indices(), default_memory_pool(), &edits));
+    ARROW_ASSIGN_OR_RAISE(formatter, MakeUnifiedDiffFormatter(*os, *left_dict.indices(),
+                                                              *right_dict.indices()));
+    return formatter->Visit(*edits);
   }
 
   std::shared_ptr<Array> edits;
