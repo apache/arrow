@@ -429,11 +429,11 @@ class PARQUET_EXPORT WriterProperties {
     return column_properties(path).max_statistics_size();
   }
 
-#ifdef PARQUET_ENCRYPTION
   inline FileEncryptionProperties* file_encryption_properties() const {
     return file_encryption_properties_.get();
   }
 
+#ifdef PARQUET_ENCRYPTION
   std::shared_ptr<ColumnEncryptionProperties> column_encryption_properties(
       const std::shared_ptr<schema::ColumnPath>& path) const {
     if (file_encryption_properties_) {

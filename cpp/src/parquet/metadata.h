@@ -105,7 +105,6 @@ class PARQUET_EXPORT ApplicationVersion {
                             SortOrder::type sort_order = SortOrder::SIGNED) const;
 };
 
-#ifdef PARQUET_ENCRYPTION
 class PARQUET_EXPORT ColumnCryptoMetaData {
  public:
   static std::unique_ptr<ColumnCryptoMetaData> Make(const uint8_t* metadata);
@@ -121,7 +120,6 @@ class PARQUET_EXPORT ColumnCryptoMetaData {
   class ColumnCryptoMetaDataImpl;
   std::unique_ptr<ColumnCryptoMetaDataImpl> impl_;
 };
-#endif
 
 class PARQUET_EXPORT ColumnChunkMetaData {
  public:
@@ -155,9 +153,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   int64_t index_page_offset() const;
   int64_t total_compressed_size() const;
   int64_t total_uncompressed_size() const;
-#ifdef PARQUET_ENCRYPTION
   std::unique_ptr<ColumnCryptoMetaData> crypto_metadata() const;
-#endif
 
  private:
   explicit ColumnChunkMetaData(const void* metadata, const ColumnDescriptor* descr,
@@ -229,11 +225,9 @@ class PARQUET_EXPORT FileMetaData {
   std::unique_ptr<RowGroupMetaData> RowGroup(int i) const;
   const ApplicationVersion& writer_version() const;
 
-#ifdef PARQUET_ENCRYPTION
   bool is_encryption_algorithm_set() const;
   EncryptionAlgorithm encryption_algorithm() const;
   const std::string& footer_signing_key_metadata() const;
-#endif
 
   void WriteTo(::arrow::io::OutputStream* dst,
                const std::shared_ptr<Encryptor>& encryptor = NULLPTR) const;
@@ -261,7 +255,6 @@ class PARQUET_EXPORT FileMetaData {
   std::unique_ptr<FileMetaDataImpl> impl_;
 };
 
-#ifdef PARQUET_ENCRYPTION
 class PARQUET_EXPORT FileCryptoMetaData {
  public:
   // API convenience to get a MetaData accessor
@@ -283,7 +276,6 @@ class PARQUET_EXPORT FileCryptoMetaData {
   class FileCryptoMetaDataImpl;
   std::unique_ptr<FileCryptoMetaDataImpl> impl_;
 };
-#endif
 
 // Builder API
 class PARQUET_EXPORT ColumnChunkMetaDataBuilder {

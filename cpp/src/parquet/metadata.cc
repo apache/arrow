@@ -47,10 +47,6 @@ using ::std::smatch;
 
 #ifdef PARQUET_ENCRYPTION
 #include "parquet/internal_file_decryptor.h"
-#else
-namespace parquet {
-class Decryptor;
-}
 #endif
 
 namespace parquet {
@@ -133,7 +129,6 @@ std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_d
 
 // MetaData Accessor
 
-#ifdef PARQUET_ENCRYPTION
 // ColumnCryptoMetaData
 class ColumnCryptoMetaData::ColumnCryptoMetaDataImpl {
  public:
@@ -179,7 +174,6 @@ bool ColumnCryptoMetaData::encrypted_with_footer_key() const {
 const std::string& ColumnCryptoMetaData::key_metadata() const {
   return impl_->key_metadata();
 }
-#endif  // PARQUET_ENCRYPTION
 
 // ColumnChunk metadata
 class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
@@ -190,8 +184,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
                                    const ApplicationVersion* writer_version,
                                    InternalFileDecryptor* file_decryptor = NULLPTR)
       : column_(column), descr_(descr), writer_version_(writer_version) {
-#ifdef PARQUET_ENCRYPTION
     if (column->__isset.crypto_metadata) {  // column metadata is encrypted
+#ifdef PARQUET_ENCRYPTION
       format::ColumnCryptoMetaData ccmd = column->crypto_metadata;
 
       if (ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY) {
@@ -216,12 +210,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       } else {
         is_metadata_set_ = true;
       }
+#endif        // PARQUET_ENCRYPTION
     } else {  // column metadata is not encrypted
       is_metadata_set_ = true;
     }
-#else
-    is_metadata_set_ = true;
-#endif  // PARQUET_ENCRYPTION
 
     if (is_metadata_set_) {
       const format::ColumnMetaData& meta_data = GetMetadataIfSet();
@@ -303,7 +295,6 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     return GetMetadataIfSet().total_uncompressed_size;
   }
 
-#ifdef PARQUET_ENCRYPTION
   inline std::unique_ptr<ColumnCryptoMetaData> crypto_metadata() const {
     if (column_->__isset.crypto_metadata) {
       return ColumnCryptoMetaData::Make(
@@ -312,7 +303,6 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       return nullptr;
     }
   }
-#endif
 
  private:
   mutable std::shared_ptr<Statistics> possible_stats_;
@@ -324,7 +314,6 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   bool is_metadata_set_;
 
   inline const format::ColumnMetaData& GetMetadataIfSet() const {
-#ifdef PARQUET_ENCRYPTION
     if (column_->__isset.crypto_metadata &&
         column_->crypto_metadata.__isset.ENCRYPTION_WITH_COLUMN_KEY) {
       if (!is_metadata_set_) {
@@ -337,9 +326,6 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     } else {
       return column_->meta_data;
     }
-#else
-    return column_->meta_data;
-#endif
   }
 };
 
@@ -419,11 +405,9 @@ int64_t ColumnChunkMetaData::total_compressed_size() const {
   return impl_->total_compressed_size();
 }
 
-#ifdef PARQUET_ENCRYPTION
 std::unique_ptr<ColumnCryptoMetaData> ColumnChunkMetaData::crypto_metadata() const {
   return impl_->crypto_metadata();
 }
-#endif
 
 // row-group metadata
 class RowGroupMetaData::RowGroupMetaDataImpl {
@@ -562,7 +546,6 @@ class FileMetaData::FileMetaDataImpl {
     return static_cast<int>(metadata_->schema.size());
   }
 
-#ifdef PARQUET_ENCRYPTION
   inline bool is_encryption_algorithm_set() const {
     return metadata_->__isset.encryption_algorithm;
   }
@@ -572,17 +555,16 @@ class FileMetaData::FileMetaDataImpl {
   inline const std::string& footer_signing_key_metadata() {
     return metadata_->footer_signing_key_metadata;
   }
-#endif
 
   const ApplicationVersion& writer_version() const { return writer_version_; }
 
   void WriteTo(::arrow::io::OutputStream* dst,
                const std::shared_ptr<Encryptor>& encryptor) const {
     ThriftSerializer serializer;
-#ifdef PARQUET_ENCRYPTION
     // Only in encrypted files with plaintext footers the
     // encryption_algorithm is set in footer
     if (is_encryption_algorithm_set()) {
+#ifdef PARQUET_ENCRYPTION
       uint8_t* serialized_data;
       uint32_t serialized_len;
       serializer.SerializeToBuffer(metadata_.get(), &serialized_len, &serialized_data);
@@ -601,13 +583,11 @@ class FileMetaData::FileMetaDataImpl {
       PARQUET_THROW_NOT_OK(
           dst->Write(encrypted_data.data() + encrypted_len - encryption::kGcmTagLength,
                      encryption::kGcmTagLength));
+#endif        // PARQUET_ENCRYPTION
     } else {  // either plaintext file (when encryptor is null)
       // or encrypted file with encrypted footer
       serializer.Serialize(metadata_.get(), dst, encryptor);
     }
-#else
-    serializer.Serialize(metadata_.get(), dst);
-#endif  // PARQUET_ENCRYPTION
   }
 
   std::unique_ptr<RowGroupMetaData> RowGroup(int i) {
@@ -728,7 +708,6 @@ int64_t FileMetaData::num_rows() const { return impl_->num_rows(); }
 
 int FileMetaData::num_row_groups() const { return impl_->num_row_groups(); }
 
-#ifdef PARQUET_ENCRYPTION
 bool FileMetaData::is_encryption_algorithm_set() const {
   return impl_->is_encryption_algorithm_set();
 }
@@ -740,7 +719,6 @@ EncryptionAlgorithm FileMetaData::encryption_algorithm() const {
 const std::string& FileMetaData::footer_signing_key_metadata() const {
   return impl_->footer_signing_key_metadata();
 }
-#endif  // PARQUET_ENCRYPTION
 
 ParquetVersion::type FileMetaData::version() const {
   switch (impl_->version()) {
@@ -780,7 +758,6 @@ void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,
   return impl_->WriteTo(dst, encryptor);
 }
 
-#ifdef PARQUET_ENCRYPTION
 class FileCryptoMetaData::FileCryptoMetaDataImpl {
  public:
   FileCryptoMetaDataImpl() {}
@@ -833,7 +810,6 @@ FileCryptoMetaData::~FileCryptoMetaData() {}
 void FileCryptoMetaData::WriteTo(::arrow::io::OutputStream* dst) const {
   impl_->WriteTo(dst);
 }
-#endif  // PARQUET_ENCRYPTION
 
 ApplicationVersion::ApplicationVersion(const std::string& application, int major,
                                        int minor, int patch)

@@ -133,23 +133,26 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     std::shared_ptr<ArrowInputStream> stream =
         properties_.GetStream(source_, col_start, col_length);
 
-#ifdef PARQUET_ENCRYPTION
     std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col->crypto_metadata();
 
+    PageReaderContext ctx;
     // Column is encrypted only if crypto_metadata exists.
     if (!crypto_metadata) {
-      PageReaderContext ctx = {col->has_dictionary_page(), row_group_ordinal_,
-                               static_cast<int16_t>(i), NULLPTR, NULLPTR};
+      ctx = PageReaderContext{col->has_dictionary_page(), row_group_ordinal_,
+                              static_cast<int16_t>(i), NULLPTR, NULLPTR};
       return PageReader::Open(stream, col->num_values(), col->compression(),
                               properties_.memory_pool(), &ctx);
     }
 
+#ifdef PARQUET_ENCRYPTION
     // The column is encrypted
 
+    std::shared_ptr<Decryptor> meta_decryptor;
+    std::shared_ptr<Decryptor> data_decryptor;
     // The column is encrypted with footer key
     if (crypto_metadata->encrypted_with_footer_key()) {
-      auto meta_decryptor = file_decryptor_->GetFooterDecryptorForColumnMeta();
-      auto data_decryptor = file_decryptor_->GetFooterDecryptorForColumnData();
+      meta_decryptor = file_decryptor_->GetFooterDecryptorForColumnMeta();
+      data_decryptor = file_decryptor_->GetFooterDecryptorForColumnData();
       PageReaderContext ctx = {col->has_dictionary_page(), row_group_ordinal_,
                                static_cast<int16_t>(i), meta_decryptor, data_decryptor};
       return PageReader::Open(stream, col->num_values(), col->compression(),
@@ -161,19 +164,16 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     std::shared_ptr<schema::ColumnPath> column_path =
         std::make_shared<schema::ColumnPath>(crypto_metadata->path_in_schema());
 
-    auto meta_decryptor =
+    meta_decryptor =
         file_decryptor_->GetColumnMetaDecryptor(column_path, column_key_metadata);
-    auto data_decryptor =
+    data_decryptor =
         file_decryptor_->GetColumnDataDecryptor(column_path, column_key_metadata);
 
-    PageReaderContext ctx = {col->has_dictionary_page(), row_group_ordinal_,
-                             static_cast<int16_t>(i), meta_decryptor, data_decryptor};
+    ctx = PageReaderContext{col->has_dictionary_page(), row_group_ordinal_,
+                            static_cast<int16_t>(i), meta_decryptor, data_decryptor};
+#endif  // PARQUET_ENCRYPTION
     return PageReader::Open(stream, col->num_values(), col->compression(),
                             properties_.memory_pool(), &ctx);
-#else
-    return PageReader::Open(stream, col->num_values(), col->compression(),
-                            properties_.memory_pool());
-#endif
   }
 
  private:
@@ -211,13 +211,12 @@ class SerializedFile : public ParquetFileReader::Contents {
   }
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
+    InternalFileDecryptor* file_decryptor = NULLPTR;
 #ifdef PARQUET_ENCRYPTION
-    std::unique_ptr<SerializedRowGroup> contents(new SerializedRowGroup(
-        source_, file_metadata_.get(), i, properties_, file_decryptor_.get()));
-#else
-    std::unique_ptr<SerializedRowGroup> contents(
-        new SerializedRowGroup(source_, file_metadata_.get(), i, properties_));
+    file_decryptor = file_decryptor_.get();
 #endif
+    std::unique_ptr<SerializedRowGroup> contents(new SerializedRowGroup(
+        source_, file_metadata_.get(), i, properties_, file_decryptor));
     return std::make_shared<RowGroupReader>(std::move(contents));
   }
 
@@ -266,35 +265,33 @@ class SerializedFile : public ParquetFileReader::Contents {
 #endif
 
 #if PARQUET_ENCRYPTION
-    // No encryption or encryption with plaintext footer mode.
-    if (memcmp(footer_buffer->data() + footer_read_size - 4, kParquetMagic, 4) == 0) {
-      std::shared_ptr<Buffer> metadata_buffer;
-      uint32_t metadata_len, read_metadata_len;
-      ParseUnencryptedFileMetadata(footer_buffer, footer_read_size, file_size,
-                                   &metadata_buffer, &metadata_len, &read_metadata_len);
-
-      auto file_decryption_properties = properties_.file_decryption_properties();
-      if (!file_metadata_->is_encryption_algorithm_set()) {  // Non encrypted file.
-        if (file_decryption_properties != NULLPTR) {
-          if (!file_decryption_properties->plaintext_files_allowed()) {
-            throw ParquetException("Applying decryption properties on plaintext file");
-          }
-        }
-      } else {
-        // Encrypted file with plaintext footer mode.
-        ParseMetaDataOfEncryptedFileWithPlaintextFooter(
-            file_decryption_properties, metadata_buffer, metadata_len, read_metadata_len);
-      }
-    } else {
+    if (memcmp(footer_buffer->data() + footer_read_size - 4, kParquetEMagic, 4) == 0) {
       // Encrypted file with Encrypted footer.
       ParseMetaDataOfEncryptedFileWithEncryptedFooter(footer_buffer, footer_read_size,
                                                       file_size);
+      return;
     }
-#else  // not defined PARQUET_ENCRYPTION
+#endif
+
+    // No encryption or encryption with plaintext footer mode.
     std::shared_ptr<Buffer> metadata_buffer;
     uint32_t metadata_len, read_metadata_len;
     ParseUnencryptedFileMetadata(footer_buffer, footer_read_size, file_size,
                                  &metadata_buffer, &metadata_len, &read_metadata_len);
+
+#ifdef PARQUET_ENCRYPTION
+    auto file_decryption_properties = properties_.file_decryption_properties();
+    if (!file_metadata_->is_encryption_algorithm_set()) {  // Non encrypted file.
+      if (file_decryption_properties != NULLPTR) {
+        if (!file_decryption_properties->plaintext_files_allowed()) {
+          throw ParquetException("Applying decryption properties on plaintext file");
+        }
+      }
+    } else {
+      // Encrypted file with plaintext footer mode.
+      ParseMetaDataOfEncryptedFileWithPlaintextFooter(
+          file_decryption_properties, metadata_buffer, metadata_len, read_metadata_len);
+    }
 #endif
   }
 

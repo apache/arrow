@@ -134,24 +134,21 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
     ++next_column_index_;
 
     const ColumnDescriptor* column_descr = col_meta->descr();
-#ifdef PARQUET_ENCRYPTION
-    auto meta_encryptor =
-        file_encryptor_ ? file_encryptor_->GetColumnMetaEncryptor(column_descr->path())
-                        : NULLPTR;
-    auto data_encryptor =
-        file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(column_descr->path())
-                        : NULLPTR;
 
+    std::shared_ptr<Encryptor> meta_encryptor = NULLPTR;
+    std::shared_ptr<Encryptor> data_encryptor = NULLPTR;
+#ifdef PARQUET_ENCRYPTION
+    meta_encryptor = file_encryptor_
+                         ? file_encryptor_->GetColumnMetaEncryptor(column_descr->path())
+                         : NULLPTR;
+    data_encryptor = file_encryptor_
+                         ? file_encryptor_->GetColumnDataEncryptor(column_descr->path())
+                         : NULLPTR;
+#endif
     std::unique_ptr<PageWriter> pager = PageWriter::Open(
         sink_, properties_->compression(column_descr->path()), col_meta,
         row_group_ordinal_, static_cast<int16_t>(current_column_index_ - 1),
         properties_->memory_pool(), false, meta_encryptor, data_encryptor);
-#else
-    std::unique_ptr<PageWriter> pager = PageWriter::Open(
-        sink_, properties_->compression(column_descr->path()), col_meta,
-        row_group_ordinal_, static_cast<int16_t>(current_column_index_ - 1),
-        properties_->memory_pool(), false);
-#endif
     column_writers_[0] = ColumnWriter::Make(col_meta, std::move(pager), properties_);
     return column_writers_[0].get();
   }
@@ -248,25 +245,22 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
     for (int i = 0; i < num_columns(); i++) {
       auto col_meta = metadata_->NextColumnChunk();
       const ColumnDescriptor* column_descr = col_meta->descr();
+
+      std::shared_ptr<Encryptor> meta_encryptor = NULLPTR;
+      std::shared_ptr<Encryptor> data_encryptor = NULLPTR;
 #ifdef PARQUET_ENCRYPTION
-      auto meta_encryptor =
-          file_encryptor_ ? file_encryptor_->GetColumnMetaEncryptor(column_descr->path())
-                          : NULLPTR;
-      auto data_encryptor =
-          file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(column_descr->path())
-                          : NULLPTR;
+      meta_encryptor = file_encryptor_
+                           ? file_encryptor_->GetColumnMetaEncryptor(column_descr->path())
+                           : NULLPTR;
+      data_encryptor = file_encryptor_
+                           ? file_encryptor_->GetColumnDataEncryptor(column_descr->path())
+                           : NULLPTR;
+#endif
       std::unique_ptr<PageWriter> pager = PageWriter::Open(
           sink_, properties_->compression(column_descr->path()), col_meta,
           static_cast<int16_t>(row_group_ordinal_),
           static_cast<int16_t>(current_column_index_), properties_->memory_pool(),
           buffered_row_group_, meta_encryptor, data_encryptor);
-#else
-      std::unique_ptr<PageWriter> pager =
-          PageWriter::Open(sink_, properties_->compression(column_descr->path()),
-                           col_meta, static_cast<int16_t>(row_group_ordinal_),
-                           static_cast<int16_t>(current_column_index_),
-                           properties_->memory_pool(), buffered_row_group_);
-#endif
       column_writers_.push_back(
           ColumnWriter::Make(col_meta, std::move(pager), properties_));
     }
@@ -305,7 +299,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
       }
       row_group_writer_.reset();
 
-#ifdef PARQUET_ENCRYPTION
       // Write magic bytes and metadata
       auto file_encryption_properties = properties_->file_encryption_properties();
 
@@ -313,12 +306,10 @@ class FileSerializer : public ParquetFileWriter::Contents {
         file_metadata_ = metadata_->Finish();
         WriteFileMetaData(*file_metadata_, sink_.get());
       } else {  // Encrypted file
+#ifdef PARQUET_ENCRYPTION
         CloseEncryptedFile(file_encryption_properties);
-      }
-#else
-      file_metadata_ = metadata_->Finish();
-      WriteFileMetaData(*file_metadata_, sink_.get());
 #endif
+      }
     }
   }
 
@@ -338,15 +329,14 @@ class FileSerializer : public ParquetFileWriter::Contents {
     }
     num_row_groups_++;
     auto rg_metadata = metadata_->AppendRowGroup();
+    InternalFileEncryptor* file_encryptor = NULLPTR;
+
 #ifdef PARQUET_ENCRYPTION
-    std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
-        sink_, rg_metadata, static_cast<int16_t>(num_row_groups_ - 1), properties_.get(),
-        buffered_row_group, file_encryptor_.get()));
-#else
-    std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
-        sink_, rg_metadata, static_cast<int16_t>(num_row_groups_ - 1), properties_.get(),
-        buffered_row_group));
+    file_encryptor = file_encryptor_.get();
 #endif
+    std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
+        sink_, rg_metadata, static_cast<int16_t>(num_row_groups_ - 1), properties_.get(),
+        buffered_row_group, file_encryptor));
     row_group_writer_.reset(new RowGroupWriter(std::move(contents)));
     return row_group_writer_.get();
   }
@@ -423,12 +413,12 @@ class FileSerializer : public ParquetFileWriter::Contents {
 #endif
 
   void StartFile() {
-#ifdef PARQUET_ENCRYPTION
     auto file_encryption_properties = properties_->file_encryption_properties();
     if (file_encryption_properties == nullptr) {
       // Unencrypted parquet files always start with PAR1
       PARQUET_THROW_NOT_OK(sink_->Write(kParquetMagic, 4));
     } else {
+#ifdef PARQUET_ENCRYPTION
       file_encryptor_.reset(new InternalFileEncryptor(file_encryption_properties,
                                                       properties_->memory_pool()));
       if (file_encryption_properties->encrypted_footer()) {
@@ -437,11 +427,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
         // Encrypted file with plaintext footer mode.
         PARQUET_THROW_NOT_OK(sink_->Write(kParquetMagic, 4));
       }
-    }
-#else
-    // Unencrypted parquet files always start with PAR1
-    PARQUET_THROW_NOT_OK(sink_->Write(kParquetMagic, 4));
 #endif
+    }
   }
 };
 

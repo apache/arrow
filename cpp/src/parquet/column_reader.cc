@@ -139,13 +139,13 @@ class SerializedPageReader : public PageReader {
       column_has_dictionary_ = ctx->column_has_dictionary;
       row_group_ordinal_ = ctx->row_group_ordinal;
       column_ordinal_ = ctx->column_ordinal;
-#ifdef PARQUET_ENCRYPTION
       meta_decryptor_ = ctx->meta_decryptor;
       data_decryptor_ = ctx->data_decryptor;
       if (data_decryptor_ != NULLPTR || meta_decryptor_ != NULLPTR) {
+#ifdef PARQUET_ENCRYPTION
         InitDecryption();
-      }
 #endif
+      }
     }
     max_page_header_size_ = kDefaultMaxPageHeaderSize;
     decompressor_ = GetCodecFromArrow(codec);
@@ -255,11 +255,13 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   // Loop here because there may be unhandled page types that we skip until
   // finding a page that we do know what to do with
 #ifdef PARQUET_ENCRYPTION
+  // we must use #ifdef here because current_page_is_dictionary is not used
   bool current_page_is_dictionary = false;
 #endif
   if (column_has_dictionary_) {
     if (first_page_) {
 #ifdef PARQUET_ENCRYPTION
+      // we must use #ifdef here because current_page_is_dictionary is not used
       current_page_is_dictionary = true;
 #endif
       first_page_ = false;
@@ -292,12 +294,9 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           UpdateDecryption(meta_decryptor_, current_page_is_dictionary,
                            encryption::kDictionaryPageHeader, data_page_headerAAD_);
         }
+#endif
         DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(buffer.data()),
                              &header_size, &current_page_header_, meta_decryptor_);
-#else
-        DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(buffer.data()),
-                             &header_size, &current_page_header_);
-#endif  // PARQUET_ENCRYPTION
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
@@ -331,8 +330,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       ParquetException::EofException(ss.str());
     }
 
-#ifdef PARQUET_ENCRYPTION
     // Decrypt it if we need to
+#ifdef PARQUET_ENCRYPTION
     if (data_decryptor_ != nullptr) {
       PARQUET_THROW_NOT_OK(decryption_buffer_->Resize(
           compressed_len - data_decryptor_->CiphertextSizeDelta()));
