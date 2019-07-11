@@ -117,6 +117,14 @@ namespace Apache.Arrow
             RoundUpToMultiplePowerOfTwo(n, 64);
 
         /// <summary>
+        /// Rounds an integer to the nearest multiple of 8.
+        /// </summary>
+        /// <param name="n">Integer to round.</param>
+        /// <returns>Integer rounded to the nearest multiple of 8.</returns>
+        public static long RoundUpToMultipleOf8(long n) =>
+            RoundUpToMultiplePowerOfTwo(n, 8);
+
+        /// <summary>
         /// Rounds an integer up to the nearest multiple of factor, where
         /// factor must be a power of two.
         /// 

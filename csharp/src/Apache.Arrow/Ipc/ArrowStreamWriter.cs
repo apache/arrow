@@ -45,17 +45,19 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<StringArray>,
             IArrowArrayVisitor<BinaryArray>
         {
-            public struct Buffer
+            public readonly struct Buffer
             {
                 public readonly ArrowBuffer DataBuffer;
                 public readonly int Offset;
                 public readonly int Length;
+                public readonly int Padding;
 
-                public Buffer(ArrowBuffer buffer, int offset, int length)
+                public Buffer(ArrowBuffer buffer, int offset, int length, int padding)
                 {
                     DataBuffer = buffer;
                     Offset = offset;
                     Length = length;
+                    Padding = padding;
                 }
             }
 
@@ -124,9 +126,11 @@ namespace Apache.Arrow.Ipc
             {
                 var offset = TotalLength;
 
-                TotalLength += buffer.Length;
+                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(buffer.Length));
+                TotalLength += paddedLength;
 
-                return new Buffer(buffer, offset, buffer.Length);
+                int padding = paddedLength - buffer.Length;
+                return new Buffer(buffer, offset, buffer.Length, padding);
             }
 
             public void Visit(IArrowArray array)
@@ -242,7 +246,8 @@ namespace Apache.Arrow.Ipc
                     continue;
 
                 await WriteBufferAsync(buffers[i].DataBuffer, cancellationToken).ConfigureAwait(false);
-                bodyLength += buffers[i].DataBuffer.Length;
+                await WritePaddingAsync(buffers[i].Padding).ConfigureAwait(false);
+                bodyLength += buffers[i].DataBuffer.Length + buffers[i].Padding;
             }
 
             // Write padding so the record batch message body length is a multiple of 8 bytes
