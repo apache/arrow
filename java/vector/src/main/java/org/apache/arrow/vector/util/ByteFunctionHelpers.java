@@ -67,6 +67,18 @@ public class ByteFunctionHelpers {
         rPos += 8;
         n -= 8;
       }
+
+      while (n > 3) {
+        int leftInt = PlatformDependent.getInt(lPos);
+        int rightInt = PlatformDependent.getInt(rPos);
+        if (leftInt != rightInt) {
+          return 0;
+        }
+        lPos += 4;
+        rPos += 4;
+        n -= 4;
+      }
+
       while (n-- != 0) {
         byte leftByte = PlatformDependent.getByte(lPos);
         byte rightByte = PlatformDependent.getByte(rPos);
@@ -133,6 +145,17 @@ public class ByteFunctionHelpers {
       n -= 8;
     }
 
+    while (n > 3) {
+      int leftInt = PlatformDependent.getInt(lPos);
+      int rightInt = PlatformDependent.getInt(rPos);
+      if (leftInt != rightInt) {
+        return unsignedIntCompare(Integer.reverseBytes(leftInt), Integer.reverseBytes(rightInt));
+      }
+      lPos += 4;
+      rPos += 4;
+      n -= 4;
+    }
+
     while (n-- != 0) {
       byte leftByte = PlatformDependent.getByte(lPos);
       byte rightByte = PlatformDependent.getByte(rPos);
@@ -189,6 +212,9 @@ public class ByteFunctionHelpers {
     return Long.compare(a ^ Long.MIN_VALUE, b ^ Long.MIN_VALUE);
   }
 
+  public static int unsignedIntCompare(int a, int b) {
+    return Integer.compare(a ^ Integer.MIN_VALUE, b ^ Integer.MIN_VALUE);
+  }
 
   private static int memcmp(
       final long laddr,
