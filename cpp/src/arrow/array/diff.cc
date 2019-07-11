@@ -27,6 +27,7 @@
 #include "arrow/buffer-builder.h"
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
+#include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/lazy.h"
@@ -42,8 +43,63 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::MakeLazyRange;
 
+template <typename ArrayType>
+auto GetView(const ArrayType& array, int64_t index) -> decltype(array.GetView(index)) {
+  return array.GetView(index);
+}
+
+struct Slice {
+  const Array* array_;
+  int32_t offset_, length_;
+
+  bool operator==(const Slice& other) const {
+    return length_ == other.length_ &&
+           array_->RangeEquals(offset_, offset_ + length_, other.offset_, *other.array_);
+  }
+  bool operator!=(const Slice& other) const { return !(*this == other); }
+};
+
+static Slice GetView(const ListArray& array, int64_t index) {
+  return Slice{array.values().get(), array.value_offset(index),
+               array.value_length(index)};
+}
+
+static Slice GetView(const FixedSizeListArray& array, int64_t index) {
+  return Slice{array.values().get(), array.value_offset(index),
+               array.value_length(index)};
+}
+
+struct NullTag {
+  constexpr bool operator==(const NullTag& other) const { return true; }
+  constexpr bool operator!=(const NullTag& other) const { return false; }
+};
+
+template <typename T>
+class NullOr {
+ public:
+  using VariantType = util::variant<NullTag, T>;
+
+  NullOr() : variant_(NullTag{}) {}
+  explicit NullOr(T t) : variant_(std::move(t)) {}
+
+  template <typename ArrayType>
+  NullOr(const ArrayType& array, int64_t index) {
+    if (array.IsNull(index)) {
+      variant_.emplace(NullTag{});
+    } else {
+      variant_.emplace(GetView(array, index));
+    }
+  }
+
+  bool operator==(const NullOr& other) const { return variant_ == other.variant_; }
+  bool operator!=(const NullOr& other) const { return variant_ != other.variant_; }
+
+ private:
+  VariantType variant_;
+};
+
 template <typename ArrayType,
-          typename View = decltype(std::declval<ArrayType>().GetView(0))>
+          typename View = decltype(GetView(std::declval<ArrayType>(), 0))>
 class ViewGenerator {
  public:
   explicit ViewGenerator(const Array& array)
@@ -51,7 +107,7 @@ class ViewGenerator {
     DCHECK_EQ(array.null_count(), 0);
   }
 
-  View operator()(int64_t index) const { return array_.GetView(index); }
+  View operator()(int64_t index) const { return GetView(array_, index); }
 
  private:
   const ArrayType& array_;
@@ -63,34 +119,15 @@ internal::LazyRange<ViewGenerator<ArrayType>> MakeViewRange(const Array& array) 
   return internal::LazyRange<Generator>(Generator(array), array.length());
 }
 
-struct NullTag {
-  constexpr bool operator==(const NullTag& other) const { return true; }
-  constexpr bool operator!=(const NullTag& other) const { return false; }
-};
-
-template <typename T>
-struct NullOr {
-  using VariantType = util::variant<NullTag, T>;
-
-  NullOr() : variant_(NullTag{}) {}
-  explicit NullOr(T t) : variant_(std::move(t)) {}
-
-  bool operator==(const NullOr& other) const { return variant_ == other.variant_; }
-  bool operator!=(const NullOr& other) const { return variant_ != other.variant_; }
-
- private:
-  VariantType variant_;
-};
-
 template <typename ArrayType,
-          typename View = decltype(std::declval<ArrayType>().GetView(0))>
+          typename View = decltype(GetView(std::declval<ArrayType>(), 0))>
 class NullOrViewGenerator {
  public:
   explicit NullOrViewGenerator(const Array& array)
       : array_(checked_cast<const ArrayType&>(array)) {}
 
   NullOr<View> operator()(int64_t index) const {
-    return array_.IsNull(index) ? NullOr<View>() : NullOr<View>(array_.GetView(index));
+    return array_.IsNull(index) ? NullOr<View>() : NullOr<View>(GetView(array_, index));
   }
 
  private:
@@ -103,6 +140,24 @@ internal::LazyRange<NullOrViewGenerator<ArrayType>> MakeNullOrViewRange(
   using Generator = NullOrViewGenerator<ArrayType>;
   return internal::LazyRange<Generator>(Generator(array), array.length());
 }
+
+template <typename ArrayType>
+class NullOrListGenerator {
+ public:
+  explicit NullOrListGenerator(const Array& array)
+      : array_(checked_cast<const ArrayType&>(array)), values_(array_.values()) {}
+
+  NullOr<Slice> operator()(int64_t index) const {
+    return array_.IsNull(index)
+               ? NullOr<Slice>()
+               : NullOr<Slice>(Slice{array_.value_offset(index),
+                                     array_.value_length(index), *values_});
+  }
+
+ private:
+  const ArrayType& array_;
+  std::shared_ptr<Array> values_;
+};
 
 template <typename Iterator>
 class DiffImpl {
@@ -262,7 +317,7 @@ struct array_has_GetView {
   static std::false_type test(...);
 
   template <typename U>
-  static std::true_type test(U*, decltype(std::declval<U>().GetView(0)) = {});
+  static std::true_type test(U*, decltype(GetView(std::declval<U>(), 0)) = {});
 
   static constexpr bool value = decltype(array_has_GetView::test(
       static_cast<typename TypeTraits<T>::ArrayType*>(nullptr)))::value;
@@ -274,7 +329,7 @@ static_assert(array_has_GetView<Int32Type>::value, "int32");
 static_assert(array_has_GetView<BinaryType>::value, "binary");
 static_assert(array_has_GetView<Date32Type>::value, "date32");
 static_assert(!array_has_GetView<StructType>::value, "struct");
-static_assert(!array_has_GetView<ListType>::value, "list");
+static_assert(array_has_GetView<ListType>::value, "list");
 
 struct DiffImplVisitor {
   Status Visit(const NullType&) {
@@ -389,13 +444,14 @@ Status DiffVisitor::Visit(const Array& edits) {
 }
 
 // format Booleans as true/false
-void Format(std::ostream& os, const BooleanArray& arr, int64_t index) {
+Status Format(std::ostream& os, const BooleanArray& arr, int64_t index) {
   os << (arr.Value(index) ? "true" : "false");
+  return Status::OK();
 }
 
 // format Numerics with std::ostream defaults
 template <typename T>
-void Format(std::ostream& os, const NumericArray<T>& arr, int64_t index) {
+Status Format(std::ostream& os, const NumericArray<T>& arr, int64_t index) {
   if (sizeof(decltype(arr.Value(index))) == sizeof(char)) {
     // override std::ostream defaults for /(u|)int8_t/ since they are
     // formatted as potentially unprintable/tty borking characters
@@ -403,22 +459,33 @@ void Format(std::ostream& os, const NumericArray<T>& arr, int64_t index) {
   } else {
     os << arr.Value(index);
   }
+  return Status::OK();
 }
+
+// TODO(bkietz) format dates, times, and timestamps in a human readable format
 
 // format Binary and FixedSizeBinary in hexadecimal
 template <typename A>
-enable_if_binary_like<A> Format(std::ostream& os, const A& arr, int64_t index) {
+enable_if_binary_like<A, Status> Format(std::ostream& os, const A& arr, int64_t index) {
   os << HexEncode(arr.GetView(index));
+  return Status::OK();
 }
 
 // format Strings with \"\n\r\t\\ escaped
-void Format(std::ostream& os, const StringArray& arr, int64_t index) {
+Status Format(std::ostream& os, const StringArray& arr, int64_t index) {
   os << "\"" << Escape(arr.GetView(index)) << "\"";
+  return Status::OK();
 }
 
 // format Decimals with Decimal128Array::FormatValue
-void Format(std::ostream& os, const Decimal128Array& arr, int64_t index) {
+Status Format(std::ostream& os, const Decimal128Array& arr, int64_t index) {
   os << arr.FormatValue(index);
+  return Status::OK();
+}
+
+// format Lists using PrettyPrint
+Status Format(std::ostream& os, const ListArray& arr, int64_t index) {
+  return PrettyPrint(*arr.value_slice(index), 1, &os);
 }
 
 template <typename ArrayType>
@@ -455,7 +522,7 @@ class UnifiedDiffFormatter : public DiffVisitor {
     os_ << "@@ -" << base_begin_ << ", +" << target_begin_ << " @@" << std::endl;
     for (int64_t i = base_begin_; i < base_end_; ++i) {
       if (base_.IsValid(i)) {
-        Format(os_ << "-", base_, i);
+        RETURN_NOT_OK(Format(os_ << "-", base_, i));
       } else {
         os_ << "-null";
       }
@@ -464,7 +531,7 @@ class UnifiedDiffFormatter : public DiffVisitor {
     base_begin_ = base_end_ += length;
     for (int64_t i = target_begin_; i < target_end_; ++i) {
       if (target_.IsValid(i)) {
-        Format(os_ << "+", target_, i);
+        RETURN_NOT_OK(Format(os_ << "+", target_, i));
       } else {
         os_ << "+null";
       }

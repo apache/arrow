@@ -176,7 +176,7 @@ TEST_F(DiffTest, Errors) {
 
   formatted.str("");
   ASSERT_FALSE(base_->Equals(*target_, EqualOptions().diff_sink(&formatted)));
-  ASSERT_EQ(formatted.str(), R"(# Nested arrays of struct<> differed)");
+  ASSERT_EQ(formatted.str(), R"(# Arrays of struct<> differed)");
 }
 
 TYPED_TEST_CASE(DiffTestWithNumeric, NumericArrowTypes);
@@ -307,6 +307,52 @@ TEST_F(DiffTest, BasicsWithStrings) {
   ASSERT_EQ(run_lengths_->Value(2), 0);
 }
 
+TEST_F(DiffTest, BasicsWithLists) {
+  // insert one
+  base_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [], [13]])");
+  target_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [5, 9], [], [13]])");
+  DoDiff();
+  ASSERT_EQ(edits_->length(), 2);
+  ASSERT_EQ(insert_->Value(0), false);
+  ASSERT_EQ(run_lengths_->Value(0), 1);
+  ASSERT_EQ(insert_->Value(1), true);
+  ASSERT_EQ(run_lengths_->Value(1), 2);
+
+  // delete one
+  base_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [5, 9], [], [13]])");
+  target_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [], [13]])");
+  DoDiff();
+  ASSERT_EQ(edits_->length(), 2);
+  ASSERT_EQ(insert_->Value(0), false);
+  ASSERT_EQ(run_lengths_->Value(0), 1);
+  ASSERT_EQ(insert_->Value(1), false);
+  ASSERT_EQ(run_lengths_->Value(1), 2);
+
+  // change one
+  base_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [], [13]])");
+  target_ = ArrayFromJSON(list(int32()), R"([[3, 3, 3], [], [13]])");
+  DoDiff();
+  ASSERT_EQ(edits_->length(), 3);
+  ASSERT_EQ(insert_->Value(0), false);
+  ASSERT_EQ(run_lengths_->Value(0), 0);
+  ASSERT_EQ(insert_->Value(1), false);
+  ASSERT_EQ(run_lengths_->Value(1), 0);
+  ASSERT_EQ(insert_->Value(2), true);
+  ASSERT_EQ(run_lengths_->Value(2), 2);
+
+  // null out one
+  base_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [], [13]])");
+  target_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [], null])");
+  DoDiff();
+  ASSERT_EQ(edits_->length(), 3);
+  ASSERT_EQ(insert_->Value(0), false);
+  ASSERT_EQ(run_lengths_->Value(0), 2);
+  ASSERT_EQ(insert_->Value(1), false);
+  ASSERT_EQ(run_lengths_->Value(1), 0);
+  ASSERT_EQ(insert_->Value(2), true);
+  ASSERT_EQ(run_lengths_->Value(2), 0);
+}
+
 TEST_F(DiffTest, UnifiedDiffFormatter) {
   // no changes
   base_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break"])");
@@ -346,6 +392,19 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
 @@ -2, +2 @@
 -"break"
 +null
+)");
+
+  // lists
+  base_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [], [13], []])");
+  target_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [5, 9], [], [13]])");
+  AssertDiffAndFormat(R"(
+@@ -1, +1 @@
++ [
+   5,
+   9
+ ]
+@@ -3, +4 @@
+- []
 )");
 
   // small difference
