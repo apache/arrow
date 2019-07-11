@@ -17,7 +17,8 @@
 
 package org.apache.arrow.vector.util;
 
-import io.netty.buffer.ArrowBuf;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.Test;
@@ -34,7 +35,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-import java.util.concurrent.TimeUnit;
+import io.netty.buffer.ArrowBuf;
 
 /**
  * Benchmarks for {@link ByteFunctionHelpers}.
