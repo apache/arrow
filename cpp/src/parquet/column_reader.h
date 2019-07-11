@@ -186,7 +186,7 @@ static inline void DefinitionLevelsToBitmap(
   // We assume here that valid_bits is large enough to accommodate the
   // additional definition levels and the ones that have already been written
   ::arrow::internal::BitmapWriter valid_bits_writer(valid_bits, valid_bits_offset,
-                                                    valid_bits_offset + num_def_levels);
+                                                    num_def_levels);
 
   // TODO(itaiin): As an interim solution we are splitting the code path here
   // between repeated+flat column reads, and non-repeated+nested reads.
