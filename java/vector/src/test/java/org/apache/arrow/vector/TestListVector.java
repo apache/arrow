@@ -135,7 +135,7 @@ public class TestListVector {
       BigIntVector dataVector = (BigIntVector) listVector.getDataVector();
 
       /* check current lastSet */
-      assertEquals(Integer.toString(0), Integer.toString(listVector.getLastSet()));
+      assertEquals(Integer.toString(-1), Integer.toString(listVector.getLastSet()));
 
       int index = 0;
       int offset = 0;
@@ -165,7 +165,7 @@ public class TestListVector {
       offsetBuffer.setInt((index + 1) * ListVector.OFFSET_WIDTH, 8);
 
       /* check current lastSet */
-      assertEquals(Integer.toString(0), Integer.toString(listVector.getLastSet()));
+      assertEquals(Integer.toString(-1), Integer.toString(listVector.getLastSet()));
 
       /* set lastset and arbitrary valuecount for list vector.
        *
@@ -206,7 +206,7 @@ public class TestListVector {
        *                [15, 16, 17]
        *              }
        */
-      listVector.setLastSet(3);
+      listVector.setLastSet(2);
       listVector.setValueCount(10);
 
       /* (3+2+3)/10 */
@@ -307,7 +307,7 @@ public class TestListVector {
 
       listVector.setValueCount(5);
 
-      assertEquals(5, listVector.getLastSet());
+      assertEquals(4, listVector.getLastSet());
 
       /* get offset buffer */
       final ArrowBuf offsetBuffer = listVector.getOffsetBuffer();
@@ -501,7 +501,7 @@ public class TestListVector {
 
       listWriter.endList();
 
-      assertEquals(2, listVector.getLastSet());
+      assertEquals(1, listVector.getLastSet());
 
       listVector.setValueCount(2);
 
@@ -635,7 +635,7 @@ public class TestListVector {
 
       listWriter.endList();
 
-      assertEquals(2, listVector.getLastSet());
+      assertEquals(1, listVector.getLastSet());
 
       listVector.setValueCount(2);
 
