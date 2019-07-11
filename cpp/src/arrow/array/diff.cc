@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/buffer-builder.h"
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -212,8 +213,8 @@ class DiffImpl {
     int64_t length = edit_count_ + 1;
     std::shared_ptr<Buffer> insert_buf, run_length_buf;
     RETURN_NOT_OK(AllocateBitmap(pool, length, &insert_buf));
-    RETURN_NOT_OK(AllocateBuffer(pool, length * sizeof(int64_t), &run_length_buf));
-    auto run_length = reinterpret_cast<int64_t*>(run_length_buf->mutable_data());
+    RETURN_NOT_OK(AllocateBuffer(pool, length * sizeof(uint64_t), &run_length_buf));
+    auto run_length = reinterpret_cast<uint64_t*>(run_length_buf->mutable_data());
 
     auto index = finish_index_;
     auto endpoint = GetEditPoint(edit_count_, finish_index_);
@@ -276,6 +277,34 @@ static_assert(!array_has_GetView<StructType>::value, "struct");
 static_assert(!array_has_GetView<ListType>::value, "list");
 
 struct DiffImplVisitor {
+  Status Visit(const NullType&) {
+    bool insert = base_.length() < target_.length();
+    auto run_length = std::min(base_.length(), target_.length());
+    auto edit_count = std::max(base_.length(), target_.length()) - run_length;
+
+    TypedBufferBuilder<bool> insert_builder(pool_);
+    RETURN_NOT_OK(insert_builder.Resize(edit_count + 1));
+    insert_builder.UnsafeAppend(false);
+    TypedBufferBuilder<uint64_t> run_length_builder(pool_);
+    RETURN_NOT_OK(run_length_builder.Resize(edit_count + 1));
+    run_length_builder.UnsafeAppend(run_length);
+    if (edit_count > 0) {
+      insert_builder.UnsafeAppend(edit_count, insert);
+      run_length_builder.UnsafeAppend(edit_count, 0);
+    }
+
+    std::shared_ptr<Buffer> insert_buf, run_length_buf;
+    RETURN_NOT_OK(insert_builder.Finish(&insert_buf));
+    RETURN_NOT_OK(run_length_builder.Finish(&run_length_buf));
+
+    ARROW_ASSIGN_OR_RAISE(
+        *out_,
+        StructArray::Make({std::make_shared<BooleanArray>(edit_count + 1, insert_buf),
+                           std::make_shared<UInt64Array>(edit_count + 1, run_length_buf)},
+                          {"insert", "run_length"}));
+    return Status::OK();
+  }
+
   template <typename T>
   typename std::enable_if<array_has_GetView<T>::value, Status>::type Visit(const T&) {
     using ArrayType = typename TypeTraits<T>::ArrayType;

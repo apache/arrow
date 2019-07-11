@@ -128,7 +128,19 @@ TEST_F(DiffTest, Trivial) {
   target_ = ArrayFromJSON(int32(), "[]");
   DoDiff();
   ASSERT_EQ(edits_->length(), 1);
+  ASSERT_EQ(insert_->Value(0), false);
   ASSERT_EQ(run_lengths_->Value(0), 0);
+
+  base_ = ArrayFromJSON(null(), "[null, null]");
+  target_ = ArrayFromJSON(null(), "[null, null, null, null]");
+  DoDiff();
+  ASSERT_EQ(edits_->length(), 3);
+  ASSERT_EQ(insert_->Value(0), false);
+  ASSERT_EQ(run_lengths_->Value(0), 2);
+  ASSERT_EQ(insert_->Value(1), true);
+  ASSERT_EQ(run_lengths_->Value(1), 0);
+  ASSERT_EQ(insert_->Value(2), true);
+  ASSERT_EQ(run_lengths_->Value(2), 0);
 
   base_ = ArrayFromJSON(int32(), "[1, 2, 3]");
   target_ = ArrayFromJSON(int32(), "[1, 2, 3]");
@@ -150,6 +162,10 @@ TEST_F(DiffTest, Errors) {
   base_ = ArrayFromJSON(int32(), "[]");
   target_ = ArrayFromJSON(utf8(), "[]");
   ASSERT_RAISES(TypeError, Diff(*base_, *target_, default_memory_pool(), &edits_));
+
+  base_ = ArrayFromJSON(struct_({}), "[]");
+  target_ = ArrayFromJSON(struct_({}), "[]");
+  ASSERT_RAISES(NotImplemented, Diff(*base_, *target_, default_memory_pool(), &edits_));
 }
 
 TYPED_TEST_CASE(DiffTestWithNumeric, NumericArrowTypes);
