@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using Apache.Arrow.Ipc;
+using Apache.Arrow.Types;
 using System;
 using System.IO;
 using System.Linq;
@@ -136,6 +137,61 @@ namespace Apache.Arrow.Tests
                 {
                     RecordBatch newBatch = reader.ReadNextRecordBatch();
                     ArrowReaderVerifier.CompareBatches(originalBatch, newBatch);
+                }
+            }
+        }
+
+        [Fact]
+        public async Task WriteBatchWithCorrectPadding()
+        {
+            byte value1 = 0x04;
+            byte value2 = 0x14;
+            var batch = new RecordBatch(
+                new Schema.Builder()
+                    .Field(f => f.Name("age").DataType(Int32Type.Default))
+                    .Field(f => f.Name("characterCount").DataType(Int32Type.Default))
+                    .Build(),
+                new IArrowArray[]
+                {
+                    new Int32Array(
+                        new ArrowBuffer(new byte[] { value1, value1, 0x00, 0x00 }),
+                        ArrowBuffer.Empty,
+                        length: 1,
+                        nullCount: 0,
+                        offset: 0),
+                    new Int32Array(
+                        new ArrowBuffer(new byte[] { value2, value2, 0x00, 0x00 }),
+                        ArrowBuffer.Empty,
+                        length: 1,
+                        nullCount: 0,
+                        offset: 0)
+                },
+                length: 1);
+
+            await TestRoundTripRecordBatch(batch);
+
+            using (MemoryStream stream = new MemoryStream())
+            {
+                using (var writer = new ArrowStreamWriter(stream, batch.Schema, leaveOpen: true))
+                {
+                    await writer.WriteRecordBatchAsync(batch);
+                }
+
+                byte[] writtenBytes = stream.ToArray();
+
+                // ensure that the data buffers at the end are 8-byte aligned
+                Assert.Equal(value1, writtenBytes[writtenBytes.Length - 16]);
+                Assert.Equal(value1, writtenBytes[writtenBytes.Length - 15]);
+                for (int i = 14; i > 8; i--)
+                {
+                    Assert.Equal(0, writtenBytes[writtenBytes.Length - i]);
+                }
+
+                Assert.Equal(value2, writtenBytes[writtenBytes.Length - 8]);
+                Assert.Equal(value2, writtenBytes[writtenBytes.Length - 7]);
+                for (int i = 6; i > 0; i--)
+                {
+                    Assert.Equal(0, writtenBytes[writtenBytes.Length - i]);
                 }
             }
         }
