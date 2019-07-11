@@ -400,6 +400,21 @@ services:
       dockerfile: r/Dockerfile
     volumes: *ubuntu-volumes
 
+  r-conda:
+    # Usage:
+    #   export R_VERSION=3.5.1
+    #   docker-compose build cpp
+    #   docker-compose build r-conda
+    #   docker-compose run r-conda
+    image: arrow:r-conda-${R_VERSION:-3.5.1}
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: r/Dockerfile.conda
+      args:
+        R_VERSION: ${R_VERSION:-3.5.1}
+    volumes: *ubuntu-volumes
+
   ######################### Tools and Linters #################################
 
   # TODO(kszucs): site

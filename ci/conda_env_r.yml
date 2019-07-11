@@ -1,0 +1,19 @@
+r-assertthat
+r-base
+r-bit64
+r-fs
+r-purrr
+r-r6
+r-rcpp >=0.12.18.2
+r-rlang
+r-tidyselect
+# Test dependencies
+pandoc
+r-covr
+r-hms
+r-lubridate
+r-pkgdown
+r-rmarkdown
+r-roxygen2
+r-testthat
+r-tibble
