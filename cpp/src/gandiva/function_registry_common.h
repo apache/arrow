@@ -18,6 +18,7 @@
 #ifndef GANDIVA_FUNCTION_REGISTRY_COMMON_H
 #define GANDIVA_FUNCTION_REGISTRY_COMMON_H
 
+#include <string>
 #include <memory>
 #include <unordered_map>
 #include <vector>
@@ -74,9 +75,10 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 // - NULL handling is of type NULL_IF_NULL
 //
 // The pre-compiled fn name includes the base name & input type names. eg. add_int32_int32
-#define BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)          \
-  NativeFunction(#NAME, ALIASES, DataTypeVector{TYPE(), TYPE()}, TYPE(), \
-                 kResultNullIfNull, ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE))
+#define BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)             \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                   \
+                 DataTypeVector{TYPE(), TYPE()}, TYPE(), kResultNullIfNull, \
+                 ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE))
 
 // Binary functions that :
 // - have the same input type for both params
@@ -84,9 +86,10 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 // - can return error.
 //
 // The pre-compiled fn name includes the base name & input type names. eg. add_int32_int32
-#define BINARY_UNSAFE_NULL_IF_NULL(NAME, ALIASES, IN_TYPE, OUT_TYPE)               \
-  NativeFunction(#NAME, ALIASES, DataTypeVector{IN_TYPE(), IN_TYPE()}, OUT_TYPE(), \
-                 kResultNullIfNull, ARROW_STRINGIFY(NAME##_##IN_TYPE##_##IN_TYPE), \
+#define BINARY_UNSAFE_NULL_IF_NULL(NAME, ALIASES, IN_TYPE, OUT_TYPE)                  \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                             \
+                 DataTypeVector{IN_TYPE(), IN_TYPE()}, OUT_TYPE(), kResultNullIfNull, \
+                 ARROW_STRINGIFY(NAME##_##IN_TYPE##_##IN_TYPE),                       \
                  NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
 
 #define BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(NAME, ALIASES, TYPE) \
@@ -97,9 +100,10 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 // - NULL handling is of type NULL_IF_NULL
 //
 // The pre-compiled fn name includes the base name & input type names. eg. mod_int64_int32
-#define BINARY_GENERIC_SAFE_NULL_IF_NULL(NAME, ALIASES, IN_TYPE1, IN_TYPE2, OUT_TYPE) \
-  NativeFunction(#NAME, ALIASES, DataTypeVector{IN_TYPE1(), IN_TYPE2()}, OUT_TYPE(),  \
-                 kResultNullIfNull, ARROW_STRINGIFY(NAME##_##IN_TYPE1##_##IN_TYPE2))
+#define BINARY_GENERIC_SAFE_NULL_IF_NULL(NAME, ALIASES, IN_TYPE1, IN_TYPE2, OUT_TYPE)   \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                               \
+                 DataTypeVector{IN_TYPE1(), IN_TYPE2()}, OUT_TYPE(), kResultNullIfNull, \
+                 ARROW_STRINGIFY(NAME##_##IN_TYPE1##_##IN_TYPE2))
 
 // Binary functions that :
 // - have the same input type
@@ -108,33 +112,34 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 //
 // The pre-compiled fn name includes the base name & input type names.
 // eg. equal_int32_int32
-#define BINARY_RELATIONAL_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)            \
-  NativeFunction(#NAME, ALIASES, DataTypeVector{TYPE(), TYPE()}, boolean(), \
-                 kResultNullIfNull, ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE))
+#define BINARY_RELATIONAL_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)               \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                      \
+                 DataTypeVector{TYPE(), TYPE()}, boolean(), kResultNullIfNull, \
+                 ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE))
 
 // Unary functions that :
 // - NULL handling is of type NULL_IF_NULL
 //
 // The pre-compiled fn name includes the base name & input type name. eg. castFloat_int32
-#define UNARY_SAFE_NULL_IF_NULL(NAME, ALIASES, IN_TYPE, OUT_TYPE)       \
-  NativeFunction(#NAME, ALIASES, DataTypeVector{IN_TYPE()}, OUT_TYPE(), \
-                 kResultNullIfNull, ARROW_STRINGIFY(NAME##_##IN_TYPE))
+#define UNARY_SAFE_NULL_IF_NULL(NAME, ALIASES, IN_TYPE, OUT_TYPE)                    \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{IN_TYPE()}, \
+                 OUT_TYPE(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_##IN_TYPE))
 
 // Unary functions that :
 // - NULL handling is of type NULL_NEVER
 //
 // The pre-compiled fn name includes the base name & input type name. eg. isnull_int32
-#define UNARY_SAFE_NULL_NEVER_BOOL(NAME, ALIASES, TYPE)                               \
-  NativeFunction(#NAME, ALIASES, DataTypeVector{TYPE()}, boolean(), kResultNullNever, \
-                 ARROW_STRINGIFY(NAME##_##TYPE))
+#define UNARY_SAFE_NULL_NEVER_BOOL(NAME, ALIASES, TYPE)                           \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
+                 boolean(), kResultNullNever, ARROW_STRINGIFY(NAME##_##TYPE))
 
 // Unary functions that :
 // - NULL handling is of type NULL_INTERNAL
 //
 // The pre-compiled fn name includes the base name & input type name. eg. castFloat_int32
-#define UNARY_UNSAFE_NULL_IF_NULL(NAME, ALIASES, IN_TYPE, OUT_TYPE)     \
-  NativeFunction(#NAME, ALIASES, DataTypeVector{IN_TYPE()}, OUT_TYPE(), \
-                 kResultNullIfNull, ARROW_STRINGIFY(NAME##_##IN_TYPE),  \
+#define UNARY_UNSAFE_NULL_IF_NULL(NAME, ALIASES, IN_TYPE, OUT_TYPE)                  \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{IN_TYPE()}, \
+                 OUT_TYPE(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_##IN_TYPE),   \
                  NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
 
 // Binary functions that :
@@ -142,49 +147,52 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 //
 // The pre-compiled fn name includes the base name & input type names,
 // eg. is_distinct_from_int32_int32
-#define BINARY_SAFE_NULL_NEVER_BOOL(NAME, ALIASES, TYPE)                    \
-  NativeFunction(#NAME, ALIASES, DataTypeVector{TYPE(), TYPE()}, boolean(), \
-                 kResultNullNever, ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE))
+#define BINARY_SAFE_NULL_NEVER_BOOL(NAME, ALIASES, TYPE)                      \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                     \
+                 DataTypeVector{TYPE(), TYPE()}, boolean(), kResultNullNever, \
+                 ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE))
 
 // Extract functions (used with data/time types) that :
 // - NULL handling is of type NULL_IF_NULL
 //
 // The pre-compiled fn name includes the base name & input type name. eg. extractYear_date
-#define EXTRACT_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                               \
-  NativeFunction(#NAME, ALIASES, DataTypeVector{TYPE()}, int64(), kResultNullIfNull, \
-                 ARROW_STRINGIFY(NAME##_##TYPE))
+#define EXTRACT_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                            \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
+                 int64(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_##TYPE))
 
 // Hash32 functions that :
 // - NULL handling is of type NULL_NEVER
 //
 // The pre-compiled fn name includes the base name & input type name. hash32_int8
-#define HASH32_SAFE_NULL_NEVER(NAME, ALIASES, TYPE)                                 \
-  NativeFunction(#NAME, ALIASES, DataTypeVector{TYPE()}, int32(), kResultNullNever, \
-                 ARROW_STRINGIFY(NAME##_##TYPE))
+#define HASH32_SAFE_NULL_NEVER(NAME, ALIASES, TYPE)                               \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
+                 int32(), kResultNullNever, ARROW_STRINGIFY(NAME##_##TYPE))
 
 // Hash32 functions that :
 // - NULL handling is of type NULL_NEVER
 //
 // The pre-compiled fn name includes the base name & input type name. hash32_int8
-#define HASH64_SAFE_NULL_NEVER(NAME, ALIASES, TYPE)                                 \
-  NativeFunction(#NAME, ALIASES, DataTypeVector{TYPE()}, int64(), kResultNullNever, \
-                 ARROW_STRINGIFY(NAME##_##TYPE))
+#define HASH64_SAFE_NULL_NEVER(NAME, ALIASES, TYPE)                               \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
+                 int64(), kResultNullNever, ARROW_STRINGIFY(NAME##_##TYPE))
 
 // Hash32 functions with seed that :
 // - NULL handling is of type NULL_NEVER
 //
 // The pre-compiled fn name includes the base name & input type name. hash32WithSeed_int8
-#define HASH32_SEED_SAFE_NULL_NEVER(NAME, ALIASES, TYPE)                   \
-  NativeFunction(#NAME, ALIASES, DataTypeVector{TYPE(), int32()}, int32(), \
-                 kResultNullNever, ARROW_STRINGIFY(NAME##WithSeed_##TYPE))
+#define HASH32_SEED_SAFE_NULL_NEVER(NAME, ALIASES, TYPE)                     \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                    \
+                 DataTypeVector{TYPE(), int32()}, int32(), kResultNullNever, \
+                 ARROW_STRINGIFY(NAME##WithSeed_##TYPE))
 
 // Hash64 functions with seed that :
 // - NULL handling is of type NULL_NEVER
 //
 // The pre-compiled fn name includes the base name & input type name. hash32WithSeed_int8
-#define HASH64_SEED_SAFE_NULL_NEVER(NAME, ALIASES, TYPE)                   \
-  NativeFunction(#NAME, ALIASES, DataTypeVector{TYPE(), int64()}, int64(), \
-                 kResultNullNever, ARROW_STRINGIFY(NAME##WithSeed_##TYPE))
+#define HASH64_SEED_SAFE_NULL_NEVER(NAME, ALIASES, TYPE)                     \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                    \
+                 DataTypeVector{TYPE(), int64()}, int64(), kResultNullNever, \
+                 ARROW_STRINGIFY(NAME##WithSeed_##TYPE))
 
 // Iterate the inner macro over all numeric types
 #define NUMERIC_TYPES(INNER, NAME, ALIASES)                                             \
