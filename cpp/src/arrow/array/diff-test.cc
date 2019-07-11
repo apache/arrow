@@ -96,13 +96,25 @@ class DiffTest : public ::testing::Test {
     run_lengths_ = checked_pointer_cast<UInt64Array>(edits.field(1));
   }
 
-  void DoDiffAndFormat(std::string* out) {
+  void DoDiffAndFormat(std::stringstream* out) {
     DoDiff();
-    std::stringstream ss;
-    auto formatter = MakeUnifiedDiffFormatter(ss, *base_, *target_);
+    auto formatter = MakeUnifiedDiffFormatter(*out, *base_, *target_);
     ASSERT_OK(formatter.status());
     ASSERT_OK(formatter.ValueOrDie()->Visit(*edits_));
-    *out = ss.str();
+  }
+
+  // validate diff and assert that it formats as expected, both directly
+  // and through Array::Equals
+  void AssertDiffAndFormat(const std::string& formatted_expected) {
+    std::stringstream formatted;
+
+    DoDiffAndFormat(&formatted);
+    ASSERT_EQ(formatted.str(), formatted_expected) << "formatted diff incorrectly";
+    formatted.str("");
+
+    base_->Equals(*target_, EqualOptions().diff_sink(&formatted));
+    ASSERT_EQ(formatted.str(), formatted_expected)
+        << "Array::Equals formatted diff incorrectly";
   }
 
   random::RandomArrayGenerator rng_;
@@ -200,11 +212,11 @@ TYPED_TEST(DiffTestWithNumeric, CompareRandomNumeric) {
       ASSERT_OK(compute::Filter(&ctx, *values, *filter_1, &this->base_));
       ASSERT_OK(compute::Filter(&ctx, *values, *filter_2, &this->target_));
 
-      std::string formatted;
+      std::stringstream formatted;
       this->DoDiffAndFormat(&formatted);
       auto st = AssertEditScript{*this->base_, *this->target_}.Visit(*this->edits_);
       if (!st.ok()) {
-        ASSERT_OK(Status(st.code(), st.message() + "\n" + formatted));
+        ASSERT_OK(Status(st.code(), st.message() + "\n" + formatted.str()));
       }
     }
   }
@@ -245,13 +257,10 @@ TEST_F(DiffTest, BasicsWithStrings) {
 }
 
 TEST_F(DiffTest, UnifiedDiffFormatter) {
-  std::string formatted;
-
   // insert one
   base_ = ArrayFromJSON(utf8(), R"(["give", "a", "break"])");
   target_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break"])");
-  DoDiffAndFormat(&formatted);
-  ASSERT_EQ(formatted, R"(
+  AssertDiffAndFormat(R"(
 @@ -1, +1 @@
 +"me"
 )");
@@ -259,8 +268,7 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
   // delete one
   base_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break"])");
   target_ = ArrayFromJSON(utf8(), R"(["give", "a", "break"])");
-  DoDiffAndFormat(&formatted);
-  ASSERT_EQ(formatted, R"(
+  AssertDiffAndFormat(R"(
 @@ -1, +1 @@
 -"me"
 )");
@@ -268,8 +276,7 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
   // change one
   base_ = ArrayFromJSON(utf8(), R"(["give", "a", "break"])");
   target_ = ArrayFromJSON(utf8(), R"(["gimme", "a", "break"])");
-  DoDiffAndFormat(&formatted);
-  ASSERT_EQ(formatted, R"(
+  AssertDiffAndFormat(R"(
 @@ -0, +0 @@
 -"give"
 +"gimme"
@@ -278,8 +285,7 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
   // small difference
   base_ = ArrayFromJSON(uint16(), "[0, 1, 2, 3, 5, 8, 11, 13, 17]");
   target_ = ArrayFromJSON(uint16(), "[2, 3, 5, 7, 11, 13, 17, 19]");
-  DoDiffAndFormat(&formatted);
-  ASSERT_EQ(formatted, R"(
+  AssertDiffAndFormat(R"(
 @@ -0, +0 @@
 -0
 -1
@@ -293,8 +299,7 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
   // large difference
   base_ = ArrayFromJSON(uint16(), "[57, 10, 22, 126, 42]");
   target_ = ArrayFromJSON(uint16(), "[58, 57, 75, 93, 53, 8, 22, 42, 79, 11]");
-  DoDiffAndFormat(&formatted);
-  ASSERT_EQ(formatted, R"(
+  AssertDiffAndFormat(R"(
 @@ -0, +0 @@
 +58
 @@ -1, +2 @@
