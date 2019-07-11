@@ -39,7 +39,7 @@ public class ByteFunctionHelpers {
    * @param right  Right ArrowBuf for comparison
    * @param rStart start offset in the buffer
    * @param rEnd   end offset in the buffer
-   * @return 1 if left input is greater, -1 if left input is smaller, 0 otherwise
+   * @return 1 if equals, 0 otherwise
    */
   public static final int equal(final ArrowBuf left, int lStart, int lEnd, final ArrowBuf right, int rStart, int rEnd) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
@@ -138,7 +138,7 @@ public class ByteFunctionHelpers {
       long leftLong = PlatformDependent.getLong(lPos);
       long rightLong = PlatformDependent.getLong(rPos);
       if (leftLong != rightLong) {
-        return unsignedLongCompare(Long.reverseBytes(leftLong), Long.reverseBytes(rightLong));
+        return unsignedLongCompare(leftLong, rightLong);
       }
       lPos += 8;
       rPos += 8;
@@ -149,7 +149,7 @@ public class ByteFunctionHelpers {
       int leftInt = PlatformDependent.getInt(lPos);
       int rightInt = PlatformDependent.getInt(rPos);
       if (leftInt != rightInt) {
-        return unsignedIntCompare(Integer.reverseBytes(leftInt), Integer.reverseBytes(rightInt));
+        return unsignedIntCompare(leftInt, rightInt);
       }
       lPos += 4;
       rPos += 4;
