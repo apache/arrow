@@ -53,7 +53,7 @@ class GANDIVA_EXPORT NativeFunction {
   bool NeedsFunctionHolder() const { return (flags_ & kNeedsFunctionHolder) != 0; }
   bool CanReturnErrors() const { return (flags_ & kCanReturnErrors) != 0; }
 
-  NativeFunction(const std::string& base_name, std::vector<std::string> aliases,
+  NativeFunction(const std::string& base_name, const std::vector<std::string>& aliases,
                  const DataTypeVector& param_types, DataTypePtr ret_type,
                  const ResultNullableType& result_nullable_type,
                  const std::string& pc_name, int32_t flags = 0)
@@ -61,7 +61,7 @@ class GANDIVA_EXPORT NativeFunction {
         flags_(flags),
         result_nullable_type_(result_nullable_type),
         pc_name_(pc_name) {
-    aliases.insert(aliases.begin(), base_name);
+    signatures_.push_back(FunctionSignature(base_name, param_types, ret_type));
     for (auto& func_name : aliases) {
       signatures_.push_back(FunctionSignature(func_name, param_types, ret_type));
     }
