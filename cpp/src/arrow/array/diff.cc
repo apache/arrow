@@ -31,6 +31,7 @@
 #include "arrow/util/lazy.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
+#include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visitor_inline.h"
 
@@ -39,6 +40,68 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::MakeLazyRange;
+
+template <typename ArrayType,
+          typename View = decltype(std::declval<ArrayType>().GetView(0))>
+class ViewGenerator {
+ public:
+  explicit ViewGenerator(const Array& array)
+      : array_(checked_cast<const ArrayType&>(array)) {
+    DCHECK_EQ(array.null_count(), 0);
+  }
+
+  View operator()(int64_t index) const { return array_.GetView(index); }
+
+ private:
+  const ArrayType& array_;
+};
+
+template <typename ArrayType>
+internal::LazyRange<ViewGenerator<ArrayType>> MakeViewRange(const Array& array) {
+  using Generator = ViewGenerator<ArrayType>;
+  return internal::LazyRange<Generator>(Generator(array), array.length());
+}
+
+struct NullTag {
+  constexpr bool operator==(const NullTag& other) const { return true; }
+  constexpr bool operator!=(const NullTag& other) const { return false; }
+};
+
+template <typename T>
+struct NullOr {
+  using VariantType = util::variant<NullTag, T>;
+
+  NullOr() : variant_(NullTag{}) {}
+  explicit NullOr(T t) : variant_(std::move(t)) {}
+
+  bool operator==(const NullOr& other) const { return variant_ == other.variant_; }
+  bool operator!=(const NullOr& other) const { return variant_ != other.variant_; }
+
+ private:
+  VariantType variant_;
+};
+
+template <typename ArrayType,
+          typename View = decltype(std::declval<ArrayType>().GetView(0))>
+class NullOrViewGenerator {
+ public:
+  explicit NullOrViewGenerator(const Array& array)
+      : array_(checked_cast<const ArrayType&>(array)) {}
+
+  NullOr<View> operator()(int64_t index) const {
+    return array_.IsNull(index) ? NullOr<View>() : NullOr<View>(array_.GetView(index));
+  }
+
+ private:
+  const ArrayType& array_;
+};
+
+template <typename ArrayType>
+internal::LazyRange<NullOrViewGenerator<ArrayType>> MakeNullOrViewRange(
+    const Array& array) {
+  using Generator = NullOrViewGenerator<ArrayType>;
+  return internal::LazyRange<Generator>(Generator(array), array.length());
+}
 
 template <typename Iterator>
 class DiffImpl {
@@ -192,45 +255,37 @@ class DiffImpl {
   std::vector<bool> insert_;
 };
 
-// check whether a type's array class is an instantiation of NumericArray
+// check whether a type's array class supports GetView
 template <typename T>
-struct array_is_numeric {
+struct array_has_GetView {
   static std::false_type test(...);
 
   template <typename U>
-  static std::true_type test(NumericArray<U>*);
+  static std::true_type test(U*, decltype(std::declval<U>().GetView(0)) = {});
 
-  static constexpr bool value = decltype(array_is_numeric::test(
+  static constexpr bool value = decltype(array_has_GetView::test(
       static_cast<typename TypeTraits<T>::ArrayType*>(nullptr)))::value;
 };
 
-static_assert(array_is_numeric<Int32Type>::value, "int32");
-static_assert(!array_is_numeric<BinaryType>::value, "binary");
-static_assert(array_is_numeric<Date32Type>::value, "date32");
+static_assert(!array_has_GetView<NullType>::value, "null");
+static_assert(array_has_GetView<BooleanType>::value, "bool");
+static_assert(array_has_GetView<Int32Type>::value, "int32");
+static_assert(array_has_GetView<BinaryType>::value, "binary");
+static_assert(array_has_GetView<Date32Type>::value, "date32");
+static_assert(!array_has_GetView<StructType>::value, "struct");
+static_assert(!array_has_GetView<ListType>::value, "list");
 
 struct DiffImplVisitor {
   template <typename T>
-  typename std::enable_if<array_is_numeric<T>::value, Status>::type Visit(const T&) {
-    auto base_data = checked_cast<const NumericArray<T>&>(base_).raw_values();
-    auto target_data = checked_cast<const NumericArray<T>&>(target_).raw_values();
-    return Diff(base_data, base_data + base_.length(), target_data,
-                target_data + target_.length());
-  }
-
-  template <typename T>
-  enable_if_binary_like<T, Status> Visit(const T&) {
+  typename std::enable_if<array_has_GetView<T>::value, Status>::type Visit(const T&) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
-    struct ViewGenerator {
-      explicit ViewGenerator(const Array& arr)
-          : arr_(checked_cast<const ArrayType&>(arr)) {}
-
-      util::string_view operator()(int64_t i) const { return arr_.GetView(i); }
-
-      const ArrayType& arr_;
-    };
-
-    auto base = MakeLazyRange(ViewGenerator(base_), base_.length());
-    auto target = MakeLazyRange(ViewGenerator(target_), target_.length());
+    if (base_.null_count() == 0 && target_.null_count() == 0) {
+      auto base = MakeViewRange<ArrayType>(base_);
+      auto target = MakeViewRange<ArrayType>(target_);
+      return Diff(base.begin(), base.end(), target.begin(), target.end());
+    }
+    auto base = MakeNullOrViewRange<ArrayType>(base_);
+    auto target = MakeNullOrViewRange<ArrayType>(target_);
     return Diff(base.begin(), base.end(), target.begin(), target.end());
   }
 
@@ -260,11 +315,6 @@ Status Diff(const Array& base, const Array& target, MemoryPool* pool,
             std::shared_ptr<Array>* out) {
   if (!base.type()->Equals(target.type())) {
     return Status::TypeError("only taking the diff of like-typed arrays is supported.");
-  }
-
-  if (base.null_count() != 0 || target.null_count() != 0) {
-    return Status::NotImplemented(
-        "taking the diff of arrays with nulls is not supported");
   }
 
   return DiffImplVisitor{base, target, pool, out}.Diff();
@@ -303,26 +353,31 @@ Status DiffVisitor::Visit(const Array& edits) {
   return Status::OK();
 }
 
+// format Booleans as true/false
+void Format(std::ostream& os, const BooleanArray& arr, int64_t index) {
+  os << (arr.Value(index) ? "true" : "false");
+}
+
 // format Numerics with std::ostream defaults
 template <typename T>
 void Format(std::ostream& os, const NumericArray<T>& arr, int64_t index) {
-  os << arr.Value(index) << std::endl;
+  os << arr.Value(index);
 }
 
 // format Binary and FixedSizeBinary in hexadecimal
 template <typename A>
 enable_if_binary_like<A> Format(std::ostream& os, const A& arr, int64_t index) {
-  os << HexEncode(arr.GetView(index)) << std::endl;
+  os << HexEncode(arr.GetView(index));
 }
 
 // format Strings with \"\n\r\t\\ escaped
 void Format(std::ostream& os, const StringArray& arr, int64_t index) {
-  os << "\"" << Escape(arr.GetView(index)) << "\"" << std::endl;
+  os << "\"" << Escape(arr.GetView(index)) << "\"";
 }
 
 // format Decimals with Decimal128Array::FormatValue
 void Format(std::ostream& os, const Decimal128Array& arr, int64_t index) {
-  os << arr.FormatValue(index) << std::endl;
+  os << arr.FormatValue(index);
 }
 
 template <typename ArrayType>
@@ -358,11 +413,21 @@ class UnifiedDiffFormatter : public DiffVisitor {
     // non trivial run- finalize the current hunk
     os_ << "@@ -" << base_begin_ << ", +" << target_begin_ << " @@" << std::endl;
     for (int64_t i = base_begin_; i < base_end_; ++i) {
-      Format(os_ << "-", base_, i);
+      if (base_.IsValid(i)) {
+        Format(os_ << "-", base_, i);
+      } else {
+        os_ << "-null";
+      }
+      os_ << std::endl;
     }
     base_begin_ = base_end_ += length;
     for (int64_t i = target_begin_; i < target_end_; ++i) {
-      Format(os_ << "+", target_, i);
+      if (target_.IsValid(i)) {
+        Format(os_ << "+", target_, i);
+      } else {
+        os_ << "+null";
+      }
+      os_ << std::endl;
     }
     target_begin_ = target_end_ += length;
     return Status::OK();

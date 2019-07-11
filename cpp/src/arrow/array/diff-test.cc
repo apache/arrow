@@ -156,8 +156,8 @@ TYPED_TEST_CASE(DiffTestWithNumeric, NumericArrowTypes);
 
 TYPED_TEST(DiffTestWithNumeric, Basics) {
   // insert one
-  this->base_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 4, 5]");
-  this->target_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, 4, 5]");
+  this->base_ = ArrayFromJSON(this->type_singleton(), "[1, 2, null, 5]");
+  this->target_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, null, 5]");
   this->DoDiff();
   ASSERT_EQ(this->edits_->length(), 2);
   ASSERT_EQ(this->insert_->Value(0), false);
@@ -166,8 +166,8 @@ TYPED_TEST(DiffTestWithNumeric, Basics) {
   ASSERT_EQ(this->run_lengths_->Value(1), 2);
 
   // delete one
-  this->base_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, 4, 5]");
-  this->target_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 4, 5]");
+  this->base_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, null, 5]");
+  this->target_ = ArrayFromJSON(this->type_singleton(), "[1, 2, null, 5]");
   this->DoDiff();
   ASSERT_EQ(this->edits_->length(), 2);
   ASSERT_EQ(this->insert_->Value(0), false);
@@ -176,8 +176,8 @@ TYPED_TEST(DiffTestWithNumeric, Basics) {
   ASSERT_EQ(this->run_lengths_->Value(1), 2);
 
   // change one
-  this->base_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, 4, 5]");
-  this->target_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 23, 4, 5]");
+  this->base_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, null, 5]");
+  this->target_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 23, null, 5]");
   this->DoDiff();
   ASSERT_EQ(this->edits_->length(), 3);
   ASSERT_EQ(this->insert_->Value(0), false);
@@ -187,9 +187,21 @@ TYPED_TEST(DiffTestWithNumeric, Basics) {
   ASSERT_EQ(this->insert_->Value(2), true);
   ASSERT_EQ(this->run_lengths_->Value(2), 2);
 
+  // null out one
+  this->base_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, null, 5]");
+  this->target_ = ArrayFromJSON(this->type_singleton(), "[1, 2, null, null, 5]");
+  this->DoDiff();
+  ASSERT_EQ(this->edits_->length(), 3);
+  ASSERT_EQ(this->insert_->Value(0), false);
+  ASSERT_EQ(this->run_lengths_->Value(0), 2);
+  ASSERT_EQ(this->insert_->Value(1), false);
+  ASSERT_EQ(this->run_lengths_->Value(1), 1);
+  ASSERT_EQ(this->insert_->Value(2), true);
+  ASSERT_EQ(this->run_lengths_->Value(2), 1);
+
   // append some
-  this->base_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, 4, 5]");
-  this->target_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, 4, 5, 6, 7, 8, 9]");
+  this->base_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, null, 5]");
+  this->target_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, null, 5, 6, 7, 8, 9]");
   this->DoDiff();
   ASSERT_EQ(this->edits_->length(), 5);
   ASSERT_EQ(this->insert_->Value(0), false);
@@ -202,7 +214,7 @@ TYPED_TEST(DiffTestWithNumeric, Basics) {
 
 TYPED_TEST(DiffTestWithNumeric, CompareRandomNumeric) {
   compute::FunctionContext ctx;
-  for (auto null_probability : {0.0}) {
+  for (auto null_probability : {0.0, 0.1, 0.5}) {
     auto values =
         this->rng_.template Numeric<TypeParam>(1 << 10, 0, 127, null_probability);
     for (const double filter_probability : {0.99, 0.9, 0.75, 0.5}) {
@@ -254,6 +266,18 @@ TEST_F(DiffTest, BasicsWithStrings) {
   ASSERT_EQ(run_lengths_->Value(1), 0);
   ASSERT_EQ(insert_->Value(2), true);
   ASSERT_EQ(run_lengths_->Value(2), 2);
+
+  // null out one
+  base_ = ArrayFromJSON(utf8(), R"(["give", "a", "break"])");
+  target_ = ArrayFromJSON(utf8(), R"(["give", "a", null])");
+  DoDiff();
+  ASSERT_EQ(edits_->length(), 3);
+  ASSERT_EQ(insert_->Value(0), false);
+  ASSERT_EQ(run_lengths_->Value(0), 2);
+  ASSERT_EQ(insert_->Value(1), false);
+  ASSERT_EQ(run_lengths_->Value(1), 0);
+  ASSERT_EQ(insert_->Value(2), true);
+  ASSERT_EQ(run_lengths_->Value(2), 0);
 }
 
 TEST_F(DiffTest, UnifiedDiffFormatter) {
@@ -280,6 +304,15 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
 @@ -0, +0 @@
 -"give"
 +"gimme"
+)");
+
+  // null out one
+  base_ = ArrayFromJSON(utf8(), R"(["give", "a", "break"])");
+  target_ = ArrayFromJSON(utf8(), R"(["give", "a", null])");
+  AssertDiffAndFormat(R"(
+@@ -2, +2 @@
+-"break"
++null
 )");
 
   // small difference
