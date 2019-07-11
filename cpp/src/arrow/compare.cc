@@ -940,6 +940,21 @@ Status PrintDiff(const Array& left, const Array& right, std::ostream* os) {
     return Status::OK();
   }
 
+  if (left.type()->num_children() != 0) {
+    *os << "# Nested arrays differed";
+    return Status::OK();
+  }
+
+  if (left.type()->id() == Type::DICTIONARY) {
+    *os << "# Dictionary arrays differed";
+    return Status::OK();
+  }
+
+  if (left.type()->id() == Type::EXTENSION) {
+    *os << "# Extension arrays differed";
+    return Status::OK();
+  }
+
   std::shared_ptr<Array> edits;
   RETURN_NOT_OK(Diff(left, right, default_memory_pool(), &edits));
   ARROW_ASSIGN_OR_RAISE(auto formatter, MakeUnifiedDiffFormatter(*os, left, right));
