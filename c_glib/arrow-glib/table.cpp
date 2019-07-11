@@ -131,30 +131,6 @@ garrow_table_class_init(GArrowTableClass *klass)
 }
 
 /**
- * garrow_table_new:
- * @schema: The schema of the table.
- * @columns: (element-type GArrowChunkedArray): The columns of the table.
- *
- * Returns: A newly created #GArrowTable.
- *
- * Deprecated: 0.12.0: Use garrow_table_new_values() instead.
- */
-GArrowTable *
-garrow_table_new(GArrowSchema *schema,
-                 GList *columns)
-{
-  auto arrow_schema = garrow_schema_get_raw(schema);
-  std::vector<std::shared_ptr<arrow::ChunkedArray>> arrow_chunked_arrays;
-  for (GList *node = columns; node; node = node->next) {
-    auto chunked_array = GARROW_CHUNKED_ARRAY(node->data);
-    arrow_chunked_arrays.push_back(garrow_chunked_array_get_raw(chunked_array));
-  }
-
-  auto arrow_table = arrow::Table::Make(arrow_schema, arrow_chunked_arrays);
-  return garrow_table_new_raw(&arrow_table);
-}
-
-/**
  * garrow_table_new_values: (skip)
  * @schema: The schema of the table.
  * @values: The values of the table. All values must be instance of
@@ -251,8 +227,9 @@ garrow_table_new_values(GArrowSchema *schema,
 /**
  * garrow_table_new_chunked_arrays:
  * @schema: The schema of the table.
- * @columns: (array length=n_columns): The columns of the table.
- * @n_columns: The number of columns.
+ * @chunked_arrays: (array length=n_chunked_arrays): The chunked arrays of
+ *   the table.
+ * @n_chunked_arrays: The number of chunked arrays.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GArrowTable or %NULL on error.
@@ -261,19 +238,20 @@ garrow_table_new_values(GArrowSchema *schema,
  */
 GArrowTable *
 garrow_table_new_chunked_arrays(GArrowSchema *schema,
-                                GArrowChunkedArray **columns,
-                                gsize n_columns,
+                                GArrowChunkedArray **chunked_arrays,
+                                gsize n_chunked_arrays,
                                 GError **error)
 {
   auto arrow_schema = garrow_schema_get_raw(schema);
   std::vector<std::shared_ptr<arrow::ChunkedArray>> arrow_chunked_arrays;
-  for (gsize i = 0; i < n_columns; ++i) {
-    arrow_chunked_arrays.push_back(garrow_chunked_array_get_raw(columns[i]));
+  for (gsize i = 0; i < n_chunked_arrays; ++i) {
+    auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_arrays[i]);
+    arrow_chunked_arrays.push_back(arrow_chunked_array);
   }
 
   auto arrow_table = arrow::Table::Make(arrow_schema, arrow_chunked_arrays);
   auto status = arrow_table->Validate();
-  if (garrow_error_check(error, status, "[table][new][chunked_arrays]")) {
+  if (garrow_error_check(error, status, "[table][new][chunked-arrays]")) {
     return garrow_table_new_raw(&arrow_table);
   } else {
     return NULL;
@@ -427,7 +405,7 @@ garrow_table_get_n_rows(GArrowTable *table)
  * @table: A #GArrowTable.
  * @i: The index of the new column.
  * @field: The field for the column to be added.
- * @column: The column to be added.
+ * @chunked_array: The column data to be added.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): The newly allocated
@@ -439,14 +417,17 @@ GArrowTable *
 garrow_table_add_column(GArrowTable *table,
                         guint i,
                         GArrowField *field,
-                        GArrowChunkedArray *column,
+                        GArrowChunkedArray *chunked_array,
                         GError **error)
 {
   const auto arrow_table = garrow_table_get_raw(table);
   const auto arrow_field = garrow_field_get_raw(field);
-  const auto arrow_column = garrow_chunked_array_get_raw(column);
+  const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
   std::shared_ptr<arrow::Table> arrow_new_table;
-  auto status = arrow_table->AddColumn(i, arrow_field, arrow_column, &arrow_new_table);
+  auto status = arrow_table->AddColumn(i,
+                                       arrow_field,
+                                       arrow_chunked_array,
+                                       &arrow_new_table);
   if (garrow_error_check(error, status, "[table][add-column]")) {
     return garrow_table_new_raw(&arrow_new_table);
   } else {
@@ -484,8 +465,8 @@ garrow_table_remove_column(GArrowTable *table,
  * garrow_table_replace_column:
  * @table: A #GArrowTable.
  * @i: The index of the column to be replaced.
- * @field: The field for the new column..
- * @column: The newly added #GArrowChunkedArray.
+ * @field: The field for the new column.
+ * @chunked_array: The newly added column data.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): The newly allocated
@@ -498,14 +479,17 @@ GArrowTable *
 garrow_table_replace_column(GArrowTable *table,
                             guint i,
                             GArrowField *field,
-                            GArrowChunkedArray *column,
+                            GArrowChunkedArray *chunked_array,
                             GError **error)
 {
   const auto arrow_table = garrow_table_get_raw(table);
   const auto arrow_field = garrow_field_get_raw(field);
-  const auto arrow_column = garrow_chunked_array_get_raw(column);
+  const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
   std::shared_ptr<arrow::Table> arrow_new_table;
-  auto status = arrow_table->SetColumn(i, arrow_field, arrow_column, &arrow_new_table);
+  auto status = arrow_table->SetColumn(i,
+                                       arrow_field,
+                                       arrow_chunked_array,
+                                       &arrow_new_table);
   if (garrow_error_check(error, status, "[table][replace-column]")) {
     return garrow_table_new_raw(&arrow_new_table);
   } else {

@@ -780,39 +780,6 @@ garrow_feather_file_reader_get_column(GArrowFeatherFileReader *reader,
 }
 
 /**
- * garrow_feather_file_reader_get_columns:
- * @reader: A #GArrowFeatherFileReader.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: (element-type GArrowArray) (transfer full):
- *   The columns in the file.
- *
- * Since: 0.4.0
- */
-GList *
-garrow_feather_file_reader_get_columns(GArrowFeatherFileReader *reader,
-                                       GError **error)
-{
-  GList *columns = NULL;
-  auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
-  auto n_columns = arrow_reader->num_columns();
-  for (gint i = 0; i < n_columns; ++i) {
-    std::shared_ptr<arrow::Array> arrow_array;
-    auto status = arrow_reader->GetColumn(i, &arrow_array);
-    if (!garrow_error_check(error,
-                            status,
-                            "[feather-file-reader][get-columns]")) {
-      g_list_foreach(columns, (GFunc)g_object_unref, NULL);
-      g_list_free(columns);
-      return NULL;
-    }
-    columns = g_list_prepend(columns,
-                             garrow_array_new_raw(&arrow_array));
-  }
-  return g_list_reverse(columns);
-}
-
-/**
  * garrow_feather_file_reader_read:
  * @reader: A #GArrowFeatherFileReader.
  * @error: (nullable): Return location for a #GError or %NULL.

@@ -301,17 +301,9 @@ gparquet_arrow_file_reader_read_column(GParquetArrowFileReader *reader,
 {
   auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
 
-  std::vector<int> indices = {column_index};
-  std::shared_ptr<arrow::Schema> arrow_schema;
-  auto status = parquet_arrow_file_reader->GetSchema(indices, &arrow_schema);
-  if (!garrow_error_check(error,
-                          status,
-                          "[parquet][arrow][file-reader][read-column][get-schema]")) {
-    return NULL;
-  }
-
   std::shared_ptr<arrow::ChunkedArray> arrow_chunked_array;
-  status = parquet_arrow_file_reader->ReadColumn(column_index, &arrow_chunked_array);
+  auto status =
+    parquet_arrow_file_reader->ReadColumn(column_index, &arrow_chunked_array);
   if (!garrow_error_check(error,
                           status,
                           "[parquet][arrow][file-reader][read-column]")) {
