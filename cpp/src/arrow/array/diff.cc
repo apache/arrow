@@ -318,6 +318,12 @@ struct DiffImplVisitor {
     return Diff(base.begin(), base.end(), target.begin(), target.end());
   }
 
+  Status Visit(const ExtensionType&) {
+    auto base = checked_cast<const ExtensionArray&>(base_).storage();
+    auto target = checked_cast<const ExtensionArray&>(target_).storage();
+    return arrow::Diff(*base, *target, pool_, out_);
+  }
+
   Status Visit(const DataType& t) {
     return Status::NotImplemented("diffing arrays of type ", t);
   }
