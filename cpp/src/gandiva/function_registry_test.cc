@@ -19,6 +19,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <unordered_set>
 
 namespace gandiva {
 
@@ -44,6 +45,32 @@ TEST_F(TestFunctionRegistry, TestNotFound) {
   FunctionSignature add_i32_i32_ret64("add", {arrow::int32(), arrow::int32()},
                                       arrow::int64());
   EXPECT_EQ(registry_.LookupSignature(add_i32_i32_ret64), nullptr);
+}
+
+TEST_F(TestFunctionRegistry, TestDuplicates) {
+  std::unordered_set<std::string> pc_func_sigs;
+  std::unordered_set<std::string> duplicates;
+  for (auto native_func_it = registry_.begin(); native_func_it != registry_.end();
+       ++native_func_it) {
+    //      for(auto& sig : native_func_it->signature()) {
+    auto& sig = native_func_it->signature();
+    auto pc_func_sig =
+        FunctionSignature(native_func_it->pc_name(), sig.param_types(), sig.ret_type())
+            .ToString();
+    if (pc_func_sigs.count(pc_func_sig) == 0) {
+      pc_func_sigs.insert(pc_func_sig);
+    } else {
+      duplicates.insert(pc_func_sig);
+    }
+  }
+  std::ostringstream stream;
+  std::copy(duplicates.begin(), duplicates.end(),
+            std::ostream_iterator<std::string>(stream, "\n"));
+  std::string result = stream.str();
+  EXPECT_TRUE(duplicates.empty())
+      << "Registry has duplicates.\nMultiple NativeFunction objects refer to the "
+         "following precompiled functions:\n"
+      << result;
 }
 
 }  // namespace gandiva
