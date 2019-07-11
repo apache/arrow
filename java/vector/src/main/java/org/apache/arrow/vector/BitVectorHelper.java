@@ -17,6 +17,10 @@
 
 package org.apache.arrow.vector;
 
+import static io.netty.util.internal.PlatformDependent.getByte;
+import static io.netty.util.internal.PlatformDependent.getInt;
+import static io.netty.util.internal.PlatformDependent.getLong;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -190,13 +194,17 @@ public class BitVectorHelper {
       return true;
     }
     final int sizeInBytes = getValidityBufferSize(valueCount);
+
+    // boundary check
+    validityBuffer.checkBytes(0, sizeInBytes);
+
     // If value count is not a multiple of 8, then calculate number of used bits in the last byte
     final int remainder = valueCount % 8;
     final int fullBytesCount = remainder == 0 ? sizeInBytes : sizeInBytes - 1;
 
     int index = 0;
     while (index + 8 <= fullBytesCount) {
-      long longValue = validityBuffer.getLong(index);
+      long longValue = getLong(validityBuffer.memoryAddress() + index);
       if (longValue != 0L) {
         return false;
       }
@@ -204,7 +212,7 @@ public class BitVectorHelper {
     }
 
     while (index + 4 <= fullBytesCount) {
-      int intValue = validityBuffer.getInt(index);
+      int intValue = getInt(validityBuffer.memoryAddress() + index);
       if (intValue != 0) {
         return false;
       }
@@ -212,7 +220,7 @@ public class BitVectorHelper {
     }
 
     while (index < fullBytesCount) {
-      byte byteValue = validityBuffer.getByte(index);
+      byte byteValue = getByte(validityBuffer.memoryAddress() + index);
       if (byteValue != (byte) 0) {
         return false;
       }
@@ -221,7 +229,7 @@ public class BitVectorHelper {
 
     // handling with the last bits
     if (remainder != 0) {
-      byte byteValue = validityBuffer.getByte(sizeInBytes - 1);
+      byte byteValue = getByte(validityBuffer.memoryAddress() + sizeInBytes - 1);
       byte mask = (byte) ((1 << remainder) - 1);
       byteValue = (byte) (byteValue & mask);
       if (byteValue != (byte) 0) {
@@ -242,13 +250,17 @@ public class BitVectorHelper {
       return true;
     }
     final int sizeInBytes = getValidityBufferSize(valueCount);
+
+    // boundary check
+    validityBuffer.checkBytes(0, sizeInBytes);
+
     // If value count is not a multiple of 8, then calculate number of used bits in the last byte
     final int remainder = valueCount % 8;
     final int fullBytesCount = remainder == 0 ? sizeInBytes : sizeInBytes - 1;
 
     int index = 0;
     while (index + 8 <= fullBytesCount) {
-      long longValue = validityBuffer.getLong(index);
+      long longValue = getLong(validityBuffer.memoryAddress() + index);
       if (longValue != -1L) {
         return false;
       }
@@ -256,7 +268,7 @@ public class BitVectorHelper {
     }
 
     while (index + 4 <= fullBytesCount) {
-      int intValue = validityBuffer.getInt(index);
+      int intValue = getInt(validityBuffer.memoryAddress() + index);
       if (intValue != -1) {
         return false;
       }
@@ -264,7 +276,7 @@ public class BitVectorHelper {
     }
 
     while (index < fullBytesCount) {
-      byte byteValue = validityBuffer.getByte(index);
+      byte byteValue = getByte(validityBuffer.memoryAddress() + index);
       if (byteValue != (byte) -1) {
         return false;
       }
@@ -273,7 +285,7 @@ public class BitVectorHelper {
 
     // handling with the last bits
     if (remainder != 0) {
-      byte byteValue = validityBuffer.getByte(sizeInBytes - 1);
+      byte byteValue = getByte(validityBuffer.memoryAddress() + sizeInBytes - 1);
       byte mask = (byte) ((1 << remainder) - 1);
       if ((mask & byteValue) != mask) {
         return false;

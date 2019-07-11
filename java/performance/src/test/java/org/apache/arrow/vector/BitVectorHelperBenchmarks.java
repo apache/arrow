@@ -95,7 +95,7 @@ public class BitVectorHelperBenchmarks {
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public boolean allBitsNullBenchmark() {
-    return BitVectorHelper.allBitsNullOrig(oneBitValidityBuffer, VALIDITY_BUFFER_CAPACITY);
+    return BitVectorHelper.allBitsNull(oneBitValidityBuffer, VALIDITY_BUFFER_CAPACITY);
   }
 
   //@Test
