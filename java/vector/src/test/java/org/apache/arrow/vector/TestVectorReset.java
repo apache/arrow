@@ -108,7 +108,7 @@ public class TestVectorReset {
       variableList.endValue(0, 0);
       variableList.setValueCount(1);
       resetVectorAndVerify(variableList, variableList.getBuffers(false));
-      assertEquals(0, variableList.getLastSet());
+      assertEquals(-1, variableList.getLastSet());
 
       // FixedSizeListVector
       fixedList.allocateNewSafe();
