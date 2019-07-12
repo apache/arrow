@@ -17,14 +17,15 @@
 
 package org.apache.arrow.algorithm.sort;
 
+import static org.apache.arrow.vector.BaseVariableWidthVector.OFFSET_WIDTH;
+
+import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TinyIntVector;
-import org.apache.arrow.vector.VarCharVector;
-import org.apache.arrow.vector.holders.NullableVarCharHolder;
 
 /**
  * Default comparator implementations for different types of vectors.
@@ -169,26 +170,26 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for varchars.
+   * Default comparator for {@link org.apache.arrow.vector.BaseVariableWidthVector}.
    * The comparison is in lexicographic order, with null comes first.
    */
-  public static class VarCharComparator extends VectorValueComparator<VarCharVector> {
-
-    private NullableVarCharHolder holder1 = new NullableVarCharHolder();
-    private NullableVarCharHolder holder2 = new NullableVarCharHolder();
+  public static class VariableWidthComparator extends VectorValueComparator<BaseVariableWidthVector> {
 
     @Override
     public int compareNotNull(int index1, int index2) {
-      vector1.get(index1, holder1);
-      vector2.get(index2, holder2);
+      int start1 = vector1.getOffsetBuffer().getInt(index1 * OFFSET_WIDTH);
+      int start2 = vector2.getOffsetBuffer().getInt(index2 * OFFSET_WIDTH);
 
-      int length1 = holder1.end - holder1.start;
-      int length2 = holder2.end - holder2.start;
+      int end1 = vector1.getOffsetBuffer().getInt((index1 + 1) * OFFSET_WIDTH);
+      int end2 = vector2.getOffsetBuffer().getInt((index2 + 1) * OFFSET_WIDTH);
+
+      int length1 = end1 - start1;
+      int length2 = end2 - start2;
 
       int minLength = length1 < length2 ? length1 : length2;
       for (int i = 0; i < minLength; i++) {
-        byte b1 = holder1.buffer.getByte(holder1.start + i);
-        byte b2 = holder2.buffer.getByte(holder2.start + i);
+        byte b1 = vector1.getDataBuffer().getByte(start1 + i);
+        byte b2 = vector2.getDataBuffer().getByte(start2 + i);
 
         if (b1 != b2) {
           return b1 - b2;

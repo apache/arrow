@@ -23,6 +23,7 @@ import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.junit.After;
@@ -137,7 +138,8 @@ public class TestVectorSearcher {
       negVector.set(0, "abcd".getBytes());
 
       // do search
-      VectorValueComparator<VarCharVector> comparator = new DefaultVectorComparators.VarCharComparator();
+      VectorValueComparator<BaseVariableWidthVector> comparator =
+              new DefaultVectorComparators.VariableWidthComparator();
       for (int i = 0; i < VECTOR_LENGTH; i++) {
         int result = VectorSearcher.binarySearch(rawVector, comparator, rawVector, i);
         assertEquals(i, result);
@@ -175,7 +177,8 @@ public class TestVectorSearcher {
       negVector.set(0, "abcd".getBytes());
 
       // do search
-      VectorValueComparator<VarCharVector> comparator = new DefaultVectorComparators.VarCharComparator();
+      VectorValueComparator<BaseVariableWidthVector> comparator =
+              new DefaultVectorComparators.VariableWidthComparator();
       for (int i = 0; i < VECTOR_LENGTH; i++) {
         int result = VectorSearcher.linearSearch(rawVector, comparator, rawVector, i);
         assertEquals(i, result);

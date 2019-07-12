@@ -65,7 +65,8 @@ public class TestVariableWidthOutOfPlaceVectorSorter {
 
       // sort the vector
       VariableWidthOutOfPlaceVectorSorter sorter = new VariableWidthOutOfPlaceVectorSorter();
-      DefaultVectorComparators.VarCharComparator comparator = new DefaultVectorComparators.VarCharComparator();
+      DefaultVectorComparators.VariableWidthComparator comparator =
+              new DefaultVectorComparators.VariableWidthComparator();
 
       VarCharVector sortedVec =
               (VarCharVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
