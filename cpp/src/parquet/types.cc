@@ -1262,14 +1262,16 @@ ConvertedType::type LogicalType::Impl::Timestamp::ToConvertedType(
 std::string LogicalType::Impl::Timestamp::ToString() const {
   std::stringstream type;
   type << "Timestamp(isAdjustedToUTC=" << std::boolalpha << adjusted_
-       << ", timeUnit=" << time_unit_string(unit_) << ")";
+       << ", timeUnit=" << time_unit_string(unit_)
+       << ", force_set_converted_type=" << force_set_converted_type_ << ")";
   return type.str();
 }
 
 std::string LogicalType::Impl::Timestamp::ToJSON() const {
   std::stringstream json;
   json << R"({"Type": "Timestamp", "isAdjustedToUTC": )" << std::boolalpha << adjusted_
-       << R"(, "timeUnit": ")" << time_unit_string(unit_) << R"("})";
+       << R"(, "timeUnit": ")" << time_unit_string(unit_)
+       << R"(", "force_set_converted_type": )" << force_set_converted_type_ << R"(})";
   return json.str();
 }
 
