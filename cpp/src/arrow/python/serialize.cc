@@ -77,14 +77,6 @@ class SequenceBuilder {
   // Appending a none to the sequence
   Status AppendNone() { return builder_->AppendNull(); }
 
-  template <typename BuilderType>
-  Status Update(BuilderType* child_builder, int8_t tag) {
-    int32_t offset32 = -1;
-    RETURN_NOT_OK(internal::CastSize(child_builder->length(), &offset32));
-    DCHECK_GE(offset32, 0);
-    return builder_->Append(tag, offset32);
-  }
-
   template <typename BuilderType, typename MakeBuilderFn>
   Status CreateAndUpdate(std::shared_ptr<BuilderType>* child_builder, int8_t tag,
                          MakeBuilderFn make_builder) {
@@ -95,7 +87,7 @@ class SequenceBuilder {
       convert << static_cast<int>(tag);
       type_map_[tag] = builder_->AppendChild(*child_builder, convert.str());
     }
-    return Update(child_builder->get(), type_map_[tag]);
+    return builder_->Append(type_map_[tag]);
   }
 
   template <typename BuilderType, typename T>

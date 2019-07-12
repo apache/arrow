@@ -606,6 +606,7 @@ void UnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
 
   ARROW_CHECK_EQ(data->type->id(), Type::UNION);
   ARROW_CHECK_EQ(data->buffers.size(), 3);
+  union_type_ = checked_cast<const UnionType*>(data_->type.get());
 
   auto type_ids = data_->buffers[1];
   auto value_offsets = data_->buffers[2];

@@ -905,6 +905,196 @@ TEST(TestStruct, Errors) {
   ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[{\"c\": 0}]", &array));
 }
 
+TEST(TestDenseUnion, Basics) {
+  auto field_a = field("a", int8());
+  auto field_b = field("b", boolean());
+
+  auto type = union_({field_a, field_b}, {4, 8}, UnionMode::DENSE);
+  auto array = ArrayFromJSON(type, "[[4, 122], [8, true], [4, null], null, [8, false]]");
+
+  auto expected_types = ArrayFromJSON(int8(), "[4, 8, 4, null, 8]");
+  auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 1, 0, 1]");
+  auto expected_a = ArrayFromJSON(int8(), "[122, null]");
+  auto expected_b = ArrayFromJSON(boolean(), "[true, false]");
+
+  std::shared_ptr<Array> expected;
+  ASSERT_OK(UnionArray::MakeDense(*expected_types, *expected_offsets,
+                                  {expected_a, expected_b}, {"a", "b"}, {4, 8},
+                                  &expected));
+
+  ASSERT_ARRAYS_EQUAL(*expected, *array);
+}
+
+TEST(TestSparseUnion, Basics) {
+  auto field_a = field("a", int8());
+  auto field_b = field("b", boolean());
+
+  auto type = union_({field_a, field_b}, {4, 8}, UnionMode::SPARSE);
+  auto array = ArrayFromJSON(type, "[[4, 122], [8, true], [4, null], null, [8, false]]");
+
+  auto expected_types = ArrayFromJSON(int8(), "[4, 8, 4, null, 8]");
+  auto expected_a = ArrayFromJSON(int8(), "[122, null, null, null, null]");
+  auto expected_b = ArrayFromJSON(boolean(), "[null, true, null, null, false]");
+
+  std::shared_ptr<Array> expected;
+  ASSERT_OK(UnionArray::MakeSparse(*expected_types, {expected_a, expected_b}, {"a", "b"},
+                                   {4, 8}, &expected));
+
+  ASSERT_ARRAYS_EQUAL(*expected, *array);
+}
+
+TEST(TestDenseUnion, ListOfUnion) {
+  auto field_a = field("a", int8());
+  auto field_b = field("b", boolean());
+  auto union_type = union_({field_a, field_b}, {4, 8}, UnionMode::DENSE);
+  auto list_type = list(union_type);
+  auto array = ArrayFromJSON(list_type,
+                             "["
+                             "[[4, 122], [8, true]],"
+                             "[[4, null], null, [8, false]]"
+                             "]");
+
+  auto expected_types = ArrayFromJSON(int8(), "[4, 8, 4, null, 8]");
+  auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 1, 0, 1]");
+  auto expected_a = ArrayFromJSON(int8(), "[122, null]");
+  auto expected_b = ArrayFromJSON(boolean(), "[true, false]");
+
+  std::shared_ptr<Array> expected_values, expected;
+  ASSERT_OK(UnionArray::MakeDense(*expected_types, *expected_offsets,
+                                  {expected_a, expected_b}, {"a", "b"}, {4, 8},
+                                  &expected_values));
+  auto expected_list_offsets = ArrayFromJSON(int32(), "[0, 2, 5]");
+  ASSERT_OK(ListArray::FromArrays(*expected_list_offsets, *expected_values,
+                                  default_memory_pool(), &expected));
+
+  ASSERT_ARRAYS_EQUAL(*expected, *array);
+}
+
+TEST(TestSparseUnion, ListOfUnion) {
+  auto field_a = field("a", int8());
+  auto field_b = field("b", boolean());
+  auto union_type = union_({field_a, field_b}, {4, 8}, UnionMode::SPARSE);
+  auto list_type = list(union_type);
+  auto array = ArrayFromJSON(list_type,
+                             "["
+                             "[[4, 122], [8, true]],"
+                             "[[4, null], null, [8, false]]"
+                             "]");
+
+  auto expected_types = ArrayFromJSON(int8(), "[4, 8, 4, null, 8]");
+  auto expected_a = ArrayFromJSON(int8(), "[122, null, null, null, null]");
+  auto expected_b = ArrayFromJSON(boolean(), "[null, true, null, null, false]");
+
+  std::shared_ptr<Array> expected_values, expected;
+  ASSERT_OK(UnionArray::MakeSparse(*expected_types, {expected_a, expected_b}, {"a", "b"},
+                                   {4, 8}, &expected_values));
+  auto expected_list_offsets = ArrayFromJSON(int32(), "[0, 2, 5]");
+  ASSERT_OK(ListArray::FromArrays(*expected_list_offsets, *expected_values,
+                                  default_memory_pool(), &expected));
+
+  ASSERT_ARRAYS_EQUAL(*expected, *array);
+}
+
+TEST(TestDenseUnion, UnionOfStructs) {
+  std::vector<std::shared_ptr<Field>> fields = {
+      field("ab", struct_({field("alpha", float64()), field("bravo", utf8())})),
+      field("wtf", struct_({field("whiskey", int8()), field("tango", float64()),
+                            field("foxtrot", list(int8()))})),
+      field("q", struct_({field("quebec", utf8())}))};
+  auto type = union_(fields, {0, 23, 47}, UnionMode::DENSE);
+  auto array = ArrayFromJSON(type, R"([
+    [0, {"alpha": 0.0, "bravo": "charlie"}],
+    [23, {"whiskey": 99}],
+    [0, {"bravo": "mike"}],
+    null,
+    [23, {"tango": 8.25, "foxtrot": [0, 2, 3]}]
+  ])");
+
+  auto expected_types = ArrayFromJSON(int8(), "[0, 23, 0, null, 23]");
+  auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 1, 0, 1]");
+  ArrayVector expected_fields = {ArrayFromJSON(fields[0]->type(), R"([
+      {"alpha": 0.0, "bravo": "charlie"},
+      {"bravo": "mike"}
+    ])"),
+                                 ArrayFromJSON(fields[1]->type(), R"([
+      {"whiskey": 99},
+      {"tango": 8.25, "foxtrot": [0, 2, 3]}
+    ])"),
+                                 ArrayFromJSON(fields[2]->type(), "[]")};
+
+  std::shared_ptr<Array> expected;
+  ASSERT_OK(UnionArray::MakeDense(*expected_types, *expected_offsets, expected_fields,
+                                  {"ab", "wtf", "q"}, {0, 23, 47}, &expected));
+
+  ASSERT_ARRAYS_EQUAL(*expected, *array);
+}
+
+TEST(TestSparseUnion, UnionOfStructs) {
+  std::vector<std::shared_ptr<Field>> fields = {
+      field("ab", struct_({field("alpha", float64()), field("bravo", utf8())})),
+      field("wtf", struct_({field("whiskey", int8()), field("tango", float64()),
+                            field("foxtrot", list(int8()))})),
+      field("q", struct_({field("quebec", utf8())}))};
+  auto type = union_(fields, {0, 23, 47}, UnionMode::SPARSE);
+  auto array = ArrayFromJSON(type, R"([
+    [0, {"alpha": 0.0, "bravo": "charlie"}],
+    [23, {"whiskey": 99}],
+    [0, {"bravo": "mike"}],
+    null,
+    [23, {"tango": 8.25, "foxtrot": [0, 2, 3]}]
+  ])");
+
+  auto expected_types = ArrayFromJSON(int8(), "[0, 23, 0, null, 23]");
+  ArrayVector expected_fields = {
+      ArrayFromJSON(fields[0]->type(), R"([
+      {"alpha": 0.0, "bravo": "charlie"},
+      null,
+      {"bravo": "mike"},
+      null,
+      null
+    ])"),
+      ArrayFromJSON(fields[1]->type(), R"([
+      null,
+      {"whiskey": 99},
+      null,
+      null,
+      {"tango": 8.25, "foxtrot": [0, 2, 3]}
+    ])"),
+      ArrayFromJSON(fields[2]->type(), "[null, null, null, null, null]")};
+
+  std::shared_ptr<Array> expected;
+  ASSERT_OK(UnionArray::MakeSparse(*expected_types, expected_fields, {"ab", "wtf", "q"},
+                                   {0, 23, 47}, &expected));
+
+  ASSERT_ARRAYS_EQUAL(*expected, *array);
+}
+
+TEST(TestDenseUnion, Errors) {
+  auto field_a = field("a", int8());
+  auto field_b = field("b", boolean());
+  std::shared_ptr<DataType> type = union_({field_a, field_b}, {4, 8}, UnionMode::DENSE);
+  std::shared_ptr<Array> array;
+
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"\"]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0, 8]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[4, \"\"]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[8, true, 1]]", &array));
+}
+
+TEST(TestSparseUnion, Errors) {
+  auto field_a = field("a", int8());
+  auto field_b = field("b", boolean());
+  std::shared_ptr<DataType> type = union_({field_a, field_b}, {4, 8}, UnionMode::SPARSE);
+  std::shared_ptr<Array> array;
+
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"\"]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0, 8]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[4, \"\"]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[8, true, 1]]", &array));
+}
+
 }  // namespace json
 }  // namespace internal
 }  // namespace ipc
