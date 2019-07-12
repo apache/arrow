@@ -661,6 +661,10 @@ Status PlasmaClient::Impl::Release(const ObjectID& object_id) {
     auto iter = gpu_object_map.find(object_id);
     ARROW_CHECK(iter != gpu_object_map.end());
     if (--iter->second->client_count == 0) {
+      // Some user may not release the share point of CudaBuffer promptly,
+      // so it is better to call CudaBuffer::Close manually.
+      ARROW_CHECK_OK(iter->second->ptr->Close());
+
       delete iter->second;
       gpu_object_map.erase(iter);
     }

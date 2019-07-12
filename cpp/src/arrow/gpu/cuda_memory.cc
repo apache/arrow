@@ -103,6 +103,7 @@ CudaBuffer::~CudaBuffer() { ARROW_CHECK_OK(Close()); }
 
 Status CudaBuffer::Close() {
   if (own_data_) {
+    own_data_ = false;
     if (is_ipc_) {
       return context_->CloseIpcBuffer(this);
     } else {

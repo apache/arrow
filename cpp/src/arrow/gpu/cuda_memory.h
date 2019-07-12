@@ -97,6 +97,8 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
   /// when the CudaBuffer is destructed
   virtual Status ExportForIpc(std::shared_ptr<CudaIpcMemHandle>* handle);
 
+  virtual Status Close();
+
   std::shared_ptr<CudaContext> context() const { return context_; }
 
  protected:
@@ -104,7 +106,6 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
   bool own_data_;
   bool is_ipc_;
 
-  virtual Status Close();
 };
 
 /// \class CudaHostBuffer
