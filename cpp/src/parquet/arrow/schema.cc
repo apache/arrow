@@ -521,11 +521,19 @@ Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
 static std::shared_ptr<const LogicalType> TimestampLogicalTypeFromArrowTimestamp(
     const ::arrow::TimestampType& timestamp_type, ::arrow::TimeUnit::type time_unit) {
   const bool utc = !(timestamp_type.timezone().empty());
+  // ARROW-5878(wesm): for forward compatibility reasons, and because
+  // there's no other way to signal to old readers that values are
+  // timestamps, we force the ConvertedType field to be set to the
+  // corresponding TIMESTAMP_* value. This does cause some ambiguity
+  // as Parquet readers have not been consistent about the
+  // interpretation of TIMESTAMP_* values as being UTC-normalized.
   switch (time_unit) {
     case ::arrow::TimeUnit::MILLI:
-      return LogicalType::Timestamp(utc, LogicalType::TimeUnit::MILLIS);
+      return LogicalType::Timestamp(utc, LogicalType::TimeUnit::MILLIS,
+                                    /*force_set_converted_type=*/true);
     case ::arrow::TimeUnit::MICRO:
-      return LogicalType::Timestamp(utc, LogicalType::TimeUnit::MICROS);
+      return LogicalType::Timestamp(utc, LogicalType::TimeUnit::MICROS,
+                                    /*force_set_converted_type=*/true);
     case ::arrow::TimeUnit::NANO:
       return LogicalType::Timestamp(utc, LogicalType::TimeUnit::NANOS);
     case ::arrow::TimeUnit::SECOND:
