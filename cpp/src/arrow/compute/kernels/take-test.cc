@@ -349,6 +349,45 @@ TEST_F(TestTakeKernelWithStruct, TakeStruct) {
   ])");
 }
 
+class TestTakeKernelWithUnion : public TestTakeKernel<UnionType> {};
+
+TEST_F(TestTakeKernelWithUnion, TakeUnion) {
+  for (auto mode : {UnionMode::SPARSE, UnionMode::DENSE}) {
+    auto union_type = union_({field("a", int32()), field("b", utf8())}, {2, 5}, mode);
+    auto union_json = R"([
+      null,
+      [2, 222],
+      [5, "hello"],
+      [5, "eh"],
+      null,
+      [2, 111]
+    ])";
+    this->AssertTake(union_type, union_json, "[]", "[]");
+    this->AssertTake(union_type, union_json, "[3, 1, 3, 1, 3]", R"([
+      [5, "eh"],
+      [2, 222],
+      [5, "eh"],
+      [2, 222],
+      [5, "eh"]
+    ])");
+    this->AssertTake(union_type, union_json, "[4, 2, 1]", R"([
+      null,
+      [5, "hello"],
+      [2, 222]
+    ])");
+    this->AssertTake(union_type, union_json, "[0, 1, 2, 3, 4, 5]", union_json);
+    this->AssertTake(union_type, union_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
+      null,
+      [5, "hello"],
+      [5, "hello"],
+      [5, "hello"],
+      [5, "hello"],
+      [5, "hello"],
+      [5, "hello"]
+    ])");
+  }
+}
+
 class TestPermutationsWithTake : public ComputeFixture, public TestBase {
  protected:
   void Take(const Int16Array& values, const Int16Array& indices,
