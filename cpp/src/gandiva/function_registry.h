@@ -36,6 +36,7 @@ class GANDIVA_EXPORT FunctionRegistry {
 
   iterator begin() const;
   iterator end() const;
+  iterator back() const;
 
  private:
   static SignatureMap InitPCMap();
