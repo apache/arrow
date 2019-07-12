@@ -360,7 +360,7 @@ public class SmallIntVector extends BaseFixedWidthVector implements BaseIntVecto
 
   @Override
   public long getValueAsLong(int index) {
-    return 0;
+    return this.get(index);
   }
 
   private class TransferImpl implements TransferPair {
