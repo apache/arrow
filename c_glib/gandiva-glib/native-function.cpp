@@ -106,8 +106,33 @@ ggandiva_native_function_get_signature(GGandivaNativeFunction *native_function)
 {
   auto gandiva_native_function =
     ggandiva_native_function_get_raw(native_function);
-  auto &gandiva_function_signature = gandiva_native_function->signature();
+  auto &gandiva_function_signature = gandiva_native_function->signatures().front();
   return ggandiva_function_signature_new_raw(&gandiva_function_signature);
+}
+
+/**
+ * ggandiva_native_function_get_all_signatures:
+ * @native_function: A #GGandivaNativeFunction.
+ *
+ * Returns: (transfer full): A List of #GGandivaFunctionSignature supported by
+ * the native function.
+ *
+ * Since: ??
+ */
+GList *
+ggandiva_native_function_get_all_signatures(GGandivaNativeFunction *native_function)
+{
+  auto gandiva_native_function =
+  ggandiva_native_function_get_raw(native_function);
+  
+  GList *function_signatures = nullptr;
+  for (auto& function_sig_raw : gandiva_native_function->signatures()) {
+    auto function_sig = ggandiva_function_signature_new_raw(&function_sig_raw);
+    function_signatures = g_list_prepend(function_signatures, function_sig);
+  }
+  function_signatures = g_list_reverse(function_signatures);
+  
+  return function_signatures;
 }
 
 /**
@@ -145,7 +170,7 @@ ggandiva_native_function_to_string(GGandivaNativeFunction *native_function)
 {
   auto gandiva_native_function =
     ggandiva_native_function_get_raw(native_function);
-  auto gandiva_function_signature = gandiva_native_function->signature();
+  auto gandiva_function_signature = gandiva_native_function->signatures().front();
   return g_strdup(gandiva_function_signature.ToString().c_str());
 }
 

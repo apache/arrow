@@ -43,4 +43,14 @@ public class ExpressionRegistryTest {
     Set<FunctionSignature> functions = ExpressionRegistry.getInstance().getSupportedFunctions();
     Assert.assertTrue(functions.contains(signature));
   }
+
+  @Test
+  public void testFunctionAliases() throws GandivaException {
+    ArrowType.Int int64 = new ArrowType.Int(64, true);
+    FunctionSignature signature =
+        new FunctionSignature("modulo", int64, Lists.newArrayList(int64, int64));
+    Set<FunctionSignature> functions = ExpressionRegistry.getInstance().getSupportedFunctions();
+    Assert.assertTrue(functions.contains(signature));
+  }
+
 }
