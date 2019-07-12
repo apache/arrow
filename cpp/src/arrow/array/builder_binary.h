@@ -266,10 +266,15 @@ class BaseBinaryBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  /// \return data pointer of the value date builder
+  const uint8_t* value_data() const { return value_data_builder_.data(); }
   /// \return size of values buffer so far
   int64_t value_data_length() const { return value_data_builder_.length(); }
   /// \return capacity of values buffer
   int64_t value_data_capacity() const { return value_data_builder_.capacity(); }
+
+  /// \return data pointer of the value date builder
+  const int32_t* offsets_data() const { return offsets_builder_.data(); }
 
   /// Temporary access to a value.
   ///
@@ -283,6 +288,10 @@ class BaseBinaryBuilder : public ArrayBuilder {
       *out_length = offsets[i + 1] - offset;
     }
     return value_data_builder_.data() + offset;
+  }
+
+  const int32_t OffsetOf(int64_t i) const {
+    return offsets_data()[i];
   }
 
   /// Temporary access to a value.

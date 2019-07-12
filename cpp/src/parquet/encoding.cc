@@ -420,12 +420,12 @@ void DictEncoderImpl<DType>::WriteDict(uint8_t* buffer) {
 // ByteArray and FLBA already have the dictionary encoded in their data heaps
 template <>
 void DictEncoderImpl<ByteArrayType>::WriteDict(uint8_t* buffer) {
-  memo_table_.VisitValues(0, [&](const ::arrow::util::string_view& v) {
+  memo_table_.VisitValues(0, [&buffer](const ::arrow::util::string_view& v) {
     uint32_t len = static_cast<uint32_t>(v.length());
-    memcpy(buffer, &len, sizeof(uint32_t));
-    buffer += sizeof(uint32_t);
-    memcpy(buffer, v.data(), v.length());
-    buffer += v.length();
+    memcpy(buffer, &len, sizeof(len));
+    buffer += sizeof(len);
+    memcpy(buffer, v.data(), len);
+    buffer += len;
   });
 }
 

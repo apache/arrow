@@ -580,14 +580,10 @@ class BinaryMemoTable : public MemoTable {
  public:
   explicit BinaryMemoTable(MemoryPool* pool, int64_t entries = 0,
                            int64_t values_size = -1)
-      : hash_table_(pool, static_cast<uint64_t>(entries)) {
-    offsets_.reserve(entries + 1);
-    offsets_.push_back(0);
-    if (values_size == -1) {
-      values_.reserve(entries * 4);  // A conservative heuristic
-    } else {
-      values_.reserve(values_size);
-    }
+      : hash_table_(pool, static_cast<uint64_t>(entries)), binary_builder_(pool) {
+    const int64_t data_size = (values_size < 0) ? entries * 4 : values_size;
+    DCHECK_OK(binary_builder_.Reserve(entries));
+    DCHECK_OK(binary_builder_.ReserveData(data_size));
   }
 
   int32_t Get(const void* data, int32_t length) const {
@@ -619,13 +615,8 @@ class BinaryMemoTable : public MemoTable {
       on_found(memo_index);
     } else {
       memo_index = size();
-      // Insert offset
-      auto offset = static_cast<int32_t>(values_.size());
-      assert(offsets_.size() == static_cast<uint32_t>(memo_index + 1));
-      assert(offsets_[memo_index] == offset);
-      offsets_.push_back(offset + length);
       // Insert string value
-      values_.append(static_cast<const char*>(data), length);
+      DCHECK_OK(binary_builder_.Append(static_cast<const char*>(data), length));
       // Insert hash entry
       hash_table_.Insert(const_cast<HashTableEntry*>(p.first), h, {memo_index});
 
@@ -660,10 +651,7 @@ class BinaryMemoTable : public MemoTable {
     auto memo_index = GetNull();
     if (memo_index == kKeyNotFound) {
       memo_index = null_index_ = size();
-      auto offset = static_cast<int32_t>(values_.size());
-      // Only the offset array needs to be updated.
-      offsets_.push_back(offset);
-
+      DCHECK_OK(binary_builder_.AppendNull());
       on_not_found(memo_index);
     } else {
       on_found(memo_index);
@@ -681,22 +669,23 @@ class BinaryMemoTable : public MemoTable {
     return static_cast<int32_t>(hash_table_.size() + (GetNull() != kKeyNotFound));
   }
 
-  int32_t values_size() const { return static_cast<int32_t>(values_.size()); }
-
-  const uint8_t* values_data() const {
-    return reinterpret_cast<const uint8_t*>(values_.data());
-  }
+  int32_t values_size() const { return binary_builder_.value_data_length(); }
 
   // Copy (n + 1) offsets starting from index `start` into `out_data`
   template <class Offset>
   void CopyOffsets(int32_t start, Offset* out_data) const {
-    auto delta = offsets_[start];
-    for (uint32_t i = start; i < offsets_.size(); ++i) {
-      auto adjusted_offset = offsets_[i] - delta;
-      auto cast_offset = static_cast<Offset>(adjusted_offset);
+    const int32_t* offsets = binary_builder_.offsets_data();
+    int32_t delta = offsets[start];
+    for (int32_t i = start; i < size(); ++i) {
+      int32_t adjusted_offset = offsets[i] - delta;
+      Offset cast_offset = static_cast<Offset>(adjusted_offset);
       assert(static_cast<int32_t>(cast_offset) == adjusted_offset);  // avoid truncation
       *out_data++ = cast_offset;
     }
+
+    // Copy last value since BinaryBuilder only materialize it on the Finalize
+    // call.
+    *out_data = binary_builder_.value_data_length() - delta;
   }
 
   template <class Offset>
@@ -711,12 +700,20 @@ class BinaryMemoTable : public MemoTable {
 
   // Same as above, but check output size in debug mode
   void CopyValues(int32_t start, int64_t out_size, uint8_t* out_data) const {
-    int32_t offset = offsets_[start];
-    auto length = values_.size() - static_cast<size_t>(offset);
+    if (start >= size()) {
+      return;
+    }
+
+    // The absolute byte offset of `start` value in the binary buffer.
+    int32_t offset = binary_builder_.OffsetOf(start);
+    auto length = binary_builder_.value_data_length() - static_cast<size_t>(offset);
+
     if (out_size != -1) {
       assert(static_cast<int64_t>(length) == out_size);
     }
-    memcpy(out_data, values_.data() + offset, length);
+
+    auto view = binary_builder_.GetView(start);
+    memcpy(out_data, view.data(), length);
   }
 
   void CopyValues(uint8_t* out_data) const { CopyValues(0, -1, out_data); }
@@ -733,6 +730,10 @@ class BinaryMemoTable : public MemoTable {
     //
     // Thus, the method will properly inject an empty value of the proper width
     // in the output buffer.
+    //
+    if (start >= size()) {
+      return;
+    }
 
     int32_t null_index = GetNull();
     if (null_index < start) {
@@ -741,26 +742,26 @@ class BinaryMemoTable : public MemoTable {
       return;
     }
 
-    int32_t left_offset = offsets_[start];
+    int32_t left_offset = binary_builder_.OffsetOf(start);
 
     // Ensure that the data length is exactly missing width_size bytes to fit
     // in the expected output (n_values * width_size).
 #ifndef NDEBUG
-    int64_t data_length = values_.size() - static_cast<size_t>(left_offset);
+    int64_t data_length = values_size() - static_cast<size_t>(left_offset);
     assert(data_length + width_size == out_size);
     ARROW_UNUSED(data_length);
 #endif
 
-    auto in_data = values_.data() + left_offset;
+    auto in_data = binary_builder_.value_data() + left_offset;
     // The null use 0-length in the data, slice the data in 2 and skip by
     // width_size in out_data. [part_1][width_size][part_2]
-    auto null_data_offset = offsets_[null_index];
+    auto null_data_offset = binary_builder_.OffsetOf(null_index);
     auto left_size = null_data_offset - left_offset;
     if (left_size > 0) {
       memcpy(out_data, in_data + left_offset, left_size);
     }
 
-    auto right_size = values_.size() - static_cast<size_t>(null_data_offset);
+    auto right_size = values_size() - static_cast<size_t>(null_data_offset);
     if (right_size > 0) {
       // skip the null fixed size value.
       auto out_offset = left_size + width_size;
@@ -774,9 +775,8 @@ class BinaryMemoTable : public MemoTable {
   // or `void(const util::string_view&)`.
   template <typename VisitFunc>
   void VisitValues(int32_t start, VisitFunc&& visit) const {
-    for (uint32_t i = start; i < offsets_.size() - 1; ++i) {
-      visit(
-          util::string_view(values_.data() + offsets_[i], offsets_[i + 1] - offsets_[i]));
+    for (int32_t i = start; i < size(); ++i) {
+      visit(binary_builder_.GetView(i));
     }
   }
 
@@ -788,19 +788,16 @@ class BinaryMemoTable : public MemoTable {
   using HashTableType = HashTable<Payload>;
   using HashTableEntry = typename HashTable<Payload>::Entry;
   HashTableType hash_table_;
-
-  std::vector<int32_t> offsets_;
-  std::string values_;
+  BinaryBuilder binary_builder_;
 
   int32_t null_index_ = kKeyNotFound;
 
   std::pair<const HashTableEntry*, bool> Lookup(hash_t h, const void* data,
                                                 int32_t length) const {
     auto cmp_func = [=](const Payload* payload) {
-      int32_t start, stop;
-      start = offsets_[payload->memo_index];
-      stop = offsets_[payload->memo_index + 1];
-      return length == stop - start && memcmp(data, values_.data() + start, length) == 0;
+      util::string_view lhs = binary_builder_.GetView(payload->memo_index);
+      util::string_view rhs(static_cast<const char*>(data), length);
+      return lhs == rhs;
     };
     return hash_table_.Lookup(h, cmp_func);
   }
