@@ -47,7 +47,7 @@ before_install:
   - brew uninstall boost cgal postgis sfcgal
   - brew update
   - brew upgrade cmake
-  - brew install bison flex grpc openssl llvm@7
+  - brew install bison flex grpc openssl llvm@7 zlib
   # Remove shared grpc libraries installed by brew to make sure
   # we are linked against the static ones.
   - rm -f /usr/local/opt/grpc/lib/*.dylib
@@ -68,8 +68,15 @@ install:
 
   # test the built wheels, remove llvm and grpc dependencies to ensure
   # things are properly statically-linked
-  - brew uninstall --ignore-dependencies llvm@7 grpc c-ares openssl
-  - install_run arrow
+  - brew uninstall --ignore-dependencies llvm@7 grpc c-ares openssl zlib
+  # install the built wheel and test dependencies
+  - install_wheel arrow
+  # run unit tests before removing the system libraries
+  - run_unit_tests
+  # remove libz to ensure that it is properly bundled
+  - sudo find /usr -name libz.* -delete
+  # run the import tests
+  - run_import_tests
 
   # move built wheels to a top level directory
   - mv -v arrow/python/dist/* dist/
