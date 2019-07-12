@@ -43,7 +43,6 @@ public class DictionaryEncoder {
    * @return dictionary encoded vector
    */
   public static ValueVector encode(ValueVector vector, Dictionary dictionary) {
-    validateType(vector.getMinorType());
     // load dictionary values into a hashmap for lookup
     DictionaryEncodeHashMap<Object> lookUps = new DictionaryEncodeHashMap<>(dictionary.getVector().getValueCount());
 
@@ -124,13 +123,5 @@ public class DictionaryEncoder {
       return true;
     }
     return false;
-  }
-
-  private static void validateType(MinorType type) {
-      if (type == MinorType.UNION) {
-        throw new IllegalArgumentException(
-            "Dictionary encoding for complex types not implemented: type " + type);
-      }
-
   }
 }
