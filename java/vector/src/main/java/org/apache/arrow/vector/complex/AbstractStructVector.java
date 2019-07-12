@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -139,12 +140,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
   }
 
   private boolean nullFilled(ValueVector vector) {
-    for (int r = 0; r < vector.getValueCount(); r++) {
-      if (!vector.isNull(r)) {
-        return false;
-      }
-    }
-    return true;
+    return BitVectorHelper.checkAllBitsEqualTo(vector.getValidityBuffer(), vector.getValueCount(), false);
   }
 
   /**

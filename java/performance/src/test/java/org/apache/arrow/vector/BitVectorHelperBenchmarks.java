@@ -50,6 +50,8 @@ public class BitVectorHelperBenchmarks {
 
   private ArrowBuf validityBuffer;
 
+  private ArrowBuf oneBitValidityBuffer;
+
   /**
    * Setup benchmarks.
    */
@@ -65,6 +67,11 @@ public class BitVectorHelperBenchmarks {
         BitVectorHelper.setValidityBit(validityBuffer, i, (byte) 0);
       }
     }
+
+    // only one 1 bit in the middle of the buffer
+    oneBitValidityBuffer = allocator.buffer(VALIDITY_BUFFER_CAPACITY / 8);
+    oneBitValidityBuffer.setZero(0, VALIDITY_BUFFER_CAPACITY / 8);
+    BitVectorHelper.setValidityBit(oneBitValidityBuffer, VALIDITY_BUFFER_CAPACITY / 2, (byte) 1);
   }
 
   /**
@@ -73,6 +80,7 @@ public class BitVectorHelperBenchmarks {
   @TearDown
   public void tearDown() {
     validityBuffer.close();
+    oneBitValidityBuffer.close();
     allocator.close();
   }
 
@@ -81,6 +89,13 @@ public class BitVectorHelperBenchmarks {
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public int getNullCountBenchmark() {
     return BitVectorHelper.getNullCount(validityBuffer, VALIDITY_BUFFER_CAPACITY);
+  }
+
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.NANOSECONDS)
+  public boolean allBitsNullBenchmark() {
+    return BitVectorHelper.checkAllBitsEqualTo(oneBitValidityBuffer, VALIDITY_BUFFER_CAPACITY, true);
   }
 
   //@Test
