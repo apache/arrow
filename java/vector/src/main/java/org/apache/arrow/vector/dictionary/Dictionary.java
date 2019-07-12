@@ -94,7 +94,7 @@ public class Dictionary {
 
   private boolean equals(ArrowType type, final Object o1, final Object o2) {
     if (type instanceof ArrowType.Binary || type instanceof ArrowType.FixedSizeBinary) {
-      //TODO use ByteArrayWrapper to compare, see ARROW-5835
+      //TODO use ByteArrayWrapper to compare and add UT, see ARROW-5835
       return Arrays.equals((byte[]) o1, (byte[]) o2);
     }
 
