@@ -100,9 +100,8 @@ download_files() {
       --fail \
       --location \
       --output ${file} \
-      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file} &
+      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file}
   done
-  wait
 }
 
 delete_file() {
@@ -152,9 +151,8 @@ for target in debian ubuntu centos python; do
     mv ${version}-rc${rc} ${version}
   fi
   for file in $(find . -type f); do
-    upload_file ${version} ${target} ${file} &
+    upload_file ${version} ${target} ${file}
   done
-  wait
   popd
   popd
   rm -rf ${tmp_dir}
