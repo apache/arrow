@@ -1032,9 +1032,9 @@ class ARROW_EXPORT UnionArray : public Array {
   const type_id_t* raw_type_ids() const { return raw_type_ids_ + data_->offset; }
   const int32_t* raw_value_offsets() const { return raw_value_offsets_ + data_->offset; }
 
-  UnionMode::type mode() const {
-    return internal::checked_cast<const UnionType&>(*type()).mode();
-  }
+  const UnionType* union_type() const { return union_type_; }
+
+  UnionMode::type mode() const { return union_type_->mode(); }
 
   // Return the given field as an individual array.
   // For sparse unions, the returned array has its offset, length and null
@@ -1047,6 +1047,7 @@ class ARROW_EXPORT UnionArray : public Array {
 
   const type_id_t* raw_type_ids_;
   const int32_t* raw_value_offsets_;
+  const UnionType* union_type_;
 
   // For caching boxed child data
   mutable std::vector<std::shared_ptr<Array>> boxed_fields_;

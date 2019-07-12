@@ -60,7 +60,7 @@ Status ListBuilder::CheckNextOffset() const {
   const int64_t num_values = value_builder_->length();
   ARROW_RETURN_IF(
       num_values > kListMaximumElements,
-      Status::CapacityError("ListArray cannot contain more then 2^31 - 1 child elements,",
+      Status::CapacityError("ListArray cannot contain more than 2^31 - 1 child elements,",
                             " have ", num_values));
   return Status::OK();
 }
@@ -300,7 +300,7 @@ Status FixedSizeListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 // Struct
 
 StructBuilder::StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
-                             std::vector<std::shared_ptr<ArrayBuilder>>&& field_builders)
+                             std::vector<std::shared_ptr<ArrayBuilder>> field_builders)
     : ArrayBuilder(type, pool) {
   children_ = std::move(field_builders);
 }

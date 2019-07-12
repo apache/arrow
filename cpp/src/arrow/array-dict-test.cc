@@ -948,4 +948,49 @@ TEST(TestDictionary, TransposeNulls) {
   AssertArraysEqual(*expected, *out);
 }
 
+TEST(TestDictionary, DISABLED_ListOfDictionary) {
+  std::unique_ptr<ArrayBuilder> root_builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), list(dictionary(int8(), utf8())),
+                        &root_builder));
+  auto list_builder = checked_cast<ListBuilder*>(root_builder.get());
+  auto dict_builder =
+      checked_cast<DictionaryBuilder<StringType>*>(list_builder->value_builder());
+
+  ASSERT_OK(list_builder->Append());
+  std::vector<std::string> expected;
+  for (char a : "abc") {
+    for (char d : "def") {
+      for (char g : "ghi") {
+        for (char j : "jkl") {
+          for (char m : "mno") {
+            for (char p : "pqr") {
+              if ((static_cast<int>(a) + d + g + j + m + p) % 16 == 0) {
+                ASSERT_OK(list_builder->Append());
+              }
+              // 3**6 distinct strings; too large for int8
+              char str[6] = {a, d, g, j, m, p};
+              ASSERT_OK(dict_builder->Append(str));
+              expected.push_back(str);
+            }
+          }
+        }
+      }
+    }
+  }
+  std::shared_ptr<Array> expected_dict;
+  ArrayFromVector<StringType, std::string>(expected, &expected_dict);
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(root_builder->Finish(&array));
+  ASSERT_OK(ValidateArray(*array));
+
+  auto expected_type = list(dictionary(int16(), utf8()));
+  ASSERT_EQ(array->type()->ToString(), expected_type->ToString());
+
+  auto list_array = checked_cast<const ListArray*>(array.get());
+  auto actual_dict =
+      checked_cast<const DictionaryArray&>(*list_array->values()).dictionary();
+  ASSERT_ARRAYS_EQUAL(*expected_dict, *actual_dict);
+}
+
 }  // namespace arrow
