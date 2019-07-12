@@ -29,11 +29,6 @@
 namespace arrow {
 namespace compute {
 
-using internal::checked_pointer_cast;
-using util::string_view;
-
-constexpr auto kSeed = 0x0ff1ce;
-
 template <typename ArrowType>
 class TestSortKernel : public ComputeFixture, public TestBase {
  protected:
