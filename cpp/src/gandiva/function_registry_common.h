@@ -18,8 +18,8 @@
 #ifndef GANDIVA_FUNCTION_REGISTRY_COMMON_H
 #define GANDIVA_FUNCTION_REGISTRY_COMMON_H
 
-#include <string>
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
