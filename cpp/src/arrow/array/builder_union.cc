@@ -17,6 +17,7 @@
 
 #include "arrow/array/builder_union.h"
 
+#include <limits>
 #include <utility>
 
 #include "arrow/util/checked_cast.h"
