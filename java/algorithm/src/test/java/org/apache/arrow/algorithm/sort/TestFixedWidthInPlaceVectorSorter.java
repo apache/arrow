@@ -64,7 +64,7 @@ public class TestFixedWidthInPlaceVectorSorter {
 
       // sort the vector
       FixedWidthInPlaceVectorSorter sorter = new FixedWidthInPlaceVectorSorter();
-      DefaultVectorComparators.IntComparator comparator = new DefaultVectorComparators.IntComparator();
+      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
 
       sorter.sortInPlace(vec, comparator);
 

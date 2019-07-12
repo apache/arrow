@@ -19,6 +19,7 @@ package org.apache.arrow.algorithm.sort;
 
 import static org.apache.arrow.vector.BaseVariableWidthVector.OFFSET_WIDTH;
 
+import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.Float4Vector;
@@ -26,11 +27,40 @@ import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TinyIntVector;
+import org.apache.arrow.vector.ValueVector;
 
 /**
  * Default comparator implementations for different types of vectors.
  */
 public class DefaultVectorComparators {
+
+  /**
+   * Create the default comparator for the vector.
+   * @param vector the vector.
+   * @param <T> the vector type.
+   * @return the default comparator.
+   */
+  public static <T extends ValueVector> VectorValueComparator<T> createDefaultComparator(T vector) {
+    if (vector instanceof BaseFixedWidthVector) {
+      if (vector instanceof TinyIntVector) {
+        return (VectorValueComparator<T>) new ByteComparator();
+      } else if (vector instanceof SmallIntVector) {
+        return (VectorValueComparator<T>) new ShortComparator();
+      } else if (vector instanceof IntVector) {
+        return (VectorValueComparator<T>) new IntComparator();
+      } else if (vector instanceof BigIntVector) {
+        return (VectorValueComparator<T>) new LongComparator();
+      } else if (vector instanceof Float4Vector) {
+        return (VectorValueComparator<T>) new Float4Comparator();
+      } else if (vector instanceof Float8Vector) {
+        return (VectorValueComparator<T>) new Float8Comparator();
+      }
+    } else if (vector instanceof BaseVariableWidthVector) {
+      return (VectorValueComparator<T>) new VariableWidthComparator();
+    }
+
+    throw new IllegalArgumentException("No default comparator for " + vector.getClass().getCanonicalName());
+  }
 
   /**
    * Default comparator for bytes.
