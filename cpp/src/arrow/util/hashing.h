@@ -202,8 +202,8 @@ class HashTable {
   };
 
   explicit HashTable(uint64_t capacity) {
-    // Presize for at least 8 elements
-    capacity = std::max(capacity, static_cast<uint64_t>(8U));
+    // Presize for at least 512 elements
+    capacity = std::max(capacity, static_cast<uint64_t>(512U));
     size_ = BitUtil::NextPower2(capacity * 4U);
     size_mask_ = size_ - 1;
     n_filled_ = 0;
