@@ -161,128 +161,138 @@ tasks:
   wheel-manylinux1-cp27m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 2.7
       unicode_width: 16
       wheel_tag: manylinux1
       test_docker_images: []
+      test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp27-cp27m-manylinux1_x86_64.whl
 
   wheel-manylinux1-cp27mu:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 2.7
       unicode_width: 32
       wheel_tag: manylinux1
       test_docker_images:
         - python:2.7-slim  # debian ucs4
+      test_remove_system_libs: false
     artifacts:
       - pyarrow-{no_rc_version}-cp27-cp27mu-manylinux1_x86_64.whl
 
   wheel-manylinux1-cp35m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 3.5
       unicode_width: 16
       wheel_tag: manylinux1
       test_docker_images:
         - python:3.5-slim
+      test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp35-cp35m-manylinux1_x86_64.whl
 
   wheel-manylinux1-cp36m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 3.6
       unicode_width: 16
       wheel_tag: manylinux1
       test_docker_images:
         - python:3.6-slim
+      test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux1_x86_64.whl
 
   wheel-manylinux1-cp37m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 3.7
       unicode_width: 16
       wheel_tag: manylinux1
       test_docker_images:
         - python:3.7-slim
+      test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux1_x86_64.whl
 
   wheel-manylinux2010-cp27m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 2.7
       unicode_width: 16
       wheel_tag: manylinux2010
       test_docker_images: []
+      test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp27-cp27m-manylinux2010_x86_64.whl
 
   wheel-manylinux2010-cp27mu:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 2.7
       unicode_width: 32
       wheel_tag: manylinux2010
       test_docker_images:
         - python:2.7-slim  # debian ucs4
+      test_remove_system_libs: false
     artifacts:
       - pyarrow-{no_rc_version}-cp27-cp27mu-manylinux2010_x86_64.whl
 
   wheel-manylinux2010-cp35m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 3.5
       unicode_width: 16
       wheel_tag: manylinux2010
       test_docker_images:
         - python:3.5-slim
+      test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp35-cp35m-manylinux2010_x86_64.whl
 
   wheel-manylinux2010-cp36m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 3.6
       unicode_width: 16
       wheel_tag: manylinux2010
       test_docker_images:
         - python:3.6-slim
+      test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2010_x86_64.whl
 
   wheel-manylinux2010-cp37m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux.yml
+    template: python-wheels/travis.linux.yml
     params:
       python_version: 3.7
       unicode_width: 16
       wheel_tag: manylinux2010
       test_docker_images:
         - python:3.7-slim
+      test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2010_x86_64.whl
 

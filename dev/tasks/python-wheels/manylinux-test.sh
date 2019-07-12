@@ -19,13 +19,23 @@
 
 set -e
 
+export ARROW_TEST_DATA=/arrow/testing/data
+
+python --version
 # Install built wheel
 pip install -q /arrow/python/$WHEEL_TAG/dist/*.whl
+# Install test dependencies (pip won't work after removing system zlib)
+pip install -q -r /arrow/python/requirements-test.txt
+# Run pyarrow tests
+pytest -v --pyargs pyarrow
 
-# Runs tests on installed distribution from an empty directory
-python --version
+if [[ "$1" == "--remove-system-libs" ]]; then
+  # Run import tests after removing the bundled dependencies from the system
+  echo "Removing the following libraries to fail loudly if they are bundled incorrectly:"
+  ldconfig -p | grep "lib\(lz4\|z\|boost\)" | awk -F'> ' '{print $2}' | xargs rm -v -f
+fi
 
-# Test optional dependencies
+# Test import and optional dependencies
 python -c "
 import sys
 import pyarrow
@@ -37,9 +47,3 @@ if sys.version_info.major > 2:
     import pyarrow.flight
     import pyarrow.gandiva
 "
-
-export ARROW_TEST_DATA=/arrow/testing/data
-
-# Run pyarrow tests
-pip install -q -r /arrow/python/requirements-test.txt
-pytest -v --pyargs pyarrow

@@ -58,15 +58,23 @@ script:
       -e PYTHON_VERSION="{{ python_version }}"
       -e UNICODE_WIDTH="{{ unicode_width }}"
       $BUILD_IMAGE
-  - popd
+
+  # run auditwheel, it does always exit with 0 so it is mostly for debugging
+  # purposes
+  - docker run -v `pwd`:/arrow quay.io/pypa/manylinux1_x86_64 /bin/bash -c
+      "auditwheel show /arrow/python/{{ wheel_tag }}/dist/*.whl"
 
   # test on multiple distributions
   {%- for image in test_docker_images %}
-  - docker run -it --shm-size 2G --volume $(pwd)/arrow:/arrow
-      --env WHEEL_TAG="{{ wheel_tag }}"
-      {{ image }}
-      /arrow/dev/tasks/python-wheels/manylinux-test.sh
+  - docker run -it --shm-size 2G -v `pwd`:/arrow -e WHEEL_TAG="{{ wheel_tag }}"
+    {%- if test_remove_system_libs %}
+      {{ image }} /arrow/dev/tasks/python-wheels/manylinux-test.sh --remove-system-libs
+    {%- else %}
+      {{ image }} /arrow/dev/tasks/python-wheels/manylinux-test.sh
+    {%- endif %}
   {%- endfor %}
+
+  - popd
 
   # prepare for deployment
   - sudo mv arrow/python/{{ wheel_tag }}/dist/* dist/
