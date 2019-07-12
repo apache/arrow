@@ -212,7 +212,8 @@ inline void ArrowTimestampToImpalaTimestamp(const int64_t time, Int96* impala_ti
 
   int64_t last_day_units = time % UnitPerDay;
   auto last_day_nanos = last_day_units * NanosecondsPerUnit;
-  // Strage might be unaligned, so use mempcy instead of reinterpret_cast
+  // impala_timestamp will be unaligned every other entry so do memcpy instead
+  // of assign and reinterpret cast to avoid undefined behavior.
   std::memcpy(impala_timestamp, &last_day_nanos, sizeof(int64_t));
 }
 
