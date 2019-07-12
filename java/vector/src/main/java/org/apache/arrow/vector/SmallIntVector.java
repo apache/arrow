@@ -358,6 +358,11 @@ public class SmallIntVector extends BaseFixedWidthVector implements BaseIntVecto
     this.setSafe(index, (int) value);
   }
 
+  @Override
+  public long getValueAsLong(int index) {
+    return 0;
+  }
+
   private class TransferImpl implements TransferPair {
     SmallIntVector to;
 

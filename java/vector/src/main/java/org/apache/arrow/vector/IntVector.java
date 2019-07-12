@@ -331,6 +331,11 @@ public class IntVector extends BaseFixedWidthVector implements BaseIntVector {
     this.setSafe(index, (int) value);
   }
 
+  @Override
+  public long getValueAsLong(int index) {
+    return this.get(index);
+  }
+
   private class TransferImpl implements TransferPair {
     IntVector to;
 
