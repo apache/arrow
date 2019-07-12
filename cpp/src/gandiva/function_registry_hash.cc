@@ -34,18 +34,18 @@ namespace gandiva {
 
 std::vector<NativeFunction> GetHashFunctionRegistry() {
   static std::vector<NativeFunction> hash_fn_registry_ = {
-      HASH32_SAFE_NULL_NEVER_FN(hash, ({})),
-      HASH32_SAFE_NULL_NEVER_FN(hash32, ({})),
-      HASH32_SAFE_NULL_NEVER_FN(hash32AsDouble, ({})),
+      HASH32_SAFE_NULL_NEVER_FN(hash, {}),
+      HASH32_SAFE_NULL_NEVER_FN(hash32, {}),
+      HASH32_SAFE_NULL_NEVER_FN(hash32AsDouble, {}),
 
-      HASH32_SEED_SAFE_NULL_NEVER_FN(hash32, ({})),
-      HASH32_SEED_SAFE_NULL_NEVER_FN(hash32AsDouble, ({})),
+      HASH32_SEED_SAFE_NULL_NEVER_FN(hash32, {}),
+      HASH32_SEED_SAFE_NULL_NEVER_FN(hash32AsDouble, {}),
 
-      HASH64_SAFE_NULL_NEVER_FN(hash64, ({})),
-      HASH64_SAFE_NULL_NEVER_FN(hash64AsDouble, ({})),
+      HASH64_SAFE_NULL_NEVER_FN(hash64, {}),
+      HASH64_SAFE_NULL_NEVER_FN(hash64AsDouble, {}),
 
-      HASH64_SEED_SAFE_NULL_NEVER_FN(hash64, ({})),
-      HASH64_SEED_SAFE_NULL_NEVER_FN(hash64AsDouble, ({}))};
+      HASH64_SEED_SAFE_NULL_NEVER_FN(hash64, {}),
+      HASH64_SEED_SAFE_NULL_NEVER_FN(hash64AsDouble, {})};
 
   return hash_fn_registry_;
 }

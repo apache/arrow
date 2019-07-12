@@ -44,30 +44,30 @@ namespace gandiva {
 
 std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
   static std::vector<NativeFunction> math_fn_registry_ = {
-      MATH_UNARY_OPS(cbrt, ({})),
-      MATH_UNARY_OPS(exp, ({})),
-      MATH_UNARY_OPS(log, ({})),
-      MATH_UNARY_OPS(log10, ({})),
+      MATH_UNARY_OPS(cbrt, {}),
+      MATH_UNARY_OPS(exp, {}),
+      MATH_UNARY_OPS(log, {}),
+      MATH_UNARY_OPS(log10, {}),
 
-      MATH_BINARY_UNSAFE(log, ({})),
+      MATH_BINARY_UNSAFE(log, {}),
 
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(power, {"pow"}, float64),
 
-      UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull, ({})),
-      UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull, ({})),
+      UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull, {}),
+      UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull, {}),
 
-      NUMERIC_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnumeric, ({})),
+      NUMERIC_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnumeric, {}),
 
-      BINARY_SAFE_NULL_NEVER_BOOL_FN(is_distinct_from, ({})),
-      BINARY_SAFE_NULL_NEVER_BOOL_FN(is_not_distinct_from, ({})),
+      BINARY_SAFE_NULL_NEVER_BOOL_FN(is_distinct_from, {}),
+      BINARY_SAFE_NULL_NEVER_BOOL_FN(is_not_distinct_from, {}),
 
       // decimal functions
-      UNARY_SAFE_NULL_IF_NULL(abs, ({}), decimal128, decimal128),
-      UNARY_SAFE_NULL_IF_NULL(ceil, ({}), decimal128, decimal128),
-      UNARY_SAFE_NULL_IF_NULL(floor, ({}), decimal128, decimal128),
-      UNARY_SAFE_NULL_IF_NULL(round, ({}), decimal128, decimal128),
+      UNARY_SAFE_NULL_IF_NULL(abs, {}, decimal128, decimal128),
+      UNARY_SAFE_NULL_IF_NULL(ceil, {}, decimal128, decimal128),
+      UNARY_SAFE_NULL_IF_NULL(floor, {}, decimal128, decimal128),
+      UNARY_SAFE_NULL_IF_NULL(round, {}, decimal128, decimal128),
       UNARY_SAFE_NULL_IF_NULL(truncate, {"trunc"}, decimal128, decimal128),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(round, ({}), decimal128, int32, decimal128),
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(round, {}, decimal128, int32, decimal128),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(truncate, {"trunc"}, decimal128, int32,
                                        decimal128),
   };
