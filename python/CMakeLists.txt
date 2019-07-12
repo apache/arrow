@@ -297,10 +297,11 @@ function(bundle_arrow_dependency library_name shared_lib_name)
   if(SHARED_LIB_PATH)
     get_filename_component(SHARED_LIB_REALPATH ${SHARED_LIB_PATH} REALPATH)
     get_filename_component(SHARED_LIB_NAME ${SHARED_LIB_PATH} NAME)
-    message(STATUS "Bundle dependency ${library_name}: ${SHARED_LIB_REALPATH} as ${SHARED_LIB_NAME}")
+    message(
+      STATUS
+        "Bundle dependency ${library_name}: ${SHARED_LIB_REALPATH} as ${SHARED_LIB_NAME}")
     configure_file(${SHARED_LIB_REALPATH}
-                   ${BUILD_OUTPUT_ROOT_DIRECTORY}/${SHARED_LIB_NAME}
-                   COPYONLY)
+                   ${BUILD_OUTPUT_ROOT_DIRECTORY}/${SHARED_LIB_NAME} COPYONLY)
   else()
     message(FATAL_ERROR "Unable to bundle dependency: ${library_name}")
   endif()
