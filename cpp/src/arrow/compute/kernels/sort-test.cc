@@ -46,14 +46,14 @@ class TestSortKernel : public ComputeFixture, public TestBase {
   }
 };
 
-class TestSortKernelWithInt32 : public TestSortKernel<Int32Type> {
+class TestSortKernelInt32 : public TestSortKernel<Int32Type> {
  protected:
   void AssertSort(const std::string& values, const std::string& expected) override {
     TestSortKernel<Int32Type>::AssertSort(values, expected);
   }
 };
 
-TEST_F(TestSortKernelWithInt32, SortInt32) {
+TEST_F(TestSortKernelInt32, SortInt32) {
   this->AssertSort("[]", "[]");
 
   this->AssertSort("[3,2,6]", "[1, 0, 2]");
@@ -63,6 +63,8 @@ TEST_F(TestSortKernelWithInt32, SortInt32) {
   this->AssertSort("[7,6,5,4,3,2,1]", "[6,5,4,3,2,1,0]");
 
   this->AssertSort("[10,12,4,50,100,32,11]", "[2,0,6,1,5,3,4]");
+
+  this->AssertSort("[null,1,3,null,2,5]", "[1,4,2,5,0,3]");
 }
 
 }  // namespace compute

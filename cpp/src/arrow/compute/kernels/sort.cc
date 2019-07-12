@@ -41,7 +41,13 @@ class SortKernelImpl : public SortKernel {
                   std::shared_ptr<Array>* offsets) {
     std::vector<uint64_t> ind(values->length());
     std::iota(ind.begin(), ind.end(), 0);
-    std::sort(ind.begin(), ind.end(), [&values](uint64_t left, uint64_t right) {
+    auto nulls_begin = ind.end();
+
+    if (values->null_count()) {
+      nulls_begin = std::stable_partition(ind.begin(), ind.end(),
+                                        [&values](uint64_t ind) { return !values->IsNull(ind); });
+    }
+    std::stable_sort(ind.begin(), nulls_begin, [&values](uint64_t left, uint64_t right) {
       return values->Value(left) < values->Value(right);
     });
     UInt64Builder builder(ctx->memory_pool());
