@@ -54,13 +54,24 @@ public class TestByteFunctionHelpers {
       buffer2.setByte(i, i);
     }
 
+    //test three cases, length>8, length>3, length<3
+
     assertEquals(1, ByteFunctionHelpers.equal(buffer1, 0, SIZE - 1,
         buffer2, 0, SIZE - 1));
+    assertEquals(1, ByteFunctionHelpers.equal(buffer1, 0, 6,
+        buffer2, 0, 6));
+    assertEquals(1, ByteFunctionHelpers.equal(buffer1, 0, 2,
+        buffer2, 0, 2));
 
-    buffer1.setByte(50, 10);
+    //change value at index1
+    buffer1.setByte(1, 10);
 
     assertEquals(0, ByteFunctionHelpers.equal(buffer1, 0, SIZE - 1,
         buffer2, 0, SIZE - 1));
+    assertEquals(0, ByteFunctionHelpers.equal(buffer1, 0, 6,
+        buffer2, 0, 6));
+    assertEquals(0, ByteFunctionHelpers.equal(buffer1, 0, 2,
+        buffer2, 0, 2));
 
     buffer1.close();
     buffer2.close();
@@ -77,13 +88,24 @@ public class TestByteFunctionHelpers {
       buffer2.setByte(i, i);
     }
 
+    //test three cases, length>8, length>3, length<3
+
     assertEquals(0, ByteFunctionHelpers.compare(buffer1, 0, SIZE - 1,
         buffer2, 0, SIZE - 1));
+    assertEquals(0, ByteFunctionHelpers.compare(buffer1, 0, 6,
+        buffer2, 0, 6));
+    assertEquals(0, ByteFunctionHelpers.compare(buffer1, 0, 2,
+        buffer2, 0, 2));
 
-    buffer1.setByte(50, 10);
+    //change value at index 1
+    buffer1.setByte(1, 0);
 
     assertEquals(-1, ByteFunctionHelpers.compare(buffer1, 0, SIZE - 1,
         buffer2, 0, SIZE - 1));
+    assertEquals(-1, ByteFunctionHelpers.compare(buffer1, 0, 6,
+        buffer2, 0, 6));
+    assertEquals(-1, ByteFunctionHelpers.compare(buffer1, 0, 2,
+        buffer2, 0, 2));
 
     buffer1.close();
     buffer2.close();
