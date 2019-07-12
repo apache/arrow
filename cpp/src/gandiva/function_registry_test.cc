@@ -49,7 +49,8 @@ TEST_F(TestFunctionRegistry, TestNotFound) {
   EXPECT_EQ(registry_.LookupSignature(add_i32_i32_ret64), nullptr);
 }
 
-TEST_F(TestFunctionRegistry, TestDuplicates) {
+// one nativefunction object per precompiled function
+TEST_F(TestFunctionRegistry, TestOneNativeFuncPerPCFunc) {
   std::unordered_set<std::string> pc_func_sigs;
   std::unordered_set<std::string> duplicates;
   for (auto native_func_it = registry_.begin(); native_func_it != registry_.end();
@@ -71,6 +72,30 @@ TEST_F(TestFunctionRegistry, TestDuplicates) {
   EXPECT_TRUE(duplicates.empty())
       << "Registry has duplicates.\nMultiple NativeFunction objects refer to the "
          "following precompiled functions:\n"
+      << result;
+}
+
+// Avoid multiple definitions of same signature
+TEST_F(TestFunctionRegistry, TestOnePCFuncPerSig) {
+  std::unordered_set<std::string> func_sigs;
+  std::unordered_set<std::string> duplicates;
+  for (auto native_func_it = registry_.begin(); native_func_it != registry_.end();
+       ++native_func_it) {
+    auto& sig = native_func_it->signature();
+    auto sig_str = sig.ToString();
+    if (func_sigs.count(sig_str) == 0) {
+      func_sigs.insert(sig_str);
+    } else {
+      duplicates.insert(sig_str);
+    }
+  }
+  std::ostringstream stream;
+  std::copy(duplicates.begin(), duplicates.end(),
+            std::ostream_iterator<std::string>(stream, "\n"));
+  std::string result = stream.str();
+  EXPECT_TRUE(duplicates.empty())
+      << "The following signatures are defined more than once possibly pointing to "
+         "different precompiled functions:\n"
       << result;
 }
 
