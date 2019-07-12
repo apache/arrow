@@ -43,6 +43,8 @@ fi
 
 : ${BINTRAY_REPOSITORY:=apache/arrow}
 
+BINTRAY_DOWNLOAD_URL_BASE=https://dl.bintray.com
+
 docker_image_name=apache-arrow/release-binary
 
 bintray() {
@@ -100,7 +102,7 @@ download_files() {
       --fail \
       --location \
       --output ${file} \
-      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file}
+      ${BINTRAY_DOWNLOAD_URL_BASE}/${BINTRAY_REPOSITORY}/${file}
   done
 }
 
@@ -119,6 +121,15 @@ upload_file() {
   local path=$3
 
   local sha256=$(shasum -a 256 ${path} | awk '{print $1}')
+  local download_path=/${BINTRAY_REPOSITORY}/${target}/${path}
+  if curl \
+       --fail \
+       --head \
+       ${BINTRAY_DOWNLOAD_URL_BASE}${download_path} | \
+         grep -q "^X-Checksum-Sha2: ${sha256}"; then
+    return 0
+  fi
+
   local request_path=/content/${BINTRAY_REPOSITORY}/${target}/${version}/${target}/${path}
   if ! bintray \
          PUT ${request_path} \
