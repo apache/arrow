@@ -124,14 +124,14 @@ class TestFeatherFileReader < Test::Unit::TestCase
     end
   end
 
-  test("#get_column") do
+  test("#get_column_data") do
     columns = {
       "message" => build_string_array(["Hello"]),
       "is_critical" => build_boolean_array([false]),
     }
     setup_file(:columns => columns) do |reader|
       actual_columns = reader.n_columns.times.collect do |i|
-        reader.get_column(i)
+        reader.get_column_data(i)
       end
       assert_equal([
                      columns["message"],

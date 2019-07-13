@@ -184,9 +184,13 @@ libarrow_glib_la_cpp_headers +=			\
 	orc-file-reader.hpp
 endif
 
+libarrow_glib_la_cpp_internal_headers =		\
+	internal-index.hpp
+
 libarrow_glib_la_SOURCES =			\
 	$(libarrow_glib_la_sources)		\
-	$(libarrow_glib_la_cpp_headers)
+	$(libarrow_glib_la_cpp_headers)		\
+	$(libarrow_glib_la_cpp_internal_headers)
 
 BUILT_SOURCES =					\
 	$(libarrow_glib_la_genearted_headers)	\

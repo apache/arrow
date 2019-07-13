@@ -165,6 +165,10 @@ if have_arrow_orc
   )
 endif
 
+cpp_internal_headers = files(
+  'internal-index.hpp',
+)
+
 version_h_conf = configuration_data()
 version_h_conf.set('GARROW_VERSION_MAJOR', version_major)
 version_h_conf.set('GARROW_VERSION_MINOR', version_minor)

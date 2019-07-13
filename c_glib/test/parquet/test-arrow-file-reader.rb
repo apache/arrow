@@ -58,8 +58,8 @@ b: int32
                    Arrow::ChunkedArray.new([@b_array]),
                  ],
                  [
-                   @reader.read_column(0),
-                   @reader.read_column(1),
+                   @reader.read_column_data(0),
+                   @reader.read_column_data(-1),
                  ])
   end
 end

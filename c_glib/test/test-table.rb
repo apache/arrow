@@ -31,7 +31,7 @@ class TestTable < Test::Unit::TestCase
     def dump_table(table)
       table.n_columns.times.collect do |i|
         field = table.schema.get_field(i)
-        chunked_array = table.get_column(i)
+        chunked_array = table.get_column_data(i)
         values = []
         chunked_array.chunks.each do |chunk|
           chunk.length.times do |j|
@@ -130,9 +130,15 @@ class TestTable < Test::Unit::TestCase
                    @table.schema.fields.collect(&:name))
     end
 
-    def test_column
-      assert_equal(Arrow::ChunkedArray.new([build_boolean_array([false])]),
-                   @table.get_column(1))
+    def test_column_data
+      assert_equal([
+                     Arrow::ChunkedArray.new([build_boolean_array([true])]),
+                     Arrow::ChunkedArray.new([build_boolean_array([false])]),
+                   ],
+                   [
+                     @table.get_column_data(0),
+                     @table.get_column_data(-1),
+                   ])
     end
 
     def test_n_columns

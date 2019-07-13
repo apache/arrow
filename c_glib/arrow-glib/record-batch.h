@@ -44,9 +44,18 @@ gboolean garrow_record_batch_equal(GArrowRecordBatch *record_batch,
                                    GArrowRecordBatch *other_record_batch);
 
 GArrowSchema *garrow_record_batch_get_schema     (GArrowRecordBatch *record_batch);
+#ifndef GARROW_DISABLE_DEPRECATED
+GARROW_DEPRECATED_IN_1_0_FOR(garrow_record_batch_get_column_data)
 GArrowArray  *garrow_record_batch_get_column     (GArrowRecordBatch *record_batch,
                                                   gint i);
+#endif
+GARROW_AVAILABLE_IN_1_0
+GArrowArray  *garrow_record_batch_get_column_data(GArrowRecordBatch *record_batch,
+                                                  gint i);
+#ifndef GARROW_DISABLE_DEPRECATED
+GARROW_DEPRECATED_IN_1_0
 GList        *garrow_record_batch_get_columns    (GArrowRecordBatch *record_batch);
+#endif
 const gchar  *garrow_record_batch_get_column_name(GArrowRecordBatch *record_batch,
                                                   gint i);
 guint         garrow_record_batch_get_n_columns  (GArrowRecordBatch *record_batch);

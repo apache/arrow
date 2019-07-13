@@ -65,9 +65,10 @@ gboolean        garrow_table_equal         (GArrowTable *table,
                                             GArrowTable *other_table);
 
 GArrowSchema   *garrow_table_get_schema(GArrowTable *table);
+GARROW_AVAILABLE_IN_1_0
 GArrowChunkedArray *
-garrow_table_get_column(GArrowTable *table,
-                        guint i);
+garrow_table_get_column_data(GArrowTable *table,
+                             gint i);
 
 guint           garrow_table_get_n_columns (GArrowTable *table);
 guint64         garrow_table_get_n_rows    (GArrowTable *table);

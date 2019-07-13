@@ -107,6 +107,26 @@ class TestRecordBatch < Test::Unit::TestCase
       end
     end
 
+    sub_test_case("#column_data") do
+      def test_positive
+        assert_equal(build_boolean_array(@valid_values),
+                     @record_batch.get_column_data(1))
+      end
+
+      def test_negative
+        assert_equal(build_boolean_array(@visible_values),
+                     @record_batch.get_column_data(-2))
+      end
+
+      def test_positive_out_of_index
+        assert_nil(@record_batch.get_column_data(2))
+      end
+
+      def test_negative_out_of_index
+        assert_nil(@record_batch.get_column_data(-3))
+      end
+    end
+
     def test_columns
       assert_equal([5, 5],
                    @record_batch.columns.collect(&:length))

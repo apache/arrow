@@ -23,8 +23,9 @@
 
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/chunked-array.hpp>
-#include <arrow-glib/field.hpp>
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/field.hpp>
+#include <arrow-glib/internal-index.hpp>
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
@@ -359,17 +360,24 @@ garrow_table_get_schema(GArrowTable *table)
 }
 
 /**
- * garrow_table_get_column:
+ * garrow_table_get_column_data:
  * @table: A #GArrowTable.
- * @i: The index of the target column.
+ * @i: The index of the target column. If it's negative, index is
+ *   counted backward from the end of the columns. `-1` means the last
+ *   column.
  *
- * Returns: (transfer full): The i-th column in the table.
+ * Returns: (nullable) (transfer full): The i-th column's data in the table.
+ *
+ * Since: 1.0.0
  */
 GArrowChunkedArray *
-garrow_table_get_column(GArrowTable *table,
-                        guint i)
+garrow_table_get_column_data(GArrowTable *table,
+                             gint i)
 {
-  const auto arrow_table = garrow_table_get_raw(table);
+  const auto &arrow_table = garrow_table_get_raw(table);
+  if (!garrow_internal_index_adjust(i, arrow_table->num_columns())) {
+    return NULL;
+  }
   auto arrow_column = arrow_table->column(i);
   return garrow_chunked_array_new_raw(&arrow_column);
 }
