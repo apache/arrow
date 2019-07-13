@@ -55,7 +55,7 @@ TEST_F(TestFunctionRegistry, TestOneNativeFuncPerPCFunc) {
   std::unordered_set<std::string> duplicates;
   for (auto native_func_it = registry_.begin(); native_func_it != registry_.end();
        ++native_func_it) {
-    auto& sig = native_func_it->signature();
+    auto& sig = native_func_it->signatures().front();
     auto pc_func_sig =
         FunctionSignature(native_func_it->pc_name(), sig.param_types(), sig.ret_type())
             .ToString();
@@ -81,12 +81,13 @@ TEST_F(TestFunctionRegistry, TestOnePCFuncPerSig) {
   std::unordered_set<std::string> duplicates;
   for (auto native_func_it = registry_.begin(); native_func_it != registry_.end();
        ++native_func_it) {
-    auto& sig = native_func_it->signature();
-    auto sig_str = sig.ToString();
-    if (func_sigs.count(sig_str) == 0) {
-      func_sigs.insert(sig_str);
-    } else {
-      duplicates.insert(sig_str);
+    for (auto& sig : native_func_it->signatures()) {
+      auto sig_str = sig.ToString();
+      if (func_sigs.count(sig_str) == 0) {
+        func_sigs.insert(sig_str);
+      } else {
+        duplicates.insert(sig_str);
+      }
     }
   }
   std::ostringstream stream;
