@@ -134,23 +134,22 @@ static Status MakeArrowTime64(const LogicalType& logical_type,
 
 static Status MakeArrowTimestamp(const LogicalType& logical_type,
                                  std::shared_ptr<ArrowType>* out) {
-  static const char* utc = "UTC";
   const auto& timestamp = checked_cast<const TimestampLogicalType&>(logical_type);
+  const bool utc_normalized =
+      timestamp.is_from_converted_type() ? false : timestamp.is_adjusted_to_utc();
+  static const char* utc_timezone = "UTC";
   switch (timestamp.time_unit()) {
     case LogicalType::TimeUnit::MILLIS:
-      *out = (timestamp.is_adjusted_to_utc()
-                  ? ::arrow::timestamp(::arrow::TimeUnit::MILLI, utc)
-                  : ::arrow::timestamp(::arrow::TimeUnit::MILLI));
+      *out = (utc_normalized ? ::arrow::timestamp(::arrow::TimeUnit::MILLI, utc_timezone)
+                             : ::arrow::timestamp(::arrow::TimeUnit::MILLI));
       break;
     case LogicalType::TimeUnit::MICROS:
-      *out = (timestamp.is_adjusted_to_utc()
-                  ? ::arrow::timestamp(::arrow::TimeUnit::MICRO, utc)
-                  : ::arrow::timestamp(::arrow::TimeUnit::MICRO));
+      *out = (utc_normalized ? ::arrow::timestamp(::arrow::TimeUnit::MICRO, utc_timezone)
+                             : ::arrow::timestamp(::arrow::TimeUnit::MICRO));
       break;
     case LogicalType::TimeUnit::NANOS:
-      *out = (timestamp.is_adjusted_to_utc()
-                  ? ::arrow::timestamp(::arrow::TimeUnit::NANO, utc)
-                  : ::arrow::timestamp(::arrow::TimeUnit::NANO));
+      *out = (utc_normalized ? ::arrow::timestamp(::arrow::TimeUnit::NANO, utc_timezone)
+                             : ::arrow::timestamp(::arrow::TimeUnit::NANO));
       break;
     default:
       return Status::TypeError("Unrecognized time unit in timestamp logical_type: ",
@@ -530,9 +529,11 @@ static std::shared_ptr<const LogicalType> TimestampLogicalTypeFromArrowTimestamp
   switch (time_unit) {
     case ::arrow::TimeUnit::MILLI:
       return LogicalType::Timestamp(utc, LogicalType::TimeUnit::MILLIS,
+                                    /*is_from_converted_type=*/false,
                                     /*force_set_converted_type=*/true);
     case ::arrow::TimeUnit::MICRO:
       return LogicalType::Timestamp(utc, LogicalType::TimeUnit::MICROS,
+                                    /*is_from_converted_type=*/false,
                                     /*force_set_converted_type=*/true);
     case ::arrow::TimeUnit::NANO:
       return LogicalType::Timestamp(utc, LogicalType::TimeUnit::NANOS);
