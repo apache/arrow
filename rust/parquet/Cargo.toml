@@ -40,7 +40,7 @@ lz4 = "1.23"
 zstd = "0.4"
 chrono = "0.4"
 num-bigint = "0.2"
-arrow = { path = "../arrow" }
+arrow = { path = "../arrow", version = "1.0.0-SNAPSHOT" }
 
 [dev-dependencies]
 lazy_static = "1"

@@ -188,10 +188,10 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
                         "+version = \"#{@release_version}\""],
-                       ["-arrow = { path = \"../arrow\" }",
-                        "-parquet = { path = \"../parquet\" }",
-                        "+arrow = \"#{@release_version}\"",
-                        "+parquet = \"#{@release_version}\""]
+                       ["-arrow = { path = \"../arrow\", version = \"#{@snapshot_version}\" }",
+                        "-parquet = { path = \"../parquet\", version = \"#{@snapshot_version}\" }",
+                        "+arrow = { path = \"../arrow\", version = \"#{@release_version}\" }",
+                        "+parquet = { path = \"../parquet\", version = \"#{@release_version}\" }"]
                      ],
                    },
                    {
@@ -206,8 +206,8 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
                         "+version = \"#{@release_version}\""],
-                       ["-arrow = { path = \"../arrow\" }",
-                        "+arrow = \"#{@release_version}\""]
+                       ["-arrow = { path = \"../arrow\", version = \"#{@snapshot_version}\" }",
+                        "+arrow = { path = \"../arrow\", version = \"#{@release_version}\" }"]
                      ],
                    },
                    {
@@ -231,14 +231,14 @@ class PrepareTest < Test::Unit::TestCase
                      path: "c_glib/configure.ac",
                      hunks: [
                        ["-m4_define([arrow_glib_version], #{@release_version})",
-                        "+m4_define([arrow_glib_version], #{@next_version}-SNAPSHOT)"],
+                        "+m4_define([arrow_glib_version], #{@next_snapshot_version})"],
                      ],
                    },
                    {
                      path: "c_glib/meson.build",
                      hunks: [
                        ["-version = '#{@release_version}'",
-                        "+version = '#{@next_version}-SNAPSHOT'"],
+                        "+version = '#{@next_snapshot_version}'"],
                      ],
                    },
                    {
@@ -252,35 +252,35 @@ class PrepareTest < Test::Unit::TestCase
                      path: "cpp/CMakeLists.txt",
                      hunks: [
                        ["-set(ARROW_VERSION \"#{@release_version}\")",
-                        "+set(ARROW_VERSION \"#{@next_version}-SNAPSHOT\")"],
+                        "+set(ARROW_VERSION \"#{@next_snapshot_version}\")"],
                      ],
                    },
                    {
                      path: "csharp/Directory.Build.props",
                      hunks: [
                        ["-    <Version>#{@release_version}</Version>",
-                        "+    <Version>#{@next_version}-SNAPSHOT</Version>"],
+                        "+    <Version>#{@next_snapshot_version}</Version>"],
                      ],
                    },
                    {
                      path: "js/package.json",
                      hunks: [
                        ["-  \"version\": \"#{@release_version}\"",
-                        "+  \"version\": \"#{@next_version}-SNAPSHOT\""],
+                        "+  \"version\": \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
                      path: "matlab/CMakeLists.txt",
                      hunks: [
                        ["-set(MLARROW_VERSION \"#{@release_version}\")",
-                        "+set(MLARROW_VERSION \"#{@next_version}-SNAPSHOT\")"],
+                        "+set(MLARROW_VERSION \"#{@next_snapshot_version}\")"],
                      ],
                    },
                    {
                      path: "python/setup.py",
                      hunks: [
                        ["-default_version = '#{@release_version}'",
-                        "+default_version = '#{@next_version}-SNAPSHOT'"],
+                        "+default_version = '#{@next_snapshot_version}'"],
                      ],
                    },
                    {
@@ -302,78 +302,78 @@ class PrepareTest < Test::Unit::TestCase
                      path: "ruby/red-arrow-cuda/lib/arrow-cuda/version.rb",
                      hunks: [
                        ["-  VERSION = \"#{@release_version}\"",
-                        "+  VERSION = \"#{@next_version}-SNAPSHOT\""],
+                        "+  VERSION = \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
                      path: "ruby/red-arrow/lib/arrow/version.rb",
                      hunks: [
                        ["-  VERSION = \"#{@release_version}\"",
-                        "+  VERSION = \"#{@next_version}-SNAPSHOT\""],
+                        "+  VERSION = \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
                      path: "ruby/red-gandiva/lib/gandiva/version.rb",
                      hunks: [
                        ["-  VERSION = \"#{@release_version}\"",
-                        "+  VERSION = \"#{@next_version}-SNAPSHOT\""],
+                        "+  VERSION = \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
                      path: "ruby/red-parquet/lib/parquet/version.rb",
                      hunks: [
                        ["-  VERSION = \"#{@release_version}\"",
-                        "+  VERSION = \"#{@next_version}-SNAPSHOT\""],
+                        "+  VERSION = \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
                      path: "ruby/red-plasma/lib/plasma/version.rb",
                      hunks: [
                        ["-  VERSION = \"#{@release_version}\"",
-                        "+  VERSION = \"#{@next_version}-SNAPSHOT\""],
+                        "+  VERSION = \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
                      path: "rust/arrow/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@release_version}\"",
-                        "+version = \"#{@next_version}-SNAPSHOT\""],
+                        "+version = \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
                      path: "rust/datafusion/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@release_version}\"",
-                        "+version = \"#{@next_version}-SNAPSHOT\""],
-                       ["-arrow = \"#{@release_version}\"",
-                        "-parquet = \"#{@release_version}\"",
-                        "+arrow = { path = \"../arrow\" }",
-                        "+parquet = { path = \"../parquet\" }"]
+                        "+version = \"#{@next_snapshot_version}\""],
+                       ["-arrow = { path = \"../arrow\", version = \"#{@release_version}\" }",
+                        "-parquet = { path = \"../parquet\", version = \"#{@release_version}\" }",
+                        "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\" }",
+                        "+parquet = { path = \"../parquet\", version = \"#{@next_snapshot_version}\" }"]
                      ],
                    },
                    {
                      path: "rust/datafusion/README.md",
                      hunks: [
                        ["-datafusion = \"#{@release_version}\"",
-                        "+datafusion = \"#{@next_version}-SNAPSHOT\""],
+                        "+datafusion = \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
                      path: "rust/parquet/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@release_version}\"",
-                        "+version = \"#{@next_version}-SNAPSHOT\""],
-                       ["-arrow = \"#{@release_version}\"",
-                        "+arrow = { path = \"../arrow\" }"]
+                        "+version = \"#{@next_snapshot_version}\""],
+                       ["-arrow = { path = \"../arrow\", version = \"#{@release_version}\" }",
+                        "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\" }"]
                      ],
                    },
                    {
                      path: "rust/parquet/README.md",
                      hunks: [
                        ["-parquet = \"#{@release_version}\"",
-                        "+parquet = \"#{@next_version}-SNAPSHOT\""],
+                        "+parquet = \"#{@next_snapshot_version}\""],
                        ["-See [crate documentation](https://docs.rs/crate/parquet/#{@release_version}) on available API.",
-                        "+See [crate documentation](https://docs.rs/crate/parquet/#{@next_version}-SNAPSHOT) on available API."],
+                        "+See [crate documentation](https://docs.rs/crate/parquet/#{@next_snapshot_version}) on available API."],
                      ],
                    },
                  ],
