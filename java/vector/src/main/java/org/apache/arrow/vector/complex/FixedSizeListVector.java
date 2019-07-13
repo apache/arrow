@@ -45,7 +45,11 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
-import org.apache.arrow.vector.util.*;
+import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.JsonStringArrayList;
+import org.apache.arrow.vector.util.OversizedAllocationException;
+import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
+import org.apache.arrow.vector.util.TransferPair;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -493,7 +497,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   }
 
   @Override
-  public int hashCode(int index){
+  public int hashCode(int index) {
     if (isSet(index) == 0) {
       return 0;
     }
@@ -504,6 +508,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     return hash;
   }
 
+  @Override
   public boolean equals(int index, ValueVector to, int toIndex) {
     if (to == null) {
       return false;

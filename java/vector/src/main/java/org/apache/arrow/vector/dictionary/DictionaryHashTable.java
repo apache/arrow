@@ -17,9 +17,9 @@
 
 package org.apache.arrow.vector.dictionary;
 
-import org.apache.arrow.vector.ValueVector;
-
 import java.util.Objects;
+
+import org.apache.arrow.vector.ValueVector;
 
 /**
  * HashTable used for Dictionary encoding. It holds two vectors (the vector to encode and dictionary vector)
@@ -127,6 +127,11 @@ public class DictionaryHashTable {
     return (n < 0) ? 1 : (n >= MAXIMUM_CAPACITY) ? MAXIMUM_CAPACITY : n + 1;
   }
 
+  /**
+   * get the corresponding dictionary index with the given index in vector which to encode.
+   * @param indexInArray index in vector.
+   * @return dictionary vector index or -1 if no value equals.
+   */
   public int getIndex(int indexInArray) {
     int hash = toEncode.hashCode(indexInArray);
     int index = indexFor(hash, table.length);
@@ -141,6 +146,9 @@ public class DictionaryHashTable {
     return NULL_VALUE;
   }
 
+  /**
+   * put the index of dictionary vector to build hash table.
+   */
   public void put(int indexInDictionary) {
     if (table == EMPTY_TABLE) {
       inflateTable(threshold);

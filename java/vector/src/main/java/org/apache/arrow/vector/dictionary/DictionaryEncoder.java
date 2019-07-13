@@ -43,7 +43,7 @@ public class DictionaryEncoder {
    */
   public static ValueVector encode(ValueVector vector, Dictionary dictionary) {
     validateType(vector.getMinorType());
-    // load dictionary values into a hashmap for lookup
+    // load dictionary indices into a hashmap for lookup
 
     DictionaryHashTable hashTable = new DictionaryHashTable(dictionary.getVector(), vector);
     for (int i = 0; i < dictionary.getVector().getValueCount(); i++) {

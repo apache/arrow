@@ -37,7 +37,6 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class TestDictionaryVector {
@@ -162,7 +161,6 @@ public class TestDictionaryVector {
   }
 
   @Test
-  @Ignore
   public void testEncodeList() {
     // Create a new value vector
     try (final ListVector vector = ListVector.empty("vector", allocator);
@@ -224,7 +222,6 @@ public class TestDictionaryVector {
   }
 
   @Test
-  @Ignore
   public void testEncodeStruct() {
     // Create a new value vector
     try (final StructVector vector = StructVector.empty("vector", allocator);

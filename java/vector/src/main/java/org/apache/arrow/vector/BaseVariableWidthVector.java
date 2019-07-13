@@ -1360,7 +1360,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     final int rightStart = that.getStartOffset(toIndex);
     final int rightEnd = that.getStartOffset(toIndex + 1);
 
-    int ret = ByteFunctionHelpers.equal(this.getDataBuffer(), leftStart, leftEnd, that.getDataBuffer(), rightStart, rightEnd);
+    int ret = ByteFunctionHelpers.equal(this.getDataBuffer(), leftStart, leftEnd,
+        that.getDataBuffer(), rightStart, rightEnd);
     return ret == 1;
   }
 }

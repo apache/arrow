@@ -413,7 +413,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   @Override
-  public int hashCode(int index){
+  public int hashCode(int index) {
     if (isSet(index) == 0) {
       return 0;
     }
@@ -426,6 +426,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return hash;
   }
 
+  @Override
   public boolean equals(int index, ValueVector to, int toIndex) {
     if (to == null) {
       return false;
@@ -446,7 +447,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     }
 
     for (int i = 0; i < (leftEnd - leftStart); i++) {
-      if (!vector.equals(leftStart + i, that, rightStart + i)) {
+      if (!vector.equals(leftStart + i, that.vector, rightStart + i)) {
         return false;
       }
     }

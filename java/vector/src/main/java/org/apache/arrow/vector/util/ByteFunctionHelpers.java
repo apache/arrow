@@ -49,6 +49,9 @@ public class ByteFunctionHelpers {
     return memEqual(left.memoryAddress(), lStart, lEnd, right.memoryAddress(), rStart, rEnd);
   }
 
+  /**
+   * Compute hashCode with the given {@link ArrowBuf} and start/end index.
+   */
   public static final int hash(final ArrowBuf buf, int start, int end) {
     long addr = buf.memoryAddress();
     int len = end - start;

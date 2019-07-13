@@ -30,9 +30,6 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
 
-import java.util.Arrays;
-import java.util.Objects;
-
 /**
  * VarCharVector implements a variable width vector of VARCHAR
  * values which could be NULL. A validity buffer (bit vector) is maintained
