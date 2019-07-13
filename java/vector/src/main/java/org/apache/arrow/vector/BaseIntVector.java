@@ -28,7 +28,7 @@ public interface BaseIntVector extends ValueVector {
   void setWithPossibleTruncate(int index, long value);
 
   /**
-   * Gets the value at index, note this value may haven been extended to long and will throw NPE if
+   * Gets the value at index, note this value may haven been extended to long and will throw {@link IllegalStateException} if
    * the value is null.
    */
   long getValueAsLong(int index);
