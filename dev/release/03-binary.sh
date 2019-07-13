@@ -248,18 +248,18 @@ sign_and_upload_file() {
 
   local sha256=$(shasum -a 256 ${local_path} | awk '{print $1}')
   local download_path=/${BINTRAY_REPOSITORY}/${target}-rc/${upload_path}
-  if curl \
+  local source_upload=no
+  if ! curl \
        --fail \
        --head \
        ${BINTRAY_DOWNLOAD_URL_BASE}${download_path} | \
          grep -q "^X-Checksum-Sha2: ${sha256}"; then
-    return 0
+    upload_file ${version} ${rc} ${target} ${local_path} ${upload_path}
+    source_upload=yes
   fi
 
-  upload_file ${version} ${rc} ${target} ${local_path} ${upload_path}
-
   local suffix=
-  for suffix in asc sha256 sha512; do
+  for suffix in asc sha512; do
     pushd $(dirname ${local_path})
     local local_path_base=$(basename ${local_path})
     local output_dir=$(mktemp -d -t "arrow-binary-sign.XXXXX")
@@ -278,7 +278,18 @@ sign_and_upload_file() {
           ${local_path_base} > ${output}
         ;;
     esac
-    upload_file ${version} ${rc} ${target} ${output} ${upload_path}.${suffix}
+    local need_upload=no
+    if [ "${source_upload}" = "yes" ]; then
+      need_upload=yes
+    elif ! curl \
+           --fail \
+           --head \
+           ${BINTRAY_DOWNLOAD_URL_BASE}${download_path}.${suffix}; then
+      need_upload=yes
+    fi
+    if [ "${need_upload}" = "yes" ]; then
+      upload_file ${version} ${rc} ${target} ${output} ${upload_path}.${suffix}
+    fi
     rm -rf ${output_dir}
     popd
   done
