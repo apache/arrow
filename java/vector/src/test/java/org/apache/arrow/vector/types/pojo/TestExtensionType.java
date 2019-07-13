@@ -31,10 +31,7 @@ import java.util.UUID;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.ExtensionTypeVector;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.FixedSizeBinaryVector;
-import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.ipc.ArrowFileReader;
 import org.apache.arrow.vector.ipc.ArrowFileWriter;
 import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
@@ -202,6 +199,14 @@ public class TestExtensionType {
     public UUID getObject(int index) {
       final ByteBuffer bb = ByteBuffer.wrap(getUnderlyingVector().getObject(index));
       return new UUID(bb.getLong(), bb.getLong());
+    }
+
+    @Override public int hashCode(int index) {
+      return 0;
+    }
+
+    @Override public boolean equals(int index, ValueVector to, int toIndex) {
+      return false;
     }
 
     public void set(int index, UUID uuid) {
