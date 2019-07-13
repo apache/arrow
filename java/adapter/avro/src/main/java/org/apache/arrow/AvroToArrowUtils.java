@@ -20,10 +20,18 @@ package org.apache.arrow;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 
-import java.nio.ByteBuffer;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.arrow.consumers.AvroBooleanConsumer;
+import org.apache.arrow.consumers.AvroBytesConsumer;
+import org.apache.arrow.consumers.AvroDoubleConsumer;
+import org.apache.arrow.consumers.AvroFloatConsumer;
+import org.apache.arrow.consumers.AvroIntConsumer;
+import org.apache.arrow.consumers.AvroLongConsumer;
+import org.apache.arrow.consumers.AvroStringConsumer;
+import org.apache.arrow.consumers.Consumer;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BigIntVector;
@@ -32,25 +40,18 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.complex.impl.VarBinaryWriterImpl;
-import org.apache.arrow.vector.holders.BigIntHolder;
-import org.apache.arrow.vector.holders.BitHolder;
-import org.apache.arrow.vector.holders.Float4Holder;
-import org.apache.arrow.vector.holders.Float8Holder;
-import org.apache.arrow.vector.holders.IntHolder;
-import org.apache.arrow.vector.holders.VarBinaryHolder;
-import org.apache.arrow.vector.holders.VarCharHolder;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Type;
-import org.apache.avro.file.DataFileReader;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.util.Utf8;
+import org.apache.avro.io.Decoder;
+
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 /**
  * Class that does most of the work to convert Avro data into Arrow columnar format Vector objects.
@@ -74,14 +75,13 @@ public class AvroToArrowUtils {
    *   <li>BYTES --> ArrowType.Binary</li>
    * </ul>
    */
-  private static ArrowType getArrowTypeForAvroField(Schema.Field field) {
+  private static ArrowType getArrowType(Type type) {
 
-    Preconditions.checkNotNull(field, "Avro Field object can't be null");
+    Preconditions.checkNotNull(type, "Avro type object can't be null");
 
-    Type avroType = field.schema().getType();
     final ArrowType arrowType;
 
-    switch (avroType) {
+    switch (type) {
       case STRING:
         arrowType = new ArrowType.Utf8();
         break;
@@ -105,7 +105,7 @@ public class AvroToArrowUtils {
         break;
       default:
         // no-op, shouldn't get here
-        throw new RuntimeException("Can't convert avro type %s to arrow type." + avroType.getName());
+        throw new RuntimeException("Can't convert avro type %s to arrow type." + type.getName());
     }
 
     return arrowType;
@@ -115,148 +115,94 @@ public class AvroToArrowUtils {
    * Create Arrow {@link org.apache.arrow.vector.types.pojo.Schema} object for the given Avro {@link Schema}.
    */
   public static org.apache.arrow.vector.types.pojo.Schema avroToArrowSchema(Schema schema) {
-    Preconditions.checkNotNull(schema, "Avro Schema object can't be null");
 
+    Preconditions.checkNotNull(schema, "Avro Schema object can't be null");
     List<Field> arrowFields = new ArrayList<>();
-    for (Schema.Field field : schema.getFields()) {
-      final ArrowType arrowType = getArrowTypeForAvroField(field);
-      if (arrowType != null) {
-        final FieldType fieldType = new FieldType(true, arrowType, /* dictionary encoding */ null, null);
-        List<Field> children = null;
-        //TODO handle complex type children fields
-        arrowFields.add(new Field(field.name(), fieldType, children));
-      }
+
+    Schema.Type type = schema.getType();
+
+    if (type == Type.RECORD) {
+      throw new NotImplementedException();
+    } else if (type == Type.MAP) {
+      throw new NotImplementedException();
+    } else if (type == Type.UNION) {
+      throw new NotImplementedException();
+    } else if (type == Type.ARRAY) {
+      throw new NotImplementedException();
+    } else if (type == Type.ENUM) {
+      throw new NotImplementedException();
+    } else if (type == Type.NULL) {
+      throw new NotImplementedException();
+    } else {
+      final FieldType fieldType = new FieldType(true, getArrowType(type), null, null);
+      arrowFields.add(new Field("f0", fieldType, null));
     }
+
     return new org.apache.arrow.vector.types.pojo.Schema(arrowFields, null);
   }
 
   /**
-   * Iterate the given Avro {@link DataFileReader} object to fetch the data and transpose it to populate
+   * Create consumers to consume avro values from decoder, will reduce boxing/unboxing operations.
+   */
+  public static List<Consumer> createAvroConsumers(VectorSchemaRoot root) {
+    List<Consumer> consumers = new ArrayList<>();
+
+    for (ValueVector vector : root.getFieldVectors()) {
+      Consumer consumer;
+      switch (vector.getMinorType()) {
+        case INT:
+          consumer = new AvroIntConsumer((IntVector) vector);
+          break;
+        case VARBINARY:
+          consumer = new AvroBytesConsumer((VarBinaryVector) vector);
+          break;
+        case VARCHAR:
+          consumer = new AvroStringConsumer((VarCharVector) vector);
+          break;
+        case BIGINT:
+          consumer = new AvroLongConsumer((BigIntVector) vector);
+          break;
+        case FLOAT4:
+          consumer = new AvroFloatConsumer((Float4Vector) vector);
+          break;
+        case FLOAT8:
+          consumer = new AvroDoubleConsumer((Float8Vector) vector);
+          break;
+        case BIT:
+          consumer = new AvroBooleanConsumer((BitVector) vector);
+          break;
+        default:
+          throw new RuntimeException("could not get consumer from type:" + vector.getMinorType());
+      }
+      consumers.add(consumer);
+    }
+    return consumers;
+  }
+
+  /**
+   * Iterate the given Avro {@link Decoder} object to fetch the data and transpose it to populate
    * the given Arrow Vector objects.
-   * @param reader avro reader to read data.
+   * @param decoder avro decoder to read data.
    * @param root Arrow {@link VectorSchemaRoot} object to populate
    */
-  public static void avroToArrowVectors(DataFileReader<GenericRecord> reader, VectorSchemaRoot root) {
+  public static void avroToArrowVectors(Decoder decoder, VectorSchemaRoot root) {
 
-    Preconditions.checkNotNull(reader, "Avro DataFileReader object can't be null");
+    Preconditions.checkNotNull(decoder, "Avro decoder object can't be null");
     Preconditions.checkNotNull(root, "VectorSchemaRoot object can't be null");
 
     allocateVectors(root, DEFAULT_BUFFER_SIZE);
 
-    int rowCount = 0;
-    while (reader.hasNext()) {
-      GenericRecord record = reader.next();
-      for (Schema.Field field : reader.getSchema().getFields()) {
-        Object value = record.get(field.name());
-        avroToFieldVector(
-            value,
-            field.schema().getType(),
-            rowCount,
-            root.getVector(field.name()));
+    List<Consumer> consumers = createAvroConsumers(root);
+    while (true) {
+      try {
+        for (Consumer consumer : consumers) {
+          consumer.consume(decoder);
+        }
+        //reach end will throw EOFException.
+      } catch (IOException eofException) {
+        break;
       }
-      rowCount++;
     }
-    root.setRowCount(rowCount);
-  }
-
-  /**
-   * Put the value into the vector at specific position.
-   */
-  public static void avroToFieldVector(Object value, Type avroType, int rowCount, FieldVector vector) {
-    switch (avroType) {
-      case STRING:
-        updateVector((VarCharVector) vector, value, rowCount);
-        break;
-      case INT:
-        updateVector((IntVector) vector, value, rowCount);
-        break;
-      case BOOLEAN:
-        updateVector((BitVector)vector, value, rowCount);
-        break;
-      case LONG:
-        updateVector((BigIntVector) vector, value, rowCount);
-        break;
-      case FLOAT:
-        updateVector((Float4Vector) vector, value, rowCount);
-        break;
-      case DOUBLE:
-        updateVector((Float8Vector) vector, value, rowCount);
-        break;
-      case BYTES:
-        updateVector((VarBinaryVector) vector, value, rowCount);
-        break;
-      default:
-        // no-op, shouldn't get here
-        throw new RuntimeException("Can't convert avro type %s to arrow type." + avroType.getName());
-    }
-  }
-
-  private static void updateVector(VarBinaryVector varBinaryVector, Object value, int rowCount) {
-    VarBinaryHolder holder = new VarBinaryHolder();
-    Preconditions.checkNotNull(value, "value should not be null");
-    VarBinaryWriterImpl writer = new VarBinaryWriterImpl(varBinaryVector);
-
-    byte[] bytes = ((ByteBuffer) value).array();
-    holder.buffer = varBinaryVector.getAllocator().buffer(bytes.length);
-    holder.buffer.setBytes(0, bytes, 0, bytes.length);
-    holder.start = 0;
-    holder.end = bytes.length;
-
-    writer.setPosition(rowCount);
-    writer.write(holder);
-  }
-
-  private static void updateVector(Float4Vector float4Vector, Object value, int rowCount) {
-    Float4Holder holder = new Float4Holder();
-    Preconditions.checkNotNull(value, "value should not be null");
-    holder.value = (float) value;
-    float4Vector.setSafe(rowCount, holder);
-    float4Vector.setValueCount(rowCount + 1);
-  }
-
-  private static void updateVector(Float8Vector float8Vector, Object value, int rowCount) {
-    Float8Holder holder = new Float8Holder();
-    Preconditions.checkNotNull(value, "value should not be null");
-    holder.value = (double) value;
-    float8Vector.setSafe(rowCount, holder);
-    float8Vector.setValueCount(rowCount + 1);
-  }
-
-  private static void updateVector(BigIntVector bigIntVector, Object value, int rowCount) {
-    BigIntHolder holder = new BigIntHolder();
-    Preconditions.checkNotNull(value, "value should not be null");
-    holder.value = (long) value;
-    bigIntVector.setSafe(rowCount, holder);
-    bigIntVector.setValueCount(rowCount + 1);
-  }
-
-  private static void updateVector(BitVector bitVector, Object value, int rowCount) {
-    BitHolder holder = new BitHolder();
-    Preconditions.checkNotNull(value, "value should not be null");
-    holder.value = (boolean) value ? 1 : 0;
-    bitVector.setSafe(rowCount, holder);
-    bitVector.setValueCount(rowCount + 1);
-  }
-
-  private static void updateVector(IntVector intVector, Object value, int rowCount) {
-    IntHolder holder = new IntHolder();
-    Preconditions.checkNotNull(value, "value should not be null");
-    holder.value = (int) value;
-    intVector.setSafe(rowCount, holder);
-    intVector.setValueCount(rowCount + 1);
-  }
-
-  private static void updateVector(VarCharVector varcharVector, Object value, int rowCount) {
-    VarCharHolder holder = new VarCharHolder();
-    Preconditions.checkNotNull(value, "value should not be null");
-    varcharVector.setIndexDefined(rowCount);
-    byte[] bytes = ((Utf8)value).getBytes();
-    holder.buffer = varcharVector.getAllocator().buffer(bytes.length);
-    holder.buffer.setBytes(0, bytes, 0, bytes.length);
-    holder.start = 0;
-    holder.end = bytes.length;
-    varcharVector.setSafe(rowCount, holder);
-    varcharVector.setValueCount(rowCount + 1);
   }
 
   private static void allocateVectors(VectorSchemaRoot root, int size) {

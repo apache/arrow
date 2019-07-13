@@ -15,10 +15,8 @@
  * limitations under the License.
  */
 
-{"namespace": "org.apache.arrow.avro",
- "type": "record",
- "name": "TestFloat",
- "fields": [
-     {"name": "f0", "type": "float"}
- ]
+{
+ "namespace": "org.apache.arrow.avro",
+ "type": "float",
+ "name": "TestFloat"
 }

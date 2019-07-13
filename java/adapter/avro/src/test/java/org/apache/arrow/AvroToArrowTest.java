@@ -21,26 +21,28 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
+import java.util.Objects;
 
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.avro.Schema;
-import org.apache.avro.file.DataFileReader;
-import org.apache.avro.file.DataFileWriter;
-import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.DatumReader;
+import org.apache.avro.io.BinaryDecoder;
+import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.io.EncoderFactory;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -61,274 +63,186 @@ public class AvroToArrowTest {
   @Test
   public void testStringType() throws Exception {
     File dataFile = TMP.newFile();
-    Path schemaPath = Paths
-        .get(TestWriteReadAvroRecord.class.getResource("/").getPath(), "schema", "test_string.avsc");
+    Path schemaPath = Paths.get(TestWriteReadAvroRecord.class.getResource("/").getPath(),
+        "schema", "test_primitive_string.avsc");
     Schema schema = new Schema.Parser().parse(schemaPath.toFile());
 
-    //write data to disk
-    DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<GenericRecord>(schema);
-    DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<GenericRecord>(datumWriter);
-    dataFileWriter.create(schema, dataFile);
+    BinaryEncoder encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
+    DatumWriter writer = new GenericDatumWriter(schema);
+    BinaryDecoder decoder = new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
+    GenericDatumReader reader = new GenericDatumReader(schema);
 
-    List<GenericRecord> data = new ArrayList<>();
-    for (int i = 0; i < 10; i++) {
-      GenericRecord record = new GenericData.Record(schema);
-      record.put("f0", "value" + i);
-      dataFileWriter.append(record);
-      data.add(record);
+    ArrayList<String> data = new ArrayList(Arrays.asList("v1", "v2", "v3", "v4", "v5"));
+    for (String value : data) {
+      writer.write(value, encoder);
     }
-    dataFileWriter.close();
 
-    DatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>(schema);
-    DataFileReader<GenericRecord>
-        dataFileReader = new DataFileReader<GenericRecord>(dataFile, datumReader);
+    VectorSchemaRoot root = AvroToArrow.avroToArrow(reader, decoder, allocator);
+    FieldVector vector = root.getFieldVectors().get(0);
 
-    VectorSchemaRoot root = AvroToArrow.readToArrow(dataFileReader, allocator);
-
-    checkResult(schema, data, root);
+    checkPrimitiveResult(schema, data, vector);
   }
 
   @Test
   public void testIntType() throws Exception {
+
     File dataFile = TMP.newFile();
-    Path schemaPath = Paths
-        .get(TestWriteReadAvroRecord.class.getResource("/").getPath(), "schema", "test_int.avsc");
+    Path schemaPath = Paths.get(TestWriteReadAvroRecord.class.getResource("/").getPath(),
+        "schema", "test_primitive_int.avsc");
     Schema schema = new Schema.Parser().parse(schemaPath.toFile());
 
-    //write data to disk
-    DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<GenericRecord>(schema);
-    DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<GenericRecord>(datumWriter);
-    dataFileWriter.create(schema, dataFile);
+    BinaryEncoder encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
+    DatumWriter writer = new GenericDatumWriter(schema);
+    BinaryDecoder decoder = new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
+    GenericDatumReader reader = new GenericDatumReader(schema);
 
-    List<GenericRecord> data = new ArrayList<>();
-    for (int i = 0; i < 10; i++) {
-      GenericRecord record = new GenericData.Record(schema);
-      record.put("f0", i);
-      dataFileWriter.append(record);
-      data.add(record);
+    ArrayList<Integer> data = new ArrayList(Arrays.asList(1, 2, 3, 4, 5));
+    for (int value : data) {
+      writer.write(value, encoder);
     }
-    dataFileWriter.close();
 
-    DatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>(schema);
-    DataFileReader<GenericRecord>
-        dataFileReader = new DataFileReader<GenericRecord>(dataFile, datumReader);
+    VectorSchemaRoot root = AvroToArrow.avroToArrow(reader, decoder, allocator);
+    FieldVector vector = root.getFieldVectors().get(0);
 
-    VectorSchemaRoot root = AvroToArrow.readToArrow(dataFileReader, allocator);
-
-    checkResult(schema, data, root);
-  }
-
-  @Test
-  public void testBooleanType() throws Exception {
-    File dataFile = TMP.newFile();
-    Path schemaPath = Paths
-        .get(TestWriteReadAvroRecord.class.getResource("/").getPath(), "schema", "test_boolean.avsc");
-    Schema schema = new Schema.Parser().parse(schemaPath.toFile());
-
-    //write data to disk
-    DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<GenericRecord>(schema);
-    DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<GenericRecord>(datumWriter);
-    dataFileWriter.create(schema, dataFile);
-
-    List<GenericRecord> data = new ArrayList<>();
-    for (int i = 0; i < 10; i++) {
-      GenericRecord record = new GenericData.Record(schema);
-      record.put("f0", true);
-      dataFileWriter.append(record);
-      data.add(record);
-    }
-    dataFileWriter.close();
-
-    DatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>(schema);
-    DataFileReader<GenericRecord>
-        dataFileReader = new DataFileReader<GenericRecord>(dataFile, datumReader);
-
-    VectorSchemaRoot root = AvroToArrow.readToArrow(dataFileReader, allocator);
-
-    checkResult(schema, data, root);
+    checkPrimitiveResult(schema, data, vector);
   }
 
   @Test
   public void testLongType() throws Exception {
+
     File dataFile = TMP.newFile();
-    Path schemaPath = Paths
-        .get(TestWriteReadAvroRecord.class.getResource("/").getPath(), "schema", "test_long.avsc");
+    Path schemaPath = Paths.get(TestWriteReadAvroRecord.class.getResource("/").getPath(),
+        "schema", "test_primitive_long.avsc");
     Schema schema = new Schema.Parser().parse(schemaPath.toFile());
 
-    //write data to disk
-    DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<GenericRecord>(schema);
-    DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<GenericRecord>(datumWriter);
-    dataFileWriter.create(schema, dataFile);
+    BinaryEncoder encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
+    DatumWriter writer = new GenericDatumWriter(schema);
+    BinaryDecoder decoder = new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
+    GenericDatumReader reader = new GenericDatumReader(schema);
 
-    List<GenericRecord> data = new ArrayList<>();
-    for (int i = 0; i < 10; i++) {
-      GenericRecord record = new GenericData.Record(schema);
-      record.put("f0", (long) i);
-      dataFileWriter.append(record);
-      data.add(record);
+    ArrayList<Long> data = new ArrayList(Arrays.asList(1L, 2L, 3L, 4L, 5L));
+    for (long value : data) {
+      writer.write(value, encoder);
     }
-    dataFileWriter.close();
 
-    DatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>(schema);
-    DataFileReader<GenericRecord>
-        dataFileReader = new DataFileReader<GenericRecord>(dataFile, datumReader);
+    VectorSchemaRoot root = AvroToArrow.avroToArrow(reader, decoder, allocator);
+    FieldVector vector = root.getFieldVectors().get(0);
 
-    VectorSchemaRoot root = AvroToArrow.readToArrow(dataFileReader, allocator);
-
-    checkResult(schema, data, root);
+    checkPrimitiveResult(schema, data, vector);
   }
 
   @Test
   public void testFloatType() throws Exception {
+
     File dataFile = TMP.newFile();
-    Path schemaPath = Paths
-        .get(TestWriteReadAvroRecord.class.getResource("/").getPath(), "schema", "test_float.avsc");
+    Path schemaPath = Paths.get(TestWriteReadAvroRecord.class.getResource("/").getPath(),
+        "schema", "test_primitive_float.avsc");
     Schema schema = new Schema.Parser().parse(schemaPath.toFile());
 
-    //write data to disk
-    DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<GenericRecord>(schema);
-    DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<GenericRecord>(datumWriter);
-    dataFileWriter.create(schema, dataFile);
+    BinaryEncoder encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
+    DatumWriter writer = new GenericDatumWriter(schema);
+    BinaryDecoder decoder = new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
+    GenericDatumReader reader = new GenericDatumReader(schema);
 
-    float suffix = 0.33f;
-    List<GenericRecord> data = new ArrayList<>();
-    for (int i = 0; i < 10; i++) {
-      GenericRecord record = new GenericData.Record(schema);
-      record.put("f0", i + suffix);
-      dataFileWriter.append(record);
-      data.add(record);
+    ArrayList<Float> data = new ArrayList(Arrays.asList(1.1f, 2.2f, 3.3f, 4.4f, 5.5f));
+    for (float value : data) {
+      writer.write(value, encoder);
     }
-    dataFileWriter.close();
 
-    DatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>(schema);
-    DataFileReader<GenericRecord>
-        dataFileReader = new DataFileReader<GenericRecord>(dataFile, datumReader);
+    VectorSchemaRoot root = AvroToArrow.avroToArrow(reader, decoder, allocator);
+    FieldVector vector = root.getFieldVectors().get(0);
 
-    VectorSchemaRoot root = AvroToArrow.readToArrow(dataFileReader, allocator);
-
-    checkResult(schema, data, root);
+    checkPrimitiveResult(schema, data, vector);
   }
 
   @Test
   public void testDoubleType() throws Exception {
+
     File dataFile = TMP.newFile();
-    Path schemaPath = Paths
-        .get(TestWriteReadAvroRecord.class.getResource("/").getPath(), "schema", "test_double.avsc");
+    Path schemaPath = Paths.get(TestWriteReadAvroRecord.class.getResource("/").getPath(),
+        "schema", "test_primitive_double.avsc");
     Schema schema = new Schema.Parser().parse(schemaPath.toFile());
 
-    //write data to disk
-    DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<GenericRecord>(schema);
-    DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<GenericRecord>(datumWriter);
-    dataFileWriter.create(schema, dataFile);
+    BinaryEncoder encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
+    DatumWriter writer = new GenericDatumWriter(schema);
+    BinaryDecoder decoder = new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
+    GenericDatumReader reader = new GenericDatumReader(schema);
 
-    double suffix = 0.33;
-    List<GenericRecord> data = new ArrayList<>();
-    for (int i = 0; i < 10; i++) {
-      GenericRecord record = new GenericData.Record(schema);
-      record.put("f0", i + suffix);
-      dataFileWriter.append(record);
-      data.add(record);
+    ArrayList<Double> data = new ArrayList(Arrays.asList(1.1, 2.2, 3.3, 4.4, 5.5));
+    for (double value : data) {
+      writer.write(value, encoder);
     }
-    dataFileWriter.close();
 
-    DatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>(schema);
-    DataFileReader<GenericRecord>
-        dataFileReader = new DataFileReader<GenericRecord>(dataFile, datumReader);
+    VectorSchemaRoot root = AvroToArrow.avroToArrow(reader, decoder, allocator);
+    FieldVector vector = root.getFieldVectors().get(0);
 
-    VectorSchemaRoot root = AvroToArrow.readToArrow(dataFileReader, allocator);
-
-    checkResult(schema, data, root);
-  }
-
-  @Test
-  public void testMixedType() throws Exception {
-    File dataFile = TMP.newFile();
-    Path schemaPath = Paths
-        .get(TestWriteReadAvroRecord.class.getResource("/").getPath(), "schema", "test_mixed_primitive.avsc");
-    Schema schema = new Schema.Parser().parse(schemaPath.toFile());
-
-    //write data to disk
-    DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<GenericRecord>(schema);
-    DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<GenericRecord>(datumWriter);
-    dataFileWriter.create(schema, dataFile);
-
-    double suffix = 0.33;
-    List<GenericRecord> data = new ArrayList<>();
-    for (int i = 0; i < 10; i++) {
-      GenericRecord record = new GenericData.Record(schema);
-      record.put("f0", "test" + i);
-      record.put("f1", i);
-      record.put("f2", i + suffix);
-      dataFileWriter.append(record);
-      data.add(record);
-    }
-    dataFileWriter.close();
-
-    DatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>(schema);
-    DataFileReader<GenericRecord>
-        dataFileReader = new DataFileReader<GenericRecord>(dataFile, datumReader);
-
-    VectorSchemaRoot root = AvroToArrow.readToArrow(dataFileReader, allocator);
-
-    checkResult(schema, data, root);
+    checkPrimitiveResult(schema, data, vector);
   }
 
   @Test
   public void testBytesType() throws Exception {
     File dataFile = TMP.newFile();
-    Path schemaPath = Paths
-        .get(TestWriteReadAvroRecord.class.getResource("/").getPath(), "schema", "test_bytes.avsc");
+    Path schemaPath = Paths.get(TestWriteReadAvroRecord.class.getResource("/").getPath(),
+        "schema", "test_primitive_bytes.avsc");
     Schema schema = new Schema.Parser().parse(schemaPath.toFile());
 
-    //write data to disk
-    DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<GenericRecord>(schema);
-    DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<GenericRecord>(datumWriter);
-    dataFileWriter.create(schema, dataFile);
+    BinaryEncoder encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
+    DatumWriter writer = new GenericDatumWriter(schema);
+    BinaryDecoder decoder = new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
+    GenericDatumReader reader = new GenericDatumReader(schema);
 
-    List<GenericRecord> data = new ArrayList<>();
-    for (int i = 0; i < 10; i++) {
-      GenericRecord record = new GenericData.Record(schema);
-      ByteBuffer value = ByteBuffer.wrap(("test" + i).getBytes(StandardCharsets.UTF_8));
-      record.put("f0", value);
-      dataFileWriter.append(record);
-      data.add(record);
+    ArrayList<byte[]> data = new ArrayList(Arrays.asList(
+        "value1".getBytes(StandardCharsets.UTF_8),
+        "value2".getBytes(StandardCharsets.UTF_8),
+        "value3".getBytes(StandardCharsets.UTF_8),
+        "value4".getBytes(StandardCharsets.UTF_8),
+        "value5".getBytes(StandardCharsets.UTF_8)));
+    for (byte[] value : data) {
+      writer.write(ByteBuffer.wrap(value), encoder);
     }
-    dataFileWriter.close();
 
-    DatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>(schema);
-    DataFileReader<GenericRecord>
-        dataFileReader = new DataFileReader<GenericRecord>(dataFile, datumReader);
+    VectorSchemaRoot root = AvroToArrow.avroToArrow(reader, decoder, allocator);
+    FieldVector vector = root.getFieldVectors().get(0);
 
-    VectorSchemaRoot root = AvroToArrow.readToArrow(dataFileReader, allocator);
-
-    checkResult(schema, data, root);
+    checkPrimitiveResult(schema, data, vector);
   }
 
-  private void checkResult(Schema schema, List<GenericRecord> rawRecords, VectorSchemaRoot vectorSchemaRoot) {
-    List<Schema.Field> fields = schema.getFields();
+  @Test
+  public void testBooleanType() throws Exception {
 
-    for (int i = 0; i < rawRecords.size(); i++) {
-      GenericRecord record = rawRecords.get(i);
-      for (Schema.Field field: fields) {
-        Object value = record.get(field.name());
-        FieldVector vector = vectorSchemaRoot.getVector(field.name());
-        if (value == null) {
-          assertTrue(vector.isNull(i));
-        } else {
-          Object value1 = value;
-          Object value2 = vector.getObject(i);
-          if (field.schema().getType() == Schema.Type.STRING) {
-            value1 = value1.toString();
-            value2 = value2.toString();
-          } else if (field.schema().getType() == Schema.Type.BYTES) {
-            //convert to ByteBuffer for equals check
-            value2 = ByteBuffer.wrap((byte[]) value2);
-          }
-          assertEquals(value1, value2);
-        }
+    File dataFile = TMP.newFile();
+    Path schemaPath = Paths.get(TestWriteReadAvroRecord.class.getResource("/").getPath(),
+        "schema", "test_primitive_boolean.avsc");
+    Schema schema = new Schema.Parser().parse(schemaPath.toFile());
+
+    BinaryEncoder encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
+    DatumWriter writer = new GenericDatumWriter(schema);
+    BinaryDecoder decoder = new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
+    GenericDatumReader reader = new GenericDatumReader(schema);
+
+    ArrayList<Boolean> data = new ArrayList(Arrays.asList(true, false, true, false, true));
+    for (boolean value : data) {
+      writer.write(value, encoder);
+    }
+
+    VectorSchemaRoot root = AvroToArrow.avroToArrow(reader, decoder, allocator);
+    FieldVector vector = root.getFieldVectors().get(0);
+
+    checkPrimitiveResult(schema, data, vector);
+  }
+
+  private void checkPrimitiveResult(Schema schema, ArrayList data, FieldVector vector) {
+    assertEquals(data.size(), vector.getValueCount());
+    for (int i = 0; i < data.size(); i++) {
+      Object value1 = data.get(i);
+      Object value2 = vector.getObject(i);
+      if (schema.getType() == Schema.Type.BYTES) {
+        value1 = ByteBuffer.wrap((byte[]) value1);
+        value2 = ByteBuffer.wrap((byte[]) value2);
+      } else if (schema.getType() == Schema.Type.STRING) {
+        value2 = value2.toString();
       }
+      assertTrue(Objects.equals(value1, value2));
     }
-
   }
-
 }

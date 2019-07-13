@@ -15,10 +15,30 @@
  * limitations under the License.
  */
 
-{"namespace": "org.apache.arrow.avro",
- "type": "record",
- "name": "TestLong",
- "fields": [
-     {"name": "f0", "type": "long"}
- ]
+package org.apache.arrow.consumers;
+
+import java.io.IOException;
+
+import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.complex.impl.BitWriterImpl;
+import org.apache.arrow.vector.complex.writer.BitWriter;
+import org.apache.avro.io.Decoder;
+
+/**
+ * Consumer which consume boolean type values from avro decoder.
+ * Write the data to {@link BitVector}.
+ */
+public class AvroBooleanConsumer implements Consumer {
+
+  private final BitWriter writer;
+
+  public AvroBooleanConsumer(BitVector vector) {
+    this.writer = new BitWriterImpl(vector);
+  }
+
+  @Override
+  public void consume(Decoder decoder) throws IOException {
+    writer.writeBit(decoder.readBoolean() ? 1 : 0);
+    writer.setPosition(writer.getPosition() + 1);
+  }
 }

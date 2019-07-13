@@ -15,10 +15,8 @@
  * limitations under the License.
  */
 
-{"namespace": "org.apache.arrow.avro",
- "type": "record",
- "name": "TestString",
- "fields": [
-     {"name": "f0", "type": "string"}
- ]
+{
+ "namespace": "org.apache.arrow.avro",
+ "type": "bytes",
+ "name": "TestBytes"
 }
