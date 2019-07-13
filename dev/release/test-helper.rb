@@ -77,6 +77,7 @@ module VersionDetectable
     @snapshot_version = cpp_cmake_lists.read[/ARROW_VERSION "(.+?)"/, 1]
     @release_version = @snapshot_version.gsub(/-SNAPSHOT\z/, "")
     @next_version = @release_version.gsub(/\A\d+/) {|major| major.succ}
+    @next_snapshot_version = "#{@next_version}-SNAPSHOT"
     r_description = top_dir + "r" + "DESCRIPTION"
     @previous_version = r_description.read[/^Version: (.+?)\.9000$/, 1]
   end

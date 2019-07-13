@@ -136,20 +136,11 @@ update_versions() {
   cd -
 
   cd "${SOURCE_DIR}/../../rust"
-  sed -i.bak -E -e \
-    "s/^version = \".+\"/version = \"${version}\"/g" \
+  sed -i.bak -E \
+    -e "s/^version = \".+\"/version = \"${version}\"/g" \
+    -e "s/^(arrow = .* version = )\".+\"( .*)/\\1\"${version}\"\\2/g" \
+    -e "s/^(parquet = .* version = )\".+\"( .*)/\\1\"${version}\"\\2/g" \
     */Cargo.toml
-  if [ ${type} = "snapshot" ]; then
-    sed -i.bak -E \
-      -e "s/^arrow = \".+\"/arrow = { path = \"..\/arrow\" }/g" \
-      -e "s/^parquet = \".+\"/parquet = { path = \"..\/parquet\" }/g" \
-      */Cargo.toml
-  else
-    sed -i.bak -E \
-      -e "s/^arrow = \{ path = \".+\" \}/arrow = \"${version}\"/g" \
-      -e "s/^parquet = \{ path = \".+\" \}/parquet = \"${version}\"/g" \
-      */Cargo.toml
-  fi
   rm -f */Cargo.toml.bak
   git add */Cargo.toml
 
