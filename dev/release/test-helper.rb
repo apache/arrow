@@ -16,7 +16,11 @@
 # under the License.
 
 require "English"
+require "cgi/util"
 require "find"
+require "json"
+require "open-uri"
+require "rexml/document"
 require "tempfile"
 require "tmpdir"
 
