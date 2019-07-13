@@ -23,12 +23,13 @@ package org.apache.arrow.vector;
 public interface BaseIntVector extends ValueVector {
 
   /**
-   * set value at specific index, note this value may need to be need truncated.
+   * Sets the value at index, note this value may need to be need truncated.
    */
   void setWithPossibleTruncate(int index, long value);
 
   /**
-   * get value at specific index, note this value may haven been extended to long.
+   * Gets the value at index, note this value may haven been extended to long and will throw NPE if
+   * the value is null.
    */
   long getValueAsLong(int index);
 }
