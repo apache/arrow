@@ -32,15 +32,15 @@ class TestGandivaNativeFunction < Test::Unit::TestCase
     @registry.lookup(signature)
   end
 
-  def test_get_signature
-    assert_kind_of(Gandiva::FunctionSignature,
-                   @not.signature)
+  def test_signatures
+    assert_equal([Gandiva::FunctionSignature],
+                 @not.signatures.collect(&:class).uniq)
   end
 
   sub_test_case("equal") do
     def test_true
       assert do
-        @not == @registry.lookup(@not.signature)
+        @not == @registry.lookup(@not.signatures[0])
       end
     end
 
@@ -52,8 +52,11 @@ class TestGandivaNativeFunction < Test::Unit::TestCase
   end
 
   def test_to_string
-    assert_equal(@not.signature.to_s,
-                 @not.to_s)
+    modulo = lookup("modulo",
+                    [int64_data_type, int64_data_type],
+                    int64_data_type)
+    assert_equal(modulo.signatures.collect(&:to_s).join(", "),
+                 modulo.to_s)
   end
 
   sub_test_case("get_result_nullbale_type") do

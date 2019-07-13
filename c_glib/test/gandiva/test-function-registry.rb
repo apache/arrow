@@ -27,7 +27,7 @@ class TestGandivaFunctionRegistry < Test::Unit::TestCase
     def test_found
       native_function = @registry.native_functions[0]
       assert_equal(native_function,
-                   @registry.lookup(native_function.signature))
+                   @registry.lookup(native_function.signatures[0]))
     end
 
     def test_not_found
