@@ -357,8 +357,13 @@ static Status TypeFromFlatbuffer(const flatbuf::Field* field,
                                  const std::vector<std::shared_ptr<Field>>& children,
                                  const KeyValueMetadata* field_metadata,
                                  std::shared_ptr<DataType>* out) {
+  auto type_data = field->type();
+  if (type_data == nullptr) {
+    return Status::IOError(
+      "Type-pointer in custom metadata of flatbuffer-encoded Field is null.");
+  }
   RETURN_NOT_OK(
-      ConcreteTypeFromFlatbuffer(field->type_type(), field->type(), children, out));
+      ConcreteTypeFromFlatbuffer(field->type_type(), type_data, children, out));
 
   // Look for extension metadata in custom_metadata field
   // TODO(wesm): Should this be part of the Field Flatbuffers table?
@@ -758,12 +763,22 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
     // based on the DictionaryEncoding metadata and record in the
     // dictionary_memo
     std::shared_ptr<DataType> index_type;
-    RETURN_NOT_OK(IntFromFlatbuffer(encoding->indexType(), &index_type));
+    auto int_data = encoding->indexType();
+    if (int_data == nullptr) {
+      return Status::IOError(
+        "indexType-pointer in custom metadata of flatbuffer-encoded DictionaryEncoding "
+        "is null.");
+    }
+    RETURN_NOT_OK(IntFromFlatbuffer(int_data, &index_type));
     type = ::arrow::dictionary(index_type, type, encoding->isOrdered());
     *out = ::arrow::field(field->name()->str(), type, field->nullable(), metadata);
     RETURN_NOT_OK(dictionary_memo->AddField(encoding->id(), *out));
   } else {
-    *out = ::arrow::field(field->name()->str(), type, field->nullable(), metadata);
+    auto name = field->name();
+    if (name == nullptr) {
+      return Status::IOError("Name-pointer of flatbuffer-encoded Field is null.");
+    }
+    *out = ::arrow::field(name->str(), type, field->nullable(), metadata);
   }
   return Status::OK();
 }
@@ -1137,7 +1152,12 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
     }
   }
 
-  return ConcreteTypeFromFlatbuffer(tensor->type_type(), tensor->type(), {}, type);
+  auto type_data = tensor->type();
+  if (type_data == nullptr) {
+    return Status::IOError(
+      "Type-pointer in custom metadata of flatbuffer-encoded Tensor is null.");
+  }
+  return ConcreteTypeFromFlatbuffer(tensor->type_type(), type_data, {}, type);
 }
 
 Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
@@ -1181,7 +1201,12 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
       return Status::Invalid("Unrecognized sparse index type");
   }
 
-  return ConcreteTypeFromFlatbuffer(sparse_tensor->type_type(), sparse_tensor->type(), {},
+  auto type_data = sparse_tensor->type();
+  if (type_data == nullptr) {
+    return Status::IOError(
+      "Type-pointer in custom metadata of flatbuffer-encoded SparseTensor is null.");
+  }
+  return ConcreteTypeFromFlatbuffer(sparse_tensor->type_type(), type_data, {},
                                     type);
 }
 
