@@ -49,6 +49,42 @@ public class ByteFunctionHelpers {
     return memEqual(left.memoryAddress(), lStart, lEnd, right.memoryAddress(), rStart, rEnd);
   }
 
+  public static final int hash(final ArrowBuf buf, int start, int end) {
+    long addr = buf.memoryAddress();
+    int len = end - start;
+    long pos = addr + start;
+
+    int hash = 0;
+
+    while (len > 7) {
+      long value = PlatformDependent.getLong(pos);
+      hash = comebineHash(hash, Long.hashCode(value));
+
+      pos += 8;
+      len -= 8;
+    }
+
+    while (len > 3) {
+      int value = PlatformDependent.getInt(pos);
+      hash = comebineHash(hash, Integer.hashCode(value));
+
+      pos += 4;
+      len -= 4;
+    }
+
+    while (len-- != 0) {
+      byte value = PlatformDependent.getByte(pos);
+      hash = comebineHash(hash, Byte.hashCode(value));
+      pos ++;
+    }
+
+    return hash;
+  }
+
+  private static int comebineHash(int currentHash, int newHash) {
+    return currentHash * 31 + newHash;
+  }
+
   private static int memEqual(final long laddr, int lStart, int lEnd, final long raddr, int rStart,
                                     final int rEnd) {
 

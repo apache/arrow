@@ -238,9 +238,13 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    */
   boolean isNull(int index);
 
-  //TODO remove default
-  default int hashCode(int index) {return 0;}
+  //TODO remove default and implement in subclasses
+  default int hashCode(int index) {
+    return 0;
+  }
 
-  //TODO remove default
-  default boolean equals(int index, ValueVector to, int toIndex) {return false;}
+  //TODO remove default and implement in subclasses
+  default boolean equals(int index, ValueVector to, int toIndex) {
+    return false;
+  }
 }

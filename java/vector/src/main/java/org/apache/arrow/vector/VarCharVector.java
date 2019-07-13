@@ -273,22 +273,6 @@ public class VarCharVector extends BaseVariableWidthVector {
     setSafe(index, text.getBytes(), 0, text.getLength());
   }
 
-  @Override
-  public int hashCode (int index) {
-    //TODO cal hashCode in memory level
-    byte[] values = get(index);
-    return Arrays.hashCode(values);
-  }
-
-  @Override
-  public boolean equals(int index, ValueVector to, int toIndex) {
-    //TODO compare value in memory level
-    String value1 = this.getObject(index).toString();
-    String value2 = to.getObject(toIndex).toString();
-    return value1.equals(value2);
-  }
-
-
   /*----------------------------------------------------------------*
    |                                                                |
    |                      vector transfer                           |
