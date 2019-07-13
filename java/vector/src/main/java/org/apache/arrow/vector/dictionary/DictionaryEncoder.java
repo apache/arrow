@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector.dictionary;
 
+import org.apache.arrow.vector.BaseBinaryVector;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
@@ -45,9 +46,13 @@ public class DictionaryEncoder {
     validateType(vector.getMinorType());
     // load dictionary values into a hashmap for lookup
     DictionaryEncodeHashMap<Object> lookUps = new DictionaryEncodeHashMap<>(dictionary.getVector().getValueCount());
+
+    boolean binaryType = isBinaryType(vector.getMinorType());
+
     for (int i = 0; i < dictionary.getVector().getValueCount(); i++) {
-      // for primitive array types we need a wrapper that implements equals and hashcode appropriately
-      lookUps.put(dictionary.getVector().getObject(i), i);
+      Object key = binaryType ? ((BaseBinaryVector) dictionary.getVector()).getByteArrayWrapper(i) :
+          dictionary.getVector().getObject(i);
+      lookUps.put(key, i);
     }
 
     Field valueField = vector.getField();
@@ -68,7 +73,7 @@ public class DictionaryEncoder {
     int count = vector.getValueCount();
 
     for (int i = 0; i < count; i++) {
-      Object value = vector.getObject(i);
+      Object value = binaryType ? ((BaseBinaryVector) vector).getByteArrayWrapper(i) : vector.getObject(i);
       if (value != null) { // if it's null leave it null
         // note: this may fail if value was not included in the dictionary
         int encoded = lookUps.get(value);
@@ -114,11 +119,16 @@ public class DictionaryEncoder {
     return decoded;
   }
 
+  private static boolean isBinaryType(MinorType type) {
+    if (type == MinorType.VARBINARY || type == MinorType.FIXEDSIZEBINARY) {
+      return true;
+    }
+    return false;
+  }
+
   private static void validateType(MinorType type) {
-    // byte arrays don't work as keys in our dictionary map - we could wrap them with something to
-    // implement equals and hashcode if we want that functionality
-    if (type == MinorType.VARBINARY || type == MinorType.FIXEDSIZEBINARY || type == MinorType.UNION) {
-      throw new IllegalArgumentException("Dictionary encoding for complex types not implemented: type " + type);
+    if (type == MinorType.UNION) {
+      throw new IllegalArgumentException("Dictionary encoding not implemented for current type: " + type);
     }
   }
 }
