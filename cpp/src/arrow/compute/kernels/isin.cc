@@ -134,7 +134,7 @@ class IsInKernel : public IsInKernelImpl {
   Status Compute(FunctionContext* ctx, const Datum& left, Datum* out) override {
     const ArrayData& left_data = *left.array();
     RETURN_NOT_OK(bool_builder_.Reserve(left_data.length));
-    ArrayDataVisitor<Type>::Visit(left_data, this);
+    RETURN_NOT_OK(ArrayDataVisitor<Type>::Visit(left_data, this));
     RETURN_NOT_OK(bool_builder_.FinishInternal(&output));
     out->value = std::move(output);
     return Status::OK();
@@ -142,14 +142,14 @@ class IsInKernel : public IsInKernelImpl {
 
   Status ConstructRight(FunctionContext* ctx, const Datum& right) override {
     MemoTableRight<Type, Scalar> func;
-    func.Reset();
+    RETURN_NOT_OK(func.Reset());
 
     if (right.kind() == Datum::ARRAY) {
-      func.Append(ctx, right);
+      RETURN_NOT_OK(func.Append(ctx, right));
     } else if (right.kind() == Datum::CHUNKED_ARRAY) {
       const ChunkedArray& right_array = *right.chunked_array();
       for (int i = 0; i < right_array.num_chunks(); i++) {
-        func.Append(ctx, right_array.chunk(i));
+        RETURN_NOT_OK(func.Append(ctx, right_array.chunk(i)));
       }
     } else {
       return Status::Invalid("Input Datum was not array-like");
@@ -197,7 +197,7 @@ class NullIsInKernel : public IsInKernelImpl {
       output->type = boolean();
       RETURN_NOT_OK(detail::PropagateNulls(ctx, left_data, output.get()));
     } else {
-      bool_builder_.Reserve(left_data.length);
+      RETURN_NOT_OK(bool_builder_.Reserve(left_data.length));
       for (int64_t i = 0; i < left_data.length; ++i) {
         bool_builder_.UnsafeAppend(true);
       }
