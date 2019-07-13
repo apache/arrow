@@ -47,14 +47,14 @@ class WriterImpl {
   }
 
   Status WriteValue(int32_t val) {
-    RETURN_NOT_OK(validator_.CheckTypeExpected(AvroType::kInt));
+    ARROW_RETURN_NOT_OK(validator_.CheckTypeExpected(AvroType::kInt));
     std::array<uint8_t, 5> bytes;
     size_t size = EncodeInt32(val, bytes);
     return buffer_.Append(reinterpret_cast<void*>(bytes.data()), size);
   }
 
   Status writeValue(int64_t val) {
-    RETURN_NOT_OK(validator_.CheckTypeExpected(AvroType::kLong));
+    ARROW_RETURN_NOT_OK(validator_.CheckTypeExpected(AvroType::kLong));
     return PutLong(val);
   }
 
@@ -74,7 +74,7 @@ class WriterImpl {
   }
 
   Status WriteValue(double val) {
-    RETURN_NOT_OK(validator_.CheckTypeExpected(AVRO_DOUBLE));
+    ARROW_RETURN_NOT_OK(validator_.CheckTypeExpected(AVRO_DOUBLE));
     union {
       double d;
       int64_t i;
@@ -90,68 +90,68 @@ class WriterImpl {
   }
 
   Status WriteValue(const std::string& val) {
-    RETURN_NOT_OK(validator_.CheckTypeExpected(AVRO_STRING));
+    ARROW_RETURN_NOT_OK(validator_.CheckTypeExpected(AVRO_STRING));
     return PutBytes(val.c_str(), val.size());
   }
 
   Status WriteBytes(const void* val, size_t size) {
-    RETURN_NOT_OK(validator_.CheckTypeExpected(AVRO_BYTES));
+    ARROW_RETURN_NOT_OK(validator_.CheckTypeExpected(AVRO_BYTES));
     return PutBytes(val, size);
   }
 
   template <size_t N>
   Status WriteFixed(const uint8_t* val) {
-    RETURN_NOT_OK(validator_.checkFixedSizeExpected(N));
+    ARROW_RETURN_NOT_OK(validator_.checkFixedSizeExpected(N));
     return buffer_.Append(val, N);
   }
 
   template <size_t N>
   Status WriteFixed(const std::array<uint8_t, N>& val) {
-    RETURN_NOT_OK(validator_.CheckFixedSizeExpected(val.size()));
+    ARROW_RETURN_NOT_OK(validator_.CheckFixedSizeExpected(val.size()));
     return buffer_.Append(val.data(), val.size());
   }
 
   Status WriteRecord() {
-    RETURN_NOT_OK(validator_.CheckTypeExpected(AvroType::kRecord));
-    RETURN_NOT_OK(validator_.CheckTypeExpected(AvroType::kLong));
+    ARROW_RETURN_NOT_OK(validator_.CheckTypeExpected(AvroType::kRecord));
+    ARROW_RETURN_NOT_OK(validator_.CheckTypeExpected(AvroType::kLong));
     validator_.SetCount(1);
     return Status::OK();
   }
 
   Status WriteRecordEnd() {
-    RETURN_NOT_OK(validator_.CheckTypeExpected(AvroType::kRecord));
-    RETURN_NOT_OK(validator_.CheckTypeExpected(AvroType::kLong);
+    ARROW_RETURN_NOT_OK(validator_.CheckTypeExpected(AvroType::kRecord));
+    ARROW_RETURN_NOT_OK(validator_.CheckTypeExpected(AvroType::kLong);
     validator_.setCount(0);
     return Status::OK();
   }
 
   Status WriteArrayBlock(int64_t size) {
-    RETURN_NOT_OK(validator_.checkTypeExpected(AvroType::kArray));
+    ARROW_RETURN_NOT_OK(validator_.checkTypeExpected(AvroType::kArray));
     return WriteCount(size);
   }
 
   Status WriteArrayEnd() { return WriteArrayBlock(0); }
 
   Status WriteMapBlock(int64_t size) {
-    RETURN_NOT_OK(validator_.CheckTypeExpected(AvroType::kMap));
+    ARROW_RETURN_NOT_OK(validator_.CheckTypeExpected(AvroType::kMap));
     return WriteCount(size);
   }
 
   Status WriteMapEnd() { return WriteMapBlock(0); }
 
   Status WriteUnion(int64_t choice) {
-    RETURN_NOT_OK(validator_.checkTypeExpected(AvroType::kUnion));
+    ARROW_RETURN_NOT_OK(validator_.checkTypeExpected(AvroType::kUnion));
     writeCount(choice);
   }
 
   Status WriteEnum(int64_t choice) {
-    RETURN_NOT_OK(validator_.checkTypeExpected(AvroType::kEnum));
+    ARROW_RETURN_NOT_OK(validator_.checkTypeExpected(AvroType::kEnum));
     WriteCount(choice);
   }
 
   Result<std::shared_ptr<arrow::Buffer>> Finish() const { 
     std::shared_ptr<arrow::Buffer>> buffer;
-    RETURN_NOT_OK(buffer_.Finish(&buffer)); 
+    ARROW_RETURN_NOT_OK(buffer_.Finish(&buffer)); 
     return buffer;
   }
 
@@ -163,12 +163,12 @@ class WriterImpl {
   }
 
   Status PutBytes(const void* val, size_t size) {
-    RETURN_NOT_OK(PutLong(size));
+    ARROW_RETURN_NOT_OK(PutLong(size));
     return buffer_.Append(val, size);
   }
 
   Status WriteCount(int64_t count) {
-    RETURN_NOT_OK(validator_.CheckTypeExpected(AvroType::kLong));
+    ARROW_RETURN_NOT_OK(validator_.CheckTypeExpected(AvroType::kLong));
     validator_.setCount(count);
     return PutLong(count);
   }

@@ -104,8 +104,8 @@ class Node {
   virtual bool HasName() const = 0;
 
   Status set_name(const Name& name) {
-    RETURN_NOT_OK(CheckLock());
-    RETURN_NOT_OK(CheckName(name));
+    ARROW_RETURN_NOT_OK(CheckLock());
+    ARROW_RETURN_NOT_OK(CheckName(name));
     DoSetName(name);
     return Status::OK();
   }
@@ -113,13 +113,13 @@ class Node {
 
   virtual const std::string& doc() const = 0;
   Status set_doc(const std::string& doc) {
-    RETURN_NOT_OK(CheckLock());
+    ARROW_RETURN_NOT_OK(CheckLock());
     DoSetDoc(doc);
     return Status::OK();
   }
 
   Status AddLeaf(const NodePtr& newLeaf) {
-    RETURN_NOT_OK(CheckLock());
+    ARROW_RETURN_NOT_OK(CheckLock());
     DoAddLeaf(newLeaf);
     return Status::OK();
   }
@@ -130,8 +130,8 @@ class Node {
   }
 
   void AddName(const std::string& name) {
-    RETURN_NOT_OK(CheckLock());
-    RETURN_NOT_OK(CheckName(name));
+    ARROW_RETURN_NOT_OK(CheckLock());
+    ARROW_RETURN_NOT_OK(CheckName(name));
     DoAddName(name);
     return Status::OK();
   }
