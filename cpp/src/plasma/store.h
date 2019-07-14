@@ -194,7 +194,7 @@ class PlasmaStore {
   /// Accept a client connection.
   void DoAccept();
   /// Handle an accepted client connection.
-  void HandleAccept(const asio::error_code& error);
+  void HandleAccept(const error_code& error);
 
   Status ProcessClientMessage(const std::shared_ptr<ClientConnection>& client,
                               int64_t message_type, int64_t message_size,

@@ -36,7 +36,7 @@ namespace io {
 
 using flatbuf::MessageType;
 
-Status asio_to_arrow_status(const std::error_code& ec) {
+Status asio_to_arrow_status(const error_code& ec) {
   if (!ec) {
     return Status::OK();
   }
@@ -203,7 +203,7 @@ void ClientConnection::ProcessMessages() {
                              std::placeholders::_1));  // Ignore byte_transferred
 }
 
-void ClientConnection::ProcessMessageHeader(const std::error_code& ec) {
+void ClientConnection::ProcessMessageHeader(const error_code& ec) {
   auto status = asio_to_arrow_status(ec);
   if (!status.ok()) {
     // If there was an error, disconnect the client.
@@ -228,7 +228,7 @@ void ClientConnection::ProcessMessageHeader(const std::error_code& ec) {
                              std::placeholders::_1));
 }
 
-void ClientConnection::ProcessMessageBody(const std::error_code& ec) {
+void ClientConnection::ProcessMessageBody(const error_code& ec) {
   auto status = asio_to_arrow_status(ec);
   if (!status.ok()) {
     // If there was an error, disconnect the client.
@@ -283,7 +283,7 @@ struct AsyncObjectNotificationWriteBuffer : public AsyncWriteBuffer {
     notification_msg.reset(message);
     size = message->size();
     AsyncWriteBuffer::handler_ =
-        [](const asio::error_code& status) -> AsyncWriteCallbackCode {
+        [](const error_code& status) -> AsyncWriteCallbackCode {
       auto errno_ = status.value();
       if (!errno_) {
         return AsyncWriteCallbackCode::OK;

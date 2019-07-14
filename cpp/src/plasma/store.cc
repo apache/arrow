@@ -116,7 +116,7 @@ struct GetRequest {
   }
 
   void AsyncWait(int64_t timeout_ms,
-                 std::function<void(const asio::error_code&)> on_timeout) {
+                 std::function<void(const error_code&)> on_timeout) {
     // Set an expiry time relative to now.
     timer_.expires_from_now(std::chrono::milliseconds(timeout_ms));
     timer_.async_wait(on_timeout);
@@ -498,7 +498,7 @@ Status PlasmaStore::ProcessGetRequest(const std::shared_ptr<ClientConnection>& c
   } else if (timeout_ms != -1) {
     // Set a timer that will cause the get request to return to the client. Note
     // that a timeout of -1 is used to indicate that no timer should be set.
-    get_req->AsyncWait(timeout_ms, [this, get_req](const asio::error_code& ec) {
+    get_req->AsyncWait(timeout_ms, [this, get_req](const error_code& ec) {
       if (ec != asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
         ReturnFromGet(get_req);
@@ -721,10 +721,10 @@ void PlasmaStore::SubscribeToUpdates(const std::shared_ptr<ClientConnection>& cl
 void PlasmaStore::DoAccept() {
   // TODO(suquark): Use shared_from_this() here ?
   acceptor_.async_accept(stream_,
-                         [this](const asio::error_code& ec) { HandleAccept(ec); });
+                         [this](const error_code& ec) { HandleAccept(ec); });
 }
 
-void PlasmaStore::HandleAccept(const asio::error_code& error) {
+void PlasmaStore::HandleAccept(const error_code& error) {
   if (!error) {
     io::MessageHandler message_handler = [this](std::shared_ptr<ClientConnection> client,
                                                 int64_t message_type, int64_t length,

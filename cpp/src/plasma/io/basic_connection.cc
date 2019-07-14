@@ -31,14 +31,14 @@ namespace io {
 /// \param socket The socket to connect.
 /// \param socket_name The name/path of the socket.
 /// \return Status.
-std::error_code UnixDomainSocketConnect(asio::local::stream_protocol::socket& socket,
+error_code UnixDomainSocketConnect(asio::local::stream_protocol::socket& socket,
                                         const std::string& socket_name) {
   asio::local::stream_protocol::endpoint endpoint(socket_name);
-  std::error_code ec;
+  error_code ec;
   socket.connect(endpoint, ec);
   if (ec) {
     // Close the socket if the connect failed.
-    std::error_code close_error;
+    error_code close_error;
     socket.close(close_error);
   }
   return ec;
@@ -52,7 +52,7 @@ PlasmaStream CreateLocalStream(asio::io_context& io_context, const std::string& 
 #ifndef _WIN32
   asio::basic_stream_socket<asio::local::stream_protocol> socket(io_context);
   for (int i = 0; i < num_retries; i++) {
-    std::error_code ec = UnixDomainSocketConnect(socket, name);
+    error_code ec = UnixDomainSocketConnect(socket, name);
     if (!ec) {
       break;
     }
@@ -92,13 +92,13 @@ Connection<T>::~Connection() {
   // If there are any pending messages, invoke their callbacks with an IOError status.
   for (const auto& write_buffer : async_write_queue_) {
     write_buffer->Handle(
-        std::error_code(static_cast<int>(std::errc::io_error), std::system_category()));
+        error_code(static_cast<int>(boost::system::errc::io_error), boost::system::system_category()));
   }
 }
 
 template <class T>
-std::error_code Connection<T>::ReadBuffer(const asio::mutable_buffer& buffer) {
-  std::error_code ec;
+error_code Connection<T>::ReadBuffer(const asio::mutable_buffer& buffer) {
+  error_code ec;
   // Loop until all bytes are read while handling interrupts.
   uint64_t bytes_remaining = asio::buffer_size(buffer);
   uint64_t position = 0;
@@ -113,26 +113,26 @@ std::error_code Connection<T>::ReadBuffer(const asio::mutable_buffer& buffer) {
       return ec;
     }
   }
-  return std::error_code();
+  return error_code();
 }
 
 template <class T>
-std::error_code Connection<T>::ReadBuffer(
+error_code Connection<T>::ReadBuffer(
     const std::vector<asio::mutable_buffer>& buffer) {
   // Loop until all bytes are read while handling interrupts.
   for (const auto& b : buffer) {
     auto ec = ReadBuffer(b);
     if (ec) return ec;
   }
-  return std::error_code();
+  return error_code();
 }
 
 /// Write a buffer to this connection.
 ///
 /// \param buffer The buffer.
 template <class T>
-std::error_code Connection<T>::WriteBuffer(const asio::const_buffer& buffer) {
-  std::error_code error;
+error_code Connection<T>::WriteBuffer(const asio::const_buffer& buffer) {
+  error_code error;
   // Loop until all bytes are written while handling interrupts.
   // When profiling with pprof, unhandled interrupts were being sent by the profiler to
   // the raylet process, which was causing synchronous reads and writes to fail.
@@ -149,13 +149,13 @@ std::error_code Connection<T>::WriteBuffer(const asio::const_buffer& buffer) {
       return error;
     }
   }
-  return std::error_code();
+  return error_code();
 }
 
 template <class T>
-std::error_code Connection<T>::WriteBuffer(
+error_code Connection<T>::WriteBuffer(
     const std::vector<asio::const_buffer>& buffer) {
-  std::error_code error;
+  error_code error;
   // Loop until all bytes are written while handling interrupts.
   // When profiling with pprof, unhandled interrupts were being sent by the profiler to
   // the raylet process, which was causing synchronous reads and writes to fail.
@@ -165,7 +165,7 @@ std::error_code Connection<T>::WriteBuffer(
       return error;
     }
   }
-  return std::error_code();
+  return error_code();
 }
 
 template <class T>
@@ -185,7 +185,7 @@ void Connection<T>::WriteBufferAsync(std::unique_ptr<AsyncWriteBuffer> write_buf
 // Shuts down socket for this connection.
 template <class T>
 void Connection<T>::Close() {
-  std::error_code ec;
+  error_code ec;
   stream_.close(ec);
 }
 
@@ -221,7 +221,7 @@ void Connection<T>::DoAsyncWrites() {
   // Ensure lambda holds a reference to this.
   auto this_ptr = this->shared_from_this();
   asio::async_write(stream_, message_buffers,
-                    [this, this_ptr, num_messages](const std::error_code& ec,
+                    [this, this_ptr, num_messages](const error_code& ec,
                                                    size_t bytes_transferred) {
                       bytes_written_ += bytes_transferred;
                       bool close_connection = false;

@@ -29,7 +29,12 @@
 #include <utility>
 #include <vector>
 
-#include "asio.hpp"  // NOLINT
+#include <boost/system/error_code.hpp>
+#include <boost/asio.hpp>
+
+namespace asio = boost::asio;
+
+using error_code = boost::system::error_code;
 
 namespace plasma {
 namespace io {
@@ -40,7 +45,7 @@ enum class AsyncWriteCallbackCode {
   UNKNOWN_ERROR,
 };
 
-using AsyncWriteCallback = std::function<AsyncWriteCallbackCode(const std::error_code&)>;
+using AsyncWriteCallback = std::function<AsyncWriteCallbackCode(const error_code&)>;
 // TODO(suquark): Change it according to the platform.
 using PlasmaStream = asio::basic_stream_socket<asio::local::stream_protocol>;
 using PlasmaAcceptor = asio::local::stream_protocol::acceptor;
@@ -55,7 +60,7 @@ PlasmaStream CreateLocalStream(asio::io_context& io_context, const std::string& 
 struct AsyncWriteBuffer {
   virtual void ToBuffers(std::vector<asio::const_buffer>& message_buffers) = 0;
   virtual ~AsyncWriteBuffer() {}
-  inline AsyncWriteCallbackCode Handle(const std::error_code& ec) { return handler_(ec); }
+  inline AsyncWriteCallbackCode Handle(const error_code& ec) { return handler_(ec); }
 
  protected:
   AsyncWriteCallback handler_;
@@ -71,22 +76,22 @@ class Connection : public std::enable_shared_from_this<Connection<T>> {
   /// Read a buffer from this connection.
   ///
   /// \param buffer The output buffer.
-  std::error_code ReadBuffer(const asio::mutable_buffer& buffer);
+  error_code ReadBuffer(const asio::mutable_buffer& buffer);
 
   /// Read buffers from this connection.
   ///
   /// \param buffer The output vector of buffers.
-  std::error_code ReadBuffer(const std::vector<asio::mutable_buffer>& buffer);
+  error_code ReadBuffer(const std::vector<asio::mutable_buffer>& buffer);
 
   /// Write a buffer to this connection.
   ///
   /// \param buffer The buffer.
-  std::error_code WriteBuffer(const asio::const_buffer& buffer);
+  error_code WriteBuffer(const asio::const_buffer& buffer);
 
   /// Write buffers to this connection.
   ///
   /// \param buffer The vector of buffers.
-  std::error_code WriteBuffer(const std::vector<asio::const_buffer>& buffer);
+  error_code WriteBuffer(const std::vector<asio::const_buffer>& buffer);
 
   /// Write buffers to this connection async.
   ///

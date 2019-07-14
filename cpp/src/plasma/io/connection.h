@@ -37,7 +37,7 @@ using arrow::Status;
 
 using PlasmaConnection = Connection<PlasmaStream>;
 
-Status asio_to_arrow_status(const std::error_code& ec);
+Status asio_to_arrow_status(const error_code& ec);
 
 /// A generic type representing a client connection to a server. This typename
 /// can be used to write messages synchronously to the server.
@@ -145,11 +145,11 @@ class ClientConnection : public ServerConnection {
  private:
   /// Process the message header from the client.
   /// \param ec The returned error code.
-  void ProcessMessageHeader(const std::error_code& ec);
+  void ProcessMessageHeader(const error_code& ec);
 
   /// Process the message body from the client.
   /// \param ec The returned error code.
-  void ProcessMessageBody(const std::error_code& ec);
+  void ProcessMessageBody(const error_code& ec);
 
   /// Process the message from the client.
   /// \param type The type of the message.

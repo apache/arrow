@@ -113,7 +113,6 @@ add_arrow_lib(plasma
               PLASMA_LIBRARIES
               DEPENDENCIES
               gen_plasma_fbs
-              asio_ep
               SHARED_LINK_FLAGS
               ${PLASMA_SHARED_LINK_FLAGS}
               SHARED_LINK_LIBS
@@ -158,7 +157,6 @@ else()
 endif()
 
 add_dependencies(plasma plasma_store_server)
-add_dependencies(plasma_store_server asio_ep)
 
 if(ARROW_RPATH_ORIGIN)
   if(APPLE)
