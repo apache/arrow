@@ -59,13 +59,13 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       // add/sub/multiply/divide/mod
       BINARY_SYMMETRIC_FN(add, {}), BINARY_SYMMETRIC_FN(subtract, {}),
       BINARY_SYMMETRIC_FN(multiply, {}),
-      NUMERIC_TYPES(BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL, divide, {"div"}),
+      NUMERIC_TYPES(BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL, divide, {}),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, {"modulo"}, int64, int32, int32),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, {"modulo"}, int64, int64, int64),
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(add, {}, decimal128),
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(subtract, {}, decimal128),
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(multiply, {}, decimal128),
-      BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(divide, {"div"}, decimal128),
+      BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(divide, {}, decimal128),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(mod, {"modulo"}, decimal128),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(mod, {"modulo"}, float64),
 
