@@ -64,7 +64,7 @@ garrow_table_new_record_batches(GArrowSchema *schema,
 gboolean        garrow_table_equal         (GArrowTable *table,
                                             GArrowTable *other_table);
 
-GArrowSchema   *garrow_table_get_schema(GArrowTable *table);
+GArrowSchema   *garrow_table_get_schema    (GArrowTable *table);
 GARROW_AVAILABLE_IN_1_0
 GArrowChunkedArray *
 garrow_table_get_column_data(GArrowTable *table,
