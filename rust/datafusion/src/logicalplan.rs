@@ -27,7 +27,7 @@ use crate::optimizer::utils;
 use crate::sql::parser::FileType;
 
 /// Enumeration of supported function types (Scalar and Aggregate)
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum FunctionType {
     /// Simple function returning a value per DataFrame
     Scalar,
@@ -82,7 +82,7 @@ impl FunctionMeta {
 }
 
 /// Operators applied to expressions
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Operator {
     /// Expressions are equal
     Eq,
@@ -119,7 +119,7 @@ pub enum Operator {
 }
 
 /// ScalarValue enumeration
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ScalarValue {
     /// null value
     Null,
@@ -173,7 +173,7 @@ impl ScalarValue {
 }
 
 /// Relation expression
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Expr {
     /// index into a value within the row or complex value
     Column(usize),
@@ -379,7 +379,7 @@ impl fmt::Debug for Expr {
 
 /// The LogicalPlan represents different types of relations (such as Projection,
 /// Selection, etc) and can be created by the SQL query planner and the DataFrame API.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone)]
 pub enum LogicalPlan {
     /// A Projection (essentially a SELECT with an expression list)
     Projection {
@@ -614,7 +614,6 @@ pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json;
     use std::thread;
 
     #[test]
@@ -634,44 +633,4 @@ mod tests {
         });
     }
 
-    #[test]
-    fn serialize_plan() {
-        let schema = Schema::new(vec![
-            Field::new("first_name", DataType::Utf8, false),
-            Field::new("last_name", DataType::Utf8, false),
-            Field::new(
-                "address",
-                DataType::Struct(vec![
-                    Field::new("street", DataType::Utf8, false),
-                    Field::new("zip", DataType::UInt16, false),
-                ]),
-                false,
-            ),
-        ]);
-
-        let plan = LogicalPlan::TableScan {
-            schema_name: "".to_string(),
-            table_name: "people".to_string(),
-            schema: Arc::new(schema),
-            projection: Some(vec![0, 1, 4]),
-        };
-
-        let serialized = serde_json::to_string(&plan).unwrap();
-
-        assert_eq!(
-            "{\"TableScan\":{\
-             \"schema_name\":\"\",\
-             \"table_name\":\"people\",\
-             \"schema\":{\"fields\":[\
-             {\"name\":\"first_name\",\"data_type\":\"Utf8\",\"nullable\":false},\
-             {\"name\":\"last_name\",\"data_type\":\"Utf8\",\"nullable\":false},\
-             {\"name\":\"address\",\"data_type\":{\"Struct\":\
-             [\
-             {\"name\":\"street\",\"data_type\":\"Utf8\",\"nullable\":false},\
-             {\"name\":\"zip\",\"data_type\":\"UInt16\",\"nullable\":false}]},\"nullable\":false}\
-             ]},\
-             \"projection\":[0,1,4]}}",
-            serialized
-        );
-    }
 }
