@@ -549,7 +549,7 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
 
   // TODO(wesm): Refactor to share more code with ReadTable
 
-  auto ReadColumnFunc = [&indices, &field_indices, &row_group_index, &schema, &columns,
+  auto ReadColumnFunc = [&indices, &field_indices, &row_group_index, &columns,
                          this](int i) {
     RETURN_NOT_OK(
         ReadColumnChunk(field_indices[i], indices, row_group_index, &columns[i]));
@@ -604,7 +604,7 @@ Status FileReader::Impl::ReadTable(const std::vector<int>& indices,
   int num_fields = static_cast<int>(field_indices.size());
   std::vector<std::shared_ptr<ChunkedArray>> columns(num_fields);
 
-  auto ReadColumnFunc = [&indices, &field_indices, &schema, &columns, this](int i) {
+  auto ReadColumnFunc = [&indices, &field_indices, &columns, this](int i) {
     return ReadSchemaField(field_indices[i], indices, &columns[i]);
   };
 
