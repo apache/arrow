@@ -73,6 +73,7 @@ garrow_table_get_column_data(GArrowTable *table,
 guint           garrow_table_get_n_columns (GArrowTable *table);
 guint64         garrow_table_get_n_rows    (GArrowTable *table);
 
+GARROW_AVAILABLE_IN_1_0
 GArrowTable    *garrow_table_add_column    (GArrowTable *table,
                                             guint i,
                                             GArrowField *field,
@@ -81,6 +82,7 @@ GArrowTable    *garrow_table_add_column    (GArrowTable *table,
 GArrowTable    *garrow_table_remove_column (GArrowTable *table,
                                             guint i,
                                             GError **error);
+GARROW_AVAILABLE_IN_1_0
 GArrowTable    *garrow_table_replace_column(GArrowTable *table,
                                             guint i,
                                             GArrowField *field,
