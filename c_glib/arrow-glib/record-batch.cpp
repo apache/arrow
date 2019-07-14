@@ -199,25 +199,6 @@ garrow_record_batch_get_schema(GArrowRecordBatch *record_batch)
 }
 
 /**
- * garrow_record_batch_get_column:
- * @record_batch: A #GArrowRecordBatch.
- * @i: The index of the target column. If it's negative, index is
- *   counted backward from the end of the columns. `-1` means the last
- *   column.
- *
- * Returns: (transfer full) (nullable): The i-th column in the record batch
- *   on success, %NULL on out of index.
- *
- * Deprecated: 1.0.0: Use garrow_record_batch_get_column_data() instead.
- */
-GArrowArray *
-garrow_record_batch_get_column(GArrowRecordBatch *record_batch,
-                               gint i)
-{
-  return garrow_record_batch_get_column_data(record_batch, i);
-}
-
-/**
  * garrow_record_batch_get_column_data:
  * @record_batch: A #GArrowRecordBatch.
  * @i: The index of the target column. If it's negative, index is
@@ -239,32 +220,6 @@ garrow_record_batch_get_column_data(GArrowRecordBatch *record_batch,
   }
   auto arrow_column = arrow_record_batch->column(i);
   return garrow_array_new_raw(&arrow_column);
-}
-
-/**
- * garrow_record_batch_get_columns:
- * @record_batch: A #GArrowRecordBatch.
- *
- * Returns: (element-type GArrowArray) (transfer full):
- *   The columns in the record batch.
- *
- * Deprecated: 1.0.0:
- *   Use garrow_record_batch_get_n_columns() and
- *   garrow_record_batch_get_column_data() instead.
- */
-GList *
-garrow_record_batch_get_columns(GArrowRecordBatch *record_batch)
-{
-  const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
-
-  GList *columns = NULL;
-  for (int i = 0; i < arrow_record_batch->num_columns(); ++i) {
-    auto arrow_column = arrow_record_batch->column(i);
-    GArrowArray *column = garrow_array_new_raw(&arrow_column);
-    columns = g_list_prepend(columns, column);
-  }
-
-  return g_list_reverse(columns);
 }
 
 /**
