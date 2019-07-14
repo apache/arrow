@@ -311,7 +311,7 @@ class SimpleTable : public Table {
   Status Flatten(MemoryPool* pool, std::shared_ptr<Table>* out) const override {
     std::vector<std::shared_ptr<Field>> flattened_fields;
     std::vector<std::shared_ptr<ChunkedArray>> flattened_columns;
-    for (size_t i = 0; i < columns_.size(); ++i) {
+    for (int i = 0; i < num_columns(); ++i) {
       std::vector<std::shared_ptr<ChunkedArray>> new_columns;
       std::vector<std::shared_ptr<Field>> new_fields = field(i)->Flatten();
       RETURN_NOT_OK(column(i)->Flatten(pool, &new_columns));
