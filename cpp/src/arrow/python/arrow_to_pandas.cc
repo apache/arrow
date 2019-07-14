@@ -549,8 +549,6 @@ inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& da
 template <typename ArrowType>
 inline Status ConvertListsLike(const PandasOptions& options, const ChunkedArray& data,
                                PyObject** out_values) {
-  const auto& list_type = checked_cast<const ListType&>(*data.type());
-
   // Get column of underlying value arrays
   std::vector<std::shared_ptr<Array>> value_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
