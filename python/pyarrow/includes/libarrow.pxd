@@ -155,6 +155,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CFixedWidthType" arrow::FixedWidthType"(CDataType):
         int bit_width()
 
+    cdef cppclass CNullArray" arrow::NullArray"(CArray):
+        CNullArray(int64_t length)
+
     cdef cppclass CDictionaryArray" arrow::DictionaryArray"(CArray):
         CDictionaryArray(const shared_ptr[CDataType]& type,
                          const shared_ptr[CArray]& indices,

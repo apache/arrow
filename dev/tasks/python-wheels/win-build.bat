@@ -90,5 +90,4 @@ pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit
 python -c "import pyarrow; import pyarrow.parquet; import pyarrow.flight; import pyarrow.gandiva;" || exit /B
 
 @rem run the python tests
-set PYARROW_WHEEL_TEST=1
-pytest --pyargs pyarrow || exit /B
+pytest -rs --pyargs pyarrow || exit /B

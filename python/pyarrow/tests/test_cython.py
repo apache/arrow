@@ -51,6 +51,8 @@ setup_template = """if 1:
         if custom_ld_path:
             ext.library_dirs.append(custom_ld_path)
         ext.extra_compile_args.extend(compiler_opts)
+        print("Extension module:",
+              ext, ext.include_dirs, ext.libraries, ext.library_dirs)
 
     setup(
         ext_modules=ext_modules,
@@ -63,24 +65,10 @@ def test_cython_api(tmpdir):
     """
     Basic test for the Cython API.
     """
-    # fail early if cython is not found
+    # Fail early if cython is not found
     import cython  # noqa
 
-    if 'ARROW_HOME' in os.environ:
-        ld_path_default = os.path.join(os.environ['ARROW_HOME'], 'lib')
-    elif 'PYARROW_WHEEL_TEST' in os.environ:
-        # locate arrow libraries in pyarrow's directory
-        # this is useful for testing the python wheels
-        ld_path_default = os.path.dirname(pa.__file__)
-    else:
-        raise ValueError(
-            'Either ARROW_HOME environment variable must be set to run the '
-            'cython tests or set PYARROW_WHEEL_TEST to locate locate libarrow'
-            'from pyarrow\'s installation directory'
-        )
-
-    ld_path_default = os.path.join(os.environ['ARROW_HOME'], 'lib')
-    test_ld_path = os.environ.get('PYARROW_TEST_LD_PATH', ld_path_default)
+    test_ld_path = os.environ.get('PYARROW_TEST_LD_PATH', '')
 
     with tmpdir.as_cwd():
         # Set up temporary workspace
@@ -118,3 +106,18 @@ def test_cython_api(tmpdir):
                 mod.get_array_length(None)
         finally:
             sys.path = orig_path
+
+        # Check the extension module is loadable from a subprocess without
+        # pyarrow imported first.
+        code = """if 1:
+            import sys
+
+            mod = __import__({mod_name!r})
+            arr = mod.make_null_array(5)
+            assert mod.get_array_length(arr) == 5
+            assert arr.null_count == 5
+        """.format(mod_path=str(tmpdir), mod_name='pyarrow_cython_example')
+
+        subprocess.check_call([sys.executable, '-c', code],
+                              stdout=subprocess.PIPE,
+                              env=subprocess_env)

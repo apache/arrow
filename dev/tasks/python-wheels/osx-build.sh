@@ -187,16 +187,11 @@ function install_wheel {
 }
 
 function run_unit_tests {
-    export PYARROW_WHEEL_TEST=1
-
     # Install test dependencies
     pip install $(pip_opts) -r python/requirements-test.txt
 
-    # Install cython to run the cython binding tests
-    pip install -q cython
-
     # Run pyarrow tests
-    py.test --pyargs pyarrow
+    pytest -rs --pyargs pyarrow
 }
 
 function run_import_tests {
