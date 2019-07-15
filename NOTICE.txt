@@ -68,3 +68,17 @@ its NOTICE file:
 
   Portions of this software were developed at
   Cloudera, Inc (http://www.cloudera.com/).
+
+--------------------------------------------------------------------------------
+
+This product includes code from Apache ORC, which includes the following in
+its NOTICE file:
+
+  Apache ORC
+  Copyright 2013-2019 The Apache Software Foundation
+
+  This product includes software developed by The Apache Software
+  Foundation (http://www.apache.org/).
+
+  This product includes software developed by Hewlett-Packard:
+  (c) Copyright [2014-2015] Hewlett-Packard Development Company, L.P
