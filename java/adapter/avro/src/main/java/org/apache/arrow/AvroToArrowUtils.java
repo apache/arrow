@@ -20,9 +20,12 @@ package org.apache.arrow;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.arrow.consumers.AvroBooleanConsumer;
 import org.apache.arrow.consumers.AvroBytesConsumer;
@@ -40,7 +43,6 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
-import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -79,36 +81,25 @@ public class AvroToArrowUtils {
 
     Preconditions.checkNotNull(type, "Avro type object can't be null");
 
-    final ArrowType arrowType;
-
     switch (type) {
       case STRING:
-        arrowType = new ArrowType.Utf8();
-        break;
+        return new ArrowType.Utf8();
       case INT:
-        arrowType = new ArrowType.Int(32, /*signed=*/true);
-        break;
+        return new ArrowType.Int(32, /*signed=*/true);
       case BOOLEAN:
-        arrowType = new ArrowType.Bool();
-        break;
+        return new ArrowType.Bool();
       case LONG:
-        arrowType = new ArrowType.Int(64, /*signed=*/true);
-        break;
+        return new ArrowType.Int(64, /*signed=*/true);
       case FLOAT:
-        arrowType = new ArrowType.FloatingPoint(SINGLE);
-        break;
+        return new ArrowType.FloatingPoint(SINGLE);
       case DOUBLE:
-        arrowType = new ArrowType.FloatingPoint(DOUBLE);
-        break;
+        return new ArrowType.FloatingPoint(DOUBLE);
       case BYTES:
-        arrowType = new ArrowType.Binary();
-        break;
+        return new ArrowType.Binary();
       default:
         // no-op, shouldn't get here
         throw new RuntimeException("Can't convert avro type %s to arrow type." + type.getName());
     }
-
-    return arrowType;
   }
 
   /**
@@ -120,6 +111,8 @@ public class AvroToArrowUtils {
     List<Field> arrowFields = new ArrayList<>();
 
     Schema.Type type = schema.getType();
+    final Map<String, String> metadata = new HashMap<>();
+    schema.getObjectProps().forEach((k,v) -> metadata.put(k, v.toString()));
 
     if (type == Type.RECORD) {
       throw new NotImplementedException();
@@ -135,19 +128,20 @@ public class AvroToArrowUtils {
       throw new NotImplementedException();
     } else {
       final FieldType fieldType = new FieldType(true, getArrowType(type), null, null);
-      arrowFields.add(new Field("f0", fieldType, null));
+      arrowFields.add(new Field("", fieldType, null));
     }
 
-    return new org.apache.arrow.vector.types.pojo.Schema(arrowFields, null);
+    return new org.apache.arrow.vector.types.pojo.Schema(arrowFields, /*metadata=*/ metadata);
   }
 
   /**
    * Create consumers to consume avro values from decoder, will reduce boxing/unboxing operations.
    */
-  public static List<Consumer> createAvroConsumers(VectorSchemaRoot root) {
-    List<Consumer> consumers = new ArrayList<>();
+  public static Consumer[] createAvroConsumers(VectorSchemaRoot root) {
 
-    for (ValueVector vector : root.getFieldVectors()) {
+    Consumer[] consumers = new Consumer[root.getFieldVectors().size()];
+    for (int i = 0; i < root.getFieldVectors().size(); i++) {
+      FieldVector vector = root.getFieldVectors().get(i);
       Consumer consumer;
       switch (vector.getMinorType()) {
         case INT:
@@ -174,7 +168,7 @@ public class AvroToArrowUtils {
         default:
           throw new RuntimeException("could not get consumer from type:" + vector.getMinorType());
       }
-      consumers.add(consumer);
+      consumers[i] = consumer;
     }
     return consumers;
   }
@@ -185,21 +179,20 @@ public class AvroToArrowUtils {
    * @param decoder avro decoder to read data.
    * @param root Arrow {@link VectorSchemaRoot} object to populate
    */
-  public static void avroToArrowVectors(Decoder decoder, VectorSchemaRoot root) {
+  public static void avroToArrowVectors(Decoder decoder, VectorSchemaRoot root) throws IOException {
 
     Preconditions.checkNotNull(decoder, "Avro decoder object can't be null");
     Preconditions.checkNotNull(root, "VectorSchemaRoot object can't be null");
 
     allocateVectors(root, DEFAULT_BUFFER_SIZE);
-
-    List<Consumer> consumers = createAvroConsumers(root);
+    Consumer[] consumers = createAvroConsumers(root);
     while (true) {
       try {
         for (Consumer consumer : consumers) {
           consumer.consume(decoder);
         }
         //reach end will throw EOFException.
-      } catch (IOException eofException) {
+      } catch (EOFException eofException) {
         break;
       }
     }

@@ -18,7 +18,7 @@
 package org.apache.arrow.consumers;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.nio.ByteBuffer;
 
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.impl.VarCharWriterImpl;
@@ -43,12 +43,12 @@ public class AvroStringConsumer implements Consumer {
   @Override
   public void consume(Decoder decoder) throws IOException {
     VarCharHolder holder = new VarCharHolder();
-    byte[] value = decoder.readString().getBytes(StandardCharsets.UTF_8);
+    ByteBuffer byteBuffer = decoder.readBytes(null);
 
     holder.start = 0;
-    holder.end = value.length;
-    holder.buffer = vector.getAllocator().buffer(value.length);
-    holder.buffer.setBytes(0, value);
+    holder.end = byteBuffer.capacity();
+    holder.buffer = vector.getAllocator().buffer(byteBuffer.capacity());
+    holder.buffer.setBytes(0, byteBuffer);
 
     writer.write(holder);
     writer.setPosition(writer.getPosition() + 1);

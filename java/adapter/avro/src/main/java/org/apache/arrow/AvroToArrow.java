@@ -17,9 +17,12 @@
 
 package org.apache.arrow;
 
+import java.io.IOException;
+
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.io.Decoder;
 
@@ -30,15 +33,16 @@ public class AvroToArrow {
 
   /**
    * Fetch the data from {@link GenericDatumReader} and convert it to Arrow objects.
-   * @param reader avro datum reader.
+   * @param schema avro schema.
    * @param allocator Memory allocator to use.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
    */
-  public static VectorSchemaRoot avroToArrow(GenericDatumReader reader, Decoder decoder, BaseAllocator allocator) {
-    Preconditions.checkNotNull(reader, "Avro reader object can not be null");
+  public static VectorSchemaRoot avroToArrow(Schema schema, Decoder decoder, BaseAllocator allocator)
+      throws IOException {
+    Preconditions.checkNotNull(schema, "Avro schema object can not be null");
 
     VectorSchemaRoot root = VectorSchemaRoot.create(
-        AvroToArrowUtils.avroToArrowSchema(reader.getSchema()), allocator);
+        AvroToArrowUtils.avroToArrowSchema(schema), allocator);
     AvroToArrowUtils.avroToArrowVectors(decoder, root);
     return root;
   }
