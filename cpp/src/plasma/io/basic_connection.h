@@ -32,6 +32,8 @@
 #include <boost/system/error_code.hpp>
 #include <boost/asio.hpp>
 
+#include "arrow/status.h"
+
 namespace asio = boost::asio;
 
 using error_code = boost::system::error_code;
