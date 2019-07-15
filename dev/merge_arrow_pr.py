@@ -58,6 +58,11 @@ PR_REMOTE_NAME = os.environ.get("PR_REMOTE_NAME", "apache")
 # For testing to avoid accidentally pushing to apache
 DEBUG = bool(os.environ.get("DEBUG", "0"))
 
+
+if DEBUG:
+    print("**************** DEBUGGING ****************")
+
+
 # Prefix added to temporary branches
 BRANCH_PREFIX = "PR_TOOL"
 JIRA_API_BASE = "https://issues.apache.org/jira"
