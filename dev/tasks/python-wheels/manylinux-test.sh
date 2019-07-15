@@ -20,12 +20,15 @@
 set -e
 
 export ARROW_TEST_DATA=/arrow/testing/data
+export PYARROW_WHEEL_TEST=1
 
 python --version
 # Install built wheel
 pip install -q /arrow/python/$WHEEL_TAG/dist/*.whl
 # Install test dependencies (pip won't work after removing system zlib)
 pip install -q -r /arrow/python/requirements-test.txt
+# Install cython to run the cython binding tests
+pip install -q cython
 # Run pyarrow tests
 pytest -v --pyargs pyarrow
 

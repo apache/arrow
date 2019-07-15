@@ -23,10 +23,11 @@ import sys
 import pytest
 
 import pyarrow as pa
-
 import pyarrow.tests.util as test_util
 
+
 here = os.path.dirname(os.path.abspath(__file__))
+
 
 setup_template = """if 1:
     from distutils.core import setup
@@ -57,17 +58,28 @@ setup_template = """if 1:
 """
 
 
-@pytest.mark.skipif(
-    'ARROW_HOME' not in os.environ,
-    reason='ARROW_HOME environment variable not defined')
+@pytest.mark.cython
 def test_cython_api(tmpdir):
     """
     Basic test for the Cython API.
     """
-    pytest.importorskip('Cython')
+    # fail early if cython is not found
+    import cython  # noqa
+
+    if 'ARROW_HOME' in os.environ:
+        ld_path_default = os.path.join(os.environ['ARROW_HOME'], 'lib')
+    elif 'PYARROW_WHEEL_TEST' in os.environ:
+        # locate arrow libraries in pyarrow's directory
+        # this is useful for testing the python wheels
+        ld_path_default = os.path.dirname(pa.__file__)
+    else:
+        raise ValueError(
+            'Either ARROW_HOME environment variable must be set to run the '
+            'cython tests or set PYARROW_WHEEL_TEST to locate locate libarrow'
+            'from pyarrow\'s installation directory'
+        )
 
     ld_path_default = os.path.join(os.environ['ARROW_HOME'], 'lib')
-
     test_ld_path = os.environ.get('PYARROW_TEST_LD_PATH', ld_path_default)
 
     with tmpdir.as_cwd():
