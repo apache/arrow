@@ -20,9 +20,11 @@
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/stl.h"
 #include <iostream>
 
 using arrow::internal::checked_cast;
+using arrow::internal::make_unique;
 
 namespace arrow {
 
@@ -201,10 +203,10 @@ class ShredNode {
   virtual ~ShredNode() {
   }
 
-  static Status CreateTree(const std::shared_ptr<Field>& field,
-                           int16_t rep_level, int16_t def_level,
-                           MemoryPool* pool,
-                           std::unique_ptr<ShredNode>* node);
+  static Result<std::unique_ptr<ShredNode>>
+  CreateTree(const std::shared_ptr<Field>& field,
+             int16_t rep_level, int16_t def_level,
+             MemoryPool* pool);
 
   const std::shared_ptr<Field>& field() const { return field_; }
   int num_children() const { return static_cast<int>(children_.size()); }
@@ -253,20 +255,18 @@ class PrimitiveShredNode : public ShredNode {
 
   using ShredNode::ShredNode;
 
-  static Status Create(const std::shared_ptr<Field>& field,
-                       int16_t rep_level, int16_t def_level,
-                       MemoryPool* pool,
-                       std::unique_ptr<ShredNode>* node_out) {
-    std::unique_ptr<PrimitiveShredNode<data_type>> node(
-        new PrimitiveShredNode<data_type>(field, pool));
+  static Result<std::unique_ptr<ShredNode>>
+  Create(const std::shared_ptr<Field>& field,
+         int16_t rep_level, int16_t def_level,
+         MemoryPool* pool) {
+    auto node = make_unique<PrimitiveShredNode<data_type>>(field, pool);
     node->rep_level_ = rep_level;
     if (field->nullable()) {
       def_level++;
     }
     node->def_level_ = def_level;
     node->values_builder_ = std::make_shared<PrimitiveBuilder>(field->type(), pool);
-    *node_out = std::move(node);
-    return Status::OK();
+    return Result<std::unique_ptr<ShredNode>>(std::move(node));
   }
 
   Status Handle(const Array& array, int64_t i, int16_t rep_level) override {
@@ -304,11 +304,11 @@ class StructShredNode : public ShredNode {
  public:
   using ShredNode::ShredNode;
 
-  static Status Create(const std::shared_ptr<Field>& field,
-                       int16_t rep_level, int16_t def_level,
-                       MemoryPool* pool,
-                       std::unique_ptr<ShredNode>* node_out) {
-    std::unique_ptr<StructShredNode> node(new StructShredNode(field, pool));
+  static Result<std::unique_ptr<ShredNode>>
+  Create(const std::shared_ptr<Field>& field,
+         int16_t rep_level, int16_t def_level,
+         MemoryPool* pool) {
+    auto node = make_unique<StructShredNode>(field, pool);
     node->rep_level_ = rep_level;
     if (field->nullable()) {
       def_level++;
@@ -316,12 +316,12 @@ class StructShredNode : public ShredNode {
     node->def_level_ = def_level;
     node->children_.resize(field->type()->num_children());
     for (int i = 0; i < field->type()->num_children(); i++) {
-      std::unique_ptr<ShredNode> child;
-      RETURN_NOT_OK(CreateTree(field->type()->child(i), rep_level, def_level, pool, &child));
-      node->children_[i] = std::move(child);
+      Result<std::unique_ptr<ShredNode>> child =
+        CreateTree(field->type()->child(i), rep_level, def_level, pool);
+      RETURN_NOT_OK(child.status());
+      node->children_[i] = std::move(child).ValueOrDie();
     }
-    *node_out = std::move(node);
-    return Status::OK();
+    return Result<std::unique_ptr<ShredNode>>(std::move(node));
   }
 
   Status Handle(const Array& array, int64_t i, int16_t rep_level) override {
@@ -357,24 +357,26 @@ class ListShredNode : public ShredNode {
  public:
   using ShredNode::ShredNode;
 
-  static Status Create(const std::shared_ptr<Field>& field,
-                     int16_t rep_level, int16_t def_level,
-                     MemoryPool* pool, std::unique_ptr<ShredNode>* node_out) {
+  static Result<std::unique_ptr<ShredNode>>
+  Create(const std::shared_ptr<Field>& field,
+         int16_t rep_level, int16_t def_level,
+         MemoryPool* pool) {
     if (field->type()->num_children() != 1) {
       return Status::Invalid("List fields must have exactly one child: ", field->name());
     }
-    std::unique_ptr<ListShredNode> node(new ListShredNode(field, pool));
+    auto node = make_unique<ListShredNode>(field, pool);
     node->rep_level_ = ++rep_level;
     if (field->nullable()) {
       def_level++;
     }
     def_level++; // empty list
     node->def_level_ = def_level;
-    std::unique_ptr<ShredNode> child;
-    RETURN_NOT_OK(CreateTree(field->type()->child(0), rep_level, def_level, pool, &child));
-    node->children_.push_back(std::move(child));
-    *node_out = std::move(node);
-    return Status::OK();
+
+    Result<std::unique_ptr<ShredNode>> child =
+      CreateTree(field->type()->child(0), rep_level, def_level, pool);
+    RETURN_NOT_OK(child.status());
+    node->children_.push_back(std::move(child).ValueOrDie());
+    return Result<std::unique_ptr<ShredNode>>(std::move(node));
   }
 
   Status Handle(const Array& array, int64_t i, int16_t rep_level) override {
@@ -411,24 +413,24 @@ class ListShredNode : public ShredNode {
   }
 };
 
-Status ShredNode::CreateTree(const std::shared_ptr<Field>& field,
-                             int16_t rep_level, int16_t def_level,
-                             MemoryPool* pool,
-                             std::unique_ptr<ShredNode>* node) {
+Result<std::unique_ptr<ShredNode>> ShredNode::CreateTree(const std::shared_ptr<Field>& field,
+                                                         int16_t rep_level, int16_t def_level,
+                                                         MemoryPool* pool) {
   switch (field->type()->id()) {
     case Type::STRUCT:
-      return StructShredNode::Create(field, rep_level, def_level, pool, node);
+      return StructShredNode::Create(field, rep_level, def_level, pool);
     case Type::LIST:
-      return ListShredNode::Create(field, rep_level, def_level, pool, node);
+      return ListShredNode::Create(field, rep_level, def_level, pool);
 #define CASE(data_type) \
     case data_type::type_id: \
-      return PrimitiveShredNode<data_type>::Create(field, rep_level, def_level, pool, node);
+      return PrimitiveShredNode<data_type>::Create(field, rep_level, def_level, pool);
     PRIMITIVE_CASE_LIST(CASE)
 #undef CASE
     default:
       return Status::Invalid("Unsupported type: ", field->type()->name());
   }
 }
+
 
 } // anonymous namespace
 
@@ -442,10 +444,12 @@ class Shredder::Impl {
 Status Shredder::Create(std::shared_ptr<Field> schema,
                         MemoryPool* pool,
                         std::shared_ptr<Shredder>* shredder) {
-  std::unique_ptr<ShredNode> root;
-  RETURN_NOT_OK(ShredNode::CreateTree(schema, 0, 0, pool, &root));
+  Result<std::unique_ptr<ShredNode>> root =
+    ShredNode::CreateTree(schema, 0, 0, pool);
+  RETURN_NOT_OK(root.status());
 
-  std::unique_ptr<Impl> impl(new Impl(std::move(root)));
+  std::unique_ptr<Impl> impl =
+    make_unique<Impl>(std::move(root).ValueOrDie());
 
   shredder->reset(new Shredder(std::move(impl)));
   return Status::OK();
@@ -534,10 +538,10 @@ class StitchNode {
   }
   virtual ~StitchNode() {}
 
-  static Status CreateTree(std::shared_ptr<Field> field,
-                           int16_t rep_level, int16_t def_level,
-                           MemoryPool* pool,
-                           std::unique_ptr<StitchNode>* root);
+  static Result<std::unique_ptr<StitchNode>>
+  CreateTree(std::shared_ptr<Field> field,
+             int16_t rep_level, int16_t def_level,
+             MemoryPool* pool);
 
   const std::shared_ptr<Field>& field() const { return field_; }
   int num_children() const { return static_cast<int>(children_.size()); }
@@ -767,7 +771,7 @@ class StitchNode {
   std::vector<StitchNode*> replevel2leaf_;
 };
 
-//
+
 template<typename data_type>
 class PrimitiveStitchNode : public StitchNode {
  public:
@@ -776,12 +780,11 @@ class PrimitiveStitchNode : public StitchNode {
 
   using StitchNode::StitchNode;
 
-  static Status Create(const std::shared_ptr<Field>& field,
-                       int16_t rep_level, int16_t def_level,
-                       MemoryPool* pool,
-                       std::unique_ptr<StitchNode>* node_out) {
-    std::unique_ptr<PrimitiveStitchNode<data_type>> node(
-        new PrimitiveStitchNode<data_type>(field));
+  static Result<std::unique_ptr<StitchNode>>
+  Create(const std::shared_ptr<Field>& field,
+         int16_t rep_level, int16_t def_level,
+         MemoryPool* pool) {
+    auto node = make_unique<PrimitiveStitchNode<data_type>>(field);
 
     node->rep_level_ = rep_level;
     if (field->nullable()) {
@@ -789,10 +792,9 @@ class PrimitiveStitchNode : public StitchNode {
     }
     node->def_level_ = def_level;
 
-    node->builder_.reset(new PrimitiveBuilder(node->field()->type(), pool));
+    node->builder_ = std::make_shared<PrimitiveBuilder>(node->field()->type(), pool);
 
-    *node_out = std::move(node);
-    return Status::OK();
+    return Result<std::unique_ptr<StitchNode>>(std::move(node));
   }
 
   std::shared_ptr<ArrayBuilder> builder() override {
@@ -840,11 +842,11 @@ class StructStitchNode : public StitchNode {
  public:
   using StitchNode::StitchNode;
 
-  static Status Create(const std::shared_ptr<Field>& field,
-                       int16_t rep_level, int16_t def_level,
-                       MemoryPool* pool,
-                       std::unique_ptr<StitchNode>* node_out) {
-    std::unique_ptr<StructStitchNode> node(new StructStitchNode(field));
+  static Result<std::unique_ptr<StitchNode>>
+  Create(const std::shared_ptr<Field>& field,
+         int16_t rep_level, int16_t def_level,
+         MemoryPool* pool) {
+    auto node = make_unique<StructStitchNode>(field);
 
     node->rep_level_ = rep_level;
     if (field->nullable()) {
@@ -854,7 +856,10 @@ class StructStitchNode : public StitchNode {
 
     node->children_.resize(field->type()->num_children());
     for (int i = 0; i < field->type()->num_children(); i++) {
-      RETURN_NOT_OK(CreateTree(field->type()->child(i), rep_level, def_level, pool, &node->children_[i]));
+      Result<std::unique_ptr<StitchNode>> child =
+        CreateTree(field->type()->child(i), rep_level, def_level, pool);
+      RETURN_NOT_OK(child.status());
+      node->children_[i] = std::move(child).ValueOrDie();
       node->children_[i]->parent_ = node.get();
     }
 
@@ -862,11 +867,12 @@ class StructStitchNode : public StitchNode {
     for (int i = 0; i < node->num_children(); i++) {
       field_builders.push_back(node->child(i)->builder());
     }
-    node->builder_.reset(new StructBuilder(node->field()->type(), pool, std::move(field_builders)));
+    node->builder_ = std::make_shared<StructBuilder>(node->field()->type(), pool,
+                                                     field_builders);
 
-    *node_out = std::move(node);
-    return Status::OK();
+    return Result<std::unique_ptr<StitchNode>>(std::move(node));
   }
+
 
   std::shared_ptr<ArrayBuilder> builder() override {
     return builder_;
@@ -896,15 +902,15 @@ class ListStitchNode : public StitchNode {
 public:
   using StitchNode::StitchNode;
 
-  static Status Create(std::shared_ptr<Field> field,
-                       int16_t rep_level, int16_t def_level,
-                       MemoryPool* pool,
-                       std::unique_ptr<StitchNode>* node_out) {
+  static Result<std::unique_ptr<StitchNode>>
+  Create(std::shared_ptr<Field> field,
+         int16_t rep_level, int16_t def_level,
+         MemoryPool* pool) {
     if (field->type()->num_children() != 1) {
       return Status::Invalid("List nodes must have exactly one child");
     }
 
-    std::unique_ptr<ListStitchNode> node(new ListStitchNode(field));
+    auto node = make_unique<ListStitchNode>(field);
 
     node->rep_level_ = rep_level++;
     if (field->nullable()) {
@@ -914,13 +920,16 @@ public:
     node->def_level_ = def_level;
 
     node->children_.resize(1);
-    RETURN_NOT_OK(CreateTree(field->type()->child(0), rep_level, def_level, pool, &node->children_[0]));
+    Result<std::unique_ptr<StitchNode>> child =
+      CreateTree(field->type()->child(0), rep_level, def_level, pool);
+    RETURN_NOT_OK(child.status());
+    node->children_[0] = std::move(child).ValueOrDie();
     node->children_[0]->parent_ = node.get();
 
-    node->builder_.reset(new ListBuilder(pool, node->child(0)->builder(), node->field()->type()));
+    node->builder_ = std::make_shared<ListBuilder>(pool, node->child(0)->builder(),
+                                                   node->field()->type());
 
-    *node_out = std::move(node);
-    return Status::OK();
+    return Result<std::unique_ptr<StitchNode>>(std::move(node));
   }
 
   bool has_more_values() const override {
@@ -950,24 +959,25 @@ public:
   std::shared_ptr<ListBuilder> builder_;
 };
 
-Status StitchNode::CreateTree(std::shared_ptr<Field> field,
-                              int16_t rep_level, int16_t def_level,
-                              MemoryPool* pool,
-                              std::unique_ptr<StitchNode>* node) {
+Result<std::unique_ptr<StitchNode>>
+StitchNode::CreateTree(std::shared_ptr<Field> field,
+                       int16_t rep_level, int16_t def_level,
+                       MemoryPool* pool) {
   switch (field->type()->id()) {
     case Type::STRUCT:
-      return StructStitchNode::Create(field, rep_level, def_level, pool, node);
+      return StructStitchNode::Create(field, rep_level, def_level, pool);
     case Type::LIST:
-      return ListStitchNode::Create(field, rep_level, def_level, pool, node);
+      return ListStitchNode::Create(field, rep_level, def_level, pool);
 #define CASE(data_type) \
     case data_type::type_id: \
-      return PrimitiveStitchNode<data_type>::Create(field, rep_level, def_level, pool, node);
+      return PrimitiveStitchNode<data_type>::Create(field, rep_level, def_level, pool);
     PRIMITIVE_CASE_LIST(CASE)
 #undef CASE
     default:
       return Status::NotImplemented("Unsupported type: ", field->type()->name());
   }
 }
+
 
 } // anonymous namespace
 
@@ -992,11 +1002,13 @@ Stitcher::~Stitcher() {
 Status Stitcher::Create(const std::shared_ptr<Field>& schema,
                         MemoryPool* pool,
                         std::shared_ptr<Stitcher>* stitcher) {
-  std::unique_ptr<StitchNode> root;
-  RETURN_NOT_OK(StitchNode::CreateTree(schema, 0, 0, pool, &root));
-  root->BuildTransitionTablesRecursive();
+  Result<std::unique_ptr<StitchNode>> root =
+    StitchNode::CreateTree(schema, 0, 0, pool);
+  RETURN_NOT_OK(root.status());
 
-  std::unique_ptr<Impl> impl(new Impl(std::move(root), pool));
+  root.ValueOrDie()->BuildTransitionTablesRecursive();
+
+  std::unique_ptr<Impl> impl = make_unique<Impl>(std::move(root).ValueOrDie(), pool);
 
   stitcher->reset(new Stitcher(std::move(impl)));
   return Status::OK();
