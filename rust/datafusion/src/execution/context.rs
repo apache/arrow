@@ -172,7 +172,8 @@ impl ExecutionContext {
                 Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::TableScan {
                     schema_name: "".to_string(),
                     table_name: table_name.to_string(),
-                    schema: provider.schema().clone(),
+                    table_schema: provider.schema().clone(),
+                    projected_schema: provider.schema().clone(),
                     projection: None,
                 }))))
             }

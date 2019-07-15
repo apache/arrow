@@ -423,8 +423,10 @@ pub enum LogicalPlan {
         schema_name: String,
         /// The name of the table
         table_name: String,
-        /// The schema description
-        schema: Arc<Schema>,
+        /// The underlying table schema
+        table_schema: Arc<Schema>,
+        /// The projected schema
+        projected_schema: Arc<Schema>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
     },
@@ -462,7 +464,9 @@ impl LogicalPlan {
     pub fn schema(&self) -> &Arc<Schema> {
         match self {
             LogicalPlan::EmptyRelation { schema } => &schema,
-            LogicalPlan::TableScan { schema, .. } => &schema,
+            LogicalPlan::TableScan {
+                projected_schema, ..
+            } => &projected_schema,
             LogicalPlan::Projection { schema, .. } => &schema,
             LogicalPlan::Selection { input, .. } => input.schema(),
             LogicalPlan::Aggregate { schema, .. } => &schema,
@@ -622,7 +626,8 @@ mod tests {
         let plan = Arc::new(LogicalPlan::TableScan {
             schema_name: "".to_string(),
             table_name: "people".to_string(),
-            schema: Arc::new(schema),
+            table_schema: Arc::new(schema.clone()),
+            projected_schema: Arc::new(schema),
             projection: Some(vec![0, 1, 4]),
         });
 
