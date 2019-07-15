@@ -164,7 +164,7 @@ CopyValue(const typename TypeTraits<data_type>::ArrayType& array, int64_t i,
 }
 
 
-#define PRIMITIVE_CASE_LIST \
+#define PRIMITIVE_CASE_LIST(CASE) \
   CASE(TimestampType) \
   CASE(BooleanType) \
   CASE(Int8Type) \
@@ -415,19 +415,19 @@ Status ShredNode::CreateTree(const std::shared_ptr<Field>& field,
                              int16_t rep_level, int16_t def_level,
                              MemoryPool* pool,
                              std::unique_ptr<ShredNode>* node) {
-#define CASE(data_type) \
-    case data_type::type_id: \
-      return PrimitiveShredNode<data_type>::Create(field, rep_level, def_level, pool, node);
   switch (field->type()->id()) {
     case Type::STRUCT:
       return StructShredNode::Create(field, rep_level, def_level, pool, node);
     case Type::LIST:
       return ListShredNode::Create(field, rep_level, def_level, pool, node);
-    PRIMITIVE_CASE_LIST
+#define CASE(data_type) \
+    case data_type::type_id: \
+      return PrimitiveShredNode<data_type>::Create(field, rep_level, def_level, pool, node);
+    PRIMITIVE_CASE_LIST(CASE)
+#undef CASE
     default:
       return Status::Invalid("Unsupported type: ", field->type()->name());
   }
-#undef CASE
 }
 
 } // anonymous namespace
@@ -954,19 +954,19 @@ Status StitchNode::CreateTree(std::shared_ptr<Field> field,
                               int16_t rep_level, int16_t def_level,
                               MemoryPool* pool,
                               std::unique_ptr<StitchNode>* node) {
-#define CASE(data_type) \
-    case data_type::type_id: \
-      return PrimitiveStitchNode<data_type>::Create(field, rep_level, def_level, pool, node);
   switch (field->type()->id()) {
     case Type::STRUCT:
       return StructStitchNode::Create(field, rep_level, def_level, pool, node);
     case Type::LIST:
       return ListStitchNode::Create(field, rep_level, def_level, pool, node);
-    PRIMITIVE_CASE_LIST
+#define CASE(data_type) \
+    case data_type::type_id: \
+      return PrimitiveStitchNode<data_type>::Create(field, rep_level, def_level, pool, node);
+    PRIMITIVE_CASE_LIST(CASE)
+#undef CASE
     default:
       return Status::NotImplemented("Unsupported type: ", field->type()->name());
   }
-#undef CASE
 }
 
 } // anonymous namespace
