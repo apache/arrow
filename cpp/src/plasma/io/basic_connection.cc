@@ -44,15 +44,16 @@ error_code UnixDomainSocketConnect(asio::local::stream_protocol::socket& socket,
   return ec;
 }
 
-PlasmaStream CreateLocalStream(asio::io_context& io_context, const std::string& name) {
+Status CreateLocalStream(const std::string& name, PlasmaStream* result) {
   // TODO(suquark): May be use "kNumConnectAttempts" and "kConnectTimeoutMs"?
   constexpr int num_retries = 50;
   constexpr int timeout_ms = 100;
-  ARROW_CHECK(!name.empty());
+  if (name.empty()) {
+    return Status::Invalid("Cannot connect to empty socket name");
+  }
 #ifndef _WIN32
-  asio::basic_stream_socket<asio::local::stream_protocol> socket(io_context);
   for (int i = 0; i < num_retries; i++) {
-    error_code ec = UnixDomainSocketConnect(socket, name);
+    error_code ec = UnixDomainSocketConnect(*result, name);
     if (!ec) {
       break;
     }
@@ -63,7 +64,7 @@ PlasmaStream CreateLocalStream(asio::io_context& io_context, const std::string& 
                        << ")";
     }
   }
-  return socket;
+  return Status::OK();
 #else
 // For windows: https://stackoverflow.com/questions/1236460/c-using-windows-named-pipes
 #error "Windows has not been supported."

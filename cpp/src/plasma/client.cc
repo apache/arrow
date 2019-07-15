@@ -918,7 +918,8 @@ Status PlasmaClient::Impl::Subscribe() {
   if (store_socket_name_.empty()) {
     ARROW_LOG(FATAL) << "Please connect to the store before subscribing messages.";
   }
-  auto stream = io::CreateLocalStream(io_context_, store_socket_name_);
+  PlasmaStream stream(io_context_);
+  RETURN_NOT_OK(io::CreateLocalStream(store_socket_name_, &stream));
   auto conn = ServerConnection::Create(std::move(stream));
   notification_conn_ = std::move(conn);
   // Tell the Plasma store about the subscription.
@@ -966,7 +967,8 @@ Status PlasmaClient::Impl::GetNotification(ObjectID* object_id, int64_t* data_si
 Status PlasmaClient::Impl::Connect(const std::string& store_socket_name) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
   store_socket_name_ = store_socket_name;
-  auto stream = io::CreateLocalStream(io_context_, store_socket_name_);
+  PlasmaStream stream(io_context_);
+  RETURN_NOT_OK(io::CreateLocalStream(io_context_, store_socket_name_, &stream));
   auto conn = ServerConnection::Create(std::move(stream));
   store_conn_ = std::move(conn);
 
