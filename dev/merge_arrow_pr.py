@@ -56,7 +56,7 @@ except ImportError:
 PR_REMOTE_NAME = os.environ.get("PR_REMOTE_NAME", "apache")
 
 # For testing to avoid accidentally pushing to apache
-DEBUG = bool(os.environ.get("DEBUG", "0"))
+DEBUG = bool(int(os.environ.get("DEBUG", 0)))
 
 
 if DEBUG:
