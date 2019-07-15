@@ -181,7 +181,7 @@ if(ARROW_COMPUTE)
       compute/kernels/sum.cc
       compute/kernels/take.cc
       compute/kernels/util-internal.cc
-      compute/kernels/sort.cc
+      compute/kernels/argsort.cc
       compute/operations/cast.cc
       compute/operations/literal.cc)
 endif()
