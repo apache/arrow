@@ -1009,8 +1009,8 @@ TEST_F(TestDecimalSql, ToInt64) {
   std::vector<std::tuple<int64_t, DecimalScalar128, bool>> test_values = {
       // simple ones
       std::make_tuple(-16, DecimalScalar128{-16285, 38, 3}, false),
-      std::make_tuple(-162, DecimalScalar128{-16285, 38, 2}, false),
-      std::make_tuple(-1, DecimalScalar128{-16285, 38, 4}, false),
+      std::make_tuple(-163, DecimalScalar128{-16285, 38, 2}, false),
+      std::make_tuple(-2, DecimalScalar128{-16285, 38, 4}, false),
 
       // border cases
       std::make_tuple(INT64_MIN, DecimalScalar128{INT64_MIN, 38, 0}, false),
