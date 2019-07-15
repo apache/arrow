@@ -1,5 +1,5 @@
 include README.md
-include LICENSE.txt
+include ../LICENSE.txt
 
 global-include CMakeLists.txt
 graft pyarrow
