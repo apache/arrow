@@ -37,6 +37,7 @@
 namespace asio = boost::asio;
 
 using error_code = boost::system::error_code;
+using arrow::Status;
 
 namespace plasma {
 namespace io {
