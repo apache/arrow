@@ -533,8 +533,8 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
     List<ValueVector> output = null;
     ArrowRecordBatch batch = null;
     try {
-      int numRows = 4;
-      String[] aValues = new String[]{"1.23", "1.58", "-1.23", "-1.58"};
+      int numRows = 5;
+      String[] aValues = new String[]{"1.23", "1.50", "98765.78", "-1.23", "-1.58"};
       DecimalVector valuesa = decimalVector(aValues, decimalType.getPrecision(), decimalType.getScale());
       batch = new ArrowRecordBatch(
           numRows,
@@ -556,7 +556,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
       eval.evaluate(batch, output);
 
       // compare the outputs.
-      long[] expected = {1, 1, -1, -1};
+      long[] expected = {1, 2, 98766, -1, -2};
       for (int i = 0; i < numRows; i++) {
         assertFalse(resultVector.isNull(i));
         assertEquals(expected[i], resultVector.get(i));
