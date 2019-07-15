@@ -1045,8 +1045,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 --------------------------------------------------------------------------------
 
-3rdparty dependency brotly is statically linked in certain binary
-distributions, like the python wheels. brotli has the following license:
+3rdparty dependency Brotli is statically linked in certain binary
+distributions, like the python wheels. Brotli has the following license:
 
 Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors.
 
