@@ -54,7 +54,7 @@ using PlasmaAcceptor = asio::local::stream_protocol::acceptor;
 PlasmaAcceptor CreateLocalAcceptor(asio::io_context& io_context, const std::string& name);
 
 /// Create a local stream depends on the platform.
-PlasmaStream CreateLocalStream(asio::io_context& io_context, const std::string& name);
+Status CreateLocalStream(const std::string& name, PlasmaStream* result);
 
 /// A message that is queued for writing asynchronously.
 struct AsyncWriteBuffer {
