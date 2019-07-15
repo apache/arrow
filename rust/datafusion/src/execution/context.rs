@@ -191,10 +191,8 @@ impl ExecutionContext {
             Box::new(TypeCoercionRule::new()),
         ];
         let mut plan = Arc::new(plan.clone());
-        println!("optimizing plan: {:?}", plan);
         for mut rule in rules {
             plan = rule.optimize(&plan)?;
-            println!("after rule: {:?}", plan);
         }
         Ok(plan)
     }
