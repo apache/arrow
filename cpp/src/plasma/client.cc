@@ -968,7 +968,7 @@ Status PlasmaClient::Impl::Connect(const std::string& store_socket_name) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
   store_socket_name_ = store_socket_name;
   io::PlasmaStream stream(io_context_);
-  RETURN_NOT_OK(io::CreateLocalStream(io_context_, store_socket_name_, &stream));
+  RETURN_NOT_OK(io::CreateLocalStream(store_socket_name_, &stream));
   auto conn = ServerConnection::Create(std::move(stream));
   store_conn_ = std::move(conn);
 
