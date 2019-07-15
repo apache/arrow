@@ -16,18 +16,20 @@
 # under the License.
 
 {
-  global:
-    extern "C++" {
-      # The leading asterisk is required for symbols such as
-      # "typeinfo for gandiva::SomeClass".
-      # Unfortunately this will also catch template specializations
-      # (from e.g. STL or Flatbuffers) involving Arrow types.
-      *gandiva::*;
-    };
-
   # Symbols marked as 'local' are not exported by the DSO and thus may not
-  # be used by client applications.  Everything except the above falls here.
-  # This ensures we hide symbols of static dependencies.
+  # be used by client applications.
   local:
-    *;
+    # devtoolset / static-libstdc++ symbols
+    __cxa_*;
+    __once_proxy;
+
+    extern "C++" {
+      # devtoolset or -static-libstdc++ - the Red Hat devtoolset statically
+      # links c++11 symbols into binaries so that the result may be executed on
+      # a system with an older libstdc++ which doesn't include the necessary
+      # c++11 symbols.
+      std::*;
+      *std::__once_call*;
+    };
 };
+
