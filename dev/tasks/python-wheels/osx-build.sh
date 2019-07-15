@@ -183,14 +183,19 @@ function install_wheel {
     pip install $(pip_opts) \
         $(python $multibuild_dir/supported_wheels.py $wheelhouse/*.whl)
 
-    # Install test dependencies
-    pip install $(pip_opts) -r python/requirements-test.txt
     popd
 }
 
 function run_unit_tests {
+    pushd $1
+
+    # Install test dependencies
+    pip install $(pip_opts) -r python/requirements-test.txt
+
     # Run pyarrow tests
-    py.test --pyargs pyarrow
+    pytest -rs --pyargs pyarrow
+
+    popd
 }
 
 function run_import_tests {

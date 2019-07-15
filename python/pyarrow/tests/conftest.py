@@ -38,6 +38,7 @@ h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'dev'))
 
 
 groups = [
+    'cython',
     'hypothesis',
     'gandiva',
     'hdfs',
@@ -53,6 +54,7 @@ groups = [
 
 
 defaults = {
+    'cython': False,
     'hypothesis': False,
     'gandiva': False,
     'hdfs': False,
@@ -67,6 +69,12 @@ defaults = {
 }
 
 try:
+    import cython  # noqa
+    defaults['cython'] = True
+except ImportError:
+    pass
+
+try:
     import pyarrow.gandiva # noqa
     defaults['gandiva'] = True
 except ImportError:
@@ -78,13 +86,11 @@ try:
 except ImportError:
     pass
 
-
 try:
     import pandas  # noqa
     defaults['pandas'] = True
 except ImportError:
     pass
-
 
 try:
     import pyarrow.parquet  # noqa
@@ -98,13 +104,11 @@ try:
 except ImportError:
     pass
 
-
 try:
     import tensorflow  # noqa
     defaults['tensorflow'] = True
 except ImportError:
     pass
-
 
 try:
     import pyarrow.flight  # noqa
