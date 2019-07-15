@@ -222,7 +222,8 @@ def _has_pkg_config(pkgname):
     try:
         return subprocess.call([_get_pkg_config_executable(),
                                 '--exists', pkgname]) == 0
-    except FileNotFoundError:
+    except OSError:
+        # TODO: replace with FileNotFoundError once we ditch 2.7
         return False
 
 
@@ -299,6 +300,6 @@ def get_library_dirs():
         append_library_dir(_os.path.join(_os.environ['ARROW_HOME'], 'lib'))
     else:
         # Python wheels bundle the Arrow libraries in the pyarrow directory.
-        append_library_dir(_os.path.dirname(_os.path.abspath(pa.__file__)))
+        append_library_dir(_os.path.dirname(_os.path.abspath(__file__)))
 
     return library_dirs
