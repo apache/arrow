@@ -162,8 +162,6 @@ impl DFParser {
                         }
                     }
 
-                    //println!("Parsed {} column defs", columns.len());
-
                     let mut headers = true;
                     let file_type: FileType = if self
                         .parser

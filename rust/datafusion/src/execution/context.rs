@@ -172,7 +172,8 @@ impl ExecutionContext {
                 Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::TableScan {
                     schema_name: "".to_string(),
                     table_name: table_name.to_string(),
-                    schema: provider.schema().clone(),
+                    table_schema: provider.schema().clone(),
+                    projected_schema: provider.schema().clone(),
                     projection: None,
                 }))))
             }
@@ -190,8 +191,10 @@ impl ExecutionContext {
             Box::new(TypeCoercionRule::new()),
         ];
         let mut plan = Arc::new(plan.clone());
+        println!("optimizing plan: {:?}", plan);
         for mut rule in rules {
             plan = rule.optimize(&plan)?;
+            println!("after rule: {:?}", plan);
         }
         Ok(plan)
     }
