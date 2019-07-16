@@ -360,9 +360,6 @@ public class SmallIntVector extends BaseFixedWidthVector implements BaseIntVecto
 
   @Override
   public long getValueAsLong(int index) {
-    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
-      throw new IllegalStateException("Value at index is null");
-    }
     return this.get(index);
   }
 
