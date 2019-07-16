@@ -23,7 +23,6 @@ target_link_libraries(parquet-low-level-example parquet_static)
 target_link_libraries(parquet-low-level-example2 parquet_static)
 
 if (ARROW_USE_OPENSSL)
-  add_definitions(-DPARQUET_ENCRYPTION)
   add_executable(parquet-encryption-example low-level-api/encryption-reader-writer.cc)
   add_executable(parquet-encryption-example-all-crypto-options low-level-api/encryption-reader-writer-all-crypto-options.cc)
   target_include_directories(parquet-encryption-example PRIVATE low-level-api/)
