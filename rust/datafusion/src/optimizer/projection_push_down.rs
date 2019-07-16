@@ -139,11 +139,18 @@ impl ProjectionPushDown {
             LogicalPlan::TableScan {
                 schema_name,
                 table_name,
-                schema,
+                table_schema,
+                projection,
                 ..
             } => {
-                // once we reach the table scan, we can use the accumulated set of column indexes as
-                // the projection in the table scan
+                if projection.is_some() {
+                    return Err(ExecutionError::General(
+                        "Cannot run projection push-down rule more than once".to_string(),
+                    ));
+                }
+
+                // once we reach the table scan, we can use the accumulated set of column
+                // indexes as the projection in the table scan
                 let mut projection: Vec<usize> = Vec::with_capacity(accum.len());
                 accum.iter().for_each(|i| projection.push(*i));
 
@@ -153,14 +160,15 @@ impl ProjectionPushDown {
                 // create the projected schema
                 let mut projected_fields: Vec<Field> =
                     Vec::with_capacity(projection.len());
-                for i in 0..projection.len() {
-                    projected_fields.push(schema.fields()[i].clone());
+                for i in &projection {
+                    projected_fields.push(table_schema.fields()[*i].clone());
                 }
                 let projected_schema = Schema::new(projected_fields);
 
-                // now that the table scan is returning a different schema we need to create a
-                // mapping from the original column index to the new column index so that we
-                // can rewrite expressions as we walk back up the tree
+                // now that the table scan is returning a different schema we need to
+                // create a mapping from the original column index to the
+                // new column index so that we can rewrite expressions as
+                // we walk back up the tree
 
                 if mapping.len() != 0 {
                     return Err(ExecutionError::InternalError(
@@ -168,7 +176,7 @@ impl ProjectionPushDown {
                     ));
                 }
 
-                for i in 0..schema.fields().len() {
+                for i in 0..table_schema.fields().len() {
                     if let Some(n) = projection.iter().position(|v| *v == i) {
                         mapping.insert(i, n);
                     }
@@ -178,7 +186,8 @@ impl ProjectionPushDown {
                 Ok(Arc::new(LogicalPlan::TableScan {
                     schema_name: schema_name.to_string(),
                     table_name: table_name.to_string(),
-                    schema: Arc::new(projected_schema),
+                    table_schema: table_schema.clone(),
+                    projected_schema: Arc::new(projected_schema),
                     projection: Some(projection),
                 }))
             }
@@ -380,8 +389,11 @@ mod tests {
         // check that table scan schema now contains 2 columns
         match optimized_plan.as_ref().borrow() {
             LogicalPlan::Projection { input, .. } => match input.as_ref().borrow() {
-                LogicalPlan::TableScan { ref schema, .. } => {
-                    assert_eq!(2, schema.fields().len());
+                LogicalPlan::TableScan {
+                    ref projected_schema,
+                    ..
+                } => {
+                    assert_eq!(2, projected_schema.fields().len());
                 }
                 _ => assert!(false),
             },
@@ -402,14 +414,16 @@ mod tests {
 
     /// all tests share a common table
     fn test_table_scan() -> LogicalPlan {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::UInt32, false),
+            Field::new("b", DataType::UInt32, false),
+            Field::new("c", DataType::UInt32, false),
+        ]));
         TableScan {
             schema_name: "default".to_string(),
             table_name: "test".to_string(),
-            schema: Arc::new(Schema::new(vec![
-                Field::new("a", DataType::UInt32, false),
-                Field::new("b", DataType::UInt32, false),
-                Field::new("c", DataType::UInt32, false),
-            ])),
+            table_schema: schema.clone(),
+            projected_schema: schema,
             projection: None,
         }
     }

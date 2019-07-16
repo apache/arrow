@@ -62,7 +62,7 @@ static std::vector<std::string> MakeStrings(int32_t n_values, int32_t min_length
   return values;
 }
 
-static void BM_HashIntegers(benchmark::State& state) {  // NOLINT non-const reference
+static void HashIntegers(benchmark::State& state) {  // NOLINT non-const reference
   const std::vector<int64_t> values = MakeIntegers<int64_t>(10000);
 
   while (state.KeepRunning()) {
@@ -96,17 +96,17 @@ static void BenchmarkStringHashing(benchmark::State& state,  // NOLINT non-const
   state.SetItemsProcessed(2 * state.iterations() * values.size());
 }
 
-static void BM_HashSmallStrings(benchmark::State& state) {  // NOLINT non-const reference
+static void HashSmallStrings(benchmark::State& state) {  // NOLINT non-const reference
   const std::vector<std::string> values = MakeStrings(10000, 2, 20);
   BenchmarkStringHashing(state, values);
 }
 
-static void BM_HashMediumStrings(benchmark::State& state) {  // NOLINT non-const reference
+static void HashMediumStrings(benchmark::State& state) {  // NOLINT non-const reference
   const std::vector<std::string> values = MakeStrings(10000, 20, 120);
   BenchmarkStringHashing(state, values);
 }
 
-static void BM_HashLargeStrings(benchmark::State& state) {  // NOLINT non-const reference
+static void HashLargeStrings(benchmark::State& state) {  // NOLINT non-const reference
   const std::vector<std::string> values = MakeStrings(1000, 120, 2000);
   BenchmarkStringHashing(state, values);
 }
@@ -114,15 +114,10 @@ static void BM_HashLargeStrings(benchmark::State& state) {  // NOLINT non-const 
 // ----------------------------------------------------------------------
 // Benchmark declarations
 
-static constexpr int32_t kRepetitions = 1;
-
-BENCHMARK(BM_HashIntegers)->Repetitions(kRepetitions)->Unit(benchmark::kMicrosecond);
-
-BENCHMARK(BM_HashSmallStrings)->Repetitions(kRepetitions)->Unit(benchmark::kMicrosecond);
-
-BENCHMARK(BM_HashMediumStrings)->Repetitions(kRepetitions)->Unit(benchmark::kMicrosecond);
-
-BENCHMARK(BM_HashLargeStrings)->Repetitions(kRepetitions)->Unit(benchmark::kMicrosecond);
+BENCHMARK(HashIntegers);
+BENCHMARK(HashSmallStrings);
+BENCHMARK(HashMediumStrings);
+BENCHMARK(HashLargeStrings);
 
 }  // namespace internal
 }  // namespace arrow

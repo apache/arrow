@@ -19,7 +19,6 @@ package org.apache.arrow.flight;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.perf.PerformanceTestServer;
 import org.apache.arrow.flight.perf.TestPerf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -47,29 +46,27 @@ public class TestBackPressure {
     try (
         final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         final PerformanceTestServer server = FlightTestUtil.getStartedServer(
-            (port) -> (new PerformanceTestServer(a, new Location(FlightTestUtil.LOCALHOST, port))));
-        final FlightClient client = new FlightClient(a, server.getLocation())
+            (location) -> (new PerformanceTestServer(a, location)));
+        final FlightClient client = FlightClient.builder(a, server.getLocation()).build()
     ) {
-      FlightStream fs1 = client.getStream(client.getInfo(
+      try (FlightStream fs1 = client.getStream(client.getInfo(
           TestPerf.getPerfFlightDescriptor(110L * BATCH_SIZE, BATCH_SIZE, 1))
-          .getEndpoints().get(0).getTicket());
-      consume(fs1, 10);
+          .getEndpoints().get(0).getTicket())) {
+        consume(fs1, 10);
 
-      // stop consuming fs1 but make sure we can consume a large amount of fs2.
-      FlightStream fs2 = client.getStream(client.getInfo(
-          TestPerf.getPerfFlightDescriptor(200L * BATCH_SIZE, BATCH_SIZE, 1))
-          .getEndpoints().get(0).getTicket());
-      consume(fs2, 100);
+        // stop consuming fs1 but make sure we can consume a large amount of fs2.
+        try (FlightStream fs2 = client.getStream(client.getInfo(
+            TestPerf.getPerfFlightDescriptor(200L * BATCH_SIZE, BATCH_SIZE, 1))
+            .getEndpoints().get(0).getTicket())) {
+          consume(fs2, 100);
 
-      consume(fs1, 100);
-      consume(fs2, 100);
+          consume(fs1, 100);
+          consume(fs2, 100);
 
-      consume(fs1);
-      consume(fs2);
-
-      fs1.close();
-      fs2.close();
-
+          consume(fs1);
+          consume(fs2);
+        }
+      }
     }
   }
 
@@ -93,27 +90,28 @@ public class TestBackPressure {
             ServerStreamListener listener) {
           int batches = 0;
           final Schema pojoSchema = new Schema(ImmutableList.of(Field.nullable("a", MinorType.BIGINT.getType())));
-          VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, allocator);
-          listener.start(root);
-          while (true) {
-            while (!listener.isReady()) {
-              try {
-                Thread.sleep(1);
-                sleepTime.addAndGet(1L);
-              } catch (InterruptedException ignore) {
+          try (VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, allocator)) {
+            listener.start(root);
+            while (true) {
+              while (!listener.isReady()) {
+                try {
+                  Thread.sleep(1);
+                  sleepTime.addAndGet(1L);
+                } catch (InterruptedException ignore) {
+                }
               }
-            }
 
-            if (batches > 100) {
-              root.clear();
-              listener.completed();
-              return;
-            }
+              if (batches > 100) {
+                root.clear();
+                listener.completed();
+                return;
+              }
 
-            root.allocateNew();
-            root.setRowCount(4095);
-            listener.putNext();
-            batches++;
+              root.allocateNew();
+              root.setRowCount(4095);
+              listener.putNext();
+              batches++;
+            }
           }
         }
       };
@@ -122,13 +120,15 @@ public class TestBackPressure {
       try (
           BufferAllocator serverAllocator = allocator.newChildAllocator("server", 0, Long.MAX_VALUE);
           FlightServer server =
-              FlightTestUtil.getStartedServer(
-                  (port) -> new FlightServer(serverAllocator, port, producer, ServerAuthHandler.NO_OP));
+              FlightTestUtil.getStartedServer((location) -> FlightServer.builder(serverAllocator, location, producer)
+                  .build());
           BufferAllocator clientAllocator = allocator.newChildAllocator("client", 0, Long.MAX_VALUE);
           FlightClient client =
-              new FlightClient(clientAllocator, new Location(FlightTestUtil.LOCALHOST, server.getPort()))
+              FlightClient
+                  .builder(clientAllocator, server.getLocation())
+                  .build();
+          FlightStream stream = client.getStream(new Ticket(new byte[1]))
       ) {
-        FlightStream stream = client.getStream(new Ticket(new byte[1]));
         VectorSchemaRoot root = stream.getRoot();
         root.clear();
         Thread.sleep(wait);

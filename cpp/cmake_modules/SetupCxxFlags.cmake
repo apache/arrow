@@ -24,6 +24,7 @@ check_cxx_compiler_flag("-msse4.2" CXX_SUPPORTS_SSE4_2)
 check_cxx_compiler_flag("-maltivec" CXX_SUPPORTS_ALTIVEC)
 # Arm64 compiler flags
 check_cxx_compiler_flag("-march=armv8-a+crc" CXX_SUPPORTS_ARMCRC)
+check_cxx_compiler_flag("-march=armv8-a+crc+crypto" CXX_SUPPORTS_ARMV8_CRC_CRYPTO)
 
 # Support C11
 set(CMAKE_C_STANDARD 11)
@@ -38,10 +39,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # shared libraries
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# if no build build type is specified, default to debug builds
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
-endif(NOT CMAKE_BUILD_TYPE)
 string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
 
 # compiler flags that are common across debug/release builds
@@ -141,14 +138,14 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     # https://docs.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warnings-by-compiler-version
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3 /wd4365 /wd4267 /wd4838")
   elseif("${COMPILER_FAMILY}" STREQUAL "clang")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat \
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wdocumentation \
+-Wno-c++98-compat \
 -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
 -Wno-comma -Wno-unused-macros -Wno-unused-parameter -Wno-unused-template -Wno-undef \
 -Wno-shadow -Wno-switch-enum -Wno-exit-time-destructors \
 -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
--Wno-implicit-fallthrough -Wno-unreachable-code-return \
+-Wno-implicit-fallthrough -Wno-unreachable-code -Wno-unreachable-code-return \
 -Wno-float-equal -Wno-missing-prototypes -Wno-documentation-unknown-command \
--Wno-documentation \
 -Wno-old-style-cast -Wno-covered-switch-default \
 -Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
 -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
@@ -229,6 +226,11 @@ if("${COMPILER_FAMILY}" STREQUAL "gcc")
     # Add colors when paired with ninja
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
   endif()
+
+  if("${COMPILER_VERSION}" VERSION_LESS "6.0")
+    # Work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=43407
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-attributes")
+  endif()
 endif()
 
 # Clang options for all builds
@@ -264,7 +266,11 @@ if(CXX_SUPPORTS_ALTIVEC AND ARROW_ALTIVEC)
 endif()
 
 if(CXX_SUPPORTS_ARMCRC)
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=armv8-a+crc")
+  if(CXX_SUPPORTS_ARMV8_CRC_CRYPTO)
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=armv8-a+crc+crypto")
+  else()
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=armv8-a+crc")
+  endif()
 endif()
 
 if(ARROW_USE_SIMD)

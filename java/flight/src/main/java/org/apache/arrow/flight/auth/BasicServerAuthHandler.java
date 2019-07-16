@@ -40,11 +40,14 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
     this.authValidator = authValidator;
   }
 
+  /**
+   * Interface that this handler delegates for determining if credentials are valid.
+   */
   public interface BasicAuthValidator {
 
-    public byte[] getToken(String username, String password) throws Exception;
+    byte[] getToken(String username, String password) throws Exception;
 
-    public Optional<String> isValid(byte[] token);
+    Optional<String> isValid(byte[] token);
 
   }
 

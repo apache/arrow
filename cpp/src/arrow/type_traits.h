@@ -151,6 +151,42 @@ struct TypeTraits<TimestampType> {
 };
 
 template <>
+struct TypeTraits<DurationType> {
+  using ArrayType = DurationArray;
+  using BuilderType = DurationBuilder;
+  using ScalarType = DurationScalar;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements * static_cast<int64_t>(sizeof(int64_t));
+  }
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<DayTimeIntervalType> {
+  using ArrayType = DayTimeIntervalArray;
+  using BuilderType = DayTimeIntervalBuilder;
+  using ScalarType = DayTimeIntervalScalar;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements * static_cast<int64_t>(sizeof(DayTimeIntervalType::DayMilliseconds));
+  }
+  constexpr static bool is_parameter_free = true;
+};
+
+template <>
+struct TypeTraits<MonthIntervalType> {
+  using ArrayType = MonthIntervalArray;
+  using BuilderType = MonthIntervalBuilder;
+  using ScalarType = MonthIntervalScalar;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements * static_cast<int64_t>(sizeof(int32_t));
+  }
+  constexpr static bool is_parameter_free = true;
+};
+
+template <>
 struct TypeTraits<Time32Type> {
   using ArrayType = Time32Array;
   using BuilderType = Time32Builder;
@@ -242,6 +278,22 @@ struct TypeTraits<ListType> {
   constexpr static bool is_parameter_free = false;
 };
 
+template <>
+struct TypeTraits<MapType> {
+  using ArrayType = MapArray;
+  using BuilderType = MapBuilder;
+  using ScalarType = MapScalar;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<FixedSizeListType> {
+  using ArrayType = FixedSizeListArray;
+  using BuilderType = FixedSizeListBuilder;
+  using ScalarType = FixedSizeListScalar;
+  constexpr static bool is_parameter_free = false;
+};
+
 template <typename CType>
 struct CTypeTraits<std::vector<CType>> : public TypeTraits<ListType> {
   using ArrowType = ListType;
@@ -268,8 +320,7 @@ struct TypeTraits<UnionType> {
 template <>
 struct TypeTraits<DictionaryType> {
   using ArrayType = DictionaryArray;
-  // TODO(wesm): Not sure what to do about this
-  // using ScalarType = DictionaryScalar;
+  using ScalarType = DictionaryScalar;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -284,13 +335,24 @@ struct TypeTraits<ExtensionType> {
 //
 
 template <typename T>
-using is_number = std::is_base_of<Number, T>;
+using is_number_type = std::is_base_of<NumberType, T>;
+
+template <typename T>
+using is_integer_type = std::is_base_of<IntegerType, T>;
+
+template <typename T>
+using is_floating_type = std::is_base_of<FloatingPointType, T>;
+
+template <typename T>
+using is_temporal_type = std::is_base_of<TemporalType, T>;
 
 template <typename T>
 struct has_c_type {
   static constexpr bool value =
       (std::is_base_of<PrimitiveCType, T>::value || std::is_base_of<DateType, T>::value ||
-       std::is_base_of<TimeType, T>::value || std::is_base_of<TimestampType, T>::value);
+       std::is_base_of<TimeType, T>::value || std::is_base_of<TimestampType, T>::value ||
+       std::is_base_of<IntervalType, T>::value ||
+       std::is_base_of<DurationType, T>::value);
 };
 
 template <typename T>
@@ -307,12 +369,11 @@ using enable_if_primitive_ctype =
     typename std::enable_if<std::is_base_of<PrimitiveCType, T>::value, R>::type;
 
 template <typename T, typename R = void>
-using enable_if_integer =
-    typename std::enable_if<std::is_base_of<Integer, T>::value, R>::type;
+using enable_if_integer = typename std::enable_if<is_integer_type<T>::value, R>::type;
 
 template <typename T>
 using is_signed_integer =
-    std::integral_constant<bool, std::is_base_of<Integer, T>::value &&
+    std::integral_constant<bool, is_integer_type<T>::value &&
                                      std::is_signed<typename T::c_type>::value>;
 
 template <typename T, typename R = void>
@@ -320,14 +381,12 @@ using enable_if_signed_integer =
     typename std::enable_if<is_signed_integer<T>::value, R>::type;
 
 template <typename T, typename R = void>
-using enable_if_unsigned_integer =
-    typename std::enable_if<std::is_base_of<Integer, T>::value &&
-                                std::is_unsigned<typename T::c_type>::value,
-                            R>::type;
+using enable_if_unsigned_integer = typename std::enable_if<
+    is_integer_type<T>::value && std::is_unsigned<typename T::c_type>::value, R>::type;
 
 template <typename T, typename R = void>
 using enable_if_floating_point =
-    typename std::enable_if<std::is_base_of<FloatingPoint, T>::value, R>::type;
+    typename std::enable_if<is_floating_type<T>::value, R>::type;
 
 template <typename T>
 using is_date = std::is_base_of<DateType, T>;
@@ -376,7 +435,11 @@ using enable_if_list =
     typename std::enable_if<std::is_base_of<ListType, T>::value, R>::type;
 
 template <typename T, typename R = void>
-using enable_if_number = typename std::enable_if<is_number<T>::value, R>::type;
+using enable_if_fixed_size_list =
+    typename std::enable_if<std::is_base_of<FixedSizeListType, T>::value, R>::type;
+
+template <typename T, typename R = void>
+using enable_if_number = typename std::enable_if<is_number_type<T>::value, R>::type;
 
 namespace detail {
 

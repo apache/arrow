@@ -25,8 +25,10 @@
 #include "arrow/status.h"
 
 #include "arrow/flight/client_auth.h"
+#include "arrow/flight/server.h"
 #include "arrow/flight/server_auth.h"
 #include "arrow/flight/types.h"
+#include "arrow/flight/visibility.h"
 
 namespace boost {
 namespace process {
@@ -42,8 +44,16 @@ namespace flight {
 // ----------------------------------------------------------------------
 // Fixture to use for running test servers
 
-class ARROW_EXPORT TestServer {
+// Get a TCP port number to listen on.  This is a different number every time,
+// as reusing the same port accross tests can produce spurious "Stream removed"
+// errors as Windows.
+ARROW_FLIGHT_EXPORT
+int GetListenPort();
+
+class ARROW_FLIGHT_EXPORT TestServer {
  public:
+  explicit TestServer(const std::string& executable_name)
+      : executable_name_(executable_name), port_(GetListenPort()) {}
   explicit TestServer(const std::string& executable_name, int port)
       : executable_name_(executable_name), port_(port) {}
 
@@ -61,25 +71,37 @@ class ARROW_EXPORT TestServer {
   std::shared_ptr<::boost::process::child> server_process_;
 };
 
-class ARROW_EXPORT InProcessTestServer {
+class ARROW_FLIGHT_EXPORT InProcessTestServer {
  public:
-  explicit InProcessTestServer(std::unique_ptr<FlightServerBase> server, int port)
-      : server_(std::move(server)), port_(port), thread_() {}
+  explicit InProcessTestServer(std::unique_ptr<FlightServerBase> server,
+                               const Location& location)
+      : server_(std::move(server)), location_(location), thread_() {}
   ~InProcessTestServer();
-  Status Start(std::unique_ptr<ServerAuthHandler> auth_handler);
+  Status Start();
   void Stop();
-  int port() const;
+  const Location& location() const;
 
  private:
   std::unique_ptr<FlightServerBase> server_;
-  int port_;
+  Location location_;
   std::thread thread_;
 };
+
+/// \brief Create a simple Flight server for testing
+ARROW_FLIGHT_EXPORT
+std::unique_ptr<FlightServerBase> ExampleTestServer();
 
 // ----------------------------------------------------------------------
 // A RecordBatchReader for serving a sequence of in-memory record batches
 
-class BatchIterator : public RecordBatchReader {
+// Silence warning
+// "non dll-interface class RecordBatchReader used as base for dll-interface class"
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4275)
+#endif
+
+class ARROW_FLIGHT_EXPORT BatchIterator : public RecordBatchReader {
  public:
   BatchIterator(const std::shared_ptr<Schema>& schema,
                 const std::vector<std::shared_ptr<RecordBatch>>& batches)
@@ -102,30 +124,54 @@ class BatchIterator : public RecordBatchReader {
   size_t position_;
 };
 
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
+// ----------------------------------------------------------------------
+// A FlightDataStream that numbers the record batches
+/// \brief A basic implementation of FlightDataStream that will provide
+/// a sequence of FlightData messages to be written to a gRPC stream
+class ARROW_FLIGHT_EXPORT NumberingStream : public FlightDataStream {
+ public:
+  explicit NumberingStream(std::unique_ptr<FlightDataStream> stream);
+
+  std::shared_ptr<Schema> schema() override;
+  Status GetSchemaPayload(FlightPayload* payload) override;
+  Status Next(FlightPayload* payload) override;
+
+ private:
+  int counter_;
+  std::shared_ptr<FlightDataStream> stream_;
+};
+
 // ----------------------------------------------------------------------
 // Example data for test-server and unit tests
 
 using BatchVector = std::vector<std::shared_ptr<RecordBatch>>;
 
-ARROW_EXPORT std::shared_ptr<Schema> ExampleIntSchema();
+ARROW_FLIGHT_EXPORT
+std::shared_ptr<Schema> ExampleIntSchema();
 
-ARROW_EXPORT std::shared_ptr<Schema> ExampleStringSchema();
+ARROW_FLIGHT_EXPORT
+std::shared_ptr<Schema> ExampleStringSchema();
 
-ARROW_EXPORT std::shared_ptr<Schema> ExampleDictSchema();
+ARROW_FLIGHT_EXPORT
+std::shared_ptr<Schema> ExampleDictSchema();
 
-ARROW_EXPORT
+ARROW_FLIGHT_EXPORT
 Status ExampleIntBatches(BatchVector* out);
 
-ARROW_EXPORT
+ARROW_FLIGHT_EXPORT
 Status ExampleDictBatches(BatchVector* out);
 
-ARROW_EXPORT
+ARROW_FLIGHT_EXPORT
 std::vector<FlightInfo> ExampleFlightInfo();
 
-ARROW_EXPORT
+ARROW_FLIGHT_EXPORT
 std::vector<ActionType> ExampleActionTypes();
 
-ARROW_EXPORT
+ARROW_FLIGHT_EXPORT
 Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
                       const std::vector<FlightEndpoint>& endpoints, int64_t total_records,
                       int64_t total_bytes, FlightInfo::Data* out);
@@ -134,11 +180,11 @@ Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
 // A pair of authentication handlers that check for a predefined password
 // and set the peer identity to a predefined username.
 
-class ARROW_EXPORT TestServerAuthHandler : public ServerAuthHandler {
+class ARROW_FLIGHT_EXPORT TestServerAuthHandler : public ServerAuthHandler {
  public:
   explicit TestServerAuthHandler(const std::string& username,
                                  const std::string& password);
-  ~TestServerAuthHandler();
+  ~TestServerAuthHandler() override;
   Status Authenticate(ServerAuthSender* outgoing, ServerAuthReader* incoming) override;
   Status IsValid(const std::string& token, std::string* peer_identity) override;
 
@@ -147,11 +193,11 @@ class ARROW_EXPORT TestServerAuthHandler : public ServerAuthHandler {
   std::string password_;
 };
 
-class ARROW_EXPORT TestClientAuthHandler : public ClientAuthHandler {
+class ARROW_FLIGHT_EXPORT TestClientAuthHandler : public ClientAuthHandler {
  public:
   explicit TestClientAuthHandler(const std::string& username,
                                  const std::string& password);
-  ~TestClientAuthHandler();
+  ~TestClientAuthHandler() override;
   Status Authenticate(ClientAuthSender* outgoing, ClientAuthReader* incoming) override;
   Status GetToken(std::string* token) override;
 
@@ -159,6 +205,12 @@ class ARROW_EXPORT TestClientAuthHandler : public ClientAuthHandler {
   std::string username_;
   std::string password_;
 };
+
+ARROW_FLIGHT_EXPORT
+Status ExampleTlsCertificates(std::vector<CertKeyPair>* out);
+
+ARROW_FLIGHT_EXPORT
+Status ExampleTlsCertificateRoot(CertKeyPair* out);
 
 }  // namespace flight
 }  // namespace arrow

@@ -47,7 +47,7 @@ func (rcv *Schema) Table() flatbuffers.Table {
 /// endianness of the buffer
 /// it is Little Endian by default
 /// if endianness doesn't match the underlying system then the vectors need to be converted
-func (rcv *Schema) Endianness() int16 {
+func (rcv *Schema) Endianness() Endianness {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
 		return rcv._tab.GetInt16(o + rcv._tab.Pos)
@@ -58,7 +58,7 @@ func (rcv *Schema) Endianness() int16 {
 /// endianness of the buffer
 /// it is Little Endian by default
 /// if endianness doesn't match the underlying system then the vectors need to be converted
-func (rcv *Schema) MutateEndianness(n int16) bool {
+func (rcv *Schema) MutateEndianness(n Endianness) bool {
 	return rcv._tab.MutateInt16Slot(4, n)
 }
 

@@ -16,10 +16,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package arrow
+package arrow // import "github.com/apache/arrow/go/arrow"
 
 import (
 	"encoding/binary"
+	"math"
 	"reflect"
 	"unsafe"
 )
@@ -40,6 +41,7 @@ var (
 	Time64Traits    time64Traits
 	Date32Traits    date32Traits
 	Date64Traits    date64Traits
+	DurationTraits  durationTraits
 )
 
 // Int64 traits
@@ -152,7 +154,7 @@ func (float64Traits) BytesRequired(n int) int { return Float64SizeBytes * n }
 
 // PutValue
 func (float64Traits) PutValue(b []byte, v float64) {
-	binary.LittleEndian.PutUint64(b, uint64(v))
+	binary.LittleEndian.PutUint64(b, math.Float64bits(v))
 }
 
 // CastFromBytes reinterprets the slice b to a slice of type float64.
@@ -296,7 +298,7 @@ func (float32Traits) BytesRequired(n int) int { return Float32SizeBytes * n }
 
 // PutValue
 func (float32Traits) PutValue(b []byte, v float32) {
-	binary.LittleEndian.PutUint32(b, uint32(v))
+	binary.LittleEndian.PutUint32(b, math.Float32bits(v))
 }
 
 // CastFromBytes reinterprets the slice b to a slice of type float32.
@@ -761,3 +763,51 @@ func (date64Traits) CastToBytes(b []Date64) []byte {
 
 // Copy copies src to dst.
 func (date64Traits) Copy(dst, src []Date64) { copy(dst, src) }
+
+// Duration traits
+
+const (
+	// DurationSizeBytes specifies the number of bytes required to store a single Duration in memory
+	DurationSizeBytes = int(unsafe.Sizeof(Duration(0)))
+)
+
+type durationTraits struct{}
+
+// BytesRequired returns the number of bytes required to store n elements in memory.
+func (durationTraits) BytesRequired(n int) int { return DurationSizeBytes * n }
+
+// PutValue
+func (durationTraits) PutValue(b []byte, v Duration) {
+	binary.LittleEndian.PutUint64(b, uint64(v))
+}
+
+// CastFromBytes reinterprets the slice b to a slice of type Duration.
+//
+// NOTE: len(b) must be a multiple of DurationSizeBytes.
+func (durationTraits) CastFromBytes(b []byte) []Duration {
+	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+
+	var res []Duration
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
+	s.Data = h.Data
+	s.Len = h.Len / DurationSizeBytes
+	s.Cap = h.Cap / DurationSizeBytes
+
+	return res
+}
+
+// CastToBytes reinterprets the slice b to a slice of bytes.
+func (durationTraits) CastToBytes(b []Duration) []byte {
+	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+
+	var res []byte
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
+	s.Data = h.Data
+	s.Len = h.Len * DurationSizeBytes
+	s.Cap = h.Cap * DurationSizeBytes
+
+	return res
+}
+
+// Copy copies src to dst.
+func (durationTraits) Copy(dst, src []Duration) { copy(dst, src) }

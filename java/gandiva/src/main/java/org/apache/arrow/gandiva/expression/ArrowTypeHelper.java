@@ -23,11 +23,17 @@ import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.exceptions.UnsupportedTypeException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
+/**
+ * Utility methods to convert between Arrow and Gandiva types.
+ */
 public class ArrowTypeHelper {
+  private ArrowTypeHelper() {}
+
   static final int WIDTH_8 = 8;
   static final int WIDTH_16 = 16;
   static final int WIDTH_32 = 32;
@@ -109,6 +115,9 @@ public class ArrowTypeHelper {
 
   private static void initArrowTypeDecimal(ArrowType.Decimal decimalType,
                                            GandivaTypes.ExtGandivaType.Builder builder) {
+    Preconditions.checkArgument(decimalType.getPrecision() > 0 &&
+            decimalType.getPrecision() <= 38, "Gandiva only supports decimals of upto 38 " +
+            "precision. Input precision : " + decimalType.getPrecision());
     builder.setPrecision(decimalType.getPrecision());
     builder.setScale(decimalType.getScale());
     builder.setType(GandivaTypes.GandivaType.DECIMAL);

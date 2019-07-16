@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Execution of a filter (predicate) relation. The SQL clause `WHERE expr` represents a filter.
+//! Execution of a filter (predicate) relation. The SQL clause `WHERE expr` represents a
+//! filter.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -32,7 +33,8 @@ use crate::execution::relation::Relation;
 
 /// Implementation of a filter relation
 pub(super) struct FilterRelation {
-    /// The schema for the filter relation. This is always the same as the schema of the input relation.
+    /// The schema for the filter relation. This is always the same as the schema of the
+    /// input relation.
     schema: Arc<Schema>,
     /// Relation that is  being filtered
     input: Rc<RefCell<Relation>>,

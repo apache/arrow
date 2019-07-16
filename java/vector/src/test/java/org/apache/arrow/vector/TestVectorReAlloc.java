@@ -190,4 +190,41 @@ public class TestVectorReAlloc {
       Assert.assertEquals(vector.valueBuffer.capacity(), savedValueBufferSize);
     }
   }
+
+  @Test
+  public void testFixedRepeatedClearAndSet() throws Exception {
+    try (final IntVector vector = new IntVector("", allocator)) {
+      vector.allocateNewSafe(); // Initial allocation
+      vector.clear(); // clear vector.
+      vector.setSafe(0, 10);
+      int savedValueCapacity = vector.getValueCapacity();
+
+      for (int i = 0; i < 1024; ++i) {
+        vector.clear(); // clear vector.
+        vector.setSafe(0, 10);
+      }
+
+      // should be deterministic, and not cause a run-away increase in capacity.
+      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+    }
+  }
+
+  @Test
+  public void testVariableRepeatedClearAndSet() throws Exception {
+    try (final VarCharVector vector = new VarCharVector("", allocator)) {
+      vector.allocateNewSafe(); // Initial allocation
+
+      vector.clear(); // clear vector.
+      vector.setSafe(0, "hello world".getBytes());
+      int savedValueCapacity = vector.getValueCapacity();
+
+      for (int i = 0; i < 1024; ++i) {
+        vector.clear(); // clear vector.
+        vector.setSafe(0, "hello world".getBytes());
+      }
+
+      // should be deterministic, and not cause a run-away increase in capacity.
+      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+    }
+  }
 }

@@ -42,7 +42,8 @@
 
 #include "arrow/util/logging.h"
 #include "parquet/exception.h"
-#include "parquet/util/memory.h"
+#include "parquet/platform.h"
+#include "parquet/statistics.h"
 
 #include "parquet/parquet_types.h"  // IYWU pragma: export
 
@@ -63,9 +64,9 @@ static inline Type::type FromThrift(format::Type::type type) {
   return static_cast<Type::type>(type);
 }
 
-static inline LogicalType::type FromThrift(format::ConvertedType::type type) {
+static inline ConvertedType::type FromThrift(format::ConvertedType::type type) {
   // item 0 is NONE
-  return static_cast<LogicalType::type>(static_cast<int>(type) + 1);
+  return static_cast<ConvertedType::type>(static_cast<int>(type) + 1);
 }
 
 static inline Repetition::type FromThrift(format::FieldRepetitionType::type type) {
@@ -84,9 +85,9 @@ static inline format::Type::type ToThrift(Type::type type) {
   return static_cast<format::Type::type>(type);
 }
 
-static inline format::ConvertedType::type ToThrift(LogicalType::type type) {
+static inline format::ConvertedType::type ToThrift(ConvertedType::type type) {
   // item 0 is NONE
-  DCHECK_NE(type, LogicalType::NONE);
+  DCHECK_NE(type, ConvertedType::NONE);
   return static_cast<format::ConvertedType::type>(static_cast<int>(type) - 1);
 }
 
@@ -100,6 +101,34 @@ static inline format::Encoding::type ToThrift(Encoding::type type) {
 
 static inline format::CompressionCodec::type ToThrift(Compression::type type) {
   return static_cast<format::CompressionCodec::type>(type);
+}
+
+static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
+  format::Statistics statistics;
+  if (stats.has_min) {
+    statistics.__set_min_value(stats.min());
+    // If the order is SIGNED, then the old min value must be set too.
+    // This for backward compatibility
+    if (stats.is_signed()) {
+      statistics.__set_min(stats.min());
+    }
+  }
+  if (stats.has_max) {
+    statistics.__set_max_value(stats.max());
+    // If the order is SIGNED, then the old max value must be set too.
+    // This for backward compatibility
+    if (stats.is_signed()) {
+      statistics.__set_max(stats.max());
+    }
+  }
+  if (stats.has_null_count) {
+    statistics.__set_null_count(stats.null_count);
+  }
+  if (stats.has_distinct_count) {
+    statistics.__set_distinct_count(stats.distinct_count);
+  }
+
+  return statistics;
 }
 
 // ----------------------------------------------------------------------
@@ -157,11 +186,11 @@ class ThriftSerializer {
   }
 
   template <class T>
-  int64_t Serialize(const T* obj, OutputStream* out) {
+  int64_t Serialize(const T* obj, ArrowOutputStream* out) {
     uint8_t* out_buffer;
     uint32_t out_length;
     SerializeToBuffer(obj, &out_length, &out_buffer);
-    out->Write(out_buffer, out_length);
+    PARQUET_THROW_NOT_OK(out->Write(out_buffer, out_length));
     return static_cast<int64_t>(out_length);
   }
 

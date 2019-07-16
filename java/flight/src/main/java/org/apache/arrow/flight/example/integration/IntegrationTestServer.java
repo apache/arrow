@@ -28,6 +28,9 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
+/**
+ * Flight server for integration testing.
+ */
 class IntegrationTestServer {
   private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(IntegrationTestServer.class);
   private final Options options;
@@ -43,7 +46,7 @@ class IntegrationTestServer {
     final int port = Integer.parseInt(cmd.getOptionValue("port", "31337"));
 
     final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-    final ExampleFlightServer efs = new ExampleFlightServer(allocator, new Location("localhost", port));
+    final ExampleFlightServer efs = new ExampleFlightServer(allocator, Location.forGrpcInsecure("localhost", port));
     efs.start();
     // Print out message for integration test script
     System.out.println("Server listening on localhost:" + port);

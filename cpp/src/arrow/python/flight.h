@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/flight/api.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/python/common.h"
 #include "arrow/python/config.h"
 
@@ -49,7 +50,8 @@ class ARROW_PYTHON_EXPORT PyFlightServerVtable {
                      std::unique_ptr<arrow::flight::FlightDataStream>*)>
       do_get;
   std::function<void(PyObject*, const arrow::flight::ServerCallContext&,
-                     std::unique_ptr<arrow::flight::FlightMessageReader>)>
+                     std::unique_ptr<arrow::flight::FlightMessageReader>,
+                     std::unique_ptr<arrow::flight::FlightMetadataWriter>)>
       do_put;
   std::function<void(PyObject*, const arrow::flight::ServerCallContext&,
                      const arrow::flight::Action&,
@@ -79,7 +81,8 @@ class ARROW_PYTHON_EXPORT PyClientAuthHandlerVtable {
 /// \brief A helper to implement an auth mechanism in Python.
 class ARROW_PYTHON_EXPORT PyServerAuthHandler : public arrow::flight::ServerAuthHandler {
  public:
-  explicit PyServerAuthHandler(PyObject* handler, PyServerAuthHandlerVtable vtable);
+  explicit PyServerAuthHandler(PyObject* handler,
+                               const PyServerAuthHandlerVtable& vtable);
   Status Authenticate(arrow::flight::ServerAuthSender* outgoing,
                       arrow::flight::ServerAuthReader* incoming) override;
   Status IsValid(const std::string& token, std::string* peer_identity) override;
@@ -92,7 +95,8 @@ class ARROW_PYTHON_EXPORT PyServerAuthHandler : public arrow::flight::ServerAuth
 /// \brief A helper to implement an auth mechanism in Python.
 class ARROW_PYTHON_EXPORT PyClientAuthHandler : public arrow::flight::ClientAuthHandler {
  public:
-  explicit PyClientAuthHandler(PyObject* handler, PyClientAuthHandlerVtable vtable);
+  explicit PyClientAuthHandler(PyObject* handler,
+                               const PyClientAuthHandlerVtable& vtable);
   Status Authenticate(arrow::flight::ClientAuthSender* outgoing,
                       arrow::flight::ClientAuthReader* incoming) override;
   Status GetToken(std::string* token) override;
@@ -104,7 +108,7 @@ class ARROW_PYTHON_EXPORT PyClientAuthHandler : public arrow::flight::ClientAuth
 
 class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBase {
  public:
-  explicit PyFlightServer(PyObject* server, PyFlightServerVtable vtable);
+  explicit PyFlightServer(PyObject* server, const PyFlightServerVtable& vtable);
 
   // Like Serve(), but set up signals and invoke Python signal handlers
   // if necessary.  This function may return with a Python exception set.
@@ -120,7 +124,8 @@ class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBas
                const arrow::flight::Ticket& request,
                std::unique_ptr<arrow::flight::FlightDataStream>* stream) override;
   Status DoPut(const arrow::flight::ServerCallContext& context,
-               std::unique_ptr<arrow::flight::FlightMessageReader> reader) override;
+               std::unique_ptr<arrow::flight::FlightMessageReader> reader,
+               std::unique_ptr<arrow::flight::FlightMetadataWriter> writer) override;
   Status DoAction(const arrow::flight::ServerCallContext& context,
                   const arrow::flight::Action& action,
                   std::unique_ptr<arrow::flight::ResultStream>* result) override;
@@ -158,7 +163,9 @@ class ARROW_PYTHON_EXPORT PyFlightDataStream : public arrow::flight::FlightDataS
   /// Must only be called while holding the GIL.
   explicit PyFlightDataStream(PyObject* data_source,
                               std::unique_ptr<arrow::flight::FlightDataStream> stream);
-  std::shared_ptr<arrow::Schema> schema() override;
+
+  std::shared_ptr<Schema> schema() override;
+  Status GetSchemaPayload(arrow::flight::FlightPayload* payload) override;
   Status Next(arrow::flight::FlightPayload* payload) override;
 
  private:
@@ -179,12 +186,14 @@ class ARROW_PYTHON_EXPORT PyGeneratorFlightDataStream
   explicit PyGeneratorFlightDataStream(PyObject* generator,
                                        std::shared_ptr<arrow::Schema> schema,
                                        PyGeneratorFlightDataStreamCallback callback);
-  std::shared_ptr<arrow::Schema> schema() override;
+  std::shared_ptr<Schema> schema() override;
+  Status GetSchemaPayload(arrow::flight::FlightPayload* payload) override;
   Status Next(arrow::flight::FlightPayload* payload) override;
 
  private:
   OwnedRefNoGIL generator_;
   std::shared_ptr<arrow::Schema> schema_;
+  ipc::DictionaryMemo dictionary_memo_;
   PyGeneratorFlightDataStreamCallback callback_;
 };
 
@@ -192,7 +201,7 @@ ARROW_PYTHON_EXPORT
 Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
                         const arrow::flight::FlightDescriptor& descriptor,
                         const std::vector<arrow::flight::FlightEndpoint>& endpoints,
-                        uint64_t total_records, uint64_t total_bytes,
+                        int64_t total_records, int64_t total_bytes,
                         std::unique_ptr<arrow::flight::FlightInfo>* out);
 
 }  // namespace flight

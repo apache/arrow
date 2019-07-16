@@ -38,6 +38,7 @@ export ARROW_INTEGRATION_DIR=$TRAVIS_BUILD_DIR/integration
 export ARROW_DEV_DIR=$TRAVIS_BUILD_DIR/dev
 export ARROW_CROSSBOW_DIR=$TRAVIS_BUILD_DIR/dev/tasks
 export ARROW_RUBY_DIR=$TRAVIS_BUILD_DIR/ruby
+export ARROW_GO_DIR=${TRAVIS_BUILD_DIR}/go
 export ARROW_RUST_DIR=${TRAVIS_BUILD_DIR}/rust
 export ARROW_R_DIR=${TRAVIS_BUILD_DIR}/r
 
@@ -63,10 +64,6 @@ export ARROW_BUILD_WARNING_LEVEL=${ARROW_BUILD_WARNING_LEVEL:=Production}
 if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
   # C++ toolchain
   export CPP_TOOLCHAIN=$TRAVIS_BUILD_DIR/cpp-toolchain
-
-  export TRAVIS_MAKE=ninja
-else
-  export TRAVIS_MAKE=make
 fi
 
 if [ $TRAVIS_OS_NAME == "osx" ]; then

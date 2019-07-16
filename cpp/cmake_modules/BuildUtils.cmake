@@ -20,6 +20,7 @@
 # search there as well.
 set(LIB_PATH_SUFFIXES
     "${CMAKE_LIBRARY_ARCHITECTURE}"
+    "lib/${CMAKE_LIBRARY_ARCHITECTURE}"
     "lib64"
     "lib32"
     "lib"
@@ -43,10 +44,6 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
   endif()
 
   if(ARG_STATIC_LIB AND ARG_SHARED_LIB)
-    if(NOT ARG_STATIC_LIB)
-      message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
-    endif()
-
     set(AUG_LIB_NAME "${LIB_NAME}_static")
     add_library(${AUG_LIB_NAME} STATIC IMPORTED)
     set_target_properties(${AUG_LIB_NAME}
@@ -66,7 +63,7 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
     add_library(${AUG_LIB_NAME} SHARED IMPORTED)
 
     if(WIN32)
-      # Mark the ”.lib” location as part of a Windows DLL
+      # Mark the ".lib" location as part of a Windows DLL
       set_target_properties(${AUG_LIB_NAME}
                             PROPERTIES IMPORTED_IMPLIB "${ARG_SHARED_LIB}")
     else()
@@ -103,7 +100,7 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
     add_library(${AUG_LIB_NAME} SHARED IMPORTED)
 
     if(WIN32)
-      # Mark the ”.lib” location as part of a Windows DLL
+      # Mark the ".lib" location as part of a Windows DLL
       set_target_properties(${AUG_LIB_NAME}
                             PROPERTIES IMPORTED_IMPLIB "${ARG_SHARED_LIB}")
     else()
@@ -139,7 +136,8 @@ function(ADD_ARROW_LIB LIB_NAME)
       PRIVATE_INCLUDES
       DEPENDENCIES
       SHARED_INSTALL_INTERFACE_LIBS
-      STATIC_INSTALL_INTERFACE_LIBS)
+      STATIC_INSTALL_INTERFACE_LIBS
+      OUTPUT_PATH)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -163,6 +161,11 @@ function(ADD_ARROW_LIB LIB_NAME)
     set(BUILD_STATIC ${ARG_BUILD_STATIC})
   else()
     set(BUILD_STATIC ${ARROW_BUILD_STATIC})
+  endif()
+  if(ARG_OUTPUT_PATH)
+    set(OUTPUT_PATH ${ARG_OUTPUT_PATH})
+  else()
+    set(OUTPUT_PATH ${BUILD_OUTPUT_ROOT_DIRECTORY})
   endif()
 
   if(WIN32 OR (CMAKE_GENERATOR STREQUAL Xcode))
@@ -234,11 +237,11 @@ function(ADD_ARROW_LIB LIB_NAME)
 
     set_target_properties(${LIB_NAME}_shared
                           PROPERTIES LIBRARY_OUTPUT_DIRECTORY
-                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     "${OUTPUT_PATH}"
                                      RUNTIME_OUTPUT_DIRECTORY
-                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     "${OUTPUT_PATH}"
                                      PDB_OUTPUT_DIRECTORY
-                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     "${OUTPUT_PATH}"
                                      LINK_FLAGS
                                      "${ARG_SHARED_LINK_FLAGS}"
                                      OUTPUT_NAME
@@ -281,8 +284,7 @@ function(ADD_ARROW_LIB LIB_NAME)
             RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            INCLUDES
-            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
   endif()
 
   if(BUILD_STATIC)
@@ -314,8 +316,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
 
     set_target_properties(${LIB_NAME}_static
-                          PROPERTIES LIBRARY_OUTPUT_DIRECTORY
-                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}" OUTPUT_NAME
+                          PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_PATH}" OUTPUT_NAME
                                      ${LIB_NAME_STATIC})
 
     if(ARG_STATIC_INSTALL_INTERFACE_LIBS)
@@ -333,8 +334,7 @@ function(ADD_ARROW_LIB LIB_NAME)
             RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            INCLUDES
-            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
   endif()
 
   # Modify variable in calling scope
@@ -370,7 +370,12 @@ endfunction()
 function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   set(options)
   set(one_value_args)
-  set(multi_value_args EXTRA_LINK_LIBS STATIC_LINK_LIBS DEPENDENCIES PREFIX LABELS)
+  set(multi_value_args
+      EXTRA_LINK_LIBS
+      STATIC_LINK_LIBS
+      DEPENDENCIES
+      PREFIX
+      LABELS)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -660,8 +665,26 @@ endfunction()
 # No main function must be present within the source file!
 #
 function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
+  set(options)
+  set(one_value_args)
+  set(multi_value_args PREFIX)
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
+  if(ARG_UNPARSED_ARGUMENTS)
+    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
   if(NO_FUZZING)
     return()
+  endif()
+
+  get_filename_component(FUZZING_NAME ${REL_FUZZING_NAME} NAME_WE)
+
+  if(ARG_PREFIX)
+    set(FUZZING_NAME "${ARG_PREFIX}-${FUZZING_NAME}")
   endif()
 
   if(ARROW_BUILD_STATIC)
@@ -670,13 +693,12 @@ function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
     set(FUZZ_LINK_LIBS arrow_shared)
   endif()
 
-  add_executable(${REL_FUZZING_NAME} "${REL_FUZZING_NAME}.cc")
-  target_link_libraries(${REL_FUZZING_NAME} ${FUZZ_LINK_LIBS})
-  target_compile_options(${REL_FUZZING_NAME} PRIVATE "-fsanitize=fuzzer")
-  set_target_properties(${REL_FUZZING_NAME} PROPERTIES LINK_FLAGS "-fsanitize=fuzzer")
+  add_executable(${FUZZING_NAME} "${REL_FUZZING_NAME}.cc")
+  target_link_libraries(${FUZZING_NAME} ${FUZZ_LINK_LIBS})
+  target_compile_options(${FUZZING_NAME} PRIVATE "-fsanitize=fuzzer")
+  set_target_properties(${FUZZING_NAME}
+                        PROPERTIES LINK_FLAGS "-fsanitize=fuzzer" LABELS "fuzzing")
 endfunction()
-
-#
 
 function(ARROW_INSTALL_ALL_HEADERS PATH)
   set(options)
@@ -695,9 +717,11 @@ function(ARROW_INSTALL_ALL_HEADERS PATH)
 
   set(PUBLIC_HEADERS)
   foreach(HEADER ${CURRENT_DIRECTORY_HEADERS})
-    if(NOT ((HEADER MATCHES "internal")))
-      list(APPEND PUBLIC_HEADERS ${HEADER})
+    get_filename_component(HEADER_BASENAME ${HEADER} NAME)
+    if(HEADER_BASENAME MATCHES "internal")
+      continue()
     endif()
+    list(APPEND PUBLIC_HEADERS ${HEADER})
   endforeach()
   install(FILES ${PUBLIC_HEADERS} DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PATH}")
 endfunction()

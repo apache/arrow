@@ -67,24 +67,24 @@ func (rcv *Map) Table() flatbuffers.Table {
 }
 
 /// Set to true if the keys within each value are sorted
-func (rcv *Map) KeysSorted() byte {
+func (rcv *Map) KeysSorted() bool {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
-		return rcv._tab.GetByte(o + rcv._tab.Pos)
+		return rcv._tab.GetBool(o + rcv._tab.Pos)
 	}
-	return 0
+	return false
 }
 
 /// Set to true if the keys within each value are sorted
-func (rcv *Map) MutateKeysSorted(n byte) bool {
-	return rcv._tab.MutateByteSlot(4, n)
+func (rcv *Map) MutateKeysSorted(n bool) bool {
+	return rcv._tab.MutateBoolSlot(4, n)
 }
 
 func MapStart(builder *flatbuffers.Builder) {
 	builder.StartObject(1)
 }
-func MapAddKeysSorted(builder *flatbuffers.Builder, keysSorted byte) {
-	builder.PrependByteSlot(0, keysSorted, 0)
+func MapAddKeysSorted(builder *flatbuffers.Builder, keysSorted bool) {
+	builder.PrependBoolSlot(0, keysSorted, false)
 }
 func MapEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()

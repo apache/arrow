@@ -42,7 +42,7 @@ func (rcv *Message) Table() flatbuffers.Table {
 	return rcv._tab
 }
 
-func (rcv *Message) Version() int16 {
+func (rcv *Message) Version() MetadataVersion {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
 		return rcv._tab.GetInt16(o + rcv._tab.Pos)
@@ -50,7 +50,7 @@ func (rcv *Message) Version() int16 {
 	return 0
 }
 
-func (rcv *Message) MutateVersion(n int16) bool {
+func (rcv *Message) MutateVersion(n MetadataVersion) bool {
 	return rcv._tab.MutateInt16Slot(4, n)
 }
 

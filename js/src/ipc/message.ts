@@ -165,21 +165,19 @@ export class JSONMessageReader extends MessageReader {
         this._json = source instanceof ArrowJSON ? source : new ArrowJSON(source);
     }
     public next() {
-        const { _json, _batchIndex, _dictionaryIndex } = this;
-        const numBatches = _json.batches.length;
-        const numDictionaries = _json.dictionaries.length;
+        const { _json } = this;
         if (!this._schema) {
             this._schema = true;
             const message = Message.fromJSON(_json.schema, MessageHeader.Schema);
-            return { value: message, done: _batchIndex >= numBatches && _dictionaryIndex >= numDictionaries };
+            return { done: false, value: message };
         }
-        if (_dictionaryIndex < numDictionaries) {
+        if (this._dictionaryIndex < _json.dictionaries.length) {
             const batch = _json.dictionaries[this._dictionaryIndex++];
             this._body = batch['data']['columns'];
             const message = Message.fromJSON(batch, MessageHeader.DictionaryBatch);
             return { done: false, value: message };
         }
-        if (_batchIndex < numBatches) {
+        if (this._batchIndex < _json.batches.length) {
             const batch = _json.batches[this._batchIndex++];
             this._body = batch['columns'];
             const message = Message.fromJSON(batch, MessageHeader.RecordBatch);

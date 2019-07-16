@@ -19,6 +19,8 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
+from __future__ import absolute_import
+
 import datetime
 import decimal as _pydecimal
 import json
@@ -34,7 +36,11 @@ from pyarrow.includes.common cimport PyObject_to_object
 cimport pyarrow.includes.libarrow as libarrow
 cimport cpython as cp
 
+# Initialize NumPy C API
 arrow_init_numpy()
+# Initialize PyArrow C++ API
+# (used from some of our C++ code, see e.g. ARROW-5260)
+import_pyarrow()
 set_numpy_nan(np.nan)
 
 
@@ -114,6 +120,9 @@ include "builder.pxi"
 
 # Column, Table, Record Batch
 include "table.pxi"
+
+# Tensors
+include "tensor.pxi"
 
 # File IO
 include "io.pxi"

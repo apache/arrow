@@ -33,7 +33,7 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
       : ArrayBuilder(null(), pool) {}
 
   /// \brief Append the specified number of null elements
-  Status AppendNulls(int64_t length) {
+  Status AppendNulls(int64_t length) final {
     if (length < 0) return Status::Invalid("length must be positive");
     null_count_ += length;
     length_ += length;
@@ -41,11 +41,17 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
   }
 
   /// \brief Append a single null element
-  Status AppendNull() { return AppendNulls(1); }
+  Status AppendNull() final { return AppendNulls(1); }
 
   Status Append(std::nullptr_t) { return AppendNull(); }
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<NullArray>* out) { return FinishTyped(out); }
 };
 
 /// Base class for all Builders that emit an Array of a scalar numerical type.
@@ -53,6 +59,7 @@ template <typename T>
 class NumericBuilder : public ArrayBuilder {
  public:
   using value_type = typename T::c_type;
+  using ArrayType = typename TypeTraits<T>::ArrayType;
   using ArrayBuilder::ArrayBuilder;
 
   template <typename T1 = T>
@@ -71,7 +78,7 @@ class NumericBuilder : public ArrayBuilder {
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   /// The memory at the corresponding data slot is set to 0 to prevent
   /// uninitialized memory access
-  Status AppendNulls(int64_t length) {
+  Status AppendNulls(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
     data_builder_.UnsafeAppend(length, static_cast<value_type>(0));
     UnsafeSetNull(length);
@@ -79,7 +86,7 @@ class NumericBuilder : public ArrayBuilder {
   }
 
   /// \brief Append a single null element
-  Status AppendNull() {
+  Status AppendNull() final {
     ARROW_RETURN_NOT_OK(Reserve(1));
     data_builder_.UnsafeAppend(static_cast<value_type>(0));
     UnsafeAppendToBitmap(false);
@@ -158,6 +165,12 @@ class NumericBuilder : public ArrayBuilder {
     capacity_ = length_ = null_count_ = 0;
     return Status::OK();
   }
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<ArrayType>* out) { return FinishTyped(out); }
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values_begin InputIterator to the beginning of the values
@@ -245,11 +258,6 @@ using Int8Builder = NumericBuilder<Int8Type>;
 using Int16Builder = NumericBuilder<Int16Type>;
 using Int32Builder = NumericBuilder<Int32Type>;
 using Int64Builder = NumericBuilder<Int64Type>;
-using TimestampBuilder = NumericBuilder<TimestampType>;
-using Time32Builder = NumericBuilder<Time32Type>;
-using Time64Builder = NumericBuilder<Time64Type>;
-using Date32Builder = NumericBuilder<Date32Type>;
-using Date64Builder = NumericBuilder<Date64Type>;
 
 using HalfFloatBuilder = NumericBuilder<HalfFloatType>;
 using FloatBuilder = NumericBuilder<FloatType>;
@@ -263,14 +271,14 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   explicit BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
-  Status AppendNulls(int64_t length) {
+  Status AppendNulls(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
     data_builder_.UnsafeAppend(length, false);
     UnsafeSetNull(length);
     return Status::OK();
   }
 
-  Status AppendNull() {
+  Status AppendNull() final {
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendNull();
     return Status::OK();
@@ -401,7 +409,16 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  Status AppendValues(int64_t length, bool value);
+
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<BooleanArray>* out) { return FinishTyped(out); }
+
   void Reset() override;
   Status Resize(int64_t capacity) override;
 

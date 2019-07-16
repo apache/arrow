@@ -30,11 +30,16 @@ var (
 // IsMultipleOf8 returns whether v is a multiple of 8.
 func IsMultipleOf8(v int64) bool { return v&7 == 0 }
 
+func BytesForBits(bits int64) int64 { return (bits + 7) >> 3 }
+
 // NextPowerOf2 rounds x to the next power of two.
 func NextPowerOf2(x int) int { return 1 << uint(bits.Len(uint(x))) }
 
 // CeilByte rounds size to the next multiple of 8.
 func CeilByte(size int) int { return (size + 7) &^ 7 }
+
+// CeilByte64 rounds size to the next multiple of 8.
+func CeilByte64(size int64) int64 { return (size + 7) &^ 7 }
 
 // BitIsSet returns true if the bit at index i in buf is set (1).
 func BitIsSet(buf []byte, i int) bool { return (buf[uint(i)/8] & BitMask[byte(i)%8]) != 0 }

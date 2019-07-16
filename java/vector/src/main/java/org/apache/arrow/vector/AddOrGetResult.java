@@ -19,19 +19,27 @@ package org.apache.arrow.vector;
 
 import org.apache.arrow.util.Preconditions;
 
+/**
+ * Tuple class containing a vector and whether is was created.
+ *
+ * @param <V> The type of vector the result is for.
+ */
 public class AddOrGetResult<V extends ValueVector> {
   private final V vector;
   private final boolean created;
 
+  /** Constructs a new object. */
   public AddOrGetResult(V vector, boolean created) {
     this.vector = Preconditions.checkNotNull(vector);
     this.created = created;
   }
 
+  /** Returns the vector. */
   public V getVector() {
     return vector;
   }
 
+  /** Returns whether the vector is created. */
   public boolean isCreated() {
     return created;
   }

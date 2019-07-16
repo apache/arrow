@@ -47,7 +47,8 @@ groups = [
     'parquet',
     'plasma',
     's3',
-    'tensorflow'
+    'tensorflow',
+    'flight'
 ]
 
 
@@ -61,7 +62,8 @@ defaults = {
     'parquet': False,
     'plasma': False,
     's3': False,
-    'tensorflow': False
+    'tensorflow': False,
+    'flight': False,
 }
 
 try:
@@ -104,8 +106,18 @@ except ImportError:
     pass
 
 
-def pytest_configure(config):
+try:
+    import pyarrow.flight  # noqa
+    defaults['flight'] = True
+except ImportError:
     pass
+
+
+def pytest_configure(config):
+    for mark in groups:
+        config.addinivalue_line(
+            "markers", mark,
+        )
 
 
 def pytest_addoption(parser):

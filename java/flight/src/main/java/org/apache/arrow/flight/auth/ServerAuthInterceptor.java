@@ -28,6 +28,9 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
 
+/**
+ * GRPC Interceptor for performing authentication.
+ */
 public class ServerAuthInterceptor implements ServerInterceptor {
 
   private final ServerAuthHandler authHandler;
@@ -53,7 +56,7 @@ public class ServerAuthInterceptor implements ServerInterceptor {
     return next.startCall(call, headers);
   }
 
-  private final Optional<String> isValid(Metadata headers) {
+  private Optional<String> isValid(Metadata headers) {
     byte[] token = headers.get(AuthConstants.TOKEN_KEY);
     return authHandler.isValid(token);
   }

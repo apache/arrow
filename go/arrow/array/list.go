@@ -17,6 +17,8 @@
 package array
 
 import (
+	"fmt"
+	"strings"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/arrow"
@@ -42,6 +44,32 @@ func NewListData(data *Data) *List {
 
 func (a *List) ListValues() Interface { return a.values }
 
+func (a *List) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i := 0; i < a.Len(); i++ {
+		if i > 0 {
+			o.WriteString(" ")
+		}
+		if !a.IsValid(i) {
+			o.WriteString("(null)")
+			continue
+		}
+		sub := a.newListValue(i)
+		fmt.Fprintf(o, "%v", sub)
+		sub.Release()
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
+func (a *List) newListValue(i int) Interface {
+	j := i + a.array.data.offset
+	beg := int64(a.offsets[j])
+	end := int64(a.offsets[j+1])
+	return NewSlice(a.values, beg, end)
+}
+
 func (a *List) setData(data *Data) {
 	a.array.setData(data)
 	vals := data.buffers[1]
@@ -51,10 +79,34 @@ func (a *List) setData(data *Data) {
 	a.values = MakeFromData(data.childData[0])
 }
 
+func arrayEqualList(left, right *List) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		o := func() bool {
+			l := left.newListValue(i)
+			defer l.Release()
+			r := right.newListValue(i)
+			defer r.Release()
+			return ArrayEqual(l, r)
+		}()
+		if !o {
+			return false
+		}
+	}
+	return true
+}
+
 // Len returns the number of elements in the array.
 func (a *List) Len() int { return a.array.Len() }
 
 func (a *List) Offsets() []int32 { return a.offsets }
+
+func (a *List) Retain() {
+	a.array.Retain()
+	a.values.Retain()
+}
 
 func (a *List) Release() {
 	a.array.Release()

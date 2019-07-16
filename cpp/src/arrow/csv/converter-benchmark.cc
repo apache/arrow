@@ -55,6 +55,19 @@ static std::shared_ptr<BlockParser> BuildFloatData(int32_t num_rows) {
   return result;
 }
 
+static std::shared_ptr<BlockParser> BuildDecimal128Data(int32_t num_rows) {
+  const std::vector<std::string> base_rows = {"0\n", "123.456\n", "-3170.55766\n",
+                                              "\n",  "N/A\n",     "1233456789.123456789"};
+  std::vector<std::string> rows;
+  for (int32_t i = 0; i < num_rows; ++i) {
+    rows.push_back(base_rows[i % base_rows.size()]);
+  }
+
+  std::shared_ptr<BlockParser> result;
+  MakeCSVParser(rows, &result);
+  return result;
+}
+
 static void BenchmarkConversion(benchmark::State& state,  // NOLINT non-const reference
                                 BlockParser& parser,
                                 const std::shared_ptr<DataType>& type,
@@ -74,24 +87,32 @@ static void BenchmarkConversion(benchmark::State& state,  // NOLINT non-const re
   state.SetItemsProcessed(state.iterations() * parser.num_rows());
 }
 
-static void BM_Int64Conversion(benchmark::State& state) {  // NOLINT non-const reference
-  const int32_t num_rows = 10000;
+constexpr size_t num_rows = 10000;
+
+static void Int64Conversion(benchmark::State& state) {  // NOLINT non-const reference
   auto parser = BuildInt64Data(num_rows);
   auto options = ConvertOptions::Defaults();
 
   BenchmarkConversion(state, *parser, int64(), options);
 }
 
-static void BM_FloatConversion(benchmark::State& state) {  // NOLINT non-const reference
-  const int32_t num_rows = 10000;
+static void FloatConversion(benchmark::State& state) {  // NOLINT non-const reference
   auto parser = BuildFloatData(num_rows);
   auto options = ConvertOptions::Defaults();
 
   BenchmarkConversion(state, *parser, float64(), options);
 }
 
-BENCHMARK(BM_Int64Conversion)->Repetitions(3);
-BENCHMARK(BM_FloatConversion)->Repetitions(3);
+static void Decimal128Conversion(benchmark::State& state) {  // NOLINT non-const reference
+  auto parser = BuildDecimal128Data(num_rows);
+  auto options = ConvertOptions::Defaults();
+
+  BenchmarkConversion(state, *parser, decimal(24, 9), options);
+}
+
+BENCHMARK(Int64Conversion);
+BENCHMARK(FloatConversion);
+BENCHMARK(Decimal128Conversion);
 
 }  // namespace csv
 }  // namespace arrow

@@ -1597,8 +1597,8 @@ impl<'a: 'b, 'b> DecimalBuilder<'a, 'b> {
 /// Date is either a 32-bit or 64-bit type representing elapsed time since UNIX
 /// epoch (1970-01-01), stored in either of two units:
 ///
-/// * Milliseconds (64 bits) indicating UNIX time elapsed since the epoch (no
-///   leap seconds), where the values are evenly divisible by 86400000
+/// * Milliseconds (64 bits) indicating UNIX time elapsed since the epoch (no leap
+///   seconds), where the values are evenly divisible by 86400000
 /// * Days (32 bits) since the UNIX epoch
 pub enum DateOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -1823,24 +1823,22 @@ impl<'a> Timestamp<'a> {
     }
     /// The time zone is a string indicating the name of a time zone, one of:
     ///
-    /// * As used in the Olson time zone database (the "tz database" or
-    ///   "tzdata"), such as "America/New_York"
+    /// * As used in the Olson time zone database (the "tz database" or "tzdata"), such as
+    ///   "America/New_York"
     /// * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
     ///
     /// Whether a timezone string is present indicates different semantics about
     /// the data:
     ///
-    /// * If the time zone is null or equal to an empty string, the data is "time
-    ///   zone naive" and shall be displayed *as is* to the user, not localized
-    ///   to the locale of the user. This data can be though of as UTC but
-    ///   without having "UTC" as the time zone, it is not considered to be
-    ///   localized to any time zone
+    /// * If the time zone is null or equal to an empty string, the data is "time zone
+    ///   naive" and shall be displayed *as is* to the user, not localized to the locale
+    ///   of the user. This data can be though of as UTC but without having "UTC" as the
+    ///   time zone, it is not considered to be localized to any time zone
     ///
-    /// * If the time zone is set to a valid value, values can be displayed as
-    ///   "localized" to that time zone, even though the underlying 64-bit
-    ///   integers are identical to the same data stored in UTC. Converting
-    ///   between time zones is a metadata-only operation and does not change the
-    ///   underlying values
+    /// * If the time zone is set to a valid value, values can be displayed as "localized"
+    ///   to that time zone, even though the underlying 64-bit integers are identical to
+    ///   the same data stored in UTC. Converting between time zones is a metadata-only
+    ///   operation and does not change the underlying values
     #[inline]
     pub fn timezone(&self) -> Option<&'a str> {
         self._tab
@@ -2639,7 +2637,8 @@ impl<'a> Schema<'a> {
 
     /// endianness of the buffer
     /// it is Little Endian by default
-    /// if endianness doesn't match the underlying system then the vectors need to be converted
+    /// if endianness doesn't match the underlying system then the vectors need to be
+    /// converted
     #[inline]
     pub fn endianness(&self) -> Endianness {
         self._tab

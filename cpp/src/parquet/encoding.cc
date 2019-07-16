@@ -24,23 +24,21 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/status.h"
 #include "arrow/util/bit-stream-utils.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/macros.h"
 #include "arrow/util/rle-encoding.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/ubsan.h"
 
 #include "parquet/exception.h"
+#include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
 
 namespace parquet {
 
-namespace BitUtil = ::arrow::BitUtil;
+constexpr int64_t kInMemoryDefaultCapacity = 1024;
 
 class EncoderImpl : virtual public Encoder {
  public:
@@ -82,41 +80,47 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   void Put(const T* buffer, int num_values) override;
 
  protected:
-  std::unique_ptr<InMemoryOutputStream> values_sink_;
+  std::shared_ptr<::arrow::io::BufferOutputStream> values_sink_;
 };
 
 template <typename DType>
 PlainEncoder<DType>::PlainEncoder(const ColumnDescriptor* descr,
                                   ::arrow::MemoryPool* pool)
     : EncoderImpl(descr, Encoding::PLAIN, pool) {
-  values_sink_.reset(new InMemoryOutputStream(pool));
+  values_sink_ = CreateOutputStream(pool);
 }
 template <typename DType>
 int64_t PlainEncoder<DType>::EstimatedDataEncodedSize() {
-  return values_sink_->Tell();
+  int64_t position = -1;
+  PARQUET_THROW_NOT_OK(values_sink_->Tell(&position));
+  return position;
 }
 
 template <typename DType>
 std::shared_ptr<Buffer> PlainEncoder<DType>::FlushValues() {
-  std::shared_ptr<Buffer> buffer = values_sink_->GetBuffer();
-  values_sink_.reset(new InMemoryOutputStream(this->pool_));
+  std::shared_ptr<Buffer> buffer;
+  PARQUET_THROW_NOT_OK(values_sink_->Finish(&buffer));
+  values_sink_ = CreateOutputStream(this->pool_);
   return buffer;
 }
 
 template <typename DType>
 void PlainEncoder<DType>::Put(const T* buffer, int num_values) {
-  values_sink_->Write(reinterpret_cast<const uint8_t*>(buffer), num_values * sizeof(T));
+  PARQUET_THROW_NOT_OK(values_sink_->Write(reinterpret_cast<const uint8_t*>(buffer),
+                                           num_values * sizeof(T)));
 }
 
 template <>
 inline void PlainEncoder<ByteArrayType>::Put(const ByteArray* src, int num_values) {
   for (int i = 0; i < num_values; ++i) {
     // Write the result to the output stream
-    values_sink_->Write(reinterpret_cast<const uint8_t*>(&src[i].len), sizeof(uint32_t));
+    PARQUET_THROW_NOT_OK(values_sink_->Write(
+        reinterpret_cast<const uint8_t*>(&src[i].len), sizeof(uint32_t)));
     if (src[i].len > 0) {
       DCHECK(nullptr != src[i].ptr) << "Value ptr cannot be NULL";
     }
-    values_sink_->Write(reinterpret_cast<const uint8_t*>(src[i].ptr), src[i].len);
+    PARQUET_THROW_NOT_OK(
+        values_sink_->Write(reinterpret_cast<const uint8_t*>(src[i].ptr), src[i].len));
   }
 }
 
@@ -127,8 +131,8 @@ inline void PlainEncoder<FLBAType>::Put(const FixedLenByteArray* src, int num_va
     if (descr_->type_length() > 0) {
       DCHECK(nullptr != src[i].ptr) << "Value ptr cannot be NULL";
     }
-    values_sink_->Write(reinterpret_cast<const uint8_t*>(src[i].ptr),
-                        descr_->type_length());
+    PARQUET_THROW_NOT_OK(values_sink_->Write(reinterpret_cast<const uint8_t*>(src[i].ptr),
+                                             descr_->type_length()));
   }
 }
 
@@ -163,7 +167,7 @@ class PlainBooleanEncoder : public EncoderImpl,
   int bits_available_;
   std::unique_ptr<::arrow::BitUtil::BitWriter> bit_writer_;
   std::shared_ptr<ResizableBuffer> bits_buffer_;
-  std::unique_ptr<InMemoryOutputStream> values_sink_;
+  std::shared_ptr<::arrow::io::BufferOutputStream> values_sink_;
 
   template <typename SequenceType>
   void PutImpl(const SequenceType& src, int num_values);
@@ -182,7 +186,8 @@ void PlainBooleanEncoder::PutImpl(const SequenceType& src, int num_values) {
 
     if (bits_available_ == 0) {
       bit_writer_->Flush();
-      values_sink_->Write(bit_writer_->buffer(), bit_writer_->bytes_written());
+      PARQUET_THROW_NOT_OK(
+          values_sink_->Write(bit_writer_->buffer(), bit_writer_->bytes_written()));
       bit_writer_->Clear();
     }
   }
@@ -201,7 +206,8 @@ void PlainBooleanEncoder::PutImpl(const SequenceType& src, int num_values) {
 
     if (bits_available_ == 0) {
       bit_writer_->Flush();
-      values_sink_->Write(bit_writer_->buffer(), bit_writer_->bytes_written());
+      PARQUET_THROW_NOT_OK(
+          values_sink_->Write(bit_writer_->buffer(), bit_writer_->bytes_written()));
       bit_writer_->Clear();
     }
   }
@@ -211,26 +217,30 @@ PlainBooleanEncoder::PlainBooleanEncoder(const ColumnDescriptor* descr,
                                          ::arrow::MemoryPool* pool)
     : EncoderImpl(descr, Encoding::PLAIN, pool),
       bits_available_(kInMemoryDefaultCapacity * 8),
-      bits_buffer_(AllocateBuffer(pool, kInMemoryDefaultCapacity)),
-      values_sink_(new InMemoryOutputStream(pool)) {
+      bits_buffer_(AllocateBuffer(pool, kInMemoryDefaultCapacity)) {
+  values_sink_ = CreateOutputStream(pool);
   bit_writer_.reset(new BitUtil::BitWriter(bits_buffer_->mutable_data(),
                                            static_cast<int>(bits_buffer_->size())));
 }
 
 int64_t PlainBooleanEncoder::EstimatedDataEncodedSize() {
-  return values_sink_->Tell() + bit_writer_->bytes_written();
+  int64_t position = -1;
+  PARQUET_THROW_NOT_OK(values_sink_->Tell(&position));
+  return position + bit_writer_->bytes_written();
 }
 
 std::shared_ptr<Buffer> PlainBooleanEncoder::FlushValues() {
   if (bits_available_ > 0) {
     bit_writer_->Flush();
-    values_sink_->Write(bit_writer_->buffer(), bit_writer_->bytes_written());
+    PARQUET_THROW_NOT_OK(
+        values_sink_->Write(bit_writer_->buffer(), bit_writer_->bytes_written()));
     bit_writer_->Clear();
     bits_available_ = static_cast<int>(bits_buffer_->size()) * 8;
   }
 
-  std::shared_ptr<Buffer> buffer = values_sink_->GetBuffer();
-  values_sink_.reset(new InMemoryOutputStream(this->pool_));
+  std::shared_ptr<Buffer> buffer;
+  PARQUET_THROW_NOT_OK(values_sink_->Finish(&buffer));
+  values_sink_ = CreateOutputStream(this->pool_);
   return buffer;
 }
 
@@ -600,7 +610,7 @@ inline int DecodePlain<ByteArray>(const uint8_t* data, int64_t data_size, int nu
   int bytes_decoded = 0;
   int increment;
   for (int i = 0; i < num_values; ++i) {
-    uint32_t len = out[i].len = *reinterpret_cast<const uint32_t*>(data);
+    uint32_t len = out[i].len = arrow::util::SafeLoadAs<uint32_t>(data);
     increment = static_cast<int>(sizeof(uint32_t) + len);
     if (data_size < increment) ParquetException::EofException();
     out[i].ptr = data + sizeof(uint32_t);
@@ -710,7 +720,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     int bytes_decoded = 0;
     while (i < num_values) {
       if (bit_reader.IsSet()) {
-        uint32_t len = *reinterpret_cast<const uint32_t*>(data);
+        uint32_t len = arrow::util::SafeLoadAs<uint32_t>(data);
         increment = static_cast<int>(sizeof(uint32_t) + len);
         if (data_size < increment) {
           ParquetException::EofException();
@@ -743,7 +753,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     int bytes_decoded = 0;
 
     while (i < num_values) {
-      uint32_t len = *reinterpret_cast<const uint32_t*>(data);
+      uint32_t len = arrow::util::SafeLoadAs<uint32_t>(data);
       int increment = static_cast<int>(sizeof(uint32_t) + len);
       if (data_size < increment) ParquetException::EofException();
       builder->Append(data + sizeof(uint32_t), len);
@@ -781,7 +791,7 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
   explicit DictDecoderImpl(const ColumnDescriptor* descr,
                            ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::RLE_DICTIONARY),
-        dictionary_(0, pool),
+        dictionary_(AllocateBuffer(pool, 0)),
         byte_array_data_(AllocateBuffer(pool, 0)) {}
 
   // Perform type-specific initiatialization
@@ -798,8 +808,8 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
 
   int Decode(T* buffer, int max_values) override {
     max_values = std::min(max_values, num_values_);
-    int decoded_values =
-        idx_decoder_.GetBatchWithDict(dictionary_.data(), buffer, max_values);
+    int decoded_values = idx_decoder_.GetBatchWithDict(
+        reinterpret_cast<const T*>(dictionary_->data()), buffer, max_values);
     if (decoded_values != max_values) {
       ParquetException::EofException();
     }
@@ -809,9 +819,9 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
 
   int DecodeSpaced(T* buffer, int num_values, int null_count, const uint8_t* valid_bits,
                    int64_t valid_bits_offset) override {
-    int decoded_values =
-        idx_decoder_.GetBatchWithDictSpaced(dictionary_.data(), buffer, num_values,
-                                            null_count, valid_bits, valid_bits_offset);
+    int decoded_values = idx_decoder_.GetBatchWithDictSpaced(
+        reinterpret_cast<const T*>(dictionary_->data()), buffer, num_values, null_count,
+        valid_bits, valid_bits_offset);
     if (decoded_values != num_values) {
       ParquetException::EofException();
     }
@@ -819,8 +829,15 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
   }
 
  protected:
+  inline void DecodeDict(TypedDecoder<Type>* dictionary) {
+    int num_dictionary_values = dictionary->values_left();
+    PARQUET_THROW_NOT_OK(dictionary_->Resize(num_dictionary_values * sizeof(T)));
+    dictionary->Decode(reinterpret_cast<T*>(dictionary_->mutable_data()),
+                       num_dictionary_values);
+  }
+
   // Only one is set.
-  Vector<T> dictionary_;
+  std::shared_ptr<ResizableBuffer> dictionary_;
 
   // Data that contains the byte array data (byte_array_dictionary_ just has the
   // pointers).
@@ -831,9 +848,7 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
 
 template <typename Type>
 inline void DictDecoderImpl<Type>::SetDict(TypedDecoder<Type>* dictionary) {
-  int num_dictionary_values = dictionary->values_left();
-  dictionary_.Resize(num_dictionary_values);
-  dictionary->Decode(dictionary_.data(), num_dictionary_values);
+  DecodeDict(dictionary);
 }
 
 template <>
@@ -845,12 +860,13 @@ template <>
 inline void DictDecoderImpl<ByteArrayType>::SetDict(
     TypedDecoder<ByteArrayType>* dictionary) {
   int num_dictionary_values = dictionary->values_left();
-  dictionary_.Resize(num_dictionary_values);
-  dictionary->Decode(&dictionary_[0], num_dictionary_values);
+  DecodeDict(dictionary);
+
+  auto dict_values = reinterpret_cast<ByteArray*>(dictionary_->mutable_data());
 
   int total_size = 0;
   for (int i = 0; i < num_dictionary_values; ++i) {
-    total_size += dictionary_[i].len;
+    total_size += dict_values[i].len;
   }
   if (total_size > 0) {
     PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size, false));
@@ -859,17 +875,18 @@ inline void DictDecoderImpl<ByteArrayType>::SetDict(
   int offset = 0;
   uint8_t* bytes_data = byte_array_data_->mutable_data();
   for (int i = 0; i < num_dictionary_values; ++i) {
-    memcpy(bytes_data + offset, dictionary_[i].ptr, dictionary_[i].len);
-    dictionary_[i].ptr = bytes_data + offset;
-    offset += dictionary_[i].len;
+    memcpy(bytes_data + offset, dict_values[i].ptr, dict_values[i].len);
+    dict_values[i].ptr = bytes_data + offset;
+    offset += dict_values[i].len;
   }
 }
 
 template <>
 inline void DictDecoderImpl<FLBAType>::SetDict(TypedDecoder<FLBAType>* dictionary) {
   int num_dictionary_values = dictionary->values_left();
-  dictionary_.Resize(num_dictionary_values);
-  dictionary->Decode(&dictionary_[0], num_dictionary_values);
+  DecodeDict(dictionary);
+
+  auto dict_values = reinterpret_cast<FLBA*>(dictionary_->mutable_data());
 
   int fixed_len = descr_->type_length();
   int total_size = num_dictionary_values * fixed_len;
@@ -877,8 +894,8 @@ inline void DictDecoderImpl<FLBAType>::SetDict(TypedDecoder<FLBAType>* dictionar
   PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size, false));
   uint8_t* bytes_data = byte_array_data_->mutable_data();
   for (int32_t i = 0, offset = 0; i < num_dictionary_values; ++i, offset += fixed_len) {
-    memcpy(bytes_data + offset, dictionary_[i].ptr, fixed_len);
-    dictionary_[i].ptr = bytes_data + offset;
+    memcpy(bytes_data + offset, dict_values[i].ptr, fixed_len);
+    dict_values[i].ptr = bytes_data + offset;
   }
 }
 
@@ -897,6 +914,8 @@ class DictByteArrayDecoder : public DictDecoderImpl<ByteArrayType>,
     builder->Reserve(num_values);
     ::arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
 
+    auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
+
     int values_decoded = 0;
     while (values_decoded < num_values) {
       bool is_valid = bit_reader.IsSet();
@@ -911,7 +930,7 @@ class DictByteArrayDecoder : public DictDecoderImpl<ByteArrayType>,
         while (true) {
           // Consume all indices
           if (is_valid) {
-            const auto& val = dictionary_[indices_buffer[i]];
+            const auto& val = dict_values[indices_buffer[i]];
             builder->Append(val.ptr, val.len);
             ++i;
           } else {
@@ -948,12 +967,14 @@ class DictByteArrayDecoder : public DictDecoderImpl<ByteArrayType>,
     int values_decoded = 0;
     builder->Reserve(num_values);
 
+    auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
+
     while (values_decoded < num_values) {
       int32_t batch_size = std::min<int32_t>(buffer_size, num_values - values_decoded);
       int num_indices = idx_decoder_.GetBatch(indices_buffer, batch_size);
       if (num_indices == 0) break;
       for (int i = 0; i < num_indices; ++i) {
-        const auto& val = dictionary_[indices_buffer[i]];
+        const auto& val = dict_values[indices_buffer[i]];
         builder->Append(val.ptr, val.len);
       }
       values_decoded += num_indices;
@@ -1083,7 +1104,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;
     if (len == 0) return;
-    int total_lengths_len = *reinterpret_cast<const int*>(data);
+    int total_lengths_len = arrow::util::SafeLoadAs<int32_t>(data);
     data += 4;
     this->len_decoder_.SetData(num_values, data, total_lengths_len);
     data_ = data + total_lengths_len;
@@ -1125,7 +1146,7 @@ class DeltaByteArrayDecoder : public DecoderImpl,
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;
     if (len == 0) return;
-    int prefix_len_length = *reinterpret_cast<const int*>(data);
+    int prefix_len_length = arrow::util::SafeLoadAs<int32_t>(data);
     data += 4;
     len -= 4;
     prefix_len_decoder_.SetData(num_values, data, prefix_len_length);

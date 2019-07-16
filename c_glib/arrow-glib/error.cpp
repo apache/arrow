@@ -57,28 +57,23 @@ garrow_error_code(const arrow::Status &status)
     return GARROW_ERROR_IO;
   case arrow::StatusCode::CapacityError:
     return GARROW_ERROR_CAPACITY;
+  case arrow::StatusCode::IndexError:
+    return GARROW_ERROR_INDEX;
   case arrow::StatusCode::UnknownError:
     return GARROW_ERROR_UNKNOWN;
   case arrow::StatusCode::NotImplemented:
     return GARROW_ERROR_NOT_IMPLEMENTED;
   case arrow::StatusCode::SerializationError:
     return GARROW_ERROR_SERIALIZATION;
-  case arrow::StatusCode::PythonError:
-    return GARROW_ERROR_PYTHON;
-  case arrow::StatusCode::PlasmaObjectExists:
-    return GARROW_ERROR_PLASMA_OBJECT_EXISTS;
-  case arrow::StatusCode::PlasmaObjectNonexistent:
-    return GARROW_ERROR_PLASMA_OBJECT_NONEXISTENT;
-  case arrow::StatusCode::PlasmaStoreFull:
-    return GARROW_ERROR_PLASMA_STORE_FULL;
-  case arrow::StatusCode::PlasmaObjectAlreadySealed:
-    return GARROW_ERROR_PLASMA_OBJECT_ALREADY_SEALED;
   case arrow::StatusCode::CodeGenError:
     return GARROW_ERROR_CODE_GENERATION;
   case arrow::StatusCode::ExpressionValidationError:
     return GARROW_ERROR_EXPRESSION_VALIDATION;
   case arrow::StatusCode::ExecutionError:
     return GARROW_ERROR_EXECUTION;
+  case arrow::StatusCode::AlreadyExists:
+    return GARROW_ERROR_ALREADY_EXISTS;
+
   default:
     return GARROW_ERROR_UNKNOWN;
   }

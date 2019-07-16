@@ -15,12 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifdef _MSC_VER
-#include <intrin.h>
-#else
-#include <immintrin.h>
-#endif
-
 #include <iostream>
 
 #include "arrow/api.h"
@@ -28,9 +22,11 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/cpu-info.h"
+#include "arrow/util/sse-util.h"
 
 #include "benchmark/benchmark.h"
 
+#ifdef ARROW_HAVE_SSE4_2
 namespace arrow {
 
 using internal::CpuInfo;
@@ -44,6 +40,7 @@ static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::L3_CACHE);
 constexpr size_t kMemoryPerCore = 32 * 1024 * 1024;
 using BufferPtr = std::shared_ptr<Buffer>;
 
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 #ifndef _MSC_VER
 
 #ifdef ARROW_AVX512
@@ -200,6 +197,7 @@ BENCHMARK_TEMPLATE(MemoryBandwidth, StreamReadWrite)->Apply(SetMemoryBandwidthAr
 BENCHMARK_TEMPLATE(MemoryBandwidth, PlatformMemcpy)->Apply(SetMemoryBandwidthArgs);
 
 #endif  // _MSC_VER
+#endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
 static void ParallelMemoryCopy(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t n_threads = state.range(0);
@@ -227,3 +225,4 @@ BENCHMARK(ParallelMemoryCopy)
     ->UseRealTime();
 
 }  // namespace arrow
+#endif  // ARROW_HAVE_SSE4_2

@@ -17,6 +17,9 @@
 
 package org.apache.arrow.vector;
 
+/**
+ * Interface vectors that contain variable width members (e.g. Strings, Lists, etc).
+ */
 public interface VariableWidthVector extends ValueVector, DensityAwareVector {
 
   /**
@@ -34,5 +37,9 @@ public interface VariableWidthVector extends ValueVector, DensityAwareVector {
    */
   int getByteCapacity();
 
-  int getCurrentSizeInBytes();
+  /**
+   * Provide the number of bytes contained in the valueBuffer.
+   * @return the number of bytes in valueBuffer.
+   */
+  int sizeOfValueBuffer();
 }

@@ -44,3 +44,34 @@ test_that("arrow::Buffer can be created from complex vector", {
   expect_is(buf, "arrow::Buffer")
   expect_equal(buf$size, 3 * 16)
 })
+
+test_that("can convert arrow::Buffer to raw", {
+  buf <- buffer(rnorm(10))
+  expect_equal(buf$data(), as.raw(buf))
+})
+
+test_that("can read remaining bytes of a RandomAccessFile", {
+  tbl <- tibble::tibble(
+    int = 1:10, dbl = as.numeric(1:10),
+    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+    chr = letters[1:10]
+  )
+  tab <- arrow::table(!!!tbl)
+
+  tf <- tempfile()
+  all_bytes <- write_arrow(tab, tf)
+
+  file <- ReadableFile(tf)
+  x <- file$Read(20)$data()
+  y <- file$Read()$data()
+
+  file <- ReadableFile(tf)
+  z <- file$Read()$data()
+
+  file <- ReadableFile(tf)
+  a <- file$ReadAt(20)$data()
+
+  expect_equal(file$GetSize(), length(x) + length(y))
+  expect_equal(z, c(x, y))
+  expect_equal(a, y)
+})

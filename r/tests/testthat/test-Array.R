@@ -316,14 +316,12 @@ test_that("integer types casts (ARROW-3741)", {
   expect_true(a_uint64$IsNull(10L))
 })
 
-test_that("integer types cast safety (ARROW-3741)", {
+test_that("integer types cast safety (ARROW-3741, ARROW-5541)", {
   a <- array(-(1:10))
-  expect_error(a$cast(uint8()))
-  expect_error(a$cast(uint16()))
-
-  # this looks like a bug in the C++
-  # expect_error(a$cast(uint32()))
-  # expect_error(a$cast(uint64()))
+  expect_error(a$cast(uint8()), regexp = "Integer value out of bounds")
+  expect_error(a$cast(uint16()), regexp = "Integer value out of bounds")
+  expect_error(a$cast(uint32()), regexp = "Integer value out of bounds")
+  expect_error(a$cast(uint64()), regexp = "Integer value out of bounds")
 
   expect_error(a$cast(uint8(), safe = FALSE), NA)
   expect_error(a$cast(uint16(), safe = FALSE), NA)
@@ -397,5 +395,47 @@ test_that("array() does not convert doubles to integer", {
   for(type in types) {
     expect_error(array(10, type = type)$type, "Cannot convert.*REALSXP")
   }
+})
+
+test_that("array() converts raw vectors to uint8 arrays (ARROW-3794)", {
+  expect_equal(array(as.raw(1:10))$type, uint8())
+})
+
+test_that("Array<int8>$as_vector() converts to integer (ARROW-3794)", {
+  a <- array((-128):127)$cast(int8())
+  expect_equal(a$type, int8())
+  expect_equal(a$as_vector(), (-128):127)
+
+  a <- array(0:255)$cast(uint8())
+  expect_equal(a$type, uint8())
+  expect_equal(a$as_vector(), 0:255)
+})
+
+test_that("array() recognise arrow::Array (ARROW-3815)", {
+  a <- array(1:10)
+  expect_equal(a, array(a))
+})
+
+test_that("array() handles data frame -> struct arrays (ARROW-3811)", {
+  df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
+  a <- array(df)
+  expect_equal(a$type, struct(x = int32(), y = float64(), z = utf8()))
+  expect_equivalent(a$as_vector(), df)
+})
+
+test_that("array() can handle data frame with custom struct type (not infered)", {
+  df <- tibble::tibble(x = 1:10, y = 1:10)
+  type <- struct(x = float64(), y = int16())
+  a <- array(df, type = type)
+  expect_equal(a$type, type)
+
+  type <- struct(x = float64(), y = int16(), z = int32())
+  expect_error(array(df, type = type), regexp = "Number of fields in struct.* incompatible with number of columns in the data frame")
+
+  type <- struct(y = int16(), x = float64())
+  expect_error(array(df, type = type), regexp = "Field name in position.*does not match the name of the column of the data frame")
+
+  type <- struct(x = float64(), y = utf8())
+  expect_error(array(df, type = type), regexp = "Cannot convert R object to string array")
 })
 

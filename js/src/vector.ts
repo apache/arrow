@@ -20,12 +20,12 @@ import { DataType } from './type';
 import { Chunked } from './vector/chunked';
 
 /** @ignore */
-export interface Clonable<R extends Vector> {
+export interface Clonable<R extends AbstractVector> {
     clone(...args: any[]): R;
 }
 
 /** @ignore */
-export interface Sliceable<R extends Vector> {
+export interface Sliceable<R extends AbstractVector> {
     slice(begin?: number, end?: number): R;
 }
 
@@ -53,6 +53,7 @@ export abstract class AbstractVector<T extends DataType = any> implements Iterab
     public abstract readonly length: number;
     public abstract readonly stride: number;
     public abstract readonly nullCount: number;
+    public abstract readonly byteLength: number;
     public abstract readonly numChildren: number;
 
     public abstract readonly ArrayType: T['ArrayType'];

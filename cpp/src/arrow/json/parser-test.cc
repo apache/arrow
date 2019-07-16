@@ -36,8 +36,8 @@ using util::string_view;
 static std::string scalars_only_src() {
   return R"(
     { "hello": 3.5, "world": false, "yo": "thing" }
-    { "hello": 3.2, "world": null }
-    { "hello": 3.4, "world": null, "yo": "\u5fcd" }
+    { "hello": 3.25, "world": null }
+    { "hello": 3.125, "world": null, "yo": "\u5fcd" }
     { "hello": 0.0, "world": true, "yo": null }
   )";
 }
@@ -45,8 +45,8 @@ static std::string scalars_only_src() {
 static std::string nested_src() {
   return R"(
     { "hello": 3.5, "world": false, "yo": "thing", "arr": [1, 2, 3], "nuf": {} }
-    { "hello": 3.2, "world": null, "arr": [2], "nuf": null }
-    { "hello": 3.4, "world": null, "yo": "\u5fcd", "arr": [], "nuf": { "ps": 78 } }
+    { "hello": 3.25, "world": null, "arr": [2], "nuf": null }
+    { "hello": 3.125, "world": null, "yo": "\u5fcd", "arr": [], "nuf": { "ps": 78 } }
     { "hello": 0.0, "world": true, "yo": null, "arr": null, "nuf": { "ps": 90 } }
   )";
 }
@@ -119,7 +119,7 @@ TEST(BlockParserWithSchema, Basics) {
   AssertParseColumns(
       options, scalars_only_src(),
       {field("hello", utf8()), field("world", boolean()), field("yo", utf8())},
-      {"[\"3.5\", \"3.2\", \"3.4\", \"0.0\"]", "[false, null, null, true]",
+      {"[\"3.5\", \"3.25\", \"3.125\", \"0.0\"]", "[false, null, null, true]",
        "[\"thing\", null, \"\xe5\xbf\x8d\", null]"});
 }
 
@@ -140,7 +140,7 @@ TEST(BlockParserWithSchema, SkipFieldsOutsideSchema) {
   options.unexpected_field_behavior = UnexpectedFieldBehavior::Ignore;
   AssertParseColumns(options, scalars_only_src(),
                      {field("hello", utf8()), field("yo", utf8())},
-                     {"[\"3.5\", \"3.2\", \"3.4\", \"0.0\"]",
+                     {"[\"3.5\", \"3.25\", \"3.125\", \"0.0\"]",
                       "[\"thing\", null, \"\xe5\xbf\x8d\", null]"});
 }
 
@@ -179,7 +179,7 @@ TEST(BlockParser, Basics) {
   AssertParseColumns(
       options, scalars_only_src(),
       {field("hello", utf8()), field("world", boolean()), field("yo", utf8())},
-      {"[\"3.5\", \"3.2\", \"3.4\", \"0.0\"]", "[false, null, null, true]",
+      {"[\"3.5\", \"3.25\", \"3.125\", \"0.0\"]", "[false, null, null, true]",
        "[\"thing\", null, \"\xe5\xbf\x8d\", null]"});
 }
 

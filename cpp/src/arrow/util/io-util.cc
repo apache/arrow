@@ -28,10 +28,14 @@
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
+#include <iostream>
+#include <random>
 #include <sstream>
 #include <string>
+#include <utility>
 
 #include <fcntl.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>  // IWYU pragma: keep
@@ -45,22 +49,14 @@
 #define ARROW_WRITE_SHMODE S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
 #endif
 
-// For filename conversion
-#if defined(_MSC_VER)
-#include <boost/system/system_error.hpp>  // NOLINT
-#include <codecvt>
-#include <locale>
-#endif
+#include <boost/filesystem.hpp>
 
 // ----------------------------------------------------------------------
 // file compatibility stuff
 
-#if defined(__MINGW32__)  // MinGW
-// nothing
-#elif defined(_MSC_VER)  // Visual Studio
+#if defined(_WIN32)
 #include <io.h>
-#else  // POSIX / Linux
-// nothing
+#include <share.h>
 #endif
 
 #ifdef _WIN32  // Windows
@@ -72,13 +68,8 @@
 #include <unistd.h>
 #endif
 
-// POSIX systems do not have this
-#ifndef O_BINARY
-#define O_BINARY 0
-#endif
-
 // define max read/write count
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 #define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
 #else
 
@@ -92,17 +83,320 @@
 
 #endif
 
-#include "arrow/status.h"
+#include "arrow/buffer.h"
 #include "arrow/util/io-util.h"
+#include "arrow/util/logging.h"
+
+// For filename conversion
+#if defined(_WIN32)
+#include "arrow/util/utf8.h"
+#endif
 
 namespace arrow {
+namespace io {
+
+//
+// StdoutStream implementation
+//
+
+StdoutStream::StdoutStream() : pos_(0) { set_mode(FileMode::WRITE); }
+
+Status StdoutStream::Close() { return Status::OK(); }
+
+bool StdoutStream::closed() const { return false; }
+
+Status StdoutStream::Tell(int64_t* position) const {
+  *position = pos_;
+  return Status::OK();
+}
+
+Status StdoutStream::Write(const void* data, int64_t nbytes) {
+  pos_ += nbytes;
+  std::cout.write(reinterpret_cast<const char*>(data), nbytes);
+  return Status::OK();
+}
+
+//
+// StderrStream implementation
+//
+
+StderrStream::StderrStream() : pos_(0) { set_mode(FileMode::WRITE); }
+
+Status StderrStream::Close() { return Status::OK(); }
+
+bool StderrStream::closed() const { return false; }
+
+Status StderrStream::Tell(int64_t* position) const {
+  *position = pos_;
+  return Status::OK();
+}
+
+Status StderrStream::Write(const void* data, int64_t nbytes) {
+  pos_ += nbytes;
+  std::cerr.write(reinterpret_cast<const char*>(data), nbytes);
+  return Status::OK();
+}
+
+//
+// StdinStream implementation
+//
+
+StdinStream::StdinStream() : pos_(0) { set_mode(FileMode::READ); }
+
+Status StdinStream::Close() { return Status::OK(); }
+
+bool StdinStream::closed() const { return false; }
+
+Status StdinStream::Tell(int64_t* position) const {
+  *position = pos_;
+  return Status::OK();
+}
+
+Status StdinStream::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+  std::cin.read(reinterpret_cast<char*>(out), nbytes);
+  if (std::cin) {
+    *bytes_read = nbytes;
+    pos_ += nbytes;
+  } else {
+    *bytes_read = 0;
+  }
+  return Status::OK();
+}
+
+Status StdinStream::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  std::shared_ptr<ResizableBuffer> buffer;
+  ARROW_RETURN_NOT_OK(AllocateResizableBuffer(nbytes, &buffer));
+  int64_t bytes_read;
+  ARROW_RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
+  ARROW_RETURN_NOT_OK(buffer->Resize(bytes_read, false));
+  buffer->ZeroPadding();
+  *out = buffer;
+  return Status::OK();
+}
+
+}  // namespace io
+
 namespace internal {
+
+namespace bfs = ::boost::filesystem;
+
+namespace {
+
+Status StringToNative(const std::string& s, NativePathString* out) {
+#if _WIN32
+  std::wstring ws;
+  RETURN_NOT_OK(::arrow::util::UTF8ToWideString(s, &ws));
+  *out = std::move(ws);
+#else
+  *out = s;
+#endif
+  return Status::OK();
+}
+
+}  // namespace
+
+#define BOOST_FILESYSTEM_TRY try {
+#define BOOST_FILESYSTEM_CATCH           \
+  }                                      \
+  catch (bfs::filesystem_error & _err) { \
+    return ToStatus(_err);               \
+  }
+
+// NOTE: catching filesystem_error gives more context than system::error_code
+// (it includes the file path(s) in the error message)
+
+static Status ToStatus(const bfs::filesystem_error& err) {
+  return Status::IOError(err.what());
+}
+
+static std::string MakeRandomName(int num_chars) {
+  static const std::string chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+  std::random_device gen;
+  std::uniform_int_distribution<int> dist(0, static_cast<int>(chars.length() - 1));
+
+  std::string s;
+  s.reserve(num_chars);
+  for (int i = 0; i < num_chars; ++i) {
+    s += chars[dist(gen)];
+  }
+  return s;
+}
+
+std::string ErrnoMessage(int errnum) { return std::strerror(errnum); }
+
+#if _WIN32
+std::string WinErrorMessage(int errnum) {
+  char buf[1024];
+  auto nchars = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                               NULL, errnum, 0, buf, sizeof(buf), NULL);
+  if (nchars == 0) {
+    // Fallback
+    std::stringstream ss;
+    ss << "Windows error #" << errnum;
+    return ss.str();
+  }
+  return std::string(buf, nchars);
+}
+#endif
+
+//
+// PlatformFilename implementation
+//
+
+struct PlatformFilename::Impl {
+  Impl() = default;
+  explicit Impl(bfs::path p) : path(p.make_preferred()) {}
+
+  bfs::path path;
+};
+
+PlatformFilename::PlatformFilename() : impl_(new Impl{}) {}
+
+PlatformFilename::~PlatformFilename() {}
+
+PlatformFilename::PlatformFilename(const Impl& impl) : impl_(new Impl(impl)) {}
+
+PlatformFilename::PlatformFilename(Impl&& impl) : impl_(new Impl(std::move(impl))) {}
+
+PlatformFilename::PlatformFilename(const PlatformFilename& other)
+    : PlatformFilename(Impl{other.impl_->path}) {}
+
+PlatformFilename::PlatformFilename(PlatformFilename&& other)
+    : impl_(std::move(other.impl_)) {}
+
+PlatformFilename& PlatformFilename::operator=(const PlatformFilename& other) {
+  this->impl_.reset(new Impl{other.impl_->path});
+  return *this;
+}
+
+PlatformFilename& PlatformFilename::operator=(PlatformFilename&& other) {
+  this->impl_ = std::move(other.impl_);
+  return *this;
+}
+
+PlatformFilename::PlatformFilename(const NativePathString& path)
+    : PlatformFilename(Impl{path}) {}
+
+const NativePathString& PlatformFilename::ToNative() const {
+  return impl_->path.native();
+}
+
+std::string PlatformFilename::ToString() const {
+#if _WIN32
+  std::wstring ws = impl_->path.generic_wstring();
+  std::string s;
+  Status st = ::arrow::util::WideStringToUTF8(ws, &s);
+  if (!st.ok()) {
+    std::stringstream ss;
+    ss << "<Unrepresentable filename: " << st.ToString() << ">";
+    return ss.str();
+  }
+  return s;
+#else
+  return impl_->path.generic_string();
+#endif
+}
+
+Status PlatformFilename::FromString(const std::string& file_name, PlatformFilename* out) {
+  if (file_name.find_first_of('\0') != std::string::npos) {
+    return Status::Invalid("Embedded NUL char in file name: '", file_name, "'");
+  }
+  NativePathString ns;
+  RETURN_NOT_OK(StringToNative(file_name, &ns));
+  *out = PlatformFilename(std::move(ns));
+  return Status::OK();
+}
+
+Status PlatformFilename::Join(const std::string& child_name,
+                              PlatformFilename* out) const {
+  NativePathString ns;
+  RETURN_NOT_OK(StringToNative(child_name, &ns));
+  auto path = impl_->path / ns;
+  *out = PlatformFilename(Impl{std::move(path)});
+  return Status::OK();
+}
+
+Status CreateDir(const PlatformFilename& dir_path, bool* created) {
+  bool res;
+  BOOST_FILESYSTEM_TRY
+  res = bfs::create_directory(dir_path.impl_->path);
+  BOOST_FILESYSTEM_CATCH
+  if (created) {
+    *created = res;
+  }
+  return Status::OK();
+}
+
+Status CreateDirTree(const PlatformFilename& dir_path, bool* created) {
+  bool res;
+  BOOST_FILESYSTEM_TRY
+  res = bfs::create_directories(dir_path.impl_->path);
+  BOOST_FILESYSTEM_CATCH
+  if (created) {
+    *created = res;
+  }
+  return Status::OK();
+}
+
+Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted) {
+  BOOST_FILESYSTEM_TRY
+  const auto& path = dir_path.impl_->path;
+  // XXX There is a race here.
+  auto st = bfs::symlink_status(path);
+  if (st.type() != bfs::file_not_found && st.type() != bfs::directory_file) {
+    return Status::IOError("Cannot delete non -directory '", path.string(), "'");
+  }
+  auto n_removed = bfs::remove_all(path);
+  if (deleted) {
+    *deleted = n_removed != 0;
+  }
+  BOOST_FILESYSTEM_CATCH
+  return Status::OK();
+}
+
+Status DeleteFile(const PlatformFilename& file_path, bool* deleted) {
+  BOOST_FILESYSTEM_TRY
+  bool res = false;
+  const auto& path = file_path.impl_->path;
+  // XXX There is a race here, and boost::filesystem doesn't allow deleting
+  // only files and not empty directories.
+  auto st = bfs::symlink_status(path);
+  if (!bfs::is_directory(st)) {
+    res = bfs::remove(path);
+  } else {
+    return Status::IOError("Cannot delete directory '", path.string(), "'");
+  }
+  if (deleted) {
+    *deleted = res;
+  }
+  BOOST_FILESYSTEM_CATCH
+  return Status::OK();
+}
+
+Status FileExists(const PlatformFilename& path, bool* out) {
+  BOOST_FILESYSTEM_TRY
+  *out = bfs::exists(path.impl_->path);
+  BOOST_FILESYSTEM_CATCH
+  return Status::OK();
+}
+
+//
+// File name handling
+//
+
+Status FileNameFromString(const std::string& file_name, PlatformFilename* out) {
+  return PlatformFilename::FromString(file_name, out);
+}
+
+//
+// Functions for creating file descriptors
+//
 
 #define CHECK_LSEEK(retval) \
   if ((retval) == -1) return Status::IOError("lseek failed");
 
 static inline int64_t lseek64_compat(int fd, int64_t pos, int whence) {
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   return _lseeki64(fd, pos, whence);
 #else
   return lseek(fd, pos, whence);
@@ -113,43 +407,43 @@ static inline Status CheckFileOpResult(int ret, int errno_actual,
                                        const PlatformFilename& file_name,
                                        const char* opname) {
   if (ret == -1) {
-    return Status::IOError("Failed to ", opname, " file: ", file_name.string(),
-                           " , error: ", std::strerror(errno_actual));
-  }
-  return Status::OK();
-}
-
-//
-// File name handling
-//
-
-Status FileNameFromString(const std::string& file_name, PlatformFilename* out) {
-#if defined(_MSC_VER)
-  try {
-    std::codecvt_utf8_utf16<wchar_t> utf16_converter;
-    out->assign(file_name, utf16_converter);
-  } catch (boost::system::system_error& e) {
-    return Status::Invalid(e.what());
-  }
-#else
-  *out = internal::PlatformFilename(file_name);
+#ifdef _WIN32
+    int winerr = GetLastError();
+    if (winerr != ERROR_SUCCESS) {
+      return Status::IOError("Failed to ", opname, " file '", file_name.ToString(),
+                             "', error: ", WinErrorMessage(winerr));
+    }
 #endif
+    return Status::IOError("Failed to ", opname, " file '", file_name.ToString(),
+                           "', error: ", ErrnoMessage(errno_actual));
+  }
   return Status::OK();
 }
-
-//
-// Functions for creating file descriptors
-//
 
 Status FileOpenReadable(const PlatformFilename& file_name, int* fd) {
   int ret, errno_actual;
-#if defined(_MSC_VER)
-  errno_actual = _wsopen_s(fd, file_name.wstring().c_str(),
+#if defined(_WIN32)
+  SetLastError(0);
+  errno_actual = _wsopen_s(fd, file_name.ToNative().c_str(),
                            _O_RDONLY | _O_BINARY | _O_NOINHERIT, _SH_DENYNO, _S_IREAD);
   ret = *fd;
 #else
-  ret = *fd = open(file_name.c_str(), O_RDONLY | O_BINARY);
+  ret = *fd = open(file_name.ToNative().c_str(), O_RDONLY);
   errno_actual = errno;
+
+  if (ret >= 0) {
+    // open(O_RDONLY) succeeds on directories, check for it
+    struct stat st;
+    ret = fstat(*fd, &st);
+    if (ret == -1) {
+      ARROW_UNUSED(FileClose(*fd));
+      // Will propagate error below
+    } else if (S_ISDIR(st.st_mode)) {
+      ARROW_UNUSED(FileClose(*fd));
+      return Status::IOError("Cannot open for reading: path '", file_name.ToString(),
+                             "' is a directory");
+    }
+  }
 #endif
 
   return CheckFileOpResult(ret, errno_actual, file_name, "open local");
@@ -159,12 +453,10 @@ Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool
                         bool append, int* fd) {
   int ret, errno_actual;
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
+  SetLastError(0);
   int oflag = _O_CREAT | _O_BINARY | _O_NOINHERIT;
-  int pmode = _S_IWRITE;
-  if (!write_only) {
-    pmode |= _S_IREAD;
-  }
+  int pmode = _S_IREAD | _S_IWRITE;
 
   if (truncate) {
     oflag |= _O_TRUNC;
@@ -179,11 +471,11 @@ Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool
     oflag |= _O_RDWR;
   }
 
-  errno_actual = _wsopen_s(fd, file_name.wstring().c_str(), oflag, _SH_DENYNO, pmode);
+  errno_actual = _wsopen_s(fd, file_name.ToNative().c_str(), oflag, _SH_DENYNO, pmode);
   ret = *fd;
 
 #else
-  int oflag = O_CREAT | O_BINARY;
+  int oflag = O_CREAT;
 
   if (truncate) {
     oflag |= O_TRUNC;
@@ -198,16 +490,25 @@ Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool
     oflag |= O_RDWR;
   }
 
-  ret = *fd = open(file_name.c_str(), oflag, ARROW_WRITE_SHMODE);
+  ret = *fd = open(file_name.ToNative().c_str(), oflag, ARROW_WRITE_SHMODE);
   errno_actual = errno;
 #endif
-  return CheckFileOpResult(ret, errno_actual, file_name, "open local");
+  RETURN_NOT_OK(CheckFileOpResult(ret, errno_actual, file_name, "open local"));
+  if (append) {
+    // Seek to end, as O_APPEND does not necessarily do it
+    auto ret = lseek64_compat(*fd, 0, SEEK_END);
+    if (ret == -1) {
+      ARROW_UNUSED(FileClose(*fd));
+      return Status::IOError("lseek failed");
+    }
+  }
+  return Status::OK();
 }
 
 Status FileTell(int fd, int64_t* pos) {
   int64_t current_pos;
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   current_pos = _telli64(fd);
   if (current_pos == -1) {
     return Status::IOError("_telli64 failed");
@@ -230,7 +531,7 @@ Status CreatePipe(int fd[2]) {
 #endif
 
   if (ret == -1) {
-    return Status::IOError("Error creating pipe: ", std::strerror(errno));
+    return Status::IOError("Error creating pipe: ", ErrnoMessage(errno));
   }
   return Status::OK();
 }
@@ -239,7 +540,7 @@ static Status StatusFromErrno(const char* prefix) {
 #ifdef _WIN32
   errno = __map_mman_error(GetLastError(), EPERM);
 #endif
-  return Status::IOError(prefix, std::strerror(errno));
+  return Status::IOError(prefix, ErrnoMessage(errno));
 }
 
 //
@@ -263,8 +564,9 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
     return StatusFromErrno("Cannot get file handle: ");
   }
 
-  LONG new_size_low = static_cast<LONG>(new_size & 0xFFFFFFFFL);
-  LONG new_size_high = static_cast<LONG>((new_size >> 32) & 0xFFFFFFFFL);
+  uint64_t new_size64 = new_size;
+  LONG new_size_low = static_cast<LONG>(new_size64 & 0xFFFFFFFFUL);
+  LONG new_size_high = static_cast<LONG>((new_size64 >> 32) & 0xFFFFFFFFUL);
 
   SetFilePointer(h, new_size_low, &new_size_high, FILE_BEGIN);
   SetEndOfFile(h);
@@ -315,7 +617,7 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
 Status FileClose(int fd) {
   int ret;
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   ret = static_cast<int>(_close(fd));
 #else
   ret = static_cast<int>(close(fd));
@@ -340,14 +642,14 @@ Status FileSeek(int fd, int64_t pos, int whence) {
 Status FileSeek(int fd, int64_t pos) { return FileSeek(fd, pos, SEEK_SET); }
 
 Status FileGetSize(int fd, int64_t* size) {
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   struct __stat64 st;
 #else
   struct stat st;
 #endif
   st.st_size = -1;
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   int ret = _fstat64(fd, &st);
 #else
   int ret = fstat(fd, &st);
@@ -421,8 +723,7 @@ Status FileRead(int fd, uint8_t* buffer, int64_t nbytes, int64_t* bytes_read) {
   }
 
   if (*bytes_read == -1) {
-    return Status::IOError(std::string("Error reading bytes from file: ") +
-                           std::string(strerror(errno)));
+    return Status::IOError("Error reading bytes from file: ", ErrnoMessage(errno));
   }
 
   return Status::OK();
@@ -451,8 +752,7 @@ Status FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nbytes,
   }
 
   if (*bytes_read == -1) {
-    return Status::IOError(std::string("Error reading bytes from file: ") +
-                           std::string(strerror(errno)));
+    return Status::IOError("Error reading bytes from file: ", ErrnoMessage(errno));
   }
   return Status::OK();
 }
@@ -482,8 +782,7 @@ Status FileWrite(int fd, const uint8_t* buffer, const int64_t nbytes) {
   }
 
   if (ret == -1) {
-    return Status::IOError(std::string("Error writing bytes from file: ") +
-                           std::string(strerror(errno)));
+    return Status::IOError("Error writing bytes to file: ", ErrnoMessage(errno));
   }
   return Status::OK();
 }
@@ -500,8 +799,7 @@ Status FileTruncate(int fd, const int64_t size) {
 #endif
 
   if (ret == -1) {
-    return Status::IOError(std::string("Error truncating file: ") +
-                           std::string(strerror(errno_actual)));
+    return Status::IOError("Error writing bytes to file: ", ErrnoMessage(errno_actual));
   }
   return Status::OK();
 }
@@ -575,6 +873,111 @@ Status DelEnvVar(const char* name) {
 }
 
 Status DelEnvVar(const std::string& name) { return DelEnvVar(name.c_str()); }
+
+TemporaryDir::TemporaryDir(PlatformFilename&& path) : path_(std::move(path)) {}
+
+TemporaryDir::~TemporaryDir() {
+  Status st = DeleteDirTree(path_);
+  if (!st.ok()) {
+    ARROW_LOG(WARNING) << "When trying to delete temporary directory: " << st;
+  }
+}
+
+Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDir>* out) {
+  bfs::path path;
+  std::string suffix = MakeRandomName(8);
+
+  BOOST_FILESYSTEM_TRY
+  path = bfs::temp_directory_path() / (prefix + suffix);
+  path += "/";
+  BOOST_FILESYSTEM_CATCH
+
+  PlatformFilename fn(path.native());
+  bool created = false;
+  RETURN_NOT_OK(CreateDir(fn, &created));
+  if (!created) {
+    // XXX Should we retry?
+    return Status::IOError("Path already exists: '", fn.ToString(), "'");
+  }
+  out->reset(new TemporaryDir(std::move(fn)));
+  return Status::OK();
+}
+
+SignalHandler::SignalHandler() : SignalHandler(static_cast<Callback>(nullptr)) {}
+
+SignalHandler::SignalHandler(Callback cb) {
+#if ARROW_HAVE_SIGACTION
+  sa_.sa_handler = cb;
+  sa_.sa_flags = 0;
+  sigemptyset(&sa_.sa_mask);
+#else
+  cb_ = cb;
+#endif
+}
+
+#if ARROW_HAVE_SIGACTION
+SignalHandler::SignalHandler(const struct sigaction& sa) {
+  memcpy(&sa_, &sa, sizeof(sa));
+}
+#endif
+
+SignalHandler::Callback SignalHandler::callback() const {
+#if ARROW_HAVE_SIGACTION
+  return sa_.sa_handler;
+#else
+  return cb_;
+#endif
+}
+
+#if ARROW_HAVE_SIGACTION
+const struct sigaction& SignalHandler::action() const { return sa_; }
+#endif
+
+Status GetSignalHandler(int signum, SignalHandler* out) {
+#if ARROW_HAVE_SIGACTION
+  struct sigaction sa;
+  int ret = sigaction(signum, nullptr, &sa);
+  if (ret != 0) {
+    // TODO more detailed message using errno
+    return Status::IOError("sigaction call failed");
+  }
+  *out = SignalHandler(sa);
+#else
+  // To read the old handler, set the signal handler to something else temporarily
+  SignalHandler::Callback cb = signal(signum, SIG_IGN);
+  if (cb == SIG_ERR || signal(signum, cb) == SIG_ERR) {
+    // TODO more detailed message using errno
+    return Status::IOError("signal call failed");
+  }
+  *out = SignalHandler(cb);
+#endif
+  return Status::OK();
+}
+
+Status SetSignalHandler(int signum, const SignalHandler& handler,
+                        SignalHandler* old_handler) {
+#if ARROW_HAVE_SIGACTION
+  struct sigaction old_sa;
+  int ret = sigaction(signum, &handler.action(), &old_sa);
+  if (ret != 0) {
+    // TODO more detailed message using errno
+    return Status::IOError("sigaction call failed");
+  }
+  if (old_handler != nullptr) {
+    *old_handler = SignalHandler(old_sa);
+  }
+#else
+  SignalHandler::Callback cb = signal(signum, handler.callback());
+  if (cb == SIG_ERR) {
+    // TODO more detailed message using errno
+    return Status::IOError("signal call failed");
+  }
+  if (old_handler != nullptr) {
+    *old_handler = SignalHandler(cb);
+  }
+#endif
+  return Status::OK();
+}
 
 }  // namespace internal
 }  // namespace arrow

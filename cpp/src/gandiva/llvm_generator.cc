@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "gandiva/bitmap_accumulator.h"
+#include "gandiva/decimal_ir.h"
 #include "gandiva/dex.h"
 #include "gandiva/expr_decomposer.h"
 #include "gandiva/expression.h"
@@ -59,33 +60,31 @@ Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr out
   ARROW_RETURN_NOT_OK(decomposer.Decompose(*expr->root(), &value_validity));
   // Generate the IR function for the decomposed expression.
   std::unique_ptr<CompiledExpr> compiled_expr(new CompiledExpr(value_validity, output));
-  for (auto mode : SelectionVector::kAllModes) {
-    llvm::Function* ir_function = nullptr;
-    ARROW_RETURN_NOT_OK(
-        CodeGenExprValue(value_validity->value_expr(), output, idx, &ir_function, mode));
-    compiled_expr->SetIRFunction(mode, ir_function);
-  }
+  llvm::Function* ir_function = nullptr;
+  ARROW_RETURN_NOT_OK(CodeGenExprValue(value_validity->value_expr(), output, idx,
+                                       &ir_function, selection_vector_mode_));
+  compiled_expr->SetIRFunction(selection_vector_mode_, ir_function);
 
   compiled_exprs_.push_back(std::move(compiled_expr));
   return Status::OK();
 }
 
 /// Build and optimise module for projection expression.
-Status LLVMGenerator::Build(const ExpressionVector& exprs) {
+Status LLVMGenerator::Build(const ExpressionVector& exprs, SelectionVector::Mode mode) {
+  selection_vector_mode_ = mode;
   for (auto& expr : exprs) {
     auto output = annotator_.AddOutputFieldDescriptor(expr->result());
     ARROW_RETURN_NOT_OK(Add(expr, output));
   }
   // optimise, compile and finalize the module
   ARROW_RETURN_NOT_OK(engine_->FinalizeModule(optimise_ir_, dump_ir_));
+
   // setup the jit functions for each expression.
   for (auto& compiled_expr : compiled_exprs_) {
-    for (auto mode : SelectionVector::kAllModes) {
-      auto ir_function = compiled_expr->GetIRFunction(mode);
-      auto jit_function =
-          reinterpret_cast<EvalFunc>(engine_->CompiledFunction(ir_function));
-      compiled_expr->SetJITFunction(mode, jit_function);
-    }
+    auto ir_function = compiled_expr->GetIRFunction(mode);
+    auto jit_function =
+        reinterpret_cast<EvalFunc>(engine_->CompiledFunction(ir_function));
+    compiled_expr->SetJITFunction(selection_vector_mode_, jit_function);
   }
   return Status::OK();
 }
@@ -106,15 +105,22 @@ Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
   auto eval_batch = annotator_.PrepareEvalBatch(record_batch, output_vector);
   DCHECK_GT(eval_batch->GetNumBuffers(), 0);
 
+  auto mode = SelectionVector::MODE_NONE;
+  if (selection_vector != nullptr) {
+    mode = selection_vector->GetMode();
+  }
+  if (mode != selection_vector_mode_) {
+    return Status::Invalid("llvm expression built for selection vector mode ",
+                           selection_vector_mode_, " received vector with mode ", mode);
+  }
+
   for (auto& compiled_expr : compiled_exprs_) {
     // generate data/offset vectors.
     const uint8_t* selection_buffer = nullptr;
     auto num_output_rows = record_batch.num_rows();
-    auto mode = SelectionVector::MODE_NONE;
     if (selection_vector != nullptr) {
       selection_buffer = selection_vector->GetBuffer().data();
       num_output_rows = selection_vector->GetNumSlots();
-      mode = selection_vector->GetMode();
     }
 
     EvalFunc jit_function = compiled_expr->GetJITFunction(mode);
@@ -148,6 +154,14 @@ llvm::Value* LLVMGenerator::GetValidityReference(llvm::Value* arg_addrs, int idx
   const std::string& name = field->name();
   llvm::Value* load = LoadVectorAtIndex(arg_addrs, idx, name);
   return ir_builder()->CreateIntToPtr(load, types()->i64_ptr_type(), name + "_varray");
+}
+
+/// Get reference to data array at specified index in the args list.
+llvm::Value* LLVMGenerator::GetDataBufferPtrReference(llvm::Value* arg_addrs, int idx,
+                                                      FieldPtr field) {
+  const std::string& name = field->name();
+  llvm::Value* load = LoadVectorAtIndex(arg_addrs, idx, name);
+  return ir_builder()->CreateIntToPtr(load, types()->i8_ptr_type(), name + "_buf_ptr");
 }
 
 /// Get reference to data array at specified index in the args list.
@@ -288,6 +302,10 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
   builder->SetInsertPoint(loop_entry);
   llvm::Value* output_ref =
       GetDataReference(arg_addrs, output->data_idx(), output->field());
+  llvm::Value* output_buffer_ptr_ref = GetDataBufferPtrReference(
+      arg_addrs, output->data_buffer_ptr_idx(), output->field());
+  llvm::Value* output_offset_ref =
+      GetOffsetsReference(arg_addrs, output->offsets_idx(), output->field());
 
   // Loop body
   builder->SetInsertPoint(loop_body);
@@ -318,11 +336,24 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
 
   // save the value in the output vector.
   builder->SetInsertPoint(loop_body_tail);
-  if (output->Type()->id() == arrow::Type::BOOL) {
+
+  auto output_type_id = output->Type()->id();
+  if (output_type_id == arrow::Type::BOOL) {
     SetPackedBitValue(output_ref, loop_var, output_value->data());
-  } else {
+  } else if (arrow::is_primitive(output_type_id) ||
+             output_type_id == arrow::Type::DECIMAL) {
     llvm::Value* slot_offset = builder->CreateGEP(output_ref, loop_var);
     builder->CreateStore(output_value->data(), slot_offset);
+  } else if (arrow::is_binary_like(output_type_id)) {
+    // Var-len output. Make a function call to populate the data.
+    // if there is an error, the fn sets it in the context. And, will be returned at the
+    // end of this row batch.
+    AddFunctionCall("gdv_fn_populate_varlen_vector", types()->i32_type(),
+                    {arg_context_ptr, output_buffer_ptr_ref, output_offset_ref, loop_var,
+                     output_value->data(), output_value->length()});
+  } else {
+    return Status::NotImplemented("output type ", output->Type()->ToString(),
+                                  " not supported");
   }
   ADD_TRACE("saving result " + output->Name() + " value %T", output_value->data());
 
@@ -587,52 +618,52 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
 
   switch (dex.type()->id()) {
     case arrow::Type::BOOL:
-      value = types->i1_constant(dex.holder().get<bool>());
+      value = types->i1_constant(arrow::util::get<bool>(dex.holder()));
       break;
 
     case arrow::Type::UINT8:
-      value = types->i8_constant(dex.holder().get<uint8_t>());
+      value = types->i8_constant(arrow::util::get<uint8_t>(dex.holder()));
       break;
 
     case arrow::Type::UINT16:
-      value = types->i16_constant(dex.holder().get<uint16_t>());
+      value = types->i16_constant(arrow::util::get<uint16_t>(dex.holder()));
       break;
 
     case arrow::Type::UINT32:
-      value = types->i32_constant(dex.holder().get<uint32_t>());
+      value = types->i32_constant(arrow::util::get<uint32_t>(dex.holder()));
       break;
 
     case arrow::Type::UINT64:
-      value = types->i64_constant(dex.holder().get<uint64_t>());
+      value = types->i64_constant(arrow::util::get<uint64_t>(dex.holder()));
       break;
 
     case arrow::Type::INT8:
-      value = types->i8_constant(dex.holder().get<int8_t>());
+      value = types->i8_constant(arrow::util::get<int8_t>(dex.holder()));
       break;
 
     case arrow::Type::INT16:
-      value = types->i16_constant(dex.holder().get<int16_t>());
+      value = types->i16_constant(arrow::util::get<int16_t>(dex.holder()));
       break;
 
     case arrow::Type::INT32:
-      value = types->i32_constant(dex.holder().get<int32_t>());
+      value = types->i32_constant(arrow::util::get<int32_t>(dex.holder()));
       break;
 
     case arrow::Type::INT64:
-      value = types->i64_constant(dex.holder().get<int64_t>());
+      value = types->i64_constant(arrow::util::get<int64_t>(dex.holder()));
       break;
 
     case arrow::Type::FLOAT:
-      value = types->float_constant(dex.holder().get<float>());
+      value = types->float_constant(arrow::util::get<float>(dex.holder()));
       break;
 
     case arrow::Type::DOUBLE:
-      value = types->double_constant(dex.holder().get<double>());
+      value = types->double_constant(arrow::util::get<double>(dex.holder()));
       break;
 
     case arrow::Type::STRING:
     case arrow::Type::BINARY: {
-      const std::string& str = dex.holder().get<std::string>();
+      const std::string& str = arrow::util::get<std::string>(dex.holder());
 
       llvm::Constant* str_int_cast = types->i64_constant((int64_t)str.c_str());
       value = llvm::ConstantExpr::getIntToPtr(str_int_cast, types->i8_ptr_type());
@@ -641,24 +672,24 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
     }
 
     case arrow::Type::DATE64:
-      value = types->i64_constant(dex.holder().get<int64_t>());
+      value = types->i64_constant(arrow::util::get<int64_t>(dex.holder()));
       break;
 
     case arrow::Type::TIME32:
-      value = types->i32_constant(dex.holder().get<int32_t>());
+      value = types->i32_constant(arrow::util::get<int32_t>(dex.holder()));
       break;
 
     case arrow::Type::TIME64:
-      value = types->i64_constant(dex.holder().get<int64_t>());
+      value = types->i64_constant(arrow::util::get<int64_t>(dex.holder()));
       break;
 
     case arrow::Type::TIMESTAMP:
-      value = types->i64_constant(dex.holder().get<int64_t>());
+      value = types->i64_constant(arrow::util::get<int64_t>(dex.holder()));
       break;
 
     case arrow::Type::DECIMAL: {
       // build code for struct
-      auto scalar = dex.holder().get<DecimalScalar128>();
+      auto scalar = arrow::util::get<DecimalScalar128>(dex.holder());
       // ConstantInt doesn't have a get method that takes int128 or a pair of int64. so,
       // passing the string representation instead.
       auto int128_value =
@@ -1082,6 +1113,7 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
   auto types = generator_->types();
   auto arrow_return_type_id = arrow_return_type->id();
   auto llvm_return_type = types->IRType(arrow_return_type_id);
+  DecimalIR decimalIR(generator_->engine_.get());
 
   if (arrow_return_type_id == arrow::Type::DECIMAL) {
     // For decimal fns, the output precision/scale are passed along as parameters.
@@ -1097,10 +1129,16 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
     params->push_back(ret_lvalue->scale());
 
     // Make the function call
-    auto out = generator_->AddFunctionCall(func->pc_name(), llvm_return_type, *params);
+    auto out = decimalIR.CallDecimalFunction(func->pc_name(), llvm_return_type, *params);
     ret_lvalue->set_data(out);
     return std::move(ret_lvalue);
   } else {
+    bool isDecimalFunction = false;
+    for (auto& arg : *params) {
+      if (arg->getType() == types->i128_type()) {
+        isDecimalFunction = true;
+      }
+    }
     // add extra arg for return length for variable len return types (alloced on stack).
     llvm::AllocaInst* result_len_ptr = nullptr;
     if (arrow::is_binary_like(arrow_return_type_id)) {
@@ -1112,7 +1150,10 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
 
     // Make the function call
     llvm::IRBuilder<>* builder = ir_builder();
-    auto value = generator_->AddFunctionCall(func->pc_name(), llvm_return_type, *params);
+    auto value =
+        isDecimalFunction
+            ? decimalIR.CallDecimalFunction(func->pc_name(), llvm_return_type, *params)
+            : generator_->AddFunctionCall(func->pc_name(), llvm_return_type, *params);
     auto value_len =
         (result_len_ptr == nullptr) ? nullptr : builder->CreateLoad(result_len_ptr);
     return std::make_shared<LValue>(value, value_len);

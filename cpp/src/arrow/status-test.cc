@@ -23,6 +23,16 @@
 
 namespace arrow {
 
+namespace {
+
+class TestStatusDetail : public StatusDetail {
+ public:
+  const char* type_id() const override { return "type_id"; }
+  std::string ToString() const override { return "a specific detail message"; }
+};
+
+}  // namespace
+
 TEST(StatusTest, TestCodeAndMessage) {
   Status ok = Status::OK();
   ASSERT_EQ(StatusCode::OK, ok.code());
@@ -38,6 +48,25 @@ TEST(StatusTest, TestToString) {
   std::stringstream ss;
   ss << file_error;
   ASSERT_EQ(file_error.ToString(), ss.str());
+}
+
+TEST(StatusTest, TestToStringWithDetail) {
+  Status status(StatusCode::IOError, "summary", std::make_shared<TestStatusDetail>());
+  ASSERT_EQ("IOError: summary. Detail: a specific detail message", status.ToString());
+
+  std::stringstream ss;
+  ss << status;
+  ASSERT_EQ(status.ToString(), ss.str());
+}
+
+TEST(StatusTest, TestWithDetail) {
+  Status status(StatusCode::IOError, "summary");
+  auto detail = std::make_shared<TestStatusDetail>();
+  Status new_status = status.WithDetail(detail);
+
+  ASSERT_EQ(new_status.code(), status.code());
+  ASSERT_EQ(new_status.message(), status.message());
+  ASSERT_EQ(new_status.detail(), detail);
 }
 
 TEST(StatusTest, AndStatus) {

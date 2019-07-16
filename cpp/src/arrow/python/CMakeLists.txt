@@ -34,6 +34,7 @@ set(ARROW_PYTHON_SRCS
     config.cc
     decimal.cc
     deserialize.cc
+    extension_type.cc
     helpers.cc
     inference.cc
     init.cc
@@ -127,11 +128,8 @@ if(ARROW_BUILD_TESTS)
     target_link_libraries(arrow_python_test_main pthread ${CMAKE_DL_LIBS})
   endif()
 
-  set(ARROW_PYTHON_MIN_TEST_LIBS
-      arrow_python_test_main
-      arrow_python_shared
-      arrow_testing_shared
-      arrow_shared)
+  set(ARROW_PYTHON_MIN_TEST_LIBS arrow_python_test_main arrow_python_shared
+                                 arrow_testing_shared arrow_shared)
 
   set(ARROW_PYTHON_TEST_LINK_LIBS ${ARROW_PYTHON_MIN_TEST_LIBS})
 

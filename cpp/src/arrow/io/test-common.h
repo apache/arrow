@@ -18,119 +18,38 @@
 #ifndef ARROW_IO_TEST_COMMON_H
 #define ARROW_IO_TEST_COMMON_H
 
-#include <algorithm>
-#include <cstdint>
-#include <fstream>  // IWYU pragma: keep
 #include <memory>
 #include <string>
 #include <vector>
 
-#ifdef _WIN32
-#include <crtdbg.h>
-#include <io.h>
-#else
-#include <fcntl.h>
-#endif
-
-#include "arrow/buffer.h"
-#include "arrow/io/file.h"
-#include "arrow/io/memory.h"
-#include "arrow/memory_pool.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/status.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace io {
 
-static inline void AssertFileContents(const std::string& path,
-                                      const std::string& contents) {
-  std::shared_ptr<ReadableFile> rf;
-  int64_t size;
+class MemoryMappedFile;
 
-  ASSERT_OK(ReadableFile::Open(path, &rf));
-  ASSERT_OK(rf->GetSize(&size));
-  ASSERT_EQ(size, contents.size());
+ARROW_EXPORT
+void AssertFileContents(const std::string& path, const std::string& contents);
 
-  std::shared_ptr<Buffer> actual_data;
-  ASSERT_OK(rf->Read(size, &actual_data));
-  ASSERT_TRUE(actual_data->Equals(Buffer(contents)));
-}
+ARROW_EXPORT bool FileExists(const std::string& path);
 
-static inline bool FileExists(const std::string& path) {
-  return std::ifstream(path.c_str()).good();
-}
+ARROW_EXPORT bool FileIsClosed(int fd);
 
-#if defined(_WIN32)
-static inline void InvalidParamHandler(const wchar_t* expr, const wchar_t* func,
-                                       const wchar_t* source_file,
-                                       unsigned int source_line, uintptr_t reserved) {
-  wprintf(L"Invalid parameter in function '%s'. Source: '%s' line %d expression '%s'\n",
-          func, source_file, source_line, expr);
-}
-#endif
+ARROW_EXPORT
+Status ZeroMemoryMap(MemoryMappedFile* file);
 
-static inline bool FileIsClosed(int fd) {
-#if defined(_WIN32)
-  // Disables default behavior on wrong params which causes the application to crash
-  // https://msdn.microsoft.com/en-us/library/ksazx244.aspx
-  _set_invalid_parameter_handler(InvalidParamHandler);
-
-  // Disables possible assertion alert box on invalid input arguments
-  _CrtSetReportMode(_CRT_ASSERT, 0);
-
-  int new_fd = _dup(fd);
-  if (new_fd == -1) {
-    return errno == EBADF;
-  }
-  _close(new_fd);
-  return false;
-#else
-  if (-1 != fcntl(fd, F_GETFD)) {
-    return false;
-  }
-  return errno == EBADF;
-#endif
-}
-
-static inline Status ZeroMemoryMap(MemoryMappedFile* file) {
-  constexpr int64_t kBufferSize = 512;
-  static constexpr uint8_t kZeroBytes[kBufferSize] = {0};
-
-  RETURN_NOT_OK(file->Seek(0));
-  int64_t position = 0;
-  int64_t file_size;
-  RETURN_NOT_OK(file->GetSize(&file_size));
-
-  int64_t chunksize;
-  while (position < file_size) {
-    chunksize = std::min(kBufferSize, file_size - position);
-    RETURN_NOT_OK(file->Write(kZeroBytes, chunksize));
-    position += chunksize;
-  }
-  return Status::OK();
-}
-
-class MemoryMapFixture {
+class ARROW_EXPORT MemoryMapFixture {
  public:
-  void TearDown() {
-    for (auto path : tmp_files_) {
-      ARROW_UNUSED(std::remove(path.c_str()));
-    }
-  }
+  void TearDown();
 
-  void CreateFile(const std::string& path, int64_t size) {
-    std::shared_ptr<MemoryMappedFile> file;
-    ASSERT_OK(MemoryMappedFile::Create(path, size, &file));
-    tmp_files_.push_back(path);
-  }
+  void CreateFile(const std::string& path, int64_t size);
 
   Status InitMemoryMap(int64_t size, const std::string& path,
-                       std::shared_ptr<MemoryMappedFile>* mmap) {
-    RETURN_NOT_OK(MemoryMappedFile::Create(path, size, mmap));
-    tmp_files_.push_back(path);
-    return Status::OK();
-  }
+                       std::shared_ptr<MemoryMappedFile>* mmap);
 
-  void AppendFile(const std::string& path) { tmp_files_.push_back(path); }
+  void AppendFile(const std::string& path);
 
  private:
   std::vector<std::string> tmp_files_;

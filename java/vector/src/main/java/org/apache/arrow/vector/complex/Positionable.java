@@ -17,8 +17,13 @@
 
 package org.apache.arrow.vector.complex;
 
+/**
+ * Get and set position in a particular data structure.
+ *
+ */
+@SuppressWarnings("unused") // Used in when instantiating freemarker templates.
 public interface Positionable {
-  public int getPosition();
+  int getPosition();
 
-  public void setPosition(int index);
+  void setPosition(int index);
 }

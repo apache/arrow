@@ -19,7 +19,6 @@
 #define ARROW_BUFFER_BUILDER_H
 
 #include <algorithm>
-#include <array>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -30,6 +29,7 @@
 #include "arrow/status.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/ubsan.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -43,7 +43,12 @@ namespace arrow {
 class ARROW_EXPORT BufferBuilder {
  public:
   explicit BufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
-      : pool_(pool), data_(NULLPTR), capacity_(0), size_(0) {}
+      : pool_(pool),
+        data_(/*ensure never null to make ubsan happy and avoid check penalties below*/
+              &util::internal::non_null_filler),
+
+        capacity_(0),
+        size_(0) {}
 
   /// \brief Resize the buffer to the nearest multiple of 64 bytes
   ///
@@ -110,18 +115,6 @@ class ARROW_EXPORT BufferBuilder {
     return Status::OK();
   }
 
-  /// \brief Append the given data to the buffer
-  ///
-  /// The buffer is automatically expanded if necessary.
-  template <size_t NBYTES>
-  Status Append(const std::array<uint8_t, NBYTES>& data) {
-    constexpr auto nbytes = static_cast<int64_t>(NBYTES);
-    ARROW_RETURN_NOT_OK(Reserve(NBYTES));
-    std::copy(data.cbegin(), data.cend(), data_ + size_);
-    size_ += nbytes;
-    return Status::OK();
-  }
-
   // Advance pointer and zero out memory
   Status Advance(const int64_t length) { return Append(length, 0); }
 
@@ -152,6 +145,9 @@ class ARROW_EXPORT BufferBuilder {
     ARROW_RETURN_NOT_OK(Resize(size_, shrink_to_fit));
     if (size_ != 0) buffer_->ZeroPadding();
     *out = buffer_;
+    if (*out == NULLPTR) {
+      ARROW_RETURN_NOT_OK(AllocateBuffer(pool_, 0, out));
+    }
     Reset();
     return Status::OK();
   }
@@ -160,6 +156,12 @@ class ARROW_EXPORT BufferBuilder {
     buffer_ = NULLPTR;
     capacity_ = size_ = 0;
   }
+
+  /// \brief Set size to a smaller value without modifying builder
+  /// contents. For reusable BufferBuilder classes
+  /// \param[in] position must be non-negative and less than or equal
+  /// to the current length()
+  void Rewind(int64_t position) { size_ = position; }
 
   int64_t capacity() const { return capacity_; }
   int64_t length() const { return size_; }

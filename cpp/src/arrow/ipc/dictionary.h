@@ -31,31 +31,47 @@
 namespace arrow {
 
 class Array;
+class DataType;
 class Field;
+class RecordBatch;
 
 namespace ipc {
 
 using DictionaryMap = std::unordered_map<int64_t, std::shared_ptr<Array>>;
-using DictionaryTypeMap = std::unordered_map<int64_t, std::shared_ptr<Field>>;
 
-/// \brief Memoization data structure for handling shared dictionaries
+/// \brief Memoization data structure for assigning id numbers to
+/// dictionaries and tracking their current state through possible
+/// deltas in an IPC stream
 class ARROW_EXPORT DictionaryMemo {
  public:
   DictionaryMemo();
   DictionaryMemo(DictionaryMemo&&) = default;
   DictionaryMemo& operator=(DictionaryMemo&&) = default;
 
-  /// \brief Returns KeyError if dictionary not found
+  /// \brief Return current dictionary corresponding to a particular
+  /// id. Returns KeyError if id not found
   Status GetDictionary(int64_t id, std::shared_ptr<Array>* dictionary) const;
 
-  /// \brief Return id for dictionary, computing new id if necessary
-  int64_t GetId(const std::shared_ptr<Array>& dictionary);
+  /// \brief Return dictionary value type corresponding to a
+  /// particular dictionary id. This permits multiple fields to
+  /// reference the same dictionary in IPC and JSON
+  Status GetDictionaryType(int64_t id, std::shared_ptr<DataType>* type) const;
 
-  /// \brief Return true if dictionary array object is in this memo
-  bool HasDictionary(const std::shared_ptr<Array>& dictionary) const;
+  /// \brief Return id for dictionary, computing new id if necessary
+  Status GetOrAssignId(const std::shared_ptr<Field>& field, int64_t* out);
+
+  /// \brief Return id for dictionary if it exists, otherwise return
+  /// KeyError
+  Status GetId(const Field& type, int64_t* id) const;
+
+  /// \brief Return true if dictionary for type is in this memo
+  bool HasDictionary(const Field& type) const;
 
   /// \brief Return true if we have a dictionary for the input id
-  bool HasDictionaryId(int64_t id) const;
+  bool HasDictionary(int64_t id) const;
+
+  /// \brief Add field to the memo, return KeyError if already present
+  Status AddField(int64_t id, const std::shared_ptr<Field>& field);
 
   /// \brief Add a dictionary to the memo with a particular id. Returns
   /// KeyError if that dictionary already exists
@@ -63,19 +79,26 @@ class ARROW_EXPORT DictionaryMemo {
 
   const DictionaryMap& id_to_dictionary() const { return id_to_dictionary_; }
 
-  /// \brief The number of dictionaries stored in the memo
-  int size() const { return static_cast<int>(id_to_dictionary_.size()); }
+  /// \brief The number of fields tracked in the memo
+  int num_fields() const { return static_cast<int>(field_to_id_.size()); }
+  int num_dictionaries() const { return static_cast<int>(id_to_dictionary_.size()); }
 
  private:
-  // Dictionary memory addresses, to track whether a dictionary has been seen
-  // before
-  std::unordered_map<intptr_t, int64_t> dictionary_to_id_;
+  Status AddFieldInternal(int64_t id, const std::shared_ptr<Field>& field);
+
+  // Dictionary memory addresses, to track whether a particular
+  // dictionary-encoded field has been seen before
+  std::unordered_map<const Field*, int64_t> field_to_id_;
 
   // Map of dictionary id to dictionary array
   DictionaryMap id_to_dictionary_;
+  std::unordered_map<int64_t, std::shared_ptr<DataType>> id_to_type_;
 
   ARROW_DISALLOW_COPY_AND_ASSIGN(DictionaryMemo);
 };
+
+ARROW_EXPORT
+Status CollectDictionaries(const RecordBatch& batch, DictionaryMemo* memo);
 
 }  // namespace ipc
 }  // namespace arrow

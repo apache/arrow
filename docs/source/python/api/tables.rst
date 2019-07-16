@@ -28,6 +28,7 @@ Factory Functions
 .. autosummary::
    :toctree: ../generated/
 
+   table
    column
    chunked_array
    concat_tables

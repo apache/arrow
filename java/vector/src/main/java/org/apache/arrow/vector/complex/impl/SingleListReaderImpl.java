@@ -24,6 +24,9 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
 
+/**
+ * An implementation of {@link AbstractFieldReader} for lists vectors.
+ */
 @SuppressWarnings("unused")
 public class SingleListReaderImpl extends AbstractFieldReader {
 
@@ -31,6 +34,12 @@ public class SingleListReaderImpl extends AbstractFieldReader {
   private final AbstractContainerVector container;
   private FieldReader reader;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param name The name of field to read in container.
+   * @param container The container holding a list.
+   */
   public SingleListReaderImpl(String name, AbstractContainerVector container) {
     super();
     this.name = name;

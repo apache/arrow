@@ -15,12 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cstdint>
 #include <random>
 #include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/string.h"
 #include "arrow/util/utf8.h"
 
@@ -247,6 +249,88 @@ TEST_F(UTF8ValidationTest, RandomTruncated) {
     }
     AssertInvalidUTF8(s);
   }
+}
+
+TEST(SkipUTF8BOM, Basics) {
+  auto CheckOk = [](const std::string& s, size_t expected_offset) -> void {
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(s.data());
+    const uint8_t* res = nullptr;
+    ASSERT_OK(SkipUTF8BOM(data, static_cast<int64_t>(s.size()), &res));
+    ASSERT_NE(res, nullptr);
+    ASSERT_EQ(res - data, expected_offset);
+  };
+
+  auto CheckTruncated = [](const std::string& s) -> void {
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(s.data());
+    const uint8_t* res = nullptr;
+    ASSERT_RAISES(Invalid, SkipUTF8BOM(data, static_cast<int64_t>(s.size()), &res));
+  };
+
+  CheckOk("", 0);
+  CheckOk("a", 0);
+  CheckOk("ab", 0);
+  CheckOk("abc", 0);
+  CheckOk("abcd", 0);
+  CheckOk("\xc3\xa9", 0);
+  CheckOk("\xee", 0);
+  CheckOk("\xef\xbc", 0);
+  CheckOk("\xef\xbb\xbe", 0);
+  CheckOk("\xef\xbb\xbf", 3);
+  CheckOk("\xef\xbb\xbfx", 3);
+
+  CheckTruncated("\xef");
+  CheckTruncated("\xef\xbb");
+}
+
+TEST(UTF8ToWideString, Basics) {
+  auto CheckOk = [](const std::string& s, const std::wstring& expected) -> void {
+    std::wstring ws;
+    ASSERT_OK(UTF8ToWideString(s, &ws));
+    ASSERT_EQ(ws, expected);
+  };
+
+  auto CheckInvalid = [](const std::string& s) -> void {
+    std::wstring ws;
+    ASSERT_RAISES(Invalid, UTF8ToWideString(s, &ws));
+  };
+
+  CheckOk("", L"");
+  CheckOk("foo", L"foo");
+  CheckOk("h\xc3\xa9h\xc3\xa9", L"h\u00e9h\u00e9");
+  CheckOk("\xf0\x9f\x98\x80", L"\U0001F600");
+  CheckOk("\xf4\x8f\xbf\xbf", L"\U0010FFFF");
+  CheckOk({0, 'x'}, {0, L'x'});
+
+  CheckInvalid("\xff");
+  CheckInvalid("h\xc3");
+}
+
+TEST(WideStringToUTF8, Basics) {
+  auto CheckOk = [](const std::wstring& ws, const std::string& expected) -> void {
+    std::string s;
+    ASSERT_OK(WideStringToUTF8(ws, &s));
+    ASSERT_EQ(s, expected);
+  };
+
+  auto CheckInvalid = [](const std::wstring& ws) -> void {
+    std::string s;
+    ASSERT_RAISES(Invalid, WideStringToUTF8(ws, &s));
+  };
+
+  CheckOk(L"", "");
+  CheckOk(L"foo", "foo");
+  CheckOk(L"h\u00e9h\u00e9", "h\xc3\xa9h\xc3\xa9");
+  CheckOk(L"\U0001F600", "\xf0\x9f\x98\x80");
+  CheckOk(L"\U0010FFFF", "\xf4\x8f\xbf\xbf");
+  CheckOk({0, L'x'}, {0, 'x'});
+
+  // Lone surrogate
+  CheckInvalid({0xD800});
+  CheckInvalid({0xDFFF});
+  // Invalid code point
+#if WCHAR_MAX > 0xFFFF
+  CheckInvalid({0x110000});
+#endif
 }
 
 }  // namespace util

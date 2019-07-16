@@ -15,18 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
 import { Bool } from '../type';
-import { Vector } from '../vector';
+import { Chunked } from './chunked';
 import { BaseVector } from './base';
-import { packBools } from '../util/bit';
+import { VectorBuilderOptions } from './index';
+import { vectorFromValuesWithType } from './index';
+import { VectorBuilderOptionsAsync } from './index';
 
+/** @ignore */
 export class BoolVector extends BaseVector<Bool> {
+    public static from<TNull = any>(input: Iterable<boolean | TNull>): BoolVector;
+    public static from<TNull = any>(input: AsyncIterable<boolean | TNull>): Promise<BoolVector>;
+    public static from<TNull = any>(input: VectorBuilderOptions<Bool, TNull>): Chunked<Bool>;
+    public static from<TNull = any>(input: VectorBuilderOptionsAsync<Bool, TNull>): Promise<Chunked<Bool>>;
     /** @nocollapse */
-    public static from(data: Iterable<boolean>) {
-        let length = 0, bitmap = packBools(function*() {
-            for (let x of data) { length++; yield x; }
-        }());
-        return Vector.new(Data.Bool(new Bool(), 0, length, 0, null, bitmap));
+    public static from<TNull = any>(input: Iterable<boolean | TNull> | AsyncIterable<boolean | TNull> | VectorBuilderOptions<Bool, TNull> | VectorBuilderOptionsAsync<Bool, TNull>) {
+        return vectorFromValuesWithType(() => new Bool(), input);
     }
 }

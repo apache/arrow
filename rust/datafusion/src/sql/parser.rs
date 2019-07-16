@@ -32,7 +32,7 @@ macro_rules! parser_err {
 }
 
 /// Types of files to parse as DataFrames
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum FileType {
     /// Newline-delimited JSON
     NdJson,
@@ -161,8 +161,6 @@ impl DFParser {
                             }
                         }
                     }
-
-                    //println!("Parsed {} column defs", columns.len());
 
                     let mut headers = true;
                     let file_type: FileType = if self

@@ -17,12 +17,12 @@
 
 // Public API for different memory sharing / IO mechanisms
 
-#ifndef ARROW_IO_MEMORY_H
-#define ARROW_IO_MEMORY_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
 
+#include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/util/string_view.h"
@@ -136,9 +136,7 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
 
   /// \brief Instantiate from std::string or arrow::util::string_view. Does not
   /// own data
-  explicit BufferReader(const util::string_view& data)
-      : BufferReader(reinterpret_cast<const uint8_t*>(data.data()),
-                     static_cast<int64_t>(data.size())) {}
+  explicit BufferReader(const util::string_view& data);
 
   Status Close() override;
   bool closed() const override;
@@ -147,7 +145,7 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
   // Zero copy read
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
-  util::string_view Peek(int64_t nbytes) const override;
+  Status Peek(int64_t nbytes, util::string_view* out) override;
 
   bool supports_zero_copy() const override;
 
@@ -161,6 +159,8 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
   std::shared_ptr<Buffer> buffer() const { return buffer_; }
 
  protected:
+  inline Status CheckClosed() const;
+
   std::shared_ptr<Buffer> buffer_;
   const uint8_t* data_;
   int64_t size_;
@@ -170,5 +170,3 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
 
 }  // namespace io
 }  // namespace arrow
-
-#endif  // ARROW_IO_MEMORY_H

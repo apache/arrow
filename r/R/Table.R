@@ -40,6 +40,19 @@
       assert_that(inherits(options, "arrow::compute::CastOptions"))
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
       shared_ptr(`arrow::Table`, Table__cast(self, target_schema, options))
+    },
+
+    select = function(spec) {
+      spec <- enquo(spec)
+      if (quo_is_null(spec)) {
+        self
+      } else {
+        all_vars <- Table__column_names(self)
+        vars <- vars_select(all_vars, !!spec)
+        indices <- match(vars, all_vars)
+        shared_ptr(`arrow::Table`, Table__select(self, indices))
+      }
+
     }
   ),
 
@@ -53,16 +66,25 @@
 
 #' Create an arrow::Table from a data frame
 #'
-#' @param .data a data frame
+#' @param ... arrays, chunked arrays, or R vectors
+#' @param schema a schema. The default (`NULL`) infers the schema from the `...`
+#'
+#' @return an arrow::Table
 #'
 #' @export
-table <- function(.data){
-  shared_ptr(`arrow::Table`, Table__from_dataframe(.data))
+table <- function(..., schema = NULL){
+  dots <- list2(...)
+  # making sure there are always names
+  if (is.null(names(dots))) {
+    names(dots) <- rep_len("", length(dots))
+  }
+  stopifnot(length(dots) > 0)
+  shared_ptr(`arrow::Table`, Table__from_dots(dots, schema))
 }
 
 #' @export
-`as_tibble.arrow::Table` <- function(x, use_threads = TRUE, ...){
-  Table__to_dataframe(x, use_threads = use_threads)
+`as.data.frame.arrow::Table` <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
+  Table__to_dataframe(x, use_threads = option_use_threads())
 }
 
 #' @export

@@ -371,6 +371,15 @@ def test_schema_equals_propagates_check_metadata():
     assert schema1.equals(schema2, check_metadata=False)
 
 
+def test_schema_equals_invalid_type():
+    # ARROW-5873
+    schema = pa.schema([pa.field("a", pa.int64())])
+
+    for val in [None, 'string', pa.array([1, 2])]:
+        with pytest.raises(TypeError):
+            schema.equals(val)
+
+
 def test_schema_equality_operators():
     fields = [
         pa.field('foo', pa.int32()),
@@ -415,9 +424,8 @@ def test_schema_negative_indexing():
 
 
 def test_schema_repr_with_dictionaries():
-    dct = pa.array(['foo', 'bar', 'baz'], type=pa.string())
     fields = [
-        pa.field('one', pa.dictionary(pa.int16(), dct)),
+        pa.field('one', pa.dictionary(pa.int16(), pa.string())),
         pa.field('two', pa.int32())
     ]
     sch = pa.schema(fields)
@@ -425,12 +433,6 @@ def test_schema_repr_with_dictionaries():
     expected = (
         """\
 one: dictionary<values=string, indices=int16, ordered=0>
-  dictionary:
-    [
-      "foo",
-      "bar",
-      "baz"
-    ]
 two: int32""")
 
     assert repr(sch) == expected

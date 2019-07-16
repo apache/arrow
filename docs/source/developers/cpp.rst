@@ -40,7 +40,8 @@ Building requires:
 * A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be
   sufficient. For Windows, at least Visual Studio 2015 is required.
 * CMake 3.2 or higher
-* Boost
+* Boost 1.58 or higher, though some unit tests require 1.64 or
+  newer.
 * ``bison`` and ``flex`` (for building Apache Thrift from source only, an
   Apache Parquet dependency.)
 
@@ -82,13 +83,44 @@ On macOS, you can use `Homebrew <https://brew.sh/>`_.
 
    git clone https://github.com/apache/arrow.git
    cd arrow
-   brew update && brew bundle --file=c_glib/Brewfile
+   brew update && brew bundle --file=cpp/Brewfile
+
+On MSYS2:
+
+.. code-block:: shell
+
+   pacman --sync --refresh --noconfirm \
+     ccache \
+     git \
+     mingw-w64-${MSYSTEM_CARCH}-boost \
+     mingw-w64-${MSYSTEM_CARCH}-brotli \
+     mingw-w64-${MSYSTEM_CARCH}-cmake \
+     mingw-w64-${MSYSTEM_CARCH}-double-conversion \
+     mingw-w64-${MSYSTEM_CARCH}-flatbuffers \
+     mingw-w64-${MSYSTEM_CARCH}-gcc \
+     mingw-w64-${MSYSTEM_CARCH}-gflags \
+     mingw-w64-${MSYSTEM_CARCH}-glog \
+     mingw-w64-${MSYSTEM_CARCH}-gtest \
+     mingw-w64-${MSYSTEM_CARCH}-lz4 \
+     mingw-w64-${MSYSTEM_CARCH}-protobuf \
+     mingw-w64-${MSYSTEM_CARCH}-python3-numpy \
+     mingw-w64-${MSYSTEM_CARCH}-rapidjson \
+     mingw-w64-${MSYSTEM_CARCH}-snappy \
+     mingw-w64-${MSYSTEM_CARCH}-thrift \
+     mingw-w64-${MSYSTEM_CARCH}-uriparser \
+     mingw-w64-${MSYSTEM_CARCH}-zlib \
+     mingw-w64-${MSYSTEM_CARCH}-zstd
 
 Building
 ========
 
 The build system uses ``CMAKE_BUILD_TYPE=release`` by default, so if this
 argument is omitted then a release build will be produced.
+
+.. note::
+
+   You need to more options to build on Windows. See
+   :ref:`developers-cpp-windows` for details.
 
 Minimal release build:
 
@@ -98,7 +130,7 @@ Minimal release build:
    cd arrow/cpp
    mkdir release
    cd release
-   cmake -DARROW_BUILD_TESTS=ON  ..
+   cmake -DARROW_BUILD_TESTS=ON ..
    make unittest
 
 Minimal debug build:
@@ -145,6 +177,7 @@ boolean flags to ``cmake``.
   gRPC
 * ``-DARROW_GANDIVA=ON``: Gandiva expression compiler, depends on LLVM,
   Protocol Buffers, and re2
+* ``-DARROW_GANDIVA_JAVA=ON``: Gandiva JNI bindings for Java
 * ``-DARROW_HDFS=ON``: Arrow integration with libhdfs for accessing the Hadoop
   Filesystem
 * ``-DARROW_HIVESERVER2=ON``: Client library for HiveServer2 database protocol
@@ -179,6 +212,8 @@ LLVM and Clang Tools
 We are currently using LLVM 7 for library builds and for other developer tools
 such as code formatting with ``clang-format``. LLVM can be installed via most
 modern package managers (apt, yum, conda, Homebrew, chocolatey).
+
+.. _cpp-build-dependency-management:
 
 Build Dependency Management
 ===========================
@@ -256,12 +291,6 @@ non-standard location, you can specify it by passing
 ``-DBOOST_ROOT=$MY_BOOST_ROOT`` or setting the ``BOOST_ROOT`` environment
 variable.
 
-Unlike most of the other dependencies, if Boost is not found by the build
-system it will not be built automatically from source. To opt-in to a vendored
-Boost build, pass ``-DARROW_BOOST_VENDORED=ON``. This automatically sets the
-option ``-DARROW_BOOST_USE_SHARED=OFF`` to statically-link Boost into the
-produced libraries and executables.
-
 Offline Builds
 ~~~~~~~~~~~~~~
 
@@ -300,7 +329,7 @@ C++ codebase.
 
    Since most of the project's developers work on Linux or macOS, not all
    features or developer tools are uniformly supported on Windows. If you are
-   on Windows, have a look at the later section on Windows development.
+   on Windows, have a look at :ref:`developers-cpp-windows`.
 
 Compiler warning levels
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -321,8 +350,6 @@ This project follows `Google's C++ Style Guide
 <https://google.github.io/styleguide/cppguide.html>`_ with minor exceptions:
 
 * We relax the line length restriction to 90 characters.
-* We use doxygen style comments ("///") in header files for comments that we
-  wish to show up in API documentation
 * We use the ``NULLPTR`` macro in header files (instead of ``nullptr``) defined
   in ``src/arrow/util/macros.h`` to support building C++/CLI (ARROW-1134)
 
@@ -334,7 +361,10 @@ codebase is subjected to a number of code style and code cleanliness checks.
 In order to have a passing CI build, your modified git branch must pass the
 following checks:
 
-* C++ builds without compiler warnings with ``-DBUILD_WARNING_LEVEL=CHECKIN``
+* C++ builds with the project's active version of ``clang`` without
+  compiler warnings with ``-DBUILD_WARNING_LEVEL=CHECKIN``. Note that
+  there are classes of warnings (such as `-Wdocumentation`, see more
+  on this below) that are not caught by `gcc`.
 * C++ unit test suite with valgrind enabled, use ``-DARROW_TEST_MEMCHECK=ON``
   when invoking CMake
 * Passes cpplint checks, checked with ``make lint``
@@ -365,6 +395,31 @@ target that is executable from the root of the repository:
 
 See :ref:`integration` for more information about the project's
 ``docker-compose`` configuration.
+
+API Documentation
+~~~~~~~~~~~~~~~~~
+
+We use Doxygen style comments (``///``) in header files for comments
+that we wish to show up in API documentation for classes and
+functions.
+
+When using ``clang`` and building with
+``-DBUILD_WARNING_LEVEL=CHECKIN``, the ``-Wdocumentation`` flag is
+used which checks for some common documnetation inconsistencies, like
+documenting some, but not all function parameters with ``\param``. See
+the `LLVM documentation warnings section
+<https://releases.llvm.org/7.0.1/tools/clang/docs/DiagnosticsReference.html#wdocumentation>`_
+for more about this.
+
+While we publish the API documentation as part of the main Sphinx-based
+documentation site, you can also build the C++ API documentation anytime using
+Doxygen. Run the following command from the ``cpp/apidoc`` directory:
+
+.. code-block:: shell
+
+   doxygen Doxyfile
+
+This requires `Doxygen <https://www.doxygen.org>`_ to be installed.
 
 Modular Build Targets
 ~~~~~~~~~~~~~~~~~~~~~
@@ -397,19 +452,6 @@ Parquet libraries, its tests, and its dependencies, you can run:
 
 If you omit an explicit target when invoking ``make``, all targets will be
 built.
-
-Building API Documentation
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-While we publish the API documentation as part of the main Sphinx-based
-documentation site, you can also build the C++ API documentation anytime using
-Doxygen. Run the following command from the ``cpp/apidoc`` directory:
-
-.. code-block:: shell
-
-   doxygen Doxyfile
-
-This requires `Doxygen <https://www.doxygen.org>`_ to be installed.
 
 Benchmarking
 ~~~~~~~~~~~~
@@ -455,7 +497,10 @@ work). You can build them using the following code:
 
 .. code-block:: shell
 
-   cmake -DARROW_FUZZING=ON -DARROW_USE_ASAN=ON ..
+   export CC=clang
+   export CXX=clang++
+   cmake -DARROW_FUZZING=ON -DARROW_USE_ASAN=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
+   make
 
 ``ARROW_FUZZING`` will enable building of fuzzer executables as well as enable the
 addition of coverage helpers via ``ARROW_USE_COVERAGE``, so that the fuzzer can observe
@@ -467,16 +512,40 @@ provoked by the fuzzer will be found early. You may also enable other sanitizers
 well. Just keep in mind that some of them do not work together and some may result
 in very long execution times, which will slow down the fuzzing procedure.
 
+We use the ``RelWithDebInfo`` build type which is optimized ``Release`` but contains
+debug information. Just using ``Debug`` would be too slow to get proper fuzzing
+results and ``Release`` would make it impossible to get proper tracebacks. Also, some
+bugs might (but hopefully are not) be specific to the release build due to
+misoptimization.
+
 Now you can start one of the fuzzer, e.g.:
 
 .. code-block:: shell
 
-   ./debug/debug/ipc-fuzzing-test
+   ./relwithdebinfo/arrow-ipc-fuzzing-test corpus
 
-This will try to find a malformed input that crashes the payload and will show the
-stack trace as well as the input data. After a problem was found this way, it should
-be reported and fixed. Usually, the fuzzing process cannot be continued until the
-fix is applied, since the fuzzer usually converts to the problem again.
+This will try to find a malformed input that crashes the payload. A corpus of
+interesting inputs will be stored into the ``corpus`` directory. You can save and
+share this with others if you want, or even pre-fill it with files to provide the
+fuzzer with a warm-start. Apache provides a test corpus under
+https://github.com/apache/arrow-testing. If a crash was found, the program will
+show the stack trace as well as the input data. The input data will also be written
+to a file named ``crash-<some id>``. After a problem was found this way, it should be
+reported and fixed. Usually, the fuzzing process cannot be continued until the fix is
+applied, since the fuzzer usually converts to the problem again. To debug the
+underlying issue, you can use GDB:
+
+.. code-block:: shell
+
+   env ASAN_OPTIONS=abort_on_error=1 gdb -ex r --args ./relwithdebinfo/arrow-ipc-fuzzing-test crash-<some id>
+
+For more options, use:
+
+.. code-block:: shell
+
+   ./relwithdebinfo/arrow-ipc-fuzzing-test -help=1
+
+or visit the `libFuzzer documentation <https://llvm.org/docs/LibFuzzer.html>`_.
 
 If you build fuzzers with ASAN, you need to set the ``ASAN_SYMBOLIZER_PATH``
 environment variable to the absolute path of ``llvm-symbolizer``, which is a tool
@@ -566,6 +635,28 @@ generated, you can build a comparision report using
    abi-compliance-checker -l libarrow -d1 ABI-PY-9.dump -d2 ABI-PY-10.dump
 
 The report is then generated in ``compat_reports/libarrow`` as a HTML.
+
+.. _developers-cpp-windows:
+
+Debugging with Xcode on macOS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Xcode is the IDE provided with macOS and can be use to develop and debug Arrow 
+by generating an Xcode project:
+
+.. code-block:: shell
+
+   cd cpp
+   mkdir xcode-build
+   cd xcode-build
+   cmake .. -G Xcode -DARROW_BUILD_TESTS=ON
+   open arrow.xcodeproj
+
+This will generate a project and open it in the Xcode app. As an alternative, 
+the command ``xcodebuild`` will perform a command-line build using the
+generated project. It is recommended to use the "Automatically Create Schemes"
+option when first launching the project.  Selecting an auto-generated scheme 
+will allow you to build and run a unittest with breakpoints enabled.
 
 Developing on Windows
 =====================
@@ -660,15 +751,8 @@ an out of source build by generating a MSVC solution:
    mkdir build
    cd build
    cmake .. -G "Visual Studio 14 2015 Win64" ^
-         -DARROW_BUILD_TESTS=ON ^
-         -DGTest_SOURCE=BUNDLED
+         -DARROW_BUILD_TESTS=ON
    cmake --build . --config Release
-
-.. note::
-
-   Currently building the unit tests does not work properly with googletest
-   from conda-forge, so we must use the ``BUNDLED`` source for building that
-   dependency
 
 Building with Ninja and clcache
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -703,7 +787,7 @@ Building with NMake
 ~~~~~~~~~~~~~~~~~~~
 
 Change working directory in ``cmd.exe`` to the root directory of Arrow and
-do an out of source build using `nmake`:
+do an out of source build using ``nmake``:
 
 .. code-block:: shell
 
@@ -711,8 +795,43 @@ do an out of source build using `nmake`:
    mkdir build
    cd build
    cmake -G "NMake Makefiles" ..
-   cmake --build . --config Release
    nmake
+
+Building on MSYS2
+~~~~~~~~~~~~~~~~~
+
+You can build on MSYS2 terminal, ``cmd.exe`` or PowerShell terminal.
+
+On MSYS2 terminal:
+
+.. code-block:: shell
+
+   cd cpp
+   mkdir build
+   cd build
+   cmake -G "MSYS Makefiles" ..
+   make
+
+On ``cmd.exe`` or PowerShell terminal, you can use the following batch
+file:
+
+.. code-block:: batch
+
+   setlocal
+
+   REM For 64bit
+   set MINGW_PACKAGE_PREFIX=mingw-w64-x86_64
+   set MINGW_PREFIX=c:\msys64\mingw64
+   set MSYSTEM=MINGW64
+
+   set PATH=%MINGW_PREFIX%\bin;c:\msys64\usr\bin;%PATH%
+
+   rmdir /S /Q cpp\build
+   mkdir cpp\build
+   pushd cpp\build
+   cmake -G "MSYS Makefiles" .. || exit /B
+   make || exit /B
+   popd
 
 Debug builds
 ~~~~~~~~~~~~
@@ -743,7 +862,7 @@ The command line to build Arrow in Debug will look something like this:
 Windows dependency resolution issues
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Because Windows uses `.lib` files for both static and dynamic linking of
+Because Windows uses ``.lib`` files for both static and dynamic linking of
 dependencies, the static library sometimes may be named something different
 like ``%PACKAGE%_static.lib`` to distinguish itself. If you are statically
 linking some dependencies, we provide some options

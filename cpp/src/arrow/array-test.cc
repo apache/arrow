@@ -38,6 +38,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -748,6 +749,26 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
   this->Check(this->builder_nn_, false);
 }
 
+TYPED_TEST(TestPrimitiveBuilder, TestTypedFinish) {
+  DECL_T();
+
+  int64_t size = 1000;
+  this->RandomData(size);
+
+  std::vector<T>& draws = this->draws_;
+  std::vector<uint8_t>& valid_bytes = this->valid_bytes_;
+
+  ASSERT_OK(this->builder_->AppendValues(draws.data(), size, valid_bytes.data()));
+  std::shared_ptr<Array> result_untyped;
+  ASSERT_OK(this->builder_->Finish(&result_untyped));
+
+  ASSERT_OK(this->builder_->AppendValues(draws.data(), size, valid_bytes.data()));
+  std::shared_ptr<typename TestFixture::ArrayType> result;
+  ASSERT_OK(this->builder_->Finish(&result));
+
+  AssertArraysEqual(*result_untyped, *result);
+}
+
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIter) {
   int64_t size = 10000;
   this->RandomData(size);
@@ -1279,7 +1300,6 @@ TEST_F(TestFWBinaryArray, ZeroSize) {
 
   ASSERT_OK(builder.Append(""));
   ASSERT_OK(builder.Append(std::string()));
-  ASSERT_OK(builder.Append(static_cast<const uint8_t*>(nullptr)));
   ASSERT_OK(builder.AppendNull());
   ASSERT_OK(builder.AppendNull());
   ASSERT_OK(builder.AppendNull());
@@ -1290,10 +1310,10 @@ TEST_F(TestFWBinaryArray, ZeroSize) {
   const auto& fw_array = checked_cast<const FixedSizeBinaryArray&>(*array);
 
   // data is never allocated
-  ASSERT_TRUE(fw_array.values() == nullptr);
+  ASSERT_EQ(fw_array.values()->size(), 0);
   ASSERT_EQ(0, fw_array.byte_width());
 
-  ASSERT_EQ(6, array->length());
+  ASSERT_EQ(5, array->length());
   ASSERT_EQ(3, array->null_count());
 }
 
@@ -1752,7 +1772,7 @@ class DecimalTest : public ::testing::TestWithParam<int> {
 
     std::shared_ptr<Array> lhs = out->Slice(offset);
     std::shared_ptr<Array> rhs = expected->Slice(offset);
-    ASSERT_TRUE(lhs->Equals(rhs));
+    ASSERT_ARRAYS_EQUAL(*rhs, *lhs);
   }
 };
 

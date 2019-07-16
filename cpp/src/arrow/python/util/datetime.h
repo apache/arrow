@@ -19,7 +19,6 @@
 #define PYARROW_UTIL_DATETIME_H
 
 #include <algorithm>
-#include <sstream>
 
 #include <datetime.h>
 #include "arrow/python/platform.h"

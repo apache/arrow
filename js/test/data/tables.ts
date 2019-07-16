@@ -43,7 +43,6 @@ export function* generateRandomTables(batchLengths = [1000, 2000, 3000], minCols
 
         let names = allNames.slice(0, numCols);
         let types = names.map((fn) => vecs[fn](0).vector.type);
-        types.forEach((t) => t.dictionaryVector && (t.dictionaryVector = null));
         let schema = new Schema(names.map((name, i) => new Field(name, types[i])));
 
         yield generate.table(batchLengths, schema).table;

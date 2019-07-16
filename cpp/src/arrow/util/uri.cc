@@ -52,7 +52,7 @@ bool IsTextRangeSet(const UriTextRangeStructA& range) { return range.first != nu
 }  // namespace
 
 struct Uri::Impl {
-  Impl() : port_(-1) { memset(&uri_, 0, sizeof(uri_)); }
+  Impl() : string_rep_(""), port_(-1) { memset(&uri_, 0, sizeof(uri_)); }
 
   ~Impl() { uriFreeUriMembersA(&uri_); }
 
@@ -71,6 +71,7 @@ struct Uri::Impl {
   UriUriA uri_;
   // Keep alive strings that uriparser stores pointers to
   std::vector<std::string> data_;
+  std::string string_rep_;
   int32_t port_;
 };
 
@@ -119,10 +120,13 @@ std::string Uri::path() const {
   return ss.str();
 }
 
+const std::string& Uri::ToString() const { return impl_->string_rep_; }
+
 Status Uri::Parse(const std::string& uri_string) {
   impl_->Reset();
 
   const auto& s = impl_->KeepString(uri_string);
+  impl_->string_rep_ = s;
   const char* error_pos;
   if (uriParseSingleUriExA(&impl_->uri_, s.data(), s.data() + s.size(), &error_pos) !=
       URI_SUCCESS) {

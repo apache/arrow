@@ -20,14 +20,17 @@
 
 #include "arrow/flight/internal.h"
 #include "arrow/python/flight.h"
+#include "arrow/util/io-util.h"
 #include "arrow/util/logging.h"
+
+using arrow::flight::FlightPayload;
 
 namespace arrow {
 namespace py {
 namespace flight {
 
 PyServerAuthHandler::PyServerAuthHandler(PyObject* handler,
-                                         PyServerAuthHandlerVtable vtable)
+                                         const PyServerAuthHandlerVtable& vtable)
     : vtable_(vtable) {
   Py_INCREF(handler);
   handler_.reset(handler);
@@ -50,7 +53,7 @@ Status PyServerAuthHandler::IsValid(const std::string& token,
 }
 
 PyClientAuthHandler::PyClientAuthHandler(PyObject* handler,
-                                         PyClientAuthHandlerVtable vtable)
+                                         const PyClientAuthHandlerVtable& vtable)
     : vtable_(vtable) {
   Py_INCREF(handler);
   handler_.reset(handler);
@@ -71,7 +74,7 @@ Status PyClientAuthHandler::GetToken(std::string* token) {
   });
 }
 
-PyFlightServer::PyFlightServer(PyObject* server, PyFlightServerVtable vtable)
+PyFlightServer::PyFlightServer(PyObject* server, const PyFlightServerVtable& vtable)
     : vtable_(vtable) {
   Py_INCREF(server);
   server_.reset(server);
@@ -105,10 +108,12 @@ Status PyFlightServer::DoGet(const arrow::flight::ServerCallContext& context,
   });
 }
 
-Status PyFlightServer::DoPut(const arrow::flight::ServerCallContext& context,
-                             std::unique_ptr<arrow::flight::FlightMessageReader> reader) {
+Status PyFlightServer::DoPut(
+    const arrow::flight::ServerCallContext& context,
+    std::unique_ptr<arrow::flight::FlightMessageReader> reader,
+    std::unique_ptr<arrow::flight::FlightMetadataWriter> writer) {
   return SafeCallIntoPython([&] {
-    vtable_.do_put(server_.obj(), context, std::move(reader));
+    vtable_.do_put(server_.obj(), context, std::move(reader), std::move(writer));
     return CheckPyError();
   });
 }
@@ -135,12 +140,10 @@ Status PyFlightServer::ServeWithSignals() {
   // an active signal handler for SIGINT and SIGTERM.
   std::vector<int> signals;
   for (const int signum : {SIGINT, SIGTERM}) {
-    struct sigaction handler;
-    int ret = sigaction(signum, nullptr, &handler);
-    if (ret != 0) {
-      return Status::IOError("sigaction call failed");
-    }
-    if (handler.sa_handler != SIG_DFL && handler.sa_handler != SIG_IGN) {
+    ::arrow::internal::SignalHandler handler;
+    RETURN_NOT_OK(::arrow::internal::GetSignalHandler(signum, &handler));
+    auto cb = handler.callback();
+    if (cb != SIG_DFL && cb != SIG_IGN) {
       signals.push_back(signum);
     }
   }
@@ -182,11 +185,13 @@ PyFlightDataStream::PyFlightDataStream(
   data_source_.reset(data_source);
 }
 
-std::shared_ptr<arrow::Schema> PyFlightDataStream::schema() { return stream_->schema(); }
+std::shared_ptr<Schema> PyFlightDataStream::schema() { return stream_->schema(); }
 
-Status PyFlightDataStream::Next(arrow::flight::FlightPayload* payload) {
-  return stream_->Next(payload);
+Status PyFlightDataStream::GetSchemaPayload(FlightPayload* payload) {
+  return stream_->GetSchemaPayload(payload);
 }
+
+Status PyFlightDataStream::Next(FlightPayload* payload) { return stream_->Next(payload); }
 
 PyGeneratorFlightDataStream::PyGeneratorFlightDataStream(
     PyObject* generator, std::shared_ptr<arrow::Schema> schema,
@@ -196,9 +201,14 @@ PyGeneratorFlightDataStream::PyGeneratorFlightDataStream(
   generator_.reset(generator);
 }
 
-std::shared_ptr<arrow::Schema> PyGeneratorFlightDataStream::schema() { return schema_; }
+std::shared_ptr<Schema> PyGeneratorFlightDataStream::schema() { return schema_; }
 
-Status PyGeneratorFlightDataStream::Next(arrow::flight::FlightPayload* payload) {
+Status PyGeneratorFlightDataStream::GetSchemaPayload(FlightPayload* payload) {
+  return ipc::internal::GetSchemaPayload(*schema_, &dictionary_memo_,
+                                         &payload->ipc_message);
+}
+
+Status PyGeneratorFlightDataStream::Next(FlightPayload* payload) {
   return SafeCallIntoPython([=] {
     callback_(generator_.obj(), payload);
     return CheckPyError();
@@ -208,7 +218,7 @@ Status PyGeneratorFlightDataStream::Next(arrow::flight::FlightPayload* payload) 
 Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
                         const arrow::flight::FlightDescriptor& descriptor,
                         const std::vector<arrow::flight::FlightEndpoint>& endpoints,
-                        uint64_t total_records, uint64_t total_bytes,
+                        int64_t total_records, int64_t total_bytes,
                         std::unique_ptr<arrow::flight::FlightInfo>* out) {
   arrow::flight::FlightInfo::Data flight_data;
   RETURN_NOT_OK(arrow::flight::internal::SchemaToString(*schema, &flight_data.schema));

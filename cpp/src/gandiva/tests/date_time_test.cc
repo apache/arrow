@@ -39,6 +39,26 @@ class TestProjector : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
+time_t Epoch() {
+  // HACK: MSVC mktime() fails on UTC times before 1970-01-01 00:00:00.
+  // But it first converts its argument from local time to UTC time,
+  // so we ask for 1970-01-02 to avoid failing in timezones ahead of UTC.
+  struct tm y1970;
+  memset(&y1970, 0, sizeof(struct tm));
+  y1970.tm_year = 70;
+  y1970.tm_mon = 0;
+  y1970.tm_mday = 2;
+  y1970.tm_hour = 0;
+  y1970.tm_min = 0;
+  y1970.tm_sec = 0;
+  time_t epoch = mktime(&y1970);
+  if (epoch == static_cast<time_t>(-1)) {
+    ARROW_LOG(FATAL) << "mktime() failed";
+  }
+  // Adjust for the 24h offset above.
+  return epoch - 24 * 3600;
+}
+
 int32_t MillisInDay(int32_t hh, int32_t mm, int32_t ss, int32_t millis) {
   int32_t mins = hh * 60 + mm;
   int32_t secs = mins * 60 + ss;
@@ -57,7 +77,13 @@ int64_t MillisSince(time_t base_line, int32_t yy, int32_t mm, int32_t dd, int32_
   given_ts.tm_min = min;
   given_ts.tm_sec = sec;
 
-  return (static_cast<int64_t>(difftime(mktime(&given_ts), base_line)) * 1000 + millis);
+  time_t ts = mktime(&given_ts);
+  if (ts == static_cast<time_t>(-1)) {
+    ARROW_LOG(FATAL) << "mktime() failed";
+  }
+  // time_t is an arithmetic type on both POSIX and Windows, we can simply
+  // subtract to get a duration in seconds.
+  return static_cast<int64_t>(ts - base_line) * 1000 + millis;
 }
 
 TEST_F(TestProjector, TestIsNull) {
@@ -132,17 +158,8 @@ TEST_F(TestProjector, TestDateTime) {
       TestConfiguration(), &projector);
   ASSERT_TRUE(status.ok());
 
-  struct tm y1970;
-  memset(&y1970, 0, sizeof(struct tm));
-  y1970.tm_year = 70;
-  y1970.tm_mon = 0;
-  y1970.tm_mday = 1;
-  y1970.tm_hour = 0;
-  y1970.tm_min = 0;
-  y1970.tm_sec = 0;
-  time_t epoch = mktime(&y1970);
-
   // Create a row-batch with some sample data
+  time_t epoch = Epoch();
   int num_records = 4;
   auto validity = {true, true, true, true};
   std::vector<int64_t> field0_data = {MillisSince(epoch, 2000, 1, 1, 5, 0, 0, 0),
@@ -270,15 +287,7 @@ TEST_F(TestProjector, TestTimestampDiff) {
   auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
   ASSERT_TRUE(status.ok());
 
-  struct tm y1970;
-  memset(&y1970, 0, sizeof(struct tm));
-  y1970.tm_year = 70;
-  y1970.tm_mon = 0;
-  y1970.tm_mday = 1;
-  y1970.tm_hour = 0;
-  y1970.tm_min = 0;
-  y1970.tm_sec = 0;
-  time_t epoch = mktime(&y1970);
+  time_t epoch = Epoch();
 
   // 2015-09-10T20:49:42.000
   auto start_millis = MillisSince(epoch, 2015, 9, 10, 20, 49, 42, 0);
@@ -345,15 +354,7 @@ TEST_F(TestProjector, TestMonthsBetween) {
   std::cout << status.message();
   ASSERT_TRUE(status.ok());
 
-  struct tm y1970;
-  memset(&y1970, 0, sizeof(struct tm));
-  y1970.tm_year = 70;
-  y1970.tm_mon = 0;
-  y1970.tm_mday = 1;
-  y1970.tm_hour = 0;
-  y1970.tm_min = 0;
-  y1970.tm_sec = 0;
-  time_t epoch = mktime(&y1970);
+  time_t epoch = Epoch();
 
   // Create a row-batch with some sample data
   int num_records = 4;

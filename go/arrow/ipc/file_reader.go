@@ -45,23 +45,23 @@ type FileReader struct {
 
 	schema *arrow.Schema
 	record array.Record
+
+	irec int   // current record index. used for the arrio.Reader interface
+	err  error // last error
 }
 
 // NewFileReader opens an Arrow file using the provided reader r.
 func NewFileReader(r ReadAtSeeker, opts ...Option) (*FileReader, error) {
 	var (
+		cfg = newConfig(opts...)
+		err error
+
 		f = FileReader{
 			r:      r,
 			fields: make(dictTypeMap),
 			memo:   newMemo(),
 		}
-		cfg = newConfig()
-		err error
 	)
-
-	for _, opt := range opts {
-		opt(cfg)
-	}
 
 	if cfg.footer.offset <= 0 {
 		cfg.footer.offset, err = f.r.Seek(0, io.SeekEnd)
@@ -81,6 +81,10 @@ func NewFileReader(r ReadAtSeeker, opts ...Option) (*FileReader, error) {
 		return nil, errors.Wrap(err, "arrow/ipc: could not decode schema")
 	}
 
+	if cfg.schema != nil && !cfg.schema.Equal(f.schema) {
+		return nil, errors.Errorf("arrow/ipc: inconsitent schema for reading (got: %v, want: %v)", f.schema, cfg.schema)
+	}
+
 	return &f, err
 }
 
@@ -88,7 +92,7 @@ func (f *FileReader) readFooter() error {
 	var err error
 
 	if f.footer.offset <= int64(len(Magic)*2+4) {
-		return fmt.Errorf("arrow/ipc: file too small (%d)", f.footer.offset)
+		return fmt.Errorf("arrow/ipc: file too small (size=%d)", f.footer.offset)
 	}
 
 	eof := int64(len(Magic) + 4)
@@ -276,6 +280,25 @@ func (f *FileReader) Record(i int) (array.Record, error) {
 	return f.record, nil
 }
 
+// Read reads the current record from the underlying stream and an error, if any.
+// When the Reader reaches the end of the underlying stream, it returns (nil, io.EOF).
+//
+// The returned record value is valid until the next call to Read.
+// Users need to call Retain on that Record to keep it valid for longer.
+func (f *FileReader) Read() (rec array.Record, err error) {
+	if f.irec == f.NumRecords() {
+		return nil, io.EOF
+	}
+	rec, f.err = f.Record(f.irec)
+	f.irec++
+	return rec, f.err
+}
+
+// ReadAt reads the i-th record from the underlying stream and an error, if any.
+func (f *FileReader) ReadAt(i int64) (array.Record, error) {
+	return f.Record(int(i))
+}
+
 func newRecord(schema *arrow.Schema, meta *memory.Buffer, body ReadAtSeeker) array.Record {
 	var (
 		msg = flatbuf.GetRootAsMessage(meta.Bytes(), 0)
@@ -358,8 +381,29 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) array.Interface {
 	case *arrow.BooleanType,
 		*arrow.Int8Type, *arrow.Int16Type, *arrow.Int32Type, *arrow.Int64Type,
 		*arrow.Uint8Type, *arrow.Uint16Type, *arrow.Uint32Type, *arrow.Uint64Type,
-		*arrow.Float32Type, *arrow.Float64Type:
+		*arrow.Float16Type, *arrow.Float32Type, *arrow.Float64Type,
+		*arrow.Decimal128Type,
+		*arrow.Time32Type, *arrow.Time64Type,
+		*arrow.TimestampType,
+		*arrow.Date32Type, *arrow.Date64Type,
+		*arrow.MonthIntervalType, *arrow.DayTimeIntervalType,
+		*arrow.DurationType:
 		return ctx.loadPrimitive(dt)
+
+	case *arrow.BinaryType, *arrow.StringType:
+		return ctx.loadBinary(dt)
+
+	case *arrow.FixedSizeBinaryType:
+		return ctx.loadFixedSizeBinary(dt)
+
+	case *arrow.ListType:
+		return ctx.loadList(dt)
+
+	case *arrow.FixedSizeListType:
+		return ctx.loadFixedSizeList(dt)
+
+	case *arrow.StructType:
+		return ctx.loadStruct(dt)
 
 	default:
 		panic(errors.Errorf("array type %T not handled yet", dt))
@@ -380,6 +424,16 @@ func (ctx *arrayLoaderContext) loadCommon(nbufs int) (*flatbuf.FieldNode, []*mem
 	buffers = append(buffers, buf)
 
 	return field, buffers
+}
+
+func (ctx *arrayLoaderContext) loadChild(dt arrow.DataType) array.Interface {
+	if ctx.max == 0 {
+		panic("arrow/ipc: nested type limit reached")
+	}
+	ctx.max--
+	sub := ctx.loadArray(dt)
+	ctx.max++
+	return sub
 }
 
 func (ctx *arrayLoaderContext) loadNull() array.Interface {
@@ -407,6 +461,72 @@ func (ctx *arrayLoaderContext) loadPrimitive(dt arrow.DataType) array.Interface 
 	defer data.Release()
 
 	return array.MakeFromData(data)
+}
+
+func (ctx *arrayLoaderContext) loadBinary(dt arrow.DataType) array.Interface {
+	field, buffers := ctx.loadCommon(3)
+	buffers = append(buffers, ctx.buffer(), ctx.buffer())
+
+	data := array.NewData(dt, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
+	defer data.Release()
+
+	return array.MakeFromData(data)
+}
+
+func (ctx *arrayLoaderContext) loadFixedSizeBinary(dt *arrow.FixedSizeBinaryType) array.Interface {
+	field, buffers := ctx.loadCommon(2)
+	buffers = append(buffers, ctx.buffer())
+
+	data := array.NewData(dt, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
+	defer data.Release()
+
+	return array.MakeFromData(data)
+}
+
+func (ctx *arrayLoaderContext) loadList(dt *arrow.ListType) array.Interface {
+	field, buffers := ctx.loadCommon(2)
+	buffers = append(buffers, ctx.buffer())
+
+	sub := ctx.loadChild(dt.Elem())
+	defer sub.Release()
+
+	data := array.NewData(dt, int(field.Length()), buffers, []*array.Data{sub.Data()}, int(field.NullCount()), 0)
+	defer data.Release()
+
+	return array.NewListData(data)
+}
+
+func (ctx *arrayLoaderContext) loadFixedSizeList(dt *arrow.FixedSizeListType) array.Interface {
+	field, buffers := ctx.loadCommon(1)
+
+	sub := ctx.loadChild(dt.Elem())
+	defer sub.Release()
+
+	data := array.NewData(dt, int(field.Length()), buffers, []*array.Data{sub.Data()}, int(field.NullCount()), 0)
+	defer data.Release()
+
+	return array.NewFixedSizeListData(data)
+}
+
+func (ctx *arrayLoaderContext) loadStruct(dt *arrow.StructType) array.Interface {
+	field, buffers := ctx.loadCommon(1)
+
+	arrs := make([]array.Interface, len(dt.Fields()))
+	subs := make([]*array.Data, len(dt.Fields()))
+	for i, f := range dt.Fields() {
+		arrs[i] = ctx.loadChild(f.Type)
+		subs[i] = arrs[i].Data()
+	}
+	defer func() {
+		for i := range arrs {
+			arrs[i].Release()
+		}
+	}()
+
+	data := array.NewData(dt, int(field.Length()), buffers, subs, int(field.NullCount()), 0)
+	defer data.Release()
+
+	return array.NewStructData(data)
 }
 
 func readDictionary(meta *memory.Buffer, types dictTypeMap, r ReadAtSeeker) (int64, array.Interface, error) {

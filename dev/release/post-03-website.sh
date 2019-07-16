@@ -21,6 +21,7 @@ set -e
 set -u
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE_TOP_DIR="${SOURCE_DIR}/../.."
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <previous-version> <version>"
@@ -30,7 +31,13 @@ fi
 previous_version=$1
 version=$2
 
-site_dir="${SOURCE_DIR}/../../site"
+pushd "${SOURCE_TOP_DIR}"
+
+branch_name=release-note-${version}
+git checkout master
+git checkout -b ${branch_name}
+
+site_dir="${SOURCE_TOP_DIR}/site"
 release_dir="${site_dir}/_release"
 announce_file="${release_dir}/${version}.md"
 versions_yml="${site_dir}/_data/versions.yml"
@@ -133,6 +140,7 @@ cat <<ANNOUNCE >> "${announce_file}"
 [5]: https://bintray.com/apache/arrow/ubuntu/${version}/
 [6]: https://github.com/apache/arrow/releases/tag/apache-arrow-${version}
 ANNOUNCE
+git add "${announce_file}"
 
 
 # Update index
@@ -187,6 +195,8 @@ for md_file in ${announce_files}; do
   echo "[${i}]: {{ site.baseurl }}/release/${html_file}" >> ${index_file}
 done
 
+git add ${index_file}
+
 popd
 
 
@@ -226,3 +236,18 @@ current:
   sha256: 'https://www.apache.org/dist/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha256'
   sha512: 'https://www.apache.org/dist/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha512'
 YAML
+git add "${versions_yml}"
+
+git commit -m "[Website] Add release note for ${version}"
+git push -u origin ${branch_name}
+
+github_url=$(git remote get-url origin | \
+               sed \
+                 -e 's,^git@github.com:,https://github.com/,' \
+                 -e 's,\.git$,,')
+
+echo "Success!"
+echo "1. Open a JIRA issue:"
+echo "  https://issues.apache.org/jira/projects/ARROW/issues/"
+echo "2. Create a pull request:"
+echo "  ${github_url}/pull/new/${branch_name}"

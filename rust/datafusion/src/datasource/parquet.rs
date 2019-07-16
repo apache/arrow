@@ -21,8 +21,9 @@ use std::fs::File;
 use std::string::String;
 use std::sync::{Arc, Mutex};
 
-use arrow::array::{Array, PrimitiveArray};
-use arrow::builder::{BinaryBuilder, PrimitiveBuilder, TimestampNanosecondBuilder};
+use arrow::array::{
+    Array, BinaryBuilder, PrimitiveArray, PrimitiveBuilder, TimestampNanosecondBuilder,
+};
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 

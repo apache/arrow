@@ -25,15 +25,11 @@
 #include <string>
 #include <vector>
 
-#include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
-
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"
+#include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
-#include "parquet/util/visibility.h"
 
 namespace parquet {
 
@@ -62,7 +58,7 @@ class PARQUET_EXPORT Scanner {
       int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
-  virtual void PrintNext(std::ostream& out, int width) = 0;
+  virtual void PrintNext(std::ostream& out, int width, bool with_levels = false) = 0;
 
   bool HasNext() { return level_offset_ < levels_buffered_ || reader_->HasNext(); }
 
@@ -171,13 +167,22 @@ class PARQUET_TEMPLATE_CLASS_EXPORT TypedScanner : public Scanner {
     return true;
   }
 
-  virtual void PrintNext(std::ostream& out, int width) {
+  virtual void PrintNext(std::ostream& out, int width, bool with_levels = false) {
     T val;
+    int16_t def_level = -1;
+    int16_t rep_level = -1;
     bool is_null = false;
-    char buffer[25];
+    char buffer[80];
 
-    if (!NextValue(&val, &is_null)) {
+    if (!Next(&val, &def_level, &rep_level, &is_null)) {
       throw ParquetException("No more values buffered");
+    }
+
+    if (with_levels) {
+      out << "  D:" << def_level << " R:" << rep_level << " ";
+      if (!is_null) {
+        out << "V:";
+      }
     }
 
     if (is_null) {

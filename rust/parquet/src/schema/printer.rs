@@ -68,7 +68,8 @@ pub fn print_parquet_metadata(out: &mut io::Write, metadata: &ParquetMetaData) {
     }
 }
 
-/// Prints file metadata [`FileMetaData`](crate::file::metadata::FileMetaData) information.
+/// Prints file metadata [`FileMetaData`](crate::file::metadata::FileMetaData)
+/// information.
 #[allow(unused_must_use)]
 pub fn print_file_metadata(out: &mut io::Write, file_metadata: &FileMetaData) {
     writeln!(out, "version: {}", file_metadata.version());

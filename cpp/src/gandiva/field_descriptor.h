@@ -31,11 +31,12 @@ class FieldDescriptor {
   static const int kInvalidIdx = -1;
 
   FieldDescriptor(FieldPtr field, int data_idx, int validity_idx = kInvalidIdx,
-                  int offsets_idx = kInvalidIdx)
+                  int offsets_idx = kInvalidIdx, int data_buffer_ptr_idx = kInvalidIdx)
       : field_(field),
         data_idx_(data_idx),
         validity_idx_(validity_idx),
-        offsets_idx_(offsets_idx) {}
+        offsets_idx_(offsets_idx),
+        data_buffer_ptr_idx_(data_buffer_ptr_idx) {}
 
   /// Index of validity array in the array-of-buffers
   int validity_idx() const { return validity_idx_; }
@@ -46,6 +47,9 @@ class FieldDescriptor {
   /// Index of offsets array in the array-of-buffers
   int offsets_idx() const { return offsets_idx_; }
 
+  /// Index of data buffer pointer in the array-of-buffers
+  int data_buffer_ptr_idx() const { return data_buffer_ptr_idx_; }
+
   FieldPtr field() const { return field_; }
 
   const std::string& Name() const { return field_->name(); }
@@ -53,11 +57,14 @@ class FieldDescriptor {
 
   bool HasOffsetsIdx() const { return offsets_idx_ != kInvalidIdx; }
 
+  bool HasDataBufferPtrIdx() const { return data_buffer_ptr_idx_ != kInvalidIdx; }
+
  private:
   FieldPtr field_;
   int data_idx_;
   int validity_idx_;
   int offsets_idx_;
+  int data_buffer_ptr_idx_;
 };
 
 }  // namespace gandiva

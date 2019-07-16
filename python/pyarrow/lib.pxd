@@ -17,6 +17,8 @@
 
 # cython: language_level = 3
 
+from __future__ import absolute_import
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow cimport CStatus
@@ -51,8 +53,9 @@ cdef class DataType:
         shared_ptr[CDataType] sp_type
         CDataType* type
         bytes pep3118_format
+        object __weakref__
 
-    cdef void init(self, const shared_ptr[CDataType]& type)
+    cdef void init(self, const shared_ptr[CDataType]& type) except *
     cdef Field child(self, int i)
 
 
@@ -67,6 +70,11 @@ cdef class StructType(DataType):
 
     cdef Field field(self, int i)
     cdef Field field_by_name(self, name)
+
+
+cdef class DictionaryMemo:
+    cdef:
+        CDictionaryMemo memo
 
 
 cdef class DictionaryType(DataType):
@@ -97,6 +105,16 @@ cdef class FixedSizeBinaryType(DataType):
 cdef class Decimal128Type(FixedSizeBinaryType):
     cdef:
         const CDecimal128Type* decimal128_type
+
+
+cdef class BaseExtensionType(DataType):
+    cdef:
+        const CExtensionType* ext_type
+
+
+cdef class ExtensionType(BaseExtensionType):
+    cdef:
+        const CPyExtensionType* cpy_ext_type
 
 
 cdef class Field:
@@ -192,11 +210,12 @@ cdef class Array(_PandasConvertible):
     cdef:
         shared_ptr[CArray] sp_array
         CArray* ap
+        object __weakref__
 
     cdef readonly:
         DataType type
 
-    cdef void init(self, const shared_ptr[CArray]& sp_array)
+    cdef void init(self, const shared_ptr[CArray]& sp_array) except *
     cdef getitem(self, int64_t i)
     cdef int64_t length(self)
 
@@ -210,6 +229,28 @@ cdef class Tensor:
         DataType type
 
     cdef void init(self, const shared_ptr[CTensor]& sp_tensor)
+
+
+cdef class SparseTensorCSR:
+    cdef:
+        shared_ptr[CSparseTensorCSR] sp_sparse_tensor
+        CSparseTensorCSR* stp
+
+    cdef readonly:
+        DataType type
+
+    cdef void init(self, const shared_ptr[CSparseTensorCSR]& sp_sparse_tensor)
+
+
+cdef class SparseTensorCOO:
+    cdef:
+        shared_ptr[CSparseTensorCOO] sp_sparse_tensor
+        CSparseTensorCOO* stp
+
+    cdef readonly:
+        DataType type
+
+    cdef void init(self, const shared_ptr[CSparseTensorCOO]& sp_sparse_tensor)
 
 
 cdef class NullArray(Array):
@@ -307,6 +348,10 @@ cdef class BinaryArray(Array):
 cdef class DictionaryArray(Array):
     cdef:
         object _indices, _dictionary
+
+
+cdef class ExtensionArray(Array):
+    pass
 
 
 cdef wrap_array_output(PyObject* output)
@@ -429,6 +474,10 @@ cdef public object pyarrow_wrap_resizable_buffer(
 cdef public object pyarrow_wrap_schema(const shared_ptr[CSchema]& type)
 cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
 cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
+cdef public object pyarrow_wrap_sparse_tensor_coo(
+    const shared_ptr[CSparseTensorCOO]& sp_sparse_tensor)
+cdef public object pyarrow_wrap_sparse_tensor_csr(
+    const shared_ptr[CSparseTensorCSR]& sp_sparse_tensor)
 
 cdef public shared_ptr[CArray] pyarrow_unwrap_array(object array)
 cdef public shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch)
@@ -439,3 +488,7 @@ cdef public shared_ptr[CField] pyarrow_unwrap_field(object field)
 cdef public shared_ptr[CSchema] pyarrow_unwrap_schema(object schema)
 cdef public shared_ptr[CTable] pyarrow_unwrap_table(object table)
 cdef public shared_ptr[CTensor] pyarrow_unwrap_tensor(object tensor)
+cdef public shared_ptr[CSparseTensorCOO] pyarrow_unwrap_sparse_tensor_coo(
+    object sparse_tensor)
+cdef public shared_ptr[CSparseTensorCSR] pyarrow_unwrap_sparse_tensor_csr(
+    object sparse_tensor)

@@ -25,9 +25,8 @@ python -c "import pyarrow.orc"
 python -c "import pyarrow.parquet"
 
 pushd /tmp
-git clone https://github.com/xhochy/turbodbc.git
+git clone https://github.com/blue-yonder/turbodbc.git
 pushd turbodbc
-git checkout arrow-0.13.0-prep
 git submodule update --init --recursive
 
 service postgresql start

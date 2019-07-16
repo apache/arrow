@@ -19,10 +19,11 @@ package org.apache.arrow.vector.complex;
 
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.FieldType;
 
+/**
+ * Vector that can store multiple {@linkplain FieldType} vectors as children.
+ */
 public interface PromotableVector {
 
   <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType type);

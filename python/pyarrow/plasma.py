@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from __future__ import absolute_import
+
 import contextlib
 import os
 import pyarrow as pa
@@ -25,7 +27,9 @@ import tempfile
 import time
 
 from pyarrow._plasma import (ObjectID, ObjectNotAvailable, # noqa
-                             PlasmaBuffer, PlasmaClient, connect)
+                             PlasmaBuffer, PlasmaClient, connect,
+                             PlasmaObjectExists, PlasmaObjectNonexistent,
+                             PlasmaStoreFull)
 
 
 # The Plasma TensorFlow Operator needs to be compiled on the end user's

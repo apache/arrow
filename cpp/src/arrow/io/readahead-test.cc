@@ -82,9 +82,9 @@ class LockedInputStream : public InputStream {
     return stream_->supports_zero_copy();
   }
 
-  util::string_view Peek(int64_t nbytes) const override {
+  Status Peek(int64_t nbytes, util::string_view* out) override {
     std::lock_guard<std::mutex> lock(mutex_);
-    return stream_->Peek(nbytes);
+    return stream_->Peek(nbytes, out);
   }
 
  protected:
@@ -122,12 +122,6 @@ static int64_t WaitForPosition(const FileInterface& file, int64_t expected,
 
 static void AssertEventualPosition(const FileInterface& file, int64_t expected) {
   int64_t pos = WaitForPosition(file, expected);
-  ASSERT_EQ(pos, expected) << "File didn't reach expected position";
-}
-
-static void AssertPosition(const FileInterface& file, int64_t expected) {
-  int64_t pos = -1;
-  ABORT_NOT_OK(file.Tell(&pos));
   ASSERT_EQ(pos, expected) << "File didn't reach expected position";
 }
 
@@ -200,17 +194,11 @@ TEST(ReadaheadSpooler, Close) {
   AssertEventualPosition(*data_reader, 2 * 2);
   ASSERT_OK(spooler.Close());
 
-  // XXX not sure this makes sense
-  ASSERT_OK(spooler.Read(&buf));
-  AssertReadaheadBuffer(buf, {0}, {0}, "01");
-  ASSERT_OK(spooler.Read(&buf));
-  AssertReadaheadBuffer(buf, {0}, {0}, "23");
-  ASSERT_OK(spooler.Read(&buf));
-  AssertReadaheadBufferEOF(buf);
-  AssertPosition(*data_reader, 2 * 2);
-
   // Idempotency
   ASSERT_OK(spooler.Close());
+
+  // ARROW-4823: does not close raw
+  ASSERT_FALSE(data_reader->closed());
 }
 
 TEST(ReadaheadSpooler, Paddings) {

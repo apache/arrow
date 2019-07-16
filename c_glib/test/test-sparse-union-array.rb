@@ -18,32 +18,69 @@
 class TestSparseUnionArray < Test::Unit::TestCase
   include Helper::Buildable
 
-  def setup
-    type_ids = build_int8_array([0, 1, nil, 1, 0])
-    fields = [
-      build_int16_array([1, nil, nil, nil, 5]),
-      build_string_array([nil, "b", nil, "d", nil]),
-    ]
-    @array = Arrow::SparseUnionArray.new(type_ids, fields)
-  end
+  sub_test_case(".new") do
+    sub_test_case("default") do
+      def setup
+        type_ids = build_int8_array([0, 1, nil, 1, 0])
+        fields = [
+          build_int16_array([1, nil, nil, nil, 5]),
+          build_string_array([nil, "b", nil, "d", nil]),
+        ]
+        @array = Arrow::SparseUnionArray.new(type_ids, fields)
+      end
 
-  def test_value_data_type
-    fields = [
-      Arrow::Field.new("0", Arrow::Int16DataType.new),
-      Arrow::Field.new("1", Arrow::StringDataType.new),
-    ]
-    assert_equal(Arrow::SparseUnionDataType.new(fields, [0, 1]),
-                 @array.value_data_type)
-  end
+      def test_value_data_type
+        fields = [
+          Arrow::Field.new("0", Arrow::Int16DataType.new),
+          Arrow::Field.new("1", Arrow::StringDataType.new),
+        ]
+        assert_equal(Arrow::SparseUnionDataType.new(fields, [0, 1]),
+                     @array.value_data_type)
+      end
 
-  def test_field
-    assert_equal([
-                   build_int16_array([1, nil, nil, nil, 5]),
-                   build_string_array([nil, "b", nil, "d", nil]),
-                 ],
-                 [
-                   @array.get_field(0),
-                   @array.get_field(1),
-                 ])
+      def test_field
+        assert_equal([
+                       build_int16_array([1, nil, nil, nil, 5]),
+                       build_string_array([nil, "b", nil, "d", nil]),
+                     ],
+                     [
+                       @array.get_field(0),
+                       @array.get_field(1),
+                     ])
+      end
+    end
+
+    sub_test_case("DataType") do
+      def setup
+        data_type_fields = [
+          Arrow::Field.new("number", Arrow::Int16DataType.new),
+          Arrow::Field.new("text", Arrow::StringDataType.new),
+        ]
+        type_codes = [11, 13]
+        @data_type = Arrow::SparseUnionDataType.new(data_type_fields, type_codes)
+        type_ids = build_int8_array([11, 13, nil, 13, 11])
+        fields = [
+          build_int16_array([1, nil, nil, nil, 5]),
+          build_string_array([nil, "b", nil, "d", nil]),
+        ]
+        @array = Arrow::SparseUnionArray.new(@data_type, type_ids, fields)
+      end
+
+      def test_value_data_type
+        assert_equal(@data_type,
+                     @array.value_data_type)
+      end
+
+      def test_field
+        assert_equal([
+                       build_int16_array([1, nil, nil, nil, 5]),
+                       build_string_array([nil, "b", nil, "d", nil]),
+                     ],
+                     [
+                       @array.get_field(0),
+                       @array.get_field(1),
+                     ])
+      end
+    end
   end
 end

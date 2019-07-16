@@ -37,6 +37,10 @@ FunctionRegistry::iterator FunctionRegistry::end() const {
   return &(*pc_registry_.end());
 }
 
+FunctionRegistry::iterator FunctionRegistry::back() const {
+  return &(pc_registry_.back());
+}
+
 std::vector<NativeFunction> FunctionRegistry::pc_registry_;
 
 SignatureMap FunctionRegistry::pc_registry_map_ = InitPCMap();
@@ -62,7 +66,9 @@ SignatureMap FunctionRegistry::InitPCMap() {
   pc_registry_.insert(std::end(pc_registry_), v6.begin(), v6.end());
 
   for (auto& elem : pc_registry_) {
-    map.insert(std::make_pair(&(elem.signature()), &elem));
+    for (auto& func_signature : elem.signatures()) {
+      map.insert(std::make_pair(&(func_signature), &elem));
+    }
   }
 
   return map;

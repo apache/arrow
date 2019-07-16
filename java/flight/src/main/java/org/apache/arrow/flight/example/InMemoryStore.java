@@ -17,7 +17,6 @@
 
 package org.apache.arrow.flight.example;
 
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -29,15 +28,14 @@ import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.example.Stream.StreamCreator;
-import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
-import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
  * A FlightProducer that hosts an in memory store of Arrow buffers.
@@ -48,6 +46,12 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   private final BufferAllocator allocator;
   private final Location location;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param allocator The allocator for creating new Arrow buffers.
+   * @param location The location of the storage.
+   */
   public InMemoryStore(BufferAllocator allocator, Location location) {
     super();
     this.allocator = allocator;
@@ -60,6 +64,9 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
     getStream(ticket).sendTo(allocator, listener);
   }
 
+  /**
+   * Returns the appropriate stream given the ticket (streams are indexed by path and an ordinal).
+   */
   public Stream getStream(Ticket t) {
     ExampleTicket example = ExampleTicket.from(t);
     FlightDescriptor d = FlightDescriptor.path(example.getPath());
@@ -69,14 +76,6 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
     }
 
     return h.getStream(example);
-  }
-
-  public StreamCreator putStream(final FlightDescriptor descriptor, final Schema schema) {
-    final FlightHolder h = holders.computeIfAbsent(
-        descriptor,
-        t -> new FlightHolder(allocator, t, schema));
-
-    return h.addStream(schema);
   }
 
   @Override
@@ -104,25 +103,25 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public Callable<PutResult> acceptPut(CallContext context,
-      final FlightStream flightStream) {
+  public Runnable acceptPut(CallContext context,
+      final FlightStream flightStream, final StreamListener<PutResult> ackStream) {
     return () -> {
       StreamCreator creator = null;
       boolean success = false;
       try (VectorSchemaRoot root = flightStream.getRoot()) {
         final FlightHolder h = holders.computeIfAbsent(
             flightStream.getDescriptor(),
-            t -> new FlightHolder(allocator, t, flightStream.getSchema()));
+            t -> new FlightHolder(allocator, t, flightStream.getSchema(), flightStream.getDictionaryProvider()));
 
         creator = h.addStream(flightStream.getSchema());
 
         VectorUnloader unloader = new VectorUnloader(root);
         while (flightStream.next()) {
+          ackStream.onNext(PutResult.metadata(flightStream.getLatestMetadata()));
           creator.add(unloader.getRecordBatch());
         }
         creator.complete();
         success = true;
-        return PutResult.getDefaultInstance();
       } finally {
         if (!success) {
           creator.drop();
@@ -134,13 +133,18 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public Result doAction(CallContext context, Action action) {
+  public void doAction(CallContext context, Action action,
+      StreamListener<Result> listener) {
     switch (action.getType()) {
-      case "drop":
-        return new Result(new byte[0]);
+      case "drop": {
         // not implemented.
-      default:
-        throw new UnsupportedOperationException();
+        listener.onNext(new Result(new byte[0]));
+        listener.onCompleted();
+        break;
+      }
+      default: {
+        listener.onError(new UnsupportedOperationException());
+      }
     }
   }
 

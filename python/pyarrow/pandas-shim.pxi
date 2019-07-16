@@ -58,6 +58,7 @@ cdef class _PandasAPIShim(object):
         self._array_like_types = (self._series, self._index,
                                   self._categorical_type)
 
+        self._version = pd.__version__
         from distutils.version import LooseVersion
         self._loose_version = LooseVersion(pd.__version__)
         if self._loose_version >= LooseVersion('0.20.0'):
@@ -151,6 +152,12 @@ cdef class _PandasAPIShim(object):
         else:
             return False
 
+    cpdef is_sparse(self, obj):
+        if self._have_pandas_internal():
+            return self._types_api.is_sparse(obj)
+        else:
+            return False
+
     cpdef is_data_frame(self, obj):
         if self._have_pandas_internal():
             return isinstance(obj, self._data_frame)
@@ -166,6 +173,13 @@ cdef class _PandasAPIShim(object):
     def assert_frame_equal(self, *args, **kwargs):
         self._check_import()
         return self._pd.util.testing.assert_frame_equal
+
+    def get_rangeindex_attribute(self, level, name):
+        # public start/stop/step attributes added in pandas 0.25.0
+        self._check_import()
+        if hasattr(level, name):
+            return getattr(level, name)
+        return getattr(level, '_' + name)
 
 
 cdef _PandasAPIShim pandas_api = _PandasAPIShim()

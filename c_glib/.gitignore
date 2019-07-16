@@ -52,9 +52,9 @@ Makefile.in
 /m4/
 /stamp-h1
 /arrow-cuda-glib/*.pc
-/arrow-glib/enums.c
-/arrow-glib/enums.h
-/arrow-glib/stamp-*
+/*-glib/enums.c
+/*-glib/enums.h
+/*-glib/stamp-*
 /arrow-glib/version.h
 /arrow-glib/*.pc
 /gandiva-glib/*.pc

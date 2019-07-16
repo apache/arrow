@@ -18,6 +18,9 @@
 package org.apache.arrow.flight.auth;
 
 import java.util.Iterator;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.arrow.flight.auth.ClientAuthHandler.ClientAuthSender;
@@ -25,24 +28,37 @@ import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
 import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceStub;
 
-import com.google.common.base.Throwables;
 import com.google.protobuf.ByteString;
 
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 
+/**
+ * Utility class for performing authorization over using a GRPC stub.
+ */
 public class ClientAuthWrapper {
 
   /**
-   * Do client auth for a client.
+   * Do client auth for a client.  The stub will be authenticated after this method returns.
+   *
    * @param authHandler The handler to use.
    * @param stub The service stub.
-   * @return The token if auth was successful.
    */
   public static void doClientAuth(ClientAuthHandler authHandler, FlightServiceStub stub) {
     AuthObserver observer = new AuthObserver();
     observer.responseObserver = stub.handshake(observer);
     authHandler.authenticate(observer.sender, observer.iter);
-    observer.responseObserver.onCompleted();
+    if (!observer.sender.errored) {
+      observer.responseObserver.onCompleted();
+    }
+    try {
+      if (!observer.completed.get()) {
+        // TODO: ARROW-5681
+        throw new RuntimeException("Unauthenticated");
+      }
+    } catch (InterruptedException | ExecutionException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   private static class AuthObserver implements StreamObserver<HandshakeResponse> {
@@ -50,11 +66,11 @@ public class ClientAuthWrapper {
     private volatile StreamObserver<HandshakeRequest> responseObserver;
     private final LinkedBlockingQueue<byte[]> messages = new LinkedBlockingQueue<>();
     private final AuthSender sender = new AuthSender();
-    private volatile boolean completed = false;
-    private Throwable ex = null;
+    private CompletableFuture<Boolean> completed;
 
     public AuthObserver() {
       super();
+      completed = new CompletableFuture<>();
     }
 
     @Override
@@ -69,7 +85,7 @@ public class ClientAuthWrapper {
 
       @Override
       public byte[] next() {
-        while (ex == null && (!completed || !messages.isEmpty())) {
+        while (!completed.isDone() || !messages.isEmpty()) {
           byte[] bytes = messages.poll();
           if (bytes == null) {
             // busy wait.
@@ -79,8 +95,19 @@ public class ClientAuthWrapper {
           }
         }
 
-        if (ex != null) {
-          throw Throwables.propagate(ex);
+        if (completed.isCompletedExceptionally()) {
+          // Preserve prior exception behavior
+          // TODO: with ARROW-5681, throw an appropriate Flight exception if gRPC raised an exception
+          try {
+            completed.get();
+          } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+          } catch (ExecutionException e) {
+            if (e.getCause() instanceof StatusRuntimeException) {
+              throw (StatusRuntimeException) e.getCause();
+            }
+            throw new RuntimeException(e);
+          }
         }
 
         throw new IllegalStateException("You attempted to retrieve messages after there were none.");
@@ -94,10 +121,12 @@ public class ClientAuthWrapper {
 
     @Override
     public void onError(Throwable t) {
-      ex = t;
+      completed.completeExceptionally(t);
     }
 
     private class AuthSender implements ClientAuthSender {
+
+      private boolean errored = false;
 
       @Override
       public void send(byte[] payload) {
@@ -108,6 +137,8 @@ public class ClientAuthWrapper {
 
       @Override
       public void onError(String message, Throwable cause) {
+        this.errored = true;
+        Objects.requireNonNull(cause);
         responseObserver.onError(cause);
       }
 
@@ -115,7 +146,7 @@ public class ClientAuthWrapper {
 
     @Override
     public void onCompleted() {
-      completed = true;
+      completed.complete(true);
     }
   }
 

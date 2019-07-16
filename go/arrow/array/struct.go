@@ -46,19 +46,14 @@ func (a *Struct) Field(i int) Interface { return a.fields[i] }
 
 func (a *Struct) String() string {
 	o := new(strings.Builder)
-	o.WriteString("[")
+	o.WriteString("{")
 	for i, v := range a.fields {
 		if i > 0 {
 			o.WriteString(" ")
 		}
-		switch {
-		case a.IsNull(i):
-			o.WriteString("(null)")
-		default:
-			fmt.Fprintf(o, "%v", v)
-		}
+		fmt.Fprintf(o, "%v", v)
 	}
-	o.WriteString("]")
+	o.WriteString("}")
 	return o.String()
 }
 
@@ -67,6 +62,23 @@ func (a *Struct) setData(data *Data) {
 	a.fields = make([]Interface, len(data.childData))
 	for i, child := range data.childData {
 		a.fields[i] = MakeFromData(child)
+	}
+}
+
+func arrayEqualStruct(left, right *Struct) bool {
+	for i, lf := range left.fields {
+		rf := right.fields[i]
+		if !ArrayEqual(lf, rf) {
+			return false
+		}
+	}
+	return true
+}
+
+func (a *Struct) Retain() {
+	a.array.Retain()
+	for _, f := range a.fields {
+		f.Retain()
 	}
 }
 

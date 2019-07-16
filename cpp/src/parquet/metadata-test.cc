@@ -28,6 +28,46 @@ namespace parquet {
 
 namespace metadata {
 
+// Helper function for generating table metadata
+std::unique_ptr<parquet::FileMetaData> GenerateTableMetaData(
+    const parquet::SchemaDescriptor& schema,
+    const std::shared_ptr<WriterProperties>& props, const int64_t& nrows,
+    EncodedStatistics stats_int, EncodedStatistics stats_float) {
+  auto f_builder = FileMetaDataBuilder::Make(&schema, props);
+  auto rg1_builder = f_builder->AppendRowGroup();
+
+  // Write the metadata
+  // rowgroup1 metadata
+  auto col1_builder = rg1_builder->NextColumnChunk();
+  auto col2_builder = rg1_builder->NextColumnChunk();
+  // column metadata
+  stats_int.set_is_signed(true);
+  col1_builder->SetStatistics(stats_int);
+  stats_float.set_is_signed(true);
+  col2_builder->SetStatistics(stats_float);
+  col1_builder->Finish(nrows / 2, 4, 0, 10, 512, 600, true, false);
+  col2_builder->Finish(nrows / 2, 24, 0, 30, 512, 600, true, false);
+
+  rg1_builder->set_num_rows(nrows / 2);
+  rg1_builder->Finish(1024);
+
+  // rowgroup2 metadata
+  auto rg2_builder = f_builder->AppendRowGroup();
+  col1_builder = rg2_builder->NextColumnChunk();
+  col2_builder = rg2_builder->NextColumnChunk();
+  // column metadata
+  col1_builder->SetStatistics(stats_int);
+  col2_builder->SetStatistics(stats_float);
+  col1_builder->Finish(nrows / 2, 6, 0, 10, 512, 600, true, false);
+  col2_builder->Finish(nrows / 2, 16, 0, 26, 512, 600, true, false);
+
+  rg2_builder->set_num_rows(nrows / 2);
+  rg2_builder->Finish(1024);
+
+  // Return the metadata accessor
+  return f_builder->Finish();
+}
+
 TEST(Metadata, TestBuildAccess) {
   parquet::schema::NodeVector fields;
   parquet::schema::NodePtr root;
@@ -57,37 +97,8 @@ TEST(Metadata, TestBuildAccess) {
       .set_min(std::string(reinterpret_cast<const char*>(&float_min), 4))
       .set_max(std::string(reinterpret_cast<const char*>(&float_max), 4));
 
-  auto f_builder = FileMetaDataBuilder::Make(&schema, props);
-  auto rg1_builder = f_builder->AppendRowGroup();
-
-  // Write the metadata
-  // rowgroup1 metadata
-  auto col1_builder = rg1_builder->NextColumnChunk();
-  auto col2_builder = rg1_builder->NextColumnChunk();
-  // column metadata
-  col1_builder->SetStatistics(true, stats_int);
-  col2_builder->SetStatistics(true, stats_float);
-  col1_builder->Finish(nrows / 2, 4, 0, 10, 512, 600, true, false);
-  col2_builder->Finish(nrows / 2, 24, 0, 30, 512, 600, true, false);
-
-  rg1_builder->set_num_rows(nrows / 2);
-  rg1_builder->Finish(1024);
-
-  // rowgroup2 metadata
-  auto rg2_builder = f_builder->AppendRowGroup();
-  col1_builder = rg2_builder->NextColumnChunk();
-  col2_builder = rg2_builder->NextColumnChunk();
-  // column metadata
-  col1_builder->SetStatistics(true, stats_int);
-  col2_builder->SetStatistics(true, stats_float);
-  col1_builder->Finish(nrows / 2, 6, 0, 10, 512, 600, true, false);
-  col2_builder->Finish(nrows / 2, 16, 0, 26, 512, 600, true, false);
-
-  rg2_builder->set_num_rows(nrows / 2);
-  rg2_builder->Finish(1024);
-
-  // Read the metadata
-  auto f_accessor = f_builder->Finish();
+  // Generate the metadata
+  auto f_accessor = GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
 
   // file metadata
   ASSERT_EQ(nrows, f_accessor->num_rows());
@@ -161,6 +172,21 @@ TEST(Metadata, TestBuildAccess) {
   ASSERT_EQ(16, rg2_column2->dictionary_page_offset());
   ASSERT_EQ(10, rg2_column1->data_page_offset());
   ASSERT_EQ(26, rg2_column2->data_page_offset());
+
+  // Test FileMetaData::set_file_path
+  ASSERT_TRUE(rg2_column1->file_path().empty());
+  f_accessor->set_file_path("/foo/bar/bar.parquet");
+  ASSERT_EQ("/foo/bar/bar.parquet", rg2_column1->file_path());
+
+  // Test AppendRowGroups
+  auto f_accessor_2 = GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
+  f_accessor->AppendRowGroups(*f_accessor_2);
+  ASSERT_EQ(4, f_accessor->num_row_groups());
+  ASSERT_EQ(nrows * 2, f_accessor->num_rows());
+  ASSERT_LE(0, static_cast<int>(f_accessor->size()));
+  ASSERT_EQ(ParquetVersion::PARQUET_2_0, f_accessor->version());
+  ASSERT_EQ(DEFAULT_CREATED_BY, f_accessor->created_by());
+  ASSERT_EQ(3, f_accessor->num_schema_elements());
 }
 
 TEST(Metadata, TestV1Version) {

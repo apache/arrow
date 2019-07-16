@@ -17,12 +17,15 @@
 
 package org.apache.arrow.flight.grpc;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 
 import com.google.common.base.Throwables;
+import com.google.common.io.ByteStreams;
 
 import io.grpc.internal.ReadableBuffer;
+import io.netty.buffer.ArrowBuf;
 
 /**
  * Enable access to ReadableBuffer directly to copy data from an BufferInputStream into a target
@@ -53,6 +56,12 @@ public class GetReadableBuffer {
     BUFFER_INPUT_STREAM = tmpClazz;
   }
 
+  /**
+   * Extracts the ReadableBuffer for the given input stream.
+   *
+   * @param is Must be an instance of io.grpc.internal.ReadableBuffers$BufferInputStream or
+   *     null will be returned.
+   */
   public static ReadableBuffer getReadableBuffer(InputStream is) {
 
     if (BUFFER_INPUT_STREAM == null || !is.getClass().equals(BUFFER_INPUT_STREAM)) {
@@ -66,4 +75,24 @@ public class GetReadableBuffer {
     }
   }
 
+  /**
+   * Helper method to read a gRPC-provided InputStream into an ArrowBuf.
+   * @param stream The stream to read from. Should be an instance of {@link #BUFFER_INPUT_STREAM}.
+   * @param buf The buffer to read into.
+   * @param size The number of bytes to read.
+   * @param fastPath Whether to enable the fast path (i.e. detect whether the stream is a {@link #BUFFER_INPUT_STREAM}).
+   * @throws IOException if there is an error reading form the stream
+   */
+  public static void readIntoBuffer(final InputStream stream, final ArrowBuf buf, final int size,
+      final boolean fastPath) throws IOException {
+    ReadableBuffer readableBuffer = fastPath ? getReadableBuffer(stream) : null;
+    if (readableBuffer != null) {
+      readableBuffer.readBytes(buf.nioBuffer(0, size));
+    } else {
+      byte[] heapBytes = new byte[size];
+      ByteStreams.readFully(stream, heapBytes);
+      buf.writeBytes(heapBytes);
+    }
+    buf.writerIndex(size);
+  }
 }

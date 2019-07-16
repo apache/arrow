@@ -19,9 +19,9 @@ import { Table } from '../table';
 import { Vector } from '../vector';
 import { IntVector } from '../vector/int';
 import { Field, Schema } from '../schema';
-import { Vector as V } from '../interfaces';
 import { Predicate, Col } from './predicate';
 import { RecordBatch } from '../recordbatch';
+import { VectorType as V } from '../interfaces';
 import { DataType, Int, Struct, Dictionary } from '../type';
 
 /** @ignore */
@@ -60,7 +60,7 @@ export class DataFrame<T extends { [key: string]: DataType } = any> extends Tabl
             throw new Error('countBy currently only supports dictionary-encoded columns');
         }
 
-        const countByteLength = Math.ceil(Math.log(vector.dictionary.length) / Math.log(256));
+        const countByteLength = Math.ceil(Math.log(vector.length) / Math.log(256));
         const CountsArrayType = countByteLength == 4 ? Uint32Array :
                                 countByteLength >= 2 ? Uint16Array : Uint8Array;
 
@@ -81,6 +81,7 @@ export class DataFrame<T extends { [key: string]: DataType } = any> extends Tabl
     }
 }
 
+/** @ignore */
 export class CountByResult<T extends DataType = any, TCount extends Int = Int> extends Table<{ values: T,  counts: TCount }> {
     constructor(values: Vector<T>, counts: V<TCount>) {
         type R = { values: T, counts: TCount };
@@ -101,6 +102,7 @@ export class CountByResult<T extends DataType = any, TCount extends Int = Int> e
     }
 }
 
+/** @ignore */
 export class FilteredDataFrame<T extends { [key: string]: DataType } = any> extends DataFrame<T> {
     private _predicate: Predicate;
     constructor (batches: RecordBatch<T>[], predicate: Predicate) {
@@ -186,7 +188,7 @@ export class FilteredDataFrame<T extends { [key: string]: DataType } = any> exte
             throw new Error('countBy currently only supports dictionary-encoded columns');
         }
 
-        const countByteLength = Math.ceil(Math.log(vector.dictionary.length) / Math.log(256));
+        const countByteLength = Math.ceil(Math.log(vector.length) / Math.log(256));
         const CountsArrayType = countByteLength == 4 ? Uint32Array :
                                 countByteLength >= 2 ? Uint16Array : Uint8Array;
 

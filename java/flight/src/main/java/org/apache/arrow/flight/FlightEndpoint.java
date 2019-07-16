@@ -17,26 +17,41 @@
 
 package org.apache.arrow.flight;
 
+import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.apache.arrow.flight.impl.Flight;
 
 import com.google.common.collect.ImmutableList;
 
+/**
+ * POJO to convert to/from the underlying protobuf FlighEndpoint.
+ */
 public class FlightEndpoint {
   private List<Location> locations;
   private Ticket ticket;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param ticket A ticket that describe the key of a data stream.
+   * @param locations  The possible locations the stream can be retrieved from.
+   */
   public FlightEndpoint(Ticket ticket, Location... locations) {
     super();
     this.locations = ImmutableList.copyOf(locations);
     this.ticket = ticket;
   }
 
-  public FlightEndpoint(Flight.FlightEndpoint flt) {
-    locations = flt.getLocationList().stream()
-        .map(t -> new Location(t)).collect(Collectors.toList());
+  /**
+   * Constructs from the protocol buffer representation.
+   */
+  public FlightEndpoint(Flight.FlightEndpoint flt) throws URISyntaxException {
+    locations = new ArrayList<>();
+    for (final Flight.Location location : flt.getLocationList()) {
+      locations.add(new Location(location.getUri()));
+    }
     ticket = new Ticket(flt.getTicket());
   }
 
@@ -48,15 +63,15 @@ public class FlightEndpoint {
     return ticket;
   }
 
+  /**
+   * Converts to the protocol buffer representation.
+   */
   Flight.FlightEndpoint toProtocol() {
     Flight.FlightEndpoint.Builder b = Flight.FlightEndpoint.newBuilder()
         .setTicket(ticket.toProtocol());
 
     for (Location l : locations) {
-      b.addLocation(Flight.Location.newBuilder()
-          .setHost(l.getHost())
-          .setPort(l.getPort())
-          .build());
+      b.addLocation(l.toProtocol());
     }
     return b.build();
   }

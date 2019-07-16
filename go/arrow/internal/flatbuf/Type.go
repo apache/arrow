@@ -41,6 +41,7 @@ const (
 	TypeFixedSizeBinary Type = 15
 	TypeFixedSizeList Type = 16
 	TypeMap Type = 17
+	TypeDuration Type = 18
 )
 
 var EnumNamesType = map[Type]string{
@@ -62,5 +63,6 @@ var EnumNamesType = map[Type]string{
 	TypeFixedSizeBinary:"FixedSizeBinary",
 	TypeFixedSizeList:"FixedSizeList",
 	TypeMap:"Map",
+	TypeDuration:"Duration",
 }
 

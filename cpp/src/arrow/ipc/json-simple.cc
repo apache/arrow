@@ -442,6 +442,100 @@ class ListConverter final : public ConcreteConverter<ListConverter> {
 };
 
 // ------------------------------------------------------------------------
+// Converter for map arrays
+
+class MapConverter final : public ConcreteConverter<MapConverter> {
+ public:
+  explicit MapConverter(const std::shared_ptr<DataType>& type) { type_ = type; }
+
+  Status Init() override {
+    const auto& map_type = checked_cast<const MapType&>(*type_);
+    RETURN_NOT_OK(GetConverter(map_type.key_type(), &key_converter_));
+    RETURN_NOT_OK(GetConverter(map_type.item_type(), &item_converter_));
+    auto key_builder = key_converter_->builder();
+    auto item_builder = item_converter_->builder();
+    builder_ = std::make_shared<MapBuilder>(default_memory_pool(), key_builder,
+                                            item_builder, type_);
+    return Status::OK();
+  }
+
+  Status AppendNull() override { return builder_->AppendNull(); }
+
+  Status AppendValue(const rj::Value& json_obj) override {
+    if (json_obj.IsNull()) {
+      return AppendNull();
+    }
+    RETURN_NOT_OK(builder_->Append());
+    if (!json_obj.IsArray()) {
+      return JSONTypeError("array", json_obj.GetType());
+    }
+    auto size = json_obj.Size();
+    for (uint32_t i = 0; i < size; ++i) {
+      const auto& json_pair = json_obj[i];
+      if (!json_pair.IsArray()) {
+        return JSONTypeError("array", json_pair.GetType());
+      }
+      if (json_pair.Size() != 2) {
+        return Status::Invalid("key item pair must have exactly two elements, had ",
+                               json_pair.Size());
+      }
+      if (json_pair[0].IsNull()) {
+        return Status::Invalid("null key is invalid");
+      }
+      RETURN_NOT_OK(key_converter_->AppendValue(json_pair[0]));
+      RETURN_NOT_OK(item_converter_->AppendValue(json_pair[1]));
+    }
+    return Status::OK();
+  }
+
+  std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
+
+ private:
+  std::shared_ptr<MapBuilder> builder_;
+  std::shared_ptr<Converter> key_converter_, item_converter_;
+};
+
+// ------------------------------------------------------------------------
+// Converter for fixed size list arrays
+
+class FixedSizeListConverter final : public ConcreteConverter<FixedSizeListConverter> {
+ public:
+  explicit FixedSizeListConverter(const std::shared_ptr<DataType>& type) { type_ = type; }
+
+  Status Init() override {
+    const auto& list_type = checked_cast<const FixedSizeListType&>(*type_);
+    list_size_ = list_type.list_size();
+    RETURN_NOT_OK(GetConverter(list_type.value_type(), &child_converter_));
+    auto child_builder = child_converter_->builder();
+    builder_ = std::make_shared<FixedSizeListBuilder>(default_memory_pool(),
+                                                      child_builder, type_);
+    return Status::OK();
+  }
+
+  Status AppendNull() override { return builder_->AppendNull(); }
+
+  Status AppendValue(const rj::Value& json_obj) override {
+    if (json_obj.IsNull()) {
+      return AppendNull();
+    }
+    RETURN_NOT_OK(builder_->Append());
+    // Extend the child converter with this JSON array
+    RETURN_NOT_OK(child_converter_->AppendValues(json_obj));
+    if (json_obj.GetArray().Size() != static_cast<rj::SizeType>(list_size_)) {
+      return Status::Invalid("incorrect list size ", json_obj.GetArray().Size());
+    }
+    return Status::OK();
+  }
+
+  std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
+
+ private:
+  int32_t list_size_;
+  std::shared_ptr<FixedSizeListBuilder> builder_;
+  std::shared_ptr<Converter> child_converter_;
+};
+
+// ------------------------------------------------------------------------
 // Converter for struct arrays
 
 class StructConverter final : public ConcreteConverter<StructConverter> {
@@ -517,6 +611,94 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
 };
 
 // ------------------------------------------------------------------------
+// Converter for struct arrays
+
+class UnionConverter final : public ConcreteConverter<UnionConverter> {
+ public:
+  explicit UnionConverter(const std::shared_ptr<DataType>& type) { type_ = type; }
+
+  Status Init() override {
+    auto union_type = checked_cast<const UnionType*>(type_.get());
+    mode_ = union_type->mode();
+    type_id_to_child_num_.clear();
+    type_id_to_child_num_.resize(union_type->max_type_code() + 1, -1);
+    int child_i = 0;
+    for (auto type_id : union_type->type_codes()) {
+      type_id_to_child_num_[type_id] = child_i++;
+    }
+    std::vector<std::shared_ptr<ArrayBuilder>> child_builders;
+    for (const auto& field : type_->children()) {
+      std::shared_ptr<Converter> child_converter;
+      RETURN_NOT_OK(GetConverter(field->type(), &child_converter));
+      child_converters_.push_back(child_converter);
+      child_builders.push_back(child_converter->builder());
+    }
+    if (mode_ == UnionMode::DENSE) {
+      builder_ = std::make_shared<DenseUnionBuilder>(default_memory_pool(),
+                                                     std::move(child_builders), type_);
+    } else {
+      builder_ = std::make_shared<SparseUnionBuilder>(default_memory_pool(),
+                                                      std::move(child_builders), type_);
+    }
+    return Status::OK();
+  }
+
+  Status AppendNull() override {
+    for (auto& converter : child_converters_) {
+      RETURN_NOT_OK(converter->AppendNull());
+    }
+    return builder_->AppendNull();
+  }
+
+  // Append a JSON value that is either an array of N elements in order
+  // or an object mapping struct names to values (omitted struct members
+  // are mapped to null).
+  Status AppendValue(const rj::Value& json_obj) override {
+    if (json_obj.IsNull()) {
+      return AppendNull();
+    }
+    if (!json_obj.IsArray()) {
+      return JSONTypeError("array", json_obj.GetType());
+    }
+    if (json_obj.Size() != 2) {
+      return Status::Invalid("Expected [type_id, value] pair, got array of size ",
+                             json_obj.Size());
+    }
+    const auto& id_obj = json_obj[0];
+    if (!id_obj.IsInt()) {
+      return JSONTypeError("int", id_obj.GetType());
+    }
+
+    auto id = static_cast<int8_t>(id_obj.GetInt());
+    auto child_num = type_id_to_child_num_[id];
+    if (child_num == -1) {
+      return Status::Invalid("type_id ", id, " not found in ", *type_);
+    }
+
+    auto child_converter = child_converters_[child_num];
+    if (mode_ == UnionMode::DENSE) {
+      RETURN_NOT_OK(checked_cast<DenseUnionBuilder&>(*builder_).Append(id));
+    } else {
+      RETURN_NOT_OK(checked_cast<SparseUnionBuilder&>(*builder_).Append(id));
+      for (auto&& other_converter : child_converters_) {
+        if (other_converter != child_converter) {
+          RETURN_NOT_OK(other_converter->AppendNull());
+        }
+      }
+    }
+    return child_converter->AppendValue(json_obj[1]);
+  }
+
+  std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
+
+ private:
+  UnionMode::type mode_;
+  std::shared_ptr<ArrayBuilder> builder_;
+  std::vector<std::shared_ptr<Converter>> child_converters_;
+  std::vector<int8_t> type_id_to_child_num_;
+};
+
+// ------------------------------------------------------------------------
 // General conversion functions
 
 Status GetConverter(const std::shared_ptr<DataType>& type,
@@ -547,11 +729,14 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::FLOAT, FloatConverter<FloatType>)
     SIMPLE_CONVERTER_CASE(Type::DOUBLE, FloatConverter<DoubleType>)
     SIMPLE_CONVERTER_CASE(Type::LIST, ListConverter)
+    SIMPLE_CONVERTER_CASE(Type::MAP, MapConverter)
+    SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_LIST, FixedSizeListConverter)
     SIMPLE_CONVERTER_CASE(Type::STRUCT, StructConverter)
     SIMPLE_CONVERTER_CASE(Type::STRING, StringConverter)
     SIMPLE_CONVERTER_CASE(Type::BINARY, StringConverter)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL, DecimalConverter)
+    SIMPLE_CONVERTER_CASE(Type::UNION, UnionConverter)
     default: {
       return Status::NotImplemented("JSON conversion to ", type->ToString(),
                                     " not implemented");

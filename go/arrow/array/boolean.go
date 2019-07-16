@@ -78,6 +78,18 @@ func (a *Boolean) setData(data *Data) {
 	}
 }
 
+func arrayEqualBoolean(left, right *Boolean) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
+}
+
 var (
 	_ Interface = (*Boolean)(nil)
 )

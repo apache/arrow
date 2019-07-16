@@ -20,27 +20,32 @@
 #  find_package(LLVM)
 #
 
-if(APPLE)
-  # Also look in homebrew for a matching llvm version
-  find_program(BREW_BIN brew)
-  if(BREW_BIN)
-    execute_process(COMMAND ${BREW_BIN} --prefix "llvm@7"
-                    OUTPUT_VARIABLE LLVM_BREW_PREFIX
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-  endif()
+set(LLVM_HINTS ${LLVM_ROOT} ${LLVM_DIR} /usr/lib /usr/share)
+if(LLVM_BREW_PREFIX)
+  list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
 endif()
-
-find_package(LLVM
-             ${ARROW_LLVM_VERSION}
-             REQUIRED
-             CONFIG
-             HINTS
-             ${LLVM_ROOT}
-             ${LLVM_DIR}
-             /usr/lib
-             /usr/local/opt/llvm
-             /usr/share
-             ${LLVM_BREW_PREFIX})
+if(DEFINED ARROW_LLVM_VERSION_FALLBACK)
+  find_package(LLVM
+               ${ARROW_LLVM_VERSION}
+               CONFIG
+               HINTS
+               ${LLVM_HINTS})
+  if(NOT ${LLVM_FOUND})
+    find_package(LLVM
+                 ${ARROW_LLVM_VERSION_FALLBACK}
+                 REQUIRED
+                 CONFIG
+                 HINTS
+                 ${LLVM_HINTS})
+  endif()
+else()
+  find_package(LLVM
+               ${ARROW_LLVM_VERSION}
+               REQUIRED
+               CONFIG
+               HINTS
+               ${LLVM_HINTS})
+endif()
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
@@ -67,7 +72,7 @@ find_program(CLANG_EXECUTABLE
              NAMES clang-${ARROW_LLVM_VERSION} clang-${ARROW_LLVM_MAJOR_VERSION}
              HINTS ${LLVM_TOOLS_BINARY_DIR})
 if(CLANG_EXECUTABLE)
-  message(STATUS "Found clang ${ARROW_LLVM_VERSION} ${CLANG_EXECUTABLE}")
+  message(STATUS "Found clang ${LLVM_PACKAGE_VERSION} ${CLANG_EXECUTABLE}")
 else()
   # If clang-7 not available, switch to normal clang.
   find_program(CLANG_EXECUTABLE NAMES clang HINTS ${LLVM_TOOLS_BINARY_DIR})

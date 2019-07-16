@@ -23,23 +23,17 @@ source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 
 if [ ! -e $CPP_TOOLCHAIN ]; then
     CONDA_PACKAGES=""
-    CONDA_LABEL=""
 
-    if [ "$ARROW_TRAVIS_GANDIVA" == "1" ] && [ $TRAVIS_OS_NAME == "osx" ]; then
-        CONDA_PACKAGES="$CONDA_PACKAGES llvmdev=$CONDA_LLVM_VERSION"
-    fi
-
-    if [ "$ARROW_TRAVIS_VALGRIND" == "1" ]; then
-        # Use newer Valgrind
-        CONDA_PACKAGES="$CONDA_PACKAGES valgrind"
+    if [ "$ARROW_TRAVIS_GANDIVA" == "1" ]; then
+        CONDA_PACKAGES="$CONDA_PACKAGES --file=$TRAVIS_BUILD_DIR/ci/conda_env_gandiva.yml"
     fi
 
     # Set up C++ toolchain from conda-forge packages for faster builds
     time conda create -y -q -p $CPP_TOOLCHAIN \
         --file=$TRAVIS_BUILD_DIR/ci/conda_env_cpp.yml \
         --file=$TRAVIS_BUILD_DIR/ci/conda_env_unix.yml \
-        compilers \
         $CONDA_PACKAGES \
+        compilers \
         nomkl \
         python=3.6
 fi

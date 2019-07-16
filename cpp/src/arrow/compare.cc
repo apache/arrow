@@ -234,26 +234,15 @@ class RangeEqualsVisitor {
     const auto& left_type = checked_cast<const UnionType&>(*left.type());
 
     // Define a mapping from the type id to child number
-    uint8_t max_code = 0;
-
     const std::vector<uint8_t>& type_codes = left_type.type_codes();
-    for (size_t i = 0; i < type_codes.size(); ++i) {
-      const uint8_t code = type_codes[i];
-      if (code > max_code) {
-        max_code = code;
-      }
-    }
-
-    // Store mapping in a vector for constant time lookups
-    std::vector<uint8_t> type_id_to_child_num(max_code + 1);
-    for (uint8_t i = 0; i < static_cast<uint8_t>(type_codes.size()); ++i) {
+    std::vector<uint8_t> type_id_to_child_num(left.union_type()->max_type_code() + 1, 0);
+    for (uint8_t i = 0; i < type_codes.size(); ++i) {
       type_id_to_child_num[type_codes[i]] = i;
     }
 
     const uint8_t* left_ids = left.raw_type_ids();
     const uint8_t* right_ids = right.raw_type_ids();
 
-    uint8_t id, child_num;
     for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
       if (left.IsNull(i) != right.IsNull(o_i)) {
@@ -264,8 +253,7 @@ class RangeEqualsVisitor {
         return false;
       }
 
-      id = left_ids[i];
-      child_num = type_id_to_child_num[id];
+      auto child_num = type_id_to_child_num[left_ids[i]];
 
       // TODO(wesm): really we should be comparing stretches of non-null data
       // rather than looking at one value at a time.
@@ -342,6 +330,14 @@ class RangeEqualsVisitor {
 
   Status Visit(const ListArray& left) {
     result_ = CompareLists(left);
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeListArray& left) {
+    const auto& right = checked_cast<const FixedSizeListArray&>(right_);
+    result_ = left.values()->RangeEquals(
+        left.value_offset(left_start_idx_), left.value_offset(left_end_idx_),
+        right.value_offset(right_start_idx_), right.values());
     return Status::OK();
   }
 
@@ -527,7 +523,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
     if (!left.value_data() && !(right.value_data())) {
       return true;
     }
-    if (left.value_offset(left.length()) == 0) {
+    if (left.value_offset(left.length()) == left.value_offset(0)) {
       return true;
     }
 
@@ -576,9 +572,17 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       return Status::OK();
     }
 
-    result_ = left.values()->RangeEquals(
-        left.value_offset(0), left.value_offset(left.length()) - left.value_offset(0),
-        right.value_offset(0), right.values());
+    result_ =
+        left.values()->RangeEquals(left.value_offset(0), left.value_offset(left.length()),
+                                   right.value_offset(0), right.values());
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeListArray& left) {
+    const auto& right = checked_cast<const FixedSizeListArray&>(right_);
+    result_ =
+        left.values()->RangeEquals(left.value_offset(0), left.value_offset(left.length()),
+                                   right.value_offset(0), right.values());
     return Status::OK();
   }
 
@@ -630,9 +634,6 @@ class ApproxEqualsVisitor : public ArrayEqualsVisitor {
         left, checked_cast<const DoubleArray&>(right_), opts_);
     return Status::OK();
   }
-
- protected:
-  double epsilon_;
 };
 
 static bool BaseDataEquals(const Array& left, const Array& right) {
@@ -706,8 +707,17 @@ class TypeEqualsVisitor {
   }
 
   template <typename T>
+  typename std::enable_if<std::is_base_of<IntervalType, T>::value, Status>::type Visit(
+      const T& left) {
+    const auto& right = checked_cast<const IntervalType&>(right_);
+    result_ = right.interval_type() == left.interval_type();
+    return Status::OK();
+  }
+
+  template <typename T>
   typename std::enable_if<std::is_base_of<TimeType, T>::value ||
-                              std::is_base_of<DateType, T>::value,
+                              std::is_base_of<DateType, T>::value ||
+                              std::is_base_of<DurationType, T>::value,
                           Status>::type
   Visit(const T& left) {
     const auto& right = checked_cast<const T&>(right_);
@@ -735,42 +745,39 @@ class TypeEqualsVisitor {
 
   Status Visit(const ListType& left) { return VisitChildren(left); }
 
+  Status Visit(const MapType& left) {
+    const auto& right = checked_cast<const MapType&>(right_);
+    if (left.keys_sorted() != right.keys_sorted()) {
+      result_ = false;
+      return Status::OK();
+    }
+    return VisitChildren(left);
+  }
+
+  Status Visit(const FixedSizeListType& left) { return VisitChildren(left); }
+
   Status Visit(const StructType& left) { return VisitChildren(left); }
 
   Status Visit(const UnionType& left) {
     const auto& right = checked_cast<const UnionType&>(right_);
 
-    if (left.mode() != right.mode() ||
-        left.type_codes().size() != right.type_codes().size()) {
+    if (left.mode() != right.mode() || left.type_codes() != right.type_codes()) {
       result_ = false;
       return Status::OK();
     }
 
-    const std::vector<uint8_t>& left_codes = left.type_codes();
-    const std::vector<uint8_t>& right_codes = right.type_codes();
-
-    for (size_t i = 0; i < left_codes.size(); ++i) {
-      if (left_codes[i] != right_codes[i]) {
-        result_ = false;
-        return Status::OK();
-      }
-    }
-
-    for (int i = 0; i < left.num_children(); ++i) {
-      if (!left.child(i)->Equals(right_.child(i), check_metadata_)) {
-        result_ = false;
-        return Status::OK();
-      }
-    }
-
-    result_ = true;
+    result_ = std::equal(
+        left.children().begin(), left.children().end(), right.children().begin(),
+        [this](const std::shared_ptr<Field>& l, const std::shared_ptr<Field>& r) {
+          return l->Equals(r, check_metadata_);
+        });
     return Status::OK();
   }
 
   Status Visit(const DictionaryType& left) {
     const auto& right = checked_cast<const DictionaryType&>(right_);
     result_ = left.index_type()->Equals(right.index_type()) &&
-              left.dictionary()->Equals(right.dictionary()) &&
+              left.value_type()->Equals(right.value_type()) &&
               (left.ordered() == right.ordered());
     return Status::OK();
   }
@@ -823,6 +830,19 @@ class ScalarEqualsVisitor {
 
   Status Visit(const ListScalar& left) {
     const auto& right = checked_cast<const ListScalar&>(right_);
+    result_ = internal::SharedPtrEquals(left.value, right.value);
+    return Status::OK();
+  }
+
+  Status Visit(const MapScalar& left) {
+    const auto& right = checked_cast<const MapScalar&>(right_);
+    result_ = internal::SharedPtrEquals(left.keys, right.keys) &&
+              internal::SharedPtrEquals(left.items, right.items);
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeListScalar& left) {
+    const auto& right = checked_cast<const FixedSizeListScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
     return Status::OK();
   }
@@ -924,7 +944,13 @@ bool TensorEquals(const Tensor& left, const Tensor& right) {
   } else if (left.size() == 0) {
     are_equal = true;
   } else {
-    if (!left.is_contiguous() || !right.is_contiguous()) {
+    const bool left_row_major_p = left.is_row_major();
+    const bool left_column_major_p = left.is_column_major();
+    const bool right_row_major_p = right.is_row_major();
+    const bool right_column_major_p = right.is_column_major();
+
+    if (!(left_row_major_p && right_row_major_p) &&
+        !(left_column_major_p && right_column_major_p)) {
       const auto& shape = left.shape();
       if (shape != right.shape()) {
         are_equal = false;
@@ -980,9 +1006,8 @@ struct SparseTensorEqualsImpl<SparseIndexType, SparseIndexType> {
 
     const uint8_t* left_data = left.data()->data();
     const uint8_t* right_data = right.data()->data();
-
     return memcmp(left_data, right_data,
-                  static_cast<size_t>(byte_width * left.non_zero_length()));
+                  static_cast<size_t>(byte_width * left.non_zero_length())) == 0;
   }
 };
 

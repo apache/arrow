@@ -77,14 +77,14 @@ public interface AllocationReservation extends AutoCloseable {
    *
    * @return whether or not the reservation has been used
    */
-  public boolean isUsed();
+  boolean isUsed();
 
   /**
    * Return whether or not the reservation has been closed.
    *
    * @return whether or not the reservation has been closed
    */
-  public boolean isClosed();
+  boolean isClosed();
 
-  public void close();
+  void close();
 }

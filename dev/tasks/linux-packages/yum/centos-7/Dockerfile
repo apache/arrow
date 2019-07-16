@@ -27,7 +27,8 @@ RUN \
   yum install -y ${quiet} \
     autoconf-archive \
     bison \
-    boost-devel \
+    boost169-devel \
+    brotli-devel \
     cmake3 \
     double-conversion-devel \
     flex \
@@ -39,9 +40,9 @@ RUN \
     libzstd-devel \
     lz4-devel \
     pkg-config \
-    python34 \
-    python34-devel \
-    python34-numpy \
+    python36 \
+    python36-devel \
+    python36-numpy \
     rapidjson-devel \
     rpm-build \
     rpmdevtools \

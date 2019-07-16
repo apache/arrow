@@ -31,6 +31,9 @@ import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 
+/**
+ * Contains utility methods for integrating authorization into a GRPC stream.
+ */
 public class ServerAuthWrapper {
 
   /**
@@ -55,6 +58,7 @@ public class ServerAuthWrapper {
 
         responseObserver.onError(Status.PERMISSION_DENIED.asException());
       } catch (Exception ex) {
+        ex.printStackTrace();
         responseObserver.onError(ex);
       }
     };
@@ -106,6 +110,7 @@ public class ServerAuthWrapper {
 
     @Override
     public void onError(Throwable t) {
+      completed = true;
       while (future == null) {/* busy wait */}
       future.cancel(true);
     }

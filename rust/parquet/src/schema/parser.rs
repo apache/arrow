@@ -48,9 +48,9 @@ use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
 use crate::errors::{ParquetError, Result};
 use crate::schema::types::{Type, TypePtr};
 
-/// Parses message type as string into a Parquet [`Type`](crate::schema::types::Type) which,
-/// for example, could be used to extract individual columns. Returns Parquet general
-/// error when parsing or validation fails.
+/// Parses message type as string into a Parquet [`Type`](crate::schema::types::Type)
+/// which, for example, could be used to extract individual columns. Returns Parquet
+/// general error when parsing or validation fails.
 pub fn parse_message_type<'a>(message_type: &'a str) -> Result<Type> {
     let mut parser = Parser {
         tokenizer: &mut Tokenizer::from_str(message_type),

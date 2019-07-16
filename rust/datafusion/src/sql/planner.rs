@@ -108,7 +108,6 @@ impl SqlToRel {
                             .collect::<Result<Vec<Expr>>>()?,
                         None => vec![],
                     };
-                    //println!("GROUP BY: {:?}", group_expr);
 
                     let mut all_fields: Vec<Expr> = group_expr.clone();
                     aggr_expr.iter().for_each(|x| all_fields.push(x.clone()));
@@ -196,7 +195,8 @@ impl SqlToRel {
                     Some(schema) => Ok(Arc::new(LogicalPlan::TableScan {
                         schema_name: String::from("default"),
                         table_name: id.clone(),
-                        schema: schema.clone(),
+                        table_schema: schema.clone(),
+                        projected_schema: schema.clone(),
                         projection: None,
                     })),
                     None => Err(ExecutionError::General(format!(

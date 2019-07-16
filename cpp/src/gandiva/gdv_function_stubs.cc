@@ -72,6 +72,61 @@ bool gdv_fn_in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len,
       reinterpret_cast<gandiva::InHolder<std::string>*>(ptr);
   return holder->HasValue(std::string(data, data_len));
 }
+
+int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
+                                      int32_t* offsets, int64_t slot,
+                                      const char* entry_buf, int32_t entry_len) {
+  auto buffer = reinterpret_cast<arrow::ResizableBuffer*>(data_ptr);
+  int32_t offset = static_cast<int32_t>(buffer->size());
+
+  // This also sets the size in the buffer.
+  auto status = buffer->Resize(offset + entry_len, false /*shrink*/);
+  if (!status.ok()) {
+    gandiva::ExecutionContext* context =
+        reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+
+    context->set_error_msg(status.message().c_str());
+    return -1;
+  }
+
+  // append the new entry.
+  memcpy(buffer->mutable_data() + offset, entry_buf, entry_len);
+
+  // update offsets buffer.
+  offsets[slot] = offset;
+  offsets[slot + 1] = offset + entry_len;
+  return 0;
+}
+
+int32_t gdv_fn_dec_from_string(int64_t context, const char* in, int32_t in_length,
+                               int32_t* precision_from_str, int32_t* scale_from_str,
+                               int64_t* dec_high_from_str, uint64_t* dec_low_from_str) {
+  arrow::Decimal128 dec;
+  auto status = arrow::Decimal128::FromString(std::string(in, in_length), &dec,
+                                              precision_from_str, scale_from_str);
+  if (!status.ok()) {
+    gdv_fn_context_set_error_msg(context, status.message().data());
+    return -1;
+  }
+  *dec_high_from_str = dec.high_bits();
+  *dec_low_from_str = dec.low_bits();
+  return 0;
+}
+
+char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
+                           int32_t x_scale, int32_t* dec_str_len) {
+  arrow::Decimal128 dec(arrow::BasicDecimal128(x_high, x_low));
+  std::string dec_str = dec.ToString(x_scale);
+  *dec_str_len = static_cast<int32_t>(dec_str.length());
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *dec_str_len));
+  if (ret == nullptr) {
+    std::string err_msg = "Could not allocate memory for string: " + dec_str;
+    gdv_fn_context_set_error_msg(context, err_msg.data());
+    return nullptr;
+  }
+  memcpy(ret, dec_str.data(), *dec_str_len);
+  return ret;
+}
 }
 
 namespace gandiva {
@@ -79,6 +134,34 @@ namespace gandiva {
 void ExportedStubFunctions::AddMappings(Engine* engine) const {
   std::vector<llvm::Type*> args;
   auto types = engine->types();
+
+  // gdv_fn_dec_from_string
+  args = {
+      types->i64_type(),      // context
+      types->i8_ptr_type(),   // const char* in
+      types->i32_type(),      // int32_t in_length
+      types->i32_ptr_type(),  // int32_t* precision_from_str
+      types->i32_ptr_type(),  // int32_t* scale_from_str
+      types->i64_ptr_type(),  // int64_t* dec_high_from_str
+      types->i64_ptr_type(),  // int64_t* dec_low_from_str
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_dec_from_string",
+                                  types->i32_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_dec_from_string));
+
+  // gdv_fn_dec_to_string
+  args = {
+      types->i64_type(),      // context
+      types->i64_type(),      // int64_t x_high
+      types->i64_type(),      // int64_t x_low
+      types->i32_type(),      // int32_t x_scale
+      types->i64_ptr_type(),  // int64_t* dec_str_len
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_dec_to_string",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_dec_to_string));
 
   // gdv_fn_like_utf8_utf8
   args = {types->i64_type(),     // int64_t ptr
@@ -135,6 +218,18 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_utf8",
                                   types->i1_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_in_expr_lookup_utf8));
+
+  // gdv_fn_populate_varlen_vector
+  args = {types->i64_type(),      // int64_t execution_context
+          types->i8_ptr_type(),   // int8_t* data ptr
+          types->i32_ptr_type(),  // int32_t* offsets ptr
+          types->i64_type(),      // int64_t slot
+          types->i8_ptr_type(),   // const char* entry_buf
+          types->i32_type()};     // int32_t entry__len
+
+  engine->AddGlobalMappingForFunc("gdv_fn_populate_varlen_vector",
+                                  types->i32_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_populate_varlen_vector));
 }
 
 }  // namespace gandiva

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.includes.libarrow cimport CStatus
+from pyarrow.includes.libarrow cimport CStatus, IsPyError, RestorePyError
 from pyarrow.includes.common cimport c_string
 from pyarrow.compat import frombytes
 
@@ -52,15 +52,7 @@ class ArrowCapacityError(ArrowException):
     pass
 
 
-class PlasmaObjectExists(ArrowException):
-    pass
-
-
-class PlasmaObjectNonexistent(ArrowException):
-    pass
-
-
-class PlasmaStoreFull(ArrowException):
+class ArrowIndexError(IndexError, ArrowException):
     pass
 
 
@@ -68,14 +60,17 @@ class ArrowSerializationError(ArrowException):
     pass
 
 
+# This function could be written directly in C++ if we didn't
+# define Arrow-specific subclasses (ArrowInvalid etc.)
 cdef int check_status(const CStatus& status) nogil except -1:
     if status.ok():
         return 0
 
-    if status.IsPythonError():
-        return -1
-
     with gil:
+        if IsPyError(status):
+            RestorePyError(status)
+            return -1
+
         message = frombytes(status.message())
         if status.IsInvalid():
             raise ArrowInvalid(message)
@@ -91,14 +86,16 @@ cdef int check_status(const CStatus& status) nogil except -1:
             raise ArrowTypeError(message)
         elif status.IsCapacityError():
             raise ArrowCapacityError(message)
-        elif status.IsPlasmaObjectExists():
-            raise PlasmaObjectExists(message)
-        elif status.IsPlasmaObjectNonexistent():
-            raise PlasmaObjectNonexistent(message)
-        elif status.IsPlasmaStoreFull():
-            raise PlasmaStoreFull(message)
+        elif status.IsIndexError():
+            raise ArrowIndexError(message)
         elif status.IsSerializationError():
             raise ArrowSerializationError(message)
         else:
             message = frombytes(status.ToString())
             raise ArrowException(message)
+
+
+# This is an API function for C++ PyArrow
+cdef api int pyarrow_internal_check_status(const CStatus& status) \
+        nogil except -1:
+    return check_status(status)

@@ -33,7 +33,8 @@ import numpy.testing as npt
 import pytest
 import pytz
 
-from pyarrow.pandas_compat import get_logical_type
+from pyarrow.pandas_compat import get_logical_type, _pandas_api
+
 import pyarrow as pa
 
 try:
@@ -183,14 +184,38 @@ class TestConvertMetadata(object):
         result = table.to_pandas()
         tm.assert_frame_equal(result, df)
         assert isinstance(result.index, pd.RangeIndex)
-        assert result.index._step == 2
+        assert _pandas_api.get_rangeindex_attribute(result.index, 'step') == 2
         assert result.index.name == index_name
 
         result2 = table_no_index_name.to_pandas()
         tm.assert_frame_equal(result2, df2)
         assert isinstance(result2.index, pd.RangeIndex)
-        assert result2.index._step == 1
+        assert _pandas_api.get_rangeindex_attribute(result2.index, 'step') == 1
         assert result2.index.name is None
+
+    def test_range_index_force_serialization(self):
+        # ARROW-5427: preserve_index=True will force the RangeIndex to
+        # be serialized as a column rather than tracked more
+        # efficiently as metadata
+        df = pd.DataFrame({'a': [1, 2, 3, 4]},
+                          index=pd.RangeIndex(0, 8, step=2, name='foo'))
+
+        table = pa.Table.from_pandas(df, preserve_index=True)
+        assert table.num_columns == 2
+        assert 'foo' in table.column_names
+
+        restored = table.to_pandas()
+        tm.assert_frame_equal(restored, df)
+
+    def test_rangeindex_doesnt_warn(self):
+        # ARROW-5606: pandas 0.25 deprecated private _start/stop/step
+        # attributes -> can be removed if support < pd 0.25 is dropped
+        df = pd.DataFrame(np.random.randn(4, 2), columns=['a', 'b'])
+
+        with pytest.warns(None) as record:
+            _check_pandas_roundtrip(df, preserve_index=True)
+
+        assert len(record) == 0
 
     def test_multiindex_columns(self):
         columns = pd.MultiIndex.from_arrays([
@@ -239,7 +264,8 @@ class TestConvertMetadata(object):
             ),
             columns=['a', None, '__index_level_0__'],
         )
-        t = pa.Table.from_pandas(df, preserve_index=True)
+        with pytest.warns(UserWarning):
+            t = pa.Table.from_pandas(df, preserve_index=True)
         js = t.schema.pandas_metadata
 
         col1, col2, col3, idx0, foo = js['columns']
@@ -363,12 +389,22 @@ class TestConvertMetadata(object):
 
         _check_pandas_roundtrip(df, preserve_index=True)
 
-    def test_mixed_unicode_column_names(self):
-        df = pd.DataFrame({u'あ': [u'い'], b'a': 1}, index=[u'う'])
+    def test_mixed_column_names(self):
+        # mixed type column names are not reconstructed exactly
+        df = pd.DataFrame({'a': [1, 2], 'b': [3, 4]})
 
-        # TODO(phillipc): Should this raise?
-        with pytest.raises(AssertionError):
-            _check_pandas_roundtrip(df, preserve_index=True)
+        for cols in [[u'あ', b'a'], [1, '2'], [1, 1.5]]:
+            df.columns = pd.Index(cols, dtype=object)
+
+            # assert that the from_pandas raises the warning
+            with pytest.warns(UserWarning):
+                pa.Table.from_pandas(df)
+
+            expected = df.copy()
+            expected.columns = df.columns.astype(six.text_type)
+            with pytest.warns(UserWarning):
+                _check_pandas_roundtrip(df, expected=expected,
+                                        preserve_index=True)
 
     def test_binary_column_name(self):
         column_data = [u'い']
@@ -428,6 +464,12 @@ class TestConvertMetadata(object):
         assert data_column['pandas_type'] == 'list[int64]'
         assert data_column['numpy_type'] == 'object'
 
+    def test_struct_metadata(self):
+        df = pd.DataFrame({'dicts': [{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]})
+        table = pa.Table.from_pandas(df)
+        pandas_metadata = table.schema.pandas_metadata
+        assert pandas_metadata['columns'][0]['pandas_type'] == 'object'
+
     def test_decimal_metadata(self):
         expected = pd.DataFrame({
             'decimals': [
@@ -479,7 +521,7 @@ class TestConvertMetadata(object):
         # First roundtrip changes schema, because pandas cannot preserve the
         # type of empty lists
         df = tbl.to_pandas()
-        tbl2 = pa.Table.from_pandas(df, preserve_index=True)
+        tbl2 = pa.Table.from_pandas(df)
         md2 = tbl2.schema.pandas_metadata
 
         # Second roundtrip
@@ -504,6 +546,11 @@ class TestConvertMetadata(object):
                 'pandas_type': 'list[empty]',
             }
         ]
+
+    def test_metadata_pandas_version(self):
+        df = pd.DataFrame({'a': [1, 2, 3], 'b': [1, 2, 3]})
+        table = pa.Table.from_pandas(df)
+        assert table.schema.pandas_metadata['pandas_version'] is not None
 
 
 class TestConvertPrimitiveTypes(object):
@@ -570,6 +617,13 @@ class TestConvertPrimitiveTypes(object):
         s = pd.Series([0.0, 1.0, 2.0, None, -3.0])
         expected = pd.Series([False, True, True, None, True])
         _check_array_roundtrip(s, expected=expected, type=pa.bool_())
+
+    def test_series_from_pandas_false_respected(self):
+        # Check that explicit from_pandas=False is respected
+        s = pd.Series([0.0, np.nan])
+        arr = pa.array(s, from_pandas=False)
+        assert arr.null_count == 0
+        assert np.isnan(arr[1].as_py())
 
     def test_integer_no_nulls(self):
         data = OrderedDict()
@@ -726,6 +780,23 @@ class TestConvertPrimitiveTypes(object):
         schema = pa.schema([field])
         _check_pandas_roundtrip(df, expected=expected,
                                 expected_schema=schema)
+
+    def test_float_with_null_as_integer(self):
+        # ARROW-2298
+        s = pd.Series([np.nan, 1., 2., np.nan])
+
+        types = [pa.int8(), pa.int16(), pa.int32(), pa.int64(),
+                 pa.uint8(), pa.uint16(), pa.uint32(), pa.uint64()]
+        for ty in types:
+            result = pa.array(s, type=ty)
+            expected = pa.array([None, 1, 2, None], type=ty)
+            assert result.equals(expected)
+
+            df = pd.DataFrame({'has_nulls': s})
+            schema = pa.schema([pa.field('has_nulls', ty)])
+            result = pa.Table.from_pandas(df, schema=schema,
+                                          preserve_index=False)
+            assert result[0].data.chunk(0).equals(expected)
 
     def test_int_object_nulls(self):
         arr = np.array([None, 1, np.int64(3)] * 5, dtype=object)
@@ -1574,7 +1645,7 @@ class TestConvertDecimalTypes(object):
         _check_pandas_roundtrip(df)
 
 
-class TestListTypes(object):
+class TestConvertListTypes(object):
     """
     Conversion tests for list<> types.
     """
@@ -1616,6 +1687,18 @@ class TestListTypes(object):
         df = table.to_pandas()
 
         expected_df = pd.DataFrame({'col1': [[True, False], [True]]})
+        tm.assert_frame_equal(df, expected_df)
+
+    def test_column_of_decimal_list(self):
+        array = pa.array([[decimal.Decimal('1'), decimal.Decimal('2')],
+                         [decimal.Decimal('3.3')]],
+                         type=pa.list_(pa.decimal128(2, 1)))
+        table = pa.Table.from_arrays([array], names=['col1'])
+        df = table.to_pandas()
+
+        expected_df = pd.DataFrame(
+                {'col1': [[decimal.Decimal('1'), decimal.Decimal('2')],
+                          [decimal.Decimal('3.3')]]})
         tm.assert_frame_equal(df, expected_df)
 
     def test_column_of_lists(self):
@@ -1822,6 +1905,19 @@ class TestConvertStructTypes(object):
     Conversion tests for struct types.
     """
 
+    def test_pandas_roundtrip(self):
+        df = pd.DataFrame({'dicts': [{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]})
+
+        expected_schema = pa.schema([
+            ('dicts', pa.struct([('a', pa.int64()), ('b', pa.int64())])),
+        ])
+
+        _check_pandas_roundtrip(df, expected_schema=expected_schema)
+
+        # specifying schema explicitly in from_pandas
+        _check_pandas_roundtrip(
+            df, schema=expected_schema, expected_schema=expected_schema)
+
     def test_to_pandas(self):
         ints = pa.array([None, 2, 3], type=pa.int64())
         strs = pa.array([u'a', None, u'c'], type=pa.string())
@@ -1964,6 +2060,23 @@ class TestConvertStructTypes(object):
         with pytest.raises(TypeError,
                            match="Expected struct array"):
             pa.array(data, type=ty)
+
+    def test_from_tuples(self):
+        df = pd.DataFrame({'tuples': [(1, 2), (3, 4)]})
+        expected_df = pd.DataFrame(
+            {'tuples': [{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]})
+
+        # conversion from tuples works when specifying expected struct type
+        struct_type = pa.struct([('a', pa.int64()), ('b', pa.int64())])
+
+        arr = np.asarray(df['tuples'])
+        _check_array_roundtrip(
+            arr, expected=expected_df['tuples'], type=struct_type)
+
+        expected_schema = pa.schema([('tuples', struct_type)])
+        _check_pandas_roundtrip(
+            df, expected=expected_df, schema=expected_schema,
+            expected_schema=expected_schema)
 
 
 class TestZeroCopyConversion(object):
@@ -2236,12 +2349,6 @@ class TestConvertMisc(object):
         arr = pa.array(data['y'], type=pa.int16())
         assert arr.to_pylist() == [-1, 2]
 
-    def test_mixed_integer_columns(self):
-        row = [[], []]
-        df = pd.DataFrame(data=[row], columns=['foo', 123])
-        expected_df = pd.DataFrame(data=[row], columns=['foo', '123'])
-        _check_pandas_roundtrip(df, expected=expected_df, preserve_index=True)
-
     def test_safe_unsafe_casts(self):
         # ARROW-2799
         df = pd.DataFrame({
@@ -2259,6 +2366,12 @@ class TestConvertMisc(object):
 
         table = pa.Table.from_pandas(df, schema=schema, safe=False)
         assert table.column('B').type == pa.int32()
+
+    def test_error_sparse(self):
+        # ARROW-2818
+        df = pd.DataFrame({'a': pd.SparseArray([1, np.nan, 3])})
+        with pytest.raises(TypeError, match="Sparse pandas data"):
+            pa.Table.from_pandas(df)
 
 
 def test_safe_cast_from_float_with_nans_to_int():
@@ -2443,6 +2556,17 @@ def test_to_pandas_deduplicate_date_time():
 
 # ---------------------------------------------------------------------
 
+def test_table_from_pandas_checks_field_nullability():
+    # ARROW-2136
+    df = pd.DataFrame({'a': [1.2, 2.1, 3.1],
+                       'b': [np.nan, 'string', 'foo']})
+    schema = pa.schema([pa.field('a', pa.float64(), nullable=False),
+                        pa.field('b', pa.utf8(), nullable=False)])
+
+    with pytest.raises(ValueError):
+        pa.Table.from_pandas(df, schema=schema)
+
+
 def test_table_from_pandas_keeps_column_order_of_dataframe():
     df1 = pd.DataFrame(OrderedDict([
         ('partition', [0, 0, 1, 1]),
@@ -2535,6 +2659,20 @@ def test_table_from_pandas_columns_and_schema_are_mutually_exclusive():
 
     with pytest.raises(ValueError):
         pa.Table.from_pandas(df, schema=schema, columns=columns)
+
+
+def test_table_from_pandas_keeps_schema_nullability():
+    # ARROW-5169
+    df = pd.DataFrame({'a': [1, 2, 3, 4]})
+
+    schema = pa.schema([
+        pa.field('a', pa.int64(), nullable=False),
+    ])
+
+    table = pa.Table.from_pandas(df)
+    assert table.schema.field_by_name('a').nullable is True
+    table = pa.Table.from_pandas(df, schema=schema)
+    assert table.schema.field_by_name('a').nullable is False
 
 
 # ----------------------------------------------------------------------
@@ -2709,6 +2847,21 @@ def test_dictionary_with_pandas():
                                            categories=dictionary)
 
     tm.assert_series_equal(pd.Series(pandas2), pd.Series(ex_pandas2))
+
+
+def test_variable_dictionary_with_pandas():
+    a1 = pa.DictionaryArray.from_arrays([0, 1, 2], ['a', 'b', 'c'])
+    a2 = pa.DictionaryArray.from_arrays([0, 1], ['a', 'c'])
+
+    a = pa.chunked_array([a1, a2])
+    assert a.to_pylist() == ['a', 'b', 'c', 'a', 'c']
+    with pytest.raises(NotImplementedError):
+        a.to_pandas()
+
+    a = pa.chunked_array([a2, a1])
+    assert a.to_pylist() == ['a', 'c', 'a', 'b', 'c']
+    with pytest.raises(NotImplementedError):
+        a.to_pandas()
 
 
 # ----------------------------------------------------------------------

@@ -21,7 +21,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -236,7 +235,7 @@ Status DeserializeSequence(PyObject* context, const Array& array, int64_t start_
       int64_t offset = value_offsets[i];
       uint8_t type = type_ids[i];
       PyObject* value;
-      RETURN_NOT_OK(GetValue(context, *data.UnsafeChild(type), offset,
+      RETURN_NOT_OK(GetValue(context, *data.child(type), offset,
                              python_types[type_ids[i]], base, blobs, &value));
       RETURN_NOT_OK(set_item(result.obj(), i - start_idx, value));
     }
@@ -345,7 +344,6 @@ Status DeserializeObject(PyObject* context, const SerializedPyObject& obj, PyObj
                          PyObject** out) {
   PyAcquireGIL lock;
   PyDateTime_IMPORT;
-  import_pyarrow();
   return DeserializeList(context, *obj.batch->column(0), 0, obj.batch->num_rows(), base,
                          obj, out);
 }

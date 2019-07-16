@@ -34,31 +34,33 @@ namespace gandiva {
 // arrow/testing/gtest_util.h has good utility classes for this purpose.
 // Using those
 template <typename TYPE, typename C_TYPE>
-static ArrayPtr MakeArrowArray(std::vector<C_TYPE> values, std::vector<bool> validity) {
+static inline ArrayPtr MakeArrowArray(std::vector<C_TYPE> values,
+                                      std::vector<bool> validity) {
   ArrayPtr out;
   arrow::ArrayFromVector<TYPE, C_TYPE>(validity, values, &out);
   return out;
 }
 
 template <typename TYPE, typename C_TYPE>
-static ArrayPtr MakeArrowArray(std::vector<C_TYPE> values) {
+static inline ArrayPtr MakeArrowArray(std::vector<C_TYPE> values) {
   ArrayPtr out;
   arrow::ArrayFromVector<TYPE, C_TYPE>(values, &out);
   return out;
 }
 
 template <typename TYPE, typename C_TYPE>
-static ArrayPtr MakeArrowArray(const std::shared_ptr<arrow::DataType>& type,
-                               std::vector<C_TYPE> values, std::vector<bool> validity) {
+static inline ArrayPtr MakeArrowArray(const std::shared_ptr<arrow::DataType>& type,
+                                      std::vector<C_TYPE> values,
+                                      std::vector<bool> validity) {
   ArrayPtr out;
   arrow::ArrayFromVector<TYPE, C_TYPE>(type, validity, values, &out);
   return out;
 }
 
 template <typename TYPE, typename C_TYPE>
-static ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>& type,
-                                   const std::vector<C_TYPE>& values,
-                                   const std::vector<bool>& validity) {
+static inline ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>& type,
+                                          const std::vector<C_TYPE>& values,
+                                          const std::vector<bool>& validity) {
   ArrayPtr out;
   arrow::ArrayFromVector<TYPE, C_TYPE>(type, validity, values, &out);
   return out;
@@ -92,7 +94,7 @@ static ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>& type,
   EXPECT_TRUE((a)->Equals(b)) << "expected type: " << (a)->ToString() \
                               << " actual type: " << (b)->ToString()
 
-std::shared_ptr<Configuration> TestConfiguration() {
+static inline std::shared_ptr<Configuration> TestConfiguration() {
   auto builder = ConfigurationBuilder();
   return builder.DefaultConfiguration();
 }

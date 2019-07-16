@@ -15,11 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/flight/platform.h"
+
 #ifdef __APPLE__
 #include <limits.h>
 #include <mach-o/dyld.h>
 #endif
 
+#include <cstdlib>
 #include <sstream>
 
 #include <boost/filesystem.hpp>
@@ -58,6 +61,12 @@ Status ResolveCurrentExecutable(fs::path* out) {
     return Status::Invalid("Can't resolve current exe: path too large");
   }
   *out = fs::canonical(buf, ec);
+#elif defined(_WIN32)
+  char buf[MAX_PATH + 1];
+  if (!GetModuleFileNameA(NULL, buf, sizeof(buf))) {
+    return Status::Invalid("Can't get executable file path");
+  }
+  *out = fs::canonical(buf, ec);
 #else
   ARROW_UNUSED(ec);
   return Status::NotImplemented("Not available on this system");
@@ -71,6 +80,10 @@ Status ResolveCurrentExecutable(fs::path* out) {
 }
 
 }  // namespace
+
+static int next_listen_port_ = 30001;
+
+int GetListenPort() { return next_listen_port_++; }
 
 void TestServer::Start() {
   namespace fs = boost::filesystem;
@@ -105,7 +118,12 @@ void TestServer::Start() {
 
 int TestServer::Stop() {
   if (server_process_ && server_process_->valid()) {
+#ifndef _WIN32
     kill(server_process_->id(), SIGTERM);
+#else
+    // This would use SIGKILL on POSIX, which is more brutal than SIGTERM
+    server_process_->terminate();
+#endif
     server_process_->wait();
     return server_process_->exit_code();
   } else {
@@ -118,8 +136,7 @@ bool TestServer::IsRunning() { return server_process_->running(); }
 
 int TestServer::port() const { return port_; }
 
-Status InProcessTestServer::Start(std::unique_ptr<ServerAuthHandler> auth_handler) {
-  RETURN_NOT_OK(server_->Init(std::move(auth_handler), port_));
+Status InProcessTestServer::Start() {
   thread_ = std::thread([this]() { ARROW_EXPECT_OK(server_->Serve()); });
   return Status::OK();
 }
@@ -129,13 +146,108 @@ void InProcessTestServer::Stop() {
   thread_.join();
 }
 
-int InProcessTestServer::port() const { return port_; }
+const Location& InProcessTestServer::location() const { return location_; }
 
 InProcessTestServer::~InProcessTestServer() {
   // Make sure server shuts down properly
   if (thread_.joinable()) {
     Stop();
   }
+}
+
+Status GetBatchForFlight(const Ticket& ticket, std::shared_ptr<RecordBatchReader>* out) {
+  if (ticket.ticket == "ticket-ints-1") {
+    BatchVector batches;
+    RETURN_NOT_OK(ExampleIntBatches(&batches));
+    *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    return Status::OK();
+  } else if (ticket.ticket == "ticket-dicts-1") {
+    BatchVector batches;
+    RETURN_NOT_OK(ExampleDictBatches(&batches));
+    *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    return Status::OK();
+  } else {
+    return Status::NotImplemented("no stream implemented for this ticket");
+  }
+}
+
+class FlightTestServer : public FlightServerBase {
+  Status ListFlights(const ServerCallContext& context, const Criteria* criteria,
+                     std::unique_ptr<FlightListing>* listings) override {
+    std::vector<FlightInfo> flights = ExampleFlightInfo();
+    *listings = std::unique_ptr<FlightListing>(new SimpleFlightListing(flights));
+    return Status::OK();
+  }
+
+  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
+                       std::unique_ptr<FlightInfo>* out) override {
+    std::vector<FlightInfo> flights = ExampleFlightInfo();
+
+    for (const auto& info : flights) {
+      if (info.descriptor().Equals(request)) {
+        *out = std::unique_ptr<FlightInfo>(new FlightInfo(info));
+        return Status::OK();
+      }
+    }
+    return Status::Invalid("Flight not found: ", request.ToString());
+  }
+
+  Status DoGet(const ServerCallContext& context, const Ticket& request,
+               std::unique_ptr<FlightDataStream>* data_stream) override {
+    // Test for ARROW-5095
+    if (request.ticket == "ARROW-5095-fail") {
+      return Status::UnknownError("Server-side error");
+    }
+    if (request.ticket == "ARROW-5095-success") {
+      return Status::OK();
+    }
+
+    std::shared_ptr<RecordBatchReader> batch_reader;
+    RETURN_NOT_OK(GetBatchForFlight(request, &batch_reader));
+
+    *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(batch_reader));
+    return Status::OK();
+  }
+
+  Status RunAction1(const Action& action, std::unique_ptr<ResultStream>* out) {
+    std::vector<Result> results;
+    for (int i = 0; i < 3; ++i) {
+      Result result;
+      std::string value = action.body->ToString() + "-part" + std::to_string(i);
+      RETURN_NOT_OK(Buffer::FromString(value, &result.body));
+      results.push_back(result);
+    }
+    *out = std::unique_ptr<ResultStream>(new SimpleResultStream(std::move(results)));
+    return Status::OK();
+  }
+
+  Status RunAction2(std::unique_ptr<ResultStream>* out) {
+    // Empty
+    *out = std::unique_ptr<ResultStream>(new SimpleResultStream({}));
+    return Status::OK();
+  }
+
+  Status DoAction(const ServerCallContext& context, const Action& action,
+                  std::unique_ptr<ResultStream>* out) override {
+    if (action.type == "action1") {
+      return RunAction1(action, out);
+    } else if (action.type == "action2") {
+      return RunAction2(out);
+    } else {
+      return Status::NotImplemented(action.type);
+    }
+  }
+
+  Status ListActions(const ServerCallContext& context,
+                     std::vector<ActionType>* out) override {
+    std::vector<ActionType> actions = ExampleActionTypes();
+    *out = std::move(actions);
+    return Status::OK();
+  }
+};
+
+std::unique_ptr<FlightServerBase> ExampleTestServer() {
+  return std::unique_ptr<FlightServerBase>(new FlightTestServer);
 }
 
 Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
@@ -146,6 +258,24 @@ Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
   out->total_records = total_records;
   out->total_bytes = total_bytes;
   return internal::SchemaToString(schema, &out->schema);
+}
+
+NumberingStream::NumberingStream(std::unique_ptr<FlightDataStream> stream)
+    : counter_(0), stream_(std::move(stream)) {}
+
+std::shared_ptr<Schema> NumberingStream::schema() { return stream_->schema(); }
+
+Status NumberingStream::GetSchemaPayload(FlightPayload* payload) {
+  return stream_->GetSchemaPayload(payload);
+}
+
+Status NumberingStream::Next(FlightPayload* payload) {
+  RETURN_NOT_OK(stream_->Next(payload));
+  if (payload && payload->ipc_message.type == ipc::Message::RECORD_BATCH) {
+    payload->app_metadata = Buffer::FromString(std::to_string(counter_));
+    counter_++;
+  }
+  return Status::OK();
 }
 
 std::shared_ptr<Schema> ExampleIntSchema() {
@@ -167,12 +297,21 @@ std::shared_ptr<Schema> ExampleDictSchema() {
 }
 
 std::vector<FlightInfo> ExampleFlightInfo() {
+  Location location1;
+  Location location2;
+  Location location3;
+  Location location4;
+  ARROW_EXPECT_OK(Location::ForGrpcTcp("foo1.bar.com", 12345, &location1));
+  ARROW_EXPECT_OK(Location::ForGrpcTcp("foo2.bar.com", 12345, &location2));
+  ARROW_EXPECT_OK(Location::ForGrpcTcp("foo3.bar.com", 12345, &location3));
+  ARROW_EXPECT_OK(Location::ForGrpcTcp("foo4.bar.com", 12345, &location4));
+
   FlightInfo::Data flight1, flight2, flight3;
 
-  FlightEndpoint endpoint1({{"ticket-ints-1"}, {{"foo1.bar.com", 92385}}});
-  FlightEndpoint endpoint2({{"ticket-ints-2"}, {{"foo2.bar.com", 92385}}});
-  FlightEndpoint endpoint3({{"ticket-cmd"}, {{"foo3.bar.com", 92385}}});
-  FlightEndpoint endpoint4({{"ticket-dicts-1"}, {{"foo4.bar.com", 92385}}});
+  FlightEndpoint endpoint1({{"ticket-ints-1"}, {location1}});
+  FlightEndpoint endpoint2({{"ticket-ints-2"}, {location2}});
+  FlightEndpoint endpoint3({{"ticket-cmd"}, {location3}});
+  FlightEndpoint endpoint4({{"ticket-dicts-1"}, {location4}});
 
   FlightDescriptor descr1{FlightDescriptor::PATH, "", {"examples", "ints"}};
   FlightDescriptor descr2{FlightDescriptor::CMD, "my_command", {}};
@@ -259,6 +398,71 @@ Status TestClientAuthHandler::Authenticate(ClientAuthSender* outgoing,
 Status TestClientAuthHandler::GetToken(std::string* token) {
   *token = password_;
   return Status::OK();
+}
+
+Status GetTestResourceRoot(std::string* out) {
+  const char* c_root = std::getenv("ARROW_TEST_DATA");
+  if (!c_root) {
+    return Status::IOError("Test resources not found, set ARROW_TEST_DATA");
+  }
+  *out = std::string(c_root);
+  return Status::OK();
+}
+
+Status ExampleTlsCertificates(std::vector<CertKeyPair>* out) {
+  std::string root;
+  RETURN_NOT_OK(GetTestResourceRoot(&root));
+
+  *out = std::vector<CertKeyPair>();
+  for (int i = 0; i < 2; i++) {
+    try {
+      std::stringstream cert_path;
+      cert_path << root << "/flight/cert" << i << ".pem";
+      std::stringstream key_path;
+      key_path << root << "/flight/cert" << i << ".key";
+
+      std::ifstream cert_file(cert_path.str());
+      if (!cert_file) {
+        return Status::IOError("Could not open certificate: " + cert_path.str());
+      }
+      std::stringstream cert;
+      cert << cert_file.rdbuf();
+
+      std::ifstream key_file(key_path.str());
+      if (!key_file) {
+        return Status::IOError("Could not open key: " + key_path.str());
+      }
+      std::stringstream key;
+      key << key_file.rdbuf();
+
+      out->push_back(CertKeyPair{cert.str(), key.str()});
+    } catch (const std::ifstream::failure& e) {
+      return Status::IOError(e.what());
+    }
+  }
+  return Status::OK();
+}
+
+Status ExampleTlsCertificateRoot(CertKeyPair* out) {
+  std::string root;
+  RETURN_NOT_OK(GetTestResourceRoot(&root));
+
+  std::stringstream path;
+  path << root << "/flight/root-ca.pem";
+
+  try {
+    std::ifstream cert_file(path.str());
+    if (!cert_file) {
+      return Status::IOError("Could not open certificate: " + path.str());
+    }
+    std::stringstream cert;
+    cert << cert_file.rdbuf();
+    out->pem_cert = cert.str();
+    out->pem_key = "";
+    return Status::OK();
+  } catch (const std::ifstream::failure& e) {
+    return Status::IOError(e.what());
+  }
 }
 
 }  // namespace flight

@@ -18,11 +18,16 @@
 cmake_minimum_required(VERSION 3.2)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
-set(ARROW_VERSION "0.14.0-SNAPSHOT")
+set(ARROW_VERSION "1.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
 project(arrow VERSION "${ARROW_BASE_VERSION}")
+
+# if no build build type is specified, default to release builds
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif(NOT CMAKE_BUILD_TYPE)
 
 set(ARROW_VERSION_MAJOR "${arrow_VERSION_MAJOR}")
 set(ARROW_VERSION_MINOR "${arrow_VERSION_MINOR}")
@@ -34,17 +39,20 @@ if(ARROW_VERSION_MAJOR STREQUAL ""
 endif()
 
 # The SO version is also the ABI version
-if(arrow_VERSION_MAJOR STREQUAL "0")
+if(ARROW_VERSION_MAJOR STREQUAL "0")
   # Arrow 0.x.y => SO version is "x", full SO version is "x.y.0"
   set(ARROW_SO_VERSION "${ARROW_VERSION_MINOR}")
   set(ARROW_FULL_SO_VERSION "${ARROW_SO_VERSION}.${ARROW_VERSION_PATCH}.0")
 else()
-  message(FATAL_ERROR "Need to implement SO version generation for Arrow 1.0+")
+  # Arrow 1.x.y => SO version is "10x", full SO version is "10x.y.0"
+  math(EXPR ARROW_SO_VERSION "${ARROW_VERSION_MAJOR} * 100 + ${ARROW_VERSION_MINOR}")
+  set(ARROW_FULL_SO_VERSION "${ARROW_SO_VERSION}.${ARROW_VERSION_PATCH}.0")
 endif()
 
 message(STATUS "Arrow version: "
                "${ARROW_VERSION_MAJOR}.${ARROW_VERSION_MINOR}.${ARROW_VERSION_PATCH} "
                "(full: '${ARROW_VERSION}')")
+message(STATUS "Arrow SO version: ${ARROW_SO_VERSION} (full: ${ARROW_FULL_SO_VERSION})")
 
 set(ARROW_SOURCE_DIR ${PROJECT_SOURCE_DIR})
 set(ARROW_BINARY_DIR ${PROJECT_BINARY_DIR})
@@ -65,6 +73,11 @@ if(POLICY CMP0054)
   cmake_policy(SET CMP0054 NEW)
 endif()
 
+if(POLICY CMP0068)
+  # https://cmake.org/cmake/help/v3.9/policy/CMP0068.html
+  cmake_policy(SET CMP0068 NEW)
+endif()
+
 # don't ignore <PackageName>_ROOT variables in find_package
 if(POLICY CMP0074)
   # https://cmake.org/cmake/help/v3.12/policy/CMP0074.html
@@ -74,12 +87,29 @@ endif()
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_LLVM_VERSION "7.0")
+# TODO: Remove this when we drop LLVM 7 support.
+set(ARROW_LLVM_VERSION_FALLBACK "7.1")
 string(
   REGEX
   REPLACE "^([0-9]+)\\.[0-9]+" "\\1" ARROW_LLVM_MAJOR_VERSION "${ARROW_LLVM_VERSION}")
 string(
   REGEX
   REPLACE "^[0-9]+\\.([0-9]+)" "\\1" ARROW_LLVM_MINOR_VERSION "${ARROW_LLVM_VERSION}")
+
+if(APPLE)
+  find_program(BREW_BIN brew)
+  if(BREW_BIN)
+    execute_process(COMMAND ${BREW_BIN} --prefix "llvm@${ARROW_LLVM_MAJOR_VERSION}"
+                    OUTPUT_VARIABLE LLVM_BREW_PREFIX
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(NOT LLVM_BREW_PREFIX)
+      execute_process(COMMAND ${BREW_BIN} --prefix llvm
+                      OUTPUT_VARIABLE LLVM_BREW_PREFIX
+                      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    endif()
+  endif()
+endif()
+
 find_package(ClangTools)
 if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR CLANG_TIDY_FOUND)
   # Generate a Clang compile_commands.json "compilation database" file for use
@@ -98,235 +128,7 @@ endif()
 
 # ----------------------------------------------------------------------
 # cmake options
-
-# Top level cmake dir
-if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
-  set(ARROW_CXXFLAGS "" CACHE STRING "Compiler flags to append when compiling Arrow")
-
-  option(ARROW_ONLY_LINT "Only define the lint and check-format targets" OFF)
-
-  option(ARROW_BUILD_STATIC "Build static libraries" ON)
-
-  option(ARROW_BUILD_SHARED "Build shared libraries" ON)
-
-  option(ARROW_TEST_MEMCHECK "Run the test suite using valgrind --tool=memcheck" OFF)
-
-  option(ARROW_USE_ASAN "Enable Address Sanitizer checks" OFF)
-
-  option(ARROW_USE_CCACHE "Use ccache when compiling (if available)" ON)
-
-  option(ARROW_USE_LD_GOLD "Use ld.gold for linking on Linux (if available)" OFF)
-
-  option(ARROW_USE_TSAN "Enable Thread Sanitizer checks" OFF)
-
-  option(ARROW_BUILD_TESTS "Build the Arrow googletest unit tests, default OFF" OFF)
-
-  option(ARROW_BUILD_BENCHMARKS "Build the Arrow micro benchmarks, default OFF" OFF)
-
-  option(ARROW_BUILD_EXAMPLES "Build the Arrow examples, default OFF" OFF)
-
-  set(ARROW_TEST_LINKAGE "shared"
-      CACHE STRING "Linkage of Arrow libraries with unit tests executables. \
-static|shared (default shared)")
-
-  option(ARROW_NO_DEPRECATED_API "Exclude deprecated APIs from build" OFF)
-
-  option(ARROW_FUZZING "Build Arrow Fuzzing executables" OFF)
-
-  # Disable this option to exercise non-SIMD fallbacks
-  option(ARROW_USE_SIMD "Build with SIMD optimizations" ON)
-
-  option(ARROW_ALTIVEC "Build Arrow with Altivec" ON)
-
-  option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" ON)
-
-  option(ARROW_RPATH_ORIGIN "Build Arrow libraries with RATH set to \$ORIGIN" OFF)
-
-  option(ARROW_INSTALL_NAME_RPATH "Build Arrow libraries with install_name set to @rpath"
-         ON)
-
-  option(ARROW_GENERATE_COVERAGE "Build with C++ code coverage enabled" OFF)
-
-  option(ARROW_VERBOSE_LINT "If off, 'quiet' flags will be passed to linting tools" OFF)
-
-  option(ARROW_GGDB_DEBUG "Pass -ggdb flag to debug builds" ON)
-
-  #----------------------------------------------------------------------
-  # Project components to enable / disable building
-
-  option(ARROW_COMPUTE "Build the Arrow Compute Modules" ON)
-
-  option(ARROW_FLIGHT
-         "Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)" OFF)
-
-  option(ARROW_GANDIVA "Build the Gandiva libraries" OFF)
-
-  option(ARROW_PARQUET "Build the Parquet libraries" OFF)
-
-  option(ARROW_IPC "Build the Arrow IPC extensions" ON)
-
-  option(ARROW_CUDA "Build the Arrow CUDA extensions (requires CUDA toolkit)" OFF)
-
-  option(ARROW_ORC "Build the Arrow ORC adapter" OFF)
-
-  option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
-
-  option(ARROW_JEMALLOC "Build the Arrow jemalloc-based allocator" ON)
-
-  option(ARROW_HDFS "Build the Arrow HDFS bridge" ON)
-
-  option(ARROW_PYTHON "Build the Arrow CPython extensions" OFF)
-
-  option(ARROW_HIVESERVER2 "Build the HiveServer2 client and Arrow adapter" OFF)
-
-  option(ARROW_PLASMA "Build the plasma object store along with Arrow" OFF)
-
-  option(ARROW_PLASMA_JAVA_CLIENT "Build the plasma object store java client" OFF)
-
-  #----------------------------------------------------------------------
-  # Thirdparty toolchain options
-
-  # Determine how we will look for dependencies
-  # * AUTO: Guess which packaging systems we're running in and pull the
-  #   dependencies from there. Build any missing ones through the
-  #   ExternalProject setup. This is the default unless the CONDA_PREFIX
-  #   environment variable is set, in which case the CONDA method is used
-  # * BUNDLED: Build dependencies through CMake's ExternalProject facility. If
-  #   you wish to build individual dependencies from source instead of using
-  #   one of the other methods, pass -D$NAME_SOURCE=BUNDLED
-  # * SYSTEM: Use CMake's find_package and find_library without any custom
-  #   paths. If individual packages are on non-default locations, you can pass
-  #   $NAME_ROOT arguments to CMake, or set environment variables for the same
-  #   with CMake 3.11 and higher.  If your system packages are in a non-default
-  #   location, or if you are using a non-standard toolchain, you can also pass
-  #   ARROW_PACKAGE_PREFIX to set the *_ROOT variables to look in that
-  #   directory
-  # * CONDA: Same as system but set all *_ROOT variables to
-  #   ENV{CONDA_PREFIX}. If this is run within an active conda environment,
-  #   then ENV{CONDA_PREFIX} will be used for dependencies unless
-  #   ARROW_DEPENDENCY_SOURCE is set explicitly to one of the other options
-  # * BREW: Use SYSTEM but search for select packages with brew.
-  if(NOT "$ENV{CONDA_PREFIX}" STREQUAL "")
-    set(ARROW_DEPENDENCY_SOURCE_DEFAULT "CONDA")
-  else()
-    set(ARROW_DEPENDENCY_SOURCE_DEFAULT "AUTO")
-  endif()
-  set(ARROW_DEPENDENCY_SOURCE "${ARROW_DEPENDENCY_SOURCE_DEFAULT}"
-      CACHE STRING "Compiler flags to append when compiling Arrow")
-  set_property(CACHE ARROW_DEPENDENCY_SOURCE
-               PROPERTY STRINGS
-                        "AUTO"
-                        "BUNDLED"
-                        "SYSTEM"
-                        "CONDA"
-                        "BREW")
-
-  option(ARROW_VERBOSE_THIRDPARTY_BUILD
-         "If off, output from ExternalProjects will be logged to files rather than shown"
-         OFF)
-
-  option(ARROW_BOOST_USE_SHARED "Rely on boost shared libraries where relevant" ON)
-
-  option(ARROW_BOOST_VENDORED "Use vendored Boost instead of existing Boost. \
-Note that this requires linking Boost statically" OFF)
-
-  option(ARROW_PROTOBUF_USE_SHARED
-         "Rely on Protocol Buffers shared libraries where relevant" ON)
-
-  option(ARROW_GFLAGS_USE_SHARED "Rely on GFlags shared libraries where relevant" ON)
-
-  option(ARROW_WITH_BACKTRACE "Build with backtrace support" ON)
-
-  option(ARROW_USE_GLOG "Build libraries with glog support for pluggable logging" ON)
-
-  option(ARROW_WITH_BROTLI "Build with Brotli compression" ON)
-
-  option(ARROW_WITH_BZ2 "Build with BZ2 compression" OFF)
-
-  option(ARROW_WITH_LZ4 "Build with lz4 compression" ON)
-
-  option(ARROW_WITH_SNAPPY "Build with Snappy compression" ON)
-
-  option(ARROW_WITH_ZLIB "Build with zlib compression" ON)
-
-  if(CMAKE_VERSION VERSION_LESS 3.7)
-    set(ARROW_WITH_ZSTD_DEFAULT OFF)
-  else()
-    # ExternalProject_Add(SOURCE_SUBDIR) is available since CMake 3.7.
-    set(ARROW_WITH_ZSTD_DEFAULT ON)
-  endif()
-  option(ARROW_WITH_ZSTD "Build with zstd compression" ${ARROW_WITH_ZSTD_DEFAULT})
-
-  #----------------------------------------------------------------------
-  # Windows options
-
-  if(MSVC)
-    option(MSVC_LINK_VERBOSE
-           "Pass verbose linking options when linking libraries and executables" OFF)
-
-    option(ARROW_USE_CLCACHE "Use clcache if available" ON)
-
-    set(BROTLI_MSVC_STATIC_LIB_SUFFIX "-static"
-        CACHE STRING
-              "Brotli static lib suffix used on Windows with MSVC (default -static)")
-    set(
-      PROTOBUF_MSVC_STATIC_LIB_SUFFIX ""
-      CACHE
-        STRING
-        "Protobuf static lib suffix used on Windows with MSVC (default is empty string)")
-    set(RE2_MSVC_STATIC_LIB_SUFFIX "_static"
-        CACHE STRING
-              "re2 static lib suffix used on Windows with MSVC (default is _static)")
-    set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "_static"
-        CACHE STRING
-              "Snappy static lib suffix used on Windows with MSVC (default is _static)")
-    set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static"
-        CACHE STRING "Lz4 static lib suffix used on Windows with MSVC (default _static)")
-    set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static"
-        CACHE STRING "ZStd static lib suffix used on Windows with MSVC (default _static)")
-
-    option(ARROW_USE_STATIC_CRT "Build Arrow with statically linked CRT" OFF)
-  endif()
-
-  #----------------------------------------------------------------------
-  # Parquet build options
-
-  option(PARQUET_MINIMAL_DEPENDENCY
-         "Depend only on Thirdparty headers to build libparquet. \
-Always OFF if building binaries" OFF)
-
-  option(PARQUET_BUILD_EXECUTABLES
-         "Build the Parquet executable CLI tools. Requires static libraries to be built."
-         OFF)
-
-  option(PARQUET_BUILD_EXAMPLES
-         "Build the Parquet examples. Requires static libraries to be built." OFF)
-
-  #----------------------------------------------------------------------
-  # Gandiva build options
-
-  option(ARROW_GANDIVA_JAVA "Build the Gandiva JNI wrappers" OFF)
-
-  # ARROW-3860: Temporary workaround
-  option(
-    ARROW_GANDIVA_STATIC_LIBSTDCPP
-    "Include -static-libstdc++ -static-libgcc when linking with Gandiva static libraries"
-    OFF)
-
-  set(ARROW_GANDIVA_PC_CXX_FLAGS ""
-      CACHE STRING "Compiler flags to append when pre-compiling Gandiva operations")
-
-  #----------------------------------------------------------------------
-  # Advanced developer options
-
-  option(ARROW_EXTRA_ERROR_CONTEXT "Compile with extra error context (line numbers, code)"
-         OFF)
-
-  option(ARROW_OPTIONAL_INSTALL
-         "If enabled install ONLY targets that have already been built. Please be \
-advised that if this is enabled 'install' will fail silently on components \
-that have not been built" OFF)
-endif()
+include(DefineOptions)
 
 # Needed for linting targets, etc.
 find_package(PythonInterp)
@@ -477,6 +279,10 @@ if(MSVC)
   set(ARROW_USE_GLOG OFF)
 endif()
 
+if(ARROW_JNI)
+  set(ARROW_BUILD_STATIC ON)
+endif()
+
 if(ARROW_ORC)
   set(ARROW_WITH_LZ4 ON)
   set(ARROW_WITH_SNAPPY ON)
@@ -487,7 +293,12 @@ if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
 else()
   add_custom_target(all-tests)
-  add_custom_target(unittest ctest -L unittest)
+  add_custom_target(unittest
+                    ctest
+                    -j4
+                    -L
+                    unittest
+                    --output-on-failure)
   add_dependencies(unittest all-tests)
 endif()
 
@@ -497,6 +308,9 @@ else()
   add_custom_target(all-benchmarks)
   add_custom_target(benchmark ctest -L benchmark)
   add_dependencies(benchmark all-benchmarks)
+  if(ARROW_BUILD_BENCHMARKS_REFERENCE)
+    add_definitions(-DARROW_WITH_BENCHMARKS_REFERENCE)
+  endif()
 endif()
 
 if(NOT ARROW_BUILD_EXAMPLES)
@@ -533,6 +347,45 @@ if(ARROW_EXTRA_ERROR_CONTEXT)
 endif()
 
 include(SetupCxxFlags)
+
+#
+# Build output directory
+#
+
+# set compile output directory
+string(TOLOWER ${CMAKE_BUILD_TYPE} BUILD_SUBDIR_NAME)
+
+# If build in-source, create the latest symlink. If build out-of-source, which is
+# preferred, simply output the binaries in the build folder
+if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
+  set(BUILD_OUTPUT_ROOT_DIRECTORY
+      "${CMAKE_CURRENT_BINARY_DIR}/build/${BUILD_SUBDIR_NAME}/")
+  # Link build/latest to the current build directory, to avoid developers
+  # accidentally running the latest debug build when in fact they're building
+  # release builds.
+  file(MAKE_DIRECTORY ${BUILD_OUTPUT_ROOT_DIRECTORY})
+  if(NOT APPLE)
+    set(MORE_ARGS "-T")
+  endif()
+  execute_process(COMMAND ln
+                          ${MORE_ARGS}
+                          -sf
+                          ${BUILD_OUTPUT_ROOT_DIRECTORY}
+                          ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
+else()
+  set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}/")
+endif()
+
+# where to put generated archives (.a files)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+set(ARCHIVE_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+
+# where to put generated libraries (.so files)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+set(LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+
+# where to put generated binaries
+set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 #
 # Dependencies
@@ -572,38 +425,6 @@ endif()
 # CMAKE_CXX_FLAGS now fully assembled
 message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
-
-# set compile output directory
-string(TOLOWER ${CMAKE_BUILD_TYPE} BUILD_SUBDIR_NAME)
-
-# If build in-source, create the latest symlink. If build out-of-source, which is
-# preferred, simply output the binaries in the build folder
-if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
-  set(BUILD_OUTPUT_ROOT_DIRECTORY
-      "${CMAKE_CURRENT_BINARY_DIR}/build/${BUILD_SUBDIR_NAME}/")
-  # Link build/latest to the current build directory, to avoid developers
-  # accidentally running the latest debug build when in fact they're building
-  # release builds.
-  file(MAKE_DIRECTORY ${BUILD_OUTPUT_ROOT_DIRECTORY})
-  if(NOT APPLE)
-    set(MORE_ARGS "-T")
-  endif()
-  execute_process(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
-                          ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
-else()
-  set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}/")
-endif()
-
-# where to put generated archives (.a files)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-set(ARCHIVE_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-
-# where to put generated libraries (.so files)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-set(LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-
-# where to put generated binaries
-set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/src)
 include_directories(src)
@@ -757,16 +578,24 @@ set(ARROW_LINK_LIBS ${double-conversion_LIBRARIES})
 set(ARROW_STATIC_LINK_LIBS ${double-conversion_LIBRARIES})
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS ${double-conversion_LIBRARIES})
 
-list(APPEND ARROW_STATIC_LINK_LIBS uriparser::uriparser)
-list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS uriparser::uriparser)
+if(ARROW_WITH_URIPARSER)
+  list(APPEND ARROW_STATIC_LINK_LIBS uriparser::uriparser)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS uriparser::uriparser)
+endif()
+
+if(ARROW_USE_OPENSSL)
+  set(ARROW_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
+  list(APPEND ARROW_LINK_LIBS ${ARROW_OPENSSL_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_OPENSSL_LIBS})
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_OPENSSL_LIBS})
+endif()
 
 if(ARROW_WITH_BROTLI)
   # Order is important for static linking
-  list(APPEND ARROW_LINK_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
-  list(APPEND ARROW_STATIC_LINK_LIBS Brotli::brotlienc Brotli::brotlidec
-              Brotli::brotlicommon)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS Brotli::brotlienc Brotli::brotlidec
-              Brotli::brotlicommon)
+  set(ARROW_BROTLI_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
+  list(APPEND ARROW_LINK_LIBS ${ARROW_BROTLI_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_BROTLI_LIBS})
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_BROTLI_LIBS})
 endif()
 
 if(ARROW_WITH_BZ2)
@@ -795,9 +624,9 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 if(ARROW_ORC)
-  list(APPEND ARROW_LINK_LIBS protobuf::libprotobuf orc_static)
-  list(APPEND ARROW_STATIC_LINK_LIBS protobuf::libprotobuf orc_static)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS protobuf::libprotobuf orc)
+  list(APPEND ARROW_LINK_LIBS protobuf::libprotobuf orc::liborc)
+  list(APPEND ARROW_STATIC_LINK_LIBS protobuf::libprotobuf orc::liborc)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS protobuf::libprotobuf orc::liborc)
 endif()
 
 if(ARROW_USE_GLOG)
@@ -821,11 +650,8 @@ if(ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 endif()
 
-set(ARROW_SHARED_PRIVATE_LINK_LIBS
-    ${ARROW_STATIC_LINK_LIBS}
-    ${BOOST_SYSTEM_LIBRARY}
-    ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_REGEX_LIBRARY})
+set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS} ${BOOST_SYSTEM_LIBRARY}
+                                   ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_REGEX_LIBRARY})
 
 list(APPEND ARROW_STATIC_LINK_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY}
             ${BOOST_REGEX_LIBRARY})
@@ -849,11 +675,8 @@ if(ARROW_BUILD_BENCHMARKS)
                    toolchain-benchmarks)
 endif()
 
-set(ARROW_TEST_STATIC_LINK_LIBS
-    arrow_testing_static
-    arrow_static
-    ${ARROW_LINK_LIBS}
-    ${ARROW_TEST_LINK_TOOLCHAIN})
+set(ARROW_TEST_STATIC_LINK_LIBS arrow_testing_static arrow_static ${ARROW_LINK_LIBS}
+                                ${ARROW_TEST_LINK_TOOLCHAIN})
 
 set(ARROW_TEST_SHARED_LINK_LIBS
     arrow_testing_shared
@@ -896,7 +719,10 @@ if(ARROW_BUILD_BENCHMARKS)
   endif()
 
   set(ARROW_BENCHMARK_LINK_LIBS benchmark::benchmark_main benchmark::benchmark
-      ${ARROW_TEST_LINK_LIBS})
+                                ${ARROW_TEST_LINK_LIBS})
+  if(WIN32)
+    set(ARROW_BENCHMARK_LINK_LIBS Shlwapi.dll ${ARROW_BENCHMARK_LINK_LIBS})
+  endif()
 endif()
 
 set(ARROW_SYSTEM_LINK_LIBS)
@@ -938,6 +764,10 @@ if(ARROW_PARQUET)
   endif()
 endif()
 
+if(ARROW_JNI)
+  add_subdirectory(src/jni)
+endif()
+
 if(ARROW_GANDIVA)
   add_subdirectory(src/gandiva)
 endif()
@@ -967,3 +797,5 @@ install(EXPORT ${PROJECT_NAME}-targets
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
               ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+
+config_summary()

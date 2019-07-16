@@ -7,7 +7,7 @@
 \usage{
 read_table(stream)
 
-read_arrow(stream, use_threads = TRUE)
+read_arrow(stream)
 }
 \arguments{
 \item{stream}{stream.
@@ -23,13 +23,11 @@ binary file format, and uses a \link[=arrow__ipc__RecordBatchFileReader]{arrow::
 to process it.
 \item a raw vector: read using a \link[=arrow__ipc__RecordBatchStreamReader]{arrow::ipc::RecordBatchStreamReader}
 }}
-
-\item{use_threads}{Use threads when converting to a tibble}
 }
 \value{
 \itemize{
 \item \code{read_table} returns an \link[=arrow__Table]{arrow::Table}
-\item \code{read_arrow} returns a \code{\link[tibble:tibble]{tibble::tibble()}}
+\item \code{read_arrow} returns a \code{data.frame}
 }
 }
 \description{

@@ -27,13 +27,12 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
-#include "arrow/util/bit-util.h"
 
 #include "parquet/encoding.h"
+#include "parquet/platform.h"
 #include "parquet/schema.h"
+#include "parquet/test-util.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
-#include "parquet/util/test-common.h"
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
@@ -52,10 +51,10 @@ namespace test {
 TEST(VectorBooleanTest, TestEncodeDecode) {
   // PARQUET-454
   int nvalues = 10000;
-  int nbytes = static_cast<int>(::arrow::BitUtil::BytesForBits(nvalues));
+  int nbytes = static_cast<int>(BitUtil::BytesForBits(nvalues));
 
-  // seed the prng so failure is deterministic
-  std::vector<bool> draws = flip_coins_seed(nvalues, 0.5, 0);
+  std::vector<bool> draws;
+  ::arrow::random_is_valid(nvalues, 0.5 /* null prob */, &draws, 0 /* seed */);
 
   std::unique_ptr<BooleanEncoder> encoder =
       MakeTypedEncoder<BooleanType>(Encoding::PLAIN);
@@ -147,7 +146,7 @@ template <>
 std::shared_ptr<ColumnDescriptor> ExampleDescr<FLBAType>() {
   auto node = schema::PrimitiveNode::Make("name", Repetition::OPTIONAL,
                                           Type::FIXED_LEN_BYTE_ARRAY,
-                                          LogicalType::DECIMAL, flba_length, 10, 2);
+                                          ConvertedType::DECIMAL, flba_length, 10, 2);
   return std::make_shared<ColumnDescriptor>(node, 0, 0);
 }
 
@@ -383,7 +382,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
 
     // Initialize input_data_ for the encoder from the expected_array_ values
     const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*expected_dense_);
-    input_data_.reserve(binary_array.length());
+    input_data_.resize(binary_array.length());
 
     for (int64_t i = 0; i < binary_array.length(); ++i) {
       auto view = binary_array.GetView(i);

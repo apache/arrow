@@ -75,6 +75,7 @@ cmake -G "%GENERATOR%" ^
       -DGTest_SOURCE=BUNDLED ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DARROW_CXXFLAGS="/MP" ^
+      -DARROW_FLIGHT=ON ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^
       ..  || exit /B
@@ -94,11 +95,11 @@ ctest -VV  || exit /B
 popd
 
 @rem Build and import pyarrow
-@rem parquet-cpp has some additional runtime dependencies that we need to figure out
-@rem see PARQUET-1018
 pushd %ARROW_SOURCE%\python
 
-python setup.py build_ext --inplace --with-parquet --bundle-arrow-cpp bdist_wheel  || exit /B
+set PYARROW_WITH_FLIGHT=1
+set PYARROW_WITH_PARQUET=1
+python setup.py build_ext --inplace --bundle-arrow-cpp bdist_wheel  || exit /B
 py.test pyarrow -v -s --parquet || exit /B
 
 popd

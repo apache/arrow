@@ -23,7 +23,7 @@ project('arrow-glib', 'c', 'cpp',
           'cpp_std=c++11',
         ])
 
-version = '0.14.0-SNAPSHOT'
+version = '1.0.0-SNAPSHOT'
 if version.endswith('-SNAPSHOT')
   version_numbers = version.split('-')[0].split('.')
   version_tag = version.split('-')[1]
@@ -138,5 +138,5 @@ test('unit test',
        'ARROW_CUDA_GLIB_TYPELIB_DIR=@0@/arrow-cuda-glib'.format(meson.build_root()),
        'GANDIVA_GLIB_TYPELIB_DIR=@0@/gandiva-glib'.format(meson.build_root()),
        'PARQUET_GLIB_TYPELIB_DIR=@0@/parquet-glib'.format(meson.build_root()),
-       'PARQUET_GLIB_TYPELIB_DIR=@0@/plasma-glib'.format(meson.build_root()),
+       'PLASMA_GLIB_TYPELIB_DIR=@0@/plasma-glib'.format(meson.build_root()),
      ])

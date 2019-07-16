@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/opt/python/cp35-cp35m/bin/pip install cmake ninja
-ln -s /opt/python/cp35-cp35m/bin/cmake /usr/bin/cmake
-ln -s /opt/python/cp35-cp35m/bin/ninja /usr/bin/ninja
-strip /opt/_internal/cpython-3.*/lib/python3.5/site-packages/cmake/data/bin/*
+/opt/python/cp37-cp37m/bin/pip install cmake ninja
+ln -s /opt/python/cp37-cp37m/bin/cmake /usr/bin/cmake
+ln -s /opt/python/cp37-cp37m/bin/ninja /usr/bin/ninja
+strip /opt/_internal/cpython-3.*/lib/python3.7/site-packages/cmake/data/bin/*

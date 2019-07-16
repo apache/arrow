@@ -16,6 +16,7 @@
 // under the License.
 
 pub mod file_util;
+pub mod page_util;
 pub mod rand_gen;
 
 pub use self::rand_gen::random_bools;

@@ -18,10 +18,11 @@
 import { Data } from '../data';
 import { Vector } from '../vector';
 import { BaseVector } from './base';
-import { Vector as V } from '../interfaces';
+import { VectorType as V } from '../interfaces';
 import { Float, Float16, Float32, Float64 } from '../type';
 import { toFloat16Array, toFloat32Array, toFloat64Array } from '../util/buffer';
 
+/** @ignore */
 export class FloatVector<T extends Float = Float> extends BaseVector<T> {
 
     public static from(this: typeof FloatVector, data: Float16['TArray']): Float16Vector;
@@ -51,6 +52,7 @@ export class FloatVector<T extends Float = Float> extends BaseVector<T> {
     }
 }
 
+/** @ignore */
 export class Float16Vector extends FloatVector<Float16> {
     // Since JS doesn't have half floats, `toArray()` returns a zero-copy slice
     // of the underlying Uint16Array data. This behavior ensures we don't incur
@@ -62,5 +64,7 @@ export class Float16Vector extends FloatVector<Float16> {
     public toFloat64Array() { return new Float64Array(this as Iterable<number>); }
 }
 
+/** @ignore */
 export class Float32Vector extends FloatVector<Float32> {}
+/** @ignore */
 export class Float64Vector extends FloatVector<Float64> {}

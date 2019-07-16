@@ -52,7 +52,13 @@ class GANDIVA_EXPORT LLVMGenerator {
 
   /// \brief Build the code for the expression trees for default mode. Each
   /// element in the vector represents an expression tree
-  Status Build(const ExpressionVector& exprs);
+  Status Build(const ExpressionVector& exprs, SelectionVector::Mode mode);
+
+  /// \brief Build the code for the expression trees for default mode. Each
+  /// element in the vector represents an expression tree
+  Status Build(const ExpressionVector& exprs) {
+    return Build(exprs, SelectionVector::Mode::MODE_NONE);
+  }
 
   /// \brief Execute the built expression against the provided arguments for
   /// default mode.
@@ -65,6 +71,7 @@ class GANDIVA_EXPORT LLVMGenerator {
                  const SelectionVector* selection_vector,
                  const ArrayDataVector& output_vector);
 
+  SelectionVector::Mode selection_vector_mode() { return selection_vector_mode_; }
   LLVMTypes* types() { return engine_->types(); }
   llvm::Module* module() { return engine_->module(); }
 
@@ -173,6 +180,9 @@ class GANDIVA_EXPORT LLVMGenerator {
   /// Generate code to load the vector at specified index and cast it as offsets array.
   llvm::Value* GetOffsetsReference(llvm::Value* arg_addrs, int idx, FieldPtr field);
 
+  /// Generate code to load the vector at specified index and cast it as buffer pointer.
+  llvm::Value* GetDataBufferPtrReference(llvm::Value* arg_addrs, int idx, FieldPtr field);
+
   /// Generate code for the value array of one expression.
   Status CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr output, int suffix_idx,
                           llvm::Function** fn,
@@ -226,6 +236,7 @@ class GANDIVA_EXPORT LLVMGenerator {
   std::vector<std::unique_ptr<CompiledExpr>> compiled_exprs_;
   FunctionRegistry function_registry_;
   Annotator annotator_;
+  SelectionVector::Mode selection_vector_mode_;
 
   // used for debug
   bool dump_ir_;

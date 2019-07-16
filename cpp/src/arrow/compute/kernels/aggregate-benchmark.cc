@@ -18,22 +18,16 @@
 #include "benchmark/benchmark.h"
 
 #include <vector>
-#ifdef _MSC_VER
-#include <intrin.h>
-#else
-#include <immintrin.h>
-#endif
 
 #include "arrow/builder.h"
-#include "arrow/memory_pool.h"
-#include "arrow/testing/gtest_util.h"
-#include "arrow/testing/random.h"
-#include "arrow/util/bit-util.h"
-
 #include "arrow/compute/benchmark-util.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/sum.h"
+#include "arrow/memory_pool.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
+#include "arrow/util/bit-util.h"
 
 namespace arrow {
 namespace compute {
@@ -42,6 +36,8 @@ namespace compute {
 #include <cmath>
 #include <iostream>
 #include <random>
+
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 
 namespace BitUtil = arrow::BitUtil;
 using arrow::internal::BitmapReader;
@@ -279,7 +275,7 @@ struct SumBitmapVectorizeUnroll : public Summer<T> {
 };
 
 template <typename Functor>
-void BenchSum(benchmark::State& state) {
+void ReferenceSum(benchmark::State& state) {
   using T = typename Functor::ValueType;
 
   const int64_t array_size = state.range(0) / sizeof(int64_t);
@@ -301,15 +297,17 @@ void BenchSum(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * array_size * sizeof(T));
 }
 
-BENCHMARK_TEMPLATE(BenchSum, SumNoNulls<int64_t>)->Apply(BenchmarkSetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumNoNullsUnrolled<int64_t>)->Apply(BenchmarkSetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumSentinel<int64_t>)->Apply(BenchmarkSetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumSentinelUnrolled<int64_t>)->Apply(BenchmarkSetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumBitmapNaive<int64_t>)->Apply(BenchmarkSetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumBitmapReader<int64_t>)->Apply(BenchmarkSetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumBitmapVectorizeUnroll<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumNoNulls<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumNoNullsUnrolled<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumSentinel<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumSentinelUnrolled<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapNaive<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapReader<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapVectorizeUnroll<int64_t>)
+    ->Apply(BenchmarkSetArgs);
+#endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
-static void BenchSumKernel(benchmark::State& state) {
+static void SumKernel(benchmark::State& state) {
   const int64_t array_size = state.range(0) / sizeof(int64_t);
   const double null_percent = static_cast<double>(state.range(1)) / 100.0;
   auto rand = random::RandomArrayGenerator(1923);
@@ -328,7 +326,7 @@ static void BenchSumKernel(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * array_size * sizeof(int64_t));
 }
 
-BENCHMARK(BenchSumKernel)->Apply(BenchmarkSetArgs);
+BENCHMARK(SumKernel)->Apply(RegressionSetArgs);
 
 }  // namespace compute
 }  // namespace arrow

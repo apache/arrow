@@ -53,16 +53,16 @@
 package main // import "github.com/apache/arrow/go/arrow/ipc/cmd/arrow-ls"
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
-	"strings"
 
-	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/pkg/errors"
 )
 
 func main() {
@@ -84,22 +84,26 @@ func main() {
 }
 
 func processStream(w io.Writer, rin io.Reader) error {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(nil, 0)
+	mem := memory.NewGoAllocator()
 
-	r, err := ipc.NewReader(rin, ipc.WithAllocator(mem))
-	if err != nil {
-		return err
+	for {
+		r, err := ipc.NewReader(rin, ipc.WithAllocator(mem))
+		if err != nil {
+			if errors.Cause(err) == io.EOF {
+				return nil
+			}
+			return err
+		}
+		defer r.Release()
+
+		fmt.Fprintf(w, "%v\n", r.Schema())
+
+		nrecs := 0
+		for r.Next() {
+			nrecs++
+		}
+		fmt.Fprintf(w, "records: %d\n", nrecs)
 	}
-	defer r.Release()
-
-	fmt.Fprintf(w, "schema:\n%v", displaySchema(r.Schema()))
-
-	nrecs := 0
-	for r.Next() {
-		nrecs++
-	}
-	fmt.Fprintf(w, "records: %d\n", nrecs)
 	return nil
 }
 
@@ -121,42 +125,34 @@ func processFile(w io.Writer, fname string) error {
 	}
 	defer f.Close()
 
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(nil, 0)
+	hdr := make([]byte, len(ipc.Magic))
+	_, err = io.ReadFull(f, hdr)
+	if err != nil {
+		return errors.Errorf("could not read file header: %v", err)
+	}
+	f.Seek(0, io.SeekStart)
+
+	if !bytes.Equal(hdr, ipc.Magic) {
+		// try as a stream.
+		return processStream(w, f)
+	}
+
+	mem := memory.NewGoAllocator()
 
 	r, err := ipc.NewFileReader(f, ipc.WithAllocator(mem))
 	if err != nil {
+		if errors.Cause(err) == io.EOF {
+			return nil
+		}
 		return err
 	}
 	defer r.Close()
 
 	fmt.Fprintf(w, "version: %v\n", r.Version())
-	fmt.Fprintf(w, "schema:\n%v", displaySchema(r.Schema()))
+	fmt.Fprintf(w, "%v\n", r.Schema())
 	fmt.Fprintf(w, "records: %d\n", r.NumRecords())
+
 	return nil
-}
-
-func displaySchema(s *arrow.Schema) string {
-	o := new(strings.Builder)
-	fmt.Fprintf(o, "%*.sfields: %d\n", 2, "", len(s.Fields()))
-	for _, f := range s.Fields() {
-		displayField(o, f, 4)
-	}
-	if meta := s.Metadata(); meta.Len() > 0 {
-		fmt.Fprintf(o, "metadata: %v\n", meta)
-	}
-	return o.String()
-}
-
-func displayField(o io.Writer, field arrow.Field, inc int) {
-	nullable := ""
-	if field.Nullable {
-		nullable = ", nullable"
-	}
-	fmt.Fprintf(o, "%*.s- %s: type=%v%v\n", inc, "", field.Name, field.Type.Name(), nullable)
-	if field.HasMetadata() {
-		fmt.Fprintf(o, "%*.smetadata: %v\n", inc, "", field.Metadata)
-	}
 }
 
 func init() {

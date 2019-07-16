@@ -28,7 +28,6 @@
 #include <cstring>
 #include <limits>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -800,6 +799,9 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pa
                       std::shared_ptr<ChunkedArray>* out) {
   if (!PyArray_Check(ao)) {
     return Status::Invalid("Input object was not a NumPy array");
+  }
+  if (PyArray_NDIM(reinterpret_cast<PyArrayObject*>(ao)) != 1) {
+    return Status::Invalid("only handle 1-dimensional arrays");
   }
 
   NumPyConverter converter(pool, ao, mo, type, from_pandas, cast_options);

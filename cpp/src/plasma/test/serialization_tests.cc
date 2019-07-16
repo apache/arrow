@@ -15,12 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <sstream>
+
 #include <sys/types.h>
 #include <unistd.h>
 
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/io-util.h"
 
 #include "plasma/common.h"
 #include "plasma/io.h"
@@ -32,17 +35,7 @@ namespace fb = plasma::flatbuf;
 
 namespace plasma {
 
-/**
- * Create a temporary file. Needs to be closed by the caller.
- *
- * @return File descriptor of the file.
- */
-int create_temp_file(void) {
-  static char temp[] = "/tmp/tempfileXXXXXX";
-  char file_name[32];
-  strncpy(file_name, temp, 32);
-  return mkstemp(file_name);
-}
+using arrow::internal::TemporaryDir;
 
 /**
  * Seek to the beginning of a file and read a message from it.
@@ -77,8 +70,29 @@ PlasmaObject random_plasma_object(void) {
   return object;
 }
 
-TEST(PlasmaSerialization, CreateRequest) {
-  int fd = create_temp_file();
+class TestPlasmaSerialization : public ::testing::Test {
+ public:
+  void SetUp() { ARROW_CHECK_OK(TemporaryDir::Make("ser-test-", &temp_dir_)); }
+
+  // Create a temporary file.
+  // A fd is returned which must be closed manually.  The file itself
+  // is deleted at the end of the test.
+  int CreateTemporaryFile(void) {
+    char path[1024];
+
+    std::stringstream ss;
+    ss << temp_dir_->path().ToString() << "fileXXXXXX";
+    strncpy(path, ss.str().c_str(), sizeof(path));
+    ARROW_LOG(INFO) << "file path: '" << path << "'";
+    return mkstemp(path);
+  }
+
+ protected:
+  std::unique_ptr<TemporaryDir> temp_dir_;
+};
+
+TEST_F(TestPlasmaSerialization, CreateRequest) {
+  int fd = CreateTemporaryFile();
   ObjectID object_id1 = random_object_id();
   int64_t data_size1 = 42;
   int64_t metadata_size1 = 11;
@@ -99,8 +113,8 @@ TEST(PlasmaSerialization, CreateRequest) {
   close(fd);
 }
 
-TEST(PlasmaSerialization, CreateReply) {
-  int fd = create_temp_file();
+TEST_F(TestPlasmaSerialization, CreateReply) {
+  int fd = CreateTemporaryFile();
   ObjectID object_id1 = random_object_id();
   PlasmaObject object1 = random_plasma_object();
   int64_t mmap_size1 = 1000000;
@@ -119,8 +133,8 @@ TEST(PlasmaSerialization, CreateReply) {
   close(fd);
 }
 
-TEST(PlasmaSerialization, SealRequest) {
-  int fd = create_temp_file();
+TEST_F(TestPlasmaSerialization, SealRequest) {
+  int fd = CreateTemporaryFile();
   ObjectID object_id1 = random_object_id();
   unsigned char digest1[kDigestSize];
   memset(&digest1[0], 7, kDigestSize);
@@ -134,20 +148,20 @@ TEST(PlasmaSerialization, SealRequest) {
   close(fd);
 }
 
-TEST(PlasmaSerialization, SealReply) {
-  int fd = create_temp_file();
+TEST_F(TestPlasmaSerialization, SealReply) {
+  int fd = CreateTemporaryFile();
   ObjectID object_id1 = random_object_id();
   ASSERT_OK(SendSealReply(fd, object_id1, PlasmaError::ObjectExists));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaSealReply);
   ObjectID object_id2;
   Status s = ReadSealReply(data.data(), data.size(), &object_id2);
   ASSERT_EQ(object_id1, object_id2);
-  ASSERT_TRUE(s.IsPlasmaObjectExists());
+  ASSERT_TRUE(IsPlasmaObjectExists(s));
   close(fd);
 }
 
-TEST(PlasmaSerialization, GetRequest) {
-  int fd = create_temp_file();
+TEST_F(TestPlasmaSerialization, GetRequest) {
+  int fd = CreateTemporaryFile();
   ObjectID object_ids[2];
   object_ids[0] = random_object_id();
   object_ids[1] = random_object_id();
@@ -164,8 +178,8 @@ TEST(PlasmaSerialization, GetRequest) {
   close(fd);
 }
 
-TEST(PlasmaSerialization, GetReply) {
-  int fd = create_temp_file();
+TEST_F(TestPlasmaSerialization, GetReply) {
+  int fd = CreateTemporaryFile();
   ObjectID object_ids[2];
   object_ids[0] = random_object_id();
   object_ids[1] = random_object_id();
@@ -188,19 +202,20 @@ TEST(PlasmaSerialization, GetReply) {
 
   ASSERT_EQ(object_ids[0], object_ids_return[0]);
   ASSERT_EQ(object_ids[1], object_ids_return[1]);
-  ASSERT_EQ(memcmp(&plasma_objects[object_ids[0]], &plasma_objects_return[0],
-                   sizeof(PlasmaObject)),
-            0);
-  ASSERT_EQ(memcmp(&plasma_objects[object_ids[1]], &plasma_objects_return[1],
-                   sizeof(PlasmaObject)),
-            0);
+
+  PlasmaObject po, po2;
+  for (int i = 0; i < 2; ++i) {
+    po = plasma_objects[object_ids[i]];
+    po2 = plasma_objects_return[i];
+    ASSERT_EQ(po, po2);
+  }
   ASSERT_TRUE(store_fds == store_fds_return);
   ASSERT_TRUE(mmap_sizes == mmap_sizes_return);
   close(fd);
 }
 
-TEST(PlasmaSerialization, ReleaseRequest) {
-  int fd = create_temp_file();
+TEST_F(TestPlasmaSerialization, ReleaseRequest) {
+  int fd = CreateTemporaryFile();
   ObjectID object_id1 = random_object_id();
   ASSERT_OK(SendReleaseRequest(fd, object_id1));
   std::vector<uint8_t> data =
@@ -211,20 +226,20 @@ TEST(PlasmaSerialization, ReleaseRequest) {
   close(fd);
 }
 
-TEST(PlasmaSerialization, ReleaseReply) {
-  int fd = create_temp_file();
+TEST_F(TestPlasmaSerialization, ReleaseReply) {
+  int fd = CreateTemporaryFile();
   ObjectID object_id1 = random_object_id();
   ASSERT_OK(SendReleaseReply(fd, object_id1, PlasmaError::ObjectExists));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaReleaseReply);
   ObjectID object_id2;
   Status s = ReadReleaseReply(data.data(), data.size(), &object_id2);
   ASSERT_EQ(object_id1, object_id2);
-  ASSERT_TRUE(s.IsPlasmaObjectExists());
+  ASSERT_TRUE(IsPlasmaObjectExists(s));
   close(fd);
 }
 
-TEST(PlasmaSerialization, DeleteRequest) {
-  int fd = create_temp_file();
+TEST_F(TestPlasmaSerialization, DeleteRequest) {
+  int fd = CreateTemporaryFile();
   ObjectID object_id1 = random_object_id();
   ASSERT_OK(SendDeleteRequest(fd, std::vector<ObjectID>{object_id1}));
   std::vector<uint8_t> data =
@@ -236,8 +251,8 @@ TEST(PlasmaSerialization, DeleteRequest) {
   close(fd);
 }
 
-TEST(PlasmaSerialization, DeleteReply) {
-  int fd = create_temp_file();
+TEST_F(TestPlasmaSerialization, DeleteReply) {
+  int fd = CreateTemporaryFile();
   ObjectID object_id1 = random_object_id();
   PlasmaError error1 = PlasmaError::ObjectExists;
   ASSERT_OK(SendDeleteReply(fd, std::vector<ObjectID>{object_id1},
@@ -254,8 +269,8 @@ TEST(PlasmaSerialization, DeleteReply) {
   close(fd);
 }
 
-TEST(PlasmaSerialization, EvictRequest) {
-  int fd = create_temp_file();
+TEST_F(TestPlasmaSerialization, EvictRequest) {
+  int fd = CreateTemporaryFile();
   int64_t num_bytes = 111;
   ASSERT_OK(SendEvictRequest(fd, num_bytes));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaEvictRequest);
@@ -265,8 +280,8 @@ TEST(PlasmaSerialization, EvictRequest) {
   close(fd);
 }
 
-TEST(PlasmaSerialization, EvictReply) {
-  int fd = create_temp_file();
+TEST_F(TestPlasmaSerialization, EvictReply) {
+  int fd = CreateTemporaryFile();
   int64_t num_bytes = 111;
   ASSERT_OK(SendEvictReply(fd, num_bytes));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaEvictReply);
@@ -276,8 +291,8 @@ TEST(PlasmaSerialization, EvictReply) {
   close(fd);
 }
 
-TEST(PlasmaSerialization, DataRequest) {
-  int fd = create_temp_file();
+TEST_F(TestPlasmaSerialization, DataRequest) {
+  int fd = CreateTemporaryFile();
   ObjectID object_id1 = random_object_id();
   const char* address1 = "address1";
   int port1 = 12345;
@@ -295,8 +310,8 @@ TEST(PlasmaSerialization, DataRequest) {
   close(fd);
 }
 
-TEST(PlasmaSerialization, DataReply) {
-  int fd = create_temp_file();
+TEST_F(TestPlasmaSerialization, DataReply) {
+  int fd = CreateTemporaryFile();
   ObjectID object_id1 = random_object_id();
   int64_t object_size1 = 146;
   int64_t metadata_size1 = 198;

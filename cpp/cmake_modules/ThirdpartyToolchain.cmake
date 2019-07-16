@@ -23,7 +23,8 @@ add_custom_target(toolchain-tests)
 # ----------------------------------------------------------------------
 # Toolchain linkage options
 
-set(ARROW_RE2_LINKAGE "static"
+set(ARROW_RE2_LINKAGE
+    "static"
     CACHE STRING "How to link the re2 library. static|shared (default static)")
 
 if(ARROW_PROTOBUF_USE_SHARED)
@@ -33,9 +34,23 @@ else()
 endif()
 
 # ----------------------------------------------------------------------
+# We should not use the Apache dist server for build dependencies
+
+set(APACHE_MIRROR "")
+
+macro(get_apache_mirror)
+  if(APACHE_MIRROR STREQUAL "")
+    exec_program(${PYTHON_EXECUTABLE}
+                 ARGS
+                 ${CMAKE_SOURCE_DIR}/build-support/get_apache_mirror.py
+                 OUTPUT_VARIABLE
+                 APACHE_MIRROR)
+  endif()
+endmacro()
+
+# ----------------------------------------------------------------------
 # Resolve the dependencies
 
-# TODO: add uriparser here when it gets a conda package
 set(ARROW_THIRDPARTY_DEPENDENCIES
     benchmark
     BOOST
@@ -50,13 +65,23 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     GTest
     LLVM
     Lz4
+    ORC
     RE2
     Protobuf
     RapidJSON
     Snappy
     Thrift
+    uriparser
     ZLIB
     ZSTD)
+
+# TODO(wesm): External GTest shared libraries are not currently
+# supported when building with MSVC because of the way that
+# conda-forge packages have 4 variants of the libraries packaged
+# together
+if(MSVC AND "${GTest_SOURCE}" STREQUAL "")
+  set(GTest_SOURCE "BUNDLED")
+endif()
 
 message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
 
@@ -83,6 +108,12 @@ if(ARROW_PACKAGE_PREFIX)
   if(NOT ENV{Boost_ROOT})
     set(ENV{Boost_ROOT} ${ARROW_PACKAGE_PREFIX})
   endif()
+endif()
+
+if(ARROW_BOOST_VENDORED AND "${BOOST_SOURCE}" STREQUAL "")
+  message(
+    DEPRECATION "ARROW_BOOST_VENDORED is deprecated. Use BOOST_SOURCE=BUNDLED instead.")
+  set(BOOST_SOURCE "BUNDLED")
 endif()
 
 # For each dependency, set dependency source to global default, if unset
@@ -117,6 +148,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_gtest()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Lz4")
     build_lz4()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "ORC")
+    build_orc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
     build_protobuf()
   elseif("${DEPENDENCY_NAME}" STREQUAL "RE2")
@@ -136,8 +169,8 @@ endmacro()
 
 macro(resolve_dependency DEPENDENCY_NAME)
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
-    find_package(${DEPENDENCY_NAME} QUIET)
-    if(NOT ${DEPENDENCY_NAME}_FOUND)
+    find_package(${DEPENDENCY_NAME} MODULE)
+    if(NOT ${${DEPENDENCY_NAME}_FOUND})
       build_dependency(${DEPENDENCY_NAME})
     endif()
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "BUNDLED")
@@ -147,14 +180,23 @@ macro(resolve_dependency DEPENDENCY_NAME)
   endif()
 endmacro()
 
+macro(resolve_dependency_with_version DEPENDENCY_NAME REQUIRED_VERSION)
+  if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
+    find_package(${DEPENDENCY_NAME} ${REQUIRED_VERSION} MODULE)
+    if(NOT ${${DEPENDENCY_NAME}_FOUND})
+      build_dependency(${DEPENDENCY_NAME})
+    endif()
+  elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "BUNDLED")
+    build_dependency(${DEPENDENCY_NAME})
+  elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM")
+    find_package(${DEPENDENCY_NAME} ${REQUIRED_VERSION} REQUIRED)
+  endif()
+endmacro()
+
 # ----------------------------------------------------------------------
 # Thirdparty versions, environment variables, source URLs
 
 set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
-
-if(DEFINED ENV{ORC_HOME})
-  set(ORC_HOME "$ENV{ORC_HOME}")
-endif()
 
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
@@ -171,6 +213,7 @@ endif()
 
 if(ARROW_FLIGHT)
   set(ARROW_WITH_GRPC ON)
+  set(ARROW_WITH_URIPARSER ON)
 endif()
 
 if(ARROW_FLIGHT OR ARROW_IPC)
@@ -190,7 +233,9 @@ endif()
 file(STRINGS "${THIRDPARTY_DIR}/versions.txt" TOOLCHAIN_VERSIONS_TXT)
 foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
   # Exclude comments
-  if(NOT _VERSION_ENTRY MATCHES "^[^#][A-Za-z0-9-_]+_VERSION=")
+  if(NOT
+     ((_VERSION_ENTRY MATCHES "^[^#][A-Za-z0-9-_]+_VERSION=")
+      OR (_VERSION_ENTRY MATCHES "^[^#][A-Za-z0-9-_]+_CHECKSUM=")))
     continue()
   endif()
 
@@ -280,6 +325,15 @@ else()
       "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz")
 endif()
 
+if(DEFINED ENV{ARROW_JEMALLOC_URL})
+  set(JEMALLOC_SOURCE_URL "$ENV{ARROW_JEMALLOC_URL}")
+else()
+  set(
+    JEMALLOC_SOURCE_URL
+    "https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2"
+    )
+endif()
+
 if(DEFINED ENV{ARROW_LZ4_URL})
   set(LZ4_SOURCE_URL "$ENV{ARROW_LZ4_URL}")
 else()
@@ -320,32 +374,30 @@ endif()
 if(DEFINED ENV{ARROW_SNAPPY_URL})
   set(SNAPPY_SOURCE_URL "$ENV{ARROW_SNAPPY_URL}")
 else()
-  set(
-    SNAPPY_SOURCE_URL
-    "https://github.com/google/snappy/releases/download/${SNAPPY_VERSION}/snappy-${SNAPPY_VERSION}.tar.gz"
-    )
+  set(SNAPPY_SOURCE_URL
+      "https://github.com/google/snappy/archive/${SNAPPY_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_THRIFT_URL})
   set(THRIFT_SOURCE_URL "$ENV{ARROW_THRIFT_URL}")
 else()
-  set(
-    THRIFT_SOURCE_URL
-    "http://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz"
-    )
+  set(THRIFT_SOURCE_URL "FROM-APACHE-MIRROR")
 endif()
 
 if(DEFINED ENV{ARROW_URIPARSER_URL})
   set(URIPARSER_SOURCE_URL "$ENV{ARROW_URIPARSER_URL}")
 else()
-  set(URIPARSER_SOURCE_URL
-      "https://github.com/uriparser/uriparser/archive/${URIPARSER_VERSION}.tar.gz")
+  set(
+    URIPARSER_SOURCE_URL
+
+    "https://github.com/uriparser/uriparser/archive/uriparser-${URIPARSER_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_ZLIB_URL})
   set(ZLIB_SOURCE_URL "$ENV{ARROW_ZLIB_URL}")
 else()
-  set(ZLIB_SOURCE_URL "http://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz")
+  set(ZLIB_SOURCE_URL "https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_ZSTD_URL})
@@ -380,7 +432,7 @@ endif()
 # and the invocation of make/ninja is in distinct subshell without the same
 # environment (CC/CXX).
 set(EP_COMMON_TOOLCHAIN -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-    -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER})
+                        -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER})
 
 if(CMAKE_AR)
   set(EP_COMMON_TOOLCHAIN ${EP_COMMON_TOOLCHAIN} -DCMAKE_AR=${CMAKE_AR})
@@ -403,7 +455,15 @@ set(EP_COMMON_CMAKE_ARGS
     -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS})
 
 if(NOT ARROW_VERBOSE_THIRDPARTY_BUILD)
-  set(EP_LOG_OPTIONS LOG_CONFIGURE 1 LOG_BUILD 1 LOG_INSTALL 1 LOG_DOWNLOAD 1)
+  set(EP_LOG_OPTIONS
+      LOG_CONFIGURE
+      1
+      LOG_BUILD
+      1
+      LOG_INSTALL
+      1
+      LOG_DOWNLOAD
+      1)
   set(Boost_DEBUG FALSE)
 else()
   set(EP_LOG_OPTIONS)
@@ -433,6 +493,125 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 # ----------------------------------------------------------------------
+# Add Boost dependencies (code adapted from Apache Kudu)
+
+macro(build_boost)
+  set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
+
+  # This is needed by the thrift_ep build
+  set(BOOST_ROOT ${BOOST_PREFIX})
+
+  set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
+  set(BOOST_BUILD_LINK "static")
+  set(
+    BOOST_STATIC_SYSTEM_LIBRARY
+    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_system${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  set(
+    BOOST_STATIC_FILESYSTEM_LIBRARY
+    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  set(
+    BOOST_STATIC_REGEX_LIBRARY
+    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_regex${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  set(BOOST_SYSTEM_LIBRARY boost_system_static)
+  set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+  set(BOOST_REGEX_LIBRARY boost_regex_static)
+  set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
+                           ${BOOST_STATIC_FILESYSTEM_LIBRARY}
+                           ${BOOST_STATIC_REGEX_LIBRARY})
+  set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh" "--prefix=${BOOST_PREFIX}"
+                              "--with-libraries=filesystem,regex,system")
+  if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+    set(BOOST_BUILD_VARIANT "debug")
+  else()
+    set(BOOST_BUILD_VARIANT "release")
+  endif()
+  set(BOOST_BUILD_COMMAND "./b2" "link=${BOOST_BUILD_LINK}"
+                          "variant=${BOOST_BUILD_VARIANT}" "cxxflags=-fPIC")
+
+  add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
+
+  add_thirdparty_lib(boost_filesystem STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
+
+  add_thirdparty_lib(boost_regex STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}")
+
+  externalproject_add(boost_ep
+                      URL ${BOOST_SOURCE_URL}
+                      BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
+                      BUILD_IN_SOURCE 1
+                      CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
+                      BUILD_COMMAND ${BOOST_BUILD_COMMAND}
+                      INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
+  set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
+  set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
+  add_dependencies(toolchain boost_ep)
+  set(BOOST_VENDORED TRUE)
+endmacro()
+
+if(ARROW_FLIGHT AND ARROW_BUILD_TESTS)
+  set(ARROW_BOOST_REQUIRED_VERSION "1.64")
+else()
+  set(ARROW_BOOST_REQUIRED_VERSION "1.58")
+endif()
+
+set(Boost_USE_MULTITHREADED ON)
+if(MSVC AND ARROW_USE_STATIC_CRT)
+  set(Boost_USE_STATIC_RUNTIME ON)
+endif()
+set(Boost_ADDITIONAL_VERSIONS
+    "1.70.0"
+    "1.70"
+    "1.69.0"
+    "1.69"
+    "1.68.0"
+    "1.68"
+    "1.67.0"
+    "1.67"
+    "1.66.0"
+    "1.66"
+    "1.65.0"
+    "1.65"
+    "1.64.0"
+    "1.64"
+    "1.63.0"
+    "1.63"
+    "1.62.0"
+    "1.61"
+    "1.61.0"
+    "1.62"
+    "1.60.0"
+    "1.60")
+
+if(BOOST_SOURCE STREQUAL "AUTO")
+  find_package(BoostAlt ${ARROW_BOOST_REQUIRED_VERSION})
+  if(NOT BoostAlt_FOUND)
+    build_boost()
+  endif()
+elseif(BOOST_SOURCE STREQUAL "BUNDLED")
+  build_boost()
+elseif(BOOST_SOURCE STREQUAL "SYSTEM")
+  find_package(BoostAlt ${ARROW_BOOST_REQUIRED_VERSION} REQUIRED)
+endif()
+
+if(TARGET Boost::system)
+  set(BOOST_SYSTEM_LIBRARY Boost::system)
+  set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
+  set(BOOST_REGEX_LIBRARY Boost::regex)
+else()
+  set(BOOST_SYSTEM_LIBRARY boost_system_static)
+  set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+  set(BOOST_REGEX_LIBRARY boost_regex_static)
+endif()
+set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
+
+message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIR})
+message(STATUS "Boost libraries: " ${Boost_LIBRARIES})
+
+include_directories(SYSTEM ${Boost_INCLUDE_DIR})
+
+# ----------------------------------------------------------------------
 # Google double-conversion
 
 macro(build_double_conversion)
@@ -446,18 +625,14 @@ macro(build_double_conversion)
     )
 
   set(DOUBLE_CONVERSION_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_INSTALL_PREFIX=${DOUBLE_CONVERSION_PREFIX}")
+                                   "-DCMAKE_INSTALL_PREFIX=${DOUBLE_CONVERSION_PREFIX}")
 
   externalproject_add(double-conversion_ep
                       ${EP_LOG_OPTIONS}
-                      INSTALL_DIR
-                      ${DOUBLE_CONVERSION_PREFIX}
-                      URL
-                      ${DOUBLE_CONVERSION_SOURCE_URL}
-                      CMAKE_ARGS
-                      ${DOUBLE_CONVERSION_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS
-                      "${DOUBLE_CONVERSION_STATIC_LIB}")
+                      INSTALL_DIR ${DOUBLE_CONVERSION_PREFIX}
+                      URL ${DOUBLE_CONVERSION_SOURCE_URL}
+                      CMAKE_ARGS ${DOUBLE_CONVERSION_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS "${DOUBLE_CONVERSION_STATIC_LIB}")
 
   add_library(double-conversion STATIC IMPORTED)
   set_target_properties(double-conversion
@@ -547,38 +722,51 @@ macro(build_uriparser)
   endif()
 
   externalproject_add(uriparser_ep
-                      URL
-                      ${URIPARSER_SOURCE_URL}
-                      CMAKE_ARGS
-                      ${URIPARSER_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS
-                      ${URIPARSER_STATIC_LIB}
-                      INSTALL_DIR
-                      ${URIPARSER_PREFIX}
+                      URL ${URIPARSER_SOURCE_URL}
+                      CMAKE_ARGS ${URIPARSER_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${URIPARSER_STATIC_LIB}
+                      INSTALL_DIR ${URIPARSER_PREFIX}
                       ${EP_LOG_OPTIONS})
 
   add_library(uriparser::uriparser STATIC IMPORTED)
   # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
   file(MAKE_DIRECTORY ${URIPARSER_INCLUDE_DIRS})
-  set_target_properties(
-    uriparser::uriparser
-    PROPERTIES IMPORTED_LOCATION ${URIPARSER_STATIC_LIB} INTERFACE_INCLUDE_DIRECTORIES
-               ${URIPARSER_INCLUDE_DIRS})
+  set_target_properties(uriparser::uriparser
+                        PROPERTIES IMPORTED_LOCATION ${URIPARSER_STATIC_LIB}
+                                   INTERFACE_INCLUDE_DIRECTORIES ${URIPARSER_INCLUDE_DIRS}
+                                   # URI_STATIC_BUILD required on Windows
+                                   INTERFACE_COMPILE_DEFINITIONS
+                                   "URI_STATIC_BUILD;URI_NO_UNICODE")
 
   add_dependencies(toolchain uriparser_ep)
   add_dependencies(uriparser::uriparser uriparser_ep)
 endmacro()
 
-# Unless the user overrides uriparser_SOURCE, build uriparser ourselves
-if("${uriparser_SOURCE}" STREQUAL "")
-  set(uriparser_SOURCE "BUNDLED")
+if(ARROW_WITH_URIPARSER)
+  set(ARROW_URIPARSER_REQUIRED_VERSION "0.9.0")
+  if(uriparser_SOURCE STREQUAL "AUTO")
+    # Debian does not ship cmake configs for uriparser
+    find_package(uriparser ${ARROW_URIPARSER_REQUIRED_VERSION} QUIET)
+    if(NOT uriparser_FOUND)
+      find_package(uriparserAlt ${ARROW_URIPARSER_REQUIRED_VERSION})
+    endif()
+    if(NOT uriparser_FOUND AND NOT uriparserAlt_FOUND)
+      build_uriparser()
+    endif()
+  elseif(uriparser_SOURCE STREQUAL "BUNDLED")
+    build_uriparser()
+  elseif(uriparser_SOURCE STREQUAL "SYSTEM")
+    # Debian does not ship cmake configs for uriparser
+    find_package(uriparser ${ARROW_URIPARSER_REQUIRED_VERSION} QUIET)
+    if(NOT uriparser_FOUND)
+      find_package(uriparserAlt ${ARROW_URIPARSER_REQUIRED_VERSION} REQUIRED)
+    endif()
+  endif()
+
+  get_target_property(URIPARSER_INCLUDE_DIRS uriparser::uriparser
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories(SYSTEM ${URIPARSER_INCLUDE_DIRS})
 endif()
-
-resolve_dependency(uriparser)
-
-get_target_property(URIPARSER_INCLUDE_DIRS uriparser::uriparser
-                    INTERFACE_INCLUDE_DIRECTORIES)
-include_directories(SYSTEM ${URIPARSER_INCLUDE_DIRS})
 
 # ----------------------------------------------------------------------
 # Snappy
@@ -586,79 +774,23 @@ include_directories(SYSTEM ${URIPARSER_INCLUDE_DIRS})
 macro(build_snappy)
   message(STATUS "Building snappy from source")
   set(SNAPPY_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/snappy_ep/src/snappy_ep-install")
-  if(MSVC)
-    set(SNAPPY_STATIC_LIB_NAME snappy_static)
-  else()
-    set(SNAPPY_STATIC_LIB_NAME snappy)
-  endif()
+  set(SNAPPY_STATIC_LIB_NAME snappy)
   set(
     SNAPPY_STATIC_LIB
     "${SNAPPY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${SNAPPY_STATIC_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
 
-  if(${UPPERCASE_BUILD_TYPE} EQUAL "RELEASE")
-    if(APPLE)
-      set(SNAPPY_CXXFLAGS "CXXFLAGS='-DNDEBUG -O1'")
-    else()
-      set(SNAPPY_CXXFLAGS "CXXFLAGS='-DNDEBUG -O2'")
-    endif()
-  endif()
+  set(SNAPPY_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} -DCMAKE_INSTALL_LIBDIR=lib
+                        -DSNAPPY_BUILD_TESTS=OFF
+                        "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
 
-  if(WIN32)
-    set(SNAPPY_CMAKE_ARGS
-        ${EP_COMMON_CMAKE_ARGS}
-        -DCMAKE_AR=${CMAKE_AR}
-        -DCMAKE_RANLIB=${CMAKE_RANLIB}
-        "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
-    set(SNAPPY_UPDATE_COMMAND
-        ${CMAKE_COMMAND}
-        -E
-        copy
-        ${CMAKE_SOURCE_DIR}/cmake_modules/SnappyCMakeLists.txt
-        ./CMakeLists.txt
-        &&
-        ${CMAKE_COMMAND}
-        -E
-        copy
-        ${CMAKE_SOURCE_DIR}/cmake_modules/SnappyConfig.h
-        ./config.h)
-    externalproject_add(snappy_ep
-                        UPDATE_COMMAND
-                        ${SNAPPY_UPDATE_COMMAND}
-                        ${EP_LOG_OPTIONS}
-                        BUILD_IN_SOURCE
-                        1
-                        BUILD_COMMAND
-                        ${MAKE}
-                        INSTALL_DIR
-                        ${SNAPPY_PREFIX}
-                        URL
-                        ${SNAPPY_SOURCE_URL}
-                        CMAKE_ARGS
-                        ${SNAPPY_CMAKE_ARGS}
-                        BUILD_BYPRODUCTS
-                        "${SNAPPY_STATIC_LIB}")
-  else()
-    externalproject_add(snappy_ep
-                        CONFIGURE_COMMAND
-                        ./configure
-                        --with-pic
-                        "AR=${CMAKE_AR}"
-                        "RANLIB=${CMAKE_RANLIB}"
-                        "--prefix=${SNAPPY_PREFIX}"
-                        ${SNAPPY_CXXFLAGS}
-                        ${EP_LOG_OPTIONS}
-                        BUILD_IN_SOURCE
-                        1
-                        BUILD_COMMAND
-                        ${MAKE}
-                        INSTALL_DIR
-                        ${SNAPPY_PREFIX}
-                        URL
-                        ${SNAPPY_SOURCE_URL}
-                        BUILD_BYPRODUCTS
-                        "${SNAPPY_STATIC_LIB}")
-  endif()
+  externalproject_add(snappy_ep
+                      ${EP_LOG_OPTIONS}
+                      BUILD_IN_SOURCE 1
+                      INSTALL_DIR ${SNAPPY_PREFIX}
+                      URL ${SNAPPY_SOURCE_URL}
+                      CMAKE_ARGS ${SNAPPY_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${SNAPPY_PREFIX}/include")
 
@@ -709,59 +841,31 @@ macro(build_brotli)
   message(STATUS "Building brotli from source")
   set(BROTLI_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/brotli_ep/src/brotli_ep-install")
   set(BROTLI_INCLUDE_DIR "${BROTLI_PREFIX}/include")
-  if(MSVC)
-    set(BROTLI_LIB_DIR bin)
-  else()
-    set(BROTLI_LIB_DIR lib)
-  endif()
+  set(BROTLI_LIB_DIR lib)
   set(
     BROTLI_STATIC_LIBRARY_ENC
-    "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(
     BROTLI_STATIC_LIBRARY_DEC
-    "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(
     BROTLI_STATIC_LIBRARY_COMMON
-    "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
-  set(BROTLI_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_INSTALL_PREFIX=${BROTLI_PREFIX}"
-      -DCMAKE_INSTALL_LIBDIR=lib
-      -DBUILD_SHARED_LIBS=OFF)
+  set(BROTLI_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${BROTLI_PREFIX}"
+                        -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_SHARED_LIBS=OFF)
 
   externalproject_add(brotli_ep
-                      URL
-                      ${BROTLI_SOURCE_URL}
-                      BUILD_BYPRODUCTS
-                      "${BROTLI_STATIC_LIBRARY_ENC}"
-                      "${BROTLI_STATIC_LIBRARY_DEC}"
-                      "${BROTLI_STATIC_LIBRARY_COMMON}"
-                      ${BROTLI_BUILD_BYPRODUCTS}
-                      ${EP_LOG_OPTIONS}
-                      CMAKE_ARGS
-                      ${BROTLI_CMAKE_ARGS}
-                      STEP_TARGETS
-                      headers_copy)
-  if(MSVC)
-    externalproject_get_property(brotli_ep SOURCE_DIR)
-
-    externalproject_add_step(brotli_ep
-                             headers_copy
-                             COMMAND
-                             xcopy
-                             /E
-                             /I
-                             include
-                             ..\\..\\..\\brotli_ep\\src\\brotli_ep-install\\include
-                             /Y
-                             DEPENDEES
-                             build
-                             WORKING_DIRECTORY
-                             ${SOURCE_DIR})
-  endif()
+                      URL ${BROTLI_SOURCE_URL}
+                      BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}"
+                                       "${BROTLI_STATIC_LIBRARY_DEC}"
+                                       "${BROTLI_STATIC_LIBRARY_COMMON}"
+                                       ${BROTLI_BUILD_BYPRODUCTS}
+                                       ${EP_LOG_OPTIONS}
+                      CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
+                      STEP_TARGETS headers_copy)
 
   add_dependencies(toolchain brotli_ep)
   file(MAKE_DIRECTORY "${BROTLI_INCLUDE_DIR}")
@@ -791,6 +895,59 @@ if(ARROW_WITH_BROTLI)
   get_target_property(BROTLI_INCLUDE_DIR Brotli::brotlicommon
                       INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${BROTLI_INCLUDE_DIR})
+endif()
+
+set(ARROW_USE_OPENSSL OFF)
+if(PARQUET_REQUIRE_ENCRYPTION AND NOT ARROW_PARQUET)
+  set(PARQUET_REQUIRE_ENCRYPTION OFF)
+endif()
+set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
+if(BREW_BIN AND NOT OPENSSL_ROOT_DIR)
+  execute_process(COMMAND ${BREW_BIN} --prefix "openssl"
+                  OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if(OPENSSL_BREW_PREFIX)
+    set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
+  endif()
+endif()
+if(PARQUET_REQUIRE_ENCRYPTION OR ARROW_FLIGHT)
+  # This must work
+  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
+  set(ARROW_USE_OPENSSL ON)
+elseif(ARROW_PARQUET)
+  # Enable Parquet encryption if OpenSSL is there, but don't fail if it's not
+  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} QUIET)
+  if(OPENSSL_FOUND)
+    set(ARROW_USE_OPENSSL ON)
+  endif()
+endif()
+
+if(ARROW_USE_OPENSSL)
+  message(STATUS "Building with OpenSSL (Version: ${OPENSSL_VERSION}) support")
+
+  # OpenSSL::SSL and OpenSSL::Crypto were not added to
+  # FindOpenSSL.cmake until version 3.4.0.
+  # https://gitlab.kitware.com/cmake/cmake/blob/75e3a8e811b290cb9921887f2b086377af90880f/Modules/FindOpenSSL.cmake
+  if(NOT TARGET OpenSSL::SSL)
+    add_library(OpenSSL::SSL UNKNOWN IMPORTED)
+    set_target_properties(OpenSSL::SSL
+                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_SSL_LIBRARY}"
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                     "${OPENSSL_INCLUDE_DIR}")
+
+    add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
+    set_target_properties(OpenSSL::Crypto
+                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}"
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                     "${OPENSSL_INCLUDE_DIR}")
+  endif()
+
+  include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
+else()
+  message(
+    STATUS
+      "Building without OpenSSL support. Minimum OpenSSL version ${ARROW_OPENSSL_REQUIRED_VERSION} required."
+    )
 endif()
 
 # ----------------------------------------------------------------------
@@ -826,15 +983,10 @@ macro(build_glog)
       -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${GLOG_CMAKE_C_FLAGS}
       -DCMAKE_CXX_FLAGS=${GLOG_CMAKE_CXX_FLAGS})
   externalproject_add(glog_ep
-                      URL
-                      ${GLOG_SOURCE_URL}
-                      BUILD_IN_SOURCE
-                      1
-                      BUILD_BYPRODUCTS
-                      "${GLOG_STATIC_LIB}"
-                      CMAKE_ARGS
-                      ${GLOG_CMAKE_ARGS}
-                      ${EP_LOG_OPTIONS})
+                      URL ${GLOG_SOURCE_URL}
+                      BUILD_IN_SOURCE 1
+                      BUILD_BYPRODUCTS "${GLOG_STATIC_LIB}"
+                      CMAKE_ARGS ${GLOG_CMAKE_ARGS} ${EP_LOG_OPTIONS})
 
   add_dependencies(toolchain glog_ep)
   file(MAKE_DIRECTORY "${GLOG_INCLUDE_DIR}")
@@ -856,7 +1008,11 @@ endif()
 # ----------------------------------------------------------------------
 # gflags
 
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_USE_GLOG OR ARROW_WITH_GRPC)
+if(ARROW_BUILD_TESTS
+   OR ARROW_BUILD_BENCHMARKS
+   OR ARROW_BUILD_INTEGRATION
+   OR ARROW_USE_GLOG
+   OR ARROW_WITH_GRPC)
   set(ARROW_NEED_GFLAGS 1)
 else()
   set(ARROW_NEED_GFLAGS 0)
@@ -864,7 +1020,6 @@ endif()
 
 macro(build_gflags)
   message(STATUS "Building gflags from source")
-  set(GFLAGS_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
 
   set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
   set(GFLAGS_INCLUDE_DIR "${GFLAGS_PREFIX}/include")
@@ -885,15 +1040,10 @@ macro(build_gflags)
 
   file(MAKE_DIRECTORY "${GFLAGS_INCLUDE_DIR}")
   externalproject_add(gflags_ep
-                      URL
-                      ${GFLAGS_SOURCE_URL}
-                      ${EP_LOG_OPTIONS}
-                      BUILD_IN_SOURCE
-                      1
-                      BUILD_BYPRODUCTS
-                      "${GFLAGS_STATIC_LIB}"
-                      CMAKE_ARGS
-                      ${GFLAGS_CMAKE_ARGS})
+                      URL ${GFLAGS_SOURCE_URL} ${EP_LOG_OPTIONS}
+                      BUILD_IN_SOURCE 1
+                      BUILD_BYPRODUCTS "${GFLAGS_STATIC_LIB}"
+                      CMAKE_ARGS ${GFLAGS_CMAKE_ARGS})
 
   add_dependencies(toolchain gflags_ep)
 
@@ -907,6 +1057,8 @@ macro(build_gflags)
                           PROPERTIES INTERFACE_LINK_LIBRARIES "shlwapi.lib")
   endif()
   set(GFLAGS_LIBRARIES ${GFLAGS_LIBRARY})
+
+  set(GFLAGS_VENDORED TRUE)
 endmacro()
 
 if(ARROW_NEED_GFLAGS)
@@ -963,7 +1115,9 @@ macro(build_thrift)
       -DWITH_HASKELL=OFF
       -DWITH_CPP=ON
       -DWITH_STATIC_LIB=ON
-      -DWITH_LIBEVENT=OFF)
+      -DWITH_LIBEVENT=OFF
+      # Work around https://gitlab.kitware.com/cmake/cmake/issues/18865
+      -DBoost_NO_BOOST_CMAKE=ON)
 
   # Thrift also uses boost. Forward important boost settings if there were ones passed.
   if(DEFINED BOOST_ROOT)
@@ -996,6 +1150,10 @@ macro(build_thrift)
   endif()
   set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} ${ZLIB_LIBRARY})
 
+  if(BOOST_VENDORED)
+    set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} boost_ep)
+  endif()
+
   if(MSVC)
     set(WINFLEXBISON_VERSION 2.4.9)
     set(WINFLEXBISON_PREFIX
@@ -1003,18 +1161,12 @@ macro(build_thrift)
     externalproject_add(
       winflexbison_ep
       URL
-      https://github.com/lexxmark/winflexbison/releases/download/v.${WINFLEXBISON_VERSION}/win_flex_bison-${WINFLEXBISON_VERSION}.zip
-      URL_HASH
-      MD5=a2e979ea9928fbf8567e995e9c0df765
-      SOURCE_DIR
-      ${WINFLEXBISON_PREFIX}
-      CONFIGURE_COMMAND
-      ""
-      BUILD_COMMAND
-      ""
-      INSTALL_COMMAND
-      ""
-      ${EP_LOG_OPTIONS})
+        https://github.com/lexxmark/winflexbison/releases/download/v.${WINFLEXBISON_VERSION}/win_flex_bison-${WINFLEXBISON_VERSION}.zip
+      URL_HASH MD5=a2e979ea9928fbf8567e995e9c0df765
+      SOURCE_DIR ${WINFLEXBISON_PREFIX}
+      CONFIGURE_COMMAND ""
+      BUILD_COMMAND ""
+      INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
     set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} winflexbison_ep)
 
     set(THRIFT_CMAKE_ARGS
@@ -1033,7 +1185,6 @@ macro(build_thrift)
       # In the case where we cannot find a system-wide installation, look for
       # homebrew and ask for its bison installation.
       if(NOT BISON_FOUND)
-        find_program(BREW_BIN brew)
         if(BREW_BIN)
           execute_process(COMMAND ${BREW_BIN} --prefix bison
                           OUTPUT_VARIABLE BISON_PREFIX
@@ -1047,20 +1198,27 @@ macro(build_thrift)
       endif()
     endif()
     set(THRIFT_CMAKE_ARGS "-DBISON_EXECUTABLE=${THRIFT_BISON_EXECUTABLE}"
-        ${THRIFT_CMAKE_ARGS})
+                          ${THRIFT_CMAKE_ARGS})
   endif()
 
+  if("${THRIFT_SOURCE_URL}" STREQUAL "FROM-APACHE-MIRROR")
+    get_apache_mirror()
+    set(THRIFT_SOURCE_URL
+        "${APACHE_MIRROR}/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz")
+  endif()
+
+  message("Downloading Apache Thrift from ${THRIFT_SOURCE_URL}")
+
   externalproject_add(thrift_ep
-                      URL
-                      ${THRIFT_SOURCE_URL}
-                      BUILD_BYPRODUCTS
-                      "${THRIFT_STATIC_LIB}"
-                      "${THRIFT_COMPILER}"
-                      CMAKE_ARGS
-                      ${THRIFT_CMAKE_ARGS}
-                      DEPENDS
-                      ${THRIFT_DEPENDENCIES}
-                      ${EP_LOG_OPTIONS})
+                      URL ${THRIFT_SOURCE_URL}
+                      URL_HASH "MD5=${THRIFT_MD5_CHECKSUM}"
+                      BUILD_BYPRODUCTS "${THRIFT_STATIC_LIB}" "${THRIFT_COMPILER}"
+                      CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
+                      DEPENDS ${THRIFT_DEPENDENCIES}
+                              # ARROW-5576 showing verbose logs until we know
+                              # what is wrong
+                              # ${EP_LOG_OPTIONS}
+                      )
 
   add_library(Thrift::thrift STATIC IMPORTED)
   # The include directory must exist before it is referenced by a target.
@@ -1109,17 +1267,12 @@ macro(build_protobuf)
       "CXXFLAGS=${EP_CXX_FLAGS}")
 
   externalproject_add(protobuf_ep
-                      CONFIGURE_COMMAND
-                      "./configure"
-                      ${PROTOBUF_CONFIGURE_ARGS}
-                      BUILD_IN_SOURCE
-                      1
-                      URL
-                      ${PROTOBUF_SOURCE_URL}
-                      BUILD_BYPRODUCTS
-                      "${PROTOBUF_STATIC_LIB}"
-                      "${PROTOBUF_COMPILER}"
-                      ${EP_LOG_OPTIONS})
+                      CONFIGURE_COMMAND "./configure" ${PROTOBUF_CONFIGURE_ARGS}
+                      BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS}
+                      BUILD_IN_SOURCE 1
+                      URL ${PROTOBUF_SOURCE_URL}
+                      BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}" "${PROTOBUF_COMPILER}"
+                                       ${EP_LOG_OPTIONS})
 
   file(MAKE_DIRECTORY "${PROTOBUF_INCLUDE_DIR}")
 
@@ -1142,7 +1295,16 @@ macro(build_protobuf)
 endmacro()
 
 if(ARROW_WITH_PROTOBUF)
-  resolve_dependency(Protobuf)
+  if(ARROW_WITH_GRPC)
+    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.6.0")
+  else()
+    set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
+  endif()
+  resolve_dependency_with_version(Protobuf ${ARROW_PROTOBUF_REQUIRED_VERSION})
+
+  if(ARROW_PROTOBUF_USE_SHARED AND MSVC)
+    add_definitions(-DPROTOBUF_USE_DLLS)
+  endif()
 
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${PROTOBUF_INCLUDE_DIR})
@@ -1186,7 +1348,7 @@ if(ARROW_WITH_PROTOBUF)
   message(STATUS "Found protobuf headers: ${PROTOBUF_INCLUDE_DIR}")
 endif()
 
-if(MSVC)
+if(WIN32)
   # jemalloc is not supported on Windows
   set(ARROW_JEMALLOC off)
 endif()
@@ -1204,34 +1366,25 @@ if(ARROW_JEMALLOC)
       "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep/dist/")
   set(JEMALLOC_STATIC_LIB
       "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
-  # We need to disable TLS or otherwise C++ exceptions won't work anymore.
   externalproject_add(
     jemalloc_ep
-    URL
-    ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/jemalloc/${JEMALLOC_VERSION}.tar.gz
-    PATCH_COMMAND
-    touch
-    doc/jemalloc.3
-    doc/jemalloc.html
-    CONFIGURE_COMMAND
-    ./autogen.sh
-    "AR=${CMAKE_AR}"
-    "CC=${CMAKE_C_COMPILER}"
-    "--prefix=${JEMALLOC_PREFIX}"
-    "--with-jemalloc-prefix=je_arrow_"
-    "--with-private-namespace=je_arrow_private_"
-    "--disable-tls"
-    ${EP_LOG_OPTIONS}
-    BUILD_IN_SOURCE
-    1
-    BUILD_COMMAND
-    ${MAKE}
-    ${MAKE_BUILD_ARGS}
-    BUILD_BYPRODUCTS
-    "${JEMALLOC_STATIC_LIB}"
-    INSTALL_COMMAND
-    ${MAKE}
-    install)
+    URL ${JEMALLOC_SOURCE_URL}
+    PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
+    CONFIGURE_COMMAND ./configure
+                      "AR=${CMAKE_AR}"
+                      "CC=${CMAKE_C_COMPILER}"
+                      "--prefix=${JEMALLOC_PREFIX}"
+                      "--with-jemalloc-prefix=je_arrow_"
+                      "--with-private-namespace=je_arrow_private_"
+                      "--without-export"
+                      # Don't override operator new()
+                      "--disable-cxx" "--disable-libdl"
+                      # See https://github.com/jemalloc/jemalloc/issues/1237
+                      "--disable-initial-exec-tls" ${EP_LOG_OPTIONS}
+    BUILD_IN_SOURCE 1
+    BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS}
+    BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}"
+    INSTALL_COMMAND ${MAKE} install)
 
   # Don't use the include directory directly so that we can point to a path
   # that is unique to our codebase.
@@ -1265,65 +1418,96 @@ macro(build_gtest)
   endif()
 
   if(APPLE)
-    set(GTEST_CMAKE_CXX_FLAGS
-        ${GTEST_CMAKE_CXX_FLAGS}
-        -DGTEST_USE_OWN_TR1_TUPLE=1
-        -Wno-unused-value
-        -Wno-ignored-attributes)
+    set(GTEST_CMAKE_CXX_FLAGS ${GTEST_CMAKE_CXX_FLAGS} -DGTEST_USE_OWN_TR1_TUPLE=1
+                              -Wno-unused-value -Wno-ignored-attributes)
+  endif()
+
+  if(MSVC)
+    set(GTEST_CMAKE_CXX_FLAGS "${GTEST_CMAKE_CXX_FLAGS} -DGTEST_CREATE_SHARED_LIBRARY=1")
   endif()
 
   set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
   set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
+
+  set(_GTEST_RUNTIME_DIR ${BUILD_OUTPUT_ROOT_DIRECTORY})
+
+  if(MSVC)
+    set(_GTEST_IMPORTED_TYPE IMPORTED_IMPLIB)
+    set(_GTEST_LIBRARY_SUFFIX
+        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+    # Use the import libraries from the EP
+    set(_GTEST_LIBRARY_DIR "${GTEST_PREFIX}/lib")
+  else()
+    set(_GTEST_IMPORTED_TYPE IMPORTED_LOCATION)
+    set(_GTEST_LIBRARY_SUFFIX
+        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+
+    # Library and runtime same on non-Windows
+    set(_GTEST_LIBRARY_DIR "${_GTEST_RUNTIME_DIR}")
+  endif()
+
+  set(GTEST_SHARED_LIB
+      "${_GTEST_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${_GTEST_LIBRARY_SUFFIX}")
+  set(GMOCK_SHARED_LIB
+      "${_GTEST_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gmock${_GTEST_LIBRARY_SUFFIX}")
   set(
-    GTEST_STATIC_LIB
-    "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(
-    GTEST_MAIN_STATIC_LIB
-    "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    GTEST_MAIN_SHARED_LIB
+    "${_GTEST_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_LIBRARY_SUFFIX}"
     )
   set(GTEST_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
+      ${EP_COMMON_TOOLCHAIN}
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       "-DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}"
-      "-DCMAKE_INSTALL_LIBDIR=lib"
-      -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS})
+      -DBUILD_SHARED_LIBS=ON
+      -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS}
+      -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${GTEST_CMAKE_CXX_FLAGS})
   set(GMOCK_INCLUDE_DIR "${GTEST_PREFIX}/include")
-  set(
-    GMOCK_STATIC_LIB
-    "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gmock${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
+
+  if(APPLE)
+    set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} "-DCMAKE_MACOSX_RPATH:BOOL=ON")
+  endif()
+
+  if(MSVC)
+    if(NOT ("${CMAKE_GENERATOR}" STREQUAL "Ninja"))
+      set(_GTEST_RUNTIME_DIR ${_GTEST_RUNTIME_DIR}/${CMAKE_BUILD_TYPE})
+    endif()
+    set(GTEST_CMAKE_ARGS
+        ${GTEST_CMAKE_ARGS} "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=${_GTEST_RUNTIME_DIR}"
+        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE}=${_GTEST_RUNTIME_DIR}")
+  else()
+    set(GTEST_CMAKE_ARGS
+        ${GTEST_CMAKE_ARGS} "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${_GTEST_RUNTIME_DIR}"
+        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE}=${_GTEST_RUNTIME_DIR}")
+  endif()
+
+  add_definitions(-DGTEST_LINKED_AS_SHARED_LIBRARY=1)
 
   if(MSVC AND NOT ARROW_USE_STATIC_CRT)
     set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} -Dgtest_force_shared_crt=ON)
   endif()
 
   externalproject_add(googletest_ep
-                      URL
-                      ${GTEST_SOURCE_URL}
-                      BUILD_BYPRODUCTS
-                      ${GTEST_STATIC_LIB}
-                      ${GTEST_MAIN_STATIC_LIB}
-                      ${GMOCK_STATIC_LIB}
-                      CMAKE_ARGS
-                      ${GTEST_CMAKE_ARGS}
-                      ${EP_LOG_OPTIONS})
+                      URL ${GTEST_SOURCE_URL}
+                      BUILD_BYPRODUCTS ${GTEST_SHARED_LIB} ${GTEST_MAIN_SHARED_LIB}
+                                       ${GMOCK_SHARED_LIB}
+                      CMAKE_ARGS ${GTEST_CMAKE_ARGS} ${EP_LOG_OPTIONS})
 
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::GTest STATIC IMPORTED)
+  add_library(GTest::GTest SHARED IMPORTED)
   set_target_properties(GTest::GTest
-                        PROPERTIES IMPORTED_LOCATION "${GTEST_STATIC_LIB}"
+                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_SHARED_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::Main STATIC IMPORTED)
+  add_library(GTest::Main SHARED IMPORTED)
   set_target_properties(GTest::Main
-                        PROPERTIES IMPORTED_LOCATION "${GTEST_MAIN_STATIC_LIB}"
+                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_MAIN_SHARED_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::GMock STATIC IMPORTED)
+  add_library(GTest::GMock SHARED IMPORTED)
   set_target_properties(GTest::GMock
-                        PROPERTIES IMPORTED_LOCATION "${GMOCK_STATIC_LIB}"
+                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GMOCK_SHARED_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
   add_dependencies(toolchain-tests googletest_ep)
   add_dependencies(GTest::GTest googletest_ep)
@@ -1331,7 +1515,7 @@ macro(build_gtest)
   add_dependencies(GTest::GMock googletest_ep)
 endmacro()
 
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
   resolve_dependency(GTest)
 
   if(NOT GTEST_VENDORED)
@@ -1393,24 +1577,19 @@ macro(build_benchmark)
     GBENCHMARK_MAIN_STATIC_LIB
     "${GBENCHMARK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}benchmark_main${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
-  set(GBENCHMARK_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_INSTALL_PREFIX=${GBENCHMARK_PREFIX}"
-      -DBENCHMARK_ENABLE_TESTING=OFF
-      -DCMAKE_CXX_FLAGS=${GBENCHMARK_CMAKE_CXX_FLAGS})
+  set(GBENCHMARK_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
+                            "-DCMAKE_INSTALL_PREFIX=${GBENCHMARK_PREFIX}"
+                            -DBENCHMARK_ENABLE_TESTING=OFF
+                            -DCMAKE_CXX_FLAGS=${GBENCHMARK_CMAKE_CXX_FLAGS})
   if(APPLE)
     set(GBENCHMARK_CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS} "-DBENCHMARK_USE_LIBCXX=ON")
   endif()
 
   externalproject_add(gbenchmark_ep
-                      URL
-                      ${GBENCHMARK_SOURCE_URL}
-                      BUILD_BYPRODUCTS
-                      "${GBENCHMARK_STATIC_LIB}"
-                      "${GBENCHMARK_MAIN_STATIC_LIB}"
-                      CMAKE_ARGS
-                      ${GBENCHMARK_CMAKE_ARGS}
-                      ${EP_LOG_OPTIONS})
+                      URL ${GBENCHMARK_SOURCE_URL}
+                      BUILD_BYPRODUCTS "${GBENCHMARK_STATIC_LIB}"
+                                       "${GBENCHMARK_MAIN_STATIC_LIB}"
+                      CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS} ${EP_LOG_OPTIONS})
 
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${GBENCHMARK_INCLUDE_DIR}")
@@ -1444,36 +1623,37 @@ macro(build_rapidjson)
   message(STATUS "Building rapidjson from source")
   set(RAPIDJSON_PREFIX
       "${CMAKE_CURRENT_BINARY_DIR}/rapidjson_ep/src/rapidjson_ep-install")
-  set(RAPIDJSON_CMAKE_ARGS
-      -DRAPIDJSON_BUILD_DOC=OFF
-      -DRAPIDJSON_BUILD_EXAMPLES=OFF
-      -DRAPIDJSON_BUILD_TESTS=OFF
-      "-DCMAKE_INSTALL_PREFIX=${RAPIDJSON_PREFIX}")
+  set(RAPIDJSON_CMAKE_ARGS -DRAPIDJSON_BUILD_DOC=OFF -DRAPIDJSON_BUILD_EXAMPLES=OFF
+                           -DRAPIDJSON_BUILD_TESTS=OFF
+                           "-DCMAKE_INSTALL_PREFIX=${RAPIDJSON_PREFIX}")
 
   externalproject_add(rapidjson_ep
                       ${EP_LOG_OPTIONS}
-                      PREFIX
-                      "${CMAKE_BINARY_DIR}"
-                      URL
-                      ${RAPIDJSON_SOURCE_URL}
-                      CMAKE_ARGS
-                      ${RAPIDJSON_CMAKE_ARGS})
+                      PREFIX "${CMAKE_BINARY_DIR}"
+                      URL ${RAPIDJSON_SOURCE_URL}
+                      CMAKE_ARGS ${RAPIDJSON_CMAKE_ARGS})
 
   set(RAPIDJSON_INCLUDE_DIR "${RAPIDJSON_PREFIX}/include")
 
   add_dependencies(toolchain rapidjson_ep)
   add_dependencies(rapidjson rapidjson_ep)
+
+  set(RAPIDJSON_VENDORED TRUE)
 endmacro()
 
-# TODO: Check for 1.1.0+
 if(ARROW_WITH_RAPIDJSON)
+  set(ARROW_RAPIDJSON_REQUIRED_VERSION "1.1.0")
   if(RapidJSON_SOURCE STREQUAL "AUTO")
     # Fedora packages place the package information at the wrong location.
     # https://bugzilla.redhat.com/show_bug.cgi?id=1680400
-    find_package(RapidJSON QUIET HINTS "${CMAKE_ROOT}")
+    find_package(RapidJSON
+                 ${ARROW_RAPIDJSON_REQUIRED_VERSION}
+                 QUIET
+                 HINTS
+                 "${CMAKE_ROOT}")
     if(NOT RapidJSON_FOUND)
       # Ubuntu / Debian don't package the CMake config
-      find_package(RapidJSONAlt)
+      find_package(RapidJSONAlt ${ARROW_RAPIDJSON_REQUIRED_VERSION})
     endif()
     if(NOT RapidJSON_FOUND AND NOT RapidJSONAlt_FOUND)
       build_rapidjson()
@@ -1483,10 +1663,10 @@ if(ARROW_WITH_RAPIDJSON)
   elseif(RapidJSON_SOURCE STREQUAL "SYSTEM")
     # Fedora packages place the package information at the wrong location.
     # https://bugzilla.redhat.com/show_bug.cgi?id=1680400
-    find_package(RapidJSON HINTS "${CMAKE_ROOT}")
+    find_package(RapidJSON ${ARROW_RAPIDJSON_REQUIRED_VERSION} HINTS "${CMAKE_ROOT}")
     if(NOT RapidJSON_FOUND)
       # Ubuntu / Debian don't package the CMake config
-      find_package(RapidJSONAlt REQUIRED)
+      find_package(RapidJSONAlt ${ARROW_RAPIDJSON_REQUIRED_VERSION} REQUIRED)
     endif()
   endif()
 
@@ -1514,18 +1694,14 @@ macro(build_flatbuffers)
     )
   # We always need to do release builds, otherwise flatc will not be installed.
   externalproject_add(flatbuffers_ep
-                      URL
-                      ${FLATBUFFERS_SOURCE_URL}
-                      BUILD_BYPRODUCTS
-                      ${FLATBUFFERS_COMPILER}
-                      ${FLATBUFFERS_STATIC_LIB}
-                      CMAKE_ARGS
-                      ${EP_COMMON_CMAKE_ARGS}
-                      "-DCMAKE_BUILD_TYPE=RELEASE"
-                      "-DCMAKE_CXX_FLAGS=${FLATBUFFERS_CMAKE_CXX_FLAGS}"
-                      "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
-                      "-DFLATBUFFERS_BUILD_TESTS=OFF"
-                      ${EP_LOG_OPTIONS})
+                      URL ${FLATBUFFERS_SOURCE_URL}
+                      BUILD_BYPRODUCTS ${FLATBUFFERS_COMPILER} ${FLATBUFFERS_STATIC_LIB}
+                      CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
+                                 "-DCMAKE_BUILD_TYPE=RELEASE"
+                                 "-DCMAKE_CXX_FLAGS=${FLATBUFFERS_CMAKE_CXX_FLAGS}"
+                                 "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
+                                 "-DFLATBUFFERS_BUILD_TESTS=OFF"
+                                 ${EP_LOG_OPTIONS})
 
   file(MAKE_DIRECTORY "${FLATBUFFERS_PREFIX}/include")
 
@@ -1576,17 +1752,21 @@ if(ARROW_WITH_FLATBUFFERS)
                                      "${FLATBUFFERS_INCLUDE_DIR}")
   endif()
 
-  # mingw-w64-flatbuffers doesn't set the flatc target
-  if(NOT TARGET flatbuffers::flatc)
-    get_target_property(FLATBUFFERS_INCLUDE_DIR flatbuffers::flatbuffers
-                        INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(FB_ROOT "${FLATBUFFERS_INCLUDE_DIR}" DIRECTORY)
-    find_program(FLATBUFFERS_COMPILER
-                 NAMES flatc flatc.exe PATH ${FB_ROOT}
-                 PATH_SUFFIXES "bin")
-    add_executable(flatbuffers::flatc IMPORTED)
-    set_target_properties(flatbuffers::flatc
-                          PROPERTIES IMPORTED_LOCATION "${FLATBUFFERS_COMPILER}")
+  if(TARGET flatbuffers::flatc)
+    get_target_property(FLATBUFFERS_COMPILER_LOCATION_CONFIG flatbuffers::flatc
+                        IMPORTED_LOCATION_${UPPERCASE_BUILD_TYPE})
+    get_target_property(FLATBUFFERS_COMPILER_LOCATION flatbuffers::flatc
+                        IMPORTED_LOCATION)
+    get_target_property(FLATBUFFERS_COMPILER_LOCATION_NOCONFIG flatbuffers::flatc
+                        IMPORTED_LOCATION_NOCONFIG)
+    # mingw-w64-flatbuffers provides location only for "noconfig"
+    if(NOT FLATBUFFERS_COMPILER_LOCATION_CONFIG
+       AND NOT FLATBUFFERS_COMPILER_LOCATION
+       AND FLATBUFFERS_COMPILER_LOCATION_NOCONFIG)
+      set_target_properties(flatbuffers::flatc
+                            PROPERTIES IMPORTED_LOCATION
+                                       "${FLATBUFFERS_COMPILER_LOCATION_NOCONFIG}")
+    endif()
   endif()
 
   # TODO: Don't use global includes but rather target_include_directories
@@ -1609,16 +1789,12 @@ macro(build_zlib)
   endif()
   set(ZLIB_STATIC_LIB "${ZLIB_PREFIX}/lib/${ZLIB_STATIC_LIB_NAME}")
   set(ZLIB_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${ZLIB_PREFIX}"
-      -DBUILD_SHARED_LIBS=OFF)
+                      -DBUILD_SHARED_LIBS=OFF)
 
   externalproject_add(zlib_ep
-                      URL
-                      ${ZLIB_SOURCE_URL}
-                      ${EP_LOG_OPTIONS}
-                      BUILD_BYPRODUCTS
-                      "${ZLIB_STATIC_LIB}"
-                      CMAKE_ARGS
-                      ${ZLIB_CMAKE_ARGS})
+                      URL ${ZLIB_SOURCE_URL} ${EP_LOG_OPTIONS}
+                      BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
+                      CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
 
   file(MAKE_DIRECTORY "${ZLIB_PREFIX}/include")
 
@@ -1667,30 +1843,22 @@ macro(build_lz4)
   else()
     set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
     set(LZ4_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-lz4-lib.sh
-        "AR=${CMAKE_AR}")
+                          "AR=${CMAKE_AR}")
   endif()
 
   # We need to copy the header in lib to directory outside of the build
   externalproject_add(lz4_ep
-                      URL
-                      ${LZ4_SOURCE_URL}
-                      ${EP_LOG_OPTIONS}
-                      UPDATE_COMMAND
-                      ${CMAKE_COMMAND}
-                      -E
-                      copy_directory
-                      "${LZ4_BUILD_DIR}/lib"
-                      "${LZ4_PREFIX}/include"
-                      ${LZ4_PATCH_COMMAND}
-                      CONFIGURE_COMMAND
-                      ""
-                      INSTALL_COMMAND
-                      ""
-                      BINARY_DIR
-                      ${LZ4_BUILD_DIR}
-                      BUILD_BYPRODUCTS
-                      ${LZ4_STATIC_LIB}
-                      ${LZ4_BUILD_COMMAND})
+                      URL ${LZ4_SOURCE_URL} ${EP_LOG_OPTIONS}
+                      UPDATE_COMMAND ${CMAKE_COMMAND}
+                                     -E
+                                     copy_directory
+                                     "${LZ4_BUILD_DIR}/lib"
+                                     "${LZ4_PREFIX}/include"
+                                     ${LZ4_PATCH_COMMAND}
+                      CONFIGURE_COMMAND ""
+                      INSTALL_COMMAND ""
+                      BINARY_DIR ${LZ4_BUILD_DIR}
+                      BUILD_BYPRODUCTS ${LZ4_STATIC_LIB} ${LZ4_BUILD_COMMAND})
 
   file(MAKE_DIRECTORY "${LZ4_PREFIX}/include")
   add_library(LZ4::lz4 STATIC IMPORTED)
@@ -1746,16 +1914,11 @@ macro(build_zstd)
 
   externalproject_add(zstd_ep
                       ${EP_LOG_OPTIONS}
-                      CMAKE_ARGS
-                      ${ZSTD_CMAKE_ARGS}
-                      SOURCE_SUBDIR
-                      "build/cmake"
-                      INSTALL_DIR
-                      ${ZSTD_PREFIX}
-                      URL
-                      ${ZSTD_SOURCE_URL}
-                      BUILD_BYPRODUCTS
-                      "${ZSTD_STATIC_LIB}")
+                      CMAKE_ARGS ${ZSTD_CMAKE_ARGS}
+                      SOURCE_SUBDIR "build/cmake"
+                      INSTALL_DIR ${ZSTD_PREFIX}
+                      URL ${ZSTD_SOURCE_URL}
+                      BUILD_BYPRODUCTS "${ZSTD_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${ZSTD_PREFIX}/include")
 
@@ -1789,14 +1952,10 @@ macro(build_re2)
 
   externalproject_add(re2_ep
                       ${EP_LOG_OPTIONS}
-                      INSTALL_DIR
-                      ${RE2_PREFIX}
-                      URL
-                      ${RE2_SOURCE_URL}
-                      CMAKE_ARGS
-                      ${RE2_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS
-                      "${RE2_STATIC_LIB}")
+                      INSTALL_DIR ${RE2_PREFIX}
+                      URL ${RE2_SOURCE_URL}
+                      CMAKE_ARGS ${RE2_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS "${RE2_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${RE2_PREFIX}/include")
   add_library(RE2::re2 STATIC IMPORTED)
@@ -1825,25 +1984,14 @@ macro(build_bzip2)
 
   externalproject_add(bzip2_ep
                       ${EP_LOG_OPTIONS}
-                      CONFIGURE_COMMAND
-                      ""
-                      BUILD_IN_SOURCE
-                      1
-                      BUILD_COMMAND
-                      ${MAKE}
-                      ${MAKE_BUILD_ARGS}
-                      CFLAGS=${EP_C_FLAGS}
-                      INSTALL_COMMAND
-                      ${MAKE}
-                      install
-                      PREFIX=${BZIP2_PREFIX}
-                      CFLAGS=${EP_C_FLAGS}
-                      INSTALL_DIR
-                      ${BZIP2_PREFIX}
-                      URL
-                      ${BZIP2_SOURCE_URL}
-                      BUILD_BYPRODUCTS
-                      "${BZIP2_STATIC_LIB}")
+                      CONFIGURE_COMMAND ""
+                      BUILD_IN_SOURCE 1
+                      BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS} CFLAGS=${EP_C_FLAGS}
+                      INSTALL_COMMAND ${MAKE} install PREFIX=${BZIP2_PREFIX}
+                                      CFLAGS=${EP_C_FLAGS}
+                      INSTALL_DIR ${BZIP2_PREFIX}
+                      URL ${BZIP2_SOURCE_URL}
+                      BUILD_BYPRODUCTS "${BZIP2_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${BZIP2_PREFIX}/include")
   add_library(BZip2::BZip2 STATIC IMPORTED)
@@ -1870,6 +2018,7 @@ if(ARROW_WITH_BZ2)
 endif()
 
 macro(build_cares)
+  message(STATUS "Building c-ares from source")
   set(CARES_PREFIX "${THIRDPARTY_DIR}/cares_ep-install")
   set(CARES_INCLUDE_DIR "${CARES_PREFIX}/include")
 
@@ -1889,38 +2038,31 @@ macro(build_cares)
 
   externalproject_add(cares_ep
                       ${EP_LOG_OPTIONS}
-                      URL
-                      ${CARES_SOURCE_URL}
-                      CMAKE_ARGS
-                      ${CARES_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS
-                      "${CARES_STATIC_LIB}")
+                      URL ${CARES_SOURCE_URL}
+                      CMAKE_ARGS ${CARES_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS "${CARES_STATIC_LIB}")
+
+  file(MAKE_DIRECTORY ${CARES_INCLUDE_DIR})
 
   add_dependencies(toolchain cares_ep)
   add_library(c-ares::cares STATIC IMPORTED)
   set_target_properties(c-ares::cares
                         PROPERTIES IMPORTED_LOCATION "${CARES_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${CARES_INCLUDE_DIR}")
+
+  set(CARES_VENDORED TRUE)
 endmacro()
 
 if(ARROW_WITH_GRPC)
   if(c-ares_SOURCE STREQUAL "AUTO")
-    find_package(c-ares QUIET)
+    find_package(c-ares QUIET CONFIG)
     if(NOT c-ares_FOUND)
-      # Fedora doesn't package the CMake config
-      find_package(c-aresAlt)
-    endif()
-    if(NOT c-ares_FOUND AND NOT c-aresAlt_FOUND)
       build_cares()
     endif()
   elseif(c-ares_SOURCE STREQUAL "BUNDLED")
     build_cares()
   elseif(c-ares_SOURCE STREQUAL "SYSTEM")
-    find_package(c-ares QUIET)
-    if(NOT c-ares_FOUND)
-      # Fedora doesn't package the CMake config
-      find_package(c-aresAlt REQUIRED)
-    endif()
+    find_package(c-ares REQUIRED CONFIG)
   endif()
 
   # TODO: Don't use global includes but rather target_include_directories
@@ -1938,7 +2080,7 @@ macro(build_grpc)
   set(GRPC_HOME "${GRPC_PREFIX}")
   set(GRPC_INCLUDE_DIR "${GRPC_PREFIX}/include")
   set(GRPC_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}"
-      -DBUILD_SHARED_LIBS=OFF)
+                      -DBUILD_SHARED_LIBS=OFF)
 
   set(
     GRPC_STATIC_LIBRARY_GPR
@@ -2008,26 +2150,26 @@ macro(build_grpc)
       -DCMAKE_INSTALL_LIBDIR=lib
       "-DProtobuf_PROTOC_LIBRARY=${GRPC_Protobuf_PROTOC_LIBRARY}"
       -DBUILD_SHARED_LIBS=OFF)
+  if(OPENSSL_ROOT_DIR)
+    list(APPEND GRPC_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
+  endif()
 
   # XXX the gRPC git checkout is huge and takes a long time
   # Ideally, we should be able to use the tarballs, but they don't contain
   # vendored dependencies such as c-ares...
   externalproject_add(grpc_ep
-                      URL
-                      ${GRPC_SOURCE_URL}
-                      LIST_SEPARATOR
-                      |
-                      BUILD_BYPRODUCTS
-                      ${GRPC_STATIC_LIBRARY_GPR}
-                      ${GRPC_STATIC_LIBRARY_GRPC}
-                      ${GRPC_STATIC_LIBRARY_GRPCPP}
-                      ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}
-                      ${GRPC_CPP_PLUGIN}
-                      CMAKE_ARGS
-                      ${GRPC_CMAKE_ARGS}
-                      ${EP_LOG_OPTIONS}
-                      DEPENDS
-                      ${grpc_dependencies})
+                      URL ${GRPC_SOURCE_URL}
+                      LIST_SEPARATOR |
+                      BUILD_BYPRODUCTS ${GRPC_STATIC_LIBRARY_GPR}
+                                       ${GRPC_STATIC_LIBRARY_GRPC}
+                                       ${GRPC_STATIC_LIBRARY_GRPCPP}
+                                       ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}
+                                       ${GRPC_CPP_PLUGIN}
+                      CMAKE_ARGS ${GRPC_CMAKE_ARGS} ${EP_LOG_OPTIONS}
+                      DEPENDS ${grpc_dependencies})
+
+  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+  file(MAKE_DIRECTORY ${GRPC_INCLUDE_DIR})
 
   add_library(gRPC::gpr STATIC IMPORTED)
   set_target_properties(gRPC::gpr
@@ -2064,24 +2206,6 @@ macro(build_grpc)
 endmacro()
 
 if(ARROW_WITH_GRPC)
-  # gRPC requires OpenSSL but it depends on OpenSSL::SSL and OpenSSL::Crypto
-  # which are not available in older CMake versions.
-  find_package(OpenSSL REQUIRED)
-  if(NOT TARGET OpenSSL::SSL)
-    add_library(OpenSSL::SSL UNKNOWN IMPORTED)
-    set_target_properties(OpenSSL::SSL
-                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_SSL_LIBRARY}"
-                                     INTERFACE_INCLUDE_DIRECTORIES
-                                     "${OPENSSL_INCLUDE_DIR}")
-  endif()
-  if(NOT TARGET OpenSSL::Crypto)
-    add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
-    set_target_properties(OpenSSL::Crypto
-                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}"
-                                     INTERFACE_INCLUDE_DIRECTORIES
-                                     "${OPENSSL_INCLUDE_DIR}")
-  endif()
-
   if(gRPC_SOURCE STREQUAL "AUTO")
     find_package(gRPC QUIET)
     if(NOT gRPC_FOUND)
@@ -2131,157 +2255,6 @@ if(ARROW_WITH_GRPC)
   endif()
 endif()
 
-# ----------------------------------------------------------------------
-# Add Boost dependencies (code adapted from Apache Kudu (incubating))
-
-set(Boost_USE_MULTITHREADED ON)
-if(MSVC AND ARROW_USE_STATIC_CRT)
-  set(Boost_USE_STATIC_RUNTIME ON)
-endif()
-set(Boost_ADDITIONAL_VERSIONS
-    "1.70.0"
-    "1.70"
-    "1.69.0"
-    "1.69"
-    "1.68.0"
-    "1.68"
-    "1.67.0"
-    "1.67"
-    "1.66.0"
-    "1.66"
-    "1.65.0"
-    "1.65"
-    "1.64.0"
-    "1.64"
-    "1.63.0"
-    "1.63"
-    "1.62.0"
-    "1.61"
-    "1.61.0"
-    "1.62"
-    "1.60.0"
-    "1.60")
-
-if(ARROW_BOOST_VENDORED)
-  set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
-  set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
-  set(BOOST_BUILD_LINK "static")
-  set(
-    BOOST_STATIC_SYSTEM_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_system${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(
-    BOOST_STATIC_FILESYSTEM_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(
-    BOOST_STATIC_REGEX_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_regex${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(BOOST_SYSTEM_LIBRARY boost_system_static)
-  set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-  set(BOOST_REGEX_LIBRARY boost_regex_static)
-
-  if(ARROW_BOOST_HEADER_ONLY)
-    set(BOOST_BUILD_PRODUCTS)
-    set(BOOST_CONFIGURE_COMMAND "")
-    set(BOOST_BUILD_COMMAND "")
-  else()
-    set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
-        ${BOOST_STATIC_FILESYSTEM_LIBRARY} ${BOOST_STATIC_REGEX_LIBRARY})
-    set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh" "--prefix=${BOOST_PREFIX}"
-        "--with-libraries=filesystem,regex,system")
-    if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-      set(BOOST_BUILD_VARIANT "debug")
-    else()
-      set(BOOST_BUILD_VARIANT "release")
-    endif()
-    set(BOOST_BUILD_COMMAND
-        "./b2"
-        "link=${BOOST_BUILD_LINK}"
-        "variant=${BOOST_BUILD_VARIANT}"
-        "cxxflags=-fPIC")
-
-    add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
-
-    add_thirdparty_lib(boost_filesystem STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
-
-    add_thirdparty_lib(boost_regex STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}")
-
-    set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
-  endif()
-  externalproject_add(boost_ep
-                      URL
-                      ${BOOST_SOURCE_URL}
-                      BUILD_BYPRODUCTS
-                      ${BOOST_BUILD_PRODUCTS}
-                      BUILD_IN_SOURCE
-                      1
-                      CONFIGURE_COMMAND
-                      ${BOOST_CONFIGURE_COMMAND}
-                      BUILD_COMMAND
-                      ${BOOST_BUILD_COMMAND}
-                      INSTALL_COMMAND
-                      ""
-                      ${EP_LOG_OPTIONS})
-  set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
-  set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
-  add_dependencies(toolchain boost_ep)
-else()
-  if(MSVC)
-    # disable autolinking in boost
-    add_definitions(-DBOOST_ALL_NO_LIB)
-  endif()
-
-  if(DEFINED ENV{BOOST_ROOT} OR DEFINED BOOST_ROOT)
-    # In older versions of CMake (such as 3.2), the system paths for Boost will
-    # be looked in first even if we set $BOOST_ROOT or pass -DBOOST_ROOT
-    set(Boost_NO_SYSTEM_PATHS ON)
-  endif()
-
-  if(ARROW_BOOST_USE_SHARED)
-    # Find shared Boost libraries.
-    set(Boost_USE_STATIC_LIBS OFF)
-    set(BUILD_SHARED_LIBS_KEEP ${BUILD_SHARED_LIBS})
-    set(BUILD_SHARED_LIBS ON)
-
-    if(MSVC)
-      # force all boost libraries to dynamic link
-      add_definitions(-DBOOST_ALL_DYN_LINK)
-    endif()
-
-    if(ARROW_BOOST_HEADER_ONLY)
-      find_package(Boost REQUIRED)
-    else()
-      find_package(Boost COMPONENTS regex system filesystem REQUIRED)
-      set(BOOST_SYSTEM_LIBRARY Boost::system)
-      set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
-      set(BOOST_REGEX_LIBRARY Boost::regex)
-      set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
-    endif()
-    set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
-    unset(BUILD_SHARED_LIBS_KEEP)
-  else()
-    # Find static boost headers and libs
-    # TODO Differentiate here between release and debug builds
-    set(Boost_USE_STATIC_LIBS ON)
-    if(ARROW_BOOST_HEADER_ONLY)
-      find_package(Boost REQUIRED)
-    else()
-      find_package(Boost COMPONENTS regex system filesystem REQUIRED)
-      set(BOOST_SYSTEM_LIBRARY Boost::system)
-      set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
-      set(BOOST_REGEX_LIBRARY Boost::regex)
-      set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
-    endif()
-  endif()
-endif()
-
-message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIR})
-message(STATUS "Boost libraries: " ${Boost_LIBRARIES})
-
-include_directories(SYSTEM ${Boost_INCLUDE_DIR})
-
 #
 # HDFS thirdparty setup
 
@@ -2306,97 +2279,95 @@ include_directories(SYSTEM "${HADOOP_HOME}/include")
 # ----------------------------------------------------------------------
 # Apache ORC
 
-if(ARROW_ORC)
-  # orc
-  if("${ORC_HOME}" STREQUAL "")
-    set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
-    set(ORC_HOME "${ORC_PREFIX}")
-    set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
-    set(
-      ORC_STATIC_LIB
+macro(build_orc)
+  message("Building Apache ORC from source")
+  set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
+  set(ORC_HOME "${ORC_PREFIX}")
+  set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
+  set(ORC_STATIC_LIB
       "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-    if("${COMPILER_FAMILY}" STREQUAL "clang")
-      if("${COMPILER_VERSION}" VERSION_EQUAL "4.0")
-        # conda OSX builds uses clang 4.0.1 and orc_ep fails to build unless
-        # disabling the following errors
-        set(ORC_CMAKE_CXX_FLAGS " -Wno-error=weak-vtables -Wno-error=undef ")
-      endif()
-      if("${COMPILER_VERSION}" VERSION_GREATER "4.0")
-        set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
-  -Wno-inconsistent-missing-destructor-override ")
-      endif()
+  if("${COMPILER_FAMILY}" STREQUAL "clang")
+    if("${COMPILER_VERSION}" VERSION_EQUAL "4.0")
+      # conda OSX builds uses clang 4.0.1 and orc_ep fails to build unless
+      # disabling the following errors
+      set(ORC_CMAKE_CXX_FLAGS " -Wno-error=weak-vtables -Wno-error=undef ")
     endif()
-
-    set(ORC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${ORC_CMAKE_CXX_FLAGS}")
-
-    get_target_property(ORC_PROTOBUF_INCLUDE_DIR protobuf::libprotobuf
-                        INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(ORC_PB_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
-    get_target_property(ORC_PROTOBUF_LIBRARY protobuf::libprotobuf IMPORTED_LOCATION)
-
-    get_target_property(ORC_SNAPPY_INCLUDE_DIR Snappy::snappy
-                        INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
-
-    get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
-
-    # Weirdly passing in PROTOBUF_LIBRARY for PROTOC_LIBRARY still results in ORC finding
-    # the protoc library.
-    set(ORC_CMAKE_ARGS
-        ${EP_COMMON_CMAKE_ARGS}
-        "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
-        -DCMAKE_CXX_FLAGS=${ORC_CMAKE_CXX_FLAGS}
-        -DBUILD_LIBHDFSPP=OFF
-        -DBUILD_JAVA=OFF
-        -DBUILD_TOOLS=OFF
-        -DBUILD_CPP_TESTS=OFF
-        -DINSTALL_VENDORED_LIBS=OFF
-        "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
-        "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
-        "-DPROTOBUF_HOME=${ORC_PB_ROOT}"
-        "-DPROTOBUF_INCLUDE_DIR=${ORC_PROTOBUF_INCLUDE_DIR}"
-        "-DPROTOBUF_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
-        "-DPROTOC_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
-        "-DLZ4_HOME=${LZ4_HOME}")
-    if(ZLIB_ROOT)
-      set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS} "-DZLIB_HOME=${ZLIB_ROOT}")
+    if("${COMPILER_VERSION}" VERSION_GREATER "4.0")
+      set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
+-Wno-inconsistent-missing-destructor-override -Wno-error=undef ")
     endif()
-
-    externalproject_add(orc_ep
-                        URL
-                        ${ORC_SOURCE_URL}
-                        BUILD_BYPRODUCTS
-                        ${ORC_STATIC_LIB}
-                        CMAKE_ARGS
-                        ${ORC_CMAKE_ARGS}
-                        ${EP_LOG_OPTIONS})
-
-    add_dependencies(toolchain orc_ep)
-
-    set(ORC_VENDORED 1)
-    add_dependencies(orc_ep ZLIB::ZLIB)
-    add_dependencies(orc_ep LZ4::lz4)
-    add_dependencies(orc_ep Snappy::snappy)
-    add_dependencies(orc_ep protobuf::libprotobuf)
-  else()
-    set(ORC_INCLUDE_DIR "${ORC_HOME}/include")
-    set(ORC_STATIC_LIB
-        "${ORC_HOME}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(ORC_VENDORED 0)
   endif()
 
+  set(ORC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${ORC_CMAKE_CXX_FLAGS}")
+
+  get_target_property(ORC_PROTOBUF_INCLUDE_DIR protobuf::libprotobuf
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  get_filename_component(ORC_PB_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
+  get_target_property(ORC_PROTOBUF_LIBRARY protobuf::libprotobuf IMPORTED_LOCATION)
+
+  get_target_property(ORC_SNAPPY_INCLUDE_DIR Snappy::snappy INTERFACE_INCLUDE_DIRECTORIES)
+  get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
+
+  get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
+  get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
+
+  # Weirdly passing in PROTOBUF_LIBRARY for PROTOC_LIBRARY still results in ORC finding
+  # the protoc library.
+  set(ORC_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
+      -DCMAKE_CXX_FLAGS=${ORC_CMAKE_CXX_FLAGS}
+      -DBUILD_LIBHDFSPP=OFF
+      -DBUILD_JAVA=OFF
+      -DBUILD_TOOLS=OFF
+      -DBUILD_CPP_TESTS=OFF
+      -DINSTALL_VENDORED_LIBS=OFF
+      "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
+      "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
+      "-DPROTOBUF_HOME=${ORC_PB_ROOT}"
+      "-DPROTOBUF_INCLUDE_DIR=${ORC_PROTOBUF_INCLUDE_DIR}"
+      "-DPROTOBUF_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
+      "-DPROTOC_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
+      "-DLZ4_HOME=${LZ4_HOME}")
+  if(ZLIB_ROOT)
+    set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS} "-DZLIB_HOME=${ZLIB_ROOT}")
+  endif()
+
+  # Work around CMake bug
+  file(MAKE_DIRECTORY ${ORC_INCLUDE_DIR})
+
+  externalproject_add(orc_ep
+                      URL ${ORC_SOURCE_URL}
+                      BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
+                      CMAKE_ARGS ${ORC_CMAKE_ARGS} ${EP_LOG_OPTIONS})
+
+  add_dependencies(toolchain orc_ep)
+
+  set(ORC_VENDORED 1)
+  add_dependencies(orc_ep ZLIB::ZLIB)
+  add_dependencies(orc_ep LZ4::lz4)
+  add_dependencies(orc_ep Snappy::snappy)
+  add_dependencies(orc_ep protobuf::libprotobuf)
+
+  add_library(orc::liborc STATIC IMPORTED)
+  set_target_properties(orc::liborc
+                        PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
+
+  add_dependencies(toolchain orc_ep)
+  add_dependencies(orc::liborc orc_ep)
+endmacro()
+
+if(ARROW_ORC)
+  resolve_dependency(ORC)
   include_directories(SYSTEM ${ORC_INCLUDE_DIR})
-  add_thirdparty_lib(orc STATIC_LIB ${ORC_STATIC_LIB} DEPS protobuf::libprotobuf)
-
-  if(ORC_VENDORED)
-    add_dependencies(orc_static orc_ep)
-  endif()
+  message(STATUS "Found ORC static library: ${ORC_STATIC_LIB}")
+  message(STATUS "Found ORC headers: ${ORC_INCLUDE_DIR}")
 endif()
 
 # Write out the package configurations.
 
 configure_file("src/arrow/util/config.h.cmake" "src/arrow/util/config.h")
 install(FILES "${ARROW_BINARY_DIR}/src/arrow/util/config.h"
-        DESTINATION "include/arrow/util")
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util")

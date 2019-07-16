@@ -20,6 +20,8 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+from __future__ import absolute_import
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, Field, MemoryPool, ensure_type,
@@ -411,14 +413,15 @@ def read_csv(input_file, read_options=None, parse_options=None,
         The location of CSV data.  If a string or path, and if it ends
         with a recognized compressed file extension (e.g. ".gz" or ".bz2"),
         the data is automatically decompressed when reading.
-    read_options: ReadOptions, optional
-        Options for the CSV reader (see ReadOptions constructor for defaults)
-    parse_options: ParseOptions, optional
+    read_options: pyarrow.csv.ReadOptions, optional
+        Options for the CSV reader (see pyarrow.csv.ReadOptions constructor
+        for defaults)
+    parse_options: pyarrow.csv.ParseOptions, optional
         Options for the CSV parser
-        (see ParseOptions constructor for defaults)
-    convert_options: ConvertOptions, optional
+        (see pyarrow.csv.ParseOptions constructor for defaults)
+    convert_options: pyarrow.csv.ConvertOptions, optional
         Options for converting CSV data
-        (see ConvertOptions constructor for defaults)
+        (see pyarrow.csv.ConvertOptions constructor for defaults)
     memory_pool: MemoryPool, optional
         Pool to allocate Table memory from
 

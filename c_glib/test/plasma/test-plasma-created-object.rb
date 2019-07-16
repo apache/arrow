@@ -45,7 +45,7 @@ class TestPlasmaCreatedObject < Test::Unit::TestCase
 
   test("#abort") do
     @object.data.set_data(0, @data)
-    assert_raise(Arrow::Error::PlasmaObjectExists) do
+    assert_raise(Arrow::Error::AlreadyExists) do
       @client.create(@id, @data.bytesize, @options)
     end
     @object.abort

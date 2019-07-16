@@ -25,6 +25,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableTimeStampMilliHolder;
 import org.apache.arrow.vector.holders.TimeStampMilliHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.DateUtility;
 import org.apache.arrow.vector.util.TransferPair;
@@ -58,6 +59,18 @@ public class TimeStampMilliVector extends TimeStampVector {
    */
   public TimeStampMilliVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, fieldType, allocator);
+    reader = new TimeStampMilliReaderImpl(TimeStampMilliVector.this);
+  }
+
+  /**
+   * Instantiate a TimeStampMilliVector. This doesn't allocate any memory for
+   * the data in vector.
+   *
+   * @param field field materialized by this vector
+   * @param allocator allocator for memory management.
+   */
+  public TimeStampMilliVector(Field field, BufferAllocator allocator) {
+    super(field, allocator);
     reader = new TimeStampMilliReaderImpl(TimeStampMilliVector.this);
   }
 

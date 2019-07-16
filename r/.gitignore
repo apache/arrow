@@ -1,5 +1,5 @@
 Meta
-doc
+docs/
 inst/doc
 *.o
 *.o-*
@@ -10,4 +10,6 @@ inst/doc
 .Rproj.user
 .Rhistory
 src/Makevars
+src/Makevars.win
 windows/
+arrow_*.tar.gz

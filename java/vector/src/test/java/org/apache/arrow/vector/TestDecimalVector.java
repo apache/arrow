@@ -25,9 +25,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.util.DecimalUtility;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -160,6 +158,27 @@ public class TestDecimalVector {
       assertEquals(decimal8, decimalVector.getObject(7));
     }
   }
+
+  @Test
+  public void testLongReadWrite() {
+    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
+            new ArrowType.Decimal(38, 0), allocator)) {
+      decimalVector.allocateNew();
+
+      long[] longValues = {0L, -2L, Long.MAX_VALUE, Long.MIN_VALUE, 187L};
+
+      for (int i = 0; i < longValues.length; ++i) {
+        decimalVector.set(i, longValues[i]);
+      }
+
+      decimalVector.setValueCount(longValues.length);
+
+      for (int i = 0; i < longValues.length; ++i) {
+        assertEquals(new BigDecimal(longValues[i]), decimalVector.getObject(i));
+      }
+    }
+  }
+
 
   @Test
   public void testBigDecimalReadWrite() {

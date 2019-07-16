@@ -52,7 +52,7 @@ Type <- enum("arrow::Type::type",
 #' @export
 StatusCode <- enum("arrow::StatusCode",
   OK = 0L, OutOfMemory = 1L, KeyError = 2L, TypeError = 3L,
-  Invalid = 4L, IOError = 5L, CapacityError = 6L,
+  Invalid = 4L, IOError = 5L, CapacityError = 6L, IndexError = 7L,
   UnknownError = 9L, NotImplemented = 10L, SerializationError = 11L,
   PythonError = 12L, RError = 13L,
   PlasmaObjectExists = 20L, PlasmaObjectNonexistent = 21L,

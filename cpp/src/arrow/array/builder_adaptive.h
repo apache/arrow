@@ -31,7 +31,7 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
 
   /// \brief Append multiple nulls
   /// \param[in] length the number of nulls to append
-  Status AppendNulls(int64_t length) {
+  Status AppendNulls(int64_t length) final {
     ARROW_RETURN_NOT_OK(CommitPendingData());
     ARROW_RETURN_NOT_OK(Reserve(length));
     memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
@@ -39,7 +39,7 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendNull() {
+  Status AppendNull() final {
     pending_data_[pending_pos_] = 0;
     pending_valid_[pending_pos_] = 0;
     pending_has_nulls_ = true;

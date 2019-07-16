@@ -21,10 +21,10 @@
 #include <cstdlib>
 #include <limits>
 #include <memory>
-#include <sstream>
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -36,13 +36,32 @@ namespace arrow {
 
 using internal::checked_cast;
 
+namespace {
+
+// If a column contains multiple chunks, concatenates those chunks into one and
+// makes a new column out of it. Otherwise makes `compacted` point to the same
+// column.
+Status CompactColumn(const std::shared_ptr<Column>& column, MemoryPool* pool,
+                     std::shared_ptr<Column>* compacted) {
+  if (column->data()->num_chunks() <= 1) {
+    *compacted = column;
+    return Status::OK();
+  }
+  std::shared_ptr<Array> merged_data_array;
+  RETURN_NOT_OK(Concatenate(column->data()->chunks(), pool, &merged_data_array));
+  *compacted = std::make_shared<Column>(column->field(), merged_data_array);
+  return Status::OK();
+}
+
+}  // namespace
+
 // ----------------------------------------------------------------------
 // ChunkedArray and Column methods
 
 ChunkedArray::ChunkedArray(const ArrayVector& chunks) : chunks_(chunks) {
   length_ = 0;
   null_count_ = 0;
-  DCHECK_GT(chunks.size(), 0)
+  ARROW_CHECK_GT(chunks.size(), 0)
       << "cannot construct ChunkedArray from empty vector and omitted type";
   type_ = chunks[0]->type();
   for (const std::shared_ptr<Array>& chunk : chunks) {
@@ -122,7 +141,7 @@ bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
 }
 
 std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length) const {
-  DCHECK_LE(offset, length_);
+  ARROW_CHECK_LE(offset, length_) << "Slice offset greater than array length";
 
   int curr_chunk = 0;
   while (curr_chunk < num_chunks() && offset >= chunk(curr_chunk)->length()) {
@@ -176,6 +195,23 @@ Status ChunkedArray::Flatten(MemoryPool* pool,
   *out = flattened;
   return Status::OK();
 }
+
+Status ChunkedArray::Validate() const {
+  if (chunks_.size() == 0) {
+    return Status::OK();
+  }
+
+  const auto& type = *chunks_[0]->type();
+  for (size_t i = 1; i < chunks_.size(); ++i) {
+    if (!chunks_[i]->type()->Equals(type)) {
+      return Status::Invalid("In chunk ", i, " expected type ", type.ToString(),
+                             " but saw ", chunks_[i]->type()->ToString());
+    }
+  }
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
 
 Column::Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks)
     : field_(field) {
@@ -288,6 +324,16 @@ class SimpleTable : public Table {
 
   std::shared_ptr<Column> column(int i) const override { return columns_[i]; }
 
+  std::shared_ptr<Table> Slice(int64_t offset, int64_t length) const override {
+    auto sliced = columns_;
+    int64_t num_rows = length;
+    for (auto& column : sliced) {
+      column = column->Slice(offset, length);
+      num_rows = column->length();
+    }
+    return Table::Make(schema_, sliced, num_rows);
+  }
+
   Status RemoveColumn(int i, std::shared_ptr<Table>* out) const override {
     std::shared_ptr<Schema> new_schema;
     RETURN_NOT_OK(schema_->RemoveField(i, &new_schema));
@@ -393,6 +439,15 @@ std::shared_ptr<Table> Table::Make(const std::shared_ptr<Schema>& schema,
   return std::make_shared<SimpleTable>(schema, columns, num_rows);
 }
 
+std::shared_ptr<Table> Table::Make(const std::vector<std::shared_ptr<Column>>& columns,
+                                   int64_t num_rows) {
+  std::vector<std::shared_ptr<Field>> fields(columns.size());
+  std::transform(columns.begin(), columns.end(), fields.begin(),
+                 [](const std::shared_ptr<Column>& column) { return column->field(); });
+  return std::make_shared<SimpleTable>(::arrow::schema(std::move(fields)), columns,
+                                       num_rows);
+}
+
 std::shared_ptr<Table> Table::Make(const std::shared_ptr<Schema>& schema,
                                    const std::vector<std::shared_ptr<Array>>& arrays,
                                    int64_t num_rows) {
@@ -434,6 +489,54 @@ Status Table::FromRecordBatches(const std::vector<std::shared_ptr<RecordBatch>>&
   }
 
   return FromRecordBatches(batches[0]->schema(), batches, table);
+}
+
+Status Table::FromChunkedStructArray(const std::shared_ptr<ChunkedArray>& array,
+                                     std::shared_ptr<Table>* table) {
+  auto type = array->type();
+  if (type->id() != Type::STRUCT) {
+    return Status::Invalid("Expected a chunked struct array, got ", *type);
+  }
+  int num_columns = type->num_children();
+  int num_chunks = array->num_chunks();
+
+  const auto& struct_chunks = array->chunks();
+  std::vector<std::shared_ptr<Column>> columns(num_columns);
+  for (int i = 0; i < num_columns; ++i) {
+    ArrayVector chunks(num_chunks);
+    std::transform(struct_chunks.begin(), struct_chunks.end(), chunks.begin(),
+                   [i](const std::shared_ptr<Array>& struct_chunk) {
+                     return static_cast<const StructArray&>(*struct_chunk).field(i);
+                   });
+    columns[i] = std::make_shared<Column>(type->child(i), chunks);
+  }
+
+  *table = Table::Make(::arrow::schema(type->children()), columns, array->length());
+  return Status::OK();
+}
+
+std::vector<std::string> Table::ColumnNames() const {
+  std::vector<std::string> names(num_columns());
+  for (int i = 0; i < num_columns(); ++i) {
+    names[i] = column(i)->name();
+  }
+  return names;
+}
+
+Status Table::RenameColumns(const std::vector<std::string>& names,
+                            std::shared_ptr<Table>* out) const {
+  if (names.size() != static_cast<size_t>(num_columns())) {
+    return Status::Invalid("tried to rename a table of ", num_columns(),
+                           " columns but only ", names.size(), " names were provided");
+  }
+  std::vector<std::shared_ptr<Column>> columns(num_columns());
+  std::vector<std::shared_ptr<Field>> fields(num_columns());
+  for (int i = 0; i < num_columns(); ++i) {
+    fields[i] = column(i)->field()->WithName(names[i]);
+    columns[i] = std::make_shared<Column>(fields[i], column(i)->data());
+  }
+  *out = Table::Make(::arrow::schema(std::move(fields)), std::move(columns), num_rows());
+  return Status::OK();
 }
 
 Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
@@ -488,6 +591,16 @@ bool Table::Equals(const Table& other) const {
     }
   }
   return true;
+}
+
+Status Table::CombineChunks(MemoryPool* pool, std::shared_ptr<Table>* out) const {
+  const int ncolumns = num_columns();
+  std::vector<std::shared_ptr<Column>> compacted_columns(ncolumns);
+  for (int i = 0; i < ncolumns; ++i) {
+    RETURN_NOT_OK(CompactColumn(column(i), pool, &compacted_columns[i]));
+  }
+  *out = Table::Make(schema(), compacted_columns);
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------

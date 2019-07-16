@@ -38,7 +38,7 @@ pub type ColumnDescPtr = Rc<ColumnDescriptor>;
 /// Used to describe primitive leaf fields and structs, including top-level schema.
 /// Note that the top-level schema type is represented using `GroupType` whose
 /// repetition is `None`.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Type {
     PrimitiveType {
         basic_info: BasicTypeInfo,
@@ -458,7 +458,7 @@ impl<'a> GroupTypeBuilder<'a> {
 
 /// Basic type info. This contains information such as the name of the type,
 /// the repetition level, the logical type and the kind of the type (group, primitive).
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BasicTypeInfo {
     name: String,
     repetition: Option<Repetition>,
@@ -624,13 +624,14 @@ impl ColumnDescriptor {
         self.primitive_type.as_ref()
     }
 
-    /// Returns self type [`TypePtr`](crate::schema::types::TypePtr)  for this leaf column.
+    /// Returns self type [`TypePtr`](crate::schema::types::TypePtr)  for this leaf
+    /// column.
     pub fn self_type_ptr(&self) -> TypePtr {
         self.primitive_type.clone()
     }
 
-    /// Returns root [`Type`](crate::schema::types::Type) (most top-level parent field) for
-    /// this leaf column.
+    /// Returns root [`Type`](crate::schema::types::Type) (most top-level parent field)
+    /// for this leaf column.
     pub fn root_type(&self) -> &Type {
         assert!(self.root_type.is_some());
         self.root_type.as_ref().unwrap()

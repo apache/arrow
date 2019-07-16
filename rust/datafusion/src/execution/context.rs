@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! ExecutionContext contains methods for registering data sources and executing SQL queries
+//! ExecutionContext contains methods for registering data sources and executing SQL
+//! queries
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -25,8 +26,7 @@ use std::sync::Arc;
 
 use arrow::datatypes::*;
 
-use crate::arrow::array::ArrayRef;
-use crate::arrow::builder::BooleanBuilder;
+use crate::arrow::array::{ArrayRef, BooleanBuilder};
 use crate::datasource::csv::CsvFile;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
@@ -172,7 +172,8 @@ impl ExecutionContext {
                 Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::TableScan {
                     schema_name: "".to_string(),
                     table_name: table_name.to_string(),
-                    schema: provider.schema().clone(),
+                    table_schema: provider.schema().clone(),
+                    projected_schema: provider.schema().clone(),
                     projection: None,
                 }))))
             }
@@ -196,8 +197,8 @@ impl ExecutionContext {
         Ok(plan)
     }
 
-    /// Execute a logical plan and produce a Relation (a schema-aware iterator over a series
-    /// of RecordBatch instances)
+    /// Execute a logical plan and produce a Relation (a schema-aware iterator over a
+    /// series of RecordBatch instances)
     pub fn execute(
         &mut self,
         plan: &LogicalPlan,

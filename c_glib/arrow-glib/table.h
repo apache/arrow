@@ -89,5 +89,15 @@ GArrowTable    *garrow_table_replace_column(GArrowTable *table,
                                             GError **error);
 gchar          *garrow_table_to_string     (GArrowTable *table,
                                             GError **error);
+GARROW_AVAILABLE_IN_0_14
+GArrowTable *
+garrow_table_concatenate(GArrowTable *table,
+                         GList *other_tables,
+                         GError **error);
+GARROW_AVAILABLE_IN_0_14
+GArrowTable*
+garrow_table_slice(GArrowTable *table,
+                   gint64 offset,
+                   gint64 length);
 
 G_END_DECLS

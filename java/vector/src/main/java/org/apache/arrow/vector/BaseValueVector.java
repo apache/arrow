@@ -22,6 +22,8 @@ import java.util.Iterator;
 
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.ReferenceManager;
+import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.util.TransferPair;
 import org.slf4j.Logger;
@@ -29,6 +31,10 @@ import org.slf4j.LoggerFactory;
 
 import io.netty.buffer.ArrowBuf;
 
+/**
+ * Base class for other Arrow Vector Types.  Provides basic functionality around
+ * memory management.
+ */
 public abstract class BaseValueVector implements ValueVector {
   private static final Logger logger = LoggerFactory.getLogger(BaseValueVector.class);
 
@@ -44,16 +50,16 @@ public abstract class BaseValueVector implements ValueVector {
   public static final int INITIAL_VALUE_ALLOCATION = 3970;
 
   protected final BufferAllocator allocator;
-  protected final String name;
 
-  protected BaseValueVector(String name, BufferAllocator allocator) {
+  protected BaseValueVector(BufferAllocator allocator) {
     this.allocator = Preconditions.checkNotNull(allocator, "allocator cannot be null");
-    this.name = name;
   }
+
+  public abstract String getName();
 
   @Override
   public String toString() {
-    return super.toString() + "[name = " + name + ", ...]";
+    return super.toString() + "[name = " + getName() + ", ...]";
   }
 
   @Override
@@ -67,7 +73,7 @@ public abstract class BaseValueVector implements ValueVector {
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return getTransferPair(name, allocator);
+    return getTransferPair(getName(), allocator);
   }
 
   @Override
@@ -75,6 +81,11 @@ public abstract class BaseValueVector implements ValueVector {
     return Collections.emptyIterator();
   }
 
+  /**
+   * Checks to ensure that every buffer <code>vv</code> uses
+   * has a positive reference count, throws if this precondition
+   * isn't met.  Returns true otherwise.
+   */
   public static boolean checkBufRefs(final ValueVector vv) {
     for (final ArrowBuf buffer : vv.getBuffers(false)) {
       if (buffer.refCnt() <= 0) {
@@ -90,45 +101,48 @@ public abstract class BaseValueVector implements ValueVector {
     return allocator;
   }
 
-  protected void compareTypes(BaseValueVector target, String caller) {
+  void compareTypes(BaseValueVector target, String caller) {
     if (this.getMinorType() != target.getMinorType()) {
       throw new UnsupportedOperationException(caller + " should have vectors of exact same type");
     }
   }
 
   protected ArrowBuf releaseBuffer(ArrowBuf buffer) {
-    buffer.release();
+    buffer.getReferenceManager().release();
     buffer = allocator.getEmpty();
     return buffer;
   }
 
   /* number of bytes for the validity buffer for the given valueCount */
   protected static int getValidityBufferSizeFromCount(final int valueCount) {
-    return (int) Math.ceil(valueCount / 8.0);
+    return DataSizeRoundingUtil.divideBy8Ceil(valueCount);
   }
 
-  /* round up to the next multiple of 8 */
-  private static long roundUp8(long size) {
-    return ((size + 7) / 8) * 8;
+  /* round up bytes for the validity buffer for the given valueCount */
+  private static long roundUp8ForValidityBuffer(int valueCount) {
+    return ((valueCount + 63) >> 6) << 3;
   }
 
-  protected long computeCombinedBufferSize(int valueCount, int typeWidth) {
+  long computeCombinedBufferSize(int valueCount, int typeWidth) {
     Preconditions.checkArgument(valueCount >= 0, "valueCount must be >= 0");
     Preconditions.checkArgument(typeWidth >= 0, "typeWidth must be >= 0");
 
     // compute size of validity buffer.
-    long bufferSize = roundUp8(getValidityBufferSizeFromCount(valueCount));
+    long bufferSize = roundUp8ForValidityBuffer(valueCount);
 
     // add the size of the value buffer.
     if (typeWidth == 0) {
       // for boolean type, value-buffer and validity-buffer are of same size.
       bufferSize *= 2;
     } else {
-      bufferSize += roundUp8(valueCount * typeWidth);
+      bufferSize += DataSizeRoundingUtil.roundUpTo8Multiple(valueCount * typeWidth);
     }
     return BaseAllocator.nextPowerOfTwo(bufferSize);
   }
 
+  /**
+   * Container for primitive vectors (1 for the validity bit-mask and one to hold the values).
+   */
   class DataAndValidityBuffers {
     private ArrowBuf dataBuf;
     private ArrowBuf validityBuf;
@@ -138,19 +152,18 @@ public abstract class BaseValueVector implements ValueVector {
       this.validityBuf = validityBuf;
     }
 
-    public ArrowBuf getDataBuf() {
+    ArrowBuf getDataBuf() {
       return dataBuf;
     }
 
-    public ArrowBuf getValidityBuf() {
+    ArrowBuf getValidityBuf() {
       return validityBuf;
     }
-
   }
 
-  protected DataAndValidityBuffers allocFixedDataAndValidityBufs(int valueCount, int typeWidth) {
+  DataAndValidityBuffers allocFixedDataAndValidityBufs(int valueCount, int typeWidth) {
     long bufferSize = computeCombinedBufferSize(valueCount, typeWidth);
-    assert bufferSize < MAX_ALLOCATION_SIZE;
+    assert bufferSize <= MAX_ALLOCATION_SIZE;
 
     int validityBufferSize;
     int dataBufferSize;
@@ -161,8 +174,8 @@ public abstract class BaseValueVector implements ValueVector {
       // requested size. Utilize the allocated buffer fully.;
       int actualCount = (int) ((bufferSize * 8.0) / (8 * typeWidth + 1));
       do {
-        validityBufferSize = (int) roundUp8(getValidityBufferSizeFromCount(actualCount));
-        dataBufferSize = (int) roundUp8(actualCount * typeWidth);
+        validityBufferSize = (int) roundUp8ForValidityBuffer(actualCount);
+        dataBufferSize = DataSizeRoundingUtil.roundUpTo8Multiple(actualCount * typeWidth);
         if (validityBufferSize + dataBufferSize <= bufferSize) {
           break;
         }
@@ -181,7 +194,7 @@ public abstract class BaseValueVector implements ValueVector {
     for (int numBuffers = 0; numBuffers < 2; ++numBuffers) {
       int len = (numBuffers == 0 ? dataBufferSize : validityBufferSize);
       ArrowBuf buf = combinedBuffer.slice(bufferOffset, len);
-      buf.retain();
+      buf.getReferenceManager().retain();
       buf.readerIndex(0);
       buf.writerIndex(0);
 
@@ -192,8 +205,13 @@ public abstract class BaseValueVector implements ValueVector {
         validityBuf = buf;
       }
     }
-    combinedBuffer.release();
+    combinedBuffer.getReferenceManager().release();
     return new DataAndValidityBuffers(dataBuf, validityBuf);
+  }
+
+  public static ArrowBuf transferBuffer(final ArrowBuf srcBuffer, final BufferAllocator targetAllocator) {
+    final ReferenceManager referenceManager = srcBuffer.getReferenceManager();
+    return referenceManager.transferOwnership(srcBuffer, targetAllocator).getTransferredBuffer();
   }
 }
 

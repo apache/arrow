@@ -17,12 +17,8 @@
 
 package org.apache.arrow.vector.dictionary;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-
+import org.apache.arrow.vector.BaseBinaryVector;
+import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -30,6 +26,11 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
+/**
+ * Encoder/decoder for Dictionary encoded {@link ValueVector}. Dictionary encoding produces an
+ * integer {@link ValueVector}. Each entry in the Vector is index into the dictionary which can hold
+ * values of any type.
+ */
 public class DictionaryEncoder {
 
   // TODO recursively examine fields?
@@ -44,10 +45,14 @@ public class DictionaryEncoder {
   public static ValueVector encode(ValueVector vector, Dictionary dictionary) {
     validateType(vector.getMinorType());
     // load dictionary values into a hashmap for lookup
-    Map<Object, Integer> lookUps = new HashMap<>(dictionary.getVector().getValueCount());
+    DictionaryEncodeHashMap<Object> lookUps = new DictionaryEncodeHashMap<>(dictionary.getVector().getValueCount());
+
+    boolean binaryType = isBinaryType(vector.getMinorType());
+
     for (int i = 0; i < dictionary.getVector().getValueCount(); i++) {
-      // for primitive array types we need a wrapper that implements equals and hashcode appropriately
-      lookUps.put(dictionary.getVector().getObject(i), i);
+      Object key = binaryType ? ((BaseBinaryVector) dictionary.getVector()).getByteArrayWrapper(i) :
+          dictionary.getVector().getObject(i);
+      lookUps.put(key, i);
     }
 
     Field valueField = vector.getField();
@@ -56,43 +61,27 @@ public class DictionaryEncoder {
     Field indexField = new Field(valueField.getName(), indexFieldType, null);
 
     // vector to hold our indices (dictionary encoded values)
-    FieldVector indices = indexField.createVector(vector.getAllocator());
+    FieldVector createdVector = indexField.createVector(vector.getAllocator());
+    if (! (createdVector instanceof BaseIntVector)) {
+      throw new IllegalArgumentException("Dictionary encoding does not have a valid int type:" +
+          createdVector.getClass());
+    }
 
-    // use reflection to pull out the set method
-    // TODO implement a common interface for int vectors
-    Method setter = null;
-    for (Class<?> c : Arrays.asList(int.class, long.class)) {
-      try {
-        setter = indices.getClass().getMethod("setSafe", int.class, c);
-        break;
-      } catch (NoSuchMethodException e) {
-        // ignore
-      }
-    }
-    if (setter == null) {
-      throw new IllegalArgumentException("Dictionary encoding does not have a valid int type:" + indices.getClass());
-    }
+    BaseIntVector indices = (BaseIntVector) createdVector;
+    indices.allocateNew();
 
     int count = vector.getValueCount();
 
-    indices.allocateNew();
-
-    try {
-      for (int i = 0; i < count; i++) {
-        Object value = vector.getObject(i);
-        if (value != null) { // if it's null leave it null
-          // note: this may fail if value was not included in the dictionary
-          Object encoded = lookUps.get(value);
-          if (encoded == null) {
-            throw new IllegalArgumentException("Dictionary encoding not defined for value:" + value);
-          }
-          setter.invoke(indices, i, encoded);
+    for (int i = 0; i < count; i++) {
+      Object value = binaryType ? ((BaseBinaryVector) vector).getByteArrayWrapper(i) : vector.getObject(i);
+      if (value != null) { // if it's null leave it null
+        // note: this may fail if value was not included in the dictionary
+        int encoded = lookUps.get(value);
+        if (encoded == -1) {
+          throw new IllegalArgumentException("Dictionary encoding not defined for value:" + value);
         }
+        indices.setWithPossibleTruncate(i, encoded);
       }
-    } catch (IllegalAccessException e) {
-      throw new RuntimeException("IllegalAccessException invoking vector mutator set():", e);
-    } catch (InvocationTargetException e) {
-      throw new RuntimeException("InvocationTargetException invoking vector mutator set():", e.getCause());
     }
 
     indices.setValueCount(count);
@@ -130,12 +119,16 @@ public class DictionaryEncoder {
     return decoded;
   }
 
+  private static boolean isBinaryType(MinorType type) {
+    if (type == MinorType.VARBINARY || type == MinorType.FIXEDSIZEBINARY) {
+      return true;
+    }
+    return false;
+  }
+
   private static void validateType(MinorType type) {
-    // byte arrays don't work as keys in our dictionary map - we could wrap them with something to
-    // implement equals and hashcode if we want that functionality
-    if (type == MinorType.VARBINARY || type == MinorType.FIXEDSIZEBINARY || type == MinorType.LIST ||
-        type == MinorType.STRUCT || type == MinorType.UNION) {
-      throw new IllegalArgumentException("Dictionary encoding for complex types not implemented: type " + type);
+    if (type == MinorType.UNION) {
+      throw new IllegalArgumentException("Dictionary encoding not implemented for current type: " + type);
     }
   }
 }

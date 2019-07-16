@@ -15,10 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from __future__ import absolute_import
+
 import ast
 import json
 import operator
 import re
+import warnings
 
 import numpy as np
 
@@ -75,7 +78,7 @@ def get_logical_type(arrow_type):
             return 'datetimetz' if arrow_type.tz is not None else 'datetime'
         elif isinstance(arrow_type, pa.lib.Decimal128Type):
             return 'decimal'
-        raise NotImplementedError(str(arrow_type))
+        return 'object'
 
 
 _numpy_logical_type_map = {
@@ -209,7 +212,7 @@ def construct_metadata(df, column_names, index_levels, index_descriptors,
         column_metadata.append(metadata)
 
     index_column_metadata = []
-    if preserve_index:
+    if preserve_index is not False:
         for level, arrow_type, descriptor in zip(index_levels, index_types,
                                                  index_descriptors):
             if isinstance(descriptor, dict):
@@ -246,6 +249,11 @@ def construct_metadata(df, column_names, index_levels, index_descriptors,
 def _get_simple_index_descriptor(level):
     string_dtype, extra_metadata = get_extension_dtype_info(level)
     pandas_type = get_logical_type_from_numpy(level)
+    if 'mixed' in pandas_type:
+        warnings.warn(
+            "The DataFrame has column names of mixed type. They will be "
+            "converted to strings and not roundtrip correctly.",
+            UserWarning, stacklevel=4)
     if pandas_type == 'unicode':
         assert not extra_metadata
         extra_metadata = {'encoding': 'UTF-8'}
@@ -320,12 +328,14 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
     columns = _resolve_columns_of_interest(df, schema, columns)
 
     column_names = []
-    type = None
 
-    index_levels = _get_index_level_values(df.index) if preserve_index else []
+    index_levels = (
+        _get_index_level_values(df.index) if preserve_index is not False
+        else []
+    )
 
     columns_to_convert = []
-    convert_types = []
+    convert_fields = []
 
     if not df.columns.is_unique:
         raise ValueError(
@@ -336,23 +346,29 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
         col = df[name]
         name = _column_name_to_strings(name)
 
+        if _pandas_api.is_sparse(col):
+            raise TypeError(
+                "Sparse pandas data (column {}) not supported.".format(name))
+
         if schema is not None:
             field = schema.field_by_name(name)
-            type = getattr(field, "type", None)
+        else:
+            field = None
 
         columns_to_convert.append(col)
-        convert_types.append(type)
+        convert_fields.append(field)
         column_names.append(name)
 
     index_descriptors = []
     index_column_names = []
     for i, index_level in enumerate(index_levels):
         name = _index_level_name(index_level, i, column_names)
-        if isinstance(index_level, _pandas_api.pd.RangeIndex):
+        if (isinstance(index_level, _pandas_api.pd.RangeIndex)
+                and preserve_index is None):
             descr = _get_range_index_descriptor(index_level)
         else:
             columns_to_convert.append(index_level)
-            convert_types.append(None)
+            convert_fields.append(None)
             descr = name
             index_column_names.append(name)
         index_descriptors.append(descr)
@@ -362,26 +378,26 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
     # all_names : all of the columns in the resulting table including the data
     # columns and serialized index columns
     # column_names : the names of the data columns
+    # index_column_names : the names of the serialized index columns
     # index_descriptors : descriptions of each index to be used for
     # reconstruction
     # index_levels : the extracted index level values
     # columns_to_convert : assembled raw data (both data columns and indexes)
     # to be converted to Arrow format
-    # columns_types : specified column types to use for coercion / casting
+    # columns_fields : specified column to use for coercion / casting
     # during serialization, if a Schema was provided
-    return (all_names, column_names, index_descriptors, index_levels,
-            columns_to_convert, convert_types)
+    return (all_names, column_names, index_column_names, index_descriptors,
+            index_levels, columns_to_convert, convert_fields)
 
 
 def _get_range_index_descriptor(level):
-    # TODO(wesm): Why are these non-public and is there a more public way to
-    # get them?
+    # public start/stop/step attributes added in pandas 0.25.0
     return {
         'kind': 'range',
         'name': level.name,
-        'start': level._start,
-        'stop': level._stop,
-        'step': level._step
+        'start': _pandas_api.get_rangeindex_attribute(level, 'start'),
+        'stop': _pandas_api.get_rangeindex_attribute(level, 'stop'),
+        'step': _pandas_api.get_rangeindex_attribute(level, 'step')
     }
 
 
@@ -407,6 +423,7 @@ def _resolve_columns_of_interest(df, schema, columns):
 def dataframe_to_types(df, preserve_index, columns=None):
     (all_names,
      column_names,
+     _,
      index_descriptors,
      index_columns,
      columns_to_convert,
@@ -435,11 +452,12 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
                         safe=True):
     (all_names,
      column_names,
+     index_column_names,
      index_descriptors,
      index_columns,
      columns_to_convert,
-     convert_types) = _get_columns_to_convert(df, schema, preserve_index,
-                                              columns)
+     convert_fields) = _get_columns_to_convert(df, schema, preserve_index,
+                                               columns)
 
     # NOTE(wesm): If nthreads=None, then we use a heuristic to decide whether
     # using a thread pool is worth it. Currently the heuristic is whether the
@@ -451,33 +469,58 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
         else:
             nthreads = 1
 
-    def convert_column(col, ty):
+    def convert_column(col, field):
+        if field is None:
+            field_nullable = True
+            type_ = None
+        else:
+            field_nullable = field.nullable
+            type_ = field.type
+
         try:
-            return pa.array(col, type=ty, from_pandas=True, safe=safe)
+            result = pa.array(col, type=type_, from_pandas=True, safe=safe)
         except (pa.ArrowInvalid,
                 pa.ArrowNotImplementedError,
                 pa.ArrowTypeError) as e:
             e.args += ("Conversion failed for column {0!s} with type {1!s}"
                        .format(col.name, col.dtype),)
             raise e
+        if not field_nullable and result.null_count > 0:
+            raise ValueError("Field {} was non-nullable but pandas column "
+                             "had {} null values".format(str(field),
+                                                         result.null_count))
+        return result
 
     if nthreads == 1:
-        arrays = [convert_column(c, t)
-                  for c, t in zip(columns_to_convert,
-                                  convert_types)]
+        arrays = [convert_column(c, f)
+                  for c, f in zip(columns_to_convert, convert_fields)]
     else:
         from concurrent import futures
         with futures.ThreadPoolExecutor(nthreads) as executor:
-            arrays = list(executor.map(convert_column,
-                                       columns_to_convert,
-                                       convert_types))
+            arrays = list(executor.map(convert_column, columns_to_convert,
+                                       convert_fields))
 
     types = [x.type for x in arrays]
+
+    if schema is not None:
+        # add index columns
+        index_types = types[len(column_names):]
+        for name, type_ in zip(index_column_names, index_types):
+            name = name if name is not None else 'None'
+            schema = schema.append(pa.field(name, type_))
+    else:
+        fields = []
+        for name, type_ in zip(all_names, types):
+            name = name if name is not None else 'None'
+            fields.append(pa.field(name, type_))
+        schema = pa.schema(fields)
 
     metadata = construct_metadata(df, column_names, index_columns,
                                   index_descriptors, preserve_index,
                                   types)
-    return all_names, arrays, metadata
+    schema = schema.add_metadata(metadata)
+
+    return arrays, schema
 
 
 def get_datetimetz_type(values, dtype, type_):
@@ -783,8 +826,6 @@ _pandas_logical_type_map = {
     'bytes': np.bytes_,
     'string': np.str_,
     'empty': np.object_,
-    'mixed': np.object_,
-    'mixed-integer': np.object_
 }
 
 
@@ -804,6 +845,9 @@ def _pandas_type_to_numpy_type(pandas_type):
     try:
         return _pandas_logical_type_map[pandas_type]
     except KeyError:
+        if 'mixed' in pandas_type:
+            # catching 'mixed', 'mixed-integer' and 'mixed-integer-float'
+            return np.object_
         return np.dtype(pandas_type)
 
 

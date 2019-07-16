@@ -44,6 +44,11 @@ def test_chunked_array_basics():
     assert len(data.chunks) == 3
 
 
+def test_chunked_array_mismatch_types():
+    with pytest.raises(pa.ArrowInvalid):
+        pa.chunked_array([pa.array([1, 2]), pa.array(['foo', 'bar'])])
+
+
 def test_chunked_array_str():
     data = [
         pa.array([1, 2, 3]),
@@ -739,6 +744,23 @@ def test_table_remove_column_empty():
     assert t3.equals(table)
 
 
+def test_table_rename_columns():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array(range(5, 10))
+    ]
+    table = pa.Table.from_arrays(data, names=['a', 'b', 'c'])
+    assert table.column_names == ['a', 'b', 'c']
+
+    t2 = table.rename_columns(['eh', 'bee', 'sea'])
+    t2._validate()
+    assert t2.column_names == ['eh', 'bee', 'sea']
+
+    expected = pa.Table.from_arrays(data, names=['eh', 'bee', 'sea'])
+    assert t2.equals(expected)
+
+
 def test_table_flatten():
     ty1 = pa.struct([pa.field('x', pa.int16()),
                      pa.field('y', pa.float32())])
@@ -757,6 +779,19 @@ def test_table_flatten():
         c],
         names=['a.x', 'a.y', 'b.nest', 'c'])
     assert t2.equals(expected)
+
+
+def test_table_combine_chunks():
+    batch1 = pa.RecordBatch.from_arrays([pa.array([1]), pa.array(["a"])],
+                                        names=['f1', 'f2'])
+    batch2 = pa.RecordBatch.from_arrays([pa.array([2]), pa.array(["b"])],
+                                        names=['f1', 'f2'])
+    table = pa.Table.from_batches([batch1, batch2])
+    combined = table.combine_chunks()
+    combined._validate()
+    assert combined.equals(table)
+    for c in combined.columns:
+        assert c.data.num_chunks == 1
 
 
 def test_concat_tables():
@@ -938,7 +973,7 @@ def test_table_from_pydict():
 
     # With chunked arrays as values
     data = OrderedDict([('strs', pa.chunked_array([[u''], [u'foo', u'bar']])),
-                        ('floats', pa.chunked_array([[4.5], [5, None]]))])
+                        ('floats', pa.chunked_array([[4.5], [5., None]]))])
     table = pa.Table.from_pydict(data)
     assert table.num_columns == 2
     assert table.num_rows == 3
@@ -970,3 +1005,26 @@ def test_table_from_pydict():
     # Cannot pass both schema and metadata
     with pytest.raises(ValueError):
         pa.Table.from_pydict(data, schema=schema, metadata=metadata)
+
+
+@pytest.mark.pandas
+def test_table_factory_function():
+    import pandas as pd
+
+    d = {'a': [1, 2, 3], 'b': ['a', 'b', 'c']}
+    schema = pa.schema([('a', pa.int32()), ('b', pa.string())])
+
+    df = pd.DataFrame(d)
+    table1 = pa.table(df)
+    table2 = pa.Table.from_pandas(df)
+    assert table1.equals(table2)
+    table1 = pa.table(df, schema=schema)
+    table2 = pa.Table.from_pandas(df, schema=schema)
+    assert table1.equals(table2)
+
+    table1 = pa.table(d)
+    table2 = pa.Table.from_pydict(d)
+    assert table1.equals(table2)
+    table1 = pa.table(d, schema=schema)
+    table2 = pa.Table.from_pydict(d, schema=schema)
+    assert table1.equals(table2)

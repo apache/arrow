@@ -36,11 +36,11 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-conversion")
 # Compile flatbuffers
 
 set(PLASMA_FBS_SRC "${CMAKE_CURRENT_LIST_DIR}/format/plasma.fbs"
-    "${CMAKE_CURRENT_LIST_DIR}/format/common.fbs")
+                   "${CMAKE_CURRENT_LIST_DIR}/format/common.fbs")
 set(OUTPUT_DIR ${ARROW_BINARY_DIR}/src/plasma)
 
 set(PLASMA_FBS_OUTPUT_FILES "${OUTPUT_DIR}/common_generated.h"
-    "${OUTPUT_DIR}/plasma_generated.h")
+                            "${OUTPUT_DIR}/plasma_generated.h")
 
 add_custom_target(gen_plasma_fbs DEPENDS ${PLASMA_FBS_OUTPUT_FILES})
 
@@ -52,7 +52,11 @@ add_custom_command(
          # flatbuffers message Message, which can be used to store deserialized
          # messages in data structures. This is currently used for ObjectInfo for
          # example.
-  COMMAND flatbuffers::flatc -c -o ${OUTPUT_DIR} ${PLASMA_FBS_SRC}
+  COMMAND flatbuffers::flatc
+          -c
+          -o
+          ${OUTPUT_DIR}
+          ${PLASMA_FBS_SRC}
           --gen-object-api
           --scoped-enums
   DEPENDS ${PLASMA_FBS_SRC}
@@ -61,7 +65,14 @@ add_custom_command(
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
-set(PLASMA_SRCS client.cc common.cc fling.cc io.cc malloc.cc plasma.cc protocol.cc)
+set(PLASMA_SRCS
+    client.cc
+    common.cc
+    fling.cc
+    io.cc
+    malloc.cc
+    plasma.cc
+    protocol.cc)
 
 set(PLASMA_STORE_SRCS
     dlmalloc.cc
@@ -80,6 +91,14 @@ if(ARROW_CUDA)
   add_definitions(-DPLASMA_CUDA)
 endif()
 
+if(NOT APPLE AND NOT MSVC)
+  # Localize thirdparty symbols using a linker version script. This hides them
+  # from the client application. The OS X linker does not support the
+  # version-script option.
+  set(PLASMA_SHARED_LINK_FLAGS
+      "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
+endif()
+
 add_arrow_lib(plasma
               SOURCES
               ${PLASMA_SRCS}
@@ -87,6 +106,8 @@ add_arrow_lib(plasma
               PLASMA_LIBRARIES
               DEPENDENCIES
               gen_plasma_fbs
+              SHARED_LINK_FLAGS
+              ${PLASMA_SHARED_LINK_FLAGS}
               SHARED_LINK_LIBS
               ${PLASMA_LINK_LIBS}
               STATIC_LINK_LIBS
@@ -162,8 +183,8 @@ install(FILES common.h
 
 # Plasma store
 set_target_properties(plasma_store_server PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
-install(TARGETS plasma_store_server ${INSTALL_IS_OPTIONAL}
-        DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS plasma_store_server ${INSTALL_IS_OPTIONAL} DESTINATION
+                ${CMAKE_INSTALL_BINDIR})
 
 # pkg-config support
 arrow_add_pkg_config("plasma")

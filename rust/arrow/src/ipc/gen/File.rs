@@ -102,7 +102,6 @@ impl Block {
 
 /// ----------------------------------------------------------------------
 /// Arrow File metadata
-///
 pub enum FooterOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 

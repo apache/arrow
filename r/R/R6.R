@@ -16,12 +16,6 @@
 # under the License.
 
 #' @include enums.R
-#' @importFrom R6 R6Class
-#' @importFrom glue glue
-#' @importFrom purrr map map_int map2
-#' @importFrom rlang dots_n
-#' @importFrom assertthat assert_that
-
 `arrow::Object` <- R6Class("arrow::Object",
   public = list(
     initialize = function(xp) self$set_pointer(xp),
@@ -32,8 +26,8 @@
       self$`.:xp:.` <- xp
     },
     print = function(...){
-      cat(crayon::silver(glue::glue("{cl}", cl = class(self)[[1]])), "\n")
-      if(!is.null(self$ToString)){
+      cat(class(self)[[1]], "\n")
+      if (!is.null(self$ToString)){
         cat(self$ToString(), "\n")
       }
       invisible(self)
@@ -42,11 +36,11 @@
 )
 
 shared_ptr <- function(class, xp) {
-  if(!shared_ptr_is_null(xp)) class$new(xp)
+  if (!shared_ptr_is_null(xp)) class$new(xp)
 }
 
 unique_ptr <- function(class, xp) {
-  if(!unique_ptr_is_null(xp)) class$new(xp)
+  if (!unique_ptr_is_null(xp)) class$new(xp)
 }
 
 #' @export

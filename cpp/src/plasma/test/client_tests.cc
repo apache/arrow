@@ -22,13 +22,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <chrono>
-#include <random>
+#include <memory>
 #include <thread>
 
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/io-util.h"
 
 #include "plasma/client.h"
 #include "plasma/common.h"
@@ -37,6 +37,8 @@
 #include "plasma/test-util.h"
 
 namespace plasma {
+
+using arrow::internal::TemporaryDir;
 
 std::string test_executable;  // NOLINT
 
@@ -51,11 +53,10 @@ class TestPlasmaStore : public ::testing::Test {
  public:
   // TODO(pcm): At the moment, stdout of the test gets mixed up with
   // stdout of the object store. Consider changing that.
+
   void SetUp() {
-    uint64_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-    std::mt19937 rng(static_cast<uint32_t>(seed));
-    std::string store_index = std::to_string(rng());
-    store_socket_name_ = "/tmp/store" + store_index;
+    ARROW_CHECK_OK(TemporaryDir::Make("cli-test-", &temp_dir_));
+    store_socket_name_ = temp_dir_->path().ToString() + "store";
 
     std::string plasma_directory =
         test_executable.substr(0, test_executable.find_last_of("/"));
@@ -66,6 +67,7 @@ class TestPlasmaStore : public ::testing::Test {
     ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
     ARROW_CHECK_OK(client2_.Connect(store_socket_name_, ""));
   }
+
   virtual void TearDown() {
     ARROW_CHECK_OK(client_.Disconnect());
     ARROW_CHECK_OK(client2_.Disconnect());
@@ -98,11 +100,10 @@ class TestPlasmaStore : public ::testing::Test {
     }
   }
 
-  const std::string& GetStoreSocketName() const { return store_socket_name_; }
-
  protected:
   PlasmaClient client_;
   PlasmaClient client2_;
+  std::unique_ptr<TemporaryDir> temp_dir_;
   std::string store_socket_name_;
 };
 
@@ -156,7 +157,7 @@ TEST_F(TestPlasmaStore, SealErrorsTest) {
   ObjectID object_id = random_object_id();
 
   Status result = client_.Seal(object_id);
-  ASSERT_TRUE(result.IsPlasmaObjectNonexistent());
+  ASSERT_TRUE(IsPlasmaObjectNonexistent(result));
 
   // Create object.
   std::vector<uint8_t> data(100, 0);
@@ -164,7 +165,7 @@ TEST_F(TestPlasmaStore, SealErrorsTest) {
 
   // Trying to seal it again.
   result = client_.Seal(object_id);
-  ASSERT_TRUE(result.IsPlasmaObjectAlreadySealed());
+  ASSERT_TRUE(IsPlasmaObjectAlreadySealed(result));
   ARROW_CHECK_OK(client_.Release(object_id));
 }
 
@@ -386,6 +387,38 @@ TEST_F(TestPlasmaStore, AbortTest) {
   AssertObjectBufferEqual(object_buffers[0], {42, 43}, {1, 2, 3, 4, 5});
 }
 
+TEST_F(TestPlasmaStore, OneIdCreateRepeatedlyTest) {
+  const int64_t loop_times = 5;
+
+  ObjectID object_id = random_object_id();
+  std::vector<ObjectBuffer> object_buffers;
+
+  // Test for object non-existence.
+  ARROW_CHECK_OK(client_.Get({object_id}, 0, &object_buffers));
+  ASSERT_FALSE(object_buffers[0].data);
+
+  int64_t data_size = 20;
+  uint8_t metadata[] = {5};
+  int64_t metadata_size = sizeof(metadata);
+
+  // Test the sequence: create -> release -> abort -> ...
+  for (int64_t i = 0; i < loop_times; i++) {
+    std::shared_ptr<Buffer> data;
+    ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
+    ARROW_CHECK_OK(client_.Release(object_id));
+    ARROW_CHECK_OK(client_.Abort(object_id));
+  }
+
+  // Test the sequence: create -> seal -> release -> delete -> ...
+  for (int64_t i = 0; i < loop_times; i++) {
+    std::shared_ptr<Buffer> data;
+    ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
+    ARROW_CHECK_OK(client_.Seal(object_id));
+    ARROW_CHECK_OK(client_.Release(object_id));
+    ARROW_CHECK_OK(client_.Delete(object_id));
+  }
+}
+
 TEST_F(TestPlasmaStore, MultipleClientTest) {
   ObjectID object_id = random_object_id();
   std::vector<ObjectBuffer> object_buffers;
@@ -536,6 +569,89 @@ TEST_F(TestPlasmaStore, GetGPUTest) {
   AssertCudaRead(object_buffers[0].data, {4, 5, 3, 1});
   // Check metadata
   AssertCudaRead(object_buffers[0].metadata, {42});
+}
+
+TEST_F(TestPlasmaStore, DeleteObjectsGPUTest) {
+  ObjectID object_id1 = random_object_id();
+  ObjectID object_id2 = random_object_id();
+
+  // Test for deleting non-existance object.
+  Status result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
+  ARROW_CHECK_OK(result);
+  // Test for the object being in local Plasma store.
+  // First create object.
+  int64_t data_size = 100;
+  uint8_t metadata[] = {5};
+  int64_t metadata_size = sizeof(metadata);
+  std::shared_ptr<Buffer> data;
+  ARROW_CHECK_OK(
+      client_.Create(object_id1, data_size, metadata, metadata_size, &data, 1));
+  ARROW_CHECK_OK(client_.Seal(object_id1));
+  ARROW_CHECK_OK(
+      client_.Create(object_id2, data_size, metadata, metadata_size, &data, 1));
+  ARROW_CHECK_OK(client_.Seal(object_id2));
+  // Release the ref count of Create function.
+  data = nullptr;
+  ARROW_CHECK_OK(client_.Release(object_id1));
+  ARROW_CHECK_OK(client_.Release(object_id2));
+  // Increase the ref count by calling Get using client2_.
+  std::vector<ObjectBuffer> object_buffers;
+  ARROW_CHECK_OK(client2_.Get({object_id1, object_id2}, 0, &object_buffers));
+  // Objects are still used by client2_.
+  result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
+  ARROW_CHECK_OK(result);
+  // The object is used and it should not be deleted right now.
+  bool has_object = false;
+  ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
+  ASSERT_TRUE(has_object);
+  ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
+  ASSERT_TRUE(has_object);
+  // Decrease the ref count by deleting the PlasmaBuffer (in ObjectBuffer).
+  // client2_ won't send the release request immediately because the trigger
+  // condition is not reached. The release is only added to release cache.
+  object_buffers.clear();
+  // Delete the objects.
+  result = client2_.Delete(std::vector<ObjectID>{object_id1, object_id2});
+  ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
+  ASSERT_FALSE(has_object);
+  ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
+  ASSERT_FALSE(has_object);
+}
+
+TEST_F(TestPlasmaStore, RepeatlyCreateGPUTest) {
+  const int64_t loop_times = 100;
+  const int64_t object_num = 5;
+  const int64_t data_size = 40;
+
+  std::vector<ObjectID> object_ids;
+
+  // create new gpu objects
+  for (int64_t i = 0; i < object_num; i++) {
+    object_ids.push_back(random_object_id());
+    ObjectID& object_id = object_ids[i];
+
+    std::shared_ptr<Buffer> data;
+    ARROW_CHECK_OK(client_.Create(object_id, data_size, 0, 0, &data, 1));
+    ARROW_CHECK_OK(client_.Seal(object_id));
+    ARROW_CHECK_OK(client_.Release(object_id));
+  }
+
+  // delete and create again
+  for (int64_t i = 0; i < loop_times; i++) {
+    ObjectID& object_id = object_ids[i % object_num];
+
+    ARROW_CHECK_OK(client_.Delete(object_id));
+
+    std::shared_ptr<Buffer> data;
+    ARROW_CHECK_OK(client_.Create(object_id, data_size, 0, 0, &data, 1));
+    ARROW_CHECK_OK(client_.Seal(object_id));
+
+    data = nullptr;
+    ARROW_CHECK_OK(client_.Release(object_id));
+  }
+
+  // delete all
+  ARROW_CHECK_OK(client_.Delete(object_ids));
 }
 
 TEST_F(TestPlasmaStore, MultipleClientGPUTest) {

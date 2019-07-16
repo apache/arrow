@@ -18,16 +18,17 @@
 #ifndef ARROW_UTIL_VARIANT_H
 #define ARROW_UTIL_VARIANT_H
 
-#include "arrow/vendored/variant/variant.hpp"  // IWYU pragma: export
-#include "arrow/vendored/variant/variant_io.hpp"
+#include "arrow/vendored/variant.hpp"  // IWYU pragma: export
 
 namespace arrow {
 namespace util {
 
-using mapbox::util::apply_visitor;  // seems akin to std::visit
-using mapbox::util::bad_variant_access;
-using mapbox::util::get;
-using mapbox::util::variant;
+using ::mpark::bad_variant_access;
+using ::mpark::get;
+using ::mpark::get_if;
+using ::mpark::holds_alternative;
+using ::mpark::variant;
+using ::mpark::visit;
 
 }  // namespace util
 }  // namespace arrow

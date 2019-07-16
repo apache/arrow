@@ -85,16 +85,23 @@
 }
 
 #' @export
-`as_tibble.arrow::RecordBatch` <- function(x, use_threads = TRUE, ...){
-  RecordBatch__to_dataframe(x, use_threads = use_threads)
+`as.data.frame.arrow::RecordBatch` <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
+  RecordBatch__to_dataframe(x, use_threads = option_use_threads())
 }
 
 #' Create an [arrow::RecordBatch][arrow__RecordBatch] from a data frame
 #'
-#' @param .data a data frame
+#' @param ... A variable number of arrow::Array
+#' @param schema a arrow::Schema
 #'
 #' @return a [arrow::RecordBatch][arrow__RecordBatch]
 #' @export
-record_batch <- function(.data){
-  shared_ptr(`arrow::RecordBatch`, RecordBatch__from_dataframe(.data))
+record_batch <- function(..., schema = NULL){
+  arrays <- list2(...)
+  # making sure there are always names
+  if (is.null(names(arrays))) {
+    names(arrays) <- rep_len("", length(arrays))
+  }
+  stopifnot(length(arrays) > 0)
+  shared_ptr(`arrow::RecordBatch`, RecordBatch__from_arrays(schema, arrays))
 }

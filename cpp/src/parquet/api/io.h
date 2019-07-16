@@ -18,7 +18,7 @@
 #ifndef PARQUET_API_IO_H
 #define PARQUET_API_IO_H
 
+#include "parquet/deprecated_io.h"
 #include "parquet/exception.h"
-#include "parquet/util/memory.h"
 
 #endif  // PARQUET_API_IO_H

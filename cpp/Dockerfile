@@ -39,18 +39,20 @@ ENV PATH=/opt/conda/bin:$PATH \
     CONDA_PREFIX=/opt/conda
 COPY ci/docker_install_conda.sh \
      ci/conda_env_cpp.yml \
+     ci/conda_env_gandiva.yml \
      ci/conda_env_unix.yml \
      /arrow/ci/
 RUN arrow/ci/docker_install_conda.sh && \
     conda install -q -c conda-forge \
         --file arrow/ci/conda_env_cpp.yml \
+        --file arrow/ci/conda_env_gandiva.yml \
         --file arrow/ci/conda_env_unix.yml \
         $EXTRA_CONDA_PKGS && \
     conda clean --all
 
 ENV CC=gcc \
     CXX=g++ \
-    ARROW_GANDIVA=OFF \
+    ARROW_GANDIVA=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=CONDA \
     ARROW_HOME=$CONDA_PREFIX \

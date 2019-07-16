@@ -18,7 +18,6 @@
 #ifndef ARROW_BUFFER_H
 #define ARROW_BUFFER_H
 
-#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -87,7 +86,13 @@ class ARROW_EXPORT Buffer {
     parent_ = parent;
   }
 
+  uint8_t operator[](std::size_t i) const { return data_[i]; }
+
   bool is_mutable() const { return is_mutable_; }
+
+  /// \brief Construct a new std::string with a hexadecimal representation of the buffer.
+  /// \return std::string
+  std::string ToHexString();
 
   /// Return true if both buffers are the same size and contain the same bytes
   /// up to the number of compared bytes

@@ -49,6 +49,11 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
                            std::shared_ptr<Array>* out);
 
 ARROW_EXPORT
+Status MakeRandomMapArray(const std::shared_ptr<Array>& child_array, int num_lists,
+                          bool include_nulls, MemoryPool* pool,
+                          std::shared_ptr<Array>* out);
+
+ARROW_EXPORT
 Status MakeRandomBooleanArray(const int length, bool include_nulls,
                               std::shared_ptr<Array>* out);
 
@@ -83,6 +88,9 @@ ARROW_EXPORT
 Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out);
 
 ARROW_EXPORT
+Status MakeFixedSizeListRecordBatch(std::shared_ptr<RecordBatch>* out);
+
+ARROW_EXPORT
 Status MakeZeroLengthRecordBatch(std::shared_ptr<RecordBatch>* out);
 
 ARROW_EXPORT
@@ -108,6 +116,9 @@ Status MakeDates(std::shared_ptr<RecordBatch>* out);
 
 ARROW_EXPORT
 Status MakeTimestamps(std::shared_ptr<RecordBatch>* out);
+
+ARROW_EXPORT
+Status MakeIntervals(std::shared_ptr<RecordBatch>* out);
 
 ARROW_EXPORT
 Status MakeTimes(std::shared_ptr<RecordBatch>* out);

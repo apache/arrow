@@ -19,7 +19,6 @@
 
 #include <limits>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -49,13 +48,29 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   Status Append(const uint8_t* value, int32_t length) {
     ARROW_RETURN_NOT_OK(Reserve(1));
     ARROW_RETURN_NOT_OK(AppendNextOffset());
-    ARROW_RETURN_NOT_OK(value_data_builder_.Append(value, length));
+    // Safety check for UBSAN.
+    if (ARROW_PREDICT_TRUE(length > 0)) {
+      ARROW_RETURN_NOT_OK(value_data_builder_.Append(value, length));
+    }
 
     UnsafeAppendToBitmap(true);
     return Status::OK();
   }
 
-  Status AppendNull() {
+  Status AppendNulls(int64_t length) final {
+    const int64_t num_bytes = value_data_builder_.length();
+    if (ARROW_PREDICT_FALSE(num_bytes > kBinaryMemoryLimit)) {
+      return AppendOverflow(num_bytes);
+    }
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    for (int64_t i = 0; i < length; ++i) {
+      offsets_builder_.UnsafeAppend(static_cast<int32_t>(num_bytes));
+    }
+    UnsafeAppendToBitmap(length, false);
+    return Status::OK();
+  }
+
+  Status AppendNull() final {
     ARROW_RETURN_NOT_OK(AppendNextOffset());
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(false);
@@ -106,6 +121,12 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   Status ReserveData(int64_t elements);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<BinaryArray>* out) { return FinishTyped(out); }
 
   /// \return size of values buffer so far
   int64_t value_data_length() const { return value_data_builder_.length(); }
@@ -173,6 +194,12 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
   /// \return Status
   Status AppendValues(const char** values, int64_t length,
                       const uint8_t* valid_bytes = NULLPTR);
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<StringArray>* out) { return FinishTyped(out); }
 };
 
 // ----------------------------------------------------------------------
@@ -215,11 +242,16 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 
   Status AppendValues(const uint8_t* data, int64_t length,
                       const uint8_t* valid_bytes = NULLPTR);
-  Status AppendNull();
+
+  Status AppendNull() final;
+
+  Status AppendNulls(int64_t length) final;
 
   void UnsafeAppend(const uint8_t* value) {
     UnsafeAppendToBitmap(true);
-    byte_builder_.UnsafeAppend(value, byte_width_);
+    if (ARROW_PREDICT_TRUE(byte_width_ > 0)) {
+      byte_builder_.UnsafeAppend(value, byte_width_);
+    }
   }
 
   void UnsafeAppend(util::string_view value) {
@@ -237,6 +269,12 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   void Reset() override;
   Status Resize(int64_t capacity) override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<FixedSizeBinaryArray>* out) { return FinishTyped(out); }
 
   /// \return size of values buffer so far
   int64_t value_data_length() const { return byte_builder_.length(); }
@@ -257,6 +295,14 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   int32_t byte_width_;
   BufferBuilder byte_builder_;
 
+  /// Temporary access to a value.
+  ///
+  /// This pointer becomes invalid on the next modifying operation.
+  uint8_t* GetMutableValue(int64_t i) {
+    uint8_t* data_ptr = byte_builder_.mutable_data();
+    return data_ptr + i * byte_width_;
+  }
+
 #ifndef NDEBUG
   void CheckValueSize(int64_t size);
 #endif
@@ -270,22 +316,37 @@ namespace internal {
 
 class ARROW_EXPORT ChunkedBinaryBuilder {
  public:
-  ChunkedBinaryBuilder(int32_t max_chunk_size,
+  ChunkedBinaryBuilder(int32_t max_chunk_value_length,
+                       MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+
+  ChunkedBinaryBuilder(int32_t max_chunk_value_length, int32_t max_chunk_length,
                        MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   virtual ~ChunkedBinaryBuilder() = default;
 
   Status Append(const uint8_t* value, int32_t length) {
-    if (ARROW_PREDICT_FALSE(length + chunk_data_size_ > max_chunk_size_)) {
-      // Move onto next chunk, unless the builder length is currently 0, which
-      // means that max_chunk_size_ is less than the item length
-      if (builder_->length() > 0) {
-        ARROW_RETURN_NOT_OK(NextChunk());
+    if (ARROW_PREDICT_FALSE(length + builder_->value_data_length() >
+                            max_chunk_value_length_)) {
+      if (builder_->value_data_length() == 0) {
+        // The current item is larger than max_chunk_size_;
+        // this chunk will be oversize and hold *only* this item
+        ARROW_RETURN_NOT_OK(builder_->Append(value, length));
+        return NextChunk();
       }
-      // else fall through
+      // The current item would cause builder_->value_data_length() to exceed
+      // max_chunk_size_, so finish this chunk and append the current item to the next
+      // chunk
+      ARROW_RETURN_NOT_OK(NextChunk());
+      return Append(value, length);
     }
 
-    chunk_data_size_ += length;
+    if (ARROW_PREDICT_FALSE(builder_->length() == max_chunk_length_)) {
+      // The current item would cause builder_->value_data_length() to exceed
+      // max_chunk_size_, so finish this chunk and append the current item to the next
+      // chunk
+      ARROW_RETURN_NOT_OK(NextChunk());
+    }
+
     return builder_->Append(value, length);
   }
 
@@ -295,21 +356,28 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
   }
 
   Status AppendNull() {
-    if (ARROW_PREDICT_FALSE(builder_->length() == std::numeric_limits<int32_t>::max())) {
+    if (ARROW_PREDICT_FALSE(builder_->length() == max_chunk_length_)) {
       ARROW_RETURN_NOT_OK(NextChunk());
     }
     return builder_->AppendNull();
   }
 
-  Status Reserve(int64_t values) { return builder_->Reserve(values); }
+  Status Reserve(int64_t values);
 
   virtual Status Finish(ArrayVector* out);
 
  protected:
   Status NextChunk();
 
-  int64_t max_chunk_size_;
-  int64_t chunk_data_size_;
+  // maximum total character data size per chunk
+  int64_t max_chunk_value_length_;
+
+  // maximum elements allowed per chunk
+  int64_t max_chunk_length_ = kListMaximumElements;
+
+  // when Reserve() would cause builder_ to exceed its max_chunk_length_,
+  // add to extra_capacity_ instead and wait to reserve until the next chunk
+  int64_t extra_capacity_ = 0;
 
   std::unique_ptr<BinaryBuilder> builder_;
   std::vector<std::shared_ptr<Array>> chunks_;

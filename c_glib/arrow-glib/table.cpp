@@ -532,6 +532,63 @@ garrow_table_to_string(GArrowTable *table, GError **error)
   }
 }
 
+/**
+ * garrow_table_concatenate:
+ * @table: A #GArrowTable.
+ * @other_tables: (element-type GArrowTable): The tables to be concatenated.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The table concatenated vertically.
+ *
+ * Since: 0.14.0
+ */
+GArrowTable *
+garrow_table_concatenate(GArrowTable *table,
+                         GList *other_tables,
+                         GError **error)
+{
+  auto arrow_table = garrow_table_get_raw(table);
+  std::vector<std::shared_ptr<arrow::Table>> arrow_tables = { arrow_table };
+  for (auto node = other_tables; node; node = g_list_next(node)) {
+    auto arrow_other_table = garrow_table_get_raw(GARROW_TABLE(node->data));
+    arrow_tables.push_back(arrow_other_table);
+  }
+  std::shared_ptr<arrow::Table> arrow_concatenated_table;
+  auto status = arrow::ConcatenateTables(arrow_tables, &arrow_concatenated_table);
+  if (garrow_error_check(error, status, "[table][concatenate]")) {
+    return garrow_table_new_raw(&arrow_concatenated_table);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_table_slice:
+ * @table: A #GArrowTable.
+ * @offset: The offset of sub #GArrowTable. If the offset is negative,
+ *   the offset is counted from the last.
+ * @length: The length of sub #GArrowTable.
+ *
+ * Returns: (transfer full): The sub #GArrowTable. It covers
+ *   only from `offset` to `offset + length` range. The sub
+ *   #GArrowTable shares values with the base
+ *   #GArrowTable.
+ *
+ * Since: 0.14.0
+ */
+GArrowTable *
+garrow_table_slice(GArrowTable *table,
+                   gint64 offset,
+                   gint64 length)
+{
+  const auto arrow_table = garrow_table_get_raw(table);
+  if (offset < 0) {
+    offset += arrow_table->num_rows();
+  }
+  auto arrow_sub_table = arrow_table->Slice(offset, length);
+  return garrow_table_new_raw(&arrow_sub_table);
+}
+
 G_END_DECLS
 
 GArrowTable *

@@ -55,6 +55,9 @@ class ARROW_EXPORT Uri {
   /// The URI path component.
   std::string path() const;
 
+  /// Get the string representation of this URI.
+  const std::string& ToString() const;
+
   /// Factory function to parse a URI from its string representation.
   Status Parse(const std::string& uri_string);
 

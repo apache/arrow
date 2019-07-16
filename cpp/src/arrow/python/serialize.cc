@@ -77,14 +77,6 @@ class SequenceBuilder {
   // Appending a none to the sequence
   Status AppendNone() { return builder_->AppendNull(); }
 
-  template <typename BuilderType>
-  Status Update(BuilderType* child_builder, int8_t tag) {
-    int32_t offset32 = -1;
-    RETURN_NOT_OK(internal::CastSize(child_builder->length(), &offset32));
-    DCHECK_GE(offset32, 0);
-    return builder_->Append(tag, offset32);
-  }
-
   template <typename BuilderType, typename MakeBuilderFn>
   Status CreateAndUpdate(std::shared_ptr<BuilderType>* child_builder, int8_t tag,
                          MakeBuilderFn make_builder) {
@@ -95,7 +87,7 @@ class SequenceBuilder {
       convert << static_cast<int>(tag);
       type_map_[tag] = builder_->AppendChild(*child_builder, convert.str());
     }
-    return Update(child_builder->get(), type_map_[tag]);
+    return builder_->Append(type_map_[tag]);
   }
 
   template <typename BuilderType, typename T>
@@ -332,8 +324,8 @@ Status SequenceBuilder::AppendDict(PyObject* context, PyObject* dict,
 
 Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* elem,
                           PyObject** result) {
-  *result = NULL;
   if (context == Py_None) {
+    *result = NULL;
     return Status::SerializationError("error while calling callback on ",
                                       internal::PyObject_StdStringRepr(elem),
                                       ": handler not registered");
@@ -341,7 +333,6 @@ Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* el
     *result = PyObject_CallMethodObjArgs(context, method_name, elem, NULL);
     return PassPyError();
   }
-  return Status::OK();
 }
 
 Status CallSerializeCallback(PyObject* context, PyObject* value,
@@ -516,7 +507,7 @@ Status AppendArray(PyObject* context, PyArrayObject* array, SequenceBuilder* bui
           builder->AppendNdarray(static_cast<int32_t>(blobs_out->ndarrays.size())));
       std::shared_ptr<Tensor> tensor;
       RETURN_NOT_OK(NdarrayToTensor(default_memory_pool(),
-                                    reinterpret_cast<PyObject*>(array), &tensor));
+                                    reinterpret_cast<PyObject*>(array), {}, &tensor));
       blobs_out->ndarrays.push_back(tensor);
     } break;
     default: {
@@ -540,7 +531,6 @@ std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
 Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out) {
   PyAcquireGIL lock;
   PyDateTime_IMPORT;
-  import_pyarrow();
   SequenceBuilder builder;
   RETURN_NOT_OK(internal::VisitIterable(
       sequence, [&](PyObject* obj, bool* keep_going /* unused */) {

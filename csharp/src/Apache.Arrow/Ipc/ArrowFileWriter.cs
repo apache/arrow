@@ -112,18 +112,16 @@ namespace Apache.Arrow.Ipc
             await BaseStream.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        private async ValueTask WriteHeaderAsync(CancellationToken cancellationToken)
+        private async Task WriteHeaderAsync(CancellationToken cancellationToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
             // Write magic number and empty padding up to the 8-byte boundary
 
-            await WriteMagicAsync().ConfigureAwait(false);
+            await WriteMagicAsync(cancellationToken).ConfigureAwait(false);
             await WritePaddingAsync(CalculatePadding(ArrowFileConstants.Magic.Length))
                 .ConfigureAwait(false);
         }
 
-        private async ValueTask WriteFooterAsync(Schema schema, CancellationToken cancellationToken)
+        private async Task WriteFooterAsync(Schema schema, CancellationToken cancellationToken)
         {
             Builder.Clear();
 
@@ -182,15 +180,12 @@ namespace Apache.Arrow.Ipc
 
             // Write magic
 
-            cancellationToken.ThrowIfCancellationRequested();
-
-            await WriteMagicAsync().ConfigureAwait(false);
+            await WriteMagicAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        private Task WriteMagicAsync()
+        private ValueTask WriteMagicAsync(CancellationToken cancellationToken)
         {
-            return BaseStream.WriteAsync(
-                ArrowFileConstants.Magic, 0, ArrowFileConstants.Magic.Length);
+            return BaseStream.WriteAsync(ArrowFileConstants.Magic, cancellationToken);
         }
     }
 }
