@@ -109,11 +109,9 @@ public class MapVector extends ListVector {
    */
   @Override
   public UnionMapReader getReader() {
+    if (reader == null) {
+      reader = new UnionMapReader(this);
+    }
     return (UnionMapReader)reader;
-  }
-
-  @Override
-  protected void createReader() {
-    reader = new UnionMapReader(this);
   }
 }

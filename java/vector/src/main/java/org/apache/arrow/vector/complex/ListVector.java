@@ -105,7 +105,6 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   public ListVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, callBack);
     this.validityBuffer = allocator.getEmpty();
-    createReader();
     this.fieldType = checkNotNull(fieldType);
     this.callBack = callBack;
     this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
@@ -545,13 +544,16 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   @Override
   public UnionListReader getReader() {
+    if (reader == null) {
+      reader = new UnionListReader(this);
+    }
     return reader;
   }
 
   /** Initialize the child data vector to field type.  */
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
     AddOrGetResult<T> result = super.addOrGetVector(fieldType);
-    createReader();
+    invalidateReader();
     return result;
   }
 
@@ -631,15 +633,15 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   public UnionVector promoteToUnion() {
     UnionVector vector = new UnionVector("$data$", allocator, callBack);
     replaceDataVector(vector);
-    createReader();
+    invalidateReader();
     if (callBack != null) {
       callBack.doWork();
     }
     return vector;
   }
 
-  protected void createReader() {
-    reader = new UnionListReader(this);
+  protected void invalidateReader() {
+    reader = null;
   }
 
   /**
