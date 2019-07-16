@@ -18,9 +18,9 @@
 #include "benchmark/benchmark.h"
 
 #include "arrow/array.h"
-#include "arrow/memory_pool.h"
+#include "arrow/memory-pool.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 
 namespace arrow {
 namespace {

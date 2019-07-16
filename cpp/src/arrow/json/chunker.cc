@@ -27,7 +27,7 @@
 #include "arrow/buffer.h"
 #include "arrow/json/options.h"
 #include "arrow/util/stl.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string-view.h"
 
 namespace arrow {
 namespace json {

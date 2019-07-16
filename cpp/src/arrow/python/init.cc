@@ -19,6 +19,6 @@
 #define NUMPY_IMPORT_ARRAY
 
 #include "arrow/python/init.h"
-#include "arrow/python/numpy_interop.h"
+#include "arrow/python/numpy-interop.h"
 
 int arrow_init_numpy() { return arrow::py::import_numpy(); }

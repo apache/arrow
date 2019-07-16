@@ -28,7 +28,7 @@
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle-encoding.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string-view.h"
 #include "arrow/util/ubsan.h"
 
 #include "parquet/exception.h"

@@ -26,7 +26,7 @@
 #include "arrow/array.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/logging.h"
 
 #include "parquet/arrow/writer.h"

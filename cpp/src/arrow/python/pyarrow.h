@@ -24,7 +24,7 @@
 
 #include "arrow/python/visibility.h"
 
-#include "arrow/sparse_tensor.h"
+#include "arrow/sparse-tensor.h"
 
 namespace arrow {
 

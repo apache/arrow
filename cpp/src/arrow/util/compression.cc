@@ -20,27 +20,27 @@
 #include <memory>
 
 #ifdef ARROW_WITH_BROTLI
-#include "arrow/util/compression_brotli.h"
+#include "arrow/util/compression-brotli.h"
 #endif
 
 #ifdef ARROW_WITH_SNAPPY
-#include "arrow/util/compression_snappy.h"
+#include "arrow/util/compression-snappy.h"
 #endif
 
 #ifdef ARROW_WITH_LZ4
-#include "arrow/util/compression_lz4.h"
+#include "arrow/util/compression-lz4.h"
 #endif
 
 #ifdef ARROW_WITH_ZLIB
-#include "arrow/util/compression_zlib.h"
+#include "arrow/util/compression-zlib.h"
 #endif
 
 #ifdef ARROW_WITH_ZSTD
-#include "arrow/util/compression_zstd.h"
+#include "arrow/util/compression-zstd.h"
 #endif
 
 #ifdef ARROW_WITH_BZ2
-#include "arrow/util/compression_bz2.h"
+#include "arrow/util/compression-bz2.h"
 #endif
 
 #include "arrow/status.h"

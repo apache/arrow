@@ -24,7 +24,7 @@ from libc.stdint cimport int64_t, int32_t, uint8_t, uintptr_t
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
-cdef extern from "gandiva/gandiva_aliases.h" namespace "gandiva" nogil:
+cdef extern from "gandiva/gandiva-aliases.h" namespace "gandiva" nogil:
 
     cdef cppclass CNode" gandiva::Node":
         pass
@@ -37,7 +37,7 @@ cdef extern from "gandiva/gandiva_aliases.h" namespace "gandiva" nogil:
     ctypedef vector[shared_ptr[CExpression]] \
         CExpressionVector" gandiva::ExpressionVector"
 
-cdef extern from "gandiva/selection_vector.h" namespace "gandiva" nogil:
+cdef extern from "gandiva/selection-vector.h" namespace "gandiva" nogil:
 
     cdef cppclass CSelectionVector" gandiva::SelectionVector":
 
@@ -68,7 +68,7 @@ cdef extern from "gandiva/arrow.h" namespace "gandiva" nogil:
     ctypedef vector[shared_ptr[CArray]] CArrayVector" gandiva::ArrayVector"
 
 
-cdef extern from "gandiva/tree_expr_builder.h" namespace "gandiva" nogil:
+cdef extern from "gandiva/tree-expr-builder.h" namespace "gandiva" nogil:
 
     cdef shared_ptr[CNode] TreeExprBuilder_MakeBoolLiteral \
         "gandiva::TreeExprBuilder::MakeLiteral"(c_bool value)
@@ -198,7 +198,7 @@ cdef extern from "gandiva/filter.h" namespace "gandiva" nogil:
             shared_ptr[CSchema] schema, shared_ptr[CCondition] condition,
             shared_ptr[CFilter]* filter)
 
-cdef extern from "gandiva/function_signature.h" namespace "gandiva" nogil:
+cdef extern from "gandiva/function-signature.h" namespace "gandiva" nogil:
 
     cdef cppclass CFunctionSignature" gandiva::FunctionSignature":
 
@@ -214,7 +214,7 @@ cdef extern from "gandiva/function_signature.h" namespace "gandiva" nogil:
 
         c_string ToString() const
 
-cdef extern from "gandiva/expression_registry.h" namespace "gandiva" nogil:
+cdef extern from "gandiva/expression-registry.h" namespace "gandiva" nogil:
 
     cdef vector[shared_ptr[CFunctionSignature]] \
         GetRegisteredFunctionSignatures()

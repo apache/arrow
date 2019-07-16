@@ -25,7 +25,7 @@
 #include "arrow/json/reader.h"
 #include "arrow/json/test-common.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 
 namespace arrow {
 namespace json {

@@ -25,9 +25,9 @@
 
 #include "arrow/io/file.h"
 
-#include "parquet/column_reader.h"
-#include "parquet/column_scanner.h"
-#include "parquet/file_reader.h"
+#include "parquet/column-reader.h"
+#include "parquet/column-scanner.h"
+#include "parquet/file-reader.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/printer.h"

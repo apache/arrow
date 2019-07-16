@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
+#include "arrow/util/windows-compatibility.h"  // IWYU pragma: keep
 
 // sys/mman.h not present in Visual Studio or Cygwin
 #ifdef _WIN32
@@ -47,7 +47,7 @@
 #include "arrow/io/interfaces.h"
 
 #include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
+#include "arrow/memory-pool.h"
 #include "arrow/status.h"
 #include "arrow/util/io-util.h"
 #include "arrow/util/logging.h"

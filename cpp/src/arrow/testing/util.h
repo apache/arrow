@@ -28,9 +28,9 @@
 #include <vector>
 
 #include "arrow/buffer.h"
-#include "arrow/record_batch.h"
+#include "arrow/record-batch.h"
 #include "arrow/status.h"
-#include "arrow/type_fwd.h"
+#include "arrow/type-fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 

@@ -18,10 +18,10 @@
 #include "arrow/api.h"
 #include "arrow/io/buffered.h"
 #include "arrow/io/file.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/util/io-util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/windows_compatibility.h"
+#include "arrow/util/windows-compatibility.h"
 
 #include "benchmark/benchmark.h"
 

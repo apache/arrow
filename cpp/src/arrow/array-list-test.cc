@@ -26,11 +26,11 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_common.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-common.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 
 namespace arrow {
 

@@ -21,7 +21,7 @@
 #include <sstream>
 #include <utility>
 
-#include "arrow/compute/logical_type.h"
+#include "arrow/compute/logical-type.h"
 #include "arrow/compute/operation.h"
 #include "arrow/status.h"
 

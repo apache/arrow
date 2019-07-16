@@ -27,7 +27,7 @@
 #include "gandiva/arrow.h"
 #include "gandiva/configuration.h"
 #include "gandiva/expression.h"
-#include "gandiva/selection_vector.h"
+#include "gandiva/selection-vector.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {

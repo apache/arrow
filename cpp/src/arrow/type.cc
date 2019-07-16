@@ -29,11 +29,11 @@
 #include "arrow/array.h"
 #include "arrow/compare.h"
 #include "arrow/status.h"
-#include "arrow/util/checked_cast.h"
-#include "arrow/util/key_value_metadata.h"
+#include "arrow/util/checked-cast.h"
+#include "arrow/util/key-value-metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visitor-inline.h"
 
 namespace arrow {
 

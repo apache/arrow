@@ -21,7 +21,7 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/uri.h"
 

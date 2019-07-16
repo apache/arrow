@@ -27,10 +27,10 @@
 #include "arrow/json/chunker.h"
 #include "arrow/json/converter.h"
 #include "arrow/json/parser.h"
-#include "arrow/record_batch.h"
+#include "arrow/record-batch.h"
 #include "arrow/table.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string-view.h"
 #include "arrow/util/task-group.h"
 #include "arrow/util/thread-pool.h"
 

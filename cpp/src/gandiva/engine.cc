@@ -61,8 +61,8 @@
 #pragma warning(pop)
 #endif
 
-#include "gandiva/decimal_ir.h"
-#include "gandiva/exported_funcs_registry.h"
+#include "gandiva/decimal-ir.h"
+#include "gandiva/exported-funcs-registry.h"
 
 namespace gandiva {
 

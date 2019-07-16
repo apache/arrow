@@ -32,9 +32,9 @@
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/json-integration.h"
 #include "arrow/ipc/writer.h"
-#include "arrow/record_batch.h"
+#include "arrow/record-batch.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"

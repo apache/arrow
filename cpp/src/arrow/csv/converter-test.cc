@@ -28,7 +28,7 @@
 #include "arrow/csv/options.h"
 #include "arrow/csv/test-common.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/type.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"

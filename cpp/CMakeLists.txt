@@ -714,7 +714,7 @@ if(ARROW_BUILD_BENCHMARKS)
   # we need to provide our own version. This only happens for older versions
   # of benchmark.
   if(NOT TARGET benchmark::benchmark_main)
-    add_library(arrow_benchmark_main STATIC src/arrow/util/benchmark_main.cc)
+    add_library(arrow_benchmark_main STATIC src/arrow/util/benchmark-main.cc)
     add_library(benchmark::benchmark_main ALIAS arrow_benchmark_main)
   endif()
 

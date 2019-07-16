@@ -22,7 +22,7 @@
 
 #include "gandiva/arrow.h"
 #include "gandiva/expression.h"
-#include "gandiva/gandiva_aliases.h"
+#include "gandiva/gandiva-aliases.h"
 
 namespace gandiva {
 

@@ -77,8 +77,8 @@ set(PLASMA_SRCS
 set(PLASMA_STORE_SRCS
     dlmalloc.cc
     events.cc
-    eviction_policy.cc
-    plasma_allocator.cc
+    eviction-policy.cc
+    plasma-allocator.cc
     store.cc
     thirdparty/ae/ae.c)
 
@@ -136,7 +136,7 @@ if("${COMPILER_FAMILY}" STREQUAL "gcc")
   set_property(SOURCE dlmalloc.cc APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-conversion")
 endif()
 
-list(APPEND PLASMA_EXTERNAL_STORE_SOURCES "external_store.cc" "hash_table_store.cc")
+list(APPEND PLASMA_EXTERNAL_STORE_SOURCES "external-store.cc" "hash-table-store.cc")
 
 # We use static libraries for the plasma_store_server executable so that it can
 # be copied around and used in different locations.
@@ -263,13 +263,13 @@ else()
   set(PLASMA_TEST_LIBS plasma_static ${PLASMA_STATIC_LINK_LIBS})
 endif()
 
-add_plasma_test(test/serialization_tests EXTRA_LINK_LIBS ${PLASMA_TEST_LIBS})
-add_plasma_test(test/client_tests
+add_plasma_test(test/serialization-tests EXTRA_LINK_LIBS ${PLASMA_TEST_LIBS})
+add_plasma_test(test/client-tests
                 EXTRA_LINK_LIBS
                 ${PLASMA_TEST_LIBS}
                 EXTRA_DEPENDENCIES
                 plasma_store_server)
-add_plasma_test(test/external_store_tests
+add_plasma_test(test/external-store-tests
                 EXTRA_LINK_LIBS
                 ${PLASMA_TEST_LIBS}
                 EXTRA_DEPENDENCIES

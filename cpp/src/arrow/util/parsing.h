@@ -30,8 +30,8 @@
 #include <double-conversion/double-conversion.h>
 
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/type-traits.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/config.h"
 #include "arrow/vendored/datetime.h"
 

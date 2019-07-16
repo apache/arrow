@@ -31,13 +31,13 @@
 #include "arrow/array.h"
 #include "arrow/buffer-builder.h"
 #include "arrow/builder.h"
-#include "arrow/memory_pool.h"
+#include "arrow/memory-pool.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string-view.h"
 #include "arrow/util/trie.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visitor-inline.h"
 
 namespace arrow {
 namespace json {

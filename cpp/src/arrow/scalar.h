@@ -27,8 +27,8 @@
 #include <vector>
 
 #include "arrow/type.h"
-#include "arrow/type_fwd.h"
-#include "arrow/type_traits.h"
+#include "arrow/type-fwd.h"
+#include "arrow/type-traits.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/visibility.h"
 

@@ -24,12 +24,12 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 
-#include "parquet/column_reader.h"
-#include "parquet/column_writer.h"
-#include "parquet/file_reader.h"
-#include "parquet/file_writer.h"
+#include "parquet/column-reader.h"
+#include "parquet/column-writer.h"
+#include "parquet/file-reader.h"
+#include "parquet/file-writer.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"

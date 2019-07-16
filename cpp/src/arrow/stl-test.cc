@@ -24,7 +24,7 @@
 
 #include "arrow/stl.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/type.h"
 
 using primitive_types_tuple = std::tuple<int8_t, int16_t, int32_t, int64_t, uint8_t,

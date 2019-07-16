@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 
-#include "arrow/dataset/type_fwd.h"
+#include "arrow/dataset/type-fwd.h"
 #include "arrow/dataset/visibility.h"
 
 namespace arrow {

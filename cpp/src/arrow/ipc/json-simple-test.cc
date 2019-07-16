@@ -30,10 +30,10 @@
 
 #include "arrow/array.h"
 #include "arrow/ipc/json-simple.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/type-traits.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/decimal.h"
 
 #if defined(_MSC_VER)

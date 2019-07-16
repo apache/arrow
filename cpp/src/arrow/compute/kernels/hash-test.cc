@@ -28,13 +28,13 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
+#include "arrow/memory-pool.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/gtest-common.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
+#include "arrow/type-traits.h"
 #include "arrow/util/decimal.h"
 
 #include "arrow/compute/context.h"

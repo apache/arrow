@@ -22,7 +22,7 @@
 
 #include "arrow/json/options.h"
 #include "arrow/status.h"
-#include "arrow/util/key_value_metadata.h"
+#include "arrow/util/key-value-metadata.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 

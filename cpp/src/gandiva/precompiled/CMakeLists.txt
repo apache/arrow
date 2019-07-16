@@ -18,17 +18,17 @@
 project(gandiva)
 
 set(PRECOMPILED_SRCS
-    arithmetic_ops.cc
+    arithmetic-ops.cc
     bitmap.cc
-    decimal_ops.cc
-    decimal_wrapper.cc
-    extended_math_ops.cc
+    decimal-ops.cc
+    decimal-wrapper.cc
+    extended-math-ops.cc
     hash.cc
     print.cc
-    string_ops.cc
+    string-ops.cc
     time.cc
-    timestamp_arithmetic.cc
-    ../../arrow/util/basic_decimal.cc)
+    timestamp-arithmetic.cc
+    ../../arrow/util/basic-decimal.cc)
 
 if(MSVC)
   # clang pretends to be a particular version of MSVC. Version 1900 is
@@ -81,7 +81,7 @@ add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_BC_PATH}
 # turn the bitcode file into a C++ static data variable.
 add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_CC_PATH}
                    COMMAND python
-                           "${CMAKE_CURRENT_SOURCE_DIR}/../make_precompiled_bitcode.py"
+                           "${CMAKE_CURRENT_SOURCE_DIR}/../make-precompiled-bitcode.py"
                            ${GANDIVA_PRECOMPILED_CC_IN_PATH}
                            ${GANDIVA_PRECOMPILED_BC_PATH}
                            ${GANDIVA_PRECOMPILED_CC_PATH}
@@ -94,27 +94,27 @@ add_custom_target(precompiled ALL
 # testing
 if(ARROW_BUILD_TESTS)
   add_executable(gandiva-precompiled-test
-                 ../context_helper.cc
-                 bitmap_test.cc
+                 ../context-helper.cc
+                 bitmap-test.cc
                  bitmap.cc
-                 epoch_time_point_test.cc
-                 time_test.cc
+                 epoch-time-point-test.cc
+                 time-test.cc
                  time.cc
-                 timestamp_arithmetic.cc
-                 ../cast_time.cc
+                 timestamp-arithmetic.cc
+                 ../cast-time.cc
                  ../../arrow/vendored/datetime/tz.cpp
-                 hash_test.cc
+                 hash-test.cc
                  hash.cc
-                 string_ops_test.cc
-                 string_ops.cc
-                 arithmetic_ops_test.cc
-                 arithmetic_ops.cc
-                 extended_math_ops_test.cc
-                 extended_math_ops.cc
-                 decimal_ops_test.cc
-                 decimal_ops.cc
-                 ../decimal_type_util.cc
-                 ../decimal_xlarge.cc)
+                 string-ops-test.cc
+                 string-ops.cc
+                 arithmetic-ops-test.cc
+                 arithmetic-ops.cc
+                 extended-math-ops-test.cc
+                 extended-math-ops.cc
+                 decimal-ops-test.cc
+                 decimal-ops.cc
+                 ../decimal-type-util.cc
+                 ../decimal-xlarge.cc)
   target_include_directories(gandiva-precompiled-test PRIVATE ${CMAKE_SOURCE_DIR}/src)
   target_link_libraries(gandiva-precompiled-test PRIVATE ${ARROW_TEST_LINK_LIBS} RE2::re2)
   target_compile_definitions(gandiva-precompiled-test

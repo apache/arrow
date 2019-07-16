@@ -35,7 +35,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/status.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/util/io-util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/thread-pool.h"

@@ -30,11 +30,11 @@
 #include "arrow/compare.h"
 #include "arrow/result.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
+#include "arrow/type-traits.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"  // IWYU pragma: export
+#include "arrow/util/string-view.h"  // IWYU pragma: export
 #include "arrow/util/visibility.h"
 
 namespace arrow {

@@ -23,8 +23,8 @@
 #include <gtest/gtest.h>
 
 #include "arrow/allocator.h"
-#include "arrow/memory_pool.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/memory-pool.h"
+#include "arrow/testing/gtest-util.h"
 
 namespace arrow {
 

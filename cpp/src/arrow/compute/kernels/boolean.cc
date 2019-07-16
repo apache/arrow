@@ -25,7 +25,7 @@
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/util-internal.h"
-#include "arrow/type_fwd.h"
+#include "arrow/type-fwd.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 

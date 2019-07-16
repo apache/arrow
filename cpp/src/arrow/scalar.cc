@@ -23,7 +23,7 @@
 #include "arrow/buffer.h"
 #include "arrow/compare.h"
 #include "arrow/type.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 

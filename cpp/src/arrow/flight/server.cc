@@ -38,8 +38,8 @@
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
-#include "arrow/memory_pool.h"
-#include "arrow/record_batch.h"
+#include "arrow/memory-pool.h"
+#include "arrow/record-batch.h"
 #include "arrow/status.h"
 #include "arrow/util/io-util.h"
 #include "arrow/util/logging.h"
@@ -48,7 +48,7 @@
 
 #include "arrow/flight/internal.h"
 #include "arrow/flight/serialization-internal.h"
-#include "arrow/flight/server_auth.h"
+#include "arrow/flight/server-auth.h"
 #include "arrow/flight/types.h"
 
 using FlightService = arrow::flight::protocol::FlightService;

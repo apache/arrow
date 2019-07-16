@@ -31,16 +31,16 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"  // IWYU pragma: keep
 #include "arrow/ipc/dictionary.h"
-#include "arrow/record_batch.h"
+#include "arrow/record-batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
+#include "arrow/type-traits.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visitor-inline.h"
 
 namespace arrow {
 namespace {

@@ -21,7 +21,7 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/memory_pool.h"
+#include "arrow/memory-pool.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

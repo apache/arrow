@@ -26,7 +26,7 @@
 #include <flatbuffers/flatbuffers.h>
 
 #include "arrow/array.h"
-#include "arrow/extension_type.h"
+#include "arrow/extension-type.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/File_generated.h"  // IWYU pragma: keep
 #include "arrow/ipc/Message_generated.h"
@@ -34,15 +34,15 @@
 #include "arrow/ipc/Tensor_generated.h"        // IWYU pragma: keep
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/util.h"
-#include "arrow/sparse_tensor.h"
+#include "arrow/sparse-tensor.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
-#include "arrow/util/checked_cast.h"
-#include "arrow/util/key_value_metadata.h"
+#include "arrow/util/checked-cast.h"
+#include "arrow/util/key-value-metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visitor-inline.h"
 
 namespace arrow {
 

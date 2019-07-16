@@ -28,9 +28,9 @@
 
 #include "arrow/buffer-builder.h"
 #include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
+#include "arrow/memory-pool.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 
 namespace arrow {
 

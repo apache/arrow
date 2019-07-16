@@ -22,9 +22,9 @@
 #include <vector>
 
 #include "gandiva/cache.h"
-#include "gandiva/expr_validator.h"
-#include "gandiva/llvm_generator.h"
-#include "gandiva/projector_cache_key.h"
+#include "gandiva/expr-validator.h"
+#include "gandiva/llvm-generator.h"
+#include "gandiva/projector-cache-key.h"
 
 namespace gandiva {
 

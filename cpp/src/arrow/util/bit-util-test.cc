@@ -31,9 +31,9 @@
 #include <boost/utility.hpp>  // IWYU pragma: export
 
 #include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
-#include "arrow/testing/gtest_common.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/memory-pool.h"
+#include "arrow/testing/gtest-common.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/util/bit-stream-utils.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/cpu-info.h"

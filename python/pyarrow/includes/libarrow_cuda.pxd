@@ -19,7 +19,7 @@
 
 from pyarrow.includes.libarrow cimport *
 
-cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::cuda" nogil:
+cdef extern from "arrow/gpu/cuda-api.h" namespace "arrow::cuda" nogil:
 
     cdef cppclass CCudaDeviceManager" arrow::cuda::CudaDeviceManager":
         @staticmethod

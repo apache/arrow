@@ -25,10 +25,10 @@
 #include <type_traits>
 #include <vector>
 
-#include "arrow/memory_pool.h"
+#include "arrow/memory-pool.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string-view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

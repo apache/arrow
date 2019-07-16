@@ -25,12 +25,12 @@
 #include "arrow/builder.h"
 #include "arrow/ipc/json-internal.h"
 #include "arrow/ipc/json-simple.h"
-#include "arrow/memory_pool.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/memory-pool.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parsing.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string-view.h"
 
 namespace arrow {
 namespace ipc {

@@ -35,14 +35,14 @@
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/util-internal.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
+#include "arrow/type-traits.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/util/string-view.h"
+#include "arrow/visitor-inline.h"
 
 namespace arrow {
 

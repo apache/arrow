@@ -27,9 +27,9 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/testing/util.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 
 namespace arrow {
 

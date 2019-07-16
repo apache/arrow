@@ -58,7 +58,7 @@ def lint_file(path):
          arrow/python/util''')),
         (lambda x: re.match(_ASSIGN_OR_RAISE_REGEX, x),
          'Use ARROW_ASSIGN_OR_RAISE in header files', _paths('''\
-         arrow/result_internal.h
+         arrow/result-internal.h
          test
          '''))
 
@@ -81,7 +81,7 @@ EXCLUSIONS = _paths('''\
     arrow/util/macros.h
     arrow/util/parallel.h
     arrow/vendored
-    arrow/visitor_inline.h
+    arrow/visitor-inline.h
     gandiva/cache.h
     gandiva/jni
     jni/

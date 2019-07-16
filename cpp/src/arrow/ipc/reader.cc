@@ -37,13 +37,13 @@
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/metadata-internal.h"
-#include "arrow/record_batch.h"
-#include "arrow/sparse_tensor.h"
+#include "arrow/record-batch.h"
+#include "arrow/sparse-tensor.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visitor-inline.h"
 
 using arrow::internal::checked_pointer_cast;
 

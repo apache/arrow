@@ -21,7 +21,7 @@
 
 #include "arrow/compute/benchmark-util.h"
 #include "arrow/compute/test-util.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/testing/random.h"
 
 namespace arrow {

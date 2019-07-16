@@ -21,7 +21,7 @@
 
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
-#include "arrow/record_batch.h"
+#include "arrow/record-batch.h"
 #include "arrow/status.h"
 
 #include "arrow/util/io-util.h"

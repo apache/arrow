@@ -20,8 +20,8 @@
 #include <vector>
 
 #include "arrow/builder.h"
-#include "arrow/memory_pool.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/memory-pool.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 

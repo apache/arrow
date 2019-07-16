@@ -34,7 +34,7 @@
 #include <intrin.h>
 #include <array>
 #include <bitset>
-#include "arrow/util/windows_compatibility.h"
+#include "arrow/util/windows-compatibility.h"
 
 #endif
 

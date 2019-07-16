@@ -25,10 +25,10 @@
 
 #include "arrow/array.h"
 #include "arrow/array/concatenate.h"
-#include "arrow/record_batch.h"
+#include "arrow/record-batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
 

@@ -57,10 +57,10 @@ add_subdirectory(../../../../java/gandiva ./java/gandiva)
 set(GANDIVA_LINK_LIBS protobuf::libprotobuf gandiva_static)
 
 set(GANDIVA_JNI_SOURCES
-    config_builder.cc
-    config_holder.cc
-    expression_registry_helper.cc
-    jni_common.cc
+    config-builder.cc
+    config-holder.cc
+    expression-registry-helper.cc
+    jni-common.cc
     ${PROTO_SRCS})
 
 # For users of gandiva_jni library (including integ tests), include-dir is :

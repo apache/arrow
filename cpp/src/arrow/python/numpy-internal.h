@@ -20,7 +20,7 @@
 #ifndef ARROW_PYTHON_NUMPY_INTERNAL_H
 #define ARROW_PYTHON_NUMPY_INTERNAL_H
 
-#include "arrow/python/numpy_interop.h"
+#include "arrow/python/numpy-interop.h"
 
 #include "arrow/status.h"
 

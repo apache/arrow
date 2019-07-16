@@ -32,7 +32,7 @@
 #include "arrow/api.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
-#include "arrow/type_traits.h"
+#include "arrow/type-traits.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
@@ -43,7 +43,7 @@
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/test-util.h"
 #include "parquet/arrow/writer.h"
-#include "parquet/file_writer.h"
+#include "parquet/file-writer.h"
 #include "parquet/test-util.h"
 
 using arrow::Array;

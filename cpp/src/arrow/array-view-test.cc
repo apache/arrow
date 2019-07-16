@@ -20,8 +20,8 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
-#include "arrow/extension_type.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/extension-type.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"

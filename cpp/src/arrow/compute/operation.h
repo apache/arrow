@@ -20,7 +20,7 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/compute/type_fwd.h"
+#include "arrow/compute/type-fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

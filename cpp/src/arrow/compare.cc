@@ -32,16 +32,16 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/scalar.h"
-#include "arrow/sparse_tensor.h"
+#include "arrow/sparse-tensor.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/memory.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visitor-inline.h"
 
 namespace arrow {
 

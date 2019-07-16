@@ -22,7 +22,7 @@
 
 #include "arrow/util/macros.h"
 
-#include "gandiva/llvm_includes.h"
+#include "gandiva/llvm-includes.h"
 #include "gandiva/logging.h"
 
 namespace gandiva {

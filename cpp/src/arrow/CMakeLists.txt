@@ -82,27 +82,27 @@ endfunction()
 set(ARROW_SRCS
     array.cc
     builder.cc
-    array/builder_adaptive.cc
-    array/builder_base.cc
-    array/builder_binary.cc
-    array/builder_decimal.cc
-    array/builder_dict.cc
-    array/builder_nested.cc
-    array/builder_primitive.cc
-    array/builder_union.cc
+    array/builder-adaptive.cc
+    array/builder-base.cc
+    array/builder-binary.cc
+    array/builder-decimal.cc
+    array/builder-dict.cc
+    array/builder-nested.cc
+    array/builder-primitive.cc
+    array/builder-union.cc
     array/concatenate.cc
     buffer.cc
     compare.cc
-    extension_type.cc
-    memory_pool.cc
-    pretty_print.cc
-    record_batch.cc
+    extension-type.cc
+    memory-pool.cc
+    pretty-print.cc
+    record-batch.cc
     result.cc
     scalar.cc
-    sparse_tensor.cc
+    sparse-tensor.cc
     status.cc
     table.cc
-    table_builder.cc
+    table-builder.cc
     tensor.cc
     type.cc
     visitor.cc
@@ -132,7 +132,7 @@ set(ARROW_SRCS
     io/memory.cc
     io/readahead.cc
     testing/util.cc
-    util/basic_decimal.cc
+    util/basic-decimal.cc
     util/bit-util.cc
     util/compression.cc
     util/cpu-info.cc
@@ -140,9 +140,9 @@ set(ARROW_SRCS
     util/int-util.cc
     util/io-util.cc
     util/logging.cc
-    util/key_value_metadata.cc
+    util/key-value-metadata.cc
     util/memory.cc
-    util/string_builder.cc
+    util/string-builder.cc
     util/task-group.cc
     util/thread-pool.cc
     util/trie.cc
@@ -168,7 +168,7 @@ if(ARROW_COMPUTE)
       ${ARROW_SRCS}
       compute/context.cc
       compute/expression.cc
-      compute/logical_type.cc
+      compute/logical-type.cc
       compute/operation.cc
       compute/kernels/aggregate.cc
       compute/kernels/boolean.cc
@@ -197,37 +197,37 @@ endif()
 
 if(ARROW_WITH_BROTLI)
   add_definitions(-DARROW_WITH_BROTLI)
-  set(ARROW_SRCS util/compression_brotli.cc ${ARROW_SRCS})
+  set(ARROW_SRCS util/compression-brotli.cc ${ARROW_SRCS})
 endif()
 
 if(ARROW_WITH_BZ2)
   add_definitions(-DARROW_WITH_BZ2)
-  set(ARROW_SRCS util/compression_bz2.cc ${ARROW_SRCS})
+  set(ARROW_SRCS util/compression-bz2.cc ${ARROW_SRCS})
 endif()
 
 if(ARROW_WITH_LZ4)
   add_definitions(-DARROW_WITH_LZ4)
-  set(ARROW_SRCS util/compression_lz4.cc ${ARROW_SRCS})
+  set(ARROW_SRCS util/compression-lz4.cc ${ARROW_SRCS})
 endif()
 
 if(ARROW_WITH_SNAPPY)
   add_definitions(-DARROW_WITH_SNAPPY)
-  set(ARROW_SRCS util/compression_snappy.cc ${ARROW_SRCS})
+  set(ARROW_SRCS util/compression-snappy.cc ${ARROW_SRCS})
 endif()
 
 if(ARROW_WITH_ZLIB)
   add_definitions(-DARROW_WITH_ZLIB)
-  set(ARROW_SRCS util/compression_zlib.cc ${ARROW_SRCS})
+  set(ARROW_SRCS util/compression-zlib.cc ${ARROW_SRCS})
 endif()
 
 if(ARROW_WITH_ZSTD)
   add_definitions(-DARROW_WITH_ZSTD)
-  set(ARROW_SRCS util/compression_zstd.cc ${ARROW_SRCS})
+  set(ARROW_SRCS util/compression-zstd.cc ${ARROW_SRCS})
 endif()
 
 if(ARROW_ORC)
   add_subdirectory(adapters/orc)
-  set(ARROW_SRCS adapters/orc/adapter.cc adapters/orc/adapter_util.cc ${ARROW_SRCS})
+  set(ARROW_SRCS adapters/orc/adapter.cc adapters/orc/adapter-util.cc ${ARROW_SRCS})
 endif()
 
 if(ARROW_TENSORFLOW)
@@ -296,7 +296,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
                 io/test-common.cc
                 ipc/test-common.cc
                 filesystem/test-util.cc
-                testing/gtest_util.cc
+                testing/gtest-util.cc
                 testing/random.cc
                 OUTPUTS
                 ARROW_TESTING_LIBRARIES
@@ -353,11 +353,11 @@ add_arrow_test(buffer-test)
 
 if(ARROW_IPC)
   # The extension type unit tests require IPC / Flatbuffers support
-  add_arrow_test(extension_type-test)
+  add_arrow_test(extension-type-test)
 endif()
 
-add_arrow_test(memory_pool-test)
-add_arrow_test(pretty_print-test)
+add_arrow_test(memory-pool-test)
+add_arrow_test(pretty-print-test)
 add_arrow_test(public-api-test)
 add_arrow_test(result-test)
 add_arrow_test(scalar-test)
@@ -365,9 +365,9 @@ add_arrow_test(status-test)
 add_arrow_test(stl-test)
 add_arrow_test(type-test)
 add_arrow_test(table-test)
-add_arrow_test(table_builder-test)
+add_arrow_test(table-builder-test)
 add_arrow_test(tensor-test)
-add_arrow_test(sparse_tensor-test)
+add_arrow_test(sparse-tensor-test)
 
 add_arrow_benchmark(builder-benchmark)
 add_arrow_benchmark(column-benchmark)

@@ -20,7 +20,7 @@
 #
 
 if(PYARROW_BUILD_TESTS)
-  add_library(arrow/python_test_main STATIC test_main.cc)
+  add_library(arrow/python_test_main STATIC test-main.cc)
 
   if(APPLE)
     target_link_libraries(arrow/python_test_main GTest::GTest dl)

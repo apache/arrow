@@ -21,12 +21,12 @@
 #include <memory>
 #include <vector>
 
-#include <arrow/array.h>
-#include <arrow/builder.h>
-#include <arrow/pretty_print.h>
-#include <arrow/record_batch.h>
-#include <arrow/status.h>
-#include <arrow/type.h>
+#include "arrow/array.h"
+#include "arrow/builder.h"
+#include "arrow/pretty-print.h"
+#include "arrow/record-batch.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
 
 namespace gandiva {
 

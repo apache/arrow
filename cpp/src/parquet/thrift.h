@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "arrow/util/windows_compatibility.h"
+#include "arrow/util/windows-compatibility.h"
 
 #include <cstdint>
 // Check if thrift version < 0.11.0

@@ -20,7 +20,7 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 
 namespace arrow {
 namespace internal {

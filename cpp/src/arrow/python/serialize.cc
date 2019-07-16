@@ -16,7 +16,7 @@
 // under the License.
 
 #include "arrow/python/serialize.h"
-#include "arrow/python/numpy_interop.h"
+#include "arrow/python/numpy-interop.h"
 
 #include <cstdint>
 #include <limits>
@@ -29,21 +29,21 @@
 #include <numpy/arrayscalars.h>
 
 #include "arrow/array.h"
-#include "arrow/array/builder_union.h"
+#include "arrow/array/builder-union.h"
 #include "arrow/builder.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/util.h"
 #include "arrow/ipc/writer.h"
-#include "arrow/memory_pool.h"
-#include "arrow/record_batch.h"
+#include "arrow/memory-pool.h"
+#include "arrow/record-batch.h"
 #include "arrow/tensor.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/iterators.h"
-#include "arrow/python/numpy_convert.h"
+#include "arrow/python/numpy-convert.h"
 #include "arrow/python/platform.h"
 #include "arrow/python/pyarrow.h"
 #include "arrow/python/util/datetime.h"

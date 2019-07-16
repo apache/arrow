@@ -84,7 +84,7 @@ set(ARROW_FLIGHT_SRCS
     protocol-internal.cc
     serialization-internal.cc
     server.cc
-    server_auth.cc
+    server-auth.cc
     types.cc)
 
 add_arrow_lib(arrow_flight

@@ -20,7 +20,7 @@
 #include <utility>
 
 #ifdef _WIN32
-#include "arrow/util/windows_compatibility.h"
+#include "arrow/util/windows-compatibility.h"
 #else
 #include <errno.h>
 #include <fcntl.h>

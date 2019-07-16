@@ -26,15 +26,15 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
-#include "arrow/memory_pool.h"
+#include "arrow/memory-pool.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_common.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-common.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
+#include "arrow/type-traits.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/checked_cast.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/checked-cast.h"
+#include "arrow/util/string-view.h"
 
 namespace arrow {
 

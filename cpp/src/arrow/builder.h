@@ -19,15 +19,15 @@
 
 #include <memory>
 
-#include "arrow/array/builder_adaptive.h"   // IWYU pragma: export
-#include "arrow/array/builder_base.h"       // IWYU pragma: export
-#include "arrow/array/builder_binary.h"     // IWYU pragma: export
-#include "arrow/array/builder_decimal.h"    // IWYU pragma: export
-#include "arrow/array/builder_dict.h"       // IWYU pragma: export
-#include "arrow/array/builder_nested.h"     // IWYU pragma: export
-#include "arrow/array/builder_primitive.h"  // IWYU pragma: export
-#include "arrow/array/builder_time.h"       // IWYU pragma: export
-#include "arrow/array/builder_union.h"      // IWYU pragma: export
+#include "arrow/array/builder-adaptive.h"   // IWYU pragma: export
+#include "arrow/array/builder-base.h"       // IWYU pragma: export
+#include "arrow/array/builder-binary.h"     // IWYU pragma: export
+#include "arrow/array/builder-decimal.h"    // IWYU pragma: export
+#include "arrow/array/builder-dict.h"       // IWYU pragma: export
+#include "arrow/array/builder-nested.h"     // IWYU pragma: export
+#include "arrow/array/builder-primitive.h"  // IWYU pragma: export
+#include "arrow/array/builder-time.h"       // IWYU pragma: export
+#include "arrow/array/builder-union.h"      // IWYU pragma: export
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 

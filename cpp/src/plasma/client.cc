@@ -54,7 +54,7 @@
 #include "plasma/protocol.h"
 
 #ifdef PLASMA_CUDA
-#include "arrow/gpu/cuda_api.h"
+#include "arrow/gpu/cuda-api.h"
 
 using arrow::cuda::CudaBuffer;
 using arrow::cuda::CudaBufferWriter;

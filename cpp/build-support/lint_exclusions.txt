@@ -1,6 +1,6 @@
 *codegen*
 *_generated*
-*windows_compatibility.h
+*windows-compatibility.h
 *pyarrow_api.h
 *pyarrow_lib.h
 *python/config.h

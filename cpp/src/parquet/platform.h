@@ -22,11 +22,11 @@
 #include "arrow/buffer.h"            // IWYU pragma: export
 #include "arrow/io/interfaces.h"     // IWYU pragma: export
 #include "arrow/io/memory.h"         // IWYU pragma: export
-#include "arrow/memory_pool.h"       // IWYU pragma: export
+#include "arrow/memory-pool.h"       // IWYU pragma: export
 #include "arrow/status.h"            // IWYU pragma: export
 #include "arrow/util/bit-util.h"     // IWYU pragma: export
 #include "arrow/util/macros.h"       // IWYU pragma: export
-#include "arrow/util/string_view.h"  // IWYU pragma: export
+#include "arrow/util/string-view.h"  // IWYU pragma: export
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 

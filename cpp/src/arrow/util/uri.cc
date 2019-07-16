@@ -24,7 +24,7 @@
 #include <uriparser/Uri.h>
 
 #include "arrow/util/parsing.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string-view.h"
 
 namespace arrow {
 namespace internal {

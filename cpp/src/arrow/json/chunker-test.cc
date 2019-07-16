@@ -24,8 +24,8 @@
 #include "arrow/buffer.h"
 #include "arrow/json/chunker.h"
 #include "arrow/json/test-common.h"
-#include "arrow/testing/gtest_util.h"
-#include "arrow/util/string_view.h"
+#include "arrow/testing/gtest-util.h"
+#include "arrow/util/string-view.h"
 
 namespace arrow {
 namespace json {

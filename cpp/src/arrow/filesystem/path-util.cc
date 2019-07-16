@@ -17,7 +17,7 @@
 
 #include "arrow/filesystem/path-util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string-view.h"
 
 namespace arrow {
 namespace fs {

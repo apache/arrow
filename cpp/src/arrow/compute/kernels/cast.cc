@@ -30,14 +30,14 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
+#include "arrow/type-traits.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/parsing.h"  // IWYU pragma: keep
 #include "arrow/util/utf8.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visitor-inline.h"
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"

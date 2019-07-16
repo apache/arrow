@@ -24,8 +24,8 @@
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/sum.h"
-#include "arrow/memory_pool.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/memory-pool.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/bit-util.h"
 

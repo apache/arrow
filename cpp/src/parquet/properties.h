@@ -23,7 +23,7 @@
 #include <unordered_map>
 
 #include "parquet/exception.h"
-#include "parquet/parquet_version.h"
+#include "parquet/parquet-version.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"

@@ -20,7 +20,7 @@
 
 #include <mutex>
 
-#include "gandiva/lru_cache.h"
+#include "gandiva/lru-cache.h"
 
 namespace gandiva {
 

@@ -29,10 +29,10 @@
 #include "arrow/compare.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/type-traits.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visitor-inline.h"
 
 namespace arrow {
 

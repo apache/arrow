@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "./epoch_time_point.h"
+#include "./epoch-time-point.h"
 
 extern "C" {
 
@@ -23,8 +23,8 @@ extern "C" {
 #include <string.h>
 #include <time.h>
 
-#include "./time_constants.h"
-#include "./time_fields.h"
+#include "./time-constants.h"
+#include "./time-fields.h"
 #include "./types.h"
 
 #define MINS_IN_HOUR 60

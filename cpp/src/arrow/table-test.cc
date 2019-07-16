@@ -23,10 +23,10 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
-#include "arrow/record_batch.h"
+#include "arrow/record-batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/gtest-common.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"

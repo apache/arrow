@@ -23,7 +23,7 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/record_batch.h"
+#include "arrow/record-batch.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"
 #include "arrow/util/macros.h"

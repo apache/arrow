@@ -24,8 +24,8 @@
 #include <vector>
 
 #include "gandiva/arrow.h"
-#include "gandiva/eval_batch.h"
-#include "gandiva/gandiva_aliases.h"
+#include "gandiva/eval-batch.h"
+#include "gandiva/gandiva-aliases.h"
 #include "gandiva/logging.h"
 #include "gandiva/visibility.h"
 

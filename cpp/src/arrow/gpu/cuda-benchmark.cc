@@ -22,11 +22,11 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/memory_pool.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/memory-pool.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/testing/util.h"
 
-#include "arrow/gpu/cuda_api.h"
+#include "arrow/gpu/cuda-api.h"
 
 namespace arrow {
 namespace cuda {

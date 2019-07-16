@@ -21,10 +21,10 @@
 #include <cstring>
 #include <memory>
 
-#include "parquet/column_page.h"
-#include "parquet/column_reader.h"
+#include "parquet/column-page.h"
+#include "parquet/column-reader.h"
 #include "parquet/exception.h"
-#include "parquet/file_reader.h"
+#include "parquet/file-reader.h"
 #include "parquet/platform.h"
 #include "parquet/test-util.h"
 #include "parquet/thrift.h"

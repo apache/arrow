@@ -22,8 +22,8 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/testing/gtest_common.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-common.h"
+#include "arrow/testing/gtest-util.h"
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"

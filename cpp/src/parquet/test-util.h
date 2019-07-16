@@ -34,9 +34,9 @@
 
 #include "arrow/testing/util.h"
 
-#include "parquet/column_page.h"
-#include "parquet/column_reader.h"
-#include "parquet/column_writer.h"
+#include "parquet/column-page.h"
+#include "parquet/column-reader.h"
+#include "parquet/column-writer.h"
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
 

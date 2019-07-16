@@ -25,12 +25,12 @@
 #include <vector>
 
 #include "arrow/api.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/testing/random.h"
-#include "arrow/type_traits.h"
+#include "arrow/type-traits.h"
 #include "arrow/util/decimal.h"
 
-#include "parquet/arrow/record_reader.h"
+#include "parquet/arrow/record-reader.h"
 
 namespace parquet {
 

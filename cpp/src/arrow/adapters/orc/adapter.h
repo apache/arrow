@@ -23,8 +23,8 @@
 #include <vector>
 
 #include "arrow/io/interfaces.h"
-#include "arrow/memory_pool.h"
-#include "arrow/record_batch.h"
+#include "arrow/memory-pool.h"
+#include "arrow/record-batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"

@@ -8,7 +8,7 @@
 #ifndef _MMAN_WIN32_H
 #define _MMAN_WIN32_H
 
-#include "arrow/util/windows_compatibility.h"
+#include "arrow/util/windows-compatibility.h"
 
 #include <errno.h>
 #include <io.h>

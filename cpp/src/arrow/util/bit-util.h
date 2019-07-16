@@ -61,7 +61,7 @@
 #include <vector>
 
 #include "arrow/util/macros.h"
-#include "arrow/util/type_traits.h"
+#include "arrow/util/type-traits.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

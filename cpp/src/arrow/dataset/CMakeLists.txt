@@ -46,7 +46,7 @@ foreach(LIB_TARGET ${ARROW_DATASET_LIBRARIES})
 endforeach()
 
 if(NOT WIN32)
-  add_arrow_test(file_test
+  add_arrow_test(file-test
                  EXTRA_LINK_LIBS
                  ${ARROW_DATASET_TEST_LINK_LIBS}
                  PREFIX

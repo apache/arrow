@@ -19,8 +19,8 @@
 
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/discovery.h"
-#include "arrow/dataset/file_base.h"
-#include "arrow/dataset/file_csv.h"
-#include "arrow/dataset/file_feather.h"
-#include "arrow/dataset/file_parquet.h"
+#include "arrow/dataset/file-base.h"
+#include "arrow/dataset/file-csv.h"
+#include "arrow/dataset/file-feather.h"
+#include "arrow/dataset/file-parquet.h"
 #include "arrow/dataset/scanner.h"

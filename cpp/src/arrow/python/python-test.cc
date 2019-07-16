@@ -24,14 +24,14 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/util/decimal.h"
 
-#include "arrow/python/arrow_to_pandas.h"
+#include "arrow/python/arrow-to-pandas.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
-#include "arrow/python/python_to_arrow.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/python/python-to-arrow.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

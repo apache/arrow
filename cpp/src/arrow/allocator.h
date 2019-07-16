@@ -23,7 +23,7 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/memory_pool.h"
+#include "arrow/memory-pool.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 

@@ -25,7 +25,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
+#include "arrow/type-traits.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 

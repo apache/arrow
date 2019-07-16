@@ -27,8 +27,8 @@
 
 #include "plasma/common.h"
 #include "plasma/events.h"
-#include "plasma/eviction_policy.h"
-#include "plasma/external_store.h"
+#include "plasma/eviction-policy.h"
+#include "plasma/external-store.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
 

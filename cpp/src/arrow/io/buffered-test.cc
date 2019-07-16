@@ -40,8 +40,8 @@
 #include "arrow/io/memory.h"
 #include "arrow/io/test-common.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_util.h"
-#include "arrow/util/string_view.h"
+#include "arrow/testing/gtest-util.h"
+#include "arrow/util/string-view.h"
 
 namespace arrow {
 namespace io {

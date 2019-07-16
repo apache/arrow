@@ -22,7 +22,7 @@
 #include <mutex>
 
 #include "arrow/status.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string-view.h"
 
 namespace arrow {
 namespace io {

@@ -34,7 +34,7 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/gtest-common.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"

@@ -24,12 +24,12 @@
 
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_common.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-common.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/type.h"
 
 #include "arrow/compute/expression.h"
-#include "arrow/compute/logical_type.h"
+#include "arrow/compute/logical-type.h"
 #include "arrow/compute/operation.h"
 
 namespace arrow {

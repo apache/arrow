@@ -20,8 +20,8 @@
 
 #include "parquet/api/io.h"
 #include "parquet/api/schema.h"
-#include "parquet/column_writer.h"
+#include "parquet/column-writer.h"
 #include "parquet/exception.h"
-#include "parquet/file_writer.h"
+#include "parquet/file-writer.h"
 
 #endif  // PARQUET_API_WRITER_H

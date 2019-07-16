@@ -26,10 +26,10 @@
 #include "arrow/builder.h"
 #include "arrow/compute/context.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visitor-inline.h"
 
 namespace arrow {
 namespace compute {

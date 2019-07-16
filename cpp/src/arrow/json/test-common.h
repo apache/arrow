@@ -30,10 +30,10 @@
 #include "arrow/json/converter.h"
 #include "arrow/json/options.h"
 #include "arrow/json/parser.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/type.h"
-#include "arrow/util/string_view.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/util/string-view.h"
+#include "arrow/visitor-inline.h"
 
 namespace arrow {
 namespace json {

@@ -22,7 +22,7 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/util/key_value_metadata.h"
+#include "arrow/util/key-value-metadata.h"
 
 namespace arrow {
 

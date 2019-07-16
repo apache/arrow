@@ -17,7 +17,7 @@
 
 #include "arrow/python/deserialize.h"
 
-#include "arrow/python/numpy_interop.h"
+#include "arrow/python/numpy-interop.h"
 
 #include <cstdint>
 #include <memory>
@@ -34,13 +34,13 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/util.h"
 #include "arrow/table.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parsing.h"
 
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
-#include "arrow/python/numpy_convert.h"
+#include "arrow/python/numpy-convert.h"
 #include "arrow/python/pyarrow.h"
 #include "arrow/python/serialize.h"
 #include "arrow/python/util/datetime.h"

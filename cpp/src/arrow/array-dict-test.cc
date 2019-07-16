@@ -26,12 +26,12 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
-#include "arrow/memory_pool.h"
+#include "arrow/memory-pool.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/gtest-common.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/decimal.h"
 
 namespace arrow {

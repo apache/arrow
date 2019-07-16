@@ -25,7 +25,7 @@
 #include <string>
 #include <vector>
 
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 #include "parquet/exception.h"
 #include "parquet/schema-internal.h"
 #include "parquet/schema.h"

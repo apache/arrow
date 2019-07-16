@@ -23,8 +23,8 @@
 #include "arrow/compute/kernels/compare.h"
 #include "arrow/compute/kernels/filter.h"
 #include "arrow/compute/test-util.h"
-#include "arrow/testing/gtest_common.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-common.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 

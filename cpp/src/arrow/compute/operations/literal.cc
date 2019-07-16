@@ -20,7 +20,7 @@
 #include <memory>
 
 #include "arrow/compute/expression.h"
-#include "arrow/compute/logical_type.h"
+#include "arrow/compute/logical-type.h"
 #include "arrow/scalar.h"
 
 namespace arrow {

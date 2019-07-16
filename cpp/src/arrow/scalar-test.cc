@@ -40,11 +40,11 @@
 #include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
+#include "arrow/memory-pool.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_util.h"
-#include "arrow/type_traits.h"
+#include "arrow/testing/gtest-util.h"
+#include "arrow/type-traits.h"
 
 namespace arrow {
 

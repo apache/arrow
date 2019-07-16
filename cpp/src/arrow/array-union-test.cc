@@ -22,10 +22,10 @@
 #include "arrow/array.h"
 // TODO ipc shouldn't be included here
 #include "arrow/ipc/test-common.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 
 namespace arrow {
 

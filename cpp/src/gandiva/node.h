@@ -26,10 +26,10 @@
 #include "arrow/status.h"
 
 #include "gandiva/arrow.h"
-#include "gandiva/func_descriptor.h"
-#include "gandiva/gandiva_aliases.h"
-#include "gandiva/literal_holder.h"
-#include "gandiva/node_visitor.h"
+#include "gandiva/func-descriptor.h"
+#include "gandiva/gandiva-aliases.h"
+#include "gandiva/literal-holder.h"
+#include "gandiva/node-visitor.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {

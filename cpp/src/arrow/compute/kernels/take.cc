@@ -22,9 +22,9 @@
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernels/take-internal.h"
 #include "arrow/compute/kernels/take.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visitor-inline.h"
 
 namespace arrow {
 namespace compute {

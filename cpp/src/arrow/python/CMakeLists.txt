@@ -28,20 +28,20 @@ add_custom_target(arrow_python-tests)
 add_dependencies(arrow_python-all arrow_python arrow_python-tests)
 
 set(ARROW_PYTHON_SRCS
-    arrow_to_pandas.cc
+    arrow-to-pandas.cc
     benchmark.cc
     common.cc
     config.cc
     decimal.cc
     deserialize.cc
-    extension_type.cc
+    extension-type.cc
     helpers.cc
     inference.cc
     init.cc
     io.cc
-    numpy_convert.cc
-    numpy_to_arrow.cc
-    python_to_arrow.cc
+    numpy-convert.cc
+    numpy-to-arrow.cc
+    python-to-arrow.cc
     pyarrow.cc
     serialize.cc)
 
@@ -114,7 +114,7 @@ arrow_add_pkg_config("arrow-python")
 # ----------------------------------------------------------------------
 
 if(ARROW_BUILD_TESTS)
-  add_library(arrow_python_test_main STATIC util/test_main.cc)
+  add_library(arrow_python_test_main STATIC util/test-main.cc)
 
   target_link_libraries(arrow_python_test_main GTest::GTest)
   target_include_directories(arrow_python_test_main SYSTEM

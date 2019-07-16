@@ -19,7 +19,7 @@
 #define ARROW_VISITOR_H
 
 #include "arrow/status.h"
-#include "arrow/type_fwd.h"
+#include "arrow/type-fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

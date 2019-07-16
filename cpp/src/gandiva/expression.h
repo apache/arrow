@@ -21,7 +21,7 @@
 #include <string>
 
 #include "gandiva/arrow.h"
-#include "gandiva/gandiva_aliases.h"
+#include "gandiva/gandiva-aliases.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {

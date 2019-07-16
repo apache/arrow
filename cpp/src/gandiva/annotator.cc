@@ -20,7 +20,7 @@
 #include <memory>
 #include <string>
 
-#include "gandiva/field_descriptor.h"
+#include "gandiva/field-descriptor.h"
 
 namespace gandiva {
 

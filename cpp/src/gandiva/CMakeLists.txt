@@ -32,49 +32,49 @@ find_package(LLVM)
 
 # Set the path where the bitcode file generated, see precompiled/CMakeLists.txt
 set(GANDIVA_PRECOMPILED_BC_PATH "${CMAKE_CURRENT_BINARY_DIR}/irhelpers.bc")
-set(GANDIVA_PRECOMPILED_CC_PATH "${CMAKE_CURRENT_BINARY_DIR}/precompiled_bitcode.cc")
+set(GANDIVA_PRECOMPILED_CC_PATH "${CMAKE_CURRENT_BINARY_DIR}/precompiled-bitcode.cc")
 set(GANDIVA_PRECOMPILED_CC_IN_PATH
-    "${CMAKE_CURRENT_SOURCE_DIR}/precompiled_bitcode.cc.in")
+    "${CMAKE_CURRENT_SOURCE_DIR}/precompiled-bitcode.cc.in")
 
 # add_arrow_lib will look for this not yet existing file, so flag as generated
 set_source_files_properties(${GANDIVA_PRECOMPILED_CC_PATH} PROPERTIES GENERATED TRUE)
 
 set(SRC_FILES
     annotator.cc
-    bitmap_accumulator.cc
-    cast_time.cc
+    bitmap-accumulator.cc
+    cast-time.cc
     configuration.cc
-    context_helper.cc
-    decimal_ir.cc
-    decimal_type_util.cc
-    decimal_xlarge.cc
+    context-helper.cc
+    decimal-ir.cc
+    decimal-type-util.cc
+    decimal-xlarge.cc
     engine.cc
-    date_utils.cc
-    expr_decomposer.cc
-    expr_validator.cc
+    date-utils.cc
+    expr-decomposer.cc
+    expr-validator.cc
     expression.cc
-    expression_registry.cc
-    exported_funcs_registry.cc
+    expression-registry.cc
+    exported-funcs-registry.cc
     filter.cc
-    function_ir_builder.cc
-    function_registry.cc
-    function_registry_arithmetic.cc
-    function_registry_datetime.cc
-    function_registry_hash.cc
-    function_registry_math_ops.cc
-    function_registry_string.cc
-    function_registry_timestamp_arithmetic.cc
-    function_signature.cc
-    gdv_function_stubs.cc
-    llvm_generator.cc
-    llvm_types.cc
-    like_holder.cc
-    literal_holder.cc
+    function-ir-builder.cc
+    function-registry.cc
+    function-registry-arithmetic.cc
+    function-registry-datetime.cc
+    function-registry-hash.cc
+    function-registry-math-ops.cc
+    function-registry-string.cc
+    function-registry-timestamp-arithmetic.cc
+    function-signature.cc
+    gdv-function-stubs.cc
+    llvm-generator.cc
+    llvm-types.cc
+    like-holder.cc
+    literal-holder.cc
     projector.cc
-    regex_util.cc
-    selection_vector.cc
-    tree_expr_builder.cc
-    to_date_holder.cc
+    regex-util.cc
+    selection-vector.cc
+    tree-expr-builder.cc
+    to-date-holder.cc
     ${GANDIVA_PRECOMPILED_CC_PATH})
 
 set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE RE2::re2)
@@ -185,22 +185,22 @@ endfunction()
 
 add_gandiva_test(internals-test
                  SOURCES
-                 bitmap_accumulator_test.cc
-                 engine_llvm_test.cc
-                 function_signature_test.cc
-                 function_registry_test.cc
-                 llvm_types_test.cc
-                 llvm_generator_test.cc
-                 annotator_test.cc
-                 tree_expr_test.cc
-                 expr_decomposer_test.cc
-                 expression_registry_test.cc
-                 selection_vector_test.cc
-                 lru_cache_test.cc
-                 to_date_holder_test.cc
-                 simple_arena_test.cc
-                 like_holder_test.cc
-                 decimal_type_util_test.cc)
+                 bitmap-accumulator-test.cc
+                 engine-llvm-test.cc
+                 function-signature-test.cc
+                 function-registry-test.cc
+                 llvm-types-test.cc
+                 llvm-generator-test.cc
+                 annotator-test.cc
+                 tree-expr-test.cc
+                 expr-decomposer-test.cc
+                 expression-registry-test.cc
+                 selection-vector-test.cc
+                 lru-cache-test.cc
+                 to-date-holder-test.cc
+                 simple-arena-test.cc
+                 like-holder-test.cc
+                 decimal-type-util-test.cc)
 
 if(ARROW_GANDIVA_JAVA)
   add_subdirectory(jni)

@@ -26,10 +26,10 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/type.h"
-#include "arrow/type_fwd.h"
-#include "arrow/type_traits.h"
+#include "arrow/type-fwd.h"
+#include "arrow/type-traits.h"
 #include "arrow/util/bit-util.h"
 
 namespace arrow {

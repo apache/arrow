@@ -26,7 +26,7 @@
 #include "plasma/io.h"
 
 #ifdef PLASMA_CUDA
-#include "arrow/gpu/cuda_api.h"
+#include "arrow/gpu/cuda-api.h"
 #endif
 #include "arrow/util/ubsan.h"
 

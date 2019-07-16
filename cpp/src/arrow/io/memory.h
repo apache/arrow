@@ -24,8 +24,8 @@
 
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
-#include "arrow/memory_pool.h"
-#include "arrow/util/string_view.h"
+#include "arrow/memory-pool.h"
+#include "arrow/util/string-view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

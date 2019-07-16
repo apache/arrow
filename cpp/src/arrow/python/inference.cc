@@ -16,7 +16,7 @@
 // under the License.
 
 #include "arrow/python/inference.h"
-#include "arrow/python/numpy_interop.h"
+#include "arrow/python/numpy-interop.h"
 
 #include <datetime.h>
 
@@ -34,7 +34,7 @@
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/iterators.h"
-#include "arrow/python/numpy_convert.h"
+#include "arrow/python/numpy-convert.h"
 #include "arrow/python/util/datetime.h"
 
 namespace arrow {

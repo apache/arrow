@@ -115,7 +115,7 @@ set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static
 
 if(WIN32 OR NOT ARROW_BUILD_SHARED)
   # The benchmarks depend on some static Thrift symbols
-  set(PARQUET_BENCHMARK_LINK_OPTION STATIC_LINK_LIBS benchmark::benchmark_main
+  set(PARQUET_BENCHMARK_LINK_OPTION STATIC_LINK_LIBS benchmark::benchmark-main
                                     ${PARQUET_STATIC_TEST_LINK_LIBS})
 else()
   set(PARQUET_BENCHMARK_LINK_OPTION EXTRA_LINK_LIBS parquet_shared)
@@ -157,17 +157,17 @@ add_custom_command(OUTPUT ${THRIFT_OUTPUT_FILES}
 
 set(PARQUET_SRCS
     arrow/reader.cc
-    arrow/record_reader.cc
+    arrow/record-reader.cc
     arrow/schema.cc
     arrow/writer.cc
-    bloom_filter.cc
-    column_reader.cc
-    column_scanner.cc
-    column_writer.cc
-    deprecated_io.cc
+    bloom-filter.cc
+    column-reader.cc
+    column-scanner.cc
+    column-writer.cc
+    deprecated-io.cc
     encoding.cc
-    file_reader.cc
-    file_writer.cc
+    file-reader.cc
+    file-writer.cc
     metadata.cc
     murmur3.cc
     parquet_constants.cpp
@@ -277,9 +277,9 @@ add_subdirectory(arrow)
 
 arrow_install_all_headers("parquet")
 
-configure_file(parquet_version.h.in "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h" @ONLY)
+configure_file(parquet-version.h.in "${CMAKE_CURRENT_BINARY_DIR}/parquet-version.h" @ONLY)
 
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet-version.h"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet")
 
 # pkg-config support
@@ -287,8 +287,8 @@ arrow_add_pkg_config("parquet")
 
 add_parquet_test(internals-test
                  SOURCES
-                 bloom_filter-test.cc
-                 deprecated_io-test.cc
+                 bloom-filter-test.cc
+                 deprecated-io-test.cc
                  properties-test.cc
                  statistics-test.cc
                  encoding-test.cc
@@ -299,14 +299,14 @@ add_parquet_test(internals-test
 
 add_parquet_test(reader-test
                  SOURCES
-                 column_reader-test.cc
-                 column_scanner-test.cc
+                 column-reader-test.cc
+                 column-scanner-test.cc
                  reader-test.cc
                  test-util.cc)
 
 add_parquet_test(writer-test
                  SOURCES
-                 column_writer-test.cc
+                 column-writer-test.cc
                  file-serialize-test.cc
                  test-util.cc)
 

@@ -21,10 +21,10 @@
 
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/writer.h"
-#include "parquet/column_reader.h"
-#include "parquet/column_writer.h"
-#include "parquet/file_reader.h"
-#include "parquet/file_writer.h"
+#include "parquet/column-reader.h"
+#include "parquet/column-writer.h"
+#include "parquet/file-reader.h"
+#include "parquet/file-writer.h"
 #include "parquet/platform.h"
 
 #include "arrow/api.h"

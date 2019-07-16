@@ -23,7 +23,7 @@
 
 #include "arrow/util/logging.h"
 
-#include "gandiva/date_utils.h"
+#include "gandiva/date-utils.h"
 #include "gandiva/precompiled/types.h"
 
 namespace gandiva {

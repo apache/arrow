@@ -26,14 +26,14 @@
 #include "arrow/ipc/feather-internal.h"
 #include "arrow/ipc/feather_generated.h"
 #include "arrow/ipc/test-common.h"
-#include "arrow/memory_pool.h"
-#include "arrow/pretty_print.h"
-#include "arrow/record_batch.h"
+#include "arrow/memory-pool.h"
+#include "arrow/pretty-print.h"
+#include "arrow/record-batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/type.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 
 namespace arrow {
 

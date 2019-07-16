@@ -31,13 +31,13 @@
 #include "arrow/ipc/json-integration.h"
 #include "arrow/ipc/json-internal.h"
 #include "arrow/ipc/test-common.h"
-#include "arrow/memory_pool.h"
-#include "arrow/record_batch.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/memory-pool.h"
+#include "arrow/record-batch.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
+#include "arrow/type-traits.h"
 
 namespace arrow {
 namespace ipc {

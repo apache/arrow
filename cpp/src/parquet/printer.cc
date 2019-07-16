@@ -24,11 +24,11 @@
 #include <string>
 #include <vector>
 
-#include "arrow/util/key_value_metadata.h"
+#include "arrow/util/key-value-metadata.h"
 
-#include "parquet/column_scanner.h"
+#include "parquet/column-scanner.h"
 #include "parquet/exception.h"
-#include "parquet/file_reader.h"
+#include "parquet/file-reader.h"
 #include "parquet/metadata.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"

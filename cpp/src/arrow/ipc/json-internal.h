@@ -29,7 +29,7 @@
 #include "rapidjson/writer.h"        // IWYU pragma: export
 
 #include "arrow/status.h"    // IWYU pragma: export
-#include "arrow/type_fwd.h"  // IWYU pragma: keep
+#include "arrow/type-fwd.h"  // IWYU pragma: keep
 #include "arrow/util/visibility.h"
 
 namespace rj = arrow::rapidjson;

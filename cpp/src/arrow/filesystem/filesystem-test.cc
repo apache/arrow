@@ -27,7 +27,7 @@
 #include "arrow/filesystem/path-util.h"
 #include "arrow/filesystem/test-util.h"
 #include "arrow/io/interfaces.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 
 namespace arrow {
 namespace fs {

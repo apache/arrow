@@ -89,8 +89,8 @@ set(OUTPUT_DIR ${ARROW_BINARY_DIR}/src)
 file(MAKE_DIRECTORY ${OUTPUT_DIR})
 
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift
-                   COMMAND python generate_error_codes.py ${CMAKE_CURRENT_BINARY_DIR}
-                   DEPENDS generate_error_codes.py
+                   COMMAND python generate-error-codes.py ${CMAKE_CURRENT_BINARY_DIR}
+                   DEPENDS generate-error-codes.py
                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(SRC_FILES

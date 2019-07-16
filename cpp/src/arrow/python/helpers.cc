@@ -16,7 +16,7 @@
 // under the License.
 
 // helpers.h includes a NumPy header, so we include this first
-#include "arrow/python/numpy_interop.h"
+#include "arrow/python/numpy-interop.h"
 
 #include "arrow/python/helpers.h"
 
@@ -27,7 +27,7 @@
 
 #include "arrow/python/common.h"
 #include "arrow/python/decimal.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/logging.h"
 
 #include <arrow/api.h>

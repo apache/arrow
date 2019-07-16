@@ -19,7 +19,7 @@
 
 from pyarrow.includes.common cimport *
 
-cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
+cdef extern from "arrow/util/key-value-metadata.h" namespace "arrow" nogil:
     cdef cppclass CKeyValueMetadata" arrow::KeyValueMetadata":
         CKeyValueMetadata()
         CKeyValueMetadata(const unordered_map[c_string, c_string]&)
@@ -1366,7 +1366,7 @@ cdef extern from 'arrow/python/inference.h' namespace 'arrow::py':
     c_bool IsPyFloat(object o)
 
 
-cdef extern from 'arrow/extension_type.h' namespace 'arrow':
+cdef extern from 'arrow/extension-type.h' namespace 'arrow':
     cdef cppclass CExtensionType" arrow::ExtensionType"(CDataType):
         c_string extension_name()
         shared_ptr[CDataType] storage_type()
@@ -1377,7 +1377,7 @@ cdef extern from 'arrow/extension_type.h' namespace 'arrow':
         shared_ptr[CArray] storage()
 
 
-cdef extern from 'arrow/python/extension_type.h' namespace 'arrow::py':
+cdef extern from 'arrow/python/extension-type.h' namespace 'arrow::py':
     cdef cppclass CPyExtensionType \
             " arrow::py::PyExtensionType"(CExtensionType):
         @staticmethod

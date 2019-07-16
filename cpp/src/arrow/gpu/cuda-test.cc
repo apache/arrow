@@ -25,10 +25,10 @@
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/test-common.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/testing/util.h"
 
-#include "arrow/gpu/cuda_api.h"
+#include "arrow/gpu/cuda-api.h"
 
 namespace arrow {
 namespace cuda {

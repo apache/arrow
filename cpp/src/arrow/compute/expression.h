@@ -20,7 +20,7 @@
 #include <memory>
 #include <string>
 
-#include "arrow/compute/type_fwd.h"
+#include "arrow/compute/type-fwd.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"

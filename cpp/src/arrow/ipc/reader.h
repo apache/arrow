@@ -25,7 +25,7 @@
 
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
-#include "arrow/record_batch.h"
+#include "arrow/record-batch.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

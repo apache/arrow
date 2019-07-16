@@ -26,8 +26,8 @@
 #include <vector>
 
 #include "arrow/status.h"
-#include "arrow/type_fwd.h"  // IWYU pragma: export
-#include "arrow/util/checked_cast.h"
+#include "arrow/type-fwd.h"  // IWYU pragma: export
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visitor.h"  // IWYU pragma: keep

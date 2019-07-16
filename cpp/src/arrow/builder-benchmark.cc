@@ -26,11 +26,11 @@
 #include "benchmark/benchmark.h"
 
 #include "arrow/builder.h"
-#include "arrow/memory_pool.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/memory-pool.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string-view.h"
 
 namespace arrow {
 

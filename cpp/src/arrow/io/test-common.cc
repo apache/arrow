@@ -31,8 +31,8 @@
 #include "arrow/buffer.h"
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
-#include "arrow/memory_pool.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/memory-pool.h"
+#include "arrow/testing/gtest-util.h"
 
 namespace arrow {
 namespace io {

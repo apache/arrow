@@ -21,7 +21,7 @@
 #include <cstdint>
 #include <utility>
 
-#include "arrow/memory_pool.h"
+#include "arrow/memory-pool.h"
 #include "arrow/status.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"

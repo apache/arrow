@@ -19,7 +19,7 @@
 #define PRECOMPILED_TYPES_H
 
 #include <cstdint>
-#include "gandiva/gdv_function_stubs.h"
+#include "gandiva/gdv-function-stubs.h"
 
 // Use the same names as in arrow data types. Makes it easy to write pre-processor macros.
 using boolean = bool;

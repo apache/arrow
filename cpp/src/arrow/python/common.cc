@@ -21,9 +21,9 @@
 #include <mutex>
 #include <string>
 
-#include "arrow/memory_pool.h"
+#include "arrow/memory-pool.h"
 #include "arrow/status.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/checked-cast.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/python/helpers.h"

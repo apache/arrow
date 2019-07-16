@@ -28,7 +28,7 @@
 #include "arrow/array.h"
 #include "arrow/io/test-common.h"
 #include "arrow/ipc/writer.h"
-#include "arrow/record_batch.h"
+#include "arrow/record-batch.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/logging.h"

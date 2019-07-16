@@ -24,7 +24,7 @@
 #include <memory>
 #include <string>
 
-#include "arrow/dataset/type_fwd.h"
+#include "arrow/dataset/type-fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/util/macros.h"
 

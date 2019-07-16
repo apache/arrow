@@ -24,7 +24,7 @@
 #include "arrow/compute/kernels/aggregate.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
+#include "arrow/type-traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 

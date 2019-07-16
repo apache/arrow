@@ -31,7 +31,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/ipc/test-common.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"

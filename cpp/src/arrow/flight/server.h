@@ -24,12 +24,12 @@
 #include <string>
 #include <vector>
 
-#include "arrow/flight/server_auth.h"
+#include "arrow/flight/server-auth.h"
 #include "arrow/flight/types.h"       // IWYU pragma: keep
 #include "arrow/flight/visibility.h"  // IWYU pragma: keep
 #include "arrow/ipc/dictionary.h"
-#include "arrow/memory_pool.h"
-#include "arrow/record_batch.h"
+#include "arrow/memory-pool.h"
+#include "arrow/record-batch.h"
 
 namespace arrow {
 

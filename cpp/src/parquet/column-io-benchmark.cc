@@ -20,9 +20,9 @@
 #include "arrow/array.h"
 #include "arrow/testing/random.h"
 
-#include "parquet/column_reader.h"
-#include "parquet/column_writer.h"
-#include "parquet/file_reader.h"
+#include "parquet/column-reader.h"
+#include "parquet/column-writer.h"
+#include "parquet/file-reader.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/thrift.h"

@@ -33,10 +33,10 @@
 #include "arrow/ipc/json-integration.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
-#include "arrow/pretty_print.h"
-#include "arrow/record_batch.h"
+#include "arrow/pretty-print.h"
+#include "arrow/record-batch.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/type.h"
 
 DEFINE_string(arrow, "", "Arrow file name");

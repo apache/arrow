@@ -26,8 +26,8 @@
 #include "arrow/api.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
-#include "arrow/record_batch.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/record-batch.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/util/stopwatch.h"
 #include "arrow/util/thread-pool.h"
 

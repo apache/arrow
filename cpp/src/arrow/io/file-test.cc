@@ -37,9 +37,9 @@
 #include "arrow/io/file.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/test-common.h"
-#include "arrow/memory_pool.h"
+#include "arrow/memory-pool.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/io-util.h"
 

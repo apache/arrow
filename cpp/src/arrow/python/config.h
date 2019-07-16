@@ -20,7 +20,7 @@
 
 #include "arrow/python/platform.h"
 
-#include "arrow/python/numpy_interop.h"
+#include "arrow/python/numpy-interop.h"
 #include "arrow/python/visibility.h"
 
 #if PY_MAJOR_VERSION >= 3

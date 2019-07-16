@@ -23,15 +23,15 @@
 #include <unordered_set>
 #include <vector>
 
-#include "gandiva/dex_visitor.h"
-#include "gandiva/field_descriptor.h"
-#include "gandiva/func_descriptor.h"
-#include "gandiva/function_holder.h"
-#include "gandiva/gandiva_aliases.h"
-#include "gandiva/in_holder.h"
-#include "gandiva/literal_holder.h"
-#include "gandiva/native_function.h"
-#include "gandiva/value_validity_pair.h"
+#include "gandiva/dex-visitor.h"
+#include "gandiva/field-descriptor.h"
+#include "gandiva/func-descriptor.h"
+#include "gandiva/function-holder.h"
+#include "gandiva/gandiva-aliases.h"
+#include "gandiva/in-holder.h"
+#include "gandiva/literal-holder.h"
+#include "gandiva/native-function.h"
+#include "gandiva/value-validity-pair.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {

@@ -18,9 +18,9 @@
 #include "benchmark/benchmark.h"
 
 #include "arrow/array.h"
-#include "arrow/array/builder_binary.h"
-#include "arrow/array/builder_dict.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/array/builder-binary.h"
+#include "arrow/array/builder-dict.h"
+#include "arrow/testing/gtest-util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"

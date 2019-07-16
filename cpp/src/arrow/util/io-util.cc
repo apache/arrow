@@ -22,7 +22,7 @@
 
 #define _FILE_OFFSET_BITS 64
 
-#include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
+#include "arrow/util/windows-compatibility.h"  // IWYU pragma: keep
 
 #include <algorithm>
 #include <cerrno>

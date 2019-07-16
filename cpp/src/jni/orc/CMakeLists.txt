@@ -36,7 +36,7 @@ set(ARROW_BUILD_STATIC OFF)
 add_arrow_lib(arrow_orc_jni
               BUILD_SHARED
               SOURCES
-              jni_wrapper.cpp
+              jni-wrapper.cpp
               OUTPUTS
               ARROW_ORC_JNI_LIBRARIES
               SHARED_PRIVATE_LINK_LIBS

@@ -22,7 +22,7 @@
 #include <memory>
 
 #include "arrow/array.h"
-#include "arrow/record_batch.h"
+#include "arrow/record-batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 

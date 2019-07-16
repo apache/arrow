@@ -24,9 +24,9 @@
 
 #include "arrow/status.h"
 
-#include "arrow/flight/client_auth.h"
+#include "arrow/flight/client-auth.h"
 #include "arrow/flight/server.h"
-#include "arrow/flight/server_auth.h"
+#include "arrow/flight/server-auth.h"
 #include "arrow/flight/types.h"
 #include "arrow/flight/visibility.h"
 

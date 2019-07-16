@@ -29,7 +29,7 @@
 #include "arrow/dbi/hiveserver2/thrift-internal.h"
 
 #include "arrow/status.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest-util.h"
 
 namespace arrow {
 namespace hiveserver2 {
