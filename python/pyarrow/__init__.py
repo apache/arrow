@@ -209,10 +209,6 @@ def get_include():
     return _os.path.join(_os.path.dirname(__file__), 'include')
 
 
-def _get_base_libraries():
-    return ['arrow', 'arrow_python']
-
-
 def _get_pkg_config_executable():
     return _os.environ.get('PKG_CONFIG', 'pkg-config')
 
@@ -255,16 +251,7 @@ def get_libraries():
     Return list of library names to include in the `libraries` argument for C
     or Cython extensions using pyarrow
     """
-    libs = _get_base_libraries()
-    if _sys.platform != 'win32':
-        so_version = get_so_version()
-        if _sys.platform == 'darwin':
-            return ['{}.{}'.format(libname, so_version) for libname in libs]
-        else:
-            return [':lib{}.so.{}'.format(libname, so_version)
-                    for libname in libs]
-    else:
-        return libs
+    return ['arrow', 'arrow_python']
 
 
 def get_library_dirs():
