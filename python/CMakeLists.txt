@@ -357,17 +357,9 @@ if(PYARROW_BUNDLE_ARROW_CPP)
     bundle_boost_lib(Boost_SYSTEM_LIBRARY)
   endif()
 
-  find_package(ZLIB)
   if(MSVC)
     bundle_arrow_implib(ARROW_SHARED_IMP_LIB)
     bundle_arrow_implib(ARROW_PYTHON_SHARED_IMP_LIB)
-    bundle_arrow_dependency(zlib zlib.dll)
-  elseif(APPLE)
-    # zlib is unavailable by default since mojave
-    bundle_arrow_dependency(zlib "libz.${ZLIB_VERSION_MAJOR}.dylib")
-  else()
-    # neither manylinux1 nor manylinux2010 specification contain zlib
-    bundle_arrow_dependency(zlib "libz.so.${ZLIB_VERSION_MAJOR}")
   endif()
 endif()
 

@@ -384,10 +384,6 @@ class build_ext(_build_ext):
                         "{}_regex".format(self.boost_namespace),
                         implib_required=False)
                 if sys.platform == 'win32':
-                    # zlib uses zlib.dll for Windows
-                    zlib_lib_name = 'zlib'
-                    move_shared_libs(build_prefix, build_lib, zlib_lib_name,
-                                     implib_required=False)
                     if self.with_flight:
                         # DLL dependencies for gRPC / Flight
                         for lib_name in ['cares', 'libprotobuf',
@@ -395,10 +391,6 @@ class build_ext(_build_ext):
                                          'libssl-1_1-x64']:
                             move_shared_libs(build_prefix, build_lib, lib_name,
                                              implib_required=False)
-                else:
-                    zlib_lib_name = 'z'
-                    move_shared_libs(build_prefix, build_lib, zlib_lib_name,
-                                     implib_required=False)
 
             if self.with_plasma:
                 # Move the plasma store

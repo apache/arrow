@@ -234,18 +234,6 @@ def _read_pkg_config_variable(pkgname, cli_args):
     return out.rstrip().decode('utf8')
 
 
-def get_so_version():
-    """
-    Return the SO version for Arrow libraries.
-    """
-    if _sys.platform == 'win32':
-        raise NotImplementedError("Cannot get SO version on Windows")
-    if _has_pkg_config("arrow"):
-        return _read_pkg_config_variable("arrow", ["--variable=so_version"])
-    else:
-        return "100"  # XXX Find a way not to hardcode this?
-
-
 def get_libraries():
     """
     Return list of library names to include in the `libraries` argument for C

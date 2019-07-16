@@ -38,7 +38,7 @@ use `PYTHON_VERSION="2.7"` with `UNICODE_WIDTH=32`):
 
 ```bash
 # Build the python packages
-docker run --env PYTHON_VERSION="2.7" --env UNICODE_WIDTH=16 --shm-size=2g --rm -t -i -v $PWD:/io -v $PWD/../../:/arrow quay.io/ursa-labs/arrow_manylinux1_x86_64_base:latest /io/build_arrow.sh
+docker-compose run -e PYTHON_VERSION="2.7" -e UNICODE_WIDTH=16 python-manylinux1
 # Now the new packages are located in the dist/ folder
 ls -l dist/
 ```
@@ -49,7 +49,7 @@ a dependency to a new version, we also need to adjust it. You can rebuild
 this image using
 
 ```bash
-docker build -t arrow_manylinux1_x86_64_base -f Dockerfile-x86_64_base .
+docker-compose build python-manylinux1
 ```
 
 For each dependency, we have a bash script in the directory `scripts/` that
@@ -59,29 +59,46 @@ dependency is persisted in the docker image. When you do local adjustments to
 this image, you need to change the name of the docker image in the `docker run`
 command.
 
+### Publishing a new build image
+
+If you have write access to the Docker Hub Ursa Labs account, you can directly
+publish a build image that you built locally.
+
+```bash
+$ docker-compose push python-manylinux1
+```
+
 ### Using quay.io to trigger and build the docker image
 
-1.  Make the change in the build scripts (eg. to modify the boost build, update `scripts/boost.sh`).
+The used images under the docker-compose setup can be freely changed, currently
+the images are hosted on dockerhub.
+
+1.  Make the change in the build scripts (eg. to modify the boost build, update
+    `scripts/boost.sh`).
 
 2.  Setup an account on quay.io and link to your GitHub account
 
 3.  In quay.io,  Add a new repository using :
 
     1.  Link to GitHub repository push
-    2.  Trigger build on changes to a specific branch (eg. myquay) of the repo (eg. `pravindra/arrow`)
+    2.  Trigger build on changes to a specific branch (eg. myquay) of the repo
+        (eg. `pravindra/arrow`)
     3.  Set Dockerfile location to `/python/manylinux1/Dockerfile-x86_64_base`
     4.  Set Context location to `/python/manylinux1`
 
 4.  Push change (in step 1) to the branch specified in step 3.ii
 
-    *  This should trigger a build in quay.io, the build takes about 2 hrs to finish.
+    *  This should trigger a build in quay.io, the build takes about 2 hrs to
+       finish.
 
-5.  Add a tag `latest` to the build after step 4 finishes, save the build ID (eg. `quay.io/pravindra/arrow_manylinux1_x86_64_base:latest`)
+5.  Add a tag `latest` to the build after step 4 finishes, save the build ID
+    (eg. `quay.io/pravindra/arrow_manylinux1_x86_64_base:latest`)
 
 6.  In your arrow PR,
 
     *  include the change from 1.
-    *  modify `travis_script_manylinux.sh` to switch to the location from step 5 for the docker image.
+    *  modify the docker-compose.yml's python-manylinux1 entryo to switch to
+       the location from step 5 for the docker image.
 
 ## TensorFlow compatible wheels for Arrow
 
