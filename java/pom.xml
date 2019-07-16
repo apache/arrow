@@ -20,7 +20,7 @@
 
   <groupId>org.apache.arrow</groupId>
   <artifactId>arrow-java-root</artifactId>
-  <version>0.14.1-SNAPSHOT</version>
+  <version>0.14.1</version>
   <packaging>pom</packaging>
 
   <name>Apache Arrow Java Root POM</name>
