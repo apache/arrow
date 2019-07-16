@@ -202,7 +202,7 @@ DIV(int64)
       gdv_fn_context_set_error_msg(context, err_msg);           \
       return 0;                                                 \
     }                                                           \
-    return trunc(in1 / in2);                                    \
+    return static_cast<TYPE>(trunc(in1 / in2));                 \
   }
 
 DIV_FLOAT(float32)
