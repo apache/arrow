@@ -215,10 +215,6 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
     // ignore this requst.
     return PlasmaError::ObjectExists;
   }
-  auto ptr = std::unique_ptr<ObjectTableEntry>(new ObjectTableEntry());
-  entry = store_info_.objects.emplace(object_id, std::move(ptr)).first->second.get();
-  entry->data_size = data_size;
-  entry->metadata_size = metadata_size;
 
   int fd = -1;
   int64_t map_size = 0;
@@ -226,19 +222,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   uint8_t* pointer = nullptr;
   auto total_size = data_size + metadata_size;
 
-  if (device_num != 0) {
-#ifdef PLASMA_CUDA
-    auto st = AllocateCudaMemory(device_num, total_size, &pointer, &entry->ipc_handle);
-    if (!st.ok()) {
-      ARROW_LOG(ERROR) << "Failed to allocate CUDA memory: " << st.ToString();
-      return PlasmaError::OutOfMemory;
-    }
-    result->ipc_handle = entry->ipc_handle;
-#else
-    ARROW_LOG(ERROR) << "device_num != 0 but CUDA not enabled";
-    return PlasmaError::OutOfMemory;
-#endif
-  } else {
+  if (device_num == 0) {
     pointer = AllocateMemory(total_size, &fd, &map_size, &offset);
     if (!pointer) {
       ARROW_LOG(ERROR) << "Not enough memory to create the object " << object_id.hex()
@@ -247,8 +231,26 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
                        << ", will send a reply of PlasmaError::OutOfMemory";
       return PlasmaError::OutOfMemory;
     }
+  } else {
+#ifdef PLASMA_CUDA
+    /// IPC GPU handle to share with clients.
+    std::shared_ptr<::arrow::cuda::CudaIpcMemHandle> ipc_handle;
+    auto st = AllocateCudaMemory(device_num, total_size, &pointer, &ipc_handle);
+    if (!st.ok()) {
+      ARROW_LOG(ERROR) << "Failed to allocate CUDA memory: " << st.ToString();
+      return PlasmaError::OutOfMemory;
+    }
+    result->ipc_handle = ipc_handle;
+#else
+    ARROW_LOG(ERROR) << "device_num != 0 but CUDA not enabled";
+    return PlasmaError::OutOfMemory;
+#endif
   }
 
+  auto ptr = std::unique_ptr<ObjectTableEntry>(new ObjectTableEntry());
+  entry = store_info_.objects.emplace(object_id, std::move(ptr)).first->second.get();
+  entry->data_size = data_size;
+  entry->metadata_size = metadata_size;
   entry->pointer = pointer;
   // TODO(pcm): Set the other fields.
   entry->fd = fd;
@@ -258,6 +260,10 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   entry->device_num = device_num;
   entry->create_time = std::time(nullptr);
   entry->construct_duration = -1;
+
+#ifdef PLASMA_CUDA
+  entry->ipc_handle = result->ipc_handle;
+#endif
 
   result->store_fd = fd;
   result->data_offset = offset;
