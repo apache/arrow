@@ -29,7 +29,9 @@ import six
 
 import pyarrow as pa
 from pyarrow.lib import _pandas_api
-from pyarrow.compat import (builtin_pickle, PY2, zip_longest, Sequence)  # noqa
+from pyarrow.compat import (builtin_pickle,  # noqa
+                            PY2, zip_longest, Sequence,
+                            unicode_type)
 
 
 _logical_type_map = {}
@@ -899,6 +901,10 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
 
     new_levels = []
     encoder = operator.methodcaller('encode', 'UTF-8')
+
+    def to_unicode(x):
+        return x if isinstance(x, unicode_type) else x.decode('UTF-8')
+
     for level, pandas_dtype in levels_dtypes:
         dtype = _pandas_type_to_numpy_type(pandas_dtype)
 
@@ -907,6 +913,8 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         # convert them back to bytes to preserve metadata.
         if dtype == np.bytes_:
             level = level.map(encoder)
+        elif dtype == np.unicode_:
+            level = level.map(to_unicode)
         elif level.dtype != dtype:
             level = level.astype(dtype)
 
