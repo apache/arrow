@@ -209,6 +209,43 @@ def get_include():
     return _os.path.join(_os.path.dirname(__file__), 'include')
 
 
+def _get_pkg_config_executable():
+    return _os.environ.get('PKG_CONFIG', 'pkg-config')
+
+
+def _has_pkg_config(pkgname):
+    import subprocess
+    try:
+        return subprocess.call([_get_pkg_config_executable(),
+                                '--exists', pkgname]) == 0
+    except OSError:
+        # TODO: replace with FileNotFoundError once we ditch 2.7
+        return False
+
+
+def _read_pkg_config_variable(pkgname, cli_args):
+    import subprocess
+    cmd = [_get_pkg_config_executable(), pkgname] + cli_args
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+    out, err = proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError("pkg-config failed: " + err.decode('utf8'))
+    return out.rstrip().decode('utf8')
+
+
+def get_so_version():
+    """
+    Return the SO version for Arrow libraries.
+    """
+    if _sys.platform == 'win32':
+        raise NotImplementedError("Cannot get SO version on Windows")
+    if _has_pkg_config("arrow"):
+        return _read_pkg_config_variable("arrow", ["--variable=so_version"])
+    else:
+        return "100"  # XXX Find a way not to hardcode this?
+
+
 def get_libraries():
     """
     Return list of library names to include in the `libraries` argument for C
@@ -223,38 +260,37 @@ def get_library_dirs():
     linking C or Cython extensions using pyarrow
     """
     package_cwd = _os.path.dirname(__file__)
-
     library_dirs = [package_cwd]
+
+    def append_library_dir(library_dir):
+        if library_dir not in library_dirs:
+            library_dirs.append(library_dir)
 
     # Search library paths via pkg-config. This is necessary if the user
     # installed libarrow and the other shared libraries manually and they
     # are not shipped inside the pyarrow package (see also ARROW-2976).
-    from subprocess import call, PIPE, Popen
-    pkg_config_executable = _os.environ.get('PKG_CONFIG', None) or 'pkg-config'
-    for package in ["arrow", "plasma", "arrow_python"]:
-        cmd = '{0} --exists {1}'.format(pkg_config_executable, package).split()
-        try:
-            if call(cmd) == 0:
-                cmd = [pkg_config_executable, "--libs-only-L", package]
-                proc = Popen(cmd, stdout=PIPE, stderr=PIPE)
-                out, err = proc.communicate()
-                library_dir = out.rstrip().decode('utf-8')[2:] # strip "-L"
-                if library_dir not in library_dirs:
-                    library_dirs.append(library_dir)
-        except FileNotFoundError:
-            pass
+    pkg_config_executable = _os.environ.get('PKG_CONFIG') or 'pkg-config'
+    for pkgname in ["arrow", "arrow_python"]:
+        if _has_pkg_config(pkgname):
+            library_dir = _read_pkg_config_variable(pkgname,
+                                                    ["--libs-only-L"])
+            assert library_dir.startswith("-L")
+            append_library_dir(library_dir[2:])
 
     if _sys.platform == 'win32':
         # TODO(wesm): Is this necessary, or does setuptools within a conda
         # installation add Library\lib to the linker path for MSVC?
         python_base_install = _os.path.dirname(_sys.executable)
-        library_lib = _os.path.join(python_base_install, 'Library', 'lib')
+        library_dir = _os.path.join(python_base_install, 'Library', 'lib')
 
-        if _os.path.exists(_os.path.join(library_lib, 'arrow.lib')):
-            library_dirs.append(library_lib)
+        if _os.path.exists(_os.path.join(library_dir, 'arrow.lib')):
+            append_library_dir(library_dir)
 
     # ARROW-4074: Allow for ARROW_HOME to be set to some other directory
-    if 'ARROW_HOME' in _os.environ:
-        library_dirs.append(_os.path.join(_os.environ['ARROW_HOME'], 'lib'))
+    if _os.environ.get('ARROW_HOME'):
+        append_library_dir(_os.path.join(_os.environ['ARROW_HOME'], 'lib'))
+    else:
+        # Python wheels bundle the Arrow libraries in the pyarrow directory.
+        append_library_dir(_os.path.dirname(_os.path.abspath(__file__)))
 
     return library_dirs

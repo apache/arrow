@@ -197,7 +197,9 @@ cdef class DictionaryMemo:
     """
     Tracking container for dictionary-encoded fields
     """
-    pass
+    def __cinit__(self):
+        self.sp_memo.reset(new CDictionaryMemo())
+        self.memo = self.sp_memo.get()
 
 
 cdef class DictionaryType(DataType):
@@ -1034,7 +1036,7 @@ cdef class Schema:
             CDictionaryMemo* arg_dict_memo
 
         if dictionary_memo is not None:
-            arg_dict_memo = &dictionary_memo.memo
+            arg_dict_memo = dictionary_memo.memo
         else:
             arg_dict_memo = &temp_memo
 

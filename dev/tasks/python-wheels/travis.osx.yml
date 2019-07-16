@@ -72,7 +72,7 @@ install:
   # install the built wheel and test dependencies
   - install_wheel arrow
   # run unit tests before removing the system libraries
-  - run_unit_tests
+  - run_unit_tests arrow
   # remove libz to ensure that it is properly bundled
   - sudo find /usr -name libz.* -delete
   # run the import tests
