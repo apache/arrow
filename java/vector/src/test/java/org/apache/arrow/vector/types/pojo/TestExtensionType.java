@@ -205,12 +205,14 @@ public class TestExtensionType {
       return new UUID(bb.getLong(), bb.getLong());
     }
 
-    @Override public int hashCode(int index) {
-      return 0;
+    @Override
+    public int hashCode(int index) {
+      return getUnderlyingVector().hashCode(index);
     }
 
-    @Override public boolean equals(int index, ValueVector to, int toIndex) {
-      return false;
+    @Override
+    public boolean equals(int index, ValueVector to, int toIndex) {
+      return getUnderlyingVector().equals(index, to, toIndex);
     }
 
     public void set(int index, UUID uuid) {

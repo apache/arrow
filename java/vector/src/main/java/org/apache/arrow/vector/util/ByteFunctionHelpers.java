@@ -84,7 +84,10 @@ public class ByteFunctionHelpers {
     return hash;
   }
 
-  private static int comebineHash(int currentHash, int newHash) {
+  /**
+   * Generate a new hashCode with the given current hashCode and new hashCode.
+   */
+  public static int comebineHash(int currentHash, int newHash) {
     return currentHash * 31 + newHash;
   }
 

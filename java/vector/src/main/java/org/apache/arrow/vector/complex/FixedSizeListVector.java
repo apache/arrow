@@ -45,6 +45,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.ByteFunctionHelpers;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.OversizedAllocationException;
@@ -503,7 +504,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     }
     int hash = 0;
     for (int i = 0; i < listSize; i++) {
-      hash = 31 * vector.hashCode(index * listSize + i);
+      hash = ByteFunctionHelpers.comebineHash(hash, vector.hashCode(index * listSize + i));
     }
     return hash;
   }

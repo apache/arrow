@@ -74,12 +74,10 @@ public class DictionaryHashTable {
 
   private final ValueVector dictionary;
 
-  private final ValueVector toEncode;
-
   /**
    * Constructs an empty map with the specified initial capacity and load factor.
    */
-  public DictionaryHashTable(int initialCapacity, ValueVector dictionary, ValueVector toEncode) {
+  public DictionaryHashTable(int initialCapacity, ValueVector dictionary) {
     if (initialCapacity < 0) {
       throw new IllegalArgumentException("Illegal initial capacity: " +
           initialCapacity);
@@ -91,11 +89,10 @@ public class DictionaryHashTable {
     this.threshold = initialCapacity;
 
     this.dictionary = dictionary;
-    this.toEncode = toEncode;
   }
 
-  public DictionaryHashTable(ValueVector dictionary, ValueVector toEncode) {
-    this(DEFAULT_INITIAL_CAPACITY, dictionary, toEncode);
+  public DictionaryHashTable(ValueVector dictionary) {
+    this(DEFAULT_INITIAL_CAPACITY, dictionary);
   }
 
   /**
@@ -132,7 +129,7 @@ public class DictionaryHashTable {
    * @param indexInArray index in vector.
    * @return dictionary vector index or -1 if no value equals.
    */
-  public int getIndex(int indexInArray) {
+  public int getIndex(int indexInArray, ValueVector toEncode) {
     int hash = toEncode.hashCode(indexInArray);
     int index = indexFor(hash, table.length);
     for (DictionaryHashTable.Entry e = table[index]; e != null ; e = e.next) {
