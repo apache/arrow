@@ -246,18 +246,18 @@ mxArray* FeatherReader::ReadVariables() const {
   for (int64_t i = 0; i < num_variables_; ++i) {
     std::shared_ptr<ChunkedArray> column;
     util::HandleStatus(table_reader_->GetColumn(i, &column));
-    std::shared_ptr<Array> chunk = column->chunk(0);
     if (column->num_chunks() != 1) {
       mexErrMsgIdAndTxt("MATLAB:arrow:FeatherReader::ReadVariables",
                         "Chunked columns not yet supported");
     }
+    std::shared_ptr<Array> chunk = column->chunk(0);
     const std::string column_name = table_reader_->GetColumnName(i);
 
     // set the struct fields data
     mxSetField(variables, i, "Name", internal::ReadVariableName(column_name));
-    mxSetField(variables, i, "Type", internal::ReadVariableType(column));
-    mxSetField(variables, i, "Data", internal::ReadVariableData(column, column_name));
-    mxSetField(variables, i, "Valid", internal::ReadVariableValidityBitmap(column));
+    mxSetField(variables, i, "Type", internal::ReadVariableType(chunk));
+    mxSetField(variables, i, "Data", internal::ReadVariableData(chunk, column_name));
+    mxSetField(variables, i, "Valid", internal::ReadVariableValidityBitmap(chunk));
   }
 
   return variables;
