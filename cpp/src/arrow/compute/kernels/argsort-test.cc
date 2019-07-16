@@ -136,7 +136,7 @@ class Random : public RandomImpl {
   using CType = typename TypeTraits<ArrowType>::CType;
 
  public:
-  explicit Random(uint64_t seed) : RandomImpl(seed) {}
+  explicit Random(random::SeedType seed) : RandomImpl(seed) {}
 
   std::shared_ptr<Array> Generate(uint64_t count, double null_prob) {
     return generator.Numeric<ArrowType>(count, std::numeric_limits<CType>::min(),
@@ -147,7 +147,7 @@ class Random : public RandomImpl {
 template <>
 class Random<StringType> : public RandomImpl {
  public:
-  explicit Random(uint64_t seed) : RandomImpl(seed) {}
+  explicit Random(random::SeedType seed) : RandomImpl(seed) {}
 
   std::shared_ptr<Array> Generate(uint64_t count, double null_prob) {
     return generator.String(count, 1, 100, null_prob);
@@ -166,7 +166,7 @@ TYPED_TEST(TestArgsortKernelRandom, SortRandomValues) {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
       auto array = rand.Generate(length, null_probability);
       std::shared_ptr<Array> offsets;
-      arrow::compute::Argsort(&this->ctx_, *array, &offsets);
+      ASSERT_OK(arrow::compute::Argsort(&this->ctx_, *array, &offsets));
       ValidateSorted<ArrayType>(*std::static_pointer_cast<ArrayType>(array),
                                 *std::static_pointer_cast<UInt64Array>(offsets));
     }
