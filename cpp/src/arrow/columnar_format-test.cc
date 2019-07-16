@@ -46,42 +46,42 @@ class TestColumnarFormat : public ::testing::Test {
 
     ColumnMap colmap_out;
     {
-      std::shared_ptr<Shredder> shredder;
-      ASSERT_OK(Shredder::Create(schema, pool, &shredder));
-      ASSERT_OK(shredder->Shred(*array_in));
-      ASSERT_OK(shredder->Finish(&colmap_out));
+      Result<std::shared_ptr<Shredder>> shredder =
+        Shredder::Create(schema, pool);
+      ASSERT_OK(shredder);
+      ASSERT_OK(shredder.ValueOrDie()->Shred(*array_in));
+      Result<ColumnMap> res = shredder.ValueOrDie()->Finish();
+      ASSERT_OK(res);
+      colmap_out = res.ValueOrDie();
     }
 
     // compare colmap_in with colmap_out
     ASSERT_EQ(colmap_in.size(), colmap_out.size());
     for (int i = 0; i < colmap_in.size(); i++) {
-      std::shared_ptr<Int16Array> rep_levels_in;
-      std::shared_ptr<Int16Array> def_levels_in;
-      std::shared_ptr<Array> values_in;
-      colmap_in.Get(i, &rep_levels_in, &def_levels_in, &values_in);
+      ColumnMap::Column column_in = colmap_in.Get(i).ValueOrDie();
 
-      int j = colmap_out.Find(colmap_in.field(i));
-      ASSERT_TRUE(j != kFieldNotFound);
-      std::shared_ptr<Int16Array> rep_levels_out;
-      std::shared_ptr<Int16Array> def_levels_out;
-      std::shared_ptr<Array> values_out;
-      colmap_out.Get(j, &rep_levels_out, &def_levels_out, &values_out);
+      Result<ColumnMap::Column> res = colmap_out.Find(column_in.field);
+      ASSERT_OK(res);
+      ColumnMap::Column column_out = res.ValueOrDie();
 
-      ASSERT_ARRAYS_EQUAL(*rep_levels_in, *rep_levels_out);
-      ASSERT_ARRAYS_EQUAL(*def_levels_in, *def_levels_out);
-      if (values_in) {
-        ASSERT_ARRAYS_EQUAL(*values_in, *values_out);
+      ASSERT_ARRAYS_EQUAL(*column_in.rep_levels, *column_out.rep_levels);
+      ASSERT_ARRAYS_EQUAL(*column_in.def_levels, *column_out.def_levels);
+      if (column_in.values) {
+        ASSERT_ARRAYS_EQUAL(*column_in.values, *column_out.values);
       } else {
-        ASSERT_EQ(nullptr, values_out);
+        ASSERT_EQ(nullptr, column_out.values);
       }
     }
 
     std::shared_ptr<Array> array_out;
     {
-      std::shared_ptr<Stitcher> stitcher;
-      ASSERT_OK(Stitcher::Create(schema, pool, &stitcher));
-      ASSERT_OK(stitcher->Stitch(colmap_out));
-      ASSERT_OK(stitcher->Finish(&array_out));
+      Result<std::shared_ptr<Stitcher>> stitcher =
+        Stitcher::Create(schema, pool);
+      ASSERT_OK(stitcher);
+      ASSERT_OK(stitcher.ValueOrDie()->Stitch(colmap_out));
+      Result<std::shared_ptr<Array>> array = stitcher.ValueOrDie()->Finish();
+      ASSERT_OK(array);
+      array_out = array.ValueOrDie();
     }
 
     // compare stitched array
@@ -95,12 +95,13 @@ class TestColumnarFormat : public ::testing::Test {
   {
     auto f0 = field("f0", uint32(), true);
 
-    std::shared_ptr<Stitcher> stitcher;
-    ASSERT_OK(Stitcher::Create(f0, default_memory_pool(), &stitcher));
+    Result<std::shared_ptr<Stitcher>> stitcher =
+      Stitcher::Create(f0, default_memory_pool());
+    ASSERT_OK(stitcher);
 
     ColumnMap colmap;
     colmap.Put(f0, rep_levels, def_levels, values);
-    ASSERT_RAISES_SUBSTR(Invalid, error, stitcher->Stitch(colmap));
+    ASSERT_RAISES_SUBSTR(Invalid, error, stitcher.ValueOrDie()->Stitch(colmap));
   }
 };
 
@@ -117,10 +118,10 @@ TEST_F(TestColumnarFormat, ColumnMap) {
   map.Put(f1, nullptr, nullptr, nullptr);
 
   EXPECT_EQ(101, map.size());
-  EXPECT_TRUE(map.Find(f1) != kFieldNotFound);
-  EXPECT_TRUE(map.Find(f1) == map.Find(f2));
-  EXPECT_EQ(kFieldNotFound, map.Find(f3));
-  EXPECT_EQ(kFieldNotFound, map.Find(f4));
+  EXPECT_TRUE(map.Find(f1).ok());
+  EXPECT_TRUE(map.Find(f2).ok());
+  EXPECT_FALSE(map.Find(f3).ok());
+  EXPECT_FALSE(map.Find(f4).ok());
 }
 
 TEST_F(TestColumnarFormat, OptionalFields) {
@@ -267,20 +268,26 @@ TEST_F(TestColumnarFormat, ShredderSchemaMismatch) {
   auto array1 = ArrayOf<UInt32Type>({1,2,3});
   auto array2 = ArrayOf<Int32Type>({1,2,3});
 
-  std::shared_ptr<Shredder> shredder;
-  ASSERT_OK(Shredder::Create(schema, default_memory_pool(), &shredder));
-  ASSERT_OK(shredder->Shred(*array1));
-  ASSERT_OK(shredder->Shred(*array1));
-  ASSERT_RAISES_SUBSTR(Invalid, "Array schema doesn't match", shredder->Shred(*array2));
-  ASSERT_OK(shredder->Shred(*array1));
+  Result<std::shared_ptr<Shredder>> shredder =
+    Shredder::Create(schema, default_memory_pool());
+  ASSERT_OK(shredder);
+
+  ASSERT_OK(shredder.ValueOrDie()->Shred(*array1));
+  ASSERT_OK(shredder.ValueOrDie()->Shred(*array1));
+  ASSERT_RAISES_SUBSTR(Invalid, "Array schema doesn't match",
+                       shredder.ValueOrDie()->Shred(*array2));
+  ASSERT_OK(shredder.ValueOrDie()->Shred(*array1));
 }
+
 
 TEST_F(TestColumnarFormat, StitcherNoData) {
   auto f0 = field("f0", uint32(), true);
-  std::shared_ptr<Stitcher> stitcher;
-  ASSERT_OK(Stitcher::Create(f0, default_memory_pool(), &stitcher));
-  ColumnMap colmap;
-  ASSERT_RAISES_SUBSTR(Invalid, "No data for field", stitcher->Stitch(colmap));
+
+  Result<std::shared_ptr<Stitcher>> stitcher =
+    Stitcher::Create(f0, default_memory_pool());
+  ASSERT_OK(stitcher);
+  ASSERT_RAISES_SUBSTR(Invalid, "No data for field",
+                       stitcher.ValueOrDie()->Stitch(ColumnMap()));
 }
 
 TEST_F(TestColumnarFormat, StitcherDifferentNumberOfLevels) {
@@ -339,8 +346,9 @@ TEST_F(TestColumnarFormat, StitcherNotAllLevelsConsumed) {
   auto f3 = field("f3", uint32(), true);
   auto f0 = field("f0", struct_({f1, f2, f3}), true);
 
-  std::shared_ptr<Stitcher> stitcher;
-  ASSERT_OK(Stitcher::Create(f0, default_memory_pool(), &stitcher));
+  Result<std::shared_ptr<Stitcher>> stitcher =
+    Stitcher::Create(f0, default_memory_pool());
+  ASSERT_OK(stitcher);
 
   {
     ColumnMap colmap;
@@ -353,7 +361,8 @@ TEST_F(TestColumnarFormat, StitcherNotAllLevelsConsumed) {
     colmap.Put(f3, ArrayOf<Int16Type>({0,0,0}),
                    ArrayOf<Int16Type>({0,0,0}),
                    ArrayOf<UInt32Type>({}));
-    ASSERT_RAISES_SUBSTR(Invalid, "Not all levels were consumed", stitcher->Stitch(colmap));
+    ASSERT_RAISES_SUBSTR(Invalid, "Not all levels were consumed",
+                         stitcher.ValueOrDie()->Stitch(colmap));
   }
 }
 

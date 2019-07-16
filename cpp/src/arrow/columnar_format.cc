@@ -26,37 +26,20 @@
 using arrow::internal::checked_cast;
 using arrow::internal::make_unique;
 
-namespace arrow {
-
 // ColumnMap implementation
+namespace {
 
-class ColumnMap::Impl {
- public:
-  class ColumnData {
-   public:
-    std::shared_ptr<Field> field;
-    std::shared_ptr<Int16Array> rep_levels;
-    std::shared_ptr<Int16Array> def_levels;
-    std::shared_ptr<Array> values;
-  };
-
-  // Return position if found or -(ins_pos-1) if not found
-  int Find(const std::shared_ptr<Field>& field) const;
-
-  // Elements are ordered by pointer value ColumnData::field::get()
-  std::vector<ColumnData> columns_;
-};
-
-int ColumnMap::Impl::Find(const std::shared_ptr<Field>& field) const {
+int FindColumn(const std::vector<arrow::ColumnMap::Column>& columns,
+               const std::shared_ptr<arrow::Field>& field) {
   // First, binary search is used (equality is by pointer value).
   // This helps to locate elements fast when the objects from the schema are queried for.
   int low = 0;
-  int high = static_cast<int>(columns_.size()) - 1;
+  int high = static_cast<int>(columns.size()) - 1;
   while (low <= high) {
     int mid = (low + high) / 2;
-    if (columns_[mid].field.get() < field.get()) {
+    if (columns[mid].field.get() < field.get()) {
       low = mid + 1;
-    } else if (columns_[mid].field.get() > field.get()) {
+    } else if (columns[mid].field.get() > field.get()) {
       high = mid - 1;
     } else {
       return mid;
@@ -65,8 +48,8 @@ int ColumnMap::Impl::Find(const std::shared_ptr<Field>& field) const {
 
   // If desired element is not found, linear search is attempted
   // by using Field::Equals(). This is more expensive.
-  for (int i = 0; i < static_cast<int>(columns_.size()); i++) {
-    if (columns_[i].field->Equals(*field)) {
+  for (int i = 0; i < static_cast<int>(columns.size()); i++) {
+    if (columns[i].field->Equals(*field)) {
       return i;
     }
   }
@@ -74,66 +57,48 @@ int ColumnMap::Impl::Find(const std::shared_ptr<Field>& field) const {
   return -low-1;
 }
 
-ColumnMap::ColumnMap() : impl_(new Impl()) {
-}
+} // anonymous namespace
 
-ColumnMap::~ColumnMap() {
+namespace arrow {
+
+void ColumnMap::Put(const Column& column) {
+  int i = FindColumn(columns_, column.field);
+  if (i < 0) {
+    i = -i-1;
+    columns_.insert(columns_.begin() + i, Column());
+  }
+  columns_[i] = column;
 }
 
 void ColumnMap::Put(const std::shared_ptr<Field>& field,
                     const std::shared_ptr<Int16Array>& rep_levels,
                     const std::shared_ptr<Int16Array>& def_levels,
                     const std::shared_ptr<Array>& values) {
-  int i = impl_->Find(field);
-  if (i < 0) {
-    i = -i-1;
-    impl_->columns_.insert(impl_->columns_.begin() + i, Impl::ColumnData());
-    impl_->columns_[i].field = field;
-  }
-  impl_->columns_[i].rep_levels = rep_levels;
-  impl_->columns_[i].def_levels = def_levels;
-  impl_->columns_[i].values = values;
+  Column column;
+  column.field = field;
+  column.rep_levels = rep_levels;
+  column.def_levels = def_levels;
+  column.values = values;
+
+  Put(column);
 }
 
-int ColumnMap::Find(const std::shared_ptr<Field>& field) const {
-  int i = impl_->Find(field);
-  return (i >= 0) ? i : kFieldNotFound;
-}
-
-int ColumnMap::size() const {
-  return static_cast<int>(impl_->columns_.size());
-}
-
-std::shared_ptr<Field> ColumnMap::field(int i) const {
-  return impl_->columns_[i].field;
-}
-
-void ColumnMap::Get(int i, std::shared_ptr<Int16Array>* rep_levels,
-                           std::shared_ptr<Int16Array>* def_levels,
-                           std::shared_ptr<Array>* values) const {
-  if (rep_levels) {
-    *rep_levels = impl_->columns_[i].rep_levels;
-  }
-  if (def_levels) {
-    *def_levels = impl_->columns_[i].def_levels;
-  }
-  if (values) {
-    *values = impl_->columns_[i].values;
+Result<ColumnMap::Column> ColumnMap::Find(const std::shared_ptr<Field>& field) const {
+  int i = FindColumn(columns_, field);
+  if (i >= 0) {
+    return Result<Column>(columns_[i]);
+  } else {
+    return Status::Invalid("Column not found");
   }
 }
 
-const std::shared_ptr<Int16Array>& ColumnMap::rep_levels(int i) const {
-  return impl_->columns_[i].rep_levels;
+Result<ColumnMap::Column> ColumnMap::Get(int i) const {
+  if (i >= 0 && i < size()) {
+    return Result<Column>(columns_[i]);
+  } else {
+    return Status::IndexError("Column index out of range");
+  }
 }
-
-const std::shared_ptr<Int16Array>& ColumnMap::def_levels(int i) const {
-  return impl_->columns_[i].def_levels;
-}
-
-const std::shared_ptr<Array>& ColumnMap::values(int i) const {
-  return impl_->columns_[i].values;
-}
-
 
 // Utility functions and classes
 namespace {
@@ -291,9 +256,15 @@ class PrimitiveShredNode : public ShredNode {
     RETURN_NOT_OK(rep_levels_builder_->Finish(&rep_levels_tmp));
     RETURN_NOT_OK(def_levels_builder_->Finish(&def_levels_tmp));
     RETURN_NOT_OK(values_builder_->Finish(&tmp_values));
-    colmap->Put(field_, std::static_pointer_cast<Int16Array>(rep_levels_tmp),
-                        std::static_pointer_cast<Int16Array>(def_levels_tmp),
-                        tmp_values);
+
+    ColumnMap::Column column;
+    column.field = field_;
+    column.rep_levels = std::static_pointer_cast<Int16Array>(rep_levels_tmp);
+    column.def_levels = std::static_pointer_cast<Int16Array>(def_levels_tmp);
+    column.values = tmp_values;
+
+    colmap->Put(column);
+
     return Status::OK();
   }
 
@@ -346,9 +317,14 @@ class StructShredNode : public ShredNode {
     std::shared_ptr<Array> def_levels_tmp;
     RETURN_NOT_OK(rep_levels_builder_->Finish(&rep_levels_tmp));
     RETURN_NOT_OK(def_levels_builder_->Finish(&def_levels_tmp));
-    colmap->Put(field_, std::static_pointer_cast<Int16Array>(rep_levels_tmp),
-                        std::static_pointer_cast<Int16Array>(def_levels_tmp),
-                        nullptr);
+
+    ColumnMap::Column column;
+    column.field = field_;
+    column.rep_levels = std::static_pointer_cast<Int16Array>(rep_levels_tmp);
+    column.def_levels = std::static_pointer_cast<Int16Array>(def_levels_tmp);
+
+    colmap->Put(column);
+
     return Status::OK();
   }
 };
@@ -406,9 +382,14 @@ class ListShredNode : public ShredNode {
     std::shared_ptr<Array> def_levels_tmp;
     RETURN_NOT_OK(rep_levels_builder_->Finish(&rep_levels_tmp));
     RETURN_NOT_OK(def_levels_builder_->Finish(&def_levels_tmp));
-    colmap->Put(field_, std::static_pointer_cast<Int16Array>(rep_levels_tmp),
-                        std::static_pointer_cast<Int16Array>(def_levels_tmp),
-                        nullptr);
+
+    ColumnMap::Column column;
+    column.field = field_;
+    column.rep_levels = std::static_pointer_cast<Int16Array>(rep_levels_tmp);
+    column.def_levels = std::static_pointer_cast<Int16Array>(def_levels_tmp);
+
+    colmap->Put(column);
+
     return Status::OK();
   }
 };
@@ -441,9 +422,8 @@ class Shredder::Impl {
   std::unique_ptr<ShredNode> root_;
 };
 
-Status Shredder::Create(std::shared_ptr<Field> schema,
-                        MemoryPool* pool,
-                        std::shared_ptr<Shredder>* shredder) {
+Result<std::shared_ptr<Shredder>> Shredder::Create(const std::shared_ptr<Field>& schema,
+                                                   MemoryPool* pool) {
   Result<std::unique_ptr<ShredNode>> root =
     ShredNode::CreateTree(schema, 0, 0, pool);
   RETURN_NOT_OK(root.status());
@@ -451,8 +431,9 @@ Status Shredder::Create(std::shared_ptr<Field> schema,
   std::unique_ptr<Impl> impl =
     make_unique<Impl>(std::move(root).ValueOrDie());
 
-  shredder->reset(new Shredder(std::move(impl)));
-  return Status::OK();
+  std::shared_ptr<Shredder> shredder(new Shredder(std::move(impl)));
+
+  return Result<std::shared_ptr<Shredder>>(shredder);
 }
 
 Shredder::Shredder(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {
@@ -478,8 +459,10 @@ Status Shredder::Shred(const ChunkedArray& array) {
   return Status::OK();
 }
 
-Status Shredder::Finish(ColumnMap* colmap) {
-  return impl_->root_->FinishRecursive(colmap);
+Result<ColumnMap> Shredder::Finish() {
+  ColumnMap colmap;
+  RETURN_NOT_OK(impl_->root_->FinishRecursive(&colmap));
+  return Result<ColumnMap>(colmap);
 }
 
 const std::shared_ptr<Field>& Shredder::schema() const {
@@ -673,12 +656,13 @@ class StitchNode {
         RETURN_NOT_OK(child(i)->SetColumnDataRecursive(colmap));
       }
     } else {
-      int i = colmap.Find(field_);
-      if (i < 0) {
+      Result<ColumnMap::Column> column = colmap.Find(field_);
+      if (!column.ok()) {
         return Status::Invalid("No data for field ", field_->name());
       }
-      RETURN_NOT_OK(SetLevels(colmap.rep_levels(i), colmap.def_levels(i)));
-      RETURN_NOT_OK(SetValues(colmap.values(i)));
+      RETURN_NOT_OK(SetLevels(column.ValueOrDie().rep_levels,
+                              column.ValueOrDie().def_levels));
+      RETURN_NOT_OK(SetValues(column.ValueOrDie().values));
     }
     return Status::OK();
   }
@@ -999,9 +983,8 @@ Stitcher::Stitcher(std::unique_ptr<Impl> impl)
 Stitcher::~Stitcher() {
 }
 
-Status Stitcher::Create(const std::shared_ptr<Field>& schema,
-                        MemoryPool* pool,
-                        std::shared_ptr<Stitcher>* stitcher) {
+Result<std::shared_ptr<Stitcher>> Stitcher::Create(const std::shared_ptr<Field>& schema,
+                                                   MemoryPool* pool) {
   Result<std::unique_ptr<StitchNode>> root =
     StitchNode::CreateTree(schema, 0, 0, pool);
   RETURN_NOT_OK(root.status());
@@ -1010,8 +993,9 @@ Status Stitcher::Create(const std::shared_ptr<Field>& schema,
 
   std::unique_ptr<Impl> impl = make_unique<Impl>(std::move(root).ValueOrDie(), pool);
 
-  stitcher->reset(new Stitcher(std::move(impl)));
-  return Status::OK();
+  std::shared_ptr<Stitcher> stitcher(new Stitcher(std::move(impl)));
+
+  return Result<std::shared_ptr<Stitcher>>(stitcher);
 }
 
 Status Stitcher::Stitch(const ColumnMap& colmap) {
@@ -1030,8 +1014,10 @@ Status Stitcher::Stitch(const ColumnMap& colmap) {
   return Status::OK();
 }
 
-Status Stitcher::Finish(std::shared_ptr<Array>* array) {
-  return impl_->root_->builder()->Finish(array);
+Result<std::shared_ptr<Array>> Stitcher::Finish() {
+  std::shared_ptr<Array> array;
+  RETURN_NOT_OK(impl_->root_->builder()->Finish(&array));
+  return Result<std::shared_ptr<Array>>(array);
 }
 
 const std::shared_ptr<Field>& Stitcher::schema() const {

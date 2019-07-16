@@ -28,13 +28,18 @@
 
 namespace arrow {
 
-constexpr int kFieldNotFound = -1;
-
 /// \brief Per-field levels and values. Schema fields act as map keys.
 class ARROW_EXPORT ColumnMap {
  public:
-  ColumnMap();
-  ~ColumnMap();
+  struct Column {
+    std::shared_ptr<Field> field;
+    std::shared_ptr<Int16Array> rep_levels;
+    std::shared_ptr<Int16Array> def_levels;
+    std::shared_ptr<Array> values;
+  };
+
+  /// Replace data associated with the given Column::field
+  void Put(const Column& column);
 
   /// Replace data associated with the given field
   void Put(const std::shared_ptr<Field>& field,
@@ -42,26 +47,17 @@ class ARROW_EXPORT ColumnMap {
            const std::shared_ptr<Int16Array>& def_levels,
            const std::shared_ptr<Array>& values = nullptr);
 
-  /// Return position of given field or kFieldNotFound
-  int Find(const std::shared_ptr<Field>& field) const;
+  /// Return number of columns in map
+  int size() const {
+    return static_cast<int>(columns_.size());
+  }
 
-  /// Return number of fields in map
-  int size() const;
+  Result<Column> Get(int i) const;
 
-  std::shared_ptr<Field> field(int i) const;
-
-  /// Get all data for i'th field. Pass NULL if you don't need some array.
-  void Get(int i, std::shared_ptr<Int16Array>* rep_levels,
-                  std::shared_ptr<Int16Array>* def_levels,
-                  std::shared_ptr<Array>* values = nullptr) const;
-
-  const std::shared_ptr<Int16Array>& rep_levels(int i) const;
-  const std::shared_ptr<Int16Array>& def_levels(int i) const;
-  const std::shared_ptr<Array>& values(int i) const;
+  Result<Column> Find(const std::shared_ptr<Field>& field) const;
 
  private:
-  class ARROW_NO_EXPORT Impl;
-  std::unique_ptr<Impl> impl_;
+  std::vector<Column> columns_;
 };
 
 
@@ -74,9 +70,8 @@ class ARROW_EXPORT Shredder {
  public:
   /// \brief Create new shredder.
   /// \param[in] schema Schema of the arrays which will be shredded.
-  static Status Create(std::shared_ptr<Field> schema,
-                       MemoryPool* pool,
-                       std::shared_ptr<Shredder>* shredder);
+  static Result<std::shared_ptr<Shredder>>
+    Create(const std::shared_ptr<Field>& schema, MemoryPool* pool);
 
   ~Shredder();
 
@@ -93,11 +88,11 @@ class ARROW_EXPORT Shredder {
 
   /// \brief Retrieve accumulated data.
   ///
-  /// \param[out] colmap Column data for every field in the schema, including
+  /// \return Column data for every field in the schema, including
   /// internal fields. Repetition and definition arrays are returned for all fields.
   /// Value arrays are returned only for fields of primitive types; value arrays
   /// for non-primitive types are returned as NULL.
-  Status Finish(ColumnMap* colmap);
+  Result<ColumnMap> Finish();
 
  private:
   class ARROW_NO_EXPORT Impl;
@@ -114,9 +109,8 @@ class ARROW_EXPORT Shredder {
 /// Unions are currently unsupported.
 class ARROW_EXPORT Stitcher {
  public:
-  static Status Create(const std::shared_ptr<Field>& schema,
-                       MemoryPool* pool,
-                       std::shared_ptr<Stitcher>* stitcher);
+  static Result<std::shared_ptr<Stitcher>>
+    Create(const std::shared_ptr<Field>& schema, MemoryPool* pool);
 
   ~Stitcher();
 
@@ -128,7 +122,7 @@ class ARROW_EXPORT Stitcher {
   /// of the stitcher schema.
   Status Stitch(const ColumnMap& colmap);
 
-  Status Finish(std::shared_ptr<Array>* array);
+  Result<std::shared_ptr<Array>> Finish();
 
   /// Print schema nodes, their rep/def levels, and state transition table.
   void DebugPrint(std::ostream& out) const;
