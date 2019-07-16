@@ -117,13 +117,6 @@ except ImportError:
     pass
 
 
-try:
-    import pyarrow.flight  # noqa
-    defaults['flight'] = True
-except ImportError:
-    pass
-
-
 def pytest_configure(config):
     for mark in groups:
         config.addinivalue_line(
