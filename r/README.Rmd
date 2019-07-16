@@ -120,9 +120,18 @@ For any other build/configuration challenges, see the [C++ developer guide](http
 
 ### Editing Rcpp code
 
-The `arrow` package uses some customized tools on top of `Rcpp` to prepare its C++ code in `src/`. If you change C++ code in the R package, you will need to set the `ARROW_R_DEV` environment variable to `TRUE` (optionally, add it to your`~/.Renviron` file to persist across sessions) so that the `data-raw/codegen.R` file is used for code generation.
+The `arrow` package uses some customized tools on top of `Rcpp` to prepare its
+C++ code in `src/`. If you change C++ code in the R package, you will need to
+set the `ARROW_R_DEV` environment variable to `TRUE` (optionally, add it to
+your`~/.Renviron` file to persist across sessions) so that the
+`data-raw/codegen.R` file is used for code generation.
 
-You'll also need `remotes::install_github("romainfrancois/decor")`.
+The codegen.R script has these dependencies:
+
+```
+remotes::install_github("romainfrancois/decor")
+install.packages(c("dplyr", "purrr", "glue"))
+```
 
 ### Useful functions
 

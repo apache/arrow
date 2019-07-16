@@ -22,6 +22,7 @@
 #endif
 
 #include <arrow-glib/array.hpp>
+#include <arrow-glib/chunked-array.hpp>
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/enums.h>
 #include <arrow-glib/error.hpp>
@@ -769,7 +770,7 @@ garrow_feather_file_reader_get_column_name(GArrowFeatherFileReader *reader,
  *
  * Since: 1.0.0
  */
-GArrowArray *
+GArrowChunkedArray *
 garrow_feather_file_reader_get_column_data(GArrowFeatherFileReader *reader,
                                            gint i,
                                            GError **error)
@@ -787,10 +788,10 @@ garrow_feather_file_reader_get_column_data(GArrowFeatherFileReader *reader,
     return NULL;
   }
 
-  std::shared_ptr<arrow::Array> arrow_array;
-  auto status = arrow_reader->GetColumn(i, &arrow_array);
+  std::shared_ptr<arrow::ChunkedArray> arrow_chunked_array;
+  auto status = arrow_reader->GetColumn(i, &arrow_chunked_array);
   if (garrow_error_check(error, status, tag)) {
-    return garrow_array_new_raw(&arrow_array);
+    return garrow_chunked_array_new_raw(&arrow_chunked_array);
   } else {
     return NULL;
   }

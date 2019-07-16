@@ -223,7 +223,7 @@ gchar *garrow_feather_file_reader_get_column_name(
   GArrowFeatherFileReader *reader,
   gint i);
 GARROW_AVAILABLE_IN_1_0
-GArrowArray *
+GArrowChunkedArray *
 garrow_feather_file_reader_get_column_data(GArrowFeatherFileReader *reader,
                                            gint i,
                                            GError **error);

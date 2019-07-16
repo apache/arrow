@@ -43,7 +43,7 @@ class TestFeatherFileWriter < Test::Unit::TestCase
       columns = reader.n_columns.times.collect do |i|
         [
           reader.get_column_name(i),
-          reader.get_column_data(i),
+          reader.get_column_data(i).get_chunk(0),
         ]
       end
       assert_equal([

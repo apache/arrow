@@ -131,7 +131,7 @@ class TestFeatherFileReader < Test::Unit::TestCase
     }
     setup_file(:columns => columns) do |reader|
       actual_columns = reader.n_columns.times.collect do |i|
-        reader.get_column_data(i)
+        reader.get_column_data(i).get_chunk(0)
       end
       assert_equal([
                      columns["message"],

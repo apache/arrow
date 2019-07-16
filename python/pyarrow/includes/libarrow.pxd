@@ -1039,7 +1039,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
         shared_ptr[CSchema] schema()
 
-        CStatus GetColumn(int i, shared_ptr[CArray]* out)
+        CStatus GetColumn(int i, shared_ptr[CChunkedArray]* out)
         c_string GetColumnName(int i)
 
         CStatus Read(shared_ptr[CTable]* out)

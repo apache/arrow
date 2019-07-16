@@ -244,9 +244,13 @@ mxArray* FeatherReader::ReadVariables() const {
 
   // Read all the table variables in the Feather file into memory.
   for (int64_t i = 0; i < num_variables_; ++i) {
-    std::shared_ptr<Array> column(nullptr);
-
+    std::shared_ptr<ChunkedArray> column;
     util::HandleStatus(table_reader_->GetColumn(i, &column));
+    std::shared_ptr<Array> chunk = column->chunk(0);
+    if (column->num_chunks() != 1) {
+      mexErrMsgIdAndTxt("MATLAB:arrow:FeatherReader::ReadVariables",
+                        "Chunked columns not yet supported");
+    }
     const std::string column_name = table_reader_->GetColumnName(i);
 
     // set the struct fields data
@@ -261,4 +265,3 @@ mxArray* FeatherReader::ReadVariables() const {
 
 }  // namespace matlab
 }  // namespace arrow
-

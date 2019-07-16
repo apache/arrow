@@ -425,13 +425,13 @@ TEST_F(TestTableWriter, PrimitiveRoundTrip) {
   ASSERT_OK(writer_->Append("f1", *batch->column(1)));
   Finish();
 
-  std::shared_ptr<Array> col;
+  std::shared_ptr<ChunkedArray> col;
   ASSERT_OK(reader_->GetColumn(0, &col));
-  ASSERT_TRUE(col->Equals(batch->column(0)));
+  ASSERT_TRUE(col->chunk(0)->Equals(batch->column(0)));
   ASSERT_EQ("f0", reader_->GetColumnName(0));
 
   ASSERT_OK(reader_->GetColumn(1, &col));
-  ASSERT_TRUE(col->Equals(batch->column(1)));
+  ASSERT_TRUE(col->chunk(0)->Equals(batch->column(1)));
   ASSERT_EQ("f1", reader_->GetColumnName(1));
 }
 
@@ -502,14 +502,14 @@ TEST_F(TestTableWriter, PrimitiveNullRoundTrip) {
   }
   Finish();
 
-  std::shared_ptr<Array> col;
+  std::shared_ptr<ChunkedArray> col;
   for (int i = 0; i < batch->num_columns(); ++i) {
     ASSERT_OK(reader_->GetColumn(i, &col));
     ASSERT_EQ(batch->column_name(i), reader_->GetColumnName(i));
     StringArray str_values(batch->column(i)->length(), nullptr, nullptr,
                            batch->column(i)->null_bitmap(),
                            batch->column(i)->null_count());
-    CheckArrays(str_values, *col);
+    CheckArrays(str_values, *col->chunk(0));
   }
 }
 
@@ -527,13 +527,13 @@ class TestTableWriterSlice : public TestTableWriter,
     ASSERT_OK(writer_->Append("f1", *batch->column(1)));
     Finish();
 
-    std::shared_ptr<Array> col;
+    std::shared_ptr<ChunkedArray> col;
     ASSERT_OK(reader_->GetColumn(0, &col));
-    ASSERT_TRUE(col->Equals(batch->column(0)));
+    ASSERT_TRUE(col->chunk(0)->Equals(batch->column(0)));
     ASSERT_EQ("f0", reader_->GetColumnName(0));
 
     ASSERT_OK(reader_->GetColumn(1, &col));
-    ASSERT_TRUE(col->Equals(batch->column(1)));
+    ASSERT_TRUE(col->chunk(0)->Equals(batch->column(1)));
     ASSERT_EQ("f1", reader_->GetColumnName(1));
   }
 };
