@@ -69,4 +69,16 @@ TEST(TestArithmeticOps, TestDivide) {
   EXPECT_EQ(context.has_error(), false);
 }
 
+TEST(TestArithmeticOps, TestDiv) {
+  gandiva::ExecutionContext context;
+  EXPECT_EQ(div_int64_int64(reinterpret_cast<int64>(&context), 101, 0), 0);
+  EXPECT_EQ(context.has_error(), true);
+  EXPECT_EQ(context.get_error(), "divide by zero error");
+  context.Reset();
+
+  EXPECT_EQ(div_int64_int64(reinterpret_cast<int64>(&context), 101, 111), 0);
+  EXPECT_EQ(context.has_error(), false);
+  context.Reset();
+}
+
 }  // namespace gandiva
