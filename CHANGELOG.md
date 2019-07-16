@@ -17,6 +17,63 @@
   under the License.
 -->
 
+# Apache Arrow 0.14.1 (16 July 2019)
+
+## Bug
+
+* ARROW-5775 - [C++] StructArray : cached boxed fields not thread-safe
+* ARROW-5790 - [Python] Passing zero-dim numpy array to pa.array causes segfault
+* ARROW-5791 - [Python] pyarrow.csv.read\_csv hangs + eats all RAM
+* ARROW-5816 - [Release] Parallel curl does not work reliably in verify-release-candidate-sh
+* ARROW-5836 - [Java][OSX] Flight tests are failing: address already in use
+* ARROW-5838 - [C++][Flight][OSX] Building 3rdparty grpc cannot find OpenSSL
+* ARROW-5849 - [C++] Compiler warnings on mingw-w64
+* ARROW-5851 - [C++] Compilation of reference benchmarks fails
+* ARROW-5856 - [Python] linking 3rd party cython modules against pyarrow fails since 0.14.0
+* ARROW-5863 - [Python] Segmentation Fault via pytest-runner
+* ARROW-5868 - [Python] manylinux2010 wheels have shared library dependency on liblz4
+* ARROW-5873 - [Python] Segmentation fault when comparing schema with None
+* ARROW-5874 - [Python] pyarrow 0.14.0 macOS wheels depend on shared libs under /usr/local/opt
+* ARROW-5878 - [Python][C++] Parquet reader not forward compatible for timestamps without timezone
+* ARROW-5886 - [Python][Packaging] Manylinux1/2010 compliance issue with libz
+* ARROW-5887 - [C#] ArrowStreamWriter writes FieldNodes in wrong order
+* ARROW-5889 - [Python][C++] Parquet backwards compat for timestamps without timezone broken
+* ARROW-5899 - [Python][Packaging] Bundle uriparser.dll in windows wheels 
+* ARROW-5921 - [C++][Fuzzing] Missing nullptr checks in IPC
+* ARROW-5946 - [Rust] [DataFusion] Projection push down with aggregate producing incorrect results
+
+## Improvement
+
+* ARROW-5380 - [C++] Fix and enable UBSan for unaligned accesses.
+* ARROW-5564 - [C++] Add uriparser to conda-forge
+* ARROW-5609 - [C++] Set CMP0068 CMake policy to avoid macOS warnings
+* ARROW-5784 - [Release][GLib] Replace c\_glib/ after running c\_glib/autogen.sh in dev/release/02-source.sh
+* ARROW-5785 - [Rust] Rust datafusion implementation should not depend on rustyline
+* ARROW-5787 - [Release][Rust] Use local modules to verify RC
+* ARROW-5793 - [Release] Avoid duplicate known host SSH error in dev/release/03-binary.sh
+* ARROW-5794 - [Release] Skip uploading already uploaded binaries
+* ARROW-5795 - [Release] Add missing waits on uploading binaries
+* ARROW-5796 - [Release][APT] Update expected package list
+* ARROW-5797 - [Release][APT] Update supported distributions
+* ARROW-5820 - [Release] Remove undefined variable check from verify script
+* ARROW-5827 - [C++] Require c-ares CMake config
+* ARROW-5828 - [C++] Add Protocol Buffers version check
+* ARROW-5866 - [C++] Remove duplicate library in cpp/Brewfile
+* ARROW-5877 - [FlightRPC] Fix auth incompatibilities between Python/Java
+* ARROW-5904 - [Java] [Plasma] Fix compilation of Plasma Java client
+* ARROW-5908 - [C#] ArrowStreamWriter doesn't align buffers to 8 bytes
+* ARROW-5911 - [Java] Make ListVector and MapVector create reader lazily
+* ARROW-5937 - [Release] Stop parallel binary upload
+* ARROW-5938 - [Release] Create branch for adding release note automatically
+* ARROW-5939 - [Release] Add support for generating vote email template separately
+* ARROW-5940 - [Release] Add support for re-uploading sign/checksum for binary artifacts
+* ARROW-5941 - [Release] Avoid re-uploading already uploaded binary artifacts
+
+## Task
+
+* ARROW-5934 - [Python] Bundle arrow's LICENSE with the wheels
+* ARROW-5958 - [Python] Link zlib statically in the wheels
+
 # Apache Arrow 0.14.0 (29 June 2019)
 
 ## Bug
