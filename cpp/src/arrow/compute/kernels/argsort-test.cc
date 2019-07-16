@@ -34,7 +34,7 @@ template <typename ArrowType>
 class TestArgsortKernel : public ComputeFixture, public TestBase {
  private:
   void AssertArgsortArrays(const std::shared_ptr<Array> values,
-                        const std::shared_ptr<Array> expected) {
+                           const std::shared_ptr<Array> expected) {
     std::shared_ptr<Array> actual;
     ASSERT_OK(arrow::compute::Argsort(&this->ctx_, *values, &actual));
     ASSERT_OK(ValidateArray(*actual));
@@ -128,7 +128,7 @@ class RandomImpl {
   random::RandomArrayGenerator generator;
 
  public:
-  RandomImpl(uint64_t seed) : generator(seed) {}
+  explicit RandomImpl(random::SeedType seed) : generator(seed) {}
 };
 
 template <typename ArrowType>
@@ -136,7 +136,7 @@ class Random : public RandomImpl {
   using CType = typename TypeTraits<ArrowType>::CType;
 
  public:
-  Random(uint64_t seed) : RandomImpl(seed) {}
+  explicit Random(uint64_t seed) : RandomImpl(seed) {}
 
   std::shared_ptr<Array> Generate(uint64_t count, double null_prob) {
     return generator.Numeric<ArrowType>(count, std::numeric_limits<CType>::min(),
@@ -147,7 +147,7 @@ class Random : public RandomImpl {
 template <>
 class Random<StringType> : public RandomImpl {
  public:
-  Random(uint64_t seed) : RandomImpl(seed) {}
+  explicit Random(uint64_t seed) : RandomImpl(seed) {}
 
   std::shared_ptr<Array> Generate(uint64_t count, double null_prob) {
     return generator.String(count, 1, 100, null_prob);

@@ -34,7 +34,7 @@ class FunctionContext;
 /// \brief Returns the indices that would sort an array.
 ///
 /// Perform an indirect sort of array. The output array will contain
-/// indices that would sort an array, which would be the same length 
+/// indices that would sort an array, which would be the same length
 /// as input. Nulls will be stably partitioned to the end of the output.
 ///
 /// For example given values = [null, 1, 3.3, null, 2, 5.3], the output
@@ -42,15 +42,16 @@ class FunctionContext;
 ///
 /// \param[in] ctx the FunctionContext
 /// \param[in] values array to sort
-/// \param[out] out resulting array
+/// \param[out] offsets indices that would sort an array
 ARROW_EXPORT
-Status Argsort(FunctionContext* ctx, const Array& values, std::shared_ptr<Array>* offsets);
+Status Argsort(FunctionContext* ctx, const Array& values,
+               std::shared_ptr<Array>* offsets);
 
 /// \brief Returns the indices that would sort an array.
 ///
 /// \param[in] ctx the FunctionContext
 /// \param[in] values datum to sort
-/// \param[out] out resulting datum
+/// \param[out] offsets indices that would sort an array
 ARROW_EXPORT
 Status Argsort(FunctionContext* ctx, const Datum& values, Datum* offsets);
 
@@ -70,7 +71,7 @@ class ARROW_EXPORT ArgsortKernel : public UnaryKernel {
 
   /// \brief single-array implementation
   virtual Status Argsort(FunctionContext* ctx, const std::shared_ptr<Array>& values,
-                      std::shared_ptr<Array>* offsets) = 0;
+                         std::shared_ptr<Array>* offsets) = 0;
 
   /// \brief factory for ArgsortKernel
   ///

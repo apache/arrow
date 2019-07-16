@@ -28,7 +28,8 @@ namespace arrow {
 namespace compute {
 constexpr auto kSeed = 0x0ff1ce;
 
-static void ArgsortBenchmark(benchmark::State& state, const std::shared_ptr<Array>& values) {
+static void ArgsortBenchmark(benchmark::State& state,
+                             const std::shared_ptr<Array>& values) {
   FunctionContext ctx;
   for (auto _ : state) {
     Datum out;
@@ -54,5 +55,5 @@ BENCHMARK(ArgsortInt64)
     ->Args({1 << 23, 1})
     ->MinTime(1.0)
     ->Unit(benchmark::TimeUnit::kNanosecond);
-}
-}
+}  // namespace compute
+}  // namespace arrow
