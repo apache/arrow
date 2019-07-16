@@ -44,22 +44,14 @@
 #include "arrow/util/logging.h"
 
 #include "parquet/exception.h"
+#include "parquet/internal_file_decryptor.h"
+#include "parquet/internal_file_encryptor.h"
 #include "parquet/platform.h"
 #include "parquet/statistics.h"
 #include "parquet/types.h"
 
 #include "parquet/parquet_types.h"  // IYWU pragma: export
 
-#ifdef PARQUET_ENCRYPTION
-#include "parquet/encryption_internal.h"
-#include "parquet/internal_file_decryptor.h"
-#include "parquet/internal_file_encryptor.h"
-#else
-namespace parquet {
-class Encryptor;
-class Decryptor;
-}  // namespace parquet
-#endif
 namespace parquet {
 
 // Check if thrift version < 0.11.0
@@ -236,7 +228,6 @@ inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deseriali
   if (decryptor == NULLPTR) {
     DeserializeThriftUnencryptedMsg(buf, len, deserialized_msg);
   } else {  // thrift message is encrypted
-#ifdef PARQUET_ENCRYPTION
     uint32_t clen;
     clen = *len;
     // decrypt
@@ -253,7 +244,6 @@ inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deseriali
     *len = decrypted_buffer_len + decryptor->CiphertextSizeDelta();
     DeserializeThriftMsg(decrypted_buffer->data(), &decrypted_buffer_len,
                          deserialized_msg);
-#endif  // PARQUET_ENCRYPTION
   }
 }
 
@@ -316,17 +306,14 @@ class ThriftSerializer {
   int64_t SerializeEncryptedObj(ArrowOutputStream* out, uint8_t* out_buffer,
                                 uint32_t out_length,
                                 const std::shared_ptr<Encryptor>& encryptor) {
-    int cipher_buffer_len = 0;
-#ifdef PARQUET_ENCRYPTION
     std::shared_ptr<ResizableBuffer> cipher_buffer =
         std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(
             encryptor->pool(),
             static_cast<int64_t>(encryptor->CiphertextSizeDelta() + out_length)));
-    cipher_buffer_len =
+    int cipher_buffer_len =
         encryptor->Encrypt(out_buffer, out_length, cipher_buffer->mutable_data());
 
     PARQUET_THROW_NOT_OK(out->Write(cipher_buffer->data(), cipher_buffer_len));
-#endif
     return static_cast<int64_t>(cipher_buffer_len);
   }
 

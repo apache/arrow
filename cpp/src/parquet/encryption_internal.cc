@@ -602,5 +602,7 @@ void QuickUpdatePageAad(const std::string& AAD, int16_t new_page_ordinal) {
               reinterpret_cast<const int16_t*>(page_ordinal_bytes.c_str()), 2);
 }
 
+void RandBytes(unsigned char* buf, int num) { RAND_bytes(buf, num); }
+
 }  // namespace encryption
 }  // namespace parquet

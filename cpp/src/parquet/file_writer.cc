@@ -24,18 +24,11 @@
 
 #include "parquet/column_writer.h"
 #include "parquet/deprecated_io.h"
+#include "parquet/encryption_internal.h"
 #include "parquet/exception.h"
+#include "parquet/internal_file_encryptor.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
-
-#ifdef PARQUET_ENCRYPTION
-#include "parquet/encryption_internal.h"
-#include "parquet/internal_file_encryptor.h"
-#else
-namespace parquet {
-class InternalFileEncryptor;
-}
-#endif
 
 using arrow::MemoryPool;
 
@@ -135,16 +128,12 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
 
     const ColumnDescriptor* column_descr = col_meta->descr();
 
-    std::shared_ptr<Encryptor> meta_encryptor = NULLPTR;
-    std::shared_ptr<Encryptor> data_encryptor = NULLPTR;
-#ifdef PARQUET_ENCRYPTION
-    meta_encryptor = file_encryptor_
-                         ? file_encryptor_->GetColumnMetaEncryptor(column_descr->path())
-                         : NULLPTR;
-    data_encryptor = file_encryptor_
-                         ? file_encryptor_->GetColumnDataEncryptor(column_descr->path())
-                         : NULLPTR;
-#endif
+    auto meta_encryptor =
+        file_encryptor_ ? file_encryptor_->GetColumnMetaEncryptor(column_descr->path())
+                        : NULLPTR;
+    auto data_encryptor =
+        file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(column_descr->path())
+                        : NULLPTR;
     std::unique_ptr<PageWriter> pager = PageWriter::Open(
         sink_, properties_->compression(column_descr->path()), col_meta,
         row_group_ordinal_, static_cast<int16_t>(current_column_index_ - 1),
@@ -246,16 +235,12 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       auto col_meta = metadata_->NextColumnChunk();
       const ColumnDescriptor* column_descr = col_meta->descr();
 
-      std::shared_ptr<Encryptor> meta_encryptor = NULLPTR;
-      std::shared_ptr<Encryptor> data_encryptor = NULLPTR;
-#ifdef PARQUET_ENCRYPTION
-      meta_encryptor = file_encryptor_
-                           ? file_encryptor_->GetColumnMetaEncryptor(column_descr->path())
-                           : NULLPTR;
-      data_encryptor = file_encryptor_
-                           ? file_encryptor_->GetColumnDataEncryptor(column_descr->path())
-                           : NULLPTR;
-#endif
+      auto meta_encryptor =
+          file_encryptor_ ? file_encryptor_->GetColumnMetaEncryptor(column_descr->path())
+                          : NULLPTR;
+      auto data_encryptor =
+          file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(column_descr->path())
+                          : NULLPTR;
       std::unique_ptr<PageWriter> pager = PageWriter::Open(
           sink_, properties_->compression(column_descr->path()), col_meta,
           static_cast<int16_t>(row_group_ordinal_),
@@ -306,9 +291,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
         file_metadata_ = metadata_->Finish();
         WriteFileMetaData(*file_metadata_, sink_.get());
       } else {  // Encrypted file
-#ifdef PARQUET_ENCRYPTION
         CloseEncryptedFile(file_encryption_properties);
-#endif
       }
     }
   }
@@ -329,14 +312,9 @@ class FileSerializer : public ParquetFileWriter::Contents {
     }
     num_row_groups_++;
     auto rg_metadata = metadata_->AppendRowGroup();
-    InternalFileEncryptor* file_encryptor = NULLPTR;
-
-#ifdef PARQUET_ENCRYPTION
-    file_encryptor = file_encryptor_.get();
-#endif
     std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
         sink_, rg_metadata, static_cast<int16_t>(num_row_groups_ - 1), properties_.get(),
-        buffered_row_group, file_encryptor));
+        buffered_row_group, file_encryptor_.get()));
     row_group_writer_.reset(new RowGroupWriter(std::move(contents)));
     return row_group_writer_.get();
   }
@@ -367,7 +345,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
     StartFile();
   }
 
-#ifdef PARQUET_ENCRYPTION
   void CloseEncryptedFile(FileEncryptionProperties* file_encryption_properties) {
     // Encrypted file with encrypted footer
     if (file_encryption_properties->encrypted_footer()) {
@@ -397,7 +374,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
       file_encryptor_->WipeOutEncryptionKeys();
     }
   }
-#endif
 
   std::shared_ptr<ArrowOutputStream> sink_;
   bool is_open_;
@@ -408,9 +384,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
   // Only one of the row group writers is active at a time
   std::unique_ptr<RowGroupWriter> row_group_writer_;
 
-#ifdef PARQUET_ENCRYPTION
   std::unique_ptr<InternalFileEncryptor> file_encryptor_;
-#endif
 
   void StartFile() {
     auto file_encryption_properties = properties_->file_encryption_properties();
@@ -418,7 +392,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
       // Unencrypted parquet files always start with PAR1
       PARQUET_THROW_NOT_OK(sink_->Write(kParquetMagic, 4));
     } else {
-#ifdef PARQUET_ENCRYPTION
       file_encryptor_.reset(new InternalFileEncryptor(file_encryption_properties,
                                                       properties_->memory_pool()));
       if (file_encryption_properties->encrypted_footer()) {
@@ -427,7 +400,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
         // Encrypted file with plaintext footer mode.
         PARQUET_THROW_NOT_OK(sink_->Write(kParquetMagic, 4));
       }
-#endif
     }
   }
 };
@@ -484,7 +456,6 @@ void WriteMetaDataFile(const FileMetaData& file_metadata, ArrowOutputStream* sin
   return WriteFileMetaData(file_metadata, sink);
 }
 
-#ifdef PARQUET_ENCRYPTION
 void WriteEncryptedFileMetadata(const FileMetaData& file_metadata,
                                 ArrowOutputStream* sink,
                                 const std::shared_ptr<Encryptor>& encryptor,
@@ -528,7 +499,6 @@ void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
   ParquetOutputWrapper wrapper(sink);
   crypto_metadata.WriteTo(&wrapper);
 }
-#endif  // PARQUET_ENCRYPTION
 
 const SchemaDescriptor* ParquetFileWriter::schema() const { return contents_->schema(); }
 

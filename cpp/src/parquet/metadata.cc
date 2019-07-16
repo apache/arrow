@@ -25,7 +25,9 @@
 
 #include <inttypes.h>
 #include <boost/regex.hpp>  // IWYU pragma: keep
+#include "parquet/encryption_internal.h"
 #include "parquet/exception.h"
+#include "parquet/internal_file_decryptor.h"
 #include "parquet/metadata.h"
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
@@ -43,10 +45,6 @@ using ::boost::smatch;
 using ::std::regex;
 using ::std::regex_match;
 using ::std::smatch;
-#endif
-
-#ifdef PARQUET_ENCRYPTION
-#include "parquet/internal_file_decryptor.h"
 #endif
 
 namespace parquet {
@@ -185,7 +183,6 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
                                    InternalFileDecryptor* file_decryptor = NULLPTR)
       : column_(column), descr_(descr), writer_version_(writer_version) {
     if (column->__isset.crypto_metadata) {  // column metadata is encrypted
-#ifdef PARQUET_ENCRYPTION
       format::ColumnCryptoMetaData ccmd = column->crypto_metadata;
 
       if (ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY) {
@@ -210,7 +207,6 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       } else {
         is_metadata_set_ = true;
       }
-#endif        // PARQUET_ENCRYPTION
     } else {  // column metadata is not encrypted
       is_metadata_set_ = true;
     }
@@ -501,7 +497,6 @@ class FileMetaData::FileMetaDataImpl {
     InitKeyValueMetadata();
   }
 
-#ifdef PARQUET_ENCRYPTION
   bool VerifySignature(InternalFileDecryptor* file_decryptor, const void* signature) {
     // serialize the footer
     uint8_t* serialized_data;
@@ -532,7 +527,6 @@ class FileMetaData::FileMetaDataImpl {
            memcmp(encrypted_buffer.data() + encrypted_len - encryption::kGcmTagLength,
                   tag, encryption::kGcmTagLength);
   }
-#endif
 
   inline uint32_t size() const { return metadata_len_; }
   inline int num_columns() const { return schema_.num_columns(); }
@@ -564,7 +558,6 @@ class FileMetaData::FileMetaDataImpl {
     // Only in encrypted files with plaintext footers the
     // encryption_algorithm is set in footer
     if (is_encryption_algorithm_set()) {
-#ifdef PARQUET_ENCRYPTION
       uint8_t* serialized_data;
       uint32_t serialized_len;
       serializer.SerializeToBuffer(metadata_.get(), &serialized_len, &serialized_data);
@@ -583,7 +576,6 @@ class FileMetaData::FileMetaDataImpl {
       PARQUET_THROW_NOT_OK(
           dst->Write(encrypted_data.data() + encrypted_len - encryption::kGcmTagLength,
                      encryption::kGcmTagLength));
-#endif        // PARQUET_ENCRYPTION
     } else {  // either plaintext file (when encryptor is null)
       // or encrypted file with encrypted footer
       serializer.Serialize(metadata_.get(), dst, encryptor);
@@ -693,12 +685,10 @@ std::unique_ptr<RowGroupMetaData> FileMetaData::RowGroup(int i) const {
   return impl_->RowGroup(i);
 }
 
-#ifdef PARQUET_ENCRYPTION
 bool FileMetaData::VerifySignature(InternalFileDecryptor* file_decryptor,
                                    const void* signature) {
   return impl_->VerifySignature(file_decryptor, signature);
 }
-#endif
 
 uint32_t FileMetaData::size() const { return impl_->size(); }
 
@@ -982,7 +972,6 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     }
     column_chunk_->meta_data.__set_encodings(thrift_encodings);
 
-#ifdef PARQUET_ENCRYPTION
     const auto& encrypt_md = properties_->column_encryption_properties(column_->path());
     // column is encrypted
     if (encrypt_md != NULLPTR && encrypt_md->is_encrypted()) {
@@ -1036,7 +1025,6 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         }
       }
     }
-#endif  // PARQUET_ENCRYPTION
   }
 
   void WriteTo(::arrow::io::OutputStream* sink) {
@@ -1255,12 +1243,10 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata)
       : properties_(props), schema_(schema), key_value_metadata_(key_value_metadata) {
     metadata_.reset(new format::FileMetaData());
-#ifdef PARQUET_ENCRYPTION
     if (props->file_encryption_properties() != nullptr &&
         props->file_encryption_properties()->encrypted_footer()) {
       crypto_metadata_.reset(new format::FileCryptoMetaData());
     }
-#endif
   }
 
   RowGroupMetaDataBuilder* AppendRowGroup() {
@@ -1316,7 +1302,6 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     metadata_->column_orders.resize(schema_->num_columns(), column_order);
     metadata_->__isset.column_orders = true;
 
-#ifdef PARQUET_ENCRYPTION
     // if plaintext footer, set footer signing algorithm
     auto file_encryption_properties = properties_->file_encryption_properties();
     if (file_encryption_properties && !file_encryption_properties->encrypted_footer()) {
@@ -1335,7 +1320,6 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
         metadata_->__set_footer_signing_key_metadata(footer_signing_key_metadata);
       }
     }
-#endif  // PARQUET_ENCRYPTION
 
     parquet::schema::SchemaFlattener flattener(
         static_cast<parquet::schema::GroupNode*>(schema_->schema_root().get()),
@@ -1347,7 +1331,6 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     return file_meta_data;
   }
 
-#ifdef PARQUET_ENCRYPTION
   std::unique_ptr<FileCryptoMetaData> BuildFileCryptoMetaData() {
     if (crypto_metadata_ == nullptr) {
       return nullptr;
@@ -1369,13 +1352,10 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
 
     return file_crypto_metadata;
   }
-#endif
 
  protected:
   std::unique_ptr<format::FileMetaData> metadata_;
-#ifdef PARQUET_ENCRYPTION
   std::unique_ptr<format::FileCryptoMetaData> crypto_metadata_;
-#endif
 
  private:
   const std::shared_ptr<WriterProperties> properties_;
@@ -1407,10 +1387,8 @@ RowGroupMetaDataBuilder* FileMetaDataBuilder::AppendRowGroup() {
 
 std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish() { return impl_->Finish(); }
 
-#ifdef PARQUET_ENCRYPTION
 std::unique_ptr<FileCryptoMetaData> FileMetaDataBuilder::GetCryptoMetaData() {
   return impl_->BuildFileCryptoMetaData();
 }
-#endif
 
 }  // namespace parquet

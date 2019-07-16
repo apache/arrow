@@ -40,14 +40,11 @@
 
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
+#include "parquet/encryption_internal.h"
+#include "parquet/internal_file_decryptor.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift.h"  // IWYU pragma: keep
-
-#ifdef PARQUET_ENCRYPTION
-#include "parquet/encryption_internal.h"
-#include "parquet/internal_file_decryptor.h"
-#endif
 
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;
@@ -142,9 +139,7 @@ class SerializedPageReader : public PageReader {
       meta_decryptor_ = ctx->meta_decryptor;
       data_decryptor_ = ctx->data_decryptor;
       if (data_decryptor_ != NULLPTR || meta_decryptor_ != NULLPTR) {
-#ifdef PARQUET_ENCRYPTION
         InitDecryption();
-#endif
       }
     }
     max_page_header_size_ = kDefaultMaxPageHeaderSize;
@@ -157,13 +152,11 @@ class SerializedPageReader : public PageReader {
   void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
 
  private:
-#ifdef PARQUET_ENCRYPTION
   void UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor,
                         bool current_page_is_dictionary, int8_t module_type,
                         const std::string& pageAAD);
 
   void InitDecryption();
-#endif
 
   std::shared_ptr<ArrowInputStream> stream_;
 
@@ -217,7 +210,6 @@ class SerializedPageReader : public PageReader {
   std::shared_ptr<Decryptor> data_decryptor_;
 };
 
-#ifdef PARQUET_ENCRYPTION
 void SerializedPageReader::InitDecryption() {
   // Prepare the AAD for quick update later.
   if (data_decryptor_ != NULLPTR) {
@@ -249,21 +241,14 @@ void SerializedPageReader::UpdateDecryption(const std::shared_ptr<Decryptor>& de
     decryptor->UpdateAad(pageAAD);
   }
 }
-#endif  // PARQUET_ENCRYPTION
 
 std::shared_ptr<Page> SerializedPageReader::NextPage() {
   // Loop here because there may be unhandled page types that we skip until
   // finding a page that we do know what to do with
-#ifdef PARQUET_ENCRYPTION
-  // we must use #ifdef here because current_page_is_dictionary is not used
   bool current_page_is_dictionary = false;
-#endif
   if (column_has_dictionary_) {
     if (first_page_) {
-#ifdef PARQUET_ENCRYPTION
-      // we must use #ifdef here because current_page_is_dictionary is not used
       current_page_is_dictionary = true;
-#endif
       first_page_ = false;
     } else {
       page_ordinal_++;
@@ -289,12 +274,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       // This gets used, then set by DeserializeThriftMsg
       header_size = static_cast<uint32_t>(buffer.size());
       try {
-#ifdef PARQUET_ENCRYPTION
         if (meta_decryptor_ != NULLPTR) {
           UpdateDecryption(meta_decryptor_, current_page_is_dictionary,
                            encryption::kDictionaryPageHeader, data_page_headerAAD_);
         }
-#endif
         DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(buffer.data()),
                              &header_size, &current_page_header_, meta_decryptor_);
         break;
@@ -314,12 +297,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     int compressed_len = current_page_header_.compressed_page_size;
     int uncompressed_len = current_page_header_.uncompressed_page_size;
-#ifdef PARQUET_ENCRYPTION
     if (data_decryptor_ != NULLPTR) {
       UpdateDecryption(data_decryptor_, current_page_is_dictionary,
                        encryption::kDictionaryPage, data_pageAAD_);
     }
-#endif
     // Read the compressed data page.
     std::shared_ptr<Buffer> page_buffer;
     PARQUET_THROW_NOT_OK(stream_->Read(compressed_len, &page_buffer));
@@ -331,7 +312,6 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     }
 
     // Decrypt it if we need to
-#ifdef PARQUET_ENCRYPTION
     if (data_decryptor_ != nullptr) {
       PARQUET_THROW_NOT_OK(decryption_buffer_->Resize(
           compressed_len - data_decryptor_->CiphertextSizeDelta()));
@@ -340,7 +320,6 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
       page_buffer = decryption_buffer_;
     }
-#endif  // PARQUET_ENCRYPTION
     // Uncompress it if we need to
     if (decompressor_ != nullptr) {
       // Grow the uncompressed buffer if we need to.

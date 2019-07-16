@@ -108,6 +108,8 @@ std::string CreateFooterAad(const std::string& aad_prefix_bytes);
 // Update last two bytes of page (or page header) module AAD
 void QuickUpdatePageAad(const std::string& AAD, int16_t new_page_ordinal);
 
+void RandBytes(unsigned char* buf, int num);
+
 }  // namespace encryption
 }  // namespace parquet
 

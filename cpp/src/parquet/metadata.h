@@ -204,12 +204,11 @@ class PARQUET_EXPORT FileMetaData {
       const std::shared_ptr<Decryptor>& decryptor = NULLPTR);
 
   ~FileMetaData();
-#ifdef PARQUET_ENCRYPTION
+
   /// Verify signature of FileMetadata when file is encrypted but footer is not encrypted
   /// (plaintext footer).
   /// Signature is 28 bytes (12 byte nonce and 16 byte tags) when encrypting FileMetadata
   bool VerifySignature(InternalFileDecryptor* file_decryptor, const void* signature);
-#endif
 
   // file metadata
   uint32_t size() const;
@@ -365,10 +364,8 @@ class PARQUET_EXPORT FileMetaDataBuilder {
   // Complete the Thrift structure
   std::unique_ptr<FileMetaData> Finish();
 
-#ifdef PARQUET_ENCRYPTION
   // crypto metadata
   std::unique_ptr<FileCryptoMetaData> GetCryptoMetaData();
-#endif
 
  private:
   explicit FileMetaDataBuilder(

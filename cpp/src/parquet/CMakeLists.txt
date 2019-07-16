@@ -167,8 +167,11 @@ set(PARQUET_SRCS
     column_writer.cc
     deprecated_io.cc
     encoding.cc
+    encryption.cc
     file_reader.cc
     file_writer.cc
+    internal_file_decryptor.cc
+    internal_file_encryptor.cc
     metadata.cc
     murmur3.cc
     parquet_constants.cpp
@@ -181,13 +184,13 @@ set(PARQUET_SRCS
     types.cc)
 
 if(ARROW_USE_OPENSSL)
-  add_definitions(-DPARQUET_ENCRYPTION)
   set(PARQUET_SRCS
       ${PARQUET_SRCS}
-      encryption.cc
-      encryption_internal.cc
-      internal_file_decryptor.cc
-      internal_file_encryptor.cc)
+      encryption_internal.cc)
+else()
+  set(PARQUET_SRCS
+      ${PARQUET_SRCS}
+      encryption_internal-nossl.cc)
 endif()
 
 # Ensure that thrift compilation is done before using its generated headers

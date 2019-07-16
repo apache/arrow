@@ -21,10 +21,10 @@
 #include <map>
 #include <utility>
 
-#include <openssl/rand.h>
-
 #include "arrow/util/logging.h"
 #include "arrow/util/utf8.h"
+
+#include "parquet/encryption_internal.h"
 
 namespace parquet {
 
@@ -389,7 +389,7 @@ FileEncryptionProperties::FileEncryptionProperties(
 
   uint8_t aad_file_unique[kAadFileUniqueLength];
   memset(aad_file_unique, 0, kAadFileUniqueLength);
-  RAND_bytes(aad_file_unique, sizeof(kAadFileUniqueLength));
+  encryption::RandBytes(aad_file_unique, sizeof(kAadFileUniqueLength));
   std::string aad_file_unique_str(reinterpret_cast<char const*>(aad_file_unique),
                                   kAadFileUniqueLength);
 

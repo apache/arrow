@@ -38,6 +38,8 @@
 
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
+#include "parquet/encryption_internal.h"
+#include "parquet/internal_file_encryptor.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -45,11 +47,6 @@
 #include "parquet/statistics.h"
 #include "parquet/thrift.h"
 #include "parquet/types.h"
-
-#ifdef PARQUET_ENCRYPTION
-#include "parquet/encryption_internal.h"
-#include "parquet/internal_file_encryptor.h"
-#endif
 
 namespace parquet {
 
@@ -161,9 +158,7 @@ class SerializedPageWriter : public PageWriter {
         meta_encryptor_(meta_encryptor),
         data_encryptor_(data_encryptor) {
     if (data_encryptor_ != NULLPTR || meta_encryptor_ != NULLPTR) {
-#ifdef PARQUET_ENCRYPTION
       InitEncryption();
-#endif
     }
     compressor_ = GetCodecFromArrow(codec);
     thrift_serializer_.reset(new ThriftSerializer);
@@ -189,7 +184,6 @@ class SerializedPageWriter : public PageWriter {
     const uint8_t* output_data_buffer = compressed_data->data();
     int32_t output_data_len = static_cast<int32_t>(compressed_data->size());
 
-#ifdef PARQUET_ENCRYPTION
     std::shared_ptr<Buffer> encrypted_data_buffer = nullptr;
     if (data_encryptor_.get()) {
       UpdateEncryption(encryption::kDictionaryPage);
@@ -199,7 +193,6 @@ class SerializedPageWriter : public PageWriter {
                                                  encrypted_data_buffer->mutable_data());
       output_data_buffer = encrypted_data_buffer->data();
     }
-#endif
 
     format::PageHeader page_header;
     page_header.__set_type(format::PageType::DICTIONARY_PAGE);
@@ -214,11 +207,9 @@ class SerializedPageWriter : public PageWriter {
       dictionary_page_offset_ = start_pos;
     }
 
-#ifdef PARQUET_ENCRYPTION
     if (meta_encryptor_) {
       UpdateEncryption(encryption::kDictionaryPageHeader);
     }
-#endif
     int64_t header_size =
         thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_);
 
@@ -233,11 +224,9 @@ class SerializedPageWriter : public PageWriter {
   }
 
   void Close(bool has_dictionary, bool fallback) override {
-#ifdef PARQUET_ENCRYPTION
     if (meta_encryptor_ != nullptr) {
       UpdateEncryption(encryption::kColumnMetaData);
     }
-#endif
     // index_page_offset = -1 since they are not supported
     metadata_->Finish(num_values_, dictionary_page_offset_, -1, data_page_offset_,
                       total_compressed_size_, total_uncompressed_size_, has_dictionary,
@@ -282,7 +271,6 @@ class SerializedPageWriter : public PageWriter {
     const uint8_t* output_data_buffer = compressed_data->data();
     int32_t output_data_len = static_cast<int32_t>(compressed_data->size());
 
-#ifdef PARQUET_ENCRYPTION
     std::shared_ptr<ResizableBuffer> encrypted_data_buffer = AllocateBuffer(pool_, 0);
     if (data_encryptor_.get()) {
       UpdateEncryption(encryption::kDataPage);
@@ -292,7 +280,6 @@ class SerializedPageWriter : public PageWriter {
                                                  encrypted_data_buffer->mutable_data());
       output_data_buffer = encrypted_data_buffer->data();
     }
-#endif
 
     format::PageHeader page_header;
     page_header.__set_type(format::PageType::DATA_PAGE);
@@ -307,11 +294,9 @@ class SerializedPageWriter : public PageWriter {
       data_page_offset_ = start_pos;
     }
 
-#ifdef PARQUET_ENCRYPTION
     if (meta_encryptor_) {
       UpdateEncryption(encryption::kDataPageHeader);
     }
-#endif
     int64_t header_size =
         thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_);
     PARQUET_THROW_NOT_OK(sink_->Write(output_data_buffer, output_data_len));
@@ -339,7 +324,6 @@ class SerializedPageWriter : public PageWriter {
   int64_t total_uncompressed_size() { return total_uncompressed_size_; }
 
  private:
-#ifdef PARQUET_ENCRYPTION
   void InitEncryption() {
     // Prepare the AAD for quick update later.
     if (data_encryptor_ != NULLPTR) {
@@ -388,7 +372,6 @@ class SerializedPageWriter : public PageWriter {
         throw ParquetException("Unknown module type in UpdateEncryption");
     }
   }
-#endif
 
   std::shared_ptr<ArrowOutputStream> sink_;
   ColumnChunkMetaDataBuilder* metadata_;
@@ -407,10 +390,8 @@ class SerializedPageWriter : public PageWriter {
   // Compression codec to use.
   std::unique_ptr<arrow::util::Codec> compressor_;
 
-#ifdef PARQUET_ENCRYPTION
   std::string data_pageAAD_;
   std::string data_page_headerAAD_;
-#endif
 
   std::shared_ptr<Encryptor> meta_encryptor_;
   std::shared_ptr<Encryptor> data_encryptor_;

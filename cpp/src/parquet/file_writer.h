@@ -108,7 +108,6 @@ PARQUET_EXPORT
 void WriteMetaDataFile(const FileMetaData& file_metadata,
                        ::arrow::io::OutputStream* sink);
 
-#ifdef PARQUET_ENCRYPTION
 PARQUET_EXPORT
 void WriteEncryptedFileMetadata(const FileMetaData& file_metadata,
                                 ArrowOutputStream* sink,
@@ -125,7 +124,6 @@ void WriteEncryptedFileMetadata(const FileMetaData& file_metadata,
 PARQUET_EXPORT
 void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
                              ::arrow::io::OutputStream* sink);
-#endif
 
 class PARQUET_EXPORT ParquetFileWriter {
  public:
