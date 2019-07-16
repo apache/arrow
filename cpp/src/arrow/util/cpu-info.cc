@@ -72,7 +72,6 @@ bool CpuInfo::CanUseSSE4_2() const {
 
 std::string CpuInfo::ModelName() { 
   char brand_string[49];
-  const cpu_features::X86Info info = cpu_features::GetX86Info();
   cpu_features::FillX86BrandString( brand_string );
   return brand_string;
 }

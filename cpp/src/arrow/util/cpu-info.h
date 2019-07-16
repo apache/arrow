@@ -22,10 +22,9 @@
 #include <string>
 
 #include "arrow/util/visibility.h"
-#include "arrow/vendored/cpu_features/include/cpu_features_macros.h"
-
+#include <cpu_features/cpu_features_macros.h>
 #if defined(CPU_FEATURES_ARCH_X86)
-#include "arrow/vendored/cpu_features/include/cpuinfo_x86.h"
+#include <cpu_features/cpuinfo_x86.h>
 #endif
 
 namespace arrow {

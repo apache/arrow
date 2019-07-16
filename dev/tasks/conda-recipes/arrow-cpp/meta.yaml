@@ -23,6 +23,7 @@ requirements:
     - boost-cpp
     - brotli
     - c-ares
+    - cpu_features
     - double-conversion
     - flatbuffers
     - gflags
@@ -48,6 +49,7 @@ requirements:
     - boost-cpp
     - brotli
     - c-ares
+    - cpu_features
     - double-conversion
     - gflags
     - glog

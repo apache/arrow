@@ -73,7 +73,8 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     Thrift
     uriparser
     ZLIB
-    ZSTD)
+    ZSTD
+    cpu_features)
 
 # TODO(wesm): External GTest shared libraries are not currently
 # supported when building with MSVC because of the way that
@@ -162,6 +163,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_zlib()
   elseif("${DEPENDENCY_NAME}" STREQUAL "ZSTD")
     build_zstd()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "cpu_features")
+    build_cpu_features()
   else()
     message(FATAL_ERROR "Unknown thirdparty dependency to build: ${DEPENDENCY_NAME}")
   endif()
@@ -410,6 +413,12 @@ if(DEFINED ENV{BZIP2_SOURCE_URL})
   set(BZIP2_SOURCE_URL "$ENV{BZIP2_SOURCE_URL}")
 else()
   set(BZIP2_SOURCE_URL "https://fossies.org/linux/misc/bzip2-${BZIP2_VERSION}.tar.gz")
+endif()
+
+if(DEFINED ENV{ARROW_CPU_FEATURES_URL})
+  set(CPU_FEATURES_SOURCE_URL "$ENV{ARROW_CPU_FEATURES_URL}")
+else()
+  set(CPU_FEATURES_SOURCE_URL "https://github.com/google/cpu_features/archive/${CPU_FEATURES_VERSION}.tar.gz")
 endif()
 
 # ----------------------------------------------------------------------
@@ -2365,6 +2374,56 @@ if(ARROW_ORC)
   message(STATUS "Found ORC static library: ${ORC_STATIC_LIB}")
   message(STATUS "Found ORC headers: ${ORC_INCLUDE_DIR}")
 endif()
+
+# ----------------------------------------------------------------------
+# cpu_features
+macro(build_cpu_features)
+  message(STATUS "Building cpu_features from source")
+  set(CPU_FEATURES_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/cpu_features_ep-install")
+
+  set(CPU_FEATURES_CMAKE_ARGS
+      ${EP_COMMON_TOOLCHAIN}
+      "-DCMAKE_INSTALL_PREFIX=${CPU_FEATURES_PREFIX}"
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+      -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR})
+
+  if(MSVC)
+    set(CPU_FEATURES_STATIC_LIB "${CPU_FEATURES_PREFIX}/${CMAKE_INSTALL_LIBDIR}/cpu_features_static.lib")
+  else()
+    set(CPU_FEATURES_STATIC_LIB "${CPU_FEATURES_PREFIX}/${CMAKE_INSTALL_LIBDIR}/libcpu_features.a")
+  endif()
+
+  externalproject_add(cpu_features_ep
+                      ${EP_LOG_OPTIONS}
+                      CMAKE_ARGS ${CPU_FEATURES_CMAKE_ARGS}
+                      INSTALL_DIR ${CPU_FEATURES_PREFIX}
+                      URL ${CPU_FEATURES_SOURCE_URL}
+                      BUILD_BYPRODUCTS "${CPU_FEATURES_STATIC_LIB}")
+
+  file(MAKE_DIRECTORY "${CPU_FEATURES_PREFIX}/include")
+
+  add_library(cpu_features::cpu_features STATIC IMPORTED)
+  set_target_properties(cpu_features::cpu_features
+                        PROPERTIES IMPORTED_LOCATION "${CPU_FEATURES_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${CPU_FEATURES_PREFIX}/include")
+
+  add_dependencies(toolchain cpu_features_ep)
+  add_dependencies(cpu_features::cpu_features cpu_features_ep)
+endmacro()
+
+set(ARROW_CPU_FEATURES_REQUIRED_VERSION "0.4.0")
+if(cpu_features_SOURCE STREQUAL "AUTO")
+  find_package(cpu_features ${ARROW_CPU_FEATURES_REQUIRED_VERSION} QUIET)
+  if(NOT cpu_features_FOUND)
+    build_cpu_features()
+  endif()
+elseif(cpu_features_SOURCE STREQUAL "BUNDLED")
+  build_cpu_features()
+endif()
+
+get_target_property(cpu_features_INCLUDE_DIR cpu_features::cpu_features
+                    INTERFACE_INCLUDE_DIRECTORIES)
+include_directories(SYSTEM ${cpu_features_INCLUDE_DIR})
 
 # Write out the package configurations.
 

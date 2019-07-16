@@ -578,6 +578,9 @@ set(ARROW_LINK_LIBS ${double-conversion_LIBRARIES})
 set(ARROW_STATIC_LINK_LIBS ${double-conversion_LIBRARIES})
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS ${double-conversion_LIBRARIES})
 
+list(APPEND ARROW_STATIC_LINK_LIBS cpu_features::cpu_features)
+list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS cpu_features::cpu_features)
+
 if(ARROW_WITH_URIPARSER)
   list(APPEND ARROW_STATIC_LINK_LIBS uriparser::uriparser)
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS uriparser::uriparser)
