@@ -167,14 +167,6 @@ matrix:
     script:
     - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
-  - name: "[manylinux1] Python"
-    language: cpp
-    env:
-    - PYTHON_VERSIONS="3.6,16 3.7,16"
-    before_script:
-    - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then docker-compose pull python-manylinux1; fi
-    script:
-    - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_manylinux.sh; fi
   - name: "Java OpenJDK8 and OpenJDK11"
     language: cpp
     os: linux
