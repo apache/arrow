@@ -142,7 +142,7 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// thread while Serve() blocks.
   ///
   /// TODO(wesm): Shutdown with deadline
-  void Shutdown();
+  Status Shutdown();
 
   // Implement these methods to create your own server. The default
   // implementations will return a not-implemented result to the client

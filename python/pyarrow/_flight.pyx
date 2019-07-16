@@ -1305,8 +1305,8 @@ cdef class FlightServerBase:
     cdef:
         unique_ptr[PyFlightServer] server
 
-    def run(self, location, auth_handler=None, tls_certificates=None):
-        """Start this server.
+    def init(self, location, auth_handler=None, tls_certificates=None):
+        """Initialize this server.
 
         Parameters
         ----------
@@ -1348,7 +1348,18 @@ cdef class FlightServerBase:
         self.server.reset(c_server)
         with nogil:
             check_status(c_server.Init(deref(c_options)))
-            check_status(c_server.ServeWithSignals())
+
+    def run(self):
+        """
+        Start serving.  This method only returns if shutdown() is called
+        or a signal a received.
+
+        You must have called init() first.
+        """
+        if self.server.get() == nullptr:
+            raise ValueError("run() on uninitialized FlightServerBase")
+        with nogil:
+            check_status(self.server.get().ServeWithSignals())
 
     def list_flights(self, context, criteria):
         raise NotImplementedError
@@ -1381,6 +1392,7 @@ cdef class FlightServerBase:
         # complete. Holding the GIL means Python-implemented Flight
         # methods will never get to run, so this will hang
         # indefinitely.
+        if self.server.get() == nullptr:
+            raise ValueError("shutdown() on uninitialized FlightServerBase")
         with nogil:
-            if self.server.get() != NULL:
-                self.server.get().Shutdown()
+            check_status(self.server.get().Shutdown())

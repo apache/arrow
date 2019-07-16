@@ -378,13 +378,14 @@ def flight_server(server_base, *args, **kwargs):
 
     ctor_kwargs = kwargs
     server_instance = server_base(*args, **ctor_kwargs)
+    # The server instance needs to be initialized before shutdown()
+    # can be called
+    server_instance.init(location,
+                         auth_handler=auth_handler,
+                         tls_certificates=tls_certificates)
 
     def _server_thread():
-        server_instance.run(
-            location,
-            auth_handler=auth_handler,
-            tls_certificates=tls_certificates,
-        )
+        server_instance.run()
 
     thread = threading.Thread(target=_server_thread, daemon=True)
     thread.start()
@@ -632,7 +633,7 @@ def test_location_invalid():
 
     server = ConstantFlightServer()
     with pytest.raises(pa.ArrowInvalid, match=".*Cannot parse URI:.*"):
-        server.run("%")
+        server.init("%")
 
 
 @pytest.mark.slow
@@ -654,9 +655,6 @@ def test_tls_fails():
             client.do_get(flight.Ticket(b'ints'))
 
 
-# ARROW-5930: Currently fails in Travis with SIGSEGV when tearing down
-# server
-@pytest.mark.slow
 @pytest.mark.requires_testing_data
 def test_tls_do_get():
     """Try a simple do_get call over TLS."""
@@ -673,9 +671,6 @@ def test_tls_do_get():
         assert data.equals(table)
 
 
-# ARROW-5930: Currently fails in Travis with SIGSEGV when tearing down
-# server
-@pytest.mark.slow
 @pytest.mark.requires_testing_data
 def test_tls_override_hostname():
     """Check that incorrectly overriding the hostname fails."""
