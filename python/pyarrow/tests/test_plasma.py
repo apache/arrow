@@ -860,7 +860,6 @@ class TestPlasmaClient(object):
                 self.plasma_client2.create(
                     object_id, DEFAULT_PLASMA_STORE_MEMORY + SMALL_OBJECT_SIZE)
 
-
     def test_client_death_during_get(self):
         import pyarrow.plasma as plasma
 
