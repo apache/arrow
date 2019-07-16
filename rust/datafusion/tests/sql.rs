@@ -28,6 +28,7 @@ use arrow::datatypes::{DataType, Field, Schema};
 
 use datafusion::datasource::parquet::ParquetTable;
 use datafusion::datasource::TableProvider;
+use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::execution::relation::Relation;
 use datafusion::logicalplan::LogicalPlan;
@@ -35,7 +36,7 @@ use datafusion::logicalplan::LogicalPlan;
 const DEFAULT_BATCH_SIZE: usize = 1024 * 1024;
 
 #[test]
-fn nyc() {
+fn nyc() -> Result<()> {
     // schema for nyxtaxi csv files
     let schema = Schema::new(vec![
         Field::new("VendorID", DataType::Utf8, true),
@@ -60,14 +61,12 @@ fn nyc() {
     let mut ctx = ExecutionContext::new();
     ctx.register_csv("tripdata", "file.csv", &schema, true);
 
-    let optimized_plan = ctx
-        .create_logical_plan(
-            "SELECT passenger_count, MIN(fare_amount), MAX(fare_amount) \
-             FROM tripdata GROUP BY passenger_count",
-        )
-        .unwrap();
+    let logical_plan = ctx.create_logical_plan(
+        "SELECT passenger_count, MIN(fare_amount), MAX(fare_amount) \
+         FROM tripdata GROUP BY passenger_count",
+    )?;
 
-    println!("Logical plan: {:?}", optimized_plan);
+    let optimized_plan = ctx.optimize(&logical_plan)?;
 
     match optimized_plan.as_ref() {
         LogicalPlan::Aggregate { input, .. } => match input.as_ref() {
@@ -83,6 +82,8 @@ fn nyc() {
         },
         _ => assert!(false),
     }
+
+    Ok(())
 }
 
 #[test]
@@ -158,6 +159,7 @@ fn csv_query_avg_multi_batch() {
     //TODO add ORDER BY once supported, to make this test determistic
     let sql = "SELECT avg(c12) FROM aggregate_test_100";
     let plan = ctx.create_logical_plan(&sql).unwrap();
+    let plan = ctx.optimize(&plan).unwrap();
     let results = ctx.execute(&plan, 4).unwrap();
     let mut relation = results.borrow_mut();
     let batch = relation.next().unwrap().unwrap();
@@ -415,6 +417,7 @@ fn load_parquet_table(name: &str) -> Rc<dyn TableProvider> {
 /// Execute query and return result set as tab delimited string
 fn execute(ctx: &mut ExecutionContext, sql: &str) -> String {
     let plan = ctx.create_logical_plan(&sql).unwrap();
+    let plan = ctx.optimize(&plan).unwrap();
     let results = ctx.execute(&plan, DEFAULT_BATCH_SIZE).unwrap();
     result_str(&results)
 }
