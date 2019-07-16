@@ -192,11 +192,14 @@ if [ $TRAVIS_OS_NAME == "linux" ]; then
     sudo bash -c "echo 2048 > /proc/sys/vm/nr_hugepages"
 fi
 
+# For core dump analysis
+ln -sf `which python` $TRAVIS_BUILD_DIR/current-exe
+
 # Need to run tests from the source tree for Cython coverage and conftest.py
 if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     # Output Python coverage data in a persistent place
     export COVERAGE_FILE=$ARROW_PYTHON_COVERAGE_FILE
-    coverage run --append -m pytest $PYARROW_PYTEST_FLAGS pyarrow/tests
+    python -m coverage run --append -m pytest $PYARROW_PYTEST_FLAGS pyarrow/tests
 else
     python -m pytest $PYARROW_PYTEST_FLAGS pyarrow/tests
 fi

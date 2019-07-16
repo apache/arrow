@@ -584,9 +584,13 @@ Status FlightServerBase::Serve() {
 
 int FlightServerBase::GotSignal() const { return impl_->got_signal_; }
 
-void FlightServerBase::Shutdown() {
-  DCHECK(impl_->server_);
+Status FlightServerBase::Shutdown() {
+  auto server = impl_->server_.get();
+  if (!server) {
+    return Status::Invalid("Shutdown() on uninitialized FlightServerBase");
+  }
   impl_->server_->Shutdown();
+  return Status::OK();
 }
 
 Status FlightServerBase::ListFlights(const ServerCallContext& context,
