@@ -194,4 +194,18 @@ NUMERIC_FUNCTION(DIVIDE)
 DIV(int32)
 DIV(int64)
 
+#define DIV_FLOAT(TYPE)                                         \
+  FORCE_INLINE                                                  \
+  TYPE div_##TYPE##_##TYPE(int64 context, TYPE in1, TYPE in2) { \
+    if (in2 == 0) {                                             \
+      char const* err_msg = "divide by zero error";             \
+      gdv_fn_context_set_error_msg(context, err_msg);           \
+      return 0;                                                 \
+    }                                                           \
+    return trunc(in1 / in2);                                    \
+  }
+
+DIV_FLOAT(float32)
+DIV_FLOAT(float64)
+
 }  // extern "C"

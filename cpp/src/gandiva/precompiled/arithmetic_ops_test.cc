@@ -79,6 +79,16 @@ TEST(TestArithmeticOps, TestDiv) {
   EXPECT_EQ(div_int64_int64(reinterpret_cast<int64>(&context), 101, 111), 0);
   EXPECT_EQ(context.has_error(), false);
   context.Reset();
+  
+  EXPECT_EQ(div_float64_float64(reinterpret_cast<int64>(&context), 1010.1010, 2.1), 481.0);
+  EXPECT_EQ(context.has_error(), false);
+  context.Reset();
+  
+  EXPECT_EQ(div_float64_float64(reinterpret_cast<int64>(&context), 1010.1010, 0.00000), 0.0);
+  EXPECT_EQ(context.has_error(), true);
+  EXPECT_EQ(context.get_error(), "divide by zero error");
+  context.Reset();
+  
 }
 
 }  // namespace gandiva
