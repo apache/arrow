@@ -695,7 +695,7 @@ std::shared_ptr<::arrow::Schema> FileReader::Impl::FixSchema(
   auto fields = old_schema.fields();
 
   for (int idx : dict_indices) {
-    fields[idx] = ::arrow::field(old_schema.field(idx)->name(), columns[idx]->type());
+    fields[idx] = old_schema.field(idx)->WithType(columns[idx]->type());
   }
   return std::make_shared<::arrow::Schema>(fields, old_schema.metadata());
 }

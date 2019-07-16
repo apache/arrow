@@ -172,7 +172,7 @@ class ARROW_EXPORT Table {
   virtual std::shared_ptr<ChunkedArray> column(int i) const = 0;
 
   /// Return a column's field by index
-  virtual std::shared_ptr<Field> field(int i) const = 0;
+  std::shared_ptr<Field> field(int i) const { return schema_->field(i); }
 
   /// \brief Construct a zero-copy slice of the table with the
   /// indicated offset and length

@@ -236,8 +236,6 @@ class SimpleTable : public Table {
 
   std::shared_ptr<ChunkedArray> column(int i) const override { return columns_[i]; }
 
-  std::shared_ptr<Field> field(int i) const override { return schema_->field(i); }
-
   std::shared_ptr<Table> Slice(int64_t offset, int64_t length) const override {
     auto sliced = columns_;
     int64_t num_rows = length;

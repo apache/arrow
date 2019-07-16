@@ -972,7 +972,7 @@ cdef class Table(_PandasConvertible):
         names : list of str, optional
             Names for the table columns. If not passed, schema must be passed
         schema : Schema, default None
-            Must pass this or names
+            Schema for the created table. If not passed, names must be passed
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
 
