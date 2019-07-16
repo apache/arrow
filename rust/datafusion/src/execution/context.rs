@@ -66,6 +66,7 @@ impl ExecutionContext {
     /// of RecordBatch instances)
     pub fn sql(&mut self, sql: &str, batch_size: usize) -> Result<Rc<RefCell<Relation>>> {
         let plan = self.create_logical_plan(sql)?;
+        let plan = self.optimize(&plan)?;
         Ok(self.execute(&plan, batch_size)?)
     }
 
@@ -86,7 +87,7 @@ impl ExecutionContext {
                 // plan the query (create a logical relational plan)
                 let plan = query_planner.sql_to_rel(&ansi)?;
 
-                Ok(self.optimize(&plan)?)
+                Ok(plan)
             }
             DFASTNode::CreateExternalTable {
                 name,

@@ -174,8 +174,17 @@ impl SqlToRel {
                     let limit_plan = match limit {
                         &Some(ref limit_expr) => {
                             let input_schema = order_by_plan.schema();
-                            let limit_rex =
-                                self.sql_to_rex(&limit_expr, &input_schema.clone())?;
+
+                            let limit_rex = match self
+                                .sql_to_rex(&limit_expr, &input_schema.clone())?
+                            {
+                                Expr::Literal(ScalarValue::Int64(n)) => {
+                                    Ok(Expr::Literal(ScalarValue::UInt32(n as u32)))
+                                }
+                                _ => Err(ExecutionError::General(
+                                    "Unexpected expression for LIMIT clause".to_string(),
+                                )),
+                            }?;
 
                             LogicalPlan::Limit {
                                 expr: limit_rex,
