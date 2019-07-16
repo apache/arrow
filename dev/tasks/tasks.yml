@@ -388,46 +388,46 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-glib0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-glib0_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib0_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda0_{no_rc_version}-1_amd64.deb
       - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset0_{no_rc_version}-1_amd64.deb
       - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-flight14_{no_rc_version}-1_amd64.deb
+      - libarrow-flight0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-flight0_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-python14_{no_rc_version}-1_amd64.deb
-      - libarrow14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow14_{no_rc_version}-1_amd64.deb
+      - libarrow-python0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-python0_{no_rc_version}-1_amd64.deb
+      - libarrow0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow0_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-doc_{no_rc_version}-1_all.deb
-      - libgandiva-glib14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libgandiva-glib14_{no_rc_version}-1_amd64.deb
-      - libgandiva14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libgandiva14_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib0_{no_rc_version}-1_amd64.deb
+      - libgandiva0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libgandiva0_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libparquet-glib14_{no_rc_version}-1_amd64.deb
-      - libparquet14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libparquet14_{no_rc_version}-1_amd64.deb
+      - libparquet-glib0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet-glib0_{no_rc_version}-1_amd64.deb
+      - libparquet0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet0_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-doc_{no_rc_version}-1_all.deb
-      - libplasma-glib14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libplasma-glib14_{no_rc_version}-1_amd64.deb
-      - libplasma14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libplasma14_{no_rc_version}-1_amd64.deb
+      - libplasma-glib0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libplasma-glib0_{no_rc_version}-1_amd64.deb
+      - libplasma0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libplasma0_{no_rc_version}-1_amd64.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
@@ -451,27 +451,27 @@ tasks:
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset0_{no_rc_version}-1_amd64.deb
       - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-flight14_{no_rc_version}-1_amd64.deb
+      - libarrow-flight0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-flight0_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-glib0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-glib0_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-python14_{no_rc_version}-1_amd64.deb
-      - libarrow14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow14_{no_rc_version}-1_amd64.deb
+      - libarrow-python0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-python0_{no_rc_version}-1_amd64.deb
+      - libarrow0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow0_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libparquet-glib14_{no_rc_version}-1_amd64.deb
-      - libparquet14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libparquet14_{no_rc_version}-1_amd64.deb
+      - libparquet-glib0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet-glib0_{no_rc_version}-1_amd64.deb
+      - libparquet0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet0_{no_rc_version}-1_amd64.deb
 
   debian-buster:
     ci: travis
@@ -496,46 +496,46 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-glib0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-glib0_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib0_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda0_{no_rc_version}-1_amd64.deb
       - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset0_{no_rc_version}-1_amd64.deb
       - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-flight14_{no_rc_version}-1_amd64.deb
+      - libarrow-flight0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-flight0_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-python14_{no_rc_version}-1_amd64.deb
-      - libarrow14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow14_{no_rc_version}-1_amd64.deb
+      - libarrow-python0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-python0_{no_rc_version}-1_amd64.deb
+      - libarrow0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow0_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-doc_{no_rc_version}-1_all.deb
-      - libgandiva-glib14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libgandiva-glib14_{no_rc_version}-1_amd64.deb
-      - libgandiva14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libgandiva14_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib0_{no_rc_version}-1_amd64.deb
+      - libgandiva0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libgandiva0_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libparquet-glib14_{no_rc_version}-1_amd64.deb
-      - libparquet14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libparquet14_{no_rc_version}-1_amd64.deb
+      - libparquet-glib0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet-glib0_{no_rc_version}-1_amd64.deb
+      - libparquet0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet0_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-doc_{no_rc_version}-1_all.deb
-      - libplasma-glib14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libplasma-glib14_{no_rc_version}-1_amd64.deb
-      - libplasma14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libplasma14_{no_rc_version}-1_amd64.deb
+      - libplasma-glib0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libplasma-glib0_{no_rc_version}-1_amd64.deb
+      - libplasma0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libplasma0_{no_rc_version}-1_amd64.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
@@ -562,32 +562,32 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-glib0_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib0_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda0_{no_rc_version}-1_amd64.deb
       - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset0_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python14_{no_rc_version}-1_amd64.deb
-      - libarrow14_{no_rc_version}-1_amd64.deb
+      - libarrow-python0_{no_rc_version}-1_amd64.deb
+      - libarrow0_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-doc_{no_rc_version}-1_all.deb
-      - libgandiva-glib14_{no_rc_version}-1_amd64.deb
-      - libgandiva14_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib0_{no_rc_version}-1_amd64.deb
+      - libgandiva0_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib14_{no_rc_version}-1_amd64.deb
-      - libparquet14_{no_rc_version}-1_amd64.deb
+      - libparquet-glib0_{no_rc_version}-1_amd64.deb
+      - libparquet0_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-doc_{no_rc_version}-1_all.deb
-      - libplasma-glib14_{no_rc_version}-1_amd64.deb
-      - libplasma14_{no_rc_version}-1_amd64.deb
+      - libplasma-glib0_{no_rc_version}-1_amd64.deb
+      - libplasma0_{no_rc_version}-1_amd64.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
@@ -614,35 +614,35 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-glib0_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib0_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda0_{no_rc_version}-1_amd64.deb
       - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset0_{no_rc_version}-1_amd64.deb
       - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-flight14_{no_rc_version}-1_amd64.deb
+      - libarrow-flight0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-flight0_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python14_{no_rc_version}-1_amd64.deb
-      - libarrow14_{no_rc_version}-1_amd64.deb
+      - libarrow-python0_{no_rc_version}-1_amd64.deb
+      - libarrow0_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-doc_{no_rc_version}-1_all.deb
-      - libgandiva-glib14_{no_rc_version}-1_amd64.deb
-      - libgandiva14_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib0_{no_rc_version}-1_amd64.deb
+      - libgandiva0_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib14_{no_rc_version}-1_amd64.deb
-      - libparquet14_{no_rc_version}-1_amd64.deb
+      - libparquet-glib0_{no_rc_version}-1_amd64.deb
+      - libparquet0_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-doc_{no_rc_version}-1_all.deb
-      - libplasma-glib14_{no_rc_version}-1_amd64.deb
-      - libplasma14_{no_rc_version}-1_amd64.deb
+      - libplasma-glib0_{no_rc_version}-1_amd64.deb
+      - libplasma0_{no_rc_version}-1_amd64.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
@@ -669,35 +669,35 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-glib0_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib0_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda0_{no_rc_version}-1_amd64.deb
       - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset0_{no_rc_version}-1_amd64.deb
       - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-flight14_{no_rc_version}-1_amd64.deb
+      - libarrow-flight0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-flight0_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python14_{no_rc_version}-1_amd64.deb
-      - libarrow14_{no_rc_version}-1_amd64.deb
+      - libarrow-python0_{no_rc_version}-1_amd64.deb
+      - libarrow0_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-doc_{no_rc_version}-1_all.deb
-      - libgandiva-glib14_{no_rc_version}-1_amd64.deb
-      - libgandiva14_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib0_{no_rc_version}-1_amd64.deb
+      - libgandiva0_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib14_{no_rc_version}-1_amd64.deb
-      - libparquet14_{no_rc_version}-1_amd64.deb
+      - libparquet-glib0_{no_rc_version}-1_amd64.deb
+      - libparquet0_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-doc_{no_rc_version}-1_all.deb
-      - libplasma-glib14_{no_rc_version}-1_amd64.deb
-      - libplasma14_{no_rc_version}-1_amd64.deb
+      - libplasma-glib0_{no_rc_version}-1_amd64.deb
+      - libplasma0_{no_rc_version}-1_amd64.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
@@ -724,35 +724,35 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-glib0_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib0_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda0_{no_rc_version}-1_amd64.deb
       - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset0_{no_rc_version}-1_amd64.deb
       - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-flight14_{no_rc_version}-1_amd64.deb
+      - libarrow-flight0-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-flight0_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python14_{no_rc_version}-1_amd64.deb
-      - libarrow14_{no_rc_version}-1_amd64.deb
+      - libarrow-python0_{no_rc_version}-1_amd64.deb
+      - libarrow0_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-doc_{no_rc_version}-1_all.deb
-      - libgandiva-glib14_{no_rc_version}-1_amd64.deb
-      - libgandiva14_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib0_{no_rc_version}-1_amd64.deb
+      - libgandiva0_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib14_{no_rc_version}-1_amd64.deb
-      - libparquet14_{no_rc_version}-1_amd64.deb
+      - libparquet-glib0_{no_rc_version}-1_amd64.deb
+      - libparquet0_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-doc_{no_rc_version}-1_all.deb
-      - libplasma-glib14_{no_rc_version}-1_amd64.deb
-      - libplasma14_{no_rc_version}-1_amd64.deb
+      - libplasma-glib0_{no_rc_version}-1_amd64.deb
+      - libplasma0_{no_rc_version}-1_amd64.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
