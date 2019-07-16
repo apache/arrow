@@ -137,6 +137,7 @@ function build_wheel {
           -DARROW_FLIGHT=ON \
           -DgRPC_SOURCE=SYSTEM \
           -Dc-ares_SOURCE=BUNDLED \
+          -Dzlib_SOURCE=BUNDLED \
           -DARROW_PROTOBUF_USE_SHARED=OFF \
           -DOPENSSL_USE_STATIC_LIBS=ON  \
           -DMAKE=make \

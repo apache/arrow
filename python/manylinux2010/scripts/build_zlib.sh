@@ -19,7 +19,7 @@
 curl -sL https://zlib.net/zlib-1.2.11.tar.gz -o /zlib-1.2.11.tar.gz
 tar xf zlib-1.2.11.tar.gz
 pushd zlib-1.2.11
-./configure
+CFLAGS=-fPIC ./configure --static
 make -j8
 make install
 popd
