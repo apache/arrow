@@ -74,7 +74,10 @@ cdef class StructType(DataType):
 
 cdef class DictionaryMemo:
     cdef:
-        CDictionaryMemo memo
+        # Even though the CDictionaryMemo instance is private, we allocate
+        # it on the heap so as to avoid C++ ABI issues with Python wheels.
+        shared_ptr[CDictionaryMemo] sp_memo
+        CDictionaryMemo* memo
 
 
 cdef class DictionaryType(DataType):
