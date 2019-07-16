@@ -16,7 +16,7 @@
 # under the License.
 
 module Plasma
-  VERSION = "0.14.1"
+  VERSION = "1.0.0-SNAPSHOT"
 
   module Version
     numbers, TAG = VERSION.split("-")
