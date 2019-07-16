@@ -42,7 +42,7 @@ use `PYTHON_VERSION="2.7"` with `UNICODE_WIDTH=32`):
 
 ```bash
 # Build the python packages
-docker run --env PYTHON_VERSION="2.7" --env UNICODE_WIDTH=16 --shm-size=2g --rm -t -i -v $PWD:/io -v $PWD/../../:/arrow ursalab/arrow_manylinux2010_x86_64_base:latest /io/build_arrow.sh
+docker-compose run -e PYTHON_VERSION="2.7" -e UNICODE_WIDTH=16 python-manylinux2010
 # Now the new packages are located in the dist/ folder
 ls -l dist/
 ```
@@ -55,7 +55,7 @@ The Docker configuration is in `Dockerfile-x86_64_base`, and it calls into
 scripts stored under the `scripts` directory.
 
 ```bash
-docker build -t arrow_manylinux2010_x86_64_base -f Dockerfile-x86_64_base .
+docker-compose build python-manylinux2010
 ```
 
 For each dependency, a bash script in the `scripts/` directory downloads the
@@ -69,7 +69,7 @@ If you have write access to the Docker Hub Ursa Labs account, you can directly
 publish a build image that you built locally.
 
 ```bash
-$ docker push ursalab/arrow_manylinux2010_x86_64_base
+$ docker push python-manylinux2010
 The push refers to repository [ursalab/arrow_manylinux2010_x86_64_base]
 a1ab88d27acc: Pushing [==============>                                    ]  492.5MB/1.645GB
 [... etc. ...]

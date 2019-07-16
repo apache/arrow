@@ -384,7 +384,6 @@ class build_ext(_build_ext):
                         "{}_regex".format(self.boost_namespace),
                         implib_required=False)
                 if sys.platform == 'win32':
-                    # zlib uses zlib.dll for Windows
                     if self.with_flight:
                         # DLL dependencies for gRPC / Flight
                         for lib_name in ['cares', 'libprotobuf',

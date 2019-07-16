@@ -61,7 +61,7 @@ script:
 
   # run auditwheel, it does always exit with 0 so it is mostly for debugging
   # purposes
-  - docker run -v `pwd`:/arrow quay.io/pypa/manylinux1_x86_64 /bin/bash -c
+  - docker run -v `pwd`:/arrow quay.io/pypa/{{ wheel_tag }}_x86_64 /bin/bash -c
       "auditwheel show /arrow/python/{{ wheel_tag }}/dist/*.whl"
 
   # test on multiple distributions
