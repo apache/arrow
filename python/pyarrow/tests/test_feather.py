@@ -69,7 +69,8 @@ class TestFeatherReader(unittest.TestCase):
         counts = []
         for i in range(reader.num_columns):
             col = reader.get_column(i)
-            if columns is None or col.name in columns:
+            name = reader.get_column_name(i)
+            if columns is None or name in columns:
                 counts.append(col.null_count)
 
         return counts

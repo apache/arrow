@@ -19,9 +19,19 @@
 
 #pragma once
 
-#include <arrow/api.h>
+#include <glib.h>
 
-#include <arrow-glib/column.h>
-
-GArrowColumn *garrow_column_new_raw(std::shared_ptr<arrow::Column> *arrow_column);
-std::shared_ptr<arrow::Column> garrow_column_get_raw(GArrowColumn *column);
+static inline bool
+garrow_internal_index_adjust(gint &i, const gint max)
+{
+  if (i < 0) {
+    i += max;
+    if (i < 0) {
+      return false;
+    }
+  }
+  if (i >= max) {
+    return false;
+  }
+  return true;
+}

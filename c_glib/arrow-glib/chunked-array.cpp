@@ -206,9 +206,25 @@ garrow_chunked_array_get_value_type(GArrowChunkedArray *chunked_array)
  * @chunked_array: A #GArrowChunkedArray.
  *
  * Returns: The total number of rows in the chunked array.
+ *
+ * Deprecated: 1.0.0: Use garrow_chunked_array_get_n_rows() instead.
  */
 guint64
 garrow_chunked_array_get_length(GArrowChunkedArray *chunked_array)
+{
+  return garrow_chunked_array_get_n_rows(chunked_array);
+}
+
+/**
+ * garrow_chunked_array_get_n_rows:
+ * @chunked_array: A #GArrowChunkedArray.
+ *
+ * Returns: The total number of rows in the chunked array.
+ *
+ * Since: 1.0.0
+ */
+guint64
+garrow_chunked_array_get_n_rows(GArrowChunkedArray *chunked_array)
 {
   const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
   return arrow_chunked_array->length();

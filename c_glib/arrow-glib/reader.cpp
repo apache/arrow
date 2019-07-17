@@ -21,18 +21,18 @@
 #  include <config.h>
 #endif
 
-#include <arrow-glib/column.hpp>
+#include <arrow-glib/array.hpp>
+#include <arrow-glib/chunked-array.hpp>
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/enums.h>
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/input-stream.hpp>
+#include <arrow-glib/internal-index.hpp>
+#include <arrow-glib/metadata-version.hpp>
+#include <arrow-glib/reader.hpp>
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
-
-#include <arrow-glib/input-stream.hpp>
-
-#include <arrow-glib/metadata-version.hpp>
-#include <arrow-glib/reader.hpp>
 
 G_BEGIN_DECLS
 
@@ -734,9 +734,11 @@ garrow_feather_file_reader_get_n_columns(GArrowFeatherFileReader *reader)
 /**
  * garrow_feather_file_reader_get_column_name:
  * @reader: A #GArrowFeatherFileReader.
- * @i: The index of the target column.
+ * @i: The index of the target column. If it's negative, index is
+ *   counted backward from the end of the columns. `-1` means the last
+ *   column.
  *
- * Returns: (transfer full): The i-th column name in the file.
+ * Returns: (nullable) (transfer full): The i-th column name in the file.
  *
  *   It should be freed with g_free() when no longer needed.
  *
@@ -747,69 +749,52 @@ garrow_feather_file_reader_get_column_name(GArrowFeatherFileReader *reader,
                                            gint i)
 {
   auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
-  auto column_name = arrow_reader->GetColumnName(i);
+  if (!garrow_internal_index_adjust(i, arrow_reader->num_columns())) {
+    return NULL;
+  }
+  const auto &column_name = arrow_reader->GetColumnName(i);
   return g_strndup(column_name.data(),
                    column_name.size());
 }
 
 /**
- * garrow_feather_file_reader_get_column:
+ * garrow_feather_file_reader_get_column_data:
  * @reader: A #GArrowFeatherFileReader.
- * @i: The index of the target column.
+ * @i: The index of the target column. If it's negative, index is
+ *   counted backward from the end of the columns. `-1` means the last
+ *   column.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full):
- *   The i-th column in the file or %NULL on error.
+ *   The i-th column's data in the file or %NULL on error.
  *
- * Since: 0.4.0
+ * Since: 1.0.0
  */
-GArrowColumn *
-garrow_feather_file_reader_get_column(GArrowFeatherFileReader *reader,
-                                      gint i,
-                                      GError **error)
+GArrowChunkedArray *
+garrow_feather_file_reader_get_column_data(GArrowFeatherFileReader *reader,
+                                           gint i,
+                                           GError **error)
 {
+  const auto tag = "[feather-file-reader][get-column-data]";
   auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
-  std::shared_ptr<arrow::Column> arrow_column;
-  auto status = arrow_reader->GetColumn(i, &arrow_column);
 
-  if (garrow_error_check(error, status, "[feather-file-reader][get-column]")) {
-    return garrow_column_new_raw(&arrow_column);
+  const auto n_columns = arrow_reader->num_columns();
+  if (!garrow_internal_index_adjust(i, n_columns)) {
+    garrow_error_check(error,
+                       arrow::Status::IndexError("Out of index: "
+                                                 "<0..", n_columns, ">: "
+                                                 "<", i, ">"),
+                       tag);
+    return NULL;
+  }
+
+  std::shared_ptr<arrow::ChunkedArray> arrow_chunked_array;
+  auto status = arrow_reader->GetColumn(i, &arrow_chunked_array);
+  if (garrow_error_check(error, status, tag)) {
+    return garrow_chunked_array_new_raw(&arrow_chunked_array);
   } else {
     return NULL;
   }
-}
-
-/**
- * garrow_feather_file_reader_get_columns:
- * @reader: A #GArrowFeatherFileReader.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: (element-type GArrowColumn) (transfer full):
- *   The columns in the file.
- *
- * Since: 0.4.0
- */
-GList *
-garrow_feather_file_reader_get_columns(GArrowFeatherFileReader *reader,
-                                       GError **error)
-{
-  GList *columns = NULL;
-  auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
-  auto n_columns = arrow_reader->num_columns();
-  for (gint i = 0; i < n_columns; ++i) {
-    std::shared_ptr<arrow::Column> arrow_column;
-    auto status = arrow_reader->GetColumn(i, &arrow_column);
-    if (!garrow_error_check(error,
-                            status,
-                            "[feather-file-reader][get-columns]")) {
-      g_list_foreach(columns, (GFunc)g_object_unref, NULL);
-      g_list_free(columns);
-      return NULL;
-    }
-    columns = g_list_prepend(columns,
-                             garrow_column_new_raw(&arrow_column));
-  }
-  return g_list_reverse(columns);
 }
 
 /**

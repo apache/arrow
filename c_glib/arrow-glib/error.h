@@ -39,7 +39,7 @@ G_BEGIN_DECLS
  *   in Gandiva.
  * @GARROW_ERROR_EXPRESSION_VALIDATION: Validation errors in expression given for code generation.
  * @GARROW_ERROR_EXECUTION: Execution error while evaluating the expression against a record batch.
- * @GARROW_ALREADY_EXISTS: Item already exists error.
+ * @GARROW_ERROR_ALREADY_EXISTS: Item already exists error.
  *
  * The error codes are used by all arrow-glib functions.
  *

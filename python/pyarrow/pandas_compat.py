@@ -29,7 +29,8 @@ import six
 
 import pyarrow as pa
 from pyarrow.lib import _pandas_api
-from pyarrow.compat import (builtin_pickle, PY2, zip_longest, Sequence)  # noqa
+from pyarrow.compat import (builtin_pickle,  # noqa
+                            PY2, zip_longest, Sequence, u_utf8)
 
 
 _logical_type_map = {}
@@ -668,7 +669,7 @@ def _check_data_column_metadata_consistency(all_columns):
 
 
 def _deserialize_column_index(block_table, all_columns, column_indexes):
-    column_strings = [x.name for x in block_table.itercolumns()]
+    column_strings = [u_utf8(x) for x in block_table.column_names]
     if all_columns:
         columns_name_dict = {
             c.get('field_name', _column_name_to_strings(c['name'])): c['name']
@@ -770,21 +771,21 @@ def _extract_index_level(table, result_table, field_name,
         # The serialized index column was removed by the user
         return table, None, None
 
+    pd = _pandas_api.pd
+
     col = table.column(i)
-    col_pandas = col.to_pandas()
-    values = col_pandas.values
+    values = col.to_pandas()
+
     if hasattr(values, 'flags') and not values.flags.writeable:
         # ARROW-1054: in pandas 0.19.2, factorize will reject
         # non-writeable arrays when calling MultiIndex.from_arrays
         values = values.copy()
 
-    pd = _pandas_api.pd
-
-    if _pandas_api.is_datetimetz(col_pandas.dtype):
+    if isinstance(col.type, pa.lib.TimestampType):
         index_level = (pd.Series(values).dt.tz_localize('utc')
-                       .dt.tz_convert(col_pandas.dtype.tz))
+                       .dt.tz_convert(col.type.tz))
     else:
-        index_level = pd.Series(values, dtype=col_pandas.dtype)
+        index_level = pd.Series(values, dtype=values.dtype)
     result_table = result_table.remove_column(
         result_table.schema.get_field_index(field_name)
     )
@@ -899,6 +900,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
 
     new_levels = []
     encoder = operator.methodcaller('encode', 'UTF-8')
+
     for level, pandas_dtype in levels_dtypes:
         dtype = _pandas_type_to_numpy_type(pandas_dtype)
 
@@ -944,6 +946,7 @@ def _flatten_single_level_multiindex(index):
 
 def _add_any_metadata(table, pandas_metadata):
     modified_columns = {}
+    modified_fields = {}
 
     schema = table.schema
 
@@ -971,20 +974,23 @@ def _add_any_metadata(table, pandas_metadata):
                 converted = col.to_pandas()
                 tz = col_meta['metadata']['timezone']
                 tz_aware_type = pa.timestamp('ns', tz=tz)
-                with_metadata = pa.Array.from_pandas(converted.values,
+                with_metadata = pa.Array.from_pandas(converted,
                                                      type=tz_aware_type)
 
-                field = pa.field(schema[idx].name, tz_aware_type)
-                modified_columns[idx] = pa.Column.from_array(field,
-                                                             with_metadata)
+                modified_fields[idx] = pa.field(schema[idx].name,
+                                                tz_aware_type)
+                modified_columns[idx] = with_metadata
 
     if len(modified_columns) > 0:
         columns = []
+        fields = []
         for i in range(len(table.schema)):
             if i in modified_columns:
                 columns.append(modified_columns[i])
+                fields.append(modified_fields[i])
             else:
                 columns.append(table[i])
-        return pa.Table.from_arrays(columns)
+                fields.append(table.schema[i])
+        return pa.Table.from_arrays(columns, schema=pa.schema(fields))
     else:
         return table

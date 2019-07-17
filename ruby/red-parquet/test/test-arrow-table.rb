@@ -35,9 +35,7 @@ class TestArrowTableReader < Test::Unit::TestCase
     ]
     @count_array = Arrow::ChunkedArray.new(count_arrays)
     @visible_array = Arrow::ChunkedArray.new(visible_arrays)
-    @count_column = Arrow::Column.new(@count_field, @count_array)
-    @visible_column = Arrow::Column.new(@visible_field, @visible_array)
-    @table = Arrow::Table.new(schema, [@count_column, @visible_column])
+    @table = Arrow::Table.new(schema, [@count_array, @visible_array])
   end
 
   def test_save_load_path

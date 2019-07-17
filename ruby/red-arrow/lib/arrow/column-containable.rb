@@ -16,22 +16,32 @@
 # under the License.
 
 module Arrow
-  module RecordContainable
-    def each_record(reuse_record: false)
-      unless block_given?
-        return to_enum(__method__, reuse_record: reuse_record)
+  module ColumnContainable
+    def columns
+      @columns ||= schema.n_fields.times.collect do |i|
+        Column.new(self, i)
       end
+    end
 
-      if reuse_record
-        record = Record.new(self, nil)
-        n_rows.times do |i|
-          record.index = i
-          yield(record)
-        end
+    def each_column(&block)
+      columns.each(&block)
+    end
+
+    def find_column(name_or_index)
+      case name_or_index
+      when String, Symbol
+        name = name_or_index.to_s
+        index = schema.get_field_index(name)
+        return nil if index == -1
+        Column.new(self, index)
+      when Integer
+        index = name_or_index
+        index += n_columns if index < 0
+        return nil if index < 0 or index >= n_columns
+        Column.new(self, index)
       else
-        n_rows.times do |i|
-          yield(Record.new(self, i))
-        end
+        message = "column name or index must be String, Symbol or Integer"
+        raise ArgumentError, message
       end
     end
   end

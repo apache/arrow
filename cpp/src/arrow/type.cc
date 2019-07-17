@@ -367,7 +367,7 @@ std::string StructType::ToString() const {
       s << ", ";
     }
     std::shared_ptr<Field> field = this->child(i);
-    s << field->name() << ": " << field->type()->ToString();
+    s << field->ToString();
   }
   s << ">";
   return s.str();

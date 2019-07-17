@@ -33,11 +33,6 @@
 
 namespace arrow {
 
-std::shared_ptr<Column> column(const std::shared_ptr<Field>& field,
-                               const std::vector<std::shared_ptr<Array>>& arrays) {
-  return std::make_shared<Column>(field, arrays);
-}
-
 class TestChunkedArray : public TestBase {
  protected:
   virtual void Construct() {
@@ -161,103 +156,6 @@ TEST_F(TestChunkedArray, Validate) {
   ASSERT_RAISES(Invalid, one_->Validate());
 }
 
-class TestColumn : public TestChunkedArray {
- protected:
-  void Construct() override {
-    TestChunkedArray::Construct();
-
-    one_col_ = std::make_shared<Column>(one_field_, one_);
-    another_col_ = std::make_shared<Column>(another_field_, another_);
-  }
-
-  std::shared_ptr<ChunkedArray> data_;
-  std::unique_ptr<Column> column_;
-
-  std::shared_ptr<Field> one_field_;
-  std::shared_ptr<Field> another_field_;
-
-  std::shared_ptr<Column> one_col_;
-  std::shared_ptr<Column> another_col_;
-};
-
-TEST_F(TestColumn, BasicAPI) {
-  ArrayVector arrays;
-  arrays.push_back(MakeRandomArray<Int32Array>(100));
-  arrays.push_back(MakeRandomArray<Int32Array>(100, 10));
-  arrays.push_back(MakeRandomArray<Int32Array>(100, 20));
-
-  auto f0 = field("c0", int32());
-  column_.reset(new Column(f0, arrays));
-
-  ASSERT_EQ("c0", column_->name());
-  ASSERT_TRUE(column_->type()->Equals(int32()));
-  ASSERT_EQ(300, column_->length());
-  ASSERT_EQ(30, column_->null_count());
-  ASSERT_EQ(3, column_->data()->num_chunks());
-}
-
-TEST_F(TestColumn, ChunksInhomogeneous) {
-  ArrayVector arrays;
-  arrays.push_back(MakeRandomArray<Int32Array>(100));
-  arrays.push_back(MakeRandomArray<Int32Array>(100, 10));
-
-  auto f0 = field("c0", int32());
-  column_.reset(new Column(f0, arrays));
-
-  ASSERT_OK(column_->ValidateData());
-
-  arrays.push_back(MakeRandomArray<Int16Array>(100, 10));
-  column_.reset(new Column(f0, arrays));
-  ASSERT_RAISES(Invalid, column_->ValidateData());
-}
-
-TEST_F(TestColumn, SliceEquals) {
-  arrays_one_.push_back(MakeRandomArray<Int32Array>(100));
-  arrays_one_.push_back(MakeRandomArray<Int32Array>(50));
-  arrays_one_.push_back(MakeRandomArray<Int32Array>(50));
-  one_field_ = field("column", int32());
-  Construct();
-
-  std::shared_ptr<Column> slice = one_col_->Slice(125, 50);
-  ASSERT_EQ(slice->length(), 50);
-  ASSERT_TRUE(slice->Equals(one_col_->Slice(125, 50)));
-
-  std::shared_ptr<Column> slice2 = one_col_->Slice(75)->Slice(25)->Slice(25, 50);
-  ASSERT_EQ(slice2->length(), 50);
-  ASSERT_TRUE(slice2->Equals(slice));
-}
-
-TEST_F(TestColumn, Equals) {
-  std::vector<bool> null_bitmap(100, true);
-  std::vector<int32_t> data(100, 1);
-  std::shared_ptr<Array> array;
-  ArrayFromVector<Int32Type, int32_t>(null_bitmap, data, &array);
-  arrays_one_.push_back(array);
-  arrays_another_.push_back(array);
-
-  one_field_ = field("column", int32());
-  another_field_ = field("column", int32());
-
-  Construct();
-  ASSERT_TRUE(one_col_->Equals(one_col_));
-  ASSERT_FALSE(one_col_->Equals(nullptr));
-  ASSERT_TRUE(one_col_->Equals(another_col_));
-  ASSERT_TRUE(one_col_->Equals(*another_col_.get()));
-
-  // Field is different
-  another_field_ = field("two", int32());
-  Construct();
-  ASSERT_FALSE(one_col_->Equals(another_col_));
-  ASSERT_FALSE(one_col_->Equals(*another_col_.get()));
-
-  // ChunkedArray is different
-  another_field_ = field("column", int32());
-  arrays_another_.push_back(array);
-  Construct();
-  ASSERT_FALSE(one_col_->Equals(another_col_));
-  ASSERT_FALSE(one_col_->Equals(*another_col_.get()));
-}
-
 class TestTable : public TestBase {
  public:
   void MakeExample1(int length) {
@@ -271,9 +169,9 @@ class TestTable : public TestBase {
     arrays_ = {MakeRandomArray<Int32Array>(length), MakeRandomArray<UInt8Array>(length),
                MakeRandomArray<Int16Array>(length)};
 
-    columns_ = {std::make_shared<Column>(schema_->field(0), arrays_[0]),
-                std::make_shared<Column>(schema_->field(1), arrays_[1]),
-                std::make_shared<Column>(schema_->field(2), arrays_[2])};
+    columns_ = {std::make_shared<ChunkedArray>(arrays_[0]),
+                std::make_shared<ChunkedArray>(arrays_[1]),
+                std::make_shared<ChunkedArray>(arrays_[2])};
   }
 
  protected:
@@ -281,7 +179,7 @@ class TestTable : public TestBase {
   std::shared_ptr<Schema> schema_;
 
   std::vector<std::shared_ptr<Array>> arrays_;
-  std::vector<std::shared_ptr<Column>> columns_;
+  std::vector<std::shared_ptr<ChunkedArray>> columns_;
 };
 
 TEST_F(TestTable, EmptySchema) {
@@ -323,7 +221,6 @@ TEST_F(TestTable, Metadata) {
   ASSERT_TRUE(table_->schema()->Equals(*schema_));
 
   auto col = table_->column(0);
-  ASSERT_EQ(schema_->field(0)->name(), col->name());
   ASSERT_EQ(schema_->field(0)->type(), col->type());
 }
 
@@ -341,11 +238,9 @@ TEST_F(TestTable, InvalidColumns) {
   table_ = Table::Make(schema_, columns_, length);
   ASSERT_RAISES(Invalid, table_->Validate());
 
-  columns_ = {
-      std::make_shared<Column>(schema_->field(0), MakeRandomArray<Int32Array>(length)),
-      std::make_shared<Column>(schema_->field(1), MakeRandomArray<UInt8Array>(length)),
-      std::make_shared<Column>(schema_->field(2),
-                               MakeRandomArray<Int16Array>(length - 1))};
+  columns_ = {std::make_shared<ChunkedArray>(MakeRandomArray<Int32Array>(length)),
+              std::make_shared<ChunkedArray>(MakeRandomArray<UInt8Array>(length)),
+              std::make_shared<ChunkedArray>(MakeRandomArray<Int16Array>(length - 1))};
 
   table_ = Table::Make(schema_, columns_, length);
   ASSERT_RAISES(Invalid, table_->Validate());
@@ -367,13 +262,10 @@ TEST_F(TestTable, Equals) {
   auto other = Table::Make(other_schema, columns_);
   ASSERT_FALSE(table_->Equals(*other));
   // Differing columns
-  std::vector<std::shared_ptr<Column>> other_columns = {
-      std::make_shared<Column>(schema_->field(0),
-                               MakeRandomArray<Int32Array>(length, 10)),
-      std::make_shared<Column>(schema_->field(1),
-                               MakeRandomArray<UInt8Array>(length, 10)),
-      std::make_shared<Column>(schema_->field(2),
-                               MakeRandomArray<Int16Array>(length, 10))};
+  std::vector<std::shared_ptr<ChunkedArray>> other_columns = {
+      std::make_shared<ChunkedArray>(MakeRandomArray<Int32Array>(length, 10)),
+      std::make_shared<ChunkedArray>(MakeRandomArray<UInt8Array>(length, 10)),
+      std::make_shared<ChunkedArray>(MakeRandomArray<Int16Array>(length, 10))};
 
   other = Table::Make(schema_, other_columns);
   ASSERT_FALSE(table_->Equals(*other));
@@ -391,10 +283,10 @@ TEST_F(TestTable, FromRecordBatches) {
   expected = Table::Make(schema_, columns_);
   ASSERT_TRUE(result->Equals(*expected));
 
-  std::vector<std::shared_ptr<Column>> other_columns;
+  std::vector<std::shared_ptr<ChunkedArray>> other_columns;
   for (int i = 0; i < schema_->num_fields(); ++i) {
     std::vector<std::shared_ptr<Array>> col_arrays = {arrays_[i], arrays_[i]};
-    other_columns.push_back(std::make_shared<Column>(schema_->field(i), col_arrays));
+    other_columns.push_back(std::make_shared<ChunkedArray>(col_arrays));
   }
 
   ASSERT_OK(Table::FromRecordBatches({batch1, batch1}, &result));
@@ -446,7 +338,7 @@ TEST_F(TestTable, CombineChunks) {
   std::shared_ptr<Table> table;
   ASSERT_OK(Table::FromRecordBatches({batch1, batch2}, &table));
   for (int i = 0; i < table->num_columns(); ++i) {
-    ASSERT_EQ(2, table->column(i)->data()->num_chunks());
+    ASSERT_EQ(2, table->column(i)->num_chunks());
   }
 
   std::shared_ptr<Table> compacted;
@@ -454,7 +346,7 @@ TEST_F(TestTable, CombineChunks) {
 
   EXPECT_TRUE(compacted->Equals(*table));
   for (int i = 0; i < compacted->num_columns(); ++i) {
-    EXPECT_EQ(1, compacted->column(i)->data()->num_chunks());
+    EXPECT_EQ(1, compacted->column(i)->num_chunks());
   }
 }
 
@@ -517,7 +409,8 @@ TEST_F(TestTable, RemoveColumn) {
   ASSERT_OK(table.RemoveColumn(0, &result));
 
   auto ex_schema = ::arrow::schema({schema_->field(1), schema_->field(2)});
-  std::vector<std::shared_ptr<Column>> ex_columns = {table.column(1), table.column(2)};
+  std::vector<std::shared_ptr<ChunkedArray>> ex_columns = {table.column(1),
+                                                           table.column(2)};
 
   auto expected = Table::Make(ex_schema, ex_columns);
   ASSERT_TRUE(result->Equals(*expected));
@@ -544,14 +437,13 @@ TEST_F(TestTable, SetColumn) {
   const Table& table = *table_sp;
 
   std::shared_ptr<Table> result;
-  ASSERT_OK(table.SetColumn(0, table.column(1), &result));
+  ASSERT_OK(table.SetColumn(0, schema_->field(1), table.column(1), &result));
 
   auto ex_schema =
       ::arrow::schema({schema_->field(1), schema_->field(1), schema_->field(2)});
-  std::vector<std::shared_ptr<Column>> ex_columns = {table.column(1), table.column(1),
-                                                     table.column(2)};
 
-  auto expected = Table::Make(ex_schema, ex_columns);
+  auto expected =
+      Table::Make(ex_schema, {table.column(1), table.column(1), table.column(2)});
   ASSERT_TRUE(result->Equals(*expected));
 }
 
@@ -576,7 +468,7 @@ TEST_F(TestTable, RemoveColumnEmpty) {
   auto schema = ::arrow::schema({f0});
   auto a0 = MakeRandomArray<Int32Array>(length);
 
-  auto table = Table::Make(schema, {std::make_shared<Column>(f0, a0)});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(a0)});
 
   std::shared_ptr<Table> empty;
   ASSERT_OK(table->RemoveColumn(0, &empty));
@@ -584,7 +476,7 @@ TEST_F(TestTable, RemoveColumnEmpty) {
   ASSERT_EQ(table->num_rows(), empty->num_rows());
 
   std::shared_ptr<Table> added;
-  ASSERT_OK(empty->AddColumn(0, table->column(0), &added));
+  ASSERT_OK(empty->AddColumn(0, f0, table->column(0), &added));
   ASSERT_EQ(table->num_rows(), added->num_rows());
 }
 
@@ -595,23 +487,25 @@ TEST_F(TestTable, AddColumn) {
   auto table_sp = Table::Make(schema_, columns_);
   const Table& table = *table_sp;
 
+  auto f0 = schema_->field(0);
+
   std::shared_ptr<Table> result;
   // Some negative tests with invalid index
-  Status status = table.AddColumn(10, columns_[0], &result);
+  Status status = table.AddColumn(10, f0, columns_[0], &result);
   ASSERT_TRUE(status.IsInvalid());
-  status = table.AddColumn(4, columns_[0], &result);
+  status = table.AddColumn(4, f0, columns_[0], &result);
   ASSERT_TRUE(status.IsInvalid());
-  status = table.AddColumn(-1, columns_[0], &result);
+  status = table.AddColumn(-1, f0, columns_[0], &result);
   ASSERT_TRUE(status.IsInvalid());
 
   // Add column with wrong length
-  auto longer_col = std::make_shared<Column>(schema_->field(0),
-                                             MakeRandomArray<Int32Array>(length + 1));
-  status = table.AddColumn(0, longer_col, &result);
+  auto longer_col =
+      std::make_shared<ChunkedArray>(MakeRandomArray<Int32Array>(length + 1));
+  status = table.AddColumn(0, f0, longer_col, &result);
   ASSERT_TRUE(status.IsInvalid());
 
   // Add column 0 in different places
-  ASSERT_OK(table.AddColumn(0, columns_[0], &result));
+  ASSERT_OK(table.AddColumn(0, f0, columns_[0], &result));
   auto ex_schema = ::arrow::schema(
       {schema_->field(0), schema_->field(0), schema_->field(1), schema_->field(2)});
 
@@ -619,7 +513,7 @@ TEST_F(TestTable, AddColumn) {
       ex_schema, {table.column(0), table.column(0), table.column(1), table.column(2)});
   ASSERT_TRUE(result->Equals(*expected));
 
-  ASSERT_OK(table.AddColumn(1, columns_[0], &result));
+  ASSERT_OK(table.AddColumn(1, f0, columns_[0], &result));
   ex_schema = ::arrow::schema(
       {schema_->field(0), schema_->field(0), schema_->field(1), schema_->field(2)});
 
@@ -627,14 +521,14 @@ TEST_F(TestTable, AddColumn) {
       ex_schema, {table.column(0), table.column(0), table.column(1), table.column(2)});
   ASSERT_TRUE(result->Equals(*expected));
 
-  ASSERT_OK(table.AddColumn(2, columns_[0], &result));
+  ASSERT_OK(table.AddColumn(2, f0, columns_[0], &result));
   ex_schema = ::arrow::schema(
       {schema_->field(0), schema_->field(1), schema_->field(0), schema_->field(2)});
   expected = Table::Make(
       ex_schema, {table.column(0), table.column(1), table.column(0), table.column(2)});
   ASSERT_TRUE(result->Equals(*expected));
 
-  ASSERT_OK(table.AddColumn(3, columns_[0], &result));
+  ASSERT_OK(table.AddColumn(3, f0, columns_[0], &result));
   ex_schema = ::arrow::schema(
       {schema_->field(0), schema_->field(1), schema_->field(2), schema_->field(0)});
   expected = Table::Make(
@@ -844,11 +738,14 @@ TEST_F(TestTableBatchReader, ReadNext) {
 
   auto sch1 = arrow::schema({field("f1", int32()), field("f2", int32())});
 
-  std::vector<std::shared_ptr<Column>> columns;
+  std::vector<std::shared_ptr<ChunkedArray>> columns;
 
   std::shared_ptr<RecordBatch> batch;
 
-  columns = {column(sch1->field(0), {a1, a4, a2}), column(sch1->field(1), {a2, a2})};
+  std::vector<std::shared_ptr<Array>> arrays_1 = {a1, a4, a2};
+  std::vector<std::shared_ptr<Array>> arrays_2 = {a2, a2};
+  columns = {std::make_shared<ChunkedArray>(arrays_1),
+             std::make_shared<ChunkedArray>(arrays_2)};
   auto t1 = Table::Make(sch1, columns);
 
   TableBatchReader i1(*t1);
@@ -865,7 +762,10 @@ TEST_F(TestTableBatchReader, ReadNext) {
   ASSERT_OK(i1.ReadNext(&batch));
   ASSERT_EQ(nullptr, batch);
 
-  columns = {column(sch1->field(0), {a1}), column(sch1->field(1), {a4})};
+  arrays_1 = {a1};
+  arrays_2 = {a4};
+  columns = {std::make_shared<ChunkedArray>(arrays_1),
+             std::make_shared<ChunkedArray>(arrays_2)};
   auto t2 = Table::Make(sch1, columns);
 
   TableBatchReader i2(*t2);
@@ -887,7 +787,9 @@ TEST_F(TestTableBatchReader, Chunksize) {
   auto a3 = MakeRandomArray<Int32Array>(10);
 
   auto sch1 = arrow::schema({field("f1", int32())});
-  auto t1 = Table::Make(sch1, {column(sch1->field(0), {a1, a2, a3})});
+
+  std::vector<std::shared_ptr<Array>> arrays = {a1, a2, a3};
+  auto t1 = Table::Make(sch1, {std::make_shared<ChunkedArray>(arrays)});
 
   TableBatchReader i1(*t1);
 

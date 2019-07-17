@@ -15,11 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "arrow/column-containable"
 require "arrow/group"
 require "arrow/record-containable"
 
 module Arrow
   class Table
+    include ColumnContainable
     include RecordContainable
 
     class << self
@@ -73,6 +75,24 @@ module Arrow
     #     ]
     #     Arrow::Table.new("count" => Arrow::ChunkedArray.new(count_chunks),
     #                      "visible" => Arrow::ChunkedArray.new(visible_chunks))
+    #
+    # @overload initialize(raw_table)
+    #
+    #   @param raw_table [Hash<String, ::Array>]
+    #     The pairs of column name and values of the table. Column values is
+    #     `Array`.
+    #
+    #   @example Create a table from column name and values
+    #     count_chunks = [
+    #       Arrow::UInt32Array.new([0, 2]),
+    #       Arrow::UInt32Array.new([nil, 4]),
+    #     ]
+    #     visible_chunks = [
+    #       Arrow::BooleanArray.new([true]),
+    #       Arrow::BooleanArray.new([nil, nil, false]),
+    #     ]
+    #     Arrow::Table.new("count" => [0, 2, nil, 4],
+    #                      "visible" => [true, nil, nil, false])
     #
     # @overload initialize(schema, columns)
     #
@@ -152,17 +172,18 @@ module Arrow
       case n_args
       when 1
         if args[0][0].is_a?(Column)
-          values = args[0]
-          fields = values.collect(&:field)
+          columns = args[0]
+          fields = columns.collect(&:field)
+          values = columns.collect(&:data)
           schema = Schema.new(fields)
         else
           raw_table = args[0]
           fields = []
           values = []
           raw_table.each do |name, array|
-            field = Field.new(name.to_s, array.value_data_type)
-            fields << field
-            values << Column.new(field, array)
+            array = ArrayBuilder.build(array) if array.is_a?(::Array)
+            fields << Field.new(name.to_s, array.value_data_type)
+            values << array
           end
           schema = Schema.new(fields)
         end
@@ -170,18 +191,17 @@ module Arrow
         schema = args[0]
         schema = Schema.new(schema) unless schema.is_a?(Schema)
         values = args[1]
-        if values[0].is_a?(::Array)
+        case values[0]
+        when ::Array
           values = [RecordBatch.new(schema, values)]
+        when Column
+          values = values.collect(&:data)
         end
       else
-        message = "wrong number of arguments (given, #{n_args}, expected 1..2)"
+        message = "wrong number of arguments (given #{n_args}, expected 1..2)"
         raise ArgumentError, message
       end
       initialize_raw(schema, values)
-    end
-
-    def columns
-      @columns ||= n_columns.times.collect {|i| get_column(i)}
     end
 
     def each_record_batch
@@ -338,7 +358,7 @@ module Arrow
         other.each do |name, value|
           name = name.to_s
           if value
-            added_columns[name] = ensure_column(name, value)
+            added_columns[name] = ensure_raw_column(name, value)
           else
             removed_columns[name] = true
           end
@@ -346,7 +366,8 @@ module Arrow
       when Table
         added_columns = {}
         other.columns.each do |column|
-          added_columns[column.name] = column
+          name = column.name
+          added_columns[name] = ensure_raw_column(name, column)
         end
       else
         message = "merge target must be Hash or Arrow::Table: " +
@@ -363,15 +384,18 @@ module Arrow
           next
         end
         next if removed_columns.key?(column_name)
-        new_columns << column
+        new_columns << ensure_raw_column(column_name, column)
       end
       added_columns.each do |name, new_column|
         new_columns << new_column
       end
-      new_fields = new_columns.collect do |new_column|
-        new_column.field
+      new_fields = []
+      new_arrays = []
+      new_columns.each do |new_column|
+        new_fields << new_column[:field]
+        new_arrays << new_column[:data]
       end
-      self.class.new(Schema.new(new_fields), new_columns)
+      self.class.new(new_fields, new_arrays)
     end
 
     alias_method :remove_column_raw, :remove_column
@@ -447,10 +471,10 @@ module Arrow
     end
 
     def pack
-      packed_columns = columns.collect do |column|
-        column.pack
+      packed_arrays = columns.collect do |column|
+        column.data.pack
       end
-      self.class.new(schema, packed_columns)
+      self.class.new(schema, packed_arrays)
     end
 
     alias_method :to_s_raw, :to_s
@@ -524,13 +548,26 @@ module Arrow
       end
     end
 
-    def ensure_column(name, data)
+    def ensure_raw_column(name, data)
       case data
       when Array
-        field = Field.new(name, data.value_data_type)
-        Column.new(field, data)
+        {
+          field: Field.new(name, data.value_data_type),
+          data: ChunkedArray.new([data]),
+        }
+      when ChunkedArray
+        {
+          field: Field.new(name, data.value_data_type),
+          data: data,
+        }
       when Column
-        data
+        column = data
+        data = column.data
+        data = ChunkedArray.new([data]) unless data.is_a?(ChunkedArray)
+        {
+          field: column.field,
+          data: data,
+        }
       else
         message = "column must be Arrow::Array or Arrow::Column: " +
           "<#{name}>: <#{data.inspect}>: #{inspect}"

@@ -188,7 +188,7 @@ class BaseTestCSVRead:
 
     def check_names(self, table, names):
         assert table.num_columns == len(names)
-        assert [c.name for c in table.columns] == names
+        assert table.column_names == names
 
     def test_file_object(self):
         data = b"a,b\n1,2\n"

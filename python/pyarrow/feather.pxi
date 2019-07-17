@@ -98,12 +98,12 @@ cdef class FeatherReader:
         if i < 0 or i >= self.num_columns:
             raise IndexError(i)
 
-        cdef shared_ptr[CColumn] sp_column
+        cdef shared_ptr[CChunkedArray] sp_chunked_array
         with nogil:
             check_status(self.reader.get()
-                         .GetColumn(i, &sp_column))
+                         .GetColumn(i, &sp_chunked_array))
 
-        return pyarrow_wrap_column(sp_column)
+        return pyarrow_wrap_chunked_array(sp_chunked_array)
 
     def _read(self):
         cdef shared_ptr[CTable] sp_table

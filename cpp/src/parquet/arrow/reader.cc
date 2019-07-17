@@ -56,7 +56,6 @@
 using arrow::Array;
 using arrow::BooleanArray;
 using arrow::ChunkedArray;
-using arrow::Column;
 using arrow::Field;
 using arrow::Int32Array;
 using arrow::ListArray;
@@ -191,12 +190,10 @@ class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
 
     // TODO (hatemhelal): Consider refactoring this to share logic with ReadTable as this
     // does not currently honor the use_threads option.
-    std::vector<std::shared_ptr<Column>> columns(column_indices_.size());
+    std::vector<std::shared_ptr<ChunkedArray>> columns(column_indices_.size());
 
     for (size_t i = 0; i < column_indices_.size(); ++i) {
-      std::shared_ptr<ChunkedArray> array;
-      RETURN_NOT_OK(column_readers_[i]->NextBatch(batch_size_, &array));
-      columns[i] = std::make_shared<Column>(schema_->field(static_cast<int>(i)), array);
+      RETURN_NOT_OK(column_readers_[i]->NextBatch(batch_size_, &columns[i]));
     }
 
     // Create an intermediate table and use TableBatchReader as an adaptor to a
@@ -278,7 +275,7 @@ class FileReader::Impl {
   std::vector<int> GetDictionaryIndices(const std::vector<int>& indices);
   std::shared_ptr<::arrow::Schema> FixSchema(
       const ::arrow::Schema& old_schema, const std::vector<int>& dict_indices,
-      std::vector<std::shared_ptr<::arrow::Column>>& columns);
+      const std::vector<std::shared_ptr<::arrow::ChunkedArray>>& columns);
 
   int64_t batch_size() const { return reader_properties_.batch_size(); }
 
@@ -548,15 +545,14 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
     return Status::Invalid("Invalid column index");
   }
   int num_fields = static_cast<int>(field_indices.size());
-  std::vector<std::shared_ptr<Column>> columns(num_fields);
+  std::vector<std::shared_ptr<ChunkedArray>> columns(num_fields);
 
   // TODO(wesm): Refactor to share more code with ReadTable
 
-  auto ReadColumnFunc = [&indices, &field_indices, &row_group_index, &schema, &columns,
+  auto ReadColumnFunc = [&indices, &field_indices, &row_group_index, &columns,
                          this](int i) {
-    std::shared_ptr<ChunkedArray> array;
-    RETURN_NOT_OK(ReadColumnChunk(field_indices[i], indices, row_group_index, &array));
-    columns[i] = std::make_shared<Column>(schema->field(i), array);
+    RETURN_NOT_OK(
+        ReadColumnChunk(field_indices[i], indices, row_group_index, &columns[i]));
     return Status::OK();
   };
 
@@ -606,13 +602,10 @@ Status FileReader::Impl::ReadTable(const std::vector<int>& indices,
   }
 
   int num_fields = static_cast<int>(field_indices.size());
-  std::vector<std::shared_ptr<Column>> columns(num_fields);
+  std::vector<std::shared_ptr<ChunkedArray>> columns(num_fields);
 
-  auto ReadColumnFunc = [&indices, &field_indices, &schema, &columns, this](int i) {
-    std::shared_ptr<ChunkedArray> array;
-    RETURN_NOT_OK(ReadSchemaField(field_indices[i], indices, &array));
-    columns[i] = std::make_shared<Column>(schema->field(i), array);
-    return Status::OK();
+  auto ReadColumnFunc = [&indices, &field_indices, &columns, this](int i) {
+    return ReadSchemaField(field_indices[i], indices, &columns[i]);
   };
 
   if (reader_properties_.use_threads()) {
@@ -697,18 +690,13 @@ std::vector<int> FileReader::Impl::GetDictionaryIndices(const std::vector<int>& 
 
 std::shared_ptr<::arrow::Schema> FileReader::Impl::FixSchema(
     const ::arrow::Schema& old_schema, const std::vector<int>& dict_indices,
-    std::vector<std::shared_ptr<::arrow::Column>>& columns) {
+    const std::vector<std::shared_ptr<::arrow::ChunkedArray>>& columns) {
   // Fix the schema with the actual DictionaryType that was read
   auto fields = old_schema.fields();
 
   for (int idx : dict_indices) {
-    auto name = columns[idx]->name();
-    auto dict_array = columns[idx]->data();
-    auto dict_field = std::make_shared<::arrow::Field>(name, dict_array->type());
-    fields[idx] = dict_field;
-    columns[idx] = std::make_shared<Column>(dict_field, dict_array);
+    fields[idx] = old_schema.field(idx)->WithType(columns[idx]->type());
   }
-
   return std::make_shared<::arrow::Schema>(fields, old_schema.metadata());
 }
 
@@ -1740,8 +1728,9 @@ void StructImpl::InitField(
   for (size_t i = 0; i < children.size(); i++) {
     fields[i] = children[i]->field();
   }
+
   auto type = ::arrow::struct_(fields);
-  field_ = ::arrow::field(node->name(), type);
+  field_ = ::arrow::field(node->name(), type, node->is_optional());
 }
 
 Status StructImpl::GetRepLevels(const int16_t** data, size_t* length) {

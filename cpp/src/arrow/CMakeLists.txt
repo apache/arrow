@@ -370,7 +370,6 @@ add_arrow_test(tensor-test)
 add_arrow_test(sparse_tensor-test)
 
 add_arrow_benchmark(builder-benchmark)
-add_arrow_benchmark(column-benchmark)
 
 add_subdirectory(array)
 add_subdirectory(csv)

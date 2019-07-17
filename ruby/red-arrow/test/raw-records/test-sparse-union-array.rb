@@ -47,7 +47,7 @@ module RawRecordsSparseUnionArrayTests
       end
       sub_record_batch = Arrow::RecordBatch.new(sub_schema,
                                                 sub_records)
-      sub_record_batch.columns[0]
+      sub_record_batch.columns[0].data
     end
     records.each do |record|
       column = record[0]

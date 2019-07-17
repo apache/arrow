@@ -88,17 +88,11 @@ module Arrow
 
     def load_raw(input, reader)
       schema = reader.schema
-      chunked_arrays = []
+      record_batches = []
       reader.each do |record_batch|
-        record_batch.columns.each_with_index do |array, i|
-          chunked_array = (chunked_arrays[i] ||= [])
-          chunked_array << array
-        end
+        record_batches << record_batch
       end
-      columns = schema.fields.collect.with_index do |field, i|
-        Column.new(field, ChunkedArray.new(chunked_arrays[i]))
-      end
-      table = Table.new(schema, columns)
+      table = Table.new(schema, record_batches)
       table.instance_variable_set(:@input, input)
       table
     end

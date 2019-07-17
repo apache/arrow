@@ -19,6 +19,11 @@ module Arrow
   class ChunkedArray
     include Enumerable
 
+    alias_method :size, :n_rows
+    unless method_defined?(:length)
+      alias_method :length, :n_rows
+    end
+
     alias_method :chunks_raw, :chunks
     def chunks
       @chunks ||= chunks_raw

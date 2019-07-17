@@ -113,45 +113,31 @@ class TestFeatherFileReader < Test::Unit::TestCase
       "is_critical" => build_boolean_array([]),
     }
     setup_file(:columns => columns) do |reader|
+      actual_column_names = reader.n_columns.times.collect do |i|
+        reader.get_column_name(i)
+      end
       assert_equal([
                      "message",
                      "is_critical",
                    ],
-                   [
-                     reader.get_column_name(0),
-                     reader.get_column_name(1),
-                   ])
+                   actual_column_names)
     end
   end
 
-  test("#get_column") do
+  test("#get_column_data") do
     columns = {
-      "message" => build_string_array([]),
-      "is_critical" => build_boolean_array([]),
+      "message" => build_string_array(["Hello"]),
+      "is_critical" => build_boolean_array([false]),
     }
     setup_file(:columns => columns) do |reader|
+      actual_columns = reader.n_columns.times.collect do |i|
+        reader.get_column_data(i).get_chunk(0)
+      end
       assert_equal([
-                     "message",
-                     "is_critical",
+                     columns["message"],
+                     columns["is_critical"],
                    ],
-                   [
-                     reader.get_column(0).name,
-                     reader.get_column(1).name,
-                   ])
-    end
-  end
-
-  test("#columns") do
-    columns = {
-      "message" => build_string_array([]),
-      "is_critical" => build_boolean_array([]),
-    }
-    setup_file(:columns => columns) do |reader|
-      assert_equal([
-                     "message",
-                     "is_critical",
-                   ],
-                   reader.columns.collect(&:name))
+                   actual_columns)
     end
   end
 
