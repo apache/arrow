@@ -37,7 +37,7 @@ options=("staticlibs" "strip" "!buildflags")
 # a "source" param below
 source_dir=.
 # else
-source_dir=apache-${_realname}-${pkgver}
+# source_dir=apache-${_realname}-${pkgver}
 
 # For released version:
 #source=("https://archive.apache.org/dist/arrow/arrow-${pkgver}/apache-arrow-${pkgver}.tar.gz")
