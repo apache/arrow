@@ -893,12 +893,16 @@ TEST_F(TestDecimalSql, FromDouble) {
       std::make_tuple(DecimalScalar128{1230, 38, 33}, 1.23E-30, false),
       std::make_tuple(DecimalScalar128{123, 38, 38}, 1.23E-36, false),
 
-      // TODO: std::round() converts this to 0.
-      // std::make_tuple(DecimalScalar128{0, 0, 38, 0},
-      // std::numeric_limits<double>::min(),
-      //                 true),
+      // very small doubles
+      std::make_tuple(DecimalScalar128{0, 0, 38, 0}, std::numeric_limits<double>::min(),
+                      false),
+      std::make_tuple(DecimalScalar128{0, 0, 38, 0}, -std::numeric_limits<double>::min(),
+                      false),
 
-      // overflow due to very high double
+      // overflow due to large -ve double
+      std::make_tuple(DecimalScalar128{0, 0, 38, 0}, -std::numeric_limits<double>::max(),
+                      true),
+      // overflow due to large +ve double
       std::make_tuple(DecimalScalar128{0, 0, 38, 0}, std::numeric_limits<double>::max(),
                       true),
       // overflow due to scaling up.
