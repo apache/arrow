@@ -32,6 +32,11 @@ depends=("${MINGW_PACKAGE_PREFIX}-boost"
 makedepends=("${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-gcc")
 options=("staticlibs" "strip" "!buildflags")
+
+# For installing from a local checkout, set source_dir to . and don't include
+# a "source" param below
+source_dir=.
+# else
 source_dir=apache-${_realname}-${pkgver}
 
 # For released version:
@@ -39,7 +44,7 @@ source_dir=apache-${_realname}-${pkgver}
 #sha256sums=("ac2a77dd9168e9892e432c474611e86ded0be6dfe15f689c948751d37f81391a")
 # For github dev version:
 # Append `#commit=54b1b2f688e5e84b4c664b1e12a95f93b94ab2f3` to the URL to select a revision
-source=("${source_dir}"::"git+https://github.com/apache/arrow")
+# source=("${source_dir}"::"git+https://github.com/apache/arrow")
 sha256sums=("SKIP")
 
 cmake_build_type=release
@@ -50,12 +55,6 @@ pkgver() {
   # version in pkgver is different from what is in r/DESCRIPTION
   cd "$source_dir"
   grep Version r/DESCRIPTION | cut -d " " -f 2
-}
-
-prepare() {
-  pushd ${source_dir}
-  #patch -p1 -N -i ${srcdir}/3923.patch
-  popd
 }
 
 build() {
@@ -102,12 +101,6 @@ build() {
 
   make
   popd
-}
-
-check() {
-  # TODO
-  # make -C ${cpp_build_dir} test
-  :
 }
 
 package() {
