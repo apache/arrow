@@ -22,7 +22,7 @@ namespace parquet {
 namespace encryption {
 
 void ThrowOpenSSLRequiredException() {
-  throw ParquetException("Encrypted parquet file. OpenSSL is required");
+  throw ParquetException("Calling encryption method in Arrow/Parquet built without OpenSSL");
 }
 
 class AesEncryptor::AesEncryptorImpl {};
@@ -96,8 +96,6 @@ std::string CreateFooterAad(const std::string& aad_prefix_bytes) {
   return "";
 }
 
-// Update last two bytes with new page ordinal (instead of creating new page AAD
-// from scratch)
 void QuickUpdatePageAad(const std::string& AAD, int16_t new_page_ordinal) {
   ThrowOpenSSLRequiredException();
 }
