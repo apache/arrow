@@ -47,14 +47,14 @@ std::shared_ptr<arrow::Schema> Table__schema(const std::shared_ptr<arrow::Table>
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::ChunkedArray> Table__column(const std::shared_ptr<arrow::Table>& table,
-                                             int i) {
+std::shared_ptr<arrow::ChunkedArray> Table__column(
+    const std::shared_ptr<arrow::Table>& table, int i) {
   return table->column(i);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Field> Table__field(const std::shared_ptr<arrow::Table>& table,
-                                             int i) {
+                                           int i) {
   return table->field(i);
 }
 
