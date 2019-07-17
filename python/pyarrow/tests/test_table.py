@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -463,14 +464,14 @@ def test_table_basics():
     columns = []
     for col in table.itercolumns():
         columns.append(col)
-        for chunk in col.data.iterchunks():
+        for chunk in col.iterchunks():
             assert chunk is not None
 
         with pytest.raises(IndexError):
-            col.data.chunk(-1)
+            col.chunk(-1)
 
         with pytest.raises(IndexError):
-            col.data.chunk(col.data.num_chunks)
+            col.chunk(col.num_chunks)
 
     assert table.columns == columns
     assert table == pa.Table.from_arrays(columns, names=table.column_names)
@@ -687,7 +688,7 @@ def test_table_combine_chunks():
     combined._validate()
     assert combined.equals(table)
     for c in combined.columns:
-        assert c.data.num_chunks == 1
+        assert c.num_chunks == 1
 
 
 def test_concat_tables():
@@ -907,9 +908,11 @@ def test_table_from_pydict():
 def test_table_factory_function():
     import pandas as pd
 
-    d = {'a': [1, 2, 3], 'b': ['a', 'b', 'c']}
-    d_explicit = {'a': pa.array([1, 2, 3], type='int32'),
-                  'b': pa.array(['a', 'b', 'c'], type='string')}
+    # Put in wrong order to make sure that lines up with schema
+    d = OrderedDict([('b', ['a', 'b', 'c']), ('a', [1, 2, 3])])
+
+    d_explicit = {'b': pa.array(['a', 'b', 'c'], type='string'),
+                  'a': pa.array([1, 2, 3], type='int32')}
 
     schema = pa.schema([('a', pa.int32()), ('b', pa.string())])
 
@@ -929,3 +932,17 @@ def test_table_factory_function():
     table1 = pa.table(d, schema=schema)
     table2 = pa.Table.from_pydict(d, schema=schema)
     assert table1.equals(table2)
+
+
+def test_table_function_unicode_schema():
+    col_a = "äääh"
+    col_b = "öööf"
+
+    # Put in wrong order to make sure that lines up with schema
+    d = OrderedDict([(col_b, ['a', 'b', 'c']), (col_a, [1, 2, 3])])
+
+    schema = pa.schema([(col_a, pa.int32()), (col_b, pa.string())])
+
+    result = pa.table(d, schema=schema)
+    assert result[0].chunk(0).equals(pa.array([1, 2, 3], type='int32'))
+    assert result[1].chunk(0).equals(pa.array(['a', 'b', 'c'], type='string'))

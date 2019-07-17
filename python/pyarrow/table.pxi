@@ -1036,22 +1036,27 @@ cdef class Table(_PandasConvertible):
         pyarrow.Table
 
         """
-        names = []
         arrays = []
-        for k, v in mapping.items():
-            names.append(k)
-            if not isinstance(v, (Array, ChunkedArray)):
-                if schema is not None:
-                    ty = schema.field_by_name(k).type
-                else:
-                    ty = None
-                v = array(v, type=ty)
-            arrays.append(v)
-        if schema is None:
-            return Table.from_arrays(arrays, names, metadata=metadata)
-        else:
+        if schema is not None:
+            for field in schema:
+                try:
+                    v = mapping[field.name]
+                except KeyError as e:
+                    try:
+                        v = mapping[tobytes(field.name)]
+                    except KeyError as e2:
+                        raise e
+                arrays.append(array(v, type=field.type))
             # Will raise if metadata is not None
             return Table.from_arrays(arrays, schema=schema, metadata=metadata)
+        else:
+            names = []
+            for k, v in mapping.items():
+                names.append(k)
+                if not isinstance(v, (Array, ChunkedArray)):
+                    v = array(v)
+                arrays.append(v)
+            return Table.from_arrays(arrays, names, metadata=metadata)
 
     @staticmethod
     def from_batches(batches, Schema schema=None):

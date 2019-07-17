@@ -662,6 +662,11 @@ def test_cast_chunked_array():
     assert casted.equals(expected)
 
 
+def test_chunked_array_data_warns():
+    with pytest.warns(FutureWarning):
+        pa.chunked_array([[]]).data
+
+
 def test_cast_integers_unsafe():
     # We let NumPy do the unsafe casting
     unsafe_cases = [
