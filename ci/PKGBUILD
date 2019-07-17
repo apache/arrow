@@ -53,8 +53,7 @@ cpp_build_dir=build-${CARCH}-cpp
 pkgver() {
   # The only purpose of this here is to cause the job to error if the
   # version in pkgver is different from what is in r/DESCRIPTION
-  cd "$source_dir"
-  grep Version r/DESCRIPTION | cut -d " " -f 2
+  grep Version "$(pwd)/${source_dir}/r/DESCRIPTION" | cut -d " " -f 2
 }
 
 build() {
