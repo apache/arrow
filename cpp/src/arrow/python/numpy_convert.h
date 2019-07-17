@@ -49,20 +49,10 @@ class ARROW_PYTHON_EXPORT NumPyBuffer : public Buffer {
   PyObject* arr_;
 };
 
-// Handle misbehaved types like LONGLONG and ULONGLONG
-ARROW_PYTHON_EXPORT
-int cast_npy_type_compat(int type_num);
-
-ARROW_PYTHON_EXPORT
-bool is_contiguous(PyObject* array);
-
 ARROW_PYTHON_EXPORT
 Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out);
 ARROW_PYTHON_EXPORT
 Status NumPyDtypeToArrow(PyArray_Descr* descr, std::shared_ptr<DataType>* out);
-
-Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out);
-Status GetNumPyType(const DataType& type, int* type_num);
 
 ARROW_PYTHON_EXPORT Status NdarrayToTensor(MemoryPool* pool, PyObject* ao,
                                            const std::vector<std::string>& dim_names,
