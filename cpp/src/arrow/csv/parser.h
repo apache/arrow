@@ -96,6 +96,21 @@ class ARROW_EXPORT BlockParser {
     return Status::OK();
   }
 
+  template <typename Visitor>
+  Status VisitLastRow(Visitor&& visit) const {
+    const auto& values_buffer = values_buffers_.back();
+    const auto values = reinterpret_cast<const ValueDesc*>(values_buffer->data());
+    const auto start_pos =
+        static_cast<int32_t>(values_buffer->size() / sizeof(ValueDesc)) - num_cols_ - 1;
+    for (int32_t col_index = 0; col_index < num_cols_; ++col_index) {
+      auto start = values[start_pos + col_index].offset;
+      auto stop = values[start_pos + col_index + 1].offset;
+      auto quoted = values[start_pos + col_index + 1].quoted;
+      ARROW_RETURN_NOT_OK(visit(parsed_ + start, stop - start, quoted));
+    }
+    return Status::OK();
+  }
+
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(BlockParser);
 

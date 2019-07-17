@@ -50,6 +50,24 @@ void GetColumn(const BlockParser& parser, int32_t col_index,
   }
 }
 
+void GetLastRow(const BlockParser& parser, std::vector<std::string>* out,
+                std::vector<bool>* out_quoted = nullptr) {
+  std::vector<std::string> values;
+  std::vector<bool> quoted_values;
+  auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+    values.push_back(std::string(reinterpret_cast<const char*>(data), size));
+    if (out_quoted) {
+      quoted_values.push_back(quoted);
+    }
+    return Status::OK();
+  };
+  ASSERT_OK(parser.VisitLastRow(visit));
+  *out = std::move(values);
+  if (out_quoted) {
+    *out_quoted = std::move(quoted_values);
+  }
+}
+
 Status Parse(BlockParser& parser, const std::string& str, uint32_t* out_size) {
   const char* data = str.data();
   uint32_t size = static_cast<uint32_t>(str.length());
@@ -79,6 +97,23 @@ void AssertParsePartial(BlockParser& parser, const std::string& str,
   uint32_t parsed_size = static_cast<uint32_t>(-1);
   ASSERT_OK(Parse(parser, str, &parsed_size));
   ASSERT_EQ(parsed_size, expected_size);
+}
+
+void AssertLastRowEq(const BlockParser& parser, const std::vector<std::string> expected) {
+  std::vector<std::string> values;
+  GetLastRow(parser, &values);
+  ASSERT_EQ(parser.num_rows(), expected.size());
+  ASSERT_EQ(values, expected);
+}
+
+void AssertLastRowEq(const BlockParser& parser, const std::vector<std::string> expected,
+                     const std::vector<bool> expected_quoted) {
+  std::vector<std::string> values;
+  std::vector<bool> quoted;
+  GetLastRow(parser, &values, &quoted);
+  ASSERT_EQ(parser.num_cols(), expected.size());
+  ASSERT_EQ(values, expected);
+  ASSERT_EQ(quoted, expected_quoted);
 }
 
 void AssertColumnEq(const BlockParser& parser, int32_t col_index,
@@ -129,6 +164,7 @@ TEST(BlockParser, Basics) {
   BlockParser parser(ParseOptions::Defaults());
   AssertParseOk(parser, csv);
   AssertColumnsEq(parser, {{"ab", "ef", ""}, {"cd", "", "ij"}, {"", "gh", "kl"}});
+  AssertLastRowEq(parser, {"", "ij", "kl"}, {false, false, false});
 }
 
 TEST(BlockParser, EmptyHeader) {
@@ -152,12 +188,14 @@ TEST(BlockParser, Empty) {
     BlockParser parser(ParseOptions::Defaults());
     AssertParseOk(parser, csv);
     AssertColumnsEq(parser, {{""}, {""}});
+    AssertLastRowEq(parser, {"", ""}, {false, false});
   }
   {
     auto csv = MakeCSVData({",\n,\n"});
     BlockParser parser(ParseOptions::Defaults());
     AssertParseOk(parser, csv);
     AssertColumnsEq(parser, {{"", ""}, {"", ""}});
+    AssertLastRowEq(parser, {"", ""}, {false, false});
   }
 }
 
@@ -315,18 +353,21 @@ TEST(BlockParser, QuotingEmpty) {
     auto csv = MakeCSVData({"\"\"\n"});
     AssertParseOk(parser, csv);
     AssertColumnsEq(parser, {{""}}, {{true}} /* quoted */);
+    AssertLastRowEq(parser, {""}, {true});
   }
   {
     BlockParser parser(ParseOptions::Defaults());
     auto csv = MakeCSVData({",\"\"\n"});
     AssertParseOk(parser, csv);
     AssertColumnsEq(parser, {{""}, {""}}, {{false}, {true}} /* quoted */);
+    AssertLastRowEq(parser, {"", ""}, {false, true});
   }
   {
     BlockParser parser(ParseOptions::Defaults());
     auto csv = MakeCSVData({"\"\",\n"});
     AssertParseOk(parser, csv);
     AssertColumnsEq(parser, {{""}, {""}}, {{true}, {false}} /* quoted */);
+    AssertLastRowEq(parser, {"", ""}, {true, false});
   }
 }
 
