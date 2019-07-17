@@ -40,7 +40,7 @@ namespace compute {
 /// \param[in] right array-like input
 /// \param[out] out resulting datum
 ///
-/// \since 0.14.0
+/// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Status IsIn(FunctionContext* context, const Datum& left, const Datum& right, Datum* out);
