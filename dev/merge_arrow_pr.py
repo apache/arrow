@@ -386,7 +386,6 @@ class PullRequest(object):
                                          for a in distinct_authors])
         authors += "\n" + "Signed-off-by: %s <%s>" % (committer_name,
                                                       committer_email)
-        merge_message_flags += ["-m", authors]
 
         if had_conflicts:
             committer_name = run_cmd("git config --get user.name").strip()
@@ -405,6 +404,8 @@ class PullRequest(object):
         for c in commits:
             stripped_message = strip_ci_directives(c).strip()
             merge_message_flags += ["-m", stripped_message]
+
+        merge_message_flags += ["-m", authors]
 
         if DEBUG:
             print("\n".join(merge_message_flags))
