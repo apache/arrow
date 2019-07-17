@@ -184,13 +184,9 @@ set(PARQUET_SRCS
     types.cc)
 
 if(ARROW_USE_OPENSSL)
-  set(PARQUET_SRCS
-      ${PARQUET_SRCS}
-      encryption_internal.cc)
+  set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal.cc)
 else()
-  set(PARQUET_SRCS
-      ${PARQUET_SRCS}
-      encryption_internal_nossl.cc)
+  set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal_nossl.cc)
 endif()
 
 # Ensure that thrift compilation is done before using its generated headers

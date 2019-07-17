@@ -515,16 +515,18 @@ class FileMetaData::FileMetaDataImpl {
     auto aes_encryptor = encryption::AesEncryptor::Make(
         file_decryptor->algorithm(), static_cast<int>(key.size()), true, NULLPTR);
 
-    std::vector<uint8_t> encrypted_buffer(aes_encryptor->CiphertextSizeDelta() +
-                                          serialized_len);
+    std::shared_ptr<Buffer> encrypted_buffer = std::static_pointer_cast<ResizableBuffer>(
+        AllocateBuffer(file_decryptor->pool(),
+                       aes_encryptor->CiphertextSizeDelta() + serialized_len));
     uint32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
         serialized_data, serialized_len, str2bytes(key), static_cast<int>(key.size()),
-        str2bytes(aad), static_cast<int>(aad.size()), nonce, encrypted_buffer.data());
+        str2bytes(aad), static_cast<int>(aad.size()), nonce,
+        encrypted_buffer->mutable_data());
     // Delete AES encryptor object. It was created only to verify the footer signature.
     aes_encryptor->WipeOut();
     delete aes_encryptor;
     return 0 ==
-           memcmp(encrypted_buffer.data() + encrypted_len - encryption::kGcmTagLength,
+           memcmp(encrypted_buffer->data() + encrypted_len - encryption::kGcmTagLength,
                   tag, encryption::kGcmTagLength);
   }
 

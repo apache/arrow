@@ -277,7 +277,7 @@ int AesEncryptor::AesEncryptorImpl::CtrEncrypt(const uint8_t* plaintext,
   return kBufferSizeLength + buffer_size;
 }
 
-AesEncryptor::~AesEncryptor() { impl_->~AesEncryptorImpl(); }
+AesEncryptor::~AesEncryptor() {}
 
 int AesEncryptor::SignedFooterEncrypt(const uint8_t* footer, int footer_len, uint8_t* key,
                                       int key_len, uint8_t* aad, int aad_len,
@@ -341,7 +341,7 @@ int AesDecryptor::Decrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* 
 
 void AesDecryptor::WipeOut() { impl_->WipeOut(); }
 
-AesDecryptor::~AesDecryptor() { impl_->~AesDecryptorImpl(); }
+AesDecryptor::~AesDecryptor() {}
 
 AesDecryptor::AesDecryptorImpl::AesDecryptorImpl(ParquetCipher::type alg_id, int key_len,
                                                  bool metadata) {

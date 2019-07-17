@@ -75,6 +75,8 @@ class InternalFileDecryptor {
 
   void WipeOutDecryptionKeys();
 
+  ::arrow::MemoryPool* pool() { return pool_; }
+
   std::shared_ptr<Decryptor> GetFooterDecryptor();
   std::shared_ptr<Decryptor> GetFooterDecryptorForColumnMeta(const std::string& aad = "");
   std::shared_ptr<Decryptor> GetFooterDecryptorForColumnData(const std::string& aad = "");

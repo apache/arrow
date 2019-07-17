@@ -22,7 +22,8 @@ namespace parquet {
 namespace encryption {
 
 void ThrowOpenSSLRequiredException() {
-  throw ParquetException("Calling encryption method in Arrow/Parquet built without OpenSSL");
+  throw ParquetException(
+      "Calling encryption method in Arrow/Parquet built without OpenSSL");
 }
 
 class AesEncryptor::AesEncryptorImpl {};

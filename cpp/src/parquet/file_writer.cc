@@ -392,6 +392,29 @@ class FileSerializer : public ParquetFileWriter::Contents {
       // Unencrypted parquet files always start with PAR1
       PARQUET_THROW_NOT_OK(sink_->Write(kParquetMagic, 4));
     } else {
+      // Check that all columns in columnEncryptionProperties exist in the schema.
+      auto columnEncryptionProperties = file_encryption_properties->column_properties();
+      // if columnEncryptionProperties is empty, every column in file schema will be
+      // encrypted with footer key.
+      if (columnEncryptionProperties.size() != 0) {
+        std::vector<std::shared_ptr<schema::ColumnPath>> column_path_vec;
+        // First, save all column paths in schema.
+        for (int i = 0; i < num_columns(); i++)
+          column_path_vec.push_back(schema_.Column(i)->path());
+        // Check if column exists in schema.
+        for (const auto& elem : columnEncryptionProperties) {
+          auto it = std::find_if(column_path_vec.begin(), column_path_vec.end(),
+                                 [&](std::shared_ptr<schema::ColumnPath> const& p) {
+                                   return (p->ToDotString() == elem.first->ToDotString());
+                                 });
+          if (it == column_path_vec.end()) {
+            std::stringstream ss;
+            ss << "Encrypted column " + elem.first->ToDotString() + " not in file schema";
+            throw ParquetException(ss.str());
+          }
+        }
+      }
+
       file_encryptor_.reset(new InternalFileEncryptor(file_encryption_properties,
                                                       properties_->memory_pool()));
       if (file_encryption_properties->encrypted_footer()) {

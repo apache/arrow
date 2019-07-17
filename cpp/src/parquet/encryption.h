@@ -491,6 +491,8 @@ class PARQUET_EXPORT FileEncryptionProperties {
   /// aadPrefix will be cloned too)
   std::shared_ptr<FileEncryptionProperties> DeepClone(std::string new_aad_prefix = "");
 
+  ColumnPathToEncryptionPropertiesMap column_properties() { return column_properties_; }
+
  private:
   EncryptionAlgorithm algorithm_;
   std::string footer_key_;
