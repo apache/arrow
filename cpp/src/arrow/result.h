@@ -333,12 +333,4 @@ class Result {
 #define ARROW_ASSIGN_OR_RAISE(lhs, rexpr)                                              \
   ARROW_ASSIGN_OR_RAISE_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
                              lhs, rexpr);
-
-namespace internal {
-
-// For Cython, because of https://github.com/cython/cython/issues/3018
-template <class T>
-using CResult = Result<T>;
-
-}  // namespace internal
 }  // namespace arrow
