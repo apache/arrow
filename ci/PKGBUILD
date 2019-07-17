@@ -35,7 +35,7 @@ options=("staticlibs" "strip" "!buildflags")
 
 # For installing from a local checkout, set source_dir to . and don't include
 # a "source" param below
-source_dir=.
+source_dir="."
 # else
 # source_dir=apache-${_realname}-${pkgver}
 
