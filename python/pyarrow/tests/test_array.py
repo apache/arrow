@@ -647,25 +647,24 @@ def test_cast_integers_safe():
 def test_cast_none():
     # ARROW-3735: Ensure that calling cast(None) doesn't segfault.
     arr = pa.array([1, 2, 3])
-    col = pa.column('foo', [arr])
 
     with pytest.raises(TypeError):
         arr.cast(None)
 
-    with pytest.raises(TypeError):
-        col.cast(None)
 
-
-def test_cast_column():
+def test_cast_chunked_array():
     arrays = [pa.array([1, 2, 3]), pa.array([4, 5, 6])]
-
-    col = pa.column('foo', arrays)
+    carr = pa.chunked_array(arrays)
 
     target = pa.float64()
-    casted = col.cast(target)
-
-    expected = pa.column('foo', [x.cast(target) for x in arrays])
+    casted = carr.cast(target)
+    expected = pa.chunked_array([x.cast(target) for x in arrays])
     assert casted.equals(expected)
+
+
+def test_chunked_array_data_warns():
+    with pytest.warns(FutureWarning):
+        pa.chunked_array([[]]).data
 
 
 def test_cast_integers_unsafe():
@@ -781,8 +780,6 @@ def test_unique_simple():
     for arr, expected in cases:
         result = arr.unique()
         assert result.equals(expected)
-        result = pa.column("column", arr).unique()
-        assert result.equals(expected)
         result = pa.chunked_array([arr]).unique()
         assert result.equals(expected)
 
@@ -801,8 +798,6 @@ def test_dictionary_encode_simple():
     for arr, expected in cases:
         result = arr.dictionary_encode()
         assert result.equals(expected)
-        result = pa.column("column", arr).dictionary_encode()
-        assert result.data.chunk(0).equals(expected)
         result = pa.chunked_array([arr]).dictionary_encode()
         assert result.chunk(0).equals(expected)
 

@@ -106,9 +106,9 @@ std::string ipc___feather___TableReader__GetColumnName(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Column> ipc___feather___TableReader__GetColumn(
+std::shared_ptr<arrow::ChunkedArray> ipc___feather___TableReader__GetColumn(
     const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i) {
-  std::shared_ptr<arrow::Column> column;
+  std::shared_ptr<arrow::ChunkedArray> column;
   STOP_IF_NOT_OK(reader->GetColumn(i, &column));
   return column;
 }

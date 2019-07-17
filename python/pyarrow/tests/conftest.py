@@ -40,6 +40,7 @@ h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'dev'))
 groups = [
     'cython',
     'hypothesis',
+    'fastparquet',
     'gandiva',
     'hdfs',
     'large_memory',
@@ -55,6 +56,7 @@ groups = [
 
 defaults = {
     'cython': False,
+    'fastparquet': False,
     'hypothesis': False,
     'gandiva': False,
     'hdfs': False,
@@ -71,6 +73,12 @@ defaults = {
 try:
     import cython  # noqa
     defaults['cython'] = True
+except ImportError:
+    pass
+
+try:
+    import fastparquet  # noqa
+    defaults['fastparquet'] = True
 except ImportError:
     pass
 

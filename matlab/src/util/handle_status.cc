@@ -79,31 +79,6 @@ void HandleStatus(const Status& status) {
                         status.ToString().c_str());
       break;
     }
-    case StatusCode::PythonError: {
-      mexErrMsgIdAndTxt("MATLAB:arrow:status:PythonError", arrow_error_message,
-                        status.ToString().c_str());
-      break;
-    }
-    case StatusCode::PlasmaObjectExists: {
-      mexErrMsgIdAndTxt("MATLAB:arrow:status:PlasmaObjectExists", arrow_error_message,
-                        status.ToString().c_str());
-      break;
-    }
-    case StatusCode::PlasmaObjectNonexistent: {
-      mexErrMsgIdAndTxt("MATLAB:arrow:status:PlasmaObjectNonexistent",
-                        arrow_error_message, status.ToString().c_str());
-      break;
-    }
-    case StatusCode::PlasmaStoreFull: {
-      mexErrMsgIdAndTxt("MATLAB:arrow:status:PlasmaStoreFull", arrow_error_message,
-                        status.ToString().c_str());
-      break;
-    }
-    case StatusCode::PlasmaObjectAlreadySealed: {
-      mexErrMsgIdAndTxt("MATLAB:arrow:status:PlasmaObjectAlreadySealed",
-                        arrow_error_message, status.ToString().c_str());
-      break;
-    }
     default: {
       mexErrMsgIdAndTxt("MATLAB:arrow:status:UnknownStatus", arrow_error_message,
                         "Unknown status");

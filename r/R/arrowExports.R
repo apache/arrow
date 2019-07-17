@@ -204,22 +204,6 @@ ChunkArray__Slice2 <- function(chunked_array, offset, length){
     .Call(`_arrow_ChunkArray__Slice2` , chunked_array, offset, length)
 }
 
-Column__length <- function(column){
-    .Call(`_arrow_Column__length` , column)
-}
-
-Column__null_count <- function(column){
-    .Call(`_arrow_Column__null_count` , column)
-}
-
-Column__type <- function(column){
-    .Call(`_arrow_Column__type` , column)
-}
-
-Column__data <- function(column){
-    .Call(`_arrow_Column__data` , column)
-}
-
 util___Codec__Create <- function(codec){
     .Call(`_arrow_util___Codec__Create` , codec)
 }
@@ -946,6 +930,10 @@ Table__schema <- function(x){
 
 Table__column <- function(table, i){
     .Call(`_arrow_Table__column` , table, i)
+}
+
+Table__field <- function(table, i){
+    .Call(`_arrow_Table__field` , table, i)
 }
 
 Table__columns <- function(table){

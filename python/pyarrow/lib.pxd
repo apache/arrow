@@ -372,14 +372,6 @@ cdef class ChunkedArray(_PandasConvertible):
     cdef getitem(self, int64_t i)
 
 
-cdef class Column(_PandasConvertible):
-    cdef:
-        shared_ptr[CColumn] sp_column
-        CColumn* column
-
-    cdef void init(self, const shared_ptr[CColumn]& column)
-
-
 cdef class Table(_PandasConvertible):
     cdef:
         shared_ptr[CTable] sp_table
@@ -469,7 +461,6 @@ cdef public object pyarrow_wrap_chunked_array(
 # XXX pyarrow.h calls it `wrap_record_batch`
 cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
 cdef public object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf)
-cdef public object pyarrow_wrap_column(const shared_ptr[CColumn]& ccolumn)
 cdef public object pyarrow_wrap_data_type(const shared_ptr[CDataType]& type)
 cdef public object pyarrow_wrap_field(const shared_ptr[CField]& field)
 cdef public object pyarrow_wrap_resizable_buffer(
@@ -485,7 +476,6 @@ cdef public object pyarrow_wrap_sparse_tensor_csr(
 cdef public shared_ptr[CArray] pyarrow_unwrap_array(object array)
 cdef public shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch)
 cdef public shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer)
-cdef public shared_ptr[CColumn] pyarrow_unwrap_column(object column)
 cdef public shared_ptr[CDataType] pyarrow_unwrap_data_type(object data_type)
 cdef public shared_ptr[CField] pyarrow_unwrap_field(object field)
 cdef public shared_ptr[CSchema] pyarrow_unwrap_schema(object schema)

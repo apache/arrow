@@ -53,24 +53,13 @@ b: int32
   end
 
   def test_read_column
-    a = @reader.read_column(0)
     assert_equal([
-                   "a: string",
-                   Arrow::ChunkedArray.new([@a_array]).to_s,
+                   Arrow::ChunkedArray.new([@a_array]),
+                   Arrow::ChunkedArray.new([@b_array]),
                  ],
                  [
-                   a.field.to_s,
-                   a.data.to_s,
-                 ])
-
-    b = @reader.read_column(1)
-    assert_equal([
-                   "b: int32",
-                   Arrow::ChunkedArray.new([@b_array]).to_s,
-                 ],
-                 [
-                   b.field.to_s,
-                   b.data.to_s,
+                   @reader.read_column_data(0),
+                   @reader.read_column_data(-1),
                  ])
   end
 end

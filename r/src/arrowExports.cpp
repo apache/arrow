@@ -793,66 +793,6 @@ RcppExport SEXP _arrow_ChunkArray__Slice2(SEXP chunked_array_sexp, SEXP offset_s
 }
 #endif
 
-// column.cpp
-#if defined(ARROW_R_WITH_ARROW)
-int Column__length(const std::shared_ptr<arrow::Column>& column);
-RcppExport SEXP _arrow_Column__length(SEXP column_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Column>&>::type column(column_sexp);
-	return Rcpp::wrap(Column__length(column));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Column__length(SEXP column_sexp){
-	Rf_error("Cannot call Column__length(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// column.cpp
-#if defined(ARROW_R_WITH_ARROW)
-int Column__null_count(const std::shared_ptr<arrow::Column>& column);
-RcppExport SEXP _arrow_Column__null_count(SEXP column_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Column>&>::type column(column_sexp);
-	return Rcpp::wrap(Column__null_count(column));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Column__null_count(SEXP column_sexp){
-	Rf_error("Cannot call Column__null_count(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// column.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::DataType> Column__type(const std::shared_ptr<arrow::Column>& column);
-RcppExport SEXP _arrow_Column__type(SEXP column_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Column>&>::type column(column_sexp);
-	return Rcpp::wrap(Column__type(column));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Column__type(SEXP column_sexp){
-	Rf_error("Cannot call Column__type(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// column.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::ChunkedArray> Column__data(const std::shared_ptr<arrow::Column>& column);
-RcppExport SEXP _arrow_Column__data(SEXP column_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Column>&>::type column(column_sexp);
-	return Rcpp::wrap(Column__data(column));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Column__data(SEXP column_sexp){
-	Rf_error("Cannot call Column__data(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
 // compression.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::unique_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec);
@@ -1982,7 +1922,7 @@ RcppExport SEXP _arrow_ipc___feather___TableReader__GetColumnName(SEXP reader_se
 
 // feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Column> ipc___feather___TableReader__GetColumn(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i);
+std::shared_ptr<arrow::ChunkedArray> ipc___feather___TableReader__GetColumn(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i);
 RcppExport SEXP _arrow_ipc___feather___TableReader__GetColumn(SEXP reader_sexp, SEXP i_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
@@ -3641,7 +3581,7 @@ RcppExport SEXP _arrow_Table__schema(SEXP x_sexp){
 
 // table.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Column> Table__column(const std::shared_ptr<arrow::Table>& table, int i);
+std::shared_ptr<arrow::ChunkedArray> Table__column(const std::shared_ptr<arrow::Table>& table, int i);
 RcppExport SEXP _arrow_Table__column(SEXP table_sexp, SEXP i_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
@@ -3657,7 +3597,23 @@ RcppExport SEXP _arrow_Table__column(SEXP table_sexp, SEXP i_sexp){
 
 // table.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::vector<std::shared_ptr<arrow::Column>> Table__columns(const std::shared_ptr<arrow::Table>& table);
+std::shared_ptr<arrow::Field> Table__field(const std::shared_ptr<arrow::Table>& table, int i);
+RcppExport SEXP _arrow_Table__field(SEXP table_sexp, SEXP i_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	Rcpp::traits::input_parameter<int>::type i(i_sexp);
+	return Rcpp::wrap(Table__field(table, i));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Table__field(SEXP table_sexp, SEXP i_sexp){
+	Rf_error("Cannot call Table__field(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// table.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::vector<std::shared_ptr<arrow::ChunkedArray>> Table__columns(const std::shared_ptr<arrow::Table>& table);
 RcppExport SEXP _arrow_Table__columns(SEXP table_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
@@ -3811,10 +3767,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ChunkedArray__type", (DL_FUNC) &_arrow_ChunkedArray__type, 1}, 
 		{ "_arrow_ChunkArray__Slice1", (DL_FUNC) &_arrow_ChunkArray__Slice1, 2}, 
 		{ "_arrow_ChunkArray__Slice2", (DL_FUNC) &_arrow_ChunkArray__Slice2, 3}, 
-		{ "_arrow_Column__length", (DL_FUNC) &_arrow_Column__length, 1}, 
-		{ "_arrow_Column__null_count", (DL_FUNC) &_arrow_Column__null_count, 1}, 
-		{ "_arrow_Column__type", (DL_FUNC) &_arrow_Column__type, 1}, 
-		{ "_arrow_Column__data", (DL_FUNC) &_arrow_Column__data, 1}, 
 		{ "_arrow_util___Codec__Create", (DL_FUNC) &_arrow_util___Codec__Create, 1}, 
 		{ "_arrow_io___CompressedOutputStream__Make", (DL_FUNC) &_arrow_io___CompressedOutputStream__Make, 2}, 
 		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2}, 
@@ -3997,6 +3949,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1}, 
 		{ "_arrow_Table__schema", (DL_FUNC) &_arrow_Table__schema, 1}, 
 		{ "_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2}, 
+		{ "_arrow_Table__field", (DL_FUNC) &_arrow_Table__field, 2}, 
 		{ "_arrow_Table__columns", (DL_FUNC) &_arrow_Table__columns, 1}, 
 		{ "_arrow_Table__column_names", (DL_FUNC) &_arrow_Table__column_names, 1}, 
 		{ "_arrow_Table__select", (DL_FUNC) &_arrow_Table__select, 2}, 

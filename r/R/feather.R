@@ -34,7 +34,7 @@
     num_rows = function() ipc___feather___TableReader__num_rows(self),
     num_columns = function() ipc___feather___TableReader__num_columns(self),
     GetColumnName = function(i) ipc___feather___TableReader__GetColumnName(self, i),
-    GetColumn = function(i) shared_ptr(`arrow::Column`, ipc___feather___TableReader__GetColumn(self, i)),
+    GetColumn = function(i) shared_ptr(`arrow::Array`, ipc___feather___TableReader__GetColumn(self, i)),
     Read = function(columns) {
       shared_ptr(`arrow::Table`, ipc___feather___TableReader__Read(self, columns))
     }

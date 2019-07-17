@@ -567,51 +567,10 @@ TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveType) {
   CheckStream(chunked_array_2, {0}, expected_2);
 }
 
-TEST_F(TestPrettyPrint, ColumnPrimitiveType) {
-  std::shared_ptr<Field> int_field = field("column", int32());
-  auto array = ArrayFromJSON(int_field->type(), "[0, 1, null, 3, null]");
-  Column column(int_field, ArrayVector({array}));
-
-  static const char* expected = R"expected(column: int32
-[
-  [
-    0,
-    1,
-    null,
-    3,
-    null
-  ]
-])expected";
-  CheckStream(column, {0}, expected);
-
-  Column column_2(int_field, {array, array});
-
-  static const char* expected_2 = R"expected(column: int32
-[
-  [
-    0,
-    1,
-    null,
-    3,
-    null
-  ],
-  [
-    0,
-    1,
-    null,
-    3,
-    null
-  ]
-])expected";
-
-  CheckStream(column_2, {0}, expected_2);
-}
-
 TEST_F(TestPrettyPrint, TablePrimitive) {
   std::shared_ptr<Field> int_field = field("column", int32());
   auto array = ArrayFromJSON(int_field->type(), "[0, 1, null, 3, null]");
-  std::shared_ptr<Column> column =
-      std::make_shared<Column>(int_field, ArrayVector({array}));
+  auto column = std::make_shared<ChunkedArray>(ArrayVector({array}));
   std::shared_ptr<Schema> table_schema = schema({int_field});
   std::shared_ptr<Table> table = Table::Make(table_schema, {column});
 

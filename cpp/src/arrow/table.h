@@ -111,95 +111,6 @@ class ARROW_EXPORT ChunkedArray {
   ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
 };
 
-/// \class Column
-/// \brief An immutable column data structure consisting of a field (type
-/// metadata) and a chunked data array
-class ARROW_EXPORT Column {
- public:
-  /// \brief Construct a column from a vector of arrays
-  ///
-  /// The array chunks' datatype must match the field's datatype.
-  Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks);
-  /// \brief Construct a column from a chunked array
-  ///
-  /// The chunked array's datatype must match the field's datatype.
-  Column(const std::shared_ptr<Field>& field, const std::shared_ptr<ChunkedArray>& data);
-  /// \brief Construct a column from a single array
-  ///
-  /// The array's datatype must match the field's datatype.
-  Column(const std::shared_ptr<Field>& field, const std::shared_ptr<Array>& data);
-
-  /// \brief Construct a column from a name and an array
-  ///
-  /// A field with the given name and the array's datatype is automatically created.
-  Column(const std::string& name, const std::shared_ptr<Array>& data);
-  /// \brief Construct a column from a name and a chunked array
-  ///
-  /// A field with the given name and the array's datatype is automatically created.
-  Column(const std::string& name, const std::shared_ptr<ChunkedArray>& data);
-
-  int64_t length() const { return data_->length(); }
-
-  int64_t null_count() const { return data_->null_count(); }
-
-  std::shared_ptr<Field> field() const { return field_; }
-
-  /// \brief The column name
-  /// \return the column's name in the passed metadata
-  const std::string& name() const { return field_->name(); }
-
-  /// \brief The column type
-  /// \return the column's type according to the metadata
-  std::shared_ptr<DataType> type() const { return field_->type(); }
-
-  /// \brief The column data as a chunked array
-  /// \return the column's data as a chunked logical array
-  std::shared_ptr<ChunkedArray> data() const { return data_; }
-
-  /// \brief Construct a zero-copy slice of the column with the indicated
-  /// offset and length
-  ///
-  /// \param[in] offset the position of the first element in the constructed
-  /// slice
-  /// \param[in] length the length of the slice. If there are not enough
-  /// elements in the column, the length will be adjusted accordingly
-  ///
-  /// \return a new object wrapped in std::shared_ptr<Column>
-  std::shared_ptr<Column> Slice(int64_t offset, int64_t length) const {
-    return std::make_shared<Column>(field_, data_->Slice(offset, length));
-  }
-
-  /// \brief Slice from offset until end of the column
-  std::shared_ptr<Column> Slice(int64_t offset) const {
-    return std::make_shared<Column>(field_, data_->Slice(offset));
-  }
-
-  /// \brief Flatten this column as a vector of columns
-  ///
-  /// \param[in] pool The pool for buffer allocations, if any
-  /// \param[out] out The resulting vector of arrays
-  Status Flatten(MemoryPool* pool, std::vector<std::shared_ptr<Column>>* out) const;
-
-  /// \brief Determine if two columns are equal.
-  ///
-  /// Two columns can be equal only if they have equal datatypes.
-  /// However, they may be equal even if they have different chunkings.
-  bool Equals(const Column& other) const;
-  /// \brief Determine if the two columns are equal.
-  bool Equals(const std::shared_ptr<Column>& other) const;
-
-  /// \brief Verify that the column's array data is consistent with the passed
-  /// field's metadata
-  Status ValidateData();
-
- protected:
-  std::shared_ptr<Field> field_;
-  std::shared_ptr<ChunkedArray> data_;
-
- private:
-  ARROW_DISALLOW_COPY_AND_ASSIGN(Column);
-};
-
 /// \class Table
 /// \brief Logical table as sequence of chunked arrays
 class ARROW_EXPORT Table {
@@ -209,18 +120,11 @@ class ARROW_EXPORT Table {
   /// \brief Construct a Table from schema and columns
   /// If columns is zero-length, the table's number of rows is zero
   /// \param schema The table schema (column types)
-  /// \param columns The table's columns
+  /// \param columns The table's columns as chunked arrays
   /// \param num_rows number of rows in table, -1 (default) to infer from columns
-  static std::shared_ptr<Table> Make(const std::shared_ptr<Schema>& schema,
-                                     const std::vector<std::shared_ptr<Column>>& columns,
-                                     int64_t num_rows = -1);
-
-  /// \brief Construct a Table from columns, schema is assembled from column fields
-  /// If columns is zero-length, the table's number of rows is zero
-  /// \param columns The table's columns
-  /// \param num_rows number of rows in table, -1 (default) to infer from columns
-  static std::shared_ptr<Table> Make(const std::vector<std::shared_ptr<Column>>& columns,
-                                     int64_t num_rows = -1);
+  static std::shared_ptr<Table> Make(
+      const std::shared_ptr<Schema>& schema,
+      const std::vector<std::shared_ptr<ChunkedArray>>& columns, int64_t num_rows = -1);
 
   /// \brief Construct a Table from schema and arrays
   /// \param schema The table schema (column types)
@@ -265,7 +169,10 @@ class ARROW_EXPORT Table {
   std::shared_ptr<Schema> schema() const { return schema_; }
 
   /// Return a column by index
-  virtual std::shared_ptr<Column> column(int i) const = 0;
+  virtual std::shared_ptr<ChunkedArray> column(int i) const = 0;
+
+  /// Return a column's field by index
+  std::shared_ptr<Field> field(int i) const { return schema_->field(i); }
 
   /// \brief Construct a zero-copy slice of the table with the
   /// indicated offset and length
@@ -284,7 +191,7 @@ class ARROW_EXPORT Table {
   /// \brief Return a column by name
   /// \param[in] name field name
   /// \return an Array or null if no field was found
-  std::shared_ptr<Column> GetColumnByName(const std::string& name) const {
+  std::shared_ptr<ChunkedArray> GetColumnByName(const std::string& name) const {
     auto i = schema_->GetFieldIndex(name);
     return i == -1 ? NULLPTR : column(i);
   }
@@ -293,11 +200,13 @@ class ARROW_EXPORT Table {
   virtual Status RemoveColumn(int i, std::shared_ptr<Table>* out) const = 0;
 
   /// \brief Add column to the table, producing a new Table
-  virtual Status AddColumn(int i, const std::shared_ptr<Column>& column,
+  virtual Status AddColumn(int i, std::shared_ptr<Field> field_arg,
+                           std::shared_ptr<ChunkedArray> column,
                            std::shared_ptr<Table>* out) const = 0;
 
   /// \brief Replace a column in the table, producing a new Table
-  virtual Status SetColumn(int i, const std::shared_ptr<Column>& column,
+  virtual Status SetColumn(int i, std::shared_ptr<Field> field_arg,
+                           std::shared_ptr<ChunkedArray> column,
                            std::shared_ptr<Table>* out) const = 0;
 
   /// \brief Return names of all columns

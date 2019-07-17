@@ -199,6 +199,23 @@ garrow_schema_get_field_by_name(GArrowSchema *schema,
 }
 
 /**
+ * garrow_schema_get_field_index:
+ * @schema: A #GArrowSchema.
+ * @name: The name of the field to be found.
+ *
+ * Returns: The index of the found field, -1 on not found.
+ *
+ * Since: 1.0.0
+ */
+gint
+garrow_schema_get_field_index(GArrowSchema *schema,
+                              const gchar *name)
+{
+  const auto &arrow_schema = garrow_schema_get_raw(schema);
+  return arrow_schema->GetFieldIndex(std::string(name));
+}
+
+/**
  * garrow_schema_n_fields:
  * @schema: A #GArrowSchema.
  *

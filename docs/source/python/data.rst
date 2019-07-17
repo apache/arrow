@@ -394,16 +394,15 @@ one or more copies of the batch using ``Table.from_batches``:
    table
    table.num_rows
 
-The table's columns are instances of :class:`~.Column`, which is a container
-for one or more arrays of the same type.
+The table's columns are instances of :class:`~.ChunkedArray`, which is a
+container for one or more arrays of the same type.
 
 .. ipython:: python
 
    c = table[0]
    c
-   c.data
-   c.data.num_chunks
-   c.data.chunk(0)
+   c.num_chunks
+   c.chunk(0)
 
 As you'll see in the :ref:`pandas section <pandas_interop>`, we can convert
 these objects to contiguous NumPy arrays for use in pandas:
@@ -421,7 +420,7 @@ Multiple tables can also be concatenated together to form a single table using
    table_all = pa.concat_tables(tables)
    table_all.num_rows
    c = table_all[0]
-   c.data.num_chunks
+   c.num_chunks
 
 This is similar to ``Table.from_batches``, but uses tables as input instead of
 record batches. Record batches can be made into tables, but not the other way

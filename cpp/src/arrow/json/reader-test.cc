@@ -62,18 +62,13 @@ class ReaderTest : public ::testing::TestWithParam<bool> {
     SetUpReader();
   }
 
-  std::shared_ptr<Column> ColumnFromJSON(const std::shared_ptr<Field>& field,
-                                         const std::string& data) {
-    return std::make_shared<Column>(field, ArrayFromJSON(field->type(), data));
-  }
-
-  std::shared_ptr<Column> ColumnFromJSON(const std::shared_ptr<Field>& field,
-                                         const std::vector<std::string>& data) {
+  std::shared_ptr<ChunkedArray> ChunkedFromJSON(const std::shared_ptr<Field>& field,
+                                                const std::vector<std::string>& data) {
     ArrayVector chunks(data.size());
     for (size_t i = 0; i < chunks.size(); ++i) {
       chunks[i] = ArrayFromJSON(field->type(), data[i]);
     }
-    return std::make_shared<Column>(field, std::move(chunks));
+    return std::make_shared<ChunkedArray>(std::move(chunks));
   }
 
   ParseOptions parse_options_ = ParseOptions::Defaults();
@@ -99,11 +94,16 @@ TEST_P(ReaderTest, Basics) {
   SetUpReader(src);
   ASSERT_OK(reader_->Read(&table_));
 
-  auto expected_table = Table::Make({
-      ColumnFromJSON(field("hello", float64()), "[3.5, 3.25, 3.125, 0.0]"),
-      ColumnFromJSON(field("world", boolean()), "[false, null, null, true]"),
-      ColumnFromJSON(field("yo", utf8()), "[\"thing\", null, \"\xe5\xbf\x8d\", null]"),
-  });
+  auto schema = ::arrow::schema(
+      {field("hello", float64()), field("world", boolean()), field("yo", utf8())});
+
+  auto expected_table = Table::Make(
+      schema, {
+                  ArrayFromJSON(schema->field(0)->type(), "[3.5, 3.25, 3.125, 0.0]"),
+                  ArrayFromJSON(schema->field(1)->type(), "[false, null, null, true]"),
+                  ArrayFromJSON(schema->field(2)->type(),
+                                "[\"thing\", null, \"\xe5\xbf\x8d\", null]"),
+              });
   AssertTablesEqual(*expected_table, *table_);
 }
 
@@ -113,14 +113,18 @@ TEST_P(ReaderTest, Nested) {
   SetUpReader(src);
   ASSERT_OK(reader_->Read(&table_));
 
-  auto expected_table = Table::Make({
-      ColumnFromJSON(field("hello", float64()), "[3.5, 3.25, 3.125, 0.0]"),
-      ColumnFromJSON(field("world", boolean()), "[false, null, null, true]"),
-      ColumnFromJSON(field("yo", utf8()), "[\"thing\", null, \"\xe5\xbf\x8d\", null]"),
-      ColumnFromJSON(field("arr", list(int64())), R"([[1, 2, 3], [2], [], null])"),
-      ColumnFromJSON(field("nuf", struct_({field("ps", int64())})),
-                     R"([{"ps":null}, null, {"ps":78}, {"ps":90}])"),
-  });
+  auto schema = ::arrow::schema({field("hello", float64()), field("world", boolean()),
+                                 field("yo", utf8()), field("arr", list(int64())),
+                                 field("nuf", struct_({field("ps", int64())}))});
+
+  auto a0 = ArrayFromJSON(schema->field(0)->type(), "[3.5, 3.25, 3.125, 0.0]");
+  auto a1 = ArrayFromJSON(schema->field(1)->type(), "[false, null, null, true]");
+  auto a2 = ArrayFromJSON(schema->field(2)->type(),
+                          "[\"thing\", null, \"\xe5\xbf\x8d\", null]");
+  auto a3 = ArrayFromJSON(schema->field(3)->type(), "[[1, 2, 3], [2], [], null]");
+  auto a4 = ArrayFromJSON(schema->field(4)->type(),
+                          R"([{"ps":null}, null, {"ps":78}, {"ps":90}])");
+  auto expected_table = Table::Make(schema, {a0, a1, a2, a3, a4});
   AssertTablesEqual(*expected_table, *table_);
 }
 
@@ -133,17 +137,25 @@ TEST_P(ReaderTest, PartialSchema) {
   SetUpReader(src);
   ASSERT_OK(reader_->Read(&table_));
 
-  auto expected_table = Table::Make({
-      // NB: explicitly declared fields will appear first
-      ColumnFromJSON(
-          field("nuf", struct_({field("absent", date32()), field("ps", int64())})),
-          R"([{"absent":null,"ps":null}, null, {"absent":null,"ps":78}, {"absent":null,"ps":90}])"),
-      ColumnFromJSON(field("arr", list(float32())), R"([[1, 2, 3], [2], [], null])"),
-      // ...followed by undeclared fields
-      ColumnFromJSON(field("hello", float64()), "[3.5, 3.25, 3.125, 0.0]"),
-      ColumnFromJSON(field("world", boolean()), "[false, null, null, true]"),
-      ColumnFromJSON(field("yo", utf8()), "[\"thing\", null, \"\xe5\xbf\x8d\", null]"),
-  });
+  auto schema = ::arrow::schema(
+      {field("nuf", struct_({field("absent", date32()), field("ps", int64())})),
+       field("arr", list(float32())), field("hello", float64()),
+       field("world", boolean()), field("yo", utf8())});
+
+  auto expected_table = Table::Make(
+      schema,
+      {
+          // NB: explicitly declared fields will appear first
+          ArrayFromJSON(
+              schema->field(0)->type(),
+              R"([{"absent":null,"ps":null}, null, {"absent":null,"ps":78}, {"absent":null,"ps":90}])"),
+          ArrayFromJSON(schema->field(1)->type(), R"([[1, 2, 3], [2], [], null])"),
+          // ...followed by undeclared fields
+          ArrayFromJSON(schema->field(2)->type(), "[3.5, 3.25, 3.125, 0.0]"),
+          ArrayFromJSON(schema->field(3)->type(), "[false, null, null, true]"),
+          ArrayFromJSON(schema->field(4)->type(),
+                        "[\"thing\", null, \"\xe5\xbf\x8d\", null]"),
+      });
   AssertTablesEqual(*expected_table, *table_);
 }
 
@@ -156,14 +168,16 @@ TEST_P(ReaderTest, TypeInference) {
     )");
   ASSERT_OK(reader_->Read(&table_));
 
-  auto expected_table =
-      Table::Make({ColumnFromJSON(field("ts", timestamp(TimeUnit::SECOND)),
-                                  R"([null, "1970-01-01", "2018-11-13 17:11:10"])"),
-                   ColumnFromJSON(field("f", float64()), R"([null, 3, 3.125])")});
+  auto schema =
+      ::arrow::schema({field("ts", timestamp(TimeUnit::SECOND)), field("f", float64())});
+  auto expected_table = Table::Make(
+      schema, {ArrayFromJSON(schema->field(0)->type(),
+                             R"([null, "1970-01-01", "2018-11-13 17:11:10"])"),
+               ArrayFromJSON(schema->field(1)->type(), R"([null, 3, 3.125])")});
   AssertTablesEqual(*expected_table, *table_);
 }
 
-TEST_P(ReaderTest, MutlipleChunks) {
+TEST_P(ReaderTest, MultipleChunks) {
   parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
 
   auto src = scalars_only_src();
@@ -172,15 +186,18 @@ TEST_P(ReaderTest, MutlipleChunks) {
   SetUpReader(src);
   ASSERT_OK(reader_->Read(&table_));
 
+  auto schema = ::arrow::schema(
+      {field("hello", float64()), field("world", boolean()), field("yo", utf8())});
+
   // there is an empty chunk because the last block of the file is "  "
-  auto expected_table = Table::Make({
-      ColumnFromJSON(field("hello", float64()),
-                     {"[3.5]", "[3.25]", "[3.125, 0.0]", "[]"}),
-      ColumnFromJSON(field("world", boolean()),
-                     {"[false]", "[null]", "[null, true]", "[]"}),
-      ColumnFromJSON(field("yo", utf8()),
-                     {"[\"thing\"]", "[null]", "[\"\xe5\xbf\x8d\", null]", "[]"}),
-  });
+  auto expected_table = Table::Make(
+      schema,
+      {
+          ChunkedFromJSON(schema->field(0), {"[3.5]", "[3.25]", "[3.125, 0.0]", "[]"}),
+          ChunkedFromJSON(schema->field(1), {"[false]", "[null]", "[null, true]", "[]"}),
+          ChunkedFromJSON(schema->field(2),
+                          {"[\"thing\"]", "[null]", "[\"\xe5\xbf\x8d\", null]", "[]"}),
+      });
   AssertTablesEqual(*expected_table, *table_);
 }
 
@@ -225,7 +242,7 @@ TEST(ReaderTest, MultipleChunksParallel) {
 
   ASSERT_EQ(serial->column(0)->type()->id(), Type::INT64);
   int expected = 0;
-  for (auto chunk : serial->column(0)->data()->chunks()) {
+  for (auto chunk : serial->column(0)->chunks()) {
     for (int64_t i = 0; i < chunk->length(); ++i) {
       ASSERT_EQ(checked_cast<const Int64Array*>(chunk.get())->GetView(i), expected)
           << " at index " << i;

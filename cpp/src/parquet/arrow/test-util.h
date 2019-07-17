@@ -429,26 +429,11 @@ Status MakeEmptyListsArray(int64_t size, std::shared_ptr<Array>* out_array) {
   return Status::OK();
 }
 
-static inline std::shared_ptr<::arrow::Column> MakeColumn(
-    const std::string& name, const std::shared_ptr<Array>& array, bool nullable) {
-  auto field = ::arrow::field(name, array->type(), nullable);
-  return std::make_shared<::arrow::Column>(field, array);
-}
-
-static inline std::shared_ptr<::arrow::Column> MakeColumn(
-    const std::string& name, const std::vector<std::shared_ptr<Array>>& arrays,
-    bool nullable) {
-  auto field = ::arrow::field(name, arrays[0]->type(), nullable);
-  return std::make_shared<::arrow::Column>(field, arrays);
-}
-
 std::shared_ptr<::arrow::Table> MakeSimpleTable(const std::shared_ptr<Array>& values,
                                                 bool nullable) {
-  std::shared_ptr<::arrow::Column> column = MakeColumn("col", values, nullable);
-  std::vector<std::shared_ptr<::arrow::Column>> columns({column});
-  std::vector<std::shared_ptr<::arrow::Field>> fields({column->field()});
-  auto schema = std::make_shared<::arrow::Schema>(fields);
-  return ::arrow::Table::Make(schema, columns);
+  auto carr = std::make_shared<::arrow::ChunkedArray>(values);
+  auto schema = ::arrow::schema({::arrow::field("col", values->type(), nullable)});
+  return ::arrow::Table::Make(schema, {carr});
 }
 
 template <typename T>

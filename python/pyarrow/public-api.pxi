@@ -16,7 +16,7 @@
 # under the License.
 
 from libcpp.memory cimport shared_ptr
-from pyarrow.includes.libarrow cimport (CArray, CColumn, CDataType, CField,
+from pyarrow.includes.libarrow cimport (CArray, CDataType, CField,
                                         CRecordBatch, CSchema,
                                         CTable, CTensor,
                                         CSparseTensorCSR, CSparseTensorCOO)
@@ -294,25 +294,6 @@ cdef api object pyarrow_wrap_sparse_tensor_csr(
         SparseTensorCSR)
     sparse_tensor.init(sp_sparse_tensor)
     return sparse_tensor
-
-
-cdef api bint pyarrow_is_column(object column):
-    return isinstance(column, Column)
-
-
-cdef api shared_ptr[CColumn] pyarrow_unwrap_column(object column):
-    cdef Column col
-    if pyarrow_is_column(column):
-        col = <Column>(column)
-        return col.sp_column
-
-    return shared_ptr[CColumn]()
-
-
-cdef api object pyarrow_wrap_column(const shared_ptr[CColumn]& ccolumn):
-    cdef Column column = Column.__new__(Column)
-    column.init(ccolumn)
-    return column
 
 
 cdef api bint pyarrow_is_table(object table):

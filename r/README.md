@@ -48,6 +48,14 @@ library.
 
 ``` r
 library(arrow)
+#> 
+#> Attaching package: 'arrow'
+#> The following object is masked from 'package:utils':
+#> 
+#>     timestamp
+#> The following objects are masked from 'package:base':
+#> 
+#>     array, table
 set.seed(24)
 
 tab <- arrow::table(x = 1:10, y = rnorm(10))
@@ -125,19 +133,12 @@ If you need to alter both the Arrow C++ library and the R package code,
 or if you can’t get a binary version of the latest C++ library
 elsewhere, you’ll need to build it from source too.
 
-First, clone the repository and install a release build of the C++
-library.
-
-``` shell
-git clone https://github.com/apache/arrow.git
-mkdir arrow/cpp/build && cd arrow/cpp/build
-cmake .. -DARROW_PARQUET=ON -DARROW_BOOST_USE_SHARED:BOOL=Off -DARROW_INSTALL_NAME_RPATH=OFF
-make install
-```
-
-This likely will require additional system libraries to be installed,
-the specifics of which are platform dependent. See the [C++ developer
+First, install the C++ library. See the [C++ developer
 guide](https://arrow.apache.org/docs/developers/cpp.html) for details.
+
+Note that after any change to the C++ library, you must reinstall it and
+run `make clean` or `git clean -fdx .` to remove any cached object code
+in the `r/` directory.
 
 Once you’ve built the C++ library, you can install the R package and its
 dependencies, along with additional dev dependencies, from the git
@@ -173,7 +174,10 @@ you will need to set the `ARROW_R_DEV` environment variable to `TRUE`
 sessions) so that the `data-raw/codegen.R` file is used for code
 generation.
 
-You’ll also need `remotes::install_github("romainfrancois/decor")`.
+The codegen.R script has these dependencies:
+
+    remotes::install_github("romainfrancois/decor")
+    install.packages(c("dplyr", "purrr", "glue"))
 
 ### Useful functions
 
