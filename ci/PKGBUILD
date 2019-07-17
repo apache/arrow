@@ -35,7 +35,7 @@ options=("staticlibs" "strip" "!buildflags")
 
 # For installing from a local checkout, set source_dir to . and don't include
 # a "source" param below
-source_dir="."
+source_dir="$APPVEYOR_BUILD_FOLDER"
 # else
 # source_dir=apache-${_realname}-${pkgver}
 
@@ -46,6 +46,7 @@ source_dir="."
 # Append `#commit=54b1b2f688e5e84b4c664b1e12a95f93b94ab2f3` to the URL to select a revision
 # source=("${source_dir}"::"git+https://github.com/apache/arrow")
 # sha256sums=("SKIP")
+# source_dir="${APPVEYOR_BUILD_FOLDER}/${source_dir}"
 
 cmake_build_type=release
 cpp_build_dir=build-${CARCH}-cpp
@@ -53,11 +54,11 @@ cpp_build_dir=build-${CARCH}-cpp
 pkgver() {
   # The only purpose of this here is to cause the job to error if the
   # version in pkgver is different from what is in r/DESCRIPTION
-  grep Version "$(pwd)/${source_dir}/r/DESCRIPTION" | cut -d " " -f 2
+  grep Version "${source_dir}/r/DESCRIPTION" | cut -d " " -f 2
 }
 
 build() {
-  ARROW_CPP_DIR="$(pwd)/${source_dir}/cpp"
+  ARROW_CPP_DIR="${source_dir}/cpp"
   [[ -d ${cpp_build_dir} ]] && rm -rf ${cpp_build_dir}
   mkdir -p ${cpp_build_dir}
   pushd ${cpp_build_dir}
