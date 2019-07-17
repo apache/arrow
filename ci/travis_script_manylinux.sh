@@ -17,6 +17,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# NB(wesm): Here is the Travis CI entry removed in ARROW-5962
+
+# - name: "[manylinux1] Python"
+#   language: cpp
+#   env:
+#   - PYTHON_VERSIONS="3.6,16 3.7,16"
+#   before_script:
+#   - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then docker-compose pull python-manylinux1; fi
+#   script:
+#   - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_manylinux.sh; fi
+
 set -ex
 
 # Testing for https://issues.apache.org/jira/browse/ARROW-2657
