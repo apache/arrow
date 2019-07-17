@@ -350,25 +350,29 @@ class PullRequest(object):
                                   key=lambda x: commit_authors.count(x),
                                   reverse=True)
 
-        if len(distinct_authors) > 1:
-            for i, author in enumerate(distinct_authors):
-                print("Author {}: {}".format(i + 1, author))
+        for i, author in enumerate(distinct_authors):
+            print("Author {}: {}".format(i + 1, author))
 
-        primary_author = self.cmd.prompt(
-            "Enter primary author in the format of \"name <email>\" [%s]: " %
-            distinct_authors[0])
+        if len(distinct_authors) > 1:
+            primary_author = self.cmd.prompt(
+                "Enter primary author in the format of "
+                "\"name <email>\" [%s]: " % distinct_authors[0])
+
+            if primary_author == "":
+                primary_author = distinct_authors[0]
+            else:
+                # When primary author is specified manually, de-dup it from
+                # author list and put it at the head of author list.
+                distinct_authors = [x for x in distinct_authors
+                                    if x != primary_author]
+                distinct_authors = [primary_author] + distinct_authors
+        else:
+            # If there is only one author, do not prompt for a lead author
+            primary_author = distinct_authors[0]
 
         commits = run_cmd(['git', 'log', 'HEAD..%s' % pr_branch_name,
                           '--pretty=format:%h <%an> %s']).split("\n\n")
 
-        if primary_author == "":
-            primary_author = distinct_authors[0]
-        else:
-            # When primary author is specified manually, de-dup it from author
-            # list and put it at the head of author list.
-            distinct_authors = [x for x in distinct_authors
-                                if x != primary_author]
-            distinct_authors = [primary_author] + distinct_authors
         merge_message_flags = []
 
         merge_message_flags += ["-m", self.title]
