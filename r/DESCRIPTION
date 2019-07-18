@@ -22,6 +22,7 @@ Encoding: UTF-8
 Language: en-US
 LazyData: true
 SystemRequirements: C++11
+Biarch: true
 LinkingTo:
     Rcpp (>= 1.0.1)
 Imports:
