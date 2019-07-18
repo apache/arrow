@@ -69,7 +69,7 @@ public class ByteFunctionHelpers {
 
     while (len > 3) {
       int value = PlatformDependent.getInt(pos);
-      hash = comebineHash(hash, Integer.hashCode(value));
+      hash = comebineHash(hash, value);
 
       pos += 4;
       len -= 4;
@@ -77,7 +77,7 @@ public class ByteFunctionHelpers {
 
     while (len-- != 0) {
       byte value = PlatformDependent.getByte(pos);
-      hash = comebineHash(hash, Byte.hashCode(value));
+      hash = comebineHash(hash, value);
       pos ++;
     }
 
