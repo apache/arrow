@@ -109,6 +109,9 @@ public class BigIntVector extends BaseFixedWidthVector implements BaseIntVector 
    * @return element at given index
    */
   public long get(int index) throws IllegalStateException {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
+      throw new IllegalStateException("Value at index is null");
+    }
     return valueBuffer.getLong(index * TYPE_WIDTH);
   }
 
