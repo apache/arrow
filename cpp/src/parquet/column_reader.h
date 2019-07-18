@@ -22,6 +22,7 @@
 #include <memory>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
@@ -30,6 +31,8 @@
 #include "parquet/types.h"
 
 namespace arrow {
+
+class Array;
 
 namespace BitUtil {
 class BitReader;

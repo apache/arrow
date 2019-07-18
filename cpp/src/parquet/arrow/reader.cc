@@ -42,7 +42,6 @@
 // For arrow::compute::Datum. This should perhaps be promoted. See ARROW-4022
 #include "arrow/compute/kernel.h"
 
-#include "parquet/arrow/record_reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"
@@ -1418,7 +1417,7 @@ struct TransferFunctor<
     typename std::enable_if<std::is_same<ArrowType, ::arrow::Decimal128Type>::value &&
                             (std::is_same<ParquetType, ByteArrayType>::value ||
                              std::is_same<ParquetType, FLBAType>::value)>::type> {
-  Status operator()(RecordReader<* reader, MemoryPool* pool,
+  Status operator()(RecordReader* reader, MemoryPool* pool,
                     const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     DCHECK_EQ(type->id(), ::arrow::Type::DECIMAL);
 
