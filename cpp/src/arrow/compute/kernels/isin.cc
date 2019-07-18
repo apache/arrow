@@ -169,7 +169,7 @@ class IsInKernel : public IsInKernelImpl {
  private:
   // \brief Additional member "right_null_count" is used to check if
   // null count in right is not 0
-  int64_t right_null_count{};
+  int64_t right_null_count_{};
   BooleanBuilder bool_builder_;
   std::shared_ptr<ArrayData> output;
 };
