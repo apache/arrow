@@ -17,8 +17,6 @@
 
 package org.apache.arrow.vector;
 
-import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.VarBinaryReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -110,8 +108,8 @@ public class VarBinaryVector extends BaseVariableWidthVector implements BaseBina
    */
   public byte[] get(int index) {
     assert index >= 0;
-    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
-      throw new IllegalStateException("Value at index is null");
+    if (isSet(index) == 0) {
+      return null;
     }
     final int startOffset = getStartOffset(index);
     final int dataLength =
@@ -128,13 +126,7 @@ public class VarBinaryVector extends BaseVariableWidthVector implements BaseBina
    * @return byte array for non-null element, null otherwise
    */
   public byte[] getObject(int index) {
-    byte[] b;
-    try {
-      b = get(index);
-    } catch (IllegalStateException e) {
-      return null;
-    }
-    return b;
+    return get(index);
   }
 
   /**

@@ -906,13 +906,7 @@ public class TestValueVector {
 
       // Ensure null value throws.
       boolean b = false;
-      try {
-        vector.get(8);
-      } catch (IllegalStateException e) {
-        b = true;
-      } finally {
-        assertTrue(b);
-      }
+      assertNull(vector.get(8));
     }
   }
 
@@ -942,14 +936,7 @@ public class TestValueVector {
       assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), vector.get(6));
 
       // Ensure null value throws.
-      boolean b = false;
-      try {
-        vector.get(7);
-      } catch (IllegalStateException e) {
-        b = true;
-      } finally {
-        assertTrue(b);
-      }
+      assertNull(vector.get(7));
     }
   }
 
@@ -2171,6 +2158,21 @@ public class TestValueVector {
       assertTrue(vector.isNull(1));
 
       buf.close();
+    }
+  }
+
+  @Test
+  public void testGetNullFromVariableWidthVector() {
+    try (VarCharVector varCharVector = new VarCharVector("varcharvec", allocator);
+    VarBinaryVector varBinaryVector = new VarBinaryVector("varbinary", allocator)) {
+      varCharVector.allocateNew(10, 1);
+      varBinaryVector.allocateNew(10, 1);
+
+      varCharVector.setNull(0);
+      varBinaryVector.setNull(0);
+
+      assertNull(varCharVector.get(0));
+      assertNull(varBinaryVector.get(0));
     }
   }
 }
