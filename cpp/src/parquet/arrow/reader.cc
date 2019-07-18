@@ -1418,7 +1418,7 @@ struct TransferFunctor<
     typename std::enable_if<std::is_same<ArrowType, ::arrow::Decimal128Type>::value &&
                             (std::is_same<ParquetType, ByteArrayType>::value ||
                              std::is_same<ParquetType, FLBAType>::value)>::type> {
-  Status operator()(RecordReader* reader, MemoryPool* pool,
+  Status operator()(RecordReader<* reader, MemoryPool* pool,
                     const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     DCHECK_EQ(type->id(), ::arrow::Type::DECIMAL);
 
