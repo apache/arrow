@@ -640,7 +640,7 @@ Status InvokeWithAllocation(FunctionContext* ctx, UnaryKernel* func, const Datum
   } else {
     RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, func, input, &result));
   }
-  RETURN_IF_ERROR(ctx);
+  ARROW_RETURN_IF_ERROR(ctx);
   *out = detail::WrapDatumsLike(input, result);
   return Status::OK();
 }
@@ -1088,7 +1088,7 @@ class CastKernel : public CastKernelBase {
     RETURN_NOT_OK(detail::PropagateNulls(ctx, in_data, result));
 
     func_(ctx, options_, in_data, result);
-    RETURN_IF_ERROR(ctx);
+    ARROW_RETURN_IF_ERROR(ctx);
     return Status::OK();
   }
 
