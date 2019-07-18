@@ -30,6 +30,33 @@ class Array;
 
 namespace compute {
 
+/// \brief UnaryKernel implementing Argsort operation
+class ARROW_EXPORT ArgsortKernel : public UnaryKernel {
+ protected:
+  std::shared_ptr<DataType> type_;
+
+ public:
+  /// \brief UnaryKernel interface
+  ///
+  /// delegates to subclasses via Argsort()
+  Status Call(FunctionContext* ctx, const Datum& values, Datum* offsets) override = 0;
+
+  /// \brief output type of this kernel
+  std::shared_ptr<DataType> out_type() const override { return uint64(); }
+
+  /// \brief single-array implementation
+  virtual Status Argsort(FunctionContext* ctx, const std::shared_ptr<Array>& values,
+                         std::shared_ptr<Array>* offsets) = 0;
+
+  /// \brief factory for ArgsortKernel
+  ///
+  /// \param[in] value_type constructed ArgsortKernel will support sorting
+  ///            values of this type
+  /// \param[out] out created kernel
+  static Status Make(const std::shared_ptr<DataType>& value_type,
+                     std::unique_ptr<ArgsortKernel>* out);
+};
+
 template <typename ArrayType>
 bool CompareValues(const ArrayType& array, uint64_t lhs, uint64_t rhs) {
   return array.Value(lhs) < array.Value(rhs);
@@ -40,35 +67,39 @@ bool CompareViews(const ArrayType& array, uint64_t lhs, uint64_t rhs) {
   return array.GetView(lhs) < array.GetView(rhs);
 }
 
-template <typename ArrowType, typename Compararor>
+template <typename ArrowType, typename Comparator>
 class ArgsortKernelImpl : public ArgsortKernel {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
  private:
-  Compararor compare;
+  Comparator compare;
 
   Status ArgsortImpl(FunctionContext* ctx, const std::shared_ptr<ArrayType>& values,
                      std::shared_ptr<Array>* offsets) {
-    std::vector<uint64_t> ind(values->length());
-    std::iota(ind.begin(), ind.end(), 0);
-    auto nulls_begin = ind.end();
+    std::shared_ptr<Buffer> indices_buf;
+    int64_t buf_size = values->length() * sizeof(uint64_t);
+    RETURN_NOT_OK(AllocateBuffer(ctx->memory_pool(), buf_size, &indices_buf));
 
+    int64_t* indices_begin = reinterpret_cast<int64_t*>(indices_buf->mutable_data());
+    int64_t* indices_end = indices_begin + values->length();
+
+    std::iota(indices_begin, indices_end, 0);
+    auto nulls_begin = indices_end;
     if (values->null_count()) {
       nulls_begin =
-          std::stable_partition(ind.begin(), ind.end(),
+          std::stable_partition(indices_begin, indices_end,
                                 [&values](uint64_t ind) { return !values->IsNull(ind); });
     }
-    std::stable_sort(ind.begin(), nulls_begin,
+    std::stable_sort(indices_begin, nulls_begin,
                      [&values, this](uint64_t left, uint64_t right) {
                        return compare(*values, left, right);
                      });
-    UInt64Builder builder(ctx->memory_pool());
-    RETURN_NOT_OK(builder.AppendValues(ind.begin(), ind.end()));
-    return builder.Finish(offsets);
+    *offsets = std::make_shared<UInt64Array>(values->length(), indices_buf);
+    return Status::OK();
   }
 
  public:
-  explicit ArgsortKernelImpl(Compararor compare) : compare(compare) {}
+  explicit ArgsortKernelImpl(Comparator compare) : compare(compare) {}
 
   Status Argsort(FunctionContext* ctx, const std::shared_ptr<Array>& values,
                  std::shared_ptr<Array>* offsets) {
@@ -141,18 +172,18 @@ Status ArgsortKernel::Make(const std::shared_ptr<DataType>& value_type,
   return Status::OK();
 }
 
+Status Argsort(FunctionContext* ctx, const Datum& values, Datum* offsets) {
+  std::unique_ptr<ArgsortKernel> kernel;
+  RETURN_NOT_OK(ArgsortKernel::Make(values.type(), &kernel));
+  return kernel->Call(ctx, values, offsets);
+}
+
 Status Argsort(FunctionContext* ctx, const Array& values,
                std::shared_ptr<Array>* offsets) {
   Datum offsets_datum;
   RETURN_NOT_OK(Argsort(ctx, Datum(values.data()), &offsets_datum));
   *offsets = offsets_datum.make_array();
   return Status::OK();
-}
-
-Status Argsort(FunctionContext* ctx, const Datum& values, Datum* offsets) {
-  std::unique_ptr<ArgsortKernel> kernel;
-  RETURN_NOT_OK(ArgsortKernel::Make(values.type(), &kernel));
-  return kernel->Call(ctx, values, offsets);
 }
 
 }  // namespace compute

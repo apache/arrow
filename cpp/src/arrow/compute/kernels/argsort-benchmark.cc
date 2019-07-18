@@ -32,8 +32,8 @@ static void ArgsortBenchmark(benchmark::State& state,
                              const std::shared_ptr<Array>& values) {
   FunctionContext ctx;
   for (auto _ : state) {
-    Datum out;
-    ABORT_NOT_OK(Argsort(&ctx, Datum(values), &out));
+    std::shared_ptr<Array> out;
+    ABORT_NOT_OK(Argsort(&ctx, *values, &out));
     benchmark::DoNotOptimize(out);
   }
 }
