@@ -95,8 +95,28 @@ public class FlightStream implements AutoCloseable {
     return schema;
   }
 
+  /**
+   * Get the provider for dictionaries in this stream.
+   *
+   * <p>Does NOT retain a reference to the underlying dictionaries. Dictionaries may be updated as the stream is read.
+   *
+   * @see #retainDictionaries()
+   */
   public DictionaryProvider getDictionaryProvider() {
     return dictionaries;
+  }
+
+  /**
+   * Retain a reference to each of the dictionaries in the stream. Should be called after finishing reading the stream,
+   * but before closing.
+   *
+   * @return The current dictionaries in the stream.
+   */
+  public DictionaryProvider retainDictionaries() {
+    // Swap out the provider so it is not closed
+    final DictionaryProvider provider = dictionaries;
+    dictionaries = new DictionaryProvider.MapDictionaryProvider();
+    return provider;
   }
 
   public FlightDescriptor getDescriptor() {
@@ -117,8 +137,12 @@ public class FlightStream implements AutoCloseable {
         .map(t -> ((AutoCloseable) t))
         .collect(Collectors.toList());
 
+    final List<FieldVector> dictionaryVectors = dictionaries.getDictionaryIds().stream()
+        .map(id -> dictionaries.lookup(id).getVector()).collect(Collectors.toList());
+
     // Must check for null since ImmutableList doesn't accept nulls
     AutoCloseables.close(Iterables.concat(closeables,
+        dictionaryVectors,
         applicationMetadata != null ? ImmutableList.of(root.get(), applicationMetadata)
             : ImmutableList.of(root.get())));
   }

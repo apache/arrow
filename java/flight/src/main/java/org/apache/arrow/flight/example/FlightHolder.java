@@ -18,7 +18,9 @@
 package org.apache.arrow.flight.example;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
@@ -31,6 +33,7 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.DictionaryUtility;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -106,6 +109,13 @@ public class FlightHolder implements AutoCloseable {
 
   @Override
   public void close() throws Exception {
-    AutoCloseables.close(Iterables.concat(streams, ImmutableList.of(allocator)));
+    // Close dictionaries
+    final Set<Long> dictionaryIds = new HashSet<>();
+    schema.getFields().forEach(field -> DictionaryUtility.toMessageFormat(field, dictionaryProvider, dictionaryIds));
+
+    final Iterable<AutoCloseable> dictionaries = dictionaryIds.stream()
+        .map(id -> (AutoCloseable) dictionaryProvider.lookup(id).getVector())::iterator;
+
+    AutoCloseables.close(Iterables.concat(streams, ImmutableList.of(allocator), dictionaries));
   }
 }
