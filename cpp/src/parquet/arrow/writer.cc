@@ -49,8 +49,7 @@ using arrow::ChunkedArray;
 using arrow::Decimal128Array;
 using arrow::Field;
 using arrow::FixedSizeBinaryArray;
-using arrow::Int16Array;
-using arrow::Int16Builder;
+using Int16BufferBuilder = arrow::TypedBufferBuilder<int16_t>;
 using arrow::ListArray;
 using arrow::MemoryPool;
 using arrow::NumericArray;
@@ -81,8 +80,7 @@ namespace {
 
 class LevelBuilder {
  public:
-  explicit LevelBuilder(MemoryPool* pool)
-      : def_levels_(::arrow::int16(), pool), rep_levels_(::arrow::int16(), pool) {}
+  explicit LevelBuilder(MemoryPool* pool) : def_levels_(pool), rep_levels_(pool) {}
 
   Status VisitInline(const Array& array);
 
@@ -102,6 +100,7 @@ class LevelBuilder {
     null_counts_.push_back(array.null_count());
     offsets_.push_back(array.raw_value_offsets());
 
+    // Min offset isn't always zero in the case of sliced Arrays.
     min_offset_idx_ = array.value_offset(min_offset_idx_);
     max_offset_idx_ = array.value_offset(max_offset_idx_);
 
@@ -176,18 +175,17 @@ class LevelBuilder {
       }
       *num_levels = array.length();
     } else {
+      // Note it is hard to estimate memory consumption due to zero length
+      // arrays otherwise we would preallocate.  An upper boun on memory
+      // is the sum of the length of each list array  + number of elements
+      // but this might be too loose of an upper bound so we choose to use
+      // safe methods.
       RETURN_NOT_OK(rep_levels_.Append(0));
       RETURN_NOT_OK(HandleListEntries(0, 0, 0, array.length()));
 
-      std::shared_ptr<Array> def_levels_array;
-      std::shared_ptr<Array> rep_levels_array;
-
-      RETURN_NOT_OK(def_levels_.Finish(&def_levels_array));
-      RETURN_NOT_OK(rep_levels_.Finish(&rep_levels_array));
-
-      *def_levels_out = static_cast<PrimitiveArray*>(def_levels_array.get())->values();
-      *rep_levels_out = static_cast<PrimitiveArray*>(rep_levels_array.get())->values();
-      *num_levels = rep_levels_array->length();
+      RETURN_NOT_OK(def_levels_.Finish(def_levels_out));
+      RETURN_NOT_OK(rep_levels_.Finish(rep_levels_out));
+      *num_levels = (*rep_levels_out)->size() / sizeof(int16_t);
     }
 
     return Status::OK();
@@ -217,36 +215,37 @@ class LevelBuilder {
       return HandleListEntries(static_cast<int16_t>(def_level + 1),
                                static_cast<int16_t>(rep_level + 1), inner_offset,
                                inner_length);
-    } else {
-      // We have reached the leaf: primitive list, handle remaining nullables
-      const bool nullable_level = nullable_[recursion_level];
-      const int64_t level_null_count = null_counts_[recursion_level];
-      const uint8_t* level_valid_bitmap = valid_bitmaps_[recursion_level];
-
-      for (int64_t i = 0; i < inner_length; i++) {
-        if (i > 0) {
-          RETURN_NOT_OK(rep_levels_.Append(static_cast<int16_t>(rep_level + 1)));
-        }
-        if (level_null_count && level_valid_bitmap == nullptr) {
-          // Special case: this is a null array (all elements are null)
-          RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 1)));
-        } else if (nullable_level &&
-                   ((level_null_count == 0) ||
-                    BitUtil::GetBit(
-                        level_valid_bitmap,
-                        inner_offset + i + array_offsets_[recursion_level]))) {
-          // Non-null element in a null level
-          RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 2)));
-        } else {
-          // This can be produced in two case:
-          //  * elements are nullable and this one is null (i.e. max_def_level = def_level
-          //  + 2)
-          //  * elements are non-nullable (i.e. max_def_level = def_level + 1)
-          RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 1)));
-        }
-      }
-      return Status::OK();
     }
+    // We have reached the leaf: primitive list, handle remaining nullables
+    const bool nullable_level = nullable_[recursion_level];
+    const int64_t level_null_count = null_counts_[recursion_level];
+    const uint8_t* level_valid_bitmap = valid_bitmaps_[recursion_level];
+
+    if (inner_length >= 1) {
+      RETURN_NOT_OK(
+          rep_levels_.Append(inner_length - 1, static_cast<int16_t>(rep_level + 1)));
+    }
+
+    // Special case: this is a null array (all elements are null)
+    if (level_null_count && level_valid_bitmap == nullptr) {
+      return def_levels_.Append(inner_length, static_cast<int16_t>(def_level + 1));
+    }
+    for (int64_t i = 0; i < inner_length; i++) {
+      if (nullable_level &&
+          ((level_null_count == 0) ||
+           BitUtil::GetBit(level_valid_bitmap,
+                           inner_offset + i + array_offsets_[recursion_level]))) {
+        // Non-null element in a null level
+        RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 2)));
+      } else {
+        // This can be produced in two cases:
+        //  * elements are nullable and this one is null
+        //   (i.e. max_def_level = def_level + 2)
+        //  * elements are non-nullable (i.e. max_def_level = def_level + 1)
+        RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 1)));
+      }
+    }
+    return Status::OK();
   }
 
   Status HandleListEntries(int16_t def_level, int16_t rep_level, int64_t offset,
@@ -261,8 +260,8 @@ class LevelBuilder {
   }
 
  private:
-  Int16Builder def_levels_;
-  Int16Builder rep_levels_;
+  Int16BufferBuilder def_levels_;
+  Int16BufferBuilder rep_levels_;
 
   std::vector<int64_t> null_counts_;
   std::vector<const uint8_t*> valid_bitmaps_;
@@ -307,7 +306,7 @@ struct ColumnWriterContext {
 Status GetLeafType(const ::arrow::DataType& type, ::arrow::Type::type* leaf_type) {
   if (type.id() == ::arrow::Type::LIST || type.id() == ::arrow::Type::STRUCT) {
     if (type.num_children() != 1) {
-      return Status::Invalid("Nested column branch had multiple children");
+      return Status::Invalid("Nested column branch had multiple children: ", type);
     }
     return GetLeafType(*type.child(0)->type(), leaf_type);
   } else {
