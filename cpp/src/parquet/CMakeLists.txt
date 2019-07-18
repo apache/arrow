@@ -329,8 +329,10 @@ add_parquet_test(arrow-test
 if(ARROW_USE_OPENSSL)
   add_parquet_test(encryption-test
                    SOURCES
-                   encryption-configurations-test.cc
+                   encryption-write-configurations-test.cc
+                   encryption-read-configurations-test.cc
                    encryption-properties-test.cc
+                   test-encryption-util.cc
                    test-util.cc)
 endif()
 
