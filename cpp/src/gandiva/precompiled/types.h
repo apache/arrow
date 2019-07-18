@@ -125,6 +125,10 @@ float64 mod_float64_float64(int64 context, float64 left, float64 right);
 
 int64 divide_int64_int64(int64 context, int64 in1, int64 in2);
 
+int64 div_int64_int64(int64 context, int64 in1, int64 in2);
+float32 div_float32_float32(int64 context, float32 in1, float32 in2);
+float64 div_float64_float64(int64 context, float64 in1, float64 in2);
+
 float64 cbrt_int32(int32);
 float64 cbrt_int64(int64);
 float64 cbrt_float32(float32);
