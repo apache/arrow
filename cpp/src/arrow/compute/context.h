@@ -36,7 +36,7 @@ class CpuInfo;
 
 namespace compute {
 
-#define RETURN_IF_ERROR(ctx)                  \
+#define ARROW_RETURN_IF_ERROR(ctx)            \
   if (ARROW_PREDICT_FALSE(ctx->HasError())) { \
     Status s = ctx->status();                 \
     ctx->ResetStatus();                       \
