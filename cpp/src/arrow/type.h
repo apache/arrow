@@ -215,6 +215,7 @@ class ARROW_EXPORT DataType {
   ARROW_DISALLOW_COPY_AND_ASSIGN(DataType);
 };
 
+ARROW_EXPORT
 std::ostream& operator<<(std::ostream& os, const DataType& type);
 
 /// \brief Base class for all fixed-width data types
@@ -762,6 +763,7 @@ struct TimeUnit {
   enum type { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
 };
 
+ARROW_EXPORT
 std::ostream& operator<<(std::ostream& os, TimeUnit::type unit);
 
 /// Base type class for time data
