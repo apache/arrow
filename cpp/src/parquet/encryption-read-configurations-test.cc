@@ -18,8 +18,9 @@
 #include <gtest/gtest.h>
 
 #include <stdio.h>
+#include <fstream>
 
-#include <arrow/io/file.h>
+#include "arrow/io/file.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
@@ -404,6 +405,12 @@ class TestDecryptionConfiguration
     }
     EXPECT_NO_THROW(DecryptFile(file_name, decryption_config_num - 1));
   }
+
+  // Returns true if file exists. Otherwise returns false.
+  bool fexists(const std::string& filename) {
+    std::ifstream ifile(filename.c_str());
+    return ifile.good();
+  }
 };
 
 // Read encrypted parquet file.
@@ -419,6 +426,11 @@ TEST_P(TestDecryptionConfiguration, TestDecryption) {
   // test.
   std::string tmp_file_name = "tmp_" + std::string(param_file_name);
   std::string file_name = data_file(tmp_file_name.c_str());
+  if (!fexists(file_name)) {
+    std::stringstream ss;
+    ss << "File " << file_name << " is missing from parquet-testing repo.";
+    throw ParquetTestException(ss.str());
+  }
 
   // Iterate over the decryption configurations and use each one to read the encrypted
   // parqeut file.
@@ -426,11 +438,18 @@ TEST_P(TestDecryptionConfiguration, TestDecryption) {
     unsigned decryption_config_num = index + 1;
     CheckResults(file_name, decryption_config_num, encryption_config_num);
   }
-  // delete temporary test file.
+  // Delete temporary test file.
   ASSERT_EQ(std::remove(file_name.c_str()), 0);
 
   // Decrypt parquet file that resides in parquet-testing/data directory.
   file_name = data_file(param_file_name);
+
+  if (!fexists(file_name)) {
+    std::stringstream ss;
+    ss << "File " << file_name << " is missing from parquet-testing repo.";
+    throw ParquetTestException(ss.str());
+  }
+
   // Iterate over the decryption configurations and use each one to read the encrypted
   // parqeut file.
   for (unsigned index = 0; index < vector_of_decryption_configurations_.size(); ++index) {
