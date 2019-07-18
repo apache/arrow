@@ -117,8 +117,12 @@ public class FlightStream implements AutoCloseable {
         .map(t -> ((AutoCloseable) t))
         .collect(Collectors.toList());
 
+    final List<FieldVector> dictionaryVectors = dictionaries.getDictionaryIds().stream()
+        .map(id -> dictionaries.lookup(id).getVector()).collect(Collectors.toList());
+
     // Must check for null since ImmutableList doesn't accept nulls
     AutoCloseables.close(Iterables.concat(closeables,
+        dictionaryVectors,
         applicationMetadata != null ? ImmutableList.of(root.get(), applicationMetadata)
             : ImmutableList.of(root.get())));
   }
