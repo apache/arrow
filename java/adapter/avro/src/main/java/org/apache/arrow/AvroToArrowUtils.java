@@ -53,8 +53,6 @@ import org.apache.avro.Schema;
 import org.apache.avro.Schema.Type;
 import org.apache.avro.io.Decoder;
 
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
-
 /**
  * Class that does most of the work to convert Avro data into Arrow columnar format Vector objects.
  */
@@ -115,17 +113,17 @@ public class AvroToArrowUtils {
     schema.getObjectProps().forEach((k,v) -> metadata.put(k, v.toString()));
 
     if (type == Type.RECORD) {
-      throw new NotImplementedException();
+      throw new UnsupportedOperationException();
     } else if (type == Type.MAP) {
-      throw new NotImplementedException();
+      throw new UnsupportedOperationException();
     } else if (type == Type.UNION) {
-      throw new NotImplementedException();
+      throw new UnsupportedOperationException();
     } else if (type == Type.ARRAY) {
-      throw new NotImplementedException();
+      throw new UnsupportedOperationException();
     } else if (type == Type.ENUM) {
-      throw new NotImplementedException();
+      throw new UnsupportedOperationException();
     } else if (type == Type.NULL) {
-      throw new NotImplementedException();
+      throw new UnsupportedOperationException();
     } else {
       final FieldType fieldType = new FieldType(true, getArrowType(type), null, null);
       arrowFields.add(new Field("", fieldType, null));
