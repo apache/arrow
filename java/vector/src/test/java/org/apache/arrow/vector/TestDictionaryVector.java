@@ -545,7 +545,7 @@ public class TestDictionaryVector {
   @Test
   public void testUnionEquals() {
     try (final UnionVector vector1 = new UnionVector("v1", allocator, null);
-        final UnionVector vector2 = new UnionVector("v1", allocator, null);) {
+        final UnionVector vector2 = new UnionVector("v2", allocator, null);) {
 
       final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
       uInt4Holder.value = 10;
