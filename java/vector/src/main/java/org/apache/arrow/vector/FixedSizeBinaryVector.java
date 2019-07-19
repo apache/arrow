@@ -22,7 +22,6 @@ import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.FixedSizeBinaryReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.dictionary.ByteArrayWrapper;
 import org.apache.arrow.vector.holders.FixedSizeBinaryHolder;
 import org.apache.arrow.vector.holders.NullableFixedSizeBinaryHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -38,7 +37,7 @@ import io.netty.buffer.ArrowBuf;
  * binary values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class FixedSizeBinaryVector extends BaseFixedWidthVector implements BaseBinaryVector {
+public class FixedSizeBinaryVector extends BaseFixedWidthVector {
   private final int byteWidth;
   private final FieldReader reader;
 
@@ -362,15 +361,6 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector implements BaseB
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
     return new TransferImpl((FixedSizeBinaryVector) to);
-  }
-
-  @Override
-  public ByteArrayWrapper getByteArrayWrapper(int index) {
-    if (isNull(index)) {
-      return null;
-    } else {
-      return new ByteArrayWrapper(getObject(index));
-    }
   }
 
   private class TransferImpl implements TransferPair {
