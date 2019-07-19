@@ -178,6 +178,16 @@ std::shared_ptr<arrow::Array> RandomArrayGenerator::String(int64_t size,
   return result;
 }
 
+std::shared_ptr<arrow::Array> RandomArrayGenerator::BinaryWithRepeats(
+    int64_t size, int64_t unique, int32_t min_length, int32_t max_length,
+    double null_probability) {
+  auto strings =
+      StringWithRepeats(size, unique, min_length, max_length, null_probability);
+  auto data = strings->data()->Copy();
+  data->type = binary();
+  return MakeArray(data);
+}
+
 std::shared_ptr<arrow::Array> RandomArrayGenerator::StringWithRepeats(
     int64_t size, int64_t unique, int32_t min_length, int32_t max_length,
     double null_probability) {

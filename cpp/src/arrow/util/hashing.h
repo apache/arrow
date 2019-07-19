@@ -833,7 +833,9 @@ static inline Status ComputeNullBitmap(MemoryPool* pool, const MemoTableType& me
 }
 
 template <typename T, typename Enable = void>
-struct DictionaryTraits {};
+struct DictionaryTraits {
+  using MemoTableType = void;
+};
 
 template <>
 struct DictionaryTraits<BooleanType> {
