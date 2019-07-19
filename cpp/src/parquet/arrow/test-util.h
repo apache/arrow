@@ -30,7 +30,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 
-#include "parquet/arrow/record_reader.h"
+#include "parquet/column_reader.h"
 
 namespace parquet {
 
