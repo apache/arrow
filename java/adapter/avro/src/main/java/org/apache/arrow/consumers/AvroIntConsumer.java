@@ -15,13 +15,30 @@
  * limitations under the License.
  */
 
-{
- "namespace": "org.apache.arrow.avro",
- "type": "record",
- "name": "User",
- "fields": [
-     {"name": "name", "type": "string"},
-     {"name": "favorite_number",  "type": ["int", "null"]},
-     {"name": "favorite_color", "type": ["string", "null"]}
- ]
+package org.apache.arrow.consumers;
+
+import java.io.IOException;
+
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.complex.impl.IntWriterImpl;
+import org.apache.arrow.vector.complex.writer.IntWriter;
+import org.apache.avro.io.Decoder;
+
+/**
+ * Consumer which consume int type values from avro decoder.
+ * Write the data to {@link IntVector}.
+ */
+public class AvroIntConsumer implements Consumer {
+
+  private final IntWriter writer;
+
+  public AvroIntConsumer(IntVector vector) {
+    this.writer = new IntWriterImpl(vector);
+  }
+
+  @Override
+  public void consume(Decoder decoder) throws IOException {
+    writer.writeInt(decoder.readInt());
+    writer.setPosition(writer.getPosition() + 1);
+  }
 }

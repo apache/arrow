@@ -15,13 +15,30 @@
  * limitations under the License.
  */
 
-{
- "namespace": "org.apache.arrow.avro",
- "type": "record",
- "name": "User",
- "fields": [
-     {"name": "name", "type": "string"},
-     {"name": "favorite_number",  "type": ["int", "null"]},
-     {"name": "favorite_color", "type": ["string", "null"]}
- ]
+package org.apache.arrow.consumers;
+
+import java.io.IOException;
+
+import org.apache.arrow.vector.Float8Vector;
+import org.apache.arrow.vector.complex.impl.Float8WriterImpl;
+import org.apache.arrow.vector.complex.writer.Float8Writer;
+import org.apache.avro.io.Decoder;
+
+/**
+ * Consumer which consume double type values from avro decoder.
+ * Write the data to {@link Float8Vector}.
+ */
+public class AvroDoubleConsumer implements Consumer {
+
+  private final Float8Writer writer;
+
+  public AvroDoubleConsumer(Float8Vector vector) {
+    this.writer = new Float8WriterImpl(vector);
+  }
+
+  @Override
+  public void consume(Decoder decoder) throws IOException {
+    writer.writeFloat8(decoder.readDouble());
+    writer.setPosition(writer.getPosition() + 1);
+  }
 }

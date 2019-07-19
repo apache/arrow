@@ -15,13 +15,30 @@
  * limitations under the License.
  */
 
-{
- "namespace": "org.apache.arrow.avro",
- "type": "record",
- "name": "User",
- "fields": [
-     {"name": "name", "type": "string"},
-     {"name": "favorite_number",  "type": ["int", "null"]},
-     {"name": "favorite_color", "type": ["string", "null"]}
- ]
+package org.apache.arrow.consumers;
+
+import java.io.IOException;
+
+import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
+import org.apache.arrow.vector.complex.writer.BigIntWriter;
+import org.apache.avro.io.Decoder;
+
+/**
+ * Consumer which consume long type values from avro decoder.
+ * Write the data to {@link BigIntVector}.
+ */
+public class AvroLongConsumer implements Consumer {
+
+  private final BigIntWriter writer;
+
+  public AvroLongConsumer(BigIntVector vector) {
+    this.writer = new BigIntWriterImpl(vector);
+  }
+
+  @Override
+  public void consume(Decoder decoder) throws IOException {
+    writer.writeBigInt(decoder.readLong());
+    writer.setPosition(writer.getPosition() + 1);
+  }
 }
