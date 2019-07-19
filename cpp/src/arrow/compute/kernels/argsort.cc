@@ -116,7 +116,6 @@ class ArgsortKernelImpl : public ArgsortKernel {
     *offsets = offsets_array;
     return Status::OK();
   }
-
   std::shared_ptr<DataType> out_type() const { return type_; }
 };
 
