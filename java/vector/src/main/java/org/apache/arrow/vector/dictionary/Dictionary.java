@@ -64,7 +64,7 @@ public class Dictionary {
       return false;
     }
     Dictionary that = (Dictionary) o;
-    return Objects.equals(encoding, that.encoding) && equals(dictionary, that.dictionary);
+    return encoding.equals(that.encoding) && compareFieldVector(dictionary, that.dictionary);
   }
 
   @Override
@@ -72,7 +72,7 @@ public class Dictionary {
     return Objects.hash(encoding, dictionary);
   }
 
-  private boolean equals(FieldVector vector1, FieldVector vector2) {
+  private boolean compareFieldVector(FieldVector vector1, FieldVector vector2) {
     try {
       Validator.compareFieldVectors(vector1, vector2);
     } catch (IllegalArgumentException e) {
