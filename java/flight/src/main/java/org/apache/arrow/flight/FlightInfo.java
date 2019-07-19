@@ -24,6 +24,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flight.impl.Flight;
@@ -59,6 +60,9 @@ public class FlightInfo {
   public FlightInfo(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints, long bytes,
       long records) {
     super();
+    Objects.requireNonNull(schema);
+    Objects.requireNonNull(descriptor);
+    Objects.requireNonNull(endpoints);
     this.schema = schema;
     this.descriptor = descriptor;
     this.endpoints = endpoints;
@@ -126,6 +130,60 @@ public class FlightInfo {
         .setTotalBytes(FlightInfo.this.bytes)
         .setTotalRecords(records)
         .build();
+  }
 
+  /**
+   * Get the serialized form of this protocol message.
+   *
+   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight types.
+   */
+  public ByteBuffer serialize() {
+    return ByteBuffer.wrap(toProtocol().toByteArray());
+  }
+
+  /**
+   * Parse the serialized form of this protocol message.
+   *
+   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from non-Flight services.
+   *
+   * @param serialized The serialized form of the FlightInfo, as returned by {@link #serialize()}.
+   * @return The deserialized FlightInfo.
+   * @throws IOException if the serialized form is invalid.
+   * @throws URISyntaxException if the serialized form contains an unsupported URI format.
+   */
+  public static FlightInfo deserialize(ByteBuffer serialized) throws IOException, URISyntaxException {
+    return new FlightInfo(Flight.FlightInfo.parseFrom(serialized));
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    FlightInfo that = (FlightInfo) o;
+    return bytes == that.bytes &&
+        records == that.records &&
+        schema.equals(that.schema) &&
+        descriptor.equals(that.descriptor) &&
+        endpoints.equals(that.endpoints);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(schema, descriptor, endpoints, bytes, records);
+  }
+
+  @Override
+  public String toString() {
+    return "FlightInfo{" +
+        "schema=" + schema +
+        ", descriptor=" + descriptor +
+        ", endpoints=" + endpoints +
+        ", bytes=" + bytes +
+        ", records=" + records +
+        '}';
   }
 }

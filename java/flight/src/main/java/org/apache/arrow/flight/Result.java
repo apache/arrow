@@ -34,7 +34,7 @@ public class Result {
     this.body = body;
   }
 
-  public Result(Flight.Result result) {
+  Result(Flight.Result result) {
     this.body = result.getBody().toByteArray();
   }
 

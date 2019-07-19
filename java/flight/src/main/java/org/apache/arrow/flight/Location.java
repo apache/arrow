@@ -22,6 +22,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Objects;
 
 import org.apache.arrow.flight.impl.Flight;
 
@@ -46,6 +47,7 @@ public class Location {
    */
   public Location(URI uri) {
     super();
+    Objects.requireNonNull(uri);
     this.uri = uri;
   }
 
@@ -87,7 +89,7 @@ public class Location {
   /**
    * Convert this Location into its protocol-level representation.
    */
-  public Flight.Location toProtocol() {
+  Flight.Location toProtocol() {
     return Flight.Location.newBuilder().setUri(uri.toString()).build();
   }
 
@@ -128,5 +130,29 @@ public class Location {
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException(e);
     }
+  }
+
+  @Override
+  public String toString() {
+    return "Location{" +
+        "uri=" + uri +
+        '}';
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    Location location = (Location) o;
+    return uri.equals(location.uri);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(uri);
   }
 }

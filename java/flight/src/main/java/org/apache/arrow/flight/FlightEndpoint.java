@@ -20,6 +20,7 @@ package org.apache.arrow.flight;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.arrow.flight.impl.Flight;
 
@@ -40,6 +41,7 @@ public class FlightEndpoint {
    */
   public FlightEndpoint(Ticket ticket, Location... locations) {
     super();
+    Objects.requireNonNull(ticket);
     this.locations = ImmutableList.copyOf(locations);
     this.ticket = ticket;
   }
@@ -47,7 +49,7 @@ public class FlightEndpoint {
   /**
    * Constructs from the protocol buffer representation.
    */
-  public FlightEndpoint(Flight.FlightEndpoint flt) throws URISyntaxException {
+  FlightEndpoint(Flight.FlightEndpoint flt) throws URISyntaxException {
     locations = new ArrayList<>();
     for (final Flight.Location location : flt.getLocationList()) {
       locations.add(new Location(location.getUri()));
@@ -74,5 +76,31 @@ public class FlightEndpoint {
       b.addLocation(l.toProtocol());
     }
     return b.build();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    FlightEndpoint that = (FlightEndpoint) o;
+    return locations.equals(that.locations) &&
+        ticket.equals(that.ticket);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(locations, ticket);
+  }
+
+  @Override
+  public String toString() {
+    return "FlightEndpoint{" +
+        "locations=" + locations +
+        ", ticket=" + ticket +
+        '}';
   }
 }
