@@ -17,14 +17,13 @@
 
 package org.apache.arrow.vector.util;
 
-import org.apache.arrow.memory.BoundsChecking;
-
 import io.netty.buffer.ArrowBuf;
-import io.netty.util.internal.PlatformDependent;
 
 /**
  * Utility methods for memory comparison at a byte level.
+ * This class will be removed. Please use org.apache.arrow.memory.util.ByteFunctionHelpers instead.
  */
+@Deprecated
 public class ByteFunctionHelpers {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ByteFunctionHelpers.class);
 
@@ -41,57 +40,9 @@ public class ByteFunctionHelpers {
    * @param rEnd   end offset in the buffer
    * @return 1 if equals, 0 otherwise
    */
+  @Deprecated
   public static final int equal(final ArrowBuf left, int lStart, int lEnd, final ArrowBuf right, int rStart, int rEnd) {
-    if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
-      left.checkBytes(lStart, lEnd);
-      right.checkBytes(rStart, rEnd);
-    }
-    return memEqual(left.memoryAddress(), lStart, lEnd, right.memoryAddress(), rStart, rEnd);
-  }
-
-  private static int memEqual(final long laddr, int lStart, int lEnd, final long raddr, int rStart,
-                                    final int rEnd) {
-
-    int n = lEnd - lStart;
-    if (n == rEnd - rStart) {
-      long lPos = laddr + lStart;
-      long rPos = raddr + rStart;
-
-      while (n > 7) {
-        long leftLong = PlatformDependent.getLong(lPos);
-        long rightLong = PlatformDependent.getLong(rPos);
-        if (leftLong != rightLong) {
-          return 0;
-        }
-        lPos += 8;
-        rPos += 8;
-        n -= 8;
-      }
-
-      while (n > 3) {
-        int leftInt = PlatformDependent.getInt(lPos);
-        int rightInt = PlatformDependent.getInt(rPos);
-        if (leftInt != rightInt) {
-          return 0;
-        }
-        lPos += 4;
-        rPos += 4;
-        n -= 4;
-      }
-
-      while (n-- != 0) {
-        byte leftByte = PlatformDependent.getByte(lPos);
-        byte rightByte = PlatformDependent.getByte(rPos);
-        if (leftByte != rightByte) {
-          return 0;
-        }
-        lPos++;
-        rPos++;
-      }
-      return 1;
-    } else {
-      return 0;
-    }
+    return org.apache.arrow.memory.util.ByteFunctionHelpers.equal(left, lStart, lEnd, right, rStart, rEnd);
   }
 
   /**
@@ -107,6 +58,7 @@ public class ByteFunctionHelpers {
    * @param rEnd   end offset in the buffer
    * @return 1 if left input is greater, -1 if left input is smaller, 0 otherwise
    */
+  @Deprecated
   public static final int compare(
       final ArrowBuf left,
       int lStart,
@@ -114,64 +66,7 @@ public class ByteFunctionHelpers {
       final ArrowBuf right,
       int rStart,
       int rEnd) {
-    if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
-      left.checkBytes(lStart, lEnd);
-      right.checkBytes(rStart, rEnd);
-    }
-    return memcmp(left.memoryAddress(), lStart, lEnd, right.memoryAddress(), rStart, rEnd);
-  }
-
-  private static int memcmp(
-      final long laddr,
-      int lStart,
-      int lEnd,
-      final long raddr,
-      int rStart,
-      final int rEnd) {
-    int lLen = lEnd - lStart;
-    int rLen = rEnd - rStart;
-    int n = Math.min(rLen, lLen);
-    long lPos = laddr + lStart;
-    long rPos = raddr + rStart;
-
-    while (n > 7) {
-      long leftLong = PlatformDependent.getLong(lPos);
-      long rightLong = PlatformDependent.getLong(rPos);
-      if (leftLong != rightLong) {
-        return unsignedLongCompare(leftLong, rightLong);
-      }
-      lPos += 8;
-      rPos += 8;
-      n -= 8;
-    }
-
-    while (n > 3) {
-      int leftInt = PlatformDependent.getInt(lPos);
-      int rightInt = PlatformDependent.getInt(rPos);
-      if (leftInt != rightInt) {
-        return unsignedIntCompare(leftInt, rightInt);
-      }
-      lPos += 4;
-      rPos += 4;
-      n -= 4;
-    }
-
-    while (n-- != 0) {
-      byte leftByte = PlatformDependent.getByte(lPos);
-      byte rightByte = PlatformDependent.getByte(rPos);
-      if (leftByte != rightByte) {
-        return ((leftByte & 0xFF) - (rightByte & 0xFF)) > 0 ? 1 : -1;
-      }
-      lPos++;
-      rPos++;
-    }
-
-    if (lLen == rLen) {
-      return 0;
-    }
-
-    return lLen > rLen ? 1 : -1;
-
+    return org.apache.arrow.memory.util.ByteFunctionHelpers.compare(left, lStart, lEnd, right, rStart, rEnd);
   }
 
   /**
@@ -185,6 +80,7 @@ public class ByteFunctionHelpers {
    * @param rEnd   end offset in the byte array
    * @return 1 if left input is greater, -1 if left input is smaller, 0 otherwise
    */
+  @Deprecated
   public static final int compare(
       final ArrowBuf left,
       int lStart,
@@ -192,12 +88,8 @@ public class ByteFunctionHelpers {
       final byte[] right,
       int rStart,
       final int rEnd) {
-    if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
-      left.checkBytes(lStart, lEnd);
-    }
-    return memcmp(left.memoryAddress(), lStart, lEnd, right, rStart, rEnd);
+    return org.apache.arrow.memory.util.ByteFunctionHelpers.compare(left, lStart, lEnd, right, rStart, rEnd);
   }
-
 
   /**
    * Compares the two specified {@code long} values, treating them as unsigned values between
@@ -208,42 +100,13 @@ public class ByteFunctionHelpers {
    * @return a negative value if {@code a} is less than {@code b}; a positive value if {@code a} is
    *     greater than {@code b}; or zero if they are equal
    */
+  @Deprecated
   public static int unsignedLongCompare(long a, long b) {
-    return Long.compare(a ^ Long.MIN_VALUE, b ^ Long.MIN_VALUE);
+    return org.apache.arrow.memory.util.ByteFunctionHelpers.unsignedLongCompare(a, b);
   }
 
+  @Deprecated
   public static int unsignedIntCompare(int a, int b) {
-    return Integer.compare(a ^ Integer.MIN_VALUE, b ^ Integer.MIN_VALUE);
+    return org.apache.arrow.memory.util.ByteFunctionHelpers.unsignedIntCompare(a, b);
   }
-
-  private static int memcmp(
-      final long laddr,
-      int lStart,
-      int lEnd,
-      final byte[] right,
-      int rStart,
-      final int rEnd) {
-    int lLen = lEnd - lStart;
-    int rLen = rEnd - rStart;
-    int n = Math.min(rLen, lLen);
-    long lPos = laddr + lStart;
-    int rPos = rStart;
-
-    while (n-- != 0) {
-      byte leftByte = PlatformDependent.getByte(lPos);
-      byte rightByte = right[rPos];
-      if (leftByte != rightByte) {
-        return ((leftByte & 0xFF) - (rightByte & 0xFF)) > 0 ? 1 : -1;
-      }
-      lPos++;
-      rPos++;
-    }
-
-    if (lLen == rLen) {
-      return 0;
-    }
-
-    return lLen > rLen ? 1 : -1;
-  }
-
 }

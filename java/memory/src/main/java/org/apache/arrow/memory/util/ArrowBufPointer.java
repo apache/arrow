@@ -94,38 +94,8 @@ public final class ArrowBufPointer {
       }
     }
 
-    if (length != other.length) {
-      return false;
-    }
-
-    int index = 0;
-    while (index + 8 <= length) {
-      long longVal1 = buf.getLong(offset + index);
-      long longVal2 = other.buf.getLong(other.offset + index);
-      if (longVal1 != longVal2) {
-        return false;
-      }
-      index += 8;
-    }
-
-    while (index + 4 <= length) {
-      int intVal1 = buf.getInt(offset + index);
-      int intVal2 = other.buf.getInt(other.offset + index);
-      if (intVal1 != intVal2) {
-        return false;
-      }
-      index += 4;
-    }
-
-    while (index < length) {
-      byte byteVal1 = buf.getByte(offset + index);
-      byte byteVal2 = buf.getByte(other.offset + index);
-      if (byteVal1 != byteVal2) {
-        return false;
-      }
-      index += 1;
-    }
-    return true;
+    return ByteFunctionHelpers.equal(buf, offset, offset + length,
+            other.buf, other.offset, other.offset + other.length) != 0;
   }
 
   @Override
