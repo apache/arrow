@@ -270,7 +270,6 @@ public class VarCharVector extends BaseVariableWidthVector {
     setSafe(index, text.getBytes(), 0, text.getLength());
   }
 
-
   /*----------------------------------------------------------------*
    |                                                                |
    |                      vector transfer                           |

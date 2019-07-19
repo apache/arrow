@@ -480,6 +480,15 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   }
 
   @Override
+  public int hashCode(int index) {
+    if (isSet(index) == 0) {
+      return 0;
+    } else {
+      return super.hashCode(index);
+    }
+  }
+
+  @Override
   public void get(int index, ComplexHolder holder) {
     holder.isSet = isSet(index);
     if (holder.isSet == 0) {
@@ -546,4 +555,5 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     super.setValueCount(valueCount);
     this.valueCount = valueCount;
   }
+
 }

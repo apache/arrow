@@ -237,4 +237,18 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    * @return true if element is null
    */
   boolean isNull(int index);
+
+  /**
+   * Returns hashCode of element in index.
+   */
+  int hashCode(int index);
+
+  /**
+   * Check whether the element in index equals to the element in targetIndex from the target vector.
+   * @param index index to compare in this vector
+   * @param target target vector
+   * @param targetIndex index to compare in target vector
+   * @return true if equals, otherwise false.
+   */
+  boolean equals(int index, ValueVector target, int targetIndex);
 }
