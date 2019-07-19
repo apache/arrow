@@ -15,13 +15,16 @@
  * limitations under the License.
  */
 
-{
- "namespace": "org.apache.arrow.avro",
- "type": "record",
- "name": "User",
- "fields": [
-     {"name": "name", "type": "string"},
-     {"name": "favorite_number",  "type": ["int", "null"]},
-     {"name": "favorite_color", "type": ["string", "null"]}
- ]
+package org.apache.arrow.consumers;
+
+import java.io.IOException;
+
+import org.apache.avro.io.Decoder;
+
+/**
+ * An abstraction that is used to consume values from avro decoder.
+ */
+public interface Consumer {
+
+  void consume(Decoder decoder) throws IOException;
 }
