@@ -17,7 +17,7 @@
 
 import { Data } from '../data';
 import { Visitor } from '../visitor';
-import { Vector } from '../interfaces';
+import { VectorType } from '../interfaces';
 import { Schema, Field } from '../schema';
 import {
     DataType, Dictionary,
@@ -31,10 +31,11 @@ import {
     Union, DenseUnion, SparseUnion,
 } from '../type';
 
+/** @ignore */
 export interface TypeComparator extends Visitor {
     visit<T extends DataType>(type: T, other?: DataType | null): other is T;
     visitMany<T extends DataType>(nodes: T[], others?: DataType[] | null): boolean[];
-    getVisitFn<T extends DataType>(node: Vector<T> |  Data<T> | T): (other?: DataType | null) => other is T;
+    getVisitFn<T extends DataType>(node: VectorType<T> |  Data<T> | T): (other?: DataType | null) => other is T;
     visitNull                 <T extends Null>                 (type: T, other?: DataType | null): other is T;
     visitBool                 <T extends Bool>                 (type: T, other?: DataType | null): other is T;
     visitInt                  <T extends Int>                  (type: T, other?: DataType | null): other is T;
@@ -80,6 +81,7 @@ export interface TypeComparator extends Visitor {
     visitMap                  <T extends Map_>                 (type: T, other?: DataType | null): other is T;
 }
 
+/** @ignore */
 export class TypeComparator extends Visitor {
     compareSchemas<T extends { [key: string]: DataType }>(schema: Schema<T>, other?: Schema | null): other is Schema<T> {
         return (schema === other) || (

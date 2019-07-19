@@ -27,17 +27,6 @@
 #  THRIFT_STATIC_LIB, THRIFT static library
 #  THRIFT_FOUND, If false, do not try to use ant
 
-# TODO: Add this back to global
-if(APPLE)
-  # Also look in homebrew for a matching llvm version
-  find_program(BREW_BIN brew)
-  if(BREW_BIN)
-    execute_process(COMMAND ${BREW_BIN} --prefix "thrift"
-                    OUTPUT_VARIABLE THRIFT_BREW_PREFIX
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-  endif()
-endif()
-
 function(EXTRACT_THRIFT_VERSION)
   exec_program(${THRIFT_COMPILER}
                ARGS

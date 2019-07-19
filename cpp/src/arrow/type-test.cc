@@ -121,6 +121,26 @@ TEST(TestField, TestFlatten) {
   ASSERT_TRUE(vec[1]->Equals(*expected1));
 }
 
+TEST(TestField, TestReplacement) {
+  auto metadata = std::shared_ptr<KeyValueMetadata>(
+      new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
+  auto f0 = field("f0", int32(), true, metadata);
+  auto fzero = f0->WithType(utf8());
+  auto f1 = f0->WithName("f1");
+
+  ASSERT_FALSE(f0->Equals(fzero));
+  ASSERT_FALSE(fzero->Equals(f1));
+  ASSERT_FALSE(f1->Equals(f0));
+
+  ASSERT_EQ(fzero->name(), "f0");
+  ASSERT_TRUE(fzero->type()->Equals(utf8()));
+  ASSERT_TRUE(fzero->metadata()->Equals(*metadata));
+
+  ASSERT_EQ(f1->name(), "f1");
+  ASSERT_TRUE(f1->type()->Equals(int32()));
+  ASSERT_TRUE(f1->metadata()->Equals(*metadata));
+}
+
 class TestSchema : public ::testing::Test {
  public:
   void SetUp() {}
@@ -368,6 +388,27 @@ TEST(TestListType, Basics) {
 
   ListType lt2(lt);
   ASSERT_EQ("list<item: list<item: string>>", lt2.ToString());
+}
+
+TEST(TestMapType, Basics) {
+  std::shared_ptr<DataType> kt = std::make_shared<StringType>();
+  std::shared_ptr<DataType> it = std::make_shared<UInt8Type>();
+
+  MapType map_type(kt, it);
+  ASSERT_EQ(map_type.id(), Type::MAP);
+
+  ASSERT_EQ("map", map_type.name());
+  ASSERT_EQ("map<string, uint8>", map_type.ToString());
+
+  ASSERT_EQ(map_type.key_type()->id(), kt->id());
+  ASSERT_EQ(map_type.item_type()->id(), it->id());
+  ASSERT_EQ(map_type.value_type()->id(), Type::STRUCT);
+
+  std::shared_ptr<DataType> mt = std::make_shared<MapType>(it, kt);
+  ASSERT_EQ("map<uint8, string>", mt->ToString());
+
+  MapType mt2(kt, mt, true);
+  ASSERT_EQ("map<string, map<uint8, string>, keys_sorted>", mt2.ToString());
 }
 
 TEST(TestFixedSizeListType, Basics) {

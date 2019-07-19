@@ -22,7 +22,6 @@ use criterion::Criterion;
 extern crate arrow;
 
 use arrow::array::*;
-use arrow::array_data::ArrayDataBuilder;
 use arrow::buffer::Buffer;
 use arrow::datatypes::*;
 

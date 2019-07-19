@@ -141,6 +141,7 @@ AFFECTED_DEPENDENCIES = {
     'ci': ALL_TOPICS,
     'cpp': ['python', 'c_glib', 'r', 'ruby', 'integration'],
     'format': LANGUAGE_TOPICS,
+    'go': ['integration'],
     '.travis.yml': ALL_TOPICS,
     'c_glib': ['ruby']
 }

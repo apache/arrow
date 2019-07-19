@@ -23,4 +23,7 @@ ENV CARGO_TARGET_DIR=/build/rust
 COPY rust/Cargo.toml /arrow/rust/Cargo.toml
 WORKDIR /arrow/rust
 
+ENV ARROW_TEST_DATA=/arrow/testing/data
+ENV PARQUET_TEST_DATA=/arrow/cpp/submodules/parquet-testing/data
+
 CMD ["cargo", "test"]

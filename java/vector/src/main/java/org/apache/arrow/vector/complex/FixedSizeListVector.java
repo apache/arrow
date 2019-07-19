@@ -45,6 +45,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.ByteFunctionHelpers;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.OversizedAllocationException;
@@ -65,6 +66,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   private ArrowBuf validityBuffer;
   private final int listSize;
   private final FieldType fieldType;
+  private final String name;
 
   private UnionFixedSizeListReader reader;
   private int valueCount;
@@ -94,14 +96,14 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
                              BufferAllocator allocator,
                              FieldType fieldType,
                              CallBack unusedSchemaChangeCallback) {
-    super(name, allocator);
+    super(allocator);
 
+    this.name = name;
     this.validityBuffer = allocator.getEmpty();
     this.vector = ZeroVector.INSTANCE;
     this.fieldType = fieldType;
     this.listSize = ((ArrowType.FixedSizeList) fieldType.getType()).getListSize();
     Preconditions.checkArgument(listSize > 0, "list size must be positive");
-    this.reader = new UnionFixedSizeListReader(this);
     this.valueCount = 0;
     this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
   }
@@ -115,6 +117,11 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   @Override
   public MinorType getMinorType() {
     return MinorType.FIXED_SIZE_LIST;
+  }
+
+  @Override
+  public String getName() {
+    return name;
   }
 
   /** Get the fixed size for each list. */
@@ -177,7 +184,14 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
 
   @Override
   public UnionFixedSizeListReader getReader() {
+    if (reader == null) {
+      reader = new UnionFixedSizeListReader(this);
+    }
     return reader;
+  }
+
+  private void invalidateReader() {
+    reader = null;
   }
 
   @Override
@@ -339,7 +353,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     boolean created = false;
     if (vector == ZeroVector.INSTANCE) {
       vector = type.createNewSingleVector(DATA_VECTOR_NAME, allocator, null);
-      this.reader = new UnionFixedSizeListReader(this);
+      invalidateReader();
       created = true;
     }
     // returned vector must have the same field
@@ -366,7 +380,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     UnionVector vector = new UnionVector(name, allocator, null);
     this.vector.clear();
     this.vector = vector;
-    this.reader = new UnionFixedSizeListReader(this);
+    invalidateReader();
     return vector;
   }
 
@@ -444,7 +458,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
    * current capacity.
    */
   private int getValidityBufferValueCapacity() {
-    return (int) (validityBuffer.capacity() * 8L);
+    return validityBuffer.capacity() * 8;
   }
 
   /**
@@ -487,6 +501,37 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   @Override
   public TransferPair makeTransferPair(ValueVector target) {
     return new TransferImpl((FixedSizeListVector) target);
+  }
+
+  @Override
+  public int hashCode(int index) {
+    if (isSet(index) == 0) {
+      return 0;
+    }
+    int hash = 0;
+    for (int i = 0; i < listSize; i++) {
+      hash = ByteFunctionHelpers.comebineHash(hash, vector.hashCode(index * listSize + i));
+    }
+    return hash;
+  }
+
+  @Override
+  public boolean equals(int index, ValueVector to, int toIndex) {
+    if (to == null) {
+      return false;
+    }
+    if (this.getClass() != to.getClass()) {
+      return false;
+    }
+
+    FixedSizeListVector that = (FixedSizeListVector) to;
+
+    for (int i = 0; i < listSize; i++) {
+      if (!vector.equals(index * listSize + i, that, toIndex * listSize + i)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private class TransferImpl implements TransferPair {

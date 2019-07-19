@@ -16,13 +16,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-PROTOBUF_VERSION="2.6.0"
+NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
+PROTOBUF_VERSION="3.7.1"
 
-curl -sL https://github.com/google/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-${PROTOBUF_VERSION}.tar.gz -o protobuf-${PROTOBUF_VERSION}.tar.gz
+curl -sL "https://github.com/google/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-all-${PROTOBUF_VERSION}.tar.gz" -o protobuf-${PROTOBUF_VERSION}.tar.gz
 tar xf protobuf-${PROTOBUF_VERSION}.tar.gz
 pushd protobuf-${PROTOBUF_VERSION}
 ./configure --disable-shared --prefix=/usr "CXXFLAGS=-O2 -fPIC"
-make -j5
+make -j$NCORES
 make install
 popd
 rm -rf protobuf-${PROTOBUF_VERSION}.tar.gz protobuf-${PROTOBUF_VERSION}

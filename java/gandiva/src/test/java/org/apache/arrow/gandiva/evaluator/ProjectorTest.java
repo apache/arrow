@@ -38,6 +38,7 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.DateUnit;
@@ -48,9 +49,12 @@ import org.apache.arrow.vector.types.pojo.Schema;
 
 import org.junit.Assert;
 import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -58,6 +62,9 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
   private Charset utf8Charset = Charset.forName("UTF-8");
   private Charset utf16Charset = Charset.forName("UTF-16");
+
+  @Rule
+  public ExpectedException thrown = ExpectedException.none();
 
   List<ArrowBuf> varBufs(String[] strings, Charset charset) {
     ArrowBuf offsetsBuffer = allocator.buffer((strings.length + 1) * 4);
@@ -513,6 +520,72 @@ public class ProjectorTest extends BaseEvaluatorTest {
     releaseRecordBatch(batch);
     releaseValueVectors(output);
     eval.close();
+  }
+
+  @Test
+  public void testStringOutput() throws GandivaException {
+    /*
+     * if (x >= 0) "hi" else "bye"
+     */
+
+    Field x = Field.nullable("x", new ArrowType.Int(32, true));
+
+    ArrowType retType = new ArrowType.Utf8();
+
+    TreeNode ifHiBye = TreeBuilder.makeIf(
+        TreeBuilder.makeFunction(
+            "greater_than_or_equal_to",
+            Lists.newArrayList(
+                TreeBuilder.makeField(x),
+                TreeBuilder.makeLiteral(0)
+            ),
+            boolType),
+        TreeBuilder.makeStringLiteral("hi"),
+        TreeBuilder.makeStringLiteral("bye"),
+        retType);
+
+    ExpressionTree expr = TreeBuilder.makeExpression(ifHiBye, Field.nullable("res", retType));
+    Schema schema = new Schema(Lists.newArrayList(x));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+
+    // fill up input record batch
+    int numRows = 4;
+    byte[] validity = new byte[]{(byte) 255, 0};
+    int[] xValues = new int[]{10, -10, 20, -20};
+    String[] expected = new String[]{"hi", "bye", "hi", "bye"};
+    ArrowBuf validityX = buf(validity);
+    ArrowBuf dataX = intBuf(xValues);
+    ArrowRecordBatch batch =
+        new ArrowRecordBatch(
+            numRows,
+            Lists.newArrayList(new ArrowFieldNode(numRows, 0)),
+            Lists.newArrayList( validityX, dataX));
+
+    // allocate data for output vector.
+    VarCharVector outVector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator);
+    outVector.allocateNew(64, numRows);
+
+
+    // evaluate expression
+    List<ValueVector> output = new ArrayList<>();
+    output.add(outVector);
+    eval.evaluate(batch, output);
+
+    // match expected output.
+    for (int i = 0; i < numRows; i++) {
+      assertFalse(outVector.isNull(i));
+      assertEquals(expected[i], new String(outVector.get(i)));
+    }
+
+    // test with insufficient data buffer.
+    try {
+      outVector.allocateNew(4, numRows);
+      eval.evaluate(batch, output);
+    } finally {
+      releaseRecordBatch(batch);
+      releaseValueVectors(output);
+      eval.close();
+    }
   }
 
   @Test
@@ -1040,6 +1113,96 @@ public class ProjectorTest extends BaseEvaluatorTest {
     }
     for (int i = 8; i < 16; i++) {
       assertTrue(bitVector.isNull(i));
+    }
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+    eval.close();
+  }
+
+  @Test
+  public void testInExpr() throws GandivaException, Exception {
+    Field c1 = Field.nullable("c1", int32);
+
+    TreeNode inExpr =
+            TreeBuilder.makeInExpressionInt32(c1, Sets.newHashSet(1,2,3,4,5,15,16));
+    ExpressionTree expr = TreeBuilder.makeExpression(inExpr, Field.nullable("result", boolType));
+    Schema schema = new Schema(Lists.newArrayList(c1));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+
+    int numRows = 16;
+    byte[] validity = new byte[]{(byte) 255, 0};
+    int[] c1Values = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+
+    ArrowBuf c1Validity = buf(validity);
+    ArrowBuf c1Data = intBuf(c1Values);
+    ArrowBuf c2Validity = buf(validity);
+
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+    ArrowRecordBatch batch =
+            new ArrowRecordBatch(
+                    numRows,
+                    Lists.newArrayList(fieldNode, fieldNode),
+                    Lists.newArrayList(c1Validity, c1Data, c2Validity));
+
+    BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
+    bitVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(bitVector);
+    eval.evaluate(batch, output);
+
+    for (int i = 0; i < 5; i++) {
+      assertTrue(bitVector.getObject(i).booleanValue());
+    }
+    for (int i = 5; i < 16; i++) {
+      assertFalse(bitVector.getObject(i).booleanValue());
+    }
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+    eval.close();
+  }
+
+  @Test
+  public void testInExprStrings() throws GandivaException, Exception {
+    Field c1 = Field.nullable("c1", new ArrowType.Utf8());
+
+    TreeNode inExpr =
+            TreeBuilder.makeInExpressionString(c1, Sets.newHashSet("one", "two", "three", "four"));
+    ExpressionTree expr = TreeBuilder.makeExpression(inExpr, Field.nullable("result", boolType));
+    Schema schema = new Schema(Lists.newArrayList(c1));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+
+    int numRows = 16;
+    byte[] validity = new byte[]{(byte) 255, 0};
+    String[] c1Values = new String[]{"one", "two", "three", "four", "five", "six", "seven",
+      "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
+      "sixteen"};
+
+    ArrowBuf c1Validity = buf(validity);
+    List<ArrowBuf> dataBufsX = stringBufs(c1Values);
+    ArrowBuf c2Validity = buf(validity);
+
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+    ArrowRecordBatch batch =
+            new ArrowRecordBatch(
+                    numRows,
+                    Lists.newArrayList(fieldNode, fieldNode),
+                    Lists.newArrayList(c1Validity, dataBufsX.get(0),dataBufsX.get(1), c2Validity));
+
+    BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
+    bitVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(bitVector);
+    eval.evaluate(batch, output);
+
+    for (int i = 0; i < 4; i++) {
+      assertTrue(bitVector.getObject(i).booleanValue());
+    }
+    for (int i = 5; i < 16; i++) {
+      assertFalse(bitVector.getObject(i).booleanValue());
     }
 
     releaseRecordBatch(batch);

@@ -24,11 +24,12 @@
 
 #include "arrow/python/visibility.h"
 
+#include "arrow/sparse_tensor.h"
+
 namespace arrow {
 
 class Array;
 class Buffer;
-class Column;
 class DataType;
 class Field;
 class RecordBatch;
@@ -39,6 +40,7 @@ class Tensor;
 
 namespace py {
 
+// Returns 0 on success, -1 on error.
 ARROW_PYTHON_EXPORT int import_pyarrow();
 
 ARROW_PYTHON_EXPORT bool is_buffer(PyObject* buffer);
@@ -66,9 +68,17 @@ ARROW_PYTHON_EXPORT bool is_tensor(PyObject* tensor);
 ARROW_PYTHON_EXPORT Status unwrap_tensor(PyObject* tensor, std::shared_ptr<Tensor>* out);
 ARROW_PYTHON_EXPORT PyObject* wrap_tensor(const std::shared_ptr<Tensor>& tensor);
 
-ARROW_PYTHON_EXPORT bool is_column(PyObject* column);
-ARROW_PYTHON_EXPORT Status unwrap_column(PyObject* column, std::shared_ptr<Column>* out);
-ARROW_PYTHON_EXPORT PyObject* wrap_column(const std::shared_ptr<Column>& column);
+ARROW_PYTHON_EXPORT bool is_sparse_tensor_coo(PyObject* sparse_tensor);
+ARROW_PYTHON_EXPORT Status
+unwrap_sparse_tensor_coo(PyObject* sparse_tensor, std::shared_ptr<SparseTensorCOO>* out);
+ARROW_PYTHON_EXPORT PyObject* wrap_sparse_tensor_coo(
+    const std::shared_ptr<SparseTensorCOO>& sparse_tensor);
+
+ARROW_PYTHON_EXPORT bool is_sparse_tensor_csr(PyObject* sparse_tensor);
+ARROW_PYTHON_EXPORT Status
+unwrap_sparse_tensor_csr(PyObject* sparse_tensor, std::shared_ptr<SparseTensorCSR>* out);
+ARROW_PYTHON_EXPORT PyObject* wrap_sparse_tensor_csr(
+    const std::shared_ptr<SparseTensorCSR>& sparse_tensor);
 
 ARROW_PYTHON_EXPORT bool is_table(PyObject* table);
 ARROW_PYTHON_EXPORT Status unwrap_table(PyObject* table, std::shared_ptr<Table>* out);
@@ -80,6 +90,11 @@ ARROW_PYTHON_EXPORT Status unwrap_record_batch(PyObject* batch,
 ARROW_PYTHON_EXPORT PyObject* wrap_record_batch(
     const std::shared_ptr<RecordBatch>& batch);
 
+namespace internal {
+
+ARROW_PYTHON_EXPORT int check_status(const Status& status);
+
+}  // namespace internal
 }  // namespace py
 }  // namespace arrow
 

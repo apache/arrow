@@ -79,14 +79,16 @@ class FlightIntegrationTestServer : public FlightServerBase {
     }
     auto flight = data->second;
 
-    *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(
-        std::shared_ptr<RecordBatchReader>(new TableBatchReader(*flight))));
+    *data_stream = std::unique_ptr<FlightDataStream>(
+        new NumberingStream(std::unique_ptr<FlightDataStream>(new RecordBatchStream(
+            std::shared_ptr<RecordBatchReader>(new TableBatchReader(*flight))))));
 
     return Status::OK();
   }
 
   Status DoPut(const ServerCallContext& context,
-               std::unique_ptr<FlightMessageReader> reader) override {
+               std::unique_ptr<FlightMessageReader> reader,
+               std::unique_ptr<FlightMetadataWriter> writer) override {
     const FlightDescriptor& descriptor = reader->descriptor();
 
     if (descriptor.type != FlightDescriptor::DescriptorType::PATH) {
@@ -98,11 +100,14 @@ class FlightIntegrationTestServer : public FlightServerBase {
     std::string key = descriptor.path[0];
 
     std::vector<std::shared_ptr<arrow::RecordBatch>> retrieved_chunks;
-    std::shared_ptr<arrow::RecordBatch> chunk;
+    arrow::flight::FlightStreamChunk chunk;
     while (true) {
-      RETURN_NOT_OK(reader->ReadNext(&chunk));
-      if (chunk == nullptr) break;
-      retrieved_chunks.push_back(chunk);
+      RETURN_NOT_OK(reader->Next(&chunk));
+      if (chunk.data == nullptr) break;
+      retrieved_chunks.push_back(chunk.data);
+      if (chunk.app_metadata) {
+        RETURN_NOT_OK(writer->WriteMetadata(*chunk.app_metadata));
+      }
     }
     std::shared_ptr<arrow::Table> retrieved_data;
     RETURN_NOT_OK(arrow::Table::FromRecordBatches(reader->schema(), retrieved_chunks,

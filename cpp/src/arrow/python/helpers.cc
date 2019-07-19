@@ -120,13 +120,13 @@ std::string PyObject_StdStringRepr(PyObject* obj) {
   }
 #else
   OwnedRef bytes_ref(PyObject_Repr(obj));
+#endif
   if (!bytes_ref) {
     PyErr_Clear();
     std::stringstream ss;
     ss << "<object of type '" << Py_TYPE(obj)->tp_name << "' repr() failed>";
     return ss.str();
   }
-#endif
   return PyBytes_AsStdString(bytes_ref.obj());
 }
 
@@ -144,18 +144,13 @@ Status PyObject_StdStringStr(PyObject* obj, std::string* out) {
 Status ImportModule(const std::string& module_name, OwnedRef* ref) {
   PyObject* module = PyImport_ImportModule(module_name.c_str());
   RETURN_IF_PYERROR();
-  DCHECK_NE(module, nullptr) << "unable to import the " << module_name << " module";
   ref->reset(module);
   return Status::OK();
 }
 
-Status ImportFromModule(const OwnedRef& module, const std::string& name, OwnedRef* ref) {
-  /// Assumes that ImportModule was called first
-  DCHECK_NE(module.obj(), nullptr) << "Cannot import from nullptr Python module";
-
-  PyObject* attr = PyObject_GetAttrString(module.obj(), name.c_str());
+Status ImportFromModule(PyObject* module, const std::string& name, OwnedRef* ref) {
+  PyObject* attr = PyObject_GetAttrString(module, name.c_str());
   RETURN_IF_PYERROR();
-  DCHECK_NE(attr, nullptr) << "unable to import the " << name << " object";
   ref->reset(attr);
   return Status::OK();
 }
@@ -371,6 +366,11 @@ Status IntegerScalarToFloat32Safe(PyObject* obj, float* out) {
   }
   *out = static_cast<float>(value);
   return Status::OK();
+}
+
+void DebugPrint(PyObject* obj) {
+  std::string repr = PyObject_StdStringRepr(obj);
+  PySys_WriteStderr("%s\n", repr.c_str());
 }
 
 }  // namespace internal

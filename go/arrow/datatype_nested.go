@@ -161,6 +161,19 @@ func (f Field) Equal(o Field) bool {
 	return reflect.DeepEqual(f, o)
 }
 
+func (f Field) String() string {
+	o := new(strings.Builder)
+	nullable := ""
+	if f.Nullable {
+		nullable = ", nullable"
+	}
+	fmt.Fprintf(o, "%s: type=%v%v", f.Name, f.Type, nullable)
+	if f.HasMetadata() {
+		fmt.Fprintf(o, "\n%*.smetadata: %v", len(f.Name)+2, "", f.Metadata)
+	}
+	return o.String()
+}
+
 var (
 	_ DataType = (*ListType)(nil)
 	_ DataType = (*StructType)(nil)

@@ -145,6 +145,9 @@ class ARROW_EXPORT BufferBuilder {
     ARROW_RETURN_NOT_OK(Resize(size_, shrink_to_fit));
     if (size_ != 0) buffer_->ZeroPadding();
     *out = buffer_;
+    if (*out == NULLPTR) {
+      ARROW_RETURN_NOT_OK(AllocateBuffer(pool_, 0, out));
+    }
     Reset();
     return Status::OK();
   }
@@ -217,10 +220,8 @@ class TypedBufferBuilder<T, typename std::enable_if<std::is_arithmetic<T>::value
 
   void UnsafeAppend(const int64_t num_copies, T value) {
     auto data = mutable_data() + length();
-    bytes_builder_.UnsafeAppend(num_copies * sizeof(T), 0);
-    for (const auto end = data + num_copies; data != end; ++data) {
-      *data = value;
-    }
+    bytes_builder_.UnsafeAdvance(num_copies * sizeof(T));
+    std::fill(data, data + num_copies, value);
   }
 
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {

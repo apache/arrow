@@ -27,6 +27,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableUInt8Holder;
 import org.apache.arrow.vector.holders.UInt8Holder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -37,7 +38,7 @@ import io.netty.buffer.ArrowBuf;
  * integer values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class UInt8Vector extends BaseFixedWidthVector {
+public class UInt8Vector extends BaseFixedWidthVector implements BaseIntVector {
   private static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
 
@@ -46,7 +47,11 @@ public class UInt8Vector extends BaseFixedWidthVector {
   }
 
   public UInt8Vector(String name, FieldType fieldType, BufferAllocator allocator) {
-    super(name, allocator, fieldType, TYPE_WIDTH);
+    this(new Field(name, fieldType, null), allocator);
+  }
+
+  public UInt8Vector(Field field, BufferAllocator allocator) {
+    super(field, allocator, TYPE_WIDTH);
     reader = new UInt8ReaderImpl(UInt8Vector.this);
   }
 
@@ -142,25 +147,6 @@ public class UInt8Vector extends BaseFixedWidthVector {
     } else {
       return getNoOverflow(valueBuffer, index);
     }
-  }
-
-  /**
-   * Copy a value and validity setting from fromIndex in <code>from</code> to this
-   * Vector at thisIndex.
-   */
-  public void copyFrom(int fromIndex, int thisIndex, UInt8Vector from) {
-    BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
-    final long value = from.valueBuffer.getLong(fromIndex * TYPE_WIDTH);
-    valueBuffer.setLong(thisIndex * TYPE_WIDTH, value);
-  }
-
-  /**
-   * Same as {@link #copyFrom(int, int, UInt8Vector)} but reallocates if thisIndex is
-   * larger then current capacity.
-   */
-  public void copyFromSafe(int fromIndex, int thisIndex, UInt8Vector from) {
-    handleSafe(thisIndex);
-    copyFrom(fromIndex, thisIndex, from);
   }
 
 
@@ -300,6 +286,11 @@ public class UInt8Vector extends BaseFixedWidthVector {
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
     return new TransferImpl((UInt8Vector) to);
+  }
+
+  @Override
+  public void setWithPossibleTruncate(int index, long value) {
+    this.setSafe(index, value);
   }
 
   private class TransferImpl implements TransferPair {

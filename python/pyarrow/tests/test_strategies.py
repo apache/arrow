@@ -46,11 +46,6 @@ def test_chunked_arrays(chunked_array):
     assert isinstance(chunked_array, pa.lib.ChunkedArray)
 
 
-@h.given(past.all_columns)
-def test_columns(column):
-    assert isinstance(column, pa.lib.Column)
-
-
 @h.given(past.all_record_batches)
 def test_record_batches(record_bath):
     assert isinstance(record_bath, pa.lib.RecordBatch)

@@ -19,7 +19,7 @@ from cpython.ref cimport PyObject
 
 import six
 
-from pyarrow.compat import pickle
+from pyarrow.compat import frombytes, pickle
 
 
 def is_named_tuple(cls):
@@ -165,6 +165,9 @@ cdef class SerializationContext:
 
     def _deserialize_callback(self, serialized_obj):
         type_id = serialized_obj["_pytype_"]
+        if isinstance(type_id, bytes):
+            # ARROW-4675: Python 2 serialized, read in Python 3
+            type_id = frombytes(type_id)
 
         if "pickle" in serialized_obj:
             # The object was pickled, so unpickle it.

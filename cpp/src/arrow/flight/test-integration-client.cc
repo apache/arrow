@@ -44,17 +44,26 @@ DEFINE_string(host, "localhost", "Server port to connect to");
 DEFINE_int32(port, 31337, "Server port to connect to");
 DEFINE_string(path, "", "Resource path to request");
 
-/// \brief Helper to read a RecordBatchReader into a Table.
-arrow::Status ReadToTable(std::unique_ptr<arrow::RecordBatchReader>& reader,
+/// \brief Helper to read a MetadataRecordBatchReader into a Table.
+arrow::Status ReadToTable(arrow::flight::MetadataRecordBatchReader& reader,
                           std::shared_ptr<arrow::Table>* retrieved_data) {
+  // For integration testing, we expect the server numbers the
+  // batches, to test the application metadata part of the spec.
   std::vector<std::shared_ptr<arrow::RecordBatch>> retrieved_chunks;
-  std::shared_ptr<arrow::RecordBatch> chunk;
+  arrow::flight::FlightStreamChunk chunk;
+  int counter = 0;
   while (true) {
-    RETURN_NOT_OK(reader->ReadNext(&chunk));
-    if (chunk == nullptr) break;
-    retrieved_chunks.push_back(chunk);
+    RETURN_NOT_OK(reader.Next(&chunk));
+    if (!chunk.data) break;
+    retrieved_chunks.push_back(chunk.data);
+    if (std::to_string(counter) != chunk.app_metadata->ToString()) {
+      return arrow::Status::Invalid(
+          "Expected metadata value: " + std::to_string(counter) +
+          " but got: " + chunk.app_metadata->ToString());
+    }
+    counter++;
   }
-  return arrow::Table::FromRecordBatches(reader->schema(), retrieved_chunks,
+  return arrow::Table::FromRecordBatches(reader.schema(), retrieved_chunks,
                                          retrieved_data);
 }
 
@@ -71,14 +80,27 @@ arrow::Status ReadToTable(std::unique_ptr<arrow::ipc::internal::json::JsonReader
                                          retrieved_data);
 }
 
-/// \brief Helper to copy a RecordBatchReader to a RecordBatchWriter.
-arrow::Status CopyReaderToWriter(std::unique_ptr<arrow::RecordBatchReader>& reader,
-                                 arrow::ipc::RecordBatchWriter& writer) {
+/// \brief Upload the contents of a RecordBatchReader to a Flight
+/// server, validating the application metadata on the side.
+arrow::Status UploadReaderToFlight(arrow::RecordBatchReader* reader,
+                                   arrow::flight::FlightStreamWriter& writer,
+                                   arrow::flight::FlightMetadataReader& metadata_reader) {
+  int counter = 0;
   while (true) {
     std::shared_ptr<arrow::RecordBatch> chunk;
     RETURN_NOT_OK(reader->ReadNext(&chunk));
     if (chunk == nullptr) break;
-    RETURN_NOT_OK(writer.WriteRecordBatch(*chunk));
+    std::shared_ptr<arrow::Buffer> metadata =
+        arrow::Buffer::FromString(std::to_string(counter));
+    RETURN_NOT_OK(writer.WriteWithMetadata(*chunk, metadata));
+    // Wait for the server to ack the result
+    std::shared_ptr<arrow::Buffer> ack_metadata;
+    RETURN_NOT_OK(metadata_reader.ReadMetadata(&ack_metadata));
+    if (!ack_metadata->Equals(*metadata)) {
+      return arrow::Status::Invalid("Expected metadata value: " + metadata->ToString() +
+                                    " but got: " + ack_metadata->ToString());
+    }
+    counter++;
   }
   return writer.Close();
 }
@@ -91,10 +113,10 @@ arrow::Status ConsumeFlightLocation(const arrow::flight::Location& location,
   std::unique_ptr<arrow::flight::FlightClient> read_client;
   RETURN_NOT_OK(arrow::flight::FlightClient::Connect(location, &read_client));
 
-  std::unique_ptr<arrow::RecordBatchReader> stream;
+  std::unique_ptr<arrow::flight::FlightStreamReader> stream;
   RETURN_NOT_OK(read_client->DoGet(ticket, &stream));
 
-  return ReadToTable(stream, retrieved_data);
+  return ReadToTable(*stream, retrieved_data);
 }
 
 int main(int argc, char** argv) {
@@ -120,11 +142,12 @@ int main(int argc, char** argv) {
   std::shared_ptr<arrow::Table> original_data;
   ABORT_NOT_OK(ReadToTable(reader, &original_data));
 
-  std::unique_ptr<arrow::ipc::RecordBatchWriter> write_stream;
-  ABORT_NOT_OK(client->DoPut(descr, reader->schema(), &write_stream));
+  std::unique_ptr<arrow::flight::FlightStreamWriter> write_stream;
+  std::unique_ptr<arrow::flight::FlightMetadataReader> metadata_reader;
+  ABORT_NOT_OK(client->DoPut(descr, reader->schema(), &write_stream, &metadata_reader));
   std::unique_ptr<arrow::RecordBatchReader> table_reader(
       new arrow::TableBatchReader(*original_data));
-  ABORT_NOT_OK(CopyReaderToWriter(table_reader, *write_stream));
+  ABORT_NOT_OK(UploadReaderToFlight(table_reader.get(), *write_stream, *metadata_reader));
 
   // 2. Get the ticket for the data.
   std::unique_ptr<arrow::flight::FlightInfo> info;

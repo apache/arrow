@@ -36,4 +36,4 @@ ninja install
 popd
 
 popd
-rm -rf googletest-release-${GTEST_VERSION}.tar.gz
+rm -rf googletest-release-${GTEST_VERSION}.tar.gz googletest-release-${GTEST_VERSION}

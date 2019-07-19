@@ -244,4 +244,14 @@ public class ZeroVector implements FieldVector {
   public boolean isNull(int index) {
     return false;
   }
+
+  @Override
+  public int hashCode(int index) {
+    return 0;
+  }
+
+  @Override
+  public boolean equals(int index, ValueVector to, int toIndex) {
+    return false;
+  }
 }

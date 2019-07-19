@@ -134,6 +134,16 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       out->reset(new ListBuilder(pool, std::move(value_builder), type));
       return Status::OK();
     }
+    case Type::MAP: {
+      const auto& map_type = internal::checked_cast<const MapType&>(*type);
+      std::unique_ptr<ArrayBuilder> key_builder, item_builder;
+      RETURN_NOT_OK(MakeBuilder(pool, map_type.key_type(), &key_builder));
+      RETURN_NOT_OK(MakeBuilder(pool, map_type.item_type(), &item_builder));
+      out->reset(
+          new MapBuilder(pool, std::move(key_builder), std::move(item_builder), type));
+      return Status::OK();
+    }
+
     case Type::FIXED_SIZE_LIST: {
       std::unique_ptr<ArrayBuilder> value_builder;
       std::shared_ptr<DataType> value_type =
@@ -145,14 +155,32 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
 
     case Type::STRUCT: {
       const std::vector<std::shared_ptr<Field>>& fields = type->children();
-      std::vector<std::shared_ptr<ArrayBuilder>> values_builder;
+      std::vector<std::shared_ptr<ArrayBuilder>> field_builders;
 
       for (auto it : fields) {
         std::unique_ptr<ArrayBuilder> builder;
         RETURN_NOT_OK(MakeBuilder(pool, it->type(), &builder));
-        values_builder.emplace_back(std::move(builder));
+        field_builders.emplace_back(std::move(builder));
       }
-      out->reset(new StructBuilder(type, pool, std::move(values_builder)));
+      out->reset(new StructBuilder(type, pool, std::move(field_builders)));
+      return Status::OK();
+    }
+
+    case Type::UNION: {
+      const auto& union_type = internal::checked_cast<const UnionType&>(*type);
+      const std::vector<std::shared_ptr<Field>>& fields = type->children();
+      std::vector<std::shared_ptr<ArrayBuilder>> field_builders;
+
+      for (auto it : fields) {
+        std::unique_ptr<ArrayBuilder> builder;
+        RETURN_NOT_OK(MakeBuilder(pool, it->type(), &builder));
+        field_builders.emplace_back(std::move(builder));
+      }
+      if (union_type.mode() == UnionMode::DENSE) {
+        out->reset(new DenseUnionBuilder(pool, std::move(field_builders), type));
+      } else {
+        out->reset(new SparseUnionBuilder(pool, std::move(field_builders), type));
+      }
       return Status::OK();
     }
 

@@ -40,27 +40,31 @@ class TestFeatherFileWriter < Test::Unit::TestCase
     input = Arrow::MemoryMappedInputStream.new(tempfile.path)
     begin
       reader = Arrow::FeatherFileReader.new(input)
-      assert_equal([true, "Log"],
-                   [reader.has_description?, reader.description])
-      column_values = {}
-      reader.columns.each do |column|
-        values = []
-        column.data.chunks.each do |array|
-          array.length.times do |j|
-            if array.respond_to?(:get_string)
-              values << array.get_string(j)
-            else
-              values << array.get_value(j)
-            end
-          end
-        end
-        column_values[column.name] = values
+      columns = reader.n_columns.times.collect do |i|
+        [
+          reader.get_column_name(i),
+          reader.get_column_data(i).get_chunk(0),
+        ]
       end
-      assert_equal({
-                     "message" => ["Crash", "Error", "Shutdown"],
-                     "is_critical" => [true, true, false],
-                   },
-                   column_values)
+      assert_equal([
+                     true,
+                     "Log",
+                     [
+                       [
+                         "message",
+                         build_string_array(["Crash", "Error", "Shutdown"]),
+                       ],
+                       [
+                         "is_critical",
+                         build_boolean_array([true, true, false]),
+                       ],
+                     ],
+                   ],
+                   [
+                     reader.has_description?,
+                     reader.description,
+                     columns,
+                   ])
     ensure
       input.close
     end

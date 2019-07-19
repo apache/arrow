@@ -77,7 +77,7 @@ service FlightService {
    * number. In the latter, the service might implement a 'seal' action that
    * can be applied to a descriptor once all streams are uploaded.
    */
-  rpc DoPut(stream FlightData) returns (PutResult) {}
+  rpc DoPut(stream FlightData) returns (stream PutResult) {}
 
   /*
    * Flight services can support an arbitrary number of simple actions in
@@ -286,6 +286,11 @@ message FlightData {
   bytes data_header = 2;
 
   /*
+   * Application-defined metadata.
+   */
+  bytes app_metadata = 3;
+
+  /*
    * The actual batch of Arrow data. Preferably handled with minimal-copies
    * coming last in the definition to help with sidecar patterns (it is
    * expected that some implementations will fetch this field off the wire
@@ -295,7 +300,8 @@ message FlightData {
 }
 
 /**
- * The response message (currently empty) associated with the submission of a
- * DoPut.
+ * The response message associated with the submission of a DoPut.
  */
-message PutResult {}
+message PutResult {
+  bytes app_metadata = 1;
+}

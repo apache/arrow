@@ -30,3 +30,4 @@ API Reference
    api/table
    api/utilities
    api/cuda
+   api/flight

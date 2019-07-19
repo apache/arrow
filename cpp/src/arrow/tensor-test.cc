@@ -155,6 +155,56 @@ TEST(TestTensor, CountNonZeroForNonContiguousTensor) {
   AssertCountNonZero(t, 8);
 }
 
+TEST(TestTensor, Equals) {
+  std::vector<int64_t> shape = {4, 4};
+
+  std::vector<int64_t> c_values = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+  std::vector<int64_t> c_strides = {32, 8};
+  Tensor tc1(int64(), Buffer::Wrap(c_values), shape, c_strides);
+  Tensor tc2(int64(), Buffer::Wrap(c_values), shape, c_strides);
+
+  std::vector<int64_t> f_values = {1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15, 4, 8, 12, 16};
+  Tensor tc3(int64(), Buffer::Wrap(f_values), shape, c_strides);
+
+  std::vector<int64_t> f_strides = {8, 32};
+  Tensor tf1(int64(), Buffer::Wrap(f_values), shape, f_strides);
+  Tensor tf2(int64(), Buffer::Wrap(c_values), shape, f_strides);
+
+  std::vector<int64_t> nc_values = {1, 0, 5, 0, 9,  0, 13, 0, 2, 0, 6, 0, 10, 0, 14, 0,
+                                    3, 0, 7, 0, 11, 0, 15, 0, 4, 0, 8, 0, 12, 0, 16, 0};
+  std::vector<int64_t> nc_strides = {16, 64};
+  Tensor tnc(int64(), Buffer::Wrap(nc_values), shape, nc_strides);
+
+  ASSERT_TRUE(tc1.is_contiguous());
+  ASSERT_TRUE(tc1.is_row_major());
+
+  ASSERT_TRUE(tf1.is_contiguous());
+  ASSERT_TRUE(tf1.is_column_major());
+
+  ASSERT_FALSE(tnc.is_contiguous());
+
+  // same object
+  EXPECT_TRUE(tc1.Equals(tc1));
+  EXPECT_TRUE(tf1.Equals(tf1));
+  EXPECT_TRUE(tnc.Equals(tnc));
+
+  // different objects
+  EXPECT_TRUE(tc1.Equals(tc2));
+  EXPECT_FALSE(tc1.Equals(tc3));
+
+  // row-major and column-major
+  EXPECT_TRUE(tc1.Equals(tf1));
+  EXPECT_FALSE(tc3.Equals(tf1));
+
+  // row-major and non-contiguous
+  EXPECT_TRUE(tc1.Equals(tnc));
+  EXPECT_FALSE(tc3.Equals(tnc));
+
+  // column-major and non-contiguous
+  EXPECT_TRUE(tf1.Equals(tnc));
+  EXPECT_FALSE(tf2.Equals(tnc));
+}
+
 TEST(TestNumericTensor, ElementAccessWithRowMajorStrides) {
   std::vector<int64_t> shape = {3, 4};
 

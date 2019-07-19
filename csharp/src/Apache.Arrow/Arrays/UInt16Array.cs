@@ -19,6 +19,14 @@ namespace Apache.Arrow
 {
     public class UInt16Array : PrimitiveArray<ushort>
     {
+        public class Builder : PrimitiveArrayBuilder<ushort, UInt16Array, Builder>
+        {
+            protected override UInt16Array Build(
+                ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
+                int length, int nullCount, int offset) =>
+                new UInt16Array(valueBuffer, nullBitmapBuffer, length, nullCount, offset);
+        }
+
         public UInt16Array(
             ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
             int length, int nullCount, int offset)

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -42,6 +43,11 @@ def test_chunked_array_basics():
     assert all(isinstance(c, pa.lib.Int64Array) for c in data.chunks)
     assert all(isinstance(c, pa.lib.Int64Array) for c in data.iterchunks())
     assert len(data.chunks) == 3
+
+
+def test_chunked_array_mismatch_types():
+    with pytest.raises(pa.ArrowInvalid):
+        pa.chunked_array([pa.array([1, 2]), pa.array(['foo', 'bar'])])
 
 
 def test_chunked_array_str():
@@ -181,9 +187,9 @@ def test_chunked_array_to_pandas():
         pa.array([-10, -5, 0, 5, 10])
     ]
     table = pa.Table.from_arrays(data, names=['a'])
-    chunked_arr = table.column(0).data
-    assert isinstance(chunked_arr, pa.ChunkedArray)
-    array = chunked_arr.to_pandas()
+    col = table.column(0)
+    assert isinstance(col, pa.ChunkedArray)
+    array = col.to_pandas()
     assert array.shape == (5,)
     assert array[0] == -10
 
@@ -218,124 +224,22 @@ def test_chunked_array_asarray():
     assert np_arr.dtype == np.dtype('float64')
 
 
-def test_column_basics():
-    data = [
-        pa.array([-10, -5, 0, 5, 10])
-    ]
-    table = pa.Table.from_arrays(data, names=['a'])
-    column = table.column(0)
-    assert column.name == 'a'
-    assert column.length() == 5
-    assert len(column) == 5
-    assert column.shape == (5,)
-    assert column.to_pylist() == [-10, -5, 0, 5, 10]
-    assert column == pa.Column.from_array("a", column.data)
-    assert column != pa.Column.from_array("b", column.data)
-    assert column != column.data
-    assert not column.equals(None)
-
-
-def test_column_factory_function():
-    # ARROW-1575
-    arr = pa.array([0, 1, 2, 3, 4])
-    arr2 = pa.array([5, 6, 7, 8])
-
-    col1 = pa.Column.from_array('foo', arr)
-    col2 = pa.Column.from_array(pa.field('foo', arr.type), arr)
-
-    assert col1.equals(col2)
-
-    col3 = pa.column('foo', [arr, arr2])
-    chunked_arr = pa.chunked_array([arr, arr2])
-    col4 = pa.column('foo', chunked_arr)
-    assert col3.equals(col4)
-
-    col5 = pa.column('foo', arr.to_pandas())
-    assert col5.equals(pa.column('foo', arr))
-
-    # Type mismatch
-    with pytest.raises(ValueError):
-        pa.Column.from_array(pa.field('foo', pa.string()), arr)
-
-
-def test_column_pickle():
-    arr = pa.chunked_array([[1, 2], [5, 6, 7]], type=pa.int16())
-    field = pa.field("ints", pa.int16()).add_metadata({b"foo": b"bar"})
-    col = pa.column(field, arr)
-
-    result = pickle.loads(pickle.dumps(col))
-    assert result.equals(col)
-    assert result.data.num_chunks == 2
-    assert result.field == field
-
-
-@pytest.mark.pandas
-def test_column_to_pandas():
-    data = [
-        pa.array([-10, -5, 0, 5, 10])
-    ]
-    table = pa.Table.from_arrays(data, names=['a'])
-    column = table.column(0)
-    series = column.to_pandas()
-    assert series.name == 'a'
-    assert series.shape == (5,)
-    assert series.iloc[0] == -10
-
-
-def test_column_asarray():
-    data = [
-        pa.array([-10, -5, 0, 5, 10])
-    ]
-    table = pa.Table.from_arrays(data, names=['a'])
-    column = table.column(0)
-
-    np_arr = np.asarray(column)
-    assert np_arr.tolist() == [-10, -5, 0, 5, 10]
-    assert np_arr.dtype == np.dtype('int64')
-
-    # An optional type can be specified when calling np.asarray
-    np_arr = np.asarray(column, dtype='str')
-    assert np_arr.tolist() == ['-10', '-5', '0', '5', '10']
-
-
-def test_column_flatten():
+def test_chunked_array_flatten():
     ty = pa.struct([pa.field('x', pa.int16()),
                     pa.field('y', pa.float32())])
     a = pa.array([(1, 2.5), (3, 4.5), (5, 6.5)], type=ty)
-    col = pa.Column.from_array('foo', a)
-    x, y = col.flatten()
-    assert x == pa.column('foo.x', pa.array([1, 3, 5], type=pa.int16()))
-    assert y == pa.column('foo.y', pa.array([2.5, 4.5, 6.5],
-                                            type=pa.float32()))
+    carr = pa.chunked_array(a)
+    x, y = carr.flatten()
+    assert x.equals(pa.chunked_array(pa.array([1, 3, 5], type=pa.int16())))
+    assert y.equals(pa.chunked_array(pa.array([2.5, 4.5, 6.5],
+                                              type=pa.float32())))
+
     # Empty column
     a = pa.array([], type=ty)
-    col = pa.Column.from_array('foo', a)
-    x, y = col.flatten()
-    assert x == pa.column('foo.x', pa.array([], type=pa.int16()))
-    assert y == pa.column('foo.y', pa.array([], type=pa.float32()))
-
-
-def test_column_getitem():
-    arr = pa.array([1, 2, 3, 4, 5, 6])
-    col = pa.column('ints', arr)
-
-    assert col[1].as_py() == 2
-    assert col[-1].as_py() == 6
-    assert col[-6].as_py() == 1
-    with pytest.raises(IndexError):
-        col[6]
-    with pytest.raises(IndexError):
-        col[-7]
-
-    data_slice = col[2:4]
-    assert data_slice.to_pylist() == [3, 4]
-
-    data_slice = col[4:-1]
-    assert data_slice.to_pylist() == [5]
-
-    data_slice = col[99:99]
-    assert data_slice.type == col.type
-    assert data_slice.to_pylist() == []
+    carr = pa.chunked_array(a)
+    x, y = carr.flatten()
+    assert x.equals(pa.chunked_array(pa.array([], type=pa.int16())))
+    assert y.equals(pa.chunked_array(pa.array([], type=pa.float32())))
 
 
 def test_recordbatch_basics():
@@ -476,7 +380,7 @@ def test_recordbatchlist_schema_equals():
 
 
 def test_table_equals():
-    table = pa.Table.from_arrays([])
+    table = pa.Table.from_arrays([], names=[])
 
     assert table.equals(table)
     # ARROW-4822
@@ -492,8 +396,8 @@ def test_table_from_batches_and_schema():
                                        names=['a', 'b'])
     table = pa.Table.from_batches([batch], schema)
     assert table.schema.equals(schema)
-    assert table.column(0) == pa.column('a', pa.array([1]))
-    assert table.column(1) == pa.column('b', pa.array([3.14]))
+    assert table.column(0) == pa.chunked_array([[1]])
+    assert table.column(1) == pa.chunked_array([[3.14]])
 
     incompatible_schema = pa.schema([pa.field('a', pa.int64())])
     with pytest.raises(pa.ArrowInvalid):
@@ -560,18 +464,19 @@ def test_table_basics():
     columns = []
     for col in table.itercolumns():
         columns.append(col)
-        for chunk in col.data.iterchunks():
+        for chunk in col.iterchunks():
             assert chunk is not None
 
         with pytest.raises(IndexError):
-            col.data.chunk(-1)
+            col.chunk(-1)
 
         with pytest.raises(IndexError):
-            col.data.chunk(col.data.num_chunks)
+            col.chunk(col.num_chunks)
 
     assert table.columns == columns
-    assert table == pa.Table.from_arrays(columns)
-    assert table != pa.Table.from_arrays(columns[1:])
+    assert table == pa.Table.from_arrays(columns, names=table.column_names)
+    assert table != pa.Table.from_arrays(columns[1:],
+                                         names=table.column_names[1:])
     assert table != columns
 
 
@@ -581,13 +486,10 @@ def test_table_from_arrays_preserves_column_metadata():
     arr1 = pa.array([3, 4])
     field0 = pa.field('field1', pa.int64(), metadata=dict(a="A", b="B"))
     field1 = pa.field('field2', pa.int64(), nullable=False)
-    columns = [
-        pa.column(field0, arr0),
-        pa.column(field1, arr1)
-    ]
-    table = pa.Table.from_arrays(columns)
-    assert b"a" in table.column(0).field.metadata
-    assert table.column(1).field.nullable is False
+    table = pa.Table.from_arrays([arr0, arr1],
+                                 schema=pa.schema([field0, field1]))
+    assert b"a" in table.field(0).metadata
+    assert table.field(1).nullable is False
 
 
 def test_table_from_arrays_invalid_names():
@@ -659,16 +561,16 @@ def test_table_add_column():
     ]
     table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
 
-    col = pa.Column.from_array('d', data[1])
-    t2 = table.add_column(3, col)
-    t3 = table.append_column(col)
+    new_field = pa.field('d', data[1].type)
+    t2 = table.add_column(3, new_field, data[1])
+    t3 = table.append_column(new_field, data[1])
 
     expected = pa.Table.from_arrays(data + [data[1]],
                                     names=('a', 'b', 'c', 'd'))
     assert t2.equals(expected)
     assert t3.equals(expected)
 
-    t4 = table.add_column(0, col)
+    t4 = table.add_column(0, new_field, data[1])
     expected = pa.Table.from_arrays([data[1]] + data,
                                     names=('d', 'a', 'b', 'c'))
     assert t4.equals(expected)
@@ -682,8 +584,8 @@ def test_table_set_column():
     ]
     table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
 
-    col = pa.Column.from_array('d', data[1])
-    t2 = table.set_column(0, col)
+    new_field = pa.field('d', data[1].type)
+    t2 = table.set_column(0, new_field, data[1])
 
     expected_data = list(data)
     expected_data[0] = data[1]
@@ -734,9 +636,26 @@ def test_table_remove_column_empty():
     t2._validate()
     assert len(t2) == len(table)
 
-    t3 = t2.add_column(0, table[0])
+    t3 = t2.add_column(0, table.field(0), table[0])
     t3._validate()
     assert t3.equals(table)
+
+
+def test_table_rename_columns():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array(range(5, 10))
+    ]
+    table = pa.Table.from_arrays(data, names=['a', 'b', 'c'])
+    assert table.column_names == ['a', 'b', 'c']
+
+    t2 = table.rename_columns(['eh', 'bee', 'sea'])
+    t2._validate()
+    assert t2.column_names == ['eh', 'bee', 'sea']
+
+    expected = pa.Table.from_arrays(data, names=['eh', 'bee', 'sea'])
+    assert t2.equals(expected)
 
 
 def test_table_flatten():
@@ -757,6 +676,19 @@ def test_table_flatten():
         c],
         names=['a.x', 'a.y', 'b.nest', 'c'])
     assert t2.equals(expected)
+
+
+def test_table_combine_chunks():
+    batch1 = pa.RecordBatch.from_arrays([pa.array([1]), pa.array(["a"])],
+                                        names=['f1', 'f2'])
+    batch2 = pa.RecordBatch.from_arrays([pa.array([2]), pa.array(["b"])],
+                                        names=['f1', 'f2'])
+    table = pa.Table.from_batches([batch1, batch2])
+    combined = table.combine_chunks()
+    combined._validate()
+    assert combined.equals(table)
+    for c in combined.columns:
+        assert c.num_chunks == 1
 
 
 def test_concat_tables():
@@ -938,7 +870,7 @@ def test_table_from_pydict():
 
     # With chunked arrays as values
     data = OrderedDict([('strs', pa.chunked_array([[u''], [u'foo', u'bar']])),
-                        ('floats', pa.chunked_array([[4.5], [5, None]]))])
+                        ('floats', pa.chunked_array([[4.5], [5., None]]))])
     table = pa.Table.from_pydict(data)
     assert table.num_columns == 2
     assert table.num_rows == 3
@@ -970,3 +902,47 @@ def test_table_from_pydict():
     # Cannot pass both schema and metadata
     with pytest.raises(ValueError):
         pa.Table.from_pydict(data, schema=schema, metadata=metadata)
+
+
+@pytest.mark.pandas
+def test_table_factory_function():
+    import pandas as pd
+
+    # Put in wrong order to make sure that lines up with schema
+    d = OrderedDict([('b', ['a', 'b', 'c']), ('a', [1, 2, 3])])
+
+    d_explicit = {'b': pa.array(['a', 'b', 'c'], type='string'),
+                  'a': pa.array([1, 2, 3], type='int32')}
+
+    schema = pa.schema([('a', pa.int32()), ('b', pa.string())])
+
+    df = pd.DataFrame(d)
+    table1 = pa.table(df)
+    table2 = pa.Table.from_pandas(df)
+    assert table1.equals(table2)
+    table1 = pa.table(df, schema=schema)
+    table2 = pa.Table.from_pandas(df, schema=schema)
+    assert table1.equals(table2)
+
+    table1 = pa.table(d_explicit)
+    table2 = pa.Table.from_pydict(d_explicit)
+    assert table1.equals(table2)
+
+    # schema coerces type
+    table1 = pa.table(d, schema=schema)
+    table2 = pa.Table.from_pydict(d, schema=schema)
+    assert table1.equals(table2)
+
+
+def test_table_function_unicode_schema():
+    col_a = "äääh"
+    col_b = "öööf"
+
+    # Put in wrong order to make sure that lines up with schema
+    d = OrderedDict([(col_b, ['a', 'b', 'c']), (col_a, [1, 2, 3])])
+
+    schema = pa.schema([(col_a, pa.int32()), (col_b, pa.string())])
+
+    result = pa.table(d, schema=schema)
+    assert result[0].chunk(0).equals(pa.array([1, 2, 3], type='int32'))
+    assert result[1].chunk(0).equals(pa.array(['a', 'b', 'c'], type='string'))

@@ -17,38 +17,41 @@
 
 module Arrow
   class Record
+    attr_reader :container
     attr_accessor :index
-    def initialize(record_container, index)
-      @record_container = record_container
+    def initialize(container, index)
+      @container = container
       @index = index
     end
 
     def [](column_name_or_column_index)
-      column = @record_container.find_column(column_name_or_column_index)
+      column = @container.find_column(column_name_or_column_index)
       return nil if column.nil?
       column[@index]
     end
 
-    def columns
-      @record_container.columns
+    def to_a
+      @container.columns.collect do |column|
+        column[@index]
+      end
     end
 
     def to_h
       attributes = {}
-      @record_container.schema.fields.each_with_index do |field, i|
-        attributes[field.name] = self[i]
+      @container.columns.each do |column|
+        attributes[column.name] = column[@index]
       end
       attributes
     end
 
     def respond_to_missing?(name, include_private)
-      return true if @record_container.find_column(name)
+      return true if @container.find_column(name)
       super
     end
 
     def method_missing(name, *args, &block)
       if args.empty?
-        column = @record_container.find_column(name)
+        column = @container.find_column(name)
         return column[@index] if column
       end
       super

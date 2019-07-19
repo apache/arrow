@@ -157,7 +157,7 @@ class ARROW_EXPORT MonthIntervalScalar : public internal::PrimitiveScalar {
                       bool is_valid = true);
 };
 
-class ARROW_EXPORT DayTimeIntervalScalar : public Scalar {
+class ARROW_EXPORT DayTimeIntervalScalar : public internal::PrimitiveScalar {
  public:
   DayTimeIntervalType::DayMilliseconds value;
   DayTimeIntervalScalar(DayTimeIntervalType::DayMilliseconds value,
@@ -177,6 +177,17 @@ struct ARROW_EXPORT ListScalar : public Scalar {
              bool is_valid = true);
 
   explicit ListScalar(const std::shared_ptr<Array>& value, bool is_valid = true);
+};
+
+struct ARROW_EXPORT MapScalar : public Scalar {
+  std::shared_ptr<Array> keys;
+  std::shared_ptr<Array> items;
+
+  MapScalar(const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& values,
+            const std::shared_ptr<DataType>& type, bool is_valid = true);
+
+  MapScalar(const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& values,
+            bool is_valid = true);
 };
 
 struct ARROW_EXPORT FixedSizeListScalar : public Scalar {

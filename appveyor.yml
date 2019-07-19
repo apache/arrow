@@ -19,7 +19,7 @@
 os: Visual Studio 2015
 
 only_commits:
-  # Skip commits not related to Python, C++, C#, Go or Rust
+  # Skip commits not related to Python, C++, C#, Go, R, Ruby, or Rust
   files:
     - appveyor.yml
     - c_glib/
@@ -29,6 +29,8 @@ only_commits:
     - format/
     - go/
     - python/
+    - r/
+    - ruby/
     - rust/
 
 cache:
@@ -63,7 +65,7 @@ environment:
       CONFIGURATION: "Release"
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
     - JOB: "Toolchain"
-      GENERATOR: Visual Studio 14 2015 Win64
+      GENERATOR: Ninja
       CONFIGURATION: "Release"
       ARROW_BUILD_FLIGHT: "ON"
       ARROW_BUILD_GANDIVA: "ON"
@@ -101,6 +103,10 @@ environment:
       GO111MODULE: on
       GOTOOLDIR: '%GOROOT%\pkg\tool\windows_amd64'
       PATH: '%GOPATH%\bin;%GOROOT%\bin;%PATH%'
+    - JOB: "R with libarrow"
+      USE_CLCACHE: false
+      TEST_R_WITH_ARROW: "TRUE"
+      RWINLIB_LOCAL: '%APPVEYOR_BUILD_FOLDER%\libarrow.zip'
 
   MSVC_DEFAULT_OPTIONS: ON
   APPVEYOR_SAVE_CACHE_ON_ERROR: true
@@ -117,6 +123,63 @@ before_build:
 
 build_script:
   - call ci\appveyor-build.bat
+
+for:
+-
+  matrix:
+    only:
+      - JOB: "R with libarrow"
+  init:
+    ps: |
+          $ErrorActionPreference = "Stop"
+          Invoke-WebRequest http://raw.githubusercontent.com/krlmlr/r-appveyor/master/scripts/appveyor-tool.ps1 -OutFile "..\appveyor-tool.ps1"
+          Import-Module '..\appveyor-tool.ps1'
+
+  before_build:
+    - cd r
+    - ps: Bootstrap
+    - cd %APPVEYOR_BUILD_FOLDER%
+
+  build_script:
+    - rmdir /s /Q C:\OpenSSL-Win32 C:\OpenSSL-Win64
+    - C:\msys64\usr\bin\pacman --noconfirm --ask 20 --sync --refresh --refresh --sysupgrade --sysupgrade
+    - C:\msys64\usr\bin\bash --login -c "$(cygpath ${APPVEYOR_BUILD_FOLDER})/ci/appveyor-build-r.sh"
+    - pushd r
+    - travis-tool.sh install_deps
+
+  test_script:
+    - travis-tool.sh run_tests
+
+  on_failure:
+    - travis-tool.sh dump_logs
+
+  environment:
+    NOT_CRAN: true
+
+  artifacts:
+    - path: '*.pkg.tar.xz'
+      name: binaries
+
+    - path: 'build\*.zip'
+      name: binaries
+
+    - path: 'r\*.Rcheck\**\*.log'
+      name: Logs
+
+    - path: 'r\*.Rcheck\**\*.out'
+      name: Logs
+
+    - path: 'r\*.Rcheck\**\*.fail'
+      name: Logs
+
+    - path: 'r\*.Rcheck\**\*.Rout'
+      name: Logs
+
+    - path: 'r\*_*.tar.gz'
+      name: Bits
+
+    - path: 'r\*_*.zip'
+      name: Bits
 
 # Disable test discovery
 test: off

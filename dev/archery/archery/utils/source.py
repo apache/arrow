@@ -87,7 +87,13 @@ class ArrowSources:
         # that builds depending on said sources are not invalidated (or worse
         # slightly affected when re-invoking the generator).
         git.clone("--local", self.path, clone_dir)
-        git.checkout(revision, git_dir=clone_dir)
+
+        # Revision can reference "origin/" (or any remotes) that are not found
+        # in the local clone. Thus, revisions are dereferenced in the source
+        # repository.
+        original_revision = git.rev_parse(revision)
+
+        git.checkout(original_revision, git_dir=clone_dir)
 
         return ArrowSources(clone_dir), True
 

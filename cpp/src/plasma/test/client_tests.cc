@@ -157,7 +157,7 @@ TEST_F(TestPlasmaStore, SealErrorsTest) {
   ObjectID object_id = random_object_id();
 
   Status result = client_.Seal(object_id);
-  ASSERT_TRUE(result.IsPlasmaObjectNonexistent());
+  ASSERT_TRUE(IsPlasmaObjectNonexistent(result));
 
   // Create object.
   std::vector<uint8_t> data(100, 0);
@@ -165,7 +165,7 @@ TEST_F(TestPlasmaStore, SealErrorsTest) {
 
   // Trying to seal it again.
   result = client_.Seal(object_id);
-  ASSERT_TRUE(result.IsPlasmaObjectAlreadySealed());
+  ASSERT_TRUE(IsPlasmaObjectAlreadySealed(result));
   ARROW_CHECK_OK(client_.Release(object_id));
 }
 

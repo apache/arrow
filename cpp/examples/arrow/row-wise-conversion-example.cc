@@ -139,11 +139,11 @@ arrow::Status ColumnarTableToVector(const std::shared_ptr<arrow::Table>& table,
   // border would be inside a byte.
 
   auto ids =
-      std::static_pointer_cast<arrow::Int64Array>(table->column(0)->data()->chunk(0));
+      std::static_pointer_cast<arrow::Int64Array>(table->column(0)->chunk(0));
   auto costs =
-      std::static_pointer_cast<arrow::DoubleArray>(table->column(1)->data()->chunk(0));
+      std::static_pointer_cast<arrow::DoubleArray>(table->column(1)->chunk(0));
   auto cost_components =
-      std::static_pointer_cast<arrow::ListArray>(table->column(2)->data()->chunk(0));
+      std::static_pointer_cast<arrow::ListArray>(table->column(2)->chunk(0));
   auto cost_components_values =
       std::static_pointer_cast<arrow::DoubleArray>(cost_components->values());
   // To enable zero-copy slices, the native values pointer might need to account

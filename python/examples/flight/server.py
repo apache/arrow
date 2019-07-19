@@ -77,7 +77,7 @@ class FlightServer(pyarrow.flight.FlightServerBase):
             return None
         return pyarrow.flight.RecordBatchStream(self.flights[key])
 
-    def list_actions(self):
+    def list_actions(self, context):
         return [
             ("clear", "Clear the stored flights."),
             ("shutdown", "Shut down this server."),
@@ -122,8 +122,9 @@ def main():
             kwargs["tls_private_key"] = key_file.read()
 
     location = "{}://0.0.0.0:{}".format(scheme, args.port)
+    server.init(location, **kwargs)
     print("Serving on", location)
-    server.run(location, **kwargs)
+    server.run()
 
 
 if __name__ == '__main__':

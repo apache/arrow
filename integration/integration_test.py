@@ -705,6 +705,107 @@ class ListColumn(Column):
         return [self.values.get_json()]
 
 
+class MapType(DataType):
+
+    def __init__(self, name, key_type, item_type, nullable=True,
+                 keysSorted=False):
+        super(MapType, self).__init__(name, nullable=nullable)
+
+        assert not key_type.nullable
+        self.key_type = key_type
+        self.item_type = item_type
+        self.pair_type = StructType('entries', [key_type, item_type], False)
+        self.keysSorted = keysSorted
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'map'),
+            ('keysSorted', self.keysSorted)
+        ])
+
+    def _get_children(self):
+        return [self.pair_type.get_json()]
+
+    def generate_column(self, size, name=None):
+        MAX_MAP_SIZE = 4
+
+        is_valid = self._make_is_valid(size)
+        map_sizes = np.random.randint(0, MAX_MAP_SIZE + 1, size=size)
+        offsets = [0]
+
+        offset = 0
+        for i in range(size):
+            if is_valid[i]:
+                offset += int(map_sizes[i])
+            offsets.append(offset)
+
+        # The offset now is the total number of elements in the child array
+        pairs = self.pair_type.generate_column(offset)
+        if name is None:
+            name = self.name
+
+        return MapColumn(name, size, is_valid, offsets, pairs)
+
+
+class MapColumn(Column):
+
+    def __init__(self, name, count, is_valid, offsets, pairs):
+        super(MapColumn, self).__init__(name, count)
+        self.is_valid = is_valid
+        self.offsets = offsets
+        self.pairs = pairs
+
+    def _get_buffers(self):
+        return [
+            ('VALIDITY', [int(v) for v in self.is_valid]),
+            ('OFFSET', list(self.offsets))
+        ]
+
+    def _get_children(self):
+        return [self.pairs.get_json()]
+
+
+class FixedSizeListType(DataType):
+
+    def __init__(self, name, value_type, list_size, nullable=True):
+        super(FixedSizeListType, self).__init__(name, nullable=nullable)
+        self.value_type = value_type
+        self.list_size = list_size
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'fixedsizelist'),
+            ('listSize', self.list_size)
+        ])
+
+    def _get_children(self):
+        return [self.value_type.get_json()]
+
+    def generate_column(self, size, name=None):
+        is_valid = self._make_is_valid(size)
+        values = self.value_type.generate_column(size * self.list_size)
+
+        if name is None:
+            name = self.name
+        return FixedSizeListColumn(name, size, is_valid, values)
+
+
+class FixedSizeListColumn(Column):
+
+    def __init__(self, name, count, is_valid, values):
+        super(FixedSizeListColumn, self).__init__(name, count)
+        self.is_valid = is_valid
+        self.values = values
+
+    def _get_buffers(self):
+        return [
+            ('VALIDITY', [int(v) for v in self.is_valid])
+        ]
+
+    def _get_children(self):
+        return [self.values.get_json()]
+
+
 class StructType(DataType):
 
     def __init__(self, name, field_types, nullable=True):
@@ -957,9 +1058,23 @@ def generate_interval_case():
     return _generate_file("interval", fields, batch_sizes)
 
 
+def generate_map_case():
+    # TODO(bkietz): separated from nested_case so it can be
+    # independently skipped, consolidate after JS supports map
+    fields = [
+        MapType('map_nullable', get_field('key', 'utf8', False),
+                get_field('value', 'int32')),
+    ]
+
+    batch_sizes = [7, 10]
+    return _generate_file("map", fields, batch_sizes)
+
+
 def generate_nested_case():
     fields = [
         ListType('list_nullable', get_field('item', 'int32')),
+        FixedSizeListType('fixedsizelist_nullable',
+                          get_field('item', 'int32'), 4),
         StructType('struct_nullable', [get_field('f1', 'int32'),
                                        get_field('f2', 'utf8')]),
 
@@ -1035,8 +1150,9 @@ def get_generated_json_files(tempdir=None, flight=False):
         generate_decimal_case(),
         generate_datetime_case(),
         generate_interval_case(),
+        generate_map_case(),
         generate_nested_case(),
-        generate_dictionary_case().skip_category(SKIP_FLIGHT),
+        generate_dictionary_case(),
         generate_nested_dictionary_case().skip_category(SKIP_ARROW)
                                          .skip_category(SKIP_FLIGHT),
     ]
@@ -1105,9 +1221,33 @@ class IntegrationRunner(object):
             file_id = guid()[:8]
 
             if ('JS' in (producer.name, consumer.name) and
+                    "map" in test_case.name):
+                print('TODO(ARROW-1279): Enable map tests ' +
+                      ' for JS once they are unbroken')
+                continue
+
+            if ('JS' in (producer.name, consumer.name) and
                     "interval" in test_case.name):
                 print('TODO(ARROW-5239): Enable interval tests ' +
-                      ' for JS once, JS supports them')
+                      ' for JS once JS supports them')
+                continue
+
+            if ('Go' in (producer.name, consumer.name) and
+                    "decimal" in test_case.name):
+                print('TODO(ARROW-3676): Enable decimal tests ' +
+                      ' for Go')
+                continue
+
+            if ('Go' in (producer.name, consumer.name) and
+                    "map" in test_case.name):
+                print('TODO(ARROW-3679): Enable map tests ' +
+                      ' for Go')
+                continue
+
+            if ('Go' in (producer.name, consumer.name) and
+                    "dictionary" in test_case.name):
+                print('TODO(ARROW-3039): Enable dictionary tests ' +
+                      ' for Go')
                 continue
 
             # Make the random access file
@@ -1166,6 +1306,13 @@ class IntegrationRunner(object):
             print('Testing file {0}'.format(json_path))
             print('=' * 58)
 
+            if ('Java' in (producer.name, consumer.name) and
+               "map" in test_case.name):
+                print('TODO(ARROW-1279): Enable map tests ' +
+                      ' for Java and JS once Java supports them and JS\'' +
+                      ' are unbroken')
+                continue
+
             if SKIP_FLIGHT in test_case.skip:
                 print('-- Skipping test')
                 continue
@@ -1219,6 +1366,8 @@ class JavaTester(Tester):
 
     FLIGHT_PORT = 31338
 
+    JAVA_OPTS = ['-Dio.netty.tryReflectionSetAccessible=true']
+
     _arrow_version = load_version_from_pom()
     ARROW_TOOLS_JAR = os.environ.get(
         'ARROW_JAVA_INTEGRATION_JAR',
@@ -1238,8 +1387,8 @@ class JavaTester(Tester):
     name = 'Java'
 
     def _run(self, arrow_path=None, json_path=None, command='VALIDATE'):
-        cmd = ['java', '-cp', self.ARROW_TOOLS_JAR,
-               'org.apache.arrow.tools.Integration']
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_TOOLS_JAR, 'org.apache.arrow.tools.Integration']
 
         if arrow_path is not None:
             cmd.extend(['-a', arrow_path])
@@ -1261,35 +1410,34 @@ class JavaTester(Tester):
         return self._run(arrow_path, json_path, 'JSON_TO_ARROW')
 
     def stream_to_file(self, stream_path, file_path):
-        cmd = ['java', '-cp', self.ARROW_TOOLS_JAR,
-               'org.apache.arrow.tools.StreamToFile',
-               stream_path, file_path]
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_TOOLS_JAR,
+             'org.apache.arrow.tools.StreamToFile', stream_path, file_path]
         if self.debug:
             print(' '.join(cmd))
         run_cmd(cmd)
 
     def file_to_stream(self, file_path, stream_path):
-        cmd = ['java', '-cp', self.ARROW_TOOLS_JAR,
-               'org.apache.arrow.tools.FileToStream',
-               file_path, stream_path]
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_TOOLS_JAR,
+             'org.apache.arrow.tools.FileToStream', file_path, stream_path]
         if self.debug:
             print(' '.join(cmd))
         run_cmd(cmd)
 
     def flight_request(self, port, json_path):
-        cmd = ['java', '-cp', self.ARROW_FLIGHT_JAR,
-               self.ARROW_FLIGHT_CLIENT,
-               '-port', str(port),
-               '-j', json_path]
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_FLIGHT_JAR, self.ARROW_FLIGHT_CLIENT,
+             '-port', str(port), '-j', json_path]
         if self.debug:
             print(' '.join(cmd))
         run_cmd(cmd)
 
     @contextlib.contextmanager
     def flight_server(self):
-        cmd = ['java', '-cp', self.ARROW_FLIGHT_JAR,
-               self.ARROW_FLIGHT_SERVER,
-               '-port', str(self.FLIGHT_PORT)]
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_FLIGHT_JAR, self.ARROW_FLIGHT_SERVER,
+             '-port', str(self.FLIGHT_PORT)]
         if self.debug:
             print(' '.join(cmd))
         server = subprocess.Popen(cmd, stdout=subprocess.PIPE)
@@ -1454,6 +1602,57 @@ class JSTester(Tester):
         os.system(cmd)
 
 
+class GoTester(Tester):
+    PRODUCER = True
+    CONSUMER = True
+
+    # FIXME(sbinet): revisit for Go modules
+    GOPATH = os.getenv('GOPATH', '~/go')
+    GOBIN = os.environ.get('GOBIN', os.path.join(GOPATH, 'bin'))
+
+    GO_INTEGRATION_EXE = os.path.join(GOBIN, 'arrow-json-integration-test')
+    STREAM_TO_FILE = os.path.join(GOBIN, 'arrow-stream-to-file')
+    FILE_TO_STREAM = os.path.join(GOBIN, 'arrow-file-to-stream')
+
+    name = 'Go'
+
+    def _run(self, arrow_path=None, json_path=None, command='VALIDATE'):
+        cmd = [self.GO_INTEGRATION_EXE]
+
+        if arrow_path is not None:
+            cmd.extend(['-arrow', arrow_path])
+
+        if json_path is not None:
+            cmd.extend(['-json', json_path])
+
+        cmd.extend(['-mode', command])
+
+        if self.debug:
+            print(' '.join(cmd))
+
+        run_cmd(cmd)
+
+    def validate(self, json_path, arrow_path):
+        return self._run(arrow_path, json_path, 'VALIDATE')
+
+    def json_to_file(self, json_path, arrow_path):
+        return self._run(arrow_path, json_path, 'JSON_TO_ARROW')
+
+    def stream_to_file(self, stream_path, file_path):
+        cmd = ['cat', stream_path, '|', self.STREAM_TO_FILE, '>', file_path]
+        cmd = ' '.join(cmd)
+        if self.debug:
+            print(cmd)
+        os.system(cmd)
+
+    def file_to_stream(self, file_path, stream_path):
+        cmd = [self.FILE_TO_STREAM, file_path, '>', stream_path]
+        cmd = ' '.join(cmd)
+        if self.debug:
+            print(cmd)
+        os.system(cmd)
+
+
 def get_static_json_files():
     glob_pattern = os.path.join(ARROW_HOME, 'integration', 'data', '*.json')
     return [JsonFile(name=os.path.basename(p), path=p, skip=set(),
@@ -1472,6 +1671,9 @@ def run_all_tests(args):
 
     if args.enable_js:
         testers.append(JSTester(args))
+
+    if args.enable_go:
+        testers.append(GoTester(args))
 
     static_json_files = get_static_json_files()
     generated_json_files = get_generated_json_files(tempdir=args.tempdir,
@@ -1503,6 +1705,7 @@ def run_all_tests(args):
 
 
 def write_js_test_json(directory):
+    generate_map_case().write(os.path.join(directory, 'map.json'))
     generate_nested_case().write(os.path.join(directory, 'nested.json'))
     generate_decimal_case().write(os.path.join(directory, 'decimal.json'))
     generate_datetime_case().write(os.path.join(directory, 'datetime.json'))
@@ -1528,6 +1731,9 @@ if __name__ == '__main__':
     parser.add_argument('--enable-js', dest='enable_js',
                         action='store', type=int, default=1,
                         help='Include JavaScript in integration tests')
+    parser.add_argument('--enable-go', dest='enable_go',
+                        action='store', type=int, default=1,
+                        help='Include Go in integration tests')
 
     parser.add_argument('--write_generated_json', dest='generated_json_path',
                         action='store', default=False,

@@ -32,8 +32,10 @@
 namespace arrow {
 
 class Buffer;
+class RecordBatch;
 class Schema;
 class Status;
+class Table;
 
 namespace ipc {
 
@@ -48,6 +50,15 @@ class Uri;
 }  // namespace internal
 
 namespace flight {
+
+/// \brief A TLS certificate plus key.
+struct ARROW_FLIGHT_EXPORT CertKeyPair {
+  /// \brief The certificate in PEM format.
+  std::string pem_cert;
+
+  /// \brief The key in PEM format.
+  std::string pem_key;
+};
 
 /// \brief A type of action that can be performed with the DoAction RPC
 struct ARROW_FLIGHT_EXPORT ActionType {
@@ -124,10 +135,14 @@ struct ARROW_FLIGHT_EXPORT Ticket {
 class FlightClient;
 class FlightServerBase;
 
-static const char* kSchemeGrpc = "grpc";
-static const char* kSchemeGrpcTcp = "grpc+tcp";
-static const char* kSchemeGrpcUnix = "grpc+unix";
-static const char* kSchemeGrpcTls = "grpc+tls";
+ARROW_FLIGHT_EXPORT
+extern const char* kSchemeGrpc;
+ARROW_FLIGHT_EXPORT
+extern const char* kSchemeGrpcTcp;
+ARROW_FLIGHT_EXPORT
+extern const char* kSchemeGrpcUnix;
+ARROW_FLIGHT_EXPORT
+extern const char* kSchemeGrpcTls;
 
 /// \brief A host location (a URI)
 struct ARROW_FLIGHT_EXPORT Location {
@@ -144,6 +159,13 @@ struct ARROW_FLIGHT_EXPORT Location {
   /// \param[in] port The port
   /// \param[out] location The resulting location
   static Status ForGrpcTcp(const std::string& host, const int port, Location* location);
+
+  /// \brief Initialize a location for a TLS-enabled, gRPC-based Flight
+  /// service from a host and port
+  /// \param[in] host The hostname to connect to
+  /// \param[in] port The port
+  /// \param[out] location The resulting location
+  static Status ForGrpcTls(const std::string& host, const int port, Location* location);
 
   /// \brief Initialize a location for a domain socket-based Flight
   /// service
@@ -189,6 +211,7 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint {
 /// This structure corresponds to FlightData in the protocol.
 struct ARROW_FLIGHT_EXPORT FlightPayload {
   std::shared_ptr<Buffer> descriptor;
+  std::shared_ptr<Buffer> app_metadata;
   ipc::internal::IpcPayload ipc_message;
 };
 
@@ -260,6 +283,30 @@ class ARROW_FLIGHT_EXPORT ResultStream {
   /// \param[out] info a single Result
   /// \return Status
   virtual Status Next(std::unique_ptr<Result>* info) = 0;
+};
+
+/// \brief A holder for a RecordBatch with associated Flight metadata.
+struct ARROW_FLIGHT_EXPORT FlightStreamChunk {
+ public:
+  std::shared_ptr<RecordBatch> data;
+  std::shared_ptr<Buffer> app_metadata;
+};
+
+/// \brief An interface to read Flight data with metadata.
+class ARROW_FLIGHT_EXPORT MetadataRecordBatchReader {
+ public:
+  virtual ~MetadataRecordBatchReader() = default;
+
+  /// \brief Get the schema for this stream.
+  virtual std::shared_ptr<Schema> schema() const = 0;
+  /// \brief Get the next message from Flight. If the stream is
+  /// finished, then the members of \a FlightStreamChunk will be
+  /// nullptr.
+  virtual Status Next(FlightStreamChunk* next) = 0;
+  /// \brief Consume entire stream as a vector of record batches
+  virtual Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);
+  /// \brief Consume entire stream as a Table
+  virtual Status ReadAll(std::shared_ptr<Table>* table);
 };
 
 // \brief Create a FlightListing from a vector of FlightInfo objects. This can

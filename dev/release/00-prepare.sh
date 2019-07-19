@@ -101,12 +101,30 @@ update_versions() {
   git add DESCRIPTION
   cd -
 
-  cd "${SOURCE_DIR}/../../r/src"
+  cd "${SOURCE_DIR}/../../ci"
   sed -i.bak -E -e \
-    "s/^VERSION = .+/VERSION = ${r_version}/" \
-    Makevars.win
-  rm -f Makevars.win.bak
-  git add Makevars.win
+    "s/^pkgver=.+/pkgver=${r_version}/" \
+    PKGBUILD
+  rm -f PKGBUILD.bak
+  git add PKGBUILD
+  cd -
+
+  cd "${SOURCE_DIR}/../../r"
+  if [ ${type} = "snapshot" ]; then
+    # Add a news entry for the new dev version
+    echo "dev"
+    sed -i.bak -E -e \
+      "0,/^# arrow /s/^(# arrow .+)/# arrow ${r_version}\n\n\1/" \
+      NEWS.md
+  else
+    # Replace dev version with release version
+    echo "release"
+    sed -i.bak -E -e \
+      "0,/^# arrow /s/^# arrow .+/# arrow ${r_version}/" \
+      NEWS.md
+  fi
+  rm -f NEWS.md.bak
+  git add NEWS.md
   cd -
 
   cd "${SOURCE_DIR}/../../ruby"
@@ -118,20 +136,11 @@ update_versions() {
   cd -
 
   cd "${SOURCE_DIR}/../../rust"
-  sed -i.bak -E -e \
-    "s/^version = \".+\"/version = \"${version}\"/g" \
+  sed -i.bak -E \
+    -e "s/^version = \".+\"/version = \"${version}\"/g" \
+    -e "s/^(arrow = .* version = )\".+\"( .*)/\\1\"${version}\"\\2/g" \
+    -e "s/^(parquet = .* version = )\".+\"( .*)/\\1\"${version}\"\\2/g" \
     */Cargo.toml
-  if [ ${type} = "snapshot" ]; then
-    sed -i.bak -E \
-      -e "s/^arrow = \".+\"/arrow = { path = \"..\/arrow\" }/g" \
-      -e "s/^parquet = \".+\"/parquet = { path = \"..\/parquet\" }/g" \
-      */Cargo.toml
-  else
-    sed -i.bak -E \
-      -e "s/^arrow = \{ path = \".+\" \}/arrow = \"${version}\"/g" \
-      -e "s/^parquet = \{ path = \".+\" \}/parquet = \"${version}\"/g" \
-      */Cargo.toml
-  fi
   rm -f */Cargo.toml.bak
   git add */Cargo.toml
 
@@ -198,10 +207,33 @@ if [ ${PREPARE_VERSION_PRE_TAG} -gt 0 ]; then
 fi
 
 if [ ${PREPARE_TAG} -gt 0 ]; then
-  cd "${SOURCE_DIR}/../../java"
+  profile=arrow-jni # this includes components which depend on arrow cpp.
+  pushd "${SOURCE_DIR}/../../java"
+  git submodule update --init --recursive
+  cpp_dir="${PWD}/../cpp"
+  cpp_build_dir=$(mktemp -d -t "apache-arrow-cpp.XXXXX")
+  pushd ${cpp_build_dir}
+  cmake \
+    -DARROW_GANDIVA=ON \
+    -DARROW_GANDIVA_JAVA=ON \
+    -DARROW_JNI=ON \
+    -DARROW_ORC=ON \
+    -DCMAKE_BUILD_TYPE=release \
+    -G Ninja \
+    "${cpp_dir}"
+  ninja
+  popd
   mvn release:clean
-  mvn release:prepare -Dtag=${tag} -DreleaseVersion=${version} -DautoVersionSubmodules -DdevelopmentVersion=${next_version_snapshot}
-  cd -
+  mvn \
+    release:prepare \
+    -Darguments=-Darrow.cpp.build.dir=${cpp_build_dir}/release \
+    -DautoVersionSubmodules \
+    -DdevelopmentVersion=${next_version_snapshot} \
+    -DreleaseVersion=${version} \
+    -Dtag=${tag} \
+    -P ${profile}
+  rm -rf ${cpp_build_dir}
+  popd
 fi
 
 ############################## Post-Tag Commits #############################

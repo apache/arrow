@@ -19,6 +19,7 @@ import { Vector } from '../vector';
 import { BaseVector } from './base';
 import { Binary, Utf8 } from '../type';
 
+/** @ignore */
 export class BinaryVector extends BaseVector<Binary> {
     public asUtf8() {
         return Vector.new(this.data.clone(new Utf8()));

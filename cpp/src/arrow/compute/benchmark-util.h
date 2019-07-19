@@ -70,5 +70,28 @@ void RegressionSetArgs(benchmark::internal::Benchmark* bench) {
   BenchmarkSetArgsWithSizes(bench, {kL1Size});
 }
 
+// RAII struct to handle some of the boilerplate in regression benchmarks
+struct RegressionArgs {
+  // size of memory tested (per iteration) in bytes
+  const int64_t size;
+
+  // proportion of nulls in generated arrays
+  const double null_proportion;
+
+  explicit RegressionArgs(benchmark::State& state)
+      : size(state.range(0)),
+        null_proportion(static_cast<double>(state.range(1)) / 100.0),
+        state_(state) {}
+
+  ~RegressionArgs() {
+    state_.counters["size"] = static_cast<double>(size);
+    state_.counters["null_percent"] = static_cast<double>(state_.range(1));
+    state_.SetBytesProcessed(state_.iterations() * size);
+  }
+
+ private:
+  benchmark::State& state_;
+};
+
 }  // namespace compute
 }  // namespace arrow

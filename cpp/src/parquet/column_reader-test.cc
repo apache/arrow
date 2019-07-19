@@ -410,5 +410,27 @@ TEST(TestColumnReader, DefinitionLevelsToBitmap) {
   ASSERT_EQ(current_byte, valid_bits[1]);
 }
 
+TEST(TestColumnReader, DefinitionLevelsToBitmapPowerOfTwo) {
+  // PARQUET-1623: Invalid memory access when decoding a valid bits vector that has a
+  // length equal to a power of two and also using a non-zero valid_bits_offset.  This
+  // should not fail when run with ASAN or valgrind.
+  std::vector<int16_t> def_levels = {3, 3, 3, 2, 3, 3, 3, 3};
+  std::vector<int16_t> rep_levels = {0, 1, 1, 1, 1, 1, 1, 1};
+  std::vector<uint8_t> valid_bits(1, 0);
+
+  const int max_def_level = 3;
+  const int max_rep_level = 1;
+
+  int64_t values_read = -1;
+  int64_t null_count = 0;
+
+  // Read the latter half of the validity bitmap
+  internal::DefinitionLevelsToBitmap(def_levels.data() + 4, 4, max_def_level,
+                                     max_rep_level, &values_read, &null_count,
+                                     valid_bits.data(), 4 /* valid_bits_offset */);
+  ASSERT_EQ(4, values_read);
+  ASSERT_EQ(0, null_count);
+}
+
 }  // namespace test
 }  // namespace parquet

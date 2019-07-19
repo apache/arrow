@@ -17,14 +17,6 @@
 
 module Arrow
   class TimestampArray
-    class << self
-      def new(unit, values)
-        data_type = TimestampDataType.new(unit)
-        builder = TimestampArrayBuilder.new(data_type)
-        builder.build(values)
-      end
-    end
-
     def get_value(i)
       to_time(get_raw_value(i))
     end

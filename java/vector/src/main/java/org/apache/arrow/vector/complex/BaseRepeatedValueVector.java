@@ -55,17 +55,26 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   protected final CallBack callBack;
   protected int valueCount;
   protected int offsetAllocationSizeInBytes = INITIAL_VALUE_ALLOCATION * OFFSET_WIDTH;
+  private final String name;
+
+  protected String defaultDataVectorName = DATA_VECTOR_NAME;
 
   protected BaseRepeatedValueVector(String name, BufferAllocator allocator, CallBack callBack) {
     this(name, allocator, DEFAULT_DATA_VECTOR, callBack);
   }
 
   protected BaseRepeatedValueVector(String name, BufferAllocator allocator, FieldVector vector, CallBack callBack) {
-    super(name, allocator);
+    super(allocator);
+    this.name = name;
     this.offsetBuffer = allocator.getEmpty();
     this.vector = Preconditions.checkNotNull(vector, "data vector cannot be null");
     this.callBack = callBack;
     this.valueCount = 0;
+  }
+
+  @Override
+  public String getName() {
+    return name;
   }
 
   @Override
@@ -195,7 +204,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   }
 
   protected int getOffsetBufferValueCapacity() {
-    return (int) ((offsetBuffer.capacity() * 1.0) / OFFSET_WIDTH);
+    return offsetBuffer.capacity() / OFFSET_WIDTH;
   }
 
   @Override
@@ -270,7 +279,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
     boolean created = false;
     if (vector instanceof ZeroVector) {
-      vector = fieldType.createNewSingleVector(DATA_VECTOR_NAME, allocator, callBack);
+      vector = fieldType.createNewSingleVector(defaultDataVectorName, allocator, callBack);
       // returned vector must have the same field
       created = true;
       if (callBack != null &&

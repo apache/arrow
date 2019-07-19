@@ -20,9 +20,7 @@ limitations under the License.
 {% endcomment %}
 -->
 
-## Powered By
-
-### Project and Product names using "Apache Arrow"
+## Project and Product Names Using "Apache Arrow"
 
 Organizations creating products and projects for use with Apache Arrow, along
 with associated marketing materials, should take care to respect the trademark
@@ -43,9 +41,16 @@ names, etc.) like "arrow-foo". These are permitted. Nominative use of trademarks
 in descriptions is also always allowed, as in "BigCoProduct is a widget for
 Apache Arrow".
 
+Projects and documents that want to include a logo for Apache Arrow should use
+the official logo:
+
+<img src="{{ site.baseurl }}/img/arrow.png" style="max-width: 100%;"/>
+
+## Projects Powered By Apache Arrow
+
 To add yourself to the list, please open a [pull request][27] adding your
 organization name, URL, a list of which Arrow components you are using, and a
-short description of your use case. See the following for some examples.
+short description of your use case.
 
 * **[Apache Parquet][3]:** A columnar storage format available to any project
   in the Hadoop ecosystem, regardless of the choice of data processing
@@ -65,11 +70,11 @@ short description of your use case. See the following for some examples.
   Dremio reads data from any source (RDBMS, HDFS, S3, NoSQL) into Arrow
   buffers, and provides fast SQL access via ODBC, JDBC, and REST for BI,
   Python, R, and more (all backed by Apache Arrow).
-* **[Fletcher][20]:** Fletcher is an FPGA acceleration framework that can
-  convert an Arrow schema into an easy-to-use hardware interface. The
-  accelerator can request data from Arrow tables by supplying row indices.
-  In turn, the interface provides streams of data of the types defined
-  through the schema. Furthermore, Arrow alleviates serialization bottlenecks.
+* **[Fletcher][20]:** Fletcher is a framework that can integrate FPGA 
+  accelerators with tools and frameworks that use the Apache Arrow in-memory
+  format. From a set of Arrow Schemas, Fletcher generates highly optimized 
+  hardware structures that allow accelerator kernels to read and write 
+  RecordBatches at system bandwidth through easy-to-use interfaces.
 * **[GeoMesa][8]:** A suite of tools that enables large-scale geospatial query
   and analytics on distributed computing systems. GeoMesa supports query
   results in the Arrow IPC format, which can then be used for in-browser
@@ -82,10 +87,10 @@ short description of your use case. See the following for some examples.
   early contributing member to GOAI and Arrow\[JS\] focused on bringing these
   technologies to the enterprise.
 * **[InAccel][29]:** A machine learning acceleration framework which leverages
-  FPGAs-as-a-service. InAccel supports dataframes backed by Apache Arrow to 
-  serve as input for our implemented ML algorithms. Those dataframes can be 
+  FPGAs-as-a-service. InAccel supports dataframes backed by Apache Arrow to
+  serve as input for our implemented ML algorithms. Those dataframes can be
   accessed from the FPGAs with a single DMA operation by implementing a shared
-  memory communication schema. 
+  memory communication schema.
 * **[libgdf][14]:** A C library of CUDA-based analytics functions and GPU IPC
   support for structured data. Uses the Arrow IPC format and targets the Arrow
   memory layout in its analytic functions. This work is part of the [GPU Open
@@ -100,10 +105,10 @@ short description of your use case. See the following for some examples.
   supports reading and writing Parquet files using pyarrow. Several pandas
   core developers are also contributors to Apache Arrow.
 * **[Perspective][23]:** Perspective is a streaming data visualization engine in JavaScript for building real-time & user-configurable analytics entirely in the browser.
-* **[Petastorm][28]:** Petastorm enables single machine or distributed training 
-  and evaluation of deep learning models directly from datasets in Apache 
+* **[Petastorm][28]:** Petastorm enables single machine or distributed training
+  and evaluation of deep learning models directly from datasets in Apache
   Parquet format. Petastorm supports popular Python-based machine learning
-  (ML) frameworks such as Tensorflow, Pytorch, and PySpark. It can also be 
+  (ML) frameworks such as Tensorflow, Pytorch, and PySpark. It can also be
   used from pure Python code.
 * **[Quilt Data][13]:** Quilt is a data package manager, designed to make
   managing data as easy as managing code. It supports Parquet format via
@@ -158,7 +163,7 @@ short description of your use case. See the following for some examples.
 [17]: https://github.com/red-data-tools/red-arrow/
 [18]: https://www.graphistry.com
 [19]: http://gpuopenanalytics.com
-[20]: https://github.com/johanpel/fletcher
+[20]: https://github.com/abs-tudelft/fletcher
 [21]: https://www.paradigm4.com
 [22]: https://github.com/Paradigm4/stream
 [23]: https://github.com/jpmorganchase/perspective

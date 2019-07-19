@@ -129,7 +129,7 @@ function spawnGulpCommandInChildProcess(command, target, format) {
         env: { ...process.env, NODE_NO_WARNINGS: `1` }
     };
     return asyncDone(() => child_process.spawn(`node`, args, opts))
-        .catch((e) => { throw { message: `${command}:${taskName(target, format)}` }; });
+        .catch((e) => { throw `Error in "${command}:${taskName(target, format)}" task`; });
 }
 
 const logAndDie = (e) => { if (e) { process.exit(1); } };

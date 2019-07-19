@@ -1,0 +1,105 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+FROM quay.io/pypa/manylinux2010_x86_64:latest
+
+# Install build dependencies
+RUN yum install -y xz bison ccache flex wget
+RUN yum clean all
+
+# Install up-to-date CMake and Ninja versions
+# A fresh CMake is required to recognize recent Boost versions...
+ADD scripts/install_cmake.sh /
+RUN /install_cmake.sh
+
+ADD scripts/build_zlib.sh /
+RUN /build_zlib.sh
+
+WORKDIR /
+RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout 1a7f31be677185f2dface2643284846e14130c3f
+
+ADD scripts/build_llvm.sh /
+RUN /build_llvm.sh
+
+# clang is only used to precompile Gandiva bitcode
+ADD scripts/build_clang.sh /
+RUN /build_clang.sh
+
+ADD scripts/build_openssl.sh /
+RUN /build_openssl.sh
+
+ADD scripts/build_boost.sh /
+RUN /build_boost.sh
+
+ADD scripts/build_thrift.sh /
+RUN /build_thrift.sh
+ENV THRIFT_HOME /usr/local
+
+ADD scripts/build_gflags.sh /
+RUN /build_gflags.sh
+
+ADD scripts/build_protobuf.sh /
+RUN /build_protobuf.sh
+ENV PROTOBUF_HOME /usr/local
+
+ADD scripts/build_cares.sh /
+RUN /build_cares.sh
+
+ADD scripts/build_grpc.sh /
+RUN /build_grpc.sh
+
+ADD scripts/build_flatbuffers.sh /
+RUN /build_flatbuffers.sh
+ENV FLATBUFFERS_HOME /usr/local
+
+ADD scripts/build_brotli.sh /
+RUN /build_brotli.sh
+ENV BROTLI_HOME /usr/local
+
+ADD scripts/build_snappy.sh /
+RUN /build_snappy.sh
+ENV SNAPPY_HOME /usr/local
+
+ADD scripts/build_lz4.sh /
+RUN /build_lz4.sh
+ENV LZ4_HOME /usr/local
+
+ADD scripts/build_zstd.sh /
+RUN /build_zstd.sh
+ENV ZSTD_HOME /usr/local
+
+ADD scripts/build_glog.sh /
+RUN /build_glog.sh
+ENV GLOG_HOME /usr/local
+
+ADD scripts/build_double_conversion.sh /
+RUN /build_double_conversion.sh
+
+ADD scripts/build_rapidjson.sh /
+RUN /build_rapidjson.sh
+
+ADD scripts/build_re2.sh /
+RUN /build_re2.sh
+
+ADD scripts/build_uriparser.sh /
+RUN /build_uriparser.sh
+
+ADD scripts/build_bz2.sh /
+RUN /build_bz2.sh
+
+ADD scripts/build_virtualenvs.sh /
+RUN /build_virtualenvs.sh

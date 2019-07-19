@@ -88,8 +88,8 @@ test_that("table() handles record batches with splicing", {
   expect_equal(tab$schema, batch$schema)
   expect_equal(tab$num_rows, 6L)
   expect_equal(
-    as_tibble(tab),
-    vctrs::vec_rbind(as_tibble(batch), as_tibble(batch), as_tibble(batch))
+    as.data.frame(tab),
+    vctrs::vec_rbind(as.data.frame(batch), as.data.frame(batch), as.data.frame(batch))
   )
 
   batches <- list(batch, batch, batch)
@@ -97,8 +97,8 @@ test_that("table() handles record batches with splicing", {
   expect_equal(tab$schema, batch$schema)
   expect_equal(tab$num_rows, 6L)
   expect_equal(
-    as_tibble(tab),
-    vctrs::vec_rbind(!!!purrr::map(batches, as_tibble))
+    as.data.frame(tab),
+    vctrs::vec_rbind(!!!purrr::map(batches, as.data.frame))
   )
 })
 
@@ -113,9 +113,27 @@ test_that("table() handles ... of arrays, chunked arrays, vectors", {
     tab$schema,
     schema(a = int32(), b = int32(), c = float64(), x = int32(), y = utf8())
   )
-  res <- as_tibble(tab)
+  res <- as.data.frame(tab)
   expect_equal(names(res), c("a", "b", "c", "x", "y"))
   expect_equal(res,
     tibble::tibble(a = 1:10, b = 1:10, c = v, x = 1:10, y = letters[1:10])
   )
 })
+
+test_that("table() auto splices (ARROW-5718)", {
+  df <- tibble::tibble(x = 1:10, y = letters[1:10])
+
+  tab1 <- table(df)
+  tab2 <- table(!!!df)
+  expect_equal(tab1, tab2)
+  expect_equal(tab1$schema, schema(x = int32(), y = utf8()))
+  expect_equivalent(as.data.frame(tab1), df)
+
+  s <- schema(x = float64(), y = utf8())
+  tab3 <- table(df, schema = s)
+  tab4 <- table(!!!df, schema = s)
+  expect_equal(tab3, tab4)
+  expect_equal(tab3$schema, s)
+  expect_equivalent(as.data.frame(tab3), df)
+})
+

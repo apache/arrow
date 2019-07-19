@@ -26,7 +26,6 @@
 #include <arrow-glib/array-builder.h>
 #include <arrow-glib/chunked-array.h>
 #include <arrow-glib/codec.h>
-#include <arrow-glib/column.h>
 #include <arrow-glib/compute.h>
 #include <arrow-glib/data-type.h>
 #include <arrow-glib/enums.h>

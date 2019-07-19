@@ -54,11 +54,16 @@ class RowGroupReader;
 
 static constexpr bool DEFAULT_USE_THREADS = false;
 
+// Default number of rows to read when using ::arrow::RecordBatchReader
+static constexpr int64_t DEFAULT_BATCH_SIZE = 64 * 1024;
+
 /// EXPERIMENTAL: Properties for configuring FileReader behavior.
 class PARQUET_EXPORT ArrowReaderProperties {
  public:
   explicit ArrowReaderProperties(bool use_threads = DEFAULT_USE_THREADS)
-      : use_threads_(use_threads), read_dict_indices_() {}
+      : use_threads_(use_threads),
+        read_dict_indices_(),
+        batch_size_(DEFAULT_BATCH_SIZE) {}
 
   void set_use_threads(bool use_threads) { use_threads_ = use_threads; }
 
@@ -79,9 +84,14 @@ class PARQUET_EXPORT ArrowReaderProperties {
     }
   }
 
+  void set_batch_size(int64_t batch_size) { batch_size_ = batch_size; }
+
+  int64_t batch_size() const { return batch_size_; }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
+  int64_t batch_size_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties
@@ -157,6 +167,9 @@ class PARQUET_EXPORT FileReader {
   //
   // Returns error status if the column of interest is not flat.
   ::arrow::Status GetColumn(int i, std::unique_ptr<ColumnReader>* out);
+
+  /// \brief Return arrow schema for all the columns.
+  ::arrow::Status GetSchema(std::shared_ptr<::arrow::Schema>* out);
 
   /// \brief Return arrow schema by apply selection of column indices.
   /// \returns error status if passed wrong indices.

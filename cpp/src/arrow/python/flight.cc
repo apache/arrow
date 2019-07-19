@@ -30,7 +30,7 @@ namespace py {
 namespace flight {
 
 PyServerAuthHandler::PyServerAuthHandler(PyObject* handler,
-                                         PyServerAuthHandlerVtable vtable)
+                                         const PyServerAuthHandlerVtable& vtable)
     : vtable_(vtable) {
   Py_INCREF(handler);
   handler_.reset(handler);
@@ -53,7 +53,7 @@ Status PyServerAuthHandler::IsValid(const std::string& token,
 }
 
 PyClientAuthHandler::PyClientAuthHandler(PyObject* handler,
-                                         PyClientAuthHandlerVtable vtable)
+                                         const PyClientAuthHandlerVtable& vtable)
     : vtable_(vtable) {
   Py_INCREF(handler);
   handler_.reset(handler);
@@ -74,7 +74,7 @@ Status PyClientAuthHandler::GetToken(std::string* token) {
   });
 }
 
-PyFlightServer::PyFlightServer(PyObject* server, PyFlightServerVtable vtable)
+PyFlightServer::PyFlightServer(PyObject* server, const PyFlightServerVtable& vtable)
     : vtable_(vtable) {
   Py_INCREF(server);
   server_.reset(server);
@@ -108,10 +108,12 @@ Status PyFlightServer::DoGet(const arrow::flight::ServerCallContext& context,
   });
 }
 
-Status PyFlightServer::DoPut(const arrow::flight::ServerCallContext& context,
-                             std::unique_ptr<arrow::flight::FlightMessageReader> reader) {
+Status PyFlightServer::DoPut(
+    const arrow::flight::ServerCallContext& context,
+    std::unique_ptr<arrow::flight::FlightMessageReader> reader,
+    std::unique_ptr<arrow::flight::FlightMetadataWriter> writer) {
   return SafeCallIntoPython([&] {
-    vtable_.do_put(server_.obj(), context, std::move(reader));
+    vtable_.do_put(server_.obj(), context, std::move(reader), std::move(writer));
     return CheckPyError();
   });
 }

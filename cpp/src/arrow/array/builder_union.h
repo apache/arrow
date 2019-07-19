@@ -27,53 +27,8 @@
 
 namespace arrow {
 
-/// \class DenseUnionBuilder
-///
-/// You need to call AppendChild for each of the children builders you want
-/// to use. The function will return an int8_t, which is the type tag
-/// associated with that child. You can then call Append with that tag
-/// (followed by an append on the child builder) to add elements to
-/// the union array.
-///
-/// You can either specify the type when the UnionBuilder is constructed
-/// or let the UnionBuilder infer the type at runtime (by omitting the
-/// type argument from the constructor).
-///
-/// This API is EXPERIMENTAL.
-class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
+class ARROW_EXPORT BasicUnionBuilder : public ArrayBuilder {
  public:
-  /// Use this constructor to incrementally build the union array along
-  /// with types, offsets, and null bitmap.
-  explicit DenseUnionBuilder(MemoryPool* pool,
-                             const std::shared_ptr<DataType>& type = NULLPTR);
-
-  Status AppendNull() final {
-    ARROW_RETURN_NOT_OK(types_builder_.Append(0));
-    ARROW_RETURN_NOT_OK(offsets_builder_.Append(0));
-    return AppendToBitmap(false);
-  }
-
-  Status AppendNulls(int64_t length) final {
-    ARROW_RETURN_NOT_OK(types_builder_.Reserve(length));
-    ARROW_RETURN_NOT_OK(offsets_builder_.Reserve(length));
-    ARROW_RETURN_NOT_OK(Reserve(length));
-    for (int64_t i = 0; i < length; ++i) {
-      types_builder_.UnsafeAppend(0);
-      offsets_builder_.UnsafeAppend(0);
-    }
-    return AppendToBitmap(length, false);
-  }
-
-  /// \brief Append an element to the UnionArray. This must be followed
-  ///        by an append to the appropriate child builder.
-  /// \param[in] type index of the child the value will be appended
-  /// \param[in] offset offset of the value in that child
-  Status Append(int8_t type, int32_t offset) {
-    ARROW_RETURN_NOT_OK(types_builder_.Append(type));
-    ARROW_RETURN_NOT_OK(offsets_builder_.Append(offset));
-    return AppendToBitmap(true);
-  }
-
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
   /// \cond FALSE
@@ -84,23 +39,134 @@ class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
 
   /// \brief Make a new child builder available to the UnionArray
   ///
-  /// \param[in] child the child builder
+  /// \param[in] new_child the child builder
   /// \param[in] field_name the name of the field in the union array type
   /// if type inference is used
   /// \return child index, which is the "type" argument that needs
   /// to be passed to the "Append" method to add a new element to
   /// the union array.
-  int8_t AppendChild(const std::shared_ptr<ArrayBuilder>& child,
-                     const std::string& field_name = "") {
-    children_.push_back(child);
-    field_names_.push_back(field_name);
-    return static_cast<int8_t>(children_.size() - 1);
+  int8_t AppendChild(const std::shared_ptr<ArrayBuilder>& new_child,
+                     const std::string& field_name = "");
+
+ protected:
+  /// Use this constructor to initialize the UnionBuilder with no child builders,
+  /// allowing type to be inferred. You will need to call AppendChild for each of the
+  /// children builders you want to use.
+  explicit BasicUnionBuilder(MemoryPool* pool, UnionMode::type mode)
+      : ArrayBuilder(NULLPTR, pool), mode_(mode), types_builder_(pool) {}
+
+  /// Use this constructor to specify the type explicitly.
+  /// You can still add child builders to the union after using this constructor
+  BasicUnionBuilder(MemoryPool* pool, UnionMode::type mode,
+                    const std::vector<std::shared_ptr<ArrayBuilder>>& children,
+                    const std::shared_ptr<DataType>& type);
+
+  UnionMode::type mode_;
+  std::vector<std::shared_ptr<ArrayBuilder>> type_id_to_children_;
+  // for all type_id < dense_type_id_, type_id_to_children_[type_id] != nullptr
+  int8_t dense_type_id_ = 0;
+  TypedBufferBuilder<int8_t> types_builder_;
+  std::vector<std::string> field_names_;
+};
+
+/// \class DenseUnionBuilder
+///
+/// This API is EXPERIMENTAL.
+class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
+ public:
+  /// Use this constructor to initialize the UnionBuilder with no child builders,
+  /// allowing type to be inferred. You will need to call AppendChild for each of the
+  /// children builders you want to use.
+  explicit DenseUnionBuilder(MemoryPool* pool)
+      : BasicUnionBuilder(pool, UnionMode::DENSE), offsets_builder_(pool) {}
+
+  /// Use this constructor to specify the type explicitly.
+  /// You can still add child builders to the union after using this constructor
+  DenseUnionBuilder(MemoryPool* pool,
+                    const std::vector<std::shared_ptr<ArrayBuilder>>& children,
+                    const std::shared_ptr<DataType>& type)
+      : BasicUnionBuilder(pool, UnionMode::DENSE, children, type),
+        offsets_builder_(pool) {}
+
+  Status AppendNull() final {
+    ARROW_RETURN_NOT_OK(types_builder_.Append(0));
+    ARROW_RETURN_NOT_OK(offsets_builder_.Append(0));
+    return AppendToBitmap(false);
+  }
+
+  Status AppendNulls(int64_t length) final {
+    ARROW_RETURN_NOT_OK(types_builder_.Append(length, 0));
+    ARROW_RETURN_NOT_OK(offsets_builder_.Append(length, 0));
+    return AppendToBitmap(length, false);
+  }
+
+  /// \brief Append an element to the UnionArray. This must be followed
+  ///        by an append to the appropriate child builder.
+  ///
+  /// \param[in] next_type type_id of the child to which the next value will be appended.
+  ///
+  /// The corresponding child builder must be appended to independently after this method
+  /// is called.
+  Status Append(int8_t next_type) {
+    ARROW_RETURN_NOT_OK(types_builder_.Append(next_type));
+    if (type_id_to_children_[next_type]->length() == kListMaximumElements) {
+      return Status::CapacityError(
+          "a dense UnionArray cannot contain more than 2^31 - 1 elements from a single "
+          "child");
+    }
+    auto offset = static_cast<int32_t>(type_id_to_children_[next_type]->length());
+    ARROW_RETURN_NOT_OK(offsets_builder_.Append(offset));
+    return AppendToBitmap(true);
+  }
+
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
+    ARROW_RETURN_NOT_OK(BasicUnionBuilder::FinishInternal(out));
+    return offsets_builder_.Finish(&(*out)->buffers[2]);
   }
 
  private:
-  TypedBufferBuilder<int8_t> types_builder_;
   TypedBufferBuilder<int32_t> offsets_builder_;
-  std::vector<std::string> field_names_;
+};
+
+/// \class SparseUnionBuilder
+///
+/// This API is EXPERIMENTAL.
+class ARROW_EXPORT SparseUnionBuilder : public BasicUnionBuilder {
+ public:
+  /// Use this constructor to initialize the UnionBuilder with no child builders,
+  /// allowing type to be inferred. You will need to call AppendChild for each of the
+  /// children builders you want to use.
+  explicit SparseUnionBuilder(MemoryPool* pool)
+      : BasicUnionBuilder(pool, UnionMode::SPARSE) {}
+
+  /// Use this constructor to specify the type explicitly.
+  /// You can still add child builders to the union after using this constructor
+  SparseUnionBuilder(MemoryPool* pool,
+                     const std::vector<std::shared_ptr<ArrayBuilder>>& children,
+                     const std::shared_ptr<DataType>& type)
+      : BasicUnionBuilder(pool, UnionMode::SPARSE, children, type) {}
+
+  Status AppendNull() final {
+    ARROW_RETURN_NOT_OK(types_builder_.Append(0));
+    return AppendToBitmap(false);
+  }
+
+  Status AppendNulls(int64_t length) final {
+    ARROW_RETURN_NOT_OK(types_builder_.Append(length, 0));
+    return AppendToBitmap(length, false);
+  }
+
+  /// \brief Append an element to the UnionArray. This must be followed
+  ///        by an append to the appropriate child builder.
+  ///
+  /// \param[in] next_type type_id of the child to which the next value will be appended.
+  ///
+  /// The corresponding child builder must be appended to independently after this method
+  /// is called, and all other child builders must have null appended
+  Status Append(int8_t next_type) {
+    ARROW_RETURN_NOT_OK(types_builder_.Append(next_type));
+    return AppendToBitmap(true);
+  }
 };
 
 }  // namespace arrow

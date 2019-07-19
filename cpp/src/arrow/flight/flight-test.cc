@@ -135,7 +135,7 @@ TEST(TestFlightDescriptor, ToFromProto) {
 }
 #endif
 
-TEST(TestFlight, StartStopTestServer) {
+TEST(TestFlight, DISABLED_StartStopTestServer) {
   TestServer server("flight-test-server");
   server.Start();
   ASSERT_TRUE(server.IsRunning());
@@ -176,35 +176,28 @@ TEST(TestFlight, ConnectUri) {
 
 class TestFlightClient : public ::testing::Test {
  public:
-  // Uncomment these when you want to run the server separately for
-  // debugging/valgrind/gdb
-
-  // void SetUp() {
-  //   port_ = 92358;
-  //   ASSERT_OK(ConnectClient());
-  // }
-  // void TearDown() {}
-
   void SetUp() {
-    server_.reset(new TestServer("flight-test-server"));
-    server_->Start();
-    port_ = server_->port();
+    Location location;
+    std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+
+    ASSERT_OK(Location::ForGrpcTcp("localhost", GetListenPort(), &location));
+    FlightServerOptions options(location);
+    ASSERT_OK(server->Init(options));
+
+    server_.reset(new InProcessTestServer(std::move(server), location));
+    ASSERT_OK(server_->Start());
     ASSERT_OK(ConnectClient());
   }
 
   void TearDown() { server_->Stop(); }
 
-  Status ConnectClient() {
-    Location location;
-    RETURN_NOT_OK(Location::ForGrpcTcp("localhost", port_, &location));
-    return FlightClient::Connect(location, &client_);
-  }
+  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
 
   template <typename EndpointCheckFunc>
   void CheckDoGet(const FlightDescriptor& descr, const BatchVector& expected_batches,
                   EndpointCheckFunc&& check_endpoints) {
     auto num_batches = static_cast<int>(expected_batches.size());
-    DCHECK_GE(num_batches, 2);
+    ASSERT_GE(num_batches, 2);
     auto expected_schema = expected_batches[0]->schema();
 
     std::unique_ptr<FlightInfo> info;
@@ -218,25 +211,25 @@ class TestFlightClient : public ::testing::Test {
 
     // By convention, fetch the first endpoint
     Ticket ticket = info->endpoints()[0].ticket;
-    std::unique_ptr<RecordBatchReader> stream;
+    std::unique_ptr<FlightStreamReader> stream;
     ASSERT_OK(client_->DoGet(ticket, &stream));
 
-    std::shared_ptr<RecordBatch> chunk;
+    FlightStreamChunk chunk;
     for (int i = 0; i < num_batches; ++i) {
-      ASSERT_OK(stream->ReadNext(&chunk));
-      ASSERT_NE(nullptr, chunk);
-      ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk);
+      ASSERT_OK(stream->Next(&chunk));
+      ASSERT_NE(nullptr, chunk.data);
+      ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk.data);
     }
 
     // Stream exhausted
-    ASSERT_OK(stream->ReadNext(&chunk));
-    ASSERT_EQ(nullptr, chunk);
+    ASSERT_OK(stream->Next(&chunk));
+    ASSERT_EQ(nullptr, chunk.data);
   }
 
  protected:
   int port_;
   std::unique_ptr<FlightClient> client_;
-  std::unique_ptr<TestServer> server_;
+  std::unique_ptr<InProcessTestServer> server_;
 };
 
 class AuthTestServer : public FlightServerBase {
@@ -249,10 +242,21 @@ class AuthTestServer : public FlightServerBase {
   }
 };
 
+class TlsTestServer : public FlightServerBase {
+  Status DoAction(const ServerCallContext& context, const Action& action,
+                  std::unique_ptr<ResultStream>* result) override {
+    std::shared_ptr<Buffer> buf;
+    RETURN_NOT_OK(Buffer::FromString("Hello, world!", &buf));
+    *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
+    return Status::OK();
+  }
+};
+
 class DoPutTestServer : public FlightServerBase {
  public:
   Status DoPut(const ServerCallContext& context,
-               std::unique_ptr<FlightMessageReader> reader) override {
+               std::unique_ptr<FlightMessageReader> reader,
+               std::unique_ptr<FlightMetadataWriter> writer) override {
     descriptor_ = reader->descriptor();
     return reader->ReadAll(&batches_);
   }
@@ -263,6 +267,70 @@ class DoPutTestServer : public FlightServerBase {
 
   friend class TestDoPut;
 };
+
+class MetadataTestServer : public FlightServerBase {
+  Status DoGet(const ServerCallContext& context, const Ticket& request,
+               std::unique_ptr<FlightDataStream>* data_stream) override {
+    BatchVector batches;
+    RETURN_NOT_OK(ExampleIntBatches(&batches));
+    std::shared_ptr<RecordBatchReader> batch_reader =
+        std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+
+    *data_stream = std::unique_ptr<FlightDataStream>(new NumberingStream(
+        std::unique_ptr<FlightDataStream>(new RecordBatchStream(batch_reader))));
+    return Status::OK();
+  }
+
+  Status DoPut(const ServerCallContext& context,
+               std::unique_ptr<FlightMessageReader> reader,
+               std::unique_ptr<FlightMetadataWriter> writer) override {
+    FlightStreamChunk chunk;
+    int counter = 0;
+    while (true) {
+      RETURN_NOT_OK(reader->Next(&chunk));
+      if (chunk.data == nullptr) break;
+      if (chunk.app_metadata == nullptr) {
+        return Status::Invalid("Expected application metadata to be provided");
+      }
+      if (std::to_string(counter) != chunk.app_metadata->ToString()) {
+        return Status::Invalid("Expected metadata value: " + std::to_string(counter) +
+                               " but got: " + chunk.app_metadata->ToString());
+      }
+      auto metadata = Buffer::FromString(std::to_string(counter));
+      RETURN_NOT_OK(writer->WriteMetadata(*metadata));
+      counter++;
+    }
+    return Status::OK();
+  }
+};
+
+template <typename T>
+class InsecureTestServer : public ::testing::Test {
+ public:
+  void SetUp() {
+    Location location;
+    ASSERT_OK(Location::ForGrpcTcp("localhost", 30000, &location));
+
+    std::unique_ptr<FlightServerBase> server(new T);
+    FlightServerOptions options(location);
+    ASSERT_OK(server->Init(options));
+
+    server_.reset(new InProcessTestServer(std::move(server), location));
+    ASSERT_OK(server_->Start());
+    ASSERT_OK(ConnectClient());
+  }
+
+  void TearDown() { server_->Stop(); }
+
+  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
+
+ protected:
+  int port_;
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<InProcessTestServer> server_;
+};
+
+using TestMetadata = InsecureTestServer<MetadataTestServer>;
 
 class TestAuthHandler : public ::testing::Test {
  public:
@@ -320,8 +388,9 @@ class TestDoPut : public ::testing::Test {
 
   void CheckDoPut(FlightDescriptor descr, const std::shared_ptr<Schema>& schema,
                   const BatchVector& batches) {
-    std::unique_ptr<ipc::RecordBatchWriter> stream;
-    ASSERT_OK(client_->DoPut(descr, schema, &stream));
+    std::unique_ptr<FlightStreamWriter> stream;
+    std::unique_ptr<FlightMetadataReader> reader;
+    ASSERT_OK(client_->DoPut(descr, schema, &stream, &reader));
     for (const auto& batch : batches) {
       ASSERT_OK(stream->WriteRecordBatch(*batch));
     }
@@ -334,6 +403,42 @@ class TestDoPut : public ::testing::Test {
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<InProcessTestServer> server_;
   DoPutTestServer* do_put_server_;
+};
+
+class TestTls : public ::testing::Test {
+ public:
+  void SetUp() {
+    Location location;
+    std::unique_ptr<FlightServerBase> server(new TlsTestServer);
+
+    ASSERT_OK(Location::ForGrpcTls("localhost", GetListenPort(), &location));
+    FlightServerOptions options(location);
+    ASSERT_RAISES(UnknownError, server->Init(options));
+    ASSERT_OK(ExampleTlsCertificates(&options.tls_certificates));
+    ASSERT_OK(server->Init(options));
+
+    server_.reset(new InProcessTestServer(std::move(server), location));
+    ASSERT_OK(server_->Start());
+    ASSERT_OK(ConnectClient());
+  }
+
+  void TearDown() {
+    if (server_) {
+      server_->Stop();
+    }
+  }
+
+  Status ConnectClient() {
+    auto options = FlightClientOptions();
+    CertKeyPair root_cert;
+    RETURN_NOT_OK(ExampleTlsCertificateRoot(&root_cert));
+    options.tls_root_certs = root_cert.pem_cert;
+    return FlightClient::Connect(server_->location(), options, &client_);
+  }
+
+ protected:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<InProcessTestServer> server_;
 };
 
 TEST_F(TestFlightClient, ListFlights) {
@@ -446,7 +551,7 @@ TEST_F(TestFlightClient, Issue5095) {
   // Make sure the server-side error message is reflected to the
   // client
   Ticket ticket1{"ARROW-5095-fail"};
-  std::unique_ptr<RecordBatchReader> stream;
+  std::unique_ptr<FlightStreamReader> stream;
   Status status = client_->DoGet(ticket1, &stream);
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Server-side error"));
@@ -549,13 +654,14 @@ TEST_F(TestAuthHandler, PassAuthenticatedCalls) {
   status = client_->GetFlightInfo(FlightDescriptor{}, &info);
   ASSERT_RAISES(NotImplemented, status);
 
-  std::unique_ptr<RecordBatchReader> stream;
+  std::unique_ptr<FlightStreamReader> stream;
   status = client_->DoGet(Ticket{}, &stream);
   ASSERT_RAISES(NotImplemented, status);
 
-  std::unique_ptr<ipc::RecordBatchWriter> writer;
+  std::unique_ptr<FlightStreamWriter> writer;
+  std::unique_ptr<FlightMetadataReader> reader;
   std::shared_ptr<Schema> schema = arrow::schema({});
-  status = client_->DoPut(FlightDescriptor{}, schema, &writer);
+  status = client_->DoPut(FlightDescriptor{}, schema, &writer, &reader);
   ASSERT_OK(status);
   status = writer->Close();
   ASSERT_RAISES(NotImplemented, status);
@@ -586,15 +692,16 @@ TEST_F(TestAuthHandler, FailUnauthenticatedCalls) {
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 
-  std::unique_ptr<RecordBatchReader> stream;
+  std::unique_ptr<FlightStreamReader> stream;
   status = client_->DoGet(Ticket{}, &stream);
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 
-  std::unique_ptr<ipc::RecordBatchWriter> writer;
+  std::unique_ptr<FlightStreamWriter> writer;
+  std::unique_ptr<FlightMetadataReader> reader;
   std::shared_ptr<Schema> schema(
       (new arrow::Schema(std::vector<std::shared_ptr<Field>>())));
-  status = client_->DoPut(FlightDescriptor{}, schema, &writer);
+  status = client_->DoPut(FlightDescriptor{}, schema, &writer, &reader);
   ASSERT_OK(status);
   status = writer->Close();
   ASSERT_RAISES(IOError, status);
@@ -618,6 +725,107 @@ TEST_F(TestAuthHandler, CheckPeerIdentity) {
   ASSERT_NE(result, nullptr);
   // Action returns the peer identity as the result.
   ASSERT_EQ(result->body->ToString(), "user");
+}
+
+TEST_F(TestTls, DoAction) {
+  FlightCallOptions options;
+  options.timeout = TimeoutDuration{5.0};
+  Action action;
+  action.type = "test";
+  action.body = Buffer::FromString("");
+  std::unique_ptr<ResultStream> results;
+  ASSERT_OK(client_->DoAction(options, action, &results));
+  ASSERT_NE(results, nullptr);
+
+  std::unique_ptr<Result> result;
+  ASSERT_OK(results->Next(&result));
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->body->ToString(), "Hello, world!");
+}
+
+TEST_F(TestTls, OverrideHostname) {
+  std::unique_ptr<FlightClient> client;
+  auto client_options = FlightClientOptions();
+  client_options.override_hostname = "fakehostname";
+  CertKeyPair root_cert;
+  ASSERT_OK(ExampleTlsCertificateRoot(&root_cert));
+  client_options.tls_root_certs = root_cert.pem_cert;
+  ASSERT_OK(FlightClient::Connect(server_->location(), client_options, &client));
+
+  FlightCallOptions options;
+  options.timeout = TimeoutDuration{5.0};
+  Action action;
+  action.type = "test";
+  action.body = Buffer::FromString("");
+  std::unique_ptr<ResultStream> results;
+  ASSERT_RAISES(IOError, client->DoAction(options, action, &results));
+}
+
+TEST_F(TestMetadata, DoGet) {
+  Ticket ticket{""};
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(client_->DoGet(ticket, &stream));
+
+  BatchVector expected_batches;
+  ASSERT_OK(ExampleIntBatches(&expected_batches));
+
+  FlightStreamChunk chunk;
+  auto num_batches = static_cast<int>(expected_batches.size());
+  for (int i = 0; i < num_batches; ++i) {
+    ASSERT_OK(stream->Next(&chunk));
+    ASSERT_NE(nullptr, chunk.data);
+    ASSERT_NE(nullptr, chunk.app_metadata);
+    ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk.data);
+    ASSERT_EQ(std::to_string(i), chunk.app_metadata->ToString());
+  }
+  ASSERT_OK(stream->Next(&chunk));
+  ASSERT_EQ(nullptr, chunk.data);
+}
+
+TEST_F(TestMetadata, DoPut) {
+  std::unique_ptr<FlightStreamWriter> writer;
+  std::unique_ptr<FlightMetadataReader> reader;
+  std::shared_ptr<Schema> schema = ExampleIntSchema();
+  ASSERT_OK(client_->DoPut(FlightDescriptor{}, schema, &writer, &reader));
+
+  BatchVector expected_batches;
+  ASSERT_OK(ExampleIntBatches(&expected_batches));
+
+  std::shared_ptr<RecordBatch> chunk;
+  std::shared_ptr<Buffer> metadata;
+  auto num_batches = static_cast<int>(expected_batches.size());
+  for (int i = 0; i < num_batches; ++i) {
+    ASSERT_OK(writer->WriteWithMetadata(*expected_batches[i],
+                                        Buffer::FromString(std::to_string(i))));
+  }
+  // This eventually calls grpc::ClientReaderWriter::Finish which can
+  // hang if there are unread messages. So make sure our wrapper
+  // around this doesn't hang (because it drains any unread messages)
+  ASSERT_OK(writer->Close());
+}
+
+TEST_F(TestMetadata, DoPutReadMetadata) {
+  std::unique_ptr<FlightStreamWriter> writer;
+  std::unique_ptr<FlightMetadataReader> reader;
+  std::shared_ptr<Schema> schema = ExampleIntSchema();
+  ASSERT_OK(client_->DoPut(FlightDescriptor{}, schema, &writer, &reader));
+
+  BatchVector expected_batches;
+  ASSERT_OK(ExampleIntBatches(&expected_batches));
+
+  std::shared_ptr<RecordBatch> chunk;
+  std::shared_ptr<Buffer> metadata;
+  auto num_batches = static_cast<int>(expected_batches.size());
+  for (int i = 0; i < num_batches; ++i) {
+    ASSERT_OK(writer->WriteWithMetadata(*expected_batches[i],
+                                        Buffer::FromString(std::to_string(i))));
+    ASSERT_OK(reader->ReadMetadata(&metadata));
+    ASSERT_NE(nullptr, metadata);
+    ASSERT_EQ(std::to_string(i), metadata->ToString());
+  }
+  // As opposed to DoPutDrainMetadata, now we've read the messages, so
+  // make sure this still closes as expected.
+  ASSERT_OK(writer->Close());
 }
 
 }  // namespace flight

@@ -38,9 +38,7 @@
 use std::sync::Arc;
 
 use crate::array::*;
-use crate::array_data::ArrayData;
 use crate::buffer::Buffer;
-use crate::builder::*;
 use crate::compute::kernels::arithmetic::{divide, multiply};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};

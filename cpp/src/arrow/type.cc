@@ -56,6 +56,10 @@ std::shared_ptr<Field> Field::WithType(const std::shared_ptr<DataType>& type) co
   return std::make_shared<Field>(name_, type, nullable_, metadata_);
 }
 
+std::shared_ptr<Field> Field::WithName(const std::string& name) const {
+  return std::make_shared<Field>(name, type_, nullable_, metadata_);
+}
+
 std::vector<std::shared_ptr<Field>> Field::Flatten() const {
   std::vector<std::shared_ptr<Field>> flattened;
   if (type_->id() == Type::STRUCT) {
@@ -147,6 +151,27 @@ std::string ListType::ToString() const {
   return s.str();
 }
 
+MapType::MapType(const std::shared_ptr<DataType>& key_type,
+                 const std::shared_ptr<DataType>& item_type, bool keys_sorted)
+    : ListType(std::make_shared<Field>(
+          "entries",
+          struct_({std::make_shared<Field>("key", key_type, false),
+                   std::make_shared<Field>("value", item_type)}),
+          false)),
+      keys_sorted_(keys_sorted) {
+  id_ = type_id;
+}
+
+std::string MapType::ToString() const {
+  std::stringstream s;
+  s << "map<" << key_type()->ToString() << ", " << item_type()->ToString();
+  if (keys_sorted_) {
+    s << ", keys_sorted";
+  }
+  s << ">";
+  return s.str();
+}
+
 std::string FixedSizeListType::ToString() const {
   std::stringstream s;
   s << "fixed_size_list<" << value_field()->ToString() << ">[" << list_size_ << "]";
@@ -183,7 +208,7 @@ TimeType::TimeType(Type::type type_id, TimeUnit::type unit)
     : TemporalType(type_id), unit_(unit) {}
 
 Time32Type::Time32Type(TimeUnit::type unit) : TimeType(Type::TIME32, unit) {
-  DCHECK(unit == TimeUnit::SECOND || unit == TimeUnit::MILLI)
+  ARROW_CHECK(unit == TimeUnit::SECOND || unit == TimeUnit::MILLI)
       << "Must be seconds or milliseconds";
 }
 
@@ -194,7 +219,7 @@ std::string Time32Type::ToString() const {
 }
 
 Time64Type::Time64Type(TimeUnit::type unit) : TimeType(Type::TIME64, unit) {
-  DCHECK(unit == TimeUnit::MICRO || unit == TimeUnit::NANO)
+  ARROW_CHECK(unit == TimeUnit::MICRO || unit == TimeUnit::NANO)
       << "Must be microseconds or nanoseconds";
 }
 
@@ -248,7 +273,24 @@ std::string DurationType::ToString() const {
 UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
                      const std::vector<uint8_t>& type_codes, UnionMode::type mode)
     : NestedType(Type::UNION), mode_(mode), type_codes_(type_codes) {
+  DCHECK_LE(fields.size(), type_codes.size()) << "union field with unknown type id";
+  DCHECK_GE(fields.size(), type_codes.size())
+      << "type id provided without corresponding union field";
   children_ = fields;
+}
+
+DataTypeLayout UnionType::layout() const {
+  if (mode_ == UnionMode::SPARSE) {
+    return {{1, CHAR_BIT, DataTypeLayout::kAlwaysNullBuffer}, false};
+  } else {
+    return {{1, CHAR_BIT, sizeof(int32_t) * CHAR_BIT}, false};
+  }
+}
+
+uint8_t UnionType::max_type_code() const {
+  return type_codes_.size() == 0
+             ? 0
+             : *std::max_element(type_codes_.begin(), type_codes_.end());
 }
 
 std::string UnionType::ToString() const {
@@ -325,7 +367,7 @@ std::string StructType::ToString() const {
       s << ", ";
     }
     std::shared_ptr<Field> field = this->child(i);
-    s << field->name() << ": " << field->type()->ToString();
+    s << field->ToString();
   }
   s << ">";
   return s.str();
@@ -374,8 +416,8 @@ int StructType::GetChildIndex(const std::string& name) const {
 
 Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
     : DecimalType(16, precision, scale) {
-  DCHECK_GE(precision, 1);
-  DCHECK_LE(precision, 38);
+  ARROW_CHECK_GE(precision, 1);
+  ARROW_CHECK_LE(precision, 38);
 }
 
 // ----------------------------------------------------------------------
@@ -391,10 +433,16 @@ DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
       index_type_(index_type),
       value_type_(value_type),
       ordered_(ordered) {
-#ifndef NDEBUG
+  ARROW_CHECK(is_integer(index_type->id()))
+      << "dictionary index type should be signed integer";
   const auto& int_type = checked_cast<const IntegerType&>(*index_type);
-  DCHECK_EQ(int_type.is_signed(), true) << "dictionary index type should be signed";
-#endif
+  ARROW_CHECK(int_type.is_signed()) << "dictionary index type should be signed integer";
+}
+
+DataTypeLayout DictionaryType::layout() const {
+  auto layout = index_type_->layout();
+  layout.has_dictionary = true;
+  return layout;
 }
 
 std::string DictionaryType::ToString() const {
@@ -661,6 +709,12 @@ std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type) {
 
 std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_field) {
   return std::make_shared<ListType>(value_field);
+}
+
+std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
+                              const std::shared_ptr<DataType>& value_type,
+                              bool keys_sorted) {
+  return std::make_shared<MapType>(key_type, value_type, keys_sorted);
 }
 
 std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,

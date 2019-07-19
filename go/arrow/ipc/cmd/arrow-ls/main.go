@@ -59,9 +59,7 @@ import (
 	"io"
 	"log"
 	"os"
-	"strings"
 
-	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/pkg/errors"
@@ -86,8 +84,7 @@ func main() {
 }
 
 func processStream(w io.Writer, rin io.Reader) error {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(nil, 0)
+	mem := memory.NewGoAllocator()
 
 	for {
 		r, err := ipc.NewReader(rin, ipc.WithAllocator(mem))
@@ -99,7 +96,7 @@ func processStream(w io.Writer, rin io.Reader) error {
 		}
 		defer r.Release()
 
-		fmt.Fprintf(w, "schema:\n%v", displaySchema(r.Schema()))
+		fmt.Fprintf(w, "%v\n", r.Schema())
 
 		nrecs := 0
 		for r.Next() {
@@ -140,8 +137,7 @@ func processFile(w io.Writer, fname string) error {
 		return processStream(w, f)
 	}
 
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(nil, 0)
+	mem := memory.NewGoAllocator()
 
 	r, err := ipc.NewFileReader(f, ipc.WithAllocator(mem))
 	if err != nil {
@@ -153,33 +149,10 @@ func processFile(w io.Writer, fname string) error {
 	defer r.Close()
 
 	fmt.Fprintf(w, "version: %v\n", r.Version())
-	fmt.Fprintf(w, "schema:\n%v", displaySchema(r.Schema()))
+	fmt.Fprintf(w, "%v\n", r.Schema())
 	fmt.Fprintf(w, "records: %d\n", r.NumRecords())
 
 	return nil
-}
-
-func displaySchema(s *arrow.Schema) string {
-	o := new(strings.Builder)
-	fmt.Fprintf(o, "%*.sfields: %d\n", 2, "", len(s.Fields()))
-	for _, f := range s.Fields() {
-		displayField(o, f, 4)
-	}
-	if meta := s.Metadata(); meta.Len() > 0 {
-		fmt.Fprintf(o, "metadata: %v\n", meta)
-	}
-	return o.String()
-}
-
-func displayField(o io.Writer, field arrow.Field, inc int) {
-	nullable := ""
-	if field.Nullable {
-		nullable = ", nullable"
-	}
-	fmt.Fprintf(o, "%*.s- %s: type=%v%v\n", inc, "", field.Name, field.Type, nullable)
-	if field.HasMetadata() {
-		fmt.Fprintf(o, "%*.smetadata: %v\n", inc, "", field.Metadata)
-	}
 }
 
 func init() {

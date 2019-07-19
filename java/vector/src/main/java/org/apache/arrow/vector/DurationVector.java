@@ -29,6 +29,7 @@ import org.apache.arrow.vector.holders.NullableDurationHolder;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -54,10 +55,20 @@ public class DurationVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public DurationVector(String name, FieldType fieldType, BufferAllocator allocator) {
-    super(name, allocator, fieldType, TYPE_WIDTH);
-    reader = new DurationReaderImpl(DurationVector.this);
-    this.unit =  ((ArrowType.Duration)fieldType.getType()).getUnit();
+    this(new Field(name, fieldType, null), allocator);
+  }
 
+  /**
+   * Instantiate a DurationVector. This doesn't allocate any memory for
+   * the data in vector.
+   *
+   * @param field field materialized by this vector
+   * @param allocator allocator for memory management.
+   */
+  public DurationVector(Field field, BufferAllocator allocator) {
+    super(field, allocator, TYPE_WIDTH);
+    reader = new DurationReaderImpl(DurationVector.this);
+    this.unit =  ((ArrowType.Duration)field.getFieldType().getType()).getUnit();
   }
 
   /**
@@ -182,41 +193,11 @@ public class DurationVector extends BaseFixedWidthVector {
     return new StringBuilder(getObject(index).toString());
   }
 
-  /**
-   * Copy a cell value from a particular index in source vector to a particular
-   * position in this vector.
-   *
-   * @param fromIndex position to copy from in source vector
-   * @param thisIndex position to copy to in this vector
-   * @param from source vector
-   */
-  public void copyFrom(int fromIndex, int thisIndex, DurationVector from) {
-    BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
-    from.valueBuffer.getBytes(fromIndex * TYPE_WIDTH, this.valueBuffer,
-              thisIndex * TYPE_WIDTH, TYPE_WIDTH);
-  }
-
-  /**
-   * Same as {@link #copyFrom(int, int, DurationVector)} except that
-   * it handles the case when the capacity of the vector needs to be expanded
-   * before copy.
-   *
-   * @param fromIndex position to copy from in source vector
-   * @param thisIndex position to copy to in this vector
-   * @param from source vector
-   */
-  public void copyFromSafe(int fromIndex, int thisIndex, DurationVector from) {
-    handleSafe(thisIndex);
-    copyFrom(fromIndex, thisIndex, from);
-  }
-
-
   /*----------------------------------------------------------------*
    |                                                                |
    |          vector value setter methods                           |
    |                                                                |
    *----------------------------------------------------------------*/
-
 
   /**
    * Set the element at the given index to the given value.

@@ -24,10 +24,6 @@ rustup install stable
 rustup component add rustfmt
 rustup install nightly
 
-pip install 'travis-cargo<0.2' --user
-
 export PATH=$HOME/.local/bin:$PATH
 export CARGO_TARGET_DIR=$TRAVIS_BUILD_DIR/target
-
-cargo install cargo-travis || echo "Skipping cargo-travis installation as it already exists in cache"
 export PATH=$HOME/.cargo/bin:$PATH

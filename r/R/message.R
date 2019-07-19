@@ -32,7 +32,7 @@
 `arrow::ipc::Message` <- R6Class("arrow::ipc::Message", inherit = `arrow::Object`,
   public = list(
     Equals = function(other){
-      assert_that(inherits(other), "arrow::ipc::Message")
+      assert_that(inherits(other, "arrow::ipc::Message"))
       ipc___Message__Equals(self, other)
     },
     body_length = function() ipc___Message__body_length(self),
@@ -92,6 +92,11 @@ MessageReader.default <- function(stream) {
 #' @export
 read_message <- function(stream) {
   UseMethod("read_message")
+}
+
+#' @export
+read_message.default<- function(stream) {
+  read_message(BufferReader(stream))
 }
 
 #' @export

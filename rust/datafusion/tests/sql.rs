@@ -28,10 +28,63 @@ use arrow::datatypes::{DataType, Field, Schema};
 
 use datafusion::datasource::parquet::ParquetTable;
 use datafusion::datasource::TableProvider;
+use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::execution::relation::Relation;
+use datafusion::logicalplan::LogicalPlan;
 
 const DEFAULT_BATCH_SIZE: usize = 1024 * 1024;
+
+#[test]
+fn nyc() -> Result<()> {
+    // schema for nyxtaxi csv files
+    let schema = Schema::new(vec![
+        Field::new("VendorID", DataType::Utf8, true),
+        Field::new("tpep_pickup_datetime", DataType::Utf8, true),
+        Field::new("tpep_dropoff_datetime", DataType::Utf8, true),
+        Field::new("passenger_count", DataType::Utf8, true),
+        Field::new("trip_distance", DataType::Float64, true),
+        Field::new("RatecodeID", DataType::Utf8, true),
+        Field::new("store_and_fwd_flag", DataType::Utf8, true),
+        Field::new("PULocationID", DataType::Utf8, true),
+        Field::new("DOLocationID", DataType::Utf8, true),
+        Field::new("payment_type", DataType::Utf8, true),
+        Field::new("fare_amount", DataType::Float64, true),
+        Field::new("extra", DataType::Float64, true),
+        Field::new("mta_tax", DataType::Float64, true),
+        Field::new("tip_amount", DataType::Float64, true),
+        Field::new("tolls_amount", DataType::Float64, true),
+        Field::new("improvement_surcharge", DataType::Float64, true),
+        Field::new("total_amount", DataType::Float64, true),
+    ]);
+
+    let mut ctx = ExecutionContext::new();
+    ctx.register_csv("tripdata", "file.csv", &schema, true);
+
+    let logical_plan = ctx.create_logical_plan(
+        "SELECT passenger_count, MIN(fare_amount), MAX(fare_amount) \
+         FROM tripdata GROUP BY passenger_count",
+    )?;
+
+    let optimized_plan = ctx.optimize(&logical_plan)?;
+
+    match optimized_plan.as_ref() {
+        LogicalPlan::Aggregate { input, .. } => match input.as_ref() {
+            LogicalPlan::TableScan {
+                ref projected_schema,
+                ..
+            } => {
+                assert_eq!(2, projected_schema.fields().len());
+                assert_eq!(projected_schema.field(0).name(), "passenger_count");
+                assert_eq!(projected_schema.field(1).name(), "fare_amount");
+            }
+            _ => assert!(false),
+        },
+        _ => assert!(false),
+    }
+
+    Ok(())
+}
 
 #[test]
 fn parquet_query() {
@@ -106,6 +159,7 @@ fn csv_query_avg_multi_batch() {
     //TODO add ORDER BY once supported, to make this test determistic
     let sql = "SELECT avg(c12) FROM aggregate_test_100";
     let plan = ctx.create_logical_plan(&sql).unwrap();
+    let plan = ctx.optimize(&plan).unwrap();
     let results = ctx.execute(&plan, 4).unwrap();
     let mut relation = results.borrow_mut();
     let batch = relation.next().unwrap().unwrap();
@@ -353,7 +407,7 @@ fn register_csv(
     ctx.register_csv(name, filename, &schema, true);
 }
 
-fn load_parquet_table(name: &str) -> Rc<TableProvider> {
+fn load_parquet_table(name: &str) -> Rc<dyn TableProvider> {
     let testdata = env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
     let filename = format!("{}/{}", testdata, name);
     let table = ParquetTable::try_new(&filename).unwrap();
@@ -363,11 +417,12 @@ fn load_parquet_table(name: &str) -> Rc<TableProvider> {
 /// Execute query and return result set as tab delimited string
 fn execute(ctx: &mut ExecutionContext, sql: &str) -> String {
     let plan = ctx.create_logical_plan(&sql).unwrap();
+    let plan = ctx.optimize(&plan).unwrap();
     let results = ctx.execute(&plan, DEFAULT_BATCH_SIZE).unwrap();
     result_str(&results)
 }
 
-fn result_str(results: &Rc<RefCell<Relation>>) -> String {
+fn result_str(results: &Rc<RefCell<dyn Relation>>) -> String {
     let mut relation = results.borrow_mut();
     let mut str = String::new();
     while let Some(batch) = relation.next().unwrap() {

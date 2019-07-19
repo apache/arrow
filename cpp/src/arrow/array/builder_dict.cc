@@ -107,7 +107,9 @@ Status DictionaryType::Unify(MemoryPool* pool, const std::vector<const DataType*
     return Status::Invalid("need at least one input type");
   }
 
-  DCHECK_EQ(types.size(), dictionaries.size());
+  if (types.size() != dictionaries.size()) {
+    return Status::Invalid("expecting the same number of types and dictionaries");
+  }
 
   std::vector<const DictionaryType*> dict_types;
   dict_types.reserve(types.size());

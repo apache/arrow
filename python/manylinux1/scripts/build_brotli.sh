@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export BROTLI_VERSION="0.6.0"
+export BROTLI_VERSION="1.0.7"
 curl -sL "https://github.com/google/brotli/archive/v${BROTLI_VERSION}.tar.gz" -o brotli-${BROTLI_VERSION}.tar.gz
 tar xf brotli-${BROTLI_VERSION}.tar.gz
 pushd brotli-${BROTLI_VERSION}

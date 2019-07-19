@@ -49,7 +49,10 @@ import {
     Bool, Null, Int, Float, Date_, Time, Interval, Timestamp, IntBitWidth, Int32, TKeys,
 } from '../../type';
 
-/** @ignore */
+/**
+ * @ignore
+ * @private
+ **/
 export class Message<T extends MessageHeader = any> {
 
     /** @nocollapse */
@@ -129,7 +132,10 @@ export class Message<T extends MessageHeader = any> {
     }
 }
 
-/** @ignore */
+/**
+ * @ignore
+ * @private
+ **/
 export class RecordBatch {
     protected _length: number;
     protected _nodes: FieldNode[];
@@ -144,7 +150,10 @@ export class RecordBatch {
     }
 }
 
-/** @ignore */
+/**
+ * @ignore
+ * @private
+ **/
 export class DictionaryBatch {
 
     protected _id: number;
@@ -164,7 +173,10 @@ export class DictionaryBatch {
     }
 }
 
-/** @ignore */
+/**
+ * @ignore
+ * @private
+ **/
 export class BufferRegion {
     public offset: number;
     public length: number;
@@ -174,7 +186,10 @@ export class BufferRegion {
     }
 }
 
-/** @ignore */
+/**
+ * @ignore
+ * @private
+ **/
 export class FieldNode {
     public length: number;
     public nullCount: number;
@@ -265,9 +280,9 @@ declare module './message' {
 }
 
 /** @ignore */
-function decodeSchema(_schema: _Schema, dictionaries: Map<number, DataType> = new Map(), dictionaryFields: Map<number, Field<Dictionary>[]> = new Map()) {
-    const fields = decodeSchemaFields(_schema, dictionaries, dictionaryFields);
-    return new Schema(fields, decodeCustomMetadata(_schema), dictionaries, dictionaryFields);
+function decodeSchema(_schema: _Schema, dictionaries: Map<number, DataType> = new Map()) {
+    const fields = decodeSchemaFields(_schema, dictionaries);
+    return new Schema(fields, decodeCustomMetadata(_schema), dictionaries);
 }
 
 /** @ignore */
@@ -319,29 +334,29 @@ function decodeBuffers(batch: _RecordBatch, version: MetadataVersion) {
 }
 
 /** @ignore */
-function decodeSchemaFields(schema: _Schema, dictionaries?: Map<number, DataType>, dictionaryFields?: Map<number, Field<Dictionary>[]>) {
+function decodeSchemaFields(schema: _Schema, dictionaries?: Map<number, DataType>) {
     const fields = [] as Field[];
     for (let f, i = -1, j = -1, n = schema.fieldsLength(); ++i < n;) {
         if (f = schema.fields(i)) {
-            fields[++j] = Field.decode(f, dictionaries, dictionaryFields);
+            fields[++j] = Field.decode(f, dictionaries);
         }
     }
     return fields;
 }
 
 /** @ignore */
-function decodeFieldChildren(field: _Field, dictionaries?: Map<number, DataType>, dictionaryFields?: Map<number, Field<Dictionary>[]>): Field[] {
+function decodeFieldChildren(field: _Field, dictionaries?: Map<number, DataType>): Field[] {
     const children = [] as Field[];
     for (let f, i = -1, j = -1, n = field.childrenLength(); ++i < n;) {
         if (f = field.children(i)) {
-            children[++j] = Field.decode(f, dictionaries, dictionaryFields);
+            children[++j] = Field.decode(f, dictionaries);
         }
     }
     return children;
 }
 
 /** @ignore */
-function decodeField(f: _Field, dictionaries?: Map<number, DataType>, dictionaryFields?: Map<number, Field<Dictionary>[]>) {
+function decodeField(f: _Field, dictionaries?: Map<number, DataType>) {
 
     let id: number;
     let field: Field | void;
@@ -349,11 +364,10 @@ function decodeField(f: _Field, dictionaries?: Map<number, DataType>, dictionary
     let keys: _Int | TKeys | null;
     let dictType: Dictionary;
     let dictMeta: _DictionaryEncoding | null;
-    let dictField: Field<Dictionary>;
 
     // If no dictionary encoding
-    if (!dictionaries || !dictionaryFields || !(dictMeta = f.dictionary())) {
-        type = decodeFieldType(f, decodeFieldChildren(f, dictionaries, dictionaryFields));
+    if (!dictionaries || !(dictMeta = f.dictionary())) {
+        type = decodeFieldType(f, decodeFieldChildren(f, dictionaries));
         field = new Field(f.name()!, type, f.nullable(), decodeCustomMetadata(f));
     }
     // tslint:disable
@@ -363,10 +377,9 @@ function decodeField(f: _Field, dictionaries?: Map<number, DataType>, dictionary
     else if (!dictionaries.has(id = dictMeta.id().low)) {
         // a dictionary index defaults to signed 32 bit int if unspecified
         keys = (keys = dictMeta.indexType()) ? decodeIndexType(keys) as TKeys : new Int32();
-        dictionaries.set(id, type = decodeFieldType(f, decodeFieldChildren(f, dictionaries, dictionaryFields)));
+        dictionaries.set(id, type = decodeFieldType(f, decodeFieldChildren(f, dictionaries)));
         dictType = new Dictionary(type, keys, id, dictMeta.isOrdered());
-        dictField = new Field(f.name()!, dictType, f.nullable(), decodeCustomMetadata(f));
-        dictionaryFields.set(id, [field = dictField]);
+        field = new Field(f.name()!, dictType, f.nullable(), decodeCustomMetadata(f));
     }
     // If dictionary encoded, and have already seen this dictionary Id in the schema, then reuse the
     // data type and wrap in a new Dictionary type and field.
@@ -374,8 +387,7 @@ function decodeField(f: _Field, dictionaries?: Map<number, DataType>, dictionary
         // a dictionary index defaults to signed 32 bit int if unspecified
         keys = (keys = dictMeta.indexType()) ? decodeIndexType(keys) as TKeys : new Int32();
         dictType = new Dictionary(dictionaries.get(id)!, keys, id, dictMeta.isOrdered());
-        dictField = new Field(f.name()!, dictType, f.nullable(), decodeCustomMetadata(f));
-        dictionaryFields.get(id)!.push(field = dictField);
+        field = new Field(f.name()!, dictType, f.nullable(), decodeCustomMetadata(f));
     }
     return field || null;
 }
@@ -404,7 +416,7 @@ function decodeFieldType(f: _Field, children?: Field[]): DataType<any> {
     const typeId = f.typeType();
 
     switch (typeId) {
-        case Type.NONE:    return new DataType();
+        case Type.NONE:    return new Null();
         case Type.Null:    return new Null();
         case Type.Binary:  return new Binary();
         case Type.Utf8:    return new Utf8();

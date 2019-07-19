@@ -50,6 +50,8 @@ public class Float8Benchmarks {
 
   private Float8Vector vector;
 
+  private Float8Vector fromVector;
+
   /**
    * Setup benchmarks.
    */
@@ -58,6 +60,18 @@ public class Float8Benchmarks {
     allocator = new RootAllocator(ALLOCATOR_CAPACITY);
     vector = new Float8Vector("vector", allocator);
     vector.allocateNew(VECTOR_LENGTH);
+
+    fromVector = new Float8Vector("vector", allocator);
+    fromVector.allocateNew(VECTOR_LENGTH);
+
+    for (int i = 0;i < VECTOR_LENGTH; i++) {
+      if (i % 3 == 0) {
+        fromVector.setNull(i);
+      } else {
+        fromVector.set(i, i * i);
+      }
+    }
+    fromVector.setValueCount(VECTOR_LENGTH);
   }
 
   /**
@@ -66,6 +80,7 @@ public class Float8Benchmarks {
   @TearDown
   public void tearDown() {
     vector.close();
+    fromVector.close();
     allocator.close();
   }
 
@@ -86,6 +101,15 @@ public class Float8Benchmarks {
       sum += vector.get(i);
     }
     return sum;
+  }
+
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.MICROSECONDS)
+  public void copyFromBenchmark() {
+    for (int i = 0; i < VECTOR_LENGTH; i++) {
+      vector.copyFrom(i, i, (Float8Vector) fromVector);
+    }
   }
 
   @Test

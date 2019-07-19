@@ -165,6 +165,45 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
   CheckPrimitive<StringType, std::string>({2, 10}, is_valid, values3, ex3_in2);
 }
 
+TEST_F(TestPrettyPrint, Int8) {
+  static const char* expected = R"expected([
+  0,
+  127,
+  -128
+])expected";
+  CheckPrimitive<Int8Type, int8_t>({0, 10}, {true, true, true}, {0, 127, -128}, expected);
+}
+
+TEST_F(TestPrettyPrint, UInt8) {
+  static const char* expected = R"expected([
+  0,
+  255
+])expected";
+  CheckPrimitive<UInt8Type, uint8_t>({0, 10}, {true, true}, {0, 255}, expected);
+}
+
+TEST_F(TestPrettyPrint, Int64) {
+  static const char* expected = R"expected([
+  0,
+  9223372036854775807,
+  -9223372036854775808
+])expected";
+  CheckPrimitive<Int64Type, int64_t>(
+      {0, 10}, {true, true, true}, {0, 9223372036854775807LL, -9223372036854775807LL - 1},
+      expected);
+}
+
+TEST_F(TestPrettyPrint, UInt64) {
+  static const char* expected = R"expected([
+  0,
+  9223372036854775803,
+  18446744073709551615
+])expected";
+  CheckPrimitive<UInt64Type, uint64_t>(
+      {0, 10}, {true, true, true}, {0, 9223372036854775803ULL, 18446744073709551615ULL},
+      expected);
+}
+
 TEST_F(TestPrettyPrint, DateTimeTypes) {
   std::vector<bool> is_valid = {true, true, false, true, false};
 
@@ -355,6 +394,43 @@ TEST_F(TestPrettyPrint, ListType) {
   CheckStream(*array, {0, 1}, ex_3);
 }
 
+TEST_F(TestPrettyPrint, MapType) {
+  auto map_type = map(utf8(), int64());
+  auto array = ArrayFromJSON(map_type, R"([
+    [["joe", 0], ["mark", null]],
+    null,
+    [["cap", 8]],
+    []
+  ])");
+
+  static const char* ex = R"expected([
+  keys:
+  [
+    "joe",
+    "mark"
+  ]
+  values:
+  [
+    0,
+    null
+  ],
+  null,
+  keys:
+  [
+    "cap"
+  ]
+  values:
+  [
+    8
+  ],
+  keys:
+  []
+  values:
+  []
+])expected";
+  CheckArray(*array, {0, 10}, ex);
+}
+
 TEST_F(TestPrettyPrint, FixedSizeListType) {
   auto list_type = fixed_size_list(int32(), 3);
   auto array = ArrayFromJSON(list_type,
@@ -491,51 +567,10 @@ TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveType) {
   CheckStream(chunked_array_2, {0}, expected_2);
 }
 
-TEST_F(TestPrettyPrint, ColumnPrimitiveType) {
-  std::shared_ptr<Field> int_field = field("column", int32());
-  auto array = ArrayFromJSON(int_field->type(), "[0, 1, null, 3, null]");
-  Column column(int_field, ArrayVector({array}));
-
-  static const char* expected = R"expected(column: int32
-[
-  [
-    0,
-    1,
-    null,
-    3,
-    null
-  ]
-])expected";
-  CheckStream(column, {0}, expected);
-
-  Column column_2(int_field, {array, array});
-
-  static const char* expected_2 = R"expected(column: int32
-[
-  [
-    0,
-    1,
-    null,
-    3,
-    null
-  ],
-  [
-    0,
-    1,
-    null,
-    3,
-    null
-  ]
-])expected";
-
-  CheckStream(column_2, {0}, expected_2);
-}
-
 TEST_F(TestPrettyPrint, TablePrimitive) {
   std::shared_ptr<Field> int_field = field("column", int32());
   auto array = ArrayFromJSON(int_field->type(), "[0, 1, null, 3, null]");
-  std::shared_ptr<Column> column =
-      std::make_shared<Column>(int_field, ArrayVector({array}));
+  auto column = std::make_shared<ChunkedArray>(ArrayVector({array}));
   std::shared_ptr<Schema> table_schema = schema({int_field});
   std::shared_ptr<Table> table = Table::Make(table_schema, {column});
 
@@ -576,6 +611,29 @@ three: list<two: dictionary<values=string, indices=int16, ordered=0>>
 four: struct<one: int32, two: dictionary<values=string, indices=int16, ordered=0>>
   child 0, one: int32
   child 1, two: dictionary<values=string, indices=int16, ordered=0>)expected";
+
+  PrettyPrintOptions options{0};
+
+  Check(*sch, options, expected);
+}
+
+TEST_F(TestPrettyPrint, SchemaWithNotNull) {
+  auto simple = field("one", int32());
+  auto non_null = field("two", int32(), false);
+  auto list_simple = field("three", list(int32()));
+  auto list_non_null = field("four", list(int32()), false);
+  auto list_non_null2 = field("five", list(field("item", int32(), false)));
+
+  auto sch = schema({simple, non_null, list_simple, list_non_null, list_non_null2});
+
+  static const char* expected = R"expected(one: int32
+two: int32 not null
+three: list<item: int32>
+  child 0, item: int32
+four: list<item: int32> not null
+  child 0, item: int32
+five: list<item: int32 not null>
+  child 0, item: int32 not null)expected";
 
   PrettyPrintOptions options{0};
 

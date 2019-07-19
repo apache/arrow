@@ -26,9 +26,20 @@ test_that("reading a known Parquet file to tibble", {
   # TODO: assert more about the contents
 })
 
-test_that("as_tibble with and without threads", {
-  expect_identical(
-    read_parquet(pq_file),
-    read_parquet(pq_file, use_threads = FALSE)
-  )
+test_that("simple int column roundtrip", {
+  df <- tibble::tibble(x = 1:5)
+  pq_tmp_file <- tempfile() # You can specify the .parquet here but that's probably not necessary
+  on.exit(unlink(pq_tmp_file))
+
+  write_parquet(df, pq_tmp_file)
+  df_read <- read_parquet(pq_tmp_file)
+  expect_identical(df, df_read)
+})
+
+test_that("read_parquet() supports col_select", {
+  df <- read_parquet(pq_file, col_select = c(x, y, z))
+  expect_equal(names(df), c("x", "y", "z"))
+
+  df <- read_parquet(pq_file, col_select = starts_with("c"))
+  expect_equal(names(df), c("carat", "cut", "color", "clarity"))
 })

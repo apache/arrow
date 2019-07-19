@@ -8,3 +8,4 @@
 *thirdparty/ae/*
 *vendored/*
 *RcppExports.cpp*
+*arrowExports.cpp*

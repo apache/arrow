@@ -32,6 +32,11 @@ x-ubuntu-volumes:
   - .:/arrow:delegated
   - ubuntu-cache:/build:delegated
 
+x-ubuntu-trusty-volumes:
+  &ubuntu-trusty-volumes
+  - .:/arrow:delegated
+  - ubuntu-trusty-cache:/build:delegated
+
 x-ubuntu-xenial-volumes:
   &ubuntu-xenial-volumes
   - .:/arrow:delegated
@@ -59,6 +64,7 @@ x-debian-testing-volumes:
 
 volumes:
   ubuntu-cache:
+  ubuntu-trusty-cache:
   ubuntu-xenial-cache:
   ubuntu-bionic-cache:
   alpine-cache:
@@ -108,7 +114,42 @@ services:
     build:
       context: .
       dockerfile: cpp/Dockerfile
+    volumes: *ubuntu-volumes
+
+  cpp-system-deps:
+    # Usage:
+    #   docker-compose build cpp-system-deps
+    #   docker-compose run cpp-system-deps
+    image: ursalab/arrow:cpp-system-deps
+    shm_size: 2G
+    cap_add:
+      # LeakSanitizer and gdb requires ptrace(2)
+      - SYS_PTRACE
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.ubuntu-bionic
+      args:
+        LLVM_VERSION: 7
     environment:
+      ARROW_FLIGHT: "ON"
+      ARROW_USE_ASAN: "ON"
+      ARROW_USE_UBSAN: "ON"
+    volumes:
+      - .:/arrow:delegated
+      - ubuntu-cache:/build:delegated
+      - ${HOME}/.ccache:/build/ccache:cached
+
+  cpp-release:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose run cpp-release
+    image: arrow:cpp
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile
+    environment:
+      ARROW_BUILD_TYPE: release
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-volumes
 
@@ -143,11 +184,15 @@ services:
     shm_size: 2G
     build:
       context: .
-      dockerfile: cpp/Dockerfile
+      dockerfile: cpp/Dockerfile.cmake
       args:
-        EXTRA_CONDA_PKGS: cmake=3.2
+        CMAKE_VERSION: 3.2.3
     environment:
+      # Vendor boost to avoid dealing with stale FindBoost.
+      ARROW_BOOST_SOURCE: "BUNDLED"
       ARROW_ORC: "OFF"
+      # uriparser requires cmake 3.3
+      ARROW_FLIGHT: "OFF"
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-volumes
 
@@ -190,6 +235,19 @@ services:
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *debian-testing-volumes
 
+  cpp-ubuntu-trusty:
+    # Usage:
+    #   docker-compose build cpp-ubuntu-trusty
+    #   docker-compose run cpp-ubuntu-trusty
+    image: arrow:cpp-ubuntu-trusty
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.ubuntu-trusty
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-trusty-volumes
+
   cpp-ubuntu-xenial:
     # Usage:
     #   docker-compose build cpp-ubuntu-xenial
@@ -201,6 +259,23 @@ services:
       dockerfile: cpp/Dockerfile.ubuntu-xenial
     environment:
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-xenial-volumes
+
+  cpp-minimum-boost-version:
+    # Ubuntu Xenial 16.04 has Boost 1.58, our minimum version
+    #
+    # Usage:
+    #   docker-compose build cpp-minimum-boost-version
+    #   docker-compose run cpp-minimum-boost-version
+    image: arrow:cpp-ubuntu-xenial
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.ubuntu-xenial
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+      ARROW_BOOST_SOURCE: "SYSTEM"
+      ARROW_FLIGHT: "OFF"
     volumes: *ubuntu-xenial-volumes
 
   cpp-ubuntu-bionic:
@@ -234,6 +309,18 @@ services:
     build:
       context: .
       dockerfile: java/Dockerfile
+    volumes:
+      - .:/arrow:ro  # ensures that docker won't contaminate the host directory
+      - maven-cache:/root/.m2:delegated
+
+  java-all-jdks:
+    # Usage:
+    #   docker-compose build java-all-jdks
+    #   docker-compose run java-all-jdks
+    image: ursalab/arrow-ci-java-all-jdks:latest
+    build:
+      context: .
+      dockerfile: java/Dockerfile.all-jdks
     volumes:
       - .:/arrow:ro  # ensures that docker won't contaminate the host directory
       - maven-cache:/root/.m2:delegated
@@ -313,6 +400,21 @@ services:
       dockerfile: r/Dockerfile
     volumes: *ubuntu-volumes
 
+  r-conda:
+    # Usage:
+    #   export R_VERSION=3.5.1
+    #   docker-compose build cpp
+    #   docker-compose build r-conda
+    #   docker-compose run r-conda
+    image: arrow:r-conda-${R_VERSION:-3.5.1}
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: r/Dockerfile.conda
+      args:
+        R_VERSION: ${R_VERSION:-3.5.1}
+    volumes: *ubuntu-volumes
+
   ######################### Tools and Linters #################################
 
   # TODO(kszucs): site
@@ -330,6 +432,17 @@ services:
       context: .
       dockerfile: dev/lint/Dockerfile
     command: arrow/dev/lint/run_linters.sh
+    volumes: *ubuntu-volumes
+
+  fuzzit:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose build fuzzit
+    #   docker-compose run fuzzit
+    image: arrow:fuzzit
+    build:
+      context: .
+      dockerfile: dev/fuzzit/Dockerfile
     volumes: *ubuntu-volumes
 
   iwyu:
@@ -351,6 +464,16 @@ services:
     #   docker-compose run clang-format
     image: arrow:lint
     command: arrow/dev/lint/run_clang_format.sh
+    volumes: *ubuntu-volumes
+
+  clang-tidy:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build lint
+    #   docker-compose run clang-tidy
+    image: arrow:lint
+    command: arrow/dev/lint/run_clang_tidy.sh
     volumes: *ubuntu-volumes
 
   docs:
@@ -375,7 +498,7 @@ services:
     #     $ docker-compose pull python-manylinux1
     #   an then run:
     #     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux1
-    image: quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
+    image: ursalab/arrow_manylinux1_x86_64_base:0.14.1-static-zlib
     build:
       context: python/manylinux1
       dockerfile: Dockerfile-x86_64_base
@@ -387,6 +510,28 @@ services:
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux1:/io:delegated
+    command: /io/build_arrow.sh
+
+  python-manylinux2010:
+    # Usage:
+    #   either build:
+    #     $ docker-compose build python-manylinux2010
+    #   or pull:
+    #     $ docker-compose pull python-manylinux2010
+    #   an then run:
+    #     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux2010
+    image: ursalab/arrow_manylinux2010_x86_64_base:0.14.1-static-zlib
+    build:
+      context: python/manylinux2010
+      dockerfile: Dockerfile-x86_64_base
+    shm_size: 2G
+    environment:
+      PYARROW_PARALLEL: 3
+      PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+      UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
+    volumes:
+      - .:/arrow:delegated
+      - ./python/manylinux2010:/io:delegated
     command: /io/build_arrow.sh
 
   ######################### Integration Tests #################################
@@ -511,10 +656,25 @@ services:
 
   # TODO(kszucs): hive-integration
 
+  ################################# Release ###################################
+
+  release-source:
+    image: arrow:release-source
+    build:
+      context: .
+      dockerfile: dev/release/source/Dockerfile
+    volumes:
+      - .:/arrow:delegated
+
   ######################## Verification Containers ############################
 
   debian-stretch:
     image: debian:stretch
+    volumes:
+      - .:/arrow:delegated
+
+  debian-buster:
+    image: debian:buster
     volumes:
       - .:/arrow:delegated
 
@@ -535,6 +695,11 @@ services:
 
   ubuntu-cosmic:
     image: ubuntu:cosmic
+    volumes:
+      - .:/arrow:delegated
+
+  ubuntu-disco:
+    image: ubuntu:disco
     volumes:
       - .:/arrow:delegated
 

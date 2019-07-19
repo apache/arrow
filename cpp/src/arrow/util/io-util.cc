@@ -49,13 +49,6 @@
 #define ARROW_WRITE_SHMODE S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
 #endif
 
-// For filename conversion
-#if defined(_WIN32)
-#include <codecvt>
-#include <locale>
-#include <stdexcept>
-#endif
-
 #include <boost/filesystem.hpp>
 
 // ----------------------------------------------------------------------
@@ -93,6 +86,11 @@
 #include "arrow/buffer.h"
 #include "arrow/util/io-util.h"
 #include "arrow/util/logging.h"
+
+// For filename conversion
+#if defined(_WIN32)
+#include "arrow/util/utf8.h"
+#endif
 
 namespace arrow {
 namespace io {
@@ -184,17 +182,11 @@ namespace bfs = ::boost::filesystem;
 
 namespace {
 
-#if _WIN32
-using NativePathCodeCvt = std::codecvt_utf8_utf16<wchar_t>;
-#endif
-
 Status StringToNative(const std::string& s, NativePathString* out) {
 #if _WIN32
-  try {
-    *out = std::wstring_convert<NativePathCodeCvt>{}.from_bytes(s);
-  } catch (std::range_error& e) {
-    return Status::Invalid(e.what());
-  }
+  std::wstring ws;
+  RETURN_NOT_OK(::arrow::util::UTF8ToWideString(s, &ws));
+  *out = std::move(ws);
 #else
   *out = s;
 #endif
@@ -291,7 +283,15 @@ const NativePathString& PlatformFilename::ToNative() const {
 
 std::string PlatformFilename::ToString() const {
 #if _WIN32
-  return impl_->path.generic_string(NativePathCodeCvt());
+  std::wstring ws = impl_->path.generic_wstring();
+  std::string s;
+  Status st = ::arrow::util::WideStringToUTF8(ws, &s);
+  if (!st.ok()) {
+    std::stringstream ss;
+    ss << "<Unrepresentable filename: " << st.ToString() << ">";
+    return ss.str();
+  }
+  return s;
 #else
   return impl_->path.generic_string();
 #endif
@@ -407,6 +407,13 @@ static inline Status CheckFileOpResult(int ret, int errno_actual,
                                        const PlatformFilename& file_name,
                                        const char* opname) {
   if (ret == -1) {
+#ifdef _WIN32
+    int winerr = GetLastError();
+    if (winerr != ERROR_SUCCESS) {
+      return Status::IOError("Failed to ", opname, " file '", file_name.ToString(),
+                             "', error: ", WinErrorMessage(winerr));
+    }
+#endif
     return Status::IOError("Failed to ", opname, " file '", file_name.ToString(),
                            "', error: ", ErrnoMessage(errno_actual));
   }
@@ -416,6 +423,7 @@ static inline Status CheckFileOpResult(int ret, int errno_actual,
 Status FileOpenReadable(const PlatformFilename& file_name, int* fd) {
   int ret, errno_actual;
 #if defined(_WIN32)
+  SetLastError(0);
   errno_actual = _wsopen_s(fd, file_name.ToNative().c_str(),
                            _O_RDONLY | _O_BINARY | _O_NOINHERIT, _SH_DENYNO, _S_IREAD);
   ret = *fd;
@@ -446,6 +454,7 @@ Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool
   int ret, errno_actual;
 
 #if defined(_WIN32)
+  SetLastError(0);
   int oflag = _O_CREAT | _O_BINARY | _O_NOINHERIT;
   int pmode = _S_IREAD | _S_IWRITE;
 
@@ -555,8 +564,9 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
     return StatusFromErrno("Cannot get file handle: ");
   }
 
-  LONG new_size_low = static_cast<LONG>(new_size & 0xFFFFFFFFL);
-  LONG new_size_high = static_cast<LONG>((new_size >> 32) & 0xFFFFFFFFL);
+  uint64_t new_size64 = new_size;
+  LONG new_size_low = static_cast<LONG>(new_size64 & 0xFFFFFFFFUL);
+  LONG new_size_high = static_cast<LONG>((new_size64 >> 32) & 0xFFFFFFFFUL);
 
   SetFilePointer(h, new_size_low, &new_size_high, FILE_BEGIN);
   SetEndOfFile(h);
@@ -866,7 +876,12 @@ Status DelEnvVar(const std::string& name) { return DelEnvVar(name.c_str()); }
 
 TemporaryDir::TemporaryDir(PlatformFilename&& path) : path_(std::move(path)) {}
 
-TemporaryDir::~TemporaryDir() { DCHECK_OK(DeleteDirTree(path_)); }
+TemporaryDir::~TemporaryDir() {
+  Status st = DeleteDirTree(path_);
+  if (!st.ok()) {
+    ARROW_LOG(WARNING) << "When trying to delete temporary directory: " << st;
+  }
+}
 
 Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDir>* out) {
   bfs::path path;
@@ -878,7 +893,7 @@ Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDi
   BOOST_FILESYSTEM_CATCH
 
   PlatformFilename fn(path.native());
-  bool created;
+  bool created = false;
   RETURN_NOT_OK(CreateDir(fn, &created));
   if (!created) {
     // XXX Should we retry?
@@ -888,7 +903,7 @@ Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDi
   return Status::OK();
 }
 
-SignalHandler::SignalHandler() {}
+SignalHandler::SignalHandler() : SignalHandler(static_cast<Callback>(nullptr)) {}
 
 SignalHandler::SignalHandler(Callback cb) {
 #if ARROW_HAVE_SIGACTION
@@ -939,7 +954,8 @@ Status GetSignalHandler(int signum, SignalHandler* out) {
   return Status::OK();
 }
 
-Status SetSignalHandler(int signum, SignalHandler handler, SignalHandler* old_handler) {
+Status SetSignalHandler(int signum, const SignalHandler& handler,
+                        SignalHandler* old_handler) {
 #if ARROW_HAVE_SIGACTION
   struct sigaction old_sa;
   int ret = sigaction(signum, &handler.action(), &old_sa);

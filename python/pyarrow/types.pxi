@@ -15,10 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import atexit
 import re
 import warnings
 
 from pyarrow import compat
+from pyarrow.compat import builtin_pickle
 
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
@@ -103,7 +105,7 @@ cdef class DataType:
                         "functions like pyarrow.int64, pyarrow.list_, etc. "
                         "instead.".format(self.__class__.__name__))
 
-    cdef void init(self, const shared_ptr[CDataType]& type):
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
         self.sp_type = type
         self.type = type.get()
         self.pep3118_format = _datatype_to_pep3118(self.type)
@@ -123,6 +125,21 @@ cdef class DataType:
         if ty == nullptr:
             raise ValueError("Non-fixed width type")
         return ty.bit_width()
+
+    @property
+    def num_children(self):
+        """
+        The number of child fields.
+        """
+        return self.type.num_children()
+
+    @property
+    def num_buffers(self):
+        """
+        Number of data buffers required to construct Array type
+        excluding children
+        """
+        return self.type.layout().bit_widths.size()
 
     def __str__(self):
         return frombytes(self.type.ToString())
@@ -180,7 +197,9 @@ cdef class DictionaryMemo:
     """
     Tracking container for dictionary-encoded fields
     """
-    pass
+    def __cinit__(self):
+        self.sp_memo.reset(new CDictionaryMemo())
+        self.memo = self.sp_memo.get()
 
 
 cdef class DictionaryType(DataType):
@@ -188,7 +207,7 @@ cdef class DictionaryType(DataType):
     Concrete class for dictionary data types.
     """
 
-    cdef void init(self, const shared_ptr[CDataType]& type):
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
         DataType.init(self, type)
         self.dict_type = <const CDictionaryType*> type.get()
 
@@ -224,7 +243,7 @@ cdef class ListType(DataType):
     Concrete class for list data types.
     """
 
-    cdef void init(self, const shared_ptr[CDataType]& type):
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
         DataType.init(self, type)
         self.list_type = <const CListType*> type.get()
 
@@ -244,7 +263,7 @@ cdef class StructType(DataType):
     Concrete class for struct data types.
     """
 
-    cdef void init(self, const shared_ptr[CDataType]& type):
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
         DataType.init(self, type)
         self.struct_type = <const CStructType*> type.get()
 
@@ -297,28 +316,14 @@ cdef class StructType(DataType):
     def __reduce__(self):
         return struct, (list(self),)
 
-    @property
-    def num_children(self):
-        """
-        The number of struct fields.
-        """
-        return self.type.num_children()
-
 
 cdef class UnionType(DataType):
     """
     Concrete class for struct data types.
     """
 
-    cdef void init(self, const shared_ptr[CDataType]& type):
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
         DataType.init(self, type)
-
-    @property
-    def num_children(self):
-        """
-        The number of union members.
-        """
-        return self.type.num_children()
 
     @property
     def mode(self):
@@ -369,7 +374,7 @@ cdef class TimestampType(DataType):
     Concrete class for timestamp data types.
     """
 
-    cdef void init(self, const shared_ptr[CDataType]& type):
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
         DataType.init(self, type)
         self.ts_type = <const CTimestampType*> type.get()
 
@@ -410,7 +415,7 @@ cdef class Time32Type(DataType):
     Concrete class for time32 data types.
     """
 
-    cdef void init(self, const shared_ptr[CDataType]& type):
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
         DataType.init(self, type)
         self.time_type = <const CTime32Type*> type.get()
 
@@ -427,7 +432,7 @@ cdef class Time64Type(DataType):
     Concrete class for time64 data types.
     """
 
-    cdef void init(self, const shared_ptr[CDataType]& type):
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
         DataType.init(self, type)
         self.time_type = <const CTime64Type*> type.get()
 
@@ -444,7 +449,7 @@ cdef class FixedSizeBinaryType(DataType):
     Concrete class for fixed-size binary data types.
     """
 
-    cdef void init(self, const shared_ptr[CDataType]& type):
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
         DataType.init(self, type)
         self.fixed_size_binary_type = (
             <const CFixedSizeBinaryType*> type.get())
@@ -465,7 +470,7 @@ cdef class Decimal128Type(FixedSizeBinaryType):
     Concrete class for decimal128 data types.
     """
 
-    cdef void init(self, const shared_ptr[CDataType]& type):
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
         FixedSizeBinaryType.init(self, type)
         self.decimal128_type = <const CDecimal128Type*> type.get()
 
@@ -485,6 +490,106 @@ cdef class Decimal128Type(FixedSizeBinaryType):
         The decimal scale (an integer).
         """
         return self.decimal128_type.scale()
+
+
+cdef class BaseExtensionType(DataType):
+    """
+    Concrete base class for extension types.
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        DataType.init(self, type)
+        self.ext_type = <const CExtensionType*> type.get()
+
+    @property
+    def extension_name(self):
+        """
+        The extension type name.
+        """
+        return frombytes(self.ext_type.extension_name())
+
+    @property
+    def storage_type(self):
+        """
+        The underlying storage type.
+        """
+        return pyarrow_wrap_data_type(self.ext_type.storage_type())
+
+
+cdef class ExtensionType(BaseExtensionType):
+    """
+    Concrete base class for Python-defined extension types.
+    """
+
+    def __cinit__(self):
+        if type(self) is ExtensionType:
+            raise TypeError("Can only instantiate subclasses of "
+                            "ExtensionType")
+
+    def __init__(self, DataType storage_type):
+        cdef:
+            shared_ptr[CExtensionType] cpy_ext_type
+
+        assert storage_type is not None
+        check_status(CPyExtensionType.FromClass(storage_type.sp_type,
+                                                type(self), &cpy_ext_type))
+        self.init(<shared_ptr[CDataType]> cpy_ext_type)
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        BaseExtensionType.init(self, type)
+        self.cpy_ext_type = <const CPyExtensionType*> type.get()
+        # Store weakref and serialized version of self on C++ type instance
+        check_status(self.cpy_ext_type.SetInstance(self))
+
+    def __eq__(self, other):
+        # Default implementation to avoid infinite recursion through
+        # DataType.__eq__ -> ExtensionType::ExtensionEquals -> DataType.__eq__
+        if isinstance(other, ExtensionType):
+            return (type(self) == type(other) and
+                    self.storage_type == other.storage_type)
+        else:
+            return NotImplemented
+
+    def __reduce__(self):
+        raise NotImplementedError("Please implement {0}.__reduce__"
+                                  .format(type(self).__name__))
+
+    def __arrow_ext_serialize__(self):
+        return builtin_pickle.dumps(self)
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        try:
+            ty = builtin_pickle.loads(serialized)
+        except Exception:
+            # For some reason, it's impossible to deserialize the
+            # ExtensionType instance.  Perhaps the serialized data is
+            # corrupt, or more likely the type is being deserialized
+            # in an environment where the original Python class or module
+            # is not available.  Fall back on a generic BaseExtensionType.
+            return UnknownExtensionType(storage_type, serialized)
+
+        if ty.storage_type != storage_type:
+            raise TypeError("Expected storage type {0} but got {1}"
+                            .format(ty.storage_type, storage_type))
+        return ty
+
+
+cdef class UnknownExtensionType(ExtensionType):
+    """
+    A concrete class for Python-defined extension types that refer to
+    an unknown Python implementation.
+    """
+
+    cdef:
+        bytes serialized
+
+    def __init__(self, DataType storage_type, serialized):
+        self.serialized = serialized
+        ExtensionType.__init__(self, storage_type)
+
+    def __arrow_ext_serialize__(self):
+        return self.serialized
 
 
 cdef class Field:
@@ -708,7 +813,7 @@ cdef class Schema:
             metadata=self.metadata
         )
 
-    def equals(self, other, bint check_metadata=True):
+    def equals(self, Schema other not None, bint check_metadata=True):
         """
         Test if this schema is equal to the other
 
@@ -722,12 +827,11 @@ cdef class Schema:
         -------
         is_equal : boolean
         """
-        cdef Schema _other = other
-        return self.sp_schema.get().Equals(deref(_other.schema),
+        return self.sp_schema.get().Equals(deref(other.schema),
                                            check_metadata)
 
     @classmethod
-    def from_pandas(cls, df, bint preserve_index=True):
+    def from_pandas(cls, df, preserve_index=None):
         """
         Returns implied schema from dataframe
 
@@ -737,6 +841,9 @@ cdef class Schema:
         preserve_index : bool, default True
             Whether to store the index as an additional column (or columns, for
             MultiIndex) in the resulting `Table`.
+            The default of None will store the index as a column, except for
+            RangeIndex which is stored as metadata only. Use
+            ``preserve_index=True`` to force it to be stored as a column.
 
         Returns
         -------
@@ -798,6 +905,9 @@ cdef class Schema:
         """
         Append a field at the end of the schema.
 
+        In contrast to Python's ``list.append()`` it does return a new
+        object, leaving the original Schema unmodified.
+
         Parameters
         ----------
         field: Field
@@ -805,6 +915,7 @@ cdef class Schema:
         Returns
         -------
         schema: Schema
+            New object with appended field.
         """
         return self.insert(self.schema.num_fields(), field)
 
@@ -925,7 +1036,7 @@ cdef class Schema:
             CDictionaryMemo* arg_dict_memo
 
         if dictionary_memo is not None:
-            arg_dict_memo = &dictionary_memo.memo
+            arg_dict_memo = dictionary_memo.memo
         else:
             arg_dict_memo = &temp_memo
 
@@ -1434,17 +1545,18 @@ cpdef ListType list_(value_type):
     """
     cdef:
         DataType data_type
-        Field field
+        Field _field
         shared_ptr[CDataType] list_type
         ListType out = ListType.__new__(ListType)
 
     if isinstance(value_type, DataType):
-        list_type.reset(new CListType((<DataType> value_type).sp_type))
+        _field = field('item', value_type)
     elif isinstance(value_type, Field):
-        list_type.reset(new CListType((<Field> value_type).sp_field))
+        _field = value_type
     else:
         raise TypeError('List requires DataType or Field')
 
+    list_type.reset(new CListType(_field.sp_field))
     out.init(list_type)
     return out
 
@@ -1725,3 +1837,28 @@ def is_integer_value(object obj):
 
 def is_float_value(object obj):
     return IsPyFloat(obj)
+
+
+def _register_py_extension_type():
+    cdef:
+        DataType storage_type
+        shared_ptr[CExtensionType] cpy_ext_type
+
+    # Make a dummy C++ ExtensionType
+    storage_type = null()
+    check_status(CPyExtensionType.FromClass(storage_type.sp_type,
+                                            ExtensionType, &cpy_ext_type))
+    check_status(
+        RegisterPyExtensionType(<shared_ptr[CDataType]> cpy_ext_type))
+
+
+def _unregister_py_extension_type():
+    # This needs to be done explicitly before the Python interpreter is
+    # finalized.  If the C++ type is destroyed later in the process
+    # teardown stage, it will invoke CPython APIs such as Py_DECREF
+    # with a destroyed interpreter.
+    check_status(UnregisterPyExtensionType())
+
+
+_register_py_extension_type()
+atexit.register(_unregister_py_extension_type)

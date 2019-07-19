@@ -18,7 +18,7 @@
 [package]
 name = "datafusion"
 description = "DataFusion is an in-memory query engine that uses Apache Arrow as the memory model"
-version = "0.14.0-SNAPSHOT"
+version = "1.0.0-SNAPSHOT"
 homepage = "https://github.com/apache/arrow"
 repository = "https://github.com/apache/arrow"
 authors = ["Apache Arrow <dev@arrow.apache.org>"]
@@ -36,22 +36,24 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "datafusion-cli"
-path = "src/bin/repl.rs"
+path = "src/bin/main.rs"
+
+[features]
+default = ["cli"]
+cli = ["rustyline"]
 
 [dependencies]
 fnv = "1.0.3"
-arrow = { path = "../arrow" }
-parquet = { path = "../parquet" }
-serde = { version = "1.0.80", features = ["rc"] }
-serde_derive = "1.0.80"
-serde_json = "1.0.33"
+arrow = { path = "../arrow", version = "1.0.0-SNAPSHOT" }
+parquet = { path = "../parquet", version = "1.0.0-SNAPSHOT" }
 sqlparser = "0.2.0"
 clap = "2.33.0"
-rustyline = "4.1.0"
 prettytable-rs = "0.8.0"
+rustyline = {version = "4.1.0", optional = true}
 
 [dev-dependencies]
 criterion = "0.2.0"
+
 
 [[bench]]
 name = "aggregate_query_sql"

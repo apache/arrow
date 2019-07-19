@@ -26,7 +26,6 @@
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/chunked-array.hpp>
 #include <arrow-glib/codec.hpp>
-#include <arrow-glib/column.hpp>
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/field.hpp>

@@ -30,7 +30,7 @@ import org.apache.arrow.vector.ValueVector;
  */
 public interface RepeatedValueVector extends ValueVector, DensityAwareVector {
 
-  static final int DEFAULT_REPEAT_PER_RECORD = 5;
+  int DEFAULT_REPEAT_PER_RECORD = 5;
 
   /**
    * Get the offset vector.

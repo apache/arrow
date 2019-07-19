@@ -384,10 +384,13 @@ class build_ext(_build_ext):
                         "{}_regex".format(self.boost_namespace),
                         implib_required=False)
                 if sys.platform == 'win32':
-                    # zlib uses zlib.dll for Windows
-                    zlib_lib_name = 'zlib'
-                    move_shared_libs(build_prefix, build_lib, zlib_lib_name,
-                                     implib_required=False)
+                    if self.with_flight:
+                        # DLL dependencies for gRPC / Flight
+                        for lib_name in ['cares', 'libprotobuf',
+                                         'libcrypto-1_1-x64',
+                                         'libssl-1_1-x64']:
+                            move_shared_libs(build_prefix, build_lib, lib_name,
+                                             implib_required=False)
 
             if self.with_plasma:
                 # Move the plasma store
@@ -508,7 +511,7 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '0.14.0-SNAPSHOT'
+default_version = '1.0.0-SNAPSHOT'
 if (not os.path.exists('../.git')
         and not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     if os.path.exists('PKG-INFO'):

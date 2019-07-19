@@ -41,7 +41,7 @@ case "${distribution}" in
     component=universe
     ;;
 esac
-specific_debian_dir="debian.${distribution}-${code_name}"
+architecture=$(dpkg-architecture -q DEB_BUILD_ARCH)
 
 run mkdir -p build
 run cp /host/tmp/${PACKAGE}-${VERSION}.tar.gz \
@@ -59,8 +59,11 @@ case "${VERSION}" in
     ;;
 esac
 run cd ${PACKAGE}-${VERSION}/
-if [ -d "/host/tmp/${specific_debian_dir}" ]; then
-  run cp -rp "/host/tmp/${specific_debian_dir}" debian
+platform="${distribution}-${code_name}"
+if [ -d "/host/tmp/debian.${platform}-${architecture}" ]; then
+  run cp -rp "/host/tmp/debian.${platform}-${architecture}" debian
+elif [ -d "/host/tmp/debian.${platform}" ]; then
+  run cp -rp "/host/tmp/debian.${platform}" debian
 else
   run cp -rp "/host/tmp/debian" debian
 fi

@@ -18,6 +18,7 @@ package array
 
 import (
 	"fmt"
+	"strings"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/arrow"
@@ -240,6 +241,17 @@ func (rec *simpleRecord) NewSlice(i, j int64) Record {
 		}
 	}()
 	return NewRecord(rec.schema, arrs, j-i)
+}
+
+func (rec *simpleRecord) String() string {
+	o := new(strings.Builder)
+	fmt.Fprintf(o, "record:\n  %v\n", rec.schema)
+	fmt.Fprintf(o, "  rows: %d\n", rec.rows)
+	for i, col := range rec.arrs {
+		fmt.Fprintf(o, "  col[%d][%s]: %v\n", i, rec.schema.Field(i).Name, col)
+	}
+
+	return o.String()
 }
 
 // RecordBuilder eases the process of building a Record, iteratively, from

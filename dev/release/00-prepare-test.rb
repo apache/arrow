@@ -17,21 +17,18 @@
 
 class PrepareTest < Test::Unit::TestCase
   include GitRunnable
+  include VersionDetectable
 
   def setup
     @current_commit = git_current_commit
+    detect_versions
+
     top_dir = Pathname(__dir__).parent.parent
     @original_git_repository = top_dir + ".git"
-    cpp_cmake_lists = top_dir + "cpp" + "CMakeLists.txt"
-    @snapshot_version = cpp_cmake_lists.read[/ARROW_VERSION "(.+?)"/, 1]
-    r_description = top_dir + "r" + "DESCRIPTION"
-    @previous_version = r_description.read[/^Version: (.+?)\.9000$/, 1]
     Dir.mktmpdir do |dir|
       @test_git_repository = Pathname(dir) + "arrow"
       git("clone", @original_git_repository.to_s, @test_git_repository.to_s)
       Dir.chdir(@test_git_repository) do
-        @release_version = @snapshot_version.gsub(/-SNAPSHOT\z/, "")
-        @next_version = @release_version.gsub(/\A\d+/) {|major| major.succ}
         @tag_name = "apache-arrow-#{@release_version}"
         @release_branch = "release-#{@release_version}-rc0"
         @script = "dev/release/00-prepare.sh"
@@ -89,6 +86,13 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "ci/PKGBUILD",
+                     hunks: [
+                       ["-pkgver=#{@previous_version}.9000",
+                        "+pkgver=#{@release_version}"],
+                     ],
+                   },
+                   {
                      path: "cpp/CMakeLists.txt",
                      hunks: [
                        ["-set(ARROW_VERSION \"#{@snapshot_version}\")",
@@ -131,10 +135,10 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
-                     path: "r/src/Makevars.win",
+                     path: "r/NEWS.md",
                      hunks: [
-                       ["-VERSION = #{@previous_version}.9000",
-                        "+VERSION = #{@release_version}"],
+                       ["-\# arrow #{@previous_version}.9000",
+                        "+\# arrow #{@release_version}"],
                      ],
                    },
                    {
@@ -184,10 +188,10 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
                         "+version = \"#{@release_version}\""],
-                       ["-arrow = { path = \"../arrow\" }",
-                        "-parquet = { path = \"../parquet\" }",
-                        "+arrow = \"#{@release_version}\"",
-                        "+parquet = \"#{@release_version}\""]
+                       ["-arrow = { path = \"../arrow\", version = \"#{@snapshot_version}\" }",
+                        "-parquet = { path = \"../parquet\", version = \"#{@snapshot_version}\" }",
+                        "+arrow = { path = \"../arrow\", version = \"#{@release_version}\" }",
+                        "+parquet = { path = \"../parquet\", version = \"#{@release_version}\" }"]
                      ],
                    },
                    {
@@ -202,8 +206,8 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
                         "+version = \"#{@release_version}\""],
-                       ["-arrow = { path = \"../arrow\" }",
-                        "+arrow = \"#{@release_version}\""]
+                       ["-arrow = { path = \"../arrow\", version = \"#{@snapshot_version}\" }",
+                        "+arrow = { path = \"../arrow\", version = \"#{@release_version}\" }"]
                      ],
                    },
                    {
@@ -227,49 +231,56 @@ class PrepareTest < Test::Unit::TestCase
                      path: "c_glib/configure.ac",
                      hunks: [
                        ["-m4_define([arrow_glib_version], #{@release_version})",
-                        "+m4_define([arrow_glib_version], #{@next_version}-SNAPSHOT)"],
+                        "+m4_define([arrow_glib_version], #{@next_snapshot_version})"],
                      ],
                    },
                    {
                      path: "c_glib/meson.build",
                      hunks: [
                        ["-version = '#{@release_version}'",
-                        "+version = '#{@next_version}-SNAPSHOT'"],
+                        "+version = '#{@next_snapshot_version}'"],
+                     ],
+                   },
+                   {
+                     path: "ci/PKGBUILD",
+                     hunks: [
+                       ["-pkgver=#{@release_version}",
+                        "+pkgver=#{@release_version}.9000"],
                      ],
                    },
                    {
                      path: "cpp/CMakeLists.txt",
                      hunks: [
                        ["-set(ARROW_VERSION \"#{@release_version}\")",
-                        "+set(ARROW_VERSION \"#{@next_version}-SNAPSHOT\")"],
+                        "+set(ARROW_VERSION \"#{@next_snapshot_version}\")"],
                      ],
                    },
                    {
                      path: "csharp/Directory.Build.props",
                      hunks: [
                        ["-    <Version>#{@release_version}</Version>",
-                        "+    <Version>#{@next_version}-SNAPSHOT</Version>"],
+                        "+    <Version>#{@next_snapshot_version}</Version>"],
                      ],
                    },
                    {
                      path: "js/package.json",
                      hunks: [
                        ["-  \"version\": \"#{@release_version}\"",
-                        "+  \"version\": \"#{@next_version}-SNAPSHOT\""],
+                        "+  \"version\": \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
                      path: "matlab/CMakeLists.txt",
                      hunks: [
                        ["-set(MLARROW_VERSION \"#{@release_version}\")",
-                        "+set(MLARROW_VERSION \"#{@next_version}-SNAPSHOT\")"],
+                        "+set(MLARROW_VERSION \"#{@next_snapshot_version}\")"],
                      ],
                    },
                    {
                      path: "python/setup.py",
                      hunks: [
                        ["-default_version = '#{@release_version}'",
-                        "+default_version = '#{@next_version}-SNAPSHOT'"],
+                        "+default_version = '#{@next_snapshot_version}'"],
                      ],
                    },
                    {
@@ -280,88 +291,89 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
-                     path: "r/src/Makevars.win",
+                     path: "r/NEWS.md",
+                     # Note that these are additions only, no replacement
                      hunks: [
-                       ["-VERSION = #{@release_version}",
-                        "+VERSION = #{@release_version}.9000"],
+                       ["+# arrow #{@release_version}.9000",
+                        "+"],
                      ],
                    },
                    {
                      path: "ruby/red-arrow-cuda/lib/arrow-cuda/version.rb",
                      hunks: [
                        ["-  VERSION = \"#{@release_version}\"",
-                        "+  VERSION = \"#{@next_version}-SNAPSHOT\""],
+                        "+  VERSION = \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
                      path: "ruby/red-arrow/lib/arrow/version.rb",
                      hunks: [
                        ["-  VERSION = \"#{@release_version}\"",
-                        "+  VERSION = \"#{@next_version}-SNAPSHOT\""],
+                        "+  VERSION = \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
                      path: "ruby/red-gandiva/lib/gandiva/version.rb",
                      hunks: [
                        ["-  VERSION = \"#{@release_version}\"",
-                        "+  VERSION = \"#{@next_version}-SNAPSHOT\""],
+                        "+  VERSION = \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
                      path: "ruby/red-parquet/lib/parquet/version.rb",
                      hunks: [
                        ["-  VERSION = \"#{@release_version}\"",
-                        "+  VERSION = \"#{@next_version}-SNAPSHOT\""],
+                        "+  VERSION = \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
                      path: "ruby/red-plasma/lib/plasma/version.rb",
                      hunks: [
                        ["-  VERSION = \"#{@release_version}\"",
-                        "+  VERSION = \"#{@next_version}-SNAPSHOT\""],
+                        "+  VERSION = \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
                      path: "rust/arrow/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@release_version}\"",
-                        "+version = \"#{@next_version}-SNAPSHOT\""],
+                        "+version = \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
                      path: "rust/datafusion/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@release_version}\"",
-                        "+version = \"#{@next_version}-SNAPSHOT\""],
-                       ["-arrow = \"#{@release_version}\"",
-                        "-parquet = \"#{@release_version}\"",
-                        "+arrow = { path = \"../arrow\" }",
-                        "+parquet = { path = \"../parquet\" }"]
+                        "+version = \"#{@next_snapshot_version}\""],
+                       ["-arrow = { path = \"../arrow\", version = \"#{@release_version}\" }",
+                        "-parquet = { path = \"../parquet\", version = \"#{@release_version}\" }",
+                        "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\" }",
+                        "+parquet = { path = \"../parquet\", version = \"#{@next_snapshot_version}\" }"]
                      ],
                    },
                    {
                      path: "rust/datafusion/README.md",
                      hunks: [
                        ["-datafusion = \"#{@release_version}\"",
-                        "+datafusion = \"#{@next_version}-SNAPSHOT\""],
+                        "+datafusion = \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
                      path: "rust/parquet/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@release_version}\"",
-                        "+version = \"#{@next_version}-SNAPSHOT\""],
-                       ["-arrow = \"#{@release_version}\"",
-                        "+arrow = { path = \"../arrow\" }"]
+                        "+version = \"#{@next_snapshot_version}\""],
+                       ["-arrow = { path = \"../arrow\", version = \"#{@release_version}\" }",
+                        "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\" }"]
                      ],
                    },
                    {
                      path: "rust/parquet/README.md",
                      hunks: [
                        ["-parquet = \"#{@release_version}\"",
-                        "+parquet = \"#{@next_version}-SNAPSHOT\""],
+                        "+parquet = \"#{@next_snapshot_version}\""],
                        ["-See [crate documentation](https://docs.rs/crate/parquet/#{@release_version}) on available API.",
-                        "+See [crate documentation](https://docs.rs/crate/parquet/#{@next_version}-SNAPSHOT) on available API."],
+                        "+See [crate documentation](https://docs.rs/crate/parquet/#{@next_snapshot_version}) on available API."],
                      ],
                    },
                  ],

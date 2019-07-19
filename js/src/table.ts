@@ -18,17 +18,18 @@
 import { Data } from './data';
 import { Column } from './column';
 import { Schema, Field } from './schema';
-import { isPromise } from './util/compat';
-import { RecordBatch } from './recordbatch';
+import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from './recordbatch';
 import { DataFrame } from './compute/dataframe';
 import { RecordBatchReader } from './ipc/reader';
-import { Vector, Chunked } from './vector/index';
-import { DataType, RowLike, Struct } from './type';
-import { Clonable, Sliceable, Applicative } from './vector';
+import { DataType, RowLike, Struct, Map_ } from './type';
 import { selectColumnArgs, selectArgs } from './util/args';
+import { Clonable, Sliceable, Applicative } from './vector';
+import { isPromise, isIterable, isAsyncIterable } from './util/compat';
 import { distributeColumnsIntoRecordBatches } from './util/recordbatch';
 import { distributeVectorsIntoRecordBatches } from './util/recordbatch';
+import { Vector, Chunked, MapVector, StructVector } from './vector/index';
 import { RecordBatchFileWriter, RecordBatchStreamWriter } from './ipc/writer';
+import { VectorBuilderOptions, VectorBuilderOptionsAsync } from './vector/index';
 
 type VectorMap = { [key: string]: Vector };
 type Fields<T extends { [key: string]: DataType }> = (keyof T)[] | Field<T[keyof T]>[];
@@ -41,7 +42,7 @@ export interface Table<T extends { [key: string]: DataType } = any> {
     [Symbol.iterator](): IterableIterator<RowLike<T>>;
 
     slice(begin?: number, end?: number): Table<T>;
-    concat(...others: Vector<Struct<T>>[]): Table<T>;
+    concat(...others: Vector<Map_<T>>[]): Table<T>;
     clone(chunks?: RecordBatch<T>[], offsets?: Uint32Array): Table<T>;
 
     scan(next: import('./compute/dataframe').NextFunc, bind?: import('./compute/dataframe').BindFunc): void;
@@ -50,16 +51,16 @@ export interface Table<T extends { [key: string]: DataType } = any> {
 }
 
 export class Table<T extends { [key: string]: DataType } = any>
-    extends Chunked<Struct<T>>
+    extends Chunked<Map_<T>>
     implements DataFrame<T>,
                Clonable<Table<T>>,
                Sliceable<Table<T>>,
-               Applicative<Struct<T>, Table<T>> {
+               Applicative<Map_<T>, Table<T>> {
 
     /** @nocollapse */
-    public static empty<T extends { [key: string]: DataType } = any>() { return new Table<T>(new Schema([]), []); }
+    public static empty<T extends { [key: string]: DataType } = {}>(schema = new Schema<T>([])) { return new Table<T>(schema, []); }
 
-    public static from<T extends { [key: string]: DataType } = any>(): Table<T>;
+    public static from(): Table<{}>;
     public static from<T extends { [key: string]: DataType } = any>(source: RecordBatchReader<T>): Table<T>;
     public static from<T extends { [key: string]: DataType } = any>(source: import('./ipc/reader').FromArg0): Table<T>;
     public static from<T extends { [key: string]: DataType } = any>(source: import('./ipc/reader').FromArg2): Table<T>;
@@ -68,18 +69,27 @@ export class Table<T extends { [key: string]: DataType } = any>
     public static from<T extends { [key: string]: DataType } = any>(source: import('./ipc/reader').FromArg4): Promise<Table<T>>;
     public static from<T extends { [key: string]: DataType } = any>(source: import('./ipc/reader').FromArg5): Promise<Table<T>>;
     public static from<T extends { [key: string]: DataType } = any>(source: PromiseLike<RecordBatchReader<T>>): Promise<Table<T>>;
+    public static from<T extends { [key: string]: DataType } = any, TNull = any>(options: VectorBuilderOptions<Struct<T> | Map_<T>, TNull>): Table<T>;
+    public static from<T extends { [key: string]: DataType } = any, TNull = any>(options: VectorBuilderOptionsAsync<Struct<T> | Map_<T>, TNull>): Promise<Table<T>>;
     /** @nocollapse */
-    public static from<T extends { [key: string]: DataType } = any>(source?: any) {
+    public static from<T extends { [key: string]: DataType } = any, TNull = any>(input?: any) {
 
-        if (!source) { return Table.empty<T>(); }
+        if (!input) { return Table.empty(); }
 
-        let reader = RecordBatchReader.from<T>(source) as RecordBatchReader<T> | Promise<RecordBatchReader<T>>;
+        if (typeof input === 'object') {
+            let table = isIterable(input['values']) ? tableFromIterable<T, TNull>(input)
+                 : isAsyncIterable(input['values']) ? tableFromAsyncIterable<T, TNull>(input)
+                                                    : null;
+            if (table !== null) { return table; }
+        }
+
+        let reader = RecordBatchReader.from<T>(input) as RecordBatchReader<T> | Promise<RecordBatchReader<T>>;
 
         if (isPromise<RecordBatchReader<T>>(reader)) {
             return (async () => await Table.from(await reader))();
         }
         if (reader.isSync() && (reader = reader.open())) {
-            return !reader.schema ? Table.empty<T>() : new Table<T>(reader.schema, [...reader]);
+            return !reader.schema ? Table.empty() : new Table<T>(reader.schema, [...reader]);
         }
         return (async (opening) => {
             const reader = await opening;
@@ -91,7 +101,7 @@ export class Table<T extends { [key: string]: DataType } = any>
                 }
                 return new Table<T>(schema, batches);
             }
-            return Table.empty<T>();
+            return Table.empty();
         })(reader.open());
     }
 
@@ -101,8 +111,13 @@ export class Table<T extends { [key: string]: DataType } = any>
     }
 
     /** @nocollapse */
-    public static fromStruct<T extends { [key: string]: DataType } = any>(struct: Vector<Struct<T>>) {
-        return Table.new<T>(struct.data.childData as Data<T[keyof T]>[], struct.type.children);
+    public static fromMap<T extends { [key: string]: DataType } = any>(vector: Vector<Map_<T>>) {
+        return Table.new<T>(vector.data.childData as Data<T[keyof T]>[], vector.type.children);
+    }
+
+    /** @nocollapse */
+    public static fromStruct<T extends { [key: string]: DataType } = any>(vector: Vector<Struct<T>>) {
+        return Table.new<T>(vector.data.childData as Data<T[keyof T]>[], vector.type.children);
     }
 
     /**
@@ -169,7 +184,7 @@ export class Table<T extends { [key: string]: DataType } = any>
     constructor(schema: Schema<T>, ...batches: RecordBatch<T>[]);
     constructor(...args: any[]) {
 
-        let schema: Schema = null!;
+        let schema: Schema<T> = null!;
 
         if (args[0] instanceof Schema) { schema = args.shift(); }
 
@@ -179,11 +194,9 @@ export class Table<T extends { [key: string]: DataType } = any>
             throw new TypeError('Table must be initialized with a Schema or at least one RecordBatch');
         }
 
-        if (!chunks[0]) {
-            chunks[0] = new RecordBatch(schema, 0, schema.fields.map((f) => Data.new(f.type, 0, 0)));
-        }
+        chunks[0] || (chunks[0] = new _InternalEmptyPlaceholderRecordBatch(schema));
 
-        super(new Struct<T>(schema.fields), chunks);
+        super(new Map_(schema.fields), chunks);
 
         this._schema = schema;
         this._chunks = chunks;
@@ -231,10 +244,10 @@ export class Table<T extends { [key: string]: DataType } = any>
 
     // @ts-ignore
     public serialize(encoding = 'binary', stream = true) {
-        const writer = !stream
+        const Writer = !stream
             ? RecordBatchFileWriter
             : RecordBatchStreamWriter;
-        return writer.writeAll(this._chunks).toUint8Array(true);
+        return Writer.writeAll(this).toUint8Array(true);
     }
     public count(): number {
         return this._length;
@@ -266,6 +279,26 @@ export class Table<T extends { [key: string]: DataType } = any>
             ...indices.map((i) => other.getColumnAt(i)!)
         ].filter(Boolean) as Column<(T & R)[keyof T | keyof R]>[];
 
-        return new Table(...distributeVectorsIntoRecordBatches<T & R>(schema, columns));
+        return new Table<T & R>(...distributeVectorsIntoRecordBatches<any>(schema, columns));
     }
+}
+
+function tableFromIterable<T extends { [key: string]: DataType } = any, TNull = any>(input: VectorBuilderOptions<Struct<T> | Map_<T>, TNull>) {
+    const { type } = input;
+    if (type instanceof Map_) {
+        return Table.fromMap(MapVector.from(input as VectorBuilderOptions<Map_<T>, TNull>));
+    } else if (type instanceof Struct) {
+        return Table.fromStruct(StructVector.from(input as VectorBuilderOptions<Struct<T>, TNull>));
+    }
+    return null;
+}
+
+function tableFromAsyncIterable<T extends { [key: string]: DataType } = any, TNull = any>(input: VectorBuilderOptionsAsync<Struct<T> | Map_<T>, TNull>) {
+    const { type } = input;
+    if (type instanceof Map_) {
+        return MapVector.from(input as VectorBuilderOptionsAsync<Map_<T>, TNull>).then((vector) => Table.fromMap(vector));
+    } else if (type instanceof Struct) {
+        return StructVector.from(input as VectorBuilderOptionsAsync<Struct<T>, TNull>).then((vector) => Table.fromStruct(vector));
+    }
+    return null;
 }

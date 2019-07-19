@@ -43,6 +43,7 @@ pacman --sync --noconfirm ^
   %MINGW_PACKAGE_PREFIX%-flatbuffers ^
   %MINGW_PACKAGE_PREFIX%-gflags ^
   %MINGW_PACKAGE_PREFIX%-gobject-introspection ^
+  %MINGW_PACKAGE_PREFIX%-grpc ^
   %MINGW_PACKAGE_PREFIX%-gtest ^
   %MINGW_PACKAGE_PREFIX%-gtk-doc ^
   %MINGW_PACKAGE_PREFIX%-lz4 ^
@@ -52,6 +53,7 @@ pacman --sync --noconfirm ^
   %MINGW_PACKAGE_PREFIX%-rapidjson ^
   %MINGW_PACKAGE_PREFIX%-snappy ^
   %MINGW_PACKAGE_PREFIX%-thrift ^
+  %MINGW_PACKAGE_PREFIX%-uriparser ^
   %MINGW_PACKAGE_PREFIX%-zlib ^
   %MINGW_PACKAGE_PREFIX%-zstd || exit /B
 

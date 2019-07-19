@@ -37,7 +37,6 @@ import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
-import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
@@ -92,13 +91,6 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     this.validityBuffer = allocator.getEmpty();
     this.validityAllocationSizeInBytes =
       BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION);
-  }
-
-  @Override
-  public Field getField() {
-    Field f = super.getField();
-    FieldType type = new FieldType(true, f.getType(), f.getFieldType().getDictionary(), f.getFieldType().getMetadata());
-    return new Field(f.getName(), type, f.getChildren());
   }
 
   @Override
@@ -265,7 +257,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
    * @return number of elements that validity buffer can hold
    */
   private int getValidityBufferValueCapacity() {
-    return (int) (validityBuffer.capacity() * 8L);
+    return validityBuffer.capacity() * 8;
   }
 
   /**
@@ -488,8 +480,21 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   }
 
   @Override
+  public int hashCode(int index) {
+    if (isSet(index) == 0) {
+      return 0;
+    } else {
+      return super.hashCode(index);
+    }
+  }
+
+  @Override
   public void get(int index, ComplexHolder holder) {
     holder.isSet = isSet(index);
+    if (holder.isSet == 0) {
+      holder.reader = null;
+      return;
+    }
     super.get(index, holder);
   }
 
@@ -550,4 +555,5 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     super.setValueCount(valueCount);
     this.valueCount = valueCount;
   }
+
 }

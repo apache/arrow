@@ -289,7 +289,7 @@ int ThreadPool::DefaultCapacity() {
 // Helper for the singleton pattern
 std::shared_ptr<ThreadPool> ThreadPool::MakeCpuThreadPool() {
   std::shared_ptr<ThreadPool> pool;
-  DCHECK_OK(ThreadPool::Make(ThreadPool::DefaultCapacity(), &pool));
+  ARROW_CHECK_OK(ThreadPool::Make(ThreadPool::DefaultCapacity(), &pool));
   // On Windows, the global ThreadPool destructor may be called after
   // non-main threads have been killed by the OS, and hang in a condition
   // variable.

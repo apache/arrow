@@ -20,6 +20,7 @@
 
 #include <memory>
 
+#include "arrow/util/iterator.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -35,9 +36,10 @@ class Field;
 class Tensor;
 
 class ChunkedArray;
-class Column;
 class RecordBatch;
 class Table;
+
+using RecordBatchIterator = Iterator<std::shared_ptr<RecordBatch>>;
 
 class Buffer;
 class MemoryPool;
@@ -77,6 +79,11 @@ class ListType;
 class ListArray;
 class ListBuilder;
 struct ListScalar;
+
+class MapType;
+class MapArray;
+class MapBuilder;
+struct MapScalar;
 
 class FixedSizeListType;
 class FixedSizeListArray;

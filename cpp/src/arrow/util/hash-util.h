@@ -71,6 +71,86 @@ class HashUtil {
   static constexpr bool have_hardware_crc32 = false;
 #endif
 
+#ifdef ARROW_HAVE_ARMV8_CRYPTO
+/* Crc32c Parallel computation
+ *   Algorithm comes from Intel whitepaper:
+ *   crc-iscsi-polynomial-crc32-instruction-paper
+ *
+ * Input data is divided into three equal-sized blocks
+ *   Three parallel blocks (crc0, crc1, crc2) for 1024 Bytes
+ *   One Block: 42(BLK_LENGTH) * 8(step length: crc32c_u64) bytes
+ */
+#define BLK_LENGTH 42
+  static uint32_t Armv8CrcHashParallel(const void* data, int32_t nbytes, uint32_t crc) {
+    const uint8_t* buf8;
+    const uint64_t* buf64 = reinterpret_cast<const uint64_t*>(data);
+    int32_t length = nbytes;
+
+    while (length >= 1024) {
+      uint64_t t0, t1;
+      uint32_t crc0 = 0, crc1 = 0, crc2 = 0;
+
+      /* parallel computation params:
+       *   k0 = CRC32(x ^ (42 * 8 * 8 * 2 - 1));
+       *   k1 = CRC32(x ^ (42 * 8 * 8 - 1));
+       */
+      uint32_t k0 = 0xe417f38a, k1 = 0x8f158014;
+
+      /* First 8 byte for better pipelining */
+      crc0 = ARMCE_crc32_u64(crc, *buf64++);
+
+      /* 3 blocks crc32c parallel computation
+       *
+       * 42 * 8 * 3 = 1008 (bytes)
+       */
+      for (int i = 0; i < BLK_LENGTH; i++, buf64++) {
+        crc0 = ARMCE_crc32_u64(crc0, *buf64);
+        crc1 = ARMCE_crc32_u64(crc1, *(buf64 + BLK_LENGTH));
+        crc2 = ARMCE_crc32_u64(crc2, *(buf64 + (BLK_LENGTH * 2)));
+      }
+      buf64 += (BLK_LENGTH * 2);
+
+      /* Last 8 bytes */
+      crc = ARMCE_crc32_u64(crc2, *buf64++);
+
+      t0 = (uint64_t)vmull_p64(crc0, k0);
+      t1 = (uint64_t)vmull_p64(crc1, k1);
+
+      /* Merge (crc0, crc1, crc2) -> crc */
+      crc1 = ARMCE_crc32_u64(0, t1);
+      crc ^= crc1;
+      crc0 = ARMCE_crc32_u64(0, t0);
+      crc ^= crc0;
+
+      length -= 1024;
+    }
+
+    buf8 = reinterpret_cast<const uint8_t*>(buf64);
+    while (length >= 8) {
+      crc = ARMCE_crc32_u64(crc, *reinterpret_cast<const uint64_t*>(buf8));
+      buf8 += 8;
+      length -= 8;
+    }
+
+    /* The following is more efficient than the straight loop */
+    if (length >= 4) {
+      crc = ARMCE_crc32_u32(crc, *reinterpret_cast<const uint32_t*>(buf8));
+      buf8 += 4;
+      length -= 4;
+    }
+
+    if (length >= 2) {
+      crc = ARMCE_crc32_u16(crc, *reinterpret_cast<const uint16_t*>(buf8));
+      buf8 += 2;
+      length -= 2;
+    }
+
+    if (length >= 1) crc = ARMCE_crc32_u8(crc, *(buf8));
+
+    return crc;
+  }
+#endif
+
   /// Compute the Crc32 hash for data using SSE4/ArmCRC instructions.  The input hash
   /// parameter is the current hash/seed value.
   /// This should only be called if SSE/ArmCRC is supported.
@@ -295,8 +375,14 @@ inline int HashUtil::Hash<true>(const void* data, int32_t bytes, uint32_t seed) 
     return static_cast<int>(HashUtil::MurmurHash2_64(data, bytes, seed));
   else
 #endif
-    // Double CRC
-    return static_cast<int>(HashUtil::DoubleCrcHash(data, bytes, seed));
+
+#ifdef ARROW_HAVE_ARMV8_CRYPTO
+    // Arm64 parallel crc32
+    return static_cast<int>(HashUtil::Armv8CrcHashParallel(data, bytes, seed));
+#else
+  // Double CRC
+  return static_cast<int>(HashUtil::DoubleCrcHash(data, bytes, seed));
+#endif
 }
 
 // Murmur Hash

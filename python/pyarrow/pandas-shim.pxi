@@ -174,6 +174,13 @@ cdef class _PandasAPIShim(object):
         self._check_import()
         return self._pd.util.testing.assert_frame_equal
 
+    def get_rangeindex_attribute(self, level, name):
+        # public start/stop/step attributes added in pandas 0.25.0
+        self._check_import()
+        if hasattr(level, name):
+            return getattr(level, name)
+        return getattr(level, '_' + name)
+
 
 cdef _PandasAPIShim pandas_api = _PandasAPIShim()
 _pandas_api = pandas_api

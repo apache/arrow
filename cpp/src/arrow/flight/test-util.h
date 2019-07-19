@@ -25,6 +25,7 @@
 #include "arrow/status.h"
 
 #include "arrow/flight/client_auth.h"
+#include "arrow/flight/server.h"
 #include "arrow/flight/server_auth.h"
 #include "arrow/flight/types.h"
 #include "arrow/flight/visibility.h"
@@ -86,6 +87,10 @@ class ARROW_FLIGHT_EXPORT InProcessTestServer {
   std::thread thread_;
 };
 
+/// \brief Create a simple Flight server for testing
+ARROW_FLIGHT_EXPORT
+std::unique_ptr<FlightServerBase> ExampleTestServer();
+
 // ----------------------------------------------------------------------
 // A RecordBatchReader for serving a sequence of in-memory record batches
 
@@ -122,6 +127,23 @@ class ARROW_FLIGHT_EXPORT BatchIterator : public RecordBatchReader {
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
+
+// ----------------------------------------------------------------------
+// A FlightDataStream that numbers the record batches
+/// \brief A basic implementation of FlightDataStream that will provide
+/// a sequence of FlightData messages to be written to a gRPC stream
+class ARROW_FLIGHT_EXPORT NumberingStream : public FlightDataStream {
+ public:
+  explicit NumberingStream(std::unique_ptr<FlightDataStream> stream);
+
+  std::shared_ptr<Schema> schema() override;
+  Status GetSchemaPayload(FlightPayload* payload) override;
+  Status Next(FlightPayload* payload) override;
+
+ private:
+  int counter_;
+  std::shared_ptr<FlightDataStream> stream_;
+};
 
 // ----------------------------------------------------------------------
 // Example data for test-server and unit tests
@@ -183,6 +205,12 @@ class ARROW_FLIGHT_EXPORT TestClientAuthHandler : public ClientAuthHandler {
   std::string username_;
   std::string password_;
 };
+
+ARROW_FLIGHT_EXPORT
+Status ExampleTlsCertificates(std::vector<CertKeyPair>* out);
+
+ARROW_FLIGHT_EXPORT
+Status ExampleTlsCertificateRoot(CertKeyPair* out);
 
 }  // namespace flight
 }  // namespace arrow

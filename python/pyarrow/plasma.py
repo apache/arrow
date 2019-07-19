@@ -27,7 +27,9 @@ import tempfile
 import time
 
 from pyarrow._plasma import (ObjectID, ObjectNotAvailable, # noqa
-                             PlasmaBuffer, PlasmaClient, connect)
+                             PlasmaBuffer, PlasmaClient, connect,
+                             PlasmaObjectExists, PlasmaObjectNonexistent,
+                             PlasmaStoreFull)
 
 
 # The Plasma TensorFlow Operator needs to be compiled on the end user's

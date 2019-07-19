@@ -46,9 +46,20 @@ Decimal128Builder::Decimal128Builder(const std::shared_ptr<DataType>& type,
                                      MemoryPool* pool)
     : FixedSizeBinaryBuilder(type, pool) {}
 
-Status Decimal128Builder::Append(const Decimal128& value) {
+Status Decimal128Builder::Append(Decimal128 value) {
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
-  return FixedSizeBinaryBuilder::Append(value.ToBytes());
+  UnsafeAppend(value);
+  return Status::OK();
+}
+
+void Decimal128Builder::UnsafeAppend(Decimal128 value) {
+  value.ToBytes(GetMutableValue(length()));
+  byte_builder_.UnsafeAdvance(16);
+  UnsafeAppendToBitmap(true);
+}
+
+void Decimal128Builder::UnsafeAppend(util::string_view value) {
+  FixedSizeBinaryBuilder::UnsafeAppend(value);
 }
 
 Status Decimal128Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {

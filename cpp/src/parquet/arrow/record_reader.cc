@@ -353,12 +353,14 @@ class RecordReader::RecordReaderImpl {
       int16_t* rep_data = rep_levels();
 
       std::copy(def_data + levels_position_, def_data + levels_written_, def_data);
-      std::copy(rep_data + levels_position_, rep_data + levels_written_, rep_data);
-
       PARQUET_THROW_NOT_OK(
           def_levels_->Resize(levels_remaining * sizeof(int16_t), false));
-      PARQUET_THROW_NOT_OK(
-          rep_levels_->Resize(levels_remaining * sizeof(int16_t), false));
+
+      if (max_rep_level_ > 0) {
+        std::copy(rep_data + levels_position_, rep_data + levels_written_, rep_data);
+        PARQUET_THROW_NOT_OK(
+            rep_levels_->Resize(levels_remaining * sizeof(int16_t), false));
+      }
 
       levels_written_ -= levels_position_;
       levels_position_ = 0;
@@ -629,7 +631,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType> {
     // ARROW-4688(wesm): Using 2^31 - 1 chunks for now
     constexpr int32_t kBinaryChunksize = 2147483647;
     DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
-    if (descr_->logical_type() == LogicalType::UTF8) {
+    if (descr_->converted_type() == ConvertedType::UTF8) {
       builder_.reset(
           new ::arrow::internal::ChunkedStringBuilder(kBinaryChunksize, pool_));
     } else {
@@ -865,7 +867,7 @@ bool TypedRecordReader<DType>::ReadNewPage() {
 std::shared_ptr<RecordReader> RecordReader::MakeByteArrayRecordReader(
     const ColumnDescriptor* descr, arrow::MemoryPool* pool, bool read_dictionary) {
   if (read_dictionary) {
-    if (descr->logical_type() == LogicalType::UTF8) {
+    if (descr->converted_type() == ConvertedType::UTF8) {
       using Builder = ::arrow::StringDictionaryBuilder;
       return std::shared_ptr<RecordReader>(
           new RecordReader(new ByteArrayDictionaryRecordReader<Builder>(descr, pool)));

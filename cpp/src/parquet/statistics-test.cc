@@ -210,7 +210,7 @@ TEST(Comparison, UnsignedInt64) {
   uint64_t aaa = 1, bbb = -1;
 
   NodePtr node = PrimitiveNode::Make("UnsignedInt64", Repetition::REQUIRED, Type::INT64,
-                                     LogicalType::UINT_64);
+                                     ConvertedType::UINT_64);
   ColumnDescriptor descr(node, 0, 0);
 
   ASSERT_EQ(SortOrder::UNSIGNED, descr.sort_order());
@@ -227,7 +227,7 @@ TEST(Comparison, UnsignedInt32) {
   uint32_t aaa = 1, bbb = -1;
 
   NodePtr node = PrimitiveNode::Make("UnsignedInt32", Repetition::REQUIRED, Type::INT32,
-                                     LogicalType::UINT_32);
+                                     ConvertedType::UINT_32);
   ColumnDescriptor descr(node, 0, 0);
 
   ASSERT_EQ(SortOrder::UNSIGNED, descr.sort_order());
@@ -241,7 +241,7 @@ TEST(Comparison, UnsignedInt32) {
 TEST(Comparison, UnknownSortOrder) {
   NodePtr node =
       PrimitiveNode::Make("Unknown", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
-                          LogicalType::INTERVAL, 12);
+                          ConvertedType::INTERVAL, 12);
   ColumnDescriptor descr(node, 0, 0);
 
   ASSERT_THROW(Comparator::Make(&descr), ParquetException);
@@ -535,19 +535,19 @@ TEST(CorruptStatistics, Basics) {
   std::vector<schema::NodePtr> fields;
   // Test Physical Types
   fields.push_back(schema::PrimitiveNode::Make("col1", Repetition::OPTIONAL, Type::INT32,
-                                               LogicalType::NONE));
+                                               ConvertedType::NONE));
   fields.push_back(schema::PrimitiveNode::Make("col2", Repetition::OPTIONAL,
-                                               Type::BYTE_ARRAY, LogicalType::NONE));
+                                               Type::BYTE_ARRAY, ConvertedType::NONE));
   // Test Logical Types
   fields.push_back(schema::PrimitiveNode::Make("col3", Repetition::OPTIONAL, Type::INT32,
-                                               LogicalType::DATE));
+                                               ConvertedType::DATE));
   fields.push_back(schema::PrimitiveNode::Make("col4", Repetition::OPTIONAL, Type::INT32,
-                                               LogicalType::UINT_32));
+                                               ConvertedType::UINT_32));
   fields.push_back(schema::PrimitiveNode::Make("col5", Repetition::OPTIONAL,
                                                Type::FIXED_LEN_BYTE_ARRAY,
-                                               LogicalType::INTERVAL, 12));
+                                               ConvertedType::INTERVAL, 12));
   fields.push_back(schema::PrimitiveNode::Make("col6", Repetition::OPTIONAL,
-                                               Type::BYTE_ARRAY, LogicalType::UTF8));
+                                               Type::BYTE_ARRAY, ConvertedType::UTF8));
   node = schema::GroupNode::Make("schema", Repetition::REQUIRED, fields);
   schema.Init(node);
 
@@ -572,19 +572,19 @@ TEST(CorrectStatistics, Basics) {
   std::vector<schema::NodePtr> fields;
   // Test Physical Types
   fields.push_back(schema::PrimitiveNode::Make("col1", Repetition::OPTIONAL, Type::INT32,
-                                               LogicalType::NONE));
+                                               ConvertedType::NONE));
   fields.push_back(schema::PrimitiveNode::Make("col2", Repetition::OPTIONAL,
-                                               Type::BYTE_ARRAY, LogicalType::NONE));
+                                               Type::BYTE_ARRAY, ConvertedType::NONE));
   // Test Logical Types
   fields.push_back(schema::PrimitiveNode::Make("col3", Repetition::OPTIONAL, Type::INT32,
-                                               LogicalType::DATE));
+                                               ConvertedType::DATE));
   fields.push_back(schema::PrimitiveNode::Make("col4", Repetition::OPTIONAL, Type::INT32,
-                                               LogicalType::UINT_32));
+                                               ConvertedType::UINT_32));
   fields.push_back(schema::PrimitiveNode::Make("col5", Repetition::OPTIONAL,
                                                Type::FIXED_LEN_BYTE_ARRAY,
-                                               LogicalType::INTERVAL, 12));
+                                               ConvertedType::INTERVAL, 12));
   fields.push_back(schema::PrimitiveNode::Make("col6", Repetition::OPTIONAL,
-                                               Type::BYTE_ARRAY, LogicalType::UTF8));
+                                               Type::BYTE_ARRAY, ConvertedType::UTF8));
   node = schema::GroupNode::Make("schema", Repetition::REQUIRED, fields);
   schema.Init(node);
 
@@ -609,8 +609,8 @@ class TestStatisticsSortOrder : public ::testing::Test {
   typedef typename TestType::c_type T;
 
   void AddNodes(std::string name) {
-    fields_.push_back(schema::PrimitiveNode::Make(name, Repetition::REQUIRED,
-                                                  TestType::type_num, LogicalType::NONE));
+    fields_.push_back(schema::PrimitiveNode::Make(
+        name, Repetition::REQUIRED, TestType::type_num, ConvertedType::NONE));
   }
 
   void SetUpSchema() {
@@ -684,10 +684,10 @@ template <>
 void TestStatisticsSortOrder<Int32Type>::AddNodes(std::string name) {
   // UINT_32 logical type to set Unsigned Statistics
   fields_.push_back(schema::PrimitiveNode::Make(name, Repetition::REQUIRED, Type::INT32,
-                                                LogicalType::UINT_32));
+                                                ConvertedType::UINT_32));
   // INT_32 logical type to set Signed Statistics
   fields_.push_back(schema::PrimitiveNode::Make(name, Repetition::REQUIRED, Type::INT32,
-                                                LogicalType::INT_32));
+                                                ConvertedType::INT_32));
 }
 
 template <>
@@ -712,10 +712,10 @@ template <>
 void TestStatisticsSortOrder<Int64Type>::AddNodes(std::string name) {
   // UINT_64 logical type to set Unsigned Statistics
   fields_.push_back(schema::PrimitiveNode::Make(name, Repetition::REQUIRED, Type::INT64,
-                                                LogicalType::UINT_64));
+                                                ConvertedType::UINT_64));
   // INT_64 logical type to set Signed Statistics
   fields_.push_back(schema::PrimitiveNode::Make(name, Repetition::REQUIRED, Type::INT64,
-                                                LogicalType::INT_64));
+                                                ConvertedType::INT_64));
 }
 
 template <>
@@ -768,7 +768,7 @@ template <>
 void TestStatisticsSortOrder<ByteArrayType>::AddNodes(std::string name) {
   // UTF8 logical type to set Unsigned Statistics
   fields_.push_back(schema::PrimitiveNode::Make(name, Repetition::REQUIRED,
-                                                Type::BYTE_ARRAY, LogicalType::UTF8));
+                                                Type::BYTE_ARRAY, ConvertedType::UTF8));
 }
 
 template <>
@@ -801,7 +801,7 @@ void TestStatisticsSortOrder<FLBAType>::AddNodes(std::string name) {
   // FLBA has only Unsigned Statistics
   fields_.push_back(schema::PrimitiveNode::Make(name, Repetition::REQUIRED,
                                                 Type::FIXED_LEN_BYTE_ARRAY,
-                                                LogicalType::NONE, FLBA_LENGTH));
+                                                ConvertedType::NONE, FLBA_LENGTH));
 }
 
 template <>
@@ -838,8 +838,8 @@ using TestStatisticsSortOrderFLBA = TestStatisticsSortOrder<FLBAType>;
 
 TEST_F(TestStatisticsSortOrderFLBA, UnknownSortOrder) {
   this->fields_.push_back(schema::PrimitiveNode::Make(
-      "Column 0", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY, LogicalType::INTERVAL,
-      FLBA_LENGTH));
+      "Column 0", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+      ConvertedType::INTERVAL, FLBA_LENGTH));
   this->SetUpSchema();
   this->WriteParquet();
 

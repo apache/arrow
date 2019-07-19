@@ -34,18 +34,21 @@ public class JniWrapper {
    * @param schemaBuf   The schema serialized as a protobuf. See Types.proto
    *                    to see the protobuf specification
    * @param exprListBuf The serialized protobuf of the expression vector. Each
-   *                    expression is created using TreeBuilder::MakeExpression
+   *                    expression is created using TreeBuilder::MakeExpression.
+   * @param selectionVectorType type of selection vector
    * @param configId    Configuration to gandiva.
    * @return A moduleId that is passed to the evaluateProjector() and closeProjector() methods
    *
    */
   native long buildProjector(byte[] schemaBuf, byte[] exprListBuf,
+                             int selectionVectorType,
                              long configId) throws GandivaException;
 
   /**
    * Evaluate the expressions represented by the moduleId on a record batch
    * and store the output in ValueVectors. Throws an exception in case of errors
    *
+   * @param expander VectorExpander object. Used for callbacks from cpp.
    * @param moduleId moduleId representing expressions. Created using a call to
    *                 buildNativeCode
    * @param numRows Number of rows in the record batch
@@ -59,7 +62,7 @@ public class JniWrapper {
    * @param outSizes The allocated size of the output buffers. On successful evaluation,
    *                 the result is stored in the output buffers
    */
-  native void evaluateProjector(long moduleId, int numRows,
+  native void evaluateProjector(Object expander, long moduleId, int numRows,
                                 long[] bufAddrs, long[] bufSizes,
                                 int selectionVectorType, int selectionVectorSize,
                                 long selectionVectorBufferAddr, long selectionVectorBufferSize,

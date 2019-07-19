@@ -2,7 +2,7 @@
 % Please edit documentation in R/csv.R
 \name{csv_convert_options}
 \alias{csv_convert_options}
-\title{Conversion Options for the csv reader}
+\title{Conversion options for the CSV reader}
 \usage{
 csv_convert_options(check_utf8 = TRUE)
 }
@@ -10,5 +10,5 @@ csv_convert_options(check_utf8 = TRUE)
 \item{check_utf8}{Whether to check UTF8 validity of string columns}
 }
 \description{
-Conversion Options for the csv reader
+Conversion options for the CSV reader
 }

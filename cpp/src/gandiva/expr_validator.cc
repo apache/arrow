@@ -34,9 +34,9 @@ Status ExprValidator::Validate(const ExpressionPtr& expr) {
   // support validation is not required because root type is already supported.
   ARROW_RETURN_IF(!root.return_type()->Equals(*expr->result()->type()),
                   Status::ExpressionValidationError("Return type of root node ",
-                                                    root.return_type()->name(),
+                                                    root.return_type()->ToString(),
                                                     " does not match that of expression ",
-                                                    expr->result()->type()->name()));
+                                                    expr->result()->type()->ToString()));
 
   return Status::OK();
 }
@@ -88,6 +88,12 @@ Status ExprValidator::Visit(const IfNode& node) {
   auto if_node_ret_type = node.return_type();
   auto then_node_ret_type = node.then_node()->return_type();
   auto else_node_ret_type = node.else_node()->return_type();
+
+  // condition must be of boolean type.
+  ARROW_RETURN_IF(
+      !node.condition()->return_type()->Equals(arrow::boolean()),
+      Status::ExpressionValidationError("condition must be of boolean type, found type ",
+                                        node.condition()->return_type()->ToString()));
 
   // Then-branch return type must match.
   ARROW_RETURN_IF(!if_node_ret_type->Equals(*then_node_ret_type),

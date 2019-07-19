@@ -856,27 +856,12 @@ TEST(TestDictionary, Validate) {
   // Only checking index type for now
   ASSERT_OK(ValidateArray(*arr));
 
-#ifdef NDEBUG
-  std::shared_ptr<Array> null_dict_arr =
-      std::make_shared<DictionaryArray>(dict_type, indices, nullptr);
-
-  // Only checking index type for now
-  ASSERT_RAISES(Invalid, ValidateArray(*null_dict_arr));
-#endif
-
-  // TODO(wesm) In ARROW-1199, there is now a DCHECK to compare the indices
-  // type with the dict_type. How can we test for this?
-
-  // std::shared_ptr<Array> indices2;
-  // vector<float> indices2_values = {1., 2., 0., 0., 2., 0.};
-  // ArrayFromVector<FloatType, float>(is_valid, indices2_values, &indices2);
-
-  // std::shared_ptr<Array> indices3;
-  // vector<int64_t> indices3_values = {1, 2, 0, 0, 2, 0};
-  // ArrayFromVector<Int64Type, int64_t>(is_valid, indices3_values, &indices3);
-  // std::shared_ptr<Array> arr2 = std::make_shared<DictionaryArray>(dict_type, indices2);
-  // std::shared_ptr<Array> arr3 = std::make_shared<DictionaryArray>(dict_type, indices3);
-  // ASSERT_OK(ValidateArray(*arr3));
+  ASSERT_DEATH(
+      {
+        std::shared_ptr<Array> null_dict_arr =
+            std::make_shared<DictionaryArray>(dict_type, indices, nullptr);
+      },
+      "");
 }
 
 TEST(TestDictionary, FromArray) {
@@ -961,6 +946,51 @@ TEST(TestDictionary, TransposeNulls) {
   ASSERT_OK(
       DictionaryArray::FromArrays(out_dict_type, expected_indices, out_dict, &expected));
   AssertArraysEqual(*expected, *out);
+}
+
+TEST(TestDictionary, DISABLED_ListOfDictionary) {
+  std::unique_ptr<ArrayBuilder> root_builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), list(dictionary(int8(), utf8())),
+                        &root_builder));
+  auto list_builder = checked_cast<ListBuilder*>(root_builder.get());
+  auto dict_builder =
+      checked_cast<DictionaryBuilder<StringType>*>(list_builder->value_builder());
+
+  ASSERT_OK(list_builder->Append());
+  std::vector<std::string> expected;
+  for (char a : "abc") {
+    for (char d : "def") {
+      for (char g : "ghi") {
+        for (char j : "jkl") {
+          for (char m : "mno") {
+            for (char p : "pqr") {
+              if ((static_cast<int>(a) + d + g + j + m + p) % 16 == 0) {
+                ASSERT_OK(list_builder->Append());
+              }
+              // 3**6 distinct strings; too large for int8
+              char str[6] = {a, d, g, j, m, p};
+              ASSERT_OK(dict_builder->Append(str));
+              expected.push_back(str);
+            }
+          }
+        }
+      }
+    }
+  }
+  std::shared_ptr<Array> expected_dict;
+  ArrayFromVector<StringType, std::string>(expected, &expected_dict);
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(root_builder->Finish(&array));
+  ASSERT_OK(ValidateArray(*array));
+
+  auto expected_type = list(dictionary(int16(), utf8()));
+  ASSERT_EQ(array->type()->ToString(), expected_type->ToString());
+
+  auto list_array = checked_cast<const ListArray*>(array.get());
+  auto actual_dict =
+      checked_cast<const DictionaryArray&>(*list_array->values()).dictionary();
+  ASSERT_ARRAYS_EQUAL(*expected_dict, *actual_dict);
 }
 
 }  // namespace arrow

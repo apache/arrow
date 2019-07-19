@@ -78,9 +78,9 @@ record 3...
 		{
 			name: "structs",
 			want: `record 1...
-  col[0] "struct_nullable": {[-1 (null) (null) -4 -5] ["111" (null) (null) "444" "555"]}
+  col[0] "struct_nullable": {[-1 (null) (null) -4 -5 (null) -11 (null) (null) -14 -15 -21 (null) (null) -24 -25 -31 (null) (null) -34 -35 -41 (null) (null) -44 -45] ["111" (null) (null) "444" "555" (null) "1111" (null) (null) "1444" "1555" "2111" (null) (null) "2444" "2555" "3111" (null) (null) "3444" "3555" "4111" (null) (null) "4444" "4555"]}
 record 2...
-  col[0] "struct_nullable": {[-11 (null) (null) -14 -15 -16 (null) -18] ["1" (null) (null) "4" "5" "6" (null) "8"]}
+  col[0] "struct_nullable": {[1 (null) (null) 4 5 (null) 11 (null) (null) 14 15 (null) 21 (null) (null) 24 25 31 (null) (null) 34 35 41 (null) (null) 44 45] ["-111" (null) (null) "-444" "-555" (null) "-1111" (null) (null) "-1444" "-1555" (null) "-2111" (null) (null) "-2444" "-2555" "-3111" (null) (null) "-3444" "-3555" "-4111" (null) (null) "-4444" "-4555"]}
 `,
 		},
 		{
@@ -126,27 +126,46 @@ record 3...
   col[2] "time32s": [-2 (null) (null) 1 2]
   col[3] "time64ns": [-2 (null) (null) 1 2]
   col[4] "time64us": [-2 (null) (null) 1 2]
-  col[5] "timestamp": [0 (null) (null) 3 4]
-  col[6] "date32s": [-2 (null) (null) 1 2]
-  col[7] "date64s": [-2 (null) (null) 1 2]
+  col[5] "timestamp_s": [0 (null) (null) 3 4]
+  col[6] "timestamp_ms": [0 (null) (null) 3 4]
+  col[7] "timestamp_us": [0 (null) (null) 3 4]
+  col[8] "timestamp_ns": [0 (null) (null) 3 4]
+  col[9] "date32s": [-2 (null) (null) 1 2]
+  col[10] "date64s": [-2 (null) (null) 1 2]
 record 2...
   col[0] "float16s": [11 (null) (null) 14 15]
   col[1] "time32ms": [-12 (null) (null) 11 12]
   col[2] "time32s": [-12 (null) (null) 11 12]
   col[3] "time64ns": [-12 (null) (null) 11 12]
   col[4] "time64us": [-12 (null) (null) 11 12]
-  col[5] "timestamp": [10 (null) (null) 13 14]
-  col[6] "date32s": [-12 (null) (null) 11 12]
-  col[7] "date64s": [-12 (null) (null) 11 12]
+  col[5] "timestamp_s": [10 (null) (null) 13 14]
+  col[6] "timestamp_ms": [10 (null) (null) 13 14]
+  col[7] "timestamp_us": [10 (null) (null) 13 14]
+  col[8] "timestamp_ns": [10 (null) (null) 13 14]
+  col[9] "date32s": [-12 (null) (null) 11 12]
+  col[10] "date64s": [-12 (null) (null) 11 12]
 record 3...
   col[0] "float16s": [21 (null) (null) 24 25]
   col[1] "time32ms": [-22 (null) (null) 21 22]
   col[2] "time32s": [-22 (null) (null) 21 22]
   col[3] "time64ns": [-22 (null) (null) 21 22]
   col[4] "time64us": [-22 (null) (null) 21 22]
-  col[5] "timestamp": [20 (null) (null) 23 24]
-  col[6] "date32s": [-22 (null) (null) 21 22]
-  col[7] "date64s": [-22 (null) (null) 21 22]
+  col[5] "timestamp_s": [20 (null) (null) 23 24]
+  col[6] "timestamp_ms": [20 (null) (null) 23 24]
+  col[7] "timestamp_us": [20 (null) (null) 23 24]
+  col[8] "timestamp_ns": [20 (null) (null) 23 24]
+  col[9] "date32s": [-22 (null) (null) 21 22]
+  col[10] "date64s": [-22 (null) (null) 21 22]
+`,
+		},
+		{
+			name: "fixed_size_binaries",
+			want: `record 1...
+  col[0] "fixed_size_binary_3": ["001" (null) (null) "004" "005"]
+record 2...
+  col[0] "fixed_size_binary_3": ["011" (null) (null) "014" "015"]
+record 3...
+  col[0] "fixed_size_binary_3": ["021" (null) (null) "024" "025"]
 `,
 		},
 	} {
@@ -296,18 +315,18 @@ record 3/3...
 			stream: true,
 			name:   "structs",
 			want: `record 1...
-  col[0] "struct_nullable": {[-1 (null) (null) -4 -5] ["111" (null) (null) "444" "555"]}
+  col[0] "struct_nullable": {[-1 (null) (null) -4 -5 (null) -11 (null) (null) -14 -15 -21 (null) (null) -24 -25 -31 (null) (null) -34 -35 -41 (null) (null) -44 -45] ["111" (null) (null) "444" "555" (null) "1111" (null) (null) "1444" "1555" "2111" (null) (null) "2444" "2555" "3111" (null) (null) "3444" "3555" "4111" (null) (null) "4444" "4555"]}
 record 2...
-  col[0] "struct_nullable": {[-11 (null) (null) -14 -15 -16 (null) -18] ["1" (null) (null) "4" "5" "6" (null) "8"]}
+  col[0] "struct_nullable": {[1 (null) (null) 4 5 (null) 11 (null) (null) 14 15 (null) 21 (null) (null) 24 25 31 (null) (null) 34 35 41 (null) (null) 44 45] ["-111" (null) (null) "-444" "-555" (null) "-1111" (null) (null) "-1444" "-1555" (null) "-2111" (null) (null) "-2444" "-2555" "-3111" (null) (null) "-3444" "-3555" "-4111" (null) (null) "-4444" "-4555"]}
 `,
 		},
 		{
 			name: "structs",
 			want: `version: V4
 record 1/2...
-  col[0] "struct_nullable": {[-1 (null) (null) -4 -5] ["111" (null) (null) "444" "555"]}
+  col[0] "struct_nullable": {[-1 (null) (null) -4 -5 (null) -11 (null) (null) -14 -15 -21 (null) (null) -24 -25 -31 (null) (null) -34 -35 -41 (null) (null) -44 -45] ["111" (null) (null) "444" "555" (null) "1111" (null) (null) "1444" "1555" "2111" (null) (null) "2444" "2555" "3111" (null) (null) "3444" "3555" "4111" (null) (null) "4444" "4555"]}
 record 2/2...
-  col[0] "struct_nullable": {[-11 (null) (null) -14 -15 -16 (null) -18] ["1" (null) (null) "4" "5" "6" (null) "8"]}
+  col[0] "struct_nullable": {[1 (null) (null) 4 5 (null) 11 (null) (null) 14 15 (null) 21 (null) (null) 24 25 31 (null) (null) 34 35 41 (null) (null) 44 45] ["-111" (null) (null) "-444" "-555" (null) "-1111" (null) (null) "-1444" "-1555" (null) "-2111" (null) (null) "-2444" "-2555" "-3111" (null) (null) "-3444" "-3555" "-4111" (null) (null) "-4444" "-4555"]}
 `,
 		},
 		{
@@ -395,27 +414,36 @@ record 3/3...
   col[2] "time32s": [-2 (null) (null) 1 2]
   col[3] "time64ns": [-2 (null) (null) 1 2]
   col[4] "time64us": [-2 (null) (null) 1 2]
-  col[5] "timestamp": [0 (null) (null) 3 4]
-  col[6] "date32s": [-2 (null) (null) 1 2]
-  col[7] "date64s": [-2 (null) (null) 1 2]
+  col[5] "timestamp_s": [0 (null) (null) 3 4]
+  col[6] "timestamp_ms": [0 (null) (null) 3 4]
+  col[7] "timestamp_us": [0 (null) (null) 3 4]
+  col[8] "timestamp_ns": [0 (null) (null) 3 4]
+  col[9] "date32s": [-2 (null) (null) 1 2]
+  col[10] "date64s": [-2 (null) (null) 1 2]
 record 2...
   col[0] "float16s": [11 (null) (null) 14 15]
   col[1] "time32ms": [-12 (null) (null) 11 12]
   col[2] "time32s": [-12 (null) (null) 11 12]
   col[3] "time64ns": [-12 (null) (null) 11 12]
   col[4] "time64us": [-12 (null) (null) 11 12]
-  col[5] "timestamp": [10 (null) (null) 13 14]
-  col[6] "date32s": [-12 (null) (null) 11 12]
-  col[7] "date64s": [-12 (null) (null) 11 12]
+  col[5] "timestamp_s": [10 (null) (null) 13 14]
+  col[6] "timestamp_ms": [10 (null) (null) 13 14]
+  col[7] "timestamp_us": [10 (null) (null) 13 14]
+  col[8] "timestamp_ns": [10 (null) (null) 13 14]
+  col[9] "date32s": [-12 (null) (null) 11 12]
+  col[10] "date64s": [-12 (null) (null) 11 12]
 record 3...
   col[0] "float16s": [21 (null) (null) 24 25]
   col[1] "time32ms": [-22 (null) (null) 21 22]
   col[2] "time32s": [-22 (null) (null) 21 22]
   col[3] "time64ns": [-22 (null) (null) 21 22]
   col[4] "time64us": [-22 (null) (null) 21 22]
-  col[5] "timestamp": [20 (null) (null) 23 24]
-  col[6] "date32s": [-22 (null) (null) 21 22]
-  col[7] "date64s": [-22 (null) (null) 21 22]
+  col[5] "timestamp_s": [20 (null) (null) 23 24]
+  col[6] "timestamp_ms": [20 (null) (null) 23 24]
+  col[7] "timestamp_us": [20 (null) (null) 23 24]
+  col[8] "timestamp_ns": [20 (null) (null) 23 24]
+  col[9] "date32s": [-22 (null) (null) 21 22]
+  col[10] "date64s": [-22 (null) (null) 21 22]
 `,
 		},
 		{
@@ -427,27 +455,58 @@ record 1/3...
   col[2] "time32s": [-2 (null) (null) 1 2]
   col[3] "time64ns": [-2 (null) (null) 1 2]
   col[4] "time64us": [-2 (null) (null) 1 2]
-  col[5] "timestamp": [0 (null) (null) 3 4]
-  col[6] "date32s": [-2 (null) (null) 1 2]
-  col[7] "date64s": [-2 (null) (null) 1 2]
+  col[5] "timestamp_s": [0 (null) (null) 3 4]
+  col[6] "timestamp_ms": [0 (null) (null) 3 4]
+  col[7] "timestamp_us": [0 (null) (null) 3 4]
+  col[8] "timestamp_ns": [0 (null) (null) 3 4]
+  col[9] "date32s": [-2 (null) (null) 1 2]
+  col[10] "date64s": [-2 (null) (null) 1 2]
 record 2/3...
   col[0] "float16s": [11 (null) (null) 14 15]
   col[1] "time32ms": [-12 (null) (null) 11 12]
   col[2] "time32s": [-12 (null) (null) 11 12]
   col[3] "time64ns": [-12 (null) (null) 11 12]
   col[4] "time64us": [-12 (null) (null) 11 12]
-  col[5] "timestamp": [10 (null) (null) 13 14]
-  col[6] "date32s": [-12 (null) (null) 11 12]
-  col[7] "date64s": [-12 (null) (null) 11 12]
+  col[5] "timestamp_s": [10 (null) (null) 13 14]
+  col[6] "timestamp_ms": [10 (null) (null) 13 14]
+  col[7] "timestamp_us": [10 (null) (null) 13 14]
+  col[8] "timestamp_ns": [10 (null) (null) 13 14]
+  col[9] "date32s": [-12 (null) (null) 11 12]
+  col[10] "date64s": [-12 (null) (null) 11 12]
 record 3/3...
   col[0] "float16s": [21 (null) (null) 24 25]
   col[1] "time32ms": [-22 (null) (null) 21 22]
   col[2] "time32s": [-22 (null) (null) 21 22]
   col[3] "time64ns": [-22 (null) (null) 21 22]
   col[4] "time64us": [-22 (null) (null) 21 22]
-  col[5] "timestamp": [20 (null) (null) 23 24]
-  col[6] "date32s": [-22 (null) (null) 21 22]
-  col[7] "date64s": [-22 (null) (null) 21 22]
+  col[5] "timestamp_s": [20 (null) (null) 23 24]
+  col[6] "timestamp_ms": [20 (null) (null) 23 24]
+  col[7] "timestamp_us": [20 (null) (null) 23 24]
+  col[8] "timestamp_ns": [20 (null) (null) 23 24]
+  col[9] "date32s": [-22 (null) (null) 21 22]
+  col[10] "date64s": [-22 (null) (null) 21 22]
+`,
+		},
+		{
+			stream: true,
+			name:   "fixed_size_binaries",
+			want: `record 1...
+  col[0] "fixed_size_binary_3": ["001" (null) (null) "004" "005"]
+record 2...
+  col[0] "fixed_size_binary_3": ["011" (null) (null) "014" "015"]
+record 3...
+  col[0] "fixed_size_binary_3": ["021" (null) (null) "024" "025"]
+`,
+		},
+		{
+			name: "fixed_size_binaries",
+			want: `version: V4
+record 1/3...
+  col[0] "fixed_size_binary_3": ["001" (null) (null) "004" "005"]
+record 2/3...
+  col[0] "fixed_size_binary_3": ["011" (null) (null) "014" "015"]
+record 3/3...
+  col[0] "fixed_size_binary_3": ["021" (null) (null) "024" "025"]
 `,
 		},
 	} {

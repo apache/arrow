@@ -29,7 +29,7 @@ use std::ops::{BitAnd, BitOr, Not};
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 use std::sync::Arc;
 
-use crate::builder::{BufferBuilderTrait, UInt8BufferBuilder};
+use crate::array::{BufferBuilderTrait, UInt8BufferBuilder};
 use crate::datatypes::ArrowNativeType;
 use crate::error::{ArrowError, Result};
 use crate::memory;

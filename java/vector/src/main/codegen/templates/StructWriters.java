@@ -65,7 +65,8 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
         list(child.getName());
         break;
       case UNION:
-        UnionWriter writer = new UnionWriter(container.addOrGet(child.getName(), FieldType.nullable(MinorType.UNION.getType()), UnionVector.class), getNullableStructWriterFactory());
+        FieldType fieldType = new FieldType(addVectorAsNullable, MinorType.UNION.getType(), null, null);
+        UnionWriter writer = new UnionWriter(container.addOrGet(child.getName(), fieldType, UnionVector.class), getNullableStructWriterFactory());
         fields.put(handleCase(child.getName()), writer);
         break;
 <#list vv.types as type><#list type.minor as minor>
@@ -122,7 +123,8 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
     FieldWriter writer = fields.get(finalName);
     if(writer == null){
       int vectorCount=container.size();
-      StructVector vector = container.addOrGet(name, FieldType.nullable(MinorType.STRUCT.getType()), StructVector.class);
+      FieldType fieldType = new FieldType(addVectorAsNullable, MinorType.STRUCT.getType(), null, null);
+      StructVector vector = container.addOrGet(name, fieldType, StructVector.class);
       writer = new PromotableWriter(vector, container, getNullableStructWriterFactory());
       if(vectorCount != container.size()) {
         writer.allocate();
@@ -166,7 +168,8 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
     FieldWriter writer = fields.get(finalName);
     int vectorCount = container.size();
     if(writer == null) {
-      writer = new PromotableWriter(container.addOrGet(name, FieldType.nullable(MinorType.LIST.getType()), ListVector.class), container, getNullableStructWriterFactory());
+      FieldType fieldType = new FieldType(addVectorAsNullable, MinorType.LIST.getType(), null, null);
+      writer = new PromotableWriter(container.addOrGet(name, fieldType, ListVector.class), container, getNullableStructWriterFactory());
       if (container.size() > vectorCount) {
         writer.allocate();
       }
@@ -232,8 +235,8 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
     if(writer == null) {
       ValueVector vector;
       ValueVector currentVector = container.getChild(name);
-      ${vectName}Vector v = container.addOrGet(name, 
-          FieldType.nullable(
+      ${vectName}Vector v = container.addOrGet(name,
+          new FieldType(addVectorAsNullable,
           <#if minor.typeParams??>
             <#if minor.arrowTypeConstructorParams??>
               <#assign constructorParams = minor.arrowTypeConstructorParams />
@@ -247,7 +250,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
           <#else>
             MinorType.${upperName}.getType()
           </#if>
-          ),
+          ,null, null),
           ${vectName}Vector.class);
       writer = new PromotableWriter(v, container, getNullableStructWriterFactory());
       vector = v;

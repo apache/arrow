@@ -224,6 +224,7 @@ func Example_fixedSizeListArray() {
 	vb.Append(2)
 
 	lb.AppendNull()
+	vb.AppendValues([]int64{-1, -1, -1}, nil)
 
 	lb.Append(true)
 	vb.Append(3)
@@ -242,41 +243,13 @@ func Example_fixedSizeListArray() {
 
 	fmt.Printf("NullN()   = %d\n", arr.NullN())
 	fmt.Printf("Len()     = %d\n", arr.Len())
-	fmt.Printf("Offsets() = %v\n", arr.Offsets())
 	fmt.Printf("Type()    = %v\n", arr.DataType())
-
-	offsets := arr.Offsets()[1:]
-
-	varr := arr.ListValues().(*array.Int64)
-
-	pos := 0
-	for i := 0; i < arr.Len(); i++ {
-		if !arr.IsValid(i) {
-			fmt.Printf("List[%d]   = (null)\n", i)
-			continue
-		}
-		fmt.Printf("List[%d]   = [", i)
-		for j := pos; j < int(offsets[i]); j++ {
-			if j != pos {
-				fmt.Printf(", ")
-			}
-			fmt.Printf("%v", varr.Value(j))
-		}
-		pos = int(offsets[i])
-		fmt.Printf("]\n")
-	}
 	fmt.Printf("List      = %v\n", arr)
 
 	// Output:
 	// NullN()   = 2
 	// Len()     = 5
-	// Offsets() = [0 3 3 6 9 9]
 	// Type()    = fixed_size_list<item: int64>[3]
-	// List[0]   = [0, 1, 2]
-	// List[1]   = (null)
-	// List[2]   = [3, 4, 5]
-	// List[3]   = [6, 7, 8]
-	// List[4]   = (null)
 	// List      = [[0 1 2] (null) [3 4 5] [6 7 8] (null)]
 }
 

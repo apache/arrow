@@ -267,7 +267,7 @@ TEST(Trie, CapacityError) {
         s[2] = third;
         auto st = builder.Append(reinterpret_cast<const char*>(s));
         if (st.IsCapacityError()) {
-          DCHECK_GE(first, 2);
+          ASSERT_GE(first, 2);
           had_capacity_error = true;
           break;
         } else {

@@ -19,7 +19,12 @@ add_custom_target(arrow-all)
 add_custom_target(arrow)
 add_custom_target(arrow-benchmarks)
 add_custom_target(arrow-tests)
-add_dependencies(arrow-all arrow arrow-tests arrow-benchmarks)
+add_custom_target(arrow-integration)
+add_dependencies(arrow-all
+                 arrow
+                 arrow-tests
+                 arrow-benchmarks
+                 arrow-integration)
 
 # Adding unit tests part of the "arrow" portion of the test suite
 function(ADD_ARROW_TEST REL_TEST_NAME)
@@ -92,6 +97,7 @@ set(ARROW_SRCS
     memory_pool.cc
     pretty_print.cc
     record_batch.cc
+    result.cc
     scalar.cc
     sparse_tensor.cc
     status.cc
@@ -120,6 +126,8 @@ set(ARROW_SRCS
     io/buffered.cc
     io/compressed.cc
     io/file.cc
+    io/hdfs.cc
+    io/hdfs-internal.cc
     io/interfaces.cc
     io/memory.cc
     io/readahead.cc
@@ -167,8 +175,8 @@ if(ARROW_COMPUTE)
       compute/kernels/cast.cc
       compute/kernels/compare.cc
       compute/kernels/count.cc
-      compute/kernels/filter.cc
       compute/kernels/hash.cc
+      compute/kernels/filter.cc
       compute/kernels/mean.cc
       compute/kernels/sum.cc
       compute/kernels/take.cc
@@ -226,10 +234,6 @@ if(ARROW_TENSORFLOW)
   add_subdirectory(adapters/tensorflow)
 endif()
 
-if(NOT ARROW_BOOST_HEADER_ONLY)
-  set(ARROW_SRCS ${ARROW_SRCS} io/hdfs.cc io/hdfs-internal.cc)
-endif()
-
 if(ARROW_IPC)
   add_subdirectory(ipc)
 
@@ -285,7 +289,7 @@ if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
 endif()
 
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
   # that depend on gtest
   add_arrow_lib(arrow_testing
                 SOURCES
@@ -303,6 +307,9 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
                 GTest::GTest
                 STATIC_LINK_LIBS
                 arrow_static)
+
+  add_custom_target(arrow_testing)
+  add_dependencies(arrow_testing ${ARROW_TESTING_LIBRARIES})
 
   if(ARROW_BUILD_STATIC AND WIN32)
     target_compile_definitions(arrow_testing_static PUBLIC ARROW_STATIC)
@@ -340,7 +347,8 @@ add_arrow_test(array-test
                array-dict-test.cc
                array-list-test.cc
                array-struct-test.cc
-               array-union-test.cc)
+               array-union-test.cc
+               array-view-test.cc)
 add_arrow_test(buffer-test)
 
 if(ARROW_IPC)
@@ -351,6 +359,7 @@ endif()
 add_arrow_test(memory_pool-test)
 add_arrow_test(pretty_print-test)
 add_arrow_test(public-api-test)
+add_arrow_test(result-test)
 add_arrow_test(scalar-test)
 add_arrow_test(status-test)
 add_arrow_test(stl-test)
@@ -361,7 +370,6 @@ add_arrow_test(tensor-test)
 add_arrow_test(sparse_tensor-test)
 
 add_arrow_benchmark(builder-benchmark)
-add_arrow_benchmark(column-benchmark)
 
 add_subdirectory(array)
 add_subdirectory(csv)
@@ -370,6 +378,10 @@ add_subdirectory(json)
 add_subdirectory(io)
 add_subdirectory(util)
 add_subdirectory(vendored)
+
+if(ARROW_DATASET)
+  add_subdirectory(dataset)
+endif()
 
 if(ARROW_FLIGHT)
   add_subdirectory(flight)

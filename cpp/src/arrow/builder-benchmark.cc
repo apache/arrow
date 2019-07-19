@@ -29,6 +29,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
@@ -160,7 +161,7 @@ static void BuildChunkedBinaryArray(
 
 static void BuildFixedSizeBinaryArray(
     benchmark::State& state) {  // NOLINT non-const reference
-  auto type = fixed_size_binary(kBinaryView.size());
+  auto type = fixed_size_binary(static_cast<int32_t>(kBinaryView.size()));
 
   for (auto _ : state) {
     FixedSizeBinaryBuilder builder(type);
@@ -174,6 +175,26 @@ static void BuildFixedSizeBinaryArray(
   }
 
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
+}
+
+static void BuildDecimalArray(benchmark::State& state) {  // NOLINT non-const reference
+  auto type = decimal(10, 5);
+  Decimal128 value;
+  int32_t precision = 0;
+  int32_t scale = 0;
+  ABORT_NOT_OK(Decimal128::FromString("1234.1234", &value, &precision, &scale));
+  for (auto _ : state) {
+    Decimal128Builder builder(type);
+
+    for (int64_t i = 0; i < kRounds * kNumberOfElements; i++) {
+      ABORT_NOT_OK(builder.Append(value));
+    }
+
+    std::shared_ptr<Array> out;
+    ABORT_NOT_OK(builder.Finish(&out));
+  }
+
+  state.SetBytesProcessed(state.iterations() * kRounds * kNumberOfElements * 16);
 }
 
 // ----------------------------------------------------------------------
@@ -227,7 +248,8 @@ static std::vector<Integer> MakeRandomIntDictFodder() {
                   [&]() { return static_cast<Integer>(values_dist(gen)); });
   }
   {
-    std::uniform_int_distribution<int32_t> indices_dist(0, kDistinctElements - 1);
+    std::uniform_int_distribution<int32_t> indices_dist(
+        0, static_cast<int32_t>(kDistinctElements - 1));
     std::generate(values.begin(), values.end(),
                   [&]() { return values_dict[indices_dist(gen)]; });
   }
@@ -262,7 +284,8 @@ static std::vector<std::string> MakeStringDictFodder() {
     });
   }
   {
-    std::uniform_int_distribution<int32_t> indices_dist(0, kDistinctElements - 1);
+    std::uniform_int_distribution<int32_t> indices_dist(
+        0, static_cast<int32_t>(kDistinctElements - 1));
     std::generate(values.begin(), values.end(),
                   [&] { return values_dict[indices_dist(gen)]; });
   }
@@ -311,7 +334,7 @@ static void BuildStringDictionaryArray(
     benchmark::State& state) {  // NOLINT non-const reference
   const auto fodder = MakeStringDictFodder();
   auto fodder_size =
-      std::accumulate(fodder.begin(), fodder.end(), 0UL,
+      std::accumulate(fodder.begin(), fodder.end(), 0ULL,
                       [&](size_t acc, const std::string& s) { return acc + s.size(); });
 
   for (auto _ : state) {
@@ -381,6 +404,7 @@ BENCHMARK(BuildAdaptiveIntNoNullsScalarAppend);
 BENCHMARK(BuildBinaryArray);
 BENCHMARK(BuildChunkedBinaryArray);
 BENCHMARK(BuildFixedSizeBinaryArray);
+BENCHMARK(BuildDecimalArray);
 
 BENCHMARK(BuildInt64DictionaryArrayRandom);
 BENCHMARK(BuildInt64DictionaryArraySequential);

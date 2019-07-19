@@ -28,8 +28,8 @@
 # There are several pieces of authorization possibly needed via environment
 # variables
 #
-# JIRA_USERNAME: your Apache JIRA id
-# JIRA_PASSWORD: your Apache JIRA password
+# APACHE_JIRA_USERNAME: your Apache JIRA id
+# APACHE_JIRA_PASSWORD: your Apache JIRA password
 # ARROW_GITHUB_API_TOKEN: a GitHub API token to use for API requests (to avoid
 # rate limiting)
 
@@ -51,6 +51,16 @@ except ImportError:
           "Run 'sudo pip install jira' to install.")
     print("Exiting without trying to close the associated JIRA.")
     sys.exit(1)
+
+# Remote name which points to the GitHub site
+PR_REMOTE_NAME = os.environ.get("PR_REMOTE_NAME", "apache")
+
+# For testing to avoid accidentally pushing to apache
+DEBUG = bool(int(os.environ.get("DEBUG", 0)))
+
+
+if DEBUG:
+    print("**************** DEBUGGING ****************")
 
 
 # Prefix added to temporary branches
@@ -166,25 +176,21 @@ class JiraIssue(object):
                     default_fix_versions = [x for x in default_fix_versions
                                             if x != v]
 
-        return unreleased_versions, default_fix_versions
+        return all_versions, default_fix_versions
 
     def resolve(self, fix_versions, comment):
-        cur_status = self.issue.fields.status.name
-        cur_summary = self.issue.fields.summary
-        cur_assignee = self.issue.fields.assignee
-        if cur_assignee is None:
-            cur_assignee = "NOT ASSIGNED!!!"
-        else:
-            cur_assignee = cur_assignee.displayName
+        fields = self.issue.fields
+        cur_status = fields.status.name
 
         if cur_status == "Resolved" or cur_status == "Closed":
             self.cmd.fail("JIRA issue %s already has status '%s'"
                           % (self.jira_id, cur_status))
-        print("=== JIRA %s ===" % self.jira_id)
-        print("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%s\n"
-              % (cur_summary, cur_assignee, cur_status,
-                 '/'.join((JIRA_API_BASE, 'browse')),
-                 self.jira_id))
+
+        console_output = format_resolved_issue_status(self.jira_id, cur_status,
+                                                      fields.summary,
+                                                      fields.assignee,
+                                                      fields.components)
+        print(console_output)
 
         resolve = [x for x in self.jira_con.transitions(self.jira_id)
                    if x['name'] == "Resolve Issue"][0]
@@ -193,6 +199,28 @@ class JiraIssue(object):
                                        fixVersions=fix_versions)
 
         print("Successfully resolved %s!" % (self.jira_id))
+
+
+def format_resolved_issue_status(jira_id, status, summary, assignee,
+                                 components):
+    if assignee is None:
+        assignee = "NOT ASSIGNED!!!"
+    else:
+        assignee = assignee.displayName
+
+    if len(components) == 0:
+        components = 'NO COMPONENTS!!!'
+    else:
+        components = ', '.join((x.name for x in components))
+
+    return """=== JIRA {} ===
+Summary\t\t{}
+Assignee\t{}
+Components\t{}
+Status\t\t{}
+URL\t\t{}/{}""".format(jira_id, summary, assignee, components, status,
+                       '/'.join((JIRA_API_BASE, 'browse')),
+                       jira_id)
 
 
 class GitHubAPI(object):
@@ -321,7 +349,27 @@ class PullRequest(object):
         distinct_authors = sorted(set(commit_authors),
                                   key=lambda x: commit_authors.count(x),
                                   reverse=True)
-        primary_author = distinct_authors[0]
+
+        for i, author in enumerate(distinct_authors):
+            print("Author {}: {}".format(i + 1, author))
+
+        if len(distinct_authors) > 1:
+            primary_author = self.cmd.prompt(
+                "Enter primary author in the format of "
+                "\"name <email>\" [%s]: " % distinct_authors[0])
+
+            if primary_author == "":
+                primary_author = distinct_authors[0]
+            else:
+                # When primary author is specified manually, de-dup it from
+                # author list and put it at the head of author list.
+                distinct_authors = [x for x in distinct_authors
+                                    if x != primary_author]
+                distinct_authors = [primary_author] + distinct_authors
+        else:
+            # If there is only one author, do not prompt for a lead author
+            primary_author = distinct_authors[0]
+
         commits = run_cmd(['git', 'log', 'HEAD..%s' % pr_branch_name,
                           '--pretty=format:%h <%an> %s']).split("\n\n")
 
@@ -331,9 +379,17 @@ class PullRequest(object):
         if self.body is not None:
             merge_message_flags += ["-m", self.body]
 
-        authors = "\n".join(["Author: %s" % a for a in distinct_authors])
+        committer_name = run_cmd("git config --get user.name").strip()
+        committer_email = run_cmd("git config --get user.email").strip()
 
-        merge_message_flags += ["-m", authors]
+        authors = ("Authored-by:" if len(distinct_authors) == 1
+                   else "Lead-authored-by:")
+        authors += " %s" % (distinct_authors.pop(0))
+        if len(distinct_authors) > 0:
+            authors += "\n" + "\n".join(["Co-authored-by: %s" % a
+                                         for a in distinct_authors])
+        authors += "\n" + "Signed-off-by: %s <%s>" % (committer_name,
+                                                      committer_email)
 
         if had_conflicts:
             committer_name = run_cmd("git config --get user.name").strip()
@@ -353,6 +409,11 @@ class PullRequest(object):
             stripped_message = strip_ci_directives(c).strip()
             merge_message_flags += ["-m", stripped_message]
 
+        merge_message_flags += ["-m", authors]
+
+        if DEBUG:
+            print("\n".join(merge_message_flags))
+
         run_cmd(['git', 'commit',
                  '--no-verify',  # do not run commit hooks
                  '--author="%s"' % primary_author] +
@@ -362,9 +423,13 @@ class PullRequest(object):
                                 % (target_branch_name, self.git_remote))
 
         try:
-            run_cmd('git push %s %s:%s' % (self.git_remote,
-                                           target_branch_name,
-                                           target_ref))
+            push_cmd = ('git push %s %s:%s' % (self.git_remote,
+                                               target_branch_name,
+                                               target_ref))
+            if DEBUG:
+                print(push_cmd)
+            else:
+                run_cmd(push_cmd)
         except Exception as e:
             clean_up()
             self.cmd.fail("Exception while pushing: %s" % e)
@@ -376,6 +441,45 @@ class PullRequest(object):
         return merge_hash
 
 
+def prompt_for_fix_version(cmd, jira_issue):
+    (all_versions,
+     default_fix_versions) = jira_issue.get_candidate_fix_versions()
+
+    default_fix_versions = ",".join(default_fix_versions)
+
+    issue_fix_versions = cmd.prompt("Enter comma-separated "
+                                    "fix version(s) [%s]: "
+                                    % default_fix_versions)
+    if issue_fix_versions == "":
+        issue_fix_versions = default_fix_versions
+    issue_fix_versions = issue_fix_versions.replace(" ", "").split(",")
+
+    def get_version_json(version_str):
+        return [x for x in all_versions if x.name == version_str][0].raw
+
+    return [get_version_json(v) for v in issue_fix_versions]
+
+
+def connect_jira(cmd):
+    # ASF JIRA username
+    jira_username = os.environ.get("APACHE_JIRA_USERNAME")
+
+    # ASF JIRA password
+    jira_password = os.environ.get("APACHE_JIRA_PASSWORD")
+
+    if not jira_username:
+        jira_username = cmd.prompt("Env APACHE_JIRA_USERNAME not set, "
+                                   "please enter your JIRA username:")
+
+    if not jira_password:
+        jira_password = cmd.getpass("Env APACHE_JIRA_PASSWORD not set, "
+                                    "please enter "
+                                    "your JIRA password:")
+
+    return jira.client.JIRA({'server': JIRA_API_BASE},
+                            basic_auth=(jira_username, jira_password))
+
+
 def cli():
     # Location of your Arrow git clone
     ARROW_HOME = os.path.abspath(os.path.dirname(__file__))
@@ -385,33 +489,14 @@ def cli():
 
     cmd = CommandInput()
 
-    # ASF JIRA username
-    jira_username = os.environ.get("JIRA_USERNAME")
-
-    # ASF JIRA password
-    jira_password = os.environ.get("JIRA_PASSWORD")
-
-    if not jira_username:
-        jira_username = cmd.prompt("Env JIRA_USERNAME not set, "
-                                   "please enter your JIRA username:")
-
-    if not jira_password:
-        jira_password = cmd.getpass("Env JIRA_PASSWORD not set, "
-                                    "please enter "
-                                    "your JIRA password:")
-
     pr_num = input("Which pull request would you like to merge? (e.g. 34): ")
-
-    # Remote name which points to the GitHub site
-    git_remote = os.environ.get("PR_REMOTE_NAME", "apache")
 
     os.chdir(ARROW_HOME)
 
-    jira_con = jira.client.JIRA({'server': JIRA_API_BASE},
-                                basic_auth=(jira_username, jira_password))
     github_api = GitHubAPI(PROJECT_NAME)
 
-    pr = PullRequest(cmd, github_api, git_remote, jira_con, pr_num)
+    jira_con = connect_jira(cmd)
+    pr = PullRequest(cmd, github_api, PR_REMOTE_NAME, jira_con, pr_num)
 
     if pr.is_merged:
         print("Pull request %s has already been merged")
@@ -436,21 +521,7 @@ def cli():
            "https://github.com/apache/" + PROJECT_NAME + "/pull",
            pr_num))
 
-    versions, default_fix_versions = pr.jira_issue.get_candidate_fix_versions()
-
-    default_fix_versions = ",".join(default_fix_versions)
-
-    issue_fix_versions = cmd.prompt("Enter comma-separated "
-                                    "fix version(s) [%s]: "
-                                    % default_fix_versions)
-    if issue_fix_versions == "":
-        issue_fix_versions = default_fix_versions
-    issue_fix_versions = issue_fix_versions.replace(" ", "").split(",")
-
-    def get_version_json(version_str):
-        return [x for x in versions if x.name == version_str][0].raw
-
-    fix_versions_json = [get_version_json(v) for v in issue_fix_versions]
+    fix_versions_json = prompt_for_fix_version(cmd, pr.jira_issue)
     pr.jira_issue.resolve(fix_versions_json, jira_comment)
 
 

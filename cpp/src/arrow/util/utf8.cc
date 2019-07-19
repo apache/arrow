@@ -15,10 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cstdint>
+#include <iterator>
 #include <mutex>
+#include <stdexcept>
+#include <utility>
 
 #include "arrow/util/logging.h"
 #include "arrow/util/utf8.h"
+#include "arrow/vendored/utf8cpp/checked.h"
 
 namespace arrow {
 namespace util {
@@ -102,6 +107,51 @@ Status SkipUTF8BOM(const uint8_t* data, int64_t size, const uint8_t** out) {
   }
   // BOM found
   *out = data + i;
+  return Status::OK();
+}
+
+namespace {
+
+// Some platforms (such as old MinGWs) don't have the <codecvt> header,
+// so call into a vendored utf8 implementation instead.
+
+std::wstring UTF8ToWideStringInternal(const std::string& source) {
+  std::wstring ws;
+#if WCHAR_MAX > 0xFFFF
+  ::utf8::utf8to32(source.begin(), source.end(), std::back_inserter(ws));
+#else
+  ::utf8::utf8to16(source.begin(), source.end(), std::back_inserter(ws));
+#endif
+  return ws;
+}
+
+std::string WideStringToUTF8Internal(const std::wstring& source) {
+  std::string s;
+#if WCHAR_MAX > 0xFFFF
+  ::utf8::utf32to8(source.begin(), source.end(), std::back_inserter(s));
+#else
+  ::utf8::utf16to8(source.begin(), source.end(), std::back_inserter(s));
+#endif
+  return s;
+}
+
+}  // namespace
+
+Status UTF8ToWideString(const std::string& source, std::wstring* out) {
+  try {
+    *out = UTF8ToWideStringInternal(source);
+  } catch (std::exception& e) {
+    return Status::Invalid(e.what());
+  }
+  return Status::OK();
+}
+
+Status WideStringToUTF8(const std::wstring& source, std::string* out) {
+  try {
+    *out = WideStringToUTF8Internal(source);
+  } catch (std::exception& e) {
+    return Status::Invalid(e.what());
+  }
   return Status::OK();
 }
 

@@ -62,8 +62,8 @@ using Offset = flatbuffers::Offset<void>;
 using FBString = flatbuffers::Offset<flatbuffers::String>;
 using KVVector = flatbuffers::Vector<KeyValueOffset>;
 
-static const char kExtensionTypeKeyName[] = "arrow_extension_name";
-static const char kExtensionDataKeyName[] = "arrow_extension_data";
+static const char kExtensionTypeKeyName[] = "ARROW:extension:name";
+static const char kExtensionMetadataKeyName[] = "ARROW:extension:metadata";
 
 MetadataVersion GetMetadataVersion(flatbuf::MetadataVersion version) {
   switch (version) {
@@ -316,6 +316,23 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       }
       *out = std::make_shared<ListType>(children[0]);
       return Status::OK();
+    case flatbuf::Type_Map:
+      if (children.size() != 1) {
+        return Status::Invalid("Map must have exactly 1 child field");
+      }
+      if (children[0]->nullable() || children[0]->type()->id() != Type::STRUCT ||
+          children[0]->type()->num_children() != 2) {
+        return Status::Invalid("Map's key-item pairs must be non-nullable structs");
+      }
+      if (children[0]->type()->child(0)->nullable()) {
+        return Status::Invalid("Map's keys must be non-nullable");
+      } else {
+        auto map = static_cast<const flatbuf::Map*>(type_data);
+        *out = std::make_shared<MapType>(children[0]->type()->child(0)->type(),
+                                         children[0]->type()->child(1)->type(),
+                                         map->keysSorted());
+      }
+      return Status::OK();
     case flatbuf::Type_FixedSizeList:
       if (children.size() != 1) {
         return Status::Invalid("FixedSizeList must have exactly 1 child field");
@@ -340,8 +357,12 @@ static Status TypeFromFlatbuffer(const flatbuf::Field* field,
                                  const std::vector<std::shared_ptr<Field>>& children,
                                  const KeyValueMetadata* field_metadata,
                                  std::shared_ptr<DataType>* out) {
-  RETURN_NOT_OK(
-      ConcreteTypeFromFlatbuffer(field->type_type(), field->type(), children, out));
+  auto type_data = field->type();
+  if (type_data == nullptr) {
+    return Status::IOError(
+        "Type-pointer in custom metadata of flatbuffer-encoded Field is null.");
+  }
+  RETURN_NOT_OK(ConcreteTypeFromFlatbuffer(field->type_type(), type_data, children, out));
 
   // Look for extension metadata in custom_metadata field
   // TODO(wesm): Should this be part of the Field Flatbuffers table?
@@ -351,7 +372,7 @@ static Status TypeFromFlatbuffer(const flatbuf::Field* field,
       return Status::OK();
     }
     std::string type_name = field_metadata->value(name_index);
-    int data_index = field_metadata->FindKey(kExtensionDataKeyName);
+    int data_index = field_metadata->FindKey(kExtensionMetadataKeyName);
     std::string type_data = data_index == -1 ? "" : field_metadata->value(data_index);
 
     std::shared_ptr<ExtensionType> type = GetExtensionType(type_name);
@@ -601,6 +622,13 @@ class FieldToFlatbufferVisitor {
     return Status::OK();
   }
 
+  Status Visit(const MapType& type) {
+    fb_type_ = flatbuf::Type_Map;
+    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+    type_offset_ = flatbuf::CreateMap(fbb_, type.keys_sorted()).Union();
+    return Status::OK();
+  }
+
   Status Visit(const FixedSizeListType& type) {
     fb_type_ = flatbuf::Type_FixedSizeList;
     RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
@@ -648,7 +676,7 @@ class FieldToFlatbufferVisitor {
   Status Visit(const ExtensionType& type) {
     RETURN_NOT_OK(VisitType(*type.storage_type()));
     extra_type_metadata_[kExtensionTypeKeyName] = type.extension_name();
-    extra_type_metadata_[kExtensionDataKeyName] = type.Serialize();
+    extra_type_metadata_[kExtensionMetadataKeyName] = type.Serialize();
     return Status::OK();
   }
 
@@ -717,6 +745,9 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
 
   // Reconstruct the data type
   auto children = field->children();
+  if (children == nullptr) {
+    return Status::IOError("Children-pointer of flatbuffer-encoded Field is null.");
+  }
   std::vector<std::shared_ptr<Field>> child_fields(children->size());
   for (int i = 0; i < static_cast<int>(children->size()); ++i) {
     RETURN_NOT_OK(
@@ -731,12 +762,22 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
     // based on the DictionaryEncoding metadata and record in the
     // dictionary_memo
     std::shared_ptr<DataType> index_type;
-    RETURN_NOT_OK(IntFromFlatbuffer(encoding->indexType(), &index_type));
+    auto int_data = encoding->indexType();
+    if (int_data == nullptr) {
+      return Status::IOError(
+          "indexType-pointer in custom metadata of flatbuffer-encoded DictionaryEncoding "
+          "is null.");
+    }
+    RETURN_NOT_OK(IntFromFlatbuffer(int_data, &index_type));
     type = ::arrow::dictionary(index_type, type, encoding->isOrdered());
     *out = ::arrow::field(field->name()->str(), type, field->nullable(), metadata);
     RETURN_NOT_OK(dictionary_memo->AddField(encoding->id(), *out));
   } else {
-    *out = ::arrow::field(field->name()->str(), type, field->nullable(), metadata);
+    auto name = field->name();
+    if (name == nullptr) {
+      return Status::IOError("Name-pointer of flatbuffer-encoded Field is null.");
+    }
+    *out = ::arrow::field(name->str(), type, field->nullable(), metadata);
   }
   return Status::OK();
 }
@@ -1083,8 +1124,12 @@ Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
 Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
                          std::vector<int64_t>* shape, std::vector<int64_t>* strides,
                          std::vector<std::string>* dim_names) {
-  auto message = flatbuf::GetMessage(metadata.data());
-  auto tensor = reinterpret_cast<const flatbuf::Tensor*>(message->header());
+  const flatbuf::Message* message;
+  RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
+  auto tensor = message->header_as_Tensor();
+  if (tensor == nullptr) {
+    return Status::IOError("Header-type of flatbuffer-encoded Message is not Tensor.");
+  }
 
   int ndim = static_cast<int>(tensor->shape()->size());
 
@@ -1106,7 +1151,12 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
     }
   }
 
-  return ConcreteTypeFromFlatbuffer(tensor->type_type(), tensor->type(), {}, type);
+  auto type_data = tensor->type();
+  if (type_data == nullptr) {
+    return Status::IOError(
+        "Type-pointer in custom metadata of flatbuffer-encoded Tensor is null.");
+  }
+  return ConcreteTypeFromFlatbuffer(tensor->type_type(), type_data, {}, type);
 }
 
 Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
@@ -1114,15 +1164,13 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
                                std::vector<std::string>* dim_names,
                                int64_t* non_zero_length,
                                SparseTensorFormat::type* sparse_tensor_format_id) {
-  auto message = flatbuf::GetMessage(metadata.data());
-  if (message->header_type() != flatbuf::MessageHeader_SparseTensor) {
-    return Status::IOError("Header of flatbuffer-encoded Message is not SparseTensor.");
+  const flatbuf::Message* message;
+  RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
+  auto sparse_tensor = message->header_as_SparseTensor();
+  if (sparse_tensor == nullptr) {
+    return Status::IOError(
+        "Header-type of flatbuffer-encoded Message is not SparseTensor.");
   }
-  if (message->header() == nullptr) {
-    return Status::IOError("Header-pointer of flatbuffer-encoded Message is null.");
-  }
-
-  auto sparse_tensor = reinterpret_cast<const flatbuf::SparseTensor*>(message->header());
   int ndim = static_cast<int>(sparse_tensor->shape()->size());
 
   for (int i = 0; i < ndim; ++i) {
@@ -1152,8 +1200,12 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
       return Status::Invalid("Unrecognized sparse index type");
   }
 
-  return ConcreteTypeFromFlatbuffer(sparse_tensor->type_type(), sparse_tensor->type(), {},
-                                    type);
+  auto type_data = sparse_tensor->type();
+  if (type_data == nullptr) {
+    return Status::IOError(
+        "Type-pointer in custom metadata of flatbuffer-encoded SparseTensor is null.");
+  }
+  return ConcreteTypeFromFlatbuffer(sparse_tensor->type_type(), type_data, {}, type);
 }
 
 // ----------------------------------------------------------------------

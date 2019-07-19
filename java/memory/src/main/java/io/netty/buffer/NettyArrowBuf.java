@@ -106,7 +106,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   public ByteBuf unwrap() {
-    throw new UnsupportedOperationException("Operation not supported");
+    throw new UnsupportedOperationException("Unwrap not supported.");
   }
 
   @Override
@@ -161,7 +161,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   public NettyArrowBuf slice() {
-    return arrowBuf.slice().asNettyBuffer();
+    return arrowBuf.slice(readerIndex, writerIndex - readerIndex).asNettyBuffer();
   }
 
   @Override
@@ -203,7 +203,9 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   public ByteBuffer internalNioBuffer(int index, int length) {
-    throw new UnsupportedOperationException("operation not supported");
+    ByteBuffer nioBuf =  getDirectBuffer(index);
+    // Follows convention from other ByteBuf implementations.
+    return (ByteBuffer)nioBuf.clear().limit(length);
   }
 
   @Override
@@ -222,10 +224,14 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
   }
 
   @Override
+  /**
+   * Returns a buffer that is zero positioned but points
+   * to a slice of the original buffer starting at given index.
+   */
   public ByteBuffer nioBuffer(int index, int length) {
     chk(index, length);
-    final ByteBuffer buffer = getDirectBuffer();
-    buffer.position(index).limit(index + length);
+    final ByteBuffer buffer = getDirectBuffer(index);
+    buffer.limit(length);
     return buffer;
   }
 
@@ -233,8 +239,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
    * Get this ArrowBuf as a direct {@link ByteBuffer}.
    * @return ByteBuffer
    */
-  private ByteBuffer getDirectBuffer() {
-    return PlatformDependent.directBuffer(address, length);
+  private ByteBuffer getDirectBuffer(int index) {
+    return PlatformDependent.directBuffer(addr(index), length - index);
   }
 
   @Override
@@ -288,7 +294,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
         dstIndex += dst.arrayOffset();
         PlatformDependent.copyMemory(srcAddress, dst.array(), dstIndex, (long)length);
       } else {
-        throw new UnsupportedOperationException("Copy to this ByteBuf is not supported");
+        dst.setBytes(dstIndex, this, index, length);
       }
     }
     return this;
@@ -310,7 +316,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
           srcIndex += src.arrayOffset();
           PlatformDependent.copyMemory(src.array(), srcIndex, dstAddress, (long)length);
         } else {
-          throw new UnsupportedOperationException("Copy from this ByteBuf is not supported");
+          src.getBytes(srcIndex, this, index, length);
         }
       }
     }
@@ -335,8 +341,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
     if (length == 0) {
       return 0;
     } else {
-      final ByteBuffer tmpBuf = getDirectBuffer();
-      tmpBuf.clear().position(index).limit(index + length);
+      final ByteBuffer tmpBuf = getDirectBuffer(index);
+      tmpBuf.clear().limit(length);
       return out.write(tmpBuf);
     }
   }
@@ -347,8 +353,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
     if (length == 0) {
       return 0;
     } else {
-      final ByteBuffer tmpBuf = getDirectBuffer();
-      tmpBuf.clear().position(index).limit(index + length);
+      final ByteBuffer tmpBuf = getDirectBuffer(index );
+      tmpBuf.clear().limit(length);
       return out.write(tmpBuf, position);
     }
   }
@@ -380,7 +386,10 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   protected int _getUnsignedMediumLE(int index) {
-    return getUnsignedMediumLE(index);
+    this.chk(index, 3);
+    long addr = this.addr(index);
+    return PlatformDependent.getByte(addr) & 255 |
+            (Short.reverseBytes(PlatformDependent.getShort(addr + 1L)) & '\uffff') << 8;
   }
 
 
@@ -403,7 +412,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   protected short _getShortLE(int index) {
-    return getShort(index);
+    short s = getShort(index);
+    return Short.reverseBytes(s);
   }
 
   @Override
@@ -418,7 +428,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   protected int _getIntLE(int index) {
-    return getInt(index);
+    int value =  getInt(index);
+    return Integer.reverseBytes(value);
   }
 
   @Override
@@ -433,7 +444,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   protected long _getLongLE(int index) {
-    return getLong(index);
+    long value = getLong(index);
+    return Long.reverseBytes(value);
   }
 
   @Override
@@ -467,7 +479,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   protected void _setShortLE(int index, int value) {
-    setShort(index, value);
+    this.chk(index, 2);
+    PlatformDependent.putShort(this.addr(index), Short.reverseBytes((short)value));
   }
 
   @Override
@@ -513,7 +526,10 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   protected void _setMediumLE(int index, int value) {
-    setMedium(index, value);
+    this.chk(index, 3);
+    long addr = this.addr(index);
+    PlatformDependent.putByte(addr, (byte)value);
+    PlatformDependent.putShort(addr + 1L, Short.reverseBytes((short)(value >>> 8)));
   }
 
   @Override
@@ -544,7 +560,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   protected void _setIntLE(int index, int value) {
-    setInt(index, value);
+    this.chk(index, 4);
+    PlatformDependent.putInt(this.addr(index), Integer.reverseBytes(value));
   }
 
   @Override
@@ -560,7 +577,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   public void _setLongLE(int index, long value) {
-    setLong(index, value);
+    this.chk(index, 8);
+    PlatformDependent.putLong(this.addr(index), Long.reverseBytes(value));
   }
 
   @Override

@@ -50,7 +50,8 @@ class ARROW_PYTHON_EXPORT PyFlightServerVtable {
                      std::unique_ptr<arrow::flight::FlightDataStream>*)>
       do_get;
   std::function<void(PyObject*, const arrow::flight::ServerCallContext&,
-                     std::unique_ptr<arrow::flight::FlightMessageReader>)>
+                     std::unique_ptr<arrow::flight::FlightMessageReader>,
+                     std::unique_ptr<arrow::flight::FlightMetadataWriter>)>
       do_put;
   std::function<void(PyObject*, const arrow::flight::ServerCallContext&,
                      const arrow::flight::Action&,
@@ -80,7 +81,8 @@ class ARROW_PYTHON_EXPORT PyClientAuthHandlerVtable {
 /// \brief A helper to implement an auth mechanism in Python.
 class ARROW_PYTHON_EXPORT PyServerAuthHandler : public arrow::flight::ServerAuthHandler {
  public:
-  explicit PyServerAuthHandler(PyObject* handler, PyServerAuthHandlerVtable vtable);
+  explicit PyServerAuthHandler(PyObject* handler,
+                               const PyServerAuthHandlerVtable& vtable);
   Status Authenticate(arrow::flight::ServerAuthSender* outgoing,
                       arrow::flight::ServerAuthReader* incoming) override;
   Status IsValid(const std::string& token, std::string* peer_identity) override;
@@ -93,7 +95,8 @@ class ARROW_PYTHON_EXPORT PyServerAuthHandler : public arrow::flight::ServerAuth
 /// \brief A helper to implement an auth mechanism in Python.
 class ARROW_PYTHON_EXPORT PyClientAuthHandler : public arrow::flight::ClientAuthHandler {
  public:
-  explicit PyClientAuthHandler(PyObject* handler, PyClientAuthHandlerVtable vtable);
+  explicit PyClientAuthHandler(PyObject* handler,
+                               const PyClientAuthHandlerVtable& vtable);
   Status Authenticate(arrow::flight::ClientAuthSender* outgoing,
                       arrow::flight::ClientAuthReader* incoming) override;
   Status GetToken(std::string* token) override;
@@ -105,7 +108,7 @@ class ARROW_PYTHON_EXPORT PyClientAuthHandler : public arrow::flight::ClientAuth
 
 class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBase {
  public:
-  explicit PyFlightServer(PyObject* server, PyFlightServerVtable vtable);
+  explicit PyFlightServer(PyObject* server, const PyFlightServerVtable& vtable);
 
   // Like Serve(), but set up signals and invoke Python signal handlers
   // if necessary.  This function may return with a Python exception set.
@@ -121,7 +124,8 @@ class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBas
                const arrow::flight::Ticket& request,
                std::unique_ptr<arrow::flight::FlightDataStream>* stream) override;
   Status DoPut(const arrow::flight::ServerCallContext& context,
-               std::unique_ptr<arrow::flight::FlightMessageReader> reader) override;
+               std::unique_ptr<arrow::flight::FlightMessageReader> reader,
+               std::unique_ptr<arrow::flight::FlightMetadataWriter> writer) override;
   Status DoAction(const arrow::flight::ServerCallContext& context,
                   const arrow::flight::Action& action,
                   std::unique_ptr<arrow::flight::ResultStream>* result) override;

@@ -44,7 +44,9 @@ curl \
 rm -rf ${archive_name}
 tar xf ${tar_gz}
 pushd ${archive_name}/csharp
+mv dummy.git ../.git
 dotnet pack -c Release
+mv ../.git dummy.git
 for package in artifacts/Apache.Arrow/Release/*.{nupkg,snupkg}; do
   dotnet nuget push \
     ${package} \

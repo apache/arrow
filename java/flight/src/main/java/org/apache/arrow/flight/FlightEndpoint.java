@@ -20,7 +20,6 @@ package org.apache.arrow.flight;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.apache.arrow.flight.impl.Flight;
 

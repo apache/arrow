@@ -49,8 +49,7 @@ using arrow::ChunkedArray;
 using arrow::Decimal128Array;
 using arrow::Field;
 using arrow::FixedSizeBinaryArray;
-using arrow::Int16Array;
-using arrow::Int16Builder;
+using Int16BufferBuilder = arrow::TypedBufferBuilder<int16_t>;
 using arrow::ListArray;
 using arrow::MemoryPool;
 using arrow::NumericArray;
@@ -81,8 +80,7 @@ namespace {
 
 class LevelBuilder {
  public:
-  explicit LevelBuilder(MemoryPool* pool)
-      : def_levels_(::arrow::int16(), pool), rep_levels_(::arrow::int16(), pool) {}
+  explicit LevelBuilder(MemoryPool* pool) : def_levels_(pool), rep_levels_(pool) {}
 
   Status VisitInline(const Array& array);
 
@@ -102,6 +100,7 @@ class LevelBuilder {
     null_counts_.push_back(array.null_count());
     offsets_.push_back(array.raw_value_offsets());
 
+    // Min offset isn't always zero in the case of sliced Arrays.
     min_offset_idx_ = array.value_offset(min_offset_idx_);
     max_offset_idx_ = array.value_offset(max_offset_idx_);
 
@@ -114,6 +113,7 @@ class LevelBuilder {
                                   " not supported yet");                   \
   }
 
+  NOT_IMPLEMENTED_VISIT(Map)
   NOT_IMPLEMENTED_VISIT(FixedSizeList)
   NOT_IMPLEMENTED_VISIT(Struct)
   NOT_IMPLEMENTED_VISIT(Union)
@@ -175,18 +175,17 @@ class LevelBuilder {
       }
       *num_levels = array.length();
     } else {
+      // Note it is hard to estimate memory consumption due to zero length
+      // arrays otherwise we would preallocate.  An upper boun on memory
+      // is the sum of the length of each list array  + number of elements
+      // but this might be too loose of an upper bound so we choose to use
+      // safe methods.
       RETURN_NOT_OK(rep_levels_.Append(0));
       RETURN_NOT_OK(HandleListEntries(0, 0, 0, array.length()));
 
-      std::shared_ptr<Array> def_levels_array;
-      std::shared_ptr<Array> rep_levels_array;
-
-      RETURN_NOT_OK(def_levels_.Finish(&def_levels_array));
-      RETURN_NOT_OK(rep_levels_.Finish(&rep_levels_array));
-
-      *def_levels_out = static_cast<PrimitiveArray*>(def_levels_array.get())->values();
-      *rep_levels_out = static_cast<PrimitiveArray*>(rep_levels_array.get())->values();
-      *num_levels = rep_levels_array->length();
+      RETURN_NOT_OK(def_levels_.Finish(def_levels_out));
+      RETURN_NOT_OK(rep_levels_.Finish(rep_levels_out));
+      *num_levels = (*rep_levels_out)->size() / sizeof(int16_t);
     }
 
     return Status::OK();
@@ -216,36 +215,37 @@ class LevelBuilder {
       return HandleListEntries(static_cast<int16_t>(def_level + 1),
                                static_cast<int16_t>(rep_level + 1), inner_offset,
                                inner_length);
-    } else {
-      // We have reached the leaf: primitive list, handle remaining nullables
-      const bool nullable_level = nullable_[recursion_level];
-      const int64_t level_null_count = null_counts_[recursion_level];
-      const uint8_t* level_valid_bitmap = valid_bitmaps_[recursion_level];
-
-      for (int64_t i = 0; i < inner_length; i++) {
-        if (i > 0) {
-          RETURN_NOT_OK(rep_levels_.Append(static_cast<int16_t>(rep_level + 1)));
-        }
-        if (level_null_count && level_valid_bitmap == nullptr) {
-          // Special case: this is a null array (all elements are null)
-          RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 1)));
-        } else if (nullable_level &&
-                   ((level_null_count == 0) ||
-                    BitUtil::GetBit(
-                        level_valid_bitmap,
-                        inner_offset + i + array_offsets_[recursion_level]))) {
-          // Non-null element in a null level
-          RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 2)));
-        } else {
-          // This can be produced in two case:
-          //  * elements are nullable and this one is null (i.e. max_def_level = def_level
-          //  + 2)
-          //  * elements are non-nullable (i.e. max_def_level = def_level + 1)
-          RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 1)));
-        }
-      }
-      return Status::OK();
     }
+    // We have reached the leaf: primitive list, handle remaining nullables
+    const bool nullable_level = nullable_[recursion_level];
+    const int64_t level_null_count = null_counts_[recursion_level];
+    const uint8_t* level_valid_bitmap = valid_bitmaps_[recursion_level];
+
+    if (inner_length >= 1) {
+      RETURN_NOT_OK(
+          rep_levels_.Append(inner_length - 1, static_cast<int16_t>(rep_level + 1)));
+    }
+
+    // Special case: this is a null array (all elements are null)
+    if (level_null_count && level_valid_bitmap == nullptr) {
+      return def_levels_.Append(inner_length, static_cast<int16_t>(def_level + 1));
+    }
+    for (int64_t i = 0; i < inner_length; i++) {
+      if (nullable_level &&
+          ((level_null_count == 0) ||
+           BitUtil::GetBit(level_valid_bitmap,
+                           inner_offset + i + array_offsets_[recursion_level]))) {
+        // Non-null element in a null level
+        RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 2)));
+      } else {
+        // This can be produced in two cases:
+        //  * elements are nullable and this one is null
+        //   (i.e. max_def_level = def_level + 2)
+        //  * elements are non-nullable (i.e. max_def_level = def_level + 1)
+        RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 1)));
+      }
+    }
+    return Status::OK();
   }
 
   Status HandleListEntries(int16_t def_level, int16_t rep_level, int64_t offset,
@@ -260,8 +260,8 @@ class LevelBuilder {
   }
 
  private:
-  Int16Builder def_levels_;
-  Int16Builder rep_levels_;
+  Int16BufferBuilder def_levels_;
+  Int16BufferBuilder rep_levels_;
 
   std::vector<int64_t> null_counts_;
   std::vector<const uint8_t*> valid_bitmaps_;
@@ -306,7 +306,7 @@ struct ColumnWriterContext {
 Status GetLeafType(const ::arrow::DataType& type, ::arrow::Type::type* leaf_type) {
   if (type.id() == ::arrow::Type::LIST || type.id() == ::arrow::Type::STRUCT) {
     if (type.num_children() != 1) {
-      return Status::Invalid("Nested column branch had multiple children");
+      return Status::Invalid("Nested column branch had multiple children: ", type);
     }
     return GetLeafType(*type.child(0)->type(), leaf_type);
   } else {
@@ -382,9 +382,9 @@ class ArrowColumnWriter {
   Status WriteTimestamps(const Array& data, int64_t num_levels, const int16_t* def_levels,
                          const int16_t* rep_levels);
 
-  Status WriteTimestampsCoerce(const bool truncated_timestamps_allowed, const Array& data,
-                               int64_t num_levels, const int16_t* def_levels,
-                               const int16_t* rep_levels);
+  Status WriteTimestampsCoerce(const Array& data, int64_t num_levels,
+                               const int16_t* def_levels, const int16_t* rep_levels,
+                               const ArrowWriterProperties& properties);
 
   template <typename ParquetType, typename ArrowType>
   Status WriteNonNullableBatch(const ArrowType& type, int64_t num_values,
@@ -649,50 +649,92 @@ Status ArrowColumnWriter::WriteNonNullableBatch<Int96Type, ::arrow::TimestampTyp
 Status ArrowColumnWriter::WriteTimestamps(const Array& values, int64_t num_levels,
                                           const int16_t* def_levels,
                                           const int16_t* rep_levels) {
-  const auto& type = static_cast<const ::arrow::TimestampType&>(*values.type());
-
-  const bool is_nanosecond = type.unit() == TimeUnit::NANO;
+  const auto& source_type = static_cast<const ::arrow::TimestampType&>(*values.type());
 
   if (ctx_->properties->support_deprecated_int96_timestamps()) {
-    // The user explicitly required to use Int96 storage.
+    // User explicitly requested Int96 timestamps
     return TypedWriteBatch<Int96Type, ::arrow::TimestampType>(values, num_levels,
                                                               def_levels, rep_levels);
-  } else if (is_nanosecond ||
-             (ctx_->properties->coerce_timestamps_enabled() &&
-              (type.unit() != ctx_->properties->coerce_timestamps_unit()))) {
-    // Casting is required. This covers several cases
-    // * Nanoseconds -> cast to microseconds (until ARROW-3729 is resolved)
-    // * coerce_timestamps_enabled_, cast all timestamps to requested unit
-    return WriteTimestampsCoerce(ctx_->properties->truncated_timestamps_allowed(), values,
-                                 num_levels, def_levels, rep_levels);
+  } else if (ctx_->properties->coerce_timestamps_enabled()) {
+    // User explicitly requested coercion to specific unit
+    if (source_type.unit() == ctx_->properties->coerce_timestamps_unit()) {
+      // No data conversion necessary
+      return TypedWriteBatch<Int64Type, ::arrow::TimestampType>(values, num_levels,
+                                                                def_levels, rep_levels);
+    } else {
+      return WriteTimestampsCoerce(values, num_levels, def_levels, rep_levels,
+                                   *(ctx_->properties));
+    }
+  } else if (writer_->properties()->version() == ParquetVersion::PARQUET_1_0 &&
+             source_type.unit() == TimeUnit::NANO) {
+    // Absent superseding user instructions, when writing Parquet version 1.0 files,
+    // timestamps in nanoseconds are coerced to microseconds
+    std::shared_ptr<ArrowWriterProperties> properties =
+        (ArrowWriterProperties::Builder())
+            .coerce_timestamps(TimeUnit::MICRO)
+            ->disallow_truncated_timestamps()
+            ->build();
+    return WriteTimestampsCoerce(values, num_levels, def_levels, rep_levels, *properties);
+  } else if (source_type.unit() == TimeUnit::SECOND) {
+    // Absent superseding user instructions, timestamps in seconds are coerced to
+    // milliseconds
+    std::shared_ptr<ArrowWriterProperties> properties =
+        (ArrowWriterProperties::Builder()).coerce_timestamps(TimeUnit::MILLI)->build();
+    return WriteTimestampsCoerce(values, num_levels, def_levels, rep_levels, *properties);
   } else {
-    // No casting of timestamps is required, take the fast path
+    // No data conversion necessary
     return TypedWriteBatch<Int64Type, ::arrow::TimestampType>(values, num_levels,
                                                               def_levels, rep_levels);
   }
 }
 
-Status ArrowColumnWriter::WriteTimestampsCoerce(const bool truncated_timestamps_allowed,
-                                                const Array& array, int64_t num_levels,
+#define COERCE_DIVIDE -1
+#define COERCE_INVALID 0
+#define COERCE_MULTIPLY +1
+
+static std::pair<int, int64_t> kTimestampCoercionFactors[4][4] = {
+    // from seconds ...
+    {{COERCE_INVALID, 0},                      // ... to seconds
+     {COERCE_MULTIPLY, 1000},                  // ... to millis
+     {COERCE_MULTIPLY, 1000000},               // ... to micros
+     {COERCE_MULTIPLY, INT64_C(1000000000)}},  // ... to nanos
+    // from millis ...
+    {{COERCE_INVALID, 0},
+     {COERCE_MULTIPLY, 1},
+     {COERCE_MULTIPLY, 1000},
+     {COERCE_MULTIPLY, 1000000}},
+    // from micros ...
+    {{COERCE_INVALID, 0},
+     {COERCE_DIVIDE, 1000},
+     {COERCE_MULTIPLY, 1},
+     {COERCE_MULTIPLY, 1000}},
+    // from nanos ...
+    {{COERCE_INVALID, 0},
+     {COERCE_DIVIDE, 1000000},
+     {COERCE_DIVIDE, 1000},
+     {COERCE_MULTIPLY, 1}}};
+
+Status ArrowColumnWriter::WriteTimestampsCoerce(const Array& array, int64_t num_levels,
                                                 const int16_t* def_levels,
-                                                const int16_t* rep_levels) {
+                                                const int16_t* rep_levels,
+                                                const ArrowWriterProperties& properties) {
   int64_t* buffer;
   RETURN_NOT_OK(ctx_->GetScratchData<int64_t>(num_levels, &buffer));
 
   const auto& data = static_cast<const ::arrow::TimestampArray&>(array);
-
   auto values = data.raw_values();
-  const auto& type = static_cast<const ::arrow::TimestampType&>(*array.type());
 
-  TimeUnit::type target_unit = ctx_->properties->coerce_timestamps_enabled()
-                                   ? ctx_->properties->coerce_timestamps_unit()
-                                   : TimeUnit::MICRO;
+  const auto& source_type = static_cast<const ::arrow::TimestampType&>(*array.type());
+  auto source_unit = source_type.unit();
+
+  TimeUnit::type target_unit = properties.coerce_timestamps_unit();
   auto target_type = ::arrow::timestamp(target_unit);
+  bool truncation_allowed = properties.truncated_timestamps_allowed();
 
   auto DivideBy = [&](const int64_t factor) {
     for (int64_t i = 0; i < array.length(); i++) {
-      if (!truncated_timestamps_allowed && !data.IsNull(i) && (values[i] % factor != 0)) {
-        return Status::Invalid("Casting from ", type.ToString(), " to ",
+      if (!truncation_allowed && !data.IsNull(i) && (values[i] % factor != 0)) {
+        return Status::Invalid("Casting from ", source_type.ToString(), " to ",
                                target_type->ToString(), " would lose data: ", values[i]);
       }
       buffer[i] = values[i] / factor;
@@ -707,22 +749,12 @@ Status ArrowColumnWriter::WriteTimestampsCoerce(const bool truncated_timestamps_
     return Status::OK();
   };
 
-  if (type.unit() == TimeUnit::NANO) {
-    if (target_unit == TimeUnit::MICRO) {
-      RETURN_NOT_OK(DivideBy(1000));
-    } else {
-      DCHECK_EQ(TimeUnit::MILLI, target_unit);
-      RETURN_NOT_OK(DivideBy(1000000));
-    }
-  } else if (type.unit() == TimeUnit::SECOND) {
-    RETURN_NOT_OK(MultiplyBy(target_unit == TimeUnit::MICRO ? 1000000 : 1000));
-  } else if (type.unit() == TimeUnit::MILLI) {
-    DCHECK_EQ(TimeUnit::MICRO, target_unit);
-    RETURN_NOT_OK(MultiplyBy(1000));
-  } else {
-    DCHECK_EQ(TimeUnit::MILLI, target_unit);
-    RETURN_NOT_OK(DivideBy(1000));
-  }
+  const auto& coercion = kTimestampCoercionFactors[static_cast<int>(source_unit)]
+                                                  [static_cast<int>(target_unit)];
+  // .first -> coercion operation; .second -> scale factor
+  DCHECK_NE(coercion.first, COERCE_INVALID);
+  RETURN_NOT_OK(coercion.first == COERCE_DIVIDE ? DivideBy(coercion.second)
+                                                : MultiplyBy(coercion.second));
 
   if (writer_->descr()->schema_node()->is_required() || (data.null_count() == 0)) {
     // no nulls, just dump the data
@@ -735,8 +767,13 @@ Status ArrowColumnWriter::WriteTimestampsCoerce(const bool truncated_timestamps_
         static_cast<const ::arrow::TimestampType&>(*target_type), array.length(),
         num_levels, def_levels, rep_levels, valid_bits, data.offset(), buffer)));
   }
+
   return Status::OK();
 }
+
+#undef COERCE_DIVIDE
+#undef COERCE_INVALID
+#undef COERCE_MULTIPLY
 
 // This specialization seems quite similar but it significantly differs in two points:
 // * offset is added at the most latest time to the pointer as we have sub-byte access
@@ -1157,8 +1194,7 @@ Status FileWriter::WriteTable(const Table& table, int64_t chunk_size) {
   auto WriteRowGroup = [&](int64_t offset, int64_t size) {
     RETURN_NOT_OK(NewRowGroup(size));
     for (int i = 0; i < table.num_columns(); i++) {
-      auto chunked_data = table.column(i)->data();
-      RETURN_NOT_OK(WriteColumnChunk(chunked_data, offset, size));
+      RETURN_NOT_OK(WriteColumnChunk(table.column(i), offset, size));
     }
     return Status::OK();
   };

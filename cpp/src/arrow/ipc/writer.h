@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "arrow/ipc/message.h"
+#include "arrow/result.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -103,6 +104,15 @@ class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
                      std::shared_ptr<RecordBatchWriter>* out);
 
+  /// Create a new writer from stream sink and schema. User is responsible for
+  /// closing the actual OutputStream.
+  ///
+  /// \param[in] sink output stream to write to
+  /// \param[in] schema the schema of the record batches to be written
+  /// \return Result<std::shared_ptr<RecordBatchWriter>>
+  static Result<std::shared_ptr<RecordBatchWriter>> Open(
+      io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
+
   /// \brief Write a record batch to the stream
   ///
   /// \param[in] batch the record batch to write
@@ -139,6 +149,14 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
   /// \return Status
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
                      std::shared_ptr<RecordBatchWriter>* out);
+
+  /// Create a new writer from stream sink and schema
+  ///
+  /// \param[in] sink output stream to write to
+  /// \param[in] schema the schema of the record batches to be written
+  /// \return Status
+  static Result<std::shared_ptr<RecordBatchWriter>> Open(
+      io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
 
   /// \brief Write a record batch to the file
   ///
@@ -331,6 +349,15 @@ ARROW_EXPORT
 Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
                              const std::shared_ptr<Schema>& schema,
                              std::unique_ptr<RecordBatchWriter>* out);
+
+/// Create a new RecordBatchWriter from IpcPayloadWriter and schema.
+///
+/// \param[in] sink the IpcPayloadWriter to write to
+/// \param[in] schema the schema of the record batches to be written
+/// \return Result<std::unique_ptr<RecordBatchWriter>>
+ARROW_EXPORT
+Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
+    std::unique_ptr<IpcPayloadWriter> sink, const std::shared_ptr<Schema>& schema);
 
 /// \brief Compute IpcPayload for the given schema
 /// \param[in] schema the Schema that is being serialized

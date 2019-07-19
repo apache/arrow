@@ -17,6 +17,7 @@
 
 extern "C" {
 
+#include <math.h>
 #include "./types.h"
 
 // Expand inner macro for all numeric types.
@@ -67,6 +68,15 @@ NUMERIC_TYPES(BINARY_SYMMETRIC, multiply, *)
 
 MOD_OP(mod, int64, int32, int32)
 MOD_OP(mod, int64, int64, int64)
+
+float64 mod_float64_float64(int64_t context, float64 x, float64 y) {
+  if (y == 0.0) {
+    char const* err_msg = "divide by zero error";
+    gdv_fn_context_set_error_msg(context, err_msg);
+    return 0.0;
+  }
+  return fmod(x, y);
+}
 
 // Relational binary fns : left, right params are same, return is bool.
 #define BINARY_RELATIONAL(NAME, TYPE, OP) \
@@ -169,5 +179,33 @@ NUMERIC_BOOL_DATE_FUNCTION(IS_NOT_DISTINCT_FROM)
   }
 
 NUMERIC_FUNCTION(DIVIDE)
+
+#define DIV(TYPE)                                               \
+  FORCE_INLINE                                                  \
+  TYPE div_##TYPE##_##TYPE(int64 context, TYPE in1, TYPE in2) { \
+    if (in2 == 0) {                                             \
+      char const* err_msg = "divide by zero error";             \
+      gdv_fn_context_set_error_msg(context, err_msg);           \
+      return 0;                                                 \
+    }                                                           \
+    return static_cast<TYPE>(in1 / in2);                        \
+  }
+
+DIV(int32)
+DIV(int64)
+
+#define DIV_FLOAT(TYPE)                                         \
+  FORCE_INLINE                                                  \
+  TYPE div_##TYPE##_##TYPE(int64 context, TYPE in1, TYPE in2) { \
+    if (in2 == 0) {                                             \
+      char const* err_msg = "divide by zero error";             \
+      gdv_fn_context_set_error_msg(context, err_msg);           \
+      return 0;                                                 \
+    }                                                           \
+    return static_cast<TYPE>(::trunc(in1 / in2));               \
+  }
+
+DIV_FLOAT(float32)
+DIV_FLOAT(float64)
 
 }  // extern "C"

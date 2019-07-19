@@ -27,9 +27,9 @@ export MAVEN_OPTS="-Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Sl
 pushd $JAVA_DIR
 
 # build with gandiva profile
-$TRAVIS_MVN -P gandiva -B install -DskipTests -Dgandiva.cpp.build.dir=$CPP_BUILD_DIR/debug
+$TRAVIS_MVN -P arrow-jni -B install -DskipTests -Darrow.cpp.build.dir=$CPP_BUILD_DIR/debug
 
 # run gandiva tests
-$TRAVIS_MVN test -P gandiva -pl gandiva -Dgandiva.cpp.build.dir=$CPP_BUILD_DIR/debug
+$TRAVIS_MVN test -P arrow-jni -pl gandiva -Darrow.cpp.build.dir=$CPP_BUILD_DIR/debug
 
 popd

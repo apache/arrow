@@ -37,14 +37,15 @@ class TableTest < Test::Unit::TestCase
     ]
     @count_array = Arrow::ChunkedArray.new(count_arrays)
     @visible_array = Arrow::ChunkedArray.new(visible_arrays)
-    @count_column = Arrow::Column.new(@count_field, @count_array)
-    @visible_column = Arrow::Column.new(@visible_field, @visible_array)
-    @table = Arrow::Table.new(schema, [@count_column, @visible_column])
+    @table = Arrow::Table.new(schema, [@count_array, @visible_array])
   end
 
   test("#columns") do
-    assert_equal(["count", "visible"],
-                 @table.columns.collect(&:name))
+    assert_equal([
+                   Arrow::Column.new(@table, 0),
+                   Arrow::Column.new(@table, 1),
+                 ],
+                 @table.columns)
   end
 
   sub_test_case("#slice") do
@@ -74,17 +75,24 @@ class TableTest < Test::Unit::TestCase
     end
 
     test("Integer: positive") do
-      assert_equal(<<-TABLE, @table.slice(2).to_s)
-	count	visible
-0	    4	       
-      TABLE
+      assert_equal({"count" => 128, "visible" => nil},
+                   @table.slice(@table.n_rows - 1).to_h)
     end
 
     test("Integer: negative") do
-      assert_equal(<<-TABLE, @table.slice(-1).to_s)
-	count	visible
-0	  128	       
-      TABLE
+      assert_equal({"count" => 1, "visible" => true},
+                   @table.slice(-@table.n_rows).to_h)
+    end
+
+    test("Integer: out of index") do
+      assert_equal([
+                     nil,
+                     nil,
+                   ],
+                   [
+                     @table.slice(@table.n_rows),
+                     @table.slice(-(@table.n_rows + 1)),
+                   ])
     end
 
     test("Range: positive: include end") do
@@ -145,17 +153,35 @@ class TableTest < Test::Unit::TestCase
         end
       end
 
-      test("too many arguments: with block") do
+      test("too many arguments") do
         message = "wrong number of arguments (given 3, expected 1..2)"
         assert_raise(ArgumentError.new(message)) do
           @table.slice(1, 2, 3)
         end
       end
 
-      test("too many arguments: without block") do
-        message = "wrong number of arguments (given 3, expected 0..2)"
+      test("arguments: with block") do
+        message = "must not specify both arguments and block"
         assert_raise(ArgumentError.new(message)) do
-          @table.slice(1, 2, 3) {}
+          @table.slice(1, 2) {}
+        end
+      end
+
+      test("offset: too small") do
+        n_rows = @table.n_rows
+        offset = -(n_rows + 1)
+        message = "offset is out of range (-#{n_rows + 1},#{n_rows}): #{offset}"
+        assert_raise(ArgumentError.new(message)) do
+          @table.slice(offset, 1)
+        end
+      end
+
+      test("offset: too large") do
+        n_rows = @table.n_rows
+        offset = n_rows
+        message = "offset is out of range (-#{n_rows + 1},#{n_rows}): #{offset}"
+        assert_raise(ArgumentError.new(message)) do
+          @table.slice(offset, 1)
         end
       end
     end
@@ -163,11 +189,18 @@ class TableTest < Test::Unit::TestCase
 
   sub_test_case("#[]") do
     test("[String]") do
-      assert_equal(@count_column, @table["count"])
+      assert_equal(Arrow::Column.new(@table, 0),
+                   @table["count"])
     end
 
     test("[Symbol]") do
-      assert_equal(@visible_column, @table[:visible])
+      assert_equal(Arrow::Column.new(@table, 1),
+                   @table[:visible])
+    end
+
+    test("[Integer]") do
+      assert_equal(Arrow::Column.new(@table, 1),
+                   @table[-1])
     end
   end
 
@@ -254,7 +287,8 @@ class TableTest < Test::Unit::TestCase
   end
 
   test("column name getter") do
-    assert_equal(@visible_column, @table.visible)
+    assert_equal(Arrow::Column.new(@table, 1),
+                 @table.visible)
   end
 
   sub_test_case("#remove_column") do
@@ -492,7 +526,8 @@ class TableTest < Test::Unit::TestCase
 
           test("csv.gz") do
             file = Tempfile.new(["red-arrow", ".csv.gz"])
-            Zlib::GzipWriter.wrap(file) do |gz|
+            file.close
+            Zlib::GzipWriter.open(file.path) do |gz|
               gz.write(<<-CSV)
 name,score
 alice,10
@@ -505,7 +540,7 @@ chris,-1
 0	alice	   10
 1	bob 	   29
 2	chris	   -1
-          TABLE
+            TABLE
           end
         end
       end

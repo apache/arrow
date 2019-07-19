@@ -38,6 +38,9 @@ public class TestServerOptions {
     Assume.assumeTrue("We have a native transport available", FlightTestUtil.isNativeTransportAvailable());
     final File domainSocket = File.createTempFile("flight-unit-test-", ".sock");
     Assert.assertTrue(domainSocket.delete());
+    // Domain socket paths have a platform-dependent limit. Set a conservative limit and skip the test if the temporary
+    // file name is too long. (We do not assume a particular platform-dependent temporary directory path.)
+    Assume.assumeTrue("The domain socket path is not too long", domainSocket.getAbsolutePath().length() < 100);
     final Location location = Location.forGrpcDomainSocket(domainSocket.getAbsolutePath());
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);

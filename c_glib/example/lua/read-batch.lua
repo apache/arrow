@@ -28,14 +28,14 @@ for i = 0, reader:get_n_record_batches() - 1 do
    print(string.rep("=", 40))
    print("record-batch["..i.."]:")
    for j = 0, record_batch:get_n_columns() - 1 do
-      local column = record_batch:get_column(j)
       local column_name = record_batch:get_column_name(j)
+      local column_data = record_batch:get_column_data(j)
       io.write("  "..column_name..": [")
       for k = 0, record_batch:get_n_rows() - 1 do
 	 if k > 0 then
 	    io.write(", ")
 	 end
-	 io.write(column:get_value(k))
+	 io.write(column_data:get_value(k))
       end
       print("]")
    end

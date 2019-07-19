@@ -24,6 +24,7 @@ check_cxx_compiler_flag("-msse4.2" CXX_SUPPORTS_SSE4_2)
 check_cxx_compiler_flag("-maltivec" CXX_SUPPORTS_ALTIVEC)
 # Arm64 compiler flags
 check_cxx_compiler_flag("-march=armv8-a+crc" CXX_SUPPORTS_ARMCRC)
+check_cxx_compiler_flag("-march=armv8-a+crc+crypto" CXX_SUPPORTS_ARMV8_CRC_CRYPTO)
 
 # Support C11
 set(CMAKE_C_STANDARD 11)
@@ -143,7 +144,7 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
 -Wno-comma -Wno-unused-macros -Wno-unused-parameter -Wno-unused-template -Wno-undef \
 -Wno-shadow -Wno-switch-enum -Wno-exit-time-destructors \
 -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
--Wno-implicit-fallthrough -Wno-unreachable-code-return \
+-Wno-implicit-fallthrough -Wno-unreachable-code -Wno-unreachable-code-return \
 -Wno-float-equal -Wno-missing-prototypes -Wno-documentation-unknown-command \
 -Wno-old-style-cast -Wno-covered-switch-default \
 -Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
@@ -265,7 +266,11 @@ if(CXX_SUPPORTS_ALTIVEC AND ARROW_ALTIVEC)
 endif()
 
 if(CXX_SUPPORTS_ARMCRC)
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=armv8-a+crc")
+  if(CXX_SUPPORTS_ARMV8_CRC_CRYPTO)
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=armv8-a+crc+crypto")
+  else()
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=armv8-a+crc")
+  endif()
 endif()
 
 if(ARROW_USE_SIMD)

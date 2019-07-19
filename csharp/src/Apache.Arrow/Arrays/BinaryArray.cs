@@ -15,12 +15,25 @@
 
 using Apache.Arrow.Types;
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Apache.Arrow.Memory;
 
 namespace Apache.Arrow
 {
     public class BinaryArray: Array
     {
+        public class Builder : BuilderBase<BinaryArray, Builder>
+        {
+            public Builder() : base(BinaryType.Default) { }
+            public Builder(IArrowType dataType) : base(dataType) { }
+
+            protected override BinaryArray Build(ArrayData data)
+            {
+                return new BinaryArray(data);
+            }
+        }
+
         public BinaryArray(ArrayData data)
             : base(data)
         {
@@ -33,6 +46,107 @@ namespace Apache.Arrow
         {
             data.EnsureDataType(typeId);
             data.EnsureBufferCount(3);
+        }
+
+        public abstract class BuilderBase<TArray, TBuilder>: IArrowArrayBuilder<byte, TArray, TBuilder>
+            where TArray: IArrowArray
+            where TBuilder: class, IArrowArrayBuilder<byte, TArray, TBuilder>
+        {
+            protected IArrowType DataType { get; }
+            protected TBuilder Instance => this as TBuilder;
+            protected ArrowBuffer.Builder<int> ValueOffsets { get; }
+            protected ArrowBuffer.Builder<byte> ValueBuffer { get; }
+            protected int Offset { get; set; }
+
+            protected BuilderBase(IArrowType dataType)
+            {
+                DataType = dataType;
+                ValueOffsets = new ArrowBuffer.Builder<int>();
+                ValueBuffer = new ArrowBuffer.Builder<byte>();
+            }
+
+            protected abstract TArray Build(ArrayData data);
+
+            public TArray Build(MemoryAllocator allocator = default)
+            {
+                ValueOffsets.Append(Offset);
+
+                var data = new ArrayData(DataType, ValueOffsets.Length - 1, 0, 0, 
+                    new [] { ArrowBuffer.Empty, ValueOffsets.Build(allocator), ValueBuffer.Build(allocator) });
+
+                return Build(data);
+            }
+
+            public TBuilder Append(byte value)
+            {
+                ValueOffsets.Append(Offset);
+                ValueBuffer.Append(value);
+                Offset++;
+                return Instance;
+            }
+
+            public TBuilder Append(ReadOnlySpan<byte> span)
+            {
+                ValueOffsets.Append(Offset);
+                ValueBuffer.Append(span);
+                Offset += span.Length;
+                return Instance;
+            }
+
+            public TBuilder AppendRange(IEnumerable<byte[]> values)
+            {
+                foreach (var arr in values)
+                {
+                    var len = ValueBuffer.Length;
+                    ValueOffsets.Append(Offset);
+                    ValueBuffer.Append(arr);
+                    Offset += ValueBuffer.Length - len;
+                }
+
+                return Instance;
+            }
+
+            public TBuilder AppendRange(IEnumerable<byte> values)
+            {
+                var len = ValueBuffer.Length;
+                ValueOffsets.Append(Offset);
+                ValueBuffer.AppendRange(values);
+                Offset += ValueBuffer.Length - len;
+                return Instance;
+            }
+
+            public TBuilder Reserve(int capacity)
+            {
+                ValueOffsets.Reserve(capacity + 1);
+                ValueBuffer.Reserve(capacity);
+                return Instance;
+            }
+
+            public TBuilder Resize(int length)
+            {
+                ValueOffsets.Resize(length + 1);
+                ValueBuffer.Resize(length);
+                return Instance;
+            }
+
+            public TBuilder Swap(int i, int j)
+            {
+                // TODO: Implement
+                throw new NotImplementedException();
+            }
+
+            public TBuilder Set(int index, byte value)
+            {
+                // TODO: Implement
+                throw new NotImplementedException();
+            }
+
+            public TBuilder Clear()
+            {
+                ValueOffsets.Clear();
+                ValueBuffer.Clear();
+                return Instance;
+            }
         }
 
         public BinaryArray(IArrowType dataType, int length,

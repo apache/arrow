@@ -37,9 +37,9 @@ public class DictionaryEncoding {
   /**
    * Constructs a new instance.
    *
-   * @param id The ID of the dictionary to use for iecnoding.
+   * @param id The ID of the dictionary to use for encoding.
    * @param ordered Whether the keys in values in the dictionary are ordered.
-   * @param indexType (nullable).  The integer type to use for indexing in the dictionary.  Defaults to a signed
+   * @param indexType (nullable). The integer type to use for indexing in the dictionary. Defaults to a signed
    *     32 bit integer.
    */
   @JsonCreator

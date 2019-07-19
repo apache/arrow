@@ -44,6 +44,15 @@ cdef class FlightCallOptions:
         CFlightCallOptions options
 
     def __init__(self, timeout=None):
+        """Create call options.
+
+        Parameters
+        ----------
+        timeout : float or None
+            A timeout for the call, in seconds. None means that the
+            timeout defaults to an implementation-specific value.
+
+        """
         if timeout is not None:
             self.options.timeout = CTimeoutDuration(timeout)
 
@@ -57,20 +66,37 @@ cdef class FlightCallOptions:
                         "'{}'".format(type(obj)))
 
 
+_CertKeyPair = collections.namedtuple('_CertKeyPair', ['cert', 'key'])
+
+
+class CertKeyPair(_CertKeyPair):
+    """A TLS certificate and key for use in Flight."""
+
+
 cdef class Action:
     """An action executable on a Flight service."""
     cdef:
         CAction action
 
     def __init__(self, action_type, buf):
+        """Create an action from a type and a buffer.
+
+        Parameters
+        ----------
+        action_type : bytes or str
+        buf : Buffer or bytes-like object
+        """
         self.action.type = tobytes(action_type)
         self.action.body = pyarrow_unwrap_buffer(as_buffer(buf))
 
     @property
     def type(self):
+        """The action type."""
         return frombytes(self.action.type)
 
+    @property
     def body(self):
+        """The action body (arguments for the action)."""
         return pyarrow_wrap_buffer(self.action.body)
 
     @staticmethod
@@ -85,20 +111,32 @@ _ActionType = collections.namedtuple('_ActionType', ['type', 'description'])
 
 
 class ActionType(_ActionType):
-    """A type of action executable on a Flight service."""
+    """A type of action that is executable on a Flight service."""
 
     def make_action(self, buf):
-        """Create an Action with this type."""
+        """Create an Action with this type.
+
+        Parameters
+        ----------
+        buf : obj
+            An Arrow buffer or Python bytes or bytes-like object.
+        """
         return Action(self.type, buf)
 
 
 cdef class Result:
     """A result from executing an Action."""
     cdef:
-        unique_ptr[CResult] result
+        unique_ptr[CFlightResult] result
 
     def __init__(self, buf):
-        self.result.reset(new CResult())
+        """Create a new result.
+
+        Parameters
+        ----------
+        buf : Buffer or bytes-like object
+        """
+        self.result.reset(new CFlightResult())
         self.result.get().body = pyarrow_unwrap_buffer(as_buffer(buf))
 
     @property
@@ -108,6 +146,23 @@ cdef class Result:
 
 
 class DescriptorType(enum.Enum):
+    """
+    The type of a FlightDescriptor.
+
+    Attributes
+    ----------
+
+    UNKNOWN
+        An unknown descriptor type.
+
+    PATH
+        A Flight stream represented by a path.
+
+    CMD
+        A Flight stream represented by an application-defined command.
+
+    """
+
     UNKNOWN = 0
     PATH = 1
     CMD = 2
@@ -144,6 +199,7 @@ cdef class FlightDescriptor:
 
     @property
     def descriptor_type(self):
+        """Get the type of this descriptor."""
         if self.descriptor.type == CDescriptorTypeUnknown:
             return DescriptorType.UNKNOWN
         elif self.descriptor.type == CDescriptorTypePath:
@@ -228,6 +284,16 @@ cdef class Location:
         return result
 
     @staticmethod
+    def for_grpc_tls(host, port):
+        """Create a Location for a TLS-based gRPC service."""
+        cdef:
+            c_string c_host = tobytes(host)
+            int c_port = port
+            Location result = Location.__new__(Location)
+        check_status(CLocation.ForGrpcTls(c_host, c_port, &result.location))
+        return result
+
+    @staticmethod
     def for_grpc_unix(path):
         """Create a Location for a domain socket-based gRPC service."""
         cdef:
@@ -292,6 +358,7 @@ cdef class FlightEndpoint:
 
     @property
     def ticket(self):
+        """Get the ticket in this endpoint."""
         return Ticket(self.endpoint.ticket.ticket)
 
     @property
@@ -383,12 +450,149 @@ cdef class FlightInfo:
         return result
 
 
-cdef class FlightRecordBatchReader(_CRecordBatchReader, _ReadPandasOption):
+cdef class FlightStreamChunk:
+    """A RecordBatch with application metadata on the side."""
+    cdef:
+        CFlightStreamChunk chunk
+
+    @property
+    def data(self):
+        if self.chunk.data == NULL:
+            return None
+        return pyarrow_wrap_batch(self.chunk.data)
+
+    @property
+    def app_metadata(self):
+        if self.chunk.app_metadata == NULL:
+            return None
+        return pyarrow_wrap_buffer(self.chunk.app_metadata)
+
+    def __iter__(self):
+        return iter((self.data, self.app_metadata))
+
+
+cdef class _MetadataRecordBatchReader:
+    """A reader for Flight streams."""
+
+    # Needs to be separate class so the "real" class can subclass the
+    # pure-Python mixin class
+
     cdef dict __dict__
+    cdef shared_ptr[CMetadataRecordBatchReader] reader
+
+    cdef readonly:
+        Schema schema
 
 
-cdef class FlightRecordBatchWriter(_CRecordBatchWriter):
-    pass
+cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader,
+                                     _ReadPandasOption):
+    """A reader for Flight streams."""
+
+    def __iter__(self):
+        while True:
+            yield self.read_chunk()
+
+    def read_all(self):
+        """Read the entire contents of the stream as a Table."""
+        cdef:
+            shared_ptr[CTable] c_table
+        with nogil:
+            check_status(self.reader.get().ReadAll(&c_table))
+        return pyarrow_wrap_table(c_table)
+
+    def read_chunk(self):
+        """Read the next RecordBatch along with any metadata.
+
+        Returns
+        -------
+        data : RecordBatch
+            The next RecordBatch in the stream.
+        app_metadata : Buffer or None
+            Application-specific metadata for the batch as defined by
+            Flight.
+
+        Raises
+        ------
+        StopIteration
+            when the stream is finished
+        """
+        cdef:
+            FlightStreamChunk chunk = FlightStreamChunk()
+
+        with nogil:
+            check_status(self.reader.get().Next(&chunk.chunk))
+
+        if chunk.chunk.data == NULL:
+            raise StopIteration
+
+        return chunk
+
+
+cdef class FlightStreamReader(MetadataRecordBatchReader):
+    """A reader that can also be canceled."""
+
+    def cancel(self):
+        """Cancel the read operation."""
+        with nogil:
+            (<CFlightStreamReader*> self.reader.get()).Cancel()
+
+
+cdef class FlightStreamWriter(_CRecordBatchWriter):
+    """A RecordBatchWriter that also allows writing application metadata."""
+
+    def write_with_metadata(self, RecordBatch batch, buf):
+        """Write a RecordBatch along with Flight metadata.
+
+        Parameters
+        ----------
+        batch : RecordBatch
+            The next RecordBatch in the stream.
+        buf : Buffer
+            Application-specific metadata for the batch as defined by
+            Flight.
+        """
+        cdef shared_ptr[CBuffer] c_buf = pyarrow_unwrap_buffer(as_buffer(buf))
+        with nogil:
+            check_status(
+                (<CFlightStreamWriter*> self.writer.get())
+                .WriteWithMetadata(deref(batch.batch),
+                                   c_buf,
+                                   1))
+
+
+cdef class FlightMetadataReader:
+    """A reader for Flight metadata messages sent during a DoPut."""
+
+    cdef:
+        unique_ptr[CFlightMetadataReader] reader
+
+    def read(self):
+        """Read the next metadata message."""
+        cdef shared_ptr[CBuffer] buf
+        with nogil:
+            check_status(self.reader.get().ReadMetadata(&buf))
+        if buf == NULL:
+            return None
+        return pyarrow_wrap_buffer(buf)
+
+
+cdef class FlightMetadataWriter:
+    """A sender for Flight metadata messages during a DoPut."""
+
+    cdef:
+        unique_ptr[CFlightMetadataWriter] writer
+
+    def write(self, message):
+        """Write the next metadata message.
+
+        Parameters
+        ----------
+        message : Buffer
+        """
+        cdef shared_ptr[CBuffer] buf = \
+            pyarrow_unwrap_buffer(as_buffer(message))
+        with nogil:
+            check_status(self.writer.get().WriteMetadata(deref(buf)))
 
 
 cdef class FlightClient:
@@ -402,7 +606,7 @@ cdef class FlightClient:
                         .format(self.__class__.__name__))
 
     @staticmethod
-    def connect(location, tls_root_certs=None):
+    def connect(location, tls_root_certs=None, override_hostname=None):
         """
         Connect to a Flight service on the given host and port.
 
@@ -411,8 +615,10 @@ cdef class FlightClient:
         location : Location
             location to connect to
 
-        tls_root_certs : bytes
+        tls_root_certs : bytes or None
             PEM-encoded
+        unsafe_override_hostname : str or None
+            Override the hostname checked by TLS. Insecure, use with caution.
         """
         cdef:
             FlightClient result = FlightClient.__new__(FlightClient)
@@ -422,6 +628,8 @@ cdef class FlightClient:
 
         if tls_root_certs:
             c_options.tls_root_certs = tobytes(tls_root_certs)
+        if override_hostname:
+            c_options.override_hostname = tobytes(override_hostname)
 
         with nogil:
             check_status(CFlightClient.Connect(c_location, c_options,
@@ -430,7 +638,15 @@ cdef class FlightClient:
         return result
 
     def authenticate(self, auth_handler, options: FlightCallOptions = None):
-        """Authenticate to the server."""
+        """Authenticate to the server.
+
+        Parameters
+        ----------
+        auth_handler : ClientAuthHandler
+            The authentication mechanism to use.
+        options : FlightCallOptions
+            Options for this call.
+        """
         cdef:
             unique_ptr[CClientAuthHandler] handler
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
@@ -518,34 +734,53 @@ cdef class FlightClient:
         return result
 
     def do_get(self, ticket: Ticket, options: FlightCallOptions = None):
-        """Request the data for a flight."""
+        """Request the data for a flight.
+
+        Returns
+        -------
+        reader : FlightStreamReader
+        """
         cdef:
-            unique_ptr[CRecordBatchReader] reader
+            unique_ptr[CFlightStreamReader] reader
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
 
         with nogil:
-            check_status(self.client.get().DoGet(
-                deref(c_options), ticket.ticket, &reader))
-        result = FlightRecordBatchReader()
+            check_status(
+                self.client.get().DoGet(
+                    deref(c_options), ticket.ticket, &reader))
+        result = FlightStreamReader()
         result.reader.reset(reader.release())
+        result.schema = pyarrow_wrap_schema(result.reader.get().schema())
         return result
 
     def do_put(self, descriptor: FlightDescriptor, schema: Schema,
                options: FlightCallOptions = None):
-        """Upload data to a flight."""
+        """Upload data to a flight.
+
+        Returns
+        -------
+        writer : FlightStreamWriter
+        reader : FlightMetadataReader
+        """
         cdef:
             shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
-            unique_ptr[CRecordBatchWriter] writer
+            unique_ptr[CFlightStreamWriter] writer
+            unique_ptr[CFlightMetadataReader] metadata_reader
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
             CFlightDescriptor c_descriptor = \
                 FlightDescriptor.unwrap(descriptor)
+            FlightMetadataReader reader = FlightMetadataReader()
 
         with nogil:
             check_status(self.client.get().DoPut(
-                deref(c_options), c_descriptor, c_schema, &writer))
-        result = FlightRecordBatchWriter()
+                deref(c_options),
+                c_descriptor,
+                c_schema,
+                &writer,
+                &reader.reader))
+        result = FlightStreamWriter()
         result.writer.reset(writer.release())
-        return result
+        return result, reader
 
 
 cdef class FlightDataStream:
@@ -788,11 +1023,22 @@ cdef void _data_stream_next(void* self, CFlightPayload* payload) except *:
         payload.ipc_message.metadata.reset(<CBuffer*> nullptr)
         return
 
+    if isinstance(result, (list, tuple)):
+        result, metadata = result
+    else:
+        result, metadata = result, None
+
     if isinstance(result, (Table, _CRecordBatchReader)):
+        if metadata:
+            raise ValueError("Can only return metadata alongside a "
+                             "RecordBatch.")
         result = RecordBatchStream(result)
 
     stream_schema = pyarrow_wrap_schema(stream.schema)
     if isinstance(result, FlightDataStream):
+        if metadata:
+            raise ValueError("Can only return metadata alongside a "
+                             "RecordBatch.")
         data_stream = unique_ptr[CFlightDataStream](
             (<FlightDataStream> result).to_stream())
         substream_schema = pyarrow_wrap_schema(data_stream.get().schema())
@@ -817,6 +1063,8 @@ cdef void _data_stream_next(void* self, CFlightPayload* payload) except *:
             deref(batch.batch),
             c_default_memory_pool(),
             &payload.ipc_message))
+        if metadata:
+            payload.app_metadata = pyarrow_unwrap_buffer(as_buffer(metadata))
     else:
         raise TypeError("GeneratorStream must be initialized with "
                         "an iterator of FlightDataStream, Table, "
@@ -859,17 +1107,22 @@ cdef void _get_flight_info(void* self, const CServerCallContext& context,
 
 
 cdef void _do_put(void* self, const CServerCallContext& context,
-                  unique_ptr[CFlightMessageReader] reader) except *:
+                  unique_ptr[CFlightMessageReader] reader,
+                  unique_ptr[CFlightMetadataWriter] writer) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
-        FlightRecordBatchReader py_reader = FlightRecordBatchReader()
+        MetadataRecordBatchReader py_reader = MetadataRecordBatchReader()
+        FlightMetadataWriter py_writer = FlightMetadataWriter()
         FlightDescriptor descriptor = \
             FlightDescriptor.__new__(FlightDescriptor)
 
     descriptor.descriptor = reader.get().descriptor()
     py_reader.reader.reset(reader.release())
+    py_reader.schema = pyarrow_wrap_schema(
+        py_reader.reader.get().schema())
+    py_writer.writer.reset(writer.release())
     (<object> self).do_put(ServerCallContext.wrap(context), descriptor,
-                           py_reader)
+                           py_reader, py_writer)
 
 
 cdef void _do_get(void* self, const CServerCallContext& context,
@@ -892,14 +1145,18 @@ cdef void _do_get(void* self, const CServerCallContext& context,
 
 
 cdef void _do_action_result_next(void* self,
-                                 unique_ptr[CResult]* result) except *:
+                                 unique_ptr[CFlightResult]* result) except *:
     """Callback for implementing Flight servers in Python."""
+    cdef:
+        CFlightResult* c_result
+
     try:
         action_result = next(<object> self)
         if not isinstance(action_result, Result):
             raise TypeError("Result of FlightServerBase.do_action must "
                             "return an iterator of Result objects")
-        result.reset(new CResult(deref((<Result> action_result).result.get())))
+        c_result = (<Result> action_result).result.get()
+        result.reset(new CFlightResult(deref(c_result)))
     except StopIteration:
         result.reset(nullptr)
 
@@ -922,7 +1179,7 @@ cdef void _list_actions(void* self, const CServerCallContext& context,
     cdef:
         CActionType action_type
     # Method should return a list of ActionTypes or similar tuple
-    result = (<object> self).list_actions()
+    result = (<object> self).list_actions(ServerCallContext.wrap(context))
     for action in result:
         action_type.type = tobytes(action[0])
         action_type.description = tobytes(action[1])
@@ -969,10 +1226,25 @@ cdef void _get_token(void* self, c_string* token) except *:
 
 
 cdef class ServerAuthHandler:
-    """Authentication middleware for a server."""
+    """Authentication middleware for a server.
+
+    To implement an authentication mechanism, subclass this class and
+    override its methods.
+
+    """
 
     def authenticate(self, outgoing, incoming):
-        """Conduct the handshake with the client."""
+        """Conduct the handshake with the client.
+
+        May raise an error if the client cannot authenticate.
+
+        Parameters
+        ----------
+        outgoing : ServerAuthSender
+            A channel to send messages to the client.
+        incoming : ServerAuthReader
+            A channel to read messages from the client.
+        """
         raise NotImplementedError
 
     def is_valid(self, token):
@@ -981,6 +1253,11 @@ cdef class ServerAuthHandler:
         May return an empty string (if the auth mechanism does not
         name the peer) or raise an exception (if the token is
         invalid).
+
+        Parameters
+        ----------
+        token : bytes
+            The authentication token from the client.
 
         """
         raise NotImplementedError
@@ -996,7 +1273,15 @@ cdef class ClientAuthHandler:
     """Authentication plugin for a client."""
 
     def authenticate(self, outgoing, incoming):
-        """Conduct the handshake with the server."""
+        """Conduct the handshake with the server.
+
+        Parameters
+        ----------
+        outgoing : ClientAuthSender
+            A channel to send messages to the server.
+        incoming : ClientAuthReader
+            A channel to read messages from the server.
+        """
         raise NotImplementedError
 
     def get_token(self):
@@ -1011,17 +1296,31 @@ cdef class ClientAuthHandler:
 
 
 cdef class FlightServerBase:
-    """A Flight service definition."""
+    """A Flight service definition.
+
+    Override methods to define your Flight service.
+
+    """
 
     cdef:
         unique_ptr[PyFlightServer] server
 
-    def run(self, location, auth_handler=None,
-            tls_cert_chain=None, tls_private_key=None):
+    def init(self, location, auth_handler=None, tls_certificates=None):
+        """Initialize this server.
+
+        Parameters
+        ----------
+        location : Location
+        auth_handler : ServerAuthHandler
+            An authentication mechanism to use. May be None.
+        tls_certificates : list
+            A list of (certificate, key) pairs.
+        """
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
             PyFlightServer* c_server
             unique_ptr[CFlightServerOptions] c_options
+            CCertKeyPair c_cert
 
         c_options.reset(new CFlightServerOptions(Location.unwrap(location)))
 
@@ -1032,12 +1331,11 @@ cdef class FlightServerBase:
             c_options.get().auth_handler.reset(
                 (<ServerAuthHandler> auth_handler).to_handler())
 
-        if tls_cert_chain:
-            if not tls_private_key:
-                raise ValueError(
-                    "Must provide both cert chain and private key")
-            c_options.get().tls_cert_chain = tobytes(tls_cert_chain)
-            c_options.get().tls_private_key = tobytes(tls_private_key)
+        if tls_certificates:
+            for cert, key in tls_certificates:
+                c_cert.pem_cert = tobytes(cert)
+                c_cert.pem_key = tobytes(key)
+                c_options.get().tls_certificates.push_back(c_cert)
 
         vtable.list_flights = &_list_flights
         vtable.get_flight_info = &_get_flight_info
@@ -1050,7 +1348,18 @@ cdef class FlightServerBase:
         self.server.reset(c_server)
         with nogil:
             check_status(c_server.Init(deref(c_options)))
-            check_status(c_server.ServeWithSignals())
+
+    def run(self):
+        """
+        Start serving.  This method only returns if shutdown() is called
+        or a signal a received.
+
+        You must have called init() first.
+        """
+        if self.server.get() == nullptr:
+            raise ValueError("run() on uninitialized FlightServerBase")
+        with nogil:
+            check_status(self.server.get().ServeWithSignals())
 
     def list_flights(self, context, criteria):
         raise NotImplementedError
@@ -1058,7 +1367,8 @@ cdef class FlightServerBase:
     def get_flight_info(self, context, descriptor):
         raise NotImplementedError
 
-    def do_put(self, context, descriptor, reader):
+    def do_put(self, context, descriptor, reader,
+               writer: FlightMetadataWriter):
         raise NotImplementedError
 
     def do_get(self, context, ticket):
@@ -1082,6 +1392,7 @@ cdef class FlightServerBase:
         # complete. Holding the GIL means Python-implemented Flight
         # methods will never get to run, so this will hang
         # indefinitely.
+        if self.server.get() == nullptr:
+            raise ValueError("shutdown() on uninitialized FlightServerBase")
         with nogil:
-            if self.server.get() != NULL:
-                self.server.get().Shutdown()
+            check_status(self.server.get().Shutdown())

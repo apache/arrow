@@ -38,7 +38,9 @@ h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'dev'))
 
 
 groups = [
+    'cython',
     'hypothesis',
+    'fastparquet',
     'gandiva',
     'hdfs',
     'large_memory',
@@ -47,11 +49,14 @@ groups = [
     'parquet',
     'plasma',
     's3',
-    'tensorflow'
+    'tensorflow',
+    'flight'
 ]
 
 
 defaults = {
+    'cython': False,
+    'fastparquet': False,
     'hypothesis': False,
     'gandiva': False,
     'hdfs': False,
@@ -61,8 +66,21 @@ defaults = {
     'parquet': False,
     'plasma': False,
     's3': False,
-    'tensorflow': False
+    'tensorflow': False,
+    'flight': False,
 }
+
+try:
+    import cython  # noqa
+    defaults['cython'] = True
+except ImportError:
+    pass
+
+try:
+    import fastparquet  # noqa
+    defaults['fastparquet'] = True
+except ImportError:
+    pass
 
 try:
     import pyarrow.gandiva # noqa
@@ -76,13 +94,11 @@ try:
 except ImportError:
     pass
 
-
 try:
     import pandas  # noqa
     defaults['pandas'] = True
 except ImportError:
     pass
-
 
 try:
     import pyarrow.parquet  # noqa
@@ -96,16 +112,24 @@ try:
 except ImportError:
     pass
 
-
 try:
     import tensorflow  # noqa
     defaults['tensorflow'] = True
 except ImportError:
     pass
 
+try:
+    import pyarrow.flight  # noqa
+    defaults['flight'] = True
+except ImportError:
+    pass
+
 
 def pytest_configure(config):
-    pass
+    for mark in groups:
+        config.addinivalue_line(
+            "markers", mark,
+        )
 
 
 def pytest_addoption(parser):

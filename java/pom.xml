@@ -20,7 +20,7 @@
 
   <groupId>org.apache.arrow</groupId>
   <artifactId>arrow-java-root</artifactId>
-  <version>0.14.0-SNAPSHOT</version>
+  <version>1.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Apache Arrow Java Root POM</name>
@@ -33,7 +33,7 @@
     <dep.junit.jupiter.version>5.4.0</dep.junit.jupiter.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava.version>20.0</dep.guava.version>
-    <dep.netty.version>4.1.22.Final</dep.netty.version>
+    <dep.netty.version>4.1.27.Final</dep.netty.version>
     <dep.jackson.version>2.9.8</dep.jackson.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <dep.fbs.version>1.9.0</dep.fbs.version>
@@ -654,6 +654,8 @@
     <module>plasma</module>
     <module>flight</module>
     <module>performance</module>
+    <module>algorithm</module>
+    <module>adapter/avro</module>
   </modules>
 
   <profiles>
@@ -669,32 +671,12 @@
     </profile>
 
     <profile>
-      <!-- gandiva java depends on gandiva cpp, and gandiva cpp isn't enabled by default yet -->
-      <id>gandiva</id>
-      <modules>
-        <module>format</module>
-        <module>memory</module>
-        <module>vector</module>
-        <module>tools</module>
-        <module>adapter/jdbc</module>
-        <module>plasma</module>
-        <module>flight</module>
-        <module>gandiva</module>
-      </modules>
-    </profile>
-
-    <profile>
       <!-- orc java depends on arrow cpp, and arrow cpp isn't enabled by default yet -->
       <id>arrow-jni</id>
       <modules>
-        <module>format</module>
-        <module>memory</module>
-        <module>vector</module>
-        <module>tools</module>
-        <module>adapter/jdbc</module>
+        <!-- these have dependency on cpp -->
         <module>adapter/orc</module>
-        <module>plasma</module>
-        <module>flight</module>
+        <module>gandiva</module>
       </modules>
     </profile>
   </profiles>

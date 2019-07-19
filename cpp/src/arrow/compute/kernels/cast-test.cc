@@ -99,10 +99,10 @@ class TestCast : public ComputeFixture, public TestBase {
                  const std::vector<I_TYPE>& in_values, const std::vector<bool>& is_valid,
                  const std::shared_ptr<DataType>& out_type,
                  const std::vector<O_TYPE>& out_values, const CastOptions& options) {
-    DCHECK_EQ(in_values.size(), out_values.size());
+    ASSERT_EQ(in_values.size(), out_values.size());
     std::shared_ptr<Array> input, expected;
     if (is_valid.size() > 0) {
-      DCHECK_EQ(is_valid.size(), out_values.size());
+      ASSERT_EQ(is_valid.size(), out_values.size());
       ArrayFromVector<InType, I_TYPE>(in_type, is_valid, in_values, &input);
       ArrayFromVector<OutType, O_TYPE>(out_type, is_valid, out_values, &expected);
     } else {
@@ -123,7 +123,7 @@ class TestCast : public ComputeFixture, public TestBase {
                      const CastOptions& options = CastOptions()) {
     std::shared_ptr<Array> input = ArrayFromJSON(in_type, in_json);
     std::shared_ptr<Array> expected = ArrayFromJSON(out_type, expected_json);
-    DCHECK_EQ(input->length(), expected->length());
+    ASSERT_EQ(input->length(), expected->length());
     CheckPass(*input, *expected, out_type, options);
 
     // Check a sliced variant
@@ -263,7 +263,7 @@ std::vector<O> UnsafeVectorCast(const std::vector<I>& v) {
 
   for (size_t i = 0; i < v.size(); i++) result[i] = static_cast<O>(v[i]);
 
-  return std::move(result);
+  return result;
 }
 
 TEST_F(TestCast, IntegerSignedToUnsigned) {

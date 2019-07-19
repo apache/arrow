@@ -28,6 +28,7 @@
 #include "arrow/io/file.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/ubsan.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
@@ -179,7 +180,7 @@ class SerializedFile : public ParquetFileReader::Contents {
       throw ParquetException("Invalid parquet file. Corrupt footer.");
     }
 
-    uint32_t metadata_len = *reinterpret_cast<const uint32_t*>(
+    uint32_t metadata_len = arrow::util::SafeLoadAs<uint32_t>(
         reinterpret_cast<const uint8_t*>(footer_buffer->data()) + footer_read_size -
         kFooterSize);
     int64_t metadata_start = file_size - kFooterSize - metadata_len;

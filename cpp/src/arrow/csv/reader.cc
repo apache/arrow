@@ -206,13 +206,13 @@ class BaseTableReader : public csv::TableReader {
     DCHECK_EQ(column_builders_.size(), static_cast<uint32_t>(num_cols_));
 
     std::vector<std::shared_ptr<Field>> fields;
-    std::vector<std::shared_ptr<Column>> columns;
+    std::vector<std::shared_ptr<ChunkedArray>> columns;
 
     for (int32_t i = 0; i < num_cols_; ++i) {
       std::shared_ptr<ChunkedArray> array;
       RETURN_NOT_OK(column_builders_[i]->Finish(&array));
-      columns.push_back(std::make_shared<Column>(column_names_[i], array));
-      fields.push_back(columns.back()->field());
+      fields.push_back(::arrow::field(column_names_[i], array->type()));
+      columns.emplace_back(std::move(array));
     }
     *out = Table::Make(schema(fields), columns);
     return Status::OK();

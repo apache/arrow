@@ -15,10 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "arrow/column-containable"
 require "arrow/record-containable"
 
 module Arrow
   class RecordBatch
+    include ColumnContainable
     include RecordContainable
     include Enumerable
 
@@ -40,10 +42,10 @@ module Arrow
 
     alias_method :each, :each_record
 
-    alias_method :columns_raw, :columns
-    def columns
-      @columns ||= columns_raw
-    end
+    alias_method :size, :n_rows
+    alias_method :length, :n_rows
+
+    alias_method :[], :find_column
 
     # Converts the record batch to {Arrow::Table}.
     #

@@ -42,7 +42,7 @@ import io.netty.buffer.ArrowBuf;
  * specifically typed writer cannot handle. A new UnionVector is created, wrapping the original vector, and replaces the
  * original vector in the parent vector, which can be either an AbstractStructVector or a ListVector.
  *
- * <p>The writer used can either be for single elements (struct) or  lists.</p>
+ * <p>The writer used can either be for single elements (struct) or lists.</p>
  */
 public class PromotableWriter extends AbstractPromotableFieldWriter {
 
@@ -129,6 +129,14 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     }
   }
 
+  @Override
+  public void setAddVectorAsNullable(boolean nullable) {
+    super.setAddVectorAsNullable(nullable);
+    if (writer instanceof AbstractFieldWriter) {
+      ((AbstractFieldWriter) writer).setAddVectorAsNullable(nullable);
+    }
+  }
+
   private void setWriter(ValueVector v) {
     setWriter(v, null);
   }
@@ -180,7 +188,8 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       if (arrowType == null) {
         arrowType = type.getType();
       }
-      ValueVector v = listVector.addOrGetVector(FieldType.nullable(arrowType)).getVector();
+      FieldType fieldType = new FieldType(addVectorAsNullable, arrowType, null, null);
+      ValueVector v = listVector.addOrGetVector(fieldType).getVector();
       v.allocateNew();
       setWriter(v, arrowType);
       writer.setPosition(position);

@@ -86,7 +86,6 @@ Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
       output_type = int64();
       break;
     default:
-      DCHECK(false);
       return Status::NotImplemented("Only ints of size 1,2,4,8 are supported");
   }
 
@@ -272,7 +271,6 @@ Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
       output_type = uint64();
       break;
     default:
-      DCHECK(false);
       return Status::NotImplemented("Only ints of size 1,2,4,8 are supported");
   }
 

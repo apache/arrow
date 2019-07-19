@@ -68,9 +68,9 @@ class PARQUET_EXPORT ReaderProperties {
 
 ReaderProperties PARQUET_EXPORT default_reader_properties();
 
-static constexpr int64_t DEFAULT_PAGE_SIZE = 1024 * 1024;
+static constexpr int64_t kDefaultDataPageSize = 1024 * 1024;
 static constexpr bool DEFAULT_IS_DICTIONARY_ENABLED = true;
-static constexpr int64_t DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT = DEFAULT_PAGE_SIZE;
+static constexpr int64_t DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT = kDefaultDataPageSize;
 static constexpr int64_t DEFAULT_WRITE_BATCH_SIZE = 1024;
 static constexpr int64_t DEFAULT_MAX_ROW_GROUP_LENGTH = 64 * 1024 * 1024;
 static constexpr bool DEFAULT_ARE_STATISTICS_ENABLED = true;
@@ -137,7 +137,7 @@ class PARQUET_EXPORT WriterProperties {
           dictionary_pagesize_limit_(DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT),
           write_batch_size_(DEFAULT_WRITE_BATCH_SIZE),
           max_row_group_length_(DEFAULT_MAX_ROW_GROUP_LENGTH),
-          pagesize_(DEFAULT_PAGE_SIZE),
+          pagesize_(kDefaultDataPageSize),
           version_(DEFAULT_WRITER_VERSION),
           created_by_(DEFAULT_CREATED_BY) {}
     virtual ~Builder() {}

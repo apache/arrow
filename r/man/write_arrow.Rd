@@ -2,8 +2,7 @@
 % Please edit documentation in R/write_arrow.R
 \name{write_arrow}
 \alias{write_arrow}
-\title{serialize an \link[=arrow__Table]{arrow::Table}, an \link[=arrow__RecordBatch]{arrow::RecordBatch}, or a
-data frame to either the streaming format or the binary file format}
+\title{Write Arrow formatted data}
 \usage{
 write_arrow(x, stream, ...)
 }
@@ -29,6 +28,5 @@ dispatch). \code{x} is serialized using the streaming format, i.e. using the
 and \link[=arrow__ipc__RecordBatchStreamWriter]{arrow::ipc::RecordBatchStreamWriter} can be used for more flexibility.}
 }
 \description{
-serialize an \link[=arrow__Table]{arrow::Table}, an \link[=arrow__RecordBatch]{arrow::RecordBatch}, or a
-data frame to either the streaming format or the binary file format
+Write Arrow formatted data
 }

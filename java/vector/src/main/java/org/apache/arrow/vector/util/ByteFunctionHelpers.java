@@ -39,7 +39,7 @@ public class ByteFunctionHelpers {
    * @param right  Right ArrowBuf for comparison
    * @param rStart start offset in the buffer
    * @param rEnd   end offset in the buffer
-   * @return 1 if left input is greater, -1 if left input is smaller, 0 otherwise
+   * @return 1 if equals, 0 otherwise
    */
   public static final int equal(final ArrowBuf left, int lStart, int lEnd, final ArrowBuf right, int rStart, int rEnd) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
@@ -49,7 +49,49 @@ public class ByteFunctionHelpers {
     return memEqual(left.memoryAddress(), lStart, lEnd, right.memoryAddress(), rStart, rEnd);
   }
 
-  private static final int memEqual(final long laddr, int lStart, int lEnd, final long raddr, int rStart,
+  /**
+   * Compute hashCode with the given {@link ArrowBuf} and start/end index.
+   */
+  public static final int hash(final ArrowBuf buf, int start, int end) {
+    long addr = buf.memoryAddress();
+    int len = end - start;
+    long pos = addr + start;
+
+    int hash = 0;
+
+    while (len > 7) {
+      long value = PlatformDependent.getLong(pos);
+      hash = comebineHash(hash, Long.hashCode(value));
+
+      pos += 8;
+      len -= 8;
+    }
+
+    while (len > 3) {
+      int value = PlatformDependent.getInt(pos);
+      hash = comebineHash(hash, value);
+
+      pos += 4;
+      len -= 4;
+    }
+
+    while (len-- != 0) {
+      byte value = PlatformDependent.getByte(pos);
+      hash = comebineHash(hash, value);
+      pos ++;
+    }
+
+    return hash;
+  }
+
+  /**
+   * Generate a new hashCode with the given current hashCode and new hashCode.
+   */
+  public static int comebineHash(int currentHash, int newHash) {
+    return currentHash * 31 + newHash;
+  }
+
+  private static int memEqual(final long laddr, int lStart, int lEnd, final long raddr, int rStart,
                                     final int rEnd) {
 
     int n = lEnd - lStart;
@@ -67,6 +109,18 @@ public class ByteFunctionHelpers {
         rPos += 8;
         n -= 8;
       }
+
+      while (n > 3) {
+        int leftInt = PlatformDependent.getInt(lPos);
+        int rightInt = PlatformDependent.getInt(rPos);
+        if (leftInt != rightInt) {
+          return 0;
+        }
+        lPos += 4;
+        rPos += 4;
+        n -= 4;
+      }
+
       while (n-- != 0) {
         byte leftByte = PlatformDependent.getByte(lPos);
         byte rightByte = PlatformDependent.getByte(rPos);
@@ -109,7 +163,7 @@ public class ByteFunctionHelpers {
     return memcmp(left.memoryAddress(), lStart, lEnd, right.memoryAddress(), rStart, rEnd);
   }
 
-  private static final int memcmp(
+  private static int memcmp(
       final long laddr,
       int lStart,
       int lEnd,
@@ -126,11 +180,22 @@ public class ByteFunctionHelpers {
       long leftLong = PlatformDependent.getLong(lPos);
       long rightLong = PlatformDependent.getLong(rPos);
       if (leftLong != rightLong) {
-        return unsignedLongCompare(Long.reverseBytes(leftLong), Long.reverseBytes(rightLong));
+        return unsignedLongCompare(leftLong, rightLong);
       }
       lPos += 8;
       rPos += 8;
       n -= 8;
+    }
+
+    while (n > 3) {
+      int leftInt = PlatformDependent.getInt(lPos);
+      int rightInt = PlatformDependent.getInt(rPos);
+      if (leftInt != rightInt) {
+        return unsignedIntCompare(leftInt, rightInt);
+      }
+      lPos += 4;
+      rPos += 4;
+      n -= 4;
     }
 
     while (n-- != 0) {
@@ -189,8 +254,11 @@ public class ByteFunctionHelpers {
     return Long.compare(a ^ Long.MIN_VALUE, b ^ Long.MIN_VALUE);
   }
 
+  public static int unsignedIntCompare(int a, int b) {
+    return Integer.compare(a ^ Integer.MIN_VALUE, b ^ Integer.MIN_VALUE);
+  }
 
-  private static final int memcmp(
+  private static int memcmp(
       final long laddr,
       int lStart,
       int lEnd,

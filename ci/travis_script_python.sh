@@ -46,11 +46,13 @@ if [ "$ARROW_TRAVIS_PYTHON_GANDIVA" == "1" ]; then
 fi
 
 if [ "$ARROW_TRAVIS_PYTHON_JVM" == "1" ]; then
-    CONDA_PACKAGES="$CONDA_PACKAGES jpype1"
+    JPYPE_VERSION=0.6.3
+    CONDA_PACKAGES="$CONDA_PACKAGES jpype1=$JPYPE_VERSION"
 fi
 
 conda create -y -q -p $CONDA_ENV_DIR \
       --file $TRAVIS_BUILD_DIR/ci/conda_env_cpp.yml \
+      --file $TRAVIS_BUILD_DIR/ci/conda_env_unix.yml \
       --file $TRAVIS_BUILD_DIR/ci/conda_env_python.yml \
       ${CONDA_FILES} \
       nomkl \
@@ -190,11 +192,14 @@ if [ $TRAVIS_OS_NAME == "linux" ]; then
     sudo bash -c "echo 2048 > /proc/sys/vm/nr_hugepages"
 fi
 
+# For core dump analysis
+ln -sf `which python` $TRAVIS_BUILD_DIR/current-exe
+
 # Need to run tests from the source tree for Cython coverage and conftest.py
 if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     # Output Python coverage data in a persistent place
     export COVERAGE_FILE=$ARROW_PYTHON_COVERAGE_FILE
-    coverage run --append -m pytest $PYARROW_PYTEST_FLAGS pyarrow/tests
+    python -m coverage run --append -m pytest $PYARROW_PYTEST_FLAGS pyarrow/tests
 else
     python -m pytest $PYARROW_PYTEST_FLAGS pyarrow/tests
 fi
