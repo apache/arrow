@@ -117,7 +117,7 @@ public class Validator {
    */
   public static void compareFieldVectors(FieldVector vector1, FieldVector vector2) {
     Field field1 = vector1.getField();
-    if (!field1.equals(vector2.getField())) {
+    if (vector1.getClass() != vector2.getClass()) {
       throw new IllegalArgumentException("Different Fields:\n" + field1 + "\n!=\n" +
         vector2.getField());
     }

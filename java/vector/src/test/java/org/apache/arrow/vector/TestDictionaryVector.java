@@ -425,6 +425,64 @@ public class TestDictionaryVector {
   }
 
   @Test
+  public void testVarcharEquals() {
+    try (final VarCharVector vector1 = new VarCharVector("v1", allocator);
+        final VarCharVector vector2 = new VarCharVector("v2", allocator)) {
+
+      Dictionary dict1 = new Dictionary(vector1, new DictionaryEncoding(1L, false, null));
+      Dictionary dict2 = new Dictionary(vector2, new DictionaryEncoding(1L, false, null));
+
+      vector1.allocateNew();
+      vector1.setValueCount(3);
+      vector2.allocateNew();
+      vector2.setValueCount(3);
+
+      // set some values
+      vector1.setSafe(0, zero, 0, zero.length);
+      vector1.setSafe(1, one, 0, one.length);
+      vector1.setSafe(2, two, 0, two.length);
+
+      vector2.setSafe(0, zero, 0, zero.length);
+      vector2.setSafe(1, one, 0, one.length);
+      vector2.setSafe(2, one, 0, one.length);
+
+      assertFalse(dict1.equals(dict2));
+
+      vector2.setSafe(2, two, 0, two.length);
+      assertTrue(dict1.equals(dict2));
+    }
+  }
+
+  @Test
+  public void testVarBinaryEquals() {
+    try (final VarBinaryVector vector1 = new VarBinaryVector("v1", allocator);
+        final VarBinaryVector vector2 = new VarBinaryVector("v2", allocator)) {
+
+      Dictionary dict1 = new Dictionary(vector1, new DictionaryEncoding(1L, false, null));
+      Dictionary dict2 = new Dictionary(vector2, new DictionaryEncoding(1L, false, null));
+
+      vector1.allocateNew();
+      vector1.setValueCount(3);
+      vector2.allocateNew();
+      vector2.setValueCount(3);
+
+      // set some values
+      vector1.setSafe(0, zero, 0, zero.length);
+      vector1.setSafe(1, one, 0, one.length);
+      vector1.setSafe(2, two, 0, two.length);
+
+      vector2.setSafe(0, zero, 0, zero.length);
+      vector2.setSafe(1, one, 0, one.length);
+      vector2.setSafe(2, one, 0, one.length);
+
+      assertFalse(dict1.equals(dict2));
+
+      vector2.setSafe(2, two, 0, two.length);
+      assertTrue(dict1.equals(dict2));
+    }
+  }
+
+  @Test
   public void testListEquals() {
     try (final ListVector vector1 = ListVector.empty("v1", allocator);
         final ListVector vector2 = ListVector.empty("v2", allocator);) {

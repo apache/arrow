@@ -17,12 +17,12 @@
 
 package org.apache.arrow.vector.dictionary;
 
-import java.util.Arrays;
 import java.util.Objects;
 
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
+import org.apache.arrow.vector.util.Validator;
 
 /**
  * A dictionary (integer to Value mapping) that is used to facilitate
@@ -73,31 +73,11 @@ public class Dictionary {
   }
 
   private boolean equals(FieldVector vector1, FieldVector vector2) {
-
-    if (vector1.getClass() != vector2.getClass()) {
+    try {
+      Validator.compareFieldVectors(vector1, vector2);
+    } catch (IllegalArgumentException e) {
       return false;
-    }
-    int valueCount = vector1.getValueCount();
-    if (valueCount != vector2.getValueCount()) {
-      return false;
-    }
-    ArrowType fieldType = vector1.getField().getType();
-    for (int j = 0; j < valueCount; j++) {
-      Object obj1 = vector1.getObject(j);
-      Object obj2 = vector2.getObject(j);
-      if (!equals(fieldType, obj1, obj2)) {
-        return false;
-      }
     }
     return true;
-  }
-
-  private boolean equals(ArrowType type, final Object o1, final Object o2) {
-    if (type instanceof ArrowType.Binary || type instanceof ArrowType.FixedSizeBinary) {
-      //TODO use ByteArrayWrapper to compare and add UT, see ARROW-5835
-      return Arrays.equals((byte[]) o1, (byte[]) o2);
-    }
-
-    return Objects.equals(o1, o2);
   }
 }
