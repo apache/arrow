@@ -17,7 +17,6 @@
 
 package org.apache.arrow.vector.dictionary;
 
-import org.apache.arrow.vector.BaseBinaryVector;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
@@ -44,15 +43,11 @@ public class DictionaryEncoder {
    */
   public static ValueVector encode(ValueVector vector, Dictionary dictionary) {
     validateType(vector.getMinorType());
-    // load dictionary values into a hashmap for lookup
-    DictionaryEncodeHashMap<Object> lookUps = new DictionaryEncodeHashMap<>(dictionary.getVector().getValueCount());
+    // load dictionary indices into a hashmap for lookup
 
-    boolean binaryType = isBinaryType(vector.getMinorType());
-
+    DictionaryHashTable hashTable = new DictionaryHashTable(dictionary.getVector());
     for (int i = 0; i < dictionary.getVector().getValueCount(); i++) {
-      Object key = binaryType ? ((BaseBinaryVector) dictionary.getVector()).getByteArrayWrapper(i) :
-          dictionary.getVector().getObject(i);
-      lookUps.put(key, i);
+      hashTable.put(i);
     }
 
     Field valueField = vector.getField();
@@ -73,12 +68,12 @@ public class DictionaryEncoder {
     int count = vector.getValueCount();
 
     for (int i = 0; i < count; i++) {
-      Object value = binaryType ? ((BaseBinaryVector) vector).getByteArrayWrapper(i) : vector.getObject(i);
-      if (value != null) { // if it's null leave it null
+      if (!vector.isNull(i)) { // if it's null leave it null
         // note: this may fail if value was not included in the dictionary
-        int encoded = lookUps.get(value);
+        //int encoded = lookUps.get(value);
+        int encoded = hashTable.getIndex(i, vector);
         if (encoded == -1) {
-          throw new IllegalArgumentException("Dictionary encoding not defined for value:" + value);
+          throw new IllegalArgumentException("Dictionary encoding not defined for value:" + vector.getObject(i));
         }
         indices.setWithPossibleTruncate(i, encoded);
       }
@@ -117,13 +112,6 @@ public class DictionaryEncoder {
     ValueVector decoded = transfer.getTo();
     decoded.setValueCount(count);
     return decoded;
-  }
-
-  private static boolean isBinaryType(MinorType type) {
-    if (type == MinorType.VARBINARY || type == MinorType.FIXEDSIZEBINARY) {
-      return true;
-    }
-    return false;
   }
 
   private static void validateType(MinorType type) {

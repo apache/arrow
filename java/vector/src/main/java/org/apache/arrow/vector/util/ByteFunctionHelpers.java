@@ -20,8 +20,7 @@ package org.apache.arrow.vector.util;
 import io.netty.buffer.ArrowBuf;
 
 /**
- * Utility methods for memory comparison at a byte level.
- * This class will be removed. Please use org.apache.arrow.memory.util.ByteFunctionHelpers instead.
+ * @deprecated This class will be removed. Please use org.apache.arrow.memory.util.ByteFunctionHelpers instead.
  */
 @Deprecated
 public class ByteFunctionHelpers {
@@ -30,7 +29,7 @@ public class ByteFunctionHelpers {
   private ByteFunctionHelpers() {}
 
   /**
-   * Helper function to check for equality of bytes in two ArrowBufs.
+   * @deprecated Helper function to check for equality of bytes in two ArrowBufs.
    *
    * @param left   Left ArrowBuf for comparison
    * @param lStart start offset in the buffer
@@ -46,9 +45,8 @@ public class ByteFunctionHelpers {
   }
 
   /**
-   * Helper function to compare a set of bytes in two ArrowBufs.
-   *
-   * <p>Function will check data before completing in the case that
+   * @deprecated Helper function to compare a set of bytes in two ArrowBufs.
+   *     Function will check data before completing in the case that
    *
    * @param left   Left ArrowBuf to compare
    * @param lStart start offset in the buffer
@@ -70,7 +68,7 @@ public class ByteFunctionHelpers {
   }
 
   /**
-   * Helper function to compare a set of bytes in ArrowBuf to a ByteArray.
+   * @deprecated Helper function to compare a set of bytes in ArrowBuf to a ByteArray.
    *
    * @param left   Left ArrowBuf for comparison purposes
    * @param lStart start offset in the buffer
@@ -92,7 +90,7 @@ public class ByteFunctionHelpers {
   }
 
   /**
-   * Compares the two specified {@code long} values, treating them as unsigned values between
+   * @deprecated Compares the two specified {@code long} values, treating them as unsigned values between
    * {@code 0} and {@code 2^64 - 1} inclusive.
    *
    * @param a the first unsigned {@code long} to compare

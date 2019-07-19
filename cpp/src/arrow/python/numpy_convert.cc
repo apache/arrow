@@ -37,15 +37,6 @@
 namespace arrow {
 namespace py {
 
-bool is_contiguous(PyObject* array) {
-  if (PyArray_Check(array)) {
-    return (PyArray_FLAGS(reinterpret_cast<PyArrayObject*>(array)) &
-            (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS)) != 0;
-  } else {
-    return false;
-  }
-}
-
 NumPyBuffer::NumPyBuffer(PyObject* ao) : Buffer(nullptr, 0) {
   PyAcquireGIL lock;
   arr_ = ao;
@@ -72,6 +63,8 @@ NumPyBuffer::~NumPyBuffer() {
   case NPY_##NPY_NAME:                        \
     *out = FACTORY();                         \
     break;
+
+namespace {
 
 Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out) {
   if (!PyArray_DescrCheck(dtype)) {
@@ -126,6 +119,8 @@ Status GetNumPyType(const DataType& type, int* type_num) {
 
   return Status::OK();
 }
+
+}  // namespace
 
 Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out) {
   if (!PyArray_DescrCheck(dtype)) {

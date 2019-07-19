@@ -26,6 +26,7 @@ import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.memory.util.ArrowBufPointer;
+import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
@@ -1351,5 +1352,34 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       reuse.set(valueBuffer, offset, length);
     }
     return reuse;
+  }
+
+  @Override
+  public int hashCode(int index) {
+    final int start = getStartOffset(index);
+    final int end = getStartOffset(index + 1);
+    return ByteFunctionHelpers.hash(this.getDataBuffer(), start, end);
+  }
+
+  @Override
+  public boolean equals(int index, ValueVector to, int toIndex) {
+    if (to == null) {
+      return false;
+    }
+    if (this.getClass() != to.getClass()) {
+      return false;
+    }
+
+    BaseVariableWidthVector that = (BaseVariableWidthVector) to;
+
+    final int leftStart = getStartOffset(index);
+    final int leftEnd = getStartOffset(index + 1);
+
+    final int rightStart = that.getStartOffset(toIndex);
+    final int rightEnd = that.getStartOffset(toIndex + 1);
+
+    int ret = ByteFunctionHelpers.equal(this.getDataBuffer(), leftStart, leftEnd,
+        that.getDataBuffer(), rightStart, rightEnd);
+    return ret == 1;
   }
 }

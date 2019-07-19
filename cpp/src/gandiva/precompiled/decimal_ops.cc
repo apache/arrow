@@ -491,9 +491,9 @@ static std::array<double, DecimalTypeUtil::kMaxPrecision + 1> kDoubleScaleMultip
 BasicDecimal128 FromDouble(double in, int32_t precision, int32_t scale, bool* overflow) {
   // Multiply decimal with the scale
   auto unscaled = in * kDoubleScaleMultipliers[scale];
+  DECIMAL_OVERFLOW_IF(std::isnan(unscaled), overflow);
+
   unscaled = std::round(unscaled);
-  DECIMAL_OVERFLOW_IF(std::isnan(unscaled) || std::fabs(unscaled) < std::fabs(in),
-                      overflow);
 
   // convert scaled double to int128
   int32_t sign = unscaled < 0 ? -1 : 1;

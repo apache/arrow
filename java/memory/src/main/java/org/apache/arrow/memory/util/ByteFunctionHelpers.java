@@ -246,4 +246,45 @@ public class ByteFunctionHelpers {
     return lLen > rLen ? 1 : -1;
   }
 
+  /**
+   * Compute hashCode with the given {@link ArrowBuf} and start/end index.
+   */
+  public static final int hash(final ArrowBuf buf, int start, int end) {
+    long addr = buf.memoryAddress();
+    int len = end - start;
+    long pos = addr + start;
+
+    int hash = 0;
+
+    while (len > 7) {
+      long value = PlatformDependent.getLong(pos);
+      hash = comebineHash(hash, Long.hashCode(value));
+
+      pos += 8;
+      len -= 8;
+    }
+
+    while (len > 3) {
+      int value = PlatformDependent.getInt(pos);
+      hash = comebineHash(hash, value);
+
+      pos += 4;
+      len -= 4;
+    }
+
+    while (len-- != 0) {
+      byte value = PlatformDependent.getByte(pos);
+      hash = comebineHash(hash, value);
+      pos ++;
+    }
+
+    return hash;
+  }
+
+  /**
+   * Generate a new hashCode with the given current hashCode and new hashCode.
+   */
+  public static int comebineHash(int currentHash, int newHash) {
+    return currentHash * 31 + newHash;
+  }
 }

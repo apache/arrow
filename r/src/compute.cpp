@@ -77,8 +77,7 @@ std::shared_ptr<arrow::Table> Table__cast(
   using ColumnVector = std::vector<std::shared_ptr<arrow::ChunkedArray>>;
   ColumnVector columns(nc);
   for (int i = 0; i < nc; i++) {
-    columns[i] = ChunkedArray__cast(table->column(i),
-                                    schema->field(i)->type(), options);
+    columns[i] = ChunkedArray__cast(table->column(i), schema->field(i)->type(), options);
   }
   return arrow::Table::Make(schema, std::move(columns), table->num_rows());
 }

@@ -243,39 +243,28 @@ public class JdbcToArrowUtils {
       timezone = null;
     }
 
-
-    final ArrowType arrowType;
-
     switch (fieldInfo.getJdbcType()) {
       case Types.BOOLEAN:
       case Types.BIT:
-        arrowType = new ArrowType.Bool();
-        break;
+        return new ArrowType.Bool();
       case Types.TINYINT:
-        arrowType = new ArrowType.Int(8, true);
-        break;
+        return new ArrowType.Int(8, true);
       case Types.SMALLINT:
-        arrowType = new ArrowType.Int(16, true);
-        break;
+        return new ArrowType.Int(16, true);
       case Types.INTEGER:
-        arrowType = new ArrowType.Int(32, true);
-        break;
+        return new ArrowType.Int(32, true);
       case Types.BIGINT:
-        arrowType = new ArrowType.Int(64, true);
-        break;
+        return new ArrowType.Int(64, true);
       case Types.NUMERIC:
       case Types.DECIMAL:
         int precision = fieldInfo.getPrecision();
         int scale = fieldInfo.getScale();
-        arrowType = new ArrowType.Decimal(precision, scale);
-        break;
+        return new ArrowType.Decimal(precision, scale);
       case Types.REAL:
       case Types.FLOAT:
-        arrowType = new ArrowType.FloatingPoint(SINGLE);
-        break;
+        return new ArrowType.FloatingPoint(SINGLE);
       case Types.DOUBLE:
-        arrowType = new ArrowType.FloatingPoint(DOUBLE);
-        break;
+        return new ArrowType.FloatingPoint(DOUBLE);
       case Types.CHAR:
       case Types.NCHAR:
       case Types.VARCHAR:
@@ -283,33 +272,24 @@ public class JdbcToArrowUtils {
       case Types.LONGVARCHAR:
       case Types.LONGNVARCHAR:
       case Types.CLOB:
-        arrowType = new ArrowType.Utf8();
-        break;
+        return new ArrowType.Utf8();
       case Types.DATE:
-        arrowType = new ArrowType.Date(DateUnit.MILLISECOND);
-        break;
+        return new ArrowType.Date(DateUnit.MILLISECOND);
       case Types.TIME:
-        arrowType = new ArrowType.Time(TimeUnit.MILLISECOND, 32);
-        break;
+        return new ArrowType.Time(TimeUnit.MILLISECOND, 32);
       case Types.TIMESTAMP:
-        arrowType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, timezone);
-        break;
+        return new ArrowType.Timestamp(TimeUnit.MILLISECOND, timezone);
       case Types.BINARY:
       case Types.VARBINARY:
       case Types.LONGVARBINARY:
       case Types.BLOB:
-        arrowType = new ArrowType.Binary();
-        break;
+        return new ArrowType.Binary();
       case Types.ARRAY:
-        arrowType = new ArrowType.List();
-        break;
+        return new ArrowType.List();
       default:
         // no-op, shouldn't get here
-        arrowType = null;
-        break;
+        return null;
     }
-
-    return arrowType;
   }
 
   /* Uses the configuration to determine what the array sub-type JdbcFieldInfo is.
@@ -382,7 +362,7 @@ public class JdbcToArrowUtils {
       throws SQLException, IOException {
 
     Preconditions.checkNotNull(rs, "JDBC ResultSet object can't be null");
-    Preconditions.checkNotNull(root, "JDBC ResultSet object can't be null");
+    Preconditions.checkNotNull(root, "VectorSchemaRoot object can't be null");
     Preconditions.checkNotNull(config, "JDBC-to-Arrow configuration cannot be null");
 
     ResultSetMetaData rsmd = rs.getMetaData();
@@ -510,7 +490,6 @@ public class JdbcToArrowUtils {
         updateVector((VarBinaryVector) vector,
                 rs.getBlob(columnIndex), !rs.wasNull(), rowCount);
         break;
-
       default:
         // no-op, shouldn't get here
         break;
