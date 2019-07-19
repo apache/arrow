@@ -411,6 +411,49 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return offsetBuffer;
   }
 
+  @Override
+  public int hashCode(int index) {
+    if (isSet(index) == 0) {
+      return 0;
+    }
+    int hash = 0;
+    final int start = offsetBuffer.getInt(index * OFFSET_WIDTH);
+    final int end = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
+    for (int i = start; i < end; i++) {
+      hash = 31 * vector.hashCode(i);
+    }
+    return hash;
+  }
+
+  @Override
+  public boolean equals(int index, ValueVector to, int toIndex) {
+    if (to == null) {
+      return false;
+    }
+    if (this.getClass() != to.getClass()) {
+      return false;
+    }
+
+    ListVector that = (ListVector) to;
+    final int leftStart = offsetBuffer.getInt(index * OFFSET_WIDTH);
+    final int leftEnd = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
+
+    final int rightStart = that.offsetBuffer.getInt(toIndex * OFFSET_WIDTH);
+    final int rightEnd = that.offsetBuffer.getInt((toIndex + 1) * OFFSET_WIDTH);
+
+    if ((leftEnd - leftStart) != (rightEnd - rightStart)) {
+      return false;
+    }
+
+    for (int i = 0; i < (leftEnd - leftStart); i++) {
+      if (!vector.equals(leftStart + i, that.vector, rightStart + i)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   private class TransferImpl implements TransferPair {
 
     ListVector to;

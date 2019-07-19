@@ -45,6 +45,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.ByteFunctionHelpers;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.OversizedAllocationException;
@@ -500,6 +501,37 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   @Override
   public TransferPair makeTransferPair(ValueVector target) {
     return new TransferImpl((FixedSizeListVector) target);
+  }
+
+  @Override
+  public int hashCode(int index) {
+    if (isSet(index) == 0) {
+      return 0;
+    }
+    int hash = 0;
+    for (int i = 0; i < listSize; i++) {
+      hash = ByteFunctionHelpers.comebineHash(hash, vector.hashCode(index * listSize + i));
+    }
+    return hash;
+  }
+
+  @Override
+  public boolean equals(int index, ValueVector to, int toIndex) {
+    if (to == null) {
+      return false;
+    }
+    if (this.getClass() != to.getClass()) {
+      return false;
+    }
+
+    FixedSizeListVector that = (FixedSizeListVector) to;
+
+    for (int i = 0; i < listSize; i++) {
+      if (!vector.equals(index * listSize + i, that, toIndex * listSize + i)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private class TransferImpl implements TransferPair {
