@@ -294,6 +294,11 @@ public class UInt8Vector extends BaseFixedWidthVector implements BaseIntVector {
   }
 
   @Override
+  public void setUnsafeWithPossibleTruncate(int index, long value) {
+    this.set(index, value);
+  }
+
+  @Override
   public long getValueAsLong(int index) {
     return this.get(index);
   }

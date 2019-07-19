@@ -359,6 +359,11 @@ public class SmallIntVector extends BaseFixedWidthVector implements BaseIntVecto
   }
 
   @Override
+  public void setUnsafeWithPossibleTruncate(int index, long value) {
+    this.set(index, (int) value);
+  }
+
+  @Override
   public long getValueAsLong(int index) {
     return this.get(index);
   }
