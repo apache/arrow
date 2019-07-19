@@ -223,7 +223,12 @@ cdef class FlightDescriptor:
         return self.descriptor.path
 
     def __repr__(self):
-        return "<FlightDescriptor type: {!r}>".format(self.descriptor_type)
+        if self.descriptor_type == DescriptorType.PATH:
+            return "<FlightDescriptor path: {!r}>".format(self.path)
+        elif self.descriptor_type == DescriptorType.CMD:
+            return "<FlightDescriptor command: {!r}>".format(self.command)
+        else:
+            return "<FlightDescriptor type: {!r}>".format(self.descriptor_type)
 
     @staticmethod
     cdef CFlightDescriptor unwrap(descriptor) except *:
@@ -231,6 +236,34 @@ cdef class FlightDescriptor:
             raise TypeError("Must provide a FlightDescriptor, not '{}'".format(
                 type(descriptor)))
         return (<FlightDescriptor> descriptor).descriptor
+
+    def serialize(self):
+        """Get the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        cdef c_string out
+        check_status(self.descriptor.SerializeToString(&out))
+        return out
+
+    @classmethod
+    def deserialize(cls, serialized):
+        """Parse the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        cdef FlightDescriptor descriptor = \
+            FlightDescriptor.__new__(FlightDescriptor)
+        check_status(CFlightDescriptor.Deserialize(
+            tobytes(serialized), &descriptor.descriptor))
+        return descriptor
+
+    def __eq__(self, FlightDescriptor other):
+        return self.descriptor == other.descriptor
 
 
 cdef class Ticket:
@@ -245,6 +278,36 @@ cdef class Ticket:
     @property
     def ticket(self):
         return self.ticket.ticket
+
+    def serialize(self):
+        """Get the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        cdef c_string out
+        check_status(self.ticket.SerializeToString(&out))
+        return out
+
+    @classmethod
+    def deserialize(cls, serialized):
+        """Parse the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        cdef:
+            CTicket c_ticket
+            Ticket ticket
+        check_status(CTicket.Deserialize(tobytes(serialized), &c_ticket))
+        ticket = Ticket.__new__(Ticket)
+        ticket.ticket = c_ticket
+        return ticket
+
+    def __eq__(self, Ticket other):
+        return self.ticket == other.ticket
 
     def __repr__(self):
         return '<Ticket {}>'.format(self.ticket.ticket)
@@ -366,6 +429,13 @@ cdef class FlightEndpoint:
         return [Location.wrap(location)
                 for location in self.endpoint.locations]
 
+    def __repr__(self):
+        return "<FlightEndpoint ticket: {!r} locations: {!r}>".format(
+            self.ticket, self.locations)
+
+    def __eq__(self, FlightEndpoint other):
+        return self.endpoint == other.endpoint
+
 
 cdef class FlightInfo:
     """A description of a Flight stream."""
@@ -448,6 +518,30 @@ cdef class FlightInfo:
             py_endpoint.endpoint = endpoint
             result.append(py_endpoint)
         return result
+
+    def serialize(self):
+        """Get the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        cdef c_string out
+        check_status(self.info.get().SerializeToString(&out))
+        return out
+
+    @classmethod
+    def deserialize(cls, serialized):
+        """Parse the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        cdef FlightInfo info = FlightInfo.__new__(FlightInfo)
+        check_status(CFlightInfo.Deserialize(
+            tobytes(serialized), &info.info))
+        return info
 
 
 cdef class FlightStreamChunk:

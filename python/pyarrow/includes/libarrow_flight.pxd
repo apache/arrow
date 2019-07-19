@@ -69,10 +69,19 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CDescriptorType type
         c_string cmd
         vector[c_string] path
+        CStatus SerializeToString(c_string* out)
+        @staticmethod
+        CStatus Deserialize(const c_string& serialized,
+                            CFlightDescriptor* out)
+        bint operator==(CFlightDescriptor)
 
     cdef cppclass CTicket" arrow::flight::Ticket":
         CTicket()
         c_string ticket
+        bint operator==(CTicket)
+        CStatus SerializeToString(c_string* out)
+        @staticmethod
+        CStatus Deserialize(const c_string& serialized, CTicket* out)
 
     cdef cppclass CCriteria" arrow::flight::Criteria":
         CCriteria()
@@ -98,6 +107,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CTicket ticket
         vector[CLocation] locations
 
+        bint operator==(CFlightEndpoint)
+
     cdef cppclass CFlightInfo" arrow::flight::FlightInfo":
         CFlightInfo(CFlightInfo info)
         int64_t total_records()
@@ -105,6 +116,10 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CStatus GetSchema(CDictionaryMemo* memo, shared_ptr[CSchema]* out)
         CFlightDescriptor& descriptor()
         const vector[CFlightEndpoint]& endpoints()
+        CStatus SerializeToString(c_string* out)
+        @staticmethod
+        CStatus Deserialize(const c_string& serialized,
+                            unique_ptr[CFlightInfo]* out)
 
     cdef cppclass CFlightListing" arrow::flight::FlightListing":
         CStatus Next(unique_ptr[CFlightInfo]* info)
