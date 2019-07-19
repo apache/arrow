@@ -2,9 +2,9 @@ Package: arrow
 Title: Integration to 'Apache' 'Arrow'
 Version: 0.14.1.9000
 Authors@R: c(
-    person("Romain", "Fran\u00e7ois", email = "romain@rstudio.com", role = c("aut", "cre"), comment = c(ORCID = "0000-0002-2444-4226")),
+    person("Romain", "Fran\u00e7ois", email = "romain@rstudio.com", role = c("aut"), comment = c(ORCID = "0000-0002-2444-4226")),
     person("Jeroen", "Ooms", email = "jeroen@berkeley.edu", role = c("aut")),
-    person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut")),
+    person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut", "cre")),
     person("Javier", "Luraschi", email = "javier@rstudio.com", role = c("ctb")),
     person("Jeffrey", "Wong", email = "jeffreyw@netflix.com", role = c("ctb")),
     person("Apache Arrow", email = "dev@arrow.apache.org", role = c("aut", "cph"))
