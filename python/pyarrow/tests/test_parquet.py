@@ -659,10 +659,22 @@ def test_parquet_metadata_api():
             assert isinstance(col_meta, pq.ColumnChunkMetaData)
             repr(col_meta)
 
+    with pytest.raises(IndexError):
+        meta.row_group(-1)
+
+    with pytest.raises(IndexError):
+        meta.row_group(meta.num_row_groups + 1)
+
     rg_meta = meta.row_group(0)
     assert rg_meta.num_rows == len(df)
     assert rg_meta.num_columns == ncols + 1  # +1 for index
     assert rg_meta.total_byte_size > 0
+
+    with pytest.raises(IndexError):
+        col_meta = rg_meta.column(-1)
+
+    with pytest.raises(IndexError):
+        col_meta = rg_meta.column(ncols + 2)
 
     col_meta = rg_meta.column(0)
     assert col_meta.file_offset > 0
