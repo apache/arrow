@@ -167,13 +167,10 @@ template <typename DType>
 class DictDecoder : virtual public TypedDecoder<DType> {
  public:
   virtual void SetDict(TypedDecoder<DType>* dictionary) = 0;
-};
 
-class BinaryDictDecoder : virtual public DictDecoder<ByteArrayType> {
- public:
   /// \brief Insert dictionary values into the Arrow dictionary builder's memo,
   /// but do not append any indices
-  virtual void InsertDictionary(::arrow::BinaryDictionaryBuilder* builder) = 0;
+  virtual void InsertDictionary(::arrow::ArrayBuilder* builder) = 0;
 
   /// \brief Decode only dictionary indices and append to dictionary
   /// builder. The builder must have had the dictionary from this decoder
@@ -183,14 +180,13 @@ class BinaryDictDecoder : virtual public DictDecoder<ByteArrayType> {
   /// with a new dictionary page
   virtual int DecodeIndicesSpaced(int num_values, int null_count,
                                   const uint8_t* valid_bits, int64_t valid_bits_offset,
-                                  ::arrow::BinaryDictionaryBuilder* builder) = 0;
+                                  ::arrow::DictionaryBuilder* builder) = 0;
 
   /// \brief Decode only dictionary indices (no nulls)
   ///
   /// Remember to reset the builder each time the dict decoder is initialized
   /// with a new dictionary page
-  virtual int DecodeIndices(int num_values,
-                            ::arrow::BinaryDictionaryBuilder* builder) = 0;
+  virtual int DecodeIndices(int num_values, ::arrow::DictionaryBuilder* builder) = 0;
 };
 
 // ----------------------------------------------------------------------

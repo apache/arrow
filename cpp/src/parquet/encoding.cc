@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "arrow/util/bit-stream-utils.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle-encoding.h"
@@ -826,7 +827,10 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
                            ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::RLE_DICTIONARY),
         dictionary_(AllocateBuffer(pool, 0)),
-        byte_array_data_(AllocateBuffer(pool, 0)) {}
+        dictionary_length_(0),
+        byte_array_data_(AllocateBuffer(pool, 0)),
+        byte_array_offsets_(AllocateBuffer(pool, 0)),
+        indices_scratch_space_(AllocateBuffer(pool, 0)) {}
 
   // Perform type-specific initiatialization
   void SetDict(TypedDecoder<Type>* dictionary) override;
@@ -840,92 +844,141 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
     idx_decoder_ = ::arrow::util::RleDecoder(data, len, bit_width);
   }
 
-  int Decode(T* buffer, int max_values) override {
-    max_values = std::min(max_values, num_values_);
+  int Decode(T* buffer, int num_values) override {
+    num_values = std::min(num_values, num_values_);
     int decoded_values = idx_decoder_.GetBatchWithDict(
-        reinterpret_cast<const T*>(dictionary_->data()), buffer, max_values);
-    if (decoded_values != max_values) {
+        reinterpret_cast<const T*>(dictionary_->data()), buffer, num_values);
+    if (decoded_values != num_values) {
       ParquetException::EofException();
     }
-    num_values_ -= max_values;
-    return max_values;
+    num_values_ -= num_values;
+    return num_values;
   }
 
   int DecodeSpaced(T* buffer, int num_values, int null_count, const uint8_t* valid_bits,
                    int64_t valid_bits_offset) override {
+    num_values = std::min(num_values, num_values_);
     int decoded_values = idx_decoder_.GetBatchWithDictSpaced(
         reinterpret_cast<const T*>(dictionary_->data()), buffer, num_values, null_count,
         valid_bits, valid_bits_offset);
     if (decoded_values != num_values) {
       ParquetException::EofException();
     }
+    num_values_ -= num_values return decoded_values;
+  }
+
+  void InsertDictionary(::arrow::ArrayBuilder* builder) override;
+
+  int DecodeIndicesSpaced(int num_values, int null_count, const uint8_t* valid_bits,
+                          int64_t valid_bits_offset,
+                          ::arrow::DictionaryBuilder* builder) override {
+    num_values = std::min(num_values, num_values_);
+    int decoded_values = idx_decoder_.GetIndicesSpaced(buffer, num_values, null_count,
+                                                       valid_bits, valid_bits_offset);
+    if (decoded_values != num_values) {
+      ParquetException::EofException();
+    }
+    num_values_ -= num_values;
     return decoded_values;
+  }
+
+  int DecodeIndices(int num_values, ::arrow::DictionaryBuilder* builder) override {
+    num_values = std::min(num_values, num_values_);
+    int decoded_values = idx_decoder_.GetIndices(buffer, num_values);
+    if (decoded_values != num_values) {
+      ParquetException::EofException();
+    }
+    num_values_ -= num_values;
+    return num_values;
   }
 
  protected:
   inline void DecodeDict(TypedDecoder<Type>* dictionary) {
-    int num_dictionary_values = dictionary->values_left();
-    PARQUET_THROW_NOT_OK(dictionary_->Resize(num_dictionary_values * sizeof(T)));
+    dictionary_length_ = static_cast<int32_t>(dictionary->values_left());
+    PARQUET_THROW_NOT_OK(dictionary_->Resize(dictionary_length_ * sizeof(T),
+                                             /*shrink_to_fit=*/false));
     dictionary->Decode(reinterpret_cast<T*>(dictionary_->mutable_data()),
-                       num_dictionary_values);
+                       dictionary_length_);
   }
 
   // Only one is set.
   std::shared_ptr<ResizableBuffer> dictionary_;
 
+  int32_t dictionary_length_;
+
   // Data that contains the byte array data (byte_array_dictionary_ just has the
   // pointers).
   std::shared_ptr<ResizableBuffer> byte_array_data_;
+
+  // Arrow-style byte offsets for each dictionary value. We maintain two
+  // representations of the dictionary, one as ByteArray* for non-Arrow
+  // consumers and this one for Arrow conumers. Since dictionaries are
+  // generally pretty small to begin with this doesn't mean too much extra
+  // memory use in most cases
+  std::shared_ptr<ResizableBuffer> byte_array_offsets_;
+
+  // Reusable buffer for decoding dictionary indices to be appended to a
+  // BinaryDictionaryBuilder
+  std::shared_ptr<ResizableBuffer> indices_scratch_space_;
 
   ::arrow::util::RleDecoder idx_decoder_;
 };
 
 template <typename Type>
-inline void DictDecoderImpl<Type>::SetDict(TypedDecoder<Type>* dictionary) {
+void DictDecoderImpl<Type>::SetDict(TypedDecoder<Type>* dictionary) {
+  DecodeDict(dictionary);
+}
+
+void DictDecoderImpl<Type>::SetDict(TypedDecoder<Type>* dictionary) {
   DecodeDict(dictionary);
 }
 
 template <>
-inline void DictDecoderImpl<BooleanType>::SetDict(TypedDecoder<BooleanType>* dictionary) {
+void DictDecoderImpl<BooleanType>::SetDict(TypedDecoder<BooleanType>* dictionary) {
   ParquetException::NYI("Dictionary encoding is not implemented for boolean values");
 }
 
 template <>
-inline void DictDecoderImpl<ByteArrayType>::SetDict(
-    TypedDecoder<ByteArrayType>* dictionary) {
-  int num_dictionary_values = dictionary->values_left();
+void DictDecoderImpl<ByteArrayType>::SetDict(TypedDecoder<ByteArrayType>* dictionary) {
   DecodeDict(dictionary);
 
   auto dict_values = reinterpret_cast<ByteArray*>(dictionary_->mutable_data());
 
   int total_size = 0;
-  for (int i = 0; i < num_dictionary_values; ++i) {
+  for (int i = 0; i < dictionary_length_; ++i) {
     total_size += dict_values[i].len;
   }
   if (total_size > 0) {
-    PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size, false));
+    PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
+                                                  /*shrink_to_fit=*/false));
+    PARQUET_THROW_NOT_OK(
+        byte_array_offsets_->Resize((num_dictionary_values + 1) * sizeof(int32_t),
+                                    /*shrink_to_fit=*/false));
   }
 
-  int offset = 0;
+  int32_t offset = 0;
   uint8_t* bytes_data = byte_array_data_->mutable_data();
-  for (int i = 0; i < num_dictionary_values; ++i) {
+  int32_t* bytes_offsets = byte_array_offsets_->mutable_data();
+  for (int i = 0; i < dictionary_length_; ++i) {
     memcpy(bytes_data + offset, dict_values[i].ptr, dict_values[i].len);
+    bytes_offsets[i] = offset;
     dict_values[i].ptr = bytes_data + offset;
     offset += dict_values[i].len;
   }
+  bytes_offsets[num_dictionary_values] = offset;
 }
 
 template <>
 inline void DictDecoderImpl<FLBAType>::SetDict(TypedDecoder<FLBAType>* dictionary) {
-  int num_dictionary_values = dictionary->values_left();
   DecodeDict(dictionary);
 
   auto dict_values = reinterpret_cast<FLBA*>(dictionary_->mutable_data());
 
   int fixed_len = descr_->type_length();
-  int total_size = num_dictionary_values * fixed_len;
+  int total_size = dictionary_length_ * fixed_len;
 
-  PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size, false));
+  PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
+                                                /*shrink_to_fit=*/false));
   uint8_t* bytes_data = byte_array_data_->mutable_data();
   for (int32_t i = 0, offset = 0; i < num_dictionary_values; ++i, offset += fixed_len) {
     memcpy(bytes_data + offset, dict_values[i].ptr, fixed_len);
@@ -933,11 +986,26 @@ inline void DictDecoderImpl<FLBAType>::SetDict(TypedDecoder<FLBAType>* dictionar
   }
 }
 
-class DictByteArrayDecoder : public DictDecoderImpl<ByteArrayType>,
-                             virtual public ByteArrayDecoder {
+template <typename Type>
+void DictDecoderImpl<Type>::InsertDictionary(::arrow::ArrayBuilder* builder) {
+  ParquetException::NYI("InsertDictionary only implemented for BYTE_ARRAY types");
+}
+
+template <>
+void DictDecoderImpl<ByteArrayType>::InsertDictionary(::arrow::ArrayBuilder* builder) {
+  auto binary_builder =
+      ::arrow::util::checked_cast<::arrow::BinaryDictionaryBuilder*>(builder);
+
+  // Make an BinaryArray referencing the internal dictionary data
+  auto arr = std::make_shared<::arrow::BinaryArray>(
+      dictionary_length_, byte_array_offsets_, byte_array_data_);
+  PARQUET_THROW_NOT_OK(binary_builder->InsertMemoValues(*arr));
+}
+
+class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
+                                 virtual public DictByteArrayDecoder {
  public:
   using BASE = DictDecoderImpl<ByteArrayType>;
-  using BASE::DictDecoderImpl;
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
