@@ -255,7 +255,7 @@ public class DictionaryHashTable {
     }
 
     public final boolean equals(Object o) {
-      if (!(o instanceof DictionaryEncodeHashMap.Entry)) {
+      if (!(o instanceof DictionaryHashTable.Entry)) {
         return false;
       }
       DictionaryHashTable.Entry e = (DictionaryHashTable.Entry) o;
