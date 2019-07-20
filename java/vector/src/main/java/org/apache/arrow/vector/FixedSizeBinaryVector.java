@@ -17,8 +17,6 @@
 
 package org.apache.arrow.vector;
 
-import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.FixedSizeBinaryReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -114,8 +112,8 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    */
   public byte[] get(int index) {
     assert index >= 0;
-    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
-      throw new IllegalStateException("Value at index is null");
+    if (isSet(index) == 0) {
+      return null;
     }
     final byte[] dst = new byte[byteWidth];
     valueBuffer.getBytes(index * byteWidth, dst, 0, byteWidth);
@@ -148,14 +146,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    */
   @Override
   public byte[] getObject(int index) {
-    assert index >= 0;
-    if (isSet(index) == 0) {
-      return null;
-    } else {
-      final byte[] dst = new byte[byteWidth];
-      valueBuffer.getBytes(index * byteWidth, dst, 0, byteWidth);
-      return dst;
-    }
+    return get(index);
   }
 
   public int getByteWidth() {
