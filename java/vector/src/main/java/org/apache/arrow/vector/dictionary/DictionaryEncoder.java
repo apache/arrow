@@ -98,10 +98,11 @@ public class DictionaryEncoder {
     // copy the dictionary values into the decoded vector
     TransferPair transfer = dictionaryVector.getTransferPair(indices.getAllocator());
     transfer.getTo().allocateNewSafe();
+
+    BaseIntVector baseIntVector = (BaseIntVector) indices;
     for (int i = 0; i < count; i++) {
-      Object index = indices.getObject(i);
-      if (index != null) {
-        int indexAsInt = ((Number) index).intValue();
+      if (!baseIntVector.isNull(i)) {
+        int indexAsInt = (int) baseIntVector.getValueAsLong(i);
         if (indexAsInt > dictionaryCount) {
           throw new IllegalArgumentException("Provided dictionary does not contain value for index " + indexAsInt);
         }
