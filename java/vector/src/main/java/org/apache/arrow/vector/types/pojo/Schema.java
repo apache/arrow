@@ -32,8 +32,11 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flatbuf.KeyValue;
+import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.ipc.message.ArrowBatchMessage;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -79,6 +82,20 @@ public class Schema {
     return convertSchema(org.apache.arrow.flatbuf.Schema.getRootAsSchema(buffer));
   }
 
+  /** Returns the schema from the message.
+   *
+   * <p>The message must have the schema field set or an
+   * exception will be raised.
+   */
+  public static Schema deserializeFromMessage(ArrowBatchMessage buffer) {
+    org.apache.arrow.flatbuf.Schema schema = new org.apache.arrow.flatbuf.Schema();
+    org.apache.arrow.flatbuf.Message message = buffer.getMessage();
+    Preconditions.checkArgument(message.headerType() == MessageHeader.Schema, "type %s",
+        MessageHeader.name(message.headerType()));
+    message.header(schema);
+    return convertSchema(schema);
+  }
+
   /** Converts a flatbuffer schema to its POJO representation. */
   public static Schema convertSchema(org.apache.arrow.flatbuf.Schema schema) {
     List<Field> fields = new ArrayList<>();
@@ -93,6 +110,10 @@ public class Schema {
       metadata.put(key == null ? "" : key, value == null ? "" : value);
     }
     return new Schema(Collections2.immutableListCopy(fields), Collections2.immutableMapCopy(metadata));
+  }
+
+  private int fieldsLength() {
+    return fields.size();
   }
 
   private final List<Field> fields;
@@ -114,6 +135,15 @@ public class Schema {
     }
     this.fields = Collections2.immutableListCopy(fieldList);
     this.metadata = metadata == null ? java.util.Collections.emptyMap() : Collections2.immutableMapCopy(metadata);
+  }
+
+  /**
+   * Returns the serialized bytes of the schema wrapped in a message table..
+   */
+  public ByteBuffer toSerializedFlatBuffer() {
+    FlatBufferBuilder builder = new FlatBufferBuilder();
+    int schemaOffset = getSchema(builder);
+    return MessageSerializer.serializeMessage(builder, org.apache.arrow.flatbuf.MessageHeader.Schema, schemaOffset, 0);
   }
 
   public List<Field> getFields() {

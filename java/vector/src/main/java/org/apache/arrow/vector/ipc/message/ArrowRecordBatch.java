@@ -106,6 +106,16 @@ public class ArrowRecordBatch implements ArrowMessage {
     this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
   }
 
+  /**
+   * Returns the serialized form of {@link RecordBatch} wrapped in a {@link org.apache.arrow.flatbuf.Message}.
+   */
+  public ByteBuffer toSerializedFlatBuffer() {
+    FlatBufferBuilder builder = new FlatBufferBuilder();
+    int batchOffset = writeTo(builder);
+    return MessageSerializer.serializeMessage(builder, org.apache.arrow.flatbuf.MessageHeader.RecordBatch, batchOffset,
+        computeBodyLength());
+  }
+
   public int getLength() {
     return length;
   }

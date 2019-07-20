@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 
-import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.ReadChannel;
@@ -105,10 +104,6 @@ public class OrcStripeReader extends ArrowReader {
       MessageResult result = schemaReader.readNext();
       if (result == null) {
         throw new IOException("Unexpected end of input. Missing schema.");
-      }
-
-      if (result.getMessage().headerType() != MessageHeader.Schema) {
-        throw new IOException("Expected schema but header was " + result.getMessage().headerType());
       }
 
       return MessageSerializer.deserializeSchema(result.getMessage());

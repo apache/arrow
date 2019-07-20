@@ -46,7 +46,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.flatbuffers.FlatBufferBuilder;
 import com.google.protobuf.ByteString;
 
 @org.junit.Ignore
@@ -62,13 +61,12 @@ public class TestPerf {
         Field.nullable("d", MinorType.BIGINT.getType())
     ));
 
-    FlatBufferBuilder builder = new FlatBufferBuilder();
-    pojoSchema.getSchema(builder);
+    ByteString serializedSchema = ByteString.copyFrom(pojoSchema.toSerializedFlatBuffer());
 
     return FlightDescriptor.command(Perf.newBuilder()
         .setRecordsPerStream(recordCount)
         .setRecordsPerBatch(recordsPerBatch)
-        .setSchema(ByteString.copyFrom(pojoSchema.toByteArray()))
+        .setSchema(serializedSchema)
         .setStreamCount(streamCount)
         .build()
         .toByteArray());

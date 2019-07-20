@@ -30,6 +30,7 @@ import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.flatbuf.MetadataVersion;
 import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -63,9 +64,9 @@ public class MessageSerializer {
    */
   public static int bytesToInt(byte[] bytes) {
     return ((bytes[3] & 255) << 24) +
-        ((bytes[2] & 255) << 16) +
-        ((bytes[1] & 255) << 8) +
-        ((bytes[0] & 255) << 0);
+           ((bytes[2] & 255) << 16) +
+           ((bytes[1] & 255) << 8) +
+           ((bytes[0] & 255));
   }
 
   /**
@@ -78,7 +79,7 @@ public class MessageSerializer {
     bytes[3] = (byte) (value >>> 24);
     bytes[2] = (byte) (value >>> 16);
     bytes[1] = (byte) (value >>> 8);
-    bytes[0] = (byte) (value >>> 0);
+    bytes[0] = (byte) (value);
   }
 
   /**
@@ -138,8 +139,10 @@ public class MessageSerializer {
    * @return the deserialized Arrow Schema
    */
   public static Schema deserializeSchema(Message schemaMessage) {
+    Preconditions.checkArgument(schemaMessage.headerType() == MessageHeader.Schema,
+        "Expected schema but result was:  %s", schemaMessage.headerType());
     return Schema.convertSchema((org.apache.arrow.flatbuf.Schema)
-      schemaMessage.header(new org.apache.arrow.flatbuf.Schema()));
+        schemaMessage.header(new org.apache.arrow.flatbuf.Schema()));
   }
 
   /**
@@ -224,7 +227,7 @@ public class MessageSerializer {
       out.write(buffer);
       if (out.getCurrentPosition() != startPosition + layout.getSize()) {
         throw new IllegalStateException("wrong buffer size: " + out.getCurrentPosition() +
-            " != " + startPosition + layout.getSize());
+                                        " != " + startPosition + layout.getSize());
       }
     }
     out.align();
@@ -321,7 +324,7 @@ public class MessageSerializer {
       if ((int) node.length() != node.length() ||
           (int) node.nullCount() != node.nullCount()) {
         throw new IOException("Cannot currently deserialize record batches with " +
-            "node length larger than Int.MAX_VALUE");
+                              "node length larger than Int.MAX_VALUE");
       }
       nodes.add(new ArrowFieldNode((int) node.length(), (int) node.nullCount()));
     }
@@ -338,6 +341,14 @@ public class MessageSerializer {
         new ArrowRecordBatch((int) recordBatchFB.length(), nodes, buffers);
     body.getReferenceManager().release();
     return arrowRecordBatch;
+  }
+
+  /**
+   * Reads a record batch from the byte bufer and underlying data buffer.
+   */
+  public static ArrowRecordBatch deserializeRecordBatch(ArrowBatchMessage serializedMessage, ArrowBuf underlying) throws
+      IOException {
+    return deserializeRecordBatch(serializedMessage.getMessage(), underlying);
   }
 
   /**
@@ -394,6 +405,20 @@ public class MessageSerializer {
     DictionaryBatch dictionaryBatchFB = (DictionaryBatch) message.header(new DictionaryBatch());
     ArrowRecordBatch recordBatch = deserializeRecordBatch(dictionaryBatchFB.data(), bodyBuffer);
     return new ArrowDictionaryBatch(dictionaryBatchFB.id(), recordBatch);
+  }
+
+  /**
+   * Deserializes an ArrowDictionaryBatch from a dictionary batch Message and data in an ArrowBuf.
+   *
+   * @param message a message of type MessageHeader.DictionaryBatch
+   * @param bodyBuffer Arrow buffer containing the DictionaryBatch data
+   *                   of type MessageHeader.DictionaryBatch
+   * @return the deserialized ArrowDictionaryBatch
+   * @throws IOException if something went wrong
+   */
+  public static ArrowDictionaryBatch deserializeDictionaryBatch(ArrowBatchMessage message, ArrowBuf bodyBuffer)
+      throws IOException {
+    return deserializeDictionaryBatch(message.getMessage(), bodyBuffer);
   }
 
   /**
@@ -547,7 +572,7 @@ public class MessageSerializer {
         ByteBuffer messageBuffer = ByteBuffer.allocate(messageLength);
         if (in.readFully(messageBuffer) != messageLength) {
           throw new IOException(
-            "Unexpected end of stream trying to read message.");
+              "Unexpected end of stream trying to read message.");
         }
         messageBuffer.rewind();
 
@@ -576,4 +601,5 @@ public class MessageSerializer {
     }
     return bodyBuffer;
   }
+
 }
