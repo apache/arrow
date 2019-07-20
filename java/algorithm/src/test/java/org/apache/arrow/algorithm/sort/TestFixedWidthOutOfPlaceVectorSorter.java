@@ -70,7 +70,7 @@ public class TestFixedWidthOutOfPlaceVectorSorter {
 
       // sort the vector
       FixedWidthOutOfPlaceVectorSorter sorter = new FixedWidthOutOfPlaceVectorSorter();
-      DefaultVectorComparators.ByteComparator comparator = new DefaultVectorComparators.ByteComparator();
+      VectorValueComparator<TinyIntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
 
       TinyIntVector sortedVec =
               (TinyIntVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
@@ -117,7 +117,7 @@ public class TestFixedWidthOutOfPlaceVectorSorter {
 
       // sort the vector
       FixedWidthOutOfPlaceVectorSorter sorter = new FixedWidthOutOfPlaceVectorSorter();
-      DefaultVectorComparators.ShortComparator comparator = new DefaultVectorComparators.ShortComparator();
+      VectorValueComparator<SmallIntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
 
       SmallIntVector sortedVec =
               (SmallIntVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
@@ -164,7 +164,7 @@ public class TestFixedWidthOutOfPlaceVectorSorter {
 
       // sort the vector
       FixedWidthOutOfPlaceVectorSorter sorter = new FixedWidthOutOfPlaceVectorSorter();
-      DefaultVectorComparators.IntComparator comparator = new DefaultVectorComparators.IntComparator();
+      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
 
       IntVector sortedVec = (IntVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
       sortedVec.allocateNew(vec.getValueCount());
@@ -210,7 +210,7 @@ public class TestFixedWidthOutOfPlaceVectorSorter {
 
       // sort the vector
       FixedWidthOutOfPlaceVectorSorter sorter = new FixedWidthOutOfPlaceVectorSorter();
-      DefaultVectorComparators.LongComparator comparator = new DefaultVectorComparators.LongComparator();
+      VectorValueComparator<BigIntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
 
       BigIntVector sortedVec = (BigIntVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
       sortedVec.allocateNew(vec.getValueCount());
@@ -256,7 +256,7 @@ public class TestFixedWidthOutOfPlaceVectorSorter {
 
       // sort the vector
       FixedWidthOutOfPlaceVectorSorter sorter = new FixedWidthOutOfPlaceVectorSorter();
-      DefaultVectorComparators.Float4Comparator comparator = new DefaultVectorComparators.Float4Comparator();
+      VectorValueComparator<Float4Vector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
 
       Float4Vector sortedVec = (Float4Vector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
       sortedVec.allocateNew(vec.getValueCount());
@@ -302,7 +302,7 @@ public class TestFixedWidthOutOfPlaceVectorSorter {
 
       // sort the vector
       FixedWidthOutOfPlaceVectorSorter sorter = new FixedWidthOutOfPlaceVectorSorter();
-      DefaultVectorComparators.Float8Comparator comparator = new DefaultVectorComparators.Float8Comparator();
+      VectorValueComparator<Float8Vector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
 
       Float8Vector sortedVec = (Float8Vector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
       sortedVec.allocateNew(vec.getValueCount());
