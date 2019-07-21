@@ -28,6 +28,7 @@
 
 namespace arrow {
 
+class ArrayBuilder;
 class BinaryDictionaryBuilder;
 
 namespace internal {
@@ -180,13 +181,13 @@ class DictDecoder : virtual public TypedDecoder<DType> {
   /// with a new dictionary page
   virtual int DecodeIndicesSpaced(int num_values, int null_count,
                                   const uint8_t* valid_bits, int64_t valid_bits_offset,
-                                  ::arrow::DictionaryBuilder* builder) = 0;
+                                  ::arrow::ArrayBuilder* builder) = 0;
 
   /// \brief Decode only dictionary indices (no nulls)
   ///
   /// Remember to reset the builder each time the dict decoder is initialized
   /// with a new dictionary page
-  virtual int DecodeIndices(int num_values, ::arrow::DictionaryBuilder* builder) = 0;
+  virtual int DecodeIndices(int num_values, ::arrow::ArrayBuilder* builder) = 0;
 };
 
 // ----------------------------------------------------------------------

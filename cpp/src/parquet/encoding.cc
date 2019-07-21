@@ -858,13 +858,12 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
   int DecodeSpaced(T* buffer, int num_values, int null_count, const uint8_t* valid_bits,
                    int64_t valid_bits_offset) override {
     num_values = std::min(num_values, num_values_);
-    int decoded_values = idx_decoder_.GetBatchWithDictSpaced(
-        reinterpret_cast<const T*>(dictionary_->data()), buffer, num_values, null_count,
-        valid_bits, valid_bits_offset);
-    if (decoded_values != num_values) {
+    if (num_values != idx_decoder_.GetBatchWithDictSpaced(
+                          reinterpret_cast<const T*>(dictionary_->data()), buffer,
+                          num_values, null_count, valid_bits, valid_bits_offset)) {
       ParquetException::EofException();
     }
-    num_values_ -= num_values return decoded_values;
+    num_values_ -= num_values return num_values;
   }
 
   void InsertDictionary(::arrow::ArrayBuilder* builder) override;
@@ -873,19 +872,27 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
                           int64_t valid_bits_offset,
                           ::arrow::DictionaryBuilder* builder) override {
     num_values = std::min(num_values, num_values_);
-    int decoded_values = idx_decoder_.GetIndicesSpaced(buffer, num_values, null_count,
-                                                       valid_bits, valid_bits_offset);
-    if (decoded_values != num_values) {
+    if (num_values > 0) {
+      PARQUET_THROW_NOT_OK(indices_scratch_space_->Resize(num_values * sizeof(int16_t),
+                                                          /*shrink_to_fit=*/false))
+    }
+    if (num_values !=
+        idx_decoder_.GetIndicesSpaced(indices_scratch_space_->mutable_data(), num_values,
+                                      null_count, valid_bits, valid_bits_offset)) {
       ParquetException::EofException();
     }
     num_values_ -= num_values;
-    return decoded_values;
+    return num_values;
   }
 
   int DecodeIndices(int num_values, ::arrow::DictionaryBuilder* builder) override {
     num_values = std::min(num_values, num_values_);
-    int decoded_values = idx_decoder_.GetIndices(buffer, num_values);
-    if (decoded_values != num_values) {
+    if (num_values > 0) {
+      PARQUET_THROW_NOT_OK(indices_scratch_space_->Resize(num_values * sizeof(int16_t),
+                                                          /*shrink_to_fit=*/false))
+    }
+    if (num_values !=
+        idx_decoder_.GetBatch(indices_scratch_space_->mutable_data(), num_values)) {
       ParquetException::EofException();
     }
     num_values_ -= num_values;
