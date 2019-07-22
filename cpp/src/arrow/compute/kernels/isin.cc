@@ -89,13 +89,13 @@ struct MemoTableRight {
 
   Status Append(FunctionContext* ctx, const Datum& right) {
     const ArrayData& right_data = *right.array();
-    right_null_count = right_data.GetNullCount();
+    right_null_count += right_data.GetNullCount();
     return ArrayDataVisitor<T>::Visit(right_data, this);
   }
 
   using MemoTable = typename HashTraits<T>::MemoTableType;
   std::unique_ptr<MemoTable> memo_table_;
-  int64_t right_null_count;
+  int64_t right_null_count{};
 };
 
 // ----------------------------------------------------------------------
@@ -107,13 +107,9 @@ class IsInKernel : public IsInKernelImpl {
       : type_(type), pool_(pool) {}
 
   // \brief if null count in right is not 0, then append true to the
-  // BooleanBuilder when left array has a null, else append null.
+  // BooleanBuilder when left array has a null.
   Status VisitNull() {
-    if (right_null_count != 0) {
-      bool_builder_.UnsafeAppend(true);
-    } else {
-      bool_builder_.UnsafeAppendNull();
-    }
+    bool_builder_.UnsafeAppend(true);
     return Status::OK();
   }
 
@@ -137,6 +133,12 @@ class IsInKernel : public IsInKernelImpl {
     RETURN_NOT_OK(ArrayDataVisitor<Type>::Visit(left_data, this));
     RETURN_NOT_OK(bool_builder_.FinishInternal(&output));
     out->value = std::move(output);
+
+    if (right_null_count_ == 0 && left_data.GetNullCount() != 0) {
+      output = out->array();
+      output->type = boolean();
+      RETURN_NOT_OK(detail::PropagateNulls(ctx, left_data, output.get()));
+    }
     return Status::OK();
   }
 
@@ -156,7 +158,7 @@ class IsInKernel : public IsInKernelImpl {
     }
 
     memo_table_ = std::move(func.memo_table_);
-    right_null_count = func.right_null_count;
+    right_null_count_ = func.right_null_count;
     return Status::OK();
   }
 
@@ -298,7 +300,7 @@ Status GetIsInKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type
 #undef ISIN_CASE
 
   if (!kernel) {
-    return Status::NotImplemented("isin", " not implemented for ", type->ToString());
+    return Status::NotImplemented("isin is not implemented for ", type->ToString());
   }
   RETURN_NOT_OK(kernel->Reset());
   *out = std::move(kernel);
