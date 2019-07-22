@@ -63,7 +63,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
               int32_t recursion_depth, SerializedPyObject* blobs_out);
 
 // A Sequence is a heterogeneous collections of elements. It can contain
-// scalar Python types, lists, tuples, dictionaries and tensors.
+// scalar Python types, lists, tuples, dictionaries, tensors and sparse tensors.
 class SequenceBuilder {
  public:
   explicit SequenceBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
@@ -154,6 +154,26 @@ class SequenceBuilder {
     RETURN_NOT_OK(CreateAndUpdate(&tensor_indices_, PythonType::TENSOR,
                                   [this]() { return new Int32Builder(pool_); }));
     return tensor_indices_->Append(tensor_index);
+  }
+
+  // Appending a sparse tensor coo to the sequence
+  //
+  // \param sparse_tensor_coo_index Index of the sparse tensor coo in the object.
+  Status AppendSparseTensorCOO(const int32_t sparse_tensor_coo_index) {
+    RETURN_NOT_OK(CreateAndUpdate(&sparse_tensor_coo_indices_,
+                                  PythonType::SPARSETENSORCOO,
+                                  [this]() { return new Int32Builder(pool_); }));
+    return sparse_tensor_coo_indices_->Append(sparse_tensor_coo_index);
+  }
+
+  // Appending a sparse tensor csr to the sequence
+  //
+  // \param sparse_tensor_csr_index Index of the sparse tensor csr in the object.
+  Status AppendSparseTensorCSR(const int32_t sparse_tensor_csr_index) {
+    RETURN_NOT_OK(CreateAndUpdate(&sparse_tensor_csr_indices_,
+                                  PythonType::SPARSETENSORCSR,
+                                  [this]() { return new Int32Builder(pool_); }));
+    return sparse_tensor_csr_indices_->Append(sparse_tensor_csr_index);
   }
 
   // Appending a numpy ndarray to the sequence
@@ -250,6 +270,8 @@ class SequenceBuilder {
   std::shared_ptr<ListBuilder> sets_;
 
   std::shared_ptr<Int32Builder> tensor_indices_;
+  std::shared_ptr<Int32Builder> sparse_tensor_coo_indices_;
+  std::shared_ptr<Int32Builder> sparse_tensor_csr_indices_;
   std::shared_ptr<Int32Builder> ndarray_indices_;
   std::shared_ptr<Int32Builder> buffer_indices_;
 
@@ -480,6 +502,18 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
     std::shared_ptr<Tensor> tensor;
     RETURN_NOT_OK(unwrap_tensor(elem, &tensor));
     blobs_out->tensors.push_back(tensor);
+  } else if (is_sparse_tensor_coo(elem)) {
+    RETURN_NOT_OK(builder->AppendSparseTensorCOO(
+        static_cast<int32_t>(blobs_out->sparse_tensors.size())));
+    std::shared_ptr<SparseTensorCOO> sparse_tensor_coo;
+    RETURN_NOT_OK(unwrap_sparse_tensor_coo(elem, &sparse_tensor_coo));
+    blobs_out->sparse_tensors.push_back(sparse_tensor_coo);
+  } else if (is_sparse_tensor_csr(elem)) {
+    RETURN_NOT_OK(builder->AppendSparseTensorCSR(
+        static_cast<int32_t>(blobs_out->sparse_tensors.size())));
+    std::shared_ptr<SparseTensorCSR> sparse_tensor_csr;
+    RETURN_NOT_OK(unwrap_sparse_tensor_csr(elem, &sparse_tensor_csr));
+    blobs_out->sparse_tensors.push_back(sparse_tensor_csr);
   } else {
     // Attempt to serialize the object using the custom callback.
     PyObject* serialized_object;
@@ -568,10 +602,13 @@ SerializedPyObject::SerializedPyObject() : ipc_options(ipc::IpcOptions::Defaults
 
 Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
   int32_t num_tensors = static_cast<int32_t>(this->tensors.size());
+  int32_t num_sparse_tensors = static_cast<int32_t>(this->sparse_tensors.size());
   int32_t num_ndarrays = static_cast<int32_t>(this->ndarrays.size());
   int32_t num_buffers = static_cast<int32_t>(this->buffers.size());
   RETURN_NOT_OK(
       dst->Write(reinterpret_cast<const uint8_t*>(&num_tensors), sizeof(int32_t)));
+  RETURN_NOT_OK(
+      dst->Write(reinterpret_cast<const uint8_t*>(&num_sparse_tensors), sizeof(int32_t)));
   RETURN_NOT_OK(
       dst->Write(reinterpret_cast<const uint8_t*>(&num_ndarrays), sizeof(int32_t)));
   RETURN_NOT_OK(
@@ -588,6 +625,12 @@ Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
   int64_t body_length;
   for (const auto& tensor : this->tensors) {
     RETURN_NOT_OK(ipc::WriteTensor(*tensor, dst, &metadata_length, &body_length));
+    RETURN_NOT_OK(ipc::AlignStream(dst, ipc::kTensorAlignment));
+  }
+
+  for (const auto& sparse_tensor : this->sparse_tensors) {
+    RETURN_NOT_OK(
+        ipc::WriteSparseTensor(*sparse_tensor, dst, &metadata_length, &body_length));
     RETURN_NOT_OK(ipc::AlignStream(dst, ipc::kTensorAlignment));
   }
 
@@ -617,6 +660,8 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
   // quite esoteric
   PyDict_SetItemString(result.obj(), "num_tensors",
                        PyLong_FromSize_t(this->tensors.size()));
+  PyDict_SetItemString(result.obj(), "num_sparse_tensors",
+                       PyLong_FromSize_t(this->sparse_tensors.size()));
   PyDict_SetItemString(result.obj(), "num_ndarrays",
                        PyLong_FromSize_t(this->ndarrays.size()));
   PyDict_SetItemString(result.obj(), "num_buffers",
@@ -656,6 +701,14 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
   for (const auto& tensor : this->tensors) {
     std::unique_ptr<ipc::Message> message;
     RETURN_NOT_OK(ipc::GetTensorMessage(*tensor, memory_pool, &message));
+    RETURN_NOT_OK(PushBuffer(message->metadata()));
+    RETURN_NOT_OK(PushBuffer(message->body()));
+  }
+
+  // For each sparse tensor, get a metadata buffer and a buffer for the body
+  for (const auto& sparse_tensor : this->sparse_tensors) {
+    std::unique_ptr<ipc::Message> message;
+    RETURN_NOT_OK(ipc::GetSparseTensorMessage(*sparse_tensor, memory_pool, &message));
     RETURN_NOT_OK(PushBuffer(message->metadata()));
     RETURN_NOT_OK(PushBuffer(message->body()));
   }

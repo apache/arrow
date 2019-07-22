@@ -40,6 +40,12 @@ except ImportError:
     # failing (ARROW-2071)
     sys.modules['torch'] = None
 
+try:
+    from scipy.sparse import csr_matrix, coo_matrix
+except ImportError:
+    csr_matrix = None
+    coo_matrix = None
+
 
 def assert_equal(obj1, obj2):
     if torch is not None and torch.is_tensor(obj1) and torch.is_tensor(obj2):
@@ -399,6 +405,7 @@ def test_datetime_serialization(large_buffer):
         serialization_roundtrip(d, large_buffer)
 
 
+@pytest.mark.skip
 def test_torch_serialization(large_buffer):
     pytest.importorskip("torch")
 
@@ -522,6 +529,91 @@ def test_numpy_subclass_serialization():
 
 @pytest.mark.filterwarnings(
     "ignore:the matrix subclass:PendingDeprecationWarning")
+@pytest.mark.skip
+def test_sparse_tensor_coo_components_serialization(large_buffer):
+    data = np.array([1, 1, 1, 1, 1, 1, 1])
+    row = np.array([0, 0, 1, 3, 1, 0, 0])
+    col = np.array([0, 2, 1, 3, 1, 0, 0])
+    shape = (4, 4)
+
+    coords = np.vstack([row, col]).T
+    sparse_tensor = pa.SparseTensorCOO.from_numpy(data, coords, shape)
+    serialization_roundtrip(sparse_tensor, large_buffer)
+
+
+def test_sparse_tensor_coo_serialization(large_buffer):
+    data = np.array([1, 1, 1, 1, 1, 1, 1])
+    row = np.array([0, 0, 1, 3, 1, 0, 0])
+    col = np.array([0, 2, 1, 3, 1, 0, 0])
+    shape = (4, 4)
+
+    coords = np.vstack([row, col]).T
+    sparse_tensor = pa.SparseTensorCOO.from_numpy(data, coords, shape)
+
+    serialized = pa.serialize(sparse_tensor)
+    result = serialized.deserialize()
+
+    data_result, coords_result = result.to_numpy()
+    assert np.array_equal(data_result[:, 0], data)
+    assert np.array_equal(coords_result, coords)
+
+
+def test_sparse_tensor_csr_serialization(large_buffer):
+    data = np.array([1, 2, 3, 4, 5, 6])
+    indptr = np.array([0, 2, 3, 6])
+    indices = np.array([0, 2, 2, 0, 1, 2])
+    shape = (3, 3)
+
+    sparse_tensor = pa.SparseTensorCSR.from_numpy(data, indptr, indices, shape)
+
+    serialized = pa.serialize(sparse_tensor)
+    result = serialized.deserialize()
+
+    data_result, indptr_result, indices_result = result.to_numpy()
+    assert np.array_equal(data_result[:, 0], data)
+    assert np.array_equal(indptr_result, indptr)
+    assert np.array_equal(indices_result, indices)
+
+
+@pytest.mark.skip
+def test_sparse_tensor_csr_components_serialization(large_buffer):
+    data = np.array([1, 2, 3, 4, 5, 6])
+    indptr = np.array([0, 2, 3, 6])
+    indices = np.array([0, 2, 2, 0, 1, 2])
+    shape = (3, 3)
+
+    sparse_tensor = pa.SparseTensorCSR.from_numpy(data, indptr, indices, shape)
+    serialization_roundtrip(sparse_tensor, large_buffer)
+
+
+@pytest.mark.skipif(not coo_matrix, reason="requires scipy")
+def test_scipy_sparse_tensor_coo_serialization():
+    data = np.array([1, 1, 1, 1, 1, 1, 1])
+    row = np.array([0, 0, 1, 3, 1, 0, 0])
+    col = np.array([0, 2, 1, 3, 1, 0, 0])
+    shape = (4, 4)
+
+    sparse_array = coo_matrix((data, (row, col)), shape=shape)
+    serialized = pa.serialize(sparse_array)
+    result = serialized.deserialize()
+
+    assert np.array_equal(sparse_array.toarray(), result.toarray())
+
+
+@pytest.mark.skipif(not csr_matrix, reason="requires scipy")
+def test_scipy_sparse_tensor_csr_serialization():
+    data = np.array([1, 2, 3, 4, 5, 6])
+    indptr = np.array([0, 2, 3, 6])
+    indices = np.array([0, 2, 2, 0, 1, 2])
+    shape = (3, 3)
+
+    sparse_array = csr_matrix((data, indices, indptr), shape=shape)
+    serialized = pa.serialize(sparse_array)
+    result = serialized.deserialize()
+
+    assert np.array_equal(sparse_array.toarray(), result.toarray())
+
+
 def test_numpy_matrix_serialization(tmpdir):
     class CustomType(object):
         def __init__(self, val):
@@ -722,6 +814,7 @@ def test_serialize_to_components_invalid_cases():
 
     components = {
         'num_tensors': 0,
+        'num_sparse_tensors': 0,
         'num_ndarrays': 0,
         'num_buffers': 1,
         'data': [buf]
@@ -732,6 +825,7 @@ def test_serialize_to_components_invalid_cases():
 
     components = {
         'num_tensors': 0,
+        'num_sparse_tensors': 0,
         'num_ndarrays': 1,
         'num_buffers': 0,
         'data': [buf, buf]

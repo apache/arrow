@@ -298,13 +298,16 @@ cdef class SerializedPyObject:
         """
         cdef:
             int num_tensors = components['num_tensors']
+            int num_sparse_tensors = components['num_sparse_tensors']
             int num_ndarrays = components['num_ndarrays']
             int num_buffers = components['num_buffers']
             list buffers = components['data']
             SerializedPyObject result = SerializedPyObject()
 
         with nogil:
-            check_status(GetSerializedFromComponents(num_tensors, num_ndarrays,
+            check_status(GetSerializedFromComponents(num_tensors,
+                                                     num_sparse_tensors,
+                                                     num_ndarrays,
                                                      num_buffers,
                                                      buffers, &result.data))
 

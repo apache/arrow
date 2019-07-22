@@ -27,6 +27,7 @@
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/options.h"
 #include "arrow/record_batch.h"
+#include "arrow/sparse_tensor.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

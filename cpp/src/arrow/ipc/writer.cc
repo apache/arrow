@@ -725,6 +725,23 @@ Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
   return Status::OK();
 }
 
+Status GetSparseTensorMessage(const SparseTensor& sparse_tensor, MemoryPool* pool,
+                              std::unique_ptr<Message>* out) {
+  const SparseTensor* sparse_tensor_to_write = &sparse_tensor;
+  std::unique_ptr<SparseTensor> temp_sparse_tensor;
+
+  const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
+  const int elem_size = type.bit_width() / 8;
+  int64_t body_length = sparse_tensor.size() * elem_size;
+  const std::vector<internal::BufferMetadata> buffers;
+
+  std::shared_ptr<Buffer> metadata;
+  RETURN_NOT_OK(internal::WriteSparseTensorMessage(*sparse_tensor_to_write, body_length,
+                                                   buffers, &metadata));
+  out->reset(new Message(metadata, sparse_tensor_to_write->data()));
+  return Status::OK();
+}
+
 namespace internal {
 
 class SparseTensorSerializer {
@@ -814,8 +831,7 @@ Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* poo
 }  // namespace internal
 
 Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* dst,
-                         int32_t* metadata_length, int64_t* body_length,
-                         MemoryPool* pool) {
+                         int32_t* metadata_length, int64_t* body_length) {
   internal::IpcPayload payload;
   internal::SparseTensorSerializer writer(0, &payload);
   RETURN_NOT_OK(writer.Assemble(sparse_tensor));
