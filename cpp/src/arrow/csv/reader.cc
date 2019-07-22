@@ -146,46 +146,47 @@ class BaseTableReader : public csv::TableReader {
   Status ProcessHeader() {
     DCHECK_GT(cur_size_, 0);
 
-    int32_t header_rows = read_options_.skip_rows;
-    if (read_options_.column_names.empty()) {
-      // One row with column names
-      ++header_rows;
-    } else {
-      column_names_ = read_options_.column_names;
+    if (read_options_.skip_rows) {
+      // Skip initial rows (potentially invalid CSV data)
+      auto data = cur_data_;
+      auto num_skipped_rows =
+          SkipRows(cur_data_, cur_size_, read_options_.skip_rows, &data);
+      cur_size_ -= data - cur_data_;
+      cur_data_ = data;
+      if (num_skipped_rows < read_options_.skip_rows) {
+        return Status::Invalid(
+            "Could not skip initial ", read_options_.skip_rows,
+            " rows from CSV file, "
+            "either file is too short or header is larger than block size");
+      }
     }
 
-    if (header_rows > 0) {
-      // Read header rows
-      BlockParser parser(pool_, parse_options_, num_cols_, header_rows);
+    if (read_options_.column_names.empty()) {
+      // Read one row with column names
+      BlockParser parser(pool_, parse_options_, num_cols_, 1);
       uint32_t parsed_size = 0;
       RETURN_NOT_OK(parser.Parse(reinterpret_cast<const char*>(cur_data_),
                                  static_cast<uint32_t>(cur_size_), &parsed_size));
-      if (parser.num_rows() != header_rows) {
+      if (parser.num_rows() != 1) {
         return Status::Invalid(
-            "Could not read header rows from CSV file, either "
+            "Could not read column names from CSV file, either "
             "file is too short or header is larger than block size");
       }
       if (parser.num_cols() == 0) {
         return Status::Invalid("No columns in CSV file");
       }
-      if (read_options_.column_names.empty()) {
-        // Read column names from last header row
-        auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-          column_names_.emplace_back(reinterpret_cast<const char*>(data), size);
-          return Status::OK();
-        };
-        RETURN_NOT_OK(parser.VisitLastRow(visit));
-        DCHECK_EQ(static_cast<size_t>(parser.num_cols()), column_names_.size());
-      } else {
-        if (static_cast<size_t>(parser.num_cols()) != column_names_.size()) {
-          return Status::Invalid("CSV file has ", parser.num_cols(), " columns, but ",
-                                 column_names_.size(), " column names were given");
-        }
-      }
-
-      // Skip parsed header rows
+      // Read column names from last header row
+      auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+        column_names_.emplace_back(reinterpret_cast<const char*>(data), size);
+        return Status::OK();
+      };
+      RETURN_NOT_OK(parser.VisitLastRow(visit));
+      DCHECK_EQ(static_cast<size_t>(parser.num_cols()), column_names_.size());
+      // Skip parsed header row
       cur_data_ += parsed_size;
       cur_size_ -= parsed_size;
+    } else {
+      column_names_ = read_options_.column_names;
     }
 
     num_cols_ = static_cast<int32_t>(column_names_.size());

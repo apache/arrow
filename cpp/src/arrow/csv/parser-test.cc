@@ -31,6 +31,57 @@
 namespace arrow {
 namespace csv {
 
+void CheckSkipRows(const std::string& rows, int32_t num_rows,
+                   int32_t expected_skipped_rows, int32_t expected_skipped_bytes) {
+  const uint8_t* start = reinterpret_cast<const uint8_t*>(rows.data());
+  const uint8_t* data;
+  int32_t skipped_rows =
+      SkipRows(start, static_cast<int32_t>(rows.size()), num_rows, &data);
+  ASSERT_EQ(skipped_rows, expected_skipped_rows);
+  ASSERT_EQ(data - start, expected_skipped_bytes);
+}
+
+TEST(SkipRows, Basics) {
+  CheckSkipRows("", 0, 0, 0);
+  CheckSkipRows("", 15, 0, 0);
+
+  CheckSkipRows("a\nb\nc\nd", 1, 1, 2);
+  CheckSkipRows("a\nb\nc\nd", 2, 2, 4);
+  CheckSkipRows("a\nb\nc\nd", 3, 3, 6);
+  CheckSkipRows("a\nb\nc\nd", 4, 3, 6);
+
+  CheckSkipRows("a\nb\nc\nd\n", 3, 3, 6);
+  CheckSkipRows("a\nb\nc\nd\n", 4, 4, 8);
+  CheckSkipRows("a\nb\nc\nd\n", 5, 4, 8);
+
+  CheckSkipRows("\t\n\t\n\t\n\t", 1, 1, 2);
+  CheckSkipRows("\t\n\t\n\t\n\t", 3, 3, 6);
+  CheckSkipRows("\t\n\t\n\t\n\t", 4, 3, 6);
+
+  CheckSkipRows("a\r\nb\nc\rd\r\n", 1, 1, 3);
+  CheckSkipRows("a\r\nb\nc\rd\r\n", 2, 2, 5);
+  CheckSkipRows("a\r\nb\nc\rd\r\n", 3, 3, 7);
+  CheckSkipRows("a\r\nb\nc\rd\r\n", 4, 4, 10);
+  CheckSkipRows("a\r\nb\nc\rd\r\n", 5, 4, 10);
+
+  CheckSkipRows("a\r\nb\nc\rd\r", 4, 4, 9);
+  CheckSkipRows("a\r\nb\nc\rd\r", 5, 4, 9);
+  CheckSkipRows("a\r\nb\nc\rd\re", 4, 4, 9);
+  CheckSkipRows("a\r\nb\nc\rd\re", 5, 4, 9);
+
+  CheckSkipRows("\n\r\n\r\r\n\n\r\n\r", 1, 1, 1);
+  CheckSkipRows("\n\r\n\r\r\n\n\r\n\r", 2, 2, 3);
+  CheckSkipRows("\n\r\n\r\r\n\n\r\n\r", 3, 3, 4);
+  CheckSkipRows("\n\r\n\r\r\n\n\r\n\r", 4, 4, 6);
+  CheckSkipRows("\n\r\n\r\r\n\n\r\n\r", 5, 5, 7);
+  CheckSkipRows("\n\r\n\r\r\n\n\r\n\r", 6, 6, 9);
+  CheckSkipRows("\n\r\n\r\r\n\n\r\n\r", 7, 7, 10);
+  CheckSkipRows("\n\r\n\r\r\n\n\r\n\r", 8, 7, 10);
+}
+
+////////////////////////////////////////////////////////////////////////////
+// BlockParser tests
+
 // Read the column with the given index out of the BlockParser.
 void GetColumn(const BlockParser& parser, int32_t col_index,
                std::vector<std::string>* out, std::vector<bool>* out_quoted = nullptr) {

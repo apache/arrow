@@ -37,6 +37,13 @@ namespace csv {
 
 constexpr int32_t kMaxParserNumRows = 100000;
 
+/// Skip at most num_rows from the given input.  The input pointer is updated
+/// and the number of actually skipped rows is returns (may be less than
+/// requested if the input is too short).
+ARROW_EXPORT
+int32_t SkipRows(const uint8_t* data, uint32_t size, int32_t num_rows,
+                 const uint8_t** out_data);
+
 /// \class BlockParser
 /// \brief A reusable block-based parser for CSV data
 ///

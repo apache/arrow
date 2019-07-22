@@ -245,6 +245,16 @@ class BaseTestCSVRead:
             # Not enough rows
             table = self.read_bytes(rows, read_options=opts)
 
+        # Can skip rows with a different number of columns
+        rows = b"abcd\n,,,,,\nij,kl\nmn,op\n"
+        opts.skip_rows = 2
+        table = self.read_bytes(rows, read_options=opts)
+        self.check_names(table, ["ij", "kl"])
+        assert table.to_pydict() == {
+            "ij": ["mn"],
+            "kl": ["op"],
+            }
+
     def test_header_column_names(self):
         rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
 
@@ -278,16 +288,23 @@ class BaseTestCSVRead:
             # Not enough rows
             table = self.read_bytes(rows, read_options=opts)
 
+        # Unexpected number of columns
         opts.skip_rows = 0
         opts.column_names = ["x", "y", "z"]
         with pytest.raises(pa.ArrowInvalid,
                            match="Expected 3 columns, got 2"):
             table = self.read_bytes(rows, read_options=opts)
-        opts.skip_rows = 1
-        with pytest.raises(pa.ArrowInvalid,
-                           match="CSV file has 2 columns, "
-                           "but 3 column names were given"):
-            table = self.read_bytes(rows, read_options=opts)
+
+        # Can skip rows with a different number of columns
+        rows = b"abcd\n,,,,,\nij,kl\nmn,op\n"
+        opts.skip_rows = 2
+        opts.column_names = ["x", "y"]
+        table = self.read_bytes(rows, read_options=opts)
+        self.check_names(table, ["x", "y"])
+        assert table.to_pydict() == {
+            "x": ["ij", "mn"],
+            "y": ["kl", "op"],
+            }
 
     def test_simple_ints(self):
         # Infer integer columns
