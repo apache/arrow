@@ -333,13 +333,6 @@ public class TestDictionaryVector {
     }
   }
 
-  private void writeUnionVector(NullableStructWriter writer, int value1, long value2) {
-    writer.start();
-    writer.integer("f0").writeInt(value1);
-    writer.bigInt("f1").writeBigInt(value2);
-    writer.end();
-  }
-
   @Test
   public void testEncodeUnion() {
     // Create a new value vector
