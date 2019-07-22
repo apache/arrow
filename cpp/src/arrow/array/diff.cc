@@ -160,7 +160,7 @@ class NullOrListGenerator {
 };
 
 template <typename Iterator>
-class DiffImpl {
+class QuadraticSpaceMyersDiff {
  public:
   // represents an intermediate state in the comparison of two arrays
   struct EditPoint {
@@ -171,8 +171,8 @@ class DiffImpl {
     }
   };
 
-  DiffImpl(Iterator base_begin, Iterator base_end, Iterator target_begin,
-           Iterator target_end)
+  QuadraticSpaceMyersDiff(Iterator base_begin, Iterator base_end, Iterator target_begin,
+                          Iterator target_end)
       : base_begin_(base_begin),
         base_end_(base_end),
         target_begin_(target_begin),
@@ -331,7 +331,7 @@ static_assert(array_has_GetView<Date32Type>::value, "date32");
 static_assert(!array_has_GetView<StructType>::value, "struct");
 static_assert(array_has_GetView<ListType>::value, "list");
 
-struct DiffImplVisitor {
+struct DiffImpl {
   Status Visit(const NullType&) {
     bool insert = base_.length() < target_.length();
     auto run_length = std::min(base_.length(), target_.length());
@@ -388,7 +388,8 @@ struct DiffImplVisitor {
   template <typename Iterator>
   Status Diff(Iterator base_begin, Iterator base_end, Iterator target_begin,
               Iterator target_end) {
-    DiffImpl<Iterator> impl(base_begin, base_end, target_begin, target_end);
+    QuadraticSpaceMyersDiff<Iterator> impl(base_begin, base_end, target_begin,
+                                           target_end);
     while (!impl.Done()) {
       impl.Next();
     }
@@ -407,7 +408,7 @@ Status Diff(const Array& base, const Array& target, MemoryPool* pool,
     return Status::TypeError("only taking the diff of like-typed arrays is supported.");
   }
 
-  return DiffImplVisitor{base, target, pool, out}.Diff();
+  return DiffImpl{base, target, pool, out}.Diff();
 }
 
 Status DiffVisitor::Visit(const Array& edits) {
