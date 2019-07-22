@@ -107,6 +107,8 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       BUILDER_CASE(DOUBLE, DoubleBuilder);
       BUILDER_CASE(STRING, StringBuilder);
       BUILDER_CASE(BINARY, BinaryBuilder);
+      BUILDER_CASE(LARGE_STRING, LargeStringBuilder);
+      BUILDER_CASE(LARGE_BINARY, LargeBinaryBuilder);
       BUILDER_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryBuilder);
       BUILDER_CASE(DECIMAL, Decimal128Builder);
     case Type::DICTIONARY: {

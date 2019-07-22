@@ -143,8 +143,6 @@ FloatingPointType::Precision DoubleType::precision() const {
   return FloatingPointType::DOUBLE;
 }
 
-std::string StringType::ToString() const { return std::string("string"); }
-
 std::string ListType::ToString() const {
   std::stringstream s;
   s << "list<" << value_field()->ToString() << ">";
@@ -178,7 +176,13 @@ std::string FixedSizeListType::ToString() const {
   return s.str();
 }
 
-std::string BinaryType::ToString() const { return std::string("binary"); }
+std::string BinaryType::ToString() const { return "binary"; }
+
+std::string LargeBinaryType::ToString() const { return "large_binary"; }
+
+std::string StringType::ToString() const { return "string"; }
+
+std::string LargeStringType::ToString() const { return "large_string"; }
 
 int FixedSizeBinaryType::bit_width() const { return CHAR_BIT * byte_width(); }
 
@@ -671,7 +675,9 @@ TYPE_FACTORY(float16, HalfFloatType)
 TYPE_FACTORY(float32, FloatType)
 TYPE_FACTORY(float64, DoubleType)
 TYPE_FACTORY(utf8, StringType)
+TYPE_FACTORY(large_utf8, LargeStringType)
 TYPE_FACTORY(binary, BinaryType)
+TYPE_FACTORY(large_binary, LargeBinaryType)
 TYPE_FACTORY(date64, Date64Type)
 TYPE_FACTORY(date32, Date32Type)
 

@@ -367,6 +367,8 @@ class TableReader::TableReaderImpl {
           PRIMITIVE_CASE(DOUBLE, float64);
           PRIMITIVE_CASE(UTF8, utf8);
           PRIMITIVE_CASE(BINARY, binary);
+          PRIMITIVE_CASE(LARGE_UTF8, large_utf8);
+          PRIMITIVE_CASE(LARGE_BINARY, large_binary);
           default:
             return Status::Invalid("Unrecognized type");
         }
@@ -408,6 +410,10 @@ class TableReader::TableReaderImpl {
 
     if (is_binary_like(type->id())) {
       int64_t offsets_size = GetOutputLength((meta->length() + 1) * sizeof(int32_t));
+      buffers.push_back(SliceBuffer(buffer, offset, offsets_size));
+      offset += offsets_size;
+    } else if (is_large_binary_like(type->id())) {
+      int64_t offsets_size = GetOutputLength((meta->length() + 1) * sizeof(int64_t));
       buffers.push_back(SliceBuffer(buffer, offset, offsets_size));
       offset += offsets_size;
     }
@@ -585,6 +591,10 @@ fbs::Type ToFlatbufferType(Type::type type) {
       return fbs::Type_UTF8;
     case Type::BINARY:
       return fbs::Type_BINARY;
+    case Type::LARGE_STRING:
+      return fbs::Type_LARGE_UTF8;
+    case Type::LARGE_BINARY:
+      return fbs::Type_LARGE_BINARY;
     case Type::DATE32:
       return fbs::Type_INT32;
     case Type::TIMESTAMP:
@@ -644,7 +654,8 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
   }
 
   Status LoadArrayMetadata(const Array& values, ArrayMetadata* meta) {
-    if (!(is_primitive(values.type_id()) || is_binary_like(values.type_id()))) {
+    if (!(is_primitive(values.type_id()) || is_binary_like(values.type_id()) ||
+          is_large_binary_like(values.type_id()))) {
       return Status::Invalid("Array is not primitive type: ", values.type()->ToString());
     }
 
@@ -656,6 +667,32 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
     meta->null_count = values.null_count();
     meta->total_bytes = 0;
 
+    return Status::OK();
+  }
+
+  template <typename ArrayType>
+  Status WriteBinaryArray(const ArrayType& values, ArrayMetadata* meta,
+                          const uint8_t** values_buffer, int64_t* values_bytes,
+                          int64_t* bytes_written) {
+    using offset_type = typename ArrayType::offset_type;
+
+    int64_t offset_bytes = sizeof(offset_type) * (values.length() + 1);
+
+    if (values.value_offsets()) {
+      *values_bytes = values.raw_value_offsets()[values.length()];
+
+      // Write the variable-length offsets
+      RETURN_NOT_OK(WritePadded(
+          stream_.get(), reinterpret_cast<const uint8_t*>(values.raw_value_offsets()),
+          offset_bytes, bytes_written));
+    } else {
+      RETURN_NOT_OK(WritePaddedBlank(stream_.get(), offset_bytes, bytes_written));
+    }
+    meta->total_bytes += *bytes_written;
+
+    if (values.value_data()) {
+      *values_buffer = values.value_data()->data();
+    }
     return Status::OK();
   }
 
@@ -687,26 +724,11 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
     const uint8_t* values_buffer = nullptr;
 
     if (is_binary_like(values.type_id())) {
-      const auto& bin_values = checked_cast<const BinaryArray&>(values);
-
-      int64_t offset_bytes = sizeof(int32_t) * (values.length() + 1);
-
-      if (bin_values.value_offsets()) {
-        values_bytes = bin_values.raw_value_offsets()[values.length()];
-
-        // Write the variable-length offsets
-        RETURN_NOT_OK(
-            WritePadded(stream_.get(),
-                        reinterpret_cast<const uint8_t*>(bin_values.raw_value_offsets()),
-                        offset_bytes, &bytes_written));
-      } else {
-        RETURN_NOT_OK(WritePaddedBlank(stream_.get(), offset_bytes, &bytes_written));
-      }
-      meta->total_bytes += bytes_written;
-
-      if (bin_values.value_data()) {
-        values_buffer = bin_values.value_data()->data();
-      }
+      RETURN_NOT_OK(WriteBinaryArray(checked_cast<const BinaryArray&>(values), meta,
+                                     &values_buffer, &values_bytes, &bytes_written));
+    } else if (is_large_binary_like(values.type_id())) {
+      RETURN_NOT_OK(WriteBinaryArray(checked_cast<const LargeBinaryArray&>(values), meta,
+                                     &values_buffer, &values_bytes, &bytes_written));
     } else {
       const auto& prim_values = checked_cast<const PrimitiveArray&>(values);
       const auto& fw_type = checked_cast<const FixedWidthType&>(*values.type());
@@ -760,6 +782,8 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
   VISIT_PRIMITIVE(DoubleArray)
   VISIT_PRIMITIVE(BinaryArray)
   VISIT_PRIMITIVE(StringArray)
+  VISIT_PRIMITIVE(LargeBinaryArray)
+  VISIT_PRIMITIVE(LargeStringArray)
 
 #undef VISIT_PRIMITIVE
 

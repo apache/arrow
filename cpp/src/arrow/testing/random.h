@@ -214,6 +214,19 @@ class ARROW_EXPORT RandomArrayGenerator {
   std::shared_ptr<arrow::Array> String(int64_t size, int32_t min_length,
                                        int32_t max_length, double null_probability);
 
+  /// \brief Generates a random LargeStringArray
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] min_length the lower bound of the string length
+  ///            determined by the uniform distribution
+  /// \param[in] max_length the upper bound of the string length
+  ///            determined by the uniform distribution
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<arrow::Array> LargeString(int64_t size, int32_t min_length,
+                                            int32_t max_length, double null_probability);
+
   /// \brief Generates a random StringArray with repeated values
   ///
   /// \param[in] size the size of the array to generate
@@ -235,9 +248,9 @@ class ARROW_EXPORT RandomArrayGenerator {
                                                   int32_t min_length, int32_t max_length,
                                                   double null_probability);
 
- private:
   SeedType seed() { return seed_distribution_(seed_rng_); }
 
+ private:
   std::uniform_int_distribution<SeedType> seed_distribution_;
   std::default_random_engine seed_rng_;
 };

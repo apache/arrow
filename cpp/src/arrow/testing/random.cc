@@ -145,24 +145,30 @@ PRIMITIVE_RAND_FLOAT_IMPL(Float64, double, DoubleType)
 #undef PRIMITIVE_RAND_FLOAT_IMPL
 #undef PRIMITIVE_RAND_IMPL
 
-std::shared_ptr<arrow::Array> RandomArrayGenerator::String(int64_t size,
-                                                           int32_t min_length,
-                                                           int32_t max_length,
-                                                           double null_probability) {
+template <typename TypeClass>
+static std::shared_ptr<arrow::Array> GenerateBinaryArray(RandomArrayGenerator* gen,
+                                                         int64_t size, int32_t min_length,
+                                                         int32_t max_length,
+                                                         double null_probability) {
+  using offset_type = typename TypeClass::offset_type;
+  using BuilderType = typename TypeTraits<TypeClass>::BuilderType;
+  using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
+  using OffsetArrayType = typename TypeTraits<OffsetArrowType>::ArrayType;
+
   if (null_probability < 0 || null_probability > 1) {
     ABORT_NOT_OK(Status::Invalid("null_probability must be between 0 and 1"));
   }
 
-  auto int32_lengths = Int32(size, min_length, max_length, null_probability);
-  auto lengths = std::dynamic_pointer_cast<Int32Array>(int32_lengths);
+  auto lengths = std::dynamic_pointer_cast<OffsetArrayType>(
+      gen->Numeric<OffsetArrowType>(size, min_length, max_length, null_probability));
 
   // Visual Studio does not implement uniform_int_distribution for char types.
   using GenOpt = GenerateOptions<uint8_t, std::uniform_int_distribution<uint16_t>>;
-  GenOpt options(seed(), static_cast<uint8_t>('A'), static_cast<uint8_t>('z'),
+  GenOpt options(gen->seed(), static_cast<uint8_t>('A'), static_cast<uint8_t>('z'),
                  /*null_probability=*/0);
 
   std::vector<uint8_t> str_buffer(max_length);
-  StringBuilder builder;
+  BuilderType builder;
 
   for (int64_t i = 0; i < size; ++i) {
     if (lengths->IsValid(i)) {
@@ -176,6 +182,22 @@ std::shared_ptr<arrow::Array> RandomArrayGenerator::String(int64_t size,
   std::shared_ptr<arrow::Array> result;
   ABORT_NOT_OK(builder.Finish(&result));
   return result;
+}
+
+std::shared_ptr<arrow::Array> RandomArrayGenerator::String(int64_t size,
+                                                           int32_t min_length,
+                                                           int32_t max_length,
+                                                           double null_probability) {
+  return GenerateBinaryArray<StringType>(this, size, min_length, max_length,
+                                         null_probability);
+}
+
+std::shared_ptr<arrow::Array> RandomArrayGenerator::LargeString(int64_t size,
+                                                                int32_t min_length,
+                                                                int32_t max_length,
+                                                                double null_probability) {
+  return GenerateBinaryArray<LargeStringType>(this, size, min_length, max_length,
+                                              null_probability);
 }
 
 std::shared_ptr<arrow::Array> RandomArrayGenerator::BinaryWithRepeats(

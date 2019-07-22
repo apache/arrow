@@ -47,6 +47,8 @@ namespace arrow {
   ACTION(Double);                            \
   ACTION(String);                            \
   ACTION(Binary);                            \
+  ACTION(LargeString);                       \
+  ACTION(LargeBinary);                       \
   ACTION(FixedSizeBinary);                   \
   ACTION(Duration);                          \
   ACTION(Date32);                            \
@@ -186,12 +188,13 @@ struct ArrayDataVisitor<T, enable_if_has_c_type<T>> {
 };
 
 template <typename T>
-struct ArrayDataVisitor<T, enable_if_binary<T>> {
+struct ArrayDataVisitor<T, enable_if_base_binary<T>> {
   template <typename Visitor>
   static Status Visit(const ArrayData& arr, Visitor* visitor) {
+    using offset_type = typename T::offset_type;
     constexpr uint8_t empty_value = 0;
 
-    const int32_t* offsets = arr.GetValues<int32_t>(1);
+    const offset_type* offsets = arr.GetValues<offset_type>(1);
     const uint8_t* data;
     if (!arr.buffers[2]) {
       data = &empty_value;

@@ -386,31 +386,26 @@ BinaryArray::BinaryArray(const std::shared_ptr<ArrayData>& data) {
   SetData(data);
 }
 
-void BinaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  ARROW_CHECK_EQ(data->buffers.size(), 3);
-  auto value_offsets = data->buffers[1];
-  auto value_data = data->buffers[2];
-  this->Array::SetData(data);
-  raw_data_ = value_data == nullptr ? nullptr : value_data->data();
-  raw_value_offsets_ = value_offsets == nullptr
-                           ? nullptr
-                           : reinterpret_cast<const int32_t*>(value_offsets->data());
-}
-
 BinaryArray::BinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
                          const std::shared_ptr<Buffer>& data,
                          const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
-                         int64_t offset)
-    : BinaryArray(binary(), length, value_offsets, data, null_bitmap, null_count,
-                  offset) {}
-
-BinaryArray::BinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
-                         const std::shared_ptr<Buffer>& value_offsets,
-                         const std::shared_ptr<Buffer>& data,
-                         const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                          int64_t offset) {
-  SetData(ArrayData::Make(type, length, {null_bitmap, value_offsets, data}, null_count,
-                          offset));
+  SetData(ArrayData::Make(binary(), length, {null_bitmap, value_offsets, data},
+                          null_count, offset));
+}
+
+LargeBinaryArray::LargeBinaryArray(const std::shared_ptr<ArrayData>& data) {
+  ARROW_CHECK_EQ(data->type->id(), Type::LARGE_BINARY);
+  SetData(data);
+}
+
+LargeBinaryArray::LargeBinaryArray(int64_t length,
+                                   const std::shared_ptr<Buffer>& value_offsets,
+                                   const std::shared_ptr<Buffer>& data,
+                                   const std::shared_ptr<Buffer>& null_bitmap,
+                                   int64_t null_count, int64_t offset) {
+  SetData(ArrayData::Make(large_binary(), length, {null_bitmap, value_offsets, data},
+                          null_count, offset));
 }
 
 StringArray::StringArray(const std::shared_ptr<ArrayData>& data) {
@@ -421,8 +416,24 @@ StringArray::StringArray(const std::shared_ptr<ArrayData>& data) {
 StringArray::StringArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
                          const std::shared_ptr<Buffer>& data,
                          const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
-                         int64_t offset)
-    : BinaryArray(utf8(), length, value_offsets, data, null_bitmap, null_count, offset) {}
+                         int64_t offset) {
+  SetData(ArrayData::Make(utf8(), length, {null_bitmap, value_offsets, data}, null_count,
+                          offset));
+}
+
+LargeStringArray::LargeStringArray(const std::shared_ptr<ArrayData>& data) {
+  ARROW_CHECK_EQ(data->type->id(), Type::LARGE_STRING);
+  SetData(data);
+}
+
+LargeStringArray::LargeStringArray(int64_t length,
+                                   const std::shared_ptr<Buffer>& value_offsets,
+                                   const std::shared_ptr<Buffer>& data,
+                                   const std::shared_ptr<Buffer>& null_bitmap,
+                                   int64_t null_count, int64_t offset) {
+  SetData(ArrayData::Make(large_utf8(), length, {null_bitmap, value_offsets, data},
+                          null_count, offset));
+}
 
 // ----------------------------------------------------------------------
 // Fixed width binary
@@ -1148,20 +1159,14 @@ struct ValidateVisitor {
     return ValidateOffsets(array);
   }
 
+  Status Visit(const LargeBinaryArray& array) {
+    if (array.data()->buffers.size() != 3) {
+      return Status::Invalid("number of buffers was != 3");
+    }
+    return ValidateOffsets(array);
+  }
+
   Status Visit(const ListArray& array) {
-    if (array.length() < 0) {
-      return Status::Invalid("Length was negative");
-    }
-
-    auto value_offsets = array.value_offsets();
-    if (array.length() && !value_offsets) {
-      return Status::Invalid("value_offsets_ was null");
-    }
-    if (value_offsets->size() / static_cast<int>(sizeof(int32_t)) < array.length()) {
-      return Status::Invalid("offset buffer size (bytes): ", value_offsets->size(),
-                             " isn't large enough for length: ", array.length());
-    }
-
     if (!array.values()) {
       return Status::Invalid("values was null");
     }
@@ -1181,19 +1186,6 @@ struct ValidateVisitor {
   }
 
   Status Visit(const MapArray& array) {
-    if (array.length() < 0) {
-      return Status::Invalid("Length was negative");
-    }
-
-    auto value_offsets = array.value_offsets();
-    if (array.length() && !value_offsets) {
-      return Status::Invalid("value_offsets_ was null");
-    }
-    if (value_offsets->size() / static_cast<int>(sizeof(int32_t)) < array.length()) {
-      return Status::Invalid("offset buffer size (bytes): ", value_offsets->size(),
-                             " isn't large enough for length: ", array.length());
-    }
-
     if (!array.keys()) {
       return Status::Invalid("keys was null");
     }
@@ -1224,9 +1216,6 @@ struct ValidateVisitor {
   }
 
   Status Visit(const FixedSizeListArray& array) {
-    if (array.length() < 0) {
-      return Status::Invalid("Length was negative");
-    }
     if (!array.values()) {
       return Status::Invalid("values was null");
     }
@@ -1240,14 +1229,6 @@ struct ValidateVisitor {
   }
 
   Status Visit(const StructArray& array) {
-    if (array.length() < 0) {
-      return Status::Invalid("Length was negative");
-    }
-
-    if (array.null_count() > array.length()) {
-      return Status::Invalid("Null count exceeds the length of this struct");
-    }
-
     if (array.num_fields() > 0) {
       // Validate fields
       int64_t array_length = array.field(0)->length();
@@ -1274,16 +1255,7 @@ struct ValidateVisitor {
     return Status::OK();
   }
 
-  Status Visit(const UnionArray& array) {
-    if (array.length() < 0) {
-      return Status::Invalid("Length was negative");
-    }
-
-    if (array.null_count() > array.length()) {
-      return Status::Invalid("Null count exceeds the length of this struct");
-    }
-    return Status::OK();
-  }
+  Status Visit(const UnionArray& array) { return Status::OK(); }
 
   Status Visit(const DictionaryArray& array) {
     Type::type index_type_id = array.indices()->type()->id();
@@ -1310,12 +1282,23 @@ struct ValidateVisitor {
  protected:
   template <typename ArrayType>
   Status ValidateOffsets(ArrayType& array) {
-    int32_t prev_offset = array.value_offset(0);
+    using offset_type = typename ArrayType::offset_type;
+
+    auto value_offsets = array.value_offsets();
+    if (array.length() && !value_offsets) {
+      return Status::Invalid("value_offsets_ was null");
+    }
+    if (value_offsets->size() / static_cast<int>(sizeof(offset_type)) < array.length()) {
+      return Status::Invalid("offset buffer size (bytes): ", value_offsets->size(),
+                             " isn't large enough for length: ", array.length());
+    }
+
+    auto prev_offset = array.value_offset(0);
     if (array.offset() == 0 && prev_offset != 0) {
       return Status::Invalid("The first offset wasn't zero");
     }
     for (int64_t i = 1; i <= array.length(); ++i) {
-      int32_t current_offset = array.value_offset(i);
+      auto current_offset = array.value_offset(i);
       if (array.IsNull(i - 1) && current_offset != prev_offset) {
         return Status::Invalid("Offset invariant failure at: ", i,
                                " inconsistent value_offsets for null slot",
@@ -1339,6 +1322,14 @@ Status ValidateArray(const Array& array) {
   const DataType& type = *array.type();
   const auto layout = type.layout();
   const ArrayData& data = *array.data();
+
+  if (array.length() < 0) {
+    return Status::Invalid("Array length is negative");
+  }
+
+  if (array.null_count() > array.length()) {
+    return Status::Invalid("Null count exceeds array length");
+  }
 
   if (data.buffers.size() != layout.bit_widths.size()) {
     return Status::Invalid("Expected ", layout.bit_widths.size(),

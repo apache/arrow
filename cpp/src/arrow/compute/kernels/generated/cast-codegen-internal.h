@@ -171,6 +171,9 @@
 #define BINARY_CASES(TEMPLATE) \
   TEMPLATE(BinaryType, StringType)
 
+#define LARGEBINARY_CASES(TEMPLATE) \
+  TEMPLATE(LargeBinaryType, LargeStringType)
+
 #define STRING_CASES(TEMPLATE) \
   TEMPLATE(StringType, BooleanType) \
   TEMPLATE(StringType, UInt8Type) \
@@ -184,6 +187,20 @@
   TEMPLATE(StringType, FloatType) \
   TEMPLATE(StringType, DoubleType) \
   TEMPLATE(StringType, TimestampType)
+
+#define LARGESTRING_CASES(TEMPLATE) \
+  TEMPLATE(LargeStringType, BooleanType) \
+  TEMPLATE(LargeStringType, UInt8Type) \
+  TEMPLATE(LargeStringType, Int8Type) \
+  TEMPLATE(LargeStringType, UInt16Type) \
+  TEMPLATE(LargeStringType, Int16Type) \
+  TEMPLATE(LargeStringType, UInt32Type) \
+  TEMPLATE(LargeStringType, Int32Type) \
+  TEMPLATE(LargeStringType, UInt64Type) \
+  TEMPLATE(LargeStringType, Int64Type) \
+  TEMPLATE(LargeStringType, FloatType) \
+  TEMPLATE(LargeStringType, DoubleType) \
+  TEMPLATE(LargeStringType, TimestampType)
 
 #define DICTIONARY_CASES(TEMPLATE) \
   TEMPLATE(DictionaryType, UInt8Type) \
