@@ -34,6 +34,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 
 namespace arrow {
@@ -205,18 +206,16 @@ Status MakeRandomStringArray(int64_t length, bool include_nulls, MemoryPool* poo
   return builder.Finish(out);
 }
 
-template <class Builder, class RawType>
+template <class BuilderType>
 static Status MakeBinaryArrayWithUniqueValues(int64_t length, bool include_nulls,
                                               MemoryPool* pool,
                                               std::shared_ptr<Array>* out) {
-  Builder builder(pool);
+  BuilderType builder(pool);
   for (int64_t i = 0; i < length; ++i) {
     if (include_nulls && (i % 7 == 0)) {
       RETURN_NOT_OK(builder.AppendNull());
     } else {
-      const std::string value = std::to_string(i);
-      RETURN_NOT_OK(builder.Append(reinterpret_cast<const RawType*>(value.data()),
-                                   static_cast<int32_t>(value.size())));
+      RETURN_NOT_OK(builder.Append(std::to_string(i)));
     }
   }
   return builder.Finish(out);
@@ -224,28 +223,37 @@ static Status MakeBinaryArrayWithUniqueValues(int64_t length, bool include_nulls
 
 Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out, bool with_nulls) {
   const int64_t length = 500;
-  auto string_type = utf8();
-  auto binary_type = binary();
-  auto f0 = field("f0", string_type);
-  auto f1 = field("f1", binary_type);
-  auto schema = ::arrow::schema({f0, f1});
+  auto f0 = field("strings", utf8());
+  auto f1 = field("binaries", binary());
+  auto f2 = field("large_strings", large_utf8());
+  auto f3 = field("large_binaries", large_binary());
+  auto schema = ::arrow::schema({f0, f1, f2, f3});
 
-  std::shared_ptr<Array> a0, a1;
+  std::shared_ptr<Array> a0, a1, a2, a3;
   MemoryPool* pool = default_memory_pool();
 
   // Quirk with RETURN_NOT_OK macro and templated functions
   {
-    auto s = MakeBinaryArrayWithUniqueValues<StringBuilder, char>(length, with_nulls,
-                                                                  pool, &a0);
+    auto s =
+        MakeBinaryArrayWithUniqueValues<StringBuilder>(length, with_nulls, pool, &a0);
     RETURN_NOT_OK(s);
   }
-
   {
-    auto s = MakeBinaryArrayWithUniqueValues<BinaryBuilder, uint8_t>(length, with_nulls,
-                                                                     pool, &a1);
+    auto s =
+        MakeBinaryArrayWithUniqueValues<BinaryBuilder>(length, with_nulls, pool, &a1);
     RETURN_NOT_OK(s);
   }
-  *out = RecordBatch::Make(schema, length, {a0, a1});
+  {
+    auto s = MakeBinaryArrayWithUniqueValues<LargeStringBuilder>(length, with_nulls, pool,
+                                                                 &a2);
+    RETURN_NOT_OK(s);
+  }
+  {
+    auto s = MakeBinaryArrayWithUniqueValues<LargeBinaryBuilder>(length, with_nulls, pool,
+                                                                 &a3);
+    RETURN_NOT_OK(s);
+  }
+  *out = RecordBatch::Make(schema, length, {a0, a1, a2, a3});
   return Status::OK();
 }
 

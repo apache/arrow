@@ -184,14 +184,21 @@ class ConcatenateImpl {
 
   Status Visit(const BinaryType&) {
     std::vector<Range> value_ranges;
-    RETURN_NOT_OK(ConcatenateOffsets<int32_t>(Buffers(1, *offset_type), pool_,
+    RETURN_NOT_OK(ConcatenateOffsets<int32_t>(Buffers(1, sizeof(int32_t)), pool_,
+                                              &out_.buffers[1], &value_ranges));
+    return ConcatenateBuffers(Buffers(2, value_ranges), pool_, &out_.buffers[2]);
+  }
+
+  Status Visit(const LargeBinaryType&) {
+    std::vector<Range> value_ranges;
+    RETURN_NOT_OK(ConcatenateOffsets<int64_t>(Buffers(1, sizeof(int64_t)), pool_,
                                               &out_.buffers[1], &value_ranges));
     return ConcatenateBuffers(Buffers(2, value_ranges), pool_, &out_.buffers[2]);
   }
 
   Status Visit(const ListType&) {
     std::vector<Range> value_ranges;
-    RETURN_NOT_OK(ConcatenateOffsets<int32_t>(Buffers(1, *offset_type), pool_,
+    RETURN_NOT_OK(ConcatenateOffsets<int32_t>(Buffers(1, sizeof(int32_t)), pool_,
                                               &out_.buffers[1], &value_ranges));
     return ConcatenateImpl(ChildData(0, value_ranges), pool_)
         .Concatenate(out_.child_data[0].get());
@@ -277,13 +284,11 @@ class ConcatenateImpl {
   }
 
   // Gather the index-th buffer of each input into a vector.
-  // Buffers are assumed to contain elements of fixed.bit_width(),
+  // Buffers are assumed to contain elements of the given byte_width,
   // those elements are sliced with that input's offset and length.
   // Note that BufferVector will not contain the buffer of in_[i] if it's
   // nullptr.
-  BufferVector Buffers(size_t index, const FixedWidthType& fixed) {
-    DCHECK_EQ(fixed.bit_width() % 8, 0);
-    auto byte_width = fixed.bit_width() / 8;
+  BufferVector Buffers(size_t index, int byte_width) {
     BufferVector buffers;
     buffers.reserve(in_.size());
     for (const ArrayData& array_data : in_) {
@@ -294,6 +299,16 @@ class ConcatenateImpl {
       }
     }
     return buffers;
+  }
+
+  // Gather the index-th buffer of each input into a vector.
+  // Buffers are assumed to contain elements of fixed.bit_width(),
+  // those elements are sliced with that input's offset and length.
+  // Note that BufferVector will not contain the buffer of in_[i] if it's
+  // nullptr.
+  BufferVector Buffers(size_t index, const FixedWidthType& fixed) {
+    DCHECK_EQ(fixed.bit_width() % 8, 0);
+    return Buffers(index, fixed.bit_width() / 8);
   }
 
   // Gather the index-th buffer of each input as a Bitmap
@@ -328,14 +343,10 @@ class ConcatenateImpl {
     return child_data;
   }
 
-  static const std::shared_ptr<FixedWidthType> offset_type;
   const std::vector<ArrayData>& in_;
   MemoryPool* pool_;
   ArrayData out_;
 };
-
-const std::shared_ptr<FixedWidthType> ConcatenateImpl::offset_type =
-    std::static_pointer_cast<FixedWidthType>(int32());
 
 Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
                    std::shared_ptr<Array>* out) {

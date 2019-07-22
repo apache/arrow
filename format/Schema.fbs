@@ -103,11 +103,20 @@ table FloatingPoint {
   precision: Precision;
 }
 
-/// Unicode with UTF-8 encoding
+/// UTF-8 encoded Unicode strings.  Items are limited to 32-bit byte lengths.
 table Utf8 {
 }
 
+/// Raw binary strings.  Items are limited to 32-bit byte lengths.
 table Binary {
+}
+
+/// Variants of Utf8 and Binary with 64-bit byte lengths.
+/// These types are optional and may not be supported by all implementations.
+table LargeUtf8 {
+}
+
+table LargeBinary {
 }
 
 table FixedSizeBinary {
@@ -235,6 +244,8 @@ union Type {
   FixedSizeList,
   Map,
   Duration,
+  LargeBinary,
+  LargeUtf8,
 }
 
 /// ----------------------------------------------------------------------

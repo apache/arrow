@@ -354,6 +354,20 @@ TEST(TestStringType, ToString) {
   ASSERT_EQ(str.ToString(), std::string("string"));
 }
 
+TEST(TestLargeBinaryTypes, ToString) {
+  BinaryType bt1;
+  LargeBinaryType t1;
+  LargeBinaryType e1;
+  LargeStringType t2;
+  EXPECT_TRUE(t1.Equals(e1));
+  EXPECT_FALSE(t1.Equals(t2));
+  EXPECT_FALSE(t1.Equals(bt1));
+  ASSERT_EQ(t1.id(), Type::LARGE_BINARY);
+  ASSERT_EQ(t1.ToString(), std::string("large_binary"));
+  ASSERT_EQ(t2.id(), Type::LARGE_STRING);
+  ASSERT_EQ(t2.ToString(), std::string("large_string"));
+}
+
 TEST(TestFixedSizeBinaryType, ToString) {
   auto t = fixed_size_binary(10);
   ASSERT_EQ(t->id(), Type::FIXED_SIZE_BINARY);

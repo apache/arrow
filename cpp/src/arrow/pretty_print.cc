@@ -205,7 +205,9 @@ class ArrayPrinter : public PrettyPrinter {
 
   // String (Utf8)
   template <typename T>
-  inline typename std::enable_if<std::is_same<StringArray, T>::value, Status>::type
+  inline typename std::enable_if<std::is_same<StringArray, T>::value ||
+                                     std::is_same<LargeStringArray, T>::value,
+                                 Status>::type
   WriteDataValues(const T& array) {
     WriteValues(array, [&](int64_t i) { (*sink_) << "\"" << array.GetView(i) << "\""; });
     return Status::OK();
@@ -213,7 +215,9 @@ class ArrayPrinter : public PrettyPrinter {
 
   // Binary
   template <typename T>
-  inline typename std::enable_if<std::is_same<BinaryArray, T>::value, Status>::type
+  inline typename std::enable_if<std::is_same<BinaryArray, T>::value ||
+                                     std::is_same<LargeBinaryArray, T>::value,
+                                 Status>::type
   WriteDataValues(const T& array) {
     WriteValues(array, [&](int64_t i) { (*sink_) << HexEncode(array.GetView(i)); });
     return Status::OK();
@@ -314,6 +318,7 @@ class ArrayPrinter : public PrettyPrinter {
   typename std::enable_if<std::is_base_of<PrimitiveArray, T>::value ||
                               std::is_base_of<FixedSizeBinaryArray, T>::value ||
                               std::is_base_of<BinaryArray, T>::value ||
+                              std::is_base_of<LargeBinaryArray, T>::value ||
                               std::is_base_of<ListArray, T>::value ||
                               std::is_base_of<MapArray, T>::value ||
                               std::is_base_of<FixedSizeListArray, T>::value,

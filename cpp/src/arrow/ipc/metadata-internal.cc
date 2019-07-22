@@ -232,6 +232,9 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     case flatbuf::Type_Binary:
       *out = binary();
       return Status::OK();
+    case flatbuf::Type_LargeBinary:
+      *out = large_binary();
+      return Status::OK();
     case flatbuf::Type_FixedSizeBinary: {
       auto fw_binary = static_cast<const flatbuf::FixedSizeBinary*>(type_data);
       *out = fixed_size_binary(fw_binary->byteWidth());
@@ -239,6 +242,9 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     }
     case flatbuf::Type_Utf8:
       *out = utf8();
+      return Status::OK();
+    case flatbuf::Type_LargeUtf8:
+      *out = large_utf8();
       return Status::OK();
     case flatbuf::Type_Bool:
       *out = boolean();
@@ -541,9 +547,21 @@ class FieldToFlatbufferVisitor {
     return Status::OK();
   }
 
+  Status Visit(const LargeBinaryType& type) {
+    fb_type_ = flatbuf::Type_LargeBinary;
+    type_offset_ = flatbuf::CreateLargeBinary(fbb_).Union();
+    return Status::OK();
+  }
+
   Status Visit(const StringType& type) {
     fb_type_ = flatbuf::Type_Utf8;
     type_offset_ = flatbuf::CreateUtf8(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const LargeStringType& type) {
+    fb_type_ = flatbuf::Type_LargeUtf8;
+    type_offset_ = flatbuf::CreateLargeUtf8(fbb_).Union();
     return Status::OK();
   }
 
