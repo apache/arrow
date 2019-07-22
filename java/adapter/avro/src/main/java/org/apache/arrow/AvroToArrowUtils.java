@@ -115,12 +115,10 @@ public class AvroToArrowUtils {
     if (type == Type.RECORD) {
       for (Schema.Field field : schema.getFields()) {
         final ArrowType arrowType = getArrowType(field.schema().getType());
-        if (arrowType != null) {
-          final FieldType fieldType = new FieldType(true, arrowType, null, null);
-          List<Field> children = null;
-          //TODO support complex type
-          arrowFields.add(new Field(field.name(), fieldType, children));
-        }
+        final FieldType fieldType = new FieldType(/*nullable=*/true, arrowType, /*dictionary=*/null, /*metadata=*/null);
+        List<Field> children = null;
+        //TODO support complex type (i.e. nested records, lists, etc )
+        arrowFields.add(new Field(field.name(), fieldType, children));
       }
     } else if (type == Type.MAP) {
       throw new UnsupportedOperationException();
