@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include "arrow/dataset/visibility.h"
-
 namespace arrow {
 
 class Status;
@@ -27,6 +25,8 @@ class Status;
 template <typename T>
 class Iterator {
  public:
+  virtual ~Iterator() = default;
+
   /// \brief Return the next element of the sequence, nullptr when the
   /// iteration is completed
   virtual Status Next(T* out) = 0;
