@@ -71,8 +71,29 @@ template <typename ArrowType, typename Comparator>
 class ArgsortKernelImpl : public ArgsortKernel {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
+ public:
+  explicit ArgsortKernelImpl(Comparator compare) : compare_(compare) {}
+
+  Status Argsort(FunctionContext* ctx, const std::shared_ptr<Array>& values,
+                 std::shared_ptr<Array>* offsets) {
+    return ArgsortImpl(ctx, std::static_pointer_cast<ArrayType>(values), offsets);
+  }
+
+  Status Call(FunctionContext* ctx, const Datum& values, Datum* offsets) {
+    if (!values.is_array()) {
+      return Status::Invalid("ArgsortKernel expects array values");
+    }
+    auto values_array = values.make_array();
+    std::shared_ptr<Array> offsets_array;
+    RETURN_NOT_OK(this->Argsort(ctx, values_array, &offsets_array));
+    *offsets = offsets_array;
+    return Status::OK();
+  }
+
+  std::shared_ptr<DataType> out_type() const { return type_; }
+
  private:
-  Comparator compare;
+  Comparator compare_;
 
   Status ArgsortImpl(FunctionContext* ctx, const std::shared_ptr<ArrayType>& values,
                      std::shared_ptr<Array>* offsets) {
@@ -92,32 +113,11 @@ class ArgsortKernelImpl : public ArgsortKernel {
     }
     std::stable_sort(indices_begin, nulls_begin,
                      [&values, this](uint64_t left, uint64_t right) {
-                       return compare(*values, left, right);
+                       return compare_(*values, left, right);
                      });
     *offsets = std::make_shared<UInt64Array>(values->length(), indices_buf);
     return Status::OK();
   }
-
- public:
-  explicit ArgsortKernelImpl(Comparator compare) : compare(compare) {}
-
-  Status Argsort(FunctionContext* ctx, const std::shared_ptr<Array>& values,
-                 std::shared_ptr<Array>* offsets) {
-    return ArgsortImpl(ctx, std::static_pointer_cast<ArrayType>(values), offsets);
-  }
-
-  Status Call(FunctionContext* ctx, const Datum& values, Datum* offsets) {
-    if (!values.is_array()) {
-      return Status::Invalid("ArgsortKernel expects array values");
-    }
-    auto values_array = values.make_array();
-    std::shared_ptr<Array> offsets_array;
-    RETURN_NOT_OK(this->Argsort(ctx, values_array, &offsets_array));
-    *offsets = offsets_array;
-    return Status::OK();
-  }
-
-  std::shared_ptr<DataType> out_type() const { return type_; }
 };
 
 template <typename ArrowType, typename Comparator>

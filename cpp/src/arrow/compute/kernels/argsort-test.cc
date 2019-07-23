@@ -56,6 +56,10 @@ template <typename ArrowType>
 class TestArgsortKernelForIntegral : public TestArgsortKernel<ArrowType> {};
 TYPED_TEST_CASE(TestArgsortKernelForIntegral, IntegralArrowTypes);
 
+template <typename ArrowType>
+class TestArgsortKernelForStrings : public TestArgsortKernel<ArrowType> {};
+TYPED_TEST_CASE(TestArgsortKernelForStrings, testing::Types<StringType>);
+
 TYPED_TEST(TestArgsortKernelForReal, SortReal) {
   this->AssertArgsort("[]", "[]");
 
@@ -84,10 +88,20 @@ TYPED_TEST(TestArgsortKernelForIntegral, SortIntegral) {
   this->AssertArgsort("[null, 1, 3, null, 2, 5]", "[1,4,2,5,0,3]");
 }
 
+TYPED_TEST(TestArgsortKernelForStrings, SortStrings) {
+  this->AssertArgsort("[]", "[]");
+
+  this->AssertArgsort(R"(["a", "b", "c"])", "[0, 1, 2]");
+
+  this->AssertArgsort(R"(["foo", "bar", "baz"])", "[1,2,0]");
+
+  this->AssertArgsort(R"(["testing", "sort", "for", "strings"])", "[2, 1, 3, 0]");
+}
+
 template <typename ArrowType>
 class TestArgsortKernelRandom : public ComputeFixture, public TestBase {};
 
-using AnyValidType =
+using ArgsortableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, StringType>;
 
@@ -154,7 +168,7 @@ class Random<StringType> : public RandomImpl {
   }
 };
 
-TYPED_TEST_CASE(TestArgsortKernelRandom, AnyValidType);
+TYPED_TEST_CASE(TestArgsortKernelRandom, ArgsortableTypes);
 
 TYPED_TEST(TestArgsortKernelRandom, SortRandomValues) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
