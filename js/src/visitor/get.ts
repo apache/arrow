@@ -18,8 +18,9 @@
 import { Data } from '../data';
 import { BN } from '../util/bn';
 import { Visitor } from '../visitor';
-import { VectorType } from '../interfaces';
 import { decodeUtf8 } from '../util/utf8';
+import { VectorType } from '../interfaces';
+import { uint16ToFloat64 } from '../util/math';
 import { Type, UnionMode, Precision, DateUnit, TimeUnit, IntervalUnit } from '../enum';
 import {
     DataType, Dictionary,
@@ -123,7 +124,7 @@ const getDateMillisecond = <T extends DateMillisecond>({ values         }: Vecto
 /** @ignore */
 const getNumeric         = <T extends Numeric1X>      ({ stride, values }: VectorType<T>, index: number): T['TValue'] => values[stride * index];
 /** @ignore */
-const getFloat16         = <T extends Float16>        ({ stride, values }: VectorType<T>, index: number): T['TValue'] => (values[stride * index] - 32767) / 32767;
+const getFloat16         = <T extends Float16>        ({ stride, values }: VectorType<T>, index: number): T['TValue'] => uint16ToFloat64(values[stride * index]);
 /** @ignore */
 const getBigInts         = <T extends Numeric2X>({ stride, values, type }: VectorType<T>, index: number): T['TValue'] => <any> BN.new(values.subarray(stride * index, stride * (index + 1)), type.isSigned);
 /** @ignore */

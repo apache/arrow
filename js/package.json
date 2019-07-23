@@ -103,7 +103,7 @@
     "ts-jest": "24.0.2",
     "ts-node": "8.2.0",
     "tslint": "5.12.1",
-    "typedoc": "TypeStrong/typedoc",
+    "typedoc": "0.15.0-0",
     "typescript": "3.5.1",
     "web-stream-tools": "0.0.1",
     "web-streams-polyfill": "2.0.3",
