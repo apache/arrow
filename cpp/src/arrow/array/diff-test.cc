@@ -494,6 +494,26 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
 -[]
 )");
 
+  // maps
+  base_ = ArrayFromJSON(map(utf8(), int32()), R"([
+    [["foo", 2], ["bar", 3], ["baz", 1]],
+    [],
+    [["quux", 13]],
+    []
+  ])");
+  target_ = ArrayFromJSON(map(utf8(), int32()), R"([
+    [["foo", 2], ["bar", 3], ["baz", 1]],
+    [["ytho", 11]],
+    [],
+    [["quux", 13]]
+  ])");
+  AssertDiffAndFormat(R"(
+@@ -1, +1 @@
++[{key: "ytho", value: 11}]
+@@ -3, +4 @@
+-[]
+)");
+
   // structs
   auto type = struct_({field("foo", utf8()), field("bar", int32())});
   base_ = ArrayFromJSON(type, R"([{"foo": "!", "bar": 3}, {}, {"bar": 13}])");

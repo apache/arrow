@@ -552,6 +552,8 @@ class Formatter {
     return Status::OK();
   }
 
+  // TODO(bkietz) format maps better
+
   Status Visit(const StructArray& arr) {
     struct StructImpl : Impl {
       StructImpl(std::vector<Formatter> f) : field_formatters_(std::move(f)) {}
