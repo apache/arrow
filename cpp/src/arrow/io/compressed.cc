@@ -43,13 +43,13 @@ namespace io {
 
 class CompressedOutputStream::Impl {
  public:
-  Impl(MemoryPool* pool, Codec* codec, const std::shared_ptr<OutputStream>& raw)
-      : pool_(pool), raw_(raw), codec_(codec), is_open_(true), compressed_pos_(0) {}
+  Impl(MemoryPool* pool, const std::shared_ptr<OutputStream>& raw)
+      : pool_(pool), raw_(raw), is_open_(true), compressed_pos_(0) {}
 
   ~Impl() { ARROW_CHECK_OK(Close()); }
 
-  Status Init() {
-    RETURN_NOT_OK(codec_->MakeCompressor(&compressor_));
+  Status Init(Codec* codec) {
+    RETURN_NOT_OK(codec->MakeCompressor(&compressor_));
     RETURN_NOT_OK(AllocateResizableBuffer(pool_, kChunkSize, &compressed_));
     compressed_pos_ = 0;
     return Status::OK();
@@ -180,7 +180,6 @@ class CompressedOutputStream::Impl {
 
   MemoryPool* pool_;
   std::shared_ptr<OutputStream> raw_;
-  Codec* codec_;
   bool is_open_;
   std::shared_ptr<Compressor> compressor_;
   std::shared_ptr<ResizableBuffer> compressed_;
@@ -198,9 +197,10 @@ Status CompressedOutputStream::Make(util::Codec* codec,
 Status CompressedOutputStream::Make(MemoryPool* pool, util::Codec* codec,
                                     const std::shared_ptr<OutputStream>& raw,
                                     std::shared_ptr<CompressedOutputStream>* out) {
+  // CAUTION: codec is not owned
   std::shared_ptr<CompressedOutputStream> res(new CompressedOutputStream);
-  res->impl_ = std::unique_ptr<Impl>(new Impl(pool, codec, std::move(raw)));
-  RETURN_NOT_OK(res->impl_->Init());
+  res->impl_ = std::unique_ptr<Impl>(new Impl(pool, std::move(raw)));
+  RETURN_NOT_OK(res->impl_->Init(codec));
   *out = res;
   return Status::OK();
 }
@@ -228,16 +228,16 @@ std::shared_ptr<OutputStream> CompressedOutputStream::raw() const { return impl_
 
 class CompressedInputStream::Impl {
  public:
-  Impl(MemoryPool* pool, Codec* codec, const std::shared_ptr<InputStream>& raw)
+  Impl(MemoryPool* pool, const std::shared_ptr<InputStream>& raw)
       : pool_(pool),
         raw_(raw),
-        codec_(codec),
         is_open_(true),
         compressed_pos_(0),
         decompressed_pos_(0) {}
 
-  Status Init() {
-    RETURN_NOT_OK(codec_->MakeDecompressor(&decompressor_));
+  Status Init(Codec* codec) {
+    RETURN_NOT_OK(codec->MakeDecompressor(&decompressor_));
+    fresh_decompressor_ = true;
     return Status::OK();
   }
 
@@ -291,6 +291,9 @@ class CompressedInputStream::Impl {
                                               &bytes_read, &bytes_written,
                                               &need_more_output));
       compressed_pos_ += bytes_read;
+      if (bytes_read > 0) {
+        fresh_decompressor_ = false;
+      }
       if (bytes_written > 0 || !need_more_output || input_len == 0) {
         RETURN_NOT_OK(decompressed_->Resize(bytes_written));
         break;
@@ -330,19 +333,24 @@ class CompressedInputStream::Impl {
 
       // At this point, no more decompressed data remains,
       // so we need to decompress more
-      if (decompressor_->IsFinished()) {
-        break;
-      }
       // First try to read data from the decompressor
       if (compressed_) {
+        if (decompressor_->IsFinished()) {
+          // We just went over the end of a previous compressed stream.
+          RETURN_NOT_OK(decompressor_->Reset());
+          fresh_decompressor_ = true;
+        }
         RETURN_NOT_OK(DecompressData());
       }
       if (!decompressed_ || decompressed_->size() == 0) {
         // Got nothing, need to read more compressed data
         RETURN_NOT_OK(EnsureCompressedData());
         if (compressed_pos_ == compressed_->size()) {
-          // Compressed stream unexpectedly exhausted
-          return Status::IOError("Truncated compressed stream");
+          // No more data to decompress
+          if (!fresh_decompressor_) {
+            return Status::IOError("Truncated compressed stream");
+          }
+          break;
         }
         RETURN_NOT_OK(DecompressData());
       }
@@ -370,13 +378,14 @@ class CompressedInputStream::Impl {
 
   MemoryPool* pool_;
   std::shared_ptr<InputStream> raw_;
-  Codec* codec_;
   bool is_open_;
   std::shared_ptr<Decompressor> decompressor_;
   std::shared_ptr<Buffer> compressed_;
   int64_t compressed_pos_;
   std::shared_ptr<ResizableBuffer> decompressed_;
   int64_t decompressed_pos_;
+  // True if the decompressor hasn't read any data yet.
+  bool fresh_decompressor_;
 
   mutable std::mutex lock_;
 };
@@ -389,9 +398,10 @@ Status CompressedInputStream::Make(Codec* codec, const std::shared_ptr<InputStre
 Status CompressedInputStream::Make(MemoryPool* pool, Codec* codec,
                                    const std::shared_ptr<InputStream>& raw,
                                    std::shared_ptr<CompressedInputStream>* out) {
+  // CAUTION: codec is not owned
   std::shared_ptr<CompressedInputStream> res(new CompressedInputStream);
-  res->impl_ = std::unique_ptr<Impl>(new Impl(pool, codec, std::move(raw)));
-  RETURN_NOT_OK(res->impl_->Init());
+  res->impl_ = std::unique_ptr<Impl>(new Impl(pool, std::move(raw)));
+  RETURN_NOT_OK(res->impl_->Init(codec));
   *out = res;
   return Status::OK();
 }

@@ -63,6 +63,13 @@ class LZ4Decompressor : public Decompressor {
     }
   }
 
+  Status Reset() override {
+    if (ctx_ != nullptr) {
+      ARROW_UNUSED(LZ4F_freeDecompressionContext(ctx_));
+    }
+    return Init();
+  }
+
   Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
                     uint8_t* output, int64_t* bytes_read, int64_t* bytes_written,
                     bool* need_more_output) override {

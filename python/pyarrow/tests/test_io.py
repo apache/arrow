@@ -1017,6 +1017,23 @@ def test_compressed_input_bz2(tmpdir):
         pytest.skip(str(e))
 
 
+def check_compressed_concatenated(data, fn, compression):
+    raw = pa.OSFile(fn, mode="rb")
+    with pa.CompressedInputStream(raw, compression) as compressed:
+        got = compressed.read()
+        assert got == data
+
+
+def test_compressed_concatenated_gzip(tmpdir):
+    data = b"some test data\n" * 10 + b"eof\n"
+    fn = str(tmpdir / "compressed_input_test2.gz")
+    with gzip.open(fn, "wb") as f:
+        f.write(data[:50])
+    with gzip.open(fn, "ab") as f:
+        f.write(data[50:])
+    check_compressed_concatenated(data, fn, "gzip")
+
+
 def test_compressed_input_invalid():
     data = b"foo" * 10
     raw = pa.BufferReader(data)

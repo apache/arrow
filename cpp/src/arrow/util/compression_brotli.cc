@@ -56,6 +56,13 @@ class BrotliDecompressor : public Decompressor {
     return Status::OK();
   }
 
+  Status Reset() override {
+    if (state_ != nullptr) {
+      BrotliDecoderDestroyInstance(state_);
+    }
+    return Init();
+  }
+
   Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
                     uint8_t* output, int64_t* bytes_read, int64_t* bytes_written,
                     bool* need_more_output) override {
