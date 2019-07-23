@@ -46,7 +46,11 @@ class BaseListBuilder : public ArrayBuilder {
                                 std::make_shared<TypeClass>(value_builder->type())),
                      pool),
         offsets_builder_(pool),
-        value_builder_(value_builder) {}
+        value_builder_(value_builder) {
+    if (value_builder->type() == nullptr) {
+      type_ = nullptr;
+    }
+  }
 
   Status Resize(int64_t capacity) override {
     if (capacity > maximum_elements()) {
@@ -215,13 +219,14 @@ class ARROW_EXPORT LargeListBuilder : public BaseListBuilder<LargeListType> {
 /// Key uniqueness and ordering are not validated.
 class ARROW_EXPORT MapBuilder : public ArrayBuilder {
  public:
-  /// Use this constructor to incrementally build the key and item arrays along with
-  /// offsets and null bitmap.
+  /// Use this constructor to define the built array's type explicitly. If key_builder or
+  /// item_builder has indeterminate type, this builder will also.
   MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
              const std::shared_ptr<ArrayBuilder>& item_builder,
              const std::shared_ptr<DataType>& type);
 
-  /// Derive built type from key and item builders' types
+  /// Use this constructor to infer the built array's type. If key_builder or
+  /// item_builder has indeterminate type, this builder will also.
   MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
              const std::shared_ptr<ArrayBuilder>& item_builder, bool keys_sorted = false);
 
@@ -256,6 +261,7 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
   ArrayBuilder* item_builder() const { return item_builder_.get(); }
 
  protected:
+  bool keys_sorted_ = false;
   std::shared_ptr<ListBuilder> list_builder_;
   std::shared_ptr<ArrayBuilder> key_builder_;
   std::shared_ptr<ArrayBuilder> item_builder_;
@@ -268,10 +274,14 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 /// \brief Builder class for fixed-length list array value types
 class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
  public:
+  /// Use this constructor to define the built array's type explicitly. If value_builder
+  /// has indeterminate type, this builder will also.
   FixedSizeListBuilder(MemoryPool* pool,
                        std::shared_ptr<ArrayBuilder> const& value_builder,
                        int32_t list_size);
 
+  /// Use this constructor to infer the built array's type. If value_builder has
+  /// indeterminate type, this builder will also.
   FixedSizeListBuilder(MemoryPool* pool,
                        std::shared_ptr<ArrayBuilder> const& value_builder,
                        const std::shared_ptr<DataType>& type);
@@ -331,6 +341,7 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
 /// called to maintain data-structure consistency.
 class ARROW_EXPORT StructBuilder : public ArrayBuilder {
  public:
+  /// If any of field_builders has indeterminate type, this builder will also
   StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
                 std::vector<std::shared_ptr<ArrayBuilder>> field_builders);
 

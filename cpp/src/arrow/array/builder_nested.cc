@@ -41,6 +41,15 @@ MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& ke
                        std::shared_ptr<ArrayBuilder> const& item_builder,
                        const std::shared_ptr<DataType>& type)
     : ArrayBuilder(type, pool), key_builder_(key_builder), item_builder_(item_builder) {
+  if (type) {
+    auto map_type = internal::checked_cast<const MapType*>(type.get());
+    keys_sorted_ = map_type->keys_sorted();
+  }
+
+  if (key_builder->type() == nullptr || item_builder->type() == nullptr) {
+    type_ = nullptr;
+  }
+
   list_builder_ = std::make_shared<ListBuilder>(
       pool, key_builder, list(field("key", key_builder->type(), false)));
 }
@@ -59,6 +68,7 @@ Status MapBuilder::Resize(int64_t capacity) {
 
 void MapBuilder::Reset() {
   list_builder_->Reset();
+  item_builder_->Reset();
   ArrayBuilder::Reset();
 }
 
@@ -115,19 +125,22 @@ Status MapBuilder::AppendNulls(int64_t length) {
 // FixedSizeListBuilder
 
 FixedSizeListBuilder::FixedSizeListBuilder(
-    MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
-    int32_t list_size)
-    : ArrayBuilder(fixed_size_list(value_builder->type(), list_size), pool),
-      list_size_(list_size),
-      value_builder_(value_builder) {}
-
-FixedSizeListBuilder::FixedSizeListBuilder(
-    MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
+    MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& value_builder,
     const std::shared_ptr<DataType>& type)
     : ArrayBuilder(type, pool),
       list_size_(
           internal::checked_cast<const FixedSizeListType*>(type.get())->list_size()),
-      value_builder_(value_builder) {}
+      value_builder_(value_builder) {
+  if (value_builder->type() == nullptr) {
+    type_ = nullptr;
+  }
+}
+
+FixedSizeListBuilder::FixedSizeListBuilder(
+    MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& value_builder,
+    int32_t list_size)
+    : FixedSizeListBuilder(pool, value_builder,
+                           fixed_size_list(value_builder->type(), list_size)) {}
 
 void FixedSizeListBuilder::Reset() {
   ArrayBuilder::Reset();
@@ -174,10 +187,8 @@ Status FixedSizeListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
   // If the type has not been specified in the constructor, infer it
   // This is the case if the value_builder contains a DenseUnionBuilder
-  const auto& list_type = internal::checked_cast<const FixedSizeListType&>(*type_);
-  if (!list_type.value_type()) {
-    type_ = std::make_shared<FixedSizeListType>(value_builder_->type(),
-                                                list_type.list_size());
+  if (type_ == nullptr) {
+    type_ = fixed_size_list(items->type, list_size_);
   }
   std::shared_ptr<Buffer> null_bitmap;
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
@@ -192,6 +203,12 @@ Status FixedSizeListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 StructBuilder::StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
                              std::vector<std::shared_ptr<ArrayBuilder>> field_builders)
     : ArrayBuilder(type, pool) {
+  for (auto&& field_builder : field_builders) {
+    if (field_builder->type() == nullptr) {
+      type_ = nullptr;
+      break;
+    }
+  }
   children_ = std::move(field_builders);
 }
 

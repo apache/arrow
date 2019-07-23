@@ -92,8 +92,7 @@ BasicUnionBuilder::BasicUnionBuilder(
 
 int8_t BasicUnionBuilder::AppendChild(const std::shared_ptr<ArrayBuilder>& new_child,
                                       const std::string& field_name) {
-  // force type inferrence in Finish
-  type_ = nullptr;
+  DCHECK_EQ(type_, nullptr);
 
   field_names_.push_back(field_name);
   children_.push_back(new_child);

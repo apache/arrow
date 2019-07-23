@@ -1060,7 +1060,7 @@ TEST(TestDictionary, TransposeNulls) {
   CheckTranspose(sliced, {1, 3, 2}, out_dict_type, out_dict, expected_indices);
 }
 
-TEST(TestDictionary, DISABLED_ListOfDictionary) {
+TEST(TestDictionary, ListOfDictionary) {
   std::unique_ptr<ArrayBuilder> root_builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), list(dictionary(int8(), utf8())),
                         &root_builder));
@@ -1068,19 +1068,22 @@ TEST(TestDictionary, DISABLED_ListOfDictionary) {
   auto dict_builder =
       checked_cast<DictionaryBuilder<StringType>*>(list_builder->value_builder());
 
+  ASSERT_EQ(dict_builder->type(), nullptr);
+  ASSERT_EQ(list_builder->type(), nullptr);
+
   ASSERT_OK(list_builder->Append());
   std::vector<std::string> expected;
-  for (char a : "abc") {
-    for (char d : "def") {
-      for (char g : "ghi") {
-        for (char j : "jkl") {
-          for (char m : "mno") {
-            for (char p : "pqr") {
+  for (char a : util::string_view("abc")) {
+    for (char d : util::string_view("def")) {
+      for (char g : util::string_view("ghi")) {
+        for (char j : util::string_view("jkl")) {
+          for (char m : util::string_view("mno")) {
+            for (char p : util::string_view("pqr")) {
               if ((static_cast<int>(a) + d + g + j + m + p) % 16 == 0) {
                 ASSERT_OK(list_builder->Append());
               }
               // 3**6 distinct strings; too large for int8
-              char str[6] = {a, d, g, j, m, p};
+              char str[] = {a, d, g, j, m, p, '\0'};
               ASSERT_OK(dict_builder->Append(str));
               expected.push_back(str);
             }

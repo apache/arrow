@@ -168,6 +168,7 @@ class NumericBuilder : public ArrayBuilder {
   }
 
   /// \cond FALSE
+  using ArrayBuilder::Advance;
   using ArrayBuilder::Finish;
   /// \endcond
 
@@ -417,6 +418,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
   /// \cond FALSE
+  using ArrayBuilder::Advance;
   using ArrayBuilder::Finish;
   /// \endcond
 

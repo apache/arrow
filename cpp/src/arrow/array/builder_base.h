@@ -104,11 +104,6 @@ class ARROW_EXPORT ArrayBuilder {
   virtual Status AppendNull() = 0;
   virtual Status AppendNulls(int64_t length) = 0;
 
-  /// For cases where raw data was memcpy'd into the internal buffers, allows us
-  /// to advance the length of the builder. It is your responsibility to use
-  /// this function responsibly.
-  Status Advance(int64_t elements);
-
   /// \brief Return result of builder as an internal generic ArrayData
   /// object. Resets builder except for dictionary builder
   ///
@@ -124,9 +119,18 @@ class ARROW_EXPORT ArrayBuilder {
   /// \return Status
   Status Finish(std::shared_ptr<Array>* out);
 
+  /// \brief Return the type of the built Array
+  ///
+  /// \note this will be nullptr if (and only if) the type of the built
+  /// array may mutate or is otherwise indeterminate until Finish is called.
   std::shared_ptr<DataType> type() const { return type_; }
 
  protected:
+  /// For cases where raw data was memcpy'd into the internal buffers, allows us
+  /// to advance the length of the builder. It is your responsibility to use
+  /// this function responsibly.
+  Status Advance(int64_t elements);
+
   /// Append to null bitmap
   Status AppendToBitmap(bool is_valid);
 

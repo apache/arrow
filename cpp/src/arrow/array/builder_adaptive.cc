@@ -36,7 +36,7 @@ namespace arrow {
 using internal::AdaptiveIntBuilderBase;
 
 AdaptiveIntBuilderBase::AdaptiveIntBuilderBase(MemoryPool* pool)
-    : ArrayBuilder(int64(), pool),
+    : ArrayBuilder(nullptr, pool),
       data_(nullptr),
       raw_data_(nullptr),
       int_size_(1),
