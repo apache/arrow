@@ -45,8 +45,8 @@ public class AvroBytesConsumer implements Consumer {
   public void consume(Decoder decoder) throws IOException {
     VarBinaryHolder holder = new VarBinaryHolder();
 
-    //cacheBuffer is initialized null and create in the first consume,
-    //if its capacity < size to read, decoder will create a new one with new capacity.
+    // cacheBuffer is initialized null and create in the first consume,
+    // if its capacity < size to read, decoder will create a new one with new capacity.
     cacheBuffer = decoder.readBytes(cacheBuffer);
 
     holder.start = 0;
