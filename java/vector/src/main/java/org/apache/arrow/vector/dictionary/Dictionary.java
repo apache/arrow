@@ -64,7 +64,7 @@ public class Dictionary {
       return false;
     }
     Dictionary that = (Dictionary) o;
-    return encoding.equals(that.encoding) && compareFieldVector(dictionary, that.dictionary);
+    return Objects.equals(encoding, that.encoding) && compareFieldVector(dictionary, that.dictionary);
   }
 
   @Override
