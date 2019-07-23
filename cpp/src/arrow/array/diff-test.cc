@@ -615,4 +615,51 @@ TEST_F(DiffTest, DictionaryDiffFormatter) {
 )");
 }
 
+void MakeSameLength(std::shared_ptr<Array>* a, std::shared_ptr<Array>* b) {
+  auto length = std::min((*a)->length(), (*b)->length());
+  *a = (*a)->Slice(0, length);
+  *b = (*b)->Slice(0, length);
+}
+
+TEST_F(DiffTest, CompareRandomStruct) {
+  compute::FunctionContext ctx;
+  for (auto null_probability : {0.0, 0.1, 0.5}) {
+    constexpr auto length = 1 << 10;
+    auto int32_values = this->rng_.Int32(length, 0, 127, null_probability);
+    auto utf8_values = this->rng_.String(length, 0, 16, null_probability);
+    for (const double filter_probability : {0.9999, 0.999, 0.75}) {
+      std::shared_ptr<Array> int32_base, int32_target, utf8_base, utf8_target;
+      ASSERT_OK(compute::Filter(&ctx, *int32_values,
+                                *this->rng_.Boolean(length, filter_probability, 0.0),
+                                &int32_base));
+      ASSERT_OK(compute::Filter(&ctx, *utf8_values,
+                                *this->rng_.Boolean(length, filter_probability, 0.0),
+                                &utf8_base));
+      MakeSameLength(&int32_base, &utf8_base);
+
+      ASSERT_OK(compute::Filter(&ctx, *int32_values,
+                                *this->rng_.Boolean(length, filter_probability, 0.0),
+                                &int32_target));
+      ASSERT_OK(compute::Filter(&ctx, *utf8_values,
+                                *this->rng_.Boolean(length, filter_probability, 0.0),
+                                &utf8_target));
+      MakeSameLength(&int32_target, &utf8_target);
+
+      auto base_res = StructArray::Make({int32_base, utf8_base}, {"i", "s"});
+      ASSERT_OK(base_res.status());
+      base_ = base_res.ValueOrDie();
+      auto target_res = StructArray::Make({int32_target, utf8_target}, {"i", "s"});
+      ASSERT_OK(target_res.status());
+      target_ = target_res.ValueOrDie();
+
+      std::stringstream formatted;
+      this->DoDiffAndFormat(&formatted);
+      auto st = AssertEditScript{*this->base_, *this->target_}.Visit(*this->edits_);
+      if (!st.ok()) {
+        ASSERT_OK(Status(st.code(), st.message() + "\n" + formatted.str()));
+      }
+    }
+  }
+}
+
 }  // namespace arrow
