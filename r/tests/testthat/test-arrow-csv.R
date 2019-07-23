@@ -81,29 +81,39 @@ test_that("read_delim_arrow parsing options: quote", {
 })
 
 test_that("read_csv_arrow parsing options: col_names", {
-  skip("Invalid: Empty CSV file")
   tf <- tempfile()
   on.exit(unlink(tf))
 
+  # Writing the CSV without the header
   write.table(iris, tf, sep = ",", row.names = FALSE, col.names = FALSE)
-  tab1 <- read_csv_arrow(tf, col_names = FALSE)
+
+  expect_error(read_csv_arrow(tf, col_names = FALSE), "Not implemented")
+
+  tab1 <- read_csv_arrow(tf, col_names = names(iris))
 
   expect_identical(names(tab1), names(iris))
   iris$Species <- as.character(iris$Species)
   expect_equivalent(iris, tab1)
+
+  # This errors (correctly) because I haven't given enough names
+  # but the error message is "Invalid: Empty CSV file", which is not accurate
+  expect_error(
+    read_csv_arrow(tf, col_names = names(iris)[1])
+  )
+  # Same here
+  expect_error(
+    read_csv_arrow(tf, col_names = c(names(iris), names(iris)))
+  )
 })
 
 test_that("read_csv_arrow parsing options: skip", {
-  skip("Invalid: Empty CSV file")
   tf <- tempfile()
   on.exit(unlink(tf))
 
+  # Adding two garbage lines to start the csv
   cat("asdf\nqwer\n", file = tf)
   suppressWarnings(write.table(iris, tf, sep = ",", row.names = FALSE, append = TRUE))
-  # This works:
-  # print(head(readr::read_csv(tf, skip = 2)))
 
-  # This errors:
   tab1 <- read_csv_arrow(tf, skip = 2)
 
   expect_identical(names(tab1), names(iris))

@@ -48,14 +48,6 @@ library.
 
 ``` r
 library(arrow)
-#> 
-#> Attaching package: 'arrow'
-#> The following object is masked from 'package:utils':
-#> 
-#>     timestamp
-#> The following objects are masked from 'package:base':
-#> 
-#>     array, table
 set.seed(24)
 
 tab <- arrow::table(x = 1:10, y = rnorm(10))

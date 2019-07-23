@@ -7,22 +7,20 @@
 \title{Read a CSV or other delimited file with Arrow}
 \usage{
 read_delim_arrow(file, delim = ",", quote = "\\"",
-  escape_double = TRUE, escape_backslash = FALSE, col_select = NULL,
-  skip_empty_rows = TRUE, parse_options = NULL,
-  convert_options = NULL, read_options = csv_read_options(),
+  escape_double = TRUE, escape_backslash = FALSE, col_names = TRUE,
+  col_select = NULL, skip_empty_rows = TRUE, skip = 0L,
+  parse_options = NULL, convert_options = NULL, read_options = NULL,
   as_tibble = TRUE)
 
 read_csv_arrow(file, quote = "\\"", escape_double = TRUE,
-  escape_backslash = FALSE, col_select = NULL,
-  skip_empty_rows = TRUE, parse_options = NULL,
-  convert_options = NULL, read_options = csv_read_options(),
-  as_tibble = TRUE)
+  escape_backslash = FALSE, col_names = TRUE, col_select = NULL,
+  skip_empty_rows = TRUE, skip = 0L, parse_options = NULL,
+  convert_options = NULL, read_options = NULL, as_tibble = TRUE)
 
 read_tsv_arrow(file, quote = "\\"", escape_double = TRUE,
-  escape_backslash = FALSE, col_select = NULL,
-  skip_empty_rows = TRUE, parse_options = NULL,
-  convert_options = NULL, read_options = csv_read_options(),
-  as_tibble = TRUE)
+  escape_backslash = FALSE, col_names = TRUE, col_select = NULL,
+  skip_empty_rows = TRUE, skip = 0L, parse_options = NULL,
+  convert_options = NULL, read_options = NULL, as_tibble = TRUE)
 }
 \arguments{
 \item{file}{A character path to a local file, or an Arrow input stream}
@@ -40,12 +38,19 @@ characters? This is more general than \code{escape_double} as backslashes
 can be used to escape the delimiter character, the quote character, or
 to add special characters like \code{\\n}.}
 
+\item{col_names}{If \code{TRUE}, the first row of the input will be used as the
+column names and will not be included in the data frame. (Note that \code{FALSE}
+is not currently supported.) Alternatively, you can specify a character
+vector of column names.}
+
 \item{col_select}{A \link[tidyselect:vars_select]{tidy selection specification}
 of columns, as used in \code{dplyr::select()}.}
 
 \item{skip_empty_rows}{Should blank rows be ignored altogether? If
 \code{TRUE}, blank rows will not be represented at all. If \code{FALSE}, they will be
 filled with missings.}
+
+\item{skip}{Number of lines to skip before reading data.}
 
 \item{parse_options}{see \code{\link[=csv_parse_options]{csv_parse_options()}}. If given, this overrides any
 parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, etc.).}
