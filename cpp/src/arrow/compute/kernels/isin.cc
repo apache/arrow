@@ -65,7 +65,6 @@ class IsInKernelImpl : public UnaryKernel {
 
   std::shared_ptr<DataType> out_type() const override { return boolean(); }
 
-  virtual Status Reset() = 0;
   virtual Status ConstructRight(FunctionContext* ctx, const Datum& right) = 0;
 };
 
@@ -106,37 +105,41 @@ class IsInKernel : public IsInKernelImpl {
   IsInKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
       : type_(type), pool_(pool) {}
 
-  // \brief if null count in right is not 0, then append true to the
-  // BooleanBuilder when left array has a null.
+  // \brief if null count in right is not 0, then return true
+  // when left array has a null.
   Status VisitNull() {
-    bool_builder_.UnsafeAppend(true);
+    writer->Set();
+    writer->Next();
     return Status::OK();
   }
 
   // \brief Iterate over the left array using another visitor.
   // In VisitValue, use the memo_table_ (for right array) and check if value
-  // in left array is in the memo_table_. Append the true to the
-  // BooleanBuilder if condition satisfied, else false.
+  // in left array is in the memo_table_. Return true if condition satisfied,
+  // else false.
   Status VisitValue(const Scalar& value) {
-    bool_builder_.UnsafeAppend(memo_table_->Get(value) != -1);
-    return Status::OK();
-  }
-
-  Status Reset() override {
-    bool_builder_.Reset();
+    if (memo_table_->Get(value) != -1) {
+      writer->Set();
+    } else {
+      writer->Clear();
+    }
+    writer->Next();
     return Status::OK();
   }
 
   Status Compute(FunctionContext* ctx, const Datum& left, Datum* out) override {
     const ArrayData& left_data = *left.array();
-    RETURN_NOT_OK(bool_builder_.Reserve(left_data.length));
+
+    output = out->array();
+    output->type = boolean();
+
+    writer = std::make_shared<internal::FirstTimeBitmapWriter>(
+        output.get()->buffers[1]->mutable_data(), output.get()->offset, left_data.length);
+
     RETURN_NOT_OK(ArrayDataVisitor<Type>::Visit(left_data, this));
-    RETURN_NOT_OK(bool_builder_.FinishInternal(&output));
-    out->value = std::move(output);
+    writer->Finish();
 
     if (right_null_count_ == 0 && left_data.GetNullCount() != 0) {
-      output = out->array();
-      output->type = boolean();
       RETURN_NOT_OK(detail::PropagateNulls(ctx, left_data, output.get()));
     }
     return Status::OK();
@@ -172,7 +175,7 @@ class IsInKernel : public IsInKernelImpl {
   // \brief Additional member "right_null_count" is used to check if
   // null count in right is not 0
   int64_t right_null_count_{};
-  BooleanBuilder bool_builder_;
+  std::shared_ptr<internal::FirstTimeBitmapWriter> writer;
   std::shared_ptr<ArrayData> output;
 };
 
@@ -183,28 +186,26 @@ class NullIsInKernel : public IsInKernelImpl {
  public:
   NullIsInKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool) {}
 
-  Status Reset() override {
-    bool_builder_.Reset();
-    return Status::OK();
-  }
-
   // \brief When array is NullType, based on the null count for the arrays,
-  // append true to the BooleanBuilder else propagate to all nulls
+  // return true, else propagate to all nulls
   Status Compute(FunctionContext* ctx, const Datum& left, Datum* out) override {
     const ArrayData& left_data = *left.array();
     left_null_count = left_data.GetNullCount();
 
+    output = out->array();
+    output->type = boolean();
+
+    writer = std::make_shared<internal::FirstTimeBitmapWriter>(
+        output.get()->buffers[1]->mutable_data(), output.get()->offset, left_data.length);
+
     if (left_null_count != 0 && right_null_count == 0) {
-      output = out->array();
-      output->type = boolean();
       RETURN_NOT_OK(detail::PropagateNulls(ctx, left_data, output.get()));
     } else {
-      RETURN_NOT_OK(bool_builder_.Reserve(left_data.length));
       for (int64_t i = 0; i < left_data.length; ++i) {
-        bool_builder_.UnsafeAppend(true);
+        writer->Set();
+        writer->Next();
       }
-      RETURN_NOT_OK(bool_builder_.FinishInternal(&output));
-      out->value = std::move(output);
+      writer->Finish();
     }
     return Status::OK();
   }
@@ -227,7 +228,7 @@ class NullIsInKernel : public IsInKernelImpl {
  private:
   int64_t left_null_count{};
   int64_t right_null_count{};
-  BooleanBuilder bool_builder_;
+  std::shared_ptr<internal::FirstTimeBitmapWriter> writer;
   std::shared_ptr<ArrayData> output;
 };
 
@@ -300,9 +301,8 @@ Status GetIsInKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type
 #undef ISIN_CASE
 
   if (!kernel) {
-    return Status::NotImplemented("isin is not implemented for ", type->ToString());
+    return Status::NotImplemented("IsIn is not implemented for ", type->ToString());
   }
-  RETURN_NOT_OK(kernel->Reset());
   *out = std::move(kernel);
   return Status::OK();
 }
