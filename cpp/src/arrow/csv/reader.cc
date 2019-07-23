@@ -149,8 +149,8 @@ class BaseTableReader : public csv::TableReader {
     if (read_options_.skip_rows) {
       // Skip initial rows (potentially invalid CSV data)
       auto data = cur_data_;
-      auto num_skipped_rows =
-          SkipRows(cur_data_, cur_size_, read_options_.skip_rows, &data);
+      auto num_skipped_rows = SkipRows(cur_data_, static_cast<uint32_t>(cur_size_),
+                                       read_options_.skip_rows, &data);
       cur_size_ -= data - cur_data_;
       cur_data_ = data;
       if (num_skipped_rows < read_options_.skip_rows) {
