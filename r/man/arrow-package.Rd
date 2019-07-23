@@ -21,12 +21,12 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Romain François \email{romain@rstudio.com} (0000-0002-2444-4226)
+\strong{Maintainer}: Neal Richardson \email{neal@ursalabs.org}
 
 Authors:
 \itemize{
+  \item Romain François \email{romain@rstudio.com} (0000-0002-2444-4226)
   \item Jeroen Ooms \email{jeroen@berkeley.edu}
-  \item Neal Richardson \email{neal@ursalabs.org}
   \item Apache Arrow \email{dev@arrow.apache.org} [copyright holder]
 }
 

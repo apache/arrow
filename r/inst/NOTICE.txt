@@ -1,0 +1,8 @@
+Apache Arrow
+Copyright 2016-2019 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+See https://github.com/apache/arrow/blob/master/NOTICE.txt for the complete
+NOTICE for Apache Arrow.

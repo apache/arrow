@@ -23,6 +23,8 @@
 #' on your operating system and package version.
 #' @export
 #' @importFrom utils packageVersion installed.packages
+#' @examples
+#' install_arrow()
 install_arrow <- function() {
   os <- tolower(Sys.info()[["sysname"]])
   # c("windows", "darwin", "linux", "sunos") # win/mac/linux/solaris

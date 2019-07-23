@@ -14,3 +14,10 @@ write_feather(data, stream)
 \description{
 Write data in the Feather format
 }
+\examples{
+try({
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write_feather(mtcars, tf)
+})
+}

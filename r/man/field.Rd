@@ -17,9 +17,8 @@ field(name, type, metadata)
 Factory for a \code{arrow::Field}
 }
 \examples{
-
-\dontrun{
+try({
    field("x", int32())
-}
+})
 
 }
