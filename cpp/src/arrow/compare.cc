@@ -940,13 +940,6 @@ Status PrintDiff(const Array& left, const Array& right, std::ostream* os) {
     return Status::OK();
   }
 
-  for (auto nested_id : {Type::STRUCT, Type::UNION}) {
-    if (left.type_id() == nested_id) {
-      *os << "# Arrays of " << *left.type() << " differed";
-      return Status::OK();
-    }
-  }
-
   if (left.type()->id() == Type::DICTIONARY) {
     *os << "# Dictionary arrays differed" << std::endl;
 

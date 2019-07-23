@@ -18,6 +18,7 @@
 #include "arrow/array/diff.h"
 
 #include <algorithm>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <utility>
@@ -32,6 +33,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/lazy.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/stl.h"
 #include "arrow/util/string.h"
 #include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
@@ -67,6 +69,26 @@ static Slice GetView(const ListArray& array, int64_t index) {
 static Slice GetView(const FixedSizeListArray& array, int64_t index) {
   return Slice{array.values().get(), array.value_offset(index),
                array.value_length(index)};
+}
+
+struct UnitSlice {
+  const Array* array_;
+  int64_t offset_;
+
+  bool operator==(const UnitSlice& other) const {
+    return array_->RangeEquals(offset_, offset_ + 1, other.offset_, *other.array_);
+  }
+  bool operator!=(const UnitSlice& other) const { return !(*this == other); }
+};
+
+// FIXME(bkietz) this is inefficient;
+// StructArray's fields can be diffed independently then merged
+static UnitSlice GetView(const StructArray& array, int64_t index) {
+  return UnitSlice{&array, index};
+}
+
+static UnitSlice GetView(const UnionArray& array, int64_t index) {
+  return UnitSlice{&array, index};
 }
 
 struct NullTag {
@@ -311,26 +333,6 @@ class QuadraticSpaceMyersDiff {
   std::vector<bool> insert_;
 };
 
-// check whether a type's array class supports GetView
-template <typename T>
-struct array_has_GetView {
-  static std::false_type test(...);
-
-  template <typename U>
-  static std::true_type test(U*, decltype(GetView(std::declval<U>(), 0)) = {});
-
-  static constexpr bool value = decltype(array_has_GetView::test(
-      static_cast<typename TypeTraits<T>::ArrayType*>(nullptr)))::value;
-};
-
-static_assert(!array_has_GetView<NullType>::value, "null");
-static_assert(array_has_GetView<BooleanType>::value, "bool");
-static_assert(array_has_GetView<Int32Type>::value, "int32");
-static_assert(array_has_GetView<BinaryType>::value, "binary");
-static_assert(array_has_GetView<Date32Type>::value, "date32");
-static_assert(!array_has_GetView<StructType>::value, "struct");
-static_assert(array_has_GetView<ListType>::value, "list");
-
 struct DiffImpl {
   Status Visit(const NullType&) {
     bool insert = base_.length() < target_.length();
@@ -361,7 +363,7 @@ struct DiffImpl {
   }
 
   template <typename T>
-  typename std::enable_if<array_has_GetView<T>::value, Status>::type Visit(const T&) {
+  Status Visit(const T&) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
     if (base_.null_count() == 0 && target_.null_count() == 0) {
       auto base = MakeViewRange<ArrayType>(base_);
@@ -379,7 +381,7 @@ struct DiffImpl {
     return arrow::Diff(*base, *target, pool_, out_);
   }
 
-  Status Visit(const DataType& t) {
+  Status Visit(const DictionaryType& t) {
     return Status::NotImplemented("diffing arrays of type ", t);
   }
 
@@ -444,58 +446,151 @@ Status DiffVisitor::Visit(const Array& edits) {
   return Status::OK();
 }
 
-// format Booleans as true/false
-Status Format(std::ostream& os, const BooleanArray& arr, int64_t index) {
-  os << (arr.Value(index) ? "true" : "false");
-  return Status::OK();
-}
-
-// format Numerics with std::ostream defaults
-template <typename T>
-Status Format(std::ostream& os, const NumericArray<T>& arr, int64_t index) {
-  if (sizeof(decltype(arr.Value(index))) == sizeof(char)) {
-    // override std::ostream defaults for /(u|)int8_t/ since they are
-    // formatted as potentially unprintable/tty borking characters
-    os << static_cast<int16_t>(arr.Value(index));
-  } else {
-    os << arr.Value(index);
+class Formatter {
+ public:
+  void operator()(const Array& array, int64_t index, std::ostream* os) const {
+    impl_->Format(array, index, os);
   }
-  return Status::OK();
-}
 
-// TODO(bkietz) format dates, times, and timestamps in a human readable format
+  static Result<Formatter> Make(const Array& arr) {
+    Formatter out;
+    RETURN_NOT_OK(VisitArrayInline(arr, &out));
+    return std::move(out);
+  }
 
-// format Binary and FixedSizeBinary in hexadecimal
-template <typename A>
-enable_if_binary_like<A, Status> Format(std::ostream& os, const A& arr, int64_t index) {
-  os << HexEncode(arr.GetView(index));
-  return Status::OK();
-}
+ private:
+  template <typename VISITOR>
+  friend Status VisitArrayInline(const Array& array, VISITOR* visitor);
 
-// format Strings with \"\n\r\t\\ escaped
-Status Format(std::ostream& os, const StringArray& arr, int64_t index) {
-  os << "\"" << Escape(arr.GetView(index)) << "\"";
-  return Status::OK();
-}
+  struct Impl {
+    virtual ~Impl() = default;
+    virtual void Format(const Array&, int64_t index, std::ostream*) = 0;
+  };
 
-// format Decimals with Decimal128Array::FormatValue
-Status Format(std::ostream& os, const Decimal128Array& arr, int64_t index) {
-  os << arr.FormatValue(index);
-  return Status::OK();
-}
+  template <typename Fn>
+  struct FnImpl : Impl {
+    FnImpl(Fn fn) : fn_(std::move(fn)) {}
+    void Format(const Array& array, int64_t index, std::ostream* os) override {
+      fn_(array, index, os);
+    }
+    Fn fn_;
+  };
 
-// format Lists using PrettyPrint
-Status Format(std::ostream& os, const ListArray& arr, int64_t index) {
-  return PrettyPrint(*arr.value_slice(index), 1, &os);
-}
+  template <typename Fn>
+  Status MakeFnImpl(Fn fn) {
+    impl_.reset(new FnImpl<Fn>(std::move(fn)));
+    return Status::OK();
+  }
 
-template <typename ArrayType>
+  // factory implementation
+  Status Visit(const BooleanArray&) {
+    return MakeFnImpl([](const Array& array, int64_t index, std::ostream* os) {
+      *os << (checked_cast<const BooleanArray&>(array).Value(index) ? "true" : "false");
+    });
+  }
+
+  // format Numerics with std::ostream defaults
+  // TODO(bkietz) format dates, times, and timestamps in a human readable format
+  template <typename T>
+  Status Visit(const NumericArray<T>&) {
+    return MakeFnImpl([](const Array& array, int64_t index, std::ostream* os) {
+      const auto& numeric = checked_cast<const NumericArray<T>&>(array);
+      if (sizeof(decltype(numeric.Value(index))) == sizeof(char)) {
+        // override std::ostream defaults for /(u|)int8_t/ since they are
+        // formatted as potentially unprintable/tty borking characters
+        *os << static_cast<int16_t>(numeric.Value(index));
+      } else {
+        *os << numeric.Value(index);
+      }
+    });
+  }
+
+  // format Binary and FixedSizeBinary in hexadecimal
+  template <typename A>
+  enable_if_binary_like<A, Status> Visit(const A&) {
+    return MakeFnImpl([](const Array& array, int64_t index, std::ostream* os) {
+      *os << HexEncode(checked_cast<const A&>(array).GetView(index));
+    });
+  }
+
+  // format Strings with \"\n\r\t\\ escaped
+  Status Visit(const StringArray&) {
+    return MakeFnImpl([](const Array& array, int64_t index, std::ostream* os) {
+      *os << "\"" << Escape(checked_cast<const StringArray&>(array).GetView(index))
+          << "\"";
+    });
+  }
+
+  // format Decimals with Decimal128Array::FormatValue
+  Status Visit(const Decimal128Array&) {
+    return MakeFnImpl([](const Array& array, int64_t index, std::ostream* os) {
+      *os << checked_cast<const Decimal128Array&>(array).FormatValue(index);
+    });
+  }
+
+  Status Visit(const ListArray& arr) {
+    struct ListImpl : Impl {
+      ListImpl(Formatter f) : values_formatter_(std::move(f)) {}
+      void Format(const Array& array, int64_t index, std::ostream* os) override {
+        const auto& list_array = checked_cast<const ListArray&>(array);
+        *os << "[";
+        for (int32_t i = 0; i < list_array.value_length(index); ++i) {
+          if (i != 0) {
+            *os << ", ";
+          }
+          values_formatter_(*list_array.values(), i + list_array.value_offset(index), os);
+        }
+        *os << "]";
+      }
+      Formatter values_formatter_;
+    };
+    ARROW_ASSIGN_OR_RAISE(auto values_formatter, Formatter::Make(*arr.values()));
+    impl_.reset(new ListImpl(std::move(values_formatter)));
+    return Status::OK();
+  }
+
+  Status Visit(const StructArray& arr) {
+    struct StructImpl : Impl {
+      StructImpl(std::vector<Formatter> f) : field_formatters_(std::move(f)) {}
+      void Format(const Array& array, int64_t index, std::ostream* os) override {
+        const auto& struct_array = checked_cast<const StructArray&>(array);
+        *os << "{";
+        for (int i = 0, printed = 0; i < struct_array.num_fields(); ++i) {
+          if (printed != 0) {
+            *os << ", ";
+          }
+          if (struct_array.field(i)->IsNull(index)) {
+            continue;
+          }
+          ++printed;
+          *os << struct_array.struct_type()->child(i)->name() << ": ";
+          field_formatters_[i](*struct_array.field(i), index, os);
+        }
+        *os << "}";
+      }
+      std::vector<Formatter> field_formatters_;
+    };
+    std::vector<Formatter> field_formatters(arr.num_fields());
+    for (int i = 0; i < arr.num_fields(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(field_formatters[i], Formatter::Make(*arr.field(i)));
+    }
+    impl_.reset(new StructImpl(std::move(field_formatters)));
+    return Status::OK();
+  }
+
+  Status Visit(const Array& arr) {
+    return Status::NotImplemented("formatting diffs between arrays of type ",
+                                  *arr.type());
+  }
+
+  std::unique_ptr<Impl> impl_;
+};
+
 class UnifiedDiffFormatter : public DiffVisitor {
  public:
-  UnifiedDiffFormatter(std::ostream& os, const Array& base, const Array& target)
-      : os_(os),
-        base_(checked_cast<const ArrayType&>(base)),
-        target_(checked_cast<const ArrayType&>(target)) {
+  UnifiedDiffFormatter(std::ostream& os, const Array& base, const Array& target,
+                       Formatter formatter)
+      : os_(os), base_(base), target_(target), formatter_(std::move(formatter)) {
     os_ << std::endl;
   }
 
@@ -522,19 +617,21 @@ class UnifiedDiffFormatter : public DiffVisitor {
     // non trivial run- finalize the current hunk
     os_ << "@@ -" << base_begin_ << ", +" << target_begin_ << " @@" << std::endl;
     for (int64_t i = base_begin_; i < base_end_; ++i) {
+      os_ << "-";
       if (base_.IsValid(i)) {
-        RETURN_NOT_OK(Format(os_ << "-", base_, i));
+        formatter_(base_, i, &os_);
       } else {
-        os_ << "-null";
+        os_ << "null";
       }
       os_ << std::endl;
     }
     base_begin_ = base_end_ += length;
     for (int64_t i = target_begin_; i < target_end_; ++i) {
+      os_ << "+";
       if (target_.IsValid(i)) {
-        RETURN_NOT_OK(Format(os_ << "+", target_, i));
+        formatter_(target_, i, &os_);
       } else {
-        os_ << "+null";
+        os_ << "null";
       }
       os_ << std::endl;
     }
@@ -545,32 +642,9 @@ class UnifiedDiffFormatter : public DiffVisitor {
  private:
   std::ostream& os_;
   int64_t base_begin_ = 0, base_end_ = 0, target_begin_ = 0, target_end_ = 0;
-  const ArrayType& base_;
-  const ArrayType& target_;
-};
-
-struct MakeUnifiedDiffFormatterImpl {
-  template <typename A>
-  Status Visit(const A&, decltype(Format(std::declval<std::ostream&>(),
-                                         std::declval<const A&>(), 0))* = nullptr) {
-    out_.reset(new UnifiedDiffFormatter<A>(os_, base_, target_));
-    return Status::OK();
-  }
-
-  Status Visit(const Array&) {
-    return Status::NotImplemented("formatting diffs between arrays of type ",
-                                  *base_.type());
-  }
-
-  Result<std::unique_ptr<DiffVisitor>> Make() {
-    RETURN_NOT_OK(VisitArrayInline(base_, this));
-    return std::move(out_);
-  }
-
-  std::ostream& os_;
   const Array& base_;
   const Array& target_;
-  std::unique_ptr<DiffVisitor> out_;
+  Formatter formatter_;
 };
 
 Result<std::unique_ptr<DiffVisitor>> MakeUnifiedDiffFormatter(std::ostream& os,
@@ -582,7 +656,9 @@ Result<std::unique_ptr<DiffVisitor>> MakeUnifiedDiffFormatter(std::ostream& os,
         " and ", *target.type());
   }
 
-  return MakeUnifiedDiffFormatterImpl{os, base, target, nullptr}.Make();
+  ARROW_ASSIGN_OR_RAISE(auto formatter, Formatter::Make(base));
+  return internal::make_unique<UnifiedDiffFormatter>(os, base, target,
+                                                     std::move(formatter));
 }
 
 }  // namespace arrow

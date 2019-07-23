@@ -169,14 +169,6 @@ TEST_F(DiffTest, Errors) {
 
   ASSERT_FALSE(base_->Equals(*target_, EqualOptions().diff_sink(&formatted)));
   ASSERT_EQ(formatted.str(), R"(# Array types differed: int32 vs string)");
-
-  base_ = ArrayFromJSON(struct_({}), "[]");
-  target_ = ArrayFromJSON(struct_({}), "[{}]");
-  ASSERT_RAISES(NotImplemented, Diff(*base_, *target_, default_memory_pool(), &edits_));
-
-  formatted.str("");
-  ASSERT_FALSE(base_->Equals(*target_, EqualOptions().diff_sink(&formatted)));
-  ASSERT_EQ(formatted.str(), R"(# Arrays of struct<> differed)");
 }
 
 TYPED_TEST_CASE(DiffTestWithNumeric, NumericArrowTypes);
@@ -353,6 +345,56 @@ TEST_F(DiffTest, BasicsWithLists) {
   ASSERT_EQ(run_lengths_->Value(2), 0);
 }
 
+TEST_F(DiffTest, BasicsWithStructs) {
+  auto type = struct_({field("foo", utf8()), field("bar", int32())});
+
+  // insert one
+  base_ = ArrayFromJSON(type, R"([{"foo": "!", "bar": 3}, {}, {"bar": 13}])");
+  target_ =
+      ArrayFromJSON(type, R"([{"foo": "!", "bar": 3}, {"foo": "?"}, {}, {"bar": 13}])");
+  DoDiff();
+  ASSERT_EQ(edits_->length(), 2);
+  ASSERT_EQ(insert_->Value(0), false);
+  ASSERT_EQ(run_lengths_->Value(0), 1);
+  ASSERT_EQ(insert_->Value(1), true);
+  ASSERT_EQ(run_lengths_->Value(1), 2);
+
+  // delete one
+  base_ =
+      ArrayFromJSON(type, R"([{"foo": "!", "bar": 3}, {"foo": "?"}, {}, {"bar": 13}])");
+  target_ = ArrayFromJSON(type, R"([{"foo": "!", "bar": 3}, {}, {"bar": 13}])");
+  DoDiff();
+  ASSERT_EQ(edits_->length(), 2);
+  ASSERT_EQ(insert_->Value(0), false);
+  ASSERT_EQ(run_lengths_->Value(0), 1);
+  ASSERT_EQ(insert_->Value(1), false);
+  ASSERT_EQ(run_lengths_->Value(1), 2);
+
+  // change one
+  base_ = ArrayFromJSON(type, R"([{"foo": "!", "bar": 3}, {}, {"bar": 13}])");
+  target_ = ArrayFromJSON(type, R"([{"foo": "!", "bar": 2}, {}, {"bar": 13}])");
+  DoDiff();
+  ASSERT_EQ(edits_->length(), 3);
+  ASSERT_EQ(insert_->Value(0), false);
+  ASSERT_EQ(run_lengths_->Value(0), 0);
+  ASSERT_EQ(insert_->Value(1), false);
+  ASSERT_EQ(run_lengths_->Value(1), 0);
+  ASSERT_EQ(insert_->Value(2), true);
+  ASSERT_EQ(run_lengths_->Value(2), 2);
+
+  // null out one
+  base_ = ArrayFromJSON(type, R"([{"foo": "!", "bar": 3}, {}, {"bar": 13}])");
+  target_ = ArrayFromJSON(type, R"([{"foo": "!", "bar": 3}, {}, null])");
+  DoDiff();
+  ASSERT_EQ(edits_->length(), 3);
+  ASSERT_EQ(insert_->Value(0), false);
+  ASSERT_EQ(run_lengths_->Value(0), 2);
+  ASSERT_EQ(insert_->Value(1), false);
+  ASSERT_EQ(run_lengths_->Value(1), 0);
+  ASSERT_EQ(insert_->Value(2), true);
+  ASSERT_EQ(run_lengths_->Value(2), 0);
+}
+
 TEST_F(DiffTest, UnifiedDiffFormatter) {
   // no changes
   base_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break"])");
@@ -399,12 +441,19 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
   target_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [5, 9], [], [13]])");
   AssertDiffAndFormat(R"(
 @@ -1, +1 @@
-+ [
-   5,
-   9
- ]
++[5, 9]
 @@ -3, +4 @@
-- []
+-[]
+)");
+
+  // structs
+  auto type = struct_({field("foo", utf8()), field("bar", int32())});
+  base_ = ArrayFromJSON(type, R"([{"foo": "!", "bar": 3}, {}, {"bar": 13}])");
+  target_ = ArrayFromJSON(type, R"([{"foo": null, "bar": 2}, {}, {"bar": 13}])");
+  AssertDiffAndFormat(R"(
+@@ -0, +0 @@
+-{foo: "!", bar: 3}
++{bar: 2}
 )");
 
   // small difference
