@@ -20,6 +20,8 @@
 # mirror for downloading dependencies, e.g. in CMake
 
 import json
+import warnings
+
 try:
     import requests
 
@@ -35,6 +37,14 @@ except ImportError:
     def get_url(url):
         return urlopen(url).read()
 
-suggested_mirror = get_url('https://www.apache.org/dyn/'
-                           'closer.cgi?as_json=1')
-print(json.loads(suggested_mirror.decode('utf-8'))['preferred'])
+url = 'https://www.apache.org/dyn/closer.cgi?as_json=1'
+
+try:
+    suggested_mirror = get_url(url)
+except Exception as e:
+    warnings.warn("Failed loading {url!r}: {e}".format(**locals()),
+                  RuntimeWarning)
+    # Well-known mirror, in case the URL above fails loading
+    print("http://apache.osuosl.org/")
+else:
+    print(json.loads(suggested_mirror.decode('utf-8'))['preferred'])

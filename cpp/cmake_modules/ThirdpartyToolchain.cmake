@@ -40,11 +40,10 @@ set(APACHE_MIRROR "")
 
 macro(get_apache_mirror)
   if(APACHE_MIRROR STREQUAL "")
-    exec_program(${PYTHON_EXECUTABLE}
-                 ARGS
-                 ${CMAKE_SOURCE_DIR}/build-support/get_apache_mirror.py
-                 OUTPUT_VARIABLE
-                 APACHE_MIRROR)
+    execute_process(COMMAND ${PYTHON_EXECUTABLE}
+                            ${CMAKE_SOURCE_DIR}/build-support/get_apache_mirror.py
+                    OUTPUT_VARIABLE APACHE_MIRROR
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
   endif()
 endmacro()
 
