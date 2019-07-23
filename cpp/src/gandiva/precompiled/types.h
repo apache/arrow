@@ -96,6 +96,7 @@ int64 date_add_int32_timestamp(int32, timestamp);
 int64 add_int64_timestamp(int64, timestamp);
 int64 add_int32_timestamp(int32, timestamp);
 int64 date_add_int64_timestamp(int64, timestamp);
+timestamp add_date64_int64(date64, int64);
 
 int64 date_sub_int32_timestamp(int32, timestamp);
 int64 subtract_int32_timestamp(int32, timestamp);
