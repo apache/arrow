@@ -265,7 +265,10 @@ def get_library_dirs():
             # pkg-config output could be empty if Arrow is installed
             # as a system package.
             if library_dir:
-                assert library_dir.startswith("-L")
+                if not library_dir.startswith("-L"):
+                    raise ValueError(
+                        "pkg-config --libs-only-L returned unexpected "
+                        "value {0!r}".format(library_dir))
                 append_library_dir(library_dir[2:])
 
     if _sys.platform == 'win32':
