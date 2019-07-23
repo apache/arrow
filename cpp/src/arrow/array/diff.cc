@@ -531,6 +531,7 @@ class Formatter {
   Status Visit(const ListArray& arr) {
     struct ListImpl : Impl {
       ListImpl(Formatter f) : values_formatter_(std::move(f)) {}
+
       void Format(const Array& array, int64_t index, std::ostream* os) override {
         const auto& list_array = checked_cast<const ListArray&>(array);
         *os << "[";
@@ -542,8 +543,10 @@ class Formatter {
         }
         *os << "]";
       }
+
       Formatter values_formatter_;
     };
+
     ARROW_ASSIGN_OR_RAISE(auto values_formatter, Formatter::Make(*arr.values()));
     impl_.reset(new ListImpl(std::move(values_formatter)));
     return Status::OK();
@@ -552,6 +555,7 @@ class Formatter {
   Status Visit(const StructArray& arr) {
     struct StructImpl : Impl {
       StructImpl(std::vector<Formatter> f) : field_formatters_(std::move(f)) {}
+
       void Format(const Array& array, int64_t index, std::ostream* os) override {
         const auto& struct_array = checked_cast<const StructArray&>(array);
         *os << "{";
@@ -568,13 +572,75 @@ class Formatter {
         }
         *os << "}";
       }
+
       std::vector<Formatter> field_formatters_;
     };
+
     std::vector<Formatter> field_formatters(arr.num_fields());
     for (int i = 0; i < arr.num_fields(); ++i) {
       ARROW_ASSIGN_OR_RAISE(field_formatters[i], Formatter::Make(*arr.field(i)));
     }
+
     impl_.reset(new StructImpl(std::move(field_formatters)));
+    return Status::OK();
+  }
+
+  Status Visit(const UnionArray& arr) {
+    struct UnionImpl : Impl {
+      UnionImpl(std::vector<Formatter> f, std::vector<int> c)
+          : field_formatters_(std::move(f)), type_id_to_child_index_(std::move(c)) {}
+
+      void DoFormat(const UnionArray& array, int64_t index, int64_t child_index,
+                    std::ostream* os) {
+        auto type_id = array.raw_type_ids()[index];
+        const auto& child = *array.child(type_id_to_child_index_[type_id]);
+
+        *os << "{" << static_cast<int16_t>(type_id) << ": ";
+        if (child.IsNull(child_index)) {
+          *os << "null";
+        } else {
+          field_formatters_[type_id](child, child_index, os);
+        }
+        *os << "}";
+      }
+
+      std::vector<Formatter> field_formatters_;
+      std::vector<int> type_id_to_child_index_;
+    };
+
+    struct SparseImpl : UnionImpl {
+      using UnionImpl::UnionImpl;
+
+      void Format(const Array& array, int64_t index, std::ostream* os) override {
+        const auto& union_array = checked_cast<const UnionArray&>(array);
+        DoFormat(union_array, index, index, os);
+      }
+    };
+
+    struct DenseImpl : UnionImpl {
+      using UnionImpl::UnionImpl;
+
+      void Format(const Array& array, int64_t index, std::ostream* os) override {
+        const auto& union_array = checked_cast<const UnionArray&>(array);
+        DoFormat(union_array, index, union_array.raw_value_offsets()[index], os);
+      }
+    };
+
+    std::vector<Formatter> field_formatters(arr.union_type()->max_type_code() + 1);
+    std::vector<int> type_id_to_child_index(field_formatters.size());
+    for (int i = 0; i < arr.num_fields(); ++i) {
+      auto type_id = arr.union_type()->type_codes()[i];
+      type_id_to_child_index[type_id] = i;
+      ARROW_ASSIGN_OR_RAISE(field_formatters[type_id], Formatter::Make(*arr.child(i)));
+    }
+
+    if (arr.union_type()->mode() == UnionMode::SPARSE) {
+      impl_.reset(
+          new SparseImpl(std::move(field_formatters), std::move(type_id_to_child_index)));
+    } else {
+      impl_.reset(
+          new DenseImpl(std::move(field_formatters), std::move(type_id_to_child_index)));
+    }
     return Status::OK();
   }
 

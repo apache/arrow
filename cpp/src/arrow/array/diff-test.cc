@@ -395,6 +395,54 @@ TEST_F(DiffTest, BasicsWithStructs) {
   ASSERT_EQ(run_lengths_->Value(2), 0);
 }
 
+TEST_F(DiffTest, BasicsWithUnions) {
+  auto type = union_({field("foo", utf8()), field("bar", int32())}, {2, 5});
+
+  // insert one
+  base_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], [5, 13]])");
+  target_ = ArrayFromJSON(type, R"([[2, "!"], [2, "?"], [5, 3], [5, 13]])");
+  DoDiff();
+  ASSERT_EQ(edits_->length(), 2);
+  ASSERT_EQ(insert_->Value(0), false);
+  ASSERT_EQ(run_lengths_->Value(0), 1);
+  ASSERT_EQ(insert_->Value(1), true);
+  ASSERT_EQ(run_lengths_->Value(1), 2);
+
+  // delete one
+  base_ = ArrayFromJSON(type, R"([[2, "!"], [2, "?"], [5, 3], [5, 13]])");
+  target_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], [5, 13]])");
+  DoDiff();
+  ASSERT_EQ(edits_->length(), 2);
+  ASSERT_EQ(insert_->Value(0), false);
+  ASSERT_EQ(run_lengths_->Value(0), 1);
+  ASSERT_EQ(insert_->Value(1), false);
+  ASSERT_EQ(run_lengths_->Value(1), 2);
+
+  // change one
+  base_ = ArrayFromJSON(type, R"([[5, 3], [2, "!"], [5, 13]])");
+  target_ = ArrayFromJSON(type, R"([[2, "3"], [2, "!"], [5, 13]])");
+  DoDiff();
+  ASSERT_EQ(edits_->length(), 3);
+  ASSERT_EQ(insert_->Value(0), false);
+  ASSERT_EQ(run_lengths_->Value(0), 0);
+  ASSERT_EQ(insert_->Value(1), false);
+  ASSERT_EQ(run_lengths_->Value(1), 0);
+  ASSERT_EQ(insert_->Value(2), true);
+  ASSERT_EQ(run_lengths_->Value(2), 2);
+
+  // null out one
+  base_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], [5, 13]])");
+  target_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], null])");
+  DoDiff();
+  ASSERT_EQ(edits_->length(), 3);
+  ASSERT_EQ(insert_->Value(0), false);
+  ASSERT_EQ(run_lengths_->Value(0), 2);
+  ASSERT_EQ(insert_->Value(1), false);
+  ASSERT_EQ(run_lengths_->Value(1), 0);
+  ASSERT_EQ(insert_->Value(2), true);
+  ASSERT_EQ(run_lengths_->Value(2), 0);
+}
+
 TEST_F(DiffTest, UnifiedDiffFormatter) {
   // no changes
   base_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break"])");
@@ -455,6 +503,18 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
 -{foo: "!", bar: 3}
 +{bar: 2}
 )");
+
+  // unions
+  for (auto mode : {UnionMode::SPARSE, UnionMode::DENSE}) {
+    type = union_({field("foo", utf8()), field("bar", int32())}, {2, 5}, mode);
+    base_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], [5, 13]])");
+    target_ = ArrayFromJSON(type, R"([[2, "!"], [2, "3"], [5, 13]])");
+    AssertDiffAndFormat(R"(
+@@ -1, +1 @@
+-{5: 3}
++{2: "3"}
+)");
+  }
 
   // small difference
   base_ = ArrayFromJSON(uint16(), "[0, 1, 2, 3, 5, 8, 11, 13, 17]");
