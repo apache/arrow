@@ -955,11 +955,11 @@ TEST(TestDenseUnion, ListOfUnion) {
   auto union_type = union_({field_a, field_b}, {4, 8}, UnionMode::DENSE);
   auto list_type = list(union_type);
   auto array =
-      checked_pointer_cast<UnionArray>(ArrayFromJSON(list_type,
-                                                     "["
-                                                     "[[4, 122], [8, true]],"
-                                                     "[[4, null], null, [8, false]]"
-                                                     "]"));
+      checked_pointer_cast<ListArray>(ArrayFromJSON(list_type,
+                                                    "["
+                                                    "[[4, 122], [8, true]],"
+                                                    "[[4, null], null, [8, false]]"
+                                                    "]"));
 
   auto expected_types = ArrayFromJSON(int8(), "[4, 8, 4, null, 8]");
   auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 1, 0, 1]");
@@ -977,9 +977,11 @@ TEST(TestDenseUnion, ListOfUnion) {
   ASSERT_ARRAYS_EQUAL(*expected, *array);
 
   // ensure that the array is as dense as we expect
-  ASSERT_TRUE(array->value_offsets()->Equals(*expected_offsets->data()->buffers[1]));
-  ASSERT_ARRAYS_EQUAL(*expected_a, *array->child(0));
-  ASSERT_ARRAYS_EQUAL(*expected_b, *array->child(1));
+  auto array_values = checked_pointer_cast<UnionArray>(array->values());
+  ASSERT_TRUE(array_values->value_offsets()->Equals(
+      *checked_pointer_cast<UnionArray>(expected_values)->value_offsets()));
+  ASSERT_ARRAYS_EQUAL(*expected_a, *array_values->child(0));
+  ASSERT_ARRAYS_EQUAL(*expected_b, *array_values->child(1));
 }
 
 TEST(TestSparseUnion, ListOfUnion) {
