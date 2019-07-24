@@ -64,10 +64,11 @@
 #' @param metadata currently ignored
 #'
 #' @examples
+#' \donttest{
 #' try({
 #'    field("x", int32())
 #' })
-#'
+#' }
 #' @export
 field <- function(name, type, metadata) {
   assert_that(inherits(name, "character"), length(name) == 1L)

@@ -22,6 +22,7 @@ A \code{data.frame} if \code{as_tibble} is \code{TRUE} (the default), or a \link
 Read a Feather file
 }
 \examples{
+\donttest{
 try({
   tf <- tempfile()
   on.exit(unlink(tf))
@@ -31,4 +32,5 @@ try({
   # Can select columns
   df <- read_feather(tf, col_select = starts_with("Sepal"))
 })
+}
 }

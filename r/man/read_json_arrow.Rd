@@ -24,6 +24,7 @@ A \code{data.frame}, or an \code{arrow::Table} if \code{as_tibble = FALSE}.
 Use \link[=arrow__json__TableReader]{arrow::json::TableReader} from \code{\link[=json_table_reader]{json_table_reader()}}
 }
 \examples{
+\donttest{
 try({
   tf <- tempfile()
   on.exit(unlink(tf))
@@ -34,4 +35,5 @@ try({
   ', tf, useBytes=TRUE)
   df <- read_json_arrow(tf)
 })
+}
 }

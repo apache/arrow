@@ -15,9 +15,11 @@ write_feather(data, stream)
 Write data in the Feather format
 }
 \examples{
+\donttest{
 try({
   tf <- tempfile()
   on.exit(unlink(tf))
   write_feather(mtcars, tf)
 })
+}
 }

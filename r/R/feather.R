@@ -62,11 +62,13 @@ FeatherTableWriter <- function(stream) {
 #'
 #' @export
 #' @examples
+#' \donttest{
 #' try({
 #'   tf <- tempfile()
 #'   on.exit(unlink(tf))
 #'   write_feather(mtcars, tf)
 #' })
+#' }
 write_feather <- function(data, stream) {
   UseMethod("write_feather", data)
 }
@@ -176,6 +178,7 @@ FeatherTableReader.fs_path <- function(file, mmap = TRUE, ...) {
 #'
 #' @export
 #' @examples
+#' \donttest{
 #' try({
 #'   tf <- tempfile()
 #'   on.exit(unlink(tf))
@@ -185,6 +188,7 @@ FeatherTableReader.fs_path <- function(file, mmap = TRUE, ...) {
 #'   # Can select columns
 #'   df <- read_feather(tf, col_select = starts_with("Sepal"))
 #' })
+#' }
 read_feather <- function(file, col_select = NULL, as_tibble = TRUE, ...){
   reader <- FeatherTableReader(file, ...)
 

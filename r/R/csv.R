@@ -62,6 +62,7 @@
 #' @return A `data.frame`, or an `arrow::Table` if `as_tibble = FALSE`.
 #' @export
 #' @examples
+#' \donttest{
 #' try({
 #'   tf <- tempfile()
 #'   on.exit(unlink(tf))
@@ -71,6 +72,7 @@
 #'   # Can select columns
 #'   df <- read_csv_arrow(tf, col_select = starts_with("Sepal"))
 #' })
+#' }
 read_delim_arrow <- function(file,
                              delim = ",",
                              quote = '"',
