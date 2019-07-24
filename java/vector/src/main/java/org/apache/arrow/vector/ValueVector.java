@@ -272,4 +272,29 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    * @param from      source vector
    */
   void copyFromSafe(int fromIndex, int thisIndex, ValueVector from);
+
+  /**
+   * Check whether this vector equals to target vector.
+   * @param target target vector
+   * @return true if they have same type and elements, otherwise false
+   */
+  default boolean equals(ValueVector target) {
+    if (this == target) {
+      return true;
+    }
+    if (target == null || this.getClass() != target.getClass()) {
+      return false;
+    }
+
+    if (this.getValueCount() != target.getValueCount()) {
+      return false;
+    }
+
+    for (int i = 0; i < getValueCount(); i++) {
+      if (!equals(i, target, i)) {
+        return false;
+      }
+    }
+    return true;
+  }
 }

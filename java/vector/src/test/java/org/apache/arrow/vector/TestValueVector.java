@@ -36,12 +36,21 @@ import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.ArrowBufPointer;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.complex.impl.NullableStructWriter;
+import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.holders.NullableIntHolder;
+import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableVarBinaryHolder;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.Text;
@@ -51,7 +60,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import io.netty.buffer.ArrowBuf;
-
 
 public class TestValueVector {
 
@@ -2244,5 +2252,191 @@ public class TestValueVector {
       assertNull(varCharVector.get(0));
       assertNull(varBinaryVector.get(0));
     }
+  }
+
+  @Test
+  public void testIntVectorEquals() {
+    try (final IntVector vector1 = new IntVector("v1", allocator);
+        final IntVector vector2 = new IntVector("v2", allocator)) {
+
+      vector1.allocateNew(3);
+      vector1.setValueCount(3);
+      vector2.allocateNew(3);
+      vector2.setValueCount(2);
+
+      vector1.setSafe(0, 1);
+      vector1.setSafe(1, 2);
+      vector1.setSafe(2, 3);
+
+      vector2.setSafe(0, 1);
+      vector2.setSafe(1, 2);
+
+      assertFalse(vector1.equals(vector2));
+
+      vector2.setValueCount(3);
+      vector2.setSafe(2, 2);
+      assertFalse(vector1.equals(vector2));
+
+      vector2.setSafe(2, 3);
+      assertTrue(vector1.equals(vector2));
+    }
+  }
+
+  @Test
+  public void testVarcharEquals() {
+    try (final VarCharVector vector1 = new VarCharVector("v1", allocator);
+        final VarCharVector vector2 = new VarCharVector("v2", allocator)) {
+
+      vector1.allocateNew();
+      vector2.allocateNew();
+
+      // set some values
+      vector1.setSafe(0, STR1, 0, STR1.length);
+      vector1.setSafe(1, STR2, 0, STR2.length);
+      vector1.setSafe(2, STR3, 0, STR3.length);
+      vector1.setValueCount(3);
+
+      vector2.setSafe(0, STR1, 0, STR1.length);
+      vector2.setSafe(1, STR2, 0, STR2.length);
+      vector2.setValueCount(2);
+      assertFalse(vector1.equals(vector2));
+
+      vector2.setSafe(2, STR3, 0, STR3.length);
+      vector2.setValueCount(3);
+      assertTrue(vector1.equals(vector2));
+    }
+  }
+
+  @Test
+  public void testVarBinaryEquals() {
+    try (final VarBinaryVector vector1 = new VarBinaryVector("v1", allocator);
+        final VarBinaryVector vector2 = new VarBinaryVector("v2", allocator)) {
+
+      vector1.allocateNew();
+      vector2.allocateNew();
+
+      // set some values
+      vector1.setSafe(0, STR1, 0, STR1.length);
+      vector1.setSafe(1, STR2, 0, STR2.length);
+      vector1.setSafe(2, STR3, 0, STR3.length);
+      vector1.setValueCount(3);
+
+      vector2.setSafe(0, STR1, 0, STR1.length);
+      vector2.setSafe(1, STR2, 0, STR2.length);
+      vector2.setValueCount(2);
+      assertFalse(vector1.equals(vector2));
+
+      vector2.setSafe(2, STR3, 0, STR3.length);
+      vector2.setValueCount(3);
+      assertTrue(vector1.equals(vector2));
+    }
+  }
+
+  @Test
+  public void testListEquals() {
+    try (final ListVector vector1 = ListVector.empty("v1", allocator);
+        final ListVector vector2 = ListVector.empty("v2", allocator);) {
+
+      UnionListWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      //set some values
+      writeListVector(writer1, new int[] {1, 2});
+      writeListVector(writer1, new int[] {3, 4});
+      writeListVector(writer1, new int[] {5, 6});
+      writer1.setValueCount(3);
+
+      UnionListWriter writer2 = vector2.getWriter();
+      writer2.allocate();
+
+      //set some values
+      writeListVector(writer2, new int[] {1, 2});
+      writeListVector(writer2, new int[] {3, 4});
+      writer2.setValueCount(2);
+      assertFalse(vector1.equals(vector2));
+
+      writeListVector(writer2, new int[] {5, 6});
+      writer2.setValueCount(3);
+
+      assertTrue(vector1.equals(vector2));
+    }
+  }
+
+  @Test
+  public void testStructEquals() {
+    try (final StructVector vector1 = StructVector.empty("v1", allocator);
+        final StructVector vector2 = StructVector.empty("v2", allocator);) {
+      vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
+      vector1.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
+      vector2.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
+      vector2.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
+
+      NullableStructWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      writeStructVector(writer1, 1, 10L);
+      writeStructVector(writer1, 2, 20L);
+      writeStructVector(writer1, 3, 30L);
+      writer1.setValueCount(3);
+
+      NullableStructWriter writer2 = vector2.getWriter();
+      writer2.allocate();
+
+      writeStructVector(writer2, 1, 10L);
+      writeStructVector(writer2, 2, 20L);
+      writer2.setValueCount(2);
+      assertFalse(vector1.equals(vector2));
+
+      writeStructVector(writer2, 3, 30L);
+      writer2.setValueCount(3);
+
+      assertTrue(vector1.equals(vector2));
+    }
+  }
+
+  @Test
+  public void testUnionEquals() {
+    try (final UnionVector vector1 = new UnionVector("v1", allocator, null);
+        final UnionVector vector2 = new UnionVector("v2", allocator, null);) {
+
+      final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
+      uInt4Holder.value = 10;
+      uInt4Holder.isSet = 1;
+
+      final NullableIntHolder intHolder = new NullableIntHolder();
+      uInt4Holder.value = 20;
+      uInt4Holder.isSet = 1;
+
+      vector1.setType(0, Types.MinorType.UINT4);
+      vector1.setSafe(0, uInt4Holder);
+
+      vector1.setType(1, Types.MinorType.INT);
+      vector1.setSafe(1, intHolder);
+      vector1.setValueCount(2);
+
+      vector2.setType(0, Types.MinorType.UINT4);
+      vector2.setSafe(0, uInt4Holder);
+
+      vector2.setType(1, Types.MinorType.INT);
+      vector2.setSafe(1, intHolder);
+      vector2.setValueCount(2);
+
+      assertTrue(vector1.equals(vector2));
+    }
+  }
+
+  private void writeStructVector(NullableStructWriter writer, int value1, long value2) {
+    writer.start();
+    writer.integer("f0").writeInt(value1);
+    writer.bigInt("f1").writeBigInt(value2);
+    writer.end();
+  }
+
+  private void writeListVector(UnionListWriter writer, int[] values) {
+    writer.startList();
+    for (int v: values) {
+      writer.integer().writeInt(v);
+    }
+    writer.endList();
   }
 }
