@@ -73,7 +73,6 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
 
       NativeFunction("truncate", {"trunc"}, DataTypeVector{int64(), int32()}, int64(),
                      kResultNullIfNull, "truncate_int64_int32"),
-
   };
 
   return math_fn_registry_;
