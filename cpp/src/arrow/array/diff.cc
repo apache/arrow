@@ -469,7 +469,7 @@ class Formatter {
 
   template <typename Fn>
   struct FnImpl : Impl {
-    FnImpl(Fn fn) : fn_(std::move(fn)) {}
+    explicit FnImpl(Fn fn) : fn_(std::move(fn)) {}
     void Format(const Array& array, int64_t index, std::ostream* os) override {
       fn_(array, index, os);
     }
@@ -530,7 +530,7 @@ class Formatter {
 
   Status Visit(const ListArray& arr) {
     struct ListImpl : Impl {
-      ListImpl(Formatter f) : values_formatter_(std::move(f)) {}
+      explicit ListImpl(Formatter f) : values_formatter_(std::move(f)) {}
 
       void Format(const Array& array, int64_t index, std::ostream* os) override {
         const auto& list_array = checked_cast<const ListArray&>(array);
@@ -556,7 +556,7 @@ class Formatter {
 
   Status Visit(const StructArray& arr) {
     struct StructImpl : Impl {
-      StructImpl(std::vector<Formatter> f) : field_formatters_(std::move(f)) {}
+      explicit StructImpl(std::vector<Formatter> f) : field_formatters_(std::move(f)) {}
 
       void Format(const Array& array, int64_t index, std::ostream* os) override {
         const auto& struct_array = checked_cast<const StructArray&>(array);
