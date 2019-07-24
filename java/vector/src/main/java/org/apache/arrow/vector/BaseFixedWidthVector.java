@@ -23,9 +23,10 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.ArrowBufPointer;
+import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.util.ByteFunctionHelpers;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
@@ -837,6 +838,21 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   public void copyFromSafe(int fromIndex, int thisIndex, BaseFixedWidthVector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
+  }
+
+  @Override
+  public ArrowBufPointer getDataPointer(int index) {
+    return getDataPointer(index, new ArrowBufPointer());
+  }
+
+  @Override
+  public ArrowBufPointer getDataPointer(int index, ArrowBufPointer reuse) {
+    if (isNull(index)) {
+      reuse.set(null, 0, 0);
+    } else {
+      reuse.set(valueBuffer, index * typeWidth, typeWidth);
+    }
+    return reuse;
   }
 
   @Override

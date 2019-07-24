@@ -35,6 +35,7 @@ import java.util.List;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.vector.holders.NullableVarBinaryHolder;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
@@ -2162,6 +2163,75 @@ public class TestValueVector {
   }
 
   @Test
+  public void testGetPointerFixedWidth() {
+    final int vectorLength = 100;
+    try (IntVector vec1 = new IntVector("vec1", allocator);
+         IntVector vec2 = new IntVector("vec2", allocator)) {
+      vec1.allocateNew(vectorLength);
+      vec2.allocateNew(vectorLength);
+
+      for (int i = 0; i < vectorLength; i++) {
+        if (i % 10 == 0) {
+          vec1.setNull(i);
+          vec2.setNull(i);
+        } else {
+          vec1.set(i, i * 1234);
+          vec2.set(i, i * 1234);
+        }
+      }
+
+      ArrowBufPointer ptr1 = new ArrowBufPointer();
+      ArrowBufPointer ptr2 = new ArrowBufPointer();
+
+      for (int i = 0; i < vectorLength; i++) {
+        vec1.getDataPointer(i, ptr1);
+        vec2.getDataPointer(i, ptr2);
+
+        if (i % 10 == 0) {
+          assertNull(ptr1.getBuf());
+          assertNull(ptr2.getBuf());
+        }
+
+        assertTrue(ptr1.equals(ptr2));
+        assertTrue(ptr2.equals(ptr2));
+      }
+    }
+  }
+
+  @Test
+  public void testGetPointerVariableWidth() {
+    final String[] sampleData = new String[]{
+      "abc", "123", "def", null, "hello", "aaaaa", "world", "2019", null, "0717"};
+
+    try (VarCharVector vec1 = new VarCharVector("vec1", allocator);
+         VarCharVector vec2 = new VarCharVector("vec2", allocator)) {
+      vec1.allocateNew(sampleData.length * 10, sampleData.length);
+      vec2.allocateNew(sampleData.length * 10, sampleData.length);
+
+      for (int i = 0; i < sampleData.length; i++) {
+        String str = sampleData[i];
+        if (str != null) {
+          vec1.set(i, sampleData[i].getBytes());
+          vec2.set(i, sampleData[i].getBytes());
+        } else {
+          vec1.setNull(i);
+          vec2.setNull(i);
+        }
+      }
+
+      ArrowBufPointer ptr1 = new ArrowBufPointer();
+      ArrowBufPointer ptr2 = new ArrowBufPointer();
+
+      for (int i = 0; i < sampleData.length; i++) {
+        vec1.getDataPointer(i, ptr1);
+        vec2.getDataPointer(i, ptr2);
+
+        assertTrue(ptr1.equals(ptr2));
+        assertTrue(ptr2.equals(ptr2));
+      }
+    }
+  }
+
   public void testGetNullFromVariableWidthVector() {
     try (VarCharVector varCharVector = new VarCharVector("varcharvec", allocator);
     VarBinaryVector varBinaryVector = new VarBinaryVector("varbinary", allocator)) {

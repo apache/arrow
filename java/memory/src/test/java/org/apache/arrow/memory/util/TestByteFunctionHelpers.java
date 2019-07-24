@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector.util;
+package org.apache.arrow.memory.util;
 
 import static org.junit.Assert.assertEquals;
 
