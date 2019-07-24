@@ -2283,7 +2283,7 @@ public class TestValueVector {
   }
 
   @Test
-  public void testVarcharEquals() {
+  public void testVarcharVectorEquals() {
     try (final VarCharVector vector1 = new VarCharVector("v1", allocator);
         final VarCharVector vector2 = new VarCharVector("v2", allocator)) {
 
@@ -2308,7 +2308,7 @@ public class TestValueVector {
   }
 
   @Test
-  public void testVarBinaryEquals() {
+  public void testVarBinaryVectorEquals() {
     try (final VarBinaryVector vector1 = new VarBinaryVector("v1", allocator);
         final VarBinaryVector vector2 = new VarBinaryVector("v2", allocator)) {
 
@@ -2333,7 +2333,7 @@ public class TestValueVector {
   }
 
   @Test
-  public void testListEquals() {
+  public void testListVectorEquals() {
     try (final ListVector vector1 = ListVector.empty("v1", allocator);
         final ListVector vector2 = ListVector.empty("v2", allocator);) {
 
@@ -2363,7 +2363,7 @@ public class TestValueVector {
   }
 
   @Test
-  public void testStructEquals() {
+  public void testStructVectorEquals() {
     try (final StructVector vector1 = StructVector.empty("v1", allocator);
         final StructVector vector2 = StructVector.empty("v2", allocator);) {
       vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
@@ -2395,7 +2395,7 @@ public class TestValueVector {
   }
 
   @Test
-  public void testUnionEquals() {
+  public void testUnionVectorEquals() {
     try (final UnionVector vector1 = new UnionVector("v1", allocator, null);
         final UnionVector vector2 = new UnionVector("v2", allocator, null);) {
 
