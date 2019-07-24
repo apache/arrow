@@ -165,6 +165,8 @@ date64 castDATE_utf8(int64_t execution_context, const char* input, int32 length)
 
 timestamp castTIMESTAMP_utf8(int64_t execution_context, const char* input, int32 length);
 
+int64 truncate_int64_int32(int64 in, int32 out_scale);
+
 }  // extern "C"
 
 #endif  // PRECOMPILED_TYPES_H
