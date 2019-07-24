@@ -100,6 +100,12 @@ public class AvroToArrowUtils {
     }
   }
 
+  private static Map<String, String> getMetaData(Schema schema) {
+    Map<String, String> metadata = new HashMap<>();
+    schema.getObjectProps().forEach((k,v) -> metadata.put(k, v.toString()));
+    return metadata;
+  }
+
   /**
    * Create Arrow {@link org.apache.arrow.vector.types.pojo.Schema} object for the given Avro {@link Schema}.
    */
@@ -109,11 +115,17 @@ public class AvroToArrowUtils {
     List<Field> arrowFields = new ArrayList<>();
 
     Schema.Type type = schema.getType();
-    final Map<String, String> metadata = new HashMap<>();
-    schema.getObjectProps().forEach((k,v) -> metadata.put(k, v.toString()));
+    final Map<String, String> metadata = getMetaData(schema);
 
     if (type == Type.RECORD) {
-      throw new UnsupportedOperationException();
+      for (Schema.Field field : schema.getFields()) {
+        final ArrowType arrowType = getArrowType(field.schema().getType());
+        final FieldType fieldType = new FieldType(/*nullable=*/false, arrowType, /*dictionary=*/null,
+            /*metadata=*/getMetaData(field.schema()));
+        List<Field> children = null;
+        //TODO support complex type (i.e. nested records, lists, etc )
+        arrowFields.add(new Field(field.name(), fieldType, children));
+      }
     } else if (type == Type.MAP) {
       throw new UnsupportedOperationException();
     } else if (type == Type.UNION) {

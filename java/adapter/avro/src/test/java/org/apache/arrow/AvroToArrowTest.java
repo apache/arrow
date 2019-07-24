@@ -37,7 +37,9 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.BinaryDecoder;
 import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
@@ -66,7 +68,7 @@ public class AvroToArrowTest {
     return new Schema.Parser().parse(schemaPath.toFile());
   }
 
-  private VectorSchemaRoot writeAndReadPrimitive(Schema schema, List data) throws Exception {
+  private VectorSchemaRoot writeAndRead(Schema schema, List data) throws Exception {
     File dataFile = TMP.newFile();
 
     BinaryEncoder encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
@@ -85,10 +87,25 @@ public class AvroToArrowTest {
     Schema schema = getSchema("test_primitive_string.avsc");
     ArrayList<String> data = new ArrayList(Arrays.asList("v1", "v2", "v3", "v4", "v5"));
 
-    VectorSchemaRoot root = writeAndReadPrimitive(schema, data);
+    VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
 
     checkPrimitiveResult(schema, data, vector);
+  }
+
+  @Test
+  public void testRecordType() throws Exception {
+    Schema schema = getSchema("test_record.avsc");
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      record.put(0, "test" + i);
+      record.put(1, i);
+      record.put(2, i % 2 == 0);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    checkRecordResult(schema, data, root);
   }
 
   @Test
@@ -96,7 +113,7 @@ public class AvroToArrowTest {
     Schema schema = getSchema("test_primitive_int.avsc");
     ArrayList<Integer> data = new ArrayList(Arrays.asList(1, 2, 3, 4, 5));
 
-    VectorSchemaRoot root = writeAndReadPrimitive(schema, data);
+    VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
 
     checkPrimitiveResult(schema, data, vector);
@@ -107,7 +124,7 @@ public class AvroToArrowTest {
     Schema schema = getSchema("test_primitive_long.avsc");
     ArrayList<Long> data = new ArrayList(Arrays.asList(1L, 2L, 3L, 4L, 5L));
 
-    VectorSchemaRoot root = writeAndReadPrimitive(schema, data);
+    VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
 
     checkPrimitiveResult(schema, data, vector);
@@ -118,7 +135,7 @@ public class AvroToArrowTest {
     Schema schema = getSchema("test_primitive_float.avsc");
     ArrayList<Float> data = new ArrayList(Arrays.asList(1.1f, 2.2f, 3.3f, 4.4f, 5.5f));
 
-    VectorSchemaRoot root = writeAndReadPrimitive(schema, data);
+    VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
 
     checkPrimitiveResult(schema, data, vector);
@@ -129,7 +146,7 @@ public class AvroToArrowTest {
     Schema schema = getSchema("test_primitive_double.avsc");
     ArrayList<Double> data = new ArrayList(Arrays.asList(1.1, 2.2, 3.3, 4.4, 5.5));
 
-    VectorSchemaRoot root = writeAndReadPrimitive(schema, data);
+    VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
 
     checkPrimitiveResult(schema, data, vector);
@@ -145,7 +162,7 @@ public class AvroToArrowTest {
         ByteBuffer.wrap("value4".getBytes(StandardCharsets.UTF_8)),
         ByteBuffer.wrap("value5".getBytes(StandardCharsets.UTF_8))));
 
-    VectorSchemaRoot root = writeAndReadPrimitive(schema, data);
+    VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
 
     checkPrimitiveResult(schema, data, vector);
@@ -156,7 +173,7 @@ public class AvroToArrowTest {
     Schema schema = getSchema("test_primitive_boolean.avsc");
     ArrayList<Boolean> data = new ArrayList(Arrays.asList(true, false, true, false, true));
 
-    VectorSchemaRoot root = writeAndReadPrimitive(schema, data);
+    VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
 
     checkPrimitiveResult(schema, data, vector);
@@ -174,5 +191,20 @@ public class AvroToArrowTest {
       }
       assertTrue(Objects.equals(value1, value2));
     }
+  }
+
+  private void checkRecordResult(Schema schema, ArrayList<GenericRecord> data, VectorSchemaRoot root) {
+    assertEquals(data.size(), root.getRowCount());
+    assertEquals(schema.getFields().size(), root.getFieldVectors().size());
+
+    for (int i = 0; i < schema.getFields().size(); i++) {
+      ArrayList fieldData = new ArrayList();
+      for (GenericRecord record : data) {
+        fieldData.add(record.get(i));
+      }
+
+      checkPrimitiveResult(schema.getFields().get(i).schema(), fieldData, root.getFieldVectors().get(i));
+    }
+
   }
 }

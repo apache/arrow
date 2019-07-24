@@ -34,6 +34,7 @@ public class AvroStringConsumer implements Consumer {
 
   private final VarCharVector vector;
   private final VarCharWriter writer;
+  private ByteBuffer cacheBuffer;
 
   public AvroStringConsumer(VarCharVector vector) {
     this.vector = vector;
@@ -43,12 +44,15 @@ public class AvroStringConsumer implements Consumer {
   @Override
   public void consume(Decoder decoder) throws IOException {
     VarCharHolder holder = new VarCharHolder();
-    ByteBuffer byteBuffer = decoder.readBytes(null);
+
+    // cacheBuffer is initialized null and create in the first consume,
+    // if its capacity < size to read, decoder will create a new one with new capacity.
+    cacheBuffer = decoder.readBytes(cacheBuffer);
 
     holder.start = 0;
-    holder.end = byteBuffer.capacity();
-    holder.buffer = vector.getAllocator().buffer(byteBuffer.capacity());
-    holder.buffer.setBytes(0, byteBuffer);
+    holder.end = cacheBuffer.limit();
+    holder.buffer = vector.getAllocator().buffer(cacheBuffer.limit());
+    holder.buffer.setBytes(0, cacheBuffer, 0, cacheBuffer.limit());
 
     writer.write(holder);
     writer.setPosition(writer.getPosition() + 1);
