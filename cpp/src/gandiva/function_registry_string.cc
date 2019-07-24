@@ -68,7 +68,14 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
 
       NativeFunction("like", {}, DataTypeVector{utf8(), utf8()}, boolean(),
                      kResultNullIfNull, "gdv_fn_like_utf8_utf8",
-                     NativeFunction::kNeedsFunctionHolder)};
+                     NativeFunction::kNeedsFunctionHolder),
+      NativeFunction("substr", {"substring"}, DataTypeVector{utf8(), int64(), int64()},
+                     utf8(), kResultNullIfNull, "substr_utf8_int64_int64",
+                     NativeFunction::kNeedsContext),
+      NativeFunction("substr", {"substring"}, DataTypeVector{utf8(), int64()}, utf8(),
+                     kResultNullIfNull, "substr_utf8_int64",
+                     NativeFunction::kNeedsContext),
+  };
 
   return string_fn_registry_;
 }

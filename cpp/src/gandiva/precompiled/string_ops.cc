@@ -189,4 +189,40 @@ VAR_LEN_TYPES(IS_NOT_NULL, isnotnull)
 
 #undef IS_NOT_NULL
 
+FORCE_INLINE
+char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_len,
+                              int64 offset64, int64 length, int32* out_len) {
+  if (length <= 0 || input == nullptr || in_len <= 0) {
+    *out_len = 0;
+    return nullptr;
+  }
+
+  int32 offset = static_cast<int32>(offset64);
+  int32 startIndex = offset - 1;
+  if (offset < 0) {
+    startIndex = in_len + offset;
+  } else if (offset == 0) {
+    startIndex = 0;
+  }
+
+  if (startIndex < 0 || startIndex >= in_len) {
+    *out_len = 0;
+    return nullptr;
+  }
+
+  *out_len = length;
+  if (length > in_len - startIndex) {
+    *out_len = in_len - startIndex;
+  }
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  memcpy(ret, input + startIndex, *out_len);
+  return ret;
+}
+
+FORCE_INLINE
+char* substr_utf8_int64(int64 context, const char* input, int32 in_len, int64 offset64,
+                        int32* out_len) {
+  return substr_utf8_int64_int64(context, input, in_len, offset64, in_len, out_len);
+}
+
 }  // extern "C"
