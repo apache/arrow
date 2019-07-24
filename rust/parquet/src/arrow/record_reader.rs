@@ -174,7 +174,7 @@ impl<T: DataType> RecordReader<T> {
     }
 
     /// Returns number of records stored in buffer.
-    pub fn records_num(&self) -> usize {
+    pub fn num_records(&self) -> usize {
         self.records_num
     }
 
@@ -475,9 +475,9 @@ mod tests {
             let page_reader = Box::new(TestPageReader::new(vec![page]));
             record_reader.set_page_reader(page_reader).unwrap();
             assert_eq!(2, record_reader.read_records(2).unwrap());
-            assert_eq!(2, record_reader.records_num());
+            assert_eq!(2, record_reader.num_records());
             assert_eq!(3, record_reader.read_records(3).unwrap());
-            assert_eq!(5, record_reader.records_num());
+            assert_eq!(5, record_reader.num_records());
         }
 
         // Second page
@@ -496,7 +496,7 @@ mod tests {
             let page_reader = Box::new(TestPageReader::new(vec![page]));
             record_reader.set_page_reader(page_reader).unwrap();
             assert_eq!(2, record_reader.read_records(10).unwrap());
-            assert_eq!(7, record_reader.records_num());
+            assert_eq!(7, record_reader.num_records());
         }
 
         let mut bb = Int32BufferBuilder::new(7);
@@ -553,9 +553,9 @@ mod tests {
             let page_reader = Box::new(TestPageReader::new(vec![page]));
             record_reader.set_page_reader(page_reader).unwrap();
             assert_eq!(2, record_reader.read_records(2).unwrap());
-            assert_eq!(2, record_reader.records_num());
+            assert_eq!(2, record_reader.num_records());
             assert_eq!(3, record_reader.read_records(3).unwrap());
-            assert_eq!(5, record_reader.records_num());
+            assert_eq!(5, record_reader.num_records());
         }
 
         // Second page
@@ -577,7 +577,7 @@ mod tests {
             let page_reader = Box::new(TestPageReader::new(vec![page]));
             record_reader.set_page_reader(page_reader).unwrap();
             assert_eq!(2, record_reader.read_records(10).unwrap());
-            assert_eq!(7, record_reader.records_num());
+            assert_eq!(7, record_reader.num_records());
         }
 
         // Verify result record data
@@ -652,9 +652,9 @@ mod tests {
             record_reader.set_page_reader(page_reader).unwrap();
 
             assert_eq!(1, record_reader.read_records(1).unwrap());
-            assert_eq!(1, record_reader.records_num());
+            assert_eq!(1, record_reader.num_records());
             assert_eq!(2, record_reader.read_records(3).unwrap());
-            assert_eq!(3, record_reader.records_num());
+            assert_eq!(3, record_reader.num_records());
         }
 
         // Second page
@@ -678,7 +678,7 @@ mod tests {
             record_reader.set_page_reader(page_reader).unwrap();
 
             assert_eq!(1, record_reader.read_records(10).unwrap());
-            assert_eq!(4, record_reader.records_num());
+            assert_eq!(4, record_reader.num_records());
         }
 
         // Verify result record data
@@ -740,7 +740,7 @@ mod tests {
             record_reader.set_page_reader(page_reader).unwrap();
 
             assert_eq!(1000, record_reader.read_records(1000).unwrap());
-            assert_eq!(1000, record_reader.records_num());
+            assert_eq!(1000, record_reader.num_records());
         }
     }
 }
