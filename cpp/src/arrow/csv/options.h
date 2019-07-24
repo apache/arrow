@@ -53,10 +53,6 @@ struct ARROW_EXPORT ParseOptions {
   // a single empty value (assuming a one-column CSV file).
   bool ignore_empty_lines = true;
 
-  // XXX Should this be in ReadOptions?
-  // Number of header rows to skip (including the first row containing column names)
-  int32_t header_rows = 1;
-
   static ParseOptions Defaults();
 };
 
@@ -88,6 +84,11 @@ struct ARROW_EXPORT ReadOptions {
   // Block size we request from the IO layer; also determines the size of
   // chunks when use_threads is true
   int32_t block_size = 1 << 20;  // 1 MB
+
+  // Number of header rows to skip (not including the row of column names, if any)
+  int32_t skip_rows = 0;
+  // Column names (if empty, will be read from first row after `skip_rows`)
+  std::vector<std::string> column_names;
 
   static ReadOptions Defaults();
 };

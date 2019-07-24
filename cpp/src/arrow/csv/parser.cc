@@ -40,6 +40,32 @@ static Status MismatchingColumns(int32_t expected, int32_t actual) {
 
 static inline bool IsControlChar(uint8_t c) { return c < ' '; }
 
+int32_t SkipRows(const uint8_t* data, uint32_t size, int32_t num_rows,
+                 const uint8_t** out_data) {
+  const auto end = data + size;
+  int32_t skipped_rows = 0;
+  *out_data = data;
+
+  for (; skipped_rows < num_rows; ++skipped_rows) {
+    uint8_t c;
+    do {
+      while (ARROW_PREDICT_FALSE(data < end && !IsControlChar(*data))) {
+        ++data;
+      }
+      if (ARROW_PREDICT_FALSE(data == end)) {
+        return skipped_rows;
+      }
+      c = *data++;
+    } while (c != '\r' && c != '\n');
+    if (c == '\r' && data < end && *data == '\n') {
+      ++data;
+    }
+    *out_data = data;
+  }
+
+  return skipped_rows;
+}
+
 template <bool Quoting, bool Escaping>
 class SpecializedOptions {
  public:

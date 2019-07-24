@@ -902,7 +902,6 @@ enum {
   PROP_ESCAPE_CHARACTER,
   PROP_ALLOW_NEWLINES_IN_VALUES,
   PROP_IGNORE_EMPTY_LINES,
-  PROP_N_HEADER_ROWS,
   PROP_CHECK_UTF8,
   PROP_ALLOW_NULL_STRINGS
 };
@@ -955,9 +954,6 @@ garrow_csv_read_options_set_property(GObject *object,
   case PROP_IGNORE_EMPTY_LINES:
     priv->parse_options.ignore_empty_lines = g_value_get_boolean(value);
     break;
-  case PROP_N_HEADER_ROWS:
-    priv->parse_options.header_rows = g_value_get_uint(value);
-    break;
   case PROP_CHECK_UTF8:
     priv->convert_options.check_utf8 = g_value_get_boolean(value);
     break;
@@ -1008,9 +1004,6 @@ garrow_csv_read_options_get_property(GObject *object,
     break;
   case PROP_IGNORE_EMPTY_LINES:
     g_value_set_boolean(value, priv->parse_options.ignore_empty_lines);
-    break;
-  case PROP_N_HEADER_ROWS:
-    g_value_set_uint(value, priv->parse_options.header_rows);
     break;
   case PROP_CHECK_UTF8:
     g_value_set_boolean(value, priv->convert_options.check_utf8);
@@ -1208,26 +1201,6 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
                                   PROP_IGNORE_EMPTY_LINES,
-                                  spec);
-
-  /**
-   * GArrowCSVReadOptions:n-header-rows:
-   *
-   * The number of header rows to skip (including the first row
-   * containing column names)
-   *
-   * Since: 0.12.0
-   */
-  spec = g_param_spec_uint("n-header-rows",
-                           "N header rows",
-                           "The number of header rows to skip "
-                           "(including the first row containing column names",
-                           0,
-                           G_MAXUINT,
-                           parse_options.header_rows,
-                           static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_N_HEADER_ROWS,
                                   spec);
 
   auto convert_options = arrow::csv::ConvertOptions::Defaults();

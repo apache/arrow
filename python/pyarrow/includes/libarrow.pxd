@@ -1056,7 +1056,6 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         c_bool double_quote
         c_bool escaping
         unsigned char escape_char
-        int32_t header_rows
         c_bool newlines_in_values
         c_bool ignore_empty_lines
 
@@ -1077,6 +1076,8 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
     cdef cppclass CCSVReadOptions" arrow::csv::ReadOptions":
         c_bool use_threads
         int32_t block_size
+        int32_t skip_rows
+        vector[c_string] column_names
 
         @staticmethod
         CCSVReadOptions Defaults()
