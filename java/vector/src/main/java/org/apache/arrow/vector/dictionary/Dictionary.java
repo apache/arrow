@@ -72,6 +72,7 @@ public class Dictionary {
     return Objects.hash(encoding, dictionary);
   }
 
+  //TODO after vector api support compare two vectors, this should be cleaned up
   private boolean compareFieldVector(FieldVector vector1, FieldVector vector2) {
     try {
       Validator.compareFieldVectors(vector1, vector2);
