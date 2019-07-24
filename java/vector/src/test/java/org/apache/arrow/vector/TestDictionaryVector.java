@@ -28,10 +28,14 @@ import java.util.Arrays;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
+import org.apache.arrow.vector.holders.NullableIntHolder;
+import org.apache.arrow.vector.holders.NullableUInt4Holder;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -323,6 +327,80 @@ public class TestDictionaryVector {
           assertEquals(vector.getValueCount(), decoded.getValueCount());
           for (int i = 0; i < 5; i++) {
             assertTrue(Arrays.equals(vector.getObject(i), decoded.getObject(i)));
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testEncodeUnion() {
+    // Create a new value vector
+    try (final UnionVector vector = new UnionVector("vector", allocator, null);
+        final UnionVector dictionaryVector = new UnionVector("dict", allocator, null);) {
+
+      final NullableUInt4Holder uintHolder1 = new NullableUInt4Holder();
+      uintHolder1.value = 10;
+      uintHolder1.isSet = 1;
+
+      final NullableIntHolder intHolder1 = new NullableIntHolder();
+      intHolder1.value = 10;
+      intHolder1.isSet = 1;
+
+      final NullableIntHolder intHolder2 = new NullableIntHolder();
+      intHolder2.value = 20;
+      intHolder2.isSet = 1;
+
+      //write data
+      vector.setType(0, Types.MinorType.UINT4);
+      vector.setSafe(0, uintHolder1);
+
+      vector.setType(1, Types.MinorType.INT);
+      vector.setSafe(1, intHolder1);
+
+      vector.setType(2, Types.MinorType.INT);
+      vector.setSafe(2, intHolder1);
+
+      vector.setType(3, Types.MinorType.INT);
+      vector.setSafe(3, intHolder2);
+
+      vector.setType(4, Types.MinorType.INT);
+      vector.setSafe(4, intHolder2);
+
+      vector.setValueCount(5);
+
+      //write dictionary
+      dictionaryVector.setType(0, Types.MinorType.UINT4);
+      dictionaryVector.setSafe(0, uintHolder1);
+
+      dictionaryVector.setType(1, Types.MinorType.INT);
+      dictionaryVector.setSafe(1, intHolder1);
+
+      dictionaryVector.setType(2, Types.MinorType.INT);
+      dictionaryVector.setSafe(2, intHolder2);
+
+      dictionaryVector.setValueCount(3);
+
+      Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+
+      try (final ValueVector encoded = DictionaryEncoder.encode(vector, dictionary)) {
+        // verify indices
+        assertEquals(IntVector.class, encoded.getClass());
+
+        IntVector index = ((IntVector)encoded);
+        assertEquals(5, index.getValueCount());
+        assertEquals(0, index.get(0));
+        assertEquals(1, index.get(1));
+        assertEquals(1, index.get(2));
+        assertEquals(2, index.get(3));
+        assertEquals(2, index.get(4));
+
+        // now run through the decoder and verify we get the original back
+        try (ValueVector decoded = DictionaryEncoder.decode(encoded, dictionary)) {
+          assertEquals(vector.getClass(), decoded.getClass());
+          assertEquals(vector.getValueCount(), decoded.getValueCount());
+          for (int i = 0; i < 5; i++) {
+            assertEquals(vector.getObject(i), decoded.getObject(i));
           }
         }
       }

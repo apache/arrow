@@ -20,7 +20,6 @@ package org.apache.arrow.vector.dictionary;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
@@ -42,9 +41,7 @@ public class DictionaryEncoder {
    * @return dictionary encoded vector
    */
   public static ValueVector encode(ValueVector vector, Dictionary dictionary) {
-    validateType(vector.getMinorType());
-    // load dictionary indices into a hashmap for lookup
-
+    // load dictionary indices into a hash table for lookup
     DictionaryHashTable hashTable = new DictionaryHashTable(dictionary.getVector());
     for (int i = 0; i < dictionary.getVector().getValueCount(); i++) {
       hashTable.put(i);
@@ -113,11 +110,5 @@ public class DictionaryEncoder {
     ValueVector decoded = transfer.getTo();
     decoded.setValueCount(count);
     return decoded;
-  }
-
-  private static void validateType(MinorType type) {
-    if (type == MinorType.UNION) {
-      throw new IllegalArgumentException("Dictionary encoding not implemented for current type: " + type);
-    }
   }
 }
