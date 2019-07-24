@@ -547,17 +547,15 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
     const auto& union_array = checked_cast<const UnionArray&>(values);
     auto type_ids = union_array.raw_type_ids();
 
-    std::vector<uint32_t> child_counts(union_type_->max_type_code() + 1);
-    RETURN_NOT_OK(null_bitmap_builder_->Reserve(indices.length()));
-    RETURN_NOT_OK(type_id_builder_->Reserve(indices.length()));
-    RETURN_NOT_OK(VisitIndices(indices, values, [&](int64_t index, bool is_valid) {
-      null_bitmap_builder_->UnsafeAppend(is_valid);
-      type_id_builder_->UnsafeAppend(type_ids[index]);
-      child_counts[type_ids[index]] += is_valid;
-      return Status::OK();
-    }));
-
     if (union_type_->mode() == UnionMode::SPARSE) {
+      RETURN_NOT_OK(null_bitmap_builder_->Reserve(indices.length()));
+      RETURN_NOT_OK(type_id_builder_->Reserve(indices.length()));
+      RETURN_NOT_OK(VisitIndices(indices, values, [&](int64_t index, bool is_valid) {
+        null_bitmap_builder_->UnsafeAppend(is_valid);
+        type_id_builder_->UnsafeAppend(type_ids[index]);
+        return Status::OK();
+      }));
+
       // bounds checking was done while appending to the null bitmap
       indices.set_never_out_of_bounds();
 
@@ -566,11 +564,27 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
       }
     } else {
       // Gathering from the offsets into child arrays is a bit tricky.
+      std::vector<uint32_t> child_counts(union_type_->max_type_code() + 1);
+      RETURN_NOT_OK(null_bitmap_builder_->Reserve(indices.length()));
+      RETURN_NOT_OK(type_id_builder_->Reserve(indices.length()));
+      RETURN_NOT_OK(VisitIndices(indices, values, [&](int64_t index, bool is_valid) {
+        null_bitmap_builder_->UnsafeAppend(is_valid);
+        type_id_builder_->UnsafeAppend(type_ids[index]);
+        child_counts[type_ids[index]] += is_valid;
+        return Status::OK();
+      }));
+
+      // bounds checking was done while appending to the null bitmap
+      indices.set_never_out_of_bounds();
+
       // Allocate temporary storage for the offsets of all valid slots
+      // NB: Overestimates required space when indices and union_array are
+      //     not null at identical positions.
+      auto child_offsets_storage_size =
+          indices.length() - std::max(union_array.null_count(), indices.null_count());
       std::shared_ptr<Buffer> child_offsets_storage;
-      RETURN_NOT_OK(AllocateBuffer(
-          pool_, (indices.length() - indices.null_count()) * sizeof(int32_t),
-          &child_offsets_storage));
+      RETURN_NOT_OK(AllocateBuffer(pool_, child_offsets_storage_size * sizeof(int32_t),
+                                   &child_offsets_storage));
 
       // Partition offsets by type_id: child_offset_partitions[type_id] will
       // point to storage for child_counts[type_id] offsets
@@ -604,7 +618,7 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
                                                      sizeof(int32_t) * taken_offset_begin,
                                                      sizeof(int32_t) * length));
         ArrayIndexSequence<Int32Type> child_indices(taken_offsets);
-        child_indices.never_out_of_bounds();
+        child_indices.set_never_out_of_bounds();
         RETURN_NOT_OK(dense_children_[i]->Take(*union_array.child(i), child_indices));
         taken_offset_begin += length;
       }
