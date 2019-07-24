@@ -196,7 +196,7 @@ download_files() {
       --fail \
       --location \
       --output ${file} \
-      ${BINTRAY_DOWNLOAD_URL_BASE}/${SOURCE_BINTRAY_REPOSITORY}/${file} &
+      ${BINTRAY_DOWNLOAD_URL_BASE}/${SOURCE_BINTRAY_REPOSITORY}/${file}
   done
 }
 
@@ -326,9 +326,8 @@ upload_deb() {
 
   local base_path=
   for base_path in *; do
-    upload_deb_file ${version} ${rc} ${distribution} ${code_name} ${base_path} &
+    upload_deb_file ${version} ${rc} ${distribution} ${code_name} ${base_path}
   done
-  wait
 }
 
 upload_apt() {
@@ -342,7 +341,6 @@ upload_apt() {
   pushd ${tmp_dir}
 
   download_files ${version} ${rc} ${distribution}
-  wait
 
   pushd ${distribution}-rc
 
@@ -358,7 +356,7 @@ upload_apt() {
     ${rc} \
     ${distribution} \
     ${keyring_name} \
-    ${keyring_name} &
+    ${keyring_name}
 
   local pool_code_name=
   for pool_code_name in pool/*; do
@@ -404,9 +402,8 @@ upload_apt() {
         ${rc} \
         ${distribution} \
         ${path} \
-        ${path} &
+        ${path}
     done
-    wait
   done
   popd
 
@@ -457,9 +454,8 @@ upload_rpm() {
       ${rc} \
       ${distribution} \
       ${distribution_version} \
-      ${rpm_path} &
+      ${rpm_path}
   done
-  wait
 }
 
 upload_yum() {
@@ -475,7 +471,6 @@ upload_yum() {
   pushd ${tmp_dir}
 
   download_files ${version} ${rc} ${distribution}
-  wait
 
   pushd ${distribution}-rc
   local keyring_name=RPM-GPG-KEY-apache-arrow
@@ -485,7 +480,7 @@ upload_yum() {
     ${rc} \
     ${distribution} \
     ${keyring_name} \
-    ${keyring_name} &
+    ${keyring_name}
   local version_dir=
   local arch_dir=
   local repo_path=
@@ -499,11 +494,10 @@ upload_yum() {
           ${rc} \
           ${distribution} \
           ${repo_path} \
-          ${repo_path} &
+          ${repo_path}
       done
     done
   done
-  wait
   popd
 
   popd
@@ -527,9 +521,8 @@ upload_python() {
       ${rc} \
       ${target} \
       ${base_path} \
-      ${version}-rc${rc}/${base_path} &
+      ${version}-rc${rc}/${base_path}
   done
-  wait
 }
 
 docker build -t ${docker_image_name} ${SOURCE_DIR}/binary
@@ -588,13 +581,13 @@ for dir in *; do
       debian)
         if [ ${UPLOAD_DEBIAN_DEB} -gt 0 ]; then
           ensure_version ${version} ${rc} ${distribution}
-          upload_deb ${version} ${rc} ${distribution} ${code_name} &
+          upload_deb ${version} ${rc} ${distribution} ${code_name}
         fi
         ;;
       ubuntu)
         if [ ${UPLOAD_UBUNTU_DEB} -gt 0 ]; then
           ensure_version ${version} ${rc} ${distribution}
-          upload_deb ${version} ${rc} ${distribution} ${code_name} &
+          upload_deb ${version} ${rc} ${distribution} ${code_name}
         fi
         ;;
     esac
@@ -603,19 +596,18 @@ for dir in *; do
     pushd ${dir}
     if [ ${UPLOAD_CENTOS_RPM} -gt 0 ]; then
       ensure_version ${version} ${rc} ${distribution}
-      upload_rpm ${version} ${rc} ${distribution} ${distribution_version} &
+      upload_rpm ${version} ${rc} ${distribution} ${distribution_version}
     fi
     popd
   elif [ ${is_python} = "yes" ]; then
     pushd ${dir}
     if [ ${UPLOAD_PYTHON} -gt 0 ]; then
       ensure_version ${version} ${rc} python
-      upload_python ${version} ${rc} &
+      upload_python ${version} ${rc}
     fi
     popd
   fi
 done
-wait
 popd
 
 if [ ${have_debian} = "yes" ]; then
