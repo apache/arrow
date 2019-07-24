@@ -636,6 +636,13 @@ def test_location_invalid():
         server.init("%")
 
 
+def test_location_unknown_scheme():
+    """Test creating locations for unknown schemes."""
+    assert flight.Location("s3://foo").uri == b"s3://foo"
+    assert flight.Location("https://example.com/bar.parquet").uri == \
+        b"https://example.com/bar.parquet"
+
+
 @pytest.mark.slow
 @pytest.mark.requires_testing_data
 def test_tls_fails():

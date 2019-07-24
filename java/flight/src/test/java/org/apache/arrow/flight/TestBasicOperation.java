@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight;
 
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Iterator;
 import java.util.function.BiConsumer;
@@ -39,6 +40,27 @@ import com.google.protobuf.ByteString;
  * Test the operations of a basic flight service.
  */
 public class TestBasicOperation {
+
+  /**
+   * ARROW-6017: we should be able to construct locations for unknown schemes.
+   */
+  @Test
+  public void unknownScheme() throws URISyntaxException {
+    final Location location = new Location("s3://unknown");
+    Assert.assertEquals("s3", location.getUri().getScheme());
+  }
+
+  @Test
+  public void unknownSchemeRemote() throws Exception {
+    test(c -> {
+      try {
+        final FlightInfo info = c.getInfo(FlightDescriptor.path("test"));
+        Assert.assertEquals(new URI("https://example.com"), info.getEndpoints().get(0).getLocations().get(0).getUri());
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(e);
+      }
+    });
+  }
 
   @Test
   public void getDescriptors() throws Exception {
@@ -246,12 +268,14 @@ public class TestBasicOperation {
     @Override
     public FlightInfo getFlightInfo(CallContext context,
         FlightDescriptor descriptor) {
-      Flight.FlightInfo getInfo = Flight.FlightInfo.newBuilder()
-          .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
-              .setType(DescriptorType.CMD)
-              .setCmd(ByteString.copyFrom("cool thing", Charsets.UTF_8)))
-          .build();
       try {
+        Flight.FlightInfo getInfo = Flight.FlightInfo.newBuilder()
+            .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
+                .setType(DescriptorType.CMD)
+                .setCmd(ByteString.copyFrom("cool thing", Charsets.UTF_8)))
+            .addEndpoint(
+                Flight.FlightEndpoint.newBuilder().addLocation(new Location("https://example.com").toProtocol()))
+            .build();
         return new FlightInfo(getInfo);
       } catch (URISyntaxException e) {
         throw new RuntimeException(e);
