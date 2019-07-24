@@ -67,7 +67,13 @@ enum MessageType:long {
   // reply messages get sent. Each one contains a fixed number of bytes.
   PlasmaDataReply,
   // Object notifications.
-  PlasmaNotification
+  PlasmaNotification,
+  // Set memory quota for a client.
+  PlasmaSetOptionsRequest,
+  PlasmaSetOptionsReply,
+  // Get debugging information from the store.
+  PlasmaGetDebugStringRequest,
+  PlasmaGetDebugStringReply,
 }
 
 enum PlasmaError:int {
@@ -82,7 +88,7 @@ enum PlasmaError:int {
   // Trying to delete an object but it's not sealed.
   ObjectNotSealed,
   // Trying to delete an object but it's in use.
-  ObjectInUse
+  ObjectInUse,
 }
 
 // Plasma store messages
@@ -101,6 +107,26 @@ struct PlasmaObjectSpec {
   metadata_size: ulong;
   // Device to create buffer on.
   device_num: int;
+}
+
+table PlasmaSetOptionsRequest {
+  // The name of the client.
+  client_name: string;
+  // The size of the output memory limit in bytes.
+  output_memory_quota: long;
+}
+
+table PlasmaSetOptionsReply {
+  // Whether setting options succeeded.
+  error: PlasmaError;
+}
+
+table PlasmaGetDebugStringRequest {
+}
+
+table PlasmaGetDebugStringReply {
+  // The debug string from the server.
+  debug_string: string;
 }
 
 table PlasmaCreateRequest {

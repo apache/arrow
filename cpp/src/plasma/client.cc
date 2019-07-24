@@ -207,6 +207,8 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
                  const std::string& manager_socket_name, int release_delay = 0,
                  int num_retries = -1);
 
+  Status SetClientOptions(const std::string& client_name, int64_t output_memory_quota);
+
   Status Create(const ObjectID& object_id, int64_t data_size, const uint8_t* metadata,
                 int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0);
 
@@ -244,6 +246,8 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
                          int64_t* metadata_size);
 
   Status Disconnect();
+
+  std::string DebugString();
 
   bool IsInUse(const ObjectID& object_id);
 
@@ -977,6 +981,15 @@ Status PlasmaClient::Impl::Connect(const std::string& store_socket_name,
   return Status::OK();
 }
 
+Status PlasmaClient::Impl::SetClientOptions(const std::string& client_name,
+                                            int64_t output_memory_quota) {
+  std::lock_guard<std::recursive_mutex> guard(client_mutex_);
+  RETURN_NOT_OK(SendSetOptionsRequest(store_conn_, client_name, output_memory_quota));
+  std::vector<uint8_t> buffer;
+  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaSetOptionsReply, &buffer));
+  return ReadSetOptionsReply(buffer.data(), buffer.size());
+}
+
 Status PlasmaClient::Impl::Disconnect() {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
 
@@ -991,6 +1004,22 @@ Status PlasmaClient::Impl::Disconnect() {
   return Status::OK();
 }
 
+std::string PlasmaClient::Impl::DebugString() {
+  std::lock_guard<std::recursive_mutex> guard(client_mutex_);
+  if (!SendGetDebugStringRequest(store_conn_).ok()) {
+    return "error sending request";
+  }
+  std::vector<uint8_t> buffer;
+  if (!PlasmaReceive(store_conn_, MessageType::PlasmaGetDebugStringReply, &buffer).ok()) {
+    return "error receiving reply";
+  }
+  std::string debug_string;
+  if (!ReadGetDebugStringReply(buffer.data(), buffer.size(), &debug_string).ok()) {
+    return "error parsing reply";
+  }
+  return debug_string;
+}
+
 // ----------------------------------------------------------------------
 // PlasmaClient
 
@@ -1003,6 +1032,11 @@ Status PlasmaClient::Connect(const std::string& store_socket_name,
                              int num_retries) {
   return impl_->Connect(store_socket_name, manager_socket_name, release_delay,
                         num_retries);
+}
+
+Status PlasmaClient::SetClientOptions(const std::string& client_name,
+                                      int64_t output_memory_quota) {
+  return impl_->SetClientOptions(client_name, output_memory_quota);
 }
 
 Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
@@ -1069,6 +1103,8 @@ Status PlasmaClient::DecodeNotification(const uint8_t* buffer, ObjectID* object_
 }
 
 Status PlasmaClient::Disconnect() { return impl_->Disconnect(); }
+
+std::string PlasmaClient::DebugString() { return impl_->DebugString(); }
 
 bool PlasmaClient::IsInUse(const ObjectID& object_id) {
   return impl_->IsInUse(object_id);

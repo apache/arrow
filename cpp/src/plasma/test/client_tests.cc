@@ -169,6 +169,254 @@ TEST_F(TestPlasmaStore, SealErrorsTest) {
   ARROW_CHECK_OK(client_.Release(object_id));
 }
 
+TEST_F(TestPlasmaStore, SetQuotaBasicTest) {
+  bool has_object = false;
+  ObjectID id1 = random_object_id();
+  ObjectID id2 = random_object_id();
+
+  ARROW_CHECK_OK(client_.SetClientOptions("client1", 5 * 1024 * 1024));
+  std::vector<uint8_t> big_data(3 * 1024 * 1024, 0);
+
+  // First object fits
+  CreateObject(client_, id1, {42}, big_data, true);
+  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_TRUE(has_object);
+
+  // Evicts first object
+  CreateObject(client_, id2, {42}, big_data, true);
+  ARROW_CHECK_OK(client_.Contains(id2, &has_object));
+  ASSERT_TRUE(has_object);
+  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_FALSE(has_object);
+
+  // Too big to fit in quota at all
+  std::shared_ptr<Buffer> data_buffer;
+  ASSERT_FALSE(
+      client_.Create(random_object_id(), 7 * 1024 * 1024, {}, 0, &data_buffer).ok());
+  ASSERT_TRUE(
+      client_.Create(random_object_id(), 4 * 1024 * 1024, {}, 0, &data_buffer).ok());
+}
+
+TEST_F(TestPlasmaStore, SetQuotaProvidesIsolationFromOtherClients) {
+  bool has_object = false;
+  ObjectID id1 = random_object_id();
+  ObjectID id2 = random_object_id();
+
+  std::vector<uint8_t> big_data(3 * 1024 * 1024, 0);
+
+  // First object, created without quota
+  CreateObject(client_, id1, {42}, big_data, true);
+  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_TRUE(has_object);
+
+  // Second client creates a bunch of objects
+  for (int i = 0; i < 10; i++) {
+    CreateObject(client2_, random_object_id(), {42}, big_data, true);
+  }
+
+  // First client's object is evicted
+  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_FALSE(has_object);
+
+  // Try again with quota enabled
+  ARROW_CHECK_OK(client_.SetClientOptions("client1", 5 * 1024 * 1024));
+  CreateObject(client_, id2, {42}, big_data, true);
+  ARROW_CHECK_OK(client_.Contains(id2, &has_object));
+  ASSERT_TRUE(has_object);
+
+  // Second client creates a bunch of objects
+  for (int i = 0; i < 10; i++) {
+    CreateObject(client2_, random_object_id(), {42}, big_data, true);
+  }
+
+  // First client's object is not evicted
+  ARROW_CHECK_OK(client_.Contains(id2, &has_object));
+  ASSERT_TRUE(has_object);
+}
+
+TEST_F(TestPlasmaStore, SetQuotaProtectsOtherClients) {
+  bool has_object = false;
+  ObjectID id1 = random_object_id();
+
+  std::vector<uint8_t> big_data(3 * 1024 * 1024, 0);
+
+  // First client has no quota
+  CreateObject(client_, id1, {42}, big_data, true);
+  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_TRUE(has_object);
+
+  // Second client creates a bunch of objects under a quota
+  ARROW_CHECK_OK(client2_.SetClientOptions("client2", 5 * 1024 * 1024));
+  for (int i = 0; i < 10; i++) {
+    CreateObject(client2_, random_object_id(), {42}, big_data, true);
+  }
+
+  // First client's object is NOT evicted
+  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_TRUE(has_object);
+}
+
+TEST_F(TestPlasmaStore, SetQuotaCannotExceedSeventyPercentMemory) {
+  ASSERT_FALSE(client_.SetClientOptions("client1", 8 * 1024 * 1024).ok());
+  ASSERT_TRUE(client_.SetClientOptions("client1", 5 * 1024 * 1024).ok());
+  // cannot set quota twice
+  ASSERT_FALSE(client_.SetClientOptions("client1", 5 * 1024 * 1024).ok());
+  // cannot exceed 70% summed
+  ASSERT_FALSE(client2_.SetClientOptions("client2", 3 * 1024 * 1024).ok());
+  ASSERT_TRUE(client2_.SetClientOptions("client2", 1 * 1024 * 1024).ok());
+}
+
+TEST_F(TestPlasmaStore, SetQuotaDemotesPinnedObjectsToGlobalLRU) {
+  bool has_object = false;
+  ASSERT_TRUE(client_.SetClientOptions("client1", 5 * 1024 * 1024).ok());
+
+  ObjectID id1 = random_object_id();
+  ObjectID id2 = random_object_id();
+  std::vector<uint8_t> big_data(3 * 1024 * 1024, 0);
+
+  // Quota is not enough to fit both id1 and id2, but global LRU is
+  CreateObject(client_, id1, {42}, big_data, false);
+  CreateObject(client_, id2, {42}, big_data, false);
+  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_TRUE(has_object);
+  ARROW_CHECK_OK(client_.Contains(id2, &has_object));
+  ASSERT_TRUE(has_object);
+
+  // Release both objects. Now id1 is in global LRU and id2 is in quota
+  ARROW_CHECK_OK(client_.Release(id1));
+  ARROW_CHECK_OK(client_.Release(id2));
+
+  // This flushes id1 from the object store
+  for (int i = 0; i < 10; i++) {
+    CreateObject(client2_, random_object_id(), {42}, big_data, true);
+  }
+  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_FALSE(has_object);
+  ARROW_CHECK_OK(client_.Contains(id2, &has_object));
+  ASSERT_TRUE(has_object);
+}
+
+TEST_F(TestPlasmaStore, SetQuotaDemoteDisconnectToGlobalLRU) {
+  bool has_object = false;
+  PlasmaClient local_client;
+  ARROW_CHECK_OK(local_client.Connect(store_socket_name_, ""));
+  ARROW_CHECK_OK(local_client.SetClientOptions("local", 5 * 1024 * 1024));
+
+  ObjectID id1 = random_object_id();
+  std::vector<uint8_t> big_data(3 * 1024 * 1024, 0);
+
+  // First object fits
+  CreateObject(local_client, id1, {42}, big_data, true);
+  for (int i = 0; i < 10; i++) {
+    CreateObject(client_, random_object_id(), {42}, big_data, true);
+  }
+  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_TRUE(has_object);
+
+  // Object is still present after disconnect
+  ARROW_CHECK_OK(local_client.Disconnect());
+  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_TRUE(has_object);
+
+  // But is eligible for global LRU
+  for (int i = 0; i < 10; i++) {
+    CreateObject(client_, random_object_id(), {42}, big_data, true);
+  }
+  ARROW_CHECK_OK(client_.Contains(id1, &has_object));
+  ASSERT_FALSE(has_object);
+}
+
+TEST_F(TestPlasmaStore, SetQuotaCleanupObjectMetadata) {
+  PlasmaClient local_client;
+  ARROW_CHECK_OK(local_client.Connect(store_socket_name_, ""));
+  ARROW_CHECK_OK(local_client.SetClientOptions("local", 5 * 1024 * 1024));
+
+  ObjectID id0 = random_object_id();
+  ObjectID id1 = random_object_id();
+  ObjectID id2 = random_object_id();
+  ObjectID id3 = random_object_id();
+  std::vector<uint8_t> big_data(3 * 1024 * 1024, 0);
+  std::vector<uint8_t> small_data(1 * 1024 * 1024, 0);
+  CreateObject(local_client, id0, {42}, small_data, false);
+  CreateObject(local_client, id1, {42}, big_data, true);
+  CreateObject(local_client, id2, {42}, big_data,
+               true);  // spills id0 to global, evicts id1
+  CreateObject(local_client, id3, {42}, small_data, false);
+
+  ASSERT_TRUE(client_.DebugString().find("num clients with quota: 1") !=
+              std::string::npos);
+  ASSERT_TRUE(client_.DebugString().find("quota map size: 2") != std::string::npos);
+  ASSERT_TRUE(client_.DebugString().find("pinned quota map size: 1") !=
+              std::string::npos);
+  ASSERT_TRUE(client_.DebugString().find("(global lru) num objects: 0") !=
+              std::string::npos);
+  ASSERT_TRUE(client_.DebugString().find("(local) num objects: 2") != std::string::npos);
+
+  // release id0
+  ARROW_CHECK_OK(local_client.Release(id0));
+  ASSERT_TRUE(client_.DebugString().find("(global lru) num objects: 1") !=
+              std::string::npos);
+
+  // delete everything
+  ARROW_CHECK_OK(local_client.Delete(id0));
+  ARROW_CHECK_OK(local_client.Delete(id2));
+  ARROW_CHECK_OK(local_client.Delete(id3));
+  ARROW_CHECK_OK(local_client.Release(id3));
+  ASSERT_TRUE(client_.DebugString().find("quota map size: 0") != std::string::npos);
+  ASSERT_TRUE(client_.DebugString().find("pinned quota map size: 0") !=
+              std::string::npos);
+  ASSERT_TRUE(client_.DebugString().find("(global lru) num objects: 0") !=
+              std::string::npos);
+  ASSERT_TRUE(client_.DebugString().find("(local) num objects: 0") != std::string::npos);
+
+  ARROW_CHECK_OK(local_client.Disconnect());
+  int tries = 10;  // wait for disconnect to complete
+  while (tries > 0 &&
+         client_.DebugString().find("num clients with quota: 0") == std::string::npos) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    tries -= 1;
+  }
+  ASSERT_TRUE(client_.DebugString().find("num clients with quota: 0") !=
+              std::string::npos);
+  ASSERT_TRUE(client_.DebugString().find("(global lru) capacity: 10000000") !=
+              std::string::npos);
+  ASSERT_TRUE(client_.DebugString().find("(global lru) used: 0%") != std::string::npos);
+}
+
+TEST_F(TestPlasmaStore, SetQuotaCleanupClientDisconnect) {
+  PlasmaClient local_client;
+  ARROW_CHECK_OK(local_client.Connect(store_socket_name_, ""));
+  ARROW_CHECK_OK(local_client.SetClientOptions("local", 5 * 1024 * 1024));
+
+  ObjectID id1 = random_object_id();
+  ObjectID id2 = random_object_id();
+  ObjectID id3 = random_object_id();
+  std::vector<uint8_t> big_data(3 * 1024 * 1024, 0);
+  std::vector<uint8_t> small_data(1 * 1024 * 1024, 0);
+  CreateObject(local_client, id1, {42}, big_data, true);
+  CreateObject(local_client, id2, {42}, big_data, true);
+  CreateObject(local_client, id3, {42}, small_data, false);
+
+  ARROW_CHECK_OK(local_client.Disconnect());
+  int tries = 10;  // wait for disconnect to complete
+  while (tries > 0 &&
+         client_.DebugString().find("num clients with quota: 0") == std::string::npos) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    tries -= 1;
+  }
+  ASSERT_TRUE(client_.DebugString().find("num clients with quota: 0") !=
+              std::string::npos);
+  ASSERT_TRUE(client_.DebugString().find("quota map size: 0") != std::string::npos);
+  ASSERT_TRUE(client_.DebugString().find("pinned quota map size: 0") !=
+              std::string::npos);
+  ASSERT_TRUE(client_.DebugString().find("(global lru) num objects: 2") !=
+              std::string::npos);
+  ASSERT_TRUE(client_.DebugString().find("(global lru) capacity: 10000000") !=
+              std::string::npos);
+  ASSERT_TRUE(client_.DebugString().find("(global lru) used: 41.9431%") !=
+              std::string::npos);
+}
+
 TEST_F(TestPlasmaStore, DeleteTest) {
   ObjectID object_id = random_object_id();
 
