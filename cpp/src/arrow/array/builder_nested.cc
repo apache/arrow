@@ -203,7 +203,7 @@ Status FixedSizeListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 StructBuilder::StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
                              std::vector<std::shared_ptr<ArrayBuilder>> field_builders)
     : ArrayBuilder(type, pool) {
-  for (auto&& field_builder : field_builders) {
+  for (const auto& field_builder : field_builders) {
     if (field_builder->type() == nullptr) {
       type_ = nullptr;
       break;
