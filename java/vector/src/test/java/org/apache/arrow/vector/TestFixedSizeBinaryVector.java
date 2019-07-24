@@ -258,4 +258,10 @@ public class TestFixedSizeBinaryVector {
     vector.setSafe(0, largeNullableHolder);
     vector.setSafe(0, largeBuf);
   }
+
+  @Test
+  public void testGetNull() {
+    vector.setNull(0);
+    assertNull(vector.get(0));
+  }
 }

@@ -42,7 +42,6 @@
 // For arrow::compute::Datum. This should perhaps be promoted. See ARROW-4022
 #include "arrow/compute/kernel.h"
 
-#include "parquet/arrow/record_reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"

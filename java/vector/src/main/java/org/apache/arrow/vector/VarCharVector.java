@@ -17,8 +17,6 @@
 
 package org.apache.arrow.vector;
 
-import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.VarCharReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -106,8 +104,8 @@ public class VarCharVector extends BaseVariableWidthVector {
    */
   public byte[] get(int index) {
     assert index >= 0;
-    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
-      throw new IllegalStateException("Value at index is null");
+    if (isSet(index) == 0) {
+      return null;
     }
     final int startOffset = getStartOffset(index);
     final int dataLength =
@@ -124,15 +122,12 @@ public class VarCharVector extends BaseVariableWidthVector {
    * @return Text object for non-null element, null otherwise
    */
   public Text getObject(int index) {
-    Text result = new Text();
-    byte[] b;
-    try {
-      b = get(index);
-    } catch (IllegalStateException e) {
+    byte[] b = get(index);
+    if (b == null) {
       return null;
+    } else {
+      return new Text(b);
     }
-    result.set(b);
-    return result;
   }
 
   /**

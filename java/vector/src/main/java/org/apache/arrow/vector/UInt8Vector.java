@@ -293,6 +293,16 @@ public class UInt8Vector extends BaseFixedWidthVector implements BaseIntVector {
     this.setSafe(index, value);
   }
 
+  @Override
+  public void setUnsafeWithPossibleTruncate(int index, long value) {
+    this.set(index, value);
+  }
+
+  @Override
+  public long getValueAsLong(int index) {
+    return this.get(index);
+  }
+
   private class TransferImpl implements TransferPair {
     UInt8Vector to;
 
