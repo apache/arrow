@@ -109,11 +109,14 @@ class GZipDecompressor : public Decompressor {
   }
 
   Status Reset() override {
-    if (initialized_) {
-      inflateEnd(&stream_);
-      initialized_ = false;
+    DCHECK(initialized_);
+    finished_ = false;
+    int ret;
+    if ((ret = inflateReset(&stream_)) != Z_OK) {
+      return ZlibError("zlib inflateReset failed: ");
+    } else {
+      return Status::OK();
     }
-    return Init();
   }
 
   Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
