@@ -198,7 +198,7 @@ char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_len,
   }
 
   int32 offset = static_cast<int32>(offset64);
-  int32 startIndex = offset - 1;
+  int32 startIndex = offset - 1;  // offset is 1 for first char
   if (offset < 0) {
     startIndex = in_len + offset;
   } else if (offset == 0) {
@@ -214,7 +214,13 @@ char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_len,
   if (length > in_len - startIndex) {
     *out_len = in_len - startIndex;
   }
+
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return nullptr;
+  }
   memcpy(ret, input + startIndex, *out_len);
   return ret;
 }
