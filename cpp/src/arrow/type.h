@@ -18,6 +18,11 @@
 #ifndef ARROW_TYPE_H
 #define ARROW_TYPE_H
 
+// Workarround for ARROW-6028
+#if _MSC_VER >= 1900
+  #undef timezone
+#endif
+
 #include <climits>
 #include <cstdint>
 #include <iosfwd>
