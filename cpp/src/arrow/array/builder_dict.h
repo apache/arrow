@@ -367,6 +367,7 @@ class DictionaryBuilder<NullType> : public ArrayBuilder {
 class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType> {
  public:
   using DictionaryBuilder::Append;
+  using DictionaryBuilder::AppendIndices;
   using DictionaryBuilder::DictionaryBuilder;
 
   BinaryDictionaryBuilder() : BinaryDictionaryBuilder(default_memory_pool()) {}
@@ -384,6 +385,7 @@ class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType
 class ARROW_EXPORT StringDictionaryBuilder : public DictionaryBuilder<StringType> {
  public:
   using DictionaryBuilder::Append;
+  using DictionaryBuilder::AppendIndices;
   using DictionaryBuilder::DictionaryBuilder;
 
   StringDictionaryBuilder() : StringDictionaryBuilder(default_memory_pool()) {}
