@@ -18,11 +18,11 @@
 package org.apache.arrow.memory.util;
 
 import org.apache.arrow.memory.BoundsChecking;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.memory.util.hash.DirectHasher;
 
 import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
-import org.apache.arrow.memory.util.hash.ArrowBufHasher;
-import org.apache.arrow.memory.util.hash.DirectHasher;
 
 /**
  * Utility methods for memory comparison at a byte level.
