@@ -27,6 +27,7 @@
 #include "arrow/builder.h"
 #include "arrow/table.h"
 #include "arrow/util/bit-stream-utils.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle-encoding.h"
@@ -39,6 +40,7 @@
 #include "parquet/thrift.h"
 
 using arrow::MemoryPool;
+using arrow::internal::checked_cast;
 
 namespace parquet {
 
@@ -1262,7 +1264,7 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
 
   void WriteNewDictionary() {
     if (this->new_dictionary_) {
-      auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_);
+      auto decoder = checked_cast<BinaryDictDecoder*>(this->current_decoder_);
       decoder->InsertDictionary(&builder_);
       this->new_dictionary_ = false;
     }
@@ -1275,7 +1277,7 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
       /// insert the new dictionary values
       FlushBuilder();
       WriteNewDictionary();
-      auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_);
+      auto decoder = checked_cast<BinaryDictDecoder*>(this->current_decoder_);
       num_decoded = decoder->DecodeIndices(static_cast<int>(values_to_read), &builder_);
     } else {
       num_decoded = this->current_decoder_->DecodeArrowNonNull(
@@ -1294,7 +1296,7 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
       /// insert the new dictionary values
       FlushBuilder();
       WriteNewDictionary();
-      auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_);
+      auto decoder = checked_cast<BinaryDictDecoder*>(this->current_decoder_);
       num_decoded = decoder->DecodeIndicesSpaced(
           static_cast<int>(values_to_read), static_cast<int>(null_count),
           valid_bits_->mutable_data(), values_written_, &builder_);
@@ -1310,6 +1312,8 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
   }
 
  private:
+  using BinaryDictDecoder = DictDecoder<ByteArrayType>;
+
   ::arrow::BinaryDictionaryBuilder builder_;
   std::vector<std::shared_ptr<::arrow::Array>> result_chunks_;
 };

@@ -340,7 +340,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
 
   void GenerateInputData(double null_probability) {
     constexpr int num_unique = 100;
-    constexpr int repeat = 10;
+    constexpr int repeat = 100;
     constexpr int64_t min_length = 2;
     constexpr int64_t max_length = 10;
     ::arrow::random::RandomArrayGenerator rag(0);
@@ -446,7 +446,9 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   std::vector<ByteArray> input_data_;
   const uint8_t* valid_bits_;
   std::unique_ptr<ByteArrayEncoder> encoder_;
-  std::unique_ptr<ByteArrayDecoder> decoder_;
+  ByteArrayDecoder* decoder_;
+  std::unique_ptr<ByteArrayDecoder> plain_decoder_;
+  std::unique_ptr<DictDecoder<ByteArrayType>> dict_decoder_;
   std::shared_ptr<Buffer> buffer_;
 };
 
@@ -454,7 +456,8 @@ class PlainEncoding : public TestArrowBuilderDecoding {
  public:
   void SetupEncoderDecoder() override {
     encoder_ = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
-    decoder_ = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
+    plain_decoder_ = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
+    decoder_ = plain_decoder_.get();
     ASSERT_NO_THROW(encoder_->PutSpaced(input_data_.data(), num_values_, valid_bits_, 0));
     buffer_ = encoder_->FlushValues();
     decoder_->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
@@ -502,14 +505,11 @@ class DictEncoding : public TestArrowBuilderDecoding {
     dict_decoder_->SetDict(plain_decoder_.get());
     dict_decoder_->SetData(num_values_, buffer_->data(),
                            static_cast<int>(buffer_->size()));
-    decoder_ = std::unique_ptr<ByteArrayDecoder>(
-        dynamic_cast<ByteArrayDecoder*>(dict_decoder_.release()));
+    decoder_ = dynamic_cast<ByteArrayDecoder*>(dict_decoder_.get());
   }
 
  protected:
   std::unique_ptr<ColumnDescriptor> descr_;
-  std::unique_ptr<ByteArrayDecoder> plain_decoder_;
-  std::unique_ptr<DictDecoder<ByteArrayType>> dict_decoder_;
   std::shared_ptr<Buffer> dict_buffer_;
 };
 
@@ -529,6 +529,16 @@ TEST_F(DictEncoding, CheckDecodeArrowNonNullDictBuilder) {
   this->CheckDecodeArrowNonNullUsingDictBuilder();
 }
 
-}  // namespace test
+TEST_F(DictEncoding, CheckDecodeIndicesSpaced) {
+  for (auto np : null_probabilities_) {
+    InitTestCase(np);
+    auto builder = CreateDictBuilder();
+    dict_decoder_->InsertDictionary(builder.get());
+    auto actual_num_values = dict_decoder_->DecodeIndicesSpaced(
+        num_values_, null_count_, valid_bits_, 0, builder.get());
+    CheckDict(actual_num_values, *builder);
+  }
+}
 
+}  // namespace test
 }  // namespace parquet

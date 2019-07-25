@@ -37,6 +37,8 @@
 #include "parquet/schema.h"
 #include "parquet/types.h"
 
+using arrow::internal::checked_cast;
+
 namespace parquet {
 
 constexpr int64_t kInMemoryDefaultCapacity = 1024;
@@ -829,8 +831,7 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
         dictionary_(AllocateBuffer(pool, 0)),
         dictionary_length_(0),
         byte_array_data_(AllocateBuffer(pool, 0)),
-        byte_array_offsets_(AllocateBuffer(pool, 0)),
-        indices_scratch_space_(AllocateBuffer(pool, 0)) {}
+        byte_array_offsets_(AllocateBuffer(pool, 0)) {}
 
   // Perform type-specific initiatialization
   void SetDict(TypedDecoder<Type>* dictionary) override;
@@ -863,38 +864,53 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
                           num_values, null_count, valid_bits, valid_bits_offset)) {
       ParquetException::EofException();
     }
-    num_values_ -= num_values return num_values;
+    num_values_ -= num_values;
+    return num_values;
   }
 
   void InsertDictionary(::arrow::ArrayBuilder* builder) override;
 
   int DecodeIndicesSpaced(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
-                          ::arrow::DictionaryBuilder* builder) override {
+                          ::arrow::ArrayBuilder* builder) override {
+    auto binary_builder = checked_cast<::arrow::BinaryDictionaryBuilder*>(builder);
+
     num_values = std::min(num_values, num_values_);
-    if (num_values > 0) {
-      PARQUET_THROW_NOT_OK(indices_scratch_space_->Resize(num_values * sizeof(int16_t),
-                                                          /*shrink_to_fit=*/false))
-    }
-    if (num_values !=
-        idx_decoder_.GetIndicesSpaced(indices_scratch_space_->mutable_data(), num_values,
-                                      null_count, valid_bits, valid_bits_offset)) {
+    constexpr int64_t kBufferSize = 2048;
+    int64_t indices_buffer[kBufferSize];
+
+    if (num_values != idx_decoder_.GetBatchSpaced(indices_scratch_space_->mutable_data(),
+                                                  num_values, null_count, valid_bits,
+                                                  valid_bits_offset)) {
       ParquetException::EofException();
     }
+
+    /// XXX(wesm): Cannot append "valid bits" directly to the builder
+    std::vector<uint8_t> valid_bytes(num_values);
+    ::arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
+    for (int64_t i = 0; i < num_values; ++i) {
+      valid_bytes[i] = static_cast<uint8_t>(bit_reader.IsSet());
+      bit_reader.Next();
+    }
+
+    PARQUET_THROW_NOT_OK(binary_builder->AppendIndices(indices_scratch_space_.data(),
+                                                       num_values, valid_bytes.data()));
     num_values_ -= num_values;
     return num_values;
   }
 
-  int DecodeIndices(int num_values, ::arrow::DictionaryBuilder* builder) override {
+  int DecodeIndices(int num_values, ::arrow::ArrayBuilder* builder) override {
     num_values = std::min(num_values, num_values_);
-    if (num_values > 0) {
-      PARQUET_THROW_NOT_OK(indices_scratch_space_->Resize(num_values * sizeof(int16_t),
-                                                          /*shrink_to_fit=*/false))
-    }
+    constexpr int64_t kBufferSize = 2048;
+    int64_t indices_buffer[kBufferSize];
+
     if (num_values !=
         idx_decoder_.GetBatch(indices_scratch_space_->mutable_data(), num_values)) {
       ParquetException::EofException();
     }
+    auto binary_builder = checked_cast<::arrow::BinaryDictionaryBuilder*>(builder);
+    PARQUET_THROW_NOT_OK(
+        binary_builder->AppendIndices(indices_scratch_space_.data(), num_values));
     num_values_ -= num_values;
     return num_values;
   }
@@ -923,10 +939,6 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
   // generally pretty small to begin with this doesn't mean too much extra
   // memory use in most cases
   std::shared_ptr<ResizableBuffer> byte_array_offsets_;
-
-  // Reusable buffer for decoding dictionary indices to be appended to a
-  // BinaryDictionaryBuilder
-  std::shared_ptr<ResizableBuffer> indices_scratch_space_;
 
   ::arrow::util::RleDecoder idx_decoder_;
 };
@@ -1000,8 +1012,7 @@ void DictDecoderImpl<Type>::InsertDictionary(::arrow::ArrayBuilder* builder) {
 
 template <>
 void DictDecoderImpl<ByteArrayType>::InsertDictionary(::arrow::ArrayBuilder* builder) {
-  auto binary_builder =
-      ::arrow::util::checked_cast<::arrow::BinaryDictionaryBuilder*>(builder);
+  auto binary_builder = checked_cast<::arrow::BinaryDictionaryBuilder*>(builder);
 
   // Make an BinaryArray referencing the internal dictionary data
   auto arr = std::make_shared<::arrow::BinaryArray>(
