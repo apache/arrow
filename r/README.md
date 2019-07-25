@@ -44,6 +44,11 @@ arrow::install_arrow()
 for version- and platform-specific guidance on installing the Arrow C++
 library.
 
+When installing from source, if the R and C++ library versions do not
+match, installation may fail. If you’ve previously installed the
+libraries and want to upgrade the R package, you’ll need to update the
+Arrow C++ library first.
+
 ## Example
 
 ``` r
@@ -117,7 +122,9 @@ R -e 'remotes::install_github("apache/arrow/r")'
 
 You can specify a particular commit, branch, or
 [release](https://github.com/apache/arrow/releases) to install by
-including a `ref` argument to `install_github()`.
+including a `ref` argument to `install_github()`. This is particularly
+useful to match the R package version to the C++ library version you’ve
+installed.
 
 ## Developing
 
@@ -130,7 +137,10 @@ guide](https://arrow.apache.org/docs/developers/cpp.html) for details.
 
 Note that after any change to the C++ library, you must reinstall it and
 run `make clean` or `git clean -fdx .` to remove any cached object code
-in the `r/` directory.
+in the `r/src/` directory before reinstalling the R package. This is
+only necessary if you make changes to the C++ library source; you do not
+need to manually purge object files if you are only editing R or Rcpp
+code inside `r/`.
 
 Once you’ve built the C++ library, you can install the R package and its
 dependencies, along with additional dev dependencies, from the git
@@ -168,8 +178,10 @@ generation.
 
 The codegen.R script has these dependencies:
 
-    remotes::install_github("romainfrancois/decor")
-    install.packages(c("dplyr", "purrr", "glue"))
+``` r
+remotes::install_github("romainfrancois/decor")
+install.packages(c("dplyr", "purrr", "glue"))
+```
 
 ### Useful functions
 
