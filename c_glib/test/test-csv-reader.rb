@@ -176,6 +176,23 @@ message,count
         assert_equal(build_table(columns),
                      table.read)
       end
+
+      def test_n_skip_rows
+        options = Arrow::CSVReadOptions.new
+        options.n_skip_rows = 1
+        table = Arrow::CSVReader.new(open_input(<<-CSV), options)
+message1,message2
+"Start1","Start2"
+"Shutdown1","Shutdown2"
+"Reboot1","Reboot2"
+        CSV
+        columns = {
+          "Start1" => build_string_array(["Shutdown1", "Reboot1"]),
+          "Start2" => build_string_array(["Shutdown2", "Reboot2"]),
+        }
+        assert_equal(build_table(columns),
+                     table.read)
+      end
     end
   end
 end

@@ -894,6 +894,7 @@ typedef struct GArrowCSVReadOptionsPrivate_ {
 enum {
   PROP_USE_THREADS = 1,
   PROP_BLOCK_SIZE,
+  PROP_N_SKIP_ROWS,
   PROP_DELIMITER,
   PROP_IS_QUOTED,
   PROP_QUOTE_CHARACTER,
@@ -929,6 +930,9 @@ garrow_csv_read_options_set_property(GObject *object,
     break;
   case PROP_BLOCK_SIZE:
     priv->read_options.block_size = g_value_get_int(value);
+    break;
+  case PROP_N_SKIP_ROWS:
+    priv->read_options.skip_rows = g_value_get_int(value);
     break;
   case PROP_DELIMITER:
     priv->parse_options.delimiter = g_value_get_schar(value);
@@ -980,6 +984,9 @@ garrow_csv_read_options_get_property(GObject *object,
     break;
   case PROP_BLOCK_SIZE:
     g_value_set_int(value, priv->read_options.block_size);
+    break;
+  case PROP_N_SKIP_ROWS:
+    g_value_set_int(value, priv->read_options.skip_rows);
     break;
   case PROP_DELIMITER:
     g_value_set_schar(value, priv->parse_options.delimiter);
@@ -1070,6 +1077,24 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
                           read_options.block_size,
                           static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_BLOCK_SIZE, spec);
+
+  /**
+   * GArrowCSVReadOptions:n-skip-rows:
+   *
+   * The number of header rows to skip (not including
+   * the row of column names, if any)
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_int("n-skip-rows",
+                          "N skip rows",
+                          "The number of header rows to skip "
+                          "(not including the row of column names, if any)",
+                          0,
+                          G_MAXUINT,
+                          read_options.skip_rows,
+                          static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_N_SKIP_ROWS, spec);
 
 
   auto parse_options = arrow::csv::ParseOptions::Defaults();
