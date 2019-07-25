@@ -172,6 +172,8 @@ char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_len,
                               int64 offset64, int64 length, int32* out_len);
 char* substr_utf8_int64(int64 context, const char* input, int32 in_len, int64 offset64,
                         int32* out_len);
+char* concatOperator_utf8_utf8(int64 context, const char* left, int32 left_len,
+                               const char* right, int32 right_len, int32* out_len);
 }  // extern "C"
 
 #endif  // PRECOMPILED_TYPES_H

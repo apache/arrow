@@ -231,4 +231,19 @@ char* substr_utf8_int64(int64 context, const char* input, int32 in_len, int64 of
   return substr_utf8_int64_int64(context, input, in_len, offset64, in_len, out_len);
 }
 
+FORCE_INLINE
+char* concatOperator_utf8_utf8(int64 context, const char* left, int32 left_len,
+                               const char* right, int32 right_len, int32* out_len) {
+  *out_len = left_len + right_len;
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return nullptr;
+  }
+  memcpy(ret, left, left_len);
+  memcpy(ret + left_len, right, right_len);
+  return ret;
+}
+
 }  // extern "C"

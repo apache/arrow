@@ -75,6 +75,9 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("substr", {"substring"}, DataTypeVector{utf8(), int64()}, utf8(),
                      kResultNullIfNull, "substr_utf8_int64",
                      NativeFunction::kNeedsContext),
+      NativeFunction("concatOperator", {"concat"}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "concatOperator_utf8_utf8",
+                     NativeFunction::kNeedsContext),
   };
 
   return string_fn_registry_;

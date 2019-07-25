@@ -115,4 +115,30 @@ TEST(TestStringOps, TestSubstring) {
   EXPECT_EQ(std::string(out_str, out_len), "abcd");
   EXPECT_FALSE(ctx.has_error());
 }
+
+TEST(TestStringOps, TestConcat) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64>(&ctx);
+  int32 out_len = 0;
+
+  char* out_str = concatOperator_utf8_utf8(ctx_ptr, "asdf", 4, "jkl", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "asdfjkl");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concatOperator_utf8_utf8(ctx_ptr, "asdf", 4, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "asdf");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concatOperator_utf8_utf8(ctx_ptr, "", 0, "jkl", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "jkl");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concatOperator_utf8_utf8(ctx_ptr, "", 0, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concatOperator_utf8_utf8(ctx_ptr, "abcd\n", 5, "a", 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcd\na");
+  EXPECT_FALSE(ctx.has_error());
+}
 }  // namespace gandiva
