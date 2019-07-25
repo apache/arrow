@@ -29,7 +29,7 @@ use std::str::FromStr;
 
 use packed_simd::*;
 use serde_derive::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{json, Value, Value::Number as VNumber, Number};
 
 use crate::error::{ArrowError, Result};
 
@@ -102,6 +102,7 @@ pub struct Field {
 pub trait ArrowNativeType:
     fmt::Debug + Send + Sync + Copy + PartialOrd + FromStr + 'static
 {
+    fn into_json_value(self) -> Option<Value>;
 }
 
 /// Trait indicating a primitive fixed-width type (bool, ints and floats).
@@ -121,17 +122,71 @@ pub trait ArrowPrimitiveType: 'static {
     fn default_value() -> Self::Native;
 }
 
-impl ArrowNativeType for bool {}
-impl ArrowNativeType for i8 {}
-impl ArrowNativeType for i16 {}
-impl ArrowNativeType for i32 {}
-impl ArrowNativeType for i64 {}
-impl ArrowNativeType for u8 {}
-impl ArrowNativeType for u16 {}
-impl ArrowNativeType for u32 {}
-impl ArrowNativeType for u64 {}
-impl ArrowNativeType for f32 {}
-impl ArrowNativeType for f64 {}
+impl ArrowNativeType for bool {
+    fn into_json_value(self) -> Option<Value> {
+        Some(self.into())
+    }
+}
+
+impl ArrowNativeType for i8 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(VNumber(Number::from(self)))
+    }
+}
+
+impl ArrowNativeType for i16 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(VNumber(Number::from(self)))
+    }
+}
+
+impl ArrowNativeType for i32 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(VNumber(Number::from(self)))
+    }
+}
+
+impl ArrowNativeType for i64 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(VNumber(Number::from(self)))
+    }
+}
+
+impl ArrowNativeType for u8 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(VNumber(Number::from(self)))
+    }
+}
+
+impl ArrowNativeType for u16 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(VNumber(Number::from(self)))
+    }
+}
+
+impl ArrowNativeType for u32 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(VNumber(Number::from(self)))
+    }
+}
+
+impl ArrowNativeType for u64 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(VNumber(Number::from(self)))
+    }
+}
+
+impl ArrowNativeType for f32 {
+    fn into_json_value(self) -> Option<Value> {
+        Number::from_f64(self as f64).map(|num| VNumber(num))
+    }
+}
+
+impl ArrowNativeType for f64 {
+    fn into_json_value(self) -> Option<Value> {
+        Number::from_f64(self).map(|num| VNumber(num))
+    }
+}
 
 macro_rules! make_type {
     ($name:ident, $native_ty:ty, $data_ty:expr, $bit_width:expr, $default_val:expr) => {
