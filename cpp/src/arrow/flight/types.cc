@@ -37,6 +37,46 @@ const char* kSchemeGrpcTcp = "grpc+tcp";
 const char* kSchemeGrpcUnix = "grpc+unix";
 const char* kSchemeGrpcTls = "grpc+tls";
 
+const char* kErrorDetailTypeId = "flight::FlightStatusDetail";
+
+const char* FlightStatusDetail::type_id() const { return kErrorDetailTypeId; }
+
+std::string FlightStatusDetail::ToString() const { return CodeAsString(); }
+
+FlightStatusCode FlightStatusDetail::code() const { return code_; }
+
+std::string FlightStatusDetail::CodeAsString() const {
+  switch (code()) {
+    case FlightStatusCode::Internal:
+      return "Internal";
+    case FlightStatusCode::TimedOut:
+      return "TimedOut";
+    case FlightStatusCode::Cancelled:
+      return "Cancelled";
+    case FlightStatusCode::Unauthenticated:
+      return "Unauthenticated";
+    case FlightStatusCode::Unauthorized:
+      return "Unauthorized";
+    case FlightStatusCode::Unavailable:
+      return "Unavailable";
+    default:
+      return "Unknown";
+  }
+}
+
+std::shared_ptr<FlightStatusDetail> FlightStatusDetail::UnwrapStatus(
+    const arrow::Status& status) {
+  if (!status.detail() || status.detail()->type_id() != kErrorDetailTypeId) {
+    return nullptr;
+  }
+  return std::dynamic_pointer_cast<FlightStatusDetail>(status.detail());
+}
+
+Status MakeFlightError(FlightStatusCode code, const std::string& message) {
+  StatusCode arrow_code = arrow::StatusCode::IOError;
+  return arrow::Status(arrow_code, message, std::make_shared<FlightStatusDetail>(code));
+}
+
 bool FlightDescriptor::Equals(const FlightDescriptor& other) const {
   if (type != other.type) {
     return false;

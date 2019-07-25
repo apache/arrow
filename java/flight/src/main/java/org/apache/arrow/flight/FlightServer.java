@@ -25,8 +25,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.flight.auth.ServerAuthHandler;
@@ -147,7 +147,7 @@ public class FlightServer implements AutoCloseable {
     private FlightProducer producer;
     private final Map<String, Object> builderOptions;
     private ServerAuthHandler authHandler = ServerAuthHandler.NO_OP;
-    private Executor executor = null;
+    private ExecutorService executor = null;
     private int maxInboundMessageSize = MAX_GRPC_MESSAGE_SIZE;
     private InputStream certChain;
     private InputStream key;
@@ -214,12 +214,14 @@ public class FlightServer implements AutoCloseable {
         builder.useTransportSecurity(certChain, key);
       }
 
+      // Share one executor between the gRPC service, DoPut, and Handshake
+      final ExecutorService exec = executor != null ? executor : Executors.newCachedThreadPool();
       builder
-          .executor(executor != null ? executor : new ForkJoinPool())
+          .executor(exec)
           .maxInboundMessageSize(maxInboundMessageSize)
           .addService(
               ServerInterceptors.intercept(
-                  new FlightBindingService(allocator, producer, authHandler),
+                  new FlightBindingService(allocator, producer, authHandler, exec),
                   new ServerAuthInterceptor(authHandler)));
 
       // Allow setting some Netty-specific options
@@ -268,7 +270,7 @@ public class FlightServer implements AutoCloseable {
     /**
      * Set the executor used by the server.
      */
-    public Builder executor(Executor executor) {
+    public Builder executor(ExecutorService executor) {
       this.executor = executor;
       return this;
     }

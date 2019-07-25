@@ -50,7 +50,7 @@ public interface ServerAuthHandler {
 
     void send(byte[] payload);
 
-    void onError(String message, Throwable cause);
+    void onError(Throwable cause);
 
   }
 

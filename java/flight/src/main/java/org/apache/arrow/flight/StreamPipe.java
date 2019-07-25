@@ -20,6 +20,7 @@ package org.apache.arrow.flight;
 import java.util.function.Function;
 
 import org.apache.arrow.flight.FlightProducer.StreamListener;
+import org.apache.arrow.flight.grpc.StatusUtils;
 
 import io.grpc.stub.StreamObserver;
 
@@ -51,7 +52,7 @@ class StreamPipe<FROM, TO> implements StreamListener<FROM> {
 
   @Override
   public void onError(Throwable t) {
-    delegate.onError(t);
+    delegate.onError(StatusUtils.toGrpcException(t));
   }
 
   @Override

@@ -15,41 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.flight.auth;
-
-import java.util.Iterator;
+package org.apache.arrow.flight;
 
 /**
- * Implement authentication for Flight on the client side.
+ * An exception raised from a Flight RPC.
+ *
+ * <p>In service implementations, raising an instance of this exception will provide clients with a more detailed
+ * message and error code.
  */
-public interface ClientAuthHandler {
-  /**
-   * Handle the initial handshake with the server.
-   * @param outgoing A channel to send data to the server.
-   * @param incoming An iterator of incoming data from the server.
-   */
-  void authenticate(ClientAuthSender outgoing, Iterator<byte[]> incoming);
+public class FlightRuntimeException extends RuntimeException {
+  private final CallStatus status;
 
   /**
-   * Get the per-call authentication token.
+   * Create a new exception from the given status.
    */
-  byte[] getCallToken();
-
-  /**
-   * A communication channel to the server during initial connection.
-   */
-  interface ClientAuthSender {
-
-    /**
-     * Send the server a message.
-     */
-    void send(byte[] payload);
-
-    /**
-     * Signal an error to the server and abort the authentication attempt.
-     */
-    void onError(Throwable cause);
-
+  FlightRuntimeException(CallStatus status) {
+    super(status.description(), status.cause());
+    this.status = status;
   }
 
+  public CallStatus status() {
+    return status;
+  }
 }

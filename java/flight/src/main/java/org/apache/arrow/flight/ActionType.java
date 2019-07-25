@@ -59,4 +59,12 @@ public class ActionType {
         .setDescription(description)
         .build();
   }
+
+  @Override
+  public String toString() {
+    return "ActionType{" +
+        "type='" + type + '\'' +
+        ", description='" + description + '\'' +
+        '}';
+  }
 }

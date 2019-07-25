@@ -28,6 +28,7 @@ from cython.operator cimport dereference as deref
 
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.lib cimport *
+from pyarrow.lib import ArrowException
 from pyarrow.lib import as_buffer
 from pyarrow.includes.libarrow_flight cimport *
 from pyarrow.ipc import _ReadPandasOption
@@ -35,6 +36,32 @@ import pyarrow.lib as lib
 
 
 cdef CFlightCallOptions DEFAULT_CALL_OPTIONS
+
+
+cdef int check_flight_status(const CStatus& status) nogil except -1:
+    cdef shared_ptr[FlightStatusDetail] detail
+
+    if status.ok():
+        return 0
+
+    detail = FlightStatusDetail.UnwrapStatus(status)
+    if detail:
+        with gil:
+            message = frombytes(status.message())
+            if detail.get().code() == CFlightStatusInternal:
+                raise FlightInternalError(message)
+            elif detail.get().code() == CFlightStatusTimedOut:
+                raise FlightTimedOutError(message)
+            elif detail.get().code() == CFlightStatusCancelled:
+                raise FlightCancelledError(message)
+            elif detail.get().code() == CFlightStatusUnauthenticated:
+                raise FlightUnauthenticatedError(message)
+            elif detail.get().code() == CFlightStatusUnauthorized:
+                raise FlightUnauthorizedError(message)
+            elif detail.get().code() == CFlightStatusUnavailable:
+                raise FlightUnavailableError(message)
+
+    return check_status(status)
 
 
 cdef class FlightCallOptions:
@@ -71,6 +98,45 @@ _CertKeyPair = collections.namedtuple('_CertKeyPair', ['cert', 'key'])
 
 class CertKeyPair(_CertKeyPair):
     """A TLS certificate and key for use in Flight."""
+
+
+cdef class FlightError(Exception):
+    cdef dict __dict__
+
+    cdef CStatus to_status(self):
+        message = tobytes("Flight error: {}".format(str(self)))
+        return CStatus_UnknownError(message)
+
+
+cdef class FlightInternalError(FlightError, ArrowException):
+    cdef CStatus to_status(self):
+        return MakeFlightError(CFlightStatusInternal, tobytes(str(self)))
+
+
+cdef class FlightTimedOutError(FlightError, ArrowException):
+    cdef CStatus to_status(self):
+        return MakeFlightError(CFlightStatusTimedOut, tobytes(str(self)))
+
+
+cdef class FlightCancelledError(FlightError, ArrowException):
+    cdef CStatus to_status(self):
+        return MakeFlightError(CFlightStatusCancelled, tobytes(str(self)))
+
+
+cdef class FlightUnauthenticatedError(FlightError, ArrowException):
+    cdef CStatus to_status(self):
+        return MakeFlightError(
+            CFlightStatusUnauthenticated, tobytes(str(self)))
+
+
+cdef class FlightUnauthorizedError(FlightError, ArrowException):
+    cdef CStatus to_status(self):
+        return MakeFlightError(CFlightStatusUnauthorized, tobytes(str(self)))
+
+
+cdef class FlightUnavailableError(FlightError, ArrowException):
+    cdef CStatus to_status(self):
+        return MakeFlightError(CFlightStatusUnavailable, tobytes(str(self)))
 
 
 cdef class Action:
@@ -245,7 +311,7 @@ cdef class FlightDescriptor:
 
         """
         cdef c_string out
-        check_status(self.descriptor.SerializeToString(&out))
+        check_flight_status(self.descriptor.SerializeToString(&out))
         return out
 
     @classmethod
@@ -258,7 +324,7 @@ cdef class FlightDescriptor:
         """
         cdef FlightDescriptor descriptor = \
             FlightDescriptor.__new__(FlightDescriptor)
-        check_status(CFlightDescriptor.Deserialize(
+        check_flight_status(CFlightDescriptor.Deserialize(
             tobytes(serialized), &descriptor.descriptor))
         return descriptor
 
@@ -287,7 +353,7 @@ cdef class Ticket:
 
         """
         cdef c_string out
-        check_status(self.ticket.SerializeToString(&out))
+        check_flight_status(self.ticket.SerializeToString(&out))
         return out
 
     @classmethod
@@ -301,7 +367,8 @@ cdef class Ticket:
         cdef:
             CTicket c_ticket
             Ticket ticket
-        check_status(CTicket.Deserialize(tobytes(serialized), &c_ticket))
+        check_flight_status(
+            CTicket.Deserialize(tobytes(serialized), &c_ticket))
         ticket = Ticket.__new__(Ticket)
         ticket.ticket = c_ticket
         return ticket
@@ -319,7 +386,7 @@ cdef class Location:
         CLocation location
 
     def __init__(self, uri):
-        check_status(CLocation.Parse(tobytes(uri), &self.location))
+        check_flight_status(CLocation.Parse(tobytes(uri), &self.location))
 
     def __repr__(self):
         return '<Location {}>'.format(self.location.ToString())
@@ -343,7 +410,8 @@ cdef class Location:
             c_string c_host = tobytes(host)
             int c_port = port
             Location result = Location.__new__(Location)
-        check_status(CLocation.ForGrpcTcp(c_host, c_port, &result.location))
+        check_flight_status(
+            CLocation.ForGrpcTcp(c_host, c_port, &result.location))
         return result
 
     @staticmethod
@@ -353,7 +421,8 @@ cdef class Location:
             c_string c_host = tobytes(host)
             int c_port = port
             Location result = Location.__new__(Location)
-        check_status(CLocation.ForGrpcTls(c_host, c_port, &result.location))
+        check_flight_status(
+            CLocation.ForGrpcTls(c_host, c_port, &result.location))
         return result
 
     @staticmethod
@@ -362,7 +431,7 @@ cdef class Location:
         cdef:
             c_string c_path = tobytes(path)
             Location result = Location.__new__(Location)
-        check_status(CLocation.ForGrpcUnix(c_path, &result.location))
+        check_flight_status(CLocation.ForGrpcUnix(c_path, &result.location))
         return result
 
     @staticmethod
@@ -375,7 +444,8 @@ cdef class Location:
     cdef CLocation unwrap(object location) except *:
         cdef CLocation c_location
         if isinstance(location, six.text_type):
-            check_status(CLocation.Parse(tobytes(location), &c_location))
+            check_flight_status(
+                CLocation.Parse(tobytes(location), &c_location))
             return c_location
         elif not isinstance(location, Location):
             raise TypeError("Must provide a Location, not '{}'".format(
@@ -416,7 +486,8 @@ cdef class FlightEndpoint:
                 c_location = (<Location> location).location
             else:
                 c_location = CLocation()
-                check_status(CLocation.Parse(tobytes(location), &c_location))
+                check_flight_status(
+                    CLocation.Parse(tobytes(location), &c_location))
             self.endpoint.locations.push_back(c_location)
 
     @property
@@ -470,11 +541,11 @@ cdef class FlightInfo:
                 raise TypeError('Endpoint {} is not instance of'
                                 ' FlightEndpoint'.format(endpoint))
 
-        check_status(CreateFlightInfo(c_schema,
-                                      descriptor.descriptor,
-                                      c_endpoints,
-                                      total_records,
-                                      total_bytes, &self.info))
+        check_flight_status(CreateFlightInfo(c_schema,
+                                             descriptor.descriptor,
+                                             c_endpoints,
+                                             total_records,
+                                             total_bytes, &self.info))
 
     @property
     def total_records(self):
@@ -493,7 +564,7 @@ cdef class FlightInfo:
             shared_ptr[CSchema] schema
             CDictionaryMemo dummy_memo
 
-        check_status(self.info.get().GetSchema(&dummy_memo, &schema))
+        check_flight_status(self.info.get().GetSchema(&dummy_memo, &schema))
         return pyarrow_wrap_schema(schema)
 
     @property
@@ -527,7 +598,7 @@ cdef class FlightInfo:
 
         """
         cdef c_string out
-        check_status(self.info.get().SerializeToString(&out))
+        check_flight_status(self.info.get().SerializeToString(&out))
         return out
 
     @classmethod
@@ -539,7 +610,7 @@ cdef class FlightInfo:
 
         """
         cdef FlightInfo info = FlightInfo.__new__(FlightInfo)
-        check_status(CFlightInfo.Deserialize(
+        check_flight_status(CFlightInfo.Deserialize(
             tobytes(serialized), &info.info))
         return info
 
@@ -591,7 +662,7 @@ cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader,
         cdef:
             shared_ptr[CTable] c_table
         with nogil:
-            check_status(self.reader.get().ReadAll(&c_table))
+            check_flight_status(self.reader.get().ReadAll(&c_table))
         return pyarrow_wrap_table(c_table)
 
     def read_chunk(self):
@@ -614,7 +685,7 @@ cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader,
             FlightStreamChunk chunk = FlightStreamChunk()
 
         with nogil:
-            check_status(self.reader.get().Next(&chunk.chunk))
+            check_flight_status(self.reader.get().Next(&chunk.chunk))
 
         if chunk.chunk.data == NULL:
             raise StopIteration
@@ -647,7 +718,7 @@ cdef class FlightStreamWriter(_CRecordBatchWriter):
         """
         cdef shared_ptr[CBuffer] c_buf = pyarrow_unwrap_buffer(as_buffer(buf))
         with nogil:
-            check_status(
+            check_flight_status(
                 (<CFlightStreamWriter*> self.writer.get())
                 .WriteWithMetadata(deref(batch.batch),
                                    c_buf,
@@ -664,7 +735,7 @@ cdef class FlightMetadataReader:
         """Read the next metadata message."""
         cdef shared_ptr[CBuffer] buf
         with nogil:
-            check_status(self.reader.get().ReadMetadata(&buf))
+            check_flight_status(self.reader.get().ReadMetadata(&buf))
         if buf == NULL:
             return None
         return pyarrow_wrap_buffer(buf)
@@ -686,7 +757,7 @@ cdef class FlightMetadataWriter:
         cdef shared_ptr[CBuffer] buf = \
             pyarrow_unwrap_buffer(as_buffer(message))
         with nogil:
-            check_status(self.writer.get().WriteMetadata(deref(buf)))
+            check_flight_status(self.writer.get().WriteMetadata(deref(buf)))
 
 
 cdef class FlightClient:
@@ -726,8 +797,8 @@ cdef class FlightClient:
             c_options.override_hostname = tobytes(override_hostname)
 
         with nogil:
-            check_status(CFlightClient.Connect(c_location, c_options,
-                                               &result.client))
+            check_flight_status(CFlightClient.Connect(c_location, c_options,
+                                                      &result.client))
 
         return result
 
@@ -751,8 +822,9 @@ cdef class FlightClient:
                 "not '{}'".format(type(auth_handler)))
         handler.reset((<ClientAuthHandler> auth_handler).to_handler())
         with nogil:
-            check_status(self.client.get().Authenticate(deref(c_options),
-                                                        move(handler)))
+            check_flight_status(
+                self.client.get().Authenticate(deref(c_options),
+                                               move(handler)))
 
     def list_actions(self, options: FlightCallOptions = None):
         """List the actions available on a service."""
@@ -761,7 +833,7 @@ cdef class FlightClient:
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
 
         with nogil:
-            check_status(
+            check_flight_status(
                 self.client.get().ListActions(deref(c_options), &results))
 
         result = []
@@ -780,14 +852,14 @@ cdef class FlightClient:
             CAction c_action = Action.unwrap(action)
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
         with nogil:
-            check_status(
+            check_flight_status(
                 self.client.get().DoAction(deref(c_options), c_action,
                                            &results))
 
         while True:
             result = Result.__new__(Result)
             with nogil:
-                check_status(results.get().Next(&result.result))
+                check_flight_status(results.get().Next(&result.result))
                 if result.result == NULL:
                     break
             yield result
@@ -801,13 +873,14 @@ cdef class FlightClient:
             CCriteria c_criteria
 
         with nogil:
-            check_status(self.client.get().ListFlights(deref(c_options),
-                                                       c_criteria, &listing))
+            check_flight_status(
+                self.client.get().ListFlights(deref(c_options),
+                                              c_criteria, &listing))
 
         while True:
             result = FlightInfo.__new__(FlightInfo)
             with nogil:
-                check_status(listing.get().Next(&result.info))
+                check_flight_status(listing.get().Next(&result.info))
                 if result.info == NULL:
                     break
             yield result
@@ -822,7 +895,7 @@ cdef class FlightClient:
                 FlightDescriptor.unwrap(descriptor)
 
         with nogil:
-            check_status(self.client.get().GetFlightInfo(
+            check_flight_status(self.client.get().GetFlightInfo(
                 deref(c_options), c_descriptor, &result.info))
 
         return result
@@ -839,7 +912,7 @@ cdef class FlightClient:
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
 
         with nogil:
-            check_status(
+            check_flight_status(
                 self.client.get().DoGet(
                     deref(c_options), ticket.ticket, &reader))
         result = FlightStreamReader()
@@ -866,7 +939,7 @@ cdef class FlightClient:
             FlightMetadataReader reader = FlightMetadataReader()
 
         with nogil:
-            check_status(self.client.get().DoPut(
+            check_flight_status(self.client.get().DoPut(
                 deref(c_options),
                 c_descriptor,
                 c_schema,
@@ -982,7 +1055,7 @@ cdef class ServerAuthReader:
             raise ValueError("Cannot use ServerAuthReader outside "
                              "ServerAuthHandler.authenticate")
         with nogil:
-            check_status(self.reader.Read(&token))
+            check_flight_status(self.reader.Read(&token))
         return token
 
     cdef void poison(self):
@@ -1013,7 +1086,7 @@ cdef class ServerAuthSender:
             raise ValueError("Cannot use ServerAuthSender outside "
                              "ServerAuthHandler.authenticate")
         with nogil:
-            check_status(self.sender.Write(c_message))
+            check_flight_status(self.sender.Write(c_message))
 
     cdef void poison(self):
         """Prevent further usage of this object.
@@ -1043,7 +1116,7 @@ cdef class ClientAuthReader:
             raise ValueError("Cannot use ClientAuthReader outside "
                              "ClientAuthHandler.authenticate")
         with nogil:
-            check_status(self.reader.Read(&token))
+            check_flight_status(self.reader.Read(&token))
         return token
 
     cdef void poison(self):
@@ -1074,7 +1147,7 @@ cdef class ClientAuthSender:
             raise ValueError("Cannot use ClientAuthSender outside "
                              "ClientAuthHandler.authenticate")
         with nogil:
-            check_status(self.sender.Write(c_message))
+            check_flight_status(self.sender.Write(c_message))
 
     cdef void poison(self):
         """Prevent further usage of this object.
@@ -1093,7 +1166,7 @@ cdef class ClientAuthSender:
         return result
 
 
-cdef void _data_stream_next(void* self, CFlightPayload* payload) except *:
+cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
     """Callback for implementing FlightDataStream in Python."""
     cdef:
         unique_ptr[CFlightDataStream] data_stream
@@ -1104,18 +1177,20 @@ cdef void _data_stream_next(void* self, CFlightPayload* payload) except *:
     stream = <GeneratorStream> py_stream
 
     if stream.current_stream != nullptr:
-        check_status(stream.current_stream.get().Next(payload))
+        check_flight_status(stream.current_stream.get().Next(payload))
         # If the stream ended, see if there's another stream from the
         # generator
         if payload.ipc_message.metadata != nullptr:
-            return
+            return CStatus_OK()
         stream.current_stream.reset(nullptr)
 
     try:
         result = next(stream.generator)
     except StopIteration:
         payload.ipc_message.metadata.reset(<CBuffer*> nullptr)
-        return
+        return CStatus_OK()
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
 
     if isinstance(result, (list, tuple)):
         result, metadata = result
@@ -1144,7 +1219,7 @@ cdef void _data_stream_next(void* self, CFlightPayload* payload) except *:
                                                             stream_schema))
         stream.current_stream.reset(
             new CPyFlightDataStream(result, move(data_stream)))
-        _data_stream_next(self, payload)
+        return _data_stream_next(self, payload)
     elif isinstance(result, RecordBatch):
         batch = <RecordBatch> result
         if batch.schema != stream_schema:
@@ -1153,7 +1228,7 @@ cdef void _data_stream_next(void* self, CFlightPayload* payload) except *:
                              "GeneratorStream. "
                              "Got: {}\nExpected: {}".format(batch.schema,
                                                             stream_schema))
-        check_status(_GetRecordBatchPayload(
+        check_flight_status(_GetRecordBatchPayload(
             deref(batch.batch),
             c_default_memory_pool(),
             &payload.ipc_message))
@@ -1164,45 +1239,56 @@ cdef void _data_stream_next(void* self, CFlightPayload* payload) except *:
                         "an iterator of FlightDataStream, Table, "
                         "RecordBatch, or RecordBatchStreamReader objects, "
                         "not {}.".format(type(result)))
+    return CStatus_OK()
 
 
-cdef void _list_flights(void* self, const CServerCallContext& context,
-                        const CCriteria* c_criteria,
-                        unique_ptr[CFlightListing]* listing) except *:
+cdef CStatus _list_flights(void* self, const CServerCallContext& context,
+                           const CCriteria* c_criteria,
+                           unique_ptr[CFlightListing]* listing) except *:
     """Callback for implementing ListFlights in Python."""
     cdef:
         vector[CFlightInfo] flights
-    result = (<object> self).list_flights(ServerCallContext.wrap(context),
-                                          c_criteria.expression)
-    for info in result:
-        if not isinstance(info, FlightInfo):
-            raise TypeError("FlightServerBase.list_flights must return "
-                            "FlightInfo instances, but got {}".format(
-                                type(info)))
-        flights.push_back(deref((<FlightInfo> info).info.get()))
-    listing.reset(new CSimpleFlightListing(flights))
+
+    try:
+        result = (<object> self).list_flights(ServerCallContext.wrap(context),
+                                              c_criteria.expression)
+        for info in result:
+            if not isinstance(info, FlightInfo):
+                raise TypeError("FlightServerBase.list_flights must return "
+                                "FlightInfo instances, but got {}".format(
+                                    type(info)))
+            flights.push_back(deref((<FlightInfo> info).info.get()))
+        listing.reset(new CSimpleFlightListing(flights))
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
+    return CStatus_OK()
 
 
-cdef void _get_flight_info(void* self, const CServerCallContext& context,
-                           CFlightDescriptor c_descriptor,
-                           unique_ptr[CFlightInfo]* info) except *:
+cdef CStatus _get_flight_info(void* self, const CServerCallContext& context,
+                              CFlightDescriptor c_descriptor,
+                              unique_ptr[CFlightInfo]* info) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         FlightDescriptor py_descriptor = \
             FlightDescriptor.__new__(FlightDescriptor)
     py_descriptor.descriptor = c_descriptor
-    result = (<object> self).get_flight_info(ServerCallContext.wrap(context),
-                                             py_descriptor)
+    try:
+        result = (<object> self).get_flight_info(
+            ServerCallContext.wrap(context),
+            py_descriptor)
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
     if not isinstance(result, FlightInfo):
         raise TypeError("FlightServerBase.get_flight_info must return "
                         "a FlightInfo instance, but got {}".format(
                             type(result)))
     info.reset(new CFlightInfo(deref((<FlightInfo> result).info.get())))
+    return CStatus_OK()
 
 
-cdef void _do_put(void* self, const CServerCallContext& context,
-                  unique_ptr[CFlightMessageReader] reader,
-                  unique_ptr[CFlightMetadataWriter] writer) except *:
+cdef CStatus _do_put(void* self, const CServerCallContext& context,
+                     unique_ptr[CFlightMessageReader] reader,
+                     unique_ptr[CFlightMetadataWriter] writer) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         MetadataRecordBatchReader py_reader = MetadataRecordBatchReader()
@@ -1215,20 +1301,27 @@ cdef void _do_put(void* self, const CServerCallContext& context,
     py_reader.schema = pyarrow_wrap_schema(
         py_reader.reader.get().schema())
     py_writer.writer.reset(writer.release())
-    (<object> self).do_put(ServerCallContext.wrap(context), descriptor,
-                           py_reader, py_writer)
+    try:
+        (<object> self).do_put(ServerCallContext.wrap(context), descriptor,
+                               py_reader, py_writer)
+        return CStatus_OK()
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
 
 
-cdef void _do_get(void* self, const CServerCallContext& context,
-                  CTicket ticket,
-                  unique_ptr[CFlightDataStream]* stream) except *:
+cdef CStatus _do_get(void* self, const CServerCallContext& context,
+                     CTicket ticket,
+                     unique_ptr[CFlightDataStream]* stream) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         unique_ptr[CFlightDataStream] data_stream
 
     py_ticket = Ticket(ticket.ticket)
-    result = (<object> self).do_get(ServerCallContext.wrap(context),
-                                    py_ticket)
+    try:
+        result = (<object> self).do_get(ServerCallContext.wrap(context),
+                                        py_ticket)
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
     if not isinstance(result, FlightDataStream):
         raise TypeError("FlightServerBase.do_get must return "
                         "a FlightDataStream")
@@ -1236,10 +1329,13 @@ cdef void _do_get(void* self, const CServerCallContext& context,
         (<FlightDataStream> result).to_stream())
     stream[0] = unique_ptr[CFlightDataStream](
         new CPyFlightDataStream(result, move(data_stream)))
+    return CStatus_OK()
 
 
-cdef void _do_action_result_next(void* self,
-                                 unique_ptr[CFlightResult]* result) except *:
+cdef CStatus _do_action_result_next(
+    void* self,
+    unique_ptr[CFlightResult]* result
+) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         CFlightResult* c_result
@@ -1253,70 +1349,95 @@ cdef void _do_action_result_next(void* self,
         result.reset(new CFlightResult(deref(c_result)))
     except StopIteration:
         result.reset(nullptr)
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
+    return CStatus_OK()
 
 
-cdef void _do_action(void* self, const CServerCallContext& context,
-                     const CAction& action,
-                     unique_ptr[CResultStream]* result) except *:
+cdef CStatus _do_action(void* self, const CServerCallContext& context,
+                        const CAction& action,
+                        unique_ptr[CResultStream]* result) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         function[cb_result_next] ptr = &_do_action_result_next
     py_action = Action(action.type, pyarrow_wrap_buffer(action.body))
-    responses = (<object> self).do_action(ServerCallContext.wrap(context),
-                                          py_action)
+    try:
+        responses = (<object> self).do_action(ServerCallContext.wrap(context),
+                                              py_action)
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
     result.reset(new CPyFlightResultStream(responses, ptr))
+    return CStatus_OK()
 
 
-cdef void _list_actions(void* self, const CServerCallContext& context,
-                        vector[CActionType]* actions) except *:
+cdef CStatus _list_actions(void* self, const CServerCallContext& context,
+                           vector[CActionType]* actions) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         CActionType action_type
     # Method should return a list of ActionTypes or similar tuple
-    result = (<object> self).list_actions(ServerCallContext.wrap(context))
-    for action in result:
-        action_type.type = tobytes(action[0])
-        action_type.description = tobytes(action[1])
-        actions.push_back(action_type)
+    try:
+        result = (<object> self).list_actions(ServerCallContext.wrap(context))
+        for action in result:
+            action_type.type = tobytes(action[0])
+            action_type.description = tobytes(action[1])
+            actions.push_back(action_type)
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
+    return CStatus_OK()
 
 
-cdef void _server_authenticate(void* self, CServerAuthSender* outgoing,
-                               CServerAuthReader* incoming) except *:
+cdef CStatus _server_authenticate(void* self, CServerAuthSender* outgoing,
+                                  CServerAuthReader* incoming) except *:
     """Callback for implementing authentication in Python."""
     sender = ServerAuthSender.wrap(outgoing)
     reader = ServerAuthReader.wrap(incoming)
     try:
         (<object> self).authenticate(sender, reader)
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
     finally:
         sender.poison()
         reader.poison()
+    return CStatus_OK()
 
 
-cdef void _is_valid(void* self, const c_string& token,
-                    c_string* peer_identity) except *:
+cdef CStatus _is_valid(void* self, const c_string& token,
+                       c_string* peer_identity) except *:
     """Callback for implementing authentication in Python."""
     cdef c_string c_result
-    c_result = tobytes((<object> self).is_valid(token))
-    peer_identity[0] = c_result
+    try:
+        c_result = tobytes((<object> self).is_valid(token))
+        peer_identity[0] = c_result
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
+    return CStatus_OK()
 
 
-cdef void _client_authenticate(void* self, CClientAuthSender* outgoing,
-                               CClientAuthReader* incoming) except *:
+cdef CStatus _client_authenticate(void* self, CClientAuthSender* outgoing,
+                                  CClientAuthReader* incoming) except *:
     """Callback for implementing authentication in Python."""
     sender = ClientAuthSender.wrap(outgoing)
     reader = ClientAuthReader.wrap(incoming)
     try:
         (<object> self).authenticate(sender, reader)
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
     finally:
         sender.poison()
         reader.poison()
+    return CStatus_OK()
 
 
-cdef void _get_token(void* self, c_string* token) except *:
+cdef CStatus _get_token(void* self, c_string* token) except *:
     """Callback for implementing authentication in Python."""
     cdef c_string c_result
-    c_result = tobytes((<object> self).get_token())
-    token[0] = c_result
+    try:
+        c_result = tobytes((<object> self).get_token())
+        token[0] = c_result
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
+    return CStatus_OK()
 
 
 cdef class ServerAuthHandler:
@@ -1441,7 +1562,7 @@ cdef class FlightServerBase:
         c_server = new PyFlightServer(self, vtable)
         self.server.reset(c_server)
         with nogil:
-            check_status(c_server.Init(deref(c_options)))
+            check_flight_status(c_server.Init(deref(c_options)))
 
     def run(self):
         """
@@ -1453,7 +1574,7 @@ cdef class FlightServerBase:
         if self.server.get() == nullptr:
             raise ValueError("run() on uninitialized FlightServerBase")
         with nogil:
-            check_status(self.server.get().ServeWithSignals())
+            check_flight_status(self.server.get().ServeWithSignals())
 
     def list_flights(self, context, criteria):
         raise NotImplementedError
@@ -1489,4 +1610,4 @@ cdef class FlightServerBase:
         if self.server.get() == nullptr:
             raise ValueError("shutdown() on uninitialized FlightServerBase")
         with nogil:
-            check_status(self.server.get().Shutdown())
+            check_flight_status(self.server.get().Shutdown())

@@ -22,19 +22,24 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.auth.ServerAuthHandler.ServerAuthSender;
+import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
 import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.protobuf.ByteString;
 
-import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 
 /**
  * Contains utility methods for integrating authorization into a GRPC stream.
  */
 public class ServerAuthWrapper {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ServerAuthWrapper.class);
 
   /**
    * Wrap the auth handler for handshake purposes.
@@ -56,10 +61,10 @@ public class ServerAuthWrapper {
           return;
         }
 
-        responseObserver.onError(Status.PERMISSION_DENIED.asException());
+        responseObserver.onError(StatusUtils.toGrpcException(CallStatus.UNAUTHENTICATED.toRuntimeException()));
       } catch (Exception ex) {
-        ex.printStackTrace();
-        responseObserver.onError(ex);
+        LOGGER.error("Error during authentication", ex);
+        responseObserver.onError(StatusUtils.toGrpcException(ex));
       }
     };
     observer.future = executors.submit(r);
@@ -130,8 +135,8 @@ public class ServerAuthWrapper {
       }
 
       @Override
-      public void onError(String message, Throwable cause) {
-        responseObserver.onError(cause);
+      public void onError(Throwable cause) {
+        responseObserver.onError(StatusUtils.toGrpcException(cause));
       }
 
     }
