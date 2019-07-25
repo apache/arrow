@@ -246,4 +246,18 @@ char* concatOperator_utf8_utf8(int64 context, const char* left, int32 left_len,
   return ret;
 }
 
+FORCE_INLINE
+char* convert_fromUTF8_binary(int64 context, const char* bin_in, int32 len,
+                              int32* out_len) {
+  *out_len = len;
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return nullptr;
+  }
+  memcpy(ret, bin_in, *out_len);
+  return ret;
+}
+
 }  // extern "C"
