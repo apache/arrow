@@ -644,8 +644,10 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
   }
 
   Status AppendNull() override {
-    for (auto& converter : child_converters_) {
-      RETURN_NOT_OK(converter->AppendNull());
+    if (mode_ == UnionMode::SPARSE) {
+      for (auto& converter : child_converters_) {
+        RETURN_NOT_OK(converter->AppendNull());
+      }
     }
     return builder_->AppendNull();
   }
@@ -676,15 +678,15 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
     }
 
     auto child_converter = child_converters_[child_num];
-    if (mode_ == UnionMode::DENSE) {
-      RETURN_NOT_OK(checked_cast<DenseUnionBuilder&>(*builder_).Append(id));
-    } else {
+    if (mode_ == UnionMode::SPARSE) {
       RETURN_NOT_OK(checked_cast<SparseUnionBuilder&>(*builder_).Append(id));
       for (auto&& other_converter : child_converters_) {
         if (other_converter != child_converter) {
           RETURN_NOT_OK(other_converter->AppendNull());
         }
       }
+    } else {
+      RETURN_NOT_OK(checked_cast<DenseUnionBuilder&>(*builder_).Append(id));
     }
     return child_converter->AppendValue(json_obj[1]);
   }

@@ -414,5 +414,34 @@ TEST_F(TestFilterKernelWithStruct, FilterStruct) {
   ])");
 }
 
+class TestFilterKernelWithUnion : public TestFilterKernel<UnionType> {};
+
+TEST_F(TestFilterKernelWithUnion, FilterUnion) {
+  for (auto mode : {UnionMode::SPARSE, UnionMode::DENSE}) {
+    auto union_type = union_({field("a", int32()), field("b", utf8())}, {2, 5}, mode);
+    auto union_json = R"([
+      null,
+      [2, 222],
+      [5, "hello"],
+      [5, "eh"],
+      null,
+      [2, 111]
+    ])";
+    this->AssertFilter(union_type, union_json, "[0, 0, 0, 0, 0, 0]", "[]");
+    this->AssertFilter(union_type, union_json, "[0, 1, 1, null, 0, 1]", R"([
+      [2, 222],
+      [5, "hello"],
+      null,
+      [2, 111]
+    ])");
+    this->AssertFilter(union_type, union_json, "[1, 0, 1, 0, 1, 0]", R"([
+      null,
+      [5, "hello"],
+      null
+    ])");
+    this->AssertFilter(union_type, union_json, "[1, 1, 1, 1, 1, 1]", union_json);
+  }
+}
+
 }  // namespace compute
 }  // namespace arrow

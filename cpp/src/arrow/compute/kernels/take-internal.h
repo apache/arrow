@@ -77,6 +77,9 @@ Status VisitIndices(IndexSequence indices, const Array& values, Visitor&& vis) {
       if (index < 0 || index >= values.length()) {
         return Status::IndexError("take index out of bounds");
       }
+    } else {
+      DCHECK_GE(index, 0);
+      DCHECK_LT(index, values.length());
     }
 
     bool is_valid = !SomeValuesNull || values.IsValid(index);
@@ -121,12 +124,13 @@ class Taker {
 
   virtual ~Taker() = default;
 
-  // construct any children, must be called once after construction
-  virtual Status MakeChildren() { return Status::OK(); }
+  // initialize this taker including constructing any children,
+  // must be called once after construction before any other methods are called
+  virtual Status Init() { return Status::OK(); }
 
-  // reset this Taker, prepare to gather into an array allocated from pool
-  // must be called each time the output pool may have changed
-  virtual Status Init(MemoryPool* pool) = 0;
+  // reset this Taker and set FunctionContext for taking an array
+  // must be called each time the FunctionContext may have changed
+  virtual Status SetContext(FunctionContext* ctx) = 0;
 
   // gather elements from an array at the provided indices
   virtual Status Take(const Array& values, IndexSequence indices) = 0;
@@ -200,6 +204,36 @@ class RangeIndexSequence {
   int64_t index_ = 0, length_ = -1;
 };
 
+// an IndexSequence which yields the values of an Array of integers
+template <typename IndexType>
+class ArrayIndexSequence {
+ public:
+  bool never_out_of_bounds() const { return never_out_of_bounds_; }
+  void set_never_out_of_bounds() { never_out_of_bounds_ = true; }
+
+  constexpr ArrayIndexSequence() = default;
+
+  explicit ArrayIndexSequence(const Array& indices)
+      : indices_(&checked_cast<const NumericArray<IndexType>&>(indices)) {}
+
+  std::pair<int64_t, bool> Next() {
+    if (indices_->IsNull(index_)) {
+      ++index_;
+      return std::make_pair(-1, false);
+    }
+    return std::make_pair(indices_->Value(index_++), true);
+  }
+
+  int64_t length() const { return indices_->length(); }
+
+  int64_t null_count() const { return indices_->null_count(); }
+
+ private:
+  const NumericArray<IndexType>* indices_ = nullptr;
+  int64_t index_ = 0;
+  bool never_out_of_bounds_ = false;
+};
+
 // Default implementation: taking from a simple array into a builder requires only that
 // the array supports array.GetView() and the corresponding builder supports
 // builder.UnsafeAppend(array.GetView())
@@ -211,7 +245,9 @@ class TakerImpl : public Taker<IndexSequence> {
 
   using Taker<IndexSequence>::Taker;
 
-  Status Init(MemoryPool* pool) override { return this->MakeBuilder(pool, &builder_); }
+  Status SetContext(FunctionContext* ctx) override {
+    return this->MakeBuilder(ctx->memory_pool(), &builder_);
+  }
 
   Status Take(const Array& values, IndexSequence indices) override {
     DCHECK(this->type_->Equals(values.type()));
@@ -239,7 +275,7 @@ class TakerImpl<IndexSequence, NullType> : public Taker<IndexSequence> {
  public:
   using Taker<IndexSequence>::Taker;
 
-  Status Init(MemoryPool*) override { return Status::OK(); }
+  Status SetContext(FunctionContext*) override { return Status::OK(); }
 
   Status Take(const Array& values, IndexSequence indices) override {
     DCHECK(this->type_->Equals(values.type()));
@@ -267,16 +303,17 @@ class TakerImpl<IndexSequence, ListType> : public Taker<IndexSequence> {
  public:
   using Taker<IndexSequence>::Taker;
 
-  Status MakeChildren() override {
+  Status Init() override {
     const auto& list_type = checked_cast<const ListType&>(*this->type_);
     return Taker<RangeIndexSequence>::Make(list_type.value_type(), &value_taker_);
   }
 
-  Status Init(MemoryPool* pool) override {
+  Status SetContext(FunctionContext* ctx) override {
+    auto pool = ctx->memory_pool();
     null_bitmap_builder_.reset(new TypedBufferBuilder<bool>(pool));
     offset_builder_.reset(new TypedBufferBuilder<int32_t>(pool));
     RETURN_NOT_OK(offset_builder_->Append(0));
-    return value_taker_->Init(pool);
+    return value_taker_->SetContext(ctx);
   }
 
   Status Take(const Array& values, IndexSequence indices) override {
@@ -345,14 +382,15 @@ class TakerImpl<IndexSequence, FixedSizeListType> : public Taker<IndexSequence> 
  public:
   using Taker<IndexSequence>::Taker;
 
-  Status MakeChildren() override {
+  Status Init() override {
     const auto& list_type = checked_cast<const FixedSizeListType&>(*this->type_);
     return Taker<RangeIndexSequence>::Make(list_type.value_type(), &value_taker_);
   }
 
-  Status Init(MemoryPool* pool) override {
+  Status SetContext(FunctionContext* ctx) override {
+    auto pool = ctx->memory_pool();
     null_bitmap_builder_.reset(new TypedBufferBuilder<bool>(pool));
-    return value_taker_->Init(pool);
+    return value_taker_->SetContext(ctx);
   }
 
   Status Take(const Array& values, IndexSequence indices) override {
@@ -398,7 +436,7 @@ class TakerImpl<IndexSequence, StructType> : public Taker<IndexSequence> {
  public:
   using Taker<IndexSequence>::Taker;
 
-  Status MakeChildren() override {
+  Status Init() override {
     children_.resize(this->type_->num_children());
     for (int i = 0; i < this->type_->num_children(); ++i) {
       RETURN_NOT_OK(
@@ -407,10 +445,10 @@ class TakerImpl<IndexSequence, StructType> : public Taker<IndexSequence> {
     return Status::OK();
   }
 
-  Status Init(MemoryPool* pool) override {
-    null_bitmap_builder_.reset(new TypedBufferBuilder<bool>(pool));
+  Status SetContext(FunctionContext* ctx) override {
+    null_bitmap_builder_.reset(new TypedBufferBuilder<bool>(ctx->memory_pool()));
     for (int i = 0; i < this->type_->num_children(); ++i) {
-      RETURN_NOT_OK(children_[i]->Init(pool));
+      RETURN_NOT_OK(children_[i]->SetContext(ctx));
     }
     return Status::OK();
   }
@@ -455,20 +493,195 @@ class TakerImpl<IndexSequence, StructType> : public Taker<IndexSequence> {
   std::vector<std::unique_ptr<Taker<IndexSequence>>> children_;
 };
 
+template <typename IndexSequence>
+class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
+ public:
+  using Taker<IndexSequence>::Taker;
+
+  Status Init() override {
+    union_type_ = checked_cast<const UnionType*>(this->type_.get());
+
+    if (union_type_->mode() == UnionMode::SPARSE) {
+      sparse_children_.resize(this->type_->num_children());
+    } else {
+      dense_children_.resize(this->type_->num_children());
+      child_length_.resize(union_type_->max_type_code() + 1);
+    }
+
+    for (int i = 0; i < this->type_->num_children(); ++i) {
+      if (union_type_->mode() == UnionMode::SPARSE) {
+        RETURN_NOT_OK(Taker<IndexSequence>::Make(this->type_->child(i)->type(),
+                                                 &sparse_children_[i]));
+      } else {
+        RETURN_NOT_OK(Taker<ArrayIndexSequence<Int32Type>>::Make(
+            this->type_->child(i)->type(), &dense_children_[i]));
+      }
+    }
+
+    return Status::OK();
+  }
+
+  Status SetContext(FunctionContext* ctx) override {
+    pool_ = ctx->memory_pool();
+    null_bitmap_builder_.reset(new TypedBufferBuilder<bool>(pool_));
+    type_id_builder_.reset(new TypedBufferBuilder<int8_t>(pool_));
+
+    if (union_type_->mode() == UnionMode::DENSE) {
+      offset_builder_.reset(new TypedBufferBuilder<int32_t>(pool_));
+      std::fill(child_length_.begin(), child_length_.end(), 0);
+    }
+
+    for (int i = 0; i < this->type_->num_children(); ++i) {
+      if (union_type_->mode() == UnionMode::SPARSE) {
+        RETURN_NOT_OK(sparse_children_[i]->SetContext(ctx));
+      } else {
+        RETURN_NOT_OK(dense_children_[i]->SetContext(ctx));
+      }
+    }
+
+    return Status::OK();
+  }
+
+  Status Take(const Array& values, IndexSequence indices) override {
+    DCHECK(this->type_->Equals(values.type()));
+    const auto& union_array = checked_cast<const UnionArray&>(values);
+    auto type_ids = union_array.raw_type_ids();
+
+    if (union_type_->mode() == UnionMode::SPARSE) {
+      RETURN_NOT_OK(null_bitmap_builder_->Reserve(indices.length()));
+      RETURN_NOT_OK(type_id_builder_->Reserve(indices.length()));
+      RETURN_NOT_OK(VisitIndices(indices, values, [&](int64_t index, bool is_valid) {
+        null_bitmap_builder_->UnsafeAppend(is_valid);
+        type_id_builder_->UnsafeAppend(type_ids[index]);
+        return Status::OK();
+      }));
+
+      // bounds checking was done while appending to the null bitmap
+      indices.set_never_out_of_bounds();
+
+      for (int i = 0; i < this->type_->num_children(); ++i) {
+        RETURN_NOT_OK(sparse_children_[i]->Take(*union_array.child(i), indices));
+      }
+    } else {
+      // Gathering from the offsets into child arrays is a bit tricky.
+      std::vector<uint32_t> child_counts(union_type_->max_type_code() + 1);
+      RETURN_NOT_OK(null_bitmap_builder_->Reserve(indices.length()));
+      RETURN_NOT_OK(type_id_builder_->Reserve(indices.length()));
+      RETURN_NOT_OK(VisitIndices(indices, values, [&](int64_t index, bool is_valid) {
+        null_bitmap_builder_->UnsafeAppend(is_valid);
+        type_id_builder_->UnsafeAppend(type_ids[index]);
+        child_counts[type_ids[index]] += is_valid;
+        return Status::OK();
+      }));
+
+      // bounds checking was done while appending to the null bitmap
+      indices.set_never_out_of_bounds();
+
+      // Allocate temporary storage for the offsets of all valid slots
+      // NB: Overestimates required space when indices and union_array are
+      //     not null at identical positions.
+      auto child_offsets_storage_size =
+          indices.length() - std::max(union_array.null_count(), indices.null_count());
+      std::shared_ptr<Buffer> child_offsets_storage;
+      RETURN_NOT_OK(AllocateBuffer(pool_, child_offsets_storage_size * sizeof(int32_t),
+                                   &child_offsets_storage));
+
+      // Partition offsets by type_id: child_offset_partitions[type_id] will
+      // point to storage for child_counts[type_id] offsets
+      std::vector<int32_t*> child_offset_partitions(child_counts.size());
+      auto child_offsets_storage_data = GetInt32(child_offsets_storage);
+      for (auto type_id : union_type_->type_codes()) {
+        child_offset_partitions[type_id] = child_offsets_storage_data;
+        child_offsets_storage_data += child_counts[type_id];
+      }
+
+      // Fill child_offsets_storage with the taken offsets
+      RETURN_NOT_OK(offset_builder_->Reserve(indices.length()));
+      RETURN_NOT_OK(VisitIndices(indices, values, [&](int64_t index, bool is_valid) {
+        auto type_id = type_ids[index];
+        if (is_valid) {
+          offset_builder_->UnsafeAppend(child_length_[type_id]++);
+          *child_offset_partitions[type_id] = union_array.value_offset(index);
+          ++child_offset_partitions[type_id];
+        } else {
+          offset_builder_->UnsafeAppend(0);
+        }
+        return Status::OK();
+      }));
+
+      // Take from each child at those offsets
+      int64_t taken_offset_begin = 0;
+      for (int i = 0; i < this->type_->num_children(); ++i) {
+        auto type_id = union_type_->type_codes()[i];
+        auto length = child_counts[type_id];
+        Int32Array taken_offsets(length, SliceBuffer(child_offsets_storage,
+                                                     sizeof(int32_t) * taken_offset_begin,
+                                                     sizeof(int32_t) * length));
+        ArrayIndexSequence<Int32Type> child_indices(taken_offsets);
+        child_indices.set_never_out_of_bounds();
+        RETURN_NOT_OK(dense_children_[i]->Take(*union_array.child(i), child_indices));
+        taken_offset_begin += length;
+      }
+    }
+
+    return Status::OK();
+  }
+
+  Status Finish(std::shared_ptr<Array>* out) override {
+    auto null_count = null_bitmap_builder_->false_count();
+    auto length = null_bitmap_builder_->length();
+    std::shared_ptr<Buffer> null_bitmap, type_ids;
+    RETURN_NOT_OK(null_bitmap_builder_->Finish(&null_bitmap));
+    RETURN_NOT_OK(type_id_builder_->Finish(&type_ids));
+
+    std::shared_ptr<Buffer> offsets;
+    if (union_type_->mode() == UnionMode::DENSE) {
+      RETURN_NOT_OK(offset_builder_->Finish(&offsets));
+    }
+
+    ArrayVector fields(this->type_->num_children());
+    for (int i = 0; i < this->type_->num_children(); ++i) {
+      if (union_type_->mode() == UnionMode::SPARSE) {
+        RETURN_NOT_OK(sparse_children_[i]->Finish(&fields[i]));
+      } else {
+        RETURN_NOT_OK(dense_children_[i]->Finish(&fields[i]));
+      }
+    }
+
+    out->reset(new UnionArray(this->type_, length, std::move(fields), type_ids, offsets,
+                              null_bitmap, null_count));
+    return Status::OK();
+  }
+
+ protected:
+  int32_t* GetInt32(const std::shared_ptr<Buffer>& b) const {
+    return reinterpret_cast<int32_t*>(b->mutable_data());
+  }
+
+  const UnionType* union_type_ = nullptr;
+  MemoryPool* pool_ = nullptr;
+  std::unique_ptr<TypedBufferBuilder<bool>> null_bitmap_builder_;
+  std::unique_ptr<TypedBufferBuilder<int8_t>> type_id_builder_;
+  std::unique_ptr<TypedBufferBuilder<int32_t>> offset_builder_;
+  std::vector<std::unique_ptr<Taker<IndexSequence>>> sparse_children_;
+  std::vector<std::unique_ptr<Taker<ArrayIndexSequence<Int32Type>>>> dense_children_;
+  std::vector<int32_t> child_length_;
+};
+
 // taking from a DictionaryArray is accomplished by taking from its indices
 template <typename IndexSequence>
 class TakerImpl<IndexSequence, DictionaryType> : public Taker<IndexSequence> {
  public:
   using Taker<IndexSequence>::Taker;
 
-  Status MakeChildren() override {
+  Status Init() override {
     const auto& dict_type = checked_cast<const DictionaryType&>(*this->type_);
     return Taker<IndexSequence>::Make(dict_type.index_type(), &index_taker_);
   }
 
-  Status Init(MemoryPool* pool) override {
+  Status SetContext(FunctionContext* ctx) override {
     dictionary_ = nullptr;
-    return index_taker_->Init(pool);
+    return index_taker_->SetContext(ctx);
   }
 
   Status Take(const Array& values, IndexSequence indices) override {
@@ -502,12 +715,14 @@ class TakerImpl<IndexSequence, ExtensionType> : public Taker<IndexSequence> {
  public:
   using Taker<IndexSequence>::Taker;
 
-  Status MakeChildren() override {
+  Status Init() override {
     const auto& ext_type = checked_cast<const ExtensionType&>(*this->type_);
     return Taker<IndexSequence>::Make(ext_type.storage_type(), &storage_taker_);
   }
 
-  Status Init(MemoryPool* pool) override { return storage_taker_->Init(pool); }
+  Status SetContext(FunctionContext* ctx) override {
+    return storage_taker_->SetContext(ctx);
+  }
 
   Status Take(const Array& values, IndexSequence indices) override {
     DCHECK(this->type_->Equals(values.type()));
@@ -531,11 +746,7 @@ struct TakerMakeImpl {
   template <typename T>
   Status Visit(const T&) {
     out_->reset(new TakerImpl<IndexSequence, T>(type_));
-    return (*out_)->MakeChildren();
-  }
-
-  Status Visit(const UnionType& t) {
-    return Status::NotImplemented("gathering values of type ", t);
+    return (*out_)->Init();
   }
 
   std::shared_ptr<DataType> type_;
