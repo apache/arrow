@@ -22,7 +22,6 @@ import java.nio.ByteBuffer;
 
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.impl.VarCharWriterImpl;
-import org.apache.arrow.vector.complex.writer.VarCharWriter;
 import org.apache.arrow.vector.holders.VarCharHolder;
 import org.apache.avro.io.Decoder;
 
@@ -30,19 +29,39 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume string type values from avro decoder.
  * Write the data to {@link VarCharVector}.
  */
-public class AvroStringConsumer implements Consumer {
+public class AvroStringConsumer extends Consumer {
 
   private final VarCharVector vector;
-  private final VarCharWriter writer;
+  private final VarCharWriterImpl writer;
   private ByteBuffer cacheBuffer;
 
+  /**
+   * Instantiate a AvroStringConsumer.
+   */
   public AvroStringConsumer(VarCharVector vector) {
     this.vector = vector;
     this.writer = new VarCharWriterImpl(vector);
+    this.nullable = vector.getField().isNullable();
+    if (nullable) {
+      getNullFieldIndex(vector.getField());
+    }
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
+    if (!nullable) {
+      writeValue(decoder);
+    } else {
+      int index = decoder.readInt();
+      if (index != nullIndex) {
+        writeValue(decoder);
+      }
+    }
+
+    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  private void writeValue(Decoder decoder) throws IOException {
     VarCharHolder holder = new VarCharHolder();
 
     // cacheBuffer is initialized null and create in the first consume,
@@ -55,6 +74,5 @@ public class AvroStringConsumer implements Consumer {
     holder.buffer.setBytes(0, cacheBuffer, 0, cacheBuffer.limit());
 
     writer.write(holder);
-    writer.setPosition(writer.getPosition() + 1);
   }
 }

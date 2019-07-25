@@ -21,24 +21,37 @@ import java.io.IOException;
 
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.complex.impl.IntWriterImpl;
-import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.avro.io.Decoder;
 
 /**
  * Consumer which consume int type values from avro decoder.
  * Write the data to {@link IntVector}.
  */
-public class AvroIntConsumer implements Consumer {
+public class AvroIntConsumer extends Consumer {
 
-  private final IntWriter writer;
+  private final IntWriterImpl writer;
 
+  /**
+   * Instantiate a AvroIntConsumer.
+   */
   public AvroIntConsumer(IntVector vector) {
     this.writer = new IntWriterImpl(vector);
+    this.nullable = vector.getField().isNullable();
+    if (nullable) {
+      getNullFieldIndex(vector.getField());
+    }
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    writer.writeInt(decoder.readInt());
+    if (!nullable) {
+      writer.writeInt(decoder.readInt());
+    } else {
+      int index = decoder.readInt();
+      if (index != nullIndex) {
+        writer.writeInt(decoder.readInt());
+      }
+    }
     writer.setPosition(writer.getPosition() + 1);
   }
 }

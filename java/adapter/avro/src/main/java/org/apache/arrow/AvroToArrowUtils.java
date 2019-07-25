@@ -59,6 +59,7 @@ import org.apache.avro.io.Decoder;
 public class AvroToArrowUtils {
 
   private static final int DEFAULT_BUFFER_SIZE = 256;
+  public static final String NULL_INDEX = "null_index";
 
   /**
    * Creates an {@link org.apache.arrow.vector.types.pojo.ArrowType} from the {@link Schema.Field}
@@ -75,28 +76,60 @@ public class AvroToArrowUtils {
    *   <li>BYTES --> ArrowType.Binary</li>
    * </ul>
    */
-  private static ArrowType getArrowType(Type type) {
+  private static Field getArrowField(Schema schema, String name, boolean nullable) {
 
-    Preconditions.checkNotNull(type, "Avro type object can't be null");
+    Preconditions.checkNotNull(schema, "Avro schema object can't be null");
+
+    Type type = schema.getType();
+    ArrowType arrowType;
 
     switch (type) {
+      case UNION:
+        return getUnionField(schema, name);
       case STRING:
-        return new ArrowType.Utf8();
+        arrowType = new ArrowType.Utf8();
+        break;
       case INT:
-        return new ArrowType.Int(32, /*signed=*/true);
+        arrowType = new ArrowType.Int(32, /*signed=*/true);
+        break;
       case BOOLEAN:
-        return new ArrowType.Bool();
+        arrowType = new ArrowType.Bool();
+        break;
       case LONG:
-        return new ArrowType.Int(64, /*signed=*/true);
+        arrowType = new ArrowType.Int(64, /*signed=*/true);
+        break;
       case FLOAT:
-        return new ArrowType.FloatingPoint(SINGLE);
+        arrowType =  new ArrowType.FloatingPoint(SINGLE);
+        break;
       case DOUBLE:
-        return new ArrowType.FloatingPoint(DOUBLE);
+        arrowType = new ArrowType.FloatingPoint(DOUBLE);
+        break;
       case BYTES:
-        return new ArrowType.Binary();
+        arrowType = new ArrowType.Binary();
+        break;
       default:
         // no-op, shouldn't get here
         throw new RuntimeException("Can't convert avro type %s to arrow type." + type.getName());
+    }
+
+    final FieldType fieldType =  new FieldType(/*nullable=*/nullable, arrowType, /*dictionary=*/null,
+        /*metadata=*/getMetaData(schema));
+    return new Field(name, fieldType, null);
+  }
+
+  private static Field getUnionField(Schema schema, String name) {
+    int size = schema.getTypes().size();
+    long nullCount = schema.getTypes().stream().filter(s -> s.getType() == Type.NULL).count();
+    // if has two field and one is null type, convert to nullable primitive type
+    if (size == 2 && nullCount == 1) {
+      Schema subSchema = schema.getTypes().stream().filter(s -> s.getType() != Type.NULL).findFirst().get();
+      String nullIndex = schema.getTypes().indexOf(subSchema) == 0 ? "1" : "0";
+      subSchema.addProp(NULL_INDEX, nullIndex);
+      Preconditions.checkNotNull(subSchema);
+      return getArrowField(subSchema, name,true);
+    } else {
+      //TODO convert avro unions type to arrow UnionVector
+      return null;
     }
   }
 
@@ -119,26 +152,16 @@ public class AvroToArrowUtils {
 
     if (type == Type.RECORD) {
       for (Schema.Field field : schema.getFields()) {
-        final ArrowType arrowType = getArrowType(field.schema().getType());
-        final FieldType fieldType = new FieldType(/*nullable=*/false, arrowType, /*dictionary=*/null,
-            /*metadata=*/getMetaData(field.schema()));
-        List<Field> children = null;
-        //TODO support complex type (i.e. nested records, lists, etc )
-        arrowFields.add(new Field(field.name(), fieldType, children));
+        arrowFields.add(getArrowField(field.schema(), field.name(),false));
       }
     } else if (type == Type.MAP) {
-      throw new UnsupportedOperationException();
-    } else if (type == Type.UNION) {
       throw new UnsupportedOperationException();
     } else if (type == Type.ARRAY) {
       throw new UnsupportedOperationException();
     } else if (type == Type.ENUM) {
       throw new UnsupportedOperationException();
-    } else if (type == Type.NULL) {
-      throw new UnsupportedOperationException();
     } else {
-      final FieldType fieldType = new FieldType(true, getArrowType(type), null, null);
-      arrowFields.add(new Field("", fieldType, null));
+      arrowFields.add(getArrowField(schema, "", false));
     }
 
     return new org.apache.arrow.vector.types.pojo.Schema(arrowFields, /*metadata=*/ metadata);
@@ -196,13 +219,16 @@ public class AvroToArrowUtils {
 
     allocateVectors(root, DEFAULT_BUFFER_SIZE);
     Consumer[] consumers = createAvroConsumers(root);
+    int valueCount = 0;
     while (true) {
       try {
         for (Consumer consumer : consumers) {
           consumer.consume(decoder);
         }
+        valueCount++;
         //reach end will throw EOFException.
       } catch (EOFException eofException) {
+        root.setRowCount(valueCount);
         break;
       }
     }

@@ -30,19 +30,39 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume bytes type values from avro decoder.
  * Write the data to {@link VarBinaryVector}.
  */
-public class AvroBytesConsumer implements Consumer {
+public class AvroBytesConsumer extends Consumer {
 
   private final VarBinaryWriter writer;
   private final VarBinaryVector vector;
   private ByteBuffer cacheBuffer;
 
+  /**
+   * Instantiate a AvroBytesConsumer.
+   */
   public AvroBytesConsumer(VarBinaryVector vector) {
     this.vector = vector;
     this.writer = new VarBinaryWriterImpl(vector);
+    this.nullable = vector.getField().isNullable();
+    if (nullable) {
+      getNullFieldIndex(vector.getField());
+    }
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
+    if (!nullable) {
+      writeValue(decoder);
+    } else {
+      int index = decoder.readInt();
+      if (index != nullIndex) {
+        writeValue(decoder);
+      }
+    }
+
+    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  private void writeValue(Decoder decoder) throws IOException {
     VarBinaryHolder holder = new VarBinaryHolder();
 
     // cacheBuffer is initialized null and create in the first consume,
@@ -53,8 +73,6 @@ public class AvroBytesConsumer implements Consumer {
     holder.end = cacheBuffer.limit();
     holder.buffer = vector.getAllocator().buffer(cacheBuffer.limit());
     holder.buffer.setBytes(0, cacheBuffer, 0,  cacheBuffer.limit());
-
     writer.write(holder);
-    writer.setPosition(writer.getPosition() + 1);
   }
 }

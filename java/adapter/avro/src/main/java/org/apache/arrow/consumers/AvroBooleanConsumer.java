@@ -28,17 +28,31 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume boolean type values from avro decoder.
  * Write the data to {@link BitVector}.
  */
-public class AvroBooleanConsumer implements Consumer {
+public class AvroBooleanConsumer extends Consumer {
 
   private final BitWriter writer;
 
+  /**
+   * Instantiate a AvroBooleanConsumer.
+   */
   public AvroBooleanConsumer(BitVector vector) {
     this.writer = new BitWriterImpl(vector);
+    this.nullable = vector.getField().isNullable();
+    if (nullable) {
+      getNullFieldIndex(vector.getField());
+    }
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    writer.writeBit(decoder.readBoolean() ? 1 : 0);
+    if (!nullable) {
+      writer.writeBit(decoder.readBoolean() ? 1 : 0);
+    } else {
+      int index = decoder.readInt();
+      if (index != nullIndex) {
+        writer.writeBit(decoder.readBoolean() ? 1 : 0);
+      }
+    }
     writer.setPosition(writer.getPosition() + 1);
   }
 }
