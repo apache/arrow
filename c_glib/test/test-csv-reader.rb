@@ -176,6 +176,50 @@ message,count
         assert_equal(build_table(columns),
                      table.read)
       end
+
+      def test_n_skip_rows
+        options = Arrow::CSVReadOptions.new
+        options.n_skip_rows = 1
+        table = Arrow::CSVReader.new(open_input(<<-CSV), options)
+message1,message2
+"Start1","Start2"
+"Shutdown1","Shutdown2"
+"Reboot1","Reboot2"
+        CSV
+        columns = {
+          "Start1" => build_string_array(["Shutdown1", "Reboot1"]),
+          "Start2" => build_string_array(["Shutdown2", "Reboot2"]),
+        }
+        assert_equal(build_table(columns),
+                     table.read)
+      end
+
+      def test_column_names
+        options = Arrow::CSVReadOptions.new
+        column_names = ["message", "count"]
+        options.column_names = column_names
+        assert_equal(column_names, options.column_names)
+
+        table = Arrow::CSVReader.new(open_input(<<-CSV), options)
+"Start",2
+"Shutdown",9
+"Reboot",5
+        CSV
+        columns = {
+          "message" => build_string_array(["Start", "Shutdown", "Reboot"]),
+          "count" => build_int64_array([2, 9, 5]),
+        }
+        assert_equal(build_table(columns),
+                     table.read)
+      end
+
+      def test_add_column_name
+        options = Arrow::CSVReadOptions.new
+        column_names = ["message", "count"]
+        options.column_names = column_names
+        options.add_column_name("score")
+        assert_equal(column_names + ["score"], options.column_names)
+      end
     end
   end
 end
