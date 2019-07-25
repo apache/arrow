@@ -518,7 +518,11 @@ public class UnionVector implements FieldVector {
     }
 
     public Object getObject(int index) {
-      return getVector(index).getObject(index);
+      ValueVector vector = getVector(index);
+      if (vector != null) {
+        return vector.getObject(index);
+      }
+      return null;
     }
 
     public byte[] get(int index) {
