@@ -57,6 +57,10 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
                      kResultNullIfNull, "castTIMESTAMP_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      NativeFunction("castVARCHAR", {}, DataTypeVector{timestamp(), int64()}, utf8(),
+                     kResultNullIfNull, "castVARCHAR_timestamp_int64",
+                     NativeFunction::kNeedsContext),
+
       NativeFunction("to_date", {}, DataTypeVector{utf8(), utf8(), int32()}, date64(),
                      kResultNullInternal, "gdv_fn_to_date_utf8_utf8_int32",
                      NativeFunction::kNeedsContext |
