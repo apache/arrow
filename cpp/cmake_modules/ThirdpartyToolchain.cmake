@@ -923,6 +923,7 @@ elseif(ARROW_PARQUET)
 endif()
 
 if(ARROW_USE_OPENSSL)
+  message(STATUS "Found OpenSSL Crypto Library: ${OPENSSL_CRYPTO_LIBRARY}")
   message(STATUS "Building with OpenSSL (Version: ${OPENSSL_VERSION}) support")
 
   # OpenSSL::SSL and OpenSSL::Crypto were not added to
