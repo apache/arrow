@@ -22,7 +22,6 @@ import java.util.Objects;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
-import org.apache.arrow.vector.util.Validator;
 
 /**
  * A dictionary (integer to Value mapping) that is used to facilitate
@@ -64,21 +63,11 @@ public class Dictionary {
       return false;
     }
     Dictionary that = (Dictionary) o;
-    return Objects.equals(encoding, that.encoding) && compareFieldVector(dictionary, that.dictionary);
+    return Objects.equals(encoding, that.encoding) && dictionary.equals(that.dictionary);
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(encoding, dictionary);
-  }
-
-  //TODO after vector api support compare two vectors, this should be cleaned up
-  private boolean compareFieldVector(FieldVector vector1, FieldVector vector2) {
-    try {
-      Validator.compareFieldVectors(vector1, vector2);
-    } catch (IllegalArgumentException e) {
-      return false;
-    }
-    return true;
   }
 }

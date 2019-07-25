@@ -672,9 +672,10 @@ public class UnionVector implements FieldVector {
       ValueVector leftVector = getVector(index);
       ValueVector rightVector = that.getVector(toIndex);
 
-      if (leftVector.getClass() != rightVector.getClass()) {
-        return false;
+      if (leftVector == null) {
+        return rightVector == null;
+      } else {
+        return leftVector.equals(index, rightVector, toIndex);
       }
-      return leftVector.equals(index, rightVector, toIndex);
     }
 }
