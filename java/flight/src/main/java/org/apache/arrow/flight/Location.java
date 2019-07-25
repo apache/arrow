@@ -43,22 +43,10 @@ public class Location {
    * Construct a new instance from an existing URI.
    *
    * @param uri the URI of the Flight service
-   * @throws IllegalArgumentException if the URI scheme is unsupported
    */
   public Location(URI uri) {
     super();
     this.uri = uri;
-    // Validate the scheme
-    switch (uri.getScheme()) {
-      case LocationSchemes.GRPC:
-      case LocationSchemes.GRPC_DOMAIN_SOCKET:
-      case LocationSchemes.GRPC_INSECURE:
-      case LocationSchemes.GRPC_TLS: {
-        break;
-      }
-      default:
-        throw new IllegalArgumentException("Scheme is not supported: " + this.uri);
-    }
   }
 
   public URI getUri() {
@@ -103,7 +91,11 @@ public class Location {
     return Flight.Location.newBuilder().setUri(uri.toString()).build();
   }
 
-  /** Construct a URI for a Flight+gRPC server without transport security. */
+  /**
+   * Construct a URI for a Flight+gRPC server without transport security.
+   *
+   * @throws IllegalArgumentException if the constructed URI is invalid.
+   */
   public static Location forGrpcInsecure(String host, int port) {
     try {
       return new Location(new URI(LocationSchemes.GRPC_INSECURE, null, host, port, null, null, null));
@@ -112,7 +104,11 @@ public class Location {
     }
   }
 
-  /** Construct a URI for a Flight+gRPC server with transport security. */
+  /**
+   * Construct a URI for a Flight+gRPC server with transport security.
+   *
+   * @throws IllegalArgumentException if the constructed URI is invalid.
+   */
   public static Location forGrpcTls(String host, int port) {
     try {
       return new Location(new URI(LocationSchemes.GRPC_TLS, null, host, port, null, null, null));
@@ -123,6 +119,8 @@ public class Location {
 
   /**
    * Construct a URI for a Flight+gRPC server over a Unix domain socket.
+   *
+   * @throws IllegalArgumentException if the constructed URI is invalid.
    */
   public static Location forGrpcDomainSocket(String path) {
     try {

@@ -17,6 +17,7 @@
 
 #include "gandiva/function_registry.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace gandiva {
@@ -31,7 +32,7 @@ TEST_F(TestFunctionRegistry, TestFound) {
 
   const NativeFunction* function = registry_.LookupSignature(add_i32_i32);
   EXPECT_NE(function, nullptr);
-  EXPECT_EQ(function->signature(), add_i32_i32);
+  EXPECT_THAT(function->signatures(), testing::Contains(add_i32_i32));
   EXPECT_EQ(function->pc_name(), "add_int32_int32");
 }
 

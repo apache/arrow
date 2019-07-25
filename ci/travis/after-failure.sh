@@ -26,9 +26,10 @@ if [[ "${TRAVIS_OS_NAME}" = "osx" ]]; then
   ls -la ~/Library/Logs/DiagnosticReports/
   cat ~/Library/Logs/DiagnosticReports/*.crash
 else
-  COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
+  ls -fd1 /tmp/core.*
+  COREFILE=$(ls -fd1 /tmp/core.* | head -n 1)
   if [[ -f "$COREFILE" ]]; then
-    gdb -c "$COREFILE" example -ex "thread apply all bt" -ex "set pagination 0" -batch
+    gdb -c "$COREFILE" $TRAVIS_BUILD_DIR/current-exe -ex "thread apply all bt" -ex "set pagination 0" -batch
   fi
 fi
 

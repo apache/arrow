@@ -378,13 +378,14 @@ def flight_server(server_base, *args, **kwargs):
 
     ctor_kwargs = kwargs
     server_instance = server_base(*args, **ctor_kwargs)
+    # The server instance needs to be initialized before shutdown()
+    # can be called
+    server_instance.init(location,
+                         auth_handler=auth_handler,
+                         tls_certificates=tls_certificates)
 
     def _server_thread():
-        server_instance.run(
-            location,
-            auth_handler=auth_handler,
-            tls_certificates=tls_certificates,
-        )
+        server_instance.run()
 
     thread = threading.Thread(target=_server_thread, daemon=True)
     thread.start()
@@ -632,7 +633,14 @@ def test_location_invalid():
 
     server = ConstantFlightServer()
     with pytest.raises(pa.ArrowInvalid, match=".*Cannot parse URI:.*"):
-        server.run("%")
+        server.init("%")
+
+
+def test_location_unknown_scheme():
+    """Test creating locations for unknown schemes."""
+    assert flight.Location("s3://foo").uri == b"s3://foo"
+    assert flight.Location("https://example.com/bar.parquet").uri == \
+        b"https://example.com/bar.parquet"
 
 
 @pytest.mark.slow

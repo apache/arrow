@@ -36,7 +36,6 @@ class Field;
 class Tensor;
 
 class ChunkedArray;
-class Column;
 class RecordBatch;
 class Table;
 

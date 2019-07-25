@@ -188,4 +188,219 @@ TEST_F(TestUnionArrayFactories, TestMakeSparse) {
                   type_codes);
 }
 
+template <typename B>
+class UnionBuilderTest : public ::testing::Test {
+ public:
+  uint8_t I8 = 8, STR = 13, DBL = 7;
+
+  virtual void AppendInt(int8_t i) {
+    expected_types_vector.push_back(I8);
+    ASSERT_OK(union_builder->Append(I8));
+    ASSERT_OK(i8_builder->Append(i));
+  }
+
+  virtual void AppendString(const std::string& str) {
+    expected_types_vector.push_back(STR);
+    ASSERT_OK(union_builder->Append(STR));
+    ASSERT_OK(str_builder->Append(str));
+  }
+
+  virtual void AppendDouble(double dbl) {
+    expected_types_vector.push_back(DBL);
+    ASSERT_OK(union_builder->Append(DBL));
+    ASSERT_OK(dbl_builder->Append(dbl));
+  }
+
+  void AppendBasics() {
+    AppendInt(33);
+    AppendString("abc");
+    AppendDouble(1.0);
+    AppendDouble(-1.0);
+    AppendString("");
+    AppendInt(10);
+    AppendString("def");
+    AppendInt(-10);
+    AppendDouble(0.5);
+    ASSERT_OK(union_builder->Finish(&actual));
+    ArrayFromVector<Int8Type, uint8_t>(expected_types_vector, &expected_types);
+  }
+
+  void AppendInferred() {
+    I8 = union_builder->AppendChild(i8_builder, "i8");
+    ASSERT_EQ(I8, 0);
+    AppendInt(33);
+    AppendInt(10);
+
+    STR = union_builder->AppendChild(str_builder, "str");
+    ASSERT_EQ(STR, 1);
+    AppendString("abc");
+    AppendString("");
+    AppendString("def");
+    AppendInt(-10);
+
+    DBL = union_builder->AppendChild(dbl_builder, "dbl");
+    ASSERT_EQ(DBL, 2);
+    AppendDouble(1.0);
+    AppendDouble(-1.0);
+    AppendDouble(0.5);
+    ASSERT_OK(union_builder->Finish(&actual));
+    ArrayFromVector<Int8Type, uint8_t>(expected_types_vector, &expected_types);
+
+    ASSERT_EQ(I8, 0);
+    ASSERT_EQ(STR, 1);
+    ASSERT_EQ(DBL, 2);
+  }
+
+  void AppendListOfInferred(std::shared_ptr<ListArray>* actual) {
+    ListBuilder list_builder(default_memory_pool(), union_builder);
+
+    ASSERT_OK(list_builder.Append());
+    I8 = union_builder->AppendChild(i8_builder, "i8");
+    ASSERT_EQ(I8, 0);
+    AppendInt(10);
+
+    ASSERT_OK(list_builder.Append());
+    STR = union_builder->AppendChild(str_builder, "str");
+    ASSERT_EQ(STR, 1);
+    AppendString("abc");
+    AppendInt(-10);
+
+    ASSERT_OK(list_builder.Append());
+    DBL = union_builder->AppendChild(dbl_builder, "dbl");
+    ASSERT_EQ(DBL, 2);
+    AppendDouble(0.5);
+
+    ASSERT_OK(list_builder.Finish(actual));
+    ArrayFromVector<Int8Type, uint8_t>(expected_types_vector, &expected_types);
+
+    ASSERT_EQ(I8, 0);
+    ASSERT_EQ(STR, 1);
+    ASSERT_EQ(DBL, 2);
+  }
+
+  std::vector<uint8_t> expected_types_vector;
+  std::shared_ptr<Array> expected_types;
+  std::shared_ptr<Int8Builder> i8_builder = std::make_shared<Int8Builder>();
+  std::shared_ptr<StringBuilder> str_builder = std::make_shared<StringBuilder>();
+  std::shared_ptr<DoubleBuilder> dbl_builder = std::make_shared<DoubleBuilder>();
+  std::shared_ptr<B> union_builder{new B(default_memory_pool())};
+  std::shared_ptr<UnionArray> actual;
+};
+
+class DenseUnionBuilderTest : public UnionBuilderTest<DenseUnionBuilder> {};
+class SparseUnionBuilderTest : public UnionBuilderTest<SparseUnionBuilder> {
+ public:
+  using Base = UnionBuilderTest<SparseUnionBuilder>;
+
+  void AppendInt(int8_t i) override {
+    Base::AppendInt(i);
+    ASSERT_OK(str_builder->AppendNull());
+    ASSERT_OK(dbl_builder->AppendNull());
+  }
+
+  void AppendString(const std::string& str) override {
+    Base::AppendString(str);
+    ASSERT_OK(i8_builder->AppendNull());
+    ASSERT_OK(dbl_builder->AppendNull());
+  }
+
+  void AppendDouble(double dbl) override {
+    Base::AppendDouble(dbl);
+    ASSERT_OK(i8_builder->AppendNull());
+    ASSERT_OK(str_builder->AppendNull());
+  }
+};
+
+TEST_F(DenseUnionBuilderTest, Basics) {
+  union_builder.reset(new DenseUnionBuilder(
+      default_memory_pool(), {i8_builder, str_builder, dbl_builder},
+      union_({field("i8", int8()), field("str", utf8()), field("dbl", float64())},
+             {I8, STR, DBL}, UnionMode::DENSE)));
+  AppendBasics();
+
+  auto expected_i8 = ArrayFromJSON(int8(), "[33, 10, -10]");
+  auto expected_str = ArrayFromJSON(utf8(), R"(["abc", "", "def"])");
+  auto expected_dbl = ArrayFromJSON(float64(), "[1.0, -1.0, 0.5]");
+
+  auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 0, 1, 1, 1, 2, 2, 2]");
+
+  std::shared_ptr<Array> expected;
+  ASSERT_OK(UnionArray::MakeDense(*expected_types, *expected_offsets,
+                                  {expected_i8, expected_str, expected_dbl},
+                                  {"i8", "str", "dbl"}, {I8, STR, DBL}, &expected));
+
+  ASSERT_EQ(expected->type()->ToString(), actual->type()->ToString());
+  ASSERT_ARRAYS_EQUAL(*expected, *actual);
+}
+
+TEST_F(DenseUnionBuilderTest, InferredType) {
+  AppendInferred();
+
+  auto expected_i8 = ArrayFromJSON(int8(), "[33, 10, -10]");
+  auto expected_str = ArrayFromJSON(utf8(), R"(["abc", "", "def"])");
+  auto expected_dbl = ArrayFromJSON(float64(), "[1.0, -1.0, 0.5]");
+
+  auto expected_offsets = ArrayFromJSON(int32(), "[0, 1, 0, 1, 2, 2, 0, 1, 2]");
+
+  std::shared_ptr<Array> expected;
+  ASSERT_OK(UnionArray::MakeDense(*expected_types, *expected_offsets,
+                                  {expected_i8, expected_str, expected_dbl},
+                                  {"i8", "str", "dbl"}, {I8, STR, DBL}, &expected));
+
+  ASSERT_EQ(expected->type()->ToString(), actual->type()->ToString());
+  ASSERT_ARRAYS_EQUAL(*expected, *actual);
+}
+
+TEST_F(DenseUnionBuilderTest, ListOfInferredType) {
+  std::shared_ptr<ListArray> actual;
+  AppendListOfInferred(&actual);
+
+  auto expected_type =
+      list(union_({field("i8", int8()), field("str", utf8()), field("dbl", float64())},
+                  {I8, STR, DBL}, UnionMode::DENSE));
+  ASSERT_EQ(expected_type->ToString(), actual->type()->ToString());
+}
+
+TEST_F(SparseUnionBuilderTest, Basics) {
+  union_builder.reset(new SparseUnionBuilder(
+      default_memory_pool(), {i8_builder, str_builder, dbl_builder},
+      union_({field("i8", int8()), field("str", utf8()), field("dbl", float64())},
+             {I8, STR, DBL}, UnionMode::SPARSE)));
+
+  AppendBasics();
+
+  auto expected_i8 =
+      ArrayFromJSON(int8(), "[33, null, null, null, null, 10, null, -10, null]");
+  auto expected_str =
+      ArrayFromJSON(utf8(), R"([null, "abc", null, null, "",  null, "def", null, null])");
+  auto expected_dbl =
+      ArrayFromJSON(float64(), "[null, null, 1.0, -1.0, null, null, null, null, 0.5]");
+
+  std::shared_ptr<Array> expected;
+  ASSERT_OK(UnionArray::MakeSparse(*expected_types,
+                                   {expected_i8, expected_str, expected_dbl},
+                                   {"i8", "str", "dbl"}, {I8, STR, DBL}, &expected));
+
+  ASSERT_EQ(expected->type()->ToString(), actual->type()->ToString());
+  ASSERT_ARRAYS_EQUAL(*expected, *actual);
+}
+
+TEST_F(SparseUnionBuilderTest, InferredType) {
+  AppendInferred();
+
+  auto expected_i8 =
+      ArrayFromJSON(int8(), "[33, 10, null, null, null, -10, null, null, null]");
+  auto expected_str =
+      ArrayFromJSON(utf8(), R"([null, null, "abc", "", "def",  null, null, null, null])");
+  auto expected_dbl =
+      ArrayFromJSON(float64(), "[null, null, null, null, null, null, 1.0, -1.0, 0.5]");
+
+  std::shared_ptr<Array> expected;
+  ASSERT_OK(UnionArray::MakeSparse(*expected_types,
+                                   {expected_i8, expected_str, expected_dbl},
+                                   {"i8", "str", "dbl"}, {I8, STR, DBL}, &expected));
+
+  ASSERT_EQ(expected->type()->ToString(), actual->type()->ToString());
+  ASSERT_ARRAYS_EQUAL(*expected, *actual);
+}
 }  // namespace arrow

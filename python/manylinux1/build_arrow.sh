@@ -79,7 +79,6 @@ mkdir -p "${ARROW_BUILD_DIR}"
 pushd "${ARROW_BUILD_DIR}"
 cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_DEPENDENCY_SOURCE="SYSTEM" \
-    -DZLIB_ROOT=/usr/local \
     -DCMAKE_INSTALL_PREFIX=/arrow-dist \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DARROW_BUILD_TESTS=OFF \
@@ -103,6 +102,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DORC_SOURCE=BUNDLED \
     -GNinja /arrow/cpp
+ninja
 ninja install
 popd
 

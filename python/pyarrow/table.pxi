@@ -39,6 +39,14 @@ cdef class ChunkedArray(_PandasConvertible):
         return chunked_array, (self.chunks, self.type)
 
     @property
+    def data(self):
+        import warnings
+        warnings.warn("Calling .data on ChunkedArray is provided for "
+                      "compatibility after Column was removed, simply drop "
+                      "this attribute", FutureWarning)
+        return self
+
+    @property
     def type(self):
         return pyarrow_wrap_data_type(self.sp_chunked_array.get().type())
 
@@ -153,6 +161,33 @@ cdef class ChunkedArray(_PandasConvertible):
             return self.to_pandas()
         return self.to_pandas().astype(dtype)
 
+    def cast(self, object target_type, bint safe=True):
+        """
+        Cast values to another data type
+
+        Parameters
+        ----------
+        target_type : DataType
+            Type to cast to
+        safe : boolean, default True
+            Check for overflows or other unsafe conversions
+
+        Returns
+        -------
+        casted : ChunkedArray
+        """
+        cdef:
+            CCastOptions options = CCastOptions(safe)
+            DataType type = ensure_type(target_type)
+            shared_ptr[CArray] result
+            CDatum out
+
+        with nogil:
+            check_status(Cast(_context(), CDatum(self.sp_chunked_array),
+                              type.sp_type, options, &out))
+
+        return pyarrow_wrap_chunked_array(out.chunked_array())
+
     def dictionary_encode(self):
         """
         Compute dictionary-encoded representation of array
@@ -170,6 +205,29 @@ cdef class ChunkedArray(_PandasConvertible):
                                  &out))
 
         return wrap_datum(out)
+
+    def flatten(self, MemoryPool memory_pool=None):
+        """
+        Flatten this ChunkedArray.  If it has a struct type, the column is
+        flattened into one array per struct field.
+
+        Parameters
+        ----------
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise use default pool
+
+        Returns
+        -------
+        result : List[ChunkedArray]
+        """
+        cdef:
+            vector[shared_ptr[CChunkedArray]] flattened
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+
+        with nogil:
+            check_status(self.chunked_array.Flatten(pool, &flattened))
+
+        return [pyarrow_wrap_chunked_array(col) for col in flattened]
 
     def unique(self):
         """
@@ -267,7 +325,7 @@ def chunked_array(arrays, type=None):
 
     Parameters
     ----------
-    arrays : list of Array or values coercible to arrays
+    arrays : Array, list of Array, or values coercible to arrays
         Must all be the same data type. Can be empty only if type also
         passed
     type : DataType or string coercible to DataType
@@ -281,6 +339,9 @@ def chunked_array(arrays, type=None):
         vector[shared_ptr[CArray]] c_arrays
         shared_ptr[CChunkedArray] sp_chunked_array
         shared_ptr[CDataType] sp_data_type
+
+    if isinstance(arrays, Array):
+        arrays = [arrays]
 
     for x in arrays:
         if isinstance(x, Array):
@@ -307,287 +368,10 @@ def chunked_array(arrays, type=None):
     return pyarrow_wrap_chunked_array(sp_chunked_array)
 
 
-def column(object field_or_name, arr):
-    """
-    Create Column object from field/string and array-like data
-
-    Parameters
-    ----------
-    field_or_name : string or Field
-    arr : Array, list of Arrays, or ChunkedArray
-
-    Returns
-    -------
-    column : Column
-    """
-    cdef:
-        Field boxed_field
-        Array _arr
-        ChunkedArray _carr
-        shared_ptr[CColumn] sp_column
-
-    if isinstance(arr, list):
-        arr = chunked_array(arr)
-    elif not isinstance(arr, (Array, ChunkedArray)):
-        arr = array(arr)
-
-    if isinstance(field_or_name, Field):
-        boxed_field = field_or_name
-        if arr.type != boxed_field.type:
-            raise ValueError('Passed field type does not match array')
-    else:
-        boxed_field = field(field_or_name, arr.type)
-
-    if isinstance(arr, Array):
-        _arr = arr
-        sp_column.reset(new CColumn(boxed_field.sp_field, _arr.sp_array))
-    elif isinstance(arr, ChunkedArray):
-        _carr = arr
-        sp_column.reset(new CColumn(boxed_field.sp_field,
-                                    _carr.sp_chunked_array))
-    else:
-        raise ValueError("Unsupported type for column(...): {}"
-                         .format(type(arr)))
-
-    return pyarrow_wrap_column(sp_column)
-
-
-cdef class Column(_PandasConvertible):
-    """
-    Named vector of elements of equal type.
-
-    Warning
-    -------
-    Do not call this class's constructor directly.
-    """
-
-    def __cinit__(self):
-        self.column = NULL
-
-    def __init__(self):
-        raise TypeError("Do not call Column's constructor directly, use one "
-                        "of the `Column.from_*` functions instead.")
-
-    cdef void init(self, const shared_ptr[CColumn]& column):
-        self.sp_column = column
-        self.column = column.get()
-
-    def __reduce__(self):
-        return column, (self.field, self.data)
-
-    def __repr__(self):
-        from pyarrow.compat import StringIO
-        result = StringIO()
-        result.write('<Column name={0!r} type={1!r}>'
-                     .format(self.name, self.type))
-        result.write('\n{}'.format(str(self.data)))
-
-        return result.getvalue()
-
-    def __getitem__(self, key):
-        return self.data[key]
-
-    @staticmethod
-    def from_array(*args):
-        return column(*args)
-
-    def cast(self, object target_type, bint safe=True):
-        """
-        Cast column values to another data type
-
-        Parameters
-        ----------
-        target_type : DataType
-            Type to cast to
-        safe : boolean, default True
-            Check for overflows or other unsafe conversions
-
-        Returns
-        -------
-        casted : Column
-        """
-        cdef:
-            CCastOptions options = CCastOptions(safe)
-            DataType type = ensure_type(target_type)
-            shared_ptr[CArray] result
-            CDatum out
-
-        with nogil:
-            check_status(Cast(_context(), CDatum(self.column.data()),
-                              type.sp_type, options, &out))
-
-        casted_data = pyarrow_wrap_chunked_array(out.chunked_array())
-        return column(self.name, casted_data)
-
-    def dictionary_encode(self):
-        """
-        Compute dictionary-encoded representation of array
-
-        Returns
-        -------
-        pyarrow.Column
-            Same chunking as the input, all chunks share a common dictionary.
-        """
-        ca = self.data.dictionary_encode()
-        return column(self.name, ca)
-
-    def unique(self):
-        """
-        Compute distinct elements in array
-
-        Returns
-        -------
-        pyarrow.Array
-        """
-        return self.data.unique()
-
-    def flatten(self, MemoryPool memory_pool=None):
-        """
-        Flatten this Column.  If it has a struct type, the column is
-        flattened into one column per struct field.
-
-        Parameters
-        ----------
-        memory_pool : MemoryPool, default None
-            For memory allocations, if required, otherwise use default pool
-
-        Returns
-        -------
-        result : List[Column]
-        """
-        cdef:
-            vector[shared_ptr[CColumn]] flattened
-            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
-
-        with nogil:
-            check_status(self.column.Flatten(pool, &flattened))
-
-        return [pyarrow_wrap_column(col) for col in flattened]
-
-    def _to_pandas(self, options, **kwargs):
-        values = self.data._to_pandas(options)
-        result = pandas_api.make_series(values, name=self.name)
-
-        if isinstance(self.type, TimestampType):
-            tz = self.type.tz
-            if tz is not None:
-                tz = string_to_tzinfo(tz)
-                result = (result.dt.tz_localize('utc')
-                          .dt.tz_convert(tz))
-
-        return result
-
-    def __array__(self, dtype=None):
-        return self.data.__array__(dtype=dtype)
-
-    def __eq__(self, other):
-        try:
-            return self.equals(other)
-        except TypeError:
-            return NotImplemented
-
-    def equals(self, Column other):
-        """
-        Check if contents of two columns are equal
-
-        Parameters
-        ----------
-        other : pyarrow.Column
-
-        Returns
-        -------
-        are_equal : boolean
-        """
-        cdef:
-            CColumn* this_col = self.column
-            CColumn* other_col = other.column
-            c_bool result
-
-        if other is None:
-            return False
-
-        with nogil:
-            result = this_col.Equals(deref(other_col))
-
-        return result
-
-    def to_pylist(self):
-        """
-        Convert to a list of native Python objects.
-        """
-        return self.data.to_pylist()
-
-    def __len__(self):
-        return self.length()
-
-    def length(self):
-        return self.column.length()
-
-    @property
-    def field(self):
-        return pyarrow_wrap_field(self.column.field())
-
-    @property
-    def shape(self):
-        """
-        Dimensions of this columns
-
-        Returns
-        -------
-        (int,)
-        """
-        return (self.length(),)
-
-    @property
-    def null_count(self):
-        """
-        Number of null entires
-
-        Returns
-        -------
-        int
-        """
-        return self.column.null_count()
-
-    @property
-    def name(self):
-        """
-        Label of the column
-
-        Returns
-        -------
-        str
-        """
-        return bytes(self.column.name()).decode('utf8')
-
-    @property
-    def type(self):
-        """
-        Type information for this column
-
-        Returns
-        -------
-        pyarrow.DataType
-        """
-        return pyarrow_wrap_data_type(self.column.type())
-
-    @property
-    def data(self):
-        """
-        The underlying data
-
-        Returns
-        -------
-        pyarrow.ChunkedArray
-        """
-        return pyarrow_wrap_chunked_array(self.column.data())
-
-
 cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
     cdef:
         Py_ssize_t K = len(arrays)
         c_string c_name
-        CColumn* c_column
         shared_ptr[CDataType] c_type
         shared_ptr[CKeyValueMetadata] c_meta
         vector[shared_ptr[CField]] c_fields
@@ -603,29 +387,24 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
 
     c_fields.resize(K)
 
-    if isinstance(arrays[0], Column):
-        for i in range(K):
-            c_column = (<Column>arrays[i]).column
-            c_fields[i] = c_column.field()
-    else:
-        if names is None:
-            raise ValueError('Must pass names when constructing '
-                             'from Array objects')
-        if len(names) != K:
-            raise ValueError('Length of names ({}) does not match '
-                             'length of arrays ({})'.format(len(names), K))
-        for i in range(K):
-            val = arrays[i]
-            if isinstance(val, (Array, ChunkedArray)):
-                c_type = (<DataType> val.type).sp_type
-            else:
-                raise TypeError(type(val))
+    if names is None:
+        raise ValueError('Must pass names or schema to Table.from_arrays')
 
-            if names[i] is None:
-                c_name = tobytes(u'None')
-            else:
-                c_name = tobytes(names[i])
-            c_fields[i].reset(new CField(c_name, c_type, True))
+    if len(names) != K:
+        raise ValueError('Length of names ({}) does not match '
+                         'length of arrays ({})'.format(len(names), K))
+    for i in range(K):
+        val = arrays[i]
+        if isinstance(val, (Array, ChunkedArray)):
+            c_type = (<DataType> val.type).sp_type
+        else:
+            raise TypeError(type(val))
+
+        if names[i] is None:
+            c_name = tobytes(u'None')
+        else:
+            c_name = tobytes(names[i])
+        c_fields[i].reset(new CField(c_name, c_type, True))
 
     schema.reset(new CSchema(c_fields, c_meta))
 
@@ -732,7 +511,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         Returns
         -------
-        list of pa.Column
+        list of pa.ChunkedArray
         """
         return [self.column(i) for i in range(self.num_columns)]
 
@@ -975,7 +754,7 @@ cdef class Table(_PandasConvertible):
     def __reduce__(self):
         # Reduce the columns as ChunkedArrays to avoid serializing schema
         # data twice
-        columns = [col.data for col in self.columns]
+        columns = [col for col in self.columns]
         return _reconstruct_table, (columns, self.schema)
 
     def replace_schema_metadata(self, metadata=None):
@@ -1101,7 +880,7 @@ cdef class Table(_PandasConvertible):
         casted : Table
         """
         cdef:
-            Column column, casted
+            ChunkedArray column, casted
             Field field
             list newcols = []
 
@@ -1184,17 +963,16 @@ cdef class Table(_PandasConvertible):
     @staticmethod
     def from_arrays(arrays, names=None, schema=None, metadata=None):
         """
-        Construct a Table from Arrow arrays or columns
+        Construct a Table from Arrow arrays
 
         Parameters
         ----------
-        arrays : list of pyarrow.Array or pyarrow.Column
+        arrays : list of pyarrow.Array or pyarrow.ChunkedArray
             Equal-length arrays that should form the table.
         names : list of str, optional
-            Names for the table columns. If Columns passed, will be
-            inferred. If Arrays passed, this argument is required
+            Names for the table columns. If not passed, schema must be passed
         schema : Schema, default None
-            If not passed, will be inferred from the arrays
+            Schema for the created table. If not passed, names must be passed
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
 
@@ -1204,7 +982,7 @@ cdef class Table(_PandasConvertible):
 
         """
         cdef:
-            vector[shared_ptr[CColumn]] columns
+            vector[shared_ptr[CChunkedArray]] columns
             Schema cy_schema
             shared_ptr[CSchema] c_schema
             int i, K = <int> len(arrays)
@@ -1228,26 +1006,12 @@ cdef class Table(_PandasConvertible):
         for i in range(K):
             if isinstance(arrays[i], Array):
                 columns.push_back(
-                    make_shared[CColumn](
-                        c_schema.get().field(i),
+                    make_shared[CChunkedArray](
                         (<Array> arrays[i]).sp_array
                     )
                 )
             elif isinstance(arrays[i], ChunkedArray):
-                columns.push_back(
-                    make_shared[CColumn](
-                        c_schema.get().field(i),
-                        (<ChunkedArray> arrays[i]).sp_chunked_array
-                    )
-                )
-            elif isinstance(arrays[i], Column):
-                # Make sure schema field and column are consistent
-                columns.push_back(
-                    make_shared[CColumn](
-                        c_schema.get().field(i),
-                        (<Column> arrays[i]).sp_column.get().data()
-                    )
-                )
+                columns.push_back((<ChunkedArray> arrays[i]).sp_chunked_array)
             else:
                 raise TypeError(type(arrays[i]))
 
@@ -1272,18 +1036,27 @@ cdef class Table(_PandasConvertible):
         pyarrow.Table
 
         """
-        names = []
         arrays = []
-        for k, v in mapping.items():
-            names.append(k)
-            if not isinstance(v, (Array, ChunkedArray)):
-                v = array(v)
-            arrays.append(v)
-        if schema is None:
-            return Table.from_arrays(arrays, names, metadata=metadata)
-        else:
+        if schema is not None:
+            for field in schema:
+                try:
+                    v = mapping[field.name]
+                except KeyError as e:
+                    try:
+                        v = mapping[tobytes(field.name)]
+                    except KeyError as e2:
+                        raise e
+                arrays.append(array(v, type=field.type))
             # Will raise if metadata is not None
             return Table.from_arrays(arrays, schema=schema, metadata=metadata)
+        else:
+            names = []
+            for k, v in mapping.items():
+                names.append(k)
+                if not isinstance(v, (Array, ChunkedArray)):
+                    v = array(v)
+                arrays.append(v)
+            return Table.from_arrays(arrays, names, metadata=metadata)
 
     @staticmethod
     def from_batches(batches, Schema schema=None):
@@ -1381,11 +1154,11 @@ cdef class Table(_PandasConvertible):
             size_t i
             size_t num_columns = self.table.num_columns()
             list entries = []
-            Column column
+            ChunkedArray column
 
         for i in range(num_columns):
             column = self.column(i)
-            entries.append((column.name, column.to_pylist()))
+            entries.append((self.field(i).name, column.to_pylist()))
 
         return ordered_dict(entries)
 
@@ -1400,6 +1173,32 @@ cdef class Table(_PandasConvertible):
         """
         return pyarrow_wrap_schema(self.table.schema())
 
+    def field(self, i):
+        """
+        Select a schema field by its numeric index.
+
+        Parameters
+        ----------
+        i : int or string
+
+        Returns
+        -------
+        pyarrow.Field
+        """
+        cdef:
+            int num_columns = self.num_columns
+            int index
+
+        if not -num_columns <= i < num_columns:
+            raise IndexError(
+                'Table column index {:d} is out of range'.format(i)
+            )
+
+        index = i if i >= 0 else num_columns + i
+        assert index >= 0
+
+        return pyarrow_wrap_field(self.table.field(index))
+
     def column(self, i):
         """
         Select a column by its column name, or numeric index.
@@ -1410,7 +1209,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Column
+        pyarrow.ChunkedArray
         """
         if isinstance(i, six.string_types):
             field_index = self.schema.get_field_index(i)
@@ -1433,7 +1232,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Column
+        pyarrow.ChunkedArray
         """
         cdef:
             int num_columns = self.num_columns
@@ -1447,7 +1246,7 @@ cdef class Table(_PandasConvertible):
         index = i if i >= 0 else num_columns + i
         assert index >= 0
 
-        return pyarrow_wrap_column(self.table.column(index))
+        return pyarrow_wrap_chunked_array(self.table.column(index))
 
     def __getitem__(self, key):
         cdef int index = <int> _normalize_index(key, self.num_columns)
@@ -1467,7 +1266,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        list of pa.Column
+        list of pa.ChunkedArray
         """
         return [self._column(i) for i in range(self.num_columns)]
 
@@ -1510,22 +1309,37 @@ cdef class Table(_PandasConvertible):
         """
         return (self.num_rows, self.num_columns)
 
-    def add_column(self, int i, Column column):
+    def add_column(self, int i, field_, column):
         """
         Add column to Table at position. Returns new table
         """
-        cdef shared_ptr[CTable] c_table
+        cdef:
+            shared_ptr[CTable] c_table
+            Field c_field
+            ChunkedArray c_arr
+
+        if isinstance(column, ChunkedArray):
+            c_arr = column
+        else:
+            c_arr = chunked_array(column)
+
+        if isinstance(field_, Field):
+            c_field = field_
+        else:
+            c_field = field(field_, c_arr.type)
 
         with nogil:
-            check_status(self.table.AddColumn(i, column.sp_column, &c_table))
+            check_status(self.table.AddColumn(i, c_field.sp_field,
+                                              c_arr.sp_chunked_array,
+                                              &c_table))
 
         return pyarrow_wrap_table(c_table)
 
-    def append_column(self, Column column):
+    def append_column(self, field_, column):
         """
         Append column at end of columns. Returns new table
         """
-        return self.add_column(self.num_columns, column)
+        return self.add_column(self.num_columns, field_, column)
 
     def remove_column(self, int i):
         """
@@ -1538,14 +1352,29 @@ cdef class Table(_PandasConvertible):
 
         return pyarrow_wrap_table(c_table)
 
-    def set_column(self, int i, Column column):
+    def set_column(self, int i, field_, column):
         """
         Replace column in Table at position. Returns new table
         """
-        cdef shared_ptr[CTable] c_table
+        cdef:
+            shared_ptr[CTable] c_table
+            Field c_field
+            ChunkedArray c_arr
+
+        if isinstance(column, ChunkedArray):
+            c_arr = column
+        else:
+            c_arr = chunked_array(column)
+
+        if isinstance(field_, Field):
+            c_field = field_
+        else:
+            c_field = field(field_, c_arr.type)
 
         with nogil:
-            check_status(self.table.SetColumn(i, column.sp_column, &c_table))
+            check_status(self.table.SetColumn(i, c_field.sp_field,
+                                              c_arr.sp_chunked_array,
+                                              &c_table))
 
         return pyarrow_wrap_table(c_table)
 

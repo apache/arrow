@@ -380,9 +380,13 @@ std::shared_ptr<const LogicalType> LogicalType::FromConvertedType(
     case ConvertedType::TIME_MICROS:
       return TimeLogicalType::Make(true, LogicalType::TimeUnit::MICROS);
     case ConvertedType::TIMESTAMP_MILLIS:
-      return TimestampLogicalType::Make(true, LogicalType::TimeUnit::MILLIS);
+      return TimestampLogicalType::Make(true, LogicalType::TimeUnit::MILLIS,
+                                        /*is_from_converted_type=*/true,
+                                        /*force_set_converted_type=*/false);
     case ConvertedType::TIMESTAMP_MICROS:
-      return TimestampLogicalType::Make(true, LogicalType::TimeUnit::MICROS);
+      return TimestampLogicalType::Make(true, LogicalType::TimeUnit::MICROS,
+                                        /*is_from_converted_type=*/true,
+                                        /*force_set_converted_type=*/false);
     case ConvertedType::INTERVAL:
       return IntervalLogicalType::Make();
     case ConvertedType::INT_8:
@@ -496,9 +500,11 @@ std::shared_ptr<const LogicalType> LogicalType::Time(
 }
 
 std::shared_ptr<const LogicalType> LogicalType::Timestamp(
-    bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit) {
+    bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit,
+    bool is_from_converted_type, bool force_set_converted_type) {
   DCHECK(time_unit != LogicalType::TimeUnit::UNKNOWN);
-  return TimestampLogicalType::Make(is_adjusted_to_utc, time_unit);
+  return TimestampLogicalType::Make(is_adjusted_to_utc, time_unit, is_from_converted_type,
+                                    force_set_converted_type);
 }
 
 std::shared_ptr<const LogicalType> LogicalType::Interval() {
@@ -551,6 +557,10 @@ class LogicalType::Impl {
       schema::DecimalMetadata* out_decimal_metadata) const = 0;
 
   virtual std::string ToString() const = 0;
+
+  virtual bool is_serialized() const {
+    return !(type_ == LogicalType::Type::NONE || type_ == LogicalType::Type::UNKNOWN);
+  }
 
   virtual std::string ToJSON() const {
     std::stringstream json;
@@ -676,10 +686,7 @@ bool LogicalType::is_nested() const {
          (impl_->type() == LogicalType::Type::MAP);
 }
 bool LogicalType::is_nonnested() const { return !is_nested(); }
-bool LogicalType::is_serialized() const {
-  return !((impl_->type() == LogicalType::Type::NONE) ||
-           (impl_->type() == LogicalType::Type::UNKNOWN));
-}
+bool LogicalType::is_serialized() const { return impl_->is_serialized(); }
 
 // LogicalTypeImpl intermediate "compatibility" classes
 
@@ -1192,6 +1199,7 @@ class LogicalType::Impl::Timestamp final : public LogicalType::Impl::Compatible,
  public:
   friend class TimestampLogicalType;
 
+  bool is_serialized() const override;
   bool is_compatible(ConvertedType::type converted_type,
                      schema::DecimalMetadata converted_decimal_metadata) const override;
   ConvertedType::type ToConvertedType(
@@ -1204,25 +1212,47 @@ class LogicalType::Impl::Timestamp final : public LogicalType::Impl::Compatible,
   bool is_adjusted_to_utc() const { return adjusted_; }
   LogicalType::TimeUnit::unit time_unit() const { return unit_; }
 
+  bool is_from_converted_type() const { return is_from_converted_type_; }
+  bool force_set_converted_type() const { return force_set_converted_type_; }
+
  private:
-  Timestamp(bool a, LogicalType::TimeUnit::unit u)
+  Timestamp(bool adjusted, LogicalType::TimeUnit::unit unit, bool is_from_converted_type,
+            bool force_set_converted_type)
       : LogicalType::Impl(LogicalType::Type::TIMESTAMP, SortOrder::SIGNED),
         LogicalType::Impl::SimpleApplicable(parquet::Type::INT64),
-        adjusted_(a),
-        unit_(u) {}
+        adjusted_(adjusted),
+        unit_(unit),
+        is_from_converted_type_(is_from_converted_type),
+        force_set_converted_type_(force_set_converted_type) {}
   bool adjusted_ = false;
   LogicalType::TimeUnit::unit unit_;
+  bool is_from_converted_type_ = false;
+  bool force_set_converted_type_ = false;
 };
+
+bool LogicalType::Impl::Timestamp::is_serialized() const {
+  return !is_from_converted_type_;
+}
 
 bool LogicalType::Impl::Timestamp::is_compatible(
     ConvertedType::type converted_type,
     schema::DecimalMetadata converted_decimal_metadata) const {
   if (converted_decimal_metadata.isset) {
     return false;
-  } else if (adjusted_ && unit_ == LogicalType::TimeUnit::MILLIS) {
-    return converted_type == ConvertedType::TIMESTAMP_MILLIS;
-  } else if (adjusted_ && unit_ == LogicalType::TimeUnit::MICROS) {
-    return converted_type == ConvertedType::TIMESTAMP_MICROS;
+  } else if (unit_ == LogicalType::TimeUnit::MILLIS) {
+    if (adjusted_ || force_set_converted_type_) {
+      return converted_type == ConvertedType::TIMESTAMP_MILLIS;
+    } else {
+      return (converted_type == ConvertedType::NONE) ||
+             (converted_type == ConvertedType::NA);
+    }
+  } else if (unit_ == LogicalType::TimeUnit::MICROS) {
+    if (adjusted_ || force_set_converted_type_) {
+      return converted_type == ConvertedType::TIMESTAMP_MICROS;
+    } else {
+      return (converted_type == ConvertedType::NONE) ||
+             (converted_type == ConvertedType::NA);
+    }
   } else {
     return (converted_type == ConvertedType::NONE) ||
            (converted_type == ConvertedType::NA);
@@ -1232,7 +1262,7 @@ bool LogicalType::Impl::Timestamp::is_compatible(
 ConvertedType::type LogicalType::Impl::Timestamp::ToConvertedType(
     schema::DecimalMetadata* out_decimal_metadata) const {
   reset_decimal_metadata(out_decimal_metadata);
-  if (adjusted_) {
+  if (adjusted_ || force_set_converted_type_) {
     if (unit_ == LogicalType::TimeUnit::MILLIS) {
       return ConvertedType::TIMESTAMP_MILLIS;
     } else if (unit_ == LogicalType::TimeUnit::MICROS) {
@@ -1245,14 +1275,18 @@ ConvertedType::type LogicalType::Impl::Timestamp::ToConvertedType(
 std::string LogicalType::Impl::Timestamp::ToString() const {
   std::stringstream type;
   type << "Timestamp(isAdjustedToUTC=" << std::boolalpha << adjusted_
-       << ", timeUnit=" << time_unit_string(unit_) << ")";
+       << ", timeUnit=" << time_unit_string(unit_)
+       << ", is_from_converted_type=" << is_from_converted_type_
+       << ", force_set_converted_type=" << force_set_converted_type_ << ")";
   return type.str();
 }
 
 std::string LogicalType::Impl::Timestamp::ToJSON() const {
   std::stringstream json;
   json << R"({"Type": "Timestamp", "isAdjustedToUTC": )" << std::boolalpha << adjusted_
-       << R"(, "timeUnit": ")" << time_unit_string(unit_) << R"("})";
+       << R"(, "timeUnit": ")" << time_unit_string(unit_) << R"(")"
+       << R"(, "is_from_converted_type": )" << is_from_converted_type_
+       << R"(, "force_set_converted_type": )" << force_set_converted_type_ << R"(})";
   return json.str();
 }
 
@@ -1288,13 +1322,14 @@ bool LogicalType::Impl::Timestamp::Equals(const LogicalType& other) const {
 }
 
 std::shared_ptr<const LogicalType> TimestampLogicalType::Make(
-    bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit) {
+    bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit,
+    bool is_from_converted_type, bool force_set_converted_type) {
   if (time_unit == LogicalType::TimeUnit::MILLIS ||
       time_unit == LogicalType::TimeUnit::MICROS ||
       time_unit == LogicalType::TimeUnit::NANOS) {
     auto* logical_type = new TimestampLogicalType();
-    logical_type->impl_.reset(
-        new LogicalType::Impl::Timestamp(is_adjusted_to_utc, time_unit));
+    logical_type->impl_.reset(new LogicalType::Impl::Timestamp(
+        is_adjusted_to_utc, time_unit, is_from_converted_type, force_set_converted_type));
     return std::shared_ptr<const LogicalType>(logical_type);
   } else {
     throw ParquetException(
@@ -1308,6 +1343,16 @@ bool TimestampLogicalType::is_adjusted_to_utc() const {
 
 LogicalType::TimeUnit::unit TimestampLogicalType::time_unit() const {
   return (dynamic_cast<const LogicalType::Impl::Timestamp&>(*impl_)).time_unit();
+}
+
+bool TimestampLogicalType::is_from_converted_type() const {
+  return (dynamic_cast<const LogicalType::Impl::Timestamp&>(*impl_))
+      .is_from_converted_type();
+}
+
+bool TimestampLogicalType::force_set_converted_type() const {
+  return (dynamic_cast<const LogicalType::Impl::Timestamp&>(*impl_))
+      .force_set_converted_type();
 }
 
 class LogicalType::Impl::Interval final : public LogicalType::Impl::SimpleCompatible,

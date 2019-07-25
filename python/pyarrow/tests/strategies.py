@@ -219,13 +219,6 @@ def chunked_arrays(draw, type, min_chunks=0, max_chunks=None, chunk_size=None):
     return pa.chunked_array(draw(chunks), type=type)
 
 
-def columns(type, min_chunks=0, max_chunks=None, chunk_size=None):
-    chunked_array = chunked_arrays(type, chunk_size=chunk_size,
-                                   min_chunks=min_chunks,
-                                   max_chunks=max_chunks)
-    return st.builds(pa.column, st.text(), chunked_array)
-
-
 @st.composite
 def record_batches(draw, type, rows=None, max_fields=None):
     if isinstance(rows, st.SearchStrategy):
@@ -258,6 +251,5 @@ def tables(draw, type, rows=None, max_fields=None):
 
 all_arrays = arrays(all_types)
 all_chunked_arrays = chunked_arrays(all_types)
-all_columns = columns(all_types)
 all_record_batches = record_batches(all_types)
 all_tables = tables(all_types)

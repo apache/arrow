@@ -31,7 +31,7 @@
 namespace arrow {
 
 class Array;
-class Column;
+class ChunkedArray;
 class Status;
 class Table;
 
@@ -84,14 +84,14 @@ class ARROW_EXPORT TableReader {
 
   std::string GetColumnName(int i) const;
 
-  /// \brief Read a column from the file as an arrow::Column.
+  /// \brief Read a column from the file as an arrow::ChunkedArray.
   ///
   /// \param[in] i the column index to read
   /// \param[out] out the returned column
   /// \return Status
   ///
   /// This function is zero-copy if the file source supports zero-copy reads
-  Status GetColumn(int i, std::shared_ptr<Column>* out);
+  Status GetColumn(int i, std::shared_ptr<ChunkedArray>* out);
 
   /// \brief Read all columns from the file as an arrow::Table.
   ///

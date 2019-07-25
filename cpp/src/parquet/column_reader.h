@@ -22,6 +22,7 @@
 #include <memory>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
@@ -30,6 +31,8 @@
 #include "parquet/types.h"
 
 namespace arrow {
+
+class Array;
 
 namespace BitUtil {
 class BitReader;
@@ -178,6 +181,106 @@ class TypedColumnReader : public ColumnReader {
 };
 
 namespace internal {
+
+/// \brief Stateful column reader that delimits semantic records for both flat
+/// and nested columns
+///
+/// \note API EXPERIMENTAL
+/// \since 1.3.0
+class RecordReader {
+ public:
+  static std::shared_ptr<RecordReader> Make(
+      const ColumnDescriptor* descr,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
+      const bool read_dictionary = false);
+
+  virtual ~RecordReader() = default;
+
+  /// \brief Attempt to read indicated number of records from column chunk
+  /// \return number of records read
+  virtual int64_t ReadRecords(int64_t num_records) = 0;
+
+  /// \brief Pre-allocate space for data. Results in better flat read performance
+  virtual void Reserve(int64_t num_values) = 0;
+
+  /// \brief Clear consumed values and repetition/definition levels as the
+  /// result of calling ReadRecords
+  virtual void Reset() = 0;
+
+  /// \brief Transfer filled values buffer to caller. A new one will be
+  /// allocated in subsequent ReadRecords calls
+  virtual std::shared_ptr<ResizableBuffer> ReleaseValues() = 0;
+
+  /// \brief Transfer filled validity bitmap buffer to caller. A new one will
+  /// be allocated in subsequent ReadRecords calls
+  virtual std::shared_ptr<ResizableBuffer> ReleaseIsValid() = 0;
+
+  /// \brief Return true if the record reader has more internal data yet to
+  /// process
+  virtual bool HasMoreData() const = 0;
+
+  /// \brief Advance record reader to the next row group
+  /// \param[in] reader obtained from RowGroupReader::GetColumnPageReader
+  virtual void SetPageReader(std::unique_ptr<PageReader> reader) = 0;
+
+  virtual void DebugPrintState() = 0;
+
+  // For BYTE_ARRAY, FIXED_LEN_BYTE_ARRAY types that may have chunked output
+  virtual std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() = 0;
+
+  /// \brief Decoded definition levels
+  int16_t* def_levels() const {
+    return reinterpret_cast<int16_t*>(def_levels_->mutable_data());
+  }
+
+  /// \brief Decoded repetition levels
+  int16_t* rep_levels() const {
+    return reinterpret_cast<int16_t*>(rep_levels_->mutable_data());
+  }
+
+  /// \brief Decoded values, including nulls, if any
+  uint8_t* values() const { return values_->mutable_data(); }
+
+  /// \brief Number of values written including nulls (if any)
+  int64_t values_written() const { return values_written_; }
+
+  /// \brief Number of definition / repetition levels (from those that have
+  /// been decoded) that have been consumed inside the reader.
+  int64_t levels_position() const { return levels_position_; }
+
+  /// \brief Number of definition / repetition levels that have been written
+  /// internally in the reader
+  int64_t levels_written() const { return levels_written_; }
+
+  /// \brief Number of nulls in the leaf
+  int64_t null_count() const { return null_count_; }
+
+  /// \brief True if the leaf values are nullable
+  bool nullable_values() const { return nullable_values_; }
+
+ protected:
+  bool nullable_values_;
+
+  bool at_record_start_;
+  int64_t records_read_;
+
+  int64_t values_written_;
+  int64_t values_capacity_;
+  int64_t null_count_;
+
+  int64_t levels_written_;
+  int64_t levels_position_;
+  int64_t levels_capacity_;
+
+  std::shared_ptr<::arrow::ResizableBuffer> values_;
+  // In the case of false, don't allocate the values buffer (when we directly read into
+  // builder classes).
+  bool uses_values_;
+
+  std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
+  std::shared_ptr<::arrow::ResizableBuffer> def_levels_;
+  std::shared_ptr<::arrow::ResizableBuffer> rep_levels_;
+};
 
 static inline void DefinitionLevelsToBitmap(
     const int16_t* def_levels, int64_t num_def_levels, const int16_t max_definition_level,

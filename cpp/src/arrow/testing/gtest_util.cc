@@ -45,8 +45,7 @@
 
 namespace arrow {
 
-static void PrintColumn(const Column& col, std::stringstream* ss) {
-  const ChunkedArray& carr = *col.data();
+static void PrintChunkedArray(const ChunkedArray& carr, std::stringstream* ss) {
   for (int i = 0; i < carr.num_chunks(); ++i) {
     auto c1 = carr.chunk(i);
     *ss << "Chunk " << i << std::endl;
@@ -147,17 +146,17 @@ void AssertTablesEqual(const Table& expected, const Table& actual,
 
   if (same_chunk_layout) {
     for (int i = 0; i < actual.num_columns(); ++i) {
-      AssertChunkedEqual(*expected.column(i)->data(), *actual.column(i)->data());
+      AssertChunkedEqual(*expected.column(i), *actual.column(i));
     }
   } else {
     std::stringstream ss;
     if (!actual.Equals(expected)) {
       for (int i = 0; i < expected.num_columns(); ++i) {
         ss << "Actual column " << i << std::endl;
-        PrintColumn(*actual.column(i), &ss);
+        PrintChunkedArray(*actual.column(i), &ss);
 
         ss << "Expected column " << i << std::endl;
-        PrintColumn(*expected.column(i), &ss);
+        PrintChunkedArray(*expected.column(i), &ss);
       }
       FAIL() << ss.str();
     }

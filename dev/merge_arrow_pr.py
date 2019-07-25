@@ -28,8 +28,8 @@
 # There are several pieces of authorization possibly needed via environment
 # variables
 #
-# JIRA_USERNAME: your Apache JIRA id
-# JIRA_PASSWORD: your Apache JIRA password
+# APACHE_JIRA_USERNAME: your Apache JIRA id
+# APACHE_JIRA_PASSWORD: your Apache JIRA password
 # ARROW_GITHUB_API_TOKEN: a GitHub API token to use for API requests (to avoid
 # rate limiting)
 
@@ -51,6 +51,16 @@ except ImportError:
           "Run 'sudo pip install jira' to install.")
     print("Exiting without trying to close the associated JIRA.")
     sys.exit(1)
+
+# Remote name which points to the GitHub site
+PR_REMOTE_NAME = os.environ.get("PR_REMOTE_NAME", "apache")
+
+# For testing to avoid accidentally pushing to apache
+DEBUG = bool(int(os.environ.get("DEBUG", 0)))
+
+
+if DEBUG:
+    print("**************** DEBUGGING ****************")
 
 
 # Prefix added to temporary branches
@@ -339,7 +349,27 @@ class PullRequest(object):
         distinct_authors = sorted(set(commit_authors),
                                   key=lambda x: commit_authors.count(x),
                                   reverse=True)
-        primary_author = distinct_authors[0]
+
+        for i, author in enumerate(distinct_authors):
+            print("Author {}: {}".format(i + 1, author))
+
+        if len(distinct_authors) > 1:
+            primary_author = self.cmd.prompt(
+                "Enter primary author in the format of "
+                "\"name <email>\" [%s]: " % distinct_authors[0])
+
+            if primary_author == "":
+                primary_author = distinct_authors[0]
+            else:
+                # When primary author is specified manually, de-dup it from
+                # author list and put it at the head of author list.
+                distinct_authors = [x for x in distinct_authors
+                                    if x != primary_author]
+                distinct_authors = [primary_author] + distinct_authors
+        else:
+            # If there is only one author, do not prompt for a lead author
+            primary_author = distinct_authors[0]
+
         commits = run_cmd(['git', 'log', 'HEAD..%s' % pr_branch_name,
                           '--pretty=format:%h <%an> %s']).split("\n\n")
 
@@ -349,9 +379,17 @@ class PullRequest(object):
         if self.body is not None:
             merge_message_flags += ["-m", self.body]
 
-        authors = "\n".join(["Author: %s" % a for a in distinct_authors])
+        committer_name = run_cmd("git config --get user.name").strip()
+        committer_email = run_cmd("git config --get user.email").strip()
 
-        merge_message_flags += ["-m", authors]
+        authors = ("Authored-by:" if len(distinct_authors) == 1
+                   else "Lead-authored-by:")
+        authors += " %s" % (distinct_authors.pop(0))
+        if len(distinct_authors) > 0:
+            authors += "\n" + "\n".join(["Co-authored-by: %s" % a
+                                         for a in distinct_authors])
+        authors += "\n" + "Signed-off-by: %s <%s>" % (committer_name,
+                                                      committer_email)
 
         if had_conflicts:
             committer_name = run_cmd("git config --get user.name").strip()
@@ -371,6 +409,11 @@ class PullRequest(object):
             stripped_message = strip_ci_directives(c).strip()
             merge_message_flags += ["-m", stripped_message]
 
+        merge_message_flags += ["-m", authors]
+
+        if DEBUG:
+            print("\n".join(merge_message_flags))
+
         run_cmd(['git', 'commit',
                  '--no-verify',  # do not run commit hooks
                  '--author="%s"' % primary_author] +
@@ -380,9 +423,13 @@ class PullRequest(object):
                                 % (target_branch_name, self.git_remote))
 
         try:
-            run_cmd('git push %s %s:%s' % (self.git_remote,
-                                           target_branch_name,
-                                           target_ref))
+            push_cmd = ('git push %s %s:%s' % (self.git_remote,
+                                               target_branch_name,
+                                               target_ref))
+            if DEBUG:
+                print(push_cmd)
+            else:
+                run_cmd(push_cmd)
         except Exception as e:
             clean_up()
             self.cmd.fail("Exception while pushing: %s" % e)
@@ -415,17 +462,17 @@ def prompt_for_fix_version(cmd, jira_issue):
 
 def connect_jira(cmd):
     # ASF JIRA username
-    jira_username = os.environ.get("JIRA_USERNAME")
+    jira_username = os.environ.get("APACHE_JIRA_USERNAME")
 
     # ASF JIRA password
-    jira_password = os.environ.get("JIRA_PASSWORD")
+    jira_password = os.environ.get("APACHE_JIRA_PASSWORD")
 
     if not jira_username:
-        jira_username = cmd.prompt("Env JIRA_USERNAME not set, "
+        jira_username = cmd.prompt("Env APACHE_JIRA_USERNAME not set, "
                                    "please enter your JIRA username:")
 
     if not jira_password:
-        jira_password = cmd.getpass("Env JIRA_PASSWORD not set, "
+        jira_password = cmd.getpass("Env APACHE_JIRA_PASSWORD not set, "
                                     "please enter "
                                     "your JIRA password:")
 
@@ -444,15 +491,12 @@ def cli():
 
     pr_num = input("Which pull request would you like to merge? (e.g. 34): ")
 
-    # Remote name which points to the GitHub site
-    git_remote = os.environ.get("PR_REMOTE_NAME", "apache")
-
     os.chdir(ARROW_HOME)
 
     github_api = GitHubAPI(PROJECT_NAME)
 
     jira_con = connect_jira(cmd)
-    pr = PullRequest(cmd, github_api, git_remote, jira_con, pr_num)
+    pr = PullRequest(cmd, github_api, PR_REMOTE_NAME, jira_con, pr_num)
 
     if pr.is_merged:
         print("Pull request %s has already been merged")

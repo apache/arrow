@@ -51,7 +51,8 @@ struct _GGandivaNativeFunctionClass
   GObjectClass parent_class;
 };
 
-GGandivaFunctionSignature *ggandiva_native_function_get_signature(GGandivaNativeFunction *native_function);
+GList *
+ggandiva_native_function_get_signatures(GGandivaNativeFunction *native_function);
 gboolean
 ggandiva_native_function_equal(GGandivaNativeFunction *native_function,
                                GGandivaNativeFunction *other_native_function);

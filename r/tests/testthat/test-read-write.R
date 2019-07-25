@@ -28,14 +28,8 @@ test_that("arrow::table round trip", {
   expect_equal(tab$num_columns, 3L)
   expect_equal(tab$num_rows, 10L)
 
-  # arrow::Column
-  col_int <- tab$column(0)
-  expect_equal(col_int$length(), 10L)
-  expect_equal(col_int$null_count, 0L)
-  expect_equal(col_int$type, int32())
-
   # arrow::ChunkedArray
-  chunked_array_int <- col_int$data()
+  chunked_array_int <- tab$column(0)
   expect_equal(chunked_array_int$length(), 10L)
   expect_equal(chunked_array_int$null_count, 0L)
   expect_equal(chunked_array_int$as_vector(), tbl$int)
@@ -47,14 +41,8 @@ test_that("arrow::table round trip", {
     expect_equal(chunked_array_int$chunk(i-1L), chunks_int[[i]])
   }
 
-  # arrow::Column
-  col_dbl <- tab$column(1)
-  expect_equal(col_dbl$length(), 10L)
-  expect_equal(col_dbl$null_count, 0L)
-  expect_equal(col_dbl$type, float64())
-
   # arrow::ChunkedArray
-  chunked_array_dbl <- col_dbl$data()
+  chunked_array_dbl <- tab$column(1)
   expect_equal(chunked_array_dbl$length(), 10L)
   expect_equal(chunked_array_dbl$null_count, 0L)
   expect_equal(chunked_array_dbl$as_vector(), tbl$dbl)
@@ -66,14 +54,8 @@ test_that("arrow::table round trip", {
     expect_equal(chunked_array_dbl$chunk(i-1L), chunks_dbl[[i]])
   }
 
-  # arrow::Colmumn
-  col_raw <- tab$column(2)
-  expect_equal(col_raw$length(), 10L)
-  expect_equal(col_raw$null_count, 0L)
-  expect_equal(col_raw$type, int8())
-
   # arrow::ChunkedArray
-  chunked_array_raw <- col_raw$data()
+  chunked_array_raw <- tab$column(2)
   expect_equal(chunked_array_raw$length(), 10L)
   expect_equal(chunked_array_raw$null_count, 0L)
   expect_equal(chunked_array_raw$as_vector(), as.integer(tbl$raw))
@@ -130,4 +112,3 @@ test_that("arrow::table round trip handles NA in integer and numeric", {
   expect_true(is.na(res$dbl[10]))
   unlink(tf)
 })
-

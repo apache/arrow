@@ -51,10 +51,8 @@ The two-dimensional layer
 **Schemas** describe a logical collection of several pieces of data,
 each with a distinct name and type, and optional metadata.
 
-**Columns** are like chunked arrays, but with optional metadata.
-
-**Tables** are collections of columns in accordance to a schema.  They are
-the most capable dataset-providing abstraction in Arrow.
+**Tables** are collections of chunked array in accordance to a schema. They
+are the most capable dataset-providing abstraction in Arrow.
 
 **Record batches** are collections of contiguous arrays, described
 by a schema.  They allow incremental construction or serialization of tables.

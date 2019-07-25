@@ -142,7 +142,7 @@ Status InProcessTestServer::Start() {
 }
 
 void InProcessTestServer::Stop() {
-  server_->Shutdown();
+  ARROW_CHECK_OK(server_->Shutdown());
   thread_.join();
 }
 

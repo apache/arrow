@@ -26,38 +26,40 @@ limitations under the License.
 
 Navigate to the release page for downloads and the changelog.
 
-* [0.14.0 (4 July 2019)][1]
-* [0.13.0 (1 April 2019)][2]
-* [0.12.0 (20 January 2019)][3]
-* [0.11.1 (19 October 2018)][4]
-* [0.11.0 (8 October 2018)][5]
-* [0.10.0 (6 August 2018)][6]
-* [0.9.0 (21 March 2018)][7]
-* [0.8.0 (18 December 2017)][8]
-* [0.7.1 (1 October 2017)][9]
-* [0.7.0 (17 September 2017)][10]
-* [0.6.0 (14 August 2017)][11]
-* [0.5.0 (23 July 2017)][12]
-* [0.4.1 (9 June 2017)][13]
-* [0.4.0 (22 May 2017)][14]
-* [0.3.0 (5 May 2017)][15]
-* [0.2.0 (18 February 2017)][16]
-* [0.1.0 (10 October 2016)][17]
+* [0.14.1 (22 July 2019)][1]
+* [0.14.0 (4 July 2019)][2]
+* [0.13.0 (1 April 2019)][3]
+* [0.12.0 (20 January 2019)][4]
+* [0.11.1 (19 October 2018)][5]
+* [0.11.0 (8 October 2018)][6]
+* [0.10.0 (6 August 2018)][7]
+* [0.9.0 (21 March 2018)][8]
+* [0.8.0 (18 December 2017)][9]
+* [0.7.1 (1 October 2017)][10]
+* [0.7.0 (17 September 2017)][11]
+* [0.6.0 (14 August 2017)][12]
+* [0.5.0 (23 July 2017)][13]
+* [0.4.1 (9 June 2017)][14]
+* [0.4.0 (22 May 2017)][15]
+* [0.3.0 (5 May 2017)][16]
+* [0.2.0 (18 February 2017)][17]
+* [0.1.0 (10 October 2016)][18]
 
-[1]: {{ site.baseurl }}/release/0.14.0.html
-[2]: {{ site.baseurl }}/release/0.13.0.html
-[3]: {{ site.baseurl }}/release/0.12.0.html
-[4]: {{ site.baseurl }}/release/0.11.1.html
-[5]: {{ site.baseurl }}/release/0.11.0.html
-[6]: {{ site.baseurl }}/release/0.10.0.html
-[7]: {{ site.baseurl }}/release/0.9.0.html
-[8]: {{ site.baseurl }}/release/0.8.0.html
-[9]: {{ site.baseurl }}/release/0.7.1.html
-[10]: {{ site.baseurl }}/release/0.7.0.html
-[11]: {{ site.baseurl }}/release/0.6.0.html
-[12]: {{ site.baseurl }}/release/0.5.0.html
-[13]: {{ site.baseurl }}/release/0.4.1.html
-[14]: {{ site.baseurl }}/release/0.4.0.html
-[15]: {{ site.baseurl }}/release/0.3.0.html
-[16]: {{ site.baseurl }}/release/0.2.0.html
-[17]: {{ site.baseurl }}/release/0.1.0.html
+[1]: {{ site.baseurl }}/release/0.14.1.html
+[2]: {{ site.baseurl }}/release/0.14.0.html
+[3]: {{ site.baseurl }}/release/0.13.0.html
+[4]: {{ site.baseurl }}/release/0.12.0.html
+[5]: {{ site.baseurl }}/release/0.11.1.html
+[6]: {{ site.baseurl }}/release/0.11.0.html
+[7]: {{ site.baseurl }}/release/0.10.0.html
+[8]: {{ site.baseurl }}/release/0.9.0.html
+[9]: {{ site.baseurl }}/release/0.8.0.html
+[10]: {{ site.baseurl }}/release/0.7.1.html
+[11]: {{ site.baseurl }}/release/0.7.0.html
+[12]: {{ site.baseurl }}/release/0.6.0.html
+[13]: {{ site.baseurl }}/release/0.5.0.html
+[14]: {{ site.baseurl }}/release/0.4.1.html
+[15]: {{ site.baseurl }}/release/0.4.0.html
+[16]: {{ site.baseurl }}/release/0.3.0.html
+[17]: {{ site.baseurl }}/release/0.2.0.html
+[18]: {{ site.baseurl }}/release/0.1.0.html

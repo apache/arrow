@@ -661,8 +661,7 @@ namespace red_arrow {
             rb_ary_push(records_, record);
           }
           for (int i = 0; i < n_columns_; ++i) {
-            const auto column = table.column(i).get();
-            const auto chunked_array = column->data();
+            const auto& chunked_array = table.column(i).get();
             column_index_ = i;
             row_offset_ = 0;
             for (const auto array : chunked_array->chunks()) {

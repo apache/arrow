@@ -30,6 +30,7 @@ import java.util.Objects;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BaseValueVector;
@@ -103,7 +104,6 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     this.fieldType = fieldType;
     this.listSize = ((ArrowType.FixedSizeList) fieldType.getType()).getListSize();
     Preconditions.checkArgument(listSize > 0, "list size must be positive");
-    this.reader = new UnionFixedSizeListReader(this);
     this.valueCount = 0;
     this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
   }
@@ -184,7 +184,14 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
 
   @Override
   public UnionFixedSizeListReader getReader() {
+    if (reader == null) {
+      reader = new UnionFixedSizeListReader(this);
+    }
     return reader;
+  }
+
+  private void invalidateReader() {
+    reader = null;
   }
 
   @Override
@@ -346,7 +353,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     boolean created = false;
     if (vector == ZeroVector.INSTANCE) {
       vector = type.createNewSingleVector(DATA_VECTOR_NAME, allocator, null);
-      this.reader = new UnionFixedSizeListReader(this);
+      invalidateReader();
       created = true;
     }
     // returned vector must have the same field
@@ -373,7 +380,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     UnionVector vector = new UnionVector(name, allocator, null);
     this.vector.clear();
     this.vector = vector;
-    this.reader = new UnionFixedSizeListReader(this);
+    invalidateReader();
     return vector;
   }
 
@@ -494,6 +501,37 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   @Override
   public TransferPair makeTransferPair(ValueVector target) {
     return new TransferImpl((FixedSizeListVector) target);
+  }
+
+  @Override
+  public int hashCode(int index) {
+    if (isSet(index) == 0) {
+      return 0;
+    }
+    int hash = 0;
+    for (int i = 0; i < listSize; i++) {
+      hash = ByteFunctionHelpers.comebineHash(hash, vector.hashCode(index * listSize + i));
+    }
+    return hash;
+  }
+
+  @Override
+  public boolean equals(int index, ValueVector to, int toIndex) {
+    if (to == null) {
+      return false;
+    }
+    if (this.getClass() != to.getClass()) {
+      return false;
+    }
+
+    FixedSizeListVector that = (FixedSizeListVector) to;
+
+    for (int i = 0; i < listSize; i++) {
+      if (!vector.equals(index * listSize + i, that, toIndex * listSize + i)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private class TransferImpl implements TransferPair {

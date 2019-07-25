@@ -302,6 +302,14 @@ def test_clone():
     assert deserialized == (0, 'a')
 
 
+def test_primitive_serialization_notbroken(large_buffer):
+    serialization_roundtrip({(1, 2): 2}, large_buffer)
+
+
+def test_primitive_serialization_broken(large_buffer):
+    serialization_roundtrip({(): 2}, large_buffer)
+
+
 def test_primitive_serialization(large_buffer):
     for obj in PRIMITIVE_OBJECTS:
         serialization_roundtrip(obj, large_buffer)

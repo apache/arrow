@@ -24,7 +24,6 @@ sources = files(
   'buffer.cpp',
   'chunked-array.cpp',
   'codec.cpp',
-  'column.cpp',
   'composite-array.cpp',
   'composite-data-type.cpp',
   'decimal128.cpp',
@@ -73,7 +72,6 @@ c_headers = files(
   'buffer.h',
   'chunked-array.h',
   'codec.h',
-  'column.h',
   'composite-array.h',
   'composite-data-type.h',
   'data-type.h',
@@ -126,7 +124,6 @@ cpp_headers = files(
   'buffer.hpp',
   'chunked-array.hpp',
   'codec.hpp',
-  'column.hpp',
   'data-type.hpp',
   'decimal128.hpp',
   'error.hpp',
@@ -164,6 +161,10 @@ if have_arrow_orc
     'orc-file-reader.hpp',
   )
 endif
+
+cpp_internal_headers = files(
+  'internal-index.hpp',
+)
 
 version_h_conf = configuration_data()
 version_h_conf.set('GARROW_VERSION_MAJOR', version_major)

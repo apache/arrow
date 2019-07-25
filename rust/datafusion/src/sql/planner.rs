@@ -108,7 +108,6 @@ impl SqlToRel {
                             .collect::<Result<Vec<Expr>>>()?,
                         None => vec![],
                     };
-                    //println!("GROUP BY: {:?}", group_expr);
 
                     let mut all_fields: Vec<Expr> = group_expr.clone();
                     aggr_expr.iter().for_each(|x| all_fields.push(x.clone()));
@@ -175,8 +174,17 @@ impl SqlToRel {
                     let limit_plan = match limit {
                         &Some(ref limit_expr) => {
                             let input_schema = order_by_plan.schema();
-                            let limit_rex =
-                                self.sql_to_rex(&limit_expr, &input_schema.clone())?;
+
+                            let limit_rex = match self
+                                .sql_to_rex(&limit_expr, &input_schema.clone())?
+                            {
+                                Expr::Literal(ScalarValue::Int64(n)) => {
+                                    Ok(Expr::Literal(ScalarValue::UInt32(n as u32)))
+                                }
+                                _ => Err(ExecutionError::General(
+                                    "Unexpected expression for LIMIT clause".to_string(),
+                                )),
+                            }?;
 
                             LogicalPlan::Limit {
                                 expr: limit_rex,
@@ -196,7 +204,8 @@ impl SqlToRel {
                     Some(schema) => Ok(Arc::new(LogicalPlan::TableScan {
                         schema_name: String::from("default"),
                         table_name: id.clone(),
-                        schema: schema.clone(),
+                        table_schema: schema.clone(),
+                        projected_schema: schema.clone(),
                         projection: None,
                     })),
                     None => Err(ExecutionError::General(format!(

@@ -113,7 +113,7 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
     )
   )
 
-  struct_array <- tab1$column(1)$data()$chunk(0)
+  struct_array <- tab1$column(1)$chunk(0)
   ps <- array(c(NA, NA, 78, 90, NA, 19))
   hello <- array(c(NA, NA, "hi", "bonjour", "ciao", NA))
   expect_equal(struct_array$field(0L), ps)
@@ -132,7 +132,7 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
     5,
     c(5, 6)
   )
-  list_array <- tab1$column(0)$data()
+  list_array <- tab1$column(0)
   expect_identical(
     list_array$as_vector(),
     list_array_r

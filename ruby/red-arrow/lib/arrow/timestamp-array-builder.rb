@@ -17,6 +17,25 @@
 
 module Arrow
   class TimestampArrayBuilder
+    class << self
+      def build(unit_or_data_type, values)
+        builder = new(unit_or_data_type)
+        builder.build(values)
+      end
+    end
+
+    alias_method :initialize_raw, :initialize
+    def initialize(unit_or_data_type)
+      case unit_or_data_type
+      when DataType
+        data_type = unit_or_data_type
+      else
+        unit = unit_or_data_type
+        data_type = TimestampDataType.new(unit)
+      end
+      initialize_raw(data_type)
+    end
+
     private
     def unit_id
       @unit_id ||= value_data_type.unit.nick.to_sym

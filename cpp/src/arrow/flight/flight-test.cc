@@ -153,6 +153,14 @@ TEST(TestFlight, DISABLED_StartStopTestServer) {
   ASSERT_FALSE(server.IsRunning());
 }
 
+// ARROW-6017: we should be able to construct locations for unknown
+// schemes
+TEST(TestFlight, UnknownLocationScheme) {
+  Location location;
+  ASSERT_OK(Location::Parse("s3://test", &location));
+  ASSERT_OK(Location::Parse("https://example.com/foo", &location));
+}
+
 TEST(TestFlight, ConnectUri) {
   TestServer server("flight-test-server");
   server.Start();

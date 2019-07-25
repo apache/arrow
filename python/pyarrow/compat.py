@@ -74,6 +74,9 @@ if PY2:
         else:
             return o
 
+    def u_utf8(s):
+        return s.decode('utf-8')
+
     def frombytes(o):
         return o
 
@@ -111,6 +114,11 @@ else:
             return o.encode('utf8')
         else:
             return o
+
+    def u_utf8(s):
+        if isinstance(s, bytes):
+            return frombytes(s)
+        return s
 
     def frombytes(o):
         return o.decode('utf8')

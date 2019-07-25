@@ -118,12 +118,13 @@ def test_single_pylist_column_roundtrip(tempdir, dtype):
     table = pa.Table.from_arrays(data, names=['a'])
     _write_table(table, filename)
     table_read = _read_table(filename)
-    for col_written, col_read in zip(table.itercolumns(),
-                                     table_read.itercolumns()):
-        assert col_written.name == col_read.name
-        assert col_read.data.num_chunks == 1
-        data_written = col_written.data.chunk(0)
-        data_read = col_read.data.chunk(0)
+    for i in range(table.num_columns):
+        col_written = table[i]
+        col_read = table_read[i]
+        assert table.field(i).name == table_read.field(i).name
+        assert col_read.num_chunks == 1
+        data_written = col_written.chunk(0)
+        data_read = col_read.chunk(0)
         assert data_written.equals(data_read)
 
 
@@ -658,10 +659,22 @@ def test_parquet_metadata_api():
             assert isinstance(col_meta, pq.ColumnChunkMetaData)
             repr(col_meta)
 
+    with pytest.raises(IndexError):
+        meta.row_group(-1)
+
+    with pytest.raises(IndexError):
+        meta.row_group(meta.num_row_groups + 1)
+
     rg_meta = meta.row_group(0)
     assert rg_meta.num_rows == len(df)
     assert rg_meta.num_columns == ncols + 1  # +1 for index
     assert rg_meta.total_byte_size > 0
+
+    with pytest.raises(IndexError):
+        col_meta = rg_meta.column(-1)
+
+    with pytest.raises(IndexError):
+        col_meta = rg_meta.column(ncols + 2)
 
     col_meta = rg_meta.column(0)
     assert col_meta.file_offset > 0
@@ -1953,12 +1966,14 @@ def test_read_multiple_files(tempdir):
     assert result3.equals(expected)
 
     # Read column subset
-    to_read = [result[0], result[2], result[6], result[result.num_columns - 1]]
+    to_read = [0, 2, 6, result.num_columns - 1]
 
-    result = pa.localfs.read_parquet(
-        dirpath, columns=[c.name for c in to_read])
-    expected = pa.Table.from_arrays(to_read, metadata=result.schema.metadata)
-    assert result.equals(expected)
+    col_names = [result.field(i).name for i in to_read]
+    out = pa.localfs.read_parquet(dirpath, columns=col_names)
+    expected = pa.Table.from_arrays([result.column(i) for i in to_read],
+                                    names=col_names,
+                                    metadata=result.schema.metadata)
+    assert out.equals(expected)
 
     # Read with multiple threads
     pa.localfs.read_parquet(dirpath, use_threads=True)
@@ -2965,4 +2980,4 @@ def test_filter_before_validate_schema(tempdir):
 
     # read single file using filter
     table = pq.read_table(tempdir, filters=[[('A', '==', 0)]])
-    assert table.column('B').equals(pa.column('B', pa.array([1, 2, 3])))
+    assert table.column('B').equals(pa.chunked_array([[1, 2, 3]]))

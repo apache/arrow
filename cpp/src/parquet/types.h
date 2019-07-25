@@ -182,8 +182,20 @@ class PARQUET_EXPORT LogicalType {
   static std::shared_ptr<const LogicalType> Date();
   static std::shared_ptr<const LogicalType> Time(bool is_adjusted_to_utc,
                                                  LogicalType::TimeUnit::unit time_unit);
+
+  /// \brief Create a Timestamp logical type
+  /// \param[in] is_adjusted_to_utc set true if the data is UTC-normalized
+  /// \param[in] time_unit the resolution of the timestamp
+  /// \param[in] is_from_converted_type if true, the timestamp was generated
+  /// by translating a legacy converted type of TIMESTAMP_MILLIS or
+  /// TIMESTAMP_MICROS. Default is false.
+  /// \param[in] force_set_converted_type if true, always set the
+  /// legacy ConvertedType TIMESTAMP_MICROS and TIMESTAMP_MILLIS
+  /// metadata. Default is false
   static std::shared_ptr<const LogicalType> Timestamp(
-      bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit);
+      bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit,
+      bool is_from_converted_type = false, bool force_set_converted_type = false);
+
   static std::shared_ptr<const LogicalType> Interval();
   static std::shared_ptr<const LogicalType> Int(int bit_width, bool is_signed);
   static std::shared_ptr<const LogicalType> Null();
@@ -337,9 +349,18 @@ class PARQUET_EXPORT TimeLogicalType : public LogicalType {
 class PARQUET_EXPORT TimestampLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make(bool is_adjusted_to_utc,
-                                                 LogicalType::TimeUnit::unit time_unit);
+                                                 LogicalType::TimeUnit::unit time_unit,
+                                                 bool is_from_converted_type = false,
+                                                 bool force_set_converted_type = false);
   bool is_adjusted_to_utc() const;
   LogicalType::TimeUnit::unit time_unit() const;
+
+  /// \brief If true, will not set LogicalType in Thrift metadata
+  bool is_from_converted_type() const;
+
+  /// \brief If true, will set ConvertedType for micros and millis
+  /// resolution in legacy ConvertedType Thrift metadata
+  bool force_set_converted_type() const;
 
  private:
   TimestampLogicalType() = default;

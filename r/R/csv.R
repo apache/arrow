@@ -42,16 +42,16 @@
 #' characters? This is more general than `escape_double` as backslashes
 #' can be used to escape the delimiter character, the quote character, or
 #' to add special characters like `\\n`.
-# #' @param col_names If `TRUE`, the first row of the input will be used as the
-# #' column names and will not be included in the data frame. Note that `FALSE`
-# #' is not currently supported, nor is specifying a character vector of column
-# #' names.
+#' @param col_names If `TRUE`, the first row of the input will be used as the
+#' column names and will not be included in the data frame. (Note that `FALSE`
+#' is not currently supported.) Alternatively, you can specify a character
+#' vector of column names.
 #' @param col_select A [tidy selection specification][tidyselect::vars_select]
 #' of columns, as used in `dplyr::select()`.
 #' @param skip_empty_rows Should blank rows be ignored altogether? If
 #' `TRUE`, blank rows will not be represented at all. If `FALSE`, they will be
 #' filled with missings.
-# #' @param skip Number of lines to skip before reading data.
+#' @param skip Number of lines to skip before reading data.
 #' @param parse_options see [csv_parse_options()]. If given, this overrides any
 #' parsing options provided in other arguments (e.g. `delim`, `quote`, etc.).
 #' @param convert_options see [csv_convert_options()]
@@ -66,39 +66,41 @@ read_delim_arrow <- function(file,
                              quote = '"',
                              escape_double = TRUE,
                              escape_backslash = FALSE,
-                             # col_names = TRUE,
+                             col_names = TRUE,
                              # col_types = TRUE,
                              col_select = NULL,
                              # na = c("", "NA"),
                              # quoted_na = TRUE,
                              skip_empty_rows = TRUE,
-                             # skip = 0L,
+                             skip = 0L,
                              parse_options = NULL,
                              convert_options = NULL,
-                             read_options = csv_read_options(),
+                             read_options = NULL,
                              as_tibble = TRUE) {
 
-  # These are hardcoded pending https://issues.apache.org/jira/browse/ARROW-5747
-  col_names <- TRUE
-  skip <- 0L
-
+  if (identical(col_names, FALSE)) {
+    stop("Not implemented", call.=FALSE)
+  }
   if (is.null(parse_options)) {
-    if (isTRUE(col_names)) {
-      # Add one row to skip, to match arrow's header_rows
-      skip <- skip + 1L
-      # Note that with the hardcoding, header_rows is always 1, which
-      # turns out to be the only value that works meaningfully
-    }
     parse_options <- readr_to_csv_parse_options(
       delim,
       quote,
       escape_double,
       escape_backslash,
-      skip_empty_rows,
-      skip
+      skip_empty_rows
     )
   }
 
+  if (is.null(read_options)) {
+    if (isTRUE(col_names)) {
+      # C++ default to parse is 0-length string array
+      col_names <- character(0)
+    }
+    read_options <- csv_read_options(
+      skip_rows = skip,
+      column_names = col_names
+    )
+  }
   if (is.null(convert_options)) {
     # TODO:
     # * na strings (needs wiring in csv_convert_options)
@@ -117,10 +119,6 @@ read_delim_arrow <- function(file,
   )
 
   tab <- reader$Read()$select(!!enquo(col_select))
-  if (is.character(col_names)) {
-    # TODO: Rename `tab`'s columns
-    # See https://github.com/apache/arrow/pull/4557
-  }
 
   if (isTRUE(as_tibble)) {
     tab <- as.data.frame(tab)
@@ -135,16 +133,16 @@ read_csv_arrow <- function(file,
                            quote = '"',
                            escape_double = TRUE,
                            escape_backslash = FALSE,
-                           # col_names = TRUE,
+                           col_names = TRUE,
                            # col_types = TRUE,
                            col_select = NULL,
                            # na = c("", "NA"),
                            # quoted_na = TRUE,
                            skip_empty_rows = TRUE,
-                           # skip = 0L,
+                           skip = 0L,
                            parse_options = NULL,
                            convert_options = NULL,
-                           read_options = csv_read_options(),
+                           read_options = NULL,
                            as_tibble = TRUE) {
 
   mc <- match.call()
@@ -159,16 +157,16 @@ read_tsv_arrow <- function(file,
                            quote = '"',
                            escape_double = TRUE,
                            escape_backslash = FALSE,
-                           # col_names = TRUE,
+                           col_names = TRUE,
                            # col_types = TRUE,
                            col_select = NULL,
                            # na = c("", "NA"),
                            # quoted_na = TRUE,
                            skip_empty_rows = TRUE,
-                           # skip = 0L,
+                           skip = 0L,
                            parse_options = NULL,
                            convert_options = NULL,
-                           read_options = csv_read_options(),
+                           read_options = NULL,
                            as_tibble = TRUE) {
 
   mc <- match.call()
@@ -192,15 +190,25 @@ read_tsv_arrow <- function(file,
 #' Read options for the Arrow file readers
 #'
 #' @param use_threads Whether to use the global CPU thread pool
-#' @param block_size Block size we request from the IO layer; also determines the size of chunks when use_threads is `TRUE`. NB: if false, JSON input must end with an empty line
+#' @param block_size Block size we request from the IO layer; also determines
+#' the size of chunks when use_threads is `TRUE`. NB: if `FALSE`, JSON input
+#' must end with an empty line.
+#' @param skip_rows Number of lines to skip before reading data.
+#' @param column_names Character vector to supply column names. If length-0
+#' (the default), the first non-skipped row will be parsed to generate column
+#' names.
 #'
 #' @export
 csv_read_options <- function(use_threads = option_use_threads(),
-                             block_size = 1048576L) {
+                             block_size = 1048576L,
+                             skip_rows = 0L,
+                             column_names = character(0)) {
   shared_ptr(`arrow::csv::ReadOptions`, csv___ReadOptions__initialize(
     list(
       use_threads = use_threads,
-      block_size = block_size
+      block_size = block_size,
+      skip_rows = skip_rows,
+      column_names = column_names
     )
   ))
 }
@@ -209,8 +217,7 @@ readr_to_csv_parse_options <- function(delim = ",",
                                        quote = '"',
                                        escape_double = TRUE,
                                        escape_backslash = FALSE,
-                                       skip_empty_rows = TRUE,
-                                       skip = 0L) {
+                                       skip_empty_rows = TRUE) {
   # This function translates from the readr argument list to the arrow arg names
   # TODO: validate inputs
   csv_parse_options(
@@ -221,8 +228,7 @@ readr_to_csv_parse_options <- function(delim = ",",
     escaping = escape_backslash,
     escape_char = '\\',
     newlines_in_values = escape_backslash,
-    ignore_empty_lines = skip_empty_rows,
-    header_rows = skip
+    ignore_empty_lines = skip_empty_rows
   )
 }
 
@@ -236,7 +242,6 @@ readr_to_csv_parse_options <- function(delim = ",",
 #' @param escape_char Escaping character (if `escaping` is `TRUE`)
 #' @param newlines_in_values Whether values are allowed to contain CR (`0x0d`) and LF (`0x0a`) characters
 #' @param ignore_empty_lines Whether empty lines are ignored.  If `FALSE`, an empty line represents
-#' @param header_rows Number of header rows to skip (including the first row containing column names)
 #'
 #' @export
 csv_parse_options <- function(delimiter = ",",
@@ -246,8 +251,7 @@ csv_parse_options <- function(delimiter = ",",
                               escaping = FALSE,
                               escape_char = '\\',
                               newlines_in_values = FALSE,
-                              ignore_empty_lines = TRUE,
-                              header_rows = 1L) {
+                              ignore_empty_lines = TRUE) {
 
   shared_ptr(`arrow::csv::ParseOptions`, csv___ParseOptions__initialize(
     list(
@@ -258,8 +262,7 @@ csv_parse_options <- function(delimiter = ",",
       escaping = escaping,
       escape_char = escape_char,
       newlines_in_values = newlines_in_values,
-      ignore_empty_lines = ignore_empty_lines,
-      header_rows = header_rows
+      ignore_empty_lines = ignore_empty_lines
     )
   ))
 }

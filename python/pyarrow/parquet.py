@@ -605,9 +605,8 @@ class ParquetDatasetPiece(object):
                 # manifest, so ['a', 'b', 'c'] as in our example above.
                 dictionary = partitions.levels[i].dictionary
 
-                arr = lib.DictionaryArray.from_arrays(indices, dictionary)
-                col = lib.Column.from_array(name, arr)
-                table = table.append_column(col)
+                arr = pa.DictionaryArray.from_arrays(indices, dictionary)
+                table = table.append_column(name, arr)
 
         return table
 

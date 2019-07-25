@@ -87,29 +87,24 @@ class TestRecordBatch < Test::Unit::TestCase
                    @record_batch.schema.fields.collect(&:name))
     end
 
-    sub_test_case("#column") do
+    sub_test_case("#column_data") do
       def test_positive
         assert_equal(build_boolean_array(@valid_values),
-                     @record_batch.get_column(1))
+                     @record_batch.get_column_data(1))
       end
 
       def test_negative
         assert_equal(build_boolean_array(@visible_values),
-                     @record_batch.get_column(-2))
+                     @record_batch.get_column_data(-2))
       end
 
       def test_positive_out_of_index
-        assert_nil(@record_batch.get_column(2))
+        assert_nil(@record_batch.get_column_data(2))
       end
 
       def test_negative_out_of_index
-        assert_nil(@record_batch.get_column(-3))
+        assert_nil(@record_batch.get_column_data(-3))
       end
-    end
-
-    def test_columns
-      assert_equal([5, 5],
-                   @record_batch.columns.collect(&:length))
     end
 
     def test_n_columns
@@ -123,7 +118,7 @@ class TestRecordBatch < Test::Unit::TestCase
     def test_slice
       sub_record_batch = @record_batch.slice(3, 2)
       sub_visible_values = sub_record_batch.n_rows.times.collect do |i|
-        sub_record_batch.get_column(0).get_value(i)
+        sub_record_batch.get_column_data(0).get_value(i)
       end
       assert_equal([false, true],
                    sub_visible_values)

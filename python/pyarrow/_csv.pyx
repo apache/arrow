@@ -51,6 +51,12 @@ cdef class ReadOptions:
         How much bytes to process at a time from the input stream.
         This will determine multi-threading granularity as well as
         the size of individual chunks in the Table.
+    skip_rows: int, optional (default 0)
+        The number of rows to skip at the start of the CSV data, not
+        including the row of column names (if any).
+    column_names: list, optional
+        The Table column names.  If empty, column names will be
+        read from the first row after `skip_rows`.
     """
     cdef:
         CCSVReadOptions options
@@ -58,12 +64,17 @@ cdef class ReadOptions:
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self, use_threads=None, block_size=None):
+    def __init__(self, use_threads=None, block_size=None, skip_rows=None,
+                 column_names=None):
         self.options = CCSVReadOptions.Defaults()
         if use_threads is not None:
             self.use_threads = use_threads
         if block_size is not None:
             self.block_size = block_size
+        if skip_rows is not None:
+            self.skip_rows = skip_rows
+        if column_names is not None:
+            self.column_names = column_names
 
     @property
     def use_threads(self):
@@ -89,6 +100,32 @@ cdef class ReadOptions:
     def block_size(self, value):
         self.options.block_size = value
 
+    @property
+    def skip_rows(self):
+        """
+        The number of rows to skip at the start of the CSV data, not
+        including the row of column names (if any).
+        """
+        return self.options.skip_rows
+
+    @skip_rows.setter
+    def skip_rows(self, value):
+        self.options.skip_rows = value
+
+    @property
+    def column_names(self):
+        """
+        The Table column names.  If empty, column names will be
+        read from the first row after `skip_rows`.
+        """
+        return [frombytes(s) for s in self.options.column_names]
+
+    @column_names.setter
+    def column_names(self, value):
+        self.options.column_names.clear()
+        for item in value:
+            self.options.column_names.push_back(tobytes(item))
+
 
 cdef class ParseOptions:
     """
@@ -107,8 +144,6 @@ cdef class ParseOptions:
     escape_char: 1-character string or False, optional (default False)
         The character used optionally for escaping special characters
         (False if escaping is not allowed).
-    header_rows: int, optional (default 1)
-        The number of rows to skip at the start of the CSV data.
     newlines_in_values: bool, optional (default False)
         Whether newline characters are allowed in CSV values.
         Setting this to True reduces the performance of multi-threaded
@@ -124,7 +159,7 @@ cdef class ParseOptions:
     __slots__ = ()
 
     def __init__(self, delimiter=None, quote_char=None, double_quote=None,
-                 escape_char=None, header_rows=None, newlines_in_values=None,
+                 escape_char=None, newlines_in_values=None,
                  ignore_empty_lines=None):
         self.options = CCSVParseOptions.Defaults()
         if delimiter is not None:
@@ -135,8 +170,6 @@ cdef class ParseOptions:
             self.double_quote = double_quote
         if escape_char is not None:
             self.escape_char = escape_char
-        if header_rows is not None:
-            self.header_rows = header_rows
         if newlines_in_values is not None:
             self.newlines_in_values = newlines_in_values
         if ignore_empty_lines is not None:
@@ -202,17 +235,6 @@ cdef class ParseOptions:
         else:
             self.options.escape_char = _single_char(value)
             self.options.escaping = True
-
-    @property
-    def header_rows(self):
-        """
-        The number of rows to skip at the start of the CSV data.
-        """
-        return self.options.header_rows
-
-    @header_rows.setter
-    def header_rows(self, value):
-        self.options.header_rows = value
 
     @property
     def newlines_in_values(self):

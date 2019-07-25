@@ -20,6 +20,7 @@ groups:
   # makes it easier to submit related tasks
   docker:
     - docker-r
+    - docker-r-conda
     - docker-rust
     - docker-cpp
     - docker-cpp-alpine
@@ -87,6 +88,16 @@ tasks:
         - docker-compose build cpp
         - docker-compose build r
         - docker-compose run r
+
+  docker-r-conda:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp
+        - docker-compose build r-conda
+        - docker-compose run r-conda
 
   docker-rust:
     ci: circle

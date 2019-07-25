@@ -78,8 +78,9 @@ print_record_batch(GArrowRecordBatch *record_batch)
     g_print("columns[%u](%s): ",
             nth_column,
             garrow_record_batch_get_column_name(record_batch, nth_column));
-    array = garrow_record_batch_get_column(record_batch, nth_column);
+    array = garrow_record_batch_get_column_data(record_batch, nth_column);
     print_array(array);
+    g_object_unref(array);
   }
 }
 

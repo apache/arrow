@@ -60,8 +60,6 @@ import com.google.common.base.Preconditions;
  * CLOB --> ArrowType.Utf8
  * BLOB --> ArrowType.Binary
  *
- * <p>TODO: At this time, SQL Data type java.sql.Types.ARRAY is still not supported.
- *
  * @since 0.10.0
  */
 public class JdbcToArrow {
@@ -83,8 +81,6 @@ public class JdbcToArrow {
    */
   public static VectorSchemaRoot sqlToArrow(Connection connection, String query, BaseAllocator allocator)
       throws SQLException, IOException {
-    Preconditions.checkNotNull(connection, "JDBC connection object can not be null");
-    Preconditions.checkArgument(query != null && query.length() > 0, "SQL query can not be null or empty");
     Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
 
     JdbcToArrowConfig config =
@@ -111,8 +107,6 @@ public class JdbcToArrow {
       BaseAllocator allocator,
       Calendar calendar) throws SQLException, IOException {
 
-    Preconditions.checkNotNull(connection, "JDBC connection object can not be null");
-    Preconditions.checkArgument(query != null && query.length() > 0, "SQL query can not be null or empty");
     Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
     Preconditions.checkNotNull(calendar, "Calendar object can not be null");
 
@@ -135,7 +129,6 @@ public class JdbcToArrow {
       throws SQLException, IOException {
     Preconditions.checkNotNull(connection, "JDBC connection object can not be null");
     Preconditions.checkArgument(query != null && query.length() > 0, "SQL query can not be null or empty");
-    Preconditions.checkNotNull(config, "The configuration cannot be null");
 
     try (Statement stmt = connection.createStatement()) {
       return sqlToArrow(stmt.executeQuery(query), config);
@@ -166,7 +159,6 @@ public class JdbcToArrow {
    */
   public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, BaseAllocator allocator)
       throws SQLException, IOException {
-    Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
     Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
 
     JdbcToArrowConfig config = 
@@ -201,7 +193,6 @@ public class JdbcToArrow {
           BaseAllocator allocator,
           Calendar calendar)
       throws SQLException, IOException {
-    Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
     Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
 
     return sqlToArrow(resultSet, new JdbcToArrowConfig(allocator, calendar));

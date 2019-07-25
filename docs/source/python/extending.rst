@@ -81,11 +81,6 @@ C++ objects.
    Return whether *obj* wraps an Arrow C++ :class:`Buffer` pointer;
    in other words, whether *obj* is a :py:class:`pyarrow.Buffer` instance.
 
-.. function:: bool is_column(PyObject* obj)
-
-   Return whether *obj* wraps an Arrow C++ :class:`Column` pointer;
-   in other words, whether *obj* is a :py:class:`pyarrow.Column` instance.
-
 .. function:: bool is_data_type(PyObject* obj)
 
    Return whether *obj* wraps an Arrow C++ :class:`DataType` pointer;
@@ -139,10 +134,6 @@ occurred.  If successful, *out* is guaranteed to be non-NULL.
 
    Unwrap the Arrow C++ :class:`Buffer` pointer from *obj* and put it in *out*.
 
-.. function:: Status unwrap_column(PyObject* obj, std::shared_ptr<Column>* out)
-
-   Unwrap the Arrow C++ :class:`Column` pointer from *obj* and put it in *out*.
-
 .. function:: Status unwrap_data_type(PyObject* obj, std::shared_ptr<DataType>* out)
 
    Unwrap the Arrow C++ :class:`DataType` pointer from *obj* and put it in *out*.
@@ -186,10 +177,6 @@ On error, NULL is returned and a Python exception is set.
 .. function:: PyObject* wrap_buffer(const std::shared_ptr<Buffer>& buffer)
 
    Wrap the Arrow C++ *buffer* in a :py:class:`pyarrow.Buffer` instance.
-
-.. function:: PyObject* wrap_column(const std::shared_ptr<Column>& column)
-
-   Wrap the Arrow C++ *column* in a :py:class:`pyarrow.Column` instance.
 
 .. function:: PyObject* wrap_data_type(const std::shared_ptr<DataType>& data_type)
 
@@ -259,10 +246,6 @@ an exception) if the input is not of the right type.
 
    Unwrap the Arrow C++ :cpp:class:`Buffer` pointer from *obj*.
 
-.. function:: pyarrow_unwrap_column(obj) -> shared_ptr[CColumn]
-
-   Unwrap the Arrow C++ :cpp:class:`Column` pointer from *obj*.
-
 .. function:: pyarrow_unwrap_data_type(obj) -> shared_ptr[CDataType]
 
    Unwrap the Arrow C++ :cpp:class:`CDataType` pointer from *obj*.
@@ -305,10 +288,6 @@ pyarray object of the corresponding type.  An exception is raised on error.
 .. function:: pyarrow_wrap_buffer(sp_array: const shared_ptr[CBuffer]& buffer) -> object
 
    Wrap the Arrow C++ *buffer* in a Python :class:`pyarrow.Buffer` instance.
-
-.. function:: pyarrow_wrap_column(sp_array: const shared_ptr[CColumn]& column) -> object
-
-   Wrap the Arrow C++ *column* in a Python :class:`pyarrow.Column` instance.
 
 .. function:: pyarrow_wrap_data_type(sp_array: const shared_ptr[CDataType]& data_type) -> object
 

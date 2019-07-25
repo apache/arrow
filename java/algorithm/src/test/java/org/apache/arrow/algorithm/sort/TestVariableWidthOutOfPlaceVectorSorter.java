@@ -22,6 +22,7 @@ import static org.junit.Assert.assertTrue;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.junit.After;
 import org.junit.Assert;
@@ -65,7 +66,8 @@ public class TestVariableWidthOutOfPlaceVectorSorter {
 
       // sort the vector
       VariableWidthOutOfPlaceVectorSorter sorter = new VariableWidthOutOfPlaceVectorSorter();
-      DefaultVectorComparators.VarCharComparator comparator = new DefaultVectorComparators.VarCharComparator();
+      VectorValueComparator<BaseVariableWidthVector> comparator =
+              DefaultVectorComparators.createDefaultComparator(vec);
 
       VarCharVector sortedVec =
               (VarCharVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);

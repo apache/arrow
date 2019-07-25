@@ -157,15 +157,15 @@ module Helper
       end
     end
 
-    def build_table(arrays)
-      fields = arrays.collect do |name, array|
-        Arrow::Field.new(name, array.value_data_type)
+    def build_table(columns)
+      fields = []
+      arrays = []
+      columns.each do |name, array|
+        fields << Arrow::Field.new(name, array.value_data_type)
+        arrays << array
       end
       schema = Arrow::Schema.new(fields)
-      columns = arrays.collect.with_index do |(_name, array), i|
-        Arrow::Column.new(fields[i], array)
-      end
-      Arrow::Table.new(schema, columns)
+      Arrow::Table.new(schema, arrays)
     end
 
     def build_record_batch(arrays)

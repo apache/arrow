@@ -8,7 +8,7 @@
 csv_parse_options(delimiter = ",", quoting = TRUE,
   quote_char = "\\"", double_quote = TRUE, escaping = FALSE,
   escape_char = "\\\\", newlines_in_values = FALSE,
-  ignore_empty_lines = TRUE, header_rows = 1L)
+  ignore_empty_lines = TRUE)
 
 json_parse_options(newlines_in_values = FALSE)
 }
@@ -28,8 +28,6 @@ json_parse_options(newlines_in_values = FALSE)
 \item{newlines_in_values}{Whether values are allowed to contain CR (\code{0x0d}) and LF (\code{0x0a}) characters}
 
 \item{ignore_empty_lines}{Whether empty lines are ignored.  If \code{FALSE}, an empty line represents}
-
-\item{header_rows}{Number of header rows to skip (including the first row containing column names)}
 }
 \description{
 Parsing options for Arrow file readers

@@ -287,6 +287,56 @@ public class NonNullableStructVector extends AbstractStructVector {
   }
 
   @Override
+  public int hashCode(int index) {
+    int hash = 0;
+    for (String child : getChildFieldNames()) {
+      ValueVector v = getChild(child);
+      if (v != null && index < v.getValueCount()) {
+        hash += 31 * hash + v.hashCode(index);
+      }
+    }
+    return hash;
+  }
+
+  @Override
+  public boolean equals(int index, ValueVector to, int toIndex) {
+    if (to == null) {
+      return false;
+    }
+    if (this.getClass() != to.getClass()) {
+      return false;
+    }
+    NonNullableStructVector that = (NonNullableStructVector) to;
+    List<ValueVector> leftChildrens = new ArrayList<>();
+    List<ValueVector> rightChildrens = new ArrayList<>();
+
+    for (String child : getChildFieldNames()) {
+      ValueVector v = getChild(child);
+      if (v != null) {
+        leftChildrens.add(v);
+      }
+    }
+
+    for (String child : that.getChildFieldNames()) {
+      ValueVector v = that.getChild(child);
+      if (v != null) {
+        rightChildrens.add(v);
+      }
+    }
+
+    if (leftChildrens.size() != rightChildrens.size()) {
+      return false;
+    }
+
+    for (int i = 0; i < leftChildrens.size(); i++) {
+      if (!leftChildrens.get(i).equals(index, rightChildrens.get(i), toIndex)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @Override
   public boolean isNull(int index) {
     return false;
   }
@@ -372,4 +422,5 @@ public class NonNullableStructVector extends AbstractStructVector {
   public List<FieldVector> getChildrenFromFields() {
     return getChildren();
   }
+
 }

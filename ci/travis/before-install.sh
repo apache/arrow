@@ -20,10 +20,13 @@ set -ex
 
 eval "${MATRIX_EVAL}"
 
-# Enables core files
+# Enable core files
 ulimit -c unlimited -S
 
 if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
+  # Remove apport's core_pattern
+  sudo bash -c "echo '/tmp/core.%p.%E' > /proc/sys/kernel/core_pattern"
+
   echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' | \
     sudo tee /etc/apt/apt.conf.d/99-travis-retry
   sudo apt-get update -qq

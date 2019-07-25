@@ -484,6 +484,8 @@ cdef class RowGroupMetaData:
         return True
 
     def column(self, int i):
+        if i < 0 or i >= self.num_columns:
+            raise IndexError('{0} out of bounds'.format(i))
         chunk = ColumnChunkMetaData()
         chunk.init(deref(self.metadata), i)
         return chunk

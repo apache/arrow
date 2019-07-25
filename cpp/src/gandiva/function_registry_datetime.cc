@@ -20,44 +20,44 @@
 
 namespace gandiva {
 
-#define DATE_EXTRACTION_FNS(name)                           \
-  DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Millennium),  \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Century), \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Decade),  \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Year),    \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Quarter), \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Month),   \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Week),    \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Day),     \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Hour),    \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Minute),  \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Second)
+#define DATE_EXTRACTION_FNS(name)                               \
+  DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Millennium, {}),  \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Century, {}), \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Decade, {}),  \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Year, {}),    \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Quarter, {}), \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Month, {}),   \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Week, {}),    \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Day, {}),     \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Hour, {}),    \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Minute, {}),  \
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Second, {})
 
-#define TIME_EXTRACTION_FNS(name)                          \
-  TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Hour),       \
-      TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Minute), \
-      TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Second)
+#define TIME_EXTRACTION_FNS(name)                              \
+  TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Hour, {}),       \
+      TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Minute, {}), \
+      TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Second, {})
 
 std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
   static std::vector<NativeFunction> date_time_fn_registry_ = {
       DATE_EXTRACTION_FNS(extract),
       DATE_EXTRACTION_FNS(date_trunc_),
 
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDoy),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDow),
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractEpoch),
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDoy, {}),
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDow, {}),
+      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractEpoch, {}),
 
       TIME_EXTRACTION_FNS(extract),
 
-      NativeFunction("castDATE", DataTypeVector{utf8()}, date64(), kResultNullIfNull,
+      NativeFunction("castDATE", {}, DataTypeVector{utf8()}, date64(), kResultNullIfNull,
                      "castDATE_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("castTIMESTAMP", DataTypeVector{utf8()}, timestamp(),
+      NativeFunction("castTIMESTAMP", {}, DataTypeVector{utf8()}, timestamp(),
                      kResultNullIfNull, "castTIMESTAMP_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("to_date", DataTypeVector{utf8(), utf8(), int32()}, date64(),
+      NativeFunction("to_date", {}, DataTypeVector{utf8(), utf8(), int32()}, date64(),
                      kResultNullInternal, "gdv_fn_to_date_utf8_utf8_int32",
                      NativeFunction::kNeedsContext |
                          NativeFunction::kNeedsFunctionHolder |

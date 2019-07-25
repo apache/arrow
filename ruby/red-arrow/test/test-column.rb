@@ -16,51 +16,76 @@
 # under the License.
 
 class ColumnTest < Test::Unit::TestCase
-  test("#each") do
-    arrays = [
-      Arrow::BooleanArray.new([true, false]),
-      Arrow::BooleanArray.new([nil, true]),
-    ]
-    chunked_array = Arrow::ChunkedArray.new(arrays)
-    column = Arrow::Column.new(Arrow::Field.new("visible", :boolean),
-                               chunked_array)
-    assert_equal([true, false, nil, true],
-                 column.to_a)
+  def setup
+    table = Arrow::Table.new("visible" => [true, nil, false])
+    @column = table.visible
   end
 
-  test("#pack") do
-    arrays = [
-      Arrow::BooleanArray.new([true, false]),
-      Arrow::BooleanArray.new([nil, true]),
-    ]
-    chunked_array = Arrow::ChunkedArray.new(arrays)
-    column = Arrow::Column.new(Arrow::Field.new("visible", :boolean),
-                               chunked_array)
-    packed_column = column.pack
-    assert_equal([1, [true, false, nil, true]],
-                 [packed_column.data.n_chunks, packed_column.to_a])
+  test("#name") do
+    assert_equal("visible", @column.name)
+  end
+
+  test("#data_type") do
+    assert_equal(Arrow::BooleanDataType.new, @column.data_type)
+  end
+
+  test("#null?") do
+    assert do
+      @column.null?(1)
+    end
+  end
+
+  test("#valid?") do
+    assert do
+      @column.valid?(0)
+    end
+  end
+
+  test("#each") do
+    assert_equal([true, nil, false], @column.each.to_a)
+  end
+
+  test("#reverse_each") do
+    assert_equal([false, nil, true], @column.reverse_each.to_a)
+  end
+
+  test("#n_rows") do
+    assert_equal(3, @column.n_rows)
+  end
+
+  test("#n_nulls") do
+    assert_equal(1, @column.n_nulls)
   end
 
   sub_test_case("#==") do
-    def setup
-      arrays = [
-        Arrow::BooleanArray.new([true]),
-        Arrow::BooleanArray.new([false, true]),
-      ]
-      chunked_array = Arrow::ChunkedArray.new(arrays)
-      @column = Arrow::Column.new(Arrow::Field.new("visible", :boolean),
-                                  chunked_array)
+    test("same value") do
+      table1 = Arrow::Table.new("visible" => [true, false])
+      table2 = Arrow::Table.new("visible" => [true, false])
+      assert do
+        table1.visible == table2.visible
+      end
     end
 
-    test("Arrow::Column") do
+    test("different name") do
+      table1 = Arrow::Table.new("visible" => [true, false])
+      table2 = Arrow::Table.new("invisible" => [true, false])
       assert do
-        @column == @column
+        not table1.visible == table2.invisible
+      end
+    end
+
+    test("different value") do
+      table1 = Arrow::Table.new("visible" => [true, false])
+      table2 = Arrow::Table.new("visible" => [true, true])
+      assert do
+        not table1.visible == table2.visible
       end
     end
 
     test("not Arrow::Column") do
+      table = Arrow::Table.new("visible" => [true, false])
       assert do
-        not (@column == 29)
+        not table.visible == 29
       end
     end
   end

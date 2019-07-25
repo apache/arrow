@@ -60,12 +60,11 @@ class TestFileWriter < Test::Unit::TestCase
     array = build_boolean_array([true, false, true])
     field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
     schema = Arrow::Schema.new([field])
-    column = Arrow::Column.new(field, array)
 
     begin
       file_writer = Arrow::RecordBatchFileWriter.new(output, schema)
       begin
-        table = Arrow::Table.new(schema, [column])
+        table = Arrow::Table.new(schema, [array])
         file_writer.write_table(table)
       ensure
         file_writer.close

@@ -302,6 +302,16 @@ public class UInt2Vector extends BaseFixedWidthVector implements BaseIntVector {
     this.setSafe(index, (int) value);
   }
 
+  @Override
+  public void setUnsafeWithPossibleTruncate(int index, long value) {
+    this.set(index, (int) value);
+  }
+
+  @Override
+  public long getValueAsLong(int index) {
+    return this.get(index);
+  }
+
   private class TransferImpl implements TransferPair {
     UInt2Vector to;
 

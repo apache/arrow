@@ -137,6 +137,7 @@ function build_wheel {
           -DARROW_FLIGHT=ON \
           -DgRPC_SOURCE=SYSTEM \
           -Dc-ares_SOURCE=BUNDLED \
+          -Dzlib_SOURCE=BUNDLED \
           -DARROW_PROTOBUF_USE_SHARED=OFF \
           -DOPENSSL_USE_STATIC_LIBS=ON  \
           -DMAKE=make \
@@ -173,21 +174,32 @@ function build_wheel {
     popd
 }
 
-# overrides multibuild's default install_run
-function install_run {
+function install_wheel {
     multibuild_dir=`realpath $MULTIBUILD_DIR`
 
     pushd $1  # enter arrow's directory
-
     wheelhouse="$PWD/python/dist"
 
     # Install compatible wheel
     pip install $(pip_opts) \
         $(python $multibuild_dir/supported_wheels.py $wheelhouse/*.whl)
 
-    # Runs tests on installed distribution from an empty directory
-    python --version
+    popd
+}
 
+function run_unit_tests {
+    pushd $1
+
+    # Install test dependencies
+    pip install $(pip_opts) -r python/requirements-test.txt
+
+    # Run pyarrow tests
+    pytest -rs --pyargs pyarrow
+
+    popd
+}
+
+function run_import_tests {
     # Test optional dependencies
     python -c "
 import sys
@@ -200,11 +212,4 @@ if sys.version_info.major > 2:
     import pyarrow.flight
     import pyarrow.gandiva
 "
-
-    # Run pyarrow tests
-    pip install $(pip_opts) -r python/requirements-test.txt
-
-    py.test --pyargs pyarrow
-
-    popd
 }

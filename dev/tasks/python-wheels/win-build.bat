@@ -54,6 +54,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_PARQUET=ON ^
       -DARROW_GANDIVA=ON ^
       -Duriparser_SOURCE=BUNDLED ^
+      -Dzlib_SOURCE=BUNDLED ^
       .. || exit /B
 cmake --build . --target install --config Release || exit /B
 popd
@@ -80,7 +81,7 @@ set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 @rem test the wheel
 @rem TODO For maximum reliability, we should test in a plain virtualenv instead.
 call conda create -n wheel-test -q -y python=%PYTHON_VERSION% ^
-      numpy=%NUMPY_VERSION% pandas pytest hypothesis || exit /B
+      numpy=%NUMPY_VERSION% pandas cython pytest hypothesis || exit /B
 call activate wheel-test
 
 @rem install the built wheel
@@ -90,4 +91,4 @@ pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit
 python -c "import pyarrow; import pyarrow.parquet; import pyarrow.flight; import pyarrow.gandiva;" || exit /B
 
 @rem run the python tests
-pytest --pyargs pyarrow || exit /B
+pytest -rs --pyargs pyarrow || exit /B

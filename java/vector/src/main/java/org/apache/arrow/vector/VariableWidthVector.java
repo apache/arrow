@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import org.apache.arrow.memory.util.ArrowBufPointer;
+
 /**
  * Interface vectors that contain variable width members (e.g. Strings, Lists, etc).
  */
@@ -42,4 +44,19 @@ public interface VariableWidthVector extends ValueVector, DensityAwareVector {
    * @return the number of bytes in valueBuffer.
    */
   int sizeOfValueBuffer();
+
+  /**
+   * Gets the pointer for the data at the given index.
+   * @param index the index for the data.
+   * @return the pointer to the data.
+   */
+  ArrowBufPointer getDataPointer(int index);
+
+  /**
+   * Gets the pointer for the data at the given index.
+   * @param index the index for the data.
+   * @param reuse the data pointer to fill, this avoids creating a new pointer object.
+   * @return the pointer to the data, it should be the same one as the input parameter.
+   */
+  ArrowBufPointer getDataPointer(int index, ArrowBufPointer reuse);
 }

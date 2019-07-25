@@ -50,7 +50,6 @@ using arrow::Array;
 using arrow::ArrayVisitor;
 using arrow::Buffer;
 using arrow::ChunkedArray;
-using arrow::Column;
 using arrow::DataType;
 using arrow::default_memory_pool;
 using arrow::ListArray;
@@ -73,8 +72,6 @@ using parquet::arrow::FromParquetSchema;
 using parquet::schema::GroupNode;
 using parquet::schema::NodePtr;
 using parquet::schema::PrimitiveNode;
-
-using ColumnVector = std::vector<std::shared_ptr<arrow::Column>>;
 
 namespace parquet {
 namespace arrow {
@@ -581,7 +578,7 @@ class TestParquetIO : public ::testing::Test {
     ASSERT_EQ(1, out->num_columns());
     ASSERT_EQ(values->length(), out->num_rows());
 
-    std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
+    std::shared_ptr<ChunkedArray> chunked_array = out->column(0);
     ASSERT_EQ(1, chunked_array->num_chunks());
     auto result = chunked_array->chunk(0);
 
@@ -661,7 +658,7 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredWrite) {
   ASSERT_EQ(1, out->num_columns());
   ASSERT_EQ(100, out->num_rows());
 
-  std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
+  std::shared_ptr<ChunkedArray> chunked_array = out->column(0);
   ASSERT_EQ(1, chunked_array->num_chunks());
 
   AssertArraysEqual(*values, *chunked_array->chunk(0));
@@ -841,7 +838,7 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWriteArrowIO) {
   ASSERT_EQ(1, out->num_columns());
   ASSERT_EQ(values->length(), out->num_rows());
 
-  std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
+  std::shared_ptr<ChunkedArray> chunked_array = out->column(0);
   ASSERT_EQ(1, chunked_array->num_chunks());
 
   AssertArraysEqual(*values, *chunked_array->chunk(0));
@@ -939,9 +936,7 @@ TYPED_TEST(TestParquetIO, CheckIterativeColumnRead) {
   }
 
   auto chunked = std::make_shared<::arrow::ChunkedArray>(batches);
-  auto chunked_col =
-      std::make_shared<::arrow::Column>(table->schema()->field(0), chunked);
-  auto chunked_table = ::arrow::Table::Make(table->schema(), {chunked_col});
+  auto chunked_table = ::arrow::Table::Make(table->schema(), {chunked});
   ASSERT_TRUE(table->Equals(*chunked_table));
 }
 
@@ -1099,7 +1094,7 @@ TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
   ASSERT_EQ(1, out->num_columns());
   ASSERT_EQ(100, out->num_rows());
 
-  std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
+  std::shared_ptr<ChunkedArray> chunked_array = out->column(0);
   ASSERT_EQ(1, chunked_array->num_chunks());
 
   AssertArraysEqual(*values, *chunked_array->chunk(0));
@@ -1124,7 +1119,7 @@ TEST_F(TestNullParquetIO, NullColumn) {
     ASSERT_EQ(1, out->num_columns());
     ASSERT_EQ(num_rows, out->num_rows());
 
-    std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
+    std::shared_ptr<ChunkedArray> chunked_array = out->column(0);
     ASSERT_EQ(1, chunked_array->num_chunks());
     AssertArraysEqual(*values, *chunked_array->chunk(0));
   }
@@ -1154,7 +1149,7 @@ TEST_F(TestNullParquetIO, NullListColumn) {
     ASSERT_EQ(1, out->num_columns());
     ASSERT_EQ(offsets.size() - 1, out->num_rows());
 
-    std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
+    std::shared_ptr<ChunkedArray> chunked_array = out->column(0);
     ASSERT_EQ(1, chunked_array->num_chunks());
     AssertArraysEqual(*list_array, *chunked_array->chunk(0));
   }
@@ -1181,7 +1176,7 @@ TEST_F(TestNullParquetIO, NullDictionaryColumn) {
   ASSERT_EQ(1, out->num_columns());
   ASSERT_EQ(100, out->num_rows());
 
-  std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
+  std::shared_ptr<ChunkedArray> chunked_array = out->column(0);
   ASSERT_EQ(1, chunked_array->num_chunks());
 
   std::shared_ptr<Array> expected_values =
@@ -1243,7 +1238,7 @@ class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
     ASSERT_EQ(1, out->num_columns());
     ASSERT_EQ(SMALL_SIZE, out->num_rows());
 
-    std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
+    std::shared_ptr<ChunkedArray> chunked_array = out->column(0);
     ASSERT_EQ(1, chunked_array->num_chunks());
     ExpectArrayT<TestType>(values.data(), chunked_array->chunk(0).get());
   }
@@ -1325,16 +1320,7 @@ void MakeDateTimeTypesTable(std::shared_ptr<Table>* out, bool expected = false) 
   ArrayFromVector<::arrow::Time64Type, int64_t>(f5->type(), is_valid, t64_us_values, &a5);
   ArrayFromVector<::arrow::Time64Type, int64_t>(f6->type(), is_valid, t64_ns_values, &a6);
 
-  std::vector<std::shared_ptr<::arrow::Column>> columns = {
-      std::make_shared<Column>("f0", a0),
-      std::make_shared<Column>("f1", a1),
-      std::make_shared<Column>("f2", a2),
-      std::make_shared<Column>("f3", (expected ? a3_x : a3)),
-      std::make_shared<Column>("f4", a4),
-      std::make_shared<Column>("f5", a5),
-      std::make_shared<Column>("f6", a6)};
-
-  *out = Table::Make(schema, columns);
+  *out = Table::Make(schema, {a0, a1, a2, expected ? a3_x : a3, a4, a5, a6});
 }
 
 TEST(TestArrowReadWrite, DateTimeTypes) {
@@ -1380,19 +1366,13 @@ TEST(TestArrowReadWrite, UseDeprecatedInt96) {
   // Each input is typed with a unique TimeUnit
   auto input_schema = schema(
       {field("f_s", t_s), field("f_ms", t_ms), field("f_us", t_us), field("f_ns", t_ns)});
-  auto input = Table::Make(
-      input_schema,
-      {std::make_shared<Column>("f_s", a_s), std::make_shared<Column>("f_ms", a_ms),
-       std::make_shared<Column>("f_us", a_us), std::make_shared<Column>("f_ns", a_ns)});
+  auto input = Table::Make(input_schema, {a_s, a_ms, a_us, a_ns});
 
   // When reading parquet files, all int96 schema fields are converted to
   // timestamp nanoseconds
   auto ex_schema = schema({field("f_s", t_ns), field("f_ms", t_ns), field("f_us", t_ns),
                            field("f_ns", t_ns)});
-  auto ex_result = Table::Make(
-      ex_schema,
-      {std::make_shared<Column>("f_s", a_ns), std::make_shared<Column>("f_ms", a_ns),
-       std::make_shared<Column>("f_us", a_ns), std::make_shared<Column>("f_ns", a_ns)});
+  auto ex_result = Table::Make(ex_schema, {a_ns, a_ns, a_ns, a_ns});
 
   std::shared_ptr<Table> result;
   ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(
@@ -1446,18 +1426,12 @@ TEST(TestArrowReadWrite, CoerceTimestamps) {
   // Input table, all data as is
   auto s1 = ::arrow::schema(
       {field("f_s", t_s), field("f_ms", t_ms), field("f_us", t_us), field("f_ns", t_ns)});
-  auto input = Table::Make(
-      s1,
-      {std::make_shared<Column>("f_s", a_s), std::make_shared<Column>("f_ms", a_ms),
-       std::make_shared<Column>("f_us", a_us), std::make_shared<Column>("f_ns", a_ns)});
+  auto input = Table::Make(s1, {a_s, a_ms, a_us, a_ns});
 
   // Result when coercing to milliseconds
   auto s2 = ::arrow::schema({field("f_s", t_ms), field("f_ms", t_ms), field("f_us", t_ms),
                              field("f_ns", t_ms)});
-  auto ex_milli_result = Table::Make(
-      s2,
-      {std::make_shared<Column>("f_s", a_ms), std::make_shared<Column>("f_ms", a_ms),
-       std::make_shared<Column>("f_us", a_ms), std::make_shared<Column>("f_ns", a_ms)});
+  auto ex_milli_result = Table::Make(s2, {a_ms, a_ms, a_ms, a_ms});
   std::shared_ptr<Table> milli_result;
   ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(
       input, false /* use_threads */, input->num_rows(), {}, &milli_result,
@@ -1469,10 +1443,7 @@ TEST(TestArrowReadWrite, CoerceTimestamps) {
   // Result when coercing to microseconds
   auto s3 = ::arrow::schema({field("f_s", t_us), field("f_ms", t_us), field("f_us", t_us),
                              field("f_ns", t_us)});
-  auto ex_micro_result = Table::Make(
-      s3,
-      {std::make_shared<Column>("f_s", a_us), std::make_shared<Column>("f_ms", a_us),
-       std::make_shared<Column>("f_us", a_us), std::make_shared<Column>("f_ns", a_us)});
+  auto ex_micro_result = Table::Make(s3, {a_us, a_us, a_us, a_us});
   std::shared_ptr<Table> micro_result;
   ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(
       input, false /* use_threads */, input->num_rows(), {}, &micro_result,
@@ -1514,15 +1485,10 @@ TEST(TestArrowReadWrite, CoerceTimestampsLosePrecision) {
   auto s3 = ::arrow::schema({field("f_us", t_us)});
   auto s4 = ::arrow::schema({field("f_ns", t_ns)});
 
-  auto c1 = std::make_shared<Column>("f_s", a_s);
-  auto c2 = std::make_shared<Column>("f_ms", a_ms);
-  auto c3 = std::make_shared<Column>("f_us", a_us);
-  auto c4 = std::make_shared<Column>("f_ns", a_ns);
-
-  auto t1 = Table::Make(s1, {c1});
-  auto t2 = Table::Make(s2, {c2});
-  auto t3 = Table::Make(s3, {c3});
-  auto t4 = Table::Make(s4, {c4});
+  auto t1 = Table::Make(s1, {a_s});
+  auto t2 = Table::Make(s2, {a_ms});
+  auto t3 = Table::Make(s3, {a_us});
+  auto t4 = Table::Make(s4, {a_ns});
 
   auto sink = CreateOutputStream();
 
@@ -1594,12 +1560,9 @@ TEST(TestArrowReadWrite, ImplicitSecondToMillisecondTimestampCoercion) {
   auto si = schema({field("timestamp", t_s)});
   auto sx = schema({field("timestamp", t_ms)});
 
-  auto ci = std::make_shared<Column>("timestamp", a_s);
-  auto cx = std::make_shared<Column>("timestamp", a_ms);
-
-  auto ti = Table::Make(si, {ci});  // input
-  auto tx = Table::Make(sx, {cx});  // expected output
-  std::shared_ptr<Table> to;        // actual output
+  auto ti = Table::Make(si, {a_s});   // input
+  auto tx = Table::Make(sx, {a_ms});  // expected output
+  std::shared_ptr<Table> to;          // actual output
 
   // default properties (without explicit coercion instructions) used ...
   ASSERT_NO_FATAL_FAILURE(
@@ -1635,14 +1598,9 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
   ArrayFromVector<::arrow::TimestampType, int64_t>(t_us, d_us, &a_us);
   ArrayFromVector<::arrow::TimestampType, int64_t>(t_ns, d_ns, &a_ns);
 
-  auto c_s = std::make_shared<Column>("ts:s", a_s);
-  auto c_ms = std::make_shared<Column>("ts:ms", a_ms);
-  auto c_us = std::make_shared<Column>("ts:us", a_us);
-  auto c_ns = std::make_shared<Column>("ts:ns", a_ns);
-
   auto input_schema = schema({field("ts:s", t_s), field("ts:ms", t_ms),
                               field("ts:us", t_us), field("ts:ns", t_ns)});
-  auto input_table = Table::Make(input_schema, {c_s, c_ms, c_us, c_ns});
+  auto input_table = Table::Make(input_schema, {a_s, a_ms, a_us, a_ns});
 
   auto parquet_version_1_properties = ::parquet::default_writer_properties();
   auto parquet_version_2_properties = ::parquet::WriterProperties::Builder()
@@ -1654,7 +1612,7 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
     // and nanoseconds should be coerced to microseconds
     auto expected_schema = schema({field("ts:s", t_ms), field("ts:ms", t_ms),
                                    field("ts:us", t_us), field("ts:ns", t_us)});
-    auto expected_table = Table::Make(expected_schema, {c_ms, c_ms, c_us, c_us});
+    auto expected_table = Table::Make(expected_schema, {a_ms, a_ms, a_us, a_us});
     ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
                                                      parquet_version_1_properties));
   }
@@ -1663,7 +1621,7 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
     // and nanoseconds should be retained
     auto expected_schema = schema({field("ts:s", t_ms), field("ts:ms", t_ms),
                                    field("ts:us", t_us), field("ts:ns", t_ns)});
-    auto expected_table = Table::Make(expected_schema, {c_ms, c_ms, c_us, c_ns});
+    auto expected_table = Table::Make(expected_schema, {a_ms, a_ms, a_us, a_ns});
     ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
                                                      parquet_version_2_properties));
   }
@@ -1693,14 +1651,14 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
     // Using Parquet version 1.0, coercing to milliseconds or microseconds is allowed
     auto expected_schema = schema({field("ts:s", t_ms), field("ts:ms", t_ms),
                                    field("ts:us", t_ms), field("ts:ns", t_ms)});
-    auto expected_table = Table::Make(expected_schema, {c_ms, c_ms, c_ms, c_ms});
+    auto expected_table = Table::Make(expected_schema, {a_ms, a_ms, a_ms, a_ms});
     ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
                                                      parquet_version_1_properties,
                                                      arrow_coerce_to_millis_properties));
 
     expected_schema = schema({field("ts:s", t_us), field("ts:ms", t_us),
                               field("ts:us", t_us), field("ts:ns", t_us)});
-    expected_table = Table::Make(expected_schema, {c_us, c_us, c_us, c_us});
+    expected_table = Table::Make(expected_schema, {a_us, a_us, a_us, a_us});
     ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
                                                      parquet_version_1_properties,
                                                      arrow_coerce_to_micros_properties));
@@ -1709,14 +1667,14 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
     // Using Parquet version 2.0, coercing to milliseconds or microseconds is allowed
     auto expected_schema = schema({field("ts:s", t_ms), field("ts:ms", t_ms),
                                    field("ts:us", t_ms), field("ts:ns", t_ms)});
-    auto expected_table = Table::Make(expected_schema, {c_ms, c_ms, c_ms, c_ms});
+    auto expected_table = Table::Make(expected_schema, {a_ms, a_ms, a_ms, a_ms});
     ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
                                                      parquet_version_2_properties,
                                                      arrow_coerce_to_millis_properties));
 
     expected_schema = schema({field("ts:s", t_us), field("ts:ms", t_us),
                               field("ts:us", t_us), field("ts:ns", t_us)});
-    expected_table = Table::Make(expected_schema, {c_us, c_us, c_us, c_us});
+    expected_table = Table::Make(expected_schema, {a_us, a_us, a_us, a_us});
     ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
                                                      parquet_version_2_properties,
                                                      arrow_coerce_to_micros_properties));
@@ -1734,7 +1692,7 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
     // Using Parquet version 2.0, coercing to (int64) nanoseconds is allowed
     auto expected_schema = schema({field("ts:s", t_ns), field("ts:ms", t_ns),
                                    field("ts:us", t_ns), field("ts:ns", t_ns)});
-    auto expected_table = Table::Make(expected_schema, {c_ns, c_ns, c_ns, c_ns});
+    auto expected_table = Table::Make(expected_schema, {a_ns, a_ns, a_ns, a_ns});
     ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
                                                      parquet_version_2_properties,
                                                      arrow_coerce_to_nanos_properties));
@@ -1747,7 +1705,7 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
     // storage is used
     auto expected_schema = schema({field("ts:s", t_ns), field("ts:ms", t_ns),
                                    field("ts:us", t_ns), field("ts:ns", t_ns)});
-    auto expected_table = Table::Make(expected_schema, {c_ns, c_ns, c_ns, c_ns});
+    auto expected_table = Table::Make(expected_schema, {a_ns, a_ns, a_ns, a_ns});
     ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
                                                      parquet_version_1_properties,
                                                      arrow_enable_int96_properties));
@@ -1781,11 +1739,7 @@ TEST(TestArrowReadWrite, ConvertedDateTimeTypes) {
   ArrayFromVector<::arrow::Time32Type, int32_t>(f1->type(), is_valid, a1_values, &a1);
   ArrayFromVector<::arrow::Time32Type, int32_t>(f1->type(), a1_values, &a1_nonnull);
 
-  std::vector<std::shared_ptr<::arrow::Column>> columns = {
-      std::make_shared<Column>("f0", a0), std::make_shared<Column>("f1", a1),
-      std::make_shared<Column>("f2", a0_nonnull),
-      std::make_shared<Column>("f3", a1_nonnull)};
-  auto table = Table::Make(schema, columns);
+  auto table = Table::Make(schema, {a0, a1, a0_nonnull, a1_nonnull});
 
   // Expected schema and values
   auto e0 = field("f0", ::arrow::date32());
@@ -1802,11 +1756,7 @@ TEST(TestArrowReadWrite, ConvertedDateTimeTypes) {
   ArrayFromVector<::arrow::Time32Type, int32_t>(e1->type(), is_valid, x1_values, &x1);
   ArrayFromVector<::arrow::Time32Type, int32_t>(e1->type(), x1_values, &x1_nonnull);
 
-  std::vector<std::shared_ptr<::arrow::Column>> ex_columns = {
-      std::make_shared<Column>("f0", x0), std::make_shared<Column>("f1", x1),
-      std::make_shared<Column>("f2", x0_nonnull),
-      std::make_shared<Column>("f3", x1_nonnull)};
-  auto ex_table = Table::Make(ex_schema, ex_columns);
+  auto ex_table = Table::Make(ex_schema, {x0, x1, x0_nonnull, x1_nonnull});
 
   std::shared_ptr<Table> result;
   ASSERT_NO_FATAL_FAILURE(
@@ -1819,8 +1769,7 @@ TEST(TestArrowReadWrite, ConvertedDateTimeTypes) {
 
 void MakeDoubleTable(int num_columns, int num_rows, int nchunks,
                      std::shared_ptr<Table>* out) {
-  std::shared_ptr<::arrow::Column> column;
-  std::vector<std::shared_ptr<::arrow::Column>> columns(num_columns);
+  std::vector<std::shared_ptr<::arrow::ChunkedArray>> columns(num_columns);
   std::vector<std::shared_ptr<::arrow::Field>> fields(num_columns);
 
   for (int i = 0; i < num_columns; ++i) {
@@ -1834,10 +1783,8 @@ void MakeDoubleTable(int num_columns, int num_rows, int nchunks,
     for (int j = 0; j < nchunks; ++j) {
       arrays.push_back(values);
     }
-    column = MakeColumn(ss.str(), arrays, true);
-
-    columns[i] = column;
-    fields[i] = column->field();
+    columns[i] = std::make_shared<ChunkedArray>(arrays);
+    fields[i] = ::arrow::field(ss.str(), values->type());
   }
   auto schema = std::make_shared<::arrow::Schema>(fields);
   *out = Table::Make(schema, columns);
@@ -2000,11 +1947,11 @@ TEST(TestArrowReadWrite, ReadColumnSubset) {
   ASSERT_NO_FATAL_FAILURE(
       DoSimpleRoundtrip(table, use_threads, table->num_rows(), column_subset, &result));
 
-  std::vector<std::shared_ptr<::arrow::Column>> ex_columns;
+  std::vector<std::shared_ptr<::arrow::ChunkedArray>> ex_columns;
   std::vector<std::shared_ptr<::arrow::Field>> ex_fields;
   for (int i : column_subset) {
     ex_columns.push_back(table->column(i));
-    ex_fields.push_back(table->column(i)->field());
+    ex_fields.push_back(table->field(i));
   }
 
   auto ex_schema = ::arrow::schema(ex_fields);
@@ -2057,11 +2004,7 @@ TEST(TestArrowReadWrite, ListLargeRecords) {
     pieces.push_back(chunked_piece->chunk(0));
   }
   auto chunked = std::make_shared<::arrow::ChunkedArray>(pieces);
-
-  auto chunked_col =
-      std::make_shared<::arrow::Column>(table->schema()->field(0), chunked);
-  std::vector<std::shared_ptr<::arrow::Column>> columns = {chunked_col};
-  auto chunked_table = Table::Make(table->schema(), columns);
+  auto chunked_table = Table::Make(table->schema(), {chunked});
 
   ASSERT_TRUE(table->Equals(*chunked_table));
 }
@@ -2146,8 +2089,7 @@ TEST(TestArrowReadWrite, TableWithChunkedColumns) {
 
     auto field = ::arrow::field("fname", type);
     auto schema = ::arrow::schema({field});
-    auto col = std::make_shared<::arrow::Column>(field, arrays);
-    auto table = Table::Make(schema, {col});
+    auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(arrays)});
 
     ASSERT_NO_FATAL_FAILURE(CheckSimpleRoundtrip(table, 2));
     ASSERT_NO_FATAL_FAILURE(CheckSimpleRoundtrip(table, 3));
@@ -2171,8 +2113,7 @@ TEST(TestArrowReadWrite, TableWithDuplicateColumns) {
   ArrayFromVector<::arrow::Int8Type, int8_t>(a0_values, &a0);
   ArrayFromVector<::arrow::Int16Type, int16_t>(a1_values, &a1);
 
-  auto table = Table::Make(schema, {std::make_shared<Column>(f0->name(), a0),
-                                    std::make_shared<Column>(f1->name(), a1)});
+  auto table = Table::Make(schema, {a0, a1});
   ASSERT_NO_FATAL_FAILURE(CheckSimpleRoundtrip(table, table->num_rows()));
 }
 
@@ -2207,9 +2148,8 @@ TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
       std::make_shared<::arrow::DictionaryArray>(dict_type, f0_values, dict_values),
       std::make_shared<::arrow::DictionaryArray>(dict_type, f1_values, dict_values)};
 
-  std::vector<std::shared_ptr<::arrow::Column>> columns;
-  auto column = MakeColumn("dictionary", dict_arrays, true);
-  columns.emplace_back(column);
+  std::vector<std::shared_ptr<ChunkedArray>> columns;
+  columns.emplace_back(std::make_shared<ChunkedArray>(dict_arrays));
 
   auto table = Table::Make(schema, columns);
 
@@ -2230,7 +2170,7 @@ TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
 
   // The column name gets changed on output to the name of the
   // field, and it also turns into a nullable column
-  columns.emplace_back(MakeColumn("dictionary", expected_array, true));
+  columns.emplace_back(std::make_shared<ChunkedArray>(expected_array));
 
   schema = ::arrow::schema({::arrow::field("dictionary", ::arrow::utf8())});
 
@@ -2320,11 +2260,9 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
   void ValidateTableArrayTypes(const Table& table) {
     for (int i = 0; i < table.num_columns(); i++) {
       const std::shared_ptr<::arrow::Field> schema_field = table.schema()->field(i);
-      const std::shared_ptr<Column> column = table.column(i);
-      // Compare with the column field
-      ASSERT_TRUE(schema_field->Equals(column->field()));
+      const std::shared_ptr<ChunkedArray> column = table.column(i);
       // Compare with the array type
-      ASSERT_TRUE(schema_field->type()->Equals(column->data()->chunk(0)->type()));
+      ASSERT_TRUE(schema_field->type()->Equals(column->chunk(0)->type()));
     }
   }
 
@@ -2519,13 +2457,13 @@ TEST_F(TestNestedSchemaRead, ReadIntoTableFull) {
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   auto struct_field_array =
-      std::static_pointer_cast<::arrow::StructArray>(table->column(0)->data()->chunk(0));
+      std::static_pointer_cast<::arrow::StructArray>(table->column(0)->chunk(0));
   auto leaf1_array =
       std::static_pointer_cast<::arrow::Int32Array>(struct_field_array->field(0));
   auto leaf2_array =
       std::static_pointer_cast<::arrow::Int32Array>(struct_field_array->field(1));
   auto leaf3_array =
-      std::static_pointer_cast<::arrow::Int32Array>(table->column(1)->data()->chunk(0));
+      std::static_pointer_cast<::arrow::Int32Array>(table->column(1)->chunk(0));
 
   // validate struct and leaf arrays
 
@@ -2599,8 +2537,8 @@ TEST_P(TestNestedSchemaRead, DeepNestedSchemaRead) {
   const int num_trees = 3;
   const int depth = 3;
 #else
-  const int num_trees = 5;
-  const int depth = 5;
+  const int num_trees = 2;
+  const int depth = 2;
 #endif
   const int num_children = 3;
   int num_rows = SMALL_SIZE * (depth + 2);
@@ -2613,7 +2551,7 @@ TEST_P(TestNestedSchemaRead, DeepNestedSchemaRead) {
 
   DeepParquetTestVisitor visitor(GetParam(), values_array_);
   for (int i = 0; i < table->num_columns(); i++) {
-    auto tree = table->column(i)->data()->chunk(0);
+    auto tree = table->column(i)->chunk(0);
     ASSERT_OK_NO_THROW(visitor.Validate(tree));
   }
 }
@@ -2670,7 +2608,8 @@ TEST(TestArrowReaderAdHoc, DISABLED_LargeStringColumn) {
   }
   std::shared_ptr<Array> array;
   ASSERT_OK(builder.Finish(&array));
-  auto table = Table::Make({std::make_shared<Column>("x", array)});
+  auto table =
+      Table::Make(::arrow::schema({::arrow::field("x", array->type())}), {array});
   std::shared_ptr<SchemaDescriptor> schm;
   ASSERT_OK_NO_THROW(
       ToParquetSchema(table->schema().get(), *default_writer_properties(), &schm));
@@ -2740,10 +2679,9 @@ TEST_P(TestArrowReaderAdHocSparkAndHvr, ReadDecimals) {
   auto value_column = table->column(0);
   ASSERT_EQ(expected_length, value_column->length());
 
-  auto raw_array = value_column->data();
-  ASSERT_EQ(1, raw_array->num_chunks());
+  ASSERT_EQ(1, value_column->num_chunks());
 
-  auto chunk = raw_array->chunk(0);
+  auto chunk = value_column->chunk(0);
 
   std::shared_ptr<Array> expected_array;
 

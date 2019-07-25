@@ -74,6 +74,7 @@ impl OptimizerRule for TypeCoercionRule {
             LogicalPlan::TableScan { .. } => Ok(Arc::new(plan.clone())),
             LogicalPlan::EmptyRelation { .. } => Ok(Arc::new(plan.clone())),
             LogicalPlan::Limit { .. } => Ok(Arc::new(plan.clone())),
+            LogicalPlan::CreateExternalTable { .. } => Ok(Arc::new(plan.clone())),
             other => Err(ExecutionError::NotImplemented(format!(
                 "Type coercion optimizer rule does not support relation: {:?}",
                 other

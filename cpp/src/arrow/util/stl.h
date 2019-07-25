@@ -59,14 +59,14 @@ inline std::vector<T> DeleteVectorElement(const std::vector<T>& values, size_t i
 
 template <typename T>
 inline std::vector<T> AddVectorElement(const std::vector<T>& values, size_t index,
-                                       const T& new_element) {
+                                       T new_element) {
   DCHECK_LE(index, values.size());
   std::vector<T> out;
   out.reserve(values.size() + 1);
   for (size_t i = 0; i < index; ++i) {
     out.push_back(values[i]);
   }
-  out.push_back(new_element);
+  out.emplace_back(std::move(new_element));
   for (size_t i = index; i < values.size(); ++i) {
     out.push_back(values[i]);
   }
@@ -75,14 +75,14 @@ inline std::vector<T> AddVectorElement(const std::vector<T>& values, size_t inde
 
 template <typename T>
 inline std::vector<T> ReplaceVectorElement(const std::vector<T>& values, size_t index,
-                                           const T& new_element) {
+                                           T new_element) {
   DCHECK_LE(index, values.size());
   std::vector<T> out;
   out.reserve(values.size());
   for (size_t i = 0; i < index; ++i) {
     out.push_back(values[i]);
   }
-  out.push_back(new_element);
+  out.emplace_back(std::move(new_element));
   for (size_t i = index + 1; i < values.size(); ++i) {
     out.push_back(values[i]);
   }

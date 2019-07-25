@@ -147,7 +147,7 @@ class TestConvertMetadata(object):
     def test_non_string_columns(self):
         df = pd.DataFrame({0: [1, 2, 3]})
         table = pa.Table.from_pandas(df)
-        assert table.column(0).name == '0'
+        assert table.field(0).name == '0'
 
     def test_from_pandas_with_columns(self):
         df = pd.DataFrame({0: [1, 2, 3], 1: [1, 3, 3], 2: [2, 4, 5]},
@@ -1034,7 +1034,7 @@ class TestConvertDateTimeLikeTypes(object):
     def test_datetime64_to_date32(self):
         # ARROW-1718
         arr = pa.array([date(2017, 10, 23), None])
-        c = pa.Column.from_array("d", arr)
+        c = pa.chunked_array([arr])
         s = c.to_pandas()
 
         arr2 = pa.Array.from_pandas(s, type=pa.date32())
@@ -1090,8 +1090,7 @@ class TestConvertDateTimeLikeTypes(object):
         objects = [
             # The second value is the expected value for date_as_object=False
             (pa.array(data), expected),
-            (pa.chunked_array([data]), expected),
-            (pa.column('date', [data]), expected.astype('M8[ns]'))]
+            (pa.chunked_array([data]), expected)]
 
         assert objects[0][0].equals(pa.array(expected))
 
@@ -2491,8 +2490,7 @@ def test_to_pandas_deduplicate_strings_array_types():
 
     for arr in [pa.array(values, type=pa.binary()),
                 pa.array(values, type=pa.utf8()),
-                pa.chunked_array([values, values]),
-                pa.column('foo', [values, values])]:
+                pa.chunked_array([values, values])]:
         _assert_nunique(arr.to_pandas(), nunique)
         _assert_nunique(arr.to_pandas(deduplicate_objects=False), len(arr))
 

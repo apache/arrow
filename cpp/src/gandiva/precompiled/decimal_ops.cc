@@ -467,7 +467,7 @@ int32_t Compare(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y) 
 
 #define DECIMAL_OVERFLOW_IF(condition, overflow) \
   do {                                           \
-    if (condition) {                             \
+    if (*overflow || (condition)) {              \
       *overflow = true;                          \
       return 0;                                  \
     }                                            \
@@ -491,9 +491,9 @@ static std::array<double, DecimalTypeUtil::kMaxPrecision + 1> kDoubleScaleMultip
 BasicDecimal128 FromDouble(double in, int32_t precision, int32_t scale, bool* overflow) {
   // Multiply decimal with the scale
   auto unscaled = in * kDoubleScaleMultipliers[scale];
+  DECIMAL_OVERFLOW_IF(std::isnan(unscaled), overflow);
+
   unscaled = std::round(unscaled);
-  DECIMAL_OVERFLOW_IF(std::isnan(unscaled) || std::fabs(unscaled) < std::fabs(in),
-                      overflow);
 
   // convert scaled double to int128
   int32_t sign = unscaled < 0 ? -1 : 1;
@@ -529,16 +529,6 @@ BasicDecimal128 FromInt64(int64_t in, int32_t precision, int32_t scale, bool* ov
   // check if multiplying by scale will cause an overflow.
   DECIMAL_OVERFLOW_IF(std::abs(in) > GetMaxValue(precision - scale), overflow);
   return in * BasicDecimal128::GetScaleMultiplier(scale);
-}
-
-int64_t ToInt64(const BasicDecimalScalar128& in, bool* overflow) {
-  BasicDecimal128 whole, fraction;
-
-  in.value().GetWholeAndFraction(in.scale(), &whole, &fraction);
-  DECIMAL_OVERFLOW_IF((whole > std::numeric_limits<int64_t>::max()) ||
-                          (whole < std::numeric_limits<int64_t>::min()),
-                      overflow);
-  return static_cast<int64_t>(whole.low_bits());
 }
 
 // Helper function to modify the scale and/or precision of a decimal value.
@@ -700,6 +690,15 @@ BasicDecimal128 Convert(const BasicDecimalScalar128& x, int32_t out_precision,
 
   return RoundWithPositiveScale(x, out_precision, out_scale,
                                 RoundType::kRoundTypeHalfRoundUp, overflow);
+}
+
+int64_t ToInt64(const BasicDecimalScalar128& in, bool* overflow) {
+  auto rounded = RoundWithPositiveScale(in, in.precision(), 0 /*scale*/,
+                                        RoundType::kRoundTypeHalfRoundUp, overflow);
+  DECIMAL_OVERFLOW_IF((rounded > std::numeric_limits<int64_t>::max()) ||
+                          (rounded < std::numeric_limits<int64_t>::min()),
+                      overflow);
+  return static_cast<int64_t>(rounded.low_bits());
 }
 
 }  // namespace decimalops

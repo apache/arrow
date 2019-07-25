@@ -71,7 +71,6 @@
       <title>Table</title>
       <xi:include href="xml/table.xml"/>
       <xi:include href="xml/record-batch.xml"/>
-      <xi:include href="xml/column.xml"/>
       <xi:include href="xml/chunked-array.xml"/>
     </chapter>
     <chapter id="table-builder">
@@ -159,6 +158,10 @@
   <index id="deprecated-api-index" role="deprecated">
     <title>Index of deprecated API</title>
     <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-1-0-0" role="1.0.0">
+    <title>Index of new symbols in 1.0.0</title>
+    <xi:include href="xml/api-index-1.0.0.xml"><xi:fallback /></xi:include>
   </index>
   <index id="api-index-0-14-0" role="0.14.0">
     <title>Index of new symbols in 0.14.0</title>

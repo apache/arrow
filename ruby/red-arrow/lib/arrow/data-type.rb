@@ -29,24 +29,33 @@ module Arrow
       #
       #   @return [Arrow::DataType] The given data type itself.
       #
-      # @overload resolve(name, *arguments)
+      # @overload resolve(name)
       #
       #   Creates a suitable data type from type name. For example,
       #   you can create {Arrow::BooleanDataType} from `:boolean`.
       #
       #   @param name [String, Symbol] The type name of the data type.
       #
-      #   @param arguments [::Array] The additional information of the
-      #     data type.
+      #   @example Create a boolean data type
+      #     Arrow::DataType.resolve(:boolean)
+      #
+      # @overload resolve(name_with_arguments)
+      #
+      #   Creates a suitable data type from type name with arguments.
+      #
+      #   @param name_with_arguments [::Array<String, ...>]
+      #     The type name of the data type as the first element.
+      #
+      #     The rest elements are additional information of the data type.
       #
       #     For example, {Arrow::TimestampDataType} needs unit as
       #     additional information.
       #
       #   @example Create a boolean data type
-      #     Arrow::DataType.resolve(:boolean)
+      #     Arrow::DataType.resolve([:boolean])
       #
       #   @example Create a milliseconds unit timestamp data type
-      #     Arrow::DataType.resolve(:timestamp, :milli)
+      #     Arrow::DataType.resolve([:timestamp, :milli])
       #
       # @overload resolve(description)
       #
@@ -134,6 +143,14 @@ module Arrow
         end
         Arrow.const_get(data_type_class_name)
       end
+    end
+
+    def build_array(values)
+      base_name = self.class.name.gsub(/DataType\z/, "")
+      builder_class = self.class.const_get("#{base_name}ArrayBuilder")
+      args = [values]
+      args.unshift(self) unless builder_class.buildable?(args)
+      builder_class.build(*args)
     end
   end
 end
