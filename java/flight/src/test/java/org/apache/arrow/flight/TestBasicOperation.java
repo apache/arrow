@@ -19,7 +19,12 @@ package org.apache.arrow.flight;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -30,6 +35,9 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -60,6 +68,45 @@ public class TestBasicOperation {
         throw new RuntimeException(e);
       }
     });
+  }
+
+  @Test
+  public void roundTripTicket() throws Exception {
+    final Ticket ticket = new Ticket(new byte[]{0, 1, 2, 3, 4, 5});
+    Assert.assertEquals(ticket, Ticket.deserialize(ticket.serialize()));
+  }
+
+  @Test
+  public void roundTripInfo() throws Exception {
+    final Map<String, String> metadata = new HashMap<>();
+    metadata.put("foo", "bar");
+    final Schema schema = new Schema(Arrays.asList(
+        Field.nullable("a", new ArrowType.Int(32, true)),
+        Field.nullable("b", new ArrowType.FixedSizeBinary(32))
+    ), metadata);
+    final FlightInfo info1 = new FlightInfo(schema, FlightDescriptor.path(), Collections.emptyList(), -1, -1);
+    final FlightInfo info2 = new FlightInfo(schema, FlightDescriptor.command(new byte[2]),
+        Collections.singletonList(new FlightEndpoint(
+            new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock"))), 200, 500);
+    final FlightInfo info3 = new FlightInfo(schema, FlightDescriptor.path("a", "b"),
+        Arrays.asList(new FlightEndpoint(
+                new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock")),
+            new FlightEndpoint(
+                new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock"),
+                Location.forGrpcInsecure("localhost", 50051))
+        ), 200, 500);
+
+    Assert.assertEquals(info1, FlightInfo.deserialize(info1.serialize()));
+    Assert.assertEquals(info2, FlightInfo.deserialize(info2.serialize()));
+    Assert.assertEquals(info3, FlightInfo.deserialize(info3.serialize()));
+  }
+
+  @Test
+  public void roundTripDescriptor() throws Exception {
+    final FlightDescriptor cmd = FlightDescriptor.command("test command".getBytes(StandardCharsets.UTF_8));
+    Assert.assertEquals(cmd, FlightDescriptor.deserialize(cmd.serialize()));
+    final FlightDescriptor path = FlightDescriptor.path("foo", "bar", "test.arrow");
+    Assert.assertEquals(path, FlightDescriptor.deserialize(path.serialize()));
   }
 
   @Test

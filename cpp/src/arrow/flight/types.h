@@ -113,7 +113,20 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor {
 
   bool Equals(const FlightDescriptor& other) const;
 
+  /// \brief Get a human-readable form of this descriptor.
   std::string ToString() const;
+
+  /// \brief Get the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  Status SerializeToString(std::string* out) const;
+
+  /// \brief Parse the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  static Status Deserialize(const std::string& serialized, FlightDescriptor* out);
 
   // Convenience factory functions
 
@@ -124,12 +137,40 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor {
   static FlightDescriptor Path(const std::vector<std::string>& p) {
     return FlightDescriptor{PATH, "", p};
   }
+
+  friend bool operator==(const FlightDescriptor& left, const FlightDescriptor& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const FlightDescriptor& left, const FlightDescriptor& right) {
+    return !(left == right);
+  }
 };
 
 /// \brief Data structure providing an opaque identifier or credential to use
 /// when requesting a data stream with the DoGet RPC
 struct ARROW_FLIGHT_EXPORT Ticket {
   std::string ticket;
+
+  bool Equals(const Ticket& other) const;
+
+  friend bool operator==(const Ticket& left, const Ticket& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const Ticket& left, const Ticket& right) {
+    return !(left == right);
+  }
+
+  /// \brief Get the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  Status SerializeToString(std::string* out) const;
+
+  /// \brief Parse the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  static Status Deserialize(const std::string& serialized, Ticket* out);
 };
 
 class FlightClient;
@@ -204,6 +245,15 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint {
   /// ticket can only be redeemed on the current service where the ticket was
   /// generated
   std::vector<Location> locations;
+
+  bool Equals(const FlightEndpoint& other) const;
+
+  friend bool operator==(const FlightEndpoint& left, const FlightEndpoint& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const FlightEndpoint& left, const FlightEndpoint& right) {
+    return !(left == right);
+  }
 };
 
 /// \brief Staging data structure for messages about to be put on the wire
@@ -254,6 +304,19 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
 
   /// The total number of bytes in the dataset. If unknown, set to -1
   int64_t total_bytes() const { return data_.total_bytes; }
+
+  /// \brief Get the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  Status SerializeToString(std::string* out) const;
+
+  /// \brief Parse the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  static Status Deserialize(const std::string& serialized,
+                            std::unique_ptr<FlightInfo>* out);
 
  private:
   Data data_;

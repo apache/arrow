@@ -783,3 +783,35 @@ def test_cancel_do_get_threaded():
 
         with result_lock:
             assert raised_proper_exception.is_set()
+
+
+def test_roundtrip_types():
+    """Make sure serializable types round-trip."""
+    ticket = flight.Ticket("foo")
+    assert ticket == flight.Ticket.deserialize(ticket.serialize())
+
+    desc = flight.FlightDescriptor.for_command("test")
+    assert desc == flight.FlightDescriptor.deserialize(desc.serialize())
+
+    desc = flight.FlightDescriptor.for_path("a", "b", "test.arrow")
+    assert desc == flight.FlightDescriptor.deserialize(desc.serialize())
+
+    info = flight.FlightInfo(
+        pa.schema([('a', pa.int32())]),
+        desc,
+        [
+            flight.FlightEndpoint(b'', ['grpc://test']),
+            flight.FlightEndpoint(
+                b'',
+                [flight.Location.for_grpc_tcp('localhost', 5005)],
+            ),
+        ],
+        -1,
+        -1,
+    )
+    info2 = flight.FlightInfo.deserialize(info.serialize())
+    assert info.schema == info2.schema
+    assert info.descriptor == info2.descriptor
+    assert info.total_bytes == info2.total_bytes
+    assert info.total_records == info2.total_records
+    assert info.endpoints == info2.endpoints
