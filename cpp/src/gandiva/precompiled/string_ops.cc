@@ -210,7 +210,7 @@ char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_len,
     return nullptr;
   }
 
-  *out_len = length;
+  *out_len = static_cast<int32>(length);
   if (length > in_len - startIndex) {
     *out_len = in_len - startIndex;
   }
