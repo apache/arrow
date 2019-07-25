@@ -25,13 +25,13 @@ use std::sync::Arc;
 use chrono::prelude::*;
 
 use super::*;
+use crate::array::equal::JsonEqual;
 use crate::buffer::{Buffer, MutableBuffer};
+use crate::datatypes::DataType::Struct;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::memory;
 use crate::util::bit_util;
-use crate::array::equal::JsonEqual;
-use crate::datatypes::DataType::Struct;
 
 /// Number of seconds in a day
 const SECONDS_IN_DAY: i64 = 86_400;
@@ -730,7 +730,8 @@ impl ListArray {
 
     /// Returns ith value of this list array.
     pub fn value(&self, i: usize) -> ArrayRef {
-        self.values.slice(self.value_offset(i) as usize, self.value_length(i) as usize)
+        self.values
+            .slice(self.value_offset(i) as usize, self.value_length(i) as usize)
     }
 
     /// Returns the offset for value at index `i`.

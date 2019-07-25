@@ -18,9 +18,8 @@
 use super::*;
 use crate::datatypes::*;
 use crate::util::bit_util;
+use serde_json::value::Value::{Null as JNull, Object, String as JString};
 use serde_json::Value;
-use serde_json::value::Value::{Object, String as JString, Null as JNull};
-
 
 /// Trait for `Array` equality.
 pub trait ArrayEqual {
@@ -452,7 +451,7 @@ impl<T: ArrowPrimitiveType> PartialEq<Value> for PrimitiveArray<T> {
     fn eq(&self, json: &Value) -> bool {
         match json {
             Value::Array(array) => self.equals_json_values(&array),
-            _ => false
+            _ => false,
         }
     }
 }
@@ -461,7 +460,7 @@ impl<T: ArrowPrimitiveType> PartialEq<PrimitiveArray<T>> for Value {
     fn eq(&self, arrow: &PrimitiveArray<T>) -> bool {
         match self {
             Value::Array(array) => arrow.equals_json_values(&array),
-            _ => false
+            _ => false,
         }
     }
 }
@@ -473,9 +472,7 @@ impl JsonEqual for ListArray {
         }
 
         let result = (0..self.len()).all(|i| match json[i] {
-            Value::Array(v) => {
-                self.is_valid(i) && self.value(i).equals_json_values(v)
-            }
+            Value::Array(v) => self.is_valid(i) && self.value(i).equals_json_values(v),
             Value::Null => self.is_null(i) || self.value_length(i) == 0,
             _ => false,
         });
@@ -488,7 +485,7 @@ impl PartialEq<Value> for ListArray {
     fn eq(&self, json: &Value) -> bool {
         match json {
             Value::Array(json_array) => self.equals_json_values(json_array),
-            _ => false
+            _ => false,
         }
     }
 }
@@ -497,7 +494,7 @@ impl PartialEq<ListArray> for Value {
     fn eq(&self, arrow: &ListArray) -> bool {
         match self {
             Value::Array(json_array) => arrow.equals_json_values(json_array),
-            _ => false
+            _ => false,
         }
     }
 }
@@ -510,7 +507,7 @@ impl JsonEqual for StructArray {
 
         let all_object = json.iter().all(|v| match v {
             Object(_) | JNull => true,
-            _ => false
+            _ => false,
         });
 
         if !all_object {
@@ -524,9 +521,11 @@ impl JsonEqual for StructArray {
                 .map(|obj| obj.get(column_name).unwrap_or(&Value::Null))
                 .collect::<Vec<&Value>>();
 
-            if !self.column_by_name(column_name)
+            if !self
+                .column_by_name(column_name)
                 .map(|arr| arr.equals_json(&json_values))
-                .unwrap_or(false) {
+                .unwrap_or(false)
+            {
                 println!("unequaled column: {}", column_name);
                 return false;
             }
@@ -540,7 +539,7 @@ impl PartialEq<Value> for StructArray {
     fn eq(&self, json: &Value) -> bool {
         match json {
             Value::Array(json_array) => self.equals_json_values(&json_array),
-            _ => false
+            _ => false,
         }
     }
 }
@@ -549,7 +548,7 @@ impl PartialEq<StructArray> for Value {
     fn eq(&self, arrow: &StructArray) -> bool {
         match self {
             Value::Array(json_array) => arrow.equals_json_values(&json_array),
-            _ => false
+            _ => false,
         }
     }
 }
@@ -572,7 +571,7 @@ impl PartialEq<Value> for BinaryArray {
     fn eq(&self, json: &Value) -> bool {
         match json {
             Value::Array(json_array) => self.equals_json_values(&json_array),
-            _ => false
+            _ => false,
         }
     }
 }
@@ -581,7 +580,7 @@ impl PartialEq<BinaryArray> for Value {
     fn eq(&self, arrow: &BinaryArray) -> bool {
         match self {
             Value::Array(json_array) => arrow.equals_json_values(&json_array),
-            _ => false
+            _ => false,
         }
     }
 }
@@ -875,47 +874,65 @@ mod tests {
     fn test_primitive_json_equal() {
         // Test equaled array
         let arrow_array = Int32Array::from(vec![Some(1), None, Some(2), Some(3)]);
-        let json_array: Value = serde_json::from_str(r#"
+        let json_array: Value = serde_json::from_str(
+            r#"
             [
                 1, null, 2, 3
             ]
-        "#).unwrap();
+        "#,
+        )
+        .unwrap();
         assert!(arrow_array.eq(&json_array));
 
         // Test unequaled array
         let arrow_array = Int32Array::from(vec![Some(1), None, Some(2), Some(3)]);
-        let json_array: Value = serde_json::from_str(r#"
+        let json_array: Value = serde_json::from_str(
+            r#"
             [
                 1, 1, 2, 3
             ]
-        "#).unwrap();
+        "#,
+        )
+        .unwrap();
         assert!(arrow_array.ne(&json_array));
     }
 
     #[test]
     fn test_list_json_equal() {
         // Test equaled case
-        let arrow_array = create_list_array(&mut ListBuilder::new(Int32Builder::new(10)),
-                                  &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])]).unwrap();
-        let json_array: Value = serde_json::from_str(r#"
+        let arrow_array = create_list_array(
+            &mut ListBuilder::new(Int32Builder::new(10)),
+            &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
+        )
+        .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
             [
                 [1, 2, 3],
                 null,
                 [4, 5, 6]
             ]
-        "#).unwrap();
+        "#,
+        )
+        .unwrap();
         assert!(arrow_array.eq(&json_array));
 
         // Test unequaled case
-        let arrow_array = create_list_array(&mut ListBuilder::new(Int32Builder::new(10)),
-                                            &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])]).unwrap();
-        let json_array: Value = serde_json::from_str(r#"
+        let arrow_array = create_list_array(
+            &mut ListBuilder::new(Int32Builder::new(10)),
+            &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
+        )
+        .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
             [
                 [1, 2, 3],
                 [7, 8],
                 [4, 5, 6]
             ]
-        "#).unwrap();
+        "#,
+        )
+        .unwrap();
         assert!(arrow_array.ne(&json_array));
     }
 
@@ -929,9 +946,11 @@ mod tests {
             Some("world"),
             None,
             None,
-        ]).unwrap();
+        ])
+        .unwrap();
 
-        let json_array: Value = serde_json::from_str(r#"
+        let json_array: Value = serde_json::from_str(
+            r#"
             [
                 "hello",
                 null,
@@ -940,7 +959,9 @@ mod tests {
                 null,
                 null
             ]
-        "#).unwrap();
+        "#,
+        )
+        .unwrap();
         assert!(arrow_array.eq(&json_array));
 
         // Test unequal case
@@ -951,9 +972,11 @@ mod tests {
             Some("world"),
             None,
             None,
-        ]).unwrap();
+        ])
+        .unwrap();
 
-        let json_array: Value = serde_json::from_str(r#"
+        let json_array: Value = serde_json::from_str(
+            r#"
             [
                 "hello",
                 null,
@@ -962,7 +985,9 @@ mod tests {
                 null,
                 null
             ]
-        "#).unwrap();
+        "#,
+        )
+        .unwrap();
         assert!(arrow_array.ne(&json_array));
     }
 
@@ -985,9 +1010,11 @@ mod tests {
             &[Some("joe"), None, None, Some("mark"), Some("doe")],
             &[Some(1), Some(2), None, Some(4), Some(5)],
             &[true, true, false, true, true],
-        ).unwrap();
+        )
+        .unwrap();
 
-        let json_array: Value = serde_json::from_str(r#"
+        let json_array: Value = serde_json::from_str(
+            r#"
             [
               {
                 "f1": "joe",
@@ -1006,7 +1033,9 @@ mod tests {
                 "f2": 5
               }
             ]
-        "#).unwrap();
+        "#,
+        )
+        .unwrap();
 
         assert!(arrow_array.eq(&json_array));
     }

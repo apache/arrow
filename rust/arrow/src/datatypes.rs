@@ -29,7 +29,7 @@ use std::str::FromStr;
 
 use packed_simd::*;
 use serde_derive::{Deserialize, Serialize};
-use serde_json::{json, Value, Value::Number as VNumber, Number};
+use serde_json::{json, Number, Value, Value::Number as VNumber};
 
 use crate::error::{ArrowError, Result};
 
