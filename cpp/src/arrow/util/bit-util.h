@@ -109,6 +109,14 @@ constexpr int64_t CeilDiv(int64_t value, int64_t divisor) {
 
 constexpr int64_t BytesForBits(int64_t bits) { return (bits + 7) >> 3; }
 
+constexpr bool IsPowerOf2(int64_t value) {
+  return value > 0 && (value & (value - 1)) == 0;
+}
+
+constexpr bool IsPowerOf2(uint64_t value) {
+  return value > 0 && (value & (value - 1)) == 0;
+}
+
 // Returns the smallest power of two that contains v.  If v is already a
 // power of two, it is returned as is.
 static inline int64_t NextPower2(int64_t n) {
@@ -144,7 +152,13 @@ constexpr int64_t RoundDown(int64_t value, int64_t factor) {
 // The result is undefined on overflow, i.e. if `value > 2**64 - factor`,
 // since we cannot return the correct result which would be 2**64.
 constexpr int64_t RoundUpToPowerOf2(int64_t value, int64_t factor) {
-  // DCHECK((factor > 0) && ((factor & (factor - 1)) == 0));
+  // DCHECK(value >= 0);
+  // DCHECK(IsPowerOf2(factor));
+  return (value + (factor - 1)) & ~(factor - 1);
+}
+
+constexpr uint64_t RoundUpToPowerOf2(uint64_t value, uint64_t factor) {
+  // DCHECK(IsPowerOf2(factor));
   return (value + (factor - 1)) & ~(factor - 1);
 }
 
