@@ -747,7 +747,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
                               int64_t valid_bits_offset, BuilderType* builder,
                               int* values_decoded) {
     num_values = std::min(num_values, num_values_);
-    builder->Reserve(num_values);
+    RETURN_NOT_OK(builder->Reserve(num_values));
     ::arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
     int increment;
     int i = 0;
@@ -761,12 +761,12 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
         if (data_size < increment) {
           ParquetException::EofException();
         }
-        builder->Append(data + sizeof(uint32_t), len);
+        RETURN_NOT_OK(builder->Append(data + sizeof(uint32_t), len));
         data += increment;
         data_size -= increment;
         bytes_decoded += increment;
       } else {
-        builder->AppendNull();
+        RETURN_NOT_OK(builder->AppendNull());
       }
       bit_reader.Next();
       ++i;
@@ -783,7 +783,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
   ::arrow::Status DecodeArrowNonNull(int num_values, BuilderType* builder,
                                      int* values_decoded) {
     num_values = std::min(num_values, num_values_);
-    builder->Reserve(num_values);
+    RETURN_NOT_OK(builder->Reserve(num_values));
     int i = 0;
     const uint8_t* data = data_;
     int64_t data_size = len_;
@@ -793,7 +793,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
       uint32_t len = arrow::util::SafeLoadAs<uint32_t>(data);
       int increment = static_cast<int>(sizeof(uint32_t) + len);
       if (data_size < increment) ParquetException::EofException();
-      builder->Append(data + sizeof(uint32_t), len);
+      RETURN_NOT_OK(builder->Append(data + sizeof(uint32_t), len));
       data += increment;
       data_size -= increment;
       bytes_decoded += increment;
@@ -1077,7 +1077,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
                               int* out_num_values) {
     constexpr int32_t buffer_size = 1024;
     int32_t indices_buffer[buffer_size];
-    builder->Reserve(num_values);
+    RETURN_NOT_OK(builder->Reserve(num_values));
     ::arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
 
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
@@ -1097,10 +1097,10 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
           // Consume all indices
           if (is_valid) {
             const auto& val = dict_values[indices_buffer[i]];
-            builder->Append(val.ptr, val.len);
+            RETURN_NOT_OK(builder->Append(val.ptr, val.len));
             ++i;
           } else {
-            builder->AppendNull();
+            RETURN_NOT_OK(builder->AppendNull());
             --null_count;
           }
           ++values_decoded;
@@ -1113,7 +1113,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
           bit_reader.Next();
         }
       } else {
-        builder->AppendNull();
+        RETURN_NOT_OK(builder->AppendNull());
         --null_count;
         ++values_decoded;
       }
@@ -1132,7 +1132,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     constexpr int32_t buffer_size = 2048;
     int32_t indices_buffer[buffer_size];
     int values_decoded = 0;
-    builder->Reserve(num_values);
+    RETURN_NOT_OK(builder->Reserve(num_values));
 
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
 
@@ -1142,7 +1142,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
       if (num_indices == 0) break;
       for (int i = 0; i < num_indices; ++i) {
         const auto& val = dict_values[indices_buffer[i]];
-        builder->Append(val.ptr, val.len);
+        RETURN_NOT_OK(builder->Append(val.ptr, val.len));
       }
       values_decoded += num_indices;
     }
