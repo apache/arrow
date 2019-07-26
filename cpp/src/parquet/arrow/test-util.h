@@ -39,6 +39,7 @@ using internal::RecordReader;
 namespace arrow {
 
 using ::arrow::Array;
+using ::arrow::ChunkedArray;
 using ::arrow::Status;
 
 template <int32_t PRECISION>
@@ -429,11 +430,16 @@ Status MakeEmptyListsArray(int64_t size, std::shared_ptr<Array>* out_array) {
   return Status::OK();
 }
 
+std::shared_ptr<::arrow::Table> MakeSimpleTable(
+    const std::shared_ptr<ChunkedArray>& values, bool nullable) {
+  auto schema = ::arrow::schema({::arrow::field("col", values->type(), nullable)});
+  return ::arrow::Table::Make(schema, {values});
+}
+
 std::shared_ptr<::arrow::Table> MakeSimpleTable(const std::shared_ptr<Array>& values,
                                                 bool nullable) {
   auto carr = std::make_shared<::arrow::ChunkedArray>(values);
-  auto schema = ::arrow::schema({::arrow::field("col", values->type(), nullable)});
-  return ::arrow::Table::Make(schema, {carr});
+  return MakeSimpleTable(carr, nullable);
 }
 
 template <typename T>

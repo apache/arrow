@@ -33,6 +33,7 @@
 namespace arrow {
 
 class Array;
+class ChunkedArray;
 
 namespace BitUtil {
 class BitReader;
@@ -225,9 +226,6 @@ class RecordReader {
 
   virtual void DebugPrintState() = 0;
 
-  // For BYTE_ARRAY, FIXED_LEN_BYTE_ARRAY types that may have chunked output
-  virtual std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() = 0;
-
   /// \brief Decoded definition levels
   int16_t* def_levels() const {
     return reinterpret_cast<int16_t*>(def_levels_->mutable_data());
@@ -280,6 +278,18 @@ class RecordReader {
   std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
   std::shared_ptr<::arrow::ResizableBuffer> def_levels_;
   std::shared_ptr<::arrow::ResizableBuffer> rep_levels_;
+};
+
+class BinaryRecordReader : virtual public RecordReader {
+ public:
+  virtual std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() = 0;
+};
+
+/// \brief Read records directly to dictionary-encoded Arrow form (int32
+/// indices). Only valid for BYTE_ARRAY columns
+class DictionaryRecordReader : virtual public RecordReader {
+ public:
+  virtual std::shared_ptr<::arrow::ChunkedArray> GetResult() = 0;
 };
 
 static inline void DefinitionLevelsToBitmap(

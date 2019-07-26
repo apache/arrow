@@ -34,6 +34,7 @@
 
 #include "arrow/util/logging.h"
 
+#include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/column_writer.h"
 #include "parquet/deprecated_io.h"
@@ -1079,6 +1080,7 @@ class FileWriter::Impl {
     int current_column_idx = row_group_writer_->current_column();
     std::shared_ptr<::arrow::Schema> arrow_schema;
     RETURN_NOT_OK(FromParquetSchema(writer_->schema(), {current_column_idx - 1},
+                                    default_arrow_reader_properties(),
                                     writer_->key_value_metadata(), &arrow_schema));
 
     ArrowColumnWriter arrow_writer(&column_write_context_, column_writer,

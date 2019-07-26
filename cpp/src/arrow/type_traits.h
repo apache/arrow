@@ -271,6 +271,12 @@ struct CTypeTraits<char*> : public TypeTraits<StringType> {
 };
 
 template <>
+struct CTypeTraits<DayTimeIntervalType::DayMilliseconds>
+    : public TypeTraits<DayTimeIntervalType> {
+  using ArrowType = DayTimeIntervalType;
+};
+
+template <>
 struct TypeTraits<ListType> {
   using ArrayType = ListArray;
   using BuilderType = ListBuilder;

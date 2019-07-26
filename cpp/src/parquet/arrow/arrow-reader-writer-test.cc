@@ -85,7 +85,7 @@ static constexpr int LARGE_SIZE = 10000;
 
 static constexpr uint32_t kDefaultSeed = 0;
 
-std::shared_ptr<const LogicalType> get_logical_type(const ::DataType& type) {
+std::shared_ptr<const LogicalType> get_logical_type(const DataType& type) {
   switch (type.id()) {
     case ArrowId::UINT8:
       return LogicalType::Int(8, false);
@@ -154,7 +154,7 @@ std::shared_ptr<const LogicalType> get_logical_type(const ::DataType& type) {
   return LogicalType::None();
 }
 
-ParquetType::type get_physical_type(const ::DataType& type) {
+ParquetType::type get_physical_type(const DataType& type) {
   switch (type.id()) {
     case ArrowId::BOOL:
       return ParquetType::BOOLEAN;
@@ -332,7 +332,7 @@ const std::string test_traits<::arrow::BinaryType>::value("\x00\x01\x02\x03");  
 const std::string test_traits<::arrow::FixedSizeBinaryType>::value("Fixed");    // NOLINT
 
 template <typename T>
-using ParquetDataType = DataType<test_traits<T>::parquet_enum>;
+using ParquetDataType = PhysicalType<test_traits<T>::parquet_enum>;
 
 template <typename T>
 using ParquetWriter = TypedColumnWriter<ParquetDataType<T>>;
@@ -401,11 +401,11 @@ void CheckConfiguredRoundtrip(
   if (expected_table) {
     ASSERT_NO_FATAL_FAILURE(
         ::arrow::AssertSchemaEqual(*actual_table->schema(), *expected_table->schema()));
-    ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*actual_table, *expected_table));
+    ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*expected_table, *actual_table));
   } else {
     ASSERT_NO_FATAL_FAILURE(
         ::arrow::AssertSchemaEqual(*actual_table->schema(), *input_table->schema()));
-    ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*actual_table, *input_table));
+    ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*input_table, *actual_table));
   }
 }
 
@@ -444,14 +444,14 @@ void CheckSimpleRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result, false));
 }
 
-static std::shared_ptr<GroupNode> MakeSimpleSchema(const ::DataType& type,
+static std::shared_ptr<GroupNode> MakeSimpleSchema(const DataType& type,
                                                    Repetition::type repetition) {
   int32_t byte_width = -1;
 
   switch (type.id()) {
     case ::arrow::Type::DICTIONARY: {
       const auto& dict_type = static_cast<const ::arrow::DictionaryType&>(type);
-      const ::DataType& values_type = *dict_type.value_type();
+      const DataType& values_type = *dict_type.value_type();
       switch (values_type.id()) {
         case ::arrow::Type::FIXED_SIZE_BINARY:
           byte_width =
@@ -595,7 +595,8 @@ class TestParquetIO : public ::testing::Test {
     SchemaDescriptor descriptor;
     ASSERT_NO_THROW(descriptor.Init(schema));
     std::shared_ptr<::arrow::Schema> arrow_schema;
-    ASSERT_OK_NO_THROW(FromParquetSchema(&descriptor, &arrow_schema));
+    ArrowReaderProperties props;
+    ASSERT_OK_NO_THROW(FromParquetSchema(&descriptor, props, &arrow_schema));
     FileWriter writer(::arrow::default_memory_pool(), MakeWriter(schema), arrow_schema);
     ASSERT_OK_NO_THROW(writer.NewRowGroup(values->length()));
     ASSERT_OK_NO_THROW(writer.WriteColumnChunk(*values));
@@ -786,7 +787,8 @@ TYPED_TEST(TestParquetIO, SingleColumnRequiredChunkedWrite) {
   SchemaDescriptor descriptor;
   ASSERT_NO_THROW(descriptor.Init(schema));
   std::shared_ptr<::arrow::Schema> arrow_schema;
-  ASSERT_OK_NO_THROW(FromParquetSchema(&descriptor, &arrow_schema));
+  ArrowReaderProperties props;
+  ASSERT_OK_NO_THROW(FromParquetSchema(&descriptor, props, &arrow_schema));
   FileWriter writer(default_memory_pool(), this->MakeWriter(schema), arrow_schema);
   for (int i = 0; i < 4; i++) {
     ASSERT_OK_NO_THROW(writer.NewRowGroup(chunk_size));
@@ -855,7 +857,8 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalChunkedWrite) {
   SchemaDescriptor descriptor;
   ASSERT_NO_THROW(descriptor.Init(schema));
   std::shared_ptr<::arrow::Schema> arrow_schema;
-  ASSERT_OK_NO_THROW(FromParquetSchema(&descriptor, &arrow_schema));
+  ArrowReaderProperties props;
+  ASSERT_OK_NO_THROW(FromParquetSchema(&descriptor, props, &arrow_schema));
   FileWriter writer(::arrow::default_memory_pool(), this->MakeWriter(schema),
                     arrow_schema);
   for (int i = 0; i < 4; i++) {
@@ -1791,7 +1794,7 @@ void MakeDoubleTable(int num_columns, int num_rows, int nchunks,
 }
 
 void MakeListArray(int num_rows, int max_value_length,
-                   std::shared_ptr<::DataType>* out_type,
+                   std::shared_ptr<DataType>* out_type,
                    std::shared_ptr<Array>* out_array) {
   std::vector<int32_t> length_draws;
   randint(num_rows, 0, max_value_length, &length_draws);
@@ -1965,7 +1968,7 @@ TEST(TestArrowReadWrite, ListLargeRecords) {
   const int row_group_size = 100;
 
   std::shared_ptr<Array> list_array;
-  std::shared_ptr<::DataType> list_type;
+  std::shared_ptr<DataType> list_type;
 
   MakeListArray(num_rows, 20, &list_type, &list_array);
 
@@ -2009,14 +2012,14 @@ TEST(TestArrowReadWrite, ListLargeRecords) {
   ASSERT_TRUE(table->Equals(*chunked_table));
 }
 
-typedef std::function<void(int, std::shared_ptr<::DataType>*, std::shared_ptr<Array>*)>
+typedef std::function<void(int, std::shared_ptr<DataType>*, std::shared_ptr<Array>*)>
     ArrayFactory;
 
 template <typename ArrowType>
 struct GenerateArrayFunctor {
   explicit GenerateArrayFunctor(double pct_null = 0.1) : pct_null(pct_null) {}
 
-  void operator()(int length, std::shared_ptr<::DataType>* type,
+  void operator()(int length, std::shared_ptr<DataType>* type,
                   std::shared_ptr<Array>* array) {
     using T = typename ArrowType::c_type;
 
@@ -2034,16 +2037,16 @@ struct GenerateArrayFunctor {
   double pct_null;
 };
 
-typedef std::function<void(int, std::shared_ptr<::DataType>*, std::shared_ptr<Array>*)>
+typedef std::function<void(int, std::shared_ptr<DataType>*, std::shared_ptr<Array>*)>
     ArrayFactory;
 
-auto GenerateInt32 = [](int length, std::shared_ptr<::DataType>* type,
+auto GenerateInt32 = [](int length, std::shared_ptr<DataType>* type,
                         std::shared_ptr<Array>* array) {
   GenerateArrayFunctor<::arrow::Int32Type> func;
   func(length, type, array);
 };
 
-auto GenerateList = [](int length, std::shared_ptr<::DataType>* type,
+auto GenerateList = [](int length, std::shared_ptr<DataType>* type,
                        std::shared_ptr<Array>* array) {
   MakeListArray(length, 100, type, array);
 };
@@ -2078,7 +2081,7 @@ TEST(TestArrowReadWrite, TableWithChunkedColumns) {
   for (const auto& datagen_func : functions) {
     ::arrow::ArrayVector arrays;
     std::shared_ptr<Array> arr;
-    std::shared_ptr<::DataType> type;
+    std::shared_ptr<DataType> type;
     datagen_func(total_length, &type, &arr);
 
     int64_t offset = 0;
@@ -2575,15 +2578,16 @@ void TryReadDataFile(const std::string& path,
   auto pool = ::arrow::default_memory_pool();
 
   std::unique_ptr<FileReader> arrow_reader;
+  Status s =
+      FileReader::Make(pool, ParquetFileReader::OpenFile(path, false), &arrow_reader);
+  if (s.ok()) {
+    std::shared_ptr<::arrow::Table> table;
+    s = arrow_reader->ReadTable(&table);
+  }
 
-  arrow_reader.reset(new FileReader(pool, ParquetFileReader::OpenFile(path, false)));
-  std::shared_ptr<::arrow::Table> table;
-  auto status = arrow_reader->ReadTable(&table);
-
-  ASSERT_TRUE(status.code() == expected_code)
+  ASSERT_TRUE(s.code() == expected_code)
       << "Expected reading file to return "
-      << arrow::Status(expected_code, "").CodeAsString() << ", but got "
-      << status.ToString();
+      << arrow::Status(expected_code, "").CodeAsString() << ", but got " << s.ToString();
 }
 
 TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {
@@ -2634,8 +2638,10 @@ TEST(TestArrowReaderAdHoc, DISABLED_LargeStringColumn) {
   array.reset();
 
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(tables_buffer));
-  FileReader arrow_reader(default_memory_pool(), std::move(reader));
-  ASSERT_OK_NO_THROW(arrow_reader.ReadTable(&table));
+
+  std::unique_ptr<FileReader> arrow_reader;
+  ASSERT_OK(FileReader::Make(default_memory_pool(), std::move(reader), &arrow_reader));
+  ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
   ASSERT_OK(table->Validate());
 }
 
@@ -2647,13 +2653,13 @@ TEST(TestArrowReaderAdHoc, HandleDictPageOffsetZero) {
 
 class TestArrowReaderAdHocSparkAndHvr
     : public ::testing::TestWithParam<
-          std::tuple<std::string, std::shared_ptr<::DataType>>> {};
+          std::tuple<std::string, std::shared_ptr<DataType>>> {};
 
 TEST_P(TestArrowReaderAdHocSparkAndHvr, ReadDecimals) {
   std::string path(test::get_data_dir());
 
   std::string filename;
-  std::shared_ptr<::DataType> decimal_type;
+  std::shared_ptr<DataType> decimal_type;
   std::tie(filename, decimal_type) = GetParam();
 
   path += "/" + filename;
@@ -2662,8 +2668,8 @@ TEST_P(TestArrowReaderAdHocSparkAndHvr, ReadDecimals) {
   auto pool = ::arrow::default_memory_pool();
 
   std::unique_ptr<FileReader> arrow_reader;
-  ASSERT_NO_THROW(
-      arrow_reader.reset(new FileReader(pool, ParquetFileReader::OpenFile(path, false))));
+  ASSERT_OK_NO_THROW(
+      FileReader::Make(pool, ParquetFileReader::OpenFile(path, false), &arrow_reader));
   std::shared_ptr<::arrow::Table> table;
   ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
 
@@ -2727,12 +2733,15 @@ TEST(TestArrowWriterAdHoc, SchemaMismatch) {
 
 // ----------------------------------------------------------------------
 // Tests for directly reading DictionaryArray
+
 class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
  public:
   void SetUp() override {
     GenerateData(GetParam());
+
+    // Write 4 row groups; each row group will have a different dictionary
     ASSERT_NO_FATAL_FAILURE(
-        WriteTableToBuffer(expected_dense_, expected_dense_->num_rows() / 2,
+        WriteTableToBuffer(expected_dense_, expected_dense_->num_rows() / 4,
                            default_arrow_writer_properties(), &buffer_));
 
     properties_ = default_arrow_reader_properties();
@@ -2740,28 +2749,13 @@ class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
 
   void GenerateData(double null_probability) {
     constexpr int num_unique = 100;
-    constexpr int repeat = 10;
+    constexpr int repeat = 100;
     constexpr int64_t min_length = 2;
-    constexpr int64_t max_length = 10;
+    constexpr int64_t max_length = 100;
     ::arrow::random::RandomArrayGenerator rag(0);
-    auto dense_array = rag.StringWithRepeats(repeat * num_unique, num_unique, min_length,
-                                             max_length, null_probability);
-    expected_dense_ = MakeSimpleTable(dense_array, /*nullable=*/true);
-
-    ::arrow::StringDictionaryBuilder builder(default_memory_pool());
-    const auto& string_array = static_cast<const ::arrow::StringArray&>(*dense_array);
-    ASSERT_OK(builder.AppendArray(string_array));
-
-    std::shared_ptr<::arrow::Array> dict_array;
-    ASSERT_OK(builder.Finish(&dict_array));
-    expected_dict_ = MakeSimpleTable(dict_array, /*nullable=*/true);
-
-    // TODO(hatemhelal): Figure out if we can use the following to init the expected_dict_
-    // Currently fails due to DataType mismatch for indices array.
-    //    Datum out;
-    //    FunctionContext ctx(default_memory_pool());
-    //    ASSERT_OK(DictionaryEncode(&ctx, Datum(dense_array), &out));
-    //    expected_dict_ = MakeSimpleTable(out.make_array(), /*nullable=*/true);
+    dense_values_ = rag.StringWithRepeats(repeat * num_unique, num_unique, min_length,
+                                          max_length, null_probability);
+    expected_dense_ = MakeSimpleTable(dense_values_, /*nullable=*/true);
   }
 
   void TearDown() override {}
@@ -2773,21 +2767,37 @@ class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
 
     std::shared_ptr<Table> actual;
     ASSERT_OK_NO_THROW(reader->ReadTable(&actual));
-    ::arrow::AssertTablesEqual(*actual, expected, /*same_chunk_layout=*/false);
+    ::arrow::AssertTablesEqual(expected, *actual, /*same_chunk_layout=*/false);
   }
 
   static std::vector<double> null_probabilites() { return {0.0, 0.5, 1}; }
 
  protected:
+  std::shared_ptr<Array> dense_values_;
   std::shared_ptr<Table> expected_dense_;
   std::shared_ptr<Table> expected_dict_;
   std::shared_ptr<Buffer> buffer_;
   ArrowReaderProperties properties_;
 };
 
+void AsDictionaryEncoded(const Array& arr, std::shared_ptr<Array>* out) {
+  ::arrow::StringDictionaryBuilder builder(default_memory_pool());
+  const auto& string_array = static_cast<const ::arrow::StringArray&>(arr);
+  ASSERT_OK(builder.AppendArray(string_array));
+  ASSERT_OK(builder.Finish(out));
+}
+
 TEST_P(TestArrowReadDictionary, ReadWholeFileDict) {
   properties_.set_read_dictionary(0, true);
-  CheckReadWholeFile(*expected_dict_);
+
+  std::vector<std::shared_ptr<Array>> chunks(4);
+  const int64_t chunk_size = expected_dense_->num_rows() / 4;
+  for (int i = 0; i < 4; ++i) {
+    AsDictionaryEncoded(*dense_values_->Slice(chunk_size * i, chunk_size), &chunks[i]);
+  }
+  auto ex_table = MakeSimpleTable(std::make_shared<ChunkedArray>(chunks),
+                                  /*nullable=*/true);
+  CheckReadWholeFile(*ex_table);
 }
 
 TEST_P(TestArrowReadDictionary, ReadWholeFileDense) {

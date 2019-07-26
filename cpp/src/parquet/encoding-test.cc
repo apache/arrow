@@ -324,26 +324,11 @@ TEST(TestDictionaryEncoding, CannotDictDecodeBoolean) {
 
 // ----------------------------------------------------------------------
 // Shared arrow builder decode tests
-template <typename T>
-struct BuilderTraits {};
 
-template <>
-struct BuilderTraits<::arrow::BinaryType> {
-  using DenseArrayBuilder = ::arrow::internal::ChunkedBinaryBuilder;
-  using DictArrayBuilder = ::arrow::BinaryDictionaryBuilder;
-};
-
-template <>
-struct BuilderTraits<::arrow::StringType> {
-  using DenseArrayBuilder = ::arrow::internal::ChunkedStringBuilder;
-  using DictArrayBuilder = ::arrow::StringDictionaryBuilder;
-};
-
-template <typename DType>
 class TestArrowBuilderDecoding : public ::testing::Test {
  public:
-  using DenseBuilder = typename BuilderTraits<DType>::DenseArrayBuilder;
-  using DictBuilder = typename BuilderTraits<DType>::DictArrayBuilder;
+  using DenseBuilder = ::arrow::internal::ChunkedBinaryBuilder;
+  using DictBuilder = ::arrow::BinaryDictionaryBuilder;
 
   void SetUp() override { null_probabilities_ = {0.0, 0.5, 1.0}; }
   void TearDown() override {}
@@ -355,22 +340,12 @@ class TestArrowBuilderDecoding : public ::testing::Test {
 
   void GenerateInputData(double null_probability) {
     constexpr int num_unique = 100;
-    constexpr int repeat = 10;
+    constexpr int repeat = 100;
     constexpr int64_t min_length = 2;
     constexpr int64_t max_length = 10;
     ::arrow::random::RandomArrayGenerator rag(0);
-    expected_dense_ = rag.StringWithRepeats(repeat * num_unique, num_unique, min_length,
+    expected_dense_ = rag.BinaryWithRepeats(repeat * num_unique, num_unique, min_length,
                                             max_length, null_probability);
-
-    std::shared_ptr<::arrow::DataType> data_type = std::make_shared<DType>();
-
-    if (data_type->id() == ::arrow::BinaryType::type_id) {
-      // TODO(hatemhelal):  this is a kludge.  Probably best to extend the
-      // RandomArrayGenerator to also generate BinaryType arrays.
-      auto data = expected_dense_->data()->Copy();
-      data->type = data_type;
-      expected_dense_ = std::make_shared<::arrow::BinaryArray>(data);
-    }
 
     num_values_ = static_cast<int>(expected_dense_->length());
     null_count_ = static_cast<int>(expected_dense_->null_count());
@@ -471,55 +446,41 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   std::vector<ByteArray> input_data_;
   const uint8_t* valid_bits_;
   std::unique_ptr<ByteArrayEncoder> encoder_;
-  std::unique_ptr<ByteArrayDecoder> decoder_;
+  ByteArrayDecoder* decoder_;
+  std::unique_ptr<ByteArrayDecoder> plain_decoder_;
+  std::unique_ptr<DictDecoder<ByteArrayType>> dict_decoder_;
   std::shared_ptr<Buffer> buffer_;
 };
 
-#define TEST_ARROW_BUILDER_BASE_MEMBERS()             \
-  using TestArrowBuilderDecoding<DType>::encoder_;    \
-  using TestArrowBuilderDecoding<DType>::decoder_;    \
-  using TestArrowBuilderDecoding<DType>::input_data_; \
-  using TestArrowBuilderDecoding<DType>::valid_bits_; \
-  using TestArrowBuilderDecoding<DType>::num_values_; \
-  using TestArrowBuilderDecoding<DType>::buffer_
-
-template <typename DType>
-class PlainEncoding : public TestArrowBuilderDecoding<DType> {
+class PlainEncoding : public TestArrowBuilderDecoding {
  public:
   void SetupEncoderDecoder() override {
     encoder_ = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
-    decoder_ = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
+    plain_decoder_ = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
+    decoder_ = plain_decoder_.get();
     ASSERT_NO_THROW(encoder_->PutSpaced(input_data_.data(), num_values_, valid_bits_, 0));
     buffer_ = encoder_->FlushValues();
     decoder_->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
   }
-
- protected:
-  TEST_ARROW_BUILDER_BASE_MEMBERS();
 };
 
-using BuilderArrayTypes = ::testing::Types<::arrow::BinaryType, ::arrow::StringType>;
-// using BuilderArrayTypes = ::testing::Types<::arrow::StringType>;
-TYPED_TEST_CASE(PlainEncoding, BuilderArrayTypes);
-
-TYPED_TEST(PlainEncoding, CheckDecodeArrowUsingDenseBuilder) {
+TEST_F(PlainEncoding, CheckDecodeArrowUsingDenseBuilder) {
   this->CheckDecodeArrowUsingDenseBuilder();
 }
 
-TYPED_TEST(PlainEncoding, CheckDecodeArrowUsingDictBuilder) {
+TEST_F(PlainEncoding, CheckDecodeArrowUsingDictBuilder) {
   this->CheckDecodeArrowUsingDictBuilder();
 }
 
-TYPED_TEST(PlainEncoding, CheckDecodeArrowNonNullDenseBuilder) {
+TEST_F(PlainEncoding, CheckDecodeArrowNonNullDenseBuilder) {
   this->CheckDecodeArrowNonNullUsingDenseBuilder();
 }
 
-TYPED_TEST(PlainEncoding, CheckDecodeArrowNonNullDictBuilder) {
+TEST_F(PlainEncoding, CheckDecodeArrowNonNullDictBuilder) {
   this->CheckDecodeArrowNonNullUsingDictBuilder();
 }
 
-template <typename DType>
-class DictEncoding : public TestArrowBuilderDecoding<DType> {
+class DictEncoding : public TestArrowBuilderDecoding {
  public:
   void SetupEncoderDecoder() override {
     auto node = schema::ByteArray("name");
@@ -544,36 +505,48 @@ class DictEncoding : public TestArrowBuilderDecoding<DType> {
     dict_decoder_->SetDict(plain_decoder_.get());
     dict_decoder_->SetData(num_values_, buffer_->data(),
                            static_cast<int>(buffer_->size()));
-    decoder_ = std::unique_ptr<ByteArrayDecoder>(
-        dynamic_cast<ByteArrayDecoder*>(dict_decoder_.release()));
+    decoder_ = dynamic_cast<ByteArrayDecoder*>(dict_decoder_.get());
   }
 
  protected:
-  TEST_ARROW_BUILDER_BASE_MEMBERS();
   std::unique_ptr<ColumnDescriptor> descr_;
-  std::unique_ptr<ByteArrayDecoder> plain_decoder_;
-  std::unique_ptr<DictDecoder<ByteArrayType>> dict_decoder_;
   std::shared_ptr<Buffer> dict_buffer_;
 };
 
-TYPED_TEST_CASE(DictEncoding, BuilderArrayTypes);
-
-TYPED_TEST(DictEncoding, CheckDecodeArrowUsingDenseBuilder) {
+TEST_F(DictEncoding, CheckDecodeArrowUsingDenseBuilder) {
   this->CheckDecodeArrowUsingDenseBuilder();
 }
 
-TYPED_TEST(DictEncoding, CheckDecodeArrowUsingDictBuilder) {
+TEST_F(DictEncoding, CheckDecodeArrowUsingDictBuilder) {
   this->CheckDecodeArrowUsingDictBuilder();
 }
 
-TYPED_TEST(DictEncoding, CheckDecodeArrowNonNullDenseBuilder) {
+TEST_F(DictEncoding, CheckDecodeArrowNonNullDenseBuilder) {
   this->CheckDecodeArrowNonNullUsingDenseBuilder();
 }
 
-TYPED_TEST(DictEncoding, CheckDecodeArrowNonNullDictBuilder) {
+TEST_F(DictEncoding, CheckDecodeArrowNonNullDictBuilder) {
   this->CheckDecodeArrowNonNullUsingDictBuilder();
 }
 
-}  // namespace test
+TEST_F(DictEncoding, CheckDecodeIndicesSpaced) {
+  for (auto np : null_probabilities_) {
+    InitTestCase(np);
+    auto builder = CreateDictBuilder();
+    dict_decoder_->InsertDictionary(builder.get());
+    auto actual_num_values = dict_decoder_->DecodeIndicesSpaced(
+        num_values_, null_count_, valid_bits_, 0, builder.get());
+    CheckDict(actual_num_values, *builder);
+  }
+}
 
+TEST_F(DictEncoding, CheckDecodeIndicesNoNulls) {
+  InitTestCase(/*null_probability=*/0.0);
+  auto builder = CreateDictBuilder();
+  dict_decoder_->InsertDictionary(builder.get());
+  auto actual_num_values = dict_decoder_->DecodeIndices(num_values_, builder.get());
+  CheckDict(actual_num_values, *builder);
+}
+
+}  // namespace test
 }  // namespace parquet

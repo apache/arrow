@@ -42,6 +42,7 @@ using internal::checked_cast;
 ChunkedArray::ChunkedArray(const ArrayVector& chunks) : chunks_(chunks) {
   length_ = 0;
   null_count_ = 0;
+
   ARROW_CHECK_GT(chunks.size(), 0)
       << "cannot construct ChunkedArray from empty vector and omitted type";
   type_ = chunks[0]->type();

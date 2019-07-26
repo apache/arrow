@@ -358,6 +358,11 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
 
 
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
+    cdef cppclass ArrowReaderProperties:
+        pass
+
+    ArrowReaderProperties default_arrow_reader_properties()
+
     CStatus OpenFile(const shared_ptr[RandomAccessFile]& file,
                      CMemoryPool* allocator,
                      const ReaderProperties& properties,
@@ -389,11 +394,13 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
 cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
     CStatus FromParquetSchema(
         const SchemaDescriptor* parquet_schema,
+        const ArrowReaderProperties& properties,
         const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
         shared_ptr[CSchema]* out)
 
     CStatus ToParquetSchema(
         const CSchema* arrow_schema,
+        const ArrowReaderProperties& properties,
         const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
         shared_ptr[SchemaDescriptor]* out)
 

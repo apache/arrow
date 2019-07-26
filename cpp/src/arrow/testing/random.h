@@ -230,6 +230,11 @@ class ARROW_EXPORT RandomArrayGenerator {
                                                   int32_t min_length, int32_t max_length,
                                                   double null_probability);
 
+  /// \brief Like StringWithRepeats but return BinaryArray
+  std::shared_ptr<arrow::Array> BinaryWithRepeats(int64_t size, int64_t unique,
+                                                  int32_t min_length, int32_t max_length,
+                                                  double null_probability);
+
  private:
   SeedType seed() { return seed_distribution_(seed_rng_); }
 

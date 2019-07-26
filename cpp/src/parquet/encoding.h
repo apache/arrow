@@ -26,6 +26,18 @@
 #include "parquet/platform.h"
 #include "parquet/types.h"
 
+namespace arrow {
+
+class ArrayBuilder;
+class BinaryDictionaryBuilder;
+
+namespace internal {
+
+class ChunkedBinaryBuilder;
+
+}  // namespace internal
+}  // namespace arrow
+
 namespace parquet {
 
 class ColumnDescriptor;
@@ -156,6 +168,26 @@ template <typename DType>
 class DictDecoder : virtual public TypedDecoder<DType> {
  public:
   virtual void SetDict(TypedDecoder<DType>* dictionary) = 0;
+
+  /// \brief Insert dictionary values into the Arrow dictionary builder's memo,
+  /// but do not append any indices
+  virtual void InsertDictionary(::arrow::ArrayBuilder* builder) = 0;
+
+  /// \brief Decode only dictionary indices and append to dictionary
+  /// builder. The builder must have had the dictionary from this decoder
+  /// inserted already.
+  ///
+  /// Remember to reset the builder each time the dict decoder is initialized
+  /// with a new dictionary page
+  virtual int DecodeIndicesSpaced(int num_values, int null_count,
+                                  const uint8_t* valid_bits, int64_t valid_bits_offset,
+                                  ::arrow::ArrayBuilder* builder) = 0;
+
+  /// \brief Decode only dictionary indices (no nulls)
+  ///
+  /// Remember to reset the builder each time the dict decoder is initialized
+  /// with a new dictionary page
+  virtual int DecodeIndices(int num_values, ::arrow::ArrayBuilder* builder) = 0;
 };
 
 // ----------------------------------------------------------------------
@@ -191,60 +223,19 @@ class ByteArrayDecoder : virtual public TypedDecoder<ByteArrayType> {
  public:
   using TypedDecoder<ByteArrayType>::DecodeSpaced;
 
-  class WrappedBuilderInterface {
-   public:
-    virtual void Reserve(int64_t values) = 0;
-    virtual void Append(const uint8_t* value, uint32_t length) = 0;
-    virtual void AppendNull() = 0;
-    virtual ~WrappedBuilderInterface() = default;
-  };
+  virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                          int64_t valid_bits_offset,
+                          ::arrow::BinaryDictionaryBuilder* builder) = 0;
 
-  template <typename Builder>
-  class WrappedBuilder : public WrappedBuilderInterface {
-   public:
-    explicit WrappedBuilder(Builder* builder) : builder_(builder) {}
+  virtual int DecodeArrowNonNull(int num_values,
+                                 ::arrow::BinaryDictionaryBuilder* builder) = 0;
 
-    void Reserve(int64_t values) override {
-      PARQUET_THROW_NOT_OK(builder_->Reserve(values));
-    }
-    void Append(const uint8_t* value, uint32_t length) override {
-      PARQUET_THROW_NOT_OK(builder_->Append(value, length));
-    }
+  virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                          int64_t valid_bits_offset,
+                          ::arrow::internal::ChunkedBinaryBuilder* builder) = 0;
 
-    void AppendNull() override { PARQUET_THROW_NOT_OK(builder_->AppendNull()); }
-
-   private:
-    Builder* builder_;
-  };
-
-  template <typename Builder>
-  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                  int64_t valid_bits_offset, Builder* builder) {
-    int result = 0;
-    WrappedBuilder<Builder> wrapped_builder(builder);
-    PARQUET_THROW_NOT_OK(DecodeArrow(num_values, null_count, valid_bits,
-                                     valid_bits_offset, &wrapped_builder, &result));
-    return result;
-  }
-
-  template <typename Builder>
-  int DecodeArrowNonNull(int num_values, Builder* builder) {
-    int result = 0;
-    WrappedBuilder<Builder> wrapped_builder(builder);
-    PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, &wrapped_builder, &result));
-    return result;
-  }
-
- private:
-  virtual ::arrow::Status DecodeArrow(int num_values, int null_count,
-                                      const uint8_t* valid_bits,
-                                      int64_t valid_bits_offset,
-                                      WrappedBuilderInterface* builder,
-                                      int* values_decoded) = 0;
-
-  virtual ::arrow::Status DecodeArrowNonNull(int num_values,
-                                             WrappedBuilderInterface* builder,
-                                             int* values_decoded) = 0;
+  virtual int DecodeArrowNonNull(int num_values,
+                                 ::arrow::internal::ChunkedBinaryBuilder* builder) = 0;
 };
 
 class FLBADecoder : virtual public TypedDecoder<FLBAType> {

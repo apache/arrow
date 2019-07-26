@@ -743,7 +743,8 @@ cdef class ParquetSchema:
 
         with nogil:
             check_status(FromParquetSchema(
-                self.schema, self.parent._metadata.key_value_metadata(),
+                self.schema, default_arrow_reader_properties(),
+                self.parent._metadata.key_value_metadata(),
                 &sp_arrow_schema))
 
         return pyarrow_wrap_schema(sp_arrow_schema)

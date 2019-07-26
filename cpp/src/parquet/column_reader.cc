@@ -25,7 +25,9 @@
 
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
+#include "arrow/table.h"
 #include "arrow/util/bit-stream-utils.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle-encoding.h"
@@ -38,6 +40,7 @@
 #include "parquet/thrift.h"
 
 using arrow::MemoryPool;
+using arrow::internal::checked_cast;
 
 namespace parquet {
 
@@ -286,7 +289,8 @@ class ColumnReaderImplBase {
         num_buffered_values_(0),
         num_decoded_values_(0),
         pool_(pool),
-        current_decoder_(nullptr) {}
+        current_decoder_(nullptr),
+        current_encoding_(Encoding::UNKNOWN) {}
 
   virtual ~ColumnReaderImplBase() = default;
 
@@ -409,6 +413,7 @@ class ColumnReaderImplBase {
       ParquetException::NYI("only plain dictionary encoding has been implemented");
     }
 
+    new_dictionary_ = true;
     current_decoder_ = decoders_[encoding].get();
     DCHECK(current_decoder_);
   }
@@ -493,6 +498,7 @@ class ColumnReaderImplBase {
           throw ParquetException("Unknown encoding type.");
       }
     }
+    current_encoding_ = encoding;
     current_decoder_->SetData(static_cast<int>(num_buffered_values_), buffer,
                               static_cast<int>(data_size));
   }
@@ -526,6 +532,11 @@ class ColumnReaderImplBase {
 
   using DecoderType = typename EncodingTraits<DType>::Decoder;
   DecoderType* current_decoder_;
+  Encoding::type current_encoding_;
+
+  /// Flag to signal when a new dictionary has been set, for the benefit of
+  /// DictionaryRecordReader
+  bool new_dictionary_;
 
   // Map of encoding type to the respective decoder object. For example, a
   // column chunk's data pages may include both dictionary-encoded and
@@ -770,7 +781,8 @@ namespace internal {
 constexpr int64_t kMinLevelBatchSize = 1024;
 
 template <typename DType>
-class TypedRecordReader : public ColumnReaderImplBase<DType>, public RecordReader {
+class TypedRecordReader : public ColumnReaderImplBase<DType>,
+                          virtual public RecordReader {
  public:
   using T = typename DType::c_type;
   using BASE = ColumnReaderImplBase<DType>;
@@ -883,9 +895,13 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>, public RecordReade
   }
 
   std::shared_ptr<ResizableBuffer> ReleaseIsValid() override {
-    auto result = valid_bits_;
-    valid_bits_ = AllocateBuffer(this->pool_);
-    return result;
+    if (nullable_values_) {
+      auto result = valid_bits_;
+      valid_bits_ = AllocateBuffer(this->pool_);
+      return result;
+    } else {
+      return nullptr;
+    }
   }
 
   // Process written repetition/definition levels to reach the end of
@@ -1113,10 +1129,6 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>, public RecordReade
     std::cout << std::endl;
   }
 
-  std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() override {
-    throw ParquetException("GetChunks only implemented for binary types");
-  }
-
   void ResetValues() {
     if (values_written_ > 0) {
       // Resize to 0, but do not shrink to fit
@@ -1137,7 +1149,8 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>, public RecordReade
   }
 };
 
-class FLBARecordReader : public TypedRecordReader<FLBAType> {
+class FLBARecordReader : public TypedRecordReader<FLBAType>,
+                         virtual public BinaryRecordReader {
  public:
   FLBARecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
       : TypedRecordReader<FLBAType>(descr, pool), builder_(nullptr) {
@@ -1189,22 +1202,16 @@ class FLBARecordReader : public TypedRecordReader<FLBAType> {
   std::unique_ptr<::arrow::FixedSizeBinaryBuilder> builder_;
 };
 
-class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType> {
+class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
+                                     virtual public BinaryRecordReader {
  public:
-  using BuilderType = ::arrow::internal::ChunkedBinaryBuilder;
-
   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
       : TypedRecordReader<ByteArrayType>(descr, pool), builder_(nullptr) {
     // ARROW-4688(wesm): Using 2^31 - 1 chunks for now
     constexpr int32_t kBinaryChunksize = 2147483647;
     DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
-    if (descr_->converted_type() == ConvertedType::UTF8) {
-      builder_.reset(
-          new ::arrow::internal::ChunkedStringBuilder(kBinaryChunksize, this->pool_));
-    } else {
-      builder_.reset(
-          new ::arrow::internal::ChunkedBinaryBuilder(kBinaryChunksize, this->pool_));
-    }
+    builder_.reset(
+        new ::arrow::internal::ChunkedBinaryBuilder(kBinaryChunksize, this->pool_));
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
@@ -1229,39 +1236,83 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType> {
   }
 
  private:
-  std::unique_ptr<BuilderType> builder_;
+  std::unique_ptr<::arrow::internal::ChunkedBinaryBuilder> builder_;
 };
 
-template <typename BuilderType>
-class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType> {
+class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
+                                        virtual public DictionaryRecordReader {
  public:
   ByteArrayDictionaryRecordReader(const ColumnDescriptor* descr,
                                   ::arrow::MemoryPool* pool)
-      : TypedRecordReader<ByteArrayType>(descr, pool), builder_(new BuilderType(pool)) {}
+      : TypedRecordReader<ByteArrayType>(descr, pool), builder_(pool) {}
 
-  ::arrow::ArrayVector GetBuilderChunks() override {
-    std::shared_ptr<::arrow::Array> chunk;
-    PARQUET_THROW_NOT_OK(builder_->Finish(&chunk));
-    return ::arrow::ArrayVector({chunk});
+  std::shared_ptr<::arrow::ChunkedArray> GetResult() override {
+    FlushBuilder();
+    return std::make_shared<::arrow::ChunkedArray>(result_chunks_);
+  }
+
+  void FlushBuilder() {
+    if (builder_.length() > 0) {
+      std::shared_ptr<::arrow::Array> chunk;
+      PARQUET_THROW_NOT_OK(builder_.Finish(&chunk));
+      result_chunks_.emplace_back(std::move(chunk));
+
+      // Reset clears the dictionary memo table
+      builder_.Reset();
+    }
+  }
+
+  void MaybeWriteNewDictionary() {
+    if (this->new_dictionary_) {
+      /// If there is a new dictionary, we may need to flush the builder, then
+      /// insert the new dictionary values
+      FlushBuilder();
+      auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_);
+      decoder->InsertDictionary(&builder_);
+      this->new_dictionary_ = false;
+    }
   }
 
   void ReadValuesDense(int64_t values_to_read) override {
-    int64_t num_decoded = this->current_decoder_->DecodeArrowNonNull(
-        static_cast<int>(values_to_read), builder_.get());
+    int64_t num_decoded = 0;
+    if (current_encoding_ == Encoding::RLE_DICTIONARY) {
+      MaybeWriteNewDictionary();
+      auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_);
+      num_decoded = decoder->DecodeIndices(static_cast<int>(values_to_read), &builder_);
+    } else {
+      num_decoded = this->current_decoder_->DecodeArrowNonNull(
+          static_cast<int>(values_to_read), &builder_);
+
+      /// Flush values since they have been copied into the builder
+      ResetValues();
+    }
     DCHECK_EQ(num_decoded, values_to_read);
-    ResetValues();
   }
 
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
-    int64_t num_decoded = this->current_decoder_->DecodeArrow(
-        static_cast<int>(values_to_read), static_cast<int>(null_count),
-        valid_bits_->mutable_data(), values_written_, builder_.get());
+    int64_t num_decoded = 0;
+    if (current_encoding_ == Encoding::RLE_DICTIONARY) {
+      MaybeWriteNewDictionary();
+      auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_);
+      num_decoded = decoder->DecodeIndicesSpaced(
+          static_cast<int>(values_to_read), static_cast<int>(null_count),
+          valid_bits_->mutable_data(), values_written_, &builder_);
+    } else {
+      num_decoded = this->current_decoder_->DecodeArrow(
+          static_cast<int>(values_to_read), static_cast<int>(null_count),
+          valid_bits_->mutable_data(), values_written_, &builder_);
+
+      /// Flush values since they have been copied into the builder
+      ResetValues();
+    }
     DCHECK_EQ(num_decoded, values_to_read);
-    ResetValues();
   }
 
  private:
-  std::unique_ptr<BuilderType> builder_;
+  using BinaryDictDecoder = DictDecoder<ByteArrayType>;
+
+  ::arrow::BinaryDictionaryBuilder builder_;
+  std::vector<std::shared_ptr<::arrow::Array>> result_chunks_;
 };
 
 // TODO(wesm): Implement these to some satisfaction
@@ -1278,13 +1329,7 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* 
                                                         arrow::MemoryPool* pool,
                                                         bool read_dictionary) {
   if (read_dictionary) {
-    if (descr->converted_type() == ConvertedType::UTF8) {
-      using Builder = ::arrow::StringDictionaryBuilder;
-      return std::make_shared<ByteArrayDictionaryRecordReader<Builder>>(descr, pool);
-    } else {
-      using Builder = ::arrow::BinaryDictionaryBuilder;
-      return std::make_shared<ByteArrayDictionaryRecordReader<Builder>>(descr, pool);
-    }
+    return std::make_shared<ByteArrayDictionaryRecordReader>(descr, pool);
   } else {
     return std::make_shared<ByteArrayChunkedRecordReader>(descr, pool);
   }

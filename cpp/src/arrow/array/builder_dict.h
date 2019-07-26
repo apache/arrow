@@ -74,6 +74,9 @@ class ARROW_EXPORT DictionaryMemoTable {
   Status GetArrayData(MemoryPool* pool, int64_t start_offset,
                       std::shared_ptr<ArrayData>* out);
 
+  /// \brief Insert new memo values
+  Status InsertValues(const Array& values);
+
   int32_t size() const;
 
  private:
@@ -103,7 +106,7 @@ class DictionaryBuilder : public ArrayBuilder {
   DictionaryBuilder(
       typename std::enable_if<!std::is_base_of<FixedSizeBinaryType, T1>::value,
                               const std::shared_ptr<DataType>&>::type type,
-      MemoryPool* pool)
+      MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(type, pool),
         memo_table_(new internal::DictionaryMemoTable(type)),
         delta_offset_(0),
@@ -114,7 +117,7 @@ class DictionaryBuilder : public ArrayBuilder {
   explicit DictionaryBuilder(
       typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T1>::value,
                               const std::shared_ptr<DataType>&>::type type,
-      MemoryPool* pool)
+      MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(type, pool),
         memo_table_(new internal::DictionaryMemoTable(type)),
         delta_offset_(0),
@@ -123,10 +126,12 @@ class DictionaryBuilder : public ArrayBuilder {
 
   template <typename T1 = T>
   explicit DictionaryBuilder(
-      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool)
+      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool =
+          default_memory_pool())
       : DictionaryBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
-  DictionaryBuilder(const std::shared_ptr<Array>& dictionary, MemoryPool* pool)
+  DictionaryBuilder(const std::shared_ptr<Array>& dictionary,
+                    MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(dictionary->type(), pool),
         memo_table_(new internal::DictionaryMemoTable(dictionary)),
         delta_offset_(0),
@@ -173,6 +178,27 @@ class DictionaryBuilder : public ArrayBuilder {
     null_count_ += length;
 
     return values_builder_.AppendNulls(length);
+  }
+
+  /// \brief Insert values into the dictionary's memo, but do not append any
+  /// indices. Can be used to initialize a new builder with known dictionary
+  /// values
+  /// \param[in] values dictionary values to add to memo. Type must match
+  /// builder type
+  Status InsertMemoValues(const Array& values) {
+    return memo_table_->InsertValues(values);
+  }
+
+  /// \brief Append dictionary indices directly without modifying memo
+  ///
+  /// NOTE: Experimental API
+  Status AppendIndices(const int64_t* values, int64_t length,
+                       const uint8_t* valid_bytes = NULLPTR) {
+    int64_t null_count_before = values_builder_.null_count();
+    ARROW_RETURN_NOT_OK(values_builder_.AppendValues(values, length, valid_bytes));
+    length_ += length;
+    null_count_ += values_builder_.null_count() - null_count_before;
+    return Status::OK();
   }
 
   /// \brief Append a whole dense array to the builder
@@ -277,12 +303,14 @@ class DictionaryBuilder : public ArrayBuilder {
 template <>
 class DictionaryBuilder<NullType> : public ArrayBuilder {
  public:
-  DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+  DictionaryBuilder(const std::shared_ptr<DataType>& type,
+                    MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(type, pool), values_builder_(pool) {}
-  explicit DictionaryBuilder(MemoryPool* pool)
+  explicit DictionaryBuilder(MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(null(), pool), values_builder_(pool) {}
 
-  DictionaryBuilder(const std::shared_ptr<Array>& dictionary, MemoryPool* pool)
+  DictionaryBuilder(const std::shared_ptr<Array>& dictionary,
+                    MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(dictionary->type(), pool), values_builder_(pool) {}
 
   /// \brief Append a scalar null value
@@ -340,7 +368,10 @@ class DictionaryBuilder<NullType> : public ArrayBuilder {
 class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType> {
  public:
   using DictionaryBuilder::Append;
+  using DictionaryBuilder::AppendIndices;
   using DictionaryBuilder::DictionaryBuilder;
+
+  BinaryDictionaryBuilder() : BinaryDictionaryBuilder(default_memory_pool()) {}
 
   Status Append(const uint8_t* value, int32_t length) {
     return Append(reinterpret_cast<const char*>(value), length);
@@ -355,7 +386,10 @@ class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType
 class ARROW_EXPORT StringDictionaryBuilder : public DictionaryBuilder<StringType> {
  public:
   using DictionaryBuilder::Append;
+  using DictionaryBuilder::AppendIndices;
   using DictionaryBuilder::DictionaryBuilder;
+
+  StringDictionaryBuilder() : StringDictionaryBuilder(default_memory_pool()) {}
 
   Status Append(const uint8_t* value, int32_t length) {
     return Append(reinterpret_cast<const char*>(value), length);

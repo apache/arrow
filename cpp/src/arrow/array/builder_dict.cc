@@ -40,6 +40,16 @@ using internal::checked_cast;
 // ----------------------------------------------------------------------
 // DictionaryType unification
 
+template <typename T, typename Out = void>
+using enable_if_memoize = typename std::enable_if<
+    !std::is_same<typename internal::DictionaryTraits<T>::MemoTableType, void>::value,
+    Out>::type;
+
+template <typename T, typename Out = void>
+using enable_if_no_memoize = typename std::enable_if<
+    std::is_same<typename internal::DictionaryTraits<T>::MemoTableType, void>::value,
+    Out>::type;
+
 struct UnifyDictionaryValues {
   MemoryPool* pool_;
   std::shared_ptr<DataType> value_type_;
@@ -48,21 +58,15 @@ struct UnifyDictionaryValues {
   std::shared_ptr<Array>* out_values_;
   std::vector<std::vector<int32_t>>* out_transpose_maps_;
 
-  Status Visit(const DataType&, void* = nullptr) {
+  template <typename T>
+  enable_if_no_memoize<T, Status> Visit(const T&) {
     // Default implementation for non-dictionary-supported datatypes
     return Status::NotImplemented("Unification of ", value_type_,
                                   " dictionaries is not implemented");
   }
 
-  Status Visit(const DayTimeIntervalType&, void* = nullptr) {
-    return Status::NotImplemented(
-        "Unification of DayTime"
-        " dictionaries is not implemented");
-  }
-
   template <typename T>
-  Status Visit(const T&,
-               typename internal::DictionaryTraits<T>::MemoTableType* = nullptr) {
+  enable_if_memoize<T, Status> Visit(const T&) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
     using DictTraits = typename internal::DictionaryTraits<T>;
     using MemoTableType = typename DictTraits::MemoTableType;
@@ -163,14 +167,14 @@ class internal::DictionaryMemoTable::DictionaryMemoTableImpl {
     std::shared_ptr<DataType> value_type_;
     std::unique_ptr<MemoTable>* memo_table_;
 
-    Status Visit(const DataType&, void* = nullptr) {
+    template <typename T>
+    enable_if_no_memoize<T, Status> Visit(const T&) {
       return Status::NotImplemented("Initialization of ", value_type_,
                                     " memo table is not implemented");
     }
 
     template <typename T>
-    Status Visit(const T&,
-                 typename internal::DictionaryTraits<T>::MemoTableType* = nullptr) {
+    enable_if_memoize<T, Status> Visit(const T&) {
       using MemoTable = typename internal::DictionaryTraits<T>::MemoTableType;
       memo_table_->reset(new MemoTable(0));
       return Status::OK();
@@ -179,23 +183,24 @@ class internal::DictionaryMemoTable::DictionaryMemoTableImpl {
 
   struct ArrayValuesInserter {
     DictionaryMemoTableImpl* impl_;
+    const Array& values_;
 
     template <typename T>
-    Status Visit(const T& array) {
-      return InsertValues(array.type(), array);
+    Status Visit(const T& type) {
+      using ArrayType = typename TypeTraits<T>::ArrayType;
+      return InsertValues(type, checked_cast<const ArrayType&>(values_));
     }
 
    private:
-    template <typename DataType, typename Array>
-    Status InsertValues(const DataType& type, const Array&, void* = nullptr) {
+    template <typename DType, typename ArrayType>
+    enable_if_no_memoize<DType, Status> InsertValues(const DType& type,
+                                                     const ArrayType&) {
       return Status::NotImplemented("Inserting array values of ", type,
                                     " is not implemented");
     }
 
-    template <typename DataType, typename Array>
-    Status InsertValues(
-        const DataType&, const Array& array,
-        typename internal::DictionaryTraits<DataType>::MemoTableType* = nullptr) {
+    template <typename DType, typename ArrayType>
+    enable_if_memoize<DType, Status> InsertValues(const DType&, const ArrayType& array) {
       for (int64_t i = 0; i < array.length(); ++i) {
         ARROW_IGNORE_EXPR(impl_->GetOrInsert(array.GetView(i)));
       }
@@ -210,14 +215,14 @@ class internal::DictionaryMemoTable::DictionaryMemoTableImpl {
     int64_t start_offset_;
     std::shared_ptr<ArrayData>* out_;
 
-    Status Visit(const DataType&, void* = nullptr) {
+    template <typename T>
+    enable_if_no_memoize<T, Status> Visit(const T&) {
       return Status::NotImplemented("Getting array data of ", value_type_,
                                     " is not implemented");
     }
 
     template <typename T>
-    Status Visit(const T&,
-                 typename internal::DictionaryTraits<T>::MemoTableType* = nullptr) {
+    enable_if_memoize<T, Status> Visit(const T&) {
       using ConcreteMemoTable = typename internal::DictionaryTraits<T>::MemoTableType;
       auto memo_table = static_cast<ConcreteMemoTable*>(memo_table_);
       return internal::DictionaryTraits<T>::GetDictionaryArrayData(
@@ -232,9 +237,13 @@ class internal::DictionaryMemoTable::DictionaryMemoTableImpl {
     ARROW_IGNORE_EXPR(VisitTypeInline(*type_, &visitor));
   }
 
-  Status InsertValues(const std::shared_ptr<Array>& array) {
-    ArrayValuesInserter visitor{this};
-    return VisitArrayInline(*array, &visitor);
+  Status InsertValues(const Array& array) {
+    if (!array.type()->Equals(*type_)) {
+      return Status::Invalid("Array value type does not match memo type: ",
+                             array.type()->ToString());
+    }
+    ArrayValuesInserter visitor{this, array};
+    return VisitTypeInline(*array.type(), &visitor);
   }
 
   template <typename T>
@@ -267,7 +276,7 @@ internal::DictionaryMemoTable::DictionaryMemoTable(const std::shared_ptr<DataTyp
 internal::DictionaryMemoTable::DictionaryMemoTable(
     const std::shared_ptr<Array>& dictionary)
     : impl_(new DictionaryMemoTableImpl(dictionary->type())) {
-  ARROW_IGNORE_EXPR(impl_->InsertValues(dictionary));
+  ARROW_IGNORE_EXPR(impl_->InsertValues(*dictionary));
 }
 
 internal::DictionaryMemoTable::~DictionaryMemoTable() = default;
@@ -323,6 +332,10 @@ int32_t internal::DictionaryMemoTable::GetOrInsert(const util::string_view& valu
 Status internal::DictionaryMemoTable::GetArrayData(MemoryPool* pool, int64_t start_offset,
                                                    std::shared_ptr<ArrayData>* out) {
   return impl_->GetArrayData(pool, start_offset, out);
+}
+
+Status internal::DictionaryMemoTable::InsertValues(const Array& array) {
+  return impl_->InsertValues(array);
 }
 
 int32_t internal::DictionaryMemoTable::size() const { return impl_->size(); }

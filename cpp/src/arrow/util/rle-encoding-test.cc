@@ -26,6 +26,10 @@
 
 #include <boost/utility.hpp>  // IWYU pragma: export
 
+#include "arrow/array.h"
+#include "arrow/buffer.h"
+#include "arrow/testing/random.h"
+#include "arrow/type.h"
 #include "arrow/util/bit-stream-utils.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/rle-encoding.h"
@@ -242,12 +246,13 @@ bool CheckRoundTrip(const std::vector<int>& values, int bit_width) {
 
   // Verify batch read
   {
-    RleDecoder decoder(buffer, len, bit_width);
+    RleDecoder decoder(buffer, encoded_len, bit_width);
     std::vector<int> values_read(values.size());
     if (static_cast<int>(values.size()) !=
         decoder.GetBatch(values_read.data(), static_cast<int>(values.size()))) {
       return false;
     }
+
     if (values != values_read) {
       return false;
     }
@@ -461,6 +466,70 @@ TEST(BitRle, Overflow) {
     // Make sure we get false when reading past end a couple times.
     EXPECT_FALSE(decoder.Get(&v));
     EXPECT_FALSE(decoder.Get(&v));
+  }
+}
+
+template <typename Type>
+void CheckRoundTripSpaced(const Array& data, int bit_width) {
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using T = typename Type::c_type;
+
+  int num_values = static_cast<int>(data.length());
+  int buffer_size = RleEncoder::MaxBufferSize(bit_width, num_values);
+
+  const T* values = static_cast<const ArrayType&>(data).raw_values();
+
+  std::vector<uint8_t> buffer(buffer_size);
+  RleEncoder encoder(buffer.data(), buffer_size, bit_width);
+  for (int i = 0; i < num_values; ++i) {
+    if (data.IsValid(i)) {
+      if (!encoder.Put(static_cast<uint64_t>(values[i]))) {
+        FAIL() << "Encoding failed";
+      }
+    }
+  }
+  int encoded_size = encoder.Flush();
+
+  // Verify batch read
+  RleDecoder decoder(buffer.data(), encoded_size, bit_width);
+  std::vector<T> values_read(num_values);
+
+  if (num_values != decoder.GetBatchSpaced(
+                        num_values, static_cast<int>(data.null_count()),
+                        data.null_bitmap_data(), data.offset(), values_read.data())) {
+    FAIL();
+  }
+
+  for (int64_t i = 0; i < num_values; ++i) {
+    if (data.IsValid(i)) {
+      if (values_read[i] != values[i]) {
+        FAIL() << "Index " << i << " read " << values_read[i] << " but should be "
+               << values[i];
+      }
+    }
+  }
+}
+
+template <typename T>
+struct GetBatchSpacedTestCase {
+  T max_value;
+  int64_t size;
+  double null_probability;
+  int bit_width;
+};
+
+TEST(RleDecoder, GetBatchSpaced) {
+  uint32_t kSeed = 1337;
+  ::arrow::random::RandomArrayGenerator rand(kSeed);
+
+  std::vector<GetBatchSpacedTestCase<int32_t>> int32_cases{
+      {1, 100000, 0.01, 1}, {1, 100000, 0.1, 1},    {1, 100000, 0.5, 1},
+      {4, 100000, 0.05, 3}, {100, 100000, 0.05, 7},
+  };
+  for (auto case_ : int32_cases) {
+    auto arr = rand.Int32(case_.size, /*min=*/0, case_.max_value, case_.null_probability);
+    CheckRoundTripSpaced<Int32Type>(*arr, case_.bit_width);
+    CheckRoundTripSpaced<Int32Type>(*arr->Slice(1), case_.bit_width);
   }
 }
 

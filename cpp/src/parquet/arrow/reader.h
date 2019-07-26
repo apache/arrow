@@ -156,8 +156,14 @@ ArrowReaderProperties default_arrow_reader_properties();
 // arrays
 class PARQUET_EXPORT FileReader {
  public:
-  FileReader(::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader,
-             const ArrowReaderProperties& properties = default_arrow_reader_properties());
+  static ::arrow::Status Make(::arrow::MemoryPool* pool,
+                              std::unique_ptr<ParquetFileReader> reader,
+                              const ArrowReaderProperties& properties,
+                              std::unique_ptr<FileReader>* out);
+
+  static ::arrow::Status Make(::arrow::MemoryPool* pool,
+                              std::unique_ptr<ParquetFileReader> reader,
+                              std::unique_ptr<FileReader>* out);
 
   // Since the distribution of columns amongst a Parquet file's row groups may
   // be uneven (the number of values in each column chunk can be different), we
@@ -261,6 +267,9 @@ class PARQUET_EXPORT FileReader {
   virtual ~FileReader();
 
  private:
+  FileReader(::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader,
+             const ArrowReaderProperties& properties);
+
   friend ColumnChunkReader;
   friend RowGroupReader;
 
