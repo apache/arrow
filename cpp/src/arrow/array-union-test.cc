@@ -35,7 +35,7 @@ TEST(TestUnionArray, TestSliceEquals) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeUnion(&batch));
 
-  auto CheckUnion = [](std::shared_ptr<Array> array) {
+  auto CheckUnion = [](std::shared_ptr<Array> array) { 
     const int64_t size = array->length();
     std::shared_ptr<Array> slice, slice2;
     slice = array->Slice(2);
@@ -283,7 +283,7 @@ class UnionBuilderTest : public ::testing::Test {
   std::shared_ptr<Int8Builder> i8_builder = std::make_shared<Int8Builder>();
   std::shared_ptr<StringBuilder> str_builder = std::make_shared<StringBuilder>();
   std::shared_ptr<DoubleBuilder> dbl_builder = std::make_shared<DoubleBuilder>();
-  std::shared_ptr<B> union_builder{new B(default_memory_pool())};
+  std::shared_ptr<B> union_builder = std::make_shared<B>(default_memory_pool());
   std::shared_ptr<UnionArray> actual;
 };
 
