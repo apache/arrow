@@ -348,7 +348,7 @@ inline int RleDecoder::GetBatchSpaced(int batch_size, int null_count,
 
           bit_reader.Next();
         }
-        std::fill(out, out + repeat_batch, current_value_);
+        std::fill(out, out + repeat_batch, static_cast<T>(current_value_));
         out += repeat_batch;
         values_read += repeat_batch;
       } else if (literal_count_ > 0) {

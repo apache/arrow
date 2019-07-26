@@ -494,7 +494,8 @@ void CheckRoundTripSpaced(const Array& data, int bit_width) {
   RleDecoder decoder(buffer.data(), encoded_size, bit_width);
   std::vector<T> values_read(num_values);
 
-  if (num_values != decoder.GetBatchSpaced(num_values, data.null_count(),
+  if (num_values != decoder.GetBatchSpaced(num_values,
+                                           static_cast<int>(data.null_count()),
                                            data.null_bitmap_data(), data.offset(),
                                            values_read.data())) {
     FAIL();
