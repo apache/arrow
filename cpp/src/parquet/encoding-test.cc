@@ -540,5 +540,13 @@ TEST_F(DictEncoding, CheckDecodeIndicesSpaced) {
   }
 }
 
+TEST_F(DictEncoding, CheckDecodeIndicesNoNulls) {
+  InitTestCase(/*null_probability=*/0.0);
+  auto builder = CreateDictBuilder();
+  dict_decoder_->InsertDictionary(builder.get());
+  auto actual_num_values = dict_decoder_->DecodeIndices(num_values_, builder.get());
+  CheckDict(actual_num_values, *builder);
+}
+
 }  // namespace test
 }  // namespace parquet

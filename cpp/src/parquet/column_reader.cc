@@ -1262,8 +1262,11 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
     }
   }
 
-  void WriteNewDictionary() {
+  void MaybeWriteNewDictionary() {
     if (this->new_dictionary_) {
+      /// If there is a new dictionary, we may need to flush the builder, then
+      /// insert the new dictionary values
+      FlushBuilder();
       auto decoder = checked_cast<BinaryDictDecoder*>(this->current_decoder_);
       decoder->InsertDictionary(&builder_);
       this->new_dictionary_ = false;
@@ -1273,10 +1276,7 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
   void ReadValuesDense(int64_t values_to_read) override {
     int64_t num_decoded = 0;
     if (current_encoding_ == Encoding::RLE_DICTIONARY) {
-      /// If there is a new dictionary, we may need to flush the builder, then
-      /// insert the new dictionary values
-      FlushBuilder();
-      WriteNewDictionary();
+      MaybeWriteNewDictionary();
       auto decoder = checked_cast<BinaryDictDecoder*>(this->current_decoder_);
       num_decoded = decoder->DecodeIndices(static_cast<int>(values_to_read), &builder_);
     } else {
@@ -1292,10 +1292,7 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
     int64_t num_decoded = 0;
     if (current_encoding_ == Encoding::RLE_DICTIONARY) {
-      /// If there is a new dictionary, we may need to flush the builder, then
-      /// insert the new dictionary values
-      FlushBuilder();
-      WriteNewDictionary();
+      MaybeWriteNewDictionary();
       auto decoder = checked_cast<BinaryDictDecoder*>(this->current_decoder_);
       num_decoded = decoder->DecodeIndicesSpaced(
           static_cast<int>(values_to_read), static_cast<int>(null_count),

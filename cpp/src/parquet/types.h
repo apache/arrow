@@ -633,19 +633,19 @@ struct type_traits<Type::FIXED_LEN_BYTE_ARRAY> {
 };
 
 template <Type::type TYPE>
-struct DataType {
+struct PhysicalType {
   using c_type = typename type_traits<TYPE>::value_type;
   static constexpr Type::type type_num = TYPE;
 };
 
-using BooleanType = DataType<Type::BOOLEAN>;
-using Int32Type = DataType<Type::INT32>;
-using Int64Type = DataType<Type::INT64>;
-using Int96Type = DataType<Type::INT96>;
-using FloatType = DataType<Type::FLOAT>;
-using DoubleType = DataType<Type::DOUBLE>;
-using ByteArrayType = DataType<Type::BYTE_ARRAY>;
-using FLBAType = DataType<Type::FIXED_LEN_BYTE_ARRAY>;
+using BooleanType = PhysicalType<Type::BOOLEAN>;
+using Int32Type = PhysicalType<Type::INT32>;
+using Int64Type = PhysicalType<Type::INT64>;
+using Int96Type = PhysicalType<Type::INT96>;
+using FloatType = PhysicalType<Type::FLOAT>;
+using DoubleType = PhysicalType<Type::DOUBLE>;
+using ByteArrayType = PhysicalType<Type::BYTE_ARRAY>;
+using FLBAType = PhysicalType<Type::FIXED_LEN_BYTE_ARRAY>;
 
 template <typename Type>
 inline std::string format_fwf(int width) {

@@ -29,6 +29,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
+#include "parquet/arrow/reader.h"
 #include "parquet/arrow/writer.h"
 #include "parquet/exception.h"
 #include "parquet/properties.h"
@@ -424,8 +425,13 @@ Status NodeToFieldInternal(const Node& node,
   return Status::OK();
 }
 
+std::shared_ptr<Field> ToDictionary32(const Field& field) {
+  auto new_ty = ::arrow::dictionary(::arrow::int32(), field.type());
+  return field.WithType(new_ty);
+}
+
 Status FromParquetSchema(
-    const SchemaDescriptor* parquet_schema,
+    const SchemaDescriptor* parquet_schema, const ArrowReaderProperties& properties,
     const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
     std::shared_ptr<::arrow::Schema>* out) {
   const GroupNode& schema_node = *parquet_schema->group_node();
@@ -435,13 +441,13 @@ Status FromParquetSchema(
   for (int i = 0; i < num_fields; i++) {
     RETURN_NOT_OK(NodeToField(*schema_node.field(i), &fields[i]));
   }
-
   *out = std::make_shared<::arrow::Schema>(fields, key_value_metadata);
   return Status::OK();
 }
 
 Status FromParquetSchema(
     const SchemaDescriptor* parquet_schema, const std::vector<int>& column_indices,
+    const ArrowReaderProperties& properties,
     const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
     std::shared_ptr<::arrow::Schema>* out) {
   // TODO(wesm): Consider adding an arrow::Schema name attribute, which comes
@@ -456,10 +462,12 @@ Status FromParquetSchema(
   std::unordered_set<const Node*> included_leaf_nodes(num_columns);
   for (int i = 0; i < num_columns; i++) {
     const ColumnDescriptor* column_desc = parquet_schema->Column(column_indices[i]);
-    included_leaf_nodes.insert(column_desc->schema_node().get());
+    const Node* node = column_desc->schema_node().get();
+
+    included_leaf_nodes.insert(node);
     const Node* column_root = parquet_schema->GetColumnRoot(column_indices[i]);
-    auto insertion = top_nodes.insert(column_root);
-    if (insertion.second) {
+    auto it = top_nodes.insert(column_root);
+    if (it.second) {
       base_nodes.push_back(column_root);
     }
   }
@@ -479,13 +487,15 @@ Status FromParquetSchema(
 
 Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
                          const std::vector<int>& column_indices,
+                         const ArrowReaderProperties& properties,
                          std::shared_ptr<::arrow::Schema>* out) {
-  return FromParquetSchema(parquet_schema, column_indices, nullptr, out);
+  return FromParquetSchema(parquet_schema, column_indices, properties, nullptr, out);
 }
 
 Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
+                         const ArrowReaderProperties& properties,
                          std::shared_ptr<::arrow::Schema>* out) {
-  return FromParquetSchema(parquet_schema, nullptr, out);
+  return FromParquetSchema(parquet_schema, properties, nullptr, out);
 }
 
 Status ListToNode(const std::shared_ptr<::arrow::ListType>& type, const std::string& name,

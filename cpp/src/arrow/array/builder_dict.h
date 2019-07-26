@@ -196,6 +196,7 @@ class DictionaryBuilder : public ArrayBuilder {
                        const uint8_t* valid_bytes = NULLPTR) {
     int64_t null_count_before = values_builder_.null_count();
     ARROW_RETURN_NOT_OK(values_builder_.AppendValues(values, length, valid_bytes));
+    length_ += length;
     null_count_ += values_builder_.null_count() - null_count_before;
     return Status::OK();
   }

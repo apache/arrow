@@ -493,7 +493,11 @@ Schema::~Schema() {}
 
 int Schema::num_fields() const { return static_cast<int>(impl_->fields_.size()); }
 
-std::shared_ptr<Field> Schema::field(int i) const { return impl_->fields_[i]; }
+std::shared_ptr<Field> Schema::field(int i) const {
+  DCHECK_GE(i, 0);
+  DCHECK_LT(i, num_fields());
+  return impl_->fields_[i];
+}
 
 const std::vector<std::shared_ptr<Field>>& Schema::fields() const {
   return impl_->fields_;

@@ -320,6 +320,9 @@ TEST(TestStringDictionaryBuilder, AppendIndices) {
     ASSERT_OK(builder.AppendIndices(
         raw_indices.data(), static_cast<int64_t>(raw_indices.size()), is_valid.data()));
   }
+
+  ASSERT_EQ(10, builder.length());
+
   std::shared_ptr<Array> result;
   ASSERT_OK(builder.Finish(&result));
 

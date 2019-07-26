@@ -831,7 +831,8 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
         dictionary_(AllocateBuffer(pool, 0)),
         dictionary_length_(0),
         byte_array_data_(AllocateBuffer(pool, 0)),
-        byte_array_offsets_(AllocateBuffer(pool, 0)) {}
+        byte_array_offsets_(AllocateBuffer(pool, 0)),
+        indices_scratch_space_(AllocateBuffer(pool, 0)) {}
 
   // Perform type-specific initiatialization
   void SetDict(TypedDecoder<Type>* dictionary) override;
@@ -877,8 +878,8 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
     if (num_values > 0) {
       // TODO(wesm): Refactor to batch reads for improved memory use. It is not
       // trivial because the null_count is relative to the entire bitmap
-      PARQUET_THROW_NOT_OK(indices_scratch_space_->Resize(num_values * sizeof(int16_t),
-                                                          /*shrink_to_fit=*/false));
+      PARQUET_THROW_NOT_OK(indices_scratch_space_->TypedResize<int64_t>(
+          num_values, /*shrink_to_fit=*/false));
     }
 
     auto indices_buffer =
@@ -911,8 +912,8 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
       // TODO(wesm): Refactor to batch reads for improved memory use. This is
       // relatively simple here because we don't have to do any bookkeeping of
       // nulls
-      PARQUET_THROW_NOT_OK(indices_scratch_space_->Resize(num_values * sizeof(int16_t),
-                                                          /*shrink_to_fit=*/false));
+      PARQUET_THROW_NOT_OK(indices_scratch_space_->TypedResize<int64_t>(
+          num_values, /*shrink_to_fit=*/false));
     }
     auto indices_buffer =
         reinterpret_cast<int64_t*>(indices_scratch_space_->mutable_data());
