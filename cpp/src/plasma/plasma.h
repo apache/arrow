@@ -69,7 +69,25 @@ struct ObjectInfoT;
 /// Allocation granularity used in plasma for object allocation.
 constexpr int64_t kBlockSize = 64;
 
-struct Client;
+/// Contains all information that is associated with a Plasma store client.
+struct Client {
+  explicit Client(int fd);
+
+  /// The file descriptor used to communicate with the client.
+  int fd;
+
+  /// Object ids that are used by this client.
+  std::unordered_set<ObjectID> object_ids;
+
+  /// File descriptors that are used by this client.
+  std::unordered_set<int> used_fds;
+
+  /// The file descriptor used to push notifications to client. This is only valid
+  /// if client subscribes to plasma store. -1 indicates invalid.
+  int notification_fd;
+
+  std::string name = "anonymous_client";
+};
 
 // TODO(pcm): Replace this by the flatbuffers message PlasmaObjectSpec.
 struct PlasmaObject {
