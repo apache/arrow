@@ -1023,4 +1023,7 @@ TEST(TestDictionary, DISABLED_ListOfDictionary) {
   ASSERT_ARRAYS_EQUAL(*expected_dict, *actual_dict);
 }
 
+// ----------------------------------------------------------------------
+// Dictionary32Builder: produce int32 indices consistently
+
 }  // namespace arrow
