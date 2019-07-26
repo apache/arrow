@@ -52,6 +52,7 @@ PARQUET_EXPORT
 /// \param column_indices indices of leaf nodes in parquet schema tree. Appearing ordering
 ///                       matters for the converted schema. Repeated indices are ignored
 ///                       except for the first one
+/// \param properties reader options for FileReader
 /// \param key_value_metadata optional metadata, can be nullptr
 /// \param out the corresponding arrow schema
 /// \return Status::OK() on a successful conversion.
