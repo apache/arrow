@@ -443,6 +443,9 @@ services:
     build:
       context: .
       dockerfile: dev/fuzzit/Dockerfile
+    environment:
+      CI_ARROW_SHA: ${CI_ARROW_SHA}
+      CI_ARROW_BRANCH: ${CI_ARROW_BRANCH}
     volumes: *ubuntu-volumes
 
   iwyu:
