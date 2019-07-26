@@ -44,9 +44,9 @@ def _serialize_numpy_array_list(obj):
         # the view.
         if not obj.flags.c_contiguous:
             obj = np.ascontiguousarray(obj)
-        return obj.view('uint8'), obj.dtype.str
+        return obj.view('uint8'), obj.dtype.descr
     else:
-        return obj.tolist(), obj.dtype.str
+        return obj.tolist(), obj.dtype.descr
 
 
 def _deserialize_numpy_array_list(data):
@@ -63,9 +63,9 @@ def _serialize_numpy_matrix(obj):
         # the view.
         if not obj.flags.c_contiguous:
             obj = np.ascontiguousarray(obj.A)
-        return obj.A.view('uint8'), obj.A.dtype.str
+        return obj.A.view('uint8'), obj.A.dtype.descr
     else:
-        return obj.A.tolist(), obj.A.dtype.str
+        return obj.A.tolist(), obj.A.dtype.descr
 
 
 def _deserialize_numpy_matrix(data):
