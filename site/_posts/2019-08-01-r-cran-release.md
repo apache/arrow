@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Apache Arrow R Package CRAN Release"
+title: "Apache Arrow R Package On CRAN"
 date: "2019-08-01 00:00:00 -0600"
 author: npr
 categories: [application]

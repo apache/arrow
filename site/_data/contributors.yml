@@ -46,4 +46,7 @@
   apacheId: agrove
   githubId: andygrove
   role: PMC
+- name: Neal Richardson
+  apacheId: npr # Not a real apacheId
+  githubId: nealrichardson
 # End contributors.yml
