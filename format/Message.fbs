@@ -35,30 +35,14 @@ table FrameOfReferenceIntEncoding {
   /// The value that all values in the buffer are relative to.
   reference_value: long = 0;
   /// The range of integers the set may contain. Unsigned integers up to 32 bit
-  /// and signed integers up to 64 bit are supported
+  /// and signed integers up to 64 bit are supported. (Per definitions only,
+  /// multiples of 8 bits are supported).
   offset_type : Int;
 }
 
-/// An encoding that efficiently encodes set of integers where most values
-/// are either included or not included in the set.
-/// Integers are stored in sorted order where each integer indicates set
-/// membership according to index_indicator.
-///
-/// This is a sparse representation for validity buffers and boolean value
-/// buffers.
-enum IndexValueIndicator: short { IN_SET, NOT_IN_SET }
-table SparseIntegerSetEncoding {
-  // The encoding of the integers used in the set.
-  encoding : FrameOfReferenceIntEncoding;
-  /// Whether an indicates membership or exclusion from the set.
-  index_indicator : IndexValueIndicator;
-}
-
-
 union BufferEncodingType {
   /// NONE indicates Dense encoding (e.g. bitmaps for validity buffers).
-  SparseIntegerSetEncoding = 1,
-  FrameOfReferenceIntEncoding = 2,
+  FrameOfReferenceIntEncoding = 1,
   /// We use the following scheme for managing extensions.  We define a slot
   /// as the location within a nested-flatbuffer hierarchy reserved for a type.
   /// We define a type ID as an unique unsigned integer that has a 1-to-1 mapping
@@ -96,33 +80,11 @@ union BufferEncodingType {
   /// extensions and contribute them back with minimal effort.
 }
 
-/// Buffer compression schemes.
-
-/// Zstandard Compression (https://en.wikipedia.org/wiki/Zstandard).
-table ZstdCompression {}
-
-
-union CompressionType {
-  // NONE indicates uncompressed
-  ZstdCompression = 1
-  /// See documentation on BufferEncodingType for slot numbering and reservation
-  /// scheme.
-}
-
-
 /// A buffer that represents values encoded in a specific manner.
 table EncodedBuffer {
   /// Pointer to buffer in memory (the length of the buffer is the size
   /// after all compression/encodings have been applied).
   buffer : Buffer;
-
-  /// The size of the buffer after the buffer it is decompressed.
-  decompressed_length: long;
-
-  /// Compression applied to the buffer.  For Arrow, compression is intended
-  /// solely to reduce the size of the buffer for transport.  In general, a
-  /// buffer must decompressed before any processing can be done on it.
-  compression : CompressionType;
 
   /// Encodings are meant to enable more efficient processing of the buffer
   /// by representing data in manner that makes better use of CPU cycles.
@@ -138,21 +100,10 @@ table EncodedBuffer {
 /// Array Encodings
 /// -------------------------------
 
-/// Value and offset buffers are packed (null values have no space allocated to them).
-/// The validity buffer always uses SparseIntegerSetEncoding.  This is useful when
-/// nulls appears uniformly randomly at a high rate in the data (e.g. 50% nulls
-/// where nulls every other value is null).
-table PackedSparseEncoding {}
-
 /// An extra buffer is added preceding all the other buffers in the depth-first
-/// traversal of the array.  The buffer holds a list of boolean values (i.e
-/// bitmask) where each true/set value indicates the end of a run of values at
-/// the given index.
-/// Therefore the list of values has a logical length equal to the array length
-/// and the last index is always set.
-/// The prepended buffer will always use SparseIntegerSetEncoding to ensure
-/// sublinear access to data elements is possible.
-///
+/// traversal of the array.  The buffer holds indexes indicating where runs
+/// end (the last value is always equal to the original Array's length).
+
 /// The remaining buffers model an array with a logical length corresponding to the number
 /// of runs indicated by the first buffer (also contained in metadata as number_of_runs).
 table RunEndEncoding {
@@ -162,8 +113,7 @@ table RunEndEncoding {
 
 union ArrayEncodingType {
   /// NONE indicates Dense Encoding
-  PackedSparseEncoding = 1,
-  RunEndEncoding = 2
+  RunEndEncoding = 1
 
   /// See documentation on BufferEncodingType for slot numbering and reservation
   /// scheme.
