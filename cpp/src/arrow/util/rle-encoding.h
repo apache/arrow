@@ -114,7 +114,7 @@ class RleDecoder {
 
   /// Gets a batch of values.  Returns the number of decoded elements.
   template <typename T>
-  int GetBatch(int batch_size, T* values);
+  int GetBatch(T* values, int batch_size);
 
   /// Like GetBatch but add spacing for null entries
   template <typename T>
@@ -287,7 +287,7 @@ inline bool RleDecoder::Get(T* val) {
 }
 
 template <typename T>
-inline int RleDecoder::GetBatch(int batch_size, T* values) {
+inline int RleDecoder::GetBatch(T* values, int batch_size) {
   DCHECK_GE(bit_width_, 0);
   int values_read = 0;
 

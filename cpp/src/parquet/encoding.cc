@@ -917,7 +917,7 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
     }
     auto indices_buffer =
         reinterpret_cast<int64_t*>(indices_scratch_space_->mutable_data());
-    if (num_values != idx_decoder_.GetBatch(num_values, indices_buffer)) {
+    if (num_values != idx_decoder_.GetBatch(indices_buffer, num_values)) {
       ParquetException::EofException();
     }
     auto binary_builder = checked_cast<::arrow::BinaryDictionaryBuilder*>(builder);
@@ -1090,7 +1090,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
       if (is_valid) {
         int32_t batch_size =
             std::min<int32_t>(buffer_size, num_values - values_decoded - null_count);
-        int num_indices = idx_decoder_.GetBatch(batch_size, indices_buffer);
+        int num_indices = idx_decoder_.GetBatch(indices_buffer, batch_size);
 
         int i = 0;
         while (true) {
@@ -1138,7 +1138,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
 
     while (values_decoded < num_values) {
       int32_t batch_size = std::min<int32_t>(buffer_size, num_values - values_decoded);
-      int num_indices = idx_decoder_.GetBatch(batch_size, indices_buffer);
+      int num_indices = idx_decoder_.GetBatch(indices_buffer, batch_size);
       if (num_indices == 0) break;
       for (int i = 0; i < num_indices; ++i) {
         const auto& val = dict_values[indices_buffer[i]];

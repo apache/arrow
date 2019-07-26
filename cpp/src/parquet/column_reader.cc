@@ -87,7 +87,7 @@ int LevelDecoder::Decode(int batch_size, int16_t* levels) {
 
   int num_values = std::min(num_values_remaining_, batch_size);
   if (encoding_ == Encoding::RLE) {
-    num_decoded = rle_decoder_->GetBatch(num_values, levels);
+    num_decoded = rle_decoder_->GetBatch(levels, num_values);
   } else {
     num_decoded = bit_packed_decoder_->GetBatch(bit_width_, levels, num_values);
   }
