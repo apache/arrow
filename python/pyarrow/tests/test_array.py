@@ -1499,3 +1499,10 @@ def test_concat_array():
 def test_concat_array_different_types():
     with pytest.raises(pa.ArrowInvalid):
         pa.concat_arrays([pa.array([1]), pa.array([2.])])
+
+def test_array_from_strided_numpy_array():
+    np_arr = np.arange(0, 10, dtype=np.float32)[1:-1:2]
+    pa_arr = pa.array(np_arr, type=pa.float64())
+    expected = pa.array([1.0, 3.0, 5.0, 7.0], type=pa.float64())
+    pa_arr.equals(expected)
+
