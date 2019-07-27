@@ -328,7 +328,7 @@ TEST(TestDictionaryEncoding, CannotDictDecodeBoolean) {
 class TestArrowBuilderDecoding : public ::testing::Test {
  public:
   using DenseBuilder = ::arrow::internal::ChunkedBinaryBuilder;
-  using DictBuilder = ::arrow::BinaryDictionaryBuilder;
+  using DictBuilder = ::arrow::BinaryDictionary32Builder;
 
   void SetUp() override { null_probabilities_ = {0.0, 0.5, 1.0}; }
   void TearDown() override {}

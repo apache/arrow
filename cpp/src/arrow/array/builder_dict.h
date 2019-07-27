@@ -190,18 +190,6 @@ class DictionaryBuilderBase : public ArrayBuilder {
     return memo_table_->InsertValues(values);
   }
 
-  /// \brief Append dictionary indices directly without modifying memo
-  ///
-  /// NOTE: Experimental API
-  Status AppendIndices(const int64_t* values, int64_t length,
-                       const uint8_t* valid_bytes = NULLPTR) {
-    int64_t null_count_before = values_builder_.null_count();
-    ARROW_RETURN_NOT_OK(values_builder_.AppendValues(values, length, valid_bytes));
-    length_ += length;
-    null_count_ += values_builder_.null_count() - null_count_before;
-    return Status::OK();
-  }
-
   /// \brief Append a whole dense array to the builder
   template <typename T1 = T>
   Status AppendArray(
@@ -374,6 +362,18 @@ class DictionaryBuilder : public DictionaryBuilderBase<AdaptiveIntBuilder, T> {
  public:
   using BASE = DictionaryBuilderBase<AdaptiveIntBuilder, T>;
   using BASE::BASE;
+
+  /// \brief Append dictionary indices directly without modifying memo
+  ///
+  /// NOTE: Experimental API
+  Status AppendIndices(const int64_t* values, int64_t length,
+                       const uint8_t* valid_bytes = NULLPTR) {
+    int64_t null_count_before = this->values_builder_.null_count();
+    ARROW_RETURN_NOT_OK(this->values_builder_.AppendValues(values, length, valid_bytes));
+    this->length_ += length;
+    this->null_count_ += this->values_builder_.null_count() - null_count_before;
+    return Status::OK();
+  }
 };
 
 /// \brief A DictionaryArray builder that always returns int32 dictionary
@@ -382,7 +382,7 @@ class DictionaryBuilder : public DictionaryBuilderBase<AdaptiveIntBuilder, T> {
 template <typename T>
 class Dictionary32Builder : public DictionaryBuilderBase<Int32Builder, T> {
  public:
-  using BASE = DictionaryBuilderBase<AdaptiveIntBuilder, T>;
+  using BASE = DictionaryBuilderBase<Int32Builder, T>;
   using BASE::BASE;
 
   /// \brief Append dictionary indices directly without modifying memo
@@ -401,15 +401,15 @@ class Dictionary32Builder : public DictionaryBuilderBase<Int32Builder, T> {
 // ----------------------------------------------------------------------
 // Binary / Unicode builders with slightly expanded APIs
 
-template <typename BuilderType, typename T>
-class BinaryDictionaryBuilderBase : public DictionaryBuilderBase<BuilderType, T> {
+template <typename T>
+class BinaryDictionaryBuilderImpl : public DictionaryBuilder<T> {
  public:
-  using BASE = DictionaryBuilderBase<BuilderType, T>;
+  using BASE = DictionaryBuilder<T>;
   using BASE::Append;
   using BASE::AppendIndices;
   using BASE::BASE;
 
-  BinaryDictionaryBuilderBase() : BinaryDictionaryBuilderBase(default_memory_pool()) {}
+  BinaryDictionaryBuilderImpl() : BinaryDictionaryBuilderImpl(default_memory_pool()) {}
 
   Status Append(const uint8_t* value, int32_t length) {
     return Append(reinterpret_cast<const char*>(value), length);
@@ -420,27 +420,43 @@ class BinaryDictionaryBuilderBase : public DictionaryBuilderBase<BuilderType, T>
   }
 };
 
-class BinaryDictionaryBuilder
-    : public BinaryDictionaryBuilderBase<AdaptiveIntBuilder, BinaryType> {
-  using BASE = BinaryDictionaryBuilderBase<AdaptiveIntBuilder, BinaryType>;
+template <typename T>
+class BinaryDictionary32BuilderImpl : public Dictionary32Builder<T> {
+ public:
+  using BASE = Dictionary32Builder<T>;
+  using BASE::Append;
+  using BASE::AppendIndices;
+  using BASE::BASE;
+
+  BinaryDictionary32BuilderImpl()
+      : BinaryDictionary32BuilderImpl(default_memory_pool()) {}
+
+  Status Append(const uint8_t* value, int32_t length) {
+    return Append(reinterpret_cast<const char*>(value), length);
+  }
+
+  Status Append(const char* value, int32_t length) {
+    return Append(util::string_view(value, length));
+  }
+};
+
+class BinaryDictionaryBuilder : public BinaryDictionaryBuilderImpl<BinaryType> {
+  using BASE = BinaryDictionaryBuilderImpl<BinaryType>;
   using BASE::BASE;
 };
 
-class StringDictionaryBuilder
-    : public BinaryDictionaryBuilderBase<AdaptiveIntBuilder, StringType> {
-  using BASE = BinaryDictionaryBuilderBase<AdaptiveIntBuilder, StringType>;
+class StringDictionaryBuilder : public BinaryDictionaryBuilderImpl<StringType> {
+  using BASE = BinaryDictionaryBuilderImpl<StringType>;
   using BASE::BASE;
 };
 
-class BinaryDictionary32Builder
-    : public BinaryDictionaryBuilderBase<Int32Builder, BinaryType> {
-  using BASE = BinaryDictionaryBuilderBase<Int32Builder, BinaryType>;
+class BinaryDictionary32Builder : public BinaryDictionary32BuilderImpl<BinaryType> {
+  using BASE = BinaryDictionary32BuilderImpl<BinaryType>;
   using BASE::BASE;
 };
 
-class StringDictionary32Builder
-    : public BinaryDictionaryBuilderBase<Int32Builder, StringType> {
-  using BASE = BinaryDictionaryBuilderBase<Int32Builder, StringType>;
+class StringDictionary32Builder : public BinaryDictionary32BuilderImpl<StringType> {
+  using BASE = BinaryDictionary32BuilderImpl<StringType>;
   using BASE::BASE;
 };
 

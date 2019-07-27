@@ -2736,20 +2736,22 @@ TEST(TestArrowWriterAdHoc, SchemaMismatch) {
 
 class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
  public:
+  static constexpr int kNumRowGroups = 10;
+
   void SetUp() override {
     GenerateData(GetParam());
 
     // Write 4 row groups; each row group will have a different dictionary
     ASSERT_NO_FATAL_FAILURE(
-        WriteTableToBuffer(expected_dense_, expected_dense_->num_rows() / 4,
+        WriteTableToBuffer(expected_dense_, expected_dense_->num_rows() / kNumRowGroups,
                            default_arrow_writer_properties(), &buffer_));
 
     properties_ = default_arrow_reader_properties();
   }
 
   void GenerateData(double null_probability) {
-    constexpr int num_unique = 100;
-    constexpr int repeat = 100;
+    constexpr int num_unique = 1000;
+    constexpr int repeat = 50;
     constexpr int64_t min_length = 2;
     constexpr int64_t max_length = 100;
     ::arrow::random::RandomArrayGenerator rag(0);
@@ -2781,7 +2783,7 @@ class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
 };
 
 void AsDictionaryEncoded(const Array& arr, std::shared_ptr<Array>* out) {
-  ::arrow::StringDictionaryBuilder builder(default_memory_pool());
+  ::arrow::StringDictionary32Builder builder(default_memory_pool());
   const auto& string_array = static_cast<const ::arrow::StringArray&>(arr);
   ASSERT_OK(builder.AppendArray(string_array));
   ASSERT_OK(builder.Finish(out));
@@ -2790,9 +2792,9 @@ void AsDictionaryEncoded(const Array& arr, std::shared_ptr<Array>* out) {
 TEST_P(TestArrowReadDictionary, ReadWholeFileDict) {
   properties_.set_read_dictionary(0, true);
 
-  std::vector<std::shared_ptr<Array>> chunks(4);
-  const int64_t chunk_size = expected_dense_->num_rows() / 4;
-  for (int i = 0; i < 4; ++i) {
+  std::vector<std::shared_ptr<Array>> chunks(kNumRowGroups);
+  const int64_t chunk_size = expected_dense_->num_rows() / kNumRowGroups;
+  for (int i = 0; i < kNumRowGroups; ++i) {
     AsDictionaryEncoded(*dense_values_->Slice(chunk_size * i, chunk_size), &chunks[i]);
   }
   auto ex_table = MakeSimpleTable(std::make_shared<ChunkedArray>(chunks),

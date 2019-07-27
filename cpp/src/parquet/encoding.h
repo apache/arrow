@@ -29,7 +29,7 @@
 namespace arrow {
 
 class ArrayBuilder;
-class BinaryDictionaryBuilder;
+class BinaryDictionary32Builder;
 
 namespace internal {
 
@@ -225,10 +225,10 @@ class ByteArrayDecoder : virtual public TypedDecoder<ByteArrayType> {
 
   virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
-                          ::arrow::BinaryDictionaryBuilder* builder) = 0;
+                          ::arrow::BinaryDictionary32Builder* builder) = 0;
 
   virtual int DecodeArrowNonNull(int num_values,
-                                 ::arrow::BinaryDictionaryBuilder* builder) = 0;
+                                 ::arrow::BinaryDictionary32Builder* builder) = 0;
 
   virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
