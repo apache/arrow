@@ -382,16 +382,15 @@ void CopyStridedBytewise(const int8_t* input_data, const int64_t length,
   }
 }
 
-Status CopyStridedArray(PyArrayObject* arr, const int64_t length,
-                        const int64_t itemsize, const int64_t stride,
-                        MemoryPool* pool, std::shared_ptr<Buffer>* out) {
+Status CopyStridedArray(PyArrayObject* arr, const int64_t length, const int64_t itemsize,
+                        const int64_t stride, MemoryPool* pool,
+                        std::shared_ptr<Buffer>* out) {
   // Strided, must copy into new contiguous memory
   std::shared_ptr<Buffer> new_buffer;
   RETURN_NOT_OK(AllocateBuffer(pool, itemsize * length, &new_buffer));
 
-  CopyStridedBytewise(reinterpret_cast<int8_t*>(PyArray_DATA(arr)),
-                      length, itemsize, stride,
-                      reinterpret_cast<int8_t*>(new_buffer->mutable_data()));
+  CopyStridedBytewise(reinterpret_cast<int8_t*>(PyArray_DATA(arr)), length, itemsize,
+                      stride, reinterpret_cast<int8_t*>(new_buffer->mutable_data()));
 
   *out = new_buffer;
   return Status::OK();
