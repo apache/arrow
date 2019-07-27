@@ -372,45 +372,25 @@ Status StaticCastBuffer(const Buffer& input, const int64_t length, MemoryPool* p
   return Status::OK();
 }
 
-template <typename T>
-void CopyStridedBytewise(int8_t* input_data, int64_t length, int64_t stride,
-                         T* output_data) {
+void CopyStridedBytewise(const int8_t* input_data, const int64_t length,
+                         const int64_t itemsize, const int64_t stride,
+                         int8_t* output_data) {
   // Passing input_data as non-const is a concession to PyObject*
   for (int64_t i = 0; i < length; ++i) {
-    memcpy(output_data + i, input_data, sizeof(T));
+    memcpy(output_data + i * itemsize, input_data, itemsize);
     input_data += stride;
   }
 }
 
-template <typename T>
-void CopyStridedNatural(T* input_data, int64_t length, int64_t stride, T* output_data) {
-  // Passing input_data as non-const is a concession to PyObject*
-  int64_t j = 0;
-  for (int64_t i = 0; i < length; ++i) {
-    output_data[i] = input_data[j];
-    j += stride;
-  }
-}
-
-template <typename ArrowType>
-Status CopyStridedArray(PyArrayObject* arr, const int64_t length, MemoryPool* pool,
-                        std::shared_ptr<Buffer>* out) {
-  using traits = internal::arrow_traits<ArrowType::type_id>;
-  using T = typename traits::T;
-
+Status CopyStridedArray(PyArrayObject* arr, const int64_t length,
+                        const int64_t itemsize, const int64_t stride,
+                        MemoryPool* pool, std::shared_ptr<Buffer>* out) {
   // Strided, must copy into new contiguous memory
   std::shared_ptr<Buffer> new_buffer;
-  RETURN_NOT_OK(AllocateBuffer(pool, sizeof(T) * length, &new_buffer));
+  RETURN_NOT_OK(AllocateBuffer(pool, itemsize * length, &new_buffer));
 
-  const int64_t stride = PyArray_STRIDES(arr)[0];
-  if (stride % sizeof(T) == 0) {
-    const int64_t stride_elements = stride / sizeof(T);
-    CopyStridedNatural(reinterpret_cast<T*>(PyArray_DATA(arr)), length, stride_elements,
-                       reinterpret_cast<T*>(new_buffer->mutable_data()));
-  } else {
-    CopyStridedBytewise(reinterpret_cast<int8_t*>(PyArray_DATA(arr)), length, stride,
-                        reinterpret_cast<T*>(new_buffer->mutable_data()));
-  }
+  CopyStridedBytewise(reinterpret_cast<int8_t*>(PyArray_DATA(arr)), itemsize, length, stride,
+                        reinterpret_cast<int8_t*>(new_buffer->mutable_data()));
 
   *out = new_buffer;
   return Status::OK();
@@ -426,7 +406,7 @@ inline Status NumPyConverter::PrepareInputData(std::shared_ptr<Buffer>* data) {
   }
 
   if (is_strided()) {
-    RETURN_NOT_OK(CopyStridedArray<ArrowType>(arr_, length_, pool_, data));
+    RETURN_NOT_OK(CopyStridedArray(arr_, length_, itemsize_, stride_, pool_, data));
   } else if (dtype_->type_num == NPY_BOOL) {
     int64_t nbytes = BitUtil::BytesForBits(length_);
     std::shared_ptr<Buffer> buffer;
