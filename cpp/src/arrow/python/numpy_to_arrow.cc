@@ -389,8 +389,9 @@ Status CopyStridedArray(PyArrayObject* arr, const int64_t length,
   std::shared_ptr<Buffer> new_buffer;
   RETURN_NOT_OK(AllocateBuffer(pool, itemsize * length, &new_buffer));
 
-  CopyStridedBytewise(reinterpret_cast<int8_t*>(PyArray_DATA(arr)), length, itemsize, stride,
-                        reinterpret_cast<int8_t*>(new_buffer->mutable_data()));
+  CopyStridedBytewise(reinterpret_cast<int8_t*>(PyArray_DATA(arr)),
+                      length, itemsize, stride,
+                      reinterpret_cast<int8_t*>(new_buffer->mutable_data()));
 
   *out = new_buffer;
   return Status::OK();
