@@ -280,7 +280,7 @@ mod tests {
         assert_eq!(10, arr_data.null_count());
         assert_eq!(5, arr_data.offset());
         assert_eq!(1, arr_data.buffers().len());
-        assert_eq!([0, 1, 2, 3], arr_data.buffers()[0].data()[..4]);
+        assert_eq!(&[0, 1, 2, 3], arr_data.buffers()[0].data());
         assert_eq!(1, arr_data.child_data().len());
         assert_eq!(child_arr_data, arr_data.child_data()[0]);
     }

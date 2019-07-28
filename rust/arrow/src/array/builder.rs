@@ -986,7 +986,7 @@ mod tests {
         assert_eq!(0, b.len());
         assert_eq!(16, b.capacity());
         let a = b.finish();
-        assert_eq!(64, a.len());
+        assert_eq!(0, a.len());
     }
 
     #[test]
@@ -994,7 +994,7 @@ mod tests {
         let mut b = Int32BufferBuilder::new(0);
         b.append(123).unwrap();
         let a = b.finish();
-        assert_eq!(64, a.len());
+        assert_eq!(4, a.len());
     }
 
     #[test]
@@ -1005,7 +1005,7 @@ mod tests {
         }
         assert_eq!(16, b.capacity());
         let a = b.finish();
-        assert_eq!(64, a.len()); // 16 * size_of(i32)
+        assert_eq!(20, a.len());
     }
 
     #[test]
@@ -1017,7 +1017,7 @@ mod tests {
         }
         assert_eq!(32, b.capacity());
         let a = b.finish();
-        assert_eq!(128, a.len()); // 32 * size_of(i32)
+        assert_eq!(80, a.len());
     }
 
     #[test]
@@ -1028,7 +1028,7 @@ mod tests {
             b.append(i).unwrap();
         }
         let mut a = b.finish();
-        assert_eq!(64, a.len());
+        assert_eq!(40, a.len());
         assert_eq!(0, b.len());
         assert_eq!(0, b.capacity());
 
@@ -1038,7 +1038,7 @@ mod tests {
         }
         assert_eq!(32, b.capacity());
         a = b.finish();
-        assert_eq!(128, a.len());
+        assert_eq!(80, a.len());
     }
 
     #[test]
@@ -1064,12 +1064,12 @@ mod tests {
         b.append_slice("Hello, ".as_bytes()).unwrap();
         b.append_slice("World!".as_bytes()).unwrap();
         let buffer = b.finish();
-        assert_eq!(64, buffer.len());
+        assert_eq!(13, buffer.len());
 
         let mut b = Int32BufferBuilder::new(0);
         b.append_slice(&[32, 54]).unwrap();
         let buffer = b.finish();
-        assert_eq!(64, buffer.len());
+        assert_eq!(8, buffer.len());
     }
 
     #[test]
@@ -1082,14 +1082,14 @@ mod tests {
         assert_eq!(4, b.len());
         assert_eq!(512, b.capacity());
         let buffer = b.finish();
-        assert_eq!(64, buffer.len());
+        assert_eq!(1, buffer.len());
 
         let mut b = BooleanBufferBuilder::new(4);
         b.append_slice(&[false, true, false, true]).unwrap();
         assert_eq!(4, b.len());
         assert_eq!(512, b.capacity());
         let buffer = b.finish();
-        assert_eq!(64, buffer.len());
+        assert_eq!(1, buffer.len());
     }
 
     #[test]
@@ -1100,7 +1100,7 @@ mod tests {
         assert_eq!(4, b.len());
         assert_eq!(16, b.capacity());
         let buffer = b.finish();
-        assert_eq!(64, buffer.len());
+        assert_eq!(16, buffer.len());
     }
 
     #[test]

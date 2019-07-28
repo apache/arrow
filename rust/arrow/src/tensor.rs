@@ -86,6 +86,11 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
     ) -> Self {
         match &shape {
             None => {
+                assert_eq!(
+                    buffer.len(),
+                    mem::size_of::<T::Native>(),
+                    "underlying buffer should only contain a single tensor element"
+                );
                 assert_eq!(None, strides);
                 assert_eq!(None, names);
             }
