@@ -24,7 +24,7 @@ import sys
 import numpy as np
 
 import pyarrow
-from pyarrow.compat import builtin_pickle
+from pyarrow.compat import builtin_pickle, descr_to_dtype
 from pyarrow.lib import SerializationContext, py_buffer
 
 try:
@@ -52,7 +52,7 @@ def _serialize_numpy_array_list(obj):
 def _deserialize_numpy_array_list(data):
     if data[1] != '|O':
         assert data[0].dtype == np.uint8
-        return data[0].view(np.lib.format.descr_to_dtype(data[1]))
+        return data[0].view(descr_to_dtype(data[1]))
     else:
         return np.array(data[0], dtype=np.dtype(data[1]))
 
@@ -71,7 +71,7 @@ def _serialize_numpy_matrix(obj):
 def _deserialize_numpy_matrix(data):
     if data[1] != '|O':
         assert data[0].dtype == np.uint8
-        return np.matrix(data[0].view(np.lib.format.descr_to_dtype(data[1])),
+        return np.matrix(data[0].view(descr_to_dtype(data[1])),
                          copy=False)
     else:
         return np.matrix(data[0], dtype=np.dtype(data[1]), copy=False)
