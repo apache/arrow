@@ -192,6 +192,7 @@ template <typename Payload>
 class HashTable {
  public:
   static constexpr hash_t kSentinel = 0ULL;
+  static constexpr int64_t kLoadFactor = 2UL;
 
   struct Entry {
     hash_t h;
@@ -203,9 +204,8 @@ class HashTable {
 
   HashTable(MemoryPool* pool, uint64_t capacity) : entries_builder_(pool) {
     DCHECK_NE(pool, nullptr);
-    // Presize for at least 512 elements
-    capacity = std::max(capacity, static_cast<uint64_t>(512U));
-    capacity_ = BitUtil::NextPower2(capacity * 4U);
+    capacity = std::max(capacity, 512UL) * kLoadFactor;
+    capacity_ = BitUtil::NextPower2(capacity);
     capacity_mask_ = capacity_ - 1;
     size_ = 0;
 
@@ -230,15 +230,15 @@ class HashTable {
   }
 
   void Insert(Entry* entry, hash_t h, const Payload& payload) {
+    if (NeedUpsizing()) {
+      DCHECK_OK(Upsize(capacity_ * kLoadFactor));
+    }
+
     // Ensure entry is empty before inserting
     assert(!*entry);
     entry->h = FixHash(h);
     entry->payload = payload;
     ++size_;
-    if (NeedUpsizing()) {
-      // Resizing is expensive, avoid doing it too often
-      DCHECK_OK(Upsize(capacity_ * 4));
-    }
   }
 
   uint64_t size() const { return size_; }
@@ -302,11 +302,11 @@ class HashTable {
 
   bool NeedUpsizing() const {
     // Keep the load factor <= 1/2
-    return size_ * 2U >= capacity_;
+    return size_ * kLoadFactor >= capacity_;
   }
 
   Status UpsizeBuffer(uint64_t capacity) {
-    RETURN_NOT_OK(entries_builder_.Reserve(capacity));
+    RETURN_NOT_OK(entries_builder_.Resize(capacity));
     entries_ = entries_builder_.mutable_data();
     memset(entries_, 0, capacity * sizeof(Entry));
 
@@ -582,7 +582,7 @@ class BinaryMemoTable : public MemoTable {
                            int64_t values_size = -1)
       : hash_table_(pool, static_cast<uint64_t>(entries)), binary_builder_(pool) {
     const int64_t data_size = (values_size < 0) ? entries * 4 : values_size;
-    DCHECK_OK(binary_builder_.Reserve(entries));
+    DCHECK_OK(binary_builder_.Resize(entries));
     DCHECK_OK(binary_builder_.ReserveData(data_size));
   }
 
