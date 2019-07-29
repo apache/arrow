@@ -15,37 +15,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 {% endcomment %}
   <div class="blog-post" style="margin-bottom: 4rem">
-    <h1>
-      {{ post.title }}
-      <a href="{{ post.url }}" class="permalink" title="Permalink">∞</a>
-    </h1>
-
-    {% capture discard %}
-      {% for c in site.data.contributors %}
-        {% if c.apacheId == post.author %}
-          {% assign author_name = c.name %}
-          {% if c.homepage %}
-            {% assign homepage = c.homepage %}
-          {% else %}
-            {% capture homepage %}http://github.com/{{ c.githubId }}{% endcapture %}
-          {% endif %}
-          {% if c.avatar %}
-            {% assign avatar = c.avatar %}
-          {% else %}
-            {% capture avatar %}http://github.com/{{ c.githubId }}.png{% endcapture %}
-          {% endif %}
-        {% endif %}
-      {% endfor %}
-    {% endcapture %}{% assign discard = nil %}
-
-    <p>
-      <span class="badge badge-secondary">Published</span>
-      <span class="published">
-        {{ post.date | date_to_string }}
-      </span>
-      <br />
-      <span class="badge badge-secondary">By</span>
-      <a href="{{ homepage }}">{{ author_name }} ({{ post.author }})</a>
-    </p>
+    {% include blog_header.html %}
     {{ post.content }}
   </div>

@@ -1,5 +1,4 @@
 {% include top.html %}
-{% capture homepage %}http://people.apache.org/~{{ page.author }}{% endcapture %}
 
 <body class="wrap">
   <header>
@@ -8,39 +7,11 @@
 
   <div class="container p-lg-4">
     <main role="main">
-
-    <h1>
-      {{ page.title }}
-      <a href="{{ page.url }}" class="permalink" title="Permalink">∞</a>
-    </h1>
-
-    {% capture discard %}
-      {% for c in site.data.contributors %}
-        {% if c.apacheId == page.author %}
-          {% assign author_name = c.name %}
-          {% if c.homepage %}
-            {% assign homepage = c.homepage %}
-          {% else %}
-            {% capture homepage %}http://github.com/{{ c.githubId }}{% endcapture %}
-          {% endif %}
-          {% if c.avatar %}
-            {% assign avatar = c.avatar %}
-          {% else %}
-            {% capture avatar %}http://github.com/{{ c.githubId }}.png{% endcapture %}
-          {% endif %}
-        {% endif %}
-      {% endfor %}
-    {% endcapture %}{% assign discard = nil %}
-
-    <p>
-      <span class="badge badge-secondary">Published</span>
-      <span class="published">
-        {{ page.date | date_to_string }}
-      </span>
-      <br />
-      <span class="badge badge-secondary">By</span>
-      <a href="{{ homepage }}">{{ author_name }} ({{ post.author }})</a>
-    </p>
+    {% comment %}
+      This 'assign' is to match the variable name used in _includes/blog_header.html
+    {% endcomment %}
+    {% assign post = page %}
+    {% include blog_header.html %}
 
     {{ content }}
     </main>
