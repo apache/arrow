@@ -899,7 +899,8 @@ TEST_F(TestPlasmaStore, RepeatlyCreateGPUTest) {
   ARROW_CHECK_OK(client_.Delete(object_ids));
 }
 
-TEST_F(TestPlasmaStore, LetBufferAutoRelease) {
+TEST_F(TestPlasmaStore, GPUBufferLifetime) {
+  // ARROW-5924: GPU buffer is allowed to persist after Release()
   ObjectID object_id = random_object_id();
   const int64_t data_size = 40;
 
