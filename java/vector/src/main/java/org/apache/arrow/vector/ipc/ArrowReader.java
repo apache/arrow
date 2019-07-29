@@ -162,7 +162,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   /**
    * Read dictionaries from IPC stream after read schema.
    * Note that if the stream is empty (only has schema), no dictionaries is available.
-   * @throws IOException
+   * @throws IOException on error
    */
   protected abstract void readDictionaries(Map<Long, Dictionary> dictionaries) throws IOException;
 
