@@ -237,11 +237,10 @@ class FileReaderImpl : public FileReader {
                           int16_t def_level, FileColumnIteratorFactory iterator_factory,
                           std::unique_ptr<ColumnReaderImpl>* out);
 
-  Status ReadRowGroup(int row_group_index, const std::vector<int>& indices,
-                      std::shared_ptr<::arrow::Table>* out) override;
-
   Status ReadTable(const std::vector<int>& indices,
-                   std::shared_ptr<Table>* table) override;
+                   std::shared_ptr<Table>* out) override {
+    return ReadRowGroups(AllRowGroups(), indices, out);
+  }
 
   Status GetColumn(int i, FileColumnIteratorFactory iterator_factory,
                    std::unique_ptr<ColumnReader>* out);
@@ -305,6 +304,11 @@ class FileReaderImpl : public FileReader {
     return ReadRowGroups(row_groups, AllColumnIndices(), table);
   }
 
+  Status ReadRowGroup(int row_group_index, const std::vector<int>& column_indices,
+                      std::shared_ptr<Table>* out) override {
+    return ReadRowGroups({row_group_index}, column_indices, out);
+  }
+
   Status ReadRowGroup(int i, std::shared_ptr<Table>* table) override {
     return ReadRowGroup(i, AllColumnIndices(), table);
   }
@@ -335,23 +339,25 @@ class FileReaderImpl : public FileReader {
     return GetRecordBatchReader(row_group_indices, AllColumnIndices(), out);
   }
 
+  Status BoundsCheckRowGroup(int row_group) {
+    // row group indices check
+    if (row_group < 0 || row_group >= num_row_groups()) {
+      return Status::Invalid("Some index in row_group_indices is ", row_group,
+                             ", which is either < 0 or >= num_row_groups(",
+                             num_row_groups(), ")");
+    }
+    return Status::OK();
+  }
+
   Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                               const std::vector<int>& column_indices,
                               std::shared_ptr<RecordBatchReader>* out) override {
     // column indices check
     std::shared_ptr<::arrow::Schema> schema;
     RETURN_NOT_OK(GetSchema(column_indices, &schema));
-
-    // row group indices check
-    int max_num = num_row_groups();
     for (auto row_group_index : row_group_indices) {
-      if (row_group_index < 0 || row_group_index >= max_num) {
-        return Status::Invalid("Some index in row_group_indices is ", row_group_index,
-                               ", which is either < 0 or >= num_row_groups(", max_num,
-                               ")");
-      }
+      RETURN_NOT_OK(BoundsCheckRowGroup(row_group_index));
     }
-
     *out = std::make_shared<RowGroupRecordBatchReader>(row_group_indices, column_indices,
                                                        schema, this, batch_size());
     return Status::OK();
@@ -381,8 +387,45 @@ class FileReaderImpl : public FileReader {
   MemoryPool* pool_;
   std::unique_ptr<ParquetFileReader> reader_;
   ArrowReaderProperties reader_properties_;
+};
 
-  friend ColumnChunkReaderImpl;
+class ColumnChunkReaderImpl : public ColumnChunkReader {
+ public:
+  ColumnChunkReaderImpl(FileReaderImpl* impl, int row_group_index, int column_index)
+      : impl_(impl), column_index_(column_index), row_group_index_(row_group_index) {}
+
+  Status Read(std::shared_ptr<::arrow::ChunkedArray>* out) override {
+    return impl_->ReadColumn(column_index_, {row_group_index_}, out);
+  }
+
+ private:
+  FileReaderImpl* impl_;
+  int column_index_;
+  int row_group_index_;
+};
+
+class RowGroupReaderImpl : public RowGroupReader {
+ public:
+  RowGroupReaderImpl(FileReaderImpl* impl, int row_group_index)
+      : impl_(impl), row_group_index_(row_group_index) {}
+
+  std::shared_ptr<ColumnChunkReader> Column(int column_index) override {
+    return std::shared_ptr<ColumnChunkReader>(
+        new ColumnChunkReaderImpl(impl_, row_group_index_, column_index));
+  }
+
+  Status ReadTable(const std::vector<int>& column_indices,
+                   std::shared_ptr<::arrow::Table>* out) override {
+    return impl_->ReadRowGroup(row_group_index_, column_indices, out);
+  }
+
+  Status ReadTable(std::shared_ptr<::arrow::Table>* out) override {
+    return impl_->ReadRowGroup(row_group_index_, out);
+  }
+
+ private:
+  FileReaderImpl* impl_;
+  int row_group_index_;
 };
 
 class ColumnReaderImpl : public ColumnReader {
@@ -741,45 +784,6 @@ Status StructImpl::NextBatch(int64_t records_to_read,
   return Status::OK();
 }
 
-class ColumnChunkReaderImpl : public ColumnChunkReader {
- public:
-  ColumnChunkReaderImpl(FileReaderImpl* impl, int row_group_index, int column_index)
-      : impl_(impl), column_index_(column_index), row_group_index_(row_group_index) {}
-
-  Status Read(std::shared_ptr<::arrow::ChunkedArray>* out) override {
-    return impl_->ReadColumn(column_index_, {row_group_index_}, out);
-  }
-
- private:
-  FileReaderImpl* impl_;
-  int column_index_;
-  int row_group_index_;
-};
-
-class RowGroupReaderImpl : public RowGroupReader {
- public:
-  RowGroupReaderImpl(FileReaderImpl* impl, int row_group_index)
-      : impl_(impl), row_group_index_(row_group_index) {}
-
-  std::shared_ptr<ColumnChunkReader> Column(int column_index) override {
-    return std::shared_ptr<ColumnChunkReader>(
-        new ColumnChunkReaderImpl(impl_, row_group_index_, column_index));
-  }
-
-  Status ReadTable(const std::vector<int>& column_indices,
-                   std::shared_ptr<::arrow::Table>* out) override {
-    return impl_->ReadRowGroup(row_group_index_, column_indices, out);
-  }
-
-  Status ReadTable(std::shared_ptr<::arrow::Table>* out) override {
-    return impl_->ReadRowGroup(row_group_index_, out);
-  }
-
- private:
-  FileReaderImpl* impl_;
-  int row_group_index_;
-};
-
 // ----------------------------------------------------------------------
 // File reader implementation
 
@@ -837,12 +841,6 @@ Status FileReaderImpl::GetReaderForNode(int index, const Node* node,
   return Status::OK();
 }
 
-Status FileReaderImpl::ReadRowGroup(int row_group_index,
-                                    const std::vector<int>& column_indices,
-                                    std::shared_ptr<Table>* out) {
-  return ReadRowGroups({row_group_index}, column_indices, out);
-}
-
 Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
                                      const std::vector<int>& indices,
                                      std::shared_ptr<Table>* out) {
@@ -894,13 +892,6 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
   *out = table;
   return Status::OK();
   END_PARQUET_CATCH_EXCEPTIONS
-}
-
-Status FileReaderImpl::ReadTable(const std::vector<int>& indices,
-                                 std::shared_ptr<Table>* out) {
-  std::vector<int> row_groups(reader_->metadata()->num_row_groups());
-  std::iota(row_groups.begin(), row_groups.end(), 0);
-  return ReadRowGroups(row_groups, indices, out);
 }
 
 Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_factory,
