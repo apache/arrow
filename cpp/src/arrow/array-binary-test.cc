@@ -98,7 +98,7 @@ class TestStringArray : public ::testing::Test {
                                            null_bitmap_, null_count_);
   }
 
-  void _TestArrayBasics() {
+  void TestArrayBasics() {
     ASSERT_EQ(length_, strings_->length());
     ASSERT_EQ(1, strings_->null_count());
     ASSERT_OK(ValidateArray(*strings_));
@@ -106,7 +106,7 @@ class TestStringArray : public ::testing::Test {
     AssertZeroPadded(*strings_);
   }
 
-  void _TestType() {
+  void TestType() {
     std::shared_ptr<DataType> type = this->strings_->type();
 
     if (std::is_same<TypeClass, StringType>::value) {
@@ -126,7 +126,7 @@ class TestStringArray : public ::testing::Test {
     }
   }
 
-  void _TestListFunctions() {
+  void TestListFunctions() {
     int64_t pos = 0;
     for (size_t i = 0; i < expected_.size(); ++i) {
       ASSERT_EQ(pos, strings_->value_offset(i));
@@ -135,12 +135,12 @@ class TestStringArray : public ::testing::Test {
     }
   }
 
-  void _TestDestructor() {
+  void TestDestructor() {
     auto arr = std::make_shared<ArrayType>(length_, offsets_buf_, value_buf_,
                                            null_bitmap_, null_count_);
   }
 
-  void _TestGetString() {
+  void TestGetString() {
     for (size_t i = 0; i < expected_.size(); ++i) {
       if (valid_bytes_[i] == 0) {
         ASSERT_TRUE(strings_->IsNull(i));
@@ -151,7 +151,7 @@ class TestStringArray : public ::testing::Test {
     }
   }
 
-  void _TestEmptyStringComparison() {
+  void TestEmptyStringComparison() {
     offsets_ = {0, 0, 0, 0, 0, 0};
     offsets_buf_ = Buffer::Wrap(offsets_);
     length_ = static_cast<int64_t>(offsets_.size() - 1);
@@ -163,7 +163,7 @@ class TestStringArray : public ::testing::Test {
     ASSERT_TRUE(strings_a->Equals(strings_b));
   }
 
-  void _TestCompareNullByteSlots() {
+  void TestCompareNullByteSlots() {
     BuilderType builder;
     BuilderType builder2;
     BuilderType builder3;
@@ -204,7 +204,7 @@ class TestStringArray : public ::testing::Test {
         equal_array.Array::Slice(1)->RangeEquals(0, 2, 0, equal_array2.Array::Slice(1)));
   }
 
-  void _TestSliceGetString() {
+  void TestSliceGetString() {
     BuilderType builder;
 
     ASSERT_OK(builder.Append("a"));
@@ -237,23 +237,23 @@ class TestStringArray : public ::testing::Test {
 
 TYPED_TEST_CASE(TestStringArray, StringTypes);
 
-TYPED_TEST(TestStringArray, TestArrayBasics) { this->_TestArrayBasics(); }
+TYPED_TEST(TestStringArray, TestArrayBasics) { this->TestArrayBasics(); }
 
-TYPED_TEST(TestStringArray, TestType) { this->_TestType(); }
+TYPED_TEST(TestStringArray, TestType) { this->TestType(); }
 
-TYPED_TEST(TestStringArray, TestListFunctions) { this->_TestListFunctions(); }
+TYPED_TEST(TestStringArray, TestListFunctions) { this->TestListFunctions(); }
 
-TYPED_TEST(TestStringArray, TestDestructor) { this->_TestDestructor(); }
+TYPED_TEST(TestStringArray, TestDestructor) { this->TestDestructor(); }
 
-TYPED_TEST(TestStringArray, TestGetString) { this->_TestGetString(); }
+TYPED_TEST(TestStringArray, TestGetString) { this->TestGetString(); }
 
 TYPED_TEST(TestStringArray, TestEmptyStringComparison) {
-  this->_TestEmptyStringComparison();
+  this->TestEmptyStringComparison();
 }
 
-TYPED_TEST(TestStringArray, CompareNullByteSlots) { this->_TestCompareNullByteSlots(); }
+TYPED_TEST(TestStringArray, CompareNullByteSlots) { this->TestCompareNullByteSlots(); }
 
-TYPED_TEST(TestStringArray, TestSliceGetString) { this->_TestSliceGetString(); }
+TYPED_TEST(TestStringArray, TestSliceGetString) { this->TestSliceGetString(); }
 
 // ----------------------------------------------------------------------
 // String builder tests
@@ -279,12 +279,12 @@ class TestStringBuilder : public TestBuilder {
     ASSERT_OK(ValidateArray(*result_));
   }
 
-  void _TestScalarAppend() {
+  void TestScalarAppend() {
     std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
     std::vector<uint8_t> is_valid = {1, 1, 1, 0, 1};
 
     int N = static_cast<int>(strings.size());
-    int reps = 1000;
+    int reps = 10;
 
     for (int j = 0; j < reps; ++j) {
       for (int i = 0; i < N; ++i) {
@@ -304,7 +304,41 @@ class TestStringBuilder : public TestBuilder {
     CheckStringArray(*result_, strings, is_valid, reps);
   }
 
-  void _TestVectorAppend() {
+  void TestScalarAppendUnsafe() {
+    std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
+    std::vector<uint8_t> is_valid = {1, 1, 1, 0, 1};
+
+    int N = static_cast<int>(strings.size());
+    int reps = 13;
+    int64_t total_length = 0;
+    for (const auto& s : strings) {
+      total_length += static_cast<int64_t>(s.size());
+    }
+
+    ASSERT_OK(builder_->Reserve(N * reps));
+    ASSERT_OK(builder_->ReserveData(total_length * reps));
+
+    for (int j = 0; j < reps; ++j) {
+      for (int i = 0; i < N; ++i) {
+        if (!is_valid[i]) {
+          builder_->UnsafeAppendNull();
+        } else {
+          builder_->UnsafeAppend(strings[i]);
+        }
+      }
+    }
+    ASSERT_EQ(builder_->value_data_length(), total_length * reps);
+    Done();
+
+    ASSERT_OK(ValidateArray(*result_));
+    ASSERT_EQ(reps * N, result_->length());
+    ASSERT_EQ(reps, result_->null_count());
+    ASSERT_EQ(reps * total_length, result_->value_data()->size());
+
+    CheckStringArray(*result_, strings, is_valid, reps);
+  }
+
+  void TestVectorAppend() {
     std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
     std::vector<uint8_t> valid_bytes = {1, 1, 1, 0, 1};
 
@@ -323,7 +357,7 @@ class TestStringBuilder : public TestBuilder {
     CheckStringArray(*result_, strings, valid_bytes, reps);
   }
 
-  void _TestAppendCStringsWithValidBytes() {
+  void TestAppendCStringsWithValidBytes() {
     const char* strings[] = {nullptr, "aaa", nullptr, "ignored", ""};
     std::vector<uint8_t> valid_bytes = {1, 1, 1, 0, 1};
 
@@ -342,7 +376,7 @@ class TestStringBuilder : public TestBuilder {
     CheckStringArray(*result_, {"", "aaa", "", "", ""}, {0, 1, 0, 0, 1}, reps);
   }
 
-  void _TestAppendCStringsWithoutValidBytes() {
+  void TestAppendCStringsWithoutValidBytes() {
     const char* strings[] = {"", "bb", "a", nullptr, "ccc"};
 
     int N = static_cast<int>(sizeof(strings) / sizeof(strings[0]));
@@ -360,7 +394,48 @@ class TestStringBuilder : public TestBuilder {
     CheckStringArray(*result_, {"", "bb", "a", "", "ccc"}, {1, 1, 1, 0, 1}, reps);
   }
 
-  void _TestZeroLength() {
+  void TestCapacityReserve() {
+    std::vector<std::string> strings = {"aaaaa", "bbbbbbbbbb", "ccccccccccccccc",
+                                        "dddddddddd"};
+    int N = static_cast<int>(strings.size());
+    int reps = 15;
+    int64_t length = 0;
+    int64_t capacity = 1000;
+    int64_t expected_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
+
+    ASSERT_OK(builder_->ReserveData(capacity));
+
+    ASSERT_EQ(length, builder_->value_data_length());
+    ASSERT_EQ(expected_capacity, builder_->value_data_capacity());
+
+    for (int j = 0; j < reps; ++j) {
+      for (int i = 0; i < N; ++i) {
+        ASSERT_OK(builder_->Append(strings[i]));
+        length += static_cast<int64_t>(strings[i].size());
+
+        ASSERT_EQ(length, builder_->value_data_length());
+        ASSERT_EQ(expected_capacity, builder_->value_data_capacity());
+      }
+    }
+
+    int extra_capacity = 500;
+    expected_capacity = BitUtil::RoundUpToMultipleOf64(length + extra_capacity);
+
+    ASSERT_OK(builder_->ReserveData(extra_capacity));
+
+    ASSERT_EQ(length, builder_->value_data_length());
+    int64_t actual_capacity = builder_->value_data_capacity();
+    ASSERT_GE(actual_capacity, expected_capacity);
+    ASSERT_EQ(actual_capacity & 63, 0);
+
+    Done();
+
+    ASSERT_EQ(reps * N, result_->length());
+    ASSERT_EQ(0, result_->null_count());
+    ASSERT_EQ(reps * 40, result_->value_data()->size());
+  }
+
+  void TestZeroLength() {
     // All buffers are null
     Done();
     ASSERT_EQ(result_->length(), 0);
@@ -374,19 +449,23 @@ class TestStringBuilder : public TestBuilder {
 
 TYPED_TEST_CASE(TestStringBuilder, StringTypes);
 
-TYPED_TEST(TestStringBuilder, TestScalarAppend) { this->_TestScalarAppend(); }
+TYPED_TEST(TestStringBuilder, TestScalarAppend) { this->TestScalarAppend(); }
 
-TYPED_TEST(TestStringBuilder, TestVectorAppend) { this->_TestVectorAppend(); }
+TYPED_TEST(TestStringBuilder, TestScalarAppendUnsafe) { this->TestScalarAppendUnsafe(); }
+
+TYPED_TEST(TestStringBuilder, TestVectorAppend) { this->TestVectorAppend(); }
 
 TYPED_TEST(TestStringBuilder, TestAppendCStringsWithValidBytes) {
-  this->_TestAppendCStringsWithValidBytes();
+  this->TestAppendCStringsWithValidBytes();
 }
 
 TYPED_TEST(TestStringBuilder, TestAppendCStringsWithoutValidBytes) {
-  this->_TestAppendCStringsWithoutValidBytes();
+  this->TestAppendCStringsWithoutValidBytes();
 }
 
-TYPED_TEST(TestStringBuilder, TestZeroLength) { this->_TestZeroLength(); }
+TYPED_TEST(TestStringBuilder, TestCapacityReserve) { this->TestCapacityReserve(); }
+
+TYPED_TEST(TestStringBuilder, TestZeroLength) { this->TestZeroLength(); }
 
 // ----------------------------------------------------------------------
 // ChunkedBinaryBuilder tests

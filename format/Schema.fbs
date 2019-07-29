@@ -111,12 +111,13 @@ table Utf8 {
 table Binary {
 }
 
-/// Same as Utf8 and Binary, but with 64-bit offsets, allowing to represent
+/// Same as Utf8, but with 64-bit offsets, allowing to represent
 /// extremely large data values.
-/// Those two types are optional and not necessarily available in all implementations.
 table LargeUtf8 {
 }
 
+/// Same as Binary, but with 64-bit offsets, allowing to represent
+/// extremely large data values.
 table LargeBinary {
 }
 

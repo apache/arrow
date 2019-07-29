@@ -144,9 +144,9 @@ class RangeEqualsVisitor {
     return Status::OK();
   }
 
-  template <typename ArrayType>
-  bool CompareBinaryRange(const ArrayType& left) const {
-    const auto& right = checked_cast<const ArrayType&>(right_);
+  template <typename BinaryArrayType>
+  bool CompareBinaryRange(const BinaryArrayType& left) const {
+    const auto& right = checked_cast<const BinaryArrayType&>(right_);
 
     for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
@@ -521,11 +521,11 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
     }
   }
 
-  template <typename ArrayType>
-  bool CompareBinary(const ArrayType& left) {
-    const auto& right = checked_cast<const ArrayType&>(right_);
+  template <typename BinaryArrayType>
+  bool CompareBinary(const BinaryArrayType& left) {
+    const auto& right = checked_cast<const BinaryArrayType&>(right_);
 
-    bool equal_offsets = ValueOffsetsEqual<ArrayType>(left);
+    bool equal_offsets = ValueOffsetsEqual<BinaryArrayType>(left);
     if (!equal_offsets) {
       return false;
     }

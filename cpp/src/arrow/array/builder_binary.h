@@ -132,7 +132,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
     ARROW_RETURN_NOT_OK(value_data_builder_.Reserve(total_length));
     ARROW_RETURN_NOT_OK(offsets_builder_.Reserve(values.size()));
 
-    if (valid_bytes) {
+    if (valid_bytes != NULLPTR) {
       for (std::size_t i = 0; i < values.size(); ++i) {
         UnsafeAppendNextOffset();
         if (valid_bytes[i]) {
@@ -167,7 +167,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
     std::vector<std::size_t> value_lengths(length);
     bool have_null_value = false;
     for (int64_t i = 0; i < length; ++i) {
-      if (values[i]) {
+      if (values[i] != NULLPTR) {
         auto value_length = strlen(values[i]);
         value_lengths[i] = value_length;
         total_length += value_length;
@@ -176,8 +176,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
       }
     }
     ARROW_RETURN_NOT_OK(Reserve(length));
-    ARROW_RETURN_NOT_OK(value_data_builder_.Reserve(total_length));
-    ARROW_RETURN_NOT_OK(offsets_builder_.Reserve(length));
+    ARROW_RETURN_NOT_OK(ReserveData(total_length));
 
     if (valid_bytes) {
       int64_t valid_bytes_offset = 0;
@@ -227,11 +226,11 @@ class BaseBinaryBuilder : public ArrayBuilder {
   }
 
   Status Resize(int64_t capacity) override {
-    if (capacity > kListMaximumElements) {
-      return Status::CapacityError(
-          "BinaryBuilder cannot reserve space for more than 2^31 - 1 child elements, "
-          "got ",
-          capacity);
+    // XXX Why is this check necessary?  There is no reason to disallow, say,
+    // binary arrays with more than 2**31 empty or null values.
+    if (capacity > memory_limit()) {
+      return Status::CapacityError("BinaryBuilder cannot reserve space for more than ",
+                                   memory_limit(), " child elements, got ", capacity);
     }
     ARROW_RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
 
@@ -247,7 +246,6 @@ class BaseBinaryBuilder : public ArrayBuilder {
     ARROW_RETURN_IF(size > memory_limit(),
                     Status::CapacityError("Cannot reserve capacity larger than ",
                                           memory_limit(), " bytes"));
-
     return (size > value_data_capacity()) ? value_data_builder_.Reserve(elements)
                                           : Status::OK();
   }
@@ -291,16 +289,9 @@ class BaseBinaryBuilder : public ArrayBuilder {
   ///
   /// This view becomes invalid on the next modifying operation.
   util::string_view GetView(int64_t i) const {
-    const offset_type* offsets = offsets_builder_.data();
-    const auto offset = offsets[i];
     offset_type value_length;
-    if (i == (length_ - 1)) {
-      value_length = static_cast<offset_type>(value_data_builder_.length()) - offset;
-    } else {
-      value_length = offsets[i + 1] - offset;
-    }
-    return util::string_view(
-        reinterpret_cast<const char*>(value_data_builder_.data() + offset), value_length);
+    const uint8_t* value_data = GetValue(i, &value_length);
+    return util::string_view(reinterpret_cast<const char*>(value_data), value_length);
   }
 
  protected:
