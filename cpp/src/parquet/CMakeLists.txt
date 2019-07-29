@@ -157,6 +157,7 @@ add_custom_command(OUTPUT ${THRIFT_OUTPUT_FILES}
 
 set(PARQUET_SRCS
     arrow/reader.cc
+    arrow/reader_internal.cc
     arrow/schema.cc
     arrow/writer.cc
     bloom_filter.cc
