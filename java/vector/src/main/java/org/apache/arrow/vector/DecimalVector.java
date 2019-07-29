@@ -22,6 +22,7 @@ import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 import java.math.BigDecimal;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.vector.complex.impl.DecimalReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.DecimalHolder;
@@ -487,6 +488,36 @@ public class DecimalVector extends BaseFixedWidthVector {
   public void setSafe(int index, int isSet, int start, ArrowBuf buffer) {
     handleSafe(index);
     set(index, isSet, start, buffer);
+  }
+
+  @Override
+  public boolean equals(int index, ValueVector to, int toIndex) {
+    if (to == null) {
+      return false;
+    }
+    if (this.getMinorType() != to.getMinorType()) {
+      return false;
+    }
+
+    DecimalVector that = (DecimalVector) to;
+
+    if (this.scale != that.scale || this.precision != that.precision) {
+      return false;
+    }
+
+    if (this.isSet(index) != that.isSet(toIndex)) {
+      return false;
+    }
+
+    int leftStart = TYPE_WIDTH * index;
+    int leftEnd = TYPE_WIDTH * (index + 1);
+
+    int rightStart = TYPE_WIDTH * toIndex;
+    int rightEnd = TYPE_WIDTH * (toIndex + 1);
+
+    int ret = ByteFunctionHelpers.equal(this.getDataBuffer(), leftStart, leftEnd,
+        that.getDataBuffer(), rightStart, rightEnd);
+    return ret == 1;
   }
 
 

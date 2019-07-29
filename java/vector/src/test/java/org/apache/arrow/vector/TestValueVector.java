@@ -2283,6 +2283,33 @@ public class TestValueVector {
   }
 
   @Test
+  public void testDecimalVectorEquals() {
+    try (final DecimalVector vector1 = new DecimalVector("v1", allocator, 3, 3);
+        final DecimalVector vector2 = new DecimalVector("v2", allocator, 3, 3);
+        final DecimalVector vector3 = new DecimalVector("v3", allocator, 3, 2)) {
+
+      vector1.allocateNew(2);
+      vector1.setValueCount(2);
+      vector2.allocateNew(2);
+      vector2.setValueCount(2);
+      vector3.allocateNew(2);
+      vector3.setValueCount(2);
+
+      vector1.setSafe(0, 100);
+      vector1.setSafe(1, 200);
+
+      vector2.setSafe(0, 100);
+      vector2.setSafe(1, 200);
+
+      vector3.setSafe(0, 100);
+      vector3.setSafe(1, 200);
+
+      assertTrue(vector1.equals(vector2));
+      assertFalse(vector1.equals(vector3));
+    }
+  }
+
+  @Test
   public void testVarcharVectorEquals() {
     try (final VarCharVector vector1 = new VarCharVector("v1", allocator);
         final VarCharVector vector2 = new VarCharVector("v2", allocator)) {
