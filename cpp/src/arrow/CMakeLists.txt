@@ -143,7 +143,7 @@ set(ARROW_SRCS
     util/utf8.cc
     vendored/datetime/tz.cpp)
 
-if(ARROW_WITH_RAPIDJSON)
+if(ARROW_JSON)
   set(ARROW_SRCS ${ARROW_SRCS}
     json/options.cc
     json/chunked-builder.cc

@@ -262,9 +262,12 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_WITH_ZLIB ON)
 endif()
 
-if(ARROW_BUILD_TESTS)
-  # JSON parsing of arrays is required for Arrow unit tests
-  set(ARROW_IPC ON)
+if(ARROW_BUILD_TESTS AND NOT ARROW_JSON)
+  message(FATAL_ERROR "JSON parsing of arrays is required for Arrow unit tests")
+endif()
+
+if(ARROW_IPC AND NOT ARROW_JSON)
+  message(FATAL_ERROR "JSON support is required for Arrow IPC")
 endif()
 
 if(PARQUET_BUILD_EXAMPLES OR PARQUET_BUILD_EXECUTABLES)

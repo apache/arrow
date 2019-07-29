@@ -172,6 +172,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_PLASMA_JAVA_CLIENT "Build the plasma object store java client" OFF)
 
+  define_option(ARROW_JSON "Build Arrow with JSON support (requires RapidJSON)" ON)
+
   #----------------------------------------------------------------------
   set_option_category("Thirdparty toolchain")
 
