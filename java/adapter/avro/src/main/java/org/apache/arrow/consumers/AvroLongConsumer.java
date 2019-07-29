@@ -27,7 +27,7 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume long type values from avro decoder.
  * Write the data to {@link BigIntVector}.
  */
-public class AvroLongConsumer extends Consumer {
+public class AvroLongConsumer implements Consumer {
 
   private final BigIntWriterImpl writer;
 
@@ -36,22 +36,16 @@ public class AvroLongConsumer extends Consumer {
    */
   public AvroLongConsumer(BigIntVector vector) {
     this.writer = new BigIntWriterImpl(vector);
-    this.nullable = vector.getField().isNullable();
-    if (nullable) {
-      getNullFieldIndex(vector.getField());
-    }
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    if (!nullable) {
-      writer.writeBigInt(decoder.readLong());
-    } else {
-      int index = decoder.readInt();
-      if (index != nullIndex) {
-        writer.writeBigInt(decoder.readLong());
-      }
-    }
+    writer.writeBigInt(decoder.readLong());
+    movePosition();
+  }
+
+  @Override
+  public void movePosition() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }

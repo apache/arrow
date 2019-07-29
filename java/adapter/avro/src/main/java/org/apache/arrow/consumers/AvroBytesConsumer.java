@@ -30,7 +30,7 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume bytes type values from avro decoder.
  * Write the data to {@link VarBinaryVector}.
  */
-public class AvroBytesConsumer extends Consumer {
+public class AvroBytesConsumer implements Consumer {
 
   private final VarBinaryWriter writer;
   private final VarBinaryVector vector;
@@ -42,23 +42,16 @@ public class AvroBytesConsumer extends Consumer {
   public AvroBytesConsumer(VarBinaryVector vector) {
     this.vector = vector;
     this.writer = new VarBinaryWriterImpl(vector);
-    this.nullable = vector.getField().isNullable();
-    if (nullable) {
-      getNullFieldIndex(vector.getField());
-    }
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    if (!nullable) {
-      writeValue(decoder);
-    } else {
-      int index = decoder.readInt();
-      if (index != nullIndex) {
-        writeValue(decoder);
-      }
-    }
+    writeValue(decoder);
+    movePosition();
+  }
 
+  @Override
+  public void movePosition() {
     writer.setPosition(writer.getPosition() + 1);
   }
 

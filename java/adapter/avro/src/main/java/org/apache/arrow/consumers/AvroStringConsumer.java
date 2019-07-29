@@ -29,7 +29,7 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume string type values from avro decoder.
  * Write the data to {@link VarCharVector}.
  */
-public class AvroStringConsumer extends Consumer {
+public class AvroStringConsumer implements Consumer {
 
   private final VarCharVector vector;
   private final VarCharWriterImpl writer;
@@ -41,23 +41,16 @@ public class AvroStringConsumer extends Consumer {
   public AvroStringConsumer(VarCharVector vector) {
     this.vector = vector;
     this.writer = new VarCharWriterImpl(vector);
-    this.nullable = vector.getField().isNullable();
-    if (nullable) {
-      getNullFieldIndex(vector.getField());
-    }
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    if (!nullable) {
-      writeValue(decoder);
-    } else {
-      int index = decoder.readInt();
-      if (index != nullIndex) {
-        writeValue(decoder);
-      }
-    }
+    writeValue(decoder);
+    movePosition();
+  }
 
+  @Override
+  public void movePosition() {
     writer.setPosition(writer.getPosition() + 1);
   }
 

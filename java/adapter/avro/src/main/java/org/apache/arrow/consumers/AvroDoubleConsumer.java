@@ -27,7 +27,7 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume double type values from avro decoder.
  * Write the data to {@link Float8Vector}.
  */
-public class AvroDoubleConsumer extends Consumer {
+public class AvroDoubleConsumer implements Consumer {
 
   private final Float8WriterImpl writer;
 
@@ -36,22 +36,16 @@ public class AvroDoubleConsumer extends Consumer {
    */
   public AvroDoubleConsumer(Float8Vector vector) {
     this.writer = new Float8WriterImpl(vector);
-    this.nullable = vector.getField().isNullable();
-    if (nullable) {
-      getNullFieldIndex(vector.getField());
-    }
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    if (!nullable) {
-      writer.writeFloat8(decoder.readDouble());
-    } else {
-      int index = decoder.readInt();
-      if (index != nullIndex) {
-        writer.writeFloat8(decoder.readDouble());
-      }
-    }
+    writer.writeFloat8(decoder.readDouble());
+    movePosition();
+  }
+
+  @Override
+  public void movePosition() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }

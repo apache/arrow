@@ -27,7 +27,7 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume float type values from avro decoder.
  * Write the data to {@link Float4Vector}.
  */
-public class AvroFloatConsumer extends Consumer {
+public class AvroFloatConsumer implements Consumer {
 
   private final Float4WriterImpl writer;
 
@@ -36,22 +36,16 @@ public class AvroFloatConsumer extends Consumer {
    */
   public AvroFloatConsumer(Float4Vector vector) {
     this.writer = new Float4WriterImpl(vector);
-    this.nullable = vector.getField().isNullable();
-    if (nullable) {
-      getNullFieldIndex(vector.getField());
-    }
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    if (!nullable) {
-      writer.writeFloat4(decoder.readFloat());
-    } else {
-      int index = decoder.readInt();
-      if (index != nullIndex) {
-        writer.writeFloat4(decoder.readFloat());
-      }
-    }
+    writer.writeFloat4(decoder.readFloat());
+    movePosition();
+  }
+
+  @Override
+  public void movePosition() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }

@@ -27,7 +27,7 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume int type values from avro decoder.
  * Write the data to {@link IntVector}.
  */
-public class AvroIntConsumer extends Consumer {
+public class AvroIntConsumer implements Consumer {
 
   private final IntWriterImpl writer;
 
@@ -36,22 +36,16 @@ public class AvroIntConsumer extends Consumer {
    */
   public AvroIntConsumer(IntVector vector) {
     this.writer = new IntWriterImpl(vector);
-    this.nullable = vector.getField().isNullable();
-    if (nullable) {
-      getNullFieldIndex(vector.getField());
-    }
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    if (!nullable) {
-      writer.writeInt(decoder.readInt());
-    } else {
-      int index = decoder.readInt();
-      if (index != nullIndex) {
-        writer.writeInt(decoder.readInt());
-      }
-    }
+    writer.writeInt(decoder.readInt());
+    movePosition();
+  }
+
+  @Override
+  public void movePosition() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }

@@ -19,34 +19,38 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
-import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.complex.impl.BitWriterImpl;
-import org.apache.arrow.vector.complex.writer.BitWriter;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume boolean type values from avro decoder.
- * Write the data to {@link BitVector}.
+ * Consumer holds a primitive consumer, could consume nullable values from avro decoder.
+ * Write data via writer of delegate consumer.
  */
-public class AvroBooleanConsumer implements Consumer {
+public class NullablePrimitiveTypeConsumer implements Consumer {
 
-  private final BitWriter writer;
+
+  private final Consumer delegate;
 
   /**
-   * Instantiate a AvroBooleanConsumer.
+   * Null field index in avro schema.
    */
-  public AvroBooleanConsumer(BitVector vector) {
-    this.writer = new BitWriterImpl(vector);
+  protected int nullIndex;
+
+  public NullablePrimitiveTypeConsumer(Consumer delegate, int nullIndex) {
+    this.delegate = delegate;
+    this.nullIndex = nullIndex;
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    writer.writeBit(decoder.readBoolean() ? 1 : 0);
-    movePosition();
+    if (nullIndex != decoder.readInt()) {
+      delegate.consume(decoder);
+    } else {
+      movePosition();
+    }
   }
 
   @Override
   public void movePosition() {
-    writer.setPosition(writer.getPosition() + 1);
+    delegate.movePosition();
   }
 }
