@@ -58,36 +58,32 @@ struct FatPtr<T> {
 
 impl<T> FatPtr<T> {
     fn new(ptr: *const T, len: usize) -> Self {
-        Self {
-            ptr,
-            len,
-        }
+        Self { ptr, len }
     }
 
     fn with_offset(buf: &MutableBuffer, offset: usize) -> Self {
         FatPtr::<T>::with_offset_and_size(buf, offset, size_of::<T>())
     }
 
-    fn with_offset_and_size(buf: &MutableBuffer, offset: usize, type_size: usize) ->
-                                                                                  Self {
+    fn with_offset_and_size(
+        buf: &MutableBuffer,
+        offset: usize,
+        type_size: usize,
+    ) -> Self {
         unsafe {
-            FatPtr::new(transmute::<*const u8, *mut T>(buf.raw_data()).add(offset),
-                        buf.capacity() / type_size - offset)
-
+            FatPtr::new(
+                transmute::<*const u8, *mut T>(buf.raw_data()).add(offset),
+                buf.capacity() / type_size - offset,
+            )
         }
-
     }
 
     fn to_slice(&self) -> &[T] {
-        unsafe {
-            slice::from_raw_parts(self.ptr, self.len)
-        }
+        unsafe { slice::from_raw_parts(self.ptr, self.len) }
     }
 
     fn to_slice_mut(&self) -> &mut [T] {
-        unsafe  {
-            slice::from_raw_parts_mut(self.ptr as *mut T, self.len)
-        }
+        unsafe { slice::from_raw_parts_mut(self.ptr as *mut T, self.len) }
     }
 }
 
@@ -135,6 +131,7 @@ impl<T: DataType> RecordReader<T> {
     ///
     /// Number of actual records read.
     pub fn read_records(&mut self, num_records: usize) -> Result<usize> {
+        assert!(self.column_reader.is_some());
         let mut records_read = 0;
 
         // Used to mark whether we have reached the end of current
@@ -202,7 +199,6 @@ impl<T: DataType> RecordReader<T> {
 
     /// Returns currently stored buffer data.
     pub fn consume_record_data(&mut self) -> Buffer {
-        dbg!(self.records.raw_data());
         replace(&mut self.records, MutableBuffer::new(MIN_BATCH_SIZE)).freeze()
     }
 
@@ -227,40 +223,47 @@ impl<T: DataType> RecordReader<T> {
         // Reserve spaces
         self.records
             .reserve(self.records.len() + batch_size * T::get_type_size())?;
-        self.records.len();
-        self.rep_levels.iter_mut().try_for_each(|buf| {
+        if let Some(ref mut buf) = self.rep_levels {
             buf.reserve(buf.len() + batch_size * size_of::<i16>())
-                .map(|_| ())
-        })?;
-        self.def_levels.iter_mut().try_for_each(|buf| {
+                .map(|_| ())?;
+        }
+        if let Some(ref mut buf) = self.def_levels {
             buf.reserve(buf.len() + batch_size * size_of::<i16>())
-                .map(|_| ())
-        })?;
+                .map(|_| ())?;
+        }
 
         // Convert mutable buffer spaces to mutable slices
-        let data_buf = FatPtr::<T::T>::with_offset_and_size(&self.records, self
-            .values_written, T::get_type_size());
+        let values_buf = FatPtr::<T::T>::with_offset_and_size(
+            &self.records,
+            self.values_written,
+            T::get_type_size(),
+        );
 
-        let mut def_levels_buf = self.def_levels.as_ref().map(|buf|
-            FatPtr::<i16>::with_offset(buf, self.values_written));
+        let mut def_levels_buf = self
+            .def_levels
+            .as_ref()
+            .map(|buf| FatPtr::<i16>::with_offset(buf, self.values_written));
 
-        let mut rep_levels_buf = self.rep_levels.as_ref().map(|buf|FatPtr::<i16>::with_offset
-                (buf, self.values_written));
+        let mut rep_levels_buf = self
+            .rep_levels
+            .as_ref()
+            .map(|buf| FatPtr::<i16>::with_offset(buf, self.values_written));
 
-        let (data_read, levels_read) = self.column_reader.as_mut().unwrap().read_batch(
-            batch_size,
-            def_levels_buf.as_mut().map(|ptr| ptr.to_slice_mut()),
-            rep_levels_buf.as_mut().map(|ptr| ptr.to_slice_mut()),
-            data_buf.to_slice_mut(),
-        )?;
+        let (values_read, levels_read) =
+            self.column_reader.as_mut().unwrap().read_batch(
+                batch_size,
+                def_levels_buf.as_mut().map(|ptr| ptr.to_slice_mut()),
+                rep_levels_buf.as_mut().map(|ptr| ptr.to_slice_mut()),
+                values_buf.to_slice_mut(),
+            )?;
 
         let max_def_level = self.column_desc.max_def_level();
 
-        if data_read < levels_read {
+        if values_read < levels_read {
             // This means that there are null values in column data
             // TODO: Move this into ColumnReader
 
-            let data_buf = data_buf.to_slice_mut();
+            let values_buf = values_buf.to_slice_mut();
 
             let def_levels_buf = def_levels_buf
                 .as_mut()
@@ -272,18 +275,18 @@ impl<T: DataType> RecordReader<T> {
                 })?;
 
             // Fill spaces in column data with default values
-            let mut data_pos = data_read;
+            let mut values_pos = values_read;
             let mut level_pos = levels_read;
 
-            while level_pos > data_pos {
+            while level_pos > values_pos {
                 if def_levels_buf[level_pos - 1] == max_def_level {
                     // This values is not empty
                     // We use swap rather than assign here because T::T doesn't
                     // implement Copy
-                    data_buf.swap(level_pos - 1, data_pos - 1);
-                    data_pos -= 1;
+                    values_buf.swap(level_pos - 1, values_pos - 1);
+                    values_pos -= 1;
                 } else {
-                    data_buf[level_pos - 1] = T::T::default();
+                    values_buf[level_pos - 1] = T::T::default();
                 }
 
                 level_pos -= 1;
@@ -305,7 +308,7 @@ impl<T: DataType> RecordReader<T> {
             })?;
         }
 
-        let values_read = max(data_read, levels_read);
+        let values_read = max(values_read, levels_read);
         self.set_values_written(self.values_written + values_read)?;
         Ok(values_read)
     }
@@ -313,8 +316,10 @@ impl<T: DataType> RecordReader<T> {
     /// Split values into records according repetition definition and returns number of
     /// records read.
     fn split_records(&mut self, records_to_read: usize) -> Result<usize> {
-        let rep_levels_buf = self.rep_levels.as_ref().map(|buf|
-            FatPtr::<i16>::with_offset(buf, 0));
+        let rep_levels_buf = self
+            .rep_levels
+            .as_ref()
+            .map(|buf| FatPtr::<i16>::with_offset(buf, 0));
         let rep_levels_buf = rep_levels_buf.as_ref().map(|x| x.to_slice());
 
         match rep_levels_buf {
@@ -347,41 +352,6 @@ impl<T: DataType> RecordReader<T> {
             }
         }
     }
-
-    #[inline]
-    fn rep_levels_buf(&self, from: usize) -> Option<FatPtr<i16>> {
-        unsafe {
-            self.rep_levels.as_ref().map(|buf| {
-                FatPtr::new(
-                    transmute::<*const u8, *mut i16>(buf.raw_data()).add(from),
-                    buf.capacity() / size_of::<i16>() - from,
-                )
-            })
-        }
-    }
-//
-//    #[inline]
-//    fn def_levels_buf(&self, from: usize) -> Option<FatPtr<i16>> {
-//        unsafe {
-//            self.def_levels.as_ref().map(|buf| {
-//                FatPtr::new(
-//                    transmute::<*const u8, *mut i16>(buf.raw_data()).add(from),
-//                    buf.capacity() / size_of::<i16>() - from,
-//                )
-//            })
-//        }
-//    }
-//
-//    #[inline]
-//    fn records_buf(&self, from: usize) -> FatPtr<T::T> {
-//        unsafe {
-//            self.records.raw_data();
-//            FatPtr::new(
-//                transmute::<*const u8, *mut T::T>(self.records.raw_data()).add(from),
-//                self.records.capacity() / T::get_type_size() - from,
-//            )
-//        }
-//    }
 
     fn set_values_written(&mut self, new_values_written: usize) -> Result<()> {
         self.values_written = new_values_written;
@@ -727,7 +697,7 @@ mod tests {
             let def_levels = [1i16; 5000];
             let mut rep_levels = [1i16; 5000];
             for idx in 0..1000 {
-                rep_levels[idx*5] = 0i16;
+                rep_levels[idx * 5] = 0i16;
             }
 
             let mut pb = DataPageBuilderImpl::new(desc.clone(), 5000, true);
