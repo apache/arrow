@@ -21,6 +21,7 @@ import java.io.IOException;
 
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.complex.impl.IntWriterImpl;
+import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.avro.io.Decoder;
 
 /**
@@ -29,7 +30,7 @@ import org.apache.avro.io.Decoder;
  */
 public class AvroIntConsumer implements Consumer {
 
-  private final IntWriterImpl writer;
+  private final IntWriter writer;
 
   /**
    * Instantiate a AvroIntConsumer.
