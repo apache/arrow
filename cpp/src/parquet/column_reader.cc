@@ -1311,7 +1311,7 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
  private:
   using BinaryDictDecoder = DictDecoder<ByteArrayType>;
 
-  ::arrow::BinaryDictionaryBuilder builder_;
+  ::arrow::BinaryDictionary32Builder builder_;
   std::vector<std::shared_ptr<::arrow::Array>> result_chunks_;
 };
 

@@ -20,8 +20,9 @@
 #include <algorithm>
 #include <memory>
 
-#include "arrow/array/builder_adaptive.h"  // IWYU pragma: export
-#include "arrow/array/builder_base.h"      // IWYU pragma: export
+#include "arrow/array/builder_adaptive.h"   // IWYU pragma: export
+#include "arrow/array/builder_base.h"       // IWYU pragma: export
+#include "arrow/array/builder_primitive.h"  // IWYU pragma: export
 
 #include "arrow/array.h"
 
@@ -84,8 +85,6 @@ class ARROW_EXPORT DictionaryMemoTable {
   std::unique_ptr<DictionaryMemoTableImpl> impl_;
 };
 
-}  // namespace internal
-
 /// \brief Array builder for created encoded DictionaryArray from
 /// dense array
 ///
@@ -95,50 +94,50 @@ class ARROW_EXPORT DictionaryMemoTable {
 /// build a delta dictionary when new terms occur.
 ///
 /// data
-template <typename T>
-class DictionaryBuilder : public ArrayBuilder {
+template <typename BuilderType, typename T>
+class DictionaryBuilderBase : public ArrayBuilder {
  public:
-  using Scalar = typename internal::DictionaryScalar<T>::type;
+  using Scalar = typename DictionaryScalar<T>::type;
 
   // WARNING: the type given below is the value type, not the DictionaryType.
   // The DictionaryType is instantiated on the Finish() call.
   template <typename T1 = T>
-  DictionaryBuilder(
+  DictionaryBuilderBase(
       typename std::enable_if<!std::is_base_of<FixedSizeBinaryType, T1>::value,
                               const std::shared_ptr<DataType>&>::type type,
       MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(type, pool),
-        memo_table_(new internal::DictionaryMemoTable(type)),
+        memo_table_(new DictionaryMemoTable(type)),
         delta_offset_(0),
         byte_width_(-1),
         values_builder_(pool) {}
 
   template <typename T1 = T>
-  explicit DictionaryBuilder(
+  explicit DictionaryBuilderBase(
       typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T1>::value,
                               const std::shared_ptr<DataType>&>::type type,
       MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(type, pool),
-        memo_table_(new internal::DictionaryMemoTable(type)),
+        memo_table_(new DictionaryMemoTable(type)),
         delta_offset_(0),
         byte_width_(static_cast<const T1&>(*type).byte_width()),
         values_builder_(pool) {}
 
   template <typename T1 = T>
-  explicit DictionaryBuilder(
+  explicit DictionaryBuilderBase(
       typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool =
           default_memory_pool())
-      : DictionaryBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
+      : DictionaryBuilderBase<BuilderType, T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
-  DictionaryBuilder(const std::shared_ptr<Array>& dictionary,
-                    MemoryPool* pool = default_memory_pool())
+  DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
+                        MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(dictionary->type(), pool),
-        memo_table_(new internal::DictionaryMemoTable(dictionary)),
+        memo_table_(new DictionaryMemoTable(dictionary)),
         delta_offset_(0),
         byte_width_(-1),
         values_builder_(pool) {}
 
-  ~DictionaryBuilder() override = default;
+  ~DictionaryBuilderBase() override = default;
 
   /// \brief Append a scalar value
   Status Append(const Scalar& value) {
@@ -189,18 +188,6 @@ class DictionaryBuilder : public ArrayBuilder {
     return memo_table_->InsertValues(values);
   }
 
-  /// \brief Append dictionary indices directly without modifying memo
-  ///
-  /// NOTE: Experimental API
-  Status AppendIndices(const int64_t* values, int64_t length,
-                       const uint8_t* valid_bytes = NULLPTR) {
-    int64_t null_count_before = values_builder_.null_count();
-    ARROW_RETURN_NOT_OK(values_builder_.AppendValues(values, length, valid_bytes));
-    length_ += length;
-    null_count_ += values_builder_.null_count() - null_count_before;
-    return Status::OK();
-  }
-
   /// \brief Append a whole dense array to the builder
   template <typename T1 = T>
   Status AppendArray(
@@ -242,7 +229,7 @@ class DictionaryBuilder : public ArrayBuilder {
   void Reset() override {
     ArrayBuilder::Reset();
     values_builder_.Reset();
-    memo_table_.reset(new internal::DictionaryMemoTable(type_));
+    memo_table_.reset(new DictionaryMemoTable(type_));
     delta_offset_ = 0;
   }
 
@@ -291,26 +278,27 @@ class DictionaryBuilder : public ArrayBuilder {
   bool is_building_delta() { return delta_offset_ > 0; }
 
  protected:
-  std::unique_ptr<internal::DictionaryMemoTable> memo_table_;
+  std::unique_ptr<DictionaryMemoTable> memo_table_;
 
   int32_t delta_offset_;
   // Only used for FixedSizeBinaryType
   int32_t byte_width_;
 
-  AdaptiveIntBuilder values_builder_;
+  BuilderType values_builder_;
 };
 
-template <>
-class DictionaryBuilder<NullType> : public ArrayBuilder {
+template <typename BuilderType>
+class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
  public:
-  DictionaryBuilder(const std::shared_ptr<DataType>& type,
-                    MemoryPool* pool = default_memory_pool())
+  DictionaryBuilderBase(const std::shared_ptr<DataType>& type,
+                        MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(type, pool), values_builder_(pool) {}
-  explicit DictionaryBuilder(MemoryPool* pool = default_memory_pool())
+
+  explicit DictionaryBuilderBase(MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(null(), pool), values_builder_(pool) {}
 
-  DictionaryBuilder(const std::shared_ptr<Array>& dictionary,
-                    MemoryPool* pool = default_memory_pool())
+  DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
+                        MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(dictionary->type(), pool), values_builder_(pool) {}
 
   /// \brief Append a scalar null value
@@ -362,16 +350,68 @@ class DictionaryBuilder<NullType> : public ArrayBuilder {
   Status Finish(std::shared_ptr<DictionaryArray>* out) { return FinishTyped(out); }
 
  protected:
-  AdaptiveIntBuilder values_builder_;
+  BuilderType values_builder_;
 };
 
-class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType> {
- public:
-  using DictionaryBuilder::Append;
-  using DictionaryBuilder::AppendIndices;
-  using DictionaryBuilder::DictionaryBuilder;
+}  // namespace internal
 
-  BinaryDictionaryBuilder() : BinaryDictionaryBuilder(default_memory_pool()) {}
+/// \brief A DictionaryArray builder that uses AdaptiveIntBuilder to return the
+/// smallest index size that can accommodate the dictionary indices
+template <typename T>
+class DictionaryBuilder : public internal::DictionaryBuilderBase<AdaptiveIntBuilder, T> {
+ public:
+  using BASE = internal::DictionaryBuilderBase<AdaptiveIntBuilder, T>;
+  using BASE::BASE;
+
+  /// \brief Append dictionary indices directly without modifying memo
+  ///
+  /// NOTE: Experimental API
+  Status AppendIndices(const int64_t* values, int64_t length,
+                       const uint8_t* valid_bytes = NULLPTR) {
+    int64_t null_count_before = this->values_builder_.null_count();
+    ARROW_RETURN_NOT_OK(this->values_builder_.AppendValues(values, length, valid_bytes));
+    this->length_ += length;
+    this->null_count_ += this->values_builder_.null_count() - null_count_before;
+    return Status::OK();
+  }
+};
+
+/// \brief A DictionaryArray builder that always returns int32 dictionary
+/// indices so that data cast to dictionary form will have a consistent index
+/// type, e.g. for creating a ChunkedArray
+template <typename T>
+class Dictionary32Builder : public internal::DictionaryBuilderBase<Int32Builder, T> {
+ public:
+  using BASE = internal::DictionaryBuilderBase<Int32Builder, T>;
+  using BASE::BASE;
+
+  /// \brief Append dictionary indices directly without modifying memo
+  ///
+  /// NOTE: Experimental API
+  Status AppendIndices(const int32_t* values, int64_t length,
+                       const uint8_t* valid_bytes = NULLPTR) {
+    int64_t null_count_before = this->values_builder_.null_count();
+    ARROW_RETURN_NOT_OK(this->values_builder_.AppendValues(values, length, valid_bytes));
+    this->length_ += length;
+    this->null_count_ += this->values_builder_.null_count() - null_count_before;
+    return Status::OK();
+  }
+};
+
+// ----------------------------------------------------------------------
+// Binary / Unicode builders with slightly expanded APIs
+
+namespace internal {
+
+template <typename T>
+class BinaryDictionaryBuilderImpl : public DictionaryBuilder<T> {
+ public:
+  using BASE = DictionaryBuilder<T>;
+  using BASE::Append;
+  using BASE::AppendIndices;
+  using BASE::BASE;
+
+  BinaryDictionaryBuilderImpl() : BinaryDictionaryBuilderImpl(default_memory_pool()) {}
 
   Status Append(const uint8_t* value, int32_t length) {
     return Append(reinterpret_cast<const char*>(value), length);
@@ -382,14 +422,16 @@ class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType
   }
 };
 
-/// \brief Dictionary array builder with convenience methods for strings
-class ARROW_EXPORT StringDictionaryBuilder : public DictionaryBuilder<StringType> {
+template <typename T>
+class BinaryDictionary32BuilderImpl : public Dictionary32Builder<T> {
  public:
-  using DictionaryBuilder::Append;
-  using DictionaryBuilder::AppendIndices;
-  using DictionaryBuilder::DictionaryBuilder;
+  using BASE = Dictionary32Builder<T>;
+  using BASE::Append;
+  using BASE::AppendIndices;
+  using BASE::BASE;
 
-  StringDictionaryBuilder() : StringDictionaryBuilder(default_memory_pool()) {}
+  BinaryDictionary32BuilderImpl()
+      : BinaryDictionary32BuilderImpl(default_memory_pool()) {}
 
   Status Append(const uint8_t* value, int32_t length) {
     return Append(reinterpret_cast<const char*>(value), length);
@@ -398,6 +440,30 @@ class ARROW_EXPORT StringDictionaryBuilder : public DictionaryBuilder<StringType
   Status Append(const char* value, int32_t length) {
     return Append(util::string_view(value, length));
   }
+};
+
+}  // namespace internal
+
+class BinaryDictionaryBuilder : public internal::BinaryDictionaryBuilderImpl<BinaryType> {
+  using BASE = internal::BinaryDictionaryBuilderImpl<BinaryType>;
+  using BASE::BASE;
+};
+
+class StringDictionaryBuilder : public internal::BinaryDictionaryBuilderImpl<StringType> {
+  using BASE = BinaryDictionaryBuilderImpl<StringType>;
+  using BASE::BASE;
+};
+
+class BinaryDictionary32Builder
+    : public internal::BinaryDictionary32BuilderImpl<BinaryType> {
+  using BASE = internal::BinaryDictionary32BuilderImpl<BinaryType>;
+  using BASE::BASE;
+};
+
+class StringDictionary32Builder
+    : public internal::BinaryDictionary32BuilderImpl<StringType> {
+  using BASE = internal::BinaryDictionary32BuilderImpl<StringType>;
+  using BASE::BASE;
 };
 
 }  // namespace arrow

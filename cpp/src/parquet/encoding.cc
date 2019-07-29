@@ -711,7 +711,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
-                  ::arrow::BinaryDictionaryBuilder* builder) override {
+                  ::arrow::BinaryDictionary32Builder* builder) override {
     int result = 0;
     PARQUET_THROW_NOT_OK(DecodeArrow(num_values, null_count, valid_bits,
                                      valid_bits_offset, builder, &result));
@@ -728,7 +728,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
   }
 
   int DecodeArrowNonNull(int num_values,
-                         ::arrow::BinaryDictionaryBuilder* builder) override {
+                         ::arrow::BinaryDictionary32Builder* builder) override {
     int result = 0;
     PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, builder, &result));
     return result;
@@ -878,12 +878,12 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
     if (num_values > 0) {
       // TODO(wesm): Refactor to batch reads for improved memory use. It is not
       // trivial because the null_count is relative to the entire bitmap
-      PARQUET_THROW_NOT_OK(indices_scratch_space_->TypedResize<int64_t>(
+      PARQUET_THROW_NOT_OK(indices_scratch_space_->TypedResize<int32_t>(
           num_values, /*shrink_to_fit=*/false));
     }
 
     auto indices_buffer =
-        reinterpret_cast<int64_t*>(indices_scratch_space_->mutable_data());
+        reinterpret_cast<int32_t*>(indices_scratch_space_->mutable_data());
 
     if (num_values != idx_decoder_.GetBatchSpaced(num_values, null_count, valid_bits,
                                                   valid_bits_offset, indices_buffer)) {
@@ -898,7 +898,7 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
       bit_reader.Next();
     }
 
-    auto binary_builder = checked_cast<::arrow::BinaryDictionaryBuilder*>(builder);
+    auto binary_builder = checked_cast<::arrow::BinaryDictionary32Builder*>(builder);
     PARQUET_THROW_NOT_OK(
         binary_builder->AppendIndices(indices_buffer, num_values, valid_bytes.data()));
     num_values_ -= num_values;
@@ -912,15 +912,15 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
       // TODO(wesm): Refactor to batch reads for improved memory use. This is
       // relatively simple here because we don't have to do any bookkeeping of
       // nulls
-      PARQUET_THROW_NOT_OK(indices_scratch_space_->TypedResize<int64_t>(
+      PARQUET_THROW_NOT_OK(indices_scratch_space_->TypedResize<int32_t>(
           num_values, /*shrink_to_fit=*/false));
     }
     auto indices_buffer =
-        reinterpret_cast<int64_t*>(indices_scratch_space_->mutable_data());
+        reinterpret_cast<int32_t*>(indices_scratch_space_->mutable_data());
     if (num_values != idx_decoder_.GetBatch(indices_buffer, num_values)) {
       ParquetException::EofException();
     }
-    auto binary_builder = checked_cast<::arrow::BinaryDictionaryBuilder*>(builder);
+    auto binary_builder = checked_cast<::arrow::BinaryDictionary32Builder*>(builder);
     PARQUET_THROW_NOT_OK(binary_builder->AppendIndices(indices_buffer, num_values));
     num_values_ -= num_values;
     return num_values;
@@ -952,7 +952,7 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
   std::shared_ptr<ResizableBuffer> byte_array_offsets_;
 
   // Reusable buffer for decoding dictionary indices to be appended to a
-  // BinaryDictionaryBuilder
+  // BinaryDictionary32Builder
   std::shared_ptr<ResizableBuffer> indices_scratch_space_;
 
   ::arrow::util::RleDecoder idx_decoder_;
@@ -1024,7 +1024,7 @@ void DictDecoderImpl<Type>::InsertDictionary(::arrow::ArrayBuilder* builder) {
 
 template <>
 void DictDecoderImpl<ByteArrayType>::InsertDictionary(::arrow::ArrayBuilder* builder) {
-  auto binary_builder = checked_cast<::arrow::BinaryDictionaryBuilder*>(builder);
+  auto binary_builder = checked_cast<::arrow::BinaryDictionary32Builder*>(builder);
 
   // Make an BinaryArray referencing the internal dictionary data
   auto arr = std::make_shared<::arrow::BinaryArray>(
@@ -1040,7 +1040,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
-                  ::arrow::BinaryDictionaryBuilder* builder) override {
+                  ::arrow::BinaryDictionary32Builder* builder) override {
     int result = 0;
     PARQUET_THROW_NOT_OK(DecodeArrow(num_values, null_count, valid_bits,
                                      valid_bits_offset, builder, &result));
@@ -1057,7 +1057,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
   }
 
   int DecodeArrowNonNull(int num_values,
-                         ::arrow::BinaryDictionaryBuilder* builder) override {
+                         ::arrow::BinaryDictionary32Builder* builder) override {
     int result = 0;
     PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, builder, &result));
     return result;

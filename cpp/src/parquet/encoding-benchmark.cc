@@ -36,6 +36,7 @@ using arrow::default_memory_pool;
 using arrow::MemoryPool;
 
 namespace {
+
 // The min/max number of values used to drive each family of encoding benchmarks
 constexpr int MIN_RANGE = 1024;
 constexpr int MAX_RANGE = 65536;
@@ -335,7 +336,7 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
   std::shared_ptr<Buffer> buffer_;
 };
 
-using ::arrow::BinaryDictionaryBuilder;
+using ::arrow::BinaryDictionary32Builder;
 using ::arrow::internal::ChunkedBinaryBuilder;
 
 template <>
@@ -346,9 +347,9 @@ std::unique_ptr<ChunkedBinaryBuilder> BenchmarkDecodeArrow::CreateBuilder() {
 }
 
 template <>
-std::unique_ptr<BinaryDictionaryBuilder> BenchmarkDecodeArrow::CreateBuilder() {
-  return std::unique_ptr<BinaryDictionaryBuilder>(
-      new BinaryDictionaryBuilder(default_memory_pool()));
+std::unique_ptr<BinaryDictionary32Builder> BenchmarkDecodeArrow::CreateBuilder() {
+  return std::unique_ptr<BinaryDictionary32Builder>(
+      new BinaryDictionary32Builder(default_memory_pool()));
 }
 
 // ----------------------------------------------------------------------
@@ -379,12 +380,14 @@ BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dense)
     ->Range(MIN_RANGE, MAX_RANGE);
 
 BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrow_Dict)
-(benchmark::State& state) { DecodeArrowBenchmark<BinaryDictionaryBuilder>(state); }
+(benchmark::State& state) { DecodeArrowBenchmark<BinaryDictionary32Builder>(state); }
 BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrow_Dict)
     ->Range(MIN_RANGE, MAX_RANGE);
 
 BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dict)
-(benchmark::State& state) { DecodeArrowNonNullBenchmark<BinaryDictionaryBuilder>(state); }
+(benchmark::State& state) {
+  DecodeArrowNonNullBenchmark<BinaryDictionary32Builder>(state);
+}
 BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dict)
     ->Range(MIN_RANGE, MAX_RANGE);
 
@@ -439,12 +442,14 @@ BENCHMARK_REGISTER_F(BM_DictDecodingByteArray, DecodeArrowNonNull_Dense)
     ->Range(MIN_RANGE, MAX_RANGE);
 
 BENCHMARK_DEFINE_F(BM_DictDecodingByteArray, DecodeArrow_Dict)
-(benchmark::State& state) { DecodeArrowBenchmark<BinaryDictionaryBuilder>(state); }
+(benchmark::State& state) { DecodeArrowBenchmark<BinaryDictionary32Builder>(state); }
 BENCHMARK_REGISTER_F(BM_DictDecodingByteArray, DecodeArrow_Dict)
     ->Range(MIN_RANGE, MAX_RANGE);
 
 BENCHMARK_DEFINE_F(BM_DictDecodingByteArray, DecodeArrowNonNull_Dict)
-(benchmark::State& state) { DecodeArrowNonNullBenchmark<BinaryDictionaryBuilder>(state); }
+(benchmark::State& state) {
+  DecodeArrowNonNullBenchmark<BinaryDictionary32Builder>(state);
+}
 BENCHMARK_REGISTER_F(BM_DictDecodingByteArray, DecodeArrowNonNull_Dict)
     ->Range(MIN_RANGE, MAX_RANGE);
 

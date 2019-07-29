@@ -282,6 +282,26 @@ TYPED_TEST(TestDictionaryBuilder, DoubleDeltaDictionary) {
   ASSERT_TRUE(expected_delta2.Equals(result_delta2));
 }
 
+TYPED_TEST(TestDictionaryBuilder, Dictionary32_BasicPrimitive) {
+  using c_type = typename TypeParam::c_type;
+  auto type = std::make_shared<TypeParam>();
+  auto dict_type = dictionary(int32(), type);
+
+  Dictionary32Builder<TypeParam> builder;
+
+  ASSERT_OK(builder.Append(static_cast<c_type>(1)));
+  ASSERT_OK(builder.Append(static_cast<c_type>(2)));
+  ASSERT_OK(builder.Append(static_cast<c_type>(1)));
+  ASSERT_OK(builder.Append(static_cast<c_type>(2)));
+  std::shared_ptr<Array> result;
+  FinishAndCheckPadding(&builder, &result);
+
+  // Build expected data for the initial dictionary
+  auto ex_dict1 = ArrayFromJSON(type, "[1, 2]");
+  DictionaryArray expected(dict_type, ArrayFromJSON(int32(), "[0, 1, 0, 1]"), ex_dict1);
+  ASSERT_TRUE(expected.Equals(result));
+}
+
 TEST(TestStringDictionaryBuilder, Basic) {
   // Build the dictionary Array
   StringDictionaryBuilder builder;
@@ -301,11 +321,14 @@ TEST(TestStringDictionaryBuilder, Basic) {
   ASSERT_TRUE(expected.Equals(result));
 }
 
-TEST(TestStringDictionaryBuilder, AppendIndices) {
+template <typename BuilderType, typename IndexType, typename AppendCType>
+void TestStringDictionaryAppendIndices() {
+  auto index_type = TypeTraits<IndexType>::type_singleton();
+
   auto ex_dict = ArrayFromJSON(utf8(), R"(["c", "a", "b", "d"])");
   auto invalid_dict = ArrayFromJSON(binary(), R"(["e", "f"])");
 
-  StringDictionaryBuilder builder;
+  BuilderType builder;
   ASSERT_OK(builder.InsertMemoValues(*ex_dict));
 
   // Inserting again should have no effect
@@ -314,7 +337,7 @@ TEST(TestStringDictionaryBuilder, AppendIndices) {
   // Type mismatch
   ASSERT_RAISES(Invalid, builder.InsertMemoValues(*invalid_dict));
 
-  std::vector<int64_t> raw_indices = {0, 1, 2, -1, 3};
+  std::vector<AppendCType> raw_indices = {0, 1, 2, -1, 3};
   std::vector<uint8_t> is_valid = {1, 1, 1, 0, 1};
   for (int i = 0; i < 2; ++i) {
     ASSERT_OK(builder.AppendIndices(
@@ -326,10 +349,17 @@ TEST(TestStringDictionaryBuilder, AppendIndices) {
   std::shared_ptr<Array> result;
   ASSERT_OK(builder.Finish(&result));
 
-  auto ex_indices = ArrayFromJSON(int8(), R"([0, 1, 2, null, 3, 0, 1, 2, null, 3])");
-  auto dtype = dictionary(int8(), utf8());
+  auto ex_indices = ArrayFromJSON(index_type, R"([0, 1, 2, null, 3, 0, 1, 2, null, 3])");
+  auto dtype = dictionary(index_type, utf8());
   DictionaryArray expected(dtype, ex_indices, ex_dict);
   ASSERT_TRUE(expected.Equals(result));
+}
+
+TEST(TestStringDictionaryBuilder, AppendIndices) {
+  // Currently AdaptiveIntBuilder only accepts int64_t in bulk appends
+  TestStringDictionaryAppendIndices<StringDictionaryBuilder, Int8Type, int64_t>();
+
+  TestStringDictionaryAppendIndices<StringDictionary32Builder, Int32Type, int32_t>();
 }
 
 TEST(TestStringDictionaryBuilder, ArrayInit) {
