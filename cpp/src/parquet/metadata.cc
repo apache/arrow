@@ -24,7 +24,6 @@
 
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
-#include "parquet/platform.h"
 #include "parquet/schema-internal.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"

@@ -30,6 +30,8 @@ class Status;
 
 namespace parquet {
 
+class ColumnDescriptor;
+
 namespace internal {
 
 class RecordReader;
@@ -38,9 +40,11 @@ class RecordReader;
 
 namespace arrow {
 
-Status TransferColumnData(internal::RecordReader* reader,
-                          std::shared_ptr<DataType> value_type,
-                          ::arrow::MemoryPool* pool, std::shared_ptr<ChunkedArray>* out);
+::arrow::Status TransferColumnData(internal::RecordReader* reader,
+                                   std::shared_ptr<::arrow::DataType> value_type,
+                                   const ColumnDescriptor* descr,
+                                   ::arrow::MemoryPool* pool,
+                                   std::shared_ptr<::arrow::ChunkedArray>* out);
 
 }  // namespace arrow
 }  // namespace parquet

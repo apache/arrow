@@ -19,15 +19,9 @@
 
 #include <cstdint>
 #include <memory>
-#include <vector>
 
-#include "arrow/memory_pool.h"
-
-#include "parquet/column_page.h"
-#include "parquet/encoding.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
-#include "parquet/schema.h"
 #include "parquet/types.h"
 
 namespace arrow {
@@ -44,6 +38,9 @@ class RleEncoder;
 
 namespace parquet {
 
+class ColumnDescriptor;
+class CompressedDataPage;
+class DictionaryPage;
 class ColumnChunkMetaDataBuilder;
 class WriterProperties;
 

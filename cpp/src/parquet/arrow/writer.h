@@ -19,6 +19,7 @@
 #define PARQUET_ARROW_WRITER_H
 
 #include <cstdint>
+#include <cstring>
 #include <memory>
 
 #include "parquet/platform.h"
@@ -31,15 +32,7 @@ namespace arrow {
 
 class Array;
 class ChunkedArray;
-class MemoryPool;
-class Status;
 class Table;
-
-namespace io {
-
-class OutputStream;
-
-}  // namespace io
 
 }  // namespace arrow
 

@@ -20,7 +20,6 @@
 #include "parquet/properties.h"
 
 #include "arrow/io/buffered.h"
-#include "arrow/io/memory.h"
 
 namespace parquet {
 

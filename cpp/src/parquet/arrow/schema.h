@@ -30,7 +30,6 @@ namespace arrow {
 
 class Field;
 class Schema;
-class Status;
 
 }  // namespace arrow
 

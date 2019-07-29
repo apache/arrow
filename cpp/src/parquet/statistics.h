@@ -18,15 +18,17 @@
 #pragma once
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
 
 #include "parquet/platform.h"
-#include "parquet/schema.h"
 #include "parquet/types.h"
 
 namespace parquet {
+
+class ColumnDescriptor;
 
 // ----------------------------------------------------------------------
 // Value comparator interfaces

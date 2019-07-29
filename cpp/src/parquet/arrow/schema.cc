@@ -17,19 +17,15 @@
 
 #include "parquet/arrow/schema.h"
 
-#include <algorithm>
 #include <string>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
-#include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
-#include "parquet/arrow/reader.h"
 #include "parquet/arrow/writer.h"
 #include "parquet/exception.h"
 #include "parquet/properties.h"

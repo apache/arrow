@@ -25,17 +25,11 @@
 
 #include "parquet/platform.h"
 
-#include "arrow/io/interfaces.h"
-#include "arrow/util/macros.h"
-
 namespace arrow {
 
-class Array;
 class ChunkedArray;
-class MemoryPool;
 class RecordBatchReader;
 class Schema;
-class Status;
 class Table;
 
 }  // namespace arrow
@@ -183,8 +177,8 @@ class PARQUET_EXPORT FileReader {
                                     std::shared_ptr<::arrow::Schema>* out) = 0;
 
   // Read column as a whole into an Array.
-  virtual ::arrow::Status ReadColumn(
-      int i, std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
+  virtual ::arrow::Status ReadColumn(int i,
+                                     std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
 
   // NOTE: Experimental API
   // Reads a specific top level schema field into an Array
@@ -198,22 +192,24 @@ class PARQUET_EXPORT FileReader {
   // 2 foo3
   //
   // i=0 will read the entire foo struct, i=1 the foo2 primitive column etc
-  virtual ::arrow::Status ReadSchemaField(int i, std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
+  virtual ::arrow::Status ReadSchemaField(
+      int i, std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
 
   /// \brief Return a RecordBatchReader of row groups selected from row_group_indices, the
   ///    ordering in row_group_indices matters.
   /// \returns error Status if row_group_indices contains invalid index
-  virtual ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                               std::shared_ptr<::arrow::RecordBatchReader>* out) = 0;
+  virtual ::arrow::Status GetRecordBatchReader(
+      const std::vector<int>& row_group_indices,
+      std::shared_ptr<::arrow::RecordBatchReader>* out) = 0;
 
   /// \brief Return a RecordBatchReader of row groups selected from
   ///     row_group_indices, whose columns are selected by column_indices. The
   ///     ordering in row_group_indices and column_indices matter.
   /// \returns error Status if either row_group_indices or column_indices
   ///    contains invalid index
-  virtual ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                               const std::vector<int>& column_indices,
-                                               std::shared_ptr<::arrow::RecordBatchReader>* out) = 0;
+  virtual ::arrow::Status GetRecordBatchReader(
+      const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
+      std::shared_ptr<::arrow::RecordBatchReader>* out) = 0;
 
   // Read a table of columns into a Table
   virtual ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out) = 0;
@@ -221,7 +217,7 @@ class PARQUET_EXPORT FileReader {
   // Read a table of columns into a Table. Read only the indicated column
   // indices (relative to the schema)
   virtual ::arrow::Status ReadTable(const std::vector<int>& column_indices,
-                            std::shared_ptr<::arrow::Table>* out) = 0;
+                                    std::shared_ptr<::arrow::Table>* out) = 0;
 
   virtual ::arrow::Status ReadRowGroup(int i, const std::vector<int>& column_indices,
                                        std::shared_ptr<::arrow::Table>* out) = 0;
