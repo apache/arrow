@@ -328,9 +328,9 @@ class HashTable {
     for (uint64_t i = 0; i < capacity_; i++) {
       const auto& entry = old_entries[i];
       if (entry) {
-        // Dummy compare function (will not be called)
-        auto cmp_func = [](const Payload*) { return false; };
-        auto p = Lookup<NoCompare>(entry.h, entries_, new_mask, cmp_func);
+        // Dummy compare function will not be called
+        auto p = Lookup<NoCompare>(entry.h, entries_, new_mask,
+                                   [](const Payload*) { return false; });
         // Lookup<NoCompare> (and CompareEntry<NoCompare>) ensure that an
         // empty slots is always returned
         assert(!p.second);
