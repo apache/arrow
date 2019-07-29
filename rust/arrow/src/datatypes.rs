@@ -825,6 +825,9 @@ impl fmt::Display for Schema {
 mod tests {
     use super::*;
     use serde_json;
+    use serde_json::Number;
+    use serde_json::Value::{Bool, Number as VNumber};
+    use std::f32::NAN;
 
     #[test]
     fn create_struct_type() {
@@ -1072,5 +1075,27 @@ mod tests {
         assert!(schema2 != schema3);
         assert!(schema2 != schema4);
         assert!(schema3 != schema4);
+    }
+
+    #[test]
+    fn test_arrow_native_type_to_json() {
+        assert_eq!(Some(Bool(true)), true.into_json_value());
+        assert_eq!(Some(VNumber(Number::from(1))), 1i8.into_json_value());
+        assert_eq!(Some(VNumber(Number::from(1))), 1i16.into_json_value());
+        assert_eq!(Some(VNumber(Number::from(1))), 1i32.into_json_value());
+        assert_eq!(Some(VNumber(Number::from(1))), 1i64.into_json_value());
+        assert_eq!(Some(VNumber(Number::from(1))), 1u8.into_json_value());
+        assert_eq!(Some(VNumber(Number::from(1))), 1u16.into_json_value());
+        assert_eq!(Some(VNumber(Number::from(1))), 1u32.into_json_value());
+        assert_eq!(Some(VNumber(Number::from(1))), 1u64.into_json_value());
+        assert_eq!(
+            Some(VNumber(Number::from_f64(0.01 as f64).unwrap())),
+            0.01.into_json_value()
+        );
+        assert_eq!(
+            Some(VNumber(Number::from_f64(0.01f64).unwrap())),
+            0.01f64.into_json_value()
+        );
+        assert_eq!(None, NAN.into_json_value());
     }
 }

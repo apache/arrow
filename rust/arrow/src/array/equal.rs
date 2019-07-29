@@ -883,6 +883,7 @@ mod tests {
         )
         .unwrap();
         assert!(arrow_array.eq(&json_array));
+        assert!(json_array.eq(&arrow_array));
 
         // Test unequaled array
         let arrow_array = Int32Array::from(vec![Some(1), None, Some(2), Some(3)]);
@@ -895,11 +896,38 @@ mod tests {
         )
         .unwrap();
         assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test unequal length case
+        let arrow_array = Int32Array::from(vec![Some(1), None, Some(2), Some(3)]);
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                1, 1
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test not json array type case
+        let arrow_array = Int32Array::from(vec![Some(1), None, Some(2), Some(3)]);
+        let json_array: Value = serde_json::from_str(
+            r#"
+            {
+               "a": 1
+            }
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
     }
 
     #[test]
     fn test_list_json_equal() {
-        // Test equaled case
+        // Test equal case
         let arrow_array = create_list_array(
             &mut ListBuilder::new(Int32Builder::new(10)),
             &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
@@ -916,8 +944,9 @@ mod tests {
         )
         .unwrap();
         assert!(arrow_array.eq(&json_array));
+        assert!(json_array.eq(&arrow_array));
 
-        // Test unequaled case
+        // Test unequal case
         let arrow_array = create_list_array(
             &mut ListBuilder::new(Int32Builder::new(10)),
             &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
@@ -934,6 +963,24 @@ mod tests {
         )
         .unwrap();
         assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test incorrect type case
+        let arrow_array = create_list_array(
+            &mut ListBuilder::new(Int32Builder::new(10)),
+            &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
+        )
+        .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            {
+               "a": 1
+            }
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
     }
 
     #[test]
@@ -948,7 +995,6 @@ mod tests {
             None,
         ])
         .unwrap();
-
         let json_array: Value = serde_json::from_str(
             r#"
             [
@@ -963,6 +1009,7 @@ mod tests {
         )
         .unwrap();
         assert!(arrow_array.eq(&json_array));
+        assert!(json_array.eq(&arrow_array));
 
         // Test unequal case
         let arrow_array = BinaryArray::try_from(vec![
@@ -974,7 +1021,6 @@ mod tests {
             None,
         ])
         .unwrap();
-
         let json_array: Value = serde_json::from_str(
             r#"
             [
@@ -989,10 +1035,67 @@ mod tests {
         )
         .unwrap();
         assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test unequal length case
+        let arrow_array =
+            BinaryArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
+                .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                null,
+                "arrow",
+                null,
+                null
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test incorrect type case
+        let arrow_array =
+            BinaryArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
+                .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            {
+                "a": 1
+            }
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test incorrect value type case
+        let arrow_array =
+            BinaryArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
+                .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                null,
+                1,
+                null,
+                null
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
     }
 
     #[test]
     fn test_struct_json_equal() {
+        // Test equal case
         let string_builder = BinaryBuilder::new(5);
         let int_builder = Int32Builder::new(5);
 
@@ -1036,8 +1139,65 @@ mod tests {
         "#,
         )
         .unwrap();
-
         assert!(arrow_array.eq(&json_array));
+        assert!(json_array.eq(&arrow_array));
+
+        // Test unequal length case
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+              {
+                "f1": "joe",
+                "f2": 1
+              },
+              {
+                "f2": 2
+              },
+              null,
+              {
+                "f1": "mark",
+                "f2": 4
+              }
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test incorrect type case
+        let json_array: Value = serde_json::from_str(
+            r#"
+              {
+                "f1": "joe",
+                "f2": 1
+              }
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test not all object case
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+              {
+                "f1": "joe",
+                "f2": 1
+              },
+              2,
+              null,
+              {
+                "f1": "mark",
+                "f2": 4
+              }
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
     }
 
     fn create_struct_array<
