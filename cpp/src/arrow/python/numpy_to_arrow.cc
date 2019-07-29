@@ -375,7 +375,6 @@ Status StaticCastBuffer(const Buffer& input, const int64_t length, MemoryPool* p
 void CopyStridedBytewise(const int8_t* input_data, const int64_t length,
                          const int64_t itemsize, const int64_t stride,
                          int8_t* output_data) {
-  // Passing input_data as non-const is a concession to PyObject*
   for (int64_t i = 0; i < length; ++i) {
     memcpy(output_data + i * itemsize, input_data, itemsize);
     input_data += stride;
