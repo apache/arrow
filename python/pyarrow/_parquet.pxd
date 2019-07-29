@@ -390,13 +390,13 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
 
         void set_use_threads(c_bool use_threads)
 
-
-cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
     CStatus FromParquetSchema(
         const SchemaDescriptor* parquet_schema,
         const ArrowReaderProperties& properties,
         const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
         shared_ptr[CSchema]* out)
+
+cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
 
     CStatus ToParquetSchema(
         const CSchema* arrow_schema,

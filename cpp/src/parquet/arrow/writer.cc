@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <deque>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -33,6 +34,7 @@
 #include "arrow/util/logging.h"
 
 #include "parquet/arrow/reader.h"
+#include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/column_writer.h"
 #include "parquet/exception.h"
@@ -78,7 +80,12 @@ namespace {
 
 class LevelBuilder {
  public:
-  explicit LevelBuilder(MemoryPool* pool) : def_levels_(pool), rep_levels_(pool) {}
+  explicit LevelBuilder(MemoryPool* pool, const SchemaField* schema_field,
+                        const SchemaManifest* schema_manifest)
+      : def_levels_(pool),
+        rep_levels_(pool),
+        schema_field_(schema_field),
+        schema_manifest_(schema_manifest) {}
 
   Status VisitInline(const Array& array);
 
@@ -121,8 +128,23 @@ class LevelBuilder {
 
 #undef NOT_IMPLEMENTED_VISIT
 
-  Status GenerateLevels(const Array& array, const std::shared_ptr<Field>& field,
-                        int64_t* values_offset, int64_t* num_values, int64_t* num_levels,
+  Status ExtractNullability() {
+    // Walk upwards to extract nullability
+    const SchemaField* current_field = schema_field_;
+    while (current_field != nullptr) {
+      nullable_.push_front(current_field->field->nullable());
+      if (current_field->field->type()->num_children() > 1) {
+        return Status::NotImplemented(
+            "Fields with more than one child are not supported.");
+      } else {
+        current_field = schema_manifest_->GetParent(current_field);
+      }
+    }
+    return Status::OK();
+  }
+
+  Status GenerateLevels(const Array& array, int64_t* values_offset, int64_t* num_values,
+                        int64_t* num_levels,
                         const std::shared_ptr<ResizableBuffer>& def_levels_scratch,
                         std::shared_ptr<Buffer>* def_levels_out,
                         std::shared_ptr<Buffer>* rep_levels_out,
@@ -135,18 +157,7 @@ class LevelBuilder {
     *values_offset = min_offset_idx_;
     *values_array = values_array_;
 
-    // Walk downwards to extract nullability
-    std::shared_ptr<Field> current_field = field;
-    nullable_.push_back(current_field->nullable());
-    while (current_field->type()->num_children() > 0) {
-      if (current_field->type()->num_children() > 1) {
-        return Status::NotImplemented(
-            "Fields with more than one child are not supported.");
-      } else {
-        current_field = current_field->type()->child(0);
-      }
-      nullable_.push_back(current_field->nullable());
-    }
+    RETURN_NOT_OK(ExtractNullability());
 
     // Generate the levels.
     if (nullable_.size() == 1) {
@@ -264,11 +275,14 @@ class LevelBuilder {
   Int16BufferBuilder def_levels_;
   Int16BufferBuilder rep_levels_;
 
+  const SchemaField* schema_field_;
+  const SchemaManifest* schema_manifest_;
+
   std::vector<int64_t> null_counts_;
   std::vector<const uint8_t*> valid_bitmaps_;
   std::vector<const int32_t*> offsets_;
   std::vector<int32_t> array_offsets_;
-  std::vector<bool> nullable_;
+  std::deque<bool> nullable_;
 
   int64_t min_offset_idx_;
   int64_t max_offset_idx_;
@@ -319,8 +333,12 @@ Status GetLeafType(const ::arrow::DataType& type, ::arrow::Type::type* leaf_type
 class ArrowColumnWriter {
  public:
   ArrowColumnWriter(ColumnWriterContext* ctx, ColumnWriter* column_writer,
-                    const std::shared_ptr<Field>& field)
-      : ctx_(ctx), writer_(column_writer), field_(field) {}
+                    const SchemaField* schema_field,
+                    const SchemaManifest* schema_manifest)
+      : ctx_(ctx),
+        writer_(column_writer),
+        schema_field_(schema_field),
+        schema_manifest_(schema_manifest) {}
 
   Status Write(const Array& data);
 
@@ -430,7 +448,8 @@ class ArrowColumnWriter {
 
   ColumnWriterContext* ctx_;
   ColumnWriter* writer_;
-  std::shared_ptr<Field> field_;
+  const SchemaField* schema_field_;
+  const SchemaManifest* schema_manifest_;
 };
 
 template <typename ParquetType, typename ArrowType>
@@ -945,11 +964,10 @@ Status ArrowColumnWriter::Write(const Array& data) {
   int64_t values_offset = 0;
   int64_t num_levels = 0;
   int64_t num_values = 0;
-  LevelBuilder level_builder(ctx_->memory_pool);
-
+  LevelBuilder level_builder(ctx_->memory_pool, schema_field_, schema_manifest_);
   std::shared_ptr<Buffer> def_levels_buffer, rep_levels_buffer;
   RETURN_NOT_OK(level_builder.GenerateLevels(
-      data, field_, &values_offset, &num_values, &num_levels, ctx_->def_levels_buffer,
+      data, &values_offset, &num_values, &num_levels, ctx_->def_levels_buffer,
       &def_levels_buffer, &rep_levels_buffer, &_values_array));
   const int16_t* def_levels = nullptr;
   if (def_levels_buffer) {
@@ -1021,6 +1039,11 @@ class FileWriter::Impl {
         arrow_properties_(arrow_properties),
         closed_(false) {}
 
+  Status Init() {
+    return BuildSchemaManifest(writer_->schema(), default_arrow_reader_properties(),
+                               &schema_manifest_);
+  }
+
   Status NewRowGroup(int64_t chunk_size) {
     if (row_group_writer_ != nullptr) {
       PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
@@ -1075,17 +1098,11 @@ class FileWriter::Impl {
     ColumnWriter* column_writer;
     PARQUET_CATCH_NOT_OK(column_writer = row_group_writer_->NextColumn());
 
-    // TODO(wesm): This trick to construct a schema for one Parquet root node
-    // will not work for arbitrary nested data
-    int current_column_idx = row_group_writer_->current_column();
-    std::shared_ptr<::arrow::Schema> arrow_schema;
-    RETURN_NOT_OK(FromParquetSchema(writer_->schema(), {current_column_idx - 1},
-                                    default_arrow_reader_properties(),
-                                    writer_->key_value_metadata(), &arrow_schema));
-
-    ArrowColumnWriter arrow_writer(&column_write_context_, column_writer,
-                                   arrow_schema->field(0));
-
+    const SchemaField* schema_field;
+    RETURN_NOT_OK(schema_manifest_.GetColumnField(row_group_writer_->current_column(),
+                                                  &schema_field));
+    ArrowColumnWriter arrow_writer(&column_write_context_, column_writer, schema_field,
+                                   &schema_manifest_);
     RETURN_NOT_OK(arrow_writer.Write(*data, offset, size));
     return arrow_writer.Close();
   }
@@ -1100,6 +1117,8 @@ class FileWriter::Impl {
 
  private:
   friend class FileWriter;
+
+  SchemaManifest schema_manifest_;
 
   std::unique_ptr<ParquetFileWriter> writer_;
   RowGroupWriter* row_group_writer_;
@@ -1135,6 +1154,15 @@ const std::shared_ptr<FileMetaData> FileWriter::metadata() const {
 
 FileWriter::~FileWriter() {}
 
+Status FileWriter::Make(::arrow::MemoryPool* pool,
+                        std::unique_ptr<ParquetFileWriter> writer,
+                        const std::shared_ptr<::arrow::Schema>& schema,
+                        const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
+                        std::unique_ptr<FileWriter>* out) {
+  out->reset(new FileWriter(pool, std::move(writer), schema, arrow_properties));
+  return (*out)->impl_->Init();
+}
+
 FileWriter::FileWriter(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
                        const std::shared_ptr<::arrow::Schema>& schema,
                        const std::shared_ptr<ArrowWriterProperties>& arrow_properties)
@@ -1163,9 +1191,7 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
       ParquetFileWriter::Open(sink, schema_node, properties, schema.metadata());
 
   auto schema_ptr = std::make_shared<::arrow::Schema>(schema);
-  writer->reset(
-      new FileWriter(pool, std::move(base_writer), schema_ptr, arrow_properties));
-  return Status::OK();
+  return Make(pool, std::move(base_writer), schema_ptr, arrow_properties, writer);
 }
 
 Status WriteFileMetaData(const FileMetaData& file_metadata,

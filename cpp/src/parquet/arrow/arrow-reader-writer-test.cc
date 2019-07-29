@@ -40,6 +40,7 @@
 #include "parquet/api/writer.h"
 
 #include "parquet/arrow/reader.h"
+#include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/test-util.h"
 #include "parquet/arrow/writer.h"
@@ -597,12 +598,16 @@ class TestParquetIO : public ::testing::Test {
     std::shared_ptr<::arrow::Schema> arrow_schema;
     ArrowReaderProperties props;
     ASSERT_OK_NO_THROW(FromParquetSchema(&descriptor, props, &arrow_schema));
-    FileWriter writer(::arrow::default_memory_pool(), MakeWriter(schema), arrow_schema);
-    ASSERT_OK_NO_THROW(writer.NewRowGroup(values->length()));
-    ASSERT_OK_NO_THROW(writer.WriteColumnChunk(*values));
-    ASSERT_OK_NO_THROW(writer.Close());
-    // writer.Close() should be idempotent
-    ASSERT_OK_NO_THROW(writer.Close());
+
+    std::unique_ptr<FileWriter> writer;
+    ASSERT_OK_NO_THROW(FileWriter::Make(::arrow::default_memory_pool(),
+                                        MakeWriter(schema), arrow_schema,
+                                        default_arrow_writer_properties(), &writer));
+    ASSERT_OK_NO_THROW(writer->NewRowGroup(values->length()));
+    ASSERT_OK_NO_THROW(writer->WriteColumnChunk(*values));
+    ASSERT_OK_NO_THROW(writer->Close());
+    // writer->Close() should be idempotent
+    ASSERT_OK_NO_THROW(writer->Close());
   }
 
   void ResetSink() { sink_ = CreateOutputStream(); }
@@ -789,13 +794,17 @@ TYPED_TEST(TestParquetIO, SingleColumnRequiredChunkedWrite) {
   std::shared_ptr<::arrow::Schema> arrow_schema;
   ArrowReaderProperties props;
   ASSERT_OK_NO_THROW(FromParquetSchema(&descriptor, props, &arrow_schema));
-  FileWriter writer(default_memory_pool(), this->MakeWriter(schema), arrow_schema);
+
+  std::unique_ptr<FileWriter> writer;
+  ASSERT_OK_NO_THROW(FileWriter::Make(::arrow::default_memory_pool(),
+                                      this->MakeWriter(schema), arrow_schema,
+                                      default_arrow_writer_properties(), &writer));
   for (int i = 0; i < 4; i++) {
-    ASSERT_OK_NO_THROW(writer.NewRowGroup(chunk_size));
+    ASSERT_OK_NO_THROW(writer->NewRowGroup(chunk_size));
     std::shared_ptr<Array> sliced_array = values->Slice(i * chunk_size, chunk_size);
-    ASSERT_OK_NO_THROW(writer.WriteColumnChunk(*sliced_array));
+    ASSERT_OK_NO_THROW(writer->WriteColumnChunk(*sliced_array));
   }
-  ASSERT_OK_NO_THROW(writer.Close());
+  ASSERT_OK_NO_THROW(writer->Close());
 
   ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleColumnFile(*values));
 }
@@ -859,14 +868,17 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalChunkedWrite) {
   std::shared_ptr<::arrow::Schema> arrow_schema;
   ArrowReaderProperties props;
   ASSERT_OK_NO_THROW(FromParquetSchema(&descriptor, props, &arrow_schema));
-  FileWriter writer(::arrow::default_memory_pool(), this->MakeWriter(schema),
-                    arrow_schema);
+
+  std::unique_ptr<FileWriter> writer;
+  ASSERT_OK_NO_THROW(FileWriter::Make(::arrow::default_memory_pool(),
+                                      this->MakeWriter(schema), arrow_schema,
+                                      default_arrow_writer_properties(), &writer));
   for (int i = 0; i < 4; i++) {
-    ASSERT_OK_NO_THROW(writer.NewRowGroup(chunk_size));
+    ASSERT_OK_NO_THROW(writer->NewRowGroup(chunk_size));
     std::shared_ptr<Array> sliced_array = values->Slice(i * chunk_size, chunk_size);
-    ASSERT_OK_NO_THROW(writer.WriteColumnChunk(*sliced_array));
+    ASSERT_OK_NO_THROW(writer->WriteColumnChunk(*sliced_array));
   }
-  ASSERT_OK_NO_THROW(writer.Close());
+  ASSERT_OK_NO_THROW(writer->Close());
 
   ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleColumnFile(*values));
 }
@@ -2624,11 +2636,15 @@ TEST(TestArrowReaderAdHoc, DISABLED_LargeStringColumn) {
       GroupNode::Make("schema", Repetition::REQUIRED, {schm->group_node()->field(0)}));
 
   auto writer = ParquetFileWriter::Open(sink, schm_node);
-  FileWriter arrow_writer(default_memory_pool(), std::move(writer), table->schema());
+
+  std::unique_ptr<FileWriter> arrow_writer;
+  ASSERT_OK_NO_THROW(FileWriter::Make(::arrow::default_memory_pool(), std::move(writer),
+                                      table->schema(), default_arrow_writer_properties(),
+                                      &arrow_writer));
   for (int i : {0, 1}) {
-    ASSERT_OK_NO_THROW(arrow_writer.WriteTable(*table, table->num_rows())) << i;
+    ASSERT_OK_NO_THROW(arrow_writer->WriteTable(*table, table->num_rows())) << i;
   }
-  ASSERT_OK_NO_THROW(arrow_writer.Close());
+  ASSERT_OK_NO_THROW(arrow_writer->Close());
 
   std::shared_ptr<Buffer> tables_buffer;
   ASSERT_OK_NO_THROW(sink->Finish(&tables_buffer));
