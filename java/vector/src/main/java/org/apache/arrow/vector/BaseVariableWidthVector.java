@@ -1369,11 +1369,15 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     if (to == null) {
       return false;
     }
-    if (this.getClass() != to.getClass()) {
+    if (this.getMinorType() != to.getMinorType()) {
       return false;
     }
 
     BaseVariableWidthVector that = (BaseVariableWidthVector) to;
+
+    if (this.isSet(index) != that.isSet(index)) {
+      return false;
+    }
 
     final int leftStart = getStartOffset(index);
     final int leftEnd = getStartOffset(index + 1);

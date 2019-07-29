@@ -520,7 +520,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     if (to == null) {
       return false;
     }
-    if (this.getClass() != to.getClass()) {
+    if (this.getMinorType() != to.getMinorType()) {
       return false;
     }
 

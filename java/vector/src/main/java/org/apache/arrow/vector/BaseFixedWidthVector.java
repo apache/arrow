@@ -870,11 +870,15 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     if (to == null) {
       return false;
     }
-    if (this.getClass() != to.getClass()) {
+    if (this.getMinorType() != to.getMinorType()) {
       return false;
     }
 
     BaseFixedWidthVector that = (BaseFixedWidthVector) to;
+
+    if (this.isSet(index) != that.isSet(index)) {
+      return false;
+    }
 
     int leftStart = typeWidth * index;
     int leftEnd = typeWidth * (index + 1);

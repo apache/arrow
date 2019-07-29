@@ -665,7 +665,7 @@ public class UnionVector implements FieldVector {
       if (to == null) {
         return false;
       }
-      if (this.getClass() != to.getClass()) {
+      if (this.getMinorType() != to.getMinorType()) {
         return false;
       }
       UnionVector that = (UnionVector) to;

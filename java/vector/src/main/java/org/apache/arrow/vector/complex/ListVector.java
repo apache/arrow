@@ -430,7 +430,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     if (to == null) {
       return false;
     }
-    if (this.getClass() != to.getClass()) {
+    if (this.getMinorType() != to.getMinorType()) {
       return false;
     }
 
