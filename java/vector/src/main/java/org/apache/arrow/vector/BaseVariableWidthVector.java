@@ -1375,7 +1375,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
     BaseVariableWidthVector that = (BaseVariableWidthVector) to;
 
-    if (this.isSet(index) != that.isSet(index)) {
+    if (this.isSet(index) != that.isSet(toIndex)) {
       return false;
     }
 

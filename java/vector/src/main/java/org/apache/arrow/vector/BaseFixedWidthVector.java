@@ -876,7 +876,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
 
     BaseFixedWidthVector that = (BaseFixedWidthVector) to;
 
-    if (this.isSet(index) != that.isSet(index)) {
+    if (this.isSet(index) != that.isSet(toIndex)) {
       return false;
     }
 
