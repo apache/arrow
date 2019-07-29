@@ -87,6 +87,9 @@ constexpr int64_t kBytesInMB = 1 << 20;
 // GPU support
 
 #ifdef PLASMA_CUDA
+
+namespace {
+
 struct GpuProcessHandle {
   /// Pointer to CUDA buffer that is backing this GPU object.
   std::shared_ptr<CudaBuffer> ptr;
@@ -97,8 +100,19 @@ struct GpuProcessHandle {
 // This is necessary as IPC handles can only be mapped once per process.
 // Thus if multiple clients in the same process get the same gpu object,
 // they need to access the same mapped CudaBuffer.
-static std::unordered_map<ObjectID, GpuProcessHandle*> gpu_object_map;
-static std::mutex gpu_mutex;
+std::unordered_map<ObjectID, GpuProcessHandle*> gpu_object_map;
+std::mutex gpu_mutex;
+
+// Return a new CudaBuffer pointing to the same data as the GpuProcessHandle,
+// but able to persist after the original IPC-backed buffer is closed
+// (ARROW-5924).
+std::shared_ptr<Buffer> MakeBufferFromGpuProcessHandle(GpuProcessHandle* handle) {
+  return std::make_shared<CudaBuffer>(handle->ptr->mutable_data(), handle->ptr->size(),
+                                      handle->ptr->context());
+}
+
+}  // namespace
+
 #endif
 
 // ----------------------------------------------------------------------
@@ -435,12 +449,12 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
       std::lock_guard<std::mutex> lock(gpu_mutex);
       gpu_object_map[object_id] = handle;
     }
-    *data = handle->ptr;
     if (metadata != NULL) {
       // Copy the metadata to the buffer.
-      CudaBufferWriter writer(std::dynamic_pointer_cast<CudaBuffer>(*data));
+      CudaBufferWriter writer(handle->ptr);
       RETURN_NOT_OK(writer.WriteAt(object.data_size, metadata, metadata_size));
     }
+    *data = MakeBufferFromGpuProcessHandle(handle);
 #else
     ARROW_LOG(FATAL) << "Arrow GPU library is not enabled.";
 #endif
@@ -518,7 +532,7 @@ Status PlasmaClient::Impl::GetBuffers(
         auto iter = gpu_object_map.find(object_ids[i]);
         ARROW_CHECK(iter != gpu_object_map.end());
         iter->second->client_count++;
-        physical_buf = iter->second->ptr;
+        physical_buf = MakeBufferFromGpuProcessHandle(iter->second);
 #else
         ARROW_LOG(FATAL) << "Arrow GPU library is not enabled.";
 #endif
@@ -581,18 +595,18 @@ Status PlasmaClient::Impl::GetBuffers(
       } else {
 #ifdef PLASMA_CUDA
         std::lock_guard<std::mutex> lock(gpu_mutex);
-        auto handle = gpu_object_map.find(object_ids[i]);
-        if (handle == gpu_object_map.end()) {
+        auto iter = gpu_object_map.find(object_ids[i]);
+        if (iter == gpu_object_map.end()) {
           std::shared_ptr<CudaContext> context;
           RETURN_NOT_OK(manager_->GetContext(object->device_num - 1, &context));
           GpuProcessHandle* obj_handle = new GpuProcessHandle();
           obj_handle->client_count = 1;
           RETURN_NOT_OK(context->OpenIpcBuffer(*object->ipc_handle, &obj_handle->ptr));
           gpu_object_map[object_ids[i]] = obj_handle;
-          physical_buf = obj_handle->ptr;
+          physical_buf = MakeBufferFromGpuProcessHandle(obj_handle);
         } else {
-          handle->second->client_count++;
-          physical_buf = handle->second->ptr;
+          iter->second->client_count++;
+          physical_buf = MakeBufferFromGpuProcessHandle(iter->second);
         }
 #else
         ARROW_LOG(FATAL) << "Arrow GPU library is not enabled.";

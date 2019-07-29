@@ -839,7 +839,6 @@ TEST_F(TestPlasmaStore, DeleteObjectsGPUTest) {
       client_.Create(object_id2, data_size, metadata, metadata_size, &data, 1));
   ARROW_CHECK_OK(client_.Seal(object_id2));
   // Release the ref count of Create function.
-  data = nullptr;
   ARROW_CHECK_OK(client_.Release(object_id1));
   ARROW_CHECK_OK(client_.Release(object_id2));
   // Increase the ref count by calling Get using client2_.
@@ -893,13 +892,35 @@ TEST_F(TestPlasmaStore, RepeatlyCreateGPUTest) {
     std::shared_ptr<Buffer> data;
     ARROW_CHECK_OK(client_.Create(object_id, data_size, 0, 0, &data, 1));
     ARROW_CHECK_OK(client_.Seal(object_id));
-
-    data = nullptr;
     ARROW_CHECK_OK(client_.Release(object_id));
   }
 
   // delete all
   ARROW_CHECK_OK(client_.Delete(object_ids));
+}
+
+TEST_F(TestPlasmaStore, GPUBufferLifetime) {
+  // ARROW-5924: GPU buffer is allowed to persist after Release()
+  ObjectID object_id = random_object_id();
+  const int64_t data_size = 40;
+
+  std::shared_ptr<Buffer> create_buff;
+  ARROW_CHECK_OK(client_.Create(object_id, data_size, nullptr, 0, &create_buff, 1));
+  ARROW_CHECK_OK(client_.Seal(object_id));
+  ARROW_CHECK_OK(client_.Release(object_id));
+
+  ObjectBuffer get_buff_1;
+  ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &get_buff_1));
+  ObjectBuffer get_buff_2;
+  ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &get_buff_2));
+  ARROW_CHECK_OK(client_.Release(object_id));
+  ARROW_CHECK_OK(client_.Release(object_id));
+
+  ObjectBuffer get_buff_3;
+  ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &get_buff_3));
+  ARROW_CHECK_OK(client_.Release(object_id));
+
+  ARROW_CHECK_OK(client_.Delete(object_id));
 }
 
 TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
