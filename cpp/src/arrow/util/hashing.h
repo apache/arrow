@@ -674,6 +674,8 @@ class BinaryMemoTable : public MemoTable {
   // Copy (n + 1) offsets starting from index `start` into `out_data`
   template <class Offset>
   void CopyOffsets(int32_t start, Offset* out_data) const {
+    DCHECK_LT(start, size());
+
     const int32_t* offsets = binary_builder_.offsets_data();
     int32_t delta = offsets[start];
     for (int32_t i = start; i < size(); ++i) {
@@ -700,9 +702,7 @@ class BinaryMemoTable : public MemoTable {
 
   // Same as above, but check output size in debug mode
   void CopyValues(int32_t start, int64_t out_size, uint8_t* out_data) const {
-    if (start >= size()) {
-      return;
-    }
+    DCHECK_LT(start, size());
 
     // The absolute byte offset of `start` value in the binary buffer.
     int32_t offset = binary_builder_.OffsetOf(start);
@@ -937,7 +937,6 @@ struct DictionaryTraits<T, enable_if_binary<T>> {
     memo_table.CopyOffsets(static_cast<int32_t>(start_offset), raw_offsets);
 
     // Create the data buffer
-    DCHECK_EQ(raw_offsets[0], 0);
     RETURN_NOT_OK(AllocateBuffer(pool, raw_offsets[dict_length], &dict_data));
     memo_table.CopyValues(static_cast<int32_t>(start_offset), dict_data->size(),
                           dict_data->mutable_data());
