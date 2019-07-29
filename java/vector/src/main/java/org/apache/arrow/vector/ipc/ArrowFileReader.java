@@ -22,9 +22,11 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.arrow.flatbuf.Footer;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowFooter;
@@ -104,6 +106,19 @@ public class ArrowFileReader extends ArrowReader {
     }
     ArrowBlock block = footer.getDictionaries().get(currentDictionaryBatch++);
     return readDictionaryBatch(in, block, allocator);
+  }
+
+  @Override
+  protected void readDictionaries(Map<Long, Dictionary> dictionaries) throws IOException {
+    // empty stream, has no dictionaries in IPC.
+    if (footer.getRecordBatches().size() == 0) {
+      return;
+    }
+    // Read and load all dictionaries from schema
+    for (int i = 0; i < dictionaries.size(); i++) {
+      ArrowDictionaryBatch dictionaryBatch = readDictionary();
+      loadDictionary(dictionaryBatch);
+    }
   }
 
   /** Returns true if a batch was read, false if no more batches. */

@@ -21,9 +21,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.util.Map;
 
 import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.MessageChannelReader;
@@ -154,7 +156,7 @@ public class ArrowStreamReader extends ArrowReader {
     MessageResult result = messageReader.readNext();
 
     if (result == null) {
-      throw new IOException("Unexpected end of input. Expected DictionaryBatch");
+      return null;
     }
 
     if (result.getMessage().headerType() != MessageHeader.DictionaryBatch) {
@@ -169,5 +171,22 @@ public class ArrowStreamReader extends ArrowReader {
     }
 
     return MessageSerializer.deserializeDictionaryBatch(result.getMessage(), bodyBuffer);
+  }
+
+  @Override
+  protected void readDictionaries(Map<Long, Dictionary> dictionaries) throws IOException {
+    // Read and load all dictionaries from schema
+    for (int i = 0; i < dictionaries.size(); i++) {
+      ArrowDictionaryBatch dictionaryBatch = readDictionary();
+      if (dictionaryBatch == null) {
+        // empty stream has no dictionaries in IPC.
+        if (i == 0) {
+          break;
+        } else {
+          throw new IOException("Unexpected end of input. Expected DictionaryBatch");
+        }
+      }
+      loadDictionary(dictionaryBatch);
+    }
   }
 }

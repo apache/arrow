@@ -159,6 +159,8 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
    */
   protected abstract ArrowDictionaryBatch readDictionary() throws IOException;
 
+  protected abstract void readDictionaries(Map<Long, Dictionary> dictionaries) throws IOException;
+
   /**
    * Initialize if not done previously.
    *
@@ -192,11 +194,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
     this.loader = new VectorLoader(root);
     this.dictionaries = Collections.unmodifiableMap(dictionaries);
 
-    // Read and load all dictionaries from schema
-    for (int i = 0; i < dictionaries.size(); i++) {
-      ArrowDictionaryBatch dictionaryBatch = readDictionary();
-      loadDictionary(dictionaryBatch);
-    }
+    readDictionaries(dictionaries);
   }
 
   /**
