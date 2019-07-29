@@ -431,20 +431,6 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
   return dictionary_memo->AddDictionary(id, dictionary);
 }
 
-static Status ReadMessageAndValidate(MessageReader* reader, bool allow_null,
-                                     std::unique_ptr<Message>* message) {
-  RETURN_NOT_OK(reader->ReadNextMessage(message));
-
-  if (*message == nullptr) {
-    if (!allow_null) {
-      return Status::Invalid("Expected message in stream, was null or length 0");
-    }
-    // End of stream?
-  }
-
-  return Status::OK();
-}
-
 // ----------------------------------------------------------------------
 // RecordBatchStreamReader implementation
 
@@ -464,9 +450,10 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
 
   Status ReadSchema() {
     std::unique_ptr<Message> message;
-    RETURN_NOT_OK(
-        ReadMessageAndValidate(message_reader_.get(), /*allow_null=*/false, &message));
-
+    RETURN_NOT_OK(message_reader_->ReadNextMessage(&message));
+    if (!message) {
+      return Status::Invalid("Tried reading schema message, was null or length 0");
+    }
     CHECK_MESSAGE_TYPE(Message::SCHEMA, message->type());
     CHECK_HAS_NO_BODY(*message);
     if (message->header() == nullptr) {
@@ -491,8 +478,17 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     // TODO(wesm): In future, we may want to reconcile the ids in the stream with
     // those found in the schema
     for (int i = 0; i < dictionary_memo_.num_fields(); ++i) {
-      RETURN_NOT_OK(
-          ReadMessageAndValidate(message_reader_.get(), /*allow_null=*/false, &message));
+      RETURN_NOT_OK(message_reader_->ReadNextMessage(&message));
+      if (!message) {
+        /// ARROW-6006: If we fail to find any dictionaries in the stream, then
+        /// it may be that the stream has a schema but no actual data. In such
+        /// case we communicate that we were unable to find the dictionaries
+        /// (but there was no failure otherwise), so the caller can decide what
+        /// to do
+        empty_stream_ = true;
+        break;
+      }
+
       if (message->type() != Message::DICTIONARY_BATCH) {
         return Status::Invalid(
             "IPC stream did not find the expected number of "
@@ -510,9 +506,15 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
       RETURN_NOT_OK(ReadInitialDictionaries());
     }
 
+    if (empty_stream_) {
+      // ARROW-6006: Degenerate case where stream contains no data, we do not
+      // bother trying to read a RecordBatch message from the stream
+      *batch = nullptr;
+      return Status::OK();
+    }
+
     std::unique_ptr<Message> message;
-    RETURN_NOT_OK(
-        ReadMessageAndValidate(message_reader_.get(), /*allow_null=*/true, &message));
+    RETURN_NOT_OK(message_reader_->ReadNextMessage(&message));
     if (message == nullptr) {
       // End of stream
       *batch = nullptr;
@@ -536,6 +538,10 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
   std::unique_ptr<MessageReader> message_reader_;
 
   bool read_initial_dictionaries_ = false;
+
+  // Flag to set in case where we fail to observe all dictionaries in a stream,
+  // and so the reader should not attempt to parse any messages
+  bool empty_stream_ = false;
 
   DictionaryMemo dictionary_memo_;
   std::shared_ptr<Schema> schema_;
@@ -785,7 +791,10 @@ Status ReadSchema(io::InputStream* stream, DictionaryMemo* dictionary_memo,
                   std::shared_ptr<Schema>* out) {
   std::unique_ptr<MessageReader> reader = MessageReader::Open(stream);
   std::unique_ptr<Message> message;
-  RETURN_NOT_OK(ReadMessageAndValidate(reader.get(), /*allow_null=*/false, &message));
+  RETURN_NOT_OK(reader->ReadNextMessage(&message));
+  if (!message) {
+    return Status::Invalid("Tried reading schema message, was null or length 0");
+  }
   CHECK_MESSAGE_TYPE(message->type(), Message::SCHEMA);
   return ReadSchema(*message, dictionary_memo, out);
 }
