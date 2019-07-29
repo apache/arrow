@@ -117,6 +117,12 @@ def assert_equal(obj1, obj2):
         assert obj1.equals(obj2)
     elif isinstance(obj1, pa.Tensor) and isinstance(obj2, pa.Tensor):
         assert obj1.equals(obj2)
+    elif isinstance(obj1, pa.SparseTensorCOO) and \
+            isinstance(obj2, pa.SparseTensorCOO):
+        assert obj1.equals(obj2)
+    elif isinstance(obj1, pa.SparseTensorCSR) and \
+            isinstance(obj2, pa.SparseTensorCSR):
+        assert obj1.equals(obj2)
     elif isinstance(obj1, pa.RecordBatch) and isinstance(obj2, pa.RecordBatch):
         assert obj1.equals(obj2)
     elif isinstance(obj1, pa.Table) and isinstance(obj2, pa.Table):

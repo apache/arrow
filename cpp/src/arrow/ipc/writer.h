@@ -292,7 +292,7 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
 ///
 /// The message is written out as followed:
 /// \code
-/// <metadata size> <metadata> <sparse tensor data> <sparse tensor index>
+/// <metadata size> <metadata> <sparse index> <sparse tensor body>
 /// \endcode
 ///
 /// \param[in] sparse_tensor the SparseTensor to write

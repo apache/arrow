@@ -725,23 +725,6 @@ Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
   return Status::OK();
 }
 
-Status GetSparseTensorMessage(const SparseTensor& sparse_tensor, MemoryPool* pool,
-                              std::unique_ptr<Message>* out) {
-  const SparseTensor* sparse_tensor_to_write = &sparse_tensor;
-  std::unique_ptr<SparseTensor> temp_sparse_tensor;
-
-  const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
-  const int elem_size = type.bit_width() / 8;
-  int64_t body_length = sparse_tensor.size() * elem_size;
-  const std::vector<internal::BufferMetadata> buffers;
-
-  std::shared_ptr<Buffer> metadata;
-  RETURN_NOT_OK(internal::WriteSparseTensorMessage(*sparse_tensor_to_write, body_length,
-                                                   buffers, &metadata));
-  out->reset(new Message(metadata, sparse_tensor_to_write->data()));
-  return Status::OK();
-}
-
 namespace internal {
 
 class SparseTensorSerializer {
@@ -838,6 +821,30 @@ Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* ds
 
   *body_length = payload.body_length;
   return internal::WriteIpcPayload(payload, IpcOptions::Defaults(), dst, metadata_length);
+}
+
+Status GetSparseTensorMessage(const SparseTensor& sparse_tensor, MemoryPool* pool,
+                              std::unique_ptr<Message>* out) {
+  internal::IpcPayload payload;
+  RETURN_NOT_OK(internal::GetSparseTensorPayload(sparse_tensor, pool, &payload));
+
+  const std::shared_ptr<Buffer> metadata = payload.metadata;
+  const std::shared_ptr<Buffer> buffer = *payload.body_buffers.data();
+
+  out->reset(new Message(metadata, buffer));
+  return Status::OK();
+}
+
+Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
+                       int64_t buffer_start_offset, io::OutputStream* dst,
+                       int32_t* metadata_length, int64_t* body_length, MemoryPool* pool) {
+  auto options = IpcOptions::Defaults();
+  internal::IpcPayload payload;
+  RETURN_NOT_OK(GetDictionaryPayload(dictionary_id, dictionary, options, pool, &payload));
+
+  // The body size is computed in the payload
+  *body_length = payload.body_length;
+  return internal::WriteIpcPayload(payload, dst, metadata_length);
 }
 
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
@@ -1045,7 +1052,14 @@ class StreamBookKeeper {
   int64_t position_;
 };
 
+<<<<<<< HEAD
 /// A IpcPayloadWriter implementation that writes to a IPC stream
+=======
+// End of stream marker
+constexpr int32_t kEos = 0;
+
+/// A IpcPayloadWriter implementation that writes to an IPC stream
+>>>>>>> Changes to GetSparseTensorMessage. Enabling comparison for SparseTensor roundtrip test.
 /// (with an end-of-stream marker)
 class PayloadStreamWriter : public internal::IpcPayloadWriter,
                             protected StreamBookKeeper {
