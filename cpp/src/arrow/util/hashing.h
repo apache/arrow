@@ -201,7 +201,7 @@ class HashTable {
     operator bool() const { return h != kSentinel; }
   };
 
-  explicit HashTable(MemoryPool* pool, uint64_t capacity) : entries_builder_(pool) {
+  HashTable(MemoryPool* pool, uint64_t capacity) : entries_builder_(pool) {
     DCHECK_NE(pool, nullptr);
     // Presize for at least 512 elements
     capacity = std::max(capacity, static_cast<uint64_t>(512U));
