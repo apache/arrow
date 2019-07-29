@@ -949,7 +949,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
         @staticmethod
         CStatus Open2" Open"(unique_ptr[CMessageReader] message_reader,
-                             shared_ptr[CRecordBatchStreamReader]* out)
+                             shared_ptr[CRecordBatchReader]* out)
 
     cdef cppclass CRecordBatchStreamWriter \
             " arrow::ipc::RecordBatchStreamWriter"(CRecordBatchWriter):
