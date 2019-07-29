@@ -122,15 +122,24 @@ public class AvroToArrowUtils {
   private static Field getUnionField(Schema schema, String name) {
     int size = schema.getTypes().size();
     long nullCount = schema.getTypes().stream().filter(s -> s.getType() == Type.NULL).count();
-    // if has two field and one is null type, convert to nullable primitive type
-    if (size == 2 && nullCount == 1) {
-      Schema subSchema = schema.getTypes().stream().filter(s -> s.getType() != Type.NULL).findFirst().get();
-      String nullIndex = schema.getTypes().indexOf(subSchema) == 0 ? "1" : "0";
-      subSchema.addProp(NULL_INDEX, nullIndex);
-      Preconditions.checkNotNull(subSchema);
-      return getArrowField(subSchema, name,true);
+
+    // avro schema not allow repeated type, so size == nullCount + 1 indicates nullable type.
+    if (size == nullCount + 1) {
+
+      Schema nullSchema = schema.getTypes().stream().filter(s -> s.getType() == Type.NULL).findFirst().get();
+      String nullIndex = String.valueOf(schema.getTypes().indexOf(nullSchema));
+
+      // if has two field and one is null type, convert to nullable primitive type
+      if (size == 2) {
+        Schema subSchema = schema.getTypes().stream().filter(s -> s.getType() != Type.NULL).findFirst().get();
+        Preconditions.checkNotNull(subSchema);
+        subSchema.addProp(NULL_INDEX, nullIndex);
+        return getArrowField(subSchema, name,true);
+      } else {
+        //TODO convert avro unions type to arrow UnionVector
+        throw new UnsupportedOperationException();
+      }
     } else {
-      //TODO convert avro unions type to arrow UnionVector
       throw new UnsupportedOperationException();
     }
   }
