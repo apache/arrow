@@ -685,8 +685,7 @@ class BinaryMemoTable : public MemoTable {
       *out_data++ = cast_offset;
     }
 
-    // Copy last value since BinaryBuilder only materialize it on the Finalize
-    // call.
+    // Copy last value since BinaryBuilder only materializes it on in Finish()
     *out_data = binary_builder_.value_data_length() - delta;
   }
 
