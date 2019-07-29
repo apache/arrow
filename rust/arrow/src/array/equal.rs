@@ -422,10 +422,12 @@ fn value_offset_equal<T: Array + ListArrayOps>(this: &T, other: &T) -> bool {
 
 /// Trait for comparing arrow array with json array
 pub trait JsonEqual {
+    /// Checks whether arrow array equals to json array.
     fn equals_json(&self, json: &[&Value]) -> bool;
 
+    /// Checks whether arrow array equals to json array.
     fn equals_json_values(&self, json: &[Value]) -> bool {
-        let refs = json.iter().map(|v| v).collect::<Vec<&Value>>();
+        let refs = json.iter().collect::<Vec<&Value>>();
 
         self.equals_json(&refs)
     }
@@ -511,7 +513,6 @@ impl JsonEqual for StructArray {
         });
 
         if !all_object {
-            println!("Not all objects");
             return false;
         }
 
@@ -526,7 +527,6 @@ impl JsonEqual for StructArray {
                 .map(|arr| arr.equals_json(&json_values))
                 .unwrap_or(false)
             {
-                println!("unequaled column: {}", column_name);
                 return false;
             }
         }

@@ -1015,7 +1015,7 @@ impl StructArray {
                 .iter()
                 .map(|f| f.name().as_str())
                 .collect::<Vec<&str>>(),
-            _ => panic!("Struct array's data type is not struct!"),
+            _ => unreachable!("Struct array's data type is not struct!"),
         }
     }
 
