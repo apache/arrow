@@ -290,7 +290,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
     return value_data_builder_.data() + offset;
   }
 
-  int32_t OffsetOf(int64_t i) const {
+  int32_t offset(int64_t i) const {
     return offsets_data()[i];
   }
 

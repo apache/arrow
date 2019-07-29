@@ -705,7 +705,7 @@ class BinaryMemoTable : public MemoTable {
     DCHECK_LT(start, size());
 
     // The absolute byte offset of `start` value in the binary buffer.
-    int32_t offset = binary_builder_.OffsetOf(start);
+    int32_t offset = binary_builder_.offset(start);
     auto length = binary_builder_.value_data_length() - static_cast<size_t>(offset);
 
     if (out_size != -1) {
@@ -742,7 +742,7 @@ class BinaryMemoTable : public MemoTable {
       return;
     }
 
-    int32_t left_offset = binary_builder_.OffsetOf(start);
+    int32_t left_offset = binary_builder_.offset(start);
 
     // Ensure that the data length is exactly missing width_size bytes to fit
     // in the expected output (n_values * width_size).
@@ -755,7 +755,7 @@ class BinaryMemoTable : public MemoTable {
     auto in_data = binary_builder_.value_data() + left_offset;
     // The null use 0-length in the data, slice the data in 2 and skip by
     // width_size in out_data. [part_1][width_size][part_2]
-    auto null_data_offset = binary_builder_.OffsetOf(null_index);
+    auto null_data_offset = binary_builder_.offset(null_index);
     auto left_size = null_data_offset - left_offset;
     if (left_size > 0) {
       memcpy(out_data, in_data + left_offset, left_size);
