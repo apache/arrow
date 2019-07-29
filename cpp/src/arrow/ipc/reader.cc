@@ -508,7 +508,7 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
 
     if (empty_stream_) {
       // ARROW-6006: Degenerate case where stream contains no data, we do not
-      // bother trying ot read a RecordBatch message from the stream
+      // bother trying to read a RecordBatch message from the stream
       *batch = nullptr;
       return Status::OK();
     }
