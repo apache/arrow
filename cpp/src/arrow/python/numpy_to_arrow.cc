@@ -372,9 +372,9 @@ Status StaticCastBuffer(const Buffer& input, const int64_t length, MemoryPool* p
   return Status::OK();
 }
 
-void CopyStridedBytewise(const int8_t* input_data, const int64_t length,
+void CopyStridedBytewise(const uint8_t* input_data, const int64_t length,
                          const int64_t itemsize, const int64_t stride,
-                         int8_t* output_data) {
+                         uint8_t* output_data) {
   for (int64_t i = 0; i < length; ++i) {
     memcpy(output_data + i * itemsize, input_data, itemsize);
     input_data += stride;
@@ -389,7 +389,7 @@ Status CopyStridedArray(PyArrayObject* arr, const int64_t length, const int64_t 
   RETURN_NOT_OK(AllocateBuffer(pool, itemsize * length, &new_buffer));
 
   CopyStridedBytewise(reinterpret_cast<int8_t*>(PyArray_DATA(arr)), length, itemsize,
-                      stride, reinterpret_cast<int8_t*>(new_buffer->mutable_data()));
+                      stride, new_buffer->mutable_data());
 
   *out = new_buffer;
   return Status::OK();
