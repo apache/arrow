@@ -57,6 +57,8 @@ may expose data type-specific methods or properties.
    BinaryArray
    StringArray
    FixedSizeBinaryArray
+   LargeBinaryArray
+   LargeStringArray
    Time32Array
    Time64Array
    Date32Array
@@ -97,6 +99,8 @@ any of those classes directly.
    BinaryValue
    StringValue
    FixedSizeBinaryValue
+   LargeBinaryValue
+   LargeStringValue
    Time32Value
    Time64Value
    Date32Value

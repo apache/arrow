@@ -119,6 +119,12 @@ inline Status CastSize(Py_ssize_t size, int32_t* out,
   return Status::OK();
 }
 
+inline Status CastSize(Py_ssize_t size, int64_t* out, const char* error_msg = NULLPTR) {
+  // size is assumed to be positive
+  *out = static_cast<int64_t>(size);
+  return Status::OK();
+}
+
 // \brief Print the Python object's __str__ form along with the passed error
 // message
 ARROW_PYTHON_EXPORT

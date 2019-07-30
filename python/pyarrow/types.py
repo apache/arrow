@@ -228,6 +228,14 @@ def is_binary(t):
     return t.id == lib.Type_BINARY
 
 
+def is_large_binary(t):
+    """
+    Return True if value is an instance of a large variable-length
+    binary type
+    """
+    return t.id == lib.Type_LARGE_BINARY
+
+
 def is_unicode(t):
     """
     Alias for is_string
@@ -240,6 +248,20 @@ def is_string(t):
     Return True if value is an instance of string (utf8 unicode) type
     """
     return t.id == lib.Type_STRING
+
+
+def is_large_unicode(t):
+    """
+    Alias for is_large_string
+    """
+    return is_large_string(t)
+
+
+def is_large_string(t):
+    """
+    Return True if value is an instance of large string (utf8 unicode) type
+    """
+    return t.id == lib.Type_LARGE_STRING
 
 
 def is_fixed_size_binary(t):
