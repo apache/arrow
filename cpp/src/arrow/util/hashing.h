@@ -230,15 +230,15 @@ class HashTable {
   }
 
   void Insert(Entry* entry, hash_t h, const Payload& payload) {
-    if (NeedUpsizing()) {
-      DCHECK_OK(Upsize(capacity_ * kLoadFactor));
-    }
-
     // Ensure entry is empty before inserting
     assert(!*entry);
     entry->h = FixHash(h);
     entry->payload = payload;
     ++size_;
+
+    if (NeedUpsizing()) {
+      DCHECK_OK(Upsize(capacity_ * kLoadFactor));
+    }
   }
 
   uint64_t size() const { return size_; }
@@ -674,7 +674,7 @@ class BinaryMemoTable : public MemoTable {
   // Copy (n + 1) offsets starting from index `start` into `out_data`
   template <class Offset>
   void CopyOffsets(int32_t start, Offset* out_data) const {
-    DCHECK_LT(start, size());
+    DCHECK_LE(start, size());
 
     const int32_t* offsets = binary_builder_.offsets_data();
     int32_t delta = offsets[start];
@@ -701,14 +701,14 @@ class BinaryMemoTable : public MemoTable {
 
   // Same as above, but check output size in debug mode
   void CopyValues(int32_t start, int64_t out_size, uint8_t* out_data) const {
-    DCHECK_LT(start, size());
+    DCHECK_LE(start, size());
 
     // The absolute byte offset of `start` value in the binary buffer.
     int32_t offset = binary_builder_.offset(start);
     auto length = binary_builder_.value_data_length() - static_cast<size_t>(offset);
 
     if (out_size != -1) {
-      assert(static_cast<int64_t>(length) == out_size);
+      assert(static_cast<int64_t>(length) <= out_size);
     }
 
     auto view = binary_builder_.GetView(start);
@@ -930,15 +930,20 @@ struct DictionaryTraits<T, enable_if_binary<T>> {
 
     // Create the offsets buffer
     auto dict_length = static_cast<int64_t>(memo_table.size() - start_offset);
-    RETURN_NOT_OK(AllocateBuffer(
-        pool, TypeTraits<Int32Type>::bytes_required(dict_length + 1), &dict_offsets));
-    auto raw_offsets = reinterpret_cast<int32_t*>(dict_offsets->mutable_data());
-    memo_table.CopyOffsets(static_cast<int32_t>(start_offset), raw_offsets);
+    if (dict_length > 0) {
+      RETURN_NOT_OK(AllocateBuffer(
+          pool, TypeTraits<Int32Type>::bytes_required(dict_length + 1), &dict_offsets));
+      auto raw_offsets = reinterpret_cast<int32_t*>(dict_offsets->mutable_data());
+      memo_table.CopyOffsets(static_cast<int32_t>(start_offset), raw_offsets);
+    }
 
     // Create the data buffer
-    RETURN_NOT_OK(AllocateBuffer(pool, raw_offsets[dict_length], &dict_data));
-    memo_table.CopyValues(static_cast<int32_t>(start_offset), dict_data->size(),
-                          dict_data->mutable_data());
+    auto values_size = memo_table.values_size();
+    if (values_size > 0) {
+      RETURN_NOT_OK(AllocateBuffer(pool, values_size, &dict_data));
+      memo_table.CopyValues(static_cast<int32_t>(start_offset), dict_data->size(),
+                            dict_data->mutable_data());
+    }
 
     int64_t null_count = 0;
     std::shared_ptr<Buffer> null_bitmap = nullptr;
