@@ -20,6 +20,7 @@
 
 #include "gtest/gtest.h"
 
+#include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/file_reader.h"
 #include "parquet/schema.h"
@@ -74,14 +75,16 @@ class TestConvertParquetSchema : public ::testing::Test {
   ::arrow::Status ConvertSchema(const std::vector<NodePtr>& nodes) {
     NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, nodes);
     descr_.Init(schema);
-    return FromParquetSchema(&descr_, &result_schema_);
+    ArrowReaderProperties props;
+    return FromParquetSchema(&descr_, props, &result_schema_);
   }
 
   ::arrow::Status ConvertSchema(const std::vector<NodePtr>& nodes,
                                 const std::vector<int>& column_indices) {
     NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, nodes);
     descr_.Init(schema);
-    return FromParquetSchema(&descr_, column_indices, &result_schema_);
+    ArrowReaderProperties props;
+    return FromParquetSchema(&descr_, column_indices, props, &result_schema_);
   }
 
   ::arrow::Status ConvertSchema(
@@ -89,7 +92,8 @@ class TestConvertParquetSchema : public ::testing::Test {
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
     NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, nodes);
     descr_.Init(schema);
-    return FromParquetSchema(&descr_, {}, key_value_metadata, &result_schema_);
+    ArrowReaderProperties props;
+    return FromParquetSchema(&descr_, {}, props, key_value_metadata, &result_schema_);
   }
 
  protected:
@@ -1048,7 +1052,8 @@ TEST(TestFromParquetSchema, CorruptMetadata) {
       parquet::ParquetFileReader::OpenFile(path);
   const auto parquet_schema = reader->metadata()->schema();
   std::shared_ptr<::arrow::Schema> arrow_schema;
-  ASSERT_RAISES(IOError, FromParquetSchema(parquet_schema, &arrow_schema));
+  ArrowReaderProperties props;
+  ASSERT_RAISES(IOError, FromParquetSchema(parquet_schema, props, &arrow_schema));
 }
 
 }  // namespace arrow

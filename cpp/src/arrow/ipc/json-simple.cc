@@ -26,6 +26,7 @@
 #include "arrow/ipc/json-internal.h"
 #include "arrow/ipc/json-simple.h"
 #include "arrow/memory_pool.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
@@ -344,11 +345,14 @@ class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
 // ------------------------------------------------------------------------
 // Converter for binary and string arrays
 
-class StringConverter final : public ConcreteConverter<StringConverter> {
+template <typename TYPE>
+class StringConverter final : public ConcreteConverter<StringConverter<TYPE>> {
  public:
+  using BuilderType = typename TypeTraits<TYPE>::BuilderType;
+
   explicit StringConverter(const std::shared_ptr<DataType>& type) {
     this->type_ = type;
-    builder_ = std::make_shared<BinaryBuilder>(type, default_memory_pool());
+    builder_ = std::make_shared<BuilderType>(type, default_memory_pool());
   }
 
   Status AppendNull() override { return builder_->AppendNull(); }
@@ -368,7 +372,7 @@ class StringConverter final : public ConcreteConverter<StringConverter> {
   std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
 
  private:
-  std::shared_ptr<BinaryBuilder> builder_;
+  std::shared_ptr<BuilderType> builder_;
 };
 
 // ------------------------------------------------------------------------
@@ -734,8 +738,10 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::MAP, MapConverter)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_LIST, FixedSizeListConverter)
     SIMPLE_CONVERTER_CASE(Type::STRUCT, StructConverter)
-    SIMPLE_CONVERTER_CASE(Type::STRING, StringConverter)
-    SIMPLE_CONVERTER_CASE(Type::BINARY, StringConverter)
+    SIMPLE_CONVERTER_CASE(Type::STRING, StringConverter<StringType>)
+    SIMPLE_CONVERTER_CASE(Type::BINARY, StringConverter<BinaryType>)
+    SIMPLE_CONVERTER_CASE(Type::LARGE_STRING, StringConverter<LargeStringType>)
+    SIMPLE_CONVERTER_CASE(Type::LARGE_BINARY, StringConverter<LargeBinaryType>)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL, DecimalConverter)
     SIMPLE_CONVERTER_CASE(Type::UNION, UnionConverter)

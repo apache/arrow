@@ -30,6 +30,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
@@ -118,10 +119,16 @@ void AssertConversionError(const std::shared_ptr<DataType>& type,
 //////////////////////////////////////////////////////////////////////////
 // Test functions begin here
 
-TEST(BinaryConversion, Basics) {
-  AssertConversion<BinaryType, std::string>(binary(), {"ab,cdé\n", ",\xffgh\n"},
-                                            {{"ab", ""}, {"cdé", "\xffgh"}});
+template <typename T>
+static void TestBinaryConversionBasics() {
+  auto type = TypeTraits<T>::type_singleton();
+  AssertConversion<T, std::string>(type, {"ab,cdé\n", ",\xffgh\n"},
+                                   {{"ab", ""}, {"cdé", "\xffgh"}});
 }
+
+TEST(BinaryConversion, Basics) { TestBinaryConversionBasics<BinaryType>(); }
+
+TEST(LargeBinaryConversion, Basics) { TestBinaryConversionBasics<LargeBinaryType>(); }
 
 TEST(BinaryConversion, Nulls) {
   AssertConversion<BinaryType, std::string>(binary(), {"ab,N/A\n", "NULL,\n"},
@@ -135,15 +142,21 @@ TEST(BinaryConversion, Nulls) {
                                             {{true, false}, {false, false}}, options);
 }
 
-TEST(StringConversion, Basics) {
-  AssertConversion<StringType, std::string>(utf8(), {"ab,cdé\n", ",gh\n"},
-                                            {{"ab", ""}, {"cdé", "gh"}});
+template <typename T>
+static void TestStringConversionBasics() {
+  auto type = TypeTraits<T>::type_singleton();
+  AssertConversion<T, std::string>(type, {"ab,cdé\n", ",gh\n"},
+                                   {{"ab", ""}, {"cdé", "gh"}});
 
   auto options = ConvertOptions::Defaults();
   options.check_utf8 = false;
-  AssertConversion<StringType, std::string>(utf8(), {"ab,cdé\n", ",\xffgh\n"},
-                                            {{"ab", ""}, {"cdé", "\xffgh"}}, options);
+  AssertConversion<T, std::string>(type, {"ab,cdé\n", ",\xffgh\n"},
+                                   {{"ab", ""}, {"cdé", "\xffgh"}}, options);
 }
+
+TEST(StringConversion, Basics) { TestStringConversionBasics<StringType>(); }
+
+TEST(LargeStringConversion, Basics) { TestStringConversionBasics<LargeStringType>(); }
 
 TEST(StringConversion, Nulls) {
   AssertConversion<StringType, std::string>(utf8(), {"ab,N/A\n", "NULL,\n"},
@@ -157,10 +170,16 @@ TEST(StringConversion, Nulls) {
                                             {{true, false}, {false, false}}, options);
 }
 
-TEST(StringConversion, Errors) {
+template <typename T>
+static void TestStringConversionErrors() {
+  auto type = TypeTraits<T>::type_singleton();
   // Invalid UTF8 in column 0
-  AssertConversionError(utf8(), {"ab,cdé\n", "\xff,gh\n"}, {0});
+  AssertConversionError(type, {"ab,cdé\n", "\xff,gh\n"}, {0});
 }
+
+TEST(StringConversion, Errors) { TestStringConversionErrors<StringType>(); }
+
+TEST(LargeStringConversion, Errors) { TestStringConversionErrors<LargeStringType>(); }
 
 TEST(FixedSizeBinaryConversion, Basics) {
   AssertConversion<FixedSizeBinaryType, std::string>(

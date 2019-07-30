@@ -39,16 +39,18 @@ PyServerAuthHandler::PyServerAuthHandler(PyObject* handler,
 Status PyServerAuthHandler::Authenticate(arrow::flight::ServerAuthSender* outgoing,
                                          arrow::flight::ServerAuthReader* incoming) {
   return SafeCallIntoPython([=] {
-    vtable_.authenticate(handler_.obj(), outgoing, incoming);
-    return CheckPyError();
+    const Status status = vtable_.authenticate(handler_.obj(), outgoing, incoming);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
   });
 }
 
 Status PyServerAuthHandler::IsValid(const std::string& token,
                                     std::string* peer_identity) {
   return SafeCallIntoPython([=] {
-    vtable_.is_valid(handler_.obj(), token, peer_identity);
-    return CheckPyError();
+    const Status status = vtable_.is_valid(handler_.obj(), token, peer_identity);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
   });
 }
 
@@ -62,15 +64,17 @@ PyClientAuthHandler::PyClientAuthHandler(PyObject* handler,
 Status PyClientAuthHandler::Authenticate(arrow::flight::ClientAuthSender* outgoing,
                                          arrow::flight::ClientAuthReader* incoming) {
   return SafeCallIntoPython([=] {
-    vtable_.authenticate(handler_.obj(), outgoing, incoming);
-    return CheckPyError();
+    const Status status = vtable_.authenticate(handler_.obj(), outgoing, incoming);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
   });
 }
 
 Status PyClientAuthHandler::GetToken(std::string* token) {
   return SafeCallIntoPython([=] {
-    vtable_.get_token(handler_.obj(), token);
-    return CheckPyError();
+    const Status status = vtable_.get_token(handler_.obj(), token);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
   });
 }
 
@@ -85,8 +89,10 @@ Status PyFlightServer::ListFlights(
     const arrow::flight::Criteria* criteria,
     std::unique_ptr<arrow::flight::FlightListing>* listings) {
   return SafeCallIntoPython([&] {
-    vtable_.list_flights(server_.obj(), context, criteria, listings);
-    return CheckPyError();
+    const Status status =
+        vtable_.list_flights(server_.obj(), context, criteria, listings);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
   });
 }
 
@@ -94,8 +100,9 @@ Status PyFlightServer::GetFlightInfo(const arrow::flight::ServerCallContext& con
                                      const arrow::flight::FlightDescriptor& request,
                                      std::unique_ptr<arrow::flight::FlightInfo>* info) {
   return SafeCallIntoPython([&] {
-    vtable_.get_flight_info(server_.obj(), context, request, info);
-    return CheckPyError();
+    const Status status = vtable_.get_flight_info(server_.obj(), context, request, info);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
   });
 }
 
@@ -103,8 +110,9 @@ Status PyFlightServer::DoGet(const arrow::flight::ServerCallContext& context,
                              const arrow::flight::Ticket& request,
                              std::unique_ptr<arrow::flight::FlightDataStream>* stream) {
   return SafeCallIntoPython([&] {
-    vtable_.do_get(server_.obj(), context, request, stream);
-    return CheckPyError();
+    const Status status = vtable_.do_get(server_.obj(), context, request, stream);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
   });
 }
 
@@ -113,8 +121,10 @@ Status PyFlightServer::DoPut(
     std::unique_ptr<arrow::flight::FlightMessageReader> reader,
     std::unique_ptr<arrow::flight::FlightMetadataWriter> writer) {
   return SafeCallIntoPython([&] {
-    vtable_.do_put(server_.obj(), context, std::move(reader), std::move(writer));
-    return CheckPyError();
+    const Status status =
+        vtable_.do_put(server_.obj(), context, std::move(reader), std::move(writer));
+    RETURN_NOT_OK(CheckPyError());
+    return status;
   });
 }
 
@@ -122,16 +132,18 @@ Status PyFlightServer::DoAction(const arrow::flight::ServerCallContext& context,
                                 const arrow::flight::Action& action,
                                 std::unique_ptr<arrow::flight::ResultStream>* result) {
   return SafeCallIntoPython([&] {
-    vtable_.do_action(server_.obj(), context, action, result);
-    return CheckPyError();
+    const Status status = vtable_.do_action(server_.obj(), context, action, result);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
   });
 }
 
 Status PyFlightServer::ListActions(const arrow::flight::ServerCallContext& context,
                                    std::vector<arrow::flight::ActionType>* actions) {
   return SafeCallIntoPython([&] {
-    vtable_.list_actions(server_.obj(), context, actions);
-    return CheckPyError();
+    const Status status = vtable_.list_actions(server_.obj(), context, actions);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
   });
 }
 
@@ -173,8 +185,9 @@ PyFlightResultStream::PyFlightResultStream(PyObject* generator,
 
 Status PyFlightResultStream::Next(std::unique_ptr<arrow::flight::Result>* result) {
   return SafeCallIntoPython([=] {
-    callback_(generator_.obj(), result);
-    return CheckPyError();
+    const Status status = callback_(generator_.obj(), result);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
   });
 }
 
@@ -210,8 +223,9 @@ Status PyGeneratorFlightDataStream::GetSchemaPayload(FlightPayload* payload) {
 
 Status PyGeneratorFlightDataStream::Next(FlightPayload* payload) {
   return SafeCallIntoPython([=] {
-    callback_(generator_.obj(), payload);
-    return CheckPyError();
+    const Status status = callback_(generator_.obj(), payload);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
   });
 }
 

@@ -492,6 +492,7 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
 class ARROW_EXPORT ListArray : public Array {
  public:
   using TypeClass = ListType;
+  using offset_type = ListType::offset_type;
 
   explicit ListArray(const std::shared_ptr<ArrayData>& data);
 
@@ -635,24 +636,20 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
 // ----------------------------------------------------------------------
 // Binary and String
 
-/// Concrete Array class for variable-size binary data
-class ARROW_EXPORT BinaryArray : public FlatArray {
+/// Base class for variable-sized binary arrays, regardless of offset size
+/// and logical interpretation.
+template <typename TYPE>
+class BaseBinaryArray : public FlatArray {
  public:
-  using TypeClass = BinaryType;
-
-  explicit BinaryArray(const std::shared_ptr<ArrayData>& data);
-
-  BinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
-              const std::shared_ptr<Buffer>& data,
-              const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
-              int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+  using TypeClass = TYPE;
+  using offset_type = typename TypeClass::offset_type;
 
   /// Return the pointer to the given elements bytes
   // XXX should GetValue(int64_t i) return a string_view?
-  const uint8_t* GetValue(int64_t i, int32_t* out_length) const {
+  const uint8_t* GetValue(int64_t i, offset_type* out_length) const {
     // Account for base offset
     i += data_->offset;
-    const int32_t pos = raw_value_offsets_[i];
+    const offset_type pos = raw_value_offsets_[i];
     *out_length = raw_value_offsets_[i + 1] - pos;
     return raw_data_ + pos;
   }
@@ -664,7 +661,7 @@ class ARROW_EXPORT BinaryArray : public FlatArray {
   util::string_view GetView(int64_t i) const {
     // Account for base offset
     i += data_->offset;
-    const int32_t pos = raw_value_offsets_[i];
+    const offset_type pos = raw_value_offsets_[i];
     return util::string_view(reinterpret_cast<const char*>(raw_data_ + pos),
                              raw_value_offsets_[i + 1] - pos);
   }
@@ -681,31 +678,52 @@ class ARROW_EXPORT BinaryArray : public FlatArray {
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> value_data() const { return data_->buffers[2]; }
 
-  const int32_t* raw_value_offsets() const { return raw_value_offsets_ + data_->offset; }
+  const offset_type* raw_value_offsets() const {
+    return raw_value_offsets_ + data_->offset;
+  }
 
   // Neither of these functions will perform boundschecking
-  int32_t value_offset(int64_t i) const { return raw_value_offsets_[i + data_->offset]; }
-  int32_t value_length(int64_t i) const {
+  offset_type value_offset(int64_t i) const {
+    return raw_value_offsets_[i + data_->offset];
+  }
+  offset_type value_length(int64_t i) const {
     i += data_->offset;
     return raw_value_offsets_[i + 1] - raw_value_offsets_[i];
   }
 
  protected:
   // For subclasses
-  BinaryArray() : raw_value_offsets_(NULLPTR), raw_data_(NULLPTR) {}
+  BaseBinaryArray() : raw_value_offsets_(NULLPTR), raw_data_(NULLPTR) {}
 
-  /// Protected method for constructors
-  void SetData(const std::shared_ptr<ArrayData>& data);
+  // Protected method for constructors
+  void SetData(const std::shared_ptr<ArrayData>& data) {
+    auto value_offsets = data->buffers[1];
+    auto value_data = data->buffers[2];
+    this->Array::SetData(data);
+    raw_data_ = value_data == NULLPTR ? NULLPTR : value_data->data();
+    raw_value_offsets_ =
+        value_offsets == NULLPTR
+            ? NULLPTR
+            : reinterpret_cast<const offset_type*>(value_offsets->data());
+  }
 
-  // Constructor to allow sub-classes/builders to substitute their own logical type
-  BinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
-              const std::shared_ptr<Buffer>& value_offsets,
+  const offset_type* raw_value_offsets_;
+  const uint8_t* raw_data_;
+};
+
+/// Concrete Array class for variable-size binary data
+class ARROW_EXPORT BinaryArray : public BaseBinaryArray<BinaryType> {
+ public:
+  explicit BinaryArray(const std::shared_ptr<ArrayData>& data);
+
+  BinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
               const std::shared_ptr<Buffer>& data,
               const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
               int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
-  const int32_t* raw_value_offsets_;
-  const uint8_t* raw_data_;
+ protected:
+  // For subclasses such as StringArray
+  BinaryArray() : BaseBinaryArray() {}
 };
 
 /// Concrete Array class for variable-size string (utf-8) data
@@ -719,6 +737,34 @@ class ARROW_EXPORT StringArray : public BinaryArray {
               const std::shared_ptr<Buffer>& data,
               const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
               int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+};
+
+/// Concrete Array class for large variable-size binary data
+class ARROW_EXPORT LargeBinaryArray : public BaseBinaryArray<LargeBinaryType> {
+ public:
+  explicit LargeBinaryArray(const std::shared_ptr<ArrayData>& data);
+
+  LargeBinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
+                   const std::shared_ptr<Buffer>& data,
+                   const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+                   int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+ protected:
+  // For subclasses such as LargeStringArray
+  LargeBinaryArray() : BaseBinaryArray() {}
+};
+
+/// Concrete Array class for large variable-size string (utf-8) data
+class ARROW_EXPORT LargeStringArray : public LargeBinaryArray {
+ public:
+  using TypeClass = LargeStringType;
+
+  explicit LargeStringArray(const std::shared_ptr<ArrayData>& data);
+
+  LargeStringArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
+                   const std::shared_ptr<Buffer>& data,
+                   const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+                   int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 };
 
 // ----------------------------------------------------------------------

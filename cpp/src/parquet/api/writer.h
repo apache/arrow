@@ -23,5 +23,6 @@
 #include "parquet/column_writer.h"
 #include "parquet/exception.h"
 #include "parquet/file_writer.h"
+#include "parquet/statistics.h"
 
 #endif  // PARQUET_API_WRITER_H

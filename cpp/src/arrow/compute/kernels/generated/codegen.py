@@ -85,7 +85,9 @@ CAST_GENERATORS = [
     CastCodeGenerator('Timestamp', ['Date32', 'Date64', 'Timestamp'],
                       parametric=True),
     CastCodeGenerator('Binary', ['String']),
+    CastCodeGenerator('LargeBinary', ['LargeString']),
     CastCodeGenerator('String', NUMERIC_TYPES + ['Timestamp']),
+    CastCodeGenerator('LargeString', NUMERIC_TYPES + ['Timestamp']),
     CastCodeGenerator('Dictionary',
                       INTEGER_TYPES + FLOATING_TYPES + DATE_TIME_TYPES +
                       ['Null', 'Binary', 'FixedSizeBinary', 'String',

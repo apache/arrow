@@ -322,6 +322,21 @@ TEST(TestString, Basics) {
   AssertJSONArray<BinaryType, std::string>(type, "[\"\\u0000\\u001f\"]", {s});
 }
 
+TEST(TestLargeString, Basics) {
+  // Similar as TestString above, only testing the basics
+  std::shared_ptr<DataType> type = large_utf8();
+  std::shared_ptr<Array> expected, actual;
+
+  AssertJSONArray<LargeStringType, std::string>(type, "[\"\", \"foo\"]", {"", "foo"});
+  AssertJSONArray<LargeStringType, std::string>(type, "[\"\", null]", {true, false},
+                                                {"", ""});
+
+  // Large binary type
+  type = large_binary();
+  AssertJSONArray<LargeBinaryType, std::string>(type, "[\"\", \"foo\", null]",
+                                                {true, true, false}, {"", "foo", ""});
+}
+
 TEST(TestTimestamp, Basics) {
   // Timestamp type
   auto type = timestamp(TimeUnit::SECOND);

@@ -48,7 +48,10 @@ enum Type : byte {
 
   TIMESTAMP = 14,
   DATE = 15,
-  TIME = 16
+  TIME = 16,
+
+  LARGE_UTF8 = 17,
+  LARGE_BINARY = 18
 }
 
 enum Encoding : byte {

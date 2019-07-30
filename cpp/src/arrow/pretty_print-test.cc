@@ -155,6 +155,7 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
   null
 ])expected";
   CheckPrimitive<StringType, std::string>({0, 10}, is_valid, values3, ex3);
+  CheckPrimitive<LargeStringType, std::string>({0, 10}, is_valid, values3, ex3);
   static const char* ex3_in2 = R"expected(  [
     "foo",
     "bar",
@@ -163,6 +164,7 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
     null
   ])expected";
   CheckPrimitive<StringType, std::string>({2, 10}, is_valid, values3, ex3_in2);
+  CheckPrimitive<LargeStringType, std::string>({2, 10}, is_valid, values3, ex3_in2);
 }
 
 TEST_F(TestPrettyPrint, Int8) {
@@ -338,9 +340,11 @@ TEST_F(TestPrettyPrint, BinaryType) {
   std::vector<std::string> values = {"foo", "bar", "", "baz", "", "\xff"};
   static const char* ex = "[\n  666F6F,\n  626172,\n  null,\n  62617A,\n  ,\n  FF\n]";
   CheckPrimitive<BinaryType, std::string>({0}, is_valid, values, ex);
+  CheckPrimitive<LargeBinaryType, std::string>({0}, is_valid, values, ex);
   static const char* ex_in2 =
       "  [\n    666F6F,\n    626172,\n    null,\n    62617A,\n    ,\n    FF\n  ]";
   CheckPrimitive<BinaryType, std::string>({2}, is_valid, values, ex_in2);
+  CheckPrimitive<LargeBinaryType, std::string>({2}, is_valid, values, ex_in2);
 }
 
 TEST_F(TestPrettyPrint, ListType) {

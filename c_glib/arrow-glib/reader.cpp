@@ -894,6 +894,7 @@ typedef struct GArrowCSVReadOptionsPrivate_ {
 enum {
   PROP_USE_THREADS = 1,
   PROP_BLOCK_SIZE,
+  PROP_N_SKIP_ROWS,
   PROP_DELIMITER,
   PROP_IS_QUOTED,
   PROP_QUOTE_CHARACTER,
@@ -929,6 +930,9 @@ garrow_csv_read_options_set_property(GObject *object,
     break;
   case PROP_BLOCK_SIZE:
     priv->read_options.block_size = g_value_get_int(value);
+    break;
+  case PROP_N_SKIP_ROWS:
+    priv->read_options.skip_rows = g_value_get_uint(value);
     break;
   case PROP_DELIMITER:
     priv->parse_options.delimiter = g_value_get_schar(value);
@@ -980,6 +984,9 @@ garrow_csv_read_options_get_property(GObject *object,
     break;
   case PROP_BLOCK_SIZE:
     g_value_set_int(value, priv->read_options.block_size);
+    break;
+  case PROP_N_SKIP_ROWS:
+    g_value_set_uint(value, priv->read_options.skip_rows);
     break;
   case PROP_DELIMITER:
     g_value_set_schar(value, priv->parse_options.delimiter);
@@ -1070,6 +1077,24 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
                           read_options.block_size,
                           static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_BLOCK_SIZE, spec);
+
+  /**
+   * GArrowCSVReadOptions:n-skip-rows:
+   *
+   * The number of header rows to skip (not including
+   * the row of column names, if any)
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_uint("n-skip-rows",
+                           "N skip rows",
+                           "The number of header rows to skip "
+                           "(not including the row of column names, if any)",
+                           0,
+                           G_MAXUINT,
+                           read_options.skip_rows,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_N_SKIP_ROWS, spec);
 
 
   auto parse_options = arrow::csv::ParseOptions::Defaults();
@@ -1514,6 +1539,71 @@ garrow_csv_read_options_add_false_value(GArrowCSVReadOptions *options,
   priv->convert_options.false_values.push_back(false_value);
 }
 
+/**
+ * garrow_csv_read_options_set_column_names:
+ * @options: A #GArrowCSVReadOptions.
+ * @column_names: (array length=n_column_names):
+ *   The column names (if empty, will be read from first
+ *   row after `skip_rows`)
+ * @n_column_names: The number of the specified column names.
+ *
+ * Since: 1.0.0
+ */
+void
+garrow_csv_read_options_set_column_names(GArrowCSVReadOptions *options,
+                                         const gchar **column_names,
+                                         gsize n_column_names)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  priv->read_options.column_names.resize(n_column_names);
+  for (gsize i = 0; i < n_column_names; ++i) {
+    priv->read_options.column_names[i] = column_names[i];
+  }
+}
+
+/**
+ * garrow_csv_read_options_get_column_names:
+ * @options: A #GArrowCSVReadOptions.
+ *
+ * Return: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
+ *   The column names. It's a %NULL-terminated string array.
+ *   If the number of values is zero, this returns %NULL.
+ *   It must be freed with g_strfreev() when no longer needed.
+ *
+ * Since: 1.0.0
+ */
+gchar **
+garrow_csv_read_options_get_column_names(GArrowCSVReadOptions *options)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  const auto &arrow_column_names = priv->read_options.column_names;
+  if (arrow_column_names.empty()) {
+    return NULL;
+  } else {
+    auto n = arrow_column_names.size();
+    gchar **column_names = g_new(gchar *, n + 1);
+    for (size_t i = 0; i < n; ++i) {
+      column_names[i] = g_strdup(arrow_column_names[i].c_str());
+    }
+    column_names[n] = NULL;
+    return column_names;
+  }
+}
+
+/**
+ * garrow_csv_read_options_add_column_names:
+ * @options: A #GArrowCSVReadOptions.
+ * @column_name: The column name to be added.
+ *
+ * Since: 1.0.0
+ */
+void
+garrow_csv_read_options_add_column_name(GArrowCSVReadOptions *options,
+                                        const gchar *column_name)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  priv->read_options.column_names.push_back(column_name);
+}
 
 typedef struct GArrowCSVReaderPrivate_ {
   std::shared_ptr<arrow::csv::TableReader> reader;

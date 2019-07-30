@@ -38,6 +38,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -194,6 +195,14 @@ public class TestBasicOperation {
     });
   }
 
+  @Test
+  public void propagateErrors() throws Exception {
+    test(client -> {
+      FlightTestUtil.assertCode(FlightStatusCode.UNIMPLEMENTED, () -> {
+        client.doAction(new Action("invalid-action")).forEachRemaining(action -> Assert.fail());
+      });
+    });
+  }
 
   @Test
   public void getStream() throws Exception {
@@ -345,7 +354,8 @@ public class TestBasicOperation {
           break;
         }
         default:
-          listener.onError(new UnsupportedOperationException());
+          listener.onError(CallStatus.UNIMPLEMENTED.withDescription("Action not implemented: " + action.getType())
+              .toRuntimeException());
       }
     }
 

@@ -221,6 +221,41 @@ TEST(TestFlight, RoundTripTypes) {
   ASSERT_EQ(info->total_bytes(), info_deserialized->total_bytes());
 }
 
+TEST(TestFlight, RoundtripStatus) {
+  // Make sure status codes round trip through our conversions
+
+  std::shared_ptr<FlightStatusDetail> detail;
+  detail = FlightStatusDetail::UnwrapStatus(
+      MakeFlightError(FlightStatusCode::Internal, "Test message"));
+  ASSERT_NE(nullptr, detail);
+  ASSERT_EQ(FlightStatusCode::Internal, detail->code());
+
+  detail = FlightStatusDetail::UnwrapStatus(
+      MakeFlightError(FlightStatusCode::TimedOut, "Test message"));
+  ASSERT_NE(nullptr, detail);
+  ASSERT_EQ(FlightStatusCode::TimedOut, detail->code());
+
+  detail = FlightStatusDetail::UnwrapStatus(
+      MakeFlightError(FlightStatusCode::Cancelled, "Test message"));
+  ASSERT_NE(nullptr, detail);
+  ASSERT_EQ(FlightStatusCode::Cancelled, detail->code());
+
+  detail = FlightStatusDetail::UnwrapStatus(
+      MakeFlightError(FlightStatusCode::Unauthenticated, "Test message"));
+  ASSERT_NE(nullptr, detail);
+  ASSERT_EQ(FlightStatusCode::Unauthenticated, detail->code());
+
+  detail = FlightStatusDetail::UnwrapStatus(
+      MakeFlightError(FlightStatusCode::Unauthorized, "Test message"));
+  ASSERT_NE(nullptr, detail);
+  ASSERT_EQ(FlightStatusCode::Unauthorized, detail->code());
+
+  detail = FlightStatusDetail::UnwrapStatus(
+      MakeFlightError(FlightStatusCode::Unavailable, "Test message"));
+  ASSERT_NE(nullptr, detail);
+  ASSERT_EQ(FlightStatusCode::Unavailable, detail->code());
+}
+
 // ----------------------------------------------------------------------
 // Client tests
 
@@ -527,7 +562,7 @@ TEST_F(TestFlightClient, GetFlightInfoNotFound) {
   // XXX Ideally should be Invalid (or KeyError), but gRPC doesn't support
   // multiple error codes.
   auto st = client_->GetFlightInfo(descr, &info);
-  ASSERT_RAISES(IOError, st);
+  ASSERT_RAISES(Invalid, st);
   ASSERT_NE(st.message().find("Flight not found"), std::string::npos);
 }
 
@@ -603,12 +638,12 @@ TEST_F(TestFlightClient, Issue5095) {
   Ticket ticket1{"ARROW-5095-fail"};
   std::unique_ptr<FlightStreamReader> stream;
   Status status = client_->DoGet(ticket1, &stream);
-  ASSERT_RAISES(IOError, status);
+  ASSERT_RAISES(UnknownError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Server-side error"));
 
   Ticket ticket2{"ARROW-5095-success"};
   status = client_->DoGet(ticket2, &stream);
-  ASSERT_RAISES(IOError, status);
+  ASSERT_RAISES(KeyError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("No data"));
 }
 

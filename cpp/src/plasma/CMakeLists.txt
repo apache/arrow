@@ -78,6 +78,7 @@ set(PLASMA_STORE_SRCS
     dlmalloc.cc
     events.cc
     eviction_policy.cc
+    quota_aware_policy.cc
     plasma_allocator.cc
     store.cc
     thirdparty/ae/ae.c)

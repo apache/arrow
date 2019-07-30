@@ -21,8 +21,12 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
+
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
+
 #include "parquet/exception.h"
 #include "parquet/schema-internal.h"
 #include "parquet/thrift.h"

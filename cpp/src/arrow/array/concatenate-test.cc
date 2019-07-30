@@ -48,10 +48,11 @@ class ConcatenateTest : public ::testing::Test {
         sizes_({0, 1, 2, 4, 16, 31, 1234}),
         null_probabilities_({0.0, 0.1, 0.5, 0.9, 1.0}) {}
 
-  std::vector<int32_t> Offsets(int32_t length, int32_t slice_count) {
-    std::vector<int32_t> offsets(static_cast<std::size_t>(slice_count + 1));
+  template <typename OffsetType>
+  std::vector<OffsetType> Offsets(int32_t length, int32_t slice_count) {
+    std::vector<OffsetType> offsets(static_cast<std::size_t>(slice_count + 1));
     std::default_random_engine gen(seed_);
-    std::uniform_int_distribution<int32_t> dist(0, length);
+    std::uniform_int_distribution<OffsetType> dist(0, length);
     std::generate(offsets.begin(), offsets.end(), [&] { return dist(gen); });
     std::sort(offsets.begin(), offsets.end());
     return offsets;
@@ -85,7 +86,7 @@ class ConcatenateTest : public ::testing::Test {
   template <typename ArrayFactory>
   void Check(ArrayFactory&& factory) {
     for (auto size : this->sizes_) {
-      auto offsets = this->Offsets(size, 3);
+      auto offsets = this->Offsets<int32_t>(size, 3);
       for (auto null_probability : this->null_probabilities_) {
         std::shared_ptr<Array> array;
         factory(size, null_probability, &array);
@@ -146,16 +147,16 @@ TYPED_TEST(PrimitiveConcatenateTest, Primitives) {
 
 TEST_F(ConcatenateTest, StringType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    auto values_size = size * 4;
-    auto char_array = this->GeneratePrimitive<Int8Type>(values_size, null_probability);
-    std::shared_ptr<Buffer> offsets;
-    auto offsets_vector = this->Offsets(values_size, size);
-    // ensure the first offset is 0, which is expected for StringType
-    offsets_vector[0] = 0;
-    ASSERT_OK(CopyBufferFromVector(offsets_vector, default_memory_pool(), &offsets));
-    *out = MakeArray(ArrayData::Make(
-        utf8(), size,
-        {char_array->data()->buffers[0], offsets, char_array->data()->buffers[1]}));
+    *out = rng_.String(size, /*min_length =*/0, /*max_length =*/15, null_probability);
+    ASSERT_OK(ValidateArray(**out));
+  });
+}
+
+TEST_F(ConcatenateTest, LargeStringType) {
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    *out =
+        rng_.LargeString(size, /*min_length =*/0, /*max_length =*/15, null_probability);
+    ASSERT_OK(ValidateArray(**out));
   });
 }
 
@@ -163,7 +164,7 @@ TEST_F(ConcatenateTest, ListType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
     auto values_size = size * 4;
     auto values = this->GeneratePrimitive<Int8Type>(values_size, null_probability);
-    auto offsets_vector = this->Offsets(values_size, size);
+    auto offsets_vector = this->Offsets<int32_t>(values_size, size);
     // ensure the first offset is 0, which is expected for ListType
     offsets_vector[0] = 0;
     std::shared_ptr<Array> offsets;
