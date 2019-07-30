@@ -259,7 +259,7 @@ endif(BUILD_WARNING_FLAGS)
 
 # Only enable additional instruction sets if they are supported
 if(CXX_SUPPORTS_SSE4_2 AND ARROW_SSE42)
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -msse4.2")
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -msse4.2 -Wno-narrowing")
 endif()
 
 if(CXX_SUPPORTS_ALTIVEC AND ARROW_ALTIVEC)

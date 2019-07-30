@@ -23,12 +23,16 @@ namespace arrow {
 
 #define ARROW_HAVE_NEON 1
 
+#if defined(__ARM_NEON__) || defined(__ARM_NEON)
+#define ARROW_HAVE_ARM_NEON
+#include <arm_neon.h>
+#endif
+
 #ifdef __ARM_FEATURE_CRC32
 #define ARROW_HAVE_ARM_CRC
 #include <arm_acle.h>
 
 #ifdef __ARM_FEATURE_CRYPTO
-#include <arm_neon.h>
 #define ARROW_HAVE_ARMV8_CRYPTO
 #endif  // __ARM_FEATURE_CRYPTO
 
