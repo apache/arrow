@@ -266,6 +266,10 @@ if((ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION) AND NOT ARROW_JSON)
   message(FATAL_ERROR "JSON parsing of arrays is required for Arrow tests")
 endif()
 
+if(ARROW_FLIGHT)
+  set(ARROW_IPC ON)
+endif()
+
 if(ARROW_IPC AND NOT ARROW_JSON)
   message(FATAL_ERROR "JSON support is required for Arrow IPC")
 endif()
