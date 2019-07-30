@@ -144,13 +144,14 @@ set(ARROW_SRCS
     vendored/datetime/tz.cpp)
 
 if(ARROW_JSON)
-  set(ARROW_SRCS ${ARROW_SRCS}
-    json/options.cc
-    json/chunked-builder.cc
-    json/chunker.cc
-    json/converter.cc
-    json/parser.cc
-    json/reader.cc)
+  set(ARROW_SRCS
+      ${ARROW_SRCS}
+      json/options.cc
+      json/chunked-builder.cc
+      json/chunker.cc
+      json/converter.cc
+      json/parser.cc
+      json/reader.cc)
 endif()
 
 if(ARROW_WITH_URIPARSER)
