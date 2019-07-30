@@ -143,7 +143,13 @@ struct Type {
 
     /// Measure of elapsed time in either seconds, milliseconds, microseconds
     /// or nanoseconds.
-    DURATION
+    DURATION,
+
+    /// Like STRING, but with 64-bit offsets
+    LARGE_STRING,
+
+    /// Like BINARY, but with 64-bit offsets
+    LARGE_BINARY
   };
 };
 
@@ -472,6 +478,7 @@ class ARROW_EXPORT DoubleType
 class ARROW_EXPORT ListType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::LIST;
+  using offset_type = int32_t;
 
   // List can contain any other logical value type
   explicit ListType(const std::shared_ptr<DataType>& value_type)
@@ -486,7 +493,7 @@ class ARROW_EXPORT ListType : public NestedType {
   std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
 
   DataTypeLayout layout() const override {
-    return {{1, CHAR_BIT * sizeof(int32_t)}, false};
+    return {{1, CHAR_BIT * sizeof(offset_type)}, false};
   }
 
   std::string ToString() const override;
@@ -550,23 +557,78 @@ class ARROW_EXPORT FixedSizeListType : public NestedType {
   int32_t list_size_;
 };
 
+/// \brief Base class for all variable-size binary data types
+class ARROW_EXPORT BaseBinaryType : public DataType, public NoExtraMeta {
+ public:
+  using DataType::DataType;
+};
+
 /// \brief Concrete type class for variable-size binary data
-class ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
+class ARROW_EXPORT BinaryType : public BaseBinaryType {
  public:
   static constexpr Type::type type_id = Type::BINARY;
+  static constexpr bool is_utf8 = false;
+  using offset_type = int32_t;
 
   BinaryType() : BinaryType(Type::BINARY) {}
 
   DataTypeLayout layout() const override {
-    return {{1, CHAR_BIT * sizeof(int32_t), DataTypeLayout::kVariableSizeBuffer}, false};
+    return {{1, CHAR_BIT * sizeof(offset_type), DataTypeLayout::kVariableSizeBuffer},
+            false};
   }
 
   std::string ToString() const override;
   std::string name() const override { return "binary"; }
 
  protected:
-  // Allow subclasses to change the logical type.
-  explicit BinaryType(Type::type logical_type) : DataType(logical_type) {}
+  // Allow subclasses like StringType to change the logical type.
+  explicit BinaryType(Type::type logical_type) : BaseBinaryType(logical_type) {}
+};
+
+/// \brief Concrete type class for large variable-size binary data
+class ARROW_EXPORT LargeBinaryType : public BaseBinaryType {
+ public:
+  static constexpr Type::type type_id = Type::LARGE_BINARY;
+  static constexpr bool is_utf8 = false;
+  using offset_type = int64_t;
+
+  LargeBinaryType() : LargeBinaryType(Type::LARGE_BINARY) {}
+
+  DataTypeLayout layout() const override {
+    return {{1, CHAR_BIT * sizeof(offset_type), DataTypeLayout::kVariableSizeBuffer},
+            false};
+  }
+
+  std::string ToString() const override;
+  std::string name() const override { return "large_binary"; }
+
+ protected:
+  // Allow subclasses like LargeStringType to change the logical type.
+  explicit LargeBinaryType(Type::type logical_type) : BaseBinaryType(logical_type) {}
+};
+
+/// \brief Concrete type class for variable-size string data, utf8-encoded
+class ARROW_EXPORT StringType : public BinaryType {
+ public:
+  static constexpr Type::type type_id = Type::STRING;
+  static constexpr bool is_utf8 = true;
+
+  StringType() : BinaryType(Type::STRING) {}
+
+  std::string ToString() const override;
+  std::string name() const override { return "utf8"; }
+};
+
+/// \brief Concrete type class for large variable-size string data, utf8-encoded
+class ARROW_EXPORT LargeStringType : public LargeBinaryType {
+ public:
+  static constexpr Type::type type_id = Type::LARGE_STRING;
+  static constexpr bool is_utf8 = true;
+
+  LargeStringType() : LargeBinaryType(Type::LARGE_STRING) {}
+
+  std::string ToString() const override;
+  std::string name() const override { return "large_utf8"; }
 };
 
 /// \brief Concrete type class for fixed-size binary data
@@ -589,17 +651,6 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
 
  protected:
   int32_t byte_width_;
-};
-
-/// \brief Concrete type class for variable-size string data, utf8-encoded
-class ARROW_EXPORT StringType : public BinaryType {
- public:
-  static constexpr Type::type type_id = Type::STRING;
-
-  StringType() : BinaryType(Type::STRING) {}
-
-  std::string ToString() const override;
-  std::string name() const override { return "utf8"; }
 };
 
 /// \brief Concrete type class for struct data

@@ -52,6 +52,8 @@ namespace compute {
 
 using internal::checked_cast;
 
+static constexpr const char* kInvalidUtf8 = "\xa0\xa1";
+
 static std::vector<std::shared_ptr<DataType>> kNumericTypes = {
     uint8(), int8(),   uint16(), int16(),   uint32(),
     int32(), uint64(), int64(),  float32(), float64()};
@@ -130,6 +132,132 @@ class TestCast : public ComputeFixture, public TestBase {
     if (input->length() > 1) {
       CheckPass(*input->Slice(1), *expected->Slice(1), out_type, options);
     }
+  }
+
+  template <typename SourceType, typename DestType>
+  void TestCastBinaryToString() {
+    CastOptions options;
+    auto src_type = TypeTraits<SourceType>::type_singleton();
+    auto dest_type = TypeTraits<DestType>::type_singleton();
+
+    // All valid except the last one
+    std::vector<bool> all = {1, 1, 1, 1, 1};
+    std::vector<bool> valid = {1, 1, 1, 1, 0};
+    std::vector<std::string> strings = {"Hi", "olá mundo", "你好世界", "", kInvalidUtf8};
+
+    std::shared_ptr<Array> array;
+
+    // Should accept when invalid but null.
+    ArrayFromVector<SourceType, std::string>(src_type, valid, strings, &array);
+    CheckZeroCopy(*array, dest_type);
+
+    // Should refuse due to invalid utf8 payload
+    CheckFails<SourceType, std::string>(src_type, strings, all, dest_type, options);
+
+    // Should accept due to option override
+    options.allow_invalid_utf8 = true;
+    CheckCase<SourceType, std::string, DestType, std::string>(
+        src_type, strings, all, dest_type, strings, options);
+  }
+
+  template <typename SourceType>
+  void TestCastStringToNumber() {
+    CastOptions options;
+    auto src_type = TypeTraits<SourceType>::type_singleton();
+
+    std::vector<bool> is_valid = {true, false, true, true, true};
+
+    // string to int
+    std::vector<std::string> v_int = {"0", "1", "127", "-1", "0"};
+    std::vector<int8_t> e_int8 = {0, 1, 127, -1, 0};
+    std::vector<int16_t> e_int16 = {0, 1, 127, -1, 0};
+    std::vector<int32_t> e_int32 = {0, 1, 127, -1, 0};
+    std::vector<int64_t> e_int64 = {0, 1, 127, -1, 0};
+    CheckCase<SourceType, std::string, Int8Type, int8_t>(src_type, v_int, is_valid,
+                                                         int8(), e_int8, options);
+    CheckCase<SourceType, std::string, Int16Type, int16_t>(src_type, v_int, is_valid,
+                                                           int16(), e_int16, options);
+    CheckCase<SourceType, std::string, Int32Type, int32_t>(src_type, v_int, is_valid,
+                                                           int32(), e_int32, options);
+    CheckCase<SourceType, std::string, Int64Type, int64_t>(src_type, v_int, is_valid,
+                                                           int64(), e_int64, options);
+
+    v_int = {"2147483647", "0", "-2147483648", "0", "0"};
+    e_int32 = {2147483647, 0, -2147483648LL, 0, 0};
+    CheckCase<SourceType, std::string, Int32Type, int32_t>(src_type, v_int, is_valid,
+                                                           int32(), e_int32, options);
+    v_int = {"9223372036854775807", "0", "-9223372036854775808", "0", "0"};
+    e_int64 = {9223372036854775807LL, 0, (-9223372036854775807LL - 1), 0, 0};
+    CheckCase<SourceType, std::string, Int64Type, int64_t>(src_type, v_int, is_valid,
+                                                           int64(), e_int64, options);
+
+    // string to uint
+    std::vector<std::string> v_uint = {"0", "1", "127", "255", "0"};
+    std::vector<uint8_t> e_uint8 = {0, 1, 127, 255, 0};
+    std::vector<uint16_t> e_uint16 = {0, 1, 127, 255, 0};
+    std::vector<uint32_t> e_uint32 = {0, 1, 127, 255, 0};
+    std::vector<uint64_t> e_uint64 = {0, 1, 127, 255, 0};
+    CheckCase<SourceType, std::string, UInt8Type, uint8_t>(src_type, v_uint, is_valid,
+                                                           uint8(), e_uint8, options);
+    CheckCase<SourceType, std::string, UInt16Type, uint16_t>(src_type, v_uint, is_valid,
+                                                             uint16(), e_uint16, options);
+    CheckCase<SourceType, std::string, UInt32Type, uint32_t>(src_type, v_uint, is_valid,
+                                                             uint32(), e_uint32, options);
+    CheckCase<SourceType, std::string, UInt64Type, uint64_t>(src_type, v_uint, is_valid,
+                                                             uint64(), e_uint64, options);
+
+    v_uint = {"4294967295", "0", "0", "0", "0"};
+    e_uint32 = {4294967295, 0, 0, 0, 0};
+    CheckCase<SourceType, std::string, UInt32Type, uint32_t>(src_type, v_uint, is_valid,
+                                                             uint32(), e_uint32, options);
+    v_uint = {"18446744073709551615", "0", "0", "0", "0"};
+    e_uint64 = {18446744073709551615ULL, 0, 0, 0, 0};
+    CheckCase<SourceType, std::string, UInt64Type, uint64_t>(src_type, v_uint, is_valid,
+                                                             uint64(), e_uint64, options);
+
+    // string to float
+    std::vector<std::string> v_float = {"0.1", "1.2", "127.3", "200.4", "0.5"};
+    std::vector<float> e_float = {0.1f, 1.2f, 127.3f, 200.4f, 0.5f};
+    std::vector<double> e_double = {0.1, 1.2, 127.3, 200.4, 0.5};
+    CheckCase<SourceType, std::string, FloatType, float>(src_type, v_float, is_valid,
+                                                         float32(), e_float, options);
+    CheckCase<SourceType, std::string, DoubleType, double>(src_type, v_float, is_valid,
+                                                           float64(), e_double, options);
+
+    // Test that casting is locale-independent
+    auto global_locale = std::locale();
+    try {
+      // French locale uses the comma as decimal point
+      std::locale::global(std::locale("fr_FR.UTF-8"));
+    } catch (std::runtime_error&) {
+      // Locale unavailable, ignore
+    }
+    CheckCase<SourceType, std::string, FloatType, float>(src_type, v_float, is_valid,
+                                                         float32(), e_float, options);
+    CheckCase<SourceType, std::string, DoubleType, double>(src_type, v_float, is_valid,
+                                                           float64(), e_double, options);
+    std::locale::global(global_locale);
+  }
+
+  template <typename SourceType>
+  void TestCastStringToTimestamp() {
+    CastOptions options;
+    auto src_type = TypeTraits<SourceType>::type_singleton();
+
+    std::vector<bool> is_valid = {true, false, true};
+    std::vector<std::string> strings = {"1970-01-01", "xxx", "2000-02-29"};
+
+    auto type = timestamp(TimeUnit::SECOND);
+    std::vector<int64_t> e = {0, 0, 951782400};
+    CheckCase<SourceType, std::string, TimestampType, int64_t>(
+        src_type, strings, is_valid, type, e, options);
+
+    type = timestamp(TimeUnit::MICRO);
+    e = {0, 0, 951782400000000LL};
+    CheckCase<SourceType, std::string, TimestampType, int64_t>(
+        src_type, strings, is_valid, type, e, options);
+
+    // NOTE: timestamp parsing is tested comprehensively in parsing-util-test.cc
   }
 };
 
@@ -922,6 +1050,10 @@ TEST_F(TestCast, StringToBoolean) {
                                                         e, options);
   CheckCase<StringType, std::string, BooleanType, bool>(utf8(), v2, is_valid, boolean(),
                                                         e, options);
+
+  // Same with LargeStringType
+  CheckCase<LargeStringType, std::string, BooleanType, bool>(large_utf8(), v1, is_valid,
+                                                             boolean(), e, options);
 }
 
 TEST_F(TestCast, StringToBooleanErrors) {
@@ -931,84 +1063,13 @@ TEST_F(TestCast, StringToBooleanErrors) {
 
   CheckFails<StringType, std::string>(utf8(), {"false "}, is_valid, boolean(), options);
   CheckFails<StringType, std::string>(utf8(), {"T"}, is_valid, boolean(), options);
+  CheckFails<LargeStringType, std::string>(large_utf8(), {"T"}, is_valid, boolean(),
+                                           options);
 }
 
-TEST_F(TestCast, StringToNumber) {
-  CastOptions options;
+TEST_F(TestCast, StringToNumber) { TestCastStringToNumber<StringType>(); }
 
-  std::vector<bool> is_valid = {true, false, true, true, true};
-
-  // string to int
-  std::vector<std::string> v_int = {"0", "1", "127", "-1", "0"};
-  std::vector<int8_t> e_int8 = {0, 1, 127, -1, 0};
-  std::vector<int16_t> e_int16 = {0, 1, 127, -1, 0};
-  std::vector<int32_t> e_int32 = {0, 1, 127, -1, 0};
-  std::vector<int64_t> e_int64 = {0, 1, 127, -1, 0};
-  CheckCase<StringType, std::string, Int8Type, int8_t>(utf8(), v_int, is_valid, int8(),
-                                                       e_int8, options);
-  CheckCase<StringType, std::string, Int16Type, int16_t>(utf8(), v_int, is_valid, int16(),
-                                                         e_int16, options);
-  CheckCase<StringType, std::string, Int32Type, int32_t>(utf8(), v_int, is_valid, int32(),
-                                                         e_int32, options);
-  CheckCase<StringType, std::string, Int64Type, int64_t>(utf8(), v_int, is_valid, int64(),
-                                                         e_int64, options);
-
-  v_int = {"2147483647", "0", "-2147483648", "0", "0"};
-  e_int32 = {2147483647, 0, -2147483648LL, 0, 0};
-  CheckCase<StringType, std::string, Int32Type, int32_t>(utf8(), v_int, is_valid, int32(),
-                                                         e_int32, options);
-  v_int = {"9223372036854775807", "0", "-9223372036854775808", "0", "0"};
-  e_int64 = {9223372036854775807LL, 0, (-9223372036854775807LL - 1), 0, 0};
-  CheckCase<StringType, std::string, Int64Type, int64_t>(utf8(), v_int, is_valid, int64(),
-                                                         e_int64, options);
-
-  // string to uint
-  std::vector<std::string> v_uint = {"0", "1", "127", "255", "0"};
-  std::vector<uint8_t> e_uint8 = {0, 1, 127, 255, 0};
-  std::vector<uint16_t> e_uint16 = {0, 1, 127, 255, 0};
-  std::vector<uint32_t> e_uint32 = {0, 1, 127, 255, 0};
-  std::vector<uint64_t> e_uint64 = {0, 1, 127, 255, 0};
-  CheckCase<StringType, std::string, UInt8Type, uint8_t>(utf8(), v_uint, is_valid,
-                                                         uint8(), e_uint8, options);
-  CheckCase<StringType, std::string, UInt16Type, uint16_t>(utf8(), v_uint, is_valid,
-                                                           uint16(), e_uint16, options);
-  CheckCase<StringType, std::string, UInt32Type, uint32_t>(utf8(), v_uint, is_valid,
-                                                           uint32(), e_uint32, options);
-  CheckCase<StringType, std::string, UInt64Type, uint64_t>(utf8(), v_uint, is_valid,
-                                                           uint64(), e_uint64, options);
-
-  v_uint = {"4294967295", "0", "0", "0", "0"};
-  e_uint32 = {4294967295, 0, 0, 0, 0};
-  CheckCase<StringType, std::string, UInt32Type, uint32_t>(utf8(), v_uint, is_valid,
-                                                           uint32(), e_uint32, options);
-  v_uint = {"18446744073709551615", "0", "0", "0", "0"};
-  e_uint64 = {18446744073709551615ULL, 0, 0, 0, 0};
-  CheckCase<StringType, std::string, UInt64Type, uint64_t>(utf8(), v_uint, is_valid,
-                                                           uint64(), e_uint64, options);
-
-  // string to float
-  std::vector<std::string> v_float = {"0.1", "1.2", "127.3", "200.4", "0.5"};
-  std::vector<float> e_float = {0.1f, 1.2f, 127.3f, 200.4f, 0.5f};
-  std::vector<double> e_double = {0.1, 1.2, 127.3, 200.4, 0.5};
-  CheckCase<StringType, std::string, FloatType, float>(utf8(), v_float, is_valid,
-                                                       float32(), e_float, options);
-  CheckCase<StringType, std::string, DoubleType, double>(utf8(), v_float, is_valid,
-                                                         float64(), e_double, options);
-
-  // Test that casting is locale-independent
-  auto global_locale = std::locale();
-  try {
-    // French locale uses the comma as decimal point
-    std::locale::global(std::locale("fr_FR.UTF-8"));
-  } catch (std::runtime_error&) {
-    // Locale unavailable, ignore
-  }
-  CheckCase<StringType, std::string, FloatType, float>(utf8(), v_float, is_valid,
-                                                       float32(), e_float, options);
-  CheckCase<StringType, std::string, DoubleType, double>(utf8(), v_float, is_valid,
-                                                         float64(), e_double, options);
-  std::locale::global(global_locale);
-}
+TEST_F(TestCast, LargeStringToNumber) { TestCastStringToNumber<LargeStringType>(); }
 
 TEST_F(TestCast, StringToNumberErrors) {
   CastOptions options;
@@ -1027,24 +1088,9 @@ TEST_F(TestCast, StringToNumberErrors) {
   CheckFails<StringType, std::string>(utf8(), {"z"}, is_valid, float32(), options);
 }
 
-TEST_F(TestCast, StringToTimestamp) {
-  CastOptions options;
+TEST_F(TestCast, StringToTimestamp) { TestCastStringToTimestamp<StringType>(); }
 
-  std::vector<bool> is_valid = {true, false, true};
-  std::vector<std::string> strings = {"1970-01-01", "xxx", "2000-02-29"};
-
-  auto type = timestamp(TimeUnit::SECOND);
-  std::vector<int64_t> e = {0, 0, 951782400};
-  CheckCase<StringType, std::string, TimestampType, int64_t>(utf8(), strings, is_valid,
-                                                             type, e, options);
-
-  type = timestamp(TimeUnit::MICRO);
-  e = {0, 0, 951782400000000LL};
-  CheckCase<StringType, std::string, TimestampType, int64_t>(utf8(), strings, is_valid,
-                                                             type, e, options);
-
-  // NOTE: timestamp parsing is tested comprehensively in parsing-util-test.cc
-}
+TEST_F(TestCast, LargeStringToTimestamp) { TestCastStringToTimestamp<LargeStringType>(); }
 
 TEST_F(TestCast, StringToTimestampErrors) {
   CastOptions options;
@@ -1058,29 +1104,10 @@ TEST_F(TestCast, StringToTimestampErrors) {
   }
 }
 
-constexpr const char* kInvalidUtf8 = "\xa0\xa1";
+TEST_F(TestCast, BinaryToString) { TestCastBinaryToString<BinaryType, StringType>(); }
 
-TEST_F(TestCast, BinaryToString) {
-  CastOptions options;
-
-  // All valid except the last one
-  std::vector<bool> all = {1, 1, 1, 1, 1};
-  std::vector<bool> valid = {1, 1, 1, 1, 0};
-  std::vector<std::string> strings = {"Hi", "olá mundo", "你好世界", "", kInvalidUtf8};
-
-  std::shared_ptr<Array> array;
-
-  // Should accept when invalid but null.
-  ArrayFromVector<BinaryType, std::string>(binary(), valid, strings, &array);
-  CheckZeroCopy(*array, utf8());
-
-  // Should refuse due to invalid utf8 payload
-  CheckFails<BinaryType, std::string>(binary(), strings, all, utf8(), options);
-
-  // Should accept due to option override
-  options.allow_invalid_utf8 = true;
-  CheckCase<BinaryType, std::string, StringType, std::string>(binary(), strings, all,
-                                                              utf8(), strings, options);
+TEST_F(TestCast, LargeBinaryToLargeString) {
+  TestCastBinaryToString<LargeBinaryType, LargeStringType>();
 }
 
 TEST_F(TestCast, ListToList) {

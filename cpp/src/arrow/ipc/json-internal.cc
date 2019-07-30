@@ -312,6 +312,10 @@ class SchemaWriter {
   Status Visit(const TimeType& type) { return WritePrimitive("time", type); }
   Status Visit(const StringType& type) { return WriteVarBytes("utf8", type); }
   Status Visit(const BinaryType& type) { return WriteVarBytes("binary", type); }
+  Status Visit(const LargeStringType& type) { return WriteVarBytes("large_utf8", type); }
+  Status Visit(const LargeBinaryType& type) {
+    return WriteVarBytes("large_binary", type);
+  }
   Status Visit(const FixedSizeBinaryType& type) {
     return WritePrimitive("fixedsizebinary", type);
   }
@@ -430,20 +434,26 @@ class ArrayWriter {
     }
   }
 
-  // Binary, encode to hexadecimal. UTF8 string write as is
+  // Binary, encode to hexadecimal.
   template <typename T>
-  typename std::enable_if<std::is_base_of<BinaryArray, T>::value, void>::type
+  typename std::enable_if<std::is_same<BinaryArray, T>::value ||
+                              std::is_same<LargeBinaryArray, T>::value,
+                          void>::type
   WriteDataValues(const T& arr) {
     for (int64_t i = 0; i < arr.length(); ++i) {
-      int32_t length;
-      const uint8_t* buf = arr.GetValue(i, &length);
+      writer_->String(HexEncode(arr.GetView(i)));
+    }
+  }
 
-      if (std::is_base_of<StringArray, T>::value) {
-        // Presumed UTF-8
-        writer_->String(reinterpret_cast<const char*>(buf), length);
-      } else {
-        writer_->String(HexEncode(buf, length));
-      }
+  // UTF8 string, write as is
+  template <typename T>
+  typename std::enable_if<std::is_same<StringArray, T>::value ||
+                              std::is_same<LargeStringArray, T>::value,
+                          void>::type
+  WriteDataValues(const T& arr) {
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      auto view = arr.GetView(i);
+      writer_->String(view.data(), static_cast<rj::SizeType>(view.size()));
     }
   }
 
@@ -558,8 +568,10 @@ class ArrayWriter {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<BinaryArray, T>::value, Status>::type Visit(
-      const T& array) {
+  typename std::enable_if<std::is_base_of<BinaryArray, T>::value ||
+                              std::is_base_of<LargeBinaryArray, T>::value,
+                          Status>::type
+  Visit(const T& array) {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
     WriteDataField(array);
@@ -911,6 +923,10 @@ static Status GetType(const RjObject& json_type,
     *type = utf8();
   } else if (type_name == "binary") {
     *type = binary();
+  } else if (type_name == "large_utf8") {
+    *type = large_utf8();
+  } else if (type_name == "large_binary") {
+    *type = large_binary();
   } else if (type_name == "fixedsizebinary") {
     return GetFixedSizeBinary(json_type, type);
   } else if (type_name == "decimal") {
@@ -1091,9 +1107,10 @@ class ArrayReader {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<BinaryType, T>::value, Status>::type Visit(
+  typename std::enable_if<std::is_base_of<BaseBinaryType, T>::value, Status>::type Visit(
       const T& type) {
     typename TypeTraits<T>::BuilderType builder(pool_);
+    using offset_type = typename T::offset_type;
 
     const auto& json_data = obj_.FindMember(kData);
     RETURN_NOT_ARRAY(kData, json_data, obj_);
@@ -1110,23 +1127,27 @@ class ArrayReader {
 
       const rj::Value& val = json_data_arr[i];
       DCHECK(val.IsString());
-      if (std::is_base_of<StringType, T>::value) {
+
+      if (T::is_utf8) {
         RETURN_NOT_OK(builder.Append(val.GetString()));
       } else {
         std::string hex_string = val.GetString();
 
-        DCHECK(hex_string.size() % 2 == 0) << "Expected base16 hex string";
-        int32_t length = static_cast<int>(hex_string.size()) / 2;
+        if (hex_string.size() % 2 != 0) {
+          return Status::Invalid("Expected base16 hex string");
+        }
+        const auto value_len = static_cast<int64_t>(hex_string.size()) / 2;
 
         std::shared_ptr<Buffer> byte_buffer;
-        RETURN_NOT_OK(AllocateBuffer(pool_, length, &byte_buffer));
+        RETURN_NOT_OK(AllocateBuffer(pool_, value_len, &byte_buffer));
 
         const char* hex_data = hex_string.c_str();
         uint8_t* byte_buffer_data = byte_buffer->mutable_data();
-        for (int32_t j = 0; j < length; ++j) {
+        for (int64_t j = 0; j < value_len; ++j) {
           RETURN_NOT_OK(ParseHexValue(hex_data + j * 2, &byte_buffer_data[j]));
         }
-        RETURN_NOT_OK(builder.Append(byte_buffer_data, length));
+        RETURN_NOT_OK(
+            builder.Append(byte_buffer_data, static_cast<offset_type>(value_len)));
       }
     }
 

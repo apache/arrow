@@ -249,8 +249,10 @@ class ArrayLoader {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<BinaryType, T>::value, Status>::type Visit(
-      const T& type) {
+  typename std::enable_if<std::is_base_of<BinaryType, T>::value ||
+                              std::is_base_of<LargeBinaryType, T>::value,
+                          Status>::type
+  Visit(const T& type) {
     return LoadBinary<T>();
   }
 

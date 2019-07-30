@@ -244,6 +244,15 @@ struct TypeTraits<BinaryType> {
 };
 
 template <>
+struct TypeTraits<LargeBinaryType> {
+  using ArrayType = LargeBinaryArray;
+  using BuilderType = LargeBinaryBuilder;
+  using ScalarType = LargeBinaryScalar;
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return large_binary(); }
+};
+
+template <>
 struct TypeTraits<FixedSizeBinaryType> {
   using ArrayType = FixedSizeBinaryArray;
   using BuilderType = FixedSizeBinaryBuilder;
@@ -258,6 +267,15 @@ struct TypeTraits<StringType> {
   using ScalarType = StringScalar;
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return utf8(); }
+};
+
+template <>
+struct TypeTraits<LargeStringType> {
+  using ArrayType = LargeStringArray;
+  using BuilderType = LargeStringBuilder;
+  using ScalarType = LargeStringScalar;
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return large_utf8(); }
 };
 
 template <>
@@ -367,6 +385,12 @@ struct is_8bit_int {
       (std::is_same<UInt8Type, T>::value || std::is_same<Int8Type, T>::value);
 };
 
+template <typename T>
+struct is_any_string_type {
+  static constexpr bool value =
+      std::is_same<StringType, T>::value || std::is_same<LargeStringType, T>::value;
+};
+
 template <typename T, typename R = void>
 using enable_if_8bit_int = typename std::enable_if<is_8bit_int<T>::value, R>::type;
 
@@ -419,8 +443,16 @@ template <typename T, typename R = void>
 using enable_if_null = typename std::enable_if<std::is_same<NullType, T>::value, R>::type;
 
 template <typename T, typename R = void>
+using enable_if_base_binary =
+    typename std::enable_if<std::is_base_of<BaseBinaryType, T>::value, R>::type;
+
+template <typename T, typename R = void>
 using enable_if_binary =
     typename std::enable_if<std::is_base_of<BinaryType, T>::value, R>::type;
+
+template <typename T, typename R = void>
+using enable_if_large_binary =
+    typename std::enable_if<std::is_base_of<LargeBinaryType, T>::value, R>::type;
 
 template <typename T, typename R = void>
 using enable_if_boolean =
@@ -573,6 +605,17 @@ static inline bool is_binary_like(Type::type type_id) {
   switch (type_id) {
     case Type::BINARY:
     case Type::STRING:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_large_binary_like(Type::type type_id) {
+  switch (type_id) {
+    case Type::LARGE_BINARY:
+    case Type::LARGE_STRING:
       return true;
     default:
       break;

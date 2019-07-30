@@ -264,6 +264,8 @@ Status MakeConverter(const std::shared_ptr<DataType>& out_type, MemoryPool* pool
     CONVERTER_CASE(Type::DATE64, DateTimeConverter<Date64Type>);
     CONVERTER_CASE(Type::BINARY, BinaryConverter<BinaryType>);
     CONVERTER_CASE(Type::STRING, BinaryConverter<StringType>);
+    CONVERTER_CASE(Type::LARGE_BINARY, BinaryConverter<LargeBinaryType>);
+    CONVERTER_CASE(Type::LARGE_STRING, BinaryConverter<LargeStringType>);
     default:
       return Status::NotImplemented("JSON conversion to ", *out_type,
                                     " is not supported");

@@ -107,7 +107,18 @@ table FloatingPoint {
 table Utf8 {
 }
 
+/// Opaque binary data
 table Binary {
+}
+
+/// Same as Utf8, but with 64-bit offsets, allowing to represent
+/// extremely large data values.
+table LargeUtf8 {
+}
+
+/// Same as Binary, but with 64-bit offsets, allowing to represent
+/// extremely large data values.
+table LargeBinary {
 }
 
 table FixedSizeBinary {
@@ -235,6 +246,8 @@ union Type {
   FixedSizeList,
   Map,
   Duration,
+  LargeBinary,
+  LargeUtf8,
 }
 
 /// ----------------------------------------------------------------------

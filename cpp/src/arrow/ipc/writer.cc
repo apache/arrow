@@ -225,7 +225,8 @@ class RecordBatchSerializer : public ArrayVisitor {
   template <typename ArrayType>
   Status GetZeroBasedValueOffsets(const ArrayType& array,
                                   std::shared_ptr<Buffer>* value_offsets) {
-    // Share slicing logic between ListArray and BinaryArray
+    // Share slicing logic between ListArray, BinaryArray and LargeBinaryArray
+    using offset_type = typename ArrayType::offset_type;
 
     auto offsets = array.value_offsets();
 
@@ -235,11 +236,12 @@ class RecordBatchSerializer : public ArrayVisitor {
       // b) slice the values array accordingly
 
       std::shared_ptr<Buffer> shifted_offsets;
-      RETURN_NOT_OK(AllocateBuffer(pool_, sizeof(int32_t) * (array.length() + 1),
+      RETURN_NOT_OK(AllocateBuffer(pool_, sizeof(offset_type) * (array.length() + 1),
                                    &shifted_offsets));
 
-      int32_t* dest_offsets = reinterpret_cast<int32_t*>(shifted_offsets->mutable_data());
-      const int32_t start_offset = array.value_offset(0);
+      offset_type* dest_offsets =
+          reinterpret_cast<offset_type*>(shifted_offsets->mutable_data());
+      const offset_type start_offset = array.value_offset(0);
 
       for (int i = 0; i < array.length(); ++i) {
         dest_offsets[i] = array.value_offset(i) - start_offset;
@@ -253,9 +255,10 @@ class RecordBatchSerializer : public ArrayVisitor {
     return Status::OK();
   }
 
-  Status VisitBinary(const BinaryArray& array) {
+  template <typename ArrayType>
+  Status VisitBinary(const ArrayType& array) {
     std::shared_ptr<Buffer> value_offsets;
-    RETURN_NOT_OK(GetZeroBasedValueOffsets<BinaryArray>(array, &value_offsets));
+    RETURN_NOT_OK(GetZeroBasedValueOffsets<ArrayType>(array, &value_offsets));
     auto data = array.value_data();
 
     int64_t total_data_bytes = 0;
@@ -342,6 +345,10 @@ class RecordBatchSerializer : public ArrayVisitor {
   Status Visit(const StringArray& array) override { return VisitBinary(array); }
 
   Status Visit(const BinaryArray& array) override { return VisitBinary(array); }
+
+  Status Visit(const LargeStringArray& array) override { return VisitBinary(array); }
+
+  Status Visit(const LargeBinaryArray& array) override { return VisitBinary(array); }
 
   Status Visit(const ListArray& array) override { return VisitList(array); }
 

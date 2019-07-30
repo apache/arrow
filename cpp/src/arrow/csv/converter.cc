@@ -431,6 +431,7 @@ Status Converter::Make(const std::shared_ptr<DataType>& type,
     CONVERTER_CASE(Type::BOOL, BooleanConverter)
     CONVERTER_CASE(Type::TIMESTAMP, TimestampConverter)
     CONVERTER_CASE(Type::BINARY, (VarSizeBinaryConverter<BinaryType, false>))
+    CONVERTER_CASE(Type::LARGE_BINARY, (VarSizeBinaryConverter<LargeBinaryType, false>))
     CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
     CONVERTER_CASE(Type::DECIMAL, DecimalConverter)
 
@@ -439,6 +440,14 @@ Status Converter::Make(const std::shared_ptr<DataType>& type,
         result = new VarSizeBinaryConverter<StringType, true>(type, options, pool);
       } else {
         result = new VarSizeBinaryConverter<StringType, false>(type, options, pool);
+      }
+      break;
+
+    case Type::LARGE_STRING:
+      if (options.check_utf8) {
+        result = new VarSizeBinaryConverter<LargeStringType, true>(type, options, pool);
+      } else {
+        result = new VarSizeBinaryConverter<LargeStringType, false>(type, options, pool);
       }
       break;
 

@@ -40,6 +40,9 @@ namespace arrow {
 
 using internal::checked_cast;
 
+using StringTypes =
+    ::testing::Types<StringType, LargeStringType, BinaryType, LargeBinaryType>;
+
 // ----------------------------------------------------------------------
 // String / Binary tests
 
@@ -67,8 +70,14 @@ void CheckStringArray(const ArrayType& array, const std::vector<std::string>& st
   }
 }
 
+template <typename T>
 class TestStringArray : public ::testing::Test {
  public:
+  using TypeClass = T;
+  using offset_type = typename TypeClass::offset_type;
+  using ArrayType = typename TypeTraits<TypeClass>::ArrayType;
+  using BuilderType = typename TypeTraits<TypeClass>::BuilderType;
+
   void SetUp() {
     chars_ = {'a', 'b', 'b', 'c', 'c', 'c'};
     offsets_ = {0, 1, 1, 1, 3, 6};
@@ -85,12 +94,132 @@ class TestStringArray : public ::testing::Test {
     ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &null_bitmap_));
     null_count_ = CountNulls(valid_bytes_);
 
-    strings_ = std::make_shared<StringArray>(length_, offsets_buf_, value_buf_,
-                                             null_bitmap_, null_count_);
+    strings_ = std::make_shared<ArrayType>(length_, offsets_buf_, value_buf_,
+                                           null_bitmap_, null_count_);
+  }
+
+  void TestArrayBasics() {
+    ASSERT_EQ(length_, strings_->length());
+    ASSERT_EQ(1, strings_->null_count());
+    ASSERT_OK(ValidateArray(*strings_));
+    TestInitialized(*strings_);
+    AssertZeroPadded(*strings_);
+  }
+
+  void TestType() {
+    std::shared_ptr<DataType> type = this->strings_->type();
+
+    if (std::is_same<TypeClass, StringType>::value) {
+      ASSERT_EQ(Type::STRING, type->id());
+      ASSERT_EQ(Type::STRING, this->strings_->type_id());
+    } else if (std::is_same<TypeClass, LargeStringType>::value) {
+      ASSERT_EQ(Type::LARGE_STRING, type->id());
+      ASSERT_EQ(Type::LARGE_STRING, this->strings_->type_id());
+    } else if (std::is_same<TypeClass, BinaryType>::value) {
+      ASSERT_EQ(Type::BINARY, type->id());
+      ASSERT_EQ(Type::BINARY, this->strings_->type_id());
+    } else if (std::is_same<TypeClass, LargeBinaryType>::value) {
+      ASSERT_EQ(Type::LARGE_BINARY, type->id());
+      ASSERT_EQ(Type::LARGE_BINARY, this->strings_->type_id());
+    } else {
+      FAIL();
+    }
+  }
+
+  void TestListFunctions() {
+    int64_t pos = 0;
+    for (size_t i = 0; i < expected_.size(); ++i) {
+      ASSERT_EQ(pos, strings_->value_offset(i));
+      ASSERT_EQ(expected_[i].size(), strings_->value_length(i));
+      pos += expected_[i].size();
+    }
+  }
+
+  void TestDestructor() {
+    auto arr = std::make_shared<ArrayType>(length_, offsets_buf_, value_buf_,
+                                           null_bitmap_, null_count_);
+  }
+
+  void TestGetString() {
+    for (size_t i = 0; i < expected_.size(); ++i) {
+      if (valid_bytes_[i] == 0) {
+        ASSERT_TRUE(strings_->IsNull(i));
+      } else {
+        ASSERT_FALSE(strings_->IsNull(i));
+        ASSERT_EQ(expected_[i], strings_->GetString(i));
+      }
+    }
+  }
+
+  void TestEmptyStringComparison() {
+    offsets_ = {0, 0, 0, 0, 0, 0};
+    offsets_buf_ = Buffer::Wrap(offsets_);
+    length_ = static_cast<int64_t>(offsets_.size() - 1);
+
+    auto strings_a = std::make_shared<ArrayType>(length_, offsets_buf_, nullptr,
+                                                 null_bitmap_, null_count_);
+    auto strings_b = std::make_shared<ArrayType>(length_, offsets_buf_, nullptr,
+                                                 null_bitmap_, null_count_);
+    ASSERT_TRUE(strings_a->Equals(strings_b));
+  }
+
+  void TestCompareNullByteSlots() {
+    BuilderType builder;
+    BuilderType builder2;
+    BuilderType builder3;
+
+    ASSERT_OK(builder.Append("foo"));
+    ASSERT_OK(builder2.Append("foo"));
+    ASSERT_OK(builder3.Append("foo"));
+
+    ASSERT_OK(builder.Append("bar"));
+    ASSERT_OK(builder2.AppendNull());
+
+    // same length, but different
+    ASSERT_OK(builder3.Append("xyz"));
+
+    ASSERT_OK(builder.Append("baz"));
+    ASSERT_OK(builder2.Append("baz"));
+    ASSERT_OK(builder3.Append("baz"));
+
+    std::shared_ptr<Array> array, array2, array3;
+    FinishAndCheckPadding(&builder, &array);
+    ASSERT_OK(builder2.Finish(&array2));
+    ASSERT_OK(builder3.Finish(&array3));
+
+    const auto& a1 = checked_cast<const ArrayType&>(*array);
+    const auto& a2 = checked_cast<const ArrayType&>(*array2);
+    const auto& a3 = checked_cast<const ArrayType&>(*array3);
+
+    // The validity bitmaps are the same, the data is different, but the unequal
+    // portion is masked out
+    ArrayType equal_array(3, a1.value_offsets(), a1.value_data(), a2.null_bitmap(), 1);
+    ArrayType equal_array2(3, a3.value_offsets(), a3.value_data(), a2.null_bitmap(), 1);
+
+    ASSERT_TRUE(equal_array.Equals(equal_array2));
+    ASSERT_TRUE(a2.RangeEquals(equal_array2, 0, 3, 0));
+
+    ASSERT_TRUE(equal_array.Array::Slice(1)->Equals(equal_array2.Array::Slice(1)));
+    ASSERT_TRUE(
+        equal_array.Array::Slice(1)->RangeEquals(0, 2, 0, equal_array2.Array::Slice(1)));
+  }
+
+  void TestSliceGetString() {
+    BuilderType builder;
+
+    ASSERT_OK(builder.Append("a"));
+    ASSERT_OK(builder.Append("b"));
+    ASSERT_OK(builder.Append("c"));
+
+    std::shared_ptr<Array> array;
+    ASSERT_OK(builder.Finish(&array));
+    auto s = array->Slice(1, 10);
+    auto arr = std::dynamic_pointer_cast<ArrayType>(s);
+    ASSERT_EQ(arr->GetString(0), "b");
   }
 
  protected:
-  std::vector<int32_t> offsets_;
+  std::vector<offset_type> offsets_;
   std::vector<char> chars_;
   std::vector<uint8_t> valid_bytes_;
 
@@ -103,556 +232,240 @@ class TestStringArray : public ::testing::Test {
   int64_t null_count_;
   int64_t length_;
 
-  std::shared_ptr<StringArray> strings_;
+  std::shared_ptr<ArrayType> strings_;
 };
 
-TEST_F(TestStringArray, TestArrayBasics) {
-  ASSERT_EQ(length_, strings_->length());
-  ASSERT_EQ(1, strings_->null_count());
-  ASSERT_OK(ValidateArray(*strings_));
+TYPED_TEST_CASE(TestStringArray, StringTypes);
+
+TYPED_TEST(TestStringArray, TestArrayBasics) { this->TestArrayBasics(); }
+
+TYPED_TEST(TestStringArray, TestType) { this->TestType(); }
+
+TYPED_TEST(TestStringArray, TestListFunctions) { this->TestListFunctions(); }
+
+TYPED_TEST(TestStringArray, TestDestructor) { this->TestDestructor(); }
+
+TYPED_TEST(TestStringArray, TestGetString) { this->TestGetString(); }
+
+TYPED_TEST(TestStringArray, TestEmptyStringComparison) {
+  this->TestEmptyStringComparison();
 }
 
-TEST_F(TestStringArray, TestType) {
-  std::shared_ptr<DataType> type = strings_->type();
+TYPED_TEST(TestStringArray, CompareNullByteSlots) { this->TestCompareNullByteSlots(); }
 
-  ASSERT_EQ(Type::STRING, type->id());
-  ASSERT_EQ(Type::STRING, strings_->type_id());
-}
-
-TEST_F(TestStringArray, TestListFunctions) {
-  int pos = 0;
-  for (size_t i = 0; i < expected_.size(); ++i) {
-    ASSERT_EQ(pos, strings_->value_offset(i));
-    ASSERT_EQ(static_cast<int>(expected_[i].size()), strings_->value_length(i));
-    pos += static_cast<int>(expected_[i].size());
-  }
-}
-
-TEST_F(TestStringArray, TestDestructor) {
-  auto arr = std::make_shared<StringArray>(length_, offsets_buf_, value_buf_,
-                                           null_bitmap_, null_count_);
-}
-
-TEST_F(TestStringArray, TestGetString) {
-  for (size_t i = 0; i < expected_.size(); ++i) {
-    if (valid_bytes_[i] == 0) {
-      ASSERT_TRUE(strings_->IsNull(i));
-    } else {
-      ASSERT_EQ(expected_[i], strings_->GetString(i));
-    }
-  }
-}
-
-TEST_F(TestStringArray, TestEmptyStringComparison) {
-  offsets_ = {0, 0, 0, 0, 0, 0};
-  offsets_buf_ = Buffer::Wrap(offsets_);
-  length_ = static_cast<int64_t>(offsets_.size() - 1);
-
-  auto strings_a = std::make_shared<StringArray>(length_, offsets_buf_, nullptr,
-                                                 null_bitmap_, null_count_);
-  auto strings_b = std::make_shared<StringArray>(length_, offsets_buf_, nullptr,
-                                                 null_bitmap_, null_count_);
-  ASSERT_TRUE(strings_a->Equals(strings_b));
-}
-
-TEST_F(TestStringArray, CompareNullByteSlots) {
-  StringBuilder builder;
-  StringBuilder builder2;
-  StringBuilder builder3;
-
-  ASSERT_OK(builder.Append("foo"));
-  ASSERT_OK(builder2.Append("foo"));
-  ASSERT_OK(builder3.Append("foo"));
-
-  ASSERT_OK(builder.Append("bar"));
-  ASSERT_OK(builder2.AppendNull());
-
-  // same length, but different
-  ASSERT_OK(builder3.Append("xyz"));
-
-  ASSERT_OK(builder.Append("baz"));
-  ASSERT_OK(builder2.Append("baz"));
-  ASSERT_OK(builder3.Append("baz"));
-
-  std::shared_ptr<Array> array, array2, array3;
-  FinishAndCheckPadding(&builder, &array);
-  ASSERT_OK(builder2.Finish(&array2));
-  ASSERT_OK(builder3.Finish(&array3));
-
-  const auto& a1 = checked_cast<const StringArray&>(*array);
-  const auto& a2 = checked_cast<const StringArray&>(*array2);
-  const auto& a3 = checked_cast<const StringArray&>(*array3);
-
-  // The validity bitmaps are the same, the data is different, but the unequal
-  // portion is masked out
-  StringArray equal_array(3, a1.value_offsets(), a1.value_data(), a2.null_bitmap(), 1);
-  StringArray equal_array2(3, a3.value_offsets(), a3.value_data(), a2.null_bitmap(), 1);
-
-  ASSERT_TRUE(equal_array.Equals(equal_array2));
-  ASSERT_TRUE(a2.RangeEquals(equal_array2, 0, 3, 0));
-
-  ASSERT_TRUE(equal_array.Array::Slice(1)->Equals(equal_array2.Array::Slice(1)));
-  ASSERT_TRUE(
-      equal_array.Array::Slice(1)->RangeEquals(0, 2, 0, equal_array2.Array::Slice(1)));
-}
-
-TEST_F(TestStringArray, TestSliceGetString) {
-  StringBuilder builder;
-
-  ASSERT_OK(builder.Append("a"));
-  ASSERT_OK(builder.Append("b"));
-  ASSERT_OK(builder.Append("c"));
-
-  std::shared_ptr<Array> array;
-  ASSERT_OK(builder.Finish(&array));
-  auto s = array->Slice(1, 10);
-  auto arr = std::dynamic_pointer_cast<StringArray>(s);
-  ASSERT_EQ(arr->GetString(0), "b");
-}
+TYPED_TEST(TestStringArray, TestSliceGetString) { this->TestSliceGetString(); }
 
 // ----------------------------------------------------------------------
 // String builder tests
 
+template <typename T>
 class TestStringBuilder : public TestBuilder {
  public:
+  using TypeClass = T;
+  using offset_type = typename TypeClass::offset_type;
+  using ArrayType = typename TypeTraits<TypeClass>::ArrayType;
+  using BuilderType = typename TypeTraits<TypeClass>::BuilderType;
+
   void SetUp() {
     TestBuilder::SetUp();
-    builder_.reset(new StringBuilder(pool_));
+    builder_.reset(new BuilderType(pool_));
   }
 
   void Done() {
     std::shared_ptr<Array> out;
     FinishAndCheckPadding(builder_.get(), &out);
 
-    result_ = std::dynamic_pointer_cast<StringArray>(out);
+    result_ = std::dynamic_pointer_cast<ArrayType>(out);
     ASSERT_OK(ValidateArray(*result_));
   }
 
- protected:
-  std::unique_ptr<StringBuilder> builder_;
-  std::shared_ptr<StringArray> result_;
-};
+  void TestScalarAppend() {
+    std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
+    std::vector<uint8_t> is_valid = {1, 1, 1, 0, 1};
 
-TEST_F(TestStringBuilder, TestScalarAppend) {
-  std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
-  std::vector<uint8_t> is_valid = {1, 1, 1, 0, 1};
+    int N = static_cast<int>(strings.size());
+    int reps = 10;
 
-  int N = static_cast<int>(strings.size());
-  int reps = 1000;
-
-  for (int j = 0; j < reps; ++j) {
-    for (int i = 0; i < N; ++i) {
-      if (!is_valid[i]) {
-        ASSERT_OK(builder_->AppendNull());
-      } else {
-        ASSERT_OK(builder_->Append(strings[i]));
+    for (int j = 0; j < reps; ++j) {
+      for (int i = 0; i < N; ++i) {
+        if (!is_valid[i]) {
+          ASSERT_OK(builder_->AppendNull());
+        } else {
+          ASSERT_OK(builder_->Append(strings[i]));
+        }
       }
     }
-  }
-  Done();
+    Done();
 
-  ASSERT_EQ(reps * N, result_->length());
-  ASSERT_EQ(reps, result_->null_count());
-  ASSERT_EQ(reps * 6, result_->value_data()->size());
+    ASSERT_EQ(reps * N, result_->length());
+    ASSERT_EQ(reps, result_->null_count());
+    ASSERT_EQ(reps * 6, result_->value_data()->size());
 
-  CheckStringArray(*result_, strings, is_valid, reps);
-}
-
-TEST_F(TestStringBuilder, TestAppendVector) {
-  std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
-  std::vector<uint8_t> valid_bytes = {1, 1, 1, 0, 1};
-
-  int N = static_cast<int>(strings.size());
-  int reps = 1000;
-
-  for (int j = 0; j < reps; ++j) {
-    ASSERT_OK(builder_->AppendValues(strings, valid_bytes.data()));
-  }
-  Done();
-
-  ASSERT_EQ(reps * N, result_->length());
-  ASSERT_EQ(reps, result_->null_count());
-  ASSERT_EQ(reps * 6, result_->value_data()->size());
-
-  CheckStringArray(*result_, strings, valid_bytes, reps);
-}
-
-TEST_F(TestStringBuilder, TestAppendCStringsWithValidBytes) {
-  const char* strings[] = {nullptr, "aaa", nullptr, "ignored", ""};
-  std::vector<uint8_t> valid_bytes = {1, 1, 1, 0, 1};
-
-  int N = static_cast<int>(sizeof(strings) / sizeof(strings[0]));
-  int reps = 1000;
-
-  for (int j = 0; j < reps; ++j) {
-    ASSERT_OK(builder_->AppendValues(strings, N, valid_bytes.data()));
-  }
-  Done();
-
-  ASSERT_EQ(reps * N, result_->length());
-  ASSERT_EQ(reps * 3, result_->null_count());
-  ASSERT_EQ(reps * 3, result_->value_data()->size());
-
-  CheckStringArray(*result_, {"", "aaa", "", "", ""}, {0, 1, 0, 0, 1}, reps);
-}
-
-TEST_F(TestStringBuilder, TestAppendCStringsWithoutValidBytes) {
-  const char* strings[] = {"", "bb", "a", nullptr, "ccc"};
-
-  int N = static_cast<int>(sizeof(strings) / sizeof(strings[0]));
-  int reps = 1000;
-
-  for (int j = 0; j < reps; ++j) {
-    ASSERT_OK(builder_->AppendValues(strings, N));
-  }
-  Done();
-
-  ASSERT_EQ(reps * N, result_->length());
-  ASSERT_EQ(reps, result_->null_count());
-  ASSERT_EQ(reps * 6, result_->value_data()->size());
-
-  CheckStringArray(*result_, {"", "bb", "a", "", "ccc"}, {1, 1, 1, 0, 1}, reps);
-}
-
-TEST_F(TestStringBuilder, TestZeroLength) {
-  // All buffers are null
-  Done();
-}
-
-// Binary container type
-// TODO(emkornfield) there should be some way to refactor these to avoid code duplicating
-// with String
-class TestBinaryArray : public ::testing::Test {
- public:
-  void SetUp() {
-    chars_ = {'a', 'b', 'b', 'c', 'c', 'c'};
-    offsets_ = {0, 1, 1, 1, 3, 6};
-    valid_bytes_ = {1, 1, 0, 1, 1};
-    expected_ = {"a", "", "", "bb", "ccc"};
-
-    MakeArray();
+    CheckStringArray(*result_, strings, is_valid, reps);
   }
 
-  void MakeArray() {
-    length_ = static_cast<int64_t>(offsets_.size() - 1);
-    value_buf_ = Buffer::Wrap(chars_);
-    offsets_buf_ = Buffer::Wrap(offsets_);
+  void TestScalarAppendUnsafe() {
+    std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
+    std::vector<uint8_t> is_valid = {1, 1, 1, 0, 1};
 
-    ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &null_bitmap_));
-    null_count_ = CountNulls(valid_bytes_);
-
-    strings_ = std::make_shared<BinaryArray>(length_, offsets_buf_, value_buf_,
-                                             null_bitmap_, null_count_);
-  }
-
- protected:
-  std::vector<int32_t> offsets_;
-  std::vector<char> chars_;
-  std::vector<uint8_t> valid_bytes_;
-
-  std::vector<std::string> expected_;
-
-  std::shared_ptr<Buffer> value_buf_;
-  std::shared_ptr<Buffer> offsets_buf_;
-  std::shared_ptr<Buffer> null_bitmap_;
-
-  int64_t null_count_;
-  int64_t length_;
-
-  std::shared_ptr<BinaryArray> strings_;
-};
-
-TEST_F(TestBinaryArray, TestArrayBasics) {
-  ASSERT_EQ(length_, strings_->length());
-  ASSERT_EQ(1, strings_->null_count());
-  ASSERT_OK(ValidateArray(*strings_));
-}
-
-TEST_F(TestBinaryArray, TestType) {
-  std::shared_ptr<DataType> type = strings_->type();
-
-  ASSERT_EQ(Type::BINARY, type->id());
-  ASSERT_EQ(Type::BINARY, strings_->type_id());
-}
-
-TEST_F(TestBinaryArray, TestListFunctions) {
-  size_t pos = 0;
-  for (size_t i = 0; i < expected_.size(); ++i) {
-    ASSERT_EQ(pos, strings_->value_offset(i));
-    ASSERT_EQ(static_cast<int>(expected_[i].size()), strings_->value_length(i));
-    pos += expected_[i].size();
-  }
-}
-
-TEST_F(TestBinaryArray, TestDestructor) {
-  auto arr = std::make_shared<BinaryArray>(length_, offsets_buf_, value_buf_,
-                                           null_bitmap_, null_count_);
-}
-
-TEST_F(TestBinaryArray, TestGetValue) {
-  for (size_t i = 0; i < expected_.size(); ++i) {
-    if (valid_bytes_[i] == 0) {
-      ASSERT_TRUE(strings_->IsNull(i));
-    } else {
-      ASSERT_FALSE(strings_->IsNull(i));
-      ASSERT_EQ(strings_->GetString(i), expected_[i]);
+    int N = static_cast<int>(strings.size());
+    int reps = 13;
+    int64_t total_length = 0;
+    for (const auto& s : strings) {
+      total_length += static_cast<int64_t>(s.size());
     }
-  }
-}
 
-TEST_F(TestBinaryArray, TestNullValuesInitialized) {
-  for (size_t i = 0; i < expected_.size(); ++i) {
-    if (valid_bytes_[i] == 0) {
-      ASSERT_TRUE(strings_->IsNull(i));
-    } else {
-      ASSERT_FALSE(strings_->IsNull(i));
-      ASSERT_EQ(strings_->GetString(i), expected_[i]);
+    ASSERT_OK(builder_->Reserve(N * reps));
+    ASSERT_OK(builder_->ReserveData(total_length * reps));
+
+    for (int j = 0; j < reps; ++j) {
+      for (int i = 0; i < N; ++i) {
+        if (!is_valid[i]) {
+          builder_->UnsafeAppendNull();
+        } else {
+          builder_->UnsafeAppend(strings[i]);
+        }
+      }
     }
-  }
-  TestInitialized(*strings_);
-}
+    ASSERT_EQ(builder_->value_data_length(), total_length * reps);
+    Done();
 
-TEST_F(TestBinaryArray, TestPaddingZeroed) { AssertZeroPadded(*strings_); }
-
-TEST_F(TestBinaryArray, TestGetString) {
-  for (size_t i = 0; i < expected_.size(); ++i) {
-    if (valid_bytes_[i] == 0) {
-      ASSERT_TRUE(strings_->IsNull(i));
-    } else {
-      std::string val = strings_->GetString(i);
-      ASSERT_EQ(0, std::memcmp(expected_[i].data(), val.c_str(), val.size()));
-    }
-  }
-}
-
-TEST_F(TestBinaryArray, TestEqualsEmptyStrings) {
-  BinaryBuilder builder;
-
-  std::string empty_string("");
-  for (int i = 0; i < 5; ++i) {
-    ASSERT_OK(builder.Append(empty_string));
-  }
-
-  std::shared_ptr<Array> left_arr;
-  FinishAndCheckPadding(&builder, &left_arr);
-
-  const BinaryArray& left = checked_cast<const BinaryArray&>(*left_arr);
-  std::shared_ptr<Array> right =
-      std::make_shared<BinaryArray>(left.length(), left.value_offsets(), nullptr,
-                                    left.null_bitmap(), left.null_count());
-
-  ASSERT_TRUE(left.Equals(right));
-  ASSERT_TRUE(left.RangeEquals(0, left.length(), 0, right));
-}
-
-class TestBinaryBuilder : public TestBuilder {
- public:
-  void SetUp() {
-    TestBuilder::SetUp();
-    builder_.reset(new BinaryBuilder(pool_));
-  }
-
-  void Done() {
-    std::shared_ptr<Array> out;
-    FinishAndCheckPadding(builder_.get(), &out);
-
-    result_ = std::dynamic_pointer_cast<BinaryArray>(out);
     ASSERT_OK(ValidateArray(*result_));
+    ASSERT_EQ(reps * N, result_->length());
+    ASSERT_EQ(reps, result_->null_count());
+    ASSERT_EQ(reps * total_length, result_->value_data()->size());
+
+    CheckStringArray(*result_, strings, is_valid, reps);
+  }
+
+  void TestVectorAppend() {
+    std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
+    std::vector<uint8_t> valid_bytes = {1, 1, 1, 0, 1};
+
+    int N = static_cast<int>(strings.size());
+    int reps = 1000;
+
+    for (int j = 0; j < reps; ++j) {
+      ASSERT_OK(builder_->AppendValues(strings, valid_bytes.data()));
+    }
+    Done();
+
+    ASSERT_EQ(reps * N, result_->length());
+    ASSERT_EQ(reps, result_->null_count());
+    ASSERT_EQ(reps * 6, result_->value_data()->size());
+
+    CheckStringArray(*result_, strings, valid_bytes, reps);
+  }
+
+  void TestAppendCStringsWithValidBytes() {
+    const char* strings[] = {nullptr, "aaa", nullptr, "ignored", ""};
+    std::vector<uint8_t> valid_bytes = {1, 1, 1, 0, 1};
+
+    int N = static_cast<int>(sizeof(strings) / sizeof(strings[0]));
+    int reps = 1000;
+
+    for (int j = 0; j < reps; ++j) {
+      ASSERT_OK(builder_->AppendValues(strings, N, valid_bytes.data()));
+    }
+    Done();
+
+    ASSERT_EQ(reps * N, result_->length());
+    ASSERT_EQ(reps * 3, result_->null_count());
+    ASSERT_EQ(reps * 3, result_->value_data()->size());
+
+    CheckStringArray(*result_, {"", "aaa", "", "", ""}, {0, 1, 0, 0, 1}, reps);
+  }
+
+  void TestAppendCStringsWithoutValidBytes() {
+    const char* strings[] = {"", "bb", "a", nullptr, "ccc"};
+
+    int N = static_cast<int>(sizeof(strings) / sizeof(strings[0]));
+    int reps = 1000;
+
+    for (int j = 0; j < reps; ++j) {
+      ASSERT_OK(builder_->AppendValues(strings, N));
+    }
+    Done();
+
+    ASSERT_EQ(reps * N, result_->length());
+    ASSERT_EQ(reps, result_->null_count());
+    ASSERT_EQ(reps * 6, result_->value_data()->size());
+
+    CheckStringArray(*result_, {"", "bb", "a", "", "ccc"}, {1, 1, 1, 0, 1}, reps);
+  }
+
+  void TestCapacityReserve() {
+    std::vector<std::string> strings = {"aaaaa", "bbbbbbbbbb", "ccccccccccccccc",
+                                        "dddddddddd"};
+    int N = static_cast<int>(strings.size());
+    int reps = 15;
+    int64_t length = 0;
+    int64_t capacity = 1000;
+    int64_t expected_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
+
+    ASSERT_OK(builder_->ReserveData(capacity));
+
+    ASSERT_EQ(length, builder_->value_data_length());
+    ASSERT_EQ(expected_capacity, builder_->value_data_capacity());
+
+    for (int j = 0; j < reps; ++j) {
+      for (int i = 0; i < N; ++i) {
+        ASSERT_OK(builder_->Append(strings[i]));
+        length += static_cast<int64_t>(strings[i].size());
+
+        ASSERT_EQ(length, builder_->value_data_length());
+        ASSERT_EQ(expected_capacity, builder_->value_data_capacity());
+      }
+    }
+
+    int extra_capacity = 500;
+    expected_capacity = BitUtil::RoundUpToMultipleOf64(length + extra_capacity);
+
+    ASSERT_OK(builder_->ReserveData(extra_capacity));
+
+    ASSERT_EQ(length, builder_->value_data_length());
+    int64_t actual_capacity = builder_->value_data_capacity();
+    ASSERT_GE(actual_capacity, expected_capacity);
+    ASSERT_EQ(actual_capacity & 63, 0);
+
+    Done();
+
+    ASSERT_EQ(reps * N, result_->length());
+    ASSERT_EQ(0, result_->null_count());
+    ASSERT_EQ(reps * 40, result_->value_data()->size());
+  }
+
+  void TestZeroLength() {
+    // All buffers are null
+    Done();
+    ASSERT_EQ(result_->length(), 0);
+    ASSERT_EQ(result_->null_count(), 0);
   }
 
  protected:
-  std::unique_ptr<BinaryBuilder> builder_;
-  std::shared_ptr<BinaryArray> result_;
+  std::unique_ptr<BuilderType> builder_;
+  std::shared_ptr<ArrayType> result_;
 };
 
-TEST_F(TestBinaryBuilder, TestScalarAppend) {
-  std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
-  std::vector<uint8_t> is_valid = {1, 1, 1, 0, 1};
+TYPED_TEST_CASE(TestStringBuilder, StringTypes);
 
-  int N = static_cast<int>(strings.size());
-  int reps = 10;
+TYPED_TEST(TestStringBuilder, TestScalarAppend) { this->TestScalarAppend(); }
 
-  for (int j = 0; j < reps; ++j) {
-    for (int i = 0; i < N; ++i) {
-      if (!is_valid[i]) {
-        ASSERT_OK(builder_->AppendNull());
-      } else {
-        ASSERT_OK(builder_->Append(strings[i]));
-      }
-    }
-  }
-  Done();
-  ASSERT_OK(ValidateArray(*result_));
-  ASSERT_EQ(reps * N, result_->length());
-  ASSERT_EQ(reps, result_->null_count());
-  ASSERT_EQ(reps * 6, result_->value_data()->size());
+TYPED_TEST(TestStringBuilder, TestScalarAppendUnsafe) { this->TestScalarAppendUnsafe(); }
 
-  CheckStringArray(*result_, strings, is_valid, reps);
+TYPED_TEST(TestStringBuilder, TestVectorAppend) { this->TestVectorAppend(); }
+
+TYPED_TEST(TestStringBuilder, TestAppendCStringsWithValidBytes) {
+  this->TestAppendCStringsWithValidBytes();
 }
 
-TEST_F(TestBinaryBuilder, TestAppendNulls) {
-  ASSERT_OK(builder_->Append("bow"));
-  ASSERT_OK(builder_->AppendNulls(3));
-  ASSERT_OK(builder_->Append("arrow"));
-  Done();
-  ASSERT_OK(ValidateArray(*result_));
-
-  ASSERT_EQ(5, result_->length());
-  ASSERT_EQ(3, result_->null_count());
-  ASSERT_EQ(8, result_->value_data()->size());
-
-  CheckStringArray(*result_, {"bow", "", "", "", "arrow"}, {1, 0, 0, 0, 1});
+TYPED_TEST(TestStringBuilder, TestAppendCStringsWithoutValidBytes) {
+  this->TestAppendCStringsWithoutValidBytes();
 }
 
-TEST_F(TestBinaryBuilder, TestScalarAppendUnsafe) {
-  std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
-  std::vector<uint8_t> is_valid = {1, 1, 1, 0, 1};
+TYPED_TEST(TestStringBuilder, TestCapacityReserve) { this->TestCapacityReserve(); }
 
-  int N = static_cast<int>(strings.size());
-  int reps = 13;
-  int total_length = 0;
-  for (auto&& s : strings) total_length += static_cast<int>(s.size());
-
-  ASSERT_OK(builder_->Reserve(N * reps));
-  ASSERT_OK(builder_->ReserveData(total_length * reps));
-
-  for (int j = 0; j < reps; ++j) {
-    for (int i = 0; i < N; ++i) {
-      if (!is_valid[i]) {
-        builder_->UnsafeAppendNull();
-      } else {
-        builder_->UnsafeAppend(strings[i]);
-      }
-    }
-  }
-  ASSERT_EQ(builder_->value_data_length(), total_length * reps);
-  Done();
-  ASSERT_OK(ValidateArray(*result_));
-  ASSERT_EQ(reps * N, result_->length());
-  ASSERT_EQ(reps, result_->null_count());
-  ASSERT_EQ(reps * total_length, result_->value_data()->size());
-
-  CheckStringArray(*result_, strings, is_valid, reps);
-}
-
-TEST_F(TestBinaryBuilder, TestCapacityReserve) {
-  std::vector<std::string> strings = {"aaaaa", "bbbbbbbbbb", "ccccccccccccccc",
-                                      "dddddddddd"};
-  int N = static_cast<int>(strings.size());
-  int reps = 15;
-  int64_t length = 0;
-  int64_t capacity = 1000;
-  int64_t expected_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
-
-  ASSERT_OK(builder_->ReserveData(capacity));
-
-  ASSERT_EQ(length, builder_->value_data_length());
-  ASSERT_EQ(expected_capacity, builder_->value_data_capacity());
-
-  for (int j = 0; j < reps; ++j) {
-    for (int i = 0; i < N; ++i) {
-      ASSERT_OK(builder_->Append(strings[i]));
-      length += static_cast<int>(strings[i].size());
-
-      ASSERT_EQ(length, builder_->value_data_length());
-      ASSERT_EQ(expected_capacity, builder_->value_data_capacity());
-    }
-  }
-
-  int extra_capacity = 500;
-  expected_capacity = BitUtil::RoundUpToMultipleOf64(length + extra_capacity);
-
-  ASSERT_OK(builder_->ReserveData(extra_capacity));
-
-  ASSERT_EQ(length, builder_->value_data_length());
-  int64_t actual_capacity = builder_->value_data_capacity();
-  ASSERT_GE(actual_capacity, expected_capacity);
-  ASSERT_EQ(actual_capacity & 63, 0);
-
-  Done();
-
-  ASSERT_EQ(reps * N, result_->length());
-  ASSERT_EQ(0, result_->null_count());
-  ASSERT_EQ(reps * 40, result_->value_data()->size());
-
-  // Capacity is shrunk after `Finish`
-  ASSERT_EQ(640, result_->value_data()->capacity());
-}
-
-TEST_F(TestBinaryBuilder, TestZeroLength) {
-  // All buffers are null
-  Done();
-}
-
-// ----------------------------------------------------------------------
-// Slice tests
-
-template <typename TYPE>
-void CheckSliceEquality() {
-  using Traits = TypeTraits<TYPE>;
-  using BuilderType = typename Traits::BuilderType;
-
-  BuilderType builder;
-
-  std::vector<std::string> strings = {"foo", "", "bar", "baz", "qux", ""};
-  std::vector<uint8_t> is_null = {0, 1, 0, 1, 0, 0};
-
-  int N = static_cast<int>(strings.size());
-  int reps = 10;
-
-  for (int j = 0; j < reps; ++j) {
-    for (int i = 0; i < N; ++i) {
-      if (is_null[i]) {
-        ASSERT_OK(builder.AppendNull());
-      } else {
-        ASSERT_OK(builder.Append(strings[i]));
-      }
-    }
-  }
-
-  std::shared_ptr<Array> array;
-  FinishAndCheckPadding(&builder, &array);
-
-  std::shared_ptr<Array> slice, slice2;
-
-  slice = array->Slice(5);
-  slice2 = array->Slice(5);
-  ASSERT_EQ(N * reps - 5, slice->length());
-
-  ASSERT_TRUE(slice->Equals(slice2));
-  ASSERT_TRUE(array->RangeEquals(5, slice->length(), 0, slice));
-
-  // Chained slices
-  slice2 = array->Slice(2)->Slice(3);
-  ASSERT_TRUE(slice->Equals(slice2));
-
-  slice = array->Slice(5, 20);
-  slice2 = array->Slice(5, 20);
-  ASSERT_EQ(20, slice->length());
-
-  ASSERT_TRUE(slice->Equals(slice2));
-  ASSERT_TRUE(array->RangeEquals(5, 25, 0, slice));
-
-  ASSERT_OK(builder.Append("a"));
-  for (int j = 0; j < reps; ++j) {
-    ASSERT_OK(builder.Append(""));
-  }
-  FinishAndCheckPadding(&builder, &array);
-  slice = array->Slice(1);
-
-  for (int j = 0; j < reps; ++j) {
-    ASSERT_OK(builder.Append(""));
-  }
-  FinishAndCheckPadding(&builder, &array);
-
-  AssertArraysEqual(*slice, *array);
-}
-
-TEST_F(TestBinaryArray, TestSliceEquality) { CheckSliceEquality<BinaryType>(); }
-
-TEST_F(TestStringArray, TestSliceEquality) { CheckSliceEquality<BinaryType>(); }
-
-TEST_F(TestBinaryArray, LengthZeroCtor) { BinaryArray array(0, nullptr, nullptr); }
+TYPED_TEST(TestStringBuilder, TestZeroLength) { this->TestZeroLength(); }
 
 // ----------------------------------------------------------------------
 // ChunkedBinaryBuilder tests
