@@ -21,6 +21,7 @@ import java.io.IOException;
 
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.complex.impl.Float8WriterImpl;
+import org.apache.arrow.vector.complex.writer.Float8Writer;
 import org.apache.avro.io.Decoder;
 
 /**
@@ -29,7 +30,7 @@ import org.apache.avro.io.Decoder;
  */
 public class AvroDoubleConsumer implements Consumer {
 
-  private final Float8WriterImpl writer;
+  private final Float8Writer writer;
 
   /**
    * Instantiate a AvroDoubleConsumer.

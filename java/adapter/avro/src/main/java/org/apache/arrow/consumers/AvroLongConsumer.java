@@ -21,6 +21,7 @@ import java.io.IOException;
 
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
+import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.avro.io.Decoder;
 
 /**
@@ -29,7 +30,7 @@ import org.apache.avro.io.Decoder;
  */
 public class AvroLongConsumer implements Consumer {
 
-  private final BigIntWriterImpl writer;
+  private final BigIntWriter writer;
 
   /**
    * Instantiate a AvroLongConsumer.

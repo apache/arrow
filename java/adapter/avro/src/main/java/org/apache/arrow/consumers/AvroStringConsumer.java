@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.impl.VarCharWriterImpl;
+import org.apache.arrow.vector.complex.writer.VarCharWriter;
 import org.apache.arrow.vector.holders.VarCharHolder;
 import org.apache.avro.io.Decoder;
 
@@ -32,7 +33,7 @@ import org.apache.avro.io.Decoder;
 public class AvroStringConsumer implements Consumer {
 
   private final VarCharVector vector;
-  private final VarCharWriterImpl writer;
+  private final VarCharWriter writer;
   private ByteBuffer cacheBuffer;
 
   /**
