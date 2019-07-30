@@ -264,7 +264,7 @@ struct IsInKernelTraits<Type, enable_if_fixed_size_binary<Type>> {
 };
 
 Status GetIsInKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
-                     std::unique_ptr<IsInKernelImpl>* out) {
+                     const Datum& right, std::unique_ptr<IsInKernelImpl>* out) {
   std::unique_ptr<IsInKernelImpl> kernel;
 
 #define ISIN_CASE(InType)                                               \
@@ -303,6 +303,7 @@ Status GetIsInKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type
   if (!kernel) {
     return Status::NotImplemented("IsIn is not implemented for ", type->ToString());
   }
+  RETURN_NOT_OK(kernel->ConstructRight(ctx, right));
   *out = std::move(kernel);
   return Status::OK();
 }
@@ -312,11 +313,8 @@ Status IsIn(FunctionContext* ctx, const Datum& left, const Datum& right, Datum* 
   std::vector<Datum> outputs;
   std::unique_ptr<IsInKernelImpl> lkernel;
 
-  RETURN_NOT_OK(GetIsInKernel(ctx, left.type(), &lkernel));
-  RETURN_NOT_OK(lkernel->ConstructRight(ctx, right));
-
+  RETURN_NOT_OK(GetIsInKernel(ctx, left.type(), right, &lkernel));
   detail::PrimitiveAllocatingUnaryKernel kernel(lkernel.get());
-
   RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, &kernel, left, &outputs));
 
   *out = detail::WrapDatumsLike(left, outputs);
