@@ -17,9 +17,11 @@
   under the License.
 -->
 
-# arrow 0.14.0.9000
+# arrow 0.14.1.9000
 
-# arrow 0.14.0
+* `read_csv_arrow()` supports more parsing options, including `col_names` and `skip`
+
+# arrow 0.14.1
 
 Initial CRAN release of the `arrow` package. Key features include:
 
