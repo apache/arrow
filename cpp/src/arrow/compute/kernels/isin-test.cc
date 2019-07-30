@@ -107,6 +107,9 @@ TYPED_TEST(TestIsInKernelPrimitive, IsIn) {
                           {true, false, true, true, true}, {2, 1, 2, 1, 6, 3, 3},
                           {true, false, true, false, true, true, true},
                           {true, true, false, true, false}, {});
+
+  // Empty Arrays
+  CheckIsIn<TypeParam, T>(&this->ctx_, type, {}, {}, {}, {}, {}, {});
 }
 
 TYPED_TEST(TestIsInKernelPrimitive, PrimitiveResizeTable) {

@@ -105,8 +105,7 @@ class IsInKernel : public IsInKernelImpl {
   IsInKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
       : type_(type), pool_(pool) {}
 
-  // \brief if null count in right is not 0, then return true
-  // when left array has a null.
+  // \brief if left array has a null return true
   Status VisitNull() {
     writer->Set();
     writer->Next();
@@ -139,6 +138,7 @@ class IsInKernel : public IsInKernelImpl {
     RETURN_NOT_OK(ArrayDataVisitor<Type>::Visit(left_data, this));
     writer->Finish();
 
+    // if right null count is zero and left null count is not zero, propagate nulls
     if (right_null_count_ == 0 && left_data.GetNullCount() != 0) {
       RETURN_NOT_OK(detail::PropagateNulls(ctx, left_data, output.get()));
     }
