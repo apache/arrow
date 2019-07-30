@@ -25,17 +25,11 @@
 
 #include "parquet/platform.h"
 
-#include "arrow/io/interfaces.h"
-#include "arrow/util/macros.h"
-
 namespace arrow {
 
-class Array;
 class ChunkedArray;
-class MemoryPool;
 class RecordBatchReader;
 class Schema;
-class Status;
 class Table;
 
 }  // namespace arrow
@@ -172,22 +166,19 @@ class PARQUET_EXPORT FileReader {
   // fully-materialized arrow::Array instances
   //
   // Returns error status if the column of interest is not flat.
-  ::arrow::Status GetColumn(int i, std::unique_ptr<ColumnReader>* out);
+  virtual ::arrow::Status GetColumn(int i, std::unique_ptr<ColumnReader>* out) = 0;
 
   /// \brief Return arrow schema for all the columns.
-  ::arrow::Status GetSchema(std::shared_ptr<::arrow::Schema>* out);
+  virtual ::arrow::Status GetSchema(std::shared_ptr<::arrow::Schema>* out) = 0;
 
   /// \brief Return arrow schema by apply selection of column indices.
   /// \returns error status if passed wrong indices.
-  ::arrow::Status GetSchema(const std::vector<int>& indices,
-                            std::shared_ptr<::arrow::Schema>* out);
+  virtual ::arrow::Status GetSchema(const std::vector<int>& indices,
+                                    std::shared_ptr<::arrow::Schema>* out) = 0;
 
   // Read column as a whole into an Array.
-  ::arrow::Status ReadColumn(int i, std::shared_ptr<::arrow::ChunkedArray>* out);
-
-  /// \note Deprecated since 0.12
-  ARROW_DEPRECATED("Use version with ChunkedArray output")
-  ::arrow::Status ReadColumn(int i, std::shared_ptr<::arrow::Array>* out);
+  virtual ::arrow::Status ReadColumn(int i,
+                                     std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
 
   // NOTE: Experimental API
   // Reads a specific top level schema field into an Array
@@ -201,117 +192,78 @@ class PARQUET_EXPORT FileReader {
   // 2 foo3
   //
   // i=0 will read the entire foo struct, i=1 the foo2 primitive column etc
-  ::arrow::Status ReadSchemaField(int i, std::shared_ptr<::arrow::ChunkedArray>* out);
-
-  /// \note Deprecated since 0.12
-  ARROW_DEPRECATED("Use version with ChunkedArray output")
-  ::arrow::Status ReadSchemaField(int i, std::shared_ptr<::arrow::Array>* out);
+  virtual ::arrow::Status ReadSchemaField(
+      int i, std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
 
   /// \brief Return a RecordBatchReader of row groups selected from row_group_indices, the
   ///    ordering in row_group_indices matters.
   /// \returns error Status if row_group_indices contains invalid index
-  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                       std::shared_ptr<::arrow::RecordBatchReader>* out);
+  virtual ::arrow::Status GetRecordBatchReader(
+      const std::vector<int>& row_group_indices,
+      std::shared_ptr<::arrow::RecordBatchReader>* out) = 0;
 
-  /// \brief Return a RecordBatchReader of row groups selected from row_group_indices,
-  ///     whose columns are selected by column_indices. The ordering in row_group_indices
-  ///     and column_indices matter.
-  /// \returns error Status if either row_group_indices or column_indices contains invalid
-  ///    index
-  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                       const std::vector<int>& column_indices,
-                                       std::shared_ptr<::arrow::RecordBatchReader>* out);
+  /// \brief Return a RecordBatchReader of row groups selected from
+  ///     row_group_indices, whose columns are selected by column_indices. The
+  ///     ordering in row_group_indices and column_indices matter.
+  /// \returns error Status if either row_group_indices or column_indices
+  ///    contains invalid index
+  virtual ::arrow::Status GetRecordBatchReader(
+      const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
+      std::shared_ptr<::arrow::RecordBatchReader>* out) = 0;
 
   // Read a table of columns into a Table
-  ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out);
+  virtual ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out) = 0;
 
   // Read a table of columns into a Table. Read only the indicated column
   // indices (relative to the schema)
-  ::arrow::Status ReadTable(const std::vector<int>& column_indices,
-                            std::shared_ptr<::arrow::Table>* out);
+  virtual ::arrow::Status ReadTable(const std::vector<int>& column_indices,
+                                    std::shared_ptr<::arrow::Table>* out) = 0;
 
-  ::arrow::Status ReadRowGroup(int i, const std::vector<int>& column_indices,
-                               std::shared_ptr<::arrow::Table>* out);
+  virtual ::arrow::Status ReadRowGroup(int i, const std::vector<int>& column_indices,
+                                       std::shared_ptr<::arrow::Table>* out) = 0;
 
-  ::arrow::Status ReadRowGroup(int i, std::shared_ptr<::arrow::Table>* out);
+  virtual ::arrow::Status ReadRowGroup(int i, std::shared_ptr<::arrow::Table>* out) = 0;
 
-  ::arrow::Status ReadRowGroups(const std::vector<int>& row_groups,
-                                const std::vector<int>& column_indices,
-                                std::shared_ptr<::arrow::Table>* out);
+  virtual ::arrow::Status ReadRowGroups(const std::vector<int>& row_groups,
+                                        const std::vector<int>& column_indices,
+                                        std::shared_ptr<::arrow::Table>* out) = 0;
 
-  ::arrow::Status ReadRowGroups(const std::vector<int>& row_groups,
-                                std::shared_ptr<::arrow::Table>* out);
+  virtual ::arrow::Status ReadRowGroups(const std::vector<int>& row_groups,
+                                        std::shared_ptr<::arrow::Table>* out) = 0;
 
   /// \brief Scan file contents with one thread, return number of rows
-  ::arrow::Status ScanContents(std::vector<int> columns, const int32_t column_batch_size,
-                               int64_t* num_rows);
+  virtual ::arrow::Status ScanContents(std::vector<int> columns,
+                                       const int32_t column_batch_size,
+                                       int64_t* num_rows) = 0;
 
   /// \brief Return a reader for the RowGroup, this object must not outlive the
   ///   FileReader.
-  std::shared_ptr<RowGroupReader> RowGroup(int row_group_index);
+  virtual std::shared_ptr<RowGroupReader> RowGroup(int row_group_index) = 0;
 
-  int num_row_groups() const;
+  virtual int num_row_groups() const = 0;
 
-  const ParquetFileReader* parquet_reader() const;
-
-  /// Set the number of threads to use during reads of multiple columns. By
-  /// default only 1 thread is used
-  /// \deprecated Use set_use_threads instead.
-  ARROW_DEPRECATED("Use set_use_threads instead")
-  void set_num_threads(int num_threads);
+  virtual ParquetFileReader* parquet_reader() const = 0;
 
   /// Set whether to use multiple threads during reads of multiple columns.
   /// By default only one thread is used.
-  void set_use_threads(bool use_threads);
+  virtual void set_use_threads(bool use_threads) = 0;
 
-  virtual ~FileReader();
-
- private:
-  FileReader(::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader,
-             const ArrowReaderProperties& properties);
-
-  friend ColumnChunkReader;
-  friend RowGroupReader;
-
-  class PARQUET_NO_EXPORT Impl;
-  std::unique_ptr<Impl> impl_;
+  virtual ~FileReader() = default;
 };
 
-class PARQUET_EXPORT RowGroupReader {
+class RowGroupReader {
  public:
-  std::shared_ptr<ColumnChunkReader> Column(int column_index);
-
-  ::arrow::Status ReadTable(const std::vector<int>& column_indices,
-                            std::shared_ptr<::arrow::Table>* out);
-  ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out);
-
-  virtual ~RowGroupReader();
-
- private:
-  friend FileReader;
-  RowGroupReader(FileReader::Impl* reader, int row_group_index);
-
-  FileReader::Impl* impl_;
-  int row_group_index_;
+  virtual ~RowGroupReader() = default;
+  virtual std::shared_ptr<ColumnChunkReader> Column(int column_index) = 0;
+  virtual ::arrow::Status ReadTable(const std::vector<int>& column_indices,
+                                    std::shared_ptr<::arrow::Table>* out) = 0;
+  virtual ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out) = 0;
 };
 
-class PARQUET_EXPORT ColumnChunkReader {
+class ColumnChunkReader {
  public:
-  ::arrow::Status Read(std::shared_ptr<::arrow::ChunkedArray>* out);
-
-  /// \note Deprecated since 0.12
-  ARROW_DEPRECATED("Use version with ChunkedArray output")
-  ::arrow::Status Read(std::shared_ptr<::arrow::Array>* out);
-
-  virtual ~ColumnChunkReader();
-
- private:
-  friend RowGroupReader;
-  ColumnChunkReader(FileReader::Impl* impl, int row_group_index, int column_index);
-
-  FileReader::Impl* impl_;
-  int column_index_;
-  int row_group_index_;
+  virtual ~ColumnChunkReader() = default;
+  virtual ::arrow::Status Read(std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
 };
 
 // At this point, the column reader is a stream iterator. It only knows how to
@@ -322,8 +274,7 @@ class PARQUET_EXPORT ColumnChunkReader {
 // might change in the future.
 class PARQUET_EXPORT ColumnReader {
  public:
-  class PARQUET_NO_EXPORT ColumnReaderImpl;
-  virtual ~ColumnReader();
+  virtual ~ColumnReader() = default;
 
   // Scan the next array of the indicated size. The actual size of the
   // returned array may be less than the passed size depending how much data is
@@ -334,20 +285,8 @@ class PARQUET_EXPORT ColumnReader {
   //
   // Returns Status::OK on a successful read, including if you have exhausted
   // the data available in the file.
-  ::arrow::Status NextBatch(int64_t batch_size,
-                            std::shared_ptr<::arrow::ChunkedArray>* out);
-
-  /// \note Deprecated since 0.12
-  ARROW_DEPRECATED("Use version with ChunkedArray output")
-  ::arrow::Status NextBatch(int64_t batch_size, std::shared_ptr<::arrow::Array>* out);
-
- private:
-  std::unique_ptr<ColumnReaderImpl> impl_;
-  explicit ColumnReader(std::unique_ptr<ColumnReaderImpl> impl);
-
-  friend class FileReader;
-  friend class PrimitiveImpl;
-  friend class StructImpl;
+  virtual ::arrow::Status NextBatch(int64_t batch_size,
+                                    std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
 };
 
 // Helper function to create a file reader from an implementation of an Arrow

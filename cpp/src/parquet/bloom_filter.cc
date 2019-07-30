@@ -18,8 +18,6 @@
 #include <cstdint>
 #include <cstring>
 
-#include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
 #include "arrow/util/logging.h"
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"

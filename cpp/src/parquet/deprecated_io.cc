@@ -17,16 +17,10 @@
 
 #include "parquet/deprecated_io.h"
 
-#include <algorithm>
 #include <cstdint>
-#include <cstdio>
-#include <string>
 #include <utility>
 
-#include "arrow/status.h"
-
 #include "parquet/exception.h"
-#include "parquet/types.h"
 
 namespace parquet {
 

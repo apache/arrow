@@ -28,8 +28,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "arrow/util/macros.h"
-
 #include "parquet/platform.h"
 #include "parquet/types.h"
 
@@ -93,8 +91,6 @@ class PARQUET_EXPORT ColumnPath {
  protected:
   std::vector<std::string> path_;
 };
-
-class GroupNode;
 
 // Base class for logical schema types. A type has a name, repetition level,
 // and optionally a logical type (ConvertedType in Parquet metadata parlance)

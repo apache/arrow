@@ -25,6 +25,7 @@
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
+#include "parquet/schema.h"
 #include "parquet/statistics.h"
 
 using arrow::default_memory_pool;

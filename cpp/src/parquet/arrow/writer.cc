@@ -24,10 +24,8 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/buffer.h"
-#include "arrow/builder.h"
+#include "arrow/buffer-builder.h"
 #include "arrow/compute/api.h"
-#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/visitor_inline.h"
@@ -37,7 +35,6 @@
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/column_writer.h"
-#include "parquet/deprecated_io.h"
 #include "parquet/exception.h"
 #include "parquet/file_writer.h"
 #include "parquet/platform.h"

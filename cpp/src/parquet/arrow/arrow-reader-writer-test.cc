@@ -1845,8 +1845,8 @@ TEST(TestArrowReadWrite, MultithreadedRead) {
 }
 
 TEST(TestArrowReadWrite, ReadSingleRowGroup) {
-  const int num_columns = 20;
-  const int num_rows = 1000;
+  const int num_columns = 10;
+  const int num_rows = 100;
 
   std::shared_ptr<Table> table;
   ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
@@ -1872,7 +1872,7 @@ TEST(TestArrowReadWrite, ReadSingleRowGroup) {
   std::shared_ptr<Table> concatenated;
 
   ASSERT_OK(ConcatenateTables({r1, r2}, &concatenated));
-  ASSERT_TRUE(table->Equals(*concatenated));
+  AssertTablesEqual(*concatenated, *table, /*same_chunk_layout=*/false);
 
   ASSERT_TRUE(table->Equals(*r3));
   ASSERT_TRUE(r2->Equals(*r4));

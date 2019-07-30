@@ -17,11 +17,14 @@
 
 #include "parquet/file_writer.h"
 
+#include <cstddef>
+#include <ostream>
 #include <utility>
 #include <vector>
 
 #include "parquet/column_writer.h"
 #include "parquet/deprecated_io.h"
+#include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 

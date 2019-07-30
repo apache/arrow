@@ -15,24 +15,36 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_API_READER_H
-#define PARQUET_API_READER_H
+#pragma once
 
-// Column reader API
-#include "parquet/column_reader.h"
-#include "parquet/column_scanner.h"
-#include "parquet/exception.h"
-#include "parquet/file_reader.h"
-#include "parquet/metadata.h"
-#include "parquet/platform.h"
-#include "parquet/printer.h"
-#include "parquet/properties.h"
-#include "parquet/statistics.h"
+#include <memory>
 
-// Schemas
-#include "parquet/api/schema.h"
+namespace arrow {
 
-// IO
-#include "parquet/api/io.h"
+class ChunkedArray;
+class DataType;
+class MemoryPool;
+class Status;
 
-#endif  // PARQUET_API_READER_H
+}  // namespace arrow
+
+namespace parquet {
+
+class ColumnDescriptor;
+
+namespace internal {
+
+class RecordReader;
+
+}  // namespace internal
+
+namespace arrow {
+
+::arrow::Status TransferColumnData(internal::RecordReader* reader,
+                                   std::shared_ptr<::arrow::DataType> value_type,
+                                   const ColumnDescriptor* descr,
+                                   ::arrow::MemoryPool* pool,
+                                   std::shared_ptr<::arrow::ChunkedArray>* out);
+
+}  // namespace arrow
+}  // namespace parquet

@@ -17,22 +17,26 @@
 
 #include "parquet/column_writer.h"
 
-#include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "arrow/buffer-builder.h"
-#include "arrow/status.h"
+#include "arrow/memory_pool.h"
 #include "arrow/util/bit-stream-utils.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle-encoding.h"
 
+#include "parquet/column_page.h"
+#include "parquet/encoding.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
+#include "parquet/schema.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift.h"
 #include "parquet/types.h"

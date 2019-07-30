@@ -17,27 +17,30 @@
 
 #include "parquet/column_reader.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <exception>
 #include <iostream>
 #include <memory>
-#include <vector>
+#include <unordered_map>
+#include <utility>
 
-#include "arrow/buffer.h"
+#include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/table.h"
+#include "arrow/type.h"
 #include "arrow/util/bit-stream-utils.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle-encoding.h"
-#include "arrow/util/ubsan.h"
 
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
-#include "parquet/thrift.h"
+#include "parquet/thrift.h"  // IWYU pragma: keep
 
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;
@@ -1244,7 +1247,9 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
  public:
   ByteArrayDictionaryRecordReader(const ColumnDescriptor* descr,
                                   ::arrow::MemoryPool* pool)
-      : TypedRecordReader<ByteArrayType>(descr, pool), builder_(pool) {}
+      : TypedRecordReader<ByteArrayType>(descr, pool), builder_(pool) {
+    this->read_dictionary_ = true;
+  }
 
   std::shared_ptr<::arrow::ChunkedArray> GetResult() override {
     FlushBuilder();

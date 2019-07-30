@@ -27,12 +27,6 @@
 #include "parquet/platform.h"
 #include "parquet/types.h"
 
-namespace arrow {
-
-class MemoryPool;
-
-}  // namespace arrow
-
 namespace parquet {
 
 // A Bloom filter is a compact structure to indicate whether an item is not in a set or

@@ -23,20 +23,9 @@
 #pragma once
 
 #include <cstdint>
-#include <cstdlib>
-#include <cstring>
 #include <memory>
-#include <string>
-#include <vector>
 
-#include "arrow/buffer.h"
-#include "arrow/io/interfaces.h"
-#include "arrow/io/memory.h"
-#include "arrow/memory_pool.h"
-
-#include "parquet/exception.h"
 #include "parquet/platform.h"
-#include "parquet/types.h"
 
 namespace parquet {
 
