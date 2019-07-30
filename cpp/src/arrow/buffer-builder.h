@@ -176,9 +176,14 @@ class ARROW_EXPORT BufferBuilder {
   int64_t size_;
 };
 
+template <typename T, typename Enable = void>
+class TypedBufferBuilder;
+
 /// \brief A BufferBuilder for building a buffer of arithmetic elements
 template <typename T>
-class TypedBufferBuilder {
+class TypedBufferBuilder<
+    T, typename std::enable_if<std::is_arithmetic<T>::value ||
+                               std::is_standard_layout<T>::value>::type> {
  public:
   explicit TypedBufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
       : bytes_builder_(pool) {}
