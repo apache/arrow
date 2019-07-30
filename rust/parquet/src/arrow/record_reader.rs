@@ -42,7 +42,7 @@ pub struct RecordReader<T: DataType> {
     column_reader: Option<ColumnReaderImpl<T>>,
 
     /// Number of records accumulated in records
-    records_num: usize,
+    num_records: usize,
 
     values_seen: usize,
     /// Starts from 1, number of values have been written to buffer
@@ -111,7 +111,7 @@ impl<T: DataType> RecordReader<T> {
             null_bitmap: null_map,
             column_reader: None,
             column_desc: column_schema,
-            records_num: 0,
+            num_records: 0,
             values_seen: 0,
             values_written: 0,
             in_middle_of_record: false,
@@ -149,7 +149,7 @@ impl<T: DataType> RecordReader<T> {
                 && self.values_seen >= self.values_written
                 && self.in_middle_of_record
             {
-                self.records_num += 1;
+                self.num_records += 1;
                 self.in_middle_of_record = false;
                 records_read += 1;
             }
@@ -172,7 +172,7 @@ impl<T: DataType> RecordReader<T> {
 
     /// Returns number of records stored in buffer.
     pub fn num_records(&self) -> usize {
-        self.records_num
+        self.num_records
     }
 
     /// Returns definition level data.
@@ -332,7 +332,7 @@ impl<T: DataType> RecordReader<T> {
                     if buf[self.values_seen] == 0 {
                         if self.in_middle_of_record {
                             records_read += 1;
-                            self.records_num += 1;
+                            self.num_records += 1;
                         }
                         self.in_middle_of_record = true;
                     }
@@ -344,7 +344,7 @@ impl<T: DataType> RecordReader<T> {
             None => {
                 let records_read =
                     min(records_to_read, self.values_written - self.values_seen);
-                self.records_num += records_read;
+                self.num_records += records_read;
                 self.values_seen += records_read;
                 self.in_middle_of_record = false;
 
