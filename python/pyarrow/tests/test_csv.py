@@ -487,6 +487,27 @@ class BaseTestCSVRead:
         table = self.read_bytes(rows)
         assert table.to_pydict() == {'': []}
 
+    def test_empty_lines(self):
+        rows = b"a,b\n\r1,2\r\n\r\n3,4\r\n"
+        table = self.read_bytes(rows)
+        assert table.to_pydict() == {
+            'a': [1, 3],
+            'b': [2, 4],
+            }
+        parse_options = ParseOptions(ignore_empty_lines=False)
+        table = self.read_bytes(rows, parse_options=parse_options)
+        assert table.to_pydict() == {
+            'a': [None, 1, None, 3],
+            'b': [None, 2, None, 4],
+            }
+        read_options = ReadOptions(skip_rows=2)
+        table = self.read_bytes(rows, parse_options=parse_options,
+                                read_options=read_options)
+        assert table.to_pydict() == {
+            '1': [None, 3],
+            '2': [None, 4],
+            }
+
     def test_invalid_csv(self):
         # Various CSV errors
         rows = b"a,b,c\n1,2\n4,5,6\n"
