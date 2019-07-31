@@ -79,7 +79,11 @@ TEST(TestStringOps, TestSubstring) {
   uint64_t ctx_ptr = reinterpret_cast<int64>(&ctx);
   int32 out_len = 0;
 
-  char* out_str = substr_utf8_int64_int64(ctx_ptr, "asdf", 4, 1, 2, &out_len);
+  char* out_str = substr_utf8_int64_int64(ctx_ptr, "asdf", 4, 1, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = substr_utf8_int64_int64(ctx_ptr, "asdf", 4, 1, 2, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "as");
   EXPECT_FALSE(ctx.has_error());
 
