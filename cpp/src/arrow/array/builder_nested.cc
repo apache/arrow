@@ -41,13 +41,15 @@ MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& ke
                        std::shared_ptr<ArrayBuilder> const& item_builder,
                        const std::shared_ptr<DataType>& type)
     : ArrayBuilder(type, pool), key_builder_(key_builder), item_builder_(item_builder) {
-  if (type) {
-    auto map_type = internal::checked_cast<const MapType*>(type.get());
-    keys_sorted_ = map_type->keys_sorted();
-  }
+  auto map_type = internal::checked_cast<const MapType*>(type.get());
+  keys_sorted_ = map_type->keys_sorted();
 
   list_builder_ = std::make_shared<ListBuilder>(
       pool, key_builder, list(field("key", key_builder->type(), false)));
+
+  ChildBuilder(key_builder_.get());
+  ChildBuilder(item_builder_.get());
+  ChildBuilder(list_builder_.get());
 }
 
 MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
@@ -126,7 +128,9 @@ FixedSizeListBuilder::FixedSizeListBuilder(
     : ArrayBuilder(type, pool),
       list_size_(
           internal::checked_cast<const FixedSizeListType*>(type.get())->list_size()),
-      value_builder_(value_builder) {}
+      value_builder_(value_builder) {
+  ChildBuilder(value_builder_.get());
+}
 
 FixedSizeListBuilder::FixedSizeListBuilder(
     MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& value_builder,
@@ -191,6 +195,9 @@ StructBuilder::StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* 
                              std::vector<std::shared_ptr<ArrayBuilder>> field_builders)
     : ArrayBuilder(type, pool) {
   children_ = std::move(field_builders);
+  for (const auto& child : children_) {
+    ChildBuilder(child.get());
+  }
 }
 
 void StructBuilder::Reset() {
@@ -224,6 +231,15 @@ Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
   capacity_ = length_ = null_count_ = 0;
   return Status::OK();
+}
+
+void StructBuilder::UpdateType() {
+  auto fields = type_->children();
+  for (int i = 0; i < type_->num_children(); ++i) {
+    fields[i] = fields[i]->WithType(children_[i]->type());
+  }
+  type_ = struct_(std::move(fields));
+  UpdateParentType();
 }
 
 }  // namespace arrow

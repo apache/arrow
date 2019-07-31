@@ -54,7 +54,7 @@ constexpr int64_t kListMaximumElements = std::numeric_limits<int32_t>::max() - 1
 class ARROW_EXPORT ArrayBuilder {
  public:
   ArrayBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : type_(type), pool_(pool), null_bitmap_builder_(pool), root_builder_(this) {}
+      : type_(type), pool_(pool), null_bitmap_builder_(pool) {}
 
   virtual ~ArrayBuilder() = default;
 
@@ -127,17 +127,21 @@ class ARROW_EXPORT ArrayBuilder {
   /// \brief Return the type of the built Array
   std::shared_ptr<DataType> type() const { return type_; }
 
-  /// XXX These methods should not be public, but I'm not sure how to hide them
-
-  /// \brief This method is called by child builders to notify
-  /// their parents that they have changed type
+ protected:
+  /// \brief This method must be overridden by nested builders to update type_ based their
+  /// child builders' types
   virtual void UpdateType() {}
 
-  virtual void SetRootBuilder(ArrayBuilder* root_builder) {
-    root_builder_ = root_builder;
+  void UpdateParentType() {
+    if (parent_builder_) {
+      parent_builder_->UpdateType();
+    }
   }
 
- protected:
+  void ChildBuilder(ArrayBuilder* child_builder) {
+    child_builder->parent_builder_ = this;
+  }
+
   /// Append to null bitmap
   Status AppendToBitmap(bool is_valid);
 
@@ -226,7 +230,7 @@ class ARROW_EXPORT ArrayBuilder {
   // Child value array builders. These are owned by this class
   std::vector<std::shared_ptr<ArrayBuilder>> children_;
 
-  ArrayBuilder* root_builder_;
+  ArrayBuilder* parent_builder_ = nullptr;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);

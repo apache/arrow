@@ -47,7 +47,7 @@ class BaseListBuilder : public ArrayBuilder {
                      pool),
         offsets_builder_(pool),
         value_builder_(value_builder) {
-    value_builder_->SetRootBuilder(this);
+    ChildBuilder(value_builder_.get());
   }
 
   Status Resize(int64_t capacity) override {
@@ -138,17 +138,12 @@ class BaseListBuilder : public ArrayBuilder {
     return std::numeric_limits<offset_type>::max() - 1;
   }
 
-  void UpdateType() override {
-    value_builder_->UpdateType();
-    type_ = list(type_->child(0)->WithType(value_builder_->type()));
-  }
-
-  void SetRootBuilder(ArrayBuilder* root_builder) override {
-    ArrayBuilder::SetRootBuilder(root_builder);
-    value_builder_->SetRootBuilder(root_builder);
-  }
-
  protected:
+  void UpdateType() override {
+    type_ = list(type_->child(0)->WithType(value_builder_->type()));
+    UpdateParentType();
+  }
+
   TypedBufferBuilder<offset_type> offsets_builder_;
   std::shared_ptr<ArrayBuilder> value_builder_;
 
@@ -262,21 +257,12 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
   ArrayBuilder* key_builder() const { return key_builder_.get(); }
   ArrayBuilder* item_builder() const { return item_builder_.get(); }
 
-  void UpdateType() override {
-    list_builder_->UpdateType();
-    key_builder_->UpdateType();
-    item_builder_->UpdateType();
-    type_ = map(key_builder_->type(), item_builder_->type(), keys_sorted_);
-  }
-
-  void SetRootBuilder(ArrayBuilder* root_builder) override {
-    ArrayBuilder::SetRootBuilder(root_builder);
-    list_builder_->SetRootBuilder(root_builder);
-    key_builder_->SetRootBuilder(root_builder);
-    item_builder_->SetRootBuilder(root_builder);
-  }
-
  protected:
+  void UpdateType() override {
+    type_ = map(key_builder_->type(), item_builder_->type(), keys_sorted_);
+    UpdateParentType();
+  }
+
   bool keys_sorted_ = false;
   std::shared_ptr<ListBuilder> list_builder_;
   std::shared_ptr<ArrayBuilder> key_builder_;
@@ -342,17 +328,12 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
 
   ArrayBuilder* value_builder() const { return value_builder_.get(); }
 
-  void UpdateType() override {
-    value_builder_->UpdateType();
-    type_ = list(type_->child(0)->WithType(value_builder_->type()));
-  }
-
-  void SetRootBuilder(ArrayBuilder* root_builder) override {
-    ArrayBuilder::SetRootBuilder(root_builder);
-    value_builder_->SetRootBuilder(root_builder);
-  }
-
  protected:
+  void UpdateType() override {
+    type_ = list(type_->child(0)->WithType(value_builder_->type()));
+    UpdateParentType();
+  }
+
   const int32_t list_size_;
   std::shared_ptr<ArrayBuilder> value_builder_;
 };
@@ -407,21 +388,8 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
 
   int num_fields() const { return static_cast<int>(children_.size()); }
 
-  void UpdateType() override {
-    auto fields = type_->children();
-    for (int i = 0; i < type_->num_children(); ++i) {
-      children_[i]->UpdateType();
-      fields[i] = fields[i]->WithType(children_[i]->type());
-    }
-    type_ = struct_(std::move(fields));
-  }
-
-  void SetRootBuilder(ArrayBuilder* root_builder) override {
-    ArrayBuilder::SetRootBuilder(root_builder);
-    for (const auto& field_builder : children_) {
-      field_builder->SetRootBuilder(root_builder);
-    }
-  }
+ protected:
+  void UpdateType() override;
 };
 
 }  // namespace arrow

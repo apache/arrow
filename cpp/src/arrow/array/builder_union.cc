@@ -56,6 +56,9 @@ BasicUnionBuilder::BasicUnionBuilder(
   DCHECK_EQ(union_type->mode(), mode);
 
   children_ = children;
+  for (const auto& child : children_) {
+    ChildBuilder(child.get());
+  }
   type_id_to_children_.resize(union_type->max_type_code() + 1, nullptr);
   DCHECK_LT(type_id_to_children_.size(),
             static_cast<decltype(type_id_to_children_)::size_type>(
@@ -71,9 +74,20 @@ BasicUnionBuilder::BasicUnionBuilder(
   DCHECK_EQ(field_it, type->children().end());
 }
 
+void BasicUnionBuilder::UpdateType() {
+  auto fields = type_->children();
+  for (int i = 0; i < type_->num_children(); ++i) {
+    fields[i] = fields[i]->WithType(children_[i]->type());
+  }
+  auto type_codes = internal::checked_cast<const UnionType&>(*type_).type_codes();
+  type_ = union_(std::move(fields), std::move(type_codes), mode_);
+  UpdateParentType();
+}
+
 int8_t BasicUnionBuilder::AppendChild(const std::shared_ptr<ArrayBuilder>& new_child,
                                       const std::string& field_name) {
   children_.push_back(new_child);
+  ChildBuilder(new_child.get());
 
   auto new_type_id = NextTypeId();
   type_id_to_children_[new_type_id] = new_child;
@@ -85,7 +99,7 @@ int8_t BasicUnionBuilder::AppendChild(const std::shared_ptr<ArrayBuilder>& new_c
   type_codes.push_back(static_cast<uint8_t>(new_type_id));
 
   type_ = union_(std::move(fields), std::move(type_codes), mode_);
-  root_builder_->UpdateType();
+  UpdateParentType();
   return new_type_id;
 }
 

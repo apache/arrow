@@ -111,7 +111,9 @@ class DictionaryBuilderBase : public ArrayBuilder {
         delta_offset_(0),
         byte_width_(-1),
         indices_builder_(pool),
-        value_type_(value_type) {}
+        value_type_(value_type) {
+    ChildBuilder(&indices_builder_);
+  }
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
@@ -123,7 +125,9 @@ class DictionaryBuilderBase : public ArrayBuilder {
         delta_offset_(0),
         byte_width_(static_cast<const T1&>(*value_type).byte_width()),
         indices_builder_(pool),
-        value_type_(value_type) {}
+        value_type_(value_type) {
+    ChildBuilder(&indices_builder_);
+  }
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
@@ -138,7 +142,9 @@ class DictionaryBuilderBase : public ArrayBuilder {
         delta_offset_(0),
         byte_width_(-1),
         indices_builder_(pool),
-        value_type_(dictionary->type()) {}
+        value_type_(dictionary->type()) {
+    ChildBuilder(&indices_builder_);
+  }
 
   ~DictionaryBuilderBase() override = default;
 
@@ -280,17 +286,6 @@ class DictionaryBuilderBase : public ArrayBuilder {
   /// is the dictionary builder in the delta building mode
   bool is_building_delta() { return delta_offset_ > 0; }
 
-  void UpdateType() override {
-    indices_builder_.UpdateType();
-    type_ = dictionary(indices_builder_.type(), value_type_,
-                       internal::checked_cast<const DictionaryType&>(*type_).ordered());
-  }
-
-  void SetRootBuilder(ArrayBuilder* root_builder) override {
-    ArrayBuilder::SetRootBuilder(root_builder);
-    indices_builder_.SetRootBuilder(root_builder);
-  }
-
  protected:
   std::unique_ptr<DictionaryMemoTable> memo_table_;
 
@@ -386,6 +381,14 @@ class DictionaryBuilder : public internal::DictionaryBuilderBase<AdaptiveIntBuil
     this->length_ += length;
     this->null_count_ += this->indices_builder_.null_count() - null_count_before;
     return Status::OK();
+  }
+
+ protected:
+  void UpdateType() override {
+    this->type_ =
+        dictionary(this->indices_builder_.type(), this->value_type_,
+                   internal::checked_cast<const DictionaryType&>(*this->type_).ordered());
+    this->UpdateParentType();
   }
 };
 

@@ -134,7 +134,7 @@ Status AdaptiveIntBuilder::AppendValuesInternal(const int64_t* values, int64_t l
     if (new_int_size > int_size_) {
       // This updates int_size_
       RETURN_NOT_OK(ExpandIntSize(new_int_size));
-      root_builder_->UpdateType();
+      UpdateParentType();
     }
 
     switch (int_size_) {
@@ -258,7 +258,7 @@ Status AdaptiveIntBuilder::ExpandIntSize(uint8_t new_int_size) {
     default:
       DCHECK(false);
   }
-  root_builder_->UpdateType();
+  UpdateParentType();
   return Status::OK();
 }
 
@@ -318,7 +318,7 @@ Status AdaptiveUIntBuilder::AppendValuesInternal(const uint64_t* values, int64_t
     if (new_int_size > int_size_) {
       // This updates int_size_
       RETURN_NOT_OK(ExpandIntSize(new_int_size));
-      root_builder_->UpdateType();
+      UpdateParentType();
     }
 
     switch (int_size_) {
@@ -427,7 +427,7 @@ Status AdaptiveUIntBuilder::ExpandIntSize(uint8_t new_int_size) {
     default:
       DCHECK(false);
   }
-  root_builder_->UpdateType();
+  UpdateParentType();
   return Status::OK();
 }
 
