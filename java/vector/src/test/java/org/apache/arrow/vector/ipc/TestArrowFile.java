@@ -20,6 +20,8 @@ package org.apache.arrow.vector.ipc;
 import static java.nio.channels.Channels.newChannel;
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -28,7 +30,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -53,7 +54,6 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvid
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowBuffer;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
-import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -63,7 +63,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -899,34 +898,14 @@ public class TestArrowFile extends BaseFileTest {
       writer.writeBatch();
       writer.end();
 
-      try (SeekableReadChannel channel = new SeekableReadChannel(
-          new ByteArrayReadableSeekableByteChannel(out.toByteArray()));
-          ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
+      byte[] bytes = out.toByteArray();
+      byte[] bytesWithoutMagic = new byte[bytes.length - 8];
+      System.arraycopy(bytes, 8, bytesWithoutMagic, 0, bytesWithoutMagic.length);
 
-        Schema readSchema = reader.getVectorSchemaRoot().getSchema();
-        assertEquals(root.getSchema(), readSchema);
-        assertEquals(1, reader.getRecordBlocks().size());
-
-        ArrowBlock lastBlock = reader.getRecordBlocks().get(0);
-        long eosOffset = lastBlock.getOffset() + lastBlock.getBodyLength() + lastBlock.getMetadataLength();
-
-        // check eos after last record block
-        channel.setPosition(eosOffset);
-        ByteBuffer eosBuffer = ByteBuffer.allocate(4);
-        channel.readFully(eosBuffer);
-        eosBuffer.flip();
-        assertEquals(0, MessageSerializer.bytesToInt(eosBuffer.array()));
-
-        // read footer length
-        ByteBuffer footerBuffer = ByteBuffer.allocate(4 + ArrowMagic.MAGIC_LENGTH);
-        long footerLengthOffset = channel.size() - footerBuffer.remaining();
-        channel.setPosition(footerLengthOffset);
-        channel.readFully(footerBuffer);
-        footerBuffer.flip();
-        int footerLength = MessageSerializer.bytesToInt(footerBuffer.array());
-
-        // eosOffset + 4 + footerLength  + 4 + magic = channel size
-        assertEquals(eosOffset + 4 + footerLength + 4 + ArrowMagic.MAGIC_LENGTH, channel.size());
+      try (ArrowStreamReader reader = new ArrowStreamReader(new ByteArrayInputStream(bytesWithoutMagic), allocator)) {
+        assertTrue(reader.loadNextBatch());
+        // here will throw exception if read footer instead of eos.
+        assertFalse(reader.loadNextBatch());
       }
     }
   }
