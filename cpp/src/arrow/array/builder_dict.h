@@ -106,8 +106,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
       typename std::enable_if<!std::is_base_of<FixedSizeBinaryType, T1>::value,
                               const std::shared_ptr<DataType>&>::type value_type,
       MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(NULLPTR, pool),
-        memo_table_(new DictionaryMemoTable(value_type)),
+      : ArrayBuilder(dictionary(int8(), value_type), pool),
+        memo_table_(new internal::DictionaryMemoTable(value_type)),
         delta_offset_(0),
         byte_width_(-1),
         indices_builder_(pool),
@@ -118,7 +118,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
       typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T1>::value,
                               const std::shared_ptr<DataType>&>::type value_type,
       MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(NULLPTR, pool),
+      : ArrayBuilder(dictionary(int8(), value_type), pool),
         memo_table_(new internal::DictionaryMemoTable(value_type)),
         delta_offset_(0),
         byte_width_(static_cast<const T1&>(*value_type).byte_width()),
@@ -133,7 +133,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
                         MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(NULLPTR, pool),
+      : ArrayBuilder(arrow::dictionary(int8(), dictionary->type()), pool),
         memo_table_(new internal::DictionaryMemoTable(dictionary)),
         delta_offset_(0),
         byte_width_(-1),
@@ -280,6 +280,17 @@ class DictionaryBuilderBase : public ArrayBuilder {
   /// is the dictionary builder in the delta building mode
   bool is_building_delta() { return delta_offset_ > 0; }
 
+  void UpdateType() override {
+    indices_builder_.UpdateType();
+    type_ = dictionary(indices_builder_.type(), value_type_,
+                       internal::checked_cast<const DictionaryType&>(*type_).ordered());
+  }
+
+  void SetRootBuilder(ArrayBuilder* root_builder) override {
+    ArrayBuilder::SetRootBuilder(root_builder);
+    indices_builder_.SetRootBuilder(root_builder);
+  }
+
  protected:
   std::unique_ptr<DictionaryMemoTable> memo_table_;
 
@@ -287,7 +298,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
   // Only used for FixedSizeBinaryType
   int32_t byte_width_;
 
-  AdaptiveIntBuilder indices_builder_;
+  BuilderType indices_builder_;
   std::shared_ptr<DataType> value_type_;
 };
 

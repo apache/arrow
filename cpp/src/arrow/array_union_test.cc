@@ -272,10 +272,6 @@ class UnionBuilderTest : public ::testing::Test {
 
     ASSERT_OK(list_builder.Finish(actual));
     ArrayFromVector<Int8Type, uint8_t>(expected_types_vector, &expected_types);
-
-    ASSERT_EQ(I8, 0);
-    ASSERT_EQ(STR, 1);
-    ASSERT_EQ(DBL, 2);
   }
 
   std::vector<uint8_t> expected_types_vector;

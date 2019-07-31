@@ -1068,9 +1068,6 @@ TEST(TestDictionary, ListOfDictionary) {
   auto dict_builder =
       checked_cast<DictionaryBuilder<StringType>*>(list_builder->value_builder());
 
-  ASSERT_EQ(dict_builder->type(), nullptr);
-  ASSERT_EQ(list_builder->type(), nullptr);
-
   ASSERT_OK(list_builder->Append());
   std::vector<std::string> expected;
   for (char a : util::string_view("abc")) {
@@ -1092,6 +1089,9 @@ TEST(TestDictionary, ListOfDictionary) {
       }
     }
   }
+
+  ASSERT_TRUE(list_builder->type()->Equals(list(dictionary(int16(), utf8()))));
+
   std::shared_ptr<Array> expected_dict;
   ArrayFromVector<StringType, std::string>(expected, &expected_dict);
 

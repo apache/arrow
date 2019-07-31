@@ -48,18 +48,37 @@ class ARROW_EXPORT BasicUnionBuilder : public ArrayBuilder {
   int8_t AppendChild(const std::shared_ptr<ArrayBuilder>& new_child,
                      const std::string& field_name = "");
 
+  void UpdateType() override {
+    auto fields = type_->children();
+    auto type_codes = internal::checked_cast<const UnionType&>(*type_).type_codes();
+    for (int i = 0; i < type_->num_children(); ++i) {
+      children_[i]->UpdateType();
+      fields[i] = fields[i]->WithType(children_[i]->type());
+    }
+    type_ = union_(std::move(fields), std::move(type_codes), mode_);
+  }
+
+  void SetRootBuilder(ArrayBuilder* root_builder) override {
+    ArrayBuilder::SetRootBuilder(root_builder);
+    for (const auto& field_builder : children_) {
+      field_builder->SetRootBuilder(root_builder);
+    }
+  }
+
  protected:
   /// Use this constructor to initialize the UnionBuilder with no child builders,
   /// allowing type to be inferred. You will need to call AppendChild for each of the
   /// children builders you want to use.
-  explicit BasicUnionBuilder(MemoryPool* pool, UnionMode::type mode)
-      : ArrayBuilder(NULLPTR, pool), mode_(mode), types_builder_(pool) {}
+  BasicUnionBuilder(MemoryPool* pool, UnionMode::type mode)
+      : ArrayBuilder(union_({}, mode), pool), mode_(mode), types_builder_(pool) {}
 
   /// Use this constructor to specify the type explicitly.
   /// You can still add child builders to the union after using this constructor
   BasicUnionBuilder(MemoryPool* pool, UnionMode::type mode,
                     const std::vector<std::shared_ptr<ArrayBuilder>>& children,
                     const std::shared_ptr<DataType>& type);
+
+  int8_t NextTypeId();
 
   UnionMode::type mode_;
   std::vector<std::shared_ptr<ArrayBuilder>> type_id_to_children_;

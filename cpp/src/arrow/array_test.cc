@@ -1425,6 +1425,7 @@ class TestAdaptiveIntBuilder : public TestBuilder {
 };
 
 TEST_F(TestAdaptiveIntBuilder, TestInt8) {
+  ASSERT_EQ(builder_->type()->id(), Type::INT8);
   ASSERT_OK(builder_->Append(0));
   ASSERT_OK(builder_->Append(127));
   ASSERT_OK(builder_->Append(-128));
@@ -1438,7 +1439,9 @@ TEST_F(TestAdaptiveIntBuilder, TestInt8) {
 
 TEST_F(TestAdaptiveIntBuilder, TestInt16) {
   ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->type()->id(), Type::INT8);
   ASSERT_OK(builder_->Append(128));
+  ASSERT_EQ(builder_->type()->id(), Type::INT16);
   Done();
 
   std::vector<int16_t> expected_values({0, 128});
@@ -1466,8 +1469,10 @@ TEST_F(TestAdaptiveIntBuilder, TestInt16) {
 
 TEST_F(TestAdaptiveIntBuilder, TestInt32) {
   ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->type()->id(), Type::INT8);
   ASSERT_OK(
       builder_->Append(static_cast<int64_t>(std::numeric_limits<int16_t>::max()) + 1));
+  ASSERT_EQ(builder_->type()->id(), Type::INT32);
   Done();
 
   std::vector<int32_t> expected_values(
@@ -1497,8 +1502,10 @@ TEST_F(TestAdaptiveIntBuilder, TestInt32) {
 
 TEST_F(TestAdaptiveIntBuilder, TestInt64) {
   ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->type()->id(), Type::INT8);
   ASSERT_OK(
       builder_->Append(static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1));
+  ASSERT_EQ(builder_->type()->id(), Type::INT64);
   Done();
 
   std::vector<int64_t> expected_values(
@@ -1645,12 +1652,14 @@ TEST_F(TestAdaptiveUIntBuilder, TestUInt8) {
 
 TEST_F(TestAdaptiveUIntBuilder, TestUInt16) {
   ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->type()->id(), Type::UINT8);
   ASSERT_OK(builder_->Append(256));
+  ASSERT_EQ(builder_->type()->id(), Type::UINT16);
   Done();
 
   std::vector<uint16_t> expected_values({0, 256});
   ArrayFromVector<UInt16Type, uint16_t>(expected_values, &expected_);
-  ASSERT_TRUE(expected_->Equals(result_));
+  ASSERT_ARRAYS_EQUAL(*expected_, *result_);
 
   SetUp();
   ASSERT_OK(builder_->Append(std::numeric_limits<uint16_t>::max()));
@@ -1663,8 +1672,10 @@ TEST_F(TestAdaptiveUIntBuilder, TestUInt16) {
 
 TEST_F(TestAdaptiveUIntBuilder, TestUInt32) {
   ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->type()->id(), Type::UINT8);
   ASSERT_OK(
       builder_->Append(static_cast<uint64_t>(std::numeric_limits<uint16_t>::max()) + 1));
+  ASSERT_EQ(builder_->type()->id(), Type::UINT32);
   Done();
 
   std::vector<uint32_t> expected_values(
@@ -1683,8 +1694,10 @@ TEST_F(TestAdaptiveUIntBuilder, TestUInt32) {
 
 TEST_F(TestAdaptiveUIntBuilder, TestUInt64) {
   ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->type()->id(), Type::UINT8);
   ASSERT_OK(
       builder_->Append(static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) + 1));
+  ASSERT_EQ(builder_->type()->id(), Type::UINT64);
   Done();
 
   std::vector<uint64_t> expected_values(

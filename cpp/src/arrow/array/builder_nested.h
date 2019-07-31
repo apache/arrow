@@ -47,9 +47,7 @@ class BaseListBuilder : public ArrayBuilder {
                      pool),
         offsets_builder_(pool),
         value_builder_(value_builder) {
-    if (value_builder->type() == nullptr) {
-      type_ = nullptr;
-    }
+    value_builder_->SetRootBuilder(this);
   }
 
   Status Resize(int64_t capacity) override {
@@ -66,7 +64,6 @@ class BaseListBuilder : public ArrayBuilder {
 
   void Reset() override {
     ArrayBuilder::Reset();
-    values_.reset();
     offsets_builder_.Reset();
     value_builder_->Reset();
   }
@@ -114,15 +111,11 @@ class BaseListBuilder : public ArrayBuilder {
     ARROW_RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
 
     std::shared_ptr<ArrayData> items;
-    if (values_) {
-      items = values_->data();
-    } else {
-      if (value_builder_->length() == 0) {
-        // Try to make sure we get a non-null values buffer (ARROW-2744)
-        ARROW_RETURN_NOT_OK(value_builder_->Resize(0));
-      }
-      ARROW_RETURN_NOT_OK(value_builder_->FinishInternal(&items));
+    if (value_builder_->length() == 0) {
+      // Try to make sure we get a non-null values buffer (ARROW-2744)
+      ARROW_RETURN_NOT_OK(value_builder_->Resize(0));
     }
+    ARROW_RETURN_NOT_OK(value_builder_->FinishInternal(&items));
 
     // If the type has not been specified in the constructor, infer it
     // This is the case if the value_builder contains a DenseUnionBuilder
@@ -145,10 +138,19 @@ class BaseListBuilder : public ArrayBuilder {
     return std::numeric_limits<offset_type>::max() - 1;
   }
 
+  void UpdateType() override {
+    value_builder_->UpdateType();
+    type_ = list(type_->child(0)->WithType(value_builder_->type()));
+  }
+
+  void SetRootBuilder(ArrayBuilder* root_builder) override {
+    ArrayBuilder::SetRootBuilder(root_builder);
+    value_builder_->SetRootBuilder(root_builder);
+  }
+
  protected:
   TypedBufferBuilder<offset_type> offsets_builder_;
   std::shared_ptr<ArrayBuilder> value_builder_;
-  std::shared_ptr<Array> values_;
 
   Status CheckNextOffset() const {
     const int64_t num_values = value_builder_->length();
@@ -260,6 +262,20 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
   ArrayBuilder* key_builder() const { return key_builder_.get(); }
   ArrayBuilder* item_builder() const { return item_builder_.get(); }
 
+  void UpdateType() override {
+    list_builder_->UpdateType();
+    key_builder_->UpdateType();
+    item_builder_->UpdateType();
+    type_ = map(key_builder_->type(), item_builder_->type(), keys_sorted_);
+  }
+
+  void SetRootBuilder(ArrayBuilder* root_builder) override {
+    ArrayBuilder::SetRootBuilder(root_builder);
+    list_builder_->SetRootBuilder(root_builder);
+    key_builder_->SetRootBuilder(root_builder);
+    item_builder_->SetRootBuilder(root_builder);
+  }
+
  protected:
   bool keys_sorted_ = false;
   std::shared_ptr<ListBuilder> list_builder_;
@@ -326,6 +342,16 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
 
   ArrayBuilder* value_builder() const { return value_builder_.get(); }
 
+  void UpdateType() override {
+    value_builder_->UpdateType();
+    type_ = list(type_->child(0)->WithType(value_builder_->type()));
+  }
+
+  void SetRootBuilder(ArrayBuilder* root_builder) override {
+    ArrayBuilder::SetRootBuilder(root_builder);
+    value_builder_->SetRootBuilder(root_builder);
+  }
+
  protected:
   const int32_t list_size_;
   std::shared_ptr<ArrayBuilder> value_builder_;
@@ -380,6 +406,22 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
   ArrayBuilder* field_builder(int i) const { return children_[i].get(); }
 
   int num_fields() const { return static_cast<int>(children_.size()); }
+
+  void UpdateType() override {
+    auto fields = type_->children();
+    for (int i = 0; i < type_->num_children(); ++i) {
+      children_[i]->UpdateType();
+      fields[i] = fields[i]->WithType(children_[i]->type());
+    }
+    type_ = struct_(std::move(fields));
+  }
+
+  void SetRootBuilder(ArrayBuilder* root_builder) override {
+    ArrayBuilder::SetRootBuilder(root_builder);
+    for (const auto& field_builder : children_) {
+      field_builder->SetRootBuilder(root_builder);
+    }
+  }
 };
 
 }  // namespace arrow

@@ -25,9 +25,24 @@ namespace arrow {
 
 namespace internal {
 
+template <uint8_t size>
+constexpr uint64_t ExpandIntSizeMask() {
+  return ~static_cast<uint64_t>(0) << size * CHAR_BIT;
+}
+
+template <>
+constexpr uint64_t ExpandIntSizeMask<sizeof(int64_t)>() {
+  return 0;
+}
+
+template <uint8_t size>
+constexpr uint64_t ExpandIntSizeAddend() {
+  return static_cast<uint64_t>(1) << (size * CHAR_BIT - 1);
+}
+
 class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
  public:
-  explicit AdaptiveIntBuilderBase(MemoryPool* pool);
+  AdaptiveIntBuilderBase(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 
   /// \brief Append multiple nulls
   /// \param[in] length the number of nulls to append
@@ -58,14 +73,15 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
   virtual Status CommitPendingData() = 0;
 
   std::shared_ptr<ResizableBuffer> data_;
-  uint8_t* raw_data_;
-  uint8_t int_size_;
+  uint8_t* raw_data_ = nullptr;
+  uint8_t int_size_ = sizeof(uint8_t);
+  uint64_t expand_int_size_mask_ = ExpandIntSizeMask<sizeof(uint8_t)>();
 
   static constexpr int32_t pending_size_ = 1024;
   uint8_t pending_valid_[pending_size_];
   uint64_t pending_data_[pending_size_];
-  int32_t pending_pos_;
-  bool pending_has_nulls_;
+  int32_t pending_pos_ = 0;
+  bool pending_has_nulls_ = false;
 };
 
 }  // namespace internal
@@ -83,6 +99,9 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
     pending_valid_[pending_pos_] = 1;
     ++pending_pos_;
 
+    if (val & expand_int_size_mask_) {
+      return CommitPendingData();
+    }
     if (ARROW_PREDICT_FALSE(pending_pos_ >= pending_size_)) {
       return CommitPendingData();
     }
@@ -135,6 +154,9 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
     pending_valid_[pending_pos_] = 1;
     ++pending_pos_;
 
+    if (v + expand_int_size_addend_ & expand_int_size_mask_) {
+      return CommitPendingData();
+    }
     if (ARROW_PREDICT_FALSE(pending_pos_ >= pending_size_)) {
       return CommitPendingData();
     }
@@ -170,6 +192,8 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
 
   template <typename new_type>
   Status ExpandIntSizeN();
+
+  uint64_t expand_int_size_addend_ = internal::ExpandIntSizeAddend<sizeof(int8_t)>();
 };
 
 }  // namespace arrow

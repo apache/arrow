@@ -46,10 +46,6 @@ MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& ke
     keys_sorted_ = map_type->keys_sorted();
   }
 
-  if (key_builder->type() == nullptr || item_builder->type() == nullptr) {
-    type_ = nullptr;
-  }
-
   list_builder_ = std::make_shared<ListBuilder>(
       pool, key_builder, list(field("key", key_builder->type(), false)));
 }
@@ -130,11 +126,7 @@ FixedSizeListBuilder::FixedSizeListBuilder(
     : ArrayBuilder(type, pool),
       list_size_(
           internal::checked_cast<const FixedSizeListType*>(type.get())->list_size()),
-      value_builder_(value_builder) {
-  if (value_builder->type() == nullptr) {
-    type_ = nullptr;
-  }
-}
+      value_builder_(value_builder) {}
 
 FixedSizeListBuilder::FixedSizeListBuilder(
     MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& value_builder,
@@ -185,11 +177,6 @@ Status FixedSizeListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   }
   RETURN_NOT_OK(value_builder_->FinishInternal(&items));
 
-  // If the type has not been specified in the constructor, infer it
-  // This is the case if the value_builder contains a DenseUnionBuilder
-  if (type_ == nullptr) {
-    type_ = fixed_size_list(items->type, list_size_);
-  }
   std::shared_ptr<Buffer> null_bitmap;
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
   *out = ArrayData::Make(type_, length_, {null_bitmap}, {std::move(items)}, null_count_);
@@ -203,12 +190,6 @@ Status FixedSizeListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 StructBuilder::StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
                              std::vector<std::shared_ptr<ArrayBuilder>> field_builders)
     : ArrayBuilder(type, pool) {
-  for (const auto& field_builder : field_builders) {
-    if (field_builder->type() == nullptr) {
-      type_ = nullptr;
-      break;
-    }
-  }
   children_ = std::move(field_builders);
 }
 
@@ -236,16 +217,6 @@ Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
       RETURN_NOT_OK(children_[i]->Resize(0));
     }
     RETURN_NOT_OK(children_[i]->FinishInternal(&child_data[i]));
-  }
-
-  // If the type has not been specified in the constructor, infer it
-  // This is the case if one of the children contains a DenseUnionBuilder
-  if (!type_) {
-    std::vector<std::shared_ptr<Field>> fields;
-    for (const auto& field_builder : children_) {
-      fields.push_back(field("", field_builder->type()));
-    }
-    type_ = struct_(fields);
   }
 
   *out = ArrayData::Make(type_, length_, {null_bitmap}, null_count_);

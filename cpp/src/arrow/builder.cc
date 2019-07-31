@@ -172,7 +172,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       const std::vector<std::shared_ptr<Field>>& fields = type->children();
       std::vector<std::shared_ptr<ArrayBuilder>> field_builders;
 
-      for (auto it : fields) {
+      for (const auto& it : fields) {
         std::unique_ptr<ArrayBuilder> builder;
         RETURN_NOT_OK(MakeBuilder(pool, it->type(), &builder));
         field_builders.emplace_back(std::move(builder));
@@ -186,7 +186,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       const std::vector<std::shared_ptr<Field>>& fields = type->children();
       std::vector<std::shared_ptr<ArrayBuilder>> field_builders;
 
-      for (auto it : fields) {
+      for (const auto& it : fields) {
         std::unique_ptr<ArrayBuilder> builder;
         RETURN_NOT_OK(MakeBuilder(pool, it->type(), &builder));
         field_builders.emplace_back(std::move(builder));
@@ -199,10 +199,8 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       return Status::OK();
     }
 
-    default: {
-      return Status::NotImplemented("MakeBuilder: cannot construct builder for type ",
-                                    type->ToString());
-    }
+    default:
+      break;
   }
   return Status::NotImplemented("MakeBuilder: cannot construct builder for type ",
                                 type->ToString());
