@@ -69,7 +69,7 @@ Status Decimal128Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
 
   *out = ArrayData::Make(type_, length_, {null_bitmap, data}, null_count_);
-
+  capacity_ = length_ = null_count_ = 0;
   return Status::OK();
 }
 
