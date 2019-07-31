@@ -1,5 +1,5 @@
 ---
-layout: docs
+layout: default
 title: Apache Arrow GLib (C)
 permalink: /docs/c_glib/index.html
 ---

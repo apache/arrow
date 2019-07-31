@@ -26,6 +26,10 @@ format. [Jekyll](https://jekyllrb.com/) is used to generate HTML files that can
 then be committed to the [arrow-site](https://github.com/apache/arrow-site)
 repository.
 
+## Adding Content
+
+To add a blog post, create a new markdown file in the `_posts` directory, following the model of existing posts. In the front matter, you should specify an "author". This should be your Apache ID if you have one, or it can just be your name. To add additional metadata about yourself (GitHub ID, website), add yourself to `_data/contributors.yml`. This object is keyed by `apacheId`, so use that as the `author` in your post. (It doesn't matter if the ID actually exists in the ASF; all metadata is local to this project.)
+
 ## Prerequisites
 
 With Ruby >= 2.1 installed, run the following commands to install

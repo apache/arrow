@@ -2,7 +2,7 @@
 layout: post
 title: "Speeding up R and Apache Spark using Apache Arrow"
 date: "2019-01-25 00:00:00 -0600"
-author: javierluraschi
+author: Javier Luraschi
 categories: [application]
 ---
 <!--
