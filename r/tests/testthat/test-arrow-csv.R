@@ -122,7 +122,6 @@ test_that("read_csv_arrow parsing options: skip", {
 })
 
 test_that("read_csv_arrow parsing options: skip_empty_rows", {
-  skip("Invalid: Empty CSV file")
   tf <- tempfile()
   on.exit(unlink(tf))
 
@@ -132,7 +131,7 @@ test_that("read_csv_arrow parsing options: skip_empty_rows", {
   tab1 <- read_csv_arrow(tf, skip_empty_rows = FALSE)
 
   expect_equal(nrow(tab1), nrow(iris) + 2)
-  expect_true(is.na(tail(iris, 1)[[1]]))
+  expect_true(is.na(tail(tab1, 1)[[1]]))
 })
 
 
