@@ -551,6 +551,21 @@ TEST(TestList, IntegerListList) {
   }
 }
 
+TEST(TestLargeList, Basics) {
+  // Similar as TestList above, only testing the basics
+  auto pool = default_memory_pool();
+  std::shared_ptr<DataType> type = large_list(int16());
+  std::shared_ptr<Array> offsets, values, expected, actual;
+
+  ASSERT_OK(ArrayFromJSON(type, "[[], [null], [6, null]]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  ArrayFromVector<Int64Type>({0, 0, 1, 3}, &offsets);
+  auto is_valid = std::vector<bool>{false, true, false};
+  ArrayFromVector<Int16Type>(is_valid, {0, 6, 0}, &values);
+  ASSERT_OK(LargeListArray::FromArrays(*offsets, *values, pool, &expected));
+  AssertArraysEqual(*expected, *actual);
+}
+
 TEST(TestMap, IntegerToInteger) {
   auto type = map(int16(), int16());
   std::shared_ptr<Array> expected, actual;

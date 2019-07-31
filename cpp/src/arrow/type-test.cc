@@ -404,6 +404,26 @@ TEST(TestListType, Basics) {
   ASSERT_EQ("list<item: list<item: string>>", lt2.ToString());
 }
 
+TEST(TestLargeListType, Basics) {
+  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+
+  LargeListType list_type(vt);
+  ASSERT_EQ(list_type.id(), Type::LARGE_LIST);
+
+  ASSERT_EQ("large_list", list_type.name());
+  ASSERT_EQ("large_list<item: uint8>", list_type.ToString());
+
+  ASSERT_EQ(list_type.value_type()->id(), vt->id());
+  ASSERT_EQ(list_type.value_type()->id(), vt->id());
+
+  std::shared_ptr<DataType> st = std::make_shared<StringType>();
+  std::shared_ptr<DataType> lt = std::make_shared<LargeListType>(st);
+  ASSERT_EQ("large_list<item: string>", lt->ToString());
+
+  LargeListType lt2(lt);
+  ASSERT_EQ("large_list<item: large_list<item: string>>", lt2.ToString());
+}
+
 TEST(TestMapType, Basics) {
   std::shared_ptr<DataType> kt = std::make_shared<StringType>();
   std::shared_ptr<DataType> it = std::make_shared<UInt8Type>();
@@ -561,6 +581,21 @@ TEST(TestTimestampType, ToString) {
   ASSERT_EQ("timestamp[ns, tz=US/Eastern]", t2->ToString());
   ASSERT_EQ("timestamp[s]", t3->ToString());
   ASSERT_EQ("timestamp[us]", t4->ToString());
+}
+
+TEST(TestListType, Equals) {
+  auto t1 = list(utf8());
+  auto t2 = list(utf8());
+  auto t3 = list(binary());
+  auto t4 = large_list(binary());
+  auto t5 = large_list(binary());
+  auto t6 = large_list(float64());
+
+  ASSERT_TRUE(t1->Equals(t2));
+  ASSERT_FALSE(t1->Equals(t3));
+  ASSERT_FALSE(t3->Equals(t4));
+  ASSERT_TRUE(t4->Equals(t5));
+  ASSERT_FALSE(t5->Equals(t6));
 }
 
 TEST(TestNestedType, Equals) {

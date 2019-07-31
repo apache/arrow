@@ -645,6 +645,7 @@ Status InvokeWithAllocation(FunctionContext* ctx, UnaryKernel* func, const Datum
   return Status::OK();
 }
 
+template <typename TypeClass>
 class ListCastKernel : public CastKernelBase {
  public:
   ListCastKernel(std::unique_ptr<UnaryKernel> child_caster,
@@ -655,7 +656,7 @@ class ListCastKernel : public CastKernelBase {
     DCHECK_EQ(Datum::ARRAY, input.kind());
 
     const ArrayData& in_data = *input.array();
-    DCHECK_EQ(Type::LIST, in_data.type->id());
+    DCHECK_EQ(TypeClass::type_id, in_data.type->id());
     ArrayData* result;
 
     if (in_data.offset != 0) {
@@ -1160,19 +1161,20 @@ GET_CAST_FUNCTION(DICTIONARY_CASES, DictionaryType)
 
 namespace {
 
+template <typename TypeClass>
 Status GetListCastFunc(const DataType& in_type, std::shared_ptr<DataType> out_type,
                        const CastOptions& options, std::unique_ptr<UnaryKernel>* kernel) {
-  if (out_type->id() != Type::LIST) {
+  if (out_type->id() != TypeClass::type_id) {
     // Kernel will be null
     return Status::OK();
   }
-  const DataType& in_value_type = *checked_cast<const ListType&>(in_type).value_type();
+  const DataType& in_value_type = *checked_cast<const TypeClass&>(in_type).value_type();
   std::shared_ptr<DataType> out_value_type =
-      checked_cast<const ListType&>(*out_type).value_type();
+      checked_cast<const TypeClass&>(*out_type).value_type();
   std::unique_ptr<UnaryKernel> child_caster;
   RETURN_NOT_OK(GetCastFunction(in_value_type, out_value_type, options, &child_caster));
   *kernel = std::unique_ptr<UnaryKernel>(
-      new ListCastKernel(std::move(child_caster), std::move(out_type)));
+      new ListCastKernel<TypeClass>(std::move(child_caster), std::move(out_type)));
   return Status::OK();
 }
 
@@ -1238,7 +1240,12 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
     CAST_FUNCTION_CASE(LargeStringType);
     CAST_FUNCTION_CASE(DictionaryType);
     case Type::LIST:
-      RETURN_NOT_OK(GetListCastFunc(in_type, std::move(out_type), options, kernel));
+      RETURN_NOT_OK(
+          GetListCastFunc<ListType>(in_type, std::move(out_type), options, kernel));
+      break;
+    case Type::LARGE_LIST:
+      RETURN_NOT_OK(
+          GetListCastFunc<LargeListType>(in_type, std::move(out_type), options, kernel));
       break;
     default:
       break;

@@ -111,12 +111,15 @@ class LevelBuilder {
                                   " not supported yet");                   \
   }
 
+  NOT_IMPLEMENTED_VISIT(LargeList)
   NOT_IMPLEMENTED_VISIT(Map)
   NOT_IMPLEMENTED_VISIT(FixedSizeList)
   NOT_IMPLEMENTED_VISIT(Struct)
   NOT_IMPLEMENTED_VISIT(Union)
   NOT_IMPLEMENTED_VISIT(Dictionary)
   NOT_IMPLEMENTED_VISIT(Extension)
+
+#undef NOT_IMPLEMENTED_VISIT
 
   Status GenerateLevels(const Array& array, const std::shared_ptr<Field>& field,
                         int64_t* values_offset, int64_t* num_values, int64_t* num_levels,

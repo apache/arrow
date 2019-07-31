@@ -322,6 +322,12 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       }
       *out = std::make_shared<ListType>(children[0]);
       return Status::OK();
+    case flatbuf::Type_LargeList:
+      if (children.size() != 1) {
+        return Status::Invalid("LargeList must have exactly 1 child field");
+      }
+      *out = std::make_shared<LargeListType>(children[0]);
+      return Status::OK();
     case flatbuf::Type_Map:
       if (children.size() != 1) {
         return Status::Invalid("Map must have exactly 1 child field");
@@ -637,6 +643,13 @@ class FieldToFlatbufferVisitor {
     fb_type_ = flatbuf::Type_List;
     RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
     type_offset_ = flatbuf::CreateList(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListType& type) {
+    fb_type_ = flatbuf::Type_LargeList;
+    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+    type_offset_ = flatbuf::CreateLargeList(fbb_).Union();
     return Status::OK();
   }
 

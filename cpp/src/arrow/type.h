@@ -149,7 +149,10 @@ struct Type {
     LARGE_STRING,
 
     /// Like BINARY, but with 64-bit offsets
-    LARGE_BINARY
+    LARGE_BINARY,
+
+    /// Like LIST, but with 64-bit offsets
+    LARGE_LIST
   };
 };
 
@@ -348,6 +351,8 @@ class ARROW_EXPORT CTypeImpl : public BASE {
 
   DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
 
+  std::string name() const override { return DERIVED::type_name(); }
+
   std::string ToString() const override { return this->name(); }
 };
 
@@ -362,6 +367,8 @@ class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, IntegerType, TYPE_ID, 
 class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
  public:
   static constexpr Type::type type_id = Type::NA;
+
+  static constexpr const char* type_name() { return "null"; }
 
   NullType() : DataType(Type::NA) {}
 
@@ -379,6 +386,8 @@ class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
  public:
   static constexpr Type::type type_id = Type::BOOL;
 
+  static constexpr const char* type_name() { return "bool"; }
+
   BooleanType() : FixedWidthType(Type::BOOL) {}
 
   std::string ToString() const override;
@@ -386,6 +395,7 @@ class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
   DataTypeLayout layout() const override { return {{1, 1}, false}; }
 
   int bit_width() const override { return 1; }
+
   std::string name() const override { return "bool"; }
 };
 
@@ -393,56 +403,56 @@ class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
 class ARROW_EXPORT UInt8Type
     : public detail::IntegerTypeImpl<UInt8Type, Type::UINT8, uint8_t> {
  public:
-  std::string name() const override { return "uint8"; }
+  static constexpr const char* type_name() { return "uint8"; }
 };
 
 /// Concrete type class for signed 8-bit integer data
 class ARROW_EXPORT Int8Type
     : public detail::IntegerTypeImpl<Int8Type, Type::INT8, int8_t> {
  public:
-  std::string name() const override { return "int8"; }
+  static constexpr const char* type_name() { return "int8"; }
 };
 
 /// Concrete type class for unsigned 16-bit integer data
 class ARROW_EXPORT UInt16Type
     : public detail::IntegerTypeImpl<UInt16Type, Type::UINT16, uint16_t> {
  public:
-  std::string name() const override { return "uint16"; }
+  static constexpr const char* type_name() { return "uint16"; }
 };
 
 /// Concrete type class for signed 16-bit integer data
 class ARROW_EXPORT Int16Type
     : public detail::IntegerTypeImpl<Int16Type, Type::INT16, int16_t> {
  public:
-  std::string name() const override { return "int16"; }
+  static constexpr const char* type_name() { return "int16"; }
 };
 
 /// Concrete type class for unsigned 32-bit integer data
 class ARROW_EXPORT UInt32Type
     : public detail::IntegerTypeImpl<UInt32Type, Type::UINT32, uint32_t> {
  public:
-  std::string name() const override { return "uint32"; }
+  static constexpr const char* type_name() { return "uint32"; }
 };
 
 /// Concrete type class for signed 32-bit integer data
 class ARROW_EXPORT Int32Type
     : public detail::IntegerTypeImpl<Int32Type, Type::INT32, int32_t> {
  public:
-  std::string name() const override { return "int32"; }
+  static constexpr const char* type_name() { return "int32"; }
 };
 
 /// Concrete type class for unsigned 64-bit integer data
 class ARROW_EXPORT UInt64Type
     : public detail::IntegerTypeImpl<UInt64Type, Type::UINT64, uint64_t> {
  public:
-  std::string name() const override { return "uint64"; }
+  static constexpr const char* type_name() { return "uint64"; }
 };
 
 /// Concrete type class for signed 64-bit integer data
 class ARROW_EXPORT Int64Type
     : public detail::IntegerTypeImpl<Int64Type, Type::INT64, int64_t> {
  public:
-  std::string name() const override { return "int64"; }
+  static constexpr const char* type_name() { return "int64"; }
 };
 
 /// Concrete type class for 16-bit floating-point data
@@ -451,7 +461,7 @@ class ARROW_EXPORT HalfFloatType
                                uint16_t> {
  public:
   Precision precision() const override;
-  std::string name() const override { return "halffloat"; }
+  static constexpr const char* type_name() { return "halffloat"; }
 };
 
 /// Concrete type class for 32-bit floating-point data (C "float")
@@ -459,7 +469,7 @@ class ARROW_EXPORT FloatType
     : public detail::CTypeImpl<FloatType, FloatingPointType, Type::FLOAT, float> {
  public:
   Precision precision() const override;
-  std::string name() const override { return "float"; }
+  static constexpr const char* type_name() { return "float"; }
 };
 
 /// Concrete type class for 64-bit floating-point data (C "double")
@@ -467,7 +477,13 @@ class ARROW_EXPORT DoubleType
     : public detail::CTypeImpl<DoubleType, FloatingPointType, Type::DOUBLE, double> {
  public:
   Precision precision() const override;
-  std::string name() const override { return "double"; }
+  static constexpr const char* type_name() { return "double"; }
+};
+
+/// \brief Base class for all variable-size list data types
+class ARROW_EXPORT BaseListType : public NestedType {
+ public:
+  using NestedType::NestedType;
 };
 
 /// \brief Concrete type class for list data
@@ -475,16 +491,18 @@ class ARROW_EXPORT DoubleType
 /// List data is nested data where each value is a variable number of
 /// child items.  Lists can be recursively nested, for example
 /// list(list(int32)).
-class ARROW_EXPORT ListType : public NestedType {
+class ARROW_EXPORT ListType : public BaseListType {
  public:
   static constexpr Type::type type_id = Type::LIST;
   using offset_type = int32_t;
+
+  static constexpr const char* type_name() { return "list"; }
 
   // List can contain any other logical value type
   explicit ListType(const std::shared_ptr<DataType>& value_type)
       : ListType(std::make_shared<Field>("item", value_type)) {}
 
-  explicit ListType(const std::shared_ptr<Field>& value_field) : NestedType(Type::LIST) {
+  explicit ListType(const std::shared_ptr<Field>& value_field) : BaseListType(type_id) {
     children_ = {value_field};
   }
 
@@ -501,6 +519,38 @@ class ARROW_EXPORT ListType : public NestedType {
   std::string name() const override { return "list"; }
 };
 
+/// \brief Concrete type class for large list data
+///
+/// LargeListType is like ListType but with 64-bit rather than 32-bit offsets.
+class ARROW_EXPORT LargeListType : public BaseListType {
+ public:
+  static constexpr Type::type type_id = Type::LARGE_LIST;
+  using offset_type = int64_t;
+
+  static constexpr const char* type_name() { return "large_list"; }
+
+  // List can contain any other logical value type
+  explicit LargeListType(const std::shared_ptr<DataType>& value_type)
+      : LargeListType(std::make_shared<Field>("item", value_type)) {}
+
+  explicit LargeListType(const std::shared_ptr<Field>& value_field)
+      : BaseListType(type_id) {
+    children_ = {value_field};
+  }
+
+  std::shared_ptr<Field> value_field() const { return children_[0]; }
+
+  std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
+
+  DataTypeLayout layout() const override {
+    return {{1, CHAR_BIT * sizeof(offset_type)}, false};
+  }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "large_list"; }
+};
+
 /// \brief Concrete type class for map data
 ///
 /// Map data is nested data where each value is a variable number of
@@ -509,6 +559,8 @@ class ARROW_EXPORT ListType : public NestedType {
 class ARROW_EXPORT MapType : public ListType {
  public:
   static constexpr Type::type type_id = Type::MAP;
+
+  static constexpr const char* type_name() { return "map"; }
 
   MapType(const std::shared_ptr<DataType>& key_type,
           const std::shared_ptr<DataType>& item_type, bool keys_sorted = false);
@@ -531,6 +583,8 @@ class ARROW_EXPORT MapType : public ListType {
 class ARROW_EXPORT FixedSizeListType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
+
+  static constexpr const char* type_name() { return "fixed_size_list"; }
 
   // List can contain any other logical value type
   FixedSizeListType(const std::shared_ptr<DataType>& value_type, int32_t list_size)
@@ -570,6 +624,8 @@ class ARROW_EXPORT BinaryType : public BaseBinaryType {
   static constexpr bool is_utf8 = false;
   using offset_type = int32_t;
 
+  static constexpr const char* type_name() { return "binary"; }
+
   BinaryType() : BinaryType(Type::BINARY) {}
 
   DataTypeLayout layout() const override {
@@ -592,6 +648,8 @@ class ARROW_EXPORT LargeBinaryType : public BaseBinaryType {
   static constexpr bool is_utf8 = false;
   using offset_type = int64_t;
 
+  static constexpr const char* type_name() { return "large_binary"; }
+
   LargeBinaryType() : LargeBinaryType(Type::LARGE_BINARY) {}
 
   DataTypeLayout layout() const override {
@@ -613,6 +671,8 @@ class ARROW_EXPORT StringType : public BinaryType {
   static constexpr Type::type type_id = Type::STRING;
   static constexpr bool is_utf8 = true;
 
+  static constexpr const char* type_name() { return "utf8"; }
+
   StringType() : BinaryType(Type::STRING) {}
 
   std::string ToString() const override;
@@ -625,6 +685,8 @@ class ARROW_EXPORT LargeStringType : public LargeBinaryType {
   static constexpr Type::type type_id = Type::LARGE_STRING;
   static constexpr bool is_utf8 = true;
 
+  static constexpr const char* type_name() { return "large_utf8"; }
+
   LargeStringType() : LargeBinaryType(Type::LARGE_STRING) {}
 
   std::string ToString() const override;
@@ -635,6 +697,8 @@ class ARROW_EXPORT LargeStringType : public LargeBinaryType {
 class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public ParametricType {
  public:
   static constexpr Type::type type_id = Type::FIXED_SIZE_BINARY;
+
+  static constexpr const char* type_name() { return "fixed_size_binary"; }
 
   explicit FixedSizeBinaryType(int32_t byte_width)
       : FixedWidthType(Type::FIXED_SIZE_BINARY), byte_width_(byte_width) {}
@@ -657,6 +721,8 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
 class ARROW_EXPORT StructType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::STRUCT;
+
+  static constexpr const char* type_name() { return "struct"; }
 
   explicit StructType(const std::vector<std::shared_ptr<Field>>& fields);
 
@@ -712,6 +778,8 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
  public:
   static constexpr Type::type type_id = Type::DECIMAL;
 
+  static constexpr const char* type_name() { return "decimal"; }
+
   explicit Decimal128Type(int32_t precision, int32_t scale);
 
   std::string ToString() const override;
@@ -726,6 +794,8 @@ struct UnionMode {
 class ARROW_EXPORT UnionType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::UNION;
+
+  static constexpr const char* type_name() { return "union"; }
 
   UnionType(const std::vector<std::shared_ptr<Field>>& fields,
             const std::vector<uint8_t>& type_codes,
@@ -779,6 +849,8 @@ class ARROW_EXPORT Date32Type : public DateType {
   static constexpr Type::type type_id = Type::DATE32;
   static constexpr DateUnit UNIT = DateUnit::DAY;
 
+  static constexpr const char* type_name() { return "date32"; }
+
   using c_type = int32_t;
 
   Date32Type();
@@ -796,6 +868,8 @@ class ARROW_EXPORT Date64Type : public DateType {
  public:
   static constexpr Type::type type_id = Type::DATE64;
   static constexpr DateUnit UNIT = DateUnit::MILLI;
+
+  static constexpr const char* type_name() { return "date64"; }
 
   using c_type = int64_t;
 
@@ -834,6 +908,8 @@ class ARROW_EXPORT Time32Type : public TimeType {
   static constexpr Type::type type_id = Type::TIME32;
   using c_type = int32_t;
 
+  static constexpr const char* type_name() { return "time32"; }
+
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
   explicit Time32Type(TimeUnit::type unit = TimeUnit::MILLI);
@@ -849,6 +925,8 @@ class ARROW_EXPORT Time64Type : public TimeType {
  public:
   static constexpr Type::type type_id = Type::TIME64;
   using c_type = int64_t;
+
+  static constexpr const char* type_name() { return "time64"; }
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
@@ -898,6 +976,8 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
   typedef int64_t c_type;
   static constexpr Type::type type_id = Type::TIMESTAMP;
 
+  static constexpr const char* type_name() { return "timestamp"; }
+
   int bit_width() const override { return static_cast<int>(sizeof(int64_t) * CHAR_BIT); }
 
   explicit TimestampType(TimeUnit::type unit = TimeUnit::MILLI)
@@ -936,6 +1016,8 @@ class ARROW_EXPORT MonthIntervalType : public IntervalType {
   using c_type = int32_t;
   static constexpr Type::type type_id = Type::INTERVAL;
 
+  static constexpr const char* type_name() { return "month_interval"; }
+
   IntervalType::type interval_type() const override { return IntervalType::MONTHS; }
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
@@ -961,6 +1043,9 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
   static_assert(sizeof(DayMilliseconds) == 8,
                 "DayMilliseconds struct assumed to be of size 8 bytes");
   static constexpr Type::type type_id = Type::INTERVAL;
+
+  static constexpr const char* type_name() { return "day_time_interval"; }
+
   IntervalType::type interval_type() const override { return IntervalType::DAY_TIME; }
 
   DayTimeIntervalType() : IntervalType() {}
@@ -979,6 +1064,8 @@ class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
 
   static constexpr Type::type type_id = Type::DURATION;
   using c_type = int64_t;
+
+  static constexpr const char* type_name() { return "duration"; }
 
   int bit_width() const override { return static_cast<int>(sizeof(int64_t) * CHAR_BIT); }
 
@@ -1003,6 +1090,8 @@ class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
 class ARROW_EXPORT DictionaryType : public FixedWidthType {
  public:
   static constexpr Type::type type_id = Type::DICTIONARY;
+
+  static constexpr const char* type_name() { return "dictionary"; }
 
   DictionaryType(const std::shared_ptr<DataType>& index_type,
                  const std::shared_ptr<DataType>& value_type, bool ordered = false);
@@ -1145,6 +1234,14 @@ std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_type);
 /// \brief Create a ListType instance from its child DataType
 ARROW_EXPORT
 std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type);
+
+/// \brief Create a LargeListType instance from its child Field type
+ARROW_EXPORT
+std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_type);
+
+/// \brief Create a LargeListType instance from its child DataType
+ARROW_EXPORT
+std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type);
 
 /// \brief Create a MapType instance from its key and value DataTypes
 ARROW_EXPORT

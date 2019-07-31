@@ -47,6 +47,11 @@ table Struct_ {
 table List {
 }
 
+/// Same as List, but with 64-bit offsets, allowing to represent
+/// extremely large data values.
+table LargeList {
+}
+
 table FixedSizeList {
   /// Number of list items per value
   listSize: int;
@@ -248,6 +253,7 @@ union Type {
   Duration,
   LargeBinary,
   LargeUtf8,
+  LargeList,
 }
 
 /// ----------------------------------------------------------------------

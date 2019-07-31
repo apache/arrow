@@ -190,13 +190,21 @@ struct ARROW_EXPORT Decimal128Scalar : public Scalar {
                    bool is_valid = true);
 };
 
-struct ARROW_EXPORT ListScalar : public Scalar {
+struct ARROW_EXPORT BaseListScalar : public Scalar {
   std::shared_ptr<Array> value;
 
-  ListScalar(const std::shared_ptr<Array>& value, const std::shared_ptr<DataType>& type,
-             bool is_valid = true);
+  BaseListScalar(const std::shared_ptr<Array>& value,
+                 const std::shared_ptr<DataType>& type, bool is_valid = true);
 
-  explicit ListScalar(const std::shared_ptr<Array>& value, bool is_valid = true);
+  BaseListScalar(const std::shared_ptr<Array>& value, bool is_valid);
+};
+
+struct ARROW_EXPORT ListScalar : public BaseListScalar {
+  using BaseListScalar::BaseListScalar;
+};
+
+struct ARROW_EXPORT LargeListScalar : public BaseListScalar {
+  using BaseListScalar::BaseListScalar;
 };
 
 struct ARROW_EXPORT MapScalar : public Scalar {

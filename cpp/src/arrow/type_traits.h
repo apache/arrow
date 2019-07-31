@@ -299,6 +299,20 @@ struct TypeTraits<ListType> {
   using ArrayType = ListArray;
   using BuilderType = ListBuilder;
   using ScalarType = ListScalar;
+  using OffsetType = Int32Type;
+  using OffsetArrayType = Int32Array;
+  using OffsetBuilderType = Int32Builder;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<LargeListType> {
+  using ArrayType = LargeListArray;
+  using BuilderType = LargeListBuilder;
+  using ScalarType = LargeListScalar;
+  using OffsetType = Int64Type;
+  using OffsetArrayType = Int64Array;
+  using OffsetBuilderType = Int64Builder;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -469,8 +483,16 @@ using enable_if_fixed_size_binary =
     typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value, R>::type;
 
 template <typename T, typename R = void>
+using enable_if_base_list =
+    typename std::enable_if<std::is_base_of<BaseListType, T>::value, R>::type;
+
+template <typename T, typename R = void>
 using enable_if_list =
     typename std::enable_if<std::is_base_of<ListType, T>::value, R>::type;
+
+template <typename T, typename R = void>
+using enable_if_large_list =
+    typename std::enable_if<std::is_base_of<LargeListType, T>::value, R>::type;
 
 template <typename T, typename R = void>
 using enable_if_fixed_size_list =

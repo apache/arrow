@@ -145,7 +145,9 @@ TEST(TestJsonSchemaWriter, FlatTypes) {
       field("f16", timestamp(TimeUnit::NANO)),
       field("f17", time64(TimeUnit::MICRO)),
       field("f18", union_({field("u1", int8()), field("u2", time32(TimeUnit::MILLI))},
-                          {0, 1}, UnionMode::DENSE))};
+                          {0, 1}, UnionMode::DENSE)),
+      field("f19", large_list(uint8())),
+  };
 
   Schema schema(fields);
   TestSchemaRoundTrip(schema);
@@ -194,15 +196,24 @@ TEST(TestJsonArrayWriter, NestedTypes) {
 
   // List
   std::vector<bool> list_is_valid = {true, false, true, true, true};
-  std::vector<int32_t> offsets = {0, 0, 0, 1, 4, 7};
-
   std::shared_ptr<Buffer> list_bitmap;
   ASSERT_OK(GetBitmapFromVector(list_is_valid, &list_bitmap));
+  std::vector<int32_t> offsets = {0, 0, 0, 1, 4, 7};
   std::shared_ptr<Buffer> offsets_buffer = Buffer::Wrap(offsets);
+  {
+    ListArray list_array(list(value_type), 5, offsets_buffer, values_array, list_bitmap,
+                         1);
+    TestArrayRoundTrip(list_array);
+  }
 
-  ListArray list_array(list(value_type), 5, offsets_buffer, values_array, list_bitmap, 1);
-
-  TestArrayRoundTrip(list_array);
+  // LargeList
+  std::vector<int64_t> large_offsets = {0, 0, 0, 1, 4, 7};
+  std::shared_ptr<Buffer> large_offsets_buffer = Buffer::Wrap(large_offsets);
+  {
+    LargeListArray list_array(large_list(value_type), 5, large_offsets_buffer,
+                              values_array, list_bitmap, 1);
+    TestArrayRoundTrip(list_array);
+  }
 
   // Map
   auto map_type = map(utf8(), int32());
