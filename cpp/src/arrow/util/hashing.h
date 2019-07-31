@@ -204,7 +204,7 @@ class HashTable {
 
   HashTable(MemoryPool* pool, uint64_t capacity) : entries_builder_(pool) {
     DCHECK_NE(pool, nullptr);
-    capacity = std::max(capacity, 512UL) * kLoadFactor;
+    capacity = std::max(capacity, uint64_t(512UL)) * kLoadFactor;
     capacity_ = BitUtil::NextPower2(capacity);
     capacity_mask_ = capacity_ - 1;
     size_ = 0;
@@ -669,7 +669,7 @@ class BinaryMemoTable : public MemoTable {
     return static_cast<int32_t>(hash_table_.size() + (GetNull() != kKeyNotFound));
   }
 
-  int32_t values_size() const { return binary_builder_.value_data_length(); }
+  int64_t values_size() const { return binary_builder_.value_data_length(); }
 
   // Copy (n + 1) offsets starting from index `start` into `out_data`
   template <class Offset>

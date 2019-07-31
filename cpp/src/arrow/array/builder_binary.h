@@ -290,9 +290,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
     return value_data_builder_.data() + offset;
   }
 
-  int32_t offset(int64_t i) const {
-    return offsets_data()[i];
-  }
+  int32_t offset(int64_t i) const { return offsets_data()[i]; }
 
   /// Temporary access to a value.
   ///
