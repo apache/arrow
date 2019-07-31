@@ -163,6 +163,7 @@ int32 utf8_length(int64 context, const char* data, int32 data_len);
 date64 castDATE_utf8(int64_t execution_context, const char* input, int32 length);
 
 timestamp castTIMESTAMP_utf8(int64_t execution_context, const char* input, int32 length);
+timestamp castTIMESTAMP_date64(date64);
 
 }  // extern "C"
 

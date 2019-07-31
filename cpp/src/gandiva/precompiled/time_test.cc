@@ -89,6 +89,9 @@ TEST(TestTime, TestCastTimestamp) {
             -1187308799080);
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1857-02-11 20:31:40.920 -05:30", 30),
             -3562264699080);
+  EXPECT_EQ(castTIMESTAMP_date64(
+                castDATE_utf8(context_ptr, "2000-09-23 9:45:30.920 +08:00", 29)),
+            castTIMESTAMP_utf8(context_ptr, "2000-09-23 0:00:00.000 +00:00", 29));
 }
 
 #ifndef _WIN32

@@ -686,4 +686,7 @@ timestamp castTIMESTAMP_utf8(int64_t context, const char* input, int32 length) {
   }
   return std::chrono::time_point_cast<milliseconds>(date_time).time_since_epoch().count();
 }
+
+timestamp castTIMESTAMP_date64(date64 date_in_millis) { return date_in_millis; }
+
 }  // extern "C"
