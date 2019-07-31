@@ -154,7 +154,7 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
     pending_valid_[pending_pos_] = 1;
     ++pending_pos_;
 
-    if (v + expand_int_size_addend_ & expand_int_size_mask_) {
+    if ((v + expand_int_size_addend_) & expand_int_size_mask_) {
       return CommitPendingData();
     }
     if (ARROW_PREDICT_FALSE(pending_pos_ >= pending_size_)) {
