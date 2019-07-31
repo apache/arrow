@@ -68,29 +68,11 @@ AdaptiveIntBuilder::AdaptiveIntBuilder(MemoryPool* pool)
 Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(CommitPendingData());
 
-  std::shared_ptr<DataType> output_type;
-  switch (int_size_) {
-    case 1:
-      output_type = int8();
-      break;
-    case 2:
-      output_type = int16();
-      break;
-    case 4:
-      output_type = int32();
-      break;
-    case 8:
-      output_type = int64();
-      break;
-    default:
-      return Status::NotImplemented("Only ints of size 1,2,4,8 are supported");
-  }
-
   std::shared_ptr<Buffer> null_bitmap;
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
   RETURN_NOT_OK(TrimBuffer(length_ * int_size_, data_.get()));
 
-  *out = ArrayData::Make(output_type, length_, {null_bitmap, data_}, null_count_);
+  *out = ArrayData::Make(type_, length_, {null_bitmap, data_}, null_count_);
 
   data_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
@@ -268,29 +250,11 @@ AdaptiveUIntBuilder::AdaptiveUIntBuilder(MemoryPool* pool)
 Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(CommitPendingData());
 
-  std::shared_ptr<DataType> output_type;
-  switch (int_size_) {
-    case 1:
-      output_type = uint8();
-      break;
-    case 2:
-      output_type = uint16();
-      break;
-    case 4:
-      output_type = uint32();
-      break;
-    case 8:
-      output_type = uint64();
-      break;
-    default:
-      return Status::NotImplemented("Only ints of size 1,2,4,8 are supported");
-  }
-
   std::shared_ptr<Buffer> null_bitmap;
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
   RETURN_NOT_OK(TrimBuffer(length_ * int_size_, data_.get()));
 
-  *out = ArrayData::Make(output_type, length_, {null_bitmap, data_}, null_count_);
+  *out = ArrayData::Make(type_, length_, {null_bitmap, data_}, null_count_);
 
   data_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
