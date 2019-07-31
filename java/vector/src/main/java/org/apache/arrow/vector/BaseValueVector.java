@@ -213,5 +213,15 @@ public abstract class BaseValueVector implements ValueVector {
     final ReferenceManager referenceManager = srcBuffer.getReferenceManager();
     return referenceManager.transferOwnership(srcBuffer, targetAllocator).getTransferredBuffer();
   }
+
+  @Override
+  public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
+    throw new UnsupportedOperationException();
+  }
 }
 
