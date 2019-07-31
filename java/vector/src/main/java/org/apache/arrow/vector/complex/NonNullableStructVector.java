@@ -303,7 +303,7 @@ public class NonNullableStructVector extends AbstractStructVector {
     if (to == null) {
       return false;
     }
-    if (this.getMinorType() != to.getMinorType()) {
+    if (!this.getField().getType().equals(to.getField().getType())) {
       return false;
     }
     NonNullableStructVector that = (NonNullableStructVector) to;
