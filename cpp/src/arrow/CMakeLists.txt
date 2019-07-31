@@ -178,6 +178,7 @@ if(ARROW_COMPUTE)
       compute/kernels/hash.cc
       compute/kernels/filter.cc
       compute/kernels/mean.cc
+      compute/kernels/add.cc
       compute/kernels/sum.cc
       compute/kernels/take.cc
       compute/kernels/util-internal.cc

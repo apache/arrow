@@ -66,6 +66,11 @@ void AssertTsEqual(const T& expected, const T& actual) {
 }
 
 void AssertArraysEqual(const Array& expected, const Array& actual) {
+  if (!expected.type()->Equals(actual.type())) {
+    FAIL() << "Got: \n"
+           << actual.type()->name() << "\nExpected: \n"
+           << expected.type()->name();
+  }
   AssertTsEqual(expected, actual);
 }
 

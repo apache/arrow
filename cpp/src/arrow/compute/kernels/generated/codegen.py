@@ -31,10 +31,22 @@ NUMERIC_TYPES = ['Boolean'] + INTEGER_TYPES + FLOATING_TYPES
 
 DATE_TIME_TYPES = ['Date32', 'Date64', 'Time32', 'Time64', 'Timestamp']
 
+ARITHMETIC_TYPES_MAP = {
+    'INT8': 'int8_t',
+    'UINT8': 'uint8_t',
+    'INT16': 'int16_t',
+    'UINT16': 'uint16_t',
+    'INT32': 'int32_t',
+    'UINT32': 'uint32_t',
+    'INT64': 'int64_t',
+    'UINT64': 'uint64_t',
+    'FLOAT': 'float',
+    'DOUBLE': 'double',
+}
+
 
 def _format_type(name):
     return name + "Type"
-
 
 class CastCodeGenerator(object):
 
@@ -100,6 +112,33 @@ def generate_cast_code():
     return '\n'.join(blocks)
 
 
+def generate_arithmetic_code():
+    buf = io.StringIO()
+    print("#define ARITHMETIC_TYPESWITCH(OUT, TYPE, T1, T2, T3) \\", file=buf)
+
+    def generate_kernel_instantiation(tab, typs):
+        print("{0}OUT = new TYPE<{1}>(T1); \\".format("  " * (tab), 
+            ', '.join(typs)), file=buf)
+
+    def generate_type_switch(tab, cur_typ, typs):
+        if(len(typs) == 3):
+            generate_kernel_instantiation(tab+1, typs)
+            return
+
+        print("{0}switch({1}->id()) {{ \\".format("  " * (tab + 1), "T" + str(cur_typ)), file=buf)
+        for t, ctyp in ARITHMETIC_TYPES_MAP.items():
+            print("{0}case Type::{1}: \\".format("  " * (tab + 2), t), file=buf)
+            generate_type_switch(tab+2, cur_typ+1, typs + [ctyp])
+            print("{0}break; \\".format("  " * (tab + 3)), file=buf)
+        print("{0}default: \\".format("  " * (tab + 2)), file=buf)
+        print("{0}OUT = NULLPTR; \\".format("  " * (tab + 3)), file=buf)
+        print("{0}break; \\".format("  " * (tab + 2)), file=buf)
+        print("{0}}} \\".format("  " * (tab + 1)), file=buf)
+
+    generate_type_switch(0, 1, [])
+    print(file=buf)
+    return buf.getvalue()    
+
 def write_file_with_preamble(path, code):
     preamble = """// Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
@@ -132,6 +171,9 @@ def write_files():
     cast_code = generate_cast_code()
     write_file_with_preamble(os.path.join(here, 'cast-codegen-internal.h'),
                              cast_code)
+    arithmetic_code = generate_arithmetic_code()
+    write_file_with_preamble(os.path.join(here, 'arithmetic-codegen-internal.h'),
+                            arithmetic_code)
 
 
 if __name__ == '__main__':
