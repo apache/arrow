@@ -20,11 +20,13 @@
 #include <algorithm>
 #include <limits>
 #include <memory>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "arrow/builder.h"
 #include "arrow/compute/context.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
@@ -37,21 +39,19 @@ namespace compute {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
+// For non-binary builders, use regular value append
 template <typename Builder, typename Scalar>
-static Status UnsafeAppend(Builder* builder, Scalar&& value) {
+static typename std::enable_if<
+    !std::is_base_of<BaseBinaryType, typename Builder::TypeClass>::value, Status>::type
+UnsafeAppend(Builder* builder, Scalar&& value) {
   builder->UnsafeAppend(std::forward<Scalar>(value));
   return Status::OK();
 }
 
-// Use BinaryBuilder::UnsafeAppend, but reserve byte storage first
-static Status UnsafeAppend(BinaryBuilder* builder, util::string_view value) {
-  RETURN_NOT_OK(builder->ReserveData(static_cast<int64_t>(value.size())));
-  builder->UnsafeAppend(value);
-  return Status::OK();
-}
-
-// Use StringBuilder::UnsafeAppend, but reserve character storage first
-static Status UnsafeAppend(StringBuilder* builder, util::string_view value) {
+// For binary builders, need to reserve byte storage first
+template <typename Builder>
+static enable_if_base_binary<typename Builder::TypeClass, Status> UnsafeAppend(
+    Builder* builder, util::string_view value) {
   RETURN_NOT_OK(builder->ReserveData(static_cast<int64_t>(value.size())));
   builder->UnsafeAppend(value);
   return Status::OK();

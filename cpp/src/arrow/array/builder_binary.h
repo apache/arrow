@@ -387,6 +387,8 @@ class ARROW_EXPORT LargeStringBuilder : public LargeBinaryBuilder {
 
 class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
  public:
+  using TypeClass = FixedSizeBinaryType;
+
   FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
                          MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 

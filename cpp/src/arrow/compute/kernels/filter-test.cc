@@ -285,18 +285,26 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
   }
 }
 
-class TestFilterKernelWithString : public TestFilterKernel<StringType> {
+using StringTypes =
+    ::testing::Types<BinaryType, StringType, LargeBinaryType, LargeStringType>;
+
+template <typename TypeClass>
+class TestFilterKernelWithString : public TestFilterKernel<TypeClass> {
  protected:
+  std::shared_ptr<DataType> value_type() {
+    return TypeTraits<TypeClass>::type_singleton();
+  }
+
   void AssertFilter(const std::string& values, const std::string& filter,
                     const std::string& expected) {
-    TestFilterKernel<StringType>::AssertFilter(utf8(), values, filter, expected);
+    TestFilterKernel<TypeClass>::AssertFilter(value_type(), values, filter, expected);
   }
   void AssertFilterDictionary(const std::string& dictionary_values,
                               const std::string& dictionary_filter,
                               const std::string& filter,
                               const std::string& expected_filter) {
-    auto dict = ArrayFromJSON(utf8(), dictionary_values);
-    auto type = dictionary(int8(), utf8());
+    auto dict = ArrayFromJSON(value_type(), dictionary_values);
+    auto type = dictionary(int8(), value_type());
     std::shared_ptr<Array> values, actual, expected;
     ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), dictionary_filter),
                                           dict, &values));
@@ -307,13 +315,15 @@ class TestFilterKernelWithString : public TestFilterKernel<StringType> {
   }
 };
 
-TEST_F(TestFilterKernelWithString, FilterString) {
+TYPED_TEST_CASE(TestFilterKernelWithString, StringTypes);
+
+TYPED_TEST(TestFilterKernelWithString, FilterString) {
   this->AssertFilter(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["b"])");
   this->AssertFilter(R"([null, "b", "c"])", "[0, 1, 0]", R"(["b"])");
   this->AssertFilter(R"(["a", "b", "c"])", "[null, 1, 0]", R"([null, "b"])");
 }
 
-TEST_F(TestFilterKernelWithString, FilterDictionary) {
+TYPED_TEST(TestFilterKernelWithString, FilterDictionary) {
   auto dict = R"(["a", "b", "c", "d", "e"])";
   this->AssertFilterDictionary(dict, "[3, 4, 2]", "[0, 1, 0]", "[4]");
   this->AssertFilterDictionary(dict, "[null, 4, 2]", "[0, 1, 0]", "[4]");
