@@ -26,7 +26,15 @@ import org.apache.avro.io.Decoder;
  */
 public interface Consumer {
 
+  /**
+   * Consume a specific type value from avro decoder and write it to vector.
+   * @param decoder avro decoder to read data
+   * @throws IOException on error
+   */
   void consume(Decoder decoder) throws IOException;
 
-  void movePosition();
+  /**
+   * Add null value to vector by making writer position + 1.
+   */
+  void addNull();
 }

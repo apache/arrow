@@ -42,11 +42,11 @@ public class AvroBooleanConsumer implements Consumer {
   @Override
   public void consume(Decoder decoder) throws IOException {
     writer.writeBit(decoder.readBoolean() ? 1 : 0);
-    movePosition();
+    writer.setPosition(writer.getPosition() + 1);
   }
 
   @Override
-  public void movePosition() {
+  public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }

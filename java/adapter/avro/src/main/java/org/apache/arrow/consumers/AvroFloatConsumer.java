@@ -42,11 +42,11 @@ public class AvroFloatConsumer implements Consumer {
   @Override
   public void consume(Decoder decoder) throws IOException {
     writer.writeFloat4(decoder.readFloat());
-    movePosition();
+    writer.setPosition(writer.getPosition() + 1);
   }
 
   @Override
-  public void movePosition() {
+  public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }

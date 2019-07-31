@@ -47,11 +47,11 @@ public class AvroBytesConsumer implements Consumer {
   @Override
   public void consume(Decoder decoder) throws IOException {
     writeValue(decoder);
-    movePosition();
+    writer.setPosition(writer.getPosition() + 1);
   }
 
   @Override
-  public void movePosition() {
+  public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
 

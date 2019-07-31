@@ -45,12 +45,12 @@ public class NullablePrimitiveTypeConsumer implements Consumer {
     if (nullIndex != decoder.readInt()) {
       delegate.consume(decoder);
     } else {
-      movePosition();
+      addNull();
     }
   }
 
   @Override
-  public void movePosition() {
-    delegate.movePosition();
+  public void addNull() {
+    delegate.addNull();
   }
 }

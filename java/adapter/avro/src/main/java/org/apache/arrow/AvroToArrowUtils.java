@@ -114,8 +114,8 @@ public class AvroToArrowUtils {
         throw new RuntimeException("Can't convert avro type %s to arrow type." + type.getName());
     }
 
-    final FieldType fieldType =  new FieldType(/*nullable=*/nullable, arrowType, /*dictionary=*/null,
-        /*metadata=*/getMetaData(schema));
+    final FieldType fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null,
+        getMetaData(schema));
     return new Field(name, fieldType, null);
   }
 

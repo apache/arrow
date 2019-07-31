@@ -42,11 +42,11 @@ public class AvroLongConsumer implements Consumer {
   @Override
   public void consume(Decoder decoder) throws IOException {
     writer.writeBigInt(decoder.readLong());
-    movePosition();
+    writer.setPosition(writer.getPosition() + 1);
   }
 
   @Override
-  public void movePosition() {
+  public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }
