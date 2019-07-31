@@ -34,9 +34,9 @@ namespace org.apache.arrow.flatbuf;
 table FrameOfReferenceIntEncoding {
   /// The value that all values in the buffer are relative to.
   reference_value: long = 0;
-  /// The range of integers the set may contain. Unsigned integers up to 32 bit
-  /// and signed integers up to 64 bit are supported. (Per definitions only,
-  /// multiples of 8 bits are supported).
+  /// The range of integers the set may contain. Per definition of "Int", only
+  /// multiples of 8 bits are supported (up-to 64-bits). Endianess is governed
+  /// by the Endianess defined in the schema of the stream.
   offset_type : Int;
 }
 
@@ -86,9 +86,9 @@ table EncodedBuffer {
   /// after all compression/encodings have been applied).
   buffer : Buffer;
 
-  /// Encodings are meant to enable more efficient processing of the buffer
-  /// by representing data in manner that makes better use of CPU cycles.
-  /// In many cases encodings will also reduce the size of the buffer.
+  /// Encodings, when suitably chosen, enable more efficient
+  /// processing of data.
+  /// In many cases encodings will reduce the size of the buffer.
   encoding : BufferEncodingType;
 }
 
@@ -101,7 +101,7 @@ table EncodedBuffer {
 /// -------------------------------
 
 /// An extra buffer is added preceding all the other buffers in the depth-first
-/// traversal of the array.  The buffer holds indexes indicating where runs
+/// traversal of the array.  The buffer holds indices indicating where runs
 /// end (the last value is always equal to the original Array's length).
 
 /// The remaining buffers model an array with a logical length corresponding to the number
@@ -177,16 +177,16 @@ table SparseRecordBatch {
   length: long;
 
   /// Nodes correspond to the pre-ordered flattened logical schema.  Not all
-  /// fields are necessarily present.  Specifically, "empty" fields may be
-  /// elided if they are either:
+  /// fields have corresponding entries in the list.  Specifically, "empty"
+  /// fields may be / elided if they are either:
   ///    - a top-level field in the schema,
   ///    - a child field of a struct field
   ///    - a child of a union-field, that is not referenced by the type buffer
   ///    - their parent field was elided.
   nodes: [SparseFieldNode];
 
-  /// Buffers correspond to the pre-ordered flattened buffer FieldNodeMetadata
-  /// nodes above.
+  /// Buffers correspond to the pre-ordered flattened buffer traversal of
+  /// SparseFieldNode "nodes" above.
   ///
   /// The number of buffers appended to this list depends on the schema and
   /// encoding.
@@ -216,10 +216,6 @@ table DictionaryBatch {
 }
 
 table Xxhash64 {
-}
-
-table ExtensionDigest {
-  configuration : [KeyValue];
 }
 
 // Types of digests accepted.
