@@ -40,6 +40,7 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListReader;
+import org.apache.arrow.vector.complex.impl.UnionFixedSizeListWriter;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -265,6 +266,24 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
 
   public FieldVector getDataVector() {
     return vector;
+  }
+
+  /**
+   * Start a new value in the list vector.
+   *
+   * @param index index of the value to start
+   */
+  public int startNewValue(int index) {
+    while (index >= getValidityBufferValueCapacity()) {
+      reallocValidityBuffer();
+    }
+
+    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    return index * listSize;
+  }
+
+  public UnionFixedSizeListWriter getWriter() {
+    return new UnionFixedSizeListWriter(this);
   }
 
   @Override
