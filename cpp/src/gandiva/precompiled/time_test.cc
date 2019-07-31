@@ -274,6 +274,9 @@ TEST(TestTime, TimeStampAdd) {
   EXPECT_EQ(date_add_int64_timestamp(4, StringToTimestamp("2000-02-27 00:00:00")),
             StringToTimestamp("2000-03-02 00:00:00"));
 
+  EXPECT_EQ(add_date64_int64(StringToTimestamp("2000-02-27 00:00:00"), 4),
+            StringToTimestamp("2000-03-02 00:00:00"));
+
   // date_sub
   EXPECT_EQ(date_sub_int32_timestamp(7, StringToTimestamp("2000-05-01 00:00:00")),
             StringToTimestamp("2000-04-24 00:00:00"));
