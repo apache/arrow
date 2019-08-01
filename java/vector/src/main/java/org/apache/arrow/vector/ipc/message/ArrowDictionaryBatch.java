@@ -17,8 +17,6 @@
 
 package org.apache.arrow.vector.ipc.message;
 
-import java.nio.ByteBuffer;
-
 import org.apache.arrow.flatbuf.DictionaryBatch;
 
 import com.google.flatbuffers.FlatBufferBuilder;
@@ -72,15 +70,5 @@ public class ArrowDictionaryBatch implements ArrowMessage {
   @Override
   public void close() {
     dictionary.close();
-  }
-
-  /** Returns the serialized flatbuffer bytes for this object. */
-  public ByteBuffer toSerializedFlatBuffer() {
-    FlatBufferBuilder builder = new FlatBufferBuilder();
-    int batchOffset = writeTo(builder);
-    return MessageSerializer.serializeMessage(builder,
-        org.apache.arrow.flatbuf.MessageHeader.DictionaryBatch,
-        batchOffset,
-        computeBodyLength());
   }
 }

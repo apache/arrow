@@ -42,12 +42,18 @@ public class MessageMetadataResult {
     this.message = message;
   }
 
+  public static MessageMetadataResult create(ByteBuffer buffer) {
+    return new MessageMetadataResult(-1, buffer, Message.getRootAsMessage(buffer));
+  }
 
   /**
    * Get the length of the message metadata in bytes, not including the body length.
    *
    * @return number of bytes in the message metadata buffer.
+   *
+   * @deprecated unused.
    */
+  @Deprecated
   public int getMessageLength() {
     return messageLength;
   }
@@ -55,10 +61,18 @@ public class MessageMetadataResult {
   /**
    * Get the buffer containing the raw message metadata bytes, not including the message body data.
    *
-   * @return buffer containing the message metadata
+   * @return buffer containing the message metadata.
    */
   public ByteBuffer getMessageBuffer() {
     return messageBuffer;
+  }
+
+  public int bytesAfterMessage() {
+    return message.getByteBuffer().remaining();
+  }
+
+  public  byte headerType() {
+    return message.headerType();
   }
 
   /**

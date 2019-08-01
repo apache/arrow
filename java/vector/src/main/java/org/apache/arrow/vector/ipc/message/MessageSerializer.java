@@ -121,15 +121,22 @@ public class MessageSerializer {
     long start = out.getCurrentPosition();
     assert start % 8 == 0;
 
-    FlatBufferBuilder builder = new FlatBufferBuilder();
-    int schemaOffset = schema.getSchema(builder);
-    ByteBuffer serializedMessage = serializeMessage(builder, MessageHeader.Schema, schemaOffset, 0);
+    ByteBuffer serializedMessage = serializeMetadata(schema);
 
     int messageLength = serializedMessage.remaining();
 
     int bytesWritten = writeMessageBuffer(out, messageLength, serializedMessage);
     assert bytesWritten % 8 == 0;
     return bytesWritten;
+  }
+
+  /**
+   * Returns the serialized flatbuffer bytes of the schema wrapped in a message table.
+   */
+  public static ByteBuffer serializeMetadata(Schema schema) {
+    FlatBufferBuilder builder = new FlatBufferBuilder();
+    int schemaOffset = schema.getSchema(builder);
+    return MessageSerializer.serializeMessage(builder, org.apache.arrow.flatbuf.MessageHeader.Schema, schemaOffset, 0);
   }
 
   /**
@@ -178,10 +185,7 @@ public class MessageSerializer {
     int bodyLength = batch.computeBodyLength();
     assert bodyLength % 8 == 0;
 
-    FlatBufferBuilder builder = new FlatBufferBuilder();
-    int batchOffset = batch.writeTo(builder);
-
-    ByteBuffer serializedMessage = serializeMessage(builder, MessageHeader.RecordBatch, batchOffset, bodyLength);
+    ByteBuffer serializedMessage = serializeMetadata(batch);
 
     int metadataLength = serializedMessage.remaining();
 
@@ -232,6 +236,16 @@ public class MessageSerializer {
     }
     out.align();
     return out.getCurrentPosition() - bufferStart;
+  }
+
+  /**
+   * Returns the serialized form of {@link RecordBatch} wrapped in a {@link org.apache.arrow.flatbuf.Message}.
+   */
+  public static ByteBuffer serializeMetadata(ArrowRecordBatch batch) {
+    FlatBufferBuilder builder = new FlatBufferBuilder();
+    int batchOffset = batch.writeTo(builder);
+    return serializeMessage(builder, org.apache.arrow.flatbuf.MessageHeader.RecordBatch, batchOffset,
+            batch.computeBodyLength());
   }
 
   /**
@@ -346,7 +360,8 @@ public class MessageSerializer {
   /**
    * Reads a record batch based on the metadata in serializedMessage and the underlying data buffer.
    */
-  public static ArrowRecordBatch deserializeRecordBatch(ArrowMessageMetadata serializedMessage, ArrowBuf underlying) throws
+  public static ArrowRecordBatch deserializeRecordBatch(MessageMetadataResult serializedMessage,
+      ArrowBuf underlying) throws
       IOException {
     return deserializeRecordBatch(serializedMessage.getMessage(), underlying);
   }
@@ -364,10 +379,7 @@ public class MessageSerializer {
     int bodyLength = batch.computeBodyLength();
     assert bodyLength % 8 == 0;
 
-    FlatBufferBuilder builder = new FlatBufferBuilder();
-    int batchOffset = batch.writeTo(builder);
-
-    ByteBuffer serializedMessage = serializeMessage(builder, MessageHeader.DictionaryBatch, batchOffset, bodyLength);
+    ByteBuffer serializedMessage = serializeMetadata(batch);
 
     int metadataLength = serializedMessage.remaining();
 
@@ -389,6 +401,16 @@ public class MessageSerializer {
 
     // Metadata size in the Block account for the size prefix
     return new ArrowBlock(start, metadataLength + 4, bufferLength);
+  }
+
+  /** Returns the serialized flatbuffer bytes for this object. */
+  public static ByteBuffer serializeMetadata(ArrowDictionaryBatch batch) {
+    FlatBufferBuilder builder = new FlatBufferBuilder();
+    int batchOffset = batch.writeTo(builder);
+    return MessageSerializer.serializeMessage(builder,
+        org.apache.arrow.flatbuf.MessageHeader.DictionaryBatch,
+        batchOffset,
+        batch.computeBodyLength());
   }
 
   /**
@@ -416,7 +438,7 @@ public class MessageSerializer {
    * @return the deserialized ArrowDictionaryBatch
    * @throws IOException if something went wrong
    */
-  public static ArrowDictionaryBatch deserializeDictionaryBatch(ArrowMessageMetadata message, ArrowBuf bodyBuffer)
+  public static ArrowDictionaryBatch deserializeDictionaryBatch(MessageMetadataResult message, ArrowBuf bodyBuffer)
       throws IOException {
     return deserializeDictionaryBatch(message.getMessage(), bodyBuffer);
   }

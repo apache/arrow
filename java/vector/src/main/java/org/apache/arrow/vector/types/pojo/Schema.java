@@ -35,8 +35,7 @@ import org.apache.arrow.flatbuf.KeyValue;
 import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.ipc.message.ArrowMessageMetadata;
-import org.apache.arrow.vector.ipc.message.MessageSerializer;
+import org.apache.arrow.vector.ipc.message.MessageMetadataResult;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -87,7 +86,7 @@ public class Schema {
    * <p>The message must have the schema field set or an
    * exception will be raised.
    */
-  public static Schema deserializeFromMessage(ArrowMessageMetadata buffer) {
+  public static Schema deserializeFromMessage(MessageMetadataResult buffer) {
     org.apache.arrow.flatbuf.Schema schema = new org.apache.arrow.flatbuf.Schema();
     org.apache.arrow.flatbuf.Message message = buffer.getMessage();
     Preconditions.checkArgument(message.headerType() == MessageHeader.Schema, "type %s",
@@ -112,10 +111,6 @@ public class Schema {
     return new Schema(Collections2.immutableListCopy(fields), Collections2.immutableMapCopy(metadata));
   }
 
-  private int fieldsLength() {
-    return fields.size();
-  }
-
   private final List<Field> fields;
   private final Map<String, String> metadata;
 
@@ -135,15 +130,6 @@ public class Schema {
     }
     this.fields = Collections2.immutableListCopy(fieldList);
     this.metadata = metadata == null ? java.util.Collections.emptyMap() : Collections2.immutableMapCopy(metadata);
-  }
-
-  /**
-   * Returns the serialized bytes of the schema wrapped in a message table..
-   */
-  public ByteBuffer toSerializedFlatBuffer() {
-    FlatBufferBuilder builder = new FlatBufferBuilder();
-    int schemaOffset = getSchema(builder);
-    return MessageSerializer.serializeMessage(builder, org.apache.arrow.flatbuf.MessageHeader.Schema, schemaOffset, 0);
   }
 
   public List<Field> getFields() {
