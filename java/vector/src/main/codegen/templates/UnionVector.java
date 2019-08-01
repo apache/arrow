@@ -364,13 +364,16 @@ public class UnionVector implements FieldVector {
     return new TransferImpl((UnionVector) target);
   }
 
-  public void copyFrom(int inIndex, int outIndex, UnionVector from) {
-    from.getReader().setPosition(inIndex);
+  @Override
+  public void copyFrom(int inIndex, int outIndex, ValueVector from) {
+    UnionVector fromCast = (UnionVector) from;
+    fromCast.getReader().setPosition(inIndex);
     getWriter().setPosition(outIndex);
-    ComplexCopier.copy(from.reader, writer);
+    ComplexCopier.copy(fromCast.reader, writer);
   }
 
-  public void copyFromSafe(int inIndex, int outIndex, UnionVector from) {
+  @Override
+  public void copyFromSafe(int inIndex, int outIndex, ValueVector from) {
     copyFrom(inIndex, outIndex, from);
   }
 
