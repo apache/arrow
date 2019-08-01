@@ -144,6 +144,7 @@ set(ARROW_SRCS
     vendored/datetime/tz.cpp)
 
 if(ARROW_JSON)
+  add_subdirectory(json)
   set(ARROW_SRCS
       ${ARROW_SRCS}
       json/options.cc
@@ -379,7 +380,6 @@ add_arrow_benchmark(builder-benchmark)
 add_subdirectory(array)
 add_subdirectory(csv)
 add_subdirectory(filesystem)
-add_subdirectory(json)
 add_subdirectory(io)
 add_subdirectory(util)
 add_subdirectory(vendored)
