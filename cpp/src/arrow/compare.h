@@ -21,7 +21,7 @@
 #define ARROW_COMPARE_H
 
 #include <cstdint>
-#include <iostream>
+#include <iosfwd>
 
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
