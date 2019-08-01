@@ -17,7 +17,7 @@
 
 //! Traits for physical query plan, supporting parallel execution for partitioned relations.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::error::Result;
 use arrow::array::ArrayRef;
@@ -35,13 +35,13 @@ pub trait ExecutionPlan {
 /// Represents a partition of an execution plan that can be executed on a thread
 pub trait Partition: Send + Sync {
     /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<dyn BatchIterator>>;
+    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>>;
 }
 
 /// Iterator over RecordBatch that can be sent between threads
 pub trait BatchIterator: Send + Sync {
     /// Get the next RecordBatch
-    fn next(&self) -> Result<Option<RecordBatch>>;
+    fn next(&mut self) -> Result<Option<RecordBatch>>;
 }
 
 /// Expression that can be evaluated against a RecordBatch

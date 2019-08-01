@@ -20,7 +20,7 @@
 //! of a projection on table `t1` where the expressions `a`, `b`, and `a+b` are the
 //! projection expressions.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::error::Result;
 use crate::execution::physical_plan::{
@@ -99,12 +99,12 @@ struct ProjectionPartition {
 
 impl Partition for ProjectionPartition {
     /// Execute the projection
-    fn execute(&self) -> Result<Arc<dyn BatchIterator>> {
-        Ok(Arc::new(ProjectionIterator {
+    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
+        Ok(Arc::new(Mutex::new(ProjectionIterator {
             schema: self.schema.clone(),
             expr: self.expr.clone(),
             input: self.input.execute()?,
-        }))
+        })))
     }
 }
 
@@ -112,13 +112,14 @@ impl Partition for ProjectionPartition {
 struct ProjectionIterator {
     schema: Arc<Schema>,
     expr: Vec<Arc<dyn PhysicalExpr>>,
-    input: Arc<dyn BatchIterator>,
+    input: Arc<Mutex<dyn BatchIterator>>,
 }
 
 impl BatchIterator for ProjectionIterator {
     /// Get the next batch
-    fn next(&self) -> Result<Option<RecordBatch>> {
-        match self.input.next()? {
+    fn next(&mut self) -> Result<Option<RecordBatch>> {
+        let mut input = self.input.lock().unwrap();
+        match input.next()? {
             Some(batch) => {
                 let arrays: Result<Vec<_>> =
                     self.expr.iter().map(|expr| expr.evaluate(&batch)).collect();
@@ -162,6 +163,12 @@ mod tests {
         let csv = CsvExec::try_new(&path, schema)?;
 
         let projection = ProjectionExec::try_new(vec![], Arc::new(csv))?;
+
+        for partition in projection.partitions()? {
+            let iterator = partition.execute()?;
+            let mut iterator = iterator.lock().unwrap();
+            while let Some(batch) = iterator.next()? {}
+        }
 
         //TODO assertions
 

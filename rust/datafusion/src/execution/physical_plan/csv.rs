@@ -19,7 +19,7 @@
 
 use std::fs;
 use std::fs::File;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::error::Result;
 use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
@@ -27,6 +27,7 @@ use arrow::csv;
 use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
+/// Execution plan for scanning a CSV file
 pub struct CsvExec {
     /// Path to directory containing partitioned CSV files with the same schema
     path: String,
@@ -101,14 +102,14 @@ impl CsvPartition {
 
 impl Partition for CsvPartition {
     /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<dyn BatchIterator>> {
-        Ok(Arc::new(CsvIterator::try_new(
+    fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
+        Ok(Arc::new(Mutex::new(CsvIterator::try_new(
             &self.path,
             self.schema.clone(),
             true,  //TODO: do not hard-code
             &None, //TODO: do not hard-code
-            1024,
-        )?)) //TODO: do not hard-code
+            1024,  //TODO: do not hard-code
+        )?)))
     }
 }
 
@@ -157,8 +158,7 @@ impl CsvIterator {
 
 impl BatchIterator for CsvIterator {
     /// Get the next RecordBatch
-    fn next(&self) -> Result<Option<RecordBatch>> {
-        //Ok(self.reader.next()?)
-        unimplemented!()
+    fn next(&mut self) -> Result<Option<RecordBatch>> {
+        Ok(self.reader.next()?)
     }
 }
