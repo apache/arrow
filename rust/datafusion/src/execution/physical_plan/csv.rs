@@ -31,8 +31,14 @@ use arrow::record_batch::RecordBatch;
 pub struct CsvExec {
     /// Path to directory containing partitioned CSV files with the same schema
     path: String,
-    /// Schema representing the CSV files
+    /// Schema representing the CSV files after the optional projection is applied
     schema: Arc<Schema>,
+    /// Does the CSV file have a header?
+    has_header: bool,
+    /// Optional projection for which columns to load
+    projection: Option<Vec<usize>>,
+    /// Batch size
+    batch_size: usize,
 }
 
 impl ExecutionPlan for CsvExec {
@@ -48,8 +54,13 @@ impl ExecutionPlan for CsvExec {
         let partitions = filenames
             .iter()
             .map(|filename| {
-                Arc::new(CsvPartition::new(&filename, self.schema.clone()))
-                    as Arc<Partition>
+                Arc::new(CsvPartition::new(
+                    &filename,
+                    self.schema.clone(),
+                    self.has_header,
+                    self.projection.clone(),
+                    self.batch_size,
+                )) as Arc<Partition>
             })
             .collect();
         Ok(partitions)
@@ -58,10 +69,29 @@ impl ExecutionPlan for CsvExec {
 
 impl CsvExec {
     /// Create a new execution plan for reading a set of CSV files
-    pub fn try_new(path: &str, schema: Arc<Schema>) -> Result<Self> {
+    pub fn try_new(
+        path: &str,
+        schema: Arc<Schema>,
+        has_header: bool,
+        projection: Option<Vec<usize>>,
+        batch_size: usize,
+    ) -> Result<Self> {
+        let projected_schema = match &projection {
+            Some(p) => {
+                let projected_fields: Vec<Field> =
+                    p.iter().map(|i| schema.fields()[*i].clone()).collect();
+
+                Arc::new(Schema::new(projected_fields))
+            }
+            None => schema,
+        };
+
         Ok(Self {
             path: path.to_string(),
-            schema: schema.clone(),
+            schema: projected_schema,
+            has_header,
+            projection,
+            batch_size,
         })
     }
 
@@ -89,13 +119,28 @@ struct CsvPartition {
     path: String,
     /// Schema representing the CSV file
     schema: Arc<Schema>,
+    /// Does the CSV file have a header?
+    has_header: bool,
+    /// Optional projection for which columns to load
+    projection: Option<Vec<usize>>,
+    /// Batch size
+    batch_size: usize,
 }
 
 impl CsvPartition {
-    fn new(path: &str, schema: Arc<Schema>) -> Self {
+    fn new(
+        path: &str,
+        schema: Arc<Schema>,
+        has_header: bool,
+        projection: Option<Vec<usize>>,
+        batch_size: usize,
+    ) -> Self {
         Self {
             path: path.to_string(),
             schema,
+            has_header,
+            projection,
+            batch_size,
         }
     }
 }
@@ -106,17 +151,15 @@ impl Partition for CsvPartition {
         Ok(Arc::new(Mutex::new(CsvIterator::try_new(
             &self.path,
             self.schema.clone(),
-            true,  //TODO: do not hard-code
-            &None, //TODO: do not hard-code
-            1024,  //TODO: do not hard-code
+            self.has_header,
+            &self.projection,
+            self.batch_size,
         )?)))
     }
 }
 
 /// Iterator over batches
 struct CsvIterator {
-    /// Schema for the batches produced by this iterator
-    schema: Arc<Schema>,
     /// Arrow CSV reader
     reader: csv::Reader<File>,
 }
@@ -139,20 +182,7 @@ impl CsvIterator {
             projection.clone(),
         );
 
-        let projected_schema = match projection {
-            Some(p) => {
-                let projected_fields: Vec<Field> =
-                    p.iter().map(|i| schema.fields()[*i].clone()).collect();
-
-                Arc::new(Schema::new(projected_fields))
-            }
-            None => schema,
-        };
-
-        Ok(Self {
-            schema: projected_schema,
-            reader,
-        })
+        Ok(Self { reader })
     }
 }
 

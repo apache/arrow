@@ -41,7 +41,7 @@ pub struct ProjectionExec {
 
 impl ProjectionExec {
     /// Create a projection on an input
-    fn try_new(
+    pub fn try_new(
         expr: Vec<Arc<dyn PhysicalExpr>>,
         input: Arc<dyn ExecutionPlan>,
     ) -> Result<Self> {
@@ -164,7 +164,7 @@ mod tests {
         let partitions = 4;
         let path = create_partitioned_csv("aggregate_test_100.csv", partitions)?;
 
-        let csv = CsvExec::try_new(&path, schema)?;
+        let csv = CsvExec::try_new(&path, schema, true, None, 1024)?;
 
         let projection =
             ProjectionExec::try_new(vec![Arc::new(Column::new(0))], Arc::new(csv))?;

@@ -29,7 +29,7 @@ pub struct Column {
 }
 
 impl Column {
-    // Create a new column expression
+    /// Create a new column expression
     pub fn new(index: usize) -> Self {
         Self { index }
     }
