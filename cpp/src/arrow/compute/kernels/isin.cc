@@ -81,7 +81,7 @@ struct MemoTableRight {
     return Status::OK();
   }
 
-  Status Reset(MemoryPool *pool) {
+  Status Reset(MemoryPool* pool) {
     memo_table_.reset(new MemoTable(pool, 0));
     return Status::OK();
   }
