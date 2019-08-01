@@ -32,6 +32,9 @@ public class AvroDoubleConsumer implements Consumer {
 
   private final Float8Writer writer;
 
+  /**
+   * Instantiate a AvroDoubleConsumer.
+   */
   public AvroDoubleConsumer(Float8Vector vector) {
     this.writer = new Float8WriterImpl(vector);
   }
@@ -39,6 +42,11 @@ public class AvroDoubleConsumer implements Consumer {
   @Override
   public void consume(Decoder decoder) throws IOException {
     writer.writeFloat8(decoder.readDouble());
+    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }

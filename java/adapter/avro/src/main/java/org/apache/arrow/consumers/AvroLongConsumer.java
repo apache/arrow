@@ -32,6 +32,9 @@ public class AvroLongConsumer implements Consumer {
 
   private final BigIntWriter writer;
 
+  /**
+   * Instantiate a AvroLongConsumer.
+   */
   public AvroLongConsumer(BigIntVector vector) {
     this.writer = new BigIntWriterImpl(vector);
   }
@@ -39,6 +42,11 @@ public class AvroLongConsumer implements Consumer {
   @Override
   public void consume(Decoder decoder) throws IOException {
     writer.writeBigInt(decoder.readLong());
+    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }
