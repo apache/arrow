@@ -9,6 +9,16 @@
 
 There were no ERRORs or WARNINGs. On some platforms, there is a NOTE about the installed package size, as well as the "New submission" NOTE.
 
+## Feedback from previous submission
+
+Version 0.14.1 was submitted to CRAN on 24 July 2019. The CRAN team requested two revisions:
+
+1. Put quotes around 'Arrow C++' in the package Description.
+
+2. Remove usage of utils::installed.packages()
+
+Both have been addressed in this resubmission.
+
 ## Feedback from initial submission
 
 Version 0.14.0 was submitted to CRAN on 18 July 2019. The CRAN team requested two revisions, which have been addressed in this re-submission.

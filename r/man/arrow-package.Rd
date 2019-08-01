@@ -10,7 +10,7 @@
     development platform for in-memory data. It specifies a standardized
     language-independent columnar memory format for flat and hierarchical data,
     organized for efficient analytic operations on modern hardware. This
-    package provides an interface to the Arrow C++ library.
+    package provides an interface to the 'Arrow C++' library.
 }
 \seealso{
 Useful links:
