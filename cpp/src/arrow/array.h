@@ -918,6 +918,17 @@ class ARROW_EXPORT StructArray : public Array {
       std::shared_ptr<Buffer> null_bitmap = NULLPTR,
       int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
+  /// \brief Return a StructArray from child arrays and fields.
+  ///
+  /// The length is automatically inferred from the arguments.
+  /// There should be at least one child array.  This method does not
+  /// check that field types and child array types are consistent.
+  static Result<std::shared_ptr<Array>> Make(
+      const std::vector<std::shared_ptr<Array>>& children,
+      const std::vector<std::shared_ptr<Field>>& fields,
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+      int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
   const StructType* struct_type() const;
 
   // Return a shared pointer in case the requestor desires to share ownership

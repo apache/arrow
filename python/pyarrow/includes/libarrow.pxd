@@ -480,9 +480,17 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         # XXX Cython crashes if default argument values are declared here
         # https://github.com/cython/cython/issues/2167
         @staticmethod
-        CResult[shared_ptr[CArray]] Make(
+        CResult[shared_ptr[CArray]] MakeFromFieldNames "Make"(
             vector[shared_ptr[CArray]] children,
             vector[c_string] field_names,
+            shared_ptr[CBuffer] null_bitmap,
+            int64_t null_count,
+            int64_t offset)
+
+        @staticmethod
+        CResult[shared_ptr[CArray]] MakeFromFields "Make"(
+            vector[shared_ptr[CArray]] children,
+            vector[shared_ptr[CField]] fields,
             shared_ptr[CBuffer] null_bitmap,
             int64_t null_count,
             int64_t offset)
