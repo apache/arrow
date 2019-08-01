@@ -50,9 +50,12 @@ auto GetView(const ArrayType& array, int64_t index) -> decltype(array.GetView(in
   return array.GetView(index);
 }
 
+template <typename ArrayType>
 struct Slice {
+  using offset_type = typename ArrayType::TypeClass::offset_type;
+
   const Array* array_;
-  int32_t offset_, length_;
+  offset_type offset_, length_;
 
   bool operator==(const Slice& other) const {
     return length_ == other.length_ &&
@@ -61,14 +64,13 @@ struct Slice {
   bool operator!=(const Slice& other) const { return !(*this == other); }
 };
 
-static Slice GetView(const ListArray& array, int64_t index) {
-  return Slice{array.values().get(), array.value_offset(index),
-               array.value_length(index)};
-}
-
-static Slice GetView(const FixedSizeListArray& array, int64_t index) {
-  return Slice{array.values().get(), array.value_offset(index),
-               array.value_length(index)};
+template <typename ArrayType, typename T = typename ArrayType::TypeClass,
+          typename =
+              typename std::enable_if<std::is_base_of<BaseListType, T>::value ||
+                                      std::is_base_of<FixedSizeListType, T>::value>::type>
+static Slice<ArrayType> GetView(const ArrayType& array, int64_t index) {
+  return Slice<ArrayType>{array.values().get(), array.value_offset(index),
+                          array.value_length(index)};
 }
 
 struct UnitSlice {
@@ -169,11 +171,13 @@ class NullOrListGenerator {
   explicit NullOrListGenerator(const Array& array)
       : array_(checked_cast<const ArrayType&>(array)), values_(array_.values()) {}
 
-  NullOr<Slice> operator()(int64_t index) const {
+  using SliceType = Slice<ArrayType>;
+
+  NullOr<SliceType> operator()(int64_t index) const {
     return array_.IsNull(index)
-               ? NullOr<Slice>()
-               : NullOr<Slice>(Slice{array_.value_offset(index),
-                                     array_.value_length(index), *values_});
+               ? NullOr<SliceType>()
+               : NullOr<SliceType>(SliceType{array_.value_offset(index),
+                                             array_.value_length(index), *values_});
   }
 
  private:

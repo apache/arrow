@@ -583,6 +583,7 @@ class ARROW_EXPORT MapType : public ListType {
 class ARROW_EXPORT FixedSizeListType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
+  using offset_type = int32_t;
 
   static constexpr const char* type_name() { return "fixed_size_list"; }
 

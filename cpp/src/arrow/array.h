@@ -639,6 +639,7 @@ class ARROW_EXPORT MapArray : public ListArray {
 class ARROW_EXPORT FixedSizeListArray : public Array {
  public:
   using TypeClass = FixedSizeListType;
+  using offset_type = TypeClass::offset_type;
 
   explicit FixedSizeListArray(const std::shared_ptr<ArrayData>& data);
 
