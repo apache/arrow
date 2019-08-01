@@ -298,20 +298,23 @@ class TakerImpl<IndexSequence, NullType> : public Taker<IndexSequence> {
   int64_t length_ = 0;
 };
 
-template <typename IndexSequence>
-class TakerImpl<IndexSequence, ListType> : public Taker<IndexSequence> {
+template <typename IndexSequence, typename TypeClass>
+class ListTakerImpl : public Taker<IndexSequence> {
  public:
+  using offset_type = typename TypeClass::offset_type;
+  using ArrayType = typename TypeTraits<TypeClass>::ArrayType;
+
   using Taker<IndexSequence>::Taker;
 
   Status Init() override {
-    const auto& list_type = checked_cast<const ListType&>(*this->type_);
+    const auto& list_type = checked_cast<const TypeClass&>(*this->type_);
     return Taker<RangeIndexSequence>::Make(list_type.value_type(), &value_taker_);
   }
 
   Status SetContext(FunctionContext* ctx) override {
     auto pool = ctx->memory_pool();
     null_bitmap_builder_.reset(new TypedBufferBuilder<bool>(pool));
-    offset_builder_.reset(new TypedBufferBuilder<int32_t>(pool));
+    offset_builder_.reset(new TypedBufferBuilder<offset_type>(pool));
     RETURN_NOT_OK(offset_builder_->Append(0));
     return value_taker_->SetContext(ctx);
   }
@@ -319,12 +322,12 @@ class TakerImpl<IndexSequence, ListType> : public Taker<IndexSequence> {
   Status Take(const Array& values, IndexSequence indices) override {
     DCHECK(this->type_->Equals(values.type()));
 
-    const auto& list_array = checked_cast<const ListArray&>(values);
+    const auto& list_array = checked_cast<const ArrayType&>(values);
 
     RETURN_NOT_OK(null_bitmap_builder_->Reserve(indices.length()));
     RETURN_NOT_OK(offset_builder_->Reserve(indices.length()));
 
-    int32_t offset = offset_builder_->data()[offset_builder_->length() - 1];
+    offset_type offset = offset_builder_->data()[offset_builder_->length() - 1];
     return VisitIndices(indices, values, [&](int64_t index, bool is_valid) {
       null_bitmap_builder_->UnsafeAppend(is_valid);
 
@@ -340,13 +343,7 @@ class TakerImpl<IndexSequence, ListType> : public Taker<IndexSequence> {
     });
   }
 
-  Status Finish(std::shared_ptr<Array>* out) override { return FinishAs<ListArray>(out); }
-
- protected:
-  // this added method is provided for use by TakerImpl<IndexSequence, MapType>,
-  // which needs to construct a MapArray rather than a ListArray
-  template <typename T>
-  Status FinishAs(std::shared_ptr<Array>* out) {
+  Status Finish(std::shared_ptr<Array>* out) override {
     auto null_count = null_bitmap_builder_->false_count();
     auto length = null_bitmap_builder_->length();
 
@@ -357,24 +354,30 @@ class TakerImpl<IndexSequence, ListType> : public Taker<IndexSequence> {
     std::shared_ptr<Array> taken_values;
     RETURN_NOT_OK(value_taker_->Finish(&taken_values));
 
-    out->reset(
-        new T(this->type_, length, offsets, taken_values, null_bitmap, null_count));
+    out->reset(new ArrayType(this->type_, length, offsets, taken_values, null_bitmap,
+                             null_count));
     return Status::OK();
   }
 
   std::unique_ptr<TypedBufferBuilder<bool>> null_bitmap_builder_;
-  std::unique_ptr<TypedBufferBuilder<int32_t>> offset_builder_;
+  std::unique_ptr<TypedBufferBuilder<offset_type>> offset_builder_;
   std::unique_ptr<Taker<RangeIndexSequence>> value_taker_;
 };
 
 template <typename IndexSequence>
-class TakerImpl<IndexSequence, MapType> : public TakerImpl<IndexSequence, ListType> {
- public:
-  using TakerImpl<IndexSequence, ListType>::TakerImpl;
+class TakerImpl<IndexSequence, ListType> : public ListTakerImpl<IndexSequence, ListType> {
+  using ListTakerImpl<IndexSequence, ListType>::ListTakerImpl;
+};
 
-  Status Finish(std::shared_ptr<Array>* out) override {
-    return this->template FinishAs<MapArray>(out);
-  }
+template <typename IndexSequence>
+class TakerImpl<IndexSequence, LargeListType>
+    : public ListTakerImpl<IndexSequence, LargeListType> {
+  using ListTakerImpl<IndexSequence, LargeListType>::ListTakerImpl;
+};
+
+template <typename IndexSequence>
+class TakerImpl<IndexSequence, MapType> : public ListTakerImpl<IndexSequence, MapType> {
+  using ListTakerImpl<IndexSequence, MapType>::ListTakerImpl;
 };
 
 template <typename IndexSequence>

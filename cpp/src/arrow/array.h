@@ -488,12 +488,49 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
 // ----------------------------------------------------------------------
 // ListArray
 
-/// Concrete Array class for list data
-class ARROW_EXPORT ListArray : public Array {
+/// Base class for variable-sized list arrays, regardless of offset size.
+template <typename TYPE>
+class BaseListArray : public Array {
  public:
-  using TypeClass = ListType;
-  using offset_type = ListType::offset_type;
+  using TypeClass = TYPE;
+  using offset_type = typename TypeClass::offset_type;
 
+  const TypeClass* list_type() const { return list_type_; }
+
+  /// \brief Return array object containing the list's values
+  std::shared_ptr<Array> values() const { return values_; }
+
+  /// Note that this buffer does not account for any slice offset
+  std::shared_ptr<Buffer> value_offsets() const { return data_->buffers[1]; }
+
+  std::shared_ptr<DataType> value_type() const { return list_type_->value_type(); }
+
+  /// Return pointer to raw value offsets accounting for any slice offset
+  const offset_type* raw_value_offsets() const {
+    return raw_value_offsets_ + data_->offset;
+  }
+
+  // The following functions will not perform boundschecking
+  offset_type value_offset(int64_t i) const {
+    return raw_value_offsets_[i + data_->offset];
+  }
+  offset_type value_length(int64_t i) const {
+    i += data_->offset;
+    return raw_value_offsets_[i + 1] - raw_value_offsets_[i];
+  }
+  std::shared_ptr<Array> value_slice(int64_t i) const {
+    return values_->Slice(value_offset(i), value_length(i));
+  }
+
+ protected:
+  const TypeClass* list_type_ = NULLPTR;
+  std::shared_ptr<Array> values_;
+  const offset_type* raw_value_offsets_ = NULLPTR;
+};
+
+/// Concrete Array class for list data
+class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
+ public:
   explicit ListArray(const std::shared_ptr<ArrayData>& data);
 
   ListArray(const std::shared_ptr<DataType>& type, int64_t length,
@@ -511,46 +548,48 @@ class ARROW_EXPORT ListArray : public Array {
   ///
   /// \param[in] offsets Array containing n + 1 offsets encoding length and
   /// size. Must be of int32 type
-  /// \param[in] values Array containing
+  /// \param[in] values Array containing list values
   /// \param[in] pool MemoryPool in case new offsets array needs to be
   /// allocated because of null values
   /// \param[out] out Will have length equal to offsets.length() - 1
   static Status FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
                            std::shared_ptr<Array>* out);
 
-  const ListType* list_type() const { return list_type_; }
-
-  /// \brief Return array object containing the list's values
-  std::shared_ptr<Array> values() const;
-
-  /// Note that this buffer does not account for any slice offset
-  std::shared_ptr<Buffer> value_offsets() const { return data_->buffers[1]; }
-
-  std::shared_ptr<DataType> value_type() const;
-
-  /// Return pointer to raw value offsets accounting for any slice offset
-  const int32_t* raw_value_offsets() const { return raw_value_offsets_ + data_->offset; }
-
-  // The following functions will not perform boundschecking
-  int32_t value_offset(int64_t i) const { return raw_value_offsets_[i + data_->offset]; }
-  int32_t value_length(int64_t i) const {
-    i += data_->offset;
-    return raw_value_offsets_[i + 1] - raw_value_offsets_[i];
-  }
-  std::shared_ptr<Array> value_slice(int64_t i) const {
-    return values_->Slice(value_offset(i), value_length(i));
-  }
-
  protected:
   // This constructor defers SetData to a derived array class
   ListArray() = default;
   void SetData(const std::shared_ptr<ArrayData>& data);
+};
 
-  const int32_t* raw_value_offsets_ = NULLPTR;
+/// Concrete Array class for large list data (with 64-bit offsets)
+class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
+ public:
+  explicit LargeListArray(const std::shared_ptr<ArrayData>& data);
 
- private:
-  const ListType* list_type_ = NULLPTR;
-  std::shared_ptr<Array> values_;
+  LargeListArray(const std::shared_ptr<DataType>& type, int64_t length,
+                 const std::shared_ptr<Buffer>& value_offsets,
+                 const std::shared_ptr<Array>& values,
+                 const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+                 int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  /// \brief Construct LargeListArray from array of offsets and child value array
+  ///
+  /// This function does the bare minimum of validation of the offsets and
+  /// input types, and will allocate a new offsets array if necessary (i.e. if
+  /// the offsets contain any nulls). If the offsets do not have nulls, they
+  /// are assumed to be well-formed
+  ///
+  /// \param[in] offsets Array containing n + 1 offsets encoding length and
+  /// size. Must be of int64 type
+  /// \param[in] values Array containing list values
+  /// \param[in] pool MemoryPool in case new offsets array needs to be
+  /// allocated because of null values
+  /// \param[out] out Will have length equal to offsets.length() - 1
+  static Status FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
+                           std::shared_ptr<Array>* out);
+
+ protected:
+  void SetData(const std::shared_ptr<ArrayData>& data);
 };
 
 // ----------------------------------------------------------------------

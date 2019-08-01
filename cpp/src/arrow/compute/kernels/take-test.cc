@@ -261,6 +261,15 @@ TEST_F(TestTakeKernelWithList, TakeListListInt32) {
                    "[[], [], [], [], [], [], [[1], [2, null, 2], []]]");
 }
 
+class TestTakeKernelWithLargeList : public TestTakeKernel<LargeListType> {};
+
+TEST_F(TestTakeKernelWithLargeList, TakeLargeListInt32) {
+  std::string list_json = "[[], [1,2], null, [3]]";
+  this->AssertTake(large_list(int32()), list_json, "[]", "[]");
+  this->AssertTake(large_list(int32()), list_json, "[null, 1, 2, 0]",
+                   "[null, [1,2], null, []]");
+}
+
 class TestTakeKernelWithFixedSizeList : public TestTakeKernel<FixedSizeListType> {};
 
 TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListInt32) {

@@ -1147,6 +1147,34 @@ TEST_F(TestCast, ListToList) {
   CheckPass(*float64_list_array, *int64_list_array, int64_list_array->type(), options);
 }
 
+TEST_F(TestCast, LargeListToLargeList) {
+  // Like ListToList above, only testing the basics
+  CastOptions options;
+  std::shared_ptr<Array> offsets;
+
+  std::vector<int64_t> offsets_values = {0, 1, 2, 5, 7, 7, 8, 10};
+  std::vector<bool> offsets_is_valid = {true, true, true, true, false, true, true, true};
+  ArrayFromVector<Int64Type, int64_t>(offsets_is_valid, offsets_values, &offsets);
+
+  std::shared_ptr<Array> int32_plain_array =
+      TestBase::MakeRandomArray<typename TypeTraits<Int32Type>::ArrayType>(10, 2);
+  std::shared_ptr<Array> int32_list_array;
+  ASSERT_OK(
+      LargeListArray::FromArrays(*offsets, *int32_plain_array, pool_, &int32_list_array));
+
+  std::shared_ptr<Array> float64_plain_array;
+  ASSERT_OK(
+      Cast(&this->ctx_, *int32_plain_array, float64(), options, &float64_plain_array));
+  std::shared_ptr<Array> float64_list_array;
+  ASSERT_OK(LargeListArray::FromArrays(*offsets, *float64_plain_array, pool_,
+                                       &float64_list_array));
+
+  CheckPass(*int32_list_array, *float64_list_array, float64_list_array->type(), options);
+
+  options.allow_float_truncate = true;
+  CheckPass(*float64_list_array, *int32_list_array, int32_list_array->type(), options);
+}
+
 TEST_F(TestCast, IdentityCasts) {
   // ARROW-4102
   auto CheckIdentityCast = [this](std::shared_ptr<DataType> type,

@@ -358,6 +358,15 @@ TEST_F(TestFilterKernelWithList, FilterListListInt32) {
   ])");
 }
 
+class TestFilterKernelWithLargeList : public TestFilterKernel<LargeListType> {};
+
+TEST_F(TestFilterKernelWithLargeList, FilterListInt32) {
+  std::string list_json = "[[], [1,2], null, [3]]";
+  this->AssertFilter(large_list(int32()), list_json, "[0, 0, 0, 0]", "[]");
+  this->AssertFilter(large_list(int32()), list_json, "[0, 1, 1, null]",
+                     "[[1,2], null, null]");
+}
+
 class TestFilterKernelWithFixedSizeList : public TestFilterKernel<FixedSizeListType> {};
 
 TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListInt32) {

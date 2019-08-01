@@ -349,7 +349,6 @@ TEST_F(TestPrettyPrint, BinaryType) {
 
 TEST_F(TestPrettyPrint, ListType) {
   auto list_type = list(int64());
-  auto array = ArrayFromJSON(list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
 
   static const char* ex = R"expected([
   [
@@ -367,7 +366,6 @@ TEST_F(TestPrettyPrint, ListType) {
     3
   ]
 ])expected";
-  CheckArray(*array, {0, 10}, ex);
   static const char* ex_2 = R"expected(  [
     [
       null
@@ -384,7 +382,6 @@ TEST_F(TestPrettyPrint, ListType) {
       3
     ]
   ])expected";
-  CheckArray(*array, {2, 10}, ex_2);
   static const char* ex_3 = R"expected([
   [
     null
@@ -395,6 +392,16 @@ TEST_F(TestPrettyPrint, ListType) {
     3
   ]
 ])expected";
+
+  auto array = ArrayFromJSON(list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
+  CheckArray(*array, {0, 10}, ex);
+  CheckArray(*array, {2, 10}, ex_2);
+  CheckStream(*array, {0, 1}, ex_3);
+
+  list_type = large_list(int64());
+  array = ArrayFromJSON(list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
+  CheckArray(*array, {0, 10}, ex);
+  CheckArray(*array, {2, 10}, ex_2);
   CheckStream(*array, {0, 1}, ex_3);
 }
 

@@ -247,6 +247,7 @@ class ArrayPrinter : public PrettyPrinter {
 
   template <typename T>
   inline typename std::enable_if<std::is_base_of<ListArray, T>::value ||
+                                     std::is_base_of<LargeListArray, T>::value ||
                                      std::is_base_of<FixedSizeListArray, T>::value,
                                  Status>::type
   WriteDataValues(const T& array) {
@@ -320,6 +321,7 @@ class ArrayPrinter : public PrettyPrinter {
                               std::is_base_of<BinaryArray, T>::value ||
                               std::is_base_of<LargeBinaryArray, T>::value ||
                               std::is_base_of<ListArray, T>::value ||
+                              std::is_base_of<LargeListArray, T>::value ||
                               std::is_base_of<MapArray, T>::value ||
                               std::is_base_of<FixedSizeListArray, T>::value,
                           Status>::type
