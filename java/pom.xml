@@ -487,6 +487,11 @@
 
   <dependencyManagement>
     <dependencies>
+      <dependency>	
+        <groupId>com.google.flatbuffers</groupId>	
+        <artifactId>flatbuffers-java</artifactId>	
+        <version>${dep.fbs.version}</version>	
+      </dependency>
       <dependency>
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>

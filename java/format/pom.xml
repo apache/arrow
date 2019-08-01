@@ -33,7 +33,6 @@
     <dependency>
       <groupId>com.google.flatbuffers</groupId>
       <artifactId>flatbuffers-java</artifactId>
-      <version>${dep.fbs.version}</version>
     </dependency>
   </dependencies>
 

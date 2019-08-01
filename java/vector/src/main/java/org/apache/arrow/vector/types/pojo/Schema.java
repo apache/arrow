@@ -35,7 +35,7 @@ import org.apache.arrow.flatbuf.KeyValue;
 import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.ipc.message.ArrowBatchMessage;
+import org.apache.arrow.vector.ipc.message.ArrowMessageHeader;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -87,7 +87,7 @@ public class Schema {
    * <p>The message must have the schema field set or an
    * exception will be raised.
    */
-  public static Schema deserializeFromMessage(ArrowBatchMessage buffer) {
+  public static Schema deserializeFromMessage(ArrowMessageHeader buffer) {
     org.apache.arrow.flatbuf.Schema schema = new org.apache.arrow.flatbuf.Schema();
     org.apache.arrow.flatbuf.Message message = buffer.getMessage();
     Preconditions.checkArgument(message.headerType() == MessageHeader.Schema, "type %s",

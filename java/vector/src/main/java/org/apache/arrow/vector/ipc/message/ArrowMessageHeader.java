@@ -23,15 +23,15 @@ import java.nio.ByteBuffer;
  * Wrapper around flatbuffer message table.  This keeps from exposing
  * flatbuffer details to upstream packages.
  */
-public class ArrowBatchMessage {
+public class ArrowMessageHeader {
   private org.apache.arrow.flatbuf.Message message;
 
-  private ArrowBatchMessage(org.apache.arrow.flatbuf.Message message) {
+  private ArrowMessageHeader(org.apache.arrow.flatbuf.Message message) {
     this.message = message;
   }
 
-  public static ArrowBatchMessage create(ByteBuffer buffer) {
-    return new ArrowBatchMessage(org.apache.arrow.flatbuf.Message.getRootAsMessage(buffer));
+  public static ArrowMessageHeader create(ByteBuffer buffer) {
+    return new ArrowMessageHeader(org.apache.arrow.flatbuf.Message.getRootAsMessage(buffer));
   }
 
   public  byte headerType() {
