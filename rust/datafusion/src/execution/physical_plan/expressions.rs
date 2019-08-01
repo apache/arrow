@@ -20,6 +20,7 @@
 use crate::error::Result;
 use crate::execution::physical_plan::PhysicalExpr;
 use arrow::array::ArrayRef;
+use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
 
 /// Represents the column at a given index in a RecordBatch
@@ -28,6 +29,16 @@ pub struct Column {
 }
 
 impl PhysicalExpr for Column {
+    /// Get the name to use in a schema to represent the result of this expression
+    fn name(&self) -> String {
+        format!("c{}", self.index)
+    }
+
+    /// Get the data type of this expression, given the schema of the input
+    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
+        Ok(input_schema.field(self.index).data_type().clone())
+    }
+
     /// Evaluate the expression
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         Ok(batch.column(self.index).clone())

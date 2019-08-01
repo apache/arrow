@@ -26,7 +26,7 @@ use crate::error::Result;
 use crate::execution::physical_plan::{
     BatchIterator, ExecutionPlan, Partition, PhysicalExpr,
 };
-use arrow::datatypes::Schema;
+use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
 /// Execution plan for a projection
@@ -37,6 +37,29 @@ pub struct ProjectionExec {
     schema: Arc<Schema>,
     /// The input plan
     input: Arc<dyn ExecutionPlan>,
+}
+
+impl ProjectionExec {
+    /// Create a projection on an input
+    fn try_new(
+        expr: Vec<Arc<dyn PhysicalExpr>>,
+        input: Arc<dyn ExecutionPlan>,
+    ) -> Result<Self> {
+        let input_schema = input.schema();
+
+        let fields: Result<Vec<_>> = expr
+            .iter()
+            .map(|e| Ok(Field::new(&e.name(), e.data_type(&input_schema)?, true)))
+            .collect();
+
+        let schema = Arc::new(Schema::new(fields?));
+
+        Ok(Self {
+            expr: expr.clone(),
+            schema,
+            input: input.clone(),
+        })
+    }
 }
 
 impl ExecutionPlan for ProjectionExec {
@@ -103,5 +126,44 @@ impl BatchIterator for ProjectionIterator {
             }
             None => Ok(None),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::execution::physical_plan::csv::CsvExec;
+    use arrow::datatypes::{DataType, Field, Schema};
+    use std::env;
+
+    #[test]
+    fn project_first_column() -> Result<()> {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("c1", DataType::Utf8, false),
+            Field::new("c2", DataType::UInt32, false),
+            Field::new("c3", DataType::Int8, false),
+            Field::new("c3", DataType::Int16, false),
+            Field::new("c4", DataType::Int32, false),
+            Field::new("c5", DataType::Int64, false),
+            Field::new("c6", DataType::UInt8, false),
+            Field::new("c7", DataType::UInt16, false),
+            Field::new("c8", DataType::UInt32, false),
+            Field::new("c9", DataType::UInt64, false),
+            Field::new("c10", DataType::Float32, false),
+            Field::new("c11", DataType::Float64, false),
+            Field::new("c12", DataType::Utf8, false),
+        ]));
+
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+
+        let path = format!("{}/tbd", testdata);
+
+        //TODO: working on this now ..
+
+        let projection =
+            ProjectionExec::try_new(vec![], Arc::new(CsvExec::try_new(&path, schema)?))?;
+
+        Ok(())
     }
 }

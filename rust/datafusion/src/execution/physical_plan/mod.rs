@@ -17,12 +17,12 @@
 
 //! Traits for physical query plan, supporting parallel execution for partitioned relations.
 
-use arrow::datatypes::Schema;
-use arrow::record_batch::RecordBatch;
 use std::sync::Arc;
 
 use crate::error::Result;
 use arrow::array::ArrayRef;
+use arrow::datatypes::{DataType, Schema};
+use arrow::record_batch::RecordBatch;
 
 /// Partition-aware execution plan for a relation
 pub trait ExecutionPlan {
@@ -46,9 +46,14 @@ pub trait BatchIterator: Send + Sync {
 
 /// Expression that can be evaluated against a RecordBatch
 pub trait PhysicalExpr: Send + Sync {
+    /// Get the name to use in a schema to represent the result of this expression
+    fn name(&self) -> String;
+    /// Get the data type of this expression, given the schema of the input
+    fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
     /// Evaluate an expression against a RecordBatch
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef>;
 }
 
+pub mod csv;
 pub mod expressions;
 pub mod projection;
