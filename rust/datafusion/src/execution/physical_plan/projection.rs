@@ -159,10 +159,11 @@ mod tests {
 
         let path = format!("{}/tbd", testdata);
 
-        //TODO: working on this now ..
+        let csv = CsvExec::try_new(&path, schema)?;
 
-        let projection =
-            ProjectionExec::try_new(vec![], Arc::new(CsvExec::try_new(&path, schema)?))?;
+        let projection = ProjectionExec::try_new(vec![], Arc::new(csv))?;
+
+        //TODO assertions
 
         Ok(())
     }
