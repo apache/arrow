@@ -406,10 +406,10 @@ BENCHMARK(BuildChunkedBinaryArray);
 BENCHMARK(BuildFixedSizeBinaryArray);
 BENCHMARK(BuildDecimalArray);
 
-BENCHMARK(BuildInt64DictionaryArrayRandom);
-BENCHMARK(BuildInt64DictionaryArraySequential);
-BENCHMARK(BuildInt64DictionaryArraySimilar);
-BENCHMARK(BuildStringDictionaryArray);
+BENCHMARK(BuildInt64DictionaryArrayRandom)->MinTime(1.0);
+BENCHMARK(BuildInt64DictionaryArraySequential)->MinTime(1.0);
+BENCHMARK(BuildInt64DictionaryArraySimilar)->MinTime(1.0);
+BENCHMARK(BuildStringDictionaryArray)->MinTime(1.0);
 
 BENCHMARK(ArrayDataConstructDestruct);
 
