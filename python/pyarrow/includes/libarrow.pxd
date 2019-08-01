@@ -70,6 +70,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_FIXED_SIZE_BINARY" arrow::Type::FIXED_SIZE_BINARY"
 
         _Type_LIST" arrow::Type::LIST"
+        _Type_LARGE_LIST" arrow::Type::LARGE_LIST"
         _Type_STRUCT" arrow::Type::STRUCT"
         _Type_UNION" arrow::Type::UNION"
         _Type_DICTIONARY" arrow::Type::DICTIONARY"
@@ -252,6 +253,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CDataType] value_type()
         shared_ptr[CField] value_field()
 
+    cdef cppclass CLargeListType" arrow::LargeListType"(CDataType):
+        CLargeListType(const shared_ptr[CDataType]& value_type)
+        CLargeListType(const shared_ptr[CField]& field)
+        shared_ptr[CDataType] value_type()
+        shared_ptr[CField] value_field()
+
     cdef cppclass CStringType" arrow::StringType"(CDataType):
         pass
 
@@ -416,6 +423,17 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const int32_t* raw_value_offsets()
         int32_t value_offset(int i)
         int32_t value_length(int i)
+        shared_ptr[CArray] values()
+        shared_ptr[CDataType] value_type()
+
+    cdef cppclass CLargeListArray" arrow::LargeListArray"(CArray):
+        @staticmethod
+        CStatus FromArrays(const CArray& offsets, const CArray& values,
+                           CMemoryPool* pool, shared_ptr[CArray]* out)
+
+        const int64_t* raw_value_offsets()
+        int64_t value_offset(int i)
+        int64_t value_length(int i)
         shared_ptr[CArray] values()
         shared_ptr[CDataType] value_type()
 

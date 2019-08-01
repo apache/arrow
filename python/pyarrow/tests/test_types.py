@@ -52,6 +52,7 @@ def get_many_types():
         pa.large_string(),
         pa.large_binary(),
         pa.list_(pa.int32()),
+        pa.large_list(pa.uint16()),
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.int8()),
                    pa.field('c', pa.string())]),
@@ -110,7 +111,14 @@ def test_is_decimal():
 
 
 def test_is_list():
-    assert types.is_list(pa.list_(pa.int32()))
+    a = pa.list_(pa.int32())
+    b = pa.large_list(pa.int32())
+
+    assert types.is_list(a)
+    assert not types.is_large_list(a)
+    assert types.is_large_list(b)
+    assert not types.is_list(b)
+
     assert not types.is_list(pa.int32())
 
 
@@ -129,6 +137,7 @@ def test_is_nested_or_struct():
 
     assert types.is_nested(struct_ex)
     assert types.is_nested(pa.list_(pa.int32()))
+    assert types.is_nested(pa.large_list(pa.int32()))
     assert not types.is_nested(pa.int32())
 
 
@@ -237,10 +246,20 @@ def test_time64_units():
 
 def test_list_type():
     ty = pa.list_(pa.int64())
+    assert isinstance(ty, pa.ListType)
     assert ty.value_type == pa.int64()
 
     with pytest.raises(TypeError):
         pa.list_(None)
+
+
+def test_large_list_type():
+    ty = pa.large_list(pa.utf8())
+    assert isinstance(ty, pa.LargeListType)
+    assert ty.value_type == pa.utf8()
+
+    with pytest.raises(TypeError):
+        pa.large_list(None)
 
 
 def test_struct_type():

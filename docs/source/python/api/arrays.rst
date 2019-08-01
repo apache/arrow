@@ -67,6 +67,7 @@ may expose data type-specific methods or properties.
    Decimal128Array
    DictionaryArray
    ListArray
+   LargeListArray
    StructArray
    UnionArray
 
@@ -109,5 +110,6 @@ any of those classes directly.
    DecimalValue
    DictionaryValue
    ListValue
+   LargeListValue
    StructValue
    UnionValue

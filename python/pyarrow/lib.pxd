@@ -64,6 +64,11 @@ cdef class ListType(DataType):
         const CListType* list_type
 
 
+cdef class LargeListType(DataType):
+    cdef:
+        const CLargeListType* list_type
+
+
 cdef class StructType(DataType):
     cdef:
         const CStructType* struct_type
@@ -179,6 +184,17 @@ cdef class ListValue(ArrayValue):
 
     cdef:
         CListArray* ap
+
+    cdef getitem(self, int64_t i)
+    cdef int64_t length(self)
+
+
+cdef class LargeListValue(ArrayValue):
+    cdef readonly:
+        DataType value_type
+
+    cdef:
+        CLargeListArray* ap
 
     cdef getitem(self, int64_t i)
     cdef int64_t length(self)
@@ -333,6 +349,10 @@ cdef class StructArray(Array):
 
 
 cdef class ListArray(Array):
+    pass
+
+
+cdef class LargeListArray(Array):
     pass
 
 

@@ -195,6 +195,29 @@ class TestScalars(unittest.TestCase):
         v = arr[3]
         assert len(v) == 0
 
+    def test_large_list(self):
+        arr = pa.array([[123, None], None, [456], []],
+                       type=pa.large_list(pa.int16()))
+
+        v = arr[0]
+        assert len(v) == 2
+        assert isinstance(v, pa.LargeListValue)
+        assert repr(v) == "[123, None]"
+        assert v.as_py() == [123, None]
+        assert v[0].as_py() == 123
+        assert v[1] is pa.NA
+        assert v[-1] == v[1]
+        assert v[-2] == v[0]
+        with pytest.raises(IndexError):
+            v[-3]
+        with pytest.raises(IndexError):
+            v[2]
+
+        assert arr[1] is pa.NA
+
+        v = arr[3]
+        assert len(v) == 0
+
     @pytest.mark.pandas
     def test_timestamp(self):
         import pandas as pd

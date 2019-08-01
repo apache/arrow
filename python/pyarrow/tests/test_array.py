@@ -346,9 +346,11 @@ def test_string_binary_from_buffers():
     assert copied.null_count == 0
 
 
-def test_list_from_buffers():
-    ty = pa.list_(pa.int16())
+@pytest.mark.parametrize('list_type_factory', [pa.list_, pa.large_list])
+def test_list_from_buffers(list_type_factory):
+    ty = list_type_factory(pa.int16())
     array = pa.array([[0, 1, 2], None, [], [3, 4, 5]], type=ty)
+    assert array.type == ty
 
     buffers = array.buffers()
 
@@ -486,31 +488,36 @@ def test_dictionary_from_arrays_boundscheck():
     pa.DictionaryArray.from_arrays(indices2, dictionary, safe=False)
 
 
-def test_list_from_arrays():
+@pytest.mark.parametrize(('list_array_type', 'list_type_factory'),
+                         [(pa.ListArray, pa.list_),
+                          (pa.LargeListArray, pa.large_list)])
+def test_list_from_arrays(list_array_type, list_type_factory):
     offsets_arr = np.array([0, 2, 5, 8], dtype='i4')
     offsets = pa.array(offsets_arr, type='int32')
     pyvalues = [b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h']
     values = pa.array(pyvalues, type='binary')
 
-    result = pa.ListArray.from_arrays(offsets, values)
-    expected = pa.array([pyvalues[:2], pyvalues[2:5], pyvalues[5:8]])
+    result = list_array_type.from_arrays(offsets, values)
+    expected = pa.array([pyvalues[:2], pyvalues[2:5], pyvalues[5:8]],
+                        type=list_type_factory(pa.binary()))
 
     assert result.equals(expected)
 
     # With nulls
     offsets = [0, None, 2, 6]
+    values = [b'a', b'b', b'c', b'd', b'e', b'f']
 
-    values = ['a', 'b', 'c', 'd', 'e', 'f']
-
-    result = pa.ListArray.from_arrays(offsets, values)
-    expected = pa.array([values[:2], None, values[2:]])
+    result = list_array_type.from_arrays(offsets, values)
+    expected = pa.array([values[:2], None, values[2:]],
+                        type=list_type_factory(pa.binary()))
 
     assert result.equals(expected)
 
     # Another edge case
     offsets2 = [0, 2, None, 6]
-    result = pa.ListArray.from_arrays(offsets2, values)
-    expected = pa.array([values[:2], values[2:], None])
+    result = list_array_type.from_arrays(offsets2, values)
+    expected = pa.array([values[:2], values[2:], None],
+                        type=list_type_factory(pa.binary()))
     assert result.equals(expected)
 
 
@@ -767,6 +774,7 @@ def test_cast_from_null():
         pa.binary(),
         pa.binary(10),
         pa.list_(pa.int16()),
+        pa.large_list(pa.uint8()),
         pa.decimal128(19, 4),
         pa.timestamp('us'),
         pa.timestamp('us', tz='UTC'),
@@ -925,6 +933,7 @@ pickle_test_parametrize = pytest.mark.parametrize(
         (['a', None, 'b'], pa.string()),
         ([], None),
         ([[1, 2], [3]], pa.list_(pa.int64())),
+        ([[4, 5], [6]], pa.large_list(pa.int16())),
         ([['a'], None, ['b', 'c']], pa.list_(pa.string())),
         ([(1, 'a'), (2, 'c'), None],
             pa.struct([pa.field('a', pa.int64()), pa.field('b', pa.string())]))
@@ -1305,6 +1314,45 @@ def test_list_array_flatten():
     assert arr2.flatten().equals(arr1)
     assert arr1.flatten().equals(arr0)
     assert arr2.flatten().flatten().equals(arr0)
+
+
+def test_large_list_array_flatten():
+    typ2 = pa.large_list(
+        pa.large_list(
+            pa.int16()
+        )
+    )
+    arr2 = pa.array([
+        None,
+        [
+            [1, None, 2],
+            None,
+            [3, 4]
+        ],
+        [],
+        [
+            [],
+            [5, 6],
+            None
+        ],
+        [
+            [7, 8]
+        ]
+    ], type=typ2)
+
+    typ1 = pa.large_list(pa.int16())
+    assert typ1 == typ2.value_type
+    arr1 = pa.array([
+        [1, None, 2],
+        None,
+        [3, 4],
+        [],
+        [5, 6],
+        None,
+        [7, 8]
+    ], type=typ1)
+
+    assert arr2.flatten().equals(arr1)
 
 
 def test_struct_array_flatten():
