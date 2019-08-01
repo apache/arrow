@@ -545,11 +545,8 @@ macro(build_boost)
         "toolset=msvc-14.0"
         "threading=multi")
   else()
-    set(BOOST_BUILD_COMMAND
-        "./b2"
-        "link=${BOOST_BUILD_LINK}"
-        "variant=${BOOST_BUILD_VARIANT}"
-        "cxxflags=-fPIC")
+    set(BOOST_BUILD_COMMAND "./b2" "link=${BOOST_BUILD_LINK}"
+                            "variant=${BOOST_BUILD_VARIANT}" "cxxflags=-fPIC")
   endif()
 
   add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
