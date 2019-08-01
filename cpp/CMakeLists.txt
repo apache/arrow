@@ -22,12 +22,13 @@ set(ARROW_VERSION "1.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
-project(arrow VERSION "${ARROW_BASE_VERSION}")
-
 # if no build build type is specified, default to release builds
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
-endif(NOT CMAKE_BUILD_TYPE)
+get_property(GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if(NOT GENERATOR_IS_MULTI_CONFIG AND NOT DEFINED CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build.")
+endif()
+
+project(arrow VERSION "${ARROW_BASE_VERSION}")
 
 set(ARROW_VERSION_MAJOR "${arrow_VERSION_MAJOR}")
 set(ARROW_VERSION_MINOR "${arrow_VERSION_MINOR}")
