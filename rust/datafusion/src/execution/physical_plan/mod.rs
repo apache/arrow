@@ -22,6 +22,7 @@ use arrow::record_batch::RecordBatch;
 use std::sync::Arc;
 
 use crate::error::Result;
+use arrow::array::ArrayRef;
 
 /// Partition-aware execution plan for a relation
 pub trait ExecutionPlan {
@@ -42,3 +43,11 @@ pub trait BatchIterator: Send + Sync {
     /// Get the next RecordBatch
     fn next(&self) -> Result<Option<RecordBatch>>;
 }
+
+/// Expression that can be evaluated against a RecordBatch
+pub trait PhysicalExpr: Send + Sync {
+    /// Evaluate an expression against a RecordBatch
+    fn evaluate(&self, batch: RecordBatch) -> Result<ArrayRef>;
+}
+
+pub mod projection;
