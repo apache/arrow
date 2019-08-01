@@ -99,11 +99,15 @@ ArrowReaderProperties default_arrow_reader_properties() {
 // ----------------------------------------------------------------------
 // FileReaderImpl forward declaration
 
+namespace {
+
 std::vector<int> Arange(int length) {
   std::vector<int> result(length);
   std::iota(result.begin(), result.end(), 0);
   return result;
 }
+
+}  // namespace
 
 class FileReaderImpl : public FileReader {
  public:
@@ -157,9 +161,9 @@ class FileReaderImpl : public FileReader {
   int64_t GetTotalRecords(const std::vector<int>& row_groups, int column_chunk = 0) {
     // Can throw exception
     int64_t records = 0;
-    for (int j = 0; j < static_cast<int>(row_groups.size()); j++) {
+    for (auto row_group : row_groups) {
       records += reader_->metadata()
-                     ->RowGroup(row_groups[j])
+                     ->RowGroup(row_group)
                      ->ColumnChunk(column_chunk)
                      ->num_values();
     }
@@ -302,9 +306,8 @@ class FileReaderImpl : public FileReader {
 
 class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
  public:
-  explicit RowGroupRecordBatchReader(
-      std::vector<std::unique_ptr<ColumnReaderImpl>> field_readers,
-      std::shared_ptr<::arrow::Schema> schema, int64_t batch_size)
+  RowGroupRecordBatchReader(std::vector<std::unique_ptr<ColumnReaderImpl>> field_readers,
+                            std::shared_ptr<::arrow::Schema> schema, int64_t batch_size)
       : field_readers_(std::move(field_readers)),
         schema_(schema),
         batch_size_(batch_size) {}

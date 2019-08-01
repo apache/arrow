@@ -153,7 +153,8 @@ struct SchemaManifest {
   Status GetColumnField(int column_index, const SchemaField** out) const {
     auto it = column_index_to_field.find(column_index);
     if (it == column_index_to_field.end()) {
-      return Status::KeyError("Column index ", column_index, "is not a leaf");
+      return Status::KeyError("Column index ", column_index,
+                              " not found in schema manifest, may be malformed");
     }
     *out = it->second;
     return Status::OK();

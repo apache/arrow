@@ -27,6 +27,8 @@
 #include <utility>
 #include <vector>
 
+#include <boost/algorithm/string/predicate.hpp>
+
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/compute/kernel.h"
@@ -354,18 +356,11 @@ Status PopulateLeaf(int column_index, const std::shared_ptr<Field>& field,
   return Status::OK();
 }
 
-inline bool EndswithTuple(const std::string& str) {
-  if (str.size() >= 6) {
-    return str.substr(str.size() - 6, 6) == "_tuple";
-  }
-  return false;
-}
-
 // Special case mentioned in the format spec:
 //   If the name is array or ends in _tuple, this should be a list of struct
 //   even for single child elements.
 bool HasStructListName(const GroupNode& node) {
-  return (node.name() == "array" || EndswithTuple(node.name()));
+  return node.name() == "array" || boost::algorithm::ends_with(node.name(), "_tuple");
 }
 
 Status GroupToStruct(const GroupNode& node, int16_t max_def_level, int16_t max_rep_level,
@@ -685,7 +680,7 @@ std::shared_ptr<ChunkedArray> CastChunksTo(
 }
 
 Status TransferDictionary(RecordReader* reader,
-                          std::shared_ptr<DataType> logical_value_type,
+                          const std::shared_ptr<DataType>& logical_value_type,
                           std::shared_ptr<ChunkedArray>* out) {
   auto dict_reader = dynamic_cast<internal::DictionaryRecordReader*>(reader);
   DCHECK(dict_reader);
@@ -1126,12 +1121,6 @@ Status ReconstructNestedList(const std::shared_ptr<Array>& arr,
                              int16_t max_rep_level, const int16_t* def_levels,
                              const int16_t* rep_levels, int64_t total_levels,
                              ::arrow::MemoryPool* pool, std::shared_ptr<Array>* out) {
-  if (field->type()->num_children() > 0 && arr->type_id() == ::arrow::Type::DICTIONARY) {
-    // XXX(wesm): Handling of nested types and dictionary encoding needs to be
-    // significantly refactored
-    return Status::Invalid("Cannot have nested types containing dictionary arrays yet");
-  }
-
   // Walk downwards to extract nullability
   std::vector<bool> nullable;
   std::vector<std::shared_ptr<::arrow::Int32Builder>> offset_builders;
