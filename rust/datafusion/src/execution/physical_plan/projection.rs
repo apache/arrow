@@ -27,6 +27,7 @@ use crate::execution::physical_plan::{
     BatchIterator, ExecutionPlan, Partition, PhysicalExpr,
 };
 use arrow::datatypes::Schema;
+use arrow::record_batch::RecordBatch;
 
 /// Execution plan for a projection
 pub struct ProjectionExec {
@@ -53,6 +54,7 @@ impl ExecutionPlan for ProjectionExec {
             .map(|p| {
                 let expr = self.expr.clone();
                 let projection: Arc<Partition> = Arc::new(ProjectionPartition {
+                    schema: self.schema.clone(),
                     expr,
                     input: p.clone() as Arc<Partition>,
                 });
@@ -67,6 +69,7 @@ impl ExecutionPlan for ProjectionExec {
 
 /// Represents a single partition of a projection execution plan
 struct ProjectionPartition {
+    schema: Arc<Schema>,
     expr: Vec<Arc<dyn PhysicalExpr>>,
     input: Arc<dyn Partition>,
 }
@@ -74,10 +77,31 @@ struct ProjectionPartition {
 impl Partition for ProjectionPartition {
     /// Execute the projection
     fn execute(&self) -> Result<Arc<dyn BatchIterator>> {
-        // execute the input partition and get an iterator
-        let it = self.input.execute()?;
-        //TODO wrap the iterator in a new one that performs the projection by evaluating the
-        // expressions against the batches
-        Ok(it)
+        Ok(Arc::new(ProjectionIterator {
+            schema: self.schema.clone(),
+            expr: self.expr.clone(),
+            input: self.input.execute()?,
+        }))
+    }
+}
+
+/// Projection iterator
+struct ProjectionIterator {
+    schema: Arc<Schema>,
+    expr: Vec<Arc<dyn PhysicalExpr>>,
+    input: Arc<dyn BatchIterator>,
+}
+
+impl BatchIterator for ProjectionIterator {
+    /// Get the next batch
+    fn next(&self) -> Result<Option<RecordBatch>> {
+        match self.input.next()? {
+            Some(batch) => {
+                let arrays: Result<Vec<_>> =
+                    self.expr.iter().map(|expr| expr.evaluate(&batch)).collect();
+                Ok(Some(RecordBatch::try_new(self.schema.clone(), arrays?)?))
+            }
+            None => Ok(None),
+        }
     }
 }

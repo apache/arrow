@@ -47,7 +47,7 @@ pub trait BatchIterator: Send + Sync {
 /// Expression that can be evaluated against a RecordBatch
 pub trait PhysicalExpr: Send + Sync {
     /// Evaluate an expression against a RecordBatch
-    fn evaluate(&self, batch: RecordBatch) -> Result<ArrayRef>;
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef>;
 }
 
 pub mod projection;
