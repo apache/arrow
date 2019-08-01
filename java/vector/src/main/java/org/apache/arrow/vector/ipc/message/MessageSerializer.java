@@ -346,7 +346,7 @@ public class MessageSerializer {
   /**
    * Reads a record batch based on the metadata in serializedMessage and the underlying data buffer.
    */
-  public static ArrowRecordBatch deserializeRecordBatch(ArrowMessageHeader serializedMessage, ArrowBuf underlying) throws
+  public static ArrowRecordBatch deserializeRecordBatch(ArrowMessageMetadata serializedMessage, ArrowBuf underlying) throws
       IOException {
     return deserializeRecordBatch(serializedMessage.getMessage(), underlying);
   }
@@ -416,7 +416,7 @@ public class MessageSerializer {
    * @return the deserialized ArrowDictionaryBatch
    * @throws IOException if something went wrong
    */
-  public static ArrowDictionaryBatch deserializeDictionaryBatch(ArrowMessageHeader message, ArrowBuf bodyBuffer)
+  public static ArrowDictionaryBatch deserializeDictionaryBatch(ArrowMessageMetadata message, ArrowBuf bodyBuffer)
       throws IOException {
     return deserializeDictionaryBatch(message.getMessage(), bodyBuffer);
   }
