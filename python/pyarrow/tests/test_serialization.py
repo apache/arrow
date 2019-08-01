@@ -411,7 +411,6 @@ def test_datetime_serialization(large_buffer):
         serialization_roundtrip(d, large_buffer)
 
 
-@pytest.mark.skip
 def test_torch_serialization(large_buffer):
     pytest.importorskip("torch")
 
@@ -581,7 +580,6 @@ def test_sparse_tensor_csr_serialization(large_buffer):
     assert np.array_equal(indices_result, indices)
 
 
-@pytest.mark.skip
 def test_sparse_tensor_csr_components_serialization(large_buffer):
     data = np.array([1, 2, 3, 4, 5, 6])
     indptr = np.array([0, 2, 3, 6])

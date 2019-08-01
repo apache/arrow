@@ -826,12 +826,11 @@ Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* ds
 Status GetSparseTensorMessage(const SparseTensor& sparse_tensor, MemoryPool* pool,
                               std::unique_ptr<Message>* out) {
   internal::IpcPayload payload;
+  std::shared_ptr<Buffer> buffer;
+
   RETURN_NOT_OK(internal::GetSparseTensorPayload(sparse_tensor, pool, &payload));
-
-  const std::shared_ptr<Buffer> metadata = payload.metadata;
-  const std::shared_ptr<Buffer> buffer = *payload.body_buffers.data();
-
-  out->reset(new Message(metadata, buffer));
+  RETURN_NOT_OK(arrow::ConcatenateBuffers(payload.body_buffers, pool, &buffer));
+  out->reset(new Message(payload.metadata, buffer));
   return Status::OK();
 }
 
