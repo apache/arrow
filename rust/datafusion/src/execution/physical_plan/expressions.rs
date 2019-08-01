@@ -28,6 +28,13 @@ pub struct Column {
     index: usize,
 }
 
+impl Column {
+    // Create a new column expression
+    pub fn new(index: usize) -> Self {
+        Self { index }
+    }
+}
+
 impl PhysicalExpr for Column {
     /// Get the name to use in a schema to represent the result of this expression
     fn name(&self) -> String {

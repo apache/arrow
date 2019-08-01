@@ -135,8 +135,13 @@ mod tests {
 
     use super::*;
     use crate::execution::physical_plan::csv::CsvExec;
+    use crate::execution::physical_plan::expressions::Column;
     use arrow::datatypes::{DataType, Field, Schema};
     use std::env;
+    use std::fs;
+    use std::fs::File;
+    use std::io::prelude::*;
+    use std::io::{BufReader, BufWriter};
 
     #[test]
     fn project_first_column() -> Result<()> {
@@ -156,22 +161,74 @@ mod tests {
             Field::new("c12", DataType::Utf8, false),
         ]));
 
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
-
-        let path = format!("{}/tbd", testdata);
+        let partitions = 4;
+        let path = create_partitioned_csv("aggregate_test_100.csv", partitions)?;
 
         let csv = CsvExec::try_new(&path, schema)?;
 
-        let projection = ProjectionExec::try_new(vec![], Arc::new(csv))?;
+        let projection =
+            ProjectionExec::try_new(vec![Arc::new(Column::new(0))], Arc::new(csv))?;
 
+        let mut partition_count = 0;
+        let mut row_count = 0;
         for partition in projection.partitions()? {
+            partition_count += 1;
             let iterator = partition.execute()?;
             let mut iterator = iterator.lock().unwrap();
-            while let Some(batch) = iterator.next()? {}
+            while let Some(batch) = iterator.next()? {
+                assert_eq!(1, batch.num_columns());
+                row_count += batch.num_rows();
+            }
         }
-
-        //TODO assertions
+        assert_eq!(partitions, partition_count);
+        assert_eq!(100, row_count);
 
         Ok(())
+    }
+
+    /// Generated partitioned copy of a CSV file
+    fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<String> {
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let path = format!("{}/csv/{}", testdata, filename);
+
+        let mut dir = env::temp_dir();
+        dir.push(&format!("{}-{}", filename, partitions));
+        fs::remove_dir_all(dir.clone()).unwrap();
+        fs::create_dir(dir.clone()).unwrap();
+
+        let mut writers = vec![];
+        for i in 0..partitions {
+            let mut filename = dir.clone();
+            filename.push(format!("part{}.csv", i));
+            let writer = BufWriter::new(File::create(&filename).unwrap());
+            writers.push(writer);
+        }
+
+        let f = File::open(&path)?;
+        let f = BufReader::new(f);
+        let mut i = 0;
+        for line in f.lines() {
+            let line = line.unwrap();
+
+            if i == 0 {
+                // write header to all partitions
+                for w in writers.iter_mut() {
+                    w.write(line.as_bytes()).unwrap();
+                    w.write(b"\n").unwrap();
+                }
+            } else {
+                // write data line to single partition
+                let partition = i % partitions;
+                writers[partition].write(line.as_bytes()).unwrap();
+                writers[partition].write(b"\n").unwrap();
+            }
+
+            i += 1;
+        }
+        for w in writers.iter_mut() {
+            w.flush().unwrap();
+        }
+
+        Ok(dir.as_os_str().to_str().unwrap().to_string())
     }
 }
