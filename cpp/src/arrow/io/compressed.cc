@@ -273,6 +273,8 @@ class CompressedInputStream::Impl {
     return Status::OK();
   }
 
+  // Decompress some data from the compressed_ buffer.
+  // Call this function only if the decompressed_ buffer is empty.
   Status DecompressData() {
     int64_t decompress_size = kDecompressSize;
 
@@ -305,56 +307,73 @@ class CompressedInputStream::Impl {
     return Status::OK();
   }
 
+  // Read a given number of bytes from the decompressed_ buffer.
+  int64_t ReadFromDecompressed(int64_t nbytes, uint8_t* out) {
+    int64_t readable = decompressed_ ? (decompressed_->size() - decompressed_pos_) : 0;
+    int64_t read_bytes = std::min(readable, nbytes);
+
+    if (read_bytes > 0) {
+      memcpy(out, decompressed_->data() + decompressed_pos_, read_bytes);
+      decompressed_pos_ += read_bytes;
+
+      if (decompressed_pos_ == decompressed_->size()) {
+        // Decompressed data is exhausted, release buffer
+        decompressed_.reset();
+      }
+    }
+
+    return read_bytes;
+  }
+
+  // Try to feed more data into the decompressed_ buffer.
+  Status RefillDecompressed(bool* has_data) {
+    // First try to read data from the decompressor
+    if (compressed_) {
+      if (decompressor_->IsFinished()) {
+        // We just went over the end of a previous compressed stream.
+        RETURN_NOT_OK(decompressor_->Reset());
+        fresh_decompressor_ = true;
+      }
+      RETURN_NOT_OK(DecompressData());
+    }
+    if (!decompressed_ || decompressed_->size() == 0) {
+      // Got nothing, need to read more compressed data
+      RETURN_NOT_OK(EnsureCompressedData());
+      if (compressed_pos_ == compressed_->size()) {
+        // No more data to decompress
+        if (!fresh_decompressor_) {
+          return Status::IOError("Truncated compressed stream");
+        }
+        *has_data = false;
+        return Status::OK();
+      }
+      RETURN_NOT_OK(DecompressData());
+    }
+    *has_data = true;
+    return Status::OK();
+  }
+
   Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
     std::lock_guard<std::mutex> guard(lock_);
 
-    *bytes_read = 0;
     auto out_data = reinterpret_cast<uint8_t*>(out);
 
-    while (nbytes > 0) {
-      int64_t avail = decompressed_ ? (decompressed_->size() - decompressed_pos_) : 0;
-      if (avail > 0) {
-        // Pending decompressed data is available, use it
-        avail = std::min(avail, nbytes);
-        memcpy(out_data, decompressed_->data() + decompressed_pos_, avail);
-        decompressed_pos_ += avail;
-        out_data += avail;
-        *bytes_read += avail;
-        nbytes -= avail;
-        if (decompressed_pos_ == decompressed_->size()) {
-          // Decompressed data is exhausted, release buffer
-          decompressed_.reset();
-        }
-        if (nbytes == 0) {
-          // We're done
-          break;
-        }
+    int64_t total_read = 0;
+    bool decompressor_has_data = true;
+
+    while (nbytes - total_read > 0 && decompressor_has_data) {
+      total_read += ReadFromDecompressed(nbytes - total_read, out_data + total_read);
+
+      if (nbytes == total_read) {
+        break;
       }
 
-      // At this point, no more decompressed data remains,
-      // so we need to decompress more
-      // First try to read data from the decompressor
-      if (compressed_) {
-        if (decompressor_->IsFinished()) {
-          // We just went over the end of a previous compressed stream.
-          RETURN_NOT_OK(decompressor_->Reset());
-          fresh_decompressor_ = true;
-        }
-        RETURN_NOT_OK(DecompressData());
-      }
-      if (!decompressed_ || decompressed_->size() == 0) {
-        // Got nothing, need to read more compressed data
-        RETURN_NOT_OK(EnsureCompressedData());
-        if (compressed_pos_ == compressed_->size()) {
-          // No more data to decompress
-          if (!fresh_decompressor_) {
-            return Status::IOError("Truncated compressed stream");
-          }
-          break;
-        }
-        RETURN_NOT_OK(DecompressData());
-      }
+      // At this point, no more decompressed data remains, so we need to
+      // decompress more
+      RETURN_NOT_OK(RefillDecompressed(&decompressor_has_data));
     }
+
+    *bytes_read = total_read;
     return Status::OK();
   }
 
