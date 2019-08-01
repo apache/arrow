@@ -35,7 +35,7 @@ import org.apache.arrow.consumers.AvroIntConsumer;
 import org.apache.arrow.consumers.AvroLongConsumer;
 import org.apache.arrow.consumers.AvroStringConsumer;
 import org.apache.arrow.consumers.Consumer;
-import org.apache.arrow.consumers.NullablePrimitiveTypeConsumer;
+import org.apache.arrow.consumers.NullableTypeConsumer;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BigIntVector;
@@ -212,7 +212,7 @@ public class AvroToArrowUtils {
 
     if (vector.getField().isNullable()) {
       int nullIndex = getNullFieldIndex(vector.getField());
-      return new NullablePrimitiveTypeConsumer(consumer, nullIndex);
+      return new NullableTypeConsumer(consumer, nullIndex);
     }
 
     return consumer;

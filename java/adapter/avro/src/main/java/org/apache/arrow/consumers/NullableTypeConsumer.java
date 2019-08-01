@@ -25,7 +25,7 @@ import org.apache.avro.io.Decoder;
  * Consumer holds a primitive consumer, could consume nullable values from avro decoder.
  * Write data via writer of delegate consumer.
  */
-public class NullablePrimitiveTypeConsumer implements Consumer {
+public class NullableTypeConsumer implements Consumer {
 
 
   private final Consumer delegate;
@@ -35,7 +35,7 @@ public class NullablePrimitiveTypeConsumer implements Consumer {
    */
   protected int nullIndex;
 
-  public NullablePrimitiveTypeConsumer(Consumer delegate, int nullIndex) {
+  public NullableTypeConsumer(Consumer delegate, int nullIndex) {
     this.delegate = delegate;
     this.nullIndex = nullIndex;
   }
