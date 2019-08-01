@@ -204,8 +204,8 @@ class HashTable {
 
   HashTable(MemoryPool* pool, uint64_t capacity) : entries_builder_(pool) {
     DCHECK_NE(pool, nullptr);
-    // Minimum of 8 elements
-    capacity = std::max<uint64_t>(capacity, 8UL);
+    // Minimum of 32 elements
+    capacity = std::max<uint64_t>(capacity, 32UL);
     capacity_ = BitUtil::NextPower2(capacity);
     capacity_mask_ = capacity_ - 1;
     size_ = 0;
@@ -237,7 +237,7 @@ class HashTable {
     entry->payload = payload;
     ++size_;
 
-    if (NeedUpsizing()) {
+    if (ARROW_PREDICT_FALSE(NeedUpsizing())) {
       // Resize less frequently since it is expensive
       DCHECK_OK(Upsize(capacity_ * kLoadFactor * 2));
     }
