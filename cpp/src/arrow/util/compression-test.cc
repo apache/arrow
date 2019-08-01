@@ -233,12 +233,9 @@ void CheckStreamingDecompressor(Codec* codec, const std::vector<uint8_t>& data) 
 
 // Check the streaming compressor and decompressor together
 
-void CheckStreamingRoundtrip(Codec* codec, const std::vector<uint8_t>& data) {
-  std::shared_ptr<Compressor> compressor;
-  std::shared_ptr<Decompressor> decompressor;
-  ASSERT_OK(codec->MakeCompressor(&compressor));
-  ASSERT_OK(codec->MakeDecompressor(&decompressor));
-
+void CheckStreamingRoundtrip(std::shared_ptr<Compressor> compressor,
+                             std::shared_ptr<Decompressor> decompressor,
+                             const std::vector<uint8_t>& data) {
   std::default_random_engine engine(42);
   std::uniform_int_distribution<int> buf_size_distribution(10, 40);
 
@@ -320,6 +317,15 @@ void CheckStreamingRoundtrip(Codec* codec, const std::vector<uint8_t>& data) {
 
   ASSERT_EQ(data.size(), decompressed.size());
   ASSERT_EQ(data, decompressed);
+}
+
+void CheckStreamingRoundtrip(Codec* codec, const std::vector<uint8_t>& data) {
+  std::shared_ptr<Compressor> compressor;
+  std::shared_ptr<Decompressor> decompressor;
+  ASSERT_OK(codec->MakeCompressor(&compressor));
+  ASSERT_OK(codec->MakeDecompressor(&decompressor));
+
+  CheckStreamingRoundtrip(compressor, decompressor, data);
 }
 
 class CodecTest : public ::testing::TestWithParam<Compression::type> {
@@ -448,6 +454,27 @@ TEST_P(CodecTest, StreamingRoundtrip) {
     data = MakeCompressibleData(data_size);
     CheckStreamingRoundtrip(codec.get(), data);
   }
+}
+
+TEST_P(CodecTest, StreamingDecompressorReuse) {
+  if (GetCompression() == Compression::SNAPPY) {
+    // SKIP: snappy doesn't support streaming decompression
+    return;
+  }
+
+  auto codec = MakeCodec();
+  std::shared_ptr<Compressor> compressor;
+  std::shared_ptr<Decompressor> decompressor;
+  ASSERT_OK(codec->MakeCompressor(&compressor));
+  ASSERT_OK(codec->MakeDecompressor(&decompressor));
+
+  std::vector<uint8_t> data = MakeRandomData(100);
+  CheckStreamingRoundtrip(compressor, decompressor, data);
+  // Decompressor::Reset() should allow reusing decompressor for a new stream
+  ASSERT_OK(codec->MakeCompressor(&compressor));
+  ASSERT_OK(decompressor->Reset());
+  data = MakeRandomData(200);
+  CheckStreamingRoundtrip(compressor, decompressor, data);
 }
 
 INSTANTIATE_TEST_CASE_P(TestGZip, CodecTest, ::testing::Values(Compression::GZIP));
