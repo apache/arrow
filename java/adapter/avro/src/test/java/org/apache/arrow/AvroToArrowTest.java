@@ -36,7 +36,7 @@ import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.util.Text;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -286,6 +286,52 @@ public class AvroToArrowTest {
     checkRecordResult(schema, data, root);
   }
 
+  @Test
+  public void testUnionType() throws Exception {
+    Schema schema = getSchema("test_union.avsc");
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    ArrayList<Object> expected = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      record.put(0, i % 2 == 0 ? "test" + i : i);
+      expected.add(i % 2 == 0 ? "test" + i : i);
+      data.add(record);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    FieldVector vector = root.getFieldVectors().get(0);
+
+    checkPrimitiveResult(expected, vector);
+  }
+
+  @Test
+  public void testNullableUnionType() throws Exception {
+    Schema schema = getSchema("test_nullable_union.avsc");
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    ArrayList<Object> expected = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      if (i % 3 == 0) {
+        record.put(0, "test" + i);
+        expected.add("test" + i);
+        data.add(record);
+      } else if (i % 3 == 1) {
+        record.put(0, i);
+        expected.add(i);
+        data.add(record);
+      } else {
+        record.put(0, null);
+        expected.add(null);
+        data.add(record);
+      }
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    FieldVector vector = root.getFieldVectors().get(0);
+
+    checkPrimitiveResult(expected, vector);
+  }
+
   private void checkPrimitiveResult(ArrayList data, FieldVector vector) {
     assertEquals(data.size(), vector.getValueCount());
     for (int i = 0; i < data.size(); i++) {
@@ -295,9 +341,9 @@ public class AvroToArrowTest {
         assertTrue(value2 == null);
         continue;
       }
-      if (vector.getField().getType().getTypeID() == ArrowType.Binary.TYPE_TYPE) {
+      if (value2 instanceof byte[]) {
         value2 = ByteBuffer.wrap((byte[]) value2);
-      } else if (vector.getField().getType().getTypeID() == ArrowType.Utf8.TYPE_TYPE) {
+      } else if (value2 instanceof Text) {
         value2 = value2.toString();
       }
       assertTrue(Objects.equals(value1, value2));

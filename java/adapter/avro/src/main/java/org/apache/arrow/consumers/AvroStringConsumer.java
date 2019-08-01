@@ -51,6 +51,13 @@ public class AvroStringConsumer implements Consumer {
   }
 
   @Override
+  public void consume(Decoder decoder, int index) throws IOException {
+    writer.setPosition(index);
+    writeValue(decoder);
+    writer.setPosition(index + 1);
+  }
+
+  @Override
   public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
@@ -68,5 +75,10 @@ public class AvroStringConsumer implements Consumer {
     holder.buffer.setBytes(0, cacheBuffer, 0, cacheBuffer.limit());
 
     writer.write(holder);
+  }
+
+  @Override
+  public void addNull(int index) {
+    writer.setPosition(index + 1);
   }
 }

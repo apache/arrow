@@ -50,7 +50,17 @@ public class NullableTypeConsumer implements Consumer {
   }
 
   @Override
+  public void consume(Decoder decoder, int index) throws IOException {
+
+  }
+
+  @Override
   public void addNull() {
     delegate.addNull();
+  }
+
+  @Override
+  public void addNull(int index) {
+    delegate.addNull(index);
   }
 }
