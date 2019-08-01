@@ -560,10 +560,10 @@ StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
 
 Result<std::shared_ptr<Array>> StructArray::Make(
     const std::vector<std::shared_ptr<Array>>& children,
-    const std::vector<std::string>& field_names, std::shared_ptr<Buffer> null_bitmap,
-    int64_t null_count, int64_t offset) {
-  if (children.size() != field_names.size()) {
-    return Status::Invalid("Mismatching number of field names and child arrays");
+    const std::vector<std::shared_ptr<Field>>& fields,
+    std::shared_ptr<Buffer> null_bitmap, int64_t null_count, int64_t offset) {
+  if (children.size() != fields.size()) {
+    return Status::Invalid("Mismatching number of fields and child arrays");
   }
   int64_t length = 0;
   if (children.size() == 0) {
@@ -578,12 +578,22 @@ Result<std::shared_ptr<Array>> StructArray::Make(
   if (offset > length) {
     return Status::IndexError("Offset greater than length of child arrays");
   }
+  return std::make_shared<StructArray>(struct_(fields), length - offset, children,
+                                       null_bitmap, null_count, offset);
+}
+
+Result<std::shared_ptr<Array>> StructArray::Make(
+    const std::vector<std::shared_ptr<Array>>& children,
+    const std::vector<std::string>& field_names, std::shared_ptr<Buffer> null_bitmap,
+    int64_t null_count, int64_t offset) {
+  if (children.size() != field_names.size()) {
+    return Status::Invalid("Mismatching number of field names and child arrays");
+  }
   std::vector<std::shared_ptr<Field>> fields(children.size());
   for (size_t i = 0; i < children.size(); ++i) {
     fields[i] = ::arrow::field(field_names[i], children[i]->type());
   }
-  return std::make_shared<StructArray>(struct_(fields), length - offset, children,
-                                       null_bitmap, null_count, offset);
+  return Make(children, fields, std::move(null_bitmap), null_count, offset);
 }
 
 const StructType* StructArray::struct_type() const {

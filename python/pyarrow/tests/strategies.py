@@ -167,13 +167,11 @@ def arrays(draw, type, size=None):
 
     if pa.types.is_struct(type):
         h.assume(len(type) > 0)
-        names, child_arrays = [], []
+        fields, child_arrays = [], []
         for field in type:
-            names.append(field.name)
+            fields.append(field)
             child_arrays.append(draw(arrays(field.type, size=size)))
-        # fields' metadata are lost here, because from_arrays doesn't accept
-        # a fields argumentum, only names
-        return pa.StructArray.from_arrays(child_arrays, names=names)
+        return pa.StructArray.from_arrays(child_arrays, fields=fields)
 
     if (pa.types.is_boolean(type) or pa.types.is_integer(type) or
             pa.types.is_floating(type)):
