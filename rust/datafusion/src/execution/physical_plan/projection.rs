@@ -142,6 +142,7 @@ mod tests {
     use std::fs::File;
     use std::io::prelude::*;
     use std::io::{BufReader, BufWriter};
+    use std::path::Path;
 
     #[test]
     fn project_first_column() -> Result<()> {
@@ -193,7 +194,10 @@ mod tests {
 
         let mut dir = env::temp_dir();
         dir.push(&format!("{}-{}", filename, partitions));
-        fs::remove_dir_all(dir.clone()).unwrap();
+
+        if Path::new(&dir).exists() {
+            fs::remove_dir_all(&dir).unwrap();
+        }
         fs::create_dir(dir.clone()).unwrap();
 
         let mut writers = vec![];
