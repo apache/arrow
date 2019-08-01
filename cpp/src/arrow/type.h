@@ -670,6 +670,7 @@ class ARROW_EXPORT StringType : public BinaryType {
  public:
   static constexpr Type::type type_id = Type::STRING;
   static constexpr bool is_utf8 = true;
+  using EquivalentBinaryType = BinaryType;
 
   static constexpr const char* type_name() { return "utf8"; }
 
@@ -684,6 +685,7 @@ class ARROW_EXPORT LargeStringType : public LargeBinaryType {
  public:
   static constexpr Type::type type_id = Type::LARGE_STRING;
   static constexpr bool is_utf8 = true;
+  using EquivalentBinaryType = LargeBinaryType;
 
   static constexpr const char* type_name() { return "large_utf8"; }
 

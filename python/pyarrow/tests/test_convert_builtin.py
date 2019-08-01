@@ -26,6 +26,7 @@ import collections
 import datetime
 import decimal
 import itertools
+import math
 import traceback
 import sys
 
@@ -605,7 +606,7 @@ def test_sequence_unicode():
     assert arr.to_pylist() == data
 
 
-def test_array_mixed_unicode_bytes():
+def check_array_mixed_unicode_bytes(binary_type, string_type):
     values = [u'qux', b'foo', bytearray(b'barz')]
     b_values = [b'qux', b'foo', b'barz']
     u_values = [u'qux', u'foo', u'barz']
@@ -615,10 +616,47 @@ def test_array_mixed_unicode_bytes():
     assert arr.type == pa.binary()
     assert arr.equals(expected)
 
-    arr = pa.array(values, type=pa.string())
-    expected = pa.array(u_values, type=pa.string())
-    assert arr.type == pa.string()
+    arr = pa.array(values, type=binary_type)
+    expected = pa.array(b_values, type=binary_type)
+    assert arr.type == binary_type
     assert arr.equals(expected)
+
+    arr = pa.array(values, type=string_type)
+    expected = pa.array(u_values, type=string_type)
+    assert arr.type == string_type
+    assert arr.equals(expected)
+
+
+def test_array_mixed_unicode_bytes():
+    check_array_mixed_unicode_bytes(pa.binary(), pa.string())
+    check_array_mixed_unicode_bytes(pa.large_binary(), pa.large_string())
+
+
+@pytest.mark.large_memory
+@pytest.mark.parametrize("ty", [pa.large_binary(), pa.large_string()])
+def test_large_binary_array(ty):
+    # Construct a large binary array with more than 4GB of data
+    s = b"0123456789abcdefghijklmnopqrstuvwxyz" * 10
+    nrepeats = math.ceil((2**32 + 5) / len(s))
+    data = [s] * nrepeats
+    arr = pa.array(data, type=ty)
+    assert isinstance(arr, pa.Array)
+    assert arr.type == ty
+    assert len(arr) == nrepeats
+
+
+@pytest.mark.large_memory
+@pytest.mark.parametrize("ty", [pa.large_binary(), pa.large_string()])
+def test_large_binary_value(ty):
+    # Construct a large binary array with a single value larger than 4GB
+    s = b"0123456789abcdefghijklmnopqrstuvwxyz"
+    nrepeats = math.ceil((2**32 + 5) / len(s))
+    arr = pa.array([b"foo", s * nrepeats, None, b"bar"], type=ty)
+    assert isinstance(arr, pa.Array)
+    assert arr.type == ty
+    assert len(arr) == 4
+    buf = arr[1].as_buffer()
+    assert len(buf) == len(s) * nrepeats
 
 
 def test_sequence_bytes():
@@ -627,24 +665,26 @@ def test_sequence_bytes():
             u1.decode('utf-8'),  # unicode gets encoded,
             bytearray(b'bar'),
             None]
-    for ty in [None, pa.binary()]:
+    for ty in [None, pa.binary(), pa.large_binary()]:
         arr = pa.array(data, type=ty)
         assert len(arr) == 4
         assert arr.null_count == 1
-        assert arr.type == pa.binary()
+        assert arr.type == ty or pa.binary()
         assert arr.to_pylist() == [b'foo', u1, b'bar', None]
 
 
-def test_sequence_utf8_to_unicode():
+@pytest.mark.parametrize("ty", [pa.string(), pa.large_string()])
+def test_sequence_utf8_to_unicode(ty):
     # ARROW-1225
     data = [b'foo', None, b'bar']
-    arr = pa.array(data, type=pa.string())
+    arr = pa.array(data, type=ty)
+    assert arr.type == ty
     assert arr[0].as_py() == u'foo'
 
     # test a non-utf8 unicode string
     val = (u'mañana').encode('utf-16-le')
     with pytest.raises(pa.ArrowInvalid):
-        pa.array([val], type=pa.string())
+        pa.array([val], type=ty)
 
 
 def test_sequence_fixed_size_bytes():

@@ -34,6 +34,7 @@ namespace arrow {
 
 class ARROW_EXPORT DayTimeIntervalBuilder : public ArrayBuilder {
  public:
+  using TypeClass = DayTimeIntervalType;
   using DayMilliseconds = DayTimeIntervalType::DayMilliseconds;
 
   explicit DayTimeIntervalBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)

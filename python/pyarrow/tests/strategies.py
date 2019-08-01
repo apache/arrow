@@ -38,6 +38,8 @@ bool_type = st.just(pa.bool_())
 
 binary_type = st.just(pa.binary())
 string_type = st.just(pa.string())
+large_binary_type = st.just(pa.large_binary())
+large_string_type = st.just(pa.large_string())
 
 signed_integer_types = st.sampled_from([
     pa.int8(),
@@ -87,6 +89,8 @@ primitive_types = st.one_of(
     bool_type,
     binary_type,
     string_type,
+    large_binary_type,
+    large_string_type,
     numeric_types,
     temporal_types
 )
@@ -190,9 +194,9 @@ def arrays(draw, type, size=None):
     elif pa.types.is_timestamp(type):
         tz = pytz.timezone(type.tz) if type.tz is not None else None
         value = st.datetimes(timezones=st.just(tz))
-    elif pa.types.is_binary(type):
+    elif pa.types.is_binary(type) or pa.types.is_large_binary(type):
         value = st.binary()
-    elif pa.types.is_string(type):
+    elif pa.types.is_string(type) or pa.types.is_large_string(type):
         value = st.text()
     elif pa.types.is_decimal(type):
         # TODO(kszucs): properly limit the precision

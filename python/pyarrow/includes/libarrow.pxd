@@ -65,6 +65,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_TIME64" arrow::Type::TIME64"
         _Type_BINARY" arrow::Type::BINARY"
         _Type_STRING" arrow::Type::STRING"
+        _Type_LARGE_BINARY" arrow::Type::LARGE_BINARY"
+        _Type_LARGE_STRING" arrow::Type::LARGE_STRING"
         _Type_FIXED_SIZE_BINARY" arrow::Type::FIXED_SIZE_BINARY"
 
         _Type_LIST" arrow::Type::LIST"
@@ -437,11 +439,17 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const CArray* UnsafeChild(int pos)
         UnionMode mode()
 
-    cdef cppclass CBinaryArray" arrow::BinaryArray"(CListArray):
+    cdef cppclass CBinaryArray" arrow::BinaryArray"(CArray):
         const uint8_t* GetValue(int i, int32_t* length)
         shared_ptr[CBuffer] value_data()
         int32_t value_offset(int64_t i)
         int32_t value_length(int64_t i)
+
+    cdef cppclass CLargeBinaryArray" arrow::LargeBinaryArray"(CArray):
+        const uint8_t* GetValue(int i, int64_t* length)
+        shared_ptr[CBuffer] value_data()
+        int64_t value_offset(int64_t i)
+        int64_t value_length(int64_t i)
 
     cdef cppclass CStringArray" arrow::StringArray"(CBinaryArray):
         CStringArray(int64_t length, shared_ptr[CBuffer] value_offsets,
@@ -449,6 +457,16 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                      shared_ptr[CBuffer] null_bitmap,
                      int64_t null_count,
                      int64_t offset)
+
+        c_string GetString(int i)
+
+    cdef cppclass CLargeStringArray" arrow::LargeStringArray" \
+            (CLargeBinaryArray):
+        CLargeStringArray(int64_t length, shared_ptr[CBuffer] value_offsets,
+                          shared_ptr[CBuffer] data,
+                          shared_ptr[CBuffer] null_bitmap,
+                          int64_t null_count,
+                          int64_t offset)
 
         c_string GetString(int i)
 

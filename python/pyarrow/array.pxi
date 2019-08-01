@@ -1178,9 +1178,47 @@ cdef class StringArray(Array):
                                   null_count, offset)
 
 
+cdef class LargeStringArray(Array):
+    """
+    Concrete class for Arrow arrays of large string (or utf8) data type.
+    """
+
+    @staticmethod
+    def from_buffers(int length, Buffer value_offsets, Buffer data,
+                     Buffer null_bitmap=None, int null_count=-1,
+                     int offset=0):
+        """
+        Construct a LargeStringArray from value_offsets and data buffers.
+        If there are nulls in the data, also a null_bitmap and the matching
+        null_count must be passed.
+
+        Parameters
+        ----------
+        length : int
+        value_offsets : Buffer
+        data : Buffer
+        null_bitmap : Buffer, optional
+        null_count : int, default 0
+        offset : int, default 0
+
+        Returns
+        -------
+        string_array : StringArray
+        """
+        return Array.from_buffers(large_utf8(), length,
+                                  [null_bitmap, value_offsets, data],
+                                  null_count, offset)
+
+
 cdef class BinaryArray(Array):
     """
     Concrete class for Arrow arrays of variable-sized binary data type.
+    """
+
+
+cdef class LargeBinaryArray(Array):
+    """
+    Concrete class for Arrow arrays of large variable-sized binary data type.
     """
 
 
@@ -1449,6 +1487,8 @@ cdef dict _array_classes = {
     _Type_UNION: UnionArray,
     _Type_BINARY: BinaryArray,
     _Type_STRING: StringArray,
+    _Type_LARGE_BINARY: LargeBinaryArray,
+    _Type_LARGE_STRING: LargeStringArray,
     _Type_DICTIONARY: DictionaryArray,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
     _Type_DECIMAL: Decimal128Array,

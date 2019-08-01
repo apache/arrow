@@ -294,6 +294,11 @@ class BaseBinaryBuilder : public ArrayBuilder {
     return util::string_view(reinterpret_cast<const char*>(value_data), value_length);
   }
 
+  // Cannot make this a static attribute because of linking issues
+  static constexpr int64_t memory_limit() {
+    return std::numeric_limits<offset_type>::max() - 1;
+  }
+
  protected:
   TypedBufferBuilder<offset_type> offsets_builder_;
   TypedBufferBuilder<uint8_t> value_data_builder_;
@@ -314,11 +319,6 @@ class BaseBinaryBuilder : public ArrayBuilder {
   void UnsafeAppendNextOffset() {
     const int64_t num_bytes = value_data_builder_.length();
     offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_bytes));
-  }
-
-  // Cannot make this a static attribute because of linking issues
-  static constexpr int64_t memory_limit() {
-    return std::numeric_limits<offset_type>::max() - 1;
   }
 };
 
@@ -387,6 +387,8 @@ class ARROW_EXPORT LargeStringBuilder : public LargeBinaryBuilder {
 
 class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
  public:
+  using TypeClass = FixedSizeBinaryType;
+
   FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
                          MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
@@ -470,6 +472,10 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   ///
   /// This view becomes invalid on the next modifying operation.
   util::string_view GetView(int64_t i) const;
+
+  static constexpr int64_t memory_limit() {
+    return std::numeric_limits<int64_t>::max() - 1;
+  }
 
  protected:
   int32_t byte_width_;

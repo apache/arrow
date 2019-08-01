@@ -50,6 +50,9 @@ These should be used to create Arrow data types and schemas.
    binary
    string
    utf8
+   large_binary
+   large_string
+   large_utf8
    decimal128
    list_
    struct
@@ -129,6 +132,9 @@ represents a given data type (such as ``int32``) or general category
    is_binary
    is_unicode
    is_string
+   is_large_binary
+   is_large_unicode
+   is_large_string
    is_fixed_size_binary
    is_map
    is_dictionary
