@@ -117,12 +117,6 @@ set(ARROW_SRCS
     filesystem/mockfs.cc
     filesystem/path-util.cc
     filesystem/util-internal.cc
-    json/options.cc
-    json/chunked-builder.cc
-    json/chunker.cc
-    json/converter.cc
-    json/parser.cc
-    json/reader.cc
     io/buffered.cc
     io/compressed.cc
     io/file.cc
@@ -148,6 +142,18 @@ set(ARROW_SRCS
     util/trie.cc
     util/utf8.cc
     vendored/datetime/tz.cpp)
+
+if(ARROW_JSON)
+  add_subdirectory(json)
+  set(ARROW_SRCS
+      ${ARROW_SRCS}
+      json/options.cc
+      json/chunked-builder.cc
+      json/chunker.cc
+      json/converter.cc
+      json/parser.cc
+      json/reader.cc)
+endif()
 
 if(ARROW_WITH_URIPARSER)
   set(ARROW_SRCS ${ARROW_SRCS} util/uri.cc)
@@ -375,7 +381,6 @@ add_arrow_benchmark(builder-benchmark)
 add_subdirectory(array)
 add_subdirectory(csv)
 add_subdirectory(filesystem)
-add_subdirectory(json)
 add_subdirectory(io)
 add_subdirectory(util)
 add_subdirectory(vendored)

@@ -217,6 +217,9 @@ endif()
 
 if(ARROW_FLIGHT OR ARROW_IPC)
   set(ARROW_WITH_FLATBUFFERS ON)
+endif()
+
+if(ARROW_JSON)
   set(ARROW_WITH_RAPIDJSON ON)
 endif()
 
