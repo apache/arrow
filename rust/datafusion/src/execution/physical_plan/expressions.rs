@@ -17,14 +17,14 @@
 
 //! Defines physical expressions that can evaluated at runtime during query execution
 
-use arrow::array::ArrayRef;
-use arrow::record_batch::RecordBatch;
 use crate::error::Result;
 use crate::execution::physical_plan::PhysicalExpr;
+use arrow::array::ArrayRef;
+use arrow::record_batch::RecordBatch;
 
 /// Represents the column at a given index in a RecordBatch
 pub struct Column {
-    index: usize
+    index: usize,
 }
 
 impl PhysicalExpr for Column {
