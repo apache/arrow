@@ -188,6 +188,7 @@ if(ARROW_COMPUTE)
       compute/kernels/take.cc
       compute/kernels/isin.cc
       compute/kernels/util-internal.cc
+      compute/kernels/argsort.cc
       compute/operations/cast.cc
       compute/operations/literal.cc)
 endif()
