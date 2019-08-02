@@ -283,7 +283,7 @@ class UnionBuilderTest : public ::testing::Test {
   std::shared_ptr<Int8Builder> i8_builder = std::make_shared<Int8Builder>();
   std::shared_ptr<StringBuilder> str_builder = std::make_shared<StringBuilder>();
   std::shared_ptr<DoubleBuilder> dbl_builder = std::make_shared<DoubleBuilder>();
-  std::shared_ptr<B> union_builder{new B(default_memory_pool())};
+  std::shared_ptr<B> union_builder = std::make_shared<B>(default_memory_pool());
   std::shared_ptr<UnionArray> actual;
 };
 

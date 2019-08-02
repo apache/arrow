@@ -35,7 +35,7 @@ env:
 before_script:
   - git clone --no-checkout {{ arrow.remote }} arrow
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout FETCH_HEAD
+  - if [ $CROSSBOW_USE_COMMIT_ID == true ]; then git -C arrow checkout {{ arrow.head }}; else git -C arrow checkout FETCH_HEAD; fi
 
   - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
   - brew update

@@ -27,9 +27,10 @@ pushd java
   fi
 
   # build the entire project
-  mvn clean install -DskipTests -P arrow-jni -Darrow.cpp.build.dir=$CPP_BUILD_DIR
+  mvn clean install -q -DskipTests -P arrow-jni -Darrow.cpp.build.dir=$CPP_BUILD_DIR
   # test only gandiva
-  mvn test -P arrow-jni -pl gandiva -Darrow.cpp.build.dir=$CPP_BUILD_DIR
+  mvn test -q -P arrow-jni -pl gandiva -Dgandiva.cpp.build.dir=$CPP_BUILD_DIR
+
   # copy the jars to distribution folder
   find gandiva/target/ -name "*.jar" -not -name "*tests*" -exec cp  {} $CPP_BUILD_DIR \;
 popd
