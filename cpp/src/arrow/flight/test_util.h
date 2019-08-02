@@ -188,6 +188,18 @@ class ARROW_FLIGHT_EXPORT TestServerAuthHandler : public ServerAuthHandler {
   std::string password_;
 };
 
+class ARROW_FLIGHT_EXPORT TestServerBasicAuthHandler : public ServerAuthHandler {
+public:
+    explicit TestServerBasicAuthHandler(const std::string& username,
+                                   const std::string& password);
+    ~TestServerBasicAuthHandler() override;
+    Status Authenticate(ServerAuthSender* outgoing, ServerAuthReader* incoming) override;
+    Status IsValid(const std::string& token, std::string* peer_identity) override;
+
+private:
+    BasicAuth basic_auth_;
+};
+
 class ARROW_FLIGHT_EXPORT TestClientAuthHandler : public ClientAuthHandler {
  public:
   explicit TestClientAuthHandler(const std::string& username,
@@ -200,6 +212,20 @@ class ARROW_FLIGHT_EXPORT TestClientAuthHandler : public ClientAuthHandler {
   std::string username_;
   std::string password_;
 };
+
+class ARROW_FLIGHT_EXPORT TestClientBasicAuthHandler : public ClientAuthHandler {
+public:
+    explicit TestClientBasicAuthHandler(const std::string& username,
+                                   const std::string& password);
+    ~TestClientBasicAuthHandler() override;
+    Status Authenticate(ClientAuthSender* outgoing, ClientAuthReader* incoming) override;
+    Status GetToken(std::string* token) override;
+
+private:
+    BasicAuth basic_auth_;
+    std::string token_;
+};
+
 
 ARROW_FLIGHT_EXPORT
 Status ExampleTlsCertificates(std::vector<CertKeyPair>* out);

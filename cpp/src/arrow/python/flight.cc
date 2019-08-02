@@ -265,6 +265,19 @@ Status CreateSchemaResult(const std::shared_ptr<arrow::Schema>& schema,
   return Status::OK();
 }
 
+Status DeserializeBasicAuth(const std::string& buf,
+                            std::unique_ptr<arrow::flight::BasicAuth>* out) {
+    auto basic_auth = new arrow::flight::BasicAuth();
+    *out = std::unique_ptr<arrow::flight::BasicAuth>(basic_auth);
+    return arrow::flight::BasicAuth::Deserialize(buf, basic_auth);
+}
+
+Status SerializeBasicAuth(const arrow::flight::BasicAuth &basic_auth, std::unique_ptr<std::string> *out) {
+    auto buf = new std::string();
+    *out = std::unique_ptr<std::string>(buf);
+    return arrow::flight::BasicAuth::Serialize(basic_auth, buf);
+}
+
 }  // namespace flight
 }  // namespace py
 }  // namespace arrow

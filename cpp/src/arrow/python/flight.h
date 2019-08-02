@@ -212,6 +212,14 @@ Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
                         int64_t total_records, int64_t total_bytes,
                         std::unique_ptr<arrow::flight::FlightInfo>* out);
 
+ARROW_PYTHON_EXPORT
+Status DeserializeBasicAuth(const std::string& buf,
+                        std::unique_ptr<arrow::flight::BasicAuth>* out);
+
+
+ARROW_PYTHON_EXPORT
+Status SerializeBasicAuth(const arrow::flight::BasicAuth &basic_auth, std::unique_ptr<std::string>* out);
+
 /// \brief Create a SchemaResult from schema.
 ARROW_PYTHON_EXPORT
 Status CreateSchemaResult(const std::shared_ptr<arrow::Schema>& schema,
