@@ -167,8 +167,17 @@ public class MessageSerializer {
     if (result.getMessage().headerType() != MessageHeader.Schema) {
       throw new IOException("Expected schema but header was " + result.getMessage().headerType());
     }
+    return deserializeSchema(result);
+  }
 
-    return deserializeSchema(result.getMessage());
+  /**
+   * Deserializes an Arrow Schema object from a {@link MessageMetadataResult}. Format is from serialize().
+   *
+   * @param message a Message of type MessageHeader.Schema
+   * @return the deserialized Arrow Schema
+   */
+  public static Schema deserializeSchema(MessageMetadataResult message) {
+    return deserializeSchema(message.getMessage());
   }
 
   /**
@@ -241,11 +250,11 @@ public class MessageSerializer {
   /**
    * Returns the serialized form of {@link RecordBatch} wrapped in a {@link org.apache.arrow.flatbuf.Message}.
    */
-  public static ByteBuffer serializeMetadata(ArrowRecordBatch batch) {
+  public static ByteBuffer serializeMetadata(ArrowMessage message) {
     FlatBufferBuilder builder = new FlatBufferBuilder();
-    int batchOffset = batch.writeTo(builder);
-    return serializeMessage(builder, org.apache.arrow.flatbuf.MessageHeader.RecordBatch, batchOffset,
-            batch.computeBodyLength());
+    int batchOffset = message.writeTo(builder);
+    return serializeMessage(builder, message.getType(), batchOffset,
+            message.computeBodyLength());
   }
 
   /**
@@ -401,16 +410,6 @@ public class MessageSerializer {
 
     // Metadata size in the Block account for the size prefix
     return new ArrowBlock(start, metadataLength + 4, bufferLength);
-  }
-
-  /** Returns the serialized flatbuffer bytes for this object. */
-  public static ByteBuffer serializeMetadata(ArrowDictionaryBatch batch) {
-    FlatBufferBuilder builder = new FlatBufferBuilder();
-    int batchOffset = batch.writeTo(builder);
-    return MessageSerializer.serializeMessage(builder,
-        org.apache.arrow.flatbuf.MessageHeader.DictionaryBatch,
-        batchOffset,
-        batch.computeBodyLength());
   }
 
   /**

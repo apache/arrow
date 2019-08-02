@@ -123,7 +123,8 @@ class ArrowMessage implements AutoCloseable {
 
   public ArrowMessage(FlightDescriptor descriptor, Schema schema) {
     ByteBuffer serializedMessage = MessageSerializer.serializeMetadata(schema);
-    this.message = MessageMetadataResult.create(serializedMessage.slice());
+    this.message = MessageMetadataResult.create(serializedMessage.slice(),
+        serializedMessage.remaining());
     bufs = ImmutableList.of();
     this.descriptor = descriptor;
     this.appMetadata = null;
@@ -136,7 +137,7 @@ class ArrowMessage implements AutoCloseable {
    */
   public ArrowMessage(ArrowRecordBatch batch, ArrowBuf appMetadata) {
     ByteBuffer serializedMessage = MessageSerializer.serializeMetadata(batch);
-    this.message = MessageMetadataResult.create(serializedMessage.slice());
+    this.message = MessageMetadataResult.create(serializedMessage.slice(), serializedMessage.remaining());
     this.bufs = ImmutableList.copyOf(batch.getBuffers());
     this.descriptor = null;
     this.appMetadata = appMetadata;
@@ -145,7 +146,7 @@ class ArrowMessage implements AutoCloseable {
   public ArrowMessage(ArrowDictionaryBatch batch) {
     ByteBuffer serializedMessage = MessageSerializer.serializeMetadata(batch);
     serializedMessage = serializedMessage.slice();
-    this.message = MessageMetadataResult.create(serializedMessage);
+    this.message = MessageMetadataResult.create(serializedMessage, serializedMessage.remaining());
     // asInputStream will free the buffers implicitly, so increment the reference count
     batch.getDictionary().getBuffers().forEach(buf -> buf.getReferenceManager().retain());
     this.bufs = ImmutableList.copyOf(batch.getDictionary().getBuffers());
@@ -161,6 +162,10 @@ class ArrowMessage implements AutoCloseable {
     this.bufs = buf == null ? ImmutableList.of() : ImmutableList.of(buf);
   }
 
+  public MessageMetadataResult asSchemaMessage() {
+    return message;
+  }
+
   public FlightDescriptor getDescriptor() {
     return descriptor;
   }
@@ -172,7 +177,7 @@ class ArrowMessage implements AutoCloseable {
   public Schema asSchema() {
     Preconditions.checkArgument(bufs.size() == 0);
     Preconditions.checkArgument(getMessageType() == HeaderType.SCHEMA);
-    return Schema.deserializeFromMessage(message);
+    return MessageSerializer.deserializeSchema(message);
   }
 
   public ArrowRecordBatch asRecordBatch() throws IOException {
@@ -218,7 +223,7 @@ class ArrowMessage implements AutoCloseable {
             int size = readRawVarint32(stream);
             byte[] bytes = new byte[size];
             ByteStreams.readFully(stream, bytes);
-            header = MessageMetadataResult.create(ByteBuffer.wrap(bytes));
+            header = MessageMetadataResult.create(ByteBuffer.wrap(bytes), size);
             break;
           }
           case APP_METADATA_TAG: {

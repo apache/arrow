@@ -42,18 +42,21 @@ public class MessageMetadataResult {
     this.message = message;
   }
 
-  public static MessageMetadataResult create(ByteBuffer buffer) {
-    return new MessageMetadataResult(-1, buffer, Message.getRootAsMessage(buffer));
+  /**
+   * Creates a new {@link MessageMetadataResult} by parsing it from the beginning of the buffer.
+   *
+   * @param messageLength The length of the serialized flatbuffer message in bytes (might not be equal to the buffer
+   *     size).
+   */
+  public static MessageMetadataResult create(ByteBuffer buffer, int messageLength) {
+    return new MessageMetadataResult(messageLength, buffer, Message.getRootAsMessage(buffer));
   }
 
   /**
    * Get the length of the message metadata in bytes, not including the body length.
    *
    * @return number of bytes in the message metadata buffer.
-   *
-   * @deprecated unused.
    */
-  @Deprecated
   public int getMessageLength() {
     return messageLength;
   }
@@ -67,11 +70,14 @@ public class MessageMetadataResult {
     return messageBuffer;
   }
 
+  /**
+   * Returns the bytes remaining in the buffer after parsing the message from it.
+   */
   public int bytesAfterMessage() {
     return message.getByteBuffer().remaining();
   }
 
-  public  byte headerType() {
+  public byte headerType() {
     return message.headerType();
   }
 

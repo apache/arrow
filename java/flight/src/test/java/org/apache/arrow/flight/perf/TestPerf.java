@@ -34,6 +34,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -61,7 +62,7 @@ public class TestPerf {
         Field.nullable("d", MinorType.BIGINT.getType())
     ));
 
-    ByteString serializedSchema = ByteString.copyFrom(pojoSchema.toSerializedFlatBuffer());
+    ByteString serializedSchema = ByteString.copyFrom(MessageSerializer.serializeMetadata(pojoSchema));
 
     return FlightDescriptor.command(Perf.newBuilder()
         .setRecordsPerStream(recordCount)

@@ -32,10 +32,8 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flatbuf.KeyValue;
-import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.ipc.message.MessageMetadataResult;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -79,20 +77,6 @@ public class Schema {
 
   public static Schema deserialize(ByteBuffer buffer) {
     return convertSchema(org.apache.arrow.flatbuf.Schema.getRootAsSchema(buffer));
-  }
-
-  /** Returns the schema from the message.
-   *
-   * <p>The message must have the schema field set or an
-   * exception will be raised.
-   */
-  public static Schema deserializeFromMessage(MessageMetadataResult buffer) {
-    org.apache.arrow.flatbuf.Schema schema = new org.apache.arrow.flatbuf.Schema();
-    org.apache.arrow.flatbuf.Message message = buffer.getMessage();
-    Preconditions.checkArgument(message.headerType() == MessageHeader.Schema, "type %s",
-        MessageHeader.name(message.headerType()));
-    message.header(schema);
-    return convertSchema(schema);
   }
 
   /** Converts a flatbuffer schema to its POJO representation. */
