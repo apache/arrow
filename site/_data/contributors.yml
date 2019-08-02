@@ -16,9 +16,6 @@
 # Database of contributors to Apache Arrow (WIP)
 # Blogs and other pages use this data
 #
-- name: Apache Arrow Community
-  githubId: apache
-  homepage: https://arrow.apache.org
 - name: Wes McKinney
   apacheId: wesm
   githubId: wesm
@@ -43,8 +40,8 @@
   apacheId: siddharthteotia
   githubId: siddharthteotia
 - name: The Apache Arrow PMC
-  apacheId: pmc
-  githubId: pmc
+  apacheId: pmc # Not a real apacheId
+  homepage: https://arrow.apache.org
 - name: Andy Grove
   apacheId: agrove
   githubId: andygrove

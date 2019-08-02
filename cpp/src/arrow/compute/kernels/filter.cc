@@ -22,7 +22,6 @@
 #include <utility>
 
 #include "arrow/builder.h"
-#include "arrow/compute/context.h"
 #include "arrow/compute/kernels/take-internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
@@ -88,7 +87,7 @@ class FilterKernelImpl : public FilterKernel {
     if (values.length() != filter.length()) {
       return Status::Invalid("filter and value array must have identical lengths");
     }
-    RETURN_NOT_OK(taker_->Init(ctx->memory_pool()));
+    RETURN_NOT_OK(taker_->SetContext(ctx));
     RETURN_NOT_OK(taker_->Take(values, FilterIndexSequence(filter, length)));
     return taker_->Finish(out);
   }

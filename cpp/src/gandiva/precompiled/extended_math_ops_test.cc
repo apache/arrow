@@ -87,4 +87,13 @@ TEST(TestExtendedMathOps, TestLogWithBase) {
   EXPECT_EQ(context1.has_error(), false);
 }
 
+TEST(TestExtendedMathOps, TestTruncate) {
+  EXPECT_EQ(truncate_int64_int32(1234, 4), 1234);
+  EXPECT_EQ(truncate_int64_int32(-1234, 4), -1234);
+  EXPECT_EQ(truncate_int64_int32(1234, -4), 0);
+  EXPECT_EQ(truncate_int64_int32(-1234, -2), -1200);
+  EXPECT_EQ(truncate_int64_int32(8124674407369523212, 0), 8124674407369523212);
+  EXPECT_EQ(truncate_int64_int32(8124674407369523212, -2), 8124674407369523200);
+}
+
 }  // namespace gandiva

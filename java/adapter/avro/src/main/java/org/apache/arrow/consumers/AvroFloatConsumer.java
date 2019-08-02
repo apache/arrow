@@ -32,6 +32,9 @@ public class AvroFloatConsumer implements Consumer {
 
   private final Float4Writer writer;
 
+  /**
+   * Instantiate a AvroFloatConsumer.
+   */
   public AvroFloatConsumer(Float4Vector vector) {
     this.writer = new Float4WriterImpl(vector);
   }
@@ -39,6 +42,11 @@ public class AvroFloatConsumer implements Consumer {
   @Override
   public void consume(Decoder decoder) throws IOException {
     writer.writeFloat4(decoder.readFloat());
+    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }

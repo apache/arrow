@@ -363,7 +363,7 @@ Status TestServerAuthHandler::Authenticate(ServerAuthSender* outgoing,
   std::string token;
   RETURN_NOT_OK(incoming->Read(&token));
   if (token != password_) {
-    return Status::Invalid("Invalid password");
+    return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
   }
   RETURN_NOT_OK(outgoing->Write(username_));
   return Status::OK();
@@ -372,7 +372,7 @@ Status TestServerAuthHandler::Authenticate(ServerAuthSender* outgoing,
 Status TestServerAuthHandler::IsValid(const std::string& token,
                                       std::string* peer_identity) {
   if (token != password_) {
-    return Status::Invalid("Invalid token");
+    return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
   }
   *peer_identity = username_;
   return Status::OK();
@@ -390,7 +390,7 @@ Status TestClientAuthHandler::Authenticate(ClientAuthSender* outgoing,
   std::string username;
   RETURN_NOT_OK(incoming->Read(&username));
   if (username != username_) {
-    return Status::Invalid("Invalid username");
+    return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
   }
   return Status::OK();
 }

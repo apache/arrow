@@ -106,6 +106,7 @@ cdef class DataType:
                         "instead.".format(self.__class__.__name__))
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        assert type != nullptr
         self.sp_type = type
         self.type = type.get()
         self.pep3118_format = _datatype_to_pep3118(self.type)
@@ -1531,6 +1532,33 @@ def binary(int length=-1):
     return pyarrow_wrap_data_type(fixed_size_binary_type)
 
 
+def large_binary():
+    """
+    Create large variable-length binary type
+
+    This data type may not be supported by all Arrow implementations.  Unless
+    you need to represent data larger than 2GB, you should prefer binary().
+    """
+    return primitive_type(_Type_LARGE_BINARY)
+
+
+def large_string():
+    """
+    Create large UTF8 variable-length string type
+
+    This data type may not be supported by all Arrow implementations.  Unless
+    you need to represent data larger than 2GB, you should prefer string().
+    """
+    return primitive_type(_Type_LARGE_STRING)
+
+
+def large_utf8():
+    """
+    Alias for large_string()
+    """
+    return large_string()
+
+
 cpdef ListType list_(value_type):
     """
     Create ListType instance from child data type or field
@@ -1714,6 +1742,10 @@ cdef dict _type_aliases = {
     'str': string,
     'utf8': string,
     'binary': binary,
+    'large_string': large_string,
+    'large_str': large_string,
+    'large_utf8': large_string,
+    'large_binary': large_binary,
     'date32': date32,
     'date64': date64,
     'date32[day]': date32,

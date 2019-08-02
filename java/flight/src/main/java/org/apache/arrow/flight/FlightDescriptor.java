@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.arrow.flight.impl.Flight;
@@ -92,6 +95,28 @@ public class FlightDescriptor {
     return b.setType(DescriptorType.PATH).addAllPath(path).build();
   }
 
+  /**
+   * Get the serialized form of this protocol message.
+   *
+   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight types.
+   */
+  public ByteBuffer serialize() {
+    return ByteBuffer.wrap(toProtocol().toByteArray());
+  }
+
+  /**
+   * Parse the serialized form of this protocol message.
+   *
+   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from non-Flight services.
+   *
+   * @param serialized The serialized form of the FlightDescriptor, as returned by {@link #serialize()}.
+   * @return The deserialized FlightDescriptor.
+   * @throws IOException if the serialized form is invalid.
+   */
+  public static FlightDescriptor deserialize(ByteBuffer serialized) throws IOException {
+    return new FlightDescriptor(Flight.FlightDescriptor.parseFrom(serialized));
+  }
+
   @Override
   public String toString() {
     if (isCmd) {
@@ -135,7 +160,7 @@ public class FlightDescriptor {
       if (other.cmd != null) {
         return false;
       }
-    } else if (!cmd.equals(other.cmd)) {
+    } else if (!Arrays.equals(cmd, other.cmd)) {
       return false;
     }
     if (isCmd != other.isCmd) {

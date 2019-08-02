@@ -1178,9 +1178,47 @@ cdef class StringArray(Array):
                                   null_count, offset)
 
 
+cdef class LargeStringArray(Array):
+    """
+    Concrete class for Arrow arrays of large string (or utf8) data type.
+    """
+
+    @staticmethod
+    def from_buffers(int length, Buffer value_offsets, Buffer data,
+                     Buffer null_bitmap=None, int null_count=-1,
+                     int offset=0):
+        """
+        Construct a LargeStringArray from value_offsets and data buffers.
+        If there are nulls in the data, also a null_bitmap and the matching
+        null_count must be passed.
+
+        Parameters
+        ----------
+        length : int
+        value_offsets : Buffer
+        data : Buffer
+        null_bitmap : Buffer, optional
+        null_count : int, default 0
+        offset : int, default 0
+
+        Returns
+        -------
+        string_array : StringArray
+        """
+        return Array.from_buffers(large_utf8(), length,
+                                  [null_bitmap, value_offsets, data],
+                                  null_count, offset)
+
+
 cdef class BinaryArray(Array):
     """
     Concrete class for Arrow arrays of variable-sized binary data type.
+    """
+
+
+cdef class LargeBinaryArray(Array):
+    """
+    Concrete class for Arrow arrays of large variable-sized binary data type.
     """
 
 
@@ -1342,16 +1380,20 @@ cdef class StructArray(Array):
         return [pyarrow_wrap_array(arr) for arr in arrays]
 
     @staticmethod
-    def from_arrays(arrays, names=None):
+    def from_arrays(arrays, names=None, fields=None):
         """
-        Construct StructArray from collection of arrays representing each field
-        in the struct
+        Construct StructArray from collection of arrays representing
+        each field in the struct.
+
+        Either field names or field instances must be passed.
 
         Parameters
         ----------
         arrays : sequence of Array
-        names : List[str]
-            Field names
+        names : List[str] (optional)
+            Field names for each struct child
+        fields : List[Field] (optional)
+            Field instances for each struct child
 
         Returns
         -------
@@ -1361,29 +1403,46 @@ cdef class StructArray(Array):
             shared_ptr[CArray] c_array
             vector[shared_ptr[CArray]] c_arrays
             vector[c_string] c_names
+            vector[shared_ptr[CField]] c_fields
             CResult[shared_ptr[CArray]] c_result
             ssize_t num_arrays
             ssize_t length
             ssize_t i
+            Field py_field
             DataType struct_type
 
-        if names is None:
-            raise ValueError('Names are currently required')
+        if names is None and fields is None:
+            raise ValueError('Must pass either names or fields')
+        if names is not None and fields is not None:
+            raise ValueError('Must pass either names or fields, not both')
 
         arrays = [asarray(x) for x in arrays]
         for arr in arrays:
             c_arrays.push_back(pyarrow_unwrap_array(arr))
-        for name in names:
-            c_names.push_back(tobytes(name))
+        if names is not None:
+            for name in names:
+                c_names.push_back(tobytes(name))
+        else:
+            for item in fields:
+                if isinstance(item, tuple):
+                    py_field = field(*item)
+                else:
+                    py_field = item
+                c_fields.push_back(py_field.sp_field)
 
-        if c_arrays.size() == 0 and c_names.size() == 0:
+        if (c_arrays.size() == 0 and c_names.size() == 0 and
+                c_fields.size() == 0):
             # The C++ side doesn't allow this
             return array([], struct([]))
 
-        # XXX Cannot pass "nullptr" for a shared_ptr<T> argument:
-        # https://github.com/cython/cython/issues/3020
-        c_result = CStructArray.Make(c_arrays, c_names,
-                                     shared_ptr[CBuffer](), -1, 0)
+        if names is not None:
+            # XXX Cannot pass "nullptr" for a shared_ptr<T> argument:
+            # https://github.com/cython/cython/issues/3020
+            c_result = CStructArray.MakeFromFieldNames(
+                c_arrays, c_names, shared_ptr[CBuffer](), -1, 0)
+        else:
+            c_result = CStructArray.MakeFromFields(
+                c_arrays, c_fields, shared_ptr[CBuffer](), -1, 0)
         return pyarrow_wrap_array(GetResultValue(c_result))
 
 
@@ -1449,6 +1508,8 @@ cdef dict _array_classes = {
     _Type_UNION: UnionArray,
     _Type_BINARY: BinaryArray,
     _Type_STRING: StringArray,
+    _Type_LARGE_BINARY: LargeBinaryArray,
+    _Type_LARGE_STRING: LargeStringArray,
     _Type_DICTIONARY: DictionaryArray,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
     _Type_DECIMAL: Decimal128Array,

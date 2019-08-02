@@ -388,21 +388,41 @@ def test_struct_from_buffers():
 
 
 def test_struct_from_arrays():
-    a = pa.array([4, 5, None])
+    a = pa.array([4, 5, 6])
     b = pa.array(["bar", None, ""])
     c = pa.array([[1, 2], None, [3, None]])
-
-    arr = pa.StructArray.from_arrays([a, b, c], ["a", "b", "c"])
-    assert arr.to_pylist() == [
+    expected_list = [
         {'a': 4, 'b': 'bar', 'c': [1, 2]},
         {'a': 5, 'b': None, 'c': None},
-        {'a': None, 'b': '', 'c': [3, None]},
+        {'a': 6, 'b': '', 'c': [3, None]},
     ]
+
+    # From field names
+    arr = pa.StructArray.from_arrays([a, b, c], ["a", "b", "c"])
+    assert arr.type == pa.struct(
+        [("a", a.type), ("b", b.type), ("c", c.type)])
+    assert arr.to_pylist() == expected_list
 
     with pytest.raises(ValueError):
         pa.StructArray.from_arrays([a, b, c], ["a", "b"])
 
     arr = pa.StructArray.from_arrays([], [])
+    assert arr.type == pa.struct([])
+    assert arr.to_pylist() == []
+
+    # From fields
+    fa = pa.field("a", a.type, nullable=False)
+    fb = pa.field("b", b.type)
+    fc = pa.field("c", b.type)
+    arr = pa.StructArray.from_arrays([a, b, c], fields=[fa, fb, fc])
+    assert arr.type == pa.struct([fa, fb, fc])
+    assert not arr.type[0].nullable
+    assert arr.to_pylist() == expected_list
+
+    with pytest.raises(ValueError):
+        pa.StructArray.from_arrays([a, b, c], fields=[fa, fb])
+
+    arr = pa.StructArray.from_arrays([], fields=[])
     assert arr.type == pa.struct([])
     assert arr.to_pylist() == []
 

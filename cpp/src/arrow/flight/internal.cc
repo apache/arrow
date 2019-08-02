@@ -37,6 +37,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string_builder.h"
 
 namespace arrow {
 namespace flight {
@@ -49,27 +50,118 @@ Status FromGrpcStatus(const grpc::Status& grpc_status) {
     return Status::OK();
   }
 
-  if (grpc_status.error_code() == grpc::StatusCode::UNIMPLEMENTED) {
-    return Status::NotImplemented("gRPC returned unimplemented error, with message: ",
+  switch (grpc_status.error_code()) {
+    case grpc::StatusCode::OK:
+      return Status::OK();
+    case grpc::StatusCode::CANCELLED:
+      return Status::IOError("gRPC cancelled call, with message: ",
+                             grpc_status.error_message())
+          .WithDetail(std::make_shared<FlightStatusDetail>(FlightStatusCode::Cancelled));
+    case grpc::StatusCode::UNKNOWN:
+      return Status::UnknownError("gRPC returned unknown error, with message: ",
                                   grpc_status.error_message());
-  } else {
-    return Status::IOError("gRPC failed with error code ", grpc_status.error_code(),
-                           " and message: ", grpc_status.error_message());
+    case grpc::StatusCode::INVALID_ARGUMENT:
+      return Status::Invalid("gRPC returned invalid argument error, with message: ",
+                             grpc_status.error_message());
+    case grpc::StatusCode::DEADLINE_EXCEEDED:
+      return Status::IOError("gRPC returned deadline exceeded error, with message: ",
+                             grpc_status.error_message())
+          .WithDetail(std::make_shared<FlightStatusDetail>(FlightStatusCode::TimedOut));
+    case grpc::StatusCode::NOT_FOUND:
+      return Status::KeyError("gRPC returned not found error, with message: ",
+                              grpc_status.error_message());
+    case grpc::StatusCode::ALREADY_EXISTS:
+      return Status::AlreadyExists("gRPC returned already exists error, with message: ",
+                                   grpc_status.error_message());
+    case grpc::StatusCode::PERMISSION_DENIED:
+      return Status::IOError("gRPC returned permission denied error, with message: ",
+                             grpc_status.error_message())
+          .WithDetail(
+              std::make_shared<FlightStatusDetail>(FlightStatusCode::Unauthorized));
+    case grpc::StatusCode::RESOURCE_EXHAUSTED:
+      return Status::Invalid("gRPC returned resource exhausted error, with message: ",
+                             grpc_status.error_message());
+    case grpc::StatusCode::FAILED_PRECONDITION:
+      return Status::Invalid("gRPC returned precondition failed error, with message: ",
+                             grpc_status.error_message());
+    case grpc::StatusCode::ABORTED:
+      return Status::IOError("gRPC returned aborted error, with message: ",
+                             grpc_status.error_message())
+          .WithDetail(std::make_shared<FlightStatusDetail>(FlightStatusCode::Internal));
+    case grpc::StatusCode::OUT_OF_RANGE:
+      return Status::Invalid("gRPC returned out-of-range error, with message: ",
+                             grpc_status.error_message());
+    case grpc::StatusCode::UNIMPLEMENTED:
+      return Status::NotImplemented("gRPC returned unimplemented error, with message: ",
+                                    grpc_status.error_message());
+    case grpc::StatusCode::INTERNAL:
+      return Status::IOError("gRPC returned internal error, with message: ",
+                             grpc_status.error_message())
+          .WithDetail(std::make_shared<FlightStatusDetail>(FlightStatusCode::Internal));
+    case grpc::StatusCode::UNAVAILABLE:
+      return Status::IOError("gRPC returned unavailable error, with message: ",
+                             grpc_status.error_message())
+          .WithDetail(
+              std::make_shared<FlightStatusDetail>(FlightStatusCode::Unavailable));
+    case grpc::StatusCode::DATA_LOSS:
+      return Status::IOError("gRPC returned data loss error, with message: ",
+                             grpc_status.error_message())
+          .WithDetail(std::make_shared<FlightStatusDetail>(FlightStatusCode::Internal));
+    case grpc::StatusCode::UNAUTHENTICATED:
+      return Status::IOError("gRPC returned unauthenticated error, with message: ",
+                             grpc_status.error_message())
+          .WithDetail(
+              std::make_shared<FlightStatusDetail>(FlightStatusCode::Unauthenticated));
+    default:
+      return Status::UnknownError("gRPC failed with error code ",
+                                  grpc_status.error_code(),
+                                  " and message: ", grpc_status.error_message());
   }
 }
 
 grpc::Status ToGrpcStatus(const Status& arrow_status) {
   if (arrow_status.ok()) {
     return grpc::Status::OK;
-  } else {
-    grpc::StatusCode grpc_code = grpc::StatusCode::UNKNOWN;
-    if (arrow_status.IsNotImplemented()) {
-      grpc_code = grpc::StatusCode::UNIMPLEMENTED;
-    } else if (arrow_status.IsInvalid()) {
-      grpc_code = grpc::StatusCode::INVALID_ARGUMENT;
-    }
-    return grpc::Status(grpc_code, arrow_status.message());
   }
+
+  grpc::StatusCode grpc_code = grpc::StatusCode::UNKNOWN;
+  std::string message = arrow_status.message();
+  if (arrow_status.detail()) {
+    message += ". Detail: ";
+    message += arrow_status.detail()->ToString();
+  }
+
+  std::shared_ptr<FlightStatusDetail> flight_status =
+      FlightStatusDetail::UnwrapStatus(arrow_status);
+  if (flight_status) {
+    switch (flight_status->code()) {
+      case FlightStatusCode::Internal:
+        grpc_code = grpc::StatusCode::INTERNAL;
+        break;
+      case FlightStatusCode::TimedOut:
+        grpc_code = grpc::StatusCode::DEADLINE_EXCEEDED;
+        break;
+      case FlightStatusCode::Cancelled:
+        grpc_code = grpc::StatusCode::CANCELLED;
+        break;
+      case FlightStatusCode::Unauthenticated:
+        grpc_code = grpc::StatusCode::UNAUTHENTICATED;
+        break;
+      case FlightStatusCode::Unauthorized:
+        grpc_code = grpc::StatusCode::PERMISSION_DENIED;
+        break;
+      case FlightStatusCode::Unavailable:
+        grpc_code = grpc::StatusCode::UNAVAILABLE;
+        break;
+      default:
+        break;
+    }
+  } else if (arrow_status.IsNotImplemented()) {
+    grpc_code = grpc::StatusCode::UNIMPLEMENTED;
+  } else if (arrow_status.IsInvalid()) {
+    grpc_code = grpc::StatusCode::INVALID_ARGUMENT;
+  }
+  return grpc::Status(grpc_code, message);
 }
 
 // ActionType

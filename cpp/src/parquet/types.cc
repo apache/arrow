@@ -17,12 +17,9 @@
 
 #include <cmath>
 #include <cstdint>
-#include <cstring>
-#include <iomanip>
 #include <memory>
 #include <sstream>
 #include <string>
-#include <utility>
 
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"

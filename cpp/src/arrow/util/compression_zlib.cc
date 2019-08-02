@@ -84,7 +84,8 @@ static Status ZlibErrorPrefix(const char* prefix_msg, const char* msg) {
 
 class GZipDecompressor : public Decompressor {
  public:
-  GZipDecompressor() : initialized_(false), finished_(false) {}
+  explicit GZipDecompressor(GZipCodec::Format format)
+      : format_(format), initialized_(false), finished_(false) {}
 
   ~GZipDecompressor() override {
     if (initialized_) {
@@ -92,17 +93,28 @@ class GZipDecompressor : public Decompressor {
     }
   }
 
-  Status Init(GZipCodec::Format format) {
+  Status Init() {
     DCHECK(!initialized_);
     memset(&stream_, 0, sizeof(stream_));
     finished_ = false;
 
     int ret;
-    int window_bits = DecompressionWindowBitsForFormat(format);
+    int window_bits = DecompressionWindowBitsForFormat(format_);
     if ((ret = inflateInit2(&stream_, window_bits)) != Z_OK) {
       return ZlibError("zlib inflateInit failed: ");
     } else {
       initialized_ = true;
+      return Status::OK();
+    }
+  }
+
+  Status Reset() override {
+    DCHECK(initialized_);
+    finished_ = false;
+    int ret;
+    if ((ret = inflateReset(&stream_)) != Z_OK) {
+      return ZlibError("zlib inflateReset failed: ");
+    } else {
       return Status::OK();
     }
   }
@@ -149,6 +161,7 @@ class GZipDecompressor : public Decompressor {
   }
 
   z_stream stream_;
+  GZipCodec::Format format_;
   bool initialized_;
   bool finished_;
 };
@@ -318,8 +331,8 @@ class GZipCodec::GZipCodecImpl {
   }
 
   Status MakeDecompressor(std::shared_ptr<Decompressor>* out) {
-    auto ptr = std::make_shared<GZipDecompressor>();
-    RETURN_NOT_OK(ptr->Init(format_));
+    auto ptr = std::make_shared<GZipDecompressor>(format_);
+    RETURN_NOT_OK(ptr->Init());
     *out = ptr;
     return Status::OK();
   }

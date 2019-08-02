@@ -22,6 +22,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.arrow.flight.grpc.StatusUtils;
+
 import io.netty.buffer.ArrowBuf;
 
 /**
@@ -93,7 +95,7 @@ public final class SyncPutListener implements FlightClient.PutListener, AutoClos
 
   @Override
   public void onError(Throwable t) {
-    completed.completeExceptionally(t);
+    completed.completeExceptionally(StatusUtils.fromThrowable(t));
     queue.add(DONE_WITH_EXCEPTION);
   }
 

@@ -362,7 +362,9 @@ def test_default_dict_serialization(large_buffer):
 def test_numpy_serialization(large_buffer):
     for t in ["bool", "int8", "uint8", "int16", "uint16", "int32",
               "uint32", "float16", "float32", "float64", "<U1", "<U2", "<U3",
-              "<U4", "|S1", "|S2", "|S3", "|S4", "|O"]:
+              "<U4", "|S1", "|S2", "|S3", "|S4", "|O",
+              np.dtype([('a', 'int64'), ('b', 'float')]),
+              np.dtype([('x', 'uint32'), ('y', '<U8')])]:
         obj = np.random.randint(0, 10, size=(100, 100)).astype(t)
         serialization_roundtrip(obj, large_buffer)
         obj = obj[1:99, 10:90]
@@ -523,10 +525,12 @@ def test_numpy_matrix_serialization(tmpdir):
         def __init__(self, val):
             self.val = val
 
+    rec_type = np.dtype([('x', 'int64'), ('y', 'double'), ('z', '<U4')])
+
     path = os.path.join(str(tmpdir), 'pyarrow_npmatrix_serialization_test.bin')
     array = np.random.randint(low=-1, high=1, size=(2, 2))
 
-    for data_type in [str, int, float, CustomType]:
+    for data_type in [str, int, float, rec_type, CustomType]:
         matrix = np.matrix(array.astype(data_type))
 
         with open(path, 'wb') as f:

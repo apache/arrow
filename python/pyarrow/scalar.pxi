@@ -437,6 +437,43 @@ cdef class StringValue(ArrayValue):
         cdef CStringArray* ap = <CStringArray*> self.sp_array.get()
         return ap.GetString(self.index).decode('utf-8')
 
+    def as_buffer(self):
+        """
+        Return a view over this value as a Buffer object.
+        """
+        cdef:
+            CStringArray* ap = <CStringArray*> self.sp_array.get()
+            shared_ptr[CBuffer] buf
+
+        buf = SliceBuffer(ap.value_data(), ap.value_offset(self.index),
+                          ap.value_length(self.index))
+        return pyarrow_wrap_buffer(buf)
+
+
+cdef class LargeStringValue(ArrayValue):
+    """
+    Concrete class for large string (utf8) array elements.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python unicode string.
+        """
+        cdef CLargeStringArray* ap = <CLargeStringArray*> self.sp_array.get()
+        return ap.GetString(self.index).decode('utf-8')
+
+    def as_buffer(self):
+        """
+        Return a view over this value as a Buffer object.
+        """
+        cdef:
+            CLargeStringArray* ap = <CLargeStringArray*> self.sp_array.get()
+            shared_ptr[CBuffer] buf
+
+        buf = SliceBuffer(ap.value_data(), ap.value_offset(self.index),
+                          ap.value_length(self.index))
+        return pyarrow_wrap_buffer(buf)
+
 
 cdef class BinaryValue(ArrayValue):
     """
@@ -461,6 +498,36 @@ cdef class BinaryValue(ArrayValue):
         """
         cdef:
             CBinaryArray* ap = <CBinaryArray*> self.sp_array.get()
+            shared_ptr[CBuffer] buf
+
+        buf = SliceBuffer(ap.value_data(), ap.value_offset(self.index),
+                          ap.value_length(self.index))
+        return pyarrow_wrap_buffer(buf)
+
+
+cdef class LargeBinaryValue(ArrayValue):
+    """
+    Concrete class for large variable-sized binary array elements.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python bytes object.
+        """
+        cdef:
+            const uint8_t* ptr
+            int64_t length
+            CLargeBinaryArray* ap = <CLargeBinaryArray*> self.sp_array.get()
+
+        ptr = ap.GetValue(self.index, &length)
+        return cp.PyBytes_FromStringAndSize(<const char*>(ptr), length)
+
+    def as_buffer(self):
+        """
+        Return a view over this value as a Buffer object.
+        """
+        cdef:
+            CLargeBinaryArray* ap = <CLargeBinaryArray*> self.sp_array.get()
             shared_ptr[CBuffer] buf
 
         buf = SliceBuffer(ap.value_data(), ap.value_offset(self.index),
@@ -665,6 +732,8 @@ cdef dict _array_value_classes = {
     _Type_UNION: UnionValue,
     _Type_BINARY: BinaryValue,
     _Type_STRING: StringValue,
+    _Type_LARGE_BINARY: LargeBinaryValue,
+    _Type_LARGE_STRING: LargeStringValue,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryValue,
     _Type_DECIMAL: DecimalValue,
     _Type_STRUCT: StructValue,

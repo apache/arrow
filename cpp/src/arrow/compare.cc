@@ -36,6 +36,7 @@
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
@@ -144,8 +145,9 @@ class RangeEqualsVisitor {
     return Status::OK();
   }
 
-  bool CompareBinaryRange(const BinaryArray& left) const {
-    const auto& right = checked_cast<const BinaryArray&>(right_);
+  template <typename BinaryArrayType>
+  bool CompareBinaryRange(const BinaryArrayType& left) const {
+    const auto& right = checked_cast<const BinaryArrayType&>(right_);
 
     for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
@@ -154,10 +156,10 @@ class RangeEqualsVisitor {
         return false;
       }
       if (is_null) continue;
-      const int32_t begin_offset = left.value_offset(i);
-      const int32_t end_offset = left.value_offset(i + 1);
-      const int32_t right_begin_offset = right.value_offset(o_i);
-      const int32_t right_end_offset = right.value_offset(o_i + 1);
+      const auto begin_offset = left.value_offset(i);
+      const auto end_offset = left.value_offset(i + 1);
+      const auto right_begin_offset = right.value_offset(o_i);
+      const auto right_end_offset = right.value_offset(o_i + 1);
       // Underlying can't be equal if the size isn't equal
       if (end_offset - begin_offset != right_end_offset - right_begin_offset) {
         return false;
@@ -173,8 +175,9 @@ class RangeEqualsVisitor {
     return true;
   }
 
-  bool CompareLists(const ListArray& left) {
-    const auto& right = checked_cast<const ListArray&>(right_);
+  template <typename ListArrayType>
+  bool CompareLists(const ListArrayType& left) {
+    const auto& right = checked_cast<const ListArrayType&>(right_);
 
     const std::shared_ptr<Array>& left_values = left.values();
     const std::shared_ptr<Array>& right_values = right.values();
@@ -186,10 +189,10 @@ class RangeEqualsVisitor {
         return false;
       }
       if (is_null) continue;
-      const int32_t begin_offset = left.value_offset(i);
-      const int32_t end_offset = left.value_offset(i + 1);
-      const int32_t right_begin_offset = right.value_offset(o_i);
-      const int32_t right_end_offset = right.value_offset(o_i + 1);
+      const auto begin_offset = left.value_offset(i);
+      const auto end_offset = left.value_offset(i + 1);
+      const auto right_begin_offset = right.value_offset(o_i);
+      const auto right_end_offset = right.value_offset(o_i + 1);
       // Underlying can't be equal if the size isn't equal
       if (end_offset - begin_offset != right_end_offset - right_begin_offset) {
         return false;
@@ -278,6 +281,11 @@ class RangeEqualsVisitor {
     return Status::OK();
   }
 
+  Status Visit(const LargeBinaryArray& left) {
+    result_ = CompareBinaryRange(left);
+    return Status::OK();
+  }
+
   Status Visit(const FixedSizeBinaryArray& left) {
     const auto& right = checked_cast<const FixedSizeBinaryArray&>(right_);
 
@@ -329,6 +337,11 @@ class RangeEqualsVisitor {
   }
 
   Status Visit(const ListArray& left) {
+    result_ = CompareLists(left);
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListArray& left) {
     result_ = CompareLists(left);
     return Status::OK();
   }
@@ -489,18 +502,21 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
 
   template <typename ArrayType>
   bool ValueOffsetsEqual(const ArrayType& left) {
+    using offset_type = typename ArrayType::offset_type;
+
     const auto& right = checked_cast<const ArrayType&>(right_);
 
     if (left.offset() == 0 && right.offset() == 0) {
       return left.value_offsets()->Equals(*right.value_offsets(),
-                                          (left.length() + 1) * sizeof(int32_t));
+                                          (left.length() + 1) * sizeof(offset_type));
     } else {
       // One of the arrays is sliced; logic is more complicated because the
       // value offsets are not both 0-based
       auto left_offsets =
-          reinterpret_cast<const int32_t*>(left.value_offsets()->data()) + left.offset();
+          reinterpret_cast<const offset_type*>(left.value_offsets()->data()) +
+          left.offset();
       auto right_offsets =
-          reinterpret_cast<const int32_t*>(right.value_offsets()->data()) +
+          reinterpret_cast<const offset_type*>(right.value_offsets()->data()) +
           right.offset();
 
       for (int64_t i = 0; i < left.length() + 1; ++i) {
@@ -512,10 +528,11 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
     }
   }
 
-  bool CompareBinary(const BinaryArray& left) {
-    const auto& right = checked_cast<const BinaryArray&>(right_);
+  template <typename BinaryArrayType>
+  bool CompareBinary(const BinaryArrayType& left) {
+    const auto& right = checked_cast<const BinaryArrayType&>(right_);
 
-    bool equal_offsets = ValueOffsetsEqual<BinaryArray>(left);
+    bool equal_offsets = ValueOffsetsEqual<BinaryArrayType>(left);
     if (!equal_offsets) {
       return false;
     }
@@ -544,8 +561,8 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       }
     } else {
       // ARROW-537: Only compare data in non-null slots
-      const int32_t* left_offsets = left.raw_value_offsets();
-      const int32_t* right_offsets = right.raw_value_offsets();
+      auto left_offsets = left.raw_value_offsets();
+      auto right_offsets = right.raw_value_offsets();
       for (int64_t i = 0; i < left.length(); ++i) {
         if (left.IsNull(i)) {
           continue;
@@ -559,22 +576,37 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
     }
   }
 
+  template <typename ListArrayType>
+  bool CompareList(const ListArrayType& left) {
+    const auto& right = checked_cast<const ListArrayType&>(right_);
+
+    bool equal_offsets = ValueOffsetsEqual<ListArrayType>(left);
+    if (!equal_offsets) {
+      return false;
+    }
+
+    return left.values()->RangeEquals(left.value_offset(0),
+                                      left.value_offset(left.length()),
+                                      right.value_offset(0), right.values());
+  }
+
   Status Visit(const BinaryArray& left) {
     result_ = CompareBinary(left);
     return Status::OK();
   }
 
-  Status Visit(const ListArray& left) {
-    const auto& right = checked_cast<const ListArray&>(right_);
-    bool equal_offsets = ValueOffsetsEqual<ListArray>(left);
-    if (!equal_offsets) {
-      result_ = false;
-      return Status::OK();
-    }
+  Status Visit(const LargeBinaryArray& left) {
+    result_ = CompareBinary(left);
+    return Status::OK();
+  }
 
-    result_ =
-        left.values()->RangeEquals(left.value_offset(0), left.value_offset(left.length()),
-                                   right.value_offset(0), right.values());
+  Status Visit(const ListArray& left) {
+    result_ = CompareList(left);
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListArray& left) {
+    result_ = CompareList(left);
     return Status::OK();
   }
 
@@ -745,6 +777,8 @@ class TypeEqualsVisitor {
 
   Status Visit(const ListType& left) { return VisitChildren(left); }
 
+  Status Visit(const LargeListType& left) { return VisitChildren(left); }
+
   Status Visit(const MapType& left) {
     const auto& right = checked_cast<const MapType&>(right_);
     if (left.keys_sorted() != right.keys_sorted()) {
@@ -822,6 +856,15 @@ class ScalarEqualsVisitor {
     return Status::OK();
   }
 
+  template <typename T>
+  typename std::enable_if<std::is_base_of<LargeBinaryScalar, T>::value, Status>::type
+  Visit(const T& left_) {
+    const auto& left = checked_cast<const LargeBinaryScalar&>(left_);
+    const auto& right = checked_cast<const LargeBinaryScalar&>(right_);
+    result_ = internal::SharedPtrEquals(left.value, right.value);
+    return Status::OK();
+  }
+
   Status Visit(const Decimal128Scalar& left) {
     const auto& right = checked_cast<const Decimal128Scalar&>(right_);
     result_ = left.value == right.value;
@@ -830,6 +873,12 @@ class ScalarEqualsVisitor {
 
   Status Visit(const ListScalar& left) {
     const auto& right = checked_cast<const ListScalar&>(right_);
+    result_ = internal::SharedPtrEquals(left.value, right.value);
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListScalar& left) {
+    const auto& right = checked_cast<const LargeListScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
     return Status::OK();
   }

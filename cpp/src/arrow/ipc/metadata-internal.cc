@@ -232,6 +232,9 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     case flatbuf::Type_Binary:
       *out = binary();
       return Status::OK();
+    case flatbuf::Type_LargeBinary:
+      *out = large_binary();
+      return Status::OK();
     case flatbuf::Type_FixedSizeBinary: {
       auto fw_binary = static_cast<const flatbuf::FixedSizeBinary*>(type_data);
       *out = fixed_size_binary(fw_binary->byteWidth());
@@ -239,6 +242,9 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     }
     case flatbuf::Type_Utf8:
       *out = utf8();
+      return Status::OK();
+    case flatbuf::Type_LargeUtf8:
+      *out = large_utf8();
       return Status::OK();
     case flatbuf::Type_Bool:
       *out = boolean();
@@ -315,6 +321,12 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
         return Status::Invalid("List must have exactly 1 child field");
       }
       *out = std::make_shared<ListType>(children[0]);
+      return Status::OK();
+    case flatbuf::Type_LargeList:
+      if (children.size() != 1) {
+        return Status::Invalid("LargeList must have exactly 1 child field");
+      }
+      *out = std::make_shared<LargeListType>(children[0]);
       return Status::OK();
     case flatbuf::Type_Map:
       if (children.size() != 1) {
@@ -541,9 +553,21 @@ class FieldToFlatbufferVisitor {
     return Status::OK();
   }
 
+  Status Visit(const LargeBinaryType& type) {
+    fb_type_ = flatbuf::Type_LargeBinary;
+    type_offset_ = flatbuf::CreateLargeBinary(fbb_).Union();
+    return Status::OK();
+  }
+
   Status Visit(const StringType& type) {
     fb_type_ = flatbuf::Type_Utf8;
     type_offset_ = flatbuf::CreateUtf8(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const LargeStringType& type) {
+    fb_type_ = flatbuf::Type_LargeUtf8;
+    type_offset_ = flatbuf::CreateLargeUtf8(fbb_).Union();
     return Status::OK();
   }
 
@@ -619,6 +643,13 @@ class FieldToFlatbufferVisitor {
     fb_type_ = flatbuf::Type_List;
     RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
     type_offset_ = flatbuf::CreateList(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListType& type) {
+    fb_type_ = flatbuf::Type_LargeList;
+    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+    type_offset_ = flatbuf::CreateLargeList(fbb_).Union();
     return Status::OK();
   }
 

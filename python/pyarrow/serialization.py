@@ -24,7 +24,7 @@ import sys
 import numpy as np
 
 import pyarrow
-from pyarrow.compat import builtin_pickle
+from pyarrow.compat import builtin_pickle, descr_to_dtype
 from pyarrow.lib import SerializationContext, py_buffer
 
 try:
@@ -44,15 +44,15 @@ def _serialize_numpy_array_list(obj):
         # the view.
         if not obj.flags.c_contiguous:
             obj = np.ascontiguousarray(obj)
-        return obj.view('uint8'), obj.dtype.str
+        return obj.view('uint8'), np.lib.format.dtype_to_descr(obj.dtype)
     else:
-        return obj.tolist(), obj.dtype.str
+        return obj.tolist(), np.lib.format.dtype_to_descr(obj.dtype)
 
 
 def _deserialize_numpy_array_list(data):
     if data[1] != '|O':
         assert data[0].dtype == np.uint8
-        return data[0].view(data[1])
+        return data[0].view(descr_to_dtype(data[1]))
     else:
         return np.array(data[0], dtype=np.dtype(data[1]))
 
@@ -63,15 +63,16 @@ def _serialize_numpy_matrix(obj):
         # the view.
         if not obj.flags.c_contiguous:
             obj = np.ascontiguousarray(obj.A)
-        return obj.A.view('uint8'), obj.A.dtype.str
+        return obj.A.view('uint8'), np.lib.format.dtype_to_descr(obj.dtype)
     else:
-        return obj.A.tolist(), obj.A.dtype.str
+        return obj.A.tolist(), np.lib.format.dtype_to_descr(obj.dtype)
 
 
 def _deserialize_numpy_matrix(data):
     if data[1] != '|O':
         assert data[0].dtype == np.uint8
-        return np.matrix(data[0].view(data[1]), copy=False)
+        return np.matrix(data[0].view(descr_to_dtype(data[1])),
+                         copy=False)
     else:
         return np.matrix(data[0], dtype=np.dtype(data[1]), copy=False)
 

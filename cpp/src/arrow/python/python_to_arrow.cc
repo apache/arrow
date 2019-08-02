@@ -429,18 +429,20 @@ class TimestampConverter : public TypedConverter<TimestampType, TimestampConvert
 
 namespace detail {
 
-template <typename BuilderType, typename AppendFunc>
-inline Status AppendPyString(BuilderType* builder, const PyBytesView& view, bool* is_full,
-                             AppendFunc&& append_func) {
-  int32_t length = -1;
-  RETURN_NOT_OK(internal::CastSize(view.size, &length));
-  DCHECK_GE(length, 0);
+template <typename BuilderType>
+inline Status AppendPyString(BuilderType* builder, const PyBytesView& view,
+                             bool* is_full) {
+  if (view.size > BuilderType::memory_limit()) {
+    return Status::Invalid("string too large for datatype");
+  }
+  DCHECK_GE(view.size, 0);
   // Did we reach the builder size limit?
-  if (ARROW_PREDICT_FALSE(builder->value_data_length() + length > kBinaryMemoryLimit)) {
+  if (ARROW_PREDICT_FALSE(builder->value_data_length() + view.size >
+                          BuilderType::memory_limit())) {
     *is_full = true;
     return Status::OK();
   }
-  RETURN_NOT_OK(append_func(view.bytes, length));
+  RETURN_NOT_OK(builder->Append(::arrow::util::string_view(view.bytes, view.size)));
   *is_full = false;
   return Status::OK();
 }
@@ -448,10 +450,13 @@ inline Status AppendPyString(BuilderType* builder, const PyBytesView& view, bool
 inline Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full) {
   PyBytesView view;
   RETURN_NOT_OK(view.FromString(obj));
-  return AppendPyString(builder, view, is_full,
-                        [&builder](const char* bytes, int32_t length) {
-                          return builder->Append(bytes, length);
-                        });
+  return AppendPyString(builder, view, is_full);
+}
+
+inline Status BuilderAppend(LargeBinaryBuilder* builder, PyObject* obj, bool* is_full) {
+  PyBytesView view;
+  RETURN_NOT_OK(view.FromString(obj));
+  return AppendPyString(builder, view, is_full);
 }
 
 inline Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj,
@@ -466,9 +471,7 @@ inline Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj,
     return internal::InvalidValue(obj, ss.str());
   }
 
-  return AppendPyString(
-      builder, view, is_full,
-      [&builder](const char* bytes, int32_t length) { return builder->Append(bytes); });
+  return AppendPyString(builder, view, is_full);
 }
 
 }  // namespace detail
@@ -496,12 +499,15 @@ class BinaryLikeConverter : public TypedConverter<Type, BinaryLikeConverter<Type
 
 class BytesConverter : public BinaryLikeConverter<BinaryType> {};
 
+class LargeBytesConverter : public BinaryLikeConverter<LargeBinaryType> {};
+
 class FixedWidthBytesConverter : public BinaryLikeConverter<FixedSizeBinaryType> {};
 
 // For String/UTF8, if strict_conversions enabled, we reject any non-UTF8,
 // otherwise we allow but return results as BinaryArray
-template <bool STRICT>
-class StringConverter : public TypedConverter<StringType, StringConverter<STRICT>> {
+template <typename TypeClass, bool STRICT>
+class StringConverter
+    : public TypedConverter<TypeClass, StringConverter<TypeClass, STRICT>> {
  public:
   StringConverter() : binary_count_(0) {}
 
@@ -526,10 +532,7 @@ class StringConverter : public TypedConverter<StringType, StringConverter<STRICT
       }
     }
 
-    return detail::AppendPyString(this->typed_builder_, string_view_, is_full,
-                                  [this](const char* bytes, int32_t length) {
-                                    return this->typed_builder_->Append(bytes, length);
-                                  });
+    return detail::AppendPyString(this->typed_builder_, string_view_, is_full);
   }
 
   Status AppendItem(PyObject* obj) {
@@ -556,10 +559,13 @@ class StringConverter : public TypedConverter<StringType, StringConverter<STRICT
       // We should have bailed out earlier
       DCHECK(!STRICT);
 
+      using EquivalentBinaryType = typename TypeClass::EquivalentBinaryType;
+      using EquivalentBinaryArray = typename TypeTraits<EquivalentBinaryType>::ArrayType;
+
       for (size_t i = 0; i < out->size(); ++i) {
         auto binary_data = (*out)[i]->data()->Copy();
-        binary_data->type = ::arrow::binary();
-        (*out)[i] = std::make_shared<BinaryArray>(binary_data);
+        binary_data->type = TypeTraits<EquivalentBinaryType>::type_singleton();
+        (*out)[i] = std::make_shared<EquivalentBinaryArray>(binary_data);
       }
     }
     return Status::OK();
@@ -871,14 +877,24 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
     NUMERIC_CONVERTER(DOUBLE, DoubleType);
     SIMPLE_CONVERTER_CASE(DECIMAL, DecimalConverter);
     SIMPLE_CONVERTER_CASE(BINARY, BytesConverter);
+    SIMPLE_CONVERTER_CASE(LARGE_BINARY, LargeBytesConverter);
     SIMPLE_CONVERTER_CASE(FIXED_SIZE_BINARY, FixedWidthBytesConverter);
     SIMPLE_CONVERTER_CASE(DATE32, Date32Converter);
     SIMPLE_CONVERTER_CASE(DATE64, Date64Converter);
     case Type::STRING:
       if (strict_conversions) {
-        *out = std::unique_ptr<SeqConverter>(new StringConverter<true>());
+        *out = std::unique_ptr<SeqConverter>(new StringConverter<StringType, true>());
       } else {
-        *out = std::unique_ptr<SeqConverter>(new StringConverter<false>());
+        *out = std::unique_ptr<SeqConverter>(new StringConverter<StringType, false>());
+      }
+      break;
+    case Type::LARGE_STRING:
+      if (strict_conversions) {
+        *out =
+            std::unique_ptr<SeqConverter>(new StringConverter<LargeStringType, true>());
+      } else {
+        *out =
+            std::unique_ptr<SeqConverter>(new StringConverter<LargeStringType, false>());
       }
       break;
     case Type::TIME32: {

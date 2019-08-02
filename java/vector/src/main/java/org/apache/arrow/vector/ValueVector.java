@@ -251,4 +251,25 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    * @return true if equals, otherwise false.
    */
   boolean equals(int index, ValueVector target, int targetIndex);
+
+  /**
+   * Copy a cell value from a particular index in source vector to a particular
+   * position in this vector.
+   *
+   * @param fromIndex position to copy from in source vector
+   * @param thisIndex position to copy to in this vector
+   * @param from      source vector
+   */
+  void copyFrom(int fromIndex, int thisIndex, ValueVector from);
+
+  /**
+   * Same as {@link #copyFrom(int, int, ValueVector)} except that
+   * it handles the case when the capacity of the vector needs to be expanded
+   * before copy.
+   *
+   * @param fromIndex position to copy from in source vector
+   * @param thisIndex position to copy to in this vector
+   * @param from      source vector
+   */
+  void copyFromSafe(int fromIndex, int thisIndex, ValueVector from);
 }

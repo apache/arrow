@@ -19,47 +19,13 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/compute/context.h"
 #include "arrow/compute/kernels/take-internal.h"
 #include "arrow/compute/kernels/take.h"
-#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
 namespace compute {
-
-using internal::checked_cast;
-
-// an IndexSequence which yields the values of an Array of integers
-template <typename IndexType>
-class ArrayIndexSequence {
- public:
-  bool never_out_of_bounds() const { return never_out_of_bounds_; }
-  void set_never_out_of_bounds() { never_out_of_bounds_ = true; }
-
-  constexpr ArrayIndexSequence() = default;
-
-  explicit ArrayIndexSequence(const Array& indices)
-      : indices_(&checked_cast<const NumericArray<IndexType>&>(indices)) {}
-
-  std::pair<int64_t, bool> Next() {
-    if (indices_->IsNull(index_)) {
-      ++index_;
-      return std::make_pair(-1, false);
-    }
-    return std::make_pair(indices_->Value(index_++), true);
-  }
-
-  int64_t length() const { return indices_->length(); }
-
-  int64_t null_count() const { return indices_->null_count(); }
-
- private:
-  const NumericArray<IndexType>* indices_ = nullptr;
-  int64_t index_ = 0;
-  bool never_out_of_bounds_ = false;
-};
 
 template <typename IndexType>
 class TakeKernelImpl : public TakeKernel {
@@ -73,7 +39,7 @@ class TakeKernelImpl : public TakeKernel {
 
   Status Take(FunctionContext* ctx, const Array& values, const Array& indices_array,
               std::shared_ptr<Array>* out) override {
-    RETURN_NOT_OK(taker_->Init(ctx->memory_pool()));
+    RETURN_NOT_OK(taker_->SetContext(ctx));
     RETURN_NOT_OK(taker_->Take(values, ArrayIndexSequence<IndexType>(indices_array)));
     return taker_->Finish(out);
   }

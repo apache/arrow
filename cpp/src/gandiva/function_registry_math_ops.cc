@@ -70,6 +70,9 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(round, {}, decimal128, int32, decimal128),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(truncate, {"trunc"}, decimal128, int32,
                                        decimal128),
+
+      NativeFunction("truncate", {"trunc"}, DataTypeVector{int64(), int32()}, int64(),
+                     kResultNullIfNull, "truncate_int64_int32"),
   };
 
   return math_fn_registry_;

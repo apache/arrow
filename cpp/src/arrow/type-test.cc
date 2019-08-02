@@ -354,6 +354,20 @@ TEST(TestStringType, ToString) {
   ASSERT_EQ(str.ToString(), std::string("string"));
 }
 
+TEST(TestLargeBinaryTypes, ToString) {
+  BinaryType bt1;
+  LargeBinaryType t1;
+  LargeBinaryType e1;
+  LargeStringType t2;
+  EXPECT_TRUE(t1.Equals(e1));
+  EXPECT_FALSE(t1.Equals(t2));
+  EXPECT_FALSE(t1.Equals(bt1));
+  ASSERT_EQ(t1.id(), Type::LARGE_BINARY);
+  ASSERT_EQ(t1.ToString(), std::string("large_binary"));
+  ASSERT_EQ(t2.id(), Type::LARGE_STRING);
+  ASSERT_EQ(t2.ToString(), std::string("large_string"));
+}
+
 TEST(TestFixedSizeBinaryType, ToString) {
   auto t = fixed_size_binary(10);
   ASSERT_EQ(t->id(), Type::FIXED_SIZE_BINARY);
@@ -388,6 +402,26 @@ TEST(TestListType, Basics) {
 
   ListType lt2(lt);
   ASSERT_EQ("list<item: list<item: string>>", lt2.ToString());
+}
+
+TEST(TestLargeListType, Basics) {
+  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+
+  LargeListType list_type(vt);
+  ASSERT_EQ(list_type.id(), Type::LARGE_LIST);
+
+  ASSERT_EQ("large_list", list_type.name());
+  ASSERT_EQ("large_list<item: uint8>", list_type.ToString());
+
+  ASSERT_EQ(list_type.value_type()->id(), vt->id());
+  ASSERT_EQ(list_type.value_type()->id(), vt->id());
+
+  std::shared_ptr<DataType> st = std::make_shared<StringType>();
+  std::shared_ptr<DataType> lt = std::make_shared<LargeListType>(st);
+  ASSERT_EQ("large_list<item: string>", lt->ToString());
+
+  LargeListType lt2(lt);
+  ASSERT_EQ("large_list<item: large_list<item: string>>", lt2.ToString());
 }
 
 TEST(TestMapType, Basics) {
@@ -547,6 +581,21 @@ TEST(TestTimestampType, ToString) {
   ASSERT_EQ("timestamp[ns, tz=US/Eastern]", t2->ToString());
   ASSERT_EQ("timestamp[s]", t3->ToString());
   ASSERT_EQ("timestamp[us]", t4->ToString());
+}
+
+TEST(TestListType, Equals) {
+  auto t1 = list(utf8());
+  auto t2 = list(utf8());
+  auto t3 = list(binary());
+  auto t4 = large_list(binary());
+  auto t5 = large_list(binary());
+  auto t6 = large_list(float64());
+
+  ASSERT_TRUE(t1->Equals(t2));
+  ASSERT_FALSE(t1->Equals(t3));
+  ASSERT_FALSE(t3->Equals(t4));
+  ASSERT_TRUE(t4->Equals(t5));
+  ASSERT_FALSE(t5->Equals(t6));
 }
 
 TEST(TestNestedType, Equals) {

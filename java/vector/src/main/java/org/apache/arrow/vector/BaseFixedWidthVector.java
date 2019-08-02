@@ -25,6 +25,7 @@ import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
@@ -810,13 +811,14 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
 
   /**
    * Copy a cell value from a particular index in source vector to a particular
-   * position in this vector.
+   * position in this vector. The source vector should be of the same type as this one.
    *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from      source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, BaseFixedWidthVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
+    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     if (from.isNull(fromIndex)) {
       BitVectorHelper.setValidityBit(this.getValidityBuffer(), thisIndex, 0);
     } else {
@@ -827,7 +829,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, BaseFixedWidthVector)} except that
+   * Same as {@link #copyFrom(int, int, ValueVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    *
@@ -835,7 +837,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * @param thisIndex position to copy to in this vector
    * @param from      source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, BaseFixedWidthVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
+    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }

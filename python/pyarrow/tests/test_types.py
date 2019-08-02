@@ -49,6 +49,8 @@ def get_many_types():
         pa.string(),
         pa.binary(),
         pa.binary(10),
+        pa.large_string(),
+        pa.large_binary(),
         pa.list_(pa.int32()),
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.int8()),
@@ -145,10 +147,24 @@ def test_is_union():
 def test_is_binary_string():
     assert types.is_binary(pa.binary())
     assert not types.is_binary(pa.string())
+    assert not types.is_binary(pa.large_binary())
+    assert not types.is_binary(pa.large_string())
 
     assert types.is_string(pa.string())
     assert types.is_unicode(pa.string())
     assert not types.is_string(pa.binary())
+    assert not types.is_string(pa.large_string())
+    assert not types.is_string(pa.large_binary())
+
+    assert types.is_large_binary(pa.large_binary())
+    assert not types.is_large_binary(pa.large_string())
+    assert not types.is_large_binary(pa.binary())
+    assert not types.is_large_binary(pa.string())
+
+    assert types.is_large_string(pa.large_string())
+    assert not types.is_large_string(pa.large_binary())
+    assert not types.is_large_string(pa.string())
+    assert not types.is_large_string(pa.binary())
 
     assert types.is_fixed_size_binary(pa.binary(5))
     assert not types.is_fixed_size_binary(pa.binary())

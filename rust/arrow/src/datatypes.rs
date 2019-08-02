@@ -29,7 +29,7 @@ use std::str::FromStr;
 
 use packed_simd::*;
 use serde_derive::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{json, Number, Value, Value::Number as VNumber};
 
 use crate::error::{ArrowError, Result};
 
@@ -102,6 +102,7 @@ pub struct Field {
 pub trait ArrowNativeType:
     fmt::Debug + Send + Sync + Copy + PartialOrd + FromStr + 'static
 {
+    fn into_json_value(self) -> Option<Value>;
 }
 
 /// Trait indicating a primitive fixed-width type (bool, ints and floats).
@@ -121,17 +122,71 @@ pub trait ArrowPrimitiveType: 'static {
     fn default_value() -> Self::Native;
 }
 
-impl ArrowNativeType for bool {}
-impl ArrowNativeType for i8 {}
-impl ArrowNativeType for i16 {}
-impl ArrowNativeType for i32 {}
-impl ArrowNativeType for i64 {}
-impl ArrowNativeType for u8 {}
-impl ArrowNativeType for u16 {}
-impl ArrowNativeType for u32 {}
-impl ArrowNativeType for u64 {}
-impl ArrowNativeType for f32 {}
-impl ArrowNativeType for f64 {}
+impl ArrowNativeType for bool {
+    fn into_json_value(self) -> Option<Value> {
+        Some(self.into())
+    }
+}
+
+impl ArrowNativeType for i8 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(VNumber(Number::from(self)))
+    }
+}
+
+impl ArrowNativeType for i16 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(VNumber(Number::from(self)))
+    }
+}
+
+impl ArrowNativeType for i32 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(VNumber(Number::from(self)))
+    }
+}
+
+impl ArrowNativeType for i64 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(VNumber(Number::from(self)))
+    }
+}
+
+impl ArrowNativeType for u8 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(VNumber(Number::from(self)))
+    }
+}
+
+impl ArrowNativeType for u16 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(VNumber(Number::from(self)))
+    }
+}
+
+impl ArrowNativeType for u32 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(VNumber(Number::from(self)))
+    }
+}
+
+impl ArrowNativeType for u64 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(VNumber(Number::from(self)))
+    }
+}
+
+impl ArrowNativeType for f32 {
+    fn into_json_value(self) -> Option<Value> {
+        Number::from_f64(self as f64).map(|num| VNumber(num))
+    }
+}
+
+impl ArrowNativeType for f64 {
+    fn into_json_value(self) -> Option<Value> {
+        Number::from_f64(self).map(|num| VNumber(num))
+    }
+}
 
 macro_rules! make_type {
     ($name:ident, $native_ty:ty, $data_ty:expr, $bit_width:expr, $default_val:expr) => {
@@ -770,6 +825,9 @@ impl fmt::Display for Schema {
 mod tests {
     use super::*;
     use serde_json;
+    use serde_json::Number;
+    use serde_json::Value::{Bool, Number as VNumber};
+    use std::f32::NAN;
 
     #[test]
     fn create_struct_type() {
@@ -1017,5 +1075,27 @@ mod tests {
         assert!(schema2 != schema3);
         assert!(schema2 != schema4);
         assert!(schema3 != schema4);
+    }
+
+    #[test]
+    fn test_arrow_native_type_to_json() {
+        assert_eq!(Some(Bool(true)), true.into_json_value());
+        assert_eq!(Some(VNumber(Number::from(1))), 1i8.into_json_value());
+        assert_eq!(Some(VNumber(Number::from(1))), 1i16.into_json_value());
+        assert_eq!(Some(VNumber(Number::from(1))), 1i32.into_json_value());
+        assert_eq!(Some(VNumber(Number::from(1))), 1i64.into_json_value());
+        assert_eq!(Some(VNumber(Number::from(1))), 1u8.into_json_value());
+        assert_eq!(Some(VNumber(Number::from(1))), 1u16.into_json_value());
+        assert_eq!(Some(VNumber(Number::from(1))), 1u32.into_json_value());
+        assert_eq!(Some(VNumber(Number::from(1))), 1u64.into_json_value());
+        assert_eq!(
+            Some(VNumber(Number::from_f64(0.01 as f64).unwrap())),
+            0.01.into_json_value()
+        );
+        assert_eq!(
+            Some(VNumber(Number::from_f64(0.01f64).unwrap())),
+            0.01f64.into_json_value()
+        );
+        assert_eq!(None, NAN.into_json_value());
     }
 }

@@ -34,13 +34,16 @@ class ARROW_EXPORT ExtensionType : public DataType {
  public:
   static constexpr Type::type type_id = Type::EXTENSION;
 
+  static constexpr const char* type_name() { return "extension"; }
+
   /// \brief The type of array used to represent this extension type's data
   std::shared_ptr<DataType> storage_type() const { return storage_type_; }
 
   DataTypeLayout layout() const override;
 
   std::string ToString() const override;
-  std::string name() const override;
+
+  std::string name() const override { return "extension"; }
 
   /// \brief Unique name of extension type used to identify type for
   /// serialization

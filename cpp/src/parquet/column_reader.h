@@ -17,14 +17,10 @@
 
 #pragma once
 
-#include <algorithm>
 #include <cstdint>
 #include <memory>
-#include <unordered_map>
-#include <utility>
 #include <vector>
 
-#include "parquet/encoding.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
@@ -33,6 +29,7 @@
 namespace arrow {
 
 class Array;
+class ChunkedArray;
 
 namespace BitUtil {
 class BitReader;
@@ -46,7 +43,6 @@ class RleDecoder;
 
 namespace parquet {
 
-class DictionaryPage;
 class Page;
 
 // 16 MB is the default maximum page header size
@@ -225,9 +221,6 @@ class RecordReader {
 
   virtual void DebugPrintState() = 0;
 
-  // For BYTE_ARRAY, FIXED_LEN_BYTE_ARRAY types that may have chunked output
-  virtual std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() = 0;
-
   /// \brief Decoded definition levels
   int16_t* def_levels() const {
     return reinterpret_cast<int16_t*>(def_levels_->mutable_data());
@@ -258,6 +251,9 @@ class RecordReader {
   /// \brief True if the leaf values are nullable
   bool nullable_values() const { return nullable_values_; }
 
+  /// \brief True if reading directly as Arrow dictionary-encoded
+  bool read_dictionary() const { return read_dictionary_; }
+
  protected:
   bool nullable_values_;
 
@@ -280,6 +276,20 @@ class RecordReader {
   std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
   std::shared_ptr<::arrow::ResizableBuffer> def_levels_;
   std::shared_ptr<::arrow::ResizableBuffer> rep_levels_;
+
+  bool read_dictionary_ = false;
+};
+
+class BinaryRecordReader : virtual public RecordReader {
+ public:
+  virtual std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() = 0;
+};
+
+/// \brief Read records directly to dictionary-encoded Arrow form (int32
+/// indices). Only valid for BYTE_ARRAY columns
+class DictionaryRecordReader : virtual public RecordReader {
+ public:
+  virtual std::shared_ptr<::arrow::ChunkedArray> GetResult() = 0;
 };
 
 static inline void DefinitionLevelsToBitmap(

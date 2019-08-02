@@ -285,18 +285,26 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
   }
 }
 
-class TestFilterKernelWithString : public TestFilterKernel<StringType> {
+using StringTypes =
+    ::testing::Types<BinaryType, StringType, LargeBinaryType, LargeStringType>;
+
+template <typename TypeClass>
+class TestFilterKernelWithString : public TestFilterKernel<TypeClass> {
  protected:
+  std::shared_ptr<DataType> value_type() {
+    return TypeTraits<TypeClass>::type_singleton();
+  }
+
   void AssertFilter(const std::string& values, const std::string& filter,
                     const std::string& expected) {
-    TestFilterKernel<StringType>::AssertFilter(utf8(), values, filter, expected);
+    TestFilterKernel<TypeClass>::AssertFilter(value_type(), values, filter, expected);
   }
   void AssertFilterDictionary(const std::string& dictionary_values,
                               const std::string& dictionary_filter,
                               const std::string& filter,
                               const std::string& expected_filter) {
-    auto dict = ArrayFromJSON(utf8(), dictionary_values);
-    auto type = dictionary(int8(), utf8());
+    auto dict = ArrayFromJSON(value_type(), dictionary_values);
+    auto type = dictionary(int8(), value_type());
     std::shared_ptr<Array> values, actual, expected;
     ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), dictionary_filter),
                                           dict, &values));
@@ -307,13 +315,15 @@ class TestFilterKernelWithString : public TestFilterKernel<StringType> {
   }
 };
 
-TEST_F(TestFilterKernelWithString, FilterString) {
+TYPED_TEST_CASE(TestFilterKernelWithString, StringTypes);
+
+TYPED_TEST(TestFilterKernelWithString, FilterString) {
   this->AssertFilter(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["b"])");
   this->AssertFilter(R"([null, "b", "c"])", "[0, 1, 0]", R"(["b"])");
   this->AssertFilter(R"(["a", "b", "c"])", "[null, 1, 0]", R"([null, "b"])");
 }
 
-TEST_F(TestFilterKernelWithString, FilterDictionary) {
+TYPED_TEST(TestFilterKernelWithString, FilterDictionary) {
   auto dict = R"(["a", "b", "c", "d", "e"])";
   this->AssertFilterDictionary(dict, "[3, 4, 2]", "[0, 1, 0]", "[4]");
   this->AssertFilterDictionary(dict, "[null, 4, 2]", "[0, 1, 0]", "[4]");
@@ -356,6 +366,15 @@ TEST_F(TestFilterKernelWithList, FilterListListInt32) {
     [[1], [2, null, 2], []],
     [[3, null], null]
   ])");
+}
+
+class TestFilterKernelWithLargeList : public TestFilterKernel<LargeListType> {};
+
+TEST_F(TestFilterKernelWithLargeList, FilterListInt32) {
+  std::string list_json = "[[], [1,2], null, [3]]";
+  this->AssertFilter(large_list(int32()), list_json, "[0, 0, 0, 0]", "[]");
+  this->AssertFilter(large_list(int32()), list_json, "[0, 1, 1, null]",
+                     "[[1,2], null, null]");
 }
 
 class TestFilterKernelWithFixedSizeList : public TestFilterKernel<FixedSizeListType> {};
@@ -412,6 +431,35 @@ TEST_F(TestFilterKernelWithStruct, FilterStruct) {
     null,
     {"a": 2, "b": "hello"}
   ])");
+}
+
+class TestFilterKernelWithUnion : public TestFilterKernel<UnionType> {};
+
+TEST_F(TestFilterKernelWithUnion, FilterUnion) {
+  for (auto mode : {UnionMode::SPARSE, UnionMode::DENSE}) {
+    auto union_type = union_({field("a", int32()), field("b", utf8())}, {2, 5}, mode);
+    auto union_json = R"([
+      null,
+      [2, 222],
+      [5, "hello"],
+      [5, "eh"],
+      null,
+      [2, 111]
+    ])";
+    this->AssertFilter(union_type, union_json, "[0, 0, 0, 0, 0, 0]", "[]");
+    this->AssertFilter(union_type, union_json, "[0, 1, 1, null, 0, 1]", R"([
+      [2, 222],
+      [5, "hello"],
+      null,
+      [2, 111]
+    ])");
+    this->AssertFilter(union_type, union_json, "[1, 0, 1, 0, 1, 0]", R"([
+      null,
+      [5, "hello"],
+      null
+    ])");
+    this->AssertFilter(union_type, union_json, "[1, 1, 1, 1, 1, 1]", union_json);
+  }
 }
 
 }  // namespace compute

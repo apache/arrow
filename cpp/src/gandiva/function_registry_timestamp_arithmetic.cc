@@ -71,6 +71,9 @@ std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
       DATE_ADD_FNS(date_add, {}),
       DATE_ADD_FNS(add, {}),
 
+      NativeFunction("add", {}, DataTypeVector{date64(), int64()}, timestamp(),
+                     kResultNullIfNull, "add_date64_int64"),
+
       DATE_DIFF_FNS(date_sub, {}),
       DATE_DIFF_FNS(subtract, {}),
       DATE_DIFF_FNS(date_diff, {})};

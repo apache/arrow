@@ -108,6 +108,14 @@ class BZ2Decompressor : public Decompressor {
     return Status::OK();
   }
 
+  Status Reset() override {
+    if (initialized_) {
+      ARROW_UNUSED(BZ2_bzDecompressEnd(&stream_));
+      initialized_ = false;
+    }
+    return Init();
+  }
+
   Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
                     uint8_t* output, int64_t* bytes_read, int64_t* bytes_written,
                     bool* need_more_output) override {

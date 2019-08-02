@@ -20,6 +20,7 @@
 //!
 //! This mod provides API for converting between arrow and parquet.
 
+pub(crate) mod record_reader;
 pub mod schema;
 
 pub use self::schema::{parquet_to_arrow_schema, parquet_to_arrow_schema_by_columns};

@@ -297,7 +297,6 @@ TEST(BlockParser, EmptyLinesWithOneColumn) {
 }
 
 TEST(BlockParser, EmptyLinesWithSeveralColumns) {
-  uint32_t out_size;
   auto csv = MakeCSVData({"a,b\n", "\n", "c,d\r", "\r", "e,f\r\n", "\r\n", "g,h\n"});
   {
     BlockParser parser(ParseOptions::Defaults());
@@ -305,12 +304,29 @@ TEST(BlockParser, EmptyLinesWithSeveralColumns) {
     AssertColumnsEq(parser, {{"a", "c", "e", "g"}, {"b", "d", "f", "h"}});
   }
   {
-    // A non-ignored empty line is a single value, but two columns are expected
+    // Non-ignored empty lines get turned into empty values
     auto options = ParseOptions::Defaults();
     options.ignore_empty_lines = false;
     BlockParser parser(options);
-    Status st = Parse(parser, csv, &out_size);
-    ASSERT_RAISES(Invalid, st);
+    AssertParseOk(parser, csv);
+    AssertColumnsEq(parser,
+                    {{"a", "", "c", "", "e", "", "g"}, {"b", "", "d", "", "f", "", "h"}});
+  }
+}
+
+TEST(BlockParser, EmptyLineFirst) {
+  auto csv = MakeCSVData({"\n", "\n", "a\n", "b\n"});
+  {
+    BlockParser parser(ParseOptions::Defaults());
+    AssertParseOk(parser, csv);
+    AssertColumnsEq(parser, {{"a", "b"}});
+  }
+  {
+    auto options = ParseOptions::Defaults();
+    options.ignore_empty_lines = false;
+    BlockParser parser(options);
+    AssertParseOk(parser, csv);
+    AssertColumnsEq(parser, {{"", "", "a", "b"}});
   }
 }
 

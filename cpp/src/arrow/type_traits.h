@@ -244,6 +244,15 @@ struct TypeTraits<BinaryType> {
 };
 
 template <>
+struct TypeTraits<LargeBinaryType> {
+  using ArrayType = LargeBinaryArray;
+  using BuilderType = LargeBinaryBuilder;
+  using ScalarType = LargeBinaryScalar;
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return large_binary(); }
+};
+
+template <>
 struct TypeTraits<FixedSizeBinaryType> {
   using ArrayType = FixedSizeBinaryArray;
   using BuilderType = FixedSizeBinaryBuilder;
@@ -261,6 +270,15 @@ struct TypeTraits<StringType> {
 };
 
 template <>
+struct TypeTraits<LargeStringType> {
+  using ArrayType = LargeStringArray;
+  using BuilderType = LargeStringBuilder;
+  using ScalarType = LargeStringScalar;
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return large_utf8(); }
+};
+
+template <>
 struct CTypeTraits<std::string> : public TypeTraits<StringType> {
   using ArrowType = StringType;
 };
@@ -271,10 +289,30 @@ struct CTypeTraits<char*> : public TypeTraits<StringType> {
 };
 
 template <>
+struct CTypeTraits<DayTimeIntervalType::DayMilliseconds>
+    : public TypeTraits<DayTimeIntervalType> {
+  using ArrowType = DayTimeIntervalType;
+};
+
+template <>
 struct TypeTraits<ListType> {
   using ArrayType = ListArray;
   using BuilderType = ListBuilder;
   using ScalarType = ListScalar;
+  using OffsetType = Int32Type;
+  using OffsetArrayType = Int32Array;
+  using OffsetBuilderType = Int32Builder;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<LargeListType> {
+  using ArrayType = LargeListArray;
+  using BuilderType = LargeListBuilder;
+  using ScalarType = LargeListScalar;
+  using OffsetType = Int64Type;
+  using OffsetArrayType = Int64Array;
+  using OffsetBuilderType = Int64Builder;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -361,6 +399,12 @@ struct is_8bit_int {
       (std::is_same<UInt8Type, T>::value || std::is_same<Int8Type, T>::value);
 };
 
+template <typename T>
+struct is_any_string_type {
+  static constexpr bool value =
+      std::is_same<StringType, T>::value || std::is_same<LargeStringType, T>::value;
+};
+
 template <typename T, typename R = void>
 using enable_if_8bit_int = typename std::enable_if<is_8bit_int<T>::value, R>::type;
 
@@ -413,8 +457,16 @@ template <typename T, typename R = void>
 using enable_if_null = typename std::enable_if<std::is_same<NullType, T>::value, R>::type;
 
 template <typename T, typename R = void>
+using enable_if_base_binary =
+    typename std::enable_if<std::is_base_of<BaseBinaryType, T>::value, R>::type;
+
+template <typename T, typename R = void>
 using enable_if_binary =
     typename std::enable_if<std::is_base_of<BinaryType, T>::value, R>::type;
+
+template <typename T, typename R = void>
+using enable_if_large_binary =
+    typename std::enable_if<std::is_base_of<LargeBinaryType, T>::value, R>::type;
 
 template <typename T, typename R = void>
 using enable_if_boolean =
@@ -431,8 +483,16 @@ using enable_if_fixed_size_binary =
     typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value, R>::type;
 
 template <typename T, typename R = void>
+using enable_if_base_list =
+    typename std::enable_if<std::is_base_of<BaseListType, T>::value, R>::type;
+
+template <typename T, typename R = void>
 using enable_if_list =
     typename std::enable_if<std::is_base_of<ListType, T>::value, R>::type;
+
+template <typename T, typename R = void>
+using enable_if_large_list =
+    typename std::enable_if<std::is_base_of<LargeListType, T>::value, R>::type;
 
 template <typename T, typename R = void>
 using enable_if_fixed_size_list =
@@ -567,6 +627,17 @@ static inline bool is_binary_like(Type::type type_id) {
   switch (type_id) {
     case Type::BINARY:
     case Type::STRING:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_large_binary_like(Type::type type_id) {
+  switch (type_id) {
+    case Type::LARGE_BINARY:
+    case Type::LARGE_STRING:
       return true;
     default:
       break;

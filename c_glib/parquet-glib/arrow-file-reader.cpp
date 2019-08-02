@@ -231,54 +231,11 @@ gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader,
 {
   auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
 
-  const auto n_columns =
-    parquet_arrow_file_reader->parquet_reader()->metadata()->num_columns();
-  std::vector<int> indices(n_columns);
-  for (int i = 0; i < n_columns; ++i) {
-    indices[i] = i;
-  }
-
   std::shared_ptr<arrow::Schema> arrow_schema;
-  auto status = parquet_arrow_file_reader->GetSchema(indices, &arrow_schema);
+  auto status = parquet_arrow_file_reader->GetSchema(&arrow_schema);
   if (garrow_error_check(error,
                          status,
                          "[parquet][arrow][file-reader][get-schema]")) {
-    return garrow_schema_new_raw(&arrow_schema);
-  } else {
-    return NULL;
-  }
-}
-
-/**
- * gparquet_arrow_file_reader_select_schema:
- * @reader: A #GParquetArrowFileReader.
- * @column_indexes: (array length=n_column_indexes):
- *   The array of column indexes to be selected.
- * @n_column_indexes: The length of `column_indexes`.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
- *
- * Returns: (transfer full) (nullable): A selected #GArrowSchema.
- *
- * Since: 0.12.0
- */
-GArrowSchema *
-gparquet_arrow_file_reader_select_schema(GParquetArrowFileReader *reader,
-                                         gint *column_indexes,
-                                         gsize n_column_indexes,
-                                         GError **error)
-{
-  auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
-
-  std::vector<int> indices(n_column_indexes);
-  for (gsize i = 0; i < n_column_indexes; ++i) {
-    indices[i] = column_indexes[i];
-  }
-
-  std::shared_ptr<arrow::Schema> arrow_schema;
-  auto status = parquet_arrow_file_reader->GetSchema(indices, &arrow_schema);
-  if (garrow_error_check(error,
-                         status,
-                         "[parquet][arrow][file-reader][select-schema]")) {
     return garrow_schema_new_raw(&arrow_schema);
   } else {
     return NULL;

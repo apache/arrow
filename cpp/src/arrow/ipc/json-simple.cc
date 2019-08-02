@@ -26,6 +26,7 @@
 #include "arrow/ipc/json-internal.h"
 #include "arrow/ipc/json-simple.h"
 #include "arrow/memory_pool.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
@@ -344,11 +345,14 @@ class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
 // ------------------------------------------------------------------------
 // Converter for binary and string arrays
 
-class StringConverter final : public ConcreteConverter<StringConverter> {
+template <typename TYPE>
+class StringConverter final : public ConcreteConverter<StringConverter<TYPE>> {
  public:
+  using BuilderType = typename TypeTraits<TYPE>::BuilderType;
+
   explicit StringConverter(const std::shared_ptr<DataType>& type) {
     this->type_ = type;
-    builder_ = std::make_shared<BinaryBuilder>(type, default_memory_pool());
+    builder_ = std::make_shared<BuilderType>(type, default_memory_pool());
   }
 
   Status AppendNull() override { return builder_->AppendNull(); }
@@ -368,7 +372,7 @@ class StringConverter final : public ConcreteConverter<StringConverter> {
   std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
 
  private:
-  std::shared_ptr<BinaryBuilder> builder_;
+  std::shared_ptr<BuilderType> builder_;
 };
 
 // ------------------------------------------------------------------------
@@ -411,15 +415,19 @@ class FixedSizeBinaryConverter final
 // ------------------------------------------------------------------------
 // Converter for list arrays
 
-class ListConverter final : public ConcreteConverter<ListConverter> {
+template <typename TYPE>
+class ListConverter final : public ConcreteConverter<ListConverter<TYPE>> {
  public:
-  explicit ListConverter(const std::shared_ptr<DataType>& type) { type_ = type; }
+  using BuilderType = typename TypeTraits<TYPE>::BuilderType;
+
+  explicit ListConverter(const std::shared_ptr<DataType>& type) { this->type_ = type; }
 
   Status Init() override {
-    const auto& list_type = checked_cast<const ListType&>(*type_);
+    const auto& list_type = checked_cast<const TYPE&>(*this->type_);
     RETURN_NOT_OK(GetConverter(list_type.value_type(), &child_converter_));
     auto child_builder = child_converter_->builder();
-    builder_ = std::make_shared<ListBuilder>(default_memory_pool(), child_builder, type_);
+    builder_ =
+        std::make_shared<BuilderType>(default_memory_pool(), child_builder, this->type_);
     return Status::OK();
   }
 
@@ -437,7 +445,7 @@ class ListConverter final : public ConcreteConverter<ListConverter> {
   std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
 
  private:
-  std::shared_ptr<ListBuilder> builder_;
+  std::shared_ptr<BuilderType> builder_;
   std::shared_ptr<Converter> child_converter_;
 };
 
@@ -644,8 +652,10 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
   }
 
   Status AppendNull() override {
-    for (auto& converter : child_converters_) {
-      RETURN_NOT_OK(converter->AppendNull());
+    if (mode_ == UnionMode::SPARSE) {
+      for (auto& converter : child_converters_) {
+        RETURN_NOT_OK(converter->AppendNull());
+      }
     }
     return builder_->AppendNull();
   }
@@ -676,15 +686,15 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
     }
 
     auto child_converter = child_converters_[child_num];
-    if (mode_ == UnionMode::DENSE) {
-      RETURN_NOT_OK(checked_cast<DenseUnionBuilder&>(*builder_).Append(id));
-    } else {
+    if (mode_ == UnionMode::SPARSE) {
       RETURN_NOT_OK(checked_cast<SparseUnionBuilder&>(*builder_).Append(id));
       for (auto&& other_converter : child_converters_) {
         if (other_converter != child_converter) {
           RETURN_NOT_OK(other_converter->AppendNull());
         }
       }
+    } else {
+      RETURN_NOT_OK(checked_cast<DenseUnionBuilder&>(*builder_).Append(id));
     }
     return child_converter->AppendValue(json_obj[1]);
   }
@@ -728,12 +738,15 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::BOOL, BooleanConverter)
     SIMPLE_CONVERTER_CASE(Type::FLOAT, FloatConverter<FloatType>)
     SIMPLE_CONVERTER_CASE(Type::DOUBLE, FloatConverter<DoubleType>)
-    SIMPLE_CONVERTER_CASE(Type::LIST, ListConverter)
+    SIMPLE_CONVERTER_CASE(Type::LIST, ListConverter<ListType>)
+    SIMPLE_CONVERTER_CASE(Type::LARGE_LIST, ListConverter<LargeListType>)
     SIMPLE_CONVERTER_CASE(Type::MAP, MapConverter)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_LIST, FixedSizeListConverter)
     SIMPLE_CONVERTER_CASE(Type::STRUCT, StructConverter)
-    SIMPLE_CONVERTER_CASE(Type::STRING, StringConverter)
-    SIMPLE_CONVERTER_CASE(Type::BINARY, StringConverter)
+    SIMPLE_CONVERTER_CASE(Type::STRING, StringConverter<StringType>)
+    SIMPLE_CONVERTER_CASE(Type::BINARY, StringConverter<BinaryType>)
+    SIMPLE_CONVERTER_CASE(Type::LARGE_STRING, StringConverter<LargeStringType>)
+    SIMPLE_CONVERTER_CASE(Type::LARGE_BINARY, StringConverter<LargeBinaryType>)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL, DecimalConverter)
     SIMPLE_CONVERTER_CASE(Type::UNION, UnionConverter)

@@ -1755,6 +1755,7 @@ class DecimalTest : public ::testing::TestWithParam<int> {
 
     std::shared_ptr<Array> out;
     FinishAndCheckPadding(builder.get(), &out);
+    ASSERT_EQ(builder->length(), 0);
 
     std::vector<uint8_t> raw_bytes;
 

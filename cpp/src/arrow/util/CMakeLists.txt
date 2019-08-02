@@ -28,6 +28,7 @@ arrow_install_all_headers("arrow/util")
 
 add_arrow_test(utility-test
                SOURCES
+               align-util-test.cc
                checked-cast-test.cc
                key-value-metadata-test.cc
                hashing-test.cc

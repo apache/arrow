@@ -21,6 +21,7 @@
 #include <sstream>
 #include <utility>
 
+#include "arrow/flight/serialization-internal.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"
@@ -35,6 +36,46 @@ const char* kSchemeGrpc = "grpc";
 const char* kSchemeGrpcTcp = "grpc+tcp";
 const char* kSchemeGrpcUnix = "grpc+unix";
 const char* kSchemeGrpcTls = "grpc+tls";
+
+const char* kErrorDetailTypeId = "flight::FlightStatusDetail";
+
+const char* FlightStatusDetail::type_id() const { return kErrorDetailTypeId; }
+
+std::string FlightStatusDetail::ToString() const { return CodeAsString(); }
+
+FlightStatusCode FlightStatusDetail::code() const { return code_; }
+
+std::string FlightStatusDetail::CodeAsString() const {
+  switch (code()) {
+    case FlightStatusCode::Internal:
+      return "Internal";
+    case FlightStatusCode::TimedOut:
+      return "TimedOut";
+    case FlightStatusCode::Cancelled:
+      return "Cancelled";
+    case FlightStatusCode::Unauthenticated:
+      return "Unauthenticated";
+    case FlightStatusCode::Unauthorized:
+      return "Unauthorized";
+    case FlightStatusCode::Unavailable:
+      return "Unavailable";
+    default:
+      return "Unknown";
+  }
+}
+
+std::shared_ptr<FlightStatusDetail> FlightStatusDetail::UnwrapStatus(
+    const arrow::Status& status) {
+  if (!status.detail() || status.detail()->type_id() != kErrorDetailTypeId) {
+    return nullptr;
+  }
+  return std::dynamic_pointer_cast<FlightStatusDetail>(status.detail());
+}
+
+Status MakeFlightError(FlightStatusCode code, const std::string& message) {
+  StatusCode arrow_code = arrow::StatusCode::IOError;
+  return arrow::Status(arrow_code, message, std::make_shared<FlightStatusDetail>(code));
+}
 
 bool FlightDescriptor::Equals(const FlightDescriptor& other) const {
   if (type != other.type) {
@@ -77,6 +118,45 @@ std::string FlightDescriptor::ToString() const {
   return ss.str();
 }
 
+Status FlightDescriptor::SerializeToString(std::string* out) const {
+  pb::FlightDescriptor pb_descriptor;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_descriptor));
+
+  if (!pb_descriptor.SerializeToString(out)) {
+    return Status::IOError("Serialized descriptor exceeded 2 GiB limit");
+  }
+  return Status::OK();
+}
+
+Status FlightDescriptor::Deserialize(const std::string& serialized,
+                                     FlightDescriptor* out) {
+  pb::FlightDescriptor pb_descriptor;
+  if (!pb_descriptor.ParseFromString(serialized)) {
+    return Status::Invalid("Not a valid descriptor");
+  }
+  return internal::FromProto(pb_descriptor, out);
+}
+
+bool Ticket::Equals(const Ticket& other) const { return ticket == other.ticket; }
+
+Status Ticket::SerializeToString(std::string* out) const {
+  pb::Ticket pb_ticket;
+  internal::ToProto(*this, &pb_ticket);
+
+  if (!pb_ticket.SerializeToString(out)) {
+    return Status::IOError("Serialized ticket exceeded 2 GiB limit");
+  }
+  return Status::OK();
+}
+
+Status Ticket::Deserialize(const std::string& serialized, Ticket* out) {
+  pb::Ticket pb_ticket;
+  if (!pb_ticket.ParseFromString(serialized)) {
+    return Status::Invalid("Not a valid ticket");
+  }
+  return internal::FromProto(pb_ticket, out);
+}
+
 Status FlightInfo::GetSchema(ipc::DictionaryMemo* dictionary_memo,
                              std::shared_ptr<Schema>* out) const {
   if (reconstructed_schema_) {
@@ -87,6 +167,28 @@ Status FlightInfo::GetSchema(ipc::DictionaryMemo* dictionary_memo,
   RETURN_NOT_OK(ipc::ReadSchema(&schema_reader, dictionary_memo, &schema_));
   reconstructed_schema_ = true;
   *out = schema_;
+  return Status::OK();
+}
+
+Status FlightInfo::SerializeToString(std::string* out) const {
+  pb::FlightInfo pb_info;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_info));
+
+  if (!pb_info.SerializeToString(out)) {
+    return Status::IOError("Serialized FlightInfo exceeded 2 GiB limit");
+  }
+  return Status::OK();
+}
+
+Status FlightInfo::Deserialize(const std::string& serialized,
+                               std::unique_ptr<FlightInfo>* out) {
+  pb::FlightInfo pb_info;
+  if (!pb_info.ParseFromString(serialized)) {
+    return Status::Invalid("Not a valid FlightInfo");
+  }
+  FlightInfo::Data data;
+  RETURN_NOT_OK(internal::FromProto(pb_info, &data));
+  out->reset(new FlightInfo(data));
   return Status::OK();
 }
 
@@ -126,6 +228,10 @@ std::string Location::scheme() const {
 
 bool Location::Equals(const Location& other) const {
   return ToString() == other.ToString();
+}
+
+bool FlightEndpoint::Equals(const FlightEndpoint& other) const {
+  return ticket == other.ticket && locations == other.locations;
 }
 
 Status MetadataRecordBatchReader::ReadAll(

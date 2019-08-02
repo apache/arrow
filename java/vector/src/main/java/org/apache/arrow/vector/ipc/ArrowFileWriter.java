@@ -68,6 +68,7 @@ public class ArrowFileWriter extends ArrowWriter {
 
   @Override
   protected void endInternal(WriteChannel out) throws IOException {
+    out.writeIntLittleEndian(0);
     long footerStart = out.getCurrentPosition();
     out.write(new ArrowFooter(schema, dictionaryBlocks, recordBlocks), false);
     int footerLength = (int) (out.getCurrentPosition() - footerStart);

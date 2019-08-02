@@ -21,6 +21,7 @@ add_arrow_test(boolean-test PREFIX "arrow-compute")
 add_arrow_test(cast-test PREFIX "arrow-compute")
 add_arrow_test(hash-test PREFIX "arrow-compute")
 add_arrow_test(argsort-test PREFIX "arrow-compute")
+add_arrow_test(isin-test PREFIX "arrow-compute")
 add_arrow_test(util-internal-test PREFIX "arrow-compute")
 add_arrow_benchmark(argsort-benchmark PREFIX "arrow-compute")
 

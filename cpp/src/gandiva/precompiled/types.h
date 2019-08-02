@@ -96,6 +96,7 @@ int64 date_add_int32_timestamp(int32, timestamp);
 int64 add_int64_timestamp(int64, timestamp);
 int64 add_int32_timestamp(int32, timestamp);
 int64 date_add_int64_timestamp(int64, timestamp);
+timestamp add_date64_int64(date64, int64);
 
 int64 date_sub_int32_timestamp(int32, timestamp);
 int64 subtract_int32_timestamp(int32, timestamp);
@@ -163,7 +164,16 @@ int32 utf8_length(int64 context, const char* data, int32 data_len);
 date64 castDATE_utf8(int64_t execution_context, const char* input, int32 length);
 
 timestamp castTIMESTAMP_utf8(int64_t execution_context, const char* input, int32 length);
+timestamp castTIMESTAMP_date64(date64);
 
+int64 truncate_int64_int32(int64 in, int32 out_scale);
+
+char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_len,
+                              int64 offset64, int64 length, int32* out_len);
+char* substr_utf8_int64(int64 context, const char* input, int32 in_len, int64 offset64,
+                        int32* out_len);
+char* concatOperator_utf8_utf8(int64 context, const char* left, int32 left_len,
+                               const char* right, int32 right_len, int32* out_len);
 }  // extern "C"
 
 #endif  // PRECOMPILED_TYPES_H

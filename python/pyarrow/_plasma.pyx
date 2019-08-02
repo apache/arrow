@@ -138,6 +138,11 @@ cdef extern from "plasma/client.h" nogil:
 
         CStatus Delete(const c_vector[CUniqueID] object_ids)
 
+        CStatus SetClientOptions(const c_string& client_name,
+                                 int64_t limit_output_memory)
+
+        c_string DebugString()
+
         int64_t store_capacity()
 
 cdef extern from "plasma/client.h" nogil:
@@ -740,6 +745,19 @@ cdef class PlasmaClient:
             ids.push_back(object_id.data)
         with nogil:
             plasma_check_status(self.client.get().Delete(ids))
+
+    def set_client_options(self, client_name, int64_t limit_output_memory):
+        cdef c_string name
+        name = client_name.encode()
+        with nogil:
+            plasma_check_status(
+                self.client.get().SetClientOptions(name, limit_output_memory))
+
+    def debug_string(self):
+        cdef c_string result
+        with nogil:
+            result = self.client.get().DebugString()
+        return result.decode()
 
     def list(self):
         """

@@ -113,7 +113,9 @@ Client::Client(int fd) : fd(fd), notification_fd(-1) {}
 PlasmaStore::PlasmaStore(EventLoop* loop, std::string directory, bool hugepages_enabled,
                          const std::string& socket_name,
                          std::shared_ptr<ExternalStore> external_store)
-    : loop_(loop), eviction_policy_(&store_info_), external_store_(external_store) {
+    : loop_(loop),
+      eviction_policy_(&store_info_, PlasmaAllocator::GetFootprintLimit()),
+      external_store_(external_store) {
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
 #ifdef PLASMA_CUDA
@@ -138,9 +140,7 @@ void PlasmaStore::AddToClientObjectIds(const ObjectID& object_id, ObjectTableEnt
   // that the object is being used.
   if (entry->ref_count == 0) {
     // Tell the eviction policy that this object is being used.
-    std::vector<ObjectID> objects_to_evict;
-    eviction_policy_.BeginObjectAccess(object_id, &objects_to_evict);
-    EvictObjects(objects_to_evict);
+    eviction_policy_.BeginObjectAccess(object_id);
   }
   // Increase reference count.
   entry->ref_count++;
@@ -151,7 +151,16 @@ void PlasmaStore::AddToClientObjectIds(const ObjectID& object_id, ObjectTableEnt
 
 // Allocate memory
 uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
-                                     ptrdiff_t* offset) {
+                                     ptrdiff_t* offset, Client* client, bool is_create) {
+  // First free up space from the client's LRU queue if quota enforcement is on.
+  std::vector<ObjectID> client_objects_to_evict;
+  bool quota_ok = eviction_policy_.EnforcePerClientQuota(client, size, is_create,
+                                                         &client_objects_to_evict);
+  if (!quota_ok) {
+    return nullptr;
+  }
+  EvictObjects(client_objects_to_evict);
+
   // Try to evict objects until there is enough space.
   uint8_t* pointer = nullptr;
   while (true) {
@@ -223,7 +232,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   auto total_size = data_size + metadata_size;
 
   if (device_num == 0) {
-    pointer = AllocateMemory(total_size, &fd, &map_size, &offset);
+    pointer = AllocateMemory(total_size, &fd, &map_size, &offset, client, true);
     if (!pointer) {
       ARROW_LOG(ERROR) << "Not enough memory to create the object " << object_id.hex()
                        << ", data_size=" << data_size
@@ -274,7 +283,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   // Notify the eviction policy that this object was created. This must be done
   // immediately before the call to AddToClientObjectIds so that the
   // eviction policy does not have an opportunity to evict the object.
-  eviction_policy_.ObjectCreated(object_id);
+  eviction_policy_.ObjectCreated(object_id, client, true);
   // Record that this client is using this object.
   AddToClientObjectIds(object_id, store_info_.objects[object_id].get(), client);
   return PlasmaError::OK;
@@ -447,11 +456,11 @@ void PlasmaStore::ProcessGetRequest(Client* client,
       ARROW_CHECK(!entry->pointer);
 
       entry->pointer = AllocateMemory(entry->data_size + entry->metadata_size, &entry->fd,
-                                      &entry->map_size, &entry->offset);
+                                      &entry->map_size, &entry->offset, client, false);
       if (entry->pointer) {
         entry->state = ObjectState::PLASMA_CREATED;
         entry->create_time = std::time(nullptr);
-        eviction_policy_.ObjectCreated(object_id);
+        eviction_policy_.ObjectCreated(object_id, client, false);
         AddToClientObjectIds(object_id, store_info_.objects[object_id].get(), client);
         evicted_ids.push_back(object_id);
         evicted_entries.push_back(entry);
@@ -525,9 +534,7 @@ int PlasmaStore::RemoveFromClientObjectIds(const ObjectID& object_id,
     if (entry->ref_count == 0) {
       if (deletion_cache_.count(object_id) == 0) {
         // Tell the eviction policy that this object is no longer being used.
-        std::vector<ObjectID> objects_to_evict;
-        eviction_policy_.EndObjectAccess(object_id, &objects_to_evict);
-        EvictObjects(objects_to_evict);
+        eviction_policy_.EndObjectAccess(object_id);
       } else {
         // Above code does not really delete an object. Instead, it just put an
         // object to LRU cache which will be cleaned when the memory is not enough.
@@ -651,6 +658,10 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
 }
 
 void PlasmaStore::EvictObjects(const std::vector<ObjectID>& object_ids) {
+  if (object_ids.size() == 0) {
+    return;
+  }
+
   std::vector<std::shared_ptr<arrow::Buffer>> evicted_object_data;
   std::vector<ObjectTableEntry*> evicted_entries;
   for (const auto& object_id : object_ids) {
@@ -721,6 +732,7 @@ void PlasmaStore::DisconnectClient(int client_fd) {
   ARROW_LOG(INFO) << "Disconnecting client on fd " << client_fd;
   // Release all the objects that the client was using.
   auto client = it->second.get();
+  eviction_policy_.ClientDisconnected(client);
   std::unordered_map<ObjectID, ObjectTableEntry*> sealed_objects;
   for (const auto& object_id : client->object_ids) {
     auto it = store_info_.objects.find(object_id);
@@ -1011,6 +1023,21 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       ARROW_LOG(DEBUG) << "Disconnecting client on fd " << client->fd;
       DisconnectClient(client->fd);
       break;
+    case fb::MessageType::PlasmaSetOptionsRequest: {
+      std::string client_name;
+      int64_t output_memory_quota;
+      RETURN_NOT_OK(
+          ReadSetOptionsRequest(input, input_size, &client_name, &output_memory_quota));
+      client->name = client_name;
+      bool success = eviction_policy_.SetClientQuota(client, output_memory_quota);
+      HANDLE_SIGPIPE(SendSetOptionsReply(client->fd, success ? PlasmaError::OK
+                                                             : PlasmaError::OutOfMemory),
+                     client->fd);
+    } break;
+    case fb::MessageType::PlasmaGetDebugStringRequest: {
+      HANDLE_SIGPIPE(SendGetDebugStringReply(client->fd, eviction_policy_.DebugString()),
+                     client->fd);
+    } break;
     default:
       // This code should be unreachable.
       ARROW_CHECK(0);

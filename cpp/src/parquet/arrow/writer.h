@@ -19,6 +19,7 @@
 #define PARQUET_ARROW_WRITER_H
 
 #include <cstdint>
+#include <cstring>
 #include <memory>
 
 #include "parquet/platform.h"
@@ -31,15 +32,7 @@ namespace arrow {
 
 class Array;
 class ChunkedArray;
-class MemoryPool;
-class Status;
 class Table;
-
-namespace io {
-
-class OutputStream;
-
-}  // namespace io
 
 }  // namespace arrow
 
@@ -135,10 +128,11 @@ std::shared_ptr<ArrowWriterProperties> PARQUET_EXPORT default_arrow_writer_prope
  */
 class PARQUET_EXPORT FileWriter {
  public:
-  FileWriter(::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
-             const std::shared_ptr<::arrow::Schema>& schema,
-             const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
-                 default_arrow_writer_properties());
+  static ::arrow::Status Make(
+      ::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
+      const std::shared_ptr<::arrow::Schema>& schema,
+      const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
+      std::unique_ptr<FileWriter>* out);
 
   static ::arrow::Status Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                               const std::shared_ptr<::arrow::io::OutputStream>& sink,
@@ -171,6 +165,10 @@ class PARQUET_EXPORT FileWriter {
   const std::shared_ptr<FileMetaData> metadata() const;
 
  private:
+  FileWriter(::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
+             const std::shared_ptr<::arrow::Schema>& schema,
+             const std::shared_ptr<ArrowWriterProperties>& arrow_properties);
+
   class PARQUET_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
   std::shared_ptr<::arrow::Schema> schema_;

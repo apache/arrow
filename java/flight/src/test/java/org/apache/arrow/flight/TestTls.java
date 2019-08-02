@@ -57,13 +57,12 @@ public class TestTls {
   /**
    * Make sure that connections are rejected when the root certificate isn't trusted.
    */
-  @Test(expected = io.grpc.StatusRuntimeException.class)
+  @Test
   public void rejectInvalidCert() {
     test((builder) -> {
       try (final FlightClient client = builder.build()) {
         final Iterator<Result> responses = client.doAction(new Action("hello-world"));
-        responses.next().getBody();
-        Assert.fail("Call should have failed");
+        FlightTestUtil.assertCode(FlightStatusCode.UNAVAILABLE, () -> responses.next().getBody());
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
       }
@@ -73,15 +72,14 @@ public class TestTls {
   /**
    * Make sure that connections are rejected when the hostname doesn't match.
    */
-  @Test(expected = io.grpc.StatusRuntimeException.class)
+  @Test
   public void rejectHostname() {
     test((builder) -> {
       try (final InputStream roots = new FileInputStream(FlightTestUtil.exampleTlsRootCert().toFile());
           final FlightClient client = builder.trustedCertificates(roots).overrideHostname("fakehostname")
               .build()) {
         final Iterator<Result> responses = client.doAction(new Action("hello-world"));
-        responses.next().getBody();
-        Assert.fail("Call should have failed");
+        FlightTestUtil.assertCode(FlightStatusCode.UNAVAILABLE, () -> responses.next().getBody());
       } catch (InterruptedException | IOException e) {
         throw new RuntimeException(e);
       }
@@ -119,8 +117,10 @@ public class TestTls {
       if (action.getType().equals("hello-world")) {
         listener.onNext(new Result("Hello, world!".getBytes(StandardCharsets.UTF_8)));
         listener.onCompleted();
+        return;
       }
-      listener.onError(new UnsupportedOperationException("Invalid action " + action.getType()));
+      listener
+          .onError(CallStatus.UNIMPLEMENTED.withDescription("Invalid action " + action.getType()).toRuntimeException());
     }
 
     @Override

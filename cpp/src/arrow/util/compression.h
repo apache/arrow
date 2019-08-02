@@ -87,6 +87,9 @@ class ARROW_EXPORT Decompressor {
   /// simply be that the underlying library isn't able to provide the information.
   virtual bool IsFinished() = 0;
 
+  /// \brief Reinitialize decompressor, making it ready for a new compressed stream.
+  virtual Status Reset() = 0;
+
   // XXX add methods for buffer size heuristics?
 };
 

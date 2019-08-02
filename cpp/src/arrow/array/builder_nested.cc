@@ -24,7 +24,6 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -35,115 +34,6 @@
 
 namespace arrow {
 
-// ----------------------------------------------------------------------
-// ListBuilder
-
-ListBuilder::ListBuilder(MemoryPool* pool,
-                         std::shared_ptr<ArrayBuilder> const& value_builder,
-                         const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(type ? type
-                        : std::static_pointer_cast<DataType>(
-                              std::make_shared<ListType>(value_builder->type())),
-                   pool),
-      offsets_builder_(pool),
-      value_builder_(value_builder) {}
-
-Status ListBuilder::AppendValues(const int32_t* offsets, int64_t length,
-                                 const uint8_t* valid_bytes) {
-  RETURN_NOT_OK(Reserve(length));
-  UnsafeAppendToBitmap(valid_bytes, length);
-  offsets_builder_.UnsafeAppend(offsets, length);
-  return Status::OK();
-}
-
-Status ListBuilder::CheckNextOffset() const {
-  const int64_t num_values = value_builder_->length();
-  ARROW_RETURN_IF(
-      num_values > kListMaximumElements,
-      Status::CapacityError("ListArray cannot contain more than 2^31 - 1 child elements,",
-                            " have ", num_values));
-  return Status::OK();
-}
-
-Status ListBuilder::AppendNextOffset() {
-  RETURN_NOT_OK(CheckNextOffset());
-  const int64_t num_values = value_builder_->length();
-  return offsets_builder_.Append(static_cast<int32_t>(num_values));
-}
-
-Status ListBuilder::Append(bool is_valid) {
-  RETURN_NOT_OK(Reserve(1));
-  UnsafeAppendToBitmap(is_valid);
-  return AppendNextOffset();
-}
-
-Status ListBuilder::AppendNulls(int64_t length) {
-  RETURN_NOT_OK(Reserve(length));
-  RETURN_NOT_OK(CheckNextOffset());
-  UnsafeAppendToBitmap(length, false);
-  const int64_t num_values = value_builder_->length();
-  for (int64_t i = 0; i < length; ++i) {
-    offsets_builder_.UnsafeAppend(static_cast<int32_t>(num_values));
-  }
-  return Status::OK();
-}
-
-Status ListBuilder::Resize(int64_t capacity) {
-  if (capacity > kListMaximumElements) {
-    return Status::CapacityError(
-        "ListArray cannot reserve space for more then 2^31 - 1 child elements, got ",
-        capacity);
-  }
-  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
-
-  // one more then requested for offsets
-  RETURN_NOT_OK(offsets_builder_.Resize(capacity + 1));
-  return ArrayBuilder::Resize(capacity);
-}
-
-Status ListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  RETURN_NOT_OK(AppendNextOffset());
-
-  // Offset padding zeroed by BufferBuilder
-  std::shared_ptr<Buffer> offsets;
-  RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
-
-  std::shared_ptr<ArrayData> items;
-  if (values_) {
-    items = values_->data();
-  } else {
-    if (value_builder_->length() == 0) {
-      // Try to make sure we get a non-null values buffer (ARROW-2744)
-      RETURN_NOT_OK(value_builder_->Resize(0));
-    }
-    RETURN_NOT_OK(value_builder_->FinishInternal(&items));
-  }
-
-  // If the type has not been specified in the constructor, infer it
-  // This is the case if the value_builder contains a DenseUnionBuilder
-  if (!arrow::internal::checked_cast<ListType&>(*type_).value_type()) {
-    type_ = std::static_pointer_cast<DataType>(
-        std::make_shared<ListType>(value_builder_->type()));
-  }
-  std::shared_ptr<Buffer> null_bitmap;
-  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
-  *out = ArrayData::Make(type_, length_, {null_bitmap, offsets}, null_count_);
-  (*out)->child_data.emplace_back(std::move(items));
-  Reset();
-  return Status::OK();
-}
-
-void ListBuilder::Reset() {
-  ArrayBuilder::Reset();
-  values_.reset();
-  offsets_builder_.Reset();
-  value_builder_->Reset();
-}
-
-ArrayBuilder* ListBuilder::value_builder() const {
-  DCHECK(!values_) << "Using value builder is pointless when values_ is set";
-  return value_builder_.get();
-}
 // ----------------------------------------------------------------------
 // MapBuilder
 

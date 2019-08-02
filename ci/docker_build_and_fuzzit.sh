@@ -16,6 +16,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set -euxo pipefail
+
 export ARROW_FUZZING="ON"
 #export ARROW_DEPENDENCY_SOURCE="BUNDLED"
 export ARROW_USE_ASAN="ON"
@@ -45,4 +47,4 @@ export FUZZIT_API_KEY=${FUZZIT_API_KEY:-ac6089a1bc2313679f2d99bb80553162c380676b
 wget -O fuzzit https://bin.fuzzit.dev/fuzzit-1.1
 chmod a+x fuzzit
 ./fuzzit auth $FUZZIT_API_KEY
-./fuzzit create job --type fuzzing --host bionic-llvm7 --revision $CIRCLE_SHA1 --branch $CIRCLE_BRANCH $TARGET_ID ./relwithdebinfo/out/fuzzer.tar.gz
+./fuzzit create job --type fuzzing --host bionic-llvm7 --revision $CI_ARROW_SHA --branch $CI_ARROW_BRANCH $TARGET_ID ./relwithdebinfo/out/fuzzer.tar.gz

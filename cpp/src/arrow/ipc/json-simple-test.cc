@@ -322,6 +322,21 @@ TEST(TestString, Basics) {
   AssertJSONArray<BinaryType, std::string>(type, "[\"\\u0000\\u001f\"]", {s});
 }
 
+TEST(TestLargeString, Basics) {
+  // Similar as TestString above, only testing the basics
+  std::shared_ptr<DataType> type = large_utf8();
+  std::shared_ptr<Array> expected, actual;
+
+  AssertJSONArray<LargeStringType, std::string>(type, "[\"\", \"foo\"]", {"", "foo"});
+  AssertJSONArray<LargeStringType, std::string>(type, "[\"\", null]", {true, false},
+                                                {"", ""});
+
+  // Large binary type
+  type = large_binary();
+  AssertJSONArray<LargeBinaryType, std::string>(type, "[\"\", \"foo\", null]",
+                                                {true, true, false}, {"", "foo", ""});
+}
+
 TEST(TestTimestamp, Basics) {
   // Timestamp type
   auto type = timestamp(TimeUnit::SECOND);
@@ -534,6 +549,21 @@ TEST(TestList, IntegerListList) {
     ASSERT_OK(child_builder.Append());
     ASSERT_OK(list_builder.Finish(&expected));
   }
+}
+
+TEST(TestLargeList, Basics) {
+  // Similar as TestList above, only testing the basics
+  auto pool = default_memory_pool();
+  std::shared_ptr<DataType> type = large_list(int16());
+  std::shared_ptr<Array> offsets, values, expected, actual;
+
+  ASSERT_OK(ArrayFromJSON(type, "[[], [null], [6, null]]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  ArrayFromVector<Int64Type>({0, 0, 1, 3}, &offsets);
+  auto is_valid = std::vector<bool>{false, true, false};
+  ArrayFromVector<Int16Type>(is_valid, {0, 6, 0}, &values);
+  ASSERT_OK(LargeListArray::FromArrays(*offsets, *values, pool, &expected));
+  AssertArraysEqual(*expected, *actual);
 }
 
 TEST(TestMap, IntegerToInteger) {
@@ -910,10 +940,11 @@ TEST(TestDenseUnion, Basics) {
   auto field_b = field("b", boolean());
 
   auto type = union_({field_a, field_b}, {4, 8}, UnionMode::DENSE);
-  auto array = ArrayFromJSON(type, "[[4, 122], [8, true], [4, null], null, [8, false]]");
+  auto array = checked_pointer_cast<UnionArray>(
+      ArrayFromJSON(type, "[null, [4, 122], [8, true], [4, null], null, [8, false]]"));
 
-  auto expected_types = ArrayFromJSON(int8(), "[4, 8, 4, null, 8]");
-  auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 1, 0, 1]");
+  auto expected_types = ArrayFromJSON(int8(), "[null, 4, 8, 4, null, 8]");
+  auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 0, 1, 0, 1]");
   auto expected_a = ArrayFromJSON(int8(), "[122, null]");
   auto expected_b = ArrayFromJSON(boolean(), "[true, false]");
 
@@ -923,6 +954,11 @@ TEST(TestDenseUnion, Basics) {
                                   &expected));
 
   ASSERT_ARRAYS_EQUAL(*expected, *array);
+
+  // ensure that the array is as dense as we expect
+  ASSERT_TRUE(array->value_offsets()->Equals(*expected_offsets->data()->buffers[1]));
+  ASSERT_ARRAYS_EQUAL(*expected_a, *array->child(0));
+  ASSERT_ARRAYS_EQUAL(*expected_b, *array->child(1));
 }
 
 TEST(TestSparseUnion, Basics) {
@@ -948,11 +984,12 @@ TEST(TestDenseUnion, ListOfUnion) {
   auto field_b = field("b", boolean());
   auto union_type = union_({field_a, field_b}, {4, 8}, UnionMode::DENSE);
   auto list_type = list(union_type);
-  auto array = ArrayFromJSON(list_type,
-                             "["
-                             "[[4, 122], [8, true]],"
-                             "[[4, null], null, [8, false]]"
-                             "]");
+  auto array =
+      checked_pointer_cast<ListArray>(ArrayFromJSON(list_type,
+                                                    "["
+                                                    "[[4, 122], [8, true]],"
+                                                    "[[4, null], null, [8, false]]"
+                                                    "]"));
 
   auto expected_types = ArrayFromJSON(int8(), "[4, 8, 4, null, 8]");
   auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 1, 0, 1]");
@@ -968,6 +1005,13 @@ TEST(TestDenseUnion, ListOfUnion) {
                                   default_memory_pool(), &expected));
 
   ASSERT_ARRAYS_EQUAL(*expected, *array);
+
+  // ensure that the array is as dense as we expect
+  auto array_values = checked_pointer_cast<UnionArray>(array->values());
+  ASSERT_TRUE(array_values->value_offsets()->Equals(
+      *checked_pointer_cast<UnionArray>(expected_values)->value_offsets()));
+  ASSERT_ARRAYS_EQUAL(*expected_a, *array_values->child(0));
+  ASSERT_ARRAYS_EQUAL(*expected_b, *array_values->child(1));
 }
 
 TEST(TestSparseUnion, ListOfUnion) {
@@ -1002,13 +1046,13 @@ TEST(TestDenseUnion, UnionOfStructs) {
                             field("foxtrot", list(int8()))})),
       field("q", struct_({field("quebec", utf8())}))};
   auto type = union_(fields, {0, 23, 47}, UnionMode::DENSE);
-  auto array = ArrayFromJSON(type, R"([
+  auto array = checked_pointer_cast<UnionArray>(ArrayFromJSON(type, R"([
     [0, {"alpha": 0.0, "bravo": "charlie"}],
     [23, {"whiskey": 99}],
     [0, {"bravo": "mike"}],
     null,
     [23, {"tango": 8.25, "foxtrot": [0, 2, 3]}]
-  ])");
+  ])"));
 
   auto expected_types = ArrayFromJSON(int8(), "[0, 23, 0, null, 23]");
   auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 1, 0, 1]");
@@ -1027,6 +1071,13 @@ TEST(TestDenseUnion, UnionOfStructs) {
                                   {"ab", "wtf", "q"}, {0, 23, 47}, &expected));
 
   ASSERT_ARRAYS_EQUAL(*expected, *array);
+
+  // ensure that the array is as dense as we expect
+  ASSERT_TRUE(array->value_offsets()->Equals(*expected_offsets->data()->buffers[1]));
+  for (int i = 0; i < type->num_children(); ++i) {
+    ASSERT_ARRAYS_EQUAL(*checked_cast<const UnionArray&>(*expected).child(i),
+                        *array->child(i));
+  }
 }
 
 TEST(TestSparseUnion, UnionOfStructs) {

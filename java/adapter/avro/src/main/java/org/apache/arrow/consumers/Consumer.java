@@ -22,9 +22,19 @@ import java.io.IOException;
 import org.apache.avro.io.Decoder;
 
 /**
- * An abstraction that is used to consume values from avro decoder.
+ * Interface that is used to consume values from avro decoder.
  */
 public interface Consumer {
 
+  /**
+   * Consume a specific type value from avro decoder and write it to vector.
+   * @param decoder avro decoder to read data
+   * @throws IOException on error
+   */
   void consume(Decoder decoder) throws IOException;
+
+  /**
+   * Add null value to vector by making writer position + 1.
+   */
+  void addNull();
 }

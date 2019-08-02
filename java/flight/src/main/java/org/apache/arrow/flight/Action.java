@@ -40,7 +40,7 @@ public class Action {
     this.body = body == null ? new byte[0] : body;
   }
 
-  public Action(Flight.Action action) {
+  Action(Flight.Action action) {
     this(action.getType(), action.getBody().toByteArray());
   }
 

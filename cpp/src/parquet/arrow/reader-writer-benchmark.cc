@@ -179,9 +179,11 @@ static void BM_ReadColumn(::benchmark::State& state) {
   while (state.KeepRunning()) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-    FileReader filereader(::arrow::default_memory_pool(), std::move(reader));
+    std::unique_ptr<FileReader> arrow_reader;
+    EXIT_NOT_OK(FileReader::Make(::arrow::default_memory_pool(), std::move(reader),
+                                 &arrow_reader));
     std::shared_ptr<::arrow::Table> table;
-    EXIT_NOT_OK(filereader.ReadTable(&table));
+    EXIT_NOT_OK(arrow_reader->ReadTable(&table));
   }
   SetBytesProcessed<nullable, ParquetType>(state);
 }
@@ -212,14 +214,16 @@ static void BM_ReadIndividualRowGroups(::benchmark::State& state) {
   while (state.KeepRunning()) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-    FileReader filereader(::arrow::default_memory_pool(), std::move(reader));
+    std::unique_ptr<FileReader> arrow_reader;
+    EXIT_NOT_OK(FileReader::Make(::arrow::default_memory_pool(), std::move(reader),
+                                 &arrow_reader));
 
     std::vector<std::shared_ptr<::arrow::Table>> tables;
-    for (int i = 0; i < filereader.num_row_groups(); i++) {
+    for (int i = 0; i < arrow_reader->num_row_groups(); i++) {
       // Only read the even numbered RowGroups
       if ((i % 2) == 0) {
         std::shared_ptr<::arrow::Table> table;
-        EXIT_NOT_OK(filereader.RowGroup(i)->ReadTable(&table));
+        EXIT_NOT_OK(arrow_reader->RowGroup(i)->ReadTable(&table));
         tables.push_back(table);
       }
     }
@@ -245,11 +249,13 @@ static void BM_ReadMultipleRowGroups(::benchmark::State& state) {
   while (state.KeepRunning()) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-    FileReader filereader(::arrow::default_memory_pool(), std::move(reader));
+    std::unique_ptr<FileReader> arrow_reader;
+    EXIT_NOT_OK(FileReader::Make(::arrow::default_memory_pool(), std::move(reader),
+                                 &arrow_reader));
 
     std::vector<std::shared_ptr<::arrow::Table>> tables;
     std::vector<int> rgs;
-    for (int i = 0; i < filereader.num_row_groups(); i++) {
+    for (int i = 0; i < arrow_reader->num_row_groups(); i++) {
       // Only read the even numbered RowGroups
       if ((i % 2) == 0) {
         rgs.push_back(i);
@@ -257,7 +263,7 @@ static void BM_ReadMultipleRowGroups(::benchmark::State& state) {
     }
 
     std::shared_ptr<::arrow::Table> table;
-    EXIT_NOT_OK(filereader.ReadRowGroups(rgs, &table));
+    EXIT_NOT_OK(arrow_reader->ReadRowGroups(rgs, &table));
   }
   SetBytesProcessed<true, Int64Type>(state);
 }

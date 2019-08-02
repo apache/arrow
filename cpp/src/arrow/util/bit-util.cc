@@ -32,6 +32,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/status.h"
+#include "arrow/util/align-util.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 
@@ -72,37 +73,30 @@ namespace internal {
 
 int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   constexpr int64_t pop_len = sizeof(uint64_t) * 8;
-
+  DCHECK_GE(bit_offset, 0);
   int64_t count = 0;
 
-  // The first bit offset where we can use a 64-bit wide hardware popcount
-  const int64_t fast_count_start = BitUtil::RoundUp(bit_offset, pop_len);
-
-  // The number of bits until fast_count_start
-  const int64_t initial_bits = std::min(length, fast_count_start - bit_offset);
-  for (int64_t i = bit_offset; i < bit_offset + initial_bits; ++i) {
+  const auto p = BitmapWordAlign<pop_len / 8>(data, bit_offset, length);
+  for (int64_t i = bit_offset; i < bit_offset + p.leading_bits; ++i) {
     if (BitUtil::GetBit(data, i)) {
       ++count;
     }
   }
 
-  const int64_t fast_counts = (length - initial_bits) / pop_len;
+  if (p.aligned_words > 0) {
+    // popcount as much as possible with the widest possible count
+    const uint64_t* u64_data = reinterpret_cast<const uint64_t*>(p.aligned_start);
+    DCHECK_EQ(reinterpret_cast<size_t>(u64_data) & 7, 0);
+    const uint64_t* end = u64_data + p.aligned_words;
 
-  // Advance until the first aligned 8-byte word after the initial bits
-  const uint64_t* u64_data =
-      reinterpret_cast<const uint64_t*>(data) + fast_count_start / pop_len;
-
-  const uint64_t* end = u64_data + fast_counts;
-
-  // popcount as much as possible with the widest possible count
-  for (auto iter = u64_data; iter < end; ++iter) {
-    count += __builtin_popcountll(*iter);
+    for (auto iter = u64_data; iter < end; ++iter) {
+      count += __builtin_popcountll(*iter);
+    }
   }
 
-  // Account for left over bit (in theory we could fall back to smaller
+  // Account for left over bits (in theory we could fall back to smaller
   // versions of popcount but the code complexity is likely not worth it)
-  const int64_t tail_index = bit_offset + initial_bits + fast_counts * pop_len;
-  for (int64_t i = tail_index; i < bit_offset + length; ++i) {
+  for (int64_t i = p.trailing_bit_offset; i < bit_offset + length; ++i) {
     if (BitUtil::GetBit(data, i)) {
       ++count;
     }

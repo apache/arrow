@@ -25,7 +25,9 @@ use std::sync::Arc;
 use chrono::prelude::*;
 
 use super::*;
+use crate::array::equal::JsonEqual;
 use crate::buffer::{Buffer, MutableBuffer};
+use crate::datatypes::DataType::Struct;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::memory;
@@ -42,7 +44,7 @@ const NANOSECONDS: i64 = 1_000_000_000;
 
 /// Trait for dealing with different types of array at runtime when the type of the
 /// array is not known in advance
-pub trait Array: Send + Sync + ArrayEqual {
+pub trait Array: Send + Sync + ArrayEqual + JsonEqual {
     /// Returns the array as `Any` so that it can be downcast to a specific implementation
     fn as_any(&self) -> &Any;
 
@@ -726,6 +728,12 @@ impl ListArray {
         self.values.data().data_type().clone()
     }
 
+    /// Returns ith value of this list array.
+    pub fn value(&self, i: usize) -> ArrayRef {
+        self.values
+            .slice(self.value_offset(i) as usize, self.value_length(i) as usize)
+    }
+
     /// Returns the offset for value at index `i`.
     ///
     /// Note this doesn't do any bound checking, for performance reason.
@@ -998,6 +1006,25 @@ impl StructArray {
     /// Returns the fields of the struct array
     pub fn columns(&self) -> Vec<&ArrayRef> {
         self.boxed_fields.iter().collect()
+    }
+
+    /// Return field names in this struct array
+    pub fn column_names(&self) -> Vec<&str> {
+        match self.data.data_type() {
+            Struct(fields) => fields
+                .iter()
+                .map(|f| f.name().as_str())
+                .collect::<Vec<&str>>(),
+            _ => unreachable!("Struct array's data type is not struct!"),
+        }
+    }
+
+    /// Return child array whose field name equals to column_name
+    pub fn column_by_name(&self, column_name: &str) -> Option<&ArrayRef> {
+        self.column_names()
+            .iter()
+            .position(|c| c == &column_name)
+            .map(|pos| self.column(pos))
     }
 }
 
