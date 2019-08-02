@@ -230,7 +230,7 @@ class ARROW_EXPORT ArrayBuilder {
   // Child value array builders. These are owned by this class
   std::vector<std::shared_ptr<ArrayBuilder>> children_;
 
-  ArrayBuilder* parent_builder_ = nullptr;
+  ArrayBuilder* parent_builder_ = NULLPTR;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);

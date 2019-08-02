@@ -73,7 +73,7 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
   virtual Status CommitPendingData() = 0;
 
   std::shared_ptr<ResizableBuffer> data_;
-  uint8_t* raw_data_ = nullptr;
+  uint8_t* raw_data_ = NULLPTR;
   uint8_t int_size_ = sizeof(uint8_t);
   uint64_t expand_int_size_mask_ = ExpandIntSizeMask<sizeof(uint8_t)>();
 
