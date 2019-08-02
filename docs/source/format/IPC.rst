@@ -26,7 +26,7 @@ Data components in the stream and file formats are represented as encapsulated
 
 * A 32-bit continuation indicator (0xFFFFFFFF). This allows flatbuffer bytes
   to begin on an 8-byte boundary.  This was added as of release 0.15.0.
-* A length prefix indicating the metadata size
+* A 32-bit little-endian length prefix indicating the metadata size
 * The message metadata as a `Flatbuffer`_
 * Padding bytes to an 8-byte boundary
 * The message body, which must be a multiple of 8 bytes
