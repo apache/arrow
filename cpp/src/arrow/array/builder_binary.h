@@ -274,7 +274,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
   int64_t value_data_capacity() const { return value_data_builder_.capacity(); }
 
   /// \return data pointer of the value date builder
-  const int32_t* offsets_data() const { return offsets_builder_.data(); }
+  const offset_type* offsets_data() const { return offsets_builder_.data(); }
 
   /// Temporary access to a value.
   ///
