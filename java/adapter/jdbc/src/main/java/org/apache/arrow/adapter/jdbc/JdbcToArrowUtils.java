@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.TimeZone;
 
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -82,8 +83,6 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DecimalUtility;
 
-import com.google.common.base.Preconditions;
-
 import io.netty.buffer.ArrowBuf;
 
 /**
@@ -115,7 +114,6 @@ public class JdbcToArrowUtils {
    * @throws SQLException on error
    */
   public static Schema jdbcToArrowSchema(ResultSetMetaData rsmd, Calendar calendar) throws SQLException {
-    Preconditions.checkNotNull(rsmd, "JDBC ResultSetMetaData object can't be null");
     Preconditions.checkNotNull(calendar, "Calendar object can't be null");
 
     return jdbcToArrowSchema(rsmd, new JdbcToArrowConfig(new RootAllocator(0), calendar));
@@ -342,8 +340,6 @@ public class JdbcToArrowUtils {
   public static void jdbcToArrowVectors(ResultSet rs, VectorSchemaRoot root, Calendar calendar)
       throws SQLException, IOException {
 
-    Preconditions.checkNotNull(rs, "JDBC ResultSet object can't be null");
-    Preconditions.checkNotNull(root, "Vector Schema cannot be null");
     Preconditions.checkNotNull(calendar, "Calendar object can't be null");
 
     jdbcToArrowVectors(rs, root, new JdbcToArrowConfig(new RootAllocator(0), calendar));

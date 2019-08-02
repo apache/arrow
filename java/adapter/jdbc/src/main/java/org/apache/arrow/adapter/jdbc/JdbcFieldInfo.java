@@ -21,7 +21,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 
-import com.google.common.base.Preconditions;
+import org.apache.arrow.util.Preconditions;
 
 /**
  * This class represents the information about a JDBC ResultSet Field that is
