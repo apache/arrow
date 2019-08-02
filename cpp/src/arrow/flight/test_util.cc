@@ -389,33 +389,34 @@ Status TestServerAuthHandler::IsValid(const std::string& token,
 }
 
 TestServerBasicAuthHandler::TestServerBasicAuthHandler(const std::string& username,
-                                             const std::string& password){
-    basic_auth_.username = username;
-    basic_auth_.password = password;
+                                                       const std::string& password) {
+  basic_auth_.username = username;
+  basic_auth_.password = password;
 }
 
 TestServerBasicAuthHandler::~TestServerBasicAuthHandler() {}
 
 Status TestServerBasicAuthHandler::Authenticate(ServerAuthSender* outgoing,
-                                           ServerAuthReader* incoming) {
-    std::string token;
-    RETURN_NOT_OK(incoming->Read(&token));
-    BasicAuth incoming_auth;
-    RETURN_NOT_OK(BasicAuth::Deserialize(token, &incoming_auth));
-    if (incoming_auth.username != basic_auth_.username || incoming_auth.password != basic_auth_.password) {
-        return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
-    }
-    RETURN_NOT_OK(outgoing->Write(basic_auth_.username));
-    return Status::OK();
+                                                ServerAuthReader* incoming) {
+  std::string token;
+  RETURN_NOT_OK(incoming->Read(&token));
+  BasicAuth incoming_auth;
+  RETURN_NOT_OK(BasicAuth::Deserialize(token, &incoming_auth));
+  if (incoming_auth.username != basic_auth_.username ||
+      incoming_auth.password != basic_auth_.password) {
+    return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
+  }
+  RETURN_NOT_OK(outgoing->Write(basic_auth_.username));
+  return Status::OK();
 }
 
 Status TestServerBasicAuthHandler::IsValid(const std::string& token,
-                                      std::string* peer_identity) {
-    if (token != basic_auth_.username) {
-        return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
-    }
-    *peer_identity = basic_auth_.username;
-    return Status::OK();
+                                           std::string* peer_identity) {
+  if (token != basic_auth_.username) {
+    return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
+  }
+  *peer_identity = basic_auth_.username;
+  return Status::OK();
 }
 
 TestClientAuthHandler::TestClientAuthHandler(const std::string& username,
@@ -441,26 +442,25 @@ Status TestClientAuthHandler::GetToken(std::string* token) {
 }
 
 TestClientBasicAuthHandler::TestClientBasicAuthHandler(const std::string& username,
-                                         const std::string& password) {
-    basic_auth_.username = username;
-    basic_auth_.password = password;
+                                                       const std::string& password) {
+  basic_auth_.username = username;
+  basic_auth_.password = password;
 }
 
 TestClientBasicAuthHandler::~TestClientBasicAuthHandler() {}
 
 Status TestClientBasicAuthHandler::Authenticate(ClientAuthSender* outgoing,
-                                           ClientAuthReader* incoming) {
-
-    std::string pb_result;
-    RETURN_NOT_OK(BasicAuth::Serialize(basic_auth_, &pb_result));
-    RETURN_NOT_OK(outgoing->Write(pb_result));
-    RETURN_NOT_OK(incoming->Read(&token_));
-    return Status::OK();
+                                                ClientAuthReader* incoming) {
+  std::string pb_result;
+  RETURN_NOT_OK(BasicAuth::Serialize(basic_auth_, &pb_result));
+  RETURN_NOT_OK(outgoing->Write(pb_result));
+  RETURN_NOT_OK(incoming->Read(&token_));
+  return Status::OK();
 }
 
 Status TestClientBasicAuthHandler::GetToken(std::string* token) {
-    *token = token_;
-    return Status::OK();
+  *token = token_;
+  return Status::OK();
 }
 
 Status GetTestResourceRoot(std::string* out) {

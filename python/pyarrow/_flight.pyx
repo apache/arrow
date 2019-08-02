@@ -249,9 +249,9 @@ cdef class BasicAuth:
 
     def serialize(self):
         cdef:
-            unique_ptr[c_string] auth
+            c_string auth
         check_flight_status(SerializeBasicAuth(deref(self.basic_auth), &auth))
-        return frombytes(deref(auth))
+        return frombytes(auth)
 
 class DescriptorType(enum.Enum):
     """

@@ -223,9 +223,9 @@ void ToProto(const Location& location, pb::Location* pb_location) {
 }
 
 Status ToProto(const BasicAuth& basic_auth, pb::BasicAuth* pb_basic_auth) {
-    pb_basic_auth->set_username(basic_auth.username);
-    pb_basic_auth->set_password(basic_auth.password);
-    return Status::OK();
+  pb_basic_auth->set_username(basic_auth.username);
+  pb_basic_auth->set_password(basic_auth.password);
+  return Status::OK();
 }
 
 // Ticket
@@ -323,11 +323,10 @@ Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info) {
 }
 
 Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* basic_auth) {
+  basic_auth->password = pb_basic_auth.password();
+  basic_auth->username = pb_basic_auth.username();
 
-    basic_auth->password = pb_basic_auth.password();
-    basic_auth->username = pb_basic_auth.username();
-
-    return Status::OK();
+  return Status::OK();
 }
 
 Status FromProto(const pb::SchemaResult& pb_result, std::string* result) {

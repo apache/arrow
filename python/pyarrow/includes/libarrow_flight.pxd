@@ -369,7 +369,7 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
 
     cdef CStatus SerializeBasicAuth" arrow::py::flight::SerializeBasicAuth"(
         CBasicAuth basic_auth,
-        unique_ptr[c_string]* out)
+        c_string* out)
 
 cdef extern from "<utility>" namespace "std":
     unique_ptr[CFlightDataStream] move(unique_ptr[CFlightDataStream]) nogil
