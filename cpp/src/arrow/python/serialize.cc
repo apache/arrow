@@ -648,11 +648,41 @@ Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
   return Status::OK();
 }
 
+namespace {
+
+Status CountSparseTensors(
+    const std::vector<std::shared_ptr<SparseTensor>>& sparse_tensors, PyObject** out) {
+  OwnedRef num_sparse_tensors(PyDict_New());
+  size_t num_coo = 0;
+  size_t num_csr = 0;
+
+  for (const auto& sparse_tensor : sparse_tensors) {
+    switch (sparse_tensor->format_id()) {
+      case SparseTensorFormat::COO:
+        ++num_coo;
+        break;
+      case SparseTensorFormat::CSR:
+        ++num_csr;
+        break;
+    }
+  }
+
+  PyDict_SetItemString(num_sparse_tensors.obj(), "coo", PyLong_FromSize_t(num_coo));
+  PyDict_SetItemString(num_sparse_tensors.obj(), "csr", PyLong_FromSize_t(num_csr));
+  RETURN_IF_PYERROR();
+
+  *out = num_sparse_tensors.detach();
+  return Status::OK();
+}
+
+}  // namespace
+
 Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out) {
   PyAcquireGIL py_gil;
 
   OwnedRef result(PyDict_New());
   PyObject* buffers = PyList_New(0);
+  PyObject* num_sparse_tensors;
 
   // TODO(wesm): Not sure how pedantic we need to be about checking the return
   // values of these functions. There are other places where we do not check
@@ -660,8 +690,8 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
   // quite esoteric
   PyDict_SetItemString(result.obj(), "num_tensors",
                        PyLong_FromSize_t(this->tensors.size()));
-  PyDict_SetItemString(result.obj(), "num_sparse_tensors",
-                       PyLong_FromSize_t(this->sparse_tensors.size()));
+  RETURN_NOT_OK(CountSparseTensors(this->sparse_tensors, &num_sparse_tensors));
+  PyDict_SetItemString(result.obj(), "num_sparse_tensors", num_sparse_tensors);
   PyDict_SetItemString(result.obj(), "num_ndarrays",
                        PyLong_FromSize_t(this->ndarrays.size()));
   PyDict_SetItemString(result.obj(), "num_buffers",
@@ -707,10 +737,13 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
 
   // For each sparse tensor, get a metadata buffer and a buffer for the body
   for (const auto& sparse_tensor : this->sparse_tensors) {
-    std::unique_ptr<ipc::Message> message;
-    RETURN_NOT_OK(ipc::GetSparseTensorMessage(*sparse_tensor, memory_pool, &message));
-    RETURN_NOT_OK(PushBuffer(message->metadata()));
-    RETURN_NOT_OK(PushBuffer(message->body()));
+    ipc::internal::IpcPayload payload;
+    RETURN_NOT_OK(
+        ipc::internal::GetSparseTensorPayload(*sparse_tensor, memory_pool, &payload));
+    RETURN_NOT_OK(PushBuffer(payload.metadata));
+    for (const auto& body : payload.body_buffers) {
+      RETURN_NOT_OK(PushBuffer(body));
+    }
   }
 
   // For each ndarray, get a metadata buffer and a buffer for the body

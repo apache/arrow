@@ -373,15 +373,17 @@ Status DeserializeObject(PyObject* context, const SerializedPyObject& obj, PyObj
                          obj, out);
 }
 
-Status GetSerializedFromComponents(int num_tensors, int num_sparse_tensors,
+Status GetSerializedFromComponents(int num_tensors,
+                                   const SparseTensorCounts& num_sparse_tensors,
                                    int num_ndarrays, int num_buffers, PyObject* data,
                                    SerializedPyObject* out) {
   PyAcquireGIL gil;
   const Py_ssize_t data_length = PyList_Size(data);
   RETURN_IF_PYERROR();
 
-  const Py_ssize_t expected_data_length =
-      1 + num_tensors * 2 + num_sparse_tensors * 2 + num_ndarrays * 2 + num_buffers;
+  const Py_ssize_t expected_data_length = 1 + num_tensors * 2 +
+                                          num_sparse_tensors.num_total_buffers() +
+                                          num_ndarrays * 2 + num_buffers;
   if (data_length != expected_data_length) {
     return Status::Invalid("Invalid number of buffers in data");
   }
@@ -420,16 +422,23 @@ Status GetSerializedFromComponents(int num_tensors, int num_sparse_tensors,
   }
 
   // Zero-copy reconstruct sparse tensors
-  for (int i = 0; i < num_sparse_tensors; ++i) {
-    std::shared_ptr<Buffer> metadata;
-    std::shared_ptr<Buffer> body;
+  for (int i = 0, n = num_sparse_tensors.num_total_tensors(); i < n; ++i) {
+    ipc::internal::IpcPayload payload;
+    RETURN_NOT_OK(GetBuffer(buffer_index++, &payload.metadata));
+
+    size_t num_bodies;
+    RETURN_NOT_OK(
+        ipc::internal::ReadSparseTensorBodyBufferCount(*payload.metadata, &num_bodies));
+
+    payload.body_buffers.reserve(num_bodies);
+    for (size_t i = 0; i < num_bodies; ++i) {
+      std::shared_ptr<Buffer> body;
+      RETURN_NOT_OK(GetBuffer(buffer_index++, &body));
+      payload.body_buffers.emplace_back(body);
+    }
+
     std::shared_ptr<SparseTensor> sparse_tensor;
-    RETURN_NOT_OK(GetBuffer(buffer_index++, &metadata));
-    RETURN_NOT_OK(GetBuffer(buffer_index++, &body));
-
-    ipc::Message message(metadata, body);
-
-    RETURN_NOT_OK(ipc::ReadSparseTensor(message, &sparse_tensor));
+    RETURN_NOT_OK(ipc::internal::ReadSparseTensorPayload(payload, &sparse_tensor));
     out->sparse_tensors.emplace_back(std::move(sparse_tensor));
   }
 

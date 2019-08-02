@@ -399,6 +399,15 @@ ARROW_EXPORT
 Status WriteIpcPayload(const IpcPayload& payload, const IpcOptions& options,
                        io::OutputStream* dst, int32_t* metadata_length);
 
+/// \brief Compute IpcPayload for the given sparse tensor
+/// \param[in] sparse_tensor the SparseTensor that is being serialized
+/// \param[in,out] pool for any required temporary memory allocations
+/// \param[out] out the returned IpcPayload
+/// \return Status
+ARROW_EXPORT
+Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* pool,
+                              IpcPayload* out);
+
 }  // namespace internal
 
 }  // namespace ipc

@@ -823,17 +823,6 @@ Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* ds
   return internal::WriteIpcPayload(payload, IpcOptions::Defaults(), dst, metadata_length);
 }
 
-Status GetSparseTensorMessage(const SparseTensor& sparse_tensor, MemoryPool* pool,
-                              std::unique_ptr<Message>* out) {
-  internal::IpcPayload payload;
-  std::shared_ptr<Buffer> buffer;
-
-  RETURN_NOT_OK(internal::GetSparseTensorPayload(sparse_tensor, pool, &payload));
-  RETURN_NOT_OK(arrow::ConcatenateBuffers(payload.body_buffers, pool, &buffer));
-  out->reset(new Message(payload.metadata, buffer));
-  return Status::OK();
-}
-
 Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
                        int64_t buffer_start_offset, io::OutputStream* dst,
                        int32_t* metadata_length, int64_t* body_length, MemoryPool* pool) {

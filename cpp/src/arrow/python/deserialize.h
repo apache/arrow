@@ -39,6 +39,14 @@ class RandomAccessFile;
 
 namespace py {
 
+struct ARROW_PYTHON_EXPORT SparseTensorCounts {
+  int coo;
+  int csr;
+
+  int num_total_tensors() const { return coo + csr; }
+  int num_total_buffers() const { return coo * 3 + csr * 4; }
+};
+
 /// \brief Read serialized Python sequence from file interface using Arrow IPC
 /// \param[in] src a RandomAccessFile
 /// \param[out] out the reconstructed data
@@ -58,7 +66,8 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out);
 /// \param[out] out the reconstructed object
 /// \return Status
 ARROW_PYTHON_EXPORT
-Status GetSerializedFromComponents(int num_tensors, int num_sparse_tensors,
+Status GetSerializedFromComponents(int num_tensors,
+                                   const SparseTensorCounts& num_sparse_tensors,
                                    int num_ndarrays, int num_buffers, PyObject* data,
                                    SerializedPyObject* out);
 
