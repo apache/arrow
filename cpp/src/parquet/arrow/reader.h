@@ -286,10 +286,33 @@ class PARQUET_EXPORT ColumnReader {
                                     std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
 };
 
-// Helper function to create a file reader from an implementation of an Arrow
-// random access file
-//
-// metadata : separately-computed file metadata, can be nullptr
+/// \brief Experimental helper class for bindings (like Python) that struggle
+/// either with std::move or C++ exceptions
+class FileReaderBuilder {
+ public:
+  explicit FileReaderBuilder(std::unique_ptr<ParquetFileReader> raw_reader);
+
+  static ::arrow::Status Open(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
+                              const ReaderProperties& properties,
+                              const std::shared_ptr<FileMetaData>& metadata,
+                              std::unique_ptr<FileReaderBuilder>* builder);
+
+  ParquetFileReader* raw_reader() { return raw_reader_.get(); }
+
+  ::arrow::Status Build(::arrow::MemoryPool* allocator,
+                        const ArrowReaderProperties& arrow_properties,
+                        std::unique_ptr<FileReader>* out);
+
+ private:
+  std::unique_ptr<ParquetFileReader> raw_reader_;
+};
+
+PARQUET_EXPORT
+::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
+                         ::arrow::MemoryPool* allocator,
+                         std::unique_ptr<FileReader>* reader);
+
+ARROW_DEPRECATED("Deprecated since 0.15.0. Use FileReaderBuilder")
 PARQUET_EXPORT
 ::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
                          ::arrow::MemoryPool* allocator,
@@ -297,11 +320,7 @@ PARQUET_EXPORT
                          const std::shared_ptr<FileMetaData>& metadata,
                          std::unique_ptr<FileReader>* reader);
 
-PARQUET_EXPORT
-::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
-                         ::arrow::MemoryPool* allocator,
-                         std::unique_ptr<FileReader>* reader);
-
+ARROW_DEPRECATED("Deprecated since 0.15.0. Use FileReaderBuilder")
 PARQUET_EXPORT
 ::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
                          ::arrow::MemoryPool* allocator,

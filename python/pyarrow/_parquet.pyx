@@ -978,7 +978,7 @@ cdef ParquetCompression compression_from_name(name):
 cdef class ParquetReader:
     cdef:
         object source
-        CMemoryPool* allocator
+        CMemoryPool* pool
         unique_ptr[FileReader] reader
         FileMetaData _metadata
 
@@ -986,16 +986,20 @@ cdef class ParquetReader:
         _column_idx_map
 
     def __cinit__(self, MemoryPool memory_pool=None):
-        self.allocator = maybe_unbox_memory_pool(memory_pool)
+        self.pool = maybe_unbox_memory_pool(memory_pool)
         self._metadata = None
 
     def open(self, object source, c_bool use_memory_map=True,
-             FileMetaData metadata=None):
+             read_dictionary=None, FileMetaData metadata=None):
         cdef:
             shared_ptr[RandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
             ReaderProperties properties = default_reader_properties()
+            ArrowReaderProperties arrow_props = (
+                default_arrow_reader_properties())
             c_string path
+            unique_ptr[FileReaderBuilder] builder
+            const CFileMetaData* metadata
 
         if metadata is not None:
             c_metadata = metadata.sp_metadata
@@ -1004,8 +1008,28 @@ cdef class ParquetReader:
 
         get_reader(source, use_memory_map, &rd_handle)
         with nogil:
-            check_status(OpenFile(rd_handle, self.allocator, properties,
-                                  c_metadata, &self.reader))
+            check_status(FileReaderBuilder.Open(rd_handle, properties,
+                                                c_metadata, &builder))
+
+        # Set up metadata
+        with nogil:
+            metadata = builder.get().raw_reader().metadata()
+        self._metadata = result = FileMetaData()
+        result.init(metadata)
+
+        if read_dictionary is not None:
+            self._set_read_dictionary(read_dictionary, &arrow_props)
+
+        with nogil:
+            check_status(builder.get().Build(self.pool, arrow_props,
+                                             &self.reader))
+
+    cdef _set_read_dictionary(self, read_dictionary,
+                              ArrowReaderProperties* props):
+        for column in read_dictionary:
+            if not isinstance(column, int):
+                column = self.column_name_idx(column)
+            props.set_read_dictionary(column_index, True)
 
     @property
     def column_paths(self):
@@ -1025,18 +1049,7 @@ cdef class ParquetReader:
 
     @property
     def metadata(self):
-        cdef:
-            shared_ptr[CFileMetaData] metadata
-            FileMetaData result
-        if self._metadata is not None:
-            return self._metadata
-
-        with nogil:
-            metadata = self.reader.get().parquet_reader().metadata()
-
-        self._metadata = result = FileMetaData()
-        result.init(metadata)
-        return result
+        return self._metadata
 
     @property
     def num_row_groups(self):

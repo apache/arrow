@@ -1356,19 +1356,7 @@ def test_parquet_piece_open_and_get_metadata(tempdir):
     meta1 = piece.get_metadata()
     assert isinstance(meta1, pq.FileMetaData)
 
-    def open_parquet(fn):
-        return pq.ParquetFile(open(fn, mode='rb'))
-
-    # test deprecated open_file_func
-    with pytest.warns(DeprecationWarning):
-        table2 = piece.read(open_file_func=open_parquet)
-        assert isinstance(table2, pa.Table)
-    with pytest.warns(DeprecationWarning):
-        meta2 = piece.get_metadata(open_file_func=open_parquet)
-        assert isinstance(meta2, pq.FileMetaData)
-
-    assert table == table1 == table2
-    assert meta1 == meta2
+    assert table == table1
 
 
 def test_parquet_piece_basics():

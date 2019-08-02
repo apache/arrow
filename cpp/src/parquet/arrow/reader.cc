@@ -814,28 +814,50 @@ Status FileReader::Make(::arrow::MemoryPool* pool,
   return Make(pool, std::move(reader), default_arrow_reader_properties(), out);
 }
 
-Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
-                MemoryPool* pool, const ReaderProperties& props,
-                const std::shared_ptr<FileMetaData>& metadata,
-                std::unique_ptr<FileReader>* reader) {
-  std::unique_ptr<ParquetReader> pq_reader;
-  PARQUET_CATCH_NOT_OK(pq_reader = ParquetReader::Open(file, props, metadata));
-  return FileReader::Make(pool, std::move(pq_reader), default_arrow_reader_properties(),
-                          reader);
+FileReaderBuilder::FileReaderBuilder(std::unique_ptr<ParquetFileReader> raw_reader)
+    : raw_reader_(std::move(raw_reader)) {}
+
+Status FileReaderBuilder::Open(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
+                               const ReaderProperties& properties,
+                               const std::shared_ptr<FileMetaData>& metadata,
+                               std::unique_ptr<FileReaderBuilder>* builder) {
+  std::unique_ptr<ParquetReader> raw_reader;
+  PARQUET_CATCH_NOT_OK(raw_reader = ParquetReader::Open(file, properties, metadata));
+  builder->reset(new FileReaderBuilder(std::move(raw_reader)));
+  return Status::OK();
+}
+
+Status FileReaderBuilder::Build(MemoryPool* pool, const ArrowReaderProperties& properties,
+                                std::unique_ptr<FileReader>* out) {
+  return FileReader::Make(pool, std::move(raw_reader_), properties, out);
 }
 
 Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
                 MemoryPool* pool, std::unique_ptr<FileReader>* reader) {
-  return OpenFile(file, pool, ::parquet::default_reader_properties(), nullptr, reader);
+  std::unique_ptr<FileReaderBuilder> builder;
+  RETURN_NOT_OK(FileReaderBuilder::Open(file, ::parquet::default_reader_properties(),
+                                        nullptr, &builder));
+  return builder->Build(pool, default_arrow_reader_properties(), reader);
 }
 
 Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
-                ::arrow::MemoryPool* pool, const ArrowReaderProperties& properties,
+                MemoryPool* pool, const ReaderProperties& props,
+                const std::shared_ptr<FileMetaData>& metadata,
                 std::unique_ptr<FileReader>* reader) {
-  std::unique_ptr<ParquetReader> pq_reader;
-  PARQUET_CATCH_NOT_OK(pq_reader = ParquetReader::Open(
-                           file, ::parquet::default_reader_properties(), nullptr));
-  return FileReader::Make(pool, std::move(pq_reader), properties, reader);
+  // Deprecated since 0.15.0
+  std::unique_ptr<FileReaderBuilder> builder;
+  RETURN_NOT_OK(FileReaderBuilder::Open(file, props, metadata, &builder));
+  return builder->Build(pool, default_arrow_reader_properties(), reader);
+}
+
+Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
+                MemoryPool* pool, const ArrowReaderProperties& properties,
+                std::unique_ptr<FileReader>* reader) {
+  // Deprecated since 0.15.0
+  std::unique_ptr<FileReaderBuilder> builder;
+  RETURN_NOT_OK(FileReaderBuilder::Open(file, ::parquet::default_reader_properties(),
+                                        nullptr, &builder));
+  return builder->Build(pool, default_arrow_reader_properties(), reader);
 }
 
 }  // namespace arrow

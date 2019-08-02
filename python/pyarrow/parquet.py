@@ -127,9 +127,10 @@ class ParquetFile(object):
         improve performance in some environments
     """
     def __init__(self, source, metadata=None, common_metadata=None,
-                 memory_map=True):
+                 read_dictionary=None, memory_map=True):
         self.reader = ParquetReader()
-        self.reader.open(source, use_memory_map=memory_map, metadata=metadata)
+        self.reader.open(source, use_memory_map=memory_map,
+                         read_dictionary=read_dictionary, metadata=metadata)
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
 
@@ -463,11 +464,12 @@ class ParquetDatasetPiece(object):
         Row group to load. By default, reads all row groups
     """
     def __init__(self, path, open_file_func=partial(open, mode='rb'),
-                 row_group=None, partition_keys=None):
+                 file_options=None, row_group=None, partition_keys=None):
         self.path = _stringify_path(path)
         self.open_file_func = open_file_func
         self.row_group = row_group
         self.partition_keys = partition_keys or []
+        self.file_options = file_options or {}
 
     def __eq__(self, other):
         if not isinstance(other, ParquetDatasetPiece):
@@ -500,37 +502,16 @@ class ParquetDatasetPiece(object):
 
         return result
 
-    def get_metadata(self, open_file_func=None):
+    def get_metadata(self):
         """
         Returns the file's metadata
-
-        Parameters
-        ----------
-        open_file_func : function, deprecated
-            Function to use for obtaining file handle to dataset piece.
-            Deprecated in version 0.13.0. Use ``open_file_func`` parameter of
-            the constructor instead.
 
         Returns
         -------
         metadata : FileMetaData
         """
-        if open_file_func is not None:
-            f = self._open(open_file_func)
-        else:
-            f = self.open()
+        f = self.open()
         return f.metadata
-
-    def _open(self, open_file_func):
-        """
-        Returns instance of ParquetFile
-        """
-        warnings.warn('open_file_func argument is deprecated, please pass '
-                      'it to ParquetDatasetPiece instead', DeprecationWarning)
-        reader = open_file_func(self.path)
-        if not isinstance(reader, ParquetFile):
-            reader = ParquetFile(reader)
-        return reader
 
     def open(self):
         """
@@ -538,11 +519,11 @@ class ParquetDatasetPiece(object):
         """
         reader = self.open_file_func(self.path)
         if not isinstance(reader, ParquetFile):
-            reader = ParquetFile(reader)
+            reader = ParquetFile(reader, **self.file_options)
         return reader
 
     def read(self, columns=None, use_threads=True, partitions=None,
-             open_file_func=None, file=None, use_pandas_metadata=False):
+             file=None, use_pandas_metadata=False):
         """
         Read this piece as a pyarrow.Table
 
@@ -552,10 +533,6 @@ class ParquetDatasetPiece(object):
         use_threads : boolean, default True
             Perform multi-threaded column reads
         partitions : ParquetPartitions, default None
-        open_file_func : function, deprecated
-            Function to use for obtaining file handle to dataset piece.
-            Deprecated in version 0.13.0. Use ``open_file_func`` parameter of
-            the constructor instead.
         file : file-like object
             passed to ParquetFile
 
@@ -563,15 +540,13 @@ class ParquetDatasetPiece(object):
         -------
         table : pyarrow.Table
         """
-        if open_file_func is not None:
-            reader = self._open(open_file_func)
-        elif self.open_file_func is not None:
+        if self.open_file_func is not None:
             reader = self.open()
         elif file is not None:
-            reader = ParquetFile(file)
+            reader = ParquetFile(file, **self.file_options)
         else:
             # try to read the local path
-            reader = ParquetFile(self.path)
+            reader = ParquetFile(self.path, **self.file_options)
 
         options = dict(columns=columns,
                        use_threads=use_threads,
@@ -906,10 +881,12 @@ EXCLUDED_PARQUET_PATHS = {'_SUCCESS'}
 def _open_dataset_file(dataset, path, meta=None):
     if dataset.fs is None or isinstance(dataset.fs, LocalFileSystem):
         return ParquetFile(path, metadata=meta, memory_map=dataset.memory_map,
+                           read_dictionary=dataset.read_dictionary,
                            common_metadata=dataset.common_metadata)
     else:
         return ParquetFile(dataset.fs.open(path, mode='rb'), metadata=meta,
                            memory_map=dataset.memory_map,
+                           read_dictionary=dataset.read_dictionary,
                            common_metadata=dataset.common_metadata)
 
 
@@ -959,7 +936,8 @@ class ParquetDataset(object):
     """
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
-                 filters=None, metadata_nthreads=1, memory_map=True):
+                 filters=None, metadata_nthreads=1,
+                 read_dictionary=None, memory_map=True):
         a_path = path_or_paths
         if isinstance(a_path, list):
             a_path = a_path[0]
@@ -970,6 +948,7 @@ class ParquetDataset(object):
         else:
             self.paths = _parse_uri(path_or_paths)
 
+        self.read_dictionary = read_dictionary
         self.memory_map = memory_map
 
         (self.pieces,
@@ -988,7 +967,9 @@ class ParquetDataset(object):
 
         if metadata is None and self.metadata_path is not None:
             with self.fs.open(self.metadata_path) as f:
-                self.metadata = ParquetFile(f, memory_map=memory_map).metadata
+                self.metadata = ParquetFile(
+                    f, memory_map=memory_map,
+                    read_dictionary=read_dictionary).metadata
         else:
             self.metadata = metadata
 
@@ -1190,6 +1171,9 @@ metadata : FileMetaData
 memory_map : boolean, default True
     If the source is a file path, use a memory map to read file, which can
     improve performance in some environments
+read_dictionary : list, default None
+    List of column paths to read directly as DictionaryArray. Only supported
+    for BYTE_ARRAY storage
 {1}
 filters : List[Tuple] or List[List[Tuple]] or None (default)
     List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
@@ -1205,12 +1189,15 @@ Returns
 
 def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=True,
-               filesystem=None, filters=None):
+               read_dictionary=None, filesystem=None, filters=None):
     if _is_path_like(source):
         pf = ParquetDataset(source, metadata=metadata, memory_map=memory_map,
+                            read_dictionary=read_dictionary,
                             filesystem=filesystem, filters=filters)
     else:
-        pf = ParquetFile(source, metadata=metadata, memory_map=memory_map)
+        pf = ParquetFile(source, metadata=metadata,
+                         read_dictionary=read_dictionary,
+                         memory_map=memory_map)
     return pf.read(columns=columns, use_threads=use_threads,
                    use_pandas_metadata=use_pandas_metadata)
 
