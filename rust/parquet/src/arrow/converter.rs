@@ -162,10 +162,6 @@ mod tests {
     use crate::arrow::converter::Int16Converter;
     use crate::arrow::record_reader::RecordReader;
     use crate::basic::Encoding;
-    use crate::column::page::Page;
-    use crate::column::page::PageReader;
-    use crate::data_type::Int32Type as ParquetInt32;
-    use crate::errors::Result;
     use crate::schema::parser::parse_message_type;
     use crate::schema::types::SchemaDescriptor;
     use crate::util::test_common::page_util::InMemoryPageReader;
@@ -188,7 +184,6 @@ mod tests {
             }
             ";
 
-            let values = [1, 2, 3];
             let def_levels = [1i16, 0i16, 1i16, 1i16];
             build_record_reader(
                 message_type,
@@ -223,7 +218,6 @@ mod tests {
             }
             ";
 
-            let values = [1, 2, 3];
             let def_levels = [1i16, 0i16, 1i16, 1i16];
             build_record_reader(
                 message_type,
@@ -259,7 +253,7 @@ mod tests {
             .map(|s| s.column(0))
             .unwrap();
 
-        let mut record_reader = RecordReader::<ParquetInt32>::new(desc.clone());
+        let mut record_reader = RecordReader::<T>::new(desc.clone());
 
         // Prepare record reader
         let mut pb = DataPageBuilderImpl::new(desc.clone(), 4, true);
