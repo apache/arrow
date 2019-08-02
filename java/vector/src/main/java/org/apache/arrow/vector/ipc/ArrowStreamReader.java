@@ -181,6 +181,10 @@ public class ArrowStreamReader extends ArrowReader {
       if (dictionaryBatch == null) {
         // empty stream has no dictionaries in IPC.
         if (i == 0) {
+          initialized = true;
+          if (loadNextBatch()) {
+            throw new IOException("DictionaryBatch is missing.");
+          }
           break;
         } else {
           throw new IOException("Unexpected end of input. Expected DictionaryBatch");

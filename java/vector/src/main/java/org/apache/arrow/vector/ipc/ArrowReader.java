@@ -46,7 +46,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   private VectorLoader loader;
   private VectorSchemaRoot root;
   private Map<Long, Dictionary> dictionaries;
-  private boolean initialized = false;
+  protected boolean initialized = false;
 
   protected ArrowReader(BufferAllocator allocator) {
     this.allocator = allocator;

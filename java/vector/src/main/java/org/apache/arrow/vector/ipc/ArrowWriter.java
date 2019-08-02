@@ -105,7 +105,7 @@ public abstract class ArrowWriter implements AutoCloseable {
    */
   public void writeBatch() throws IOException {
     ensureStarted();
-    writeDictionaries();
+    ensureDictionariesWritten();
     try (ArrowRecordBatch batch = unloader.getRecordBatch()) {
       writeRecordBatch(batch);
     }
@@ -148,7 +148,7 @@ public abstract class ArrowWriter implements AutoCloseable {
    * Write dictionaries after schema and before recordBatches, dictionaries won't be
    * written if empty stream (only has schema data in IPC).
    */
-  private void writeDictionaries() throws IOException {
+  private void ensureDictionariesWritten() throws IOException {
     if (!dictWritten) {
       dictWritten = true;
       // write out any dictionaries
