@@ -778,32 +778,32 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
  public:
   explicit RowGroupMetaDataBuilderImpl(const std::shared_ptr<WriterProperties>& props,
                                        const SchemaDescriptor* schema, void* contents)
-      : properties_(props), schema_(schema), current_column_(0) {
+      : properties_(props), schema_(schema), next_column_(0) {
     row_group_ = reinterpret_cast<format::RowGroup*>(contents);
     InitializeColumns(schema->num_columns());
   }
 
   ColumnChunkMetaDataBuilder* NextColumnChunk() {
-    if (!(current_column_ < num_columns())) {
+    if (!(next_column_ < num_columns())) {
       std::stringstream ss;
       ss << "The schema only has " << num_columns()
-         << " columns, requested metadata for column: " << current_column_;
+         << " columns, requested metadata for column: " << next_column_;
       throw ParquetException(ss.str());
     }
-    auto column = schema_->Column(current_column_);
+    auto column = schema_->Column(next_column_);
     auto column_builder = ColumnChunkMetaDataBuilder::Make(
-        properties_, column, &row_group_->columns[current_column_++]);
+        properties_, column, &row_group_->columns[next_column_++]);
     auto column_builder_ptr = column_builder.get();
     column_builders_.push_back(std::move(column_builder));
     return column_builder_ptr;
   }
 
-  int current_column() { return current_column_; }
+  int current_column() { return next_column_ - 1; }
 
   void Finish(int64_t total_bytes_written) {
-    if (!(current_column_ == schema_->num_columns())) {
+    if (!(next_column_ == schema_->num_columns())) {
       std::stringstream ss;
-      ss << "Only " << current_column_ - 1 << " out of " << schema_->num_columns()
+      ss << "Only " << next_column_ - 1 << " out of " << schema_->num_columns()
          << " columns are initialized";
       throw ParquetException(ss.str());
     }
@@ -836,7 +836,7 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
   const std::shared_ptr<WriterProperties> properties_;
   const SchemaDescriptor* schema_;
   std::vector<std::unique_ptr<ColumnChunkMetaDataBuilder>> column_builders_;
-  int current_column_;
+  int next_column_;
 };
 
 std::unique_ptr<RowGroupMetaDataBuilder> RowGroupMetaDataBuilder::Make(

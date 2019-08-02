@@ -87,7 +87,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
         properties_(properties),
         total_bytes_written_(0),
         closed_(false),
-        current_column_index_(0),
+        next_column_index_(0),
         num_rows_(0),
         buffered_row_group_(buffered_row_group) {
     if (buffered_row_group) {
@@ -122,7 +122,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       total_bytes_written_ += column_writers_[0]->Close();
     }
 
-    ++current_column_index_;
+    ++next_column_index_;
 
     const ColumnDescriptor* column_descr = col_meta->descr();
     std::unique_ptr<PageWriter> pager =
@@ -192,7 +192,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   const WriterProperties* properties_;
   int64_t total_bytes_written_;
   bool closed_;
-  int current_column_index_;
+  int next_column_index_;
   mutable int64_t num_rows_;
   bool buffered_row_group_;
 
@@ -203,7 +203,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       if (num_rows_ == 0) {
         num_rows_ = current_col_rows;
       } else if (num_rows_ != current_col_rows) {
-        ThrowRowsMisMatchError(current_column_index_, current_col_rows, num_rows_);
+        ThrowRowsMisMatchError(next_column_index_, current_col_rows, num_rows_);
       }
     } else if (buffered_row_group_ &&
                column_writers_.size() > 0) {  // when buffered_row_group = true

@@ -857,12 +857,23 @@ void SchemaDescriptor::BuildTree(const NodePtr& node, int16_t max_def_level,
       BuildTree(group->field(i), max_def_level, max_rep_level, base);
     }
   } else {
+    node_to_leaf_index_[static_cast<const PrimitiveNode*>(node.get())] =
+        static_cast<int>(leaves_.size());
+
     // Primitive node, append to leaves
     leaves_.push_back(ColumnDescriptor(node, max_def_level, max_rep_level, this));
     leaf_to_base_.emplace(static_cast<int>(leaves_.size()) - 1, base);
     leaf_to_idx_.emplace(node->path()->ToDotString(),
                          static_cast<int>(leaves_.size()) - 1);
   }
+}
+
+int SchemaDescriptor::GetColumnIndex(const PrimitiveNode& node) const {
+  auto it = node_to_leaf_index_.find(&node);
+  if (it == node_to_leaf_index_.end()) {
+    return -1;
+  }
+  return it->second;
 }
 
 ColumnDescriptor::ColumnDescriptor(const schema::NodePtr& node,

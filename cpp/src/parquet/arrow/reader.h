@@ -28,6 +28,7 @@
 namespace arrow {
 
 class ChunkedArray;
+class KeyValueMetadata;
 class RecordBatchReader;
 class Schema;
 class Table;
@@ -39,6 +40,7 @@ namespace parquet {
 class FileMetaData;
 class ParquetFileReader;
 class ReaderProperties;
+class SchemaDescriptor;
 
 namespace arrow {
 
@@ -170,11 +172,6 @@ class PARQUET_EXPORT FileReader {
 
   /// \brief Return arrow schema for all the columns.
   virtual ::arrow::Status GetSchema(std::shared_ptr<::arrow::Schema>* out) = 0;
-
-  /// \brief Return arrow schema by apply selection of column indices.
-  /// \returns error status if passed wrong indices.
-  virtual ::arrow::Status GetSchema(const std::vector<int>& indices,
-                                    std::shared_ptr<::arrow::Schema>* out) = 0;
 
   // Read column as a whole into an Array.
   virtual ::arrow::Status ReadColumn(int i,
@@ -310,6 +307,17 @@ PARQUET_EXPORT
                          ::arrow::MemoryPool* allocator,
                          const ArrowReaderProperties& properties,
                          std::unique_ptr<FileReader>* reader);
+
+PARQUET_EXPORT
+::arrow::Status FromParquetSchema(
+    const SchemaDescriptor* parquet_schema, const ArrowReaderProperties& properties,
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata,
+    std::shared_ptr<::arrow::Schema>* out);
+
+PARQUET_EXPORT
+::arrow::Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
+                                  const ArrowReaderProperties& properties,
+                                  std::shared_ptr<::arrow::Schema>* out);
 
 }  // namespace arrow
 }  // namespace parquet

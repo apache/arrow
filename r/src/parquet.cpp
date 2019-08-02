@@ -94,26 +94,11 @@ void write_parquet_file(const std::shared_ptr<arrow::Table>& table,
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> parquet___arrow___FileReader__GetSchema2(
-    const std::unique_ptr<parquet::arrow::FileReader>& reader,
-    const std::vector<int>& indices) {
-  std::shared_ptr<arrow::Schema> schema;
-  STOP_IF_NOT_OK(reader->GetSchema(indices, &schema));
-  return schema;
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::Schema> parquet___arrow___FileReader__GetSchema1(
+std::shared_ptr<arrow::Schema> parquet___arrow___FileReader__GetSchema(
     const std::unique_ptr<parquet::arrow::FileReader>& reader) {
-  // FileReader does not have this exposed
-  // std::shared_ptr<arrow::Schema> schema;
-  // STOP_IF_NOT_OK(reader->GetSchema(&schema));
-
-  // so going indirectly about it
-  std::shared_ptr<arrow::RecordBatchReader> record_batch_reader;
-  STOP_IF_NOT_OK(reader->GetRecordBatchReader({}, &record_batch_reader));
-
-  return record_batch_reader->schema();
+  std::shared_ptr<arrow::Schema> schema;
+  STOP_IF_NOT_OK(reader->GetSchema(&schema));
+  return schema;
 }
 
 #endif

@@ -25,18 +25,13 @@
       if(quo_is_null(col_select)) {
         shared_ptr(`arrow::Table`, parquet___arrow___FileReader__ReadTable1(self))
       } else {
-        all_vars <- shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema1(self))$names
+        all_vars <- shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema(self))$names
         indices <- match(vars_select(all_vars, !!col_select), all_vars) - 1L
         shared_ptr(`arrow::Table`, parquet___arrow___FileReader__ReadTable2(self, indices))
       }
     },
-    GetSchema = function(column_indices = NULL) {
-      if (is.null(column_indices)) {
-        shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema1(self))
-      } else {
-        shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema2(self, column_indices))
-      }
-
+    GetSchema = function() {
+      shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema(self))
     }
   )
 )
