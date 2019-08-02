@@ -26,9 +26,8 @@ import java.util.Calendar;
 
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
-
-import com.google.common.base.Preconditions;
 
 /**
  * Utility class to convert JDBC objects to columnar Arrow format objects.

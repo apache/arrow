@@ -36,13 +36,12 @@ import org.apache.arrow.flight.impl.FlightServiceGrpc;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceBlockingStub;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceStub;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
-
-import com.google.common.base.Preconditions;
 
 import io.grpc.ClientCall;
 import io.grpc.ManagedChannel;

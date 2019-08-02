@@ -21,8 +21,7 @@ import java.util.Calendar;
 import java.util.Map;
 
 import org.apache.arrow.memory.BaseAllocator;
-
-import com.google.common.base.Preconditions;
+import org.apache.arrow.util.Preconditions;
 
 /**
  * This class builds {@link JdbcToArrowConfig}s.
