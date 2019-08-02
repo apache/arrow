@@ -26,6 +26,7 @@ RUN apt-get update \
       build-essential \
       software-properties-common \
       ninja-build \
+      dos2unix \
  && apt-get clean
 
 ENV PATH="/opt/conda/bin:${PATH}"
@@ -63,5 +64,6 @@ RUN wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -
       setuptools_scm \
  && conda clean --all
 
-ADD docker_common/install_clang_tools_xenial.sh /
+ADD docker_common/install_clang_tools_xenial.sh /install_clang_tools_xenial.sh
+RUN dos2unix /install_clang_tools_xenial.sh && apt-get --purge remove -y dos2unix && rm -rf /var/lib/apt/lists/*
 RUN /install_clang_tools_xenial.sh
