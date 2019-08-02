@@ -81,8 +81,8 @@ struct MemoTableRight {
     return Status::OK();
   }
 
-  Status Reset() {
-    memo_table_.reset(new MemoTable(0));
+  Status Reset(MemoryPool* pool) {
+    memo_table_.reset(new MemoTable(pool, 0));
     return Status::OK();
   }
 
@@ -147,7 +147,7 @@ class IsInKernel : public IsInKernelImpl {
 
   Status ConstructRight(FunctionContext* ctx, const Datum& right) override {
     MemoTableRight<Type, Scalar> func;
-    RETURN_NOT_OK(func.Reset());
+    RETURN_NOT_OK(func.Reset(pool_));
 
     if (right.kind() == Datum::ARRAY) {
       RETURN_NOT_OK(func.Append(ctx, right));

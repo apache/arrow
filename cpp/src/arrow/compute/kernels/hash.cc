@@ -279,7 +279,7 @@ class RegularHashKernelImpl : public HashKernelImpl {
       : pool_(pool), type_(type), action_(type, pool) {}
 
   Status Reset() override {
-    memo_table_.reset(new MemoTable(0));
+    memo_table_.reset(new MemoTable(pool_, 0));
     return action_.Reset();
   }
 

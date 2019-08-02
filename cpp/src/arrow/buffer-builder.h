@@ -181,7 +181,9 @@ class TypedBufferBuilder;
 
 /// \brief A BufferBuilder for building a buffer of arithmetic elements
 template <typename T>
-class TypedBufferBuilder<T, typename std::enable_if<std::is_arithmetic<T>::value>::type> {
+class TypedBufferBuilder<
+    T, typename std::enable_if<std::is_arithmetic<T>::value ||
+                               std::is_standard_layout<T>::value>::type> {
  public:
   explicit TypedBufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
       : bytes_builder_(pool) {}

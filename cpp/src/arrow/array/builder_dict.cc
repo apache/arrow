@@ -71,7 +71,7 @@ struct UnifyDictionaryValues {
     using DictTraits = typename internal::DictionaryTraits<T>;
     using MemoTableType = typename DictTraits::MemoTableType;
 
-    MemoTableType memo_table;
+    MemoTableType memo_table(pool_);
     if (out_transpose_maps_ != nullptr) {
       out_transpose_maps_->clear();
       out_transpose_maps_->reserve(types_.size());
@@ -176,7 +176,8 @@ class internal::DictionaryMemoTable::DictionaryMemoTableImpl {
     template <typename T>
     enable_if_memoize<T, Status> Visit(const T&) {
       using MemoTable = typename internal::DictionaryTraits<T>::MemoTableType;
-      memo_table_->reset(new MemoTable(0));
+      // TODO(fsaintjacques): Propagate memory pool
+      memo_table_->reset(new MemoTable(default_memory_pool(), 0));
       return Status::OK();
     }
   };

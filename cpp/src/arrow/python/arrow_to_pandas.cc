@@ -405,7 +405,8 @@ inline Status ConvertAsPyObjects(const PandasOptions& options, const ChunkedArra
   using Scalar = typename MemoizationTraits<Type>::Scalar;
 
   PyAcquireGIL lock;
-  ::arrow::internal::ScalarMemoTable<Scalar> memo_table;
+  // TODO(fsaintjacques): propagate memory pool.
+  ::arrow::internal::ScalarMemoTable<Scalar> memo_table(default_memory_pool());
   std::vector<PyObject*> unique_values;
   int32_t memo_size = 0;
 

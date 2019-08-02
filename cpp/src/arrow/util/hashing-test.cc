@@ -150,7 +150,7 @@ TEST(ScalarMemoTable, Int64) {
   const int64_t A = 1234, B = 0, C = -98765321, D = 12345678901234LL, E = -1, F = 1,
                 G = 9223372036854775807LL, H = -9223372036854775807LL - 1;
 
-  ScalarMemoTable<int64_t> table(0);
+  ScalarMemoTable<int64_t> table(default_memory_pool(), 0);
   ASSERT_EQ(table.size(), 0);
   ASSERT_EQ(table.Get(A), kKeyNotFound);
   ASSERT_EQ(table.GetNull(), kKeyNotFound);
@@ -198,7 +198,7 @@ TEST(ScalarMemoTable, Int64) {
 TEST(ScalarMemoTable, UInt16) {
   const uint16_t A = 1236, B = 0, C = 65535, D = 32767, E = 1;
 
-  ScalarMemoTable<uint16_t> table(0);
+  ScalarMemoTable<uint16_t> table(default_memory_pool(), 0);
   ASSERT_EQ(table.size(), 0);
   ASSERT_EQ(table.Get(A), kKeyNotFound);
   ASSERT_EQ(table.GetNull(), kKeyNotFound);
@@ -237,7 +237,7 @@ TEST(ScalarMemoTable, UInt16) {
 TEST(SmallScalarMemoTable, Int8) {
   const int8_t A = 1, B = 0, C = -1, D = -128, E = 127;
 
-  SmallScalarMemoTable<int8_t> table(0);
+  SmallScalarMemoTable<int8_t> table(default_memory_pool(), 0);
   ASSERT_EQ(table.size(), 0);
   ASSERT_EQ(table.Get(A), kKeyNotFound);
   ASSERT_EQ(table.GetNull(), kKeyNotFound);
@@ -266,7 +266,7 @@ TEST(SmallScalarMemoTable, Int8) {
 }
 
 TEST(SmallScalarMemoTable, Bool) {
-  SmallScalarMemoTable<bool> table(0);
+  SmallScalarMemoTable<bool> table(default_memory_pool(), 0);
   ASSERT_EQ(table.size(), 0);
   ASSERT_EQ(table.Get(true), kKeyNotFound);
   ASSERT_EQ(table.GetOrInsert(true), 0);
@@ -290,7 +290,7 @@ TEST(ScalarMemoTable, Float64) {
   const double A = 0.0, B = 1.5, C = -0.0, D = std::numeric_limits<double>::infinity(),
                E = -D, F = std::nan("");
 
-  ScalarMemoTable<double> table(0);
+  ScalarMemoTable<double> table(default_memory_pool(), 0);
   ASSERT_EQ(table.size(), 0);
   ASSERT_EQ(table.Get(A), kKeyNotFound);
   ASSERT_EQ(table.GetOrInsert(A), 0);
@@ -335,7 +335,7 @@ TEST(ScalarMemoTable, StressInt64) {
   const int32_t n_repeats = 10000;
 #endif
 
-  ScalarMemoTable<int64_t> table(0);
+  ScalarMemoTable<int64_t> table(default_memory_pool(), 0);
   std::unordered_map<int64_t, int32_t> map;
 
   for (int32_t i = 0; i < n_repeats; ++i) {
@@ -359,7 +359,7 @@ TEST(BinaryMemoTable, Basics) {
   F += '\0';
   F += "trailing";
 
-  BinaryMemoTable table(0);
+  BinaryMemoTable table(default_memory_pool(), 0);
   ASSERT_EQ(table.size(), 0);
   ASSERT_EQ(table.Get(A), kKeyNotFound);
   ASSERT_EQ(table.GetNull(), kKeyNotFound);
@@ -433,7 +433,7 @@ TEST(BinaryMemoTable, Stress) {
 
   const auto values = MakeDistinctStrings(n_values);
 
-  BinaryMemoTable table(0);
+  BinaryMemoTable table(default_memory_pool(), 0);
   std::unordered_map<std::string, int32_t> map;
 
   for (int32_t i = 0; i < n_repeats; ++i) {
