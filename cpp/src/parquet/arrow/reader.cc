@@ -857,7 +857,7 @@ Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
   std::unique_ptr<FileReaderBuilder> builder;
   RETURN_NOT_OK(FileReaderBuilder::Open(file, ::parquet::default_reader_properties(),
                                         nullptr, &builder));
-  return builder->Build(pool, default_arrow_reader_properties(), reader);
+  return builder->Build(pool, properties, reader);
 }
 
 }  // namespace arrow

@@ -383,7 +383,7 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
 
     if K == 0:
         schema.reset(new CSchema(c_fields, c_meta))
-        return
+        return arrays
 
     c_fields.resize(K)
 
@@ -993,8 +993,9 @@ cdef class Table(_PandasConvertible):
             int i, K = <int> len(arrays)
 
         if schema is None:
-            arrays = _schema_from_arrays(arrays, names, metadata, &c_schema)
-        elif schema is not None:
+            converted_arrays = _schema_from_arrays(arrays, names, metadata,
+                                                   &c_schema)
+        else:
             if names is not None:
                 raise ValueError('Cannot pass both schema and names')
             if metadata is not None:
@@ -1005,20 +1006,24 @@ cdef class Table(_PandasConvertible):
                 raise ValueError('Schema and number of arrays unequal')
 
             c_schema = cy_schema.sp_schema
+            converted_arrays = []
+            for i, item in enumerate(arrays):
+                if not isinstance(item, (Array, ChunkedArray)):
+                    item = array(item, type=schema[i].type)
+                converted_arrays.append(item)
 
         columns.reserve(K)
-
-        for i in range(K):
-            if isinstance(arrays[i], Array):
+        for item in converted_arrays:
+            if isinstance(item, Array):
                 columns.push_back(
                     make_shared[CChunkedArray](
-                        (<Array> arrays[i]).sp_array
+                        (<Array> item).sp_array
                     )
                 )
-            elif isinstance(arrays[i], ChunkedArray):
-                columns.push_back((<ChunkedArray> arrays[i]).sp_chunked_array)
+            elif isinstance(item, ChunkedArray):
+                columns.push_back((<ChunkedArray> item).sp_chunked_array)
             else:
-                raise TypeError(type(arrays[i]))
+                raise TypeError(type(item))
 
         result = pyarrow_wrap_table(CTable.Make(c_schema, columns))
         result.validate()

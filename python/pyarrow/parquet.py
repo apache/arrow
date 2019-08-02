@@ -960,16 +960,13 @@ class ParquetDataset(object):
 
         if self.common_metadata_path is not None:
             with self.fs.open(self.common_metadata_path) as f:
-                self.common_metadata = (ParquetFile(f, memory_map=memory_map)
-                                        .metadata)
+                self.common_metadata = read_metadata(f, memory_map=memory_map)
         else:
             self.common_metadata = None
 
         if metadata is None and self.metadata_path is not None:
             with self.fs.open(self.metadata_path) as f:
-                self.metadata = ParquetFile(
-                    f, memory_map=memory_map,
-                    read_dictionary=read_dictionary).metadata
+                self.metadata = read_metadata(f, memory_map=memory_map)
         else:
             self.metadata = metadata
 
