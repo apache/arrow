@@ -645,10 +645,11 @@ TEST_F(DiffTest, CompareRandomStruct) {
                                 &utf8_target));
       MakeSameLength(&int32_target, &utf8_target);
 
-      auto base_res = StructArray::Make({int32_base, utf8_base}, {"i", "s"});
+      auto type = struct_({field("i", int32()), field("s", utf8())});
+      auto base_res = StructArray::Make({int32_base, utf8_base}, type->children());
       ASSERT_OK(base_res.status());
       base_ = base_res.ValueOrDie();
-      auto target_res = StructArray::Make({int32_target, utf8_target}, {"i", "s"});
+      auto target_res = StructArray::Make({int32_target, utf8_target}, type->children());
       ASSERT_OK(target_res.status());
       target_ = target_res.ValueOrDie();
 

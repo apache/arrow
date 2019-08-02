@@ -322,9 +322,10 @@ class QuadraticSpaceMyersDiff {
     run_length[0] = endpoint.base - base_begin_;
 
     ARROW_ASSIGN_OR_RAISE(
-        *out, StructArray::Make({std::make_shared<BooleanArray>(length, insert_buf),
-                                 std::make_shared<UInt64Array>(length, run_length_buf)},
-                                {"insert", "run_length"}));
+        *out,
+        StructArray::Make({std::make_shared<BooleanArray>(length, insert_buf),
+                           std::make_shared<UInt64Array>(length, run_length_buf)},
+                          {field("insert", boolean()), field("run_length", uint64())}));
     return Status::OK();
   }
 
@@ -362,7 +363,7 @@ struct DiffImpl {
         *out_,
         StructArray::Make({std::make_shared<BooleanArray>(edit_count + 1, insert_buf),
                            std::make_shared<UInt64Array>(edit_count + 1, run_length_buf)},
-                          {"insert", "run_length"}));
+                          {field("insert", boolean()), field("run_length", uint64())}));
     return Status::OK();
   }
 
