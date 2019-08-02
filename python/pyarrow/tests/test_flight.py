@@ -339,7 +339,7 @@ class HttpBasicServerAuthHandler(ServerAuthHandler):
 
     def authenticate(self, outgoing, incoming):
         buf = incoming.read()
-        auth = flight.BasicAuth.basic_auth_from_string(buf)
+        auth = flight.BasicAuth.deserialize(buf)
         if auth.username not in self.creds:
             raise flight.FlightUnauthenticatedError("unknown user")
         if self.creds[auth.username] != auth.password:
@@ -363,7 +363,7 @@ class HttpBasicClientAuthHandler(ClientAuthHandler):
         self.token = None
 
     def authenticate(self, outgoing, incoming):
-        auth = self.basic_auth.basic_auth_to_string()
+        auth = self.basic_auth.serialize()
         outgoing.write(auth)
         self.token = incoming.read()
 

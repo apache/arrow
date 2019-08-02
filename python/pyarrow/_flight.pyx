@@ -242,12 +242,12 @@ cdef class BasicAuth:
         return self.basic_auth.get().password
 
     @staticmethod
-    def basic_auth_from_string(string):
+    def deserialize(string):
         auth = BasicAuth()
         check_flight_status(DeserializeBasicAuth(string, &auth.basic_auth))
         return auth
 
-    def basic_auth_to_string(self):
+    def serialize(self):
         cdef:
             unique_ptr[c_string] auth
         check_flight_status(SerializeBasicAuth(deref(self.basic_auth), &auth))
