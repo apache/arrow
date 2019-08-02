@@ -245,17 +245,18 @@ class FlightTestServer : public FlightServerBase {
     return Status::OK();
   }
 
-  Status GetFlightSchema(const ServerCallContext &context, const FlightDescriptor &request,
-                       std::unique_ptr<SchemaResult> *schema) override {
-      std::vector<FlightInfo> flights = ExampleFlightInfo();
+  Status GetSchema(const ServerCallContext& context, const FlightDescriptor& request,
+                   std::unique_ptr<SchemaResult>* schema) override {
+    std::vector<FlightInfo> flights = ExampleFlightInfo();
 
-      for (const auto& info : flights) {
-          if (info.descriptor().Equals(request)) {
-              *schema = std::unique_ptr<SchemaResult>(new SchemaResult(info.serialized_schema(), info.descriptor()));
-              return Status::OK();
-          }
+    for (const auto& info : flights) {
+      if (info.descriptor().Equals(request)) {
+        *schema =
+            std::unique_ptr<SchemaResult>(new SchemaResult(info.serialized_schema()));
+        return Status::OK();
       }
-      return Status::Invalid("Flight not found: ", request.ToString());
+    }
+    return Status::Invalid("Flight not found: ", request.ToString());
   }
 };
 

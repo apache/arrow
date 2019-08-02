@@ -89,7 +89,7 @@ Status FromProto(const pb::FlightData& pb_data, FlightDescriptor* descriptor,
 Status FromProto(const pb::FlightDescriptor& pb_descr, FlightDescriptor* descr);
 Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint);
 Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info);
-Status FromProto(const pb::SchemaResult& pb_info, SchemaResult::Data* info);
+Status FromProto(const pb::SchemaResult& pb_info, std::string* info);
 
 Status ToProto(const FlightDescriptor& descr, pb::FlightDescriptor* pb_descr);
 Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info);

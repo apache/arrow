@@ -224,15 +224,15 @@ class FlightService extends FlightServiceImplBase {
   }
 
   @Override
-  public void getFlightSchema(Flight.FlightDescriptor request, StreamObserver<Flight.SchemaResult> responseObserver) {
+  public void getSchema(Flight.FlightDescriptor request, StreamObserver<Flight.SchemaResult> responseObserver) {
     try {
       SchemaResult result = producer
-              .getFlightSchema(makeContext((ServerCallStreamObserver<?>) responseObserver),
+              .getSchema(makeContext((ServerCallStreamObserver<?>) responseObserver),
                       new FlightDescriptor(request));
       responseObserver.onNext(result.toProtocol());
       responseObserver.onCompleted();
     } catch (Exception ex) {
-      responseObserver.onError(ex);
+      responseObserver.onError(StatusUtils.toGrpcException(ex));
     }
   }
 

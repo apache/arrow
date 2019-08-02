@@ -513,7 +513,7 @@ cdef class SchemaResult:
     cdef:
         unique_ptr[CSchemaResult] result
 
-    def __init__(self, Schema schema, FlightDescriptor descriptor):
+    def __init__(self, Schema schema):
         """Create a SchemaResult from a schema.
 
         Parameters
@@ -523,8 +523,7 @@ cdef class SchemaResult:
         """
         cdef:
             shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
-        check_status(CreateSchemaResult(c_schema,
-                              descriptor.descriptor, &self.result))
+        check_status(CreateSchemaResult(c_schema, &self.result))
 
     @property
     def schema(self):
@@ -536,13 +535,6 @@ cdef class SchemaResult:
         check_status(self.result.get().GetSchema(&dummy_memo, &schema))
         return pyarrow_wrap_schema(schema)
 
-    @property
-    def descriptor(self):
-        """The descriptor of the data in this flight."""
-        cdef FlightDescriptor result = \
-            FlightDescriptor.__new__(FlightDescriptor)
-        result.descriptor = self.result.get().descriptor()
-        return result
 
 cdef class FlightInfo:
     """A description of a Flight stream."""
@@ -935,8 +927,8 @@ cdef class FlightClient:
 
         return result
 
-    def get_flight_schema(self, descriptor: FlightDescriptor,
-                        options: FlightCallOptions = None):
+    def get_schema(self, descriptor: FlightDescriptor,
+                   options: FlightCallOptions = None):
         """Request schema for an available flight."""
         cdef:
             SchemaResult result = SchemaResult.__new__(SchemaResult)
@@ -944,7 +936,10 @@ cdef class FlightClient:
             CFlightDescriptor c_descriptor = \
                 FlightDescriptor.unwrap(descriptor)
         with nogil:
-            check_status(self.client.get().GetFlightSchema(deref(c_options), c_descriptor, &result.result))
+            check_status(
+                self.client.get()
+                    .GetSchema(deref(c_options), c_descriptor, &result.result)
+            )
 
         return result
 
@@ -1336,16 +1331,16 @@ cdef CStatus _get_flight_info(void* self, const CServerCallContext& context,
     info.reset(new CFlightInfo(deref((<FlightInfo> result).info.get())))
     return CStatus_OK()
 
-cdef void _get_flight_schema(void* self, const CServerCallContext& context,
-                           CFlightDescriptor c_descriptor,
-                           unique_ptr[CSchemaResult]* info) except *:
+cdef CStatus _get_schema(void* self, const CServerCallContext& context,
+                         CFlightDescriptor c_descriptor,
+                         unique_ptr[CSchemaResult]* info) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         FlightDescriptor py_descriptor = \
             FlightDescriptor.__new__(FlightDescriptor)
     py_descriptor.descriptor = c_descriptor
-    result = (<object> self).get_flight_schema(ServerCallContext.wrap(context),
-                                             py_descriptor)
+    result = (<object> self).get_schema(ServerCallContext.wrap(context),
+                                        py_descriptor)
     if not isinstance(result, SchemaResult):
         raise TypeError("FlightServerBase.get_schema_info must return "
                         "a SchemaResult instance, but got {}".format(
@@ -1621,7 +1616,7 @@ cdef class FlightServerBase:
 
         vtable.list_flights = &_list_flights
         vtable.get_flight_info = &_get_flight_info
-        vtable.get_flight_schema = &_get_flight_schema
+        vtable.get_schema = &_get_schema
         vtable.do_put = &_do_put
         vtable.do_get = &_do_get
         vtable.list_actions = &_list_actions
@@ -1650,7 +1645,7 @@ cdef class FlightServerBase:
     def get_flight_info(self, context, descriptor):
         raise NotImplementedError
 
-    def get_flight_schema(self, context, descriptor):
+    def get_schema(self, context, descriptor):
         raise NotImplementedError
 
     def do_put(self, context, descriptor, reader,

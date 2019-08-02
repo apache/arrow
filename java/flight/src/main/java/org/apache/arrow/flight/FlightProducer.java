@@ -62,9 +62,9 @@ public interface FlightProducer {
    * @param descriptor The descriptor identifying the data stream.
    * @return Schema for the stream.
    */
-  default SchemaResult getFlightSchema(CallContext context, FlightDescriptor descriptor) {
+  default SchemaResult getSchema(CallContext context, FlightDescriptor descriptor) {
     FlightInfo info = getFlightInfo(context, descriptor);
-    return new SchemaResult(info.getSchema(), info.getDescriptor());
+    return new SchemaResult(info.getSchema());
   }
 
 

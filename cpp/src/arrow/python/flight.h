@@ -46,9 +46,9 @@ class ARROW_PYTHON_EXPORT PyFlightServerVtable {
                        std::unique_ptr<arrow::flight::FlightInfo>*)>
       get_flight_info;
   std::function<Status(PyObject*, const arrow::flight::ServerCallContext&,
-                     const arrow::flight::FlightDescriptor&,
-                     std::unique_ptr<arrow::flight::SchemaResult>*)>
-      get_flight_schema;
+                       const arrow::flight::FlightDescriptor&,
+                       std::unique_ptr<arrow::flight::SchemaResult>*)>
+      get_schema;
   std::function<Status(PyObject*, const arrow::flight::ServerCallContext&,
                        const arrow::flight::Ticket&,
                        std::unique_ptr<arrow::flight::FlightDataStream>*)>
@@ -124,9 +124,9 @@ class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBas
   Status GetFlightInfo(const arrow::flight::ServerCallContext& context,
                        const arrow::flight::FlightDescriptor& request,
                        std::unique_ptr<arrow::flight::FlightInfo>* info) override;
-  Status GetFlightSchema(const arrow::flight::ServerCallContext& context,
-                       const arrow::flight::FlightDescriptor& request,
-                       std::unique_ptr<arrow::flight::SchemaResult>* info) override;
+  Status GetSchema(const arrow::flight::ServerCallContext& context,
+                   const arrow::flight::FlightDescriptor& request,
+                   std::unique_ptr<arrow::flight::SchemaResult>* info) override;
   Status DoGet(const arrow::flight::ServerCallContext& context,
                const arrow::flight::Ticket& request,
                std::unique_ptr<arrow::flight::FlightDataStream>* stream) override;
@@ -214,8 +214,7 @@ Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
 
 ARROW_PYTHON_EXPORT
 Status CreateSchemaResult(const std::shared_ptr<arrow::Schema>& schema,
-                        const arrow::flight::FlightDescriptor& descriptor,
-                        std::unique_ptr<arrow::flight::SchemaResult>* out);
+                          std::unique_ptr<arrow::flight::SchemaResult>* out);
 
 }  // namespace flight
 }  // namespace py

@@ -221,9 +221,9 @@ class GetInfoFlightServer(FlightServerBase):
             -1,
         )
 
-    def get_flight_schema(self, context, descriptor):
+    def get_schema(self, context, descriptor):
         info = self.get_flight_info(context, descriptor)
-        return flight.SchemaResult(info.schema, info.descriptor)
+        return flight.SchemaResult(info.schema)
 
 
 class CheckTicketFlightServer(FlightServerBase):
@@ -506,7 +506,7 @@ def test_flight_get_schema():
     """Make sure FlightEndpoint accepts string and object URIs."""
     with flight_server(GetInfoFlightServer) as server_location:
         client = flight.FlightClient.connect(server_location)
-        info = client.get_flight_schema(flight.FlightDescriptor.for_command(b''))
+        info = client.get_schema(flight.FlightDescriptor.for_command(b''))
         assert info.schema == pa.schema([('a', pa.int32())])
 
 

@@ -67,7 +67,7 @@ service FlightService {
    * GetFlightInfo this interface may generate a new flight that was not previously
    * available in ListFlights.
    */
-   rpc GetFlightSchema(FlightDescriptor) returns (SchemaResult) {}
+   rpc GetSchema(FlightDescriptor) returns (SchemaResult) {}
 
   /*
    * Retrieve a single stream associated with a particular descriptor
@@ -178,17 +178,11 @@ message Result {
 }
 
 /*
- * Wrap the result of a getFlightSchema call
+ * Wrap the result of a getSchema call
  */
 message SchemaResult {
   // schema of the dataset as described in Schema.fbs::Schema.
   bytes schema = 1;
-
-  /*
-   * The descriptor associated with this info.
-   */
-  FlightDescriptor flight_descriptor = 2;
-
 }
 
 /*

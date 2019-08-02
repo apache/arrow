@@ -40,11 +40,9 @@ import com.google.protobuf.ByteString;
 public class SchemaResult {
 
   private Schema schema;
-  private FlightDescriptor descriptor;
 
-  public SchemaResult(Schema schema, FlightDescriptor descriptor) {
+  public SchemaResult(Schema schema) {
     this.schema = schema;
-    this.descriptor = descriptor;
   }
 
   /**
@@ -57,7 +55,6 @@ public class SchemaResult {
               MessageSerializer.deserializeSchema(
                       new ReadChannel(Channels.newChannel(new ByteBufferBackedInputStream(schemaBuf))))
               : new Schema(ImmutableList.of());
-      descriptor = new FlightDescriptor(pbSchemaResult.getFlightDescriptor());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -65,10 +62,6 @@ public class SchemaResult {
 
   public Schema getSchema() {
     return schema;
-  }
-
-  public FlightDescriptor getDescriptor() {
-    return descriptor;
   }
 
   /**
@@ -84,7 +77,6 @@ public class SchemaResult {
     }
     return Flight.SchemaResult.newBuilder()
             .setSchema(ByteString.copyFrom(baos.toByteArray()))
-            .setFlightDescriptor(descriptor.toProtocol())
             .build();
 
   }
