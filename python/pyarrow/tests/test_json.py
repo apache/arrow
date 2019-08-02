@@ -133,7 +133,7 @@ class TestSerialJSONRead(BaseTestJSONRead, unittest.TestCase):
         read_options = kwargs.setdefault('read_options', ReadOptions())
         read_options.use_threads = False
         table = read_json(*args, **kwargs)
-        table._validate()
+        table.validate()
         return table
 
 
@@ -143,5 +143,5 @@ class TestParallelJSONRead(BaseTestJSONRead, unittest.TestCase):
         read_options = kwargs.setdefault('read_options', ReadOptions())
         read_options.use_threads = True
         table = read_json(*args, **kwargs)
-        table._validate()
+        table.validate()
         return table

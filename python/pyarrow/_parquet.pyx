@@ -999,7 +999,6 @@ cdef class ParquetReader:
                 default_arrow_reader_properties())
             c_string path
             unique_ptr[FileReaderBuilder] builder
-            const CFileMetaData* metadata
 
         if metadata is not None:
             c_metadata = metadata.sp_metadata
@@ -1013,9 +1012,9 @@ cdef class ParquetReader:
 
         # Set up metadata
         with nogil:
-            metadata = builder.get().raw_reader().metadata()
+            c_metadata = builder.get().raw_reader().metadata()
         self._metadata = result = FileMetaData()
-        result.init(metadata)
+        result.init(c_metadata)
 
         if read_dictionary is not None:
             self._set_read_dictionary(read_dictionary, &arrow_props)
@@ -1029,7 +1028,7 @@ cdef class ParquetReader:
         for column in read_dictionary:
             if not isinstance(column, int):
                 column = self.column_name_idx(column)
-            props.set_read_dictionary(column_index, True)
+            props.set_read_dictionary(column, True)
 
     @property
     def column_paths(self):

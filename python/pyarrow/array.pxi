@@ -1052,6 +1052,12 @@ cdef class ListArray(Array):
                                                cpool, &out))
         return pyarrow_wrap_array(out)
 
+    @property
+    def values(self):
+        return self.flatten()
+
+    # TODO(wesm): Add offsets property
+
     def flatten(self):
         """
         Unnest this ListArray by one level
