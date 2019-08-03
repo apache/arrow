@@ -381,16 +381,15 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         void set_use_threads(c_bool use_threads)
 
     cdef cppclass FileReaderBuilder:
-        @staticmethod
+        FileReaderBuilder()
         CStatus Open(const shared_ptr[RandomAccessFile]& file,
                      const ReaderProperties& properties,
-                     const shared_ptr[CFileMetaData]& metadata,
-                     unique_ptr[FileReaderBuilder]* builder)
+                     const shared_ptr[CFileMetaData]& metadata)
 
         ParquetFileReader* raw_reader()
-        CStatus Build(CMemoryPool* pool,
-                      const ArrowReaderProperties& arrow_properties,
-                      unique_ptr[FileReader]* out)
+        FileReaderBuilder* memory_pool(CMemoryPool*)
+        FileReaderBuilder* properties(const ArrowReaderProperties&)
+        CStatus Build(unique_ptr[FileReader]* out)
 
     CStatus FromParquetSchema(
         const SchemaDescriptor* parquet_schema,

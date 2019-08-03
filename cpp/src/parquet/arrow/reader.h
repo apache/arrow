@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "parquet/platform.h"
+#include "parquet/properties.h"
 
 namespace arrow {
 
@@ -290,20 +291,21 @@ class PARQUET_EXPORT ColumnReader {
 /// either with std::move or C++ exceptions
 class FileReaderBuilder {
  public:
-  explicit FileReaderBuilder(std::unique_ptr<ParquetFileReader> raw_reader);
+  FileReaderBuilder();
 
-  static ::arrow::Status Open(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
-                              const ReaderProperties& properties,
-                              const std::shared_ptr<FileMetaData>& metadata,
-                              std::unique_ptr<FileReaderBuilder>* builder);
+  ::arrow::Status Open(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
+                       const ReaderProperties& properties = default_reader_properties(),
+                       const std::shared_ptr<FileMetaData>& metadata = NULLPTR);
 
   ParquetFileReader* raw_reader() { return raw_reader_.get(); }
 
-  ::arrow::Status Build(::arrow::MemoryPool* allocator,
-                        const ArrowReaderProperties& arrow_properties,
-                        std::unique_ptr<FileReader>* out);
+  FileReaderBuilder* memory_pool(::arrow::MemoryPool* pool);
+  FileReaderBuilder* properties(const ArrowReaderProperties& arg_properties);
+  ::arrow::Status Build(std::unique_ptr<FileReader>* out);
 
  private:
+  ::arrow::MemoryPool* pool_;
+  ArrowReaderProperties properties_;
   std::unique_ptr<ParquetFileReader> raw_reader_;
 };
 

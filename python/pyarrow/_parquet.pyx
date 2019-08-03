@@ -998,7 +998,7 @@ cdef class ParquetReader:
             ArrowReaderProperties arrow_props = (
                 default_arrow_reader_properties())
             c_string path
-            unique_ptr[FileReaderBuilder] builder
+            FileReaderBuilder builder
 
         if metadata is not None:
             c_metadata = metadata.sp_metadata
@@ -1007,12 +1007,11 @@ cdef class ParquetReader:
 
         get_reader(source, use_memory_map, &rd_handle)
         with nogil:
-            check_status(FileReaderBuilder.Open(rd_handle, properties,
-                                                c_metadata, &builder))
+            check_status(builder.Open(rd_handle, properties, c_metadata))
 
         # Set up metadata
         with nogil:
-            c_metadata = builder.get().raw_reader().metadata()
+            c_metadata = builder.raw_reader().metadata()
         self._metadata = result = FileMetaData()
         result.init(c_metadata)
 
@@ -1020,8 +1019,9 @@ cdef class ParquetReader:
             self._set_read_dictionary(read_dictionary, &arrow_props)
 
         with nogil:
-            check_status(builder.get().Build(self.pool, arrow_props,
-                                             &self.reader))
+            check_status(builder.memory_pool(self.pool)
+                         .properties(arrow_props)
+                         .Build(&self.reader))
 
     cdef _set_read_dictionary(self, read_dictionary,
                               ArrowReaderProperties* props):
