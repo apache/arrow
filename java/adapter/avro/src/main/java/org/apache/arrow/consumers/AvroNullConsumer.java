@@ -19,39 +19,23 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
-import org.apache.arrow.vector.Float8Vector;
-import org.apache.arrow.vector.complex.impl.Float8WriterImpl;
-import org.apache.arrow.vector.complex.writer.Float8Writer;
+import org.apache.arrow.vector.ZeroVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume double type values from avro decoder.
- * Write the data to {@link Float8Vector}.
+ * Consumer which consume null type values from avro decoder.
+ * Corresponding to {@link org.apache.arrow.vector.ZeroVector}.
  */
-public class AvroDoubleConsumer implements Consumer {
+public class AvroNullConsumer implements Consumer {
 
-  private final Float8Writer writer;
-
-  /**
-   * Instantiate a AvroDoubleConsumer.
-   */
-  public AvroDoubleConsumer(Float8Vector vector) {
-    this.writer = new Float8WriterImpl(vector);
-  }
+  public AvroNullConsumer(ZeroVector vector) {}
 
   @Override
-  public void consume(Decoder decoder) throws IOException {
-    writer.writeFloat8(decoder.readDouble());
-    writer.setPosition(writer.getPosition() + 1);
-  }
+  public void consume(Decoder decoder) throws IOException {}
 
   @Override
-  public void addNull() {
-    writer.setPosition(writer.getPosition() + 1);
-  }
+  public void addNull() {}
 
   @Override
-  public void setPosition(int index) {
-    writer.setPosition(index);
-  }
+  public void setPosition(int index) {}
 }

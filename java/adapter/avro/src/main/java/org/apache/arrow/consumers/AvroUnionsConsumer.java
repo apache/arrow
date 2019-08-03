@@ -18,7 +18,6 @@
 package org.apache.arrow.consumers;
 
 import java.io.IOException;
-import java.util.Map;
 
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.UnionWriter;
@@ -31,8 +30,8 @@ import org.apache.avro.io.Decoder;
  */
 public class AvroUnionsConsumer implements Consumer {
 
-  private Map<Integer, Consumer> indexDelegates;
-  private Map<Integer, Types.MinorType> types;
+  private Consumer[] indexDelegates;
+  private Types.MinorType[] types;
 
   private UnionWriter writer;
   private UnionVector vector;
@@ -40,8 +39,7 @@ public class AvroUnionsConsumer implements Consumer {
   /**
    * Instantiate a AvroUnionConsumer.
    */
-  public AvroUnionsConsumer(UnionVector vector, Map<Integer, Consumer> indexDelegates,
-      Map<Integer, Types.MinorType> types) {
+  public AvroUnionsConsumer(UnionVector vector, Consumer[] indexDelegates, Types.MinorType[] types) {
 
     this.writer = new UnionWriter(vector);
     this.vector = vector;
@@ -54,32 +52,18 @@ public class AvroUnionsConsumer implements Consumer {
     int fieldIndex = decoder.readInt();
     int position = writer.getPosition();
 
-    Consumer delegate = indexDelegates.get(fieldIndex);
+    Consumer delegate = indexDelegates[fieldIndex];
     // null value
     if (delegate == null) {
       // do nothing
     } else {
-      vector.setType(position, types.get(fieldIndex));
-      delegate.consume(decoder, position);
+      vector.setType(position, types[fieldIndex]);
+      delegate.setPosition(position);
+      delegate.consume(decoder);
     }
 
     writer.setPosition(position + 1);
 
-  }
-
-  @Override
-  public void consume(Decoder decoder, int index) throws IOException {
-    int fieldIndex = decoder.readInt();
-    writer.setPosition(index + 1);
-
-    Consumer delegate = indexDelegates.get(fieldIndex);
-    if (delegate == null) {
-      // do nothing
-    } else {
-      vector.setType(index, types.get(fieldIndex));
-      delegate.consume(decoder, index);
-    }
-    writer.setPosition(index + 1);
   }
 
   @Override
@@ -88,7 +72,7 @@ public class AvroUnionsConsumer implements Consumer {
   }
 
   @Override
-  public void addNull(int index) {
-    writer.setPosition(index + 1);
+  public void setPosition(int index) {
+    writer.setPosition(index);
   }
 }

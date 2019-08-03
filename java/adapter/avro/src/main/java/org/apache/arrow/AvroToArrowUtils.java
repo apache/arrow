@@ -66,7 +66,7 @@ public class AvroToArrowUtils {
 
   private static final int DEFAULT_BUFFER_SIZE = 256;
   public static final String NULL_INDEX = "nullIndex";
-  public static final String Field_INDEX = "index";
+  public static final String FIELD_INDEX = "index";
 
   /**
    * Creates a {@link Field} from the {@link Schema}
@@ -113,6 +113,9 @@ public class AvroToArrowUtils {
       case BYTES:
         arrowType = new ArrowType.Binary();
         break;
+      case NULL:
+        arrowType = new ArrowType.Null();
+        break;
       default:
         // no-op, shouldn't get here
         throw new RuntimeException("Can't convert avro type %s to arrow type." + type.getName());
@@ -130,14 +133,14 @@ public class AvroToArrowUtils {
     // union only has one type, convert to primitive type
     if (size == 1) {
       Schema subSchema = schema.getTypes().get(0);
-      return getArrowField(subSchema, name,true);
+      return getArrowField(subSchema, name, /*nullable=*/false);
 
       // size == 2 and has null type, convert to nullable primitive type
     } else if (size == 2 && nullCount == 1) {
       Schema nullSchema = schema.getTypes().stream().filter(s -> s.getType() == Type.NULL).findFirst().get();
       String nullIndex = String.valueOf(schema.getTypes().indexOf(nullSchema));
       Schema subSchema = schema.getTypes().stream().filter(s -> s.getType() != Type.NULL).findFirst().get();
-      Preconditions.checkNotNull(subSchema);
+      Preconditions.checkNotNull(subSchema, "schema should not be null.");
       subSchema.addProp(NULL_INDEX, nullIndex);
       return getArrowField(subSchema, name,true);
 
@@ -148,7 +151,7 @@ public class AvroToArrowUtils {
       for (int i = 0; i < size; i++) {
         Schema subSchema = schema.getTypes().get(i);
         if (subSchema.getType() != Type.NULL) {
-          subSchema.addProp(Field_INDEX, i);
+          subSchema.addProp(FIELD_INDEX, i);
           Field arrowSubField = getArrowField(subSchema, createFieldName(subSchema), /*nullable=*/false);
           children.add(arrowSubField);
         }
@@ -233,23 +236,22 @@ public class AvroToArrowUtils {
     } else if (arrowType.getTypeID() == ArrowType.Union.TYPE_TYPE) {
       return createUnionConsumer(vector);
     } else {
-      throw new UnsupportedOperationException();
+      throw new UnsupportedOperationException("Consumer is not supported for type: " + arrowType.getTypeID().name());
     }
   }
 
   private static Consumer createUnionConsumer(ValueVector vector) {
     UnionVector unionVector = (UnionVector) vector;
-
-    Map<Integer, Consumer> delegates = new HashMap<>();
-    Map<Integer, Types.MinorType> types = new HashMap<>();
-
     List<FieldVector> internals = unionVector.getChildrenFromFields();
+
+    Consumer[] delegates = new Consumer[internals.size() + 1];
+    Types.MinorType[] types = new Types.MinorType[internals.size() + 1];
     for (int i = 0; i < internals.size(); i++) {
       ValueVector v = internals.get(i);
-      int index = Integer.parseInt(v.getField().getMetadata().get(Field_INDEX));
+      int index = Integer.parseInt(v.getField().getMetadata().get(FIELD_INDEX));
       Consumer consumer = createConsumer(v);
-      delegates.put(index, consumer);
-      types.put(index, v.getMinorType());
+      delegates[index] = consumer;
+      types[index] = v.getMinorType();
     }
 
     return new AvroUnionsConsumer(unionVector, delegates, types);

@@ -33,12 +33,13 @@ public interface Consumer {
    */
   void consume(Decoder decoder) throws IOException;
 
-  void consume(Decoder decoder, int index) throws IOException;
-
   /**
    * Add null value to vector by making writer position + 1.
    */
   void addNull();
 
-  void addNull(int index);
+  /**
+   * Set the position to write value into vector.
+   */
+  void setPosition(int index);
 }

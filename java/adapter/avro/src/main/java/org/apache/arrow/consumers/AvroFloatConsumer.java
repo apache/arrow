@@ -46,19 +46,12 @@ public class AvroFloatConsumer implements Consumer {
   }
 
   @Override
-  public void consume(Decoder decoder, int index) throws IOException {
-    writer.setPosition(index);
-    writer.writeFloat4(decoder.readFloat());
-    writer.setPosition(index + 1);
-  }
-
-  @Override
   public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
 
   @Override
-  public void addNull(int index) {
-    writer.setPosition(index + 1);
+  public void setPosition(int index) {
+    writer.setPosition(index);
   }
 }
