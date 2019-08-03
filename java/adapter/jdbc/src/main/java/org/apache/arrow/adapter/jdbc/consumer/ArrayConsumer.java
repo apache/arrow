@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Calendar;
 
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.complex.ListVector;
@@ -47,7 +46,7 @@ public class ArrayConsumer implements JdbcConsumer {
   }
 
   @Override
-  public void consume(ResultSet resultSet, Calendar calendar) throws SQLException, IOException {
+  public void consume(ResultSet resultSet) throws SQLException, IOException {
     final Array array = resultSet.getArray(index);
     if (resultSet.wasNull()) {
       addNull();
@@ -58,7 +57,7 @@ public class ArrayConsumer implements JdbcConsumer {
       int count = 0;
       try (ResultSet rs = array.getResultSet()) {
         while (rs.next()) {
-          delegate.consume(rs, calendar);
+          delegate.consume(rs);
           count++;
         }
       }

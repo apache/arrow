@@ -20,7 +20,6 @@ package org.apache.arrow.adapter.jdbc.consumer;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Calendar;
 
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.complex.impl.BitWriterImpl;
@@ -46,7 +45,7 @@ public class BitConsumer implements JdbcConsumer {
   }
 
   @Override
-  public void consume(ResultSet resultSet, Calendar calendar) throws SQLException, IOException {
+  public void consume(ResultSet resultSet) throws SQLException, IOException {
     reuse = resultSet.getBoolean(index);
     if (resultSet.wasNull()) {
       addNull();

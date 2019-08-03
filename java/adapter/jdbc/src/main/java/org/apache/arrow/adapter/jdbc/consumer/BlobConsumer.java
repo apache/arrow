@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.sql.Blob;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Calendar;
 
 import org.apache.arrow.vector.VarBinaryVector;
 
@@ -44,7 +43,7 @@ public class BlobConsumer implements JdbcConsumer {
   }
 
   @Override
-  public void consume(ResultSet resultSet, Calendar calendar) throws SQLException, IOException {
+  public void consume(ResultSet resultSet) throws SQLException, IOException {
     Blob blob = resultSet.getBlob(index);
     if (blob != null) {
       delegate.consume(blob.getBinaryStream());

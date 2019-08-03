@@ -22,7 +22,6 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Clob;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Calendar;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VarCharVector;
@@ -57,7 +56,7 @@ public class ClobConsumer implements JdbcConsumer {
   }
 
   @Override
-  public void consume(ResultSet resultSet, Calendar calendar) throws SQLException, IOException {
+  public void consume(ResultSet resultSet) throws SQLException, IOException {
     Clob clob = resultSet.getClob(index);
     if (resultSet.wasNull()) {
       addNull();

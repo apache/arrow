@@ -19,7 +19,6 @@ package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Calendar;
 
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.complex.impl.Float4WriterImpl;
@@ -45,7 +44,7 @@ public class FloatConsumer implements JdbcConsumer {
   }
 
   @Override
-  public void consume(ResultSet resultSet, Calendar calendar) throws SQLException {
+  public void consume(ResultSet resultSet) throws SQLException {
     reuse = resultSet.getFloat(index);
     if (resultSet.wasNull()) {
       addNull();

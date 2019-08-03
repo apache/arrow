@@ -19,7 +19,6 @@ package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Calendar;
 
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.complex.impl.SmallIntWriterImpl;
@@ -45,7 +44,7 @@ public class SmallIntConsumer implements JdbcConsumer {
   }
 
   @Override
-  public void consume(ResultSet resultSet, Calendar calendar) throws SQLException {
+  public void consume(ResultSet resultSet) throws SQLException {
     reuse = resultSet.getShort(index);
     if (resultSet.wasNull()) {
       addNull();

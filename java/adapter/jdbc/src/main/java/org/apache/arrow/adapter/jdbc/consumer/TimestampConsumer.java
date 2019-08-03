@@ -34,19 +34,21 @@ public class TimestampConsumer implements JdbcConsumer {
 
   private final TimeStampMilliTZWriter writer;
   private final int index;
+  private final Calendar calendar;
 
   private Timestamp reuse;
 
   /**
    * Instantiate a TimestampConsumer.
    */
-  public TimestampConsumer(TimeStampMilliTZVector vector, int index) {
+  public TimestampConsumer(TimeStampMilliTZVector vector, int index, Calendar calendar) {
     this.writer = new TimeStampMilliTZWriterImpl(vector);
     this.index = index;
+    this.calendar = calendar;
   }
 
   @Override
-  public void consume(ResultSet resultSet, Calendar calendar) throws SQLException {
+  public void consume(ResultSet resultSet) throws SQLException {
     reuse = calendar == null ? resultSet.getTimestamp(index) : resultSet.getTimestamp(index, calendar);
     if (resultSet.wasNull()) {
       addNull();

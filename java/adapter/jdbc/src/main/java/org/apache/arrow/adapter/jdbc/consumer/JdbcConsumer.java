@@ -20,7 +20,6 @@ package org.apache.arrow.adapter.jdbc.consumer;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Calendar;
 
 /**
  * An abstraction that is used to consume values from {@link ResultSet}.
@@ -30,7 +29,7 @@ public interface JdbcConsumer {
   /**
    * Consume a specific type value from {@link ResultSet} and write it to vector.
    */
-  void consume(ResultSet resultSet, Calendar calendar) throws SQLException, IOException;
+  void consume(ResultSet resultSet) throws SQLException, IOException;
 
   /**
    * Add null value to vector.

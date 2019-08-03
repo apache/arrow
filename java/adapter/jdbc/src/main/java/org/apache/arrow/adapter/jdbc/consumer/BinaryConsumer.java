@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Calendar;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VarBinaryVector;
@@ -43,6 +42,7 @@ public class BinaryConsumer implements JdbcConsumer {
   private BufferAllocator allocator;
 
   private ArrowBuf reuse;
+  private byte[] reuseBytes;
 
   /**
    * Instantiate a BinaryConsumer.
@@ -53,6 +53,7 @@ public class BinaryConsumer implements JdbcConsumer {
 
     this.allocator = vector.getAllocator();
     reuse = allocator.buffer(BUFFER_SIZE);
+    reuseBytes = new byte[BUFFER_SIZE];
   }
 
   /**
@@ -66,14 +67,10 @@ public class BinaryConsumer implements JdbcConsumer {
         reuse = allocator.buffer(length);
       }
 
-      byte[] bytes = new byte[BUFFER_SIZE];
       int total = 0;
-      while (true) {
-        int read = is.read(bytes, 0, bytes.length);
-        if (read == -1) {
-          break;
-        }
-        reuse.setBytes(total, bytes, 0, read);
+      int read;
+      while ((read = is.read(reuseBytes, 0, reuseBytes.length)) != -1) {
+        reuse.setBytes(total, reuseBytes, 0, read);
         total += read;
       }
       writer.writeVarBinary(0, total, reuse);
@@ -83,7 +80,7 @@ public class BinaryConsumer implements JdbcConsumer {
   }
 
   @Override
-  public void consume(ResultSet resultSet, Calendar calendar) throws SQLException, IOException {
+  public void consume(ResultSet resultSet) throws SQLException, IOException {
     InputStream is = resultSet.getBinaryStream(index);
     if (resultSet.wasNull()) {
       addNull();

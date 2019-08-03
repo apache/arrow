@@ -20,7 +20,6 @@ package org.apache.arrow.adapter.jdbc.consumer;
 import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Calendar;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VarCharVector;
@@ -51,7 +50,7 @@ public class VarCharConsumer implements JdbcConsumer {
   }
 
   @Override
-  public void consume(ResultSet resultSet, Calendar calendar) throws SQLException {
+  public void consume(ResultSet resultSet) throws SQLException {
     String value = resultSet.getString(index);
     if (resultSet.wasNull()) {
       addNull();

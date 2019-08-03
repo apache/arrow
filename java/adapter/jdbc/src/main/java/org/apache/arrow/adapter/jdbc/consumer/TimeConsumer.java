@@ -34,19 +34,21 @@ public class TimeConsumer implements JdbcConsumer {
 
   private final TimeMilliWriter writer;
   private final int index;
+  private final Calendar calendar;
 
   private Time reuse;
 
   /**
    * Instantiate a TimeConsumer.
    */
-  public TimeConsumer(TimeMilliVector vector, int index) {
+  public TimeConsumer(TimeMilliVector vector, int index, Calendar calendar) {
     this.writer = new TimeMilliWriterImpl(vector);
     this.index = index;
+    this.calendar = calendar;
   }
 
   @Override
-  public void consume(ResultSet resultSet, Calendar calendar) throws SQLException {
+  public void consume(ResultSet resultSet) throws SQLException {
     reuse = calendar == null ? resultSet.getTime(index) : resultSet.getTime(index, calendar);
     if (resultSet.wasNull()) {
       addNull();

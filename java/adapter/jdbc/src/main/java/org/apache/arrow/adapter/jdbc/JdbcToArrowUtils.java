@@ -362,7 +362,7 @@ public class JdbcToArrowUtils {
     int rowCount = 0;
     while (rs.next()) {
       for (JdbcConsumer consumer : consumers) {
-        consumer.consume(rs, config.getCalendar());
+        consumer.consume(rs);
       }
       rowCount++;
     }
@@ -371,6 +371,7 @@ public class JdbcToArrowUtils {
 
   private static JdbcConsumer getConsumer(ResultSet resultSet, int columnIndex, int jdbcColType,
       FieldVector vector, JdbcToArrowConfig config) throws SQLException {
+    final Calendar calendar = config.getCalendar();
     switch (jdbcColType) {
       case Types.BOOLEAN:
       case Types.BIT:
@@ -399,11 +400,11 @@ public class JdbcToArrowUtils {
       case Types.LONGNVARCHAR:
         return new VarCharConsumer((VarCharVector) vector, columnIndex);
       case Types.DATE:
-        return new DateConsumer((DateMilliVector) vector, columnIndex);
+        return new DateConsumer((DateMilliVector) vector, columnIndex, calendar);
       case Types.TIME:
-        return new TimeConsumer((TimeMilliVector) vector, columnIndex);
+        return new TimeConsumer((TimeMilliVector) vector, columnIndex, calendar);
       case Types.TIMESTAMP:
-        return new TimestampConsumer((TimeStampMilliTZVector) vector, columnIndex);
+        return new TimestampConsumer((TimeStampMilliTZVector) vector, columnIndex, calendar);
       case Types.BINARY:
       case Types.VARBINARY:
       case Types.LONGVARBINARY:

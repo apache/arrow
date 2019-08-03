@@ -34,19 +34,21 @@ public class DateConsumer implements JdbcConsumer {
 
   private final DateMilliWriter writer;
   private final int index;
+  private final Calendar calendar;
 
   private Date reuse;
 
   /**
    * Instantiate a DateConsumer.
    */
-  public DateConsumer(DateMilliVector vector, int index) {
+  public DateConsumer(DateMilliVector vector, int index, Calendar calendar) {
     this.writer = new DateMilliWriterImpl(vector);
     this.index = index;
+    this.calendar = calendar;
   }
 
   @Override
-  public void consume(ResultSet resultSet, Calendar calendar) throws SQLException {
+  public void consume(ResultSet resultSet) throws SQLException {
     reuse = calendar == null ? resultSet.getDate(index) : resultSet.getDate(index, calendar);
     if (resultSet.wasNull()) {
       addNull();
