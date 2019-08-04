@@ -30,10 +30,10 @@ use crate::execution::context::ExecutionContext;
 use crate::logicalplan::{Expr, Operator, ScalarValue};
 
 /// Function that accepts a RecordBatch and returns an ArrayRef
-pub type ArrayFunction = Rc<Fn(&RecordBatch) -> Result<ArrayRef>>;
+pub type ArrayFunction = Rc<dyn Fn(&RecordBatch) -> Result<ArrayRef>>;
 
 /// Function that accepts an ArrayRef and returns an ArrayRef
-pub type CompiledCastFunction = Rc<Fn(&ArrayRef) -> Result<ArrayRef>>;
+pub type CompiledCastFunction = Rc<dyn Fn(&ArrayRef) -> Result<ArrayRef>>;
 
 /// Enumeration of supported aggregate functions
 #[allow(missing_docs)] // seems like these variants are self-evident

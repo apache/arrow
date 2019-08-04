@@ -25,23 +25,23 @@ use std::sync::Arc;
 /// Table is an abstraction of a logical query plan
 pub trait Table {
     /// Select columns by name
-    fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<Table>>;
+    fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<dyn Table>>;
 
     /// Create a projection based on arbitrary expressions
-    fn select(&self, expr: Vec<Expr>) -> Result<Arc<Table>>;
+    fn select(&self, expr: Vec<Expr>) -> Result<Arc<dyn Table>>;
 
     /// Create a selection based on a filter expression
-    fn filter(&self, expr: Expr) -> Result<Arc<Table>>;
+    fn filter(&self, expr: Expr) -> Result<Arc<dyn Table>>;
 
     /// Perform an aggregate query
     fn aggregate(
         &self,
         group_expr: Vec<Expr>,
         aggr_expr: Vec<Expr>,
-    ) -> Result<Arc<Table>>;
+    ) -> Result<Arc<dyn Table>>;
 
     /// limit the number of rows
-    fn limit(&self, n: usize) -> Result<Arc<Table>>;
+    fn limit(&self, n: usize) -> Result<Arc<dyn Table>>;
 
     /// Return the logical plan
     fn to_logical_plan(&self) -> Arc<LogicalPlan>;

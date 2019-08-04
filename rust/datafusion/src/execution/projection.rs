@@ -37,14 +37,14 @@ pub(super) struct ProjectRelation {
     /// Schema for the result of the projection
     schema: Arc<Schema>,
     /// The relation that the projection is being applied to
-    input: Rc<RefCell<Relation>>,
+    input: Rc<RefCell<dyn Relation>>,
     /// Projection expressions
     expr: Vec<CompiledExpr>,
 }
 
 impl ProjectRelation {
     pub fn new(
-        input: Rc<RefCell<Relation>>,
+        input: Rc<RefCell<dyn Relation>>,
         expr: Vec<CompiledExpr>,
         schema: Arc<Schema>,
     ) -> Self {

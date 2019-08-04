@@ -40,7 +40,7 @@ impl TableImpl {
 
 impl Table for TableImpl {
     /// Apply a projection based on a list of column names
-    fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<Table>> {
+    fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<dyn Table>> {
         let mut expr: Vec<Expr> = Vec::with_capacity(columns.len());
         for column_name in columns {
             let i = self.column_index(column_name)?;
@@ -50,7 +50,7 @@ impl Table for TableImpl {
     }
 
     /// Create a projection based on arbitrary expressions
-    fn select(&self, expr_list: Vec<Expr>) -> Result<Arc<Table>> {
+    fn select(&self, expr_list: Vec<Expr>) -> Result<Arc<dyn Table>> {
         let schema = self.plan.schema();
         let mut field: Vec<Field> = Vec::with_capacity(expr_list.len());
 
@@ -78,7 +78,7 @@ impl Table for TableImpl {
     }
 
     /// Create a selection based on a filter expression
-    fn filter(&self, expr: Expr) -> Result<Arc<Table>> {
+    fn filter(&self, expr: Expr) -> Result<Arc<dyn Table>> {
         Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::Selection {
             expr,
             input: self.plan.clone(),
@@ -90,7 +90,7 @@ impl Table for TableImpl {
         &self,
         group_expr: Vec<Expr>,
         aggr_expr: Vec<Expr>,
-    ) -> Result<Arc<Table>> {
+    ) -> Result<Arc<dyn Table>> {
         Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::Aggregate {
             input: self.plan.clone(),
             group_expr,
@@ -100,7 +100,7 @@ impl Table for TableImpl {
     }
 
     /// Limit the number of rows
-    fn limit(&self, n: usize) -> Result<Arc<Table>> {
+    fn limit(&self, n: usize) -> Result<Arc<dyn Table>> {
         Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::Limit {
             expr: Literal(ScalarValue::UInt32(n as u32)),
             input: self.plan.clone(),

@@ -51,7 +51,7 @@ use sqlparser::sqlast::{SQLColumnDef, SQLType};
 
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
-    datasources: Rc<RefCell<HashMap<String, Rc<TableProvider>>>>,
+    datasources: Rc<RefCell<HashMap<String, Rc<dyn TableProvider>>>>,
 }
 
 impl ExecutionContext {
@@ -64,7 +64,11 @@ impl ExecutionContext {
 
     /// Execute a SQL query and produce a Relation (a schema-aware iterator over a series
     /// of RecordBatch instances)
-    pub fn sql(&mut self, sql: &str, batch_size: usize) -> Result<Rc<RefCell<Relation>>> {
+    pub fn sql(
+        &mut self,
+        sql: &str,
+        batch_size: usize,
+    ) -> Result<Rc<RefCell<dyn Relation>>> {
         let plan = self.create_logical_plan(sql)?;
         let plan = self.optimize(&plan)?;
         Ok(self.execute(&plan, batch_size)?)
@@ -76,7 +80,7 @@ impl ExecutionContext {
 
         match ast {
             DFASTNode::ANSI(ansi) => {
-                let schema_provider: Arc<SchemaProvider> =
+                let schema_provider: Arc<dyn SchemaProvider> =
                     Arc::new(ExecutionContextSchemaProvider {
                         datasources: self.datasources.clone(),
                     });
@@ -160,14 +164,14 @@ impl ExecutionContext {
     }
 
     /// Register a table so that it can be queried from SQL
-    pub fn register_table(&mut self, name: &str, provider: Rc<TableProvider>) {
+    pub fn register_table(&mut self, name: &str, provider: Rc<dyn TableProvider>) {
         self.datasources
             .borrow_mut()
             .insert(name.to_string(), provider);
     }
 
     /// Get a table by name
-    pub fn table(&mut self, table_name: &str) -> Result<Arc<Table>> {
+    pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn Table>> {
         match (*self.datasources).borrow().get(table_name) {
             Some(provider) => {
                 Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::TableScan {
@@ -187,7 +191,7 @@ impl ExecutionContext {
 
     /// Optimize the logical plan by applying optimizer rules
     pub fn optimize(&self, plan: &LogicalPlan) -> Result<Arc<LogicalPlan>> {
-        let rules: Vec<Box<OptimizerRule>> = vec![
+        let rules: Vec<Box<dyn OptimizerRule>> = vec![
             Box::new(ProjectionPushDown::new()),
             Box::new(TypeCoercionRule::new()),
         ];
@@ -204,7 +208,7 @@ impl ExecutionContext {
         &mut self,
         plan: &LogicalPlan,
         batch_size: usize,
-    ) -> Result<Rc<RefCell<Relation>>> {
+    ) -> Result<Rc<RefCell<dyn Relation>>> {
         match *plan {
             LogicalPlan::TableScan {
                 ref table_name,
@@ -376,7 +380,7 @@ impl ExecutionContext {
 }
 
 struct ExecutionContextSchemaProvider {
-    datasources: Rc<RefCell<HashMap<String, Rc<TableProvider>>>>,
+    datasources: Rc<RefCell<HashMap<String, Rc<dyn TableProvider>>>>,
 }
 impl SchemaProvider for ExecutionContextSchemaProvider {
     fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>> {
