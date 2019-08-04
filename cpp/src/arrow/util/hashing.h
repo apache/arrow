@@ -310,7 +310,7 @@ class HashTable {
   Status UpsizeBuffer(uint64_t capacity) {
     RETURN_NOT_OK(entries_builder_.Resize(capacity));
     entries_ = entries_builder_.mutable_data();
-    memset(entries_, 0, capacity * sizeof(Entry));
+    memset(static_cast<void*>(entries_), 0, capacity * sizeof(Entry));
 
     return Status::OK();
   }
