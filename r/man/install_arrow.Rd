@@ -12,3 +12,6 @@ but when installing from source, you'll need to obtain the C++ library
 first. This function offers guidance on how to get the C++ library depending
 on your operating system and package version.
 }
+\examples{
+install_arrow()
+}

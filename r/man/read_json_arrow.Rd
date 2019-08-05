@@ -23,3 +23,17 @@ A \code{data.frame}, or an \code{arrow::Table} if \code{as_tibble = FALSE}.
 \description{
 Use \link[=arrow__json__TableReader]{arrow::json::TableReader} from \code{\link[=json_table_reader]{json_table_reader()}}
 }
+\examples{
+\donttest{
+try({
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  writeLines('
+    { "hello": 3.5, "world": false, "yo": "thing" }
+    { "hello": 3.25, "world": null }
+    { "hello": 0.0, "world": true, "yo": null }
+  ', tf, useBytes=TRUE)
+  df <- read_json_arrow(tf)
+})
+}
+}

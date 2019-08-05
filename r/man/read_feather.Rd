@@ -21,3 +21,16 @@ A \code{data.frame} if \code{as_tibble} is \code{TRUE} (the default), or a \link
 \description{
 Read a Feather file
 }
+\examples{
+\donttest{
+try({
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write_feather(iris, tf)
+  df <- read_feather(tf)
+  dim(df)
+  # Can select columns
+  df <- read_feather(tf, col_select = starts_with("Sepal"))
+})
+}
+}

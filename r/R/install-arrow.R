@@ -22,14 +22,15 @@
 #' first. This function offers guidance on how to get the C++ library depending
 #' on your operating system and package version.
 #' @export
-#' @importFrom utils packageVersion installed.packages
+#' @importFrom utils packageVersion packageDescription
+#' @examples
+#' install_arrow()
 install_arrow <- function() {
   os <- tolower(Sys.info()[["sysname"]])
   # c("windows", "darwin", "linux", "sunos") # win/mac/linux/solaris
   version <- packageVersion("arrow")
   # From CRAN check:
-  rep <- installed.packages(fields="Repository")["arrow", "Repository"]
-  from_cran <- identical(rep, "CRAN")
+  from_cran <- identical(packageDescription("arrow")$Repository, "CRAN")
   # Is it possible to tell if was a binary install from CRAN vs. source?
 
   message(install_arrow_msg(arrow_available(), version, from_cran, os))

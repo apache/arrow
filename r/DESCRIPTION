@@ -2,9 +2,9 @@ Package: arrow
 Title: Integration to 'Apache' 'Arrow'
 Version: 0.14.1.9000
 Authors@R: c(
-    person("Romain", "Fran\u00e7ois", email = "romain@rstudio.com", role = c("aut", "cre"), comment = c(ORCID = "0000-0002-2444-4226")),
+    person("Romain", "Fran\u00e7ois", email = "romain@rstudio.com", role = c("aut"), comment = c(ORCID = "0000-0002-2444-4226")),
     person("Jeroen", "Ooms", email = "jeroen@berkeley.edu", role = c("aut")),
-    person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut")),
+    person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut", "cre")),
     person("Javier", "Luraschi", email = "javier@rstudio.com", role = c("ctb")),
     person("Jeffrey", "Wong", email = "jeffreyw@netflix.com", role = c("ctb")),
     person("Apache Arrow", email = "dev@arrow.apache.org", role = c("aut", "cph"))
@@ -13,7 +13,7 @@ Description: 'Apache' 'Arrow' <https://arrow.apache.org/> is a cross-language
     development platform for in-memory data. It specifies a standardized
     language-independent columnar memory format for flat and hierarchical data,
     organized for efficient analytic operations on modern hardware. This
-    package provides an interface to the Arrow C++ library.
+    package provides an interface to the 'Arrow C++' library.
 Depends: R (>= 3.1)
 License: Apache License (>= 2.0)
 URL: https://github.com/apache/arrow/
@@ -22,6 +22,7 @@ Encoding: UTF-8
 Language: en-US
 LazyData: true
 SystemRequirements: C++11
+Biarch: true
 LinkingTo:
     Rcpp (>= 1.0.1)
 Imports:

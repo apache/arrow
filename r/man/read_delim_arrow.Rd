@@ -82,3 +82,16 @@ equivalent in \code{readr::read_csv()}, you can either provide them in the
 \code{parse_options}, \code{convert_options}, or \code{read_options} arguments, or you can
 call \code{\link[=csv_table_reader]{csv_table_reader()}} directly for lower-level access.
 }
+\examples{
+\donttest{
+try({
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write.csv(iris, file = tf)
+  df <- read_csv_arrow(tf)
+  dim(df)
+  # Can select columns
+  df <- read_csv_arrow(tf, col_select = starts_with("Sepal"))
+})
+}
+}

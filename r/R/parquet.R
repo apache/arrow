@@ -109,11 +109,11 @@ parquet_file_reader.character <- function(file, props = parquet_arrow_reader_pro
 #' @return A [arrow::Table][arrow__Table], or a `data.frame` if `as_tibble` is
 #' `TRUE`.
 #' @examples
-#'
-#' \dontrun{
+#' \donttest{
+#' try({
 #'   df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
+#' })
 #' }
-#'
 #' @export
 read_parquet <- function(file, col_select = NULL, as_tibble = TRUE, props = parquet_arrow_reader_properties(), ...) {
   reader <- parquet_file_reader(file, props = props, ...)
@@ -134,12 +134,13 @@ read_parquet <- function(file, col_select = NULL, as_tibble = TRUE, props = parq
 #' @param file a file path
 #'
 #' @examples
-#'
-#' \dontrun{
+#' \donttest{
+#' try({
 #'   tf <- tempfile(fileext = ".parquet")
+#'   on.exit(unlink(tf))
 #'   write_parquet(tibble::tibble(x = 1:5), tf)
+#' })
 #' }
-#'
 #' @export
 write_parquet <- function(table, file) {
   write_parquet_file(to_arrow(table), file)
