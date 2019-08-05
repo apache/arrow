@@ -27,6 +27,7 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+namespace colfmt {
 
 /// \brief Per-field levels and values. Schema fields act as map keys.
 class ARROW_EXPORT ColumnMap {
@@ -135,5 +136,6 @@ class ARROW_EXPORT Stitcher {
 };
 
 
+}  // namespace colfmt
 }  // namespace arrow
 

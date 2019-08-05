@@ -26,6 +26,7 @@
 #include "arrow/colfmt/api.h"
 
 namespace arrow {
+namespace colfmt {
 
 template<typename data_type, typename c_type = typename data_type::c_type>
 std::shared_ptr<typename TypeTraits<data_type>::ArrayType>
@@ -366,5 +367,6 @@ TEST_F(TestColumnarFormat, StitcherNotAllLevelsConsumed) {
 }
 
 
+}  // namespace colfmt
 }  // namespace arrow
 

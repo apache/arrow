@@ -29,7 +29,7 @@ using arrow::internal::make_unique;
 // ColumnMap implementation
 namespace {
 
-int FindColumn(const std::vector<arrow::ColumnMap::Column>& columns,
+int FindColumn(const std::vector<arrow::colfmt::ColumnMap::Column>& columns,
                const std::shared_ptr<arrow::Field>& field) {
   // First, binary search is used (equality is by pointer value).
   // This helps to locate elements fast when the objects from the schema are queried for.
@@ -60,6 +60,7 @@ int FindColumn(const std::vector<arrow::ColumnMap::Column>& columns,
 } // anonymous namespace
 
 namespace arrow {
+namespace colfmt {
 
 void ColumnMap::Put(const Column& column) {
   int i = FindColumn(columns_, column.field);
@@ -1028,5 +1029,5 @@ void Stitcher::DebugPrint(std::ostream& out) const {
   impl_->root_->DebugPrint(out);
 }
 
-
+}  // namespace colfmt
 }  // namespace arrow
