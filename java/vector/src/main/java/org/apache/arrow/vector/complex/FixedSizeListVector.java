@@ -526,6 +526,10 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
 
     FixedSizeListVector that = (FixedSizeListVector) to;
 
+    if (this.isSet(index) != that.isSet(toIndex)) {
+      return false;
+    }
+
     for (int i = 0; i < listSize; i++) {
       if (!vector.equals(index * listSize + i, that, toIndex * listSize + i)) {
         return false;

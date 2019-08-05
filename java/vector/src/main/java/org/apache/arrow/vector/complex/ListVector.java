@@ -435,6 +435,11 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     }
 
     ListVector that = (ListVector) to;
+
+    if (this.isSet(index) != that.isSet(toIndex)) {
+      return false;
+    }
+
     final int leftStart = offsetBuffer.getInt(index * OFFSET_WIDTH);
     final int leftEnd = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
 
