@@ -15,7 +15,44 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <sstream>
 #include "./epoch_time_point.h"
+
+std::string prepend_zeroes_make_two_digits(int64_t num) {
+  std::stringstream s;
+  if (num < 10) {
+    s << "0";
+  }
+  s << num;
+  return s.str();
+}
+
+std::string prepend_zeroes_make_three_digits(int64_t num) {
+  std::stringstream s;
+  if (num < 10) {
+    s << "0";
+  }
+  if (num < 100) {
+    s << "0";
+  }
+  s << num;
+  return s.str();
+}
+
+std::string prepend_zeroes_make_four_digits(int64_t num) {
+  std::stringstream s;
+  if (num < 10) {
+    s << "0";
+  }
+  if (num < 100) {
+    s << "0";
+  }
+  if (num < 1000) {
+    s << "0";
+  }
+  s << num;
+  return s.str();
+}
 
 extern "C" {
 
@@ -691,7 +728,23 @@ timestamp castTIMESTAMP_date64(date64 date_in_millis) { return date_in_millis; }
 
 char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 length,
                                   int32* out_len) {
-  std::string timestamp_str = std::to_string(in);
+  int64 year = extractYear_timestamp(in);
+  int64 month = extractMonth_timestamp(in);
+  int64 day = extractDay_timestamp(in);
+  int64 hour = extractHour_timestamp(in);
+  int64 minute = extractMinute_timestamp(in);
+  int64 second = extractSecond_timestamp(in);
+  int64 millis = in % MILLIS_IN_SEC;
+
+  std::stringstream s;
+  s << prepend_zeroes_make_four_digits(year) << "-"
+    << prepend_zeroes_make_two_digits(month) << "-" << prepend_zeroes_make_two_digits(day)
+    << " " << prepend_zeroes_make_two_digits(hour) << ":"
+    << prepend_zeroes_make_two_digits(minute) << ":"
+    << prepend_zeroes_make_two_digits(second) << "."
+    << prepend_zeroes_make_three_digits(millis);
+
+  std::string timestamp_str = s.str();
   *out_len = static_cast<int32>(length);
   int32 timestamp_str_len = static_cast<int32>(timestamp_str.length());
   if (length > timestamp_str_len) {
