@@ -79,4 +79,9 @@ public class DirectHasher extends ArrowBufHasher {
 
     return hash;
   }
+
+  @Override
+  public boolean equals(Object obj) {
+    return obj != null && this.getClass() == obj.getClass();
+  }
 }

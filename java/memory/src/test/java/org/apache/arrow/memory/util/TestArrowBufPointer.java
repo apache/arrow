@@ -17,12 +17,15 @@
 
 package org.apache.arrow.memory.util;
 
+import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
-
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.memory.util.hash.DirectHasher;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -65,6 +68,132 @@ public class TestArrowBufPointer {
         ptr2.set(buf2, i * 4, 4);
         assertTrue(ptr1.equals(ptr2));
       }
+    }
+  }
+
+  @Test
+  public void testArrowBufPointersHashCode() {
+    final int vectorLength = 100;
+    try (ArrowBuf buf1 = allocator.buffer(vectorLength * 4);
+         ArrowBuf buf2 = allocator.buffer(vectorLength * 4)) {
+      for (int i = 0; i < vectorLength; i++) {
+        buf1.setInt(i * 4, i);
+        buf2.setInt(i * 4, i);
+      }
+
+      CounterHasher hasher1 = new CounterHasher();
+      CounterHasher hasher2 = new CounterHasher();
+
+      ArrowBufPointer pointer1 = new ArrowBufPointer(hasher1);
+      assertEquals(ArrowBufPointer.NULL_HASH_CODE, pointer1.hashCode());
+
+      ArrowBufPointer pointer2 = new ArrowBufPointer(hasher2);
+      assertEquals(ArrowBufPointer.NULL_HASH_CODE, pointer2.hashCode());
+
+      for (int i = 0; i < vectorLength; i++) {
+        pointer1.set(buf1, i * 4, 4);
+        pointer2.set(buf2, i * 4, 4);
+
+        assertEquals(pointer1.hashCode(), pointer2.hashCode());
+
+        // verify that the hash codes have been re-computed
+        assertEquals(hasher1.counter, i + 1);
+        assertEquals(hasher2.counter, i + 1);
+      }
+    }
+  }
+
+  @Test
+  public void testNullPointersHashCode() {
+    ArrowBufPointer pointer = new ArrowBufPointer();
+    assertEquals(ArrowBufPointer.NULL_HASH_CODE, pointer.hashCode());
+
+    pointer.set(null, 0, 0);
+    assertEquals(ArrowBufPointer.NULL_HASH_CODE, pointer.hashCode());
+  }
+
+  @Test
+  public void testReuseHashCode() {
+    try (ArrowBuf buf = allocator.buffer(10)) {
+      buf.setInt(0, 10);
+      buf.setInt(4, 20);
+
+      CounterHasher hasher = new CounterHasher();
+      ArrowBufPointer pointer = new ArrowBufPointer(hasher);
+
+      pointer.set(buf, 0, 4);
+      pointer.hashCode();
+
+      // hash code computed
+      assertEquals(1, hasher.counter);
+
+      // no hash code re-compute
+      pointer.hashCode();
+      assertEquals(1, hasher.counter);
+
+      // hash code re-computed
+      pointer.set(buf, 4, 4);
+      pointer.hashCode();
+      assertEquals(2, hasher.counter);
+    }
+  }
+
+  @Test
+  public void testHashersForEquality() {
+    try (ArrowBuf buf = allocator.buffer(10)) {
+      // pointer 1 uses the default hasher
+      ArrowBufPointer pointer1 = new ArrowBufPointer(buf, 0, 10);
+
+      // pointer 2 uses the counter hasher
+      ArrowBufPointer pointer2 = new ArrowBufPointer(buf, 0, 10, new CounterHasher());
+
+      // the two pointers cannot be equal, since they have different hashers
+      assertFalse(pointer1.equals(pointer2));
+    }
+  }
+
+  /**
+   * Hasher with a counter that increments each time a hash code is calculated.
+   * This is to validate that the hash code in {@link ArrowBufPointer} is reused.
+   */
+  class CounterHasher extends ArrowBufHasher {
+
+    protected int counter = 0;
+
+    @Override
+    protected int combineHashCode(int currentHashCode, int newHashCode) {
+      return 0;
+    }
+
+    @Override
+    protected int getByteHashCode(byte byteValue) {
+      return 0;
+    }
+
+    @Override
+    protected int getIntHashCode(int intValue) {
+      return 0;
+    }
+
+    @Override
+    protected int getLongHashCode(long longValue) {
+      return 0;
+    }
+
+    @Override
+    protected int finalizeHashCode(int hashCode) {
+      return 0;
+    }
+
+    @Override
+    public int hashCode(ArrowBuf buf, int offset, int length) {
+      counter += 1;
+      return DirectHasher.INSTANCE.hashCode(buf, offset, length);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      return o != null && this.getClass() == o.getClass();
     }
   }
 }
