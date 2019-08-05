@@ -562,7 +562,7 @@ class TestSerialCSVRead(BaseTestCSVRead, unittest.TestCase):
         read_options = kwargs.setdefault('read_options', ReadOptions())
         read_options.use_threads = False
         table = read_csv(*args, **kwargs)
-        table._validate()
+        table.validate()
         return table
 
 
@@ -572,7 +572,7 @@ class TestParallelCSVRead(BaseTestCSVRead, unittest.TestCase):
         read_options = kwargs.setdefault('read_options', ReadOptions())
         read_options.use_threads = True
         table = read_csv(*args, **kwargs)
-        table._validate()
+        table.validate()
         return table
 
 
@@ -595,7 +595,7 @@ class BaseTestCompressedCSVRead:
         csv_path = os.path.join(self.tmpdir, self.csv_filename)
         self.write_file(csv_path, csv)
         table = self.read_csv(csv_path)
-        table._validate()
+        table.validate()
         assert table.schema == expected.schema
         assert table.equals(expected)
         assert table.to_pydict() == expected.to_pydict()

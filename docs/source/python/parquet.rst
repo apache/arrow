@@ -210,6 +210,19 @@ Alternatively python ``with`` syntax can also be use:
 Data Type Handling
 ------------------
 
+Reading types as DictionaryArray
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``read_dictionary`` option in ``read_table`` and ``ParquetDataset`` will
+cause columns to be read as ``DictionaryArray``, which will become
+``pandas.Categorical`` when converted to pandas. This option is only valid for
+string and binary column types, and it can yield significantly lower memory use
+and improved performance for columns with many repeated string values.
+
+.. code-block:: python
+
+   pq.read_table(table, where, read_dictionary=['binary_c0', 'stringb_c2'])
+
 Storing timestamps
 ~~~~~~~~~~~~~~~~~~
 
@@ -305,7 +318,7 @@ A dataset partitioned by year and month may look like on disk:
      ...
 
 Writing to Partitioned Datasets
-------------------------------------------------
+-------------------------------
 
 You can write a partitioned dataset for any ``pyarrow`` file system that is a
 file-store (e.g. local, HDFS, S3). The default behaviour when no filesystem is

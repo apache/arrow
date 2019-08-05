@@ -127,9 +127,10 @@ class ParquetFile(object):
         improve performance in some environments
     """
     def __init__(self, source, metadata=None, common_metadata=None,
-                 memory_map=True):
+                 read_dictionary=None, memory_map=True):
         self.reader = ParquetReader()
-        self.reader.open(source, use_memory_map=memory_map, metadata=metadata)
+        self.reader.open(source, use_memory_map=memory_map,
+                         read_dictionary=read_dictionary, metadata=metadata)
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
 
@@ -463,11 +464,12 @@ class ParquetDatasetPiece(object):
         Row group to load. By default, reads all row groups
     """
     def __init__(self, path, open_file_func=partial(open, mode='rb'),
-                 row_group=None, partition_keys=None):
+                 file_options=None, row_group=None, partition_keys=None):
         self.path = _stringify_path(path)
         self.open_file_func = open_file_func
         self.row_group = row_group
         self.partition_keys = partition_keys or []
+        self.file_options = file_options or {}
 
     def __eq__(self, other):
         if not isinstance(other, ParquetDatasetPiece):
@@ -500,37 +502,16 @@ class ParquetDatasetPiece(object):
 
         return result
 
-    def get_metadata(self, open_file_func=None):
+    def get_metadata(self):
         """
         Returns the file's metadata
-
-        Parameters
-        ----------
-        open_file_func : function, deprecated
-            Function to use for obtaining file handle to dataset piece.
-            Deprecated in version 0.13.0. Use ``open_file_func`` parameter of
-            the constructor instead.
 
         Returns
         -------
         metadata : FileMetaData
         """
-        if open_file_func is not None:
-            f = self._open(open_file_func)
-        else:
-            f = self.open()
+        f = self.open()
         return f.metadata
-
-    def _open(self, open_file_func):
-        """
-        Returns instance of ParquetFile
-        """
-        warnings.warn('open_file_func argument is deprecated, please pass '
-                      'it to ParquetDatasetPiece instead', DeprecationWarning)
-        reader = open_file_func(self.path)
-        if not isinstance(reader, ParquetFile):
-            reader = ParquetFile(reader)
-        return reader
 
     def open(self):
         """
@@ -538,11 +519,11 @@ class ParquetDatasetPiece(object):
         """
         reader = self.open_file_func(self.path)
         if not isinstance(reader, ParquetFile):
-            reader = ParquetFile(reader)
+            reader = ParquetFile(reader, **self.file_options)
         return reader
 
     def read(self, columns=None, use_threads=True, partitions=None,
-             open_file_func=None, file=None, use_pandas_metadata=False):
+             file=None, use_pandas_metadata=False):
         """
         Read this piece as a pyarrow.Table
 
@@ -552,10 +533,6 @@ class ParquetDatasetPiece(object):
         use_threads : boolean, default True
             Perform multi-threaded column reads
         partitions : ParquetPartitions, default None
-        open_file_func : function, deprecated
-            Function to use for obtaining file handle to dataset piece.
-            Deprecated in version 0.13.0. Use ``open_file_func`` parameter of
-            the constructor instead.
         file : file-like object
             passed to ParquetFile
 
@@ -563,15 +540,13 @@ class ParquetDatasetPiece(object):
         -------
         table : pyarrow.Table
         """
-        if open_file_func is not None:
-            reader = self._open(open_file_func)
-        elif self.open_file_func is not None:
+        if self.open_file_func is not None:
             reader = self.open()
         elif file is not None:
-            reader = ParquetFile(file)
+            reader = ParquetFile(file, **self.file_options)
         else:
             # try to read the local path
-            reader = ParquetFile(self.path)
+            reader = ParquetFile(self.path, **self.file_options)
 
         options = dict(columns=columns,
                        use_threads=use_threads,
@@ -906,60 +881,20 @@ EXCLUDED_PARQUET_PATHS = {'_SUCCESS'}
 def _open_dataset_file(dataset, path, meta=None):
     if dataset.fs is None or isinstance(dataset.fs, LocalFileSystem):
         return ParquetFile(path, metadata=meta, memory_map=dataset.memory_map,
+                           read_dictionary=dataset.read_dictionary,
                            common_metadata=dataset.common_metadata)
     else:
         return ParquetFile(dataset.fs.open(path, mode='rb'), metadata=meta,
                            memory_map=dataset.memory_map,
+                           read_dictionary=dataset.read_dictionary,
                            common_metadata=dataset.common_metadata)
 
 
 class ParquetDataset(object):
-    """
-    Encapsulates details of reading a complete Parquet dataset possibly
-    consisting of multiple files and partitions in subdirectories
-
-    Parameters
-    ----------
-    path_or_paths : str or List[str]
-        A directory name, single file name, or list of file names
-    filesystem : FileSystem, default None
-        If nothing passed, paths assumed to be found in the local on-disk
-        filesystem
-    metadata : pyarrow.parquet.FileMetaData
-        Use metadata obtained elsewhere to validate file schemas
-    schema : pyarrow.parquet.Schema
-        Use schema obtained elsewhere to validate file schemas. Alternative to
-        metadata parameter
-    split_row_groups : boolean, default False
-        Divide files into pieces for each row group in the file
-    validate_schema : boolean, default True
-        Check that individual file schemas are all the same / compatible
-    filters : List[Tuple] or List[List[Tuple]] or None (default)
-        List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
-        implements partition-level (hive) filtering only, i.e., to prevent the
-        loading of some files of the dataset.
-
-        Predicates are expressed in disjunctive normal form (DNF). This means
-        that the innermost tuple describe a single column predicate. These
-        inner predicate make are all combined with a conjunction (AND) into a
-        larger predicate. The most outer list then combines all filters
-        with a disjunction (OR). By this, we should be able to express all
-        kinds of filters that are possible using boolean logic.
-
-        This function also supports passing in as List[Tuple]. These predicates
-        are evaluated as a conjunction. To express OR in predictates, one must
-        use the (preferred) List[List[Tuple]] notation.
-    metadata_nthreads: int, default 1
-        How many threads to allow the thread pool which is used to read the
-        dataset metadata. Increasing this is helpful to read partitioned
-        datasets.
-    memory_map : boolean, default True
-        If the source is a file path, use a memory map to read each file in the
-        dataset if possible, which can improve performance in some environments
-    """
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
-                 filters=None, metadata_nthreads=1, memory_map=True):
+                 filters=None, metadata_nthreads=1,
+                 read_dictionary=None, memory_map=True):
         a_path = path_or_paths
         if isinstance(a_path, list):
             a_path = a_path[0]
@@ -970,6 +905,7 @@ class ParquetDataset(object):
         else:
             self.paths = _parse_uri(path_or_paths)
 
+        self.read_dictionary = read_dictionary
         self.memory_map = memory_map
 
         (self.pieces,
@@ -981,14 +917,13 @@ class ParquetDataset(object):
 
         if self.common_metadata_path is not None:
             with self.fs.open(self.common_metadata_path) as f:
-                self.common_metadata = (ParquetFile(f, memory_map=memory_map)
-                                        .metadata)
+                self.common_metadata = read_metadata(f, memory_map=memory_map)
         else:
             self.common_metadata = None
 
         if metadata is None and self.metadata_path is not None:
             with self.fs.open(self.metadata_path) as f:
-                self.metadata = ParquetFile(f, memory_map=memory_map).metadata
+                self.metadata = read_metadata(f, memory_map=memory_map)
         else:
             self.metadata = metadata
 
@@ -1170,6 +1105,62 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
     return pieces, partitions, common_metadata_path, metadata_path
 
 
+_read_docstring_common = """\
+read_dictionary : list, default None
+    List of names or column paths (for nested types) to read directly
+    as DictionaryArray. Only supported for BYTE_ARRAY storage. To read
+    a flat column as dictionary-encoded pass the column name. For
+    nested types, you must pass the full column "path", which could be
+    something like level1.level2.list.item. Refer to the Parquet
+    file's schema to obtain the paths.
+memory_map : boolean, default True
+    If the source is a file path, use a memory map to read file, which can
+    improve performance in some environments"""
+
+
+ParquetDataset.__doc__ = """
+Encapsulates details of reading a complete Parquet dataset possibly
+consisting of multiple files and partitions in subdirectories
+
+Parameters
+----------
+path_or_paths : str or List[str]
+    A directory name, single file name, or list of file names
+filesystem : FileSystem, default None
+    If nothing passed, paths assumed to be found in the local on-disk
+    filesystem
+metadata : pyarrow.parquet.FileMetaData
+    Use metadata obtained elsewhere to validate file schemas
+schema : pyarrow.parquet.Schema
+    Use schema obtained elsewhere to validate file schemas. Alternative to
+    metadata parameter
+split_row_groups : boolean, default False
+    Divide files into pieces for each row group in the file
+validate_schema : boolean, default True
+    Check that individual file schemas are all the same / compatible
+filters : List[Tuple] or List[List[Tuple]] or None (default)
+    List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
+    implements partition-level (hive) filtering only, i.e., to prevent the
+    loading of some files of the dataset.
+
+    Predicates are expressed in disjunctive normal form (DNF). This means
+    that the innermost tuple describe a single column predicate. These
+    inner predicate make are all combined with a conjunction (AND) into a
+    larger predicate. The most outer list then combines all filters
+    with a disjunction (OR). By this, we should be able to express all
+    kinds of filters that are possible using boolean logic.
+
+    This function also supports passing in as List[Tuple]. These predicates
+    are evaluated as a conjunction. To express OR in predictates, one must
+    use the (preferred) List[List[Tuple]] notation.
+metadata_nthreads: int, default 1
+    How many threads to allow the thread pool which is used to read the
+    dataset metadata. Increasing this is helpful to read partitioned
+    datasets.
+{0}
+""".format(_read_docstring_common)
+
+
 _read_table_docstring = """
 {0}
 
@@ -1187,9 +1178,6 @@ use_threads : boolean, default True
     Perform multi-threaded column reads
 metadata : FileMetaData
     If separately computed
-memory_map : boolean, default True
-    If the source is a file path, use a memory map to read file, which can
-    improve performance in some environments
 {1}
 filters : List[Tuple] or List[List[Tuple]] or None (default)
     List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
@@ -1205,21 +1193,25 @@ Returns
 
 def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=True,
-               filesystem=None, filters=None):
+               read_dictionary=None, filesystem=None, filters=None):
     if _is_path_like(source):
         pf = ParquetDataset(source, metadata=metadata, memory_map=memory_map,
+                            read_dictionary=read_dictionary,
                             filesystem=filesystem, filters=filters)
     else:
-        pf = ParquetFile(source, metadata=metadata, memory_map=memory_map)
+        pf = ParquetFile(source, metadata=metadata,
+                         read_dictionary=read_dictionary,
+                         memory_map=memory_map)
     return pf.read(columns=columns, use_threads=use_threads,
                    use_pandas_metadata=use_pandas_metadata)
 
 
 read_table.__doc__ = _read_table_docstring.format(
     'Read a Table from Parquet format',
-    """use_pandas_metadata : boolean, default False
+    "\n".join((_read_docstring_common,
+               """use_pandas_metadata : boolean, default False
     If True and file has custom pandas schema metadata, ensure that
-    index columns are also loaded""",
+    index columns are also loaded""")),
     """pyarrow.Table
     Content of the file as a table (of columns)""")
 
@@ -1236,7 +1228,7 @@ def read_pandas(source, columns=None, use_threads=True, memory_map=True,
 read_pandas.__doc__ = _read_table_docstring.format(
     'Read a Table from Parquet format, also reading DataFrame\n'
     'index values if known in the file metadata',
-    '',
+    _read_docstring_common,
     """pyarrow.Table
     Content of the file as a Table of Columns, including DataFrame
     indexes as columns""")

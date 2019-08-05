@@ -186,7 +186,7 @@ def test_chunked_array_to_pandas():
     data = [
         pa.array([-10, -5, 0, 5, 10])
     ]
-    table = pa.Table.from_arrays(data, names=['a'])
+    table = pa.table(data, names=['a'])
     col = table.column(0)
     assert isinstance(col, pa.ChunkedArray)
     array = col.to_pandas()
@@ -445,8 +445,8 @@ def test_table_basics():
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10])
     ]
-    table = pa.Table.from_arrays(data, names=('a', 'b'))
-    table._validate()
+    table = pa.table(data, names=('a', 'b'))
+    table.validate()
     assert len(table) == 5
     assert table.num_rows == 5
     assert table.num_columns == 2
@@ -474,9 +474,8 @@ def test_table_basics():
             col.chunk(col.num_chunks)
 
     assert table.columns == columns
-    assert table == pa.Table.from_arrays(columns, names=table.column_names)
-    assert table != pa.Table.from_arrays(columns[1:],
-                                         names=table.column_names[1:])
+    assert table == pa.table(columns, names=table.column_names)
+    assert table != pa.table(columns[1:], names=table.column_names[1:])
     assert table != columns
 
 
@@ -504,21 +503,23 @@ def test_table_from_arrays_invalid_names():
         pa.Table.from_arrays(data, names=['a'])
 
 
-def test_table_from_lists_raises():
+def test_table_from_lists():
     data = [
         list(range(5)),
         [-10, -5, 0, 5, 10]
     ]
 
-    with pytest.raises(TypeError):
-        pa.Table.from_arrays(data, names=['a', 'b'])
+    result = pa.table(data, names=['a', 'b'])
+    expected = pa.Table.from_arrays(data, names=['a', 'b'])
+    assert result.equals(expected)
 
     schema = pa.schema([
         pa.field('a', pa.uint16()),
         pa.field('b', pa.int64())
     ])
-    with pytest.raises(TypeError):
-        pa.Table.from_arrays(data, schema=schema)
+    result = pa.table(data, schema=schema)
+    expected = pa.Table.from_arrays(data, schema=schema)
+    assert result.equals(expected)
 
 
 def test_table_pickle():
@@ -532,7 +533,7 @@ def test_table_pickle():
     table = pa.Table.from_arrays(data, schema=schema)
 
     result = pickle.loads(pickle.dumps(table))
-    result._validate()
+    result.validate()
     assert result.equals(table)
 
 
@@ -620,7 +621,7 @@ def test_table_remove_column():
     table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
 
     t2 = table.remove_column(0)
-    t2._validate()
+    t2.validate()
     expected = pa.Table.from_arrays(data[1:], names=('b', 'c'))
     assert t2.equals(expected)
 
@@ -633,11 +634,11 @@ def test_table_remove_column_empty():
     table = pa.Table.from_arrays(data, names=['a'])
 
     t2 = table.remove_column(0)
-    t2._validate()
+    t2.validate()
     assert len(t2) == len(table)
 
     t3 = t2.add_column(0, table.field(0), table[0])
-    t3._validate()
+    t3.validate()
     assert t3.equals(table)
 
 
@@ -651,7 +652,7 @@ def test_table_rename_columns():
     assert table.column_names == ['a', 'b', 'c']
 
     t2 = table.rename_columns(['eh', 'bee', 'sea'])
-    t2._validate()
+    t2.validate()
     assert t2.column_names == ['eh', 'bee', 'sea']
 
     expected = pa.Table.from_arrays(data, names=['eh', 'bee', 'sea'])
@@ -668,7 +669,7 @@ def test_table_flatten():
 
     table = pa.Table.from_arrays([a, b, c], names=['a', 'b', 'c'])
     t2 = table.flatten()
-    t2._validate()
+    t2.validate()
     expected = pa.Table.from_arrays([
         pa.array([1, 3], type=pa.int16()),
         pa.array([2.5, 4.5], type=pa.float32()),
@@ -685,7 +686,7 @@ def test_table_combine_chunks():
                                         names=['f1', 'f2'])
     table = pa.Table.from_batches([batch1, batch2])
     combined = table.combine_chunks()
-    combined._validate()
+    combined.validate()
     assert combined.equals(table)
     for c in combined.columns:
         assert c.num_chunks == 1
@@ -707,7 +708,7 @@ def test_concat_tables():
                               names=('a', 'b'))
 
     result = pa.concat_tables([t1, t2])
-    result._validate()
+    result.validate()
     assert len(result) == 10
 
     expected = pa.Table.from_arrays([pa.array(x + y)

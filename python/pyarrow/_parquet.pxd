@@ -328,14 +328,6 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
     ReaderProperties default_reader_properties()
 
     cdef cppclass ParquetFileReader:
-        @staticmethod
-        unique_ptr[ParquetFileReader] Open(
-            const shared_ptr[RandomAccessFile]& file,
-            const ReaderProperties& props,
-            const shared_ptr[CFileMetaData]& metadata)
-
-        @staticmethod
-        unique_ptr[ParquetFileReader] OpenFile(const c_string& path)
         shared_ptr[CFileMetaData] metadata()
 
 
@@ -359,15 +351,13 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
 
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
     cdef cppclass ArrowReaderProperties:
-        pass
+        ArrowReaderProperties()
+        void set_read_dictionary(int column_index, c_bool read_dict)
+        c_bool read_dictionary()
+        void set_batch_size()
+        int64_t batch_size()
 
     ArrowReaderProperties default_arrow_reader_properties()
-
-    CStatus OpenFile(const shared_ptr[RandomAccessFile]& file,
-                     CMemoryPool* allocator,
-                     const ReaderProperties& properties,
-                     const shared_ptr[CFileMetaData]& metadata,
-                     unique_ptr[FileReader]* reader)
 
     cdef cppclass FileReader:
         FileReader(CMemoryPool* pool, unique_ptr[ParquetFileReader] reader)
@@ -389,6 +379,17 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         const ParquetFileReader* parquet_reader()
 
         void set_use_threads(c_bool use_threads)
+
+    cdef cppclass FileReaderBuilder:
+        FileReaderBuilder()
+        CStatus Open(const shared_ptr[RandomAccessFile]& file,
+                     const ReaderProperties& properties,
+                     const shared_ptr[CFileMetaData]& metadata)
+
+        ParquetFileReader* raw_reader()
+        FileReaderBuilder* memory_pool(CMemoryPool*)
+        FileReaderBuilder* properties(const ArrowReaderProperties&)
+        CStatus Build(unique_ptr[FileReader]* out)
 
     CStatus FromParquetSchema(
         const SchemaDescriptor* parquet_schema,

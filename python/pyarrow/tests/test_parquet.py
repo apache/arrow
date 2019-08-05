@@ -1356,19 +1356,7 @@ def test_parquet_piece_open_and_get_metadata(tempdir):
     meta1 = piece.get_metadata()
     assert isinstance(meta1, pq.FileMetaData)
 
-    def open_parquet(fn):
-        return pq.ParquetFile(open(fn, mode='rb'))
-
-    # test deprecated open_file_func
-    with pytest.warns(DeprecationWarning):
-        table2 = piece.read(open_file_func=open_parquet)
-        assert isinstance(table2, pa.Table)
-    with pytest.warns(DeprecationWarning):
-        meta2 = piece.get_metadata(open_file_func=open_parquet)
-        assert isinstance(meta2, pq.FileMetaData)
-
-    assert table == table1 == table2
-    assert meta1 == meta2
+    assert table == table1
 
 
 def test_parquet_piece_basics():
@@ -2859,8 +2847,8 @@ def test_partitioned_dataset(tempdir):
 
 
 def test_read_column_invalid_index():
-    table = pa.Table.from_arrays([pa.array([4, 5]), pa.array(["foo", "bar"])],
-                                 ['ints', 'strs'])
+    table = pa.table([pa.array([4, 5]), pa.array(["foo", "bar"])],
+                     names=['ints', 'strs'])
     bio = pa.BufferOutputStream()
     pq.write_table(table, bio)
     f = pq.ParquetFile(bio.getvalue())
@@ -2869,6 +2857,81 @@ def test_read_column_invalid_index():
     for index in (-1, 2):
         with pytest.raises((ValueError, IndexError)):
             f.reader.read_column(index)
+
+
+def test_direct_read_dictionary():
+    # ARROW-3325
+    repeats = 10
+    nunique = 5
+
+    data = [
+        [tm.rands(10) for i in range(nunique)] * repeats,
+
+    ]
+    table = pa.table(data, names=['f0'])
+
+    bio = pa.BufferOutputStream()
+    pq.write_table(table, bio)
+    contents = bio.getvalue()
+
+    result = pq.read_table(pa.BufferReader(contents),
+                           read_dictionary=['f0'])
+
+    # Compute dictionary-encoded subfield
+    expected = pa.table([table[0].dictionary_encode()], names=['f0'])
+    assert result.equals(expected)
+
+
+def test_dataset_read_dictionary(tempdir):
+    path = tempdir / "ARROW-3325-dataset"
+    t1 = pa.table([[tm.rands(10) for i in range(5)] * 10], names=['f0'])
+    t2 = pa.table([[tm.rands(10) for i in range(5)] * 10], names=['f0'])
+    pq.write_to_dataset(t1, root_path=str(path))
+    pq.write_to_dataset(t2, root_path=str(path))
+
+    result = pq.ParquetDataset(path, read_dictionary=['f0']).read()
+
+    # The order of the chunks is non-deterministic
+    ex_chunks = [t1[0].chunk(0).dictionary_encode(),
+                 t2[0].chunk(0).dictionary_encode()]
+
+    assert result[0].num_chunks == 2
+    c0, c1 = result[0].chunk(0), result[0].chunk(1)
+    if c0.equals(ex_chunks[0]):
+        assert c1.equals(ex_chunks[1])
+    else:
+        assert c0.equals(ex_chunks[1])
+        assert c1.equals(ex_chunks[0])
+
+
+def test_direct_read_dictionary_subfield():
+    repeats = 10
+    nunique = 5
+
+    data = [
+        [[tm.rands(10)] for i in range(nunique)] * repeats,
+    ]
+    table = pa.table(data, names=['f0'])
+
+    bio = pa.BufferOutputStream()
+    pq.write_table(table, bio)
+    contents = bio.getvalue()
+    result = pq.read_table(pa.BufferReader(contents),
+                           read_dictionary=['f0.list.item'])
+
+    arr = pa.array(data[0])
+    values_as_dict = arr.values.dictionary_encode()
+
+    inner_indices = values_as_dict.indices.cast('int32')
+    new_values = pa.DictionaryArray.from_arrays(inner_indices,
+                                                values_as_dict.dictionary)
+
+    offsets = pa.array(range(51), type='int32')
+    expected_arr = pa.ListArray.from_arrays(offsets, new_values)
+    expected = pa.table([expected_arr], names=['f0'])
+
+    assert result.equals(expected)
+    assert result[0].num_chunks == 1
 
 
 @pytest.mark.pandas
