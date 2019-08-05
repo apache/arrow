@@ -34,8 +34,9 @@ class StreamPipe<FROM, TO> implements StreamListener<FROM> {
 
   private StreamObserver<TO> delegate;
   private Function<FROM, TO> mapFunction;
+  private boolean closed = false;
 
-  public static <FROM, TO> StreamListener<FROM> wrap(StreamObserver<TO> delegate, Function<FROM, TO> func) {
+  public static <FROM, TO> StreamPipe<FROM, TO> wrap(StreamObserver<TO> delegate, Function<FROM, TO> func) {
     return new StreamPipe<>(delegate, func);
   }
 
@@ -53,11 +54,21 @@ class StreamPipe<FROM, TO> implements StreamListener<FROM> {
   @Override
   public void onError(Throwable t) {
     delegate.onError(StatusUtils.toGrpcException(t));
+    closed = true;
   }
 
   @Override
   public void onCompleted() {
     delegate.onCompleted();
+    closed = true;
   }
 
+  /**
+   * Ensure this stream has been completed.
+   */
+  public void ensureCompleted() {
+    if (!closed) {
+      onCompleted();
+    }
+  }
 }
