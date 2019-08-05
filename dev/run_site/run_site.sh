@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+# TODO: update now that website source is in apache/arrow-site
 cd /apache-arrow/arrow/site
 export GEM_HOME=$(pwd)
 export BUNDLE_PATH=$(pwd)

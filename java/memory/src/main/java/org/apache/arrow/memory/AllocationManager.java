@@ -136,7 +136,7 @@ public class AllocationManager {
       // store the mapping for <allocator, reference manager>
       BufferLedger oldLedger = map.put(ledger);
       Preconditions.checkState(oldLedger == null,
-          "Detected inconsitent state: A reference manager already exists for this allocator");
+          "Detected inconsistent state: A reference manager already exists for this allocator");
 
       // needed for debugging only: keep a pointer to reference manager inside allocator
       // to dump state, verify allocator state etc

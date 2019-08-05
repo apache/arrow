@@ -24,5 +24,6 @@ popd
 
 sphinx-build -b html /arrow/docs/source /arrow/docs/_build/html
 
+# TODO: update now that website source is in apache/arrow-site
 mkdir -p /arrow/site/asf-site/docs/latest
 rsync -r /arrow/docs/_build/html/ /arrow/site/asf-site/docs/latest/

@@ -37,6 +37,7 @@ branch_name=release-note-${version}
 git checkout master
 git checkout -b ${branch_name}
 
+# TODO: update now that website source is in apache/arrow-site
 site_dir="${SOURCE_TOP_DIR}/site"
 release_dir="${site_dir}/_release"
 announce_file="${release_dir}/${version}.md"

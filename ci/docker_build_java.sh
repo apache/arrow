@@ -46,6 +46,7 @@ mvn -B $JAVA_ARGS -Drat.skip=true install $SHADE_FLATBUFFERS
 
 if [ "$ARROW_JAVADOC" == "1" ]; then
   export MAVEN_OPTS="$MAVEN_OPTS -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
+  # TODO: update now that website source is in apache/arrow-site
   mvn -B site
 fi
 popd

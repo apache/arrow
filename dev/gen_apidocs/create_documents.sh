@@ -30,6 +30,7 @@ export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 
 # Make Java documentation
 # Override user.home to cache dependencies outside the Docker container
+# TODO: update now that website source is in apache/arrow-site
 pushd arrow/java
 mvn -Duser.home=`pwd`/.apidocs-m2 -Drat.skip=true -Dcheckstyle.skip=true install site
 mkdir -p ../site/asf-site/docs/java/

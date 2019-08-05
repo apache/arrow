@@ -91,6 +91,3 @@ js/test/data/**/*.arrow
 
 # Rust
 rust/target
-
-# site
-site/
