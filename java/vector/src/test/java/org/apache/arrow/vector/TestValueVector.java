@@ -2255,6 +2255,25 @@ public class TestValueVector {
   }
 
   @Test
+  public void testIntVectorEqualsWithNull() {
+    try (final IntVector vector1 = new IntVector("v1", allocator);
+        final IntVector vector2 = new IntVector("v2", allocator)) {
+
+      vector1.allocateNew(2);
+      vector1.setValueCount(2);
+      vector2.allocateNew(2);
+      vector2.setValueCount(2);
+
+      vector1.setSafe(0, 1);
+      vector1.setSafe(1, 2);
+
+      vector2.setSafe(0, 1);
+
+      assertFalse(vector1.equals(vector2));
+    }
+  }
+
+  @Test
   public void testIntVectorEquals() {
     try (final IntVector vector1 = new IntVector("v1", allocator);
         final IntVector vector2 = new IntVector("v2", allocator)) {
@@ -2310,6 +2329,25 @@ public class TestValueVector {
   }
 
   @Test
+  public void testVarcharVectorEuqalsWithNull() {
+    try (final VarCharVector vector1 = new VarCharVector("v1", allocator);
+        final VarCharVector vector2 = new VarCharVector("v2", allocator)) {
+
+      vector1.allocateNew();
+      vector2.allocateNew();
+
+      // set some values
+      vector1.setSafe(0, STR1, 0, STR1.length);
+      vector1.setSafe(1, STR2, 0, STR2.length);
+      vector1.setValueCount(2);
+
+      vector2.setSafe(0, STR1, 0, STR1.length);
+      vector2.setValueCount(2);
+      assertFalse(vector1.equals(vector2));
+    }
+  }
+
+  @Test
   public void testVarcharVectorEquals() {
     try (final VarCharVector vector1 = new VarCharVector("v1", allocator);
         final VarCharVector vector2 = new VarCharVector("v2", allocator)) {
@@ -2360,6 +2398,32 @@ public class TestValueVector {
   }
 
   @Test
+  public void testListVectorEqualsWithNull() {
+    try (final ListVector vector1 = ListVector.empty("v1", allocator);
+        final ListVector vector2 = ListVector.empty("v2", allocator);) {
+
+      UnionListWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      //set some values
+      writeListVector(writer1, new int[] {1, 2});
+      writeListVector(writer1, new int[] {3, 4});
+      writeListVector(writer1, new int[] {});
+      writer1.setValueCount(3);
+
+      UnionListWriter writer2 = vector2.getWriter();
+      writer2.allocate();
+
+      //set some values
+      writeListVector(writer2, new int[] {1, 2});
+      writeListVector(writer2, new int[] {3, 4});
+      writer2.setValueCount(3);
+
+      assertFalse(vector1.equals(vector2));
+    }
+  }
+
+  @Test
   public void testListVectorEquals() {
     try (final ListVector vector1 = ListVector.empty("v1", allocator);
         final ListVector vector2 = ListVector.empty("v2", allocator);) {
@@ -2386,6 +2450,35 @@ public class TestValueVector {
       writer2.setValueCount(3);
 
       assertTrue(vector1.equals(vector2));
+    }
+  }
+
+  @Test
+  public void testStructVectorEqualsWithNull() {
+
+    try (final StructVector vector1 = StructVector.empty("v1", allocator);
+        final StructVector vector2 = StructVector.empty("v2", allocator);) {
+      vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
+      vector1.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
+      vector2.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
+      vector2.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
+
+      NullableStructWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      writeStructVector(writer1, 1, 10L);
+      writeStructVector(writer1, 2, 20L);
+      writeStructVector(writer1, 3, 30L);
+      writer1.setValueCount(3);
+
+      NullableStructWriter writer2 = vector2.getWriter();
+      writer2.allocate();
+
+      writeStructVector(writer2, 1, 10L);
+      writeStructVector(writer2, 3, 30L);
+      writer2.setValueCount(3);
+
+      assertFalse(vector1.equals(vector2));
     }
   }
 
@@ -2418,6 +2511,32 @@ public class TestValueVector {
       writer2.setValueCount(3);
 
       assertTrue(vector1.equals(vector2));
+    }
+  }
+
+  @Test
+  public void testStructVectorEqualsWithDiffChild() {
+    try (final StructVector vector1 = StructVector.empty("v1", allocator);
+        final StructVector vector2 = StructVector.empty("v2", allocator);) {
+      vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
+      vector1.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
+      vector2.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
+      vector2.addOrGet("f10", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
+
+      NullableStructWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      writeStructVector(writer1, 1, 10L);
+      writeStructVector(writer1, 2, 20L);
+      writer1.setValueCount(2);
+
+      NullableStructWriter writer2 = vector2.getWriter();
+      writer2.allocate();
+
+      writeStructVector(writer2, 1, 10L);
+      writeStructVector(writer2, 2, 20L);
+      writer2.setValueCount(2);
+      assertFalse(vector1.equals(vector2));
     }
   }
 

@@ -307,8 +307,13 @@ public class NonNullableStructVector extends AbstractStructVector {
       return false;
     }
     NonNullableStructVector that = (NonNullableStructVector) to;
+
     List<ValueVector> leftChildrens = new ArrayList<>();
     List<ValueVector> rightChildrens = new ArrayList<>();
+
+    if (!getChildFieldNames().equals(that.getChildFieldNames())) {
+      return false;
+    }
 
     for (String child : getChildFieldNames()) {
       ValueVector v = getChild(child);

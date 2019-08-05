@@ -282,7 +282,7 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
     if (this == target) {
       return true;
     }
-    if (target == null || this.getMinorType() != target.getMinorType()) {
+    if (target == null || !this.getField().getType().equals(target.getField().getType())) {
       return false;
     }
 
