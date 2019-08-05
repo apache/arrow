@@ -289,7 +289,7 @@ class PARQUET_EXPORT ColumnReader {
 
 /// \brief Experimental helper class for bindings (like Python) that struggle
 /// either with std::move or C++ exceptions
-class FileReaderBuilder {
+class PARQUET_EXPORT FileReaderBuilder {
  public:
   FileReaderBuilder();
 
