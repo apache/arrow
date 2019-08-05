@@ -41,7 +41,7 @@ use fnv::FnvHashMap;
 /// or more aggregate expressions
 pub(super) struct AggregateRelation {
     schema: Arc<Schema>,
-    input: Rc<RefCell<Relation>>,
+    input: Rc<RefCell<dyn Relation>>,
     group_expr: Vec<CompiledExpr>,
     aggr_expr: Vec<CompiledAggregateExpression>,
     end_of_results: bool,
@@ -50,7 +50,7 @@ pub(super) struct AggregateRelation {
 impl AggregateRelation {
     pub fn new(
         schema: Arc<Schema>,
-        input: Rc<RefCell<Relation>>,
+        input: Rc<RefCell<dyn Relation>>,
         group_expr: Vec<CompiledExpr>,
         aggr_expr: Vec<CompiledAggregateExpression>,
     ) -> Self {
@@ -472,7 +472,7 @@ impl AggregateFunction for CountFunction {
 }
 
 struct AccumulatorSet {
-    aggr_values: Vec<Rc<RefCell<AggregateFunction>>>,
+    aggr_values: Vec<Rc<RefCell<dyn AggregateFunction>>>,
 }
 
 impl AccumulatorSet {
@@ -504,27 +504,27 @@ struct MapEntry {
 fn create_accumulators(
     aggr_expr: &Vec<CompiledAggregateExpression>,
 ) -> Result<AccumulatorSet> {
-    let aggr_values: Vec<Rc<RefCell<AggregateFunction>>> = aggr_expr
+    let aggr_values: Vec<Rc<RefCell<dyn AggregateFunction>>> = aggr_expr
         .iter()
         .map(|e| match e.aggr_type() {
             AggregateType::Min => {
                 Ok(Rc::new(RefCell::new(MinFunction::new(e.data_type())))
-                    as Rc<RefCell<AggregateFunction>>)
+                    as Rc<RefCell<dyn AggregateFunction>>)
             }
             AggregateType::Max => {
                 Ok(Rc::new(RefCell::new(MaxFunction::new(e.data_type())))
-                    as Rc<RefCell<AggregateFunction>>)
+                    as Rc<RefCell<dyn AggregateFunction>>)
             }
             AggregateType::Sum => {
                 Ok(Rc::new(RefCell::new(SumFunction::new(e.data_type())))
-                    as Rc<RefCell<AggregateFunction>>)
+                    as Rc<RefCell<dyn AggregateFunction>>)
             }
             AggregateType::Avg => {
                 Ok(Rc::new(RefCell::new(AvgFunction::new(e.data_type())))
-                    as Rc<RefCell<AggregateFunction>>)
+                    as Rc<RefCell<dyn AggregateFunction>>)
             }
             AggregateType::Count => Ok(Rc::new(RefCell::new(CountFunction::new()))
-                as Rc<RefCell<AggregateFunction>>),
+                as Rc<RefCell<dyn AggregateFunction>>),
             _ => Err(ExecutionError::ExecutionError(
                 "unsupported aggregate function".to_string(),
             )),
@@ -1482,7 +1482,7 @@ mod tests {
         ]))
     }
 
-    fn load_csv(filename: &str, schema: &Arc<Schema>) -> Rc<RefCell<Relation>> {
+    fn load_csv(filename: &str, schema: &Arc<Schema>) -> Rc<RefCell<dyn Relation>> {
         let ds = CsvBatchIterator::new(filename, schema.clone(), true, &None, 10);
         Rc::new(RefCell::new(DataSourceRelation::new(Arc::new(Mutex::new(
             ds,

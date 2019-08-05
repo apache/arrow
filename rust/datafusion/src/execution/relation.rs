@@ -40,11 +40,11 @@ pub trait Relation {
 /// Implementation of a relation that represents a DataFusion data source
 pub(super) struct DataSourceRelation {
     schema: Arc<Schema>,
-    ds: Arc<Mutex<RecordBatchIterator>>,
+    ds: Arc<Mutex<dyn RecordBatchIterator>>,
 }
 
 impl DataSourceRelation {
-    pub fn new(ds: Arc<Mutex<RecordBatchIterator>>) -> Self {
+    pub fn new(ds: Arc<Mutex<dyn RecordBatchIterator>>) -> Self {
         let schema = ds.lock().unwrap().schema().clone();
         Self { ds, schema }
     }

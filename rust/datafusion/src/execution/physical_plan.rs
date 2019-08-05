@@ -28,13 +28,13 @@ pub trait ExecutionPlan {
     /// Get the schema for this execution plan
     fn schema(&self) -> Arc<Schema>;
     /// Get the partitions for this execution plan. Each partition can be executed in parallel.
-    fn partitions(&self) -> Result<Vec<Arc<Partition>>>;
+    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>>;
 }
 
 /// Represents a partition of an execution plan that can be executed on a thread
 pub trait Partition: Send + Sync {
     /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<BatchIterator>>;
+    fn execute(&self) -> Result<Arc<dyn BatchIterator>>;
 }
 
 /// Iterator over RecordBatch that can be sent between threads

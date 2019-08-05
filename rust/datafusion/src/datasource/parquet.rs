@@ -79,7 +79,7 @@ pub struct ParquetFile {
     projection_schema: Arc<Schema>,
     batch_size: usize,
     row_group_index: usize,
-    current_row_group: Option<Box<RowGroupReader>>,
+    current_row_group: Option<Box<dyn RowGroupReader>>,
     column_readers: Vec<ColumnReader>,
 }
 
@@ -256,11 +256,12 @@ impl ParquetFile {
     fn load_batch(&mut self) -> Result<Option<RecordBatch>> {
         match &self.current_row_group {
             Some(reader) => {
-                let mut batch: Vec<Arc<Array>> = Vec::with_capacity(reader.num_columns());
+                let mut batch: Vec<Arc<dyn Array>> =
+                    Vec::with_capacity(reader.num_columns());
                 for i in 0..self.column_readers.len() {
                     let dt = self.schema().field(i).data_type().clone();
                     let is_nullable = self.schema().field(i).is_nullable();
-                    let array: Arc<Array> = match self.column_readers[i] {
+                    let array: Arc<dyn Array> = match self.column_readers[i] {
                         ColumnReader::BoolColumnReader(ref mut r) => {
                             ArrowReader::<BooleanType>::read(
                                 r,
@@ -678,7 +679,7 @@ mod tests {
         );
     }
 
-    fn load_table(name: &str) -> Box<TableProvider> {
+    fn load_table(name: &str) -> Box<dyn TableProvider> {
         let testdata =
             env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
         let filename = format!("{}/{}", testdata, name);

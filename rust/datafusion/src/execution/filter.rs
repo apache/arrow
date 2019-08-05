@@ -37,14 +37,14 @@ pub(super) struct FilterRelation {
     /// input relation.
     schema: Arc<Schema>,
     /// Relation that is  being filtered
-    input: Rc<RefCell<Relation>>,
+    input: Rc<RefCell<dyn Relation>>,
     /// Filter expression
     expr: CompiledExpr,
 }
 
 impl FilterRelation {
     pub fn new(
-        input: Rc<RefCell<Relation>>,
+        input: Rc<RefCell<dyn Relation>>,
         expr: CompiledExpr,
         schema: Arc<Schema>,
     ) -> Self {
