@@ -179,8 +179,13 @@ Status ChunkedBinaryBuilder::Reserve(int64_t values) {
     return Status::OK();
   }
 
+  auto current_capacity = builder_->capacity();
   auto min_capacity = builder_->length() + values;
-  auto new_capacity = BufferBuilder::GrowByFactor(builder_->capacity(), min_capacity);
+  if (current_capacity >= min_capacity) {
+    return Status::OK();
+  }
+
+  auto new_capacity = BufferBuilder::GrowByFactor(current_capacity, min_capacity);
   if (ARROW_PREDICT_TRUE(new_capacity <= kListMaximumElements)) {
     return builder_->Resize(new_capacity);
   }

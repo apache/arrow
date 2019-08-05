@@ -509,8 +509,8 @@ namespace internal {
 
 class ARROW_EXPORT ChunkedBinaryBuilder {
  public:
-  ChunkedBinaryBuilder(int32_t max_chunk_value_length,
-                       MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  explicit ChunkedBinaryBuilder(int32_t max_chunk_value_length,
+                                MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   ChunkedBinaryBuilder(int32_t max_chunk_value_length, int32_t max_chunk_length,
                        MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
@@ -534,9 +534,8 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
     }
 
     if (ARROW_PREDICT_FALSE(builder_->length() == max_chunk_length_)) {
-      // The current item would cause builder_->value_data_length() to exceed
-      // max_chunk_size_, so finish this chunk and append the current item to the next
-      // chunk
+      // The current item would cause builder_->length() to exceed max_chunk_length_, so
+      // finish this chunk and append the current item to the next chunk
       ARROW_RETURN_NOT_OK(NextChunk());
     }
 
