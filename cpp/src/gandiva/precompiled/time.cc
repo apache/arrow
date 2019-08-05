@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <iomanip>
-#include <sstream>
 #include "./epoch_time_point.h"
 
 extern "C" {
 
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -701,17 +701,19 @@ const char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 lengt
   int64 second = extractSecond_timestamp(in);
   int64 millis = in % MILLIS_IN_SEC;
 
-  // format to yyyy-MM-dd hh:mm:ss.sss
-  std::stringstream s;
-  s << std::setfill('0') << std::setw(4) << year << "-" << std::setw(2) << month << "-"
-    << std::setw(2) << day << " " << std::setw(2) << hour << ":" << std::setw(2) << minute
-    << ":" << std::setw(2) << second << "." << std::setw(3) << millis;
-  std::string timestamp_str = s.str();
-  int32 timestamp_str_len = static_cast<int32>(timestamp_str.length());
+  static const int kTimeStampStringLen = 23;
+  const int char_buffer_length = kTimeStampStringLen + 1;  // snprintf adds \0
+  char char_buffer[char_buffer_length];
+
+  // yyyy-MM-dd hh:mm:ss.sss
+  snprintf(char_buffer, char_buffer_length,
+           "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64 ":%02" PRId64
+           ":%02" PRId64 ".%03" PRId64,
+           year, month, day, hour, minute, second, millis);
 
   *out_len = static_cast<int32>(length);
-  if (*out_len > timestamp_str_len) {
-    *out_len = timestamp_str_len;
+  if (*out_len > kTimeStampStringLen) {
+    *out_len = kTimeStampStringLen;
   }
 
   if (*out_len <= 0) {
@@ -728,7 +730,8 @@ const char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 lengt
     *out_len = 0;
     return "";
   }
-  memcpy(ret, timestamp_str.data(), *out_len);
+
+  memcpy(ret, char_buffer, *out_len);
   return ret;
 }
 }  // extern "C"
