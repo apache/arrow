@@ -23,8 +23,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_traits.h"
-#include "arrow/columnar_format.h"
-
+#include "arrow/colfmt/api.h"
 
 namespace arrow {
 

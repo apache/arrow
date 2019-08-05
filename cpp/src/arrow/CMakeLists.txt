@@ -93,7 +93,7 @@ set(ARROW_SRCS
     array/concatenate.cc
     array/diff.cc
     buffer.cc
-    columnar_format.cc
+    colfmt/colfmt.cc
     compare.cc
     extension_type.cc
     memory_pool.cc
@@ -390,6 +390,7 @@ add_arrow_benchmark(builder_benchmark)
 add_arrow_benchmark(type_benchmark)
 
 add_subdirectory(array)
+add_subdirectory(colfmt)
 add_subdirectory(csv)
 add_subdirectory(filesystem)
 add_subdirectory(io)

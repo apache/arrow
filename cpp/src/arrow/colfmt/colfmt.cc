@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/columnar_format.h"
+#include "arrow/colfmt/api.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_binary.h"
