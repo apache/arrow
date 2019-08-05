@@ -636,14 +636,14 @@ TEST(TestTime, TestMonthsBetween) {
   }
 }
 
-TEST(TestTime, TimeStampAdd2) {
+TEST(TestTime, castVarcharTimestamp) {
   ExecutionContext context;
   int64_t context_ptr = reinterpret_cast<int64_t>(&context);
   int32 out_len;
   timestamp ts = StringToTimestamp("2000-05-01 10:20:34");
-  char* st = castVARCHAR_timestamp_int64(context_ptr, ts, (int64)30, &out_len);
+  char* out = castVARCHAR_timestamp_int64(context_ptr, ts, 30L, &out_len);
 
-  EXPECT_EQ(std::string(st, out_len), "2000-05-01 10:20:34.000");
+  EXPECT_EQ(std::string(out, out_len), "2000-05-01 10:20:34.000");
 }
 
 }  // namespace gandiva

@@ -18,7 +18,7 @@
 #include <sstream>
 #include "./epoch_time_point.h"
 
-std::string prepend_zeroes_make_two_digits(int64_t num) {
+std::string ensure_two_digits(int64_t num) {
   std::stringstream s;
   if (num < 10) {
     s << "0";
@@ -27,7 +27,7 @@ std::string prepend_zeroes_make_two_digits(int64_t num) {
   return s.str();
 }
 
-std::string prepend_zeroes_make_three_digits(int64_t num) {
+std::string ensure_three_digits(int64_t num) {
   std::stringstream s;
   if (num < 10) {
     s << "0";
@@ -39,7 +39,7 @@ std::string prepend_zeroes_make_three_digits(int64_t num) {
   return s.str();
 }
 
-std::string prepend_zeroes_make_four_digits(int64_t num) {
+std::string ensure_four_digits(int64_t num) {
   std::stringstream s;
   if (num < 10) {
     s << "0";
@@ -736,13 +736,12 @@ char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 length,
   int64 second = extractSecond_timestamp(in);
   int64 millis = in % MILLIS_IN_SEC;
 
+  // format to yyyy-MM-dd hh:mm:ss.mil
   std::stringstream s;
-  s << prepend_zeroes_make_four_digits(year) << "-"
-    << prepend_zeroes_make_two_digits(month) << "-" << prepend_zeroes_make_two_digits(day)
-    << " " << prepend_zeroes_make_two_digits(hour) << ":"
-    << prepend_zeroes_make_two_digits(minute) << ":"
-    << prepend_zeroes_make_two_digits(second) << "."
-    << prepend_zeroes_make_three_digits(millis);
+  s << ensure_four_digits(year) << "-" << ensure_two_digits(month) << "-"
+    << ensure_two_digits(day) << " " << ensure_two_digits(hour) << ":"
+    << ensure_two_digits(minute) << ":" << ensure_two_digits(second) << "."
+    << ensure_three_digits(millis);
 
   std::string timestamp_str = s.str();
   *out_len = static_cast<int32>(length);
