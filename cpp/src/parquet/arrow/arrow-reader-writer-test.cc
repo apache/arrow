@@ -1891,6 +1891,7 @@ TEST(TestArrowReadWrite, ReadSingleRowGroup) {
 TEST(TestArrowReadWrite, GetRecordBatchReader) {
   const int num_columns = 20;
   const int num_rows = 1000;
+  const int batch_size = 100;
 
   std::shared_ptr<Table> table;
   ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
@@ -1900,26 +1901,43 @@ TEST(TestArrowReadWrite, GetRecordBatchReader) {
                                              default_arrow_writer_properties(), &buffer));
 
   ArrowReaderProperties properties = default_arrow_reader_properties();
-  properties.set_batch_size(100);
+  properties.set_batch_size(batch_size);
 
   std::unique_ptr<FileReader> reader;
   FileReaderBuilder builder;
   ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
   ASSERT_OK(builder.properties(properties)->Build(&reader));
 
+  // Read the whole file, one batch at a time.
   std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
   ASSERT_OK_NO_THROW(reader->GetRecordBatchReader({0, 1}, &rb_reader));
-
-  std::shared_ptr<::arrow::RecordBatch> batch;
+  std::shared_ptr<::arrow::RecordBatch> actual_batch, expected_batch;
+  ::arrow::TableBatchReader table_reader(*table);
+  table_reader.set_chunksize(batch_size);
 
   for (int i = 0; i < 10; ++i) {
-    ASSERT_OK(rb_reader->ReadNext(&batch));
-    ASSERT_EQ(100, batch->num_rows());
-    ASSERT_EQ(20, batch->num_columns());
+    ASSERT_OK(rb_reader->ReadNext(&actual_batch));
+    ASSERT_OK(table_reader.ReadNext(&expected_batch));
+    ASSERT_NO_FATAL_FAILURE(::arrow::AssertBatchesEqual(*expected_batch, *actual_batch));
   }
 
-  ASSERT_OK(rb_reader->ReadNext(&batch));
-  ASSERT_EQ(nullptr, batch);
+  ASSERT_OK(rb_reader->ReadNext(&actual_batch));
+  ASSERT_EQ(nullptr, actual_batch);
+
+  // ARROW-6005: Read just the second row group
+  ASSERT_OK_NO_THROW(reader->GetRecordBatchReader({1}, &rb_reader));
+  std::shared_ptr<Table> second_rowgroup = table->Slice(num_rows / 2);
+  ::arrow::TableBatchReader second_table_reader(*second_rowgroup);
+  second_table_reader.set_chunksize(batch_size);
+
+  for (int i = 0; i < 5; ++i) {
+    ASSERT_OK(rb_reader->ReadNext(&actual_batch));
+    ASSERT_OK(second_table_reader.ReadNext(&expected_batch));
+    ASSERT_NO_FATAL_FAILURE(::arrow::AssertBatchesEqual(*expected_batch, *actual_batch));
+  }
+
+  ASSERT_OK(rb_reader->ReadNext(&actual_batch));
+  ASSERT_EQ(nullptr, actual_batch);
 }
 
 TEST(TestArrowReadWrite, ScanContents) {
