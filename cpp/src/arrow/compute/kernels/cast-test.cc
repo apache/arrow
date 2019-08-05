@@ -224,7 +224,11 @@ class TestCast : public ComputeFixture, public TestBase {
     CheckCase<SourceType, std::string, DoubleType, double>(src_type, v_float, is_valid,
                                                            float64(), e_double, options);
 
+#ifndef _WIN32
     // Test that casting is locale-independent
+    // ARROW-6108: can't run this test on Windows.  std::locale() will simply throw
+    // on release builds, but may crash with an assertion failure on debug builds.
+    // (similar issue here: https://gerrit.libreoffice.org/#/c/54110/)
     auto global_locale = std::locale();
     try {
       // French locale uses the comma as decimal point
@@ -237,6 +241,7 @@ class TestCast : public ComputeFixture, public TestBase {
     CheckCase<SourceType, std::string, DoubleType, double>(src_type, v_float, is_valid,
                                                            float64(), e_double, options);
     std::locale::global(global_locale);
+#endif
   }
 
   template <typename SourceType>
