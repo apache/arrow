@@ -232,8 +232,16 @@ char* substr_utf8_int64(int64 context, const char* input, int32 in_len, int64 of
 }
 
 FORCE_INLINE
-char* concat_utf8_utf8(int64 context, const char* left, int32 left_len, const char* right,
-                       int32 right_len, int32* out_len) {
+char* concat_utf8_utf8(int64 context, const char* left, int32 left_len,
+                       bool left_validity, const char* right, int32 right_len,
+                       bool right_validity, bool* out_valid, int32* out_len) {
+  if (!left_validity) {
+    left_len = 0;
+  }
+  if (!right_validity) {
+    right_len = 0;
+  }
+  *out_valid = true;
   return concatOperator_utf8_utf8(context, left, left_len, right, right_len, out_len);
 }
 
@@ -251,14 +259,8 @@ char* concatOperator_utf8_utf8(int64 context, const char* left, int32 left_len,
     *out_len = 0;
     return nullptr;
   }
-  int32 copied_left_len = 0;
-  if (left != nullptr) {
-    memcpy(ret, left, left_len);
-    copied_left_len = left_len;
-  }
-  if (right != nullptr) {
-    memcpy(ret + copied_left_len, right, right_len);
-  }
+  memcpy(ret, left, left_len);
+  memcpy(ret + left_len, right, right_len);
   return ret;
 }
 
