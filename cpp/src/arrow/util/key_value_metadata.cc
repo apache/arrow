@@ -27,6 +27,7 @@
 
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/stl.h"
 
 using std::size_t;
 
@@ -119,9 +120,21 @@ std::shared_ptr<KeyValueMetadata> KeyValueMetadata::Copy() const {
 }
 
 bool KeyValueMetadata::Equals(const KeyValueMetadata& other) const {
-  return size() == other.size() &&
-         std::equal(keys_.cbegin(), keys_.cend(), other.keys_.cbegin()) &&
-         std::equal(values_.cbegin(), values_.cend(), other.values_.cbegin());
+  if (size() != other.size()) {
+    return false;
+  }
+
+  auto indices = internal::ArgSort(keys_);
+  auto other_indices = internal::ArgSort(other.keys_);
+
+  for (int64_t i = 0; i < size(); ++i) {
+    auto j = indices[i];
+    auto k = other_indices[i];
+    if (keys_[j] != other.keys_[k] || values_[j] != other.values_[k]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 std::string KeyValueMetadata::ToString() const {
