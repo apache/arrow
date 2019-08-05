@@ -253,6 +253,7 @@ cdef class BasicAuth:
         check_flight_status(SerializeBasicAuth(deref(self.basic_auth), &auth))
         return frombytes(auth)
 
+
 class DescriptorType(enum.Enum):
     """
     The type of a FlightDescriptor.

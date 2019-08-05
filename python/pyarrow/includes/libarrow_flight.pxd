@@ -363,9 +363,10 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         shared_ptr[CSchema] schema,
         unique_ptr[CSchemaResult]* out)
 
-    cdef CStatus DeserializeBasicAuth" arrow::py::flight::DeserializeBasicAuth"(
-        c_string buf,
-        unique_ptr[CBasicAuth]* out)
+    cdef CStatus DeserializeBasicAuth\
+        " arrow::py::flight::DeserializeBasicAuth"(
+            c_string buf,
+            unique_ptr[CBasicAuth]* out)
 
     cdef CStatus SerializeBasicAuth" arrow::py::flight::SerializeBasicAuth"(
         CBasicAuth basic_auth,
