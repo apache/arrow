@@ -79,8 +79,12 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      utf8(), kResultNullIfNull, "substr_utf8_int64",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("concatOperator", {"concat"}, DataTypeVector{utf8(), utf8()}, utf8(),
+      NativeFunction("concatOperator", {}, DataTypeVector{utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "concatOperator_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("concat", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullInternal, "concat_utf8_utf8",
                      NativeFunction::kNeedsContext),
 
       NativeFunction("convert_fromUTF8", {"convert_fromutf8"}, DataTypeVector{binary()},

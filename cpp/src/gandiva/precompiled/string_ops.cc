@@ -232,17 +232,33 @@ char* substr_utf8_int64(int64 context, const char* input, int32 in_len, int64 of
 }
 
 FORCE_INLINE
+char* concat_utf8_utf8(int64 context, const char* left, int32 left_len, const char* right,
+                       int32 right_len, int32* out_len) {
+  return concatOperator_utf8_utf8(context, left, left_len, right, right_len, out_len);
+}
+
+FORCE_INLINE
 char* concatOperator_utf8_utf8(int64 context, const char* left, int32 left_len,
                                const char* right, int32 right_len, int32* out_len) {
   *out_len = left_len + right_len;
+  if (*out_len <= 0) {
+    *out_len = 0;
+    return nullptr;
+  }
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
     return nullptr;
   }
-  memcpy(ret, left, left_len);
-  memcpy(ret + left_len, right, right_len);
+  int32 copied_left_len = 0;
+  if (left != nullptr) {
+    memcpy(ret, left, left_len);
+    copied_left_len = left_len;
+  }
+  if (right != nullptr) {
+    memcpy(ret + copied_left_len, right, right_len);
+  }
   return ret;
 }
 
