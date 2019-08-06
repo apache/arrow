@@ -248,5 +248,10 @@ garrow_double_array_compare(GArrowDoubleArray *array,
                             gdouble value,
                             GArrowCompareOptions *options,
                             GError **error);
+GARROW_AVAILABLE_IN_1_0
+GArrowArray *
+garrow_array_filter(GArrowArray *array,
+                    GArrowArray *filter,
+                    GError **error);
 
 G_END_DECLS
