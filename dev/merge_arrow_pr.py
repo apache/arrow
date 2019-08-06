@@ -479,14 +479,18 @@ def get_credentials(cmd):
         password = config["jira"].get("password")
 
     # Fallback to environment variables
-    if not username or not password:
+    if not username:
         username = os.environ.get("APACHE_JIRA_USERNAME")
+
+    if not password:
         password = os.environ.get("APACHE_JIRA_PASSWORD")
 
     # Fallback to user tty prompt
-    if not username or not password:
+    if not username:
         username = cmd.prompt("Env APACHE_JIRA_USERNAME not set, "
                               "please enter your JIRA username:")
+
+    if not password:
         password = cmd.getpass("Env APACHE_JIRA_PASSWORD not set, "
                                "please enter your JIRA password:")
 
