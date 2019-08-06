@@ -110,6 +110,11 @@ TEST(ParquetInputWrapper, BasicOperation) {
   ASSERT_OK(wrapper.Tell(&position));
   ASSERT_EQ(0, position);
 
+  // GetSize
+  int64_t size = -1;
+  ASSERT_OK(wrapper.GetSize(&size));
+  ASSERT_EQ(size, static_cast<int64_t>(data.size()));
+
   // Read into memory
   uint8_t buf[4] = {0};
   int64_t bytes_read = -1;
@@ -132,11 +137,6 @@ TEST(ParquetInputWrapper, BasicOperation) {
   ASSERT_OK(wrapper.ReadAt(13, 4, &buffer));
   ASSERT_EQ(4, buffer->size());
   ASSERT_EQ(0, memcmp(buffer->data(), data.data() + 13, 4));
-
-  // GetSize
-  int64_t size = -1;
-  ASSERT_OK(wrapper.GetSize(&size));
-  ASSERT_EQ(static_cast<int64_t>(data.size()), size);
 
   // Close
   ASSERT_OK(wrapper.Close());
