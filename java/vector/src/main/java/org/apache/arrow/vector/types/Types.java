@@ -598,7 +598,7 @@ public class Types {
           throw new UnsupportedOperationException("Dictionary encoding not supported for complex " +
               "types");
         }
-        return new UnionVector(field.getName(), allocator, schemaChangeCallback);
+        return new UnionVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
       }
 
       @Override
