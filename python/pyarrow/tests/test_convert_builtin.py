@@ -206,10 +206,22 @@ def test_nested_lists(seq):
 
 
 @parametrize_with_iterable_types
+def test_nested_large_lists(seq):
+    data = [[], [1, 2], None]
+    arr = pa.array(seq(data), type=pa.large_list(pa.int16()))
+    assert len(arr) == 3
+    assert arr.null_count == 1
+    assert arr.type == pa.large_list(pa.int16())
+    assert arr.to_pylist() == data
+
+
+@parametrize_with_iterable_types
 def test_list_with_non_list(seq):
     # List types don't accept non-sequences
     with pytest.raises(TypeError):
         pa.array(seq([[], [1, 2], 3]), type=pa.list_(pa.int64()))
+    with pytest.raises(TypeError):
+        pa.array(seq([[], [1, 2], 3]), type=pa.large_list(pa.int64()))
 
 
 @parametrize_with_iterable_types

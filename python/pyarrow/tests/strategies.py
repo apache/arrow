@@ -104,7 +104,10 @@ def fields(type_strategy=primitive_types):
 
 
 def list_types(item_strategy=primitive_types):
-    return st.builds(pa.list_, item_strategy)
+    return (
+        st.builds(pa.list_, item_strategy) |
+        st.builds(pa.large_list, item_strategy)
+        )
 
 
 def struct_types(item_strategy=primitive_types):
@@ -159,11 +162,14 @@ def arrays(draw, type, size=None):
 
     shape = (size,)
 
-    if pa.types.is_list(type):
+    if pa.types.is_list(type) or pa.types.is_large_list(type):
         offsets = draw(npst.arrays(np.uint8(), shape=shape)).cumsum() // 20
         offsets = np.insert(offsets, 0, 0, axis=0)  # prepend with zero
         values = draw(arrays(type.value_type, size=int(offsets.sum())))
-        return pa.ListArray.from_arrays(offsets, values)
+        array_type = (
+            pa.LargeListArray if pa.types.is_large_list(type)
+            else pa.ListArray)
+        return array_type.from_arrays(offsets, values)
 
     if pa.types.is_struct(type):
         h.assume(len(type) > 0)

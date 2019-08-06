@@ -53,6 +53,7 @@ def test_sum(arrow_type):
     ('binary', [b'a', b'b', b'c', b'ddd', b'ee']),
     (pa.binary(3), [b'abc', b'bcd', b'cde', b'def', b'efg']),
     (pa.list_(pa.int8()), [[1, 2], [3, 4], [5, 6], None, [9, 16]]),
+    (pa.large_list(pa.int16()), [[1], [2, 3, 4], [5, 6], None, [9, 16]]),
     (pa.struct([('a', pa.int8()), ('b', pa.int8())]), [
      {'a': 1, 'b': 2}, None, {'a': 3, 'b': 4}, None, {'a': 5, 'b': 6}]),
 ])

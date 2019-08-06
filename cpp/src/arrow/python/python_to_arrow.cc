@@ -582,19 +582,22 @@ class StringConverter
 // ----------------------------------------------------------------------
 // Convert lists (NumPy arrays containing lists or ndarrays as values)
 
-class ListConverter : public TypedConverter<ListType, ListConverter> {
+template <typename TypeClass>
+class ListConverter : public TypedConverter<TypeClass, ListConverter<TypeClass>> {
  public:
+  using BuilderType = typename TypeTraits<TypeClass>::BuilderType;
+
   explicit ListConverter(bool from_pandas, bool strict_conversions)
       : from_pandas_(from_pandas), strict_conversions_(strict_conversions) {}
 
   Status Init(ArrayBuilder* builder) {
-    builder_ = builder;
-    typed_builder_ = checked_cast<ListBuilder*>(builder);
+    this->builder_ = builder;
+    this->typed_builder_ = checked_cast<BuilderType*>(builder);
 
-    value_type_ = checked_cast<const ListType&>(*builder->type()).value_type();
+    value_type_ = checked_cast<const TypeClass&>(*builder->type()).value_type();
     RETURN_NOT_OK(
         GetConverter(value_type_, from_pandas_, strict_conversions_, &value_converter_));
-    return value_converter_->Init(typed_builder_->value_builder());
+    return value_converter_->Init(this->typed_builder_->value_builder());
   }
 
   template <int NUMPY_TYPE, typename Type>
@@ -602,7 +605,7 @@ class ListConverter : public TypedConverter<ListType, ListConverter> {
   Status AppendNdarrayItem(PyObject* arr);
 
   Status AppendItem(PyObject* obj) {
-    RETURN_NOT_OK(typed_builder_->Append());
+    RETURN_NOT_OK(this->typed_builder_->Append());
     if (PyArray_Check(obj)) {
       return AppendNdarrayItem(obj);
     }
@@ -625,8 +628,9 @@ class ListConverter : public TypedConverter<ListType, ListConverter> {
   bool strict_conversions_;
 };
 
+template <typename TypeClass>
 template <int NUMPY_TYPE, typename Type>
-Status ListConverter::AppendNdarrayTypedItem(PyArrayObject* arr) {
+Status ListConverter<TypeClass>::AppendNdarrayTypedItem(PyArrayObject* arr) {
   using traits = internal::npy_traits<NUMPY_TYPE>;
   using T = typename traits::value_type;
   using ValueBuilderType = typename TypeTraits<Type>::BuilderType;
@@ -673,7 +677,8 @@ Status ListConverter::AppendNdarrayTypedItem(PyArrayObject* arr) {
     return value_converter_->AppendMultiple(obj, value_length); \
   }
 
-Status ListConverter::AppendNdarrayItem(PyObject* obj) {
+template <typename TypeClass>
+Status ListConverter<TypeClass>::AppendNdarrayItem(PyObject* obj) {
   PyArrayObject* arr = reinterpret_cast<PyArrayObject*>(obj);
 
   if (PyArray_NDIM(arr) != 1) {
@@ -914,7 +919,11 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
     }
     case Type::LIST:
       *out = std::unique_ptr<SeqConverter>(
-          new ListConverter(from_pandas, strict_conversions));
+          new ListConverter<ListType>(from_pandas, strict_conversions));
+      break;
+    case Type::LARGE_LIST:
+      *out = std::unique_ptr<SeqConverter>(
+          new ListConverter<LargeListType>(from_pandas, strict_conversions));
       break;
     case Type::STRUCT:
       *out = std::unique_ptr<SeqConverter>(
