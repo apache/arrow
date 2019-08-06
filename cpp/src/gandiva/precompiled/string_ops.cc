@@ -165,8 +165,9 @@ FORCE_INLINE
 char* castVARCHAR_utf8_int64(int64 context, const char* data, int32 data_len,
                              int64_t out_len, int32_t* out_length) {
   // TODO: handle allocation failures
-  int32_t len = data_len <= static_cast<int32_t>(out_len) ? data_len
-                                                          : static_cast<int32_t>(out_len);
+  int32_t len = data_len <= static_cast<int32_t>(out_len) || out_len == 0
+                    ? data_len
+                    : static_cast<int32_t>(out_len);
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, len));
   memcpy(ret, data, len);
   *out_length = len;
@@ -194,7 +195,7 @@ char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_len,
                               int64 offset64, int64 length, int32* out_len) {
   if (length <= 0 || input == nullptr || in_len <= 0) {
     *out_len = 0;
-    return nullptr;
+    return (char*)"";
   }
 
   int32 offset = static_cast<int32>(offset64);
@@ -207,7 +208,7 @@ char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_len,
 
   if (startIndex < 0 || startIndex >= in_len) {
     *out_len = 0;
-    return nullptr;
+    return (char*)"";
   }
 
   *out_len = static_cast<int32>(length);
@@ -219,7 +220,7 @@ char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_len,
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
-    return nullptr;
+    return (char*)"";
   }
   memcpy(ret, input + startIndex, *out_len);
   return ret;
@@ -250,13 +251,13 @@ char* concatOperator_utf8_utf8(int64 context, const char* left, int32 left_len,
   *out_len = left_len + right_len;
   if (*out_len <= 0) {
     *out_len = 0;
-    return nullptr;
+    return (char*)"";
   }
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
-    return nullptr;
+    return (char*)"";
   }
   memcpy(ret, left, left_len);
   memcpy(ret + left_len, right, right_len);
@@ -271,7 +272,7 @@ char* convert_fromUTF8_binary(int64 context, const char* bin_in, int32 len,
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
-    return nullptr;
+    return (char*)"";
   }
   memcpy(ret, bin_in, *out_len);
   return ret;
