@@ -56,7 +56,7 @@ install_arrow_msg <- function(has_arrow, version, from_cran, os) {
       # Point to compilation instructions on readme
       msg <- c(SEE_DEV_GUIDE, THEN_REINSTALL)
     } else {
-      # Suggest arrow.apache.org/install for PPAs, or compilation instructions
+      # Suggest arrow.apache.org/install, or compilation instructions
       msg <- c(paste(SEE_ARROW_INSTALL, OR_SEE_DEV_GUIDE), THEN_REINSTALL)
     }
   } else if (!dev_version && !from_cran) {
