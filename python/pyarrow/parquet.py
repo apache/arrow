@@ -890,7 +890,63 @@ def _open_dataset_file(dataset, path, meta=None):
                            common_metadata=dataset.common_metadata)
 
 
+_read_docstring_common = """\
+read_dictionary : list, default None
+    List of names or column paths (for nested types) to read directly
+    as DictionaryArray. Only supported for BYTE_ARRAY storage. To read
+    a flat column as dictionary-encoded pass the column name. For
+    nested types, you must pass the full column "path", which could be
+    something like level1.level2.list.item. Refer to the Parquet
+    file's schema to obtain the paths.
+memory_map : boolean, default True
+    If the source is a file path, use a memory map to read file, which can
+    improve performance in some environments"""
+
+
 class ParquetDataset(object):
+
+    __doc__ = """
+Encapsulates details of reading a complete Parquet dataset possibly
+consisting of multiple files and partitions in subdirectories
+
+Parameters
+----------
+path_or_paths : str or List[str]
+    A directory name, single file name, or list of file names
+filesystem : FileSystem, default None
+    If nothing passed, paths assumed to be found in the local on-disk
+    filesystem
+metadata : pyarrow.parquet.FileMetaData
+    Use metadata obtained elsewhere to validate file schemas
+schema : pyarrow.parquet.Schema
+    Use schema obtained elsewhere to validate file schemas. Alternative to
+    metadata parameter
+split_row_groups : boolean, default False
+    Divide files into pieces for each row group in the file
+validate_schema : boolean, default True
+    Check that individual file schemas are all the same / compatible
+filters : List[Tuple] or List[List[Tuple]] or None (default)
+    List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
+    implements partition-level (hive) filtering only, i.e., to prevent the
+    loading of some files of the dataset.
+
+    Predicates are expressed in disjunctive normal form (DNF). This means
+    that the innermost tuple describe a single column predicate. These
+    inner predicate make are all combined with a conjunction (AND) into a
+    larger predicate. The most outer list then combines all filters
+    with a disjunction (OR). By this, we should be able to express all
+    kinds of filters that are possible using boolean logic.
+
+    This function also supports passing in as List[Tuple]. These predicates
+    are evaluated as a conjunction. To express OR in predictates, one must
+    use the (preferred) List[List[Tuple]] notation.
+metadata_nthreads: int, default 1
+    How many threads to allow the thread pool which is used to read the
+    dataset metadata. Increasing this is helpful to read partitioned
+    datasets.
+{0}
+""".format(_read_docstring_common)
+
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
                  filters=None, metadata_nthreads=1,
@@ -1103,62 +1159,6 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
             pieces.append(piece)
 
     return pieces, partitions, common_metadata_path, metadata_path
-
-
-_read_docstring_common = """\
-read_dictionary : list, default None
-    List of names or column paths (for nested types) to read directly
-    as DictionaryArray. Only supported for BYTE_ARRAY storage. To read
-    a flat column as dictionary-encoded pass the column name. For
-    nested types, you must pass the full column "path", which could be
-    something like level1.level2.list.item. Refer to the Parquet
-    file's schema to obtain the paths.
-memory_map : boolean, default True
-    If the source is a file path, use a memory map to read file, which can
-    improve performance in some environments"""
-
-
-ParquetDataset.__doc__ = """
-Encapsulates details of reading a complete Parquet dataset possibly
-consisting of multiple files and partitions in subdirectories
-
-Parameters
-----------
-path_or_paths : str or List[str]
-    A directory name, single file name, or list of file names
-filesystem : FileSystem, default None
-    If nothing passed, paths assumed to be found in the local on-disk
-    filesystem
-metadata : pyarrow.parquet.FileMetaData
-    Use metadata obtained elsewhere to validate file schemas
-schema : pyarrow.parquet.Schema
-    Use schema obtained elsewhere to validate file schemas. Alternative to
-    metadata parameter
-split_row_groups : boolean, default False
-    Divide files into pieces for each row group in the file
-validate_schema : boolean, default True
-    Check that individual file schemas are all the same / compatible
-filters : List[Tuple] or List[List[Tuple]] or None (default)
-    List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
-    implements partition-level (hive) filtering only, i.e., to prevent the
-    loading of some files of the dataset.
-
-    Predicates are expressed in disjunctive normal form (DNF). This means
-    that the innermost tuple describe a single column predicate. These
-    inner predicate make are all combined with a conjunction (AND) into a
-    larger predicate. The most outer list then combines all filters
-    with a disjunction (OR). By this, we should be able to express all
-    kinds of filters that are possible using boolean logic.
-
-    This function also supports passing in as List[Tuple]. These predicates
-    are evaluated as a conjunction. To express OR in predictates, one must
-    use the (preferred) List[List[Tuple]] notation.
-metadata_nthreads: int, default 1
-    How many threads to allow the thread pool which is used to read the
-    dataset metadata. Increasing this is helpful to read partitioned
-    datasets.
-{0}
-""".format(_read_docstring_common)
 
 
 _read_table_docstring = """
