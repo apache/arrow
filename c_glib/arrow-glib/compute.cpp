@@ -1387,7 +1387,7 @@ garrow_double_array_compare(GArrowDoubleArray *array,
  *   with a boolean selection filter. Nulls in the filter will
  *   result in nulls in the output.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 GArrowArray *
 garrow_array_filter(GArrowArray *array,
