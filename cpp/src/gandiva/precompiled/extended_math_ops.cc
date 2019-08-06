@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <random>
 #include "gandiva/precompiled/decimal_ops.h"
 
 extern "C" {
@@ -123,4 +124,23 @@ int64 truncate_int64_int32(int64 in, int32 out_scale) {
       gandiva::BasicDecimalScalar128(decimal_with_outscale, 38, out_scale), &overflow);
 }
 
+FORCE_INLINE
+float64 random_internal() {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<> dis(0.0, 1.0);
+  return dis(gen);
+}
+
+FORCE_INLINE
+float64 random_int32_internal(int32 seed, bool seed_validity) {
+  if (!seed_validity) {
+    seed = 0;
+  }
+
+  std::mt19937 gen;
+  gen.seed(seed);  // TODO confirm seed can be negative
+  std::uniform_real_distribution<> dis(0.0, 1.0);
+  return dis(gen);
+}
 }  // extern "C"
