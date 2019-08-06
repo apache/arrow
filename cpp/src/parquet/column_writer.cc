@@ -656,6 +656,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                         const int16_t* rep_levels, const uint8_t* valid_bits,
                         int64_t valid_bits_offset, const T* values) override;
 
+  void WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
+                  const ::arrow::Array& array,
+                  ArrowWriteContext* context) override;
+
   int64_t EstimatedBufferedValueBytes() const override {
     return current_encoder_->EstimatedDataEncodedSize();
   }
@@ -949,6 +953,18 @@ void TypedColumnWriterImpl<DType>::WriteBatchSpaced(
   WriteMiniBatchSpaced(num_remaining, &def_levels[offset], &rep_levels[offset],
                        valid_bits, valid_bits_offset + values_offset,
                        values + values_offset, &num_spaced_written);
+}
+
+// ----------------------------------------------------------------------
+// Direct Arrow write path
+
+template <typename DType>
+void TypedColumnWriterImpl<DType>::WriteArrow(const int16_t* def_levels,
+                                              const int16_t* rep_levels,
+                                              const ::arrow::Array& array,
+                                              ColumnWriterContext* context) {
+
+
 }
 
 // ----------------------------------------------------------------------

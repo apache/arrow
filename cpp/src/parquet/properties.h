@@ -22,6 +22,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "arrow/type.h"
+
 #include "parquet/exception.h"
 #include "parquet/parquet_version.h"
 #include "parquet/platform.h"
@@ -422,6 +424,133 @@ class PARQUET_EXPORT WriterProperties {
 };
 
 std::shared_ptr<WriterProperties> PARQUET_EXPORT default_writer_properties();
+
+// ----------------------------------------------------------------------
+// Properties specific to Apache Arrow columnar read and write
+
+static constexpr bool kArrowDefaultUseThreads = false;
+
+// Default number of rows to read when using ::arrow::RecordBatchReader
+static constexpr int64_t kArrowDefaultBatchSize = 64 * 1024;
+
+/// EXPERIMENTAL: Properties for configuring FileReader behavior.
+class PARQUET_EXPORT ArrowReaderProperties {
+ public:
+  explicit ArrowReaderProperties(bool use_threads = kArrowDefaultUseThreads)
+      : use_threads_(use_threads),
+        read_dict_indices_(),
+        batch_size_(kArrowDefaultBatchSize) {}
+
+  void set_use_threads(bool use_threads) { use_threads_ = use_threads; }
+
+  bool use_threads() const { return use_threads_; }
+
+  void set_read_dictionary(int column_index, bool read_dict) {
+    if (read_dict) {
+      read_dict_indices_.insert(column_index);
+    } else {
+      read_dict_indices_.erase(column_index);
+    }
+  }
+  bool read_dictionary(int column_index) const {
+    if (read_dict_indices_.find(column_index) != read_dict_indices_.end()) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  void set_batch_size(int64_t batch_size) { batch_size_ = batch_size; }
+
+  int64_t batch_size() const { return batch_size_; }
+
+ private:
+  bool use_threads_;
+  std::unordered_set<int> read_dict_indices_;
+  int64_t batch_size_;
+};
+
+/// EXPERIMENTAL: Constructs the default ArrowReaderProperties
+PARQUET_EXPORT
+ArrowReaderProperties default_arrow_reader_properties();
+
+class PARQUET_EXPORT ArrowWriterProperties {
+ public:
+  class Builder {
+   public:
+    Builder()
+        : write_timestamps_as_int96_(false),
+          coerce_timestamps_enabled_(false),
+          coerce_timestamps_unit_(::arrow::TimeUnit::SECOND),
+          truncated_timestamps_allowed_(false) {}
+    virtual ~Builder() {}
+
+    Builder* disable_deprecated_int96_timestamps() {
+      write_timestamps_as_int96_ = false;
+      return this;
+    }
+
+    Builder* enable_deprecated_int96_timestamps() {
+      write_timestamps_as_int96_ = true;
+      return this;
+    }
+
+    Builder* coerce_timestamps(::arrow::TimeUnit::type unit) {
+      coerce_timestamps_enabled_ = true;
+      coerce_timestamps_unit_ = unit;
+      return this;
+    }
+
+    Builder* allow_truncated_timestamps() {
+      truncated_timestamps_allowed_ = true;
+      return this;
+    }
+
+    Builder* disallow_truncated_timestamps() {
+      truncated_timestamps_allowed_ = false;
+      return this;
+    }
+
+    std::shared_ptr<ArrowWriterProperties> build() {
+      return std::shared_ptr<ArrowWriterProperties>(new ArrowWriterProperties(
+          write_timestamps_as_int96_, coerce_timestamps_enabled_, coerce_timestamps_unit_,
+          truncated_timestamps_allowed_));
+    }
+
+   private:
+    bool write_timestamps_as_int96_;
+
+    bool coerce_timestamps_enabled_;
+    ::arrow::TimeUnit::type coerce_timestamps_unit_;
+    bool truncated_timestamps_allowed_;
+  };
+
+  bool support_deprecated_int96_timestamps() const { return write_timestamps_as_int96_; }
+
+  bool coerce_timestamps_enabled() const { return coerce_timestamps_enabled_; }
+  ::arrow::TimeUnit::type coerce_timestamps_unit() const {
+    return coerce_timestamps_unit_;
+  }
+
+  bool truncated_timestamps_allowed() const { return truncated_timestamps_allowed_; }
+
+ private:
+  explicit ArrowWriterProperties(bool write_nanos_as_int96,
+                                 bool coerce_timestamps_enabled,
+                                 ::arrow::TimeUnit::type coerce_timestamps_unit,
+                                 bool truncated_timestamps_allowed)
+      : write_timestamps_as_int96_(write_nanos_as_int96),
+        coerce_timestamps_enabled_(coerce_timestamps_enabled),
+        coerce_timestamps_unit_(coerce_timestamps_unit),
+        truncated_timestamps_allowed_(truncated_timestamps_allowed) {}
+
+  const bool write_timestamps_as_int96_;
+  const bool coerce_timestamps_enabled_;
+  const ::arrow::TimeUnit::type coerce_timestamps_unit_;
+  const bool truncated_timestamps_allowed_;
+};
+
+std::shared_ptr<ArrowWriterProperties> PARQUET_EXPORT default_arrow_writer_properties();
 
 }  // namespace parquet
 

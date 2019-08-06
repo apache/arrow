@@ -26,6 +26,8 @@
 
 namespace arrow {
 
+class Arrow;
+
 namespace BitUtil {
 class BitWriter;
 }  // namespace BitUtil
@@ -172,6 +174,13 @@ class TypedColumnWriter : public ColumnWriter {
   virtual void WriteBatchSpaced(int64_t num_values, const int16_t* def_levels,
                                 const int16_t* rep_levels, const uint8_t* valid_bits,
                                 int64_t valid_bits_offset, const T* values) = 0;
+
+  /// \brief Write Apache Arrow columnar data directly to
+  /// ColumnWriter. Throws exception if the array data type is not
+  /// compatible with the writer type
+  virtual void WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
+                          const ::arrow::Array& array,
+                          const ArrowWriterProperties& properties) = 0;
 
   // Estimated size of the values that are not written to a page yet
   virtual int64_t EstimatedBufferedValueBytes() const = 0;

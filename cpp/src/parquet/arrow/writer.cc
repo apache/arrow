@@ -293,8 +293,8 @@ Status LevelBuilder::VisitInline(const Array& array) {
   return VisitArrayInline(array, this);
 }
 
-struct ColumnWriterContext {
-  ColumnWriterContext(MemoryPool* memory_pool, ArrowWriterProperties* properties)
+struct ArrowWriteContext {
+  ArrowWriteContext(MemoryPool* memory_pool, ArrowWriterProperties* properties)
       : memory_pool(memory_pool), properties(properties) {
     this->data_buffer = AllocateBuffer(memory_pool);
     this->def_levels_buffer = AllocateBuffer(memory_pool);
@@ -332,7 +332,7 @@ Status GetLeafType(const ::arrow::DataType& type, ::arrow::Type::type* leaf_type
 
 class ArrowColumnWriter {
  public:
-  ArrowColumnWriter(ColumnWriterContext* ctx, ColumnWriter* column_writer,
+  ArrowColumnWriter(ArrowWriteContext* ctx, ColumnWriter* column_writer,
                     const SchemaField* schema_field,
                     const SchemaManifest* schema_manifest)
       : ctx_(ctx),
@@ -446,7 +446,7 @@ class ArrowColumnWriter {
     return Status::OK();
   }
 
-  ColumnWriterContext* ctx_;
+  ArrowWriteContext* ctx_;
   ColumnWriter* writer_;
   const SchemaField* schema_field_;
   const SchemaManifest* schema_manifest_;
@@ -1124,7 +1124,7 @@ class FileWriterImpl : public FileWriter {
 
   std::unique_ptr<ParquetFileWriter> writer_;
   RowGroupWriter* row_group_writer_;
-  ColumnWriterContext column_write_context_;
+  ArrowWriteContext column_write_context_;
   std::shared_ptr<ArrowWriterProperties> arrow_properties_;
   bool closed_;
 };
