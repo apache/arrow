@@ -98,7 +98,8 @@ OR_SEE_DEV_GUIDE <- paste0(
 SEE_ARROW_INSTALL <- paste(
   "See the Apache Arrow project installation page",
   "<https://arrow.apache.org/install/>",
-  "for how to install the C++ package from a PPA."
+  "to find pre-compiled binary packages for some common Linux distributions,",
+  "such as Debian, Ubuntu, CentOS, and Fedora."
 )
 
 THEN_REINSTALL <- paste(
