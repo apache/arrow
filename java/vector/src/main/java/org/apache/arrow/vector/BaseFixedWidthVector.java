@@ -817,6 +817,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * @param thisIndex position to copy to in this vector
    * @param from      source vector
    */
+  @Override
   public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     if (from.isNull(fromIndex)) {
@@ -837,6 +838,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * @param thisIndex position to copy to in this vector
    * @param from      source vector
    */
+  @Override
   public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     handleSafe(thisIndex);
