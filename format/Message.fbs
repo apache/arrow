@@ -225,7 +225,7 @@ union DigestType  {
   /// scheme.
 }
 
-/// Contains a digest of the immediately preceding message in the stream.
+/// Contains a digest of the next message in the stream.
 /// The main use-case for digest is for interchange formats where there
 /// is no external means of ensuring data fidelity (e.g. a file streamed
 /// to a remote storage service).
@@ -233,9 +233,10 @@ union DigestType  {
 /// Digest messages are optional.  The producer for a stream may decide
 /// to include them or not.
 table Digest {
+  /// The type of digest applied.
   digest_type : DigestType;
 
-  // Digest of preceding record batch.
+  /// Digest of next message in the stream.
   digest : [byte];
 }
 
