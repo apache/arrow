@@ -24,8 +24,9 @@ Encapsulated message format
 Data components in the stream and file formats are represented as encapsulated
 *messages* consisting of:
 
-* A 32-bit continuation indicator (0xFFFFFFFF). This allows flatbuffer bytes
-  to begin on an 8-byte boundary.  This was added as of release 0.15.0.
+* A 32-bit continuation indicator. The value `0xFFFFFFFF` indicates a valid
+  message. This component was introduced in version 0.15.0 in part to address
+  the 8-byte alignment requirement of Flatbuffers
 * A 32-bit little-endian length prefix indicating the metadata size
 * The message metadata as a `Flatbuffer`_
 * Padding bytes to an 8-byte boundary
@@ -33,7 +34,7 @@ Data components in the stream and file formats are represented as encapsulated
 
 Schematically, we have: ::
 
-    <0xFFFFFFFF>
+    <continuation: 0xFFFFFFFF>
     <metadata_size: int32>
     <metadata_flatbuffer: bytes>
     <padding>
@@ -82,14 +83,14 @@ in a ``RecordBatch`` it should be defined in a ``DictionaryBatch``. ::
     <DICTIONARY y DELTA>
     ...
     <RECORD BATCH n - 1>
-    <EOS [optional]: int32>
+    <EOS [optional]: 0x00000000>
 
 When a stream reader implementation is reading a stream, after each message, it
 may read the next 4 bytes to know how large the message metadata that follows
 is. Once the message flatbuffer is read, you can then read the message body.
 
-The stream writer can signal end-of-stream (EOS) either by writing a 0 length
-as an ``int32`` or simply closing the stream interface.
+The stream writer can signal end-of-stream (EOS) either by writing the four
+bytes `0x00000000` or closing the stream interface.
 
 File format
 -----------
@@ -222,8 +223,8 @@ take the form: ::
 Tensor (Multi-dimensional Array) Message Format
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``Tensor`` message types provides a way to write a multidimensional array of
-fixed-size values (such as a NumPy ndarray) using Arrow's shared memory
+The ``Tensor`` message types provides a way to write a multidimensional array
+of fixed-size values (such as a NumPy ndarray) using Arrow's shared memory
 tools. Arrow implementations in general are not required to implement this data
 format, though we provide a reference implementation in C++.
 
