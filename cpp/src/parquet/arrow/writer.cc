@@ -1029,10 +1029,10 @@ Status ArrowColumnWriter::Write(const Array& data) {
 // ----------------------------------------------------------------------
 // FileWriter implementation
 
-class FileWriter::Impl {
+class FileWriterImpl : public FileWriter {
  public:
-  Impl(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
-       const std::shared_ptr<ArrowWriterProperties>& arrow_properties)
+  FileWriterImpl(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
+                 const std::shared_ptr<ArrowWriterProperties>& arrow_properties)
       : writer_(std::move(writer)),
         row_group_writer_(nullptr),
         column_write_context_(pool, arrow_properties.get()),
@@ -1044,7 +1044,7 @@ class FileWriter::Impl {
                                &schema_manifest_);
   }
 
-  Status NewRowGroup(int64_t chunk_size) {
+  Status NewRowGroup(int64_t chunk_size) override {
     if (row_group_writer_ != nullptr) {
       PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
     }
@@ -1052,7 +1052,7 @@ class FileWriter::Impl {
     return Status::OK();
   }
 
-  Status Close() {
+  Status Close() override {
     if (!closed_) {
       // Make idempotent
       closed_ = true;
@@ -1064,7 +1064,7 @@ class FileWriter::Impl {
     return Status::OK();
   }
 
-  Status WriteColumnChunk(const Array& data) {
+  Status WriteColumnChunk(const Array& data) override {
     // A bit awkward here since cannot instantiate ChunkedArray from const Array&
     ::arrow::ArrayVector chunks = {::arrow::MakeArray(data.data())};
     auto chunked_array = std::make_shared<::arrow::ChunkedArray>(chunks);
@@ -1072,7 +1072,7 @@ class FileWriter::Impl {
   }
 
   Status WriteColumnChunk(const std::shared_ptr<ChunkedArray>& data, int64_t offset,
-                          const int64_t size) {
+                          const int64_t size) override {
     // DictionaryArrays are not yet handled with a fast path. To still support
     // writing them as a workaround, we convert them back to their non-dictionary
     // representation.
@@ -1107,13 +1107,15 @@ class FileWriter::Impl {
     return arrow_writer.Close();
   }
 
+  Status WriteColumnChunk(const std::shared_ptr<::arrow::ChunkedArray>& data) override {
+    return WriteColumnChunk(data, 0, data->length());
+  }
+
   const WriterProperties& properties() const { return *writer_->properties(); }
 
-  ::arrow::MemoryPool* memory_pool() const { return column_write_context_.memory_pool; }
+  ::arrow::MemoryPool* memory_pool() const override { return column_write_context_.memory_pool; }
 
-  virtual ~Impl() {}
-
-  const std::shared_ptr<FileMetaData> metadata() const { return writer_->metadata(); }
+  const std::shared_ptr<FileMetaData> metadata() const override { return writer_->metadata(); }
 
  private:
   friend class FileWriter;
@@ -1126,23 +1128,6 @@ class FileWriter::Impl {
   std::shared_ptr<ArrowWriterProperties> arrow_properties_;
   bool closed_;
 };
-
-Status FileWriter::NewRowGroup(int64_t chunk_size) {
-  return impl_->NewRowGroup(chunk_size);
-}
-
-Status FileWriter::WriteColumnChunk(const ::arrow::Array& data) {
-  return impl_->WriteColumnChunk(data);
-}
-
-Status FileWriter::WriteColumnChunk(const std::shared_ptr<::arrow::ChunkedArray>& data,
-                                    const int64_t offset, const int64_t size) {
-  return impl_->WriteColumnChunk(data, offset, size);
-}
-
-Status FileWriter::WriteColumnChunk(const std::shared_ptr<::arrow::ChunkedArray>& data) {
-  return WriteColumnChunk(data, 0, data->length());
-}
 
 Status FileWriter::Close() { return impl_->Close(); }
 
@@ -1159,15 +1144,12 @@ Status FileWriter::Make(::arrow::MemoryPool* pool,
                         const std::shared_ptr<::arrow::Schema>& schema,
                         const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
                         std::unique_ptr<FileWriter>* out) {
-  out->reset(new FileWriter(pool, std::move(writer), schema, arrow_properties));
-  return (*out)->impl_->Init();
+  std::unique_ptr<FileWriterImpl> impl(
+      new FileWriterImpl(pool, std::move(writer), schema, arrow_properties));
+  RETURN_NOT_OK(impl->Init());
+  *out = std::move(impl);
+  return Status::OK();
 }
-
-FileWriter::FileWriter(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
-                       const std::shared_ptr<::arrow::Schema>& schema,
-                       const std::shared_ptr<ArrowWriterProperties>& arrow_properties)
-    : impl_(new FileWriter::Impl(pool, std::move(writer), arrow_properties)),
-      schema_(schema) {}
 
 Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                         const std::shared_ptr<::arrow::io::OutputStream>& sink,

@@ -147,31 +147,22 @@ class PARQUET_EXPORT FileWriter {
       std::unique_ptr<FileWriter>* writer);
 
   /// \brief Write a Table to Parquet.
-  ::arrow::Status WriteTable(const ::arrow::Table& table, int64_t chunk_size);
+  virtual ::arrow::Status WriteTable(const ::arrow::Table& table, int64_t chunk_size) = 0;
 
-  ::arrow::Status NewRowGroup(int64_t chunk_size);
-  ::arrow::Status WriteColumnChunk(const ::arrow::Array& data);
+  virtual ::arrow::Status NewRowGroup(int64_t chunk_size) = 0;
+  virtual ::arrow::Status WriteColumnChunk(const ::arrow::Array& data) = 0;
 
   /// \brief Write ColumnChunk in row group using slice of a ChunkedArray
-  ::arrow::Status WriteColumnChunk(const std::shared_ptr<::arrow::ChunkedArray>& data,
-                                   const int64_t offset, const int64_t size);
-  ::arrow::Status WriteColumnChunk(const std::shared_ptr<::arrow::ChunkedArray>& data);
-  ::arrow::Status Close();
+  virtual ::arrow::Status WriteColumnChunk(const std::shared_ptr<::arrow::ChunkedArray>& data,
+                                           const int64_t offset, const int64_t size) = 0;
 
+  virtual ::arrow::Status WriteColumnChunk(
+      const std::shared_ptr<::arrow::ChunkedArray>& data) = 0;
+  virtual ::arrow::Status Close() = 0;
   virtual ~FileWriter();
 
-  ::arrow::MemoryPool* memory_pool() const;
-
-  const std::shared_ptr<FileMetaData> metadata() const;
-
- private:
-  FileWriter(::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
-             const std::shared_ptr<::arrow::Schema>& schema,
-             const std::shared_ptr<ArrowWriterProperties>& arrow_properties);
-
-  class PARQUET_NO_EXPORT Impl;
-  std::unique_ptr<Impl> impl_;
-  std::shared_ptr<::arrow::Schema> schema_;
+  virtual ::arrow::MemoryPool* memory_pool() const = 0;
+  virtual const std::shared_ptr<FileMetaData> metadata() const = 0;
 };
 
 /// \brief Write Parquet file metadata only to indicated Arrow OutputStream

@@ -411,7 +411,9 @@ class ColumnWriterImpl {
   void AddDataPage();
 
   // Serializes Data Pages
-  void WriteDataPage(const CompressedDataPage& page);
+  void WriteDataPage(const CompressedDataPage& page) {
+    total_bytes_written_ += pager_->WriteDataPage(page);
+  }
 
   // Write multiple definition levels
   void WriteDefinitionLevels(int64_t num_levels, const int16_t* levels) {
@@ -586,10 +588,6 @@ void ColumnWriterImpl::AddDataPage() {
   num_buffered_encoded_values_ = 0;
 }
 
-void ColumnWriterImpl::WriteDataPage(const CompressedDataPage& page) {
-  total_bytes_written_ += pager_->WriteDataPage(page);
-}
-
 int64_t ColumnWriterImpl::Close() {
   if (!closed_) {
     closed_ = true;
@@ -666,7 +664,20 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   std::shared_ptr<Buffer> GetValuesBuffer() override {
     return current_encoder_->FlushValues();
   }
-  void WriteDictionaryPage() override;
+
+  void WriteDictionaryPage() override {
+    // We have to dynamic cast here because of TypedEncoder<Type> as
+    // some compilers don't want to cast through virtual inheritance
+    auto dict_encoder = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
+    DCHECK(dict_encoder);
+    std::shared_ptr<ResizableBuffer> buffer =
+      AllocateBuffer(properties_->memory_pool(), dict_encoder->dict_encoded_size());
+    dict_encoder->WriteDict(buffer->mutable_data());
+
+    DictionaryPage page(buffer, dict_encoder->num_entries(),
+                        properties_->dictionary_page_encoding());
+    total_bytes_written_ += pager_->WriteDictionaryPage(page);
+  }
 
   // Checks if the Dictionary Page size limit is reached
   // If the limit is reached, the Dictionary and Data Pages are serialized
@@ -685,7 +696,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     return result;
   }
 
-  void ResetPageStatistics() override;
+  void ResetPageStatistics() override {
+    if (chunk_statistics_ != nullptr) {
+      chunk_statistics_->Merge(*page_statistics_);
+      page_statistics_->Reset();
+    }
+  }
 
   Type::type type() const override { return descr_->physical_type(); }
 
@@ -700,6 +716,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   const WriterProperties* properties() override { return properties_; }
 
  private:
+  using ValueEncoderType = typename EncodingTraits<DType>::Encoder;
+  using TypedStats = TypedStatistics<DType>;
+  std::unique_ptr<Encoder> current_encoder_;
+  std::shared_ptr<TypedStats> page_statistics_;
+  std::shared_ptr<TypedStats> chunk_statistics_;
+
   inline int64_t WriteMiniBatch(int64_t num_values, const int16_t* def_levels,
                                 const int16_t* rep_levels, const T* values);
 
@@ -710,16 +732,16 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                                       int64_t* num_spaced_written);
 
   // Write values to a temporary buffer before they are encoded into pages
-  void WriteValues(int64_t num_values, const T* values);
+  void WriteValues(int64_t num_values, const T* values) {
+    dynamic_cast<ValueEncoderType*>(current_encoder_.get())
+      ->Put(values, static_cast<int>(num_values));
+  }
+
   void WriteValuesSpaced(int64_t num_values, const uint8_t* valid_bits,
-                         int64_t valid_bits_offset, const T* values);
-
-  using ValueEncoderType = typename EncodingTraits<DType>::Encoder;
-  std::unique_ptr<Encoder> current_encoder_;
-
-  using TypedStats = TypedStatistics<DType>;
-  std::shared_ptr<TypedStats> page_statistics_;
-  std::shared_ptr<TypedStats> chunk_statistics_;
+                         int64_t valid_bits_offset, const T* values) {
+    dynamic_cast<ValueEncoderType*>(current_encoder_.get())
+      ->PutSpaced(values, static_cast<int>(num_values), valid_bits, valid_bits_offset);
+  }
 };
 
 // Only one Dictionary Page is written.
@@ -738,29 +760,6 @@ void TypedColumnWriterImpl<DType>::CheckDictionarySizeLimit() {
     current_encoder_ = MakeEncoder(DType::type_num, Encoding::PLAIN, false, descr_,
                                    properties_->memory_pool());
     encoding_ = Encoding::PLAIN;
-  }
-}
-
-template <typename DType>
-void TypedColumnWriterImpl<DType>::WriteDictionaryPage() {
-  // We have to dynamic cast here because TypedEncoder<Type> as some compilers
-  // don't want to cast through virtual inheritance
-  auto dict_encoder = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
-  DCHECK(dict_encoder);
-  std::shared_ptr<ResizableBuffer> buffer =
-      AllocateBuffer(properties_->memory_pool(), dict_encoder->dict_encoded_size());
-  dict_encoder->WriteDict(buffer->mutable_data());
-
-  DictionaryPage page(buffer, dict_encoder->num_entries(),
-                      properties_->dictionary_page_encoding());
-  total_bytes_written_ += pager_->WriteDictionaryPage(page);
-}
-
-template <typename DType>
-void TypedColumnWriterImpl<DType>::ResetPageStatistics() {
-  if (chunk_statistics_ != nullptr) {
-    chunk_statistics_->Merge(*page_statistics_);
-    page_statistics_->Reset();
   }
 }
 
@@ -950,21 +949,6 @@ void TypedColumnWriterImpl<DType>::WriteBatchSpaced(
   WriteMiniBatchSpaced(num_remaining, &def_levels[offset], &rep_levels[offset],
                        valid_bits, valid_bits_offset + values_offset,
                        values + values_offset, &num_spaced_written);
-}
-
-template <typename DType>
-void TypedColumnWriterImpl<DType>::WriteValues(int64_t num_values, const T* values) {
-  dynamic_cast<ValueEncoderType*>(current_encoder_.get())
-      ->Put(values, static_cast<int>(num_values));
-}
-
-template <typename DType>
-void TypedColumnWriterImpl<DType>::WriteValuesSpaced(int64_t num_values,
-                                                     const uint8_t* valid_bits,
-                                                     int64_t valid_bits_offset,
-                                                     const T* values) {
-  dynamic_cast<ValueEncoderType*>(current_encoder_.get())
-      ->PutSpaced(values, static_cast<int>(num_values), valid_bits, valid_bits_offset);
 }
 
 // ----------------------------------------------------------------------
