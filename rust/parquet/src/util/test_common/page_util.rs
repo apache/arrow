@@ -158,6 +158,7 @@ impl DataPageBuilder for DataPageBuilderImpl {
     }
 }
 
+/// A utility page reader which stores pages in memory.
 pub struct InMemoryPageReader {
     pages: Box<Iterator<Item = Page>>,
 }

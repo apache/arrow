@@ -18,19 +18,16 @@
 use crate::arrow::record_reader::RecordReader;
 use crate::data_type::DataType;
 use arrow::array::Array;
+use arrow::compute::cast;
 use std::convert::From;
-use std::slice::from_raw_parts;
 use std::sync::Arc;
 
 use crate::errors::Result;
-use arrow::array::BufferBuilder;
-use arrow::array::BufferBuilderTrait;
 use arrow::datatypes::ArrowPrimitiveType;
 
 use arrow::array::ArrayDataBuilder;
 use arrow::array::PrimitiveArray;
 use std::marker::PhantomData;
-use std::mem::transmute;
 
 use crate::data_type::BoolType;
 use crate::data_type::DoubleType as ParquetDoubleType;
@@ -56,98 +53,25 @@ pub trait Converter<T: DataType> {
     fn convert(record_reader: &mut RecordReader<T>) -> Result<Arc<Array>>;
 }
 
-/// Trait for value to value conversion. This is similar to `std::convert::Into` in std
-/// lib. Due to the limitation of rust compiler, we can't implement trait
-/// `std::convert::Into` for primitives types.
-pub trait ConvertAs<T> {
-    /// This method does value to value conversion.
-    fn convert_as(self) -> T;
-}
-
-impl<T> ConvertAs<T> for T {
-    fn convert_as(self) -> T {
-        self
-    }
-}
-
-macro_rules! convert_as {
-    ($src_type: ty, $dest_type: ty) => {
-        impl ConvertAs<$dest_type> for $src_type {
-            fn convert_as(self) -> $dest_type {
-                self as $dest_type
-            }
-        }
-    };
-}
-
-convert_as!(i32, i8);
-convert_as!(i32, i16);
-convert_as!(i32, u8);
-convert_as!(i32, u16);
-convert_as!(i32, u32);
-
-/// Builder converter is used when parquet's data type is different from
-/// arrow's native type. In this case, we need to iterate over values in record reader
-/// and convert parquet value into arrow value one by one.
-pub struct BuilderConverter<ParquetType, ArrowType> {
+/// Cast converter first converts record reader's buffer to arrow's
+/// `PrimitiveArray<ArrowSourceType>`, then casts it to `PrimitiveArray<ArrowTargetType>`.
+pub struct CastConverter<ParquetType, ArrowSourceType, ArrowTargetType> {
     _parquet_marker: PhantomData<ParquetType>,
-    _arrow_marker: PhantomData<ArrowType>,
+    _arrow_source_marker: PhantomData<ArrowSourceType>,
+    _arrow_target_marker: PhantomData<ArrowTargetType>,
 }
 
-impl<ParquetType, ArrowType> Converter<ParquetType>
-    for BuilderConverter<ParquetType, ArrowType>
+impl<ParquetType, ArrowSourceType, ArrowTargetType> Converter<ParquetType>
+    for CastConverter<ParquetType, ArrowSourceType, ArrowTargetType>
 where
     ParquetType: DataType,
-    ArrowType: ArrowPrimitiveType,
-    <ParquetType as DataType>::T: ConvertAs<<ArrowType as ArrowPrimitiveType>::Native>,
-{
-    fn convert(record_reader: &mut RecordReader<ParquetType>) -> Result<Arc<Array>> {
-        let num_values = record_reader.num_values();
-        let mut builder = BufferBuilder::<ArrowType>::new(num_values);
-
-        let records_data = record_reader.consume_record_data();
-        let data_slice = unsafe {
-            from_raw_parts(
-                transmute::<*const u8, *mut ParquetType::T>(records_data.raw_data()),
-                num_values,
-            )
-        };
-        for d in data_slice {
-            builder.append(d.clone().convert_as())?;
-        }
-        std::mem::drop(records_data);
-
-        let mut array_data = ArrayDataBuilder::new(ArrowType::get_data_type())
-            .len(num_values)
-            .add_buffer(builder.finish());
-
-        if let Some(b) = record_reader.consume_bitmap_buffer() {
-            array_data = array_data.null_bit_buffer(b);
-        }
-
-        Ok(Arc::new(PrimitiveArray::<ArrowType>::from(
-            array_data.build(),
-        )))
-    }
-}
-
-/// Direct converter is used when parquet's data type is same as arrow's native type.
-/// In this case we can reuse `RecordReader`'s record data buffer.
-pub struct DirectConverter<ParquetType, ArrowType> {
-    _parquet_marker: PhantomData<ParquetType>,
-    _arrow_marker: PhantomData<ArrowType>,
-}
-
-impl<ParquetType, ArrowType> Converter<ParquetType>
-    for DirectConverter<ParquetType, ArrowType>
-where
-    ParquetType: DataType,
-    ArrowType: ArrowPrimitiveType,
+    ArrowSourceType: ArrowPrimitiveType,
+    ArrowTargetType: ArrowPrimitiveType,
 {
     fn convert(record_reader: &mut RecordReader<ParquetType>) -> Result<Arc<Array>> {
         let record_data = record_reader.consume_record_data();
 
-        let mut array_data = ArrayDataBuilder::new(ArrowType::get_data_type())
+        let mut array_data = ArrayDataBuilder::new(ArrowSourceType::get_data_type())
             .len(record_reader.num_values())
             .add_buffer(record_data);
 
@@ -155,23 +79,24 @@ where
             array_data = array_data.null_bit_buffer(b);
         }
 
-        Ok(Arc::new(PrimitiveArray::<ArrowType>::from(
-            array_data.build(),
-        )))
+        let primitive_array: Arc<Array> =
+            Arc::new(PrimitiveArray::<ArrowSourceType>::from(array_data.build()));
+
+        Ok(cast(&primitive_array, &ArrowTargetType::get_data_type())?)
     }
 }
 
-pub type BooleanConverter = DirectConverter<BoolType, BooleanType>;
-pub type Int8Converter = BuilderConverter<ParquetInt32Type, Int8Type>;
-pub type UInt8Converter = BuilderConverter<ParquetInt32Type, UInt8Type>;
-pub type Int16Converter = BuilderConverter<ParquetInt32Type, Int16Type>;
-pub type UInt16Converter = BuilderConverter<ParquetInt32Type, UInt16Type>;
-pub type Int32Converter = DirectConverter<ParquetInt32Type, Int32Type>;
-pub type UInt32Converter = DirectConverter<ParquetInt32Type, UInt32Type>;
-pub type Int64Converter = DirectConverter<ParquetInt64Type, Int64Type>;
-pub type UInt64Converter = DirectConverter<ParquetInt64Type, UInt64Type>;
-pub type Float32Converter = DirectConverter<ParquetFloatType, Float32Type>;
-pub type Float64Converter = DirectConverter<ParquetDoubleType, Float64Type>;
+pub type BooleanConverter = CastConverter<BoolType, BooleanType, BooleanType>;
+pub type Int8Converter = CastConverter<ParquetInt32Type, Int32Type, Int8Type>;
+pub type UInt8Converter = CastConverter<ParquetInt32Type, Int32Type, UInt8Type>;
+pub type Int16Converter = CastConverter<ParquetInt32Type, Int32Type, Int16Type>;
+pub type UInt16Converter = CastConverter<ParquetInt32Type, Int32Type, UInt16Type>;
+pub type Int32Converter = CastConverter<ParquetInt32Type, Int32Type, Int32Type>;
+pub type UInt32Converter = CastConverter<ParquetInt32Type, UInt32Type, UInt32Type>;
+pub type Int64Converter = CastConverter<ParquetInt64Type, Int64Type, Int64Type>;
+pub type UInt64Converter = CastConverter<ParquetInt64Type, UInt64Type, UInt64Type>;
+pub type Float32Converter = CastConverter<ParquetFloatType, Float32Type, Float32Type>;
+pub type Float64Converter = CastConverter<ParquetDoubleType, Float64Type, Float64Type>;
 
 #[cfg(test)]
 mod tests {
@@ -189,7 +114,7 @@ mod tests {
     use std::rc::Rc;
 
     #[test]
-    fn test_builder_converter() {
+    fn test_converter_arrow_source_target_different() {
         let raw_data = vec![Some(1i16), None, Some(2i16), Some(3i16)];
 
         // Construct record reader
@@ -218,12 +143,13 @@ mod tests {
             .as_any()
             .downcast_ref::<PrimitiveArray<Int16Type>>()
             .unwrap();
+        dbg!(array);
 
         assert!(array.equals(&PrimitiveArray::<Int16Type>::from(raw_data)));
     }
 
     #[test]
-    fn test_direct_converter() {
+    fn test_converter_arrow_source_target_same() {
         let raw_data = vec![Some(1), None, Some(2), Some(3)];
 
         // Construct record reader
