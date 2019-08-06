@@ -749,11 +749,17 @@ char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 length,
   if (length > timestamp_str_len) {
     *out_len = timestamp_str_len;
   }
+  if (*out_len <= 0) {
+    *out_len = 0;
+    const char* empty_str = "";
+    return const_cast<char*>(empty_str);
+  }
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
-    return nullptr;
+    const char* empty_str = "";
+    return const_cast<char*>(empty_str);
   }
   memcpy(ret, timestamp_str.data(), *out_len);
   return ret;
