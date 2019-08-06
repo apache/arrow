@@ -21,7 +21,7 @@ use std::fs;
 use std::fs::File;
 use std::sync::{Arc, Mutex};
 
-use crate::error::Result;
+use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
 use arrow::csv;
 use arrow::datatypes::{Field, Schema};
@@ -48,7 +48,7 @@ impl ExecutionPlan for CsvExec {
     }
 
     /// Get the partitions for this execution plan. Each partition can be executed in parallel.
-    fn partitions(&self) -> Result<Vec<Arc<Partition>>> {
+    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
         let mut filenames: Vec<String> = vec![];
         self.build_file_list(&self.path, &mut filenames)?;
         let partitions = filenames
@@ -60,7 +60,7 @@ impl ExecutionPlan for CsvExec {
                     self.has_header,
                     self.projection.clone(),
                     self.batch_size,
-                )) as Arc<Partition>
+                )) as Arc<dyn Partition>
             })
             .collect();
         Ok(partitions)
@@ -100,13 +100,16 @@ impl CsvExec {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
             let path = entry.path();
-            let path_name = path.as_os_str().to_str().unwrap();
-            if path.is_dir() {
-                self.build_file_list(path_name, filenames)?;
-            } else {
-                if path_name.ends_with(".csv") {
-                    filenames.push(path_name.to_string());
+            if let Some(path_name) = path.to_str() {
+                if path.is_dir() {
+                    self.build_file_list(path_name, filenames)?;
+                } else {
+                    if path_name.ends_with(".csv") {
+                        filenames.push(path_name.to_string());
+                    }
                 }
+            } else {
+                return Err(ExecutionError::General("Invalid path".to_string()));
             }
         }
         Ok(())
