@@ -19,8 +19,8 @@ class TestFilter < Test::Unit::TestCase
   include Helper::Buildable
 
   def test_filter
-    filter = build_boolean_array([false, true, true, false])
-    assert_equal(build_int16_array([1, 0]),
+    filter = build_boolean_array([false, true, true, nil])
+    assert_equal(build_int16_array([1, 0, nil]),
                  build_int16_array([0, 1, 0, 2]).filter(filter))
   end
 
