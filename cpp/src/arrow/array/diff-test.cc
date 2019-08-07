@@ -470,10 +470,13 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
 )");
   }
 
-  // small difference
-  base_ = ArrayFromJSON(uint16(), "[0, 1, 2, 3, 5, 8, 11, 13, 17]");
-  target_ = ArrayFromJSON(uint16(), "[2, 3, 5, 7, 11, 13, 17, 19]");
-  AssertDiffAndFormat(R"(
+  for (auto type : {int8(), uint8(),  // verify that these are printed as numbers rather
+                                      // than their ascii characters
+                    int16(), uint16()}) {
+    // small difference
+    base_ = ArrayFromJSON(type, "[0, 1, 2, 3, 5, 8, 11, 13, 17]");
+    target_ = ArrayFromJSON(type, "[2, 3, 5, 7, 11, 13, 17, 19]");
+    AssertDiffAndFormat(R"(
 @@ -0, +0 @@
 -0
 -1
@@ -484,10 +487,10 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
 +19
 )");
 
-  // large difference
-  base_ = ArrayFromJSON(uint16(), "[57, 10, 22, 126, 42]");
-  target_ = ArrayFromJSON(uint16(), "[58, 57, 75, 93, 53, 8, 22, 42, 79, 11]");
-  AssertDiffAndFormat(R"(
+    // large difference
+    base_ = ArrayFromJSON(type, "[57, 10, 22, 126, 42]");
+    target_ = ArrayFromJSON(type, "[58, 57, 75, 93, 53, 8, 22, 42, 79, 11]");
+    AssertDiffAndFormat(R"(
 @@ -0, +0 @@
 +58
 @@ -1, +2 @@
@@ -502,6 +505,7 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
 +79
 +11
 )");
+  }
 }
 
 TEST_F(DiffTest, DictionaryDiffFormatter) {
