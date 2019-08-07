@@ -209,13 +209,15 @@ TYPED_TEST(DiffTestWithNumeric, Basics) {
   this->base_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, null, 5]");
   this->target_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, null, 5, 6, 7, 8, 9]");
   this->DoDiff();
-  ASSERT_EQ(this->edits_->length(), 5);
-  ASSERT_EQ(this->insert_->Value(0), false);
-  ASSERT_EQ(this->run_lengths_->Value(0), 5);
-  for (int64_t i = 1; i < this->edits_->length(); ++i) {
-    ASSERT_EQ(this->insert_->Value(i), true);
-    ASSERT_EQ(this->run_lengths_->Value(i), 0);
-  }
+  this->AssertInsertIs("[false, true, true, true, true]");
+  this->AssertRunLengthIs("[5, 0, 0, 0, 0]");
+
+  // prepend some
+  this->base_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, null, 5]");
+  this->target_ = ArrayFromJSON(this->type_singleton(), "[6, 4, 2, 0, 1, 2, 3, null, 5]");
+  this->DoDiff();
+  this->AssertInsertIs("[false, true, true, true, true]");
+  this->AssertRunLengthIs("[0, 0, 0, 0, 5]");
 }
 
 TEST_F(DiffTest, CompareRandomInt64) {
