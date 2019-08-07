@@ -46,14 +46,19 @@ static inline std::string Escape(const char* data, size_t length) {
     switch (data[j]) {
       case '"':
         escaped_string += R"(\")";
+        break;
       case '\\':
         escaped_string += R"(\\)";
+        break;
       case '\t':
         escaped_string += R"(\t)";
+        break;
       case '\r':
         escaped_string += R"(\r)";
+        break;
       case '\n':
         escaped_string += R"(\n)";
+        break;
       default:
         escaped_string.push_back(data[j]);
     }

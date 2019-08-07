@@ -484,6 +484,17 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
 +null
 )");
 
+  // strings with escaped chars
+  base_ = ArrayFromJSON(utf8(), R"(["newline:\n", "quote:'", "backslash:\\"])");
+  target_ =
+      ArrayFromJSON(utf8(), R"(["newline:\n", "tab:\t", "quote:\"", "backslash:\\"])");
+  AssertDiffAndFormat(R"(
+@@ -1, +1 @@
+-"quote:'"
++"tab:\t"
++"quote:\""
+)");
+
   // lists
   base_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [], [13], []])");
   target_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [5, 9], [], [13]])");
