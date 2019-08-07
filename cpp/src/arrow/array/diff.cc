@@ -122,10 +122,14 @@ class NullOr {
   VariantType variant_;
 };
 
-template <typename ArrayType,
-          typename View = decltype(GetView(std::declval<ArrayType>(), 0))>
+template <typename ArrayType>
+using ViewType = decltype(GetView(std::declval<ArrayType>(), 0));
+
+template <typename ArrayType>
 class ViewGenerator {
  public:
+  using View = ViewType<ArrayType>;
+
   explicit ViewGenerator(const Array& array)
       : array_(checked_cast<const ArrayType&>(array)) {
     DCHECK_EQ(array.null_count(), 0);
@@ -143,10 +147,11 @@ internal::LazyRange<ViewGenerator<ArrayType>> MakeViewRange(const Array& array) 
   return internal::LazyRange<Generator>(Generator(array), array.length());
 }
 
-template <typename ArrayType,
-          typename View = decltype(GetView(std::declval<ArrayType>(), 0))>
+template <typename ArrayType>
 class NullOrViewGenerator {
  public:
+  using View = ViewType<ArrayType>;
+
   explicit NullOrViewGenerator(const Array& array)
       : array_(checked_cast<const ArrayType&>(array)) {}
 
@@ -164,26 +169,6 @@ internal::LazyRange<NullOrViewGenerator<ArrayType>> MakeNullOrViewRange(
   using Generator = NullOrViewGenerator<ArrayType>;
   return internal::LazyRange<Generator>(Generator(array), array.length());
 }
-
-template <typename ArrayType>
-class NullOrListGenerator {
- public:
-  explicit NullOrListGenerator(const Array& array)
-      : array_(checked_cast<const ArrayType&>(array)), values_(array_.values()) {}
-
-  using SliceType = Slice<ArrayType>;
-
-  NullOr<SliceType> operator()(int64_t index) const {
-    return array_.IsNull(index)
-               ? NullOr<SliceType>()
-               : NullOr<SliceType>(SliceType{array_.value_offset(index),
-                                             array_.value_length(index), *values_});
-  }
-
- private:
-  const ArrayType& array_;
-  std::shared_ptr<Array> values_;
-};
 
 template <typename Iterator>
 class QuadraticSpaceMyersDiff {
