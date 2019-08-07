@@ -1391,12 +1391,12 @@ garrow_double_array_compare(GArrowDoubleArray *array,
  */
 GArrowArray *
 garrow_array_filter(GArrowArray *array,
-                    GArrowArray *filter,
+                    GArrowBooleanArray *filter,
                     GError **error)
 {
   auto arrow_array = garrow_array_get_raw(array);
   auto arrow_array_raw = arrow_array.get();
-  auto arrow_filter = garrow_array_get_raw(filter);
+  auto arrow_filter = garrow_array_get_raw(GARROW_ARRAY(filter));
   auto arrow_filter_raw = arrow_filter.get();
   auto memory_pool = arrow::default_memory_pool();
   arrow::compute::FunctionContext context(memory_pool);

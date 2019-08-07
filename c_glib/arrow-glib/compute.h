@@ -251,7 +251,7 @@ garrow_double_array_compare(GArrowDoubleArray *array,
 GARROW_AVAILABLE_IN_0_15
 GArrowArray *
 garrow_array_filter(GArrowArray *array,
-                    GArrowArray *filter,
+                    GArrowBooleanArray *filter,
                     GError **error);
 
 G_END_DECLS
