@@ -15,44 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <sstream>
 #include "./epoch_time_point.h"
-
-std::string ensure_two_digits(int64_t num) {
-  std::stringstream s;
-  if (num < 10) {
-    s << "0";
-  }
-  s << num;
-  return s.str();
-}
-
-std::string ensure_three_digits(int64_t num) {
-  std::stringstream s;
-  if (num < 10) {
-    s << "0";
-  }
-  if (num < 100) {
-    s << "0";
-  }
-  s << num;
-  return s.str();
-}
-
-std::string ensure_four_digits(int64_t num) {
-  std::stringstream s;
-  if (num < 10) {
-    s << "0";
-  }
-  if (num < 100) {
-    s << "0";
-  }
-  if (num < 1000) {
-    s << "0";
-  }
-  s << num;
-  return s.str();
-}
 
 extern "C" {
 
@@ -726,8 +689,8 @@ timestamp castTIMESTAMP_utf8(int64_t context, const char* input, int32 length) {
 
 timestamp castTIMESTAMP_date64(date64 date_in_millis) { return date_in_millis; }
 
-char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 length,
-                                  int32* out_len) {
+const char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 length,
+                                        int32* out_len) {
   int64 year = extractYear_timestamp(in);
   int64 month = extractMonth_timestamp(in);
   int64 day = extractDay_timestamp(in);
@@ -736,35 +699,36 @@ char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 length,
   int64 second = extractSecond_timestamp(in);
   int64 millis = in % MILLIS_IN_SEC;
 
-  // format to yyyy-MM-dd hh:mm:ss.mil
-  std::stringstream s;
-  s << ensure_four_digits(year) << "-" << ensure_two_digits(month) << "-"
-    << ensure_two_digits(day) << " " << ensure_two_digits(hour) << ":"
-    << ensure_two_digits(minute) << ":" << ensure_two_digits(second) << "."
-    << ensure_three_digits(millis);
+  const int full_output_length = 23;
+  const int char_buffer_length = full_output_length + 1;  // snprintf adds \0
+  char char_buffer[char_buffer_length];
 
-  std::string timestamp_str = s.str();
+  // yyyy-MM-dd hh:mm:ss.sss
+  snprintf(char_buffer, char_buffer_length,
+           "%04lld-%02lld-%02lld %02lld:%02lld:%02lld.%03lld", year, month, day, hour,
+           minute, second, millis);
+
   *out_len = static_cast<int32>(length);
-  int32 timestamp_str_len = static_cast<int32>(timestamp_str.length());
-  if (length > timestamp_str_len) {
-    *out_len = timestamp_str_len;
+  if (length > full_output_length) {
+    *out_len = full_output_length;
   }
+
   if (*out_len <= 0) {
     if (*out_len < 0) {
       gdv_fn_context_set_error_msg(context, "Length of output string cannot be negative");
     }
     *out_len = 0;
-    const char* empty_str = "";
-    return const_cast<char*>(empty_str);
+    return "";
   }
+
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
-    const char* empty_str = "";
-    return const_cast<char*>(empty_str);
+    return "";
   }
-  memcpy(ret, timestamp_str.data(), *out_len);
+
+  memcpy(ret, char_buffer, *out_len);
   return ret;
 }
 }  // extern "C"

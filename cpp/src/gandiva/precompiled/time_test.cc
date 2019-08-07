@@ -641,9 +641,14 @@ TEST(TestTime, castVarcharTimestamp) {
   int64_t context_ptr = reinterpret_cast<int64_t>(&context);
   int32 out_len;
   timestamp ts = StringToTimestamp("2000-05-01 10:20:34");
-  char* out = castVARCHAR_timestamp_int64(context_ptr, ts, 30L, &out_len);
-
+  const char* out = castVARCHAR_timestamp_int64(context_ptr, ts, 30L, &out_len);
   EXPECT_EQ(std::string(out, out_len), "2000-05-01 10:20:34.000");
+
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 19L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2000-05-01 10:20:34");
+
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 0L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
 }
 
 }  // namespace gandiva
