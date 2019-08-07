@@ -522,6 +522,20 @@ TEST_F(TestChunkedBinaryBuilder, BasicOperation) {
   }
 }
 
+TEST_F(TestChunkedBinaryBuilder, Reserve) {
+  // ARROW-6060
+  const int32_t chunksize = 1000;
+  Init(chunksize);
+  ASSERT_OK(builder_->Reserve(chunksize / 2));
+  auto bytes_after_first_reserve = default_memory_pool()->bytes_allocated();
+  for (int i = 0; i < 8; ++i) {
+    ASSERT_OK(builder_->Reserve(chunksize / 2));
+  }
+  // no new memory will be allocated since capacity was sufficient for the loop's
+  // Reserve() calls
+  ASSERT_EQ(default_memory_pool()->bytes_allocated(), bytes_after_first_reserve);
+}
+
 TEST_F(TestChunkedBinaryBuilder, NoData) {
   Init(1000);
 

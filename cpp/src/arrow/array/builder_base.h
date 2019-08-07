@@ -79,9 +79,12 @@ class ARROW_EXPORT ArrayBuilder {
   /// \return Status
   virtual Status Resize(int64_t capacity);
 
-  /// \brief Ensure that there is enough space allocated to add the indicated
-  /// number of elements without any further calls to Resize. Overallocation is
+  /// \brief Ensure that there is enough space allocated to append the indicated
+  /// number of elements without any further reallocation. Overallocation is
   /// used in order to minimize the impact of incremental Reserve() calls.
+  /// Note that additional_capacity is relative to the current number of elements
+  /// rather than to the current capacity, so calls to Reserve() which are not
+  /// interspersed with addition of new elements may not increase the capacity.
   ///
   /// \param[in] additional_capacity the number of additional array values
   /// \return Status
