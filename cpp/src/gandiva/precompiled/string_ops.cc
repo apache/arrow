@@ -165,8 +165,9 @@ FORCE_INLINE
 char* castVARCHAR_utf8_int64(int64 context, const char* data, int32 data_len,
                              int64_t out_len, int32_t* out_length) {
   // TODO: handle allocation failures
-  int32_t len = data_len <= static_cast<int32_t>(out_len) ? data_len
-                                                          : static_cast<int32_t>(out_len);
+  int32_t len = data_len <= static_cast<int32_t>(out_len) || out_len == 0
+                    ? data_len
+                    : static_cast<int32_t>(out_len);
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, len));
   memcpy(ret, data, len);
   *out_length = len;
