@@ -60,9 +60,9 @@ class TestHadoopFileSystem : public ::testing::Test {
  public:
   Status MakeScratchDir() {
     if (client_->Exists(scratch_dir_)) {
-      RETURN_NOT_OK((client_->Delete(scratch_dir_, true)));
+      RETURN_NOT_OK((client_->DeleteDir(scratch_dir_)));
     }
-    return client_->MakeDirectory(scratch_dir_);
+    return client_->CreateDir(scratch_dir_);
   }
 
   Status WriteDummyFile(const std::string& path, const uint8_t* buffer, int64_t size,
@@ -138,7 +138,7 @@ class TestHadoopFileSystem : public ::testing::Test {
   void TearDown() {
     if (client_) {
       if (client_->Exists(scratch_dir_)) {
-        ARROW_EXPECT_OK(client_->Delete(scratch_dir_, true));
+        ARROW_EXPECT_OK(client_->DeleteDir(scratch_dir_));
       }
       ARROW_EXPECT_OK(client_->Disconnect());
     }
@@ -154,9 +154,7 @@ class TestHadoopFileSystem : public ::testing::Test {
 
 template <>
 std::string TestHadoopFileSystem<PivotalDriver>::HdfsAbsPath(const std::string& relpath) {
-  std::stringstream ss;
-  ss << relpath;
-  return ss.str();
+  return relpath;
 }
 
 #define SKIP_IF_NO_DRIVER()                                  \
@@ -191,28 +189,31 @@ TYPED_TEST(TestHadoopFileSystem, MultipleClients) {
   ASSERT_OK(client1->Disconnect());
 
   // client2 continues to function after equivalent client1 has shutdown
-  std::vector<HdfsPathInfo> listing;
-  ASSERT_OK(client2->ListDirectory(this->scratch_dir_, &listing));
+  std::vector<FileStats> listing;
+  Selector scratch_dir;
+  scratch_dir.base_dir = this->scratch_dir_;
+  ASSERT_OK(client2->GetTargetStats(scratch_dir, &listing));
   ASSERT_OK(client2->Disconnect());
 }
 
 TYPED_TEST(TestHadoopFileSystem, MakeDirectory) {
   SKIP_IF_NO_DRIVER();
 
-  std::string path = this->ScratchPath("create-directory");
+  Selector scratch_dir;
+  scratch_dir.base_dir = this->ScratchPath("create-directory");
 
-  if (this->client_->Exists(path)) {
-    ASSERT_OK(this->client_->Delete(path, true));
+  if (this->client_->Exists(scratch_dir.base_dir)) {
+    ASSERT_OK(this->client_->DeleteDir(scratch_dir.base_dir));
   }
 
-  ASSERT_OK(this->client_->MakeDirectory(path));
-  ASSERT_TRUE(this->client_->Exists(path));
-  std::vector<HdfsPathInfo> listing;
-  ARROW_EXPECT_OK(this->client_->ListDirectory(path, &listing));
+  ASSERT_OK(this->client_->CreateDir(scratch_dir.base_dir));
+  ASSERT_TRUE(this->client_->Exists(scratch_dir.base_dir));
+  std::vector<FileStats> listing;
+  ARROW_EXPECT_OK(this->client_->GetTargetStats(scratch_dir, &listing));
   ASSERT_EQ(0, listing.size());
-  ARROW_EXPECT_OK(this->client_->Delete(path, true));
-  ASSERT_FALSE(this->client_->Exists(path));
-  ASSERT_RAISES(IOError, this->client_->ListDirectory(path, &listing));
+  ARROW_EXPECT_OK(this->client_->DeleteDir(scratch_dir.base_dir));
+  ASSERT_FALSE(this->client_->Exists(scratch_dir.base_dir));
+  ASSERT_RAISES(IOError, this->client_->GetTargetStats(scratch_dir, &listing));
 }
 
 TYPED_TEST(TestHadoopFileSystem, GetCapacityUsed) {
@@ -307,29 +308,31 @@ TYPED_TEST(TestHadoopFileSystem, ListDirectory) {
   ASSERT_OK(this->MakeScratchDir());
   ASSERT_OK(this->WriteDummyFile(p1, data.data(), size));
   ASSERT_OK(this->WriteDummyFile(p2, data.data(), size / 2));
-  ASSERT_OK(this->client_->MakeDirectory(d1));
+  ASSERT_OK(this->client_->CreateDir(d1));
 
-  std::vector<HdfsPathInfo> listing;
-  ASSERT_OK(this->client_->ListDirectory(this->scratch_dir_, &listing));
+  std::vector<FileStats> listing;
+  Selector scratch_dir;
+  scratch_dir.base_dir = this->scratch_dir_;
+  ASSERT_OK(this->client_->GetTargetStats(scratch_dir, &listing));
 
   // Do it again, appends!
-  ASSERT_OK(this->client_->ListDirectory(this->scratch_dir_, &listing));
+  ASSERT_OK(this->client_->GetTargetStats(scratch_dir, &listing));
 
   ASSERT_EQ(6, static_cast<int>(listing.size()));
 
   // Argh, well, shouldn't expect the listing to be in any particular order
   for (size_t i = 0; i < listing.size(); ++i) {
-    const HdfsPathInfo& info = listing[i];
-    if (info.name == this->HdfsAbsPath(p1)) {
-      ASSERT_EQ(ObjectType::FILE, info.kind);
-      ASSERT_EQ(size, info.size);
-    } else if (info.name == this->HdfsAbsPath(p2)) {
-      ASSERT_EQ(ObjectType::FILE, info.kind);
-      ASSERT_EQ(size / 2, info.size);
-    } else if (info.name == this->HdfsAbsPath(d1)) {
-      ASSERT_EQ(ObjectType::DIRECTORY, info.kind);
+    const auto& info = listing[i];
+    if (info.path() == this->HdfsAbsPath(p1)) {
+      ASSERT_EQ(info.type(), FileType::File);
+      ASSERT_EQ(info.size(), size);
+    } else if (info.path() == this->HdfsAbsPath(p2)) {
+      ASSERT_EQ(info.type(), FileType::File);
+      ASSERT_EQ(info.size(), size / 2);
+    } else if (info.path() == this->HdfsAbsPath(d1)) {
+      ASSERT_EQ(info.type(), FileType::Directory);
     } else {
-      FAIL() << "Unexpected path: " << info.name;
+      FAIL() << "Unexpected path: " << info.path();
     }
   }
 }
@@ -418,7 +421,7 @@ TYPED_TEST(TestHadoopFileSystem, LargeFile) {
   ASSERT_EQ(size, bytes_read);
 }
 
-TYPED_TEST(TestHadoopFileSystem, RenameFile) {
+TYPED_TEST(TestHadoopFileSystem, MoveFile) {
   SKIP_IF_NO_DRIVER();
   ASSERT_OK(this->MakeScratchDir());
 
@@ -429,7 +432,7 @@ TYPED_TEST(TestHadoopFileSystem, RenameFile) {
   std::vector<uint8_t> data = RandomData(size);
   ASSERT_OK(this->WriteDummyFile(src_path, data.data(), size));
 
-  ASSERT_OK(this->client_->Rename(src_path, dst_path));
+  ASSERT_OK(this->client_->Move(src_path, dst_path));
 
   ASSERT_FALSE(this->client_->Exists(src_path));
   ASSERT_TRUE(this->client_->Exists(dst_path));

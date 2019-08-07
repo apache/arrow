@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/filesystem/filesystem.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -35,6 +36,12 @@ class MemoryPool;
 class Status;
 
 namespace io {
+
+using fs::FileStats;
+using fs::FileSystem;
+using fs::FileType;
+using fs::Selector;
+using fs::TimePoint;
 
 class HdfsReadableFile;
 class HdfsOutputStream;
@@ -72,59 +79,69 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
  public:
   ~HadoopFileSystem() override;
 
-  // Connect to an HDFS cluster given a configuration
-  //
-  // @param config (in): configuration for connecting
-  // @param fs (out): the created client
-  // @returns Status
+  /// Connect to an HDFS cluster given a configuration
+  ///
+  /// \param config (in): configuration for connecting
+  /// \param fs (out): the created client
+  /// \returns Status
   static Status Connect(const HdfsConnectionConfig* config,
                         std::shared_ptr<HadoopFileSystem>* fs);
 
-  // Create directory and all parents
-  //
-  // @param path (in): absolute HDFS path
-  // @returns Status
-  Status MakeDirectory(const std::string& path) override;
-
-  // Delete file or directory
-  // @param path: absolute path to data
-  // @param recursive: if path is a directory, delete contents as well
-  // @returns error status on failure
-  Status Delete(const std::string& path, bool recursive = false);
-
-  Status DeleteDirectory(const std::string& path) override;
-
-  // Disconnect from cluster
-  //
-  // @returns Status
+  /// Disconnect from cluster
+  ///
+  /// \returns Status
   Status Disconnect();
 
-  // @param path (in): absolute HDFS path
-  // @returns bool, true if the path exists, false if not (or on error)
+  using FileSystem::GetTargetStats;
+  Status GetTargetStats(const std::string& path, FileStats* out) override;
+  Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
+
+  Status CreateDir(const std::string& path, bool recursive = true) override;
+
+  Status DeleteDir(const std::string& path) override;
+
+  Status DeleteDirContents(const std::string& path) override;
+
+  Status DeleteFile(const std::string& path) override;
+
+  Status Move(const std::string& src, const std::string& dest) override;
+
+  Status CopyFile(const std::string& src, const std::string& dest) override;
+
+  Status OpenInputStream(const std::string& path,
+                         std::shared_ptr<io::InputStream>* out) override;
+
+  Status OpenInputFile(const std::string& path,
+                       std::shared_ptr<io::RandomAccessFile>* out) override;
+
+  Status OpenOutputStream(const std::string& path,
+                          std::shared_ptr<io::OutputStream>* out) override;
+
+  Status OpenAppendStream(const std::string& path,
+                          std::shared_ptr<io::OutputStream>* out) override;
+
+  /// \param path (in): absolute HDFS path
+  /// \returns bool, true if the path exists, false if not (or on error)
   bool Exists(const std::string& path);
 
-  // @param path (in): absolute HDFS path
-  // @param info (out)
-  // @returns Status
+  /// \param path (in): absolute HDFS path
+  /// \param info (out)
+  /// \returns Status
   Status GetPathInfo(const std::string& path, HdfsPathInfo* info);
 
-  // @param nbytes (out): total capacity of the filesystem
-  // @returns Status
+  /// \param nbytes (out): total capacity of the filesystem
+  /// \returns Status
   Status GetCapacity(int64_t* nbytes);
 
-  // @param nbytes (out): total bytes used of the filesystem
-  // @returns Status
+  /// \param nbytes (out): total bytes used of the filesystem
+  /// \returns Status
   Status GetUsed(int64_t* nbytes);
-
-  Status GetChildren(const std::string& path, std::vector<std::string>* listing) override;
-
-  Status ListDirectory(const std::string& path, std::vector<HdfsPathInfo>* listing);
 
   /// Change
   ///
-  /// @param path file path to change
-  /// @param owner pass null for no change
-  /// @param group pass null for no change
+  /// \param path file path to change
+  /// \param owner pass null for no change
+  /// \param group pass null for no change
   Status Chown(const std::string& path, const char* owner, const char* group);
 
   /// Change path permissions
@@ -134,43 +151,29 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   /// \return Status
   Status Chmod(const std::string& path, int mode);
 
-  // Move file or directory from source path to destination path within the
-  // current filesystem
-  Status Rename(const std::string& src, const std::string& dst) override;
-
-  Status Stat(const std::string& path, FileStatistics* stat) override;
-
   // TODO(wesm): GetWorkingDirectory, SetWorkingDirectory
 
-  // Open an HDFS file in READ mode. Returns error
-  // status if the file is not found.
-  //
-  // @param path complete file path
+  /// Open an HDFS file in READ mode. Returns error
+  /// status if the file is not found.
+  ///
+  /// \param path complete file path
   Status OpenReadable(const std::string& path, int32_t buffer_size,
                       std::shared_ptr<HdfsReadableFile>* file);
 
   Status OpenReadable(const std::string& path, std::shared_ptr<HdfsReadableFile>* file);
 
-  // FileMode::WRITE options
-  // @param path complete file path
-  // @param buffer_size, 0 for default
-  // @param replication, 0 for default
-  // @param default_block_size, 0 for default
+  /// FileMode::WRITE options
+  ///
+  /// \param path complete file path
+  /// \param buffer_size, 0 for default
+  /// \param replication, 0 for default
+  /// \param default_block_size, 0 for default
   Status OpenWritable(const std::string& path, bool append, int32_t buffer_size,
                       int16_t replication, int64_t default_block_size,
                       std::shared_ptr<HdfsOutputStream>* file);
 
   Status OpenWritable(const std::string& path, bool append,
                       std::shared_ptr<HdfsOutputStream>* file);
-
-  ARROW_DEPRECATED("Use OpenWritable")
-  Status OpenWriteable(const std::string& path, bool append, int32_t buffer_size,
-                       int16_t replication, int64_t default_block_size,
-                       std::shared_ptr<HdfsOutputStream>* file);
-
-  ARROW_DEPRECATED("Use OpenWritable")
-  Status OpenWriteable(const std::string& path, bool append,
-                       std::shared_ptr<HdfsOutputStream>* file);
 
  private:
   friend class HdfsReadableFile;

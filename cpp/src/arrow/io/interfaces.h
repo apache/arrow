@@ -45,22 +45,6 @@ struct ARROW_EXPORT FileStatistics {
   ObjectType::type kind;
 };
 
-class ARROW_EXPORT FileSystem {
- public:
-  virtual ~FileSystem() = default;
-
-  virtual Status MakeDirectory(const std::string& path) = 0;
-
-  virtual Status DeleteDirectory(const std::string& path) = 0;
-
-  virtual Status GetChildren(const std::string& path,
-                             std::vector<std::string>* listing) = 0;
-
-  virtual Status Rename(const std::string& src, const std::string& dst) = 0;
-
-  virtual Status Stat(const std::string& path, FileStatistics* stat) = 0;
-};
-
 class ARROW_EXPORT FileInterface {
  public:
   virtual ~FileInterface() = 0;
