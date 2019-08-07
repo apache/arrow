@@ -952,20 +952,20 @@ Status PrintDiff(const Array& left, const Array& right, std::ostream* os) {
                        default_memory_pool(), &edits));
     ARROW_ASSIGN_OR_RAISE(
         auto formatter,
-        MakeUnifiedDiffFormatter(*os, *left_dict.dictionary(), *right_dict.dictionary()));
+        MakeUnifiedDiffFormatter(os, *left_dict.dictionary(), *right_dict.dictionary()));
     RETURN_NOT_OK(formatter->Visit(*edits));
 
     *os << "## indices diff";
     RETURN_NOT_OK(
         Diff(*left_dict.indices(), *right_dict.indices(), default_memory_pool(), &edits));
-    ARROW_ASSIGN_OR_RAISE(formatter, MakeUnifiedDiffFormatter(*os, *left_dict.indices(),
+    ARROW_ASSIGN_OR_RAISE(formatter, MakeUnifiedDiffFormatter(os, *left_dict.indices(),
                                                               *right_dict.indices()));
     return formatter->Visit(*edits);
   }
 
   std::shared_ptr<Array> edits;
   RETURN_NOT_OK(Diff(left, right, default_memory_pool(), &edits));
-  ARROW_ASSIGN_OR_RAISE(auto formatter, MakeUnifiedDiffFormatter(*os, left, right));
+  ARROW_ASSIGN_OR_RAISE(auto formatter, MakeUnifiedDiffFormatter(os, left, right));
   return formatter->Visit(*edits);
 }
 

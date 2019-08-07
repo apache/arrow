@@ -17,8 +17,8 @@
 
 #pragma once
 
+#include <iosfwd>
 #include <memory>
-#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/result.h"
@@ -80,6 +80,6 @@ class ARROW_EXPORT DiffVisitor {
 /// \brief return a DiffVisitor which will format an edit script in unified
 /// diff format
 ARROW_EXPORT Result<std::unique_ptr<DiffVisitor>> MakeUnifiedDiffFormatter(
-    std::ostream& os, const Array& base, const Array& target);
+    std::ostream* os, const Array& base, const Array& target);
 
 }  // namespace arrow

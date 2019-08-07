@@ -661,9 +661,9 @@ class Formatter {
 
 class UnifiedDiffFormatter : public DiffVisitor {
  public:
-  UnifiedDiffFormatter(std::ostream& os, const Array& base, const Array& target,
+  UnifiedDiffFormatter(std::ostream* os, const Array& base, const Array& target,
                        Formatter formatter)
-      : os_(os), base_(base), target_(target), formatter_(std::move(formatter)) {
+      : os_(*os), base_(base), target_(target), formatter_(std::move(formatter)) {
     os_ << std::endl;
   }
 
@@ -720,7 +720,7 @@ class UnifiedDiffFormatter : public DiffVisitor {
   Formatter formatter_;
 };
 
-Result<std::unique_ptr<DiffVisitor>> MakeUnifiedDiffFormatter(std::ostream& os,
+Result<std::unique_ptr<DiffVisitor>> MakeUnifiedDiffFormatter(std::ostream* os,
                                                               const Array& base,
                                                               const Array& target) {
   if (!base.type()->Equals(target.type())) {

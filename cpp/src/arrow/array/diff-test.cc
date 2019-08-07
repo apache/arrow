@@ -98,7 +98,7 @@ class DiffTest : public ::testing::Test {
 
   void DoDiffAndFormat(std::stringstream* out) {
     DoDiff();
-    auto formatter = MakeUnifiedDiffFormatter(*out, *base_, *target_);
+    auto formatter = MakeUnifiedDiffFormatter(out, *base_, *target_);
     ASSERT_OK(formatter.status());
     ASSERT_OK(formatter.ValueOrDie()->Visit(*edits_));
   }
