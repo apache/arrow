@@ -15,125 +15,91 @@
 // specific language governing permissions and limitations
 // under the License.
 
+const f64 = new Float64Array(1);
+const u32 = new Uint32Array(f64.buffer);
+
 /**
- * Convert uint16 (logically a float16) to a JS float64.
- * Adapted from https://gist.github.com/zed/59a413ae2ed4141d2037
- * @param n {number} the uint16 to convert
+ * Convert uint16 (logically a float16) to a JS float64. Inspired by numpy's `npy_half_to_double`:
+ * https://github.com/numpy/numpy/blob/5a5987291dc95376bb098be8d8e5391e89e77a2c/numpy/core/src/npymath/halffloat.c#L29
+ * @param h {number} the uint16 to convert
  * @private
  * @ignore
  */
-export function uint16ToFloat64(n: number) {
-
-    // magic numbers:
-    // 31 = b011111
-    // 1024 = 2 ** 10
-
-    const sign = n >> 15;
-    const exponent = (n >> 10) & 31;
-    const fraction = n & (1024 - 1);
-
-    if (exponent === 0) {
-        if (fraction === 0) {
-            return sign ? -0 : 0;
-        }
-        return ((-1) ** sign) * (fraction / 1024) * (2 ** -14);
+export function uint16ToFloat64(h: number) {
+    let expo = (h & 0x7C00) >> 10;
+    let sigf = (h & 0x03FF) / 1024;
+    let sign = (-1) ** ((h & 0x8000) >> 15);
+    switch (expo) {
+        case 0x1F: return sign * (sigf ? NaN : 1/0);
+        case 0x00: return sign * (sigf ? 6.103515625e-5 * sigf : 0);
     }
-    if (exponent === 31) {
-        if (fraction === 0) {
-            return sign ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY;
-        }
-        return NaN;
-    }
-    return ((-1) ** sign) * (1 + fraction / 1024) * (2 ** (exponent - 15));
+    return sign * (2 ** (expo - 15)) * (1 + sigf);
 }
 
 /**
- * Convert a float64 to uint16 (assuming the float64 is logically a float16).
- * Adapted from https://gist.github.com/zed/59a413ae2ed4141d2037
- * @param n {number} The JS float64 to convert
+ * Convert a float64 to uint16 (assuming the float64 is logically a float16). Inspired by numpy's `npy_double_to_half`:
+ * https://github.com/numpy/numpy/blob/5a5987291dc95376bb098be8d8e5391e89e77a2c/numpy/core/src/npymath/halffloat.c#L43
+ * @param d {number} The float64 to convert
  * @private
  * @ignore
  */
-export function float64ToUint16(n: number) {
+export function float64ToUint16(d: number) {
 
-    // magic numbers:
-    // 31 = b011111
-    // 1024 = 2 ** 10
-    // 16777216 = 2 ** 24
-    // 31744 = b0111110000000000 (positive infinity)
-    // 64512 = b1111110000000000 (negative infinity)
+    if (d !== d) return 0x7E00; // NaN
 
-    // Anything with exponent == 31 and mantissa > 0 is NaN,
-    // 65535 is b1111111111111111, the max 16 bit value with exponent 31
-    if (n !== n) { return 65535; }
-    // negative zero (-0) is uint16_t 32768
-    if (n === 0 && (1 / n < 0)) { return 32768; }
+    f64[0] = d;
 
-    const sign = Math.sign(n) < 0;
+    // Magic numbers:
+    // 0x80000000 = 10000000 00000000 00000000 00000000 -- masks the 32nd bit
+    // 0x7ff00000 = 01111111 11110000 00000000 00000000 -- masks the 21st-31st bits
+    // 0x000fffff = 00000000 00001111 11111111 11111111 -- masks the 1st-20th bit
 
-    if (!isFinite(n)) {
-        return sign ? 64512 : 31744;
+    let sign = (u32[1] & 0x80000000) >> 16 & 0xFFFF;
+    let expo = (u32[1] & 0x7ff00000), sigf = 0x0000;
+
+    if (expo >= 0x40f00000) {
+        // 
+        // If exponent overflowed, the float16 is either NaN or Infinity.
+        // Rules to propagate the sign bit: mantissa > 0 ? NaN : +/-Infinity
+        // 
+        // Magic numbers:
+        // 0x40F00000 = 01000000 11110000 00000000 00000000 -- 6-bit exponent overflow
+        // 0x7C000000 = 01111100 00000000 00000000 00000000 -- masks the 27th-31st bits
+        // 
+        // returns:
+        // qNaN, aka 32256 decimal, 0x7E00 hex, or 01111110 00000000 binary
+        // sNaN, aka 32000 decimal, 0x7D00 hex, or 01111101 00000000 binary
+        // +inf, aka 31744 decimal, 0x7C00 hex, or 01111100 00000000 binary
+        // -inf, aka 64512 decimal, 0xFC00 hex, or 11111100 00000000 binary
+        // 
+        // If mantissa is greater than 23 bits, set to +Infinity like numpy
+        if (u32[0] > 0) {
+            expo = 0x7C00;
+        } else {
+            expo = (expo & 0x7C000000) >> 16;
+            sigf = (u32[1] & 0x000fffff) >> 10;
+        }
+    } else if (expo <= 0x3f000000) {
+        // 
+        // If exponent underflowed, the float is either signed zero or subnormal.
+        // 
+        // Magic numbers:
+        // 0x3F000000 = 00111111 00000000 00000000 00000000 -- 6-bit exponent underflow
+        // 
+        sigf = 0x100000 + (u32[1] & 0x000fffff);
+        sigf = 0x100000 + (sigf << ((expo >> 20) - 998)) >> 21;
+        expo = 0;
+    } else {
+        // 
+        // No overflow or underflow, rebase the exponent and round the mantissa
+        // Magic numbers:
+        // 0x200 = 00000010 00000000 -- masks off the 10th bit
+        // 
+
+        // Ensure the first mantissa bit (the 10th one) is 1 and round
+        expo = (expo - 0x3f000000) >> 10;
+        sigf = ((u32[1] & 0x000fffff) + 0x200) >> 10;
     }
 
-    let [mantissa, exponent] = frexp(n);
-    if (mantissa === 0 && exponent === 0) { return sign ? -0 : 0; }
-    if (mantissa !== mantissa || exponent !== exponent) { return 65535; }
-
-    mantissa = Math.trunc((2 * Math.abs(mantissa) - 1) * 1024); // round toward zero
-    exponent = exponent + 14;
-
-    if (exponent <= 0) { // subnormal
-        mantissa = (16777216 * Math.abs(n) + .5) | 0; // round
-        exponent = 0;
-    } else if (exponent >= 31) {
-        return sign ? 64512 : 31744;
-    }
-
-    return (+sign << 15) | (exponent << 10) | mantissa;
+    return sign | expo | sigf & 0xFFFF;
 }
-
-/**
- * Extract the mantissa and exponent from a JS float64, such that `f = mantissa * 2^exponent`.
- * Adapted from http://croquetweak.blogspot.com/2014/08/deconstructing-floats-frexp-and-ldexp.html
- * @returns `Float64Array` of the mantissa and exponent respectively
- * @private
- * @ignore
- */
-const frexp = (() => {
-
-    // Float64Array used to store and return the [mantissa, exponent] of a JS float64
-    const f64 = new Float64Array(2);
-    // Uint32Array used to store the [lo, hi] bits of a JS float64
-    const u32 = new Uint32Array(f64.buffer);
-
-    return frexp;
-
-    function frexp(f: number) {
-        f64[0] = f;
-        f64[1] = 0;
-        if (f === 0) { return f64; }
-        // extract the unsigned exponent bits
-        let exponent = (u32[1] >>> 20) & 0x7FF;
-        // if the exponent is 0, the rest of the 53 bits are being used to represent
-        // a decimal number between -1.0 < f < 1.0.
-        if (exponent === 0) { // subnormal
-            f64[0] = f * Math.pow(2, 64);
-            exponent = ((u32[1] >>> 20) & 0x7FF) - 64;
-        }
-        // apply the bias
-        f64[1] = exponent - 1022;
-        // compute the mantissa
-        f64[0] = ldexp(f, -f64[1]);
-        return f64;
-    }
-
-    function ldexp(f: number, exp: number) {
-        // Multiply the mantissa by the exponent in stages. The exponent can
-        // be as high as 1073, and 2^1073 is larger than max float at 2^1023
-        let n = Math.min(3, Math.ceil(Math.abs(exp) / 1023));
-        for (let i = -1; ++i < n;) {
-            f *= (2 ** ((exp + i) / n | 0));
-        }
-        return f;
-    }
-})();

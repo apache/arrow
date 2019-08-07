@@ -20,16 +20,28 @@ const { float64ToUint16, uint16ToFloat64 } = Arrow.util;
 
 describe('Float16', () => {
     test('Uint16 to Float64 works', () => {
-        for (let val, i = -1; ++i < 65536;) {
-            val = uint16ToFloat64(i);
-            if (val === val) {
-                if (isFinite(val)) {
-                    expect(float64ToUint16(val)).toEqual(i);
+
+        const uNaN = 0x7E00 /* NaN */;
+        const pInf = 0x7C00 /* 1/0 */;
+        const nInf = 0xFC00 /*-1/0 */;
+        let value = 0, expected = value;
+
+        do {
+
+            expected = value;
+
+            // if exponent is all 1s, either Infinity or NaN
+            if ((value & 0x7C00) === 0x7C00) {
+                // if significand, must be NaN
+                if (((value << 6) & 0xFFFF) !== 0) {
+                    expected = uNaN;
+                } else {
+                    // otherwise  +/- Infinity
+                    expected = (value >>> 15) !== 0 ? nInf : pInf;
                 }
-            } else {
-                // the default NaN we've chosen for float16
-                expect(float64ToUint16(val)).toEqual(65535);
             }
-        }
+
+            expect(float64ToUint16(uint16ToFloat64(value))).toEqual(expected);
+        } while (++value < 65536);
     });
 });
