@@ -198,16 +198,18 @@ class QuadraticSpaceMyersDiff {
   }
 
   // beginning of a range for storing per-edit state in endpoint_base_ and insert_
-  int64_t begin(int64_t edit_count) const { return edit_count * (edit_count + 1) / 2; }
+  int64_t StorageBegin(int64_t edit_count) const {
+    return edit_count * (edit_count + 1) / 2;
+  }
 
   // end of a range for storing per-edit state in endpoint_base_ and insert_
-  int64_t end(int64_t edit_count) const { return begin(edit_count + 1); }
+  int64_t StorageEnd(int64_t edit_count) const { return StorageBegin(edit_count + 1); }
 
   EditPoint GetEditPoint(int64_t edit_count, int64_t index) const {
-    DCHECK_GE(index, begin(edit_count));
-    DCHECK_LT(index, end(edit_count));
+    DCHECK_GE(index, StorageBegin(edit_count));
+    DCHECK_LT(index, StorageEnd(edit_count));
     int64_t base_distance = endpoint_base_[index] - base_begin_;
-    auto k = static_cast<int64_t>(edit_count) - 2 * (index - begin(edit_count));
+    auto k = static_cast<int64_t>(edit_count) - 2 * (index - StorageBegin(edit_count));
     return {endpoint_base_[index], target_begin_ + (base_distance - k)};
   }
 
@@ -235,22 +237,25 @@ class QuadraticSpaceMyersDiff {
   }
 
   void Next() {
-    endpoint_base_.resize(end(edit_count_ + 1), base_begin_);
-    insert_.resize(end(edit_count_ + 1), false);
+    ++edit_count_;
+    endpoint_base_.resize(StorageEnd(edit_count_), base_begin_);
+    insert_.resize(StorageEnd(edit_count_), false);
 
     // try deleting from base first
-    for (int64_t i = begin(edit_count_), i_out = end(edit_count_); i != end(edit_count_);
-         ++i, ++i_out) {
-      endpoint_base_[i_out] = ExtendFrom(DeleteOne(GetEditPoint(edit_count_, i))).base;
+    for (int64_t i = StorageBegin(edit_count_ - 1), i_out = StorageBegin(edit_count_);
+         i != StorageEnd(edit_count_ - 1); ++i, ++i_out) {
+      endpoint_base_[i_out] =
+          ExtendFrom(DeleteOne(GetEditPoint(edit_count_ - 1, i))).base;
     }
 
     // check if inserting from target could do better
-    for (int64_t i = begin(edit_count_), i_out = end(edit_count_) + 1;
-         i != end(edit_count_); ++i, ++i_out) {
-      auto x_endpoint = GetEditPoint(edit_count_ + 1, i_out);
+    for (int64_t i = StorageBegin(edit_count_ - 1), i_out = StorageBegin(edit_count_) + 1;
+         i != StorageEnd(edit_count_ - 1); ++i, ++i_out) {
+      auto x_endpoint = GetEditPoint(edit_count_, i_out);
 
-      endpoint_base_[i_out] = ExtendFrom(InsertOne(GetEditPoint(edit_count_, i))).base;
-      auto y_endpoint = GetEditPoint(edit_count_ + 1, i_out);
+      endpoint_base_[i_out] =
+          ExtendFrom(InsertOne(GetEditPoint(edit_count_ - 1, i))).base;
+      auto y_endpoint = GetEditPoint(edit_count_, i_out);
 
       if (y_endpoint.base - x_endpoint.base >= 0) {
         insert_[i_out] = true;
@@ -259,11 +264,9 @@ class QuadraticSpaceMyersDiff {
       }
     }
 
-    ++edit_count_;
-
     // check for completion
     EditPoint finish = {base_end_, target_end_};
-    for (int64_t i = begin(edit_count_); i != end(edit_count_); ++i) {
+    for (int64_t i = StorageBegin(edit_count_); i != StorageEnd(edit_count_); ++i) {
       if (GetEditPoint(edit_count_, i) == finish) {
         finish_index_ = i;
         return;
@@ -295,7 +298,7 @@ class QuadraticSpaceMyersDiff {
       } else {
         --x_minus_y;
       }
-      index = (i - 1 - x_minus_y) / 2 + begin(i - 1);
+      index = (i - 1 - x_minus_y) / 2 + StorageBegin(i - 1);
 
       // endpoint of previous edit
       auto previous = GetEditPoint(i - 1, index);
