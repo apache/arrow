@@ -1377,6 +1377,40 @@ garrow_double_array_compare(GArrowDoubleArray *array,
                                       "[double-array][compare]");
 }
 
+/**
+ * garrow_array_filter:
+ * @array: A #GArrowArray.
+ * @filter: The values indicates which values should be filtered out.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowArray filterd
+ *   with a boolean selection filter. Nulls in the filter will
+ *   result in nulls in the output.
+ *
+ * Since: 0.15.0
+ */
+GArrowArray *
+garrow_array_filter(GArrowArray *array,
+                    GArrowBooleanArray *filter,
+                    GError **error)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto arrow_array_raw = arrow_array.get();
+  auto arrow_filter = garrow_array_get_raw(GARROW_ARRAY(filter));
+  auto arrow_filter_raw = arrow_filter.get();
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::Array> arrow_filtered_array;
+  auto status = arrow::compute::Filter(&context,
+                                       *arrow_array_raw,
+                                       *arrow_filter_raw,
+                                       &arrow_filtered_array);
+  if (garrow_error_check(error, status, "[array][filter]")) {
+    return garrow_array_new_raw(&arrow_filtered_array);
+  } else {
+    return NULL;
+  }
+}
 
 G_END_DECLS
 
