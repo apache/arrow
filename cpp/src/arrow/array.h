@@ -913,7 +913,7 @@ class ARROW_EXPORT StructArray : public Array {
   ///
   /// The length and data type are automatically inferred from the arguments.
   /// There should be at least one child array.
-  static Result<std::shared_ptr<Array>> Make(
+  static Result<std::shared_ptr<StructArray>> Make(
       const std::vector<std::shared_ptr<Array>>& children,
       const std::vector<std::string>& field_names,
       std::shared_ptr<Buffer> null_bitmap = NULLPTR,
@@ -924,7 +924,7 @@ class ARROW_EXPORT StructArray : public Array {
   /// The length is automatically inferred from the arguments.
   /// There should be at least one child array.  This method does not
   /// check that field types and child array types are consistent.
-  static Result<std::shared_ptr<Array>> Make(
+  static Result<std::shared_ptr<StructArray>> Make(
       const std::vector<std::shared_ptr<Array>>& children,
       const std::vector<std::shared_ptr<Field>>& fields,
       std::shared_ptr<Buffer> null_bitmap = NULLPTR,

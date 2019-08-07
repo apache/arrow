@@ -943,28 +943,28 @@ Status PrintDiff(const Array& left, const Array& right, std::ostream* os) {
   if (left.type()->id() == Type::DICTIONARY) {
     *os << "# Dictionary arrays differed" << std::endl;
 
-    std::shared_ptr<Array> edits;
     const auto& left_dict = checked_cast<const DictionaryArray&>(left);
     const auto& right_dict = checked_cast<const DictionaryArray&>(right);
 
     *os << "## dictionary diff";
-    RETURN_NOT_OK(Diff(*left_dict.dictionary(), *right_dict.dictionary(),
-                       default_memory_pool(), &edits));
+    ARROW_ASSIGN_OR_RAISE(
+        auto dict_edits,
+        Diff(*left_dict.dictionary(), *right_dict.dictionary(), default_memory_pool()));
     ARROW_ASSIGN_OR_RAISE(
         auto formatter,
         MakeUnifiedDiffFormatter(os, *left_dict.dictionary(), *right_dict.dictionary()));
-    RETURN_NOT_OK(formatter->Visit(*edits));
+    RETURN_NOT_OK(formatter->Visit(*dict_edits));
 
     *os << "## indices diff";
-    RETURN_NOT_OK(
-        Diff(*left_dict.indices(), *right_dict.indices(), default_memory_pool(), &edits));
+    ARROW_ASSIGN_OR_RAISE(
+        auto indices_edits,
+        Diff(*left_dict.dictionary(), *right_dict.dictionary(), default_memory_pool()));
     ARROW_ASSIGN_OR_RAISE(formatter, MakeUnifiedDiffFormatter(os, *left_dict.indices(),
                                                               *right_dict.indices()));
-    return formatter->Visit(*edits);
+    return formatter->Visit(*indices_edits);
   }
 
-  std::shared_ptr<Array> edits;
-  RETURN_NOT_OK(Diff(left, right, default_memory_pool(), &edits));
+  ARROW_ASSIGN_OR_RAISE(auto edits, Diff(left, right, default_memory_pool()));
   ARROW_ASSIGN_OR_RAISE(auto formatter, MakeUnifiedDiffFormatter(os, left, right));
   return formatter->Visit(*edits);
 }

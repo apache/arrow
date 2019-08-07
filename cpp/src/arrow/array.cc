@@ -558,7 +558,7 @@ StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
   boxed_fields_.resize(children.size());
 }
 
-Result<std::shared_ptr<Array>> StructArray::Make(
+Result<std::shared_ptr<StructArray>> StructArray::Make(
     const std::vector<std::shared_ptr<Array>>& children,
     const std::vector<std::shared_ptr<Field>>& fields,
     std::shared_ptr<Buffer> null_bitmap, int64_t null_count, int64_t offset) {
@@ -582,7 +582,7 @@ Result<std::shared_ptr<Array>> StructArray::Make(
                                        null_bitmap, null_count, offset);
 }
 
-Result<std::shared_ptr<Array>> StructArray::Make(
+Result<std::shared_ptr<StructArray>> StructArray::Make(
     const std::vector<std::shared_ptr<Array>>& children,
     const std::vector<std::string>& field_names, std::shared_ptr<Buffer> null_bitmap,
     int64_t null_count, int64_t offset) {

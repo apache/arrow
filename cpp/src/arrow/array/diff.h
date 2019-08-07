@@ -50,11 +50,10 @@ class MemoryPool;
 /// \param[in] base baseline for comparison
 /// \param[in] target an array of identical type to base whose elements differ from base's
 /// \param[in] pool memory to store the result will be allocated from this memory pool
-/// \param[out] out an edit script array which can be applied to base to produce target
-/// \return Status
+/// \return an edit script array which can be applied to base to produce target
 ARROW_EXPORT
-Status Diff(const Array& base, const Array& target, MemoryPool* pool,
-            std::shared_ptr<Array>* out);
+Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target,
+                                          MemoryPool* pool);
 
 /// \brief visitor interface for easy traversal of an edit script
 ///

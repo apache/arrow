@@ -288,7 +288,7 @@ class QuadraticSpaceMyersDiff {
 
   bool Done() { return finish_index_ != static_cast<uint64_t>(-1); }
 
-  Status GetEdits(MemoryPool* pool, std::shared_ptr<Array>* out) {
+  Result<std::shared_ptr<StructArray>> GetEdits(MemoryPool* pool) {
     DCHECK(Done());
 
     int64_t length = edit_count_ + 1;
@@ -321,12 +321,9 @@ class QuadraticSpaceMyersDiff {
     BitUtil::SetBitTo(insert_buf->mutable_data(), 0, false);
     run_length[0] = endpoint.base - base_begin_;
 
-    ARROW_ASSIGN_OR_RAISE(
-        *out,
-        StructArray::Make({std::make_shared<BooleanArray>(length, insert_buf),
-                           std::make_shared<UInt64Array>(length, run_length_buf)},
-                          {field("insert", boolean()), field("run_length", uint64())}));
-    return Status::OK();
+    return StructArray::Make({std::make_shared<BooleanArray>(length, insert_buf),
+                              std::make_shared<UInt64Array>(length, run_length_buf)},
+                             {field("insert", boolean()), field("run_length", uint64())});
   }
 
  private:
@@ -373,49 +370,57 @@ struct DiffImpl {
     if (base_.null_count() == 0 && target_.null_count() == 0) {
       auto base = MakeViewRange<ArrayType>(base_);
       auto target = MakeViewRange<ArrayType>(target_);
-      return Diff(base.begin(), base.end(), target.begin(), target.end());
+      ARROW_ASSIGN_OR_RAISE(*out_,
+                            Diff(base.begin(), base.end(), target.begin(), target.end()));
+    } else {
+      auto base = MakeNullOrViewRange<ArrayType>(base_);
+      auto target = MakeNullOrViewRange<ArrayType>(target_);
+      ARROW_ASSIGN_OR_RAISE(*out_,
+                            Diff(base.begin(), base.end(), target.begin(), target.end()));
     }
-    auto base = MakeNullOrViewRange<ArrayType>(base_);
-    auto target = MakeNullOrViewRange<ArrayType>(target_);
-    return Diff(base.begin(), base.end(), target.begin(), target.end());
+    return Status::OK();
   }
 
   Status Visit(const ExtensionType&) {
     auto base = checked_cast<const ExtensionArray&>(base_).storage();
     auto target = checked_cast<const ExtensionArray&>(target_).storage();
-    return arrow::Diff(*base, *target, pool_, out_);
+    ARROW_ASSIGN_OR_RAISE(*out_, arrow::Diff(*base, *target, pool_));
+    return Status::OK();
   }
 
   Status Visit(const DictionaryType& t) {
     return Status::NotImplemented("diffing arrays of type ", t);
   }
 
-  Status Diff() { return VisitTypeInline(*base_.type(), this); }
+  Result<std::shared_ptr<StructArray>> Diff() {
+    RETURN_NOT_OK(VisitTypeInline(*base_.type(), this));
+    return *out_;
+  }
 
   template <typename Iterator>
-  Status Diff(Iterator base_begin, Iterator base_end, Iterator target_begin,
-              Iterator target_end) {
+  Result<std::shared_ptr<StructArray>> Diff(Iterator base_begin, Iterator base_end,
+                                            Iterator target_begin, Iterator target_end) {
     QuadraticSpaceMyersDiff<Iterator> impl(base_begin, base_end, target_begin,
                                            target_end);
     while (!impl.Done()) {
       impl.Next();
     }
-    return impl.GetEdits(pool_, out_);
+    return impl.GetEdits(pool_);
   }
 
   const Array& base_;
   const Array& target_;
   MemoryPool* pool_;
-  std::shared_ptr<Array>* out_;
+  std::shared_ptr<StructArray>* out_;
 };
 
-Status Diff(const Array& base, const Array& target, MemoryPool* pool,
-            std::shared_ptr<Array>* out) {
+Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target,
+                                          MemoryPool* pool) {
   if (!base.type()->Equals(target.type())) {
     return Status::TypeError("only taking the diff of like-typed arrays is supported.");
   }
 
-  return DiffImpl{base, target, pool, out}.Diff();
+  return DiffImpl{base, target, pool}.Diff();
 }
 
 Status DiffVisitor::Visit(const Array& edits) {

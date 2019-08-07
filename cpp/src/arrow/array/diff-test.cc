@@ -88,12 +88,13 @@ class DiffTest : public ::testing::Test {
   DiffTest() : rng_(kSeed) {}
 
   void DoDiff() {
-    ASSERT_OK(Diff(*base_, *target_, default_memory_pool(), &edits_));
+    auto edits = Diff(*base_, *target_, default_memory_pool());
+    ASSERT_OK(edits.status());
+    edits_ = edits.ValueOrDie();
     ASSERT_OK(ValidateArray(*edits_));
     ASSERT_TRUE(edits_->type()->Equals(edits_type));
-    const auto& edits = checked_cast<const StructArray&>(*edits_);
-    insert_ = checked_pointer_cast<BooleanArray>(edits.field(0));
-    run_lengths_ = checked_pointer_cast<UInt64Array>(edits.field(1));
+    insert_ = checked_pointer_cast<BooleanArray>(edits_->field(0));
+    run_lengths_ = checked_pointer_cast<UInt64Array>(edits_->field(1));
   }
 
   void DoDiffAndFormat(std::stringstream* out) {
@@ -120,7 +121,8 @@ class DiffTest : public ::testing::Test {
   }
 
   random::RandomArrayGenerator rng_;
-  std::shared_ptr<Array> base_, target_, edits_;
+  std::shared_ptr<StructArray> edits_;
+  std::shared_ptr<Array> base_, target_;
   std::shared_ptr<BooleanArray> insert_;
   std::shared_ptr<UInt64Array> run_lengths_;
 };
@@ -165,7 +167,7 @@ TEST_F(DiffTest, Errors) {
 
   base_ = ArrayFromJSON(int32(), "[]");
   target_ = ArrayFromJSON(utf8(), "[]");
-  ASSERT_RAISES(TypeError, Diff(*base_, *target_, default_memory_pool(), &edits_));
+  ASSERT_RAISES(TypeError, Diff(*base_, *target_, default_memory_pool()));
 
   ASSERT_FALSE(base_->Equals(*target_, EqualOptions().diff_sink(&formatted)));
   ASSERT_EQ(formatted.str(), R"(# Array types differed: int32 vs string)");
