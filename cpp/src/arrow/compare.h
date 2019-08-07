@@ -59,7 +59,8 @@ class EqualOptions {
     return res;
   }
 
-  /// The ostream to which a diff will be formatted if arrays disagree
+  /// The ostream to which a diff will be formatted if arrays disagree.
+  /// If this is null (the default) no diff will be formatted.
   std::ostream* diff_sink() const { return diff_sink_; }
 
   /// Return a new EqualOptions object with the "diff_sink" property changed.
