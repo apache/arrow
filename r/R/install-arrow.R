@@ -99,8 +99,9 @@ SEE_ARROW_INSTALL <- paste(
   "See the Apache Arrow project installation page",
   "<https://arrow.apache.org/install/>",
   "to find pre-compiled binary packages for some common Linux distributions,",
-  "including Debian, Ubuntu, and CentOS. You'll need to install 'libarrow-dev'",
-  "and 'libparquet-dev'."
+  "including Debian, Ubuntu, and CentOS. You'll need to install",
+  "'libparquet-dev' on Debian and Ubuntu, or 'parquet-devel' on CentOS. This",
+  "will also automatically install the arrow C++ library as a dependency."
 )
 
 THEN_REINSTALL <- paste(
