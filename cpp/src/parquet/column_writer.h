@@ -178,9 +178,10 @@ class TypedColumnWriter : public ColumnWriter {
   /// \brief Write Apache Arrow columnar data directly to
   /// ColumnWriter. Throws exception if the array data type is not
   /// compatible with the writer type
-  virtual void WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
-                          const ::arrow::Array& array,
-                          const ArrowWriterProperties& properties) = 0;
+  virtual ::arrow::Status WriteArrow(const int16_t* def_levels,
+                                     const int16_t* rep_levels,
+                                     const ::arrow::Array& array,
+                                     const ArrowWriterProperties& properties) = 0;
 
   // Estimated size of the values that are not written to a page yet
   virtual int64_t EstimatedBufferedValueBytes() const = 0;

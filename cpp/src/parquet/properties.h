@@ -550,6 +550,33 @@ class PARQUET_EXPORT ArrowWriterProperties {
   const bool truncated_timestamps_allowed_;
 };
 
+/// \brief State object used for writing Arrow data directly to a Parquet
+/// column chunk. API possibly not stable
+struct ArrowWriteContext {
+  ArrowWriteContext(MemoryPool* memory_pool, ArrowWriterProperties* properties)
+      : memory_pool(memory_pool), properties(properties) {
+    this->data_buffer = AllocateBuffer(memory_pool);
+    this->def_levels_buffer = AllocateBuffer(memory_pool);
+  }
+
+  template <typename T>
+  Status GetScratchData(const int64_t num_values, T** out) {
+    RETURN_NOT_OK(this->data_buffer->Resize(num_values * sizeof(T), false));
+    *out = reinterpret_cast<T*>(this->data_buffer->mutable_data());
+    return Status::OK();
+  }
+
+  MemoryPool* memory_pool;
+  const ArrowWriterProperties* properties;
+
+  // Buffer used for storing the data of an array converted to the physical type
+  // as expected by parquet-cpp.
+  std::shared_ptr<ResizableBuffer> data_buffer;
+
+  // We use the shared ownership of this buffer
+  std::shared_ptr<ResizableBuffer> def_levels_buffer;
+};
+
 std::shared_ptr<ArrowWriterProperties> PARQUET_EXPORT default_arrow_writer_properties();
 
 }  // namespace parquet
