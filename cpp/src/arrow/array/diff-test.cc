@@ -120,6 +120,14 @@ class DiffTest : public ::testing::Test {
         << "Array::Equals formatted diff incorrectly";
   }
 
+  void AssertInsertIs(const std::string& insert_json) {
+    ASSERT_ARRAYS_EQUAL(*ArrayFromJSON(boolean(), insert_json), *insert_);
+  }
+
+  void AssertRunLengthIs(const std::string& run_lengths_json) {
+    ASSERT_ARRAYS_EQUAL(*ArrayFromJSON(uint64(), run_lengths_json), *run_lengths_);
+  }
+
   random::RandomArrayGenerator rng_;
   std::shared_ptr<StructArray> edits_;
   std::shared_ptr<Array> base_, target_;
@@ -131,27 +139,20 @@ TEST_F(DiffTest, Trivial) {
   base_ = ArrayFromJSON(int32(), "[]");
   target_ = ArrayFromJSON(int32(), "[]");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 1);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 0);
+  AssertInsertIs("[false]");
+  AssertRunLengthIs("[0]");
 
   base_ = ArrayFromJSON(null(), "[null, null]");
   target_ = ArrayFromJSON(null(), "[null, null, null, null]");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 3);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 2);
-  ASSERT_EQ(insert_->Value(1), true);
-  ASSERT_EQ(run_lengths_->Value(1), 0);
-  ASSERT_EQ(insert_->Value(2), true);
-  ASSERT_EQ(run_lengths_->Value(2), 0);
+  AssertInsertIs("[false, true, true]");
+  AssertRunLengthIs("[2, 0, 0]");
 
   base_ = ArrayFromJSON(int32(), "[1, 2, 3]");
   target_ = ArrayFromJSON(int32(), "[1, 2, 3]");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 1);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 3);
+  AssertInsertIs("[false]");
+  AssertRunLengthIs("[3]");
 }
 
 TEST_F(DiffTest, Errors) {
@@ -180,45 +181,29 @@ TYPED_TEST(DiffTestWithNumeric, Basics) {
   this->base_ = ArrayFromJSON(this->type_singleton(), "[1, 2, null, 5]");
   this->target_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, null, 5]");
   this->DoDiff();
-  ASSERT_EQ(this->edits_->length(), 2);
-  ASSERT_EQ(this->insert_->Value(0), false);
-  ASSERT_EQ(this->run_lengths_->Value(0), 2);
-  ASSERT_EQ(this->insert_->Value(1), true);
-  ASSERT_EQ(this->run_lengths_->Value(1), 2);
+  this->AssertInsertIs("[false, true]");
+  this->AssertRunLengthIs("[2, 2]");
 
   // delete one
   this->base_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, null, 5]");
   this->target_ = ArrayFromJSON(this->type_singleton(), "[1, 2, null, 5]");
   this->DoDiff();
-  ASSERT_EQ(this->edits_->length(), 2);
-  ASSERT_EQ(this->insert_->Value(0), false);
-  ASSERT_EQ(this->run_lengths_->Value(0), 2);
-  ASSERT_EQ(this->insert_->Value(1), false);
-  ASSERT_EQ(this->run_lengths_->Value(1), 2);
+  this->AssertInsertIs("[false, false]");
+  this->AssertRunLengthIs("[2, 2]");
 
   // change one
   this->base_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, null, 5]");
   this->target_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 23, null, 5]");
   this->DoDiff();
-  ASSERT_EQ(this->edits_->length(), 3);
-  ASSERT_EQ(this->insert_->Value(0), false);
-  ASSERT_EQ(this->run_lengths_->Value(0), 2);
-  ASSERT_EQ(this->insert_->Value(1), false);
-  ASSERT_EQ(this->run_lengths_->Value(1), 0);
-  ASSERT_EQ(this->insert_->Value(2), true);
-  ASSERT_EQ(this->run_lengths_->Value(2), 2);
+  this->AssertInsertIs("[false, false, true]");
+  this->AssertRunLengthIs("[2, 0, 2]");
 
   // null out one
   this->base_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, null, 5]");
   this->target_ = ArrayFromJSON(this->type_singleton(), "[1, 2, null, null, 5]");
   this->DoDiff();
-  ASSERT_EQ(this->edits_->length(), 3);
-  ASSERT_EQ(this->insert_->Value(0), false);
-  ASSERT_EQ(this->run_lengths_->Value(0), 2);
-  ASSERT_EQ(this->insert_->Value(1), false);
-  ASSERT_EQ(this->run_lengths_->Value(1), 1);
-  ASSERT_EQ(this->insert_->Value(2), true);
-  ASSERT_EQ(this->run_lengths_->Value(2), 1);
+  this->AssertInsertIs("[false, false, true]");
+  this->AssertRunLengthIs("[2, 1, 1]");
 
   // append some
   this->base_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, null, 5]");
@@ -260,45 +245,29 @@ TEST_F(DiffTest, BasicsWithStrings) {
   base_ = ArrayFromJSON(utf8(), R"(["give", "a", "break"])");
   target_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break"])");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 2);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 1);
-  ASSERT_EQ(insert_->Value(1), true);
-  ASSERT_EQ(run_lengths_->Value(1), 2);
+  AssertInsertIs("[false, true]");
+  AssertRunLengthIs("[1, 2]");
 
   // delete one
   base_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break"])");
   target_ = ArrayFromJSON(utf8(), R"(["give", "a", "break"])");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 2);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 1);
-  ASSERT_EQ(insert_->Value(1), false);
-  ASSERT_EQ(run_lengths_->Value(1), 2);
+  AssertInsertIs("[false, false]");
+  AssertRunLengthIs("[1, 2]");
 
   // change one
   base_ = ArrayFromJSON(utf8(), R"(["give", "a", "break"])");
   target_ = ArrayFromJSON(utf8(), R"(["gimme", "a", "break"])");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 3);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 0);
-  ASSERT_EQ(insert_->Value(1), false);
-  ASSERT_EQ(run_lengths_->Value(1), 0);
-  ASSERT_EQ(insert_->Value(2), true);
-  ASSERT_EQ(run_lengths_->Value(2), 2);
+  AssertInsertIs("[false, false, true]");
+  AssertRunLengthIs("[0, 0, 2]");
 
   // null out one
   base_ = ArrayFromJSON(utf8(), R"(["give", "a", "break"])");
   target_ = ArrayFromJSON(utf8(), R"(["give", "a", null])");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 3);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 2);
-  ASSERT_EQ(insert_->Value(1), false);
-  ASSERT_EQ(run_lengths_->Value(1), 0);
-  ASSERT_EQ(insert_->Value(2), true);
-  ASSERT_EQ(run_lengths_->Value(2), 0);
+  AssertInsertIs("[false, false, true]");
+  AssertRunLengthIs("[2, 0, 0]");
 }
 
 TEST_F(DiffTest, BasicsWithLists) {
@@ -306,45 +275,29 @@ TEST_F(DiffTest, BasicsWithLists) {
   base_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [], [13]])");
   target_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [5, 9], [], [13]])");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 2);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 1);
-  ASSERT_EQ(insert_->Value(1), true);
-  ASSERT_EQ(run_lengths_->Value(1), 2);
+  AssertInsertIs("[false, true]");
+  AssertRunLengthIs("[1, 2]");
 
   // delete one
   base_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [5, 9], [], [13]])");
   target_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [], [13]])");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 2);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 1);
-  ASSERT_EQ(insert_->Value(1), false);
-  ASSERT_EQ(run_lengths_->Value(1), 2);
+  AssertInsertIs("[false, false]");
+  AssertRunLengthIs("[1, 2]");
 
   // change one
   base_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [], [13]])");
   target_ = ArrayFromJSON(list(int32()), R"([[3, 3, 3], [], [13]])");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 3);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 0);
-  ASSERT_EQ(insert_->Value(1), false);
-  ASSERT_EQ(run_lengths_->Value(1), 0);
-  ASSERT_EQ(insert_->Value(2), true);
-  ASSERT_EQ(run_lengths_->Value(2), 2);
+  AssertInsertIs("[false, false, true]");
+  AssertRunLengthIs("[0, 0, 2]");
 
   // null out one
   base_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [], [13]])");
   target_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [], null])");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 3);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 2);
-  ASSERT_EQ(insert_->Value(1), false);
-  ASSERT_EQ(run_lengths_->Value(1), 0);
-  ASSERT_EQ(insert_->Value(2), true);
-  ASSERT_EQ(run_lengths_->Value(2), 0);
+  AssertInsertIs("[false, false, true]");
+  AssertRunLengthIs("[2, 0, 0]");
 }
 
 TEST_F(DiffTest, BasicsWithStructs) {
@@ -355,46 +308,30 @@ TEST_F(DiffTest, BasicsWithStructs) {
   target_ =
       ArrayFromJSON(type, R"([{"foo": "!", "bar": 3}, {"foo": "?"}, {}, {"bar": 13}])");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 2);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 1);
-  ASSERT_EQ(insert_->Value(1), true);
-  ASSERT_EQ(run_lengths_->Value(1), 2);
+  AssertInsertIs("[false, true]");
+  AssertRunLengthIs("[1, 2]");
 
   // delete one
   base_ =
       ArrayFromJSON(type, R"([{"foo": "!", "bar": 3}, {"foo": "?"}, {}, {"bar": 13}])");
   target_ = ArrayFromJSON(type, R"([{"foo": "!", "bar": 3}, {}, {"bar": 13}])");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 2);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 1);
-  ASSERT_EQ(insert_->Value(1), false);
-  ASSERT_EQ(run_lengths_->Value(1), 2);
+  AssertInsertIs("[false, false]");
+  AssertRunLengthIs("[1, 2]");
 
   // change one
   base_ = ArrayFromJSON(type, R"([{"foo": "!", "bar": 3}, {}, {"bar": 13}])");
   target_ = ArrayFromJSON(type, R"([{"foo": "!", "bar": 2}, {}, {"bar": 13}])");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 3);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 0);
-  ASSERT_EQ(insert_->Value(1), false);
-  ASSERT_EQ(run_lengths_->Value(1), 0);
-  ASSERT_EQ(insert_->Value(2), true);
-  ASSERT_EQ(run_lengths_->Value(2), 2);
+  AssertInsertIs("[false, false, true]");
+  AssertRunLengthIs("[0, 0, 2]");
 
   // null out one
   base_ = ArrayFromJSON(type, R"([{"foo": "!", "bar": 3}, {}, {"bar": 13}])");
   target_ = ArrayFromJSON(type, R"([{"foo": "!", "bar": 3}, {}, null])");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 3);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 2);
-  ASSERT_EQ(insert_->Value(1), false);
-  ASSERT_EQ(run_lengths_->Value(1), 0);
-  ASSERT_EQ(insert_->Value(2), true);
-  ASSERT_EQ(run_lengths_->Value(2), 0);
+  AssertInsertIs("[false, false, true]");
+  AssertRunLengthIs("[2, 0, 0]");
 }
 
 TEST_F(DiffTest, BasicsWithUnions) {
@@ -404,45 +341,29 @@ TEST_F(DiffTest, BasicsWithUnions) {
   base_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], [5, 13]])");
   target_ = ArrayFromJSON(type, R"([[2, "!"], [2, "?"], [5, 3], [5, 13]])");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 2);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 1);
-  ASSERT_EQ(insert_->Value(1), true);
-  ASSERT_EQ(run_lengths_->Value(1), 2);
+  AssertInsertIs("[false, true]");
+  AssertRunLengthIs("[1, 2]");
 
   // delete one
   base_ = ArrayFromJSON(type, R"([[2, "!"], [2, "?"], [5, 3], [5, 13]])");
   target_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], [5, 13]])");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 2);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 1);
-  ASSERT_EQ(insert_->Value(1), false);
-  ASSERT_EQ(run_lengths_->Value(1), 2);
+  AssertInsertIs("[false, false]");
+  AssertRunLengthIs("[1, 2]");
 
   // change one
   base_ = ArrayFromJSON(type, R"([[5, 3], [2, "!"], [5, 13]])");
   target_ = ArrayFromJSON(type, R"([[2, "3"], [2, "!"], [5, 13]])");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 3);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 0);
-  ASSERT_EQ(insert_->Value(1), false);
-  ASSERT_EQ(run_lengths_->Value(1), 0);
-  ASSERT_EQ(insert_->Value(2), true);
-  ASSERT_EQ(run_lengths_->Value(2), 2);
+  AssertInsertIs("[false, false, true]");
+  AssertRunLengthIs("[0, 0, 2]");
 
   // null out one
   base_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], [5, 13]])");
   target_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], null])");
   DoDiff();
-  ASSERT_EQ(edits_->length(), 3);
-  ASSERT_EQ(insert_->Value(0), false);
-  ASSERT_EQ(run_lengths_->Value(0), 2);
-  ASSERT_EQ(insert_->Value(1), false);
-  ASSERT_EQ(run_lengths_->Value(1), 0);
-  ASSERT_EQ(insert_->Value(2), true);
-  ASSERT_EQ(run_lengths_->Value(2), 0);
+  AssertInsertIs("[false, false, true]");
+  AssertRunLengthIs("[2, 0, 0]");
 }
 
 TEST_F(DiffTest, UnifiedDiffFormatter) {

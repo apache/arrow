@@ -958,7 +958,7 @@ Status PrintDiff(const Array& left, const Array& right, std::ostream* os) {
     *os << "## indices diff";
     ARROW_ASSIGN_OR_RAISE(
         auto indices_edits,
-        Diff(*left_dict.dictionary(), *right_dict.dictionary(), default_memory_pool()));
+        Diff(*left_dict.indices(), *right_dict.indices(), default_memory_pool()));
     ARROW_ASSIGN_OR_RAISE(formatter, MakeUnifiedDiffFormatter(os, *left_dict.indices(),
                                                               *right_dict.indices()));
     return formatter->Visit(*indices_edits);

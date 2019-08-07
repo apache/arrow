@@ -357,7 +357,7 @@ struct DiffImpl {
     RETURN_NOT_OK(run_length_builder.Finish(&run_length_buf));
 
     ARROW_ASSIGN_OR_RAISE(
-        *out_,
+        out_,
         StructArray::Make({std::make_shared<BooleanArray>(edit_count + 1, insert_buf),
                            std::make_shared<UInt64Array>(edit_count + 1, run_length_buf)},
                           {field("insert", boolean()), field("run_length", uint64())}));
@@ -370,12 +370,12 @@ struct DiffImpl {
     if (base_.null_count() == 0 && target_.null_count() == 0) {
       auto base = MakeViewRange<ArrayType>(base_);
       auto target = MakeViewRange<ArrayType>(target_);
-      ARROW_ASSIGN_OR_RAISE(*out_,
+      ARROW_ASSIGN_OR_RAISE(out_,
                             Diff(base.begin(), base.end(), target.begin(), target.end()));
     } else {
       auto base = MakeNullOrViewRange<ArrayType>(base_);
       auto target = MakeNullOrViewRange<ArrayType>(target_);
-      ARROW_ASSIGN_OR_RAISE(*out_,
+      ARROW_ASSIGN_OR_RAISE(out_,
                             Diff(base.begin(), base.end(), target.begin(), target.end()));
     }
     return Status::OK();
@@ -384,7 +384,7 @@ struct DiffImpl {
   Status Visit(const ExtensionType&) {
     auto base = checked_cast<const ExtensionArray&>(base_).storage();
     auto target = checked_cast<const ExtensionArray&>(target_).storage();
-    ARROW_ASSIGN_OR_RAISE(*out_, arrow::Diff(*base, *target, pool_));
+    ARROW_ASSIGN_OR_RAISE(out_, arrow::Diff(*base, *target, pool_));
     return Status::OK();
   }
 
@@ -394,7 +394,7 @@ struct DiffImpl {
 
   Result<std::shared_ptr<StructArray>> Diff() {
     RETURN_NOT_OK(VisitTypeInline(*base_.type(), this));
-    return *out_;
+    return out_;
   }
 
   template <typename Iterator>
@@ -411,7 +411,7 @@ struct DiffImpl {
   const Array& base_;
   const Array& target_;
   MemoryPool* pool_;
-  std::shared_ptr<StructArray>* out_;
+  std::shared_ptr<StructArray> out_;
 };
 
 Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target,
