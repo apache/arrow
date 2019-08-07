@@ -154,14 +154,6 @@ TEST_F(DiffTest, Trivial) {
   ASSERT_EQ(run_lengths_->Value(0), 3);
 }
 
-template <typename ArrowType>
-class DiffTestWithNumeric : public DiffTest {
- protected:
-  std::shared_ptr<DataType> type_singleton() {
-    return TypeTraits<ArrowType>::type_singleton();
-  }
-};
-
 TEST_F(DiffTest, Errors) {
   std::stringstream formatted;
 
@@ -172,6 +164,14 @@ TEST_F(DiffTest, Errors) {
   ASSERT_FALSE(base_->Equals(*target_, EqualOptions().diff_sink(&formatted)));
   ASSERT_EQ(formatted.str(), R"(# Array types differed: int32 vs string)");
 }
+
+template <typename ArrowType>
+class DiffTestWithNumeric : public DiffTest {
+ protected:
+  std::shared_ptr<DataType> type_singleton() {
+    return TypeTraits<ArrowType>::type_singleton();
+  }
+};
 
 TYPED_TEST_CASE(DiffTestWithNumeric, NumericArrowTypes);
 
