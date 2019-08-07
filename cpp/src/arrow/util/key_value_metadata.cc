@@ -106,6 +106,17 @@ const std::string& KeyValueMetadata::value(int64_t i) const {
   return values_[i];
 }
 
+std::vector<std::pair<std::string, std::string>> KeyValueMetadata::sorted_pairs() const {
+  std::vector<std::pair<std::string, std::string>> pairs;
+  pairs.reserve(size());
+
+  auto indices = internal::ArgSort(keys_);
+  for (const auto i : indices) {
+    pairs.emplace_back(keys_[i], values_[i]);
+  }
+  return pairs;
+}
+
 int KeyValueMetadata::FindKey(const std::string& key) const {
   for (size_t i = 0; i < keys_.size(); ++i) {
     if (keys_[i] == key) {

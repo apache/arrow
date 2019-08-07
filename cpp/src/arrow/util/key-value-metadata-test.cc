@@ -134,4 +134,22 @@ bar: buzz)";
   ASSERT_EQ(expected, result);
 }
 
+TEST(KeyValueMetadataTest, SortedPairs) {
+  std::vector<std::string> keys = {"foo", "bar"};
+  std::vector<std::string> values = {"bizz", "buzz"};
+
+  KeyValueMetadata metadata1(keys, values);
+  std::reverse(keys.begin(), keys.end());
+  KeyValueMetadata metadata2(keys, values);
+  std::reverse(values.begin(), values.end());
+  KeyValueMetadata metadata3(keys, values);
+
+  std::vector<std::pair<std::string, std::string>> expected = {{"bar", "buzz"},
+                                                               {"foo", "bizz"}};
+  ASSERT_EQ(metadata1.sorted_pairs(), expected);
+  ASSERT_EQ(metadata3.sorted_pairs(), expected);
+  expected = {{"bar", "bizz"}, {"foo", "buzz"}};
+  ASSERT_EQ(metadata2.sorted_pairs(), expected);
+}
+
 }  // namespace arrow

@@ -22,6 +22,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "arrow/util/macros.h"
@@ -47,6 +48,7 @@ class ARROW_EXPORT KeyValueMetadata {
 
   const std::string& key(int64_t i) const;
   const std::string& value(int64_t i) const;
+  std::vector<std::pair<std::string, std::string>> sorted_pairs() const;
 
   /// \brief Perform linear search for key, returning -1 if not found
   int FindKey(const std::string& key) const;
