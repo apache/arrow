@@ -520,6 +520,12 @@ def test_list_from_arrays(list_array_type, list_type_factory):
                         type=list_type_factory(pa.binary()))
     assert result.equals(expected)
 
+    # raise on invalid array
+    offsets = [1, 3, 10]
+    values = np.arange(5)
+    with pytest.raises(ValueError):
+        list_array_type.from_arrays(offsets, values)
+
 
 def test_union_from_dense():
     binary = pa.array([b'a', b'b', b'c', b'd'], type='binary')
