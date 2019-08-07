@@ -440,6 +440,42 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
 +"quote:\""
 )");
 
+  // date32
+  base_ = ArrayFromJSON(date32(), R"([0, 1, 2, 31, 4])");
+  target_ = ArrayFromJSON(date32(), R"([0, 1, 31, 2, 4])");
+  AssertDiffAndFormat(R"(
+@@ -2, +2 @@
+-1970-01-03
+@@ -4, +3 @@
++1970-01-03
+)");
+
+  // date64
+  constexpr int64_t ms_per_day = 24 * 60 * 60 * 1000;
+  ArrayFromVector<Date64Type>(
+      {0 * ms_per_day, 1 * ms_per_day, 2 * ms_per_day, 31 * ms_per_day, 4 * ms_per_day},
+      &base_);
+  ArrayFromVector<Date64Type>(
+      {0 * ms_per_day, 1 * ms_per_day, 31 * ms_per_day, 2 * ms_per_day, 4 * ms_per_day},
+      &target_);
+  AssertDiffAndFormat(R"(
+@@ -2, +2 @@
+-1970-01-03
+@@ -4, +3 @@
++1970-01-03
+)");
+
+  // timestamp
+  auto x = 678 + 1000000 * (5 + 60 * (4 + 60 * (3 + 24 * int64_t(1))));
+  ArrayFromVector<TimestampType>(timestamp(TimeUnit::MICRO), {0, 1, x, 2, 4}, &base_);
+  ArrayFromVector<TimestampType>(timestamp(TimeUnit::MICRO), {0, 1, 2, x, 4}, &target_);
+  AssertDiffAndFormat(R"(
+@@ -2, +2 @@
+-1970-01-02 03:04:05.000678
+@@ -4, +3 @@
++1970-01-02 03:04:05.000678
+)");
+
   // lists
   base_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [], [13], []])");
   target_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [5, 9], [], [13]])");

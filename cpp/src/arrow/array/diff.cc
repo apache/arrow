@@ -37,6 +37,7 @@
 #include "arrow/util/string.h"
 #include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
+#include "arrow/vendored/datetime.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -471,7 +472,8 @@ class MakeFormatterImpl {
   // format Numerics with std::ostream defaults
   // TODO(bkietz) format dates, times, and timestamps in a human readable format
   template <typename T>
-  Status Visit(const NumericArray<T>&) {
+  typename std::enable_if<!is_date<T>::value && !is_time<T>::value, Status>::type Visit(
+      const NumericArray<T>&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
       const auto& numeric = checked_cast<const NumericArray<T>&>(array);
       if (sizeof(decltype(numeric.Value(index))) == sizeof(char)) {
@@ -483,6 +485,83 @@ class MakeFormatterImpl {
       }
     };
     return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_date<T, Status> Visit(const NumericArray<T>&) {
+    using unit = typename std::conditional<std::is_same<T, Date32Type>::value,
+                                           arrow_vendored::date::days,
+                                           std::chrono::milliseconds>::type;
+
+    static arrow_vendored::date::sys_days epoch{arrow_vendored::date::jan / 1 / 1970};
+
+    impl_ = [](const Array& array, int64_t index, std::ostream* os) {
+      auto value = checked_cast<const NumericArray<T>&>(array).Value(index);
+      *os << arrow_vendored::date::format("%F", unit{value} + epoch);
+    };
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_time<T, Status> Visit(const NumericArray<T>&) {
+    impl_ = MakeTimeFormatter<T, false>("%T");
+    return Status::OK();
+  }
+
+  Status Visit(const TimestampArray&) {
+    impl_ = MakeTimeFormatter<TimestampType, true>("%F %T");
+    return Status::OK();
+  }
+
+  Status Visit(const DayTimeIntervalArray&) {
+    impl_ = [](const Array& array, int64_t index, std::ostream* os) {
+      auto day_millis = checked_cast<const DayTimeIntervalArray&>(array).Value(index);
+      *os << day_millis.days << "d" << day_millis.milliseconds << "ms";
+    };
+    return Status::OK();
+  }
+
+  template <typename T, bool AddEpoch>
+  Formatter MakeTimeFormatter(const std::string& fmt_str) {
+    return [fmt_str](const Array& array, int64_t index, std::ostream* os) {
+      auto fmt = fmt_str.c_str();
+      auto unit = checked_cast<const T&>(*array.type()).unit();
+      auto value = checked_cast<const NumericArray<T>&>(array).Value(index);
+      using arrow_vendored::date::format;
+      if (AddEpoch) {
+        static arrow_vendored::date::sys_days epoch{arrow_vendored::date::jan / 1 / 1970};
+
+        switch (unit) {
+          case TimeUnit::NANO:
+            *os << format(fmt, std::chrono::nanoseconds{value} + epoch);
+            break;
+          case TimeUnit::MICRO:
+            *os << format(fmt, std::chrono::microseconds{value} + epoch);
+            break;
+          case TimeUnit::MILLI:
+            *os << format(fmt, std::chrono::milliseconds{value} + epoch);
+            break;
+          case TimeUnit::SECOND:
+            *os << format(fmt, std::chrono::seconds{value} + epoch);
+            break;
+        }
+        return;
+      }
+      switch (unit) {
+        case TimeUnit::NANO:
+          *os << format(fmt, std::chrono::nanoseconds{value});
+          break;
+        case TimeUnit::MICRO:
+          *os << format(fmt, std::chrono::microseconds{value});
+          break;
+        case TimeUnit::MILLI:
+          *os << format(fmt, std::chrono::milliseconds{value});
+          break;
+        case TimeUnit::SECOND:
+          *os << format(fmt, std::chrono::seconds{value});
+          break;
+      }
+    };
   }
 
   // format Binary and FixedSizeBinary in hexadecimal
