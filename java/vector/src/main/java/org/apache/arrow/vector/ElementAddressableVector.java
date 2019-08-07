@@ -17,29 +17,26 @@
 
 package org.apache.arrow.vector;
 
+import org.apache.arrow.memory.util.ArrowBufPointer;
+
 /**
- * Interface vectors that contain variable width members (e.g. Strings, Lists, etc).
+ * Vector for which each data element resides in a continuous memory region,
+ * so it can be pointed to by an {@link org.apache.arrow.memory.util.ArrowBufPointer}.
  */
-public interface VariableWidthVector extends ElementAddressableVector, DensityAwareVector {
+public interface ElementAddressableVector extends ValueVector {
 
   /**
-   * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
-   *
-   * @param totalBytes Desired size of the underlying data buffer.
-   * @param valueCount Number of values in the vector.
+   * Gets the pointer for the data at the given index.
+   * @param index the index for the data.
+   * @return the pointer to the data.
    */
-  void allocateNew(int totalBytes, int valueCount);
+  ArrowBufPointer getDataPointer(int index);
 
   /**
-   * Provide the maximum amount of variable width bytes that can be stored in this vector.
-   *
-   * @return the byte capacity of this vector
+   * Gets the pointer for the data at the given index.
+   * @param index the index for the data.
+   * @param reuse the data pointer to fill, this avoids creating a new pointer object.
+   * @return the pointer to the data, it should be the same one as the input parameter
    */
-  int getByteCapacity();
-
-  /**
-   * Provide the number of bytes contained in the valueBuffer.
-   * @return the number of bytes in valueBuffer.
-   */
-  int sizeOfValueBuffer();
+  ArrowBufPointer getDataPointer(int index, ArrowBufPointer reuse);
 }
