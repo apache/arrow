@@ -198,12 +198,12 @@ class QuadraticSpaceMyersDiff {
   }
 
   // beginning of a range for storing per-edit state in endpoint_base_ and insert_
-  uint64_t begin(uint64_t edit_count) const { return edit_count * (edit_count + 1) / 2; }
+  int64_t begin(int64_t edit_count) const { return edit_count * (edit_count + 1) / 2; }
 
   // end of a range for storing per-edit state in endpoint_base_ and insert_
-  uint64_t end(uint64_t edit_count) const { return begin(edit_count + 1); }
+  int64_t end(int64_t edit_count) const { return begin(edit_count + 1); }
 
-  EditPoint GetEditPoint(uint64_t edit_count, uint64_t index) const {
+  EditPoint GetEditPoint(int64_t edit_count, int64_t index) const {
     DCHECK_GE(index, begin(edit_count));
     DCHECK_LT(index, end(edit_count));
     int64_t base_distance = endpoint_base_[index] - base_begin_;
@@ -239,13 +239,13 @@ class QuadraticSpaceMyersDiff {
     insert_.resize(end(edit_count_ + 1), false);
 
     // try deleting from base first
-    for (uint64_t i = begin(edit_count_), i_out = end(edit_count_); i != end(edit_count_);
+    for (int64_t i = begin(edit_count_), i_out = end(edit_count_); i != end(edit_count_);
          ++i, ++i_out) {
       endpoint_base_[i_out] = ExtendFrom(DeleteOne(GetEditPoint(edit_count_, i))).base;
     }
 
     // check if inserting from target could do better
-    for (uint64_t i = begin(edit_count_), i_out = end(edit_count_) + 1;
+    for (int64_t i = begin(edit_count_), i_out = end(edit_count_) + 1;
          i != end(edit_count_); ++i, ++i_out) {
       auto x_endpoint = GetEditPoint(edit_count_ + 1, i_out);
 
@@ -263,7 +263,7 @@ class QuadraticSpaceMyersDiff {
 
     // check for completion
     EditPoint finish = {base_end_, target_end_};
-    for (uint64_t i = begin(edit_count_); i != end(edit_count_); ++i) {
+    for (int64_t i = begin(edit_count_); i != end(edit_count_); ++i) {
       if (GetEditPoint(edit_count_, i) == finish) {
         finish_index_ = i;
         return;
@@ -271,7 +271,7 @@ class QuadraticSpaceMyersDiff {
     }
   }
 
-  bool Done() { return finish_index_ != static_cast<uint64_t>(-1); }
+  bool Done() { return finish_index_ != -1; }
 
   Result<std::shared_ptr<StructArray>> GetEdits(MemoryPool* pool) {
     DCHECK(Done());
@@ -279,8 +279,8 @@ class QuadraticSpaceMyersDiff {
     int64_t length = edit_count_ + 1;
     std::shared_ptr<Buffer> insert_buf, run_length_buf;
     RETURN_NOT_OK(AllocateBitmap(pool, length, &insert_buf));
-    RETURN_NOT_OK(AllocateBuffer(pool, length * sizeof(uint64_t), &run_length_buf));
-    auto run_length = reinterpret_cast<uint64_t*>(run_length_buf->mutable_data());
+    RETURN_NOT_OK(AllocateBuffer(pool, length * sizeof(int64_t), &run_length_buf));
+    auto run_length = reinterpret_cast<int64_t*>(run_length_buf->mutable_data());
 
     auto index = finish_index_;
     auto endpoint = GetEditPoint(edit_count_, finish_index_);
@@ -300,6 +300,7 @@ class QuadraticSpaceMyersDiff {
       // endpoint of previous edit
       auto previous = GetEditPoint(i - 1, index);
       run_length[i] = endpoint.base - previous.base - !insert;
+      DCHECK_GE(run_length[i], 0);
 
       endpoint = previous;
     }
@@ -307,13 +308,13 @@ class QuadraticSpaceMyersDiff {
     run_length[0] = endpoint.base - base_begin_;
 
     return StructArray::Make({std::make_shared<BooleanArray>(length, insert_buf),
-                              std::make_shared<UInt64Array>(length, run_length_buf)},
-                             {field("insert", boolean()), field("run_length", uint64())});
+                              std::make_shared<Int64Array>(length, run_length_buf)},
+                             {field("insert", boolean()), field("run_length", int64())});
   }
 
  private:
-  uint64_t finish_index_ = -1;
-  uint64_t edit_count_ = 0;
+  int64_t finish_index_ = -1;
+  int64_t edit_count_ = 0;
   Iterator base_begin_, base_end_;
   Iterator target_begin_, target_end_;
   std::vector<Iterator> endpoint_base_;
@@ -329,7 +330,7 @@ struct DiffImpl {
     TypedBufferBuilder<bool> insert_builder(pool_);
     RETURN_NOT_OK(insert_builder.Resize(edit_count + 1));
     insert_builder.UnsafeAppend(false);
-    TypedBufferBuilder<uint64_t> run_length_builder(pool_);
+    TypedBufferBuilder<int64_t> run_length_builder(pool_);
     RETURN_NOT_OK(run_length_builder.Resize(edit_count + 1));
     run_length_builder.UnsafeAppend(run_length);
     if (edit_count > 0) {
@@ -344,8 +345,8 @@ struct DiffImpl {
     ARROW_ASSIGN_OR_RAISE(
         out_,
         StructArray::Make({std::make_shared<BooleanArray>(edit_count + 1, insert_buf),
-                           std::make_shared<UInt64Array>(edit_count + 1, run_length_buf)},
-                          {field("insert", boolean()), field("run_length", uint64())}));
+                           std::make_shared<Int64Array>(edit_count + 1, run_length_buf)},
+                          {field("insert", boolean()), field("run_length", int64())}));
     return Status::OK();
   }
 
@@ -410,14 +411,14 @@ Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target
 
 Status DiffVisitor::Visit(const Array& edits) {
   static const auto edits_type =
-      struct_({field("insert", boolean()), field("run_length", uint64())});
+      struct_({field("insert", boolean()), field("run_length", int64())});
   DCHECK(edits.type()->Equals(*edits_type));
   DCHECK_GE(edits.length(), 1);
 
   auto insert = checked_pointer_cast<BooleanArray>(
       checked_cast<const StructArray&>(edits).field(0));
   auto run_lengths =
-      checked_pointer_cast<UInt64Array>(checked_cast<const StructArray&>(edits).field(1));
+      checked_pointer_cast<Int64Array>(checked_cast<const StructArray&>(edits).field(1));
 
   DCHECK(!insert->Value(0));
 

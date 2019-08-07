@@ -48,7 +48,7 @@ using internal::checked_pointer_cast;
 
 constexpr random::SeedType kSeed = 0xdeadbeef;
 static const auto edits_type =
-    struct_({field("insert", boolean()), field("run_length", uint64())});
+    struct_({field("insert", boolean()), field("run_length", int64())});
 
 struct AssertEditScript : DiffVisitor {
   AssertEditScript(const Array& base, const Array& target)
@@ -94,7 +94,7 @@ class DiffTest : public ::testing::Test {
     ASSERT_OK(ValidateArray(*edits_));
     ASSERT_TRUE(edits_->type()->Equals(edits_type));
     insert_ = checked_pointer_cast<BooleanArray>(edits_->field(0));
-    run_lengths_ = checked_pointer_cast<UInt64Array>(edits_->field(1));
+    run_lengths_ = checked_pointer_cast<Int64Array>(edits_->field(1));
   }
 
   void DoDiffAndFormat(std::stringstream* out) {
@@ -125,14 +125,14 @@ class DiffTest : public ::testing::Test {
   }
 
   void AssertRunLengthIs(const std::string& run_lengths_json) {
-    ASSERT_ARRAYS_EQUAL(*ArrayFromJSON(uint64(), run_lengths_json), *run_lengths_);
+    ASSERT_ARRAYS_EQUAL(*ArrayFromJSON(int64(), run_lengths_json), *run_lengths_);
   }
 
   random::RandomArrayGenerator rng_;
   std::shared_ptr<StructArray> edits_;
   std::shared_ptr<Array> base_, target_;
   std::shared_ptr<BooleanArray> insert_;
-  std::shared_ptr<UInt64Array> run_lengths_;
+  std::shared_ptr<Int64Array> run_lengths_;
 };
 
 TEST_F(DiffTest, Trivial) {

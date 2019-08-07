@@ -32,7 +32,7 @@ class MemoryPool;
 /// \brief Compare two arrays, returning an edit script which expresses the difference
 /// between them
 ///
-/// An edit script is an array of struct(insert: bool, run_length: uint64_t).
+/// An edit script is an array of struct(insert: bool, run_length: int64_t).
 /// Each element of "insert" determines whether an element was inserted into (true)
 /// or deleted from (false) base. Each insertion or deletion is followed by a run of
 /// elements which are unchanged from base to target; the length of this run is stored
