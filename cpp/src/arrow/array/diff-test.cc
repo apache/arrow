@@ -218,12 +218,32 @@ TYPED_TEST(DiffTestWithNumeric, Basics) {
   }
 }
 
-TYPED_TEST(DiffTestWithNumeric, CompareRandomNumeric) {
+TEST_F(DiffTest, CompareRandomInt64) {
   compute::FunctionContext ctx;
-  for (auto null_probability : {0.0, 0.1, 0.5}) {
-    auto values =
-        this->rng_.template Numeric<TypeParam>(1 << 10, 0, 127, null_probability);
-    for (const double filter_probability : {0.99, 0.9, 0.75, 0.5}) {
+  for (auto null_probability : {0.0, 0.25}) {
+    auto values = this->rng_.Int64(1 << 10, 0, 127, null_probability);
+    for (const double filter_probability : {0.99, 0.75, 0.5}) {
+      auto filter_1 = this->rng_.Boolean(values->length(), filter_probability, 0.0);
+      auto filter_2 = this->rng_.Boolean(values->length(), filter_probability, 0.0);
+
+      ASSERT_OK(compute::Filter(&ctx, *values, *filter_1, &this->base_));
+      ASSERT_OK(compute::Filter(&ctx, *values, *filter_2, &this->target_));
+
+      std::stringstream formatted;
+      this->DoDiffAndFormat(&formatted);
+      auto st = AssertEditScript{*this->base_, *this->target_}.Visit(*this->edits_);
+      if (!st.ok()) {
+        ASSERT_OK(Status(st.code(), st.message() + "\n" + formatted.str()));
+      }
+    }
+  }
+}
+
+TEST_F(DiffTest, CompareRandomStrings) {
+  compute::FunctionContext ctx;
+  for (auto null_probability : {0.0, 0.25}) {
+    auto values = this->rng_.StringWithRepeats(1 << 10, 1 << 8, 0, 32, null_probability);
+    for (const double filter_probability : {0.99, 0.75, 0.5}) {
       auto filter_1 = this->rng_.Boolean(values->length(), filter_probability, 0.0);
       auto filter_2 = this->rng_.Boolean(values->length(), filter_probability, 0.0);
 
@@ -561,11 +581,11 @@ void MakeSameLength(std::shared_ptr<Array>* a, std::shared_ptr<Array>* b) {
 
 TEST_F(DiffTest, CompareRandomStruct) {
   compute::FunctionContext ctx;
-  for (auto null_probability : {0.0, 0.1, 0.5}) {
+  for (auto null_probability : {0.0, 0.25}) {
     constexpr auto length = 1 << 10;
     auto int32_values = this->rng_.Int32(length, 0, 127, null_probability);
     auto utf8_values = this->rng_.String(length, 0, 16, null_probability);
-    for (const double filter_probability : {0.9999, 0.999, 0.75}) {
+    for (const double filter_probability : {0.9999, 0.75}) {
       std::shared_ptr<Array> int32_base, int32_target, utf8_base, utf8_target;
       ASSERT_OK(compute::Filter(&ctx, *int32_values,
                                 *this->rng_.Boolean(length, filter_probability, 0.0),
