@@ -34,7 +34,11 @@ You can install the package from CRAN with
 install.packages("arrow")
 ```
 
-On macOS and Windows, installing a binary package from CRAN will handle Arrow’s C++ dependencies for you. On Linux, you’ll need to first install the C++ library. See the [Arrow project installation page](https://arrow.apache.org/install/) to find pre-compiled binary packages for some common Linux distributions, such as Debian, Ubuntu, CentOS, and Fedora. Other Linux distributions must install the C++ library from source.
+On macOS and Windows, installing a binary package from CRAN will generally handle Arrow’s C++ dependencies for you. However, the macOS CRAN binaries are unfortunately incomplete for this version, so to install 0.14.1, you’ll first need to use Homebrew to get the Arrow C++ library (`brew install apache-arrow`), and then from R you can `install.packages("arrow", type = "source")`.
+
+Windows binaries are not yet available on CRAN but should be published soon.
+
+On Linux, you’ll need to first install the C++ library. See the [Arrow project installation page](https://arrow.apache.org/install/) to find pre-compiled binary packages for some common Linux distributions, including Debian, Ubuntu, and CentOS. You'll need to install `libparquet-dev` on Debian and Ubuntu, or `parquet-devel` on CentOS. This will also automatically install the Arrow C++ library as a dependency. Other Linux distributions must install the C++ library from source.
 
 If you install the `arrow` R package from source and the C++ library is not found, the R package functions will notify you that Arrow is not available. Call
 
