@@ -58,25 +58,22 @@ else
     PKG_LIBS=${PKGCONFIG_LIBS}
   else
     if [[ "$OSTYPE" == "darwin"* ]]; then
-      if [ "$(command -v brew)" ]; then
-        if [ "$(brew ls --versions ${PKG_BREW_NAME})" == "" ]; then
-          echo "Installing ${PKG_BREW_NAME} via Homebrew"
-          brew install ${PKG_BREW_NAME}
-        else
-          # We already have it so no need to install
-          echo "Using Homebrew ${PKG_BREW_NAME}"
-        fi
-
+      if [ "$(command -v brew)" ] && [ "$(brew ls --versions ${PKG_BREW_NAME})" != "" ]; then
+        echo "Using Homebrew ${PKG_BREW_NAME}"
         BREWDIR=$(brew --prefix)
-        PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
-        PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
       else
-        echo "Installing ${PKG_BREW_NAME} via Autobrew"
+        echo "Downloading ${PKG_BREW_NAME}"
         curl -sfL "https://jeroen.github.io/autobrew/$PKG_BREW_NAME" > autobrew
+        if [ $? -ne 0 ]; then
+          echo "Failed to download manifest for ${PKG_BREW_NAME}"
+        fi
         source autobrew
-        PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
-        PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
+        if [ $? -ne 0 ]; then
+          echo "Failed to retrieve binary for ${PKG_BREW_NAME}"
+        fi
       fi
+      PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
+      PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
     fi
   fi
 fi
@@ -93,20 +90,26 @@ if [ "$ARROW_USE_OLD_CXXABI" ]; then
 fi
 
 # Test configuration
-echo "#include $PKG_TEST_HEADER" | ${CXXCPP} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX11FLAGS} ${CXX11STD} -xc++ - >/dev/null 2>&1
+TEST_CMD="${CXXCPP} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX11FLAGS} ${CXX11STD} -xc++ -"
+echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} >/dev/null 2>&1
 
-# Customize the error
-if [ $? -ne 0 ]; then
+if [ $? -eq 0 ] || [[ "$OSTYPE" == "darwin"* ]]; then
+  # Always build with arrow on macOS
+  PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ARROW"
+  echo "PKG_CFLAGS=$PKG_CFLAGS"
+  echo "PKG_LIBS=$PKG_LIBS"
+else
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    # Just for debugging: is this possible?
+    echo "Test to load header failed. Command:"
+    echo "$TEST_CMD"
+  fi
   echo "------------------------- NOTE ---------------------------"
   echo "After installation, please run arrow::install_arrow()"
   echo "for help installing required runtime libraries"
   echo "---------------------------------------------------------"
   PKG_LIBS=""
   PKG_CFLAGS=""
-else
-  PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ARROW"
-  echo "PKG_CFLAGS=$PKG_CFLAGS"
-  echo "PKG_LIBS=$PKG_LIBS"
 fi
 
 # Write to Makevars
