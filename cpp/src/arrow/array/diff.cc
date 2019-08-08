@@ -171,6 +171,21 @@ internal::LazyRange<NullOrViewGenerator<ArrayType>> MakeNullOrViewRange(
   return internal::LazyRange<Generator>(Generator(array), array.length());
 }
 
+/// A generic sequence difference algorithm, based on
+///
+/// E. W. Myers, "An O(ND) difference algorithm and its variations,"
+/// Algorithmica, vol. 1, no. 1-4, pp. 251–266, 1986.
+///
+/// To summarize, an edit script is computed by maintaining the furthest set of EditPoints
+/// which are reachable in a given number of edits D. This is used to compute the futhest
+/// set reachable with D+1 edits, and the process continues inductively until a complete
+/// edit script is discovered.
+///
+/// From each edit point a single deletion and insertion is made then as many shared
+/// elements as possible are skipped, recording only the endpoint of the run. This
+/// representation is minimal in the common case where the sequences differ only slightly,
+/// since most of the elements are shared between base and target and are represented
+/// implicitly.
 template <typename Iterator>
 class QuadraticSpaceMyersDiff {
  public:
@@ -182,6 +197,33 @@ class QuadraticSpaceMyersDiff {
       return base == other.base && target == other.target;
     }
   };
+
+  // increment the position within base (the element pointed to was deleted)
+  EditPoint DeleteOne(EditPoint p) const {
+    if (p.base != base_end_) {
+      ++p.base;
+    }
+    return p;
+  }
+
+  // increment the position within target (the element pointed to was inserted)
+  EditPoint InsertOne(EditPoint p) const {
+    if (p.target != target_end_) {
+      ++p.target;
+    }
+    return p;
+  }
+
+  // increment the position within base and target (the elements skipped in this way were
+  // present in both sequences)
+  EditPoint ExtendFrom(EditPoint p) const {
+    for (; p.base != base_end_ && p.target != target_end_; ++p.base, ++p.target) {
+      if (*p.base != *p.target) {
+        break;
+      }
+    }
+    return p;
+  }
 
   QuadraticSpaceMyersDiff(Iterator base_begin, Iterator base_end, Iterator target_begin,
                           Iterator target_end)
@@ -206,35 +248,16 @@ class QuadraticSpaceMyersDiff {
   // end of a range for storing per-edit state in endpoint_base_ and insert_
   int64_t StorageEnd(int64_t edit_count) const { return StorageBegin(edit_count + 1); }
 
+  // given edit_count and index, augment endpoint_base_[index] with the corresponding
+  // position in target (which is only implicitly represented in edit_count, index)
   EditPoint GetEditPoint(int64_t edit_count, int64_t index) const {
     DCHECK_GE(index, StorageBegin(edit_count));
     DCHECK_LT(index, StorageEnd(edit_count));
-    int64_t base_distance = endpoint_base_[index] - base_begin_;
-    auto k = static_cast<int64_t>(edit_count) - 2 * (index - StorageBegin(edit_count));
-    return {endpoint_base_[index], target_begin_ + (base_distance - k)};
-  }
-
-  EditPoint DeleteOne(EditPoint p) const {
-    if (p.base != base_end_) {
-      ++p.base;
-    }
-    return p;
-  }
-
-  EditPoint InsertOne(EditPoint p) const {
-    if (p.target != target_end_) {
-      ++p.target;
-    }
-    return p;
-  }
-
-  EditPoint ExtendFrom(EditPoint p) const {
-    for (; p.base != base_end_ && p.target != target_end_; ++p.base, ++p.target) {
-      if (*p.base != *p.target) {
-        break;
-      }
-    }
-    return p;
+    auto insertions_minus_deletions = 2 * (index - StorageBegin(edit_count)) - edit_count;
+    auto maximal_base = endpoint_base_[index];
+    auto maximal_target =
+        target_begin_ + ((maximal_base - base_begin_) + insertions_minus_deletions);
+    return {maximal_base, maximal_target};
   }
 
   void Next() {
@@ -252,16 +275,18 @@ class QuadraticSpaceMyersDiff {
     // check if inserting from target could do better
     for (int64_t i = StorageBegin(edit_count_ - 1), i_out = StorageBegin(edit_count_) + 1;
          i != StorageEnd(edit_count_ - 1); ++i, ++i_out) {
-      auto x_endpoint = GetEditPoint(edit_count_, i_out);
+      auto endpoint_after_deletion = GetEditPoint(edit_count_, i_out);
 
       endpoint_base_[i_out] =
           ExtendFrom(InsertOne(GetEditPoint(edit_count_ - 1, i))).base;
-      auto y_endpoint = GetEditPoint(edit_count_, i_out);
+      auto endpoint_after_insertion = GetEditPoint(edit_count_, i_out);
 
-      if (y_endpoint.base - x_endpoint.base >= 0) {
+      if (endpoint_after_insertion.base - endpoint_after_deletion.base >= 0) {
+        // insertion was more efficient; keep it and mark the insertion in insert_
         insert_[i_out] = true;
       } else {
-        endpoint_base_[i_out] = x_endpoint.base;
+        // insertion was not more efficient; overwrite with the endpoint from deletion
+        endpoint_base_[i_out] = endpoint_after_deletion.base;
       }
     }
 
@@ -293,13 +318,14 @@ class QuadraticSpaceMyersDiff {
       bool insert = insert_[index];
       BitUtil::SetBitTo(insert_buf->mutable_data(), i, insert);
 
-      auto x_minus_y = (endpoint.base - base_begin_) - (endpoint.target - target_begin_);
+      auto insertions_minus_deletions =
+          (endpoint.base - base_begin_) - (endpoint.target - target_begin_);
       if (insert) {
-        ++x_minus_y;
+        ++insertions_minus_deletions;
       } else {
-        --x_minus_y;
+        --insertions_minus_deletions;
       }
-      index = (i - 1 - x_minus_y) / 2 + StorageBegin(i - 1);
+      index = (i - 1 - insertions_minus_deletions) / 2 + StorageBegin(i - 1);
 
       // endpoint of previous edit
       auto previous = GetEditPoint(i - 1, index);
@@ -321,6 +347,11 @@ class QuadraticSpaceMyersDiff {
   int64_t edit_count_ = 0;
   Iterator base_begin_, base_end_;
   Iterator target_begin_, target_end_;
+  // each element of futhest_base_ is the furthest position in base reachable given an
+  // edit_count and (# insertions) - (# deletions). Each bit of insert_ records whether
+  // the corresponding futhest position was reached via an insertion or a deletion
+  // (followed by a run of shared elements). See StorageBegin and StorageEnd for the
+  // layout of these vectors
   std::vector<Iterator> endpoint_base_;
   std::vector<bool> insert_;
 };

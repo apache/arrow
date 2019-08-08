@@ -36,7 +36,9 @@ class MemoryPool;
 /// Each element of "insert" determines whether an element was inserted into (true)
 /// or deleted from (false) base. Each insertion or deletion is followed by a run of
 /// elements which are unchanged from base to target; the length of this run is stored
-/// in "run_length".
+/// in "run_length". (Note that the edit script begins and ends with a run of shared
+/// elements but both fields of the struct must have the same length. To accomodate this
+/// the first element of "insert" should be ignored.)
 ///
 /// For example for base "hlloo" and target "hello", the edit script would be
 /// [
