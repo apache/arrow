@@ -30,8 +30,11 @@ install.packages("arrow")
 On macOS and Windows, installing a binary package from CRAN will handle
 Arrow’s C++ dependencies for you. On Linux, you’ll need to first install
 the C++ library. See the [Arrow project installation
-page](https://arrow.apache.org/install/) for a list of PPAs from which
-you can obtain it.
+page](https://arrow.apache.org/install/) to find pre-compiled binary
+packages for some common Linux distributions, including Debian, Ubuntu,
+and CentOS. You’ll need to install `libparquet-dev` on Debian and
+Ubuntu, or `parquet-devel` on CentOS. This will also automatically
+install the Arrow C++ library as a dependency.
 
 If you install the `arrow` package from source and the C++ library is
 not found, the R package functions will notify you that Arrow is not
@@ -57,7 +60,7 @@ set.seed(24)
 
 tab <- arrow::table(x = 1:10, y = rnorm(10))
 tab$schema
-#> arrow::Schema 
+#> arrow::Schema
 #> x: int32
 #> y: double
 tab

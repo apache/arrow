@@ -56,7 +56,7 @@ install_arrow_msg <- function(has_arrow, version, from_cran, os) {
       # Point to compilation instructions on readme
       msg <- c(SEE_DEV_GUIDE, THEN_REINSTALL)
     } else {
-      # Suggest arrow.apache.org/install for PPAs, or compilation instructions
+      # Suggest arrow.apache.org/install, or compilation instructions
       msg <- c(paste(SEE_ARROW_INSTALL, OR_SEE_DEV_GUIDE), THEN_REINSTALL)
     }
   } else if (!dev_version && !from_cran) {
@@ -98,7 +98,10 @@ OR_SEE_DEV_GUIDE <- paste0(
 SEE_ARROW_INSTALL <- paste(
   "See the Apache Arrow project installation page",
   "<https://arrow.apache.org/install/>",
-  "for how to install the C++ package from a PPA."
+  "to find pre-compiled binary packages for some common Linux distributions,",
+  "including Debian, Ubuntu, and CentOS. You'll need to install",
+  "'libparquet-dev' on Debian and Ubuntu, or 'parquet-devel' on CentOS. This",
+  "will also automatically install the Arrow C++ library as a dependency."
 )
 
 THEN_REINSTALL <- paste(
