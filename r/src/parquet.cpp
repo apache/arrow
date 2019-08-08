@@ -23,38 +23,36 @@
 #include <parquet/arrow/writer.h>
 #include <parquet/exception.h>
 
-using parquet::ArrowReaderProperties
-
 // [[arrow::export]]
-std::shared_ptr<ArrowReaderProperties>
+std::shared_ptr<parquet::ArrowReaderProperties>
 parquet___arrow___ArrowReaderProperties__Make(bool use_threads) {
-  return std::make_shared<ArrowReaderProperties>(use_threads);
+  return std::make_shared<parquet::ArrowReaderProperties>(use_threads);
 }
 
 // [[arrow::export]]
 void parquet___arrow___ArrowReaderProperties__set_use_threads(
-    const std::shared_ptr<ArrowReaderProperties>& properties,
+    const std::shared_ptr<parquet::ArrowReaderProperties>& properties,
     bool use_threads) {
   properties->set_use_threads(use_threads);
 }
 
 // [[arrow::export]]
 bool parquet___arrow___ArrowReaderProperties__get_use_threads(
-    const std::shared_ptr<ArrowReaderProperties>& properties,
+    const std::shared_ptr<parquet::ArrowReaderProperties>& properties,
     bool use_threads) {
   return properties->use_threads();
 }
 
 // [[arrow::export]]
 bool parquet___arrow___ArrowReaderProperties__get_read_dictionary(
-    const std::shared_ptr<ArrowReaderProperties>& properties,
+    const std::shared_ptr<parquet::ArrowReaderProperties>& properties,
     int column_index) {
   return properties->read_dictionary(column_index);
 }
 
 // [[arrow::export]]
 void parquet___arrow___ArrowReaderProperties__set_read_dictionary(
-    const std::shared_ptr<ArrowReaderProperties>& properties,
+    const std::shared_ptr<parquet::ArrowReaderProperties>& properties,
     int column_index, bool read_dict) {
   properties->set_read_dictionary(column_index, read_dict);
 }
@@ -62,7 +60,7 @@ void parquet___arrow___ArrowReaderProperties__set_read_dictionary(
 // [[arrow::export]]
 std::unique_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFile(
     const std::shared_ptr<arrow::io::RandomAccessFile>& file,
-    const std::shared_ptr<ArrowReaderProperties>& props) {
+    const std::shared_ptr<parquet::ArrowReaderProperties>& props) {
   std::unique_ptr<parquet::arrow::FileReader> reader;
   parquet::arrow::FileReaderBuilder builder;
   PARQUET_THROW_NOT_OK(builder.Open(file));
