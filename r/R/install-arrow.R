@@ -101,7 +101,7 @@ SEE_ARROW_INSTALL <- paste(
   "to find pre-compiled binary packages for some common Linux distributions,",
   "including Debian, Ubuntu, and CentOS. You'll need to install",
   "'libparquet-dev' on Debian and Ubuntu, or 'parquet-devel' on CentOS. This",
-  "will also automatically install the arrow C++ library as a dependency."
+  "will also automatically install the Arrow C++ library as a dependency."
 )
 
 THEN_REINSTALL <- paste(
