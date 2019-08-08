@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <memory>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -56,8 +57,8 @@ class VectorIterator : public Iterator<T> {
 };
 
 template <typename T>
-VectorIterator<T> MakeIterator(std::vector<T> v) {
-  return VectorIterator<T>(std::move(v));
+std::unique_ptr<VectorIterator<T>> MakeIterator(std::vector<T> v) {
+  return std::unique_ptr<VectorIterator<T>>(new VectorIterator<T>(std::move(v)));
 }
 
 }  // namespace arrow
