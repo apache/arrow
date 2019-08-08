@@ -28,6 +28,7 @@ import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
@@ -1375,18 +1376,28 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
     BaseVariableWidthVector that = (BaseVariableWidthVector) to;
 
-    if (this.isSet(index) != that.isSet(toIndex)) {
+    boolean isNull = isNull(index);
+    if (isNull != that.isNull(toIndex)) {
       return false;
     }
 
-    final int leftStart = getStartOffset(index);
-    final int leftEnd = getStartOffset(index + 1);
+    if (!isNull) {
+      final int leftStart = getStartOffset(index);
+      final int leftEnd = getStartOffset(index + 1);
 
-    final int rightStart = that.getStartOffset(toIndex);
-    final int rightEnd = that.getStartOffset(toIndex + 1);
+      final int rightStart = that.getStartOffset(toIndex);
+      final int rightEnd = that.getStartOffset(toIndex + 1);
 
-    int ret = ByteFunctionHelpers.equal(this.getDataBuffer(), leftStart, leftEnd,
-        that.getDataBuffer(), rightStart, rightEnd);
-    return ret == 1;
+      int ret = ByteFunctionHelpers.equal(this.getDataBuffer(), leftStart, leftEnd,
+          that.getDataBuffer(), rightStart, rightEnd);
+      return ret == 1;
+    }
+
+    return true;
+  }
+
+  @Override
+  public boolean accept(RangeEqualsVisitor visitor) {
+    return visitor.visit(this);
   }
 }

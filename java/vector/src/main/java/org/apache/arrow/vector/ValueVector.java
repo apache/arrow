@@ -21,6 +21,7 @@ import java.io.Closeable;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -274,27 +275,9 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   void copyFromSafe(int fromIndex, int thisIndex, ValueVector from);
 
   /**
-   * Check whether this vector equals to target vector.
-   * @param target target vector
-   * @return true if they have same type and elements, otherwise false
+   * Compare range values in this vector and vector in visitor.
+   * @param visitor visitor which holds the vector to compare.
+   * @return true if equals, otherwise false.
    */
-  default boolean equals(ValueVector target) {
-    if (this == target) {
-      return true;
-    }
-    if (target == null || !this.getField().getType().equals(target.getField().getType())) {
-      return false;
-    }
-
-    if (this.getValueCount() != target.getValueCount()) {
-      return false;
-    }
-
-    for (int i = 0; i < getValueCount(); i++) {
-      if (!equals(i, target, i)) {
-        return false;
-      }
-    }
-    return true;
-  }
+  boolean accept(RangeEqualsVisitor visitor);
 }

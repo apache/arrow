@@ -26,6 +26,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
@@ -70,6 +71,10 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     lastValueCapacity = INITIAL_VALUE_ALLOCATION;
   }
 
+
+  public int getTypeWidth() {
+    return typeWidth;
+  }
 
   @Override
   public String getName() {
@@ -876,18 +881,32 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
 
     BaseFixedWidthVector that = (BaseFixedWidthVector) to;
 
-    if (this.isSet(index) != that.isSet(toIndex)) {
+    boolean isNull = isNull(index);
+    if (isNull != that.isNull(toIndex)) {
       return false;
     }
 
-    int leftStart = typeWidth * index;
-    int leftEnd = typeWidth * (index + 1);
+    if (!isNull) {
+      if (this.isSet(index) != that.isSet(toIndex)) {
+        return false;
+      }
 
-    int rightStart = typeWidth * toIndex;
-    int rightEnd = typeWidth * (toIndex + 1);
+      int leftStart = typeWidth * index;
+      int leftEnd = typeWidth * (index + 1);
 
-    int ret = ByteFunctionHelpers.equal(this.getDataBuffer(), leftStart, leftEnd,
-        that.getDataBuffer(), rightStart, rightEnd);
-    return ret == 1;
+      int rightStart = typeWidth * toIndex;
+      int rightEnd = typeWidth * (toIndex + 1);
+
+      int ret = ByteFunctionHelpers.equal(this.getDataBuffer(), leftStart, leftEnd,
+          that.getDataBuffer(), rightStart, rightEnd);
+      return ret == 1;
+    }
+
+    return true;
+  }
+
+  @Override
+  public boolean accept(RangeEqualsVisitor visitor) {
+    return visitor.visit(this);
   }
 }

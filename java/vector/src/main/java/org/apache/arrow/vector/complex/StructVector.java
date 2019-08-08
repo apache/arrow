@@ -497,39 +497,45 @@ public class StructVector extends NonNullableStructVector implements FieldVector
       return false;
     }
     StructVector that = (StructVector) to;
-    if (this.isSet(index) != that.isSet(toIndex)) {
-      return false;
-    }
-    List<ValueVector> leftChildrens = new ArrayList<>();
-    List<ValueVector> rightChildrens = new ArrayList<>();
 
-    if (!getChildFieldNames().equals(that.getChildFieldNames())) {
+    boolean isNull = isNull(index);
+    if (isNull != that.isNull(toIndex)) {
       return false;
     }
 
-    for (String child : getChildFieldNames()) {
-      ValueVector v = getChild(child);
-      if (v != null) {
-        leftChildrens.add(v);
-      }
-    }
+    if (!isNull) {
+      List<ValueVector> leftChildrens = new ArrayList<>();
+      List<ValueVector> rightChildrens = new ArrayList<>();
 
-    for (String child : that.getChildFieldNames()) {
-      ValueVector v = that.getChild(child);
-      if (v != null) {
-        rightChildrens.add(v);
-      }
-    }
-
-    if (leftChildrens.size() != rightChildrens.size()) {
-      return false;
-    }
-
-    for (int i = 0; i < leftChildrens.size(); i++) {
-      if (!leftChildrens.get(i).equals(index, rightChildrens.get(i), toIndex)) {
+      if (!getChildFieldNames().equals(that.getChildFieldNames())) {
         return false;
       }
+
+      for (String child : getChildFieldNames()) {
+        ValueVector v = getChild(child);
+        if (v != null) {
+          leftChildrens.add(v);
+        }
+      }
+
+      for (String child : that.getChildFieldNames()) {
+        ValueVector v = that.getChild(child);
+        if (v != null) {
+          rightChildrens.add(v);
+        }
+      }
+
+      if (leftChildrens.size() != rightChildrens.size()) {
+        return false;
+      }
+
+      for (int i = 0; i < leftChildrens.size(); i++) {
+        if (!leftChildrens.get(i).equals(index, rightChildrens.get(i), toIndex)) {
+          return false;
+        }
+      }
     }
+
     return true;
   }
 

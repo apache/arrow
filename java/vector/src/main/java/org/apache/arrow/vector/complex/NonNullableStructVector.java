@@ -29,6 +29,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.DensityAwareVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.complex.impl.SingleStructReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
@@ -296,6 +297,11 @@ public class NonNullableStructVector extends AbstractStructVector {
       }
     }
     return hash;
+  }
+
+  @Override
+  public boolean accept(RangeEqualsVisitor visitor) {
+    return visitor.visit(this);
   }
 
   @Override
