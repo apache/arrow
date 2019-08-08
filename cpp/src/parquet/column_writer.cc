@@ -394,10 +394,6 @@ class ColumnWriterImpl {
 
   int64_t Close();
 
-  virtual Status WriteArrowImpl(const int16_t* def_levels, const int16_t* rep_levels,
-                                int64_t num_levels, const ::arrow::Array& array,
-                                ArrowWriteContext* context) = 0;
-
  protected:
   virtual std::shared_ptr<Buffer> GetValuesBuffer() = 0;
 
@@ -665,13 +661,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
   Status WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
                     int64_t num_levels, const ::arrow::Array& array,
-                    ArrowWriteContext* context) override {
-    return WriteArrowImpl(def_levels, rep_levels, num_levels, array, context);
-  }
-
-  Status WriteArrowImpl(const int16_t* def_levels, const int16_t* rep_levels,
-                        int64_t num_levels, const ::arrow::Array& array,
-                        ArrowWriteContext* context) override;
+                    ArrowWriteContext* context) override;
 
   int64_t EstimatedBufferedValueBytes() const override {
     return current_encoder_->EstimatedDataEncodedSize();
@@ -1066,11 +1056,11 @@ Status WriteArrowZeroCopy(const ::arrow::Array& array, int64_t num_levels,
 // Write Arrow to BooleanType
 
 template <>
-Status TypedColumnWriterImpl<BooleanType>::WriteArrowImpl(const int16_t* def_levels,
-                                                          const int16_t* rep_levels,
-                                                          int64_t num_levels,
-                                                          const ::arrow::Array& array,
-                                                          ArrowWriteContext* ctx) {
+Status TypedColumnWriterImpl<BooleanType>::WriteArrow(const int16_t* def_levels,
+                                                      const int16_t* rep_levels,
+                                                      int64_t num_levels,
+                                                      const ::arrow::Array& array,
+                                                      ArrowWriteContext* ctx) {
   if (array.type_id() != ::arrow::Type::BOOL) {
     ARROW_UNSUPPORTED();
   }
@@ -1128,11 +1118,11 @@ struct SerializeFunctor<Int32Type, ::arrow::Time32Type> {
 };
 
 template <>
-Status TypedColumnWriterImpl<Int32Type>::WriteArrowImpl(const int16_t* def_levels,
-                                                        const int16_t* rep_levels,
-                                                        int64_t num_levels,
-                                                        const ::arrow::Array& array,
-                                                        ArrowWriteContext* ctx) {
+Status TypedColumnWriterImpl<Int32Type>::WriteArrow(const int16_t* def_levels,
+                                                    const int16_t* rep_levels,
+                                                    int64_t num_levels,
+                                                    const ::arrow::Array& array,
+                                                    ArrowWriteContext* ctx) {
   switch (array.type()->id()) {
     case ::arrow::Type::NA: {
       PARQUET_CATCH_NOT_OK(WriteBatch(num_levels, def_levels, rep_levels, nullptr));
@@ -1299,11 +1289,11 @@ Status WriteTimestamps(const ::arrow::Array& values, int64_t num_levels,
 }
 
 template <>
-Status TypedColumnWriterImpl<Int64Type>::WriteArrowImpl(const int16_t* def_levels,
-                                                        const int16_t* rep_levels,
-                                                        int64_t num_levels,
-                                                        const ::arrow::Array& array,
-                                                        ArrowWriteContext* ctx) {
+Status TypedColumnWriterImpl<Int64Type>::WriteArrow(const int16_t* def_levels,
+                                                    const int16_t* rep_levels,
+                                                    int64_t num_levels,
+                                                    const ::arrow::Array& array,
+                                                    ArrowWriteContext* ctx) {
   switch (array.type()->id()) {
     case ::arrow::Type::TIMESTAMP:
       return WriteTimestamps(array, num_levels, def_levels, rep_levels, ctx, this);
@@ -1317,11 +1307,11 @@ Status TypedColumnWriterImpl<Int64Type>::WriteArrowImpl(const int16_t* def_level
 }
 
 template <>
-Status TypedColumnWriterImpl<Int96Type>::WriteArrowImpl(const int16_t* def_levels,
-                                                        const int16_t* rep_levels,
-                                                        int64_t num_levels,
-                                                        const ::arrow::Array& array,
-                                                        ArrowWriteContext* ctx) {
+Status TypedColumnWriterImpl<Int96Type>::WriteArrow(const int16_t* def_levels,
+                                                    const int16_t* rep_levels,
+                                                    int64_t num_levels,
+                                                    const ::arrow::Array& array,
+                                                    ArrowWriteContext* ctx) {
   if (array.type_id() != ::arrow::Type::TIMESTAMP) {
     ARROW_UNSUPPORTED();
   }
@@ -1333,11 +1323,11 @@ Status TypedColumnWriterImpl<Int96Type>::WriteArrowImpl(const int16_t* def_level
 // Floating point types
 
 template <>
-Status TypedColumnWriterImpl<FloatType>::WriteArrowImpl(const int16_t* def_levels,
-                                                        const int16_t* rep_levels,
-                                                        int64_t num_levels,
-                                                        const ::arrow::Array& array,
-                                                        ArrowWriteContext* ctx) {
+Status TypedColumnWriterImpl<FloatType>::WriteArrow(const int16_t* def_levels,
+                                                    const int16_t* rep_levels,
+                                                    int64_t num_levels,
+                                                    const ::arrow::Array& array,
+                                                    ArrowWriteContext* ctx) {
   if (array.type_id() != ::arrow::Type::FLOAT) {
     ARROW_UNSUPPORTED();
   }
@@ -1346,11 +1336,11 @@ Status TypedColumnWriterImpl<FloatType>::WriteArrowImpl(const int16_t* def_level
 }
 
 template <>
-Status TypedColumnWriterImpl<DoubleType>::WriteArrowImpl(const int16_t* def_levels,
-                                                         const int16_t* rep_levels,
-                                                         int64_t num_levels,
-                                                         const ::arrow::Array& array,
-                                                         ArrowWriteContext* ctx) {
+Status TypedColumnWriterImpl<DoubleType>::WriteArrow(const int16_t* def_levels,
+                                                     const int16_t* rep_levels,
+                                                     int64_t num_levels,
+                                                     const ::arrow::Array& array,
+                                                     ArrowWriteContext* ctx) {
   if (array.type_id() != ::arrow::Type::DOUBLE) {
     ARROW_UNSUPPORTED();
   }
@@ -1395,11 +1385,11 @@ struct SerializeFunctor<ParquetType, ArrowType, ::arrow::enable_if_binary<ArrowT
 };
 
 template <>
-Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowImpl(const int16_t* def_levels,
-                                                            const int16_t* rep_levels,
-                                                            int64_t num_levels,
-                                                            const ::arrow::Array& array,
-                                                            ArrowWriteContext* ctx) {
+Status TypedColumnWriterImpl<ByteArrayType>::WriteArrow(const int16_t* def_levels,
+                                                        const int16_t* rep_levels,
+                                                        int64_t num_levels,
+                                                        const ::arrow::Array& array,
+                                                        ArrowWriteContext* ctx) {
   switch (array.type()->id()) {
     WRITE_SERIALIZE_CASE(BINARY, BinaryType, ByteArrayType)
     WRITE_SERIALIZE_CASE(STRING, BinaryType, ByteArrayType)
@@ -1484,11 +1474,11 @@ Status WriteArrowSerialize<FLBAType, ::arrow::Decimal128Type>(
 }
 
 template <>
-Status TypedColumnWriterImpl<FLBAType>::WriteArrowImpl(const int16_t* def_levels,
-                                                       const int16_t* rep_levels,
-                                                       int64_t num_levels,
-                                                       const ::arrow::Array& array,
-                                                       ArrowWriteContext* ctx) {
+Status TypedColumnWriterImpl<FLBAType>::WriteArrow(const int16_t* def_levels,
+                                                   const int16_t* rep_levels,
+                                                   int64_t num_levels,
+                                                   const ::arrow::Array& array,
+                                                   ArrowWriteContext* ctx) {
   switch (array.type()->id()) {
     WRITE_SERIALIZE_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryType, FLBAType)
     WRITE_SERIALIZE_CASE(DECIMAL, Decimal128Type, FLBAType)
