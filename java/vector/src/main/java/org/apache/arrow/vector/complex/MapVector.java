@@ -114,4 +114,9 @@ public class MapVector extends ListVector {
     }
     return (UnionMapReader)reader;
   }
+
+  @Override
+  public MinorType getMinorType() {
+    return MinorType.MAP;
+  }
 }

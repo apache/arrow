@@ -160,4 +160,25 @@ public class TestStructVector {
       assertEquals(MinorType.VARCHAR, primitiveVectors.get(3).getMinorType());
     }
   }
+
+  @Test
+  public void testAddOrGetComplexChildVectors() {
+    FieldType type = new FieldType(true, Struct.INSTANCE, null, null);
+    try (StructVector vector = new StructVector("struct", allocator, type, null)) {
+
+      vector.addOrGetList("list");
+      vector.addOrGetFixedSizeList("fixedList", 2);
+      vector.addOrGetUnion("union");
+      vector.addOrGetStruct("struct");
+      vector.addOrGetMap("map", true);
+
+      List<FieldVector> childrens = vector.getChildrenFromFields();
+      assertEquals(5, childrens.size());
+      assertEquals(MinorType.LIST, childrens.get(0).getMinorType());
+      assertEquals(MinorType.FIXED_SIZE_LIST, childrens.get(1).getMinorType());
+      assertEquals(MinorType.UNION, childrens.get(2).getMinorType());
+      assertEquals(MinorType.STRUCT, childrens.get(3).getMinorType());
+      assertEquals(MinorType.MAP, childrens.get(4).getMinorType());
+    }
+  }
 }

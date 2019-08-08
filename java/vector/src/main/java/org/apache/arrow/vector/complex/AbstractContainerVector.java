@@ -23,6 +23,8 @@ import org.apache.arrow.vector.DensityAwareVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.List;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -111,6 +113,14 @@ public abstract class AbstractContainerVector implements ValueVector, DensityAwa
 
   public UnionVector addOrGetUnion(String name) {
     return addOrGet(name, FieldType.nullable(MinorType.UNION.getType()), UnionVector.class);
+  }
+
+  public FixedSizeListVector addOrGetFixedSizeList(String name, int listSize) {
+    return addOrGet(name, FieldType.nullable(new FixedSizeList(listSize)), FixedSizeListVector.class);
+  }
+
+  public MapVector addOrGetMap(String name, boolean keysSorted) {
+    return addOrGet(name, FieldType.nullable(new ArrowType.Map(keysSorted)), MapVector.class);
   }
 
   @Override
