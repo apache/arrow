@@ -47,6 +47,13 @@ such cases the following configuration option may help:
 bundle config build.nokogiri --use-system-libraries
 ```
 
+`nokogiri` depends on the `libxml2` and `libxslt1` libraries, which can be
+installed on Debian-like systems with
+
+```
+apt-get install libxml2-dev libxslt1-dev
+```
+
 If you are planning to publish the website, you must clone the arrow-site git
 repository. Run this command from the `site` directory so that `asf-site` is a
 subdirectory of `site`.
