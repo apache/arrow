@@ -21,10 +21,13 @@
 #include <string>
 #include <utility>
 
+#include "arrow/buffer.h"
+#include "arrow/dataset/dataset.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/dataset/writer.h"
+#include "arrow/io/file.h"
 #include "arrow/util/compression.h"
 
 namespace arrow {
@@ -76,6 +79,9 @@ class ARROW_DS_EXPORT FileSource {
   /// \brief Return the buffer containing the file, if any. Only value
   /// when file source type is BUFFER
   std::shared_ptr<Buffer> buffer() const { return buffer_; }
+
+  /// \brief Get a RandomAccessFile which views this file source
+  Status Open(std::shared_ptr<arrow::io::RandomAccessFile>* out) const;
 
  private:
   explicit FileSource(SourceType type,

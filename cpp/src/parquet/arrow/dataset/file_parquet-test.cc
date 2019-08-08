@@ -15,11 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+#include "gtest/gtest.h"
+#include "parquet/test-util.h"
 
-#include "arrow/dataset/dataset.h"
-#include "arrow/dataset/discovery.h"
-#include "arrow/dataset/file_base.h"
-#include "arrow/dataset/file_csv.h"
-#include "arrow/dataset/file_feather.h"
-#include "arrow/dataset/scanner.h"
+TEST(TestArrowWriterAdHoc, SchemaMismatch) {
+}

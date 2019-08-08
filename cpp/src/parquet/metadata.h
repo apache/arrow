@@ -173,8 +173,13 @@ class PARQUET_EXPORT FileMetaData {
 
   // file metadata
   uint32_t size() const;
+
   int num_columns() const;
+  std::vector<int> AllColumnIndices() const;
+
   int64_t num_rows() const;
+  std::vector<int> AllRowGroups() const;
+
   int num_row_groups() const;
   ParquetVersion::type version() const;
   const std::string& created_by() const;

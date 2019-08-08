@@ -15,44 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+#include "arrow/dataset/file_base.h"
 
-#include <vector>
-
-#include "arrow/status.h"
+#include "arrow/filesystem/filesystem.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/io/memory.h"
 
 namespace arrow {
+namespace dataset {
 
-/// \brief A generic Iterator that can return errors
-template <typename T>
-class Iterator {
- public:
-  virtual ~Iterator() = default;
-
-  /// \brief Return the next element of the sequence, nullptr when the
-  /// iteration is completed
-  virtual Status Next(T* out) = 0;
-  virtual bool Done() = 0;
-};
-
-template <typename T>
-class VectorIterator : public Iterator<T> {
- public:
-  VectorIterator(std::vector<T> v) : elements_(std::move(v)) {}
-
-  bool Done() override { return i_ == elements_.size(); }
-
-  Status Next(T* out) override {
-    if (Done()) {
-      return Status::IndexError("iterated past the end of a vector");
-    }
-    *out = elements_[i_++];
-    return Status::OK();
+Status FileSource::Open(std::shared_ptr<arrow::io::RandomAccessFile>* out) const {
+  if (filesystem_) {
+    return filesystem_->OpenInputFile(path_, out);
   }
-
- private:
-  std::vector<T> elements_;
-  size_t i_ = 0;
-};
-
+  out->reset(new ::arrow::io::BufferReader(buffer_));
+  return Status::OK();
+}
+}  // namespace dataset
 }  // namespace arrow

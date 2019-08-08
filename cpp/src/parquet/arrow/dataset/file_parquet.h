@@ -24,26 +24,27 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 
+namespace parquet {
 namespace arrow {
 namespace dataset {
 
-class ARROW_DS_EXPORT ParquetScanOptions : public FileScanOptions {
+class ARROW_DS_EXPORT ParquetScanOptions : public ::arrow::dataset::FileScanOptions {
  public:
   std::string file_type() const override;
 };
 
-class ARROW_DS_EXPORT ParquetWriteOptions : public FileWriteOptions {
+class ARROW_DS_EXPORT ParquetWriteOptions : public ::arrow::dataset::FileWriteOptions {
  public:
   std::string file_type() const override;
 };
 
-class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {
+class ARROW_DS_EXPORT ParquetFragment : public ::arrow::dataset::FileBasedDataFragment {
  public:
   bool splittable() const override { return true; }
 };
 
 /// \brief A FileFormat implementation that reads from Parquet files
-class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
+class ARROW_DS_EXPORT ParquetFileFormat : public ::arrow::dataset::FileFormat {
  public:
   std::string name() const override;
 
@@ -51,10 +52,13 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   bool IsKnownExtension(const std::string& ext) const override;
 
   /// \brief Open a file for scanning
-  Status ScanFile(const FileSource& location, std::shared_ptr<ScanOptions> scan_options,
-                  std::shared_ptr<ScanContext> scan_context,
-                  std::unique_ptr<ScanTaskIterator>* out) const override;
+  ::arrow::Status ScanFile(
+      const ::arrow::dataset::FileSource& location,
+      std::shared_ptr<::arrow::dataset::ScanOptions> scan_options,
+      std::shared_ptr<::arrow::dataset::ScanContext> scan_context,
+      std::unique_ptr<::arrow::dataset::ScanTaskIterator>* out) const override;
 };
 
 }  // namespace dataset
 }  // namespace arrow
+}  // namespace parquet

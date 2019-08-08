@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <cstring>
 #include <future>
-#include <numeric>
 #include <utility>
 #include <vector>
 
@@ -89,15 +88,6 @@ class ColumnReaderImpl : public ColumnReader {
 // ----------------------------------------------------------------------
 // FileReaderImpl forward declaration
 
-namespace {
-
-std::vector<int> Arange(int length) {
-  std::vector<int> result(length);
-  std::iota(result.begin(), result.end(), 0);
-  return result;
-}
-
-}  // namespace
 
 class FileReaderImpl : public FileReader {
  public:
@@ -112,11 +102,11 @@ class FileReaderImpl : public FileReader {
   }
 
   std::vector<int> AllRowGroups() {
-    return Arange(reader_->metadata()->num_row_groups());
+    return reader_->metadata()->AllRowGroups();
   }
 
   std::vector<int> AllColumnIndices() {
-    return Arange(reader_->metadata()->num_columns());
+    return reader_->metadata()->AllColumnIndices();
   }
 
   FileColumnIteratorFactory SomeRowGroupsFactory(std::vector<int> row_groups) {
