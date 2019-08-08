@@ -17,7 +17,7 @@
 
 use crate::arrow::record_reader::RecordReader;
 use crate::data_type::DataType;
-use arrow::array::Array;
+use arrow::array::ArrayRef;
 use arrow::compute::cast;
 use std::convert::From;
 use std::sync::Arc;
@@ -29,28 +29,22 @@ use arrow::array::ArrayDataBuilder;
 use arrow::array::PrimitiveArray;
 use std::marker::PhantomData;
 
-use crate::data_type::BoolType;
-use crate::data_type::DoubleType as ParquetDoubleType;
-use crate::data_type::FloatType as ParquetFloatType;
-use crate::data_type::Int32Type as ParquetInt32Type;
-use crate::data_type::Int64Type as ParquetInt64Type;
-use arrow::datatypes::BooleanType;
-use arrow::datatypes::Float32Type;
-use arrow::datatypes::Float64Type;
-use arrow::datatypes::Int16Type;
-use arrow::datatypes::Int32Type;
-use arrow::datatypes::Int64Type;
-use arrow::datatypes::Int8Type;
-use arrow::datatypes::UInt16Type;
-use arrow::datatypes::UInt32Type;
-use arrow::datatypes::UInt64Type;
-use arrow::datatypes::UInt8Type;
+use crate::data_type::{
+    BoolType, DoubleType as ParquetDoubleType, FloatType as ParquetFloatType,
+    Int32Type as ParquetInt32Type, Int64Type as ParquetInt64Type,
+};
+use arrow::datatypes::{
+    BooleanType, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
+    UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+};
 
 /// A converter is used to consume record reader's content and convert it to arrow
 /// primitive array.
 pub trait Converter<T: DataType> {
     /// This method converts record reader's buffered content into arrow array.
-    fn convert(record_reader: &mut RecordReader<T>) -> Result<Arc<Array>>;
+    /// It will consume record reader's data, to but will not reset record reader's
+    /// state.
+    fn convert(record_reader: &mut RecordReader<T>) -> Result<ArrayRef>;
 }
 
 /// Cast converter first converts record reader's buffer to arrow's
@@ -68,7 +62,7 @@ where
     ArrowSourceType: ArrowPrimitiveType,
     ArrowTargetType: ArrowPrimitiveType,
 {
-    fn convert(record_reader: &mut RecordReader<ParquetType>) -> Result<Arc<Array>> {
+    fn convert(record_reader: &mut RecordReader<ParquetType>) -> Result<ArrayRef> {
         let record_data = record_reader.consume_record_data();
 
         let mut array_data = ArrayDataBuilder::new(ArrowSourceType::get_data_type())
@@ -79,7 +73,7 @@ where
             array_data = array_data.null_bit_buffer(b);
         }
 
-        let primitive_array: Arc<Array> =
+        let primitive_array: ArrayRef =
             Arc::new(PrimitiveArray::<ArrowSourceType>::from(array_data.build()));
 
         Ok(cast(&primitive_array, &ArrowTargetType::get_data_type())?)
@@ -143,7 +137,6 @@ mod tests {
             .as_any()
             .downcast_ref::<PrimitiveArray<Int16Type>>()
             .unwrap();
-        dbg!(array);
 
         assert!(array.equals(&PrimitiveArray::<Int16Type>::from(raw_data)));
     }
