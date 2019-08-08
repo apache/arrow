@@ -19,6 +19,8 @@
 
 extern "C" {
 
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -691,13 +693,13 @@ timestamp castTIMESTAMP_date64(date64 date_in_millis) { return date_in_millis; }
 
 const char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 length,
                                         int32* out_len) {
-  long long int year = static_cast<long long int>(extractYear_timestamp(in));
-  long long int month = static_cast<long long int>(extractMonth_timestamp(in));
-  long long int day = static_cast<long long int>(extractDay_timestamp(in));
-  long long int hour = static_cast<long long int>(extractHour_timestamp(in));
-  long long int minute = static_cast<long long int>(extractMinute_timestamp(in));
-  long long int second = static_cast<long long int>(extractSecond_timestamp(in));
-  long long int millis = static_cast<long long int>(in % MILLIS_IN_SEC);
+  int64 year = extractYear_timestamp(in);
+  int64 month = extractMonth_timestamp(in);
+  int64 day = extractDay_timestamp(in);
+  int64 hour = extractHour_timestamp(in);
+  int64 minute = extractMinute_timestamp(in);
+  int64 second = extractSecond_timestamp(in);
+  int64 millis = in % MILLIS_IN_SEC;
 
   const int full_output_length = 23;
   const int char_buffer_length = full_output_length + 1;  // snprintf adds \0
@@ -705,8 +707,9 @@ const char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 lengt
 
   // yyyy-MM-dd hh:mm:ss.sss
   snprintf(char_buffer, char_buffer_length,
-           "%04lld-%02lld-%02lld %02lld:%02lld:%02lld.%03lld", year, month, day, hour,
-           minute, second, millis);
+           "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64 ":%02" PRId64
+           ":%02" PRId64 ".%03" PRId64,
+           year, month, day, hour, minute, second, millis);
 
   *out_len = static_cast<int32>(length);
   if (length > full_output_length) {
