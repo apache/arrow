@@ -50,38 +50,28 @@ constexpr random::SeedType kSeed = 0xdeadbeef;
 static const auto edits_type =
     struct_({field("insert", boolean()), field("run_length", int64())});
 
-struct AssertEditScript : DiffVisitor {
-  AssertEditScript(const Array& base, const Array& target)
-      : base_(base), target_(target) {}
+Status ValidateEditScript(const Array& edits, const Array& base, const Array& target) {
+  // beginning (in base) of the run before the current hunk
+  int64_t base_run_begin = 0;
+  return VisitEditScript(edits, [&](int64_t delete_begin, int64_t delete_end,
+                                    int64_t insert_begin, int64_t insert_end) {
+    auto target_run_begin = insert_begin - (delete_begin - base_run_begin);
+    if (!base.RangeEquals(base_run_begin, delete_begin, target_run_begin, target)) {
+      return Status::Invalid("base and target were unequal in a run");
+    }
 
-  Status Insert(int64_t target_index) override {
-    ++target_end_;
-    return Status::OK();
-  }
-
-  Status Delete(int64_t base_index) override {
-    for (int64_t i = target_begin_; i < target_end_; ++i) {
-      if (target_.RangeEquals(i, i + 1, base_end_, base_)) {
-        return Status::Invalid("a deleted element was simultaneously inserted");
+    base_run_begin = delete_end;
+    for (int64_t i = insert_begin; i < insert_end; ++i) {
+      for (int64_t d = delete_begin; d < delete_end; ++d) {
+        if (target.RangeEquals(i, i + 1, d, base)) {
+          return Status::Invalid("a deleted element was simultaneously inserted");
+        }
       }
     }
-    ++base_end_;
-    return Status::OK();
-  }
 
-  Status Run(int64_t length) override {
-    if (!base_.RangeEquals(base_end_, base_end_ + length, target_end_, target_)) {
-      return Status::Invalid("base and target were not equal in a run");
-    }
-    base_begin_ = base_end_ += length;
-    target_begin_ = target_end_ += length;
     return Status::OK();
-  }
-
-  int64_t base_begin_ = 0, base_end_ = 0, target_begin_ = 0, target_end_ = 0;
-  const Array& base_;
-  const Array& target_;
-};
+  });
+}
 
 class DiffTest : public ::testing::Test {
  protected:
@@ -99,9 +89,9 @@ class DiffTest : public ::testing::Test {
 
   void DoDiffAndFormat(std::stringstream* out) {
     DoDiff();
-    auto formatter = MakeUnifiedDiffFormatter(out, *base_, *target_);
+    auto formatter = MakeUnifiedDiffFormatter(*base_->type(), out);
     ASSERT_OK(formatter.status());
-    ASSERT_OK(formatter.ValueOrDie()->Visit(*edits_));
+    ASSERT_OK(formatter.ValueOrDie()(*edits_, *base_, *target_));
   }
 
   // validate diff and assert that it formats as expected, both directly
@@ -113,9 +103,8 @@ class DiffTest : public ::testing::Test {
     ASSERT_EQ(formatted.str(), formatted_expected) << "formatted diff incorrectly";
     formatted.str("");
 
-    if (base_->Equals(*target_, EqualOptions().diff_sink(&formatted))) {
-      formatted << std::endl;
-    }
+    ASSERT_EQ(edits_->length() == 1,
+              base_->Equals(*target_, EqualOptions().diff_sink(&formatted)));
     ASSERT_EQ(formatted.str(), formatted_expected)
         << "Array::Equals formatted diff incorrectly";
   }
@@ -233,7 +222,7 @@ TEST_F(DiffTest, CompareRandomInt64) {
 
       std::stringstream formatted;
       this->DoDiffAndFormat(&formatted);
-      auto st = AssertEditScript{*this->base_, *this->target_}.Visit(*this->edits_);
+      auto st = ValidateEditScript(*this->edits_, *this->base_, *this->target_);
       if (!st.ok()) {
         ASSERT_OK(Status(st.code(), st.message() + "\n" + formatted.str()));
       }
@@ -254,7 +243,7 @@ TEST_F(DiffTest, CompareRandomStrings) {
 
       std::stringstream formatted;
       this->DoDiffAndFormat(&formatted);
-      auto st = AssertEditScript{*this->base_, *this->target_}.Visit(*this->edits_);
+      auto st = ValidateEditScript(*this->edits_, *this->base_, *this->target_);
       if (!st.ok()) {
         ASSERT_OK(Status(st.code(), st.message() + "\n" + formatted.str()));
       }
@@ -392,8 +381,7 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
   // no changes
   base_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break"])");
   target_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break"])");
-  AssertDiffAndFormat(R"(
-)");
+  AssertDiffAndFormat(R"()");
 
   // insert one
   base_ = ArrayFromJSON(utf8(), R"(["give", "a", "break"])");
@@ -651,7 +639,7 @@ TEST_F(DiffTest, CompareRandomStruct) {
 
       std::stringstream formatted;
       this->DoDiffAndFormat(&formatted);
-      auto st = AssertEditScript{*this->base_, *this->target_}.Visit(*this->edits_);
+      auto st = ValidateEditScript(*this->edits_, *this->base_, *this->target_);
       if (!st.ok()) {
         ASSERT_OK(Status(st.code(), st.message() + "\n" + formatted.str()));
       }

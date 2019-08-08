@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <functional>
 #include <iosfwd>
 #include <memory>
 
@@ -59,28 +60,16 @@ Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target
 
 /// \brief visitor interface for easy traversal of an edit script
 ///
-/// Implement whichever methods correspond to edits you are interested in then
-/// call Visit on a valid edits array
-class ARROW_EXPORT DiffVisitor {
- public:
-  virtual ~DiffVisitor() = default;
+/// visitor will be called for each hunk of insertions and deletions.
+ARROW_EXPORT Status VisitEditScript(
+    const Array& edits,
+    const std::function<Status(int64_t delete_begin, int64_t delete_end,
+                               int64_t insert_begin, int64_t insert_end)>& visitor);
 
-  /// \brief called on visitation of insertion target[target_index]
-  virtual Status Insert(int64_t target_index) { return Status::OK(); }
-
-  /// \brief called on visitation of deletion of base[base_index]
-  virtual Status Delete(int64_t base_index) { return Status::OK(); }
-
-  /// \brief called on visitation of length identical elements
-  virtual Status Run(int64_t length) { return Status::OK(); }
-
-  /// \brief visit each insertion, deletion, or run of edits
-  Status Visit(const Array& edits);
-};
-
-/// \brief return a DiffVisitor which will format an edit script in unified
-/// diff format
-ARROW_EXPORT Result<std::unique_ptr<DiffVisitor>> MakeUnifiedDiffFormatter(
-    std::ostream* os, const Array& base, const Array& target);
+/// \brief return a function which will format an edit script in unified
+/// diff format to os, given base and target arrays of type
+ARROW_EXPORT Result<
+    std::function<Status(const Array& edits, const Array& base, const Array& target)>>
+MakeUnifiedDiffFormatter(const DataType& type, std::ostream* os);
 
 }  // namespace arrow

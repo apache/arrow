@@ -447,56 +447,23 @@ Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target
   return DiffImpl{base, target, pool, nullptr}.Diff();
 }
 
-Status DiffVisitor::Visit(const Array& edits) {
-  static const auto edits_type =
-      struct_({field("insert", boolean()), field("run_length", int64())});
-  DCHECK(edits.type()->Equals(*edits_type));
-  DCHECK_GE(edits.length(), 1);
-
-  auto insert = checked_pointer_cast<BooleanArray>(
-      checked_cast<const StructArray&>(edits).field(0));
-  auto run_lengths =
-      checked_pointer_cast<Int64Array>(checked_cast<const StructArray&>(edits).field(1));
-
-  DCHECK(!insert->Value(0));
-
-  auto length = run_lengths->Value(0);
-  RETURN_NOT_OK(Run(length));
-
-  int64_t base_index = length, target_index = length;
-  for (int64_t i = 1; i < edits.length(); ++i) {
-    if (insert->Value(i)) {
-      RETURN_NOT_OK(Insert(target_index));
-      ++target_index;
-    } else {
-      RETURN_NOT_OK(Delete(base_index));
-      ++base_index;
-    }
-    length = run_lengths->Value(i);
-    RETURN_NOT_OK(Run(length));
-    base_index += length;
-    target_index += length;
-  }
-  return Status::OK();
-}
-
 using Formatter = std::function<void(const Array&, int64_t index, std::ostream*)>;
 
-static Result<Formatter> MakeFormatter(const Array& arr);
+static Result<Formatter> MakeFormatter(const DataType& type);
 
 class MakeFormatterImpl {
  public:
-  Result<Formatter> Make(const Array& arr) && {
-    RETURN_NOT_OK(VisitArrayInline(arr, this));
+  Result<Formatter> Make(const DataType& type) && {
+    RETURN_NOT_OK(VisitTypeInline(type, this));
     return std::move(impl_);
   }
 
  private:
   template <typename VISITOR>
-  friend Status VisitArrayInline(const Array& array, VISITOR* visitor);
+  friend Status VisitTypeInline(const DataType&, VISITOR*);
 
   // factory implementation
-  Status Visit(const BooleanArray&) {
+  Status Visit(const BooleanType&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
       *os << (checked_cast<const BooleanArray&>(array).Value(index) ? "true" : "false");
     };
@@ -504,10 +471,10 @@ class MakeFormatterImpl {
   }
 
   // format Numerics with std::ostream defaults
-  // TODO(bkietz) format dates, times, and timestamps in a human readable format
   template <typename T>
-  typename std::enable_if<!is_date<T>::value && !is_time<T>::value, Status>::type Visit(
-      const NumericArray<T>&) {
+  typename std::enable_if<
+      is_number_type<T>::value && !is_date<T>::value && !is_time<T>::value, Status>::type
+  Visit(const T&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
       const auto& numeric = checked_cast<const NumericArray<T>&>(array);
       if (sizeof(decltype(numeric.Value(index))) == sizeof(char)) {
@@ -522,7 +489,7 @@ class MakeFormatterImpl {
   }
 
   template <typename T>
-  enable_if_date<T, Status> Visit(const NumericArray<T>&) {
+  enable_if_date<T, Status> Visit(const T&) {
     using unit = typename std::conditional<std::is_same<T, Date32Type>::value,
                                            arrow_vendored::date::days,
                                            std::chrono::milliseconds>::type;
@@ -537,22 +504,170 @@ class MakeFormatterImpl {
   }
 
   template <typename T>
-  enable_if_time<T, Status> Visit(const NumericArray<T>&) {
+  enable_if_time<T, Status> Visit(const T&) {
     impl_ = MakeTimeFormatter<T, false>("%T");
     return Status::OK();
   }
 
-  Status Visit(const TimestampArray&) {
+  Status Visit(const TimestampType&) {
     impl_ = MakeTimeFormatter<TimestampType, true>("%F %T");
     return Status::OK();
   }
 
-  Status Visit(const DayTimeIntervalArray&) {
+  Status Visit(const DayTimeIntervalType&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
       auto day_millis = checked_cast<const DayTimeIntervalArray&>(array).Value(index);
       *os << day_millis.days << "d" << day_millis.milliseconds << "ms";
     };
     return Status::OK();
+  }
+
+  // format Binary and FixedSizeBinary in hexadecimal
+  template <typename T>
+  enable_if_binary_like<T, Status> Visit(const T&) {
+    impl_ = [](const Array& array, int64_t index, std::ostream* os) {
+      *os << HexEncode(
+          checked_cast<const typename TypeTraits<T>::ArrayType&>(array).GetView(index));
+    };
+    return Status::OK();
+  }
+
+  // format Strings with \"\n\r\t\\ escaped
+  Status Visit(const StringType&) {
+    impl_ = [](const Array& array, int64_t index, std::ostream* os) {
+      *os << "\"" << Escape(checked_cast<const StringArray&>(array).GetView(index))
+          << "\"";
+    };
+    return Status::OK();
+  }
+
+  // format Decimals with Decimal128Array::FormatValue
+  Status Visit(const Decimal128Type&) {
+    impl_ = [](const Array& array, int64_t index, std::ostream* os) {
+      *os << checked_cast<const Decimal128Array&>(array).FormatValue(index);
+    };
+    return Status::OK();
+  }
+
+  Status Visit(const ListType& t) {
+    struct ListImpl {
+      explicit ListImpl(Formatter f) : values_formatter_(std::move(f)) {}
+
+      void operator()(const Array& array, int64_t index, std::ostream* os) {
+        const auto& list_array = checked_cast<const ListArray&>(array);
+        *os << "[";
+        for (int32_t i = 0; i < list_array.value_length(index); ++i) {
+          if (i != 0) {
+            *os << ", ";
+          }
+          values_formatter_(*list_array.values(), i + list_array.value_offset(index), os);
+        }
+        *os << "]";
+      }
+
+      Formatter values_formatter_;
+    };
+
+    ARROW_ASSIGN_OR_RAISE(auto values_formatter, MakeFormatter(*t.value_type()));
+    impl_ = ListImpl(std::move(values_formatter));
+    return Status::OK();
+  }
+
+  // TODO(bkietz) format maps better
+
+  Status Visit(const StructType& t) {
+    struct StructImpl {
+      explicit StructImpl(std::vector<Formatter> f) : field_formatters_(std::move(f)) {}
+
+      void operator()(const Array& array, int64_t index, std::ostream* os) {
+        const auto& struct_array = checked_cast<const StructArray&>(array);
+        *os << "{";
+        for (int i = 0, printed = 0; i < struct_array.num_fields(); ++i) {
+          if (printed != 0) {
+            *os << ", ";
+          }
+          if (struct_array.field(i)->IsNull(index)) {
+            continue;
+          }
+          ++printed;
+          *os << struct_array.struct_type()->child(i)->name() << ": ";
+          field_formatters_[i](*struct_array.field(i), index, os);
+        }
+        *os << "}";
+      }
+
+      std::vector<Formatter> field_formatters_;
+    };
+
+    std::vector<Formatter> field_formatters(t.num_children());
+    for (int i = 0; i < t.num_children(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(field_formatters[i], MakeFormatter(*t.child(i)->type()));
+    }
+
+    impl_ = StructImpl(std::move(field_formatters));
+    return Status::OK();
+  }
+
+  Status Visit(const UnionType& t) {
+    struct UnionImpl {
+      UnionImpl(std::vector<Formatter> f, std::vector<int> c)
+          : field_formatters_(std::move(f)), type_id_to_child_index_(std::move(c)) {}
+
+      void DoFormat(const UnionArray& array, int64_t index, int64_t child_index,
+                    std::ostream* os) {
+        auto type_id = array.raw_type_ids()[index];
+        const auto& child = *array.child(type_id_to_child_index_[type_id]);
+
+        *os << "{" << static_cast<int16_t>(type_id) << ": ";
+        if (child.IsNull(child_index)) {
+          *os << "null";
+        } else {
+          field_formatters_[type_id](child, child_index, os);
+        }
+        *os << "}";
+      }
+
+      std::vector<Formatter> field_formatters_;
+      std::vector<int> type_id_to_child_index_;
+    };
+
+    struct SparseImpl : UnionImpl {
+      using UnionImpl::UnionImpl;
+
+      void operator()(const Array& array, int64_t index, std::ostream* os) {
+        const auto& union_array = checked_cast<const UnionArray&>(array);
+        DoFormat(union_array, index, index, os);
+      }
+    };
+
+    struct DenseImpl : UnionImpl {
+      using UnionImpl::UnionImpl;
+
+      void operator()(const Array& array, int64_t index, std::ostream* os) {
+        const auto& union_array = checked_cast<const UnionArray&>(array);
+        DoFormat(union_array, index, union_array.raw_value_offsets()[index], os);
+      }
+    };
+
+    std::vector<Formatter> field_formatters(t.max_type_code() + 1);
+    std::vector<int> type_id_to_child_index(field_formatters.size());
+    for (int i = 0; i < t.num_children(); ++i) {
+      auto type_id = t.type_codes()[i];
+      type_id_to_child_index[type_id] = i;
+      ARROW_ASSIGN_OR_RAISE(field_formatters[type_id],
+                            MakeFormatter(*t.child(i)->type()));
+    }
+
+    if (t.mode() == UnionMode::SPARSE) {
+      impl_ = SparseImpl(std::move(field_formatters), std::move(type_id_to_child_index));
+    } else {
+      impl_ = DenseImpl(std::move(field_formatters), std::move(type_id_to_child_index));
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const DataType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
   }
 
   template <typename T, bool AddEpoch>
@@ -602,233 +717,104 @@ class MakeFormatterImpl {
     };
   }
 
-  // format Binary and FixedSizeBinary in hexadecimal
-  template <typename A>
-  enable_if_binary_like<A, Status> Visit(const A&) {
-    impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      *os << HexEncode(checked_cast<const A&>(array).GetView(index));
-    };
-    return Status::OK();
-  }
-
-  // format Strings with \"\n\r\t\\ escaped
-  Status Visit(const StringArray&) {
-    impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      *os << "\"" << Escape(checked_cast<const StringArray&>(array).GetView(index))
-          << "\"";
-    };
-    return Status::OK();
-  }
-
-  // format Decimals with Decimal128Array::FormatValue
-  Status Visit(const Decimal128Array&) {
-    impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      *os << checked_cast<const Decimal128Array&>(array).FormatValue(index);
-    };
-    return Status::OK();
-  }
-
-  Status Visit(const ListArray& arr) {
-    struct ListImpl {
-      explicit ListImpl(Formatter f) : values_formatter_(std::move(f)) {}
-
-      void operator()(const Array& array, int64_t index, std::ostream* os) {
-        const auto& list_array = checked_cast<const ListArray&>(array);
-        *os << "[";
-        for (int32_t i = 0; i < list_array.value_length(index); ++i) {
-          if (i != 0) {
-            *os << ", ";
-          }
-          values_formatter_(*list_array.values(), i + list_array.value_offset(index), os);
-        }
-        *os << "]";
-      }
-
-      Formatter values_formatter_;
-    };
-
-    ARROW_ASSIGN_OR_RAISE(auto values_formatter, MakeFormatter(*arr.values()));
-    impl_ = ListImpl(std::move(values_formatter));
-    return Status::OK();
-  }
-
-  // TODO(bkietz) format maps better
-
-  Status Visit(const StructArray& arr) {
-    struct StructImpl {
-      explicit StructImpl(std::vector<Formatter> f) : field_formatters_(std::move(f)) {}
-
-      void operator()(const Array& array, int64_t index, std::ostream* os) {
-        const auto& struct_array = checked_cast<const StructArray&>(array);
-        *os << "{";
-        for (int i = 0, printed = 0; i < struct_array.num_fields(); ++i) {
-          if (printed != 0) {
-            *os << ", ";
-          }
-          if (struct_array.field(i)->IsNull(index)) {
-            continue;
-          }
-          ++printed;
-          *os << struct_array.struct_type()->child(i)->name() << ": ";
-          field_formatters_[i](*struct_array.field(i), index, os);
-        }
-        *os << "}";
-      }
-
-      std::vector<Formatter> field_formatters_;
-    };
-
-    std::vector<Formatter> field_formatters(arr.num_fields());
-    for (int i = 0; i < arr.num_fields(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(field_formatters[i], MakeFormatter(*arr.field(i)));
-    }
-
-    impl_ = StructImpl(std::move(field_formatters));
-    return Status::OK();
-  }
-
-  Status Visit(const UnionArray& arr) {
-    struct UnionImpl {
-      UnionImpl(std::vector<Formatter> f, std::vector<int> c)
-          : field_formatters_(std::move(f)), type_id_to_child_index_(std::move(c)) {}
-
-      void DoFormat(const UnionArray& array, int64_t index, int64_t child_index,
-                    std::ostream* os) {
-        auto type_id = array.raw_type_ids()[index];
-        const auto& child = *array.child(type_id_to_child_index_[type_id]);
-
-        *os << "{" << static_cast<int16_t>(type_id) << ": ";
-        if (child.IsNull(child_index)) {
-          *os << "null";
-        } else {
-          field_formatters_[type_id](child, child_index, os);
-        }
-        *os << "}";
-      }
-
-      std::vector<Formatter> field_formatters_;
-      std::vector<int> type_id_to_child_index_;
-    };
-
-    struct SparseImpl : UnionImpl {
-      using UnionImpl::UnionImpl;
-
-      void operator()(const Array& array, int64_t index, std::ostream* os) {
-        const auto& union_array = checked_cast<const UnionArray&>(array);
-        DoFormat(union_array, index, index, os);
-      }
-    };
-
-    struct DenseImpl : UnionImpl {
-      using UnionImpl::UnionImpl;
-
-      void operator()(const Array& array, int64_t index, std::ostream* os) {
-        const auto& union_array = checked_cast<const UnionArray&>(array);
-        DoFormat(union_array, index, union_array.raw_value_offsets()[index], os);
-      }
-    };
-
-    std::vector<Formatter> field_formatters(arr.union_type()->max_type_code() + 1);
-    std::vector<int> type_id_to_child_index(field_formatters.size());
-    for (int i = 0; i < arr.num_fields(); ++i) {
-      auto type_id = arr.union_type()->type_codes()[i];
-      type_id_to_child_index[type_id] = i;
-      ARROW_ASSIGN_OR_RAISE(field_formatters[type_id], MakeFormatter(*arr.child(i)));
-    }
-
-    if (arr.union_type()->mode() == UnionMode::SPARSE) {
-      impl_ = SparseImpl(std::move(field_formatters), std::move(type_id_to_child_index));
-    } else {
-      impl_ = DenseImpl(std::move(field_formatters), std::move(type_id_to_child_index));
-    }
-    return Status::OK();
-  }
-
-  Status Visit(const Array& arr) {
-    return Status::NotImplemented("formatting diffs between arrays of type ",
-                                  *arr.type());
-  }
-
-  std::function<void(const Array&, int64_t index, std::ostream*)> impl_;
+  Formatter impl_;
 };
 
-static Result<Formatter> MakeFormatter(const Array& arr) {
-  return MakeFormatterImpl{}.Make(arr);
+static Result<Formatter> MakeFormatter(const DataType& type) {
+  return MakeFormatterImpl{}.Make(type);
 }
 
-class UnifiedDiffFormatter : public DiffVisitor {
+Status VisitEditScript(
+    const Array& edits,
+    const std::function<Status(int64_t delete_begin, int64_t delete_end,
+                               int64_t insert_begin, int64_t insert_end)>& visitor) {
+  static const auto edits_type =
+      struct_({field("insert", boolean()), field("run_length", int64())});
+  DCHECK(edits.type()->Equals(*edits_type));
+  DCHECK_GE(edits.length(), 1);
+
+  auto insert = checked_pointer_cast<BooleanArray>(
+      checked_cast<const StructArray&>(edits).field(0));
+  auto run_lengths =
+      checked_pointer_cast<Int64Array>(checked_cast<const StructArray&>(edits).field(1));
+
+  DCHECK(!insert->Value(0));
+
+  auto length = run_lengths->Value(0);
+  int64_t base_begin, base_end, target_begin, target_end;
+  base_begin = base_end = target_begin = target_end = length;
+  for (int64_t i = 1; i < edits.length(); ++i) {
+    if (insert->Value(i)) {
+      ++target_end;
+    } else {
+      ++base_end;
+    }
+    length = run_lengths->Value(i);
+    if (length != 0) {
+      RETURN_NOT_OK(visitor(base_begin, base_end, target_begin, target_end));
+      base_begin = base_end = base_end + length;
+      target_begin = target_end = target_end + length;
+    }
+  }
+  if (length == 0) {
+    return visitor(base_begin, base_end, target_begin, target_end);
+  }
+  return Status::OK();
+}
+
+class UnifiedDiffFormatter {
  public:
-  UnifiedDiffFormatter(std::ostream* os, const Array& base, const Array& target,
-                       Formatter formatter)
-      : os_(*os), base_(base), target_(target), formatter_(std::move(formatter)) {
-    os_ << std::endl;
-  }
+  UnifiedDiffFormatter(std::ostream* os, Formatter formatter)
+      : os_(os), formatter_(std::move(formatter)) {}
 
-  Status Insert(int64_t target_index) override {
-    ++target_end_;
+  Status operator()(int64_t delete_begin, int64_t delete_end, int64_t insert_begin,
+                    int64_t insert_end) {
+    *os_ << "@@ -" << delete_begin << ", +" << insert_begin << " @@" << std::endl;
+
+    for (int64_t i = delete_begin; i < delete_end; ++i) {
+      *os_ << "-";
+      if (base_->IsValid(i)) {
+        formatter_(*base_, i, &*os_);
+      } else {
+        *os_ << "null";
+      }
+      *os_ << std::endl;
+    }
+
+    for (int64_t i = insert_begin; i < insert_end; ++i) {
+      *os_ << "+";
+      if (target_->IsValid(i)) {
+        formatter_(*target_, i, &*os_);
+      } else {
+        *os_ << "null";
+      }
+      *os_ << std::endl;
+    }
+
     return Status::OK();
   }
 
-  Status Delete(int64_t base_index) override {
-    ++base_end_;
-    return Status::OK();
-  }
-
-  Status Run(int64_t length) override {
-    if (target_begin_ == target_end_ && base_begin_ == base_end_) {
-      // this is the first run, so don't write the preceding (empty) hunk
-      base_begin_ = base_end_ = target_begin_ = target_end_ = length;
+  Status operator()(const Array& edits, const Array& base, const Array& target) {
+    if (edits.length() == 1) {
       return Status::OK();
     }
-    if (length == 0 &&
-        !(base_end_ == base_.length() && target_end_ == target_.length())) {
-      return Status::OK();
-    }
-    // non trivial run- finalize the current hunk
-    os_ << "@@ -" << base_begin_ << ", +" << target_begin_ << " @@" << std::endl;
-    for (int64_t i = base_begin_; i < base_end_; ++i) {
-      os_ << "-";
-      if (base_.IsValid(i)) {
-        formatter_(base_, i, &os_);
-      } else {
-        os_ << "null";
-      }
-      os_ << std::endl;
-    }
-    base_begin_ = base_end_ += length;
-    for (int64_t i = target_begin_; i < target_end_; ++i) {
-      os_ << "+";
-      if (target_.IsValid(i)) {
-        formatter_(target_, i, &os_);
-      } else {
-        os_ << "null";
-      }
-      os_ << std::endl;
-    }
-    target_begin_ = target_end_ += length;
-    return Status::OK();
+    base_ = &base;
+    target_ = &target;
+    *os_ << std::endl;
+    return VisitEditScript(edits, *this);
   }
 
  private:
-  std::ostream& os_;
-  int64_t base_begin_ = 0, base_end_ = 0, target_begin_ = 0, target_end_ = 0;
-  const Array& base_;
-  const Array& target_;
+  std::ostream* os_ = nullptr;
+  const Array* base_ = nullptr;
+  const Array* target_ = nullptr;
   Formatter formatter_;
 };
 
-Result<std::unique_ptr<DiffVisitor>> MakeUnifiedDiffFormatter(std::ostream* os,
-                                                              const Array& base,
-                                                              const Array& target) {
-  if (!base.type()->Equals(target.type())) {
-    return Status::TypeError(
-        "diffs may only be generated between arrays of like type, got ", *base.type(),
-        " and ", *target.type());
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto formatter, MakeFormatter(base));
-  return internal::make_unique<UnifiedDiffFormatter>(os, base, target,
-                                                     std::move(formatter));
+Result<std::function<Status(const Array& edits, const Array& base, const Array& target)>>
+MakeUnifiedDiffFormatter(const DataType& type, std::ostream* os) {
+  ARROW_ASSIGN_OR_RAISE(auto formatter, MakeFormatter(type));
+  return UnifiedDiffFormatter(os, std::move(formatter));
 }
 
 }  // namespace arrow
