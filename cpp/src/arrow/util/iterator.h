@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/status.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 
@@ -38,7 +39,6 @@ class Iterator {
   /// \brief Return the next element of the sequence, nullptr when the
   /// iteration is completed
   virtual Status Next(T* out) = 0;
-  virtual bool Done() = 0;
 };
 
 template <typename T>
@@ -47,7 +47,7 @@ class VectorIterator : public Iterator<T> {
   explicit VectorIterator(std::vector<T> v) : elements_(std::move(v)) {}
 
   Status Next(T* out) override {
-    *out = i_ == elements_.size() ? nullptr : elements_[i_++];
+    *out = i_ == elements_.size() ? NULLPTR : elements_[i_++];
     return Status::OK();
   }
 

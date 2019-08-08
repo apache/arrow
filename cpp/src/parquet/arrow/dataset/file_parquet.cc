@@ -47,11 +47,10 @@ class ParquetScanTask : public ::arrow::dataset::ScanTask {
 
 class ParquetScanTaskIterator : public ::arrow::dataset::ScanTaskIterator {
  public:
-   // Compute the column projection out of an optional arrow::Schema
-  static ::arrow::Status InferColumnProjection(const FileMetaData& metadata,
-                                               const ::arrow::dataset::ScanOptions& options,
-                                               std::vector<int>* out) {
-
+  // Compute the column projection out of an optional arrow::Schema
+  static ::arrow::Status InferColumnProjection(
+      const FileMetaData& metadata, const ::arrow::dataset::ScanOptions& options,
+      std::vector<int>* out) {
     // TODO(fsaintjacques): Compute intersection _and_ validity
     *out = metadata.AllColumnIndices();
 
@@ -72,7 +71,8 @@ class ParquetScanTaskIterator : public ::arrow::dataset::ScanTaskIterator {
     std::unique_ptr<FileReader> arrow_reader;
     RETURN_NOT_OK(FileReader::Make(context->pool, std::move(reader), &arrow_reader));
 
-    out->reset(new ParquetScanTaskIterator(columns_projection, metadata, std::move(arrow_reader)));
+    out->reset(new ParquetScanTaskIterator(columns_projection, metadata,
+                                           std::move(arrow_reader)));
 
     return ::arrow::Status::OK();
   }
@@ -92,8 +92,6 @@ class ParquetScanTaskIterator : public ::arrow::dataset::ScanTaskIterator {
 
     return ParquetScanTask::Make(task);
   }
-
-  bool Done() override { return false; }
 
  private:
   ParquetScanTaskIterator(std::vector<int> columns_projection,
