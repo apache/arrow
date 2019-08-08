@@ -357,6 +357,12 @@ def test_dictionary_type():
     assert ty2.value_type == pa.string()
     assert ty2.ordered is False
 
+    # invalid index type raises
+    with pytest.raises(TypeError):
+        pa.dictionary(pa.string(), pa.int64())
+    with pytest.raises(TypeError):
+        pa.dictionary(pa.uint32(), pa.string())
+
 
 def test_types_hashable():
     many_types = get_many_types()
