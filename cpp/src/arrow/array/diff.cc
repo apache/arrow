@@ -21,6 +21,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -443,7 +444,7 @@ Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target
     return Status::TypeError("only taking the diff of like-typed arrays is supported.");
   }
 
-  return DiffImpl{base, target, pool}.Diff();
+  return DiffImpl{base, target, pool, nullptr}.Diff();
 }
 
 Status DiffVisitor::Visit(const Array& edits) {
@@ -529,8 +530,8 @@ class MakeFormatterImpl {
     static arrow_vendored::date::sys_days epoch{arrow_vendored::date::jan / 1 / 1970};
 
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      auto value = checked_cast<const NumericArray<T>&>(array).Value(index);
-      *os << arrow_vendored::date::format("%F", unit{value} + epoch);
+      unit value(checked_cast<const NumericArray<T>&>(array).Value(index));
+      *os << arrow_vendored::date::format("%F", value + epoch);
     };
     return Status::OK();
   }
@@ -561,37 +562,41 @@ class MakeFormatterImpl {
       auto unit = checked_cast<const T&>(*array.type()).unit();
       auto value = checked_cast<const NumericArray<T>&>(array).Value(index);
       using arrow_vendored::date::format;
+      using std::chrono::nanoseconds;
+      using std::chrono::microseconds;
+      using std::chrono::milliseconds;
+      using std::chrono::seconds;
       if (AddEpoch) {
         static arrow_vendored::date::sys_days epoch{arrow_vendored::date::jan / 1 / 1970};
 
         switch (unit) {
           case TimeUnit::NANO:
-            *os << format(fmt, std::chrono::nanoseconds{value} + epoch);
+            *os << format(fmt, static_cast<nanoseconds>(value) + epoch);
             break;
           case TimeUnit::MICRO:
-            *os << format(fmt, std::chrono::microseconds{value} + epoch);
+            *os << format(fmt, static_cast<microseconds>(value) + epoch);
             break;
           case TimeUnit::MILLI:
-            *os << format(fmt, std::chrono::milliseconds{value} + epoch);
+            *os << format(fmt, static_cast<milliseconds>(value) + epoch);
             break;
           case TimeUnit::SECOND:
-            *os << format(fmt, std::chrono::seconds{value} + epoch);
+            *os << format(fmt, static_cast<seconds>(value) + epoch);
             break;
         }
         return;
       }
       switch (unit) {
         case TimeUnit::NANO:
-          *os << format(fmt, std::chrono::nanoseconds{value});
+          *os << format(fmt, static_cast<nanoseconds>(value));
           break;
         case TimeUnit::MICRO:
-          *os << format(fmt, std::chrono::microseconds{value});
+          *os << format(fmt, static_cast<microseconds>(value));
           break;
         case TimeUnit::MILLI:
-          *os << format(fmt, std::chrono::milliseconds{value});
+          *os << format(fmt, static_cast<milliseconds>(value));
           break;
         case TimeUnit::SECOND:
-          *os << format(fmt, std::chrono::seconds{value});
+          *os << format(fmt, static_cast<seconds>(value));
           break;
       }
     };
