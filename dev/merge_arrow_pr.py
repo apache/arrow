@@ -33,6 +33,7 @@
 # ARROW_GITHUB_API_TOKEN: a GitHub API token to use for API requests (to avoid
 # rate limiting)
 
+import configparser
 import os
 import pprint
 import re
@@ -460,24 +461,52 @@ def prompt_for_fix_version(cmd, jira_issue):
     return [get_version_json(v) for v in issue_fix_versions]
 
 
+CONFIG_FILE = "~/.config/arrow/merge.conf"
+
+
+def load_configuration():
+    config = configparser.ConfigParser()
+    config.read(os.path.expanduser(CONFIG_FILE))
+    return config
+
+
+def get_credentials(cmd):
+    username, password = None, None
+
+    config = load_configuration()
+    if "jira" in config.sections():
+        username = config["jira"].get("username")
+        password = config["jira"].get("password")
+
+    # Fallback to environment variables
+    if not username:
+        username = os.environ.get("APACHE_JIRA_USERNAME")
+
+    if not password:
+        password = os.environ.get("APACHE_JIRA_PASSWORD")
+
+    # Fallback to user tty prompt
+    if not username:
+        username = cmd.prompt("Env APACHE_JIRA_USERNAME not set, "
+                              "please enter your JIRA username:")
+
+    if not password:
+        password = cmd.getpass("Env APACHE_JIRA_PASSWORD not set, "
+                               "please enter your JIRA password:")
+
+    return (username, password)
+
+
 def connect_jira(cmd):
-    # ASF JIRA username
-    jira_username = os.environ.get("APACHE_JIRA_USERNAME")
-
-    # ASF JIRA password
-    jira_password = os.environ.get("APACHE_JIRA_PASSWORD")
-
-    if not jira_username:
-        jira_username = cmd.prompt("Env APACHE_JIRA_USERNAME not set, "
-                                   "please enter your JIRA username:")
-
-    if not jira_password:
-        jira_password = cmd.getpass("Env APACHE_JIRA_PASSWORD not set, "
-                                    "please enter "
-                                    "your JIRA password:")
-
     return jira.client.JIRA({'server': JIRA_API_BASE},
-                            basic_auth=(jira_username, jira_password))
+                            basic_auth=get_credentials(cmd))
+
+
+def get_pr_num():
+    if len(sys.argv) == 2:
+        return sys.argv[1]
+
+    return input("Which pull request would you like to merge? (e.g. 34): ")
 
 
 def cli():
@@ -489,7 +518,7 @@ def cli():
 
     cmd = CommandInput()
 
-    pr_num = input("Which pull request would you like to merge? (e.g. 34): ")
+    pr_num = get_pr_num()
 
     os.chdir(ARROW_HOME)
 
