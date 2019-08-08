@@ -327,6 +327,15 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 
     ReaderProperties default_reader_properties()
 
+    cdef cppclass ArrowReaderProperties:
+        ArrowReaderProperties()
+        void set_read_dictionary(int column_index, c_bool read_dict)
+        c_bool read_dictionary()
+        void set_batch_size()
+        int64_t batch_size()
+
+    ArrowReaderProperties default_arrow_reader_properties()
+
     cdef cppclass ParquetFileReader:
         shared_ptr[CFileMetaData] metadata()
 
@@ -348,17 +357,19 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* write_batch_size(int64_t batch_size)
             shared_ptr[WriterProperties] build()
 
+    cdef cppclass ArrowWriterProperties:
+        cppclass Builder:
+            Builder()
+            Builder* disable_deprecated_int96_timestamps()
+            Builder* enable_deprecated_int96_timestamps()
+            Builder* coerce_timestamps(TimeUnit unit)
+            Builder* allow_truncated_timestamps()
+            Builder* disallow_truncated_timestamps()
+            shared_ptr[ArrowWriterProperties] build()
+        c_bool support_deprecated_int96_timestamps()
+
 
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
-    cdef cppclass ArrowReaderProperties:
-        ArrowReaderProperties()
-        void set_read_dictionary(int column_index, c_bool read_dict)
-        c_bool read_dictionary()
-        void set_batch_size()
-        int64_t batch_size()
-
-    ArrowReaderProperties default_arrow_reader_properties()
-
     cdef cppclass FileReader:
         FileReader(CMemoryPool* pool, unique_ptr[ParquetFileReader] reader)
         CStatus ReadColumn(int i, shared_ptr[CChunkedArray]* out)
@@ -421,17 +432,6 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
         CStatus Close()
 
         const shared_ptr[CFileMetaData] metadata() const
-
-    cdef cppclass ArrowWriterProperties:
-        cppclass Builder:
-            Builder()
-            Builder* disable_deprecated_int96_timestamps()
-            Builder* enable_deprecated_int96_timestamps()
-            Builder* coerce_timestamps(TimeUnit unit)
-            Builder* allow_truncated_timestamps()
-            Builder* disallow_truncated_timestamps()
-            shared_ptr[ArrowWriterProperties] build()
-        c_bool support_deprecated_int96_timestamps()
 
     CStatus WriteMetaDataFile(
         const CFileMetaData& file_metadata,
