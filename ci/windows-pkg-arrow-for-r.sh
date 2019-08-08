@@ -32,8 +32,8 @@ mv mingw64/include $DST_DIR
 mkdir -p $DST_DIR/lib-4.9.3/x64
 mv mingw64/lib/*.a $DST_DIR/lib-4.9.3/x64
 # Same for the 32-bit versions
-mkdir -p $DST_DIR/lib-4.9.3/i686
-mv mingw32/lib/*.a $DST_DIR/lib-4.9.3/i686
+mkdir -p $DST_DIR/lib-4.9.3/i386
+mv mingw32/lib/*.a $DST_DIR/lib-4.9.3/i386
 
 mkdir deps && cd deps
 # Get these from "backports" so they were compiled with gcc 4.9
@@ -58,9 +58,9 @@ ls | xargs -n 1 tar -xJf
 cd ..
 
 mkdir -p $DST_DIR/lib/x64
-mkdir -p $DST_DIR/lib/i686
+mkdir -p $DST_DIR/lib/i386
 mv deps/mingw64/lib/*.a $DST_DIR/lib/x64
-mv deps/mingw32/lib/*.a $DST_DIR/lib/i686
+mv deps/mingw32/lib/*.a $DST_DIR/lib/i386
 
 # Create build artifact
 zip -r ${DST_DIR}.zip $DST_DIR

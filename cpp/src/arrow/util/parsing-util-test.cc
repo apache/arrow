@@ -98,6 +98,12 @@ TEST(StringConversion, ToDouble) {
   AssertConversionFails(converter, "e");
 }
 
+#ifndef _WIN32
+// Test that casting is locale-independent
+// ARROW-6108: can't run these tests on Windows.  std::locale() will simply throw
+// on release builds, but may crash with an assertion failure on debug builds.
+// (similar issue here: https://gerrit.libreoffice.org/#/c/54110/)
+
 TEST(StringConversion, ToFloatLocale) {
   // French locale uses the comma as decimal point
   LocaleGuard locale_guard("fr_FR.UTF-8");
@@ -113,6 +119,8 @@ TEST(StringConversion, ToDoubleLocale) {
   StringConverter<DoubleType> converter;
   AssertConversion(converter, "1.5", 1.5f);
 }
+
+#endif  // _WIN32
 
 TEST(StringConversion, ToInt8) {
   StringConverter<Int8Type> converter;

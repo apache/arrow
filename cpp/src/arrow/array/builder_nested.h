@@ -17,9 +17,12 @@
 
 #pragma once
 
+#include <limits>
 #include <memory>
+#include <utility>
 #include <vector>
 
+#include "arrow/array.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/buffer-builder.h"
 
@@ -27,6 +30,137 @@ namespace arrow {
 
 // ----------------------------------------------------------------------
 // List builder
+
+template <typename TYPE>
+class BaseListBuilder : public ArrayBuilder {
+ public:
+  using TypeClass = TYPE;
+  using offset_type = typename TypeClass::offset_type;
+
+  /// Use this constructor to incrementally build the value array along with offsets and
+  /// null bitmap.
+  BaseListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
+                  const std::shared_ptr<DataType>& type = NULLPTR)
+      : ArrayBuilder(type ? type
+                          : std::static_pointer_cast<DataType>(
+                                std::make_shared<TypeClass>(value_builder->type())),
+                     pool),
+        offsets_builder_(pool),
+        value_builder_(value_builder) {}
+
+  Status Resize(int64_t capacity) override {
+    if (capacity > maximum_elements()) {
+      return Status::CapacityError("List array cannot reserve space for more than ",
+                                   maximum_elements(), " got ", capacity);
+    }
+    ARROW_RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+
+    // one more then requested for offsets
+    ARROW_RETURN_NOT_OK(offsets_builder_.Resize(capacity + 1));
+    return ArrayBuilder::Resize(capacity);
+  }
+
+  void Reset() override {
+    ArrayBuilder::Reset();
+    values_.reset();
+    offsets_builder_.Reset();
+    value_builder_->Reset();
+  }
+
+  /// \brief Vector append
+  ///
+  /// If passed, valid_bytes is of equal length to values, and any zero byte
+  /// will be considered as a null for that slot
+  Status AppendValues(const offset_type* offsets, int64_t length,
+                      const uint8_t* valid_bytes = NULLPTR) {
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    UnsafeAppendToBitmap(valid_bytes, length);
+    offsets_builder_.UnsafeAppend(offsets, length);
+    return Status::OK();
+  }
+
+  /// \brief Start a new variable-length list slot
+  ///
+  /// This function should be called before beginning to append elements to the
+  /// value builder
+  Status Append(bool is_valid = true) {
+    ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(is_valid);
+    return AppendNextOffset();
+  }
+
+  Status AppendNull() final { return Append(false); }
+
+  Status AppendNulls(int64_t length) final {
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(CheckNextOffset());
+    UnsafeAppendToBitmap(length, false);
+    const int64_t num_values = value_builder_->length();
+    for (int64_t i = 0; i < length; ++i) {
+      offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_values));
+    }
+    return Status::OK();
+  }
+
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
+    ARROW_RETURN_NOT_OK(AppendNextOffset());
+
+    // Offset padding zeroed by BufferBuilder
+    std::shared_ptr<Buffer> offsets;
+    ARROW_RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
+
+    std::shared_ptr<ArrayData> items;
+    if (values_) {
+      items = values_->data();
+    } else {
+      if (value_builder_->length() == 0) {
+        // Try to make sure we get a non-null values buffer (ARROW-2744)
+        ARROW_RETURN_NOT_OK(value_builder_->Resize(0));
+      }
+      ARROW_RETURN_NOT_OK(value_builder_->FinishInternal(&items));
+    }
+
+    // If the type has not been specified in the constructor, infer it
+    // This is the case if the value_builder contains a DenseUnionBuilder
+    if (!arrow::internal::checked_cast<TypeClass&>(*type_).value_type()) {
+      type_ = std::static_pointer_cast<DataType>(
+          std::make_shared<TypeClass>(value_builder_->type()));
+    }
+    std::shared_ptr<Buffer> null_bitmap;
+    ARROW_RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
+    *out = ArrayData::Make(type_, length_, {null_bitmap, offsets}, null_count_);
+    (*out)->child_data.emplace_back(std::move(items));
+    Reset();
+    return Status::OK();
+  }
+
+  ArrayBuilder* value_builder() const { return value_builder_.get(); }
+
+  // Cannot make this a static attribute because of linking issues
+  static constexpr int64_t maximum_elements() {
+    return std::numeric_limits<offset_type>::max() - 1;
+  }
+
+ protected:
+  TypedBufferBuilder<offset_type> offsets_builder_;
+  std::shared_ptr<ArrayBuilder> value_builder_;
+  std::shared_ptr<Array> values_;
+
+  Status CheckNextOffset() const {
+    const int64_t num_values = value_builder_->length();
+    ARROW_RETURN_IF(
+        num_values > maximum_elements(),
+        Status::CapacityError("List array cannot contain more than ", maximum_elements(),
+                              " child elements,", " have ", num_values));
+    return Status::OK();
+  }
+
+  Status AppendNextOffset() {
+    ARROW_RETURN_NOT_OK(CheckNextOffset());
+    const int64_t num_values = value_builder_->length();
+    return offsets_builder_.Append(static_cast<offset_type>(num_values));
+  }
+};
 
 /// \class ListBuilder
 /// \brief Builder class for variable-length list array value types
@@ -41,50 +175,30 @@ namespace arrow {
 /// represent multiple different logical types.  If no logical type is provided
 /// at construction time, the class defaults to List<T> where t is taken from the
 /// value_builder/values that the object is constructed with.
-class ARROW_EXPORT ListBuilder : public ArrayBuilder {
+class ARROW_EXPORT ListBuilder : public BaseListBuilder<ListType> {
  public:
-  /// Use this constructor to incrementally build the value array along with offsets and
-  /// null bitmap.
-  ListBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& value_builder,
-              const std::shared_ptr<DataType>& type = NULLPTR);
-
-  Status Resize(int64_t capacity) override;
-  void Reset() override;
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+  using BaseListBuilder::BaseListBuilder;
 
   /// \cond FALSE
   using ArrayBuilder::Finish;
   /// \endcond
 
   Status Finish(std::shared_ptr<ListArray>* out) { return FinishTyped(out); }
+};
 
-  /// \brief Vector append
-  ///
-  /// If passed, valid_bytes is of equal length to values, and any zero byte
-  /// will be considered as a null for that slot
-  Status AppendValues(const int32_t* offsets, int64_t length,
-                      const uint8_t* valid_bytes = NULLPTR);
+/// \class LargeListBuilder
+/// \brief Builder class for large variable-length list array value types
+///
+/// Like ListBuilder, but to create large list arrays (with 64-bit offsets).
+class ARROW_EXPORT LargeListBuilder : public BaseListBuilder<LargeListType> {
+ public:
+  using BaseListBuilder::BaseListBuilder;
 
-  /// \brief Start a new variable-length list slot
-  ///
-  /// This function should be called before beginning to append elements to the
-  /// value builder
-  Status Append(bool is_valid = true);
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
 
-  Status AppendNull() final { return Append(false); }
-
-  Status AppendNulls(int64_t length) final;
-
-  ArrayBuilder* value_builder() const;
-
- protected:
-  TypedBufferBuilder<int32_t> offsets_builder_;
-  std::shared_ptr<ArrayBuilder> value_builder_;
-  std::shared_ptr<Array> values_;
-
-  Status CheckNextOffset() const;
-  Status AppendNextOffset();
-  Status AppendNextOffset(int64_t num_repeats);
+  Status Finish(std::shared_ptr<LargeListArray>* out) { return FinishTyped(out); }
 };
 
 // ----------------------------------------------------------------------

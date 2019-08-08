@@ -112,4 +112,14 @@ public abstract class AbstractContainerVector implements ValueVector, DensityAwa
   public UnionVector addOrGetUnion(String name) {
     return addOrGet(name, FieldType.nullable(MinorType.UNION.getType()), UnionVector.class);
   }
+
+  @Override
+  public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
+    throw new UnsupportedOperationException();
+  }
 }

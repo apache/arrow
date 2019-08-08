@@ -61,6 +61,14 @@ FeatherTableWriter <- function(stream) {
 #' @param stream A file path or an `arrow::io::OutputStream`
 #'
 #' @export
+#' @examples
+#' \donttest{
+#' try({
+#'   tf <- tempfile()
+#'   on.exit(unlink(tf))
+#'   write_feather(mtcars, tf)
+#' })
+#' }
 write_feather <- function(data, stream) {
   UseMethod("write_feather", data)
 }
@@ -169,6 +177,18 @@ FeatherTableReader.fs_path <- function(file, mmap = TRUE, ...) {
 #' @return A `data.frame` if `as_tibble` is `TRUE` (the default), or a [arrow::Table][arrow__Table] otherwise
 #'
 #' @export
+#' @examples
+#' \donttest{
+#' try({
+#'   tf <- tempfile()
+#'   on.exit(unlink(tf))
+#'   write_feather(iris, tf)
+#'   df <- read_feather(tf)
+#'   dim(df)
+#'   # Can select columns
+#'   df <- read_feather(tf, col_select = starts_with("Sepal"))
+#' })
+#' }
 read_feather <- function(file, col_select = NULL, as_tibble = TRUE, ...){
   reader <- FeatherTableReader(file, ...)
 

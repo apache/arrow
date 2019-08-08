@@ -172,6 +172,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_PLASMA_JAVA_CLIENT "Build the plasma object store java client" OFF)
 
+  define_option(ARROW_JSON "Build Arrow with JSON support (requires RapidJSON)" ON)
+
   #----------------------------------------------------------------------
   set_option_category("Thirdparty toolchain")
 
@@ -334,6 +336,7 @@ macro(config_summary)
   message(STATUS "  Generator: ${CMAKE_GENERATOR}")
   message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
   message(STATUS "  Source directory: ${CMAKE_CURRENT_SOURCE_DIR}")
+  message(STATUS "  Install prefix: ${CMAKE_INSTALL_PREFIX}")
   if(${CMAKE_EXPORT_COMPILE_COMMANDS})
     message(
       STATUS "  Compile commands: ${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
@@ -413,6 +416,7 @@ macro(config_summary)
       file(APPEND ${summary} "\"compile_commands\": "
                              "\"${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json\",\n")
     endif()
+    file(APPEND ${summary} "\"install_prefix\": \"${CMAKE_INSTALL_PREFIX}\",\n")
     file(APPEND ${summary} "\"arrow_version\": \"${ARROW_VERSION}\"\n")
     file(APPEND ${summary} "}\n")
   endif()

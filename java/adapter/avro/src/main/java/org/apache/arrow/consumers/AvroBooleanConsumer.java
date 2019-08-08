@@ -32,6 +32,9 @@ public class AvroBooleanConsumer implements Consumer {
 
   private final BitWriter writer;
 
+  /**
+   * Instantiate a AvroBooleanConsumer.
+   */
   public AvroBooleanConsumer(BitVector vector) {
     this.writer = new BitWriterImpl(vector);
   }
@@ -39,6 +42,11 @@ public class AvroBooleanConsumer implements Consumer {
   @Override
   public void consume(Decoder decoder) throws IOException {
     writer.writeBit(decoder.readBoolean() ? 1 : 0);
+    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }

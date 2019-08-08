@@ -18,6 +18,8 @@
 package org.apache.arrow.memory.util;
 
 import org.apache.arrow.memory.BoundsChecking;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.memory.util.hash.DirectHasher;
 
 import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
@@ -250,35 +252,10 @@ public class ByteFunctionHelpers {
    * Compute hashCode with the given {@link ArrowBuf} and start/end index.
    */
   public static final int hash(final ArrowBuf buf, int start, int end) {
-    long addr = buf.memoryAddress();
-    int len = end - start;
-    long pos = addr + start;
 
-    int hash = 0;
+    ArrowBufHasher hasher = DirectHasher.INSTANCE;
 
-    while (len > 7) {
-      long value = PlatformDependent.getLong(pos);
-      hash = comebineHash(hash, Long.hashCode(value));
-
-      pos += 8;
-      len -= 8;
-    }
-
-    while (len > 3) {
-      int value = PlatformDependent.getInt(pos);
-      hash = comebineHash(hash, value);
-
-      pos += 4;
-      len -= 4;
-    }
-
-    while (len-- != 0) {
-      byte value = PlatformDependent.getByte(pos);
-      hash = comebineHash(hash, value);
-      pos ++;
-    }
-
-    return hash;
+    return hasher.hashCode(buf, start, end - start);
   }
 
   /**

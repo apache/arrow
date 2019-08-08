@@ -106,6 +106,7 @@ cdef class DataType:
                         "instead.".format(self.__class__.__name__))
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        assert type != nullptr
         self.sp_type = type
         self.type = type.get()
         self.pep3118_format = _datatype_to_pep3118(self.type)
@@ -254,6 +255,27 @@ cdef class ListType(DataType):
     def value_type(self):
         """
         The data type of list values.
+        """
+        return pyarrow_wrap_data_type(self.list_type.value_type())
+
+
+cdef class LargeListType(DataType):
+    """
+    Concrete class for large list data types
+    (like ListType, but with 64-bit offsets).
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        DataType.init(self, type)
+        self.list_type = <const CLargeListType*> type.get()
+
+    def __reduce__(self):
+        return large_list, (self.value_type,)
+
+    @property
+    def value_type(self):
+        """
+        The data type of large list values.
         """
         return pyarrow_wrap_data_type(self.list_type.value_type())
 
@@ -1531,6 +1553,33 @@ def binary(int length=-1):
     return pyarrow_wrap_data_type(fixed_size_binary_type)
 
 
+def large_binary():
+    """
+    Create large variable-length binary type
+
+    This data type may not be supported by all Arrow implementations.  Unless
+    you need to represent data larger than 2GB, you should prefer binary().
+    """
+    return primitive_type(_Type_LARGE_BINARY)
+
+
+def large_string():
+    """
+    Create large UTF8 variable-length string type
+
+    This data type may not be supported by all Arrow implementations.  Unless
+    you need to represent data larger than 2GB, you should prefer string().
+    """
+    return primitive_type(_Type_LARGE_STRING)
+
+
+def large_utf8():
+    """
+    Alias for large_string()
+    """
+    return large_string()
+
+
 cpdef ListType list_(value_type):
     """
     Create ListType instance from child data type or field
@@ -1557,6 +1606,40 @@ cpdef ListType list_(value_type):
         raise TypeError('List requires DataType or Field')
 
     list_type.reset(new CListType(_field.sp_field))
+    out.init(list_type)
+    return out
+
+
+cpdef LargeListType large_list(value_type):
+    """
+    Create LargeListType instance from child data type or field
+
+    This data type may not be supported by all Arrow implementations.
+    Unless you need to represent data larger than 2**31 elements, you should
+    prefer list_().
+
+    Parameters
+    ----------
+    value_type : DataType or Field
+
+    Returns
+    -------
+    list_type : DataType
+    """
+    cdef:
+        DataType data_type
+        Field _field
+        shared_ptr[CDataType] list_type
+        LargeListType out = LargeListType.__new__(LargeListType)
+
+    if isinstance(value_type, DataType):
+        _field = field('item', value_type)
+    elif isinstance(value_type, Field):
+        _field = value_type
+    else:
+        raise TypeError('List requires DataType or Field')
+
+    list_type.reset(new CLargeListType(_field.sp_field))
     out.init(list_type)
     return out
 
@@ -1714,6 +1797,10 @@ cdef dict _type_aliases = {
     'str': string,
     'utf8': string,
     'binary': binary,
+    'large_string': large_string,
+    'large_str': large_string,
+    'large_utf8': large_string,
+    'large_binary': large_binary,
     'date32': date32,
     'date64': date64,
     'date32[day]': date32,

@@ -689,4 +689,21 @@ timestamp castTIMESTAMP_utf8(int64_t context, const char* input, int32 length) {
 
 timestamp castTIMESTAMP_date64(date64 date_in_millis) { return date_in_millis; }
 
+char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 length,
+                                  int32* out_len) {
+  std::string timestamp_str = std::to_string(in);
+  *out_len = static_cast<int32>(length);
+  int32 timestamp_str_len = static_cast<int32>(timestamp_str.length());
+  if (length > timestamp_str_len) {
+    *out_len = timestamp_str_len;
+  }
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return nullptr;
+  }
+  memcpy(ret, timestamp_str.data(), *out_len);
+  return ret;
+}
 }  // extern "C"

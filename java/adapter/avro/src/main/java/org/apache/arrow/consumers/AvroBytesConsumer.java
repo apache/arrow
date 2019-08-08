@@ -36,6 +36,9 @@ public class AvroBytesConsumer implements Consumer {
   private final VarBinaryVector vector;
   private ByteBuffer cacheBuffer;
 
+  /**
+   * Instantiate a AvroBytesConsumer.
+   */
   public AvroBytesConsumer(VarBinaryVector vector) {
     this.vector = vector;
     this.writer = new VarBinaryWriterImpl(vector);
@@ -43,6 +46,16 @@ public class AvroBytesConsumer implements Consumer {
 
   @Override
   public void consume(Decoder decoder) throws IOException {
+    writeValue(decoder);
+    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void addNull() {
+    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  private void writeValue(Decoder decoder) throws IOException {
     VarBinaryHolder holder = new VarBinaryHolder();
 
     // cacheBuffer is initialized null and create in the first consume,
@@ -53,8 +66,6 @@ public class AvroBytesConsumer implements Consumer {
     holder.end = cacheBuffer.limit();
     holder.buffer = vector.getAllocator().buffer(cacheBuffer.limit());
     holder.buffer.setBytes(0, cacheBuffer, 0,  cacheBuffer.limit());
-
     writer.write(holder);
-    writer.setPosition(writer.getPosition() + 1);
   }
 }

@@ -104,11 +104,48 @@ class TestScalars(unittest.TestCase):
         assert v == u'mañana'
         assert isinstance(v, unicode_type)
 
+    def test_large_string_unicode(self):
+        arr = pa.array([u'foo', None, u'mañana'], type=pa.large_string())
+
+        v = arr[0]
+        assert isinstance(v, pa.LargeStringValue)
+        assert v.as_py() == u'foo'
+        assert repr(v) == repr(u"foo")
+        assert str(v) == str(u"foo")
+        assert v == u'foo'
+        # Assert that newly created values are equal to the previously created
+        # one.
+        assert v == arr[0]
+
+        assert arr[1] is pa.NA
+
+        v = arr[2].as_py()
+        assert v == u'mañana'
+        assert isinstance(v, unicode_type)
+
     def test_bytes(self):
         arr = pa.array([b'foo', None, u('bar')])
 
         def check_value(v, expected):
             assert isinstance(v, pa.BinaryValue)
+            assert v.as_py() == expected
+            assert str(v) == str(expected)
+            assert repr(v) == repr(expected)
+            assert v == expected
+            assert v != b'xxxxx'
+            buf = v.as_buffer()
+            assert isinstance(buf, pa.Buffer)
+            assert buf.to_pybytes() == expected
+
+        check_value(arr[0], b'foo')
+        assert arr[1] is pa.NA
+        check_value(arr[2], b'bar')
+
+    def test_large_bytes(self):
+        arr = pa.array([b'foo', None, u('bar')], type=pa.large_binary())
+
+        def check_value(v, expected):
+            assert isinstance(v, pa.LargeBinaryValue)
             assert v.as_py() == expected
             assert str(v) == str(expected)
             assert repr(v) == repr(expected)
@@ -145,6 +182,29 @@ class TestScalars(unittest.TestCase):
         assert repr(v) == "['foo', None]"
         assert v.as_py() == ['foo', None]
         assert v[0].as_py() == 'foo'
+        assert v[1] is pa.NA
+        assert v[-1] == v[1]
+        assert v[-2] == v[0]
+        with pytest.raises(IndexError):
+            v[-3]
+        with pytest.raises(IndexError):
+            v[2]
+
+        assert arr[1] is pa.NA
+
+        v = arr[3]
+        assert len(v) == 0
+
+    def test_large_list(self):
+        arr = pa.array([[123, None], None, [456], []],
+                       type=pa.large_list(pa.int16()))
+
+        v = arr[0]
+        assert len(v) == 2
+        assert isinstance(v, pa.LargeListValue)
+        assert repr(v) == "[123, None]"
+        assert v.as_py() == [123, None]
+        assert v[0].as_py() == 123
         assert v[1] is pa.NA
         assert v[-1] == v[1]
         assert v[-2] == v[0]

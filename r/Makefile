@@ -30,6 +30,7 @@ deps:
 	R --slave -e 'lib <- Sys.getenv("R_LIB", .libPaths()[1]); install.packages("devtools", repo="https://cloud.r-project.org", lib=lib); devtools::install_dev_deps(lib=lib)'
 
 build: doc
+	cp ../NOTICE.txt inst/NOTICE.txt
 	R CMD build .
 
 check: build

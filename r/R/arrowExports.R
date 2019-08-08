@@ -752,12 +752,8 @@ write_parquet_file <- function(table, filename){
     invisible(.Call(`_arrow_write_parquet_file` , table, filename))
 }
 
-parquet___arrow___FileReader__GetSchema2 <- function(reader, indices){
-    .Call(`_arrow_parquet___arrow___FileReader__GetSchema2` , reader, indices)
-}
-
-parquet___arrow___FileReader__GetSchema1 <- function(reader){
-    .Call(`_arrow_parquet___arrow___FileReader__GetSchema1` , reader)
+parquet___arrow___FileReader__GetSchema <- function(reader){
+    .Call(`_arrow_parquet___arrow___FileReader__GetSchema` , reader)
 }
 
 RecordBatch__num_columns <- function(x){

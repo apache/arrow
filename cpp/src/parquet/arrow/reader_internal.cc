@@ -22,18 +22,24 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
+#include <boost/algorithm/string/predicate.hpp>
+
 #include "arrow/array.h"
+#include "arrow/builder.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/int-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 
+#include "parquet/arrow/reader.h"
 #include "parquet/column_reader.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
@@ -55,16 +61,512 @@ using arrow::TimestampArray;
 using arrow::compute::Datum;
 
 using ::arrow::BitUtil::FromBigEndian;
+using ::arrow::internal::checked_cast;
 using ::arrow::internal::SafeLeftShift;
 using ::arrow::util::SafeLoadAs;
 
 using parquet::internal::RecordReader;
+using parquet::schema::GroupNode;
+using parquet::schema::Node;
+using parquet::schema::PrimitiveNode;
+using ParquetType = parquet::Type;
 
 namespace parquet {
 namespace arrow {
 
 template <typename ArrowType>
 using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
+
+// ----------------------------------------------------------------------
+// Schema logic
+
+static Status MakeArrowDecimal(const LogicalType& logical_type,
+                               std::shared_ptr<DataType>* out) {
+  const auto& decimal = checked_cast<const DecimalLogicalType&>(logical_type);
+  *out = ::arrow::decimal(decimal.precision(), decimal.scale());
+  return Status::OK();
+}
+
+static Status MakeArrowInt(const LogicalType& logical_type,
+                           std::shared_ptr<DataType>* out) {
+  const auto& integer = checked_cast<const IntLogicalType&>(logical_type);
+  switch (integer.bit_width()) {
+    case 8:
+      *out = integer.is_signed() ? ::arrow::int8() : ::arrow::uint8();
+      break;
+    case 16:
+      *out = integer.is_signed() ? ::arrow::int16() : ::arrow::uint16();
+      break;
+    case 32:
+      *out = integer.is_signed() ? ::arrow::int32() : ::arrow::uint32();
+      break;
+    default:
+      return Status::TypeError(logical_type.ToString(),
+                               " can not annotate physical type Int32");
+  }
+  return Status::OK();
+}
+
+static Status MakeArrowInt64(const LogicalType& logical_type,
+                             std::shared_ptr<DataType>* out) {
+  const auto& integer = checked_cast<const IntLogicalType&>(logical_type);
+  switch (integer.bit_width()) {
+    case 64:
+      *out = integer.is_signed() ? ::arrow::int64() : ::arrow::uint64();
+      break;
+    default:
+      return Status::TypeError(logical_type.ToString(),
+                               " can not annotate physical type Int64");
+  }
+  return Status::OK();
+}
+
+static Status MakeArrowTime32(const LogicalType& logical_type,
+                              std::shared_ptr<DataType>* out) {
+  const auto& time = checked_cast<const TimeLogicalType&>(logical_type);
+  switch (time.time_unit()) {
+    case LogicalType::TimeUnit::MILLIS:
+      *out = ::arrow::time32(::arrow::TimeUnit::MILLI);
+      break;
+    default:
+      return Status::TypeError(logical_type.ToString(),
+                               " can not annotate physical type Time32");
+  }
+  return Status::OK();
+}
+
+static Status MakeArrowTime64(const LogicalType& logical_type,
+                              std::shared_ptr<DataType>* out) {
+  const auto& time = checked_cast<const TimeLogicalType&>(logical_type);
+  switch (time.time_unit()) {
+    case LogicalType::TimeUnit::MICROS:
+      *out = ::arrow::time64(::arrow::TimeUnit::MICRO);
+      break;
+    case LogicalType::TimeUnit::NANOS:
+      *out = ::arrow::time64(::arrow::TimeUnit::NANO);
+      break;
+    default:
+      return Status::TypeError(logical_type.ToString(),
+                               " can not annotate physical type Time64");
+  }
+  return Status::OK();
+}
+
+static Status MakeArrowTimestamp(const LogicalType& logical_type,
+                                 std::shared_ptr<DataType>* out) {
+  const auto& timestamp = checked_cast<const TimestampLogicalType&>(logical_type);
+  const bool utc_normalized =
+      timestamp.is_from_converted_type() ? false : timestamp.is_adjusted_to_utc();
+  static const char* utc_timezone = "UTC";
+  switch (timestamp.time_unit()) {
+    case LogicalType::TimeUnit::MILLIS:
+      *out = (utc_normalized ? ::arrow::timestamp(::arrow::TimeUnit::MILLI, utc_timezone)
+                             : ::arrow::timestamp(::arrow::TimeUnit::MILLI));
+      break;
+    case LogicalType::TimeUnit::MICROS:
+      *out = (utc_normalized ? ::arrow::timestamp(::arrow::TimeUnit::MICRO, utc_timezone)
+                             : ::arrow::timestamp(::arrow::TimeUnit::MICRO));
+      break;
+    case LogicalType::TimeUnit::NANOS:
+      *out = (utc_normalized ? ::arrow::timestamp(::arrow::TimeUnit::NANO, utc_timezone)
+                             : ::arrow::timestamp(::arrow::TimeUnit::NANO));
+      break;
+    default:
+      return Status::TypeError("Unrecognized time unit in timestamp logical_type: ",
+                               logical_type.ToString());
+  }
+  return Status::OK();
+}
+
+static Status FromByteArray(const LogicalType& logical_type,
+                            std::shared_ptr<DataType>* out) {
+  switch (logical_type.type()) {
+    case LogicalType::Type::STRING:
+      *out = ::arrow::utf8();
+      break;
+    case LogicalType::Type::DECIMAL:
+      RETURN_NOT_OK(MakeArrowDecimal(logical_type, out));
+      break;
+    case LogicalType::Type::NONE:
+    case LogicalType::Type::ENUM:
+    case LogicalType::Type::JSON:
+    case LogicalType::Type::BSON:
+      *out = ::arrow::binary();
+      break;
+    default:
+      return Status::NotImplemented("Unhandled logical logical_type ",
+                                    logical_type.ToString(), " for binary array");
+  }
+  return Status::OK();
+}
+
+static Status FromFLBA(const LogicalType& logical_type, int32_t physical_length,
+                       std::shared_ptr<DataType>* out) {
+  switch (logical_type.type()) {
+    case LogicalType::Type::DECIMAL:
+      RETURN_NOT_OK(MakeArrowDecimal(logical_type, out));
+      break;
+    case LogicalType::Type::NONE:
+    case LogicalType::Type::INTERVAL:
+    case LogicalType::Type::UUID:
+      *out = ::arrow::fixed_size_binary(physical_length);
+      break;
+    default:
+      return Status::NotImplemented("Unhandled logical logical_type ",
+                                    logical_type.ToString(),
+                                    " for fixed-length binary array");
+  }
+
+  return Status::OK();
+}
+
+static Status FromInt32(const LogicalType& logical_type, std::shared_ptr<DataType>* out) {
+  switch (logical_type.type()) {
+    case LogicalType::Type::INT:
+      RETURN_NOT_OK(MakeArrowInt(logical_type, out));
+      break;
+    case LogicalType::Type::DATE:
+      *out = ::arrow::date32();
+      break;
+    case LogicalType::Type::TIME:
+      RETURN_NOT_OK(MakeArrowTime32(logical_type, out));
+      break;
+    case LogicalType::Type::DECIMAL:
+      RETURN_NOT_OK(MakeArrowDecimal(logical_type, out));
+      break;
+    case LogicalType::Type::NONE:
+      *out = ::arrow::int32();
+      break;
+    default:
+      return Status::NotImplemented("Unhandled logical type ", logical_type.ToString(),
+                                    " for INT32");
+  }
+  return Status::OK();
+}
+
+static Status FromInt64(const LogicalType& logical_type, std::shared_ptr<DataType>* out) {
+  switch (logical_type.type()) {
+    case LogicalType::Type::INT:
+      RETURN_NOT_OK(MakeArrowInt64(logical_type, out));
+      break;
+    case LogicalType::Type::DECIMAL:
+      RETURN_NOT_OK(MakeArrowDecimal(logical_type, out));
+      break;
+    case LogicalType::Type::TIMESTAMP:
+      RETURN_NOT_OK(MakeArrowTimestamp(logical_type, out));
+      break;
+    case LogicalType::Type::TIME:
+      RETURN_NOT_OK(MakeArrowTime64(logical_type, out));
+      break;
+    case LogicalType::Type::NONE:
+      *out = ::arrow::int64();
+      break;
+    default:
+      return Status::NotImplemented("Unhandled logical type ", logical_type.ToString(),
+                                    " for INT64");
+  }
+  return Status::OK();
+}
+
+Status GetPrimitiveType(const schema::PrimitiveNode& primitive,
+                        std::shared_ptr<DataType>* out) {
+  const std::shared_ptr<const LogicalType>& logical_type = primitive.logical_type();
+  if (logical_type->is_invalid() || logical_type->is_null()) {
+    *out = ::arrow::null();
+    return Status::OK();
+  }
+
+  switch (primitive.physical_type()) {
+    case ParquetType::BOOLEAN:
+      *out = ::arrow::boolean();
+      break;
+    case ParquetType::INT32:
+      RETURN_NOT_OK(FromInt32(*logical_type, out));
+      break;
+    case ParquetType::INT64:
+      RETURN_NOT_OK(FromInt64(*logical_type, out));
+      break;
+    case ParquetType::INT96:
+      *out = ::arrow::timestamp(::arrow::TimeUnit::NANO);
+      break;
+    case ParquetType::FLOAT:
+      *out = ::arrow::float32();
+      break;
+    case ParquetType::DOUBLE:
+      *out = ::arrow::float64();
+      break;
+    case ParquetType::BYTE_ARRAY:
+      RETURN_NOT_OK(FromByteArray(*logical_type, out));
+      break;
+    case ParquetType::FIXED_LEN_BYTE_ARRAY:
+      RETURN_NOT_OK(FromFLBA(*logical_type, primitive.type_length(), out));
+      break;
+    default: {
+      // PARQUET-1565: This can occur if the file is corrupt
+      return Status::IOError("Invalid physical column type: ",
+                             TypeToString(primitive.physical_type()));
+    }
+  }
+  return Status::OK();
+}
+
+struct SchemaTreeContext {
+  SchemaManifest* manifest;
+  ArrowReaderProperties properties;
+  const SchemaDescriptor* schema;
+
+  void LinkParent(const SchemaField* child, const SchemaField* parent) {
+    manifest->child_to_parent[child] = parent;
+  }
+
+  void RecordLeaf(const SchemaField* leaf) {
+    manifest->column_index_to_field[leaf->column_index] = leaf;
+  }
+};
+
+Status GetTypeForNode(int column_index, const schema::PrimitiveNode& primitive_node,
+                      SchemaTreeContext* ctx, std::shared_ptr<DataType>* out) {
+  std::shared_ptr<DataType> storage_type;
+  RETURN_NOT_OK(GetPrimitiveType(primitive_node, &storage_type));
+  if (ctx->properties.read_dictionary(column_index)) {
+    *out = ::arrow::dictionary(::arrow::int32(), storage_type);
+  } else {
+    *out = storage_type;
+  }
+  return Status::OK();
+}
+
+Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_rep_level,
+                         SchemaTreeContext* ctx, const SchemaField* parent,
+                         SchemaField* out);
+
+Status GroupToSchemaField(const GroupNode& node, int16_t max_def_level,
+                          int16_t max_rep_level, SchemaTreeContext* ctx,
+                          const SchemaField* parent, SchemaField* out);
+
+Status PopulateLeaf(int column_index, const std::shared_ptr<Field>& field,
+                    int16_t max_def_level, int16_t max_rep_level, SchemaTreeContext* ctx,
+                    const SchemaField* parent, SchemaField* out) {
+  out->field = field;
+  out->column_index = column_index;
+  out->max_definition_level = max_def_level;
+  out->max_repetition_level = max_rep_level;
+  ctx->RecordLeaf(out);
+  ctx->LinkParent(out, parent);
+  return Status::OK();
+}
+
+// Special case mentioned in the format spec:
+//   If the name is array or ends in _tuple, this should be a list of struct
+//   even for single child elements.
+bool HasStructListName(const GroupNode& node) {
+  return node.name() == "array" || boost::algorithm::ends_with(node.name(), "_tuple");
+}
+
+Status GroupToStruct(const GroupNode& node, int16_t max_def_level, int16_t max_rep_level,
+                     SchemaTreeContext* ctx, const SchemaField* parent,
+                     SchemaField* out) {
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+  out->children.resize(node.field_count());
+  for (int i = 0; i < node.field_count(); i++) {
+    RETURN_NOT_OK(NodeToSchemaField(*node.field(i), max_def_level, max_rep_level, ctx,
+                                    out, &out->children[i]));
+    arrow_fields.push_back(out->children[i].field);
+  }
+  auto struct_type = ::arrow::struct_(arrow_fields);
+  out->field = ::arrow::field(node.name(), struct_type, node.is_optional());
+  out->max_definition_level = max_def_level;
+  out->max_repetition_level = max_rep_level;
+  return Status::OK();
+}
+
+Status ListToSchemaField(const GroupNode& group, int16_t max_def_level,
+                         int16_t max_rep_level, SchemaTreeContext* ctx,
+                         const SchemaField* parent, SchemaField* out) {
+  if (group.field_count() != 1) {
+    return Status::NotImplemented(
+        "Only LIST-annotated groups with a single child can be handled.");
+  }
+
+  out->children.resize(1);
+  SchemaField* child_field = &out->children[0];
+
+  ctx->LinkParent(out, parent);
+  ctx->LinkParent(child_field, out);
+
+  const Node& list_node = *group.field(0);
+
+  if (!list_node.is_repeated()) {
+    return Status::NotImplemented(
+        "Non-repeated nodes in a LIST-annotated group are not supported.");
+  }
+
+  ++max_def_level;
+  ++max_rep_level;
+  if (list_node.is_group()) {
+    // Resolve 3-level encoding
+    //
+    // required/optional group name=whatever {
+    //   repeated group name=list {
+    //     required/optional TYPE item;
+    //   }
+    // }
+    //
+    // yields list<item: TYPE ?nullable> ?nullable
+    //
+    // We distinguish the special base that we have
+    //
+    // required/optional group name=whatever {
+    //   repeated group name=array or $SOMETHING_tuple {
+    //     required/optional TYPE item;
+    //   }
+    // }
+    //
+    // In this latter case, the inner type of the list should be a struct
+    // rather than a primitive value
+    //
+    // yields list<item: struct<item: TYPE ?nullable> not null> ?nullable
+    const auto& list_group = static_cast<const GroupNode&>(list_node);
+    // Special case mentioned in the format spec:
+    //   If the name is array or ends in _tuple, this should be a list of struct
+    //   even for single child elements.
+    if (list_group.field_count() == 1 && !HasStructListName(list_group)) {
+      // List of primitive type
+      RETURN_NOT_OK(NodeToSchemaField(*list_group.field(0), max_def_level, max_rep_level,
+                                      ctx, out, child_field));
+    } else {
+      RETURN_NOT_OK(
+          GroupToStruct(list_group, max_def_level, max_rep_level, ctx, out, child_field));
+    }
+  } else {
+    // Two-level list encoding
+    //
+    // required/optional group LIST {
+    //   repeated TYPE;
+    // }
+    const auto& primitive_node = static_cast<const PrimitiveNode&>(list_node);
+    int column_index = ctx->schema->GetColumnIndex(primitive_node);
+    std::shared_ptr<DataType> type;
+    RETURN_NOT_OK(GetTypeForNode(column_index, primitive_node, ctx, &type));
+    auto item_field = ::arrow::field(list_node.name(), type, /*nullable=*/false);
+    RETURN_NOT_OK(PopulateLeaf(column_index, item_field, max_def_level, max_rep_level,
+                               ctx, out, child_field));
+  }
+  out->field = ::arrow::field(group.name(), ::arrow::list(child_field->field),
+                              group.is_optional());
+  out->max_definition_level = max_def_level;
+  out->max_repetition_level = max_rep_level;
+  return Status::OK();
+}
+
+Status GroupToSchemaField(const GroupNode& node, int16_t max_def_level,
+                          int16_t max_rep_level, SchemaTreeContext* ctx,
+                          const SchemaField* parent, SchemaField* out) {
+  if (node.logical_type()->is_list()) {
+    return ListToSchemaField(node, max_def_level, max_rep_level, ctx, parent, out);
+  }
+  std::shared_ptr<DataType> type;
+  if (node.is_repeated()) {
+    // Simple repeated struct
+    //
+    // repeated group $NAME {
+    //   r/o TYPE[0] f0
+    //   r/o TYPE[1] f1
+    // }
+    out->children.resize(1);
+    RETURN_NOT_OK(
+        GroupToStruct(node, max_def_level, max_rep_level, ctx, out, &out->children[0]));
+    out->field = ::arrow::field(node.name(), ::arrow::list(out->children[0].field),
+                                node.is_optional());
+    out->max_definition_level = max_def_level;
+    out->max_repetition_level = max_rep_level;
+    return Status::OK();
+  } else {
+    return GroupToStruct(node, max_def_level, max_rep_level, ctx, parent, out);
+  }
+}
+
+Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_rep_level,
+                         SchemaTreeContext* ctx, const SchemaField* parent,
+                         SchemaField* out) {
+  if (node.is_optional()) {
+    ++max_def_level;
+  } else if (node.is_repeated()) {
+    // Repeated fields add a definition level. This is used to distinguish
+    // between an empty list and a list with an item in it.
+    ++max_rep_level;
+    ++max_def_level;
+  }
+
+  ctx->LinkParent(out, parent);
+
+  // Now, walk the schema and create a ColumnDescriptor for each leaf node
+  if (node.is_group()) {
+    return GroupToSchemaField(static_cast<const GroupNode&>(node), max_def_level,
+                              max_rep_level, ctx, parent, out);
+  } else {
+    const auto& primitive_node = static_cast<const PrimitiveNode&>(node);
+    int column_index = ctx->schema->GetColumnIndex(primitive_node);
+    std::shared_ptr<DataType> type;
+    RETURN_NOT_OK(GetTypeForNode(column_index, primitive_node, ctx, &type));
+    if (node.is_repeated()) {
+      // One-level list encoding, e.g.
+      // a: repeated int32;
+      out->children.resize(1);
+      auto child_field = ::arrow::field(node.name(), type, /*nullable=*/false);
+      RETURN_NOT_OK(PopulateLeaf(column_index, child_field, max_def_level, max_rep_level,
+                                 ctx, out, &out->children[0]));
+
+      out->field = ::arrow::field(node.name(), ::arrow::list(child_field),
+                                  /*nullable=*/false);
+      // Is this right?
+      out->max_definition_level = max_def_level;
+      out->max_repetition_level = max_rep_level;
+      return Status::OK();
+    } else {
+      return PopulateLeaf(column_index,
+                          ::arrow::field(node.name(), type, node.is_optional()),
+                          max_def_level, max_rep_level, ctx, parent, out);
+    }
+  }
+}
+
+Status BuildSchemaManifest(const SchemaDescriptor* schema,
+                           const ArrowReaderProperties& properties,
+                           SchemaManifest* manifest) {
+  SchemaTreeContext ctx;
+  ctx.manifest = manifest;
+  ctx.properties = properties;
+  ctx.schema = schema;
+  const GroupNode& schema_node = *schema->group_node();
+  manifest->descr = schema;
+  manifest->schema_fields.resize(schema_node.field_count());
+  for (int i = 0; i < static_cast<int>(schema_node.field_count()); ++i) {
+    RETURN_NOT_OK(NodeToSchemaField(*schema_node.field(i), 0, 0, &ctx,
+                                    /*parent=*/nullptr, &manifest->schema_fields[i]));
+  }
+  return Status::OK();
+}
+
+Status FromParquetSchema(
+    const SchemaDescriptor* schema, const ArrowReaderProperties& properties,
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
+    std::shared_ptr<::arrow::Schema>* out) {
+  SchemaManifest manifest;
+  RETURN_NOT_OK(BuildSchemaManifest(schema, properties, &manifest));
+  std::vector<std::shared_ptr<Field>> fields(manifest.schema_fields.size());
+  for (int i = 0; i < static_cast<int>(fields.size()); i++) {
+    fields[i] = manifest.schema_fields[i].field;
+  }
+  *out = ::arrow::schema(fields, key_value_metadata);
+  return Status::OK();
+}
+
+Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
+                         const ArrowReaderProperties& properties,
+                         std::shared_ptr<::arrow::Schema>* out) {
+  return FromParquetSchema(parquet_schema, properties, nullptr, out);
+}
 
 // ----------------------------------------------------------------------
 // Primitive types
@@ -183,11 +685,8 @@ Status TransferDictionary(RecordReader* reader,
   auto dict_reader = dynamic_cast<internal::DictionaryRecordReader*>(reader);
   DCHECK(dict_reader);
   *out = dict_reader->GetResult();
-
-  const auto& dict_type = static_cast<const ::arrow::DictionaryType&>(*(*out)->type());
-  if (!logical_value_type->Equals(*dict_type.value_type())) {
-    *out = CastChunksTo(**out,
-                        ::arrow::dictionary(dict_type.index_type(), logical_value_type));
+  if (!logical_value_type->Equals(*(*out)->type())) {
+    *out = CastChunksTo(**out, logical_value_type);
   }
   return Status::OK();
 }
@@ -196,7 +695,8 @@ Status TransferBinary(RecordReader* reader,
                       const std::shared_ptr<DataType>& logical_value_type,
                       std::shared_ptr<ChunkedArray>* out) {
   if (reader->read_dictionary()) {
-    return TransferDictionary(reader, logical_value_type, out);
+    return TransferDictionary(
+        reader, ::arrow::dictionary(::arrow::int32(), logical_value_type), out);
   }
   auto binary_reader = dynamic_cast<internal::BinaryRecordReader*>(reader);
   DCHECK(binary_reader);
@@ -519,7 +1019,12 @@ Status TransferColumnData(internal::RecordReader* reader,
                           const ColumnDescriptor* descr, MemoryPool* pool,
                           std::shared_ptr<ChunkedArray>* out) {
   Datum result;
+  std::shared_ptr<ChunkedArray> chunked_result;
   switch (value_type->id()) {
+    case ::arrow::Type::DICTIONARY: {
+      RETURN_NOT_OK(TransferDictionary(reader, value_type, &chunked_result));
+      result = chunked_result;
+    } break;
     case ::arrow::Type::NA: {
       result = std::make_shared<::arrow::NullArray>(reader->values_written());
       break;
@@ -548,9 +1053,8 @@ Status TransferColumnData(internal::RecordReader* reader,
     case ::arrow::Type::FIXED_SIZE_BINARY:
     case ::arrow::Type::BINARY:
     case ::arrow::Type::STRING: {
-      std::shared_ptr<ChunkedArray> out;
-      RETURN_NOT_OK(TransferBinary(reader, value_type, &out));
-      result = out;
+      RETURN_NOT_OK(TransferBinary(reader, value_type, &chunked_result));
+      result = chunked_result;
     } break;
     case ::arrow::Type::DECIMAL: {
       switch (descr->physical_type()) {
@@ -609,6 +1113,115 @@ Status TransferColumnData(internal::RecordReader* reader,
     DCHECK(false) << "Should be impossible";
   }
 
+  return Status::OK();
+}
+
+Status ReconstructNestedList(const std::shared_ptr<Array>& arr,
+                             std::shared_ptr<Field> field, int16_t max_def_level,
+                             int16_t max_rep_level, const int16_t* def_levels,
+                             const int16_t* rep_levels, int64_t total_levels,
+                             ::arrow::MemoryPool* pool, std::shared_ptr<Array>* out) {
+  // Walk downwards to extract nullability
+  std::vector<bool> nullable;
+  std::vector<std::shared_ptr<::arrow::Int32Builder>> offset_builders;
+  std::vector<std::shared_ptr<::arrow::BooleanBuilder>> valid_bits_builders;
+  nullable.push_back(field->nullable());
+  while (field->type()->num_children() > 0) {
+    if (field->type()->num_children() > 1) {
+      return Status::NotImplemented("Fields with more than one child are not supported.");
+    } else {
+      if (field->type()->id() != ::arrow::Type::LIST) {
+        return Status::NotImplemented("Currently only nesting with Lists is supported.");
+      }
+      field = field->type()->child(0);
+    }
+    offset_builders.emplace_back(
+        std::make_shared<::arrow::Int32Builder>(::arrow::int32(), pool));
+    valid_bits_builders.emplace_back(
+        std::make_shared<::arrow::BooleanBuilder>(::arrow::boolean(), pool));
+    nullable.push_back(field->nullable());
+  }
+
+  int64_t list_depth = offset_builders.size();
+  // This describes the minimal definition that describes a level that
+  // reflects a value in the primitive values array.
+  int16_t values_def_level = max_def_level;
+  if (nullable[nullable.size() - 1]) {
+    values_def_level--;
+  }
+
+  // The definition levels that are needed so that a list is declared
+  // as empty and not null.
+  std::vector<int16_t> empty_def_level(list_depth);
+  int def_level = 0;
+  for (int i = 0; i < list_depth; i++) {
+    if (nullable[i]) {
+      def_level++;
+    }
+    empty_def_level[i] = static_cast<int16_t>(def_level);
+    def_level++;
+  }
+
+  int32_t values_offset = 0;
+  std::vector<int64_t> null_counts(list_depth, 0);
+  for (int64_t i = 0; i < total_levels; i++) {
+    int16_t rep_level = rep_levels[i];
+    if (rep_level < max_rep_level) {
+      for (int64_t j = rep_level; j < list_depth; j++) {
+        if (j == (list_depth - 1)) {
+          RETURN_NOT_OK(offset_builders[j]->Append(values_offset));
+        } else {
+          RETURN_NOT_OK(offset_builders[j]->Append(
+              static_cast<int32_t>(offset_builders[j + 1]->length())));
+        }
+
+        if (((empty_def_level[j] - 1) == def_levels[i]) && (nullable[j])) {
+          RETURN_NOT_OK(valid_bits_builders[j]->Append(false));
+          null_counts[j]++;
+          break;
+        } else {
+          RETURN_NOT_OK(valid_bits_builders[j]->Append(true));
+          if (empty_def_level[j] == def_levels[i]) {
+            break;
+          }
+        }
+      }
+    }
+    if (def_levels[i] >= values_def_level) {
+      values_offset++;
+    }
+  }
+  // Add the final offset to all lists
+  for (int64_t j = 0; j < list_depth; j++) {
+    if (j == (list_depth - 1)) {
+      RETURN_NOT_OK(offset_builders[j]->Append(values_offset));
+    } else {
+      RETURN_NOT_OK(offset_builders[j]->Append(
+          static_cast<int32_t>(offset_builders[j + 1]->length())));
+    }
+  }
+
+  std::vector<std::shared_ptr<Buffer>> offsets;
+  std::vector<std::shared_ptr<Buffer>> valid_bits;
+  std::vector<int64_t> list_lengths;
+  for (int64_t j = 0; j < list_depth; j++) {
+    list_lengths.push_back(offset_builders[j]->length() - 1);
+    std::shared_ptr<Array> array;
+    RETURN_NOT_OK(offset_builders[j]->Finish(&array));
+    offsets.emplace_back(std::static_pointer_cast<Int32Array>(array)->values());
+    RETURN_NOT_OK(valid_bits_builders[j]->Finish(&array));
+    valid_bits.emplace_back(std::static_pointer_cast<BooleanArray>(array)->values());
+  }
+
+  *out = arr;
+
+  // TODO(wesm): Use passed-in field
+  for (int64_t j = list_depth - 1; j >= 0; j--) {
+    auto list_type =
+        ::arrow::list(::arrow::field("item", (*out)->type(), nullable[j + 1]));
+    *out = std::make_shared<::arrow::ListArray>(list_type, list_lengths[j], offsets[j],
+                                                *out, valid_bits[j], null_counts[j]);
+  }
   return Status::OK();
 }
 

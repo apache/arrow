@@ -39,12 +39,12 @@ pub trait SchemaProvider {
 
 /// SQL query planner
 pub struct SqlToRel {
-    schema_provider: Arc<SchemaProvider>,
+    schema_provider: Arc<dyn SchemaProvider>,
 }
 
 impl SqlToRel {
     /// Create a new query planner
-    pub fn new(schema_provider: Arc<SchemaProvider>) -> Self {
+    pub fn new(schema_provider: Arc<dyn SchemaProvider>) -> Self {
         SqlToRel { schema_provider }
     }
 

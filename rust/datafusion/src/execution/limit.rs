@@ -32,7 +32,7 @@ use crate::execution::relation::Relation;
 /// Implementation of a LIMIT relation
 pub(super) struct LimitRelation {
     /// The relation which the limit is being applied to
-    input: Rc<RefCell<Relation>>,
+    input: Rc<RefCell<dyn Relation>>,
     /// The schema for the limit relation, which is always the same as the schema of the
     /// input relation
     schema: Arc<Schema>,
@@ -43,7 +43,11 @@ pub(super) struct LimitRelation {
 }
 
 impl LimitRelation {
-    pub fn new(input: Rc<RefCell<Relation>>, limit: usize, schema: Arc<Schema>) -> Self {
+    pub fn new(
+        input: Rc<RefCell<dyn Relation>>,
+        limit: usize,
+        schema: Arc<Schema>,
+    ) -> Self {
         Self {
             input,
             schema,

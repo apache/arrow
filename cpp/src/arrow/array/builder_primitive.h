@@ -58,6 +58,7 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
 template <typename T>
 class NumericBuilder : public ArrayBuilder {
  public:
+  using TypeClass = T;
   using value_type = typename T::c_type;
   using ArrayType = typename TypeTraits<T>::ArrayType;
   using ArrayBuilder::ArrayBuilder;
@@ -265,7 +266,9 @@ using DoubleBuilder = NumericBuilder<DoubleType>;
 
 class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
  public:
+  using TypeClass = BooleanType;
   using value_type = bool;
+
   explicit BooleanBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   explicit BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);

@@ -392,29 +392,42 @@ void CopyStridedNatural(T* input_data, int64_t length, int64_t stride, T* output
   }
 }
 
-template <typename ArrowType>
-Status CopyStridedArray(PyArrayObject* arr, const int64_t length, MemoryPool* pool,
+class NumPyStridedConverter {
+ public:
+  static Status Convert(PyArrayObject* arr, int64_t length, MemoryPool* pool,
                         std::shared_ptr<Buffer>* out) {
-  using traits = internal::arrow_traits<ArrowType::type_id>;
-  using T = typename traits::T;
+    NumPyStridedConverter converter(arr, length, pool);
+    RETURN_NOT_OK(VisitNumpyArrayInline(arr, &converter));
+    *out = converter.buffer_;
+    return Status::OK();
+  }
+  template <int TYPE>
+  Status Visit(PyArrayObject* arr) {
+    using traits = internal::npy_traits<TYPE>;
+    using T = typename traits::value_type;
 
-  // Strided, must copy into new contiguous memory
-  std::shared_ptr<Buffer> new_buffer;
-  RETURN_NOT_OK(AllocateBuffer(pool, sizeof(T) * length, &new_buffer));
+    RETURN_NOT_OK(AllocateBuffer(pool_, sizeof(T) * length_, &buffer_));
 
-  const int64_t stride = PyArray_STRIDES(arr)[0];
-  if (stride % sizeof(T) == 0) {
-    const int64_t stride_elements = stride / sizeof(T);
-    CopyStridedNatural(reinterpret_cast<T*>(PyArray_DATA(arr)), length, stride_elements,
-                       reinterpret_cast<T*>(new_buffer->mutable_data()));
-  } else {
-    CopyStridedBytewise(reinterpret_cast<int8_t*>(PyArray_DATA(arr)), length, stride,
-                        reinterpret_cast<T*>(new_buffer->mutable_data()));
+    const int64_t stride = PyArray_STRIDES(arr)[0];
+    if (stride % sizeof(T) == 0) {
+      const int64_t stride_elements = stride / sizeof(T);
+      CopyStridedNatural(reinterpret_cast<T*>(PyArray_DATA(arr)), length_,
+                         stride_elements, reinterpret_cast<T*>(buffer_->mutable_data()));
+    } else {
+      CopyStridedBytewise(reinterpret_cast<int8_t*>(PyArray_DATA(arr)), length_, stride,
+                          reinterpret_cast<T*>(buffer_->mutable_data()));
+    }
+    return Status::OK();
   }
 
-  *out = new_buffer;
-  return Status::OK();
-}
+ protected:
+  NumPyStridedConverter(PyArrayObject* arr, int64_t length, MemoryPool* pool)
+      : arr_(arr), length_(length), pool_(pool), buffer_(nullptr) {}
+  PyArrayObject* arr_;
+  int64_t length_;
+  MemoryPool* pool_;
+  std::shared_ptr<Buffer> buffer_;
+};
 
 }  // namespace
 
@@ -426,7 +439,7 @@ inline Status NumPyConverter::PrepareInputData(std::shared_ptr<Buffer>* data) {
   }
 
   if (is_strided()) {
-    RETURN_NOT_OK(CopyStridedArray<ArrowType>(arr_, length_, pool_, data));
+    RETURN_NOT_OK(NumPyStridedConverter::Convert(arr_, length_, pool_, data));
   } else if (dtype_->type_num == NPY_BOOL) {
     int64_t nbytes = BitUtil::BytesForBits(length_);
     std::shared_ptr<Buffer> buffer;

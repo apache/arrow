@@ -36,6 +36,7 @@ import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -90,7 +91,22 @@ public class AvroToArrowTest {
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
 
-    checkPrimitiveResult(schema, data, vector);
+    checkPrimitiveResult(data, vector);
+  }
+
+  @Test
+  public void testNullableStringType() throws Exception {
+    Schema schema = getSchema("test_nullable_string.avsc");
+
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      record.put(0, i % 2 == 0 ? "test" + i : null);
+      data.add(record);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    checkRecordResult(schema, data, root);
   }
 
   @Test
@@ -102,6 +118,7 @@ public class AvroToArrowTest {
       record.put(0, "test" + i);
       record.put(1, i);
       record.put(2, i % 2 == 0);
+      data.add(record);
     }
 
     VectorSchemaRoot root = writeAndRead(schema, data);
@@ -116,7 +133,22 @@ public class AvroToArrowTest {
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
 
-    checkPrimitiveResult(schema, data, vector);
+    checkPrimitiveResult(data, vector);
+  }
+
+  @Test
+  public void testNullableIntType() throws Exception {
+    Schema schema = getSchema("test_nullable_int.avsc");
+
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      record.put(0, i % 2 == 0 ? i : null);
+      data.add(record);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    checkRecordResult(schema, data, root);
   }
 
   @Test
@@ -127,7 +159,22 @@ public class AvroToArrowTest {
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
 
-    checkPrimitiveResult(schema, data, vector);
+    checkPrimitiveResult(data, vector);
+  }
+
+  @Test
+  public void testNullableLongType() throws Exception {
+    Schema schema = getSchema("test_nullable_long.avsc");
+
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      record.put(0, i % 2 == 0 ? (long) i : null);
+      data.add(record);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    checkRecordResult(schema, data, root);
   }
 
   @Test
@@ -138,7 +185,22 @@ public class AvroToArrowTest {
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
 
-    checkPrimitiveResult(schema, data, vector);
+    checkPrimitiveResult(data, vector);
+  }
+
+  @Test
+  public void testNullableFloatType() throws Exception {
+    Schema schema = getSchema("test_nullable_float.avsc");
+
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      record.put(0, i % 2 == 0 ? i + 0.1f : null);
+      data.add(record);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    checkRecordResult(schema, data, root);
   }
 
   @Test
@@ -149,7 +211,22 @@ public class AvroToArrowTest {
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
 
-    checkPrimitiveResult(schema, data, vector);
+    checkPrimitiveResult(data, vector);
+  }
+
+  @Test
+  public void testNullableDoubleType() throws Exception {
+    Schema schema = getSchema("test_nullable_double.avsc");
+
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      record.put(0, i % 2 == 0 ? i + 0.1 : null);
+      data.add(record);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    checkRecordResult(schema, data, root);
   }
 
   @Test
@@ -165,7 +242,22 @@ public class AvroToArrowTest {
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
 
-    checkPrimitiveResult(schema, data, vector);
+    checkPrimitiveResult(data, vector);
+  }
+
+  @Test
+  public void testNullableBytesType() throws Exception {
+    Schema schema = getSchema("test_nullable_bytes.avsc");
+
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      record.put(0, i % 2 == 0 ? ByteBuffer.wrap(("test" + i).getBytes(StandardCharsets.UTF_8)) : null);
+      data.add(record);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    checkRecordResult(schema, data, root);
   }
 
   @Test
@@ -176,17 +268,36 @@ public class AvroToArrowTest {
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
 
-    checkPrimitiveResult(schema, data, vector);
+    checkPrimitiveResult(data, vector);
   }
 
-  private void checkPrimitiveResult(Schema schema, ArrayList data, FieldVector vector) {
+  @Test
+  public void testNullableBooleanType() throws Exception {
+    Schema schema = getSchema("test_nullable_boolean.avsc");
+
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      record.put(0, i % 2 == 0 ? true : null);
+      data.add(record);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    checkRecordResult(schema, data, root);
+  }
+
+  private void checkPrimitiveResult(ArrayList data, FieldVector vector) {
     assertEquals(data.size(), vector.getValueCount());
     for (int i = 0; i < data.size(); i++) {
       Object value1 = data.get(i);
       Object value2 = vector.getObject(i);
-      if (schema.getType() == Schema.Type.BYTES) {
+      if (value1 == null) {
+        assertTrue(value2 == null);
+        continue;
+      }
+      if (vector.getField().getType().getTypeID() == ArrowType.Binary.TYPE_TYPE) {
         value2 = ByteBuffer.wrap((byte[]) value2);
-      } else if (schema.getType() == Schema.Type.STRING) {
+      } else if (vector.getField().getType().getTypeID() == ArrowType.Utf8.TYPE_TYPE) {
         value2 = value2.toString();
       }
       assertTrue(Objects.equals(value1, value2));
@@ -203,7 +314,7 @@ public class AvroToArrowTest {
         fieldData.add(record.get(i));
       }
 
-      checkPrimitiveResult(schema.getFields().get(i).schema(), fieldData, root.getFieldVectors().get(i));
+      checkPrimitiveResult(fieldData, root.getFieldVectors().get(i));
     }
 
   }

@@ -278,16 +278,19 @@ class RecordBatchSerializer : public ArrayVisitor {
     return Status::OK();
   }
 
-  Status VisitList(const ListArray& array) {
+  template <typename ArrayType>
+  Status VisitList(const ArrayType& array) {
+    using offset_type = typename ArrayType::offset_type;
+
     std::shared_ptr<Buffer> value_offsets;
-    RETURN_NOT_OK(GetZeroBasedValueOffsets<ListArray>(array, &value_offsets));
+    RETURN_NOT_OK(GetZeroBasedValueOffsets<ArrayType>(array, &value_offsets));
     out_->body_buffers.emplace_back(value_offsets);
 
     --max_recursion_depth_;
     std::shared_ptr<Array> values = array.values();
 
-    int32_t values_offset = 0;
-    int32_t values_length = 0;
+    offset_type values_offset = 0;
+    offset_type values_length = 0;
     if (value_offsets) {
       values_offset = array.value_offset(0);
       values_length = array.value_offset(array.length()) - values_offset;
@@ -351,6 +354,8 @@ class RecordBatchSerializer : public ArrayVisitor {
   Status Visit(const LargeBinaryArray& array) override { return VisitBinary(array); }
 
   Status Visit(const ListArray& array) override { return VisitList(array); }
+
+  Status Visit(const LargeListArray& array) override { return VisitList(array); }
 
   Status Visit(const MapArray& array) override { return VisitList(array); }
 

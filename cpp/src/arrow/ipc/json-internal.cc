@@ -165,7 +165,7 @@ class SchemaWriter {
 
   template <typename T>
   typename std::enable_if<std::is_base_of<NoExtraMeta, T>::value ||
-                              std::is_base_of<ListType, T>::value ||
+                              std::is_base_of<BaseListType, T>::value ||
                               std::is_base_of<StructType, T>::value,
                           void>::type
   WriteTypeMetadata(const T& type) {}
@@ -331,6 +331,11 @@ class SchemaWriter {
 
   Status Visit(const ListType& type) {
     WriteName("list", type);
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListType& type) {
+    WriteName("large_list", type);
     return Status::OK();
   }
 
@@ -583,11 +588,14 @@ class ArrayWriter {
     return VisitArrayValues(*array.indices());
   }
 
-  Status Visit(const ListArray& array) {
+  template <typename T>
+  typename std::enable_if<std::is_base_of<ListArray, T>::value ||
+                              std::is_base_of<LargeListArray, T>::value,
+                          Status>::type
+  Visit(const T& array) {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
-    const auto& type = checked_cast<const ListType&>(*array.type());
-    return WriteChildren(type.children(), {array.values()});
+    return WriteChildren(array.type()->children(), {array.values()});
   }
 
   Status Visit(const FixedSizeListArray& array) {
@@ -948,6 +956,11 @@ static Status GetType(const RjObject& json_type,
       return Status::Invalid("List must have exactly one child");
     }
     *type = list(children[0]);
+  } else if (type_name == "large_list") {
+    if (children.size() != 1) {
+      return Status::Invalid("Large list must have exactly one child");
+    }
+    *type = large_list(children[0]);
   } else if (type_name == "map") {
     return GetMap(json_type, children, type);
   } else if (type_name == "fixedsizelist") {
@@ -1263,15 +1276,23 @@ class ArrayReader {
     T* values = reinterpret_cast<T*>(buffer->mutable_data());
     for (int i = 0; i < length; ++i) {
       const rj::Value& val = json_array[i];
-      DCHECK(val.IsInt());
-      values[i] = static_cast<T>(val.GetInt());
+      DCHECK(val.IsInt() || val.IsInt64());
+      if (val.IsInt()) {
+        values[i] = static_cast<T>(val.GetInt());
+      } else {
+        values[i] = static_cast<T>(val.GetInt64());
+      }
     }
 
     *out = buffer;
     return Status::OK();
   }
 
+  template <typename T>
   Status CreateList(const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out) {
+    using offset_type = typename T::offset_type;
+    using ArrayType = typename TypeTraits<T>::ArrayType;
+
     int32_t null_count = 0;
     std::shared_ptr<Buffer> validity_buffer;
     RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
@@ -1279,19 +1300,23 @@ class ArrayReader {
     const auto& json_offsets = obj_.FindMember("OFFSET");
     RETURN_NOT_ARRAY("OFFSET", json_offsets, obj_);
     std::shared_ptr<Buffer> offsets_buffer;
-    RETURN_NOT_OK(GetIntArray<int32_t>(json_offsets->value.GetArray(), length_ + 1,
-                                       &offsets_buffer));
+    RETURN_NOT_OK(GetIntArray<offset_type>(json_offsets->value.GetArray(), length_ + 1,
+                                           &offsets_buffer));
 
     std::vector<std::shared_ptr<Array>> children;
     RETURN_NOT_OK(GetChildren(obj_, *type, &children));
     DCHECK_EQ(children.size(), 1);
 
-    out->reset(new ListArray(type, length_, offsets_buffer, children[0], validity_buffer,
+    out->reset(new ArrayType(type, length_, offsets_buffer, children[0], validity_buffer,
                              null_count));
     return Status::OK();
   }
 
-  Status Visit(const ListType& type) { return CreateList(type_, &result_); }
+  Status Visit(const ListType& type) { return CreateList<ListType>(type_, &result_); }
+
+  Status Visit(const LargeListType& type) {
+    return CreateList<LargeListType>(type_, &result_);
+  }
 
   Status Visit(const MapType& type) {
     auto list_type = std::make_shared<ListType>(field(
@@ -1299,7 +1324,7 @@ class ArrayReader {
         struct_({field("key", type.key_type(), false), field("value", type.item_type())}),
         false));
     std::shared_ptr<Array> list_array;
-    RETURN_NOT_OK(CreateList(list_type, &list_array));
+    RETURN_NOT_OK(CreateList<ListType>(list_type, &list_array));
     auto map_data = list_array->data();
     map_data->type = type_;
     result_ = std::make_shared<MapArray>(map_data);

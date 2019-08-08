@@ -82,6 +82,8 @@ class ZSTDDecompressor : public Decompressor {
     return Status::OK();
   }
 
+  Status Reset() override { return Init(); }
+
   bool IsFinished() override { return finished_; }
 
  protected:

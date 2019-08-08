@@ -90,6 +90,11 @@ class ListArray;
 class ListBuilder;
 struct ListScalar;
 
+class LargeListType;
+class LargeListArray;
+class LargeListBuilder;
+struct LargeListScalar;
+
 class MapType;
 class MapArray;
 class MapBuilder;

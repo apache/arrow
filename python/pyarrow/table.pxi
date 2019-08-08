@@ -383,7 +383,7 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
 
     if K == 0:
         schema.reset(new CSchema(c_fields, c_meta))
-        return
+        return arrays
 
     c_fields.resize(K)
 
@@ -393,20 +393,24 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
     if len(names) != K:
         raise ValueError('Length of names ({}) does not match '
                          'length of arrays ({})'.format(len(names), K))
+
+    converted_arrays = []
     for i in range(K):
         val = arrays[i]
-        if isinstance(val, (Array, ChunkedArray)):
-            c_type = (<DataType> val.type).sp_type
-        else:
-            raise TypeError(type(val))
+        if not isinstance(val, (Array, ChunkedArray)):
+            val = array(val)
+
+        c_type = (<DataType> val.type).sp_type
 
         if names[i] is None:
             c_name = tobytes(u'None')
         else:
             c_name = tobytes(names[i])
         c_fields[i].reset(new CField(c_name, c_type, True))
+        converted_arrays.append(val)
 
     schema.reset(new CSchema(c_fields, c_meta))
+    return converted_arrays
 
 
 cdef class RecordBatch(_PandasConvertible):
@@ -676,10 +680,11 @@ cdef class RecordBatch(_PandasConvertible):
             num_rows = len(arrays[0])
         else:
             num_rows = 0
+
         if isinstance(names, Schema):
             c_schema = (<Schema> names).sp_schema
         else:
-            _schema_from_arrays(arrays, names, metadata, &c_schema)
+            arrays = _schema_from_arrays(arrays, names, metadata, &c_schema)
 
         c_arrays.reserve(len(arrays))
         for arr in arrays:
@@ -744,7 +749,7 @@ cdef class Table(_PandasConvertible):
         self.sp_table = table
         self.table = table.get()
 
-    def _validate(self):
+    def validate(self):
         """
         Validate table consistency.
         """
@@ -988,8 +993,9 @@ cdef class Table(_PandasConvertible):
             int i, K = <int> len(arrays)
 
         if schema is None:
-            _schema_from_arrays(arrays, names, metadata, &c_schema)
-        elif schema is not None:
+            converted_arrays = _schema_from_arrays(arrays, names, metadata,
+                                                   &c_schema)
+        else:
             if names is not None:
                 raise ValueError('Cannot pass both schema and names')
             if metadata is not None:
@@ -1000,22 +1006,28 @@ cdef class Table(_PandasConvertible):
                 raise ValueError('Schema and number of arrays unequal')
 
             c_schema = cy_schema.sp_schema
+            converted_arrays = []
+            for i, item in enumerate(arrays):
+                if not isinstance(item, (Array, ChunkedArray)):
+                    item = array(item, type=schema[i].type)
+                converted_arrays.append(item)
 
         columns.reserve(K)
-
-        for i in range(K):
-            if isinstance(arrays[i], Array):
+        for item in converted_arrays:
+            if isinstance(item, Array):
                 columns.push_back(
                     make_shared[CChunkedArray](
-                        (<Array> arrays[i]).sp_array
+                        (<Array> item).sp_array
                     )
                 )
-            elif isinstance(arrays[i], ChunkedArray):
-                columns.push_back((<ChunkedArray> arrays[i]).sp_chunked_array)
+            elif isinstance(item, ChunkedArray):
+                columns.push_back((<ChunkedArray> item).sp_chunked_array)
             else:
-                raise TypeError(type(arrays[i]))
+                raise TypeError(type(item))
 
-        return pyarrow_wrap_table(CTable.Make(c_schema, columns))
+        result = pyarrow_wrap_table(CTable.Make(c_schema, columns))
+        result.validate()
+        return result
 
     @staticmethod
     def from_pydict(mapping, schema=None, metadata=None):
@@ -1434,18 +1446,24 @@ def _reconstruct_table(arrays, schema):
     return Table.from_arrays(arrays, schema=schema)
 
 
-def table(data, schema=None):
+def table(data, names=None, schema=None, metadata=None):
     """
-    Create a pyarrow.Table from a Python object (table like objects such as
-    DataFrame, dictionary).
+    Create a pyarrow.Table from another Python data structure or sequence of
+    arrays
 
     Parameters
     ----------
-    data : pandas.DataFrame, dict
-        A DataFrame or a mapping of strings to Arrays or Python lists.
+    data : pandas.DataFrame, dict, list
+        A DataFrame, mapping of strings to Arrays or Python lists, or list of
+        arrays or chunked arrays
+    names : list, default None
+        Column names if list of arrays passed as data. Mutually exclusive with
+        'schema' argument
     schema : Schema, default None
-        The expected schema of the Arrow Table. If not passed, will be
-        inferred from the data.
+        The expected schema of the Arrow Table. If not passed, will be inferred
+        from the data. Mutually exclusive with 'names' argument
+    metadata : dict or Mapping, default None
+        Optional metadata for the schema (if schema not passed).
 
     Returns
     -------
@@ -1453,10 +1471,13 @@ def table(data, schema=None):
 
     See Also
     --------
-    Table.from_pandas, Table.from_pydict
+    Table.from_arrays, Table.from_pandas, Table.from_pydict
     """
-    if isinstance(data, dict):
-        return Table.from_pydict(data, schema=schema)
+    if isinstance(data, (list, tuple)):
+        return Table.from_arrays(data, names=names, schema=schema,
+                                 metadata=metadata)
+    elif isinstance(data, dict):
+        return Table.from_pydict(data, schema=schema, metadata=metadata)
     elif isinstance(data, _pandas_api.pd.DataFrame):
         return Table.from_pandas(data, schema=schema)
     else:

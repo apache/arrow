@@ -562,7 +562,7 @@ class TestSerialCSVRead(BaseTestCSVRead, unittest.TestCase):
         read_options = kwargs.setdefault('read_options', ReadOptions())
         read_options.use_threads = False
         table = read_csv(*args, **kwargs)
-        table._validate()
+        table.validate()
         return table
 
 
@@ -572,7 +572,7 @@ class TestParallelCSVRead(BaseTestCSVRead, unittest.TestCase):
         read_options = kwargs.setdefault('read_options', ReadOptions())
         read_options.use_threads = True
         table = read_csv(*args, **kwargs)
-        table._validate()
+        table.validate()
         return table
 
 
@@ -584,16 +584,18 @@ class BaseTestCompressedCSVRead:
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
 
+    def read_csv(self, csv_path):
+        try:
+            return read_csv(csv_path)
+        except pa.ArrowNotImplementedError as e:
+            pytest.skip(str(e))
+
     def test_random_csv(self):
         csv, expected = make_random_csv(num_cols=2, num_rows=100)
         csv_path = os.path.join(self.tmpdir, self.csv_filename)
         self.write_file(csv_path, csv)
-        try:
-            table = read_csv(csv_path)
-        except pa.ArrowNotImplementedError as e:
-            pytest.skip(str(e))
-            return
-        table._validate()
+        table = self.read_csv(csv_path)
+        table.validate()
         assert table.schema == expected.schema
         assert table.equals(expected)
         assert table.to_pydict() == expected.to_pydict()
@@ -605,6 +607,19 @@ class TestGZipCSVRead(BaseTestCompressedCSVRead, unittest.TestCase):
     def write_file(self, path, contents):
         with gzip.open(path, 'wb', 3) as f:
             f.write(contents)
+
+    def test_concatenated(self):
+        # ARROW-5974
+        csv_path = os.path.join(self.tmpdir, self.csv_filename)
+        with gzip.open(csv_path, 'wb', 3) as f:
+            f.write(b"ab,cd\nef,gh\n")
+        with gzip.open(csv_path, 'ab', 3) as f:
+            f.write(b"ij,kl\nmn,op\n")
+        table = self.read_csv(csv_path)
+        assert table.to_pydict() == {
+            'ab': ['ef', 'ij', 'mn'],
+            'cd': ['gh', 'kl', 'op'],
+            }
 
 
 class TestBZ2CSVRead(BaseTestCompressedCSVRead, unittest.TestCase):

@@ -184,7 +184,7 @@ TYPED_TEST(TestDictionaryBuilder, DoubleTableSize) {
     ASSERT_OK(int_builder.Finish(&int_array));
 
     DictionaryArray expected(dtype, int_array, dict_array);
-    ASSERT_TRUE(expected.Equals(result));
+    AssertArraysEqual(expected, *result);
   }
 }
 

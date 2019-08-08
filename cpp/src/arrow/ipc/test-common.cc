@@ -72,9 +72,13 @@ Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool
   return Status::OK();
 }
 
-Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_lists,
-                           bool include_nulls, MemoryPool* pool,
-                           std::shared_ptr<Array>* out) {
+template <typename TypeClass>
+static Status MakeListArray(const std::shared_ptr<Array>& child_array, int num_lists,
+                            bool include_nulls, MemoryPool* pool,
+                            std::shared_ptr<Array>* out) {
+  using offset_type = typename TypeClass::offset_type;
+  using ArrayType = typename TypeTraits<TypeClass>::ArrayType;
+
   // Create the null list values
   std::vector<uint8_t> valid_lists(num_lists);
   const double null_percent = include_nulls ? 0.1 : 0;
@@ -83,37 +87,50 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
   // Create list offsets
   const int max_list_size = 10;
 
-  std::vector<int32_t> list_sizes(num_lists, 0);
-  std::vector<int32_t> offsets(
+  std::vector<offset_type> list_sizes(num_lists, 0);
+  std::vector<offset_type> offsets(
       num_lists + 1, 0);  // +1 so we can shift for nulls. See partial sum below.
-  const uint32_t seed = static_cast<uint32_t>(child_array->length());
+  const auto seed = static_cast<uint32_t>(child_array->length());
 
   if (num_lists > 0) {
     rand_uniform_int(num_lists, seed, 0, max_list_size, list_sizes.data());
     // make sure sizes are consistent with null
     std::transform(list_sizes.begin(), list_sizes.end(), valid_lists.begin(),
                    list_sizes.begin(),
-                   [](int32_t size, int32_t valid) { return valid == 0 ? 0 : size; });
+                   [](offset_type size, uint8_t valid) { return valid == 0 ? 0 : size; });
     std::partial_sum(list_sizes.begin(), list_sizes.end(), ++offsets.begin());
 
     // Force invariants
-    const int32_t child_length = static_cast<int32_t>(child_array->length());
+    const auto child_length = static_cast<offset_type>(child_array->length());
     offsets[0] = 0;
     std::replace_if(offsets.begin(), offsets.end(),
-                    [child_length](int32_t offset) { return offset > child_length; },
+                    [child_length](offset_type offset) { return offset > child_length; },
                     child_length);
   }
 
-  offsets[num_lists] = static_cast<int32_t>(child_array->length());
+  offsets[num_lists] = static_cast<offset_type>(child_array->length());
 
   /// TODO(wesm): Implement support for nulls in ListArray::FromArrays
   std::shared_ptr<Buffer> null_bitmap, offsets_buffer;
   RETURN_NOT_OK(GetBitmapFromVector(valid_lists, &null_bitmap));
   RETURN_NOT_OK(CopyBufferFromVector(offsets, pool, &offsets_buffer));
 
-  *out = std::make_shared<ListArray>(list(child_array->type()), num_lists, offsets_buffer,
-                                     child_array, null_bitmap, kUnknownNullCount);
+  *out = std::make_shared<ArrayType>(std::make_shared<TypeClass>(child_array->type()),
+                                     num_lists, offsets_buffer, child_array, null_bitmap,
+                                     kUnknownNullCount);
   return ValidateArray(**out);
+}
+
+Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_lists,
+                           bool include_nulls, MemoryPool* pool,
+                           std::shared_ptr<Array>* out) {
+  return MakeListArray<ListType>(child_array, num_lists, include_nulls, pool, out);
+}
+
+Status MakeRandomLargeListArray(const std::shared_ptr<Array>& child_array, int num_lists,
+                                bool include_nulls, MemoryPool* pool,
+                                std::shared_ptr<Array>* out) {
+  return MakeListArray<LargeListType>(child_array, num_lists, include_nulls, pool, out);
 }
 
 Status MakeRandomMapArray(const std::shared_ptr<Array>& key_array,
@@ -274,22 +291,24 @@ Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", list(int32()));
   auto f1 = field("f1", list(list(int32())));
-  auto f2 = field("f2", int32());
+  auto f2 = field("f2", large_list(int32()));
   auto schema = ::arrow::schema({f0, f1, f2});
 
   // Example data
 
   MemoryPool* pool = default_memory_pool();
   const int length = 200;
-  std::shared_ptr<Array> leaf_values, list_array, list_list_array, flat_array;
+  std::shared_ptr<Array> leaf_values, list_array, list_list_array, large_list_array;
   const bool include_nulls = true;
   RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &leaf_values));
   RETURN_NOT_OK(
       MakeRandomListArray(leaf_values, length, include_nulls, pool, &list_array));
   RETURN_NOT_OK(
       MakeRandomListArray(list_array, length, include_nulls, pool, &list_list_array));
-  RETURN_NOT_OK(MakeRandomInt32Array(length, include_nulls, pool, &flat_array));
-  *out = RecordBatch::Make(schema, length, {list_array, list_list_array, flat_array});
+  RETURN_NOT_OK(MakeRandomLargeListArray(leaf_values, length, include_nulls, pool,
+                                         &large_list_array));
+  *out =
+      RecordBatch::Make(schema, length, {list_array, list_list_array, large_list_array});
   return Status::OK();
 }
 

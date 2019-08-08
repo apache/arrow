@@ -35,7 +35,8 @@ _FLOATING_TYPES = {lib.Type_HALF_FLOAT, lib.Type_FLOAT, lib.Type_DOUBLE}
 _DATE_TYPES = {lib.Type_DATE32, lib.Type_DATE64}
 _TIME_TYPES = {lib.Type_TIME32, lib.Type_TIME64}
 _TEMPORAL_TYPES = {lib.Type_TIMESTAMP} | _TIME_TYPES | _DATE_TYPES
-_NESTED_TYPES = {lib.Type_LIST, lib.Type_STRUCT, lib.Type_UNION, lib.Type_MAP}
+_NESTED_TYPES = {lib.Type_LIST, lib.Type_LARGE_LIST, lib.Type_STRUCT,
+                 lib.Type_UNION, lib.Type_MAP}
 
 
 def is_null(t):
@@ -164,6 +165,13 @@ def is_list(t):
     return t.id == lib.Type_LIST
 
 
+def is_large_list(t):
+    """
+    Return True if value is an instance of a large list type
+    """
+    return t.id == lib.Type_LARGE_LIST
+
+
 def is_struct(t):
     """
     Return True if value is an instance of a struct type
@@ -228,6 +236,14 @@ def is_binary(t):
     return t.id == lib.Type_BINARY
 
 
+def is_large_binary(t):
+    """
+    Return True if value is an instance of a large variable-length
+    binary type
+    """
+    return t.id == lib.Type_LARGE_BINARY
+
+
 def is_unicode(t):
     """
     Alias for is_string
@@ -240,6 +256,20 @@ def is_string(t):
     Return True if value is an instance of string (utf8 unicode) type
     """
     return t.id == lib.Type_STRING
+
+
+def is_large_unicode(t):
+    """
+    Alias for is_large_string
+    """
+    return is_large_string(t)
+
+
+def is_large_string(t):
+    """
+    Return True if value is an instance of large string (utf8 unicode) type
+    """
+    return t.id == lib.Type_LARGE_STRING
 
 
 def is_fixed_size_binary(t):

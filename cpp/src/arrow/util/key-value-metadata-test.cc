@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -104,6 +105,18 @@ TEST(KeyValueMetadataTest, Equals) {
 
   ASSERT_TRUE(metadata.Equals(metadata2));
   ASSERT_FALSE(metadata.Equals(metadata3));
+
+  // Key / value pairs are semantically unordered
+  std::reverse(keys.begin(), keys.end());
+  KeyValueMetadata metadata4(keys, values);
+  std::reverse(values.begin(), values.end());
+  KeyValueMetadata metadata5(keys, values);
+
+  ASSERT_FALSE(metadata.Equals(metadata4));
+  ASSERT_TRUE(metadata.Equals(metadata5));
+
+  KeyValueMetadata metadata6({"foo"}, {"bizz"});
+  ASSERT_FALSE(metadata.Equals(metadata6));
 }
 
 TEST(KeyValueMetadataTest, ToString) {

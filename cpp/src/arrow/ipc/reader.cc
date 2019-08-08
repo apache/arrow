@@ -42,6 +42,7 @@
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -213,6 +214,21 @@ class ArrayLoader {
     return GetBuffer(context_->buffer_index++, &out_->buffers[2]);
   }
 
+  template <typename TYPE>
+  Status LoadList(const TYPE& type) {
+    out_->buffers.resize(2);
+
+    RETURN_NOT_OK(LoadCommon());
+    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &out_->buffers[1]));
+
+    const int num_children = type.num_children();
+    if (num_children != 1) {
+      return Status::Invalid("Wrong number of children: ", num_children);
+    }
+
+    return LoadChildren(type.children());
+  }
+
   Status LoadChild(const Field& field, ArrayData* out) {
     ArrayLoader loader(field, out, context_);
     --context_->max_recursion_depth;
@@ -262,18 +278,9 @@ class ArrayLoader {
     return GetBuffer(context_->buffer_index++, &out_->buffers[1]);
   }
 
-  Status Visit(const ListType& type) {
-    out_->buffers.resize(2);
-
-    RETURN_NOT_OK(LoadCommon());
-    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &out_->buffers[1]));
-
-    const int num_children = type.num_children();
-    if (num_children != 1) {
-      return Status::Invalid("Wrong number of children: ", num_children);
-    }
-
-    return LoadChildren(type.children());
+  template <typename T>
+  enable_if_base_list<T, Status> Visit(const T& type) {
+    return LoadList(type);
   }
 
   Status Visit(const FixedSizeListType& type) {

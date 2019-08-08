@@ -25,18 +25,13 @@
       if(quo_is_null(col_select)) {
         shared_ptr(`arrow::Table`, parquet___arrow___FileReader__ReadTable1(self))
       } else {
-        all_vars <- shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema1(self))$names
+        all_vars <- shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema(self))$names
         indices <- match(vars_select(all_vars, !!col_select), all_vars) - 1L
         shared_ptr(`arrow::Table`, parquet___arrow___FileReader__ReadTable2(self, indices))
       }
     },
-    GetSchema = function(column_indices = NULL) {
-      if (is.null(column_indices)) {
-        shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema1(self))
-      } else {
-        shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema2(self, column_indices))
-      }
-
+    GetSchema = function() {
+      shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema(self))
     }
   )
 )
@@ -114,11 +109,11 @@ parquet_file_reader.character <- function(file, props = parquet_arrow_reader_pro
 #' @return A [arrow::Table][arrow__Table], or a `data.frame` if `as_tibble` is
 #' `TRUE`.
 #' @examples
-#'
-#' \dontrun{
+#' \donttest{
+#' try({
 #'   df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
+#' })
 #' }
-#'
 #' @export
 read_parquet <- function(file, col_select = NULL, as_tibble = TRUE, props = parquet_arrow_reader_properties(), ...) {
   reader <- parquet_file_reader(file, props = props, ...)
@@ -139,12 +134,13 @@ read_parquet <- function(file, col_select = NULL, as_tibble = TRUE, props = parq
 #' @param file a file path
 #'
 #' @examples
-#'
-#' \dontrun{
+#' \donttest{
+#' try({
 #'   tf <- tempfile(fileext = ".parquet")
+#'   on.exit(unlink(tf))
 #'   write_parquet(tibble::tibble(x = 1:5), tf)
+#' })
 #' }
-#'
 #' @export
 write_parquet <- function(table, file) {
   write_parquet_file(to_arrow(table), file)

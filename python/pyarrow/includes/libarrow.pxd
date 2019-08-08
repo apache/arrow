@@ -65,9 +65,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_TIME64" arrow::Type::TIME64"
         _Type_BINARY" arrow::Type::BINARY"
         _Type_STRING" arrow::Type::STRING"
+        _Type_LARGE_BINARY" arrow::Type::LARGE_BINARY"
+        _Type_LARGE_STRING" arrow::Type::LARGE_STRING"
         _Type_FIXED_SIZE_BINARY" arrow::Type::FIXED_SIZE_BINARY"
 
         _Type_LIST" arrow::Type::LIST"
+        _Type_LARGE_LIST" arrow::Type::LARGE_LIST"
         _Type_STRUCT" arrow::Type::STRUCT"
         _Type_UNION" arrow::Type::UNION"
         _Type_DICTIONARY" arrow::Type::DICTIONARY"
@@ -250,6 +253,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CDataType] value_type()
         shared_ptr[CField] value_field()
 
+    cdef cppclass CLargeListType" arrow::LargeListType"(CDataType):
+        CLargeListType(const shared_ptr[CDataType]& value_type)
+        CLargeListType(const shared_ptr[CField]& field)
+        shared_ptr[CDataType] value_type()
+        shared_ptr[CField] value_field()
+
     cdef cppclass CStringType" arrow::StringType"(CDataType):
         pass
 
@@ -417,6 +426,17 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] values()
         shared_ptr[CDataType] value_type()
 
+    cdef cppclass CLargeListArray" arrow::LargeListArray"(CArray):
+        @staticmethod
+        CStatus FromArrays(const CArray& offsets, const CArray& values,
+                           CMemoryPool* pool, shared_ptr[CArray]* out)
+
+        const int64_t* raw_value_offsets()
+        int64_t value_offset(int i)
+        int64_t value_length(int i)
+        shared_ptr[CArray] values()
+        shared_ptr[CDataType] value_type()
+
     cdef cppclass CUnionArray" arrow::UnionArray"(CArray):
         @staticmethod
         CStatus MakeSparse(const CArray& type_ids,
@@ -437,11 +457,17 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const CArray* UnsafeChild(int pos)
         UnionMode mode()
 
-    cdef cppclass CBinaryArray" arrow::BinaryArray"(CListArray):
+    cdef cppclass CBinaryArray" arrow::BinaryArray"(CArray):
         const uint8_t* GetValue(int i, int32_t* length)
         shared_ptr[CBuffer] value_data()
         int32_t value_offset(int64_t i)
         int32_t value_length(int64_t i)
+
+    cdef cppclass CLargeBinaryArray" arrow::LargeBinaryArray"(CArray):
+        const uint8_t* GetValue(int i, int64_t* length)
+        shared_ptr[CBuffer] value_data()
+        int64_t value_offset(int64_t i)
+        int64_t value_length(int64_t i)
 
     cdef cppclass CStringArray" arrow::StringArray"(CBinaryArray):
         CStringArray(int64_t length, shared_ptr[CBuffer] value_offsets,
@@ -449,6 +475,16 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                      shared_ptr[CBuffer] null_bitmap,
                      int64_t null_count,
                      int64_t offset)
+
+        c_string GetString(int i)
+
+    cdef cppclass CLargeStringArray" arrow::LargeStringArray" \
+            (CLargeBinaryArray):
+        CLargeStringArray(int64_t length, shared_ptr[CBuffer] value_offsets,
+                          shared_ptr[CBuffer] data,
+                          shared_ptr[CBuffer] null_bitmap,
+                          int64_t null_count,
+                          int64_t offset)
 
         c_string GetString(int i)
 
@@ -462,9 +498,17 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         # XXX Cython crashes if default argument values are declared here
         # https://github.com/cython/cython/issues/2167
         @staticmethod
-        CResult[shared_ptr[CArray]] Make(
+        CResult[shared_ptr[CArray]] MakeFromFieldNames "Make"(
             vector[shared_ptr[CArray]] children,
             vector[c_string] field_names,
+            shared_ptr[CBuffer] null_bitmap,
+            int64_t null_count,
+            int64_t offset)
+
+        @staticmethod
+        CResult[shared_ptr[CArray]] MakeFromFields "Make"(
+            vector[shared_ptr[CArray]] children,
+            vector[shared_ptr[CField]] fields,
             shared_ptr[CBuffer] null_bitmap,
             int64_t null_count,
             int64_t offset)

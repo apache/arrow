@@ -2348,6 +2348,13 @@ class TestConvertMisc(object):
         arr = pa.array(data['y'], type=pa.int16())
         assert arr.to_pylist() == [-1, 2]
 
+    def test_array_from_strided_numpy_array(self):
+        # ARROW-5651
+        np_arr = np.arange(0, 10, dtype=np.float32)[1:-1:2]
+        pa_arr = pa.array(np_arr, type=pa.float64())
+        expected = pa.array([1.0, 3.0, 5.0, 7.0], type=pa.float64())
+        pa_arr.equals(expected)
+
     def test_safe_unsafe_casts(self):
         # ARROW-2799
         df = pd.DataFrame({

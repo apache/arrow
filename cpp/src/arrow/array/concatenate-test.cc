@@ -165,11 +165,28 @@ TEST_F(ConcatenateTest, ListType) {
     auto values_size = size * 4;
     auto values = this->GeneratePrimitive<Int8Type>(values_size, null_probability);
     auto offsets_vector = this->Offsets<int32_t>(values_size, size);
-    // ensure the first offset is 0, which is expected for ListType
-    offsets_vector[0] = 0;
+    // Ensure first and last offsets encompass the whole values array
+    offsets_vector.front() = 0;
+    offsets_vector.back() = static_cast<int32_t>(values_size);
     std::shared_ptr<Array> offsets;
     ArrayFromVector<Int32Type>(offsets_vector, &offsets);
     ASSERT_OK(ListArray::FromArrays(*offsets, *values, default_memory_pool(), out));
+    ASSERT_OK(ValidateArray(**out));
+  });
+}
+
+TEST_F(ConcatenateTest, LargeListType) {
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    auto values_size = size * 4;
+    auto values = this->GeneratePrimitive<Int8Type>(values_size, null_probability);
+    auto offsets_vector = this->Offsets<int64_t>(values_size, size);
+    // Ensure first and last offsets encompass the whole values array
+    offsets_vector.front() = 0;
+    offsets_vector.back() = static_cast<int64_t>(values_size);
+    std::shared_ptr<Array> offsets;
+    ArrayFromVector<Int64Type>(offsets_vector, &offsets);
+    ASSERT_OK(LargeListArray::FromArrays(*offsets, *values, default_memory_pool(), out));
+    ASSERT_OK(ValidateArray(**out));
   });
 }
 
