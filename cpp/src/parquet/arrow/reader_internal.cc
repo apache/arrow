@@ -24,7 +24,6 @@
 #include <memory>
 #include <string>
 #include <type_traits>
-#include <utility>
 #include <vector>
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -32,8 +31,10 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int-util.h"
 #include "arrow/util/logging.h"
@@ -42,6 +43,7 @@
 #include "parquet/arrow/reader.h"
 #include "parquet/column_reader.h"
 #include "parquet/platform.h"
+#include "parquet/properties.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
 

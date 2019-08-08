@@ -18,18 +18,13 @@
 #include "parquet/arrow/schema.h"
 
 #include <string>
-#include <unordered_set>
-#include <utility>
 #include <vector>
 
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
 
-#include "parquet/arrow/writer.h"
 #include "parquet/exception.h"
 #include "parquet/properties.h"
-#include "parquet/schema-internal.h"
 #include "parquet/types.h"
 
 using arrow::Field;

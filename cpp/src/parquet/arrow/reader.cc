@@ -19,7 +19,6 @@
 
 #include <algorithm>
 #include <cstring>
-#include <functional>
 #include <future>
 #include <numeric>
 #include <utility>
@@ -33,13 +32,11 @@
 #include "arrow/util/thread-pool.h"
 
 #include "parquet/arrow/reader_internal.h"
-#include "parquet/arrow/schema.h"
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"
 #include "parquet/file_reader.h"
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
-#include "parquet/schema-internal.h"
 #include "parquet/schema.h"
 
 using arrow::Array;
@@ -75,8 +72,6 @@ using parquet::internal::RecordReader;
 
 namespace parquet {
 namespace arrow {
-
-class ColumnChunkReaderImpl;
 
 class ColumnReaderImpl : public ColumnReader {
  public:

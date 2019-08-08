@@ -26,7 +26,6 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer-builder.h"
-#include "arrow/memory_pool.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-stream-utils.h"

@@ -20,9 +20,9 @@
 
 #include <cstdint>
 #include <memory>
-#include <unordered_set>
 #include <vector>
 
+#include "parquet/file_reader.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 
@@ -39,8 +39,6 @@ class Table;
 namespace parquet {
 
 class FileMetaData;
-class ParquetFileReader;
-class ReaderProperties;
 class SchemaDescriptor;
 
 namespace arrow {

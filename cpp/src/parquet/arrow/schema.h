@@ -18,11 +18,8 @@
 #ifndef PARQUET_ARROW_SCHEMA_H
 #define PARQUET_ARROW_SCHEMA_H
 
-#include <cstdint>
 #include <memory>
-#include <vector>
 
-#include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 

@@ -18,7 +18,6 @@
 #include "parquet/arrow/writer.h"
 
 #include <algorithm>
-#include <cstddef>
 #include <deque>
 #include <type_traits>
 #include <utility>
@@ -28,12 +27,9 @@
 #include "arrow/buffer-builder.h"
 #include "arrow/compute/api.h"
 #include "arrow/table.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/type.h"
 #include "arrow/visitor_inline.h"
 
-#include "arrow/util/logging.h"
-
-#include "parquet/arrow/reader.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/column_writer.h"

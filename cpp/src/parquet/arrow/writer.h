@@ -19,19 +19,16 @@
 #define PARQUET_ARROW_WRITER_H
 
 #include <cstdint>
-#include <cstring>
 #include <memory>
 
 #include "parquet/platform.h"
 #include "parquet/properties.h"
-#include "parquet/types.h"
-
-#include "arrow/type.h"
 
 namespace arrow {
 
 class Array;
 class ChunkedArray;
+class Schema;
 class Table;
 
 }  // namespace arrow
