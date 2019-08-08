@@ -45,6 +45,7 @@ using arrow::Status;
 
 namespace parquet {
 
+class ArrowReaderProperties;
 class ColumnDescriptor;
 
 namespace internal {
@@ -55,7 +56,6 @@ class RecordReader;
 
 namespace arrow {
 
-class ArrowReaderProperties;
 class ColumnReaderImpl;
 
 // ----------------------------------------------------------------------

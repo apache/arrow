@@ -21,6 +21,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "arrow/type.h"
 
@@ -41,13 +42,13 @@ static bool DEFAULT_USE_BUFFERED_STREAM = false;
 
 class PARQUET_EXPORT ReaderProperties {
  public:
-  explicit ReaderProperties(::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+  explicit ReaderProperties(MemoryPool* pool = ::arrow::default_memory_pool())
       : pool_(pool) {
     buffered_stream_enabled_ = DEFAULT_USE_BUFFERED_STREAM;
     buffer_size_ = DEFAULT_BUFFER_SIZE;
   }
 
-  ::arrow::MemoryPool* memory_pool() const { return pool_; }
+  MemoryPool* memory_pool() const { return pool_; }
 
   std::shared_ptr<ArrowInputStream> GetStream(std::shared_ptr<ArrowInputFile> source,
                                               int64_t start, int64_t num_bytes);
@@ -63,7 +64,7 @@ class PARQUET_EXPORT ReaderProperties {
   int64_t buffer_size() const { return buffer_size_; }
 
  private:
-  ::arrow::MemoryPool* pool_;
+  MemoryPool* pool_;
   int64_t buffer_size_;
   bool buffered_stream_enabled_;
 };
@@ -144,7 +145,7 @@ class PARQUET_EXPORT WriterProperties {
           created_by_(DEFAULT_CREATED_BY) {}
     virtual ~Builder() {}
 
-    Builder* memory_pool(::arrow::MemoryPool* pool) {
+    Builder* memory_pool(MemoryPool* pool) {
       pool_ = pool;
       return this;
     }
@@ -322,7 +323,7 @@ class PARQUET_EXPORT WriterProperties {
     }
 
    private:
-    ::arrow::MemoryPool* pool_;
+    MemoryPool* pool_;
     int64_t dictionary_pagesize_limit_;
     int64_t write_batch_size_;
     int64_t max_row_group_length_;
@@ -338,7 +339,7 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, bool> statistics_enabled_;
   };
 
-  inline ::arrow::MemoryPool* memory_pool() const { return pool_; }
+  inline MemoryPool* memory_pool() const { return pool_; }
 
   inline int64_t dictionary_pagesize_limit() const { return dictionary_pagesize_limit_; }
 
@@ -397,10 +398,9 @@ class PARQUET_EXPORT WriterProperties {
 
  private:
   explicit WriterProperties(
-      ::arrow::MemoryPool* pool, int64_t dictionary_pagesize_limit,
-      int64_t write_batch_size, int64_t max_row_group_length, int64_t pagesize,
-      ParquetVersion::type version, const std::string& created_by,
-      const ColumnProperties& default_column_properties,
+      MemoryPool* pool, int64_t dictionary_pagesize_limit, int64_t write_batch_size,
+      int64_t max_row_group_length, int64_t pagesize, ParquetVersion::type version,
+      const std::string& created_by, const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
@@ -412,7 +412,7 @@ class PARQUET_EXPORT WriterProperties {
         default_column_properties_(default_column_properties),
         column_properties_(column_properties) {}
 
-  ::arrow::MemoryPool* pool_;
+  MemoryPool* pool_;
   int64_t dictionary_pagesize_limit_;
   int64_t write_batch_size_;
   int64_t max_row_group_length_;
@@ -560,10 +560,10 @@ struct ArrowWriteContext {
   }
 
   template <typename T>
-  Status GetScratchData(const int64_t num_values, T** out) {
-    RETURN_NOT_OK(this->data_buffer->Resize(num_values * sizeof(T), false));
+  ::arrow::Status GetScratchData(const int64_t num_values, T** out) {
+    ARROW_RETURN_NOT_OK(this->data_buffer->Resize(num_values * sizeof(T), false));
     *out = reinterpret_cast<T*>(this->data_buffer->mutable_data());
-    return Status::OK();
+    return ::arrow::Status::OK();
   }
 
   MemoryPool* memory_pool;
@@ -577,7 +577,8 @@ struct ArrowWriteContext {
   std::shared_ptr<ResizableBuffer> def_levels_buffer;
 };
 
-std::shared_ptr<ArrowWriterProperties> PARQUET_EXPORT default_arrow_writer_properties();
+PARQUET_EXPORT
+std::shared_ptr<ArrowWriterProperties> default_arrow_writer_properties();
 
 }  // namespace parquet
 

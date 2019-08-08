@@ -70,12 +70,6 @@ using parquet::schema::GroupNode;
 namespace parquet {
 namespace arrow {
 
-std::shared_ptr<ArrowWriterProperties> default_arrow_writer_properties() {
-  static std::shared_ptr<ArrowWriterProperties> default_writer_properties =
-      ArrowWriterProperties::Builder().build();
-  return default_writer_properties;
-}
-
 namespace {
 
 class LevelBuilder {
@@ -342,11 +336,7 @@ class ArrowColumnWriter {
       rep_levels = reinterpret_cast<const int16_t*>(rep_levels_buffer->data());
     }
     std::shared_ptr<Array> values_array = _values_array->Slice(values_offset, num_values);
-
-    switch (values_type) {
-    }
-    return Status::NotImplemented("Data type not supported as list value: ",
-                                  values_array->type()->ToString());
+    return writer_->WriteArrow(def_levels, rep_levels, num_levels, *values_array, ctx_);
   }
 
   Status Write(const ChunkedArray& data, int64_t offset, const int64_t size) {
@@ -414,9 +404,11 @@ class ArrowColumnWriter {
 
 class FileWriterImpl : public FileWriter {
  public:
-  FileWriterImpl(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
+  FileWriterImpl(const std::shared_ptr<::arrow::Schema>& schema, MemoryPool* pool,
+                 std::unique_ptr<ParquetFileWriter> writer,
                  const std::shared_ptr<ArrowWriterProperties>& arrow_properties)
-      : writer_(std::move(writer)),
+      : schema_(schema),
+        writer_(std::move(writer)),
         row_group_writer_(nullptr),
         column_write_context_(pool, arrow_properties.get()),
         arrow_properties_(arrow_properties),
@@ -494,14 +486,56 @@ class FileWriterImpl : public FileWriter {
     return WriteColumnChunk(data, 0, data->length());
   }
 
+  Status WriteTable(const Table& table, int64_t chunk_size) override {
+    RETURN_NOT_OK(table.Validate());
+
+    if (chunk_size <= 0 && table.num_rows() > 0) {
+      return Status::Invalid("chunk size per row_group must be greater than 0");
+    } else if (!table.schema()->Equals(*schema_, false)) {
+      return Status::Invalid("table schema does not match this writer's. table:'",
+                             table.schema()->ToString(), "' this:'", schema_->ToString(),
+                             "'");
+    } else if (chunk_size > this->properties().max_row_group_length()) {
+      chunk_size = this->properties().max_row_group_length();
+    }
+
+    auto WriteRowGroup = [&](int64_t offset, int64_t size) {
+      RETURN_NOT_OK(NewRowGroup(size));
+      for (int i = 0; i < table.num_columns(); i++) {
+        RETURN_NOT_OK(WriteColumnChunk(table.column(i), offset, size));
+      }
+      return Status::OK();
+    };
+
+    if (table.num_rows() == 0) {
+      // Append a row group with 0 rows
+      RETURN_NOT_OK_ELSE(WriteRowGroup(0, 0), PARQUET_IGNORE_NOT_OK(Close()));
+      return Status::OK();
+    }
+
+    for (int chunk = 0; chunk * chunk_size < table.num_rows(); chunk++) {
+      int64_t offset = chunk * chunk_size;
+      RETURN_NOT_OK_ELSE(
+          WriteRowGroup(offset, std::min(chunk_size, table.num_rows() - offset)),
+          PARQUET_IGNORE_NOT_OK(Close()));
+    }
+    return Status::OK();
+  }
+
   const WriterProperties& properties() const { return *writer_->properties(); }
 
-  ::arrow::MemoryPool* memory_pool() const override { return column_write_context_.memory_pool; }
+  ::arrow::MemoryPool* memory_pool() const override {
+    return column_write_context_.memory_pool;
+  }
 
-  const std::shared_ptr<FileMetaData> metadata() const override { return writer_->metadata(); }
+  const std::shared_ptr<FileMetaData> metadata() const override {
+    return writer_->metadata();
+  }
 
  private:
   friend class FileWriter;
+
+  std::shared_ptr<::arrow::Schema> schema_;
 
   SchemaManifest schema_manifest_;
 
@@ -512,14 +546,6 @@ class FileWriterImpl : public FileWriter {
   bool closed_;
 };
 
-Status FileWriter::Close() { return impl_->Close(); }
-
-MemoryPool* FileWriter::memory_pool() const { return impl_->memory_pool(); }
-
-const std::shared_ptr<FileMetaData> FileWriter::metadata() const {
-  return impl_->metadata();
-}
-
 FileWriter::~FileWriter() {}
 
 Status FileWriter::Make(::arrow::MemoryPool* pool,
@@ -528,7 +554,7 @@ Status FileWriter::Make(::arrow::MemoryPool* pool,
                         const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
                         std::unique_ptr<FileWriter>* out) {
   std::unique_ptr<FileWriterImpl> impl(
-      new FileWriterImpl(pool, std::move(writer), schema, arrow_properties));
+      new FileWriterImpl(schema, pool, std::move(writer), arrow_properties));
   RETURN_NOT_OK(impl->Init());
   *out = std::move(impl);
   return Status::OK();
@@ -568,42 +594,6 @@ Status WriteFileMetaData(const FileMetaData& file_metadata,
 Status WriteMetaDataFile(const FileMetaData& file_metadata,
                          ::arrow::io::OutputStream* sink) {
   PARQUET_CATCH_NOT_OK(::parquet::WriteMetaDataFile(file_metadata, sink));
-  return Status::OK();
-}
-
-Status FileWriter::WriteTable(const Table& table, int64_t chunk_size) {
-  RETURN_NOT_OK(table.Validate());
-
-  if (chunk_size <= 0 && table.num_rows() > 0) {
-    return Status::Invalid("chunk size per row_group must be greater than 0");
-  } else if (!table.schema()->Equals(*schema_, false)) {
-    return Status::Invalid("table schema does not match this writer's. table:'",
-                           table.schema()->ToString(), "' this:'", schema_->ToString(),
-                           "'");
-  } else if (chunk_size > impl_->properties().max_row_group_length()) {
-    chunk_size = impl_->properties().max_row_group_length();
-  }
-
-  auto WriteRowGroup = [&](int64_t offset, int64_t size) {
-    RETURN_NOT_OK(NewRowGroup(size));
-    for (int i = 0; i < table.num_columns(); i++) {
-      RETURN_NOT_OK(WriteColumnChunk(table.column(i), offset, size));
-    }
-    return Status::OK();
-  };
-
-  if (table.num_rows() == 0) {
-    // Append a row group with 0 rows
-    RETURN_NOT_OK_ELSE(WriteRowGroup(0, 0), PARQUET_IGNORE_NOT_OK(Close()));
-    return Status::OK();
-  }
-
-  for (int chunk = 0; chunk * chunk_size < table.num_rows(); chunk++) {
-    int64_t offset = chunk * chunk_size;
-    RETURN_NOT_OK_ELSE(
-        WriteRowGroup(offset, std::min(chunk_size, table.num_rows() - offset)),
-        PARQUET_IGNORE_NOT_OK(Close()));
-  }
   return Status::OK();
 }
 
