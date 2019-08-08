@@ -38,6 +38,9 @@ cpp/.idea
 cpp/build
 cpp/*-build
 cpp/*_build
+cpp/build-debug
+cpp/build-release
+cpp/build-test
 cpp/Testing
 cpp/thirdparty
 !cpp/thirdparty/jemalloc
