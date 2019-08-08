@@ -443,7 +443,7 @@ class FileWriterImpl : public FileWriter {
   }
 
   Status WriteColumnChunk(const std::shared_ptr<ChunkedArray>& data, int64_t offset,
-                          const int64_t size) override {
+                          int64_t size) override {
     // DictionaryArrays are not yet handled with a fast path. To still support
     // writing them as a workaround, we convert them back to their non-dictionary
     // representation.

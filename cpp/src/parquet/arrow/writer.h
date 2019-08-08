@@ -73,8 +73,8 @@ class PARQUET_EXPORT FileWriter {
 
   /// \brief Write ColumnChunk in row group using slice of a ChunkedArray
   virtual ::arrow::Status WriteColumnChunk(
-      const std::shared_ptr<::arrow::ChunkedArray>& data, const int64_t offset,
-      const int64_t size) = 0;
+      const std::shared_ptr<::arrow::ChunkedArray>& data, int64_t offset,
+      int64_t size) = 0;
 
   virtual ::arrow::Status WriteColumnChunk(
       const std::shared_ptr<::arrow::ChunkedArray>& data) = 0;

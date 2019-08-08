@@ -554,10 +554,10 @@ class PARQUET_EXPORT ArrowWriterProperties {
 /// column chunk. API possibly not stable
 struct ArrowWriteContext {
   ArrowWriteContext(MemoryPool* memory_pool, ArrowWriterProperties* properties)
-      : memory_pool(memory_pool), properties(properties) {
-    this->data_buffer = AllocateBuffer(memory_pool);
-    this->def_levels_buffer = AllocateBuffer(memory_pool);
-  }
+      : memory_pool(memory_pool),
+        properties(properties),
+        data_buffer(AllocateBuffer(memory_pool)),
+        def_levels_buffer(AllocateBuffer(memory_pool)) {}
 
   template <typename T>
   ::arrow::Status GetScratchData(const int64_t num_values, T** out) {
