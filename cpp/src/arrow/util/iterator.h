@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "arrow/status.h"
@@ -27,6 +29,9 @@ namespace arrow {
 template <typename T>
 class Iterator {
  public:
+  static_assert(std::is_assignable<T, std::nullptr_t>::value,
+                "nullptr is used to signal completion");
+
   virtual ~Iterator() = default;
 
   /// \brief Return the next element of the sequence, nullptr when the
@@ -38,15 +43,10 @@ class Iterator {
 template <typename T>
 class VectorIterator : public Iterator<T> {
  public:
-  VectorIterator(std::vector<T> v) : elements_(std::move(v)) {}
-
-  bool Done() override { return i_ == elements_.size(); }
+  explicit VectorIterator(std::vector<T> v) : elements_(std::move(v)) {}
 
   Status Next(T* out) override {
-    if (Done()) {
-      return Status::IndexError("iterated past the end of a vector");
-    }
-    *out = elements_[i_++];
+    *out = i_ == elements_.size() ? nullptr : elements_[i_++];
     return Status::OK();
   }
 
@@ -54,5 +54,10 @@ class VectorIterator : public Iterator<T> {
   std::vector<T> elements_;
   size_t i_ = 0;
 };
+
+template <typename T>
+VectorIterator<T> MakeIterator(std::vector<T> v) {
+  return VectorIterator<T>(std::move(v));
+}
 
 }  // namespace arrow

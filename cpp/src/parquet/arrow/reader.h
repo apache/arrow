@@ -22,6 +22,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/util/iterator.h"
 #include "parquet/file_reader.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -33,6 +34,7 @@ class KeyValueMetadata;
 class RecordBatchReader;
 class Schema;
 class Table;
+class RecordBatch;
 
 }  // namespace arrow
 
@@ -208,6 +210,16 @@ class RowGroupReader {
   virtual ::arrow::Status ReadTable(const std::vector<int>& column_indices,
                                     std::shared_ptr<::arrow::Table>* out) = 0;
   virtual ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out) = 0;
+
+  ::arrow::Status MakeIterator(
+      std::unique_ptr<::arrow::Iterator<std::shared_ptr<::arrow::RecordBatch>>>* batches);
+
+  ::arrow::Status MakeIterator(
+      const std::vector<int>& column_indices,
+      std::unique_ptr<::arrow::Iterator<std::shared_ptr<::arrow::RecordBatch>>>* batches);
+
+ private:
+  struct Iterator;
 };
 
 class ColumnChunkReader {

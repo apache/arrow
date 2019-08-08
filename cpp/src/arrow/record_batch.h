@@ -164,7 +164,7 @@ class ARROW_EXPORT RecordBatch {
 };
 
 /// \brief Abstract interface for reading stream of record batches
-class ARROW_EXPORT RecordBatchReader {
+class ARROW_EXPORT RecordBatchReader : public Iterator<std::shared_ptr<RecordBatch>> {
  public:
   virtual ~RecordBatchReader();
 
@@ -177,6 +177,8 @@ class ARROW_EXPORT RecordBatchReader {
   /// \param[out] batch the next loaded batch, null at end of stream
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
+
+  Status Next(std::shared_ptr<RecordBatch>* batch) override { return ReadNext(batch); }
 
   /// \brief Consume entire stream as a vector of record batches
   Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);

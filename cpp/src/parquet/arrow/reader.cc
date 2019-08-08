@@ -357,6 +357,30 @@ class ColumnChunkReaderImpl : public ColumnChunkReader {
   int row_group_index_;
 };
 
+struct RowGroupReader::Iterator : ::arrow::TableBatchReader {
+  Iterator(const std::shared_ptr<Table>& table)
+      : TableBatchReader(*table), table_(table) {}
+  // TableBatchReader does not take ownership of table
+  std::shared_ptr<Table> table_;
+};
+
+Status RowGroupReader::MakeIterator(
+    std::unique_ptr<::arrow::Iterator<std::shared_ptr<::arrow::RecordBatch>>>* batches) {
+  std::shared_ptr<::arrow::Table> table;
+  RETURN_NOT_OK(ReadTable(&table));
+  batches->reset(new Iterator(table));
+  return Status::OK();
+}
+
+Status RowGroupReader::MakeIterator(
+    const std::vector<int>& column_indices,
+    std::unique_ptr<::arrow::Iterator<std::shared_ptr<::arrow::RecordBatch>>>* batches) {
+  std::shared_ptr<::arrow::Table> table;
+  RETURN_NOT_OK(ReadTable(column_indices, &table));
+  batches->reset(new Iterator(table));
+  return Status::OK();
+}
+
 class RowGroupReaderImpl : public RowGroupReader {
  public:
   RowGroupReaderImpl(FileReaderImpl* impl, int row_group_index)
