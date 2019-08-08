@@ -42,7 +42,7 @@ use arrow::datatypes::{
 /// primitive array.
 pub trait Converter<T: DataType> {
     /// This method converts record reader's buffered content into arrow array.
-    /// It will consume record reader's data, to but will not reset record reader's
+    /// It will consume record reader's data, but will not reset record reader's
     /// state.
     fn convert(record_reader: &mut RecordReader<T>) -> Result<ArrayRef>;
 }
