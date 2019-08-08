@@ -1050,7 +1050,9 @@ cdef class ListArray(Array):
         with nogil:
             check_status(CListArray.FromArrays(_offsets.ap[0], _values.ap[0],
                                                cpool, &out))
-        return pyarrow_wrap_array(out)
+        cdef Array result = pyarrow_wrap_array(out)
+        result.validate()
+        return result
 
     @property
     def values(self):
@@ -1102,7 +1104,9 @@ cdef class LargeListArray(Array):
             check_status(CLargeListArray.FromArrays(_offsets.ap[0],
                                                     _values.ap[0],
                                                     cpool, &out))
-        return pyarrow_wrap_array(out)
+        cdef Array result = pyarrow_wrap_array(out)
+        result.validate()
+        return result
 
     def flatten(self):
         """
