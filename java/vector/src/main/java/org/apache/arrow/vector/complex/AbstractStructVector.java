@@ -253,26 +253,26 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
   public List<ValueVector> getPrimitiveVectors() {
     final List<ValueVector> primitiveVectors = new ArrayList<>();
     for (final FieldVector v : vectors.values()) {
-      primitiveVectors.addAll(getPrimitveVectors(v));
+      primitiveVectors.addAll(getPrimitiveVectors(v));
     }
     return primitiveVectors;
   }
 
-  private List<ValueVector> getPrimitveVectors(FieldVector v) {
+  private List<ValueVector> getPrimitiveVectors(FieldVector v) {
     final List<ValueVector> primitives = new ArrayList<>();
     if (v instanceof AbstractStructVector) {
       AbstractStructVector structVector = (AbstractStructVector) v;
       primitives.addAll(structVector.getPrimitiveVectors());
     } else if (v instanceof ListVector) {
       ListVector listVector = (ListVector) v;
-      primitives.addAll(getPrimitveVectors(listVector.getDataVector()));
+      primitives.addAll(getPrimitiveVectors(listVector.getDataVector()));
     } else if (v instanceof FixedSizeListVector) {
       ListVector listVector = (ListVector) v;
-      primitives.addAll(getPrimitveVectors(listVector.getDataVector()));
+      primitives.addAll(getPrimitiveVectors(listVector.getDataVector()));
     } else if (v instanceof UnionVector) {
       UnionVector unionVector = (UnionVector) v;
       for (final FieldVector vector : unionVector.getChildrenFromFields()) {
-        primitives.addAll(getPrimitveVectors(vector));
+        primitives.addAll(getPrimitiveVectors(vector));
       }
     } else {
       primitives.add(v);
