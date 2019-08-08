@@ -199,19 +199,21 @@ class QuadraticSpaceMyersDiff {
   };
 
   // increment the position within base (the element pointed to was deleted)
+  // then extend maximally
   EditPoint DeleteOne(EditPoint p) const {
     if (p.base != base_end_) {
       ++p.base;
     }
-    return p;
+    return ExtendFrom(p);
   }
 
   // increment the position within target (the element pointed to was inserted)
+  // then extend maximally
   EditPoint InsertOne(EditPoint p) const {
     if (p.target != target_end_) {
       ++p.target;
     }
-    return p;
+    return ExtendFrom(p);
   }
 
   // increment the position within base and target (the elements skipped in this way were
@@ -241,19 +243,17 @@ class QuadraticSpaceMyersDiff {
   }
 
   // beginning of a range for storing per-edit state in endpoint_base_ and insert_
-  int64_t StorageBegin(int64_t edit_count) const {
+  int64_t StorageOffset(int64_t edit_count) const {
     return edit_count * (edit_count + 1) / 2;
   }
-
-  // end of a range for storing per-edit state in endpoint_base_ and insert_
-  int64_t StorageEnd(int64_t edit_count) const { return StorageBegin(edit_count + 1); }
 
   // given edit_count and index, augment endpoint_base_[index] with the corresponding
   // position in target (which is only implicitly represented in edit_count, index)
   EditPoint GetEditPoint(int64_t edit_count, int64_t index) const {
-    DCHECK_GE(index, StorageBegin(edit_count));
-    DCHECK_LT(index, StorageEnd(edit_count));
-    auto insertions_minus_deletions = 2 * (index - StorageBegin(edit_count)) - edit_count;
+    DCHECK_GE(index, StorageOffset(edit_count));
+    DCHECK_LT(index, StorageOffset(edit_count + 1));
+    auto insertions_minus_deletions =
+        2 * (index - StorageOffset(edit_count)) - edit_count;
     auto maximal_base = endpoint_base_[index];
     auto maximal_target =
         target_begin_ + ((maximal_base - base_begin_) + insertions_minus_deletions);
@@ -262,39 +262,41 @@ class QuadraticSpaceMyersDiff {
 
   void Next() {
     ++edit_count_;
-    endpoint_base_.resize(StorageEnd(edit_count_), base_begin_);
-    insert_.resize(StorageEnd(edit_count_), false);
+    // base_begin_ is used as a dummy value here since Iterator may not be default
+    // constructible. The newly allocated range is completely overwritten below.
+    endpoint_base_.resize(StorageOffset(edit_count_ + 1), base_begin_);
+    insert_.resize(StorageOffset(edit_count_ + 1), false);
+
+    auto previous_offset = StorageOffset(edit_count_ - 1);
+    auto current_offset = StorageOffset(edit_count_);
 
     // try deleting from base first
-    for (int64_t i = StorageBegin(edit_count_ - 1), i_out = StorageBegin(edit_count_);
-         i != StorageEnd(edit_count_ - 1); ++i, ++i_out) {
-      endpoint_base_[i_out] =
-          ExtendFrom(DeleteOne(GetEditPoint(edit_count_ - 1, i))).base;
+    for (int64_t i = 0, i_out = 0; i < edit_count_; ++i, ++i_out) {
+      auto previous_endpoint = GetEditPoint(edit_count_ - 1, i + previous_offset);
+      endpoint_base_[i_out + current_offset] = DeleteOne(previous_endpoint).base;
     }
 
     // check if inserting from target could do better
-    for (int64_t i = StorageBegin(edit_count_ - 1), i_out = StorageBegin(edit_count_) + 1;
-         i != StorageEnd(edit_count_ - 1); ++i, ++i_out) {
-      auto endpoint_after_deletion = GetEditPoint(edit_count_, i_out);
+    for (int64_t i = 0, i_out = 1; i < edit_count_; ++i, ++i_out) {
+      // retrieve the previously computed best endpoint for (edit_count_, i_out)
+      // for comparison with the best endpoint achievable with an insertion
+      auto endpoint_after_deletion = GetEditPoint(edit_count_, i_out + current_offset);
 
-      endpoint_base_[i_out] =
-          ExtendFrom(InsertOne(GetEditPoint(edit_count_ - 1, i))).base;
-      auto endpoint_after_insertion = GetEditPoint(edit_count_, i_out);
+      auto previous_endpoint = GetEditPoint(edit_count_ - 1, i + previous_offset);
+      auto endpoint_after_insertion = InsertOne(previous_endpoint);
 
       if (endpoint_after_insertion.base - endpoint_after_deletion.base >= 0) {
         // insertion was more efficient; keep it and mark the insertion in insert_
-        insert_[i_out] = true;
-      } else {
-        // insertion was not more efficient; overwrite with the endpoint from deletion
-        endpoint_base_[i_out] = endpoint_after_deletion.base;
+        insert_[i_out + current_offset] = true;
+        endpoint_base_[i_out + current_offset] = endpoint_after_insertion.base;
       }
     }
 
     // check for completion
     EditPoint finish = {base_end_, target_end_};
-    for (int64_t i = StorageBegin(edit_count_); i != StorageEnd(edit_count_); ++i) {
-      if (GetEditPoint(edit_count_, i) == finish) {
-        finish_index_ = i;
+    for (int64_t i_out = 0; i_out < edit_count_ + 1; ++i_out) {
+      if (GetEditPoint(edit_count_, i_out + current_offset) == finish) {
+        finish_index_ = i_out + current_offset;
         return;
       }
     }
@@ -325,7 +327,7 @@ class QuadraticSpaceMyersDiff {
       } else {
         --insertions_minus_deletions;
       }
-      index = (i - 1 - insertions_minus_deletions) / 2 + StorageBegin(i - 1);
+      index = (i - 1 - insertions_minus_deletions) / 2 + StorageOffset(i - 1);
 
       // endpoint of previous edit
       auto previous = GetEditPoint(i - 1, index);
@@ -350,7 +352,7 @@ class QuadraticSpaceMyersDiff {
   // each element of futhest_base_ is the furthest position in base reachable given an
   // edit_count and (# insertions) - (# deletions). Each bit of insert_ records whether
   // the corresponding futhest position was reached via an insertion or a deletion
-  // (followed by a run of shared elements). See StorageBegin and StorageEnd for the
+  // (followed by a run of shared elements). See StorageOffset for the
   // layout of these vectors
   std::vector<Iterator> endpoint_base_;
   std::vector<bool> insert_;
