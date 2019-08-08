@@ -86,8 +86,7 @@ class ARROW_FLIGHT_EXPORT FlightStreamReader : public MetadataRecordBatchReader 
 class ARROW_FLIGHT_EXPORT FlightStreamWriter : public ipc::RecordBatchWriter {
  public:
   virtual Status WriteWithMetadata(const RecordBatch& batch,
-                                   std::shared_ptr<Buffer> app_metadata,
-                                   bool allow_64bit = false) = 0;
+                                   std::shared_ptr<Buffer> app_metadata) = 0;
 };
 
 #ifdef _MSC_VER
