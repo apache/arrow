@@ -176,15 +176,27 @@ def test_convert_options():
     opts.false_values = ['xxx', 'yyy']
     assert opts.false_values == ['xxx', 'yyy']
 
+    assert opts.include_columns == []
+    opts.include_columns = ['def', 'abc']
+    assert opts.include_columns == ['def', 'abc']
+
+    assert opts.include_missing_columns is False
+    opts.include_missing_columns = True
+    assert opts.include_missing_columns is True
+
     opts = cls(check_utf8=False, column_types={'a': pa.null()},
                null_values=['N', 'nn'], true_values=['T', 'tt'],
-               false_values=['F', 'ff'], strings_can_be_null=True)
+               false_values=['F', 'ff'], strings_can_be_null=True,
+               include_columns=['abc', 'def'],
+               include_missing_columns=True)
     assert opts.check_utf8 is False
     assert opts.column_types == {'a': pa.null()}
     assert opts.null_values == ['N', 'nn']
     assert opts.false_values == ['F', 'ff']
     assert opts.true_values == ['T', 'tt']
     assert opts.strings_can_be_null is True
+    assert opts.include_columns == ['abc', 'def']
+    assert opts.include_missing_columns is True
 
 
 class BaseTestCSVRead:
@@ -304,6 +316,80 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             "x": ["ij", "mn"],
             "y": ["kl", "op"],
+            }
+
+    def test_include_columns(self):
+        rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
+
+        convert_options = ConvertOptions()
+        convert_options.include_columns = ['ab']
+        table = self.read_bytes(rows, convert_options=convert_options)
+        self.check_names(table, ["ab"])
+        assert table.to_pydict() == {
+            "ab": ["ef", "ij", "mn"],
+            }
+
+        # Order of include_columns is respected, regardless of CSV order
+        convert_options.include_columns = ['cd', 'ab']
+        table = self.read_bytes(rows, convert_options=convert_options)
+        schema = pa.schema([('cd', pa.string()),
+                            ('ab', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            "cd": ["gh", "kl", "op"],
+            "ab": ["ef", "ij", "mn"],
+            }
+
+        # Include a column not in the CSV file => raises by default
+        convert_options.include_columns = ['xx', 'ab', 'yy']
+        with pytest.raises(KeyError,
+                           match="Column 'xx' in include_columns "
+                                 "does not exist in CSV file"):
+            self.read_bytes(rows, convert_options=convert_options)
+
+    def test_include_missing_columns(self):
+        rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
+
+        read_options = ReadOptions()
+        convert_options = ConvertOptions()
+        convert_options.include_columns = ['xx', 'ab', 'yy']
+        convert_options.include_missing_columns = True
+        table = self.read_bytes(rows, read_options=read_options,
+                                convert_options=convert_options)
+        schema = pa.schema([('xx', pa.null()),
+                            ('ab', pa.string()),
+                            ('yy', pa.null())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            "xx": [None, None, None],
+            "ab": ["ef", "ij", "mn"],
+            "yy": [None, None, None],
+            }
+
+        # Combining with `column_names`
+        read_options.column_names = ["xx", "yy"]
+        convert_options.include_columns = ["yy", "cd"]
+        table = self.read_bytes(rows, read_options=read_options,
+                                convert_options=convert_options)
+        schema = pa.schema([('yy', pa.string()),
+                            ('cd', pa.null())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            "yy": ["cd", "gh", "kl", "op"],
+            "cd": [None, None, None, None],
+            }
+
+        # And with `column_types` as well
+        convert_options.column_types = {"yy": pa.binary(),
+                                        "cd": pa.int32()}
+        table = self.read_bytes(rows, read_options=read_options,
+                                convert_options=convert_options)
+        schema = pa.schema([('yy', pa.binary()),
+                            ('cd', pa.int32())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            "yy": [b"cd", b"gh", b"kl", b"op"],
+            "cd": [None, None, None, None],
             }
 
     def test_simple_ints(self):
@@ -470,6 +556,22 @@ class BaseTestCSVRead:
         err = str(exc.value)
         assert "In CSV column #1: " in err
         assert "CSV conversion error to float: invalid value 'XXX'" in err
+
+    def test_column_types_with_column_names(self):
+        # When both `column_names` and `column_types` are given, names
+        # in `column_types` should refer to names in `column_names`
+        rows = b"a,b\nc,d\ne,f\n"
+        read_options = ReadOptions(column_names=['x', 'y'])
+        convert_options = ConvertOptions(column_types={'x': pa.binary()})
+        table = self.read_bytes(rows, read_options=read_options,
+                                convert_options=convert_options)
+        schema = pa.schema([('x', pa.binary()),
+                            ('y', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'x': [b'a', b'c', b'e'],
+            'y': ['b', 'd', 'f'],
+            }
 
     def test_no_ending_newline(self):
         # No \n after last line

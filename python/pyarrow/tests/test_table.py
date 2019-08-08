@@ -30,6 +30,7 @@ def test_chunked_array_basics():
     data = pa.chunked_array([], type=pa.string())
     assert data.type == pa.string()
     assert data.to_pylist() == []
+    data.validate()
 
     with pytest.raises(ValueError):
         pa.chunked_array([])
@@ -43,6 +44,7 @@ def test_chunked_array_basics():
     assert all(isinstance(c, pa.lib.Int64Array) for c in data.chunks)
     assert all(isinstance(c, pa.lib.Int64Array) for c in data.iterchunks())
     assert len(data.chunks) == 3
+    data.validate()
 
 
 def test_chunked_array_mismatch_types():
@@ -177,7 +179,9 @@ def test_chunked_array_pickle(data, typ):
         arrays.append(pa.array(data[:2], type=typ))
         data = data[2:]
     array = pa.chunked_array(arrays, type=typ)
+    array.validate()
     result = pickle.loads(pickle.dumps(array))
+    result.validate()
     assert result.equals(array)
 
 

@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <limits>
 #include <memory>
+#include <sstream>
 #include <utility>
 
 #include "arrow/array.h"
@@ -184,10 +185,12 @@ Status ChunkedArray::Validate() const {
   }
 
   const auto& type = *chunks_[0]->type();
+  // Make sure chunks all have the same type
   for (size_t i = 1; i < chunks_.size(); ++i) {
-    if (!chunks_[i]->type()->Equals(type)) {
+    const Array& chunk = *chunks_[i];
+    if (!chunk.type()->Equals(type)) {
       return Status::Invalid("In chunk ", i, " expected type ", type.ToString(),
-                             " but saw ", chunks_[i]->type()->ToString());
+                             " but saw ", chunk.type()->ToString());
     }
   }
   return Status::OK();
@@ -343,13 +346,19 @@ class SimpleTable : public Table {
       }
     }
 
-    // Make sure columns are all the same length
+    // Make sure columns are all the same length, and validate them
     for (int i = 0; i < num_columns(); ++i) {
       const ChunkedArray* col = columns_[i].get();
       if (col->length() != num_rows_) {
         return Status::Invalid("Column ", i, " named ", field(i)->name(),
                                " expected length ", num_rows_, " but got length ",
                                col->length());
+      }
+      Status st = col->Validate();
+      if (!st.ok()) {
+        std::stringstream ss;
+        ss << "Column " << i << ": " << st.message();
+        return st.WithMessage(ss.str());
       }
     }
     return Status::OK();

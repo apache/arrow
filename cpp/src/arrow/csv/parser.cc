@@ -513,7 +513,11 @@ Status BlockParser::ParseFinal(const char* data, uint32_t size, uint32_t* out_si
 
 BlockParser::BlockParser(MemoryPool* pool, ParseOptions options, int32_t num_cols,
                          int32_t max_num_rows)
-    : pool_(pool), options_(options), num_cols_(num_cols), max_num_rows_(max_num_rows) {}
+    : pool_(pool),
+      options_(options),
+      num_rows_(-1),
+      num_cols_(num_cols),
+      max_num_rows_(max_num_rows) {}
 
 BlockParser::BlockParser(ParseOptions options, int32_t num_cols, int32_t max_num_rows)
     : BlockParser(default_memory_pool(), options, num_cols, max_num_rows) {}
