@@ -30,7 +30,7 @@ export function uint16ToFloat64(h: number) {
     let sigf = (h & 0x03FF) / 1024;
     let sign = (-1) ** ((h & 0x8000) >> 15);
     switch (expo) {
-        case 0x1F: return sign * (sigf ? NaN : 1/0);
+        case 0x1F: return sign * (sigf ? NaN : 1 / 0);
         case 0x00: return sign * (sigf ? 6.103515625e-5 * sigf : 0);
     }
     return sign * (2 ** (expo - 15)) * (1 + sigf);
@@ -45,7 +45,7 @@ export function uint16ToFloat64(h: number) {
  */
 export function float64ToUint16(d: number) {
 
-    if (d !== d) return 0x7E00; // NaN
+    if (d !== d) { return 0x7E00; } // NaN
 
     f64[0] = d;
 
@@ -58,20 +58,20 @@ export function float64ToUint16(d: number) {
     let expo = (u32[1] & 0x7ff00000), sigf = 0x0000;
 
     if (expo >= 0x40f00000) {
-        // 
+        //
         // If exponent overflowed, the float16 is either NaN or Infinity.
         // Rules to propagate the sign bit: mantissa > 0 ? NaN : +/-Infinity
-        // 
+        //
         // Magic numbers:
         // 0x40F00000 = 01000000 11110000 00000000 00000000 -- 6-bit exponent overflow
         // 0x7C000000 = 01111100 00000000 00000000 00000000 -- masks the 27th-31st bits
-        // 
+        //
         // returns:
         // qNaN, aka 32256 decimal, 0x7E00 hex, or 01111110 00000000 binary
         // sNaN, aka 32000 decimal, 0x7D00 hex, or 01111101 00000000 binary
         // +inf, aka 31744 decimal, 0x7C00 hex, or 01111100 00000000 binary
         // -inf, aka 64512 decimal, 0xFC00 hex, or 11111100 00000000 binary
-        // 
+        //
         // If mantissa is greater than 23 bits, set to +Infinity like numpy
         if (u32[0] > 0) {
             expo = 0x7C00;
@@ -80,21 +80,21 @@ export function float64ToUint16(d: number) {
             sigf = (u32[1] & 0x000fffff) >> 10;
         }
     } else if (expo <= 0x3f000000) {
-        // 
+        //
         // If exponent underflowed, the float is either signed zero or subnormal.
-        // 
+        //
         // Magic numbers:
         // 0x3F000000 = 00111111 00000000 00000000 00000000 -- 6-bit exponent underflow
-        // 
+        //
         sigf = 0x100000 + (u32[1] & 0x000fffff);
         sigf = 0x100000 + (sigf << ((expo >> 20) - 998)) >> 21;
         expo = 0;
     } else {
-        // 
+        //
         // No overflow or underflow, rebase the exponent and round the mantissa
         // Magic numbers:
         // 0x200 = 00000010 00000000 -- masks off the 10th bit
-        // 
+        //
 
         // Ensure the first mantissa bit (the 10th one) is 1 and round
         expo = (expo - 0x3f000000) >> 10;
