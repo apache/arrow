@@ -649,6 +649,10 @@ TEST(TestTime, castVarcharTimestamp) {
 
   out = castVARCHAR_timestamp_int64(context_ptr, ts, 0L, &out_len);
   EXPECT_EQ(std::string(out, out_len), "");
+
+  ts = StringToTimestamp("2-05-01 0:0:4");
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "0002-05-01 00:00:04.000");
 }
 
 }  // namespace gandiva
