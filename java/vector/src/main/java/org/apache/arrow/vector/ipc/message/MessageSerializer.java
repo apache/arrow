@@ -253,7 +253,7 @@ public class MessageSerializer {
   public static ByteBuffer serializeMetadata(ArrowMessage message) {
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int batchOffset = message.writeTo(builder);
-    return serializeMessage(builder, message.getType(), batchOffset,
+    return serializeMessage(builder, message.getMessageType(), batchOffset,
             message.computeBodyLength());
   }
 

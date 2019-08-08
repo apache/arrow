@@ -26,7 +26,7 @@ public interface ArrowMessage extends FBSerializable, AutoCloseable {
 
   <T> T accepts(ArrowMessageVisitor<T> visitor);
 
-  byte getType();
+  byte getMessageType();
 
   /**
    * Visitor interface for implementations of {@link ArrowMessage}.

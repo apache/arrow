@@ -36,7 +36,7 @@ public class ArrowDictionaryBatch implements ArrowMessage {
     this.dictionary = dictionary;
   }
 
-  public byte getType() {
+  public byte getMessageType() {
     return MessageHeader.DictionaryBatch;
   }
 

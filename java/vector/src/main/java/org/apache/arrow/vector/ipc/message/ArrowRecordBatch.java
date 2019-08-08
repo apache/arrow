@@ -106,7 +106,7 @@ public class ArrowRecordBatch implements ArrowMessage {
     this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
   }
 
-  public byte getType() {
+  public byte getMessageType() {
     return org.apache.arrow.flatbuf.MessageHeader.RecordBatch;
   }
 
