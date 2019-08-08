@@ -630,6 +630,18 @@ void ColumnWriterImpl::FlushBufferedDataPages() {
 // ----------------------------------------------------------------------
 // TypedColumnWriter
 
+template <typename Action>
+inline void DoInBatches(int64_t total, int64_t batch_size, Action&& action) {
+  int64_t num_batches = static_cast<int>(total / batch_size);
+  for (int round = 0; round < num_batches; round++) {
+    action(round * batch_size, batch_size);
+  }
+  // Write the remaining values
+  if (total % batch_size > 0) {
+    action(num_batches * batch_size, total % batch_size);
+  }
+}
+
 template <typename DType>
 class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<DType> {
  public:
@@ -653,11 +665,44 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   int64_t Close() override { return ColumnWriterImpl::Close(); }
 
   void WriteBatch(int64_t num_values, const int16_t* def_levels,
-                  const int16_t* rep_levels, const T* values) override;
+                  const int16_t* rep_levels, const T* values) override {
+    // We check for DataPage limits only after we have inserted the values. If a user
+    // writes a large number of values, the DataPage size can be much above the limit.
+    // The purpose of this chunking is to bound this. Even if a user writes large number
+    // of values, the chunking will ensure the AddDataPage() is called at a reasonable
+    // pagesize limit
+    int64_t value_offset = 0;
+    auto WriteBatch = [&](int64_t offset, int64_t batch_size) {
+      int64_t values_to_write =
+          WriteLevels(batch_size, def_levels + offset, rep_levels + offset);
+      // PARQUET-780
+      if (values_to_write > 0) {
+        DCHECK_NE(nullptr, values);
+      }
+      WriteValues(values + value_offset, values_to_write, batch_size - values_to_write);
+      CommitWriteAndCheckLimits(batch_size, values_to_write);
+      value_offset += values_to_write;
+    };
+    DoInBatches(num_values, properties_->write_batch_size(), WriteBatch);
+  }
 
   void WriteBatchSpaced(int64_t num_values, const int16_t* def_levels,
                         const int16_t* rep_levels, const uint8_t* valid_bits,
-                        int64_t valid_bits_offset, const T* values) override;
+                        int64_t valid_bits_offset, const T* values) override {
+    // Like WriteBatch, but for spaced values
+    int64_t value_offset = 0;
+    auto WriteBatch = [&](int64_t offset, int64_t batch_size) {
+      int64_t batch_num_values = 0;
+      int64_t batch_num_spaced_values = 0;
+      WriteLevelsSpaced(batch_size, def_levels + offset, rep_levels + offset,
+                        &batch_num_values, &batch_num_spaced_values);
+      WriteValuesSpaced(values + value_offset, batch_num_values, batch_num_spaced_values,
+                        valid_bits, valid_bits_offset + value_offset);
+      CommitWriteAndCheckLimits(batch_size, batch_num_spaced_values);
+      value_offset += batch_num_spaced_values;
+    };
+    DoInBatches(num_values, properties_->write_batch_size(), WriteBatch);
+  }
 
   Status WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
                     int64_t num_levels, const ::arrow::Array& array,
@@ -689,7 +734,24 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   // Checks if the Dictionary Page size limit is reached
   // If the limit is reached, the Dictionary and Data Pages are serialized
   // The encoding is switched to PLAIN
-  void CheckDictionarySizeLimit();
+  //
+  // Only one Dictionary Page is written.
+  // Fallback to PLAIN if dictionary page limit is reached.
+  void CheckDictionarySizeLimit() {
+    // We have to dynamic cast here because TypedEncoder<Type> as some compilers
+    // don't want to cast through virtual inheritance
+    auto dict_encoder = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
+    if (dict_encoder->dict_encoded_size() >= properties_->dictionary_pagesize_limit()) {
+      WriteDictionaryPage();
+      // Serialize the buffered Dictionary Indicies
+      FlushBufferedDataPages();
+      fallback_ = true;
+      // Only PLAIN encoding is supported for fallback in V1
+      current_encoder_ = MakeEncoder(DType::type_num, Encoding::PLAIN, false, descr_,
+                                     properties_->memory_pool());
+      encoding_ = Encoding::PLAIN;
+    }
+  }
 
   EncodedStatistics GetPageStatistics() override {
     EncodedStatistics result;
@@ -729,234 +791,126 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   std::shared_ptr<TypedStats> page_statistics_;
   std::shared_ptr<TypedStats> chunk_statistics_;
 
-  inline int64_t WriteMiniBatch(int64_t num_values, const int16_t* def_levels,
-                                const int16_t* rep_levels, const T* values);
+  int64_t WriteLevels(int64_t num_values, const int16_t* def_levels,
+                      const int16_t* rep_levels) {
+    int64_t values_to_write = 0;
+    // If the field is required and non-repeated, there are no definition levels
+    if (descr_->max_definition_level() > 0) {
+      for (int64_t i = 0; i < num_values; ++i) {
+        if (def_levels[i] == descr_->max_definition_level()) {
+          ++values_to_write;
+        }
+      }
 
-  inline int64_t WriteMiniBatchSpaced(int64_t num_values, const int16_t* def_levels,
-                                      const int16_t* rep_levels,
-                                      const uint8_t* valid_bits,
-                                      int64_t valid_bits_offset, const T* values,
-                                      int64_t* num_spaced_written);
+      WriteDefinitionLevels(num_values, def_levels);
+    } else {
+      // Required field, write all values
+      values_to_write = num_values;
+    }
 
-  // Write values to a temporary buffer before they are encoded into pages
-  void WriteValues(int64_t num_values, const T* values) {
+    // Not present for non-repeated fields
+    if (descr_->max_repetition_level() > 0) {
+      // A row could include more than one value
+      // Count the occasions where we start a new row
+      for (int64_t i = 0; i < num_values; ++i) {
+        if (rep_levels[i] == 0) {
+          rows_written_++;
+        }
+      }
+
+      WriteRepetitionLevels(num_values, rep_levels);
+    } else {
+      // Each value is exactly one row
+      rows_written_ += static_cast<int>(num_values);
+    }
+    return values_to_write;
+  }
+
+  void WriteLevelsSpaced(int64_t num_levels, const int16_t* def_levels,
+                         const int16_t* rep_levels, int64_t* out_values_to_write,
+                         int64_t* out_spaced_values_to_write) {
+    int64_t values_to_write = 0;
+    int64_t spaced_values_to_write = 0;
+    // If the field is required and non-repeated, there are no definition levels
+    if (descr_->max_definition_level() > 0) {
+      // Minimal definition level for which spaced values are written
+      int16_t min_spaced_def_level = descr_->max_definition_level();
+      if (descr_->schema_node()->is_optional()) {
+        min_spaced_def_level--;
+      }
+      for (int64_t i = 0; i < num_levels; ++i) {
+        if (def_levels[i] == descr_->max_definition_level()) {
+          ++values_to_write;
+        }
+        if (def_levels[i] >= min_spaced_def_level) {
+          ++spaced_values_to_write;
+        }
+      }
+
+      WriteDefinitionLevels(num_levels, def_levels);
+    } else {
+      // Required field, write all values
+      values_to_write = num_levels;
+      spaced_values_to_write = num_levels;
+    }
+
+    // Not present for non-repeated fields
+    if (descr_->max_repetition_level() > 0) {
+      // A row could include more than one value
+      // Count the occasions where we start a new row
+      for (int64_t i = 0; i < num_levels; ++i) {
+        if (rep_levels[i] == 0) {
+          rows_written_++;
+        }
+      }
+
+      WriteRepetitionLevels(num_levels, rep_levels);
+    } else {
+      // Each value is exactly one row
+      rows_written_ += static_cast<int>(num_levels);
+    }
+
+    *out_values_to_write = values_to_write;
+    *out_spaced_values_to_write = spaced_values_to_write;
+  }
+
+  void CommitWriteAndCheckLimits(int64_t num_levels, int64_t num_values) {
+    num_buffered_values_ += num_levels;
+    num_buffered_encoded_values_ += num_values;
+
+    if (current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize()) {
+      AddDataPage();
+    }
+    if (has_dictionary_ && !fallback_) {
+      CheckDictionarySizeLimit();
+    }
+  }
+
+  void WriteValues(const T* values, int64_t num_values, int64_t num_nulls) {
     dynamic_cast<ValueEncoderType*>(current_encoder_.get())
         ->Put(values, static_cast<int>(num_values));
+    if (page_statistics_ != nullptr) {
+      page_statistics_->Update(values, num_values, num_nulls);
+    }
   }
 
-  void WriteValuesSpaced(int64_t num_values, const uint8_t* valid_bits,
-                         int64_t valid_bits_offset, const T* values) {
-    dynamic_cast<ValueEncoderType*>(current_encoder_.get())
-        ->PutSpaced(values, static_cast<int>(num_values), valid_bits, valid_bits_offset);
+  void WriteValuesSpaced(const T* values, int64_t num_values, int64_t num_spaced_values,
+                         const uint8_t* valid_bits, int64_t valid_bits_offset) {
+    if (descr_->schema_node()->is_optional()) {
+      dynamic_cast<ValueEncoderType*>(current_encoder_.get())
+          ->PutSpaced(values, static_cast<int>(num_spaced_values), valid_bits,
+                      valid_bits_offset);
+    } else {
+      dynamic_cast<ValueEncoderType*>(current_encoder_.get())
+          ->Put(values, static_cast<int>(num_values));
+    }
+    if (page_statistics_ != nullptr) {
+      const int64_t num_nulls = num_spaced_values - num_values;
+      page_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset, num_values,
+                                     num_nulls);
+    }
   }
 };
-
-// Only one Dictionary Page is written.
-// Fallback to PLAIN if dictionary page limit is reached.
-template <typename DType>
-void TypedColumnWriterImpl<DType>::CheckDictionarySizeLimit() {
-  // We have to dynamic cast here because TypedEncoder<Type> as some compilers
-  // don't want to cast through virtual inheritance
-  auto dict_encoder = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
-  if (dict_encoder->dict_encoded_size() >= properties_->dictionary_pagesize_limit()) {
-    WriteDictionaryPage();
-    // Serialize the buffered Dictionary Indicies
-    FlushBufferedDataPages();
-    fallback_ = true;
-    // Only PLAIN encoding is supported for fallback in V1
-    current_encoder_ = MakeEncoder(DType::type_num, Encoding::PLAIN, false, descr_,
-                                   properties_->memory_pool());
-    encoding_ = Encoding::PLAIN;
-  }
-}
-
-// ----------------------------------------------------------------------
-// Instantiate templated classes
-
-template <typename DType>
-int64_t TypedColumnWriterImpl<DType>::WriteMiniBatch(int64_t num_values,
-                                                     const int16_t* def_levels,
-                                                     const int16_t* rep_levels,
-                                                     const T* values) {
-  int64_t values_to_write = 0;
-  // If the field is required and non-repeated, there are no definition levels
-  if (descr_->max_definition_level() > 0) {
-    for (int64_t i = 0; i < num_values; ++i) {
-      if (def_levels[i] == descr_->max_definition_level()) {
-        ++values_to_write;
-      }
-    }
-
-    WriteDefinitionLevels(num_values, def_levels);
-  } else {
-    // Required field, write all values
-    values_to_write = num_values;
-  }
-
-  // Not present for non-repeated fields
-  if (descr_->max_repetition_level() > 0) {
-    // A row could include more than one value
-    // Count the occasions where we start a new row
-    for (int64_t i = 0; i < num_values; ++i) {
-      if (rep_levels[i] == 0) {
-        rows_written_++;
-      }
-    }
-
-    WriteRepetitionLevels(num_values, rep_levels);
-  } else {
-    // Each value is exactly one row
-    rows_written_ += static_cast<int>(num_values);
-  }
-
-  // PARQUET-780
-  if (values_to_write > 0) {
-    DCHECK(nullptr != values) << "Values ptr cannot be NULL";
-  }
-
-  WriteValues(values_to_write, values);
-
-  if (page_statistics_ != nullptr) {
-    page_statistics_->Update(values, values_to_write, num_values - values_to_write);
-  }
-
-  num_buffered_values_ += num_values;
-  num_buffered_encoded_values_ += values_to_write;
-
-  if (current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize()) {
-    AddDataPage();
-  }
-  if (has_dictionary_ && !fallback_) {
-    CheckDictionarySizeLimit();
-  }
-
-  return values_to_write;
-}
-
-template <typename DType>
-int64_t TypedColumnWriterImpl<DType>::WriteMiniBatchSpaced(
-    int64_t num_levels, const int16_t* def_levels, const int16_t* rep_levels,
-    const uint8_t* valid_bits, int64_t valid_bits_offset, const T* values,
-    int64_t* num_spaced_written) {
-  int64_t values_to_write = 0;
-  int64_t spaced_values_to_write = 0;
-  // If the field is required and non-repeated, there are no definition levels
-  if (descr_->max_definition_level() > 0) {
-    // Minimal definition level for which spaced values are written
-    int16_t min_spaced_def_level = descr_->max_definition_level();
-    if (descr_->schema_node()->is_optional()) {
-      min_spaced_def_level--;
-    }
-    for (int64_t i = 0; i < num_levels; ++i) {
-      if (def_levels[i] == descr_->max_definition_level()) {
-        ++values_to_write;
-      }
-      if (def_levels[i] >= min_spaced_def_level) {
-        ++spaced_values_to_write;
-      }
-    }
-
-    WriteDefinitionLevels(num_levels, def_levels);
-  } else {
-    // Required field, write all values
-    values_to_write = num_levels;
-    spaced_values_to_write = num_levels;
-  }
-
-  // Not present for non-repeated fields
-  if (descr_->max_repetition_level() > 0) {
-    // A row could include more than one value
-    // Count the occasions where we start a new row
-    for (int64_t i = 0; i < num_levels; ++i) {
-      if (rep_levels[i] == 0) {
-        rows_written_++;
-      }
-    }
-
-    WriteRepetitionLevels(num_levels, rep_levels);
-  } else {
-    // Each value is exactly one row
-    rows_written_ += static_cast<int>(num_levels);
-  }
-
-  if (descr_->schema_node()->is_optional()) {
-    WriteValuesSpaced(spaced_values_to_write, valid_bits, valid_bits_offset, values);
-  } else {
-    WriteValues(values_to_write, values);
-  }
-  *num_spaced_written = spaced_values_to_write;
-
-  if (page_statistics_ != nullptr) {
-    page_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset, values_to_write,
-                                   spaced_values_to_write - values_to_write);
-  }
-
-  num_buffered_values_ += num_levels;
-  num_buffered_encoded_values_ += values_to_write;
-
-  if (current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize()) {
-    AddDataPage();
-  }
-  if (has_dictionary_ && !fallback_) {
-    CheckDictionarySizeLimit();
-  }
-
-  return values_to_write;
-}
-
-template <typename DType>
-void TypedColumnWriterImpl<DType>::WriteBatch(int64_t num_values,
-                                              const int16_t* def_levels,
-                                              const int16_t* rep_levels,
-                                              const T* values) {
-  // We check for DataPage limits only after we have inserted the values. If a user
-  // writes a large number of values, the DataPage size can be much above the limit.
-  // The purpose of this chunking is to bound this. Even if a user writes large number
-  // of values, the chunking will ensure the AddDataPage() is called at a reasonable
-  // pagesize limit
-  int64_t write_batch_size = properties_->write_batch_size();
-  int num_batches = static_cast<int>(num_values / write_batch_size);
-  int64_t num_remaining = num_values % write_batch_size;
-  int64_t value_offset = 0;
-  for (int round = 0; round < num_batches; round++) {
-    int64_t offset = round * write_batch_size;
-    int64_t num_values = WriteMiniBatch(write_batch_size, &def_levels[offset],
-                                        &rep_levels[offset], &values[value_offset]);
-    value_offset += num_values;
-  }
-  // Write the remaining values
-  int64_t offset = num_batches * write_batch_size;
-  WriteMiniBatch(num_remaining, &def_levels[offset], &rep_levels[offset],
-                 &values[value_offset]);
-}
-
-template <typename DType>
-void TypedColumnWriterImpl<DType>::WriteBatchSpaced(
-    int64_t num_values, const int16_t* def_levels, const int16_t* rep_levels,
-    const uint8_t* valid_bits, int64_t valid_bits_offset, const T* values) {
-  // We check for DataPage limits only after we have inserted the values. If a user
-  // writes a large number of values, the DataPage size can be much above the limit.
-  // The purpose of this chunking is to bound this. Even if a user writes large number
-  // of values, the chunking will ensure the AddDataPage() is called at a reasonable
-  // pagesize limit
-  int64_t write_batch_size = properties_->write_batch_size();
-  int num_batches = static_cast<int>(num_values / write_batch_size);
-  int64_t num_remaining = num_values % write_batch_size;
-  int64_t num_spaced_written = 0;
-  int64_t values_offset = 0;
-  for (int round = 0; round < num_batches; round++) {
-    int64_t offset = round * write_batch_size;
-    WriteMiniBatchSpaced(write_batch_size, &def_levels[offset], &rep_levels[offset],
-                         valid_bits, valid_bits_offset + values_offset,
-                         values + values_offset, &num_spaced_written);
-    values_offset += num_spaced_written;
-  }
-  // Write the remaining values
-  int64_t offset = num_batches * write_batch_size;
-  WriteMiniBatchSpaced(num_remaining, &def_levels[offset], &rep_levels[offset],
-                       valid_bits, valid_bits_offset + values_offset,
-                       values + values_offset, &num_spaced_written);
-}
 
 // ----------------------------------------------------------------------
 // Direct Arrow write path
