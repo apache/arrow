@@ -37,8 +37,12 @@ if [ "$ARROW_JAVA_RUN_TESTS" != "1" ]; then
   JAVA_ARGS=-DskipTests
 fi
 
+if [ "$ARROW_JAVA_SHADE_FLATBUFS" == "1"]; then
+  export SHADE_FLATBUFFERS = " -Pshade-flatbuffers"
+fi
+
 pushd $arrow_src/java
-mvn -B $JAVA_ARGS -Drat.skip=true install
+mvn -B $JAVA_ARGS -Drat.skip=true install $SHADE_FLATBUFFERS
 
 if [ "$ARROW_JAVADOC" == "1" ]; then
   export MAVEN_OPTS="$MAVEN_OPTS -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"

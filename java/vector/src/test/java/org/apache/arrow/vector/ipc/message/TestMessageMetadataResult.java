@@ -17,26 +17,20 @@
 
 package org.apache.arrow.vector.ipc.message;
 
-/**
- * Interface for Arrow IPC messages (https://arrow.apache.org/docs/format/IPC.html).
- */
-public interface ArrowMessage extends FBSerializable, AutoCloseable {
+import static org.junit.Assert.assertEquals;
 
-  int computeBodyLength();
+import java.nio.ByteBuffer;
 
-  <T> T accepts(ArrowMessageVisitor<T> visitor);
+import org.junit.Test;
 
-  /** Returns the flatbuffer enum value indicating the type of the message. */
-  byte getMessageType();
+public class TestMessageMetadataResult {
 
-  /**
-   * Visitor interface for implementations of {@link ArrowMessage}.
-   *
-   * @param <T> The type of value to return after visiting.
-   */
-  interface ArrowMessageVisitor<T> {
-    T visit(ArrowDictionaryBatch message);
-
-    T visit(ArrowRecordBatch message);
+  @Test
+  public void getMessageLength_returnsConstructValue() {
+    // This API is used by spark.
+    MessageMetadataResult result = new MessageMetadataResult(1, ByteBuffer.allocate(0),
+        new org.apache.arrow.flatbuf.Message());
+    assertEquals(result.getMessageLength(), 1);
   }
+
 }

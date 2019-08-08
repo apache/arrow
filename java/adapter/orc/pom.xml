@@ -24,14 +24,9 @@
             <artifactId>arrow-vector</artifactId>
             <version>${project.version}</version>
             <scope>compile</scope>
+            <classifier>${arrow.vector.classifier}</classifier>
         </dependency>
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>arrow-format</artifactId>
-            <version>${project.version}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
+	<dependency>
             <groupId>org.apache.orc</groupId>
             <artifactId>orc-core</artifactId>
             <version>1.5.5</version>

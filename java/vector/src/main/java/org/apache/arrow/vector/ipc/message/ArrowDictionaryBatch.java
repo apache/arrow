@@ -18,6 +18,7 @@
 package org.apache.arrow.vector.ipc.message;
 
 import org.apache.arrow.flatbuf.DictionaryBatch;
+import org.apache.arrow.flatbuf.MessageHeader;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
@@ -33,6 +34,10 @@ public class ArrowDictionaryBatch implements ArrowMessage {
   public ArrowDictionaryBatch(long dictionaryId, ArrowRecordBatch dictionary) {
     this.dictionaryId = dictionaryId;
     this.dictionary = dictionary;
+  }
+
+  public byte getMessageType() {
+    return MessageHeader.DictionaryBatch;
   }
 
   public long getDictionaryId() {

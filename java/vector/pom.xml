@@ -55,6 +55,7 @@
     <dependency>
       <groupId>com.google.flatbuffers</groupId>
       <artifactId>flatbuffers-java</artifactId>
+      <version>${dep.fbs.version}</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
@@ -127,6 +128,37 @@
             </configuration>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+       <groupId>org.apache.maven.plugins</groupId>
+       <artifactId>maven-shade-plugin</artifactId>
+       <version>3.1.1</version>
+       <executions>
+         <execution>
+           <phase>package</phase>
+           <goals>
+             <goal>shade</goal>
+           </goals>
+           <configuration>
+             <artifactSet>
+               <includes>
+                 <include>org.apache.arrow:arrow-format</include>
+                 <include>com.google.flatbuffers:*</include>
+               </includes>
+             </artifactSet>
+             <shadedArtifactAttached>true</shadedArtifactAttached>
+             <shadedClassifierName>shade-format-flatbuffers</shadedClassifierName>
+             <keepDependenciesWithProvidedScope>true</keepDependenciesWithProvidedScope>
+             <promoteTransitiveDependencies>true</promoteTransitiveDependencies>
+             <relocations>
+               <relocation>
+                 <pattern>com.google.flatbuffers</pattern>
+                 <shadedPattern>arrow.vector.com.google.flatbuffers</shadedPattern>
+               </relocation>
+             </relocations>
+           </configuration>
+         </execution>
+       </executions>
       </plugin>
     </plugins>
     <pluginManagement>
