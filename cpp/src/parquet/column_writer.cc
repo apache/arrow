@@ -1102,6 +1102,33 @@ Status TypedColumnWriterImpl<BooleanType>::WriteArrowImpl(const int16_t* def_lev
 // Write Arrow types to INT32
 
 template <>
+struct SerializeFunctor<Int32Type, ::arrow::Date64Type> {
+  Status Serialize(const ::arrow::Date64Array& array, ArrowWriteContext*, int32_t* out) {
+    const int64_t* input = array.raw_values();
+    for (int i = 0; i < array.length(); i++) {
+      *out++ = static_cast<int32_t>(*input++ / 86400000);
+    }
+    return Status::OK();
+  }
+};
+
+template <>
+struct SerializeFunctor<Int32Type, ::arrow::Time32Type> {
+  Status Serialize(const ::arrow::Time32Array& array, ArrowWriteContext*, int32_t* out) {
+    const int32_t* input = array.raw_values();
+    const auto& type = static_cast<const ::arrow::Time32Type&>(*array.type());
+    if (type.unit() == ::arrow::TimeUnit::SECOND) {
+      for (int i = 0; i < array.length(); i++) {
+        out[i] = input[i] * 1000;
+      }
+    } else {
+      std::copy(input, input + array.length(), out);
+    }
+    return Status::OK();
+  }
+};
+
+template <>
 Status TypedColumnWriterImpl<Int32Type>::WriteArrowImpl(const int16_t* def_levels,
                                                         const int16_t* rep_levels,
                                                         int64_t num_levels,
