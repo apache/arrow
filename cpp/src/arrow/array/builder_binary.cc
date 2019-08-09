@@ -62,11 +62,9 @@ FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& 
       byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()),
       byte_builder_(pool) {}
 
-#ifndef NDEBUG
 void FixedSizeBinaryBuilder::CheckValueSize(int64_t size) {
   DCHECK_EQ(size, byte_width_) << "Appending wrong size to FixedSizeBinaryBuilder";
 }
-#endif
 
 Status FixedSizeBinaryBuilder::AppendValues(const uint8_t* data, int64_t length,
                                             const uint8_t* valid_bytes) {
