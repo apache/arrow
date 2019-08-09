@@ -1469,6 +1469,14 @@ macro(build_gtest)
     set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} "-DCMAKE_MACOSX_RPATH:BOOL=ON")
   endif()
 
+  if(CMAKE_GENERATOR STREQUAL "Xcode")
+    # Xcode projects support multi-configuration builds.  This forces the gtest build
+    # to use the same output directory as a single-configuration Makefile driven build.
+    set(GTEST_CMAKE_ARGS
+        ${GTEST_CMAKE_ARGS} "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${_GTEST_LIBRARY_DIR}"
+        "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE}=${_GTEST_RUNTIME_DIR}")
+  endif()
+
   if(MSVC)
     if(NOT ("${CMAKE_GENERATOR}" STREQUAL "Ninja"))
       set(_GTEST_RUNTIME_DIR ${_GTEST_RUNTIME_DIR}/${CMAKE_BUILD_TYPE})

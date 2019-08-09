@@ -395,6 +395,14 @@ set(LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 # where to put generated binaries
 set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
+if(CMAKE_GENERATOR STREQUAL Xcode)
+  # Xcode projects support multi-configuration builds.  This forces a single output directory
+  # when building with Xcode that is consistent with single-configuration Makefile driven build.
+  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE} "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE} "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE} "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+endif()
+
 #
 # Dependencies
 #
