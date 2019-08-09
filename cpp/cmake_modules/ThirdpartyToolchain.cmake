@@ -1853,8 +1853,7 @@ macro(build_lz4)
   else()
     set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
     set(LZ4_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-lz4-lib.sh
-                          "AR=${CMAKE_AR}"
-                          "OS=${CMAKE_SYSTEM_NAME}")
+                          "AR=${CMAKE_AR}" "OS=${CMAKE_SYSTEM_NAME}")
   endif()
 
   # We need to copy the header in lib to directory outside of the build
