@@ -174,6 +174,9 @@ const char* substr_utf8_int64(int64 context, const char* input, int32 in_len,
                               int64 offset64, int32* out_len);
 const char* concatOperator_utf8_utf8(int64 context, const char* left, int32 left_len,
                                      const char* right, int32 right_len, int32* out_len);
+
+char* castVARCHAR_utf8_int64(int64 context, const char* data, int32 data_len,
+                             int64_t out_len, int32_t* out_length);
 }  // extern "C"
 
 #endif  // PRECOMPILED_TYPES_H
