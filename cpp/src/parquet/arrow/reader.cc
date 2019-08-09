@@ -88,7 +88,6 @@ class ColumnReaderImpl : public ColumnReader {
 // ----------------------------------------------------------------------
 // FileReaderImpl forward declaration
 
-
 class FileReaderImpl : public FileReader {
  public:
   FileReaderImpl(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader,
@@ -101,13 +100,9 @@ class FileReaderImpl : public FileReader {
                                reader_properties_, &manifest_);
   }
 
-  std::vector<int> AllRowGroups() {
-    return reader_->metadata()->AllRowGroups();
-  }
+  std::vector<int> AllRowGroups() { return reader_->metadata()->AllRowGroups(); }
 
-  std::vector<int> AllColumnIndices() {
-    return reader_->metadata()->AllColumnIndices();
-  }
+  std::vector<int> AllColumnIndices() { return reader_->metadata()->AllColumnIndices(); }
 
   FileColumnIteratorFactory SomeRowGroupsFactory(std::vector<int> row_groups) {
     return [row_groups](int i, ParquetFileReader* reader) {
@@ -253,10 +248,10 @@ class FileReaderImpl : public FileReader {
 
   Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                               const std::vector<int>& column_indices,
-                              std::shared_ptr<RecordBatchReader>* out) override;
+                              std::unique_ptr<RecordBatchReader>* out) override;
 
   Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                              std::shared_ptr<RecordBatchReader>* out) override {
+                              std::unique_ptr<RecordBatchReader>* out) override {
     return GetRecordBatchReader(row_group_indices, AllColumnIndices(), out);
   }
 
@@ -300,7 +295,7 @@ class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
   static Status Make(const std::vector<int>& row_groups,
                      const std::vector<int>& column_indices, FileReaderImpl* reader,
                      int64_t batch_size,
-                     std::shared_ptr<::arrow::RecordBatchReader>* out) {
+                     std::unique_ptr<::arrow::RecordBatchReader>* out) {
     std::vector<int> field_indices;
     if (!reader->manifest_.GetFieldIndices(column_indices, &field_indices)) {
       return Status::Invalid("Invalid column index");
@@ -312,8 +307,8 @@ class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
                                            &field_readers[i]));
       fields.push_back(field_readers[i]->field());
     }
-    *out = std::make_shared<RowGroupRecordBatchReader>(
-        std::move(field_readers), ::arrow::schema(fields), batch_size);
+    out->reset(new RowGroupRecordBatchReader(std::move(field_readers),
+                                             ::arrow::schema(fields), batch_size));
     return Status::OK();
   }
 
@@ -728,7 +723,7 @@ Status SchemaField::GetReader(const ReaderContext& ctx,
 
 Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                             const std::vector<int>& column_indices,
-                                            std::shared_ptr<RecordBatchReader>* out) {
+                                            std::unique_ptr<RecordBatchReader>* out) {
   // column indices check
   for (auto row_group_index : row_group_indices) {
     RETURN_NOT_OK(BoundsCheckRowGroup(row_group_index));

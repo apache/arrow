@@ -152,7 +152,17 @@ class PARQUET_EXPORT FileReader {
   /// \returns error Status if row_group_indices contains invalid index
   virtual ::arrow::Status GetRecordBatchReader(
       const std::vector<int>& row_group_indices,
-      std::shared_ptr<::arrow::RecordBatchReader>* out) = 0;
+      std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
+
+  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
+                                       std::shared_ptr<::arrow::RecordBatchReader>* out) {
+    std::unique_ptr<::arrow::RecordBatchReader> tmp;
+
+    RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, &tmp));
+    out->reset(tmp.release());
+
+    return ::arrow::Status::OK();
+  }
 
   /// \brief Return a RecordBatchReader of row groups selected from
   ///     row_group_indices, whose columns are selected by column_indices. The
@@ -161,7 +171,18 @@ class PARQUET_EXPORT FileReader {
   ///    contains invalid index
   virtual ::arrow::Status GetRecordBatchReader(
       const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
-      std::shared_ptr<::arrow::RecordBatchReader>* out) = 0;
+      std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
+
+  virtual ::arrow::Status GetRecordBatchReader(
+      const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
+      std::shared_ptr<::arrow::RecordBatchReader>* out) {
+    std::unique_ptr<::arrow::RecordBatchReader> tmp;
+
+    RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, column_indices, &tmp));
+    out->reset(tmp.release());
+
+    return ::arrow::Status::OK();
+  }
 
   // Read a table of columns into a Table
   virtual ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out) = 0;

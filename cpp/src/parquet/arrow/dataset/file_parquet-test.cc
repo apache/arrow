@@ -18,5 +18,4 @@
 #include "gtest/gtest.h"
 #include "parquet/test-util.h"
 
-TEST(TestArrowWriterAdHoc, SchemaMismatch) {
-}
+TEST(TestArrowWriterAdHoc, SchemaMismatch) {}

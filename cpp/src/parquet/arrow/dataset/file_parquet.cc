@@ -28,35 +28,50 @@ namespace dataset {
 
 using ScanTaskPtr = std::unique_ptr<::arrow::dataset::ScanTask>;
 using ParquetFileReaderPtr = std::unique_ptr<parquet::ParquetFileReader>;
-using RecordBatchReaderPtr = std::shared_ptr<::arrow::RecordBatchReader>;
+using RecordBatchReaderPtr = std::unique_ptr<::arrow::RecordBatchReader>;
 
 class ParquetScanTask : public ::arrow::dataset::ScanTask {
  public:
-  static ::arrow::Status Make(ScanTaskPtr* out) {
-    out->reset(nullptr);
+  static ::arrow::Status Make(std::vector<int> row_groups,
+                              const std::vector<int>& columns_projection,
+                              std::shared_ptr<parquet::arrow::FileReader> reader,
+                              ScanTaskPtr* out) {
+    RecordBatchReaderPtr record_batch_reader;
+    // TODO(fsaintjacques): Ensure GetRecordBatchReader is truly streaming and
+    // not using a TableBatchReader (materializing the full partition instead
+    // of streaming).
+    RETURN_NOT_OK(reader->GetRecordBatchReader(row_groups, columns_projection,
+                                               &record_batch_reader));
+
+    out->reset(new ParquetScanTask(row_groups, std::move(reader),
+                                   std::move(record_batch_reader)));
     return ::arrow::Status::OK();
   }
 
-  std::unique_ptr<::arrow::RecordBatchIterator> Scan() override { return nullptr; }
+  std::unique_ptr<::arrow::RecordBatchIterator> Scan() override {
+    return std::move(record_batch_reader_);
+  }
 
  private:
+  ParquetScanTask(std::vector<int> row_groups,
+                  std::shared_ptr<parquet::arrow::FileReader> reader,
+                  RecordBatchReaderPtr record_batch_reader)
+      : row_groups_(std::move(row_groups)),
+        reader_(reader),
+        record_batch_reader_(std::move(record_batch_reader)) {}
+
   // List of RowGroup identifiers this ScanTask is associated with.
   std::vector<int> row_groups_;
+
+  // The ScanTask _must_ hold a reference to reader_ because there's no
+  // guarantee the producing ParquetScanTaskIterator is still alive. This is a
+  // contract required by record_batch_reader_
+  std::shared_ptr<parquet::arrow::FileReader> reader_;
   RecordBatchReaderPtr record_batch_reader_;
 };
 
 class ParquetScanTaskIterator : public ::arrow::dataset::ScanTaskIterator {
  public:
-  // Compute the column projection out of an optional arrow::Schema
-  static ::arrow::Status InferColumnProjection(
-      const FileMetaData& metadata, const ::arrow::dataset::ScanOptions& options,
-      std::vector<int>* out) {
-    // TODO(fsaintjacques): Compute intersection _and_ validity
-    *out = metadata.AllColumnIndices();
-
-    return ::arrow::Status::OK();
-  }
-
   static ::arrow::Status Make(std::shared_ptr<::arrow::dataset::ScanOptions> options,
                               std::shared_ptr<::arrow::dataset::ScanContext> context,
                               ParquetFileReaderPtr reader,
@@ -86,14 +101,21 @@ class ParquetScanTaskIterator : public ::arrow::dataset::ScanTaskIterator {
       return ::arrow::Status::OK();
     }
 
-    RecordBatchReaderPtr record_batch_reader;
-    RETURN_NOT_OK(reader_->GetRecordBatchReader(next_partition, columns_projection_,
-                                                &record_batch_reader));
-
-    return ParquetScanTask::Make(task);
+    return ParquetScanTask::Make(std::move(next_partition), columns_projection_, reader_,
+                                 task);
   }
 
  private:
+  // Compute the column projection out of an optional arrow::Schema
+  static ::arrow::Status InferColumnProjection(
+      const FileMetaData& metadata, const ::arrow::dataset::ScanOptions& options,
+      std::vector<int>* out) {
+    // TODO(fsaintjacques): Compute intersection _and_ validity
+    *out = metadata.AllColumnIndices();
+
+    return ::arrow::Status::OK();
+  }
+
   ParquetScanTaskIterator(std::vector<int> columns_projection,
                           std::shared_ptr<FileMetaData> metadata,
                           std::unique_ptr<parquet::arrow::FileReader> reader)
@@ -119,9 +141,7 @@ class ParquetScanTaskIterator : public ::arrow::dataset::ScanTaskIterator {
   // RowGroups allowing an (hopefully) balanced partitioning in ScanTasks
   std::shared_ptr<FileMetaData> metadata_;
 
-  // TODO(fsaintjacques): possibly change this to shared_ptr and add a
-  // reference in the ScanTask.
-  std::unique_ptr<parquet::arrow::FileReader> reader_;
+  std::shared_ptr<parquet::arrow::FileReader> reader_;
 
   std::shared_ptr<::arrow::dataset::ScanOptions> opts_;
   std::shared_ptr<::arrow::dataset::ScanContext> ctx_;

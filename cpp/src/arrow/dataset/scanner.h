@@ -21,16 +21,16 @@
 #include <string>
 #include <vector>
 
-#include "arrow/memory_pool.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/memory_pool.h"
 
 namespace arrow {
 namespace dataset {
 
 /// \brief Shared state for a Scan operation
 struct ARROW_DS_EXPORT ScanContext {
-  MemoryPool *pool = arrow::default_memory_pool();
+  MemoryPool* pool = arrow::default_memory_pool();
 };
 
 // TODO(wesm): API for handling of post-materialization filters. For
@@ -52,7 +52,7 @@ class ARROW_DS_EXPORT ScanTask {
   /// \brief Iterate through sequence of materialized record batches
   /// resulting from the Scan. Execution semantics encapsulated in the
   /// particular ScanTask implementation
-virtual std::unique_ptr<RecordBatchIterator> Scan() = 0;
+  virtual std::unique_ptr<RecordBatchIterator> Scan() = 0;
 };
 
 /// \brief Main interface for
