@@ -1413,7 +1413,7 @@ garrow_array_filter(GArrowArray *array,
 }
 
 /**
- * garrow_array_isin:
+ * garrow_array_is_in:
  * @left: A left hand side #GArrowArray.
  * @right: A right hand side #GArrowArray.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -1425,9 +1425,9 @@ garrow_array_filter(GArrowArray *array,
  * Since: 0.15.0
  */
 GArrowBooleanArray *
-garrow_array_isin(GArrowArray *left,
-                  GArrowArray *right,
-                  GError **error)
+garrow_array_is_in(GArrowArray *left,
+                   GArrowArray *right,
+                   GError **error)
 {
   auto arrow_left = garrow_array_get_raw(left);
   auto arrow_left_datum = arrow::compute::Datum(arrow_left);

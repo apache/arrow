@@ -15,34 +15,34 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestIsin < Test::Unit::TestCase
+class TestIsIn < Test::Unit::TestCase
   include Helper::Buildable
 
   def test_no_null
     left_array = build_int16_array([1, 0, 1, 2])
     right_array = build_int16_array([2, 0, 2, 3])
     assert_equal(build_boolean_array([false, true, false, true]),
-                 left_array.isin(right_array))
+                 left_array.is_in(right_array))
   end
 
   def test_null_in_left_array
     left_array = build_int16_array([1, 0, nil, 2])
     right_array = build_int16_array([2, 0, 2, 3])
     assert_equal(build_boolean_array([false, true, nil, true]),
-                 left_array.isin(right_array))
+                 left_array.is_in(right_array))
   end
 
   def test_null_in_right_array
     left_array = build_int16_array([1, 0, 1, 2])
     right_array = build_int16_array([2, 0, nil, 3])
     assert_equal(build_boolean_array([false, true, false, true]),
-                 left_array.isin(right_array))
+                 left_array.is_in(right_array))
   end
 
   def test_null_in_both_arrays
     left_array = build_int16_array([1, 0, nil, 2])
     right_array = build_int16_array([2, 0, nil, 3])
     assert_equal(build_boolean_array([false, true, true, true]),
-                 left_array.isin(right_array))
+                 left_array.is_in(right_array))
   end
 end
