@@ -130,7 +130,7 @@ public class MurmurHasher implements ArrowBufHasher {
 
     int k = intValue;
     k = k * c1;
-    k = rotateLeft(k, r1) | rotateRight(k, 32 - r1);
+    k = rotateLeft(k, r1);
     k = k * c2;
 
     int hash = currentHashCode;
@@ -150,21 +150,17 @@ public class MurmurHasher implements ArrowBufHasher {
   public static int finalizeHashCode(int hashCode, int length) {
     hashCode = hashCode ^ length;
 
-    hashCode = hashCode ^ (rotateRight(hashCode, 16));
+    hashCode = hashCode ^ (hashCode >>> 16);
     hashCode = hashCode * 0x85ebca6b;
-    hashCode = hashCode ^ (rotateRight(hashCode, 13));
+    hashCode = hashCode ^ (hashCode >>> 13);
     hashCode = hashCode * 0xc2b2ae35;
-    hashCode = hashCode ^ (rotateRight(hashCode, 16));
+    hashCode = hashCode ^ (hashCode >>> 16);
 
     return hashCode;
   }
 
   private static int rotateLeft(int value, int count) {
-    return value << count;
-  }
-
-  private static int rotateRight(int value, int count) {
-    return value >>> count;
+    return (value << count) | (value >>> (32 - count));
   }
 
   @Override
