@@ -707,11 +707,11 @@ const char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 lengt
     << std::setw(2) << day << " " << std::setw(2) << hour << ":" << std::setw(2) << minute
     << ":" << std::setw(2) << second << "." << std::setw(3) << millis;
   std::string timestamp_str = s.str();
-  static const int kTimeStampStringLen = 23;
+  int32 timestamp_str_len = static_cast<int32>(timestamp_str.length());
 
   *out_len = static_cast<int32>(length);
-  if (length > kTimeStampStringLen) {
-    *out_len = kTimeStampStringLen;
+  if (*out_len > timestamp_str_len) {
+    *out_len = timestamp_str_len;
   }
 
   if (*out_len <= 0) {
