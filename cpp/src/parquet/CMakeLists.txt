@@ -90,7 +90,7 @@ if(ARROW_BUILD_STATIC)
   set(PARQUET_STATIC_LINK_LIBS arrow_static)
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_static arrow_static)
 else()
-  set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared arrow_dataset_shared)
+  set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
 endif()
 
 set(PARQUET_BOOST_LINK_LIBS)
@@ -161,7 +161,6 @@ set(PARQUET_SRCS
     arrow/reader_internal.cc
     arrow/schema.cc
     arrow/writer.cc
-    arrow/dataset/file_parquet.cc
     bloom_filter.cc
     bloom_filter.cc
     column_reader.cc
@@ -188,7 +187,7 @@ add_custom_target(parquet-thrift-deps ALL DEPENDS ${THRIFT_OUTPUT_FILES})
 set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES} parquet-thrift-deps)
 
 if(NOT PARQUET_MINIMAL_DEPENDENCY)
-  set(PARQUET_SHARED_LINK_LIBS arrow_shared arrow_dataset_shared)
+  set(PARQUET_SHARED_LINK_LIBS arrow_shared)
 
   # These are libraries that we will link privately with parquet_shared (as they
   # do not need to be linked transitively by other linkers)
@@ -318,11 +317,6 @@ add_parquet_test(arrow-test
                  arrow/arrow_reader_writer_test.cc
                  arrow/arrow_schema_test.cc
                  test_util.cc)
-
-add_parquet_test(arrow-dataset-test
-                 SOURCES
-                 arrow/dataset/file_parquet-test.cc
-                 test-util.cc)
 
 # Those tests need to use static linking as they access thrift-generated
 # symbols which are not exported by parquet.dll on Windows (PARQUET-1420).
