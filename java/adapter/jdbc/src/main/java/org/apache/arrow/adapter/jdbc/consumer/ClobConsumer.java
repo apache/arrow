@@ -17,7 +17,6 @@
 
 package org.apache.arrow.adapter.jdbc.consumer;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.sql.Clob;
 import java.sql.ResultSet;
@@ -56,12 +55,9 @@ public class ClobConsumer implements JdbcConsumer {
   }
 
   @Override
-  public void consume(ResultSet resultSet) throws SQLException, IOException {
+  public void consume(ResultSet resultSet) throws SQLException {
     Clob clob = resultSet.getClob(index);
-    if (resultSet.wasNull()) {
-      addNull();
-    } else {
-
+    if (!resultSet.wasNull()) {
       if (clob != null) {
         long length = clob.length();
         if (length > reuse.capacity()) {
@@ -81,13 +77,7 @@ public class ClobConsumer implements JdbcConsumer {
         }
         writer.writeVarChar(0, totalBytes, reuse);
       }
-
-      writer.setPosition(writer.getPosition() + 1);
     }
-  }
-
-  @Override
-  public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }

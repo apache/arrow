@@ -57,16 +57,9 @@ public class TimestampConsumer implements JdbcConsumer {
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
     reuse = calendar == null ? resultSet.getTimestamp(index) : resultSet.getTimestamp(index, calendar);
-    if (resultSet.wasNull()) {
-      addNull();
-    } else {
+    if (!resultSet.wasNull()) {
       writer.writeTimeStampMilliTZ(reuse.getTime());
-      writer.setPosition(writer.getPosition() + 1);
     }
-  }
-
-  @Override
-  public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }

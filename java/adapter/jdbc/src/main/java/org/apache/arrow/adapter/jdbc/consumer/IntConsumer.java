@@ -46,16 +46,9 @@ public class IntConsumer implements JdbcConsumer {
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
     reuse = resultSet.getInt(index);
-    if (resultSet.wasNull()) {
-      addNull();
-    } else {
+    if (!resultSet.wasNull()) {
       writer.writeInt(reuse);
-      writer.setPosition(writer.getPosition() + 1);
     }
-  }
-
-  @Override
-  public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }

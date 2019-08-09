@@ -59,7 +59,7 @@ public class BinaryConsumer implements JdbcConsumer {
   /**
    * consume a InputStream.
    */
-  public void consume(InputStream is) throws SQLException, IOException {
+  public void consume(InputStream is) throws IOException {
     if (is != null) {
       int length = is.available();
       if (length > reuse.capacity()) {
@@ -75,22 +75,18 @@ public class BinaryConsumer implements JdbcConsumer {
       }
       writer.writeVarBinary(0, total, reuse);
     }
-
-    writer.setPosition(writer.getPosition() + 1);
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException, IOException {
     InputStream is = resultSet.getBinaryStream(index);
-    if (resultSet.wasNull()) {
-      addNull();
-    } else {
+    if (!resultSet.wasNull()) {
       consume(is);
     }
+    writer.setPosition(writer.getPosition() + 1);
   }
 
-  @Override
-  public void addNull() {
+  public void moveWriterPosition() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }

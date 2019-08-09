@@ -52,9 +52,7 @@ public class VarCharConsumer implements JdbcConsumer {
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
     String value = resultSet.getString(index);
-    if (resultSet.wasNull()) {
-      addNull();
-    } else {
+    if (!resultSet.wasNull()) {
       byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
       if (reuse == null) {
         reuse = allocator.buffer(bytes.length);
@@ -65,13 +63,7 @@ public class VarCharConsumer implements JdbcConsumer {
       }
       reuse.setBytes(0, bytes, 0, bytes.length);
       writer.writeVarChar(0, bytes.length, reuse);
-
-      writer.setPosition(writer.getPosition() + 1);
     }
-  }
-
-  @Override
-  public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }

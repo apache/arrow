@@ -48,11 +48,9 @@ public class ArrayConsumer implements JdbcConsumer {
   @Override
   public void consume(ResultSet resultSet) throws SQLException, IOException {
     final Array array = resultSet.getArray(index);
-    if (resultSet.wasNull()) {
-      addNull();
-    } else {
+    int idx = vector.getValueCount();
+    if (!resultSet.wasNull()) {
 
-      int idx = vector.getValueCount();
       vector.startNewValue(idx);
       int count = 0;
       try (ResultSet rs = array.getResultSet()) {
@@ -64,12 +62,7 @@ public class ArrayConsumer implements JdbcConsumer {
       int end = vector.getOffsetBuffer().getInt(idx * 4) + count;
       vector.getOffsetBuffer().setInt((idx + 1) * 4, end);
       BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), vector.getValueCount());
-      vector.setValueCount(idx + 1);
     }
-  }
-
-  @Override
-  public void addNull() {
-    vector.setValueCount(vector.getValueCount() + 1);
+    vector.setValueCount(idx + 1);
   }
 }

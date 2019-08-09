@@ -47,13 +47,7 @@ public class BlobConsumer implements JdbcConsumer {
     Blob blob = resultSet.getBlob(index);
     if (blob != null) {
       delegate.consume(blob.getBinaryStream());
-    } else {
-      addNull();
     }
-  }
-
-  @Override
-  public void addNull() {
-    delegate.addNull();
+    delegate.moveWriterPosition();
   }
 }

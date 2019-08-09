@@ -46,16 +46,9 @@ public class TinyIntConsumer implements JdbcConsumer {
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
     reuse = resultSet.getByte(index);
-    if (resultSet.wasNull()) {
-      addNull();
-    } else {
+    if (!resultSet.wasNull()) {
       writer.writeTinyInt(reuse);
-      writer.setPosition(writer.getPosition() + 1);
     }
-  }
-
-  @Override
-  public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }

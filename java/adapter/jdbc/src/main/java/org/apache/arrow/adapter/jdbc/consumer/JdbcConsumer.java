@@ -31,8 +31,4 @@ public interface JdbcConsumer {
    */
   void consume(ResultSet resultSet) throws SQLException, IOException;
 
-  /**
-   * Add null value to vector.
-   */
-  void addNull();
 }

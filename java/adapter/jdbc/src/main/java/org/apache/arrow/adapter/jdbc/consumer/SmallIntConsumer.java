@@ -46,16 +46,9 @@ public class SmallIntConsumer implements JdbcConsumer {
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
     reuse = resultSet.getShort(index);
-    if (resultSet.wasNull()) {
-      addNull();
-    } else {
+    if (!resultSet.wasNull()) {
       writer.writeSmallInt(reuse);
-      writer.setPosition(writer.getPosition() + 1);
     }
-  }
-
-  @Override
-  public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }

@@ -57,16 +57,9 @@ public class DateConsumer implements JdbcConsumer {
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
     reuse = calendar == null ? resultSet.getDate(index) : resultSet.getDate(index, calendar);
-    if (resultSet.wasNull()) {
-      addNull();
-    } else {
+    if (!resultSet.wasNull()) {
       writer.writeDateMilli(reuse.getTime());
-      writer.setPosition(writer.getPosition() + 1);
     }
-  }
-
-  @Override
-  public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }

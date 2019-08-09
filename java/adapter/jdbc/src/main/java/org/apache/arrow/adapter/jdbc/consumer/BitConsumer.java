@@ -17,7 +17,6 @@
 
 package org.apache.arrow.adapter.jdbc.consumer;
 
-import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -45,18 +44,11 @@ public class BitConsumer implements JdbcConsumer {
   }
 
   @Override
-  public void consume(ResultSet resultSet) throws SQLException, IOException {
+  public void consume(ResultSet resultSet) throws SQLException {
     reuse = resultSet.getBoolean(index);
-    if (resultSet.wasNull()) {
-      addNull();
-    } else {
+    if (!resultSet.wasNull()) {
       writer.writeBit(reuse ? 1 : 0);
-      writer.setPosition(writer.getPosition() + 1);
     }
-  }
-
-  @Override
-  public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
   }
 }
