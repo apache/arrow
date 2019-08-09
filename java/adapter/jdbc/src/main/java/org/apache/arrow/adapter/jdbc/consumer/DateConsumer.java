@@ -41,6 +41,13 @@ public class DateConsumer implements JdbcConsumer {
   /**
    * Instantiate a DateConsumer.
    */
+  public DateConsumer(DateMilliVector vector, int index) {
+    this (vector, index, null);
+  }
+
+  /**
+   * Instantiate a DateConsumer.
+   */
   public DateConsumer(DateMilliVector vector, int index, Calendar calendar) {
     this.writer = new DateMilliWriterImpl(vector);
     this.index = index;

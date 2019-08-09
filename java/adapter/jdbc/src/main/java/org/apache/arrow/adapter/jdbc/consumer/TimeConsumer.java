@@ -41,6 +41,13 @@ public class TimeConsumer implements JdbcConsumer {
   /**
    * Instantiate a TimeConsumer.
    */
+  public TimeConsumer(TimeMilliVector vector, int index) {
+    this(vector, index, null);
+  }
+
+  /**
+   * Instantiate a TimeConsumer.
+   */
   public TimeConsumer(TimeMilliVector vector, int index, Calendar calendar) {
     this.writer = new TimeMilliWriterImpl(vector);
     this.index = index;

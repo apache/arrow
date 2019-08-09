@@ -41,6 +41,13 @@ public class TimestampConsumer implements JdbcConsumer {
   /**
    * Instantiate a TimestampConsumer.
    */
+  public TimestampConsumer(TimeStampMilliTZVector vector, int index) {
+    this(vector, index, null);
+  }
+
+  /**
+   * Instantiate a TimestampConsumer.
+   */
   public TimestampConsumer(TimeStampMilliTZVector vector, int index, Calendar calendar) {
     this.writer = new TimeStampMilliTZWriterImpl(vector);
     this.index = index;
