@@ -19,6 +19,7 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.avro.io.Decoder;
 
 /**
@@ -57,6 +58,11 @@ public class NullableTypeConsumer implements Consumer {
   @Override
   public void setPosition(int index) {
     delegate.setPosition(index);
+  }
+
+  @Override
+  public FieldVector getVector() {
+    return delegate.getVector();
   }
 
 }

@@ -20,6 +20,7 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.complex.impl.VarBinaryWriterImpl;
 import org.apache.arrow.vector.complex.writer.VarBinaryWriter;
@@ -72,5 +73,10 @@ public class AvroBytesConsumer implements Consumer {
   @Override
   public void setPosition(int index) {
     writer.setPosition(index);
+  }
+
+  @Override
+  public FieldVector getVector() {
+    return vector;
   }
 }

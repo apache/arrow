@@ -19,6 +19,7 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.avro.io.Decoder;
 
@@ -28,7 +29,11 @@ import org.apache.avro.io.Decoder;
  */
 public class AvroNullConsumer implements Consumer {
 
-  public AvroNullConsumer(ZeroVector vector) {}
+  private final ZeroVector vector;
+
+  public AvroNullConsumer(ZeroVector vector) {
+    this.vector = vector;
+  }
 
   @Override
   public void consume(Decoder decoder) throws IOException {}
@@ -38,4 +43,9 @@ public class AvroNullConsumer implements Consumer {
 
   @Override
   public void setPosition(int index) {}
+
+  @Override
+  public FieldVector getVector() {
+    return this.vector;
+  }
 }

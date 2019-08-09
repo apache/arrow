@@ -19,6 +19,7 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.complex.impl.Float8WriterImpl;
 import org.apache.arrow.vector.complex.writer.Float8Writer;
@@ -31,11 +32,13 @@ import org.apache.avro.io.Decoder;
 public class AvroDoubleConsumer implements Consumer {
 
   private final Float8Writer writer;
+  private final Float8Vector vector;
 
   /**
    * Instantiate a AvroDoubleConsumer.
    */
   public AvroDoubleConsumer(Float8Vector vector) {
+    this.vector = vector;
     this.writer = new Float8WriterImpl(vector);
   }
 
@@ -53,5 +56,10 @@ public class AvroDoubleConsumer implements Consumer {
   @Override
   public void setPosition(int index) {
     writer.setPosition(index);
+  }
+
+  @Override
+  public FieldVector getVector() {
+    return vector;
   }
 }

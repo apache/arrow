@@ -20,6 +20,7 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.impl.VarCharWriterImpl;
 import org.apache.arrow.vector.complex.writer.VarCharWriter;
@@ -73,5 +74,10 @@ public class AvroStringConsumer implements Consumer {
   @Override
   public void setPosition(int index) {
     writer.setPosition(index);
+  }
+
+  @Override
+  public FieldVector getVector() {
+    return this.vector;
   }
 }

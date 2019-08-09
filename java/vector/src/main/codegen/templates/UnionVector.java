@@ -389,6 +389,15 @@ public class UnionVector implements FieldVector {
     return newVector;
   }
 
+  public void directAddVector(FieldVector v) {
+    String name = v.getMinorType().name().toLowerCase();
+    Preconditions.checkState(internalStruct.getChild(name) == null, String.format("%s vector already exists", name));
+    internalStruct.putChild(name, v);
+    if (callBack != null) {
+      callBack.doWork();
+    }
+  }
+
   private class TransferImpl implements TransferPair {
     private final TransferPair internalStructVectorTransferPair;
     private final UnionVector to;

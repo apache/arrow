@@ -41,9 +41,6 @@ public class AvroToArrow {
       throws IOException {
     Preconditions.checkNotNull(schema, "Avro schema object can not be null");
 
-    VectorSchemaRoot root = VectorSchemaRoot.create(
-        AvroToArrowUtils.avroToArrowSchema(schema), allocator);
-    AvroToArrowUtils.avroToArrowVectors(decoder, root);
-    return root;
+    return AvroToArrowUtils.avroToArrowVectors(schema, decoder, allocator);
   }
 }

@@ -19,6 +19,7 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.UnionWriter;
 import org.apache.arrow.vector.types.Types;
@@ -53,14 +54,10 @@ public class AvroUnionsConsumer implements Consumer {
     int position = writer.getPosition();
 
     Consumer delegate = indexDelegates[fieldIndex];
-    // null value
-    if (delegate == null) {
-      // do nothing
-    } else {
-      vector.setType(position, types[fieldIndex]);
-      delegate.setPosition(position);
-      delegate.consume(decoder);
-    }
+
+    vector.setType(position, types[fieldIndex]);
+    delegate.setPosition(position);
+    delegate.consume(decoder);
 
     writer.setPosition(position + 1);
 
@@ -74,5 +71,10 @@ public class AvroUnionsConsumer implements Consumer {
   @Override
   public void setPosition(int index) {
     writer.setPosition(index);
+  }
+
+  @Override
+  public FieldVector getVector() {
+    return this.vector;
   }
 }
