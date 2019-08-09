@@ -25,7 +25,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
-import org.apache.arrow.memory.util.hash.DirectHasher;
+import org.apache.arrow.memory.util.hash.SimpleHasher;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -156,39 +156,20 @@ public class TestArrowBufPointer {
    * Hasher with a counter that increments each time a hash code is calculated.
    * This is to validate that the hash code in {@link ArrowBufPointer} is reused.
    */
-  class CounterHasher extends ArrowBufHasher {
+  class CounterHasher implements ArrowBufHasher {
 
     protected int counter = 0;
 
     @Override
-    protected int combineHashCode(int currentHashCode, int newHashCode) {
-      return 0;
-    }
-
-    @Override
-    protected int getByteHashCode(byte byteValue) {
-      return 0;
-    }
-
-    @Override
-    protected int getIntHashCode(int intValue) {
-      return 0;
-    }
-
-    @Override
-    protected int getLongHashCode(long longValue) {
-      return 0;
-    }
-
-    @Override
-    protected int finalizeHashCode(int hashCode) {
-      return 0;
+    public int hashCode(long address, int length) {
+      counter += 1;
+      return SimpleHasher.INSTANCE.hashCode(address, length);
     }
 
     @Override
     public int hashCode(ArrowBuf buf, int offset, int length) {
       counter += 1;
-      return DirectHasher.INSTANCE.hashCode(buf, offset, length);
+      return SimpleHasher.INSTANCE.hashCode(buf, offset, length);
     }
 
     @Override

@@ -19,7 +19,7 @@ package org.apache.arrow.memory.util;
 
 import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
-import org.apache.arrow.memory.util.hash.DirectHasher;
+import org.apache.arrow.memory.util.hash.SimpleHasher;
 
 import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
@@ -253,7 +253,7 @@ public class ByteFunctionHelpers {
    */
   public static final int hash(final ArrowBuf buf, int start, int end) {
 
-    ArrowBufHasher hasher = DirectHasher.INSTANCE;
+    ArrowBufHasher hasher = SimpleHasher.INSTANCE;
 
     return hasher.hashCode(buf, start, end - start);
   }
