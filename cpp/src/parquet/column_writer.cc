@@ -17,14 +17,17 @@
 
 #include "parquet/column_writer.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <memory>
 #include <utility>
 #include <vector>
 
+#include "arrow/array.h"
 #include "arrow/buffer-builder.h"
-#include "arrow/memory_pool.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit-stream-utils.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
@@ -43,6 +46,7 @@
 
 namespace parquet {
 
+using ::arrow::Status;
 using ::arrow::internal::checked_cast;
 
 using BitWriter = ::arrow::BitUtil::BitWriter;
@@ -131,7 +135,7 @@ class SerializedPageWriter : public PageWriter {
  public:
   SerializedPageWriter(const std::shared_ptr<ArrowOutputStream>& sink,
                        Compression::type codec, ColumnChunkMetaDataBuilder* metadata,
-                       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+                       MemoryPool* pool = ::arrow::default_memory_pool())
       : sink_(sink),
         metadata_(metadata),
         pool_(pool),
@@ -268,7 +272,7 @@ class SerializedPageWriter : public PageWriter {
  private:
   std::shared_ptr<ArrowOutputStream> sink_;
   ColumnChunkMetaDataBuilder* metadata_;
-  ::arrow::MemoryPool* pool_;
+  MemoryPool* pool_;
   int64_t num_values_;
   int64_t dictionary_page_offset_;
   int64_t data_page_offset_;
@@ -286,7 +290,7 @@ class BufferedPageWriter : public PageWriter {
  public:
   BufferedPageWriter(const std::shared_ptr<ArrowOutputStream>& sink,
                      Compression::type codec, ColumnChunkMetaDataBuilder* metadata,
-                     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+                     MemoryPool* pool = ::arrow::default_memory_pool())
       : final_sink_(sink), metadata_(metadata) {
     in_memory_sink_ = CreateOutputStream(pool);
     pager_ = std::unique_ptr<SerializedPageWriter>(
@@ -334,8 +338,7 @@ class BufferedPageWriter : public PageWriter {
 
 std::unique_ptr<PageWriter> PageWriter::Open(
     const std::shared_ptr<ArrowOutputStream>& sink, Compression::type codec,
-    ColumnChunkMetaDataBuilder* metadata, ::arrow::MemoryPool* pool,
-    bool buffered_row_group) {
+    ColumnChunkMetaDataBuilder* metadata, MemoryPool* pool, bool buffered_row_group) {
   if (buffered_row_group) {
     return std::unique_ptr<PageWriter>(
         new BufferedPageWriter(sink, codec, metadata, pool));
@@ -411,7 +414,9 @@ class ColumnWriterImpl {
   void AddDataPage();
 
   // Serializes Data Pages
-  void WriteDataPage(const CompressedDataPage& page);
+  void WriteDataPage(const CompressedDataPage& page) {
+    total_bytes_written_ += pager_->WriteDataPage(page);
+  }
 
   // Write multiple definition levels
   void WriteDefinitionLevels(int64_t num_levels, const int16_t* levels) {
@@ -445,7 +450,7 @@ class ColumnWriterImpl {
 
   LevelEncoder level_encoder_;
 
-  ::arrow::MemoryPool* allocator_;
+  MemoryPool* allocator_;
 
   // The total number of values stored in the data page. This is the maximum of
   // the number of encoded definition levels or encoded values. For
@@ -586,10 +591,6 @@ void ColumnWriterImpl::AddDataPage() {
   num_buffered_encoded_values_ = 0;
 }
 
-void ColumnWriterImpl::WriteDataPage(const CompressedDataPage& page) {
-  total_bytes_written_ += pager_->WriteDataPage(page);
-}
-
 int64_t ColumnWriterImpl::Close() {
   if (!closed_) {
     closed_ = true;
@@ -658,6 +659,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                         const int16_t* rep_levels, const uint8_t* valid_bits,
                         int64_t valid_bits_offset, const T* values) override;
 
+  Status WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
+                    int64_t num_levels, const ::arrow::Array& array,
+                    ArrowWriteContext* context) override;
+
   int64_t EstimatedBufferedValueBytes() const override {
     return current_encoder_->EstimatedDataEncodedSize();
   }
@@ -666,7 +671,20 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   std::shared_ptr<Buffer> GetValuesBuffer() override {
     return current_encoder_->FlushValues();
   }
-  void WriteDictionaryPage() override;
+
+  void WriteDictionaryPage() override {
+    // We have to dynamic cast here because of TypedEncoder<Type> as
+    // some compilers don't want to cast through virtual inheritance
+    auto dict_encoder = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
+    DCHECK(dict_encoder);
+    std::shared_ptr<ResizableBuffer> buffer =
+        AllocateBuffer(properties_->memory_pool(), dict_encoder->dict_encoded_size());
+    dict_encoder->WriteDict(buffer->mutable_data());
+
+    DictionaryPage page(buffer, dict_encoder->num_entries(),
+                        properties_->dictionary_page_encoding());
+    total_bytes_written_ += pager_->WriteDictionaryPage(page);
+  }
 
   // Checks if the Dictionary Page size limit is reached
   // If the limit is reached, the Dictionary and Data Pages are serialized
@@ -685,7 +703,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     return result;
   }
 
-  void ResetPageStatistics() override;
+  void ResetPageStatistics() override {
+    if (chunk_statistics_ != nullptr) {
+      chunk_statistics_->Merge(*page_statistics_);
+      page_statistics_->Reset();
+    }
+  }
 
   Type::type type() const override { return descr_->physical_type(); }
 
@@ -700,6 +723,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   const WriterProperties* properties() override { return properties_; }
 
  private:
+  using ValueEncoderType = typename EncodingTraits<DType>::Encoder;
+  using TypedStats = TypedStatistics<DType>;
+  std::unique_ptr<Encoder> current_encoder_;
+  std::shared_ptr<TypedStats> page_statistics_;
+  std::shared_ptr<TypedStats> chunk_statistics_;
+
   inline int64_t WriteMiniBatch(int64_t num_values, const int16_t* def_levels,
                                 const int16_t* rep_levels, const T* values);
 
@@ -710,16 +739,16 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                                       int64_t* num_spaced_written);
 
   // Write values to a temporary buffer before they are encoded into pages
-  void WriteValues(int64_t num_values, const T* values);
+  void WriteValues(int64_t num_values, const T* values) {
+    dynamic_cast<ValueEncoderType*>(current_encoder_.get())
+        ->Put(values, static_cast<int>(num_values));
+  }
+
   void WriteValuesSpaced(int64_t num_values, const uint8_t* valid_bits,
-                         int64_t valid_bits_offset, const T* values);
-
-  using ValueEncoderType = typename EncodingTraits<DType>::Encoder;
-  std::unique_ptr<Encoder> current_encoder_;
-
-  using TypedStats = TypedStatistics<DType>;
-  std::shared_ptr<TypedStats> page_statistics_;
-  std::shared_ptr<TypedStats> chunk_statistics_;
+                         int64_t valid_bits_offset, const T* values) {
+    dynamic_cast<ValueEncoderType*>(current_encoder_.get())
+        ->PutSpaced(values, static_cast<int>(num_values), valid_bits, valid_bits_offset);
+  }
 };
 
 // Only one Dictionary Page is written.
@@ -738,29 +767,6 @@ void TypedColumnWriterImpl<DType>::CheckDictionarySizeLimit() {
     current_encoder_ = MakeEncoder(DType::type_num, Encoding::PLAIN, false, descr_,
                                    properties_->memory_pool());
     encoding_ = Encoding::PLAIN;
-  }
-}
-
-template <typename DType>
-void TypedColumnWriterImpl<DType>::WriteDictionaryPage() {
-  // We have to dynamic cast here because TypedEncoder<Type> as some compilers
-  // don't want to cast through virtual inheritance
-  auto dict_encoder = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
-  DCHECK(dict_encoder);
-  std::shared_ptr<ResizableBuffer> buffer =
-      AllocateBuffer(properties_->memory_pool(), dict_encoder->dict_encoded_size());
-  dict_encoder->WriteDict(buffer->mutable_data());
-
-  DictionaryPage page(buffer, dict_encoder->num_entries(),
-                      properties_->dictionary_page_encoding());
-  total_bytes_written_ += pager_->WriteDictionaryPage(page);
-}
-
-template <typename DType>
-void TypedColumnWriterImpl<DType>::ResetPageStatistics() {
-  if (chunk_statistics_ != nullptr) {
-    chunk_statistics_->Merge(*page_statistics_);
-    page_statistics_->Reset();
   }
 }
 
@@ -952,19 +958,534 @@ void TypedColumnWriterImpl<DType>::WriteBatchSpaced(
                        values + values_offset, &num_spaced_written);
 }
 
-template <typename DType>
-void TypedColumnWriterImpl<DType>::WriteValues(int64_t num_values, const T* values) {
-  dynamic_cast<ValueEncoderType*>(current_encoder_.get())
-      ->Put(values, static_cast<int>(num_values));
+// ----------------------------------------------------------------------
+// Direct Arrow write path
+
+template <typename ParquetType, typename ArrowType, typename Enable = void>
+struct SerializeFunctor {
+  using ArrowCType = typename ArrowType::c_type;
+  using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
+  using ParquetCType = typename ParquetType::c_type;
+  Status Serialize(const ArrayType& array, ArrowWriteContext*, ParquetCType* out) {
+    const ArrowCType* input = array.raw_values();
+    if (array.null_count() > 0) {
+      for (int i = 0; i < array.length(); i++) {
+        out[i] = static_cast<ParquetCType>(input[i]);
+      }
+    } else {
+      std::copy(input, input + array.length(), out);
+    }
+    return Status::OK();
+  }
+};
+
+template <typename ParquetType, typename ArrowType>
+inline Status SerializeData(const ::arrow::Array& array, ArrowWriteContext* ctx,
+                            typename ParquetType::c_type* out) {
+  using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
+  SerializeFunctor<ParquetType, ArrowType> functor;
+  return functor.Serialize(checked_cast<const ArrayType&>(array), ctx, out);
 }
 
-template <typename DType>
-void TypedColumnWriterImpl<DType>::WriteValuesSpaced(int64_t num_values,
-                                                     const uint8_t* valid_bits,
-                                                     int64_t valid_bits_offset,
-                                                     const T* values) {
-  dynamic_cast<ValueEncoderType*>(current_encoder_.get())
-      ->PutSpaced(values, static_cast<int>(num_values), valid_bits, valid_bits_offset);
+template <typename ParquetType, typename ArrowType>
+Status WriteArrowSerialize(const ::arrow::Array& array, int64_t num_levels,
+                           const int16_t* def_levels, const int16_t* rep_levels,
+                           ArrowWriteContext* ctx,
+                           TypedColumnWriter<ParquetType>* writer) {
+  using ParquetCType = typename ParquetType::c_type;
+
+  ParquetCType* buffer;
+  PARQUET_THROW_NOT_OK(ctx->GetScratchData<ParquetCType>(array.length(), &buffer));
+
+  bool no_nulls =
+      writer->descr()->schema_node()->is_required() || (array.null_count() == 0);
+
+  Status s = SerializeData<ParquetType, ArrowType>(array, ctx, buffer);
+  RETURN_NOT_OK(s);
+  if (no_nulls) {
+    PARQUET_CATCH_NOT_OK(writer->WriteBatch(num_levels, def_levels, rep_levels, buffer));
+  } else {
+    PARQUET_CATCH_NOT_OK(writer->WriteBatchSpaced(num_levels, def_levels, rep_levels,
+                                                  array.null_bitmap_data(),
+                                                  array.offset(), buffer));
+  }
+  return Status::OK();
+}
+
+template <typename ParquetType>
+Status WriteArrowZeroCopy(const ::arrow::Array& array, int64_t num_levels,
+                          const int16_t* def_levels, const int16_t* rep_levels,
+                          ArrowWriteContext* ctx,
+                          TypedColumnWriter<ParquetType>* writer) {
+  using T = typename ParquetType::c_type;
+  const auto& data = static_cast<const ::arrow::PrimitiveArray&>(array);
+  const T* values = nullptr;
+  // The values buffer may be null if the array is empty (ARROW-2744)
+  if (data.values() != nullptr) {
+    values = reinterpret_cast<const T*>(data.values()->data()) + data.offset();
+  } else {
+    DCHECK_EQ(data.length(), 0);
+  }
+  if (writer->descr()->schema_node()->is_required() || (data.null_count() == 0)) {
+    PARQUET_CATCH_NOT_OK(writer->WriteBatch(num_levels, def_levels, rep_levels, values));
+  } else {
+    PARQUET_CATCH_NOT_OK(writer->WriteBatchSpaced(num_levels, def_levels, rep_levels,
+                                                  data.null_bitmap_data(), data.offset(),
+                                                  values));
+  }
+  return Status::OK();
+}
+
+#define WRITE_SERIALIZE_CASE(ArrowEnum, ArrowType, ParquetType)  \
+  case ::arrow::Type::ArrowEnum:                                 \
+    return WriteArrowSerialize<ParquetType, ::arrow::ArrowType>( \
+        array, num_levels, def_levels, rep_levels, ctx, this);
+
+#define WRITE_ZERO_COPY_CASE(ArrowEnum, ArrowType, ParquetType)                       \
+  case ::arrow::Type::ArrowEnum:                                                      \
+    return WriteArrowZeroCopy<ParquetType>(array, num_levels, def_levels, rep_levels, \
+                                           ctx, this);
+
+#define ARROW_UNSUPPORTED()                                          \
+  std::stringstream ss;                                              \
+  ss << "Arrow type " << array.type()->ToString()                    \
+     << " cannot be written to Parquet type " << descr_->ToString(); \
+  return Status::Invalid(ss.str());
+
+// ----------------------------------------------------------------------
+// Write Arrow to BooleanType
+
+template <>
+Status TypedColumnWriterImpl<BooleanType>::WriteArrow(const int16_t* def_levels,
+                                                      const int16_t* rep_levels,
+                                                      int64_t num_levels,
+                                                      const ::arrow::Array& array,
+                                                      ArrowWriteContext* ctx) {
+  if (array.type_id() != ::arrow::Type::BOOL) {
+    ARROW_UNSUPPORTED();
+  }
+  bool* buffer = nullptr;
+  RETURN_NOT_OK(ctx->GetScratchData<bool>(array.length(), &buffer));
+
+  const auto& data = static_cast<const ::arrow::BooleanArray&>(array);
+  const uint8_t* values = nullptr;
+  // The values buffer may be null if the array is empty (ARROW-2744)
+  if (data.values() != nullptr) {
+    values = reinterpret_cast<const uint8_t*>(data.values()->data());
+  } else {
+    DCHECK_EQ(data.length(), 0);
+  }
+
+  int buffer_idx = 0;
+  int64_t offset = array.offset();
+  for (int i = 0; i < data.length(); i++) {
+    if (data.IsValid(i)) {
+      buffer[buffer_idx++] = BitUtil::GetBit(values, offset + i);
+    }
+  }
+  PARQUET_CATCH_NOT_OK(WriteBatch(num_levels, def_levels, rep_levels, buffer));
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
+// Write Arrow types to INT32
+
+template <>
+struct SerializeFunctor<Int32Type, ::arrow::Date64Type> {
+  Status Serialize(const ::arrow::Date64Array& array, ArrowWriteContext*, int32_t* out) {
+    const int64_t* input = array.raw_values();
+    for (int i = 0; i < array.length(); i++) {
+      *out++ = static_cast<int32_t>(*input++ / 86400000);
+    }
+    return Status::OK();
+  }
+};
+
+template <>
+struct SerializeFunctor<Int32Type, ::arrow::Time32Type> {
+  Status Serialize(const ::arrow::Time32Array& array, ArrowWriteContext*, int32_t* out) {
+    const int32_t* input = array.raw_values();
+    const auto& type = static_cast<const ::arrow::Time32Type&>(*array.type());
+    if (type.unit() == ::arrow::TimeUnit::SECOND) {
+      for (int i = 0; i < array.length(); i++) {
+        out[i] = input[i] * 1000;
+      }
+    } else {
+      std::copy(input, input + array.length(), out);
+    }
+    return Status::OK();
+  }
+};
+
+template <>
+Status TypedColumnWriterImpl<Int32Type>::WriteArrow(const int16_t* def_levels,
+                                                    const int16_t* rep_levels,
+                                                    int64_t num_levels,
+                                                    const ::arrow::Array& array,
+                                                    ArrowWriteContext* ctx) {
+  switch (array.type()->id()) {
+    case ::arrow::Type::NA: {
+      PARQUET_CATCH_NOT_OK(WriteBatch(num_levels, def_levels, rep_levels, nullptr));
+    } break;
+      WRITE_SERIALIZE_CASE(INT8, Int8Type, Int32Type)
+      WRITE_SERIALIZE_CASE(UINT8, UInt8Type, Int32Type)
+      WRITE_SERIALIZE_CASE(INT16, Int16Type, Int32Type)
+      WRITE_SERIALIZE_CASE(UINT16, UInt16Type, Int32Type)
+      WRITE_SERIALIZE_CASE(UINT32, UInt32Type, Int32Type)
+      WRITE_ZERO_COPY_CASE(INT32, Int32Type, Int32Type)
+      WRITE_ZERO_COPY_CASE(DATE32, Date32Type, Int32Type)
+      WRITE_SERIALIZE_CASE(DATE64, Date64Type, Int32Type)
+      WRITE_SERIALIZE_CASE(TIME32, Time32Type, Int32Type)
+    default:
+      ARROW_UNSUPPORTED()
+  }
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
+// Write Arrow to Int64 and Int96
+
+#define INT96_CONVERT_LOOP(ConversionFunction) \
+  for (int64_t i = 0; i < array.length(); i++) ConversionFunction(input[i], &out[i]);
+
+template <>
+struct SerializeFunctor<Int96Type, ::arrow::TimestampType> {
+  Status Serialize(const ::arrow::TimestampArray& array, ArrowWriteContext*, Int96* out) {
+    const int64_t* input = array.raw_values();
+    const auto& type = static_cast<const ::arrow::TimestampType&>(*array.type());
+    switch (type.unit()) {
+      case ::arrow::TimeUnit::NANO:
+        INT96_CONVERT_LOOP(internal::NanosecondsToImpalaTimestamp);
+        break;
+      case ::arrow::TimeUnit::MICRO:
+        INT96_CONVERT_LOOP(internal::MicrosecondsToImpalaTimestamp);
+        break;
+      case ::arrow::TimeUnit::MILLI:
+        INT96_CONVERT_LOOP(internal::MillisecondsToImpalaTimestamp);
+        break;
+      case ::arrow::TimeUnit::SECOND:
+        INT96_CONVERT_LOOP(internal::SecondsToImpalaTimestamp);
+        break;
+    }
+    return Status::OK();
+  }
+};
+
+#define COERCE_DIVIDE -1
+#define COERCE_INVALID 0
+#define COERCE_MULTIPLY +1
+
+static std::pair<int, int64_t> kTimestampCoercionFactors[4][4] = {
+    // from seconds ...
+    {{COERCE_INVALID, 0},                      // ... to seconds
+     {COERCE_MULTIPLY, 1000},                  // ... to millis
+     {COERCE_MULTIPLY, 1000000},               // ... to micros
+     {COERCE_MULTIPLY, INT64_C(1000000000)}},  // ... to nanos
+    // from millis ...
+    {{COERCE_INVALID, 0},
+     {COERCE_MULTIPLY, 1},
+     {COERCE_MULTIPLY, 1000},
+     {COERCE_MULTIPLY, 1000000}},
+    // from micros ...
+    {{COERCE_INVALID, 0},
+     {COERCE_DIVIDE, 1000},
+     {COERCE_MULTIPLY, 1},
+     {COERCE_MULTIPLY, 1000}},
+    // from nanos ...
+    {{COERCE_INVALID, 0},
+     {COERCE_DIVIDE, 1000000},
+     {COERCE_DIVIDE, 1000},
+     {COERCE_MULTIPLY, 1}}};
+
+template <>
+struct SerializeFunctor<Int64Type, ::arrow::TimestampType> {
+  Status Serialize(const ::arrow::TimestampArray& array, ArrowWriteContext* ctx,
+                   int64_t* out) {
+    const auto& source_type = static_cast<const ::arrow::TimestampType&>(*array.type());
+    auto source_unit = source_type.unit();
+    const int64_t* values = array.raw_values();
+
+    ::arrow::TimeUnit::type target_unit = ctx->properties->coerce_timestamps_unit();
+    auto target_type = ::arrow::timestamp(target_unit);
+    bool truncation_allowed = ctx->properties->truncated_timestamps_allowed();
+
+    auto DivideBy = [&](const int64_t factor) {
+      for (int64_t i = 0; i < array.length(); i++) {
+        if (!truncation_allowed && array.IsValid(i) && (values[i] % factor != 0)) {
+          return Status::Invalid("Casting from ", source_type.ToString(), " to ",
+                                 target_type->ToString(),
+                                 " would lose data: ", values[i]);
+        }
+        out[i] = values[i] / factor;
+      }
+      return Status::OK();
+    };
+
+    auto MultiplyBy = [&](const int64_t factor) {
+      for (int64_t i = 0; i < array.length(); i++) {
+        out[i] = values[i] * factor;
+      }
+      return Status::OK();
+    };
+
+    const auto& coercion = kTimestampCoercionFactors[static_cast<int>(source_unit)]
+                                                    [static_cast<int>(target_unit)];
+
+    // .first -> coercion operation; .second -> scale factor
+    DCHECK_NE(coercion.first, COERCE_INVALID);
+    return coercion.first == COERCE_DIVIDE ? DivideBy(coercion.second)
+                                           : MultiplyBy(coercion.second);
+  }
+};
+
+#undef COERCE_DIVIDE
+#undef COERCE_INVALID
+#undef COERCE_MULTIPLY
+
+Status WriteTimestamps(const ::arrow::Array& values, int64_t num_levels,
+                       const int16_t* def_levels, const int16_t* rep_levels,
+                       ArrowWriteContext* ctx, TypedColumnWriter<Int64Type>* writer) {
+  const auto& source_type = static_cast<const ::arrow::TimestampType&>(*values.type());
+
+  auto WriteCoerce = [&](const ArrowWriterProperties* properties) {
+    ArrowWriteContext temp_ctx = *ctx;
+    temp_ctx.properties = properties;
+    return WriteArrowSerialize<Int64Type, ::arrow::TimestampType>(
+        values, num_levels, def_levels, rep_levels, &temp_ctx, writer);
+  };
+
+  if (ctx->properties->coerce_timestamps_enabled()) {
+    // User explicitly requested coercion to specific unit
+    if (source_type.unit() == ctx->properties->coerce_timestamps_unit()) {
+      // No data conversion necessary
+      return WriteArrowZeroCopy<Int64Type>(values, num_levels, def_levels, rep_levels,
+                                           ctx, writer);
+    } else {
+      return WriteCoerce(ctx->properties);
+    }
+  } else if (writer->properties()->version() == ParquetVersion::PARQUET_1_0 &&
+             source_type.unit() == ::arrow::TimeUnit::NANO) {
+    // Absent superseding user instructions, when writing Parquet version 1.0 files,
+    // timestamps in nanoseconds are coerced to microseconds
+    std::shared_ptr<ArrowWriterProperties> properties =
+        (ArrowWriterProperties::Builder())
+            .coerce_timestamps(::arrow::TimeUnit::MICRO)
+            ->disallow_truncated_timestamps()
+            ->build();
+    return WriteCoerce(properties.get());
+  } else if (source_type.unit() == ::arrow::TimeUnit::SECOND) {
+    // Absent superseding user instructions, timestamps in seconds are coerced to
+    // milliseconds
+    std::shared_ptr<ArrowWriterProperties> properties =
+        (ArrowWriterProperties::Builder())
+            .coerce_timestamps(::arrow::TimeUnit::MILLI)
+            ->build();
+    return WriteCoerce(properties.get());
+  } else {
+    // No data conversion necessary
+    return WriteArrowZeroCopy<Int64Type>(values, num_levels, def_levels, rep_levels, ctx,
+                                         writer);
+  }
+}
+
+template <>
+Status TypedColumnWriterImpl<Int64Type>::WriteArrow(const int16_t* def_levels,
+                                                    const int16_t* rep_levels,
+                                                    int64_t num_levels,
+                                                    const ::arrow::Array& array,
+                                                    ArrowWriteContext* ctx) {
+  switch (array.type()->id()) {
+    case ::arrow::Type::TIMESTAMP:
+      return WriteTimestamps(array, num_levels, def_levels, rep_levels, ctx, this);
+      WRITE_ZERO_COPY_CASE(INT64, Int64Type, Int64Type)
+      WRITE_SERIALIZE_CASE(UINT32, UInt32Type, Int64Type)
+      WRITE_SERIALIZE_CASE(UINT64, UInt64Type, Int64Type)
+      WRITE_ZERO_COPY_CASE(TIME64, Time64Type, Int64Type)
+    default:
+      ARROW_UNSUPPORTED();
+  }
+}
+
+template <>
+Status TypedColumnWriterImpl<Int96Type>::WriteArrow(const int16_t* def_levels,
+                                                    const int16_t* rep_levels,
+                                                    int64_t num_levels,
+                                                    const ::arrow::Array& array,
+                                                    ArrowWriteContext* ctx) {
+  if (array.type_id() != ::arrow::Type::TIMESTAMP) {
+    ARROW_UNSUPPORTED();
+  }
+  return WriteArrowSerialize<Int96Type, ::arrow::TimestampType>(
+      array, num_levels, def_levels, rep_levels, ctx, this);
+}
+
+// ----------------------------------------------------------------------
+// Floating point types
+
+template <>
+Status TypedColumnWriterImpl<FloatType>::WriteArrow(const int16_t* def_levels,
+                                                    const int16_t* rep_levels,
+                                                    int64_t num_levels,
+                                                    const ::arrow::Array& array,
+                                                    ArrowWriteContext* ctx) {
+  if (array.type_id() != ::arrow::Type::FLOAT) {
+    ARROW_UNSUPPORTED();
+  }
+  return WriteArrowZeroCopy<FloatType>(array, num_levels, def_levels, rep_levels, ctx,
+                                       this);
+}
+
+template <>
+Status TypedColumnWriterImpl<DoubleType>::WriteArrow(const int16_t* def_levels,
+                                                     const int16_t* rep_levels,
+                                                     int64_t num_levels,
+                                                     const ::arrow::Array& array,
+                                                     ArrowWriteContext* ctx) {
+  if (array.type_id() != ::arrow::Type::DOUBLE) {
+    ARROW_UNSUPPORTED();
+  }
+  return WriteArrowZeroCopy<DoubleType>(array, num_levels, def_levels, rep_levels, ctx,
+                                        this);
+}
+
+// ----------------------------------------------------------------------
+// Write Arrow to BYTE_ARRAY
+
+template <typename ParquetType, typename ArrowType>
+struct SerializeFunctor<ParquetType, ArrowType, ::arrow::enable_if_binary<ArrowType>> {
+  Status Serialize(const ::arrow::BinaryArray& array, ArrowWriteContext*,
+                   ByteArray* out) {
+    // In the case of an array consisting of only empty strings or all null,
+    // array.data() points already to a nullptr, thus array.data()->data() will
+    // segfault.
+    const uint8_t* values = nullptr;
+    if (array.value_data()) {
+      values = reinterpret_cast<const uint8_t*>(array.value_data()->data());
+      DCHECK(values != nullptr);
+    }
+
+    // Slice offset is accounted for in raw_value_offsets
+    const int32_t* value_offset = array.raw_value_offsets();
+    if (array.null_count() == 0) {
+      // no nulls, just dump the data
+      for (int64_t i = 0; i < array.length(); i++) {
+        out[i] =
+            ByteArray(value_offset[i + 1] - value_offset[i], values + value_offset[i]);
+      }
+    } else {
+      for (int64_t i = 0; i < array.length(); i++) {
+        if (array.IsValid(i)) {
+          out[i] =
+              ByteArray(value_offset[i + 1] - value_offset[i], values + value_offset[i]);
+        }
+      }
+    }
+    return Status::OK();
+  }
+};
+
+template <>
+Status TypedColumnWriterImpl<ByteArrayType>::WriteArrow(const int16_t* def_levels,
+                                                        const int16_t* rep_levels,
+                                                        int64_t num_levels,
+                                                        const ::arrow::Array& array,
+                                                        ArrowWriteContext* ctx) {
+  switch (array.type()->id()) {
+    WRITE_SERIALIZE_CASE(BINARY, BinaryType, ByteArrayType)
+    WRITE_SERIALIZE_CASE(STRING, BinaryType, ByteArrayType)
+    default:
+      ARROW_UNSUPPORTED();
+  }
+}
+
+// ----------------------------------------------------------------------
+// Write Arrow to FIXED_LEN_BYTE_ARRAY
+
+template <typename ParquetType, typename ArrowType>
+struct SerializeFunctor<ParquetType, ArrowType,
+                        ::arrow::enable_if_fixed_size_binary<ArrowType>> {
+  Status Serialize(const ::arrow::FixedSizeBinaryArray& array, ArrowWriteContext*,
+                   FLBA* out) {
+    if (array.null_count() == 0) {
+      // no nulls, just dump the data
+      // todo(advancedxy): use a writeBatch to avoid this step
+      for (int64_t i = 0; i < array.length(); i++) {
+        out[i] = FixedLenByteArray(array.GetValue(i));
+      }
+    } else {
+      for (int64_t i = 0; i < array.length(); i++) {
+        if (array.IsValid(i)) {
+          out[i] = FixedLenByteArray(array.GetValue(i));
+        }
+      }
+    }
+    return Status::OK();
+  }
+};
+
+template <>
+Status WriteArrowSerialize<FLBAType, ::arrow::Decimal128Type>(
+    const ::arrow::Array& array, int64_t num_levels, const int16_t* def_levels,
+    const int16_t* rep_levels, ArrowWriteContext* ctx,
+    TypedColumnWriter<FLBAType>* writer) {
+  const auto& data = static_cast<const ::arrow::Decimal128Array&>(array);
+  const int64_t length = data.length();
+
+  FLBA* buffer;
+  RETURN_NOT_OK(ctx->GetScratchData<FLBA>(num_levels, &buffer));
+
+  const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(*data.type());
+  const int32_t offset =
+      decimal_type.byte_width() - internal::DecimalSize(decimal_type.precision());
+
+  const bool does_not_have_nulls =
+      writer->descr()->schema_node()->is_required() || data.null_count() == 0;
+
+  const auto valid_value_count = static_cast<size_t>(length - data.null_count()) * 2;
+  std::vector<uint64_t> big_endian_values(valid_value_count);
+
+  // TODO(phillipc): Look into whether our compilers will perform loop unswitching so we
+  // don't have to keep writing two loops to handle the case where we know there are no
+  // nulls
+  if (does_not_have_nulls) {
+    // no nulls, just dump the data
+    // todo(advancedxy): use a writeBatch to avoid this step
+    for (int64_t i = 0, j = 0; i < length; ++i, j += 2) {
+      auto unsigned_64_bit = reinterpret_cast<const uint64_t*>(data.GetValue(i));
+      big_endian_values[j] = ::arrow::BitUtil::ToBigEndian(unsigned_64_bit[1]);
+      big_endian_values[j + 1] = ::arrow::BitUtil::ToBigEndian(unsigned_64_bit[0]);
+      buffer[i] = FixedLenByteArray(
+          reinterpret_cast<const uint8_t*>(&big_endian_values[j]) + offset);
+    }
+  } else {
+    for (int64_t i = 0, buffer_idx = 0, j = 0; i < length; ++i) {
+      if (data.IsValid(i)) {
+        auto unsigned_64_bit = reinterpret_cast<const uint64_t*>(data.GetValue(i));
+        big_endian_values[j] = ::arrow::BitUtil::ToBigEndian(unsigned_64_bit[1]);
+        big_endian_values[j + 1] = ::arrow::BitUtil::ToBigEndian(unsigned_64_bit[0]);
+        buffer[buffer_idx++] = FixedLenByteArray(
+            reinterpret_cast<const uint8_t*>(&big_endian_values[j]) + offset);
+        j += 2;
+      }
+    }
+  }
+  PARQUET_CATCH_NOT_OK(writer->WriteBatch(num_levels, def_levels, rep_levels, buffer));
+  return Status::OK();
+}
+
+template <>
+Status TypedColumnWriterImpl<FLBAType>::WriteArrow(const int16_t* def_levels,
+                                                   const int16_t* rep_levels,
+                                                   int64_t num_levels,
+                                                   const ::arrow::Array& array,
+                                                   ArrowWriteContext* ctx) {
+  switch (array.type()->id()) {
+    WRITE_SERIALIZE_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryType, FLBAType)
+    WRITE_SERIALIZE_CASE(DECIMAL, Decimal128Type, FLBAType)
+    default:
+      break;
+  }
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------

@@ -44,6 +44,7 @@
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/test-util.h"
 #include "parquet/arrow/writer.h"
+#include "parquet/column_writer.h"
 #include "parquet/file_writer.h"
 #include "parquet/test-util.h"
 
@@ -459,7 +460,7 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const DataType& type,
         case ::arrow::Type::DECIMAL: {
           const auto& decimal_type =
               static_cast<const ::arrow::Decimal128Type&>(values_type);
-          byte_width = DecimalSize(decimal_type.precision());
+          byte_width = internal::DecimalSize(decimal_type.precision());
         } break;
         default:
           break;
@@ -470,7 +471,7 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const DataType& type,
       break;
     case ::arrow::Type::DECIMAL: {
       const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(type);
-      byte_width = DecimalSize(decimal_type.precision());
+      byte_width = internal::DecimalSize(decimal_type.precision());
     } break;
     default:
       break;

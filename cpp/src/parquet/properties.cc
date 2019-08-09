@@ -38,4 +38,15 @@ std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
   }
 }
 
+ArrowReaderProperties default_arrow_reader_properties() {
+  static ArrowReaderProperties default_reader_props;
+  return default_reader_props;
+}
+
+std::shared_ptr<ArrowWriterProperties> default_arrow_writer_properties() {
+  static std::shared_ptr<ArrowWriterProperties> default_writer_properties =
+      ArrowWriterProperties::Builder().build();
+  return default_writer_properties;
+}
+
 }  // namespace parquet

@@ -18,11 +18,8 @@
 #ifndef PARQUET_ARROW_SCHEMA_H
 #define PARQUET_ARROW_SCHEMA_H
 
-#include <cstdint>
 #include <memory>
-#include <vector>
 
-#include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 
@@ -35,11 +32,10 @@ class Schema;
 
 namespace parquet {
 
+class ArrowWriterProperties;
 class WriterProperties;
 
 namespace arrow {
-
-class ArrowWriterProperties;
 
 PARQUET_EXPORT
 ::arrow::Status FieldToNode(const std::shared_ptr<::arrow::Field>& field,
@@ -58,11 +54,7 @@ PARQUET_EXPORT
                                 const WriterProperties& properties,
                                 std::shared_ptr<SchemaDescriptor>* out);
 
-PARQUET_EXPORT
-int32_t DecimalSize(int32_t precision);
-
 }  // namespace arrow
-
 }  // namespace parquet
 
 #endif  // PARQUET_ARROW_SCHEMA_H

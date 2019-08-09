@@ -17,17 +17,19 @@
 
 #pragma once
 
+#include <cstdint>
 #include <deque>
+#include <functional>
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
-
-#include "arrow/status.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/file_reader.h"
 #include "parquet/metadata.h"
+#include "parquet/platform.h"
 #include "parquet/schema.h"
 
 namespace arrow {
@@ -36,8 +38,6 @@ class Array;
 class ChunkedArray;
 class DataType;
 class Field;
-class MemoryPool;
-class Schema;
 
 }  // namespace arrow
 
@@ -45,17 +45,10 @@ using arrow::Status;
 
 namespace parquet {
 
-class ColumnDescriptor;
-
-namespace internal {
-
-class RecordReader;
-
-}  // namespace internal
+class ArrowReaderProperties;
 
 namespace arrow {
 
-class ArrowReaderProperties;
 class ColumnReaderImpl;
 
 // ----------------------------------------------------------------------
