@@ -33,10 +33,8 @@ import org.apache.arrow.vector.complex.writer.TimeMilliWriter;
 public class TimeConsumer implements JdbcConsumer {
 
   private final TimeMilliWriter writer;
-  private final int index;
+  private final int columnIndexInResultSet;
   private final Calendar calendar;
-
-  private Time reuse;
 
   /**
    * Instantiate a TimeConsumer.
@@ -50,15 +48,16 @@ public class TimeConsumer implements JdbcConsumer {
    */
   public TimeConsumer(TimeMilliVector vector, int index, Calendar calendar) {
     this.writer = new TimeMilliWriterImpl(vector);
-    this.index = index;
+    this.columnIndexInResultSet = index;
     this.calendar = calendar;
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
-    reuse = calendar == null ? resultSet.getTime(index) : resultSet.getTime(index, calendar);
+    Time time = calendar == null ? resultSet.getTime(columnIndexInResultSet) :
+        resultSet.getTime(columnIndexInResultSet, calendar);
     if (!resultSet.wasNull()) {
-      writer.writeTimeMilli((int) reuse.getTime());
+      writer.writeTimeMilli((int) time.getTime());
     }
     writer.setPosition(writer.getPosition() + 1);
   }

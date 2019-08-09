@@ -33,10 +33,8 @@ import org.apache.arrow.vector.complex.writer.TimeStampMilliTZWriter;
 public class TimestampConsumer implements JdbcConsumer {
 
   private final TimeStampMilliTZWriter writer;
-  private final int index;
+  private final int columnIndexInResultSet;
   private final Calendar calendar;
-
-  private Timestamp reuse;
 
   /**
    * Instantiate a TimestampConsumer.
@@ -50,15 +48,16 @@ public class TimestampConsumer implements JdbcConsumer {
    */
   public TimestampConsumer(TimeStampMilliTZVector vector, int index, Calendar calendar) {
     this.writer = new TimeStampMilliTZWriterImpl(vector);
-    this.index = index;
+    this.columnIndexInResultSet = index;
     this.calendar = calendar;
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
-    reuse = calendar == null ? resultSet.getTimestamp(index) : resultSet.getTimestamp(index, calendar);
+    Timestamp timestamp = calendar == null ? resultSet.getTimestamp(columnIndexInResultSet) :
+        resultSet.getTimestamp(columnIndexInResultSet, calendar);
     if (!resultSet.wasNull()) {
-      writer.writeTimeStampMilliTZ(reuse.getTime());
+      writer.writeTimeStampMilliTZ(timestamp.getTime());
     }
     writer.setPosition(writer.getPosition() + 1);
   }

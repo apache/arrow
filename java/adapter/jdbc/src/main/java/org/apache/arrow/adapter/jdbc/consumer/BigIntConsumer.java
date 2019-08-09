@@ -31,23 +31,21 @@ import org.apache.arrow.vector.complex.writer.BigIntWriter;
 public class BigIntConsumer implements JdbcConsumer {
 
   private final BigIntWriter writer;
-  private final int index;
-
-  private long reuse;
+  private final int columnIndexInResultSet;
 
   /**
    * Instantiate a BigIntConsumer.
    */
   public BigIntConsumer(BigIntVector vector, int index) {
     this.writer = new BigIntWriterImpl(vector);
-    this.index = index;
+    this.columnIndexInResultSet = index;
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
-    reuse = resultSet.getLong(index);
+    long value = resultSet.getLong(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      writer.writeBigInt(reuse);
+      writer.writeBigInt(value);
     }
     writer.setPosition(writer.getPosition() + 1);
   }

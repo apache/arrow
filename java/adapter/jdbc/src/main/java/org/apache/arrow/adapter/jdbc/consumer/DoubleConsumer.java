@@ -31,23 +31,21 @@ import org.apache.arrow.vector.complex.writer.Float8Writer;
 public class DoubleConsumer implements JdbcConsumer {
 
   private final Float8Writer writer;
-  private final int index;
-
-  private double reuse;
+  private final int columnIndexInResultSet;
 
   /**
    * Instantiate a DoubleConsumer.
    */
   public DoubleConsumer(Float8Vector vector, int index) {
     this.writer = new Float8WriterImpl(vector);
-    this.index = index;
+    this.columnIndexInResultSet = index;
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
-    reuse = resultSet.getDouble(index);
+    double value = resultSet.getDouble(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      writer.writeFloat8(reuse);
+      writer.writeFloat8(value);
     }
     writer.setPosition(writer.getPosition() + 1);
   }

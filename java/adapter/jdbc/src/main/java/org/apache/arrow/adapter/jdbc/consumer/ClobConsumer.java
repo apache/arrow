@@ -38,7 +38,7 @@ public class ClobConsumer implements JdbcConsumer {
   private static final int BUFFER_SIZE = 256;
 
   private final VarCharWriter writer;
-  private final int index;
+  private final int columnIndexInResultSet;
   private BufferAllocator allocator;
 
   private ArrowBuf reuse;
@@ -48,7 +48,7 @@ public class ClobConsumer implements JdbcConsumer {
    */
   public ClobConsumer(VarCharVector vector, int index) {
     this.writer = new VarCharWriterImpl(vector);
-    this.index = index;
+    this.columnIndexInResultSet = index;
 
     this.allocator = vector.getAllocator();
     reuse = allocator.buffer(1024);
@@ -56,7 +56,7 @@ public class ClobConsumer implements JdbcConsumer {
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
-    Clob clob = resultSet.getClob(index);
+    Clob clob = resultSet.getClob(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
       if (clob != null) {
         long length = clob.length();
@@ -79,5 +79,12 @@ public class ClobConsumer implements JdbcConsumer {
       }
     }
     writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void close() {
+    if (reuse != null) {
+      reuse.close();
+    }
   }
 }

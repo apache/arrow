@@ -31,4 +31,9 @@ public interface JdbcConsumer {
    */
   void consume(ResultSet resultSet) throws SQLException, IOException;
 
+  /**
+   * Close this consumer, do some clean work such as clear reuse ArrowBuf.
+   */
+  default void close() {}
+
 }

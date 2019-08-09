@@ -31,23 +31,21 @@ import org.apache.arrow.vector.complex.writer.BitWriter;
 public class BitConsumer implements JdbcConsumer {
 
   private final BitWriter writer;
-  private final int index;
-
-  private boolean reuse;
+  private final int columnIndexInResultSet;
 
   /**
    * Instantiate a BitConsumer.
    */
   public BitConsumer(BitVector vector, int index) {
     this.writer = new BitWriterImpl(vector);
-    this.index = index;
+    this.columnIndexInResultSet = index;
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
-    reuse = resultSet.getBoolean(index);
+    boolean value = resultSet.getBoolean(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      writer.writeBit(reuse ? 1 : 0);
+      writer.writeBit(value ? 1 : 0);
     }
     writer.setPosition(writer.getPosition() + 1);
   }

@@ -31,23 +31,21 @@ import org.apache.arrow.vector.complex.writer.SmallIntWriter;
 public class SmallIntConsumer implements JdbcConsumer {
 
   private final SmallIntWriter writer;
-  private final int index;
-
-  private short reuse;
+  private final int columnIndexInResultSet;
 
   /**
    * Instantiate a SmallIntConsumer.
    */
   public SmallIntConsumer(SmallIntVector vector, int index) {
     this.writer = new SmallIntWriterImpl(vector);
-    this.index = index;
+    this.columnIndexInResultSet = index;
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
-    reuse = resultSet.getShort(index);
+    short value = resultSet.getShort(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      writer.writeSmallInt(reuse);
+      writer.writeSmallInt(value);
     }
     writer.setPosition(writer.getPosition() + 1);
   }

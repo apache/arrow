@@ -32,23 +32,21 @@ import org.apache.arrow.vector.complex.writer.DecimalWriter;
 public class DecimalConsumer implements JdbcConsumer {
 
   private final DecimalWriter writer;
-  private final int index;
-
-  private BigDecimal reuse;
+  private final int columnIndexInResultSet;
 
   /**
    * Instantiate a DecimalConsumer.
    */
   public DecimalConsumer(DecimalVector vector, int index) {
     this.writer = new DecimalWriterImpl(vector);
-    this.index = index;
+    this.columnIndexInResultSet = index;
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
-    reuse = resultSet.getBigDecimal(index);
+    BigDecimal value = resultSet.getBigDecimal(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      writer.writeDecimal(reuse);
+      writer.writeDecimal(value);
     }
     writer.setPosition(writer.getPosition() + 1);
   }

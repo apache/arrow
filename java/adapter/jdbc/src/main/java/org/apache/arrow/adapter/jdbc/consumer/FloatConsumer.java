@@ -31,23 +31,21 @@ import org.apache.arrow.vector.complex.writer.Float4Writer;
 public class FloatConsumer implements JdbcConsumer {
 
   private final Float4Writer writer;
-  private final int index;
-
-  private float reuse;
+  private final int columnIndexInResultSet;
 
   /**
    * Instantiate a FloatConsumer.
    */
   public FloatConsumer(Float4Vector vector, int index) {
     this.writer = new Float4WriterImpl(vector);
-    this.index = index;
+    this.columnIndexInResultSet = index;
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
-    reuse = resultSet.getFloat(index);
+    float value = resultSet.getFloat(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      writer.writeFloat4(reuse);
+      writer.writeFloat4(value);
     }
     writer.setPosition(writer.getPosition() + 1);
   }

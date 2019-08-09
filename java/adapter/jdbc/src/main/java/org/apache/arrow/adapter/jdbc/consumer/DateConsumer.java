@@ -33,10 +33,8 @@ import org.apache.arrow.vector.complex.writer.DateMilliWriter;
 public class DateConsumer implements JdbcConsumer {
 
   private final DateMilliWriter writer;
-  private final int index;
+  private final int columnIndexInResultSet;
   private final Calendar calendar;
-
-  private Date reuse;
 
   /**
    * Instantiate a DateConsumer.
@@ -50,15 +48,16 @@ public class DateConsumer implements JdbcConsumer {
    */
   public DateConsumer(DateMilliVector vector, int index, Calendar calendar) {
     this.writer = new DateMilliWriterImpl(vector);
-    this.index = index;
+    this.columnIndexInResultSet = index;
     this.calendar = calendar;
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
-    reuse = calendar == null ? resultSet.getDate(index) : resultSet.getDate(index, calendar);
+    Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
+        resultSet.getDate(columnIndexInResultSet, calendar);
     if (!resultSet.wasNull()) {
-      writer.writeDateMilli(reuse.getTime());
+      writer.writeDateMilli(date.getTime());
     }
     writer.setPosition(writer.getPosition() + 1);
   }

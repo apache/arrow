@@ -35,7 +35,7 @@ import io.netty.buffer.ArrowBuf;
 public class VarCharConsumer implements JdbcConsumer {
 
   private final VarCharWriter writer;
-  private final int index;
+  private final int columnIndexInResultSet;
   private BufferAllocator allocator;
 
   private ArrowBuf reuse;
@@ -45,13 +45,13 @@ public class VarCharConsumer implements JdbcConsumer {
    */
   public VarCharConsumer(VarCharVector vector, int index) {
     this.writer = new VarCharWriterImpl(vector);
-    this.index = index;
+    this.columnIndexInResultSet = index;
     this.allocator = vector.getAllocator();
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
-    String value = resultSet.getString(index);
+    String value = resultSet.getString(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
       byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
       if (reuse == null) {
@@ -65,5 +65,12 @@ public class VarCharConsumer implements JdbcConsumer {
       writer.writeVarChar(0, bytes.length, reuse);
     }
     writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void close() {
+    if (reuse != null) {
+      reuse.close();
+    }
   }
 }

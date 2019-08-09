@@ -367,6 +367,11 @@ public class JdbcToArrowUtils {
       rowCount++;
     }
     root.setRowCount(rowCount);
+
+    // clean up
+    for (JdbcConsumer consumer : consumers) {
+      consumer.close();
+    }
   }
 
   private static JdbcConsumer getConsumer(ResultSet resultSet, int columnIndex, int jdbcColType,

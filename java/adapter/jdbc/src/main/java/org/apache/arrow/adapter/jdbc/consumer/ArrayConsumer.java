@@ -32,7 +32,7 @@ import org.apache.arrow.vector.complex.ListVector;
 public class ArrayConsumer implements JdbcConsumer {
 
   private final JdbcConsumer delegate;
-  private final int index;
+  private final int columnIndexInResultSet;
 
   private ListVector vector;
 
@@ -40,14 +40,14 @@ public class ArrayConsumer implements JdbcConsumer {
    * Instantiate a ArrayConsumer.
    */
   public ArrayConsumer(ListVector vector, JdbcConsumer delegate, int index) {
-    this.index = index;
+    this.columnIndexInResultSet = index;
     this.delegate = delegate;
     this.vector = vector;
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException, IOException {
-    final Array array = resultSet.getArray(index);
+    final Array array = resultSet.getArray(columnIndexInResultSet);
     int idx = vector.getValueCount();
     if (!resultSet.wasNull()) {
 

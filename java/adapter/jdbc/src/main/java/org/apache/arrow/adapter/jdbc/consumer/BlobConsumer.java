@@ -30,7 +30,7 @@ import org.apache.arrow.vector.VarBinaryVector;
  */
 public class BlobConsumer implements JdbcConsumer {
 
-  private final int index;
+  private final int columnIndexInResultSet;
 
   private final BinaryConsumer delegate;
 
@@ -38,16 +38,21 @@ public class BlobConsumer implements JdbcConsumer {
    * Instantiate a BlobConsumer.
    */
   public BlobConsumer(BinaryConsumer delegate, int index) {
-    this.index = index;
+    this.columnIndexInResultSet = index;
     this.delegate = delegate;
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException, IOException {
-    Blob blob = resultSet.getBlob(index);
+    Blob blob = resultSet.getBlob(columnIndexInResultSet);
     if (blob != null) {
       delegate.consume(blob.getBinaryStream());
     }
     delegate.moveWriterPosition();
+  }
+
+  @Override
+  public void close() {
+    delegate.close();
   }
 }

@@ -38,7 +38,7 @@ public class BinaryConsumer implements JdbcConsumer {
   private static final int BUFFER_SIZE = 1024;
 
   private final VarBinaryWriter writer;
-  private final int index;
+  private final int columnIndexInResultSet;
   private BufferAllocator allocator;
 
   private ArrowBuf reuse;
@@ -49,7 +49,7 @@ public class BinaryConsumer implements JdbcConsumer {
    */
   public BinaryConsumer(VarBinaryVector vector, int index) {
     this.writer = new VarBinaryWriterImpl(vector);
-    this.index = index;
+    this.columnIndexInResultSet = index;
 
     this.allocator = vector.getAllocator();
     reuse = allocator.buffer(BUFFER_SIZE);
@@ -79,7 +79,7 @@ public class BinaryConsumer implements JdbcConsumer {
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException, IOException {
-    InputStream is = resultSet.getBinaryStream(index);
+    InputStream is = resultSet.getBinaryStream(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
       consume(is);
     }
@@ -88,5 +88,12 @@ public class BinaryConsumer implements JdbcConsumer {
 
   public void moveWriterPosition() {
     writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void close() {
+    if (reuse != null) {
+      reuse.close();
+    }
   }
 }
