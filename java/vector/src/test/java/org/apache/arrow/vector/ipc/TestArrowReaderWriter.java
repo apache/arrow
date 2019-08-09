@@ -203,7 +203,7 @@ public class TestArrowReaderWriter {
   }
 
   @Test
-  public void testEmptyStream1() throws IOException {
+  public void testEmptyStreamInFileIPC() throws IOException {
 
     DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
     provider.put(dictionary);
@@ -241,7 +241,7 @@ public class TestArrowReaderWriter {
   }
 
   @Test
-  public void testEmptyStream2() throws IOException {
+  public void testEmptyStreamInStreamingIPC() throws IOException {
 
     DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
     provider.put(dictionary);

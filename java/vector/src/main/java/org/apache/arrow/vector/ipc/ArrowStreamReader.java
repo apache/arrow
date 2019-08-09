@@ -183,11 +183,11 @@ public class ArrowStreamReader extends ArrowReader {
         if (i == 0) {
           initialized = true;
           if (loadNextBatch()) {
-            throw new IOException("DictionaryBatch is missing.");
+            throw new IOException("DictionaryBatch is missing at index:" + i);
           }
           break;
         } else {
-          throw new IOException("Unexpected end of input. Expected DictionaryBatch");
+          throw new IOException("Unexpected end of input. Expected DictionaryBatch at index:" + i);
         }
       }
       loadDictionary(dictionaryBatch);
