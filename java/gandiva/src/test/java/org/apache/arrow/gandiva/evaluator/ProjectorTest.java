@@ -1388,4 +1388,84 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     assertTrue(caughtException);
   }
+
+  @Test
+  public void testCastTimestampToString() throws Exception {
+    ArrowType timeStamp = new ArrowType.Timestamp(TimeUnit.MILLISECOND, "TZ");
+
+    Field tsField = Field.nullable("timestamp", timeStamp);
+    Field lenField = Field.nullable("outLength", int64);
+
+    TreeNode tsNode = TreeBuilder.makeField(tsField);
+    TreeNode lenNode = TreeBuilder.makeField(lenField);
+
+    TreeNode tsToString = TreeBuilder.makeFunction("castVARCHAR", Lists.newArrayList(tsNode, lenNode),
+        new ArrowType.Utf8());
+
+    Field resultField = Field.nullable("result", new ArrowType.Utf8());
+    List<ExpressionTree> exprs =
+        Lists.newArrayList(
+            TreeBuilder.makeExpression(tsToString, resultField));
+
+    Schema schema = new Schema(Lists.newArrayList(tsField, lenField));
+    Projector eval = Projector.make(schema, exprs);
+
+    int numRows = 5;
+    byte[] validity = new byte[] {(byte) 255};
+    String[] values =
+        new String[] {
+            "0007-01-01T01:00:00Z",
+            "2007-03-05T03:40:00Z",
+            "2008-05-31T13:55:00Z",
+            "2000-06-30T23:20:00Z",
+            "2000-07-10T20:30:00Z",
+        };
+    long[] lenValues =
+        new long[] {
+            23L, 24L, 22L, 0L, 4L
+        };
+
+    String[] expValues =
+        new String[] {
+            "0007-01-01 01:00:00.000",
+            "2007-03-05 03:40:00.000",
+            "2008-05-31 13:55:00.00",
+            "",
+            "2000",
+        };
+
+    ArrowBuf bufValidity = buf(validity);
+    ArrowBuf millisData = stringToMillis(values);
+    ArrowBuf lenValidity = buf(validity);
+    ArrowBuf lenData = longBuf(lenValues);
+
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+    ArrowRecordBatch batch =
+        new ArrowRecordBatch(
+            numRows,
+            Lists.newArrayList(fieldNode, fieldNode),
+            Lists.newArrayList(bufValidity, millisData, lenValidity, lenData));
+
+    List<ValueVector> output = new ArrayList<>();
+    for (int i = 0; i < exprs.size(); i++) {
+      VarCharVector charVector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator);
+
+      charVector.allocateNew(numRows * 23, numRows);
+      output.add(charVector);
+    }
+    eval.evaluate(batch, output);
+    eval.close();
+
+    for (ValueVector valueVector : output) {
+      VarCharVector charVector = (VarCharVector) valueVector;
+
+      for (int j = 0; j < numRows; j++) {
+        assertFalse(charVector.isNull(j));
+        assertEquals(expValues[j], new String(charVector.get(j)));
+      }
+    }
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+  }
 }

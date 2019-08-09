@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <iomanip>
+#include <sstream>
 #include "./epoch_time_point.h"
 
 extern "C" {
@@ -689,19 +691,42 @@ timestamp castTIMESTAMP_utf8(int64_t context, const char* input, int32 length) {
 
 timestamp castTIMESTAMP_date64(date64 date_in_millis) { return date_in_millis; }
 
-char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 length,
-                                  int32* out_len) {
-  std::string timestamp_str = std::to_string(in);
-  *out_len = static_cast<int32>(length);
+const char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 length,
+                                        int32* out_len) {
+  int64 year = extractYear_timestamp(in);
+  int64 month = extractMonth_timestamp(in);
+  int64 day = extractDay_timestamp(in);
+  int64 hour = extractHour_timestamp(in);
+  int64 minute = extractMinute_timestamp(in);
+  int64 second = extractSecond_timestamp(in);
+  int64 millis = in % MILLIS_IN_SEC;
+
+  // format to yyyy-MM-dd hh:mm:ss.sss
+  std::stringstream s;
+  s << std::setfill('0') << std::setw(4) << year << "-" << std::setw(2) << month << "-"
+    << std::setw(2) << day << " " << std::setw(2) << hour << ":" << std::setw(2) << minute
+    << ":" << std::setw(2) << second << "." << std::setw(3) << millis;
+  std::string timestamp_str = s.str();
   int32 timestamp_str_len = static_cast<int32>(timestamp_str.length());
-  if (length > timestamp_str_len) {
+
+  *out_len = static_cast<int32>(length);
+  if (*out_len > timestamp_str_len) {
     *out_len = timestamp_str_len;
   }
+
+  if (*out_len <= 0) {
+    if (*out_len < 0) {
+      gdv_fn_context_set_error_msg(context, "Length of output string cannot be negative");
+    }
+    *out_len = 0;
+    return "";
+  }
+
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
-    return nullptr;
+    return "";
   }
   memcpy(ret, timestamp_str.data(), *out_len);
   return ret;

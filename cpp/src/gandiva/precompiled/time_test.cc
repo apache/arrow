@@ -636,4 +636,23 @@ TEST(TestTime, TestMonthsBetween) {
   }
 }
 
+TEST(TestTime, castVarcharTimestamp) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+  int32 out_len;
+  timestamp ts = StringToTimestamp("2000-05-01 10:20:34");
+  const char* out = castVARCHAR_timestamp_int64(context_ptr, ts, 30L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2000-05-01 10:20:34.000");
+
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 19L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2000-05-01 10:20:34");
+
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 0L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+
+  ts = StringToTimestamp("2-05-01 0:0:4");
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "0002-05-01 00:00:04.000");
+}
+
 }  // namespace gandiva
