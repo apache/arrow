@@ -1344,12 +1344,31 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrow(const int16_t* def_level
                                                         int64_t num_levels,
                                                         const ::arrow::Array& array,
                                                         ArrowWriteContext* ctx) {
-  switch (array.type()->id()) {
-    WRITE_SERIALIZE_CASE(BINARY, BinaryType, ByteArrayType)
-    WRITE_SERIALIZE_CASE(STRING, BinaryType, ByteArrayType)
-    default:
-      ARROW_UNSUPPORTED();
+  if (array.type()->id() != ::arrow::Type::BINARY &&
+      array.type()->id() != ::arrow::Type::STRING) {
+    ARROW_UNSUPPORTED();
   }
+  const auto& data = checked_cast<::arrow::BinaryArray&>(array);
+
+  // Like WriteBatch, but for spaced values
+  int64_t value_offset = 0;
+  auto WriteBatch = [&](int64_t offset, int64_t batch_size) {
+    int64_t batch_num_values = 0;
+    int64_t batch_num_spaced_values = 0;
+    WriteLevelsSpaced(batch_size, def_levels + offset, rep_levels + offset,
+                      &batch_num_values, &batch_num_spaced_values);
+
+    dynamic_cast<ByteArrayEncoder*>(current_encoder_.get())
+        ->Put(*data.Slice(offset, batch_size));
+
+    // TODO(wesm): Update page statistics
+
+    CommitWriteAndCheckLimits(batch_size, batch_num_spaced_values);
+    value_offset += batch_num_spaced_values;
+  };
+  PARQUET_CATCH_NOT_OK(
+      DoInBatches(num_values, properties_->write_batch_size(), WriteBatch));
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------

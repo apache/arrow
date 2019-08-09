@@ -29,6 +29,7 @@
 namespace arrow {
 
 class ArrayBuilder;
+class BinaryArray;
 class BinaryDictionary32Builder;
 
 namespace internal {
@@ -105,6 +106,13 @@ class DictEncoder : virtual public TypedEncoder<DType> {
   virtual void WriteDict(uint8_t* buffer) = 0;
 
   virtual int num_entries() const = 0;
+
+  /// \brief EXPERIMENTAL: Append dictionary indices into the
+  /// encoder. It is assumed that the indices reference pre-existing
+  /// dictionary values
+  /// \param[in] indices the dictionary index values
+  /// \param[in] length the number of values being inserted
+  virtual void PutIndices(const int32_t* indices, int length) = 0;
 };
 
 // ----------------------------------------------------------------------
@@ -204,8 +212,22 @@ using Int64Encoder = TypedEncoder<Int64Type>;
 using Int96Encoder = TypedEncoder<Int96Type>;
 using FloatEncoder = TypedEncoder<FloatType>;
 using DoubleEncoder = TypedEncoder<DoubleType>;
-class ByteArrayEncoder : virtual public TypedEncoder<ByteArrayType> {};
+class ByteArrayEncoder : virtual public TypedEncoder<ByteArrayType> {
+ public:
+  using TypedEncoder<ByteArrayType>::Put;
+  virtual void Put(const ::arrow::BinaryArray& values) = 0;
+};
+
 class FLBAEncoder : virtual public TypedEncoder<FLBAType> {};
+
+class DictByteArrayEncoder : virtual public DictEncoder<ByteArrayType>,
+                             virtual public ByteArrayEncoder {
+ public:
+  /// \brief EXPERIMENTAL: Append dictionary into encoder, inserting
+  /// indices separately
+  /// \param[in] values the dictionary values
+  virtual void PutDictionary(const ::arrow::BinaryArray& values) = 0;
+};
 
 class BooleanDecoder : virtual public TypedDecoder<BooleanType> {
  public:

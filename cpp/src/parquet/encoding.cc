@@ -75,38 +75,29 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  public:
   using T = typename DType::c_type;
 
-  explicit PlainEncoder(const ColumnDescriptor* descr,
-                        ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+  explicit PlainEncoder(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
+      : EncoderImpl(descr, Encoding::PLAIN, pool) {
+    values_sink_ = CreateOutputStream(pool);
+  }
 
-  int64_t EstimatedDataEncodedSize() override;
-  std::shared_ptr<Buffer> FlushValues() override;
+  int64_t EstimatedDataEncodedSize() override {
+    int64_t position = -1;
+    PARQUET_THROW_NOT_OK(values_sink_->Tell(&position));
+    return position;
+  }
+
+  std::shared_ptr<Buffer> FlushValues() override {
+    std::shared_ptr<Buffer> buffer;
+    PARQUET_THROW_NOT_OK(values_sink_->Finish(&buffer));
+    values_sink_ = CreateOutputStream(this->pool_);
+    return buffer;
+  }
 
   void Put(const T* buffer, int num_values) override;
 
  protected:
   std::shared_ptr<::arrow::io::BufferOutputStream> values_sink_;
 };
-
-template <typename DType>
-PlainEncoder<DType>::PlainEncoder(const ColumnDescriptor* descr,
-                                  ::arrow::MemoryPool* pool)
-    : EncoderImpl(descr, Encoding::PLAIN, pool) {
-  values_sink_ = CreateOutputStream(pool);
-}
-template <typename DType>
-int64_t PlainEncoder<DType>::EstimatedDataEncodedSize() {
-  int64_t position = -1;
-  PARQUET_THROW_NOT_OK(values_sink_->Tell(&position));
-  return position;
-}
-
-template <typename DType>
-std::shared_ptr<Buffer> PlainEncoder<DType>::FlushValues() {
-  std::shared_ptr<Buffer> buffer;
-  PARQUET_THROW_NOT_OK(values_sink_->Finish(&buffer));
-  values_sink_ = CreateOutputStream(this->pool_);
-  return buffer;
-}
 
 template <typename DType>
 void PlainEncoder<DType>::Put(const T* buffer, int num_values) {
@@ -145,6 +136,9 @@ class PlainByteArrayEncoder : public PlainEncoder<ByteArrayType>,
  public:
   using BASE = PlainEncoder<ByteArrayType>;
   using BASE::PlainEncoder;
+  using BASE::Put;
+
+  void Put(const ::arrow::BinaryArray& values) override { return; }
 };
 
 class PlainFLBAEncoder : public PlainEncoder<FLBAType>, virtual public FLBAEncoder {
@@ -275,6 +269,9 @@ struct DictEncoderTraits<FLBAType> {
   using MemoTableType = ::arrow::internal::BinaryMemoTable;
 };
 
+// Initially 1024 elements
+static constexpr int32_t kInitialHashTableSize = 1 << 10;
+
 /// See the dictionary encoding section of https://github.com/Parquet/parquet-format.
 /// The encoding supports streaming encoding. Values are encoded as they are added while
 /// the dictionary is being constructed. At any time, the buffered values can be
@@ -287,9 +284,10 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
  public:
   typedef typename DType::c_type T;
 
-  explicit DictEncoderImpl(
-      const ColumnDescriptor* desc,
-      ::arrow::MemoryPool* allocator = ::arrow::default_memory_pool());
+  explicit DictEncoderImpl(const ColumnDescriptor* desc, ::arrow::MemoryPool* pool)
+      : EncoderImpl(desc, Encoding::PLAIN_DICTIONARY, pool),
+        dict_encoded_size_(0),
+        memo_table_(pool, kInitialHashTableSize) {}
 
   ~DictEncoderImpl() override { DCHECK(buffered_indices_.empty()); }
 
@@ -315,20 +313,56 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
   /// Returns a conservative estimate of the number of bytes needed to encode the buffered
   /// indices. Used to size the buffer passed to WriteIndices().
-  int64_t EstimatedDataEncodedSize() override;
+  int64_t EstimatedDataEncodedSize() override {
+    // Note: because of the way RleEncoder::CheckBufferFull() is called, we have to
+    // reserve
+    // an extra "RleEncoder::MinBufferSize" bytes. These extra bytes won't be used
+    // but not reserving them would cause the encoder to fail.
+    return 1 +
+           ::arrow::util::RleEncoder::MaxBufferSize(
+               bit_width(), static_cast<int>(buffered_indices_.size())) +
+           ::arrow::util::RleEncoder::MinBufferSize(bit_width());
+  }
 
   /// The minimum bit width required to encode the currently buffered indices.
-  int bit_width() const override;
+  int bit_width() const override {
+    if (ARROW_PREDICT_FALSE(num_entries() == 0)) return 0;
+    if (ARROW_PREDICT_FALSE(num_entries() == 1)) return 1;
+    return BitUtil::Log2(num_entries());
+  }
 
   /// Encode value. Note that this does not actually write any data, just
   /// buffers the value's index to be written later.
   inline void Put(const T& value);
-  void Put(const T* values, int num_values) override;
 
-  std::shared_ptr<Buffer> FlushValues() override;
+  void Put(const T* src, int num_values) override {
+    for (int32_t i = 0; i < num_values; i++) {
+      Put(src[i]);
+    }
+  }
 
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
-                 int64_t valid_bits_offset) override;
+                 int64_t valid_bits_offset) override {
+    ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
+                                                      num_values);
+    for (int32_t i = 0; i < num_values; i++) {
+      if (valid_bits_reader.IsSet()) {
+        Put(src[i]);
+      }
+      valid_bits_reader.Next();
+    }
+  }
+
+  void PutIndices(const int32_t* indices, int length) override { return; }
+
+  std::shared_ptr<Buffer> FlushValues() override {
+    std::shared_ptr<ResizableBuffer> buffer =
+        AllocateBuffer(this->pool_, EstimatedDataEncodedSize());
+    int result_size = WriteIndices(buffer->mutable_data(),
+                                   static_cast<int>(EstimatedDataEncodedSize()));
+    PARQUET_THROW_NOT_OK(buffer->Resize(result_size, false));
+    return std::move(buffer);
+  }
 
   /// Writes out the encoded dictionary to buffer. buffer must be preallocated to
   /// dict_encoded_size() bytes.
@@ -349,66 +383,6 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
   MemoTableType memo_table_;
 };
-
-// Initially 1024 elements
-static constexpr int32_t INITIAL_HASH_TABLE_SIZE = 1 << 10;
-
-template <typename DType>
-DictEncoderImpl<DType>::DictEncoderImpl(const ColumnDescriptor* desc,
-                                        ::arrow::MemoryPool* pool)
-    : EncoderImpl(desc, Encoding::PLAIN_DICTIONARY, pool),
-      dict_encoded_size_(0),
-      memo_table_(pool, INITIAL_HASH_TABLE_SIZE) {}
-
-template <typename DType>
-int64_t DictEncoderImpl<DType>::EstimatedDataEncodedSize() {
-  // Note: because of the way RleEncoder::CheckBufferFull() is called, we have to
-  // reserve
-  // an extra "RleEncoder::MinBufferSize" bytes. These extra bytes won't be used
-  // but not reserving them would cause the encoder to fail.
-  return 1 +
-         ::arrow::util::RleEncoder::MaxBufferSize(
-             bit_width(), static_cast<int>(buffered_indices_.size())) +
-         ::arrow::util::RleEncoder::MinBufferSize(bit_width());
-}
-
-template <typename DType>
-int DictEncoderImpl<DType>::bit_width() const {
-  if (ARROW_PREDICT_FALSE(num_entries() == 0)) return 0;
-  if (ARROW_PREDICT_FALSE(num_entries() == 1)) return 1;
-  return BitUtil::Log2(num_entries());
-}
-
-template <typename DType>
-std::shared_ptr<Buffer> DictEncoderImpl<DType>::FlushValues() {
-  std::shared_ptr<ResizableBuffer> buffer =
-      AllocateBuffer(this->pool_, EstimatedDataEncodedSize());
-  int result_size =
-      WriteIndices(buffer->mutable_data(), static_cast<int>(EstimatedDataEncodedSize()));
-  PARQUET_THROW_NOT_OK(buffer->Resize(result_size, false));
-  return std::move(buffer);
-}
-
-template <typename DType>
-void DictEncoderImpl<DType>::Put(const T* src, int num_values) {
-  for (int32_t i = 0; i < num_values; i++) {
-    Put(src[i]);
-  }
-}
-
-template <typename DType>
-void DictEncoderImpl<DType>::PutSpaced(const T* src, int num_values,
-                                       const uint8_t* valid_bits,
-                                       int64_t valid_bits_offset) {
-  ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
-                                                    num_values);
-  for (int32_t i = 0; i < num_values; i++) {
-    if (valid_bits_reader.IsSet()) {
-      Put(src[i]);
-    }
-    valid_bits_reader.Next();
-  }
-}
 
 template <typename DType>
 void DictEncoderImpl<DType>::WriteDict(uint8_t* buffer) {
@@ -479,11 +453,16 @@ inline void DictEncoderImpl<FLBAType>::Put(const FixedLenByteArray& v) {
   buffered_indices_.push_back(memo_index);
 }
 
-class DictByteArrayEncoder : public DictEncoderImpl<ByteArrayType>,
-                             virtual public ByteArrayEncoder {
+class DictByteArrayEncoderImpl : public DictEncoderImpl<ByteArrayType>,
+                                 virtual public DictByteArrayEncoder {
  public:
   using BASE = DictEncoderImpl<ByteArrayType>;
   using BASE::DictEncoderImpl;
+  using BASE::Put;
+
+  void Put(const ::arrow::BinaryArray& values) override { return; }
+
+  void PutDictionary(const ::arrow::BinaryArray& values) override { return; }
 };
 
 class DictFLBAEncoder : public DictEncoderImpl<FLBAType>, virtual public FLBAEncoder {
@@ -511,7 +490,7 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
       case Type::DOUBLE:
         return std::unique_ptr<Encoder>(new DictEncoderImpl<DoubleType>(descr, pool));
       case Type::BYTE_ARRAY:
-        return std::unique_ptr<Encoder>(new DictByteArrayEncoder(descr, pool));
+        return std::unique_ptr<Encoder>(new DictByteArrayEncoderImpl(descr, pool));
       case Type::FIXED_LEN_BYTE_ARRAY:
         return std::unique_ptr<Encoder>(new DictFLBAEncoder(descr, pool));
       default:
