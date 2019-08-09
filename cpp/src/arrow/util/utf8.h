@@ -78,9 +78,7 @@ static inline uint16_t ValidateOneUTF8Byte(uint8_t byte, uint16_t state) {
   return utf8_large_table[state + byte];
 }
 
-#ifndef NDEBUG
 ARROW_EXPORT void CheckUTF8Initialized();
-#endif
 
 }  // namespace internal
 
