@@ -19,6 +19,7 @@ package org.apache.arrow.vector.types.pojo;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Collections2;
@@ -101,6 +102,18 @@ public class FieldType {
   public FieldVector createNewSingleVector(Field field, BufferAllocator allocator, CallBack schemaCallBack) {
     MinorType minorType = Types.getMinorTypeForArrowType(type);
     return minorType.getNewVector(field, allocator, schemaCallBack);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (!(obj instanceof FieldType)) {
+      return false;
+    }
+    Field that = (Field) obj;
+    return Objects.equals(this.isNullable(), that.isNullable()) &&
+        Objects.equals(this.getType(), that.getType()) &&
+        Objects.equals(this.getDictionary(), that.getDictionary()) &&
+        Objects.equals(this.getMetadata(), that.getMetadata());
   }
 
 }

@@ -16,9 +16,12 @@
  */
 
 import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.CallBack;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/UnionVector.java" />
@@ -79,13 +82,21 @@ public class UnionVector implements FieldVector {
   private final CallBack callBack;
   private int typeBufferAllocationSizeInBytes;
 
+  private final FieldType fieldType;
+
   private static final byte TYPE_WIDTH = 1;
   private static final FieldType INTERNAL_STRUCT_TYPE = new FieldType(false /*nullable*/,
       ArrowType.Struct.INSTANCE, null /*dictionary*/, null /*metadata*/);
 
+  @Deprecated
   public UnionVector(String name, BufferAllocator allocator, CallBack callBack) {
+    this(name, allocator, null, callBack);
+  }
+
+  public UnionVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     this.name = name;
     this.allocator = allocator;
+    this.fieldType = fieldType;
     this.internalStruct = new NonNullableStructVector("internal", allocator, INTERNAL_STRUCT_TYPE,
         callBack);
     this.typeBuffer = allocator.getEmpty();
@@ -341,7 +352,17 @@ public class UnionVector implements FieldVector {
       typeIds[childFields.size()] = v.getMinorType().ordinal();
       childFields.add(v.getField());
     }
-    return new Field(name, FieldType.nullable(new ArrowType.Union(Sparse, typeIds)), childFields);
+
+    FieldType fieldType;
+    if (this.fieldType == null) {
+      fieldType = FieldType.nullable(new ArrowType.Union(Sparse, typeIds));
+    } else {
+      final UnionMode mode = ((ArrowType.Union)this.fieldType.getType()).getMode();
+      fieldType = new FieldType(this.fieldType.isNullable(), new ArrowType.Union(mode, typeIds),
+          this.fieldType.getDictionary(), this.fieldType.getMetadata());
+    }
+
+    return new Field(name, fieldType, childFields);
   }
 
   @Override
