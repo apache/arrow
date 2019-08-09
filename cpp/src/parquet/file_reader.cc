@@ -18,6 +18,7 @@
 #include "parquet/file_reader.h"
 
 #include <algorithm>
+#include <limits>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -39,6 +40,8 @@
 #include "parquet/properties.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
+
+#include <time.h>
 
 namespace parquet {
 
@@ -92,6 +95,39 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   const ReaderProperties* properties() const override { return &properties_; }
 
+  void SkipPages(long int v) const {
+	
+  }
+
+  void DontSkipPages() const {
+
+  }
+ 
+  bool HasPageIndex(ColumnChunkMetaData* col){
+	
+    int64_t column_index_offset = col->column_index_offset();
+    int64_t offset_index_offset = col->offset_index_offset();
+    int64_t column_index_length = col->column_index_length();
+    int64_t offset_index_length = col->offset_index_length();
+
+    int64_t ci_start = std::numeric_limits<int64_t>::max();
+    int64_t oi_start = std::numeric_limits<int64_t>::max();
+    int64_t ci_end = -1;
+    int64_t oi_end = -1;
+ 
+    if (column_index_offset && column_index_length){
+       ci_start = std::min(ci_start, column_index_offset);
+       ci_end = std::max(ci_end, column_index_offset + column_index_length);
+    }
+    if (offset_index_offset && offset_index_length) {
+       oi_start = std::min(oi_start, offset_index_offset);
+       oi_end = std::max(oi_end, offset_index_offset + offset_index_length);
+    }
+ 
+    return oi_end != -1 && ci_end != -1; 
+
+  }
+
   std::unique_ptr<PageReader> GetColumnPageReader(int i) override {
     // Read column chunk from the file
     auto col = row_group_metadata_->ColumnChunk(i);
@@ -103,7 +139,15 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     }
 
     int64_t col_length = col->total_compressed_size();
-
+    
+    bool has_page_index = HasPageIndex((reinterpret_cast<ColumnChunkMetaData*>(col.get())));
+   
+    if (has_page_index) {
+	SkipPages();
+    }
+ 
+    DontSkipPages();	 
+   
     // PARQUET-816 workaround for old files created by older parquet-mr
     const ApplicationVersion& version = file_metadata_->writer_version();
     if (version.VersionLt(ApplicationVersion::PARQUET_816_FIXED_VERSION())) {

@@ -193,6 +193,22 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     return column_->meta_data.total_uncompressed_size;
   }
 
+  inline int64_t column_index_offset() const {
+    return column_->column_index_offset;
+  }
+
+  inline int64_t offset_index_offset() const {
+    return column_->offset_index_offset;
+  } 
+  
+  inline int64_t offset_index_length() const {
+    return column_->offset_index_length;
+  }
+
+  inline int64_t column_index_length() const {
+    return column_->column_index_length;
+  }
+  
  private:
   mutable std::shared_ptr<Statistics> possible_stats_;
   std::vector<Encoding::type> encodings_;
@@ -269,6 +285,23 @@ int64_t ColumnChunkMetaData::total_uncompressed_size() const {
 int64_t ColumnChunkMetaData::total_compressed_size() const {
   return impl_->total_compressed_size();
 }
+
+int64_t ColumnChunkMetaData::column_index_offset() const {
+  return impl_->column_index_offset();
+}
+
+int64_t ColumnChunkMetaData::offset_index_offset() const {
+  return impl_->offset_index_offset();
+}
+
+int64_t ColumnChunkMetaData::offset_index_length() const {
+  return impl_->offset_index_length();
+}
+
+int64_t ColumnChunkMetaData::column_index_length() const {
+  return impl_->column_index_length();
+}
+
 
 // row-group metadata
 class RowGroupMetaData::RowGroupMetaDataImpl {
