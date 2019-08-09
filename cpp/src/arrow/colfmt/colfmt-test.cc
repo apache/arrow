@@ -24,6 +24,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_traits.h"
 #include "arrow/colfmt/api.h"
+#include "arrow/colfmt/test-util.h"
 
 namespace arrow {
 namespace colfmt {
@@ -38,6 +39,26 @@ ArrayOf(const std::vector<c_type>& values) {
 
 class TestColumnarFormat : public ::testing::Test {
  protected:
+  // check that stitch(shred(array_in)) == array_in
+  void Roundtrip(const std::shared_ptr<Field>& schema,
+                 const std::shared_ptr<Array>& array_in) {
+
+    auto pool = default_memory_pool();
+
+    std::shared_ptr<Shredder> shredder = Shredder::Create(schema, pool).ValueOrDie();
+    ASSERT_OK(shredder->Shred(*array_in));
+    ColumnMap colmap = shredder->Finish().ValueOrDie();
+
+    std::shared_ptr<Stitcher> stitcher = Stitcher::Create(schema, pool).ValueOrDie();
+    ABORT_NOT_OK(stitcher->Stitch(colmap));
+    std::shared_ptr<arrow::Array> array_out = stitcher->Finish().ValueOrDie();
+
+    ASSERT_ARRAYS_EQUAL(*array_in, *array_out);
+  }
+
+  // check that:
+  //  - shred(array_in) == colmap_in
+  //  - stitch(shred(array_in)) == array_in
   void Roundtrip(const std::shared_ptr<Field>& schema,
                  const std::shared_ptr<Array>& array_in,
                  const ColumnMap& colmap_in) {
@@ -366,6 +387,11 @@ TEST_F(TestColumnarFormat, StitcherNotAllLevelsConsumed) {
   }
 }
 
+TEST_F(TestColumnarFormat, RandomDeeplyNestedList) {
+  DatasetGenerator gen(default_memory_pool(), 0);
+  Dataset ds = gen.GenerateNestedList(5, 10, 1000, 0.2);
+  Roundtrip(ds.schema(), ds.array());
+}
 
 }  // namespace colfmt
 }  // namespace arrow

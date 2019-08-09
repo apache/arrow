@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_arrow_test(api-test PREFIX "arrow-colfmt")
+add_arrow_test(colfmt-test PREFIX "arrow-colfmt")
+
+add_arrow_benchmark(colfmt-benchmark PREFIX "arrow-colfmt")
 
 arrow_install_all_headers("arrow/colfmt")
