@@ -56,6 +56,7 @@ public class AvroUnionsConsumer implements Consumer {
     Consumer delegate = indexDelegates[fieldIndex];
 
     vector.setType(position, types[fieldIndex]);
+    // in UnionVector we need to set sub vector writer position before consume a value.
     delegate.setPosition(position);
     delegate.consume(decoder);
 
