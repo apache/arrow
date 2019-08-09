@@ -15,9 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// From Apache Impala (incubating) as of 2016-01-29. Pared down to a minimal
-// set of functions needed for Apache Arrow / Apache parquet-cpp
-
 #ifndef ARROW_UTIL_CPU_INFO_H
 #define ARROW_UTIL_CPU_INFO_H
 
@@ -25,74 +22,49 @@
 #include <string>
 
 #include "arrow/util/visibility.h"
+#include <cpu_features/cpu_features_macros.h>
+#if defined(CPU_FEATURES_ARCH_X86)
+#include <cpu_features/cpuinfo_x86.h>
+#endif
 
 namespace arrow {
 namespace internal {
 
 /// CpuInfo is an interface to query for cpu information at runtime.  The caller can
-/// ask for the sizes of the caches and what hardware features are supported.
-/// On Linux, this information is pulled from a couple of sys files (/proc/cpuinfo and
-/// /sys/devices)
+/// query on hardware features support, i.e. is SSSE4. AVX2, etc.
+/// It is cross platform as Google's cpu_features library is used under the hood
 class ARROW_EXPORT CpuInfo {
  public:
-  static constexpr int64_t SSSE3 = (1 << 1);
-  static constexpr int64_t SSE4_1 = (1 << 2);
-  static constexpr int64_t SSE4_2 = (1 << 3);
-  static constexpr int64_t POPCNT = (1 << 4);
 
-  /// Cache enums for L1 (data), L2 and L3
-  enum CacheLevel {
-    L1_CACHE = 0,
-    L2_CACHE = 1,
-    L3_CACHE = 2,
-  };
-
-  static CpuInfo* GetInstance();
-
-  /// Determine if the CPU meets the minimum CPU requirements and if not, issue an error
-  /// and terminate.
-  void VerifyCpuRequirements();
-
-  /// Returns all the flags for this cpu
-  int64_t hardware_flags();
-
-  /// Returns whether of not the cpu supports this flag
-  bool IsSupported(int64_t flag) const { return (hardware_flags_ & flag) != 0; }
-
-  /// \brief The processor supports SSE4.2 and the Arrow libraries are built
-  /// with support for it
-  bool CanUseSSE4_2() const;
-
-  /// Toggle a hardware feature on and off.  It is not valid to turn on a feature
-  /// that the underlying hardware cannot support. This is useful for testing.
-  void EnableFeature(int64_t flag, bool enable);
-
-  /// Returns the size of the cache in KB at this cache level
-  int64_t CacheSize(CacheLevel level);
-
-  /// Returns the number of cpu cycles per millisecond
-  int64_t cycles_per_ms();
-
-  /// Returns the number of cores (including hyper-threaded) on this machine.
-  int num_cores();
+  /// CpuInfo is defined as a singletion without rigorious thread safety checks,
+  /// as CPUID is safe itself
+  static CpuInfo& GetInstance();
 
   /// Returns the model name of the cpu (e.g. Intel i7-2600)
-  std::string model_name();
+  std::string ModelName();
 
- private:
-  CpuInfo();
+  /// Checks for the existence of SSE 4.2 on x*6-64 compatible processors
+  bool CanUseSSE4_2() const;
 
-  void Init();
+  /// Checks for the existence of Suplemental SSE3 and halts if the feature is not available
+  void CheckMinCpuAndHalt();
+  
+  /// Returns the initialized feature type appropriate for the current arhcitecture
+#if defined(CPU_FEATURES_ARCH_X86)
+  const cpu_features::X86Features 
+#endif	  
+	  Features() const;
 
-  /// Inits CPU cache size variables with default values
-  void SetDefaultCacheSize();
+private : 
+  CpuInfo() = default;
+  ~CpuInfo() = default;
+  CpuInfo(const CpuInfo&) = delete;
+  CpuInfo& operator=(const CpuInfo&) = delete;
 
-  int64_t hardware_flags_;
-  int64_t original_hardware_flags_;
-  int64_t cache_sizes_[L3_CACHE + 1];
-  int64_t cycles_per_ms_;
-  int num_cores_;
-  std::string model_name_;
+private:
+#if defined(CPU_FEATURES_ARCH_X86)
+  static const cpu_features::X86Features features_;
+#endif
 };
 
 }  // namespace internal

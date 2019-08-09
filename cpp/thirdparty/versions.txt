@@ -49,6 +49,7 @@ THRIFT_MD5_CHECKSUM=3deebbb4d1ca77dd9c9e009a1ea02183
 URIPARSER_VERSION=0.9.2
 ZLIB_VERSION=1.2.11
 ZSTD_VERSION=v1.4.0
+CPU_FEATURES_VERSION=v0.4.1
 
 # The first field is the name of the environment variable expected by cmake.
 # This _must_ match what is defined. The second field is the name of the
