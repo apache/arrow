@@ -85,14 +85,14 @@ public class CompareUtility {
     int offsetWidth = BaseVariableWidthVector.OFFSET_WIDTH;
 
     if (!isNull) {
-      final int start1 = left.getOffsetBuffer().getInt(leftIndex * offsetWidth);
-      final int end1 = left.getOffsetBuffer().getInt((leftIndex + 1) * offsetWidth);
+      final int startByteLeft = left.getOffsetBuffer().getInt(leftIndex * offsetWidth);
+      final int endByteLeft = left.getOffsetBuffer().getInt((leftIndex + 1) * offsetWidth);
 
-      final int start2 = right.getOffsetBuffer().getInt(rightIndex * offsetWidth);
-      final int end2 = right.getOffsetBuffer().getInt((rightIndex + 1) * offsetWidth);
+      final int startByteRight = right.getOffsetBuffer().getInt(rightIndex * offsetWidth);
+      final int endByteRight = right.getOffsetBuffer().getInt((rightIndex + 1) * offsetWidth);
 
-      int ret = ByteFunctionHelpers.equal(left.getDataBuffer(), start1, end1,
-          right.getDataBuffer(), start2, end2);
+      int ret = ByteFunctionHelpers.equal(left.getDataBuffer(), startByteLeft, endByteLeft,
+          right.getDataBuffer(), startByteRight, endByteRight);
 
       if (ret == 0) {
         return false;
@@ -129,10 +129,10 @@ public class CompareUtility {
         return false;
       }
 
-      ValueVector dataVector1 = left.getDataVector();
-      ValueVector dataVector2 = right.getDataVector();
+      ValueVector leftDataVector = left.getDataVector();
+      ValueVector rightDataVector = right.getDataVector();
 
-      if (!dataVector1.accept(new RangeEqualsVisitor(dataVector2, startByteLeft,
+      if (!leftDataVector.accept(new RangeEqualsVisitor(rightDataVector, startByteLeft,
           startByteRight, (endByteLeft - startByteLeft)))) {
         return false;
       }
@@ -157,20 +157,21 @@ public class CompareUtility {
     int listSize = left.getListSize();
 
     if (!isNull) {
-      final int start1 = leftIndex * listSize;
-      final int end1 = (leftIndex + 1) * listSize;
+      final int startByteLeft = leftIndex * listSize;
+      final int endByteLeft = (leftIndex + 1) * listSize;
 
-      final int start2 = rightIndex * listSize;
-      final int end2 = (rightIndex + 1) * listSize;
+      final int startByteRight = rightIndex * listSize;
+      final int endByteRight = (rightIndex + 1) * listSize;
 
-      if ((end1 - start1) != (end2 - start2)) {
+      if ((endByteLeft - startByteLeft) != (endByteRight - startByteRight)) {
         return false;
       }
 
-      ValueVector dataVector1 = left.getDataVector();
-      ValueVector dataVector2 = right.getDataVector();
+      ValueVector leftDataVector = left.getDataVector();
+      ValueVector rightDataVector = right.getDataVector();
 
-      if (!dataVector1.accept(new RangeEqualsVisitor(dataVector2, start1, start2, (end1 - start1)))) {
+      if (!leftDataVector.accept(new RangeEqualsVisitor(rightDataVector, startByteLeft, startByteRight,
+          (endByteLeft - startByteLeft)))) {
         return false;
       }
     }
