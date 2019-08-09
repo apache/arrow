@@ -489,57 +489,6 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   }
 
   @Override
-  public boolean equals(int index, ValueVector to, int toIndex) {
-    if (to == null) {
-      return false;
-    }
-    if (!this.getField().getType().equals(to.getField().getType())) {
-      return false;
-    }
-    StructVector that = (StructVector) to;
-
-    boolean isNull = isNull(index);
-    if (isNull != that.isNull(toIndex)) {
-      return false;
-    }
-
-    if (!isNull) {
-      List<ValueVector> leftChildrens = new ArrayList<>();
-      List<ValueVector> rightChildrens = new ArrayList<>();
-
-      if (!getChildFieldNames().equals(that.getChildFieldNames())) {
-        return false;
-      }
-
-      for (String child : getChildFieldNames()) {
-        ValueVector v = getChild(child);
-        if (v != null) {
-          leftChildrens.add(v);
-        }
-      }
-
-      for (String child : that.getChildFieldNames()) {
-        ValueVector v = that.getChild(child);
-        if (v != null) {
-          rightChildrens.add(v);
-        }
-      }
-
-      if (leftChildrens.size() != rightChildrens.size()) {
-        return false;
-      }
-
-      for (int i = 0; i < leftChildrens.size(); i++) {
-        if (!leftChildrens.get(i).equals(index, rightChildrens.get(i), toIndex)) {
-          return false;
-        }
-      }
-    }
-
-    return true;
-  }
-
-  @Override
   public void get(int index, ComplexHolder holder) {
     holder.isSet = isSet(index);
     if (holder.isSet == 0) {

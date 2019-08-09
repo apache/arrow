@@ -22,6 +22,7 @@ import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -255,5 +256,10 @@ public abstract class ExtensionTypeVector<T extends BaseValueVector & FieldVecto
   @Override
   public BufferAllocator getAllocator() {
     return underlyingVector.getAllocator();
+  }
+
+  @Override
+  public boolean accept(RangeEqualsVisitor visitor) {
+    return visitor.visit(getUnderlyingVector());
   }
 }

@@ -2256,9 +2256,19 @@ public class TestValueVector {
   }
 
   @Test
+  public void testZeroVectorEquals() {
+    try (final ZeroVector vector1 = new ZeroVector();
+        final ZeroVector vector2 = new ZeroVector()) {
+
+      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
+      assertTrue(vector1.accept(visitor));
+    }
+  }
+
+  @Test
   public void testIntVectorEqualsWithNull() {
-    try (final IntVector vector1 = new IntVector("v1", allocator);
-        final IntVector vector2 = new IntVector("v2", allocator)) {
+    try (final IntVector vector1 = new IntVector("int", allocator);
+        final IntVector vector2 = new IntVector("int", allocator)) {
 
       vector1.allocateNew(2);
       vector1.setValueCount(2);
@@ -2277,8 +2287,8 @@ public class TestValueVector {
 
   @Test
   public void testIntVectorEquals() {
-    try (final IntVector vector1 = new IntVector("v1", allocator);
-        final IntVector vector2 = new IntVector("v2", allocator)) {
+    try (final IntVector vector1 = new IntVector("int", allocator);
+        final IntVector vector2 = new IntVector("int", allocator)) {
 
       vector1.allocateNew(3);
       vector1.setValueCount(3);
@@ -2307,9 +2317,9 @@ public class TestValueVector {
 
   @Test
   public void testDecimalVectorEquals() {
-    try (final DecimalVector vector1 = new DecimalVector("v1", allocator, 3, 3);
-        final DecimalVector vector2 = new DecimalVector("v2", allocator, 3, 3);
-        final DecimalVector vector3 = new DecimalVector("v3", allocator, 3, 2)) {
+    try (final DecimalVector vector1 = new DecimalVector("decimal", allocator, 3, 3);
+        final DecimalVector vector2 = new DecimalVector("decimal", allocator, 3, 3);
+        final DecimalVector vector3 = new DecimalVector("decimal", allocator, 3, 2)) {
 
       vector1.allocateNew(2);
       vector1.setValueCount(2);
@@ -2337,8 +2347,8 @@ public class TestValueVector {
 
   @Test
   public void testVarcharVectorEuqalsWithNull() {
-    try (final VarCharVector vector1 = new VarCharVector("v1", allocator);
-        final VarCharVector vector2 = new VarCharVector("v2", allocator)) {
+    try (final VarCharVector vector1 = new VarCharVector("varchar", allocator);
+        final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
 
       vector1.allocateNew();
       vector2.allocateNew();
@@ -2358,8 +2368,8 @@ public class TestValueVector {
 
   @Test
   public void testVarcharVectorEquals() {
-    try (final VarCharVector vector1 = new VarCharVector("v1", allocator);
-        final VarCharVector vector2 = new VarCharVector("v2", allocator)) {
+    try (final VarCharVector vector1 = new VarCharVector("varchar", allocator);
+        final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
 
       vector1.allocateNew();
       vector2.allocateNew();
@@ -2385,8 +2395,8 @@ public class TestValueVector {
 
   @Test
   public void testVarBinaryVectorEquals() {
-    try (final VarBinaryVector vector1 = new VarBinaryVector("v1", allocator);
-        final VarBinaryVector vector2 = new VarBinaryVector("v2", allocator)) {
+    try (final VarBinaryVector vector1 = new VarBinaryVector("binary", allocator);
+        final VarBinaryVector vector2 = new VarBinaryVector("binary", allocator)) {
 
       vector1.allocateNew();
       vector2.allocateNew();
@@ -2412,8 +2422,8 @@ public class TestValueVector {
 
   @Test
   public void testListVectorEqualsWithNull() {
-    try (final ListVector vector1 = ListVector.empty("v1", allocator);
-        final ListVector vector2 = ListVector.empty("v2", allocator);) {
+    try (final ListVector vector1 = ListVector.empty("list", allocator);
+        final ListVector vector2 = ListVector.empty("list", allocator);) {
 
       UnionListWriter writer1 = vector1.getWriter();
       writer1.allocate();
@@ -2440,8 +2450,8 @@ public class TestValueVector {
 
   @Test
   public void testListVectorEquals() {
-    try (final ListVector vector1 = ListVector.empty("v1", allocator);
-        final ListVector vector2 = ListVector.empty("v2", allocator);) {
+    try (final ListVector vector1 = ListVector.empty("list", allocator);
+        final ListVector vector2 = ListVector.empty("list", allocator);) {
 
       UnionListWriter writer1 = vector1.getWriter();
       writer1.allocate();
@@ -2473,8 +2483,8 @@ public class TestValueVector {
   @Test
   public void testStructVectorEqualsWithNull() {
 
-    try (final StructVector vector1 = StructVector.empty("v1", allocator);
-        final StructVector vector2 = StructVector.empty("v2", allocator);) {
+    try (final StructVector vector1 = StructVector.empty("struct", allocator);
+        final StructVector vector2 = StructVector.empty("struct", allocator);) {
       vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
       vector1.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
       vector2.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
@@ -2502,8 +2512,8 @@ public class TestValueVector {
 
   @Test
   public void testStructVectorEquals() {
-    try (final StructVector vector1 = StructVector.empty("v1", allocator);
-        final StructVector vector2 = StructVector.empty("v2", allocator);) {
+    try (final StructVector vector1 = StructVector.empty("struct", allocator);
+        final StructVector vector2 = StructVector.empty("struct", allocator);) {
       vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
       vector1.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
       vector2.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
@@ -2536,8 +2546,8 @@ public class TestValueVector {
 
   @Test
   public void testStructVectorEqualsWithDiffChild() {
-    try (final StructVector vector1 = StructVector.empty("v1", allocator);
-        final StructVector vector2 = StructVector.empty("v2", allocator);) {
+    try (final StructVector vector1 = StructVector.empty("struct", allocator);
+        final StructVector vector2 = StructVector.empty("struct", allocator);) {
       vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
       vector1.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
       vector2.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
@@ -2564,8 +2574,8 @@ public class TestValueVector {
 
   @Test
   public void testUnionVectorEquals() {
-    try (final UnionVector vector1 = new UnionVector("v1", allocator, null);
-        final UnionVector vector2 = new UnionVector("v2", allocator, null);) {
+    try (final UnionVector vector1 = new UnionVector("union", allocator, null);
+        final UnionVector vector2 = new UnionVector("union", allocator, null);) {
 
       final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
       uInt4Holder.value = 10;
@@ -2591,6 +2601,26 @@ public class TestValueVector {
 
       VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
       assertTrue(vector1.accept(visitor));
+    }
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testEqualsWithIndexOutOfRange() {
+    try (final IntVector vector1 = new IntVector("int", allocator);
+        final IntVector vector2 = new IntVector("int", allocator)) {
+
+      vector1.allocateNew(2);
+      vector1.setValueCount(2);
+      vector2.allocateNew(2);
+      vector2.setValueCount(2);
+
+      vector1.setSafe(0, 1);
+      vector1.setSafe(1, 2);
+
+      vector2.setSafe(0, 1);
+      vector2.setSafe(1, 2);
+
+      assertTrue(vector1.equals(3, vector2, 2));
     }
   }
 

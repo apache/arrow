@@ -37,6 +37,7 @@ import io.netty.buffer.ArrowBuf;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
+import org.apache.arrow.vector.compare.CompareUtility;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
@@ -670,6 +671,8 @@ public class UnionVector implements FieldVector {
       if (!this.getField().getType().equals(to.getField().getType())) {
         return false;
       }
+      CompareUtility.checkIndices(this, index, to, toIndex);
+
       UnionVector that = (UnionVector) to;
       ValueVector leftVector = getVector(index);
       ValueVector rightVector = that.getVector(toIndex);

@@ -29,6 +29,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.DensityAwareVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.compare.CompareUtility;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.complex.impl.SingleStructReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -312,39 +313,11 @@ public class NonNullableStructVector extends AbstractStructVector {
     if (!this.getField().getType().equals(to.getField().getType())) {
       return false;
     }
+    CompareUtility.checkIndices(this, index, to, toIndex);
+
     NonNullableStructVector that = (NonNullableStructVector) to;
 
-    List<ValueVector> leftChildrens = new ArrayList<>();
-    List<ValueVector> rightChildrens = new ArrayList<>();
-
-    if (!getChildFieldNames().equals(that.getChildFieldNames())) {
-      return false;
-    }
-
-    for (String child : getChildFieldNames()) {
-      ValueVector v = getChild(child);
-      if (v != null) {
-        leftChildrens.add(v);
-      }
-    }
-
-    for (String child : that.getChildFieldNames()) {
-      ValueVector v = that.getChild(child);
-      if (v != null) {
-        rightChildrens.add(v);
-      }
-    }
-
-    if (leftChildrens.size() != rightChildrens.size()) {
-      return false;
-    }
-
-    for (int i = 0; i < leftChildrens.size(); i++) {
-      if (!leftChildrens.get(i).equals(index, rightChildrens.get(i), toIndex)) {
-        return false;
-      }
-    }
-    return true;
+    return CompareUtility.compare(this, index, that, toIndex);
   }
 
   @Override

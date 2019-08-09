@@ -39,6 +39,7 @@ import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.compare.CompareUtility;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListReader;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -525,21 +526,11 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
       return false;
     }
 
+    CompareUtility.checkIndices(this, index, to, toIndex);
+
     FixedSizeListVector that = (FixedSizeListVector) to;
 
-    boolean isNull = isNull(index);
-    if (isNull != that.isNull(toIndex)) {
-      return false;
-    }
-
-    if (!isNull) {
-      for (int i = 0; i < listSize; i++) {
-        if (!vector.equals(index * listSize + i, that, toIndex * listSize + i)) {
-          return false;
-        }
-      }
-    }
-    return true;
+    return CompareUtility.compare(this, index, that, toIndex);
   }
 
   @Override

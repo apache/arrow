@@ -17,13 +17,7 @@
 
 package org.apache.arrow.vector.compare;
 
-import org.apache.arrow.vector.BaseFixedWidthVector;
-import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.complex.FixedSizeListVector;
-import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.NonNullableStructVector;
-import org.apache.arrow.vector.complex.UnionVector;
 
 /**
  * Visitor to compare vectors equal.
@@ -35,50 +29,10 @@ public class VectorEqualsVisitor extends RangeEqualsVisitor {
   }
 
   @Override
-  protected boolean compareBaseFixedWidthVectors(BaseFixedWidthVector left) {
-    if (left.getValueCount() != right.getValueCount()) {
-      return  false;
+  protected boolean compareValueVector(ValueVector left, ValueVector right) {
+    if (!left.getField().equals(right.getField())) {
+      return false;
     }
-    return super.compareBaseFixedWidthVectors(left);
-  }
-
-  @Override
-  protected boolean compareBaseVariableWidthVectors(BaseVariableWidthVector left) {
-    if (left.getValueCount() != right.getValueCount()) {
-      return  false;
-    }
-    return super.compareBaseVariableWidthVectors(left);
-  }
-
-  @Override
-  protected boolean compareListVectors(ListVector left) {
-    if (left.getValueCount() != right.getValueCount()) {
-      return  false;
-    }
-    return super.compareListVectors(left);
-  }
-
-  @Override
-  protected boolean compareFixedSizeListVectors(FixedSizeListVector left) {
-    if (left.getValueCount() != right.getValueCount()) {
-      return  false;
-    }
-    return super.compareFixedSizeListVectors(left);
-  }
-
-  @Override
-  protected boolean compareStructVectors(NonNullableStructVector left) {
-    if (left.getValueCount() != right.getValueCount()) {
-      return  false;
-    }
-    return super.compareStructVectors(left);
-  }
-
-  @Override
-  protected boolean compareUnionVectors(UnionVector left) {
-    if (left.getValueCount() != right.getValueCount()) {
-      return  false;
-    }
-    return super.compareUnionVectors(left);
+    return left.getValueCount() == right.getValueCount();
   }
 }
