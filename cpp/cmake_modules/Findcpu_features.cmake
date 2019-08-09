@@ -15,28 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-benchmark=1.4.1
-boost-cpp>=1.68.0
-brotli
-bzip2
-c-ares
-cmake
-cpu_features
-double-conversion
-flatbuffers
-gflags
-glog
-gmock>=1.8.1
-grpc-cpp>=1.21.4
-gtest>=1.8.1
-libprotobuf
-lz4-c
-ninja
-pkg-config
-python
-rapidjson
-snappy
-thrift-cpp>=0.11.0
-uriparser
-zlib
-zstd
+if(cpu_features_ROOT)
+  find_library(cpu_features_LIB
+               NAMES cpu_features
+               PATHS ${cpu_features_ROOT}
+               NO_DEFAULT_PATH
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+else()
+  find_library(cpu_features_LIB NAMES cpu_features)
+endif()
+
+find_package_handle_standard_args(cpu_features REQUIRED_VARS cpu_features_LIB
+                                  cpu_features_INCLUDE_DIR)
+
+if(cpu_features_FOUND)
+  add_library(cpu_features::cpu_features UNKNOWN IMPORTED)
+  set_target_properties(cpu_features::cpu_features
+                        PROPERTIES IMPORTED_LOCATION "${cpu_features_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${cpu_features_INCLUDE_DIR}")
+endif()
