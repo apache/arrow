@@ -18,6 +18,7 @@
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 
@@ -31,6 +32,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Assert;
@@ -242,16 +244,24 @@ public class TestFixedSizeListVector {
       UnionFixedSizeListWriter writer1 = vector1.getWriter();
       writer1.allocate();
 
+      int[] values1 = new int[] {1, 2, 3};
+      int[] values2 = new int[] {4, 5, 6};
+      int[] values3 = new int[] {7, 8, 9};
+
       //set some values
-      writeListVector(writer1, new int[] {1, 2, 3});
-      writeListVector(writer1, new int[] {4, 5, 6});
-      writeListVector(writer1, new int[] {7, 8, 9});
+      writeListVector(writer1, values1);
+      writeListVector(writer1, values2);
+      writeListVector(writer1, values3);
       writer1.setValueCount(3);
 
       assertEquals(3, vector1.getValueCount());
-      assertEquals("[1,2,3]", vector1.getObject(0).toString());
-      assertEquals("[4,5,6]", vector1.getObject(1).toString());
-      assertEquals("[7,8,9]", vector1.getObject(2).toString());
+
+      int[] realValue1 = convertListToIntArray((JsonStringArrayList) vector1.getObject(0));
+      assertTrue(Arrays.equals(values1, realValue1));
+      int[] realValue2 = convertListToIntArray((JsonStringArrayList) vector1.getObject(1));
+      assertTrue(Arrays.equals(values2, realValue2));
+      int[] realValue3 = convertListToIntArray((JsonStringArrayList) vector1.getObject(2));
+      assertTrue(Arrays.equals(values3, realValue3));
     }
   }
 
@@ -262,16 +272,28 @@ public class TestFixedSizeListVector {
       UnionFixedSizeListWriter writer1 = vector1.getWriter();
       writer1.allocate();
 
+      int[] values1 = new int[] {1, 2, 3};
+      int[] values2 = new int[] {4, 5, 6, 7, 8};
+
       //set some values
-      writeListVector(writer1, new int[] {1, 2, 3});
-      writeListVector(writer1, new int[] {4, 5, 6, 7, 8});
+      writeListVector(writer1, values1);
+      writeListVector(writer1, values2);
       writer1.setValueCount(3);
 
       assertEquals(3, vector1.getValueCount());
-      assertEquals("[1,2,3]", vector1.getObject(0).toString());
-      assertEquals("[4,5,6]", vector1.getObject(1).toString());
-      assertEquals("[7,8,9]", vector1.getObject(2).toString());
+      int[] realValue1 = convertListToIntArray((JsonStringArrayList) vector1.getObject(0));
+      assertTrue(Arrays.equals(values1, realValue1));
+      int[] realValue2 = convertListToIntArray((JsonStringArrayList) vector1.getObject(1));
+      assertTrue(Arrays.equals(values2, realValue2));
     }
+  }
+
+  private int[] convertListToIntArray(JsonStringArrayList list) {
+    int[] values = new int[list.size()];
+    for (int i = 0; i < list.size(); i++) {
+      values[i] = (int) list.get(i);
+    }
+    return values;
   }
 
   private void writeListVector(UnionFixedSizeListWriter writer, int[] values) throws Exception {
