@@ -177,6 +177,35 @@ class TypedComparatorImpl : public TypedComparator<DType> {
   int type_length_;
 };
 
+template <bool is_signed = true>
+class ByteArrayComparatorImpl : public TypedComparatorImpl<ByteArrayType, is_signed>,
+                                virtual public ByteArrayComparator {
+ public:
+  using BASE = TypedComparatorImpl<ByteArrayType>;
+  using BASE::BASE;
+  using BASE::GetMinMax;
+
+  void GetMinMax(const ::arrow::BinaryArray& values, ByteArray* out_min,
+                 ByteArray* out_max) override {
+    ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
+                                                      length);
+    T min = values[0];
+    T max = values[0];
+    for (int64_t i = 0; i < length; i++) {
+      if (valid_bits_reader.IsSet()) {
+        if (CompareInline(values[i], min)) {
+          min = values[i];
+        } else if (CompareInline(max, values[i])) {
+          max = values[i];
+        }
+      }
+      valid_bits_reader.Next();
+    }
+    *out_min = min;
+    *out_max = max;
+  }
+};
+
 std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
                                              SortOrder::type sort_order,
                                              int type_length) {
@@ -195,7 +224,7 @@ std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
       case Type::DOUBLE:
         return std::make_shared<TypedComparatorImpl<DoubleType>>();
       case Type::BYTE_ARRAY:
-        return std::make_shared<TypedComparatorImpl<ByteArrayType>>();
+        return std::make_shared<ByteArrayComparatorImpl>();
       case Type::FIXED_LEN_BYTE_ARRAY:
         return std::make_shared<TypedComparatorImpl<FLBAType>>(type_length);
       default:
@@ -210,7 +239,7 @@ std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
       case Type::INT96:
         return std::make_shared<TypedComparatorImpl<Int96Type, false>>();
       case Type::BYTE_ARRAY:
-        return std::make_shared<TypedComparatorImpl<ByteArrayType, false>>();
+        return std::make_shared<ByteArrayComparatorImpl<false>>();
       case Type::FIXED_LEN_BYTE_ARRAY:
         return std::make_shared<TypedComparatorImpl<FLBAType, false>>(type_length);
       default:

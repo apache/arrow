@@ -26,6 +26,12 @@
 #include "parquet/platform.h"
 #include "parquet/types.h"
 
+namespace arrow {
+
+class BinaryArray;
+
+}  // namespace arrow
+
 namespace parquet {
 
 class ColumnDescriptor;
@@ -98,6 +104,14 @@ class TypedComparator : public Comparator {
   /// \param[out] out_max the returned maximum element
   virtual void GetMinMaxSpaced(const T* values, int64_t length, const uint8_t* valid_bits,
                                int64_t valid_bits_offset, T* out_min, T* out_max) = 0;
+};
+
+class ByteArrayComparator : public TypedComparator<ByteArrayType> {
+ public:
+  using TypedComparator<ByteArrayType>::GetMinMax;
+
+  virtual void GetMinMax(const ::arrow::BinaryArray& values,
+                         ByteArray* out_min, ByteArray* out_max) = 0;
 };
 
 // ----------------------------------------------------------------------
@@ -289,24 +303,26 @@ class TypedStatistics : public Statistics {
 
   /// \brief Batch statistics update with supplied validity bitmap
   virtual void UpdateSpaced(const T* values, const uint8_t* valid_bits,
-                            int64_t valid_bits_spaced, int64_t num_not_null,
+                            int64_t valid_bits_offset, int64_t num_not_null,
                             int64_t num_null) = 0;
 
   /// \brief Set min and max values to particular values
   virtual void SetMinMax(const T& min, const T& max) = 0;
 };
 
-#ifndef ARROW_NO_DEPRECATED_API
-// TODO(wesm): Remove after Arrow 0.14.0
-using RowGroupStatistics = Statistics;
-#endif
-
 using BoolStatistics = TypedStatistics<BooleanType>;
 using Int32Statistics = TypedStatistics<Int32Type>;
 using Int64Statistics = TypedStatistics<Int64Type>;
 using FloatStatistics = TypedStatistics<FloatType>;
 using DoubleStatistics = TypedStatistics<DoubleType>;
-using ByteArrayStatistics = TypedStatistics<ByteArrayType>;
+
+class ByteArrayStatistics : public TypedStatistics<ByteArrayType> {
+ public:
+  using TypedStatistics<ByteArrayType>::Update;
+
+  virtual void Update(const ::arrow::BinaryArray& values) = 0;
+};
+
 using FLBAStatistics = TypedStatistics<FLBAType>;
 
 }  // namespace parquet
