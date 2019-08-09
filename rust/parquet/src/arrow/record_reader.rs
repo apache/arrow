@@ -43,6 +43,8 @@ pub struct RecordReader<T: DataType> {
 
     /// Number of records accumulated in records
     num_records: usize,
+    /// Number of values `num_records` contains.
+    num_values: usize,
 
     values_seen: usize,
     /// Starts from 1, number of values have been written to buffer
@@ -112,6 +114,7 @@ impl<T: DataType> RecordReader<T> {
             column_reader: None,
             column_desc: column_schema,
             num_records: 0,
+            num_values: 0,
             values_seen: 0,
             values_written: 0,
             in_middle_of_record: false,
@@ -150,6 +153,7 @@ impl<T: DataType> RecordReader<T> {
                 && self.in_middle_of_record
             {
                 self.num_records += 1;
+                self.num_values = self.values_seen;
                 self.in_middle_of_record = false;
                 records_read += 1;
             }
@@ -173,6 +177,13 @@ impl<T: DataType> RecordReader<T> {
     /// Returns number of records stored in buffer.
     pub fn num_records(&self) -> usize {
         self.num_records
+    }
+
+    /// Return number of values stored in buffer.
+    /// If the parquet column is not repeated, it should be equals to `num_records`,
+    /// otherwise it should be larger than or equal to `num_records`.
+    pub fn num_values(&self) -> usize {
+        self.num_values
     }
 
     /// Returns definition level data.
@@ -333,6 +344,7 @@ impl<T: DataType> RecordReader<T> {
                         if self.in_middle_of_record {
                             records_read += 1;
                             self.num_records += 1;
+                            self.num_values = self.values_seen;
                         }
                         self.in_middle_of_record = true;
                     }
@@ -345,6 +357,7 @@ impl<T: DataType> RecordReader<T> {
                 let records_read =
                     min(records_to_read, self.values_written - self.values_seen);
                 self.num_records += records_read;
+                self.num_values += records_read;
                 self.values_seen += records_read;
                 self.in_middle_of_record = false;
 
@@ -446,8 +459,10 @@ mod tests {
             record_reader.set_page_reader(page_reader).unwrap();
             assert_eq!(2, record_reader.read_records(2).unwrap());
             assert_eq!(2, record_reader.num_records());
+            assert_eq!(2, record_reader.num_values());
             assert_eq!(3, record_reader.read_records(3).unwrap());
             assert_eq!(5, record_reader.num_records());
+            assert_eq!(5, record_reader.num_values());
         }
 
         // Second page
@@ -467,6 +482,7 @@ mod tests {
             record_reader.set_page_reader(page_reader).unwrap();
             assert_eq!(2, record_reader.read_records(10).unwrap());
             assert_eq!(7, record_reader.num_records());
+            assert_eq!(7, record_reader.num_values());
         }
 
         let mut bb = Int32BufferBuilder::new(7);
@@ -524,8 +540,10 @@ mod tests {
             record_reader.set_page_reader(page_reader).unwrap();
             assert_eq!(2, record_reader.read_records(2).unwrap());
             assert_eq!(2, record_reader.num_records());
+            assert_eq!(2, record_reader.num_values());
             assert_eq!(3, record_reader.read_records(3).unwrap());
             assert_eq!(5, record_reader.num_records());
+            assert_eq!(5, record_reader.num_values());
         }
 
         // Second page
@@ -548,6 +566,7 @@ mod tests {
             record_reader.set_page_reader(page_reader).unwrap();
             assert_eq!(2, record_reader.read_records(10).unwrap());
             assert_eq!(7, record_reader.num_records());
+            assert_eq!(7, record_reader.num_values());
         }
 
         // Verify result record data
@@ -623,8 +642,10 @@ mod tests {
 
             assert_eq!(1, record_reader.read_records(1).unwrap());
             assert_eq!(1, record_reader.num_records());
+            assert_eq!(1, record_reader.num_values());
             assert_eq!(2, record_reader.read_records(3).unwrap());
             assert_eq!(3, record_reader.num_records());
+            assert_eq!(7, record_reader.num_values());
         }
 
         // Second page
@@ -649,6 +670,7 @@ mod tests {
 
             assert_eq!(1, record_reader.read_records(10).unwrap());
             assert_eq!(4, record_reader.num_records());
+            assert_eq!(9, record_reader.num_values());
         }
 
         // Verify result record data
@@ -711,6 +733,7 @@ mod tests {
 
             assert_eq!(1000, record_reader.read_records(1000).unwrap());
             assert_eq!(1000, record_reader.num_records());
+            assert_eq!(5000, record_reader.num_values());
         }
     }
 }

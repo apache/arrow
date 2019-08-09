@@ -17,10 +17,12 @@
 
 use crate::basic::Encoding;
 use crate::column::page::Page;
+use crate::column::page::PageReader;
 use crate::data_type::DataType;
 use crate::encodings::encoding::{get_encoder, Encoder};
 use crate::encodings::levels::max_buffer_size;
 use crate::encodings::levels::LevelEncoder;
+use crate::errors::Result;
 use crate::schema::types::ColumnDescPtr;
 use crate::util::memory::ByteBufferPtr;
 use crate::util::memory::MemTracker;
@@ -153,5 +155,24 @@ impl DataPageBuilder for DataPageBuilderImpl {
                 statistics: None, // set to None, we do not need statistics for tests
             }
         }
+    }
+}
+
+/// A utility page reader which stores pages in memory.
+pub struct InMemoryPageReader {
+    pages: Box<Iterator<Item = Page>>,
+}
+
+impl InMemoryPageReader {
+    pub fn new(pages: Vec<Page>) -> Self {
+        Self {
+            pages: Box::new(pages.into_iter()),
+        }
+    }
+}
+
+impl PageReader for InMemoryPageReader {
+    fn get_next_page(&mut self) -> Result<Option<Page>> {
+        Ok(self.pages.next())
     }
 }
