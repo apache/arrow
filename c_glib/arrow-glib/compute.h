@@ -253,5 +253,10 @@ GArrowArray *
 garrow_array_filter(GArrowArray *array,
                     GArrowBooleanArray *filter,
                     GError **error);
+GARROW_AVAILABLE_IN_0_15
+GArrowBooleanArray *
+garrow_array_isin(GArrowArray *left,
+                  GArrowArray *right,
+                  GError **error);
 
 G_END_DECLS
