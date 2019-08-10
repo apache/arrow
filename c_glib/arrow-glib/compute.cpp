@@ -1412,6 +1412,42 @@ garrow_array_filter(GArrowArray *array,
   }
 }
 
+/**
+ * garrow_array_is_in:
+ * @left: A left hand side #GArrowArray.
+ * @right: A right hand side #GArrowArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowBooleanArray
+ *   showing whether each element in the left array is contained
+ *   in right array.
+ *
+ * Since: 0.15.0
+ */
+GArrowBooleanArray *
+garrow_array_is_in(GArrowArray *left,
+                   GArrowArray *right,
+                   GError **error)
+{
+  auto arrow_left = garrow_array_get_raw(left);
+  auto arrow_left_datum = arrow::compute::Datum(arrow_left);
+  auto arrow_right = garrow_array_get_raw(right);
+  auto arrow_right_datum = arrow::compute::Datum(arrow_right);
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  arrow::compute::Datum arrow_datum;
+  auto status = arrow::compute::IsIn(&context,
+                                     arrow_left_datum,
+                                     arrow_right_datum,
+                                     &arrow_datum);
+  if (garrow_error_check(error, status, "[array][isin]")) {
+    auto arrow_array = arrow_datum.make_array();
+    return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_array));
+  } else {
+    return NULL;
+  }
+}
+
 G_END_DECLS
 
 GArrowCastOptions *
