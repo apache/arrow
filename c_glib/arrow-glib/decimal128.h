@@ -72,5 +72,11 @@ GArrowDecimal128 *garrow_decimal128_divide(GArrowDecimal128 *left,
                                            GArrowDecimal128 *right,
                                            GArrowDecimal128 **remainder,
                                            GError **error);
+GARROW_AVAILABLE_IN_0_15
+GArrowDecimal128 *
+garrow_decimal128_rescale(GArrowDecimal128 *decimal,
+                          gint32 original_scale,
+                          gint32 new_scale,
+                          GError **error);
 
 G_END_DECLS
