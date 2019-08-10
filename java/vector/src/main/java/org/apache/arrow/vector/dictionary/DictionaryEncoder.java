@@ -52,7 +52,28 @@ public class DictionaryEncoder {
    * Dictionary encodes a vector with a provided dictionary. The dictionary must contain all values in the vector.
    *
    * @param vector vector to encode
+   * @param dictionary dictionary used for encoding
    * @return dictionary encoded vector
+   */
+  public static ValueVector encode(ValueVector vector, Dictionary dictionary) {
+    DictionaryEncoder encoder = new DictionaryEncoder(dictionary, vector.getAllocator());
+    return encoder.encode(vector);
+  }
+
+  /**
+   * Decodes a dictionary encoded array using the provided dictionary.
+   *
+   * @param indices dictionary encoded values, must be int type
+   * @param dictionary dictionary used to decode the values
+   * @return vector with values restored from dictionary
+   */
+  public static ValueVector decode(ValueVector indices, Dictionary dictionary) {
+    DictionaryEncoder encoder = new DictionaryEncoder(dictionary, indices.getAllocator());
+    return encoder.decode(indices);
+  }
+
+  /**
+   * Encodes a vector with the built hash table in this encoder.
    */
   public ValueVector encode(ValueVector vector) {
 
@@ -91,10 +112,7 @@ public class DictionaryEncoder {
   }
 
   /**
-   * Decodes a dictionary encoded array using the provided dictionary.
-   *
-   * @param indices dictionary encoded values, must be int type
-   * @return vector with values restored from dictionary
+   * Decodes a vector with the built hash table in this encoder.
    */
   public ValueVector decode(ValueVector indices) {
     int count = indices.getValueCount();
