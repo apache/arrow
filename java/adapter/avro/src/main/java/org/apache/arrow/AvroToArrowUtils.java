@@ -66,6 +66,8 @@ import org.apache.avro.io.Decoder;
  */
 public class AvroToArrowUtils {
 
+  private static final int INVALID_NULL_INDEX = -1;
+
   /**
    * Creates a {@link Consumer} from the {@link Schema}
    *
@@ -82,7 +84,7 @@ public class AvroToArrowUtils {
    * </ul>
    */
   private static Consumer createConsumer(Schema schema, String name, BufferAllocator allocator) {
-    return createConsumer(schema, name, false, -1, allocator);
+    return createConsumer(schema, name, false, INVALID_NULL_INDEX, allocator);
   }
 
   private static Consumer createConsumer(
