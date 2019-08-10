@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector.compare;
 
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.ValueVector;
 
 /**
@@ -25,12 +26,12 @@ import org.apache.arrow.vector.ValueVector;
 public class VectorEqualsVisitor extends RangeEqualsVisitor {
 
   public VectorEqualsVisitor(ValueVector right) {
-    super(right, 0, 0, right.getValueCount());
+    super(Preconditions.checkNotNull(right), 0, 0, right.getValueCount());
   }
 
   @Override
   protected boolean compareValueVector(ValueVector left, ValueVector right) {
-    if (!left.getField().equals(right.getField())) {
+    if (!super.compareValueVector(left, right)) {
       return false;
     }
     return left.getValueCount() == right.getValueCount();

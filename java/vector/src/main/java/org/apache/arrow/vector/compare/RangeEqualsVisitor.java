@@ -19,11 +19,13 @@ package org.apache.arrow.vector.compare;
 
 import java.util.List;
 
+import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
@@ -142,11 +144,28 @@ public class RangeEqualsVisitor {
       int leftIndex = leftStart + i;
       int rightIndex = rightStart + i;
 
-      if (!CompareUtility.compare(left, leftIndex, (BaseFixedWidthVector) right, rightIndex)) {
+      boolean isNull = left.isNull(leftIndex);
+
+      if (isNull != right.isNull(rightIndex)) {
         return false;
       }
-    }
 
+      int typeWidth = left.getTypeWidth();
+      if (!isNull) {
+        int startByteLeft = typeWidth * leftIndex;
+        int endByteLeft = typeWidth * (leftIndex + 1);
+
+        int startByteRight = typeWidth * rightIndex;
+        int endByteRight = typeWidth * (rightIndex + 1);
+
+        int ret = ByteFunctionHelpers.equal(left.getDataBuffer(), startByteLeft, endByteLeft,
+            right.getDataBuffer(), startByteRight, endByteRight);
+
+        if (ret == 0) {
+          return false;
+        }
+      }
+    }
     return true;
   }
 
@@ -159,8 +178,26 @@ public class RangeEqualsVisitor {
       int leftIndex = leftStart + i;
       int rightIndex = rightStart + i;
 
-      if (!CompareUtility.compare(left, leftIndex, (BaseVariableWidthVector) right, rightIndex)) {
+      boolean isNull = left.isNull(leftIndex);
+      if (isNull != right.isNull(rightIndex)) {
         return false;
+      }
+
+      int offsetWidth = BaseVariableWidthVector.OFFSET_WIDTH;
+
+      if (!isNull) {
+        final int startByteLeft = left.getOffsetBuffer().getInt(leftIndex * offsetWidth);
+        final int endByteLeft = left.getOffsetBuffer().getInt((leftIndex + 1) * offsetWidth);
+
+        final int startByteRight = right.getOffsetBuffer().getInt(rightIndex * offsetWidth);
+        final int endByteRight = right.getOffsetBuffer().getInt((rightIndex + 1) * offsetWidth);
+
+        int ret = ByteFunctionHelpers.equal(left.getDataBuffer(), startByteLeft, endByteLeft,
+            right.getDataBuffer(), startByteRight, endByteRight);
+
+        if (ret == 0) {
+          return false;
+        }
       }
     }
     return true;
@@ -175,8 +212,31 @@ public class RangeEqualsVisitor {
       int leftIndex = leftStart + i;
       int rightIndex = rightStart + i;
 
-      if (!CompareUtility.compare(left, leftIndex, (ListVector) right, rightIndex)) {
+      boolean isNull = left.isNull(leftIndex);
+      if (isNull != right.isNull(rightIndex)) {
         return false;
+      }
+
+      int offsetWidth = BaseRepeatedValueVector.OFFSET_WIDTH;
+
+      if (!isNull) {
+        final int startByteLeft = left.getOffsetBuffer().getInt(leftIndex * offsetWidth);
+        final int endByteLeft = left.getOffsetBuffer().getInt((leftIndex + 1) * offsetWidth);
+
+        final int startByteRight = right.getOffsetBuffer().getInt(rightIndex * offsetWidth);
+        final int endByteRight = right.getOffsetBuffer().getInt((rightIndex + 1) * offsetWidth);
+
+        if ((endByteLeft - startByteLeft) != (endByteRight - startByteRight)) {
+          return false;
+        }
+
+        ValueVector leftDataVector = left.getDataVector();
+        ValueVector rightDataVector = ((ListVector)right).getDataVector();
+
+        if (!leftDataVector.accept(new RangeEqualsVisitor(rightDataVector, startByteLeft,
+            startByteRight, (endByteLeft - startByteLeft)))) {
+          return false;
+        }
       }
     }
     return true;
@@ -195,8 +255,31 @@ public class RangeEqualsVisitor {
       int leftIndex = leftStart + i;
       int rightIndex = rightStart + i;
 
-      if (!CompareUtility.compare(left, leftIndex, (FixedSizeListVector) right, rightIndex)) {
+      boolean isNull = left.isNull(leftIndex);
+      if (isNull != right.isNull(rightIndex)) {
         return false;
+      }
+
+      int listSize = left.getListSize();
+
+      if (!isNull) {
+        final int startByteLeft = leftIndex * listSize;
+        final int endByteLeft = (leftIndex + 1) * listSize;
+
+        final int startByteRight = rightIndex * listSize;
+        final int endByteRight = (rightIndex + 1) * listSize;
+
+        if ((endByteLeft - startByteLeft) != (endByteRight - startByteRight)) {
+          return false;
+        }
+
+        ValueVector leftDataVector = left.getDataVector();
+        ValueVector rightDataVector = ((FixedSizeListVector)right).getDataVector();
+
+        if (!leftDataVector.accept(new RangeEqualsVisitor(rightDataVector, startByteLeft, startByteRight,
+            (endByteLeft - startByteLeft)))) {
+          return false;
+        }
       }
     }
     return true;

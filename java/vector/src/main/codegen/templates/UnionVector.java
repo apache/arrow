@@ -18,6 +18,7 @@
 import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
@@ -37,7 +38,6 @@ import io.netty.buffer.ArrowBuf;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
-import org.apache.arrow.vector.compare.CompareUtility;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
@@ -668,20 +668,13 @@ public class UnionVector implements FieldVector {
       if (to == null) {
         return false;
       }
-      if (!this.getField().getType().equals(to.getField().getType())) {
-        return false;
-      }
-      CompareUtility.checkIndices(this, index, to, toIndex);
+      Preconditions.checkArgument(index >= 0 && index < valueCount,
+          "index %s out of range[0, %s]:", index, valueCount - 1);
+      Preconditions.checkArgument(toIndex >= 0 && toIndex < to.getValueCount(),
+          "index %s out of range[0, %s]:", index, to.getValueCount() - 1);
 
-      UnionVector that = (UnionVector) to;
-      ValueVector leftVector = getVector(index);
-      ValueVector rightVector = that.getVector(toIndex);
-
-      if (leftVector == null) {
-        return rightVector == null;
-      } else {
-        return leftVector.equals(index, rightVector, toIndex);
-      }
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(to, index, toIndex, 1);
+      return this.accept(visitor);
     }
 
     @Override

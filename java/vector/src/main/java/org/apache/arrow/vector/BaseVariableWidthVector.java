@@ -28,7 +28,6 @@ import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.compare.CompareUtility;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -1371,15 +1370,13 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     if (to == null) {
       return false;
     }
-    if (!this.getField().getType().equals(to.getField().getType())) {
-      return false;
-    }
+    Preconditions.checkArgument(index >= 0 && index < valueCount,
+        "index %s out of range[0, %s]:", index, valueCount - 1);
+    Preconditions.checkArgument(toIndex >= 0 && toIndex < to.getValueCount(),
+        "index %s out of range[0, %s]:", index, to.getValueCount() - 1);
 
-    CompareUtility.checkIndices(this, index, to, toIndex);
-
-    BaseVariableWidthVector that = (BaseVariableWidthVector) to;
-
-    return CompareUtility.compare(this, index, that, toIndex);
+    RangeEqualsVisitor visitor = new RangeEqualsVisitor(to, index, toIndex, 1);
+    return this.accept(visitor);
   }
 
   @Override

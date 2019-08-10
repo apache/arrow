@@ -2604,7 +2604,7 @@ public class TestValueVector {
     }
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testEqualsWithIndexOutOfRange() {
     try (final IntVector vector1 = new IntVector("int", allocator);
         final IntVector vector2 = new IntVector("int", allocator)) {
