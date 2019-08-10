@@ -42,6 +42,7 @@ import org.apache.arrow.adapter.jdbc.consumer.BinaryConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.BitConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.BlobConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.ClobConsumer;
+import org.apache.arrow.adapter.jdbc.consumer.CompositeJdbcConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.DateConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.DecimalConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.DoubleConsumer;
@@ -359,18 +360,9 @@ public class JdbcToArrowUtils {
           root.getVector(rsmd.getColumnName(i)), config);
     }
 
-    int rowCount = 0;
-    while (rs.next()) {
-      for (JdbcConsumer consumer : consumers) {
-        consumer.consume(rs);
-      }
-      rowCount++;
-    }
-    root.setRowCount(rowCount);
-
-    // clean up
-    for (JdbcConsumer consumer : consumers) {
-      consumer.close();
+    try (CompositeJdbcConsumer compositeConsumer = new CompositeJdbcConsumer(consumers)) {
+      compositeConsumer.consume(rs);
+      root.setRowCount(compositeConsumer.getReadRowCount());
     }
   }
 

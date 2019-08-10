@@ -22,18 +22,37 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /**
- * An abstraction that is used to consume values from {@link ResultSet}.
+ * Composite consumer which hold all consumers.
+ * It manages the consume and cleanup process.
  */
-public interface JdbcConsumer extends AutoCloseable {
+public class CompositeJdbcConsumer implements JdbcConsumer {
 
-  /**
-   * Consume a specific type value from {@link ResultSet} and write it to vector.
-   */
-  void consume(ResultSet resultSet) throws SQLException, IOException;
+  private final JdbcConsumer[] consumers;
+  private int readRowCount;
 
-  /**
-   * Close this consumer, do some clean work such as clear reuse ArrowBuf.
-   */
-  default void close() {}
+  public int getReadRowCount() {
+    return readRowCount;
+  }
 
+  public CompositeJdbcConsumer(JdbcConsumer[] consumers) {
+    this.consumers = consumers;
+  }
+
+  @Override
+  public void consume(ResultSet rs) throws SQLException, IOException {
+    while (rs.next()) {
+      for (JdbcConsumer consumer : consumers) {
+        consumer.consume(rs);
+      }
+      readRowCount++;
+    }
+  }
+
+  @Override
+  public void close() {
+    // clean up
+    for (JdbcConsumer consumer : consumers) {
+      consumer.close();
+    }
+  }
 }
