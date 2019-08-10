@@ -88,8 +88,9 @@ public class TestDictionaryVector {
 
       Dictionary dictionary =
           new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+      DictionaryEncoder encoder = new DictionaryEncoder(dictionary, allocator);
 
-      try (final ValueVector encoded = (FieldVector) DictionaryEncoder.encode(vector, dictionary)) {
+      try (final ValueVector encoded = encoder.encode(vector)) {
         // verify indices
         assertEquals(IntVector.class, encoded.getClass());
 
@@ -102,7 +103,7 @@ public class TestDictionaryVector {
         assertEquals(0, index.get(4));
 
         // now run through the decoder and verify we get the original back
-        try (ValueVector decoded = DictionaryEncoder.decode(encoded, dictionary)) {
+        try (ValueVector decoded = encoder.decode(encoded)) {
           assertEquals(vector.getClass(), decoded.getClass());
           assertEquals(vector.getValueCount(), ((VarCharVector) decoded).getValueCount());
           for (int i = 0; i < 5; i++) {
@@ -135,9 +136,10 @@ public class TestDictionaryVector {
 
       Dictionary dictionary =
           new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+      DictionaryEncoder encoder = new DictionaryEncoder(dictionary, allocator);
 
 
-      try (final ValueVector encoded = (FieldVector) DictionaryEncoder.encode(vector, dictionary)) {
+      try (final ValueVector encoded = encoder.encode(vector)) {
         // verify indices
         assertEquals(IntVector.class, encoded.getClass());
 
@@ -148,7 +150,7 @@ public class TestDictionaryVector {
         }
 
         // now run through the decoder and verify we get the original back
-        try (ValueVector decoded = DictionaryEncoder.decode(encoded, dictionary)) {
+        try (ValueVector decoded = encoder.decode(encoded)) {
           assertEquals(vector.getClass(), decoded.getClass());
           assertEquals(vector.getValueCount(), decoded.getValueCount());
           for (int i = 0; i < count; ++i) {
@@ -187,8 +189,9 @@ public class TestDictionaryVector {
       dictWriter.setValueCount(2);
 
       Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+      DictionaryEncoder encoder = new DictionaryEncoder(dictionary, allocator);
 
-      try (final ValueVector encoded = (FieldVector) DictionaryEncoder.encode(vector, dictionary)) {
+      try (final ValueVector encoded = encoder.encode(vector)) {
         // verify indices
         assertEquals(IntVector.class, encoded.getClass());
 
@@ -202,7 +205,7 @@ public class TestDictionaryVector {
         assertEquals(0, index.get(5));
 
         // now run through the decoder and verify we get the original back
-        try (ValueVector decoded = DictionaryEncoder.decode(encoded, dictionary)) {
+        try (ValueVector decoded = encoder.decode(encoded)) {
           assertEquals(vector.getClass(), decoded.getClass());
           assertEquals(vector.getValueCount(), decoded.getValueCount());
           for (int i = 0; i < 5; i++) {
@@ -246,8 +249,9 @@ public class TestDictionaryVector {
       dictionaryVector.setValueCount(2);
 
       Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+      DictionaryEncoder encoder = new DictionaryEncoder(dictionary, allocator);
 
-      try (final ValueVector encoded = DictionaryEncoder.encode(vector, dictionary)) {
+      try (final ValueVector encoded = encoder.encode(vector)) {
         // verify indices
         assertEquals(IntVector.class, encoded.getClass());
 
@@ -262,7 +266,7 @@ public class TestDictionaryVector {
         assertEquals(0, index.get(6));
 
         // now run through the decoder and verify we get the original back
-        try (ValueVector decoded = DictionaryEncoder.decode(encoded, dictionary)) {
+        try (ValueVector decoded = encoder.decode(encoded)) {
           assertEquals(vector.getClass(), decoded.getClass());
           assertEquals(vector.getValueCount(), decoded.getValueCount());
           for (int i = 0; i < 5; i++) {
@@ -296,8 +300,9 @@ public class TestDictionaryVector {
       dictionaryVector.setValueCount(3);
 
       Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+      DictionaryEncoder encoder = new DictionaryEncoder(dictionary, allocator);
 
-      try (final ValueVector encoded = DictionaryEncoder.encode(vector, dictionary)) {
+      try (final ValueVector encoded = encoder.encode(vector)) {
         // verify indices
         assertEquals(IntVector.class, encoded.getClass());
 
@@ -310,7 +315,7 @@ public class TestDictionaryVector {
         assertEquals(0, index.get(4));
 
         // now run through the decoder and verify we get the original back
-        try (VarBinaryVector decoded = (VarBinaryVector) DictionaryEncoder.decode(encoded, dictionary)) {
+        try (VarBinaryVector decoded = (VarBinaryVector) encoder.decode(encoded)) {
           assertEquals(vector.getClass(), decoded.getClass());
           assertEquals(vector.getValueCount(), decoded.getValueCount());
           for (int i = 0; i < 5; i++) {
@@ -370,8 +375,9 @@ public class TestDictionaryVector {
       dictionaryVector.setValueCount(3);
 
       Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+      DictionaryEncoder encoder = new DictionaryEncoder(dictionary, allocator);
 
-      try (final ValueVector encoded = DictionaryEncoder.encode(vector, dictionary)) {
+      try (final ValueVector encoded = encoder.encode(vector)) {
         // verify indices
         assertEquals(IntVector.class, encoded.getClass());
 
@@ -384,7 +390,7 @@ public class TestDictionaryVector {
         assertEquals(2, index.get(4));
 
         // now run through the decoder and verify we get the original back
-        try (ValueVector decoded = DictionaryEncoder.decode(encoded, dictionary)) {
+        try (ValueVector decoded = encoder.decode(encoded)) {
           assertEquals(vector.getClass(), decoded.getClass());
           assertEquals(vector.getValueCount(), decoded.getValueCount());
           for (int i = 0; i < 5; i++) {
