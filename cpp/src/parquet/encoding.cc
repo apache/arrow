@@ -147,8 +147,15 @@ void PlainEncoder<DType>::Put(const arrow::Array& values) {
   ParquetException::NYI(values.type()->ToString());
 }
 
+void AssertBinary(const arrow::Array& values) {
+  if (dynamic_cast<const arrow::BinaryArray*>(&values) == nullptr) {
+    throw ParquetException("Only BinaryArray and subclasses supported");
+  }
+}
+
 template <>
 void PlainEncoder<ByteArrayType>::Put(const arrow::Array& values) {
+  AssertBinary(values);
   const auto& data = checked_cast<const arrow::BinaryArray&>(values);
   if (data.null_count() == 0) {
     // no nulls, just dump the data
@@ -520,6 +527,7 @@ void DictEncoderImpl<DType>::Put(const arrow::Array& values) {
 
 template <>
 void DictEncoderImpl<ByteArrayType>::Put(const arrow::Array& values) {
+  AssertBinary(values);
   const auto& data = checked_cast<const arrow::BinaryArray&>(values);
   if (data.null_count() == 0) {
     // no nulls, just dump the data
@@ -542,6 +550,7 @@ void DictEncoderImpl<DType>::PutDictionary(const arrow::Array& values) {
 
 template <>
 void DictEncoderImpl<ByteArrayType>::PutDictionary(const arrow::Array& values) {
+  AssertBinary(values);
   const auto& data = checked_cast<const arrow::BinaryArray&>(values);
   if (data.null_count() > 0) {
     throw ParquetException("Inserted binary dictionary cannot cannot contain nulls");

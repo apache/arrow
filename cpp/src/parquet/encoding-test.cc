@@ -480,7 +480,7 @@ TEST_F(PlainEncoding, CheckDecodeArrowNonNullDictBuilder) {
   this->CheckDecodeArrowNonNullUsingDictBuilder();
 }
 
-TEST(PlainEncoding, ArrowBinaryDirectPut) {
+TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
   // Implemented as part of ARROW-3246
   auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
   auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);

@@ -211,7 +211,7 @@ using Int96Encoder = TypedEncoder<Int96Type>;
 using FloatEncoder = TypedEncoder<FloatType>;
 using DoubleEncoder = TypedEncoder<DoubleType>;
 using ByteArrayEncoder = TypedEncoder<ByteArrayType>;
-class FLBAEncoder : virtual public TypedEncoder<FLBAType> {};
+using FLBAEncoder = TypedEncoder<FLBAType>;
 
 class BooleanDecoder : virtual public TypedDecoder<BooleanType> {
  public:
