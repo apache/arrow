@@ -21,6 +21,7 @@
 #include "arrow/compute/context.h"  // IWYU pragma: export
 #include "arrow/compute/kernel.h"   // IWYU pragma: export
 
+#include "arrow/compute/kernels/argsort.h"  // IWYU pragma: export
 #include "arrow/compute/kernels/boolean.h"  // IWYU pragma: export
 #include "arrow/compute/kernels/cast.h"     // IWYU pragma: export
 #include "arrow/compute/kernels/compare.h"  // IWYU pragma: export

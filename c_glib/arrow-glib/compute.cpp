@@ -1485,6 +1485,35 @@ garrow_array_is_in_chunked_array(GArrowArray *left,
   }
 }
 
+/**
+ * garrow_array_argsort:
+ * @array: A #GArrowArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The indices that would sort
+ *   an array on success, %NULL on error.
+ *
+ * Since: 0.15.0
+ */
+GArrowArray *
+garrow_array_argsort(GArrowArray *array,
+                     GError **error)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto arrow_array_raw = arrow_array.get();
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::Array> arrow_indices;
+  auto status = arrow::compute::Argsort(&context,
+                                        *arrow_array_raw,
+                                        &arrow_indices);
+  if (garrow_error_check(error, status, "[array][argsort]")) {
+    return garrow_array_new_raw(&arrow_indices);
+  } else {
+    return NULL;
+  }
+}
+
 G_END_DECLS
 
 GArrowCastOptions *
