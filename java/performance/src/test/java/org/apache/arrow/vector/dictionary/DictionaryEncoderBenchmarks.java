@@ -113,8 +113,7 @@ public class DictionaryEncoderBenchmarks {
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public int testEncode() {
     Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
-    DictionaryEncoder encoder = new DictionaryEncoder(dictionary, allocator);
-    final ValueVector encoded = encoder.encode(vector);
+    final ValueVector encoded = DictionaryEncoder.encode(vector, dictionary);
     encoded.close();
     return 0;
   }

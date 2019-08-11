@@ -322,8 +322,7 @@ public class BaseFileTest {
     vector1A.set(5, "baz".getBytes(StandardCharsets.UTF_8));
     vector1A.setValueCount(6);
 
-    DictionaryEncoder encoder = new DictionaryEncoder(dictionary1, allocator);
-    FieldVector encodedVector1A = (FieldVector) encoder.encode(vector1A);
+    FieldVector encodedVector1A = (FieldVector) DictionaryEncoder.encode(vector1A, dictionary1);
     vector1A.close();  // Done with this vector after encoding
 
     // Write this vector using indices instead of encoding
@@ -344,8 +343,7 @@ public class BaseFileTest {
     vector2.set(4, "large".getBytes(StandardCharsets.UTF_8));
     vector2.setValueCount(6);
 
-    DictionaryEncoder encoder2 = new DictionaryEncoder(dictionary2, allocator);
-    FieldVector encodedVector2 = (FieldVector) encoder2.encode(vector2);
+    FieldVector encodedVector2 = (FieldVector) DictionaryEncoder.encode(vector2, dictionary2);
     vector2.close();  // Done with this vector after encoding
 
     List<Field> fields = Arrays.asList(encodedVector1A.getField(), encodedVector1B.getField(),
