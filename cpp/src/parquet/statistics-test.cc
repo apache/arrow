@@ -831,6 +831,25 @@ TYPED_TEST(TestStatisticsSortOrder, MinMax) {
   ASSERT_NO_FATAL_FAILURE(this->VerifyParquetStats());
 }
 
+TEST(TestByteArrayStatisticsFromArrow, Basics) {
+  // Part of ARROW-3246. Replicating TestStatisticsSortOrder test but via Arrow
+
+  auto values = ArrayFromJSON(::arrow::utf8(),
+                              u8"[\"c123\", \"b123\", \"a123\", null, "
+                              "null, \"f123\", \"g123\", \"h123\", \"i123\", \"ü123\"]");
+
+  const auto& typed_values = static_cast<const ::arrow::BinaryArray&>(*values);
+
+  NodePtr node = PrimitiveNode::Make("field", Repetition::REQUIRED, Type::BYTE_ARRAY,
+                                     ConvertedType::UTF8);
+  ColumnDescriptor descr(node, 0, 0);
+  auto stats = MakeStatistics<ByteArrayType>(&descr);
+  ASSERT_NO_FATAL_FAILURE(stats->Update(*values));
+
+  ASSERT_EQ(ByteArray(typed_values.GetView(2)), stats->min());
+  ASSERT_EQ(ByteArray(typed_values.GetView(9)), stats->max());
+}
+
 // Ensure UNKNOWN sort order is handled properly
 using TestStatisticsSortOrderFLBA = TestStatisticsSortOrder<FLBAType>;
 

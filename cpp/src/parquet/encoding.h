@@ -28,8 +28,10 @@
 
 namespace arrow {
 
+class Array;
 class ArrayBuilder;
 class BinaryArray;
+class BinaryBuilder;
 class BinaryDictionary32Builder;
 
 namespace internal {
@@ -52,7 +54,9 @@ class Encoder {
   virtual std::shared_ptr<Buffer> FlushValues() = 0;
   virtual Encoding::type encoding() const = 0;
 
-  virtual ::arrow::MemoryPool* memory_pool() const = 0;
+  virtual void Put(const ::arrow::Array& values) = 0;
+
+  virtual MemoryPool* memory_pool() const = 0;
 };
 
 // Base class for value encoders. Since encoders may or not have state (e.g.,
@@ -64,25 +68,12 @@ class TypedEncoder : virtual public Encoder {
  public:
   typedef typename DType::c_type T;
 
+  using Encoder::Put;
+
   virtual void Put(const T* src, int num_values) = 0;
 
   virtual void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
-                         int64_t valid_bits_offset) {
-    std::shared_ptr<ResizableBuffer> buffer;
-    PARQUET_THROW_NOT_OK(::arrow::AllocateResizableBuffer(
-        this->memory_pool(), num_values * sizeof(T), &buffer));
-    int32_t num_valid_values = 0;
-    ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
-                                                      num_values);
-    T* data = reinterpret_cast<T*>(buffer->mutable_data());
-    for (int32_t i = 0; i < num_values; i++) {
-      if (valid_bits_reader.IsSet()) {
-        data[num_valid_values++] = src[i];
-      }
-      valid_bits_reader.Next();
-    }
-    Put(data, num_valid_values);
-  }
+                         int64_t valid_bits_offset) = 0;
 };
 
 // Base class for dictionary encoders
@@ -107,12 +98,19 @@ class DictEncoder : virtual public TypedEncoder<DType> {
 
   virtual int num_entries() const = 0;
 
-  /// \brief EXPERIMENTAL: Append dictionary indices into the
-  /// encoder. It is assumed that the indices reference pre-existing
-  /// dictionary values
+  /// \brief EXPERIMENTAL: Append dictionary indices into the encoder. It is
+  /// assumed, without any boundschecking that the indices reference
+  /// pre-existing dictionary values
   /// \param[in] indices the dictionary index values
   /// \param[in] length the number of values being inserted
   virtual void PutIndices(const int32_t* indices, int length) = 0;
+
+  /// \brief EXPERIMENTAL: Append dictionary into encoder, inserting indices
+  /// separately. Currently throws exception if the current dictionary memo is
+  /// non-empty
+  /// \param[in] values the dictionary values. Only valid for certain
+  /// Parquet/Arrow type combinations, like BYTE_ARRAY/BinaryArray
+  virtual void PutDictionary(const ::arrow::Array& values) = 0;
 };
 
 // ----------------------------------------------------------------------
@@ -212,22 +210,8 @@ using Int64Encoder = TypedEncoder<Int64Type>;
 using Int96Encoder = TypedEncoder<Int96Type>;
 using FloatEncoder = TypedEncoder<FloatType>;
 using DoubleEncoder = TypedEncoder<DoubleType>;
-class ByteArrayEncoder : virtual public TypedEncoder<ByteArrayType> {
- public:
-  using TypedEncoder<ByteArrayType>::Put;
-  virtual void Put(const ::arrow::BinaryArray& values) = 0;
-};
-
+using ByteArrayEncoder = TypedEncoder<ByteArrayType>;
 class FLBAEncoder : virtual public TypedEncoder<FLBAType> {};
-
-class DictByteArrayEncoder : virtual public DictEncoder<ByteArrayType>,
-                             virtual public ByteArrayEncoder {
- public:
-  /// \brief EXPERIMENTAL: Append dictionary into encoder, inserting
-  /// indices separately
-  /// \param[in] values the dictionary values
-  virtual void PutDictionary(const ::arrow::BinaryArray& values) = 0;
-};
 
 class BooleanDecoder : virtual public TypedDecoder<BooleanType> {
  public:
@@ -251,6 +235,9 @@ class ByteArrayDecoder : virtual public TypedDecoder<ByteArrayType> {
 
   virtual int DecodeArrowNonNull(int num_values,
                                  ::arrow::BinaryDictionary32Builder* builder) = 0;
+
+  virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                          int64_t valid_bits_offset, ::arrow::BinaryBuilder* builder) = 0;
 
   virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,

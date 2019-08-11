@@ -54,7 +54,7 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
   int nbytes = static_cast<int>(BitUtil::BytesForBits(nvalues));
 
   std::vector<bool> draws;
-  ::arrow::random_is_valid(nvalues, 0.5 /* null prob */, &draws, 0 /* seed */);
+  arrow::random_is_valid(nvalues, 0.5 /* null prob */, &draws, 0 /* seed */);
 
   std::unique_ptr<BooleanEncoder> encoder =
       MakeTypedEncoder<BooleanType>(Encoding::PLAIN);
@@ -75,7 +75,7 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
   ASSERT_EQ(nvalues, values_decoded);
 
   for (int i = 0; i < nvalues; ++i) {
-    ASSERT_EQ(draws[i], ::arrow::BitUtil::GetBit(decode_data, i)) << i;
+    ASSERT_EQ(draws[i], arrow::BitUtil::GetBit(decode_data, i)) << i;
   }
 }
 
@@ -260,7 +260,7 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   void CheckRoundtrip() {
-    std::vector<uint8_t> valid_bits(::arrow::BitUtil::BytesForBits(num_values_) + 1, 255);
+    std::vector<uint8_t> valid_bits(arrow::BitUtil::BytesForBits(num_values_) + 1, 255);
 
     auto base_encoder = MakeEncoder(Type::type_num, Encoding::PLAIN, true, descr_.get());
     auto encoder =
@@ -327,8 +327,8 @@ TEST(TestDictionaryEncoding, CannotDictDecodeBoolean) {
 
 class TestArrowBuilderDecoding : public ::testing::Test {
  public:
-  using DenseBuilder = ::arrow::internal::ChunkedBinaryBuilder;
-  using DictBuilder = ::arrow::BinaryDictionary32Builder;
+  using DenseBuilder = arrow::internal::ChunkedBinaryBuilder;
+  using DictBuilder = arrow::BinaryDictionary32Builder;
 
   void SetUp() override { null_probabilities_ = {0.0, 0.5, 1.0}; }
   void TearDown() override {}
@@ -343,7 +343,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
     constexpr int repeat = 100;
     constexpr int64_t min_length = 2;
     constexpr int64_t max_length = 10;
-    ::arrow::random::RandomArrayGenerator rag(0);
+    arrow::random::RandomArrayGenerator rag(0);
     expected_dense_ = rag.BinaryWithRepeats(repeat * num_unique, num_unique, min_length,
                                             max_length, null_probability);
 
@@ -356,7 +356,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
     ASSERT_OK(builder->Finish(&expected_dict_));
 
     // Initialize input_data_ for the encoder from the expected_array_ values
-    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*expected_dense_);
+    const auto& binary_array = static_cast<const arrow::BinaryArray&>(*expected_dense_);
     input_data_.resize(binary_array.length());
 
     for (int64_t i = 0; i < binary_array.length(); ++i) {
@@ -383,7 +383,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   template <typename Builder>
   void CheckDense(int actual_num_values, Builder& builder) {
     ASSERT_EQ(actual_num_values, num_values_);
-    ::arrow::ArrayVector actual_vec;
+    arrow::ArrayVector actual_vec;
     ASSERT_OK(builder.Finish(&actual_vec));
     ASSERT_EQ(actual_vec.size(), 1);
     ASSERT_ARRAYS_EQUAL(*actual_vec[0], *expected_dense_);
@@ -392,7 +392,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   template <typename Builder>
   void CheckDict(int actual_num_values, Builder& builder) {
     ASSERT_EQ(actual_num_values, num_values_);
-    std::shared_ptr<::arrow::Array> actual;
+    std::shared_ptr<arrow::Array> actual;
     ASSERT_OK(builder.Finish(&actual));
     ASSERT_ARRAYS_EQUAL(*actual, *expected_dict_);
   }
@@ -439,8 +439,8 @@ class TestArrowBuilderDecoding : public ::testing::Test {
 
  protected:
   std::vector<double> null_probabilities_;
-  std::shared_ptr<::arrow::Array> expected_dict_;
-  std::shared_ptr<::arrow::Array> expected_dense_;
+  std::shared_ptr<arrow::Array> expected_dict_;
+  std::shared_ptr<arrow::Array> expected_dense_;
   int num_values_;
   int null_count_;
   std::vector<ByteArray> input_data_;
@@ -478,6 +478,38 @@ TEST_F(PlainEncoding, CheckDecodeArrowNonNullDenseBuilder) {
 
 TEST_F(PlainEncoding, CheckDecodeArrowNonNullDictBuilder) {
   this->CheckDecodeArrowNonNullUsingDictBuilder();
+}
+
+TEST(PlainEncoding, ArrowBinaryDirectPut) {
+  // Implemented as part of ARROW-3246
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
+
+  const int64_t size = 1000;
+  const int64_t min_length = 0;
+  const int64_t max_length = 10;
+  const double null_probability = 0.1;
+
+  arrow::random::RandomArrayGenerator rag(0);
+  auto values = rag.String(size, min_length, max_length, null_probability);
+  auto i32_values = rag.Int32(size, 0, 10, null_probability);
+  ASSERT_NO_THROW(encoder->Put(*values));
+
+  // Type checked
+  ASSERT_THROW(encoder->Put(*i32_values), ParquetException);
+
+  auto buf = encoder->FlushValues();
+  decoder->SetData(size, buf->data(), static_cast<int>(buf->size()));
+
+  arrow::StringBuilder builder;
+  ASSERT_EQ(size,
+            decoder->DecodeArrow(size, values->null_count(), values->null_bitmap_data(),
+                                 values->offset(), &builder));
+
+  std::shared_ptr<arrow::Array> result;
+  ASSERT_OK(builder.Finish(&result));
+
+  arrow::AssertArraysEqual(*values, *result);
 }
 
 class DictEncoding : public TestArrowBuilderDecoding {

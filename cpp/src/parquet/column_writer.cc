@@ -672,7 +672,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     // of values, the chunking will ensure the AddDataPage() is called at a reasonable
     // pagesize limit
     int64_t value_offset = 0;
-    auto WriteBatch = [&](int64_t offset, int64_t batch_size) {
+    auto WriteChunk = [&](int64_t offset, int64_t batch_size) {
       int64_t values_to_write =
           WriteLevels(batch_size, def_levels + offset, rep_levels + offset);
       // PARQUET-780
@@ -683,7 +683,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       CommitWriteAndCheckLimits(batch_size, values_to_write);
       value_offset += values_to_write;
     };
-    DoInBatches(num_values, properties_->write_batch_size(), WriteBatch);
+    DoInBatches(num_values, properties_->write_batch_size(), WriteChunk);
   }
 
   void WriteBatchSpaced(int64_t num_values, const int16_t* def_levels,
@@ -691,7 +691,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                         int64_t valid_bits_offset, const T* values) override {
     // Like WriteBatch, but for spaced values
     int64_t value_offset = 0;
-    auto WriteBatch = [&](int64_t offset, int64_t batch_size) {
+    auto WriteChunk = [&](int64_t offset, int64_t batch_size) {
       int64_t batch_num_values = 0;
       int64_t batch_num_spaced_values = 0;
       WriteLevelsSpaced(batch_size, def_levels + offset, rep_levels + offset,
@@ -701,7 +701,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       CommitWriteAndCheckLimits(batch_size, batch_num_spaced_values);
       value_offset += batch_num_spaced_values;
     };
-    DoInBatches(num_values, properties_->write_batch_size(), WriteBatch);
+    DoInBatches(num_values, properties_->write_batch_size(), WriteChunk);
   }
 
   Status WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
@@ -1010,6 +1010,16 @@ Status WriteArrowZeroCopy(const ::arrow::Array& array, int64_t num_levels,
 // Write Arrow to BooleanType
 
 template <>
+struct SerializeFunctor<BooleanType, ::arrow::BooleanType> {
+  Status Serialize(const ::arrow::BooleanArray& data, ArrowWriteContext*, bool* out) {
+    for (int i = 0; i < data.length(); i++) {
+      *out++ = data.Value(i);
+    }
+    return Status::OK();
+  }
+};
+
+template <>
 Status TypedColumnWriterImpl<BooleanType>::WriteArrow(const int16_t* def_levels,
                                                       const int16_t* rep_levels,
                                                       int64_t num_levels,
@@ -1018,27 +1028,8 @@ Status TypedColumnWriterImpl<BooleanType>::WriteArrow(const int16_t* def_levels,
   if (array.type_id() != ::arrow::Type::BOOL) {
     ARROW_UNSUPPORTED();
   }
-  bool* buffer = nullptr;
-  RETURN_NOT_OK(ctx->GetScratchData<bool>(array.length(), &buffer));
-
-  const auto& data = static_cast<const ::arrow::BooleanArray&>(array);
-  const uint8_t* values = nullptr;
-  // The values buffer may be null if the array is empty (ARROW-2744)
-  if (data.values() != nullptr) {
-    values = reinterpret_cast<const uint8_t*>(data.values()->data());
-  } else {
-    DCHECK_EQ(data.length(), 0);
-  }
-
-  int buffer_idx = 0;
-  int64_t offset = array.offset();
-  for (int i = 0; i < data.length(); i++) {
-    if (data.IsValid(i)) {
-      buffer[buffer_idx++] = BitUtil::GetBit(values, offset + i);
-    }
-  }
-  PARQUET_CATCH_NOT_OK(WriteBatch(num_levels, def_levels, rep_levels, buffer));
-  return Status::OK();
+  return WriteArrowSerialize<BooleanType, ::arrow::BooleanType>(
+      array, num_levels, def_levels, rep_levels, ctx, this);
 }
 
 // ----------------------------------------------------------------------
@@ -1305,39 +1296,6 @@ Status TypedColumnWriterImpl<DoubleType>::WriteArrow(const int16_t* def_levels,
 // ----------------------------------------------------------------------
 // Write Arrow to BYTE_ARRAY
 
-template <typename ParquetType, typename ArrowType>
-struct SerializeFunctor<ParquetType, ArrowType, ::arrow::enable_if_binary<ArrowType>> {
-  Status Serialize(const ::arrow::BinaryArray& array, ArrowWriteContext*,
-                   ByteArray* out) {
-    // In the case of an array consisting of only empty strings or all null,
-    // array.data() points already to a nullptr, thus array.data()->data() will
-    // segfault.
-    const uint8_t* values = nullptr;
-    if (array.value_data()) {
-      values = reinterpret_cast<const uint8_t*>(array.value_data()->data());
-      DCHECK(values != nullptr);
-    }
-
-    // Slice offset is accounted for in raw_value_offsets
-    const int32_t* value_offset = array.raw_value_offsets();
-    if (array.null_count() == 0) {
-      // no nulls, just dump the data
-      for (int64_t i = 0; i < array.length(); i++) {
-        out[i] =
-            ByteArray(value_offset[i + 1] - value_offset[i], values + value_offset[i]);
-      }
-    } else {
-      for (int64_t i = 0; i < array.length(); i++) {
-        if (array.IsValid(i)) {
-          out[i] =
-              ByteArray(value_offset[i + 1] - value_offset[i], values + value_offset[i]);
-        }
-      }
-    }
-    return Status::OK();
-  }
-};
-
 template <>
 Status TypedColumnWriterImpl<ByteArrayType>::WriteArrow(const int16_t* def_levels,
                                                         const int16_t* rep_levels,
@@ -1348,26 +1306,21 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrow(const int16_t* def_level
       array.type()->id() != ::arrow::Type::STRING) {
     ARROW_UNSUPPORTED();
   }
-  // const auto& data = checked_cast<const ::arrow::BinaryArray&>(array);
-
-  // Like WriteBatch, but for spaced values
-  int64_t value_offset = 0;
-  auto WriteBatch = [&](int64_t offset, int64_t batch_size) {
+  auto WriteChunk = [&](int64_t offset, int64_t batch_size) {
     int64_t batch_num_values = 0;
     int64_t batch_num_spaced_values = 0;
     WriteLevelsSpaced(batch_size, def_levels + offset, rep_levels + offset,
                       &batch_num_values, &batch_num_spaced_values);
 
-    // dynamic_cast<ByteArrayEncoder*>(current_encoder_.get())
-    //     ->Put(*data.Slice(offset, batch_size));
-
-    // TODO(wesm): Update page statistics
-
+    std::shared_ptr<::arrow::Array> data_slice = array.Slice(offset, batch_size);
+    current_encoder_->Put(*data_slice);
+    if (page_statistics_ != nullptr) {
+      page_statistics_->Update(*data_slice);
+    }
     CommitWriteAndCheckLimits(batch_size, batch_num_spaced_values);
-    value_offset += batch_num_spaced_values;
   };
   PARQUET_CATCH_NOT_OK(
-      DoInBatches(array.length(), properties_->write_batch_size(), WriteBatch));
+      DoInBatches(array.length(), properties_->write_batch_size(), WriteChunk));
   return Status::OK();
 }
 
