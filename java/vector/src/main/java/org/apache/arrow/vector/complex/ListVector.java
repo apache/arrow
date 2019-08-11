@@ -616,6 +616,18 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   @Override
+  public int getBufferSizeFor(int valueCount) {
+    if (valueCount == 0) {
+      return 0;
+    }
+    final int offsetBufferSize = (valueCount + 1) * OFFSET_WIDTH;
+    final int validityBufferSize = getValidityBufferSizeFromCount(valueCount);
+
+    final int innerVectorValueCount = offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
+    return offsetBufferSize + validityBufferSize + vector.getBufferSizeFor(innerVectorValueCount);
+  }
+
+  @Override
   public Field getField() {
     return new Field(getName(), fieldType, Collections.singletonList(getDataVector().getField()));
   }
