@@ -79,4 +79,11 @@ public class AvroBytesConsumer implements Consumer {
   public FieldVector getVector() {
     return vector;
   }
+
+  @Override
+  public void close() {
+    if (cacheBuffer != null) {
+      cacheBuffer.clear();
+    }
+  }
 }

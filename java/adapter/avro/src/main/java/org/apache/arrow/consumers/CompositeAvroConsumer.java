@@ -17,57 +17,49 @@
 
 package org.apache.arrow.consumers;
 
+import java.io.EOFException;
 import java.io.IOException;
+import java.util.List;
 
-import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer holds a primitive consumer, could consume nullable values from avro decoder.
- * Write data via writer of delegate consumer.
+ * Composite consumer which hold all consumers.
+ * It manages the consume and cleanup process.
  */
-public class NullableTypeConsumer implements Consumer {
+public class CompositeAvroConsumer implements AutoCloseable {
 
+  private final List<Consumer> consumers;
 
-  private final Consumer delegate;
-
-  /**
-   * Null field index in avro schema.
-   */
-  protected int nullIndex;
-
-  public NullableTypeConsumer(Consumer delegate, int nullIndex) {
-    this.delegate = delegate;
-    this.nullIndex = nullIndex;
+  public CompositeAvroConsumer(List<Consumer> consumers) {
+    this.consumers = consumers;
   }
 
-  @Override
-  public void consume(Decoder decoder) throws IOException {
-    if (nullIndex != decoder.readInt()) {
-      delegate.consume(decoder);
-    } else {
-      addNull();
+  /**
+   * Consume decoder data and write into {@link VectorSchemaRoot}.
+   */
+  public void consume(Decoder decoder, VectorSchemaRoot root) throws IOException {
+    int valueCount = 0;
+    while (true) {
+      try {
+        for (Consumer consumer : consumers) {
+          consumer.consume(decoder);
+        }
+        valueCount++;
+        //reach end will throw EOFException.
+      } catch (EOFException eofException) {
+        root.setRowCount(valueCount);
+        break;
+      }
     }
   }
 
   @Override
-  public void addNull() {
-    delegate.addNull();
-  }
-
-  @Override
-  public void setPosition(int index) {
-    delegate.setPosition(index);
-  }
-
-  @Override
-  public FieldVector getVector() {
-    return delegate.getVector();
-  }
-
-  @Override
   public void close() {
-    delegate.close();
+    // clean up
+    for (Consumer consumer : consumers) {
+      consumer.close();
+    }
   }
-
 }
