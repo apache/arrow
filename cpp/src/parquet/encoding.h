@@ -60,7 +60,7 @@ class Encoder {
 //
 // TODO(wesm): Encode interface API is temporary
 template <typename DType>
-class TypedEncoder : public Encoder {
+class TypedEncoder : virtual public Encoder {
  public:
   typedef typename DType::c_type T;
 
@@ -87,7 +87,7 @@ class TypedEncoder : public Encoder {
 
 // Base class for dictionary encoders
 template <typename DType>
-class DictEncoder : public TypedEncoder<DType> {
+class DictEncoder : virtual public TypedEncoder<DType> {
  public:
   /// Writes out any buffered indices to buffer preceded by the bit width of this data.
   /// Returns the number of bytes written.
@@ -133,7 +133,7 @@ class Decoder {
 };
 
 template <typename DType>
-class TypedDecoder : public Decoder {
+class TypedDecoder : virtual public Decoder {
  public:
   using T = typename DType::c_type;
 
@@ -173,7 +173,7 @@ class TypedDecoder : public Decoder {
 };
 
 template <typename DType>
-class DictDecoder : public TypedDecoder<DType> {
+class DictDecoder : virtual public TypedDecoder<DType> {
  public:
   virtual void SetDict(TypedDecoder<DType>* dictionary) = 0;
 
@@ -201,7 +201,7 @@ class DictDecoder : public TypedDecoder<DType> {
 // ----------------------------------------------------------------------
 // TypedEncoder specializations, traits, and factory functions
 
-class BooleanEncoder : public TypedEncoder<BooleanType> {
+class BooleanEncoder : virtual public TypedEncoder<BooleanType> {
  public:
   using TypedEncoder<BooleanType>::Put;
   virtual void Put(const std::vector<bool>& src, int num_values) = 0;
@@ -212,15 +212,15 @@ using Int64Encoder = TypedEncoder<Int64Type>;
 using Int96Encoder = TypedEncoder<Int96Type>;
 using FloatEncoder = TypedEncoder<FloatType>;
 using DoubleEncoder = TypedEncoder<DoubleType>;
-class ByteArrayEncoder : public TypedEncoder<ByteArrayType> {
+class ByteArrayEncoder : virtual public TypedEncoder<ByteArrayType> {
  public:
   using TypedEncoder<ByteArrayType>::Put;
   virtual void Put(const ::arrow::BinaryArray& values) = 0;
 };
 
-class FLBAEncoder : public TypedEncoder<FLBAType> {};
+class FLBAEncoder : virtual public TypedEncoder<FLBAType> {};
 
-class DictByteArrayEncoder : public DictEncoder<ByteArrayType>,
+class DictByteArrayEncoder : virtual public DictEncoder<ByteArrayType>,
                              virtual public ByteArrayEncoder {
  public:
   /// \brief EXPERIMENTAL: Append dictionary into encoder, inserting
@@ -229,7 +229,7 @@ class DictByteArrayEncoder : public DictEncoder<ByteArrayType>,
   virtual void PutDictionary(const ::arrow::BinaryArray& values) = 0;
 };
 
-class BooleanDecoder : public TypedDecoder<BooleanType> {
+class BooleanDecoder : virtual public TypedDecoder<BooleanType> {
  public:
   using TypedDecoder<BooleanType>::Decode;
   virtual int Decode(uint8_t* buffer, int max_values) = 0;
@@ -241,7 +241,7 @@ using Int96Decoder = TypedDecoder<Int96Type>;
 using FloatDecoder = TypedDecoder<FloatType>;
 using DoubleDecoder = TypedDecoder<DoubleType>;
 
-class ByteArrayDecoder : public TypedDecoder<ByteArrayType> {
+class ByteArrayDecoder : virtual public TypedDecoder<ByteArrayType> {
  public:
   using TypedDecoder<ByteArrayType>::DecodeSpaced;
 
@@ -260,7 +260,7 @@ class ByteArrayDecoder : public TypedDecoder<ByteArrayType> {
                                  ::arrow::internal::ChunkedBinaryBuilder* builder) = 0;
 };
 
-class FLBADecoder : public TypedDecoder<FLBAType> {
+class FLBADecoder : virtual public TypedDecoder<FLBAType> {
  public:
   using TypedDecoder<FLBAType>::DecodeSpaced;
 

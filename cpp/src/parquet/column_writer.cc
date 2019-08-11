@@ -657,8 +657,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
     if (properties->statistics_enabled(descr_->path()) &&
         (SortOrder::UNKNOWN != descr_->sort_order())) {
-      page_statistics_ = TypedStats::Make(descr_, allocator_);
-      chunk_statistics_ = TypedStats::Make(descr_, allocator_);
+      page_statistics_ = MakeStatistics<DType>(descr_, allocator_);
+      chunk_statistics_ = MakeStatistics<DType>(descr_, allocator_);
     }
   }
 
@@ -786,7 +786,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
  private:
   using ValueEncoderType = typename EncodingTraits<DType>::Encoder;
-  using TypedStats = TypedStatistics<DType>;
+  using TypedStats = typename TypeClasses<DType>::Statistics;
   std::unique_ptr<Encoder> current_encoder_;
   std::shared_ptr<TypedStats> page_statistics_;
   std::shared_ptr<TypedStats> chunk_statistics_;
@@ -1348,7 +1348,7 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrow(const int16_t* def_level
       array.type()->id() != ::arrow::Type::STRING) {
     ARROW_UNSUPPORTED();
   }
-  const auto& data = checked_cast<::arrow::BinaryArray&>(array);
+  // const auto& data = checked_cast<const ::arrow::BinaryArray&>(array);
 
   // Like WriteBatch, but for spaced values
   int64_t value_offset = 0;
@@ -1358,8 +1358,8 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrow(const int16_t* def_level
     WriteLevelsSpaced(batch_size, def_levels + offset, rep_levels + offset,
                       &batch_num_values, &batch_num_spaced_values);
 
-    dynamic_cast<ByteArrayEncoder*>(current_encoder_.get())
-        ->Put(*data.Slice(offset, batch_size));
+    // dynamic_cast<ByteArrayEncoder*>(current_encoder_.get())
+    //     ->Put(*data.Slice(offset, batch_size));
 
     // TODO(wesm): Update page statistics
 
@@ -1367,7 +1367,7 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrow(const int16_t* def_level
     value_offset += batch_num_spaced_values;
   };
   PARQUET_CATCH_NOT_OK(
-      DoInBatches(num_values, properties_->write_batch_size(), WriteBatch));
+      DoInBatches(array.length(), properties_->write_batch_size(), WriteBatch));
   return Status::OK();
 }
 

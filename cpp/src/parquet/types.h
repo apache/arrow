@@ -493,6 +493,10 @@ class ColumnOrder {
 struct ByteArray {
   ByteArray() : len(0), ptr(NULLPTR) {}
   ByteArray(uint32_t len, const uint8_t* ptr) : len(len), ptr(ptr) {}
+
+  ByteArray(::arrow::util::string_view view)  // NOLINT implicit conversion
+      : ByteArray(static_cast<uint32_t>(view.size()),
+                  reinterpret_cast<const uint8_t*>(view.data())) {}
   uint32_t len;
   const uint8_t* ptr;
 };
@@ -645,6 +649,86 @@ using FloatType = PhysicalType<Type::FLOAT>;
 using DoubleType = PhysicalType<Type::DOUBLE>;
 using ByteArrayType = PhysicalType<Type::BYTE_ARRAY>;
 using FLBAType = PhysicalType<Type::FIXED_LEN_BYTE_ARRAY>;
+
+// Type forward declarations for TypeClasses
+class Comparator;
+class Statistics;
+
+template <typename DType>
+class TypedComparator;
+
+template <typename DType>
+class TypedStatistics;
+
+using BoolComparator = TypedComparator<BooleanType>;
+using Int32Comparator = TypedComparator<Int32Type>;
+using Int64Comparator = TypedComparator<Int64Type>;
+using Int96Comparator = TypedComparator<Int96Type>;
+using FloatComparator = TypedComparator<FloatType>;
+using DoubleComparator = TypedComparator<DoubleType>;
+using FLBAComparator = TypedComparator<FLBAType>;
+using ByteArrayComparator = TypedComparator<ByteArrayType>;
+
+using BoolStatistics = TypedStatistics<BooleanType>;
+using Int32Statistics = TypedStatistics<Int32Type>;
+using Int64Statistics = TypedStatistics<Int64Type>;
+using FloatStatistics = TypedStatistics<FloatType>;
+using DoubleStatistics = TypedStatistics<DoubleType>;
+using FLBAStatistics = TypedStatistics<FLBAType>;
+using ByteArrayStatistics = TypedStatistics<ByteArrayType>;
+
+template <typename DType>
+struct TypeClasses {};
+
+template <>
+struct TypeClasses<BooleanType> {
+  using Comparator = BoolComparator;
+  using Statistics = BoolStatistics;
+};
+
+template <>
+struct TypeClasses<Int32Type> {
+  using Comparator = Int32Comparator;
+  using Statistics = Int32Statistics;
+};
+
+template <>
+struct TypeClasses<Int64Type> {
+  using Comparator = Int64Comparator;
+  using Statistics = Int64Statistics;
+};
+
+template <>
+struct TypeClasses<Int96Type> {
+  using Comparator = Int96Comparator;
+
+  // unused
+  using Statistics = TypedStatistics<Int96Type>;
+};
+
+template <>
+struct TypeClasses<FloatType> {
+  using Comparator = FloatComparator;
+  using Statistics = FloatStatistics;
+};
+
+template <>
+struct TypeClasses<DoubleType> {
+  using Comparator = DoubleComparator;
+  using Statistics = DoubleStatistics;
+};
+
+template <>
+struct TypeClasses<ByteArrayType> {
+  using Comparator = ByteArrayComparator;
+  using Statistics = ByteArrayStatistics;
+};
+
+template <>
+struct TypeClasses<FLBAType> {
+  using Comparator = FLBAComparator;
+  using Statistics = FLBAStatistics;
+};
 
 template <typename Type>
 inline std::string format_fwf(int width) {
