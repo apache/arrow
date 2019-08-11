@@ -19,6 +19,7 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.complex.impl.IntWriterImpl;
 import org.apache.arrow.vector.complex.writer.IntWriter;
@@ -31,11 +32,13 @@ import org.apache.avro.io.Decoder;
 public class AvroIntConsumer implements Consumer {
 
   private final IntWriter writer;
+  private final IntVector vector;
 
   /**
    * Instantiate a AvroIntConsumer.
    */
   public AvroIntConsumer(IntVector vector) {
+    this.vector = vector;
     this.writer = new IntWriterImpl(vector);
   }
 
@@ -48,5 +51,15 @@ public class AvroIntConsumer implements Consumer {
   @Override
   public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void setPosition(int index) {
+    writer.setPosition(index);
+  }
+
+  @Override
+  public FieldVector getVector() {
+    return this.vector;
   }
 }

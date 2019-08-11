@@ -20,49 +20,32 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.ZeroVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer holds a primitive consumer, could consume nullable values from avro decoder.
- * Write data via writer of delegate consumer.
+ * Consumer which consume null type values from avro decoder.
+ * Corresponding to {@link org.apache.arrow.vector.ZeroVector}.
  */
-public class NullableTypeConsumer implements Consumer {
+public class AvroNullConsumer implements Consumer {
 
+  private final ZeroVector vector;
 
-  private final Consumer delegate;
-
-  /**
-   * Null field index in avro schema.
-   */
-  protected int nullIndex;
-
-  public NullableTypeConsumer(Consumer delegate, int nullIndex) {
-    this.delegate = delegate;
-    this.nullIndex = nullIndex;
+  public AvroNullConsumer(ZeroVector vector) {
+    this.vector = vector;
   }
 
   @Override
-  public void consume(Decoder decoder) throws IOException {
-    if (nullIndex != decoder.readInt()) {
-      delegate.consume(decoder);
-    } else {
-      addNull();
-    }
-  }
+  public void consume(Decoder decoder) throws IOException {}
 
   @Override
-  public void addNull() {
-    delegate.addNull();
-  }
+  public void addNull() {}
 
   @Override
-  public void setPosition(int index) {
-    delegate.setPosition(index);
-  }
+  public void setPosition(int index) {}
 
   @Override
   public FieldVector getVector() {
-    return delegate.getVector();
+    return this.vector;
   }
-
 }

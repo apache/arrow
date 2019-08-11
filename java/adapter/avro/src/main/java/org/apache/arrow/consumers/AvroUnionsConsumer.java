@@ -20,32 +20,49 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.Float8Vector;
-import org.apache.arrow.vector.complex.impl.Float8WriterImpl;
-import org.apache.arrow.vector.complex.writer.Float8Writer;
+import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.complex.impl.UnionWriter;
+import org.apache.arrow.vector.types.Types;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume double type values from avro decoder.
- * Write the data to {@link Float8Vector}.
+ * Consumer which consume unions type values from avro decoder.
+ * Write the data to {@link org.apache.arrow.vector.complex.UnionVector}.
  */
-public class AvroDoubleConsumer implements Consumer {
+public class AvroUnionsConsumer implements Consumer {
 
-  private final Float8Writer writer;
-  private final Float8Vector vector;
+  private Consumer[] indexDelegates;
+  private Types.MinorType[] types;
+
+  private UnionWriter writer;
+  private UnionVector vector;
 
   /**
-   * Instantiate a AvroDoubleConsumer.
+   * Instantiate a AvroUnionConsumer.
    */
-  public AvroDoubleConsumer(Float8Vector vector) {
+  public AvroUnionsConsumer(UnionVector vector, Consumer[] indexDelegates, Types.MinorType[] types) {
+
+    this.writer = new UnionWriter(vector);
     this.vector = vector;
-    this.writer = new Float8WriterImpl(vector);
+    this.indexDelegates = indexDelegates;
+    this.types = types;
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    writer.writeFloat8(decoder.readDouble());
-    writer.setPosition(writer.getPosition() + 1);
+    int fieldIndex = decoder.readInt();
+    int position = writer.getPosition();
+
+    Consumer delegate = indexDelegates[fieldIndex];
+
+    vector.setType(position, types[fieldIndex]);
+    // In UnionVector we need to set sub vector writer position before consume a value
+    // because in the previous iterations we might not have written to the specific union sub vector.
+    delegate.setPosition(position);
+    delegate.consume(decoder);
+
+    writer.setPosition(position + 1);
+
   }
 
   @Override
@@ -60,6 +77,7 @@ public class AvroDoubleConsumer implements Consumer {
 
   @Override
   public FieldVector getVector() {
-    return vector;
+    vector.setValueCount(writer.getPosition());
+    return this.vector;
   }
 }

@@ -20,6 +20,7 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.avro.io.Decoder;
@@ -31,11 +32,13 @@ import org.apache.avro.io.Decoder;
 public class AvroLongConsumer implements Consumer {
 
   private final BigIntWriter writer;
+  private final BigIntVector vector;
 
   /**
    * Instantiate a AvroLongConsumer.
    */
   public AvroLongConsumer(BigIntVector vector) {
+    this.vector = vector;
     this.writer = new BigIntWriterImpl(vector);
   }
 
@@ -48,5 +51,15 @@ public class AvroLongConsumer implements Consumer {
   @Override
   public void addNull() {
     writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void setPosition(int index) {
+    writer.setPosition(index);
+  }
+
+  @Override
+  public FieldVector getVector() {
+    return this.vector;
   }
 }
