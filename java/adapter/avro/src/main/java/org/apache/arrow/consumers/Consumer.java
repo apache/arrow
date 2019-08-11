@@ -50,7 +50,7 @@ public interface Consumer extends AutoCloseable {
   FieldVector getVector();
 
   /**
-   * Close this consumer, do some clean work such as clear reuse ArrowBuf.
+   * Close this consumer, do some clean work such as clear reuse ByteBuffer.
    */
   default void close() {}
 }
