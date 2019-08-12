@@ -42,6 +42,12 @@ public class RangeEqualsVisitor {
   protected int rightStart;
   protected int length;
 
+  protected boolean needCheckType = true;
+
+  public void setNeedCheckType(boolean needCheckType) {
+    this.needCheckType = needCheckType;
+  }
+
   /**
    * Constructs a new instance.
    */
@@ -62,7 +68,12 @@ public class RangeEqualsVisitor {
     this.length = length;
   }
 
-  private void validateIndices(ValueVector left) {
+  private boolean validateTypesAndIndices(ValueVector left) {
+
+    if (needCheckType && !compareValueVector(left, right)) {
+      return false;
+    }
+
     Preconditions.checkArgument(leftStart >= 0 && leftStart < left.getValueCount(),
         "leftStart %s out of range[0, %s]:", 0, left.getValueCount());
     Preconditions.checkArgument((leftStart + length) <= left.getValueCount(),
@@ -71,36 +82,32 @@ public class RangeEqualsVisitor {
         "rightStart %s out of range[0, %s]:", 0, right.getValueCount());
     Preconditions.checkArgument((rightStart + length) <= right.getValueCount(),
         "(rightStart + length) %s out of range[0, %s]:", 0, right.getValueCount());
+
+    return true;
   }
 
   public boolean visit(BaseFixedWidthVector left) {
-    validateIndices(left);
-    return compareBaseFixedWidthVectors(left);
+    return validateTypesAndIndices(left) && compareBaseFixedWidthVectors(left);
   }
 
   public boolean visit(BaseVariableWidthVector left) {
-    validateIndices(left);
-    return compareBaseVariableWidthVectors(left);
+    return validateTypesAndIndices(left) && compareBaseVariableWidthVectors(left);
   }
 
   public boolean visit(ListVector left) {
-    validateIndices(left);
-    return compareListVectors(left);
+    return validateTypesAndIndices(left) && compareListVectors(left);
   }
 
   public boolean visit(FixedSizeListVector left) {
-    validateIndices(left);
-    return compareFixedSizeListVectors(left);
+    return validateTypesAndIndices(left) && compareFixedSizeListVectors(left);
   }
 
   public boolean visit(NonNullableStructVector left) {
-    validateIndices(left);
-    return compareStructVectors(left);
+    return validateTypesAndIndices(left) && compareStructVectors(left);
   }
 
   public boolean visit(UnionVector left) {
-    validateIndices(left);
-    return compareUnionVectors(left);
+    return validateTypesAndIndices(left) && compareUnionVectors(left);
   }
 
   public boolean visit(ZeroVector left) {
@@ -108,7 +115,7 @@ public class RangeEqualsVisitor {
   }
 
   public boolean visit(ValueVector left) {
-    throw new UnsupportedOperationException();
+    throw  new UnsupportedOperationException();
   }
 
   protected boolean compareValueVector(ValueVector left, ValueVector right) {
@@ -116,10 +123,6 @@ public class RangeEqualsVisitor {
   }
 
   protected boolean compareUnionVectors(UnionVector left) {
-
-    if (!compareValueVector(left, right)) {
-      return false;
-    }
 
     UnionVector rightVector = (UnionVector) right;
 
@@ -141,9 +144,6 @@ public class RangeEqualsVisitor {
   }
 
   protected boolean compareStructVectors(NonNullableStructVector left) {
-    if (!compareValueVector(left, right)) {
-      return false;
-    }
 
     NonNullableStructVector rightVector = (NonNullableStructVector) right;
 
@@ -163,10 +163,6 @@ public class RangeEqualsVisitor {
   }
 
   protected boolean compareBaseFixedWidthVectors(BaseFixedWidthVector left) {
-
-    if (!compareValueVector(left, right)) {
-      return false;
-    }
 
     for (int i = 0; i < length; i++) {
       int leftIndex = leftStart + i;
@@ -198,9 +194,6 @@ public class RangeEqualsVisitor {
   }
 
   protected boolean compareBaseVariableWidthVectors(BaseVariableWidthVector left) {
-    if (!compareValueVector(left, right)) {
-      return false;
-    }
 
     for (int i = 0; i < length; i++) {
       int leftIndex = leftStart + i;
@@ -232,9 +225,6 @@ public class RangeEqualsVisitor {
   }
 
   protected boolean compareListVectors(ListVector left) {
-    if (!compareValueVector(left, right)) {
-      return false;
-    }
 
     for (int i = 0; i < length; i++) {
       int leftIndex = leftStart + i;
@@ -271,9 +261,6 @@ public class RangeEqualsVisitor {
   }
 
   protected boolean compareFixedSizeListVectors(FixedSizeListVector left) {
-    if (!compareValueVector(left, right)) {
-      return false;
-    }
 
     if (left.getListSize() != ((FixedSizeListVector)right).getListSize()) {
       return false;
