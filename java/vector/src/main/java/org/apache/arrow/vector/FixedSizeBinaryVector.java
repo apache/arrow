@@ -304,11 +304,6 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     set(index, holder);
   }
 
-  public void setNull(int index) {
-    handleSafe(index);
-    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
-  }
-
   /**
    * Given a data buffer, get the value stored at a particular position
    * in the vector.
