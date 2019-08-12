@@ -78,6 +78,13 @@ cdef class ChunkedArray(_PandasConvertible):
     def __str__(self):
         return self.format()
 
+    def validate(self):
+        """
+        Validate chunked array consistency.
+        """
+        with nogil:
+            check_status(self.sp_chunked_array.get().Validate())
+
     @property
     def null_count(self):
         """

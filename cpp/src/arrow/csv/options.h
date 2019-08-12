@@ -73,6 +73,19 @@ struct ARROW_EXPORT ConvertOptions {
   // If false, then all strings are valid string values.
   bool strings_can_be_null = false;
 
+  // XXX Should we have a separate FilterOptions?
+
+  // If non-empty, indicates the names of columns from the CSV file that should
+  // be actually read and converted (in the vector's order).
+  // Columns not in this vector will be ignored.
+  std::vector<std::string> include_columns;
+  // If false, columns in `include_columns` but not in the CSV file will error out.
+  // If true, columns in `include_columns` but not in the CSV file will produce
+  // a column of nulls (whose type is selected using `column_types`,
+  // or null by default)
+  // This option is ignored if `include_columns` is empty.
+  bool include_missing_columns = false;
+
   static ConvertOptions Defaults();
 };
 

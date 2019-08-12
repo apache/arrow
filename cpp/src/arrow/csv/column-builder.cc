@@ -25,9 +25,11 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/builder.h"
 #include "arrow/csv/column-builder.h"
 #include "arrow/csv/converter.h"
 #include "arrow/csv/options.h"
+#include "arrow/csv/parser.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -48,6 +50,73 @@ void ColumnBuilder::SetTaskGroup(const std::shared_ptr<internal::TaskGroup>& tas
 
 void ColumnBuilder::Append(const std::shared_ptr<BlockParser>& parser) {
   Insert(static_cast<int64_t>(chunks_.size()), parser);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Null column builder implementation (for a column not in the CSV file)
+
+class NullColumnBuilder : public ColumnBuilder {
+ public:
+  explicit NullColumnBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
+                             const std::shared_ptr<internal::TaskGroup>& task_group)
+      : ColumnBuilder(task_group), type_(type), pool_(pool) {}
+
+  Status Init();
+
+  void Insert(int64_t block_index, const std::shared_ptr<BlockParser>& parser) override;
+  Status Finish(std::shared_ptr<ChunkedArray>* out) override;
+
+  // While NullColumnBuilder is so cheap that it doesn't need parallelization
+  // in itself, the CSV reader doesn't know this and can still call it from
+  // multiple threads, so use a mutex anyway.
+  std::mutex mutex_;
+
+  std::shared_ptr<DataType> type_;
+  MemoryPool* pool_;
+  std::unique_ptr<ArrayBuilder> builder_;
+};
+
+Status NullColumnBuilder::Init() { return MakeBuilder(pool_, type_, &builder_); }
+
+void NullColumnBuilder::Insert(int64_t block_index,
+                               const std::shared_ptr<BlockParser>& parser) {
+  // Create a null Array pointer at the back at the list.
+  size_t chunk_index = static_cast<size_t>(block_index);
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (chunks_.size() <= chunk_index) {
+      chunks_.resize(chunk_index + 1);
+    }
+  }
+
+  // Spawn a task that will build an array of nulls with the right DataType
+  const int32_t num_rows = parser->num_rows();
+  DCHECK_GE(num_rows, 0);
+
+  task_group_->Append([=]() -> Status {
+    std::shared_ptr<Array> res;
+    RETURN_NOT_OK(builder_->AppendNulls(num_rows));
+    RETURN_NOT_OK(builder_->Finish(&res));
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    // Should not insert an already built chunk
+    DCHECK_EQ(chunks_[chunk_index], nullptr);
+    chunks_[chunk_index] = std::move(res);
+    return Status::OK();
+  });
+}
+
+Status NullColumnBuilder::Finish(std::shared_ptr<ChunkedArray>* out) {
+  // Unnecessary iff all tasks have finished
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  for (const auto& chunk : chunks_) {
+    if (chunk == nullptr) {
+      return Status::Invalid("a chunk failed allocating for an unknown reason");
+    }
+  }
+  *out = std::make_shared<ChunkedArray>(chunks_, type_);
+  return Status::OK();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -355,26 +424,35 @@ Status InferringColumnBuilder::Finish(std::shared_ptr<ChunkedArray>* out) {
 //////////////////////////////////////////////////////////////////////////
 // Factory functions
 
-Status ColumnBuilder::Make(const std::shared_ptr<DataType>& type, int32_t col_index,
-                           const ConvertOptions& options,
+Status ColumnBuilder::Make(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                           int32_t col_index, const ConvertOptions& options,
                            const std::shared_ptr<TaskGroup>& task_group,
                            std::shared_ptr<ColumnBuilder>* out) {
-  auto ptr =
-      new TypedColumnBuilder(type, col_index, options, default_memory_pool(), task_group);
+  auto ptr = new TypedColumnBuilder(type, col_index, options, pool, task_group);
   auto res = std::shared_ptr<ColumnBuilder>(ptr);
   RETURN_NOT_OK(ptr->Init());
   *out = res;
   return Status::OK();
 }
 
-Status ColumnBuilder::Make(int32_t col_index, const ConvertOptions& options,
+Status ColumnBuilder::Make(MemoryPool* pool, int32_t col_index,
+                           const ConvertOptions& options,
                            const std::shared_ptr<TaskGroup>& task_group,
                            std::shared_ptr<ColumnBuilder>* out) {
-  auto ptr =
-      new InferringColumnBuilder(col_index, options, default_memory_pool(), task_group);
+  // XXX
+  auto ptr = new InferringColumnBuilder(col_index, options, pool, task_group);
   auto res = std::shared_ptr<ColumnBuilder>(ptr);
   RETURN_NOT_OK(ptr->Init());
   *out = res;
+  return Status::OK();
+}
+
+Status ColumnBuilder::MakeNull(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                               const std::shared_ptr<internal::TaskGroup>& task_group,
+                               std::shared_ptr<ColumnBuilder>* out) {
+  auto res = std::make_shared<NullColumnBuilder>(type, pool, task_group);
+  RETURN_NOT_OK(res->Init());
+  *out = std::move(res);
   return Status::OK();
 }
 
