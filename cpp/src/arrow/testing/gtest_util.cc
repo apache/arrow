@@ -49,7 +49,9 @@ static void PrintChunkedArray(const ChunkedArray& carr, std::stringstream* ss) {
   for (int i = 0; i < carr.num_chunks(); ++i) {
     auto c1 = carr.chunk(i);
     *ss << "Chunk " << i << std::endl;
-    ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, ss));
+    ::arrow::PrettyPrintOptions options(2);
+    options.window = 100;
+    ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, options, ss));
     *ss << std::endl;
   }
 }

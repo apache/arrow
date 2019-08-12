@@ -161,9 +161,18 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
                        int64_t valid_bits_offset, T* out_min, T* out_max) override {
     ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
                                                       length);
-    T min = values[0];
-    T max = values[0];
-    for (int64_t i = 0; i < length; i++) {
+
+    // Find the first non-null value
+    int64_t first_non_null = 0;
+    while (!valid_bits_reader.IsSet()) {
+      ++first_non_null;
+      valid_bits_reader.Next();
+    }
+
+    T min = values[first_non_null];
+    T max = values[first_non_null];
+    valid_bits_reader.Next();
+    for (int64_t i = first_non_null + 1; i < length; i++) {
       if (valid_bits_reader.IsSet()) {
         if (CompareInline(values[i], min)) {
           min = values[i];
@@ -195,20 +204,41 @@ void GetMinMaxBinaryHelper(
     const TypedComparatorImpl<is_signed, ByteArrayType>& comparator,
     const ::arrow::Array& values, ByteArray* out_min, ByteArray* out_max) {
   const auto& data = checked_cast<const ::arrow::BinaryArray&>(values);
-  ::arrow::internal::BitmapReader valid_bits_reader(data.null_bitmap_data(),
-                                                    data.offset(), data.length());
-  ByteArray min = data.GetView(0);
-  ByteArray max = data.GetView(0);
-  for (int64_t i = 0; i < data.length(); i++) {
-    ByteArray val = data.GetView(i);
-    if (valid_bits_reader.IsSet()) {
+
+  ByteArray min, max;
+  if (data.null_count() > 0) {
+    ::arrow::internal::BitmapReader valid_bits_reader(data.null_bitmap_data(),
+                                                      data.offset(), data.length());
+
+    int64_t first_non_null = 0;
+    while (!valid_bits_reader.IsSet()) {
+      ++first_non_null;
+      valid_bits_reader.Next();
+    }
+    min = data.GetView(first_non_null);
+    max = data.GetView(first_non_null);
+    for (int64_t i = first_non_null; i < data.length(); i++) {
+      ByteArray val = data.GetView(i);
+      if (valid_bits_reader.IsSet()) {
+        if (comparator.CompareInline(val, min)) {
+          min = val;
+        } else if (comparator.CompareInline(max, val)) {
+          max = val;
+        }
+      }
+      valid_bits_reader.Next();
+    }
+  } else {
+    min = data.GetView(0);
+    max = data.GetView(0);
+    for (int64_t i = 0; i < data.length(); i++) {
+      ByteArray val = data.GetView(i);
       if (comparator.CompareInline(val, min)) {
         min = val;
       } else if (comparator.CompareInline(max, val)) {
         max = val;
       }
     }
-    valid_bits_reader.Next();
   }
   *out_min = min;
   *out_max = max;
@@ -568,10 +598,10 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
   // As (num_not_null != 0) there must be one
   int64_t length = num_null + num_not_null;
   int64_t i = 0;
-  ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
-                                                    length);
   StatsHelper<T> helper;
   if (helper.CanHaveNaN()) {
+    ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
+                                                      length);
     for (; i < length; i++) {
       // PARQUET-1225: Handle NaNs
       if (valid_bits_reader.IsSet() && !helper.IsNaN(values[i])) {

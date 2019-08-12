@@ -439,9 +439,8 @@ void CheckSimpleRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group
   std::shared_ptr<Table> result;
   DoSimpleRoundtrip(table, false /* use_threads */, row_group_size, {}, &result,
                     arrow_properties);
-  ASSERT_NO_FATAL_FAILURE(
-      ::arrow::AssertSchemaEqual(*table->schema(), *result->schema()));
-  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result, false));
+  ::arrow::AssertSchemaEqual(*table->schema(), *result->schema());
+  ::arrow::AssertTablesEqual(*table, *result, false);
 }
 
 static std::shared_ptr<GroupNode> MakeSimpleSchema(const DataType& type,
@@ -751,8 +750,8 @@ TYPED_TEST(TestParquetIO, SingleEmptyListsColumnReadWrite) {
 
 TYPED_TEST(TestParquetIO, SingleNullableListNullableColumnReadWrite) {
   std::shared_ptr<Table> table;
-  ASSERT_NO_FATAL_FAILURE(this->PrepareListTable(SMALL_SIZE, true, true, 10, &table));
-  ASSERT_NO_FATAL_FAILURE(this->CheckRoundTrip(table));
+  this->PrepareListTable(SMALL_SIZE, true, true, 10, &table);
+  this->CheckRoundTrip(table);
 }
 
 TYPED_TEST(TestParquetIO, SingleRequiredListNullableColumnReadWrite) {

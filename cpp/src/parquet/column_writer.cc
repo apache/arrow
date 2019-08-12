@@ -1306,21 +1306,24 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrow(const int16_t* def_level
       array.type()->id() != ::arrow::Type::STRING) {
     ARROW_UNSUPPORTED();
   }
+  int64_t value_offset = 0;
   auto WriteChunk = [&](int64_t offset, int64_t batch_size) {
     int64_t batch_num_values = 0;
     int64_t batch_num_spaced_values = 0;
     WriteLevelsSpaced(batch_size, def_levels + offset, rep_levels + offset,
                       &batch_num_values, &batch_num_spaced_values);
 
-    std::shared_ptr<::arrow::Array> data_slice = array.Slice(offset, batch_size);
+    std::shared_ptr<::arrow::Array> data_slice =
+        array.Slice(value_offset, batch_num_spaced_values);
     current_encoder_->Put(*data_slice);
     if (page_statistics_ != nullptr) {
       page_statistics_->Update(*data_slice);
     }
-    CommitWriteAndCheckLimits(batch_size, batch_num_spaced_values);
+    CommitWriteAndCheckLimits(batch_size, batch_num_values);
+    value_offset += batch_num_spaced_values;
   };
   PARQUET_CATCH_NOT_OK(
-      DoInBatches(array.length(), properties_->write_batch_size(), WriteChunk));
+      DoInBatches(num_levels, properties_->write_batch_size(), WriteChunk));
   return Status::OK();
 }
 
