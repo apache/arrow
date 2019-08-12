@@ -15,7 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gtest/gtest.h"
-#include "parquet/test-util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/test_data.h"
 
-TEST(TestArrowWriterAdHoc, SchemaMismatch) {}
+namespace arrow {
+namespace dataset {
+
+class TestParquetFileFormat : public TestDataFixtureMixin {};
+
+TEST_F(TestParquetFileFormat, ScanFile) {
+  auto bin_file = OpenParquetFile("data/binary.parquet");
+}
+
+}  // namespace dataset
+}  // namespace arrow

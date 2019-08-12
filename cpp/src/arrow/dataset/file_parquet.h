@@ -45,10 +45,14 @@ class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {
 /// \brief A FileFormat implementation that reads from Parquet files
 class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
-  std::string name() const override;
+  std::string name() const override {
+    return "parquet";
+  }
 
   /// \brief Return true if the given file extension
-  bool IsKnownExtension(const std::string& ext) const override;
+  bool IsKnownExtension(const std::string& ext) const override {
+    return ext == "par" || ext == name();
+  }
 
   /// \brief Open a file for scanning
   Status ScanFile(const FileSource& location, std::shared_ptr<ScanOptions> scan_options,

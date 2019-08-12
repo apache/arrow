@@ -1,0 +1,73 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+#include <string>
+
+#include <gtest/gtest.h>
+
+#include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/localfs.h"
+#include "arrow/testing/gtest_util.h"
+
+namespace arrow {
+
+static const char* ARROW_TEST_DATA_PATH = "@ARROW_TEST_DATA@";
+
+static const char* PARQUET_TEST_DATA_PATH = "@PARQUET_TEST_DATA@";
+
+std::string ArrowTestDataPath() { return ARROW_TEST_DATA_PATH; }
+
+std::string ParquetTestDataPath() { return PARQUET_TEST_DATA_PATH; }
+
+// Convenience class allowing to retrieve integration data easily, e.g.
+//
+// class MyTestClass : public ::testing::Test, TestDataFixtureMixin {
+// }
+//
+// TEST(MyTestClass, ATest) {
+//    this->ArrowParquetFileSystem()->OpenInputFile("data/binary.parquet")
+//    // Do something
+// }
+class TestDataFixtureMixin : public ::testing::Test {
+ public:
+  TestDataFixtureMixin() {
+    auto root = std::make_shared<fs::LocalFileSystem>();
+    arrow_fs_ = std::make_shared<fs::SubTreeFileSystem>(ArrowTestDataPath(), root);
+    parquet_fs_ = std::make_shared<fs::SubTreeFileSystem>(ParquetTestDataPath(), root);
+  }
+
+  std::shared_ptr<io::RandomAccessFile> OpenParquetFile(const std::string& relative_path) {
+    std::shared_ptr<io::RandomAccessFile> file;
+    ARROW_EXPECT_OK(ParquetDataFileSystem()->OpenInputFile(relative_path, &file));
+    return file;
+  }
+
+  std::shared_ptr<io::RandomAccessFile> OpenArrowFile(const std::string& relative_path) {
+    std::shared_ptr<io::RandomAccessFile> file;
+    ARROW_EXPECT_OK(ArrowDataFileSystem()->OpenInputFile(relative_path, &file));
+    return file;
+  }
+
+  fs::FileSystem* ArrowDataFileSystem() const { return arrow_fs_.get(); }
+  fs::FileSystem* ParquetDataFileSystem() const { return parquet_fs_.get(); }
+
+ protected:
+  std::shared_ptr<fs::FileSystem> arrow_fs_;
+  std::shared_ptr<fs::FileSystem> parquet_fs_;
+};
+
+}  // namespace arrow
