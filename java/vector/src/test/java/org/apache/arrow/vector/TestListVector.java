@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -870,5 +871,41 @@ public class TestListVector {
       resultSet = (ArrayList<Long>) result;
       assertEquals(new Long(8), resultSet.get(0));
     }
+  }
+
+  @Test
+  public void testGetBufferSizeFor() {
+    try (final ListVector vector = ListVector.empty("list", allocator)) {
+
+      UnionListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      //set some values
+      writeIntValues(writer, new int[] {1, 2});
+      writeIntValues(writer, new int[] {3, 4});
+      writeIntValues(writer, new int[] {5, 6});
+      writeIntValues(writer, new int[] {7, 8, 9, 10});
+      writeIntValues(writer, new int[] {11, 12, 13, 14});
+      writer.setValueCount(5);
+
+      IntVector dataVector = (IntVector) vector.getDataVector();
+      int[] indices = new int[] {0, 2, 4, 6, 10, 14};
+
+      for (int valueCount = 1; valueCount <= 5; valueCount++) {
+        int validityBufferSize = BitVectorHelper.getValidityBufferSize(valueCount);
+        int offsetBufferSize = (valueCount + 1) * BaseRepeatedValueVector.OFFSET_WIDTH;
+
+        int expectedSize = validityBufferSize + offsetBufferSize + dataVector.getBufferSizeFor(indices[valueCount]);
+        assertEquals(expectedSize, vector.getBufferSizeFor(valueCount));
+      }
+    }
+  }
+
+  private void writeIntValues(UnionListWriter writer, int[] values) {
+    writer.startList();
+    for (int v: values) {
+      writer.integer().writeInt(v);
+    }
+    writer.endList();
   }
 }
