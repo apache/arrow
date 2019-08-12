@@ -140,7 +140,7 @@ public class ByteFunctionHelpers {
       long leftLong = PlatformDependent.getLong(lPos);
       long rightLong = PlatformDependent.getLong(rPos);
       if (leftLong != rightLong) {
-        return unsignedLongCompare(leftLong, rightLong);
+        return unsignedLongCompare(Long.reverseBytes(leftLong), Long.reverseBytes(rightLong));
       }
       lPos += 8;
       rPos += 8;
@@ -151,7 +151,7 @@ public class ByteFunctionHelpers {
       int leftInt = PlatformDependent.getInt(lPos);
       int rightInt = PlatformDependent.getInt(rPos);
       if (leftInt != rightInt) {
-        return unsignedIntCompare(leftInt, rightInt);
+        return unsignedIntCompare(Integer.reverseBytes(leftInt), Integer.reverseBytes(rightInt));
       }
       lPos += 4;
       rPos += 4;

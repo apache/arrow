@@ -111,4 +111,26 @@ public class TestByteFunctionHelpers {
     buffer2.close();
 
   }
+
+  @Test
+  public void testStringCompare() {
+    String[] leftStrings = {"cat", "cats", "catworld", "dogs", "bags"};
+    String[] rightStrings = {"dog", "dogs", "dogworld", "dog", "sgab"};
+
+    for (int i = 0; i < leftStrings.length; ++i) {
+      String leftStr = leftStrings[i];
+      String rightStr = rightStrings[i];
+
+      ArrowBuf left = allocator.buffer(SIZE);
+      left.setBytes(0, leftStr.getBytes());
+      ArrowBuf right = allocator.buffer(SIZE);
+      right.setBytes(0, rightStr.getBytes());
+
+      assertEquals(leftStr.compareTo(rightStr) < 0 ? -1 : 1,
+          ByteFunctionHelpers.compare(left, 0, leftStr.length(), right, 0, rightStr.length()));
+
+      left.close();
+      right.close();
+    }
+  }
 }
