@@ -45,7 +45,6 @@ def test_cpu_count():
 @pytest.mark.parametrize('klass', [
     pa.Field,
     pa.Schema,
-    pa.Column,
     pa.ChunkedArray,
     pa.RecordBatch,
     pa.Table,

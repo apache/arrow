@@ -20,6 +20,8 @@ package org.apache.arrow.flight;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.arrow.flight.grpc.StatusUtils;
+
 /**
  * A handler for server-sent application metadata messages during a Flight DoPut operation.
  *
@@ -53,7 +55,7 @@ public class AsyncPutListener implements FlightClient.PutListener {
 
   @Override
   public final void onError(Throwable t) {
-    completed.completeExceptionally(t);
+    completed.completeExceptionally(StatusUtils.fromThrowable(t));
   }
 
   @Override

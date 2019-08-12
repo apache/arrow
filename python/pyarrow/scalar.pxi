@@ -437,6 +437,43 @@ cdef class StringValue(ArrayValue):
         cdef CStringArray* ap = <CStringArray*> self.sp_array.get()
         return ap.GetString(self.index).decode('utf-8')
 
+    def as_buffer(self):
+        """
+        Return a view over this value as a Buffer object.
+        """
+        cdef:
+            CStringArray* ap = <CStringArray*> self.sp_array.get()
+            shared_ptr[CBuffer] buf
+
+        buf = SliceBuffer(ap.value_data(), ap.value_offset(self.index),
+                          ap.value_length(self.index))
+        return pyarrow_wrap_buffer(buf)
+
+
+cdef class LargeStringValue(ArrayValue):
+    """
+    Concrete class for large string (utf8) array elements.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python unicode string.
+        """
+        cdef CLargeStringArray* ap = <CLargeStringArray*> self.sp_array.get()
+        return ap.GetString(self.index).decode('utf-8')
+
+    def as_buffer(self):
+        """
+        Return a view over this value as a Buffer object.
+        """
+        cdef:
+            CLargeStringArray* ap = <CLargeStringArray*> self.sp_array.get()
+            shared_ptr[CBuffer] buf
+
+        buf = SliceBuffer(ap.value_data(), ap.value_offset(self.index),
+                          ap.value_length(self.index))
+        return pyarrow_wrap_buffer(buf)
+
 
 cdef class BinaryValue(ArrayValue):
     """
@@ -461,6 +498,36 @@ cdef class BinaryValue(ArrayValue):
         """
         cdef:
             CBinaryArray* ap = <CBinaryArray*> self.sp_array.get()
+            shared_ptr[CBuffer] buf
+
+        buf = SliceBuffer(ap.value_data(), ap.value_offset(self.index),
+                          ap.value_length(self.index))
+        return pyarrow_wrap_buffer(buf)
+
+
+cdef class LargeBinaryValue(ArrayValue):
+    """
+    Concrete class for large variable-sized binary array elements.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python bytes object.
+        """
+        cdef:
+            const uint8_t* ptr
+            int64_t length
+            CLargeBinaryArray* ap = <CLargeBinaryArray*> self.sp_array.get()
+
+        ptr = ap.GetValue(self.index, &length)
+        return cp.PyBytes_FromStringAndSize(<const char*>(ptr), length)
+
+    def as_buffer(self):
+        """
+        Return a view over this value as a Buffer object.
+        """
+        cdef:
+            CLargeBinaryArray* ap = <CLargeBinaryArray*> self.sp_array.get()
             shared_ptr[CBuffer] buf
 
         buf = SliceBuffer(ap.value_data(), ap.value_offset(self.index),
@@ -496,6 +563,57 @@ cdef class ListValue(ArrayValue):
     cdef void _set_array(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
         self.ap = <CListArray*> sp_array.get()
+        self.value_type = pyarrow_wrap_data_type(self.ap.value_type())
+
+    cdef getitem(self, int64_t i):
+        cdef int64_t j = self.ap.value_offset(self.index) + i
+        return box_scalar(self.value_type, self.ap.values(), j)
+
+    cdef int64_t length(self):
+        return self.ap.value_length(self.index)
+
+    def as_py(self):
+        """
+        Return this value as a Python list.
+        """
+        cdef:
+            int64_t j
+            list result = []
+
+        for j in range(len(self)):
+            result.append(self.getitem(j).as_py())
+
+        return result
+
+
+cdef class LargeListValue(ArrayValue):
+    """
+    Concrete class for large list array elements.
+    """
+
+    def __len__(self):
+        """
+        Return the number of values.
+        """
+        return self.length()
+
+    def __getitem__(self, i):
+        """
+        Return the value at the given index.
+        """
+        return self.getitem(_normalize_index(i, self.length()))
+
+    def __iter__(self):
+        """
+        Iterate over this element's values.
+        """
+        for i in range(len(self)):
+            yield self.getitem(i)
+        raise StopIteration
+
+    cdef void _set_array(self, const shared_ptr[CArray]& sp_array):
+        self.sp_array = sp_array
+        self.ap = <CLargeListArray*> sp_array.get()
         self.value_type = pyarrow_wrap_data_type(self.ap.value_type())
 
     cdef getitem(self, int64_t i):
@@ -662,9 +780,12 @@ cdef dict _array_value_classes = {
     _Type_FLOAT: FloatValue,
     _Type_DOUBLE: DoubleValue,
     _Type_LIST: ListValue,
+    _Type_LARGE_LIST: LargeListValue,
     _Type_UNION: UnionValue,
     _Type_BINARY: BinaryValue,
     _Type_STRING: StringValue,
+    _Type_LARGE_BINARY: LargeBinaryValue,
+    _Type_LARGE_STRING: LargeStringValue,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryValue,
     _Type_DECIMAL: DecimalValue,
     _Type_STRUCT: StructValue,

@@ -327,15 +327,16 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 
     ReaderProperties default_reader_properties()
 
-    cdef cppclass ParquetFileReader:
-        @staticmethod
-        unique_ptr[ParquetFileReader] Open(
-            const shared_ptr[RandomAccessFile]& file,
-            const ReaderProperties& props,
-            const shared_ptr[CFileMetaData]& metadata)
+    cdef cppclass ArrowReaderProperties:
+        ArrowReaderProperties()
+        void set_read_dictionary(int column_index, c_bool read_dict)
+        c_bool read_dictionary()
+        void set_batch_size()
+        int64_t batch_size()
 
-        @staticmethod
-        unique_ptr[ParquetFileReader] OpenFile(const c_string& path)
+    ArrowReaderProperties default_arrow_reader_properties()
+
+    cdef cppclass ParquetFileReader:
         shared_ptr[CFileMetaData] metadata()
 
 
@@ -356,14 +357,19 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* write_batch_size(int64_t batch_size)
             shared_ptr[WriterProperties] build()
 
+    cdef cppclass ArrowWriterProperties:
+        cppclass Builder:
+            Builder()
+            Builder* disable_deprecated_int96_timestamps()
+            Builder* enable_deprecated_int96_timestamps()
+            Builder* coerce_timestamps(TimeUnit unit)
+            Builder* allow_truncated_timestamps()
+            Builder* disallow_truncated_timestamps()
+            shared_ptr[ArrowWriterProperties] build()
+        c_bool support_deprecated_int96_timestamps()
+
 
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
-    CStatus OpenFile(const shared_ptr[RandomAccessFile]& file,
-                     CMemoryPool* allocator,
-                     const ReaderProperties& properties,
-                     const shared_ptr[CFileMetaData]& metadata,
-                     unique_ptr[FileReader]* reader)
-
     cdef cppclass FileReader:
         FileReader(CMemoryPool* pool, unique_ptr[ParquetFileReader] reader)
         CStatus ReadColumn(int i, shared_ptr[CChunkedArray]* out)
@@ -385,15 +391,28 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
 
         void set_use_threads(c_bool use_threads)
 
+    cdef cppclass FileReaderBuilder:
+        FileReaderBuilder()
+        CStatus Open(const shared_ptr[RandomAccessFile]& file,
+                     const ReaderProperties& properties,
+                     const shared_ptr[CFileMetaData]& metadata)
 
-cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
+        ParquetFileReader* raw_reader()
+        FileReaderBuilder* memory_pool(CMemoryPool*)
+        FileReaderBuilder* properties(const ArrowReaderProperties&)
+        CStatus Build(unique_ptr[FileReader]* out)
+
     CStatus FromParquetSchema(
         const SchemaDescriptor* parquet_schema,
+        const ArrowReaderProperties& properties,
         const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
         shared_ptr[CSchema]* out)
 
+cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
+
     CStatus ToParquetSchema(
         const CSchema* arrow_schema,
+        const ArrowReaderProperties& properties,
         const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
         shared_ptr[SchemaDescriptor]* out)
 
@@ -413,17 +432,6 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
         CStatus Close()
 
         const shared_ptr[CFileMetaData] metadata() const
-
-    cdef cppclass ArrowWriterProperties:
-        cppclass Builder:
-            Builder()
-            Builder* disable_deprecated_int96_timestamps()
-            Builder* enable_deprecated_int96_timestamps()
-            Builder* coerce_timestamps(TimeUnit unit)
-            Builder* allow_truncated_timestamps()
-            Builder* disallow_truncated_timestamps()
-            shared_ptr[ArrowWriterProperties] build()
-        c_bool support_deprecated_int96_timestamps()
 
     CStatus WriteMetaDataFile(
         const CFileMetaData& file_metadata,

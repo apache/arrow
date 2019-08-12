@@ -162,6 +162,8 @@ static std::vector<fs::path> get_potential_libjvm_paths() {
       "/usr/local/lib/jvm/java",                  // alt rhel6
       "/usr/local/lib/jvm",                       // alt centos6
       "/usr/local/lib64/jvm",                     // alt opensuse 13
+      "/usr/local/lib/jvm/java-8-openjdk-amd64",  // alt ubuntu / debian distros
+      "/usr/lib/jvm/java-8-openjdk-amd64",        // alt ubuntu / debian distros
       "/usr/local/lib/jvm/java-7-openjdk-amd64",  // alt ubuntu / debian distros
       "/usr/lib/jvm/java-7-openjdk-amd64",        // alt ubuntu / debian distros
       "/usr/local/lib/jvm/java-6-openjdk-amd64",  // alt ubuntu / debian distros

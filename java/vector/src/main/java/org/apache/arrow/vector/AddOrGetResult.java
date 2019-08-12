@@ -39,7 +39,7 @@ public class AddOrGetResult<V extends ValueVector> {
     return vector;
   }
 
-  /** Returns whether the vectos is created. */
+  /** Returns whether the vector is created. */
   public boolean isCreated() {
     return created;
   }

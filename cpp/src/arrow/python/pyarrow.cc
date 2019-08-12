@@ -161,21 +161,6 @@ PyObject* wrap_sparse_tensor_coo(const std::shared_ptr<SparseTensorCOO>& sparse_
   return ::pyarrow_wrap_sparse_tensor_coo(sparse_tensor);
 }
 
-bool is_column(PyObject* column) { return ::pyarrow_is_column(column) != 0; }
-
-Status unwrap_column(PyObject* column, std::shared_ptr<Column>* out) {
-  *out = ::pyarrow_unwrap_column(column);
-  if (*out) {
-    return Status::OK();
-  } else {
-    return Status::Invalid("Could not unwrap Column from the passed Python object.");
-  }
-}
-
-PyObject* wrap_column(const std::shared_ptr<Column>& column) {
-  return ::pyarrow_wrap_column(column);
-}
-
 bool is_table(PyObject* table) { return ::pyarrow_is_table(table) != 0; }
 
 Status unwrap_table(PyObject* table, std::shared_ptr<Table>* out) {

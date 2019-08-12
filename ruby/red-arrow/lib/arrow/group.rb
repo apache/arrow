@@ -152,24 +152,21 @@ module Arrow
       end
 
       grouped_key_arrays_raw = grouped_keys.transpose
-      columns = @keys.collect.with_index do |key, i|
+      fields = []
+      arrays = []
+      @keys.each_with_index do |key, i|
         key_column = @table[key]
-        key_column_array_class = key_column.data.chunks.first.class
-        if key_column_array_class == TimestampArray
-          builder = TimestampArrayBuilder.new(key_column.data_type)
-          key_column_array = builder.build(grouped_key_arrays_raw[i])
-        else
-          key_column_array =
-            key_column_array_class.new(grouped_key_arrays_raw[i])
-        end
-        Column.new(key_column.field, key_column_array)
+        key_column_array_raw = grouped_key_arrays_raw[i]
+        key_column_array = key_column.data_type.build_array(key_column_array_raw)
+        fields << key_column.field
+        arrays << key_column_array
       end
       target_columns.each_with_index do |column, i|
         array = ArrayBuilder.build(aggregated_arrays_raw[i])
-        field = Field.new(column.name, array.value_data_type)
-        columns << Column.new(field, array)
+        arrays << array
+        fields << Field.new(column.field.name, array.value_data_type)
       end
-      Table.new(columns)
+      Table.new(fields, arrays)
     end
   end
 end

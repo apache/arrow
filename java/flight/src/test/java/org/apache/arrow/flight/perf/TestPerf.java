@@ -34,6 +34,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -46,7 +47,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.flatbuffers.FlatBufferBuilder;
 import com.google.protobuf.ByteString;
 
 @org.junit.Ignore
@@ -62,13 +62,12 @@ public class TestPerf {
         Field.nullable("d", MinorType.BIGINT.getType())
     ));
 
-    FlatBufferBuilder builder = new FlatBufferBuilder();
-    pojoSchema.getSchema(builder);
+    ByteString serializedSchema = ByteString.copyFrom(MessageSerializer.serializeMetadata(pojoSchema));
 
     return FlightDescriptor.command(Perf.newBuilder()
         .setRecordsPerStream(recordCount)
         .setRecordsPerBatch(recordsPerBatch)
-        .setSchema(ByteString.copyFrom(pojoSchema.toByteArray()))
+        .setSchema(serializedSchema)
         .setStreamCount(streamCount)
         .build()
         .toByteArray());

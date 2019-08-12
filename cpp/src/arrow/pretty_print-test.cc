@@ -155,6 +155,7 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
   null
 ])expected";
   CheckPrimitive<StringType, std::string>({0, 10}, is_valid, values3, ex3);
+  CheckPrimitive<LargeStringType, std::string>({0, 10}, is_valid, values3, ex3);
   static const char* ex3_in2 = R"expected(  [
     "foo",
     "bar",
@@ -163,6 +164,7 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
     null
   ])expected";
   CheckPrimitive<StringType, std::string>({2, 10}, is_valid, values3, ex3_in2);
+  CheckPrimitive<LargeStringType, std::string>({2, 10}, is_valid, values3, ex3_in2);
 }
 
 TEST_F(TestPrettyPrint, Int8) {
@@ -338,14 +340,15 @@ TEST_F(TestPrettyPrint, BinaryType) {
   std::vector<std::string> values = {"foo", "bar", "", "baz", "", "\xff"};
   static const char* ex = "[\n  666F6F,\n  626172,\n  null,\n  62617A,\n  ,\n  FF\n]";
   CheckPrimitive<BinaryType, std::string>({0}, is_valid, values, ex);
+  CheckPrimitive<LargeBinaryType, std::string>({0}, is_valid, values, ex);
   static const char* ex_in2 =
       "  [\n    666F6F,\n    626172,\n    null,\n    62617A,\n    ,\n    FF\n  ]";
   CheckPrimitive<BinaryType, std::string>({2}, is_valid, values, ex_in2);
+  CheckPrimitive<LargeBinaryType, std::string>({2}, is_valid, values, ex_in2);
 }
 
 TEST_F(TestPrettyPrint, ListType) {
   auto list_type = list(int64());
-  auto array = ArrayFromJSON(list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
 
   static const char* ex = R"expected([
   [
@@ -363,7 +366,6 @@ TEST_F(TestPrettyPrint, ListType) {
     3
   ]
 ])expected";
-  CheckArray(*array, {0, 10}, ex);
   static const char* ex_2 = R"expected(  [
     [
       null
@@ -380,7 +382,6 @@ TEST_F(TestPrettyPrint, ListType) {
       3
     ]
   ])expected";
-  CheckArray(*array, {2, 10}, ex_2);
   static const char* ex_3 = R"expected([
   [
     null
@@ -391,6 +392,16 @@ TEST_F(TestPrettyPrint, ListType) {
     3
   ]
 ])expected";
+
+  auto array = ArrayFromJSON(list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
+  CheckArray(*array, {0, 10}, ex);
+  CheckArray(*array, {2, 10}, ex_2);
+  CheckStream(*array, {0, 1}, ex_3);
+
+  list_type = large_list(int64());
+  array = ArrayFromJSON(list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
+  CheckArray(*array, {0, 10}, ex);
+  CheckArray(*array, {2, 10}, ex_2);
   CheckStream(*array, {0, 1}, ex_3);
 }
 
@@ -567,51 +578,10 @@ TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveType) {
   CheckStream(chunked_array_2, {0}, expected_2);
 }
 
-TEST_F(TestPrettyPrint, ColumnPrimitiveType) {
-  std::shared_ptr<Field> int_field = field("column", int32());
-  auto array = ArrayFromJSON(int_field->type(), "[0, 1, null, 3, null]");
-  Column column(int_field, ArrayVector({array}));
-
-  static const char* expected = R"expected(column: int32
-[
-  [
-    0,
-    1,
-    null,
-    3,
-    null
-  ]
-])expected";
-  CheckStream(column, {0}, expected);
-
-  Column column_2(int_field, {array, array});
-
-  static const char* expected_2 = R"expected(column: int32
-[
-  [
-    0,
-    1,
-    null,
-    3,
-    null
-  ],
-  [
-    0,
-    1,
-    null,
-    3,
-    null
-  ]
-])expected";
-
-  CheckStream(column_2, {0}, expected_2);
-}
-
 TEST_F(TestPrettyPrint, TablePrimitive) {
   std::shared_ptr<Field> int_field = field("column", int32());
   auto array = ArrayFromJSON(int_field->type(), "[0, 1, null, 3, null]");
-  std::shared_ptr<Column> column =
-      std::make_shared<Column>(int_field, ArrayVector({array}));
+  auto column = std::make_shared<ChunkedArray>(ArrayVector({array}));
   std::shared_ptr<Schema> table_schema = schema({int_field});
   std::shared_ptr<Table> table = Table::Make(table_schema, {column});
 

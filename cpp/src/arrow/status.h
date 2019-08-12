@@ -249,6 +249,12 @@ class ARROW_EXPORT Status {
                   util::StringBuilder(std::forward<Args>(args)...));
   }
 
+  template <typename... Args>
+  static Status AlreadyExists(Args&&... args) {
+    return Status(StatusCode::AlreadyExists,
+                  util::StringBuilder(std::forward<Args>(args)...));
+  }
+
   /// Return true iff the status indicates success.
   bool ok() const { return (state_ == NULLPTR); }
 

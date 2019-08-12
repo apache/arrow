@@ -165,7 +165,7 @@ class SchemaWriter {
 
   template <typename T>
   typename std::enable_if<std::is_base_of<NoExtraMeta, T>::value ||
-                              std::is_base_of<ListType, T>::value ||
+                              std::is_base_of<BaseListType, T>::value ||
                               std::is_base_of<StructType, T>::value,
                           void>::type
   WriteTypeMetadata(const T& type) {}
@@ -312,6 +312,10 @@ class SchemaWriter {
   Status Visit(const TimeType& type) { return WritePrimitive("time", type); }
   Status Visit(const StringType& type) { return WriteVarBytes("utf8", type); }
   Status Visit(const BinaryType& type) { return WriteVarBytes("binary", type); }
+  Status Visit(const LargeStringType& type) { return WriteVarBytes("large_utf8", type); }
+  Status Visit(const LargeBinaryType& type) {
+    return WriteVarBytes("large_binary", type);
+  }
   Status Visit(const FixedSizeBinaryType& type) {
     return WritePrimitive("fixedsizebinary", type);
   }
@@ -327,6 +331,11 @@ class SchemaWriter {
 
   Status Visit(const ListType& type) {
     WriteName("list", type);
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListType& type) {
+    WriteName("large_list", type);
     return Status::OK();
   }
 
@@ -430,20 +439,26 @@ class ArrayWriter {
     }
   }
 
-  // Binary, encode to hexadecimal. UTF8 string write as is
+  // Binary, encode to hexadecimal.
   template <typename T>
-  typename std::enable_if<std::is_base_of<BinaryArray, T>::value, void>::type
+  typename std::enable_if<std::is_same<BinaryArray, T>::value ||
+                              std::is_same<LargeBinaryArray, T>::value,
+                          void>::type
   WriteDataValues(const T& arr) {
     for (int64_t i = 0; i < arr.length(); ++i) {
-      int32_t length;
-      const uint8_t* buf = arr.GetValue(i, &length);
+      writer_->String(HexEncode(arr.GetView(i)));
+    }
+  }
 
-      if (std::is_base_of<StringArray, T>::value) {
-        // Presumed UTF-8
-        writer_->String(reinterpret_cast<const char*>(buf), length);
-      } else {
-        writer_->String(HexEncode(buf, length));
-      }
+  // UTF8 string, write as is
+  template <typename T>
+  typename std::enable_if<std::is_same<StringArray, T>::value ||
+                              std::is_same<LargeStringArray, T>::value,
+                          void>::type
+  WriteDataValues(const T& arr) {
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      auto view = arr.GetView(i);
+      writer_->String(view.data(), static_cast<rj::SizeType>(view.size()));
     }
   }
 
@@ -558,8 +573,10 @@ class ArrayWriter {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<BinaryArray, T>::value, Status>::type Visit(
-      const T& array) {
+  typename std::enable_if<std::is_base_of<BinaryArray, T>::value ||
+                              std::is_base_of<LargeBinaryArray, T>::value,
+                          Status>::type
+  Visit(const T& array) {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
     WriteDataField(array);
@@ -571,11 +588,14 @@ class ArrayWriter {
     return VisitArrayValues(*array.indices());
   }
 
-  Status Visit(const ListArray& array) {
+  template <typename T>
+  typename std::enable_if<std::is_base_of<ListArray, T>::value ||
+                              std::is_base_of<LargeListArray, T>::value,
+                          Status>::type
+  Visit(const T& array) {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
-    const auto& type = checked_cast<const ListType&>(*array.type());
-    return WriteChildren(type.children(), {array.values()});
+    return WriteChildren(array.type()->children(), {array.values()});
   }
 
   Status Visit(const FixedSizeListArray& array) {
@@ -911,6 +931,10 @@ static Status GetType(const RjObject& json_type,
     *type = utf8();
   } else if (type_name == "binary") {
     *type = binary();
+  } else if (type_name == "large_utf8") {
+    *type = large_utf8();
+  } else if (type_name == "large_binary") {
+    *type = large_binary();
   } else if (type_name == "fixedsizebinary") {
     return GetFixedSizeBinary(json_type, type);
   } else if (type_name == "decimal") {
@@ -932,6 +956,11 @@ static Status GetType(const RjObject& json_type,
       return Status::Invalid("List must have exactly one child");
     }
     *type = list(children[0]);
+  } else if (type_name == "large_list") {
+    if (children.size() != 1) {
+      return Status::Invalid("Large list must have exactly one child");
+    }
+    *type = large_list(children[0]);
   } else if (type_name == "map") {
     return GetMap(json_type, children, type);
   } else if (type_name == "fixedsizelist") {
@@ -1091,9 +1120,10 @@ class ArrayReader {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<BinaryType, T>::value, Status>::type Visit(
+  typename std::enable_if<std::is_base_of<BaseBinaryType, T>::value, Status>::type Visit(
       const T& type) {
     typename TypeTraits<T>::BuilderType builder(pool_);
+    using offset_type = typename T::offset_type;
 
     const auto& json_data = obj_.FindMember(kData);
     RETURN_NOT_ARRAY(kData, json_data, obj_);
@@ -1110,23 +1140,27 @@ class ArrayReader {
 
       const rj::Value& val = json_data_arr[i];
       DCHECK(val.IsString());
-      if (std::is_base_of<StringType, T>::value) {
+
+      if (T::is_utf8) {
         RETURN_NOT_OK(builder.Append(val.GetString()));
       } else {
         std::string hex_string = val.GetString();
 
-        DCHECK(hex_string.size() % 2 == 0) << "Expected base16 hex string";
-        int32_t length = static_cast<int>(hex_string.size()) / 2;
+        if (hex_string.size() % 2 != 0) {
+          return Status::Invalid("Expected base16 hex string");
+        }
+        const auto value_len = static_cast<int64_t>(hex_string.size()) / 2;
 
         std::shared_ptr<Buffer> byte_buffer;
-        RETURN_NOT_OK(AllocateBuffer(pool_, length, &byte_buffer));
+        RETURN_NOT_OK(AllocateBuffer(pool_, value_len, &byte_buffer));
 
         const char* hex_data = hex_string.c_str();
         uint8_t* byte_buffer_data = byte_buffer->mutable_data();
-        for (int32_t j = 0; j < length; ++j) {
+        for (int64_t j = 0; j < value_len; ++j) {
           RETURN_NOT_OK(ParseHexValue(hex_data + j * 2, &byte_buffer_data[j]));
         }
-        RETURN_NOT_OK(builder.Append(byte_buffer_data, length));
+        RETURN_NOT_OK(
+            builder.Append(byte_buffer_data, static_cast<offset_type>(value_len)));
       }
     }
 
@@ -1242,15 +1276,23 @@ class ArrayReader {
     T* values = reinterpret_cast<T*>(buffer->mutable_data());
     for (int i = 0; i < length; ++i) {
       const rj::Value& val = json_array[i];
-      DCHECK(val.IsInt());
-      values[i] = static_cast<T>(val.GetInt());
+      DCHECK(val.IsInt() || val.IsInt64());
+      if (val.IsInt()) {
+        values[i] = static_cast<T>(val.GetInt());
+      } else {
+        values[i] = static_cast<T>(val.GetInt64());
+      }
     }
 
     *out = buffer;
     return Status::OK();
   }
 
+  template <typename T>
   Status CreateList(const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out) {
+    using offset_type = typename T::offset_type;
+    using ArrayType = typename TypeTraits<T>::ArrayType;
+
     int32_t null_count = 0;
     std::shared_ptr<Buffer> validity_buffer;
     RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
@@ -1258,19 +1300,23 @@ class ArrayReader {
     const auto& json_offsets = obj_.FindMember("OFFSET");
     RETURN_NOT_ARRAY("OFFSET", json_offsets, obj_);
     std::shared_ptr<Buffer> offsets_buffer;
-    RETURN_NOT_OK(GetIntArray<int32_t>(json_offsets->value.GetArray(), length_ + 1,
-                                       &offsets_buffer));
+    RETURN_NOT_OK(GetIntArray<offset_type>(json_offsets->value.GetArray(), length_ + 1,
+                                           &offsets_buffer));
 
     std::vector<std::shared_ptr<Array>> children;
     RETURN_NOT_OK(GetChildren(obj_, *type, &children));
     DCHECK_EQ(children.size(), 1);
 
-    out->reset(new ListArray(type, length_, offsets_buffer, children[0], validity_buffer,
+    out->reset(new ArrayType(type, length_, offsets_buffer, children[0], validity_buffer,
                              null_count));
     return Status::OK();
   }
 
-  Status Visit(const ListType& type) { return CreateList(type_, &result_); }
+  Status Visit(const ListType& type) { return CreateList<ListType>(type_, &result_); }
+
+  Status Visit(const LargeListType& type) {
+    return CreateList<LargeListType>(type_, &result_);
+  }
 
   Status Visit(const MapType& type) {
     auto list_type = std::make_shared<ListType>(field(
@@ -1278,7 +1324,7 @@ class ArrayReader {
         struct_({field("key", type.key_type(), false), field("value", type.item_type())}),
         false));
     std::shared_ptr<Array> list_array;
-    RETURN_NOT_OK(CreateList(list_type, &list_array));
+    RETURN_NOT_OK(CreateList<ListType>(list_type, &list_array));
     auto map_data = list_array->data();
     map_data->type = type_;
     result_ = std::make_shared<MapArray>(map_data);

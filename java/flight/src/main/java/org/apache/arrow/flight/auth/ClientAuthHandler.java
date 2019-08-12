@@ -40,9 +40,15 @@ public interface ClientAuthHandler {
    */
   interface ClientAuthSender {
 
+    /**
+     * Send the server a message.
+     */
     void send(byte[] payload);
 
-    void onError(String message, Throwable cause);
+    /**
+     * Signal an error to the server and abort the authentication attempt.
+     */
+    void onError(Throwable cause);
 
   }
 

@@ -47,6 +47,20 @@ class TestSchema < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("#get_field_index") do
+    def test_found
+      field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
+      schema = Arrow::Schema.new([field])
+      assert_equal(0, schema.get_field_index("enabled"))
+    end
+
+    def test_not_found
+      field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
+      schema = Arrow::Schema.new([field])
+      assert_equal(-1, schema.get_field_index("nonexistent"))
+    end
+  end
+
   def test_n_fields
     fields = [
       Arrow::Field.new("enabled", Arrow::BooleanDataType.new),

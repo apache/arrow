@@ -196,7 +196,7 @@ std::unique_ptr<arrow::flight::FlightPerfServer> g_server;
 
 void Shutdown(int signal) {
   if (g_server != nullptr) {
-    g_server->Shutdown();
+    ARROW_CHECK_OK(g_server->Shutdown());
   }
 }
 

@@ -872,6 +872,12 @@ TEST_F(TestDecimalSql, FromDouble) {
       std::make_tuple(DecimalScalar128{162850, 38, 4}, 16.285, false),
       std::make_tuple(DecimalScalar128{1629, 38, 2}, 16.285, false),
 
+      // round up
+      std::make_tuple(DecimalScalar128{1, 18, 0}, 1.15470053838, false),
+      std::make_tuple(DecimalScalar128{-1, 18, 0}, -1.15470053838, false),
+      std::make_tuple(DecimalScalar128{2, 18, 0}, 1.55470053838, false),
+      std::make_tuple(DecimalScalar128{-2, 18, 0}, -1.55470053838, false),
+
       // border cases
       std::make_tuple(DecimalScalar128{-kMaxDoubleInt, 38, 0},
                       static_cast<double>(-kMaxDoubleInt), false),
@@ -887,10 +893,16 @@ TEST_F(TestDecimalSql, FromDouble) {
       std::make_tuple(DecimalScalar128{1230, 38, 33}, 1.23E-30, false),
       std::make_tuple(DecimalScalar128{123, 38, 38}, 1.23E-36, false),
 
-      // overflow due to very low double
+      // very small doubles
       std::make_tuple(DecimalScalar128{0, 0, 38, 0}, std::numeric_limits<double>::min(),
+                      false),
+      std::make_tuple(DecimalScalar128{0, 0, 38, 0}, -std::numeric_limits<double>::min(),
+                      false),
+
+      // overflow due to large -ve double
+      std::make_tuple(DecimalScalar128{0, 0, 38, 0}, -std::numeric_limits<double>::max(),
                       true),
-      // overflow due to very high double
+      // overflow due to large +ve double
       std::make_tuple(DecimalScalar128{0, 0, 38, 0}, std::numeric_limits<double>::max(),
                       true),
       // overflow due to scaling up.
@@ -1009,8 +1021,8 @@ TEST_F(TestDecimalSql, ToInt64) {
   std::vector<std::tuple<int64_t, DecimalScalar128, bool>> test_values = {
       // simple ones
       std::make_tuple(-16, DecimalScalar128{-16285, 38, 3}, false),
-      std::make_tuple(-162, DecimalScalar128{-16285, 38, 2}, false),
-      std::make_tuple(-1, DecimalScalar128{-16285, 38, 4}, false),
+      std::make_tuple(-163, DecimalScalar128{-16285, 38, 2}, false),
+      std::make_tuple(-2, DecimalScalar128{-16285, 38, 4}, false),
 
       // border cases
       std::make_tuple(INT64_MIN, DecimalScalar128{INT64_MIN, 38, 0}, false),

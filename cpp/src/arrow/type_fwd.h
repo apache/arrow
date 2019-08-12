@@ -36,7 +36,6 @@ class Field;
 class Tensor;
 
 class ChunkedArray;
-class Column;
 class RecordBatch;
 class Table;
 
@@ -66,6 +65,11 @@ class BinaryArray;
 class BinaryBuilder;
 struct BinaryScalar;
 
+class LargeBinaryType;
+class LargeBinaryArray;
+class LargeBinaryBuilder;
+struct LargeBinaryScalar;
+
 class FixedSizeBinaryType;
 class FixedSizeBinaryArray;
 class FixedSizeBinaryBuilder;
@@ -76,10 +80,20 @@ class StringArray;
 class StringBuilder;
 struct StringScalar;
 
+class LargeStringType;
+class LargeStringArray;
+class LargeStringBuilder;
+struct LargeStringScalar;
+
 class ListType;
 class ListArray;
 class ListBuilder;
 struct ListScalar;
+
+class LargeListType;
+class LargeListArray;
+class LargeListBuilder;
+struct LargeListScalar;
 
 class MapType;
 class MapArray;
@@ -219,8 +233,12 @@ std::shared_ptr<DataType> ARROW_EXPORT float32();
 std::shared_ptr<DataType> ARROW_EXPORT float64();
 /// \brief Return a StringType instance
 std::shared_ptr<DataType> ARROW_EXPORT utf8();
+/// \brief Return a LargeStringType instance
+std::shared_ptr<DataType> ARROW_EXPORT large_utf8();
 /// \brief Return a BinaryType instance
 std::shared_ptr<DataType> ARROW_EXPORT binary();
+/// \brief Return a LargeBinaryType instance
+std::shared_ptr<DataType> ARROW_EXPORT large_binary();
 /// \brief Return a Date32Type instance
 std::shared_ptr<DataType> ARROW_EXPORT date32();
 /// \brief Return a Date64Type instance

@@ -39,38 +39,14 @@ b: int32
     SCHEMA
   end
 
-  def test_select_schema
-    assert_equal(<<-SCHEMA.chomp, @reader.select_schema([0]).to_s)
-a: string
-    SCHEMA
-    assert_equal(<<-SCHEMA.chomp, @reader.select_schema([1]).to_s)
-b: int32
-    SCHEMA
-    assert_equal(<<-SCHEMA.chomp, @reader.select_schema([0, 1]).to_s)
-a: string
-b: int32
-    SCHEMA
-  end
-
   def test_read_column
-    a = @reader.read_column(0)
     assert_equal([
-                   "a: string",
-                   Arrow::ChunkedArray.new([@a_array]).to_s,
+                   Arrow::ChunkedArray.new([@a_array]),
+                   Arrow::ChunkedArray.new([@b_array]),
                  ],
                  [
-                   a.field.to_s,
-                   a.data.to_s,
-                 ])
-
-    b = @reader.read_column(1)
-    assert_equal([
-                   "b: int32",
-                   Arrow::ChunkedArray.new([@b_array]).to_s,
-                 ],
-                 [
-                   b.field.to_s,
-                   b.data.to_s,
+                   @reader.read_column_data(0),
+                   @reader.read_column_data(-1),
                  ])
   end
 end

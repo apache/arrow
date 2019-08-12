@@ -25,6 +25,7 @@ import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.complex.impl.NullReader;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -243,5 +244,30 @@ public class ZeroVector implements FieldVector {
   @Override
   public boolean isNull(int index) {
     return false;
+  }
+
+  @Override
+  public int hashCode(int index) {
+    return 0;
+  }
+
+  @Override
+  public boolean equals(int index, ValueVector to, int toIndex) {
+    return false;
+  }
+
+  @Override
+  public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public boolean accept(RangeEqualsVisitor visitor) {
+    return true;
   }
 }

@@ -87,12 +87,12 @@ Decimal128Scalar::Decimal128Scalar(const Decimal128& value,
                                    const std::shared_ptr<DataType>& type, bool is_valid)
     : Scalar{type, is_valid}, value(value) {}
 
-ListScalar::ListScalar(const std::shared_ptr<Array>& value,
-                       const std::shared_ptr<DataType>& type, bool is_valid)
+BaseListScalar::BaseListScalar(const std::shared_ptr<Array>& value,
+                               const std::shared_ptr<DataType>& type, bool is_valid)
     : Scalar{type, is_valid}, value(value) {}
 
-ListScalar::ListScalar(const std::shared_ptr<Array>& value, bool is_valid)
-    : ListScalar(value, value->type(), is_valid) {}
+BaseListScalar::BaseListScalar(const std::shared_ptr<Array>& value, bool is_valid)
+    : BaseListScalar(value, value->type(), is_valid) {}
 
 MapScalar::MapScalar(const std::shared_ptr<Array>& keys,
                      const std::shared_ptr<Array>& items,

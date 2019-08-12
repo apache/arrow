@@ -136,6 +136,19 @@ json_table_reader.default <- function(file,
 #'
 #' @return A `data.frame`, or an `arrow::Table` if `as_tibble = FALSE`.
 #' @export
+#' @examples
+#' \donttest{
+#' try({
+#'   tf <- tempfile()
+#'   on.exit(unlink(tf))
+#'   writeLines('
+#'     { "hello": 3.5, "world": false, "yo": "thing" }
+#'     { "hello": 3.25, "world": null }
+#'     { "hello": 0.0, "world": true, "yo": null }
+#'   ', tf, useBytes=TRUE)
+#'   df <- read_json_arrow(tf)
+#' })
+#' }
 read_json_arrow <- function(file, col_select = NULL, as_tibble = TRUE, ...) {
   tab <- json_table_reader(file, ...)$Read()$select(!!enquo(col_select))
 

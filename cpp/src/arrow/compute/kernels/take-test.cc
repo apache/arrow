@@ -179,18 +179,26 @@ TYPED_TEST(TestTakeKernelWithNumeric, TakeRandomNumeric) {
   }
 }
 
-class TestTakeKernelWithString : public TestTakeKernel<StringType> {
- protected:
+using StringTypes =
+    ::testing::Types<BinaryType, StringType, LargeBinaryType, LargeStringType>;
+
+template <typename TypeClass>
+class TestTakeKernelWithString : public TestTakeKernel<TypeClass> {
+ public:
+  std::shared_ptr<DataType> value_type() {
+    return TypeTraits<TypeClass>::type_singleton();
+  }
+
   void AssertTake(const std::string& values, const std::string& indices,
                   const std::string& expected) {
-    TestTakeKernel<StringType>::AssertTake(utf8(), values, indices, expected);
+    TestTakeKernel<TypeClass>::AssertTake(value_type(), values, indices, expected);
   }
   void AssertTakeDictionary(const std::string& dictionary_values,
                             const std::string& dictionary_indices,
                             const std::string& indices,
                             const std::string& expected_indices) {
-    auto dict = ArrayFromJSON(utf8(), dictionary_values);
-    auto type = dictionary(int8(), utf8());
+    auto dict = ArrayFromJSON(value_type(), dictionary_values);
+    auto type = dictionary(int8(), value_type());
     std::shared_ptr<Array> values, actual, expected;
     ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), dictionary_indices),
                                           dict, &values));
@@ -201,19 +209,22 @@ class TestTakeKernelWithString : public TestTakeKernel<StringType> {
   }
 };
 
-TEST_F(TestTakeKernelWithString, TakeString) {
+TYPED_TEST_CASE(TestTakeKernelWithString, StringTypes);
+
+TYPED_TEST(TestTakeKernelWithString, TakeString) {
   this->AssertTake(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["a", "b", "a"])");
   this->AssertTake(R"([null, "b", "c"])", "[0, 1, 0]", "[null, \"b\", null]");
   this->AssertTake(R"(["a", "b", "c"])", "[null, 1, 0]", R"([null, "b", "a"])");
 
+  std::shared_ptr<DataType> type = this->value_type();
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(IndexError,
-                this->Take(utf8(), R"(["a", "b", "c"])", int8(), "[0, 9, 0]", &arr));
-  ASSERT_RAISES(IndexError, this->Take(utf8(), R"(["a", "b", null, "ddd", "ee"])",
-                                       int64(), "[2, 5]", &arr));
+                this->Take(type, R"(["a", "b", "c"])", int8(), "[0, 9, 0]", &arr));
+  ASSERT_RAISES(IndexError, this->Take(type, R"(["a", "b", null, "ddd", "ee"])", int64(),
+                                       "[2, 5]", &arr));
 }
 
-TEST_F(TestTakeKernelWithString, TakeDictionary) {
+TYPED_TEST(TestTakeKernelWithString, TakeDictionary) {
   auto dict = R"(["a", "b", "c", "d", "e"])";
   this->AssertTakeDictionary(dict, "[3, 4, 2]", "[0, 1, 0]", "[3, 4, 3]");
   this->AssertTakeDictionary(dict, "[null, 4, 2]", "[0, 1, 0]", "[null, 4, null]");
@@ -259,6 +270,15 @@ TEST_F(TestTakeKernelWithList, TakeListListInt32) {
   this->AssertTake(type, list_json, "[0, 1, 2, 3]", list_json);
   this->AssertTake(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
                    "[[], [], [], [], [], [], [[1], [2, null, 2], []]]");
+}
+
+class TestTakeKernelWithLargeList : public TestTakeKernel<LargeListType> {};
+
+TEST_F(TestTakeKernelWithLargeList, TakeLargeListInt32) {
+  std::string list_json = "[[], [1,2], null, [3]]";
+  this->AssertTake(large_list(int32()), list_json, "[]", "[]");
+  this->AssertTake(large_list(int32()), list_json, "[null, 1, 2, 0]",
+                   "[null, [1,2], null, []]");
 }
 
 class TestTakeKernelWithFixedSizeList : public TestTakeKernel<FixedSizeListType> {};
@@ -347,6 +367,45 @@ TEST_F(TestTakeKernelWithStruct, TakeStruct) {
     {"a": 2, "b": "hello"},
     {"a": 2, "b": "hello"}
   ])");
+}
+
+class TestTakeKernelWithUnion : public TestTakeKernel<UnionType> {};
+
+TEST_F(TestTakeKernelWithUnion, TakeUnion) {
+  for (auto mode : {UnionMode::SPARSE, UnionMode::DENSE}) {
+    auto union_type = union_({field("a", int32()), field("b", utf8())}, {2, 5}, mode);
+    auto union_json = R"([
+      null,
+      [2, 222],
+      [5, "hello"],
+      [5, "eh"],
+      null,
+      [2, 111]
+    ])";
+    this->AssertTake(union_type, union_json, "[]", "[]");
+    this->AssertTake(union_type, union_json, "[3, 1, 3, 1, 3]", R"([
+      [5, "eh"],
+      [2, 222],
+      [5, "eh"],
+      [2, 222],
+      [5, "eh"]
+    ])");
+    this->AssertTake(union_type, union_json, "[4, 2, 1]", R"([
+      null,
+      [5, "hello"],
+      [2, 222]
+    ])");
+    this->AssertTake(union_type, union_json, "[0, 1, 2, 3, 4, 5]", union_json);
+    this->AssertTake(union_type, union_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
+      null,
+      [5, "hello"],
+      [5, "hello"],
+      [5, "hello"],
+      [5, "hello"],
+      [5, "hello"],
+      [5, "hello"]
+    ])");
+  }
 }
 
 class TestPermutationsWithTake : public ComputeFixture, public TestBase {

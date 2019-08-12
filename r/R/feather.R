@@ -34,7 +34,7 @@
     num_rows = function() ipc___feather___TableReader__num_rows(self),
     num_columns = function() ipc___feather___TableReader__num_columns(self),
     GetColumnName = function(i) ipc___feather___TableReader__GetColumnName(self, i),
-    GetColumn = function(i) shared_ptr(`arrow::Column`, ipc___feather___TableReader__GetColumn(self, i)),
+    GetColumn = function(i) shared_ptr(`arrow::Array`, ipc___feather___TableReader__GetColumn(self, i)),
     Read = function(columns) {
       shared_ptr(`arrow::Table`, ipc___feather___TableReader__Read(self, columns))
     }
@@ -61,6 +61,14 @@ FeatherTableWriter <- function(stream) {
 #' @param stream A file path or an `arrow::io::OutputStream`
 #'
 #' @export
+#' @examples
+#' \donttest{
+#' try({
+#'   tf <- tempfile()
+#'   on.exit(unlink(tf))
+#'   write_feather(mtcars, tf)
+#' })
+#' }
 write_feather <- function(data, stream) {
   UseMethod("write_feather", data)
 }
@@ -169,6 +177,18 @@ FeatherTableReader.fs_path <- function(file, mmap = TRUE, ...) {
 #' @return A `data.frame` if `as_tibble` is `TRUE` (the default), or a [arrow::Table][arrow__Table] otherwise
 #'
 #' @export
+#' @examples
+#' \donttest{
+#' try({
+#'   tf <- tempfile()
+#'   on.exit(unlink(tf))
+#'   write_feather(iris, tf)
+#'   df <- read_feather(tf)
+#'   dim(df)
+#'   # Can select columns
+#'   df <- read_feather(tf, col_select = starts_with("Sepal"))
+#' })
+#' }
 read_feather <- function(file, col_select = NULL, as_tibble = TRUE, ...){
   reader <- FeatherTableReader(file, ...)
 

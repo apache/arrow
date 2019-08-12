@@ -659,19 +659,23 @@ static inline int64_t SlowCountBits(const uint8_t* data, int64_t bit_offset,
 
 TEST(BitUtilTests, TestCountSetBits) {
   const int kBufferSize = 1000;
-  uint8_t buffer[kBufferSize] = {0};
+  alignas(8) uint8_t buffer[kBufferSize] = {0};
+  const int buffer_bits = kBufferSize * 8;
 
   random_bytes(kBufferSize, 0, buffer);
 
-  const int num_bits = kBufferSize * 8;
+  // Check start addresses with 64-bit alignment and without
+  for (const uint8_t* data : {buffer, buffer + 1, buffer + 7}) {
+    for (const int num_bits : {buffer_bits - 96, buffer_bits - 101, buffer_bits - 127}) {
+      std::vector<int64_t> offsets = {
+          0, 12, 16, 32, 37, 63, 64, 128, num_bits - 30, num_bits - 64};
+      for (const int64_t offset : offsets) {
+        int64_t result = CountSetBits(data, offset, num_bits - offset);
+        int64_t expected = SlowCountBits(data, offset, num_bits - offset);
 
-  std::vector<int64_t> offsets = {
-      0, 12, 16, 32, 37, 63, 64, 128, num_bits - 30, num_bits - 64};
-  for (int64_t offset : offsets) {
-    int64_t result = CountSetBits(buffer, offset, num_bits - offset);
-    int64_t expected = SlowCountBits(buffer, offset, num_bits - offset);
-
-    ASSERT_EQ(expected, result);
+        ASSERT_EQ(expected, result);
+      }
+    }
   }
 }
 
@@ -949,6 +953,7 @@ TEST(BitUtil, NumRequiredBits) {
 
 #define U32(x) static_cast<uint32_t>(x)
 #define U64(x) static_cast<uint64_t>(x)
+#define S64(x) static_cast<int64_t>(x)
 
 TEST(BitUtil, CountLeadingZeros) {
   EXPECT_EQ(BitUtil::CountLeadingZeros(U32(0)), 32);
@@ -1000,14 +1005,19 @@ TEST(BitUtil, CountTrailingZeros) {
   EXPECT_EQ(BitUtil::CountTrailingZeros(U64(ULLONG_MAX)), 0);
 }
 
+TEST(BitUtil, RoundUpToPowerOf2) {
+  EXPECT_EQ(BitUtil::RoundUpToPowerOf2(S64(7), 8), 8);
+  EXPECT_EQ(BitUtil::RoundUpToPowerOf2(S64(8), 8), 8);
+  EXPECT_EQ(BitUtil::RoundUpToPowerOf2(S64(9), 8), 16);
+
+  EXPECT_EQ(BitUtil::RoundUpToPowerOf2(U64(7), 8), 8);
+  EXPECT_EQ(BitUtil::RoundUpToPowerOf2(U64(8), 8), 8);
+  EXPECT_EQ(BitUtil::RoundUpToPowerOf2(U64(9), 8), 16);
+}
+
 #undef U32
 #undef U64
-
-TEST(BitUtil, RoundUpToPowerOf2) {
-  EXPECT_EQ(BitUtil::RoundUpToPowerOf2(7, 8), 8);
-  EXPECT_EQ(BitUtil::RoundUpToPowerOf2(8, 8), 8);
-  EXPECT_EQ(BitUtil::RoundUpToPowerOf2(9, 8), 16);
-}
+#undef S64
 
 static void TestZigZag(int32_t v) {
   uint8_t buffer[BitUtil::BitReader::MAX_VLQ_BYTE_LEN] = {};

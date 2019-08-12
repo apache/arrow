@@ -829,6 +829,29 @@ TEST_F(TestStreamFormat, DifferentSchema) { TestWriteDifferentSchema(); }
 
 TEST_F(TestFileFormat, DifferentSchema) { TestWriteDifferentSchema(); }
 
+TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
+  // ARROW-6006
+  auto f0 = arrow::field("f0", arrow::dictionary(arrow::int8(), arrow::utf8()));
+  auto schema = arrow::schema({f0});
+
+  std::shared_ptr<io::BufferOutputStream> out;
+  ASSERT_OK(io::BufferOutputStream::Create(0, default_memory_pool(), &out));
+
+  std::shared_ptr<RecordBatchWriter> writer;
+  ASSERT_OK(RecordBatchStreamWriter::Open(out.get(), schema, &writer));
+  ASSERT_OK(writer->Close());
+
+  std::shared_ptr<arrow::Buffer> buffer;
+  ASSERT_OK(out->Finish(&buffer));
+  io::BufferReader buffer_reader(buffer);
+  std::shared_ptr<RecordBatchReader> reader;
+  ASSERT_OK(RecordBatchStreamReader::Open(&buffer_reader, &reader));
+
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(reader->ReadNext(&batch));
+  ASSERT_EQ(nullptr, batch);
+}
+
 class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
  public:
   void SetUp() { pool_ = default_memory_pool(); }

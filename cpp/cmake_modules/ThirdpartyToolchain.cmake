@@ -40,11 +40,10 @@ set(APACHE_MIRROR "")
 
 macro(get_apache_mirror)
   if(APACHE_MIRROR STREQUAL "")
-    exec_program(${PYTHON_EXECUTABLE}
-                 ARGS
-                 ${CMAKE_SOURCE_DIR}/build-support/get_apache_mirror.py
-                 OUTPUT_VARIABLE
-                 APACHE_MIRROR)
+    execute_process(COMMAND ${PYTHON_EXECUTABLE}
+                            ${CMAKE_SOURCE_DIR}/build-support/get_apache_mirror.py
+                    OUTPUT_VARIABLE APACHE_MIRROR
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
   endif()
 endmacro()
 
@@ -218,6 +217,9 @@ endif()
 
 if(ARROW_FLIGHT OR ARROW_IPC)
   set(ARROW_WITH_FLATBUFFERS ON)
+endif()
+
+if(ARROW_JSON)
   set(ARROW_WITH_RAPIDJSON ON)
 endif()
 
@@ -2055,22 +2057,14 @@ endmacro()
 
 if(ARROW_WITH_GRPC)
   if(c-ares_SOURCE STREQUAL "AUTO")
-    find_package(c-ares QUIET)
+    find_package(c-ares QUIET CONFIG)
     if(NOT c-ares_FOUND)
-      # Fedora doesn't package the CMake config
-      find_package(c-aresAlt)
-    endif()
-    if(NOT c-ares_FOUND AND NOT c-aresAlt_FOUND)
       build_cares()
     endif()
   elseif(c-ares_SOURCE STREQUAL "BUNDLED")
     build_cares()
   elseif(c-ares_SOURCE STREQUAL "SYSTEM")
-    find_package(c-ares QUIET)
-    if(NOT c-ares_FOUND)
-      # Fedora doesn't package the CMake config
-      find_package(c-aresAlt REQUIRED)
-    endif()
+    find_package(c-ares REQUIRED CONFIG)
   endif()
 
   # TODO: Don't use global includes but rather target_include_directories
@@ -2303,7 +2297,7 @@ macro(build_orc)
     endif()
     if("${COMPILER_VERSION}" VERSION_GREATER "4.0")
       set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
--Wno-inconsistent-missing-destructor-override ")
+-Wno-inconsistent-missing-destructor-override -Wno-error=undef ")
     endif()
   endif()
 

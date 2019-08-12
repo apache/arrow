@@ -118,12 +118,13 @@ def test_single_pylist_column_roundtrip(tempdir, dtype):
     table = pa.Table.from_arrays(data, names=['a'])
     _write_table(table, filename)
     table_read = _read_table(filename)
-    for col_written, col_read in zip(table.itercolumns(),
-                                     table_read.itercolumns()):
-        assert col_written.name == col_read.name
-        assert col_read.data.num_chunks == 1
-        data_written = col_written.data.chunk(0)
-        data_read = col_read.data.chunk(0)
+    for i in range(table.num_columns):
+        col_written = table[i]
+        col_read = table_read[i]
+        assert table.field(i).name == table_read.field(i).name
+        assert col_read.num_chunks == 1
+        data_written = col_written.chunk(0)
+        data_read = col_read.chunk(0)
         assert data_written.equals(data_read)
 
 
@@ -658,10 +659,22 @@ def test_parquet_metadata_api():
             assert isinstance(col_meta, pq.ColumnChunkMetaData)
             repr(col_meta)
 
+    with pytest.raises(IndexError):
+        meta.row_group(-1)
+
+    with pytest.raises(IndexError):
+        meta.row_group(meta.num_row_groups + 1)
+
     rg_meta = meta.row_group(0)
     assert rg_meta.num_rows == len(df)
     assert rg_meta.num_columns == ncols + 1  # +1 for index
     assert rg_meta.total_byte_size > 0
+
+    with pytest.raises(IndexError):
+        col_meta = rg_meta.column(-1)
+
+    with pytest.raises(IndexError):
+        col_meta = rg_meta.column(ncols + 2)
 
     col_meta = rg_meta.column(0)
     assert col_meta.file_offset > 0
@@ -1343,19 +1356,7 @@ def test_parquet_piece_open_and_get_metadata(tempdir):
     meta1 = piece.get_metadata()
     assert isinstance(meta1, pq.FileMetaData)
 
-    def open_parquet(fn):
-        return pq.ParquetFile(open(fn, mode='rb'))
-
-    # test deprecated open_file_func
-    with pytest.warns(DeprecationWarning):
-        table2 = piece.read(open_file_func=open_parquet)
-        assert isinstance(table2, pa.Table)
-    with pytest.warns(DeprecationWarning):
-        meta2 = piece.get_metadata(open_file_func=open_parquet)
-        assert isinstance(meta2, pq.FileMetaData)
-
-    assert table == table1 == table2
-    assert meta1 == meta2
+    assert table == table1
 
 
 def test_parquet_piece_basics():
@@ -1953,12 +1954,14 @@ def test_read_multiple_files(tempdir):
     assert result3.equals(expected)
 
     # Read column subset
-    to_read = [result[0], result[2], result[6], result[result.num_columns - 1]]
+    to_read = [0, 2, 6, result.num_columns - 1]
 
-    result = pa.localfs.read_parquet(
-        dirpath, columns=[c.name for c in to_read])
-    expected = pa.Table.from_arrays(to_read, metadata=result.schema.metadata)
-    assert result.equals(expected)
+    col_names = [result.field(i).name for i in to_read]
+    out = pa.localfs.read_parquet(dirpath, columns=col_names)
+    expected = pa.Table.from_arrays([result.column(i) for i in to_read],
+                                    names=col_names,
+                                    metadata=result.schema.metadata)
+    assert out.equals(expected)
 
     # Read with multiple threads
     pa.localfs.read_parquet(dirpath, use_threads=True)
@@ -2844,8 +2847,8 @@ def test_partitioned_dataset(tempdir):
 
 
 def test_read_column_invalid_index():
-    table = pa.Table.from_arrays([pa.array([4, 5]), pa.array(["foo", "bar"])],
-                                 ['ints', 'strs'])
+    table = pa.table([pa.array([4, 5]), pa.array(["foo", "bar"])],
+                     names=['ints', 'strs'])
     bio = pa.BufferOutputStream()
     pq.write_table(table, bio)
     f = pq.ParquetFile(bio.getvalue())
@@ -2854,6 +2857,81 @@ def test_read_column_invalid_index():
     for index in (-1, 2):
         with pytest.raises((ValueError, IndexError)):
             f.reader.read_column(index)
+
+
+def test_direct_read_dictionary():
+    # ARROW-3325
+    repeats = 10
+    nunique = 5
+
+    data = [
+        [tm.rands(10) for i in range(nunique)] * repeats,
+
+    ]
+    table = pa.table(data, names=['f0'])
+
+    bio = pa.BufferOutputStream()
+    pq.write_table(table, bio)
+    contents = bio.getvalue()
+
+    result = pq.read_table(pa.BufferReader(contents),
+                           read_dictionary=['f0'])
+
+    # Compute dictionary-encoded subfield
+    expected = pa.table([table[0].dictionary_encode()], names=['f0'])
+    assert result.equals(expected)
+
+
+def test_dataset_read_dictionary(tempdir):
+    path = tempdir / "ARROW-3325-dataset"
+    t1 = pa.table([[tm.rands(10) for i in range(5)] * 10], names=['f0'])
+    t2 = pa.table([[tm.rands(10) for i in range(5)] * 10], names=['f0'])
+    pq.write_to_dataset(t1, root_path=str(path))
+    pq.write_to_dataset(t2, root_path=str(path))
+
+    result = pq.ParquetDataset(path, read_dictionary=['f0']).read()
+
+    # The order of the chunks is non-deterministic
+    ex_chunks = [t1[0].chunk(0).dictionary_encode(),
+                 t2[0].chunk(0).dictionary_encode()]
+
+    assert result[0].num_chunks == 2
+    c0, c1 = result[0].chunk(0), result[0].chunk(1)
+    if c0.equals(ex_chunks[0]):
+        assert c1.equals(ex_chunks[1])
+    else:
+        assert c0.equals(ex_chunks[1])
+        assert c1.equals(ex_chunks[0])
+
+
+def test_direct_read_dictionary_subfield():
+    repeats = 10
+    nunique = 5
+
+    data = [
+        [[tm.rands(10)] for i in range(nunique)] * repeats,
+    ]
+    table = pa.table(data, names=['f0'])
+
+    bio = pa.BufferOutputStream()
+    pq.write_table(table, bio)
+    contents = bio.getvalue()
+    result = pq.read_table(pa.BufferReader(contents),
+                           read_dictionary=['f0.list.item'])
+
+    arr = pa.array(data[0])
+    values_as_dict = arr.values.dictionary_encode()
+
+    inner_indices = values_as_dict.indices.cast('int32')
+    new_values = pa.DictionaryArray.from_arrays(inner_indices,
+                                                values_as_dict.dictionary)
+
+    offsets = pa.array(range(51), type='int32')
+    expected_arr = pa.ListArray.from_arrays(offsets, new_values)
+    expected = pa.table([expected_arr], names=['f0'])
+
+    assert result.equals(expected)
+    assert result[0].num_chunks == 1
 
 
 @pytest.mark.pandas
@@ -2965,4 +3043,4 @@ def test_filter_before_validate_schema(tempdir):
 
     # read single file using filter
     table = pq.read_table(tempdir, filters=[[('A', '==', 0)]])
-    assert table.column('B').equals(pa.column('B', pa.array([1, 2, 3])))
+    assert table.column('B').equals(pa.chunked_array([[1, 2, 3]]))

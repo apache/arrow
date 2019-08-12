@@ -24,13 +24,23 @@
 
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
-#include "parquet/platform.h"
 #include "parquet/schema-internal.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift.h"
 
+// ARROW-6096: The boost regex library must be used when compiling with gcc < 4.9
+#if defined(PARQUET_USE_BOOST_REGEX)
 #include <boost/regex.hpp>  // IWYU pragma: keep
+using ::boost::regex;
+using ::boost::regex_match;
+using ::boost::smatch;
+#else
+#include <regex>
+using ::std::regex;
+using ::std::regex_match;
+using ::std::smatch;
+#endif
 
 namespace parquet {
 
@@ -554,16 +564,16 @@ ApplicationVersion::ApplicationVersion(const std::string& application, int major
     : application_(application), version{major, minor, patch, "", "", ""} {}
 
 ApplicationVersion::ApplicationVersion(const std::string& created_by) {
-  boost::regex app_regex{ApplicationVersion::APPLICATION_FORMAT};
-  boost::regex ver_regex{ApplicationVersion::VERSION_FORMAT};
-  boost::smatch app_matches;
-  boost::smatch ver_matches;
+  regex app_regex{ApplicationVersion::APPLICATION_FORMAT};
+  regex ver_regex{ApplicationVersion::VERSION_FORMAT};
+  smatch app_matches;
+  smatch ver_matches;
 
   std::string created_by_lower = created_by;
   std::transform(created_by_lower.begin(), created_by_lower.end(),
                  created_by_lower.begin(), ::tolower);
 
-  bool app_success = boost::regex_match(created_by_lower, app_matches, app_regex);
+  bool app_success = regex_match(created_by_lower, app_matches, app_regex);
   bool ver_success = false;
   std::string version_str;
 
@@ -572,7 +582,7 @@ ApplicationVersion::ApplicationVersion(const std::string& created_by) {
     application_ = app_matches[1];
     version_str = app_matches[3];
     build_ = app_matches[4];
-    ver_success = boost::regex_match(version_str, ver_matches, ver_regex);
+    ver_success = regex_match(version_str, ver_matches, ver_regex);
   } else {
     application_ = "unknown";
   }
@@ -801,32 +811,32 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
  public:
   explicit RowGroupMetaDataBuilderImpl(const std::shared_ptr<WriterProperties>& props,
                                        const SchemaDescriptor* schema, void* contents)
-      : properties_(props), schema_(schema), current_column_(0) {
+      : properties_(props), schema_(schema), next_column_(0) {
     row_group_ = reinterpret_cast<format::RowGroup*>(contents);
     InitializeColumns(schema->num_columns());
   }
 
   ColumnChunkMetaDataBuilder* NextColumnChunk() {
-    if (!(current_column_ < num_columns())) {
+    if (!(next_column_ < num_columns())) {
       std::stringstream ss;
       ss << "The schema only has " << num_columns()
-         << " columns, requested metadata for column: " << current_column_;
+         << " columns, requested metadata for column: " << next_column_;
       throw ParquetException(ss.str());
     }
-    auto column = schema_->Column(current_column_);
+    auto column = schema_->Column(next_column_);
     auto column_builder = ColumnChunkMetaDataBuilder::Make(
-        properties_, column, &row_group_->columns[current_column_++]);
+        properties_, column, &row_group_->columns[next_column_++]);
     auto column_builder_ptr = column_builder.get();
     column_builders_.push_back(std::move(column_builder));
     return column_builder_ptr;
   }
 
-  int current_column() { return current_column_; }
+  int current_column() { return next_column_ - 1; }
 
   void Finish(int64_t total_bytes_written) {
-    if (!(current_column_ == schema_->num_columns())) {
+    if (!(next_column_ == schema_->num_columns())) {
       std::stringstream ss;
-      ss << "Only " << current_column_ - 1 << " out of " << schema_->num_columns()
+      ss << "Only " << next_column_ - 1 << " out of " << schema_->num_columns()
          << " columns are initialized";
       throw ParquetException(ss.str());
     }
@@ -859,7 +869,7 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
   const std::shared_ptr<WriterProperties> properties_;
   const SchemaDescriptor* schema_;
   std::vector<std::unique_ptr<ColumnChunkMetaDataBuilder>> column_builders_;
-  int current_column_;
+  int next_column_;
 };
 
 std::unique_ptr<RowGroupMetaDataBuilder> RowGroupMetaDataBuilder::Make(

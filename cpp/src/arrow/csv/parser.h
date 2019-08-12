@@ -37,6 +37,13 @@ namespace csv {
 
 constexpr int32_t kMaxParserNumRows = 100000;
 
+/// Skip at most num_rows from the given input.  The input pointer is updated
+/// and the number of actually skipped rows is returns (may be less than
+/// requested if the input is too short).
+ARROW_EXPORT
+int32_t SkipRows(const uint8_t* data, uint32_t size, int32_t num_rows,
+                 const uint8_t** out_data);
+
 /// \class BlockParser
 /// \brief A reusable block-based parser for CSV data
 ///
@@ -92,6 +99,21 @@ class ARROW_EXPORT BlockParser {
         auto quoted = values[pos + 1].quoted;
         ARROW_RETURN_NOT_OK(visit(parsed_ + start, stop - start, quoted));
       }
+    }
+    return Status::OK();
+  }
+
+  template <typename Visitor>
+  Status VisitLastRow(Visitor&& visit) const {
+    const auto& values_buffer = values_buffers_.back();
+    const auto values = reinterpret_cast<const ValueDesc*>(values_buffer->data());
+    const auto start_pos =
+        static_cast<int32_t>(values_buffer->size() / sizeof(ValueDesc)) - num_cols_ - 1;
+    for (int32_t col_index = 0; col_index < num_cols_; ++col_index) {
+      auto start = values[start_pos + col_index].offset;
+      auto stop = values[start_pos + col_index + 1].offset;
+      auto quoted = values[start_pos + col_index + 1].quoted;
+      ARROW_RETURN_NOT_OK(visit(parsed_ + start, stop - start, quoted));
     }
     return Status::OK();
   }

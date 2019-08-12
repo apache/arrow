@@ -49,7 +49,7 @@ impl MemTable {
     }
 
     /// Create a mem table by reading from another data source
-    pub fn load(t: &TableProvider) -> Result<Self> {
+    pub fn load(t: &dyn TableProvider) -> Result<Self> {
         let schema = t.schema();
         let partitions = t.scan(&None, 1024 * 1024)?;
 

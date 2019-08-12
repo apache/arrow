@@ -43,8 +43,6 @@ std::string ExtensionType::ToString() const {
   return ss.str();
 }
 
-std::string ExtensionType::name() const { return "extension"; }
-
 ExtensionArray::ExtensionArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
 
 ExtensionArray::ExtensionArray(const std::shared_ptr<DataType>& type,

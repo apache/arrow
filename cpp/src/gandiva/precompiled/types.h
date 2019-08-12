@@ -96,6 +96,7 @@ int64 date_add_int32_timestamp(int32, timestamp);
 int64 add_int64_timestamp(int64, timestamp);
 int64 add_int32_timestamp(int32, timestamp);
 int64 date_add_int64_timestamp(int64, timestamp);
+timestamp add_date64_int64(date64, int64);
 
 int64 date_sub_int32_timestamp(int32, timestamp);
 int64 subtract_int32_timestamp(int32, timestamp);
@@ -121,8 +122,13 @@ double months_between_timestamp_timestamp(uint64, uint64);
 int32 mem_compare(const char* left, int32 left_len, const char* right, int32 right_len);
 
 int32 mod_int64_int32(int64 left, int32 right);
+float64 mod_float64_float64(int64 context, float64 left, float64 right);
 
 int64 divide_int64_int64(int64 context, int64 in1, int64 in2);
+
+int64 div_int64_int64(int64 context, int64 in1, int64 in2);
+float32 div_float32_float32(int64 context, float32 in1, float32 in2);
+float64 div_float64_float64(int64 context, float64 in1, float64 in2);
 
 float64 cbrt_int32(int32);
 float64 cbrt_int64(int64);
@@ -158,7 +164,20 @@ int32 utf8_length(int64 context, const char* data, int32 data_len);
 date64 castDATE_utf8(int64_t execution_context, const char* input, int32 length);
 
 timestamp castTIMESTAMP_utf8(int64_t execution_context, const char* input, int32 length);
+timestamp castTIMESTAMP_date64(date64);
+const char* castVARCHAR_timestamp_int64(int64_t, timestamp, int64, int32*);
 
+int64 truncate_int64_int32(int64 in, int32 out_scale);
+
+const char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_len,
+                                    int64 offset64, int64 length, int32* out_len);
+const char* substr_utf8_int64(int64 context, const char* input, int32 in_len,
+                              int64 offset64, int32* out_len);
+const char* concatOperator_utf8_utf8(int64 context, const char* left, int32 left_len,
+                                     const char* right, int32 right_len, int32* out_len);
+
+char* castVARCHAR_utf8_int64(int64 context, const char* data, int32 data_len,
+                             int64_t out_len, int32_t* out_length);
 }  // extern "C"
 
 #endif  // PRECOMPILED_TYPES_H

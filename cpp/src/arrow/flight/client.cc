@@ -118,7 +118,7 @@ class GrpcClientAuthReader : public ClientAuthReader {
   Status Read(std::string* token) override {
     pb::HandshakeResponse request;
     if (stream_->Read(&request)) {
-      *token = std::move(*request.release_payload());
+      *token = std::move(*request.mutable_payload());
       return Status::OK();
     }
     return internal::FromGrpcStatus(stream_->Finish());
@@ -368,7 +368,7 @@ class GrpcMetadataReader : public FlightMetadataReader {
   Status ReadMetadata(std::shared_ptr<Buffer>* out) override {
     pb::PutResult message;
     if (reader_->Read(&message)) {
-      *out = Buffer::FromString(std::move(*message.release_app_metadata()));
+      *out = Buffer::FromString(std::move(*message.mutable_app_metadata()));
     } else {
       // Stream finished
       *out = nullptr;
@@ -430,7 +430,12 @@ class FlightClient::FlightClientImpl {
     GrpcClientAuthSender outgoing{stream};
     GrpcClientAuthReader incoming{stream};
     RETURN_NOT_OK(auth_handler_->Authenticate(&outgoing, &incoming));
+    // Explicitly close our side of the connection
+    bool finished_writes = stream->WritesDone();
     RETURN_NOT_OK(internal::FromGrpcStatus(stream->Finish()));
+    if (!finished_writes) {
+      return Status::UnknownError("Could not finish writing before closing");
+    }
     return Status::OK();
   }
 

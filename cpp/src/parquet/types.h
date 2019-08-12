@@ -21,7 +21,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <iterator>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -182,8 +181,20 @@ class PARQUET_EXPORT LogicalType {
   static std::shared_ptr<const LogicalType> Date();
   static std::shared_ptr<const LogicalType> Time(bool is_adjusted_to_utc,
                                                  LogicalType::TimeUnit::unit time_unit);
+
+  /// \brief Create a Timestamp logical type
+  /// \param[in] is_adjusted_to_utc set true if the data is UTC-normalized
+  /// \param[in] time_unit the resolution of the timestamp
+  /// \param[in] is_from_converted_type if true, the timestamp was generated
+  /// by translating a legacy converted type of TIMESTAMP_MILLIS or
+  /// TIMESTAMP_MICROS. Default is false.
+  /// \param[in] force_set_converted_type if true, always set the
+  /// legacy ConvertedType TIMESTAMP_MICROS and TIMESTAMP_MILLIS
+  /// metadata. Default is false
   static std::shared_ptr<const LogicalType> Timestamp(
-      bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit);
+      bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit,
+      bool is_from_converted_type = false, bool force_set_converted_type = false);
+
   static std::shared_ptr<const LogicalType> Interval();
   static std::shared_ptr<const LogicalType> Int(int bit_width, bool is_signed);
   static std::shared_ptr<const LogicalType> Null();
@@ -337,9 +348,18 @@ class PARQUET_EXPORT TimeLogicalType : public LogicalType {
 class PARQUET_EXPORT TimestampLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make(bool is_adjusted_to_utc,
-                                                 LogicalType::TimeUnit::unit time_unit);
+                                                 LogicalType::TimeUnit::unit time_unit,
+                                                 bool is_from_converted_type = false,
+                                                 bool force_set_converted_type = false);
   bool is_adjusted_to_utc() const;
   LogicalType::TimeUnit::unit time_unit() const;
+
+  /// \brief If true, will not set LogicalType in Thrift metadata
+  bool is_from_converted_type() const;
+
+  /// \brief If true, will set ConvertedType for micros and millis
+  /// resolution in legacy ConvertedType Thrift metadata
+  bool force_set_converted_type() const;
 
  private:
   TimestampLogicalType() = default;
@@ -431,7 +451,8 @@ struct Encoding {
     DELTA_BINARY_PACKED = 5,
     DELTA_LENGTH_BYTE_ARRAY = 6,
     DELTA_BYTE_ARRAY = 7,
-    RLE_DICTIONARY = 8
+    RLE_DICTIONARY = 8,
+    UNKNOWN = 999
   };
 };
 
@@ -611,19 +632,19 @@ struct type_traits<Type::FIXED_LEN_BYTE_ARRAY> {
 };
 
 template <Type::type TYPE>
-struct DataType {
+struct PhysicalType {
   using c_type = typename type_traits<TYPE>::value_type;
   static constexpr Type::type type_num = TYPE;
 };
 
-using BooleanType = DataType<Type::BOOLEAN>;
-using Int32Type = DataType<Type::INT32>;
-using Int64Type = DataType<Type::INT64>;
-using Int96Type = DataType<Type::INT96>;
-using FloatType = DataType<Type::FLOAT>;
-using DoubleType = DataType<Type::DOUBLE>;
-using ByteArrayType = DataType<Type::BYTE_ARRAY>;
-using FLBAType = DataType<Type::FIXED_LEN_BYTE_ARRAY>;
+using BooleanType = PhysicalType<Type::BOOLEAN>;
+using Int32Type = PhysicalType<Type::INT32>;
+using Int64Type = PhysicalType<Type::INT64>;
+using Int96Type = PhysicalType<Type::INT96>;
+using FloatType = PhysicalType<Type::FLOAT>;
+using DoubleType = PhysicalType<Type::DOUBLE>;
+using ByteArrayType = PhysicalType<Type::BYTE_ARRAY>;
+using FLBAType = PhysicalType<Type::FIXED_LEN_BYTE_ARRAY>;
 
 template <typename Type>
 inline std::string format_fwf(int width) {
@@ -657,6 +678,12 @@ PARQUET_EXPORT SortOrder::type GetSortOrder(ConvertedType::type converted,
 PARQUET_EXPORT SortOrder::type GetSortOrder(
     const std::shared_ptr<const LogicalType>& logical_type, Type::type primitive);
 
+namespace internal {
+
+PARQUET_EXPORT
+int32_t DecimalSize(int32_t precision);
+
+}  // namespace internal
 }  // namespace parquet
 
 #endif  // PARQUET_TYPES_H

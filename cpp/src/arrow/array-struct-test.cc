@@ -80,8 +80,9 @@ TEST(StructArray, FromFieldNames) {
   std::shared_ptr<Array> a, b, c, array, expected;
   a = ArrayFromJSON(int32(), "[4, null]");
   b = ArrayFromJSON(utf8(), R"([null, "foo"])");
+  std::vector<std::string> field_names = {"a", "b"};
 
-  auto res = StructArray::Make({a, b}, {"a", "b"});
+  auto res = StructArray::Make({a, b}, field_names);
   ASSERT_OK(res);
   array = *res;
   expected = ArrayFromJSON(struct_({field("a", int32()), field("b", utf8())}),
@@ -89,30 +90,33 @@ TEST(StructArray, FromFieldNames) {
   AssertArraysEqual(*array, *expected);
 
   // With non-zero offsets
-  res = StructArray::Make({a, b}, {"a", "b"}, /*null_bitmap =*/nullptr, /*null_count =*/0,
-                          /*offset =*/1);
+  res =
+      StructArray::Make({a, b}, field_names, /*null_bitmap =*/nullptr, /*null_count =*/0,
+                        /*offset =*/1);
   ASSERT_OK(res);
   array = *res;
   expected = ArrayFromJSON(struct_({field("a", int32()), field("b", utf8())}),
                            R"([{"a": null, "b": "foo"}])");
   AssertArraysEqual(*array, *expected);
 
-  res = StructArray::Make({a, b}, {"a", "b"}, /*null_bitmap =*/nullptr, /*null_count =*/0,
-                          /*offset =*/2);
+  res =
+      StructArray::Make({a, b}, field_names, /*null_bitmap =*/nullptr, /*null_count =*/0,
+                        /*offset =*/2);
   ASSERT_OK(res);
   array = *res;
   expected = ArrayFromJSON(struct_({field("a", int32()), field("b", utf8())}), R"([])");
   AssertArraysEqual(*array, *expected);
 
   // Offset greater than length
-  res = StructArray::Make({a, b}, {"a", "b"}, /*null_bitmap =*/nullptr, /*null_count =*/0,
-                          /*offset =*/3);
+  res =
+      StructArray::Make({a, b}, field_names, /*null_bitmap =*/nullptr, /*null_count =*/0,
+                        /*offset =*/3);
   ASSERT_RAISES(IndexError, res);
 
   // With null bitmap
   std::shared_ptr<Buffer> null_bitmap;
   BitmapFromVector<bool>({false, true}, &null_bitmap);
-  res = StructArray::Make({a, b}, {"a", "b"}, null_bitmap);
+  res = StructArray::Make({a, b}, field_names, null_bitmap);
   ASSERT_OK(res);
   array = *res;
   expected = ArrayFromJSON(struct_({field("a", int32()), field("b", utf8())}),
@@ -120,16 +124,49 @@ TEST(StructArray, FromFieldNames) {
   AssertArraysEqual(*array, *expected);
 
   // Mismatching array lengths
+  field_names = {"a", "c"};
   c = ArrayFromJSON(int64(), "[1, 2, 3]");
-  res = StructArray::Make({a, c}, {"a", "c"});
+  res = StructArray::Make({a, c}, field_names);
   ASSERT_RAISES(Invalid, res);
 
   // Mismatching number of fields
-  res = StructArray::Make({a, b}, {"a", "b", "c"});
+  field_names = {"a", "b", "c"};
+  res = StructArray::Make({a, b}, field_names);
   ASSERT_RAISES(Invalid, res);
 
   // Fail on 0 children (cannot infer array length)
-  res = StructArray::Make({}, {});
+  field_names = {};
+  res = StructArray::Make({}, field_names);
+  ASSERT_RAISES(Invalid, res);
+}
+
+TEST(StructArray, FromFields) {
+  std::shared_ptr<Array> a, b, c, array, expected;
+  std::shared_ptr<Field> fa, fb, fc;
+  a = ArrayFromJSON(int32(), "[4, 5]");
+  b = ArrayFromJSON(utf8(), R"([null, "foo"])");
+  fa = field("a", int32(), /*nullable =*/false);
+  fb = field("b", utf8(), /*nullable =*/true);
+  fc = field("b", int64(), /*nullable =*/true);
+
+  auto res = StructArray::Make({a, b}, {fa, fb});
+  ASSERT_OK(res);
+  array = *res;
+  expected =
+      ArrayFromJSON(struct_({fa, fb}), R"([{"a": 4, "b": null}, {"a": 5, "b": "foo"}])");
+  AssertArraysEqual(*array, *expected);
+
+  // Mismatching array lengths
+  c = ArrayFromJSON(int64(), "[1, 2, 3]");
+  res = StructArray::Make({a, c}, {fa, fc});
+  ASSERT_RAISES(Invalid, res);
+
+  // Mismatching number of fields
+  res = StructArray::Make({a, b}, {fa, fb, fc});
+  ASSERT_RAISES(Invalid, res);
+
+  // Fail on 0 children (cannot infer array length)
+  res = StructArray::Make({}, std::vector<std::shared_ptr<Field>>{});
   ASSERT_RAISES(Invalid, res);
 }
 

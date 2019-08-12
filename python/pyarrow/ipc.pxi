@@ -536,7 +536,7 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None):
     get_reader(obj, True, &cpp_file)
 
     if dictionary_memo is not None:
-        arg_dict_memo = &dictionary_memo.memo
+        arg_dict_memo = dictionary_memo.memo
     else:
         arg_dict_memo = &temp_memo
 
@@ -575,7 +575,7 @@ def read_record_batch(obj, Schema schema,
         message = read_message(obj)
 
     if dictionary_memo is not None:
-        arg_dict_memo = &dictionary_memo.memo
+        arg_dict_memo = dictionary_memo.memo
     else:
         arg_dict_memo = &temp_memo
 

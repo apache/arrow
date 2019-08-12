@@ -6,14 +6,22 @@
 \title{Read options for the Arrow file readers}
 \usage{
 csv_read_options(use_threads = option_use_threads(),
-  block_size = 1048576L)
+  block_size = 1048576L, skip_rows = 0L, column_names = character(0))
 
 json_read_options(use_threads = TRUE, block_size = 1048576L)
 }
 \arguments{
 \item{use_threads}{Whether to use the global CPU thread pool}
 
-\item{block_size}{Block size we request from the IO layer; also determines the size of chunks when use_threads is \code{TRUE}. NB: if false, JSON input must end with an empty line}
+\item{block_size}{Block size we request from the IO layer; also determines
+the size of chunks when use_threads is \code{TRUE}. NB: if \code{FALSE}, JSON input
+must end with an empty line.}
+
+\item{skip_rows}{Number of lines to skip before reading data.}
+
+\item{column_names}{Character vector to supply column names. If length-0
+(the default), the first non-skipped row will be parsed to generate column
+names.}
 }
 \description{
 Read options for the Arrow file readers

@@ -30,28 +30,51 @@ ExpressionRegistry::ExpressionRegistry() {
 
 ExpressionRegistry::~ExpressionRegistry() {}
 
+// to be used only to create function_signature_start
+ExpressionRegistry::FunctionSignatureIterator::FunctionSignatureIterator(
+    native_func_iterator_type nf_it, native_func_iterator_type nf_it_end)
+    : native_func_it_{nf_it},
+      native_func_it_end_{nf_it_end},
+      func_sig_it_{&(nf_it->signatures().front())} {}
+
+// to be used only to create function_signature_end
+ExpressionRegistry::FunctionSignatureIterator::FunctionSignatureIterator(
+    func_sig_iterator_type fs_it)
+    : native_func_it_{nullptr}, native_func_it_end_{nullptr}, func_sig_it_{fs_it} {}
+
 const ExpressionRegistry::FunctionSignatureIterator
 ExpressionRegistry::function_signature_begin() {
-  return FunctionSignatureIterator(function_registry_->begin());
+  return FunctionSignatureIterator(function_registry_->begin(),
+                                   function_registry_->end());
 }
 
 const ExpressionRegistry::FunctionSignatureIterator
 ExpressionRegistry::function_signature_end() const {
-  return FunctionSignatureIterator(function_registry_->end());
+  return FunctionSignatureIterator(&(*(function_registry_->back()->signatures().end())));
 }
 
 bool ExpressionRegistry::FunctionSignatureIterator::operator!=(
     const FunctionSignatureIterator& func_sign_it) {
-  return func_sign_it.it_ != this->it_;
+  return func_sign_it.func_sig_it_ != this->func_sig_it_;
 }
 
 FunctionSignature ExpressionRegistry::FunctionSignatureIterator::operator*() {
-  return (*it_).signature();
+  return *func_sig_it_;
 }
 
-ExpressionRegistry::iterator ExpressionRegistry::FunctionSignatureIterator::operator++(
-    int increment) {
-  return it_++;
+ExpressionRegistry::func_sig_iterator_type ExpressionRegistry::FunctionSignatureIterator::
+operator++(int increment) {
+  ++func_sig_it_;
+  // point func_sig_it_ to first signature of next nativefunction if func_sig_it_ is
+  // pointing to end
+  if (func_sig_it_ == &(*native_func_it_->signatures().end())) {
+    ++native_func_it_;
+    if (native_func_it_ == native_func_it_end_) {  // last native function
+      return func_sig_it_;
+    }
+    func_sig_it_ = &(native_func_it_->signatures().front());
+  }
+  return func_sig_it_;
 }
 
 DataTypeVector ExpressionRegistry::supported_types_ =

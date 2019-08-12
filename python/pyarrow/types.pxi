@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import atexit
 import re
 import warnings
 
@@ -105,6 +106,7 @@ cdef class DataType:
                         "instead.".format(self.__class__.__name__))
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        assert type != nullptr
         self.sp_type = type
         self.type = type.get()
         self.pep3118_format = _datatype_to_pep3118(self.type)
@@ -196,7 +198,9 @@ cdef class DictionaryMemo:
     """
     Tracking container for dictionary-encoded fields
     """
-    pass
+    def __cinit__(self):
+        self.sp_memo.reset(new CDictionaryMemo())
+        self.memo = self.sp_memo.get()
 
 
 cdef class DictionaryType(DataType):
@@ -251,6 +255,27 @@ cdef class ListType(DataType):
     def value_type(self):
         """
         The data type of list values.
+        """
+        return pyarrow_wrap_data_type(self.list_type.value_type())
+
+
+cdef class LargeListType(DataType):
+    """
+    Concrete class for large list data types
+    (like ListType, but with 64-bit offsets).
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        DataType.init(self, type)
+        self.list_type = <const CLargeListType*> type.get()
+
+    def __reduce__(self):
+        return large_list, (self.value_type,)
+
+    @property
+    def value_type(self):
+        """
+        The data type of large list values.
         """
         return pyarrow_wrap_data_type(self.list_type.value_type())
 
@@ -589,32 +614,6 @@ cdef class UnknownExtensionType(ExtensionType):
         return self.serialized
 
 
-cdef class _ExtensionTypesInitializer:
-    #
-    # A private object that handles process-wide registration of the Python
-    # ExtensionType.
-    #
-
-    def __cinit__(self):
-        cdef:
-            DataType storage_type
-            shared_ptr[CExtensionType] cpy_ext_type
-
-        # Make a dummy C++ ExtensionType
-        storage_type = null()
-        check_status(CPyExtensionType.FromClass(storage_type.sp_type,
-                                                ExtensionType, &cpy_ext_type))
-        check_status(
-            RegisterPyExtensionType(<shared_ptr[CDataType]> cpy_ext_type))
-
-    def __dealloc__(self):
-        # This needs to be done explicitly before the Python interpreter is
-        # finalized.  If the C++ type is destroyed later in the process
-        # teardown stage, it will invoke CPython APIs such as Py_DECREF
-        # with a destroyed interpreter.
-        check_status(UnregisterPyExtensionType())
-
-
 cdef class Field:
     """
     A named field, with a data type, nullability, and optional metadata.
@@ -836,7 +835,7 @@ cdef class Schema:
             metadata=self.metadata
         )
 
-    def equals(self, other, bint check_metadata=True):
+    def equals(self, Schema other not None, bint check_metadata=True):
         """
         Test if this schema is equal to the other
 
@@ -850,8 +849,7 @@ cdef class Schema:
         -------
         is_equal : boolean
         """
-        cdef Schema _other = other
-        return self.sp_schema.get().Equals(deref(_other.schema),
+        return self.sp_schema.get().Equals(deref(other.schema),
                                            check_metadata)
 
     @classmethod
@@ -1060,7 +1058,7 @@ cdef class Schema:
             CDictionaryMemo* arg_dict_memo
 
         if dictionary_memo is not None:
-            arg_dict_memo = &dictionary_memo.memo
+            arg_dict_memo = dictionary_memo.memo
         else:
             arg_dict_memo = &temp_memo
 
@@ -1555,6 +1553,33 @@ def binary(int length=-1):
     return pyarrow_wrap_data_type(fixed_size_binary_type)
 
 
+def large_binary():
+    """
+    Create large variable-length binary type
+
+    This data type may not be supported by all Arrow implementations.  Unless
+    you need to represent data larger than 2GB, you should prefer binary().
+    """
+    return primitive_type(_Type_LARGE_BINARY)
+
+
+def large_string():
+    """
+    Create large UTF8 variable-length string type
+
+    This data type may not be supported by all Arrow implementations.  Unless
+    you need to represent data larger than 2GB, you should prefer string().
+    """
+    return primitive_type(_Type_LARGE_STRING)
+
+
+def large_utf8():
+    """
+    Alias for large_string()
+    """
+    return large_string()
+
+
 cpdef ListType list_(value_type):
     """
     Create ListType instance from child data type or field
@@ -1585,6 +1610,40 @@ cpdef ListType list_(value_type):
     return out
 
 
+cpdef LargeListType large_list(value_type):
+    """
+    Create LargeListType instance from child data type or field
+
+    This data type may not be supported by all Arrow implementations.
+    Unless you need to represent data larger than 2**31 elements, you should
+    prefer list_().
+
+    Parameters
+    ----------
+    value_type : DataType or Field
+
+    Returns
+    -------
+    list_type : DataType
+    """
+    cdef:
+        DataType data_type
+        Field _field
+        shared_ptr[CDataType] list_type
+        LargeListType out = LargeListType.__new__(LargeListType)
+
+    if isinstance(value_type, DataType):
+        _field = field('item', value_type)
+    elif isinstance(value_type, Field):
+        _field = value_type
+    else:
+        raise TypeError('List requires DataType or Field')
+
+    list_type.reset(new CLargeListType(_field.sp_field))
+    out.init(list_type)
+    return out
+
+
 cpdef DictionaryType dictionary(index_type, value_type, bint ordered=False):
     """
     Dictionary (categorical, or simply encoded) type
@@ -1604,6 +1663,9 @@ cpdef DictionaryType dictionary(index_type, value_type, bint ordered=False):
         DataType _value_type = ensure_type(value_type, allow_none=False)
         DictionaryType out = DictionaryType.__new__(DictionaryType)
         shared_ptr[CDataType] dict_type
+
+    if _index_type.id not in {Type_INT8, Type_INT16, Type_INT32, Type_INT64}:
+        raise TypeError("The dictionary index type should be signed integer.")
 
     dict_type.reset(new CDictionaryType(_index_type.sp_type,
                                         _value_type.sp_type, ordered == 1))
@@ -1738,6 +1800,10 @@ cdef dict _type_aliases = {
     'str': string,
     'utf8': string,
     'binary': binary,
+    'large_string': large_string,
+    'large_str': large_string,
+    'large_utf8': large_string,
+    'large_binary': large_binary,
     'date32': date32,
     'date64': date64,
     'date32[day]': date32,
@@ -1863,4 +1929,26 @@ def is_float_value(object obj):
     return IsPyFloat(obj)
 
 
-_extension_types_initializer = _ExtensionTypesInitializer()
+def _register_py_extension_type():
+    cdef:
+        DataType storage_type
+        shared_ptr[CExtensionType] cpy_ext_type
+
+    # Make a dummy C++ ExtensionType
+    storage_type = null()
+    check_status(CPyExtensionType.FromClass(storage_type.sp_type,
+                                            ExtensionType, &cpy_ext_type))
+    check_status(
+        RegisterPyExtensionType(<shared_ptr[CDataType]> cpy_ext_type))
+
+
+def _unregister_py_extension_type():
+    # This needs to be done explicitly before the Python interpreter is
+    # finalized.  If the C++ type is destroyed later in the process
+    # teardown stage, it will invoke CPython APIs such as Py_DECREF
+    # with a destroyed interpreter.
+    check_status(UnregisterPyExtensionType())
+
+
+_register_py_extension_type()
+atexit.register(_unregister_py_extension_type)

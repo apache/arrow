@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-{"namespace": "org.apache.arrow.avro",
+{
+ "namespace": "org.apache.arrow.avro",
  "type": "record",
  "name": "User",
  "fields": [

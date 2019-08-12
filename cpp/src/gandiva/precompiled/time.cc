@@ -19,6 +19,8 @@
 
 extern "C" {
 
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -685,5 +687,51 @@ timestamp castTIMESTAMP_utf8(int64_t context, const char* input, int32 length) {
                                    : (date_time - displacement_time);
   }
   return std::chrono::time_point_cast<milliseconds>(date_time).time_since_epoch().count();
+}
+
+timestamp castTIMESTAMP_date64(date64 date_in_millis) { return date_in_millis; }
+
+const char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 length,
+                                        int32* out_len) {
+  int64 year = extractYear_timestamp(in);
+  int64 month = extractMonth_timestamp(in);
+  int64 day = extractDay_timestamp(in);
+  int64 hour = extractHour_timestamp(in);
+  int64 minute = extractMinute_timestamp(in);
+  int64 second = extractSecond_timestamp(in);
+  int64 millis = in % MILLIS_IN_SEC;
+
+  static const int kTimeStampStringLen = 23;
+  const int char_buffer_length = kTimeStampStringLen + 1;  // snprintf adds \0
+  char char_buffer[char_buffer_length];
+
+  // yyyy-MM-dd hh:mm:ss.sss
+  snprintf(char_buffer, char_buffer_length,
+           "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64 ":%02" PRId64
+           ":%02" PRId64 ".%03" PRId64,
+           year, month, day, hour, minute, second, millis);
+
+  *out_len = static_cast<int32>(length);
+  if (*out_len > kTimeStampStringLen) {
+    *out_len = kTimeStampStringLen;
+  }
+
+  if (*out_len <= 0) {
+    if (*out_len < 0) {
+      gdv_fn_context_set_error_msg(context, "Length of output string cannot be negative");
+    }
+    *out_len = 0;
+    return "";
+  }
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, char_buffer, *out_len);
+  return ret;
 }
 }  // extern "C"

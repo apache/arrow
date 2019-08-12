@@ -20,7 +20,6 @@
 #include "parquet/properties.h"
 
 #include "arrow/io/buffered.h"
-#include "arrow/io/memory.h"
 
 namespace parquet {
 
@@ -37,6 +36,17 @@ std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
     PARQUET_THROW_NOT_OK(source->ReadAt(start, num_bytes, &data));
     return std::make_shared<::arrow::io::BufferReader>(data);
   }
+}
+
+ArrowReaderProperties default_arrow_reader_properties() {
+  static ArrowReaderProperties default_reader_props;
+  return default_reader_props;
+}
+
+std::shared_ptr<ArrowWriterProperties> default_arrow_writer_properties() {
+  static std::shared_ptr<ArrowWriterProperties> default_writer_properties =
+      ArrowWriterProperties::Builder().build();
+  return default_writer_properties;
 }
 
 }  // namespace parquet

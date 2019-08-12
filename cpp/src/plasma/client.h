@@ -65,6 +65,13 @@ class ARROW_EXPORT PlasmaClient {
                  const std::string& manager_socket_name = "", int release_delay = 0,
                  int num_retries = -1);
 
+  /// Set runtime options for this client.
+  ///
+  /// \param client_name The name of the client, used in debug messages.
+  /// \param output_memory_quota The memory quota in bytes for objects created by
+  ///        this client.
+  Status SetClientOptions(const std::string& client_name, int64_t output_memory_quota);
+
   /// Create an object in the Plasma Store. Any metadata for this object must be
   /// be passed in when the object is created.
   ///
@@ -249,6 +256,11 @@ class ARROW_EXPORT PlasmaClient {
   ///
   /// \return The return status.
   Status Disconnect();
+
+  /// Get the current debug string from the plasma store server.
+  ///
+  /// \return The debug string.
+  std::string DebugString();
 
   /// Get the memory capacity of the store.
   ///

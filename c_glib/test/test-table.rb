@@ -30,31 +30,19 @@ class TestTable < Test::Unit::TestCase
 
     def dump_table(table)
       table.n_columns.times.collect do |i|
-        column = table.get_column(i)
+        field = table.schema.get_field(i)
+        chunked_array = table.get_column_data(i)
         values = []
-        column.data.chunks.each do |chunk|
+        chunked_array.chunks.each do |chunk|
           chunk.length.times do |j|
             values << chunk.get_value(j)
           end
         end
         [
-          column.name,
+          field.name,
           values,
         ]
       end
-    end
-
-    def test_columns
-      columns = [
-        Arrow::Column.new(@fields[0], build_boolean_array([true])),
-        Arrow::Column.new(@fields[1], build_boolean_array([false])),
-      ]
-      table = Arrow::Table.new(@schema, columns)
-      assert_equal([
-                     ["visible", [true]],
-                     ["valid", [false]],
-                   ],
-                   dump_table(table))
     end
 
     def test_arrays
@@ -67,6 +55,22 @@ class TestTable < Test::Unit::TestCase
       assert_equal([
                      ["visible", [true]],
                      ["valid", [false]],
+                   ],
+                   dump_table(table))
+    end
+
+    def test_chunked_arrays
+      require_gi_bindings(3, 3, 1)
+      arrays = [
+        Arrow::ChunkedArray.new([build_boolean_array([true]),
+                                 build_boolean_array([false])]),
+        Arrow::ChunkedArray.new([build_boolean_array([false]),
+                                 build_boolean_array([true])]),
+      ]
+      table = Arrow::Table.new(@schema, arrays)
+      assert_equal([
+                     ["visible", [true, false]],
+                     ["valid", [false, true]],
                    ],
                    dump_table(table))
     end
@@ -101,8 +105,8 @@ class TestTable < Test::Unit::TestCase
       ]
       schema = Arrow::Schema.new(fields)
       columns = [
-        Arrow::Column.new(fields[0], build_boolean_array([true])),
-        Arrow::Column.new(fields[1], build_boolean_array([false])),
+        build_boolean_array([true]),
+        build_boolean_array([false]),
       ]
       @table = Arrow::Table.new(schema, columns)
     end
@@ -114,8 +118,8 @@ class TestTable < Test::Unit::TestCase
       ]
       schema = Arrow::Schema.new(fields)
       columns = [
-        Arrow::Column.new(fields[0], build_boolean_array([true])),
-        Arrow::Column.new(fields[1], build_boolean_array([false])),
+        build_boolean_array([true]),
+        build_boolean_array([false]),
       ]
       other_table = Arrow::Table.new(schema, columns)
       assert_equal(@table, other_table)
@@ -126,8 +130,15 @@ class TestTable < Test::Unit::TestCase
                    @table.schema.fields.collect(&:name))
     end
 
-    def test_column
-      assert_equal("valid", @table.get_column(1).name)
+    def test_column_data
+      assert_equal([
+                     Arrow::ChunkedArray.new([build_boolean_array([true])]),
+                     Arrow::ChunkedArray.new([build_boolean_array([false])]),
+                   ],
+                   [
+                     @table.get_column_data(0),
+                     @table.get_column_data(-1),
+                   ])
     end
 
     def test_n_columns
@@ -140,8 +151,8 @@ class TestTable < Test::Unit::TestCase
 
     def test_add_column
       field = Arrow::Field.new("added", Arrow::BooleanDataType.new)
-      column = Arrow::Column.new(field, build_boolean_array([true]))
-      new_table = @table.add_column(1, column)
+      chunked_array = Arrow::ChunkedArray.new([build_boolean_array([true])])
+      new_table = @table.add_column(1, field, chunked_array)
       assert_equal(["visible", "added", "valid"],
                    new_table.schema.fields.collect(&:name))
     end
@@ -154,8 +165,8 @@ class TestTable < Test::Unit::TestCase
 
     def test_replace_column
       field = Arrow::Field.new("added", Arrow::BooleanDataType.new)
-      column = Arrow::Column.new(field, build_boolean_array([true]))
-      new_table = @table.replace_column(0, column)
+      chunked_array = Arrow::ChunkedArray.new([build_boolean_array([true])])
+      new_table = @table.replace_column(0, field, chunked_array)
       assert_equal(["added", "valid"],
                    new_table.schema.fields.collect(&:name))
     end

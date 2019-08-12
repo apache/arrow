@@ -24,7 +24,6 @@
 #include <vector>
 
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/macros.h"
 
 #include "parquet/platform.h"
 #include "parquet/properties.h"

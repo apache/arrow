@@ -72,9 +72,20 @@ def test_read_options():
     opts.use_threads = False
     assert opts.use_threads is False
 
-    opts = cls(block_size=1234, use_threads=False)
+    assert opts.skip_rows == 0
+    opts.skip_rows = 3
+    assert opts.skip_rows == 3
+
+    assert opts.column_names == []
+    opts.column_names = ["ab", "cd"]
+    assert opts.column_names == ["ab", "cd"]
+
+    opts = cls(block_size=1234, use_threads=False, skip_rows=42,
+               column_names=["a", "b", "c"])
     assert opts.block_size == 1234
     assert opts.use_threads is False
+    assert opts.skip_rows == 42
+    assert opts.column_names == ["a", "b", "c"]
 
 
 def test_parse_options():
@@ -84,7 +95,6 @@ def test_parse_options():
     assert opts.quote_char == '"'
     assert opts.double_quote is True
     assert opts.escape_char is False
-    assert opts.header_rows == 1
     assert opts.newlines_in_values is False
     assert opts.ignore_empty_lines is True
 
@@ -110,17 +120,13 @@ def test_parse_options():
     opts.ignore_empty_lines = False
     assert opts.ignore_empty_lines is False
 
-    opts.header_rows = 2
-    assert opts.header_rows == 2
-
     opts = cls(delimiter=';', quote_char='%', double_quote=False,
-               escape_char='\\', header_rows=2, newlines_in_values=True,
+               escape_char='\\', newlines_in_values=True,
                ignore_empty_lines=False)
     assert opts.delimiter == ';'
     assert opts.quote_char == '%'
     assert opts.double_quote is False
     assert opts.escape_char == '\\'
-    assert opts.header_rows == 2
     assert opts.newlines_in_values is True
     assert opts.ignore_empty_lines is False
 
@@ -188,7 +194,7 @@ class BaseTestCSVRead:
 
     def check_names(self, table, names):
         assert table.num_columns == len(names)
-        assert [c.name for c in table.columns] == names
+        assert table.column_names == names
 
     def test_file_object(self):
         data = b"a,b\n1,2\n"
@@ -213,6 +219,92 @@ class BaseTestCSVRead:
         expected_data = {'a': [1], 'b': [2]}
         table = self.read_bytes(rows)
         assert table.to_pydict() == expected_data
+
+    def test_header_skip_rows(self):
+        rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
+
+        opts = ReadOptions()
+        opts.skip_rows = 1
+        table = self.read_bytes(rows, read_options=opts)
+        self.check_names(table, ["ef", "gh"])
+        assert table.to_pydict() == {
+            "ef": ["ij", "mn"],
+            "gh": ["kl", "op"],
+            }
+
+        opts.skip_rows = 3
+        table = self.read_bytes(rows, read_options=opts)
+        self.check_names(table, ["mn", "op"])
+        assert table.to_pydict() == {
+            "mn": [],
+            "op": [],
+            }
+
+        opts.skip_rows = 4
+        with pytest.raises(pa.ArrowInvalid):
+            # Not enough rows
+            table = self.read_bytes(rows, read_options=opts)
+
+        # Can skip rows with a different number of columns
+        rows = b"abcd\n,,,,,\nij,kl\nmn,op\n"
+        opts.skip_rows = 2
+        table = self.read_bytes(rows, read_options=opts)
+        self.check_names(table, ["ij", "kl"])
+        assert table.to_pydict() == {
+            "ij": ["mn"],
+            "kl": ["op"],
+            }
+
+    def test_header_column_names(self):
+        rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
+
+        opts = ReadOptions()
+        opts.column_names = ["x", "y"]
+        table = self.read_bytes(rows, read_options=opts)
+        self.check_names(table, ["x", "y"])
+        assert table.to_pydict() == {
+            "x": ["ab", "ef", "ij", "mn"],
+            "y": ["cd", "gh", "kl", "op"],
+            }
+
+        opts.skip_rows = 3
+        table = self.read_bytes(rows, read_options=opts)
+        self.check_names(table, ["x", "y"])
+        assert table.to_pydict() == {
+            "x": ["mn"],
+            "y": ["op"],
+            }
+
+        opts.skip_rows = 4
+        table = self.read_bytes(rows, read_options=opts)
+        self.check_names(table, ["x", "y"])
+        assert table.to_pydict() == {
+            "x": [],
+            "y": [],
+            }
+
+        opts.skip_rows = 5
+        with pytest.raises(pa.ArrowInvalid):
+            # Not enough rows
+            table = self.read_bytes(rows, read_options=opts)
+
+        # Unexpected number of columns
+        opts.skip_rows = 0
+        opts.column_names = ["x", "y", "z"]
+        with pytest.raises(pa.ArrowInvalid,
+                           match="Expected 3 columns, got 2"):
+            table = self.read_bytes(rows, read_options=opts)
+
+        # Can skip rows with a different number of columns
+        rows = b"abcd\n,,,,,\nij,kl\nmn,op\n"
+        opts.skip_rows = 2
+        opts.column_names = ["x", "y"]
+        table = self.read_bytes(rows, read_options=opts)
+        self.check_names(table, ["x", "y"])
+        assert table.to_pydict() == {
+            "x": ["ij", "mn"],
+            "y": ["kl", "op"],
+            }
 
     def test_simple_ints(self):
         # Infer integer columns
@@ -395,6 +487,27 @@ class BaseTestCSVRead:
         table = self.read_bytes(rows)
         assert table.to_pydict() == {'': []}
 
+    def test_empty_lines(self):
+        rows = b"a,b\n\r1,2\r\n\r\n3,4\r\n"
+        table = self.read_bytes(rows)
+        assert table.to_pydict() == {
+            'a': [1, 3],
+            'b': [2, 4],
+            }
+        parse_options = ParseOptions(ignore_empty_lines=False)
+        table = self.read_bytes(rows, parse_options=parse_options)
+        assert table.to_pydict() == {
+            'a': [None, 1, None, 3],
+            'b': [None, 2, None, 4],
+            }
+        read_options = ReadOptions(skip_rows=2)
+        table = self.read_bytes(rows, parse_options=parse_options,
+                                read_options=read_options)
+        assert table.to_pydict() == {
+            '1': [None, 3],
+            '2': [None, 4],
+            }
+
     def test_invalid_csv(self):
         # Various CSV errors
         rows = b"a,b,c\n1,2\n4,5,6\n"
@@ -449,7 +562,7 @@ class TestSerialCSVRead(BaseTestCSVRead, unittest.TestCase):
         read_options = kwargs.setdefault('read_options', ReadOptions())
         read_options.use_threads = False
         table = read_csv(*args, **kwargs)
-        table._validate()
+        table.validate()
         return table
 
 
@@ -459,7 +572,7 @@ class TestParallelCSVRead(BaseTestCSVRead, unittest.TestCase):
         read_options = kwargs.setdefault('read_options', ReadOptions())
         read_options.use_threads = True
         table = read_csv(*args, **kwargs)
-        table._validate()
+        table.validate()
         return table
 
 
@@ -471,16 +584,18 @@ class BaseTestCompressedCSVRead:
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
 
+    def read_csv(self, csv_path):
+        try:
+            return read_csv(csv_path)
+        except pa.ArrowNotImplementedError as e:
+            pytest.skip(str(e))
+
     def test_random_csv(self):
         csv, expected = make_random_csv(num_cols=2, num_rows=100)
         csv_path = os.path.join(self.tmpdir, self.csv_filename)
         self.write_file(csv_path, csv)
-        try:
-            table = read_csv(csv_path)
-        except pa.ArrowNotImplementedError as e:
-            pytest.skip(str(e))
-            return
-        table._validate()
+        table = self.read_csv(csv_path)
+        table.validate()
         assert table.schema == expected.schema
         assert table.equals(expected)
         assert table.to_pydict() == expected.to_pydict()
@@ -492,6 +607,19 @@ class TestGZipCSVRead(BaseTestCompressedCSVRead, unittest.TestCase):
     def write_file(self, path, contents):
         with gzip.open(path, 'wb', 3) as f:
             f.write(contents)
+
+    def test_concatenated(self):
+        # ARROW-5974
+        csv_path = os.path.join(self.tmpdir, self.csv_filename)
+        with gzip.open(csv_path, 'wb', 3) as f:
+            f.write(b"ab,cd\nef,gh\n")
+        with gzip.open(csv_path, 'ab', 3) as f:
+            f.write(b"ij,kl\nmn,op\n")
+        table = self.read_csv(csv_path)
+        assert table.to_pydict() == {
+            'ab': ['ef', 'ij', 'mn'],
+            'cd': ['gh', 'kl', 'op'],
+            }
 
 
 class TestBZ2CSVRead(BaseTestCompressedCSVRead, unittest.TestCase):

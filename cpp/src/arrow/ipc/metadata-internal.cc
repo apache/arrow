@@ -232,6 +232,9 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     case flatbuf::Type_Binary:
       *out = binary();
       return Status::OK();
+    case flatbuf::Type_LargeBinary:
+      *out = large_binary();
+      return Status::OK();
     case flatbuf::Type_FixedSizeBinary: {
       auto fw_binary = static_cast<const flatbuf::FixedSizeBinary*>(type_data);
       *out = fixed_size_binary(fw_binary->byteWidth());
@@ -239,6 +242,9 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     }
     case flatbuf::Type_Utf8:
       *out = utf8();
+      return Status::OK();
+    case flatbuf::Type_LargeUtf8:
+      *out = large_utf8();
       return Status::OK();
     case flatbuf::Type_Bool:
       *out = boolean();
@@ -316,6 +322,12 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       }
       *out = std::make_shared<ListType>(children[0]);
       return Status::OK();
+    case flatbuf::Type_LargeList:
+      if (children.size() != 1) {
+        return Status::Invalid("LargeList must have exactly 1 child field");
+      }
+      *out = std::make_shared<LargeListType>(children[0]);
+      return Status::OK();
     case flatbuf::Type_Map:
       if (children.size() != 1) {
         return Status::Invalid("Map must have exactly 1 child field");
@@ -357,8 +369,12 @@ static Status TypeFromFlatbuffer(const flatbuf::Field* field,
                                  const std::vector<std::shared_ptr<Field>>& children,
                                  const KeyValueMetadata* field_metadata,
                                  std::shared_ptr<DataType>* out) {
-  RETURN_NOT_OK(
-      ConcreteTypeFromFlatbuffer(field->type_type(), field->type(), children, out));
+  auto type_data = field->type();
+  if (type_data == nullptr) {
+    return Status::IOError(
+        "Type-pointer in custom metadata of flatbuffer-encoded Field is null.");
+  }
+  RETURN_NOT_OK(ConcreteTypeFromFlatbuffer(field->type_type(), type_data, children, out));
 
   // Look for extension metadata in custom_metadata field
   // TODO(wesm): Should this be part of the Field Flatbuffers table?
@@ -537,9 +553,21 @@ class FieldToFlatbufferVisitor {
     return Status::OK();
   }
 
+  Status Visit(const LargeBinaryType& type) {
+    fb_type_ = flatbuf::Type_LargeBinary;
+    type_offset_ = flatbuf::CreateLargeBinary(fbb_).Union();
+    return Status::OK();
+  }
+
   Status Visit(const StringType& type) {
     fb_type_ = flatbuf::Type_Utf8;
     type_offset_ = flatbuf::CreateUtf8(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const LargeStringType& type) {
+    fb_type_ = flatbuf::Type_LargeUtf8;
+    type_offset_ = flatbuf::CreateLargeUtf8(fbb_).Union();
     return Status::OK();
   }
 
@@ -615,6 +643,13 @@ class FieldToFlatbufferVisitor {
     fb_type_ = flatbuf::Type_List;
     RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
     type_offset_ = flatbuf::CreateList(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListType& type) {
+    fb_type_ = flatbuf::Type_LargeList;
+    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+    type_offset_ = flatbuf::CreateLargeList(fbb_).Union();
     return Status::OK();
   }
 
@@ -758,12 +793,22 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
     // based on the DictionaryEncoding metadata and record in the
     // dictionary_memo
     std::shared_ptr<DataType> index_type;
-    RETURN_NOT_OK(IntFromFlatbuffer(encoding->indexType(), &index_type));
+    auto int_data = encoding->indexType();
+    if (int_data == nullptr) {
+      return Status::IOError(
+          "indexType-pointer in custom metadata of flatbuffer-encoded DictionaryEncoding "
+          "is null.");
+    }
+    RETURN_NOT_OK(IntFromFlatbuffer(int_data, &index_type));
     type = ::arrow::dictionary(index_type, type, encoding->isOrdered());
     *out = ::arrow::field(field->name()->str(), type, field->nullable(), metadata);
     RETURN_NOT_OK(dictionary_memo->AddField(encoding->id(), *out));
   } else {
-    *out = ::arrow::field(field->name()->str(), type, field->nullable(), metadata);
+    auto name = field->name();
+    if (name == nullptr) {
+      return Status::IOError("Name-pointer of flatbuffer-encoded Field is null.");
+    }
+    *out = ::arrow::field(name->str(), type, field->nullable(), metadata);
   }
   return Status::OK();
 }
@@ -1137,7 +1182,12 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
     }
   }
 
-  return ConcreteTypeFromFlatbuffer(tensor->type_type(), tensor->type(), {}, type);
+  auto type_data = tensor->type();
+  if (type_data == nullptr) {
+    return Status::IOError(
+        "Type-pointer in custom metadata of flatbuffer-encoded Tensor is null.");
+  }
+  return ConcreteTypeFromFlatbuffer(tensor->type_type(), type_data, {}, type);
 }
 
 Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
@@ -1181,8 +1231,12 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
       return Status::Invalid("Unrecognized sparse index type");
   }
 
-  return ConcreteTypeFromFlatbuffer(sparse_tensor->type_type(), sparse_tensor->type(), {},
-                                    type);
+  auto type_data = sparse_tensor->type();
+  if (type_data == nullptr) {
+    return Status::IOError(
+        "Type-pointer in custom metadata of flatbuffer-encoded SparseTensor is null.");
+  }
+  return ConcreteTypeFromFlatbuffer(sparse_tensor->type_type(), type_data, {}, type);
 }
 
 // ----------------------------------------------------------------------

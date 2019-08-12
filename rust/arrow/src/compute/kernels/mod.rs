@@ -21,4 +21,5 @@ pub mod arithmetic;
 pub mod boolean;
 pub mod cast;
 pub mod comparison;
+pub mod take;
 pub mod temporal;

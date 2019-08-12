@@ -17,6 +17,10 @@
 
 package org.apache.arrow.vector;
 
+import static io.netty.util.internal.PlatformDependent.getByte;
+import static io.netty.util.internal.PlatformDependent.getInt;
+import static io.netty.util.internal.PlatformDependent.getLong;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -177,6 +181,74 @@ public class BitVectorHelper {
     }
 
     return 8 * sizeInBytes - count;
+  }
+
+  /**
+   * Tests if all bits in a validity buffer are equal 0 or 1, according to the specified parameter.
+   * @param validityBuffer the validity buffer.
+   * @param valueCount the bit count.
+   * @param  checkOneBits if set to true, the method checks if all bits are equal to 1;
+   *                      otherwise, it checks if all bits are equal to 0.
+   * @return true if all bits are 0 or 1 according to the parameter, and false otherwise.
+   */
+  public static boolean checkAllBitsEqualTo(
+          final ArrowBuf validityBuffer, final int valueCount, final boolean checkOneBits) {
+    if (valueCount == 0) {
+      return true;
+    }
+    final int sizeInBytes = getValidityBufferSize(valueCount);
+
+    // boundary check
+    validityBuffer.checkBytes(0, sizeInBytes);
+
+    // If value count is not a multiple of 8, then calculate number of used bits in the last byte
+    final int remainder = valueCount % 8;
+    final int fullBytesCount = remainder == 0 ? sizeInBytes : sizeInBytes - 1;
+
+    // the integer number to compare against
+    final int intToCompare = checkOneBits ? -1 : 0;
+
+    int index = 0;
+    while (index + 8 <= fullBytesCount) {
+      long longValue = getLong(validityBuffer.memoryAddress() + index);
+      if (longValue != (long) intToCompare) {
+        return false;
+      }
+      index += 8;
+    }
+
+    while (index + 4 <= fullBytesCount) {
+      int intValue = getInt(validityBuffer.memoryAddress() + index);
+      if (intValue != intToCompare) {
+        return false;
+      }
+      index += 4;
+    }
+
+    while (index < fullBytesCount) {
+      byte byteValue = getByte(validityBuffer.memoryAddress() + index);
+      if (byteValue != (byte) intToCompare) {
+        return false;
+      }
+      index += 1;
+    }
+
+    // handling with the last bits
+    if (remainder != 0) {
+      byte byteValue = getByte(validityBuffer.memoryAddress() + sizeInBytes - 1);
+      byte mask = (byte) ((1 << remainder) - 1);
+      byteValue = (byte) (byteValue & mask);
+      if (checkOneBits) {
+        if ((mask & byteValue) != mask) {
+          return false;
+        }
+      } else {
+        if (byteValue != (byte) 0) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   /** Returns the byte at index from data right-shifted by offset. */

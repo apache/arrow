@@ -62,6 +62,8 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
       GET_PRIMITIVE_TYPE(DOUBLE, float64);
       GET_PRIMITIVE_TYPE(BINARY, binary);
       GET_PRIMITIVE_TYPE(STRING, utf8);
+      GET_PRIMITIVE_TYPE(LARGE_BINARY, large_binary);
+      GET_PRIMITIVE_TYPE(LARGE_STRING, large_utf8);
     default:
       return nullptr;
   }

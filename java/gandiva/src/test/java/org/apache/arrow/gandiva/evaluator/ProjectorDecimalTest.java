@@ -42,11 +42,15 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 
 import com.google.common.collect.Lists;
 
 public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.BaseEvaluatorTest {
+  @Rule
+  public ExpectedException exception = ExpectedException.none();
 
   @Test
   public void test_add() throws GandivaException {
@@ -529,8 +533,8 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
     List<ValueVector> output = null;
     ArrowRecordBatch batch = null;
     try {
-      int numRows = 4;
-      String[] aValues = new String[]{"1.23", "1.58", "-1.23", "-1.58"};
+      int numRows = 5;
+      String[] aValues = new String[]{"1.23", "1.50", "98765.78", "-1.23", "-1.58"};
       DecimalVector valuesa = decimalVector(aValues, decimalType.getPrecision(), decimalType.getScale());
       batch = new ArrowRecordBatch(
           numRows,
@@ -552,7 +556,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
       eval.evaluate(batch, output);
 
       // compare the outputs.
-      long[] expected = {1, 1, -1, -1};
+      long[] expected = {1, 2, 98766, -1, -2};
       for (int i = 0; i < numRows; i++) {
         assertFalse(resultVector.isNull(i));
         assertEquals(expected[i], resultVector.get(i));
@@ -750,6 +754,44 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
       }
       eval.close();
     }
+  }
+
+  @Test
+  public void testInvalidDecimal() throws GandivaException {
+    exception.expect(IllegalArgumentException.class);
+    exception.expectMessage("Gandiva only supports decimals of upto 38 precision. Input precision" +
+            " : 0");
+    Decimal decimalType = new Decimal(0, 0);
+    Field int64f = Field.nullable("int64", int64);
+
+    Schema schema = new Schema(Lists.newArrayList(int64f));
+    Projector eval = Projector.make(schema,
+            Lists.newArrayList(
+                    TreeBuilder.makeExpression("castDECIMAL",
+                            Lists.newArrayList(int64f),
+                            Field.nullable("invalid_dec", decimalType)
+                    )
+            )
+    );
+  }
+
+  @Test
+  public void testInvalidDecimalGt38() throws GandivaException {
+    exception.expect(IllegalArgumentException.class);
+    exception.expectMessage("Gandiva only supports decimals of upto 38 precision. Input precision" +
+            " : 42");
+    Decimal decimalType = new Decimal(42, 0);
+    Field int64f = Field.nullable("int64", int64);
+
+    Schema schema = new Schema(Lists.newArrayList(int64f));
+    Projector eval = Projector.make(schema,
+            Lists.newArrayList(
+                    TreeBuilder.makeExpression("castDECIMAL",
+                            Lists.newArrayList(int64f),
+                            Field.nullable("invalid_dec", decimalType)
+                    )
+            )
+    );
   }
 }
 

@@ -64,6 +64,11 @@ cdef class ListType(DataType):
         const CListType* list_type
 
 
+cdef class LargeListType(DataType):
+    cdef:
+        const CLargeListType* list_type
+
+
 cdef class StructType(DataType):
     cdef:
         const CStructType* struct_type
@@ -74,7 +79,10 @@ cdef class StructType(DataType):
 
 cdef class DictionaryMemo:
     cdef:
-        CDictionaryMemo memo
+        # Even though the CDictionaryMemo instance is private, we allocate
+        # it on the heap so as to avoid C++ ABI issues with Python wheels.
+        shared_ptr[CDictionaryMemo] sp_memo
+        CDictionaryMemo* memo
 
 
 cdef class DictionaryType(DataType):
@@ -176,6 +184,17 @@ cdef class ListValue(ArrayValue):
 
     cdef:
         CListArray* ap
+
+    cdef getitem(self, int64_t i)
+    cdef int64_t length(self)
+
+
+cdef class LargeListValue(ArrayValue):
+    cdef readonly:
+        DataType value_type
+
+    cdef:
+        CLargeListArray* ap
 
     cdef getitem(self, int64_t i)
     cdef int64_t length(self)
@@ -333,6 +352,10 @@ cdef class ListArray(Array):
     pass
 
 
+cdef class LargeListArray(Array):
+    pass
+
+
 cdef class UnionArray(Array):
     pass
 
@@ -367,14 +390,6 @@ cdef class ChunkedArray(_PandasConvertible):
 
     cdef void init(self, const shared_ptr[CChunkedArray]& chunked_array)
     cdef getitem(self, int64_t i)
-
-
-cdef class Column(_PandasConvertible):
-    cdef:
-        shared_ptr[CColumn] sp_column
-        CColumn* column
-
-    cdef void init(self, const shared_ptr[CColumn]& column)
 
 
 cdef class Table(_PandasConvertible):
@@ -466,7 +481,6 @@ cdef public object pyarrow_wrap_chunked_array(
 # XXX pyarrow.h calls it `wrap_record_batch`
 cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
 cdef public object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf)
-cdef public object pyarrow_wrap_column(const shared_ptr[CColumn]& ccolumn)
 cdef public object pyarrow_wrap_data_type(const shared_ptr[CDataType]& type)
 cdef public object pyarrow_wrap_field(const shared_ptr[CField]& field)
 cdef public object pyarrow_wrap_resizable_buffer(
@@ -482,7 +496,6 @@ cdef public object pyarrow_wrap_sparse_tensor_csr(
 cdef public shared_ptr[CArray] pyarrow_unwrap_array(object array)
 cdef public shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch)
 cdef public shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer)
-cdef public shared_ptr[CColumn] pyarrow_unwrap_column(object column)
 cdef public shared_ptr[CDataType] pyarrow_unwrap_data_type(object data_type)
 cdef public shared_ptr[CField] pyarrow_unwrap_field(object field)
 cdef public shared_ptr[CSchema] pyarrow_unwrap_schema(object schema)

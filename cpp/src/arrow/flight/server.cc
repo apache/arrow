@@ -181,7 +181,7 @@ class GrpcServerAuthReader : public ServerAuthReader {
   Status Read(std::string* token) override {
     pb::HandshakeRequest request;
     if (stream_->Read(&request)) {
-      *token = std::move(*request.release_payload());
+      *token = std::move(*request.mutable_payload());
       return Status::OK();
     }
     return Status::IOError("Stream is closed.");
@@ -584,9 +584,13 @@ Status FlightServerBase::Serve() {
 
 int FlightServerBase::GotSignal() const { return impl_->got_signal_; }
 
-void FlightServerBase::Shutdown() {
-  DCHECK(impl_->server_);
+Status FlightServerBase::Shutdown() {
+  auto server = impl_->server_.get();
+  if (!server) {
+    return Status::Invalid("Shutdown() on uninitialized FlightServerBase");
+  }
   impl_->server_->Shutdown();
+  return Status::OK();
 }
 
 Status FlightServerBase::ListFlights(const ServerCallContext& context,

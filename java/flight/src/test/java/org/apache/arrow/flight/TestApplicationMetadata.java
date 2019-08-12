@@ -36,7 +36,6 @@ import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import io.grpc.Status;
 import io.netty.buffer.ArrowBuf;
 
 /**
@@ -225,9 +224,9 @@ public class TestApplicationMetadata {
           while (stream.next()) {
             final ArrowBuf metadata = stream.getLatestMetadata();
             if (current != metadata.getByte(0)) {
-              ackStream.onError(Status.INVALID_ARGUMENT.withDescription(String
+              ackStream.onError(CallStatus.INVALID_ARGUMENT.withDescription(String
                   .format("Metadata does not match expected value; got %d but expected %d.", metadata.getByte(0),
-                      current)).asRuntimeException());
+                      current)).toRuntimeException());
               return;
             }
             ackStream.onNext(PutResult.metadata(metadata));

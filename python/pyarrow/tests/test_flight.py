@@ -276,6 +276,32 @@ class SlowFlightServer(FlightServerBase):
         yield pa.Table.from_arrays(data1, names=['a'])
 
 
+class ErrorFlightServer(FlightServerBase):
+    """A Flight server that uses all the Flight-specific errors."""
+
+    def do_action(self, context, action):
+        if action.type == "internal":
+            raise flight.FlightInternalError("foo")
+        elif action.type == "timedout":
+            raise flight.FlightTimedOutError("foo")
+        elif action.type == "cancel":
+            raise flight.FlightCancelledError("foo")
+        elif action.type == "unauthenticated":
+            raise flight.FlightUnauthenticatedError("foo")
+        elif action.type == "unauthorized":
+            raise flight.FlightUnauthorizedError("foo")
+        raise NotImplementedError
+
+    def list_flights(self, context, criteria):
+        yield flight.FlightInfo(
+            pa.schema([]),
+            flight.FlightDescriptor.for_path('/foo'),
+            [],
+            -1, -1
+        )
+        raise flight.FlightInternalError("foo")
+
+
 class HttpBasicServerAuthHandler(ServerAuthHandler):
     """An example implementation of HTTP basic authentication."""
 
@@ -288,13 +314,13 @@ class HttpBasicServerAuthHandler(ServerAuthHandler):
 
     def is_valid(self, token):
         if not token:
-            raise ValueError("unauthenticated: token not provided")
+            raise flight.FlightUnauthenticatedError("token not provided")
         token = base64.b64decode(token)
         username, password = token.split(b':')
         if username not in self.creds:
-            raise ValueError("unknown user")
+            raise flight.FlightUnauthenticatedError("unknown user")
         if self.creds[username] != password:
-            raise ValueError("wrong password")
+            raise flight.FlightUnauthenticatedError("wrong password")
         return username
 
 
@@ -326,12 +352,13 @@ class TokenServerAuthHandler(ServerAuthHandler):
         if username in self.creds and self.creds[username] == password:
             outgoing.write(base64.b64encode(b'secret:' + username))
         else:
-            raise ValueError("unauthenticated: invalid username/password")
+            raise flight.FlightUnauthenticatedError(
+                "invalid username/password")
 
     def is_valid(self, token):
         token = base64.b64decode(token)
         if not token.startswith(b'secret:'):
-            raise ValueError("unauthenticated: invalid token")
+            raise flight.FlightUnauthenticatedError("invalid token")
         return token[7:]
 
 
@@ -378,13 +405,14 @@ def flight_server(server_base, *args, **kwargs):
 
     ctor_kwargs = kwargs
     server_instance = server_base(*args, **ctor_kwargs)
+    # The server instance needs to be initialized before shutdown()
+    # can be called
+    server_instance.init(location,
+                         auth_handler=auth_handler,
+                         tls_certificates=tls_certificates)
 
     def _server_thread():
-        server_instance.run(
-            location,
-            auth_handler=auth_handler,
-            tls_certificates=tls_certificates,
-        )
+        server_instance.run()
 
     thread = threading.Thread(target=_server_thread, daemon=True)
     thread.start()
@@ -551,7 +579,7 @@ def test_timeout_fires():
         options = flight.FlightCallOptions(timeout=0.2)
         # gRPC error messages change based on version, so don't look
         # for a particular error
-        with pytest.raises(pa.ArrowIOError):
+        with pytest.raises(flight.FlightTimedOutError):
             list(client.do_action(action, options=options))
 
 
@@ -579,7 +607,8 @@ def test_http_basic_unauth():
                        auth_handler=basic_auth_handler) as server_location:
         client = flight.FlightClient.connect(server_location)
         action = flight.Action("who-am-i", b"")
-        with pytest.raises(pa.ArrowException, match=".*unauthenticated.*"):
+        with pytest.raises(flight.FlightUnauthenticatedError,
+                           match=".*unauthenticated.*"):
             list(client.do_action(action))
 
 
@@ -601,7 +630,8 @@ def test_http_basic_auth_invalid_password():
         client = flight.FlightClient.connect(server_location)
         action = flight.Action("who-am-i", b"")
         client.authenticate(HttpBasicClientAuthHandler('test', 'wrong'))
-        with pytest.raises(pa.ArrowException, match=".*wrong password.*"):
+        with pytest.raises(flight.FlightUnauthenticatedError,
+                           match=".*wrong password.*"):
             next(client.do_action(action))
 
 
@@ -621,7 +651,7 @@ def test_token_auth_invalid():
     with flight_server(EchoStreamFlightServer,
                        auth_handler=token_auth_handler) as server_location:
         client = flight.FlightClient.connect(server_location)
-        with pytest.raises(pa.ArrowException, match=".*unauthenticated.*"):
+        with pytest.raises(flight.FlightUnauthenticatedError):
             client.authenticate(TokenClientAuthHandler('test', 'wrong'))
 
 
@@ -632,7 +662,14 @@ def test_location_invalid():
 
     server = ConstantFlightServer()
     with pytest.raises(pa.ArrowInvalid, match=".*Cannot parse URI:.*"):
-        server.run("%")
+        server.init("%")
+
+
+def test_location_unknown_scheme():
+    """Test creating locations for unknown schemes."""
+    assert flight.Location("s3://foo").uri == b"s3://foo"
+    assert flight.Location("https://example.com/bar.parquet").uri == \
+        b"https://example.com/bar.parquet"
 
 
 @pytest.mark.slow
@@ -650,7 +687,7 @@ def test_tls_fails():
         client = flight.FlightClient.connect(server_location)
         # gRPC error messages change based on version, so don't look
         # for a particular error
-        with pytest.raises(pa.ArrowIOError):
+        with pytest.raises(flight.FlightUnavailableError):
             client.do_get(flight.Ticket(b'ints'))
 
 
@@ -682,7 +719,7 @@ def test_tls_override_hostname():
         client = flight.FlightClient.connect(
             server_location, tls_root_certs=certs["root_cert"],
             override_hostname="fakehostname")
-        with pytest.raises(pa.ArrowIOError):
+        with pytest.raises(flight.FlightUnavailableError):
             client.do_get(flight.Ticket(b'ints'))
 
 
@@ -740,7 +777,7 @@ def test_cancel_do_get():
         client = flight.FlightClient.connect(server_location)
         reader = client.do_get(flight.Ticket(b'ints'))
         reader.cancel()
-        with pytest.raises(pa.ArrowIOError, match=".*Cancel.*"):
+        with pytest.raises(flight.FlightCancelledError, match=".*Cancel.*"):
             reader.read_chunk()
 
 
@@ -762,7 +799,7 @@ def test_cancel_do_get_threaded():
             stream_canceled.wait(timeout=5)
             try:
                 reader.read_chunk()
-            except pa.ArrowIOError:
+            except flight.FlightCancelledError:
                 with result_lock:
                     raised_proper_exception.set()
 
@@ -775,3 +812,53 @@ def test_cancel_do_get_threaded():
 
         with result_lock:
             assert raised_proper_exception.is_set()
+
+
+def test_roundtrip_types():
+    """Make sure serializable types round-trip."""
+    ticket = flight.Ticket("foo")
+    assert ticket == flight.Ticket.deserialize(ticket.serialize())
+
+    desc = flight.FlightDescriptor.for_command("test")
+    assert desc == flight.FlightDescriptor.deserialize(desc.serialize())
+
+    desc = flight.FlightDescriptor.for_path("a", "b", "test.arrow")
+    assert desc == flight.FlightDescriptor.deserialize(desc.serialize())
+
+    info = flight.FlightInfo(
+        pa.schema([('a', pa.int32())]),
+        desc,
+        [
+            flight.FlightEndpoint(b'', ['grpc://test']),
+            flight.FlightEndpoint(
+                b'',
+                [flight.Location.for_grpc_tcp('localhost', 5005)],
+            ),
+        ],
+        -1,
+        -1,
+    )
+    info2 = flight.FlightInfo.deserialize(info.serialize())
+    assert info.schema == info2.schema
+    assert info.descriptor == info2.descriptor
+    assert info.total_bytes == info2.total_bytes
+    assert info.total_records == info2.total_records
+    assert info.endpoints == info2.endpoints
+
+
+def test_roundtrip_errors():
+    """Ensure that Flight errors propagate from server to client."""
+    with flight_server(ErrorFlightServer) as server_location:
+        client = flight.FlightClient.connect(server_location)
+        with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
+            list(client.do_action(flight.Action("internal", b"")))
+        with pytest.raises(flight.FlightTimedOutError, match=".*foo.*"):
+            list(client.do_action(flight.Action("timedout", b"")))
+        with pytest.raises(flight.FlightCancelledError, match=".*foo.*"):
+            list(client.do_action(flight.Action("cancel", b"")))
+        with pytest.raises(flight.FlightUnauthenticatedError, match=".*foo.*"):
+            list(client.do_action(flight.Action("unauthenticated", b"")))
+        with pytest.raises(flight.FlightUnauthorizedError, match=".*foo.*"):
+            list(client.do_action(flight.Action("unauthorized", b"")))
+        with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
+            list(client.list_flights())

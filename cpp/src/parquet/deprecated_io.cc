@@ -17,16 +17,10 @@
 
 #include "parquet/deprecated_io.h"
 
-#include <algorithm>
 #include <cstdint>
-#include <cstdio>
-#include <string>
 #include <utility>
 
-#include "arrow/status.h"
-
 #include "parquet/exception.h"
-#include "parquet/types.h"
 
 namespace parquet {
 
@@ -84,7 +78,7 @@ bool ParquetInputWrapper::closed() const { return closed_; }
 }
 
 ::arrow::Status ParquetInputWrapper::GetSize(int64_t* size) {
-  PARQUET_CATCH_NOT_OK(*size = source_->Tell());
+  PARQUET_CATCH_NOT_OK(*size = source_->Size());
   return ::arrow::Status::OK();
 }
 

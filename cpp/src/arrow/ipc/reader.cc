@@ -42,6 +42,7 @@
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -98,7 +99,12 @@ class IpcComponentSource {
       : metadata_(metadata), file_(file) {}
 
   Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) {
-    const flatbuf::Buffer* buffer = metadata_->buffers()->Get(buffer_index);
+    auto buffers = metadata_->buffers();
+    if (buffers == nullptr) {
+      return Status::IOError(
+          "Buffers-pointer of flatbuffer-encoded RecordBatch is null.");
+    }
+    const flatbuf::Buffer* buffer = buffers->Get(buffer_index);
 
     if (buffer->length() == 0) {
       *out = nullptr;
@@ -115,6 +121,9 @@ class IpcComponentSource {
 
   Status GetFieldMetadata(int field_index, ArrayData* out) {
     auto nodes = metadata_->nodes();
+    if (nodes == nullptr) {
+      return Status::IOError("Nodes-pointer of flatbuffer-encoded Table is null.");
+    }
     // pop off a field
     if (field_index >= static_cast<int>(nodes->size())) {
       return Status::Invalid("Ran out of field metadata, likely malformed");
@@ -205,6 +214,21 @@ class ArrayLoader {
     return GetBuffer(context_->buffer_index++, &out_->buffers[2]);
   }
 
+  template <typename TYPE>
+  Status LoadList(const TYPE& type) {
+    out_->buffers.resize(2);
+
+    RETURN_NOT_OK(LoadCommon());
+    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &out_->buffers[1]));
+
+    const int num_children = type.num_children();
+    if (num_children != 1) {
+      return Status::Invalid("Wrong number of children: ", num_children);
+    }
+
+    return LoadChildren(type.children());
+  }
+
   Status LoadChild(const Field& field, ArrayData* out) {
     ArrayLoader loader(field, out, context_);
     --context_->max_recursion_depth;
@@ -241,8 +265,10 @@ class ArrayLoader {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<BinaryType, T>::value, Status>::type Visit(
-      const T& type) {
+  typename std::enable_if<std::is_base_of<BinaryType, T>::value ||
+                              std::is_base_of<LargeBinaryType, T>::value,
+                          Status>::type
+  Visit(const T& type) {
     return LoadBinary<T>();
   }
 
@@ -252,18 +278,9 @@ class ArrayLoader {
     return GetBuffer(context_->buffer_index++, &out_->buffers[1]);
   }
 
-  Status Visit(const ListType& type) {
-    out_->buffers.resize(2);
-
-    RETURN_NOT_OK(LoadCommon());
-    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &out_->buffers[1]));
-
-    const int num_children = type.num_children();
-    if (num_children != 1) {
-      return Status::Invalid("Wrong number of children: ", num_children);
-    }
-
-    return LoadChildren(type.children());
+  template <typename T>
+  enable_if_base_list<T, Status> Visit(const T& type) {
+    return LoadList(type);
   }
 
   Status Visit(const FixedSizeListType& type) {
@@ -423,20 +440,6 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
   return dictionary_memo->AddDictionary(id, dictionary);
 }
 
-static Status ReadMessageAndValidate(MessageReader* reader, bool allow_null,
-                                     std::unique_ptr<Message>* message) {
-  RETURN_NOT_OK(reader->ReadNextMessage(message));
-
-  if (*message == nullptr) {
-    if (!allow_null) {
-      return Status::Invalid("Expected message in stream, was null or length 0");
-    }
-    // End of stream?
-  }
-
-  return Status::OK();
-}
-
 // ----------------------------------------------------------------------
 // RecordBatchStreamReader implementation
 
@@ -456,9 +459,10 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
 
   Status ReadSchema() {
     std::unique_ptr<Message> message;
-    RETURN_NOT_OK(
-        ReadMessageAndValidate(message_reader_.get(), /*allow_null=*/false, &message));
-
+    RETURN_NOT_OK(message_reader_->ReadNextMessage(&message));
+    if (!message) {
+      return Status::Invalid("Tried reading schema message, was null or length 0");
+    }
     CHECK_MESSAGE_TYPE(Message::SCHEMA, message->type());
     CHECK_HAS_NO_BODY(*message);
     if (message->header() == nullptr) {
@@ -483,8 +487,17 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     // TODO(wesm): In future, we may want to reconcile the ids in the stream with
     // those found in the schema
     for (int i = 0; i < dictionary_memo_.num_fields(); ++i) {
-      RETURN_NOT_OK(
-          ReadMessageAndValidate(message_reader_.get(), /*allow_null=*/false, &message));
+      RETURN_NOT_OK(message_reader_->ReadNextMessage(&message));
+      if (!message) {
+        /// ARROW-6006: If we fail to find any dictionaries in the stream, then
+        /// it may be that the stream has a schema but no actual data. In such
+        /// case we communicate that we were unable to find the dictionaries
+        /// (but there was no failure otherwise), so the caller can decide what
+        /// to do
+        empty_stream_ = true;
+        break;
+      }
+
       if (message->type() != Message::DICTIONARY_BATCH) {
         return Status::Invalid(
             "IPC stream did not find the expected number of "
@@ -502,9 +515,15 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
       RETURN_NOT_OK(ReadInitialDictionaries());
     }
 
+    if (empty_stream_) {
+      // ARROW-6006: Degenerate case where stream contains no data, we do not
+      // bother trying to read a RecordBatch message from the stream
+      *batch = nullptr;
+      return Status::OK();
+    }
+
     std::unique_ptr<Message> message;
-    RETURN_NOT_OK(
-        ReadMessageAndValidate(message_reader_.get(), /*allow_null=*/true, &message));
+    RETURN_NOT_OK(message_reader_->ReadNextMessage(&message));
     if (message == nullptr) {
       // End of stream
       *batch = nullptr;
@@ -528,6 +547,10 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
   std::unique_ptr<MessageReader> message_reader_;
 
   bool read_initial_dictionaries_ = false;
+
+  // Flag to set in case where we fail to observe all dictionaries in a stream,
+  // and so the reader should not attempt to parse any messages
+  bool empty_stream_ = false;
 
   DictionaryMemo dictionary_memo_;
   std::shared_ptr<Schema> schema_;
@@ -777,7 +800,10 @@ Status ReadSchema(io::InputStream* stream, DictionaryMemo* dictionary_memo,
                   std::shared_ptr<Schema>* out) {
   std::unique_ptr<MessageReader> reader = MessageReader::Open(stream);
   std::unique_ptr<Message> message;
-  RETURN_NOT_OK(ReadMessageAndValidate(reader.get(), /*allow_null=*/false, &message));
+  RETURN_NOT_OK(reader->ReadNextMessage(&message));
+  if (!message) {
+    return Status::Invalid("Tried reading schema message, was null or length 0");
+  }
   CHECK_MESSAGE_TYPE(message->type(), Message::SCHEMA);
   return ReadSchema(*message, dictionary_memo, out);
 }

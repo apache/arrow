@@ -143,11 +143,15 @@ FloatingPointType::Precision DoubleType::precision() const {
   return FloatingPointType::DOUBLE;
 }
 
-std::string StringType::ToString() const { return std::string("string"); }
-
 std::string ListType::ToString() const {
   std::stringstream s;
   s << "list<" << value_field()->ToString() << ">";
+  return s.str();
+}
+
+std::string LargeListType::ToString() const {
+  std::stringstream s;
+  s << "large_list<" << value_field()->ToString() << ">";
   return s.str();
 }
 
@@ -178,7 +182,13 @@ std::string FixedSizeListType::ToString() const {
   return s.str();
 }
 
-std::string BinaryType::ToString() const { return std::string("binary"); }
+std::string BinaryType::ToString() const { return "binary"; }
+
+std::string LargeBinaryType::ToString() const { return "large_binary"; }
+
+std::string StringType::ToString() const { return "string"; }
+
+std::string LargeStringType::ToString() const { return "large_string"; }
 
 int FixedSizeBinaryType::bit_width() const { return CHAR_BIT * byte_width(); }
 
@@ -273,6 +283,9 @@ std::string DurationType::ToString() const {
 UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
                      const std::vector<uint8_t>& type_codes, UnionMode::type mode)
     : NestedType(Type::UNION), mode_(mode), type_codes_(type_codes) {
+  DCHECK_LE(fields.size(), type_codes.size()) << "union field with unknown type id";
+  DCHECK_GE(fields.size(), type_codes.size())
+      << "type id provided without corresponding union field";
   children_ = fields;
 }
 
@@ -282,6 +295,12 @@ DataTypeLayout UnionType::layout() const {
   } else {
     return {{1, CHAR_BIT, sizeof(int32_t) * CHAR_BIT}, false};
   }
+}
+
+uint8_t UnionType::max_type_code() const {
+  return type_codes_.size() == 0
+             ? 0
+             : *std::max_element(type_codes_.begin(), type_codes_.end());
 }
 
 std::string UnionType::ToString() const {
@@ -358,7 +377,7 @@ std::string StructType::ToString() const {
       s << ", ";
     }
     std::shared_ptr<Field> field = this->child(i);
-    s << field->name() << ": " << field->type()->ToString();
+    s << field->ToString();
   }
   s << ">";
   return s.str();
@@ -484,7 +503,11 @@ Schema::~Schema() {}
 
 int Schema::num_fields() const { return static_cast<int>(impl_->fields_.size()); }
 
-std::shared_ptr<Field> Schema::field(int i) const { return impl_->fields_[i]; }
+std::shared_ptr<Field> Schema::field(int i) const {
+  DCHECK_GE(i, 0);
+  DCHECK_LT(i, num_fields());
+  return impl_->fields_[i];
+}
 
 const std::vector<std::shared_ptr<Field>>& Schema::fields() const {
   return impl_->fields_;
@@ -658,7 +681,9 @@ TYPE_FACTORY(float16, HalfFloatType)
 TYPE_FACTORY(float32, FloatType)
 TYPE_FACTORY(float64, DoubleType)
 TYPE_FACTORY(utf8, StringType)
+TYPE_FACTORY(large_utf8, LargeStringType)
 TYPE_FACTORY(binary, BinaryType)
+TYPE_FACTORY(large_binary, LargeBinaryType)
 TYPE_FACTORY(date64, Date64Type)
 TYPE_FACTORY(date32, Date32Type)
 
@@ -700,6 +725,14 @@ std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type) {
 
 std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_field) {
   return std::make_shared<ListType>(value_field);
+}
+
+std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type) {
+  return std::make_shared<LargeListType>(value_type);
+}
+
+std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_field) {
+  return std::make_shared<LargeListType>(value_field);
 }
 
 std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,

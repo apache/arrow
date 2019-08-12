@@ -852,9 +852,13 @@ class TestPlasmaClient(object):
         for _ in range(2):
             create_object(self.plasma_client2, DEFAULT_PLASMA_STORE_MEMORY, 0)
         # Verify that an object that is too large does not fit.
-        with pytest.raises(pa.plasma.PlasmaStoreFull):
-            create_object(self.plasma_client2,
-                          DEFAULT_PLASMA_STORE_MEMORY + SMALL_OBJECT_SIZE, 0)
+        # Also verifies that the right error is thrown, and does not
+        # create the object ID prematurely.
+        object_id = random_object_id()
+        for i in range(3):
+            with pytest.raises(pa.plasma.PlasmaStoreFull):
+                self.plasma_client2.create(
+                    object_id, DEFAULT_PLASMA_STORE_MEMORY + SMALL_OBJECT_SIZE)
 
     def test_client_death_during_get(self):
         import pyarrow.plasma as plasma

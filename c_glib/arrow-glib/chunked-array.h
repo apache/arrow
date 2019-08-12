@@ -44,7 +44,10 @@ garrow_chunked_array_get_value_data_type(GArrowChunkedArray *chunked_array);
 GArrowType
 garrow_chunked_array_get_value_type(GArrowChunkedArray *chunked_array);
 
+GARROW_DEPRECATED_IN_1_0_FOR(garrow_chunked_array_get_n_rows)
 guint64 garrow_chunked_array_get_length (GArrowChunkedArray *chunked_array);
+GARROW_AVAILABLE_IN_1_0
+guint64 garrow_chunked_array_get_n_rows (GArrowChunkedArray *chunked_array);
 guint64 garrow_chunked_array_get_n_nulls(GArrowChunkedArray *chunked_array);
 guint   garrow_chunked_array_get_n_chunks (GArrowChunkedArray *chunked_array);
 

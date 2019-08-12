@@ -38,6 +38,7 @@
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <dep.fbs.version>1.9.0</dep.fbs.version>
     <dep.flatc.version>1.9.0</dep.flatc.version>
+    <arrow.vector.classifier></arrow.vector.classifier>
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
   </properties>
@@ -486,10 +487,10 @@
 
   <dependencyManagement>
     <dependencies>
-      <dependency>
-        <groupId>com.google.flatbuffers</groupId>
-        <artifactId>flatbuffers-java</artifactId>
-        <version>${dep.fbs.version}</version>
+      <dependency>	
+        <groupId>com.google.flatbuffers</groupId>	
+        <artifactId>flatbuffers-java</artifactId>	
+        <version>${dep.fbs.version}</version>	
       </dependency>
       <dependency>
         <groupId>com.google.guava</groupId>
@@ -678,6 +679,14 @@
         <module>adapter/orc</module>
         <module>gandiva</module>
       </modules>
+    </profile>
+
+    <profile>
+      <!-- Use the version of arrow-vector that shades flatbuffers and packages format -->
+      <id>shade-flatbuffers</id>
+      <properties>
+       <arrow.vector.classifier>shade-format-flatbuffers</arrow.vector.classifier>
+      </properties>
     </profile>
   </profiles>
 

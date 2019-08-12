@@ -26,9 +26,11 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.DensityAwareVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.complex.impl.SingleStructReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
@@ -287,6 +289,37 @@ public class NonNullableStructVector extends AbstractStructVector {
   }
 
   @Override
+  public int hashCode(int index) {
+    int hash = 0;
+    for (String child : getChildFieldNames()) {
+      ValueVector v = getChild(child);
+      if (v != null && index < v.getValueCount()) {
+        hash += 31 * hash + v.hashCode(index);
+      }
+    }
+    return hash;
+  }
+
+  @Override
+  public boolean accept(RangeEqualsVisitor visitor) {
+    return visitor.visit(this);
+  }
+
+  @Override
+  public boolean equals(int index, ValueVector to, int toIndex) {
+    if (to == null) {
+      return false;
+    }
+    Preconditions.checkArgument(index >= 0 && index < valueCount,
+        "index %s out of range[0, %s]:", index, valueCount - 1);
+    Preconditions.checkArgument(toIndex >= 0 && toIndex < to.getValueCount(),
+        "index %s out of range[0, %s]:", index, to.getValueCount() - 1);
+
+    RangeEqualsVisitor visitor = new RangeEqualsVisitor(to, index, toIndex, 1);
+    return this.accept(visitor);
+  }
+
+  @Override
   public boolean isNull(int index) {
     return false;
   }
@@ -372,4 +405,5 @@ public class NonNullableStructVector extends AbstractStructVector {
   public List<FieldVector> getChildrenFromFields() {
     return getChildren();
   }
+
 }

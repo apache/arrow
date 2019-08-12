@@ -17,9 +17,8 @@
 
 package org.apache.arrow.vector;
 
-import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
-
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.impl.FixedSizeBinaryReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.FixedSizeBinaryHolder;
@@ -114,8 +113,8 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    */
   public byte[] get(int index) {
     assert index >= 0;
-    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
-      throw new IllegalStateException("Value at index is null");
+    if (isSet(index) == 0) {
+      return null;
     }
     final byte[] dst = new byte[byteWidth];
     valueBuffer.getBytes(index * byteWidth, dst, 0, byteWidth);
@@ -148,14 +147,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    */
   @Override
   public byte[] getObject(int index) {
-    assert index >= 0;
-    if (isSet(index) == 0) {
-      return null;
-    } else {
-      final byte[] dst = new byte[byteWidth];
-      valueBuffer.getBytes(index * byteWidth, dst, 0, byteWidth);
-      return dst;
-    }
+    return get(index);
   }
 
   public int getByteWidth() {
@@ -172,6 +164,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
   /** Sets the value at index to the provided one. */
   public void set(int index, byte[] value) {
     assert index >= 0;
+    Preconditions.checkNotNull(value, "expecting a valid byte array");
     assert byteWidth <= value.length;
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
     valueBuffer.setBytes(index * byteWidth, value, 0, byteWidth);

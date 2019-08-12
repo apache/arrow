@@ -466,33 +466,36 @@ gplasma_client_create(GPlasmaClient *client,
                                       raw_metadata_size,
                                       &plasma_data,
                                       device_number);
-  if (garrow_error_check(error, status, context)) {
-    GArrowBuffer *data = nullptr;
-    if (device_number == 0) {
-      auto plasma_mutable_data =
-        std::static_pointer_cast<arrow::MutableBuffer>(plasma_data);
-      data = GARROW_BUFFER(garrow_mutable_buffer_new_raw(&plasma_mutable_data));
-#ifdef HAVE_ARROW_CUDA
-    } else {
-      auto plasma_cuda_data =
-        std::static_pointer_cast<arrow::cuda::CudaBuffer>(plasma_data);
-      data = GARROW_BUFFER(garrow_cuda_buffer_new_raw(&plasma_cuda_data));
-#endif
-    }
-    GArrowBuffer *metadata = nullptr;
-    if (raw_metadata_size > 0) {
-      auto plasma_metadata =
-        std::make_shared<arrow::Buffer>(raw_metadata, raw_metadata_size);
-      metadata = garrow_buffer_new_raw(&plasma_metadata);
-    }
-    return gplasma_created_object_new_raw(client,
-                                          id,
-                                          data,
-                                          metadata,
-                                          device_number - 1);
-  } else {
+  if (!garrow_error_check(error, status, context)) {
     return NULL;
   }
+
+  GArrowBuffer *data = nullptr;
+  if (device_number == 0) {
+    auto plasma_mutable_data =
+      std::static_pointer_cast<arrow::MutableBuffer>(plasma_data);
+    data = GARROW_BUFFER(garrow_mutable_buffer_new_raw(&plasma_mutable_data));
+#ifdef HAVE_ARROW_CUDA
+  } else {
+    auto plasma_cuda_data =
+      std::static_pointer_cast<arrow::cuda::CudaBuffer>(plasma_data);
+    data = GARROW_BUFFER(garrow_cuda_buffer_new_raw(&plasma_cuda_data));
+#endif
+  }
+  std::shared_ptr<arrow::Buffer> plasma_metadata;
+  GArrowBuffer *metadata = nullptr;
+  if (raw_metadata_size > 0) {
+    plasma_metadata =
+      std::make_shared<arrow::Buffer>(raw_metadata, raw_metadata_size);
+    metadata = garrow_buffer_new_raw(&plasma_metadata);
+  }
+  return gplasma_created_object_new_raw(client,
+                                        id,
+                                        &plasma_data,
+                                        data,
+                                        metadata ? &plasma_metadata : nullptr,
+                                        metadata,
+                                        device_number - 1);
 }
 
 /**
@@ -522,50 +525,52 @@ gplasma_client_refer_object(GPlasmaClient *client,
   auto status = plasma_client->Get(plasma_ids,
                                    timeout_ms,
                                    &plasma_object_buffers);
-  if (garrow_error_check(error, status, context)) {
-    auto plasma_object_buffer = plasma_object_buffers[0];
-    auto plasma_data = plasma_object_buffer.data;
-    auto plasma_metadata = plasma_object_buffer.metadata;
-    GArrowBuffer *data = nullptr;
-    GArrowBuffer *metadata = nullptr;
-    if (plasma_object_buffer.device_num > 0) {
-#ifdef HAVE_ARROW_CUDA
-      std::shared_ptr<arrow::cuda::CudaBuffer> plasma_cuda_data;
-      status = arrow::cuda::CudaBuffer::FromBuffer(plasma_data,
-                                                   &plasma_cuda_data);
-      if (!garrow_error_check(error, status, context)) {
-        return NULL;
-      }
-      std::shared_ptr<arrow::cuda::CudaBuffer> plasma_cuda_metadata;
-      status = arrow::cuda::CudaBuffer::FromBuffer(plasma_metadata,
-                                                  &plasma_cuda_metadata);
-      if (!garrow_error_check(error, status, context)) {
-        return NULL;
-      }
-
-      data = GARROW_BUFFER(garrow_cuda_buffer_new_raw(&plasma_cuda_data));
-      metadata =
-        GARROW_BUFFER(garrow_cuda_buffer_new_raw(&plasma_cuda_metadata));
-#else
-      g_set_error(error,
-                  GARROW_ERROR,
-                  GARROW_ERROR_INVALID,
-                  "%s Arrow CUDA GLib is needed to use GPU",
-                  context);
-      return NULL;
-#endif
-    } else {
-      data = garrow_buffer_new_raw(&plasma_data);
-      metadata = garrow_buffer_new_raw(&plasma_metadata);
-    }
-    return gplasma_referred_object_new_raw(client,
-                                           id,
-                                           data,
-                                           metadata,
-                                           plasma_object_buffer.device_num - 1);
-  } else {
+  if (!garrow_error_check(error, status, context)) {
     return NULL;
   }
+
+  auto plasma_object_buffer = plasma_object_buffers[0];
+  auto plasma_data = plasma_object_buffer.data;
+  auto plasma_metadata = plasma_object_buffer.metadata;
+  GArrowBuffer *data = nullptr;
+  GArrowBuffer *metadata = nullptr;
+  if (plasma_object_buffer.device_num == 0) {
+    data = garrow_buffer_new_raw(&plasma_data);
+    metadata = garrow_buffer_new_raw(&plasma_metadata);
+  } else {
+#ifdef HAVE_ARROW_CUDA
+    std::shared_ptr<arrow::cuda::CudaBuffer> plasma_cuda_data;
+    status = arrow::cuda::CudaBuffer::FromBuffer(plasma_data,
+                                                 &plasma_cuda_data);
+    if (!garrow_error_check(error, status, context)) {
+      return NULL;
+    }
+    std::shared_ptr<arrow::cuda::CudaBuffer> plasma_cuda_metadata;
+    status = arrow::cuda::CudaBuffer::FromBuffer(plasma_metadata,
+                                                 &plasma_cuda_metadata);
+    if (!garrow_error_check(error, status, context)) {
+      return NULL;
+    }
+
+    data = GARROW_BUFFER(garrow_cuda_buffer_new_raw(&plasma_cuda_data));
+    metadata =
+      GARROW_BUFFER(garrow_cuda_buffer_new_raw(&plasma_cuda_metadata));
+#else
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_INVALID,
+                "%s Arrow CUDA GLib is needed to use GPU",
+                context);
+    return NULL;
+#endif
+  }
+  return gplasma_referred_object_new_raw(client,
+                                         id,
+                                         &plasma_data,
+                                         data,
+                                         &plasma_metadata,
+                                         metadata,
+                                         plasma_object_buffer.device_num - 1);
 }
 
 /**

@@ -22,6 +22,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Objects;
 
 import org.apache.arrow.flight.impl.Flight;
 
@@ -43,22 +44,11 @@ public class Location {
    * Construct a new instance from an existing URI.
    *
    * @param uri the URI of the Flight service
-   * @throws IllegalArgumentException if the URI scheme is unsupported
    */
   public Location(URI uri) {
     super();
+    Objects.requireNonNull(uri);
     this.uri = uri;
-    // Validate the scheme
-    switch (uri.getScheme()) {
-      case LocationSchemes.GRPC:
-      case LocationSchemes.GRPC_DOMAIN_SOCKET:
-      case LocationSchemes.GRPC_INSECURE:
-      case LocationSchemes.GRPC_TLS: {
-        break;
-      }
-      default:
-        throw new IllegalArgumentException("Scheme is not supported: " + this.uri);
-    }
   }
 
   public URI getUri() {
@@ -99,11 +89,15 @@ public class Location {
   /**
    * Convert this Location into its protocol-level representation.
    */
-  public Flight.Location toProtocol() {
+  Flight.Location toProtocol() {
     return Flight.Location.newBuilder().setUri(uri.toString()).build();
   }
 
-  /** Construct a URI for a Flight+gRPC server without transport security. */
+  /**
+   * Construct a URI for a Flight+gRPC server without transport security.
+   *
+   * @throws IllegalArgumentException if the constructed URI is invalid.
+   */
   public static Location forGrpcInsecure(String host, int port) {
     try {
       return new Location(new URI(LocationSchemes.GRPC_INSECURE, null, host, port, null, null, null));
@@ -112,7 +106,11 @@ public class Location {
     }
   }
 
-  /** Construct a URI for a Flight+gRPC server with transport security. */
+  /**
+   * Construct a URI for a Flight+gRPC server with transport security.
+   *
+   * @throws IllegalArgumentException if the constructed URI is invalid.
+   */
   public static Location forGrpcTls(String host, int port) {
     try {
       return new Location(new URI(LocationSchemes.GRPC_TLS, null, host, port, null, null, null));
@@ -123,6 +121,8 @@ public class Location {
 
   /**
    * Construct a URI for a Flight+gRPC server over a Unix domain socket.
+   *
+   * @throws IllegalArgumentException if the constructed URI is invalid.
    */
   public static Location forGrpcDomainSocket(String path) {
     try {
@@ -130,5 +130,29 @@ public class Location {
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException(e);
     }
+  }
+
+  @Override
+  public String toString() {
+    return "Location{" +
+        "uri=" + uri +
+        '}';
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    Location location = (Location) o;
+    return uri.equals(location.uri);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(uri);
   }
 }

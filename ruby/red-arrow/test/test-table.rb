@@ -37,14 +37,15 @@ class TableTest < Test::Unit::TestCase
     ]
     @count_array = Arrow::ChunkedArray.new(count_arrays)
     @visible_array = Arrow::ChunkedArray.new(visible_arrays)
-    @count_column = Arrow::Column.new(@count_field, @count_array)
-    @visible_column = Arrow::Column.new(@visible_field, @visible_array)
-    @table = Arrow::Table.new(schema, [@count_column, @visible_column])
+    @table = Arrow::Table.new(schema, [@count_array, @visible_array])
   end
 
   test("#columns") do
-    assert_equal(["count", "visible"],
-                 @table.columns.collect(&:name))
+    assert_equal([
+                   Arrow::Column.new(@table, 0),
+                   Arrow::Column.new(@table, 1),
+                 ],
+                 @table.columns)
   end
 
   sub_test_case("#slice") do
@@ -188,11 +189,18 @@ class TableTest < Test::Unit::TestCase
 
   sub_test_case("#[]") do
     test("[String]") do
-      assert_equal(@count_column, @table["count"])
+      assert_equal(Arrow::Column.new(@table, 0),
+                   @table["count"])
     end
 
     test("[Symbol]") do
-      assert_equal(@visible_column, @table[:visible])
+      assert_equal(Arrow::Column.new(@table, 1),
+                   @table[:visible])
+    end
+
+    test("[Integer]") do
+      assert_equal(Arrow::Column.new(@table, 1),
+                   @table[-1])
     end
   end
 
@@ -279,7 +287,8 @@ class TableTest < Test::Unit::TestCase
   end
 
   test("column name getter") do
-    assert_equal(@visible_column, @table.visible)
+    assert_equal(Arrow::Column.new(@table, 1),
+                 @table.visible)
   end
 
   sub_test_case("#remove_column") do

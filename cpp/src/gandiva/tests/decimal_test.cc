@@ -466,16 +466,14 @@ TEST_F(TestDecimal, TestCastFunctions) {
   DCHECK_OK(status);
 
   // Validate results
+  auto expected_int_dec = MakeArrowArrayDecimal(
+      decimal_type, MakeDecimalVector({"123", "158", "-123", "-158"}, scale), validity);
 
   // castDECIMAL(int32)
-  EXPECT_ARROW_ARRAY_EQUALS(
-      MakeArrowArrayDecimal(decimal_type,
-                            MakeDecimalVector({"123", "158", "-123", "-158"}, scale),
-                            validity),
-      outputs[0]);
+  EXPECT_ARROW_ARRAY_EQUALS(expected_int_dec, outputs[0]);
 
   // castDECIMAL(int64)
-  EXPECT_ARROW_ARRAY_EQUALS(array_dec, outputs[2]);
+  EXPECT_ARROW_ARRAY_EQUALS(expected_int_dec, outputs[1]);
 
   // castDECIMAL(float32)
   EXPECT_ARROW_ARRAY_EQUALS(array_dec, outputs[2]);
@@ -491,7 +489,7 @@ TEST_F(TestDecimal, TestCastFunctions) {
       outputs[4]);
 
   // castBIGINT(decimal)
-  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayInt64({1, 1, -1, -1}), outputs[5]);
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayInt64({1, 2, -1, -2}), outputs[5]);
 
   // castDOUBLE(decimal)
   EXPECT_ARROW_ARRAY_EQUALS(array_float64, outputs[6]);

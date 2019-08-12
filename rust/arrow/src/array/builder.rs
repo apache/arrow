@@ -467,8 +467,18 @@ impl BinaryBuilder {
     ///
     /// Note, when appending individual byte values you must call `append` to delimit each
     /// distinct list value.
-    pub fn append_value(&mut self, value: u8) -> Result<()> {
+    pub fn append_byte(&mut self, value: u8) -> Result<()> {
         self.builder.values().append_value(value)?;
+        Ok(())
+    }
+
+    /// Appends a byte slice into the builder.
+    ///
+    /// Automatically calls the `append` method to delimit the slice appended in as a
+    /// distinct array element.
+    pub fn append_value(&mut self, value: &[u8]) -> Result<()> {
+        self.builder.values().append_slice(value)?;
+        self.builder.append(true)?;
         Ok(())
     }
 
@@ -1156,18 +1166,18 @@ mod tests {
     fn test_binary_array_builder() {
         let mut builder = BinaryBuilder::new(20);
 
-        builder.append_value(b'h').unwrap();
-        builder.append_value(b'e').unwrap();
-        builder.append_value(b'l').unwrap();
-        builder.append_value(b'l').unwrap();
-        builder.append_value(b'o').unwrap();
+        builder.append_byte(b'h').unwrap();
+        builder.append_byte(b'e').unwrap();
+        builder.append_byte(b'l').unwrap();
+        builder.append_byte(b'l').unwrap();
+        builder.append_byte(b'o').unwrap();
         builder.append(true).unwrap();
         builder.append(true).unwrap();
-        builder.append_value(b'w').unwrap();
-        builder.append_value(b'o').unwrap();
-        builder.append_value(b'r').unwrap();
-        builder.append_value(b'l').unwrap();
-        builder.append_value(b'd').unwrap();
+        builder.append_byte(b'w').unwrap();
+        builder.append_byte(b'o').unwrap();
+        builder.append_byte(b'r').unwrap();
+        builder.append_byte(b'l').unwrap();
+        builder.append_byte(b'd').unwrap();
         builder.append(true).unwrap();
 
         let array = builder.finish();

@@ -65,9 +65,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_TIME64" arrow::Type::TIME64"
         _Type_BINARY" arrow::Type::BINARY"
         _Type_STRING" arrow::Type::STRING"
+        _Type_LARGE_BINARY" arrow::Type::LARGE_BINARY"
+        _Type_LARGE_STRING" arrow::Type::LARGE_STRING"
         _Type_FIXED_SIZE_BINARY" arrow::Type::FIXED_SIZE_BINARY"
 
         _Type_LIST" arrow::Type::LIST"
+        _Type_LARGE_LIST" arrow::Type::LARGE_LIST"
         _Type_STRUCT" arrow::Type::STRUCT"
         _Type_UNION" arrow::Type::UNION"
         _Type_DICTIONARY" arrow::Type::DICTIONARY"
@@ -154,6 +157,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CFixedWidthType" arrow::FixedWidthType"(CDataType):
         int bit_width()
+
+    cdef cppclass CNullArray" arrow::NullArray"(CArray):
+        CNullArray(int64_t length)
 
     cdef cppclass CDictionaryArray" arrow::DictionaryArray"(CArray):
         CDictionaryArray(const shared_ptr[CDataType]& type,
@@ -244,6 +250,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CListType" arrow::ListType"(CDataType):
         CListType(const shared_ptr[CDataType]& value_type)
         CListType(const shared_ptr[CField]& field)
+        shared_ptr[CDataType] value_type()
+        shared_ptr[CField] value_field()
+
+    cdef cppclass CLargeListType" arrow::LargeListType"(CDataType):
+        CLargeListType(const shared_ptr[CDataType]& value_type)
+        CLargeListType(const shared_ptr[CField]& field)
         shared_ptr[CDataType] value_type()
         shared_ptr[CField] value_field()
 
@@ -414,6 +426,17 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] values()
         shared_ptr[CDataType] value_type()
 
+    cdef cppclass CLargeListArray" arrow::LargeListArray"(CArray):
+        @staticmethod
+        CStatus FromArrays(const CArray& offsets, const CArray& values,
+                           CMemoryPool* pool, shared_ptr[CArray]* out)
+
+        const int64_t* raw_value_offsets()
+        int64_t value_offset(int i)
+        int64_t value_length(int i)
+        shared_ptr[CArray] values()
+        shared_ptr[CDataType] value_type()
+
     cdef cppclass CUnionArray" arrow::UnionArray"(CArray):
         @staticmethod
         CStatus MakeSparse(const CArray& type_ids,
@@ -434,11 +457,17 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const CArray* UnsafeChild(int pos)
         UnionMode mode()
 
-    cdef cppclass CBinaryArray" arrow::BinaryArray"(CListArray):
+    cdef cppclass CBinaryArray" arrow::BinaryArray"(CArray):
         const uint8_t* GetValue(int i, int32_t* length)
         shared_ptr[CBuffer] value_data()
         int32_t value_offset(int64_t i)
         int32_t value_length(int64_t i)
+
+    cdef cppclass CLargeBinaryArray" arrow::LargeBinaryArray"(CArray):
+        const uint8_t* GetValue(int i, int64_t* length)
+        shared_ptr[CBuffer] value_data()
+        int64_t value_offset(int64_t i)
+        int64_t value_length(int64_t i)
 
     cdef cppclass CStringArray" arrow::StringArray"(CBinaryArray):
         CStringArray(int64_t length, shared_ptr[CBuffer] value_offsets,
@@ -446,6 +475,16 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                      shared_ptr[CBuffer] null_bitmap,
                      int64_t null_count,
                      int64_t offset)
+
+        c_string GetString(int i)
+
+    cdef cppclass CLargeStringArray" arrow::LargeStringArray" \
+            (CLargeBinaryArray):
+        CLargeStringArray(int64_t length, shared_ptr[CBuffer] value_offsets,
+                          shared_ptr[CBuffer] data,
+                          shared_ptr[CBuffer] null_bitmap,
+                          int64_t null_count,
+                          int64_t offset)
 
         c_string GetString(int i)
 
@@ -459,9 +498,17 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         # XXX Cython crashes if default argument values are declared here
         # https://github.com/cython/cython/issues/2167
         @staticmethod
-        CResult[shared_ptr[CArray]] Make(
+        CResult[shared_ptr[CArray]] MakeFromFieldNames "Make"(
             vector[shared_ptr[CArray]] children,
             vector[c_string] field_names,
+            shared_ptr[CBuffer] null_bitmap,
+            int64_t null_count,
+            int64_t offset)
+
+        @staticmethod
+        CResult[shared_ptr[CArray]] MakeFromFields "Make"(
+            vector[shared_ptr[CArray]] children,
+            vector[shared_ptr[CField]] fields,
             shared_ptr[CBuffer] null_bitmap,
             int64_t null_count,
             int64_t offset)
@@ -487,29 +534,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CChunkedArray] Slice(int64_t offset, int64_t length) const
         shared_ptr[CChunkedArray] Slice(int64_t offset) const
 
+        CStatus Flatten(CMemoryPool* pool,
+                        vector[shared_ptr[CChunkedArray]]* out)
+
         CStatus Validate() const
-
-    cdef cppclass CColumn" arrow::Column":
-        CColumn(const shared_ptr[CField]& field,
-                const shared_ptr[CArray]& data)
-
-        CColumn(const shared_ptr[CField]& field,
-                const vector[shared_ptr[CArray]]& chunks)
-
-        CColumn(const shared_ptr[CField]& field,
-                const shared_ptr[CChunkedArray]& data)
-
-        c_bool Equals(const CColumn& other)
-
-        CStatus Flatten(CMemoryPool* pool, vector[shared_ptr[CColumn]]* out)
-
-        shared_ptr[CField] field()
-
-        int64_t length()
-        int64_t null_count()
-        const c_string& name()
-        shared_ptr[CDataType] type()
-        shared_ptr[CChunkedArray] data()
 
     cdef cppclass CRecordBatch" arrow::RecordBatch":
         @staticmethod
@@ -536,12 +564,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CTable" arrow::Table":
         CTable(const shared_ptr[CSchema]& schema,
-               const vector[shared_ptr[CColumn]]& columns)
+               const vector[shared_ptr[CChunkedArray]]& columns)
 
         @staticmethod
         shared_ptr[CTable] Make(
             const shared_ptr[CSchema]& schema,
-            const vector[shared_ptr[CColumn]]& columns)
+            const vector[shared_ptr[CChunkedArray]]& columns)
 
         @staticmethod
         CStatus FromRecordBatches(
@@ -555,12 +583,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool Equals(const CTable& other)
 
         shared_ptr[CSchema] schema()
-        shared_ptr[CColumn] column(int i)
+        shared_ptr[CChunkedArray] column(int i)
+        shared_ptr[CField] field(int i)
 
-        CStatus AddColumn(int i, const shared_ptr[CColumn]& column,
+        CStatus AddColumn(int i, shared_ptr[CField] field,
+                          shared_ptr[CChunkedArray] column,
                           shared_ptr[CTable]* out)
         CStatus RemoveColumn(int i, shared_ptr[CTable]* out)
-        CStatus SetColumn(int i, const shared_ptr[CColumn]& column,
+        CStatus SetColumn(int i, shared_ptr[CField] field,
+                          shared_ptr[CChunkedArray] column,
                           shared_ptr[CTable]* out)
 
         vector[c_string] ColumnNames()
@@ -962,7 +993,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
         @staticmethod
         CStatus Open2" Open"(unique_ptr[CMessageReader] message_reader,
-                             shared_ptr[CRecordBatchStreamReader]* out)
+                             shared_ptr[CRecordBatchReader]* out)
 
     cdef cppclass CRecordBatchStreamWriter \
             " arrow::ipc::RecordBatchStreamWriter"(CRecordBatchWriter):
@@ -1052,7 +1083,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
         shared_ptr[CSchema] schema()
 
-        CStatus GetColumn(int i, shared_ptr[CColumn]* out)
+        CStatus GetColumn(int i, shared_ptr[CChunkedArray]* out)
         c_string GetColumnName(int i)
 
         CStatus Read(shared_ptr[CTable]* out)
@@ -1069,7 +1100,6 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         c_bool double_quote
         c_bool escaping
         unsigned char escape_char
-        int32_t header_rows
         c_bool newlines_in_values
         c_bool ignore_empty_lines
 
@@ -1090,6 +1120,8 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
     cdef cppclass CCSVReadOptions" arrow::csv::ReadOptions":
         c_bool use_threads
         int32_t block_size
+        int32_t skip_rows
+        vector[c_string] column_names
 
         @staticmethod
         CCSVReadOptions Defaults()
@@ -1276,10 +1308,6 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CStatus ConvertChunkedArrayToPandas(const PandasOptions& options,
                                         const shared_ptr[CChunkedArray]& arr,
                                         object py_ref, PyObject** out)
-
-    CStatus ConvertColumnToPandas(const PandasOptions& options,
-                                  const shared_ptr[CColumn]& arr,
-                                  object py_ref, PyObject** out)
 
     CStatus ConvertTableToPandas(
         const PandasOptions& options,

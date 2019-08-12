@@ -27,11 +27,20 @@ Install the latest release of `arrow` from CRAN with
 install.packages("arrow")
 ```
 
+> Warning: the macOS binary packages on CRAN for 0.14.1 do not work as
+> described below. To install, you’ll first need to use Homebrew to get
+> the Arrow C++ library (`brew install apache-arrow`), and then from R
+> you can `install.packages("arrow", type = "source")`. We hope to have
+> this resolved in the next release.
+
 On macOS and Windows, installing a binary package from CRAN will handle
 Arrow’s C++ dependencies for you. On Linux, you’ll need to first install
 the C++ library. See the [Arrow project installation
-page](https://arrow.apache.org/install/) for a list of PPAs from which
-you can obtain it.
+page](https://arrow.apache.org/install/) to find pre-compiled binary
+packages for some common Linux distributions, including Debian, Ubuntu,
+and CentOS. You’ll need to install `libparquet-dev` on Debian and
+Ubuntu, or `parquet-devel` on CentOS. This will also automatically
+install the Arrow C++ library as a dependency.
 
 If you install the `arrow` package from source and the C++ library is
 not found, the R package functions will notify you that Arrow is not
@@ -44,6 +53,11 @@ arrow::install_arrow()
 for version- and platform-specific guidance on installing the Arrow C++
 library.
 
+When installing from source, if the R and C++ library versions do not
+match, installation may fail. If you’ve previously installed the
+libraries and want to upgrade the R package, you’ll need to update the
+Arrow C++ library first.
+
 ## Example
 
 ``` r
@@ -52,7 +66,7 @@ set.seed(24)
 
 tab <- arrow::table(x = 1:10, y = rnorm(10))
 tab$schema
-#> arrow::Schema 
+#> arrow::Schema
 #> x: int32
 #> y: double
 tab
@@ -117,7 +131,9 @@ R -e 'remotes::install_github("apache/arrow/r")'
 
 You can specify a particular commit, branch, or
 [release](https://github.com/apache/arrow/releases) to install by
-including a `ref` argument to `install_github()`.
+including a `ref` argument to `install_github()`. This is particularly
+useful to match the R package version to the C++ library version you’ve
+installed.
 
 ## Developing
 
@@ -125,19 +141,15 @@ If you need to alter both the Arrow C++ library and the R package code,
 or if you can’t get a binary version of the latest C++ library
 elsewhere, you’ll need to build it from source too.
 
-First, clone the repository and install a release build of the C++
-library.
-
-``` shell
-git clone https://github.com/apache/arrow.git
-mkdir arrow/cpp/build && cd arrow/cpp/build
-cmake .. -DARROW_PARQUET=ON -DARROW_BOOST_USE_SHARED:BOOL=Off -DARROW_INSTALL_NAME_RPATH=OFF
-make install
-```
-
-This likely will require additional system libraries to be installed,
-the specifics of which are platform dependent. See the [C++ developer
+First, install the C++ library. See the [C++ developer
 guide](https://arrow.apache.org/docs/developers/cpp.html) for details.
+
+Note that after any change to the C++ library, you must reinstall it and
+run `make clean` or `git clean -fdx .` to remove any cached object code
+in the `r/src/` directory before reinstalling the R package. This is
+only necessary if you make changes to the C++ library source; you do not
+need to manually purge object files if you are only editing R or Rcpp
+code inside `r/`.
 
 Once you’ve built the C++ library, you can install the R package and its
 dependencies, along with additional dev dependencies, from the git
@@ -173,7 +185,12 @@ you will need to set the `ARROW_R_DEV` environment variable to `TRUE`
 sessions) so that the `data-raw/codegen.R` file is used for code
 generation.
 
-You’ll also need `remotes::install_github("romainfrancois/decor")`.
+The codegen.R script has these dependencies:
+
+``` r
+remotes::install_github("romainfrancois/decor")
+install.packages(c("dplyr", "purrr", "glue"))
+```
 
 ### Useful functions
 

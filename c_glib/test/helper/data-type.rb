@@ -48,6 +48,10 @@ module Helper
       Arrow::Int32DataType.new
     end
 
+    def int64_data_type
+      Arrow::Int64DataType.new
+    end
+
     def string_data_type
       Arrow::StringDataType.new
     end

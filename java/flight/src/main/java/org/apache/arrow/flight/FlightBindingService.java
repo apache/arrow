@@ -18,6 +18,7 @@
 package org.apache.arrow.flight;
 
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.impl.Flight;
@@ -48,9 +49,9 @@ class FlightBindingService implements BindableService {
   private final BufferAllocator allocator;
 
   public FlightBindingService(BufferAllocator allocator, FlightProducer producer,
-      ServerAuthHandler authHandler) {
+      ServerAuthHandler authHandler, ExecutorService executor) {
     this.allocator = allocator;
-    this.delegate = new FlightService(allocator, producer, authHandler);
+    this.delegate = new FlightService(allocator, producer, authHandler, executor);
   }
 
   public static MethodDescriptor<Flight.Ticket, ArrowMessage> getDoGetDescriptor(BufferAllocator allocator) {

@@ -28,6 +28,10 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.function.Function;
 
+import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.function.Executable;
+
 /**
  * Utility methods and constants for testing flight servers.
  */
@@ -116,6 +120,18 @@ public class FlightTestUtil {
 
   static boolean isNativeTransportAvailable() {
     return isEpollAvailable() || isKqueueAvailable();
+  }
+
+  /**
+   * Assert that the given runnable fails with a Flight exception of the given code.
+   * @param code The expected Flight status code.
+   * @param r The code to run.
+   * @return The thrown status.
+   */
+  public static CallStatus assertCode(FlightStatusCode code, Executable r) {
+    final FlightRuntimeException ex = Assertions.assertThrows(FlightRuntimeException.class, r);
+    Assert.assertEquals(code, ex.status().code());
+    return ex.status();
   }
 
   public static class CertKeyPair {

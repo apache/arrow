@@ -21,6 +21,7 @@ import java.io.Closeable;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -237,4 +238,46 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    * @return true if element is null
    */
   boolean isNull(int index);
+
+  /**
+   * Returns hashCode of element in index.
+   */
+  int hashCode(int index);
+
+  /**
+   * Check whether the element in index equals to the element in targetIndex from the target vector.
+   * @param index index to compare in this vector
+   * @param target target vector
+   * @param targetIndex index to compare in target vector
+   * @return true if equals, otherwise false.
+   */
+  boolean equals(int index, ValueVector target, int targetIndex);
+
+  /**
+   * Copy a cell value from a particular index in source vector to a particular
+   * position in this vector.
+   *
+   * @param fromIndex position to copy from in source vector
+   * @param thisIndex position to copy to in this vector
+   * @param from      source vector
+   */
+  void copyFrom(int fromIndex, int thisIndex, ValueVector from);
+
+  /**
+   * Same as {@link #copyFrom(int, int, ValueVector)} except that
+   * it handles the case when the capacity of the vector needs to be expanded
+   * before copy.
+   *
+   * @param fromIndex position to copy from in source vector
+   * @param thisIndex position to copy to in this vector
+   * @param from      source vector
+   */
+  void copyFromSafe(int fromIndex, int thisIndex, ValueVector from);
+
+  /**
+   * Compare range values in this vector and vector in visitor.
+   * @param visitor visitor which holds the vector to compare.
+   * @return true if equals, otherwise false.
+   */
+  boolean accept(RangeEqualsVisitor visitor);
 }

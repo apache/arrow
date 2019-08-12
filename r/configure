@@ -48,41 +48,35 @@ else
   # Use pkg-config if available
   pkg-config --version >/dev/null 2>&1
   if [ $? -eq 0 ]; then
-    echo "$ pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}"
     PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
-    echo "PKGCONFIG_CFLAGS = \"${PKGCONFIG_CFLAGS}\""
-
-    echo "$ pkg-config --libs ${PKG_CONFIG_NAME}"
     PKGCONFIG_LIBS=`pkg-config --libs --silence-errors ${PKG_CONFIG_NAME}`
-    echo "PKGCONFIG_LIBS = \"${PKGCONFIG_LIBS}\""
-    echo ""
   fi
 
   if [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then
-    echo "Found pkg-config cflags and libs!"
+    echo "Arrow C++ libraries found via pkg-config"
     PKG_CFLAGS="$PKGCONFIG_CFLAGS"
     PKG_LIBS=${PKGCONFIG_LIBS}
   else
     if [[ "$OSTYPE" == "darwin"* ]]; then
       if [ "$(command -v brew)" ]; then
-        echo "brew is available"
-        BREWDIR=$(brew --prefix)
-
-        if brew ls --versions apache-arrow > /dev/null; then
-          # Install apache-arrow via Homebrew if we don't already have it
-          brew install apache-arrow
+        if [ "$(brew ls --versions ${PKG_BREW_NAME})" == "" ]; then
+          echo "Installing ${PKG_BREW_NAME} via Homebrew"
+          brew install ${PKG_BREW_NAME}
+        else
+          # We already have it so no need to install
+          echo "Using Homebrew ${PKG_BREW_NAME}"
         fi
 
+        BREWDIR=$(brew --prefix)
         PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
         PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
       else
-        echo "brew is not available, trying autobrew"
+        echo "Installing ${PKG_BREW_NAME} via Autobrew"
         curl -sfL "https://jeroen.github.io/autobrew/$PKG_BREW_NAME" > autobrew
         source autobrew
         PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
         PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
       fi
-
     fi
   fi
 fi

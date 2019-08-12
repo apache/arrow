@@ -27,10 +27,10 @@
 
 #include "plasma/common.h"
 #include "plasma/events.h"
-#include "plasma/eviction_policy.h"
 #include "plasma/external_store.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
+#include "plasma/quota_aware_policy.h"
 
 namespace arrow {
 class Status;
@@ -52,24 +52,6 @@ struct NotificationQueue {
   /// The object notifications for clients. We notify the client about the
   /// objects in the order that the objects were sealed or deleted.
   std::deque<std::unique_ptr<uint8_t[]>> object_notifications;
-};
-
-/// Contains all information that is associated with a Plasma store client.
-struct Client {
-  explicit Client(int fd);
-
-  /// The file descriptor used to communicate with the client.
-  int fd;
-
-  /// Object ids that are used by this client.
-  std::unordered_set<ObjectID> object_ids;
-
-  /// File descriptors that are used by this client.
-  std::unordered_set<int> used_fds;
-
-  /// The file descriptor used to push notifications to client. This is only valid
-  /// if client subscribes to plasma store. -1 indicates invalid.
-  int notification_fd;
 };
 
 class PlasmaStore {
@@ -214,7 +196,8 @@ class PlasmaStore {
 
   void EraseFromObjectTable(const ObjectID& object_id);
 
-  uint8_t* AllocateMemory(size_t size, int* fd, int64_t* map_size, ptrdiff_t* offset);
+  uint8_t* AllocateMemory(size_t size, int* fd, int64_t* map_size, ptrdiff_t* offset,
+                          Client* client, bool is_create);
 #ifdef PLASMA_CUDA
   Status AllocateCudaMemory(int device_num, int64_t size, uint8_t** out_pointer,
                             std::shared_ptr<CudaIpcMemHandle>* out_ipc_handle);
@@ -228,7 +211,7 @@ class PlasmaStore {
   /// to the eviction policy.
   PlasmaStoreInfo store_info_;
   /// The state that is managed by the eviction policy.
-  EvictionPolicy eviction_policy_;
+  QuotaAwarePolicy eviction_policy_;
   /// Input buffer. This is allocated only once to avoid mallocs for every
   /// call to process_message.
   std::vector<uint8_t> input_buffer_;

@@ -20,6 +20,8 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.ArrowBufPointer;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.impl.BitReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.BitHolder;
@@ -297,9 +299,15 @@ public class BitVector extends BaseFixedWidthVector {
    * @param from      source vector
    */
   @Override
-  public void copyFrom(int fromIndex, int thisIndex, BaseFixedWidthVector from) {
-    BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
-    BitVectorHelper.setValidityBit(valueBuffer, thisIndex, ((BitVector) from).getBit(fromIndex));
+  public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
+    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
+    boolean fromIsSet = BitVectorHelper.get(from.getValidityBuffer(), fromIndex) != 0;
+    if (fromIsSet) {
+      BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 1);
+      BitVectorHelper.setValidityBit(valueBuffer, thisIndex, ((BitVector) from).getBit(fromIndex));
+    } else {
+      BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
+    }
   }
 
   /*----------------------------------------------------------------*
@@ -462,6 +470,16 @@ public class BitVector extends BaseFixedWidthVector {
   public void setSafeToOne(int index) {
     handleSafe(index);
     setToOne(index);
+  }
+
+  @Override
+  public ArrowBufPointer getDataPointer(int index) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ArrowBufPointer getDataPointer(int index, ArrowBufPointer reuse) {
+    throw new UnsupportedOperationException();
   }
 
   /**

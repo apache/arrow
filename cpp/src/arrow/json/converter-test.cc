@@ -85,6 +85,11 @@ TEST(ConverterTest, String) {
   AssertConvert(utf8(), src, src);
 }
 
+TEST(ConverterTest, LargeString) {
+  std::string src = R"(["a", "b c", null, "d e f", "g"])";
+  AssertConvert(large_utf8(), src, src);
+}
+
 TEST(ConverterTest, Timestamp) {
   std::string src = R"([null, "1970-01-01", "2018-11-13 17:11:10"])";
   AssertConvert(timestamp(TimeUnit::SECOND), src, src);

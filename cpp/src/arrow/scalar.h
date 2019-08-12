@@ -91,25 +91,45 @@ struct NumericScalar : public internal::PrimitiveScalar {
       : internal::PrimitiveScalar{type, is_valid}, value(value) {}
 };
 
-struct ARROW_EXPORT BinaryScalar : public Scalar {
+template <typename Type>
+struct BaseBinaryScalar : public Scalar {
   std::shared_ptr<Buffer> value;
-  explicit BinaryScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
-      : BinaryScalar(value, binary(), is_valid) {}
 
  protected:
-  BinaryScalar(const std::shared_ptr<Buffer>& value,
-               const std::shared_ptr<DataType>& type, bool is_valid = true)
+  BaseBinaryScalar(const std::shared_ptr<Buffer>& value,
+                   const std::shared_ptr<DataType>& type, bool is_valid = true)
       : Scalar{type, is_valid}, value(value) {}
 };
 
-struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
-  FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value,
-                        const std::shared_ptr<DataType>& type, bool is_valid = true);
+struct ARROW_EXPORT BinaryScalar : public BaseBinaryScalar<BinaryType> {
+  explicit BinaryScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
+      : BaseBinaryScalar(value, binary(), is_valid) {}
+
+ protected:
+  using BaseBinaryScalar::BaseBinaryScalar;
 };
 
 struct ARROW_EXPORT StringScalar : public BinaryScalar {
   explicit StringScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
       : BinaryScalar(value, utf8(), is_valid) {}
+};
+
+struct ARROW_EXPORT LargeBinaryScalar : public BaseBinaryScalar<LargeBinaryType> {
+  explicit LargeBinaryScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
+      : BaseBinaryScalar(value, large_binary(), is_valid) {}
+
+ protected:
+  using BaseBinaryScalar::BaseBinaryScalar;
+};
+
+struct ARROW_EXPORT LargeStringScalar : public LargeBinaryScalar {
+  explicit LargeStringScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
+      : LargeBinaryScalar(value, utf8(), is_valid) {}
+};
+
+struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
+  FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value,
+                        const std::shared_ptr<DataType>& type, bool is_valid = true);
 };
 
 class ARROW_EXPORT Date32Scalar : public NumericScalar<Date32Type> {
@@ -170,13 +190,21 @@ struct ARROW_EXPORT Decimal128Scalar : public Scalar {
                    bool is_valid = true);
 };
 
-struct ARROW_EXPORT ListScalar : public Scalar {
+struct ARROW_EXPORT BaseListScalar : public Scalar {
   std::shared_ptr<Array> value;
 
-  ListScalar(const std::shared_ptr<Array>& value, const std::shared_ptr<DataType>& type,
-             bool is_valid = true);
+  BaseListScalar(const std::shared_ptr<Array>& value,
+                 const std::shared_ptr<DataType>& type, bool is_valid = true);
 
-  explicit ListScalar(const std::shared_ptr<Array>& value, bool is_valid = true);
+  BaseListScalar(const std::shared_ptr<Array>& value, bool is_valid);
+};
+
+struct ARROW_EXPORT ListScalar : public BaseListScalar {
+  using BaseListScalar::BaseListScalar;
+};
+
+struct ARROW_EXPORT LargeListScalar : public BaseListScalar {
+  using BaseListScalar::BaseListScalar;
 };
 
 struct ARROW_EXPORT MapScalar : public Scalar {

@@ -64,11 +64,11 @@
 #' @param metadata currently ignored
 #'
 #' @examples
-#'
-#' \dontrun{
+#' \donttest{
+#' try({
 #'    field("x", int32())
+#' })
 #' }
-#'
 #' @export
 field <- function(name, type, metadata) {
   assert_that(inherits(name, "character"), length(name) == 1L)
@@ -78,6 +78,6 @@ field <- function(name, type, metadata) {
 }
 
 .fields <- function(.list){
-  assert_that( !is.null(nms <- names(.list)) )
+  assert_that(!is.null(nms <- names(.list)))
   map2(nms, .list, field)
 }

@@ -100,6 +100,61 @@ Status PlasmaErrorStatus(fb::PlasmaError plasma_error) {
   return Status::OK();
 }
 
+// Set options messages.
+
+Status SendSetOptionsRequest(int sock, const std::string& client_name,
+                             int64_t output_memory_limit) {
+  flatbuffers::FlatBufferBuilder fbb;
+  auto message = fb::CreatePlasmaSetOptionsRequest(fbb, fbb.CreateString(client_name),
+                                                   output_memory_limit);
+  return PlasmaSend(sock, MessageType::PlasmaSetOptionsRequest, &fbb, message);
+}
+
+Status ReadSetOptionsRequest(uint8_t* data, size_t size, std::string* client_name,
+                             int64_t* output_memory_quota) {
+  DCHECK(data);
+  auto message = flatbuffers::GetRoot<fb::PlasmaSetOptionsRequest>(data);
+  DCHECK(VerifyFlatbuffer(message, data, size));
+  *client_name = std::string(message->client_name()->str());
+  *output_memory_quota = message->output_memory_quota();
+  return Status::OK();
+}
+
+Status SendSetOptionsReply(int sock, PlasmaError error) {
+  flatbuffers::FlatBufferBuilder fbb;
+  auto message = fb::CreatePlasmaSetOptionsReply(fbb, error);
+  return PlasmaSend(sock, MessageType::PlasmaSetOptionsReply, &fbb, message);
+}
+
+Status ReadSetOptionsReply(uint8_t* data, size_t size) {
+  DCHECK(data);
+  auto message = flatbuffers::GetRoot<fb::PlasmaSetOptionsReply>(data);
+  DCHECK(VerifyFlatbuffer(message, data, size));
+  return PlasmaErrorStatus(message->error());
+}
+
+// Get debug string messages.
+
+Status SendGetDebugStringRequest(int sock) {
+  flatbuffers::FlatBufferBuilder fbb;
+  auto message = fb::CreatePlasmaGetDebugStringRequest(fbb);
+  return PlasmaSend(sock, MessageType::PlasmaGetDebugStringRequest, &fbb, message);
+}
+
+Status SendGetDebugStringReply(int sock, const std::string& debug_string) {
+  flatbuffers::FlatBufferBuilder fbb;
+  auto message = fb::CreatePlasmaGetDebugStringReply(fbb, fbb.CreateString(debug_string));
+  return PlasmaSend(sock, MessageType::PlasmaGetDebugStringReply, &fbb, message);
+}
+
+Status ReadGetDebugStringReply(uint8_t* data, size_t size, std::string* debug_string) {
+  DCHECK(data);
+  auto message = flatbuffers::GetRoot<fb::PlasmaGetDebugStringReply>(data);
+  DCHECK(VerifyFlatbuffer(message, data, size));
+  *debug_string = message->debug_string()->str();
+  return Status::OK();
+}
+
 // Create messages.
 
 Status SendCreateRequest(int sock, ObjectID object_id, int64_t data_size,

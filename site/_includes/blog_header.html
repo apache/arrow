@@ -1,0 +1,59 @@
+{% comment %}
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to you under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+{% endcomment %}
+<h1>
+  {{ post.title }}
+  <a href="{{ post.url }}" class="permalink" title="Permalink">∞</a>
+</h1>
+
+{% capture discard %}
+  {% comment %}
+    We have to initialize the author_name to nil so that when this _include
+    is used in a for loop, the previous entry doesn't contaminate
+  {% endcomment %}
+  {% assign author_name = nil %}
+  {% for c in site.data.contributors %}
+    {% if c.apacheId == post.author %}
+      {% assign author_name = c.name %}
+      {% if c.homepage %}
+        {% assign homepage = c.homepage %}
+      {% else if c.githubId %}
+        {% capture homepage %}http://github.com/{{ c.githubId }}{% endcapture %}
+      {% else %}
+        {% capture homepage %}http://people.apache.org/~{{ post.author }}{% endcapture %}
+      {% endif %}
+      {% if c.avatar %}
+        {% assign avatar = c.avatar %}
+      {% else %}
+        {% capture avatar %}http://github.com/{{ c.githubId }}.png{% endcapture %}
+      {% endif %}
+    {% endif %}
+  {% endfor %}
+{% endcapture %}{% assign discard = nil %}
+
+<p>
+  <span class="badge badge-secondary">Published</span>
+  <span class="published">
+    {{ post.date | date_to_string }}
+  </span>
+  <br />
+  <span class="badge badge-secondary">By</span>
+  {% if author_name %}
+    <a href="{{ homepage }}">{{ author_name }} ({{ post.author }}) </a>
+  {% else %}
+    {{ post.author }}
+  {% endif %}
+</p>

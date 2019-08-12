@@ -38,7 +38,6 @@ namespace arrow {
 
 class Array;
 class ChunkedArray;
-class Column;
 class MemoryPool;
 class RecordBatch;
 class Table;

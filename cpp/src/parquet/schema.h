@@ -28,8 +28,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "arrow/util/macros.h"
-
 #include "parquet/platform.h"
 #include "parquet/types.h"
 
@@ -93,8 +91,6 @@ class PARQUET_EXPORT ColumnPath {
  protected:
   std::vector<std::string> path_;
 };
-
-class GroupNode;
 
 // Base class for logical schema types. A type has a name, repetition level,
 // and optionally a logical type (ConvertedType in Parquet metadata parlance)
@@ -434,6 +430,10 @@ class PARQUET_EXPORT SchemaDescriptor {
 
   void updateColumnOrders(const std::vector<ColumnOrder>& column_orders);
 
+  /// \brief Return column index corresponding to a particular
+  /// PrimitiveNode. Returns -1 if not found
+  int GetColumnIndex(const schema::PrimitiveNode& node) const;
+
  private:
   friend class ColumnDescriptor;
 
@@ -447,6 +447,8 @@ class PARQUET_EXPORT SchemaDescriptor {
 
   // Result of leaf node / tree analysis
   std::vector<ColumnDescriptor> leaves_;
+
+  std::unordered_map<const schema::PrimitiveNode*, int> node_to_leaf_index_;
 
   // Mapping between leaf nodes and root group of leaf (first node
   // below the schema's root group)

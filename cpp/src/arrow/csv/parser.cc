@@ -40,6 +40,32 @@ static Status MismatchingColumns(int32_t expected, int32_t actual) {
 
 static inline bool IsControlChar(uint8_t c) { return c < ' '; }
 
+int32_t SkipRows(const uint8_t* data, uint32_t size, int32_t num_rows,
+                 const uint8_t** out_data) {
+  const auto end = data + size;
+  int32_t skipped_rows = 0;
+  *out_data = data;
+
+  for (; skipped_rows < num_rows; ++skipped_rows) {
+    uint8_t c;
+    do {
+      while (ARROW_PREDICT_FALSE(data < end && !IsControlChar(*data))) {
+        ++data;
+      }
+      if (ARROW_PREDICT_FALSE(data == end)) {
+        return skipped_rows;
+      }
+      c = *data++;
+    } while (c != '\r' && c != '\n');
+    if (c == '\r' && data < end && *data == '\n') {
+      ++data;
+    }
+    *out_data = data;
+  }
+
+  return skipped_rows;
+}
+
 template <bool Quoting, bool Escaping>
 class SpecializedOptions {
  public:
@@ -204,7 +230,7 @@ Status BlockParser::ParseLine(ValuesWriter* values_writer, ParsedWriter* parsed_
 
   // Special case empty lines: do we start with a newline separator?
   c = *data;
-  if (ARROW_PREDICT_FALSE(IsControlChar(c)) && options_.ignore_empty_lines) {
+  if (ARROW_PREDICT_FALSE(IsControlChar(c))) {
     if (c == '\r') {
       data++;
       if (data < data_end && *data == '\n') {
@@ -333,6 +359,18 @@ AbortLine:
   return Status::OK();
 
 EmptyLine:
+  if (!options_.ignore_empty_lines) {
+    if (num_cols_ == -1) {
+      // Consider as single value
+      num_cols_ = 1;
+    }
+    // Record as row of empty (null?) values
+    while (num_cols++ < num_cols_) {
+      values_writer->StartField(false /* quoted */);
+      FinishField();
+    }
+    ++num_rows_;
+  }
   *out_data = data;
   return Status::OK();
 }
@@ -342,7 +380,9 @@ Status BlockParser::ParseChunk(ValuesWriter* values_writer, ParsedWriter* parsed
                                const char* data, const char* data_end, bool is_final,
                                int32_t rows_in_chunk, const char** out_data,
                                bool* finished_parsing) {
-  while (data < data_end && rows_in_chunk > 0) {
+  int32_t num_rows_deadline = num_rows_ + rows_in_chunk;
+
+  while (data < data_end && num_rows_ < num_rows_deadline) {
     const char* line_end = data;
     RETURN_NOT_OK(ParseLine<SpecializedOptions>(values_writer, parsed_writer, data,
                                                 data_end, is_final, &line_end));
@@ -352,9 +392,6 @@ Status BlockParser::ParseChunk(ValuesWriter* values_writer, ParsedWriter* parsed
       break;
     }
     data = line_end;
-    // This will pessimize chunk size a bit if there are empty lines,
-    // but that shouldn't be important
-    --rows_in_chunk;
   }
   // Append new buffers and update size
   std::shared_ptr<Buffer> values_buffer;

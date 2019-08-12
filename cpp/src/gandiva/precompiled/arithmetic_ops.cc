@@ -17,6 +17,7 @@
 
 extern "C" {
 
+#include <math.h>
 #include "./types.h"
 
 // Expand inner macro for all numeric types.
@@ -68,6 +69,15 @@ NUMERIC_TYPES(BINARY_SYMMETRIC, multiply, *)
 MOD_OP(mod, int64, int32, int32)
 MOD_OP(mod, int64, int64, int64)
 
+float64 mod_float64_float64(int64_t context, float64 x, float64 y) {
+  if (y == 0.0) {
+    char const* err_msg = "divide by zero error";
+    gdv_fn_context_set_error_msg(context, err_msg);
+    return 0.0;
+  }
+  return fmod(x, y);
+}
+
 // Relational binary fns : left, right params are same, return is bool.
 #define BINARY_RELATIONAL(NAME, TYPE, OP) \
   FORCE_INLINE                            \
@@ -83,14 +93,16 @@ NUMERIC_DATE_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
 // cast fns : takes one param type, returns another type.
 #define CAST_UNARY(NAME, IN_TYPE, OUT_TYPE) \
   FORCE_INLINE                              \
-  OUT_TYPE NAME##_##IN_TYPE(IN_TYPE in) { return (OUT_TYPE)in; }
+  OUT_TYPE NAME##_##IN_TYPE(IN_TYPE in) { return static_cast<OUT_TYPE>(in); }
 
 CAST_UNARY(castBIGINT, int32, int64)
+CAST_UNARY(castINT, int64, int32)
 CAST_UNARY(castFLOAT4, int32, float32)
 CAST_UNARY(castFLOAT4, int64, float32)
 CAST_UNARY(castFLOAT8, int32, float64)
 CAST_UNARY(castFLOAT8, int64, float64)
 CAST_UNARY(castFLOAT8, float32, float64)
+CAST_UNARY(castFLOAT4, float64, float32)
 
 // simple nullable functions, result value = fn(input validity)
 #define VALIDITY_OP(NAME, TYPE, OP) \
@@ -169,5 +181,33 @@ NUMERIC_BOOL_DATE_FUNCTION(IS_NOT_DISTINCT_FROM)
   }
 
 NUMERIC_FUNCTION(DIVIDE)
+
+#define DIV(TYPE)                                               \
+  FORCE_INLINE                                                  \
+  TYPE div_##TYPE##_##TYPE(int64 context, TYPE in1, TYPE in2) { \
+    if (in2 == 0) {                                             \
+      char const* err_msg = "divide by zero error";             \
+      gdv_fn_context_set_error_msg(context, err_msg);           \
+      return 0;                                                 \
+    }                                                           \
+    return static_cast<TYPE>(in1 / in2);                        \
+  }
+
+DIV(int32)
+DIV(int64)
+
+#define DIV_FLOAT(TYPE)                                         \
+  FORCE_INLINE                                                  \
+  TYPE div_##TYPE##_##TYPE(int64 context, TYPE in1, TYPE in2) { \
+    if (in2 == 0) {                                             \
+      char const* err_msg = "divide by zero error";             \
+      gdv_fn_context_set_error_msg(context, err_msg);           \
+      return 0;                                                 \
+    }                                                           \
+    return static_cast<TYPE>(::trunc(in1 / in2));               \
+  }
+
+DIV_FLOAT(float32)
+DIV_FLOAT(float64)
 
 }  // extern "C"

@@ -65,7 +65,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
-import org.apache.arrow.vector.util.DateUtility;
 import org.apache.arrow.vector.util.DecimalUtility;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.JsonStringHashMap;
@@ -709,7 +708,7 @@ public class TestComplexWriter {
       timeStampWriter.setPosition(0);
       timeStampWriter.writeTimeStampMilli(expectedMillis);
     }
-    String tz = DateUtility.getTimeZone(10);
+    String tz = "UTC";
     {
       TimeStampMilliTZWriter timeStampTZWriter = rootWriter.timeStampMilliTZ("milliTZ", tz);
       timeStampTZWriter.setPosition(0);
@@ -766,7 +765,7 @@ public class TestComplexWriter {
       timeStampMicroWriter.setPosition(0);
       timeStampMicroWriter.writeTimeStampMicro(expectedMicros);
     }
-    String tz = DateUtility.getTimeZone(5);
+    String tz = "UTC";
     {
       TimeStampMicroTZWriter timeStampMicroWriter = rootWriter.timeStampMicroTZ("microTZ", tz);
       timeStampMicroWriter.setPosition(1);
@@ -813,7 +812,7 @@ public class TestComplexWriter {
       timeStampNanoWriter.setPosition(0);
       timeStampNanoWriter.writeTimeStampNano(expectedNanos);
     }
-    String tz = DateUtility.getTimeZone(3);
+    String tz = "UTC";
     {
       TimeStampNanoTZWriter timeStampNanoWriter = rootWriter.timeStampNanoTZ("nanoTZ", tz);
       timeStampNanoWriter.setPosition(0);

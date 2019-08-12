@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -139,12 +140,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
   }
 
   private boolean nullFilled(ValueVector vector) {
-    for (int r = 0; r < vector.getValueCount(); r++) {
-      if (!vector.isNull(r)) {
-        return false;
-      }
-    }
-    return true;
+    return BitVectorHelper.checkAllBitsEqualTo(vector.getValidityBuffer(), vector.getValueCount(), false);
   }
 
   /**
@@ -230,7 +226,10 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
     return children;
   }
 
-  protected List<String> getChildFieldNames() {
+  /**
+   * Get child field names.
+   */
+  public List<String> getChildFieldNames() {
     return getChildren().stream()
         .map(child -> child.getField().getName())
         .collect(Collectors.toList());
@@ -256,15 +255,32 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
    */
   public List<ValueVector> getPrimitiveVectors() {
     final List<ValueVector> primitiveVectors = new ArrayList<>();
-    for (final ValueVector v : vectors.values()) {
-      if (v instanceof AbstractStructVector) {
-        AbstractStructVector structVector = (AbstractStructVector) v;
-        primitiveVectors.addAll(structVector.getPrimitiveVectors());
-      } else {
-        primitiveVectors.add(v);
-      }
+    for (final FieldVector v : vectors.values()) {
+      primitiveVectors.addAll(getPrimitiveVectors(v));
     }
     return primitiveVectors;
+  }
+
+  private List<ValueVector> getPrimitiveVectors(FieldVector v) {
+    final List<ValueVector> primitives = new ArrayList<>();
+    if (v instanceof AbstractStructVector) {
+      AbstractStructVector structVector = (AbstractStructVector) v;
+      primitives.addAll(structVector.getPrimitiveVectors());
+    } else if (v instanceof ListVector) {
+      ListVector listVector = (ListVector) v;
+      primitives.addAll(getPrimitiveVectors(listVector.getDataVector()));
+    } else if (v instanceof FixedSizeListVector) {
+      ListVector listVector = (ListVector) v;
+      primitives.addAll(getPrimitiveVectors(listVector.getDataVector()));
+    } else if (v instanceof UnionVector) {
+      UnionVector unionVector = (UnionVector) v;
+      for (final FieldVector vector : unionVector.getChildrenFromFields()) {
+        primitives.addAll(getPrimitiveVectors(vector));
+      }
+    } else {
+      primitives.add(v);
+    }
+    return primitives;
   }
 
   /**

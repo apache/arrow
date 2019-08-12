@@ -28,6 +28,8 @@ std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(List_ opt
       std::make_shared<arrow::csv::ReadOptions>(arrow::csv::ReadOptions::Defaults());
   res->use_threads = options["use_threads"];
   res->block_size = options["block_size"];
+  res->skip_rows = options["skip_rows"];
+  res->column_names = Rcpp::as<std::vector<std::string>>(options["column_names"]);
   return res;
 }
 
@@ -43,7 +45,6 @@ std::shared_ptr<arrow::csv::ParseOptions> csv___ParseOptions__initialize(List_ o
   res->double_quote = options["double_quote"];
   res->escape_char = get_char(options["escape_char"]);
   res->newlines_in_values = options["newlines_in_values"];
-  res->header_rows = options["header_rows"];
   res->ignore_empty_lines = options["ignore_empty_lines"];
   return res;
 }

@@ -18,13 +18,13 @@
 package org.apache.arrow.flight;
 
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.BooleanSupplier;
 
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import org.apache.arrow.flight.auth.AuthConstants;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthWrapper;
+import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.ActionType;
 import org.apache.arrow.flight.impl.Flight.Empty;
@@ -32,14 +32,13 @@ import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
 import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceImplBase;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Preconditions;
 
 import io.grpc.Status;
 import io.grpc.stub.ServerCallStreamObserver;
@@ -57,12 +56,14 @@ class FlightService extends FlightServiceImplBase {
   private final BufferAllocator allocator;
   private final FlightProducer producer;
   private final ServerAuthHandler authHandler;
-  private final ExecutorService executors = Executors.newCachedThreadPool();
+  private final ExecutorService executors;
 
-  public FlightService(BufferAllocator allocator, FlightProducer producer, ServerAuthHandler authHandler) {
+  FlightService(BufferAllocator allocator, FlightProducer producer, ServerAuthHandler authHandler,
+      ExecutorService executors) {
     this.allocator = allocator;
     this.producer = producer;
     this.authHandler = authHandler;
+    this.executors = executors;
   }
 
   @Override
@@ -76,7 +77,7 @@ class FlightService extends FlightServiceImplBase {
       producer.listFlights(makeContext((ServerCallStreamObserver<?>) responseObserver), new Criteria(criteria),
           StreamPipe.wrap(responseObserver, FlightInfo::toProtocol));
     } catch (Exception ex) {
-      responseObserver.onError(ex);
+      responseObserver.onError(StatusUtils.toGrpcException(ex));
     }
   }
 
@@ -90,7 +91,7 @@ class FlightService extends FlightServiceImplBase {
       producer.getStream(makeContext((ServerCallStreamObserver<?>) responseObserver), new Ticket(ticket),
           new GetListener(responseObserver));
     } catch (Exception ex) {
-      responseObserver.onError(ex);
+      responseObserver.onError(StatusUtils.toGrpcException(ex));
     }
   }
 
@@ -100,7 +101,7 @@ class FlightService extends FlightServiceImplBase {
       producer.doAction(makeContext((ServerCallStreamObserver<?>) responseObserver), new Action(request),
           StreamPipe.wrap(responseObserver, Result::toProtocol));
     } catch (Exception ex) {
-      responseObserver.onError(ex);
+      responseObserver.onError(StatusUtils.toGrpcException(ex));
     }
   }
 
@@ -110,7 +111,7 @@ class FlightService extends FlightServiceImplBase {
       producer.listActions(makeContext((ServerCallStreamObserver<?>) responseObserver),
           StreamPipe.wrap(responseObserver, t -> t.toProtocol()));
     } catch (Exception ex) {
-      responseObserver.onError(ex);
+      responseObserver.onError(StatusUtils.toGrpcException(ex));
     }
   }
 
@@ -164,7 +165,7 @@ class FlightService extends FlightServiceImplBase {
 
     @Override
     public void error(Throwable ex) {
-      responseObserver.onError(ex);
+      responseObserver.onError(StatusUtils.toGrpcException(ex));
     }
 
     @Override
@@ -191,17 +192,16 @@ class FlightService extends FlightServiceImplBase {
             StreamPipe.wrap(responseObserver, PutResult::toProtocol)).run();
         responseObserver.onCompleted();
       } catch (Exception ex) {
-        logger.error("Failed to process custom put.", ex);
-        responseObserver.onError(ex);
+        responseObserver.onError(StatusUtils.toGrpcException(ex));
         // The client may have terminated, so the exception here is effectively swallowed.
         // Log the error as well so -something- makes it to the developer.
         logger.error("Exception handling DoPut", ex);
-      }
-      try {
-        fs.close();
-      } catch (Exception e) {
-        logger.error("Exception closing Flight stream", e);
-        throw new RuntimeException(e);
+      } finally {
+        try {
+          fs.close();
+        } catch (Exception e) {
+          logger.error("Exception closing Flight stream", e);
+        }
       }
     });
 
@@ -216,7 +216,7 @@ class FlightService extends FlightServiceImplBase {
       responseObserver.onNext(info.toProtocol());
       responseObserver.onCompleted();
     } catch (Exception ex) {
-      responseObserver.onError(ex);
+      responseObserver.onError(StatusUtils.toGrpcException(ex));
     }
   }
 

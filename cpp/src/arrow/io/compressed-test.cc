@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <iterator>
 #include <memory>
 #include <random>
 #include <string>
@@ -188,6 +190,28 @@ TEST_P(CompressedInputStreamTest, InvalidData) {
   ASSERT_OK(CompressedInputStream::Make(codec.get(), buffer_reader, &stream));
   std::shared_ptr<Buffer> out_buf;
   ASSERT_RAISES(IOError, stream->Read(1024, &out_buf));
+}
+
+TEST_P(CompressedInputStreamTest, ConcatenatedStreams) {
+  // ARROW-5974: just like the "gunzip", "bzip2" and "xz" commands,
+  // decompressing concatenated compressed streams should yield the entire
+  // original data.
+  auto codec = MakeCodec();
+  auto data1 = MakeCompressibleData(100);
+  auto data2 = MakeCompressibleData(200);
+  auto compressed1 = CompressDataOneShot(codec.get(), data1);
+  auto compressed2 = CompressDataOneShot(codec.get(), data2);
+
+  std::shared_ptr<Buffer> concatenated;
+  ASSERT_OK(ConcatenateBuffers({compressed1, compressed2}, default_memory_pool(),
+                               &concatenated));
+  std::vector<uint8_t> decompressed, expected;
+  ASSERT_OK(RunCompressedInputStream(codec.get(), concatenated, &decompressed));
+  std::copy(data1.begin(), data1.end(), std::back_inserter(expected));
+  std::copy(data2.begin(), data2.end(), std::back_inserter(expected));
+
+  ASSERT_EQ(decompressed.size(), expected.size());
+  ASSERT_EQ(decompressed, expected);
 }
 
 // NOTE: Snappy doesn't support streaming decompression
