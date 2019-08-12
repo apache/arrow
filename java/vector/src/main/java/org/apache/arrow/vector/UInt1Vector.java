@@ -267,18 +267,6 @@ public class UInt1Vector extends BaseFixedWidthVector implements BaseIntVector {
   }
 
   /**
-   * Set the element at the given index to null.
-   *
-   * @param index   position of element
-   */
-  public void setNull(int index) {
-    handleSafe(index);
-    // not really needed to set the bit to 0 as long as
-    // the buffer always starts from 0.
-    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
-  }
-
-  /**
    * Sets the value at index to value isSet > 0, otherwise sets the index position
    * to invalid/null.
    */

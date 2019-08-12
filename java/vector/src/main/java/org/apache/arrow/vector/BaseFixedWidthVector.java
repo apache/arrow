@@ -848,6 +848,18 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     copyFrom(fromIndex, thisIndex, from);
   }
 
+  /**
+   * Set the element at the given index to null.
+   *
+   * @param index position of element
+   */
+  public void setNull(int index) {
+    handleSafe(index);
+    // not really needed to set the bit to 0 as long as
+    // the buffer always starts from 0.
+    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+  }
+
   @Override
   public ArrowBufPointer getDataPointer(int index) {
     return getDataPointer(index, new ArrowBufPointer());
