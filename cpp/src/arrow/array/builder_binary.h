@@ -496,9 +496,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
     return data_ptr + i * byte_width_;
   }
 
-#ifndef NDEBUG
   void CheckValueSize(int64_t size);
-#endif
 };
 
 // ----------------------------------------------------------------------
