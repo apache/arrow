@@ -513,7 +513,7 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
   ASSERT_THROW(encoder->Put(*i32_values), ParquetException);
 }
 
-void GetBinaryDictDecoder(DictEncoder<ByteArrayType>* encoder,
+void GetBinaryDictDecoder(DictEncoder<ByteArrayType>* encoder, int64_t num_values,
                           std::shared_ptr<Buffer>* out_values,
                           std::shared_ptr<Buffer>* out_dict,
                           std::unique_ptr<ByteArrayDecoder>* out_decoder) {
@@ -522,13 +522,12 @@ void GetBinaryDictDecoder(DictEncoder<ByteArrayType>* encoder,
   auto dict_buf = AllocateBuffer(default_memory_pool(), encoder->dict_encoded_size());
   encoder->WriteDict(dict_buf->mutable_data());
 
-  auto values_decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
-  values_decoder->SetData(encoder->num_entries(), dict_buf->data(),
-                          static_cast<int>(dict_buf->size()));
+  auto dict_decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
+  dict_decoder->SetData(encoder->num_entries(), dict_buf->data(),
+                        static_cast<int>(dict_buf->size()));
 
-  int64_t num_values = values->length() - values->null_count();
   decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
-  decoder->SetDict(values_decoder.get());
+  decoder->SetDict(dict_decoder.get());
 
   *out_values = buf;
   *out_dict = dict_buf;
@@ -549,22 +548,13 @@ TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
                                                        /*use_dictionary=*/true);
 
   auto encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(owned_encoder.get());
-  auto decoder = dynamic_cast<ByteArrayDecoder*>(owned_decoder.get());
 
   ASSERT_NO_THROW(encoder->Put(*values));
 
-  auto buf = encoder->FlushValues();
-
-  auto dict_buf = AllocateBuffer(default_memory_pool(), encoder->dict_encoded_size());
-  encoder->WriteDict(dict_buf->mutable_data());
-
-  auto values_decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
-  values_decoder->SetData(encoder->num_entries(), dict_buf->data(),
-                          static_cast<int>(dict_buf->size()));
-
+  std::unique_ptr<ByteArrayDecoder> decoder;
+  std::shared_ptr<Buffer> buf, dict_buf;
   int64_t num_values = values->length() - values->null_count();
-  decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
-  owned_decoder->SetDict(values_decoder.get());
+  GetBinaryDictDecoder(encoder, num_values, &buf, &dict_buf, &decoder);
 
   arrow::StringBuilder builder;
   ASSERT_EQ(num_values,
@@ -578,45 +568,41 @@ TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
 
 TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
   // Part of ARROW-3246
-  auto dict_values = arrow::ArrayFromJSON(arrow::binary(),
-                                          "[\"foo\", \"bar\", \"baz\"]");
+  auto dict_values = arrow::ArrayFromJSON(arrow::binary(), "[\"foo\", \"bar\", \"baz\"]");
+  auto indices = arrow::ArrayFromJSON(arrow::int32(), "[0, 1, 2]");
+  auto indices_nulls = arrow::ArrayFromJSON(arrow::int32(), "[null, 0, 1, null, 2]");
+
+  auto expected = arrow::ArrayFromJSON(arrow::binary(),
+                                       "[\"foo\", \"bar\", \"baz\", null, "
+                                       "\"foo\", \"bar\", null, \"baz\"]");
 
   auto owned_encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN,
                                                        /*use_dictionary=*/true);
   auto owned_decoder = MakeDictDecoder<ByteArrayType>();
 
   auto encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(owned_encoder.get());
-  auto decoder = dynamic_cast<ByteArrayDecoder*>(owned_decoder.get());
 
   ASSERT_NO_THROW(encoder->PutDictionary(*dict_values));
 
-  std::vector<int32_t> indices = {0, 1, 2};
-  ASSERT_NO_THROW(encoder->PutIndices(indices.data(),
-                                      static_cast<int>(indices.length())));
-  ASSERT_NO_THROW(encoder->PutIndices(indices.data(),
-                                      static_cast<int>(indices.length())));
+  // Trying to call PutDictionary again throws
+  ASSERT_THROW(encoder->PutDictionary(*dict_values), ParquetException);
 
-  auto buf = encoder->FlushValues();
+  ASSERT_NO_THROW(encoder->PutIndices(*indices));
+  ASSERT_NO_THROW(encoder->PutIndices(*indices_nulls));
 
-  auto dict_buf = AllocateBuffer(default_memory_pool(), encoder->dict_encoded_size());
-  encoder->WriteDict(dict_buf->mutable_data());
+  std::unique_ptr<ByteArrayDecoder> decoder;
+  std::shared_ptr<Buffer> buf, dict_buf;
+  int64_t num_values = expected->length() - expected->null_count();
+  GetBinaryDictDecoder(encoder, num_values, &buf, &dict_buf, &decoder);
 
-  auto values_decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
-  values_decoder->SetData(encoder->num_entries(), dict_buf->data(),
-                          static_cast<int>(dict_buf->size()));
-
-  int64_t num_values = values->length() - values->null_count();
-  decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
-  owned_decoder->SetDict(values_decoder.get());
-
-  arrow::StringBuilder builder;
-  ASSERT_EQ(num_values,
-            decoder->DecodeArrow(values->length(), values->null_count(),
-                                 values->null_bitmap_data(), values->offset(), &builder));
+  arrow::BinaryBuilder builder;
+  ASSERT_EQ(num_values, decoder->DecodeArrow(expected->length(), expected->null_count(),
+                                             expected->null_bitmap_data(),
+                                             expected->offset(), &builder));
 
   std::shared_ptr<arrow::Array> result;
   ASSERT_OK(builder.Finish(&result));
-  arrow::AssertArraysEqual(*values, *result);
+  arrow::AssertArraysEqual(*expected, *result);
 }
 
 class DictEncoding : public TestArrowBuilderDecoding {

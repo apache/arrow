@@ -418,8 +418,25 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   void Put(const arrow::Array& values) override;
   void PutDictionary(const arrow::Array& values) override;
 
-  void PutIndices(const int32_t* indices, int length) override {
-    buffered_indices_.insert(std::end(buffered_indices_), indices, indices + length);
+  void PutIndices(const arrow::Array& data) override {
+    if (data.type()->id() != arrow::Type::INT32) {
+      throw ParquetException("Only int32 indices currently supported");
+    }
+    const auto& indices = checked_cast<const arrow::Int32Array&>(data);
+    auto values = indices.raw_values();
+    if (indices.null_count() > 0) {
+      arrow::internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(),
+                                                      indices.offset(), indices.length());
+      for (int64_t i = 0; i < indices.length(); ++i) {
+        if (valid_bits_reader.IsSet()) {
+          buffered_indices_.push_back(values[i]);
+        }
+        valid_bits_reader.Next();
+      }
+    } else {
+      buffered_indices_.insert(std::end(buffered_indices_), values,
+                               values + indices.length());
+    }
   }
 
   std::shared_ptr<Buffer> FlushValues() override {
@@ -551,6 +568,10 @@ void DictEncoderImpl<DType>::PutDictionary(const arrow::Array& values) {
 template <>
 void DictEncoderImpl<ByteArrayType>::PutDictionary(const arrow::Array& values) {
   AssertBinary(values);
+  if (this->num_entries() > 0) {
+    throw ParquetException("Can only call PutDictionary on an empty DictEncoder");
+  }
+
   const auto& data = checked_cast<const arrow::BinaryArray&>(values);
   if (data.null_count() > 0) {
     throw ParquetException("Inserted binary dictionary cannot cannot contain nulls");

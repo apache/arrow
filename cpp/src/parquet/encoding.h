@@ -101,9 +101,9 @@ class DictEncoder : virtual public TypedEncoder<DType> {
   /// \brief EXPERIMENTAL: Append dictionary indices into the encoder. It is
   /// assumed, without any boundschecking that the indices reference
   /// pre-existing dictionary values
-  /// \param[in] indices the dictionary index values
-  /// \param[in] length the number of values being inserted
-  virtual void PutIndices(const int32_t* indices, int length) = 0;
+  /// \param[in] indices the dictionary index values. Only Int32Array currently
+  /// supported
+  virtual void PutIndices(const ::arrow::Array& indices) = 0;
 
   /// \brief EXPERIMENTAL: Append dictionary into encoder, inserting indices
   /// separately. Currently throws exception if the current dictionary memo is
