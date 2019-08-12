@@ -489,7 +489,6 @@ public class DecimalVector extends BaseFixedWidthVector {
     set(index, isSet, start, buffer);
   }
 
-
   /*----------------------------------------------------------------*
    |                                                                |
    |                      vector transfer                           |

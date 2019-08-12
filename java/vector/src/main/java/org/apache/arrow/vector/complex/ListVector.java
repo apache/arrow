@@ -28,12 +28,14 @@ import java.util.List;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
@@ -430,28 +432,13 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     if (to == null) {
       return false;
     }
-    if (this.getClass() != to.getClass()) {
-      return false;
-    }
+    Preconditions.checkArgument(index >= 0 && index < valueCount,
+        "index %s out of range[0, %s]:", index, valueCount - 1);
+    Preconditions.checkArgument(toIndex >= 0 && toIndex < to.getValueCount(),
+        "index %s out of range[0, %s]:", index, to.getValueCount() - 1);
 
-    ListVector that = (ListVector) to;
-    final int leftStart = offsetBuffer.getInt(index * OFFSET_WIDTH);
-    final int leftEnd = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
-
-    final int rightStart = that.offsetBuffer.getInt(toIndex * OFFSET_WIDTH);
-    final int rightEnd = that.offsetBuffer.getInt((toIndex + 1) * OFFSET_WIDTH);
-
-    if ((leftEnd - leftStart) != (rightEnd - rightStart)) {
-      return false;
-    }
-
-    for (int i = 0; i < (leftEnd - leftStart); i++) {
-      if (!vector.equals(leftStart + i, that.vector, rightStart + i)) {
-        return false;
-      }
-    }
-
-    return true;
+    RangeEqualsVisitor visitor = new RangeEqualsVisitor(to, index, toIndex, 1);
+    return this.accept(visitor);
   }
 
   private class TransferImpl implements TransferPair {
@@ -836,5 +823,10 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   public int getLastSet() {
     return lastSet;
+  }
+
+  @Override
+  public boolean accept(RangeEqualsVisitor visitor) {
+    return visitor.visit(this);
   }
 }

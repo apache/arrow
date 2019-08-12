@@ -226,7 +226,10 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
     return children;
   }
 
-  protected List<String> getChildFieldNames() {
+  /**
+   * Get child field names.
+   */
+  public List<String> getChildFieldNames() {
     return getChildren().stream()
         .map(child -> child.getField().getName())
         .collect(Collectors.toList());

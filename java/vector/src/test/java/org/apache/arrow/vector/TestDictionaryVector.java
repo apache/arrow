@@ -398,8 +398,8 @@ public class TestDictionaryVector {
   @Test
   public void testIntEquals() {
     //test Int
-    try (final IntVector vector1 = new IntVector("", allocator);
-        final IntVector vector2 = new IntVector("", allocator)) {
+    try (final IntVector vector1 = new IntVector("int", allocator);
+        final IntVector vector2 = new IntVector("int", allocator)) {
 
       Dictionary dict1 = new Dictionary(vector1, new DictionaryEncoding(1L, false, null));
       Dictionary dict2 = new Dictionary(vector2, new DictionaryEncoding(1L, false, null));
@@ -426,8 +426,8 @@ public class TestDictionaryVector {
 
   @Test
   public void testVarcharEquals() {
-    try (final VarCharVector vector1 = new VarCharVector("", allocator);
-        final VarCharVector vector2 = new VarCharVector("", allocator)) {
+    try (final VarCharVector vector1 = new VarCharVector("varchar", allocator);
+        final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
 
       Dictionary dict1 = new Dictionary(vector1, new DictionaryEncoding(1L, false, null));
       Dictionary dict2 = new Dictionary(vector2, new DictionaryEncoding(1L, false, null));
@@ -455,8 +455,8 @@ public class TestDictionaryVector {
 
   @Test
   public void testVarBinaryEquals() {
-    try (final VarBinaryVector vector1 = new VarBinaryVector("", allocator);
-        final VarBinaryVector vector2 = new VarBinaryVector("", allocator)) {
+    try (final VarBinaryVector vector1 = new VarBinaryVector("binary", allocator);
+        final VarBinaryVector vector2 = new VarBinaryVector("binary", allocator)) {
 
       Dictionary dict1 = new Dictionary(vector1, new DictionaryEncoding(1L, false, null));
       Dictionary dict2 = new Dictionary(vector2, new DictionaryEncoding(1L, false, null));
@@ -484,8 +484,8 @@ public class TestDictionaryVector {
 
   @Test
   public void testListEquals() {
-    try (final ListVector vector1 = ListVector.empty("", allocator);
-        final ListVector vector2 = ListVector.empty("", allocator);) {
+    try (final ListVector vector1 = ListVector.empty("list", allocator);
+        final ListVector vector2 = ListVector.empty("list", allocator);) {
 
       Dictionary dict1 = new Dictionary(vector1, new DictionaryEncoding(1L, false, null));
       Dictionary dict2 = new Dictionary(vector2, new DictionaryEncoding(1L, false, null));
@@ -514,8 +514,8 @@ public class TestDictionaryVector {
 
   @Test
   public void testStructEquals() {
-    try (final StructVector vector1 = StructVector.empty("", allocator);
-        final StructVector vector2 = StructVector.empty("", allocator);) {
+    try (final StructVector vector1 = StructVector.empty("struct", allocator);
+        final StructVector vector2 = StructVector.empty("struct", allocator);) {
       vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
       vector1.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
       vector2.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
@@ -544,8 +544,8 @@ public class TestDictionaryVector {
 
   @Test
   public void testUnionEquals() {
-    try (final UnionVector vector1 = new UnionVector("", allocator, null);
-        final UnionVector vector2 = new UnionVector("", allocator, null);) {
+    try (final UnionVector vector1 = new UnionVector("union", allocator, null);
+        final UnionVector vector2 = new UnionVector("union", allocator, null);) {
 
       final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
       uInt4Holder.value = 10;

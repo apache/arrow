@@ -39,6 +39,7 @@ import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListReader;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListWriter;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -539,18 +540,18 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     if (to == null) {
       return false;
     }
-    if (this.getClass() != to.getClass()) {
-      return false;
-    }
+    Preconditions.checkArgument(index >= 0 && index < valueCount,
+        "index %s out of range[0, %s]:", index, valueCount - 1);
+    Preconditions.checkArgument(toIndex >= 0 && toIndex < to.getValueCount(),
+        "index %s out of range[0, %s]:", index, to.getValueCount() - 1);
 
-    FixedSizeListVector that = (FixedSizeListVector) to;
+    RangeEqualsVisitor visitor = new RangeEqualsVisitor(to, index, toIndex, 1);
+    return this.accept(visitor);
+  }
 
-    for (int i = 0; i < listSize; i++) {
-      if (!vector.equals(index * listSize + i, that, toIndex * listSize + i)) {
-        return false;
-      }
-    }
-    return true;
+  @Override
+  public boolean accept(RangeEqualsVisitor visitor) {
+    return visitor.visit(this);
   }
 
   private class TransferImpl implements TransferPair {
