@@ -234,7 +234,7 @@ TEST_F(DiffTest, CompareRandomStrings) {
   compute::FunctionContext ctx;
   for (auto null_probability : {0.0, 0.25}) {
     auto values = this->rng_.StringWithRepeats(1 << 10, 1 << 8, 0, 32, null_probability);
-    for (const double filter_probability : {0.99, 0.75, 0.5}) {
+    for (const double filter_probability : {0.99, 0.11, 0.70, 0.9, 0.75, 0.5}) {
       auto filter_1 = this->rng_.Boolean(values->length(), filter_probability, 0.0);
       auto filter_2 = this->rng_.Boolean(values->length(), filter_probability, 0.0);
 

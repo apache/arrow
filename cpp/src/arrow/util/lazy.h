@@ -105,6 +105,10 @@ class LazyRange {
       return this->index_ - other.index_;
     }
 
+    bool operator<(const typename LazyRange<Generator>::RangeIter& other) const {
+      return this->index_ < other.index_;
+    }
+
    private:
     // parent range reference
     const LazyRange* range_;

@@ -256,8 +256,9 @@ class QuadraticSpaceMyersDiff {
     auto insertions_minus_deletions =
         2 * (index - StorageOffset(edit_count)) - edit_count;
     auto maximal_base = endpoint_base_[index];
-    auto maximal_target =
-        target_begin_ + ((maximal_base - base_begin_) + insertions_minus_deletions);
+    auto maximal_target = std::min(
+        target_begin_ + ((maximal_base - base_begin_) + insertions_minus_deletions),
+        target_end_);
     return {maximal_base, maximal_target};
   }
 
