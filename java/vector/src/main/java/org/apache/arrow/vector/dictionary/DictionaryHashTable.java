@@ -20,6 +20,7 @@ package org.apache.arrow.vector.dictionary;
 import java.util.Objects;
 
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 
 /**
  * HashTable used for Dictionary encoding. It holds two vectors (the vector to encode and dictionary vector)
@@ -74,6 +75,8 @@ public class DictionaryHashTable {
 
   private final ValueVector dictionary;
 
+  private final RangeEqualsVisitor visitor;
+
   /**
    * Constructs an empty map with the specified initial capacity and load factor.
    */
@@ -94,6 +97,7 @@ public class DictionaryHashTable {
     for (int i = 0; i < this.dictionary.getValueCount(); i++) {
       put(i);
     }
+    this.visitor = new RangeEqualsVisitor(dictionary, 0, 0, 1);
   }
 
   public DictionaryHashTable(ValueVector dictionary) {
@@ -140,7 +144,8 @@ public class DictionaryHashTable {
     for (DictionaryHashTable.Entry e = table[index]; e != null ; e = e.next) {
       if ((e.hash == hash)) {
         int dictIndex = e.index;
-        if (dictionary.equals(dictIndex, toEncode, indexInArray)) {
+        visitor.reset(indexInArray, dictIndex, 1);
+        if (toEncode.accept(visitor)) {
           return dictIndex;
         }
       }

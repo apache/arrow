@@ -20,6 +20,7 @@ package org.apache.arrow.vector.compare;
 import java.util.List;
 
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.FieldVector;
@@ -37,9 +38,9 @@ import org.apache.arrow.vector.complex.UnionVector;
 public class RangeEqualsVisitor {
 
   protected final ValueVector right;
-  protected final int leftStart;
-  protected final int rightStart;
-  protected final int length;
+  protected int leftStart;
+  protected int rightStart;
+  protected int length;
 
   /**
    * Constructs a new instance.
@@ -49,29 +50,56 @@ public class RangeEqualsVisitor {
     this.rightStart = rightStart;
     this.right = right;
     this.length = length;
+    Preconditions.checkArgument(length >= 0, "length must be non negative");
+  }
+
+  /**
+   * Reset start indices and length for reuse purpose.
+   */
+  public void reset(int leftStart, int rightStart, int length) {
+    this.leftStart = leftStart;
+    this.rightStart = rightStart;
+    this.length = length;
+  }
+
+  private void validateIndices(ValueVector left) {
+    Preconditions.checkArgument(leftStart >= 0 && leftStart < left.getValueCount(),
+        "leftStart %s out of range[0, %s]:", 0, left.getValueCount());
+    Preconditions.checkArgument((leftStart + length) <= left.getValueCount(),
+        "(leftStart + length) %s out of range[0, %s]:", 0, left.getValueCount());
+    Preconditions.checkArgument(rightStart >= 0 && rightStart < right.getValueCount(),
+        "rightStart %s out of range[0, %s]:", 0, right.getValueCount());
+    Preconditions.checkArgument((rightStart + length) <= right.getValueCount(),
+        "(rightStart + length) %s out of range[0, %s]:", 0, right.getValueCount());
   }
 
   public boolean visit(BaseFixedWidthVector left) {
+    validateIndices(left);
     return compareBaseFixedWidthVectors(left);
   }
 
   public boolean visit(BaseVariableWidthVector left) {
+    validateIndices(left);
     return compareBaseVariableWidthVectors(left);
   }
 
   public boolean visit(ListVector left) {
+    validateIndices(left);
     return compareListVectors(left);
   }
 
   public boolean visit(FixedSizeListVector left) {
+    validateIndices(left);
     return compareFixedSizeListVectors(left);
   }
 
   public boolean visit(NonNullableStructVector left) {
+    validateIndices(left);
     return compareStructVectors(left);
   }
 
   public boolean visit(UnionVector left) {
+    validateIndices(left);
     return compareUnionVectors(left);
   }
 
@@ -152,14 +180,14 @@ public class RangeEqualsVisitor {
 
       int typeWidth = left.getTypeWidth();
       if (!isNull) {
-        int startByteLeft = typeWidth * leftIndex;
-        int endByteLeft = typeWidth * (leftIndex + 1);
+        int startIndexLeft = typeWidth * leftIndex;
+        int endIndexLeft = typeWidth * (leftIndex + 1);
 
-        int startByteRight = typeWidth * rightIndex;
-        int endByteRight = typeWidth * (rightIndex + 1);
+        int startIndexRight = typeWidth * rightIndex;
+        int endIndexRight = typeWidth * (rightIndex + 1);
 
-        int ret = ByteFunctionHelpers.equal(left.getDataBuffer(), startByteLeft, endByteLeft,
-            right.getDataBuffer(), startByteRight, endByteRight);
+        int ret = ByteFunctionHelpers.equal(left.getDataBuffer(), startIndexLeft, endIndexLeft,
+            right.getDataBuffer(), startIndexRight, endIndexRight);
 
         if (ret == 0) {
           return false;
@@ -186,14 +214,14 @@ public class RangeEqualsVisitor {
       int offsetWidth = BaseVariableWidthVector.OFFSET_WIDTH;
 
       if (!isNull) {
-        final int startByteLeft = left.getOffsetBuffer().getInt(leftIndex * offsetWidth);
-        final int endByteLeft = left.getOffsetBuffer().getInt((leftIndex + 1) * offsetWidth);
+        final int startIndexLeft = left.getOffsetBuffer().getInt(leftIndex * offsetWidth);
+        final int endIndexLeft = left.getOffsetBuffer().getInt((leftIndex + 1) * offsetWidth);
 
-        final int startByteRight = right.getOffsetBuffer().getInt(rightIndex * offsetWidth);
-        final int endByteRight = right.getOffsetBuffer().getInt((rightIndex + 1) * offsetWidth);
+        final int startIndexRight = right.getOffsetBuffer().getInt(rightIndex * offsetWidth);
+        final int endIndexRight = right.getOffsetBuffer().getInt((rightIndex + 1) * offsetWidth);
 
-        int ret = ByteFunctionHelpers.equal(left.getDataBuffer(), startByteLeft, endByteLeft,
-            right.getDataBuffer(), startByteRight, endByteRight);
+        int ret = ByteFunctionHelpers.equal(left.getDataBuffer(), startIndexLeft, endIndexLeft,
+            right.getDataBuffer(), startIndexRight, endIndexRight);
 
         if (ret == 0) {
           return false;
@@ -220,21 +248,21 @@ public class RangeEqualsVisitor {
       int offsetWidth = BaseRepeatedValueVector.OFFSET_WIDTH;
 
       if (!isNull) {
-        final int startByteLeft = left.getOffsetBuffer().getInt(leftIndex * offsetWidth);
-        final int endByteLeft = left.getOffsetBuffer().getInt((leftIndex + 1) * offsetWidth);
+        final int startIndexLeft = left.getOffsetBuffer().getInt(leftIndex * offsetWidth);
+        final int endIndexLeft = left.getOffsetBuffer().getInt((leftIndex + 1) * offsetWidth);
 
-        final int startByteRight = right.getOffsetBuffer().getInt(rightIndex * offsetWidth);
-        final int endByteRight = right.getOffsetBuffer().getInt((rightIndex + 1) * offsetWidth);
+        final int startIndexRight = right.getOffsetBuffer().getInt(rightIndex * offsetWidth);
+        final int endIndexRight = right.getOffsetBuffer().getInt((rightIndex + 1) * offsetWidth);
 
-        if ((endByteLeft - startByteLeft) != (endByteRight - startByteRight)) {
+        if ((endIndexLeft - startIndexLeft) != (endIndexRight - startIndexRight)) {
           return false;
         }
 
         ValueVector leftDataVector = left.getDataVector();
         ValueVector rightDataVector = ((ListVector)right).getDataVector();
 
-        if (!leftDataVector.accept(new RangeEqualsVisitor(rightDataVector, startByteLeft,
-            startByteRight, (endByteLeft - startByteLeft)))) {
+        if (!leftDataVector.accept(new RangeEqualsVisitor(rightDataVector, startIndexLeft,
+            startIndexRight, (endIndexLeft - startIndexLeft)))) {
           return false;
         }
       }
@@ -263,21 +291,21 @@ public class RangeEqualsVisitor {
       int listSize = left.getListSize();
 
       if (!isNull) {
-        final int startByteLeft = leftIndex * listSize;
-        final int endByteLeft = (leftIndex + 1) * listSize;
+        final int startIndexLeft = leftIndex * listSize;
+        final int endIndexLeft = (leftIndex + 1) * listSize;
 
-        final int startByteRight = rightIndex * listSize;
-        final int endByteRight = (rightIndex + 1) * listSize;
+        final int startIndexRight = rightIndex * listSize;
+        final int endIndexRight = (rightIndex + 1) * listSize;
 
-        if ((endByteLeft - startByteLeft) != (endByteRight - startByteRight)) {
+        if ((endIndexLeft - startIndexLeft) != (endIndexRight - startIndexRight)) {
           return false;
         }
 
         ValueVector leftDataVector = left.getDataVector();
         ValueVector rightDataVector = ((FixedSizeListVector)right).getDataVector();
 
-        if (!leftDataVector.accept(new RangeEqualsVisitor(rightDataVector, startByteLeft, startByteRight,
-            (endByteLeft - startByteLeft)))) {
+        if (!leftDataVector.accept(new RangeEqualsVisitor(rightDataVector, startIndexLeft, startIndexRight,
+            (endIndexLeft - startIndexLeft)))) {
           return false;
         }
       }
