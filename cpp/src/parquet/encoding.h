@@ -229,6 +229,7 @@ class ByteArrayDecoder : virtual public TypedDecoder<ByteArrayType> {
  public:
   using TypedDecoder<ByteArrayType>::DecodeSpaced;
 
+  /// \brief Returns number of encoded values decoded
   virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
                           ::arrow::BinaryDictionary32Builder* builder) = 0;
@@ -236,9 +237,11 @@ class ByteArrayDecoder : virtual public TypedDecoder<ByteArrayType> {
   virtual int DecodeArrowNonNull(int num_values,
                                  ::arrow::BinaryDictionary32Builder* builder) = 0;
 
+  /// \brief Returns number of encoded values decoded
   virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset, ::arrow::BinaryBuilder* builder) = 0;
 
+  /// \brief Returns number of encoded values decoded
   virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
                           ::arrow::internal::ChunkedBinaryBuilder* builder) = 0;
@@ -340,7 +343,7 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
 
 template <typename DType>
 std::unique_ptr<DictDecoder<DType>> MakeDictDecoder(
-    const ColumnDescriptor* descr,
+    const ColumnDescriptor* descr = NULLPTR,
     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
   using OutType = DictDecoder<DType>;
   auto decoder = detail::MakeDictDecoder(DType::type_num, descr, pool);

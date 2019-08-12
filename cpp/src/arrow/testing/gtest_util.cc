@@ -49,8 +49,7 @@ static void PrintChunkedArray(const ChunkedArray& carr, std::stringstream* ss) {
   for (int i = 0; i < carr.num_chunks(); ++i) {
     auto c1 = carr.chunk(i);
     *ss << "Chunk " << i << std::endl;
-    ::arrow::PrettyPrintOptions options(2);
-    options.window = 100;
+    ::arrow::PrettyPrintOptions options(/*indent=*/2);
     ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, options, ss));
     *ss << std::endl;
   }
@@ -61,8 +60,9 @@ void AssertTsEqual(const T& expected, const T& actual) {
   if (!expected.Equals(actual)) {
     std::stringstream pp_expected;
     std::stringstream pp_actual;
-    ARROW_EXPECT_OK(PrettyPrint(expected, 0, &pp_expected));
-    ARROW_EXPECT_OK(PrettyPrint(actual, 0, &pp_actual));
+    ::arrow::PrettyPrintOptions options(/*indent=*/2);
+    ARROW_EXPECT_OK(PrettyPrint(expected, options, &pp_expected));
+    ARROW_EXPECT_OK(PrettyPrint(actual, options, &pp_actual));
     FAIL() << "Got: \n" << pp_actual.str() << "\nExpected: \n" << pp_expected.str();
   }
 }

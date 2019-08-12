@@ -382,7 +382,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
 
   template <typename Builder>
   void CheckDense(int actual_num_values, Builder& builder) {
-    ASSERT_EQ(actual_num_values, num_values_);
+    ASSERT_EQ(actual_num_values, num_values_ - null_count_);
     arrow::ArrayVector actual_vec;
     ASSERT_OK(builder.Finish(&actual_vec));
     ASSERT_EQ(actual_vec.size(), 1);
@@ -391,7 +391,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
 
   template <typename Builder>
   void CheckDict(int actual_num_values, Builder& builder) {
-    ASSERT_EQ(actual_num_values, num_values_);
+    ASSERT_EQ(actual_num_values, num_values_ - null_count_);
     std::shared_ptr<arrow::Array> actual;
     ASSERT_OK(builder.Finish(&actual));
     ASSERT_ARRAYS_EQUAL(*actual, *expected_dict_);
@@ -480,35 +480,77 @@ TEST_F(PlainEncoding, CheckDecodeArrowNonNullDictBuilder) {
   this->CheckDecodeArrowNonNullUsingDictBuilder();
 }
 
-TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
+TEST(EncodingArrow, PlainBinaryDirectPut) {
   // Implemented as part of ARROW-3246
-  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
-  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
 
-  const int64_t size = 1000;
+  const int64_t size = 50;
   const int64_t min_length = 0;
   const int64_t max_length = 10;
   const double null_probability = 0.1;
-
   arrow::random::RandomArrayGenerator rag(0);
   auto values = rag.String(size, min_length, max_length, null_probability);
-  auto i32_values = rag.Int32(size, 0, 10, null_probability);
+
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
+
   ASSERT_NO_THROW(encoder->Put(*values));
-
-  // Type checked
-  ASSERT_THROW(encoder->Put(*i32_values), ParquetException);
-
   auto buf = encoder->FlushValues();
-  decoder->SetData(size, buf->data(), static_cast<int>(buf->size()));
+
+  int64_t num_values = values->length() - values->null_count();
+  decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
   arrow::StringBuilder builder;
-  ASSERT_EQ(size,
-            decoder->DecodeArrow(size, values->null_count(), values->null_bitmap_data(),
-                                 values->offset(), &builder));
+  ASSERT_EQ(num_values,
+            decoder->DecodeArrow(values->length(), values->null_count(),
+                                 values->null_bitmap_data(), values->offset(), &builder));
 
   std::shared_ptr<arrow::Array> result;
   ASSERT_OK(builder.Finish(&result));
+  arrow::AssertArraysEqual(*values, *result);
 
+  // Type checked
+  auto i32_values = rag.Int32(size, 0, 10, null_probability);
+  ASSERT_THROW(encoder->Put(*i32_values), ParquetException);
+}
+
+TEST(EncodingArrow, DictBinaryDirectPut) {
+  // Implemented as part of ARROW-3246
+
+  const int64_t size = 50;
+  const int64_t min_length = 0;
+  const int64_t max_length = 10;
+  const double null_probability = 0.1;
+  arrow::random::RandomArrayGenerator rag(0);
+  auto values = rag.String(size, min_length, max_length, null_probability);
+
+  auto owned_encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN,
+                                                       /*use_dictionary=*/true);
+  auto owned_decoder = MakeDictDecoder<ByteArrayType>();
+
+  auto encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(owned_encoder.get());
+  auto decoder = dynamic_cast<ByteArrayDecoder*>(owned_decoder.get());
+
+  ASSERT_NO_THROW(encoder->Put(*values));
+  auto buf = encoder->FlushValues();
+
+  auto dict_buf = AllocateBuffer(default_memory_pool(), encoder->dict_encoded_size());
+  encoder->WriteDict(dict_buf->mutable_data());
+
+  auto values_decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
+  values_decoder->SetData(encoder->num_entries(), dict_buf->data(),
+                          static_cast<int>(dict_buf->size()));
+
+  int64_t num_values = values->length() - values->null_count();
+  decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+  owned_decoder->SetDict(values_decoder.get());
+
+  arrow::StringBuilder builder;
+  ASSERT_EQ(num_values,
+            decoder->DecodeArrow(values->length(), values->null_count(),
+                                 values->null_bitmap_data(), values->offset(), &builder));
+
+  std::shared_ptr<arrow::Array> result;
+  ASSERT_OK(builder.Finish(&result));
   arrow::AssertArraysEqual(*values, *result);
 }
 

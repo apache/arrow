@@ -827,8 +827,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
   template <typename BuilderType>
   arrow::Status DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                             int64_t valid_bits_offset, BuilderType* builder,
-                            int* values_decoded) {
-    num_values = std::min(num_values, num_values_);
+                            int* out_values_decoded) {
     RETURN_NOT_OK(builder->Reserve(num_values));
     arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
     int increment;
@@ -836,7 +835,8 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     const uint8_t* data = data_;
     int64_t data_size = len_;
     int bytes_decoded = 0;
-    while (i < num_values) {
+    int64_t values_decoded = 0;
+    while (i < num_values && values_decoded < num_values_) {
       if (bit_reader.IsSet()) {
         uint32_t len = arrow::util::SafeLoadAs<uint32_t>(data);
         increment = static_cast<int>(sizeof(uint32_t) + len);
@@ -847,6 +847,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
         data += increment;
         data_size -= increment;
         bytes_decoded += increment;
+        ++values_decoded;
       } else {
         RETURN_NOT_OK(builder->AppendNull());
       }
@@ -856,8 +857,8 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
 
     data_ += bytes_decoded;
     len_ -= bytes_decoded;
-    num_values_ -= num_values;
-    *values_decoded = num_values;
+    num_values_ -= values_decoded;
+    *out_values_decoded = values_decoded;
     return arrow::Status::OK();
   }
 
@@ -956,7 +957,6 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
   int DecodeIndicesSpaced(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
                           arrow::ArrayBuilder* builder) override {
-    num_values = std::min(num_values, num_values_);
     if (num_values > 0) {
       // TODO(wesm): Refactor to batch reads for improved memory use. It is not
       // trivial because the null_count is relative to the entire bitmap
@@ -983,8 +983,8 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
     auto binary_builder = checked_cast<arrow::BinaryDictionary32Builder*>(builder);
     PARQUET_THROW_NOT_OK(
         binary_builder->AppendIndices(indices_buffer, num_values, valid_bytes.data()));
-    num_values_ -= num_values;
-    return num_values;
+    num_values_ -= num_values - null_count;
+    return num_values - null_count;
   }
 
   int DecodeIndices(int num_values, arrow::ArrayBuilder* builder) override {
@@ -1167,19 +1167,21 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
                             int* out_num_values) {
     constexpr int32_t buffer_size = 1024;
     int32_t indices_buffer[buffer_size];
+
     RETURN_NOT_OK(builder->Reserve(num_values));
     arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
 
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
 
     int values_decoded = 0;
-    while (values_decoded < num_values) {
+    int num_appended = 0;
+    while (num_appended < num_values) {
       bool is_valid = bit_reader.IsSet();
       bit_reader.Next();
 
       if (is_valid) {
         int32_t batch_size =
-            std::min<int32_t>(buffer_size, num_values - values_decoded - null_count);
+            std::min<int32_t>(buffer_size, num_values - num_appended - null_count);
         int num_indices = idx_decoder_.GetBatch(indices_buffer, batch_size);
 
         int i = 0;
@@ -1189,11 +1191,12 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
             const auto& val = dict_values[indices_buffer[i]];
             RETURN_NOT_OK(builder->Append(val.ptr, val.len));
             ++i;
+            ++values_decoded;
           } else {
             RETURN_NOT_OK(builder->AppendNull());
             --null_count;
           }
-          ++values_decoded;
+          ++num_appended;
           if (i == num_indices) {
             // Do not advance the bit_reader if we have fulfilled the decode
             // request
@@ -1205,12 +1208,12 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
       } else {
         RETURN_NOT_OK(builder->AppendNull());
         --null_count;
-        ++values_decoded;
+        ++num_appended;
       }
     }
-    if (values_decoded != num_values) {
+    if (num_values != num_appended) {
       return arrow::Status::IOError("Expected to dictionary-decode ", num_values,
-                                    " but only able to decode ", values_decoded);
+                                    " but only able to decode ", num_appended);
     }
     *out_num_values = values_decoded;
     return arrow::Status::OK();
