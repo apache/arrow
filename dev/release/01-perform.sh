@@ -19,12 +19,32 @@
 #
 set -e
 
-SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 pushd "${SOURCE_DIR}/../../java"
-
 git submodule update --init --recursive
+
+profile=arrow-jni # this includes components which depend on arrow cpp.
+
+cpp_dir="${PWD}/../cpp"
+cpp_build_dir=$(mktemp -d -t "apache-arrow-cpp.XXXXX")
+pushd ${cpp_build_dir}
+cmake \
+  -DARROW_GANDIVA=ON \
+  -DARROW_GANDIVA_JAVA=ON \
+  -DARROW_JNI=ON \
+  -DARROW_ORC=ON \
+  -DCMAKE_BUILD_TYPE=release \
+  -G Ninja \
+  "${cpp_dir}"
+ninja
+popd
+
 export ARROW_TEST_DATA=${PWD}/../testing/data
-mvn release:perform
+mvn \
+  release:perform \
+  -Darguments=-Darrow.cpp.build.dir=${cpp_build_dir}/release \
+  -P ${profile}
+rm -rf ${cpp_build_dir}
 
 popd
