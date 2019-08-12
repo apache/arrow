@@ -224,12 +224,14 @@ std::shared_ptr<OutputStream> BufferedOutputStream::raw() const { return impl_->
 
 class BufferedInputStream::Impl : public BufferedBase {
  public:
-  Impl(std::shared_ptr<InputStream> raw, MemoryPool* pool, int64_t raw_total_bytes_bound)
+  Impl(std::shared_ptr<RandomAccessFile> raw, MemoryPool* pool,int64_t raw_start_pos, int64_t raw_total_bytes_bound)
       : BufferedBase(pool),
         raw_(std::move(raw)),
         raw_read_total_(0),
         raw_read_bound_(raw_total_bytes_bound),
-        bytes_buffered_(0) {}
+        bytes_buffered_(0) {
+          raw_pos_ = raw_start_pos;
+        }
 
   ~Impl() { ARROW_CHECK_OK(Close()); }
 
@@ -244,11 +246,6 @@ class BufferedInputStream::Impl : public BufferedBase {
 
   Status Tell(int64_t* position) const {
     std::lock_guard<std::mutex> guard(lock_);
-    if (raw_pos_ == -1) {
-      RETURN_NOT_OK(raw_->Tell(&raw_pos_));
-      DCHECK_GE(raw_pos_, 0);
-    }
-    // Shift by bytes_buffered to return semantic stream position
     *position = raw_pos_ - bytes_buffered_;
     return Status::OK();
   }
@@ -288,8 +285,10 @@ class BufferedInputStream::Impl : public BufferedBase {
             std::min(additional_bytes_to_read, raw_read_bound_ - raw_read_total_);
       }
       int64_t bytes_read = -1;
+      RETURN_NOT_OK(raw_->Seek(raw_pos_));
       RETURN_NOT_OK(raw_->Read(additional_bytes_to_read, &bytes_read,
                                buffer_->mutable_data() + buffer_pos_ + bytes_buffered_));
+      raw_pos_ += bytes_read;
       bytes_buffered_ += bytes_read;
       raw_read_total_ += bytes_read;
       nbytes = bytes_buffered_;
@@ -304,7 +303,7 @@ class BufferedInputStream::Impl : public BufferedBase {
 
   int64_t buffer_size() const { return buffer_size_; }
 
-  std::shared_ptr<InputStream> Detach() {
+  std::shared_ptr<RandomAccessFile> Detach() {
     std::lock_guard<std::mutex> guard(lock_);
     is_open_ = false;
     return std::move(raw_);
@@ -326,12 +325,12 @@ class BufferedInputStream::Impl : public BufferedBase {
       if (raw_read_bound_ >= 0) {
         bytes_to_buffer = std::min(buffer_size_, raw_read_bound_ - raw_read_total_);
       }
+      RETURN_NOT_OK(raw_->Seek(raw_pos_));
       RETURN_NOT_OK(raw_->Read(bytes_to_buffer, &bytes_buffered_, buffer_data_));
       buffer_pos_ = 0;
       raw_read_total_ += bytes_buffered_;
-
+      raw_pos_ += bytes_buffered_;
       // Do not make assumptions about the raw stream position
-      raw_pos_ = -1;
     }
     return Status::OK();
   }
@@ -360,12 +359,12 @@ class BufferedInputStream::Impl : public BufferedBase {
       if (raw_read_bound_ >= 0) {
         bytes_to_read = std::min(bytes_to_read, raw_read_bound_ - raw_read_total_);
       }
+      RETURN_NOT_OK(raw_->Seek(raw_pos_));
       RETURN_NOT_OK(raw_->Read(bytes_to_read, bytes_read,
                                reinterpret_cast<uint8_t*>(out) + bytes_buffered_));
       raw_read_total_ += *bytes_read;
-
+      raw_pos_ += *bytes_read;
       // Do not make assumptions about the raw stream position
-      raw_pos_ = -1;
       *bytes_read += bytes_buffered_;
       RewindBuffer();
     } else {
@@ -394,10 +393,10 @@ class BufferedInputStream::Impl : public BufferedBase {
   }
 
   // For providing access to the raw file handles
-  std::shared_ptr<InputStream> raw() const { return raw_; }
+  std::shared_ptr<RandomAccessFile> raw() const { return raw_; }
 
  private:
-  std::shared_ptr<InputStream> raw_;
+  std::shared_ptr<RandomAccessFile> raw_;
   int64_t raw_read_total_;
   int64_t raw_read_bound_;
 
@@ -406,20 +405,22 @@ class BufferedInputStream::Impl : public BufferedBase {
   int64_t bytes_buffered_;
 };
 
-BufferedInputStream::BufferedInputStream(std::shared_ptr<InputStream> raw,
+BufferedInputStream::BufferedInputStream(std::shared_ptr<RandomAccessFile> raw,
                                          MemoryPool* pool,
+                                         int64_t raw_start_pos,
                                          int64_t raw_total_bytes_bound) {
-  impl_.reset(new Impl(std::move(raw), pool, raw_total_bytes_bound));
+  impl_.reset(new Impl(std::move(raw), pool, raw_start_pos, raw_total_bytes_bound));
 }
 
 BufferedInputStream::~BufferedInputStream() { ARROW_CHECK_OK(impl_->Close()); }
 
 Status BufferedInputStream::Create(int64_t buffer_size, MemoryPool* pool,
-                                   std::shared_ptr<InputStream> raw,
+                                   std::shared_ptr<RandomAccessFile> raw,
                                    std::shared_ptr<BufferedInputStream>* out,
+                                   int64_t raw_start_pos,
                                    int64_t raw_total_bytes_bound) {
   auto result = std::shared_ptr<BufferedInputStream>(
-      new BufferedInputStream(std::move(raw), pool, raw_total_bytes_bound));
+      new BufferedInputStream(std::move(raw), pool, raw_start_pos, raw_total_bytes_bound));
   RETURN_NOT_OK(result->SetBufferSize(buffer_size));
   *out = std::move(result);
   return Status::OK();
@@ -429,9 +430,9 @@ Status BufferedInputStream::Close() { return impl_->Close(); }
 
 bool BufferedInputStream::closed() const { return impl_->closed(); }
 
-std::shared_ptr<InputStream> BufferedInputStream::Detach() { return impl_->Detach(); }
+std::shared_ptr<RandomAccessFile> BufferedInputStream::Detach() { return impl_->Detach(); }
 
-std::shared_ptr<InputStream> BufferedInputStream::raw() const { return impl_->raw(); }
+std::shared_ptr<RandomAccessFile> BufferedInputStream::raw() const { return impl_->raw(); }
 
 Status BufferedInputStream::Tell(int64_t* position) const {
   return impl_->Tell(position);

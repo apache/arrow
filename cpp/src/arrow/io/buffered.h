@@ -103,8 +103,9 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   /// to read from the raw input stream. The default -1 indicates that
   /// it is unbounded
   static Status Create(int64_t buffer_size, MemoryPool* pool,
-                       std::shared_ptr<InputStream> raw,
+                       std::shared_ptr<RandomAccessFile> raw,
                        std::shared_ptr<BufferedInputStream>* out,
+                       int64_t raw_start_pos,
                        int64_t raw_read_bound = -1);
 
   /// \brief Resize internal read buffer; calls to Read(...) will read at least
@@ -121,10 +122,10 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   /// \brief Release the raw InputStream. Any data buffered will be
   /// discarded. Further operations on this object are invalid
   /// \return raw the underlying InputStream
-  std::shared_ptr<InputStream> Detach();
+  std::shared_ptr<RandomAccessFile> Detach();
 
   /// \brief Return the unbuffered InputStream
-  std::shared_ptr<InputStream> raw() const;
+  std::shared_ptr<RandomAccessFile> raw() const;
 
   // InputStream APIs
 
@@ -147,8 +148,8 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
  private:
-  explicit BufferedInputStream(std::shared_ptr<InputStream> raw, MemoryPool* pool,
-                               int64_t raw_total_bytes_bound);
+  explicit BufferedInputStream(std::shared_ptr<RandomAccessFile> raw, MemoryPool* pool,
+                                int64_t raw_start_pos, int64_t raw_total_bytes_bound);
 
   class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;

@@ -29,7 +29,7 @@ std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
     std::shared_ptr<::arrow::io::BufferedInputStream> stream;
     PARQUET_THROW_NOT_OK(source->Seek(start));
     PARQUET_THROW_NOT_OK(::arrow::io::BufferedInputStream::Create(
-        buffer_size_, pool_, source, &stream, num_bytes));
+        buffer_size_, pool_, source, &stream, start, num_bytes));
     return std::move(stream);
   } else {
     std::shared_ptr<Buffer> data;

@@ -402,6 +402,193 @@ int main(int argc, char** argv) {
     std::cerr << "Parquet read error: " << e.what() << std::endl;
     return -1;
   }
+  
+  try {
+    // Create a ParquetReader instance
+    parquet::ReaderProperties props = parquet::default_reader_properties();
+    props.enable_buffered_stream();
+    props.set_buffer_size(16);
+    std::unique_ptr<parquet::ParquetFileReader> parquet_reader =
+        parquet::ParquetFileReader::OpenFile(PARQUET_FILENAME, false, props);
+
+    // Get the File MetaData
+    std::shared_ptr<parquet::FileMetaData> file_metadata = parquet_reader->metadata();
+
+    // Get the number of RowGroups
+    int num_row_groups = file_metadata->num_row_groups();
+    assert(num_row_groups == 1);
+
+    // Get the number of Columns
+    int num_columns = file_metadata->num_columns();
+    assert(num_columns == 8);
+
+    // Iterate over all the RowGroups in the file
+    for (int r = 0; r < num_row_groups; ++r) {
+      // Get the RowGroup Reader
+      std::shared_ptr<parquet::RowGroupReader> row_group_reader =
+          parquet_reader->RowGroup(r);
+
+      int64_t values_read = 0;
+      int64_t rows_read = 0;
+      int16_t definition_level;
+      int16_t repetition_level;
+      int i;
+      std::vector<std::shared_ptr<parquet::ColumnReader>> column_reader(8);
+
+      // Get the Column Reader for the boolean column
+      column_reader[0] = row_group_reader->Column(0);
+      parquet::BoolReader* bool_reader =
+          static_cast<parquet::BoolReader*>(column_reader[0].get());
+
+      column_reader[1] = row_group_reader->Column(1);
+      parquet::Int32Reader* int32_reader =
+          static_cast<parquet::Int32Reader*>(column_reader[1].get());
+
+      column_reader[2] = row_group_reader->Column(2);
+      parquet::Int64Reader* int64_reader =
+          static_cast<parquet::Int64Reader*>(column_reader[2].get());
+
+      column_reader[3] = row_group_reader->Column(3);
+      parquet::Int96Reader* int96_reader =
+          static_cast<parquet::Int96Reader*>(column_reader[3].get());
+
+      column_reader[4] = row_group_reader->Column(4);
+      parquet::FloatReader* float_reader =
+          static_cast<parquet::FloatReader*>(column_reader[4].get());
+
+      column_reader[5] = row_group_reader->Column(5);
+      parquet::DoubleReader* double_reader =
+          static_cast<parquet::DoubleReader*>(column_reader[5].get());
+               // Get the Column Reader for the ByteArray column
+      column_reader[6] = row_group_reader->Column(6);
+      parquet::ByteArrayReader* ba_reader =
+          static_cast<parquet::ByteArrayReader*>(column_reader[6].get());
+
+      column_reader[7] = row_group_reader->Column(7);
+      parquet::FixedLenByteArrayReader* flba_reader =
+          static_cast<parquet::FixedLenByteArrayReader*>(column_reader[7].get());
+
+      for(int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++){
+            
+        if (bool_reader->HasNext()) {
+          bool value;
+          rows_read = bool_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+          // Ensure only one value is read
+          assert(rows_read == 1);
+          // There are no NULL values in the rows written
+          assert(values_read == 1);
+          // Verify the value written
+          bool expected_value = ((i % 2) == 0) ? true : false;
+          assert(value == expected_value);
+        }
+
+        if (int32_reader->HasNext()) {
+          int32_t value;
+          rows_read = int32_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+          // Ensure only one value is read
+          assert(rows_read == 1);
+          // There are no NULL values in the rows written
+          assert(values_read == 1);
+          // Verify the value written
+          assert(value == i);
+        }
+
+        if (int64_reader->HasNext()) {
+          int64_t value;
+          rows_read = int64_reader->ReadBatch(1, &definition_level, &repetition_level,
+                                              &value, &values_read);
+          assert(rows_read == 1);
+          // There are no NULL values in the rows written
+          assert(values_read == 1);
+          // Verify the value written
+          int64_t expected_value = i * 1000 * 1000;
+          expected_value *= 1000 * 1000;
+          assert(value == expected_value);
+          if ((i % 2) == 0) {
+            assert(repetition_level == 1);
+          } else {
+            assert(repetition_level == 0);
+          }
+        }
+
+        if (int96_reader->HasNext()) {
+          parquet::Int96 value;
+          rows_read = int96_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+          // Ensure only one value is read
+          assert(rows_read == 1);
+          // There are no NULL values in the rows written
+          assert(values_read == 1);
+          // Verify the value written
+          parquet::Int96 expected_value;
+          expected_value.value[0] = i;
+          expected_value.value[1] = i + 1;
+          expected_value.value[2] = i + 2;
+          for (int j = 0; j < 3; j++) {
+            assert(value.value[j] == expected_value.value[j]);
+          }
+        }
+
+
+        if (float_reader->HasNext()) {
+          float value;
+          rows_read = float_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+          assert(rows_read == 1);
+          // There are no NULL values in the rows written
+          assert(values_read == 1);
+          // Verify the value written
+          float expected_value = static_cast<float>(i) * 1.1f;
+          assert(value == expected_value);
+        }
+
+        if (double_reader->HasNext()) {
+          double value;
+          rows_read = double_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+          assert(rows_read == 1);
+          // There are no NULL values in the rows written
+          assert(values_read == 1);
+          // Verify the value written
+          double expected_value = i * 1.1111111;
+          assert(value == expected_value);        
+        }
+        if (ba_reader->HasNext()) {
+          parquet::ByteArray value;
+          rows_read =
+              ba_reader->ReadBatch(1, &definition_level, nullptr, &value, &values_read);
+          assert(rows_read == 1);
+          // Verify the value written
+          char expected_value[FIXED_LENGTH] = "parquet";
+          expected_value[7] = static_cast<char>('0' + i / 100);
+          expected_value[8] = static_cast<char>('0' + (i / 10) % 10);
+          expected_value[9] = static_cast<char>('0' + i % 10);
+          if (i % 2 == 0) {  // only alternate values exist
+            // There are no NULL values in the rows written
+            assert(values_read == 1);
+            assert(value.len == FIXED_LENGTH);
+            assert(memcmp(value.ptr, &expected_value[0], FIXED_LENGTH) == 0);
+            assert(definition_level == 1);
+          } else {
+            // There are NULL values in the rows written
+            assert(values_read == 0);
+            assert(definition_level == 0);
+          }
+        }
+
+        if (flba_reader->HasNext()) {
+          parquet::FixedLenByteArray value;
+          rows_read = flba_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+          assert(rows_read == 1);
+          assert(values_read == 1);
+          // Verify the value written
+          char v = static_cast<char>(i);
+          char expected_value[FIXED_LENGTH] = {v, v, v, v, v, v, v, v, v, v};
+          assert(memcmp(value.ptr, &expected_value[0], FIXED_LENGTH) == 0);
+        }
+      }
+    }
+  } catch (const std::exception& e) {
+    std::cerr << "Parquet read error: " << e.what() << std::endl;
+    return -1;
+  }
 
   std::cout << "Parquet Writing and Reading Complete" << std::endl;
 

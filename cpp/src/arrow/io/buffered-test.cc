@@ -323,13 +323,13 @@ class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
     std::shared_ptr<ReadableFile> file_in;
     ASSERT_OK(ReadableFile::Open(path_, &file_in));
     raw_ = file_in;
-    ASSERT_OK(BufferedInputStream::Create(buffer_size, pool, raw_, &buffered_));
+    ASSERT_OK(BufferedInputStream::Create(buffer_size, pool, raw_, &buffered_, 0));
   }
 
  protected:
   std::unique_ptr<MemoryPool> local_pool_;
   std::string test_data_;
-  std::shared_ptr<InputStream> raw_;
+  std::shared_ptr<RandomAccessFile> raw_;
 };
 
 TEST_F(TestBufferedInputStream, BasicOperation) {
@@ -467,7 +467,7 @@ class TestBufferedInputStreamBound : public ::testing::Test {
     source_ = std::make_shared<BufferReader>(buf);
     ASSERT_OK(source_->Advance(stream_offset_));
     ASSERT_OK(BufferedInputStream::Create(chunk_size_, default_memory_pool(), source_,
-                                          &stream_, bounded ? stream_size_ : -1));
+                                          &stream_, stream_offset_, bounded ? stream_size_ : -1));
   }
 
  protected:
@@ -475,7 +475,7 @@ class TestBufferedInputStreamBound : public ::testing::Test {
   int64_t stream_offset_ = 10;
   int64_t stream_size_ = source_size_ - stream_offset_;
   int64_t chunk_size_ = 50;
-  std::shared_ptr<InputStream> source_;
+  std::shared_ptr<RandomAccessFile> source_;
   std::shared_ptr<BufferedInputStream> stream_;
 };
 
