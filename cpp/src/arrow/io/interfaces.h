@@ -191,7 +191,7 @@ class ARROW_EXPORT ReadWriteFileInterface : public RandomAccessFile, public Writ
 };
 
 // TODO(kszucs): remove this after 0.13
-#if not defined(_MSC_VER) && not defined(__CUDACC__)
+#if !defined(_MSC_VER) && !defined(__CUDACC__)
 using WriteableFile ARROW_DEPRECATED("Use WritableFile") = WritableFile;
 using ReadableFileInterface ARROW_DEPRECATED("Use RandomAccessFile") = RandomAccessFile;
 #else
