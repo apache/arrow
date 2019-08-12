@@ -18,6 +18,10 @@
 #include "arrow/api.h"
 #include "arrow/testing/gtest_util.h"
 #include <random>
+#include <limits>
+#include <string>
+#include <vector>
+#include <memory>
 
 namespace arrow {
 namespace colfmt {
@@ -107,7 +111,6 @@ class DatasetGenerator {
 Dataset DatasetGenerator::GenerateNestedStruct(int num_docs, int num_structs,
                                                int num_fields, double pr_struct_null,
                                                double pr_field_null) {
-
   std::vector<std::shared_ptr<arrow::StructBuilder>> struct_builders;
   std::vector<std::shared_ptr<arrow::UInt64Builder>> field_builders;
 

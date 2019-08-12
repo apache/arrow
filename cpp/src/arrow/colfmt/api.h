@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/status.h"
@@ -97,9 +98,9 @@ class ARROW_EXPORT Shredder {
 
  private:
   class ARROW_NO_EXPORT Impl;
-  std::unique_ptr<Impl> impl_;
+  explicit Shredder(std::unique_ptr<Impl> impl);
 
-  Shredder(std::unique_ptr<Impl> impl);
+  std::unique_ptr<Impl> impl_;
 };
 
 
@@ -130,7 +131,7 @@ class ARROW_EXPORT Stitcher {
 
  private:
   class ARROW_NO_EXPORT Impl;
-  Stitcher(std::unique_ptr<Impl> impl);
+  explicit Stitcher(std::unique_ptr<Impl> impl);
 
   std::unique_ptr<Impl> impl_;
 };

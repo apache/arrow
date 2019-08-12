@@ -395,9 +395,10 @@ class ListShredNode : public ShredNode {
   }
 };
 
-Result<std::unique_ptr<ShredNode>> ShredNode::CreateTree(const std::shared_ptr<Field>& field,
-                                                         int16_t rep_level, int16_t def_level,
-                                                         MemoryPool* pool) {
+Result<std::unique_ptr<ShredNode>>
+ShredNode::CreateTree(const std::shared_ptr<Field>& field,
+                      int16_t rep_level, int16_t def_level,
+                      MemoryPool* pool) {
   switch (field->type()->id()) {
     case Type::STRUCT:
       return StructShredNode::Create(field, rep_level, def_level, pool);
@@ -418,7 +419,7 @@ Result<std::unique_ptr<ShredNode>> ShredNode::CreateTree(const std::shared_ptr<F
 
 class Shredder::Impl {
  public:
-  Impl(std::unique_ptr<ShredNode> root) : root_(std::move(root)) {}
+  explicit Impl(std::unique_ptr<ShredNode> root) : root_(std::move(root)) {}
 
   std::unique_ptr<ShredNode> root_;
 };
@@ -517,7 +518,7 @@ namespace {
 
 class StitchNode {
  public:
-  StitchNode(const std::shared_ptr<Field>& field)
+  explicit StitchNode(const std::shared_ptr<Field>& field)
       : field_(field) {
   }
   virtual ~StitchNode() {}
@@ -615,8 +616,8 @@ class StitchNode {
   // Appends element (NULL, empty list, value) to current builder depending on def_level
   virtual Status Append(int16_t def_level, bool* godown) = 0;
 
-  // Given that current node is base node, and also given def_level of the left-most leaf node,
-  // go along the path from base node to leaf node and Append() elements
+  // Given that current node is base node, and also given def_level of the left-most
+  // leaf node, go along the path from base node to leaf node and Append() elements
   // as required by def_level.
   Status AppendBranch(int16_t def_level) {
     StitchNode* node = this;
@@ -678,7 +679,7 @@ class StitchNode {
       return Status::Invalid("No definition levels for field ", field_->name());
     }
     if (rep_levels->length() != def_levels->length()) {
-      return Status::Invalid("Different number of repetition vs definition levels, field ",
+      return Status::Invalid("Different number of repetition/definition levels, field ",
                              field_->name());
     }
     for (int64_t i = 0; i < rep_levels->length(); i++) {
@@ -884,7 +885,7 @@ class StructStitchNode : public StitchNode {
 };
 
 class ListStitchNode : public StitchNode {
-public:
+ public:
   using StitchNode::StitchNode;
 
   static Result<std::unique_ptr<StitchNode>>
@@ -967,7 +968,7 @@ StitchNode::CreateTree(std::shared_ptr<Field> field,
 } // anonymous namespace
 
 class Stitcher::Impl {
-public:
+ public:
   Impl(std::unique_ptr<StitchNode>&& root, MemoryPool* pool)
       : root_(std::move(root)),
         pool_(pool) {
