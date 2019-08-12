@@ -268,6 +268,6 @@ public class ZeroVector implements FieldVector {
 
   @Override
   public boolean accept(RangeEqualsVisitor visitor) {
-    return true;
+    return visitor.visit(this);
   }
 }

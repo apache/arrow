@@ -2266,6 +2266,19 @@ public class TestValueVector {
   }
 
   @Test
+  public void testZeroVectorNotEquals() {
+    try (final IntVector intVector = new IntVector("int", allocator);
+         final ZeroVector zeroVector = new ZeroVector()) {
+
+      VectorEqualsVisitor zeroVisitor = new VectorEqualsVisitor(zeroVector);
+      assertFalse(intVector.accept(zeroVisitor));
+
+      VectorEqualsVisitor intVisitor = new VectorEqualsVisitor(intVector);
+      assertFalse(zeroVector.accept(intVisitor));
+    }
+  }
+
+  @Test
   public void testIntVectorEqualsWithNull() {
     try (final IntVector vector1 = new IntVector("int", allocator);
         final IntVector vector2 = new IntVector("int", allocator)) {

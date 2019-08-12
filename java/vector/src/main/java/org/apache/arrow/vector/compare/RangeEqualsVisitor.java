@@ -76,7 +76,7 @@ public class RangeEqualsVisitor {
   }
 
   public boolean visit(ZeroVector left) {
-    return true;
+    return compareValueVector(left, right);
   }
 
   public boolean visit(ValueVector left) {
