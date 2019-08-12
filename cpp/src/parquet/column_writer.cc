@@ -680,7 +680,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
         DCHECK_NE(nullptr, values);
       }
       WriteValues(values + value_offset, values_to_write, batch_size - values_to_write);
-      CommitWriteAndCheckLimits(batch_size, values_to_write);
+      CommitWriteAndCheckPageLimit(batch_size, values_to_write);
+      CheckDictionarySizeLimit();
       value_offset += values_to_write;
     };
     DoInBatches(num_values, properties_->write_batch_size(), WriteChunk);
@@ -698,7 +699,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                         &batch_num_values, &batch_num_spaced_values);
       WriteValuesSpaced(values + value_offset, batch_num_values, batch_num_spaced_values,
                         valid_bits, valid_bits_offset + value_offset);
-      CommitWriteAndCheckLimits(batch_size, batch_num_spaced_values);
+      CommitWriteAndCheckPageLimit(batch_size, batch_num_spaced_values);
+      CheckDictionarySizeLimit();
       value_offset += batch_num_spaced_values;
     };
     DoInBatches(num_values, properties_->write_batch_size(), WriteChunk);
@@ -717,6 +719,13 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     return current_encoder_->FlushValues();
   }
 
+  // Internal function to handle direct writing of arrow::DictionaryArray,
+  // since the standard logic concerning dictionary size limits and fallback to
+  // plain encoding is circumvented
+  Status WriteArrowDictionary(const int16_t* def_levels, const int16_t* rep_levels,
+                              int64_t num_levels, const ::arrow::Array& array,
+                              ArrowWriteContext* context);
+
   void WriteDictionaryPage() override {
     // We have to dynamic cast here because of TypedEncoder<Type> as
     // some compilers don't want to cast through virtual inheritance
@@ -729,28 +738,6 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     DictionaryPage page(buffer, dict_encoder->num_entries(),
                         properties_->dictionary_page_encoding());
     total_bytes_written_ += pager_->WriteDictionaryPage(page);
-  }
-
-  // Checks if the Dictionary Page size limit is reached
-  // If the limit is reached, the Dictionary and Data Pages are serialized
-  // The encoding is switched to PLAIN
-  //
-  // Only one Dictionary Page is written.
-  // Fallback to PLAIN if dictionary page limit is reached.
-  void CheckDictionarySizeLimit() {
-    // We have to dynamic cast here because TypedEncoder<Type> as some compilers
-    // don't want to cast through virtual inheritance
-    auto dict_encoder = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
-    if (dict_encoder->dict_encoded_size() >= properties_->dictionary_pagesize_limit()) {
-      WriteDictionaryPage();
-      // Serialize the buffered Dictionary Indicies
-      FlushBufferedDataPages();
-      fallback_ = true;
-      // Only PLAIN encoding is supported for fallback in V1
-      current_encoder_ = MakeEncoder(DType::type_num, Encoding::PLAIN, false, descr_,
-                                     properties_->memory_pool());
-      encoding_ = Encoding::PLAIN;
-    }
   }
 
   EncodedStatistics GetPageStatistics() override {
@@ -790,6 +777,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   std::unique_ptr<Encoder> current_encoder_;
   std::shared_ptr<TypedStats> page_statistics_;
   std::shared_ptr<TypedStats> chunk_statistics_;
+
+  // If writing a sequence of arrow::DictionaryArray to the writer, we keep the
+  // dictionary passed to DictEncoder<T>::PutDictionary so we can check
+  // subsequent array chunks to see either if materialization is required (in
+  // which case we call back to the dense write path)
+  std::shared_ptr<arrow::Array> preserved_dictionary_;
 
   int64_t WriteLevels(int64_t num_values, const int16_t* def_levels,
                       const int16_t* rep_levels) {
@@ -874,15 +867,40 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     *out_spaced_values_to_write = spaced_values_to_write;
   }
 
-  void CommitWriteAndCheckLimits(int64_t num_levels, int64_t num_values) {
+  void CommitWriteAndCheckPageLimit(int64_t num_levels, int64_t num_values) {
     num_buffered_values_ += num_levels;
     num_buffered_encoded_values_ += num_values;
 
     if (current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize()) {
       AddDataPage();
     }
-    if (has_dictionary_ && !fallback_) {
-      CheckDictionarySizeLimit();
+  }
+
+  // Checks if the Dictionary Page size limit is reached
+  // If the limit is reached, the Dictionary and Data Pages are serialized
+  // The encoding is switched to PLAIN
+  //
+  // Only one Dictionary Page is written.
+  // Fallback to PLAIN if dictionary page limit is reached.
+  void CheckDictionarySizeLimit() {
+    if (!has_dictionary_ || fallback_) {
+      // Either not using dictionary encoding, or we have already fallen back
+      // to PLAIN encoding because the size threshold was reached
+      return;
+    }
+
+    // We have to dynamic cast here because TypedEncoder<Type> as some compilers
+    // don't want to cast through virtual inheritance
+    auto dict_encoder = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
+    if (dict_encoder->dict_encoded_size() >= properties_->dictionary_pagesize_limit()) {
+      WriteDictionaryPage();
+      // Serialize the buffered Dictionary Indicies
+      FlushBufferedDataPages();
+      fallback_ = true;
+      // Only PLAIN encoding is supported for fallback in V1
+      current_encoder_ = MakeEncoder(DType::type_num, Encoding::PLAIN, false, descr_,
+                                     properties_->memory_pool());
+      encoding_ = Encoding::PLAIN;
     }
   }
 
@@ -911,6 +929,16 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
   }
 };
+
+template <typename DType>
+Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(const int16_t* def_levels,
+                                                          const int16_t* rep_levels,
+                                                          int64_t num_levels,
+                                                          const ::arrow::Array& array,
+                                                          ArrowWriteContext* ctx) {
+  return Status::NotImplemented("Dictionary writes not implemented for ",
+                                descr_->ToString());
+}
 
 // ----------------------------------------------------------------------
 // Direct Arrow write path
@@ -1296,32 +1324,59 @@ Status TypedColumnWriterImpl<DoubleType>::WriteArrow(const int16_t* def_levels,
 // ----------------------------------------------------------------------
 // Write Arrow to BYTE_ARRAY
 
+Status MaterializeDictionary(const Array& array, std::shared_ptr<Array>* out) {
+  const ::arrow::DictionaryType& dict_type =
+      static_cast<const ::arrow::DictionaryType&>(*data->type());
+
+  // TODO(ARROW-1648): Remove this special handling once we require an Arrow
+  // version that has this fixed.
+  if (dict_type.value_type()->id() == ::arrow::Type::NA) {
+    *out = std::make_shared<::arrow::NullArray>(data->length());
+    return Status::OK();
+  }
+
+  FunctionContext ctx(this->memory_pool());
+  ::arrow::compute::Datum cast_output;
+  RETURN_NOT_OK(Cast(&ctx, data, dict_type.value_type(), CastOptions(), &cast_output));
+  *out = cast_output.make_array();
+  return Status::OK();
+}
+
+template <>
+Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDictionary(
+    const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
+    const ::arrow::Array& array, ArrowWriteContext* ctx) {}
+
 template <>
 Status TypedColumnWriterImpl<ByteArrayType>::WriteArrow(const int16_t* def_levels,
                                                         const int16_t* rep_levels,
                                                         int64_t num_levels,
                                                         const ::arrow::Array& array,
                                                         ArrowWriteContext* ctx) {
-  if (array.type()->id() != ::arrow::Type::BINARY &&
-      array.type()->id() != ::arrow::Type::STRING) {
+  if (array.type()->id() != arrow::Type::DICTIONARY) {
+    return WriteArrowDictionary(def_levels, rep_levels, num_levels, array, ctx);
+  } else if (array.type()->id() != arrow::Type::BINARY &&
+             array.type()->id() != arrow::Type::STRING) {
     ARROW_UNSUPPORTED();
   }
+
   int64_t value_offset = 0;
   auto WriteChunk = [&](int64_t offset, int64_t batch_size) {
     int64_t batch_num_values = 0;
     int64_t batch_num_spaced_values = 0;
     WriteLevelsSpaced(batch_size, def_levels + offset, rep_levels + offset,
                       &batch_num_values, &batch_num_spaced_values);
-
     std::shared_ptr<::arrow::Array> data_slice =
         array.Slice(value_offset, batch_num_spaced_values);
     current_encoder_->Put(*data_slice);
     if (page_statistics_ != nullptr) {
       page_statistics_->Update(*data_slice);
     }
-    CommitWriteAndCheckLimits(batch_size, batch_num_values);
+    CommitWriteAndCheckPageLimit(batch_size, batch_num_values);
+    CheckDictionarySizeLimit();
     value_offset += batch_num_spaced_values;
   };
+
   PARQUET_CATCH_NOT_OK(
       DoInBatches(num_levels, properties_->write_batch_size(), WriteChunk));
   return Status::OK();

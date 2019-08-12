@@ -444,28 +444,6 @@ class FileWriterImpl : public FileWriter {
 
   Status WriteColumnChunk(const std::shared_ptr<ChunkedArray>& data, int64_t offset,
                           int64_t size) override {
-    // DictionaryArrays are not yet handled with a fast path. To still support
-    // writing them as a workaround, we convert them back to their non-dictionary
-    // representation.
-    if (data->type()->id() == ::arrow::Type::DICTIONARY) {
-      const ::arrow::DictionaryType& dict_type =
-          static_cast<const ::arrow::DictionaryType&>(*data->type());
-
-      // TODO(ARROW-1648): Remove this special handling once we require an Arrow
-      // version that has this fixed.
-      if (dict_type.value_type()->id() == ::arrow::Type::NA) {
-        auto null_array = std::make_shared<::arrow::NullArray>(data->length());
-        return WriteColumnChunk(*null_array);
-      }
-
-      FunctionContext ctx(this->memory_pool());
-      ::arrow::compute::Datum cast_input(data);
-      ::arrow::compute::Datum cast_output;
-      RETURN_NOT_OK(
-          Cast(&ctx, cast_input, dict_type.value_type(), CastOptions(), &cast_output));
-      return WriteColumnChunk(cast_output.chunked_array(), offset, size);
-    }
-
     ColumnWriter* column_writer;
     PARQUET_CATCH_NOT_OK(column_writer = row_group_writer_->NextColumn());
 
