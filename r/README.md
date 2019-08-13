@@ -66,7 +66,7 @@ set.seed(24)
 
 tab <- arrow::table(x = 1:10, y = rnorm(10))
 tab$schema
-#> arrow::Schema
+#> arrow::Schema 
 #> x: int32
 #> y: double
 tab

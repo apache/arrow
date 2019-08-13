@@ -22,21 +22,17 @@
 #' first. This function offers guidance on how to get the C++ library depending
 #' on your operating system and package version.
 #' @export
-#' @importFrom utils packageVersion packageDescription
+#' @importFrom utils packageVersion
 #' @examples
 #' install_arrow()
 install_arrow <- function() {
   os <- tolower(Sys.info()[["sysname"]])
   # c("windows", "darwin", "linux", "sunos") # win/mac/linux/solaris
   version <- packageVersion("arrow")
-  # From CRAN check:
-  from_cran <- identical(packageDescription("arrow")$Repository, "CRAN")
-  # Is it possible to tell if was a binary install from CRAN vs. source?
-
-  message(install_arrow_msg(arrow_available(), version, from_cran, os))
+  message(install_arrow_msg(arrow_available(), version, os))
 }
 
-install_arrow_msg <- function(has_arrow, version, from_cran, os) {
+install_arrow_msg <- function(has_arrow, version, os) {
   # TODO: check if there is a newer version on CRAN?
 
   # install_arrow() sends "version" as a "package_version" class, but for
@@ -59,20 +55,10 @@ install_arrow_msg <- function(has_arrow, version, from_cran, os) {
       # Suggest arrow.apache.org/install, or compilation instructions
       msg <- c(paste(SEE_ARROW_INSTALL, OR_SEE_DEV_GUIDE), THEN_REINSTALL)
     }
-  } else if (!dev_version && !from_cran) {
-    # Windows or Mac with a released version but not from CRAN
-    # Recommend installing released binary package from CRAN
-    msg <- INSTALL_FROM_CRAN
   } else {
-    # Windows or Mac, most likely a dev version
-    # for each OS, recommend dev installation, refer to readme
-    # TODO: if there is a newer version on CRAN, recommend CRAN
-    if (os == "windows") {
-      msg <- c(paste(FIND_WIN_BINARY, OR_SEE_DEV_GUIDE), THEN_REINSTALL)
-    } else {
-      # macOS
-      msg <- c(paste(FIND_MAC_BINARY, OR_SEE_DEV_GUIDE), THEN_REINSTALL)
-    }
+    # We no longer allow builds without libarrow on macOS or Windows so this
+    # case shouldn't happen
+    msg <- ""
   }
   # Common postscript
   msg <- c(msg, SEE_README, REPORT_ISSUE)
@@ -119,23 +105,4 @@ REPORT_ISSUE <- paste(
   "If you have other trouble, or if you think this message could be improved,",
   "please report an issue here:",
   "<https://issues.apache.org/jira/projects/ARROW/issues>"
-)
-
-INSTALL_FROM_CRAN <- paste(
-  'Try installing the package from CRAN:',
-  '`install.packages("arrow")`'
-)
-
-FIND_WIN_BINARY <- paste(
-  "You may be able to download a development version of the C++ binary",
-  "from the Apache Arrow project's Appveyor:",
-  "<https://ci.appveyor.com/project/ApacheSoftwareFoundation/arrow>.",
-  "Select an R job from a recent build,",
-  'and download the `build\arrow-*.zip` file from the "Artifacts" tab.',
-  "Then, set the RWINLIB_LOCAL environment variable to point to that file."
-)
-
-FIND_MAC_BINARY <- paste(
-  "You may be able to get a development version of the Arrow C++ library",
-  "using Homebrew: `brew install apache-arrow --HEAD`"
 )
