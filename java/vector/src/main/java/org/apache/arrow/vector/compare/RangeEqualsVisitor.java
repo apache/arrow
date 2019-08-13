@@ -174,6 +174,27 @@ public class RangeEqualsVisitor {
       return false;
     }
 
+    final int offsetWidth = BaseVariableWidthVector.OFFSET_WIDTH;
+
+    // compare data buffers to make sure they have identical content
+    final int leftDataStart = left.getOffsetBuffer().getInt(leftStart * offsetWidth);
+    final int leftDataEnd = left.getOffsetBuffer().getInt((leftStart + length) * offsetWidth);
+    final int rightDataStart = right.getOffsetBuffer().getInt(rightStart * offsetWidth);
+    final int rightDataEnd = right.getOffsetBuffer().getInt((rightStart + length) * offsetWidth);
+
+    // check total length
+    if (rightDataEnd - rightDataStart != leftDataEnd - leftDataStart) {
+      return false;
+    }
+
+    int result = ByteFunctionHelpers.equal(left.getDataBuffer(), leftDataStart, leftDataEnd,
+            right.getDataBuffer(), rightDataStart, rightDataEnd);
+
+    if (result == 0) {
+      return false;
+    }
+
+    // finally compare validity bits and lengths
     for (int i = 0; i < length; i++) {
       int leftIndex = leftStart + i;
       int rightIndex = rightStart + i;
@@ -183,21 +204,14 @@ public class RangeEqualsVisitor {
         return false;
       }
 
-      int offsetWidth = BaseVariableWidthVector.OFFSET_WIDTH;
+      final int startByteLeft = left.getOffsetBuffer().getInt(leftIndex * offsetWidth);
+      final int endByteLeft = left.getOffsetBuffer().getInt((leftIndex + 1) * offsetWidth);
 
-      if (!isNull) {
-        final int startByteLeft = left.getOffsetBuffer().getInt(leftIndex * offsetWidth);
-        final int endByteLeft = left.getOffsetBuffer().getInt((leftIndex + 1) * offsetWidth);
+      final int startByteRight = right.getOffsetBuffer().getInt(rightIndex * offsetWidth);
+      final int endByteRight = right.getOffsetBuffer().getInt((rightIndex + 1) * offsetWidth);
 
-        final int startByteRight = right.getOffsetBuffer().getInt(rightIndex * offsetWidth);
-        final int endByteRight = right.getOffsetBuffer().getInt((rightIndex + 1) * offsetWidth);
-
-        int ret = ByteFunctionHelpers.equal(left.getDataBuffer(), startByteLeft, endByteLeft,
-            right.getDataBuffer(), startByteRight, endByteRight);
-
-        if (ret == 0) {
-          return false;
-        }
+      if (endByteLeft - startByteLeft != endByteRight - startByteRight) {
+        return false;
       }
     }
     return true;
