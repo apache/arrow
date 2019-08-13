@@ -20,6 +20,9 @@
 #include <cstring>
 
 #include "arrow/buffer.h"
+#include "arrow/compute/kernels/boolean.h"
+#include "arrow/compute/kernels/compare.h"
+#include "arrow/record_batch.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -28,9 +31,67 @@ namespace dataset {
 
 using internal::checked_cast;
 
+Status ExpressionFilter::Execute(compute::FunctionContext* ctx, const RecordBatch& batch,
+                                 std::shared_ptr<BooleanArray>* filter) const {
+  using arrow::compute::Datum;
+  if (!expression_->IsOperatorExpression()) {
+    return Status::Invalid("can't execute expression ", expression_->ToString());
+  }
+
+  const auto& op = checked_cast<const OperatorExpression&>(*expression_).operands();
+
+  if (expression_->IsComparisonExpression()) {
+    const auto& lhs = checked_cast<const FieldReferenceExpression&>(*op[0]);
+    const auto& rhs = checked_cast<const ScalarExpression&>(*op[1]);
+    using arrow::compute::CompareOperator;
+    arrow::compute::CompareOptions opts(static_cast<CompareOperator>(
+        static_cast<int>(CompareOperator::EQUAL) + static_cast<int>(expression_->type()) -
+        static_cast<int>(ExpressionType::EQUAL)));
+    Datum out;
+    RETURN_NOT_OK(arrow::compute::Compare(ctx, Datum(batch.GetColumnByName(lhs.name())),
+                                          Datum(rhs.value()), opts, &out));
+    *filter = internal::checked_pointer_cast<BooleanArray>(out.make_array());
+    return Status::OK();
+  }
+
+  if (expression_->type() == ExpressionType::NOT) {
+    std::shared_ptr<BooleanArray> to_invert;
+    RETURN_NOT_OK(ExpressionFilter(op[0]).Execute(ctx, batch, &to_invert));
+    Datum out;
+    RETURN_NOT_OK(arrow::compute::Invert(ctx, Datum(to_invert), &out));
+    *filter = internal::checked_pointer_cast<BooleanArray>(out.make_array());
+    return Status::OK();
+  }
+
+  DCHECK(expression_->type() == ExpressionType::OR ||
+         expression_->type() == ExpressionType::AND);
+
+  std::shared_ptr<BooleanArray> next;
+  RETURN_NOT_OK(ExpressionFilter(op[0]).Execute(ctx, batch, &next));
+  Datum acc(next);
+
+  for (size_t i_next = 1; i_next < op.size(); ++i_next) {
+    RETURN_NOT_OK(ExpressionFilter(op[i_next]).Execute(ctx, batch, &next));
+
+    if (expression_->type() == ExpressionType::OR) {
+      RETURN_NOT_OK(arrow::compute::Or(ctx, Datum(acc), Datum(next), &acc));
+    } else {
+      RETURN_NOT_OK(arrow::compute::And(ctx, Datum(acc), Datum(next), &acc));
+    }
+  }
+
+  *filter = internal::checked_pointer_cast<BooleanArray>(acc.make_array());
+  return Status::OK();
+}
+
 std::shared_ptr<ScalarExpression> ScalarExpression::Make(std::string value) {
   return std::make_shared<ScalarExpression>(
       std::make_shared<StringScalar>(Buffer::FromString(std::move(value))));
+}
+
+std::shared_ptr<ScalarExpression> ScalarExpression::Make(const char* value) {
+  return std::make_shared<ScalarExpression>(
+      std::make_shared<StringScalar>(Buffer::Wrap(value, std::strlen(value))));
 }
 
 // return a pair<e is a boolean scalar expression, value of that expression>
@@ -100,6 +161,7 @@ Result<int64_t> Compare(const Scalar& lhs, const Scalar& rhs) {
 
 Result<std::shared_ptr<Expression>> AssumeComparison(const OperatorExpression& e,
                                                      const OperatorExpression& given) {
+  // TODO(bkietz) allow the RHS of e to be FIELD
   auto e_rhs = checked_cast<const ScalarExpression&>(*e.operands()[1]).value();
   // TODO(bkietz) allow the RHS of given to be FROM_STRING
   auto given_rhs = checked_cast<const ScalarExpression&>(*given.operands()[1]).value();
@@ -369,6 +431,95 @@ Result<std::shared_ptr<Expression>> OperatorExpression::Assume(
   }
 
   return unsimplified;
+}
+
+std::string FieldReferenceExpression::ToString() const {
+  return std::string("field(") + name_ + ")";
+}
+
+std::string OperatorName(ExpressionType::type type) {
+  switch (type) {
+    case ExpressionType::AND:
+      return "AND";
+    case ExpressionType::OR:
+      return "OR";
+    case ExpressionType::NOT:
+      return "NOT";
+    case ExpressionType::EQUAL:
+      return "EQUAL";
+    case ExpressionType::NOT_EQUAL:
+      return "NOT_EQUAL";
+    case ExpressionType::LESS:
+      return "LESS";
+    case ExpressionType::LESS_EQUAL:
+      return "LESS_EQUAL";
+    case ExpressionType::GREATER:
+      return "GREATER";
+    case ExpressionType::GREATER_EQUAL:
+      return "GREATER_EQUAL";
+    default:
+      DCHECK(false);
+  }
+  return "";
+}
+
+std::string OperatorExpression::ToString() const {
+  auto out = OperatorName(type_) + "(";
+  bool comma = false;
+  for (const auto& operand : operands_) {
+    if (comma) {
+      out += ", ";
+    } else {
+      comma = true;
+    }
+    out += operand->ToString();
+  }
+  out += ")";
+  return out;
+}
+
+std::string ScalarExpression::ToString() const {
+  return "scalar<" + value_->type->ToString() + ">(TODO)";
+}
+
+bool Expression::Equals(const Expression& other) const {
+  if (type_ != other.type()) {
+    return false;
+  }
+
+  // FIXME(bkietz) create FromStringExpression
+  DCHECK_NE(type_, ExpressionType::FROM_STRING);
+
+  switch (type_) {
+    case ExpressionType::FIELD:
+      return checked_cast<const FieldReferenceExpression&>(*this).name() ==
+             checked_cast<const FieldReferenceExpression&>(other).name();
+
+    case ExpressionType::SCALAR: {
+      auto this_value = checked_cast<const ScalarExpression&>(*this).value();
+      auto other_value = checked_cast<const ScalarExpression&>(other).value();
+      return this_value->Equals(other_value);
+    }
+
+    default: {
+      DCHECK(IsOperatorExpression());
+      const auto& this_op = checked_cast<const OperatorExpression&>(*this).operands();
+      const auto& other_op = checked_cast<const OperatorExpression&>(other).operands();
+      if (this_op.size() != other_op.size()) {
+        return false;
+      }
+
+      for (size_t i = 0; i < this_op.size(); ++i) {
+        if (!this_op[i]->Equals(*other_op[i])) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+  }
+
+  return true;
 }
 
 }  // namespace dataset

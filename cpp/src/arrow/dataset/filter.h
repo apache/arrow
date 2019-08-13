@@ -24,6 +24,11 @@
 #include "arrow/scalar.h"
 
 namespace arrow {
+
+namespace compute {
+class FunctionContext;
+}
+
 namespace dataset {
 
 struct FilterType {
@@ -41,9 +46,12 @@ class ARROW_DS_EXPORT Filter {
  public:
   explicit Filter(FilterType::type type) : type_(type) {}
 
-  virtual ~Filter() = 0;
+  virtual ~Filter() = default;
 
   FilterType::type type() const { return type_; }
+
+  virtual Status Execute(compute::FunctionContext* ctx, const RecordBatch& batch,
+                         std::shared_ptr<BooleanArray>* filter) const = 0;
 
  private:
   FilterType::type type_;
@@ -57,6 +65,9 @@ class ARROW_DS_EXPORT ExpressionFilter : public Filter {
       : Filter(FilterType::EXPRESSION), expression_(std::move(expression)) {}
 
   const std::shared_ptr<Expression>& expression() const { return expression_; }
+
+  Status Execute(compute::FunctionContext* ctx, const RecordBatch& batch,
+                 std::shared_ptr<BooleanArray>* filter) const override;
 
  private:
   std::shared_ptr<Expression> expression_;
@@ -92,6 +103,17 @@ class ARROW_DS_EXPORT Expression {
 
   virtual ~Expression() = default;
 
+  bool Equals(const Expression& other) const;
+
+  bool Equals(const std::shared_ptr<Expression>& other) const {
+    if (other == NULLPTR) {
+      return false;
+    }
+    return Equals(*other);
+  }
+
+  virtual std::string ToString() const = 0;
+
   ExpressionType::type type() const { return type_; }
 
   bool IsOperatorExpression() const {
@@ -115,6 +137,8 @@ class ARROW_DS_EXPORT OperatorExpression : public Expression {
       : Expression(type), operands_(std::move(operands)) {}
 
   const std::vector<std::shared_ptr<Expression>>& operands() const { return operands_; }
+
+  virtual std::string ToString() const override;
 
   OperatorExpression operator and(const OperatorExpression& other) const {
     return OperatorExpression(ExpressionType::AND,
@@ -142,6 +166,8 @@ class ARROW_DS_EXPORT ScalarExpression : public Expression {
 
   const std::shared_ptr<Scalar>& value() const { return value_; }
 
+  virtual std::string ToString() const override;
+
   static std::shared_ptr<ScalarExpression> Make(bool value) {
     return std::make_shared<ScalarExpression>(std::make_shared<BooleanScalar>(value));
   }
@@ -162,6 +188,8 @@ class ARROW_DS_EXPORT ScalarExpression : public Expression {
 
   static std::shared_ptr<ScalarExpression> Make(std::string value);
 
+  static std::shared_ptr<ScalarExpression> Make(const char* value);
+
  private:
   std::shared_ptr<Scalar> value_;
 };
@@ -172,6 +200,8 @@ class ARROW_DS_EXPORT FieldReferenceExpression : public Expression {
       : Expression(ExpressionType::FIELD), name_(std::move(name)) {}
 
   std::string name() const { return name_; }
+
+  virtual std::string ToString() const override;
 
   template <typename T>
   OperatorExpression operator==(T&& value) const {
