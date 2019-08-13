@@ -43,9 +43,6 @@ struct MakeRepeatedArrayImpl {
   enable_if_number<T, Status> Visit(const T& t) {
     typename TypeTraits<T>::BuilderType builder;
     using c_type = typename T::c_type;
-    if (typeid_ != Typeid<c_type>) {
-      return Status::Invalid("incorrect scalar passed for array of ", t);
-    }
     auto value = *static_cast<const c_type*>(value_);
     RETURN_NOT_OK(builder.Resize(repetitions_));
     for (auto i = 0; i < repetitions_; ++i) {
@@ -57,9 +54,6 @@ struct MakeRepeatedArrayImpl {
   template <typename T>
   enable_if_binary_like<T, Status> Visit(const T& t) {
     typename TypeTraits<T>::BuilderType builder(type_, default_memory_pool());
-    if (typeid_ != Typeid<util::string_view>) {
-      return Status::Invalid("incorrect scalar passed for array of ", t);
-    }
     auto value = *static_cast<const util::string_view*>(value_);
     RETURN_NOT_OK(builder.Resize(repetitions_));
     for (auto i = 0; i < repetitions_; ++i) {
