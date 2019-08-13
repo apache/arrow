@@ -66,7 +66,10 @@ void AssertTsEqual(const T& expected, const T& actual) {
 }
 
 void AssertArraysEqual(const Array& expected, const Array& actual) {
-  AssertTsEqual(expected, actual);
+  std::stringstream diff;
+  if (!expected.Equals(actual, EqualOptions().diff_sink(&diff))) {
+    FAIL() << diff.str();
+  }
 }
 
 void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual) {
@@ -76,19 +79,14 @@ void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual) 
 void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
   ASSERT_EQ(expected.num_chunks(), actual.num_chunks()) << "# chunks unequal";
   if (!actual.Equals(expected)) {
-    std::stringstream pp_result;
-    std::stringstream pp_expected;
-
+    std::stringstream diff;
     for (int i = 0; i < actual.num_chunks(); ++i) {
       auto c1 = actual.chunk(i);
       auto c2 = expected.chunk(i);
-      if (!c1->Equals(*c2)) {
-        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, &pp_result));
-        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c2, 0, &pp_expected));
-        FAIL() << "Chunk " << i << " Got: " << pp_result.str()
-               << "\nExpected: " << pp_expected.str();
-      }
+      diff << "# chunk " << i << std::endl;
+      ARROW_IGNORE_EXPR(c1->Equals(c2, EqualOptions().diff_sink(&diff)));
     }
+    FAIL() << diff.str();
   }
 }
 

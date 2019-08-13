@@ -67,13 +67,17 @@ class LazyRange {
     using _Unchecked_type = typename LazyRange<Generator>::RangeIter;
 #endif
 
+    RangeIter() = delete;
+    RangeIter(const RangeIter& other) = default;
+    RangeIter& operator=(const RangeIter& other) = default;
+
     RangeIter(const LazyRange<Generator>& range, int64_t index)
-        : range_(range), index_(index) {}
+        : range_(&range), index_(index) {}
 
-    const return_type operator*() { return range_.gen_(index_); }
+    const return_type operator*() const { return range_->gen_(index_); }
 
-    RangeIter operator+(difference_type length) {
-      return RangeIter(range_, index_ + length);
+    RangeIter operator+(difference_type length) const {
+      return RangeIter(*range_, index_ + length);
     }
 
     // pre-increment
@@ -90,20 +94,24 @@ class LazyRange {
     }
 
     bool operator==(const typename LazyRange<Generator>::RangeIter& other) const {
-      return this->index_ == other.index_ && &this->range_ == &other.range_;
+      return this->index_ == other.index_ && this->range_ == other.range_;
     }
 
     bool operator!=(const typename LazyRange<Generator>::RangeIter& other) const {
-      return this->index_ != other.index_ || &this->range_ != &other.range_;
+      return this->index_ != other.index_ || this->range_ != other.range_;
     }
 
-    int64_t operator-(const typename LazyRange<Generator>::RangeIter& other) {
+    int64_t operator-(const typename LazyRange<Generator>::RangeIter& other) const {
       return this->index_ - other.index_;
+    }
+
+    bool operator<(const typename LazyRange<Generator>::RangeIter& other) const {
+      return this->index_ < other.index_;
     }
 
    private:
     // parent range reference
-    const LazyRange& range_;
+    const LazyRange* range_;
     // current index
     int64_t index_;
   };

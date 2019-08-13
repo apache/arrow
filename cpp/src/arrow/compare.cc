@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/diff.h"
 #include "arrow/buffer.h"
 #include "arrow/scalar.h"
 #include "arrow/sparse_tensor.h"
@@ -929,14 +930,61 @@ class ScalarEqualsVisitor {
   bool result_;
 };
 
+Status PrintDiff(const Array& left, const Array& right, std::ostream* os) {
+  if (os == nullptr) {
+    return Status::OK();
+  }
+
+  if (!left.type()->Equals(right.type())) {
+    *os << "# Array types differed: " << *left.type() << " vs " << *right.type();
+    return Status::OK();
+  }
+
+  if (left.type()->id() == Type::DICTIONARY) {
+    *os << "# Dictionary arrays differed" << std::endl;
+
+    const auto& left_dict = checked_cast<const DictionaryArray&>(left);
+    const auto& right_dict = checked_cast<const DictionaryArray&>(right);
+
+    *os << "## dictionary diff";
+    auto pos = os->tellp();
+    RETURN_NOT_OK(PrintDiff(*left_dict.dictionary(), *right_dict.dictionary(), os));
+    if (os->tellp() == pos) {
+      *os << std::endl;
+    }
+
+    *os << "## indices diff";
+    pos = os->tellp();
+    RETURN_NOT_OK(PrintDiff(*left_dict.indices(), *right_dict.indices(), os));
+    if (os->tellp() == pos) {
+      *os << std::endl;
+    }
+    return Status::OK();
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto edits, Diff(left, right, default_memory_pool()));
+  ARROW_ASSIGN_OR_RAISE(auto formatter, MakeUnifiedDiffFormatter(*left.type(), os));
+  return formatter(*edits, left, right);
+}
+
 }  // namespace internal
 
 bool ArrayEquals(const Array& left, const Array& right, const EqualOptions& opts) {
-  return internal::ArrayEqualsImpl<internal::ArrayEqualsVisitor>(left, right, opts);
+  bool are_equal =
+      internal::ArrayEqualsImpl<internal::ArrayEqualsVisitor>(left, right, opts);
+  if (!are_equal) {
+    DCHECK_OK(internal::PrintDiff(left, right, opts.diff_sink()));
+  }
+  return are_equal;
 }
 
 bool ArrayApproxEquals(const Array& left, const Array& right, const EqualOptions& opts) {
-  return internal::ArrayEqualsImpl<internal::ApproxEqualsVisitor>(left, right, opts);
+  bool are_equal =
+      internal::ArrayEqualsImpl<internal::ApproxEqualsVisitor>(left, right, opts);
+  if (!are_equal) {
+    DCHECK_OK(internal::PrintDiff(left, right, opts.diff_sink()));
+  }
+  return are_equal;
 }
 
 bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,

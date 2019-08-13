@@ -16,6 +16,7 @@
 # under the License.
 
 add_arrow_test(concatenate-test)
+add_arrow_test(diff-test)
 
 # Headers: top level
 arrow_install_all_headers("arrow/array")

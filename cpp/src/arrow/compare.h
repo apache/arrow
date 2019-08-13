@@ -21,7 +21,9 @@
 #define ARROW_COMPARE_H
 
 #include <cstdint>
+#include <iosfwd>
 
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -57,11 +59,23 @@ class EqualOptions {
     return res;
   }
 
+  /// The ostream to which a diff will be formatted if arrays disagree.
+  /// If this is null (the default) no diff will be formatted.
+  std::ostream* diff_sink() const { return diff_sink_; }
+
+  /// Return a new EqualOptions object with the "diff_sink" property changed.
+  EqualOptions diff_sink(std::ostream* diff_sink) const {
+    auto res = EqualOptions(*this);
+    res.diff_sink_ = diff_sink;
+    return res;
+  }
+
   static EqualOptions Defaults() { return EqualOptions(); }
 
  protected:
   double atol_ = kDefaultAbsoluteTolerance;
   bool nans_equal_ = false;
+  std::ostream* diff_sink_ = NULLPTR;
 };
 
 /// Returns true if the arrays are exactly equal

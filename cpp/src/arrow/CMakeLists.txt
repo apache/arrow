@@ -91,6 +91,7 @@ set(ARROW_SRCS
     array/builder_primitive.cc
     array/builder_union.cc
     array/concatenate.cc
+    array/diff.cc
     buffer.cc
     compare.cc
     extension_type.cc
@@ -136,6 +137,7 @@ set(ARROW_SRCS
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
+    util/string.cc
     util/string_builder.cc
     util/task-group.cc
     util/thread-pool.cc
