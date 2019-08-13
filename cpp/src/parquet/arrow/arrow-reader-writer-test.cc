@@ -370,37 +370,39 @@ void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual
   }
 }
 
-void DoConfiguredRoundtrip(
-    const std::shared_ptr<Table>& table, int64_t row_group_size,
-    std::shared_ptr<Table>* out,
-    const std::shared_ptr<::parquet::WriterProperties>& parquet_properties =
-        ::parquet::default_writer_properties(),
-    const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
-        default_arrow_writer_properties()) {
+void DoRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
+                 std::shared_ptr<Table>* out,
+                 const std::shared_ptr<::parquet::WriterProperties>& writer_properties =
+                     ::parquet::default_writer_properties(),
+                 const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
+                     default_arrow_writer_properties(),
+                 const ArrowReaderProperties& arrow_reader_properties =
+                     default_arrow_reader_properties()) {
   std::shared_ptr<Buffer> buffer;
 
   auto sink = CreateOutputStream();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
-                                row_group_size, parquet_properties, arrow_properties));
+                                row_group_size, writer_properties,
+                                arrow_writer_properties));
   ASSERT_OK_NO_THROW(sink->Finish(&buffer));
 
   std::unique_ptr<FileReader> reader;
-  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
-                              ::arrow::default_memory_pool(), &reader));
+  FileReaderBuilder builder;
+  ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(builder.properties(arrow_reader_properties)->Build(&reader));
   ASSERT_OK_NO_THROW(reader->ReadTable(out));
 }
 
 void CheckConfiguredRoundtrip(
     const std::shared_ptr<Table>& input_table,
     const std::shared_ptr<Table>& expected_table = nullptr,
-    const std::shared_ptr<::parquet::WriterProperties>& parquet_properties =
+    const std::shared_ptr<::parquet::WriterProperties>& writer_properties =
         ::parquet::default_writer_properties(),
-    const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
+    const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
         default_arrow_writer_properties()) {
   std::shared_ptr<Table> actual_table;
-  ASSERT_NO_FATAL_FAILURE(DoConfiguredRoundtrip(input_table, input_table->num_rows(),
-                                                &actual_table, parquet_properties,
-                                                arrow_properties));
+  ASSERT_NO_FATAL_FAILURE(DoRoundtrip(input_table, input_table->num_rows(), &actual_table,
+                                      writer_properties, arrow_writer_properties));
   if (expected_table) {
     ASSERT_NO_FATAL_FAILURE(
         ::arrow::AssertSchemaEqual(*actual_table->schema(), *expected_table->schema()));
@@ -2854,7 +2856,7 @@ TEST(TestArrowWriteDictionaries, ChangingDictionaries) {
   constexpr int64_t min_length = 2;
   constexpr int64_t max_length = 20;
   ::arrow::random::RandomArrayGenerator rag(0);
-  auto values = rag.BinaryWithRepeats(repeat * num_unique, num_unique, min_length,
+  auto values = rag.StringWithRepeats(repeat * num_unique, num_unique, min_length,
                                       max_length, /*null_probability=*/0.1);
   auto expected = MakeSimpleTable(values, /*nullable=*/true);
 
@@ -2865,20 +2867,32 @@ TEST(TestArrowWriteDictionaries, ChangingDictionaries) {
     AsDictionary32Encoded(*values->Slice(chunk_size * i, chunk_size), &chunks[i]);
   }
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(expected,
-                                             /*row_group_size=*/values->length() / 2,
-                                             default_arrow_writer_properties(), &buffer));
-
-  auto arrow_properties = default_arrow_reader_properties();
-
-  std::unique_ptr<FileReader> reader;
-  FileReaderBuilder builder;
-  ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
-  ASSERT_OK(builder.properties(arrow_properties)->Build(&reader));
+  auto dict_table = MakeSimpleTable(std::make_shared<ChunkedArray>(chunks),
+                                    /*nullable=*/true);
 
   std::shared_ptr<Table> actual;
-  ASSERT_OK_NO_THROW(reader->ReadTable(&actual));
+  DoRoundtrip(dict_table, /*row_group_size=*/values->length() / 2, &actual);
+  ::arrow::AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
+}
+
+TEST(TestArrowWriteDictionaries, AutoReadAsDictionary) {
+  constexpr int num_unique = 50;
+  constexpr int repeat = 100;
+  constexpr int64_t min_length = 2;
+  constexpr int64_t max_length = 20;
+  ::arrow::random::RandomArrayGenerator rag(0);
+  auto values = rag.BinaryWithRepeats(repeat * num_unique, num_unique, min_length,
+                                      max_length, /*null_probability=*/0.1);
+  std::shared_ptr<Array> dict_values;
+  AsDictionary32Encoded(*values, &dict_values);
+
+  auto expected = MakeSimpleTable(dict_values, /*nullable=*/true);
+
+  auto arrow_writer_properties = ArrowWriterProperties::Builder().store_schema()->build();
+
+  std::shared_ptr<Table> actual;
+  DoRoundtrip(expected, values->length(), &actual, default_writer_properties(),
+              arrow_writer_properties);
   ::arrow::AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
