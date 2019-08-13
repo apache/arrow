@@ -24,6 +24,7 @@
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -31,6 +32,8 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/io/memory.h"
+#include "arrow/ipc/reader.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
@@ -533,9 +536,51 @@ Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_re
   }
 }
 
+Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
+                       std::shared_ptr<const KeyValueMetadata>* clean_metadata,
+                       std::shared_ptr<::arrow::Schema>* out) {
+  if (metadata == nullptr) {
+    *out = nullptr;
+    *clean_metadata = nullptr;
+    return Status::OK();
+  }
+
+  static const std::string kArrowSchemaKey = "ARROW:schema";
+  int schema_index = metadata->FindKey(kArrowSchemaKey);
+  if (schema_index == -1) {
+    *out = nullptr;
+    *clean_metadata = metadata;
+    return Status::OK();
+  }
+
+  // The original Arrow schema was serialized using the store_schema option. We
+  // deserialize it here and use it to inform read options such as
+  // dictionary-encoded fields
+  auto schema_buf = std::make_shared<Buffer>(metadata->value(schema_index));
+
+  ::arrow::ipc::DictionaryMemo dict_memo;
+  ::arrow::io::BufferReader input(schema_buf);
+  RETURN_NOT_OK(::arrow::ipc::ReadSchema(&input, &dict_memo, out));
+
+  // Copy the metadata without the schema key
+  auto new_metadata = ::arrow::key_value_metadata({});
+  new_metadata->reserve(metadata->size() - 1);
+  for (int64_t i = 0; i < metadata->size(); ++i) {
+    if (i == schema_index) continue;
+    new_metadata->Append(metadata->key(i), metadata->value(i));
+  }
+  *clean_metadata = new_metadata;
+  return Status::OK();
+}
+
 Status BuildSchemaManifest(const SchemaDescriptor* schema,
+                           const std::shared_ptr<const KeyValueMetadata>& metadata,
                            const ArrowReaderProperties& properties,
                            SchemaManifest* manifest) {
+  std::shared_ptr<::arrow::Schema> origin_schema;
+  RETURN_NOT_OK(
+      GetOriginSchema(metadata, &manifest->schema_metadata, &manifest->origin_schema));
+
   SchemaTreeContext ctx;
   ctx.manifest = manifest;
   ctx.properties = properties;
@@ -544,8 +589,20 @@ Status BuildSchemaManifest(const SchemaDescriptor* schema,
   manifest->descr = schema;
   manifest->schema_fields.resize(schema_node.field_count());
   for (int i = 0; i < static_cast<int>(schema_node.field_count()); ++i) {
+    SchemaField* out_field = &manifest->schema_fields[i];
     RETURN_NOT_OK(NodeToSchemaField(*schema_node.field(i), 0, 0, &ctx,
-                                    /*parent=*/nullptr, &manifest->schema_fields[i]));
+                                    /*parent=*/nullptr, out_field));
+
+    // TODO(wesm): as follow up to ARROW-3246, we should really pass the origin
+    // schema (if any) through all functions in the schema reconstruction, but
+    // I'm being lazy and just setting dictionary fields at the top level for
+    // now
+    if (manifest->origin_schema) {
+      auto origin_field = manifest->origin_schema->field(i);
+      if (!origin_field->Equals(*out_field->field)) {
+        out_field->field = out_field->field->WithType(origin_field->type());
+      }
+    }
   }
   return Status::OK();
 }
@@ -555,7 +612,7 @@ Status FromParquetSchema(
     const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
     std::shared_ptr<::arrow::Schema>* out) {
   SchemaManifest manifest;
-  RETURN_NOT_OK(BuildSchemaManifest(schema, properties, &manifest));
+  RETURN_NOT_OK(BuildSchemaManifest(schema, key_value_metadata, properties, &manifest));
   std::vector<std::shared_ptr<Field>> fields(manifest.schema_fields.size());
   for (int i = 0; i < static_cast<int>(fields.size()); i++) {
     fields[i] = manifest.schema_fields[i].field;

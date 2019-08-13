@@ -19,12 +19,14 @@
 
 #include <algorithm>
 #include <deque>
+#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "arrow/array.h"
 #include "arrow/buffer-builder.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/visitor_inline.h"
@@ -421,8 +423,8 @@ class FileWriterImpl : public FileWriter {
         closed_(false) {}
 
   Status Init() {
-    return BuildSchemaManifest(writer_->schema(), default_arrow_reader_properties(),
-                               &schema_manifest_);
+    return BuildSchemaManifest(writer_->schema(), /*schema_metadata=*/nullptr,
+                               default_arrow_reader_properties(), &schema_manifest_);
   }
 
   Status NewRowGroup(int64_t chunk_size) override {
@@ -551,6 +553,30 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
   return Open(schema, pool, sink, properties, default_arrow_writer_properties(), writer);
 }
 
+Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+                         const ArrowWriterProperties& properties,
+                         std::shared_ptr<const KeyValueMetadata>* out) {
+  if (!properties.store_schema()) {
+    *out = nullptr;
+    return Status::OK();
+  }
+
+  static const std::string kArrowSchemaKey = "ARROW:schema";
+  std::shared_ptr<KeyValueMetadata> result;
+  if (schema.metadata()) {
+    result = schema.metadata()->Copy();
+  } else {
+    result = ::arrow::key_value_metadata({});
+  }
+
+  ::arrow::ipc::DictionaryMemo dict_memo;
+  std::shared_ptr<Buffer> serialized;
+  RETURN_NOT_OK(::arrow::ipc::SerializeSchema(schema, &dict_memo, pool, &serialized));
+  result->Append(kArrowSchemaKey, serialized->ToString());
+  *out = result;
+  return Status::OK();
+}
+
 Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                         const std::shared_ptr<::arrow::io::OutputStream>& sink,
                         const std::shared_ptr<WriterProperties>& properties,
@@ -562,8 +588,11 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
 
   auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
 
+  std::shared_ptr<const KeyValueMetadata> metadata;
+  RETURN_NOT_OK(GetSchemaMetadata(schema, pool, *arrow_properties, &metadata));
+
   std::unique_ptr<ParquetFileWriter> base_writer =
-      ParquetFileWriter::Open(sink, schema_node, properties, schema.metadata());
+      ParquetFileWriter::Open(sink, schema_node, properties, metadata);
 
   auto schema_ptr = std::make_shared<::arrow::Schema>(schema);
   return Make(pool, std::move(base_writer), schema_ptr, arrow_properties, writer);
