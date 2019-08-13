@@ -159,10 +159,10 @@ def alltypes_sample(size=10000, seed=0, categorical=False):
 
 @pytest.mark.pandas
 @pytest.mark.parametrize('chunk_size', [None, 1000])
-def test_pandas_parquet_2_0_rountrip(tempdir, chunk_size):
+def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size):
     df = alltypes_sample(size=10000, categorical=True)
 
-    filename = tempdir / 'pandas_rountrip.parquet'
+    filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df)
     assert arrow_table.schema.pandas_metadata is not None
 
@@ -173,7 +173,7 @@ def test_pandas_parquet_2_0_rountrip(tempdir, chunk_size):
 
     assert arrow_table.schema.metadata == table_read.schema.metadata
 
-    df_read = table_read.to_pandas(categories=['str_category'])
+    df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read, check_categorical=False)
 
 
@@ -297,7 +297,7 @@ def test_datetime_timezone_tzinfo():
 def test_pandas_parquet_custom_metadata(tempdir):
     df = alltypes_sample(size=10000)
 
-    filename = tempdir / 'pandas_rountrip.parquet'
+    filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df)
     assert b'pandas' in arrow_table.schema.metadata
 
@@ -321,7 +321,7 @@ def test_pandas_parquet_column_multiindex(tempdir):
         names=['level_1', 'level_2']
     )
 
-    filename = tempdir / 'pandas_rountrip.parquet'
+    filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df)
     assert arrow_table.schema.pandas_metadata is not None
 
@@ -333,10 +333,10 @@ def test_pandas_parquet_column_multiindex(tempdir):
 
 
 @pytest.mark.pandas
-def test_pandas_parquet_2_0_rountrip_read_pandas_no_index_written(tempdir):
+def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(tempdir):
     df = alltypes_sample(size=10000)
 
-    filename = tempdir / 'pandas_rountrip.parquet'
+    filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df, preserve_index=False)
     js = arrow_table.schema.pandas_metadata
     assert not js['index_columns']
@@ -357,7 +357,7 @@ def test_pandas_parquet_2_0_rountrip_read_pandas_no_index_written(tempdir):
 
 
 @pytest.mark.pandas
-def test_pandas_parquet_1_0_rountrip(tempdir):
+def test_pandas_parquet_1_0_roundtrip(tempdir):
     size = 10000
     np.random.seed(0)
     df = pd.DataFrame({
@@ -376,7 +376,7 @@ def test_pandas_parquet_1_0_rountrip(tempdir):
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
         'empty_str': [''] * size
     })
-    filename = tempdir / 'pandas_rountrip.parquet'
+    filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df)
     _write_table(arrow_table, filename, version='1.0')
     table_read = _read_table(filename)
@@ -415,7 +415,7 @@ def test_pandas_column_selection(tempdir):
         'uint8': np.arange(size, dtype=np.uint8),
         'uint16': np.arange(size, dtype=np.uint16)
     })
-    filename = tempdir / 'pandas_rountrip.parquet'
+    filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df)
     _write_table(arrow_table, filename)
     table_read = _read_table(filename, columns=['uint8'])
@@ -567,7 +567,7 @@ def test_pandas_parquet_configuration_options(tempdir):
         'float64': np.arange(size, dtype=np.float64),
         'bool': np.random.randn(size) > 0
     })
-    filename = tempdir / 'pandas_rountrip.parquet'
+    filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df)
 
     for use_dictionary in [True, False]:
@@ -883,7 +883,7 @@ def test_validate_schema_write_table(tempdir):
 def test_column_of_arrays(tempdir):
     df, schema = dataframe_with_arrays()
 
-    filename = tempdir / 'pandas_rountrip.parquet'
+    filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df, schema=schema)
     _write_table(arrow_table, filename, version="2.0", coerce_timestamps='ms')
     table_read = _read_table(filename)
@@ -914,7 +914,7 @@ def test_coerce_timestamps(tempdir):
     df = pd.DataFrame(arrays)
     schema = pa.schema(fields)
 
-    filename = tempdir / 'pandas_rountrip.parquet'
+    filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df, schema=schema)
 
     _write_table(arrow_table, filename, version="2.0", coerce_timestamps='us')
@@ -967,7 +967,7 @@ def test_coerce_timestamps_truncated(tempdir):
 def test_column_of_lists(tempdir):
     df, schema = dataframe_with_lists(parquet_compatible=True)
 
-    filename = tempdir / 'pandas_rountrip.parquet'
+    filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df, schema=schema)
     _write_table(arrow_table, filename, version='2.0')
     table_read = _read_table(filename)
@@ -1888,8 +1888,12 @@ def test_read_schema(tempdir):
     table = pa.Table.from_pandas(df)
     _write_table(table, data_path)
 
-    assert table.schema.equals(pq.read_schema(data_path))
-    assert table.schema.equals(pq.read_schema(data_path, memory_map=True))
+    read1 = pq.read_schema(data_path)
+    read2 = pq.read_schema(data_path, memory_map=True)
+    assert table.schema.equals(read1, check_metadata=False)
+    assert table.schema.equals(read2, check_metadata=False)
+
+    assert table.schema.metadata[b'pandas'] == read1.metadata[b'pandas']
 
 
 def _filter_partition(df, part_keys):

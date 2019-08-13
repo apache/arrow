@@ -604,8 +604,12 @@ Status BuildSchemaManifest(const SchemaDescriptor* schema,
     // now
     if (manifest->origin_schema) {
       auto origin_field = manifest->origin_schema->field(i);
-      if (!origin_field->Equals(*out_field->field)) {
-        out_field->field = out_field->field->WithType(origin_field->type());
+      auto current_type = out_field->field->type();
+      if (origin_field->type()->id() == ::arrow::Type::DICTIONARY) {
+        if (current_type->id() != ::arrow::Type::DICTIONARY) {
+          out_field->field = out_field->field->WithType(
+              ::arrow::dictionary(::arrow::int32(), current_type));
+        }
       }
     }
   }
