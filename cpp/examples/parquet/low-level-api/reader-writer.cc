@@ -173,7 +173,7 @@ int main(int argc, char** argv) {
   }
 
   /**********************************************************************************
-                             PARQUET READER EXAMPLE
+                             PARQUET READER EXAMPLE (Column Read)
   **********************************************************************************/
 
   try {
@@ -403,6 +403,10 @@ int main(int argc, char** argv) {
     return -1;
   }
   
+  /**********************************************************************************
+                             PARQUET READER EXAMPLE (Row Read)
+  This is an example of many column readers doing their own read concurrently.
+  **********************************************************************************/
   try {
     // Create a ParquetReader instance
     parquet::ReaderProperties props = parquet::default_reader_properties();

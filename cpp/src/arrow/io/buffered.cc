@@ -230,6 +230,10 @@ class BufferedInputStream::Impl : public BufferedBase {
         raw_read_total_(0),
         raw_read_bound_(raw_total_bytes_bound),
         bytes_buffered_(0) {
+          // Even though 'raw_' points to a shared RandomAccessFile, 'raw_pos_' records where next call
+          // of raw_->Read(...) starts from. Before raw->Read(...) is called, we need to move the
+          // real position of 'raw_' to 'raw_pos_' in advance, then increase 'raw_pos_'
+          // after raw->Read(...).
           raw_pos_ = raw_start_pos;
         }
 
