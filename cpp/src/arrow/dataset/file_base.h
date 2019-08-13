@@ -135,7 +135,13 @@ class ARROW_DS_EXPORT FileFormat {
 class ARROW_DS_EXPORT FileBasedDataFragment : public DataFragment {
  public:
   FileBasedDataFragment(const FileSource& location, std::shared_ptr<FileFormat> format,
-                        std::shared_ptr<ScanOptions>);
+                        std::shared_ptr<ScanOptions> scan_options)
+      : location_(location),
+        format_(std::move(format)),
+        scan_options_(std::move(scan_options)) {}
+
+  Status GetTasks(std::shared_ptr<ScanContext> scan_context,
+                  std::unique_ptr<ScanTaskIterator>* out) override;
 
   const FileSource& location() const { return location_; }
   std::shared_ptr<FileFormat> format() const { return format_; }

@@ -42,6 +42,12 @@ struct ARROW_DS_EXPORT ScanContext {
 class ARROW_DS_EXPORT ScanOptions {
  public:
   virtual ~ScanOptions() = default;
+
+ protected:
+  // Reconciliation schema.
+  std::shared_ptr<Schema> schema_;
+  // Filters
+  std::unique_ptr<DataSelector> selector_;
 };
 
 /// \brief Read record batches from a range of a single data fragment

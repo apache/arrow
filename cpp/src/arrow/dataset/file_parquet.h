@@ -37,17 +37,10 @@ class ARROW_DS_EXPORT ParquetWriteOptions : public FileWriteOptions {
   std::string file_type() const override;
 };
 
-class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {
- public:
-  bool splittable() const override { return true; }
-};
-
 /// \brief A FileFormat implementation that reads from Parquet files
 class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
-  std::string name() const override {
-    return "parquet";
-  }
+  std::string name() const override { return "parquet"; }
 
   /// \brief Return true if the given file extension
   bool IsKnownExtension(const std::string& ext) const override {
@@ -58,6 +51,16 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   Status ScanFile(const FileSource& location, std::shared_ptr<ScanOptions> scan_options,
                   std::shared_ptr<ScanContext> scan_context,
                   std::unique_ptr<ScanTaskIterator>* out) const override;
+};
+
+class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {
+ public:
+  ParquetFragment(const FileSource& location, std::shared_ptr<ScanOptions> options)
+      : FileBasedDataFragment(location, std::make_shared<ParquetFileFormat>(), options) {}
+
+  bool splittable() const override { return true; }
+
+  std::shared_ptr<ScanOptions> scan_options() const override { return nullptr; }
 };
 
 }  // namespace dataset

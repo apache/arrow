@@ -39,6 +39,24 @@ class Iterator {
   /// \brief Return the next element of the sequence, nullptr when the
   /// iteration is completed
   virtual Status Next(T* out) = 0;
+
+  template <typename Visitor>
+  Status Visit(Visitor&& visitor) {
+    Status status;
+    T value;
+
+    for (;;) {
+      status = Next(&value);
+
+      if (!status.ok()) return status;
+
+      if (value == nullptr) break;
+
+      RETURN_NOT_OK(visitor(std::move(value)));
+    }
+
+    return status;
+  }
 };
 
 template <typename T>

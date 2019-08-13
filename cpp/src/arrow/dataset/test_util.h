@@ -15,27 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/dataset/file_base.h"
+#include "arrow/testing/test_data.h"
 
-#include "arrow/filesystem/filesystem.h"
-#include "arrow/io/interfaces.h"
-#include "arrow/io/memory.h"
+#include "arrow/dataset/file_base.h"
+#include "arrow/util/stl.h"
 
 namespace arrow {
 namespace dataset {
 
-Status FileSource::Open(std::shared_ptr<arrow::io::RandomAccessFile>* out) const {
-  if (filesystem_) {
-    return filesystem_->OpenInputFile(path_, out);
+// Convenience class allowing to retrieve integration FilSource easily.
+class FileSourceFixtureMixin : public TestDataFixtureMixin {
+ public:
+  std::unique_ptr<FileSource> GetParquetLocation(
+      const std::string& path,
+      Compression::type compression = Compression::UNCOMPRESSED) {
+    return internal::make_unique<FileSource>(path, parquet_fs_.get(), compression);
   }
-  out->reset(new ::arrow::io::BufferReader(buffer_));
-  return Status::OK();
-}
 
-Status FileBasedDataFragment::GetTasks(std::shared_ptr<ScanContext> scan_context,
-                                       std::unique_ptr<ScanTaskIterator>* out) {
-  return format_->ScanFile(location_, scan_options_, scan_context, out);
-}
+  std::unique_ptr<FileSource> GetArrowLocation(
+      const std::string& path,
+      Compression::type compression = Compression::UNCOMPRESSED) {
+    return internal::make_unique<FileSource>(path, arrow_fs_.get(), compression);
+  }
+};
 
 }  // namespace dataset
 }  // namespace arrow

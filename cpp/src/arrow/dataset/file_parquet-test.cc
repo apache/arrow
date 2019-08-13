@@ -15,16 +15,44 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/testing/gtest_util.h"
-#include "arrow/testing/test_data.h"
+#include "arrow/dataset/file_parquet.h"
+
+#include "arrow/dataset/test_util.h"
+#include "arrow/record_batch.h"
 
 namespace arrow {
 namespace dataset {
 
-class TestParquetFileFormat : public TestDataFixtureMixin {};
+class TestParquetFileFormat : public FileSourceFixtureMixin {
+ public:
+  TestParquetFileFormat() : ctx_(std::make_shared<ScanContext>()) {}
+
+ protected:
+  std::shared_ptr<ScanOptions> opts_;
+  std::shared_ptr<ScanContext> ctx_;
+};
 
 TEST_F(TestParquetFileFormat, ScanFile) {
-  auto bin_file = OpenParquetFile("data/binary.parquet");
+  auto location = GetParquetLocation("data/double_1Grows_1kgroups.parquet");
+  auto fragment = std::make_shared<ParquetFragment>(*location, opts_);
+
+  std::unique_ptr<ScanTaskIterator> it;
+  ASSERT_OK(fragment->GetTasks(ctx_, &it));
+  int64_t row_count = 0;
+
+  ASSERT_OK(it->Visit([&row_count](std::unique_ptr<ScanTask> task) -> Status {
+    auto batch_it = task->Scan();
+
+    RETURN_NOT_OK(
+        batch_it->Visit([&row_count](std::shared_ptr<RecordBatch> batch) -> Status {
+          row_count += batch->num_rows();
+          return Status::OK();
+        }));
+
+    return Status::OK();
+  }));
+
+  ASSERT_EQ(row_count, 1UL << 30);
 }
 
 }  // namespace dataset
