@@ -71,7 +71,6 @@ class ARROW_DS_EXPORT Scanner {
   virtual std::unique_ptr<ScanTaskIterator> GetTasks() = 0;
 
   virtual ~Scanner() = default;
-
 };
 
 class ARROW_DS_EXPORT ScannerBuilder {

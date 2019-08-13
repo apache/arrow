@@ -17,6 +17,10 @@
 
 #include "arrow/testing/test_data.h"
 
+#include <memory>
+#include <string>
+#include <utility>
+
 #include "arrow/dataset/file_base.h"
 #include "arrow/record_batch.h"
 #include "arrow/util/stl.h"

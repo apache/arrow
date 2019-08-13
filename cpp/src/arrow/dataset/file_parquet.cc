@@ -16,9 +16,12 @@
 // under the License.
 
 #include "arrow/dataset/file_parquet.h"
+
+#include <utility>
+#include <vector>
+
 #include "arrow/table.h"
 #include "arrow/util/iterator.h"
-
 #include "parquet/arrow/reader.h"
 #include "parquet/file_reader.h"
 

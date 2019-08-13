@@ -24,14 +24,15 @@
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
-#include "arrow/status.h"
 #include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
@@ -112,7 +113,7 @@ inline Status GenericToStatus(const Result<T>& res) {
 
 #define ASSERT_OK_AND_ASSIGN_IMPL(status_name, lhs, rexpr) \
   auto status_name = (rexpr);                              \
-  ARROW_EXPECT_OK(status_name.status());                         \
+  ARROW_EXPECT_OK(status_name.status());                   \
   lhs = std::move(status_name).ValueOrDie();
 
 #define ASSERT_OK_AND_ASSIGN(lhs, rexpr)                                              \

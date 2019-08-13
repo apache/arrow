@@ -353,7 +353,7 @@ class ColumnChunkReaderImpl : public ColumnChunkReader {
 };
 
 struct RowGroupReader::Iterator : ::arrow::TableBatchReader {
-  Iterator(const std::shared_ptr<Table>& table)
+  explicit Iterator(const std::shared_ptr<Table>& table)
       : TableBatchReader(*table), table_(table) {}
   // TableBatchReader does not take ownership of table
   std::shared_ptr<Table> table_;

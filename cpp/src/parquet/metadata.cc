@@ -503,7 +503,7 @@ int64_t FileMetaData::num_rows() const { return impl_->num_rows(); }
 
 int FileMetaData::num_row_groups() const { return impl_->num_row_groups(); }
 
-std::vector<int> FileMetaData::AllRowGroups() const { return Arange(num_row_groups()); };
+std::vector<int> FileMetaData::AllRowGroups() const { return Arange(num_row_groups()); }
 
 ParquetVersion::type FileMetaData::version() const {
   switch (impl_->version()) {
