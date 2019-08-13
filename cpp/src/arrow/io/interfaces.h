@@ -190,16 +190,6 @@ class ARROW_EXPORT ReadWriteFileInterface : public RandomAccessFile, public Writ
   ReadWriteFileInterface() { RandomAccessFile::set_mode(FileMode::READWRITE); }
 };
 
-// TODO(kszucs): remove this after 0.13
-#ifndef _MSC_VER
-using WriteableFile ARROW_DEPRECATED("Use WritableFile") = WritableFile;
-using ReadableFileInterface ARROW_DEPRECATED("Use RandomAccessFile") = RandomAccessFile;
-#else
-// MSVC does not like using ARROW_DEPRECATED with using declarations
-using WriteableFile = WritableFile;
-using ReadableFileInterface = RandomAccessFile;
-#endif
-
 }  // namespace io
 }  // namespace arrow
 
