@@ -28,6 +28,8 @@ namespace arrow {
 
 class Array;
 class ChunkedArray;
+class RecordBatch;
+class RecordBatchReader;
 class Schema;
 class Table;
 
@@ -76,6 +78,11 @@ class PARQUET_EXPORT FileWriter {
       const std::shared_ptr<::arrow::ChunkedArray>& data, int64_t offset,
       int64_t size) = 0;
 
+  /// \brief Write a RecordBatch to Parquet.
+  virtual ::arrow::Status WriteRecordBatch(const ::arrow::RecordBatch& batch) = 0;
+
+  virtual ::arrow::Status WriteRecordBatchReader(::arrow::RecordBatchReader& reader) = 0;
+
   virtual ::arrow::Status WriteColumnChunk(
       const std::shared_ptr<::arrow::ChunkedArray>& data) = 0;
   virtual ::arrow::Status Close() = 0;
@@ -103,6 +110,13 @@ PARQUET_EXPORT
 ::arrow::Status PARQUET_EXPORT WriteTable(
     const ::arrow::Table& table, MemoryPool* pool,
     const std::shared_ptr<::arrow::io::OutputStream>& sink, int64_t chunk_size,
+    const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
+    const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
+        default_arrow_writer_properties());
+
+::arrow::Status PARQUET_EXPORT WriteRecordBatchReader(
+    ::arrow::RecordBatchReader& reader, ::arrow::MemoryPool* pool,
+    const std::shared_ptr<::arrow::io::OutputStream>& sink,
     const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
     const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
         default_arrow_writer_properties());

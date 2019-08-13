@@ -92,7 +92,7 @@ class ARROW_DS_EXPORT FileSource {
 
   // PATH-based source
   std::string path_;
-  fs::FileSystem* filesystem_;
+  fs::FileSystem* filesystem_ = NULLPTR;
 
   // BUFFER-based source
   std::shared_ptr<Buffer> buffer_;

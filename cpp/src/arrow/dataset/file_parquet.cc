@@ -14,7 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-//
+
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/table.h"
 #include "arrow/util/iterator.h"
@@ -69,13 +69,46 @@ class ParquetScanTask : public ScanTask {
   RecordBatchReaderPtr record_batch_reader_;
 };
 
+constexpr int64_t kDefaultRowCountPerPartition = 1U << 16;
+
+// A partition of RowGroup identifiers
+using ParquetRowGroupPartion = std::vector<int>;
+
+// A class that partitions RowGroups of a Parquet file in subset of a target
+// size. The partition scheme doesn't protect against skewed sizes, it just
+// accumulates until the desired size (and may over count).
+class ParquetRowGroupPartitionner {
+ public:
+  ParquetRowGroupPartitionner(std::shared_ptr<parquet::FileMetaData> metadata,
+                              int64_t row_count = kDefaultRowCountPerPartition)
+      : metadata_(std::move(metadata)), row_count_(row_count), row_group_idx_(0) {
+    num_row_groups_ = metadata_->num_row_groups();
+  }
+
+  ParquetRowGroupPartion Next() {
+    int64_t partition_size = 0;
+    ParquetRowGroupPartion partition;
+
+    while (row_group_idx_ < num_row_groups_ && partition_size < row_count_) {
+      partition_size += metadata_->RowGroup(row_group_idx_)->num_rows();
+      partition.push_back(row_group_idx_++);
+    }
+
+    return partition;
+  }
+
+ private:
+  std::shared_ptr<parquet::FileMetaData> metadata_;
+  int64_t row_count_;
+  int row_group_idx_;
+  int num_row_groups_;
+};
+
 class ParquetScanTaskIterator : public ScanTaskIterator {
  public:
   static Status Make(std::shared_ptr<ScanOptions> options,
                      std::shared_ptr<ScanContext> context, ParquetFileReaderPtr reader,
                      std::unique_ptr<ScanTaskIterator>* out) {
-    // Take a reference on metadata because FileReader takes ownership of
-    // reader.
     auto metadata = reader->metadata();
 
     std::vector<int> columns_projection;
@@ -92,15 +125,15 @@ class ParquetScanTaskIterator : public ScanTaskIterator {
   }
 
   Status Next(ScanTaskPtr* task) override {
-    auto next_partition = NextRowGroupPartition();
+    auto partition = partitionner_.Next();
 
     // Iteration is done.
-    if (next_partition.size() == 0) {
+    if (partition.size() == 0) {
       task->reset(nullptr);
       return Status::OK();
     }
 
-    return ParquetScanTask::Make(std::move(next_partition), columns_projection_, reader_,
+    return ParquetScanTask::Make(std::move(partition), columns_projection_, reader_,
                                  task);
   }
 
@@ -117,32 +150,13 @@ class ParquetScanTaskIterator : public ScanTaskIterator {
   ParquetScanTaskIterator(std::vector<int> columns_projection,
                           std::shared_ptr<parquet::FileMetaData> metadata,
                           std::unique_ptr<parquet::arrow::FileReader> reader)
-      : row_group_idx_(0),
-        columns_projection_(columns_projection),
-        metadata_(std::move(metadata)),
+      : columns_projection_(columns_projection),
+        partitionner_(std::move(metadata)),
         reader_(std::move(reader)) {}
 
-  std::vector<int> NextRowGroupPartition() {
-    // TODO(fsaintjacques): Apply filters to RowGroups with metadata
-    // TODO(fsaintjacques): Partitions the RowGroups properly
-    if (row_group_idx_ == metadata_->num_row_groups()) return {};
-    return {row_group_idx_++};
-  }
-
-  // Index that keeps track of the last consumed RowGroup
-  int row_group_idx_;
-
-  // Subset of columns to ingest
   std::vector<int> columns_projection_;
-
-  // The metadata reference is used to discover the number and sizes of
-  // RowGroups allowing an (hopefully) balanced partitioning in ScanTasks
-  std::shared_ptr<parquet::FileMetaData> metadata_;
-
+  ParquetRowGroupPartitionner partitionner_;
   std::shared_ptr<parquet::arrow::FileReader> reader_;
-
-  std::shared_ptr<ScanOptions> opts_;
-  std::shared_ptr<ScanContext> ctx_;
 };
 
 Status ParquetFileFormat::ScanFile(const FileSource& location,

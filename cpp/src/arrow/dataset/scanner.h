@@ -50,25 +50,28 @@ class ARROW_DS_EXPORT ScanOptions {
   std::unique_ptr<DataSelector> selector_;
 };
 
-/// \brief Read record batches from a range of a single data fragment
+/// \brief Read record batches from a range of a single data fragment. A
+/// ScanTask is meant to be a unit of work to be dispatched. The implementation
+/// must be thread and concurrent safe.
 class ARROW_DS_EXPORT ScanTask {
  public:
-  virtual ~ScanTask() = default;
-
   /// \brief Iterate through sequence of materialized record batches
   /// resulting from the Scan. Execution semantics encapsulated in the
   /// particular ScanTask implementation
   virtual std::unique_ptr<RecordBatchIterator> Scan() = 0;
+
+  virtual ~ScanTask() = default;
 };
 
 /// \brief Main interface for
 class ARROW_DS_EXPORT Scanner {
  public:
-  virtual ~Scanner() = default;
-
   /// \brief Return iterator yielding ScanTask instances to enable
   /// serial or parallel execution of units of scanning work
   virtual std::unique_ptr<ScanTaskIterator> GetTasks() = 0;
+
+  virtual ~Scanner() = default;
+
 };
 
 class ARROW_DS_EXPORT ScannerBuilder {

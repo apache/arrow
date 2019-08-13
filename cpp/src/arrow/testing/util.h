@@ -33,6 +33,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -121,5 +122,56 @@ class BatchIterator : public RecordBatchReader {
   std::vector<std::shared_ptr<RecordBatch>> batches_;
   size_t position_;
 };
+
+struct MakeRepeatedArrayImpl {
+  template <typename T>
+  MakeRepeatedArrayImpl(std::shared_ptr<DataType> type, const T& value,
+                        int64_t repetitions)
+      : type_(type), typeid_(Typeid<T>), value_(&value), repetitions_(repetitions) {}
+
+  template <typename T>
+  enable_if_number<T, Status> Visit(const T& t) {
+    typename TypeTraits<T>::BuilderType builder;
+    using c_type = typename T::c_type;
+    auto value = *static_cast<const c_type*>(value_);
+    RETURN_NOT_OK(builder.Resize(repetitions_));
+    for (auto i = 0; i < repetitions_; ++i) {
+      builder.UnsafeAppend(value);
+    }
+    return builder.Finish(&out_);
+  }
+
+  template <typename T>
+  enable_if_binary_like<T, Status> Visit(const T& t) {
+    typename TypeTraits<T>::BuilderType builder(type_, default_memory_pool());
+    auto value = *static_cast<const util::string_view*>(value_);
+    RETURN_NOT_OK(builder.Resize(repetitions_));
+    for (auto i = 0; i < repetitions_; ++i) {
+      builder.UnsafeAppend(value);
+    }
+    return builder.Finish(&out_);
+  }
+
+  Status Visit(const DataType& t) {
+    return Status::Invalid("creating arrays of repeated ", t);
+  }
+
+  template <typename T>
+  static void Typeid() {}
+
+  std::shared_ptr<DataType> type_;
+  void (*typeid_)();
+  const void* value_;
+  int64_t repetitions_;
+  std::shared_ptr<Array> out_;
+};
+
+template <typename T>
+Result<std::shared_ptr<Array>> MakeRepeatedArray(const std::shared_ptr<DataType>& type,
+                                                 int64_t repetitions, const T& t) {
+  MakeRepeatedArrayImpl impl(type, t, repetitions);
+  RETURN_NOT_OK(VisitTypeInline(*type, &impl));
+  return impl.out_;
+}
 
 }  // namespace arrow

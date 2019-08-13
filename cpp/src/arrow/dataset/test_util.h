@@ -27,16 +27,20 @@ namespace dataset {
 // Convenience class allowing to retrieve integration FilSource easily.
 class FileSourceFixtureMixin : public TestDataFixtureMixin {
  public:
-  std::unique_ptr<FileSource> GetParquetLocation(
+  std::unique_ptr<FileSource> GetParquetDataLocation(
       const std::string& path,
       Compression::type compression = Compression::UNCOMPRESSED) {
     return internal::make_unique<FileSource>(path, parquet_fs_.get(), compression);
   }
 
-  std::unique_ptr<FileSource> GetArrowLocation(
+  std::unique_ptr<FileSource> GetArrowDataLocation(
       const std::string& path,
       Compression::type compression = Compression::UNCOMPRESSED) {
     return internal::make_unique<FileSource>(path, arrow_fs_.get(), compression);
+  }
+
+  std::unique_ptr<FileSource> GetLocation(std::shared_ptr<Buffer> buffer) {
+    return internal::make_unique<FileSource>(std::move(buffer));
   }
 };
 
