@@ -52,12 +52,9 @@ auto GetView(const ArrayType& array, int64_t index) -> decltype(array.GetView(in
   return array.GetView(index);
 }
 
-template <typename ArrayType>
 struct Slice {
-  using offset_type = typename ArrayType::TypeClass::offset_type;
-
   const Array* array_;
-  offset_type offset_, length_;
+  int64_t offset_, length_;
 
   bool operator==(const Slice& other) const {
     return length_ == other.length_ &&
@@ -70,9 +67,9 @@ template <typename ArrayType, typename T = typename ArrayType::TypeClass,
           typename =
               typename std::enable_if<std::is_base_of<BaseListType, T>::value ||
                                       std::is_base_of<FixedSizeListType, T>::value>::type>
-static Slice<ArrayType> GetView(const ArrayType& array, int64_t index) {
-  return Slice<ArrayType>{array.values().get(), array.value_offset(index),
-                          array.value_length(index)};
+static Slice GetView(const ArrayType& array, int64_t index) {
+  return Slice{array.values().get(), array.value_offset(index),
+               array.value_length(index)};
 }
 
 struct UnitSlice {
@@ -178,7 +175,7 @@ internal::LazyRange<NullOrViewGenerator<ArrayType>> MakeNullOrViewRange(
 /// Algorithmica, vol. 1, no. 1-4, pp. 251–266, 1986.
 ///
 /// To summarize, an edit script is computed by maintaining the furthest set of EditPoints
-/// which are reachable in a given number of edits D. This is used to compute the futhest
+/// which are reachable in a given number of edits D. This is used to compute the furthest
 /// set reachable with D+1 edits, and the process continues inductively until a complete
 /// edit script is discovered.
 ///
@@ -239,6 +236,7 @@ class QuadraticSpaceMyersDiff {
     if (std::distance(base_begin_, base_end_) ==
             std::distance(target_begin_, target_end_) &&
         endpoint_base_[0] == base_end_) {
+      // trivial case: base == target
       finish_index_ = 0;
     }
   }
@@ -351,9 +349,9 @@ class QuadraticSpaceMyersDiff {
   int64_t edit_count_ = 0;
   Iterator base_begin_, base_end_;
   Iterator target_begin_, target_end_;
-  // each element of futhest_base_ is the furthest position in base reachable given an
+  // each element of endpoint_base_ is the furthest position in base reachable given an
   // edit_count and (# insertions) - (# deletions). Each bit of insert_ records whether
-  // the corresponding futhest position was reached via an insertion or a deletion
+  // the corresponding furthest position was reached via an insertion or a deletion
   // (followed by a run of shared elements). See StorageOffset for the
   // layout of these vectors
   std::vector<Iterator> endpoint_base_;
