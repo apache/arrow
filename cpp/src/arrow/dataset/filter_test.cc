@@ -15,12 +15,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
 
-#include "arrow/dataset/dataset.h"
-#include "arrow/dataset/discovery.h"
-#include "arrow/dataset/file_base.h"
-#include "arrow/dataset/file_csv.h"
-#include "arrow/dataset/file_feather.h"
-#include "arrow/dataset/filter.h"
-#include "arrow/dataset/scanner.h"
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
+#include "arrow/status.h"
+#include "arrow/testing/gtest_util.h"
+
+#include "arrow/dataset/api.h"
+
+namespace arrow {
+namespace dataset {
+
+TEST(Expressions, Basics) {
+  using namespace string_literals;
+
+  auto simplified = ("b"_ == 3).Assume("b"_ > 5 and "b"_ < 10);
+  ASSERT_OK(simplified.status());
+  ASSERT_EQ(simplified.ValueOrDie()->type(), ExpressionType::SCALAR);
+  auto value = internal::checked_cast<const ScalarExpression&>(**simplified).value();
+  ASSERT_EQ(value->type->id(), Type::BOOL);
+  ASSERT_FALSE(internal::checked_cast<const BooleanScalar&>(*value).value);
+}
+
+}  // namespace dataset
+}  // namespace arrow
