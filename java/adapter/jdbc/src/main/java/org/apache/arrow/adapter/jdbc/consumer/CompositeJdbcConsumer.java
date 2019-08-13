@@ -30,12 +30,20 @@ public class CompositeJdbcConsumer implements JdbcConsumer {
   private final JdbcConsumer[] consumers;
   private int readRowCount;
 
+  private boolean partialRead;
+  private int partialLimit;
+
   public int getReadRowCount() {
     return readRowCount;
   }
 
-  public CompositeJdbcConsumer(JdbcConsumer[] consumers) {
+  /**
+   * Construct an instance.
+   */
+  public CompositeJdbcConsumer(JdbcConsumer[] consumers, boolean partialRead, int partialLimit) {
     this.consumers = consumers;
+    this.partialRead = partialRead;
+    this.partialLimit = partialLimit;
   }
 
   @Override
@@ -45,6 +53,9 @@ public class CompositeJdbcConsumer implements JdbcConsumer {
         consumer.consume(rs);
       }
       readRowCount++;
+      if (partialRead && readRowCount >= partialLimit) {
+        break;
+      }
     }
   }
 

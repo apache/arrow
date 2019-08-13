@@ -33,6 +33,9 @@ public class JdbcToArrowConfigBuilder {
   private Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex;
   private Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
 
+  private boolean partialRead;
+  private int partialLimit;
+
   /**
    * Default constructor for the <code>JdbcToArrowConfigBuilder}</code>.
    * Use the setter methods for the allocator and calendar; the allocator must be
@@ -44,6 +47,7 @@ public class JdbcToArrowConfigBuilder {
     this.includeMetadata = false;
     this.arraySubTypesByColumnIndex = null;
     this.arraySubTypesByColumnName = null;
+    this.partialRead = false;
   }
 
   /**
@@ -153,6 +157,16 @@ public class JdbcToArrowConfigBuilder {
     return this;
   }
 
+  public JdbcToArrowConfigBuilder setPartialRead(boolean partialRead) {
+    this.partialRead = partialRead;
+    return this;
+  }
+
+  public JdbcToArrowConfigBuilder setPartialLimit(int partialLimit) {
+    this.partialLimit = partialLimit;
+    return this;
+  }
+
   /**
    * This builds the {@link JdbcToArrowConfig} from the provided
    * {@link BaseAllocator} and {@link Calendar}.
@@ -166,6 +180,8 @@ public class JdbcToArrowConfigBuilder {
         calendar,
         includeMetadata,
         arraySubTypesByColumnIndex,
-        arraySubTypesByColumnName);
+        arraySubTypesByColumnName,
+        partialRead,
+        partialLimit);
   }
 }

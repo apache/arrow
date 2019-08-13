@@ -360,7 +360,8 @@ public class JdbcToArrowUtils {
           root.getVector(rsmd.getColumnName(i)), config);
     }
 
-    try (CompositeJdbcConsumer compositeConsumer = new CompositeJdbcConsumer(consumers)) {
+    try (CompositeJdbcConsumer compositeConsumer =
+        new CompositeJdbcConsumer(consumers, config.isPartialRead(), config.getPartialLimit())) {
       compositeConsumer.consume(rs);
       root.setRowCount(compositeConsumer.getReadRowCount());
     }

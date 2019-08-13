@@ -54,6 +54,23 @@ public final class JdbcToArrowConfig {
   private Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
 
   /**
+   * Whether need to partially convert data, default is false. Note that:
+   * <p>
+   * 1) for {@link JdbcToArrow#sqlToArrow}
+   * if set true, it will convert no more than partialLimit rows into a single vector.
+   * if set false, it will convert full data into a single vector.
+   * </p>
+   * <p>
+   * 2) for {@link JdbcToArrow#sqlToArrowVectorIterator}
+   * if set true, it will convert full data into multiple vectors with valueCount no more than partialLimit.
+   * if set false, it will convert full data into a single vector in {@link ArrowVectorIterator}
+   * </p>
+   */
+  private boolean partialRead;
+
+  private int partialLimit;
+
+  /**
    * Constructs a new configuration from the provided allocator and calendar.  The <code>allocator</code>
    * is used when constructing the Arrow vectors from the ResultSet, and the calendar is used to define
    * Arrow Timestamp fields, and to read time-based fields from the JDBC <code>ResultSet</code>. 
@@ -87,13 +104,17 @@ public final class JdbcToArrowConfig {
       Calendar calendar,
       boolean includeMetadata,
       Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex,
-      Map<String, JdbcFieldInfo> arraySubTypesByColumnName) {
+      Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
+      boolean partialRead,
+      int partialLimit) {
 
     this(allocator, calendar);
 
     this.includeMetadata = includeMetadata;
     this.arraySubTypesByColumnIndex = arraySubTypesByColumnIndex;
     this.arraySubTypesByColumnName = arraySubTypesByColumnName;
+    this.partialRead = partialRead;
+    this.partialLimit = partialLimit;
   }
 
   /**
@@ -122,6 +143,20 @@ public final class JdbcToArrowConfig {
    */
   public boolean shouldIncludeMetadata() {
     return includeMetadata;
+  }
+
+  /**
+   * Whether to read ResultSet iteratively into multiple Arrow vectors.
+   */
+  public boolean isPartialRead() {
+    return partialRead;
+  }
+
+  /**
+   * Get the row count limit for each vector.
+   */
+  public int getPartialLimit() {
+    return partialLimit;
   }
 
   /**

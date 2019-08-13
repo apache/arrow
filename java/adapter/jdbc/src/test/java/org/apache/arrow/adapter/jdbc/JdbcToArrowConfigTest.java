@@ -111,10 +111,10 @@ public class JdbcToArrowConfigTest {
     config = new JdbcToArrowConfigBuilder(allocator, calendar, true).build();
     assertTrue(config.shouldIncludeMetadata());
 
-    config = new JdbcToArrowConfig(allocator, calendar, true, null, null);
+    config = new JdbcToArrowConfig(allocator, calendar, true, null, null, false, 0);
     assertTrue(config.shouldIncludeMetadata());
 
-    config = new JdbcToArrowConfig(allocator, calendar, false, null, null);
+    config = new JdbcToArrowConfig(allocator, calendar, false, null, null, false, 0);
     assertFalse(config.shouldIncludeMetadata());
   }
 

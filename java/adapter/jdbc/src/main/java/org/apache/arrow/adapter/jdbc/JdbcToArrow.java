@@ -215,4 +215,165 @@ public class JdbcToArrow {
     JdbcToArrowUtils.jdbcToArrowVectors(resultSet, root, config);
     return root;
   }
+
+
+  /*----------------------------------------------------------------*
+   |                                                                |
+   |          partial convert API                        |
+   |                                                                |
+   *----------------------------------------------------------------*/
+
+  /**
+   * For the given SQL query, execute and fetch the data from Relational DB and
+   * convert it to {@link ArrowVectorIterator}.
+   *
+   * @param connection Database connection to be used.
+   * @param query      The DB Query to fetch the data.
+   * @param allocator  Memory allocator
+   * @return Arrow Data Objects {@link ArrowVectorIterator}
+   * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as
+   *                      ResultSet and Statement objects.
+   */
+  public static ArrowVectorIterator sqlToArrowVectorIterator(
+      Connection connection,
+      String query,
+      BaseAllocator allocator)
+      throws SQLException, IOException {
+    Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
+
+    JdbcToArrowConfig config =
+        new JdbcToArrowConfig(allocator, JdbcToArrowUtils.getUtcCalendar());
+    return sqlToArrowVectorIterator(connection, query, config);
+  }
+
+  /**
+   * For the given SQL query, execute and fetch the data from Relational DB and convert it to Arrow objects.
+   *
+   * @param connection Database connection to be used.
+   * @param allocator  Memory allocator
+   * @param calendar   Calendar object to use to handle Date, Time and Timestamp datasets.
+   * @return Arrow Data Objects {@link ArrowVectorIterator}
+   * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as
+   *                      ResultSet and Statement objects.
+   */
+  public static ArrowVectorIterator sqlToArrowVectorIterator(
+      Connection connection,
+      String query,
+      BaseAllocator allocator,
+      Calendar calendar) throws SQLException, IOException {
+
+    Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
+    Preconditions.checkNotNull(calendar, "Calendar object can not be null");
+
+    return sqlToArrowVectorIterator(connection, query, new JdbcToArrowConfig(allocator, calendar));
+  }
+
+  /**
+   * For the given SQL query, execute and fetch the data from Relational DB and convert it to Arrow objects.
+   *
+   * @param connection Database connection to be used.
+   * @param query      The DB Query to fetch the data.
+   * @param config     Configuration
+   * @return Arrow Data Objects {@link ArrowVectorIterator}
+   * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as
+   *                      ResultSet and Statement objects.
+   */
+  public static ArrowVectorIterator sqlToArrowVectorIterator(
+      Connection connection,
+      String query,
+      JdbcToArrowConfig config)
+      throws SQLException, IOException {
+    Preconditions.checkNotNull(connection, "JDBC connection object can not be null");
+    Preconditions.checkArgument(query != null && query.length() > 0, "SQL query can not be null or empty");
+
+    try (Statement stmt = connection.createStatement()) {
+      return sqlToArrowVectorIterator(stmt.executeQuery(query), config);
+    }
+  }
+
+  /**
+   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
+   *
+   * @param resultSet ResultSet to use to fetch the data from underlying database
+   * @return Arrow Data Objects {@link ArrowVectorIterator}
+   * @throws SQLException on error
+   */
+  public static ArrowVectorIterator sqlToArrowVectorIterator(ResultSet resultSet)
+      throws SQLException, IOException {
+    Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
+
+    return sqlToArrowVectorIterator(resultSet, JdbcToArrowUtils.getUtcCalendar());
+  }
+
+  /**
+   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
+   *
+   * @param resultSet ResultSet to use to fetch the data from underlying database
+   * @param allocator Memory allocator
+   * @return Arrow Data Objects {@link ArrowVectorIterator}
+   * @throws SQLException on error
+   */
+  public static ArrowVectorIterator sqlToArrowVectorIterator(
+      ResultSet resultSet,
+      BaseAllocator allocator)
+      throws SQLException, IOException {
+    Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
+
+    JdbcToArrowConfig config =
+        new JdbcToArrowConfig(allocator, JdbcToArrowUtils.getUtcCalendar());
+    return sqlToArrowVectorIterator(resultSet, config);
+  }
+
+  /**
+   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
+   *
+   * @param resultSet ResultSet to use to fetch the data from underlying database
+   * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets, or <code>null</code> if none.
+   * @return Arrow Data Objects {@link ArrowVectorIterator}
+   * @throws SQLException on error
+   */
+  public static ArrowVectorIterator sqlToArrowVectorIterator(
+      ResultSet resultSet,
+      Calendar calendar)
+      throws SQLException, IOException {
+    Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
+    return sqlToArrowVectorIterator(resultSet,
+        new JdbcToArrowConfig(new RootAllocator(Integer.MAX_VALUE), calendar));
+  }
+
+  /**
+   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
+   *
+   * @param resultSet ResultSet to use to fetch the data from underlying database
+   * @param allocator Memory allocator to use.
+   * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets, or <code>null</code> if none.
+   * @return Arrow Data Objects {@link ArrowVectorIterator}
+   * @throws SQLException on error
+   */
+  public static ArrowVectorIterator sqlToArrowVectorIterator(
+      ResultSet resultSet,
+      BaseAllocator allocator,
+      Calendar calendar)
+      throws SQLException, IOException {
+    Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
+
+    return sqlToArrowVectorIterator(resultSet, new JdbcToArrowConfig(allocator, calendar));
+  }
+
+  /**
+   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
+   *
+   * @param resultSet ResultSet to use to fetch the data from underlying database
+   * @param config    Configuration of the conversion from JDBC to Arrow.
+   * @return Arrow Data Objects {@link ArrowVectorIterator}
+   * @throws SQLException on error
+   */
+  public static ArrowVectorIterator sqlToArrowVectorIterator(
+      ResultSet resultSet,
+      JdbcToArrowConfig config)
+      throws SQLException, IOException {
+    Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
+    Preconditions.checkNotNull(config, "The configuration cannot be null");
+    return new ArrowVectorIterator(resultSet, config);
+  }
 }
