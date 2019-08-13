@@ -33,7 +33,7 @@ void CheckView(const std::shared_ptr<Array>& input,
                const std::shared_ptr<Array>& expected) {
   std::shared_ptr<Array> result;
   ASSERT_OK(input->View(view_type, &result));
-  ASSERT_OK(ValidateArray(*result));
+  ASSERT_OK(result->Validate());
   AssertArraysEqual(*expected, *result);
 }
 
@@ -316,7 +316,7 @@ TEST(TestArrayView, SparseUnionAsStruct) {
   auto indices = ArrayFromJSON(int8(), "[0, 0, 1]");
   std::shared_ptr<Array> arr;
   ASSERT_OK(UnionArray::MakeSparse(*indices, {child1, child2}, &arr));
-  ASSERT_OK(ValidateArray(*arr));
+  ASSERT_OK(arr->Validate());
 
   auto ty1 = struct_({field("a", int8()), field("b", uint16()), field("c", float32())});
   auto expected = ArrayFromJSON(ty1, "[[0, 0, 0], [0, 65535, 1.5], [1, 42, -2.5]]");
@@ -326,7 +326,7 @@ TEST(TestArrayView, SparseUnionAsStruct) {
   // With nulls
   indices = ArrayFromJSON(int8(), "[null, 0, 1]");
   ASSERT_OK(UnionArray::MakeSparse(*indices, {child1, child2}, &arr));
-  ASSERT_OK(ValidateArray(*arr));
+  ASSERT_OK(arr->Validate());
   expected = ArrayFromJSON(ty1, "[null, [0, 65535, 1.5], [1, 42, -2.5]]");
   CheckView(arr, expected);
   //   CheckView(expected, arr);  // XXX currently fails
@@ -335,7 +335,7 @@ TEST(TestArrayView, SparseUnionAsStruct) {
   child1 = ArrayFromJSON(int16(), "[0, -1, null]");
   child2 = ArrayFromJSON(int32(), "[0, null, -1071644672]");
   ASSERT_OK(UnionArray::MakeSparse(*indices, {child1, child2}, &arr));
-  ASSERT_OK(ValidateArray(*arr));
+  ASSERT_OK(arr->Validate());
   expected = ArrayFromJSON(ty1, "[null, [0, 65535, null], [1, null, -2.5]]");
   CheckView(arr, expected);
   //   CheckView(expected, arr);  // XXX currently fails
@@ -348,9 +348,9 @@ TEST(TestArrayView, DecimalRoundTrip) {
   auto ty2 = fixed_size_binary(16);
   std::shared_ptr<Array> v, w;
   ASSERT_OK(arr->View(ty2, &v));
-  ASSERT_OK(ValidateArray(*v));
+  ASSERT_OK(v->Validate());
   ASSERT_OK(v->View(ty1, &w));
-  ASSERT_OK(ValidateArray(*w));
+  ASSERT_OK(w->Validate());
   AssertArraysEqual(*arr, *w);
 }
 
@@ -386,7 +386,7 @@ TEST(TestArrayView, NonZeroNestedOffset) {
   std::shared_ptr<Array> list_array;
   ASSERT_OK(ListArray::FromArrays(*list_offsets, *list_values, default_memory_pool(),
                                   &list_array));
-  ASSERT_OK(ValidateArray(*list_array));
+  ASSERT_OK(list_array->Validate());
   CheckViewFails(list_array, list(uint16()));
 }
 

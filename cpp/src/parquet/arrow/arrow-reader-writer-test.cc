@@ -2270,6 +2270,7 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
       }
     }
     ASSERT_EQ(local_null_count, expected_nulls);
+    ASSERT_OK(array.Validate());
   }
 
   void ValidateColumnArray(const ::arrow::Int32Array& array, size_t expected_nulls) {

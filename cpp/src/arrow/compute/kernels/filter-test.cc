@@ -44,7 +44,7 @@ class TestFilterKernel : public ComputeFixture, public TestBase {
                           const std::shared_ptr<Array>& expected) {
     std::shared_ptr<Array> actual;
     ASSERT_OK(arrow::compute::Filter(&this->ctx_, *values, *filter, &actual));
-    ASSERT_OK(ValidateArray(*actual));
+    ASSERT_OK(actual->Validate());
     AssertArraysEqual(*expected, *actual);
   }
 
@@ -52,7 +52,7 @@ class TestFilterKernel : public ComputeFixture, public TestBase {
                     const std::string& filter, const std::string& expected) {
     std::shared_ptr<Array> actual;
     ASSERT_OK(this->Filter(type, values, filter, &actual));
-    ASSERT_OK(ValidateArray(*actual));
+    ASSERT_OK(actual->Validate());
     AssertArraysEqual(*ArrayFromJSON(type, expected), *actual);
   }
 
@@ -66,7 +66,7 @@ class TestFilterKernel : public ComputeFixture, public TestBase {
                       const std::shared_ptr<Array>& filter_boxed) {
     std::shared_ptr<Array> filtered;
     ASSERT_OK(arrow::compute::Filter(&this->ctx_, *values, *filter_boxed, &filtered));
-    ASSERT_OK(ValidateArray(*filtered));
+    ASSERT_OK(filtered->Validate());
 
     auto filter = checked_pointer_cast<BooleanArray>(filter_boxed);
     int64_t values_i = 0, filtered_i = 0;
@@ -222,7 +222,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
                                         &selection));
       ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(array), selection, &filtered));
       auto filtered_array = filtered.make_array();
-      ASSERT_OK(ValidateArray(*filtered_array));
+      ASSERT_OK(filtered_array->Validate());
       auto expected =
           CompareAndFilter<TypeParam>(array->raw_values(), array->length(), c_fifty, op);
       ASSERT_ARRAYS_EQUAL(*filtered_array, *expected);
@@ -247,7 +247,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareArrayAndFilterRandomNumeric) {
                                         &selection));
       ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(lhs), selection, &filtered));
       auto filtered_array = filtered.make_array();
-      ASSERT_OK(ValidateArray(*filtered_array));
+      ASSERT_OK(filtered_array->Validate());
       auto expected = CompareAndFilter<TypeParam>(lhs->raw_values(), lhs->length(),
                                                   rhs->raw_values(), op);
       ASSERT_ARRAYS_EQUAL(*filtered_array, *expected);
@@ -277,7 +277,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
                                   &selection));
     ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(array), selection, &filtered));
     auto filtered_array = filtered.make_array();
-    ASSERT_OK(ValidateArray(*filtered_array));
+    ASSERT_OK(filtered_array->Validate());
     auto expected = CompareAndFilter<TypeParam>(
         array->raw_values(), array->length(),
         [&](CType e) { return (e > c_fifty) && (e < c_hundred); });

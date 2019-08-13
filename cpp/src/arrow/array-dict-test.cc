@@ -914,7 +914,7 @@ TEST(TestDictionary, Validate) {
       std::make_shared<DictionaryArray>(dict_type, indices, dict);
 
   // Only checking index type for now
-  ASSERT_OK(ValidateArray(*arr));
+  ASSERT_OK(arr->Validate());
 
   ASSERT_DEATH(
       {
@@ -1042,7 +1042,7 @@ TEST(TestDictionary, DISABLED_ListOfDictionary) {
 
   std::shared_ptr<Array> array;
   ASSERT_OK(root_builder->Finish(&array));
-  ASSERT_OK(ValidateArray(*array));
+  ASSERT_OK(array->Validate());
 
   auto expected_type = list(dictionary(int16(), utf8()));
   ASSERT_EQ(array->type()->ToString(), expected_type->ToString());

@@ -151,6 +151,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] Slice(int64_t offset)
         shared_ptr[CArray] Slice(int64_t offset, int64_t length)
 
+        CStatus Validate() const
+
     shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
 
     CStatus DebugPrint(const CArray& arr, int indent)
@@ -517,8 +519,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] GetFieldByName(const c_string& name) const
 
         CStatus Flatten(CMemoryPool* pool, vector[shared_ptr[CArray]]* out)
-
-    CStatus ValidateArray(const CArray& array)
 
     cdef cppclass CChunkedArray" arrow::ChunkedArray":
         CChunkedArray(const vector[shared_ptr[CArray]]& arrays)

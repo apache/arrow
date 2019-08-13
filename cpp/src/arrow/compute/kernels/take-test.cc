@@ -44,7 +44,7 @@ class TestTakeKernel : public ComputeFixture, public TestBase {
     std::shared_ptr<Array> actual;
     TakeOptions options;
     ASSERT_OK(arrow::compute::Take(&this->ctx_, *values, *indices, options, &actual));
-    ASSERT_OK(ValidateArray(*actual));
+    ASSERT_OK(actual->Validate());
     AssertArraysEqual(*expected, *actual);
   }
 
@@ -54,7 +54,7 @@ class TestTakeKernel : public ComputeFixture, public TestBase {
 
     for (auto index_type : {int8(), uint32()}) {
       ASSERT_OK(this->Take(type, values, index_type, indices, &actual));
-      ASSERT_OK(ValidateArray(*actual));
+      ASSERT_OK(actual->Validate());
       AssertArraysEqual(*ArrayFromJSON(type, expected), *actual);
     }
   }
@@ -131,7 +131,7 @@ class TestTakeKernelWithNumeric : public TestTakeKernel<ArrowType> {
     TakeOptions options;
     ASSERT_OK(
         arrow::compute::Take(&this->ctx_, *values, *indices_boxed, options, &taken));
-    ASSERT_OK(ValidateArray(*taken));
+    ASSERT_OK(taken->Validate());
     ASSERT_EQ(indices_boxed->length(), taken->length());
 
     ASSERT_EQ(indices_boxed->type_id(), Type::INT32);
@@ -415,7 +415,7 @@ class TestPermutationsWithTake : public ComputeFixture, public TestBase {
     TakeOptions options;
     std::shared_ptr<Array> boxed_out;
     ASSERT_OK(arrow::compute::Take(&this->ctx_, values, indices, options, &boxed_out));
-    ASSERT_OK(ValidateArray(*boxed_out));
+    ASSERT_OK(boxed_out->Validate());
     *out = checked_pointer_cast<Int16Array>(std::move(boxed_out));
   }
 

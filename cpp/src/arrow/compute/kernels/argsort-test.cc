@@ -37,7 +37,7 @@ class TestArgsortKernel : public ComputeFixture, public TestBase {
                            const std::shared_ptr<Array> expected) {
     std::shared_ptr<Array> actual;
     ASSERT_OK(arrow::compute::Argsort(&this->ctx_, *values, &actual));
-    ASSERT_OK(ValidateArray(*actual));
+    ASSERT_OK(actual->Validate());
     AssertArraysEqual(*expected, *actual);
   }
 

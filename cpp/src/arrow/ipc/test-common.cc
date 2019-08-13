@@ -118,7 +118,7 @@ static Status MakeListArray(const std::shared_ptr<Array>& child_array, int num_l
   *out = std::make_shared<ArrayType>(std::make_shared<TypeClass>(child_array->type()),
                                      num_lists, offsets_buffer, child_array, null_bitmap,
                                      kUnknownNullCount);
-  return ValidateArray(**out);
+  return (**out).Validate();
 }
 
 Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_lists,

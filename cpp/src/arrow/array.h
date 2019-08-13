@@ -343,6 +343,14 @@ class ARROW_EXPORT Array {
   /// \return PrettyPrint representation of array suitable for debugging
   std::string ToString() const;
 
+  /// \brief Perform any validation checks to determine obvious inconsistencies
+  /// within the array's internal data.
+  ///
+  /// This can be an expensive check, potentially O(length).
+  ///
+  /// \return Status
+  Status Validate() const;
+
  protected:
   Array() : null_bitmap_data_(NULLPTR) {}
 
@@ -1229,13 +1237,11 @@ class ARROW_EXPORT DictionaryArray : public Array {
   std::shared_ptr<Array> indices_;
 };
 
-/// \brief Perform any validation checks to determine obvious inconsistencies
-/// with the array's internal data
-///
-/// This can be an expensive check.
+/// \brief Alias of Array::Validate().
 ///
 /// \param array an Array instance
 /// \return Status
+ARROW_DEPRECATED("Use Array::Validate instead")
 ARROW_EXPORT
 Status ValidateArray(const Array& array);
 
