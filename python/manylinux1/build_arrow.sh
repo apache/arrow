@@ -148,7 +148,7 @@ if sys.version_info.major > 2:
     import pyarrow.gandiva
   "
 
-  # More thorough testing happens outsite of the build to prevent
+  # More thorough testing happens outside of the build to prevent
   # packaging issues like ARROW-4372
   mv dist/*.tar.gz /io/dist
   mv repaired_wheels/*.whl /io/dist

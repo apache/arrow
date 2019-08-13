@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+# NB: this assumes that you have arrow-site cloned in the (gitignored) site directory
 cd /apache-arrow/arrow/site
 export GEM_HOME=$(pwd)
 export BUNDLE_PATH=$(pwd)

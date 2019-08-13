@@ -132,7 +132,7 @@ def list_appveyor_affected_files():
 LANGUAGE_TOPICS = ['c_glib', 'cpp', 'docs', 'go', 'java', 'js', 'python',
                    'r', 'ruby', 'rust', 'csharp']
 
-ALL_TOPICS = LANGUAGE_TOPICS + ['integration', 'site', 'dev']
+ALL_TOPICS = LANGUAGE_TOPICS + ['integration', 'dev']
 
 
 AFFECTED_DEPENDENCIES = {
@@ -147,7 +147,7 @@ AFFECTED_DEPENDENCIES = {
 }
 
 COMPONENTS = {'cpp', 'java', 'c_glib', 'r', 'ruby', 'integration', 'js',
-              'rust', 'csharp', 'site', 'go', 'docs', 'python', 'dev'}
+              'rust', 'csharp', 'go', 'docs', 'python', 'dev'}
 
 
 def get_affected_topics(affected_files):
@@ -270,7 +270,6 @@ def test_get_affected_topics():
         'rust': False,
         'csharp': False,
         'integration': True,
-        'site': False,
         'dev': False
     }
 
@@ -288,7 +287,6 @@ def test_get_affected_topics():
         'rust': True,
         'csharp': True,
         'integration': True,
-        'site': False,
         'dev': False
     }
 

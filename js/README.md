@@ -251,7 +251,7 @@ Full list of broader Apache Arrow [committers](https://arrow.apache.org/committe
 
 # Powered By Apache Arrow in JS
 
-Full list of broader Apache Arrow [projects & organizations](https://github.com/apache/arrow/blob/master/site/powered_by.md).
+Full list of broader Apache Arrow [projects & organizations](https://arrow.apache.org/powered_by/).
 
 ## Open Source Projects
 

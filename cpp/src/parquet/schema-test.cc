@@ -445,7 +445,7 @@ TEST_F(TestSchemaConverter, NestedExample) {
 
   ASSERT_TRUE(schema->Equals(group_));
 
-  // Check that the parent relationship in each node is consitent
+  // Check that the parent relationship in each node is consistent
   ASSERT_EQ(group_->parent(), nullptr);
   ASSERT_TRUE(check_for_parent_consistency(group_));
 }
