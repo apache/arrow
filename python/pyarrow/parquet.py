@@ -302,7 +302,7 @@ def _sanitize_schema(schema, flavor):
 def _sanitize_table(table, new_schema, flavor):
     # TODO: This will not handle prohibited characters in nested field names
     if 'spark' in flavor:
-        column_data = [table[i].data for i in range(table.num_columns)]
+        column_data = [table[i] for i in range(table.num_columns)]
         return pa.Table.from_arrays(column_data, schema=new_schema)
     else:
         return table
