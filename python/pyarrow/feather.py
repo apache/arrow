@@ -59,7 +59,7 @@ class FeatherReader(ext.FeatherReader):
 
 
 def check_chunked_overflow(col):
-    if col.data.num_chunks == 1:
+    if col.num_chunks == 1:
         return
 
     if col.type in (ext.binary(), ext.string()):
@@ -94,7 +94,7 @@ class FeatherWriter(object):
             for i, name in enumerate(table.schema.names):
                 col = table[i]
                 check_chunked_overflow(col)
-                self.writer.write_array(name, col.data.chunk(0))
+                self.writer.write_array(name, col.chunk(0))
 
         self.writer.close()
 
