@@ -74,8 +74,6 @@ public class DictionaryHashTable {
 
   private final ValueVector dictionary;
 
-  private boolean built;
-
   /**
    * Constructs an empty map with the specified initial capacity and load factor.
    */
@@ -91,22 +89,15 @@ public class DictionaryHashTable {
     this.threshold = initialCapacity;
 
     this.dictionary = dictionary;
+
+    // build hash table
+    for (int i = 0; i < this.dictionary.getValueCount(); i++) {
+      put(i);
+    }
   }
 
   public DictionaryHashTable(ValueVector dictionary) {
     this(DEFAULT_INITIAL_CAPACITY, dictionary);
-  }
-
-  /**
-   * Build hash table with dictionary vector.
-   */
-  public void ensureBuildTable() {
-    if (!built) {
-      built = true;
-      for (int i = 0; i < dictionary.getValueCount(); i++) {
-        put(i);
-      }
-    }
   }
 
   /**
@@ -160,7 +151,7 @@ public class DictionaryHashTable {
   /**
    * put the index of dictionary vector to build hash table.
    */
-  public void put(int indexInDictionary) {
+  private void put(int indexInDictionary) {
     if (table == EMPTY_TABLE) {
       inflateTable(threshold);
     }

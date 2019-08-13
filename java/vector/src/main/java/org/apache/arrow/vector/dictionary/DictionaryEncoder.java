@@ -45,7 +45,6 @@ public class DictionaryEncoder {
     this.dictionary = dictionary;
     this.allocator = allocator;
     hashTable = new DictionaryHashTable(dictionary.getVector());
-    hashTable.ensureBuildTable();
   }
 
   /**
