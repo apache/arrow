@@ -1226,6 +1226,11 @@ cdef class ParquetWriter:
         properties = properties_builder.build()
 
         cdef ArrowWriterProperties.Builder arrow_properties_builder
+
+        # Store the original Arrow schema so things like dictionary types can
+        # be automatically reconstructed
+        arrow_properties_builder.store_schema()
+
         self._set_int96_support(&arrow_properties_builder)
         self._set_coerce_timestamps(&arrow_properties_builder)
         self._set_allow_truncated_timestamps(&arrow_properties_builder)

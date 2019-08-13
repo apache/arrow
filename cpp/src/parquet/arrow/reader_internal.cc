@@ -562,14 +562,19 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
   ::arrow::io::BufferReader input(schema_buf);
   RETURN_NOT_OK(::arrow::ipc::ReadSchema(&input, &dict_memo, out));
 
-  // Copy the metadata without the schema key
-  auto new_metadata = ::arrow::key_value_metadata({});
-  new_metadata->reserve(metadata->size() - 1);
-  for (int64_t i = 0; i < metadata->size(); ++i) {
-    if (i == schema_index) continue;
-    new_metadata->Append(metadata->key(i), metadata->value(i));
+  if (metadata->size() > 1) {
+    // Copy the metadata without the schema key
+    auto new_metadata = ::arrow::key_value_metadata({});
+    new_metadata->reserve(metadata->size() - 1);
+    for (int64_t i = 0; i < metadata->size(); ++i) {
+      if (i == schema_index) continue;
+      new_metadata->Append(metadata->key(i), metadata->value(i));
+    }
+    *clean_metadata = new_metadata;
+  } else {
+    // No other keys, let metadata be null
+    *clean_metadata = nullptr;
   }
-  *clean_metadata = new_metadata;
   return Status::OK();
 }
 

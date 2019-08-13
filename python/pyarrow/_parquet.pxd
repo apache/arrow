@@ -365,6 +365,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* coerce_timestamps(TimeUnit unit)
             Builder* allow_truncated_timestamps()
             Builder* disallow_truncated_timestamps()
+            Builder* store_schema()
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()
 

@@ -2981,6 +2981,36 @@ def test_parquet_file_too_small(tempdir):
         pq.read_table(path)
 
 
+def test_dictionary_array_automatically_read():
+    # ARROW-3246
+
+    # Make a large dictionary, a little over 4MB of data
+    dict_length = 4000
+    dict_values = pa.array([('x' * 1000 + '_{}'.format(i))
+                            for i in range(dict_length)])
+
+    num_chunks = 10
+    chunk_size = 100
+    chunks = []
+    for i in range(num_chunks):
+        indices = np.random.randint(0, dict_length,
+                                    size=chunk_size).astype(np.int32)
+        chunks.append(pa.DictionaryArray.from_arrays(pa.array(indices),
+                                                     dict_values))
+
+    table = pa.table([pa.chunked_array(chunks)], names=['f0'])
+
+    bio = pa.BufferOutputStream()
+    pq.write_table(table, bio)
+    contents = bio.getvalue()
+    result = pq.read_table(pa.BufferReader(contents))
+
+    assert result.equals(table)
+
+    # The only key in the metadata was the Arrow schema key
+    assert result.schema.metadata is None
+
+
 @pytest.mark.pandas
 def test_multi_dataset_metadata(tempdir):
     filenames = ["ARROW-1983-dataset.0", "ARROW-1983-dataset.1"]
