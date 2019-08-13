@@ -25,7 +25,6 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer-builder.h"
-#include "arrow/compute/api.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/visitor_inline.h"
@@ -43,6 +42,7 @@ using arrow::BinaryArray;
 using arrow::BooleanArray;
 using arrow::ChunkedArray;
 using arrow::Decimal128Array;
+using arrow::DictionaryArray;
 using arrow::Field;
 using arrow::FixedSizeBinaryArray;
 using Int16BufferBuilder = arrow::TypedBufferBuilder<int16_t>;
@@ -54,10 +54,6 @@ using arrow::ResizableBuffer;
 using arrow::Status;
 using arrow::Table;
 using arrow::TimeUnit;
-
-using arrow::compute::Cast;
-using arrow::compute::CastOptions;
-using arrow::compute::FunctionContext;
 
 using parquet::ParquetFileWriter;
 using parquet::ParquetVersion;
@@ -89,6 +85,21 @@ class LevelBuilder {
     return Status::OK();
   }
 
+  Status Visit(const DictionaryArray& array) {
+    // Only currently handle DictionaryArray where the dictionary is a
+    // primitive type
+    if (array.dict_type()->value_type()->num_children() > 0) {
+      return Status::NotImplemented(
+          "Writing DictionaryArray with nested dictionary "
+          "type not yet supported");
+    }
+    array_offsets_.push_back(static_cast<int32_t>(array.offset()));
+    valid_bitmaps_.push_back(array.null_bitmap_data());
+    null_counts_.push_back(array.null_count());
+    values_array_ = std::make_shared<DictionaryArray>(array.data());
+    return Status::OK();
+  }
+
   Status Visit(const ListArray& array) {
     array_offsets_.push_back(static_cast<int32_t>(array.offset()));
     valid_bitmaps_.push_back(array.null_bitmap_data());
@@ -113,7 +124,6 @@ class LevelBuilder {
   NOT_IMPLEMENTED_VISIT(FixedSizeList)
   NOT_IMPLEMENTED_VISIT(Struct)
   NOT_IMPLEMENTED_VISIT(Union)
-  NOT_IMPLEMENTED_VISIT(Dictionary)
   NOT_IMPLEMENTED_VISIT(Extension)
 
 #undef NOT_IMPLEMENTED_VISIT

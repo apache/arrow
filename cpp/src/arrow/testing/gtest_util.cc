@@ -61,6 +61,7 @@ void AssertTsEqual(const T& expected, const T& actual) {
     std::stringstream pp_expected;
     std::stringstream pp_actual;
     ::arrow::PrettyPrintOptions options(/*indent=*/2);
+    options.window = 50;
     ARROW_EXPECT_OK(PrettyPrint(expected, options, &pp_expected));
     ARROW_EXPECT_OK(PrettyPrint(actual, options, &pp_actual));
     FAIL() << "Got: \n" << pp_actual.str() << "\nExpected: \n" << pp_expected.str();

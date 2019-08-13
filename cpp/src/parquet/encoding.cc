@@ -334,11 +334,13 @@ struct DictEncoderTraits<FLBAType> {
 // Initially 1024 elements
 static constexpr int32_t kInitialHashTableSize = 1 << 10;
 
-/// See the dictionary encoding section of https://github.com/Parquet/parquet-format.
-/// The encoding supports streaming encoding. Values are encoded as they are added while
-/// the dictionary is being constructed. At any time, the buffered values can be
-/// written out with the current dictionary size. More values can then be added to
-/// the encoder, including new dictionary entries.
+/// See the dictionary encoding section of
+/// https://github.com/Parquet/parquet-format.  The encoding supports
+/// streaming encoding. Values are encoded as they are added while the
+/// dictionary is being constructed. At any time, the buffered values
+/// can be written out with the current dictionary size. More values
+/// can then be added to the encoder, including new dictionary
+/// entries.
 template <typename DType>
 class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   using MemoTableType = typename DictEncoderTraits<DType>::MemoTableType;
@@ -418,24 +420,43 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   void Put(const arrow::Array& values) override;
   void PutDictionary(const arrow::Array& values) override;
 
-  void PutIndices(const arrow::Array& data) override {
-    if (data.type()->id() != arrow::Type::INT32) {
-      throw ParquetException("Only int32 indices currently supported");
-    }
-    const auto& indices = checked_cast<const arrow::Int32Array&>(data);
+  template <typename ArrowType>
+  void PutIndicesTyped(const arrow::Array& data) {
+    using T = typename ArrowType::c_type;
+    using ArrayType = typename arrow::TypeTraits<ArrowType>::ArrayType;
+    const auto& indices = checked_cast<const ArrayType&>(data);
     auto values = indices.raw_values();
+    buffered_indices_.reserve(
+        buffered_indices_.size() +
+        static_cast<size_t>(indices.length() - indices.null_count()));
     if (indices.null_count() > 0) {
       arrow::internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(),
                                                       indices.offset(), indices.length());
       for (int64_t i = 0; i < indices.length(); ++i) {
         if (valid_bits_reader.IsSet()) {
-          buffered_indices_.push_back(values[i]);
+          buffered_indices_.push_back(static_cast<T>(values[i]));
         }
         valid_bits_reader.Next();
       }
     } else {
-      buffered_indices_.insert(std::end(buffered_indices_), values,
-                               values + indices.length());
+      for (int64_t i = 0; i < indices.length(); ++i) {
+        buffered_indices_.push_back(static_cast<T>(values[i]));
+      }
+    }
+  }
+
+  void PutIndices(const arrow::Array& data) override {
+    switch (data.type()->id()) {
+      case arrow::Type::INT8:
+        return PutIndicesTyped<arrow::Int8Type>(data);
+      case arrow::Type::INT16:
+        return PutIndicesTyped<arrow::Int16Type>(data);
+      case arrow::Type::INT32:
+        return PutIndicesTyped<arrow::Int32Type>(data);
+      case arrow::Type::INT64:
+        return PutIndicesTyped<arrow::Int64Type>(data);
+      default:
+        throw ParquetException("Dictionary indices were not signed integer");
     }
   }
 

@@ -671,7 +671,7 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalReadWrite) {
   // This also tests max_definition_level = 1
   std::shared_ptr<Array> values;
 
-  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, kDefaultSeed, &values));
+  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE / 8, 10, kDefaultSeed, &values));
 
   std::shared_ptr<GroupNode> schema =
       MakeSimpleSchema(*values->type(), Repetition::OPTIONAL);
