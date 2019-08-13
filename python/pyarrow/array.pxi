@@ -838,15 +838,15 @@ cdef class Array(_PandasConvertible):
     def validate(self):
         """
         Perform any validation checks implemented by
-        arrow::ValidateArray. Raises exception with error message if array does
-        not validate
+        arrow::Array::Validate(). Raises exception with error message if
+        array does not validate.
 
         Raises
         ------
         ArrowInvalid
         """
         with nogil:
-            check_status(ValidateArray(deref(self.ap)))
+            check_status(self.ap.Validate())
 
     @property
     def offset(self):

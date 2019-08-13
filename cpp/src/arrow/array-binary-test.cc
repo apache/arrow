@@ -101,7 +101,7 @@ class TestStringArray : public ::testing::Test {
   void TestArrayBasics() {
     ASSERT_EQ(length_, strings_->length());
     ASSERT_EQ(1, strings_->null_count());
-    ASSERT_OK(ValidateArray(*strings_));
+    ASSERT_OK(strings_->Validate());
     TestInitialized(*strings_);
     AssertZeroPadded(*strings_);
   }
@@ -276,7 +276,7 @@ class TestStringBuilder : public TestBuilder {
     FinishAndCheckPadding(builder_.get(), &out);
 
     result_ = std::dynamic_pointer_cast<ArrayType>(out);
-    ASSERT_OK(ValidateArray(*result_));
+    ASSERT_OK(result_->Validate());
   }
 
   void TestScalarAppend() {
@@ -330,7 +330,7 @@ class TestStringBuilder : public TestBuilder {
     ASSERT_EQ(builder_->value_data_length(), total_length * reps);
     Done();
 
-    ASSERT_OK(ValidateArray(*result_));
+    ASSERT_OK(result_->Validate());
     ASSERT_EQ(reps * N, result_->length());
     ASSERT_EQ(reps, result_->null_count());
     ASSERT_EQ(reps * total_length, result_->value_data()->size());

@@ -130,7 +130,7 @@ Status GetPerfBatches(const perf::Token& token, const std::shared_ptr<Schema>& s
     RETURN_NOT_OK(MakeRandomByteBuffer(length * sizeof(int64_t), default_memory_pool(),
                                        &buffer, static_cast<int32_t>(i) /* seed */));
     arrays.push_back(std::make_shared<Int64Array>(length, buffer));
-    RETURN_NOT_OK(ValidateArray(*arrays.back()));
+    RETURN_NOT_OK(arrays.back()->Validate());
   }
 
   *data_stream = std::unique_ptr<FlightDataStream>(

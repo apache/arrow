@@ -72,7 +72,7 @@ class TestListArray : public TestBuilder {
 
   void ValidateBasicListArray(const ArrayType* result, const std::vector<int16_t>& values,
                               const std::vector<uint8_t>& is_valid) {
-    ASSERT_OK(ValidateArray(*result));
+    ASSERT_OK(result->Validate());
     ASSERT_EQ(1, result->null_count());
     ASSERT_EQ(0, result->values()->null_count());
 
@@ -213,9 +213,9 @@ class TestListArray : public TestBuilder {
     ASSERT_OK(ArrayType::FromArrays(*offsets1, *values, pool_, &list1));
     ASSERT_OK(ArrayType::FromArrays(*offsets3, *values, pool_, &list3));
     ASSERT_OK(ArrayType::FromArrays(*offsets4, *values, pool_, &list4));
-    ASSERT_OK(ValidateArray(*list1));
-    ASSERT_OK(ValidateArray(*list3));
-    ASSERT_OK(ValidateArray(*list4));
+    ASSERT_OK(list1->Validate());
+    ASSERT_OK(list3->Validate());
+    ASSERT_OK(list4->Validate());
 
     ArrayType expected1(list_type, length, offsets1->data()->buffers[1], values,
                         offsets1->data()->buffers[0], 0);
@@ -251,7 +251,7 @@ class TestListArray : public TestBuilder {
 
     Done();
 
-    ASSERT_OK(ValidateArray(*result_));
+    ASSERT_OK(result_->Validate());
     ASSERT_TRUE(result_->IsNull(0));
     ASSERT_TRUE(result_->IsNull(1));
 
@@ -270,7 +270,7 @@ class TestListArray : public TestBuilder {
 
     Done();
 
-    ASSERT_OK(ValidateArray(*result_));
+    ASSERT_OK(result_->Validate());
     ASSERT_EQ(result_->length(), 3);
     ASSERT_EQ(result_->null_count(), 3);
     ASSERT_TRUE(result_->IsNull(0));
@@ -321,13 +321,13 @@ class TestListArray : public TestBuilder {
     }
 
     Done();
-    ASSERT_RAISES(Invalid, ValidateArray(*result_));
+    ASSERT_RAISES(Invalid, result_->Validate());
   }
 
   void TestZeroLength() {
     // All buffers are null
     Done();
-    ASSERT_OK(ValidateArray(*result_));
+    ASSERT_OK(result_->Validate());
   }
 
   void TestBuilderPreserveFieldName() {
@@ -485,7 +485,7 @@ TEST_F(TestMapArray, BuildingIntToInt) {
   ASSERT_OK(item_builder->AppendValues({-1, -1, 0, 1, -1, 2}, {0, 0, 1, 1, 0, 1}));
   ASSERT_OK(map_builder.Append());
   ASSERT_OK(map_builder.Finish(&actual));
-  ASSERT_OK(ValidateArray(*actual));
+  ASSERT_OK(actual->Validate());
 
   ASSERT_ARRAYS_EQUAL(*actual, expected);
 }
@@ -518,7 +518,7 @@ TEST_F(TestMapArray, BuildingStringToInt) {
   ASSERT_OK(item_builder->Append(8));
   ASSERT_OK(map_builder.Append());
   ASSERT_OK(map_builder.Finish(&actual));
-  ASSERT_OK(ValidateArray(*actual));
+  ASSERT_OK(actual->Validate());
 
   ASSERT_ARRAYS_EQUAL(*actual, expected);
 }
@@ -594,7 +594,7 @@ TEST_F(TestFixedSizeListArray, TestAppendNull) {
 
   Done();
 
-  ASSERT_OK(ValidateArray(*result_));
+  ASSERT_OK(result_->Validate());
   ASSERT_TRUE(result_->IsNull(0));
   ASSERT_TRUE(result_->IsNull(1));
 
@@ -610,7 +610,7 @@ TEST_F(TestFixedSizeListArray, TestAppendNulls) {
 
   Done();
 
-  ASSERT_OK(ValidateArray(*result_));
+  ASSERT_OK(result_->Validate());
   ASSERT_EQ(result_->length(), 3);
   ASSERT_EQ(result_->null_count(), 3);
   ASSERT_TRUE(result_->IsNull(0));
@@ -628,7 +628,7 @@ TEST_F(TestFixedSizeListArray, TestAppendNulls) {
 void ValidateBasicFixedSizeListArray(const FixedSizeListArray* result,
                                      const std::vector<int32_t>& values,
                                      const std::vector<uint8_t>& is_valid) {
-  ASSERT_OK(ValidateArray(*result));
+  ASSERT_OK(result->Validate());
   ASSERT_EQ(1, result->null_count());
   ASSERT_LE(result->values()->null_count(), 2);
 
@@ -704,13 +704,13 @@ TEST_F(TestFixedSizeListArray, BulkAppendInvalid) {
   }
 
   Done();
-  ASSERT_RAISES(Invalid, ValidateArray(*result_));
+  ASSERT_RAISES(Invalid, result_->Validate());
 }
 
 TEST_F(TestFixedSizeListArray, TestZeroLength) {
   // All buffers are null
   Done();
-  ASSERT_OK(ValidateArray(*result_));
+  ASSERT_OK(result_->Validate());
 }
 
 TEST_F(TestFixedSizeListArray, TestBuilderPreserveFieleName) {

@@ -172,6 +172,9 @@ std::string Array::ToString() const {
   return ss.str();
 }
 
+// ----------------------------------------------------------------------
+// NullArray
+
 NullArray::NullArray(int64_t length) {
   SetData(ArrayData::Make(null(), length, {nullptr}, length));
 }
@@ -1239,7 +1242,7 @@ struct ValidateVisitor {
     if (!array.keys()) {
       return Status::Invalid("keys was null");
     }
-    const Status key_valid = ValidateArray(*array.values());
+    const Status key_valid = array.keys()->Validate();
     if (!key_valid.ok()) {
       return Status::Invalid("key array invalid: ", key_valid.ToString());
     }
@@ -1247,7 +1250,7 @@ struct ValidateVisitor {
     if (!array.values()) {
       return Status::Invalid("values was null");
     }
-    const Status values_valid = ValidateArray(*array.values());
+    const Status values_valid = array.values()->Validate();
     if (!values_valid.ok()) {
       return Status::Invalid("values array invalid: ", values_valid.ToString());
     }
@@ -1290,7 +1293,7 @@ struct ValidateVisitor {
                                  it->type()->ToString(), " at position [", idx, "]");
         }
 
-        const Status child_valid = ValidateArray(*it);
+        const Status child_valid = it->Validate();
         if (!child_valid.ok()) {
           return Status::Invalid("Child array invalid: ", child_valid.ToString(),
                                  " at position [", idx, "}");
@@ -1326,7 +1329,7 @@ struct ValidateVisitor {
                              "' has storage array of incompatible type '",
                              array.storage()->type()->ToString(), "'");
     }
-    return ValidateArray(*array.storage());
+    return array.storage()->Validate();
   }
 
  protected:
@@ -1342,7 +1345,7 @@ struct ValidateVisitor {
                              last_offset, "!=", array.values()->length());
     }
 
-    const Status child_valid = ValidateArray(*array.values());
+    const Status child_valid = array.values()->Validate();
     if (!child_valid.ok()) {
       return Status::Invalid("Child array invalid: ", child_valid.ToString());
     }
@@ -1387,17 +1390,17 @@ struct ValidateVisitor {
 
 }  // namespace internal
 
-Status ValidateArray(const Array& array) {
+Status Array::Validate() const {
   // First check the array layout conforms to the spec
-  const DataType& type = *array.type();
+  const DataType& type = *this->type();
   const auto layout = type.layout();
-  const ArrayData& data = *array.data();
+  const ArrayData& data = *this->data();
 
-  if (array.length() < 0) {
+  if (length() < 0) {
     return Status::Invalid("Array length is negative");
   }
 
-  if (array.null_count() > array.length()) {
+  if (null_count() > length()) {
     return Status::Invalid("Null count exceeds array length");
   }
 
@@ -1423,8 +1426,10 @@ Status ValidateArray(const Array& array) {
   }
 
   internal::ValidateVisitor validate_visitor;
-  return VisitArrayInline(array, &validate_visitor);
+  return VisitArrayInline(*this, &validate_visitor);
 }
+
+Status ValidateArray(const Array& array) { return array.Validate(); }
 
 // ----------------------------------------------------------------------
 // Loading from ArrayData
