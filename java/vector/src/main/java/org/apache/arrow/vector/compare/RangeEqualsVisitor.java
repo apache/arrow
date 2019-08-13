@@ -42,83 +42,88 @@ public class RangeEqualsVisitor {
   protected int rightStart;
   protected int length;
 
-  protected boolean needCheckType = true;
+  protected boolean typeCheckNeeded = true;
 
-  public void setNeedCheckType(boolean needCheckType) {
-    this.needCheckType = needCheckType;
+  public void setTypeCheckNeeded(boolean typeCheckNeeded) {
+    this.typeCheckNeeded = typeCheckNeeded;
+  }
+
+  /**
+   * Constructs a new instance.
+   */
+  public RangeEqualsVisitor(ValueVector right, int rightStart,  int leftStart, int length, boolean typeCheckNeeded) {
+    this.leftStart = leftStart;
+    this.rightStart = rightStart;
+    this.right = right;
+    this.length = length;
+    this.typeCheckNeeded = true;
+    Preconditions.checkArgument(length >= 0, "length must be non negative");
   }
 
   /**
    * Constructs a new instance.
    */
   public RangeEqualsVisitor(ValueVector right, int leftStart, int rightStart, int length) {
-    this.leftStart = leftStart;
-    this.rightStart = rightStart;
-    this.right = right;
-    this.length = length;
-    Preconditions.checkArgument(length >= 0, "length must be non negative");
+    this (right, rightStart, leftStart, length, true);
   }
 
   /**
-   * Reset start indices and length for reuse purpose.
+   * Do some validation work, like type check and indices check.
    */
-  public void reset(int leftStart, int rightStart, int length) {
-    this.leftStart = leftStart;
-    this.rightStart = rightStart;
-    this.length = length;
-  }
+  private boolean validate(ValueVector left) {
 
-  private boolean validateTypesAndIndices(ValueVector left) {
-
-    if (needCheckType && !compareValueVector(left, right)) {
+    if (!compareValueVector(left, right)) {
       return false;
     }
 
-    Preconditions.checkArgument(leftStart >= 0 && leftStart < left.getValueCount(),
-        "leftStart %s out of range[0, %s]:", 0, left.getValueCount());
+    Preconditions.checkArgument(leftStart >= 0,
+        "leftStart %s must be non negative.", leftStart);
     Preconditions.checkArgument((leftStart + length) <= left.getValueCount(),
-        "(leftStart + length) %s out of range[0, %s]:", 0, left.getValueCount());
-    Preconditions.checkArgument(rightStart >= 0 && rightStart < right.getValueCount(),
-        "rightStart %s out of range[0, %s]:", 0, right.getValueCount());
+        "(leftStart + length) %s out of range[0, %s].", 0, left.getValueCount());
+    Preconditions.checkArgument(rightStart >= 0,
+        "rightStart %s must be non negative.", rightStart);
     Preconditions.checkArgument((rightStart + length) <= right.getValueCount(),
-        "(rightStart + length) %s out of range[0, %s]:", 0, right.getValueCount());
+        "(rightStart + length) %s out of range[0, %s].", 0, right.getValueCount());
 
     return true;
   }
 
   public boolean visit(BaseFixedWidthVector left) {
-    return validateTypesAndIndices(left) && compareBaseFixedWidthVectors(left);
+    return validate(left) && compareBaseFixedWidthVectors(left);
   }
 
   public boolean visit(BaseVariableWidthVector left) {
-    return validateTypesAndIndices(left) && compareBaseVariableWidthVectors(left);
+    return validate(left) && compareBaseVariableWidthVectors(left);
   }
 
   public boolean visit(ListVector left) {
-    return validateTypesAndIndices(left) && compareListVectors(left);
+    return validate(left) && compareListVectors(left);
   }
 
   public boolean visit(FixedSizeListVector left) {
-    return validateTypesAndIndices(left) && compareFixedSizeListVectors(left);
+    return validate(left) && compareFixedSizeListVectors(left);
   }
 
   public boolean visit(NonNullableStructVector left) {
-    return validateTypesAndIndices(left) && compareStructVectors(left);
+    return validate(left) && compareStructVectors(left);
   }
 
   public boolean visit(UnionVector left) {
-    return validateTypesAndIndices(left) && compareUnionVectors(left);
+    return validate(left) && compareUnionVectors(left);
   }
 
   public boolean visit(ZeroVector left) {
-    return compareValueVector(left, right);
+    return validate(left);
   }
 
   public boolean visit(ValueVector left) {
-    throw  new UnsupportedOperationException();
+    throw new UnsupportedOperationException();
   }
 
   protected boolean compareValueVector(ValueVector left, ValueVector right) {
+    if (!typeCheckNeeded) {
+      return true;
+    }
     return left.getField().getType().equals(right.getField().getType());
   }
 
@@ -299,5 +304,4 @@ public class RangeEqualsVisitor {
     }
     return true;
   }
-
 }

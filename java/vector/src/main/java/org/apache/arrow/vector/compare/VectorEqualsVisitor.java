@@ -26,7 +26,11 @@ import org.apache.arrow.vector.ValueVector;
 public class VectorEqualsVisitor extends RangeEqualsVisitor {
 
   public VectorEqualsVisitor(ValueVector right) {
-    super(Preconditions.checkNotNull(right), 0, 0, right.getValueCount());
+    this(right, true);
+  }
+
+  public VectorEqualsVisitor(ValueVector right, boolean typeCheckNeeded) {
+    super(Preconditions.checkNotNull(right), 0, 0, right.getValueCount(), typeCheckNeeded);
   }
 
   @Override
