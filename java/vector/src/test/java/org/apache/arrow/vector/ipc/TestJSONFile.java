@@ -413,7 +413,7 @@ public class TestJSONFile extends BaseFileTest {
         final UInt4Vector uInt4Vector = new UInt4Vector("uint4", allocator);
         final UInt1Vector uInt1Vector = new UInt1Vector("uint1", allocator)) {
 
-      long[] longValues = new long[]{0x8000000000000000L, 0x7fffffffffffffffL, 0xffffffffffffffffL};
+      long[] longValues = new long[]{Long.MIN_VALUE, Long.MAX_VALUE, -1L};
       uInt8Vector.allocateNew(3);
       uInt8Vector.setValueCount(3);
       for (int i = 0; i < longValues.length; i++) {
@@ -422,7 +422,7 @@ public class TestJSONFile extends BaseFileTest {
         assertEquals(readValue, longValues[i]);
       }
 
-      int[] intValues = new int[]{0x80000000, 0x7fffffff, 0xffffffff};
+      int[] intValues = new int[]{Integer.MIN_VALUE, Integer.MAX_VALUE, -1};
       uInt4Vector.allocateNew(3);
       uInt4Vector.setValueCount(3);
       for (int i = 0; i < intValues.length; i++) {
@@ -431,7 +431,7 @@ public class TestJSONFile extends BaseFileTest {
         assertEquals(intValues[i], actualValue);
       }
 
-      byte[] byteValues = new byte[]{-128, 127, -1};
+      byte[] byteValues = new byte[]{Byte.MIN_VALUE, Byte.MAX_VALUE, -1};
       uInt1Vector.allocateNew(3);
       uInt1Vector.setValueCount(3);
       for (int i = 0; i < byteValues.length; i++) {
