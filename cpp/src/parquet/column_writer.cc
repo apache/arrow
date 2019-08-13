@@ -1007,7 +1007,7 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(const int16_t* def_lev
     return WriteDense();
   }
 
-  auto dict_encoder = checked_cast<DictEncoder<DType>*>(current_encoder_.get());
+  auto dict_encoder = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
   const auto& data = checked_cast<const arrow::DictionaryArray&>(array);
   std::shared_ptr<arrow::Array> dictionary = data.dictionary();
   std::shared_ptr<arrow::Array> indices = data.indices();

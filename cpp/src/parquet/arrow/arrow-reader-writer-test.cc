@@ -343,9 +343,11 @@ void WriteTableToBuffer(const std::shared_ptr<Table>& table, int64_t row_group_s
                         const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
                         std::shared_ptr<Buffer>* out) {
   auto sink = CreateOutputStream();
+
+  auto write_props = WriterProperties::Builder().write_batch_size(100)->build();
+
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
-                                row_group_size, default_writer_properties(),
-                                arrow_properties));
+                                row_group_size, write_props, arrow_properties));
   ASSERT_OK_NO_THROW(sink->Finish(out));
 }
 
@@ -2807,7 +2809,7 @@ class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
     ::arrow::AssertTablesEqual(expected, *actual, /*same_chunk_layout=*/false);
   }
 
-  static std::vector<double> null_probabilites() { return {0.0, 0.5, 1}; }
+  static std::vector<double> null_probabilities() { return {0.0, 0.5, 1}; }
 
  protected:
   std::shared_ptr<Array> dense_values_;
@@ -2817,7 +2819,7 @@ class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
   ArrowReaderProperties properties_;
 };
 
-void AsDictionaryEncoded(const Array& arr, std::shared_ptr<Array>* out) {
+void AsDictionary32Encoded(const Array& arr, std::shared_ptr<Array>* out) {
   ::arrow::StringDictionary32Builder builder(default_memory_pool());
   const auto& string_array = static_cast<const ::arrow::StringArray&>(arr);
   ASSERT_OK(builder.AppendArray(string_array));
@@ -2830,7 +2832,7 @@ TEST_P(TestArrowReadDictionary, ReadWholeFileDict) {
   std::vector<std::shared_ptr<Array>> chunks(kNumRowGroups);
   const int64_t chunk_size = expected_dense_->num_rows() / kNumRowGroups;
   for (int i = 0; i < kNumRowGroups; ++i) {
-    AsDictionaryEncoded(*dense_values_->Slice(chunk_size * i, chunk_size), &chunks[i]);
+    AsDictionary32Encoded(*dense_values_->Slice(chunk_size * i, chunk_size), &chunks[i]);
   }
   auto ex_table = MakeSimpleTable(std::make_shared<ChunkedArray>(chunks),
                                   /*nullable=*/true);
@@ -2844,8 +2846,41 @@ TEST_P(TestArrowReadDictionary, ReadWholeFileDense) {
 
 INSTANTIATE_TEST_CASE_P(
     ReadDictionary, TestArrowReadDictionary,
-    ::testing::ValuesIn(TestArrowReadDictionary::null_probabilites()));
+    ::testing::ValuesIn(TestArrowReadDictionary::null_probabilities()));
+
+TEST(TestArrowWriteDictionaries, ChangingDictionaries) {
+  constexpr int num_unique = 50;
+  constexpr int repeat = 10000;
+  constexpr int64_t min_length = 2;
+  constexpr int64_t max_length = 20;
+  ::arrow::random::RandomArrayGenerator rag(0);
+  auto values = rag.BinaryWithRepeats(repeat * num_unique, num_unique, min_length,
+                                      max_length, /*null_probability=*/0.1);
+  auto expected = MakeSimpleTable(values, /*nullable=*/true);
+
+  const int num_chunks = 10;
+  std::vector<std::shared_ptr<Array>> chunks(num_chunks);
+  const int64_t chunk_size = values->length() / num_chunks;
+  for (int i = 0; i < num_chunks; ++i) {
+    AsDictionary32Encoded(*values->Slice(chunk_size * i, chunk_size), &chunks[i]);
+  }
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(expected,
+                                             /*row_group_size=*/values->length() / 2,
+                                             default_arrow_writer_properties(), &buffer));
+
+  auto arrow_properties = default_arrow_reader_properties();
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(builder.properties(arrow_properties)->Build(&reader));
+
+  std::shared_ptr<Table> actual;
+  ASSERT_OK_NO_THROW(reader->ReadTable(&actual));
+  ::arrow::AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
+}
 
 }  // namespace arrow
-
 }  // namespace parquet
