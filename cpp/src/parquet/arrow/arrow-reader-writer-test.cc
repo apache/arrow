@@ -1168,8 +1168,13 @@ TEST_F(TestNullParquetIO, NullListColumn) {
 }
 
 TEST_F(TestNullParquetIO, NullDictionaryColumn) {
+  std::shared_ptr<Buffer> null_bitmap;
+  ASSERT_OK(
+      ::arrow::AllocateBitmap(::arrow::default_memory_pool(), SMALL_SIZE, &null_bitmap));
+  std::memset(null_bitmap->mutable_data(), 0, null_bitmap->size());
+
   std::shared_ptr<Array> indices =
-      std::make_shared<::arrow::Int8Array>(SMALL_SIZE, nullptr, nullptr, SMALL_SIZE);
+      std::make_shared<::arrow::Int8Array>(SMALL_SIZE, nullptr, null_bitmap, SMALL_SIZE);
   std::shared_ptr<::arrow::DictionaryType> dict_type =
       std::make_shared<::arrow::DictionaryType>(::arrow::int8(), ::arrow::null());
 
