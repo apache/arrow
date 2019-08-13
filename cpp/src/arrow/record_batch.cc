@@ -251,8 +251,6 @@ Status RecordBatch::Validate() const {
 // ----------------------------------------------------------------------
 // Base record batch reader
 
-RecordBatchReader::~RecordBatchReader() {}
-
 Status RecordBatchReader::ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches) {
   while (true) {
     std::shared_ptr<RecordBatch> batch;

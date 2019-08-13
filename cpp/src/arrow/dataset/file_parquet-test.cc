@@ -19,6 +19,7 @@
 
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 namespace dataset {
@@ -31,6 +32,79 @@ class TestParquetFileFormat : public FileSourceFixtureMixin {
   std::shared_ptr<ScanOptions> opts_;
   std::shared_ptr<ScanContext> ctx_;
 };
+
+struct MakeRepeatedArrayImpl {
+  template <typename T>
+  MakeRepeatedArrayImpl(std::shared_ptr<DataType> type, const T& value,
+                        int64_t repetitions)
+      : type_(type), typeid_(Typeid<T>), value_(&value), repetitions_(repetitions) {}
+
+  template <typename T>
+  enable_if_number<T, Status> Visit(const T& t) {
+    typename TypeTraits<T>::BuilderType builder;
+    using c_type = typename T::c_type;
+    if (typeid_ != Typeid<c_type>) {
+      return Status::Invalid("incorrect scalar passed for array of ", t);
+    }
+    auto value = *static_cast<const c_type*>(value_);
+    RETURN_NOT_OK(builder.Resize(repetitions_));
+    for (auto i = 0; i < repetitions_; ++i) {
+      builder.UnsafeAppend(value);
+    }
+    return builder.Finish(&out_);
+  }
+
+  template <typename T>
+  enable_if_binary_like<T, Status> Visit(const T& t) {
+    typename TypeTraits<T>::BuilderType builder(type_, default_memory_pool());
+    if (typeid_ != Typeid<util::string_view>) {
+      return Status::Invalid("incorrect scalar passed for array of ", t);
+    }
+    auto value = *static_cast<const util::string_view*>(value_);
+    RETURN_NOT_OK(builder.Resize(repetitions_));
+    for (auto i = 0; i < repetitions_; ++i) {
+      builder.UnsafeAppend(value);
+    }
+    return builder.Finish(&out_);
+  }
+
+  Status Visit(const DataType& t) {
+    return Status::Invalid("creating arrays of repeated ", t);
+  }
+
+  template <typename T>
+  static void Typeid() {}
+
+  std::shared_ptr<DataType> type_;
+  void (*typeid_)();
+  const void* value_;
+  int64_t repetitions_;
+  std::shared_ptr<Array> out_;
+};
+
+#define ASSERT_OK_AND_ASSIGN_IMPL(status_name, lhs, rexpr) \
+  auto status_name = (rexpr);                              \
+  ASSERT_OK(status_name.status());                         \
+  lhs = std::move(status_name).ValueOrDie();
+
+#define ASSERT_OK_AND_ASSIGN(lhs, rexpr)                                              \
+  ASSERT_OK_AND_ASSIGN_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                            lhs, rexpr);
+
+template <typename T>
+Result<std::shared_ptr<Array>> MakeRepeatedArray(const std::shared_ptr<DataType>& type,
+                                                 int64_t repetitions, const T& t) {
+  MakeRepeatedArrayImpl impl(type, t, repetitions);
+  RETURN_NOT_OK(VisitTypeInline(*type, &impl));
+  return impl.out_;
+}
+
+TEST_F(TestParquetFileFormat, ScanFile2) {
+  ASSERT_OK_AND_ASSIGN(auto doubles_array, MakeRepeatedArray(float64(), 1 << 10, 0.0));
+  auto doubles_batch = RecordBatch::Make(schema({field("doubles", float64())}),
+                                         doubles_array->length(), {doubles_array});
+  RepeatedRecordBatch double_reader(1 << 20, doubles_batch);
+}
 
 TEST_F(TestParquetFileFormat, ScanFile) {
   auto location = GetParquetLocation("data/double_1Grows_1kgroups.parquet");
