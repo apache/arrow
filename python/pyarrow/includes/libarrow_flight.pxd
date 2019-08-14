@@ -23,20 +23,6 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
 
-cdef extern from "arrow/ipc/api.h" namespace "arrow" nogil:
-    cdef cppclass CIpcPayload" arrow::ipc::internal::IpcPayload":
-        MessageType type
-        shared_ptr[CBuffer] metadata
-        vector[shared_ptr[CBuffer]] body_buffers
-        int64_t body_length
-
-    cdef CStatus _GetRecordBatchPayload\
-        " arrow::ipc::internal::GetRecordBatchPayload"(
-            const CRecordBatch& batch,
-            CMemoryPool* pool,
-            CIpcPayload* out)
-
-
 cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CActionType" arrow::flight::ActionType":
         c_string type
@@ -158,8 +144,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CFlightStreamWriter \
             " arrow::flight::FlightStreamWriter"(CRecordBatchWriter):
         CStatus WriteWithMetadata(const CRecordBatch& batch,
-                                  shared_ptr[CBuffer] app_metadata,
-                                  c_bool allow_64bit)
+                                  shared_ptr[CBuffer] app_metadata)
 
     cdef cppclass CRecordBatchStream \
             " arrow::flight::RecordBatchStream"(CFlightDataStream):

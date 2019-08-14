@@ -23,7 +23,7 @@
 void ipc___RecordBatchWriter__WriteRecordBatch(
     const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer,
     const std::shared_ptr<arrow::RecordBatch>& batch) {
-  STOP_IF_NOT_OK(batch_writer->WriteRecordBatch(*batch, true));
+  STOP_IF_NOT_OK(batch_writer->WriteRecordBatch(*batch));
 }
 
 // [[arrow::export]]

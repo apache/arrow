@@ -562,6 +562,8 @@ Status WriteNdarrayHeader(std::shared_ptr<DataType> dtype,
   return serialized_tensor.WriteTo(dst);
 }
 
+SerializedPyObject::SerializedPyObject() : ipc_options(ipc::IpcOptions::Defaults()) {}
+
 Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
   int32_t num_tensors = static_cast<int32_t>(this->tensors.size());
   int32_t num_ndarrays = static_cast<int32_t>(this->ndarrays.size());
@@ -575,7 +577,7 @@ Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
 
   // Align stream to 8-byte offset
   RETURN_NOT_OK(ipc::AlignStream(dst, ipc::kArrowIpcAlignment));
-  RETURN_NOT_OK(ipc::WriteRecordBatchStream({this->batch}, dst));
+  RETURN_NOT_OK(ipc::WriteRecordBatchStream({this->batch}, this->ipc_options, dst));
 
   // Align stream to 64-byte offset so tensor bodies are 64-byte aligned
   RETURN_NOT_OK(ipc::AlignStream(dst, ipc::kTensorAlignment));
@@ -641,7 +643,8 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
 
   py_gil.release();
   RETURN_NOT_OK(io::BufferOutputStream::Create(kInitialCapacity, memory_pool, &stream));
-  RETURN_NOT_OK(ipc::WriteRecordBatchStream({this->batch}, stream.get()));
+  RETURN_NOT_OK(
+      ipc::WriteRecordBatchStream({this->batch}, this->ipc_options, stream.get()));
   RETURN_NOT_OK(stream->Finish(&buffer));
   py_gil.acquire();
 

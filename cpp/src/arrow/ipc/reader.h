@@ -25,6 +25,7 @@
 
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
+#include "arrow/ipc/options.h"
 #include "arrow/record_batch.h"
 #include "arrow/util/visibility.h"
 
@@ -245,12 +246,12 @@ Status ReadRecordBatch(const Message& message, const std::shared_ptr<Schema>& sc
 /// dictionaries. Can be nullptr if you are sure there are no
 /// dictionary-encoded fields
 /// \param[in] file a random access file
-/// \param[in] max_recursion_depth the maximum permitted nesting depth
+/// \param[in] options options for deserialization
 /// \param[out] out the read record batch
 /// \return Status
 ARROW_EXPORT
 Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
-                       const DictionaryMemo* dictionary_memo, int max_recursion_depth,
+                       const DictionaryMemo* dictionary_memo, const IpcOptions& options,
                        io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out);
 
 /// \brief Read arrow::Tensor as encapsulated IPC message in file

@@ -224,6 +224,11 @@ static int g_file_number = 0;
 
 class IpcTestFixture : public io::MemoryMapFixture {
  public:
+  void SetUp() {
+    pool_ = default_memory_pool();
+    options_ = IpcOptions::Defaults();
+  }
+
   void DoSchemaRoundTrip(const Schema& schema, DictionaryMemo* out_memo,
                          std::shared_ptr<Schema>* result) {
     std::shared_ptr<Buffer> serialized_schema;
@@ -251,9 +256,13 @@ class IpcTestFixture : public io::MemoryMapFixture {
     }
     RETURN_NOT_OK(mmap_->Seek(0));
 
-    std::shared_ptr<RecordBatchWriter> file_writer;
-    RETURN_NOT_OK(RecordBatchFileWriter::Open(mmap_.get(), batch.schema(), &file_writer));
-    RETURN_NOT_OK(file_writer->WriteRecordBatch(batch, true));
+    auto options = options_;
+    options.allow_64bit = true;
+
+    auto res = RecordBatchFileWriter::Open(mmap_.get(), batch.schema(), options);
+    RETURN_NOT_OK(res.status());
+    std::shared_ptr<RecordBatchWriter> file_writer = *res;
+    RETURN_NOT_OK(file_writer->WriteRecordBatch(batch));
     RETURN_NOT_OK(file_writer->Close());
 
     int64_t offset;
@@ -308,19 +317,20 @@ class IpcTestFixture : public io::MemoryMapFixture {
  protected:
   std::shared_ptr<io::MemoryMappedFile> mmap_;
   MemoryPool* pool_;
+  IpcOptions options_;
 };
 
 class TestWriteRecordBatch : public ::testing::Test, public IpcTestFixture {
  public:
-  void SetUp() { pool_ = default_memory_pool(); }
-  void TearDown() { io::MemoryMapFixture::TearDown(); }
+  void SetUp() { IpcTestFixture::SetUp(); }
+  void TearDown() { IpcTestFixture::TearDown(); }
 };
 
 class TestIpcRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*>,
                          public IpcTestFixture {
  public:
-  void SetUp() { pool_ = default_memory_pool(); }
-  void TearDown() { io::MemoryMapFixture::TearDown(); }
+  void SetUp() { IpcTestFixture::SetUp(); }
+  void TearDown() { IpcTestFixture::TearDown(); }
 };
 
 TEST_P(TestIpcRoundTrip, RoundTrip) {
@@ -342,7 +352,7 @@ TEST_F(TestIpcRoundTrip, MetadataVersion) {
   const int64_t buffer_offset = 0;
 
   ASSERT_OK(WriteRecordBatch(*batch, buffer_offset, mmap_.get(), &metadata_length,
-                             &body_length, pool_));
+                             &body_length, options_, pool_));
 
   std::unique_ptr<Message> message;
   ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
@@ -461,13 +471,14 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
   CheckArray(a1);
 }
 
-void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
+void TestGetRecordBatchSize(const IpcOptions& options,
+                            std::shared_ptr<RecordBatch> batch) {
   io::MockOutputStream mock;
   int32_t mock_metadata_length = -1;
   int64_t mock_body_length = -1;
   int64_t size = -1;
   ASSERT_OK(WriteRecordBatch(*batch, 0, &mock, &mock_metadata_length, &mock_body_length,
-                             default_memory_pool()));
+                             options, default_memory_pool()));
   ASSERT_OK(GetRecordBatchSize(*batch, &size));
   ASSERT_EQ(mock.GetExtentBytesWritten(), size);
 }
@@ -476,19 +487,19 @@ TEST_F(TestWriteRecordBatch, IntegerGetRecordBatchSize) {
   std::shared_ptr<RecordBatch> batch;
 
   ASSERT_OK(MakeIntRecordBatch(&batch));
-  TestGetRecordBatchSize(batch);
+  TestGetRecordBatchSize(options_, batch);
 
   ASSERT_OK(MakeListRecordBatch(&batch));
-  TestGetRecordBatchSize(batch);
+  TestGetRecordBatchSize(options_, batch);
 
   ASSERT_OK(MakeZeroLengthRecordBatch(&batch));
-  TestGetRecordBatchSize(batch);
+  TestGetRecordBatchSize(options_, batch);
 
   ASSERT_OK(MakeNonNullRecordBatch(&batch));
-  TestGetRecordBatchSize(batch);
+  TestGetRecordBatchSize(options_, batch);
 
   ASSERT_OK(MakeDeeplyNestedList(&batch));
-  TestGetRecordBatchSize(batch);
+  TestGetRecordBatchSize(options_, batch);
 }
 
 class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
@@ -521,13 +532,12 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
     const int memory_map_size = 1 << 20;
     RETURN_NOT_OK(io::MemoryMapFixture::InitMemoryMap(memory_map_size, ss.str(), &mmap_));
 
+    auto options = IpcOptions::Defaults();
     if (override_level) {
-      return WriteRecordBatch(**batch, 0, mmap_.get(), metadata_length, body_length,
-                              pool_, recursion_level + 1);
-    } else {
-      return WriteRecordBatch(**batch, 0, mmap_.get(), metadata_length, body_length,
-                              pool_);
+      options.max_recursion_depth = recursion_level + 1;
     }
+    return WriteRecordBatch(**batch, 0, mmap_.get(), metadata_length, body_length,
+                            options, pool_);
   }
 
  protected:
@@ -582,10 +592,12 @@ TEST_F(RecursionLimits, StressLimit) {
 
     DictionaryMemo empty_memo;
 
+    auto options = IpcOptions::Defaults();
+    options.max_recursion_depth = recursion_depth + 1;
     io::BufferReader reader(message->body());
     std::shared_ptr<RecordBatch> result;
-    ASSERT_OK(ReadRecordBatch(*message->metadata(), schema, &empty_memo,
-                              recursion_depth + 1, &reader, &result));
+    ASSERT_OK(ReadRecordBatch(*message->metadata(), schema, &empty_memo, options, &reader,
+                              &result));
     *it_works = result->Equals(*batch);
   };
 
@@ -854,8 +866,8 @@ TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
 
 class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
  public:
-  void SetUp() { pool_ = default_memory_pool(); }
-  void TearDown() { io::MemoryMapFixture::TearDown(); }
+  void SetUp() { IpcTestFixture::SetUp(); }
+  void TearDown() { IpcTestFixture::TearDown(); }
 
   void CheckTensorRoundTrip(const Tensor& tensor) {
     int32_t metadata_length;
@@ -931,8 +943,8 @@ TEST_F(TestTensorRoundTrip, NonContiguous) {
 
 class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
  public:
-  void SetUp() { pool_ = default_memory_pool(); }
-  void TearDown() { io::MemoryMapFixture::TearDown(); }
+  void SetUp() { IpcTestFixture::SetUp(); }
+  void TearDown() { IpcTestFixture::TearDown(); }
 
   template <typename SparseIndexType>
   void CheckSparseTensorRoundTrip(const SparseTensorImpl<SparseIndexType>& tensor) {

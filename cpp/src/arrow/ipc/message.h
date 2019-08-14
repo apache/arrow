@@ -24,6 +24,7 @@
 #include <memory>
 #include <string>
 
+#include "arrow/ipc/options.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -56,11 +57,6 @@ enum class MetadataVersion : char {
   /// >= 0.8.0
   V4
 };
-
-// ARROW-109: We set this number arbitrarily to help catch user mistakes. For
-// deeply nested schemas, it is expected the user will indicate explicitly the
-// maximum allowed recursion depth
-constexpr int kMaxNestingDepth = 64;
 
 // Read interface classes. We do not fully deserialize the flatbuffers so that
 // individual fields metadata can be retrieved from very large schema without

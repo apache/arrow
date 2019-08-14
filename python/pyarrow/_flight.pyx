@@ -721,8 +721,7 @@ cdef class FlightStreamWriter(_CRecordBatchWriter):
             check_flight_status(
                 (<CFlightStreamWriter*> self.writer.get())
                 .WriteWithMetadata(deref(batch.batch),
-                                   c_buf,
-                                   1))
+                                   c_buf))
 
 
 cdef class FlightMetadataReader:
@@ -1170,6 +1169,8 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
     """Callback for implementing FlightDataStream in Python."""
     cdef:
         unique_ptr[CFlightDataStream] data_stream
+        # TODO make it possible to pass IPC options around?
+        cdef CIpcOptions c_ipc_options = CIpcOptions.Defaults()
 
     py_stream = <object> self
     if not isinstance(py_stream, GeneratorStream):
@@ -1228,8 +1229,9 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
                              "GeneratorStream. "
                              "Got: {}\nExpected: {}".format(batch.schema,
                                                             stream_schema))
-        check_flight_status(_GetRecordBatchPayload(
+        check_flight_status(GetRecordBatchPayload(
             deref(batch.batch),
+            c_ipc_options,
             c_default_memory_pool(),
             &payload.ipc_message))
         if metadata:

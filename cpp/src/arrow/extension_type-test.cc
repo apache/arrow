@@ -221,7 +221,8 @@ auto RoundtripBatch = [](const std::shared_ptr<RecordBatch>& batch,
                          std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<io::BufferOutputStream> out_stream;
   ASSERT_OK(io::BufferOutputStream::Create(1024, default_memory_pool(), &out_stream));
-  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, out_stream.get()));
+  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcOptions::Defaults(),
+                                        out_stream.get()));
 
   std::shared_ptr<Buffer> complete_ipc_stream;
   ASSERT_OK(out_stream->Finish(&complete_ipc_stream));
@@ -273,7 +274,8 @@ TEST_F(TestExtensionType, UnrecognizedExtension) {
   // and ensure that a plain instance of the storage type is created
   std::shared_ptr<io::BufferOutputStream> out_stream;
   ASSERT_OK(io::BufferOutputStream::Create(1024, default_memory_pool(), &out_stream));
-  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, out_stream.get()));
+  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcOptions::Defaults(),
+                                        out_stream.get()));
 
   std::shared_ptr<Buffer> complete_ipc_stream;
   ASSERT_OK(out_stream->Finish(&complete_ipc_stream));

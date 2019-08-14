@@ -194,6 +194,7 @@ class ARROW_PYTHON_EXPORT PyGeneratorFlightDataStream
   OwnedRefNoGIL generator_;
   std::shared_ptr<arrow::Schema> schema_;
   ipc::DictionaryMemo dictionary_memo_;
+  ipc::IpcOptions options_;
   PyGeneratorFlightDataStreamCallback callback_;
 };
 
