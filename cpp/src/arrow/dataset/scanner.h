@@ -43,9 +43,9 @@ class ARROW_DS_EXPORT ScanOptions {
  public:
   virtual ~ScanOptions() = default;
 
+  const DataSelector* selector() const { return selector_.get(); }
+
  protected:
-  // Reconciliation schema.
-  std::shared_ptr<Schema> schema_;
   // Filters
   std::unique_ptr<DataSelector> selector_;
 };
