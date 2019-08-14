@@ -37,7 +37,7 @@ struct ParquetVersion {
   enum type { PARQUET_1_0, PARQUET_2_0 };
 };
 
-static int64_t DEFAULT_BUFFER_SIZE = 0;
+static int64_t DEFAULT_BUFFER_SIZE = 1024;
 static bool DEFAULT_USE_BUFFERED_STREAM = false;
 
 class PARQUET_EXPORT ReaderProperties {
