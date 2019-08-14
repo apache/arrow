@@ -40,7 +40,8 @@ page](https://arrow.apache.org/install/) to find pre-compiled binary
 packages for some common Linux distributions, including Debian, Ubuntu,
 and CentOS. You’ll need to install `libparquet-dev` on Debian and
 Ubuntu, or `parquet-devel` on CentOS. This will also automatically
-install the Arrow C++ library as a dependency.
+install the Arrow C++ library as a dependency. Other Linux distributions
+must install the C++ library from source.
 
 If you install the `arrow` package from source and the C++ library is
 not found, the R package functions will notify you that Arrow is not
@@ -62,6 +63,14 @@ Arrow C++ library first.
 
 ``` r
 library(arrow)
+#> 
+#> Attaching package: 'arrow'
+#> The following object is masked from 'package:utils':
+#> 
+#>     timestamp
+#> The following objects are masked from 'package:base':
+#> 
+#>     array, table
 set.seed(24)
 
 tab <- arrow::table(x = 1:10, y = rnorm(10))
@@ -168,10 +177,9 @@ If the package fails to install/load with an error like this:
     unable to load shared object '/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so':
     dlopen(/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: @rpath/libarrow.14.dylib
 
-try setting the environment variable `LD_LIBRARY_PATH` (or
-`DYLD_LIBRARY_PATH` on macOS) to wherever Arrow C++ was put in `make
-install`, e.g. `export LD_LIBRARY_PATH=/usr/local/lib`, and retry
-installing the R package.
+try setting the environment variable `R_LD_LIBRARY_PATH` to wherever
+Arrow C++ was put in `make install`, e.g. `export
+R_LD_LIBRARY_PATH=/usr/local/lib`, and retry installing the R package.
 
 For any other build/configuration challenges, see the [C++ developer
 guide](https://arrow.apache.org/docs/developers/cpp.html#building).
