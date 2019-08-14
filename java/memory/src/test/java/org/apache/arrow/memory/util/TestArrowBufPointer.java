@@ -152,6 +152,39 @@ public class TestArrowBufPointer {
     }
   }
 
+  @Test
+  public void testArrowBufPointersComparison() {
+    final int vectorLength = 100;
+    try (ArrowBuf buf1 = allocator.buffer(vectorLength);
+         ArrowBuf buf2 = allocator.buffer(vectorLength)) {
+      for (int i = 0; i < vectorLength; i++) {
+        buf1.setByte(i, i);
+        buf2.setByte(i, i);
+      }
+
+      ArrowBufPointer pointer1 = new ArrowBufPointer();
+      ArrowBufPointer pointer2 = new ArrowBufPointer();
+
+      pointer1.set(buf1, 0, 10);
+      pointer2.set(buf2, 0, 10);
+      assertEquals(0, pointer1.compareTo(pointer2));
+
+      pointer1.set(null, 0, 0);
+      pointer2.set(null, 0, 0);
+      assertEquals(0, pointer1.compareTo(pointer2));
+
+      pointer2.set(buf2, 0, 5);
+      assertTrue(pointer1.compareTo(pointer2) < 0);
+
+      pointer1.set(buf1, 0, 10);
+      assertTrue(pointer1.compareTo(pointer2) > 0);
+
+      pointer1.set(buf1, 1, 5);
+      pointer2.set(buf2, 3, 8);
+      assertTrue(pointer1.compareTo(pointer2) < 0);
+    }
+  }
+
   /**
    * Hasher with a counter that increments each time a hash code is calculated.
    * This is to validate that the hash code in {@link ArrowBufPointer} is reused.
