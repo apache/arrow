@@ -89,6 +89,11 @@ public class DictionaryHashTable {
     this.threshold = initialCapacity;
 
     this.dictionary = dictionary;
+
+    // build hash table
+    for (int i = 0; i < this.dictionary.getValueCount(); i++) {
+      put(i);
+    }
   }
 
   public DictionaryHashTable(ValueVector dictionary) {
@@ -146,7 +151,7 @@ public class DictionaryHashTable {
   /**
    * put the index of dictionary vector to build hash table.
    */
-  public void put(int indexInDictionary) {
+  private void put(int indexInDictionary) {
     if (table == EMPTY_TABLE) {
       inflateTable(threshold);
     }

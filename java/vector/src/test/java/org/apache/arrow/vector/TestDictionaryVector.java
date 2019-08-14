@@ -89,7 +89,7 @@ public class TestDictionaryVector {
       Dictionary dictionary =
           new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
 
-      try (final ValueVector encoded = (FieldVector) DictionaryEncoder.encode(vector, dictionary)) {
+      try (final ValueVector encoded = DictionaryEncoder.encode(vector, dictionary)) {
         // verify indices
         assertEquals(IntVector.class, encoded.getClass());
 
@@ -136,8 +136,7 @@ public class TestDictionaryVector {
       Dictionary dictionary =
           new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
 
-
-      try (final ValueVector encoded = (FieldVector) DictionaryEncoder.encode(vector, dictionary)) {
+      try (final ValueVector encoded = DictionaryEncoder.encode(vector, dictionary)) {
         // verify indices
         assertEquals(IntVector.class, encoded.getClass());
 
@@ -188,7 +187,7 @@ public class TestDictionaryVector {
 
       Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
 
-      try (final ValueVector encoded = (FieldVector) DictionaryEncoder.encode(vector, dictionary)) {
+      try (final ValueVector encoded = DictionaryEncoder.encode(vector, dictionary)) {
         // verify indices
         assertEquals(IntVector.class, encoded.getClass());
 
@@ -573,6 +572,136 @@ public class TestDictionaryVector {
       Dictionary dict2 = new Dictionary(vector2, new DictionaryEncoding(1L, false, null));
 
       assertTrue(dict1.equals(dict2));
+    }
+  }
+
+  @Test
+  public void testEncodeWithEncoderInstance() {
+    // Create a new value vector
+    try (final VarCharVector vector = newVarCharVector("vector", allocator);
+        final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
+      vector.allocateNew(512, 5);
+
+      // set some values
+      vector.setSafe(0, zero, 0, zero.length);
+      vector.setSafe(1, one, 0, one.length);
+      vector.setSafe(2, one, 0, one.length);
+      vector.setSafe(3, two, 0, two.length);
+      vector.setSafe(4, zero, 0, zero.length);
+      vector.setValueCount(5);
+
+      // set some dictionary values
+      dictionaryVector.allocateNew(512, 3);
+      dictionaryVector.setSafe(0, zero, 0, zero.length);
+      dictionaryVector.setSafe(1, one, 0, one.length);
+      dictionaryVector.setSafe(2, two, 0, two.length);
+      dictionaryVector.setValueCount(3);
+
+      Dictionary dictionary =
+          new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+      DictionaryEncoder encoder = new DictionaryEncoder(dictionary, allocator);
+
+      try (final ValueVector encoded = encoder.encode(vector)) {
+        // verify indices
+        assertEquals(IntVector.class, encoded.getClass());
+
+        IntVector index = ((IntVector) encoded);
+        assertEquals(5, index.getValueCount());
+        assertEquals(0, index.get(0));
+        assertEquals(1, index.get(1));
+        assertEquals(1, index.get(2));
+        assertEquals(2, index.get(3));
+        assertEquals(0, index.get(4));
+
+        // now run through the decoder and verify we get the original back
+        try (ValueVector decoded = encoder.decode(encoded)) {
+          assertEquals(vector.getClass(), decoded.getClass());
+          assertEquals(vector.getValueCount(), (decoded).getValueCount());
+          for (int i = 0; i < 5; i++) {
+            assertEquals(vector.getObject(i), ((VarCharVector) decoded).getObject(i));
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testEncodeMultiVectors() {
+    // Create a new value vector
+    try (final VarCharVector vector1 = newVarCharVector("vector1", allocator);
+        final VarCharVector vector2 = newVarCharVector("vector2", allocator);
+        final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
+
+      vector1.allocateNew(512, 5);
+
+      // set some values
+      vector1.setSafe(0, zero, 0, zero.length);
+      vector1.setSafe(1, one, 0, one.length);
+      vector1.setSafe(2, one, 0, one.length);
+      vector1.setSafe(3, two, 0, two.length);
+      vector1.setSafe(4, zero, 0, zero.length);
+      vector1.setValueCount(5);
+
+      vector2.allocateNew(512, 3);
+
+      // set some values
+      vector2.setSafe(0, zero, 0, zero.length);
+      vector2.setSafe(1, one, 0, one.length);
+      vector2.setSafe(2, one, 0, one.length);
+      vector2.setValueCount(3);
+
+      // set some dictionary values
+      dictionaryVector.allocateNew(512, 3);
+      dictionaryVector.setSafe(0, zero, 0, zero.length);
+      dictionaryVector.setSafe(1, one, 0, one.length);
+      dictionaryVector.setSafe(2, two, 0, two.length);
+      dictionaryVector.setValueCount(3);
+
+      Dictionary dictionary =
+          new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+      DictionaryEncoder encoder = new DictionaryEncoder(dictionary, allocator);
+
+      try (final ValueVector encoded = encoder.encode(vector1)) {
+        // verify indices
+        assertEquals(IntVector.class, encoded.getClass());
+
+        IntVector index = ((IntVector) encoded);
+        assertEquals(5, index.getValueCount());
+        assertEquals(0, index.get(0));
+        assertEquals(1, index.get(1));
+        assertEquals(1, index.get(2));
+        assertEquals(2, index.get(3));
+        assertEquals(0, index.get(4));
+
+        // now run through the decoder and verify we get the original back
+        try (ValueVector decoded = encoder.decode(encoded)) {
+          assertEquals(vector1.getClass(), decoded.getClass());
+          assertEquals(vector1.getValueCount(), (decoded).getValueCount());
+          for (int i = 0; i < 5; i++) {
+            assertEquals(vector1.getObject(i), ((VarCharVector) decoded).getObject(i));
+          }
+        }
+      }
+
+      try (final ValueVector encoded = encoder.encode(vector2)) {
+        // verify indices
+        assertEquals(IntVector.class, encoded.getClass());
+
+        IntVector index = ((IntVector) encoded);
+        assertEquals(3, index.getValueCount());
+        assertEquals(0, index.get(0));
+        assertEquals(1, index.get(1));
+        assertEquals(1, index.get(2));
+
+        // now run through the decoder and verify we get the original back
+        try (ValueVector decoded = encoder.decode(encoded)) {
+          assertEquals(vector2.getClass(), decoded.getClass());
+          assertEquals(vector2.getValueCount(), (decoded).getValueCount());
+          for (int i = 0; i < 3; i++) {
+            assertEquals(vector2.getObject(i), ((VarCharVector) decoded).getObject(i));
+          }
+        }
+      }
     }
   }
 

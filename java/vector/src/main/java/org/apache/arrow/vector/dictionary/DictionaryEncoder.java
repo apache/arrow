@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector.dictionary;
 
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
@@ -31,21 +32,49 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public class DictionaryEncoder {
 
-  // TODO recursively examine fields?
+  private final DictionaryHashTable hashTable;
+  private final Dictionary dictionary;
+  private final BufferAllocator allocator;
+
+  //TODO pass custom hasher.
+
+  /**
+   * Construct an instance.
+   */
+  public DictionaryEncoder(Dictionary dictionary, BufferAllocator allocator) {
+    this.dictionary = dictionary;
+    this.allocator = allocator;
+    hashTable = new DictionaryHashTable(dictionary.getVector());
+  }
 
   /**
    * Dictionary encodes a vector with a provided dictionary. The dictionary must contain all values in the vector.
    *
-   * @param vector     vector to encode
+   * @param vector vector to encode
    * @param dictionary dictionary used for encoding
    * @return dictionary encoded vector
    */
   public static ValueVector encode(ValueVector vector, Dictionary dictionary) {
-    // load dictionary indices into a hash table for lookup
-    DictionaryHashTable hashTable = new DictionaryHashTable(dictionary.getVector());
-    for (int i = 0; i < dictionary.getVector().getValueCount(); i++) {
-      hashTable.put(i);
-    }
+    DictionaryEncoder encoder = new DictionaryEncoder(dictionary, vector.getAllocator());
+    return encoder.encode(vector);
+  }
+
+  /**
+   * Decodes a dictionary encoded array using the provided dictionary.
+   *
+   * @param indices dictionary encoded values, must be int type
+   * @param dictionary dictionary used to decode the values
+   * @return vector with values restored from dictionary
+   */
+  public static ValueVector decode(ValueVector indices, Dictionary dictionary) {
+    DictionaryEncoder encoder = new DictionaryEncoder(dictionary, indices.getAllocator());
+    return encoder.decode(indices);
+  }
+
+  /**
+   * Encodes a vector with the built hash table in this encoder.
+   */
+  public ValueVector encode(ValueVector vector) {
 
     Field valueField = vector.getField();
     FieldType indexFieldType = new FieldType(valueField.isNullable(), dictionary.getEncoding().getIndexType(),
@@ -53,7 +82,7 @@ public class DictionaryEncoder {
     Field indexField = new Field(valueField.getName(), indexFieldType, null);
 
     // vector to hold our indices (dictionary encoded values)
-    FieldVector createdVector = indexField.createVector(vector.getAllocator());
+    FieldVector createdVector = indexField.createVector(allocator);
     if (! (createdVector instanceof BaseIntVector)) {
       throw new IllegalArgumentException("Dictionary encoding does not have a valid int type:" +
           createdVector.getClass());
@@ -82,18 +111,14 @@ public class DictionaryEncoder {
   }
 
   /**
-   * Decodes a dictionary encoded array using the provided dictionary.
-   *
-   * @param indices    dictionary encoded values, must be int type
-   * @param dictionary dictionary used to decode the values
-   * @return vector with values restored from dictionary
+   * Decodes a vector with the built hash table in this encoder.
    */
-  public static ValueVector decode(ValueVector indices, Dictionary dictionary) {
+  public ValueVector decode(ValueVector indices) {
     int count = indices.getValueCount();
     ValueVector dictionaryVector = dictionary.getVector();
     int dictionaryCount = dictionaryVector.getValueCount();
     // copy the dictionary values into the decoded vector
-    TransferPair transfer = dictionaryVector.getTransferPair(indices.getAllocator());
+    TransferPair transfer = dictionaryVector.getTransferPair(allocator);
     transfer.getTo().allocateNewSafe();
 
     BaseIntVector baseIntVector = (BaseIntVector) indices;
@@ -106,7 +131,6 @@ public class DictionaryEncoder {
         transfer.copyValueSafe(indexAsInt, i);
       }
     }
-    // TODO do we need to worry about the field?
     ValueVector decoded = transfer.getTo();
     decoded.setValueCount(count);
     return decoded;
