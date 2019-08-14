@@ -25,9 +25,7 @@ import java.nio.charset.Charset;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
-import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.IntVector;
-import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -64,29 +62,6 @@ public class TestRangeEqualsVisitor {
   }
 
   @Test
-  public void testZeroVectorEquals() {
-    try (final ZeroVector vector1 = new ZeroVector();
-        final ZeroVector vector2 = new ZeroVector()) {
-
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertTrue(vector1.accept(visitor));
-    }
-  }
-
-  @Test
-  public void testZeroVectorNotEquals() {
-    try (final IntVector intVector = new IntVector("int", allocator);
-        final ZeroVector zeroVector = new ZeroVector()) {
-
-      VectorEqualsVisitor zeroVisitor = new VectorEqualsVisitor(zeroVector);
-      assertFalse(intVector.accept(zeroVisitor));
-
-      VectorEqualsVisitor intVisitor = new VectorEqualsVisitor(intVector);
-      assertFalse(zeroVector.accept(intVisitor));
-    }
-  }
-
-  @Test
   public void testIntVectorEqualsWithNull() {
     try (final IntVector vector1 = new IntVector("int", allocator);
         final IntVector vector2 = new IntVector("int", allocator)) {
@@ -107,88 +82,34 @@ public class TestRangeEqualsVisitor {
   }
 
   @Test
-  public void testIntVectorEquals() {
+  public void testBaseFixedWidthVectorRangeEqual() {
     try (final IntVector vector1 = new IntVector("int", allocator);
         final IntVector vector2 = new IntVector("int", allocator)) {
 
-      vector1.allocateNew(3);
-      vector1.setValueCount(3);
-      vector2.allocateNew(3);
-      vector2.setValueCount(2);
+      vector1.allocateNew(5);
+      vector1.setValueCount(5);
+      vector2.allocateNew(5);
+      vector2.setValueCount(5);
 
       vector1.setSafe(0, 1);
       vector1.setSafe(1, 2);
       vector1.setSafe(2, 3);
+      vector1.setSafe(3, 4);
+      vector1.setSafe(4, 5);
 
-      vector2.setSafe(0, 1);
+      vector2.setSafe(0, 11);
       vector2.setSafe(1, 2);
+      vector2.setSafe(2,3);
+      vector2.setSafe(3,4);
+      vector2.setSafe(4,55);
 
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-
-      assertFalse(vector1.accept(visitor));
-
-      vector2.setValueCount(3);
-      vector2.setSafe(2, 2);
-      assertFalse(vector1.equals(vector2));
-
-      vector2.setSafe(2, 3);
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector2, 1, 1, 3);
       assertTrue(vector1.accept(visitor));
     }
   }
 
   @Test
-  public void testDecimalVectorEquals() {
-    try (final DecimalVector vector1 = new DecimalVector("decimal", allocator, 3, 3);
-        final DecimalVector vector2 = new DecimalVector("decimal", allocator, 3, 3);
-        final DecimalVector vector3 = new DecimalVector("decimal", allocator, 3, 2)) {
-
-      vector1.allocateNew(2);
-      vector1.setValueCount(2);
-      vector2.allocateNew(2);
-      vector2.setValueCount(2);
-      vector3.allocateNew(2);
-      vector3.setValueCount(2);
-
-      vector1.setSafe(0, 100);
-      vector1.setSafe(1, 200);
-
-      vector2.setSafe(0, 100);
-      vector2.setSafe(1, 200);
-
-      vector3.setSafe(0, 100);
-      vector3.setSafe(1, 200);
-
-      VectorEqualsVisitor visitor1 = new VectorEqualsVisitor(vector2);
-      VectorEqualsVisitor visitor2 = new VectorEqualsVisitor(vector3);
-
-      assertTrue(vector1.accept(visitor1));
-      assertFalse(vector1.accept(visitor2));
-    }
-  }
-
-  @Test
-  public void testVarcharVectorEuqalsWithNull() {
-    try (final VarCharVector vector1 = new VarCharVector("varchar", allocator);
-        final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
-
-      vector1.allocateNew();
-      vector2.allocateNew();
-
-      // set some values
-      vector1.setSafe(0, STR1, 0, STR1.length);
-      vector1.setSafe(1, STR2, 0, STR2.length);
-      vector1.setValueCount(2);
-
-      vector2.setSafe(0, STR1, 0, STR1.length);
-      vector2.setValueCount(2);
-
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertFalse(vector1.accept(visitor));
-    }
-  }
-
-  @Test
-  public void testVarcharVectorEquals() {
+  public void testBaseVariableVectorRangeEquals() {
     try (final VarCharVector vector1 = new VarCharVector("varchar", allocator);
         final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
 
@@ -199,78 +120,24 @@ public class TestRangeEqualsVisitor {
       vector1.setSafe(0, STR1, 0, STR1.length);
       vector1.setSafe(1, STR2, 0, STR2.length);
       vector1.setSafe(2, STR3, 0, STR3.length);
-      vector1.setValueCount(3);
+      vector1.setSafe(3, STR2, 0, STR2.length);
+      vector1.setSafe(4, STR1, 0, STR1.length);
+      vector1.setValueCount(5);
 
       vector2.setSafe(0, STR1, 0, STR1.length);
       vector2.setSafe(1, STR2, 0, STR2.length);
-      vector2.setValueCount(2);
-
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertFalse(vector1.accept(visitor));
-
       vector2.setSafe(2, STR3, 0, STR3.length);
-      vector2.setValueCount(3);
+      vector2.setSafe(3, STR2, 0, STR2.length);
+      vector2.setSafe(4, STR1, 0, STR1.length);
+      vector2.setValueCount(5);
+
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector2, 1, 1, 3);
       assertTrue(vector1.accept(visitor));
     }
   }
 
   @Test
-  public void testVarBinaryVectorEquals() {
-    try (final VarBinaryVector vector1 = new VarBinaryVector("binary", allocator);
-        final VarBinaryVector vector2 = new VarBinaryVector("binary", allocator)) {
-
-      vector1.allocateNew();
-      vector2.allocateNew();
-
-      // set some values
-      vector1.setSafe(0, STR1, 0, STR1.length);
-      vector1.setSafe(1, STR2, 0, STR2.length);
-      vector1.setSafe(2, STR3, 0, STR3.length);
-      vector1.setValueCount(3);
-
-      vector2.setSafe(0, STR1, 0, STR1.length);
-      vector2.setSafe(1, STR2, 0, STR2.length);
-      vector2.setValueCount(2);
-
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertFalse(vector1.accept(visitor));
-
-      vector2.setSafe(2, STR3, 0, STR3.length);
-      vector2.setValueCount(3);
-      assertTrue(vector1.accept(visitor));
-    }
-  }
-
-  @Test
-  public void testListVectorEqualsWithNull() {
-    try (final ListVector vector1 = ListVector.empty("list", allocator);
-        final ListVector vector2 = ListVector.empty("list", allocator);) {
-
-      UnionListWriter writer1 = vector1.getWriter();
-      writer1.allocate();
-
-      //set some values
-      writeListVector(writer1, new int[] {1, 2});
-      writeListVector(writer1, new int[] {3, 4});
-      writeListVector(writer1, new int[] {});
-      writer1.setValueCount(3);
-
-      UnionListWriter writer2 = vector2.getWriter();
-      writer2.allocate();
-
-      //set some values
-      writeListVector(writer2, new int[] {1, 2});
-      writeListVector(writer2, new int[] {3, 4});
-      writer2.setValueCount(3);
-
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-
-      assertFalse(vector1.accept(visitor));
-    }
-  }
-
-  @Test
-  public void testListVectorEquals() {
+  public void testListVectorRangeEquals() {
     try (final ListVector vector1 = ListVector.empty("list", allocator);
         final ListVector vector2 = ListVector.empty("list", allocator);) {
 
@@ -281,29 +148,28 @@ public class TestRangeEqualsVisitor {
       writeListVector(writer1, new int[] {1, 2});
       writeListVector(writer1, new int[] {3, 4});
       writeListVector(writer1, new int[] {5, 6});
-      writer1.setValueCount(3);
+      writeListVector(writer1, new int[] {7, 8});
+      writeListVector(writer1, new int[] {9, 10});
+      writer1.setValueCount(5);
 
       UnionListWriter writer2 = vector2.getWriter();
       writer2.allocate();
 
       //set some values
-      writeListVector(writer2, new int[] {1, 2});
+      writeListVector(writer2, new int[] {0, 0});
       writeListVector(writer2, new int[] {3, 4});
-      writer2.setValueCount(2);
-
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertFalse(vector1.accept(visitor));
-
       writeListVector(writer2, new int[] {5, 6});
-      writer2.setValueCount(3);
+      writeListVector(writer2, new int[] {7, 8});
+      writeListVector(writer2, new int[] {0, 0});
+      writer2.setValueCount(5);
 
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector2, 1, 1, 3);
       assertTrue(vector1.accept(visitor));
     }
   }
 
   @Test
-  public void testStructVectorEqualsWithNull() {
-
+  public void testStructVectorRangeEquals() {
     try (final StructVector vector1 = StructVector.empty("struct", allocator);
         final StructVector vector2 = StructVector.empty("struct", allocator);) {
       vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
@@ -317,84 +183,27 @@ public class TestRangeEqualsVisitor {
       writeStructVector(writer1, 1, 10L);
       writeStructVector(writer1, 2, 20L);
       writeStructVector(writer1, 3, 30L);
-      writer1.setValueCount(3);
+      writeStructVector(writer1, 4, 40L);
+      writeStructVector(writer1, 5, 50L);
+      writer1.setValueCount(5);
 
       NullableStructWriter writer2 = vector2.getWriter();
       writer2.allocate();
 
-      writeStructVector(writer2, 1, 10L);
-      writeStructVector(writer2, 3, 30L);
-      writer2.setValueCount(3);
-
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertFalse(vector1.accept(visitor));
-    }
-  }
-
-  @Test
-  public void testStructVectorEquals() {
-    try (final StructVector vector1 = StructVector.empty("struct", allocator);
-        final StructVector vector2 = StructVector.empty("struct", allocator);) {
-      vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
-      vector1.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
-      vector2.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
-      vector2.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
-
-      NullableStructWriter writer1 = vector1.getWriter();
-      writer1.allocate();
-
-      writeStructVector(writer1, 1, 10L);
-      writeStructVector(writer1, 2, 20L);
-      writeStructVector(writer1, 3, 30L);
-      writer1.setValueCount(3);
-
-      NullableStructWriter writer2 = vector2.getWriter();
-      writer2.allocate();
-
-      writeStructVector(writer2, 1, 10L);
+      writeStructVector(writer2, 0, 00L);
       writeStructVector(writer2, 2, 20L);
-      writer2.setValueCount(2);
-
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertFalse(vector1.accept(visitor));
-
       writeStructVector(writer2, 3, 30L);
-      writer2.setValueCount(3);
+      writeStructVector(writer2, 4, 40L);
+      writeStructVector(writer2, 0, 0L);
+      writer2.setValueCount(5);
 
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector2, 1, 1, 3);
       assertTrue(vector1.accept(visitor));
     }
   }
 
   @Test
-  public void testStructVectorEqualsWithDiffChild() {
-    try (final StructVector vector1 = StructVector.empty("struct", allocator);
-        final StructVector vector2 = StructVector.empty("struct", allocator);) {
-      vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
-      vector1.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
-      vector2.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
-      vector2.addOrGet("f10", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
-
-      NullableStructWriter writer1 = vector1.getWriter();
-      writer1.allocate();
-
-      writeStructVector(writer1, 1, 10L);
-      writeStructVector(writer1, 2, 20L);
-      writer1.setValueCount(2);
-
-      NullableStructWriter writer2 = vector2.getWriter();
-      writer2.allocate();
-
-      writeStructVector(writer2, 1, 10L);
-      writeStructVector(writer2, 2, 20L);
-      writer2.setValueCount(2);
-
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertFalse(vector1.accept(visitor));
-    }
-  }
-
-  @Test
-  public void testUnionVectorEquals() {
+  public void testUnionVectorRangeEquals() {
     try (final UnionVector vector1 = new UnionVector("union", allocator, null);
         final UnionVector vector2 = new UnionVector("union", allocator, null);) {
 
@@ -411,37 +220,22 @@ public class TestRangeEqualsVisitor {
 
       vector1.setType(1, Types.MinorType.INT);
       vector1.setSafe(1, intHolder);
-      vector1.setValueCount(2);
+
+      vector1.setType(2, Types.MinorType.INT);
+      vector1.setSafe(2, intHolder);
+      vector1.setValueCount(3);
 
       vector2.setType(0, Types.MinorType.UINT4);
       vector2.setSafe(0, uInt4Holder);
 
       vector2.setType(1, Types.MinorType.INT);
       vector2.setSafe(1, intHolder);
-      vector2.setValueCount(2);
 
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertTrue(vector1.accept(visitor));
-    }
-  }
+      vector2.setType(2, Types.MinorType.INT);
+      vector2.setSafe(2, intHolder);
+      vector2.setValueCount(3);
 
-  @Test(expected = IllegalArgumentException.class)
-  public void testEqualsWithIndexOutOfRange() {
-    try (final IntVector vector1 = new IntVector("int", allocator);
-        final IntVector vector2 = new IntVector("int", allocator)) {
-
-      vector1.allocateNew(2);
-      vector1.setValueCount(2);
-      vector2.allocateNew(2);
-      vector2.setValueCount(2);
-
-      vector1.setSafe(0, 1);
-      vector1.setSafe(1, 2);
-
-      vector2.setSafe(0, 1);
-      vector2.setSafe(1, 2);
-
-      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector2, 3, 2, 1);
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector2, 1, 1, 2);
       assertTrue(vector1.accept(visitor));
     }
   }
@@ -451,12 +245,10 @@ public class TestRangeEqualsVisitor {
     try (final IntVector intVector = new IntVector("int", allocator);
         final ZeroVector zeroVector = new ZeroVector()) {
 
-      VectorEqualsVisitor zeroVisitor = new VectorEqualsVisitor(zeroVector);
-      zeroVisitor.setTypeCheckNeeded(false);
+      VectorEqualsVisitor zeroVisitor = new VectorEqualsVisitor(zeroVector, false);
       assertTrue(intVector.accept(zeroVisitor));
 
-      VectorEqualsVisitor intVisitor = new VectorEqualsVisitor(intVector);
-      intVisitor.setTypeCheckNeeded(false);
+      VectorEqualsVisitor intVisitor = new VectorEqualsVisitor(intVector, false);
       assertTrue(zeroVector.accept(intVisitor));
     }
   }

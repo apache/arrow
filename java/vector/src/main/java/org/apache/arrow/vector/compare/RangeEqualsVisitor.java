@@ -44,10 +44,6 @@ public class RangeEqualsVisitor {
 
   protected boolean typeCheckNeeded = true;
 
-  public void setTypeCheckNeeded(boolean typeCheckNeeded) {
-    this.typeCheckNeeded = typeCheckNeeded;
-  }
-
   /**
    * Constructs a new instance.
    */
@@ -56,7 +52,7 @@ public class RangeEqualsVisitor {
     this.rightStart = rightStart;
     this.right = right;
     this.length = length;
-    this.typeCheckNeeded = true;
+    this.typeCheckNeeded = typeCheckNeeded;
     Preconditions.checkArgument(length >= 0, "length must be non negative");
   }
 
@@ -64,7 +60,7 @@ public class RangeEqualsVisitor {
    * Constructs a new instance.
    */
   public RangeEqualsVisitor(ValueVector right, int leftStart, int rightStart, int length) {
-    this (right, rightStart, leftStart, length, true);
+    this(right, rightStart, leftStart, length, true);
   }
 
   /**
