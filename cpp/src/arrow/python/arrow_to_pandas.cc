@@ -1063,6 +1063,10 @@ class CategoricalBlock : public PandasBlock {
     using T = typename TRAITS::T;
     constexpr int npy_type = TRAITS::npy_type;
 
+    if (data->num_chunks() <= 0) {
+      RETURN_NOT_OK(AllocateNDArray(npy_type, 1));
+      return Status::OK();
+    }
     // Sniff the first chunk
     const std::shared_ptr<Array> arr_first = data->chunk(0);
     const auto& dict_arr_first = checked_cast<const DictionaryArray&>(*arr_first);
@@ -1132,15 +1136,17 @@ class CategoricalBlock : public PandasBlock {
       converted_data = out.chunked_array();
     } else {
       // check if all dictionaries are equal
-      const std::shared_ptr<Array> arr_first = data->chunk(0);
-      const auto& dict_arr_first = checked_cast<const DictionaryArray&>(*arr_first);
+      if (data->num_chunks() > 1) {
+        const std::shared_ptr<Array> arr_first = data->chunk(0);
+        const auto& dict_arr_first = checked_cast<const DictionaryArray&>(*arr_first);
 
-      for (int c = 1; c < data->num_chunks(); c++) {
-        const std::shared_ptr<Array> arr = data->chunk(c);
-        const auto& dict_arr = checked_cast<const DictionaryArray&>(*arr);
+        for (int c = 1; c < data->num_chunks(); c++) {
+          const std::shared_ptr<Array> arr = data->chunk(c);
+          const auto& dict_arr = checked_cast<const DictionaryArray&>(*arr);
 
-        if (!(dict_arr_first.dictionary()->Equals(dict_arr.dictionary()))) {
-          return Status::NotImplemented("Variable dictionary type not supported");
+          if (!(dict_arr_first.dictionary()->Equals(dict_arr.dictionary()))) {
+            return Status::NotImplemented("Variable dictionary type not supported");
+          }
         }
       }
       converted_data = data;
@@ -1168,13 +1174,20 @@ class CategoricalBlock : public PandasBlock {
     }
 
     // TODO(wesm): variable dictionaries
-    auto arr = converted_data->chunk(0);
-    const auto& dict_arr = checked_cast<const DictionaryArray&>(*arr);
+    std::shared_ptr<Array> dict;
+    if (data->num_chunks() <= 0) {
+      // no dictionary values => create empty array
+      dict = std::make_shared<NullArray>(0);
+    } else {
+      auto arr = converted_data->chunk(0);
+      const auto& dict_arr = checked_cast<const DictionaryArray&>(*arr);
+      dict = dict_arr.dictionary();
+    }
 
     placement_data_[rel_placement] = abs_placement;
-    PyObject* dict;
-    RETURN_NOT_OK(ConvertArrayToPandas(options_, dict_arr.dictionary(), nullptr, &dict));
-    dictionary_.reset(dict);
+    PyObject* pydict;
+    RETURN_NOT_OK(ConvertArrayToPandas(options_, dict, nullptr, &pydict));
+    dictionary_.reset(pydict);
     ordered_ = dict_type.ordered();
 
     return Status::OK();

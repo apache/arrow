@@ -2233,6 +2233,18 @@ class TestConvertMisc(object):
         df = pd.DataFrame({'cat': pd.Categorical([])})
         _check_pandas_roundtrip(df)
 
+    def test_category_zero_chunks(self):
+        # ARROW-5952
+        a = pa.chunked_array([], pa.dictionary(pa.int8(), pa.string()))
+        result = a.to_pandas()
+        expected = pd.Categorical([], categories=np.array([], dtype=object))
+        tm.assert_series_equal(pd.Series(result), pd.Series(expected))
+
+        table = pa.table({'a': a})
+        result = table.to_pandas()
+        expected = pd.DataFrame({'a': expected})
+        tm.assert_frame_equal(result, expected)
+
     def test_mixed_types_fails(self):
         data = pd.DataFrame({'a': ['a', 1, 2.0]})
         with pytest.raises(pa.ArrowTypeError):
