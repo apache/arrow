@@ -86,7 +86,7 @@ CPPFLAGS=$("${R_HOME}"/bin/R CMD config CPPFLAGS)
 
 # If libarrow uses the old GLIBCXX ABI, so we have to use it too
 if [ "$ARROW_USE_OLD_CXXABI" ]; then
-  $PKG_CFLAGS="$PKG_CFLAGS -D_GLIBCXX_USE_CXX11_ABI=0"
+  PKG_CFLAGS="$PKG_CFLAGS -D_GLIBCXX_USE_CXX11_ABI=0"
 fi
 
 # Test configuration
@@ -110,6 +110,11 @@ else
   echo "---------------------------------------------------------"
   PKG_LIBS=""
   PKG_CFLAGS=""
+fi
+
+# Set any user-defined CXXFLAGS
+if [ "$ARROW_R_CXXFLAGS" ]; then
+  PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
 fi
 
 # Write to Makevars
