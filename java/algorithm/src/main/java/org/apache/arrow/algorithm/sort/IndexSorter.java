@@ -60,13 +60,25 @@ public class IndexSorter<V extends ValueVector> {
 
   private void quickSort(int low, int high) {
     if (low < high) {
-      int mid = partition(low, high);
+      int mid = partition(low, high, indices, comparator);
       quickSort(low, mid - 1);
       quickSort(mid + 1, high);
     }
   }
 
-  private int partition(int low, int high) {
+  /**
+   * Partition a range of values in a vector into two parts, with elements in one part smaller than
+   * elements from the other part. The partition is based on the element indices, so it does
+   * not modify the underlying vector.
+   * @param low the lower bound of the range.
+   * @param high the upper bound of the range.
+   * @param indices vector element indices.
+   * @param comparator criteria for comparison.
+   * @param <T> the vector type.
+   * @return the index of the split point.
+   */
+  public static <T extends ValueVector> int partition(
+          int low, int high, IntVector indices, VectorValueComparator<T> comparator) {
     int pivotIndex = indices.get(low);
 
     while (low < high) {
