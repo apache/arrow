@@ -63,7 +63,7 @@ system property("arrow.enable_unsafe_memory_access") or the environmental variab
 ("ARROW_ENABLE_UNSAFE_MEMORY_ACCESS") to "true". When both the system property and the environmental 
 variable are set, the system property takes precedence.
 
-* NullCheckingForGet: Null checking is on by default. You can disable it by setting either the 
+* null checking for gets: ValueVector get methods (not getObject) methods by default verify the slot is not null.  You can disable it by setting either the 
 system property("arrow.enable_null_check_for_get") or the environmental variable 
 ("ARROW_ENABLE_NULL_CHECK_FOR_GET") to "false". When both the system property and the environmental 
 variable are set, the system property takes precedence. 
