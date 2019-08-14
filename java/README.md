@@ -71,7 +71,7 @@ variable are set, the system property takes precedence.
 ## Java Properties
 
 For java 9 or later, should set "-Dio.netty.tryReflectionSetAccessible=true".
-
+This fixes `java.lang.UnsupportedOperationException: sun.misc.Unsafe or java.nio.DirectByteBuffer.(long, int) not available`. thrown by netty.
 ## Java Code Style Guide
 
 Arrow Java follows the Google style guide [here][3] with the following
