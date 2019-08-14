@@ -238,9 +238,44 @@ TEST(TestRandomAccessFile, GetStream) {
 
   int64_t bytes_read = -1;
   ASSERT_OK(stream2->Read(4, &bytes_read, buf3));
+  ASSERT_EQ(4, bytes_read);
   ASSERT_EQ(0, std::memcmp(buf3, "2dat", 4));
   ASSERT_OK(stream2->Tell(&position));
   ASSERT_EQ(4, position);
+
+  ASSERT_OK(stream1->Read(6, &bytes_read, buf3));
+  ASSERT_EQ(6, bytes_read);
+  ASSERT_EQ(0, std::memcmp(buf3, "data1d", 6));
+  ASSERT_OK(stream1->Tell(&position));
+  ASSERT_EQ(6, position);
+
+  ASSERT_OK(stream1->Read(2, &buf2));
+  ASSERT_TRUE(SliceBuffer(buf, 6, 2)->Equals(*buf2));
+
+  // Read to end of each stream
+  ASSERT_OK(stream1->Read(4, &bytes_read, buf3));
+  ASSERT_EQ(2, bytes_read);
+  ASSERT_EQ(0, std::memcmp(buf3, "a2", 2));
+  ASSERT_OK(stream1->Tell(&position));
+  ASSERT_EQ(10, position);
+
+  ASSERT_OK(stream1->Read(1, &bytes_read, buf3));
+  ASSERT_EQ(0, bytes_read);
+  ASSERT_OK(stream1->Tell(&position));
+  ASSERT_EQ(10, position);
+
+  // stream2 had its extent limited
+  ASSERT_OK(stream2->Read(20, &buf2));
+  ASSERT_TRUE(SliceBuffer(buf, 13, 12)->Equals(*buf2));
+
+  ASSERT_OK(stream2->Read(1, &buf2));
+  ASSERT_EQ(0, buf2->size());
+  ASSERT_OK(stream2->Tell(&position));
+  ASSERT_EQ(16, position);
+
+  // Close has no effect
+  ASSERT_OK(stream1->Close());
+  ASSERT_FALSE(stream1->closed());
 }
 
 TEST(TestMemcopy, ParallelMemcopy) {
