@@ -484,8 +484,8 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
   // Implemented as part of ARROW-3246
 
   const int64_t size = 50;
-  const int64_t min_length = 0;
-  const int64_t max_length = 10;
+  const int32_t min_length = 0;
+  const int32_t max_length = 10;
   const double null_probability = 0.25;
 
   auto CheckSeed = [&](int seed) {
