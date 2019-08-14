@@ -54,6 +54,24 @@ and arrow-format into a single JAR.  Using the classifier "shade-format-flatbuff
 pom.xml will make use of this JAR, you can then exclude/resolve the original dependency to
 a version of your choosing.
 
+## Performance Tuning
+
+There are several system/environmental variables that users can configure.  These trade off safety (they turn off checking) for speed.  Typically they are only used in production settings after the code has been thoroughly tested without using them.
+
+* Bounds Checking for memory accesses: Bounds checking is on by default.  You can disable it by setting either the 
+system property("arrow.enable_unsafe_memory_access") or the environmental variable
+("ARROW_ENABLE_UNSAFE_MEMORY_ACCESS") to "true". When both the system property and the environmental 
+variable are set, the system property takes precedence.
+
+* null checking for gets: ValueVector get methods (not getObject) methods by default verify the slot is not null.  You can disable it by setting either the 
+system property("arrow.enable_null_check_for_get") or the environmental variable 
+("ARROW_ENABLE_NULL_CHECK_FOR_GET") to "false". When both the system property and the environmental 
+variable are set, the system property takes precedence. 
+
+## Java Properties
+
+For java 9 or later, should set "-Dio.netty.tryReflectionSetAccessible=true".
+This fixes `java.lang.UnsupportedOperationException: sun.misc.Unsafe or java.nio.DirectByteBuffer.(long, int) not available`. thrown by netty.
 ## Java Code Style Guide
 
 Arrow Java follows the Google style guide [here][3] with the following
