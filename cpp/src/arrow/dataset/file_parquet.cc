@@ -141,7 +141,8 @@ class ParquetScanTaskIterator : public ScanTaskIterator {
  private:
   // Compute the column projection out of an optional arrow::Schema
   static Status InferColumnProjection(const parquet::FileMetaData& metadata,
-                                      const std::shared_ptr<ScanOptions>& options, std::vector<int>* out) {
+                                      const std::shared_ptr<ScanOptions>& options,
+                                      std::vector<int>* out) {
     // TODO(fsaintjacques): Compute intersection _and_ validity
     *out = metadata.AllColumnIndices();
 
