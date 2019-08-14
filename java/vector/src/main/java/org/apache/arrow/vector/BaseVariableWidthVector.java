@@ -1368,20 +1368,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   @Override
-  public boolean equals(int index, ValueVector to, int toIndex) {
-    if (to == null) {
-      return false;
-    }
-    Preconditions.checkArgument(index >= 0 && index < valueCount,
-        "index %s out of range[0, %s]:", index, valueCount - 1);
-    Preconditions.checkArgument(toIndex >= 0 && toIndex < to.getValueCount(),
-        "index %s out of range[0, %s]:", index, to.getValueCount() - 1);
-
-    RangeEqualsVisitor visitor = new RangeEqualsVisitor(to, index, toIndex, 1);
-    return this.accept(visitor);
-  }
-
-  @Override
   public boolean accept(RangeEqualsVisitor visitor) {
     return visitor.visit(this);
   }

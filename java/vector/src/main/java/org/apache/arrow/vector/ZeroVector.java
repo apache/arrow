@@ -252,11 +252,6 @@ public class ZeroVector implements FieldVector {
   }
 
   @Override
-  public boolean equals(int index, ValueVector to, int toIndex) {
-    return false;
-  }
-
-  @Override
   public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
     throw new UnsupportedOperationException();
   }
