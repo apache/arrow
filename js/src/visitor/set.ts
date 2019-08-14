@@ -17,8 +17,9 @@
 
 import { Data } from '../data';
 import { Visitor } from '../visitor';
-import { VectorType } from '../interfaces';
 import { encodeUtf8 } from '../util/utf8';
+import { VectorType } from '../interfaces';
+import { float64ToUint16 } from '../util/math';
 import { toArrayBufferView } from '../util/buffer';
 import { Type, UnionMode, Precision, DateUnit, TimeUnit, IntervalUnit } from '../enum';
 import {
@@ -131,7 +132,7 @@ const setDateMillisecond = <T extends DateMillisecond>({ values         }: Vecto
 /** @ignore */
 const setNumeric         = <T extends Numeric1X>      ({ stride, values }: VectorType<T>, index: number, value: T['TValue']): void => { values[stride * index] = value; };
 /** @ignore */
-const setFloat16         = <T extends Float16>        ({ stride, values }: VectorType<T>, index: number, value: T['TValue']): void => { values[stride * index] = (value * 32767) + 32767; };
+const setFloat16         = <T extends Float16>        ({ stride, values }: VectorType<T>, index: number, value: T['TValue']): void => { values[stride * index] = float64ToUint16(value); };
 /** @ignore */
 const setNumericX2       = <T extends Numeric2X>      (vector: VectorType<T>, index: number, value: T['TValue']): void => {
     switch (typeof value) {
