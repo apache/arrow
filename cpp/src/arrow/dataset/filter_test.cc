@@ -46,11 +46,23 @@ class ExpressionsTest : public ::testing::Test {
     }
   }
 
+  template <typename... T>
+  void AssertOperandsAre(OperatorExpression expr, ExpressionType::type type,
+                         T... expected_operands) {
+    ASSERT_EQ(expr.type(), type);
+    ASSERT_EQ(expr.operands().size(), sizeof...(T));
+    std::shared_ptr<Expression> expected_operand_ptrs[] = {expected_operands.Copy()...};
+
+    for (size_t i = 0; i < sizeof...(T); ++i) {
+      ASSERT_TRUE(expr.operands()[i]->Equals(expected_operand_ptrs[i]));
+    }
+  }
+
   std::shared_ptr<ScalarExpression> always = ScalarExpression::Make(true);
   std::shared_ptr<ScalarExpression> never = ScalarExpression::Make(false);
 };
 
-TEST_F(ExpressionsTest, Basics) {
+TEST_F(ExpressionsTest, Equality) {
   using namespace string_literals;
 
   ASSERT_TRUE("a"_.Equals("a"_));
@@ -59,6 +71,17 @@ TEST_F(ExpressionsTest, Basics) {
   ASSERT_TRUE(("b"_ == 3).Equals("b"_ == 3));
   ASSERT_FALSE(("b"_ == 3).Equals("b"_ < 3));
   ASSERT_FALSE(("b"_ == 3).Equals("b"_));
+
+  // ordering matters
+  ASSERT_FALSE(("b"_ > 2 and "b"_ < 3).Equals("b"_ < 3 and "b"_ > 2));
+}
+
+TEST_F(ExpressionsTest, Simplification) {
+  using namespace string_literals;
+
+  // chained "and" expressions are flattened
+  auto multi_and = "b"_ > 5 and "b"_ < 10 and "b"_ != 7;
+  AssertOperandsAre(multi_and, ExpressionType::AND, "b"_ > 5, "b"_ < 10, "b"_ != 7);
 
   AssertSimplifiesTo("b"_ == 3, "b"_ > 5 and "b"_ < 10, *never);
   AssertSimplifiesTo("b"_ > 3, "b"_ > 5 and "b"_ < 10, *always);
@@ -78,7 +101,7 @@ class FilterTest : public ::testing::Test {
     auto expected_filter = batch->GetColumnByName("in");
 
     std::shared_ptr<BooleanArray> filter;
-    ASSERT_OK(ExpressionFilter(MakeShared(expr)).Execute(&ctx_, *batch, &filter));
+    ASSERT_OK(ExpressionFilter(expr.Copy()).Execute(&ctx_, *batch, &filter));
 
     ASSERT_ARRAYS_EQUAL(*expected_filter, *filter);
   }

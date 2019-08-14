@@ -163,14 +163,13 @@ Result<std::shared_ptr<Expression>> AssumeComparison(const OperatorExpression& e
                                                      const OperatorExpression& given) {
   // TODO(bkietz) allow the RHS of e to be FIELD
   auto e_rhs = checked_cast<const ScalarExpression&>(*e.operands()[1]).value();
-  // TODO(bkietz) allow the RHS of given to be FROM_STRING
   auto given_rhs = checked_cast<const ScalarExpression&>(*given.operands()[1]).value();
 
   ARROW_ASSIGN_OR_RAISE(auto cmp, Compare(*e_rhs, *given_rhs));
 
   static auto always = ScalarExpression::Make(true);
   static auto never = ScalarExpression::Make(false);
-  auto unsimplified = MakeShared(e);
+  auto unsimplified = e.Copy();
 
   if (cmp == 0) {
     // the rhs of the comparisons are equal
@@ -314,7 +313,7 @@ std::string GetName(const Expression& e) {
 
 Result<std::shared_ptr<Expression>> OperatorExpression::Assume(
     const Expression& given) const {
-  auto unsimplified = MakeShared(*this);
+  auto unsimplified = Copy();
 
   if (IsComparisonExpression()) {
     if (!given.IsOperatorExpression()) {
@@ -487,9 +486,6 @@ bool Expression::Equals(const Expression& other) const {
     return false;
   }
 
-  // FIXME(bkietz) create FromStringExpression
-  DCHECK_NE(type_, ExpressionType::FROM_STRING);
-
   switch (type_) {
     case ExpressionType::FIELD:
       return checked_cast<const FieldReferenceExpression&>(*this).name() ==
@@ -520,6 +516,72 @@ bool Expression::Equals(const Expression& other) const {
   }
 
   return true;
+}
+
+bool Expression::Equals(const std::shared_ptr<Expression>& other) const {
+  if (other == NULLPTR) {
+    return false;
+  }
+  return Equals(*other);
+}
+
+bool Expression::IsOperatorExpression() const {
+  return static_cast<int>(type_) >= static_cast<int>(ExpressionType::NOT) &&
+         static_cast<int>(type_) <= static_cast<int>(ExpressionType::LESS_EQUAL);
+}
+
+bool Expression::IsComparisonExpression() const {
+  return static_cast<int>(type_) >= static_cast<int>(ExpressionType::EQUAL) &&
+         static_cast<int>(type_) <= static_cast<int>(ExpressionType::LESS_EQUAL);
+}
+
+std::shared_ptr<Expression> OperatorExpression::Copy() const {
+  return std::make_shared<OperatorExpression>(*this);
+}
+
+std::shared_ptr<Expression> FieldReferenceExpression::Copy() const {
+  return std::make_shared<FieldReferenceExpression>(*this);
+}
+
+std::shared_ptr<Expression> ScalarExpression::Copy() const {
+  return std::make_shared<ScalarExpression>(*this);
+}
+
+// flatten chains of and/or to a single OperatorExpression
+OperatorExpression MaybeCombine(ExpressionType::type type, const OperatorExpression& lhs,
+                                const OperatorExpression& rhs) {
+  if (lhs.type() != type && rhs.type() != type) {
+    return OperatorExpression(type, {lhs.Copy(), rhs.Copy()});
+  }
+  std::vector<std::shared_ptr<Expression>> operands;
+  if (lhs.type() == type) {
+    operands = lhs.operands();
+    if (rhs.type() == type) {
+      for (auto operand : rhs.operands()) {
+        operands.emplace_back(std::move(operand));
+      }
+    } else {
+      operands.emplace_back(rhs.Copy());
+    }
+  } else {
+    operands = rhs.operands();
+    operands.emplace(operands.begin(), lhs.Copy());
+  }
+  return OperatorExpression(type, std::move(operands));
+}
+
+OperatorExpression operator and(const OperatorExpression& lhs,
+                                const OperatorExpression& rhs) {
+  return MaybeCombine(ExpressionType::AND, lhs, rhs);
+}
+
+OperatorExpression operator or(const OperatorExpression& lhs,
+                               const OperatorExpression& rhs) {
+  return MaybeCombine(ExpressionType::OR, lhs, rhs);
+}
+
+OperatorExpression operator not(const OperatorExpression& rhs) {
+  return OperatorExpression(ExpressionType::NOT, {rhs.Copy()});
 }
 
 }  // namespace dataset
