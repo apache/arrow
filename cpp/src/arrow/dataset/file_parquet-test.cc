@@ -57,7 +57,6 @@ class TestParquetFileFormat : public ParquetBufferFixtureMixin {
   TestParquetFileFormat() : ctx_(std::make_shared<ScanContext>()) {}
 
  protected:
-  std::shared_ptr<RecordBatch> batch_;
   std::shared_ptr<ScanOptions> opts_;
   std::shared_ptr<ScanContext> ctx_;
 };
@@ -73,14 +72,10 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
 
   ASSERT_OK(it->Visit([&row_count](std::unique_ptr<ScanTask> task) -> Status {
     auto batch_it = task->Scan();
-
-    RETURN_NOT_OK(
-        batch_it->Visit([&row_count](std::shared_ptr<RecordBatch> batch) -> Status {
-          row_count += batch->num_rows();
-          return Status::OK();
-        }));
-
-    return Status::OK();
+    return batch_it->Visit([&row_count](std::shared_ptr<RecordBatch> batch) -> Status {
+      row_count += batch->num_rows();
+      return Status::OK();
+    });
   }));
 
   ASSERT_EQ(row_count, kNumRows);

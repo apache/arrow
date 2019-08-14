@@ -39,7 +39,7 @@ std::string ParquetTestDataPath() { return PARQUET_TEST_DATA_PATH; }
 // }
 //
 // TEST(MyTestClass, ATest) {
-//    this->ArrowParquetFileSystem()->OpenInputFile("data/binary.parquet")
+//    this->OpenParquetFile("data/binary.parquet")
 //    // Do something
 // }
 class TestDataFixtureMixin : public ::testing::Test {
