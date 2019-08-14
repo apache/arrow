@@ -18,31 +18,46 @@
 class TestIsIn < Test::Unit::TestCase
   include Helper::Buildable
 
-  def test_no_null
-    left_array = build_int16_array([1, 0, 1, 2])
-    right_array = build_int16_array([2, 0])
-    assert_equal(build_boolean_array([false, true, false, true]),
-                 left_array.is_in(right_array))
+  sub_test_case("Array") do
+    def test_no_null
+      left_array = build_int16_array([1, 0, 1, 2])
+      right_array = build_int16_array([2, 0])
+      assert_equal(build_boolean_array([false, true, false, true]),
+                   left_array.is_in(right_array))
+    end
+
+    def test_null_in_left_array
+      left_array = build_int16_array([1, 0, nil, 2])
+      right_array = build_int16_array([2, 0, 3])
+      assert_equal(build_boolean_array([false, true, nil, true]),
+                   left_array.is_in(right_array))
+    end
+
+    def test_null_in_right_array
+      left_array = build_int16_array([1, 0, 1, 2])
+      right_array = build_int16_array([2, 0, nil, 2, 0])
+      assert_equal(build_boolean_array([false, true, false, true]),
+                   left_array.is_in(right_array))
+    end
+
+    def test_null_in_both_arrays
+      left_array = build_int16_array([1, 0, nil, 2])
+      right_array = build_int16_array([2, 0, nil, 2, 0, nil])
+      assert_equal(build_boolean_array([false, true, true, true]),
+                   left_array.is_in(right_array))
+    end
   end
 
-  def test_null_in_left_array
-    left_array = build_int16_array([1, 0, nil, 2])
-    right_array = build_int16_array([2, 0, 3])
-    assert_equal(build_boolean_array([false, true, nil, true]),
-                 left_array.is_in(right_array))
-  end
-
-  def test_null_in_right_array
-    left_array = build_int16_array([1, 0, 1, 2])
-    right_array = build_int16_array([2, 0, nil, 2, 0])
-    assert_equal(build_boolean_array([false, true, false, true]),
-                 left_array.is_in(right_array))
-  end
-
-  def test_null_in_both_arrays
-    left_array = build_int16_array([1, 0, nil, 2])
-    right_array = build_int16_array([2, 0, nil, 2, 0, nil])
-    assert_equal(build_boolean_array([false, true, true, true]),
-                 left_array.is_in(right_array))
+  sub_test_case("ChunkedArray") do
+    def test_no_null
+      left_array = build_int16_array([1, 0, 1, 2])
+      chunks = [
+        build_int16_array([1, 0]),
+        build_int16_array([1, 0, 3])
+      ]
+      right_chunked_array = Arrow::ChunkedArray.new(chunks)
+      assert_equal(build_boolean_array([true, true, true, false]),
+                   left_array.is_in(right_chunked_array))
+    end
   end
 end
