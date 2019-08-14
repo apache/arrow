@@ -57,14 +57,7 @@ public final class JdbcToArrowConfig {
 
   /**
    * The maximum rowCount to read when partially convert data, default is -1 which means disable partial read.
-   * Note that:
-   * <p>
-   * 1) for {@link JdbcToArrow#sqlToArrow}
-   * if partialLimit != -1, it will convert no more than partialLimit rows into a single vector.
-   * if partialLimit == -1, it will convert full data into a single vector.
-   * </p>
-   * <p>
-   * 2) for {@link JdbcToArrow#sqlToArrowVectorIterator}
+   * Note that this flag only useful for {@link JdbcToArrow#sqlToArrowVectorIterator}
    * if partialLimit != -1, it will convert full data into multiple vectors with valueCount no more than partialLimit.
    * if partialLimit == -1, it will convert full data into a single vector in {@link ArrowVectorIterator}
    * </p>
