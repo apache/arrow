@@ -81,7 +81,7 @@ class DiffTest : public ::testing::Test {
     auto edits = Diff(*base_, *target_, default_memory_pool());
     ASSERT_OK(edits.status());
     edits_ = edits.ValueOrDie();
-    ASSERT_OK(ValidateArray(*edits_));
+    ASSERT_OK(edits_->Validate());
     ASSERT_TRUE(edits_->type()->Equals(edits_type));
     insert_ = checked_pointer_cast<BooleanArray>(edits_->field(0));
     run_lengths_ = checked_pointer_cast<Int64Array>(edits_->field(1));
