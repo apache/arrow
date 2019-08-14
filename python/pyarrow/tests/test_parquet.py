@@ -235,7 +235,7 @@ def test_empty_table_roundtrip():
     # Create a non-empty table to infer the types correctly, then slice to 0
     table = pa.Table.from_pandas(df)
     table = pa.Table.from_arrays(
-        [col.data.chunk(0)[:0] for col in table.itercolumns()],
+        [col.chunk(0)[:0] for col in table.itercolumns()],
         names=table.schema.names)
 
     assert table.schema.field_by_name('null').type == pa.null()
@@ -2378,7 +2378,7 @@ def test_binary_array_overflow_to_chunked():
     tbl = pa.Table.from_pandas(df, preserve_index=False)
     read_tbl = _simple_table_roundtrip(tbl)
 
-    col0_data = read_tbl[0].data
+    col0_data = read_tbl[0]
     assert isinstance(col0_data, pa.ChunkedArray)
 
     # Split up into 2GB chunks
