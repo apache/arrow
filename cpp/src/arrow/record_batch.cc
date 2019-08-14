@@ -197,10 +197,16 @@ std::shared_ptr<RecordBatch> RecordBatch::Make(
   DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
   return std::make_shared<SimpleRecordBatch>(schema, num_rows, columns);
 }
-std::shared_ptr<RecordBatch> RecordBatch::FromStructArray(
-    const std::shared_ptr<Array>& array) {
-  return Make(arrow::schema(array->type()->children()), array->length(),
+
+Status RecordBatch::FromStructArray(const std::shared_ptr<Array>& array,
+                                    std::shared_ptr<RecordBatch>* out) {
+  if (array->type_id() != Type::STRUCT) {
+    return Status::Invalid("Cannot construct record batch from array of type ",
+                           *array->type());
+  }
+  *out = Make(arrow::schema(array->type()->children()), array->length(),
               array->data()->child_data);
+  return Status::OK();
 }
 
 const std::string& RecordBatch::column_name(int i) const {

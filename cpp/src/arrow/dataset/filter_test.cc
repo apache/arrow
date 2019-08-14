@@ -64,26 +64,40 @@ TEST_F(ExpressionsTest, Basics) {
   AssertSimplifiesTo("b"_ > 3, "b"_ > 5 and "b"_ < 10, *always);
 }
 
-TEST(FilterTest, Basics) {
+class FilterTest : public ::testing::Test {
+ public:
+  void AssertFilter(OperatorExpression expr, std::vector<std::shared_ptr<Field>> fields,
+                    std::string batch_json) {
+    // expected filter result is in the "in" field
+    fields.push_back(field("in", boolean()));
+
+    auto batch_array = ArrayFromJSON(struct_(std::move(fields)), std::move(batch_json));
+    std::shared_ptr<RecordBatch> batch;
+    ASSERT_OK(RecordBatch::FromStructArray(batch_array, &batch));
+
+    auto expected_filter = batch->GetColumnByName("in");
+
+    std::shared_ptr<BooleanArray> filter;
+    ASSERT_OK(ExpressionFilter(MakeShared(expr)).Execute(&ctx_, *batch, &filter));
+
+    ASSERT_ARRAYS_EQUAL(*expected_filter, *filter);
+  }
+
+  arrow::compute::FunctionContext ctx_;
+};
+
+TEST_F(FilterTest, Basics) {
   using namespace string_literals;
 
-  auto batch = RecordBatch::FromStructArray(
-      ArrayFromJSON(struct_({field("a", int64()), field("b", float64())}), R"([
-      {"a": 0, "b": -0.1},
-      {"a": 0, "b": 0.3},
-      {"a": 1, "b": 0.2},
-      {"a": 2, "b": -0.1},
-      {"a": 0, "b": 0.1},
-      {"a": 0, "b": 1.0}
-  ])"));
-
-  arrow::compute::FunctionContext ctx;
-  std::shared_ptr<BooleanArray> filter;
-  ASSERT_OK(ExpressionFilter(MakeShared("a"_ == 0 and "b"_ > 0.0 and "b"_ < 1.0))
-                .Execute(&ctx, *batch, &filter));
-
-  auto expected_filter = ArrayFromJSON(boolean(), "[0, 1, 0, 0, 1, 0]");
-  ASSERT_ARRAYS_EQUAL(*expected_filter, *filter);
+  AssertFilter("a"_ == 0 and "b"_ > 0.0 and "b"_ < 1.0,
+               {field("a", int64()), field("b", float64())}, R"([
+      {"a": 0, "b": -0.1, "in": 0},
+      {"a": 0, "b":  0.3, "in": 1},
+      {"a": 1, "b":  0.2, "in": 0},
+      {"a": 2, "b": -0.1, "in": 0},
+      {"a": 0, "b":  0.1, "in": 1},
+      {"a": 0, "b":  1.0, "in": 0}
+  ])");
 }
 
 }  // namespace dataset
