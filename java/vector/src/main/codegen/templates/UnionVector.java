@@ -45,6 +45,7 @@ import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.util.OversizedAllocationException;
+import org.apache.arrow.util.Preconditions;
 
 import static org.apache.arrow.vector.types.UnionMode.Sparse;
 
@@ -390,6 +391,7 @@ public class UnionVector implements FieldVector {
 
   @Override
   public void copyFrom(int inIndex, int outIndex, ValueVector from) {
+    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     UnionVector fromCast = (UnionVector) from;
     fromCast.getReader().setPosition(inIndex);
     getWriter().setPosition(outIndex);

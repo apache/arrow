@@ -92,11 +92,18 @@ public class NonNullableStructVector extends AbstractStructVector {
    * Copies the element at fromIndex in the provided vector to thisIndex.  Reallocates buffers
    * if thisIndex is larger then current capacity.
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NonNullableStructVector from) {
+  @Override
+  public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
+    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     if (ephPair == null || ephPair.from != from) {
       ephPair = (StructTransferPair) from.makeTransferPair(this);
     }
     ephPair.copyValueSafe(fromIndex, thisIndex);
+  }
+
+  @Override
+  public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
+    copyFrom(fromIndex, thisIndex, from);
   }
 
   @Override
