@@ -422,7 +422,6 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
   template <typename ArrowType>
   void PutIndicesTyped(const arrow::Array& data) {
-    using T = typename ArrowType::c_type;
     using ArrayType = typename arrow::TypeTraits<ArrowType>::ArrayType;
     const auto& indices = checked_cast<const ArrayType&>(data);
     auto values = indices.raw_values();

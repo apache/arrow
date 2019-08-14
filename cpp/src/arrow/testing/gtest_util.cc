@@ -68,8 +68,7 @@ void AssertTsEqual(const T& expected, const T& actual) {
   }
 }
 
-void AssertArraysEqual(const Array& expected, const Array& actual,
-                       bool verbose) {
+void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose) {
   std::stringstream diff;
   if (!expected.Equals(actual, EqualOptions().diff_sink(&diff))) {
     if (verbose) {

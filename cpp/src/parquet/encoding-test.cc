@@ -486,34 +486,40 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
   const int64_t size = 50;
   const int64_t min_length = 0;
   const int64_t max_length = 10;
-  const double null_probability = 0.1;
-  arrow::random::RandomArrayGenerator rag(0);
-  auto values = rag.String(size, min_length, max_length, null_probability);
+  const double null_probability = 0.25;
 
-  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
-  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
+  auto CheckSeed = [&](int seed) {
+    arrow::random::RandomArrayGenerator rag(seed);
+    auto values = rag.String(size, min_length, max_length, null_probability);
 
-  ASSERT_NO_THROW(encoder->Put(*values));
-  auto buf = encoder->FlushValues();
+    auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
+    auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
 
-  int num_values = static_cast<int>(values->length() - values->null_count());
-  decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+    ASSERT_NO_THROW(encoder->Put(*values));
+    auto buf = encoder->FlushValues();
 
-  arrow::StringBuilder builder;
-  ASSERT_EQ(num_values,
-            decoder->DecodeArrow(static_cast<int>(values->length()),
-                                 static_cast<int>(values->null_count()),
-                                 values->null_bitmap_data(),
-                                 values->offset(), &builder));
+    int num_values = static_cast<int>(values->length() - values->null_count());
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
-  std::shared_ptr<arrow::Array> result;
-  ASSERT_OK(builder.Finish(&result));
-  ASSERT_EQ(50, result->length());
-  arrow::AssertArraysEqual(*values, *result);
+    arrow::StringBuilder builder;
+    ASSERT_EQ(num_values, decoder->DecodeArrow(static_cast<int>(values->length()),
+                                               static_cast<int>(values->null_count()),
+                                               values->null_bitmap_data(),
+                                               values->offset(), &builder));
 
-  // Type checked
-  auto i32_values = rag.Int32(size, 0, 10, null_probability);
-  ASSERT_THROW(encoder->Put(*i32_values), ParquetException);
+    std::shared_ptr<arrow::Array> result;
+    ASSERT_OK(builder.Finish(&result));
+    ASSERT_EQ(50, result->length());
+    arrow::AssertArraysEqual(*values, *result);
+
+    // Type checked
+    auto i32_values = rag.Int32(size, 0, 10, null_probability);
+    ASSERT_THROW(encoder->Put(*i32_values), ParquetException);
+  };
+
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    CheckSeed(seed);
+  }
 }
 
 void GetBinaryDictDecoder(DictEncoder<ByteArrayType>* encoder, int64_t num_values,
@@ -530,7 +536,7 @@ void GetBinaryDictDecoder(DictEncoder<ByteArrayType>* encoder, int64_t num_value
                         static_cast<int>(dict_buf->size()));
 
   decoder->SetData(static_cast<int>(num_values), buf->data(),
-                                    static_cast<int>(buf->size()));
+                   static_cast<int>(buf->size()));
   decoder->SetDict(dict_decoder.get());
 
   *out_values = buf;
