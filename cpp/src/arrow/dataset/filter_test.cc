@@ -93,6 +93,8 @@ TEST_F(ExpressionsTest, Simplification) {
   AssertSimplifiesTo("b"_ == 3 or "b"_ == 4, "b"_ == 3, *always);
   AssertSimplifiesTo("b"_ == 3 or "b"_ == 4, "b"_ > 3, "b"_ == 4);
   AssertSimplifiesTo("b"_ == 3 or "b"_ == 4, "b"_ >= 3, "b"_ == 3 or "b"_ == 4);
+
+  AssertSimplifiesTo("a"_ == 3 or "b"_ == 4, "a"_ == 0, "b"_ == 4);
 }
 
 class FilterTest : public ::testing::Test {
