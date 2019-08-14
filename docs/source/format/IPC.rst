@@ -83,14 +83,15 @@ in a ``RecordBatch`` it should be defined in a ``DictionaryBatch``. ::
     <DICTIONARY y DELTA>
     ...
     <RECORD BATCH n - 1>
-    <EOS [optional]: 0x00000000>
+    <EOS [optional]: 0x0000000000000000>
 
-When a stream reader implementation is reading a stream, after each message, it
-may read the next 4 bytes to know how large the message metadata that follows
-is. Once the message flatbuffer is read, you can then read the message body.
+When a stream reader implementation is reading a stream, after each
+message, it may read the next 8 bytes to determine both if the stream
+continues and the size of the message metadata that follows. Once the
+message flatbuffer is read, you can then read the message body.
 
-The stream writer can signal end-of-stream (EOS) either by writing the four
-bytes `0x00000000` or closing the stream interface.
+The stream writer can signal end-of-stream (EOS) either by writing 8
+zero (`0x00`) bytes or closing the stream interface.
 
 File format
 -----------
