@@ -58,7 +58,7 @@ a version of your choosing.
 
 There are several system/environmental variables that users can configure.  These trade off safety (they turn off checking) for speed.  Typically they are only used in production settings after the code has been thoroughly tested without using them.
 
-* BoundsChecking: Bounds checking is on by default.  You can disable it by setting either the 
+* Bounds Checking for memory accesses: Bounds checking is on by default.  You can disable it by setting either the 
 system property("arrow.enable_unsafe_memory_access") or the environmental variable
 ("ARROW_ENABLE_UNSAFE_MEMORY_ACCESS") to "true". When both the system property and the environmental 
 variable are set, the system property takes precedence.
