@@ -63,14 +63,6 @@ Arrow C++ library first.
 
 ``` r
 library(arrow)
-#> 
-#> Attaching package: 'arrow'
-#> The following object is masked from 'package:utils':
-#> 
-#>     timestamp
-#> The following objects are masked from 'package:base':
-#> 
-#>     array, table
 set.seed(24)
 
 tab <- arrow::table(x = 1:10, y = rnorm(10))
@@ -168,6 +160,15 @@ checkout:
 cd ../../r
 R -e 'install.packages("devtools"); devtools::install_dev_deps()'
 R CMD INSTALL .
+```
+
+If you need to set any compilation flags while building the Rcpp
+extensions, you can use the `ARROW_R_CXXFLAGS` environment variable. For
+example, if you are using `perf` to profile the R extensions, you may
+need to set
+
+``` shell
+export ARROW_R_CXXFLAGS=-fno-omit-frame-pointer
 ```
 
 If the package fails to install/load with an error like this:

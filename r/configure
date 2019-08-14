@@ -89,10 +89,6 @@ if [ "$ARROW_USE_OLD_CXXABI" ]; then
   PKG_CFLAGS="$PKG_CFLAGS -D_GLIBCXX_USE_CXX11_ABI=0"
 fi
 
-if [ "$ARROW_R_CXXFLAGS" ]; then
-  PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
-fi
-
 # Test configuration
 TEST_CMD="${CXXCPP} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX11FLAGS} ${CXX11STD} -xc++ -"
 echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} >/dev/null 2>&1
@@ -114,6 +110,11 @@ else
   echo "---------------------------------------------------------"
   PKG_LIBS=""
   PKG_CFLAGS=""
+fi
+
+# Set any user-defined CXXFLAGS
+if [ "$ARROW_R_CXXFLAGS" ]; then
+  PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
 fi
 
 # Write to Makevars

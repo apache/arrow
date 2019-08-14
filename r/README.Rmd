@@ -112,6 +112,14 @@ R -e 'install.packages("devtools"); devtools::install_dev_deps()'
 R CMD INSTALL .
 ```
 
+If you need to set any compilation flags while building the Rcpp extensions,
+you can use the `ARROW_R_CXXFLAGS` environment variable. For example, if you
+are using `perf` to profile the R extensions, you may need to set
+
+```shell
+export ARROW_R_CXXFLAGS=-fno-omit-frame-pointer
+```
+
 If the package fails to install/load with an error like this:
 
 ```
