@@ -508,6 +508,7 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
 
   std::shared_ptr<arrow::Array> result;
   ASSERT_OK(builder.Finish(&result));
+  ASSERT_EQ(50, result->length());
   arrow::AssertArraysEqual(*values, *result);
 
   // Type checked

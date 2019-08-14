@@ -140,7 +140,9 @@ using ArrayVector = std::vector<std::shared_ptr<Array>>;
 #define ASSERT_ARRAYS_EQUAL(lhs, rhs) AssertArraysEqual((lhs), (rhs))
 #define ASSERT_BATCHES_EQUAL(lhs, rhs) AssertBatchesEqual((lhs), (rhs))
 
-ARROW_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual);
+// If verbose is true, then the arrays will be pretty printed
+ARROW_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual,
+                                    bool verbose = false);
 ARROW_EXPORT void AssertBatchesEqual(const RecordBatch& expected,
                                      const RecordBatch& actual);
 ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& expected,

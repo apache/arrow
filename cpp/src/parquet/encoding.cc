@@ -878,7 +878,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     int64_t data_size = len_;
     int bytes_decoded = 0;
     int values_decoded = 0;
-    while (i < num_values && values_decoded < num_values_) {
+    while (i < num_values) {
       if (bit_reader.IsSet()) {
         uint32_t len = arrow::util::SafeLoadAs<uint32_t>(data);
         increment = static_cast<int>(sizeof(uint32_t) + len);

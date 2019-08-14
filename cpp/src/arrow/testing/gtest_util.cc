@@ -68,9 +68,18 @@ void AssertTsEqual(const T& expected, const T& actual) {
   }
 }
 
-void AssertArraysEqual(const Array& expected, const Array& actual) {
+void AssertArraysEqual(const Array& expected, const Array& actual,
+                       bool verbose) {
   std::stringstream diff;
   if (!expected.Equals(actual, EqualOptions().diff_sink(&diff))) {
+    if (verbose) {
+      ::arrow::PrettyPrintOptions options(/*indent=*/2);
+      options.window = 50;
+      diff << "Expected:\n";
+      ARROW_EXPECT_OK(PrettyPrint(expected, options, &diff));
+      diff << "\nActual:\n";
+      ARROW_EXPECT_OK(PrettyPrint(actual, options, &diff));
+    }
     FAIL() << diff.str();
   }
 }
