@@ -25,11 +25,13 @@ namespace arrow {
 namespace dataset {
 
 Status FileSource::Open(std::shared_ptr<arrow::io::RandomAccessFile>* out) const {
-  if (filesystem_) {
-    return filesystem_->OpenInputFile(path_, out);
+  switch (type_) {
+    case PATH:
+      return filesystem_->OpenInputFile(path_, out);
+    case BUFFER:
+      out->reset(new ::arrow::io::BufferReader(buffer_));
+      return Status::OK();
   }
-  out->reset(new ::arrow::io::BufferReader(buffer_));
-  return Status::OK();
 }
 
 Status FileBasedDataFragment::GetTasks(std::shared_ptr<ScanContext> scan_context,
