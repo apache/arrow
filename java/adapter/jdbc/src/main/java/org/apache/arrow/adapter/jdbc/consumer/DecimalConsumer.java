@@ -29,9 +29,9 @@ import org.apache.arrow.vector.complex.writer.DecimalWriter;
  * Consumer which consume decimal type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.DecimalVector}.
  */
-public class DecimalConsumer implements JdbcConsumer {
+public class DecimalConsumer implements JdbcConsumer<DecimalVector> {
 
-  private final DecimalWriter writer;
+  private DecimalWriter writer;
   private final int columnIndexInResultSet;
 
   /**
@@ -49,5 +49,10 @@ public class DecimalConsumer implements JdbcConsumer {
       writer.writeDecimal(value);
     }
     writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void resetValueVector(DecimalVector vector) {
+    this.writer = new DecimalWriterImpl(vector);
   }
 }

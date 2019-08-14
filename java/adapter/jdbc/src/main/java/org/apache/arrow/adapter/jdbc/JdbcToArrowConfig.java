@@ -53,22 +53,23 @@ public final class JdbcToArrowConfig {
   private Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex;
   private Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
 
+  public static final int DEFAULT_PARTIAL_LIMIT = -1;
+
   /**
-   * Whether need to partially convert data, default is false. Note that:
+   * The maximum rowCount to read when partially convert data, default is -1 which means disable partial read.
+   * Note that:
    * <p>
    * 1) for {@link JdbcToArrow#sqlToArrow}
-   * if set true, it will convert no more than partialLimit rows into a single vector.
-   * if set false, it will convert full data into a single vector.
+   * if partialLimit != -1, it will convert no more than partialLimit rows into a single vector.
+   * if partialLimit == -1, it will convert full data into a single vector.
    * </p>
    * <p>
    * 2) for {@link JdbcToArrow#sqlToArrowVectorIterator}
-   * if set true, it will convert full data into multiple vectors with valueCount no more than partialLimit.
-   * if set false, it will convert full data into a single vector in {@link ArrowVectorIterator}
+   * if partialLimit != -1, it will convert full data into multiple vectors with valueCount no more than partialLimit.
+   * if partialLimit == -1, it will convert full data into a single vector in {@link ArrowVectorIterator}
    * </p>
    */
-  private boolean partialRead;
-
-  private int partialLimit;
+  private int partialLimit = DEFAULT_PARTIAL_LIMIT;
 
   /**
    * Constructs a new configuration from the provided allocator and calendar.  The <code>allocator</code>
@@ -105,7 +106,6 @@ public final class JdbcToArrowConfig {
       boolean includeMetadata,
       Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex,
       Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
-      boolean partialRead,
       int partialLimit) {
 
     this(allocator, calendar);
@@ -113,7 +113,6 @@ public final class JdbcToArrowConfig {
     this.includeMetadata = includeMetadata;
     this.arraySubTypesByColumnIndex = arraySubTypesByColumnIndex;
     this.arraySubTypesByColumnName = arraySubTypesByColumnName;
-    this.partialRead = partialRead;
     this.partialLimit = partialLimit;
   }
 
@@ -146,14 +145,7 @@ public final class JdbcToArrowConfig {
   }
 
   /**
-   * Whether to read ResultSet iteratively into multiple Arrow vectors.
-   */
-  public boolean isPartialRead() {
-    return partialRead;
-  }
-
-  /**
-   * Get the row count limit for each vector.
+   * Get the maximum row count for partial read.
    */
   public int getPartialLimit() {
     return partialLimit;

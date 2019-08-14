@@ -28,9 +28,9 @@ import org.apache.arrow.vector.complex.writer.BitWriter;
  * Consumer which consume bit type values from {@link ResultSet}.
  * Write the data to {@link BitVector}.
  */
-public class BitConsumer implements JdbcConsumer {
+public class BitConsumer implements JdbcConsumer<BitVector> {
 
-  private final BitWriter writer;
+  private BitWriter writer;
   private final int columnIndexInResultSet;
 
   /**
@@ -48,5 +48,10 @@ public class BitConsumer implements JdbcConsumer {
       writer.writeBit(value ? 1 : 0);
     }
     writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void resetValueVector(BitVector vector) {
+    this.writer = new BitWriterImpl(vector);
   }
 }

@@ -30,9 +30,9 @@ import org.apache.arrow.vector.complex.writer.DateMilliWriter;
  * Consumer which consume date type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.DateMilliVector}.
  */
-public class DateConsumer implements JdbcConsumer {
+public class DateConsumer implements JdbcConsumer<DateMilliVector> {
 
-  private final DateMilliWriter writer;
+  private DateMilliWriter writer;
   private final int columnIndexInResultSet;
   private final Calendar calendar;
 
@@ -60,5 +60,10 @@ public class DateConsumer implements JdbcConsumer {
       writer.writeDateMilli(date.getTime());
     }
     writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void resetValueVector(DateMilliVector vector) {
+    this.writer = new DateMilliWriterImpl(vector);
   }
 }

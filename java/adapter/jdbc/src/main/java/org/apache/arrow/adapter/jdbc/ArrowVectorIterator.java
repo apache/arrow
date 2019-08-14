@@ -19,63 +19,134 @@ package org.apache.arrow.adapter.jdbc;
 
 import java.io.IOException;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Iterator;
 
+import org.apache.arrow.adapter.jdbc.consumer.CompositeJdbcConsumer;
+import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
  * VectorSchemaRoot iterator for partially converting JDBC data.
  */
-public class ArrowVectorIterator {
+public class ArrowVectorIterator implements Iterator<VectorSchemaRoot> {
 
   private final ResultSet resultSet;
   private final JdbcToArrowConfig config;
 
   private final Schema schema;
+  private final ResultSetMetaData rsmd;
+
+  private final JdbcConsumer[] consumers;
+  private final CompositeJdbcConsumer compositeConsumer;
+  private boolean consumerCreated = false;
+
+  private VectorSchemaRoot nextBatch;
 
   private final int partialLimit;
 
   /**
-   * The last vector value count.
-   */
-  private int preCount;
-
-  /**
    * Construct an instance.
    */
-  public ArrowVectorIterator(ResultSet resultSet, JdbcToArrowConfig config) throws SQLException {
+  private ArrowVectorIterator(ResultSet resultSet, JdbcToArrowConfig config) throws SQLException {
     this.resultSet = resultSet;
     this.config = config;
-    this.partialLimit = config.getPartialLimit();
     this.schema = JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), config);
+    this.partialLimit = config.getPartialLimit();
+
+    rsmd = resultSet.getMetaData();
+    consumers = new JdbcConsumer[rsmd.getColumnCount()];
+    this.compositeConsumer = new CompositeJdbcConsumer(consumers);
   }
 
   /**
-   * Whether the {@link ResultSet} has data to read into a new vector.
+   * Create a ArrowVectorIterator to partially convert data.
    */
-  public boolean hasNext() throws SQLException {
+  public static ArrowVectorIterator create(
+      ResultSet resultSet,
+      JdbcToArrowConfig config)
+      throws SQLException {
 
-    // ResultSet does not has API like hasNext, if use next() and previous() to check follow data, user must set
-    // ResultSet.TYPE_SCROLL_INSENSITIVE otherwise, previous() will throw exception.
-    // So we use preCount and partialLimit to check follow data which is a little hack.
-    if (preCount == 0 && resultSet.isBeforeFirst() != resultSet.isAfterLast()) {
-      return true;
-    } else if (preCount < partialLimit) {
-      return false;
-    } else if (preCount == partialLimit && resultSet.isLast()) {
-      return false;
+    ArrowVectorIterator iterator = new ArrowVectorIterator(resultSet, config);
+    try {
+      iterator.load();
+      return iterator;
+    } catch (Exception e) {
+      iterator.close();
+      throw new RuntimeException("error occurs while creating iterator", e);
     }
-    return true;
+  }
+
+  // Loads the next schema root or null if no more rows are available.
+  private void load() throws IOException, SQLException {
+    VectorSchemaRoot root = VectorSchemaRoot.create(schema, config.getAllocator());
+    JdbcToArrowUtils.allocateVectors(root, JdbcToArrowUtils.DEFAULT_BUFFER_SIZE);
+
+    if (!consumerCreated) {
+      consumerCreated = true;
+      for (int i = 1; i <= consumers.length; i++) {
+        consumers[i - 1] = JdbcToArrowUtils.getConsumer(resultSet, i, resultSet.getMetaData().getColumnType(i),
+            root.getVector(rsmd.getColumnName(i)), config);
+      }
+    } else {
+      for (int i = 1; i <= consumers.length; i++) {
+        consumers[i - 1].resetValueVector(root.getVector(rsmd.getColumnName(i)));
+      }
+    }
+
+    // consume data
+    try {
+      int readRowCount = 0;
+      while (resultSet.next()) {
+        compositeConsumer.consume(resultSet);
+        readRowCount++;
+        if (partialLimit != JdbcToArrowConfig.DEFAULT_PARTIAL_LIMIT && readRowCount >= partialLimit) {
+          break;
+        }
+      }
+      root.setRowCount(readRowCount);
+    } catch (Exception e) {
+      compositeConsumer.close();
+      throw new RuntimeException("error occurs while consuming data.", e);
+    }
+
+    if (root.getRowCount() == 0) {
+      root.close();
+      nextBatch = null;
+    } else {
+      nextBatch = root;
+    }
+  }
+
+  @Override
+  public boolean hasNext() {
+    return nextBatch != null;
   }
 
   /**
-   * Get the next converted vector.
+   * Gets the next vector. The user is responsible for freeing its resource from close.
    */
-  public VectorSchemaRoot next() throws SQLException, IOException {
-    VectorSchemaRoot root = VectorSchemaRoot.create(schema, config.getAllocator());
-    JdbcToArrowUtils.jdbcToArrowVectors(resultSet, root, config);
-    preCount = root.getRowCount();
-    return root;
+  public VectorSchemaRoot next() {
+    Preconditions.checkArgument(hasNext());
+    VectorSchemaRoot returned = nextBatch;
+    try {
+      load();
+    } catch (Exception e) {
+      close();
+      throw new RuntimeException("error occurs while getting next schema root");
+    }
+    return returned;
+  }
+
+  /**
+   * Clean up resources.
+   */
+  public void close() {
+    if (nextBatch != null) {
+      nextBatch.close();
+    }
   }
 }

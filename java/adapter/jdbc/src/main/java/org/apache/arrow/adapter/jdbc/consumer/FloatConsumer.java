@@ -28,9 +28,9 @@ import org.apache.arrow.vector.complex.writer.Float4Writer;
  * Consumer which consume float type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.Float4Vector}.
  */
-public class FloatConsumer implements JdbcConsumer {
+public class FloatConsumer implements JdbcConsumer<Float4Vector> {
 
-  private final Float4Writer writer;
+  private Float4Writer writer;
   private final int columnIndexInResultSet;
 
   /**
@@ -48,5 +48,10 @@ public class FloatConsumer implements JdbcConsumer {
       writer.writeFloat4(value);
     }
     writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void resetValueVector(Float4Vector vector) {
+    this.writer = new Float4WriterImpl(vector);
   }
 }

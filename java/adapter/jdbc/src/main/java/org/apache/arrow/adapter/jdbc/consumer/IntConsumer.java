@@ -28,9 +28,9 @@ import org.apache.arrow.vector.complex.writer.IntWriter;
  * Consumer which consume int type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.IntVector}.
  */
-public class IntConsumer implements JdbcConsumer {
+public class IntConsumer implements JdbcConsumer<IntVector> {
 
-  private final IntWriter writer;
+  private IntWriter writer;
   private final int columnIndexInResultSet;
 
   /**
@@ -48,5 +48,10 @@ public class IntConsumer implements JdbcConsumer {
       writer.writeInt(value);
     }
     writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void resetValueVector(IntVector vector) {
+    this.writer = new IntWriterImpl(vector);
   }
 }

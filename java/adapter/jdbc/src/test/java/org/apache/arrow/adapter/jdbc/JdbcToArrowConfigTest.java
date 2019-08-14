@@ -111,10 +111,12 @@ public class JdbcToArrowConfigTest {
     config = new JdbcToArrowConfigBuilder(allocator, calendar, true).build();
     assertTrue(config.shouldIncludeMetadata());
 
-    config = new JdbcToArrowConfig(allocator, calendar, true, null, null, false, 0);
+    config = new JdbcToArrowConfig(allocator, calendar, true, null,
+        null, JdbcToArrowConfig.DEFAULT_PARTIAL_LIMIT);
     assertTrue(config.shouldIncludeMetadata());
 
-    config = new JdbcToArrowConfig(allocator, calendar, false, null, null, false, 0);
+    config = new JdbcToArrowConfig(allocator, calendar, false, null,
+        null, JdbcToArrowConfig.DEFAULT_PARTIAL_LIMIT);
     assertFalse(config.shouldIncludeMetadata());
   }
 

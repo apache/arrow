@@ -33,7 +33,6 @@ public class JdbcToArrowConfigBuilder {
   private Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex;
   private Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
 
-  private boolean partialRead;
   private int partialLimit;
 
   /**
@@ -47,7 +46,6 @@ public class JdbcToArrowConfigBuilder {
     this.includeMetadata = false;
     this.arraySubTypesByColumnIndex = null;
     this.arraySubTypesByColumnName = null;
-    this.partialRead = false;
   }
 
   /**
@@ -157,11 +155,6 @@ public class JdbcToArrowConfigBuilder {
     return this;
   }
 
-  public JdbcToArrowConfigBuilder setPartialRead(boolean partialRead) {
-    this.partialRead = partialRead;
-    return this;
-  }
-
   public JdbcToArrowConfigBuilder setPartialLimit(int partialLimit) {
     this.partialLimit = partialLimit;
     return this;
@@ -181,7 +174,6 @@ public class JdbcToArrowConfigBuilder {
         includeMetadata,
         arraySubTypesByColumnIndex,
         arraySubTypesByColumnName,
-        partialRead,
         partialLimit);
   }
 }

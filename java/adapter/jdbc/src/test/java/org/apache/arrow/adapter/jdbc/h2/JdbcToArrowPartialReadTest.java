@@ -70,7 +70,7 @@ public class JdbcToArrowPartialReadTest extends JdbcToArrowTest {
   public void testJdbcToArroValues() throws SQLException, IOException {
 
     JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
-        Calendar.getInstance()).setPartialRead(true).setPartialLimit(3).build();
+        Calendar.getInstance()).setPartialLimit(3).build();
 
     ArrowVectorIterator iterator =
         JdbcToArrow.sqlToArrowVectorIterator(conn.createStatement().executeQuery(table.getQuery()), config);
@@ -98,8 +98,10 @@ public class JdbcToArrowPartialReadTest extends JdbcToArrowTest {
     List<Float4Vector> float4Vectors = new ArrayList<>();
     List<Float8Vector> float8Vectors = new ArrayList<>();
 
+    List<VectorSchemaRoot> roots = new ArrayList<>();
     while (iterator.hasNext()) {
       VectorSchemaRoot root = iterator.next();
+      roots.add(root);
       JdbcToArrowTestHelper.assertFieldMetadataIsEmpty(root);
 
       bigIntVectors.add((BigIntVector) root.getVector(BIGINT));
@@ -130,14 +132,16 @@ public class JdbcToArrowPartialReadTest extends JdbcToArrowTest {
     assertVarCharVectorValues(vectorsForClob, table.getRowCount(), getCharArray(table.getValues(), CLOB));
     assertVarCharVectorValues(vectorsForVarChar, table.getRowCount(), getCharArray(table.getValues(), VARCHAR));
     assertVarCharVectorValues(vectorsForChar, table.getRowCount(), getCharArray(table.getValues(), CHAR));
-    assertBitVectorValues(vectorsForBit, table.getRowCount(), getBooleanValues(table.getValues(), BIT));
-    assertBitVectorValues(vectorsForBit, table.getRowCount(), getBooleanValues(table.getValues(), BOOL));
+    assertBitVectorValues(vectorsForBit, table.getRowCount(), getIntValues(table.getValues(), BIT));
+    assertBooleanVectorValues(vectorsForBool, table.getRowCount(), getBooleanValues(table.getValues(), BOOL));
     assertDateMilliVectorValues(dateMilliVectors, table.getRowCount(), getLongValues(table.getValues(), DATE));
     assertTimeMilliVectorValues(timeMilliVectors, table.getRowCount(), getLongValues(table.getValues(), TIME));
     assertTimeStampVectorValues(timeStampVectors, table.getRowCount(), getLongValues(table.getValues(), TIMESTAMP));
     assertDecimalVectorValues(decimalVectors, table.getRowCount(), getDecimalValues(table.getValues(), DECIMAL));
     assertFloat4VectorValues(float4Vectors, table.getRowCount(), getFloatValues(table.getValues(), REAL));
     assertFloat8VectorValues(float8Vectors, table.getRowCount(), getDoubleValues(table.getValues(), DOUBLE));
+
+    roots.forEach(root -> root.close());
   }
 
   private void assertFloat8VectorValues(List<Float8Vector> vectors, int rowCount, Double[] values) {
@@ -213,7 +217,19 @@ public class JdbcToArrowPartialReadTest extends JdbcToArrowTest {
     }
   }
 
-  private void assertBitVectorValues(List<BitVector> vectors, int rowCount, Boolean[] values) {
+  private void assertBitVectorValues(List<BitVector> vectors, int rowCount, Integer[] values) {
+    int valueCount = vectors.stream().mapToInt(ValueVector::getValueCount).sum();
+    assertEquals(rowCount, valueCount);
+
+    int index = 0;
+    for (BitVector vector : vectors) {
+      for (int i = 0; i < vector.getValueCount(); i++) {
+        assertEquals(values[index++].intValue(), vector.get(i));
+      }
+    }
+  }
+
+  private void assertBooleanVectorValues(List<BitVector> vectors, int rowCount, Boolean[] values) {
     int valueCount = vectors.stream().mapToInt(ValueVector::getValueCount).sum();
     assertEquals(rowCount, valueCount);
 

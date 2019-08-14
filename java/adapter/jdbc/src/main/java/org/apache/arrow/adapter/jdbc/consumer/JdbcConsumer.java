@@ -21,10 +21,13 @@ import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.apache.arrow.vector.ValueVector;
+
 /**
  * An abstraction that is used to consume values from {@link ResultSet}.
+ * @param <T> The vector within consumer or its delegate, used for partially consume purpose.
  */
-public interface JdbcConsumer extends AutoCloseable {
+public interface JdbcConsumer<T extends ValueVector> extends AutoCloseable {
 
   /**
    * Consume a specific type value from {@link ResultSet} and write it to vector.
@@ -35,5 +38,10 @@ public interface JdbcConsumer extends AutoCloseable {
    * Close this consumer, do some clean work such as clear reuse ArrowBuf.
    */
   default void close() {}
+
+  /**
+   * Reset the vector within consumer for partial read purpose.
+   */
+  void resetValueVector(T vector);
 
 }

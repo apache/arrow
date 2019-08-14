@@ -28,9 +28,9 @@ import org.apache.arrow.vector.complex.writer.BigIntWriter;
  * Consumer which consume bigint type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.BigIntVector}.
  */
-public class BigIntConsumer implements JdbcConsumer {
+public class BigIntConsumer implements JdbcConsumer<BigIntVector> {
 
-  private final BigIntWriter writer;
+  private BigIntWriter writer;
   private final int columnIndexInResultSet;
 
   /**
@@ -48,5 +48,10 @@ public class BigIntConsumer implements JdbcConsumer {
       writer.writeBigInt(value);
     }
     writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void resetValueVector(BigIntVector vector) {
+    this.writer = new BigIntWriterImpl(vector);
   }
 }

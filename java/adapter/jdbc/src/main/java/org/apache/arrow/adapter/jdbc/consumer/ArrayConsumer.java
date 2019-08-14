@@ -29,7 +29,7 @@ import org.apache.arrow.vector.complex.ListVector;
  * Consumer which consume array type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.complex.ListVector}.
  */
-public class ArrayConsumer implements JdbcConsumer {
+public class ArrayConsumer implements JdbcConsumer<ListVector> {
 
   private final JdbcConsumer delegate;
   private final int columnIndexInResultSet;
@@ -64,5 +64,10 @@ public class ArrayConsumer implements JdbcConsumer {
       BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), vector.getValueCount());
     }
     vector.setValueCount(idx + 1);
+  }
+
+  @Override
+  public void resetValueVector(ListVector vector) {
+    this.vector = vector;
   }
 }
