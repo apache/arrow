@@ -56,7 +56,7 @@ a version of your choosing.
 
 ## System/Environmental Variables
 
-There are several system/environmental variables that users can config.
+There are several system/environmental variables that users can configure.  These trade off safety (they turn off checking) for speed.  Typically they are only used in production settings after the code has been thoroughly tested without using them.
 
 * BoundsChecking: Bounds checking is on by default.  You can disable it by setting either the 
 system property("arrow.enable_unsafe_memory_access") or the environmental variable
