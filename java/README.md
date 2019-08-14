@@ -54,6 +54,24 @@ and arrow-format into a single JAR.  Using the classifier "shade-format-flatbuff
 pom.xml will make use of this JAR, you can then exclude/resolve the original dependency to
 a version of your choosing.
 
+## System/Environmental Variables
+
+There are several system/environmental variables that users can config.
+
+* BoundsChecking: Bounds checking is on by default.  You can disable it by setting either the 
+system property("arrow.enable_unsafe_memory_access") or the environmental variable
+("ARROW_ENABLE_UNSAFE_MEMORY_ACCESS") to "true". When both the system property and the environmental 
+variable are set, the system property takes precedence.
+
+* NullCheckingForGet: Null checking is on by default. You can disable it by setting either the 
+system property("arrow.enable_null_check_for_get") or the environmental variable 
+("ARROW_ENABLE_NULL_CHECK_FOR_GET") to "false". When both the system property and the environmental 
+variable are set, the system property takes precedence. 
+
+## Java Properties
+
+For java 9 or later, should set "-Dio.netty.tryReflectionSetAccessible=true".
+
 ## Java Code Style Guide
 
 Arrow Java follows the Google style guide [here][3] with the following
