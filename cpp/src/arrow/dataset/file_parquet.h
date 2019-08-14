@@ -60,7 +60,7 @@ class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {
 
   bool splittable() const override { return true; }
 
-  std::shared_ptr<ScanOptions> scan_options() const override { return nullptr; }
+  std::shared_ptr<ScanOptions> scan_options() const override { return NULLPTR; }
 };
 
 }  // namespace dataset

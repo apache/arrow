@@ -32,7 +32,7 @@ template <typename T>
 class Iterator {
  public:
   static_assert(std::is_assignable<T, std::nullptr_t>::value,
-                "nullptr is used to signal completion");
+                "NULL is used to signal completion");
 
   virtual ~Iterator() = default;
 
@@ -52,9 +52,9 @@ class Iterator {
 
       if (!status.ok()) return status;
 
-      if (value == nullptr) break;
+      if (value == NULLPTR) break;
 
-      RETURN_NOT_OK(visitor(std::move(value)));
+      ARROW_RETURN_NOT_OK(visitor(std::move(value)));
     }
 
     return status;

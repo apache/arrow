@@ -158,7 +158,7 @@ class PARQUET_EXPORT FileReader {
                                        std::shared_ptr<::arrow::RecordBatchReader>* out) {
     std::unique_ptr<::arrow::RecordBatchReader> tmp;
 
-    RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, &tmp));
+    ARROW_RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, &tmp));
     out->reset(tmp.release());
 
     return ::arrow::Status::OK();
@@ -178,7 +178,7 @@ class PARQUET_EXPORT FileReader {
       std::shared_ptr<::arrow::RecordBatchReader>* out) {
     std::unique_ptr<::arrow::RecordBatchReader> tmp;
 
-    RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, column_indices, &tmp));
+    ARROW_RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, column_indices, &tmp));
     out->reset(tmp.release());
 
     return ::arrow::Status::OK();
