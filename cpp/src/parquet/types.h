@@ -464,6 +464,10 @@ struct Compression {
 PARQUET_EXPORT
 std::unique_ptr<::arrow::util::Codec> GetCodecFromArrow(Compression::type codec);
 
+PARQUET_EXPORT
+std::unique_ptr<::arrow::util::Codec> GetCodecFromArrow(Compression::type codec,
+                                                        int compression_level);
+
 struct Encryption {
   enum type { AES_GCM_V1 = 0, AES_GCM_CTR_V1 = 1 };
 };

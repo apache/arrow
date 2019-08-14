@@ -31,9 +31,13 @@
 namespace arrow {
 namespace util {
 
+namespace {
+
 // Brotli compression quality is max (11) by default, which is slow.
 // We use 8 as a default as it is the best trade-off for Parquet workload.
 constexpr int kBrotliDefaultCompressionLevel = 8;
+
+}  // namespace
 
 // ----------------------------------------------------------------------
 // Brotli decompressor implementation
@@ -98,7 +102,8 @@ class BrotliDecompressor : public Decompressor {
 
 class BrotliCompressor : public Compressor {
  public:
-  BrotliCompressor() {}
+  explicit BrotliCompressor(int compression_level)
+      : compression_level_(compression_level) {}
 
   ~BrotliCompressor() override {
     if (state_ != nullptr) {
@@ -111,8 +116,7 @@ class BrotliCompressor : public Compressor {
     if (state_ == nullptr) {
       return BrotliError("Brotli init failed");
     }
-    if (!BrotliEncoderSetParameter(state_, BROTLI_PARAM_QUALITY,
-                                   kBrotliDefaultCompressionLevel)) {
+    if (!BrotliEncoderSetParameter(state_, BROTLI_PARAM_QUALITY, compression_level_)) {
       return BrotliError("Brotli set compression level failed");
     }
     return Status::OK();
@@ -131,6 +135,9 @@ class BrotliCompressor : public Compressor {
   Status BrotliError(const char* msg) { return Status::IOError(msg); }
 
   BrotliEncoderState* state_ = nullptr;
+
+ private:
+  int compression_level_;
 };
 
 Status BrotliCompressor::Compress(int64_t input_len, const uint8_t* input,
@@ -188,8 +195,12 @@ Status BrotliCompressor::End(int64_t output_len, uint8_t* output, int64_t* bytes
 // ----------------------------------------------------------------------
 // Brotli codec implementation
 
+BrotliCodec::BrotliCodec(int compression_level) : compression_level_(compression_level) {}
+
+BrotliCodec::BrotliCodec() : BrotliCodec(kBrotliDefaultCompressionLevel) {}
+
 Status BrotliCodec::MakeCompressor(std::shared_ptr<Compressor>* out) {
-  auto ptr = std::make_shared<BrotliCompressor>();
+  auto ptr = std::make_shared<BrotliCompressor>(compression_level_);
   RETURN_NOT_OK(ptr->Init());
   *out = ptr;
   return Status::OK();
@@ -235,7 +246,7 @@ Status BrotliCodec::Compress(int64_t input_len, const uint8_t* input,
   DCHECK_GE(input_len, 0);
   DCHECK_GE(output_buffer_len, 0);
   std::size_t output_size = static_cast<size_t>(output_buffer_len);
-  if (BrotliEncoderCompress(kBrotliDefaultCompressionLevel, BROTLI_DEFAULT_WINDOW,
+  if (BrotliEncoderCompress(compression_level_, BROTLI_DEFAULT_WINDOW,
                             BROTLI_DEFAULT_MODE, static_cast<size_t>(input_len), input,
                             &output_size, output_buffer) == BROTLI_FALSE) {
     return Status::IOError("Brotli compression failure.");

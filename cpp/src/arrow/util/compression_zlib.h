@@ -38,6 +38,7 @@ class ARROW_EXPORT GZipCodec : public Codec {
     GZIP,
   };
 
+  explicit GZipCodec(int compression_level, Format format = GZIP);
   explicit GZipCodec(Format format = GZIP);
   ~GZipCodec() override;
 

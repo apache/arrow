@@ -39,7 +39,8 @@ std::shared_ptr<Int64Writer> BuildWriter(int64_t output_size,
                                          ColumnDescriptor* schema,
                                          const WriterProperties* properties) {
   std::unique_ptr<PageWriter> pager =
-      PageWriter::Open(dst, Compression::UNCOMPRESSED, metadata);
+      PageWriter::Open(dst, Compression::UNCOMPRESSED,
+                       ::arrow::util::GetHintValueForDefaultCompressionLevel(), metadata);
   std::shared_ptr<ColumnWriter> writer =
       ColumnWriter::Make(metadata, std::move(pager), properties);
   return std::static_pointer_cast<Int64Writer>(writer);

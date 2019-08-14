@@ -27,6 +27,7 @@
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
+#include "parquet/types.h"
 
 using arrow::MemoryPool;
 
@@ -124,10 +125,10 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
 
     ++next_column_index_;
 
-    const ColumnDescriptor* column_descr = col_meta->descr();
-    std::unique_ptr<PageWriter> pager =
-        PageWriter::Open(sink_, properties_->compression(column_descr->path()), col_meta,
-                         properties_->memory_pool());
+    const auto& path = col_meta->descr()->path();
+    std::unique_ptr<PageWriter> pager = PageWriter::Open(
+        sink_, properties_->compression(path), properties_->compression_level(path),
+        col_meta, properties_->memory_pool());
     column_writers_[0] = ColumnWriter::Make(col_meta, std::move(pager), properties_);
     return column_writers_[0].get();
   }
@@ -221,10 +222,10 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   void InitColumns() {
     for (int i = 0; i < num_columns(); i++) {
       auto col_meta = metadata_->NextColumnChunk();
-      const ColumnDescriptor* column_descr = col_meta->descr();
-      std::unique_ptr<PageWriter> pager =
-          PageWriter::Open(sink_, properties_->compression(column_descr->path()),
-                           col_meta, properties_->memory_pool(), buffered_row_group_);
+      const auto& path = col_meta->descr()->path();
+      std::unique_ptr<PageWriter> pager = PageWriter::Open(
+          sink_, properties_->compression(path), properties_->compression_level(path),
+          col_meta, properties_->memory_pool(), buffered_row_group_);
       column_writers_.push_back(
           ColumnWriter::Make(col_meta, std::move(pager), properties_));
     }

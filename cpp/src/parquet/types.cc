@@ -35,27 +35,38 @@ using arrow::util::Codec;
 namespace parquet {
 
 std::unique_ptr<Codec> GetCodecFromArrow(Compression::type codec) {
+  return GetCodecFromArrow(codec,
+                           ::arrow::util::GetHintValueForDefaultCompressionLevel());
+}
+
+std::unique_ptr<Codec> GetCodecFromArrow(Compression::type codec, int compression_level) {
   std::unique_ptr<Codec> result;
   switch (codec) {
     case Compression::UNCOMPRESSED:
       break;
     case Compression::SNAPPY:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::SNAPPY, &result));
+      PARQUET_THROW_NOT_OK(
+          Codec::Create(::arrow::Compression::SNAPPY, compression_level, &result));
       break;
     case Compression::GZIP:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::GZIP, &result));
+      PARQUET_THROW_NOT_OK(
+          Codec::Create(::arrow::Compression::GZIP, compression_level, &result));
       break;
     case Compression::LZO:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::LZO, &result));
+      PARQUET_THROW_NOT_OK(
+          Codec::Create(::arrow::Compression::LZO, compression_level, &result));
       break;
     case Compression::BROTLI:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::BROTLI, &result));
+      PARQUET_THROW_NOT_OK(
+          Codec::Create(::arrow::Compression::BROTLI, compression_level, &result));
       break;
     case Compression::LZ4:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::LZ4, &result));
+      PARQUET_THROW_NOT_OK(
+          Codec::Create(::arrow::Compression::LZ4, compression_level, &result));
       break;
     case Compression::ZSTD:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::ZSTD, &result));
+      PARQUET_THROW_NOT_OK(
+          Codec::Create(::arrow::Compression::ZSTD, compression_level, &result));
       break;
     default:
       break;

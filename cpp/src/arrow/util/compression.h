@@ -33,6 +33,9 @@ struct Compression {
 
 namespace util {
 
+ARROW_EXPORT
+int GetHintValueForDefaultCompressionLevel();
+
 /// \brief Streaming compressor interface
 ///
 class ARROW_EXPORT Compressor {
@@ -98,6 +101,8 @@ class ARROW_EXPORT Codec {
   virtual ~Codec();
 
   static Status Create(Compression::type codec, std::unique_ptr<Codec>* out);
+  static Status Create(Compression::type codec, int compression_level,
+                       std::unique_ptr<Codec>* out);
 
   /// \brief One-shot decompression function
   ///

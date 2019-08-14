@@ -31,6 +31,8 @@ namespace util {
 // BZ2 codec.
 class ARROW_EXPORT BZ2Codec : public Codec {
  public:
+  explicit BZ2Codec(int compression_level);
+  BZ2Codec();
   Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
                     uint8_t* output_buffer) override;
 
@@ -47,6 +49,9 @@ class ARROW_EXPORT BZ2Codec : public Codec {
   Status MakeDecompressor(std::shared_ptr<Decompressor>* out) override;
 
   const char* name() const override { return "bz2"; }
+
+ private:
+  int compression_level_;
 };
 
 }  // namespace util
