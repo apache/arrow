@@ -54,7 +54,7 @@ and arrow-format into a single JAR.  Using the classifier "shade-format-flatbuff
 pom.xml will make use of this JAR, you can then exclude/resolve the original dependency to
 a version of your choosing.
 
-## System/Environmental Variables
+## Performance Tuning
 
 There are several system/environmental variables that users can configure.  These trade off safety (they turn off checking) for speed.  Typically they are only used in production settings after the code has been thoroughly tested without using them.
 
