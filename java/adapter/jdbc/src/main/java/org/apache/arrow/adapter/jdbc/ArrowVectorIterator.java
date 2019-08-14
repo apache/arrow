@@ -46,7 +46,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot> {
 
   private VectorSchemaRoot nextBatch;
 
-  private final int partialLimit;
+  private final int targetBatchSize;
 
   /**
    * Construct an instance.
@@ -55,7 +55,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot> {
     this.resultSet = resultSet;
     this.config = config;
     this.schema = JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), config);
-    this.partialLimit = config.getPartialLimit();
+    this.targetBatchSize = config.getTargetBatchSize();
 
     rsmd = resultSet.getMetaData();
     consumers = new JdbcConsumer[rsmd.getColumnCount()];
@@ -76,7 +76,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot> {
       return iterator;
     } catch (Exception e) {
       iterator.close();
-      throw new RuntimeException("error occurs while creating iterator", e);
+      throw new RuntimeException("Error occurs while creating iterator.", e);
     }
   }
 
@@ -90,10 +90,8 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot> {
       if (root != null) {
         root.close();
       }
-      throw new RuntimeException("error occurs while creating schema root", e);
+      throw new RuntimeException("Error occurs while creating schema root.", e);
     }
-
-
 
     if (!consumerCreated) {
       consumerCreated = true;
@@ -113,14 +111,16 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot> {
       while (resultSet.next()) {
         compositeConsumer.consume(resultSet);
         readRowCount++;
-        if (partialLimit != JdbcToArrowConfig.DEFAULT_PARTIAL_LIMIT && readRowCount >= partialLimit) {
+        if (targetBatchSize != JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE &&
+            readRowCount >= targetBatchSize) {
           break;
         }
       }
+
       root.setRowCount(readRowCount);
     } catch (Exception e) {
       compositeConsumer.close();
-      throw new RuntimeException("error occurs while consuming data.", e);
+      throw new RuntimeException("Error occurs while consuming data.", e);
     }
 
     if (root.getRowCount() == 0) {
@@ -146,7 +146,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot> {
       load();
     } catch (Exception e) {
       close();
-      throw new RuntimeException("error occurs while getting next schema root");
+      throw new RuntimeException("Error occurs while getting next schema root.", e);
     }
     return returned;
   }

@@ -55,14 +55,14 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class JdbcToArrowPartialReadTest extends JdbcToArrowTest {
+public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
   /**
    * Constructor which populate table object for each test iteration.
    *
    * @param table Table object
    */
-  public JdbcToArrowPartialReadTest(Table table) {
+  public JdbcToArrowVectorIteratorTest(Table table) {
     super(table);
   }
 
@@ -70,7 +70,7 @@ public class JdbcToArrowPartialReadTest extends JdbcToArrowTest {
   public void testJdbcToArroValues() throws SQLException, IOException {
 
     JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
-        Calendar.getInstance()).setPartialLimit(3).build();
+        Calendar.getInstance()).setTargetBatchSize(3).build();
 
     ArrowVectorIterator iterator =
         JdbcToArrow.sqlToArrowVectorIterator(conn.createStatement().executeQuery(table.getQuery()), config);

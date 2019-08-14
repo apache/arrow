@@ -33,7 +33,7 @@ public class JdbcToArrowConfigBuilder {
   private Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex;
   private Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
 
-  private int partialLimit;
+  private int targetBatchSize;
 
   /**
    * Default constructor for the <code>JdbcToArrowConfigBuilder}</code>.
@@ -155,8 +155,8 @@ public class JdbcToArrowConfigBuilder {
     return this;
   }
 
-  public JdbcToArrowConfigBuilder setPartialLimit(int partialLimit) {
-    this.partialLimit = partialLimit;
+  public JdbcToArrowConfigBuilder setTargetBatchSize(int targetBatchSize) {
+    this.targetBatchSize = targetBatchSize;
     return this;
   }
 
@@ -174,6 +174,6 @@ public class JdbcToArrowConfigBuilder {
         includeMetadata,
         arraySubTypesByColumnIndex,
         arraySubTypesByColumnName,
-        partialLimit);
+        targetBatchSize);
   }
 }
