@@ -81,7 +81,8 @@ class PARQUET_EXPORT FileWriter {
   /// \brief Write a RecordBatch to Parquet.
   virtual ::arrow::Status WriteRecordBatch(const ::arrow::RecordBatch& batch) = 0;
 
-  virtual ::arrow::Status WriteRecordBatchReader(::arrow::RecordBatchReader& reader) = 0;
+  /// \brief Write each RecordBatch from reader to Parquet.
+  virtual ::arrow::Status WriteRecordBatchReader(::arrow::RecordBatchReader* reader) = 0;
 
   virtual ::arrow::Status WriteColumnChunk(
       const std::shared_ptr<::arrow::ChunkedArray>& data) = 0;
@@ -115,7 +116,7 @@ PARQUET_EXPORT
         default_arrow_writer_properties());
 
 ::arrow::Status PARQUET_EXPORT WriteRecordBatchReader(
-    ::arrow::RecordBatchReader& reader, ::arrow::MemoryPool* pool,
+    ::arrow::RecordBatchReader* reader, ::arrow::MemoryPool* pool,
     const std::shared_ptr<::arrow::io::OutputStream>& sink,
     const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
     const std::shared_ptr<ArrowWriterProperties>& arrow_properties =

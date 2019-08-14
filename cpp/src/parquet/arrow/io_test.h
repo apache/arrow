@@ -38,7 +38,7 @@ namespace arrow {
 
 class ArrowParquetWriterMixin : public ::testing::Test {
  public:
-  std::shared_ptr<Buffer> Write(RecordBatchReader& reader) {
+  std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
     auto pool = ::arrow::default_memory_pool();
 
     std::shared_ptr<Buffer> out;

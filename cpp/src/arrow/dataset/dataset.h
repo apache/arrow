@@ -34,7 +34,8 @@ namespace dataset {
 /// more ScanTasks.
 class ARROW_DS_EXPORT DataFragment {
  public:
-  /// \brief GetTasks returns and iterator of closure that yields RecordBatch.
+  /// \brief GetTasks returns an iterator of ScanTasks, each of which yields
+  /// RecordBatches from this DataFragment.
   virtual Status GetTasks(std::shared_ptr<ScanContext> scan_context,
                           std::unique_ptr<ScanTaskIterator>* out) = 0;
 
@@ -42,8 +43,10 @@ class ARROW_DS_EXPORT DataFragment {
   /// scanning
   virtual bool splittable() const = 0;
 
-  /// \brief Schema reconciliation, and partition options to use when scanning
-  /// this fragment. May be nullptr.
+  /// \brief Filtering, schema reconciliation, and partition options to use when
+  /// scanning this fragment. May be nullptr, which indicates that no filtering
+  /// or schema reconciliation will be performed and all partitions will be
+  /// scanned.
   virtual std::shared_ptr<ScanOptions> scan_options() const = 0;
 
   virtual ~DataFragment() = default;

@@ -32,10 +32,12 @@ using ScanTaskPtr = std::unique_ptr<ScanTask>;
 using ParquetFileReaderPtr = std::unique_ptr<parquet::ParquetFileReader>;
 using RecordBatchReaderPtr = std::unique_ptr<RecordBatchReader>;
 
+// A set of RowGroup identifiers
+using RowGroupSet = std::vector<int>;
+
 class ParquetScanTask : public ScanTask {
  public:
-  static Status Make(std::vector<int> row_groups,
-                     const std::vector<int>& columns_projection,
+  static Status Make(RowGroupSet row_groups, const std::vector<int>& columns_projection,
                      std::shared_ptr<parquet::arrow::FileReader> reader,
                      ScanTaskPtr* out) {
     RecordBatchReaderPtr record_batch_reader;
@@ -55,7 +57,7 @@ class ParquetScanTask : public ScanTask {
   }
 
  private:
-  ParquetScanTask(std::vector<int> row_groups,
+  ParquetScanTask(RowGroupSet row_groups,
                   std::shared_ptr<parquet::arrow::FileReader> reader,
                   RecordBatchReaderPtr record_batch_reader)
       : row_groups_(std::move(row_groups)),
@@ -63,7 +65,7 @@ class ParquetScanTask : public ScanTask {
         record_batch_reader_(std::move(record_batch_reader)) {}
 
   // List of RowGroup identifiers this ScanTask is associated with.
-  std::vector<int> row_groups_;
+  RowGroupSet row_groups_;
 
   // The ScanTask _must_ hold a reference to reader_ because there's no
   // guarantee the producing ParquetScanTaskIterator is still alive. This is a
@@ -74,12 +76,8 @@ class ParquetScanTask : public ScanTask {
 
 constexpr int64_t kDefaultRowCountPerPartition = 1U << 16;
 
-// A partition of RowGroup identifiers
-using ParquetRowGroupPartion = std::vector<int>;
-
-// A class that partitions RowGroups of a Parquet file in subset of a target
-// size. The partition scheme doesn't protect against skewed sizes, it just
-// accumulates until the desired size (and may over count).
+// A class that clusters RowGroups of a Parquet file until the cluster has a specified
+// total row count. This doesn't guarantee exact row counts; it may exceed the target.
 class ParquetRowGroupPartitionner {
  public:
   ParquetRowGroupPartitionner(std::shared_ptr<parquet::FileMetaData> metadata,
@@ -88,9 +86,9 @@ class ParquetRowGroupPartitionner {
     num_row_groups_ = metadata_->num_row_groups();
   }
 
-  ParquetRowGroupPartion Next() {
+  RowGroupSet Next() {
     int64_t partition_size = 0;
-    ParquetRowGroupPartion partition;
+    RowGroupSet partition;
 
     while (row_group_idx_ < num_row_groups_ && partition_size < row_count_) {
       partition_size += metadata_->RowGroup(row_group_idx_)->num_rows();

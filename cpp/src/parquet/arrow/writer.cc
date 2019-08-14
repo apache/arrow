@@ -525,15 +525,15 @@ class FileWriterImpl : public FileWriter {
     return Status::OK();
   }
 
-  Status WriteRecordBatchReader(::arrow::RecordBatchReader& reader) override {
-    auto schema = reader.schema();
+  Status WriteRecordBatchReader(::arrow::RecordBatchReader* reader) override {
+    auto schema = reader->schema();
 
     if (!schema->Equals(*schema_, false)) {
       return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
                              schema->ToString(), "' this:'", schema_->ToString(), "'");
     }
 
-    return reader.Visit([this](std::shared_ptr<::arrow::RecordBatch> batch) -> Status {
+    return reader->Visit([this](std::shared_ptr<::arrow::RecordBatch> batch) -> Status {
       return WriteRecordBatch(*batch);
     });
   }
@@ -652,12 +652,12 @@ Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
 }
 
 Status WriteRecordBatchReader(
-    ::arrow::RecordBatchReader& reader, ::arrow::MemoryPool* pool,
+    ::arrow::RecordBatchReader* reader, ::arrow::MemoryPool* pool,
     const std::shared_ptr<::arrow::io::OutputStream>& sink,
     const std::shared_ptr<WriterProperties>& properties,
     const std::shared_ptr<ArrowWriterProperties>& arrow_properties) {
   std::unique_ptr<FileWriter> writer;
-  RETURN_NOT_OK(FileWriter::Open(*reader.schema(), pool, sink, properties,
+  RETURN_NOT_OK(FileWriter::Open(*reader->schema(), pool, sink, properties,
                                  arrow_properties, &writer));
   RETURN_NOT_OK(writer->WriteRecordBatchReader(reader));
   return writer->Close();

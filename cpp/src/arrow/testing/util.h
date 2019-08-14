@@ -127,13 +127,12 @@ struct MakeRepeatedArrayImpl {
   template <typename T>
   MakeRepeatedArrayImpl(std::shared_ptr<DataType> type, const T& value,
                         int64_t repetitions)
-      : type_(type), typeid_(Typeid<T>), value_(&value), repetitions_(repetitions) {}
+      : type_(type), typeid_(Typeid<T>()), value_(&value), repetitions_(repetitions) {}
 
   template <typename T>
   enable_if_number<T, Status> Visit(const T& t) {
     typename TypeTraits<T>::BuilderType builder;
-    using c_type = typename T::c_type;
-    auto value = *static_cast<const c_type*>(value_);
+    ARROW_ASSIGN_OR_RAISE(auto value, GetValue<typename T::c_type>());
     RETURN_NOT_OK(builder.Resize(repetitions_));
     for (auto i = 0; i < repetitions_; ++i) {
       builder.UnsafeAppend(value);
@@ -144,7 +143,7 @@ struct MakeRepeatedArrayImpl {
   template <typename T>
   enable_if_binary_like<T, Status> Visit(const T& t) {
     typename TypeTraits<T>::BuilderType builder(type_, default_memory_pool());
-    auto value = *static_cast<const util::string_view*>(value_);
+    ARROW_ASSIGN_OR_RAISE(auto value, GetValue<util::string_view>());
     RETURN_NOT_OK(builder.Resize(repetitions_));
     for (auto i = 0; i < repetitions_; ++i) {
       builder.UnsafeAppend(value);
@@ -157,10 +156,22 @@ struct MakeRepeatedArrayImpl {
   }
 
   template <typename T>
-  static void Typeid() {}
+  static const bool* Typeid() {
+    static const bool _ = true;
+    return &_;
+  }
+
+  template <typename T>
+  Result<T> GetValue() {
+    if (typeid_ != Typeid<T>()) {
+      return Status::TypeError("cannot create an array of type ", *type_,
+                               " from given value");
+    }
+    return *static_cast<const T*>(value_);
+  }
 
   std::shared_ptr<DataType> type_;
-  void (*typeid_)();
+  const bool* typeid_;
   const void* value_;
   int64_t repetitions_;
   std::shared_ptr<Array> out_;

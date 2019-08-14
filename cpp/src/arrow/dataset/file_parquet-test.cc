@@ -34,7 +34,7 @@ constexpr int64_t kNumRows = kBatchSize * kBatchRepetitions;
 
 class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
  public:
-  std::unique_ptr<FileSource> GetLocation(RecordBatchReader& reader) {
+  std::unique_ptr<FileSource> GetLocation(RecordBatchReader* reader) {
     auto buffer = Write(reader);
     return internal::make_unique<FileSource>(std::move(buffer));
   }
@@ -63,7 +63,7 @@ class TestParquetFileFormat : public ParquetBufferFixtureMixin {
 
 TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   auto reader = GetRecordBatchReader();
-  auto location = GetLocation(*reader);
+  auto location = GetLocation(reader.get());
   auto fragment = std::make_shared<ParquetFragment>(*location, opts_);
 
   std::unique_ptr<ScanTaskIterator> it;

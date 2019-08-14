@@ -28,7 +28,7 @@
 namespace arrow {
 namespace dataset {
 
-// Convenience class allowing to retrieve integration FilSource easily.
+// Convenience class allowing easy retrieval of FileSources pointing to test data.
 class FileSourceFixtureMixin : public TestDataFixtureMixin {
  public:
   std::unique_ptr<FileSource> GetParquetDataLocation(

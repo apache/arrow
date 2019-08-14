@@ -40,6 +40,8 @@ class Iterator {
   /// iteration is completed
   virtual Status Next(T* out) = 0;
 
+  /// Pass each element of the sequence to a visitor. Will return any error status
+  /// returned by the visitor, terminating iteration.
   template <typename Visitor>
   Status Visit(Visitor&& visitor) {
     Status status;
@@ -59,6 +61,7 @@ class Iterator {
   }
 };
 
+/// Simple iterator which yields the elements of a std::vector
 template <typename T>
 class VectorIterator : public Iterator<T> {
  public:
