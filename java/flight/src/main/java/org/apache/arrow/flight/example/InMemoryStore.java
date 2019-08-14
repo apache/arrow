@@ -120,7 +120,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
           creator.add(unloader.getRecordBatch());
         }
         // Closing the stream will release the dictionaries
-        flightStream.retainDictionaries();
+        flightStream.takeDictionaryOwnership();
         creator.complete();
         success = true;
       } finally {

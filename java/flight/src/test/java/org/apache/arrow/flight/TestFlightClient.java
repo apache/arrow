@@ -28,17 +28,22 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
 
 public class TestFlightClient {
   /**
@@ -69,15 +74,17 @@ public class TestFlightClient {
   /**
    * ARROW-5978: make sure that we can properly close a client/stream after requesting dictionaries.
    */
+  @Ignore // Unfortunately this test is flaky in CI.
   @Test
   public void freeDictionaries() throws Exception {
     final Schema expectedSchema = new Schema(Collections
         .singletonList(new Field("encoded",
             new FieldType(true, new ArrowType.Int(32, true), new DictionaryEncoding(1L, false, null)), null)));
     try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+        final BufferAllocator serverAllocator = allocator.newChildAllocator("flight-server", 0, Integer.MAX_VALUE);
         final FlightServer server = FlightTestUtil.getStartedServer(
-            location -> FlightServer.builder(allocator, location,
-                new DictionaryProducer(allocator)).build())) {
+            location -> FlightServer.builder(serverAllocator, location,
+                new DictionaryProducer(serverAllocator)).build())) {
       final Location location = Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, server.getPort());
       try (final FlightClient client = FlightClient.builder(allocator, location).build()) {
         try (final FlightStream stream = client.getStream(new Ticket(new byte[0]))) {
@@ -96,6 +103,69 @@ public class TestFlightClient {
         }
         // Closing stream fails if it doesn't free dictionaries; closing dictionaries fails (refcount goes negative)
         // if reference isn't retained in ArrowMessage
+      }
+    }
+  }
+
+  /**
+   * ARROW-5978: make sure that dictionary ownership can't be claimed twice.
+   */
+  @Ignore // Unfortunately this test is flaky in CI.
+  @Test
+  public void ownDictionaries() throws Exception {
+    try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+        final BufferAllocator serverAllocator = allocator.newChildAllocator("flight-server", 0, Integer.MAX_VALUE);
+        final FlightServer server = FlightTestUtil.getStartedServer(
+            location -> FlightServer.builder(serverAllocator, location,
+                new DictionaryProducer(serverAllocator)).build())) {
+      final Location location = Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, server.getPort());
+      try (final FlightClient client = FlightClient.builder(allocator, location).build()) {
+        try (final FlightStream stream = client.getStream(new Ticket(new byte[0]))) {
+          Assert.assertTrue(stream.next());
+          Assert.assertFalse(stream.next());
+          final DictionaryProvider provider = stream.takeDictionaryOwnership();
+          Assertions.assertThrows(IllegalStateException.class, stream::takeDictionaryOwnership);
+          Assertions.assertThrows(IllegalStateException.class, stream::getDictionaryProvider);
+          DictionaryUtils.closeDictionaries(stream.getSchema(), provider);
+        }
+      }
+    }
+  }
+
+  /**
+   * ARROW-5978: make sure that dictionaries can be used after closing the stream.
+   */
+  @Ignore // Unfortunately this test is flaky in CI.
+  @Test
+  public void useDictionariesAfterClose() throws Exception {
+    try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+        final BufferAllocator serverAllocator = allocator.newChildAllocator("flight-server", 0, Integer.MAX_VALUE);
+        final FlightServer server = FlightTestUtil.getStartedServer(
+            location -> FlightServer.builder(serverAllocator, location, new DictionaryProducer(serverAllocator))
+                .build())) {
+      final Location location = Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, server.getPort());
+      try (final FlightClient client = FlightClient.builder(allocator, location).build()) {
+        final VectorSchemaRoot root;
+        final DictionaryProvider provider;
+        try (final FlightStream stream = client.getStream(new Ticket(new byte[0]))) {
+          final VectorUnloader unloader = new VectorUnloader(stream.getRoot());
+          root = VectorSchemaRoot.create(stream.getSchema(), allocator);
+          final VectorLoader loader = new VectorLoader(root);
+          while (stream.next()) {
+            try (final ArrowRecordBatch arb = unloader.getRecordBatch()) {
+              loader.load(arb);
+            }
+          }
+          provider = stream.takeDictionaryOwnership();
+        }
+        try (final ValueVector decoded = DictionaryEncoder
+            .decode(root.getVector("encoded"), provider.lookup(1))) {
+          Assert.assertFalse(decoded.isNull(1));
+          Assert.assertTrue(decoded instanceof VarCharVector);
+          Assert.assertArrayEquals("one".getBytes(StandardCharsets.UTF_8), ((VarCharVector) decoded).get(1));
+        }
+        root.close();
+        DictionaryUtils.closeDictionaries(root.getSchema(), provider);
       }
     }
   }
