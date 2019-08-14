@@ -496,13 +496,15 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
   ASSERT_NO_THROW(encoder->Put(*values));
   auto buf = encoder->FlushValues();
 
-  int64_t num_values = values->length() - values->null_count();
+  int num_values = static_cast<int>(values->length() - values->null_count());
   decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
   arrow::StringBuilder builder;
   ASSERT_EQ(num_values,
-            decoder->DecodeArrow(values->length(), values->null_count(),
-                                 values->null_bitmap_data(), values->offset(), &builder));
+            decoder->DecodeArrow(static_cast<int>(values->length()),
+                                 static_cast<int>(values->null_count()),
+                                 values->null_bitmap_data(),
+                                 values->offset(), &builder));
 
   std::shared_ptr<arrow::Array> result;
   ASSERT_OK(builder.Finish(&result));
@@ -526,7 +528,8 @@ void GetBinaryDictDecoder(DictEncoder<ByteArrayType>* encoder, int64_t num_value
   dict_decoder->SetData(encoder->num_entries(), dict_buf->data(),
                         static_cast<int>(dict_buf->size()));
 
-  decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+  decoder->SetData(static_cast<int>(num_values), buf->data(),
+                                    static_cast<int>(buf->size()));
   decoder->SetDict(dict_decoder.get());
 
   *out_values = buf;
@@ -553,12 +556,13 @@ TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
 
   std::unique_ptr<ByteArrayDecoder> decoder;
   std::shared_ptr<Buffer> buf, dict_buf;
-  int64_t num_values = values->length() - values->null_count();
+  int num_values = static_cast<int>(values->length() - values->null_count());
   GetBinaryDictDecoder(encoder, num_values, &buf, &dict_buf, &decoder);
 
   arrow::StringBuilder builder;
   ASSERT_EQ(num_values,
-            decoder->DecodeArrow(values->length(), values->null_count(),
+            decoder->DecodeArrow(static_cast<int>(values->length()),
+                                 static_cast<int>(values->null_count()),
                                  values->null_bitmap_data(), values->offset(), &builder));
 
   std::shared_ptr<arrow::Array> result;
@@ -592,11 +596,12 @@ TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
 
   std::unique_ptr<ByteArrayDecoder> decoder;
   std::shared_ptr<Buffer> buf, dict_buf;
-  int64_t num_values = expected->length() - expected->null_count();
+  int num_values = static_cast<int>(expected->length() - expected->null_count());
   GetBinaryDictDecoder(encoder, num_values, &buf, &dict_buf, &decoder);
 
   arrow::BinaryBuilder builder;
-  ASSERT_EQ(num_values, decoder->DecodeArrow(expected->length(), expected->null_count(),
+  ASSERT_EQ(num_values, decoder->DecodeArrow(static_cast<int>(expected->length()),
+                                             static_cast<int>(expected->null_count()),
                                              expected->null_bitmap_data(),
                                              expected->offset(), &builder));
 

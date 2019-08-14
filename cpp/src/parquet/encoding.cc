@@ -434,13 +434,13 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
                                                       indices.offset(), indices.length());
       for (int64_t i = 0; i < indices.length(); ++i) {
         if (valid_bits_reader.IsSet()) {
-          buffered_indices_.push_back(static_cast<T>(values[i]));
+          buffered_indices_.push_back(static_cast<int32_t>(values[i]));
         }
         valid_bits_reader.Next();
       }
     } else {
       for (int64_t i = 0; i < indices.length(); ++i) {
-        buffered_indices_.push_back(static_cast<T>(values[i]));
+        buffered_indices_.push_back(static_cast<int32_t>(values[i]));
       }
     }
   }
@@ -877,7 +877,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     const uint8_t* data = data_;
     int64_t data_size = len_;
     int bytes_decoded = 0;
-    int64_t values_decoded = 0;
+    int values_decoded = 0;
     while (i < num_values && values_decoded < num_values_) {
       if (bit_reader.IsSet()) {
         uint32_t len = arrow::util::SafeLoadAs<uint32_t>(data);
