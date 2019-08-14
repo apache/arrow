@@ -31,21 +31,22 @@ namespace dataset {
 
 using internal::checked_cast;
 
-Status ExpressionFilter::Execute(compute::FunctionContext* ctx, const RecordBatch& batch,
-                                 std::shared_ptr<BooleanArray>* filter) const {
+Status EvaluateExpression(compute::FunctionContext* ctx, const Expression& condition,
+                          const RecordBatch& batch,
+                          std::shared_ptr<BooleanArray>* filter) {
   using arrow::compute::Datum;
-  if (!expression_->IsOperatorExpression()) {
-    return Status::Invalid("can't execute expression ", expression_->ToString());
+  if (!condition.IsOperatorExpression()) {
+    return Status::Invalid("can't execute condition ", condition.ToString());
   }
 
-  const auto& op = checked_cast<const OperatorExpression&>(*expression_).operands();
+  const auto& op = checked_cast<const OperatorExpression&>(condition).operands();
 
-  if (expression_->IsComparisonExpression()) {
+  if (condition.IsComparisonExpression()) {
     const auto& lhs = checked_cast<const FieldReferenceExpression&>(*op[0]);
     const auto& rhs = checked_cast<const ScalarExpression&>(*op[1]);
     using arrow::compute::CompareOperator;
     arrow::compute::CompareOptions opts(static_cast<CompareOperator>(
-        static_cast<int>(CompareOperator::EQUAL) + static_cast<int>(expression_->type()) -
+        static_cast<int>(CompareOperator::EQUAL) + static_cast<int>(condition.type()) -
         static_cast<int>(ExpressionType::EQUAL)));
     Datum out;
     RETURN_NOT_OK(arrow::compute::Compare(ctx, Datum(batch.GetColumnByName(lhs.name())),
@@ -54,26 +55,26 @@ Status ExpressionFilter::Execute(compute::FunctionContext* ctx, const RecordBatc
     return Status::OK();
   }
 
-  if (expression_->type() == ExpressionType::NOT) {
+  if (condition.type() == ExpressionType::NOT) {
     std::shared_ptr<BooleanArray> to_invert;
-    RETURN_NOT_OK(ExpressionFilter(op[0]).Execute(ctx, batch, &to_invert));
+    RETURN_NOT_OK(EvaluateExpression(ctx, *op[0], batch, &to_invert));
     Datum out;
     RETURN_NOT_OK(arrow::compute::Invert(ctx, Datum(to_invert), &out));
     *filter = internal::checked_pointer_cast<BooleanArray>(out.make_array());
     return Status::OK();
   }
 
-  DCHECK(expression_->type() == ExpressionType::OR ||
-         expression_->type() == ExpressionType::AND);
+  DCHECK(condition.type() == ExpressionType::OR ||
+         condition.type() == ExpressionType::AND);
 
   std::shared_ptr<BooleanArray> next;
-  RETURN_NOT_OK(ExpressionFilter(op[0]).Execute(ctx, batch, &next));
+  RETURN_NOT_OK(EvaluateExpression(ctx, *op[0], batch, &next));
   Datum acc(next);
 
   for (size_t i_next = 1; i_next < op.size(); ++i_next) {
-    RETURN_NOT_OK(ExpressionFilter(op[i_next]).Execute(ctx, batch, &next));
+    RETURN_NOT_OK(EvaluateExpression(ctx, *op[i_next], batch, &next));
 
-    if (expression_->type() == ExpressionType::OR) {
+    if (condition.type() == ExpressionType::OR) {
       RETURN_NOT_OK(arrow::compute::Or(ctx, Datum(acc), Datum(next), &acc));
     } else {
       RETURN_NOT_OK(arrow::compute::And(ctx, Datum(acc), Datum(next), &acc));
@@ -94,18 +95,6 @@ std::shared_ptr<ScalarExpression> ScalarExpression::Make(const char* value) {
       std::make_shared<StringScalar>(Buffer::Wrap(value, std::strlen(value))));
 }
 
-// return a pair<e is a boolean scalar expression, value of that expression>
-std::pair<bool, bool> IsBoolean(const Expression& e) {
-  if (e.type() == ExpressionType::SCALAR) {
-    auto value = checked_cast<const ScalarExpression&>(e).value();
-    if (value->type->id() == Type::BOOL) {
-      // FIXME(bkietz) null scalars do what?
-      return {true, checked_cast<const BooleanScalar&>(*value).value};
-    }
-  }
-  return {false, false};
-}
-
 Result<std::shared_ptr<Expression>> AssumeIfOperator(const std::shared_ptr<Expression>& e,
                                                      const Expression& given) {
   if (!e->IsOperatorExpression()) {
@@ -115,6 +104,7 @@ Result<std::shared_ptr<Expression>> AssumeIfOperator(const std::shared_ptr<Expre
 }
 
 struct CompareVisitor {
+  // FIXME(bkietz) incomplete
   Status Visit(const BooleanType&) {
     result_ = checked_cast<const BooleanScalar&>(lhs_).value -
               checked_cast<const BooleanScalar&>(rhs_).value;
@@ -181,8 +171,6 @@ Result<std::shared_ptr<Expression>> AssumeComparison(const OperatorExpression& e
           case ExpressionType::LESS:
             return never;
           case ExpressionType::EQUAL:
-          case ExpressionType::GREATER_EQUAL:
-          case ExpressionType::LESS_EQUAL:
             return always;
           default:
             return unsimplified;
@@ -335,21 +323,23 @@ Result<std::shared_ptr<Expression>> OperatorExpression::Assume(
 
     // must be NOT, AND, OR- decompose given
     switch (given.type()) {
-      case ExpressionType::NOT: {
+      case ExpressionType::NOT:
         return unsimplified;
-      }
 
       case ExpressionType::OR: {
         bool simplify_to_always = true;
         bool simplify_to_never = true;
         for (auto operand : given_op.operands_) {
           ARROW_ASSIGN_OR_RAISE(auto simplified, Assume(*operand));
-          auto isbool_value = IsBoolean(*simplified);
-          if (!isbool_value.first) {
+          BooleanScalar scalar;
+          if (!simplified->IsBooleanScalar(&scalar)) {
             return unsimplified;
           }
 
-          if (isbool_value.second) {
+          // an expression should never simplify to null
+          DCHECK(scalar.is_valid);
+
+          if (scalar.value == true) {
             simplify_to_never = false;
           } else {
             simplify_to_always = false;
@@ -370,10 +360,10 @@ Result<std::shared_ptr<Expression>> OperatorExpression::Assume(
       case ExpressionType::AND: {
         std::shared_ptr<Expression> simplified = unsimplified;
         for (auto operand : given_op.operands_) {
-          auto isbool_value = IsBoolean(*simplified);
-          if (isbool_value.first) {
+          if (simplified->IsBooleanScalar()) {
             break;
           }
+
           DCHECK(simplified->IsOperatorExpression());
           const auto& simplified_op =
               checked_cast<const OperatorExpression&>(*simplified);
@@ -391,12 +381,16 @@ Result<std::shared_ptr<Expression>> OperatorExpression::Assume(
     case ExpressionType::NOT: {
       DCHECK_EQ(operands_.size(), 1);
       ARROW_ASSIGN_OR_RAISE(auto operand, AssumeIfOperator(operands_[0], given));
-      auto isbool_value = IsBoolean(*operand);
-      if (isbool_value.first) {
-        return ScalarExpression::Make(!isbool_value.second);
+
+      BooleanScalar scalar;
+      if (!operand->IsBooleanScalar(&scalar)) {
+        return unsimplified;
       }
-      return std::make_shared<OperatorExpression>(
-          ExpressionType::NOT, std::vector<std::shared_ptr<Expression>>{operand});
+
+      // an expression should never simplify to null
+      DCHECK(scalar.is_valid);
+
+      return ScalarExpression::Make(!scalar.value);
     }
 
     case ExpressionType::OR:
@@ -411,15 +405,23 @@ Result<std::shared_ptr<Expression>> OperatorExpression::Assume(
       for (auto operand : operands_) {
         ARROW_ASSIGN_OR_RAISE(operand, AssumeIfOperator(operand, given));
 
-        auto isbool_value = IsBoolean(*operand);
-        if (isbool_value.first) {
-          if (isbool_value.second == trivial_condition) {
-            return ScalarExpression::Make(trivial_condition);
-          }
+        BooleanScalar scalar;
+        if (!operand->IsBooleanScalar(&scalar)) {
+          operands.push_back(operand);
           continue;
         }
 
-        operands.push_back(operand);
+        if (scalar.value == trivial_condition) {
+          return ScalarExpression::Make(trivial_condition);
+        }
+      }
+
+      if (operands.size() == 1) {
+        return operands[0];
+      }
+
+      if (operands.size() == 0) {
+        return ScalarExpression::Make(!trivial_condition);
       }
 
       return std::make_shared<OperatorExpression>(type_, std::move(operands));
@@ -478,7 +480,26 @@ std::string OperatorExpression::ToString() const {
 }
 
 std::string ScalarExpression::ToString() const {
-  return "scalar<" + value_->type->ToString() + ">(TODO)";
+  std::string value;
+  switch (value_->type->id()) {
+    case Type::BOOL:
+      value = checked_cast<const BooleanScalar&>(*value_).value ? "true" : "false";
+      break;
+    case Type::INT64:
+      value = std::to_string(checked_cast<const Int64Scalar&>(*value_).value);
+      break;
+    case Type::DOUBLE:
+      value = std::to_string(checked_cast<const DoubleScalar&>(*value_).value);
+      break;
+    case Type::STRING:
+      value = checked_cast<const StringScalar&>(*value_).value->ToString();
+      break;
+    default:
+      value = "TODO";
+      break;
+  }
+
+  return "scalar<" + value_->type->ToString() + ">(" + value + ")";
 }
 
 bool Expression::Equals(const Expression& other) const {
@@ -533,6 +554,24 @@ bool Expression::IsOperatorExpression() const {
 bool Expression::IsComparisonExpression() const {
   return static_cast<int>(type_) >= static_cast<int>(ExpressionType::EQUAL) &&
          static_cast<int>(type_) <= static_cast<int>(ExpressionType::LESS_EQUAL);
+}
+
+bool Expression::IsBooleanScalar(BooleanScalar* out) const {
+  if (type_ != ExpressionType::SCALAR) {
+    return false;
+  }
+
+  auto scalar = checked_cast<const ScalarExpression&>(*this).value();
+  if (scalar->type->id() != Type::BOOL) {
+    return false;
+  }
+
+  if (out) {
+    out->type = boolean();
+    out->is_valid = scalar->is_valid;
+    out->value = checked_cast<const BooleanScalar&>(*scalar).value;
+  }
+  return true;
 }
 
 std::shared_ptr<Expression> OperatorExpression::Copy() const {

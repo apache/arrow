@@ -40,7 +40,7 @@ class ExpressionsTest : public ::testing::Test {
     ASSERT_OK(simplified.status());
     if (!simplified.ValueOrDie()->Equals(expected)) {
       FAIL() << "  simplification of: " << expr.ToString() << std::endl
-             << "              given: " << expr.ToString() << std::endl
+             << "              given: " << given.ToString() << std::endl
              << "           expected: " << expected.ToString() << std::endl
              << "                was: " << simplified.ValueOrDie()->ToString();
     }
@@ -83,8 +83,16 @@ TEST_F(ExpressionsTest, Simplification) {
   auto multi_and = "b"_ > 5 and "b"_ < 10 and "b"_ != 7;
   AssertOperandsAre(multi_and, ExpressionType::AND, "b"_ > 5, "b"_ < 10, "b"_ != 7);
 
-  AssertSimplifiesTo("b"_ == 3, "b"_ > 5 and "b"_ < 10, *never);
-  AssertSimplifiesTo("b"_ > 3, "b"_ > 5 and "b"_ < 10, *always);
+  AssertSimplifiesTo("b"_ > 5 and "b"_ < 10, "b"_ == 3, *never);
+  AssertSimplifiesTo("b"_ > 5 and "b"_ < 10, "b"_ == 6, *always);
+  AssertSimplifiesTo("b"_ > 5, "b"_ == 3 or "b"_ == 6, "b"_ > 5);
+  AssertSimplifiesTo("b"_ > 7, "b"_ == 3 or "b"_ == 6, *never);
+  AssertSimplifiesTo("b"_ > 5 and "b"_ < 10, "b"_ > 6 and "b"_ < 13, "b"_ < 10);
+
+  AssertSimplifiesTo("b"_ == 3 or "b"_ == 4, "b"_ > 6, *never);
+  AssertSimplifiesTo("b"_ == 3 or "b"_ == 4, "b"_ == 3, *always);
+  AssertSimplifiesTo("b"_ == 3 or "b"_ == 4, "b"_ > 3, "b"_ == 4);
+  AssertSimplifiesTo("b"_ == 3 or "b"_ == 4, "b"_ >= 3, "b"_ == 3 or "b"_ == 4);
 }
 
 class FilterTest : public ::testing::Test {
@@ -101,7 +109,7 @@ class FilterTest : public ::testing::Test {
     auto expected_filter = batch->GetColumnByName("in");
 
     std::shared_ptr<BooleanArray> filter;
-    ASSERT_OK(ExpressionFilter(expr.Copy()).Execute(&ctx_, *batch, &filter));
+    ASSERT_OK(EvaluateExpression(&ctx_, expr, *batch, &filter));
 
     ASSERT_ARRAYS_EQUAL(*expected_filter, *filter);
   }

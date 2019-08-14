@@ -50,11 +50,6 @@ class ARROW_DS_EXPORT Filter {
 
   FilterType::type type() const { return type_; }
 
-  /// Evaluate this filter producing a boolean array which encodes whether each row
-  /// satisfies the filter
-  virtual Status Execute(compute::FunctionContext* ctx, const RecordBatch& batch,
-                         std::shared_ptr<BooleanArray>* filter) const = 0;
-
  private:
   FilterType::type type_;
 };
@@ -70,12 +65,15 @@ class ARROW_DS_EXPORT ExpressionFilter : public Filter {
 
   const std::shared_ptr<Expression>& expression() const { return expression_; }
 
-  Status Execute(compute::FunctionContext* ctx, const RecordBatch& batch,
-                 std::shared_ptr<BooleanArray>* filter) const override;
-
  private:
   std::shared_ptr<Expression> expression_;
 };
+
+/// Evaluate an expression producing a boolean array which encodes whether each row
+/// satisfies the condition
+Status EvaluateExpression(compute::FunctionContext* ctx, const Expression& condition,
+                          const RecordBatch& batch,
+                          std::shared_ptr<BooleanArray>* filter);
 
 struct ExpressionType {
   enum type {
@@ -129,6 +127,10 @@ class ARROW_DS_EXPORT Expression {
   /// and there will be exactly two operands representing the left and right hand sides of
   /// a comparison
   bool IsComparisonExpression() const;
+
+  /// If true, this Expression is a ScalarExpression wrapping a boolean Scalar. Its value
+  /// may be retrieved at the same time
+  bool IsBooleanScalar(BooleanScalar* value = NULLPTR) const;
 
   /// Copy this expression into a shared pointer.
   virtual std::shared_ptr<Expression> Copy() const = 0;
@@ -199,6 +201,10 @@ class ARROW_DS_EXPORT ScalarExpression final : public Expression {
   static std::shared_ptr<ScalarExpression> Make(std::string value);
 
   static std::shared_ptr<ScalarExpression> Make(const char* value);
+
+  static std::shared_ptr<ScalarExpression> MakeNull() {
+    return std::make_shared<ScalarExpression>(std::make_shared<BooleanScalar>());
+  }
 
   std::shared_ptr<Expression> Copy() const override;
 
