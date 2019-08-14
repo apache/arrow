@@ -21,7 +21,7 @@
 #include <vector>
 
 #include "arrow/compute/context.h"
-#include "arrow/compute/kernels/argsort.h"
+#include "arrow/compute/kernels/sort_to_indices.h"
 #include "arrow/compute/test_util.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
@@ -33,77 +33,79 @@ namespace arrow {
 namespace compute {
 
 template <typename ArrowType>
-class TestArgsortKernel : public ComputeFixture, public TestBase {
+class TestSortToIndicesKernel : public ComputeFixture, public TestBase {
  private:
-  void AssertArgsortArrays(const std::shared_ptr<Array> values,
-                           const std::shared_ptr<Array> expected) {
+  void AssertSortToIndicesArrays(const std::shared_ptr<Array> values,
+                                 const std::shared_ptr<Array> expected) {
     std::shared_ptr<Array> actual;
-    ASSERT_OK(arrow::compute::Argsort(&this->ctx_, *values, &actual));
+    ASSERT_OK(arrow::compute::SortToIndices(&this->ctx_, *values, &actual));
     ASSERT_OK(actual->Validate());
     AssertArraysEqual(*expected, *actual);
   }
 
  protected:
-  virtual void AssertArgsort(const std::string& values, const std::string& expected) {
+  virtual void AssertSortToIndices(const std::string& values,
+                                   const std::string& expected) {
     auto type = TypeTraits<ArrowType>::type_singleton();
-    AssertArgsortArrays(ArrayFromJSON(type, values), ArrayFromJSON(uint64(), expected));
+    AssertSortToIndicesArrays(ArrayFromJSON(type, values),
+                              ArrayFromJSON(uint64(), expected));
   }
 };
 
 template <typename ArrowType>
-class TestArgsortKernelForReal : public TestArgsortKernel<ArrowType> {};
-TYPED_TEST_CASE(TestArgsortKernelForReal, RealArrowTypes);
+class TestSortToIndicesKernelForReal : public TestSortToIndicesKernel<ArrowType> {};
+TYPED_TEST_CASE(TestSortToIndicesKernelForReal, RealArrowTypes);
 
 template <typename ArrowType>
-class TestArgsortKernelForIntegral : public TestArgsortKernel<ArrowType> {};
-TYPED_TEST_CASE(TestArgsortKernelForIntegral, IntegralArrowTypes);
+class TestSortToIndicesKernelForIntegral : public TestSortToIndicesKernel<ArrowType> {};
+TYPED_TEST_CASE(TestSortToIndicesKernelForIntegral, IntegralArrowTypes);
 
 template <typename ArrowType>
-class TestArgsortKernelForStrings : public TestArgsortKernel<ArrowType> {};
-TYPED_TEST_CASE(TestArgsortKernelForStrings, testing::Types<StringType>);
+class TestSortToIndicesKernelForStrings : public TestSortToIndicesKernel<ArrowType> {};
+TYPED_TEST_CASE(TestSortToIndicesKernelForStrings, testing::Types<StringType>);
 
-TYPED_TEST(TestArgsortKernelForReal, SortReal) {
-  this->AssertArgsort("[]", "[]");
+TYPED_TEST(TestSortToIndicesKernelForReal, SortReal) {
+  this->AssertSortToIndices("[]", "[]");
 
-  this->AssertArgsort("[3.4, 2.6, 6.3]", "[1, 0, 2]");
+  this->AssertSortToIndices("[3.4, 2.6, 6.3]", "[1, 0, 2]");
 
-  this->AssertArgsort("[1.1, 2.4, 3.5, 4.3, 5.1, 6.8, 7.3]", "[0,1,2,3,4,5,6]");
+  this->AssertSortToIndices("[1.1, 2.4, 3.5, 4.3, 5.1, 6.8, 7.3]", "[0,1,2,3,4,5,6]");
 
-  this->AssertArgsort("[7, 6, 5, 4, 3, 2, 1]", "[6,5,4,3,2,1,0]");
+  this->AssertSortToIndices("[7, 6, 5, 4, 3, 2, 1]", "[6,5,4,3,2,1,0]");
 
-  this->AssertArgsort("[10.4, 12, 4.2, 50, 50.3, 32, 11]", "[2,0,6,1,5,3,4]");
+  this->AssertSortToIndices("[10.4, 12, 4.2, 50, 50.3, 32, 11]", "[2,0,6,1,5,3,4]");
 
-  this->AssertArgsort("[null, 1, 3.3, null, 2, 5.3]", "[1,4,2,5,0,3]");
+  this->AssertSortToIndices("[null, 1, 3.3, null, 2, 5.3]", "[1,4,2,5,0,3]");
 }
 
-TYPED_TEST(TestArgsortKernelForIntegral, SortIntegral) {
-  this->AssertArgsort("[]", "[]");
+TYPED_TEST(TestSortToIndicesKernelForIntegral, SortIntegral) {
+  this->AssertSortToIndices("[]", "[]");
 
-  this->AssertArgsort("[3, 2, 6]", "[1, 0, 2]");
+  this->AssertSortToIndices("[3, 2, 6]", "[1, 0, 2]");
 
-  this->AssertArgsort("[1, 2, 3, 4, 5, 6, 7]", "[0,1,2,3,4,5,6]");
+  this->AssertSortToIndices("[1, 2, 3, 4, 5, 6, 7]", "[0,1,2,3,4,5,6]");
 
-  this->AssertArgsort("[7, 6, 5, 4, 3, 2, 1]", "[6,5,4,3,2,1,0]");
+  this->AssertSortToIndices("[7, 6, 5, 4, 3, 2, 1]", "[6,5,4,3,2,1,0]");
 
-  this->AssertArgsort("[10, 12, 4, 50, 50, 32, 11]", "[2,0,6,1,5,3,4]");
+  this->AssertSortToIndices("[10, 12, 4, 50, 50, 32, 11]", "[2,0,6,1,5,3,4]");
 
-  this->AssertArgsort("[null, 1, 3, null, 2, 5]", "[1,4,2,5,0,3]");
+  this->AssertSortToIndices("[null, 1, 3, null, 2, 5]", "[1,4,2,5,0,3]");
 }
 
-TYPED_TEST(TestArgsortKernelForStrings, SortStrings) {
-  this->AssertArgsort("[]", "[]");
+TYPED_TEST(TestSortToIndicesKernelForStrings, SortStrings) {
+  this->AssertSortToIndices("[]", "[]");
 
-  this->AssertArgsort(R"(["a", "b", "c"])", "[0, 1, 2]");
+  this->AssertSortToIndices(R"(["a", "b", "c"])", "[0, 1, 2]");
 
-  this->AssertArgsort(R"(["foo", "bar", "baz"])", "[1,2,0]");
+  this->AssertSortToIndices(R"(["foo", "bar", "baz"])", "[1,2,0]");
 
-  this->AssertArgsort(R"(["testing", "sort", "for", "strings"])", "[2, 1, 3, 0]");
+  this->AssertSortToIndices(R"(["testing", "sort", "for", "strings"])", "[2, 1, 3, 0]");
 }
 
 template <typename ArrowType>
-class TestArgsortKernelRandom : public ComputeFixture, public TestBase {};
+class TestSortToIndicesKernelRandom : public ComputeFixture, public TestBase {};
 
-using ArgsortableTypes =
+using SortToIndicesableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, StringType>;
 
@@ -170,9 +172,9 @@ class Random<StringType> : public RandomImpl {
   }
 };
 
-TYPED_TEST_CASE(TestArgsortKernelRandom, ArgsortableTypes);
+TYPED_TEST_CASE(TestSortToIndicesKernelRandom, SortToIndicesableTypes);
 
-TYPED_TEST(TestArgsortKernelRandom, SortRandomValues) {
+TYPED_TEST(TestSortToIndicesKernelRandom, SortRandomValues) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
 
   Random<TypeParam> rand(0x5487655);
@@ -182,7 +184,7 @@ TYPED_TEST(TestArgsortKernelRandom, SortRandomValues) {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
       auto array = rand.Generate(length, null_probability);
       std::shared_ptr<Array> offsets;
-      ASSERT_OK(arrow::compute::Argsort(&this->ctx_, *array, &offsets));
+      ASSERT_OK(arrow::compute::SortToIndices(&this->ctx_, *array, &offsets));
       ValidateSorted<ArrayType>(*std::static_pointer_cast<ArrayType>(array),
                                 *std::static_pointer_cast<UInt64Array>(offsets));
     }
