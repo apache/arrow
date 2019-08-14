@@ -82,8 +82,18 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot> {
 
   // Loads the next schema root or null if no more rows are available.
   private void load() throws IOException, SQLException {
-    VectorSchemaRoot root = VectorSchemaRoot.create(schema, config.getAllocator());
-    JdbcToArrowUtils.allocateVectors(root, JdbcToArrowUtils.DEFAULT_BUFFER_SIZE);
+    VectorSchemaRoot root = null;
+    try {
+      root = VectorSchemaRoot.create(schema, config.getAllocator());
+      JdbcToArrowUtils.allocateVectors(root, JdbcToArrowUtils.DEFAULT_BUFFER_SIZE);
+    } catch (Exception e) {
+      if (root != null) {
+        root.close();
+      }
+      throw new RuntimeException("error occurs while creating schema root", e);
+    }
+
+
 
     if (!consumerCreated) {
       consumerCreated = true;
@@ -127,7 +137,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot> {
   }
 
   /**
-   * Gets the next vector. The user is responsible for freeing its resource from close.
+   * Gets the next vector. The user is responsible for freeing its resources.
    */
   public VectorSchemaRoot next() {
     Preconditions.checkArgument(hasNext());
