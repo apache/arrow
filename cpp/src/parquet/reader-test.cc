@@ -383,4 +383,8 @@ TEST(TestJSONWithLocalFile, JSONOutput) {
   ASSERT_EQ(json_output, ss.str());
 }
 
+TEST(TestFileReader, BufferedReads) {
+  const int num_columns = 10;
+}
+
 }  // namespace parquet
