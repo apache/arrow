@@ -32,6 +32,8 @@ Status FileSource::Open(std::shared_ptr<arrow::io::RandomAccessFile>* out) const
       out->reset(new ::arrow::io::BufferReader(buffer_));
       return Status::OK();
   }
+
+  return Status::OK();
 }
 
 Status FileBasedDataFragment::GetTasks(std::shared_ptr<ScanContext> scan_context,
