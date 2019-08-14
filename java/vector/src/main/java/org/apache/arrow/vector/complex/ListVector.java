@@ -372,6 +372,10 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return vector;
   }
 
+  public void setDataVector(FieldVector vector) {
+    this.vector = vector;
+  }
+
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
     return getTransferPair(ref, allocator, null);

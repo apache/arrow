@@ -27,18 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.apache.arrow.consumers.AvroBooleanConsumer;
-import org.apache.arrow.consumers.AvroBytesConsumer;
-import org.apache.arrow.consumers.AvroDoubleConsumer;
-import org.apache.arrow.consumers.AvroFloatConsumer;
-import org.apache.arrow.consumers.AvroIntConsumer;
-import org.apache.arrow.consumers.AvroLongConsumer;
-import org.apache.arrow.consumers.AvroNullConsumer;
-import org.apache.arrow.consumers.AvroStringConsumer;
-import org.apache.arrow.consumers.AvroUnionsConsumer;
-import org.apache.arrow.consumers.CompositeAvroConsumer;
-import org.apache.arrow.consumers.Consumer;
-import org.apache.arrow.consumers.NullableTypeConsumer;
+import org.apache.arrow.consumers.*;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BigIntVector;
@@ -51,6 +40,9 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.UnionMode;
@@ -105,6 +97,10 @@ public class AvroToArrowUtils {
     switch (type) {
       case UNION:
         return createUnionConsumer(schema, name, allocator);
+      case ARRAY:
+        return createArrayConsumer(schema, name, allocator);
+      case MAP:
+        return createMapConsumer(schema, name, allocator);
       case STRING:
         arrowType = new ArrowType.Utf8();
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
@@ -162,6 +158,34 @@ public class AvroToArrowUtils {
       return new NullableTypeConsumer(consumer, nullIndex);
     }
     return consumer;
+  }
+
+  private static Consumer createArrayConsumer(Schema schema, String name, BufferAllocator allocator) {
+
+    Consumer delegate = createConsumer(schema.getElementType(), schema.getElementType().getName(), allocator);
+    ListVector listVector = ListVector.empty(name, allocator);
+    listVector.setDataVector(delegate.getVector());
+
+    return new AvroArraysConsumer(listVector, delegate);
+  }
+
+  private static Consumer createMapConsumer(Schema schema, String name, BufferAllocator allocator) {
+
+    StructVector structVector =
+        new StructVector(name, allocator, FieldType.nullable(ArrowType.Struct.INSTANCE), null);
+
+    Consumer keyConsumer = new AvroStringConsumer(new VarCharVector("key", allocator));
+    Consumer valueConsumer = createConsumer(schema.getValueType(), schema.getValueType().getName(), allocator);
+
+
+    structVector.putChild(keyConsumer.getVector().getField().getName(), keyConsumer.getVector());
+    structVector.putChild(valueConsumer.getVector().getField().getName(), valueConsumer.getVector());
+    structVector.allocateNewSafe();
+
+    MapVector mapVector = MapVector.empty(name, allocator, false);
+    mapVector.setDataVector(structVector);
+
+    return new AvroMapConsumer(mapVector, keyConsumer, valueConsumer);
   }
 
   private static Consumer createUnionConsumer(Schema schema, String name, BufferAllocator allocator) {
@@ -227,10 +251,6 @@ public class AvroToArrowUtils {
         consumers.add(consumer);
         vectors.add(consumer.getVector());
       }
-    } else if (type == Type.MAP) {
-      throw new UnsupportedOperationException();
-    } else if (type == Type.ARRAY) {
-      throw new UnsupportedOperationException();
     } else if (type == Type.ENUM) {
       throw new UnsupportedOperationException();
     } else {
