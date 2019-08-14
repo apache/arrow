@@ -1177,7 +1177,11 @@ class CategoricalBlock : public PandasBlock {
     std::shared_ptr<Array> dict;
     if (data->num_chunks() <= 0) {
       // no dictionary values => create empty array
-      dict = std::make_shared<NullArray>(0);
+      std::unique_ptr<ArrayBuilder> builder;
+      RETURN_NOT_OK(MakeBuilder(default_memory_pool(), dict_type.value_type(), &builder));
+      RETURN_NOT_OK(builder->Resize(0));
+      RETURN_NOT_OK(builder->Finish(&dict));
+
     } else {
       auto arr = converted_data->chunk(0);
       const auto& dict_arr = checked_cast<const DictionaryArray&>(*arr);
