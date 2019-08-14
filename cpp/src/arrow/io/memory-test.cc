@@ -226,8 +226,8 @@ TEST(TestRandomAccessFile, GetStream) {
 
   std::shared_ptr<InputStream> stream1, stream2;
 
-  ASSERT_OK(RandomAccessFile::GetStream(file, 0, 10, &stream1));
-  ASSERT_OK(RandomAccessFile::GetStream(file, 9, 50, &stream2));
+  stream1 = RandomAccessFile::GetStream(file, 0, 10);
+  stream2 = RandomAccessFile::GetStream(file, 9, 16);
 
   int64_t position = -1;
   ASSERT_OK(stream1->Tell(&position));
@@ -273,9 +273,16 @@ TEST(TestRandomAccessFile, GetStream) {
   ASSERT_OK(stream2->Tell(&position));
   ASSERT_EQ(16, position);
 
-  // Close has no effect
   ASSERT_OK(stream1->Close());
-  ASSERT_FALSE(stream1->closed());
+
+  // idempotent
+  ASSERT_OK(stream1->Close());
+  ASSERT_TRUE(stream1->closed());
+
+  // Check whether closed
+  ASSERT_RAISES(IOError, stream1->Tell(&position));
+  ASSERT_RAISES(IOError, stream1->Read(1, &buf2));
+  ASSERT_RAISES(IOError, stream1->Read(1, &bytes_read, buf3));
 }
 
 TEST(TestMemcopy, ParallelMemcopy) {

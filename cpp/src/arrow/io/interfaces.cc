@@ -78,20 +78,36 @@ class FileSegmentReader : public InputStream {
  public:
   FileSegmentReader(std::shared_ptr<RandomAccessFile> file, int64_t file_offset,
                     int64_t nbytes)
-      : file_(std::move(file)), position_(0), file_offset_(file_offset), nbytes_(nbytes) {
+      : file_(std::move(file)),
+        closed_(false),
+        position_(0),
+        file_offset_(file_offset),
+        nbytes_(nbytes) {
     FileInterface::set_mode(FileMode::READ);
   }
 
-  Status Close() override { return Status::OK(); }
+  Status CheckOpen() const {
+    if (closed_) {
+      return Status::IOError("Stream is closed");
+    }
+    return Status::OK();
+  }
+
+  Status Close() override {
+    closed_ = true;
+    return Status::OK();
+  }
 
   Status Tell(int64_t* position) const override {
+    RETURN_NOT_OK(CheckOpen());
     *position = position_;
     return Status::OK();
   }
 
-  bool closed() const override { return false; }
+  bool closed() const override { return closed_; }
 
   Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override {
+    RETURN_NOT_OK(CheckOpen());
     int64_t bytes_to_read = std::min(nbytes, nbytes_ - position_);
     RETURN_NOT_OK(
         file_->ReadAt(file_offset_ + position_, bytes_to_read, bytes_read, out));
@@ -100,6 +116,7 @@ class FileSegmentReader : public InputStream {
   }
 
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override {
+    RETURN_NOT_OK(CheckOpen());
     int64_t bytes_to_read = std::min(nbytes, nbytes_ - position_);
     RETURN_NOT_OK(file_->ReadAt(file_offset_ + position_, bytes_to_read, out));
     position_ += (*out)->size();
@@ -108,20 +125,15 @@ class FileSegmentReader : public InputStream {
 
  private:
   std::shared_ptr<RandomAccessFile> file_;
+  bool closed_;
   int64_t position_;
   int64_t file_offset_;
   int64_t nbytes_;
 };
 
-Status RandomAccessFile::GetStream(std::shared_ptr<RandomAccessFile> file,
-                                   int64_t file_offset, int64_t nbytes,
-                                   std::shared_ptr<InputStream>* out) {
-  DCHECK_GE(file_offset, 0);
-  int64_t size = -1;
-  RETURN_NOT_OK(file->GetSize(&size));
-  nbytes = std::min(size - file_offset, nbytes);
-  *out = std::make_shared<FileSegmentReader>(std::move(file), file_offset, nbytes);
-  return Status::OK();
+std::shared_ptr<InputStream> RandomAccessFile::GetStream(
+    std::shared_ptr<RandomAccessFile> file, int64_t file_offset, int64_t nbytes) {
+  return std::make_shared<FileSegmentReader>(std::move(file), file_offset, nbytes);
 }
 
 }  // namespace io
