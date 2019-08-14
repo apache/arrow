@@ -218,6 +218,31 @@ TEST(TestBufferReader, RetainParentReference) {
   ASSERT_EQ(0, std::memcmp(slice2->data(), data.c_str() + 4, 6));
 }
 
+TEST(TestRandomAccessFile, GetStream) {
+  std::string data = "data1data2data3data4data5";
+
+  auto buf = std::make_shared<Buffer>(data);
+  auto file = std::make_shared<BufferReader>(buf);
+
+  std::shared_ptr<InputStream> stream1, stream2;
+
+  ASSERT_OK(RandomAccessFile::GetStream(file, 0, 10, &stream1));
+  ASSERT_OK(RandomAccessFile::GetStream(file, 9, 50, &stream2));
+
+  int64_t position = -1;
+  ASSERT_OK(stream1->Tell(&position));
+  ASSERT_EQ(0, position);
+
+  std::shared_ptr<Buffer> buf2;
+  uint8_t buf3[20];
+
+  int64_t bytes_read = -1;
+  ASSERT_OK(stream2->Read(4, &bytes_read, buf3));
+  ASSERT_EQ(0, std::memcmp(buf3, "2dat", 4));
+  ASSERT_OK(stream2->Tell(&position));
+  ASSERT_EQ(4, position);
+}
+
 TEST(TestMemcopy, ParallelMemcopy) {
 #if defined(ARROW_VALGRIND)
   // Compensate for Valgrind's slowness

@@ -17,11 +17,15 @@
 
 #include "arrow/io/interfaces.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <utility>
 
+#include "arrow/buffer.h"
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
@@ -69,6 +73,56 @@ Status Writable::Write(const std::string& data) {
 }
 
 Status Writable::Flush() { return Status::OK(); }
+
+class FileSegmentReader : public InputStream {
+ public:
+  FileSegmentReader(std::shared_ptr<RandomAccessFile> file, int64_t file_offset,
+                    int64_t nbytes)
+      : file_(std::move(file)), position_(0), file_offset_(file_offset), nbytes_(nbytes) {
+    FileInterface::set_mode(FileMode::READ);
+  }
+
+  Status Close() override { return Status::OK(); }
+
+  Status Tell(int64_t* position) const override {
+    *position = position_;
+    return Status::OK();
+  }
+
+  bool closed() const override { return false; }
+
+  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override {
+    int64_t bytes_to_read = std::min(nbytes, nbytes_ - position_);
+    RETURN_NOT_OK(
+        file_->ReadAt(file_offset_ + position_, bytes_to_read, bytes_read, out));
+    position_ += *bytes_read;
+    return Status::OK();
+  }
+
+  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override {
+    int64_t bytes_to_read = std::min(nbytes, nbytes_ - position_);
+    RETURN_NOT_OK(file_->ReadAt(file_offset_ + position_, bytes_to_read, out));
+    position_ += (*out)->size();
+    return Status::OK();
+  }
+
+ private:
+  std::shared_ptr<RandomAccessFile> file_;
+  int64_t position_;
+  int64_t file_offset_;
+  int64_t nbytes_;
+};
+
+Status RandomAccessFile::GetStream(std::shared_ptr<RandomAccessFile> file,
+                                   int64_t file_offset, int64_t nbytes,
+                                   std::shared_ptr<InputStream>* out) {
+  DCHECK_GE(file_offset, 0);
+  int64_t size = -1;
+  RETURN_NOT_OK(file->GetSize(&size));
+  nbytes = std::min(size - file_offset, nbytes);
+  *out = std::make_shared<FileSegmentReader>(std::move(file), file_offset, nbytes);
+  return Status::OK();
+}
 
 }  // namespace io
 }  // namespace arrow

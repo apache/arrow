@@ -144,6 +144,15 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   /// Necessary because we hold a std::unique_ptr
   ~RandomAccessFile() override;
 
+  /// \brief Create thread-safe InputStream that reads a segment of a
+  /// RandomAccessFile
+  /// \param[in] file a file instance
+  /// \param[in] file_offset the starting position in the file
+  /// \param[in] nbytes the extent of bytes to read
+  /// \param[out] out the created stream
+  static Status GetStream(std::shared_ptr<RandomAccessFile> file, int64_t file_offset,
+                          int64_t nbytes, std::shared_ptr<InputStream>* out);
+
   virtual Status GetSize(int64_t* size) = 0;
 
   /// \brief Read nbytes at position, provide default implementations using
