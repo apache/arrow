@@ -41,7 +41,7 @@ struct ARROW_DS_EXPORT ScanContext {
 
 class ARROW_DS_EXPORT ScanOptions {
  public:
-  virtual ~ScanOptions() = default;
+  virtual ~ScanOptions();
 
   const DataSelector* selector() const { return selector_.get(); }
 
