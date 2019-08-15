@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.DensityAwareVector;
 import org.apache.arrow.vector.FieldVector;
@@ -301,7 +302,7 @@ public class NonNullableStructVector extends AbstractStructVector {
     for (String child : getChildFieldNames()) {
       ValueVector v = getChild(child);
       if (v != null && index < v.getValueCount()) {
-        hash += 31 * hash + v.hashCode(index);
+        hash = ByteFunctionHelpers.comebineHash(hash, v.hashCode(index));
       }
     }
     return hash;

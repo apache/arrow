@@ -28,6 +28,7 @@ import java.util.List;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BitVectorHelper;
@@ -425,7 +426,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     final int start = offsetBuffer.getInt(index * OFFSET_WIDTH);
     final int end = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
     for (int i = start; i < end; i++) {
-      hash = 31 * vector.hashCode(i);
+      hash = ByteFunctionHelpers.comebineHash(hash, vector.hashCode(i));
     }
     return hash;
   }
