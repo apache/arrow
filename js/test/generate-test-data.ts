@@ -41,7 +41,8 @@ import {
     Interval, IntervalDayTime, IntervalYearMonth,
     FixedSizeList,
     Map_,
-    DateUnit, TimeUnit, UnionMode
+    DateUnit, TimeUnit, UnionMode,
+    util
 } from './Arrow';
 
 type TKeys = Int8 | Int16 | Int32 | Uint8 | Uint16 | Uint32;
@@ -269,7 +270,8 @@ function generateFloat<T extends Float>(this: TestDataVectorGenerator, type: T, 
     const values = memoize(() => {
         const values = [] as (number | null)[];
         iterateBitmap(length, nullBitmap, (i, valid) => {
-            values[i] = !valid ? null : precision > 0 ? data[i] : (data[i] - 32767) / 32767;
+            // values[i] = !valid ? null : precision > 0 ? data[i] : (data[i] - 32767) / 32767;
+            values[i] = !valid ? null : precision > 0 ? data[i] : util.uint16ToFloat64(data[i]);
         });
         return values;
     });

@@ -255,6 +255,7 @@ if(ARROW_IPC)
       ipc/json-simple.cc
       ipc/message.cc
       ipc/metadata-internal.cc
+      ipc/options.cc
       ipc/reader.cc
       ipc/writer.cc)
   set(ARROW_SRCS ${ARROW_SRCS} ${ARROW_IPC_SRCS})

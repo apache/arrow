@@ -952,8 +952,18 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MessageType_V3" arrow::ipc::MetadataVersion::V3"
         MessageType_V4" arrow::ipc::MetadataVersion::V4"
 
+    cdef cppclass CIpcOptions" arrow::ipc::IpcOptions":
+        @staticmethod
+        CIpcOptions Defaults()
+
     cdef cppclass CDictionaryMemo" arrow::ipc::DictionaryMemo":
         pass
+
+    cdef cppclass CIpcPayload" arrow::ipc::internal::IpcPayload":
+        MessageType type
+        shared_ptr[CBuffer] metadata
+        vector[shared_ptr[CBuffer]] body_buffers
+        int64_t body_length
 
     cdef cppclass CMessage" arrow::ipc::Message":
         CStatus Open(const shared_ptr[CBuffer]& metadata,
@@ -981,8 +991,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
     cdef cppclass CRecordBatchWriter" arrow::ipc::RecordBatchWriter":
         CStatus Close()
-        CStatus WriteRecordBatch(const CRecordBatch& batch,
-                                 c_bool allow_64bit)
+        CStatus WriteRecordBatch(const CRecordBatch& batch)
         CStatus WriteTable(const CTable& table, int64_t max_chunksize)
 
     cdef cppclass CRecordBatchStreamReader \
@@ -1058,6 +1067,13 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
     CStatus AlignStream(InputStream* stream, int64_t alignment)
     CStatus AlignStream(OutputStream* stream, int64_t alignment)
+
+    cdef CStatus GetRecordBatchPayload\
+        " arrow::ipc::internal::GetRecordBatchPayload"(
+            const CRecordBatch& batch,
+            const CIpcOptions& options,
+            CMemoryPool* pool,
+            CIpcPayload* out)
 
     cdef cppclass CFeatherWriter" arrow::ipc::feather::TableWriter":
         @staticmethod

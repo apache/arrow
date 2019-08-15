@@ -167,4 +167,35 @@ public final class ArrowBufPointer {
     hashCodeChanged = false;
     return hashCode;
   }
+
+  /**
+   * Compare two arrow buffer pointers.
+   * The comparison is based on lexicographic order.
+   * @param that the other pointer to compare.
+   * @return 0 if the two pointers are equal;
+   *     a positive integer if this pointer is larger;
+   *     a negative integer if this pointer is smaller.
+   */
+  public int compareTo(ArrowBufPointer that) {
+    if (this.buf == null || that.buf == null) {
+      if (this.buf == null && that.buf == null) {
+        return 0;
+      } else {
+        // null is smaller
+        return this.buf == null ? -1 : 1;
+      }
+    }
+
+    int length = this.length < that.length ? this.length : that.length;
+    for (int i = 0; i < length; i++) {
+      byte b1 = this.buf.getByte(this.offset + i);
+      byte b2 = that.buf.getByte(that.offset + i);
+      if (b1 != b2) {
+        return b1 - b2;
+      }
+    }
+
+    // the shorter buffer is smaller
+    return this.length - that.length;
+  }
 }

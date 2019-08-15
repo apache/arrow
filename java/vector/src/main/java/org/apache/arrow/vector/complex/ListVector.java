@@ -334,14 +334,15 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, ListVector)} except that
+   * Same as {@link #copyFrom(int, int, ValueVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param inIndex position to copy from in source vector
    * @param outIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int inIndex, int outIndex, ListVector from) {
+  @Override
+  public void copyFromSafe(int inIndex, int outIndex, ValueVector from) {
     copyFrom(inIndex, outIndex, from);
   }
 
@@ -352,7 +353,9 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
    * @param outIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int inIndex, int outIndex, ListVector from) {
+  @Override
+  public void copyFrom(int inIndex, int outIndex, ValueVector from) {
+    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     FieldReader in = from.getReader();
     in.setPosition(inIndex);
     FieldWriter out = getWriter();
@@ -426,20 +429,6 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
       hash = ByteFunctionHelpers.comebineHash(hash, vector.hashCode(i));
     }
     return hash;
-  }
-
-  @Override
-  public boolean equals(int index, ValueVector to, int toIndex) {
-    if (to == null) {
-      return false;
-    }
-    Preconditions.checkArgument(index >= 0 && index < valueCount,
-        "index %s out of range[0, %s]:", index, valueCount - 1);
-    Preconditions.checkArgument(toIndex >= 0 && toIndex < to.getValueCount(),
-        "index %s out of range[0, %s]:", index, to.getValueCount() - 1);
-
-    RangeEqualsVisitor visitor = new RangeEqualsVisitor(to, index, toIndex, 1);
-    return this.accept(visitor);
   }
 
   private class TransferImpl implements TransferPair {

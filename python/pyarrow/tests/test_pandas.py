@@ -796,7 +796,7 @@ class TestConvertPrimitiveTypes(object):
             schema = pa.schema([pa.field('has_nulls', ty)])
             result = pa.Table.from_pandas(df, schema=schema,
                                           preserve_index=False)
-            assert result[0].data.chunk(0).equals(expected)
+            assert result[0].chunk(0).equals(expected)
 
     def test_int_object_nulls(self):
         arr = np.array([None, 1, np.int64(3)] * 5, dtype=object)
@@ -955,7 +955,7 @@ class TestConvertDateTimeLikeTypes(object):
         })
 
         table = pa.Table.from_pandas(df)
-        assert isinstance(table[0].data.chunk(0), pa.TimestampArray)
+        assert isinstance(table[0].chunk(0), pa.TimestampArray)
 
         result = table.to_pandas()
         expected_df = pd.DataFrame({
@@ -1004,7 +1004,7 @@ class TestConvertDateTimeLikeTypes(object):
         df = pd.DataFrame({"datetime": pd.Series(date_array, dtype=object)})
 
         table = pa.Table.from_pandas(df)
-        assert isinstance(table[0].data.chunk(0), pa.TimestampArray)
+        assert isinstance(table[0].chunk(0), pa.TimestampArray)
 
         result = table.to_pandas()
         expected_df = pd.DataFrame({"datetime": date_array})
@@ -1023,7 +1023,7 @@ class TestConvertDateTimeLikeTypes(object):
         df = pd.DataFrame({"date": pd.Series(date_array, dtype=object)})
 
         table = pa.Table.from_pandas(df)
-        assert isinstance(table[0].data.chunk(0), pa.Date32Array)
+        assert isinstance(table[0].chunk(0), pa.Date32Array)
 
         result = table.to_pandas()
         expected_df = pd.DataFrame(
@@ -1414,7 +1414,7 @@ class TestConvertStringLikeTypes(object):
         arr = None
 
         table = pa.Table.from_pandas(df)
-        assert table[0].data.num_chunks == 2
+        assert table[0].num_chunks == 2
 
     def test_fixed_size_bytes(self):
         values = [b'foo', None, bytearray(b'bar'), None, None, b'hey']

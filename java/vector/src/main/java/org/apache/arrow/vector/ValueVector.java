@@ -245,15 +245,6 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   int hashCode(int index);
 
   /**
-   * Check whether the element in index equals to the element in targetIndex from the target vector.
-   * @param index index to compare in this vector
-   * @param target target vector
-   * @param targetIndex index to compare in target vector
-   * @return true if equals, otherwise false.
-   */
-  boolean equals(int index, ValueVector target, int targetIndex);
-
-  /**
    * Copy a cell value from a particular index in source vector to a particular
    * position in this vector.
    *

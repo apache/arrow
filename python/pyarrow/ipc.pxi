@@ -182,7 +182,7 @@ cdef class _CRecordBatchWriter:
         """
         with nogil:
             check_status(self.writer.get()
-                         .WriteRecordBatch(deref(batch.batch), 1))
+                         .WriteRecordBatch(deref(batch.batch)))
 
     def write_table(self, Table table, chunksize=None):
         """

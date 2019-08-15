@@ -251,13 +251,13 @@ class GrpcStreamWriter : public FlightStreamWriter {
       std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer,
       std::unique_ptr<FlightStreamWriter>* out);
 
-  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override {
-    return WriteWithMetadata(batch, nullptr, allow_64bit);
+  Status WriteRecordBatch(const RecordBatch& batch) override {
+    return WriteWithMetadata(batch, nullptr);
   }
-  Status WriteWithMetadata(const RecordBatch& batch, std::shared_ptr<Buffer> app_metadata,
-                           bool allow_64bit = false) override {
+  Status WriteWithMetadata(const RecordBatch& batch,
+                           std::shared_ptr<Buffer> app_metadata) override {
     app_metadata_ = app_metadata;
-    return batch_writer_->WriteRecordBatch(batch, allow_64bit);
+    return batch_writer_->WriteRecordBatch(batch);
   }
   void set_memory_pool(MemoryPool* pool) override {
     batch_writer_->set_memory_pool(pool);

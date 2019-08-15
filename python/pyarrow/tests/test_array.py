@@ -697,7 +697,8 @@ def test_cast_chunked_array():
 
 def test_chunked_array_data_warns():
     with pytest.warns(FutureWarning):
-        pa.chunked_array([[]]).data
+        res = pa.chunked_array([[]]).data
+    assert isinstance(res, pa.ChunkedArray)
 
 
 def test_cast_integers_unsafe():

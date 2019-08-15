@@ -102,6 +102,7 @@ export { DataFrame, FilteredDataFrame, CountByResult, BindFunc, NextFunc } from 
 import * as util_bn_ from './util/bn';
 import * as util_int_ from './util/int';
 import * as util_bit_ from './util/bit';
+import * as util_math_ from './util/math';
 import * as util_buffer_ from './util/buffer';
 import * as util_vector_ from './util/vector';
 import * as predicate from './compute/predicate';
@@ -112,6 +113,7 @@ export const util = {
     ...util_bn_,
     ...util_int_,
     ...util_bit_,
+    ...util_math_,
     ...util_buffer_,
     ...util_vector_
 };

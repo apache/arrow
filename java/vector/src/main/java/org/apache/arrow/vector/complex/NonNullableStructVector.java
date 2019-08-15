@@ -93,11 +93,18 @@ public class NonNullableStructVector extends AbstractStructVector {
    * Copies the element at fromIndex in the provided vector to thisIndex.  Reallocates buffers
    * if thisIndex is larger then current capacity.
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NonNullableStructVector from) {
+  @Override
+  public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
+    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     if (ephPair == null || ephPair.from != from) {
       ephPair = (StructTransferPair) from.makeTransferPair(this);
     }
     ephPair.copyValueSafe(fromIndex, thisIndex);
+  }
+
+  @Override
+  public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
+    copyFrom(fromIndex, thisIndex, from);
   }
 
   @Override
@@ -304,20 +311,6 @@ public class NonNullableStructVector extends AbstractStructVector {
   @Override
   public boolean accept(RangeEqualsVisitor visitor) {
     return visitor.visit(this);
-  }
-
-  @Override
-  public boolean equals(int index, ValueVector to, int toIndex) {
-    if (to == null) {
-      return false;
-    }
-    Preconditions.checkArgument(index >= 0 && index < valueCount,
-        "index %s out of range[0, %s]:", index, valueCount - 1);
-    Preconditions.checkArgument(toIndex >= 0 && toIndex < to.getValueCount(),
-        "index %s out of range[0, %s]:", index, to.getValueCount() - 1);
-
-    RangeEqualsVisitor visitor = new RangeEqualsVisitor(to, index, toIndex, 1);
-    return this.accept(visitor);
   }
 
   @Override

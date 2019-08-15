@@ -386,11 +386,14 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     return new AddOrGetResult<>((T) vector, created);
   }
 
-  public void copyFromSafe(int inIndex, int outIndex, FixedSizeListVector from) {
+  @Override
+  public void copyFromSafe(int inIndex, int outIndex, ValueVector from) {
     copyFrom(inIndex, outIndex, from);
   }
 
-  public void copyFrom(int fromIndex, int thisIndex, FixedSizeListVector from) {
+  @Override
+  public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
+    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     TransferPair pair = from.makeTransferPair(this);
     pair.copyValueSafe(fromIndex, thisIndex);
   }
@@ -533,20 +536,6 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
       hash = ByteFunctionHelpers.comebineHash(hash, vector.hashCode(index * listSize + i));
     }
     return hash;
-  }
-
-  @Override
-  public boolean equals(int index, ValueVector to, int toIndex) {
-    if (to == null) {
-      return false;
-    }
-    Preconditions.checkArgument(index >= 0 && index < valueCount,
-        "index %s out of range[0, %s]:", index, valueCount - 1);
-    Preconditions.checkArgument(toIndex >= 0 && toIndex < to.getValueCount(),
-        "index %s out of range[0, %s]:", index, to.getValueCount() - 1);
-
-    RangeEqualsVisitor visitor = new RangeEqualsVisitor(to, index, toIndex, 1);
-    return this.accept(visitor);
   }
 
   @Override

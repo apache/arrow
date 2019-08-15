@@ -822,6 +822,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * @param thisIndex position to copy to in this vector
    * @param from      source vector
    */
+  @Override
   public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     if (from.isNull(fromIndex)) {
@@ -842,6 +843,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * @param thisIndex position to copy to in this vector
    * @param from      source vector
    */
+  @Override
   public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     handleSafe(thisIndex);
@@ -880,21 +882,6 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     int start = typeWidth * index;
     int end = typeWidth * (index + 1);
     return ByteFunctionHelpers.hash(this.getDataBuffer(), start, end);
-  }
-
-  @Override
-  public boolean equals(int index, ValueVector to, int toIndex) {
-    if (to == null) {
-      return false;
-    }
-
-    Preconditions.checkArgument(index >= 0 && index < valueCount,
-        "index %s out of range[0, %s]:", index, valueCount - 1);
-    Preconditions.checkArgument(toIndex >= 0 && toIndex < to.getValueCount(),
-        "index %s out of range[0, %s]:", index, to.getValueCount() - 1);
-
-    RangeEqualsVisitor visitor = new RangeEqualsVisitor(to, index, toIndex, 1);
-    return this.accept(visitor);
   }
 
   @Override

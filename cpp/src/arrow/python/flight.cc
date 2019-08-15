@@ -209,7 +209,7 @@ Status PyFlightDataStream::Next(FlightPayload* payload) { return stream_->Next(p
 PyGeneratorFlightDataStream::PyGeneratorFlightDataStream(
     PyObject* generator, std::shared_ptr<arrow::Schema> schema,
     PyGeneratorFlightDataStreamCallback callback)
-    : schema_(schema), callback_(callback) {
+    : schema_(schema), options_(ipc::IpcOptions::Defaults()), callback_(callback) {
   Py_INCREF(generator);
   generator_.reset(generator);
 }
@@ -217,7 +217,7 @@ PyGeneratorFlightDataStream::PyGeneratorFlightDataStream(
 std::shared_ptr<Schema> PyGeneratorFlightDataStream::schema() { return schema_; }
 
 Status PyGeneratorFlightDataStream::GetSchemaPayload(FlightPayload* payload) {
-  return ipc::internal::GetSchemaPayload(*schema_, &dictionary_memo_,
+  return ipc::internal::GetSchemaPayload(*schema_, options_, &dictionary_memo_,
                                          &payload->ipc_message);
 }
 

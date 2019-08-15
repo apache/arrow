@@ -36,6 +36,7 @@ import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.ArrowBufPointer;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
@@ -2268,7 +2269,7 @@ public class TestValueVector {
   @Test
   public void testZeroVectorNotEquals() {
     try (final IntVector intVector = new IntVector("int", allocator);
-         final ZeroVector zeroVector = new ZeroVector()) {
+        final ZeroVector zeroVector = new ZeroVector()) {
 
       VectorEqualsVisitor zeroVisitor = new VectorEqualsVisitor(zeroVector);
       assertFalse(intVector.accept(zeroVisitor));
@@ -2633,7 +2634,8 @@ public class TestValueVector {
       vector2.setSafe(0, 1);
       vector2.setSafe(1, 2);
 
-      assertTrue(vector1.equals(3, vector2, 2));
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector2, 3, 2, 1);
+      assertTrue(vector1.accept(visitor));
     }
   }
 

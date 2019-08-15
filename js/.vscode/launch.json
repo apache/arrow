@@ -41,6 +41,7 @@
                 "test/unit/",
                 // "test/unit/builders/",
 
+                // Uncomment any of these to run individual test suites
                 // "test/unit/builders/builder-tests.ts",
                 // "test/unit/builders/int64-tests.ts",
                 // "test/unit/builders/uint64-tests.ts",
@@ -49,8 +50,8 @@
                 // "test/unit/builders/dictionary-tests.ts",
                 // "test/unit/builders/utf8-tests.ts",
 
-                // Uncomment any of these to run individual test suites
                 // "test/unit/int-tests.ts",
+                // "test/unit/math-tests.ts",
                 // "test/unit/table-tests.ts",
                 // "test/unit/generated-data-tests.ts",
 
