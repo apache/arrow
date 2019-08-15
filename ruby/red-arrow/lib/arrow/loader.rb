@@ -46,6 +46,7 @@ module Arrow
       require "arrow/date64-array"
       require "arrow/date64-array-builder"
       require "arrow/decimal128"
+      require "arrow/decimal128-array"
       require "arrow/decimal128-array-builder"
       require "arrow/decimal128-data-type"
       require "arrow/dense-union-data-type"
@@ -115,7 +116,10 @@ module Arrow
           method_name = "get_value"
         end
         super(info, klass, method_name)
-      when "Arrow::TimestampArray", "Arrow::Date32Array", "Arrow::Date64Array"
+      when "Arrow::Date32Array",
+           "Arrow::Date64Array",
+           "Arrow::Decimal128Array",
+           "Arrow::TimestampArray"
         case method_name
         when "get_value"
           method_name = "get_raw_value"

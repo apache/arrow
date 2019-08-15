@@ -15,24 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class Decimal128ArrayTest < Test::Unit::TestCase
-  sub_test_case(".new") do
-    test("build") do
-      data_type = Arrow::Decimal128DataType.new(3, 1)
-      values = [
-        10.1,
-        nil,
-        "10.1",
-        BigDecimal("10.1"),
-      ]
-      array = Arrow::Decimal128Array.new(data_type, values)
-      assert_equal([
-                     BigDecimal("10.1"),
-                     nil,
-                     BigDecimal("10.1"),
-                     BigDecimal("10.1"),
-                   ],
-                   array.to_a)
+module Arrow
+  class Decimal128Array
+    def get_value(i)
+      BigDecimal(format_value(i))
     end
   end
 end
