@@ -25,6 +25,12 @@
 
 namespace arrow {
 
+namespace compute {
+
+class FunctionContext;
+
+}  // namespace compute
+
 namespace fs {
 
 class FileSystem;
@@ -49,6 +55,12 @@ class FileWriteOptions;
 
 class Filter;
 using FilterVector = std::vector<std::shared_ptr<Filter>>;
+
+class Expression;
+class OperatorExpression;
+class ScalarExpression;
+class FieldReferenceExpression;
+using ExpressionVector = std::vector<std::shared_ptr<Expression>>;
 
 class Partition;
 class PartitionKey;

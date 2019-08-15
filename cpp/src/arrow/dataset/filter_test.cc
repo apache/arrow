@@ -109,10 +109,10 @@ TEST_F(ExpressionsTest, SimplificationToNull) {
 
   auto null = ScalarExpression::MakeNull();
 
-  AssertSimplifiesTo(*equal("b"_, *null), "b"_ == 3, *null);
-  AssertSimplifiesTo(*not_equal("b"_, *null), "b"_ == 3, *null);
-  AssertSimplifiesTo(*not_equal("b"_, *null) and "b"_ > 3, "b"_ == 3, *null);
-  AssertSimplifiesTo("b"_ > 3 and *not_equal("b"_, *null), "b"_ == 3, *null);
+  AssertSimplifiesTo(*equal(fieldRef("b"), null), "b"_ == 3, *null);
+  AssertSimplifiesTo(*not_equal(fieldRef("b"), null), "b"_ == 3, *null);
+  AssertSimplifiesTo(*not_equal(fieldRef("b"), null) and "b"_ > 3, "b"_ == 3, *null);
+  AssertSimplifiesTo("b"_ > 3 and *not_equal(fieldRef("b"), null), "b"_ == 3, *null);
 }
 
 class FilterTest : public ::testing::Test {
