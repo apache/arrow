@@ -78,8 +78,35 @@ class VectorIterator : public Iterator<T> {
 };
 
 template <typename T>
-std::unique_ptr<VectorIterator<T>> MakeIterator(std::vector<T> v) {
+std::unique_ptr<Iterator<T>> MakeIterator(std::vector<T> v) {
   return std::unique_ptr<VectorIterator<T>>(new VectorIterator<T>(std::move(v)));
+}
+
+template <typename Fn, typename I, typename O = typename std::result_of<Fn(I)>::type>
+class MapIterator : public Iterator<O> {
+ public:
+  explicit MapIterator(Fn map, std::unique_ptr<Iterator<I>> it)
+      : map_(map), it_(std::move(it)) {}
+
+  Status Next(O* out) override {
+    I i;
+
+    ARROW_RETURN_NOT_OK(it_->Next(&i));
+    // Ensure loops exit.
+    *out = (i == nullptr) ? nullptr : map_(std::move(i));
+
+    return Status::OK();
+  }
+
+ private:
+  Fn map_;
+  std::unique_ptr<Iterator<I>> it_;
+};
+
+template <typename Fn, typename I, typename O = typename std::result_of<Fn(I)>::type>
+std::unique_ptr<Iterator<O>> MakeMapIterator(Fn map, std::unique_ptr<Iterator<I>> it) {
+  return std::unique_ptr<MapIterator<Fn, I, O>>(
+      new MapIterator<Fn, I, O>(std::move(map), std::move(it)));
 }
 
 }  // namespace arrow

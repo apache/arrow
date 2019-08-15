@@ -33,6 +33,7 @@
 #include "arrow/builder.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/testing/util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
@@ -344,5 +345,28 @@ void AssertSortedEquals(std::vector<T> u, std::vector<T> v) {
   std::sort(v.begin(), v.end());
   ASSERT_EQ(u, v);
 }
+
+class ArrowBaseFixtureMixin {
+ public:
+  std::shared_ptr<RecordBatch> GetRecordBatch(int64_t size, std::shared_ptr<Schema>) {
+    ASSERT_OK_AND_ASSIGN(
+        auto f64, ArrayFromBuilderVisitor(float64(), size, [](DoubleBuilder* builder) {
+          builder->UnsafeAppend(0.0);
+        }));
+    auto schema_ = schema({field("f64", f64->type())});
+    return RecordBatch::Make(schema_, size, {f64});
+  }
+
+  std::shared_ptr<RecordBatchReader> GetRecordBatchReader(
+      int64_t n_batch, int64_t batch_size, std::shared_ptr<Schema> schema) {
+    auto batch = GetRecordBatch(batch_size, std::move(schema));
+    return GetRecordBatchReader(n_batch, std::move(batch));
+  }
+
+  std::shared_ptr<RecordBatchReader> GetRecordBatchReader(
+      int64_t n_batch, std::shared_ptr<RecordBatch> batch) {
+    return std::make_shared<RepeatedRecordBatch>(n_batch, batch);
+  }
+};
 
 }  // namespace arrow

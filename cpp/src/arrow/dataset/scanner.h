@@ -63,6 +63,18 @@ class ARROW_DS_EXPORT ScanTask {
   virtual ~ScanTask() = default;
 };
 
+/// \brief A trivial ScanTask that yields the RecordBatch of an array.
+class ARROW_DS_EXPORT SimpleScanTask : public ScanTask {
+ public:
+  explicit SimpleScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches)
+      : record_batches_(std::move(record_batches)) {}
+
+  std::unique_ptr<RecordBatchIterator> Scan() override;
+
+ protected:
+  std::vector<std::shared_ptr<RecordBatch>> record_batches_;
+};
+
 /// \brief Main interface for
 class ARROW_DS_EXPORT Scanner {
  public:

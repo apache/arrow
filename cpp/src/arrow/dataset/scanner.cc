@@ -18,5 +18,11 @@
 #include "arrow/dataset/scanner.h"
 
 namespace arrow {
-namespace dataset {}  // namespace dataset
+namespace dataset {
+
+std::unique_ptr<RecordBatchIterator> SimpleScanTask::Scan() {
+  return MakeIterator(record_batches_);
+}
+
+}  // namespace dataset
 }  // namespace arrow
