@@ -227,12 +227,12 @@ std::string FormatMessageType(Message::Type type) {
 Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile* file,
                    std::unique_ptr<Message>* message) {
   ARROW_CHECK_GT(static_cast<size_t>(metadata_length), sizeof(int32_t))
-      << "metadata_length should be at least 4";
+      << "metadata_length should be at least 8";
 
   std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(file->ReadAt(offset, metadata_length, &buffer));
+  RETURN_NOT_OK(file->ReadAt(offset + 4, metadata_length - 4, &buffer));
 
-  if (buffer->size() < metadata_length) {
+  if (buffer->size() < metadata_length - 4) {
     return Status::Invalid("Expected to read ", metadata_length,
                            " metadata bytes but got ", buffer->size());
   }
@@ -269,7 +269,8 @@ Status CheckAligned(io::FileInterface* stream, int32_t alignment) {
   int64_t current_position;
   ARROW_RETURN_NOT_OK(stream->Tell(&current_position));
   if (current_position % alignment != 0) {
-    return Status::Invalid("Stream is not aligned");
+    return Status::Invalid("Stream is not aligned pos:", current_position,
+                           " alignment: ", alignment);
   } else {
     return Status::OK();
   }
@@ -278,6 +279,12 @@ Status CheckAligned(io::FileInterface* stream, int32_t alignment) {
 Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
   int32_t message_length = 0;
   int64_t bytes_read = 0;
+  RETURN_NOT_OK(file->Read(sizeof(int32_t), &bytes_read,
+                           reinterpret_cast<uint8_t*>(&message_length)));
+  if (message_length != -1 && message_length != 0) {
+    return Status::Invalid("Continuation marker missing ");
+  }
+
   RETURN_NOT_OK(file->Read(sizeof(int32_t), &bytes_read,
                            reinterpret_cast<uint8_t*>(&message_length)));
 

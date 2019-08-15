@@ -1245,7 +1245,7 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
 Status WriteMessage(const Buffer& message, int32_t alignment, io::OutputStream* file,
                     int32_t* message_length) {
   // ARROW-3212: We do not make assumptions that the output stream is aligned
-  int32_t padded_message_length = static_cast<int32_t>(message.size()) + 4;
+  int32_t padded_message_length = static_cast<int32_t>(message.size()) + 8;
   const int32_t remainder = padded_message_length % alignment;
   if (remainder != 0) {
     padded_message_length += alignment - remainder;
@@ -1256,14 +1256,16 @@ Status WriteMessage(const Buffer& message, int32_t alignment, io::OutputStream* 
   *message_length = padded_message_length;
 
   // Write the flatbuffer size prefix including padding
-  int32_t flatbuffer_size = padded_message_length - 4;
+  int32_t flatbuffer_size = padded_message_length - 8;
+  constexpr int32_t kContinuationToken = -1;
+  RETURN_NOT_OK(file->Write(&kContinuationToken, sizeof(int32_t)));
   RETURN_NOT_OK(file->Write(&flatbuffer_size, sizeof(int32_t)));
 
   // Write the flatbuffer
   RETURN_NOT_OK(file->Write(message.data(), message.size()));
 
   // Write any padding
-  int32_t padding = padded_message_length - static_cast<int32_t>(message.size()) - 4;
+  int32_t padding = padded_message_length - static_cast<int32_t>(message.size()) - 8;
   if (padding > 0) {
     RETURN_NOT_OK(file->Write(kPaddingBytes, padding));
   }
