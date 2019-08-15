@@ -166,12 +166,12 @@ struct CompareVisitor {
 // lhs > rhs  => return > 0
 // if either is null, return is null
 Result<Int64Scalar> Compare(const Scalar& lhs, const Scalar& rhs) {
-  if (!lhs.type->Equals(*rhs.type)) {
-    return Status::TypeError("cannot compare a scalars with differing type: ", *lhs.type,
-                             " vs ", *rhs.type);
-  }
   if (!lhs.is_valid || !rhs.is_valid) {
     return Int64Scalar();
+  }
+  if (!lhs.type->Equals(*rhs.type)) {
+    return Status::TypeError("cannot compare scalars with differing type: ", *lhs.type,
+                             " vs ", *rhs.type);
   }
   CompareVisitor vis{0, lhs, rhs};
   RETURN_NOT_OK(VisitTypeInline(*lhs.type, &vis));
@@ -487,6 +487,7 @@ Result<std::shared_ptr<Expression>> AssumeCompound(const OperatorExpression& e,
   // anything OR true => true
   // anything AND false => false
   bool trivial_condition = e.type() == ExpressionType::OR;
+  bool simplify_to_trivial = false;
 
   std::vector<std::shared_ptr<Expression>> operands;
   for (auto operand : e.operands()) {
@@ -496,6 +497,10 @@ Result<std::shared_ptr<Expression>> AssumeCompound(const OperatorExpression& e,
       return operand;
     }
 
+    if (simplify_to_trivial) {
+      continue;
+    }
+
     BooleanScalar scalar;
     if (!operand->IsBooleanScalar(&scalar)) {
       operands.push_back(operand);
@@ -503,8 +508,13 @@ Result<std::shared_ptr<Expression>> AssumeCompound(const OperatorExpression& e,
     }
 
     if (scalar.value == trivial_condition) {
-      return ScalarExpression::Make(trivial_condition);
+      simplify_to_trivial = true;
+      continue;
     }
+  }
+
+  if (simplify_to_trivial) {
+    return ScalarExpression::Make(trivial_condition);
   }
 
   if (operands.size() == 1) {
@@ -597,6 +607,10 @@ std::string OperatorExpression::ToString() const {
 }
 
 std::string ScalarExpression::ToString() const {
+  if (!value_->is_valid) {
+    return "scalar<" + value_->type->ToString() + ", null>()";
+  }
+
   std::string value;
   switch (value_->type->id()) {
     case Type::BOOL:

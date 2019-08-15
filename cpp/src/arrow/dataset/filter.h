@@ -244,17 +244,19 @@ class ARROW_DS_EXPORT FieldReferenceExpression final : public Expression {
   std::string name_;
 };
 
-#define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                                \
-  template <typename T>                                                           \
-  OperatorExpression FACTORY_NAME(const FieldReferenceExpression& lhs, T&& rhs) { \
-    return OperatorExpression(                                                    \
-        ExpressionType::NAME,                                                     \
-        {lhs.Copy(), ScalarExpression::Make(std::forward<T>(rhs))});              \
-  }                                                                               \
-                                                                                  \
-  template <typename T>                                                           \
-  OperatorExpression operator OP(const FieldReferenceExpression& lhs, T&& rhs) {  \
-    return FACTORY_NAME(lhs, std::forward<T>(rhs));                               \
+#define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                               \
+  ARROW_DS_EXPORT std::shared_ptr<OperatorExpression> FACTORY_NAME(              \
+      const FieldReferenceExpression& lhs, const ScalarExpression& rhs) {        \
+    return std::make_shared<OperatorExpression>(                                 \
+        ExpressionType::NAME,                                                    \
+        std::vector<std::shared_ptr<Expression>>{lhs.Copy(), rhs.Copy()});       \
+  }                                                                              \
+                                                                                 \
+  template <typename T>                                                          \
+  OperatorExpression operator OP(const FieldReferenceExpression& lhs, T&& rhs) { \
+    return OperatorExpression(                                                   \
+        ExpressionType::NAME,                                                    \
+        {lhs.Copy(), ScalarExpression::Make(std::forward<T>(rhs))});             \
   }
 COMPARISON_FACTORY(EQUAL, equal, ==)
 COMPARISON_FACTORY(NOT_EQUAL, not_equal, !=)

@@ -76,7 +76,7 @@ TEST_F(ExpressionsTest, Equality) {
   ASSERT_FALSE(("b"_ > 2 and "b"_ < 3).Equals("b"_ < 3 and "b"_ > 2));
 }
 
-TEST_F(ExpressionsTest, Simplification) {
+TEST_F(ExpressionsTest, SimplificationOfCompoundQuery) {
   using namespace string_literals;
 
   // chained "and" expressions are flattened
@@ -85,16 +85,34 @@ TEST_F(ExpressionsTest, Simplification) {
 
   AssertSimplifiesTo("b"_ > 5 and "b"_ < 10, "b"_ == 3, *never);
   AssertSimplifiesTo("b"_ > 5 and "b"_ < 10, "b"_ == 6, *always);
-  AssertSimplifiesTo("b"_ > 5, "b"_ == 3 or "b"_ == 6, "b"_ > 5);
-  AssertSimplifiesTo("b"_ > 7, "b"_ == 3 or "b"_ == 6, *never);
-  AssertSimplifiesTo("b"_ > 5 and "b"_ < 10, "b"_ > 6 and "b"_ < 13, "b"_ < 10);
 
   AssertSimplifiesTo("b"_ == 3 or "b"_ == 4, "b"_ > 6, *never);
   AssertSimplifiesTo("b"_ == 3 or "b"_ == 4, "b"_ == 3, *always);
   AssertSimplifiesTo("b"_ == 3 or "b"_ == 4, "b"_ > 3, "b"_ == 4);
   AssertSimplifiesTo("b"_ == 3 or "b"_ == 4, "b"_ >= 3, "b"_ == 3 or "b"_ == 4);
 
+  AssertSimplifiesTo("b"_ == 4, "a"_ == 0, "b"_ == 4);
+
   AssertSimplifiesTo("a"_ == 3 or "b"_ == 4, "a"_ == 0, "b"_ == 4);
+}
+
+TEST_F(ExpressionsTest, SimplificationAgainstCompoundCondition) {
+  using namespace string_literals;
+
+  AssertSimplifiesTo("b"_ > 5, "b"_ == 3 or "b"_ == 6, "b"_ > 5);
+  AssertSimplifiesTo("b"_ > 7, "b"_ == 3 or "b"_ == 6, *never);
+  AssertSimplifiesTo("b"_ > 5 and "b"_ < 10, "b"_ > 6 and "b"_ < 13, "b"_ < 10);
+}
+
+TEST_F(ExpressionsTest, SimplificationToNull) {
+  using namespace string_literals;
+
+  auto null = ScalarExpression::MakeNull();
+
+  AssertSimplifiesTo(*equal("b"_, *null), "b"_ == 3, *null);
+  AssertSimplifiesTo(*not_equal("b"_, *null), "b"_ == 3, *null);
+  AssertSimplifiesTo(*not_equal("b"_, *null) and "b"_ > 3, "b"_ == 3, *null);
+  AssertSimplifiesTo("b"_ > 3 and *not_equal("b"_, *null), "b"_ == 3, *null);
 }
 
 class FilterTest : public ::testing::Test {
