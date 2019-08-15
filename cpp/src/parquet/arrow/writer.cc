@@ -566,7 +566,7 @@ Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* poo
   if (schema.metadata()) {
     result = schema.metadata()->Copy();
   } else {
-    result = ::arrow::key_value_metadata({});
+    result = ::arrow::key_value_metadata({}, {});
   }
 
   ::arrow::ipc::DictionaryMemo dict_memo;
