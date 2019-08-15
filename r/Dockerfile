@@ -60,9 +60,14 @@ ENV ARROW_R_DEV=TRUE
 ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/build/cpp/src/arrow:/opt/conda/lib/pkgconfig
 ENV LD_LIBRARY_PATH=/opt/conda/lib/:/build/cpp/src/arrow:/arrow/r/src
 
-RUN Rscript -e "install.packages('devtools', repos = 'http://cran.rstudio.com')" && \
-    Rscript -e "devtools::install_github('romainfrancois/decor')" && \
-    Rscript -e "install.packages(c( \
+# Ensure parallel R package installation
+RUN printf "options(Ncpus = parallel::detectCores())\n" >> /etc/R/Rprofile.site
+# Also ensure parallel compilation of each individual package
+RUN printf "MAKEFLAGS=-j8\n" >> /usr/lib/R/etc/Makeconf
+
+RUN Rscript -e "install.packages('devtools', repos = 'http://cran.rstudio.com')"
+RUN Rscript -e "devtools::install_github('romainfrancois/decor')"
+RUN Rscript -e "install.packages(c( \
         'Rcpp', 'dplyr', 'stringr', 'glue', 'vctrs', \
         'purrr', \
         'assertthat', \
