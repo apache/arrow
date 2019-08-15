@@ -23,17 +23,25 @@
 #include <memory>
 #include <string>
 
+#include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/io/file.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
 #include "parquet/file_reader.h"
+#include "parquet/file_writer.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/printer.h"
 #include "parquet/test-util.h"
 
 namespace parquet {
+
+using schema::GroupNode;
+using schema::PrimitiveNode;
 
 using ReadableFile = ::arrow::io::ReadableFile;
 
@@ -381,6 +389,94 @@ TEST(TestJSONWithLocalFile, JSONOutput) {
   printer.JSONPrint(ss, columns, "alltypes_plain.parquet");
 
   ASSERT_EQ(json_output, ss.str());
+}
+
+TEST(TestFileReader, BufferedReads) {
+  // PARQUET-1636: Buffered reads were broken before introduction of
+  // RandomAccessFile::GetStream
+
+  const int num_columns = 10;
+  const int num_rows = 1000;
+
+  // Make schema
+  schema::NodeVector fields;
+  for (int i = 0; i < num_columns; ++i) {
+    fields.push_back(PrimitiveNode::Make("field" + std::to_string(i),
+                                         Repetition::REQUIRED, Type::DOUBLE,
+                                         ConvertedType::NONE));
+  }
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+  // Write small batches and small data pages
+  std::shared_ptr<WriterProperties> writer_props =
+      WriterProperties::Builder().write_batch_size(64)->data_pagesize(128)->build();
+
+  std::shared_ptr<arrow::io::BufferOutputStream> out_file;
+  ASSERT_OK(arrow::io::BufferOutputStream::Create(1024, arrow::default_memory_pool(),
+                                                  &out_file));
+  std::shared_ptr<ParquetFileWriter> file_writer =
+      ParquetFileWriter::Open(out_file, schema, writer_props);
+
+  RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
+
+  std::vector<std::shared_ptr<arrow::Array>> column_data;
+  ::arrow::random::RandomArrayGenerator rag(0);
+
+  // Scratch space for reads
+  std::vector<std::shared_ptr<Buffer>> scratch_space;
+
+  // write columns
+  for (int col_index = 0; col_index < num_columns; ++col_index) {
+    DoubleWriter* writer = static_cast<DoubleWriter*>(rg_writer->NextColumn());
+    std::shared_ptr<arrow::Array> col = rag.Float64(num_rows, 0, 100);
+    const auto& col_typed = static_cast<const ::arrow::DoubleArray&>(*col);
+    writer->WriteBatch(num_rows, nullptr, nullptr, col_typed.raw_values());
+    column_data.push_back(col);
+
+    // We use this later for reading back the columns
+    scratch_space.push_back(
+        AllocateBuffer(::arrow::default_memory_pool(), num_rows * sizeof(double)));
+  }
+  rg_writer->Close();
+  file_writer->Close();
+
+  // Open the reader
+  std::shared_ptr<Buffer> file_buf;
+  ASSERT_OK(out_file->Finish(&file_buf));
+  auto in_file = std::make_shared<arrow::io::BufferReader>(file_buf);
+
+  ReaderProperties reader_props;
+  reader_props.enable_buffered_stream();
+  reader_props.set_buffer_size(64);
+  std::unique_ptr<ParquetFileReader> file_reader =
+      ParquetFileReader::Open(in_file, reader_props);
+
+  auto row_group = file_reader->RowGroup(0);
+  std::vector<std::shared_ptr<DoubleReader>> col_readers;
+  for (int col_index = 0; col_index < num_columns; ++col_index) {
+    col_readers.push_back(
+        std::static_pointer_cast<DoubleReader>(row_group->Column(col_index)));
+  }
+
+  for (int row_index = 0; row_index < num_rows; ++row_index) {
+    for (int col_index = 0; col_index < num_columns; ++col_index) {
+      double* out =
+          reinterpret_cast<double*>(scratch_space[col_index]->mutable_data()) + row_index;
+      int64_t values_read = 0;
+      int64_t levels_read =
+          col_readers[col_index]->ReadBatch(1, nullptr, nullptr, out, &values_read);
+
+      ASSERT_EQ(1, levels_read);
+      ASSERT_EQ(1, values_read);
+    }
+  }
+
+  // Check the results
+  for (int col_index = 0; col_index < num_columns; ++col_index) {
+    ASSERT_TRUE(
+        scratch_space[col_index]->Equals(*column_data[col_index]->data()->buffers[1]));
+  }
 }
 
 }  // namespace parquet

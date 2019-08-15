@@ -218,6 +218,73 @@ TEST(TestBufferReader, RetainParentReference) {
   ASSERT_EQ(0, std::memcmp(slice2->data(), data.c_str() + 4, 6));
 }
 
+TEST(TestRandomAccessFile, GetStream) {
+  std::string data = "data1data2data3data4data5";
+
+  auto buf = std::make_shared<Buffer>(data);
+  auto file = std::make_shared<BufferReader>(buf);
+
+  std::shared_ptr<InputStream> stream1, stream2;
+
+  stream1 = RandomAccessFile::GetStream(file, 0, 10);
+  stream2 = RandomAccessFile::GetStream(file, 9, 16);
+
+  int64_t position = -1;
+  ASSERT_OK(stream1->Tell(&position));
+  ASSERT_EQ(0, position);
+
+  std::shared_ptr<Buffer> buf2;
+  uint8_t buf3[20];
+
+  int64_t bytes_read = -1;
+  ASSERT_OK(stream2->Read(4, &bytes_read, buf3));
+  ASSERT_EQ(4, bytes_read);
+  ASSERT_EQ(0, std::memcmp(buf3, "2dat", 4));
+  ASSERT_OK(stream2->Tell(&position));
+  ASSERT_EQ(4, position);
+
+  ASSERT_OK(stream1->Read(6, &bytes_read, buf3));
+  ASSERT_EQ(6, bytes_read);
+  ASSERT_EQ(0, std::memcmp(buf3, "data1d", 6));
+  ASSERT_OK(stream1->Tell(&position));
+  ASSERT_EQ(6, position);
+
+  ASSERT_OK(stream1->Read(2, &buf2));
+  ASSERT_TRUE(SliceBuffer(buf, 6, 2)->Equals(*buf2));
+
+  // Read to end of each stream
+  ASSERT_OK(stream1->Read(4, &bytes_read, buf3));
+  ASSERT_EQ(2, bytes_read);
+  ASSERT_EQ(0, std::memcmp(buf3, "a2", 2));
+  ASSERT_OK(stream1->Tell(&position));
+  ASSERT_EQ(10, position);
+
+  ASSERT_OK(stream1->Read(1, &bytes_read, buf3));
+  ASSERT_EQ(0, bytes_read);
+  ASSERT_OK(stream1->Tell(&position));
+  ASSERT_EQ(10, position);
+
+  // stream2 had its extent limited
+  ASSERT_OK(stream2->Read(20, &buf2));
+  ASSERT_TRUE(SliceBuffer(buf, 13, 12)->Equals(*buf2));
+
+  ASSERT_OK(stream2->Read(1, &buf2));
+  ASSERT_EQ(0, buf2->size());
+  ASSERT_OK(stream2->Tell(&position));
+  ASSERT_EQ(16, position);
+
+  ASSERT_OK(stream1->Close());
+
+  // idempotent
+  ASSERT_OK(stream1->Close());
+  ASSERT_TRUE(stream1->closed());
+
+  // Check whether closed
+  ASSERT_RAISES(IOError, stream1->Tell(&position));
+  ASSERT_RAISES(IOError, stream1->Read(1, &buf2));
+  ASSERT_RAISES(IOError, stream1->Read(1, &bytes_read, buf3));
+}
+
 TEST(TestMemcopy, ParallelMemcopy) {
 #if defined(ARROW_VALGRIND)
   // Compensate for Valgrind's slowness
