@@ -217,3 +217,50 @@ def test_ipc_unknown_type():
     batch = ipc_read_batch(buf2)
     arr = check_example_batch(batch)
     assert arr.type == ParamExtType(3)
+
+
+class PeriodType(pa.GenericExtensionType):
+
+    def __init__(self, freq):
+        # attributes need to be set first before calling
+        # super init (as that calls serialize)
+        self.freq = freq
+        pa.GenericExtensionType.__init__(self, pa.int64(), 'pandas.period')
+
+    def __arrow_ext_serialize__(self):
+        return "freq={}".format(self.freq).encode()
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        serialized = serialized.decode()
+        assert serialized.startswith("freq=")
+        freq = serialized.split('=')[1]
+        return PeriodType(freq)
+
+
+def test_generic_ext_type():
+    period_type = PeriodType('D')
+    assert period_type.extension_name == "pandas.period"
+
+    pa.lib.register_extension_type(period_type)
+
+    storage = pa.array([1, 2, 3, 4], pa.int64())
+    arr = pa.ExtensionArray.from_storage(period_type, storage)
+    batch = pa.RecordBatch.from_arrays([arr], ["ext"])
+
+    buf = ipc_write_batch(batch)
+    del batch
+    batch = ipc_read_batch(buf)
+
+    result = batch.column(0)
+    assert isinstance(result, pa.ExtensionArray)
+    assert result.type.extension_name == "pandas.period"
+    assert arr.storage.to_pylist() == [1, 2, 3, 4]
+
+    # assert isinstance(result.type, PeriodType)
+    # assert result.type.freq == 'D'
+    # assert result.type == PeriodType('D')
+    # TODO the above checks still fail, it gives a BaseExtensionType for now
+    assert isinstance(result.type, pa.BaseExtensionType)
+
+    pa.lib.unregister_extension_type('pandas.period')

@@ -125,6 +125,11 @@ cdef class ExtensionType(BaseExtensionType):
         const CPyExtensionType* cpy_ext_type
 
 
+cdef class GenericExtensionType(BaseExtensionType):
+    cdef:
+        const CGenericExtensionType* cgen_ext_type
+
+
 cdef class Field:
     cdef:
         shared_ptr[CField] sp_field

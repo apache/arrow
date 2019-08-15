@@ -70,7 +70,9 @@ cdef api object pyarrow_wrap_data_type(
     cdef:
         const CExtensionType* ext_type
         const CPyExtensionType* cpy_ext_type
+        const CGenericExtensionType* cgen_ext_type
         DataType out
+        c_string period_ext_name = tobytes("pandas.period")
 
     if type.get() == NULL:
         return None
@@ -96,6 +98,9 @@ cdef api object pyarrow_wrap_data_type(
         if ext_type.extension_name() == PyExtensionName():
             cpy_ext_type = <const CPyExtensionType*> ext_type
             return cpy_ext_type.GetInstance()
+        # elif ext_type.extension_name() == period_ext_name:
+        #     cgen_ext_type = <const CGenericExtensionType*> ext_type
+        #     return cgen_ext_type.GetInstance()
         else:
             out = BaseExtensionType.__new__(BaseExtensionType)
     else:

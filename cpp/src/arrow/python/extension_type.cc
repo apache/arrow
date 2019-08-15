@@ -193,5 +193,105 @@ Status UnregisterPyExtensionType() { return UnregisterExtensionType(kExtensionNa
 
 std::string PyExtensionName() { return kExtensionName; }
 
+
+// Define a generic extension type class that takes the name as constructor
+// parameter
+
+GenericExtensionType::GenericExtensionType(std::shared_ptr<DataType> storage_type,
+                                           std::string extension_name,
+                                           PyObject* typ, PyObject* inst)
+    : ExtensionType(storage_type), extension_name_(extension_name),
+      type_class_(typ), type_instance_(inst) {}
+
+Status GenericExtensionType::FromClass(std::shared_ptr<DataType> storage_type,
+                                       std::string extension_name,
+                                       PyObject* typ,
+                                       std::shared_ptr<ExtensionType>* out) {
+  Py_INCREF(typ);
+  out->reset(new GenericExtensionType(storage_type, extension_name, typ));
+  return Status::OK();
+}
+
+std::shared_ptr<Array> GenericExtensionType::MakeArray(std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), arrow::Type::EXTENSION);
+  return std::make_shared<ExtensionArray>(data);
+}
+
+PyObject* GenericExtensionType::GetInstance() const {
+  if (!type_instance_) {
+    PyErr_SetString(PyExc_TypeError, "Not an instance");
+    return nullptr;
+  }
+  DCHECK(PyWeakref_CheckRef(type_instance_.obj()));
+  PyObject* inst = PyWeakref_GET_OBJECT(type_instance_.obj());
+  Py_INCREF(inst);
+  return inst;
+  if (inst != Py_None) {
+    // Cached instance still alive
+    Py_INCREF(inst);
+    return inst;
+  } else {
+    // Must reconstruct from serialized form
+    // XXX cache again?
+    return DeserializeExtInstance(type_class_.obj(), storage_type_, serialized_);
+  }
+}
+
+Status GenericExtensionType::SetInstance(PyObject* inst) const {
+  // Check we have the right type
+  PyObject* typ = reinterpret_cast<PyObject*>(Py_TYPE(inst));
+  if (typ != type_class_.obj()) {
+    return Status::TypeError("Unexpected Python ExtensionType class ",
+                             internal::PyObject_StdStringRepr(typ), " expected ",
+                             internal::PyObject_StdStringRepr(type_class_.obj()));
+  }
+
+  PyObject* wr = PyWeakref_NewRef(inst, nullptr);
+  if (wr == NULL) {
+    return ConvertPyError();
+  }
+  type_instance_.reset(wr);
+  return SerializeExtInstance(inst, &serialized_);
+}
+
+std::string GenericExtensionType::Serialize() const {
+  PyAcquireGIL lock;
+
+  DCHECK(type_instance_);
+
+  OwnedRef inst(GetInstance());
+
+  std::string serialized;
+  SerializeExtInstance(inst.obj(), &serialized);
+  return serialized;
+}
+
+Status GenericExtensionType::Deserialize(std::shared_ptr<DataType> storage_type,
+                                         const std::string& serialized_data,
+                                         std::shared_ptr<DataType>* out) const {
+  PyAcquireGIL lock;
+
+  if (import_pyarrow()) {
+    return ConvertPyError();
+  }
+  OwnedRef res(DeserializeExtInstance(type_class_.obj(), storage_type,
+                                      serialized_data));
+  if (!res) {
+    return ConvertPyError();
+  }
+  return unwrap_data_type(res.obj(), out);
+}
+
+Status RegisterGenericExtensionType(const std::shared_ptr<DataType>& type) {
+  DCHECK_EQ(type->id(), Type::EXTENSION);
+  auto ext_type = std::dynamic_pointer_cast<ExtensionType>(type);
+  return RegisterExtensionType(ext_type);
+}
+
+Status UnregisterGenericExtensionType(const std::string& type_name) {
+  return UnregisterExtensionType(type_name);
+}
+
+
 }  // namespace py
 }  // namespace arrow

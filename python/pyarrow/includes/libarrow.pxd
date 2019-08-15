@@ -1452,8 +1452,22 @@ cdef extern from 'arrow/python/extension_type.h' namespace 'arrow::py':
 
     c_string PyExtensionName()
     CStatus RegisterPyExtensionType(shared_ptr[CDataType])
+    CStatus RegisterGenericExtensionType(shared_ptr[CDataType])
     CStatus UnregisterPyExtensionType()
+    CStatus UnregisterGenericExtensionType(c_string type_name)
 
+    cdef cppclass CGenericExtensionType \
+            " arrow::py::GenericExtensionType"(CExtensionType):
+        CGenericExtensionType(shared_ptr[CDataType] storage_type,
+                              c_string extension_name, object typ)
+
+        @staticmethod
+        CStatus FromClass(shared_ptr[CDataType] storage_type,
+                          c_string extension_name, object typ,
+                          shared_ptr[CExtensionType]* out)
+
+        object GetInstance()
+        CStatus SetInstance(object)
 
 cdef extern from 'arrow/python/benchmark.h' namespace 'arrow::py::benchmark':
     void Benchmark_PandasObjectIsNull(object lst) except *

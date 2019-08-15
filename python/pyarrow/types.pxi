@@ -614,6 +614,70 @@ cdef class UnknownExtensionType(ExtensionType):
         return self.serialized
 
 
+cdef class GenericExtensionType(BaseExtensionType):
+    """
+    Concrete base class for Python-defined extension types.
+    """
+
+    def __cinit__(self):
+        if type(self) is GenericExtensionType:
+            raise TypeError("Can only instantiate subclasses of "
+                            "GenericExtensionType")
+
+    def __init__(self, DataType storage_type, extension_name):
+        cdef:
+            shared_ptr[CExtensionType] cgen_ext_type
+            c_string c_extension_name
+
+        c_extension_name = tobytes(extension_name)
+        assert storage_type is not None
+        # cgen_ext_type = CGenericExtensionType(
+        #     storage_type.sp_type, c_extension_name)
+        check_status(CGenericExtensionType.FromClass(
+            storage_type.sp_type, c_extension_name, type(self),
+            &cgen_ext_type))
+        self.init(<shared_ptr[CDataType]> cgen_ext_type)
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        BaseExtensionType.init(self, type)
+        self.cgen_ext_type = <const CGenericExtensionType*> type.get()
+        # Store weakref on C++ type instance
+        check_status(self.cgen_ext_type.SetInstance(self))
+
+    def __arrow_ext_serialize__(self):
+        # default for non-paramtrized type is to have no metadata
+        return b''
+
+    @classmethod
+    def __arrow_ext_deserialize__(self, storage_type, serialized):
+        return NotImplementedError
+        # if not serialized == b'':
+        #     raise TypeError
+        # return self
+
+
+def register_extension_type(gen_ext_type):
+    cdef:
+        DataType storage_type
+        c_string c_extension_name
+        shared_ptr[CExtensionType] cgen_ext_type
+
+    storage_type = gen_ext_type.storage_type
+    c_extension_name = tobytes(gen_ext_type.extension_name)
+
+    check_status(CGenericExtensionType.FromClass(
+        storage_type.sp_type, c_extension_name, type(gen_ext_type),
+        &cgen_ext_type))
+    check_status(
+        RegisterGenericExtensionType(<shared_ptr[CDataType]> cgen_ext_type))
+
+
+def unregister_extension_type(type_name):
+    cdef:
+        c_string c_type_name = tobytes(type_name)
+    check_status(UnregisterGenericExtensionType(c_type_name))
+
+
 cdef class Field:
     """
     A named field, with a data type, nullability, and optional metadata.
