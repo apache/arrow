@@ -50,7 +50,7 @@ public interface Consumer extends AutoCloseable {
   FieldVector getVector();
 
   /**
-   * Close this consumer, do some clean work such as clear vectors.
+   * Close this consumer when occurs exception to avoid potential leak.
    */
   void close() throws Exception;
 }

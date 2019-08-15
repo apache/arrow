@@ -246,8 +246,13 @@ public class AvroToArrowUtils {
 
     VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 0);
 
-    try (CompositeAvroConsumer compositeConsumer = new CompositeAvroConsumer(consumers)) {
+    CompositeAvroConsumer compositeConsumer = null;
+    try {
+      compositeConsumer = new CompositeAvroConsumer(consumers);
       compositeConsumer.consume(decoder, root);
+    } catch (Exception e) {
+      compositeConsumer.close();
+      throw new RuntimeException("Error occurs while consume process.", e);
     }
 
     return root;
