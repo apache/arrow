@@ -1457,7 +1457,7 @@ garrow_array_is_in(GArrowArray *left,
  *
  * Returns: (nullable) (transfer full): The #GArrowBooleanArray
  *   showing whether each element in the left array is contained
- *   in right array.
+ *   in right chunked array.
  *
  * Since: 0.15.0
  */
