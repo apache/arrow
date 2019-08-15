@@ -77,7 +77,7 @@ public class TestRangeEqualsVisitor {
       vector2.setSafe(0, 1);
       VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
 
-      assertFalse(vector1.accept(visitor));
+      assertFalse(vector1.accept(visitor, null));
     }
   }
 
@@ -104,7 +104,7 @@ public class TestRangeEqualsVisitor {
       vector2.setSafe(4,55);
 
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector2, 1, 1, 3);
-      assertTrue(vector1.accept(visitor));
+      assertTrue(vector1.accept(visitor, null));
     }
   }
 
@@ -132,7 +132,7 @@ public class TestRangeEqualsVisitor {
       vector2.setValueCount(5);
 
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector2, 1, 1, 3);
-      assertTrue(vector1.accept(visitor));
+      assertTrue(vector1.accept(visitor, null));
     }
   }
 
@@ -164,7 +164,7 @@ public class TestRangeEqualsVisitor {
       writer2.setValueCount(5);
 
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector2, 1, 1, 3);
-      assertTrue(vector1.accept(visitor));
+      assertTrue(vector1.accept(visitor, null));
     }
   }
 
@@ -198,7 +198,7 @@ public class TestRangeEqualsVisitor {
       writer2.setValueCount(5);
 
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector2, 1, 1, 3);
-      assertTrue(vector1.accept(visitor));
+      assertTrue(vector1.accept(visitor, null));
     }
   }
 
@@ -236,7 +236,7 @@ public class TestRangeEqualsVisitor {
       vector2.setValueCount(3);
 
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector2, 1, 1, 2);
-      assertTrue(vector1.accept(visitor));
+      assertTrue(vector1.accept(visitor, null));
     }
   }
 
@@ -246,10 +246,10 @@ public class TestRangeEqualsVisitor {
         final ZeroVector zeroVector = new ZeroVector()) {
 
       VectorEqualsVisitor zeroVisitor = new VectorEqualsVisitor(zeroVector, false);
-      assertTrue(intVector.accept(zeroVisitor));
+      assertTrue(intVector.accept(zeroVisitor, null));
 
       VectorEqualsVisitor intVisitor = new VectorEqualsVisitor(intVector, false);
-      assertTrue(zeroVector.accept(intVisitor));
+      assertTrue(zeroVector.accept(intVisitor, null));
     }
   }
 

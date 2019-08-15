@@ -22,7 +22,7 @@ import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
-import org.apache.arrow.vector.compare.RangeEqualsVisitor;
+import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -259,7 +259,12 @@ public abstract class ExtensionTypeVector<T extends BaseValueVector & FieldVecto
   }
 
   @Override
+<<<<<<< HEAD
   public boolean accept(RangeEqualsVisitor visitor) {
     return getUnderlyingVector().accept(visitor);
+=======
+  public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
+    return visitor.visit(getUnderlyingVector(), value);
+>>>>>>> ARROW-6211: [Java] Remove dependency on RangeEqualsVisitor from ValueVector interface
   }
 }
