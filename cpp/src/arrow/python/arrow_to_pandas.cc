@@ -487,7 +487,7 @@ inline Status ConvertNulls(const PandasOptions& options, const ChunkedArray& dat
 inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& data,
                             PyObject** out_values) {
   PyAcquireGIL lock;
-  if (data.num_chunks() <= 0) {
+  if (data.num_chunks() == 0) {
     return Status::OK();
   }
   // ChunkedArray has at least one chunk
@@ -1042,6 +1042,14 @@ class DatetimeTZBlock : public DatetimeBlock {
   std::string timezone_;
 };
 
+Status MakeZeroLengthArray(const std::shared_ptr<DataType>& type,
+                           std::shared_ptr<Array>* out) {
+  std::unique_ptr<ArrayBuilder> builder;
+  RETURN_NOT_OK(MakeBuilder(default_memory_pool(), type, &builder));
+  RETURN_NOT_OK(builder->Resize(0));
+  return builder->Finish(out);
+}
+
 class CategoricalBlock : public PandasBlock {
  public:
   explicit CategoricalBlock(const PandasOptions& options, MemoryPool* pool,
@@ -1063,7 +1071,7 @@ class CategoricalBlock : public PandasBlock {
     using T = typename TRAITS::T;
     constexpr int npy_type = TRAITS::npy_type;
 
-    if (data->num_chunks() <= 0) {
+    if (data->num_chunks() == 0) {
       RETURN_NOT_OK(AllocateNDArray(npy_type, 1));
       return Status::OK();
     }
@@ -1175,13 +1183,9 @@ class CategoricalBlock : public PandasBlock {
 
     // TODO(wesm): variable dictionaries
     std::shared_ptr<Array> dict;
-    if (data->num_chunks() <= 0) {
+    if (data->num_chunks() == 0) {
       // no dictionary values => create empty array
-      std::unique_ptr<ArrayBuilder> builder;
-      RETURN_NOT_OK(MakeBuilder(default_memory_pool(), dict_type.value_type(), &builder));
-      RETURN_NOT_OK(builder->Resize(0));
-      RETURN_NOT_OK(builder->Finish(&dict));
-
+      RETURN_NOT_OK(MakeZeroLengthArray(dict_type.value_type(), &dict));
     } else {
       auto arr = converted_data->chunk(0);
       const auto& dict_arr = checked_cast<const DictionaryArray&>(*arr);
