@@ -36,7 +36,7 @@ import io.netty.buffer.ArrowBuf;
  * float values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class Float4Vector extends BaseFixedWidthVector {
+public class Float4Vector extends BaseFixedWidthVector implements PrimitiveNumericVector {
   public static final byte TYPE_WIDTH = 4;
   private final FieldReader reader;
 
@@ -280,6 +280,11 @@ public class Float4Vector extends BaseFixedWidthVector {
    */
   public static float get(final ArrowBuf buffer, final int index) {
     return buffer.getFloat(index * TYPE_WIDTH);
+  }
+
+  @Override
+  public double getValueAsDouble(int index) {
+    return get(index);
   }
 
 
