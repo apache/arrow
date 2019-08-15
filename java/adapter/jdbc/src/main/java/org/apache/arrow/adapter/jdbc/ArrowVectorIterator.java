@@ -108,13 +108,10 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot> {
     // consume data
     try {
       int readRowCount = 0;
-      while (resultSet.next()) {
+      while (!((targetBatchSize != JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE &&
+          readRowCount >= targetBatchSize)) && resultSet.next()) {
         compositeConsumer.consume(resultSet);
         readRowCount++;
-        if (targetBatchSize != JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE &&
-            readRowCount >= targetBatchSize) {
-          break;
-        }
       }
 
       root.setRowCount(readRowCount);
