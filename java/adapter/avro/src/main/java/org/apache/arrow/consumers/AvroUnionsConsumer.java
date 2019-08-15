@@ -82,9 +82,10 @@ public class AvroUnionsConsumer implements Consumer {
   }
 
   @Override
-  public void close() {
-    for (Consumer consumer : delegates) {
-      consumer.close();
+  public void close() throws Exception {
+    writer.close();
+    for (Consumer delegate: delegates) {
+      delegate.close();
     }
   }
 }

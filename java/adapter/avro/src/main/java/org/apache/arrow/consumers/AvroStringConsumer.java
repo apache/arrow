@@ -82,9 +82,7 @@ public class AvroStringConsumer implements Consumer {
   }
 
   @Override
-  public void close() {
-    if (cacheBuffer != null) {
-      cacheBuffer.clear();
-    }
+  public void close() throws Exception {
+    writer.close();
   }
 }

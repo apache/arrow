@@ -59,7 +59,11 @@ public class CompositeAvroConsumer implements AutoCloseable {
   public void close() {
     // clean up
     for (Consumer consumer : consumers) {
-      consumer.close();
+      try {
+        consumer.close();
+      } catch (Exception e) {
+        throw new RuntimeException("Error occurs in close.", e);
+      }
     }
   }
 }

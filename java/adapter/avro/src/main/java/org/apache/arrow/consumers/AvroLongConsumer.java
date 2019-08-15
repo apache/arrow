@@ -62,4 +62,9 @@ public class AvroLongConsumer implements Consumer {
   public FieldVector getVector() {
     return this.vector;
   }
+
+  @Override
+  public void close() throws Exception {
+    writer.close();
+  }
 }

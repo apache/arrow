@@ -48,4 +48,9 @@ public class AvroNullConsumer implements Consumer {
   public FieldVector getVector() {
     return this.vector;
   }
+
+  @Override
+  public void close() {
+    vector.close();
+  }
 }

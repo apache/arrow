@@ -66,7 +66,7 @@ public class NullableTypeConsumer implements Consumer {
   }
 
   @Override
-  public void close() {
+  public void close() throws Exception {
     delegate.close();
   }
 
