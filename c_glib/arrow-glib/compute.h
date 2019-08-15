@@ -20,6 +20,7 @@
 #pragma once
 
 #include <arrow-glib/array.h>
+#include <arrow-glib/chunked-array.h>
 
 G_BEGIN_DECLS
 
@@ -258,5 +259,10 @@ GArrowBooleanArray *
 garrow_array_is_in(GArrowArray *left,
                    GArrowArray *right,
                    GError **error);
+GARROW_AVAILABLE_IN_0_15
+GArrowBooleanArray *
+garrow_array_is_in_chunked_array(GArrowArray *left,
+                                 GArrowChunkedArray *right,
+                                 GError **error);
 
 G_END_DECLS
