@@ -114,10 +114,7 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
     Put(data, num_valid_values);
   }
 
- protected:
-  std::shared_ptr<arrow::io::BufferOutputStream> values_sink_;
-
-  void WriteByteArray(const ByteArray& val) {
+  void Put(const ByteArray& val) {
     // Write the result to the output stream
     PARQUET_THROW_NOT_OK(values_sink_->Write(reinterpret_cast<const uint8_t*>(&val.len),
                                              sizeof(uint32_t)));
@@ -127,6 +124,9 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
     PARQUET_THROW_NOT_OK(
         values_sink_->Write(reinterpret_cast<const uint8_t*>(val.ptr), val.len));
   }
+
+ protected:
+  std::shared_ptr<arrow::io::BufferOutputStream> values_sink_;
 };
 
 template <typename DType>
@@ -138,7 +138,7 @@ void PlainEncoder<DType>::Put(const T* buffer, int num_values) {
 template <>
 inline void PlainEncoder<ByteArrayType>::Put(const ByteArray* src, int num_values) {
   for (int i = 0; i < num_values; ++i) {
-    WriteByteArray(src[i]);
+    Put(src[i]);
   }
 }
 
@@ -153,22 +153,27 @@ void AssertBinary(const arrow::Array& values) {
   }
 }
 
-template <>
-void PlainEncoder<ByteArrayType>::Put(const arrow::Array& values) {
+template <typename EncoderType>
+void PutBinaryArray(const arrow::Array& values, EncoderType* encoder) {
   AssertBinary(values);
   const auto& data = checked_cast<const arrow::BinaryArray&>(values);
   if (data.null_count() == 0) {
     // no nulls, just dump the data
     for (int64_t i = 0; i < data.length(); i++) {
-      WriteByteArray(ByteArray(data.GetView(i)));
+      encoder->Put(ByteArray(data.GetView(i)));
     }
   } else {
     for (int64_t i = 0; i < data.length(); i++) {
       if (data.IsValid(i)) {
-        WriteByteArray(ByteArray(data.GetView(i)));
+        encoder->Put(ByteArray(data.GetView(i)));
       }
     }
   }
+}
+
+template <>
+void PlainEncoder<ByteArrayType>::Put(const arrow::Array& values) {
+  PutBinaryArray(values, this);
 }
 
 template <>
@@ -564,20 +569,7 @@ void DictEncoderImpl<DType>::Put(const arrow::Array& values) {
 
 template <>
 void DictEncoderImpl<ByteArrayType>::Put(const arrow::Array& values) {
-  AssertBinary(values);
-  const auto& data = checked_cast<const arrow::BinaryArray&>(values);
-  if (data.null_count() == 0) {
-    // no nulls, just dump the data
-    for (int64_t i = 0; i < data.length(); i++) {
-      Put(ByteArray(data.GetView(i)));
-    }
-  } else {
-    for (int64_t i = 0; i < data.length(); i++) {
-      if (data.IsValid(i)) {
-        Put(ByteArray(data.GetView(i)));
-      }
-    }
-  }
+  PutBinaryArray(values, this);
 }
 
 template <typename DType>

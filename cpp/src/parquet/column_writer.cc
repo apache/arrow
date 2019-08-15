@@ -651,8 +651,8 @@ bool DictionaryDirectWriteSupported(const arrow::Array& array) {
   return id == arrow::Type::BINARY || id == arrow::Type::STRING;
 }
 
-Status MaterializeDictionary(const arrow::Array& array, MemoryPool* pool,
-                             std::shared_ptr<arrow::Array>* out) {
+Status ConvertDictionaryToDense(const arrow::Array& array, MemoryPool* pool,
+                                std::shared_ptr<arrow::Array>* out) {
   const arrow::DictionaryType& dict_type =
       static_cast<const arrow::DictionaryType&>(*array.type());
 
@@ -710,8 +710,11 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       }
       WriteValues(values + value_offset, values_to_write, batch_size - values_to_write);
       CommitWriteAndCheckPageLimit(batch_size, values_to_write);
-      CheckDictionarySizeLimit();
       value_offset += values_to_write;
+
+      // Dictionary size checked separately from data page size since we
+      // circumvent this check when writing arrow::DictionaryArray directly
+      CheckDictionarySizeLimit();
     };
     DoInBatches(num_values, properties_->write_batch_size(), WriteChunk);
   }
@@ -729,8 +732,11 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       WriteValuesSpaced(values + value_offset, batch_num_values, batch_num_spaced_values,
                         valid_bits, valid_bits_offset + value_offset);
       CommitWriteAndCheckPageLimit(batch_size, batch_num_spaced_values);
-      CheckDictionarySizeLimit();
       value_offset += batch_num_spaced_values;
+
+      // Dictionary size checked separately from data page size since we
+      // circumvent this check when writing arrow::DictionaryArray directly
+      CheckDictionarySizeLimit();
     };
     DoInBatches(num_values, properties_->write_batch_size(), WriteChunk);
   }
@@ -973,6 +979,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   }
 };
 
+static inline bool IsDictionaryEncoding(Encoding::type encoding) {
+  return encoding == Encoding::PLAIN_DICTIONARY;
+}
+
 template <typename DType>
 Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(const int16_t* def_levels,
                                                           const int16_t* rep_levels,
@@ -996,14 +1006,19 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(const int16_t* def_lev
   //     WriteArrow with that
   auto WriteDense = [&] {
     std::shared_ptr<arrow::Array> dense_array;
-    RETURN_NOT_OK(MaterializeDictionary(array, properties_->memory_pool(), &dense_array));
+    RETURN_NOT_OK(
+        ConvertDictionaryToDense(array, properties_->memory_pool(), &dense_array));
     return WriteArrowDense(def_levels, rep_levels, num_levels, *dense_array, ctx);
   };
 
-  if (current_encoder_->encoding() != Encoding::PLAIN_DICTIONARY ||
+  if (!IsDictionaryEncoding(current_encoder_->encoding()) ||
       !DictionaryDirectWriteSupported(array)) {
-    // No longer dictionary-encoding for whatever reason, maybe we
-    // never were or we decided to stop
+    // No longer dictionary-encoding for whatever reason, maybe we never were
+    // or we decided to stop. Note that WriteArrow can be invoked multiple
+    // times with both dense and dictionary-encoded versions of the same data
+    // without a problem. Any dense data will be hashed to indices until the
+    // dictionary page limit is reached, at which everything (dictionary and
+    // dense) will fall back to plain encoding
     return WriteDense();
   }
 
