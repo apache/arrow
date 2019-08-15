@@ -64,44 +64,6 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 public class JdbcToArrow {
 
   /**
-   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
-   *
-   * @param resultSet ResultSet to use to fetch the data from underlying database
-   * @param allocator Memory allocator
-   * @return Arrow Data Objects {@link VectorSchemaRoot}
-   * @throws SQLException on error
-   */
-  @Deprecated
-  public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, BaseAllocator allocator)
-      throws SQLException, IOException {
-    Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
-
-    JdbcToArrowConfig config =
-        new JdbcToArrowConfig(allocator, JdbcToArrowUtils.getUtcCalendar());
-    return sqlToArrow(resultSet, config);
-  }
-
-  /**
-   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
-   *
-   * @param resultSet ResultSet to use to fetch the data from underlying database
-   * @param config    Configuration of the conversion from JDBC to Arrow.
-   * @return Arrow Data Objects {@link VectorSchemaRoot}
-   * @throws SQLException on error
-   */
-  @Deprecated
-  public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, JdbcToArrowConfig config)
-      throws SQLException, IOException {
-    Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
-    Preconditions.checkNotNull(config, "The configuration cannot be null");
-
-    VectorSchemaRoot root = VectorSchemaRoot.create(
-        JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), config), config.getAllocator());
-    JdbcToArrowUtils.jdbcToArrowVectors(resultSet, root, config);
-    return root;
-  }
-
-  /**
    * For the given SQL query, execute and fetch the data from Relational DB and convert it to Arrow objects.
    * This method uses the default Calendar instance with default TimeZone and Locale as returned by the JVM.
    * If you wish to use specific TimeZone or Locale for any Date, Time and Timestamp datasets, you may want use
@@ -194,6 +156,24 @@ public class JdbcToArrow {
    * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
    *
    * @param resultSet ResultSet to use to fetch the data from underlying database
+   * @param allocator Memory allocator
+   * @return Arrow Data Objects {@link VectorSchemaRoot}
+   * @throws SQLException on error
+   */
+  @Deprecated
+  public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, BaseAllocator allocator)
+      throws SQLException, IOException {
+    Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
+
+    JdbcToArrowConfig config =
+        new JdbcToArrowConfig(allocator, JdbcToArrowUtils.getUtcCalendar());
+    return sqlToArrow(resultSet, config);
+  }
+
+  /**
+   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
+   *
+   * @param resultSet ResultSet to use to fetch the data from underlying database
    * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets, or <code>null</code> if none.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
    * @throws SQLException on error
@@ -222,6 +202,26 @@ public class JdbcToArrow {
     Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
 
     return sqlToArrow(resultSet, new JdbcToArrowConfig(allocator, calendar));
+  }
+
+  /**
+   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
+   *
+   * @param resultSet ResultSet to use to fetch the data from underlying database
+   * @param config    Configuration of the conversion from JDBC to Arrow.
+   * @return Arrow Data Objects {@link VectorSchemaRoot}
+   * @throws SQLException on error
+   */
+  @Deprecated
+  public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, JdbcToArrowConfig config)
+      throws SQLException, IOException {
+    Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
+    Preconditions.checkNotNull(config, "The configuration cannot be null");
+
+    VectorSchemaRoot root = VectorSchemaRoot.create(
+        JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), config), config.getAllocator());
+    JdbcToArrowUtils.jdbcToArrowVectors(resultSet, root, config);
+    return root;
   }
 
   /*----------------------------------------------------------------*
