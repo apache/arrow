@@ -113,7 +113,7 @@ class ARROW_DS_EXPORT Expression {
   /// of this expression with schema information incorporated:
   /// - Scalars are cast to other data types if necessary to ensure comparisons are
   ///   between data of identical type
-  // virtual Result<std::shared_ptr<Expression>> Validate(const Schema&) const;
+  // virtual Result<std::shared_ptr<Expression>> Validate(const Schema& schema) const = 0;
 
   /// returns a debug string representing this expression
   virtual std::string ToString() const = 0;
@@ -127,6 +127,9 @@ class ARROW_DS_EXPORT Expression {
   /// and there will be exactly two operands representing the left and right hand sides of
   /// a comparison
   bool IsComparisonExpression() const;
+
+  /// If true, this Expression is a ScalarExpression wrapping a null Scalar.
+  bool IsNullScalar() const;
 
   /// If true, this Expression is a ScalarExpression wrapping a boolean Scalar. Its value
   /// may be retrieved at the same time
@@ -156,7 +159,9 @@ class ARROW_DS_EXPORT OperatorExpression final : public Expression {
 
   const std::vector<std::shared_ptr<Expression>>& operands() const { return operands_; }
 
-  virtual std::string ToString() const override;
+  std::string ToString() const override;
+
+  // Result<std::shared_ptr<Expression>> Validate(const Schema& schema) const override;
 
   std::shared_ptr<Expression> Copy() const override;
 
@@ -164,11 +169,17 @@ class ARROW_DS_EXPORT OperatorExpression final : public Expression {
   std::vector<std::shared_ptr<Expression>> operands_;
 };
 
-OperatorExpression operator and(const OperatorExpression& lhs,
-                                const OperatorExpression& rhs);
-OperatorExpression operator or(const OperatorExpression& lhs,
-                               const OperatorExpression& rhs);
-OperatorExpression operator not(const OperatorExpression& rhs);
+ARROW_DS_EXPORT std::shared_ptr<OperatorExpression> and_(
+    std::vector<std::shared_ptr<Expression>> operands);
+ARROW_DS_EXPORT OperatorExpression operator and(const OperatorExpression& lhs,
+                                                const OperatorExpression& rhs);
+ARROW_DS_EXPORT std::shared_ptr<OperatorExpression> or_(
+    std::vector<std::shared_ptr<Expression>> operands);
+ARROW_DS_EXPORT OperatorExpression operator or(const OperatorExpression& lhs,
+                                               const OperatorExpression& rhs);
+ARROW_DS_EXPORT std::shared_ptr<OperatorExpression> not_(
+    std::shared_ptr<Expression> operand);
+ARROW_DS_EXPORT OperatorExpression operator not(const OperatorExpression& rhs);
 
 /// Represents a scalar value; thin wrapper around arrow::Scalar
 class ARROW_DS_EXPORT ScalarExpression final : public Expression {
@@ -178,7 +189,9 @@ class ARROW_DS_EXPORT ScalarExpression final : public Expression {
 
   const std::shared_ptr<Scalar>& value() const { return value_; }
 
-  virtual std::string ToString() const override;
+  std::string ToString() const override;
+
+  // Result<std::shared_ptr<Expression>> Validate(const Schema& schema) const override;
 
   static std::shared_ptr<ScalarExpression> Make(bool value) {
     return std::make_shared<ScalarExpression>(std::make_shared<BooleanScalar>(value));
@@ -221,7 +234,9 @@ class ARROW_DS_EXPORT FieldReferenceExpression final : public Expression {
 
   std::string name() const { return name_; }
 
-  virtual std::string ToString() const override;
+  std::string ToString() const override;
+
+  // Result<std::shared_ptr<Expression>> Validate(const Schema& schema) const override;
 
   std::shared_ptr<Expression> Copy() const override;
 
@@ -229,23 +244,29 @@ class ARROW_DS_EXPORT FieldReferenceExpression final : public Expression {
   std::string name_;
 };
 
-#define COMPARISON_FACTORY(NAME, OP)                                             \
-  template <typename T>                                                          \
-  OperatorExpression operator OP(const FieldReferenceExpression& lhs, T&& rhs) { \
-    return OperatorExpression(                                                   \
-        ExpressionType::NAME,                                                    \
-        {lhs.Copy(), ScalarExpression::Make(std::forward<T>(rhs))});             \
+#define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                                \
+  template <typename T>                                                           \
+  OperatorExpression FACTORY_NAME(const FieldReferenceExpression& lhs, T&& rhs) { \
+    return OperatorExpression(                                                    \
+        ExpressionType::NAME,                                                     \
+        {lhs.Copy(), ScalarExpression::Make(std::forward<T>(rhs))});              \
+  }                                                                               \
+                                                                                  \
+  template <typename T>                                                           \
+  OperatorExpression operator OP(const FieldReferenceExpression& lhs, T&& rhs) {  \
+    return FACTORY_NAME(lhs, std::forward<T>(rhs));                               \
   }
-COMPARISON_FACTORY(EQUAL, ==)
-COMPARISON_FACTORY(NOT_EQUAL, !=)
-COMPARISON_FACTORY(GREATER, >)
-COMPARISON_FACTORY(GREATER_EQUAL, >=)
-COMPARISON_FACTORY(LESS, <)
-COMPARISON_FACTORY(LESS_EQUAL, <=)
+COMPARISON_FACTORY(EQUAL, equal, ==)
+COMPARISON_FACTORY(NOT_EQUAL, not_equal, !=)
+COMPARISON_FACTORY(GREATER, greater, >)
+COMPARISON_FACTORY(GREATER_EQUAL, greater_equal, >=)
+COMPARISON_FACTORY(LESS, less, <)
+COMPARISON_FACTORY(LESS_EQUAL, less_equal, <=)
 #undef COMPARISON_FACTORY
 
 inline namespace string_literals {
-FieldReferenceExpression operator""_(const char* name, size_t name_length) {
+ARROW_DS_EXPORT FieldReferenceExpression operator""_(const char* name,
+                                                     size_t name_length) {
   return FieldReferenceExpression({name, name_length});
 }
 }  // namespace string_literals
