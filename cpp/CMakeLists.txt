@@ -28,6 +28,7 @@ if(NOT GENERATOR_IS_MULTI_CONFIG AND NOT DEFINED CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build.")
 endif()
 
+string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
 project(arrow VERSION "${ARROW_BASE_VERSION}")
 
 set(ARROW_VERSION_MAJOR "${arrow_VERSION_MAJOR}")
@@ -398,7 +399,6 @@ set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 if(CMAKE_GENERATOR STREQUAL Xcode)
   # Xcode projects support multi-configuration builds.  This forces a single output directory
   # when building with Xcode that is consistent with single-configuration Makefile driven build.
-  string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
   set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${UPPERCASE_BUILD_TYPE}
       "${BUILD_OUTPUT_ROOT_DIRECTORY}")
   set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${UPPERCASE_BUILD_TYPE}
