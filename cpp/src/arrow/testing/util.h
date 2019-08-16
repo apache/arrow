@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/builder.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -123,66 +124,56 @@ class BatchIterator : public RecordBatchReader {
   size_t position_;
 };
 
-struct MakeRepeatedArrayImpl {
-  template <typename T>
-  MakeRepeatedArrayImpl(std::shared_ptr<DataType> type, const T& value,
-                        int64_t repetitions)
-      : type_(type), typeid_(Typeid<T>()), value_(&value), repetitions_(repetitions) {}
-
-  template <typename T>
-  enable_if_number<T, Status> Visit(const T& t) {
-    typename TypeTraits<T>::BuilderType builder;
-    ARROW_ASSIGN_OR_RAISE(auto value, GetValue<typename T::c_type>());
-    RETURN_NOT_OK(builder.Resize(repetitions_));
-    for (auto i = 0; i < repetitions_; ++i) {
-      builder.UnsafeAppend(value);
-    }
-    return builder.Finish(&out_);
-  }
-
-  template <typename T>
-  enable_if_binary_like<T, Status> Visit(const T& t) {
-    typename TypeTraits<T>::BuilderType builder(type_, default_memory_pool());
-    ARROW_ASSIGN_OR_RAISE(auto value, GetValue<util::string_view>());
-    RETURN_NOT_OK(builder.Resize(repetitions_));
-    for (auto i = 0; i < repetitions_; ++i) {
-      builder.UnsafeAppend(value);
-    }
-    return builder.Finish(&out_);
+template <typename Fn>
+struct VisitBuilderImpl {
+  template <typename T, typename BuilderType = typename TypeTraits<T>::BuilderType,
+            // need to let SFINAE drop this Visit when it would result in
+            // [](NullBuilder*){}(double_builder)
+            typename E = typename std::result_of<Fn(BuilderType*)>::type>
+  Status Visit(const T&) {
+    fn_(internal::checked_cast<BuilderType*>(builder_));
+    return Status::OK();
   }
 
   Status Visit(const DataType& t) {
-    return Status::Invalid("creating arrays of repeated ", t);
+    return Status::NotImplemented("visiting builders of type ", t);
   }
 
-  template <typename T>
-  static const bool* Typeid() {
-    static const bool _ = true;
-    return &_;
-  }
+  Status Visit() { return VisitTypeInline(*builder_->type(), this); }
 
-  template <typename T>
-  Result<T> GetValue() {
-    if (typeid_ != Typeid<T>()) {
-      return Status::TypeError("cannot create an array of type ", *type_,
-                               " from given value");
-    }
-    return *static_cast<const T*>(value_);
-  }
-
-  std::shared_ptr<DataType> type_;
-  const bool* typeid_;
-  const void* value_;
-  int64_t repetitions_;
-  std::shared_ptr<Array> out_;
+  ArrayBuilder* builder_;
+  Fn fn_;
 };
 
-template <typename T>
-Result<std::shared_ptr<Array>> MakeRepeatedArray(const std::shared_ptr<DataType>& type,
-                                                 int64_t repetitions, const T& t) {
-  MakeRepeatedArrayImpl impl(type, t, repetitions);
-  RETURN_NOT_OK(VisitTypeInline(*type, &impl));
-  return impl.out_;
+template <typename Fn>
+Status VisitBuilder(ArrayBuilder* builder, Fn&& fn) {
+  return VisitBuilderImpl<Fn>{builder, std::forward<Fn>(fn)}.Visit();
+}
+
+template <typename Fn>
+Result<std::shared_ptr<Array>> ArrayFromBuilderVisitor(
+    const std::shared_ptr<DataType>& type, int64_t initial_capacity,
+    int64_t visitor_repetitions, Fn&& fn) {
+  std::unique_ptr<ArrayBuilder> builder;
+  RETURN_NOT_OK(MakeBuilder(default_memory_pool(), type, &builder));
+
+  if (initial_capacity != 0) {
+    RETURN_NOT_OK(builder->Resize(initial_capacity));
+  }
+
+  for (int64_t i = 0; i < visitor_repetitions; ++i) {
+    RETURN_NOT_OK(VisitBuilder(builder.get(), std::forward<Fn>(fn)));
+  }
+
+  std::shared_ptr<Array> out;
+  RETURN_NOT_OK(builder->Finish(&out));
+  return out;
+}
+
+template <typename Fn>
+Result<std::shared_ptr<Array>> ArrayFromBuilderVisitor(
+    const std::shared_ptr<DataType>& type, int64_t length, Fn&& fn) {
+  return ArrayFromBuilderVisitor(type, length, length, std::forward<Fn>(fn));
 }
 
 }  // namespace arrow

@@ -42,7 +42,10 @@ class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
   }
 
   std::shared_ptr<RecordBatch> GetRecordBatch() {
-    ASSERT_OK_AND_ASSIGN(auto f64, MakeRepeatedArray(float64(), kBatchSize, 0.0));
+    ASSERT_OK_AND_ASSIGN(auto f64, ArrayFromBuilderVisitor(float64(), kBatchSize,
+                                                           [](DoubleBuilder* builder) {
+                                                             builder->UnsafeAppend(0.0);
+                                                           }));
 
     auto schema_ = schema({field("f64", f64->type())});
     return RecordBatch::Make(schema_, kBatchSize, {f64});
