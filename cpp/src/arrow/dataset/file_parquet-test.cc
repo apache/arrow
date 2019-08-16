@@ -20,13 +20,10 @@
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/util.h"
-#include "parquet/arrow/io_test.h"
 #include "parquet/arrow/writer.h"
 
 namespace arrow {
 namespace dataset {
-
-using parquet::arrow::ArrowParquetWriterMixin;
 
 constexpr int64_t kBatchSize = 1UL << 15;
 constexpr int64_t kBatchRepetitions = 1 << 10;

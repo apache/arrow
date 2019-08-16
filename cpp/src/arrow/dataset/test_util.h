@@ -25,8 +25,79 @@
 #include "arrow/record_batch.h"
 #include "arrow/util/stl.h"
 
+#include "parquet/arrow/writer.h"
+
 namespace arrow {
 namespace dataset {
+
+using parquet::CreateOutputStream;
+using parquet::arrow::WriteRecordBatchReader;
+using parquet::arrow::WriteTable;
+
+// Convenience class allowing to retrieve integration data easily, e.g.
+//
+// class MyTestClass : public ::testing::Test, TestDataFixtureMixin {
+// }
+//
+// TEST(MyTestClass, ATest) {
+//    this->OpenParquetFile("data/binary.parquet")
+//    // Do something
+// }
+class TestDataFixtureMixin : public ::testing::Test {
+ public:
+  TestDataFixtureMixin() {
+    auto root = std::make_shared<fs::LocalFileSystem>();
+    arrow_fs_ = std::make_shared<fs::SubTreeFileSystem>(ArrowTestDataPath(), root);
+    parquet_fs_ = std::make_shared<fs::SubTreeFileSystem>(ParquetTestDataPath(), root);
+  }
+
+  std::shared_ptr<io::RandomAccessFile> OpenParquetFile(
+      const std::string& relative_path) {
+    std::shared_ptr<io::RandomAccessFile> file;
+    ARROW_EXPECT_OK(ParquetDataFileSystem()->OpenInputFile(relative_path, &file));
+    return file;
+  }
+
+  std::shared_ptr<io::RandomAccessFile> OpenArrowFile(const std::string& relative_path) {
+    std::shared_ptr<io::RandomAccessFile> file;
+    ARROW_EXPECT_OK(ArrowDataFileSystem()->OpenInputFile(relative_path, &file));
+    return file;
+  }
+
+  fs::FileSystem* ArrowDataFileSystem() const { return arrow_fs_.get(); }
+  fs::FileSystem* ParquetDataFileSystem() const { return parquet_fs_.get(); }
+
+ protected:
+  std::shared_ptr<fs::FileSystem> arrow_fs_;
+  std::shared_ptr<fs::FileSystem> parquet_fs_;
+};
+
+class ArrowParquetWriterMixin : public ::testing::Test {
+ public:
+  std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
+    auto pool = ::arrow::default_memory_pool();
+
+    std::shared_ptr<Buffer> out;
+    auto sink = CreateOutputStream(pool);
+
+    ARROW_EXPECT_OK(WriteRecordBatchReader(reader, pool, sink));
+    ARROW_EXPECT_OK(sink->Finish(&out));
+
+    return out;
+  }
+
+  std::shared_ptr<Buffer> Write(const Table& table) {
+    auto pool = ::arrow::default_memory_pool();
+
+    std::shared_ptr<Buffer> out;
+    auto sink = CreateOutputStream(pool);
+
+    ARROW_EXPECT_OK(WriteTable(table, pool, sink, 1U << 16));
+    ARROW_EXPECT_OK(sink->Finish(&out));
+
+    return out;
+  }
+};
 
 // Convenience class allowing easy retrieval of FileSources pointing to test data.
 class FileSourceFixtureMixin : public TestDataFixtureMixin {
