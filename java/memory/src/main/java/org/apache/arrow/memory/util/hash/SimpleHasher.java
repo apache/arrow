@@ -21,8 +21,6 @@ import static io.netty.util.internal.PlatformDependent.getByte;
 import static io.netty.util.internal.PlatformDependent.getInt;
 import static io.netty.util.internal.PlatformDependent.getLong;
 
-import org.apache.arrow.memory.util.ArrowBufPointer;
-
 import io.netty.buffer.ArrowBuf;
 
 /**
@@ -61,10 +59,6 @@ public class SimpleHasher implements ArrowBufHasher {
     int index = 0;
     while (index + 8 <= length) {
       long longValue = getLong(address + index);
-      if (!ArrowBufPointer.LITTLE_ENDIAN) {
-        // assume the buffer is in little endian
-        longValue = Long.reverseBytes(longValue);
-      }
       int longHash = getLongHashCode(longValue);
       hashValue = combineHashCode(hashValue, longHash);
       index += 8;
@@ -72,9 +66,6 @@ public class SimpleHasher implements ArrowBufHasher {
 
     while (index + 4 <= length) {
       int intValue = getInt(address + index);
-      if (!ArrowBufPointer.LITTLE_ENDIAN) {
-        intValue = Integer.reverseBytes(intValue);
-      }
       int intHash = intValue;
       hashValue = combineHashCode(hashValue, intHash);
       index += 4;

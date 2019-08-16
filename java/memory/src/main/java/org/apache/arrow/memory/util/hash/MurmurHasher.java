@@ -20,8 +20,6 @@ package org.apache.arrow.memory.util.hash;
 import static io.netty.util.internal.PlatformDependent.getByte;
 import static io.netty.util.internal.PlatformDependent.getInt;
 
-import org.apache.arrow.memory.util.ArrowBufPointer;
-
 import io.netty.buffer.ArrowBuf;
 
 /**
@@ -93,9 +91,6 @@ public class MurmurHasher implements ArrowBufHasher {
     int hash = seed;
     while (index + 4 <= length) {
       int intValue = getInt(address + index);
-      if (!ArrowBufPointer.LITTLE_ENDIAN) {
-        intValue = Integer.reverseBytes(intValue);
-      }
       hash = combineHashCode(hash, intValue);
       index += 4;
     }
