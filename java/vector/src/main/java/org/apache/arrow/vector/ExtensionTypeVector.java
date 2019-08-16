@@ -259,12 +259,7 @@ public abstract class ExtensionTypeVector<T extends BaseValueVector & FieldVecto
   }
 
   @Override
-<<<<<<< HEAD
-  public boolean accept(RangeEqualsVisitor visitor) {
-    return getUnderlyingVector().accept(visitor);
-=======
   public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
-    return visitor.visit(getUnderlyingVector(), value);
->>>>>>> ARROW-6211: [Java] Remove dependency on RangeEqualsVisitor from ValueVector interface
+    return getUnderlyingVector().accept(visitor, value);
   }
 }

@@ -65,7 +65,7 @@ public class Dictionary {
     }
     Dictionary that = (Dictionary) o;
     return Objects.equals(encoding, that.encoding) &&
-        dictionary.accept(new VectorEqualsVisitor(that.dictionary), null);
+        (new VectorEqualsVisitor(that.dictionary)).equals(dictionary);
   }
 
   @Override
