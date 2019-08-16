@@ -360,7 +360,7 @@ struct RowGroupReader::Iterator : ::arrow::TableBatchReader {
 };
 
 Status RowGroupReader::MakeIterator(
-    std::unique_ptr<::arrow::Iterator<std::shared_ptr<::arrow::RecordBatch>>>* batches) {
+    std::unique_ptr<::arrow::RecordBatchIterator>* batches) {
   std::shared_ptr<::arrow::Table> table;
   RETURN_NOT_OK(ReadTable(&table));
   batches->reset(new Iterator(table));
@@ -369,7 +369,7 @@ Status RowGroupReader::MakeIterator(
 
 Status RowGroupReader::MakeIterator(
     const std::vector<int>& column_indices,
-    std::unique_ptr<::arrow::Iterator<std::shared_ptr<::arrow::RecordBatch>>>* batches) {
+    std::unique_ptr<::arrow::RecordBatchIterator>* batches) {
   std::shared_ptr<::arrow::Table> table;
   RETURN_NOT_OK(ReadTable(column_indices, &table));
   batches->reset(new Iterator(table));

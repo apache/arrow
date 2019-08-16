@@ -232,12 +232,10 @@ class RowGroupReader {
                                     std::shared_ptr<::arrow::Table>* out) = 0;
   virtual ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out) = 0;
 
-  ::arrow::Status MakeIterator(
-      std::unique_ptr<::arrow::Iterator<std::shared_ptr<::arrow::RecordBatch>>>* batches);
+  ::arrow::Status MakeIterator(std::unique_ptr<::arrow::RecordBatchIterator>* batches);
 
-  ::arrow::Status MakeIterator(
-      const std::vector<int>& column_indices,
-      std::unique_ptr<::arrow::Iterator<std::shared_ptr<::arrow::RecordBatch>>>* batches);
+  ::arrow::Status MakeIterator(const std::vector<int>& column_indices,
+                               std::unique_ptr<::arrow::RecordBatchIterator>* batches);
 
  private:
   struct Iterator;
