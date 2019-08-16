@@ -16,4 +16,3 @@
 # under the License.
 
 arrow_install_all_headers("parquet/arrow")
-arrow_install_all_headers("parquet/arrow/dataset")

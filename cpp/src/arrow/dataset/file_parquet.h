@@ -44,19 +44,19 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
   /// \brief Return true if the given file extension
   bool IsKnownExtension(const std::string& ext) const override {
-    return ext == "par" || ext == name();
+    return ext == "par" || ext == "parq" || ext == name();
   }
 
   /// \brief Open a file for scanning
-  Status ScanFile(const FileSource& location, std::shared_ptr<ScanOptions> scan_options,
+  Status ScanFile(const FileSource& source, std::shared_ptr<ScanOptions> scan_options,
                   std::shared_ptr<ScanContext> scan_context,
                   std::unique_ptr<ScanTaskIterator>* out) const override;
 };
 
 class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {
  public:
-  ParquetFragment(const FileSource& location, std::shared_ptr<ScanOptions> options)
-      : FileBasedDataFragment(location, std::make_shared<ParquetFileFormat>(), options) {}
+  ParquetFragment(const FileSource& source, std::shared_ptr<ScanOptions> options)
+      : FileBasedDataFragment(source, std::make_shared<ParquetFileFormat>(), options) {}
 
   bool splittable() const override { return true; }
 

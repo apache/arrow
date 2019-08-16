@@ -34,10 +34,10 @@ namespace dataset {
 /// more ScanTasks.
 class ARROW_DS_EXPORT DataFragment {
  public:
-  /// \brief GetTasks returns an iterator of ScanTasks, each of which yields
+  /// \brief Scan returns an iterator of ScanTasks, each of which yields
   /// RecordBatches from this DataFragment.
-  virtual Status GetTasks(std::shared_ptr<ScanContext> scan_context,
-                          std::unique_ptr<ScanTaskIterator>* out) = 0;
+  virtual Status Scan(std::shared_ptr<ScanContext> scan_context,
+                      std::unique_ptr<ScanTaskIterator>* out) = 0;
 
   /// \brief Return true if the fragment can benefit from parallel
   /// scanning

@@ -21,7 +21,6 @@
 #include <string>
 #include <vector>
 
-#include "arrow/dataset/dataset.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/memory_pool.h"
@@ -44,11 +43,11 @@ class ARROW_DS_EXPORT ScanOptions {
  public:
   virtual ~ScanOptions() = default;
 
-  const DataSelector* selector() const { return selector_.get(); }
+  const std::shared_ptr<DataSelector>& selector() const { return selector_; }
 
  protected:
   // Filters
-  std::unique_ptr<DataSelector> selector_;
+  std::shared_ptr<DataSelector> selector_;
 };
 
 /// \brief Read record batches from a range of a single data fragment. A
@@ -69,7 +68,7 @@ class ARROW_DS_EXPORT Scanner {
  public:
   /// \brief Return iterator yielding ScanTask instances to enable
   /// serial or parallel execution of units of scanning work
-  virtual std::unique_ptr<ScanTaskIterator> GetTasks() = 0;
+  virtual std::unique_ptr<ScanTaskIterator> Scan() = 0;
 
   virtual ~Scanner() = default;
 };

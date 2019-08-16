@@ -29,16 +29,16 @@ Status FileSource::Open(std::shared_ptr<arrow::io::RandomAccessFile>* out) const
     case PATH:
       return filesystem_->OpenInputFile(path_, out);
     case BUFFER:
-      out->reset(new ::arrow::io::BufferReader(buffer_));
+      *out = std::make_shared<::arrow::io::BufferReader>(buffer_);
       return Status::OK();
   }
 
   return Status::OK();
 }
 
-Status FileBasedDataFragment::GetTasks(std::shared_ptr<ScanContext> scan_context,
-                                       std::unique_ptr<ScanTaskIterator>* out) {
-  return format_->ScanFile(location_, scan_options_, scan_context, out);
+Status FileBasedDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
+                                   std::unique_ptr<ScanTaskIterator>* out) {
+  return format_->ScanFile(source_, scan_options_, scan_context, out);
 }
 
 }  // namespace dataset

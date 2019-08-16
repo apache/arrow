@@ -78,10 +78,10 @@ constexpr int64_t kDefaultRowCountPerPartition = 1U << 16;
 
 // A class that clusters RowGroups of a Parquet file until the cluster has a specified
 // total row count. This doesn't guarantee exact row counts; it may exceed the target.
-class ParquetRowGroupPartitionner {
+class ParquetRowGroupPartitioner {
  public:
-  ParquetRowGroupPartitionner(std::shared_ptr<parquet::FileMetaData> metadata,
-                              int64_t row_count = kDefaultRowCountPerPartition)
+  ParquetRowGroupPartitioner(std::shared_ptr<parquet::FileMetaData> metadata,
+                             int64_t row_count = kDefaultRowCountPerPartition)
       : metadata_(std::move(metadata)), row_count_(row_count), row_group_idx_(0) {
     num_row_groups_ = metadata_->num_row_groups();
   }
@@ -157,16 +157,16 @@ class ParquetScanTaskIterator : public ScanTaskIterator {
         reader_(std::move(reader)) {}
 
   std::vector<int> columns_projection_;
-  ParquetRowGroupPartitionner partitionner_;
+  ParquetRowGroupPartitioner partitionner_;
   std::shared_ptr<parquet::arrow::FileReader> reader_;
 };
 
-Status ParquetFileFormat::ScanFile(const FileSource& location,
+Status ParquetFileFormat::ScanFile(const FileSource& source,
                                    std::shared_ptr<ScanOptions> scan_options,
                                    std::shared_ptr<ScanContext> scan_context,
                                    std::unique_ptr<ScanTaskIterator>* out) const {
   std::shared_ptr<io::RandomAccessFile> input;
-  RETURN_NOT_OK(location.Open(&input));
+  RETURN_NOT_OK(source.Open(&input));
 
   auto reader = parquet::ParquetFileReader::Open(input);
   return ParquetScanTaskIterator::Make(scan_options, scan_context, std::move(reader),

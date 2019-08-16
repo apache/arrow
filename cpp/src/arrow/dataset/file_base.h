@@ -33,7 +33,8 @@
 namespace arrow {
 namespace dataset {
 
-/// \brief Contains the location of a file to be read
+/// \brief The path and filesystem where an actual file is located or a buffer which can
+/// be read like a file
 class ARROW_DS_EXPORT FileSource {
  public:
   enum SourceType { PATH, BUFFER };
@@ -125,7 +126,7 @@ class ARROW_DS_EXPORT FileFormat {
   virtual bool IsKnownExtension(const std::string& ext) const = 0;
 
   /// \brief Open a file for scanning
-  virtual Status ScanFile(const FileSource& location,
+  virtual Status ScanFile(const FileSource& source,
                           std::shared_ptr<ScanOptions> scan_options,
                           std::shared_ptr<ScanContext> scan_context,
                           std::unique_ptr<ScanTaskIterator>* out) const = 0;
@@ -134,20 +135,20 @@ class ARROW_DS_EXPORT FileFormat {
 /// \brief A DataFragment that is stored in a file with a known format
 class ARROW_DS_EXPORT FileBasedDataFragment : public DataFragment {
  public:
-  FileBasedDataFragment(const FileSource& location, std::shared_ptr<FileFormat> format,
+  FileBasedDataFragment(const FileSource& source, std::shared_ptr<FileFormat> format,
                         std::shared_ptr<ScanOptions> scan_options)
-      : location_(location),
+      : source_(source),
         format_(std::move(format)),
         scan_options_(std::move(scan_options)) {}
 
-  Status GetTasks(std::shared_ptr<ScanContext> scan_context,
-                  std::unique_ptr<ScanTaskIterator>* out) override;
+  Status Scan(std::shared_ptr<ScanContext> scan_context,
+              std::unique_ptr<ScanTaskIterator>* out) override;
 
-  const FileSource& location() const { return location_; }
+  const FileSource& source() const { return source_; }
   std::shared_ptr<FileFormat> format() const { return format_; }
 
  protected:
-  FileSource location_;
+  FileSource source_;
   std::shared_ptr<FileFormat> format_;
   std::shared_ptr<ScanOptions> scan_options_;
 };
