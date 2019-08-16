@@ -23,6 +23,7 @@
 
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/util/iterator.h"
 
 namespace arrow {
 namespace dataset {
