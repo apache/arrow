@@ -656,20 +656,26 @@ cdef class GenericExtensionType(BaseExtensionType):
         # return self
 
 
+_PYTHON_EXTENSION_TYPES_REGISTRY = []
+
+
 def register_extension_type(gen_ext_type):
+    """
+    Register a Python extension type.
+
+    """
     cdef:
-        DataType storage_type
-        c_string c_extension_name
-        shared_ptr[CExtensionType] cgen_ext_type
+        DataType _type = ensure_type(gen_ext_type, allow_none=False)
 
-    storage_type = gen_ext_type.storage_type
-    c_extension_name = tobytes(gen_ext_type.extension_name)
+    if not isinstance(_type, BaseExtensionType):
+        raise TypeError("Only extension types can be registered")
 
-    check_status(CGenericExtensionType.FromClass(
-        storage_type.sp_type, c_extension_name, type(gen_ext_type),
-        &cgen_ext_type))
+    # register on the python side
+    _PYTHON_EXTENSION_TYPES_REGISTRY.append(gen_ext_type)
+
+    # register on the C++ side
     check_status(
-        RegisterGenericExtensionType(<shared_ptr[CDataType]> cgen_ext_type))
+        RegisterGenericExtensionType(<shared_ptr[CDataType]> _type.sp_type))
 
 
 def unregister_extension_type(type_name):
@@ -2063,14 +2069,19 @@ def _register_py_extension_type():
         RegisterPyExtensionType(<shared_ptr[CDataType]> cpy_ext_type))
 
 
-def _unregister_py_extension_type():
+def _unregister_py_extension_types():
     # This needs to be done explicitly before the Python interpreter is
     # finalized.  If the C++ type is destroyed later in the process
     # teardown stage, it will invoke CPython APIs such as Py_DECREF
     # with a destroyed interpreter.
     check_status(UnregisterPyExtensionType())
+    for ext_type in _PYTHON_EXTENSION_TYPES_REGISTRY:
+        try:
+            unregister_extension_type(ext_type.extension_name)
+        except KeyError:
+            pass
     _registry_nanny.release_registry()
 
 
 _register_py_extension_type()
-atexit.register(_unregister_py_extension_type)
+atexit.register(_unregister_py_extension_types)

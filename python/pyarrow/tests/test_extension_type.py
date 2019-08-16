@@ -263,4 +263,12 @@ def test_generic_ext_type():
     # TODO the above checks still fail, it gives a BaseExtensionType for now
     assert isinstance(result.type, pa.BaseExtensionType)
 
-    pa.lib.unregister_extension_type('pandas.period')
+    # pa.lib.unregister_extension_type('pandas.period')
+
+    # test that trying to register other type does not segfault
+    with pytest.raises(TypeError):
+        pa.lib.register_extension_type(pa.string())
+
+    # register second time raises KeyError
+    with pytest.raises(KeyError):
+        pa.lib.register_extension_type(period_type)
