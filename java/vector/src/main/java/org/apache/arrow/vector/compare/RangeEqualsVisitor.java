@@ -112,30 +112,6 @@ public class RangeEqualsVisitor {
     return validate(left);
   }
 
-  /**
-   * Visit a general value vector.
-   * @param left the vector to compare.
-   * @return if the vector is equal to this.
-   */
-  public boolean visitGeneral(ValueVector left) {
-    if (left instanceof BaseFixedWidthVector) {
-      return visit((BaseFixedWidthVector) left);
-    } else if (left instanceof BaseVariableWidthVector) {
-      return visit((BaseVariableWidthVector) left);
-    } else if (left instanceof ListVector) {
-      return visit((ListVector) left);
-    } else if (left instanceof FixedSizeListVector) {
-      return visit((FixedSizeListVector) left);
-    } else if (left instanceof NonNullableStructVector) {
-      return visit((NonNullableStructVector) left);
-    } else if (left instanceof UnionVector) {
-      return visit((UnionVector) left);
-    } else if (left instanceof ZeroVector) {
-      return visit((ZeroVector) left);
-    }
-    throw new UnsupportedOperationException();
-  }
-
   protected boolean compareValueVector(ValueVector left, ValueVector right) {
     if (!typeCheckNeeded) {
       return true;
