@@ -38,6 +38,8 @@ class Array;
 class ChunkedArray;
 class DataType;
 class Field;
+class KeyValueMetadata;
+class Schema;
 
 }  // namespace arrow
 
@@ -138,6 +140,8 @@ struct PARQUET_EXPORT SchemaField {
 
 struct SchemaManifest {
   const SchemaDescriptor* descr;
+  std::shared_ptr<::arrow::Schema> origin_schema;
+  std::shared_ptr<const KeyValueMetadata> schema_metadata;
   std::vector<SchemaField> schema_fields;
 
   std::unordered_map<int, const SchemaField*> column_index_to_field;
@@ -185,6 +189,7 @@ struct SchemaManifest {
 
 PARQUET_EXPORT
 Status BuildSchemaManifest(const SchemaDescriptor* schema,
+                           const std::shared_ptr<const KeyValueMetadata>& metadata,
                            const ArrowReaderProperties& properties,
                            SchemaManifest* manifest);
 

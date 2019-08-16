@@ -24,6 +24,7 @@
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -31,6 +32,8 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/io/memory.h"
+#include "arrow/ipc/reader.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
@@ -491,11 +494,13 @@ Status GroupToSchemaField(const GroupNode& node, int16_t max_def_level,
 Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_rep_level,
                          SchemaTreeContext* ctx, const SchemaField* parent,
                          SchemaField* out) {
+  /// Workhorse function for converting a Parquet schema node to an Arrow
+  /// type. Handles different conventions for nested data
   if (node.is_optional()) {
     ++max_def_level;
   } else if (node.is_repeated()) {
-    // Repeated fields add a definition level. This is used to distinguish
-    // between an empty list and a list with an item in it.
+    // Repeated fields add both a repetition and definition level. This is used
+    // to distinguish between an empty list and a list with an item in it.
     ++max_rep_level;
     ++max_def_level;
   }
@@ -504,9 +509,19 @@ Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_re
 
   // Now, walk the schema and create a ColumnDescriptor for each leaf node
   if (node.is_group()) {
+    // A nested field, but we don't know what kind yet
     return GroupToSchemaField(static_cast<const GroupNode&>(node), max_def_level,
                               max_rep_level, ctx, parent, out);
   } else {
+    // Either a normal flat primitive type, or a list type encoded with 1-level
+    // list encoding. Note that the 3-level encoding is the form recommended by
+    // the parquet specification, but technically we can have either
+    //
+    // required/optional $TYPE $FIELD_NAME
+    //
+    // or
+    //
+    // repeated $TYPE $FIELD_NAME
     const auto& primitive_node = static_cast<const PrimitiveNode&>(node);
     int column_index = ctx->schema->GetColumnIndex(primitive_node);
     std::shared_ptr<DataType> type;
@@ -526,6 +541,7 @@ Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_re
       out->max_repetition_level = max_rep_level;
       return Status::OK();
     } else {
+      // A normal (required/optional) primitive node
       return PopulateLeaf(column_index,
                           ::arrow::field(node.name(), type, node.is_optional()),
                           max_def_level, max_rep_level, ctx, parent, out);
@@ -533,9 +549,56 @@ Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_re
   }
 }
 
+Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
+                       std::shared_ptr<const KeyValueMetadata>* clean_metadata,
+                       std::shared_ptr<::arrow::Schema>* out) {
+  if (metadata == nullptr) {
+    *out = nullptr;
+    *clean_metadata = nullptr;
+    return Status::OK();
+  }
+
+  static const std::string kArrowSchemaKey = "ARROW:schema";
+  int schema_index = metadata->FindKey(kArrowSchemaKey);
+  if (schema_index == -1) {
+    *out = nullptr;
+    *clean_metadata = metadata;
+    return Status::OK();
+  }
+
+  // The original Arrow schema was serialized using the store_schema option. We
+  // deserialize it here and use it to inform read options such as
+  // dictionary-encoded fields
+  auto schema_buf = std::make_shared<Buffer>(metadata->value(schema_index));
+
+  ::arrow::ipc::DictionaryMemo dict_memo;
+  ::arrow::io::BufferReader input(schema_buf);
+  RETURN_NOT_OK(::arrow::ipc::ReadSchema(&input, &dict_memo, out));
+
+  if (metadata->size() > 1) {
+    // Copy the metadata without the schema key
+    auto new_metadata = ::arrow::key_value_metadata({}, {});
+    new_metadata->reserve(metadata->size() - 1);
+    for (int64_t i = 0; i < metadata->size(); ++i) {
+      if (i == schema_index) continue;
+      new_metadata->Append(metadata->key(i), metadata->value(i));
+    }
+    *clean_metadata = new_metadata;
+  } else {
+    // No other keys, let metadata be null
+    *clean_metadata = nullptr;
+  }
+  return Status::OK();
+}
+
 Status BuildSchemaManifest(const SchemaDescriptor* schema,
+                           const std::shared_ptr<const KeyValueMetadata>& metadata,
                            const ArrowReaderProperties& properties,
                            SchemaManifest* manifest) {
+  std::shared_ptr<::arrow::Schema> origin_schema;
+  RETURN_NOT_OK(
+      GetOriginSchema(metadata, &manifest->schema_metadata, &manifest->origin_schema));
+
   SchemaTreeContext ctx;
   ctx.manifest = manifest;
   ctx.properties = properties;
@@ -544,8 +607,26 @@ Status BuildSchemaManifest(const SchemaDescriptor* schema,
   manifest->descr = schema;
   manifest->schema_fields.resize(schema_node.field_count());
   for (int i = 0; i < static_cast<int>(schema_node.field_count()); ++i) {
+    SchemaField* out_field = &manifest->schema_fields[i];
     RETURN_NOT_OK(NodeToSchemaField(*schema_node.field(i), 0, 0, &ctx,
-                                    /*parent=*/nullptr, &manifest->schema_fields[i]));
+                                    /*parent=*/nullptr, out_field));
+
+    // TODO(wesm): as follow up to ARROW-3246, we should really pass the origin
+    // schema (if any) through all functions in the schema reconstruction, but
+    // I'm being lazy and just setting dictionary fields at the top level for
+    // now
+    if (manifest->origin_schema == nullptr) {
+      continue;
+    }
+    auto origin_field = manifest->origin_schema->field(i);
+    auto current_type = out_field->field->type();
+    if (origin_field->type()->id() != ::arrow::Type::DICTIONARY) {
+      continue;
+    }
+    if (current_type->id() != ::arrow::Type::DICTIONARY) {
+      out_field->field =
+          out_field->field->WithType(::arrow::dictionary(::arrow::int32(), current_type));
+    }
   }
   return Status::OK();
 }
@@ -555,7 +636,7 @@ Status FromParquetSchema(
     const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
     std::shared_ptr<::arrow::Schema>* out) {
   SchemaManifest manifest;
-  RETURN_NOT_OK(BuildSchemaManifest(schema, properties, &manifest));
+  RETURN_NOT_OK(BuildSchemaManifest(schema, key_value_metadata, properties, &manifest));
   std::vector<std::shared_ptr<Field>> fields(manifest.schema_fields.size());
   for (int i = 0; i < static_cast<int>(fields.size()); i++) {
     fields[i] = manifest.schema_fields[i].field;

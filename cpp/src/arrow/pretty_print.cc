@@ -536,6 +536,21 @@ Status PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink) {
   return Status::OK();
 }
 
+Status PrettyPrint(const RecordBatch& batch, const PrettyPrintOptions& options,
+                   std::ostream* sink) {
+  for (int i = 0; i < batch.num_columns(); ++i) {
+    const std::string& name = batch.column_name(i);
+    PrettyPrintOptions column_options = options;
+    column_options.indent += 2;
+
+    (*sink) << name << ": ";
+    RETURN_NOT_OK(PrettyPrint(*batch.column(i), column_options, sink));
+    (*sink) << "\n";
+  }
+  (*sink) << std::flush;
+  return Status::OK();
+}
+
 Status PrettyPrint(const Table& table, const PrettyPrintOptions& options,
                    std::ostream* sink) {
   RETURN_NOT_OK(PrettyPrint(*table.schema(), options, sink));

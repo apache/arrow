@@ -106,8 +106,9 @@ class FileReaderImpl : public FileReader {
       : pool_(pool), reader_(std::move(reader)), reader_properties_(properties) {}
 
   Status Init() {
-    return BuildSchemaManifest(reader_->metadata()->schema(), reader_properties_,
-                               &manifest_);
+    return BuildSchemaManifest(reader_->metadata()->schema(),
+                               reader_->metadata()->key_value_metadata(),
+                               reader_properties_, &manifest_);
   }
 
   std::vector<int> AllRowGroups() {
@@ -777,7 +778,7 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
     }
   }
 
-  auto result_schema = ::arrow::schema(fields, reader_->metadata()->key_value_metadata());
+  auto result_schema = ::arrow::schema(fields, manifest_.schema_metadata);
   *out = Table::Make(result_schema, columns);
   return (*out)->Validate();
   END_PARQUET_CATCH_EXCEPTIONS

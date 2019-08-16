@@ -493,6 +493,10 @@ class ColumnOrder {
 struct ByteArray {
   ByteArray() : len(0), ptr(NULLPTR) {}
   ByteArray(uint32_t len, const uint8_t* ptr) : len(len), ptr(ptr) {}
+
+  ByteArray(::arrow::util::string_view view)  // NOLINT implicit conversion
+      : ByteArray(static_cast<uint32_t>(view.size()),
+                  reinterpret_cast<const uint8_t*>(view.data())) {}
   uint32_t len;
   const uint8_t* ptr;
 };

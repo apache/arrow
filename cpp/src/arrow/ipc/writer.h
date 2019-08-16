@@ -24,6 +24,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/ipc/dictionary.h"  // IWYU pragma: export
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/options.h"
 #include "arrow/result.h"
@@ -48,8 +49,6 @@ class OutputStream;
 }  // namespace io
 
 namespace ipc {
-
-class DictionaryMemo;
 
 /// \class RecordBatchWriter
 /// \brief Abstract interface for writing a stream of record batches

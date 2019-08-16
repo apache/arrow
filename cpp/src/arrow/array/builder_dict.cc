@@ -202,6 +202,9 @@ class internal::DictionaryMemoTable::DictionaryMemoTableImpl {
 
     template <typename DType, typename ArrayType>
     enable_if_memoize<DType, Status> InsertValues(const DType&, const ArrayType& array) {
+      if (array.null_count() > 0) {
+        return Status::Invalid("Cannot insert dictionary values containing nulls");
+      }
       for (int64_t i = 0; i < array.length(); ++i) {
         ARROW_IGNORE_EXPR(impl_->GetOrInsert(array.GetView(i)));
       }

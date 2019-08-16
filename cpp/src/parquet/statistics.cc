@@ -20,6 +20,9 @@
 #include <cstring>
 #include <type_traits>
 
+#include "arrow/array.h"
+#include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
 #include "parquet/encoding.h"
@@ -30,6 +33,7 @@
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
+using arrow::internal::checked_cast;
 
 namespace parquet {
 
@@ -126,14 +130,14 @@ struct CompareHelper<FLBAType, false> {
   }
 };
 
-template <typename DType, bool is_signed = true>
-class TypedComparatorImpl : public TypedComparator<DType> {
+template <bool is_signed, typename DType>
+class TypedComparatorImpl : virtual public TypedComparator<DType> {
  public:
   typedef typename DType::c_type T;
 
   explicit TypedComparatorImpl(int type_length = -1) : type_length_(type_length) {}
 
-  bool CompareInline(const T& a, const T& b) {
+  bool CompareInline(const T& a, const T& b) const {
     return CompareHelper<DType, is_signed>::Compare(type_length_, a, b);
   }
 
@@ -157,9 +161,18 @@ class TypedComparatorImpl : public TypedComparator<DType> {
                        int64_t valid_bits_offset, T* out_min, T* out_max) override {
     ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
                                                       length);
-    T min = values[0];
-    T max = values[0];
-    for (int64_t i = 0; i < length; i++) {
+
+    // Find the first non-null value
+    int64_t first_non_null = 0;
+    while (!valid_bits_reader.IsSet()) {
+      ++first_non_null;
+      valid_bits_reader.Next();
+    }
+
+    T min = values[first_non_null];
+    T max = values[first_non_null];
+    valid_bits_reader.Next();
+    for (int64_t i = first_non_null + 1; i < length; i++) {
       if (valid_bits_reader.IsSet()) {
         if (CompareInline(values[i], min)) {
           min = values[i];
@@ -173,9 +186,77 @@ class TypedComparatorImpl : public TypedComparator<DType> {
     *out_max = max;
   }
 
+  void GetMinMax(const ::arrow::Array& values, T* out_min, T* out_max) override;
+
  private:
   int type_length_;
 };
+
+template <bool is_signed, typename DType>
+void TypedComparatorImpl<is_signed, DType>::GetMinMax(const ::arrow::Array& values,
+                                                      typename DType::c_type* out_min,
+                                                      typename DType::c_type* out_max) {
+  ParquetException::NYI(values.type()->ToString());
+}
+
+template <bool is_signed>
+void GetMinMaxBinaryHelper(
+    const TypedComparatorImpl<is_signed, ByteArrayType>& comparator,
+    const ::arrow::Array& values, ByteArray* out_min, ByteArray* out_max) {
+  const auto& data = checked_cast<const ::arrow::BinaryArray&>(values);
+
+  ByteArray min, max;
+  if (data.null_count() > 0) {
+    ::arrow::internal::BitmapReader valid_bits_reader(data.null_bitmap_data(),
+                                                      data.offset(), data.length());
+
+    int64_t first_non_null = 0;
+    while (!valid_bits_reader.IsSet()) {
+      ++first_non_null;
+      valid_bits_reader.Next();
+    }
+    min = data.GetView(first_non_null);
+    max = data.GetView(first_non_null);
+    for (int64_t i = first_non_null; i < data.length(); i++) {
+      ByteArray val = data.GetView(i);
+      if (valid_bits_reader.IsSet()) {
+        if (comparator.CompareInline(val, min)) {
+          min = val;
+        } else if (comparator.CompareInline(max, val)) {
+          max = val;
+        }
+      }
+      valid_bits_reader.Next();
+    }
+  } else {
+    min = data.GetView(0);
+    max = data.GetView(0);
+    for (int64_t i = 0; i < data.length(); i++) {
+      ByteArray val = data.GetView(i);
+      if (comparator.CompareInline(val, min)) {
+        min = val;
+      } else if (comparator.CompareInline(max, val)) {
+        max = val;
+      }
+    }
+  }
+  *out_min = min;
+  *out_max = max;
+}
+
+template <>
+void TypedComparatorImpl<true, ByteArrayType>::GetMinMax(const ::arrow::Array& values,
+                                                         ByteArray* out_min,
+                                                         ByteArray* out_max) {
+  GetMinMaxBinaryHelper<true>(*this, values, out_min, out_max);
+}
+
+template <>
+void TypedComparatorImpl<false, ByteArrayType>::GetMinMax(const ::arrow::Array& values,
+                                                          ByteArray* out_min,
+                                                          ByteArray* out_max) {
+  GetMinMaxBinaryHelper<false>(*this, values, out_min, out_max);
+}
 
 std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
                                              SortOrder::type sort_order,
@@ -183,36 +264,36 @@ std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
   if (SortOrder::SIGNED == sort_order) {
     switch (physical_type) {
       case Type::BOOLEAN:
-        return std::make_shared<TypedComparatorImpl<BooleanType>>();
+        return std::make_shared<TypedComparatorImpl<true, BooleanType>>();
       case Type::INT32:
-        return std::make_shared<TypedComparatorImpl<Int32Type>>();
+        return std::make_shared<TypedComparatorImpl<true, Int32Type>>();
       case Type::INT64:
-        return std::make_shared<TypedComparatorImpl<Int64Type>>();
+        return std::make_shared<TypedComparatorImpl<true, Int64Type>>();
       case Type::INT96:
-        return std::make_shared<TypedComparatorImpl<Int96Type>>();
+        return std::make_shared<TypedComparatorImpl<true, Int96Type>>();
       case Type::FLOAT:
-        return std::make_shared<TypedComparatorImpl<FloatType>>();
+        return std::make_shared<TypedComparatorImpl<true, FloatType>>();
       case Type::DOUBLE:
-        return std::make_shared<TypedComparatorImpl<DoubleType>>();
+        return std::make_shared<TypedComparatorImpl<true, DoubleType>>();
       case Type::BYTE_ARRAY:
-        return std::make_shared<TypedComparatorImpl<ByteArrayType>>();
+        return std::make_shared<TypedComparatorImpl<true, ByteArrayType>>();
       case Type::FIXED_LEN_BYTE_ARRAY:
-        return std::make_shared<TypedComparatorImpl<FLBAType>>(type_length);
+        return std::make_shared<TypedComparatorImpl<true, FLBAType>>(type_length);
       default:
         ParquetException::NYI("Signed Compare not implemented");
     }
   } else if (SortOrder::UNSIGNED == sort_order) {
     switch (physical_type) {
       case Type::INT32:
-        return std::make_shared<TypedComparatorImpl<Int32Type, false>>();
+        return std::make_shared<TypedComparatorImpl<false, Int32Type>>();
       case Type::INT64:
-        return std::make_shared<TypedComparatorImpl<Int64Type, false>>();
+        return std::make_shared<TypedComparatorImpl<false, Int64Type>>();
       case Type::INT96:
-        return std::make_shared<TypedComparatorImpl<Int96Type, false>>();
+        return std::make_shared<TypedComparatorImpl<false, Int96Type>>();
       case Type::BYTE_ARRAY:
-        return std::make_shared<TypedComparatorImpl<ByteArrayType, false>>();
+        return std::make_shared<TypedComparatorImpl<false, ByteArrayType>>();
       case Type::FIXED_LEN_BYTE_ARRAY:
-        return std::make_shared<TypedComparatorImpl<FLBAType, false>>(type_length);
+        return std::make_shared<TypedComparatorImpl<false, FLBAType>>(type_length);
       default:
         ParquetException::NYI("Unsigned Compare not implemented");
     }
@@ -227,6 +308,59 @@ std::shared_ptr<Comparator> Comparator::Make(const ColumnDescriptor* descr) {
 }
 
 // ----------------------------------------------------------------------
+
+template <typename T, typename Enable = void>
+struct StatsHelper {
+  bool CanHaveNaN() { return false; }
+
+  inline int64_t GetValueBeginOffset(const T* values, int64_t count) { return 0; }
+
+  inline int64_t GetValueEndOffset(const T* values, int64_t count) { return count; }
+
+  inline bool IsNaN(const T value) { return false; }
+};
+
+template <typename T>
+struct StatsHelper<T, typename std::enable_if<std::is_floating_point<T>::value>::type> {
+  bool CanHaveNaN() { return true; }
+
+  inline int64_t GetValueBeginOffset(const T* values, int64_t count) {
+    // Skip NaNs
+    for (int64_t i = 0; i < count; i++) {
+      if (!std::isnan(values[i])) {
+        return i;
+      }
+    }
+    return count;
+  }
+
+  inline int64_t GetValueEndOffset(const T* values, int64_t count) {
+    // Skip NaNs
+    for (int64_t i = (count - 1); i >= 0; i--) {
+      if (!std::isnan(values[i])) {
+        return (i + 1);
+      }
+    }
+    return 0;
+  }
+
+  inline bool IsNaN(const T value) { return std::isnan(value); }
+};
+
+template <typename T>
+void SetNaN(T* value) {
+  // no-op
+}
+
+template <>
+void SetNaN<float>(float* value) {
+  *value = std::nanf("");
+}
+
+template <>
+void SetNaN<double>(double* value) {
+  *value = std::nan("");
+}
 
 template <typename DType>
 class TypedStatisticsImpl : public TypedStatistics<DType> {
@@ -304,6 +438,25 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void Update(const T* values, int64_t num_not_null, int64_t num_null) override;
   void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_spaced,
                     int64_t num_not_null, int64_t num_null) override;
+
+  void Update(const ::arrow::Array& values) override {
+    IncrementNullCount(values.null_count());
+    IncrementNumValues(values.length() - values.null_count());
+
+    // TODO: support distinct count?
+    if (values.null_count() == values.length()) {
+      return;
+    }
+
+    StatsHelper<T> helper;
+    if (helper.CanHaveNaN()) {
+      ParquetException::NYI("No NaN handling for Arrow arrays yet");
+    }
+
+    T batch_min, batch_max;
+    comparator_->GetMinMax(values, &batch_min, &batch_max);
+    SetMinMax(batch_min, batch_max);
+  }
 
   const T& min() const override { return min_; }
 
@@ -393,55 +546,6 @@ inline void TypedStatisticsImpl<ByteArrayType>::Copy(const ByteArray& src, ByteA
   *dst = ByteArray(src.len, buffer->data());
 }
 
-template <typename T, typename Enable = void>
-struct StatsHelper {
-  inline int64_t GetValueBeginOffset(const T* values, int64_t count) { return 0; }
-
-  inline int64_t GetValueEndOffset(const T* values, int64_t count) { return count; }
-
-  inline bool IsNaN(const T value) { return false; }
-};
-
-template <typename T>
-struct StatsHelper<T, typename std::enable_if<std::is_floating_point<T>::value>::type> {
-  inline int64_t GetValueBeginOffset(const T* values, int64_t count) {
-    // Skip NaNs
-    for (int64_t i = 0; i < count; i++) {
-      if (!std::isnan(values[i])) {
-        return i;
-      }
-    }
-    return count;
-  }
-
-  inline int64_t GetValueEndOffset(const T* values, int64_t count) {
-    // Skip NaNs
-    for (int64_t i = (count - 1); i >= 0; i--) {
-      if (!std::isnan(values[i])) {
-        return (i + 1);
-      }
-    }
-    return 0;
-  }
-
-  inline bool IsNaN(const T value) { return std::isnan(value); }
-};
-
-template <typename T>
-void SetNaN(T* value) {
-  // no-op
-}
-
-template <>
-void SetNaN<float>(float* value) {
-  *value = std::nanf("");
-}
-
-template <>
-void SetNaN<double>(double* value) {
-  *value = std::nan("");
-}
-
 template <typename DType>
 void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_not_null,
                                         int64_t num_null) {
@@ -461,7 +565,7 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_not_null,
   int64_t end_offset = helper.GetValueEndOffset(values, num_not_null);
 
   // All values are NaN
-  if (end_offset < begin_offset) {
+  if (helper.CanHaveNaN() && end_offset < begin_offset) {
     // Set min/max to NaNs in this case.
     // Don't set has_min_max flag since
     // these values must be over-written by valid stats later
@@ -494,26 +598,28 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
   // As (num_not_null != 0) there must be one
   int64_t length = num_null + num_not_null;
   int64_t i = 0;
-  ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
-                                                    length);
   StatsHelper<T> helper;
-  for (; i < length; i++) {
-    // PARQUET-1225: Handle NaNs
-    if (valid_bits_reader.IsSet() && !helper.IsNaN(values[i])) {
-      break;
+  if (helper.CanHaveNaN()) {
+    ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
+                                                      length);
+    for (; i < length; i++) {
+      // PARQUET-1225: Handle NaNs
+      if (valid_bits_reader.IsSet() && !helper.IsNaN(values[i])) {
+        break;
+      }
+      valid_bits_reader.Next();
     }
-    valid_bits_reader.Next();
-  }
 
-  // All are NaNs and stats are not set yet
-  if ((i == length) && helper.IsNaN(values[i - 1])) {
-    // Don't set has_min_max flag since
-    // these values must be over-written by valid stats later
-    if (!has_min_max_) {
-      SetNaN(&min_);
-      SetNaN(&max_);
+    // All are NaNs and stats are not set yet
+    if ((i == length) && helper.IsNaN(values[i - 1])) {
+      // Don't set has_min_max flag since
+      // these values must be over-written by valid stats later
+      if (!has_min_max_) {
+        SetNaN(&min_);
+        SetNaN(&max_);
+      }
+      return;
     }
-    return;
   }
 
   // Find min and max values from remaining non-NaN values

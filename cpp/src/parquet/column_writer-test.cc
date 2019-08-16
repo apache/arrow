@@ -218,7 +218,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   void ReadAndCompare(Compression::type compression, int64_t num_rows) {
     this->SetupValuesOut(num_rows);
     this->ReadColumnFully(compression);
-    auto comparator = TypedComparator<TestType>::Make(this->descr_);
+    auto comparator = MakeComparator<TestType>(this->descr_);
     for (size_t i = 0; i < this->values_.size(); i++) {
       if (comparator->Compare(this->values_[i], this->values_out_[i]) ||
           comparator->Compare(this->values_out_[i], this->values_[i])) {
@@ -310,7 +310,7 @@ void TestPrimitiveWriter<Int96Type>::ReadAndCompare(Compression::type compressio
   this->SetupValuesOut(num_rows);
   this->ReadColumnFully(compression);
 
-  auto comparator = TypedComparator<Int96Type>::Make(Type::INT96, SortOrder::SIGNED);
+  auto comparator = MakeComparator<Int96Type>(Type::INT96, SortOrder::SIGNED);
   for (size_t i = 0; i < this->values_.size(); i++) {
     if (comparator->Compare(this->values_[i], this->values_out_[i]) ||
         comparator->Compare(this->values_out_[i], this->values_[i])) {

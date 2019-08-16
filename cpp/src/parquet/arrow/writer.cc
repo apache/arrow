@@ -19,13 +19,14 @@
 
 #include <algorithm>
 #include <deque>
+#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "arrow/array.h"
 #include "arrow/buffer-builder.h"
-#include "arrow/compute/api.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/visitor_inline.h"
@@ -43,6 +44,7 @@ using arrow::BinaryArray;
 using arrow::BooleanArray;
 using arrow::ChunkedArray;
 using arrow::Decimal128Array;
+using arrow::DictionaryArray;
 using arrow::Field;
 using arrow::FixedSizeBinaryArray;
 using Int16BufferBuilder = arrow::TypedBufferBuilder<int16_t>;
@@ -54,10 +56,6 @@ using arrow::ResizableBuffer;
 using arrow::Status;
 using arrow::Table;
 using arrow::TimeUnit;
-
-using arrow::compute::Cast;
-using arrow::compute::CastOptions;
-using arrow::compute::FunctionContext;
 
 using parquet::ParquetFileWriter;
 using parquet::ParquetVersion;
@@ -89,6 +87,21 @@ class LevelBuilder {
     return Status::OK();
   }
 
+  Status Visit(const DictionaryArray& array) {
+    // Only currently handle DictionaryArray where the dictionary is a
+    // primitive type
+    if (array.dict_type()->value_type()->num_children() > 0) {
+      return Status::NotImplemented(
+          "Writing DictionaryArray with nested dictionary "
+          "type not yet supported");
+    }
+    array_offsets_.push_back(static_cast<int32_t>(array.offset()));
+    valid_bitmaps_.push_back(array.null_bitmap_data());
+    null_counts_.push_back(array.null_count());
+    values_array_ = std::make_shared<DictionaryArray>(array.data());
+    return Status::OK();
+  }
+
   Status Visit(const ListArray& array) {
     array_offsets_.push_back(static_cast<int32_t>(array.offset()));
     valid_bitmaps_.push_back(array.null_bitmap_data());
@@ -113,7 +126,6 @@ class LevelBuilder {
   NOT_IMPLEMENTED_VISIT(FixedSizeList)
   NOT_IMPLEMENTED_VISIT(Struct)
   NOT_IMPLEMENTED_VISIT(Union)
-  NOT_IMPLEMENTED_VISIT(Dictionary)
   NOT_IMPLEMENTED_VISIT(Extension)
 
 #undef NOT_IMPLEMENTED_VISIT
@@ -411,8 +423,8 @@ class FileWriterImpl : public FileWriter {
         closed_(false) {}
 
   Status Init() {
-    return BuildSchemaManifest(writer_->schema(), default_arrow_reader_properties(),
-                               &schema_manifest_);
+    return BuildSchemaManifest(writer_->schema(), /*schema_metadata=*/nullptr,
+                               default_arrow_reader_properties(), &schema_manifest_);
   }
 
   Status NewRowGroup(int64_t chunk_size) override {
@@ -444,28 +456,6 @@ class FileWriterImpl : public FileWriter {
 
   Status WriteColumnChunk(const std::shared_ptr<ChunkedArray>& data, int64_t offset,
                           int64_t size) override {
-    // DictionaryArrays are not yet handled with a fast path. To still support
-    // writing them as a workaround, we convert them back to their non-dictionary
-    // representation.
-    if (data->type()->id() == ::arrow::Type::DICTIONARY) {
-      const ::arrow::DictionaryType& dict_type =
-          static_cast<const ::arrow::DictionaryType&>(*data->type());
-
-      // TODO(ARROW-1648): Remove this special handling once we require an Arrow
-      // version that has this fixed.
-      if (dict_type.value_type()->id() == ::arrow::Type::NA) {
-        auto null_array = std::make_shared<::arrow::NullArray>(data->length());
-        return WriteColumnChunk(*null_array);
-      }
-
-      FunctionContext ctx(this->memory_pool());
-      ::arrow::compute::Datum cast_input(data);
-      ::arrow::compute::Datum cast_output;
-      RETURN_NOT_OK(
-          Cast(&ctx, cast_input, dict_type.value_type(), CastOptions(), &cast_output));
-      return WriteColumnChunk(cast_output.chunked_array(), offset, size);
-    }
-
     ColumnWriter* column_writer;
     PARQUET_CATCH_NOT_OK(column_writer = row_group_writer_->NextColumn());
 
@@ -563,6 +553,30 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
   return Open(schema, pool, sink, properties, default_arrow_writer_properties(), writer);
 }
 
+Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+                         const ArrowWriterProperties& properties,
+                         std::shared_ptr<const KeyValueMetadata>* out) {
+  if (!properties.store_schema()) {
+    *out = nullptr;
+    return Status::OK();
+  }
+
+  static const std::string kArrowSchemaKey = "ARROW:schema";
+  std::shared_ptr<KeyValueMetadata> result;
+  if (schema.metadata()) {
+    result = schema.metadata()->Copy();
+  } else {
+    result = ::arrow::key_value_metadata({}, {});
+  }
+
+  ::arrow::ipc::DictionaryMemo dict_memo;
+  std::shared_ptr<Buffer> serialized;
+  RETURN_NOT_OK(::arrow::ipc::SerializeSchema(schema, &dict_memo, pool, &serialized));
+  result->Append(kArrowSchemaKey, serialized->ToString());
+  *out = result;
+  return Status::OK();
+}
+
 Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                         const std::shared_ptr<::arrow::io::OutputStream>& sink,
                         const std::shared_ptr<WriterProperties>& properties,
@@ -574,8 +588,11 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
 
   auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
 
+  std::shared_ptr<const KeyValueMetadata> metadata;
+  RETURN_NOT_OK(GetSchemaMetadata(schema, pool, *arrow_properties, &metadata));
+
   std::unique_ptr<ParquetFileWriter> base_writer =
-      ParquetFileWriter::Open(sink, schema_node, properties, schema.metadata());
+      ParquetFileWriter::Open(sink, schema_node, properties, metadata);
 
   auto schema_ptr = std::make_shared<::arrow::Schema>(schema);
   return Make(pool, std::move(base_writer), schema_ptr, arrow_properties, writer);

@@ -62,8 +62,7 @@ static FLBA FLBAFromString(const std::string& s) {
 }
 
 TEST(Comparison, SignedByteArray) {
-  auto comparator =
-      TypedComparator<ByteArrayType>::Make(Type::BYTE_ARRAY, SortOrder::SIGNED);
+  auto comparator = MakeComparator<ByteArrayType>(Type::BYTE_ARRAY, SortOrder::SIGNED);
 
   std::string s1 = "12345";
   std::string s2 = "12345678";
@@ -82,8 +81,7 @@ TEST(Comparison, SignedByteArray) {
 
 TEST(Comparison, UnsignedByteArray) {
   // Check if UTF-8 is compared using unsigned correctly
-  auto comparator =
-      TypedComparator<ByteArrayType>::Make(Type::BYTE_ARRAY, SortOrder::UNSIGNED);
+  auto comparator = MakeComparator<ByteArrayType>(Type::BYTE_ARRAY, SortOrder::UNSIGNED);
 
   std::string s1 = "arrange";
   std::string s2 = "arrangement";
@@ -107,8 +105,8 @@ TEST(Comparison, UnsignedByteArray) {
 
 TEST(Comparison, SignedFLBA) {
   int size = 10;
-  auto comparator = TypedComparator<FLBAType>::Make(Type::FIXED_LEN_BYTE_ARRAY,
-                                                    SortOrder::SIGNED, size);
+  auto comparator =
+      MakeComparator<FLBAType>(Type::FIXED_LEN_BYTE_ARRAY, SortOrder::SIGNED, size);
 
   std::string s1 = "Anti123456";
   std::string s2 = "Bunkd123456";
@@ -125,8 +123,8 @@ TEST(Comparison, SignedFLBA) {
 
 TEST(Comparison, UnsignedFLBA) {
   int size = 10;
-  auto comparator = TypedComparator<FLBAType>::Make(Type::FIXED_LEN_BYTE_ARRAY,
-                                                    SortOrder::UNSIGNED, size);
+  auto comparator =
+      MakeComparator<FLBAType>(Type::FIXED_LEN_BYTE_ARRAY, SortOrder::UNSIGNED, size);
 
   std::string s1 = "Anti123456";
   std::string s2 = "Bunkd123456";
@@ -146,7 +144,7 @@ TEST(Comparison, SignedInt96) {
   parquet::Int96 aa{{1, 41, 14}}, bb{{1, 41, 14}};
   parquet::Int96 aaa{{1, 41, static_cast<uint32_t>(-14)}}, bbb{{1, 41, 42}};
 
-  auto comparator = TypedComparator<Int96Type>::Make(Type::INT96, SortOrder::SIGNED);
+  auto comparator = MakeComparator<Int96Type>(Type::INT96, SortOrder::SIGNED);
 
   ASSERT_TRUE(comparator->Compare(a, b));
   ASSERT_TRUE(!comparator->Compare(aa, bb) && !comparator->Compare(bb, aa));
@@ -158,7 +156,7 @@ TEST(Comparison, UnsignedInt96) {
   parquet::Int96 aa{{1, 41, 14}}, bb{{1, 41, static_cast<uint32_t>(-14)}};
   parquet::Int96 aaa, bbb;
 
-  auto comparator = TypedComparator<Int96Type>::Make(Type::INT96, SortOrder::UNSIGNED);
+  auto comparator = MakeComparator<Int96Type>(Type::INT96, SortOrder::UNSIGNED);
 
   ASSERT_TRUE(comparator->Compare(a, b));
   ASSERT_TRUE(comparator->Compare(aa, bb));
@@ -197,7 +195,7 @@ TEST(Comparison, SignedInt64) {
   NodePtr node = PrimitiveNode::Make("SignedInt64", Repetition::REQUIRED, Type::INT64);
   ColumnDescriptor descr(node, 0, 0);
 
-  auto comparator = TypedComparator<Int64Type>::Make(&descr);
+  auto comparator = MakeComparator<Int64Type>(&descr);
 
   ASSERT_TRUE(comparator->Compare(a, b));
   ASSERT_TRUE(!comparator->Compare(aa, bb) && !comparator->Compare(bb, aa));
@@ -214,7 +212,7 @@ TEST(Comparison, UnsignedInt64) {
   ColumnDescriptor descr(node, 0, 0);
 
   ASSERT_EQ(SortOrder::UNSIGNED, descr.sort_order());
-  auto comparator = TypedComparator<Int64Type>::Make(&descr);
+  auto comparator = MakeComparator<Int64Type>(&descr);
 
   ASSERT_TRUE(comparator->Compare(a, b));
   ASSERT_TRUE(!comparator->Compare(aa, bb) && !comparator->Compare(bb, aa));
@@ -231,7 +229,7 @@ TEST(Comparison, UnsignedInt32) {
   ColumnDescriptor descr(node, 0, 0);
 
   ASSERT_EQ(SortOrder::UNSIGNED, descr.sort_order());
-  auto comparator = TypedComparator<Int32Type>::Make(&descr);
+  auto comparator = MakeComparator<Int32Type>(&descr);
 
   ASSERT_TRUE(comparator->Compare(a, b));
   ASSERT_TRUE(!comparator->Compare(aa, bb) && !comparator->Compare(bb, aa));
@@ -253,7 +251,6 @@ template <typename TestType>
 class TestStatistics : public PrimitiveTypedTest<TestType> {
  public:
   using T = typename TestType::c_type;
-  using TypedStats = TypedStatistics<TestType>;
 
   std::vector<T> GetDeepCopy(
       const std::vector<T>&);  // allocates new memory for FLBA/ByteArray
@@ -264,15 +261,16 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
   void TestMinMaxEncode() {
     this->GenerateData(1000);
 
-    auto statistics1 = TypedStats::Make(this->schema_.Column(0));
+    auto statistics1 = MakeStatistics<TestType>(this->schema_.Column(0));
     statistics1->Update(this->values_ptr_, this->values_.size(), 0);
     std::string encoded_min = statistics1->EncodeMin();
     std::string encoded_max = statistics1->EncodeMax();
 
-    auto statistics2 = TypedStats::Make(this->schema_.Column(0), encoded_min, encoded_max,
-                                        this->values_.size(), 0, 0, true);
+    auto statistics2 =
+        MakeStatistics<TestType>(this->schema_.Column(0), encoded_min, encoded_max,
+                                 this->values_.size(), 0, 0, true);
 
-    auto statistics3 = TypedStats::Make(this->schema_.Column(0));
+    auto statistics3 = MakeStatistics<TestType>(this->schema_.Column(0));
     std::vector<uint8_t> valid_bits(
         BitUtil::BytesForBits(static_cast<uint32_t>(this->values_.size())) + 1, 255);
     statistics3->UpdateSpaced(this->values_ptr_, valid_bits.data(), 0,
@@ -293,7 +291,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
   void TestReset() {
     this->GenerateData(1000);
 
-    auto statistics = TypedStats::Make(this->schema_.Column(0));
+    auto statistics = MakeStatistics<TestType>(this->schema_.Column(0));
     statistics->Update(this->values_ptr_, this->values_.size(), 0);
     ASSERT_EQ(this->values_.size(), statistics->num_values());
 
@@ -308,17 +306,17 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     int num_null[2];
     random_numbers(2, 42, 0, 100, num_null);
 
-    auto statistics1 = TypedStats::Make(this->schema_.Column(0));
+    auto statistics1 = MakeStatistics<TestType>(this->schema_.Column(0));
     this->GenerateData(1000);
     statistics1->Update(this->values_ptr_, this->values_.size() - num_null[0],
                         num_null[0]);
 
-    auto statistics2 = TypedStats::Make(this->schema_.Column(0));
+    auto statistics2 = MakeStatistics<TestType>(this->schema_.Column(0));
     this->GenerateData(1000);
     statistics2->Update(this->values_ptr_, this->values_.size() - num_null[1],
                         num_null[1]);
 
-    auto total = TypedStats::Make(this->schema_.Column(0));
+    auto total = MakeStatistics<TestType>(this->schema_.Column(0));
     total->Merge(*statistics1);
     total->Merge(*statistics2);
 
@@ -332,7 +330,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     this->GenerateData(num_values);
 
     // compute statistics for the whole batch
-    auto expected_stats = TypedStats::Make(this->schema_.Column(0));
+    auto expected_stats = MakeStatistics<TestType>(this->schema_.Column(0));
     expected_stats->Update(this->values_ptr_, num_values - null_count, null_count);
 
     auto sink = CreateOutputStream();
@@ -456,7 +454,7 @@ template <>
 void TestStatistics<ByteArrayType>::TestMinMaxEncode() {
   this->GenerateData(1000);
   // Test that we encode min max strings correctly
-  auto statistics1 = TypedStatistics<ByteArrayType>::Make(this->schema_.Column(0));
+  auto statistics1 = MakeStatistics<ByteArrayType>(this->schema_.Column(0));
   statistics1->Update(this->values_ptr_, this->values_.size(), 0);
   std::string encoded_min = statistics1->EncodeMin();
   std::string encoded_max = statistics1->EncodeMax();
@@ -470,8 +468,8 @@ void TestStatistics<ByteArrayType>::TestMinMaxEncode() {
                         statistics1->max().len));
 
   auto statistics2 =
-      TypedStatistics<ByteArrayType>::Make(this->schema_.Column(0), encoded_min,
-                                           encoded_max, this->values_.size(), 0, 0, true);
+      MakeStatistics<ByteArrayType>(this->schema_.Column(0), encoded_min, encoded_max,
+                                    this->values_.size(), 0, 0, true);
 
   ASSERT_EQ(encoded_min, statistics2->EncodeMin());
   ASSERT_EQ(encoded_max, statistics2->EncodeMax());
@@ -833,6 +831,25 @@ TYPED_TEST(TestStatisticsSortOrder, MinMax) {
   ASSERT_NO_FATAL_FAILURE(this->VerifyParquetStats());
 }
 
+TEST(TestByteArrayStatisticsFromArrow, Basics) {
+  // Part of ARROW-3246. Replicating TestStatisticsSortOrder test but via Arrow
+
+  auto values = ArrayFromJSON(::arrow::utf8(),
+                              u8"[\"c123\", \"b123\", \"a123\", null, "
+                              "null, \"f123\", \"g123\", \"h123\", \"i123\", \"ü123\"]");
+
+  const auto& typed_values = static_cast<const ::arrow::BinaryArray&>(*values);
+
+  NodePtr node = PrimitiveNode::Make("field", Repetition::REQUIRED, Type::BYTE_ARRAY,
+                                     ConvertedType::UTF8);
+  ColumnDescriptor descr(node, 0, 0);
+  auto stats = MakeStatistics<ByteArrayType>(&descr);
+  ASSERT_NO_FATAL_FAILURE(stats->Update(*values));
+
+  ASSERT_EQ(ByteArray(typed_values.GetView(2)), stats->min());
+  ASSERT_EQ(ByteArray(typed_values.GetView(9)), stats->max());
+}
+
 // Ensure UNKNOWN sort order is handled properly
 using TestStatisticsSortOrderFLBA = TestStatisticsSortOrder<FLBAType>;
 
@@ -873,7 +890,7 @@ TEST(TestStatisticsSortOrderFloatNaN, NaNValues) {
   }
 
   // Test values
-  auto nan_stats = TypedStatistics<FloatType>::Make(&descr);
+  auto nan_stats = MakeStatistics<FloatType>(&descr);
   nan_stats->Update(&values[0], NUM_VALUES, 0);
   float min = nan_stats->min();
   float max = nan_stats->max();
@@ -881,7 +898,7 @@ TEST(TestStatisticsSortOrderFloatNaN, NaNValues) {
   ASSERT_EQ(max, 3.0f);
 
   // Test all NaNs
-  auto all_nan_stats = TypedStatistics<FloatType>::Make(&descr);
+  auto all_nan_stats = MakeStatistics<FloatType>(&descr);
   all_nan_stats->Update(&nan_values[0], NUM_VALUES, 0);
   min = all_nan_stats->min();
   max = all_nan_stats->max();
@@ -925,7 +942,7 @@ TEST(TestStatisticsSortOrderFloatNaN, NaNValuesSpaced) {
   std::vector<uint8_t> valid_bits(BitUtil::BytesForBits(NUM_VALUES) + 1, 255);
 
   // Test values
-  auto nan_stats = TypedStatistics<FloatType>::Make(&descr);
+  auto nan_stats = MakeStatistics<FloatType>(&descr);
   nan_stats->UpdateSpaced(&values[0], valid_bits.data(), 0, NUM_VALUES, 0);
   float min = nan_stats->min();
   float max = nan_stats->max();
@@ -933,7 +950,7 @@ TEST(TestStatisticsSortOrderFloatNaN, NaNValuesSpaced) {
   ASSERT_EQ(max, 3.0f);
 
   // Test all NaNs
-  auto all_nan_stats = TypedStatistics<FloatType>::Make(&descr);
+  auto all_nan_stats = MakeStatistics<FloatType>(&descr);
   all_nan_stats->UpdateSpaced(&nan_values[0], valid_bits.data(), 0, NUM_VALUES, 0);
   min = all_nan_stats->min();
   max = all_nan_stats->max();
@@ -968,7 +985,7 @@ TEST(TestStatisticsSortOrderDoubleNaN, NaNValues) {
   NodePtr node = PrimitiveNode::Make("nan_double", Repetition::OPTIONAL, Type::DOUBLE);
   ColumnDescriptor descr(node, 1, 1);
 
-  auto nan_stats = TypedStatistics<DoubleType>::Make(&descr);
+  auto nan_stats = MakeStatistics<DoubleType>(&descr);
   double values[NUM_VALUES] = {std::nan(""), std::nan(""), -3.0, -2.0, -1.0,
                                0.0,          1.0,          2.0,  3.0,  4.0};
   double* values_ptr = &values[0];
