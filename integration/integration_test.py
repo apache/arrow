@@ -1177,11 +1177,12 @@ def get_generated_json_files(tempdir=None, flight=False):
 
 class IntegrationRunner(object):
 
-    def __init__(self, json_files, testers, tempdir=None, debug=False):
+    def __init__(self, json_files, testers, args):
         self.json_files = json_files
         self.testers = testers
-        self.temp_dir = tempdir or tempfile.mkdtemp()
-        self.debug = debug
+        self.temp_dir = args.tempdir or tempfile.mkdtemp()
+        self.debug = args.debug
+        self.stop_on_error = args.stop_on_error
 
     def run(self):
         failures = []
@@ -1291,7 +1292,10 @@ class IntegrationRunner(object):
             except Exception:
                 traceback.print_exc()
                 yield (test_case, producer, consumer, sys.exc_info())
-                continue
+                if self.stop_on_error:
+                    break
+                else:
+                    continue
 
     def _compare_flight_implementations(self, producer, consumer):
         print('##########################################################')
@@ -1338,6 +1342,12 @@ class Tester(object):
     def __init__(self, args):
         self.args = args
         self.debug = args.debug
+
+    def run_shell_command(self, cmd):
+        cmd = ' '.join(cmd)
+        if self.debug:
+            print(cmd)
+        subprocess.check_call(cmd, shell=True)
 
     def json_to_file(self, json_path, arrow_path):
         raise NotImplementedError
@@ -1502,17 +1512,11 @@ class CPPTester(Tester):
 
     def stream_to_file(self, stream_path, file_path):
         cmd = ['cat', stream_path, '|', self.STREAM_TO_FILE, '>', file_path]
-        cmd = ' '.join(cmd)
-        if self.debug:
-            print(cmd)
-        os.system(cmd)
+        self.run_shell_command(cmd)
 
     def file_to_stream(self, file_path, stream_path):
         cmd = [self.FILE_TO_STREAM, file_path, '>', stream_path]
-        cmd = ' '.join(cmd)
-        if self.debug:
-            print(cmd)
-        os.system(cmd)
+        self.run_shell_command(cmd)
 
     @contextlib.contextmanager
     def flight_server(self):
@@ -1578,28 +1582,19 @@ class JSTester(Tester):
                '--no-warnings', self.JSON_TO_ARROW,
                '-a', arrow_path,
                '-j', json_path]
-        cmd = ' '.join(cmd)
-        if self.debug:
-            print(cmd)
-        os.system(cmd)
+        self.run_shell_command(cmd)
 
     def stream_to_file(self, stream_path, file_path):
         cmd = ['cat', stream_path, '|',
                'node', '--no-warnings', self.STREAM_TO_FILE, '>',
                file_path]
-        cmd = ' '.join(cmd)
-        if self.debug:
-            print(cmd)
-        os.system(cmd)
+        self.run_shell_command(cmd)
 
     def file_to_stream(self, file_path, stream_path):
         cmd = ['cat', file_path, '|',
                'node', '--no-warnings', self.FILE_TO_STREAM, '>',
                stream_path]
-        cmd = ' '.join(cmd)
-        if self.debug:
-            print(cmd)
-        os.system(cmd)
+        self.run_shell_command(cmd)
 
 
 class GoTester(Tester):
@@ -1640,17 +1635,11 @@ class GoTester(Tester):
 
     def stream_to_file(self, stream_path, file_path):
         cmd = ['cat', stream_path, '|', self.STREAM_TO_FILE, '>', file_path]
-        cmd = ' '.join(cmd)
-        if self.debug:
-            print(cmd)
-        os.system(cmd)
+        self.run_shell_command(cmd)
 
     def file_to_stream(self, file_path, stream_path):
         cmd = [self.FILE_TO_STREAM, file_path, '>', stream_path]
-        cmd = ' '.join(cmd)
-        if self.debug:
-            print(cmd)
-        os.system(cmd)
+        self.run_shell_command(cmd)
 
 
 def get_static_json_files():
@@ -1680,8 +1669,7 @@ def run_all_tests(args):
                                                     flight=args.run_flight)
     json_files = static_json_files + generated_json_files
 
-    runner = IntegrationRunner(json_files, testers,
-                               tempdir=args.tempdir, debug=args.debug)
+    runner = IntegrationRunner(json_files, testers, args)
     failures = []
     failures.extend(runner.run())
     if args.run_flight:
@@ -1748,6 +1736,11 @@ if __name__ == '__main__':
                         default=tempfile.mkdtemp(),
                         help=('Directory to use for writing '
                               'integration test temporary files'))
+
+    parser.add_argument('-x', '--stop-on-error', dest='stop_on_error',
+                        action='store_true', default=False,
+                        help='Stop on first error')
+
     args = parser.parse_args()
     if args.generated_json_path:
         try:

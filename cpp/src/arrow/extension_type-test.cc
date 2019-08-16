@@ -329,4 +329,15 @@ TEST_F(TestExtensionType, ParametricTypes) {
   CompareBatch(*batch, *read_batch, false /* compare_metadata */);
 }
 
+TEST_F(TestExtensionType, ParametricEquals) {
+  auto p1_type = std::make_shared<Parametric1Type>(6);
+  auto p2_type = std::make_shared<Parametric1Type>(6);
+  auto p3_type = std::make_shared<Parametric1Type>(3);
+
+  ASSERT_TRUE(p1_type->Equals(p2_type));
+  ASSERT_FALSE(p1_type->Equals(p3_type));
+
+  ASSERT_EQ(p1_type->fingerprint(), "");
+}
+
 }  // namespace arrow

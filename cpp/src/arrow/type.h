@@ -18,6 +18,7 @@
 #ifndef ARROW_TYPE_H
 #define ARROW_TYPE_H
 
+#include <atomic>
 #include <climits>
 #include <cstdint>
 #include <iosfwd>
@@ -156,6 +157,41 @@ struct Type {
   };
 };
 
+namespace detail {
+
+class ARROW_EXPORT Fingerprintable {
+ public:
+  virtual ~Fingerprintable();
+
+  const std::string& fingerprint() const {
+    auto p = fingerprint_.load();
+    if (ARROW_PREDICT_TRUE(p != NULLPTR)) {
+      return *p;
+    }
+    return LoadFingerprintSlow();
+  }
+
+  const std::string& metadata_fingerprint() const {
+    auto p = metadata_fingerprint_.load();
+    if (ARROW_PREDICT_TRUE(p != NULLPTR)) {
+      return *p;
+    }
+    return LoadMetadataFingerprintSlow();
+  }
+
+ protected:
+  const std::string& LoadFingerprintSlow() const;
+  const std::string& LoadMetadataFingerprintSlow() const;
+
+  virtual std::string ComputeFingerprint() const = 0;
+  virtual std::string ComputeMetadataFingerprint() const = 0;
+
+  mutable std::atomic<std::string*> fingerprint_;
+  mutable std::atomic<std::string*> metadata_fingerprint_;
+};
+
+}  // namespace detail
+
 struct ARROW_EXPORT DataTypeLayout {
   // The bit width for each buffer in this DataType's representation
   // (kVariableSizeBuffer if the item size for a given buffer is unknown or variable,
@@ -177,10 +213,10 @@ struct ARROW_EXPORT DataTypeLayout {
 ///
 /// Simple datatypes may be entirely described by their Type::type id, but
 /// complex datatypes are usually parametric.
-class ARROW_EXPORT DataType {
+class ARROW_EXPORT DataType : public detail::Fingerprintable {
  public:
-  explicit DataType(Type::type id) : id_(id) {}
-  virtual ~DataType();
+  explicit DataType(Type::type id) : detail::Fingerprintable(), id_(id) {}
+  ~DataType() override;
 
   /// \brief Return whether the types are equal
   ///
@@ -217,6 +253,13 @@ class ARROW_EXPORT DataType {
   Type::type id() const { return id_; }
 
  protected:
+  // Dummy version that returns a null string (indicating not implemented).
+  // Subclasses should override for fast equality checks.
+  std::string ComputeFingerprint() const override;
+
+  // Generic versions that works for all regular types, nested or not.
+  std::string ComputeMetadataFingerprint() const override;
+
   Type::type id_;
   std::vector<std::shared_ptr<Field>> children_;
 
@@ -279,12 +322,18 @@ class NoExtraMeta {};
 ///
 /// A field's metadata is represented by a KeyValueMetadata instance,
 /// which holds arbitrary key-value pairs.
-class ARROW_EXPORT Field {
+class ARROW_EXPORT Field : public detail::Fingerprintable {
  public:
   Field(const std::string& name, const std::shared_ptr<DataType>& type,
         bool nullable = true,
         const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR)
-      : name_(name), type_(type), nullable_(nullable), metadata_(metadata) {}
+      : detail::Fingerprintable(),
+        name_(name),
+        type_(type),
+        nullable_(nullable),
+        metadata_(metadata) {}
+
+  ~Field() override;
 
   /// \brief Return the field's attached metadata
   std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
@@ -322,6 +371,9 @@ class ARROW_EXPORT Field {
   std::shared_ptr<Field> Copy() const;
 
  private:
+  std::string ComputeFingerprint() const override;
+  std::string ComputeMetadataFingerprint() const override;
+
   // Field name
   std::string name_;
 
@@ -379,6 +431,9 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
   }
 
   std::string name() const override { return "null"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for boolean data
@@ -397,6 +452,9 @@ class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
   int bit_width() const override { return 1; }
 
   std::string name() const override { return "bool"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for unsigned 8-bit integer data
@@ -404,6 +462,9 @@ class ARROW_EXPORT UInt8Type
     : public detail::IntegerTypeImpl<UInt8Type, Type::UINT8, uint8_t> {
  public:
   static constexpr const char* type_name() { return "uint8"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for signed 8-bit integer data
@@ -411,6 +472,9 @@ class ARROW_EXPORT Int8Type
     : public detail::IntegerTypeImpl<Int8Type, Type::INT8, int8_t> {
  public:
   static constexpr const char* type_name() { return "int8"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for unsigned 16-bit integer data
@@ -418,6 +482,9 @@ class ARROW_EXPORT UInt16Type
     : public detail::IntegerTypeImpl<UInt16Type, Type::UINT16, uint16_t> {
  public:
   static constexpr const char* type_name() { return "uint16"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for signed 16-bit integer data
@@ -425,6 +492,9 @@ class ARROW_EXPORT Int16Type
     : public detail::IntegerTypeImpl<Int16Type, Type::INT16, int16_t> {
  public:
   static constexpr const char* type_name() { return "int16"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for unsigned 32-bit integer data
@@ -432,6 +502,9 @@ class ARROW_EXPORT UInt32Type
     : public detail::IntegerTypeImpl<UInt32Type, Type::UINT32, uint32_t> {
  public:
   static constexpr const char* type_name() { return "uint32"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for signed 32-bit integer data
@@ -439,6 +512,9 @@ class ARROW_EXPORT Int32Type
     : public detail::IntegerTypeImpl<Int32Type, Type::INT32, int32_t> {
  public:
   static constexpr const char* type_name() { return "int32"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for unsigned 64-bit integer data
@@ -446,6 +522,9 @@ class ARROW_EXPORT UInt64Type
     : public detail::IntegerTypeImpl<UInt64Type, Type::UINT64, uint64_t> {
  public:
   static constexpr const char* type_name() { return "uint64"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for signed 64-bit integer data
@@ -453,6 +532,9 @@ class ARROW_EXPORT Int64Type
     : public detail::IntegerTypeImpl<Int64Type, Type::INT64, int64_t> {
  public:
   static constexpr const char* type_name() { return "int64"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for 16-bit floating-point data
@@ -462,6 +544,9 @@ class ARROW_EXPORT HalfFloatType
  public:
   Precision precision() const override;
   static constexpr const char* type_name() { return "halffloat"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for 32-bit floating-point data (C "float")
@@ -470,6 +555,9 @@ class ARROW_EXPORT FloatType
  public:
   Precision precision() const override;
   static constexpr const char* type_name() { return "float"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for 64-bit floating-point data (C "double")
@@ -478,6 +566,9 @@ class ARROW_EXPORT DoubleType
  public:
   Precision precision() const override;
   static constexpr const char* type_name() { return "double"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// \brief Base class for all variable-size list data types
@@ -517,6 +608,9 @@ class ARROW_EXPORT ListType : public BaseListType {
   std::string ToString() const override;
 
   std::string name() const override { return "list"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// \brief Concrete type class for large list data
@@ -549,6 +643,9 @@ class ARROW_EXPORT LargeListType : public BaseListType {
   std::string ToString() const override;
 
   std::string name() const override { return "large_list"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// \brief Concrete type class for map data
@@ -576,6 +673,8 @@ class ARROW_EXPORT MapType : public ListType {
   bool keys_sorted() const { return keys_sorted_; }
 
  private:
+  std::string ComputeFingerprint() const override;
+
   bool keys_sorted_;
 };
 
@@ -638,6 +737,8 @@ class ARROW_EXPORT BinaryType : public BaseBinaryType {
   std::string name() const override { return "binary"; }
 
  protected:
+  std::string ComputeFingerprint() const override;
+
   // Allow subclasses like StringType to change the logical type.
   explicit BinaryType(Type::type logical_type) : BaseBinaryType(logical_type) {}
 };
@@ -662,6 +763,8 @@ class ARROW_EXPORT LargeBinaryType : public BaseBinaryType {
   std::string name() const override { return "large_binary"; }
 
  protected:
+  std::string ComputeFingerprint() const override;
+
   // Allow subclasses like LargeStringType to change the logical type.
   explicit LargeBinaryType(Type::type logical_type) : BaseBinaryType(logical_type) {}
 };
@@ -679,6 +782,9 @@ class ARROW_EXPORT StringType : public BinaryType {
 
   std::string ToString() const override;
   std::string name() const override { return "utf8"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// \brief Concrete type class for large variable-size string data, utf8-encoded
@@ -694,6 +800,9 @@ class ARROW_EXPORT LargeStringType : public LargeBinaryType {
 
   std::string ToString() const override;
   std::string name() const override { return "large_utf8"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// \brief Concrete type class for fixed-size binary data
@@ -717,6 +826,8 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
   int bit_width() const override;
 
  protected:
+  std::string ComputeFingerprint() const override;
+
   int32_t byte_width_;
 };
 
@@ -756,6 +867,8 @@ class ARROW_EXPORT StructType : public NestedType {
   int GetChildIndex(const std::string& name) const;
 
  private:
+  std::string ComputeFingerprint() const override;
+
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
@@ -772,6 +885,8 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
   int32_t scale() const { return scale_; }
 
  protected:
+  std::string ComputeFingerprint() const override;
+
   int32_t precision_;
   int32_t scale_;
 };
@@ -816,6 +931,8 @@ class ARROW_EXPORT UnionType : public NestedType {
   UnionMode::type mode() const { return mode_; }
 
  private:
+  std::string ComputeFingerprint() const override;
+
   UnionMode::type mode_;
 
   // The type id used in the data to indicate each data type in the union. For
@@ -864,6 +981,9 @@ class ARROW_EXPORT Date32Type : public DateType {
 
   std::string name() const override { return "date32"; }
   DateUnit unit() const override { return UNIT; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// Concrete type class for 64-bit date data (as number of milliseconds since UNIX epoch)
@@ -884,6 +1004,9 @@ class ARROW_EXPORT Date64Type : public DateType {
 
   std::string name() const override { return "date64"; }
   DateUnit unit() const override { return UNIT; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 struct TimeUnit {
@@ -901,6 +1024,8 @@ class ARROW_EXPORT TimeType : public TemporalType, public ParametricType {
 
  protected:
   TimeType(Type::type type_id, TimeUnit::type unit);
+  std::string ComputeFingerprint() const override;
+
   TimeUnit::type unit_;
 };
 
@@ -995,6 +1120,9 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
   TimeUnit::type unit() const { return unit_; }
   const std::string& timezone() const { return timezone_; }
 
+ protected:
+  std::string ComputeFingerprint() const override;
+
  private:
   TimeUnit::type unit_;
   std::string timezone_;
@@ -1007,7 +1135,9 @@ class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
   IntervalType() : TemporalType(Type::INTERVAL) {}
 
   virtual type interval_type() const = 0;
-  virtual ~IntervalType() = default;
+
+ protected:
+  std::string ComputeFingerprint() const override;
 };
 
 /// \brief Represents a some number of months.
@@ -1080,6 +1210,9 @@ class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
 
   TimeUnit::type unit() const { return unit_; }
 
+ protected:
+  std::string ComputeFingerprint() const override;
+
  private:
   TimeUnit::type unit_;
 };
@@ -1134,6 +1267,8 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
                       std::vector<std::vector<int32_t>>* out_transpose_maps = NULLPTR);
 
  protected:
+  std::string ComputeFingerprint() const override;
+
   // Must be an integer type (not currently checked)
   std::shared_ptr<DataType> index_type_;
   std::shared_ptr<DataType> value_type_;
@@ -1146,7 +1281,7 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 /// \class Schema
 /// \brief Sequence of arrow::Field objects describing the columns of a record
 /// batch or table data structure
-class ARROW_EXPORT Schema {
+class ARROW_EXPORT Schema : public detail::Fingerprintable {
  public:
   explicit Schema(const std::vector<std::shared_ptr<Field>>& fields,
                   const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
@@ -1156,7 +1291,7 @@ class ARROW_EXPORT Schema {
 
   Schema(const Schema&);
 
-  virtual ~Schema();
+  ~Schema() override;
 
   /// Returns true if all of the schema fields are equal
   bool Equals(const Schema& other, bool check_metadata = true) const;
@@ -1209,6 +1344,10 @@ class ARROW_EXPORT Schema {
 
   /// \brief Indicates that Schema has non-empty KevValueMetadata
   bool HasMetadata() const;
+
+ protected:
+  std::string ComputeFingerprint() const override;
+  std::string ComputeMetadataFingerprint() const override;
 
  private:
   class Impl;

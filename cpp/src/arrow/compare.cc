@@ -1163,21 +1163,35 @@ bool SparseTensorEquals(const SparseTensor& left, const SparseTensor& right) {
 }
 
 bool TypeEquals(const DataType& left, const DataType& right, bool check_metadata) {
-  bool are_equal;
   // The arrays are the same object
   if (&left == &right) {
-    are_equal = true;
+    return true;
   } else if (left.id() != right.id()) {
-    are_equal = false;
+    return false;
   } else {
+    // First try to compute fingerprints
+    if (check_metadata) {
+      const auto& left_metadata_fp = left.metadata_fingerprint();
+      const auto& right_metadata_fp = right.metadata_fingerprint();
+      if (left_metadata_fp != right_metadata_fp) {
+        return false;
+      }
+    }
+
+    const auto& left_fp = left.fingerprint();
+    const auto& right_fp = right.fingerprint();
+    if (!left_fp.empty() && !right_fp.empty()) {
+      return left_fp == right_fp;
+    }
+
+    // TODO remove check_metadata here?
     internal::TypeEqualsVisitor visitor(right, check_metadata);
     auto error = VisitTypeInline(left, &visitor);
     if (!error.ok()) {
       DCHECK(false) << "Types are not comparable: " << error.ToString();
     }
-    are_equal = visitor.result();
+    return visitor.result();
   }
-  return are_equal;
 }
 
 bool ScalarEquals(const Scalar& left, const Scalar& right) {

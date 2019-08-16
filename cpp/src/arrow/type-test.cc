@@ -36,6 +36,67 @@ namespace arrow {
 
 using internal::checked_cast;
 
+template <typename T>
+void AssertFingerprintablesEqual(const T& left, const T& right, bool check_metadata,
+                                 const char* types_plural) {
+  ASSERT_TRUE(left.Equals(right, check_metadata))
+      << types_plural << " '" << left.ToString() << "' and '" << right.ToString()
+      << "' should have compared equal";
+  auto lfp = left.fingerprint();
+  auto rfp = right.fingerprint();
+  // All types tested in this file should implement fingerprinting
+  ASSERT_NE(lfp, "") << "fingerprint for '" << left.ToString() << "' should not be empty";
+  ASSERT_NE(rfp, "") << "fingerprint for '" << right.ToString()
+                     << "' should not be empty";
+  if (check_metadata) {
+    lfp += left.metadata_fingerprint();
+    rfp += right.metadata_fingerprint();
+  }
+  ASSERT_EQ(lfp, rfp) << "Fingerprints for " << types_plural << " '" << left.ToString()
+                      << "' and '" << right.ToString() << "' should have compared equal";
+}
+
+template <typename T>
+void AssertFingerprintablesNotEqual(const T& left, const T& right, bool check_metadata,
+                                    const char* types_plural) {
+  ASSERT_FALSE(left.Equals(right, check_metadata))
+      << types_plural << " '" << left.ToString() << "' and '" << right.ToString()
+      << "' should have compared unequal";
+  auto lfp = left.fingerprint();
+  auto rfp = right.fingerprint();
+  // All types tested in this file should implement fingerprinting
+  ASSERT_NE(lfp, "") << "fingerprint for '" << left.ToString() << "' should not be empty";
+  ASSERT_NE(rfp, "") << "fingerprint for '" << right.ToString()
+                     << "' should not be empty";
+  if (check_metadata) {
+    lfp += left.metadata_fingerprint();
+    rfp += right.metadata_fingerprint();
+  }
+  ASSERT_NE(lfp, rfp) << "Fingerprints for " << types_plural << " '" << left.ToString()
+                      << "' and '" << right.ToString()
+                      << "' should have compared unequal";
+}
+
+void AssertTypesEqual(const DataType& left, const DataType& right,
+                      bool check_metadata = true) {
+  AssertFingerprintablesEqual(left, right, check_metadata, "types");
+}
+
+void AssertTypesNotEqual(const DataType& left, const DataType& right,
+                         bool check_metadata = true) {
+  AssertFingerprintablesNotEqual(left, right, check_metadata, "types");
+}
+
+void AssertFieldsEqual(const Field& left, const Field& right,
+                       bool check_metadata = true) {
+  AssertFingerprintablesEqual(left, right, check_metadata, "fields");
+}
+
+void AssertFieldsNotEqual(const Field& left, const Field& right,
+                          bool check_metadata = true) {
+  AssertFingerprintablesNotEqual(left, right, check_metadata, "fields");
+}
+
 TEST(TestField, Basics) {
   Field f0("f0", int32());
   Field f0_nn("f0", int32(), false);
@@ -48,17 +109,28 @@ TEST(TestField, Basics) {
 }
 
 TEST(TestField, Equals) {
-  auto meta = key_value_metadata({{"a", "1"}, {"b", "2"}});
+  auto meta1 = key_value_metadata({{"a", "1"}, {"b", "2"}});
+  // Different from meta1
+  auto meta2 = key_value_metadata({{"a", "1"}, {"b", "3"}});
+  // Equal to meta1, though in different order
+  auto meta3 = key_value_metadata({{"b", "2"}, {"a", "1"}});
 
   Field f0("f0", int32());
   Field f0_nn("f0", int32(), false);
   Field f0_other("f0", int32());
-  Field f0_with_meta("f0", int32(), true, meta);
+  Field f0_with_meta1("f0", int32(), true, meta1);
+  Field f0_with_meta2("f0", int32(), true, meta2);
+  Field f0_with_meta3("f0", int32(), true, meta3);
 
-  ASSERT_TRUE(f0.Equals(f0_other));
-  ASSERT_FALSE(f0.Equals(f0_nn));
-  ASSERT_FALSE(f0.Equals(f0_with_meta));
-  ASSERT_TRUE(f0.Equals(f0_with_meta, false));
+  AssertFieldsEqual(f0, f0_other);
+  AssertFieldsNotEqual(f0, f0_nn);
+  AssertFieldsNotEqual(f0, f0_with_meta1);
+  AssertFieldsNotEqual(f0_with_meta1, f0_with_meta2);
+  AssertFieldsEqual(f0_with_meta1, f0_with_meta3);
+
+  AssertFieldsEqual(f0, f0_with_meta1, false);
+  AssertFieldsEqual(f0, f0_with_meta2, false);
+  AssertFieldsEqual(f0_with_meta1, f0_with_meta2, false);
 }
 
 TEST(TestField, TestMetadataConstruction) {
@@ -68,7 +140,7 @@ TEST(TestField, TestMetadataConstruction) {
   auto f0 = field("f0", int32(), true, metadata);
   auto f1 = field("f0", int32(), true, metadata2);
   ASSERT_TRUE(metadata->Equals(*f0->metadata()));
-  ASSERT_TRUE(f0->Equals(*f1));
+  AssertFieldsEqual(*f0, *f1);
 }
 
 TEST(TestField, TestAddMetadata) {
@@ -78,8 +150,10 @@ TEST(TestField, TestAddMetadata) {
   auto f1 = field("f0", int32(), true, metadata);
   std::shared_ptr<Field> f2 = f0->AddMetadata(metadata);
 
-  ASSERT_FALSE(f2->Equals(*f0));
-  ASSERT_TRUE(f2->Equals(*f1));
+  AssertFieldsEqual(*f1, *f2);
+  AssertFieldsNotEqual(*f0, *f2);
+  ASSERT_TRUE(f1->Equals(f2, /*check_metadata =*/false));
+  ASSERT_TRUE(f0->Equals(f2, /*check_metadata =*/false));
 
   // Not copied
   ASSERT_TRUE(metadata.get() == f1->metadata().get());
@@ -92,6 +166,21 @@ TEST(TestField, TestRemoveMetadata) {
   auto f1 = field("f0", int32(), true, metadata);
   std::shared_ptr<Field> f2 = f1->RemoveMetadata();
   ASSERT_TRUE(f2->metadata() == nullptr);
+}
+
+TEST(TestField, TestEmptyMetadata) {
+  // Empty metadata should be equivalent to no metadata at all
+  auto metadata1 = key_value_metadata({});
+  auto metadata2 = key_value_metadata({"foo"}, {"foo value"});
+
+  auto f0 = field("f0", int32());
+  auto f1 = field("f0", int32(), true, metadata1);
+  auto f2 = field("f0", int32(), true, metadata2);
+
+  AssertFieldsEqual(*f0, *f1);
+  AssertFieldsNotEqual(*f0, *f2);
+  ASSERT_TRUE(f0->Equals(f1, /*check_metadata =*/false));
+  ASSERT_TRUE(f0->Equals(f2, /*check_metadata =*/false));
 }
 
 TEST(TestField, TestFlatten) {
@@ -128,9 +217,9 @@ TEST(TestField, TestReplacement) {
   auto fzero = f0->WithType(utf8());
   auto f1 = f0->WithName("f1");
 
-  ASSERT_FALSE(f0->Equals(fzero));
-  ASSERT_FALSE(fzero->Equals(f1));
-  ASSERT_FALSE(f1->Equals(f0));
+  AssertFieldsNotEqual(*f0, *fzero);
+  AssertFieldsNotEqual(*fzero, *f1);
+  AssertFieldsNotEqual(*f1, *f0);
 
   ASSERT_EQ(fzero->name(), "f0");
   ASSERT_TRUE(fzero->type()->Equals(utf8()));
@@ -166,6 +255,8 @@ TEST_F(TestSchema, Basics) {
   auto schema3 = std::make_shared<Schema>(fields3);
   ASSERT_TRUE(schema->Equals(*schema2));
   ASSERT_FALSE(schema->Equals(*schema3));
+  ASSERT_EQ(schema->fingerprint(), schema2->fingerprint());
+  ASSERT_NE(schema->fingerprint(), schema3->fingerprint());
 }
 
 TEST_F(TestSchema, ToString) {
@@ -275,12 +366,38 @@ TEST_F(TestSchema, TestMetadataConstruction) {
   ASSERT_TRUE(schema0->Equals(*schema2));
   ASSERT_FALSE(schema0->Equals(*schema1));
   ASSERT_FALSE(schema2->Equals(*schema1));
-  ASSERT_FALSE(schema2->Equals(*schema3));
+  ASSERT_FALSE(schema2->Equals(*schema3));  // Field has different metadata
+
+  ASSERT_EQ(schema0->fingerprint(), schema1->fingerprint());
+  ASSERT_EQ(schema0->fingerprint(), schema2->fingerprint());
+  ASSERT_EQ(schema0->fingerprint(), schema3->fingerprint());
+  ASSERT_NE(schema0->metadata_fingerprint(), schema1->metadata_fingerprint());
+  ASSERT_EQ(schema0->metadata_fingerprint(), schema2->metadata_fingerprint());
+  ASSERT_NE(schema0->metadata_fingerprint(), schema3->metadata_fingerprint());
 
   // don't check metadata
   ASSERT_TRUE(schema0->Equals(*schema1, false));
   ASSERT_TRUE(schema2->Equals(*schema1, false));
   ASSERT_TRUE(schema2->Equals(*schema3, false));
+}
+
+TEST_F(TestSchema, TestEmptyMetadata) {
+  // Empty metadata should be equivalent to no metadata at all
+  auto f1 = field("f1", int32());
+  auto metadata1 = key_value_metadata({});
+  auto metadata2 = key_value_metadata({"foo"}, {"foo value"});
+
+  auto schema1 = ::arrow::schema({f1});
+  auto schema2 = ::arrow::schema({f1}, metadata1);
+  auto schema3 = ::arrow::schema({f1}, metadata2);
+
+  ASSERT_TRUE(schema1->Equals(*schema2));
+  ASSERT_FALSE(schema1->Equals(*schema3));
+
+  ASSERT_EQ(schema1->fingerprint(), schema2->fingerprint());
+  ASSERT_EQ(schema1->fingerprint(), schema3->fingerprint());
+  ASSERT_EQ(schema1->metadata_fingerprint(), schema2->metadata_fingerprint());
+  ASSERT_NE(schema1->metadata_fingerprint(), schema3->metadata_fingerprint());
 }
 
 TEST_F(TestSchema, TestAddMetadata) {
@@ -342,8 +459,8 @@ TEST(TestBinaryType, ToString) {
   BinaryType t1;
   BinaryType e1;
   StringType t2;
-  EXPECT_TRUE(t1.Equals(e1));
-  EXPECT_FALSE(t1.Equals(t2));
+  AssertTypesEqual(t1, e1);
+  AssertTypesNotEqual(t1, t2);
   ASSERT_EQ(t1.id(), Type::BINARY);
   ASSERT_EQ(t1.ToString(), std::string("binary"));
 }
@@ -359,9 +476,9 @@ TEST(TestLargeBinaryTypes, ToString) {
   LargeBinaryType t1;
   LargeBinaryType e1;
   LargeStringType t2;
-  EXPECT_TRUE(t1.Equals(e1));
-  EXPECT_FALSE(t1.Equals(t2));
-  EXPECT_FALSE(t1.Equals(bt1));
+  AssertTypesEqual(t1, e1);
+  AssertTypesNotEqual(t1, t2);
+  AssertTypesNotEqual(t1, bt1);
   ASSERT_EQ(t1.id(), Type::LARGE_BINARY);
   ASSERT_EQ(t1.ToString(), std::string("large_binary"));
   ASSERT_EQ(t2.id(), Type::LARGE_STRING);
@@ -379,9 +496,8 @@ TEST(TestFixedSizeBinaryType, Equals) {
   auto t2 = fixed_size_binary(10);
   auto t3 = fixed_size_binary(3);
 
-  ASSERT_TRUE(t1->Equals(t1));
-  ASSERT_TRUE(t1->Equals(t2));
-  ASSERT_FALSE(t1->Equals(t3));
+  AssertTypesEqual(*t1, *t2);
+  AssertTypesNotEqual(*t1, *t3);
 }
 
 TEST(TestListType, Basics) {
@@ -488,11 +604,11 @@ TEST(TestTimeType, Equals) {
   ASSERT_EQ(32, t0.bit_width());
   ASSERT_EQ(64, t3.bit_width());
 
-  ASSERT_TRUE(t0.Equals(t2));
-  ASSERT_TRUE(t1.Equals(t1));
-  ASSERT_FALSE(t1.Equals(t3));
-  ASSERT_FALSE(t3.Equals(t4));
-  ASSERT_TRUE(t3.Equals(t5));
+  AssertTypesEqual(t0, t2);
+  AssertTypesEqual(t1, t1);
+  AssertTypesNotEqual(t1, t3);
+  AssertTypesNotEqual(t3, t4);
+  AssertTypesEqual(t3, t5);
 }
 
 TEST(TestTimeType, ToString) {
@@ -512,8 +628,8 @@ TEST(TestMonthIntervalType, Equals) {
   MonthIntervalType t2;
   DayTimeIntervalType t3;
 
-  ASSERT_TRUE(t1.Equals(t2));
-  ASSERT_FALSE(t1.Equals(t3));
+  AssertTypesEqual(t1, t2);
+  AssertTypesNotEqual(t1, t3);
 }
 
 TEST(TestMonthIntervalType, ToString) {
@@ -527,8 +643,8 @@ TEST(TestDayTimeIntervalType, Equals) {
   DayTimeIntervalType t2;
   MonthIntervalType t3;
 
-  ASSERT_TRUE(t1.Equals(t2));
-  ASSERT_FALSE(t1.Equals(t3));
+  AssertTypesEqual(t1, t2);
+  AssertTypesNotEqual(t1, t3);
 }
 
 TEST(TestDayTimeIntervalType, ToString) {
@@ -543,9 +659,9 @@ TEST(TestDurationType, Equals) {
   DurationType t3(TimeUnit::NANO);
   DurationType t4(TimeUnit::NANO);
 
-  ASSERT_TRUE(t1.Equals(t2));
-  ASSERT_FALSE(t1.Equals(t3));
-  ASSERT_TRUE(t3.Equals(t4));
+  AssertTypesEqual(t1, t2);
+  AssertTypesNotEqual(t1, t3);
+  AssertTypesEqual(t3, t4);
 }
 
 TEST(TestDurationType, ToString) {
@@ -566,9 +682,15 @@ TEST(TestTimestampType, Equals) {
   TimestampType t3(TimeUnit::NANO);
   TimestampType t4(TimeUnit::NANO);
 
-  ASSERT_TRUE(t1.Equals(t2));
-  ASSERT_FALSE(t1.Equals(t3));
-  ASSERT_TRUE(t3.Equals(t4));
+  DurationType dt1;
+  DurationType dt2(TimeUnit::NANO);
+
+  AssertTypesEqual(t1, t2);
+  AssertTypesNotEqual(t1, t3);
+  AssertTypesEqual(t3, t4);
+
+  AssertTypesNotEqual(t1, dt1);
+  AssertTypesNotEqual(t3, dt2);
 }
 
 TEST(TestTimestampType, ToString) {
@@ -591,11 +713,39 @@ TEST(TestListType, Equals) {
   auto t5 = large_list(binary());
   auto t6 = large_list(float64());
 
-  ASSERT_TRUE(t1->Equals(t2));
-  ASSERT_FALSE(t1->Equals(t3));
-  ASSERT_FALSE(t3->Equals(t4));
-  ASSERT_TRUE(t4->Equals(t5));
-  ASSERT_FALSE(t5->Equals(t6));
+  AssertTypesEqual(*t1, *t2);
+  AssertTypesNotEqual(*t1, *t3);
+  AssertTypesNotEqual(*t3, *t4);
+  AssertTypesEqual(*t4, *t5);
+  AssertTypesNotEqual(*t5, *t6);
+}
+
+TEST(TestListType, Metadata) {
+  auto md1 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
+  auto md2 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
+  auto md3 = key_value_metadata({"foo"}, {"foo value"});
+
+  auto f1 = field("item", utf8(), /*nullable =*/true, md1);
+  auto f2 = field("item", utf8(), /*nullable =*/true, md2);
+  auto f3 = field("item", utf8(), /*nullable =*/true, md3);
+  auto f4 = field("item", utf8());
+  auto f5 = field("item", utf8(), /*nullable =*/false, md1);
+
+  auto t1 = list(f1);
+  auto t2 = list(f2);
+  auto t3 = list(f3);
+  auto t4 = list(f4);
+  auto t5 = list(f5);
+
+  AssertTypesEqual(*t1, *t2);
+  AssertTypesNotEqual(*t1, *t3);
+  AssertTypesNotEqual(*t1, *t4);
+  AssertTypesNotEqual(*t1, *t5);
+
+  AssertTypesEqual(*t1, *t2, /*check_metadata =*/false);
+  AssertTypesEqual(*t1, *t3, /*check_metadata =*/false);
+  AssertTypesEqual(*t1, *t4, /*check_metadata =*/false);
+  AssertTypesNotEqual(*t1, *t5, /*check_metadata =*/false);
 }
 
 TEST(TestNestedType, Equals) {
@@ -621,18 +771,18 @@ TEST(TestNestedType, Equals) {
   auto s0_bad = create_struct("f1", "s0");
   auto s1 = create_struct("f1", "s1");
 
-  ASSERT_TRUE(s0->Equals(s0_other));
-  ASSERT_FALSE(s0->Equals(s1));
-  ASSERT_FALSE(s0->Equals(s0_bad));
+  AssertFieldsEqual(*s0, *s0_other);
+  AssertFieldsNotEqual(*s0, *s1);
+  AssertFieldsNotEqual(*s0, *s0_bad);
 
   auto u0 = create_union("f0", "u0");
   auto u0_other = create_union("f0", "u0");
   auto u0_bad = create_union("f1", "u0");
   auto u1 = create_union("f1", "u1");
 
-  ASSERT_TRUE(u0->Equals(u0_other));
-  ASSERT_FALSE(u0->Equals(u1));
-  ASSERT_FALSE(u0->Equals(u0_bad));
+  AssertFieldsEqual(*u0, *u0_other);
+  AssertFieldsNotEqual(*u0, *u1);
+  AssertFieldsNotEqual(*u0, *u0_bad);
 }
 
 TEST(TestStructType, Basics) {
@@ -752,11 +902,9 @@ TEST(TestDictionaryType, Equals) {
   auto t3 = dictionary(int16(), int32());
   auto t4 = dictionary(int8(), int16());
 
-  ASSERT_TRUE(t1->Equals(t2));
-  // Different index type
-  ASSERT_FALSE(t1->Equals(t3));
-  // Different value type
-  ASSERT_FALSE(t1->Equals(t4));
+  AssertTypesEqual(*t1, *t2);
+  AssertTypesNotEqual(*t1, *t3);
+  AssertTypesNotEqual(*t1, *t4);
 }
 
 TEST(TestDictionaryType, UnifyNumeric) {
@@ -937,6 +1085,20 @@ TEST(TypesTest, TestDecimal128Large) {
   // Test properties
   ASSERT_EQ(t1.byte_width(), 16);
   ASSERT_EQ(t1.bit_width(), 128);
+}
+
+TEST(TypesTest, TestDecimalEquals) {
+  Decimal128Type t1(8, 4);
+  Decimal128Type t2(8, 4);
+  Decimal128Type t3(8, 5);
+  Decimal128Type t4(27, 5);
+
+  FixedSizeBinaryType t9(16);
+
+  AssertTypesEqual(t1, t2);
+  AssertTypesNotEqual(t1, t3);
+  AssertTypesNotEqual(t1, t4);
+  AssertTypesNotEqual(t1, t9);
 }
 
 }  // namespace arrow
