@@ -16,27 +16,13 @@
 # under the License.
 
 module Arrow
-  class TimestampArray
+  class Time64Array
     def get_value(i)
-      cast_to_time(get_raw_value(i))
+      Time.new(unit, get_raw_value(i))
     end
 
     def unit
       @unit ||= value_data_type.unit
-    end
-
-    private
-    def cast_to_time(raw_value)
-      case unit
-      when TimeUnit::SECOND
-        ::Time.at(raw_value)
-      when TimeUnit::MILLI
-        ::Time.at(*raw_value.divmod(1_000))
-      when TimeUnit::MICRO
-        ::Time.at(*raw_value.divmod(1_000_000))
-      else
-        ::Time.at(raw_value / 1_000_000_000.0)
-      end
     end
   end
 end

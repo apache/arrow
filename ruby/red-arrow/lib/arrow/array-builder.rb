@@ -27,6 +27,7 @@ module Arrow
         end
 
         builder_class = nil
+        builder_class_arguments = []
         values.each do |value|
           case value
           when nil
@@ -43,8 +44,29 @@ module Arrow
               return builder.build(values)
             else
               builder_class = UIntArrayBuilder
+              builder_class_arguments = []
             end
           when Time
+            data_type = value.data_type
+            case data_type.unit
+            when TimeUnit::SECOND
+              if builder.nil?
+                builder = Time32ArrayBuilder
+                builder_class_arguments = [data_type]
+              end
+            when TimeUnit::MILLI
+              if builder != Time64ArrayBuilder
+                builder = Time32ArrayBuilder
+                builder_class_arguments = [data_type]
+              end
+            when TimeUnit::MICRO
+              builder = Time64ArrayBuilder
+              builder_class_arguments = [data_type]
+            when TimeUnit::NANO
+              builder = Time64ArrayBuilder.new(data_type)
+              return builder.build(values)
+            end
+          when ::Time
             data_type = TimestampDataType.new(:nano)
             builder = TimestampArrayBuilder.new(data_type)
             return builder.build(values)
@@ -57,7 +79,8 @@ module Arrow
           end
         end
         if builder_class
-          builder_class.new.build(values)
+          builder = builder_class.new(*builder_class_arguments)
+          builder.build(values)
         else
           Arrow::StringArray.new(values)
         end

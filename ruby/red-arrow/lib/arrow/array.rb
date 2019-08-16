@@ -73,5 +73,10 @@ module Arrow
     def to_arrow
       self
     end
+
+    alias_method :value_data_type_raw, :value_data_type
+    def value_data_type
+      @value_data_type ||= value_data_type_raw
+    end
   end
 end

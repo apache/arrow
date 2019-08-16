@@ -19,11 +19,11 @@ module Arrow
   class Date64ArrayBuilder
     private
     def convert_to_arrow_value(value)
-      if value.respond_to?(:to_time) and not value.is_a?(Time)
+      if value.respond_to?(:to_time) and not value.is_a?(::Time)
         value = value.to_time
       end
 
-      if value.is_a?(Time)
+      if value.is_a?(::Time)
         value.to_i * 1_000 + value.usec / 1_000
       else
         value

@@ -23,8 +23,16 @@
 
 namespace red_arrow {
   VALUE cDate;
+  VALUE cArrowTime;
+
+  VALUE ArrowTimeUnitSECOND;
+  VALUE ArrowTimeUnitMILLI;
+  VALUE ArrowTimeUnitMICRO;
+  VALUE ArrowTimeUnitNANO;
+
   ID id_BigDecimal;
   ID id_jd;
+  ID id_new;
   ID id_to_datetime;
 }
 
@@ -34,14 +42,27 @@ extern "C" void Init_arrow() {
   rb_define_method(cArrowRecordBatch, "raw_records",
                    reinterpret_cast<rb::RawMethod>(red_arrow::record_batch_raw_records),
                    0);
+
   auto cArrowTable = rb_const_get_at(mArrow, rb_intern("Table"));
   rb_define_method(cArrowTable, "raw_records",
                    reinterpret_cast<rb::RawMethod>(red_arrow::table_raw_records),
                    0);
 
   red_arrow::cDate = rb_const_get(rb_cObject, rb_intern("Date"));
+  red_arrow::cArrowTime = rb_const_get_at(mArrow, rb_intern("Time"));
+
+  auto cArrowTimeUnit = rb_const_get_at(mArrow, rb_intern("TimeUnit"));
+  red_arrow::ArrowTimeUnitSECOND =
+    rb_const_get_at(cArrowTimeUnit, rb_intern("SECOND"));
+  red_arrow::ArrowTimeUnitMILLI =
+    rb_const_get_at(cArrowTimeUnit, rb_intern("MILLI"));
+  red_arrow::ArrowTimeUnitMICRO =
+    rb_const_get_at(cArrowTimeUnit, rb_intern("MICRO"));
+  red_arrow::ArrowTimeUnitNANO =
+    rb_const_get_at(cArrowTimeUnit, rb_intern("NANO"));
 
   red_arrow::id_BigDecimal = rb_intern("BigDecimal");
   red_arrow::id_jd = rb_intern("jd");
+  red_arrow::id_new = rb_intern("new");
   red_arrow::id_to_datetime = rb_intern("to_datetime");
 }
