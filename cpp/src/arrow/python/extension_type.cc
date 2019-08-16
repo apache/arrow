@@ -225,7 +225,6 @@ PyObject* GenericExtensionType::GetInstance() const {
   DCHECK(PyWeakref_CheckRef(type_instance_.obj()));
   PyObject* inst = PyWeakref_GET_OBJECT(type_instance_.obj());
   Py_INCREF(inst);
-  return inst;
   if (inst != Py_None) {
     // Cached instance still alive
     Py_INCREF(inst);

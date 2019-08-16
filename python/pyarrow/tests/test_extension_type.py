@@ -257,11 +257,26 @@ def test_generic_ext_type():
     assert result.type.extension_name == "pandas.period"
     assert arr.storage.to_pylist() == [1, 2, 3, 4]
 
-    # assert isinstance(result.type, PeriodType)
-    # assert result.type.freq == 'D'
-    # assert result.type == PeriodType('D')
-    # TODO the above checks still fail, it gives a BaseExtensionType for now
-    assert isinstance(result.type, pa.BaseExtensionType)
+    # we get back an actual PeriodType
+    assert isinstance(result.type, PeriodType)
+    assert result.type.freq == 'D'
+    assert result.type == PeriodType('D')
+
+    # using different parametrization as how it was registered
+    period_type_H = PeriodType('H')
+    assert period_type_H.extension_name == "pandas.period"
+    assert period_type_H.freq == 'H'
+
+    arr = pa.ExtensionArray.from_storage(period_type_H, storage)
+    batch = pa.RecordBatch.from_arrays([arr], ["ext"])
+
+    buf = ipc_write_batch(batch)
+    del batch
+    batch = ipc_read_batch(buf)
+    result = batch.column(0)
+    assert isinstance(result.type, PeriodType)
+    assert result.type.freq == 'H'
+    assert result.type == PeriodType('H')
 
     # pa.lib.unregister_extension_type('pandas.period')
 
