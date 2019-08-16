@@ -63,4 +63,9 @@ public class AvroBooleanConsumer implements Consumer {
     return this.vector;
   }
 
+  @Override
+  public void close() throws Exception {
+    writer.close();
+  }
+
 }

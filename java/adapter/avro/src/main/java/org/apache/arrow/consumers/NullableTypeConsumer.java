@@ -65,4 +65,9 @@ public class NullableTypeConsumer implements Consumer {
     return delegate.getVector();
   }
 
+  @Override
+  public void close() throws Exception {
+    delegate.close();
+  }
+
 }

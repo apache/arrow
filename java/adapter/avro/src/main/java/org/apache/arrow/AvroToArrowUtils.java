@@ -20,7 +20,6 @@ package org.apache.arrow;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,6 +36,7 @@ import org.apache.arrow.consumers.AvroLongConsumer;
 import org.apache.arrow.consumers.AvroNullConsumer;
 import org.apache.arrow.consumers.AvroStringConsumer;
 import org.apache.arrow.consumers.AvroUnionsConsumer;
+import org.apache.arrow.consumers.CompositeAvroConsumer;
 import org.apache.arrow.consumers.Consumer;
 import org.apache.arrow.consumers.NullableTypeConsumer;
 import org.apache.arrow.memory.BufferAllocator;
@@ -246,19 +246,15 @@ public class AvroToArrowUtils {
 
     VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 0);
 
-    int valueCount = 0;
-    while (true) {
-      try {
-        for (Consumer consumer : consumers) {
-          consumer.consume(decoder);
-        }
-        valueCount++;
-        //reach end will throw EOFException.
-      } catch (EOFException eofException) {
-        root.setRowCount(valueCount);
-        break;
-      }
+    CompositeAvroConsumer compositeConsumer = null;
+    try {
+      compositeConsumer = new CompositeAvroConsumer(consumers);
+      compositeConsumer.consume(decoder, root);
+    } catch (Exception e) {
+      compositeConsumer.close();
+      throw new RuntimeException("Error occurs while consume process.", e);
     }
+
     return root;
   }
 }

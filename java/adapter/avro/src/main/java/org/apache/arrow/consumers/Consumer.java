@@ -25,7 +25,7 @@ import org.apache.avro.io.Decoder;
 /**
  * Interface that is used to consume values from avro decoder.
  */
-public interface Consumer {
+public interface Consumer extends AutoCloseable {
 
   /**
    * Consume a specific type value from avro decoder and write it to vector.
@@ -48,4 +48,9 @@ public interface Consumer {
    * Get the vector within the consumer.
    */
   FieldVector getVector();
+
+  /**
+   * Close this consumer when occurs exception to avoid potential leak.
+   */
+  void close() throws Exception;
 }

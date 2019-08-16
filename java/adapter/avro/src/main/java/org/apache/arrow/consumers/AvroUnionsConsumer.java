@@ -31,7 +31,7 @@ import org.apache.avro.io.Decoder;
  */
 public class AvroUnionsConsumer implements Consumer {
 
-  private Consumer[] indexDelegates;
+  private Consumer[] delegates;
   private Types.MinorType[] types;
 
   private UnionWriter writer;
@@ -40,11 +40,11 @@ public class AvroUnionsConsumer implements Consumer {
   /**
    * Instantiate a AvroUnionConsumer.
    */
-  public AvroUnionsConsumer(UnionVector vector, Consumer[] indexDelegates, Types.MinorType[] types) {
+  public AvroUnionsConsumer(UnionVector vector, Consumer[] delegates, Types.MinorType[] types) {
 
     this.writer = new UnionWriter(vector);
     this.vector = vector;
-    this.indexDelegates = indexDelegates;
+    this.delegates = delegates;
     this.types = types;
   }
 
@@ -53,7 +53,7 @@ public class AvroUnionsConsumer implements Consumer {
     int fieldIndex = decoder.readInt();
     int position = writer.getPosition();
 
-    Consumer delegate = indexDelegates[fieldIndex];
+    Consumer delegate = delegates[fieldIndex];
 
     vector.setType(position, types[fieldIndex]);
     // In UnionVector we need to set sub vector writer position before consume a value
@@ -79,5 +79,13 @@ public class AvroUnionsConsumer implements Consumer {
   public FieldVector getVector() {
     vector.setValueCount(writer.getPosition());
     return this.vector;
+  }
+
+  @Override
+  public void close() throws Exception {
+    writer.close();
+    for (Consumer delegate: delegates) {
+      delegate.close();
+    }
   }
 }

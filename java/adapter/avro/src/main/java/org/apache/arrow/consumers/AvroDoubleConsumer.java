@@ -62,4 +62,9 @@ public class AvroDoubleConsumer implements Consumer {
   public FieldVector getVector() {
     return vector;
   }
+
+  @Override
+  public void close() throws Exception {
+    writer.close();
+  }
 }
