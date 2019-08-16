@@ -119,27 +119,26 @@ class FileSourceFixtureMixin : public TestDataFixtureMixin {
   }
 };
 
-class RepeatedRecordBatch : public RecordBatchReader {
+template <typename Gen>
+class GeneratedRecordBatch : public RecordBatchReader {
  public:
-  RepeatedRecordBatch(int64_t repetitions, std::shared_ptr<RecordBatch> batch)
-      : repetitions_(repetitions), batch_(std::move(batch)) {}
+  GeneratedRecordBatch(std::shared_ptr<Schema> schema, Gen gen)
+      : schema_(schema), gen_(gen) {}
 
-  std::shared_ptr<Schema> schema() const override { return batch_->schema(); }
+  std::shared_ptr<Schema> schema() const override { return schema_; }
 
-  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
-    if (repetitions_ > 0) {
-      *batch = batch_;
-      --repetitions_;
-    } else {
-      *batch = nullptr;
-    }
-    return Status::OK();
-  }
+  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override { return gen_(batch); }
 
  private:
-  int64_t repetitions_;
-  std::shared_ptr<RecordBatch> batch_;
+  std::shared_ptr<Schema> schema_;
+  Gen gen_;
 };
+
+template <typename Gen>
+std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
+    std::shared_ptr<Schema> schema, Gen&& gen) {
+  return internal::make_unique<GeneratedRecordBatch<Gen>>(schema, std::forward<Gen>(gen));
+}
 
 }  // namespace dataset
 }  // namespace arrow

@@ -38,7 +38,12 @@ class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
 
   std::unique_ptr<RecordBatchReader> GetRecordBatchReader() {
     auto batch = GetRecordBatch();
-    return internal::make_unique<RepeatedRecordBatch>(kBatchRepetitions, batch);
+    int64_t i = 0;
+    return MakeGeneratedRecordBatch(
+        batch->schema(), [batch, i](std::shared_ptr<RecordBatch>* out) mutable {
+          *out = i++ < kBatchRepetitions ? batch : nullptr;
+          return Status::OK();
+        });
   }
 
   std::shared_ptr<RecordBatch> GetRecordBatch() {
