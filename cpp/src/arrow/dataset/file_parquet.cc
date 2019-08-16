@@ -22,6 +22,7 @@
 
 #include "arrow/table.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/range.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/file_reader.h"
 
@@ -144,7 +145,7 @@ class ParquetScanTaskIterator : public ScanTaskIterator {
                                       const std::shared_ptr<ScanOptions>& options,
                                       std::vector<int>* out) {
     // TODO(fsaintjacques): Compute intersection _and_ validity
-    *out = metadata.AllColumnIndices();
+    *out = internal::Iota(metadata.num_columns());
 
     return Status::OK();
   }

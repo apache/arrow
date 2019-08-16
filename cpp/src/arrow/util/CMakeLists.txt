@@ -34,8 +34,8 @@ add_arrow_test(utility-test
                hashing_test.cc
                int_util_test.cc
                io_util_test.cc
-               lazy_test.cc
                parsing_util_test.cc
+               range_test.cc
                stl_util_test.cc
                trie_test.cc
                utf8_util_test.cc)
@@ -56,9 +56,9 @@ add_arrow_benchmark(compression_benchmark)
 add_arrow_benchmark(decimal_benchmark)
 add_arrow_benchmark(hashing_benchmark)
 add_arrow_benchmark(int_util_benchmark)
-add_arrow_benchmark(lazy_benchmark)
 add_arrow_benchmark(machine_benchmark)
 add_arrow_benchmark(number_parsing_benchmark)
+add_arrow_benchmark(range_benchmark)
 add_arrow_benchmark(thread_pool_benchmark)
 add_arrow_benchmark(trie_benchmark)
 add_arrow_benchmark(utf8_util_benchmark)

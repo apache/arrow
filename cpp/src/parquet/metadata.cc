@@ -16,7 +16,6 @@
 // under the License.
 
 #include <algorithm>
-#include <numeric>
 #include <ostream>
 #include <string>
 #include <utility>
@@ -282,16 +281,6 @@ int64_t ColumnChunkMetaData::total_compressed_size() const {
   return impl_->total_compressed_size();
 }
 
-namespace {
-
-std::vector<int> Arange(int length) {
-  std::vector<int> result(length);
-  std::iota(result.begin(), result.end(), 0);
-  return result;
-}
-
-}  // namespace
-
 // row-group metadata
 class RowGroupMetaData::RowGroupMetaDataImpl {
  public:
@@ -497,13 +486,9 @@ uint32_t FileMetaData::size() const { return impl_->size(); }
 
 int FileMetaData::num_columns() const { return impl_->num_columns(); }
 
-std::vector<int> FileMetaData::AllColumnIndices() const { return Arange(num_columns()); }
-
 int64_t FileMetaData::num_rows() const { return impl_->num_rows(); }
 
 int FileMetaData::num_row_groups() const { return impl_->num_row_groups(); }
-
-std::vector<int> FileMetaData::AllRowGroups() const { return Arange(num_row_groups()); }
 
 ParquetVersion::type FileMetaData::version() const {
   switch (impl_->version()) {

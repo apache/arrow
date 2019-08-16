@@ -29,6 +29,7 @@
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/range.h"
 
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/column_reader.h"
@@ -51,6 +52,7 @@ using arrow::Status;
 using arrow::StructArray;
 using arrow::Table;
 using arrow::TimestampArray;
+using arrow::internal::Iota;
 
 using parquet::schema::GroupNode;
 using parquet::schema::Node;
@@ -100,10 +102,6 @@ class FileReaderImpl : public FileReader {
                                reader_properties_, &manifest_);
   }
 
-  std::vector<int> AllRowGroups() { return reader_->metadata()->AllRowGroups(); }
-
-  std::vector<int> AllColumnIndices() { return reader_->metadata()->AllColumnIndices(); }
-
   FileColumnIteratorFactory SomeRowGroupsFactory(std::vector<int> row_groups) {
     return [row_groups](int i, ParquetFileReader* reader) {
       return new FileColumnIterator(i, reader, row_groups);
@@ -111,7 +109,7 @@ class FileReaderImpl : public FileReader {
   }
 
   FileColumnIteratorFactory AllRowGroupsFactory() {
-    return SomeRowGroupsFactory(AllRowGroups());
+    return SomeRowGroupsFactory(Iota(reader_->metadata()->num_row_groups()));
   }
 
   Status BoundsCheckColumn(int column) {
@@ -150,7 +148,7 @@ class FileReaderImpl : public FileReader {
 
   Status ReadTable(const std::vector<int>& indices,
                    std::shared_ptr<Table>* out) override {
-    return ReadRowGroups(AllRowGroups(), indices, out);
+    return ReadRowGroups(Iota(reader_->metadata()->num_row_groups()), indices, out);
   }
 
   Status GetFieldReader(int i, const std::vector<int>& indices,
@@ -203,11 +201,12 @@ class FileReaderImpl : public FileReader {
 
   Status ReadSchemaField(int i, const std::vector<int>& indices,
                          std::shared_ptr<ChunkedArray>* out) {
-    return ReadSchemaField(i, indices, AllRowGroups(), out);
+    return ReadSchemaField(i, indices, Iota(reader_->metadata()->num_row_groups()), out);
   }
 
   Status ReadSchemaField(int i, std::shared_ptr<ChunkedArray>* out) override {
-    return ReadSchemaField(i, AllColumnIndices(), AllRowGroups(), out);
+    return ReadSchemaField(i, Iota(reader_->metadata()->num_columns()),
+                           Iota(reader_->metadata()->num_row_groups()), out);
   }
 
   Status ReadColumn(int i, const std::vector<int>& row_groups,
@@ -221,11 +220,11 @@ class FileReaderImpl : public FileReader {
   }
 
   Status ReadColumn(int i, std::shared_ptr<ChunkedArray>* out) override {
-    return ReadColumn(i, AllRowGroups(), out);
+    return ReadColumn(i, Iota(reader_->metadata()->num_row_groups()), out);
   }
 
   Status ReadTable(std::shared_ptr<Table>* table) override {
-    return ReadTable(AllColumnIndices(), table);
+    return ReadTable(Iota(reader_->metadata()->num_columns()), table);
   }
 
   Status ReadRowGroups(const std::vector<int>& row_groups,
@@ -234,7 +233,7 @@ class FileReaderImpl : public FileReader {
 
   Status ReadRowGroups(const std::vector<int>& row_groups,
                        std::shared_ptr<Table>* table) override {
-    return ReadRowGroups(row_groups, AllColumnIndices(), table);
+    return ReadRowGroups(row_groups, Iota(reader_->metadata()->num_columns()), table);
   }
 
   Status ReadRowGroup(int row_group_index, const std::vector<int>& column_indices,
@@ -243,7 +242,7 @@ class FileReaderImpl : public FileReader {
   }
 
   Status ReadRowGroup(int i, std::shared_ptr<Table>* table) override {
-    return ReadRowGroup(i, AllColumnIndices(), table);
+    return ReadRowGroup(i, Iota(reader_->metadata()->num_columns()), table);
   }
 
   Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
@@ -252,7 +251,8 @@ class FileReaderImpl : public FileReader {
 
   Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                               std::unique_ptr<RecordBatchReader>* out) override {
-    return GetRecordBatchReader(row_group_indices, AllColumnIndices(), out);
+    return GetRecordBatchReader(row_group_indices,
+                                Iota(reader_->metadata()->num_columns()), out);
   }
 
   int num_columns() const { return reader_->metadata()->num_columns(); }

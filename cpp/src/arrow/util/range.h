@@ -15,14 +15,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_LAZY_H
-#define ARROW_UTIL_LAZY_H
+#pragma once
 
 #include <iterator>
+#include <numeric>
 #include <utility>
+#include <vector>
 
 namespace arrow {
 namespace internal {
+
+/// Create a vector containing the values from start up to stop
+template <typename T>
+std::vector<T> Iota(T start, T stop) {
+  if (start > stop) {
+    return {};
+  }
+  std::vector<T> result(static_cast<size_t>(stop - start));
+  std::iota(result.begin(), result.end(), start);
+  return result;
+}
+
+/// Create a vector containing the values from 0 up to length
+template <typename T>
+std::vector<T> Iota(T length) {
+  return Iota(static_cast<T>(0), length);
+}
 
 /// Create a range from a callable which takes a single index parameter
 /// and returns the value of iterator on each call and a length.
@@ -133,4 +151,3 @@ LazyRange<Generator> MakeLazyRange(Generator&& gen, int64_t length) {
 
 }  // namespace internal
 }  // namespace arrow
-#endif
