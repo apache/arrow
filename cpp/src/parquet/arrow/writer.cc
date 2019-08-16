@@ -472,6 +472,8 @@ class FileWriterImpl : public FileWriter {
     return WriteColumnChunk(data, 0, data->length());
   }
 
+  std::shared_ptr<::arrow::Schema> schema() const override { return schema_; }
+
   Status WriteTable(const Table& table, int64_t chunk_size) override {
     RETURN_NOT_OK(table.Validate());
 
@@ -506,36 +508,6 @@ class FileWriterImpl : public FileWriter {
           PARQUET_IGNORE_NOT_OK(Close()));
     }
     return Status::OK();
-  }
-
-  Status WriteRecordBatch(const ::arrow::RecordBatch& batch) override {
-    auto schema = batch.schema();
-    auto size = batch.num_rows();
-
-    if (!schema->Equals(*schema_, false)) {
-      return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
-                             schema->ToString(), "' this:'", schema_->ToString(), "'");
-    }
-
-    RETURN_NOT_OK(NewRowGroup(size));
-    for (int i = 0; i < batch.num_columns(); i++) {
-      RETURN_NOT_OK(WriteColumnChunk(*batch.column(i)));
-    }
-
-    return Status::OK();
-  }
-
-  Status WriteRecordBatchReader(::arrow::RecordBatchReader* reader) override {
-    auto schema = reader->schema();
-
-    if (!schema->Equals(*schema_, false)) {
-      return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
-                             schema->ToString(), "' this:'", schema_->ToString(), "'");
-    }
-
-    return reader->Visit([this](std::shared_ptr<::arrow::RecordBatch> batch) -> Status {
-      return WriteRecordBatch(*batch);
-    });
   }
 
   const WriterProperties& properties() const { return *writer_->properties(); }
@@ -648,18 +620,6 @@ Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
   RETURN_NOT_OK(FileWriter::Open(*table.schema(), pool, sink, properties,
                                  arrow_properties, &writer));
   RETURN_NOT_OK(writer->WriteTable(table, chunk_size));
-  return writer->Close();
-}
-
-Status WriteRecordBatchReader(
-    ::arrow::RecordBatchReader* reader, ::arrow::MemoryPool* pool,
-    const std::shared_ptr<::arrow::io::OutputStream>& sink,
-    const std::shared_ptr<WriterProperties>& properties,
-    const std::shared_ptr<ArrowWriterProperties>& arrow_properties) {
-  std::unique_ptr<FileWriter> writer;
-  RETURN_NOT_OK(FileWriter::Open(*reader->schema(), pool, sink, properties,
-                                 arrow_properties, &writer));
-  RETURN_NOT_OK(writer->WriteRecordBatchReader(reader));
   return writer->Close();
 }
 
