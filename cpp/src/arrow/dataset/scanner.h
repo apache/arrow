@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/dataset/dataset.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/memory_pool.h"
@@ -41,7 +42,7 @@ struct ARROW_DS_EXPORT ScanContext {
 
 class ARROW_DS_EXPORT ScanOptions {
  public:
-  virtual ~ScanOptions();
+  virtual ~ScanOptions() = default;
 
   const DataSelector* selector() const { return selector_.get(); }
 

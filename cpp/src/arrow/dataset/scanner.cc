@@ -18,9 +18,5 @@
 #include "arrow/dataset/scanner.h"
 
 namespace arrow {
-namespace dataset {
-
-ScanOptions::~ScanOptions() {}
-
-}  // namespace dataset
+namespace dataset {}  // namespace dataset
 }  // namespace arrow
