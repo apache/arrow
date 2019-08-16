@@ -30,9 +30,9 @@ import org.apache.arrow.vector.complex.writer.TimeMilliWriter;
  * Consumer which consume time type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.TimeMilliVector}.
  */
-public class TimeConsumer implements JdbcConsumer {
+public class TimeConsumer implements JdbcConsumer<TimeMilliVector> {
 
-  private final TimeMilliWriter writer;
+  private TimeMilliWriter writer;
   private final int columnIndexInResultSet;
   private final Calendar calendar;
 
@@ -60,5 +60,10 @@ public class TimeConsumer implements JdbcConsumer {
       writer.writeTimeMilli((int) time.getTime());
     }
     writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void resetValueVector(TimeMilliVector vector) {
+    this.writer = new TimeMilliWriterImpl(vector);
   }
 }

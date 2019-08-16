@@ -28,9 +28,9 @@ import org.apache.arrow.vector.complex.writer.Float8Writer;
  * Consumer which consume double type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.Float8Vector}.
  */
-public class DoubleConsumer implements JdbcConsumer {
+public class DoubleConsumer implements JdbcConsumer<Float8Vector> {
 
-  private final Float8Writer writer;
+  private Float8Writer writer;
   private final int columnIndexInResultSet;
 
   /**
@@ -48,5 +48,10 @@ public class DoubleConsumer implements JdbcConsumer {
       writer.writeFloat8(value);
     }
     writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void resetValueVector(Float8Vector vector) {
+    this.writer = new Float8WriterImpl(vector);
   }
 }

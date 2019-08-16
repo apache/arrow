@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.apache.arrow.vector.ValueVector;
+
 /**
  * Composite consumer which hold all consumers.
  * It manages the consume and cleanup process.
@@ -28,23 +30,18 @@ import java.sql.SQLException;
 public class CompositeJdbcConsumer implements JdbcConsumer {
 
   private final JdbcConsumer[] consumers;
-  private int readRowCount;
 
-  public int getReadRowCount() {
-    return readRowCount;
-  }
-
+  /**
+   * Construct an instance.
+   */
   public CompositeJdbcConsumer(JdbcConsumer[] consumers) {
     this.consumers = consumers;
   }
 
   @Override
   public void consume(ResultSet rs) throws SQLException, IOException {
-    while (rs.next()) {
-      for (JdbcConsumer consumer : consumers) {
-        consumer.consume(rs);
-      }
-      readRowCount++;
+    for (JdbcConsumer consumer : consumers) {
+      consumer.consume(rs);
     }
   }
 
@@ -54,5 +51,10 @@ public class CompositeJdbcConsumer implements JdbcConsumer {
     for (JdbcConsumer consumer : consumers) {
       consumer.close();
     }
+  }
+
+  @Override
+  public void resetValueVector(ValueVector vector) {
+
   }
 }

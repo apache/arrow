@@ -28,9 +28,9 @@ import org.apache.arrow.vector.complex.writer.TinyIntWriter;
  * Consumer which consume tinyInt type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.TinyIntVector}.
  */
-public class TinyIntConsumer implements JdbcConsumer {
+public class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
 
-  private final TinyIntWriter writer;
+  private TinyIntWriter writer;
   private final int columnIndexInResultSet;
 
   /**
@@ -48,5 +48,10 @@ public class TinyIntConsumer implements JdbcConsumer {
       writer.writeTinyInt(value);
     }
     writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void resetValueVector(TinyIntVector vector) {
+    this.writer = new TinyIntWriterImpl(vector);
   }
 }

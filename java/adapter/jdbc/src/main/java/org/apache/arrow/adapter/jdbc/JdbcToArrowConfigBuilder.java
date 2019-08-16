@@ -33,6 +33,8 @@ public class JdbcToArrowConfigBuilder {
   private Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex;
   private Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
 
+  private int targetBatchSize;
+
   /**
    * Default constructor for the <code>JdbcToArrowConfigBuilder}</code>.
    * Use the setter methods for the allocator and calendar; the allocator must be
@@ -153,6 +155,11 @@ public class JdbcToArrowConfigBuilder {
     return this;
   }
 
+  public JdbcToArrowConfigBuilder setTargetBatchSize(int targetBatchSize) {
+    this.targetBatchSize = targetBatchSize;
+    return this;
+  }
+
   /**
    * This builds the {@link JdbcToArrowConfig} from the provided
    * {@link BaseAllocator} and {@link Calendar}.
@@ -166,6 +173,7 @@ public class JdbcToArrowConfigBuilder {
         calendar,
         includeMetadata,
         arraySubTypesByColumnIndex,
-        arraySubTypesByColumnName);
+        arraySubTypesByColumnName,
+        targetBatchSize);
   }
 }

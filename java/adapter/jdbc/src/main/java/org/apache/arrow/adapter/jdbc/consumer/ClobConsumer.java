@@ -33,11 +33,11 @@ import io.netty.buffer.ArrowBuf;
  * Consumer which consume clob type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.VarCharVector}.
  */
-public class ClobConsumer implements JdbcConsumer {
+public class ClobConsumer implements JdbcConsumer<VarCharVector> {
 
   private static final int BUFFER_SIZE = 256;
 
-  private final VarCharWriter writer;
+  private VarCharWriter writer;
   private final int columnIndexInResultSet;
   private BufferAllocator allocator;
 
@@ -86,5 +86,10 @@ public class ClobConsumer implements JdbcConsumer {
     if (reuse != null) {
       reuse.close();
     }
+  }
+
+  @Override
+  public void resetValueVector(VarCharVector vector) {
+    this.writer = new VarCharWriterImpl(vector);
   }
 }

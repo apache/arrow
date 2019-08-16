@@ -33,11 +33,11 @@ import io.netty.buffer.ArrowBuf;
  * Consumer which consume binary type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.VarBinaryVector}.
  */
-public class BinaryConsumer implements JdbcConsumer {
+public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
 
   private static final int BUFFER_SIZE = 1024;
 
-  private final VarBinaryWriter writer;
+  private VarBinaryWriter writer;
   private final int columnIndexInResultSet;
   private BufferAllocator allocator;
 
@@ -95,5 +95,10 @@ public class BinaryConsumer implements JdbcConsumer {
     if (reuse != null) {
       reuse.close();
     }
+  }
+
+  @Override
+  public void resetValueVector(VarBinaryVector vector) {
+    this.writer = new VarBinaryWriterImpl(vector);
   }
 }

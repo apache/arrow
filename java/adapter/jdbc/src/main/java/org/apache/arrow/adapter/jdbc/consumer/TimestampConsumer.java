@@ -30,9 +30,9 @@ import org.apache.arrow.vector.complex.writer.TimeStampMilliTZWriter;
  * Consumer which consume timestamp type values from {@link ResultSet}.
  * Write the data to {@link TimeStampMilliTZVector}.
  */
-public class TimestampConsumer implements JdbcConsumer {
+public class TimestampConsumer implements JdbcConsumer<TimeStampMilliTZVector> {
 
-  private final TimeStampMilliTZWriter writer;
+  private TimeStampMilliTZWriter writer;
   private final int columnIndexInResultSet;
   private final Calendar calendar;
 
@@ -60,5 +60,10 @@ public class TimestampConsumer implements JdbcConsumer {
       writer.writeTimeStampMilliTZ(timestamp.getTime());
     }
     writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void resetValueVector(TimeStampMilliTZVector vector) {
+    this.writer = new TimeStampMilliTZWriterImpl(vector);
   }
 }

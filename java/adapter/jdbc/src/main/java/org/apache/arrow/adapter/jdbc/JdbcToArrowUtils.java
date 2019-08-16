@@ -87,7 +87,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
  */
 public class JdbcToArrowUtils {
 
-  private static final int DEFAULT_BUFFER_SIZE = 256;
+  public static final int DEFAULT_BUFFER_SIZE = 256;
 
   private static final int JDBC_ARRAY_VALUE_COLUMN = 2;
 
@@ -308,7 +308,7 @@ public class JdbcToArrowUtils {
     return fieldInfo;
   }
 
-  private static void allocateVectors(VectorSchemaRoot root, int size) {
+  static void allocateVectors(VectorSchemaRoot root, int size) {
     List<FieldVector> vectors = root.getFieldVectors();
     for (FieldVector fieldVector : vectors) {
       if (fieldVector instanceof BaseFixedWidthVector) {
@@ -361,12 +361,16 @@ public class JdbcToArrowUtils {
     }
 
     try (CompositeJdbcConsumer compositeConsumer = new CompositeJdbcConsumer(consumers)) {
-      compositeConsumer.consume(rs);
-      root.setRowCount(compositeConsumer.getReadRowCount());
+      int readRowCount = 0;
+      while (rs.next()) {
+        compositeConsumer.consume(rs);
+        readRowCount++;
+      }
+      root.setRowCount(readRowCount);
     }
   }
 
-  private static JdbcConsumer getConsumer(ResultSet resultSet, int columnIndex, int jdbcColType,
+  static JdbcConsumer getConsumer(ResultSet resultSet, int columnIndex, int jdbcColType,
       FieldVector vector, JdbcToArrowConfig config) throws SQLException {
     final Calendar calendar = config.getCalendar();
     switch (jdbcColType) {

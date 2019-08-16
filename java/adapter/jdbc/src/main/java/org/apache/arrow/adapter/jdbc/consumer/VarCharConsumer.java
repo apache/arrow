@@ -32,9 +32,9 @@ import io.netty.buffer.ArrowBuf;
  * Consumer which consume varchar type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.VarCharVector}.
  */
-public class VarCharConsumer implements JdbcConsumer {
+public class VarCharConsumer implements JdbcConsumer<VarCharVector> {
 
-  private final VarCharWriter writer;
+  private VarCharWriter writer;
   private final int columnIndexInResultSet;
   private BufferAllocator allocator;
 
@@ -72,5 +72,10 @@ public class VarCharConsumer implements JdbcConsumer {
     if (reuse != null) {
       reuse.close();
     }
+  }
+
+  @Override
+  public void resetValueVector(VarCharVector vector) {
+    this.writer = new VarCharWriterImpl(vector);
   }
 }
