@@ -71,7 +71,9 @@ class ARROW_DS_EXPORT DataSource {
 class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
  public:
   std::unique_ptr<DataFragmentIterator> GetFragments(
-      std::shared_ptr<ScanOptions> options) override;
+      std::shared_ptr<ScanOptions> options) override {
+    return MakeIterator(fragments_);
+  }
 
  private:
   DataFragmentVector fragments_;

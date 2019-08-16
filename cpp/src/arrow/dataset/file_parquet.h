@@ -29,12 +29,12 @@ namespace dataset {
 
 class ARROW_DS_EXPORT ParquetScanOptions : public FileScanOptions {
  public:
-  std::string file_type() const override;
+  std::string file_type() const override { return "parquet"; }
 };
 
 class ARROW_DS_EXPORT ParquetWriteOptions : public FileWriteOptions {
  public:
-  std::string file_type() const override;
+  std::string file_type() const override { return "parquet"; }
 };
 
 /// \brief A FileFormat implementation that reads from Parquet files
