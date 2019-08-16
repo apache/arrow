@@ -88,6 +88,8 @@ public class AvroMapConsumer implements Consumer {
 
   @Override
   public void close() throws Exception {
-
+    vector.close();
+    keyDelegate.close();
+    valueDelegate.close();
   }
 }

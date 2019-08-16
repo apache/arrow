@@ -199,7 +199,6 @@ public class AvroToArrowUtils {
     Consumer keyConsumer = new AvroStringConsumer(new VarCharVector("key", allocator));
     Consumer valueConsumer = createConsumer(schema.getValueType(), schema.getValueType().getName(), allocator);
 
-
     structVector.putChild(keyConsumer.getVector().getField().getName(), keyConsumer.getVector());
     structVector.putChild(valueConsumer.getVector().getField().getName(), valueConsumer.getVector());
     structVector.allocateNewSafe();

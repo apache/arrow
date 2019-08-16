@@ -372,6 +372,9 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return vector;
   }
 
+  /**
+   * Directly set the underlying vector.
+   */
   public void setDataVector(FieldVector vector) {
     this.vector = vector;
   }
