@@ -27,7 +27,11 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Objects;
 
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -35,9 +39,7 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.JsonStringArrayList;
-import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.Text;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -335,6 +337,26 @@ public class AvroToArrowTest {
   }
 
   @Test
+  public void testFixedType() throws Exception {
+    Schema schema = getSchema("test_fixed.avsc");
+
+    List<GenericData.Fixed> data = new ArrayList<>();
+    List<byte[]> expected = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      byte[] value = ("value" + i).getBytes(StandardCharsets.UTF_8);
+      expected.add(value);
+      GenericData.Fixed fixed = new GenericData.Fixed(schema);
+      fixed.bytes(value);
+      data.add(fixed);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    FieldVector vector = root.getFieldVectors().get(0);
+
+    checkPrimitiveResult(expected, vector);
+  }
+
+  @Test
   public void testUnionType() throws Exception {
     Schema schema = getSchema("test_union.avsc");
     ArrayList<GenericRecord> data = new ArrayList<>();
@@ -423,6 +445,9 @@ public class AvroToArrowTest {
       }
       if (value2 instanceof byte[]) {
         value2 = ByteBuffer.wrap((byte[]) value2);
+        if (value1 instanceof byte[]) {
+          value1 = ByteBuffer.wrap((byte[]) value1);
+        }
       } else if (value2 instanceof Text) {
         value2 = value2.toString();
       }

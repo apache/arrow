@@ -20,6 +20,7 @@ package org.apache.arrow;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,12 +28,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.apache.arrow.consumers.*;
+import org.apache.arrow.consumers.AvroArraysConsumer;
+import org.apache.arrow.consumers.AvroBooleanConsumer;
+import org.apache.arrow.consumers.AvroBytesConsumer;
+import org.apache.arrow.consumers.AvroDoubleConsumer;
+import org.apache.arrow.consumers.AvroFixedConsumer;
+import org.apache.arrow.consumers.AvroFloatConsumer;
+import org.apache.arrow.consumers.AvroIntConsumer;
+import org.apache.arrow.consumers.AvroLongConsumer;
+import org.apache.arrow.consumers.AvroMapConsumer;
+import org.apache.arrow.consumers.AvroNullConsumer;
+import org.apache.arrow.consumers.AvroStringConsumer;
+import org.apache.arrow.consumers.AvroUnionsConsumer;
+import org.apache.arrow.consumers.CompositeAvroConsumer;
+import org.apache.arrow.consumers.Consumer;
+import org.apache.arrow.consumers.NullableTypeConsumer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
@@ -106,6 +122,12 @@ public class AvroToArrowUtils {
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
         vector = fieldType.createNewSingleVector(name, allocator, null);
         consumer =  new AvroStringConsumer((VarCharVector) vector);
+        break;
+      case FIXED:
+        arrowType = new ArrowType.FixedSizeBinary(schema.getFixedSize());
+        fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+        vector = fieldType.createNewSingleVector(name, allocator, null);
+        consumer =  new AvroFixedConsumer((FixedSizeBinaryVector) vector, schema.getFixedSize());
         break;
       case INT:
         arrowType = new ArrowType.Int(32, /*signed=*/true);
@@ -266,10 +288,17 @@ public class AvroToArrowUtils {
 
     VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 0);
 
-    CompositeAvroConsumer compositeConsumer = null;
+    CompositeAvroConsumer compositeConsumer = new CompositeAvroConsumer(consumers);
+
+    int valueCount = 0;
     try {
-      compositeConsumer = new CompositeAvroConsumer(consumers);
-      compositeConsumer.consume(decoder, root);
+      while (true) {
+        compositeConsumer.consume(decoder, root);
+        valueCount++;
+      }
+    } catch (EOFException eof) {
+      // reach the end of encoder stream.
+      root.setRowCount(valueCount);
     } catch (Exception e) {
       compositeConsumer.close();
       throw new RuntimeException("Error occurs while consume process.", e);

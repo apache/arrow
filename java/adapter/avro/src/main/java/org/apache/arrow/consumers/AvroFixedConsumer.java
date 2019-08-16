@@ -19,65 +19,61 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
-import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.FixedSizeBinaryVector;
+import org.apache.arrow.vector.complex.impl.FixedSizeBinaryWriterImpl;
+import org.apache.arrow.vector.complex.writer.FixedSizeBinaryWriter;
 import org.apache.avro.io.Decoder;
 
+import io.netty.buffer.ArrowBuf;
+
 /**
- * Consumer which consume int type values from avro decoder.
- * Write the data to {@link ListVector}.
+ * Consumer which consume fixed type values from avro decoder.
+ * Write the data to {@link org.apache.arrow.vector.FixedSizeBinaryVector}.
  */
-public class AvroArraysConsumer implements Consumer {
+public class AvroFixedConsumer implements Consumer {
 
-  private final ListVector vector;
+  private final FixedSizeBinaryWriter writer;
+  private final FixedSizeBinaryVector vector;
 
-  private final Consumer delegate;
+  private final ArrowBuf cacheBuffer;
+  private final byte[] reuseBytes;
 
   /**
-   * Instantiate a ArrayConsumer.
+   * Instantiate a AvroFixedConsumer.
    */
-  public AvroArraysConsumer(ListVector vector, Consumer delegete) {
+  public AvroFixedConsumer(FixedSizeBinaryVector vector, int size) {
     this.vector = vector;
-    this.delegate = delegete;
+    this.writer = new FixedSizeBinaryWriterImpl(vector);
+    cacheBuffer = vector.getAllocator().buffer(size);
+    reuseBytes = new byte[size];
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    int count = (int) decoder.arrayNext();
-
-    int idx = vector.getValueCount();
-    vector.startNewValue(idx);
-    for (int i = 0; i < count; i++) {
-      delegate.consume(decoder);
-    }
-    decoder.skipArray();
-
-    int end = vector.getOffsetBuffer().getInt(idx * 4) + count;
-    vector.getOffsetBuffer().setInt((idx + 1) * 4, end);
-    BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), vector.getValueCount());
-
-    vector.setValueCount(idx + 1);
+    decoder.readFixed(reuseBytes);
+    cacheBuffer.setBytes(0, reuseBytes);
+    writer.writeFixedSizeBinary(cacheBuffer);
+    writer.setPosition(writer.getPosition() + 1);
   }
 
   @Override
   public void addNull() {
-    vector.setValueCount(vector.getValueCount() + 1);
+    writer.setPosition(writer.getPosition() + 1);
   }
 
   @Override
   public void setPosition(int index) {
-    vector.startNewValue(index);
+    writer.setPosition(index);
   }
 
   @Override
   public FieldVector getVector() {
-    return this.vector;
+    return vector;
   }
 
   @Override
   public void close() throws Exception {
-    vector.close();
-    delegate.close();
+    writer.close();
   }
 }

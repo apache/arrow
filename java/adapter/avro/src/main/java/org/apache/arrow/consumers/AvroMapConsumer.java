@@ -17,12 +17,12 @@
 
 package org.apache.arrow.consumers;
 
+import java.io.IOException;
+
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.avro.io.Decoder;
-
-import java.io.IOException;
 
 /**
  * Consumer which consume map type values from avro decoder.
@@ -84,5 +84,10 @@ public class AvroMapConsumer implements Consumer {
   @Override
   public FieldVector getVector() {
     return this.vector;
+  }
+
+  @Override
+  public void close() throws Exception {
+
   }
 }
