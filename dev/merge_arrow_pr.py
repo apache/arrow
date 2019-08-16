@@ -187,12 +187,6 @@ class JiraIssue(object):
             self.cmd.fail("JIRA issue %s already has status '%s'"
                           % (self.jira_id, cur_status))
 
-        console_output = format_resolved_issue_status(self.jira_id, cur_status,
-                                                      fields.summary,
-                                                      fields.assignee,
-                                                      fields.components)
-        print(console_output)
-
         resolve = [x for x in self.jira_con.transitions(self.jira_id)
                    if x['name'] == "Resolve Issue"][0]
         self.jira_con.transition_issue(self.jira_id, resolve["id"],
@@ -201,27 +195,31 @@ class JiraIssue(object):
 
         print("Successfully resolved %s!" % (self.jira_id))
 
+        self.issue = self.jira_con.issue(self.jira_id)
+        self.show()
 
-def format_resolved_issue_status(jira_id, status, summary, assignee,
-                                 components):
-    if assignee is None:
-        assignee = "NOT ASSIGNED!!!"
-    else:
-        assignee = assignee.displayName
+    def show(self):
+        fields = self.issue.fields
 
-    if len(components) == 0:
-        components = 'NO COMPONENTS!!!'
-    else:
-        components = ', '.join((x.name for x in components))
+        assignee = fields.assignee
+        if assignee is None:
+            assignee = "NOT ASSIGNED!!!"
+        else:
+            assignee = assignee.displayName
 
-    return """=== JIRA {} ===
-Summary\t\t{}
-Assignee\t{}
-Components\t{}
-Status\t\t{}
-URL\t\t{}/{}""".format(jira_id, summary, assignee, components, status,
-                       '/'.join((JIRA_API_BASE, 'browse')),
-                       jira_id)
+        components = fields.components
+        if len(components) == 0:
+            components = 'NO COMPONENTS!!!'
+        else:
+            components = ', '.join((x.name for x in components))
+
+        print("=== JIRA {} ===".format(self.jira_id))
+        print("Summary\t\t{}".format(fields.summary))
+        print("Assignee\t{}".format(assignee))
+        print("Components\t{}".format(components))
+        print("Status\t\t{}".format(fields.status.name))
+        print("URL\t\t{}/{}".format('/'.join((JIRA_API_BASE, 'browse')),
+                                    self.jira_id))
 
 
 class GitHubAPI(object):
@@ -293,6 +291,7 @@ class PullRequest(object):
         print("\n=== Pull Request #%s ===" % self.number)
         print("title\t%s\nsource\t%s\ntarget\t%s\nurl\t%s"
               % (self.title, self.description, self.target_ref, self.url))
+        self.jira_issue.show()
 
     @property
     def is_merged(self):
