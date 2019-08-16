@@ -3035,14 +3035,19 @@ def test_pandas_categorical_na_type_row_groups():
 def test_categorical_roundtrip():
     # ARROW-5480, this was enabled by ARROW-3246
     from io import BytesIO
-    df = pd.DataFrame({'x': pd.Categorical(['a', 'a', 'b', 'b'])})
+
+    # Have one of the categories unobserved
+    codes = np.array([2, 0, 0, 2, 0, -1, 2], dtype='int32')
+    categories = ['foo', 'bar', 'baz']
+    df = pd.DataFrame({'x': pd.Categorical.from_codes(
+        codes, categories=categories)})
 
     buf = BytesIO()
     df.to_parquet(buf)
 
-    # This reads back object, but I expected category
     result = pd.read_parquet(BytesIO(buf.getvalue()))
-    assert result['x'].dtype == 'category'
+    assert result.x.dtype == 'category'
+    assert (result.x.cat.categories == categories).all()
     tm.assert_frame_equal(result, df)
 
 
