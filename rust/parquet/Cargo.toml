@@ -17,7 +17,7 @@
 
 [package]
 name = "parquet"
-version = "1.0.0-SNAPSHOT"
+version = "0.15.0-SNAPSHOT"
 license = "Apache-2.0"
 description = "Apache Parquet implementation in Rust"
 homepage = "https://github.com/apache/arrow"
@@ -40,7 +40,7 @@ lz4 = "1.23"
 zstd = "0.4"
 chrono = "0.4"
 num-bigint = "0.2"
-arrow = { path = "../arrow", version = "1.0.0-SNAPSHOT" }
+arrow = { path = "../arrow", version = "0.15.0-SNAPSHOT" }
 
 [dev-dependencies]
 lazy_static = "1"
