@@ -30,7 +30,7 @@ cdef class _PandasAPIShim(object):
         object _loose_version, _version
         object _pd, _types_api, _compat_module
         object _data_frame, _index, _series, _categorical_type
-        object _datetimetz_type
+        object _datetimetz_type, _extension_array
         object _array_like_types
 
     def __init__(self):
@@ -54,9 +54,11 @@ cdef class _PandasAPIShim(object):
         self._index = pd.Index
         self._categorical_type = pd.Categorical
         self._series = pd.Series
+        self._extension_array = pd.api.extensions.ExtensionArray
 
         self._array_like_types = (self._series, self._index,
-                                  self._categorical_type)
+                                  self._categorical_type,
+                                  self._extension_array)
 
         self._version = pd.__version__
         from distutils.version import LooseVersion

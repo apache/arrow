@@ -2883,6 +2883,50 @@ def test_variable_dictionary_with_pandas():
 
 
 # ----------------------------------------------------------------------
+# Array protocol in pandas conversions tests
+
+
+def test_array_protocol():
+
+    def __arrow_array__(self, type=None):
+        return pa.array(self._data, mask=self._mask, type=type)
+
+    df = pd.DataFrame({'a': pd.Series([1, 2, None], dtype='Int64')})
+
+    # with latest pandas/arrow, trying to convert nullable integer errors
+    with pytest.raises(TypeError):
+        pa.table(df)
+
+    # patch IntegerArray with the protocol
+    pd.arrays.IntegerArray.__arrow_array__ = __arrow_array__
+
+    # default conversion
+    result = pa.table(df)
+    expected = pa.array([1, 2, None], pa.int64())
+    assert result[0].chunk(0).equals(expected)
+
+    # with specifying schema
+    schema = pa.schema([('a', pa.float64())])
+    result = pa.table(df, schema=schema)
+    expected2 = pa.array([1, 2, None], pa.float64())
+    assert result[0].chunk(0).equals(expected2)
+
+    # pass Series to pa.array
+    result = pa.array(df['a'])
+    assert result.equals(expected)
+    result = pa.array(df['a'], type=pa.float64())
+    assert result.equals(expected2)
+
+    # pass actual ExtensionArray to pa.array
+    result = pa.array(df['a'].values)
+    assert result.equals(expected)
+    result = pa.array(df['a'].values, type=pa.float64())
+    assert result.equals(expected2)
+
+    del pd.arrays.IntegerArray.__arrow_array__
+
+
+# ----------------------------------------------------------------------
 # Legacy metadata compatibility tests
 
 

@@ -161,7 +161,9 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     else:
         c_from_pandas = from_pandas
 
-    if _is_array_like(obj):
+    if hasattr(obj, '__arrow_array__'):
+        return obj.__arrow_array__(type=type)
+    elif _is_array_like(obj):
         if mask is not None:
             # out argument unused
             mask = get_series_values(mask, &is_pandas_object)
@@ -178,7 +180,9 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 mask = values.mask
                 values = values.data
 
-        if pandas_api.is_categorical(values):
+        if hasattr(values, '__arrow_array__'):
+            return values.__arrow_array__(type=type)
+        elif pandas_api.is_categorical(values):
             return DictionaryArray.from_arrays(
                 values.codes, values.categories.values,
                 mask=mask, ordered=values.ordered,
