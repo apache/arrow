@@ -85,21 +85,27 @@ class SeqConverter {
   // virtual version
   virtual Status AppendMultipleMasked(PyObject* seq, PyObject* mask, int64_t size) = 0;
 
-  virtual Status GetResult(std::vector<std::shared_ptr<Array>>* chunks) {
-    *chunks = chunks_;
-
-    // Still some accumulated data in the builder. If there are no chunks, we
-    // always call Finish to deal with the edge case where a size-0 sequence
-    // was converted with a specific output type, like array([], type=t)
+  virtual Status Close() {
     if (chunks_.size() == 0 || builder_->length() > 0) {
       std::shared_ptr<Array> last_chunk;
       RETURN_NOT_OK(builder_->Finish(&last_chunk));
-      chunks->emplace_back(std::move(last_chunk));
+      chunks_.emplace_back(std::move(last_chunk));
     }
     return Status::OK();
   }
 
+  virtual Status GetResult(std::vector<std::shared_ptr<Array>>* chunks) {
+    // Still some accumulated data in the builder. If there are no chunks, we
+    // always call Finish to deal with the edge case where a size-0 sequence
+    // was converted with a specific output type, like array([], type=t)
+    RETURN_NOT_OK(Close());
+    *chunks = chunks_;
+    return Status::OK();
+  }
+
   ArrayBuilder* builder() const { return builder_; }
+
+  int num_chunks() const { return static_cast<int>(chunks_.size()); }
 
  protected:
   ArrayBuilder* builder_;
@@ -616,10 +622,15 @@ class ListConverter : public TypedConverter<TypeClass, ListConverter<TypeClass>>
     return value_converter_->AppendMultiple(obj, list_size);
   }
 
-  // virtual Status GetResult(std::vector<std::shared_ptr<Array>>* chunks) {
-  //   // TODO: Handle chunked children
-  //   return SeqConverter::GetResult(chunks);
-  // }
+  virtual Status GetResult(std::vector<std::shared_ptr<Array>>* chunks) {
+    // TODO: Improved handling of chunked children
+    if (value_converter_->num_chunks() > 0) {
+      return Status::Invalid("List child type ",
+                             value_converter_->builder()->type()->ToString(),
+                             " overflowed the capacity of a single chunk");
+    }
+    return SeqConverter::GetResult(chunks);
+  }
 
  protected:
   std::shared_ptr<DataType> value_type_;

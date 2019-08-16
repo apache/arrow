@@ -1531,6 +1531,13 @@ def test_numpy_string_overflow_to_chunked():
             value_index += 1
 
 
+@pytest.mark.large_memory
+def test_list_child_overflow_to_chunked():
+    vals = [['x' * 1024]] * ((2 << 20) + 1)
+    with pytest.raises(ValueError, match="overflowed"):
+        pa.array(vals)
+
+
 def test_infer_type_masked():
     # ARROW-5208
     ty = pa.infer_type([u'foo', u'bar', None, 2],
