@@ -649,7 +649,7 @@ by generating an Xcode project:
    cd cpp
    mkdir xcode-build
    cd xcode-build
-   cmake .. -G Xcode -DARROW_BUILD_TESTS=ON
+   cmake .. -G Xcode -DARROW_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=DEBUG
    open arrow.xcodeproj
 
 This will generate a project and open it in the Xcode app. As an alternative, 

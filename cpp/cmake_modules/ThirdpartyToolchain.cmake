@@ -417,8 +417,6 @@ endif()
 # ----------------------------------------------------------------------
 # ExternalProject options
 
-string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
-
 set(EP_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}}")
 set(EP_C_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}}")
 
@@ -1469,6 +1467,14 @@ macro(build_gtest)
     set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} "-DCMAKE_MACOSX_RPATH:BOOL=ON")
   endif()
 
+  if(CMAKE_GENERATOR STREQUAL "Xcode")
+    # Xcode projects support multi-configuration builds.  This forces the gtest build
+    # to use the same output directory as a single-configuration Makefile driven build.
+    list(
+      APPEND GTEST_CMAKE_ARGS "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${_GTEST_LIBRARY_DIR}"
+             "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE}=${_GTEST_RUNTIME_DIR}")
+  endif()
+
   if(MSVC)
     if(NOT ("${CMAKE_GENERATOR}" STREQUAL "Ninja"))
       set(_GTEST_RUNTIME_DIR ${_GTEST_RUNTIME_DIR}/${CMAKE_BUILD_TYPE})
@@ -1477,9 +1483,9 @@ macro(build_gtest)
         ${GTEST_CMAKE_ARGS} "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=${_GTEST_RUNTIME_DIR}"
         "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE}=${_GTEST_RUNTIME_DIR}")
   else()
-    set(GTEST_CMAKE_ARGS
-        ${GTEST_CMAKE_ARGS} "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${_GTEST_RUNTIME_DIR}"
-        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE}=${_GTEST_RUNTIME_DIR}")
+    list(
+      APPEND GTEST_CMAKE_ARGS "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${_GTEST_RUNTIME_DIR}"
+             "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE}=${_GTEST_RUNTIME_DIR}")
   endif()
 
   add_definitions(-DGTEST_LINKED_AS_SHARED_LIBRARY=1)
@@ -1845,7 +1851,7 @@ macro(build_lz4)
   else()
     set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
     set(LZ4_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-lz4-lib.sh
-                          "AR=${CMAKE_AR}")
+                          "AR=${CMAKE_AR}" "OS=${CMAKE_SYSTEM_NAME}")
   endif()
 
   # We need to copy the header in lib to directory outside of the build
