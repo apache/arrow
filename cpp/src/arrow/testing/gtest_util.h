@@ -346,15 +346,59 @@ void AssertSortedEquals(std::vector<T> u, std::vector<T> v) {
   ASSERT_EQ(u, v);
 }
 
+// Mixin used to generate trivial Array/RecordBatch/RecordBatchReader
 class ArrowBaseFixtureMixin {
  public:
-  std::shared_ptr<RecordBatch> GetRecordBatch(int64_t size, std::shared_ptr<Schema>) {
-    ASSERT_OK_AND_ASSIGN(
-        auto f64, ArrayFromBuilderVisitor(float64(), size, [](DoubleBuilder* builder) {
-          builder->UnsafeAppend(0.0);
-        }));
-    auto schema_ = schema({field("f64", f64->type())});
-    return RecordBatch::Make(schema_, size, {f64});
+  template <typename T>
+  std::shared_ptr<Array> GetArray(int64_t size, std::shared_ptr<DataType> type,
+                                  T value = 0) {
+    using BuilderType = typename CTypeTraits<T>::BuilderType;
+    auto builder_fn = [](BuilderType* builder) { builder->UnsafeAppend(T(0)); };
+    ASSERT_OK_AND_ASSIGN(auto array, ArrayFromBuilderVisitor(type, size, builder_fn));
+    return array;
+  }
+
+  std::shared_ptr<Array> GetArray(int64_t size, std::shared_ptr<DataType> type) {
+    switch (type->id()) {
+      case Type::BOOL:
+        return GetArray<bool>(size, type);
+      case Type::UINT8:
+        return GetArray<uint8_t>(size, type);
+      case Type::UINT16:
+        return GetArray<uint16_t>(size, type);
+      case Type::UINT32:
+        return GetArray<uint32_t>(size, type);
+      case Type::UINT64:
+        return GetArray<uint64_t>(size, type);
+      case Type::INT8:
+        return GetArray<int8_t>(size, type);
+      case Type::INT16:
+        return GetArray<int16_t>(size, type);
+      case Type::INT32:
+        return GetArray<int32_t>(size, type);
+      case Type::INT64:
+        return GetArray<int64_t>(size, type);
+      case Type::FLOAT:
+        return GetArray<float>(size, type);
+      case Type::DOUBLE:
+        return GetArray<double>(size, type);
+      default:
+        std::abort();
+        break;
+    }
+
+    return nullptr;
+  }
+
+  std::shared_ptr<RecordBatch> GetRecordBatch(int64_t size,
+                                              std::shared_ptr<Schema> schema) {
+    std::vector<std::shared_ptr<Array>> arrays;
+
+    for (const auto& field : schema->fields()) {
+      arrays.emplace_back(GetArray(size, field->type()));
+    }
+
+    return RecordBatch::Make(schema, size, arrays);
   }
 
   std::shared_ptr<RecordBatchReader> GetRecordBatchReader(

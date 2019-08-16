@@ -199,5 +199,4 @@ class RepeatedRecordBatch : public RecordBatchReader {
   std::shared_ptr<RecordBatch> batch_;
 };
 
-
 }  // namespace arrow

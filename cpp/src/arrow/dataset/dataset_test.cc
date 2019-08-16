@@ -29,7 +29,8 @@ TEST_F(TestSimpleDataFragment, Scan) {
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kNumberBatches = 16;
 
-  auto batch = GetRecordBatch(kBatchSize, nullptr);
+  auto s = schema({field("i32", int32()), field("f64", float64())});
+  auto batch = GetRecordBatch(kBatchSize, s);
   auto reader = GetRecordBatchReader(kNumberBatches, batch);
 
   // Creates a SimpleDataFragment of the same repeated batch.
@@ -45,7 +46,8 @@ TEST_F(TestSimpleDataSource, GetFragments) {
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kNumberBatches = 16;
 
-  auto batch = GetRecordBatch(kBatchSize, nullptr);
+  auto s = schema({field("i32", int32()), field("f64", float64())});
+  auto batch = GetRecordBatch(kBatchSize, s);
   auto reader = GetRecordBatchReader(kNumberBatches * kNumberFragments, batch);
 
   std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
