@@ -3015,7 +3015,6 @@ def test_dictionary_array_automatically_read():
     assert result.schema.metadata is None
 
 
-@pytest.mark.pandas
 def test_pandas_categorical_na_type_row_groups():
     # ARROW-5085
     df = pd.DataFrame({"col": [None] * 100, "int": [1.0] * 100})
@@ -3031,6 +3030,20 @@ def test_pandas_categorical_na_type_row_groups():
     # Result is non-categorical
     assert result[0].equals(table[0])
     assert result[1].equals(table[1])
+
+
+def test_categorical_roundtrip():
+    # ARROW-5480, this was enabled by ARROW-3246
+    from io import BytesIO
+    df = pd.DataFrame({'x': pd.Categorical(['a', 'a', 'b', 'b'])})
+
+    buf = BytesIO()
+    df.to_parquet(buf)
+
+    # This reads back object, but I expected category
+    result = pd.read_parquet(BytesIO(buf.getvalue()))
+    assert result['x'].dtype == 'category'
+    tm.assert_frame_equal(result, df)
 
 
 @pytest.mark.pandas
