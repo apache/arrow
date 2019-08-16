@@ -283,6 +283,14 @@ class TypedStatistics : public Statistics {
   virtual void SetMinMax(const T& min, const T& max) = 0;
 };
 
+using BoolStatistics = TypedStatistics<BooleanType>;
+using Int32Statistics = TypedStatistics<Int32Type>;
+using Int64Statistics = TypedStatistics<Int64Type>;
+using FloatStatistics = TypedStatistics<FloatType>;
+using DoubleStatistics = TypedStatistics<DoubleType>;
+using ByteArrayStatistics = TypedStatistics<ByteArrayType>;
+using FLBAStatistics = TypedStatistics<FLBAType>;
+
 /// \brief Typed version of Statistics::Make
 template <typename DType>
 std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
