@@ -148,7 +148,8 @@ void PlainEncoder<DType>::Put(const arrow::Array& values) {
 }
 
 void AssertBinary(const arrow::Array& values) {
-  if (dynamic_cast<const arrow::BinaryArray*>(&values) == nullptr) {
+  if (values.type_id() != arrow::Type::BINARY &&
+      values.type_id() != arrow::Type::STRING) {
     throw ParquetException("Only BinaryArray and subclasses supported");
   }
 }

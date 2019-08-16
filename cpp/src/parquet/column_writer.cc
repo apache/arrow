@@ -645,6 +645,7 @@ inline void DoInBatches(int64_t total, int64_t batch_size, Action&& action) {
 }
 
 bool DictionaryDirectWriteSupported(const arrow::Array& array) {
+  DCHECK_EQ(array.type_id(), arrow::Type::DICTIONARY);
   const arrow::DictionaryType& dict_type =
       static_cast<const arrow::DictionaryType&>(*array.type());
   auto id = dict_type.value_type()->id();
@@ -669,6 +670,10 @@ Status ConvertDictionaryToDense(const arrow::Array& array, MemoryPool* pool,
                                      arrow::compute::CastOptions(), &cast_output));
   *out = cast_output.make_array();
   return Status::OK();
+}
+
+static inline bool IsDictionaryEncoding(Encoding::type encoding) {
+  return encoding == Encoding::PLAIN_DICTIONARY;
 }
 
 template <typename DType>
@@ -818,7 +823,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
  private:
   using ValueEncoderType = typename EncodingTraits<DType>::Encoder;
-  using TypedStats = typename TypeClasses<DType>::Statistics;
+  using TypedStats = TypedStatistics<DType>;
   std::unique_ptr<Encoder> current_encoder_;
   std::shared_ptr<TypedStats> page_statistics_;
   std::shared_ptr<TypedStats> chunk_statistics_;
@@ -922,14 +927,16 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   }
 
   void FallbackToPlainEncoding() {
-    WriteDictionaryPage();
-    // Serialize the buffered Dictionary Indicies
-    FlushBufferedDataPages();
-    fallback_ = true;
-    // Only PLAIN encoding is supported for fallback in V1
-    current_encoder_ = MakeEncoder(DType::type_num, Encoding::PLAIN, false, descr_,
-                                   properties_->memory_pool());
-    encoding_ = Encoding::PLAIN;
+    if (IsDictionaryEncoding(current_encoder_->encoding())) {
+      WriteDictionaryPage();
+      // Serialize the buffered Dictionary Indicies
+      FlushBufferedDataPages();
+      fallback_ = true;
+      // Only PLAIN encoding is supported for fallback in V1
+      current_encoder_ = MakeEncoder(DType::type_num, Encoding::PLAIN, false, descr_,
+                                     properties_->memory_pool());
+      encoding_ = Encoding::PLAIN;
+    }
   }
 
   // Checks if the Dictionary Page size limit is reached
@@ -978,10 +985,6 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
   }
 };
-
-static inline bool IsDictionaryEncoding(Encoding::type encoding) {
-  return encoding == Encoding::PLAIN_DICTIONARY;
-}
 
 template <typename DType>
 Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(const int16_t* def_levels,

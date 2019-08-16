@@ -494,11 +494,13 @@ Status GroupToSchemaField(const GroupNode& node, int16_t max_def_level,
 Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_rep_level,
                          SchemaTreeContext* ctx, const SchemaField* parent,
                          SchemaField* out) {
+  /// Workhorse function for converting a Parquet schema node to an Arrow
+  /// type. Handles different conventions for nested data
   if (node.is_optional()) {
     ++max_def_level;
   } else if (node.is_repeated()) {
-    // Repeated fields add a definition level. This is used to distinguish
-    // between an empty list and a list with an item in it.
+    // Repeated fields add both a repetition and definition level. This is used
+    // to distinguish between an empty list and a list with an item in it.
     ++max_rep_level;
     ++max_def_level;
   }
@@ -507,9 +509,19 @@ Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_re
 
   // Now, walk the schema and create a ColumnDescriptor for each leaf node
   if (node.is_group()) {
+    // A nested field, but we don't know what kind yet
     return GroupToSchemaField(static_cast<const GroupNode&>(node), max_def_level,
                               max_rep_level, ctx, parent, out);
   } else {
+    // Either a normal flat primitive type, or a list type encoded with 1-level
+    // list encoding. Note that the 3-level encoding is the form recommended by
+    // the parquet specification, but technically we can have either
+    //
+    // required/optional $TYPE $FIELD_NAME
+    //
+    // or
+    //
+    // repeated $TYPE $FIELD_NAME
     const auto& primitive_node = static_cast<const PrimitiveNode&>(node);
     int column_index = ctx->schema->GetColumnIndex(primitive_node);
     std::shared_ptr<DataType> type;
@@ -529,6 +541,7 @@ Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_re
       out->max_repetition_level = max_rep_level;
       return Status::OK();
     } else {
+      // A normal (required/optional) primitive node
       return PopulateLeaf(column_index,
                           ::arrow::field(node.name(), type, node.is_optional()),
                           max_def_level, max_rep_level, ctx, parent, out);
@@ -602,15 +615,17 @@ Status BuildSchemaManifest(const SchemaDescriptor* schema,
     // schema (if any) through all functions in the schema reconstruction, but
     // I'm being lazy and just setting dictionary fields at the top level for
     // now
-    if (manifest->origin_schema) {
-      auto origin_field = manifest->origin_schema->field(i);
-      auto current_type = out_field->field->type();
-      if (origin_field->type()->id() == ::arrow::Type::DICTIONARY) {
-        if (current_type->id() != ::arrow::Type::DICTIONARY) {
-          out_field->field = out_field->field->WithType(
-              ::arrow::dictionary(::arrow::int32(), current_type));
-        }
-      }
+    if (manifest->origin_schema == nullptr) {
+      continue;
+    }
+    auto origin_field = manifest->origin_schema->field(i);
+    auto current_type = out_field->field->type();
+    if (origin_field->type()->id() != ::arrow::Type::DICTIONARY) {
+      continue;
+    }
+    if (current_type->id() != ::arrow::Type::DICTIONARY) {
+      out_field->field =
+          out_field->field->WithType(::arrow::dictionary(::arrow::int32(), current_type));
     }
   }
   return Status::OK();

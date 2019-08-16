@@ -101,18 +101,17 @@ class TypedComparator : public Comparator {
 
 /// \brief Typed version of Comparator::Make
 template <typename DType>
-inline std::shared_ptr<typename TypeClasses<DType>::Comparator> MakeComparator(
-    Type::type physical_type, SortOrder::type sort_order, int type_length = -1) {
-  return std::dynamic_pointer_cast<typename TypeClasses<DType>::Comparator>(
+std::shared_ptr<TypedComparator<DType>> MakeComparator(Type::type physical_type,
+                                                       SortOrder::type sort_order,
+                                                       int type_length = -1) {
+  return std::static_pointer_cast<TypedComparator<DType>>(
       Comparator::Make(physical_type, sort_order, type_length));
 }
 
 /// \brief Typed version of Comparator::Make
 template <typename DType>
-inline std::shared_ptr<typename TypeClasses<DType>::Comparator> MakeComparator(
-    const ColumnDescriptor* descr) {
-  return std::dynamic_pointer_cast<typename TypeClasses<DType>::Comparator>(
-      Comparator::Make(descr));
+std::shared_ptr<TypedComparator<DType>> MakeComparator(const ColumnDescriptor* descr) {
+  return std::static_pointer_cast<TypedComparator<DType>>(Comparator::Make(descr));
 }
 
 // ----------------------------------------------------------------------
@@ -152,33 +151,33 @@ class PARQUET_EXPORT EncodedStatistics {
     }
   }
 
-  inline bool is_set() const {
+  bool is_set() const {
     return has_min || has_max || has_null_count || has_distinct_count;
   }
 
-  inline bool is_signed() const { return is_signed_; }
+  bool is_signed() const { return is_signed_; }
 
-  inline void set_is_signed(bool is_signed) { is_signed_ = is_signed; }
+  void set_is_signed(bool is_signed) { is_signed_ = is_signed; }
 
-  inline EncodedStatistics& set_max(const std::string& value) {
+  EncodedStatistics& set_max(const std::string& value) {
     *max_ = value;
     has_max = true;
     return *this;
   }
 
-  inline EncodedStatistics& set_min(const std::string& value) {
+  EncodedStatistics& set_min(const std::string& value) {
     *min_ = value;
     has_min = true;
     return *this;
   }
 
-  inline EncodedStatistics& set_null_count(int64_t value) {
+  EncodedStatistics& set_null_count(int64_t value) {
     null_count = value;
     has_null_count = true;
     return *this;
   }
 
-  inline EncodedStatistics& set_distinct_count(int64_t value) {
+  EncodedStatistics& set_distinct_count(int64_t value) {
     distinct_count = value;
     has_distinct_count = true;
     return *this;
@@ -286,11 +285,10 @@ class TypedStatistics : public Statistics {
 
 /// \brief Typed version of Statistics::Make
 template <typename DType>
-inline std::shared_ptr<typename TypeClasses<DType>::Statistics> MakeStatistics(
+std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
     const ColumnDescriptor* descr,
     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
-  return std::dynamic_pointer_cast<typename TypeClasses<DType>::Statistics>(
-      Statistics::Make(descr, pool));
+  return std::static_pointer_cast<TypedStatistics<DType>>(Statistics::Make(descr, pool));
 }
 
 /// \brief Create Statistics initialized to a particular state
@@ -300,22 +298,23 @@ inline std::shared_ptr<typename TypeClasses<DType>::Statistics> MakeStatistics(
 /// \param[in] null_count number of null values
 /// \param[in] distinct_count number of distinct values
 template <typename DType>
-inline std::shared_ptr<typename TypeClasses<DType>::Statistics> MakeStatistics(
-    const typename DType::c_type& min, const typename DType::c_type& max,
-    int64_t num_values, int64_t null_count, int64_t distinct_count) {
-  return std::dynamic_pointer_cast<typename TypeClasses<DType>::Statistics>(
-      Statistics::Make(DType::type_num, &min, &max, num_values, null_count,
-                       distinct_count));
+std::shared_ptr<TypedStatistics<DType>> MakeStatistics(const typename DType::c_type& min,
+                                                       const typename DType::c_type& max,
+                                                       int64_t num_values,
+                                                       int64_t null_count,
+                                                       int64_t distinct_count) {
+  return std::static_pointer_cast<TypedStatistics<DType>>(Statistics::Make(
+      DType::type_num, &min, &max, num_values, null_count, distinct_count));
 }
 
 /// \brief Typed version of Statistics::Make
 template <typename DType>
-inline std::shared_ptr<typename TypeClasses<DType>::Statistics> MakeStatistics(
+std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
     const ColumnDescriptor* descr, const std::string& encoded_min,
     const std::string& encoded_max, int64_t num_values, int64_t null_count,
     int64_t distinct_count, bool has_min_max,
     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
-  return std::dynamic_pointer_cast<typename TypeClasses<DType>::Statistics>(
+  return std::static_pointer_cast<TypedStatistics<DType>>(
       Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
                        distinct_count, has_min_max, pool));
 }

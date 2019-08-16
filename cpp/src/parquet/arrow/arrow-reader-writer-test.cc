@@ -1173,9 +1173,8 @@ TEST_F(TestNullParquetIO, NullListColumn) {
 
 TEST_F(TestNullParquetIO, NullDictionaryColumn) {
   std::shared_ptr<Buffer> null_bitmap;
-  ASSERT_OK(
-      ::arrow::AllocateBitmap(::arrow::default_memory_pool(), SMALL_SIZE, &null_bitmap));
-  std::memset(null_bitmap->mutable_data(), 0, null_bitmap->size());
+  ASSERT_OK(::arrow::AllocateEmptyBitmap(::arrow::default_memory_pool(), SMALL_SIZE,
+                                         &null_bitmap));
 
   std::shared_ptr<Array> indices =
       std::make_shared<::arrow::Int8Array>(SMALL_SIZE, nullptr, null_bitmap, SMALL_SIZE);
@@ -2881,19 +2880,54 @@ TEST(TestArrowWriteDictionaries, AutoReadAsDictionary) {
   constexpr int64_t min_length = 2;
   constexpr int64_t max_length = 20;
   ::arrow::random::RandomArrayGenerator rag(0);
-  auto values = rag.BinaryWithRepeats(repeat * num_unique, num_unique, min_length,
+  auto values = rag.StringWithRepeats(repeat * num_unique, num_unique, min_length,
                                       max_length, /*null_probability=*/0.1);
   std::shared_ptr<Array> dict_values;
   AsDictionary32Encoded(*values, &dict_values);
 
   auto expected = MakeSimpleTable(dict_values, /*nullable=*/true);
+  auto expected_dense = MakeSimpleTable(values, /*nullable=*/true);
 
-  auto arrow_writer_properties = ArrowWriterProperties::Builder().store_schema()->build();
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  std::shared_ptr<Table> actual, actual_dense;
 
-  std::shared_ptr<Table> actual;
   DoRoundtrip(expected, values->length(), &actual, default_writer_properties(),
-              arrow_writer_properties);
-  ::arrow::AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
+              props_store_schema);
+  ::arrow::AssertTablesEqual(*expected, *actual);
+
+  auto props_no_store_schema = ArrowWriterProperties::Builder().build();
+  DoRoundtrip(expected, values->length(), &actual_dense, default_writer_properties(),
+              props_no_store_schema);
+  ::arrow::AssertTablesEqual(*expected_dense, *actual_dense);
+}
+
+TEST(TestArrowWriteDictionaries, NestedSubfield) {
+  // ARROW-3246: Automatic decoding of dictionary subfields left as followup
+  // work
+  auto offsets = ::arrow::ArrayFromJSON(::arrow::int32(), "[0, 0, 2, 3]");
+  auto indices = ::arrow::ArrayFromJSON(::arrow::int32(), "[0, 0, 0]");
+  auto dict = ::arrow::ArrayFromJSON(::arrow::utf8(), "[\"foo\"]");
+
+  std::shared_ptr<Array> dict_values, values;
+  auto dict_ty = ::arrow::dictionary(::arrow::int32(), ::arrow::utf8());
+  ASSERT_OK(::arrow::DictionaryArray::FromArrays(dict_ty, indices, dict, &dict_values));
+  ASSERT_OK(::arrow::ListArray::FromArrays(*offsets, *dict_values,
+                                           ::arrow::default_memory_pool(), &values));
+
+  auto dense_ty = ::arrow::list(::arrow::utf8());
+  auto dense_values =
+      ::arrow::ArrayFromJSON(dense_ty, "[[], [\"foo\", \"foo\"], [\"foo\"]]");
+
+  auto table = MakeSimpleTable(values, /*nullable=*/true);
+  auto expected_table = MakeSimpleTable(dense_values, /*nullable=*/true);
+
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  std::shared_ptr<Table> actual;
+  DoRoundtrip(table, values->length(), &actual, default_writer_properties(),
+              props_store_schema);
+
+  // The nested subfield is not automatically decoded to dictionary
+  ::arrow::AssertTablesEqual(*expected_table, *actual);
 }
 
 }  // namespace arrow

@@ -99,7 +99,7 @@ class DictEncoder : virtual public TypedEncoder<DType> {
   virtual int num_entries() const = 0;
 
   /// \brief EXPERIMENTAL: Append dictionary indices into the encoder. It is
-  /// assumed, without any boundschecking that the indices reference
+  /// assumed (without any boundschecking) that the indices reference
   /// pre-existing dictionary values
   /// \param[in] indices the dictionary index values. Only Int32Array currently
   /// supported
