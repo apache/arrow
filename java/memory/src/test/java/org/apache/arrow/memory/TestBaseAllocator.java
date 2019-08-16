@@ -114,6 +114,7 @@ public class TestBaseAllocator {
       final ArrowBuf arrowBuf = rootAllocator.buffer(0);
       assertNotNull("allocation failed", arrowBuf);
       assertEquals("capacity was non-zero", 0, arrowBuf.capacity());
+      assertTrue("address should be valid", arrowBuf.memoryAddress() != 0);
       arrowBuf.getReferenceManager().release();
     }
   }
