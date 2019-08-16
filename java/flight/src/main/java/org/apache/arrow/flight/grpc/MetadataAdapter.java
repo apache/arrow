@@ -26,6 +26,8 @@ import io.grpc.Metadata.Key;
 
 /**
  * A mutable adapter between the gRPC Metadata object and the Flight headers interface.
+ *
+ * <p>This allows us to present the headers (metadata) from gRPC without copying to/from our own object.
  */
 class MetadataAdapter implements CallHeaders {
 
