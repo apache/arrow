@@ -193,16 +193,20 @@ public class AvroToArrowUtils {
 
   private static Consumer createMapConsumer(Schema schema, String name, BufferAllocator allocator) {
 
+    // create struct vector as underlying vector of the map vector, its children vectors are from delegates.
     StructVector structVector =
         new StructVector(name, allocator, FieldType.nullable(ArrowType.Struct.INSTANCE), null);
 
+    // crate keyConsumer and valueConsumer to consume key/value respectively.
     Consumer keyConsumer = new AvroStringConsumer(new VarCharVector("key", allocator));
     Consumer valueConsumer = createConsumer(schema.getValueType(), schema.getValueType().getName(), allocator);
 
+    // directly put delegates vectors to struct vector.
     structVector.putChild(keyConsumer.getVector().getField().getName(), keyConsumer.getVector());
     structVector.putChild(valueConsumer.getVector().getField().getName(), valueConsumer.getVector());
     structVector.allocateNewSafe();
 
+    // crate map vector and set the struct vector as its underlying vector.
     MapVector mapVector = MapVector.empty(name, allocator, false);
     mapVector.setDataVector(structVector);
 

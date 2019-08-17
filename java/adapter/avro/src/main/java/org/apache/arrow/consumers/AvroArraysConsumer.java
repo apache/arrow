@@ -35,6 +35,11 @@ public class AvroArraysConsumer implements Consumer {
   private final Consumer delegate;
 
   /**
+   * Indicated whether has read the first block of this array.
+   */
+  private boolean firstRead;
+
+  /**
    * Instantiate a ArrayConsumer.
    */
   public AvroArraysConsumer(ListVector vector, Consumer delegete) {
@@ -44,16 +49,24 @@ public class AvroArraysConsumer implements Consumer {
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    int count = (int) decoder.arrayNext();
+
+    long count;
+    if (!firstRead) {
+      count = decoder.readArrayStart();
+      firstRead = true;
+    } else {
+      do {
+        count = decoder.arrayNext();
+      } while (count == 0);
+    }
 
     int idx = vector.getValueCount();
     vector.startNewValue(idx);
     for (int i = 0; i < count; i++) {
       delegate.consume(decoder);
     }
-    decoder.skipArray();
 
-    int end = vector.getOffsetBuffer().getInt(idx * 4) + count;
+    int end = (int) (vector.getOffsetBuffer().getInt(idx * 4) + count);
     vector.getOffsetBuffer().setInt((idx + 1) * 4, end);
     BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), vector.getValueCount());
 
