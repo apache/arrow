@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Parquet Data source
+//! Parquet data source
 
 use std::fs::File;
 use std::string::String;
@@ -58,10 +58,13 @@ impl ParquetTable {
 }
 
 impl TableProvider for ParquetTable {
+    /// Get the schema for this parquet file
     fn schema(&self) -> &Arc<Schema> {
         &self.schema
     }
 
+    /// Scan the file(s), using the provided projection, and return one BatchIterator per
+    /// partition
     fn scan(
         &self,
         projection: &Option<Vec<usize>>,
@@ -94,6 +97,7 @@ pub struct ParquetFile {
     column_readers: Vec<ColumnReader>,
 }
 
+/// Thread-safe wrapper around a ParquetFile
 struct ParquetScanPartition {
     schema: Arc<Schema>,
     request_tx: Sender<()>,
@@ -118,8 +122,6 @@ impl ParquetScanPartition {
             }
         };
 
-        let filename = filename.to_string();
-
         // because the parquet implementation is not thread-safe, it is necessary to execute
         // on a thread and communicate with channels
         let (request_tx, request_rx): (Sender<()>, Receiver<()>) = unbounded();
@@ -127,11 +129,17 @@ impl ParquetScanPartition {
             Sender<Result<Option<RecordBatch>>>,
             Receiver<Result<Option<RecordBatch>>>,
         ) = unbounded();
+        let filename = filename.to_string();
         thread::spawn(move || {
-            // TODO improve error handling here
-            let mut table = ParquetFile::open(&filename, projection, batch_size).unwrap();
-            while let Ok(_) = request_rx.recv() {
-                response_tx.send(table.next()).unwrap();
+            match ParquetFile::open(&filename, projection, batch_size) {
+                Ok(mut table) => {
+                    while let Ok(_) = request_rx.recv() {
+                        response_tx.send(table.next()).unwrap();
+                    }
+                }
+                Err(e) => {
+                    response_tx.send(Err(e)).unwrap();
+                }
             }
         });
 
@@ -153,15 +161,6 @@ impl BatchIterator for ParquetScanPartition {
         self.response_rx.recv().unwrap()
     }
 }
-
-//impl Partition for ParquetScanPartition {
-//    fn execute(&self) -> Result<Arc<BatchIterator>> {
-//        Ok(Arc::new(TablePartitionIterator {
-//            request_tx: self.request_tx.clone(),
-//            response_rx: self.response_rx.clone(),
-//        }))
-//    }
-//}
 
 macro_rules! read_binary_column {
     ($SELF:ident, $R:ident, $INDEX:expr) => {{
