@@ -22,11 +22,9 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.arrow.flatbuf.Footer;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowFooter;
@@ -100,16 +98,9 @@ public class ArrowFileReader extends ArrowReader {
   }
 
   @Override
-  public ArrowDictionaryBatch readDictionary() throws IOException {
-    if (currentDictionaryBatch >= footer.getDictionaries().size()) {
-      throw new IOException("Requested more dictionaries than defined in footer: " + currentDictionaryBatch);
-    }
-    ArrowBlock block = footer.getDictionaries().get(currentDictionaryBatch++);
-    return readDictionaryBatch(in, block, allocator);
-  }
+  public void initialize() throws IOException {
+    super.initialize();
 
-  @Override
-  protected void readDictionaries(Map<Long, Dictionary> dictionaries) throws IOException {
     // empty stream, has no dictionaries in IPC.
     if (footer.getRecordBatches().size() == 0) {
       return;
@@ -119,6 +110,21 @@ public class ArrowFileReader extends ArrowReader {
       ArrowDictionaryBatch dictionaryBatch = readDictionary();
       loadDictionary(dictionaryBatch);
     }
+  }
+
+  /**
+   * Read a dictionary batch from the source, will be invoked after the schema has been read and
+   * called N times, where N is the number of dictionaries indicated by the schema Fields.
+   *
+   * @return the read ArrowDictionaryBatch
+   * @throws IOException on error
+   */
+  public ArrowDictionaryBatch readDictionary() throws IOException {
+    if (currentDictionaryBatch >= footer.getDictionaries().size()) {
+      throw new IOException("Requested more dictionaries than defined in footer: " + currentDictionaryBatch);
+    }
+    ArrowBlock block = footer.getDictionaries().get(currentDictionaryBatch++);
+    return readDictionaryBatch(in, block, allocator);
   }
 
   /** Returns true if a batch was read, false if no more batches. */

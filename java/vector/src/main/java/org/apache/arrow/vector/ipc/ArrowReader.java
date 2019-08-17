@@ -45,8 +45,8 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   protected final BufferAllocator allocator;
   private VectorLoader loader;
   private VectorSchemaRoot root;
-  private Map<Long, Dictionary> dictionaries;
-  protected boolean initialized = false;
+  protected Map<Long, Dictionary> dictionaries;
+  private boolean initialized = false;
 
   protected ArrowReader(BufferAllocator allocator) {
     this.allocator = allocator;
@@ -151,22 +151,6 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   protected abstract Schema readSchema() throws IOException;
 
   /**
-   * Read a dictionary batch from the source, will be invoked after the schema has been read and
-   * called N times, where N is the number of dictionaries indicated by the schema Fields.
-   *
-   * @return the read ArrowDictionaryBatch
-   * @throws IOException on error
-   */
-  protected abstract ArrowDictionaryBatch readDictionary() throws IOException;
-
-  /**
-   * Read dictionaries from IPC stream after read schema.
-   * Note that if the stream is empty (only has schema), no dictionaries is available.
-   * @throws IOException on error
-   */
-  protected abstract void readDictionaries(Map<Long, Dictionary> dictionaries) throws IOException;
-
-  /**
    * Initialize if not done previously.
    *
    * @throws IOException on error
@@ -181,7 +165,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   /**
    * Reads the schema and initializes the vectors.
    */
-  private void initialize() throws IOException {
+  protected void initialize() throws IOException {
     Schema originalSchema = readSchema();
     List<Field> fields = new ArrayList<>();
     List<FieldVector> vectors = new ArrayList<>();
@@ -198,8 +182,6 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
     this.root = new VectorSchemaRoot(schema, vectors, 0);
     this.loader = new VectorLoader(root);
     this.dictionaries = Collections.unmodifiableMap(dictionaries);
-
-    readDictionaries(dictionaries);
   }
 
   /**

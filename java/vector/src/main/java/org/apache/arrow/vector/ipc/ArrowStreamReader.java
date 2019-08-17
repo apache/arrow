@@ -21,16 +21,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
-import java.util.Map;
 
 import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.MessageChannelReader;
 import org.apache.arrow.vector.ipc.message.MessageResult;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import io.netty.buffer.ArrowBuf;
@@ -108,20 +108,42 @@ public class ArrowStreamReader extends ArrowReader {
       return false;
     }
 
-    if (result.getMessage().headerType() != MessageHeader.RecordBatch) {
-      throw new IOException("Expected RecordBatch but header was " + result.getMessage().headerType());
+    if (result.getMessage().headerType() == MessageHeader.RecordBatch) {
+      ArrowBuf bodyBuffer = result.getBodyBuffer();
+
+      // For zero-length batches, need an empty buffer to deserialize the batch
+      if (bodyBuffer == null) {
+        bodyBuffer = allocator.getEmpty();
+      }
+
+      ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(result.getMessage(), bodyBuffer);
+      loadRecordBatch(batch);
+      checkDictionaries();
+      return true;
+    } else if (result.getMessage().headerType() == MessageHeader.DictionaryBatch) {
+      // if it's dictionary message, read dictionary message out and continue to read unless get a batch or eos.
+      ArrowDictionaryBatch dictionaryBatch = readDictionary(result);
+      loadDictionary(dictionaryBatch);
+      return loadNextBatch();
+    } else {
+      throw new IOException("Expected RecordBatch or DictionaryBatch but header was " +
+          result.getMessage().headerType());
     }
+  }
 
-    ArrowBuf bodyBuffer = result.getBodyBuffer();
-
-    // For zero-length batches, need an empty buffer to deserialize the batch
-    if (bodyBuffer == null) {
-      bodyBuffer = allocator.getEmpty();
+  /**
+   * When read a record batch, check whether its dictionaries are available.
+   */
+  private void checkDictionaries() throws IOException {
+    for (FieldVector vector : getVectorSchemaRoot().getFieldVectors()) {
+      DictionaryEncoding encoding =  vector.getField().getDictionary();
+      if (encoding != null) {
+        // if the dictionaries it need is not available and the vector is not all null, something was wrong.
+        if (!dictionaries.containsKey(encoding.getId()) && vector.getNullCount() < vector.getValueCount()) {
+          throw new IOException("The dictionary was not available, id was:" + encoding.getId());
+        }
+      }
     }
-
-    ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(result.getMessage(), bodyBuffer);
-    loadRecordBatch(batch);
-    return true;
   }
 
   /**
@@ -144,24 +166,8 @@ public class ArrowStreamReader extends ArrowReader {
     return MessageSerializer.deserializeSchema(result.getMessage());
   }
 
-  /**
-   * Read a dictionary batch message, will be invoked after the schema and before normal record
-   * batches are read.
-   *
-   * @return the deserialized dictionary batch
-   * @throws IOException on error
-   */
-  @Override
-  protected ArrowDictionaryBatch readDictionary() throws IOException {
-    MessageResult result = messageReader.readNext();
 
-    if (result == null) {
-      return null;
-    }
-
-    if (result.getMessage().headerType() != MessageHeader.DictionaryBatch) {
-      throw new IOException("Expected DictionaryBatch but header was " + result.getMessage().headerType());
-    }
+  private ArrowDictionaryBatch readDictionary(MessageResult result) throws IOException {
 
     ArrowBuf bodyBuffer = result.getBodyBuffer();
 
@@ -171,26 +177,5 @@ public class ArrowStreamReader extends ArrowReader {
     }
 
     return MessageSerializer.deserializeDictionaryBatch(result.getMessage(), bodyBuffer);
-  }
-
-  @Override
-  protected void readDictionaries(Map<Long, Dictionary> dictionaries) throws IOException {
-    // Read and load all dictionaries from schema
-    for (int i = 0; i < dictionaries.size(); i++) {
-      ArrowDictionaryBatch dictionaryBatch = readDictionary();
-      if (dictionaryBatch == null) {
-        // empty stream has no dictionaries in IPC.
-        if (i == 0) {
-          initialized = true;
-          if (loadNextBatch()) {
-            throw new IOException("DictionaryBatch is missing at index:" + i);
-          }
-          break;
-        } else {
-          throw new IOException("Unexpected end of input. Expected DictionaryBatch at index:" + i);
-        }
-      }
-      loadDictionary(dictionaryBatch);
-    }
   }
 }

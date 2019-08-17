@@ -111,14 +111,4 @@ public class OrcStripeReader extends ArrowReader {
       return MessageSerializer.deserializeSchema(result.getMessage());
     }
   }
-
-  @Override
-  protected ArrowDictionaryBatch readDictionary() throws IOException {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  protected void readDictionaries(Map<Long, Dictionary> dictionaries) throws IOException {
-    throw new UnsupportedOperationException();
-  }
 }
