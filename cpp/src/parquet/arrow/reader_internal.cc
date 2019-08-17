@@ -329,11 +329,17 @@ struct SchemaTreeContext {
   }
 };
 
+bool IsDictionaryReadSupported(const DataType& type) {
+  // Only supported currently for BYTE_ARRAY types
+  return type.id() == ::arrow::Type::BINARY || type.id() == ::arrow::Type::STRING;
+}
+
 Status GetTypeForNode(int column_index, const schema::PrimitiveNode& primitive_node,
                       SchemaTreeContext* ctx, std::shared_ptr<DataType>* out) {
   std::shared_ptr<DataType> storage_type;
   RETURN_NOT_OK(GetPrimitiveType(primitive_node, &storage_type));
-  if (ctx->properties.read_dictionary(column_index)) {
+  if (ctx->properties.read_dictionary(column_index) &&
+      IsDictionaryReadSupported(*storage_type)) {
     *out = ::arrow::dictionary(::arrow::int32(), storage_type);
   } else {
     *out = storage_type;
@@ -623,7 +629,8 @@ Status BuildSchemaManifest(const SchemaDescriptor* schema,
     if (origin_field->type()->id() != ::arrow::Type::DICTIONARY) {
       continue;
     }
-    if (current_type->id() != ::arrow::Type::DICTIONARY) {
+    if (current_type->id() != ::arrow::Type::DICTIONARY &&
+        IsDictionaryReadSupported(*current_type)) {
       out_field->field =
           out_field->field->WithType(::arrow::dictionary(::arrow::int32(), current_type));
     }

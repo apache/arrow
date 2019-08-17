@@ -3016,6 +3016,24 @@ def test_dictionary_array_automatically_read():
 
 
 @pytest.mark.pandas
+def test_pandas_categorical_na_type_row_groups():
+    # ARROW-5085
+    df = pd.DataFrame({"col": [None] * 100, "int": [1.0] * 100})
+    df_category = df.astype({"col": "category", "int": "category"})
+    table = pa.Table.from_pandas(df)
+    table_cat = pa.Table.from_pandas(df_category)
+    buf = pa.BufferOutputStream()
+
+    # it works
+    pq.write_table(table_cat, buf, version="2.0", chunk_size=10)
+    result = pq.read_table(buf.getvalue())
+
+    # Result is non-categorical
+    assert result[0].equals(table[0])
+    assert result[1].equals(table[1])
+
+
+@pytest.mark.pandas
 def test_multi_dataset_metadata(tempdir):
     filenames = ["ARROW-1983-dataset.0", "ARROW-1983-dataset.1"]
     metapath = str(tempdir / "_metadata")
