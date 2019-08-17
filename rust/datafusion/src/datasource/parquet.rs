@@ -35,8 +35,9 @@ use parquet::column::reader::*;
 use parquet::data_type::{ByteArray, Int96};
 use parquet::file::reader::*;
 
-use crate::datasource::{RecordBatchIterator, ScanResult, TableProvider};
+use crate::datasource::{ScanResult, TableProvider};
 use crate::error::{ExecutionError, Result};
+use crate::execution::physical_plan::BatchIterator;
 
 /// Table-based representation of a `ParquetFile`
 pub struct ParquetTable {
@@ -69,8 +70,12 @@ impl TableProvider for ParquetTable {
         // note that this code currently assumes the filename is a file rather than a directory
         // and therefore only returns a single partition
         let parquet_file = match projection {
-            Some(p) => ParquetScanPartition::new(&self.filename, Some(p.clone()), batch_size),
-            None => ParquetScanPartition::new(&self.filename, None, batch_size)
+            Some(p) => ParquetScanPartition::try_new(
+                &self.filename,
+                Some(p.clone()),
+                batch_size,
+            )?,
+            None => ParquetScanPartition::try_new(&self.filename, None, batch_size)?,
         };
         Ok(vec![Arc::new(Mutex::new(parquet_file))])
     }
@@ -96,43 +101,49 @@ struct ParquetScanPartition {
 }
 
 impl ParquetScanPartition {
-    pub fn new(filename: &str, projection: Option<Vec<usize>>, batch_size: usize) -> Self {
+    pub fn try_new(
+        filename: &str,
+        projection: Option<Vec<usize>>,
+        batch_size: usize,
+    ) -> Result<Self> {
+        // determine the schema after the projection is applied
+        let schema = match &projection {
+            Some(p) => {
+                let table = ParquetFile::open(&filename, Some(p.clone()), batch_size)?;
+                table.schema().clone()
+            }
+            None => {
+                let table = ParquetFile::open(&filename, None, batch_size)?;
+                table.schema().clone()
+            }
+        };
+
+        let filename = filename.to_string();
+
+        // because the parquet implementation is not thread-safe, it is necessary to execute
+        // on a thread and communicate with channels
         let (request_tx, request_rx): (Sender<()>, Receiver<()>) = unbounded();
         let (response_tx, response_rx): (
             Sender<Result<Option<RecordBatch>>>,
             Receiver<Result<Option<RecordBatch>>>,
         ) = unbounded();
-
-        let schema = match &projection {
-            Some(p) => {
-                let table = ParquetFile::open(&filename, Some(p.clone()), batch_size).unwrap();
-                table.schema().clone()
-            },
-            None => {
-                let table = ParquetFile::open(&filename, None, batch_size).unwrap();
-                table.schema().clone()
-            }
-        };
-
-        println!("creating thread");
-
-        let filename = filename.to_string();
         thread::spawn(move || {
+            // TODO improve error handling here
             let mut table = ParquetFile::open(&filename, projection, batch_size).unwrap();
             while let Ok(_) = request_rx.recv() {
                 response_tx.send(table.next()).unwrap();
             }
         });
 
-        Self {
+        Ok(Self {
             schema,
             request_tx,
             response_rx,
-        }
+        })
     }
 }
 
-impl RecordBatchIterator for ParquetScanPartition {
+impl BatchIterator for ParquetScanPartition {
     fn schema(&self) -> &Arc<Schema> {
         &self.schema
     }
