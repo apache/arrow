@@ -157,8 +157,18 @@ impl BatchIterator for ParquetScanPartition {
     }
 
     fn next(&mut self) -> Result<Option<RecordBatch>> {
-        self.request_tx.send(()).unwrap();
-        self.response_rx.recv().unwrap()
+        match self.request_tx.send(()) {
+            Ok(_) => match self.response_rx.recv() {
+                Ok(batch) => batch,
+                Err(e) => Err(ExecutionError::General(format!(
+                    "Error receiving batch: {:?}",
+                    e
+                ))),
+            },
+            _ => Err(ExecutionError::General(
+                "Error sending request for next batch".to_string(),
+            )),
+        }
     }
 }
 
