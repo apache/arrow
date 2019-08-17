@@ -43,11 +43,9 @@ struct CustomType {
   bool b;
   std::string s;
 
-  #define ARROW_CUSTOM_TYPE_TIED std::tie(i8, i16, i32, i64, u8, u16, u32, u64, b, s)
-  auto tie() const -> decltype(ARROW_CUSTOM_TYPE_TIED) {
-      return ARROW_CUSTOM_TYPE_TIED;
-  }
-  #undef ARROW_CUSTOM_TYPE_TIED
+#define ARROW_CUSTOM_TYPE_TIED std::tie(i8, i16, i32, i64, u8, u16, u32, u64, b, s)
+  auto tie() const -> decltype(ARROW_CUSTOM_TYPE_TIED) { return ARROW_CUSTOM_TYPE_TIED; }
+#undef ARROW_CUSTOM_TYPE_TIED
 };
 
 namespace arrow {
@@ -156,9 +154,8 @@ TEST(TestTableFromTupleVector, ReferenceTuple) {
 
   std::vector<std::string> names{"column1", "column2", "column3", "column4", "column5",
                                  "column6", "column7", "column8", "column9", "column10"};
-  std::vector<CustomType> rows {
-      {-1, -2, -3, -4, 1, 2, 3, 4, true, "Tests"},
-      {-10, -20, -30, -40, 10, 20, 30, 40, false, "Other"}};
+  std::vector<CustomType> rows{{-1, -2, -3, -4, 1, 2, 3, 4, true, "Tests"},
+                               {-10, -20, -30, -40, 10, 20, 30, 40, false, "Other"}};
   auto rng_rows =
       transform(rows, [](const CustomType& c) -> decltype(c.tie()) { return c.tie(); });
   std::shared_ptr<Table> table;
