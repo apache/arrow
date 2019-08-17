@@ -300,6 +300,21 @@ gint32
 garrow_fixed_size_binary_data_type_get_byte_width(GArrowFixedSizeBinaryDataType *data_type);
 
 
+#define GARROW_TYPE_LARGE_BINARY_DATA_TYPE (garrow_large_binary_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowLargeBinaryDataType,
+                         garrow_large_binary_data_type,
+                         GARROW,
+                         LARGE_BINARY_DATA_TYPE,
+                         GArrowDataType)
+struct _GArrowLargeBinaryDataTypeClass
+{
+  GArrowDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_15
+GArrowLargeBinaryDataType *garrow_large_binary_data_type_new(void);
+
+
 #define GARROW_TYPE_STRING_DATA_TYPE (garrow_string_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowStringDataType,
                          garrow_string_data_type,
@@ -312,6 +327,21 @@ struct _GArrowStringDataTypeClass
 };
 
 GArrowStringDataType *garrow_string_data_type_new      (void);
+
+
+#define GARROW_TYPE_LARGE_STRING_DATA_TYPE (garrow_large_string_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowLargeStringDataType,
+                         garrow_large_string_data_type,
+                         GARROW,
+                         LARGE_STRING_DATA_TYPE,
+                         GArrowDataType)
+struct _GArrowLargeStringDataTypeClass
+{
+  GArrowDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_15
+GArrowLargeStringDataType *garrow_large_string_data_type_new(void);
 
 
 #define GARROW_TYPE_DATE32_DATA_TYPE (garrow_date32_data_type_get_type())

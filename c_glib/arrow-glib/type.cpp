@@ -64,8 +64,12 @@ garrow_type_from_raw(arrow::Type::type type)
     return GARROW_TYPE_DOUBLE;
   case arrow::Type::type::STRING:
     return GARROW_TYPE_STRING;
+  case arrow::Type::type::LARGE_STRING:
+    return GARROW_TYPE_LARGE_STRING;
   case arrow::Type::type::BINARY:
     return GARROW_TYPE_BINARY;
+  case arrow::Type::type::LARGE_BINARY:
+    return GARROW_TYPE_LARGE_BINARY;
   case arrow::Type::type::FIXED_SIZE_BINARY:
     return GARROW_TYPE_FIXED_SIZE_BINARY;
   case arrow::Type::type::DATE32:

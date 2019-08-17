@@ -39,7 +39,9 @@ G_BEGIN_DECLS
  * @GARROW_TYPE_FLOAT: 4-byte floating point value.
  * @GARROW_TYPE_DOUBLE: 8-byte floating point value.
  * @GARROW_TYPE_STRING: UTF-8 variable-length string.
+ * @GARROW_TYPE_LARGE_STRING: 64bit offsets UTF-8 variable-length string.
  * @GARROW_TYPE_BINARY: Variable-length bytes (no guarantee of UTF-8-ness).
+ * @GARROW_TYPE_LARGE_BINARY: 64bit offsets Variable-length bytes (no guarantee of UTF-8-ness).
  * @GARROW_TYPE_FIXED_SIZE_BINARY: Fixed-size binary. Each value occupies
  *   the same number of bytes.
  * @GARROW_TYPE_DATE32: int32 days since the UNIX epoch.
@@ -85,7 +87,9 @@ typedef enum {
   GARROW_TYPE_LIST,
   GARROW_TYPE_STRUCT,
   GARROW_TYPE_UNION,
-  GARROW_TYPE_DICTIONARY
+  GARROW_TYPE_DICTIONARY,
+  GARROW_TYPE_LARGE_STRING,
+  GARROW_TYPE_LARGE_BINARY
 } GArrowType;
 
 /**

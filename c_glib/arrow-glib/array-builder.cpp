@@ -202,8 +202,14 @@ G_BEGIN_DECLS
  * #GArrowBinaryArrayBuilder is the class to create a new
  * #GArrowBinaryArray.
  *
+ * #GArrowLargeBinaryArrayBuilder is the class to create a new
+ * #GArrowLargeBinaryArray.
+ *
  * #GArrowStringArrayBuilder is the class to create a new
  * #GArrowStringArray.
+ *
+ * #GArrowLargeStringArrayBuilder is the class to create a new
+ * #GArrowLargeStringArray.
  *
  * #GArrowDate32ArrayBuilder is the class to create a new
  * #GArrowDate32Array.
@@ -2536,6 +2542,83 @@ garrow_binary_array_builder_append_null(GArrowBinaryArrayBuilder *builder,
 }
 
 
+G_DEFINE_TYPE(GArrowLargeBinaryArrayBuilder,
+              garrow_large_binary_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_large_binary_array_builder_init(GArrowLargeBinaryArrayBuilder *builder)
+{
+}
+
+static void
+garrow_large_binary_array_builder_class_init(GArrowLargeBinaryArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_large_binary_array_builder_new:
+ *
+ * Returns: A newly created #GArrowBinaryArrayBuilder.
+ *
+ * Since: 0.15.0
+ */
+GArrowLargeBinaryArrayBuilder *
+garrow_large_binary_array_builder_new(void)
+{
+  auto builder = garrow_array_builder_new(arrow::large_binary(),
+                                          NULL,
+                                          "[large-binary-array-builder][new]");
+  return GARROW_LARGE_BINARY_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_large_binary_array_builder_append_value:
+ * @builder: A #GArrowLargeBinaryArrayBuilder.
+ * @value: (array length=length): A binary value.
+ * @length: A value length.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.15.0
+ */
+gboolean
+garrow_large_binary_array_builder_append_value(GArrowLargeBinaryArrayBuilder *builder,
+                                               const guint8 *value,
+                                               gint64 length,
+                                               GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::LargeBinaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+
+  auto status = arrow_builder->Append(value, length);
+  return garrow_error_check(error,
+                            status,
+                            "[large-binary-array-builder][append-value]");
+}
+
+/**
+ * garrow_large_binary_array_builder_append_null:
+ * @builder: A #GArrowLargeBinaryArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.15.0
+ */
+gboolean
+garrow_large_binary_array_builder_append_null(GArrowLargeBinaryArrayBuilder *builder,
+                                              GError **error)
+{
+  return garrow_array_builder_append_null<arrow::LargeBinaryBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     error,
+     "[large-binary-array-builder][append-null]");
+}
+
+
 G_DEFINE_TYPE(GArrowStringArrayBuilder,
               garrow_string_array_builder,
               GARROW_TYPE_BINARY_ARRAY_BUILDER)
@@ -2645,6 +2728,101 @@ garrow_string_array_builder_append_values(GArrowStringArrayBuilder *builder,
      is_valids_length,
      error,
      "[string-array-builder][append-values]");
+}
+
+
+G_DEFINE_TYPE(GArrowLargeStringArrayBuilder,
+              garrow_large_string_array_builder,
+              GARROW_TYPE_LARGE_BINARY_ARRAY_BUILDER)
+
+static void
+garrow_large_string_array_builder_init(GArrowLargeStringArrayBuilder *builder)
+{
+}
+
+static void
+garrow_large_string_array_builder_class_init(GArrowLargeStringArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_large_string_array_builder_new:
+ *
+ * Returns: A newly created #GArrowLargeStringArrayBuilder.
+ *
+ * Since: 0.15.0
+ */
+GArrowLargeStringArrayBuilder *
+garrow_large_string_array_builder_new(void)
+{
+  auto builder = garrow_array_builder_new(arrow::large_utf8(),
+                                          NULL,
+                                          "[large-string-array-builder][new]");
+  return GARROW_LARGE_STRING_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_large_string_array_builder_append_value:
+ * @builder: A #GArrowLargeStringArrayBuilder.
+ * @value: A string value.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.15.0
+ */
+gboolean
+garrow_large_string_array_builder_append_value(GArrowLargeStringArrayBuilder *builder,
+                                               const gchar *value,
+                                               GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::LargeStringBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+
+  auto status = arrow_builder->Append(value,
+                                      static_cast<gint64>(strlen(value)));
+  return garrow_error_check(error,
+                            status,
+                            "[large-string-array-builder][append-value]");
+}
+
+/**
+ * garrow_large_string_array_builder_append_values:
+ * @builder: A #GArrowLargeStringArrayBuilder.
+ * @values: (array length=values_length): The array of
+ *   strings.
+ * @values_length: The length of `values`.
+ * @is_valids: (nullable) (array length=is_valids_length): The array of
+ *   boolean that shows whether the Nth value is valid or not. If the
+ *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
+ *   the Nth value is null value.
+ * @is_valids_length: The length of `is_valids`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append multiple values at once. It's more efficient than multiple
+ * `append()` and `append_null()` calls.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.15.0
+ */
+gboolean
+garrow_large_string_array_builder_append_values(GArrowLargeStringArrayBuilder *builder,
+                                                const gchar **values,
+                                                gint64 values_length,
+                                                const gboolean *is_valids,
+                                                gint64 is_valids_length,
+                                                GError **error)
+{
+  return garrow_array_builder_append_values<arrow::LargeStringBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     values,
+     values_length,
+     is_valids,
+     is_valids_length,
+     error,
+     "[large-string-array-builder][append-values]");
 }
 
 
@@ -4007,8 +4185,14 @@ garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
     case arrow::Type::type::BINARY:
       type = GARROW_TYPE_BINARY_ARRAY_BUILDER;
       break;
+    case arrow::Type::type::LARGE_BINARY:
+      type = GARROW_TYPE_LARGE_BINARY_ARRAY_BUILDER;
+      break;
     case arrow::Type::type::STRING:
       type = GARROW_TYPE_STRING_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::LARGE_STRING:
+      type = GARROW_TYPE_LARGE_STRING_ARRAY_BUILDER;
       break;
     case arrow::Type::type::DATE32:
       type = GARROW_TYPE_DATE32_ARRAY_BUILDER;

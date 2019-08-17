@@ -571,6 +571,30 @@ gboolean garrow_binary_array_builder_append_null(GArrowBinaryArrayBuilder *build
                                                  GError **error);
 
 
+#define GARROW_TYPE_LARGE_BINARY_ARRAY_BUILDER        \
+  (garrow_large_binary_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowLargeBinaryArrayBuilder,
+                         garrow_large_binary_array_builder,
+                         GARROW,
+                         LARGE_BINARY_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowLargeBinaryArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_15
+GArrowLargeBinaryArrayBuilder *garrow_large_binary_array_builder_new(void);
+GARROW_AVAILABLE_IN_0_15
+gboolean garrow_large_binary_array_builder_append_value(GArrowLargeBinaryArrayBuilder *builder,
+                                                        const guint8 *value,
+                                                        gint64 length,
+                                                        GError **error);
+GARROW_AVAILABLE_IN_0_15
+gboolean garrow_large_binary_array_builder_append_null(GArrowLargeBinaryArrayBuilder *builder,
+                                                       GError **error);
+
+
 #define GARROW_TYPE_STRING_ARRAY_BUILDER        \
   (garrow_string_array_builder_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowStringArrayBuilder,
@@ -601,6 +625,33 @@ gboolean garrow_string_array_builder_append_values(GArrowStringArrayBuilder *bui
                                                    const gboolean *is_valids,
                                                    gint64 is_valids_length,
                                                    GError **error);
+
+
+#define GARROW_TYPE_LARGE_STRING_ARRAY_BUILDER        \
+  (garrow_large_string_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowLargeStringArrayBuilder,
+                         garrow_large_string_array_builder,
+                         GARROW,
+                         LARGE_STRING_ARRAY_BUILDER,
+                         GArrowBinaryArrayBuilder)
+struct _GArrowLargeStringArrayBuilderClass
+{
+  GArrowLargeBinaryArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_15
+GArrowLargeStringArrayBuilder *garrow_large_string_array_builder_new(void);
+GARROW_AVAILABLE_IN_0_15
+gboolean garrow_large_string_array_builder_append_value(GArrowLargeStringArrayBuilder *builder,
+                                                        const gchar *value,
+                                                        GError **error);
+GARROW_AVAILABLE_IN_0_15
+gboolean garrow_large_string_array_builder_append_values(GArrowLargeStringArrayBuilder *builder,
+                                                         const gchar **values,
+                                                         gint64 values_length,
+                                                         const gboolean *is_valids,
+                                                         gint64 is_valids_length,
+                                                         GError **error);
 
 
 #define GARROW_TYPE_DATE32_ARRAY_BUILDER        \

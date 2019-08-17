@@ -101,8 +101,16 @@ module Helper
       build_array(Arrow::BinaryArrayBuilder.new, values)
     end
 
+    def build_large_binary_array(values)
+      build_array(Arrow::LargeBinaryArrayBuilder.new, values)
+    end
+
     def build_string_array(values)
       build_array(Arrow::StringArrayBuilder.new, values)
+    end
+
+    def build_large_string_array(values)
+      build_array(Arrow::LargeStringArrayBuilder.new, values)
     end
 
     def build_list_array(value_data_type, values_list, field_name: "value")
