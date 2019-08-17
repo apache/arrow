@@ -330,7 +330,7 @@ public class BaseFileTest {
     encodedVector1B.allocateNewSafe();
     encodedVector1B.set(0, 2);  // "baz"
     encodedVector1B.set(1, 1);  // "bar"
-    encodedVector1B.set(2, 2);  // "baz"d
+    encodedVector1B.set(2, 2);  // "baz"
     encodedVector1B.set(4, 1);  // "bar"
     encodedVector1B.set(5, 0);  // "foo"
     encodedVector1B.setValueCount(6);
