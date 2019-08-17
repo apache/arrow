@@ -104,6 +104,9 @@ class IpcComponentSource {
       return Status::IOError(
           "Buffers-pointer of flatbuffer-encoded RecordBatch is null.");
     }
+    if (buffer_index >= static_cast<int>(buffers->size())) {
+      return Status::IOError("buffer_index out of range.");
+    }
     const flatbuf::Buffer* buffer = buffers->Get(buffer_index);
 
     if (buffer->length() == 0) {
