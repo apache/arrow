@@ -24,7 +24,7 @@ use arrow::datatypes::Schema;
 use crate::error::Result;
 use crate::execution::physical_plan::BatchIterator;
 
-/// Returned by implementors of `Table#scan`, this `RecordBatchIterator` is wrapped with
+/// Returned by implementors of `Table#scan`, this `BatchIterator` is wrapped with
 /// an `Arc` and `Mutex` so that it can be shared across threads as it is used.
 pub type ScanResult = Arc<Mutex<dyn BatchIterator>>;
 
