@@ -43,7 +43,7 @@ pub trait TableProvider {
 }
 
 /// Iterator for reading a series of record batches with a known schema
-pub trait RecordBatchIterator {
+pub trait RecordBatchIterator : Send + Sync {
     /// Get the schema of this iterator
     fn schema(&self) -> &Arc<Schema>;
 
