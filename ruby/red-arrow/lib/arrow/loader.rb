@@ -76,8 +76,11 @@ module Arrow
       require "arrow/table-loader"
       require "arrow/table-saver"
       require "arrow/tensor"
+      require "arrow/time"
+      require "arrow/time32-array"
       require "arrow/time32-array-builder"
       require "arrow/time32-data-type"
+      require "arrow/time64-array"
       require "arrow/time64-array-builder"
       require "arrow/time64-data-type"
       require "arrow/timestamp-array"
@@ -119,6 +122,8 @@ module Arrow
       when "Arrow::Date32Array",
            "Arrow::Date64Array",
            "Arrow::Decimal128Array",
+           "Arrow::Time32Array",
+           "Arrow::Time64Array",
            "Arrow::TimestampArray"
         case method_name
         when "get_value"

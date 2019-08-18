@@ -171,16 +171,26 @@ namespace red_arrow {
 
       inline VALUE convert(const arrow::Time32Array& array,
                            const int64_t i) {
-        // TODO: unit treatment
+        const auto type =
+          arrow::internal::checked_cast<const arrow::Time32Type*>(array.type().get());
         const auto value = array.Value(i);
-        return INT2NUM(value);
+        return rb_funcall(red_arrow::cArrowTime,
+                          id_new,
+                          2,
+                          time_unit_to_enum(type->unit()),
+                          INT2NUM(value));
       }
 
       inline VALUE convert(const arrow::Time64Array& array,
                            const int64_t i) {
-        // TODO: unit treatment
+        const auto type =
+          arrow::internal::checked_cast<const arrow::Time64Type*>(array.type().get());
         const auto value = array.Value(i);
-        return LL2NUM(value);
+        return rb_funcall(red_arrow::cArrowTime,
+                          id_new,
+                          2,
+                          time_unit_to_enum(type->unit()),
+                          LL2NUM(value));
       }
 
       inline VALUE convert(const arrow::TimestampArray& array,
@@ -188,9 +198,6 @@ namespace red_arrow {
         const auto type =
           arrow::internal::checked_cast<const arrow::TimestampType*>(array.type().get());
         auto scale = time_unit_to_scale(type->unit());
-        if (NIL_P(scale)) {
-          rb_raise(rb_eArgError, "Invalid TimeUnit");
-        }
         auto value = array.Value(i);
         auto sec = rb_rational_new(LL2NUM(value), scale);
         return rb_time_num_new(sec, Qnil);

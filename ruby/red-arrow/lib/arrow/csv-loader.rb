@@ -221,7 +221,7 @@ module Arrow
         field
       else
         begin
-          Time.iso8601(encoded_field)
+          ::Time.iso8601(encoded_field)
         rescue ArgumentError
           field
         end
@@ -317,7 +317,7 @@ module Arrow
             if current_column_type == :integer
               column_types[i] = candidate_type
             end
-          when Time
+          when ::Time
             candidate_type = :time
           when DateTime
             candidate_type = :date_time

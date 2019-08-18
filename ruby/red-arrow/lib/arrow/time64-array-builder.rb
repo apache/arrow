@@ -35,5 +35,15 @@ module Arrow
       end
       initialize_raw(data_type)
     end
+
+    def unit
+      @unit ||= value_data_type.unit
+    end
+
+    private
+    def convert_to_arrow_value(value)
+      return value unless value.is_a?(Time)
+      value.cast(unit).value
+    end
   end
 end

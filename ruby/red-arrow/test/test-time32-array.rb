@@ -17,30 +17,65 @@
 
 class Time32ArrayTest < Test::Unit::TestCase
   sub_test_case(".new") do
-    test("Arrow::TimeUnit") do
-      values = [1000 * 10, nil]
-      array = Arrow::Time32Array.new(Arrow::TimeUnit::MILLI, values)
-      assert_equal([
-                     "time32[ms]",
-                     values,
-                   ],
-                   [
-                     array.value_data_type.to_s,
-                     array.to_a,
-                   ])
+    sub_test_case("unit") do
+      test("Arrow::TimeUnit") do
+        values = [1000 * 10, nil]
+        array = Arrow::Time32Array.new(Arrow::TimeUnit::MILLI, values)
+        assert_equal([
+                       "time32[ms]",
+                       [
+                         Arrow::Time.new(Arrow::TimeUnit::MILLI,
+                                         1000 * 10),
+                         nil,
+                       ],
+                     ],
+                     [
+                       array.value_data_type.to_s,
+                       array.to_a,
+                     ])
+      end
+
+      test("Symbol") do
+        values = [60 * 10, nil]
+        array = Arrow::Time32Array.new(:second, values)
+        assert_equal([
+                       "time32[s]",
+                       [
+                         Arrow::Time.new(Arrow::TimeUnit::SECOND,
+                                         60 * 10),
+                         nil,
+                       ],
+                     ],
+                     [
+                       array.value_data_type.to_s,
+                       array.to_a,
+                     ])
+      end
     end
 
-    test("Symbol") do
-      values = [60 * 10, nil]
-      array = Arrow::Time32Array.new(:second, values)
-      assert_equal([
-                     "time32[s]",
-                     values,
-                   ],
-                   [
-                     array.value_data_type.to_s,
-                     array.to_a,
-                   ])
+    sub_test_case("values") do
+      test("Arrow::Time") do
+        data_type = Arrow::Time32DataType.new(:second)
+        values = [
+          Arrow::Time.new(Arrow::TimeUnit::SECOND,
+                          60 * 10),
+          nil,
+        ]
+        array = Arrow::Time32Array.new(data_type, values)
+        assert_equal(values, array.to_a)
+      end
+
+      test("Integer") do
+        data_type = Arrow::Time32DataType.new(:second)
+        values = [60 * 10, nil]
+        array = Arrow::Time32Array.new(data_type, values)
+        assert_equal([
+                       Arrow::Time.new(Arrow::TimeUnit::SECOND,
+                                       60 * 10),
+                       nil,
+                     ],
+                     array.to_a)
+      end
     end
   end
 end
