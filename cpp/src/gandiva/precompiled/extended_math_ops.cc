@@ -137,9 +137,10 @@ float64 random_int32_internal(int32 seed, bool seed_validity) {
   if (!seed_validity) {
     seed = 0;
   }
-
-  std::mt19937 gen;
-  gen.seed(seed);  // TODO confirm seed can be negative
+  int64 seed64 = static_cast<int64>(seed);
+  seed64 = (seed64 ^ 0x00000005DEECE66D) & 0x0000ffffffffffff;
+  std::mt19937_64 gen;
+  gen.seed(static_cast<uint64>(seed64));
   std::uniform_real_distribution<> dis(0.0, 1.0);
   return dis(gen);
 }
