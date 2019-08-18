@@ -88,11 +88,11 @@ class PARQUET_EXPORT KeyAccessDeniedException : public ParquetException {
       : ParquetException(columnPath.c_str()) {}
 };
 
-inline uint8_t* str2bytes(const std::string& str) {
+inline const uint8_t* str2bytes(const std::string& str) {
   if (str.empty()) return NULLPTR;
 
   char* cbytes = const_cast<char*>(str.c_str());
-  return reinterpret_cast<uint8_t*>(cbytes);
+  return reinterpret_cast<const uint8_t*>(cbytes);
 }
 
 class PARQUET_EXPORT ColumnEncryptionProperties {

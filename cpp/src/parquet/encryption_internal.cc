@@ -60,12 +60,12 @@ class AesEncryptor::AesEncryptorImpl {
     }
   }
 
-  int Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int key_len,
-              uint8_t* aad, int aad_len, uint8_t* ciphertext);
+  int Encrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
+              int key_len, const uint8_t* aad, int aad_len, uint8_t* ciphertext);
 
-  int SignedFooterEncrypt(const uint8_t* footer, int footer_len, uint8_t* key,
-                          int key_len, uint8_t* aad, int aad_len, uint8_t* nonce,
-                          uint8_t* encrypted_footer);
+  int SignedFooterEncrypt(const uint8_t* footer, int footer_len, const uint8_t* key,
+                          int key_len, const uint8_t* aad, int aad_len,
+                          const uint8_t* nonce, uint8_t* encrypted_footer);
   void WipeOut() {
     if (NULLPTR != ctx_) {
       EVP_CIPHER_CTX_free(ctx_);
@@ -81,11 +81,12 @@ class AesEncryptor::AesEncryptorImpl {
   int key_length_;
   int ciphertext_size_delta_;
 
-  int GcmEncrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int key_len,
-                 uint8_t* nonce, uint8_t* aad, int aad_len, uint8_t* ciphertext);
+  int GcmEncrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
+                 int key_len, const uint8_t* nonce, const uint8_t* aad, int aad_len,
+                 uint8_t* ciphertext);
 
-  int CtrEncrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int key_len,
-                 uint8_t* nonce, uint8_t* ciphertext);
+  int CtrEncrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
+                 int key_len, const uint8_t* nonce, uint8_t* ciphertext);
 };
 
 AesEncryptor::AesEncryptorImpl::AesEncryptorImpl(ParquetCipher::type alg_id, int key_len,
@@ -134,11 +135,9 @@ AesEncryptor::AesEncryptorImpl::AesEncryptorImpl(ParquetCipher::type alg_id, int
   }
 }
 
-int AesEncryptor::AesEncryptorImpl::SignedFooterEncrypt(const uint8_t* footer,
-                                                        int footer_len, uint8_t* key,
-                                                        int key_len, uint8_t* aad,
-                                                        int aad_len, uint8_t* nonce,
-                                                        uint8_t* encrypted_footer) {
+int AesEncryptor::AesEncryptorImpl::SignedFooterEncrypt(
+    const uint8_t* footer, int footer_len, const uint8_t* key, int key_len,
+    const uint8_t* aad, int aad_len, const uint8_t* nonce, uint8_t* encrypted_footer) {
   if (key_length_ != key_len) {
     std::stringstream ss;
     ss << "Wrong key length " << key_len << ". Should be " << key_length_;
@@ -154,8 +153,9 @@ int AesEncryptor::AesEncryptorImpl::SignedFooterEncrypt(const uint8_t* footer,
 }
 
 int AesEncryptor::AesEncryptorImpl::Encrypt(const uint8_t* plaintext, int plaintext_len,
-                                            uint8_t* key, int key_len, uint8_t* aad,
-                                            int aad_len, uint8_t* ciphertext) {
+                                            const uint8_t* key, int key_len,
+                                            const uint8_t* aad, int aad_len,
+                                            uint8_t* ciphertext) {
   if (key_length_ != key_len) {
     std::stringstream ss;
     ss << "Wrong key length " << key_len << ". Should be " << key_length_;
@@ -176,9 +176,10 @@ int AesEncryptor::AesEncryptorImpl::Encrypt(const uint8_t* plaintext, int plaint
 }
 
 int AesEncryptor::AesEncryptorImpl::GcmEncrypt(const uint8_t* plaintext,
-                                               int plaintext_len, uint8_t* key,
-                                               int key_len, uint8_t* nonce, uint8_t* aad,
-                                               int aad_len, uint8_t* ciphertext) {
+                                               int plaintext_len, const uint8_t* key,
+                                               int key_len, const uint8_t* nonce,
+                                               const uint8_t* aad, int aad_len,
+                                               uint8_t* ciphertext) {
   int len;
   int ciphertext_len;
 
@@ -230,8 +231,8 @@ int AesEncryptor::AesEncryptorImpl::GcmEncrypt(const uint8_t* plaintext,
 }
 
 int AesEncryptor::AesEncryptorImpl::CtrEncrypt(const uint8_t* plaintext,
-                                               int plaintext_len, uint8_t* key,
-                                               int key_len, uint8_t* nonce,
+                                               int plaintext_len, const uint8_t* key,
+                                               int key_len, const uint8_t* nonce,
                                                uint8_t* ciphertext) {
   int len;
   int ciphertext_len;
@@ -279,9 +280,10 @@ int AesEncryptor::AesEncryptorImpl::CtrEncrypt(const uint8_t* plaintext,
 
 AesEncryptor::~AesEncryptor() {}
 
-int AesEncryptor::SignedFooterEncrypt(const uint8_t* footer, int footer_len, uint8_t* key,
-                                      int key_len, uint8_t* aad, int aad_len,
-                                      uint8_t* nonce, uint8_t* encrypted_footer) {
+int AesEncryptor::SignedFooterEncrypt(const uint8_t* footer, int footer_len,
+                                      const uint8_t* key, int key_len, const uint8_t* aad,
+                                      int aad_len, const uint8_t* nonce,
+                                      uint8_t* encrypted_footer) {
   return impl_->SignedFooterEncrypt(footer, footer_len, key, key_len, aad, aad_len, nonce,
                                     encrypted_footer);
 }
@@ -290,8 +292,9 @@ void AesEncryptor::WipeOut() { impl_->WipeOut(); }
 
 int AesEncryptor::CiphertextSizeDelta() { return impl_->ciphertext_size_delta(); }
 
-int AesEncryptor::Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key,
-                          int key_len, uint8_t* aad, int aad_len, uint8_t* ciphertext) {
+int AesEncryptor::Encrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
+                          int key_len, const uint8_t* aad, int aad_len,
+                          uint8_t* ciphertext) {
   return impl_->Encrypt(plaintext, plaintext_len, key, key_len, aad, aad_len, ciphertext);
 }
 
@@ -310,8 +313,8 @@ class AesDecryptor::AesDecryptorImpl {
     }
   }
 
-  int Decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int key_len,
-              uint8_t* aad, int aad_len, uint8_t* plaintext);
+  int Decrypt(const uint8_t* ciphertext, int ciphertext_len, const uint8_t* key,
+              int key_len, const uint8_t* aad, int aad_len, uint8_t* plaintext);
 
   void WipeOut() {
     if (NULLPTR != ctx_) {
@@ -327,15 +330,16 @@ class AesDecryptor::AesDecryptorImpl {
   int aes_mode_;
   int key_length_;
   int ciphertext_size_delta_;
-  int GcmDecrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int key_len,
-                 uint8_t* aad, int aad_len, uint8_t* plaintext);
+  int GcmDecrypt(const uint8_t* ciphertext, int ciphertext_len, const uint8_t* key,
+                 int key_len, const uint8_t* aad, int aad_len, uint8_t* plaintext);
 
-  int CtrDecrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int key_len,
-                 uint8_t* plaintext);
+  int CtrDecrypt(const uint8_t* ciphertext, int ciphertext_len, const uint8_t* key,
+                 int key_len, uint8_t* plaintext);
 };
 
-int AesDecryptor::Decrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key,
-                          int key_len, uint8_t* aad, int aad_len, uint8_t* ciphertext) {
+int AesDecryptor::Decrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
+                          int key_len, const uint8_t* aad, int aad_len,
+                          uint8_t* ciphertext) {
   return impl_->Decrypt(plaintext, plaintext_len, key, key_len, aad, aad_len, ciphertext);
 }
 
@@ -424,9 +428,9 @@ AesDecryptor* AesDecryptor::Make(ParquetCipher::type alg_id, int key_len, bool m
 int AesDecryptor::CiphertextSizeDelta() { return impl_->ciphertext_size_delta(); }
 
 int AesDecryptor::AesDecryptorImpl::GcmDecrypt(const uint8_t* ciphertext,
-                                               int ciphertext_len, uint8_t* key,
-                                               int key_len, uint8_t* aad, int aad_len,
-                                               uint8_t* plaintext) {
+                                               int ciphertext_len, const uint8_t* key,
+                                               int key_len, const uint8_t* aad,
+                                               int aad_len, uint8_t* plaintext) {
   int len;
   int plaintext_len;
 
@@ -486,7 +490,7 @@ int AesDecryptor::AesDecryptorImpl::GcmDecrypt(const uint8_t* ciphertext,
 }
 
 int AesDecryptor::AesDecryptorImpl::CtrDecrypt(const uint8_t* ciphertext,
-                                               int ciphertext_len, uint8_t* key,
+                                               int ciphertext_len, const uint8_t* key,
                                                int key_len, uint8_t* plaintext) {
   int len;
   int plaintext_len;
@@ -538,8 +542,9 @@ int AesDecryptor::AesDecryptorImpl::CtrDecrypt(const uint8_t* ciphertext,
 }
 
 int AesDecryptor::AesDecryptorImpl::Decrypt(const uint8_t* ciphertext, int ciphertext_len,
-                                            uint8_t* key, int key_len, uint8_t* aad,
-                                            int aad_len, uint8_t* plaintext) {
+                                            const uint8_t* key, int key_len,
+                                            const uint8_t* aad, int aad_len,
+                                            uint8_t* plaintext) {
   if (key_length_ != key_len) {
     std::stringstream ss;
     ss << "Wrong key length " << key_len << ". Should be " << key_length_;

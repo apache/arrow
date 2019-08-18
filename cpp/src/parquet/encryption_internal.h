@@ -56,13 +56,13 @@ class AesEncryptor {
 
   /// Encrypts plaintext with the key and aad. Key length is passed only for validation.
   /// If different from value in constructor, exception will be thrown.
-  int Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int key_len,
-              uint8_t* aad, int aad_len, uint8_t* ciphertext);
+  int Encrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
+              int key_len, const uint8_t* aad, int aad_len, uint8_t* ciphertext);
 
   /// Encrypts plaintext footer, in order to compute footer signature (tag).
-  int SignedFooterEncrypt(const uint8_t* footer, int footer_len, uint8_t* key,
-                          int key_len, uint8_t* aad, int aad_len, uint8_t* nonce,
-                          uint8_t* encrypted_footer);
+  int SignedFooterEncrypt(const uint8_t* footer, int footer_len, const uint8_t* key,
+                          int key_len, const uint8_t* aad, int aad_len,
+                          const uint8_t* nonce, uint8_t* encrypted_footer);
 
   void WipeOut();
 
@@ -88,8 +88,8 @@ class AesDecryptor {
 
   /// Decrypts ciphertext with the key and aad. Key length is passed only for
   /// validation. If different from value in constructor, exception will be thrown.
-  int Decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int key_len,
-              uint8_t* aad, int aad_len, uint8_t* plaintext);
+  int Decrypt(const uint8_t* ciphertext, int ciphertext_len, const uint8_t* key,
+              int key_len, const uint8_t* aad, int aad_len, uint8_t* plaintext);
 
  private:
   /// Can serve one key length only. Possible values: 16, 24, 32 bytes.
