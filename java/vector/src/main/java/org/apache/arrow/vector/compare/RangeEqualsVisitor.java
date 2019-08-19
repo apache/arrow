@@ -66,7 +66,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Void> {
   /**
    * Do some validation work, like type check and indices check.
    */
-  private boolean validate(ValueVector left) {
+  protected boolean validate(ValueVector left) {
 
     if (!compareValueVector(left, right)) {
       return false;

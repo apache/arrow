@@ -25,6 +25,8 @@ import java.nio.charset.Charset;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.ZeroVector;
@@ -250,6 +252,68 @@ public class TestRangeEqualsVisitor {
 
       VectorEqualsVisitor intVisitor = new VectorEqualsVisitor(intVector, false);
       assertTrue(intVisitor.equals(zeroVector));
+    }
+  }
+
+  @Test
+  public void testFloat4ApproxEquals() {
+    try (final Float4Vector vector1 = new Float4Vector("float", allocator);
+         final Float4Vector vector2 = new Float4Vector("float", allocator);
+         final Float4Vector vector3 = new Float4Vector("float", allocator)) {
+
+      vector1.allocateNew(2);
+      vector1.setValueCount(2);
+      vector2.allocateNew(2);
+      vector2.setValueCount(2);
+      vector3.allocateNew(2);
+      vector3.setValueCount(2);
+
+      vector1.setSafe(0, 1.1f);
+      vector1.setSafe(1, 2.2f);
+
+      float epsilon = 1.0E-6f;
+
+      vector2.setSafe(0, 1.1f + epsilon / 2);
+      vector2.setSafe(1, 2.2f + epsilon / 2);
+
+      vector3.setSafe(0, 1.1f + epsilon * 2);
+      vector3.setSafe(1, 2.2f + epsilon * 2);
+
+      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(vector1, epsilon);
+
+      assertTrue(visitor.equals(vector2));
+      assertFalse(visitor.equals(vector3));
+    }
+  }
+
+  @Test
+  public void testFloat8ApproxEquals() {
+    try (final Float8Vector vector1 = new Float8Vector("float", allocator);
+        final Float8Vector vector2 = new Float8Vector("float", allocator);
+        final Float8Vector vector3 = new Float8Vector("float", allocator)) {
+
+      vector1.allocateNew(2);
+      vector1.setValueCount(2);
+      vector2.allocateNew(2);
+      vector2.setValueCount(2);
+      vector3.allocateNew(2);
+      vector3.setValueCount(2);
+
+      vector1.setSafe(0, 1.1);
+      vector1.setSafe(1, 2.2);
+
+      float epsilon = 1.0E-6f;
+
+      vector2.setSafe(0, 1.1 + epsilon / 2);
+      vector2.setSafe(1, 2.2 + epsilon / 2);
+
+      vector3.setSafe(0, 1.1 + epsilon * 2);
+      vector3.setSafe(1, 2.2 + epsilon * 2);
+
+      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(vector1, epsilon);
+
+      assertTrue(visitor.equals(vector2));
+      assertFalse(visitor.equals(vector3));
     }
   }
 
