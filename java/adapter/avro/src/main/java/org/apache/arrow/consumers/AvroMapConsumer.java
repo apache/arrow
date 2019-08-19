@@ -56,9 +56,7 @@ public class AvroMapConsumer implements Consumer {
       count = decoder.readMapStart();
       firstRead = true;
     } else {
-      do {
-        count = decoder.mapNext();
-      } while (count == 0);
+      count = decoder.mapNext();
     }
 
     int idx = vector.getValueCount();
@@ -81,6 +79,7 @@ public class AvroMapConsumer implements Consumer {
     vector.setValueCount(idx + 1);
     // set data vector valueCount
     vector.getDataVector().setValueCount(end);
+    decoder.skipMap();
   }
 
   @Override

@@ -55,9 +55,7 @@ public class AvroArraysConsumer implements Consumer {
       count = decoder.readArrayStart();
       firstRead = true;
     } else {
-      do {
-        count = decoder.arrayNext();
-      } while (count == 0);
+      count = decoder.arrayNext();
     }
 
     int idx = vector.getValueCount();
@@ -71,6 +69,7 @@ public class AvroArraysConsumer implements Consumer {
     BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), vector.getValueCount());
 
     vector.setValueCount(idx + 1);
+    decoder.skipArray();
   }
 
   @Override
