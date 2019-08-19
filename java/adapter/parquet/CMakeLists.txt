@@ -16,13 +16,25 @@
 # under the License.
 
 #
-# arrow_jni
+# arrow_parquet_java
 #
 
-if(ARROW_ORC)
-  add_subdirectory(orc)
-endif()
+# Headers: top level
 
-if(ARROW_PARQUET)
-  add_subdirectory(parquet)
-endif()
+project(arrow_parquet_java)
+
+# Find java/jni
+include(FindJava)
+include(UseJava)
+include(FindJNI)
+
+message("generating headers to ${JNI_HEADERS_DIR}")
+
+add_jar(
+        arrow_parquet_java
+        src/main/java/org/apache/arrow/adapter/parquet/ArrowBufBuilder.java
+        src/main/java/org/apache/arrow/adapter/parquet/ArrowFieldNodeBuilder.java
+        src/main/java/org/apache/arrow/adapter/parquet/ArrowRecordBatchBuilder.java
+        GENERATE_NATIVE_HEADERS arrow_parquet_java-native
+        DESTINATION ${JNI_HEADERS_DIR}
+)

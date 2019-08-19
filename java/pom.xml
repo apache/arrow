@@ -693,6 +693,7 @@
       <modules>
         <!-- these have dependency on cpp -->
         <module>adapter/orc</module>
+        <module>adapter/parquet</module>
         <module>gandiva</module>
       </modules>
     </profile>
