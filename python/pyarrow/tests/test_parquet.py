@@ -3034,6 +3034,25 @@ def test_pandas_categorical_na_type_row_groups():
 
 
 @pytest.mark.pandas
+def test_pandas_categorical_roundtrip():
+    # ARROW-5480, this was enabled by ARROW-3246
+
+    # Have one of the categories unobserved and include a null (-1)
+    codes = np.array([2, 0, 0, 2, 0, -1, 2], dtype='int32')
+    categories = ['foo', 'bar', 'baz']
+    df = pd.DataFrame({'x': pd.Categorical.from_codes(
+        codes, categories=categories)})
+
+    buf = pa.BufferOutputStream()
+    pq.write_table(pa.table(df), buf)
+
+    result = pq.read_table(buf.getvalue()).to_pandas()
+    assert result.x.dtype == 'category'
+    assert (result.x.cat.categories == categories).all()
+    tm.assert_frame_equal(result, df)
+
+
+@pytest.mark.pandas
 def test_multi_dataset_metadata(tempdir):
     filenames = ["ARROW-1983-dataset.0", "ARROW-1983-dataset.1"]
     metapath = str(tempdir / "_metadata")
