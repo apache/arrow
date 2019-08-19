@@ -1,0 +1,63 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# https://github.com/jeroen/autobrew/blob/gh-pages/apache-arrow
+export HOMEBREW_NO_ANALYTICS=1
+export HOMEBREW_NO_AUTO_UPDATE=1
+
+# Offical Homebrew formula can't be statically linked
+UPSTREAM_ORG="autobrew"
+
+if [ "$DISABLE_AUTOBREW" ]; then return 0; fi
+AUTOBREW=${TMPDIR-/tmp}
+export HOMEBREW_TEMP="$AUTOBREW/hbtmp"
+BREWDIR="$AUTOBREW/build-$PKG_BREW_NAME"
+BREW="$BREWDIR/bin/brew"
+rm -Rf $BREWDIR
+mkdir -p $BREWDIR
+echo "Auto-brewing $PKG_BREW_NAME in $BREWDIR..."
+curl -fsSL https://github.com/$UPSTREAM_ORG/brew/tarball/master | tar xz --strip 1 -C $BREWDIR
+
+# Install bottle + dependencies
+if [ -f "./${PKG_BREW_NAME}.rb" ]; then
+  # Use the local brew formula and install --HEAD
+  $BREW deps -n "./${PKG_BREW_NAME}.rb" 2>/dev/null
+  BREW_DEPS=$($BREW deps -n "./${PKG_BREW_NAME}.rb" 2>/dev/null)
+  HOMEBREW_CACHE="$AUTOBREW" $BREW install --force-bottle $BREW_DEPS 2>&1 | perl -pe 's/Warning/Note/gi'
+  HOMEBREW_CACHE="$AUTOBREW" $BREW install --build-from-source --HEAD "./${PKG_BREW_NAME}.rb" 2>&1 | perl -pe 's/Warning/Note/gi'
+else
+  HOMEBREW_CACHE="$AUTOBREW" $BREW install --force-bottle $BREW_DEPS $PKG_BREW_NAME 2>&1 | perl -pe 's/Warning/Note/gi'
+fi
+
+# Hardcode this for my custom autobrew build
+rm -f $BREWDIR/lib/*.dylib
+PKG_LIBS="-L$BREWDIR/lib -lparquet -larrow -lthrift -llz4 -lboost_system -lboost_filesystem -lboost_regex -ldouble-conversion -lsnappy"
+
+# Prevent CRAN builder from linking against old libs in /usr/local/lib
+for FILE in $BREWDIR/Cellar/*/*/lib/*.a; do
+  BASENAME=`basename $FILE`
+  LIBNAME=`echo "${BASENAME%.*}" | cut -c4-`
+  cp -f $FILE $BREWDIR/lib/libbrew$LIBNAME.a
+  echo "created $BREWDIR/lib/libbrew$LIBNAME.a"
+  PKG_LIBS=`echo $PKG_LIBS | sed "s/-l$LIBNAME/-lbrew$LIBNAME/g"`
+done
+
+unset HOMEBREW_NO_ANALYTICS
+unset HOMEBREW_NO_AUTO_UPDATE
+
+# Hack to work around segfault on CRAN server
+# rm -f tests/testthat.R

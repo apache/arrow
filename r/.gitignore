@@ -13,3 +13,4 @@ src/Makevars
 src/Makevars.win
 windows/
 arrow_*.tar.gz
+arrow_*.tgz

@@ -47,7 +47,7 @@ if [ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
 else
   # Use pkg-config if available
   pkg-config --version >/dev/null 2>&1
-  if [ $? -eq 0 ]; then
+  if [ "$FORCE_AUTOBREW" != "TRUE" ] && [ $? -eq 0 ]; then
     PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
     PKGCONFIG_LIBS=`pkg-config --libs --silence-errors ${PKG_CONFIG_NAME}`
   fi
@@ -58,14 +58,18 @@ else
     PKG_LIBS=${PKGCONFIG_LIBS}
   else
     if [[ "$OSTYPE" == "darwin"* ]]; then
-      if [ "$(command -v brew)" ] && [ "$(brew ls --versions ${PKG_BREW_NAME})" != "" ]; then
+      if [ "$FORCE_AUTOBREW" != "TRUE" ] && [ "$(command -v brew)" ] && [ "$(brew ls --versions ${PKG_BREW_NAME})" != "" ]; then
         echo "Using Homebrew ${PKG_BREW_NAME}"
         BREWDIR=$(brew --prefix)
       else
         echo "Downloading ${PKG_BREW_NAME}"
-        curl -sfL "https://jeroen.github.io/autobrew/$PKG_BREW_NAME" > autobrew
-        if [ $? -ne 0 ]; then
-          echo "Failed to download manifest for ${PKG_BREW_NAME}"
+        if [ -f "autobrew" ]; then
+          echo "Using local manifest for ${PKG_BREW_NAME}"
+        else
+          curl -sfL "https://jeroen.github.io/autobrew/$PKG_BREW_NAME" > autobrew
+          if [ $? -ne 0 ]; then
+            echo "Failed to download manifest for ${PKG_BREW_NAME}"
+          fi
         fi
         source autobrew
         if [ $? -ne 0 ]; then
