@@ -21,6 +21,7 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <boost/range/adaptor/transformed.hpp>
 
 #include "arrow/stl.h"
 #include "arrow/table.h"
@@ -29,6 +30,23 @@
 
 using primitive_types_tuple = std::tuple<int8_t, int16_t, int32_t, int64_t, uint8_t,
                                          uint16_t, uint32_t, uint64_t, bool, std::string>;
+
+struct CustomType {
+  int8_t i8;
+  int16_t i16;
+  int32_t i32;
+  int64_t i64;
+  uint8_t u8;
+  uint16_t u16;
+  uint32_t u32;
+  uint64_t u64;
+  bool b;
+  std::string s;
+
+#define ARROW_CUSTOM_TYPE_TIED std::tie(i8, i16, i32, i64, u8, u16, u32, u64, b, s)
+  auto tie() const -> decltype(ARROW_CUSTOM_TYPE_TIED) { return ARROW_CUSTOM_TYPE_TIED; }
+#undef ARROW_CUSTOM_TYPE_TIED
+};
 
 namespace arrow {
 namespace stl {
@@ -128,6 +146,44 @@ TEST(TestTableFromTupleVector, ListType) {
 
   std::shared_ptr<Table> table;
   ASSERT_OK(TableFromTupleRange(default_memory_pool(), rows, names, &table));
+  ASSERT_TRUE(expected_table->Equals(*table));
+}
+
+TEST(TestTableFromTupleVector, ReferenceTuple) {
+  using boost::adaptors::transform;
+
+  std::vector<std::string> names{"column1", "column2", "column3", "column4", "column5",
+                                 "column6", "column7", "column8", "column9", "column10"};
+  std::vector<CustomType> rows{{-1, -2, -3, -4, 1, 2, 3, 4, true, "Tests"},
+                               {-10, -20, -30, -40, 10, 20, 30, 40, false, "Other"}};
+  auto rng_rows =
+      transform(rows, [](const CustomType& c) -> decltype(c.tie()) { return c.tie(); });
+  std::shared_ptr<Table> table;
+  ASSERT_OK(TableFromTupleRange(default_memory_pool(), rng_rows, names, &table));
+
+  std::shared_ptr<Schema> expected_schema =
+      schema({field("column1", int8(), false), field("column2", int16(), false),
+              field("column3", int32(), false), field("column4", int64(), false),
+              field("column5", uint8(), false), field("column6", uint16(), false),
+              field("column7", uint32(), false), field("column8", uint64(), false),
+              field("column9", boolean(), false), field("column10", utf8(), false)});
+
+  // Construct expected arrays
+  std::shared_ptr<Array> int8_array = ArrayFromJSON(int8(), "[-1, -10]");
+  std::shared_ptr<Array> int16_array = ArrayFromJSON(int16(), "[-2, -20]");
+  std::shared_ptr<Array> int32_array = ArrayFromJSON(int32(), "[-3, -30]");
+  std::shared_ptr<Array> int64_array = ArrayFromJSON(int64(), "[-4, -40]");
+  std::shared_ptr<Array> uint8_array = ArrayFromJSON(uint8(), "[1, 10]");
+  std::shared_ptr<Array> uint16_array = ArrayFromJSON(uint16(), "[2, 20]");
+  std::shared_ptr<Array> uint32_array = ArrayFromJSON(uint32(), "[3, 30]");
+  std::shared_ptr<Array> uint64_array = ArrayFromJSON(uint64(), "[4, 40]");
+  std::shared_ptr<Array> bool_array = ArrayFromJSON(boolean(), "[true, false]");
+  std::shared_ptr<Array> string_array = ArrayFromJSON(utf8(), R"(["Tests", "Other"])");
+  auto expected_table =
+      Table::Make(expected_schema,
+                  {int8_array, int16_array, int32_array, int64_array, uint8_array,
+                   uint16_array, uint32_array, uint64_array, bool_array, string_array});
+
   ASSERT_TRUE(expected_table->Equals(*table));
 }
 
