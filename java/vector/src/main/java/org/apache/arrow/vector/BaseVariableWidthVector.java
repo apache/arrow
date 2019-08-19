@@ -28,7 +28,7 @@ import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.compare.RangeEqualsVisitor;
+import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
@@ -1368,7 +1368,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   @Override
-  public boolean accept(RangeEqualsVisitor visitor) {
-    return visitor.visit(this);
+  public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
+    return visitor.visit(this, value);
   }
 }

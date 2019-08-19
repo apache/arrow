@@ -20,6 +20,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -38,7 +39,7 @@ import io.netty.buffer.ArrowBuf;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
-import org.apache.arrow.vector.compare.RangeEqualsVisitor;
+import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -678,7 +679,7 @@ public class UnionVector implements FieldVector {
     }
 
     @Override
-    public boolean accept(RangeEqualsVisitor visitor) {
-      return visitor.visit(this);
+    public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
+      return visitor.visit(this, value);
     }
 }

@@ -35,7 +35,7 @@ import org.apache.arrow.vector.complex.UnionVector;
 /**
  * Visitor to compare a range of values for vectors.
  */
-public class RangeEqualsVisitor {
+public class RangeEqualsVisitor implements VectorVisitor<Boolean, Void> {
 
   protected final ValueVector right;
   protected int leftStart;
@@ -84,31 +84,45 @@ public class RangeEqualsVisitor {
     return true;
   }
 
-  public boolean visit(BaseFixedWidthVector left) {
+  /**
+   * Check range equals without passing IN param in VectorVisitor.
+   */
+  public boolean equals(ValueVector left) {
+    return left.accept(this, null);
+  }
+
+  @Override
+  public Boolean visit(BaseFixedWidthVector left, Void value) {
     return validate(left) && compareBaseFixedWidthVectors(left);
   }
 
-  public boolean visit(BaseVariableWidthVector left) {
+  @Override
+  public Boolean visit(BaseVariableWidthVector left, Void value) {
     return validate(left) && compareBaseVariableWidthVectors(left);
   }
 
-  public boolean visit(ListVector left) {
+  @Override
+  public Boolean visit(ListVector left, Void value) {
     return validate(left) && compareListVectors(left);
   }
 
-  public boolean visit(FixedSizeListVector left) {
+  @Override
+  public Boolean visit(FixedSizeListVector left, Void value) {
     return validate(left) && compareFixedSizeListVectors(left);
   }
 
-  public boolean visit(NonNullableStructVector left) {
+  @Override
+  public Boolean visit(NonNullableStructVector left, Void value) {
     return validate(left) && compareStructVectors(left);
   }
 
-  public boolean visit(UnionVector left) {
+  @Override
+  public Boolean visit(UnionVector left, Void value) {
     return validate(left) && compareUnionVectors(left);
   }
 
-  public boolean visit(ZeroVector left) {
+  @Override
+  public Boolean visit(ZeroVector left, Void value) {
     return validate(left);
   }
 
@@ -133,7 +147,7 @@ public class RangeEqualsVisitor {
     for (int k = 0; k < leftChildren.size(); k++) {
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(rightChildren.get(k),
           leftStart, rightStart, length);
-      if (!leftChildren.get(k).accept(visitor)) {
+      if (!leftChildren.get(k).accept(visitor, null)) {
         return false;
       }
     }
@@ -151,7 +165,7 @@ public class RangeEqualsVisitor {
     for (String name : left.getChildFieldNames()) {
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(rightVector.getChild(name),
           leftStart, rightStart, length);
-      if (!left.getChild(name).accept(visitor)) {
+      if (!left.getChild(name).accept(visitor, null)) {
         return false;
       }
     }
@@ -249,7 +263,7 @@ public class RangeEqualsVisitor {
         ValueVector rightDataVector = ((ListVector)right).getDataVector();
 
         if (!leftDataVector.accept(new RangeEqualsVisitor(rightDataVector, startIndexLeft,
-            startIndexRight, (endIndexLeft - startIndexLeft)))) {
+            startIndexRight, (endIndexLeft - startIndexLeft)), null)) {
           return false;
         }
       }
@@ -289,7 +303,7 @@ public class RangeEqualsVisitor {
         ValueVector rightDataVector = ((FixedSizeListVector)right).getDataVector();
 
         if (!leftDataVector.accept(new RangeEqualsVisitor(rightDataVector, startIndexLeft, startIndexRight,
-            (endIndexLeft - startIndexLeft)))) {
+            (endIndexLeft - startIndexLeft)), null)) {
           return false;
         }
       }

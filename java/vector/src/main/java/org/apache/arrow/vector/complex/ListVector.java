@@ -36,7 +36,7 @@ import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
-import org.apache.arrow.vector.compare.RangeEqualsVisitor;
+import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
@@ -431,6 +431,11 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return hash;
   }
 
+  @Override
+  public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
+    return visitor.visit(this, value);
+  }
+
   private class TransferImpl implements TransferPair {
 
     ListVector to;
@@ -823,10 +828,5 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   public int getLastSet() {
     return lastSet;
-  }
-
-  @Override
-  public boolean accept(RangeEqualsVisitor visitor) {
-    return visitor.visit(this);
   }
 }
