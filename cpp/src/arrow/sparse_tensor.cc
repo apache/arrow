@@ -316,10 +316,10 @@ void MakeSparseTensorFromTensor(const Tensor& tensor,
 // ----------------------------------------------------------------------
 // SparseCOOIndex
 
-// Constructor with a column-major NumericTensor
+// Constructor with a contiguous NumericTensor
 SparseCOOIndex::SparseCOOIndex(const std::shared_ptr<CoordsTensor>& coords)
     : SparseIndexBase(coords->shape()[0]), coords_(coords) {
-  ARROW_CHECK(coords_->is_column_major());
+  ARROW_CHECK(coords_->is_contiguous());
 }
 
 std::string SparseCOOIndex::ToString() const { return std::string("SparseCOOIndex"); }

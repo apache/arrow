@@ -154,6 +154,96 @@ TEST(TestSparseCOOTensor, CreationFromTensor) {
   AssertCOOIndex(sidx, 11, {1, 2, 3});
 }
 
+TEST(TestSparseCOOTensor, CreationWithRowMajorIndex) {
+  std::vector<int64_t> shape = {2, 3, 4};
+  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
+
+  // Dense representation:
+  // [
+  //   [
+  //     1 0 2 0
+  //     0 3 0 4
+  //     5 0 6 0
+  //   ],
+  //   [
+  //      0 11  0 12
+  //     13  0 14  0
+  //      0 15  0 16
+  //   ]
+  // ]
+  std::vector<int64_t> dense_values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                       0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+  auto dense_data = Buffer::Wrap(dense_values);
+  NumericTensor<Int64Type> dense_tensor(dense_data, shape, {}, dim_names);
+  SparseTensorCOO st1(dense_tensor);
+
+  // Sparse representation:
+  // idx[0] = [0 0 0 0 0 0  1  1  1  1  1  1]
+  // idx[1] = [0 0 1 1 2 2  0  0  1  1  2  2]
+  // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
+  // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
+  std::vector<int64_t> coords_shape = {12, 3};
+  std::vector<int64_t> coords_strides = {sizeof(int64_t) * 3, sizeof(int64_t)};
+  std::vector<int64_t> coords_values = {0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3,
+                                        0, 2, 0, 0, 2, 2, 1, 0, 1, 1, 0, 3,
+                                        1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
+  auto coords_data = Buffer::Wrap(coords_values);
+  auto coords = std::make_shared<NumericTensor<Int64Type>>(coords_data, coords_shape,
+                                                           coords_strides);
+  auto si = std::make_shared<SparseCOOIndex>(coords);
+
+  std::vector<int64_t> sparse_values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
+  auto sparse_data = Buffer::Wrap(sparse_values);
+  SparseTensorCOO st2(si, int64(), sparse_data, shape, dim_names);
+
+  ASSERT_TRUE(st2.Equals(st1));
+}
+
+TEST(TestSparseCOOTensor, CreationWithColumnMajorIndex) {
+  std::vector<int64_t> shape = {2, 3, 4};
+  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
+
+  // Dense representation:
+  // [
+  //   [
+  //     1 0 2 0
+  //     0 3 0 4
+  //     5 0 6 0
+  //   ],
+  //   [
+  //      0 11  0 12
+  //     13  0 14  0
+  //      0 15  0 16
+  //   ]
+  // ]
+  std::vector<int64_t> dense_values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                       0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+  auto dense_data = Buffer::Wrap(dense_values);
+  NumericTensor<Int64Type> dense_tensor(dense_data, shape, {}, dim_names);
+  SparseTensorCOO st1(dense_tensor);
+
+  // Sparse representation:
+  // idx[0] = [0 0 0 0 0 0  1  1  1  1  1  1]
+  // idx[1] = [0 0 1 1 2 2  0  0  1  1  2  2]
+  // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
+  // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
+  std::vector<int64_t> coords_shape = {12, 3};
+  std::vector<int64_t> coords_strides = {sizeof(int64_t), sizeof(int64_t) * 12};
+  std::vector<int64_t> coords_values = {0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1,
+                                        0, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 2,
+                                        0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
+  auto coords_data = Buffer::Wrap(coords_values);
+  auto coords = std::make_shared<NumericTensor<Int64Type>>(coords_data, coords_shape,
+                                                           coords_strides);
+  auto si = std::make_shared<SparseCOOIndex>(coords);
+
+  std::vector<int64_t> sparse_values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
+  auto sparse_data = Buffer::Wrap(sparse_values);
+  SparseTensorCOO st2(si, int64(), sparse_data, shape, dim_names);
+
+  ASSERT_TRUE(st2.Equals(st1));
+}
+
 TEST(TestSparseCOOTensor, CreationFromNonContiguousTensor) {
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<int64_t> values = {1,  0, 0, 0, 2,  0, 0, 0, 0, 0, 3,  0, 0, 0, 4,  0,
