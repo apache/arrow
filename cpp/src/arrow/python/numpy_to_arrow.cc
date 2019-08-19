@@ -620,7 +620,7 @@ namespace {
 constexpr int kNumPyUnicodeSize = 4;
 
 Status AppendUTF32(const char* data, int itemsize, int byteorder,
-                   StringBuilder* builder) {
+                   ::arrow::internal::ChunkedStringBuilder* builder) {
   // The binary \x00\x00\x00\x00 indicates a nul terminator in NumPy unicode,
   // so we need to detect that here to truncate if necessary. Yep.
   int actual_length = 0;
@@ -642,10 +642,8 @@ Status AppendUTF32(const char* data, int itemsize, int byteorder,
   }
 
   const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(utf8_obj.obj()));
-  if (builder->value_data_length() + length > kBinaryMemoryLimit) {
-    return Status::CapacityError("Encoded string length exceeds maximum size (2GB)");
-  }
-  return builder->Append(PyBytes_AS_STRING(utf8_obj.obj()), length);
+  return builder->Append(
+      reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(utf8_obj.obj())), length);
 }
 
 }  // namespace
@@ -653,7 +651,7 @@ Status AppendUTF32(const char* data, int itemsize, int byteorder,
 Status NumPyConverter::Visit(const StringType& type) {
   util::InitializeUTF8();
 
-  StringBuilder builder(pool_);
+  ::arrow::internal::ChunkedStringBuilder builder(kBinaryChunksize, pool_);
 
   auto data = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
 
@@ -679,6 +677,7 @@ Status NumPyConverter::Visit(const StringType& type) {
                          &builder);
     }
   };
+
   if (mask_ != nullptr) {
     Ndarray1DIndexer<uint8_t> mask_values(mask_);
     for (int64_t i = 0; i < length_; ++i) {
@@ -696,9 +695,12 @@ Status NumPyConverter::Visit(const StringType& type) {
     }
   }
 
-  std::shared_ptr<Array> result;
+  ArrayVector result;
   RETURN_NOT_OK(builder.Finish(&result));
-  return PushArray(result->data());
+  for (auto arr : result) {
+    RETURN_NOT_OK(PushArray(arr->data()));
+  }
+  return Status::OK();
 }
 
 Status NumPyConverter::Visit(const StructType& type) {
