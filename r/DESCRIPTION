@@ -41,9 +41,7 @@ Suggests:
     covr,
     hms,
     lubridate,
-    pkgdown,
     rmarkdown,
-    roxygen2,
     testthat,
     tibble,
     vctrs

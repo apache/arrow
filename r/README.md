@@ -172,7 +172,7 @@ checkout:
 
 ``` shell
 cd ../../r
-R -e 'install.packages("devtools"); devtools::install_dev_deps()'
+R -e 'install.packages(c("devtools", "roxygen2", "pkgdown")); devtools::install_dev_deps()'
 R CMD INSTALL .
 ```
 
@@ -224,7 +224,7 @@ devtools::load_all() # Load the dev package
 devtools::test(filter="^regexp$") # Run the test suite, optionally filtering file names
 devtools::document() # Update roxygen documentation
 rmarkdown::render("README.Rmd") # To rebuild README.md
-pkgdown::build_site(run_dont_run=TRUE) # To preview the documentation website
+pkgdown::build_site() # To preview the documentation website
 devtools::check() # All package checks; see also below
 ```
 
