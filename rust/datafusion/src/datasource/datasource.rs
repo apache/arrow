@@ -20,13 +20,13 @@
 use std::sync::{Arc, Mutex};
 
 use arrow::datatypes::Schema;
-use arrow::record_batch::RecordBatch;
 
 use crate::error::Result;
+use crate::execution::physical_plan::BatchIterator;
 
-/// Returned by implementors of `Table#scan`, this `RecordBatchIterator` is wrapped with
+/// Returned by implementors of `Table#scan`, this `BatchIterator` is wrapped with
 /// an `Arc` and `Mutex` so that it can be shared across threads as it is used.
-pub type ScanResult = Arc<Mutex<dyn RecordBatchIterator>>;
+pub type ScanResult = Arc<Mutex<dyn BatchIterator>>;
 
 /// Source table
 pub trait TableProvider {
@@ -40,13 +40,4 @@ pub trait TableProvider {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Vec<ScanResult>>;
-}
-
-/// Iterator for reading a series of record batches with a known schema
-pub trait RecordBatchIterator {
-    /// Get the schema of this iterator
-    fn schema(&self) -> &Arc<Schema>;
-
-    /// Get the next batch in this iterator
-    fn next(&mut self) -> Result<Option<RecordBatch>>;
 }

@@ -24,8 +24,9 @@ use std::sync::{Arc, Mutex};
 use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
-use crate::datasource::{RecordBatchIterator, ScanResult, TableProvider};
+use crate::datasource::{ScanResult, TableProvider};
 use crate::error::{ExecutionError, Result};
+use crate::execution::physical_plan::BatchIterator;
 
 /// In-memory table
 pub struct MemTable {
@@ -130,9 +131,9 @@ pub struct MemBatchIterator {
     batches: Vec<RecordBatch>,
 }
 
-impl RecordBatchIterator for MemBatchIterator {
-    fn schema(&self) -> &Arc<Schema> {
-        &self.schema
+impl BatchIterator for MemBatchIterator {
+    fn schema(&self) -> Arc<Schema> {
+        self.schema.clone()
     }
 
     fn next(&mut self) -> Result<Option<RecordBatch>> {

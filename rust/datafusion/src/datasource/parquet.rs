@@ -15,11 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Parquet Data source
+//! Parquet data source
 
 use std::fs::File;
 use std::string::String;
 use std::sync::{Arc, Mutex};
+use std::thread;
+
+use crossbeam::channel::{unbounded, Receiver, Sender};
 
 use arrow::array::{
     Array, BinaryBuilder, PrimitiveArray, PrimitiveBuilder, TimestampNanosecondBuilder,
@@ -32,8 +35,9 @@ use parquet::column::reader::*;
 use parquet::data_type::{ByteArray, Int96};
 use parquet::file::reader::*;
 
-use crate::datasource::{RecordBatchIterator, ScanResult, TableProvider};
+use crate::datasource::{ScanResult, TableProvider};
 use crate::error::{ExecutionError, Result};
+use crate::execution::physical_plan::BatchIterator;
 
 /// Table-based representation of a `ParquetFile`
 pub struct ParquetTable {
@@ -44,8 +48,7 @@ pub struct ParquetTable {
 impl ParquetTable {
     /// Attempt to initialize a new `ParquetTable` from a file path
     pub fn try_new(filename: &str) -> Result<Self> {
-        let file = File::open(filename)?;
-        let parquet_file = ParquetFile::open(file, None, 0)?;
+        let parquet_file = ParquetFile::open(filename, None, 0)?;
         let schema = parquet_file.projection_schema.clone();
         Ok(Self {
             filename: filename.to_string(),
@@ -55,17 +58,28 @@ impl ParquetTable {
 }
 
 impl TableProvider for ParquetTable {
+    /// Get the schema for this parquet file
     fn schema(&self) -> &Arc<Schema> {
         &self.schema
     }
 
+    /// Scan the file(s), using the provided projection, and return one BatchIterator per
+    /// partition
     fn scan(
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Vec<ScanResult>> {
-        let file = File::open(self.filename.clone())?;
-        let parquet_file = ParquetFile::open(file, projection.clone(), batch_size)?;
+        // note that this code currently assumes the filename is a file rather than a directory
+        // and therefore only returns a single partition
+        let parquet_file = match projection {
+            Some(p) => ParquetScanPartition::try_new(
+                &self.filename,
+                Some(p.clone()),
+                batch_size,
+            )?,
+            None => ParquetScanPartition::try_new(&self.filename, None, batch_size)?,
+        };
         Ok(vec![Arc::new(Mutex::new(parquet_file))])
     }
 }
@@ -81,6 +95,81 @@ pub struct ParquetFile {
     row_group_index: usize,
     current_row_group: Option<Box<dyn RowGroupReader>>,
     column_readers: Vec<ColumnReader>,
+}
+
+/// Thread-safe wrapper around a ParquetFile
+struct ParquetScanPartition {
+    schema: Arc<Schema>,
+    request_tx: Sender<()>,
+    response_rx: Receiver<Result<Option<RecordBatch>>>,
+}
+
+impl ParquetScanPartition {
+    pub fn try_new(
+        filename: &str,
+        projection: Option<Vec<usize>>,
+        batch_size: usize,
+    ) -> Result<Self> {
+        // determine the schema after the projection is applied
+        let schema = match &projection {
+            Some(p) => {
+                let table = ParquetFile::open(&filename, Some(p.clone()), batch_size)?;
+                table.schema().clone()
+            }
+            None => {
+                let table = ParquetFile::open(&filename, None, batch_size)?;
+                table.schema().clone()
+            }
+        };
+
+        // because the parquet implementation is not thread-safe, it is necessary to execute
+        // on a thread and communicate with channels
+        let (request_tx, request_rx): (Sender<()>, Receiver<()>) = unbounded();
+        let (response_tx, response_rx): (
+            Sender<Result<Option<RecordBatch>>>,
+            Receiver<Result<Option<RecordBatch>>>,
+        ) = unbounded();
+        let filename = filename.to_string();
+        thread::spawn(move || {
+            match ParquetFile::open(&filename, projection, batch_size) {
+                Ok(mut table) => {
+                    while let Ok(_) = request_rx.recv() {
+                        response_tx.send(table.next()).unwrap();
+                    }
+                }
+                Err(e) => {
+                    response_tx.send(Err(e)).unwrap();
+                }
+            }
+        });
+
+        Ok(Self {
+            schema,
+            request_tx,
+            response_rx,
+        })
+    }
+}
+
+impl BatchIterator for ParquetScanPartition {
+    fn schema(&self) -> Arc<Schema> {
+        self.schema.clone()
+    }
+
+    fn next(&mut self) -> Result<Option<RecordBatch>> {
+        match self.request_tx.send(()) {
+            Ok(_) => match self.response_rx.recv() {
+                Ok(batch) => batch,
+                Err(e) => Err(ExecutionError::General(format!(
+                    "Error receiving batch: {:?}",
+                    e
+                ))),
+            },
+            _ => Err(ExecutionError::General(
+                "Error sending request for next batch".to_string(),
+            )),
+        }
+    }
 }
 
 macro_rules! read_binary_column {
@@ -178,10 +267,11 @@ where
 impl ParquetFile {
     /// Read parquet data from a `File`
     pub fn open(
-        file: File,
+        filename: &str,
         projection: Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Self> {
+        let file = File::open(filename)?;
         let reader = SerializedFileReader::new(file)?;
 
         let metadata = reader.metadata();
@@ -426,7 +516,7 @@ fn convert_int96_timestamp(v: &[u32]) -> i64 {
     seconds * MILLIS_PER_SECOND * 1_000_000 + nanoseconds
 }
 
-impl RecordBatchIterator for ParquetFile {
+impl ParquetFile {
     fn schema(&self) -> &Arc<Schema> {
         &self.projection_schema
     }

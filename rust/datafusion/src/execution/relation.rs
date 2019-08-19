@@ -24,8 +24,8 @@ use std::sync::{Arc, Mutex};
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
-use crate::datasource::RecordBatchIterator;
 use crate::error::Result;
+use crate::execution::physical_plan::BatchIterator;
 
 /// trait for all relations (a relation is essentially just an iterator over batches
 /// of data, with a known schema)
@@ -40,11 +40,11 @@ pub trait Relation {
 /// Implementation of a relation that represents a DataFusion data source
 pub(super) struct DataSourceRelation {
     schema: Arc<Schema>,
-    ds: Arc<Mutex<dyn RecordBatchIterator>>,
+    ds: Arc<Mutex<dyn BatchIterator>>,
 }
 
 impl DataSourceRelation {
-    pub fn new(ds: Arc<Mutex<dyn RecordBatchIterator>>) -> Self {
+    pub fn new(ds: Arc<Mutex<dyn BatchIterator>>) -> Self {
         let schema = ds.lock().unwrap().schema().clone();
         Self { ds, schema }
     }
