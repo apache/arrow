@@ -28,6 +28,7 @@ use arrow::datatypes::*;
 
 use crate::arrow::array::{ArrayRef, BooleanBuilder};
 use crate::datasource::csv::CsvFile;
+use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::aggregate::AggregateRelation;
@@ -161,6 +162,13 @@ impl ExecutionContext {
         has_header: bool,
     ) {
         self.register_table(name, Rc::new(CsvFile::new(filename, schema, has_header)));
+    }
+
+    /// Register a Parquet file as a table so that it can be queried from SQL
+    pub fn register_parquet(&mut self, name: &str, filename: &str) -> Result<()> {
+        let table = ParquetTable::try_new(&filename)?;
+        self.register_table(name, Rc::new(table));
+        Ok(())
     }
 
     /// Register a table so that it can be queried from SQL
