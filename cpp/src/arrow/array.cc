@@ -1157,7 +1157,7 @@ struct ViewDataImpl {
 }  // namespace
 
 Status Array::View(const std::shared_ptr<DataType>& out_type,
-                   std::shared_ptr<Array>* out) {
+                   std::shared_ptr<Array>* out) const {
   ViewDataImpl impl;
   impl.root_in_type = data_->type;
   impl.root_out_type = out_type;
