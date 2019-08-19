@@ -26,4 +26,5 @@ Name: Apache Arrow
 Description: Arrow is a set of technologies that enable big-data systems to process and move data fast.
 Version: @ARROW_VERSION@
 Libs: -L${libdir} -larrow
+Libs.private: -lsnappy -lboost_system -lz -llz4 -lbrotlidec -lbrotlienc -lbrotlicommon -lzstd
 Cflags: -I${includedir} @ARROW_DEFINITION_FLAGS@
