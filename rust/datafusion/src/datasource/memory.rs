@@ -132,8 +132,8 @@ pub struct MemBatchIterator {
 }
 
 impl BatchIterator for MemBatchIterator {
-    fn schema(&self) -> &Arc<Schema> {
-        &self.schema
+    fn schema(&self) -> Arc<Schema> {
+        self.schema.clone()
     }
 
     fn next(&mut self) -> Result<Option<RecordBatch>> {

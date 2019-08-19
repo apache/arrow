@@ -111,8 +111,8 @@ impl CsvBatchIterator {
 }
 
 impl BatchIterator for CsvBatchIterator {
-    fn schema(&self) -> &Arc<Schema> {
-        &self.schema
+    fn schema(&self) -> Arc<Schema> {
+        self.schema.clone()
     }
 
     fn next(&mut self) -> Result<Option<RecordBatch>> {

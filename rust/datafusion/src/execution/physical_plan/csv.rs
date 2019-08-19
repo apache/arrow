@@ -163,8 +163,6 @@ impl Partition for CsvPartition {
 
 /// Iterator over batches
 struct CsvIterator {
-    /// Schema
-    schema: Arc<Schema>,
     /// Arrow CSV reader
     reader: csv::Reader<File>,
 }
@@ -187,17 +185,14 @@ impl CsvIterator {
             projection.clone(),
         );
 
-        Ok(Self {
-            schema: schema.clone(),
-            reader,
-        })
+        Ok(Self { reader })
     }
 }
 
 impl BatchIterator for CsvIterator {
     /// Get the schema
-    fn schema(&self) -> &Arc<Schema> {
-        &self.schema
+    fn schema(&self) -> Arc<Schema> {
+        self.reader.schema()
     }
 
     /// Get the next RecordBatch

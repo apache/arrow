@@ -117,8 +117,8 @@ struct ProjectionIterator {
 
 impl BatchIterator for ProjectionIterator {
     /// Get the schema
-    fn schema(&self) -> &Arc<Schema> {
-        &self.schema
+    fn schema(&self) -> Arc<Schema> {
+        self.schema.clone()
     }
 
     /// Get the next batch
