@@ -66,7 +66,7 @@ if(NOT WIN32)
                  "arrow_dataset")
 
   if(ARROW_PARQUET)
-    add_arrow_test(file_parquet-test
+    add_arrow_test(file_parquet_test
                    EXTRA_LINK_LIBS
                    ${ARROW_DATASET_TEST_LINK_LIBS}
                    PREFIX
