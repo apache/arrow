@@ -88,22 +88,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Void> {
    * Check range equals without passing IN param in VectorVisitor.
    */
   public boolean equals(ValueVector left) {
-    if (left instanceof BaseFixedWidthVector) {
-      return visit((BaseFixedWidthVector) left, null);
-    } else if (left instanceof BaseVariableWidthVector) {
-      return visit((BaseVariableWidthVector) left, null);
-    } else if (left instanceof ListVector) {
-      return visit((ListVector) left, null);
-    } else if (left instanceof FixedSizeListVector) {
-      return visit((FixedSizeListVector) left, null);
-    } else if (left instanceof NonNullableStructVector) {
-      return visit((NonNullableStructVector) left, null);
-    } else if (left instanceof UnionVector) {
-      return visit((UnionVector) left, null);
-    } else if (left instanceof ZeroVector) {
-      return visit((ZeroVector) left, null);
-    }
-    throw new UnsupportedOperationException();
+    return left.accept(this, null);
   }
 
   @Override
