@@ -273,7 +273,10 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
     DoEncodeData();
   }
 
-  void TearDown(const ::benchmark::State& state) override {}
+  void TearDown(const ::benchmark::State& state) override {
+    buffer_.reset();
+    input_array_.reset();
+  }
 
   void InitDataInputs() {
     // Generate a random string dictionary without any nulls so that this dataset can be
@@ -423,9 +426,14 @@ class BM_DictDecodingByteArray : public BenchmarkDecodeArrow {
         dynamic_cast<ByteArrayDecoder*>(dict_decoder.release()));
   }
 
+  void TearDown(const ::benchmark::State& state) override {
+    BenchmarkDecodeArrow::TearDown(state);
+    dict_buffer_.reset();
+    descr_.reset();
+  }
+
  protected:
   std::unique_ptr<ColumnDescriptor> descr_;
-  std::unique_ptr<DictDecoder<ByteArrayType>> dict_decoder_;
   std::shared_ptr<Buffer> dict_buffer_;
   int num_dict_entries_;
 };
