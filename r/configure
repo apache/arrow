@@ -39,6 +39,14 @@ if [ "$ARROW_R_DEV" == "TRUE" ]; then
   ${R_HOME}/bin/Rscript data-raw/codegen.R
 fi
 
+if [ "$LOCAL_AUTOBREW" == "TRUE" ]; then
+  # LOCAL_AUTOBREW means use the formula in tools/
+  # FORCE_AUTOBREW without LOCAL_AUTOBREW means to pull from jeroen.github.io
+  cp tools/autobrew .
+  cp tools/apache-arrow.rb .
+  FORCE_AUTOBREW="TRUE"
+fi
+
 # Note that cflags may be empty in case of success
 if [ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
   echo "Found INCLUDE_DIR and/or LIB_DIR!"
