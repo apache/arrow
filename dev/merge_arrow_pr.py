@@ -160,22 +160,19 @@ class JiraIssue(object):
         mainline_versions = [x for x in unreleased_versions
                              if mainline_version_regex.match(x.name)]
 
+        mainline_non_patch_versions = []
+        for v in mainline_versions:
+            (major, minor, patch) = v.name.split(".")
+            if patch == "0":
+                mainline_non_patch_versions.append(v)
+
+        if len(mainline_versions) > len(mainline_non_patch_versions):
+            # If there is a non-patch release, suggest that instead
+            mainline_versions = mainline_non_patch_versions
+
         default_fix_versions = [
             fix_version_from_branch(x, mainline_versions).name
             for x in merge_branches]
-
-        for v in default_fix_versions:
-            # Handles the case where we have forked a release branch but not
-            # yet made the release.  In this case, if the PR is committed to
-            # the master branch and the release branch, we only consider the
-            # release branch to be the fix version. E.g. it is not valid to
-            # have both 1.1.0 and 1.0.0 as fix versions.
-            (major, minor, patch) = v.split(".")
-            if patch == "0":
-                previous = "%s.%s.%s" % (major, int(minor) - 1, 0)
-                if previous in default_fix_versions:
-                    default_fix_versions = [x for x in default_fix_versions
-                                            if x != v]
 
         return all_versions, default_fix_versions
 
@@ -200,26 +197,29 @@ class JiraIssue(object):
 
     def show(self):
         fields = self.issue.fields
+        print(format_jira_output(self.jira_id, fields.status.name,
+                                 fields.summary, fields.assignee,
+                                 fields.components))
 
-        assignee = fields.assignee
-        if assignee is None:
-            assignee = "NOT ASSIGNED!!!"
-        else:
-            assignee = assignee.displayName
 
-        components = fields.components
-        if len(components) == 0:
-            components = 'NO COMPONENTS!!!'
-        else:
-            components = ', '.join((x.name for x in components))
+def format_jira_output(jira_id, status, summary, assignee, components):
+    if assignee is None:
+        assignee = "NOT ASSIGNED!!!"
+    else:
+        assignee = assignee.displayName
 
-        print("=== JIRA {} ===".format(self.jira_id))
-        print("Summary\t\t{}".format(fields.summary))
-        print("Assignee\t{}".format(assignee))
-        print("Components\t{}".format(components))
-        print("Status\t\t{}".format(fields.status.name))
-        print("URL\t\t{}/{}".format('/'.join((JIRA_API_BASE, 'browse')),
-                                    self.jira_id))
+    if len(components) == 0:
+        components = 'NO COMPONENTS!!!'
+    else:
+        components = ', '.join((x.name for x in components))
+
+    return """=== JIRA {} ===
+Summary\t\t{}
+Assignee\t{}
+Components\t{}
+Status\t\t{}
+URL\t\t{}/{}""".format(jira_id, summary, assignee, components, status,
+                       '/'.join((JIRA_API_BASE, 'browse')), jira_id)
 
 
 class GitHubAPI(object):
