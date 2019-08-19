@@ -112,10 +112,6 @@ public class RangeEqualsVisitor {
     return validate(left);
   }
 
-  public boolean visit(ValueVector left) {
-    throw new UnsupportedOperationException();
-  }
-
   protected boolean compareValueVector(ValueVector left, ValueVector right) {
     if (!typeCheckNeeded) {
       return true;

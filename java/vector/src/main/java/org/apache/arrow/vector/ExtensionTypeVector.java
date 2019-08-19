@@ -260,6 +260,6 @@ public abstract class ExtensionTypeVector<T extends BaseValueVector & FieldVecto
 
   @Override
   public boolean accept(RangeEqualsVisitor visitor) {
-    return visitor.visit(getUnderlyingVector());
+    return getUnderlyingVector().accept(visitor);
   }
 }
