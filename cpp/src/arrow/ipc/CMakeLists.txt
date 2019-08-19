@@ -18,19 +18,19 @@
 #
 # Messaging and interprocess communication
 
-add_arrow_test(feather-test)
-add_arrow_test(read-write-test PREFIX "arrow-ipc")
-add_arrow_test(json-simple-test PREFIX "arrow-ipc")
-add_arrow_test(json-test PREFIX "arrow-ipc")
+add_arrow_test(feather_test)
+add_arrow_test(read_write_test PREFIX "arrow-ipc")
+add_arrow_test(json_simple_test PREFIX "arrow-ipc")
+add_arrow_test(json_test PREFIX "arrow-ipc")
 
-# json-integration-test is two things at the same time:
+# json_integration_test is two things at the same time:
 # - an executable that can be called to answer integration test requests
 # - a self-(unit)test for the C++ side of integration testing
 if(ARROW_BUILD_TESTS)
-  add_arrow_test(json-integration-test EXTRA_LINK_LIBS ${GFLAGS_LIBRARIES})
+  add_arrow_test(json_integration_test EXTRA_LINK_LIBS ${GFLAGS_LIBRARIES})
   add_dependencies(arrow-integration arrow-json-integration-test)
 elseif(ARROW_BUILD_INTEGRATION)
-  add_executable(arrow-json-integration-test json-integration-test.cc)
+  add_executable(arrow-json-integration-test json_integration_test.cc)
   target_link_libraries(arrow-json-integration-test ${ARROW_TEST_LINK_LIBS}
                         ${GFLAGS_LIBRARIES} GTest::GTest)
 
@@ -87,9 +87,9 @@ else()
 endif()
 
 if(ARROW_BUILD_UTILITIES OR ARROW_BUILD_INTEGRATION)
-  add_executable(arrow-file-to-stream file-to-stream.cc)
+  add_executable(arrow-file-to-stream file_to_stream.cc)
   target_link_libraries(arrow-file-to-stream ${ARROW_UTIL_LIB})
-  add_executable(arrow-stream-to-file stream-to-file.cc)
+  add_executable(arrow-stream-to-file stream_to_file.cc)
   target_link_libraries(arrow-stream-to-file ${ARROW_UTIL_LIB})
 
   if(ARROW_BUILD_INTEGRATION)
@@ -98,5 +98,5 @@ if(ARROW_BUILD_UTILITIES OR ARROW_BUILD_INTEGRATION)
   endif()
 endif()
 
-add_arrow_benchmark(read-write-benchmark PREFIX "arrow-ipc")
-add_arrow_fuzzing(fuzzing-test PREFIX "arrow-ipc")
+add_arrow_benchmark(read_write_benchmark PREFIX "arrow-ipc")
+add_arrow_fuzzing(fuzzing_test PREFIX "arrow-ipc")

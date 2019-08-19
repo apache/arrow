@@ -24,9 +24,9 @@ arrow_add_pkg_config("arrow-compute")
 # Unit tests
 #
 
-add_arrow_test(compute-test)
-add_arrow_test(expression-test PREFIX "arrow-compute")
-add_arrow_test(operations/operations-test PREFIX "arrow-compute")
-add_arrow_benchmark(compute-benchmark)
+add_arrow_test(compute_test)
+add_arrow_test(expression_test PREFIX "arrow-compute")
+add_arrow_test(operations/operations_test PREFIX "arrow-compute")
+add_arrow_benchmark(compute_benchmark)
 
 add_subdirectory(kernels)

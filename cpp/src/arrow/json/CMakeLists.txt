@@ -17,12 +17,12 @@
 
 add_arrow_test(test
                SOURCES
-               chunker-test.cc
-               converter-test.cc
-               parser-test.cc
-               reader-test.cc
+               chunker_test.cc
+               converter_test.cc
+               parser_test.cc
+               reader_test.cc
                PREFIX
                "arrow-json")
 
-add_arrow_benchmark(parser-benchmark PREFIX "arrow-json")
+add_arrow_benchmark(parser_benchmark PREFIX "arrow-json")
 arrow_install_all_headers("arrow/json")

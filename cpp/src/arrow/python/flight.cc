@@ -20,7 +20,7 @@
 
 #include "arrow/flight/internal.h"
 #include "arrow/python/flight.h"
-#include "arrow/util/io-util.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
 using arrow::flight::FlightPayload;

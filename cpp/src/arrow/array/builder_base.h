@@ -26,7 +26,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/buffer-builder.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"

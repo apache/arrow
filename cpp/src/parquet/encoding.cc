@@ -26,11 +26,11 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
-#include "arrow/util/bit-stream-utils.h"
+#include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/rle-encoding.h"
+#include "arrow/util/rle_encoding.h"
 #include "arrow/util/ubsan.h"
 
 #include "parquet/exception.h"

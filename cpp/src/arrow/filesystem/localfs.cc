@@ -31,9 +31,9 @@
 #include <boost/filesystem.hpp>
 
 #include "arrow/filesystem/localfs.h"
-#include "arrow/filesystem/util-internal.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/io/file.h"
-#include "arrow/util/io-util.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

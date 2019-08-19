@@ -167,6 +167,10 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
       "gandiva"
       LABELS
       "gandiva-tests"
+      EXTRA_LINK_LIBS
+      LLVM::LLVM_INTERFACE
+      EXTRA_DEPENDENCIES
+      LLVM::LLVM_INTERFACE
       ${ARG_UNPARSED_ARGUMENTS})
 
   # and uses less disk space, but in some cases we need to force static
@@ -184,12 +188,6 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
                   ${GANDIVA_SHARED_TEST_LINK_LIBS}
                   ${ARG_UNPARSED_ARGUMENTS})
   endif()
-
-  set(TARGET_NAME gandiva-${REL_TEST_NAME})
-
-  # If the unit test has llvm in its name, include llvm.
-  add_dependencies(${TARGET_NAME} LLVM::LLVM_INTERFACE)
-  target_link_libraries(${TARGET_NAME} PRIVATE LLVM::LLVM_INTERFACE)
 endfunction()
 
 add_gandiva_test(internals-test

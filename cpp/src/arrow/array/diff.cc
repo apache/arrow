@@ -26,8 +26,8 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/buffer-builder.h"
 #include "arrow/buffer.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"

@@ -133,7 +133,7 @@ if(ARROW_BUILD_TESTS)
 
   set(ARROW_PYTHON_TEST_LINK_LIBS ${ARROW_PYTHON_MIN_TEST_LIBS})
 
-  add_arrow_test(python-test
+  add_arrow_test(python_test
                  STATIC_LINK_LIBS
                  "${ARROW_PYTHON_TEST_LINK_LIBS}"
                  EXTRA_LINK_LIBS

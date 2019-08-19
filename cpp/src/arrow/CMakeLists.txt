@@ -109,38 +109,38 @@ set(ARROW_SRCS
     visitor.cc
     csv/converter.cc
     csv/chunker.cc
-    csv/column-builder.cc
+    csv/column_builder.cc
     csv/options.cc
     csv/parser.cc
     csv/reader.cc
     filesystem/filesystem.cc
     filesystem/localfs.cc
     filesystem/mockfs.cc
-    filesystem/path-util.cc
-    filesystem/util-internal.cc
+    filesystem/path_util.cc
+    filesystem/util_internal.cc
     io/buffered.cc
     io/compressed.cc
     io/file.cc
     io/hdfs.cc
-    io/hdfs-internal.cc
+    io/hdfs_internal.cc
     io/interfaces.cc
     io/memory.cc
     io/readahead.cc
     testing/util.cc
     util/basic_decimal.cc
-    util/bit-util.cc
+    util/bit_util.cc
     util/compression.cc
-    util/cpu-info.cc
+    util/cpu_info.cc
     util/decimal.cc
-    util/int-util.cc
-    util/io-util.cc
+    util/int_util.cc
+    util/io_util.cc
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
     util/string.cc
     util/string_builder.cc
-    util/task-group.cc
-    util/thread-pool.cc
+    util/task_group.cc
+    util/thread_pool.cc
     util/trie.cc
     util/utf8.cc
     vendored/datetime/tz.cpp)
@@ -150,7 +150,7 @@ if(ARROW_JSON)
   set(ARROW_SRCS
       ${ARROW_SRCS}
       json/options.cc
-      json/chunked-builder.cc
+      json/chunked_builder.cc
       json/chunker.cc
       json/converter.cc
       json/parser.cc
@@ -162,7 +162,7 @@ if(ARROW_WITH_URIPARSER)
 endif()
 
 if("${COMPILER_FAMILY}" STREQUAL "clang")
-  set_property(SOURCE util/io-util.cc
+  set_property(SOURCE util/io_util.cc
                APPEND_STRING
                PROPERTY COMPILE_FLAGS " -Wno-unused-macros ")
 endif()
@@ -189,7 +189,7 @@ if(ARROW_COMPUTE)
       compute/kernels/sum.cc
       compute/kernels/take.cc
       compute/kernels/isin.cc
-      compute/kernels/util-internal.cc
+      compute/kernels/util_internal.cc
       compute/kernels/argsort.cc
       compute/operations/cast.cc
       compute/operations/literal.cc)
@@ -250,11 +250,11 @@ if(ARROW_IPC)
   set(ARROW_IPC_SRCS
       ipc/dictionary.cc
       ipc/feather.cc
-      ipc/json-integration.cc
-      ipc/json-internal.cc
-      ipc/json-simple.cc
+      ipc/json_integration.cc
+      ipc/json_internal.cc
+      ipc/json_simple.cc
       ipc/message.cc
-      ipc/metadata-internal.cc
+      ipc/metadata_internal.cc
       ipc/options.cc
       ipc/reader.cc
       ipc/writer.cc)
@@ -304,9 +304,9 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
   # that depend on gtest
   add_arrow_lib(arrow_testing
                 SOURCES
-                io/test-common.cc
-                ipc/test-common.cc
-                filesystem/test-util.cc
+                io/test_common.cc
+                ipc/test_common.cc
+                filesystem/test_util.cc
                 testing/gtest_util.cc
                 testing/random.cc
                 OUTPUTS
@@ -350,38 +350,38 @@ arrow_add_pkg_config("arrow")
 # Unit tests
 #
 
-add_arrow_test(allocator-test)
-add_arrow_test(array-test
+add_arrow_test(allocator_test)
+add_arrow_test(array_test
                SOURCES
-               array-test.cc
-               array-binary-test.cc
-               array-dict-test.cc
-               array-list-test.cc
-               array-struct-test.cc
-               array-union-test.cc
-               array-view-test.cc)
-add_arrow_test(buffer-test)
+               array_test.cc
+               array_binary_test.cc
+               array_dict_test.cc
+               array_list_test.cc
+               array_struct_test.cc
+               array_union_test.cc
+               array_view_test.cc)
+add_arrow_test(buffer_test)
 
 if(ARROW_IPC)
   # The extension type unit tests require IPC / Flatbuffers support
-  add_arrow_test(extension_type-test)
+  add_arrow_test(extension_type_test)
 endif()
 
-add_arrow_test(memory_pool-test)
-add_arrow_test(pretty_print-test)
-add_arrow_test(public-api-test)
-add_arrow_test(result-test)
-add_arrow_test(scalar-test)
-add_arrow_test(status-test)
-add_arrow_test(stl-test)
-add_arrow_test(type-test)
-add_arrow_test(table-test)
-add_arrow_test(table_builder-test)
-add_arrow_test(tensor-test)
-add_arrow_test(sparse_tensor-test)
+add_arrow_test(memory_pool_test)
+add_arrow_test(pretty_print_test)
+add_arrow_test(public_api_test)
+add_arrow_test(result_test)
+add_arrow_test(scalar_test)
+add_arrow_test(status_test)
+add_arrow_test(stl_test)
+add_arrow_test(type_test)
+add_arrow_test(table_test)
+add_arrow_test(table_builder_test)
+add_arrow_test(tensor_test)
+add_arrow_test(sparse_tensor_test)
 
-add_arrow_benchmark(builder-benchmark)
-add_arrow_benchmark(type-benchmark)
+add_arrow_benchmark(builder_benchmark)
+add_arrow_benchmark(type_benchmark)
 
 add_subdirectory(array)
 add_subdirectory(csv)

@@ -18,7 +18,7 @@
 #include "arrow/dbi/hiveserver2/session.h"
 
 #include "arrow/dbi/hiveserver2/TCLIService.h"
-#include "arrow/dbi/hiveserver2/thrift-internal.h"
+#include "arrow/dbi/hiveserver2/thrift_internal.h"
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"

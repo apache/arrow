@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_arrow_test(concatenate-test)
-add_arrow_test(diff-test)
+add_arrow_test(concatenate_test)
+add_arrow_test(diff_test)
 
 # Headers: top level
 arrow_install_all_headers("arrow/array")

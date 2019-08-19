@@ -24,7 +24,7 @@
 #include <vector>
 
 #include "arrow/type_fwd.h"
-#include "arrow/util/bit-util.h"
+#include "arrow/util/bit_util.h"
 
 namespace arrow {
 

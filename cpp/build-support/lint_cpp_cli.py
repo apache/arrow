@@ -103,6 +103,13 @@ def lint_files():
             if exclude:
                 continue
 
+            # Lint file name, except for pkgconfig templates
+            if not filename.endswith('.pc.in'):
+                if '-' in filename:
+                    why = ("Please user underscores, not hyphens, "
+                           "in source file names")
+                    yield full_path, why, 0, full_path
+
             # Only run on header files
             if filename.endswith('.h'):
                 for _ in lint_file(full_path):

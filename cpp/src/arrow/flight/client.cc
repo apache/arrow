@@ -43,7 +43,7 @@
 
 #include "arrow/flight/client_auth.h"
 #include "arrow/flight/internal.h"
-#include "arrow/flight/serialization-internal.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/types.h"
 
 namespace pb = arrow::flight::protocol;

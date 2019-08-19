@@ -27,7 +27,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_base.h"
-#include "arrow/buffer-builder.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/status.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
