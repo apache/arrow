@@ -205,9 +205,9 @@ std::shared_ptr<arrow::Array> RandomArrayGenerator::BinaryWithRepeats(
     double null_probability) {
   auto strings =
       StringWithRepeats(size, unique, min_length, max_length, null_probability);
-  auto data = strings->data()->Copy();
-  data->type = binary();
-  return MakeArray(data);
+  std::shared_ptr<Array> out;
+  ABORT_NOT_OK(strings->View(binary(), &out));
+  return out;
 }
 
 std::shared_ptr<arrow::Array> RandomArrayGenerator::StringWithRepeats(
