@@ -3015,6 +3015,7 @@ def test_dictionary_array_automatically_read():
     assert result.schema.metadata is None
 
 
+@pytest.mark.pandas
 def test_pandas_categorical_na_type_row_groups():
     # ARROW-5085
     df = pd.DataFrame({"col": [None] * 100, "int": [1.0] * 100})
@@ -3032,7 +3033,8 @@ def test_pandas_categorical_na_type_row_groups():
     assert result[1].equals(table[1])
 
 
-def test_categorical_roundtrip():
+@pytest.mark.pandas
+def test_pandas_categorical_roundtrip():
     # ARROW-5480, this was enabled by ARROW-3246
 
     # Have one of the categories unobserved and include a null (-1)
