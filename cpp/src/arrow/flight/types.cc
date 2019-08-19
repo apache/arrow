@@ -21,7 +21,7 @@
 #include <sstream>
 #include <utility>
 
-#include "arrow/flight/serialization-internal.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"

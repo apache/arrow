@@ -18,5 +18,5 @@
 # Headers: top level
 arrow_install_all_headers("arrow/filesystem")
 
-add_arrow_test(filesystem-test)
-add_arrow_test(localfs-test)
+add_arrow_test(filesystem_test)
+add_arrow_test(localfs_test)

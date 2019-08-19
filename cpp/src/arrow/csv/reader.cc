@@ -29,7 +29,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/csv/chunker.h"
-#include "arrow/csv/column-builder.h"
+#include "arrow/csv/column_builder.h"
 #include "arrow/csv/options.h"
 #include "arrow/csv/parser.h"
 #include "arrow/io/readahead.h"
@@ -38,8 +38,8 @@
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/task-group.h"
-#include "arrow/util/thread-pool.h"
+#include "arrow/util/task_group.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/utf8.h"
 
 namespace arrow {

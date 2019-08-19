@@ -23,7 +23,7 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/io/readahead.h"
-#include "arrow/json/chunked-builder.h"
+#include "arrow/json/chunked_builder.h"
 #include "arrow/json/chunker.h"
 #include "arrow/json/converter.h"
 #include "arrow/json/parser.h"
@@ -31,8 +31,8 @@
 #include "arrow/table.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
-#include "arrow/util/task-group.h"
-#include "arrow/util/thread-pool.h"
+#include "arrow/util/task_group.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 

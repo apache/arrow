@@ -23,7 +23,7 @@
 
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/util/bit-util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 

@@ -17,7 +17,7 @@
 
 #include "arrow/flight/internal.h"
 #include "arrow/flight/platform.h"
-#include "arrow/flight/protocol-internal.h"
+#include "arrow/flight/protocol_internal.h"
 
 #include <cstddef>
 #include <memory>

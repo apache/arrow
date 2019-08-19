@@ -288,47 +288,47 @@ arrow_add_pkg_config("parquet")
 
 add_parquet_test(internals-test
                  SOURCES
-                 bloom_filter-test.cc
-                 deprecated_io-test.cc
-                 properties-test.cc
-                 statistics-test.cc
-                 encoding-test.cc
-                 metadata-test.cc
-                 public-api-test.cc
-                 types-test.cc
-                 test-util.cc)
+                 bloom_filter_test.cc
+                 deprecated_io_test.cc
+                 properties_test.cc
+                 statistics_test.cc
+                 encoding_test.cc
+                 metadata_test.cc
+                 public_api_test.cc
+                 types_test.cc
+                 test_util.cc)
 
-add_parquet_test(reader-test
+add_parquet_test(reader_test
                  SOURCES
-                 column_reader-test.cc
-                 column_scanner-test.cc
-                 reader-test.cc
-                 test-util.cc)
+                 column_reader_test.cc
+                 column_scanner_test.cc
+                 reader_test.cc
+                 test_util.cc)
 
 add_parquet_test(writer-test
                  SOURCES
-                 column_writer-test.cc
-                 file-serialize-test.cc
-                 test-util.cc)
+                 column_writer_test.cc
+                 file_serialize_test.cc
+                 test_util.cc)
 
 add_parquet_test(arrow-test
                  SOURCES
-                 arrow/arrow-reader-writer-test.cc
-                 arrow/arrow-schema-test.cc
-                 test-util.cc)
+                 arrow/arrow_reader_writer_test.cc
+                 arrow/arrow_schema_test.cc
+                 test_util.cc)
 
 # Those tests need to use static linking as they access thrift-generated
 # symbols which are not exported by parquet.dll on Windows (PARQUET-1420).
-add_parquet_test(file-deserialize-test
+add_parquet_test(file_deserialize_test
                  USE_STATIC_LINKING
                  SOURCES
-                 file-deserialize-test.cc
-                 test-util.cc)
-add_parquet_test(schema-test USE_STATIC_LINKING)
+                 file_deserialize_test.cc
+                 test_util.cc)
+add_parquet_test(schema_test USE_STATIC_LINKING)
 
-add_parquet_benchmark(column-io-benchmark)
-add_parquet_benchmark(encoding-benchmark)
-add_parquet_benchmark(arrow/reader-writer-benchmark PREFIX "parquet-arrow")
+add_parquet_benchmark(column_io_benchmark)
+add_parquet_benchmark(encoding_benchmark)
+add_parquet_benchmark(arrow/reader_writer_benchmark PREFIX "parquet-arrow")
 
 # Required for tests, the ExternalProject for zstd does not build on CMake < 3.7
 if(ARROW_WITH_ZSTD)

@@ -29,7 +29,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/thread-pool.h"
+#include "arrow/util/thread_pool.h"
 
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/column_reader.h"

@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "arrow/dbi/hiveserver2/columnar-row-set.h"
+#include "arrow/dbi/hiveserver2/columnar_row_set.h"
 #include "arrow/dbi/hiveserver2/operation.h"
 #include "arrow/dbi/hiveserver2/service.h"
 #include "arrow/dbi/hiveserver2/session.h"

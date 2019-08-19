@@ -30,11 +30,11 @@
 #include "arrow/builder.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
-#include "arrow/util/bit-stream-utils.h"
+#include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/rle-encoding.h"
+#include "arrow/util/rle_encoding.h"
 
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"

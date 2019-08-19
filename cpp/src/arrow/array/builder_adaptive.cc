@@ -27,8 +27,8 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
-#include "arrow/util/int-util.h"
+#include "arrow/util/bit_util.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

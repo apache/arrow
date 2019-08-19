@@ -25,7 +25,7 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/buffer-builder.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/table.h"
 #include "arrow/type.h"

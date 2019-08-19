@@ -36,7 +36,7 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/ipc/json-simple.h"
+#include "arrow/ipc/json_simple.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"

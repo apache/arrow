@@ -28,37 +28,37 @@ arrow_install_all_headers("arrow/util")
 
 add_arrow_test(utility-test
                SOURCES
-               align-util-test.cc
-               checked-cast-test.cc
-               key-value-metadata-test.cc
-               hashing-test.cc
-               int-util-test.cc
-               io-util-test.cc
-               lazy-test.cc
-               parsing-util-test.cc
-               stl-util-test.cc
-               trie-test.cc
-               utf8-util-test.cc)
+               align_util_test.cc
+               checked_cast_test.cc
+               key_value_metadata_test.cc
+               hashing_test.cc
+               int_util_test.cc
+               io_util_test.cc
+               lazy_test.cc
+               parsing_util_test.cc
+               stl_util_test.cc
+               trie_test.cc
+               utf8_util_test.cc)
 
-add_arrow_test(bit-util-test)
-add_arrow_test(compression-test)
-add_arrow_test(decimal-test)
-add_arrow_test(logging-test)
-add_arrow_test(rle-encoding-test)
-add_arrow_test(task-group-test)
-add_arrow_test(thread-pool-test)
+add_arrow_test(bit_util_test)
+add_arrow_test(compression_test)
+add_arrow_test(decimal_test)
+add_arrow_test(logging_test)
+add_arrow_test(rle_encoding_test)
+add_arrow_test(task_group_test)
+add_arrow_test(thread_pool_test)
 if(ARROW_WITH_URIPARSER)
-  add_arrow_test(uri-test)
+  add_arrow_test(uri_test)
 endif()
 
-add_arrow_benchmark(bit-util-benchmark)
-add_arrow_benchmark(compression-benchmark)
-add_arrow_benchmark(decimal-benchmark)
-add_arrow_benchmark(hashing-benchmark)
-add_arrow_benchmark(int-util-benchmark)
-add_arrow_benchmark(lazy-benchmark)
-add_arrow_benchmark(machine-benchmark)
-add_arrow_benchmark(number-parsing-benchmark)
-add_arrow_benchmark(thread-pool-benchmark)
-add_arrow_benchmark(trie-benchmark)
-add_arrow_benchmark(utf8-util-benchmark)
+add_arrow_benchmark(bit_util_benchmark)
+add_arrow_benchmark(compression_benchmark)
+add_arrow_benchmark(decimal_benchmark)
+add_arrow_benchmark(hashing_benchmark)
+add_arrow_benchmark(int_util_benchmark)
+add_arrow_benchmark(lazy_benchmark)
+add_arrow_benchmark(machine_benchmark)
+add_arrow_benchmark(number_parsing_benchmark)
+add_arrow_benchmark(thread_pool_benchmark)
+add_arrow_benchmark(trie_benchmark)
+add_arrow_benchmark(utf8_util_benchmark)

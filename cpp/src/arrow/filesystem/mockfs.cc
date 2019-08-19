@@ -24,7 +24,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/filesystem/mockfs.h"
-#include "arrow/filesystem/path-util.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/logging.h"

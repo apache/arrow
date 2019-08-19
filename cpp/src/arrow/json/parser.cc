@@ -24,12 +24,12 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/json/rapidjson-defs.h"
+#include "arrow/json/rapidjson_defs.h"
 #include "rapidjson/error/en.h"
 #include "rapidjson/reader.h"
 
 #include "arrow/array.h"
-#include "arrow/buffer-builder.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
 #include "arrow/type.h"
