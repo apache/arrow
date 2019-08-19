@@ -16,17 +16,3 @@
 # under the License.
 
 arrow_install_all_headers("arrow/testing")
-
-if(DEFINED $ENV{ARROW_TEST_DATA})
-  set(ARROW_TEST_DATA $ENV{ARROW_TEST_DATA})
-else()
-  set(ARROW_TEST_DATA ${CMAKE_SOURCE_DIR}/../testing)
-endif()
-
-if(DEFINED $ENV{PARQUET_TEST_DATA})
-  set(PARQUET_TEST_DATA $ENV{PARQUET_TEST_DATA})
-else()
-  set(PARQUET_TEST_DATA ${CMAKE_SOURCE_DIR}/submodules/parquet-testing)
-endif()
-
-configure_file(test_data.h.in "${CMAKE_CURRENT_BINARY_DIR}/test_data.h" @ONLY)

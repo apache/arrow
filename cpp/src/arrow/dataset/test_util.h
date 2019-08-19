@@ -15,14 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/testing/test_data.h"
-
 #include <memory>
 #include <string>
 #include <utility>
 
 #include "arrow/dataset/file_base.h"
 #include "arrow/record_batch.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/stl.h"
 
 #include "parquet/arrow/writer.h"
@@ -85,44 +84,6 @@ Status WriteRecordBatchReader(
   return writer->Close();
 }
 
-// Convenience class allowing to retrieve integration data easily, e.g.
-//
-// class MyTestClass : public ::testing::Test, TestDataFixtureMixin {
-// }
-//
-// TEST(MyTestClass, ATest) {
-//    this->OpenParquetFile("data/binary.parquet")
-//    // Do something
-// }
-class TestDataFixtureMixin : public ::testing::Test {
- public:
-  TestDataFixtureMixin() {
-    auto root = std::make_shared<fs::LocalFileSystem>();
-    arrow_fs_ = std::make_shared<fs::SubTreeFileSystem>(ArrowTestDataPath(), root);
-    parquet_fs_ = std::make_shared<fs::SubTreeFileSystem>(ParquetTestDataPath(), root);
-  }
-
-  std::shared_ptr<io::RandomAccessFile> OpenParquetFile(
-      const std::string& relative_path) {
-    std::shared_ptr<io::RandomAccessFile> file;
-    ARROW_EXPECT_OK(ParquetDataFileSystem()->OpenInputFile(relative_path, &file));
-    return file;
-  }
-
-  std::shared_ptr<io::RandomAccessFile> OpenArrowFile(const std::string& relative_path) {
-    std::shared_ptr<io::RandomAccessFile> file;
-    ARROW_EXPECT_OK(ArrowDataFileSystem()->OpenInputFile(relative_path, &file));
-    return file;
-  }
-
-  fs::FileSystem* ArrowDataFileSystem() const { return arrow_fs_.get(); }
-  fs::FileSystem* ParquetDataFileSystem() const { return parquet_fs_.get(); }
-
- protected:
-  std::shared_ptr<fs::FileSystem> arrow_fs_;
-  std::shared_ptr<fs::FileSystem> parquet_fs_;
-};
-
 class ArrowParquetWriterMixin : public ::testing::Test {
  public:
   std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
@@ -150,21 +111,8 @@ class ArrowParquetWriterMixin : public ::testing::Test {
   }
 };
 
-// Convenience class allowing easy retrieval of FileSources pointing to test data.
-class FileSourceFixtureMixin : public TestDataFixtureMixin {
+class FileSourceFixtureMixin : public ::testing::Test {
  public:
-  std::unique_ptr<FileSource> GetParquetDataSource(
-      const std::string& path,
-      Compression::type compression = Compression::UNCOMPRESSED) {
-    return internal::make_unique<FileSource>(path, parquet_fs_.get(), compression);
-  }
-
-  std::unique_ptr<FileSource> GetArrowDataSource(
-      const std::string& path,
-      Compression::type compression = Compression::UNCOMPRESSED) {
-    return internal::make_unique<FileSource>(path, arrow_fs_.get(), compression);
-  }
-
   std::unique_ptr<FileSource> GetSource(std::shared_ptr<Buffer> buffer) {
     return internal::make_unique<FileSource>(std::move(buffer));
   }

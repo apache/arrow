@@ -17,6 +17,8 @@
 
 #include "arrow/dataset/file_parquet.h"
 
+#include <utility>
+
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/util.h"
