@@ -152,6 +152,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] Slice(int64_t offset, int64_t length)
 
         CStatus Validate() const
+        CStatus View(const shared_ptr[CDataType]& type,
+                     shared_ptr[CArray]* out)
 
     shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
 

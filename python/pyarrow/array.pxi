@@ -523,6 +523,25 @@ cdef class Array(_PandasConvertible):
 
         return pyarrow_wrap_array(result)
 
+    def view(self, object target_type):
+        """Return zero-copy "view" of array as another data type. The data
+        types must have compatible columnar buffer layouts
+
+        Parameters
+        ----------
+        target_type : DataType
+            Type to construct view as
+
+        Returns
+        -------
+        view : Array
+        """
+        cdef DataType type = ensure_type(target_type)
+        cdef shared_ptr[CArray] result
+        with nogil:
+            check_status(self.ap.View(type.sp_type, &result))
+        return pyarrow_wrap_array(result)
+
     def sum(self):
         """
         Sum the values in a numerical array.
