@@ -24,7 +24,7 @@
 #include <vector>
 
 #include "arrow/util/key_value_metadata.h"
-
+#include <boost/any.hpp>
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"
@@ -139,6 +139,42 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   class ColumnChunkMetaDataImpl;
   std::unique_ptr<ColumnChunkMetaDataImpl> impl_;
 };
+
+enum BoundaryOrder{
+  UNORDERED = 0,
+  ASCENDING = 1,
+  DESCENDING = 2
+};
+
+class PARQUET_EXPORT PageLocation{
+  int64_t offset;
+  int32_t compressed_page_size;
+  int64_t first_row_index;
+};
+
+class PARQUET_EXPORT ColumnIndex{
+  std::vector<bool> null_pages;
+  std::vector <Type> min_values;
+  std::vector <Type> max_values;
+  BoundaryOrder boundary_order;
+  std::vector<int64_t> null_counts;
+};
+
+class PARQUET_EXPORT OffsetIndex{
+  std::vector<PageLocation> page_locations;
+};
+
+void DeserializeColumnIndex(const ColumnChunk& col_chunk, ColumnIndex* column_index) {
+  if (page_index_buffer_.buffer() == nullptr) {
+      std::cout<< "No page index for file " <<  scanner_->filename();
+  }
+
+  int64_t buffer_offset = col_chunk.column_index_offset - column_index_base_offset_;
+  uint32_t length = col_chunk.column_index_length;
+  DCHECK_GE(buffer_offset, 0);
+  DCHECK_LE(buffer_offset + length, column_index_size_);
+  DeserializeThriftMsg(page_index_buffer_.buffer() + buffer_offset, &length, column_index);
+}
 
 class PARQUET_EXPORT RowGroupMetaData {
  public:
