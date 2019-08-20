@@ -635,6 +635,60 @@ TEST_F(TestMemoryMappedFile, ZeroSizeFlie) {
   ASSERT_EQ(0, size);
 }
 
+TEST_F(TestMemoryMappedFile, MapPartFile) {
+  const int64_t buffer_size = 1024;
+  const int64_t unalign_offset = 1024;
+  const int64_t offset = 65536;  // make WIN32 happy
+  std::vector<uint8_t> buffer(buffer_size);
+
+  random_bytes(1024, 0, buffer.data());
+
+  const int reps = 128;
+
+  std::string path = "io-memory-map-offset";
+  std::shared_ptr<MemoryMappedFile> result;
+
+  // file size = 128k
+  CreateFile(path, reps * buffer_size);
+
+  // map failed with unaligned offset
+  ASSERT_RAISES(IOError, MemoryMappedFile::Open(path, FileMode::READWRITE, unalign_offset,
+                                                4096, &result));
+
+  // map failed if length is greater than file size
+  ASSERT_RAISES(Invalid, MemoryMappedFile::Open(path, FileMode::READWRITE, offset, 409600,
+                                                &result));
+
+  // map succssed with valid file region <64k-68k>
+  ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READWRITE, offset, 4096, &result));
+
+  int64_t file_size;
+  ASSERT_OK(result->GetSize(&file_size));
+  ASSERT_EQ(file_size, 4096);
+
+  int64_t position;
+  ASSERT_OK(result->Tell(&position));
+  ASSERT_EQ(position, 0);
+
+  std::shared_ptr<Buffer> out_buffer;
+  ASSERT_OK(result->Write(buffer.data(), buffer_size));
+  ASSERT_OK(result->ReadAt(0, buffer_size, &out_buffer));
+  ASSERT_EQ(0, memcmp(out_buffer->data(), buffer.data(), buffer_size));
+
+  ASSERT_OK(result->Tell(&position));
+  ASSERT_EQ(position, buffer_size);
+
+  ASSERT_OK(result->Seek(4096));
+  ASSERT_OK(result->Tell(&position));
+  ASSERT_EQ(position, 4096);
+
+  // Resize is not supported
+  ASSERT_RAISES(IOError, result->Resize(4096));
+
+  // Write beyond memory mapped length
+  ASSERT_RAISES(Invalid, result->WriteAt(4096, buffer.data(), buffer_size));
+}
+
 TEST_F(TestMemoryMappedFile, WriteRead) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);

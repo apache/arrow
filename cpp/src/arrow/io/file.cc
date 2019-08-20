@@ -395,7 +395,7 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
   ~MemoryMap() {
     ARROW_CHECK_OK(Close());
     if (mutable_data_ != nullptr) {
-      int result = munmap(mutable_data_, static_cast<size_t>(size_));
+      int result = munmap(mutable_data_, static_cast<size_t>(map_len_));
       ARROW_CHECK_EQ(result, 0) << "munmap failed";
     }
   }
@@ -412,7 +412,8 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
 
   bool closed() const { return !file_->is_open(); }
 
-  Status Open(const std::string& path, FileMode::type mode) {
+  Status Open(const std::string& path, FileMode::type mode, const int64_t offset = 0,
+              const int64_t length = -1) {
     file_.reset(new OSFile());
 
     if (mode != FileMode::READ) {
@@ -432,11 +433,12 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
 
       is_mutable_ = false;
     }
+    map_len_ = offset_ = 0;
 
     // Memory mapping fails when file size is 0
     // delay it until the first resize
     if (file_->size() > 0) {
-      RETURN_NOT_OK(InitMMap(file_->size()));
+      RETURN_NOT_OK(InitMMap(file_->size(), false, offset, length));
     }
 
     position_ = 0;
@@ -445,9 +447,13 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
   }
 
   // Resize the mmap and file to the specified size.
+  // Resize on memory mapped file region is not supported.
   Status Resize(const int64_t new_size) {
     if (!writable()) {
       return Status::IOError("Cannot resize a readonly memory map");
+    }
+    if (map_len_ != size_) {
+      return Status::IOError("Cannot resize a partial memory map");
     }
 
     if (new_size == 0) {
@@ -458,7 +464,7 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
         }
         RETURN_NOT_OK(internal::FileTruncate(file_->fd(), 0));
         data_ = mutable_data_ = nullptr;
-        size_ = capacity_ = 0;
+        map_len_ = offset_ = size_ = capacity_ = 0;
       }
       position_ = 0;
       return Status::OK();
@@ -468,7 +474,8 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
       void* result;
       RETURN_NOT_OK(
           internal::MemoryMapRemap(mutable_data_, size_, new_size, file_->fd(), &result));
-      size_ = capacity_ = new_size;
+      map_len_ = size_ = capacity_ = new_size;
+      offset_ = 0;
       data_ = mutable_data_ = static_cast<uint8_t*>(result);
       if (position_ > size_) {
         position_ = size_;
@@ -482,7 +489,8 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
     return Status::OK();
   }
 
-  int64_t size() const { return size_; }
+  // map_len_ == size_ if memory mapping on the whole file
+  int64_t size() const { return map_len_; }
 
   Status Seek(int64_t position) {
     if (position < 0) {
@@ -510,16 +518,29 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
 
  private:
   // Initialize the mmap and set size, capacity and the data pointers
-  Status InitMMap(int64_t initial_size, bool resize_file = false) {
+  Status InitMMap(int64_t initial_size, bool resize_file = false,
+                  const int64_t offset = 0, const int64_t length = -1) {
     if (resize_file) {
       RETURN_NOT_OK(internal::FileTruncate(file_->fd(), initial_size));
     }
     DCHECK(data_ == nullptr && mutable_data_ == nullptr);
-    void* result = mmap(nullptr, static_cast<size_t>(initial_size), prot_flags_,
-                        map_mode_, file_->fd(), 0);
+
+    size_t mmap_length = static_cast<size_t>(initial_size);
+    if (length > initial_size) {
+      return Status::Invalid("mapping length is beyond file size");
+    }
+    if (length >= 0 && length < initial_size) {
+      // memory mapping a file region
+      mmap_length = static_cast<size_t>(length);
+    }
+
+    void* result = mmap(nullptr, mmap_length, prot_flags_, map_mode_, file_->fd(),
+                        static_cast<off_t>(offset));
     if (result == MAP_FAILED) {
       return Status::IOError("Memory mapping file failed: ", std::strerror(errno));
     }
+    map_len_ = mmap_length;
+    offset_ = offset;
     size_ = capacity_ = initial_size;
     data_ = mutable_data_ = static_cast<uint8_t*>(result);
 
@@ -529,6 +550,8 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
   int prot_flags_;
   int map_mode_;
   int64_t position_;
+  int64_t offset_;
+  int64_t map_len_;
   std::mutex resize_lock_;
 };
 
@@ -552,6 +575,18 @@ Status MemoryMappedFile::Open(const std::string& path, FileMode::type mode,
 
   result->memory_map_.reset(new MemoryMap());
   RETURN_NOT_OK(result->memory_map_->Open(path, mode));
+
+  *out = result;
+  return Status::OK();
+}
+
+Status MemoryMappedFile::Open(const std::string& path, FileMode::type mode,
+                              const int64_t offset, const int64_t length,
+                              std::shared_ptr<MemoryMappedFile>* out) {
+  std::shared_ptr<MemoryMappedFile> result(new MemoryMappedFile());
+
+  result->memory_map_.reset(new MemoryMap());
+  RETURN_NOT_OK(result->memory_map_->Open(path, mode, offset, length));
 
   *out = result;
   return Status::OK();
