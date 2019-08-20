@@ -28,6 +28,8 @@ namespace arrow {
 
 class Array;
 class ChunkedArray;
+class RecordBatch;
+class RecordBatchReader;
 class Schema;
 class Table;
 
@@ -64,6 +66,8 @@ class PARQUET_EXPORT FileWriter {
       const std::shared_ptr<WriterProperties>& properties,
       const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
       std::unique_ptr<FileWriter>* writer);
+
+  virtual std::shared_ptr<::arrow::Schema> schema() const = 0;
 
   /// \brief Write a Table to Parquet.
   virtual ::arrow::Status WriteTable(const ::arrow::Table& table, int64_t chunk_size) = 0;

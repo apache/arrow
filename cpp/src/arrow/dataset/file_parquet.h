@@ -29,31 +29,38 @@ namespace dataset {
 
 class ARROW_DS_EXPORT ParquetScanOptions : public FileScanOptions {
  public:
-  std::string file_type() const override;
+  std::string file_type() const override { return "parquet"; }
 };
 
 class ARROW_DS_EXPORT ParquetWriteOptions : public FileWriteOptions {
  public:
-  std::string file_type() const override;
-};
-
-class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {
- public:
-  bool splittable() const override { return true; }
+  std::string file_type() const override { return "parquet"; }
 };
 
 /// \brief A FileFormat implementation that reads from Parquet files
 class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
-  std::string name() const override;
+  std::string name() const override { return "parquet"; }
 
   /// \brief Return true if the given file extension
-  bool IsKnownExtension(const std::string& ext) const override;
+  bool IsKnownExtension(const std::string& ext) const override {
+    return ext == "par" || ext == "parq" || ext == name();
+  }
 
   /// \brief Open a file for scanning
-  Status ScanFile(const FileSource& location, std::shared_ptr<ScanOptions> scan_options,
+  Status ScanFile(const FileSource& source, std::shared_ptr<ScanOptions> scan_options,
                   std::shared_ptr<ScanContext> scan_context,
                   std::unique_ptr<ScanTaskIterator>* out) const override;
+};
+
+class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {
+ public:
+  ParquetFragment(const FileSource& source, std::shared_ptr<ScanOptions> options)
+      : FileBasedDataFragment(source, std::make_shared<ParquetFileFormat>(), options) {}
+
+  bool splittable() const override { return true; }
+
+  std::shared_ptr<ScanOptions> scan_options() const override { return NULLPTR; }
 };
 
 }  // namespace dataset

@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <cstring>
 #include <future>
-#include <numeric>
 #include <utility>
 #include <vector>
 
@@ -29,6 +28,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/range.h"
 #include "arrow/util/thread_pool.h"
 
 #include "parquet/arrow/reader_internal.h"
@@ -52,6 +52,7 @@ using arrow::Status;
 using arrow::StructArray;
 using arrow::Table;
 using arrow::TimestampArray;
+using arrow::internal::Iota;
 
 using parquet::schema::GroupNode;
 using parquet::schema::Node;
@@ -89,16 +90,6 @@ class ColumnReaderImpl : public ColumnReader {
 // ----------------------------------------------------------------------
 // FileReaderImpl forward declaration
 
-namespace {
-
-std::vector<int> Arange(int length) {
-  std::vector<int> result(length);
-  std::iota(result.begin(), result.end(), 0);
-  return result;
-}
-
-}  // namespace
-
 class FileReaderImpl : public FileReader {
  public:
   FileReaderImpl(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader,
@@ -111,14 +102,6 @@ class FileReaderImpl : public FileReader {
                                reader_properties_, &manifest_);
   }
 
-  std::vector<int> AllRowGroups() {
-    return Arange(reader_->metadata()->num_row_groups());
-  }
-
-  std::vector<int> AllColumnIndices() {
-    return Arange(reader_->metadata()->num_columns());
-  }
-
   FileColumnIteratorFactory SomeRowGroupsFactory(std::vector<int> row_groups) {
     return [row_groups](int i, ParquetFileReader* reader) {
       return new FileColumnIterator(i, reader, row_groups);
@@ -126,7 +109,7 @@ class FileReaderImpl : public FileReader {
   }
 
   FileColumnIteratorFactory AllRowGroupsFactory() {
-    return SomeRowGroupsFactory(AllRowGroups());
+    return SomeRowGroupsFactory(Iota(reader_->metadata()->num_row_groups()));
   }
 
   Status BoundsCheckColumn(int column) {
@@ -165,7 +148,7 @@ class FileReaderImpl : public FileReader {
 
   Status ReadTable(const std::vector<int>& indices,
                    std::shared_ptr<Table>* out) override {
-    return ReadRowGroups(AllRowGroups(), indices, out);
+    return ReadRowGroups(Iota(reader_->metadata()->num_row_groups()), indices, out);
   }
 
   Status GetFieldReader(int i, const std::vector<int>& indices,
@@ -218,11 +201,12 @@ class FileReaderImpl : public FileReader {
 
   Status ReadSchemaField(int i, const std::vector<int>& indices,
                          std::shared_ptr<ChunkedArray>* out) {
-    return ReadSchemaField(i, indices, AllRowGroups(), out);
+    return ReadSchemaField(i, indices, Iota(reader_->metadata()->num_row_groups()), out);
   }
 
   Status ReadSchemaField(int i, std::shared_ptr<ChunkedArray>* out) override {
-    return ReadSchemaField(i, AllColumnIndices(), AllRowGroups(), out);
+    return ReadSchemaField(i, Iota(reader_->metadata()->num_columns()),
+                           Iota(reader_->metadata()->num_row_groups()), out);
   }
 
   Status ReadColumn(int i, const std::vector<int>& row_groups,
@@ -236,11 +220,11 @@ class FileReaderImpl : public FileReader {
   }
 
   Status ReadColumn(int i, std::shared_ptr<ChunkedArray>* out) override {
-    return ReadColumn(i, AllRowGroups(), out);
+    return ReadColumn(i, Iota(reader_->metadata()->num_row_groups()), out);
   }
 
   Status ReadTable(std::shared_ptr<Table>* table) override {
-    return ReadTable(AllColumnIndices(), table);
+    return ReadTable(Iota(reader_->metadata()->num_columns()), table);
   }
 
   Status ReadRowGroups(const std::vector<int>& row_groups,
@@ -249,7 +233,7 @@ class FileReaderImpl : public FileReader {
 
   Status ReadRowGroups(const std::vector<int>& row_groups,
                        std::shared_ptr<Table>* table) override {
-    return ReadRowGroups(row_groups, AllColumnIndices(), table);
+    return ReadRowGroups(row_groups, Iota(reader_->metadata()->num_columns()), table);
   }
 
   Status ReadRowGroup(int row_group_index, const std::vector<int>& column_indices,
@@ -258,16 +242,17 @@ class FileReaderImpl : public FileReader {
   }
 
   Status ReadRowGroup(int i, std::shared_ptr<Table>* table) override {
-    return ReadRowGroup(i, AllColumnIndices(), table);
+    return ReadRowGroup(i, Iota(reader_->metadata()->num_columns()), table);
   }
 
   Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                               const std::vector<int>& column_indices,
-                              std::shared_ptr<RecordBatchReader>* out) override;
+                              std::unique_ptr<RecordBatchReader>* out) override;
 
   Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                              std::shared_ptr<RecordBatchReader>* out) override {
-    return GetRecordBatchReader(row_group_indices, AllColumnIndices(), out);
+                              std::unique_ptr<RecordBatchReader>* out) override {
+    return GetRecordBatchReader(row_group_indices,
+                                Iota(reader_->metadata()->num_columns()), out);
   }
 
   int num_columns() const { return reader_->metadata()->num_columns(); }
@@ -310,7 +295,7 @@ class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
   static Status Make(const std::vector<int>& row_groups,
                      const std::vector<int>& column_indices, FileReaderImpl* reader,
                      int64_t batch_size,
-                     std::shared_ptr<::arrow::RecordBatchReader>* out) {
+                     std::unique_ptr<::arrow::RecordBatchReader>* out) {
     std::vector<int> field_indices;
     if (!reader->manifest_.GetFieldIndices(column_indices, &field_indices)) {
       return Status::Invalid("Invalid column index");
@@ -322,8 +307,8 @@ class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
                                            &field_readers[i]));
       fields.push_back(field_readers[i]->field());
     }
-    *out = std::make_shared<RowGroupRecordBatchReader>(
-        std::move(field_readers), ::arrow::schema(fields), batch_size);
+    out->reset(new RowGroupRecordBatchReader(std::move(field_readers),
+                                             ::arrow::schema(fields), batch_size));
     return Status::OK();
   }
 
@@ -366,6 +351,30 @@ class ColumnChunkReaderImpl : public ColumnChunkReader {
   int column_index_;
   int row_group_index_;
 };
+
+struct RowGroupReader::Iterator : ::arrow::TableBatchReader {
+  explicit Iterator(const std::shared_ptr<Table>& table)
+      : TableBatchReader(*table), table_(table) {}
+  // TableBatchReader does not take ownership of table
+  std::shared_ptr<Table> table_;
+};
+
+Status RowGroupReader::MakeIterator(
+    std::unique_ptr<::arrow::RecordBatchIterator>* batches) {
+  std::shared_ptr<::arrow::Table> table;
+  RETURN_NOT_OK(ReadTable(&table));
+  batches->reset(new Iterator(table));
+  return Status::OK();
+}
+
+Status RowGroupReader::MakeIterator(
+    const std::vector<int>& column_indices,
+    std::unique_ptr<::arrow::RecordBatchIterator>* batches) {
+  std::shared_ptr<::arrow::Table> table;
+  RETURN_NOT_OK(ReadTable(column_indices, &table));
+  batches->reset(new Iterator(table));
+  return Status::OK();
+}
 
 class RowGroupReaderImpl : public RowGroupReader {
  public:
@@ -714,7 +723,7 @@ Status SchemaField::GetReader(const ReaderContext& ctx,
 
 Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                             const std::vector<int>& column_indices,
-                                            std::shared_ptr<RecordBatchReader>* out) {
+                                            std::unique_ptr<RecordBatchReader>* out) {
   // column indices check
   for (auto row_group_index : row_group_indices) {
     RETURN_NOT_OK(BoundsCheckRowGroup(row_group_index));

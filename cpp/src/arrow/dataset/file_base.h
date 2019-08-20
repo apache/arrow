@@ -21,16 +21,20 @@
 #include <string>
 #include <utility>
 
+#include "arrow/buffer.h"
+#include "arrow/dataset/dataset.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/dataset/writer.h"
+#include "arrow/io/file.h"
 #include "arrow/util/compression.h"
 
 namespace arrow {
 namespace dataset {
 
-/// \brief Contains the location of a file to be read
+/// \brief The path and filesystem where an actual file is located or a buffer which can
+/// be read like a file
 class ARROW_DS_EXPORT FileSource {
  public:
   enum SourceType { PATH, BUFFER };
@@ -77,6 +81,9 @@ class ARROW_DS_EXPORT FileSource {
   /// when file source type is BUFFER
   std::shared_ptr<Buffer> buffer() const { return buffer_; }
 
+  /// \brief Get a RandomAccessFile which views this file source
+  Status Open(std::shared_ptr<arrow::io::RandomAccessFile>* out) const;
+
  private:
   explicit FileSource(SourceType type,
                       Compression::type compression = Compression::UNCOMPRESSED)
@@ -86,7 +93,7 @@ class ARROW_DS_EXPORT FileSource {
 
   // PATH-based source
   std::string path_;
-  fs::FileSystem* filesystem_;
+  fs::FileSystem* filesystem_ = NULLPTR;
 
   // BUFFER-based source
   std::shared_ptr<Buffer> buffer_;
@@ -119,7 +126,7 @@ class ARROW_DS_EXPORT FileFormat {
   virtual bool IsKnownExtension(const std::string& ext) const = 0;
 
   /// \brief Open a file for scanning
-  virtual Status ScanFile(const FileSource& location,
+  virtual Status ScanFile(const FileSource& source,
                           std::shared_ptr<ScanOptions> scan_options,
                           std::shared_ptr<ScanContext> scan_context,
                           std::unique_ptr<ScanTaskIterator>* out) const = 0;
@@ -128,14 +135,20 @@ class ARROW_DS_EXPORT FileFormat {
 /// \brief A DataFragment that is stored in a file with a known format
 class ARROW_DS_EXPORT FileBasedDataFragment : public DataFragment {
  public:
-  FileBasedDataFragment(const FileSource& location, std::shared_ptr<FileFormat> format,
-                        std::shared_ptr<ScanOptions>);
+  FileBasedDataFragment(const FileSource& source, std::shared_ptr<FileFormat> format,
+                        std::shared_ptr<ScanOptions> scan_options)
+      : source_(source),
+        format_(std::move(format)),
+        scan_options_(std::move(scan_options)) {}
 
-  const FileSource& location() const { return location_; }
+  Status Scan(std::shared_ptr<ScanContext> scan_context,
+              std::unique_ptr<ScanTaskIterator>* out) override;
+
+  const FileSource& source() const { return source_; }
   std::shared_ptr<FileFormat> format() const { return format_; }
 
  protected:
-  FileSource location_;
+  FileSource source_;
   std::shared_ptr<FileFormat> format_;
   std::shared_ptr<ScanOptions> scan_options_;
 };

@@ -23,58 +23,65 @@
 
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/util/iterator.h"
 
 namespace arrow {
 namespace dataset {
 
 /// \brief A granular piece of a Dataset, such as an individual file,
-/// which can be read/scanned separately from other fragments
+/// which can be read/scanned separately from other fragments.
+///
+/// A DataFragment yields a collection of RecordBatch, encapsulated in one or
+/// more ScanTasks.
 class ARROW_DS_EXPORT DataFragment {
  public:
-  virtual ~DataFragment() = default;
+  /// \brief Scan returns an iterator of ScanTasks, each of which yields
+  /// RecordBatches from this DataFragment.
+  virtual Status Scan(std::shared_ptr<ScanContext> scan_context,
+                      std::unique_ptr<ScanTaskIterator>* out) = 0;
 
   /// \brief Return true if the fragment can benefit from parallel
   /// scanning
   virtual bool splittable() const = 0;
 
-  /// \brief Partition options to use when scanning this fragment. May be
-  /// nullptr
+  /// \brief Filtering, schema reconciliation, and partition options to use when
+  /// scanning this fragment. May be nullptr, which indicates that no filtering
+  /// or schema reconciliation will be performed and all partitions will be
+  /// scanned.
   virtual std::shared_ptr<ScanOptions> scan_options() const = 0;
-};
 
-/// \brief Conditions to apply to a dataset when reading to include or
-/// exclude fragments, filter out rows, etc.
-struct DataSelector {
-  std::vector<std::shared_ptr<Filter>> filters;
-
-  // TODO(wesm): Select specific partition keys, file path globs, or
-  // other common desirable selections
+  virtual ~DataFragment() = default;
 };
 
 /// \brief A basic component of a Dataset which yields zero or more
-/// DataFragments
+/// DataFragments. A DataSource acts as a discovery mechanism of DataFragments
+/// and partitions, e.g. files deeply nested in a directory.
 class ARROW_DS_EXPORT DataSource {
  public:
-  virtual ~DataSource() = default;
+  /// \brief GetFragments returns an iterator of DataFragments. The ScanOptions
+  /// controls filtering and schema inference.
+  virtual std::unique_ptr<DataFragmentIterator> GetFragments(
+      std::shared_ptr<ScanOptions> options) = 0;
 
   virtual std::string type() const = 0;
 
-  virtual std::unique_ptr<DataFragmentIterator> GetFragments(
-      const DataSelector& selector) = 0;
+  virtual ~DataSource() = default;
 };
 
 /// \brief A DataSource consisting of a flat sequence of DataFragments
 class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
  public:
   std::unique_ptr<DataFragmentIterator> GetFragments(
-      const DataSelector& selector) override;
+      std::shared_ptr<ScanOptions> options) override {
+    return MakeIterator(fragments_);
+  }
 
  private:
   DataFragmentVector fragments_;
 };
 
 /// \brief Top-level interface for a Dataset with fragments coming
-/// from possibly multiple sources
+/// from possibly multiple sources.
 class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  public:
   /// \param[in] source a single input data source
@@ -108,6 +115,15 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   std::shared_ptr<Schema> schema_;
 
   std::vector<std::shared_ptr<DataSource>> sources_;
+};
+
+/// \brief Conditions to apply to a dataset when reading to include or
+/// exclude fragments, filter out rows, etc.
+struct DataSelector {
+  std::vector<std::shared_ptr<Filter>> filters;
+
+  // TODO(wesm): Select specific partition keys, file path globs, or
+  // other common desirable selections
 };
 
 }  // namespace dataset

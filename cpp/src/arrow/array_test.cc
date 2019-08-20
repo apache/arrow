@@ -45,7 +45,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/lazy.h"
+#include "arrow/util/range.h"
 
 // This file is compiled together with array-*-test.cc into a single
 // executable array-test.

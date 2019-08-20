@@ -23,7 +23,7 @@
 
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
-#include "arrow/util/lazy.h"
+#include "arrow/util/range.h"
 
 namespace arrow {
 

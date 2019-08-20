@@ -15,11 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
-#include "arrow/dataset/dataset.h"
-#include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
-#include "arrow/dataset/file_csv.h"
-#include "arrow/dataset/file_feather.h"
-#include "arrow/dataset/scanner.h"
+
+#include "arrow/filesystem/filesystem.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/io/memory.h"
+
+namespace arrow {
+namespace dataset {
+
+Status FileSource::Open(std::shared_ptr<arrow::io::RandomAccessFile>* out) const {
+  switch (type_) {
+    case PATH:
+      return filesystem_->OpenInputFile(path_, out);
+    case BUFFER:
+      *out = std::make_shared<::arrow::io::BufferReader>(buffer_);
+      return Status::OK();
+  }
+
+  return Status::OK();
+}
+
+Status FileBasedDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
+                                   std::unique_ptr<ScanTaskIterator>* out) {
+  return format_->ScanFile(source_, scan_options_, scan_context, out);
+}
+
+}  // namespace dataset
+}  // namespace arrow
