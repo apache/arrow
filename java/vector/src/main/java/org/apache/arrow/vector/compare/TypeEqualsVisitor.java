@@ -102,15 +102,20 @@ public class TypeEqualsVisitor implements VectorVisitor<Boolean, Void> {
   }
 
   private boolean compareField(Field leftField, Field rightField) {
+
+    if (leftField == rightField) {
+      return true;
+    }
+
     return (!checkName || Objects.equals(leftField.getName(), rightField.getName())) &&
         Objects.equals(leftField.isNullable(), rightField.isNullable()) &&
         Objects.equals(leftField.getType(), rightField.getType()) &&
         Objects.equals(leftField.getDictionary(), rightField.getDictionary()) &&
         (!checkMetadata || Objects.equals(leftField.getMetadata(), rightField.getMetadata())) &&
-        compareChilren(leftField.getChildren(), rightField.getChildren());
+        compareChildren(leftField.getChildren(), rightField.getChildren());
   }
 
-  private boolean compareChilren(List<Field> leftChildren, List<Field> rightChildren) {
+  private boolean compareChildren(List<Field> leftChildren, List<Field> rightChildren) {
     if (leftChildren.size() != rightChildren.size()) {
       return false;
     }

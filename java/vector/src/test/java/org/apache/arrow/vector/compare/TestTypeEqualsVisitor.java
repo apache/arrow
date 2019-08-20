@@ -70,7 +70,7 @@ public class TestTypeEqualsVisitor {
   }
 
   @Test
-  public void testTypeEqualsWithMetadate() {
+  public void testTypeEqualsWithMetadata() {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("key1", "value1");
     FieldType typeWithouMeta = new FieldType(true, new ArrowType.Int(32, true),
