@@ -362,14 +362,37 @@ TEST(TestArrayView, DecimalRoundTrip) {
 }
 
 TEST(TestArrayView, Dictionaries) {
-  // Can't view dictionaries
+  // ARROW-6049
   auto ty1 = dictionary(int8(), float32());
+  auto ty2 = dictionary(int8(), int32());
+
   auto indices = ArrayFromJSON(int8(), "[0, 2, null, 1]");
   auto values = ArrayFromJSON(float32(), "[0.0, 1.5, -2.5]");
-  std::shared_ptr<Array> arr;
+
+  std::shared_ptr<Array> arr, expected, expected_dict;
+  ASSERT_OK(values->View(int32(), &expected_dict));
   ASSERT_OK(DictionaryArray::FromArrays(ty1, indices, values, &arr));
-  CheckViewFails(arr, int8());
-  CheckViewFails(indices, ty1);
+  ASSERT_OK(DictionaryArray::FromArrays(ty2, indices, expected_dict, &expected));
+
+  CheckView(arr, expected);
+  CheckView(expected, arr);
+
+  // Incompatible index type
+  auto ty3 = dictionary(int16(), int32());
+  CheckViewFails(arr, ty3);
+
+  // Incompatible dictionary type
+  auto ty4 = dictionary(int16(), float64());
+  CheckViewFails(arr, ty4);
+
+  // Check dictionary-encoded child
+  auto offsets = ArrayFromJSON(int32(), "[0, 2, 2, 4]");
+  std::shared_ptr<Array> list_arr, expected_list_arr;
+  ASSERT_OK(ListArray::FromArrays(*offsets, *arr, default_memory_pool(), &list_arr));
+  ASSERT_OK(ListArray::FromArrays(*offsets, *expected, default_memory_pool(),
+                                  &expected_list_arr));
+  CheckView(list_arr, expected_list_arr);
+  CheckView(expected_list_arr, list_arr);
 }
 
 TEST(TestArrayView, ExtensionType) {

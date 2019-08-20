@@ -1045,15 +1045,6 @@ struct ViewDataImpl {
     return Status::OK();
   }
 
-  Status CheckInputHasNoDictionaries() {
-    for (const auto& layout : in_layouts) {
-      if (layout.has_dictionary) {
-        return InvalidView("input has dictionary");
-      }
-    }
-    return Status::OK();
-  }
-
   Status CheckInputAtZeroOffset() {
     for (const auto& data : in_data) {
       if (data->offset != 0) {
@@ -1063,17 +1054,27 @@ struct ViewDataImpl {
     return Status::OK();
   }
 
+  Status GetDictionaryView(const DataType& out_type, std::shared_ptr<Array>* out) {
+    if (in_data[in_layout_idx]->type->id() != Type::DICTIONARY) {
+      return InvalidView("Cannot get view as dictionary type");
+    }
+    const auto& dict_out_type = static_cast<const DictionaryType&>(out_type);
+    return in_data[in_layout_idx]->dictionary->View(dict_out_type.value_type(), out);
+  }
+
   Status MakeDataView(const std::shared_ptr<Field>& out_field,
                       std::shared_ptr<ArrayData>* out) {
     const auto out_type = out_field->type();
     const auto out_layout = out_type->layout();
-    if (out_layout.has_dictionary) {
-      return InvalidView("view type requires dictionary");
-    }
 
     AdjustInputPointer();
     int64_t out_length = in_data_length;
     int64_t out_null_count;
+
+    std::shared_ptr<Array> dictionary;
+    if (out_type->id() == Type::DICTIONARY) {
+      RETURN_NOT_OK(GetDictionaryView(*out_type, &dictionary));
+    }
 
     // No type has a purely empty layout
     DCHECK_GT(out_layout.bit_widths.size(), 0);
@@ -1144,6 +1145,8 @@ struct ViewDataImpl {
 
     std::shared_ptr<ArrayData> out_data =
         ArrayData::Make(out_type, out_length, std::move(out_buffers), out_null_count);
+    out_data->dictionary = dictionary;
+
     // Process children recursively, depth-first
     for (const auto& child_field : out_type->children()) {
       std::shared_ptr<ArrayData> child_data;
@@ -1167,7 +1170,6 @@ Status Array::View(const std::shared_ptr<DataType>& out_type,
   impl.in_data_length = data_->length;
 
   std::shared_ptr<ArrayData> out_data;
-  RETURN_NOT_OK(impl.CheckInputHasNoDictionaries());
   RETURN_NOT_OK(impl.CheckInputAtZeroOffset());
   // Dummy field for output type
   auto out_field = field("", out_type);
