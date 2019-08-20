@@ -156,26 +156,6 @@ from pyarrow.ipc import (Message, MessageReader,
 import pyarrow.ipc as ipc
 
 
-def open_stream(source):
-    """
-    pyarrow.open_stream deprecated since 0.12, use pyarrow.ipc.open_stream
-    """
-    import warnings
-    warnings.warn("pyarrow.open_stream is deprecated, please use "
-                  "pyarrow.ipc.open_stream")
-    return ipc.open_stream(source)
-
-
-def open_file(source):
-    """
-    pyarrow.open_file deprecated since 0.12, use pyarrow.ipc.open_file
-    """
-    import warnings
-    warnings.warn("pyarrow.open_file is deprecated, please use "
-                  "pyarrow.ipc.open_file")
-    return ipc.open_file(source)
-
-
 localfs = LocalFileSystem.get_instance()
 
 from pyarrow.serialization import (default_serialization_context,
