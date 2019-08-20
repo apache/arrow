@@ -20,7 +20,7 @@
 //! These kernels can leverage SIMD if available on your system.  Currently no runtime
 //! detection is provided, you should enable the specific SIMD intrinsics using
 //! `RUSTFLAGS="-C target-feature=+avx2"` for example.  See the documentation
-//! [here] (https://doc.rust-lang.org/stable/std/arch/) for more information.
+//! [here](https://doc.rust-lang.org/stable/core/arch/) for more information.
 
 use std::mem;
 use std::ops::{Add, Div, Mul, Sub};
@@ -125,7 +125,7 @@ where
 }
 
 /// SIMD vectorized version of `divide`, the divide kernel needs it's own implementation as there
-/// is a need to handle situations where a divide by `0` occurs.  This is complicated by `NULl`
+/// is a need to handle situations where a divide by `0` occurs.  This is complicated by `NULL`
 /// slots and padding.
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 fn simd_divide<T>(
@@ -135,10 +135,6 @@ fn simd_divide<T>(
 where
     T: datatypes::ArrowNumericType,
     T::Native: One + Zero,
-    T::Simd: Add<Output = T::Simd>
-        + Sub<Output = T::Simd>
-        + Mul<Output = T::Simd>
-        + Div<Output = T::Simd>,
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
