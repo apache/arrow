@@ -28,6 +28,11 @@
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"
+#include "parquet/thrift.h"
+
+#include "arrow/util/string_view.h"
+
+using arrow::util::string_view;
 
 namespace parquet {
 
@@ -153,27 +158,29 @@ class PARQUET_EXPORT PageLocation{
 };
 
 class PARQUET_EXPORT ColumnIndex{
-  std::vector<bool> null_pages;
-  std::vector <Type> min_values;
-  std::vector <Type> max_values;
-  BoundaryOrder boundary_order;
-  std::vector<int64_t> null_counts;
+  public:	
+    std::vector<bool> null_pages;
+    std::vector <Type> min_values;
+    std::vector <Type> max_values;
+    BoundaryOrder boundary_order;
+    std::vector<int64_t> null_counts;
+    template <class T>
+    T read(T TProtocol);
 };
 
 class PARQUET_EXPORT OffsetIndex{
   std::vector<PageLocation> page_locations;
 };
 
-void DeserializeColumnIndex(const ColumnChunk& col_chunk, ColumnIndex* column_index) {
-  if (page_index_buffer_.buffer() == nullptr) {
-      std::cout<< "No page index for file " <<  scanner_->filename();
-  }
-
-  int64_t buffer_offset = col_chunk.column_index_offset - column_index_base_offset_;
-  uint32_t length = col_chunk.column_index_length;
-  DCHECK_GE(buffer_offset, 0);
-  DCHECK_LE(buffer_offset + length, column_index_size_);
-  DeserializeThriftMsg(page_index_buffer_.buffer() + buffer_offset, &length, column_index);
+void DeserializeColumnIndex(const ColumnChunkMetaData& col_chunk, ColumnIndex* column_index) {
+  int64_t ci_start = std::numeric_limits<int64_t>::max(); 
+  int64_t ci_end = std::numeric_limits<int64_t>::max();
+  string_view page_buffer;
+  ci_start = std::min(ci_start,col_chunk.column_index_offset());
+  ci_end = std::max(ci_end,col_chunk.offset_index_offset());
+  int8_t buffer_offset = col_chunk.column_index_offset() - ci_start;
+  uint32_t length = col_chunk.column_index_length();
+  DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(page_buffer.data()), &length, column_index);
 }
 
 class PARQUET_EXPORT RowGroupMetaData {
