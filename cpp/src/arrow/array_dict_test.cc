@@ -792,10 +792,10 @@ TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
   const auto& decimal_type = arrow::decimal(21, 0);
 
   // Build the dictionary Array
-  DictionaryBuilder<FixedSizeBinaryType> builder(decimal_type);
+  DictionaryBuilder<FixedSizeBinaryType> dict_builder(decimal_type);
 
   // Build expected data
-  FixedSizeBinaryBuilder fsb_builder(decimal_type);
+  Decimal128Builder decimal_builder(decimal_type);
   Int16Builder int_builder;
 
   // Fill with 1024 different values
@@ -816,29 +816,29 @@ TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
                              12,
                              static_cast<uint8_t>(i / 128),
                              static_cast<uint8_t>(i % 128)};
-    ASSERT_OK(builder.Append(bytes));
-    ASSERT_OK(fsb_builder.Append(bytes));
+    ASSERT_OK(dict_builder.Append(bytes));
+    ASSERT_OK(decimal_builder.Append(bytes));
     ASSERT_OK(int_builder.Append(static_cast<uint16_t>(i)));
   }
   // Fill with an already existing value
   const uint8_t known_value[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 12, 0, 1};
   for (int64_t i = 0; i < 1024; i++) {
-    ASSERT_OK(builder.Append(known_value));
+    ASSERT_OK(dict_builder.Append(known_value));
     ASSERT_OK(int_builder.Append(1));
   }
 
   // Finalize result
   std::shared_ptr<Array> result;
-  ASSERT_OK(builder.Finish(&result));
+  ASSERT_OK(dict_builder.Finish(&result));
 
   // Finalize expected data
-  std::shared_ptr<Array> fsb_array;
-  ASSERT_OK(fsb_builder.Finish(&fsb_array));
+  std::shared_ptr<Array> decimal_array;
+  ASSERT_OK(decimal_builder.Finish(&decimal_array));
 
   std::shared_ptr<Array> int_array;
   ASSERT_OK(int_builder.Finish(&int_array));
 
-  DictionaryArray expected(dictionary(int16(), decimal_type), int_array, fsb_array);
+  DictionaryArray expected(dictionary(int16(), decimal_type), int_array, decimal_array);
   ASSERT_TRUE(expected.Equals(result));
 }
 

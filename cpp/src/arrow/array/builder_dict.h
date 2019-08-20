@@ -106,28 +106,24 @@ class DictionaryBuilderBase : public ArrayBuilder {
       typename std::enable_if<!std::is_base_of<FixedSizeBinaryType, T1>::value,
                               const std::shared_ptr<DataType>&>::type value_type,
       MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(dictionary(int8(), value_type), pool),
+      : ArrayBuilder(pool),
         memo_table_(new internal::DictionaryMemoTable(value_type)),
         delta_offset_(0),
         byte_width_(-1),
         indices_builder_(pool),
-        value_type_(value_type) {
-    ChildBuilder(&indices_builder_);
-  }
+        value_type_(value_type) {}
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
       typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T1>::value,
                               const std::shared_ptr<DataType>&>::type value_type,
       MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(dictionary(int8(), value_type), pool),
+      : ArrayBuilder(pool),
         memo_table_(new internal::DictionaryMemoTable(value_type)),
         delta_offset_(0),
         byte_width_(static_cast<const T1&>(*value_type).byte_width()),
         indices_builder_(pool),
-        value_type_(value_type) {
-    ChildBuilder(&indices_builder_);
-  }
+        value_type_(value_type) {}
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
@@ -137,14 +133,12 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
                         MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(arrow::dictionary(int8(), dictionary->type()), pool),
+      : ArrayBuilder(pool),
         memo_table_(new internal::DictionaryMemoTable(dictionary)),
         delta_offset_(0),
         byte_width_(-1),
         indices_builder_(pool),
-        value_type_(dictionary->type()) {
-    ChildBuilder(&indices_builder_);
-  }
+        value_type_(dictionary->type()) {}
 
   ~DictionaryBuilderBase() override = default;
 
@@ -267,7 +261,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
         memo_table_->GetArrayData(pool_, delta_offset_, &dictionary_data));
 
     // Set type of array data to the right dictionary type
-    (*out)->type = dictionary((*out)->type, value_type_);
+    (*out)->type = type();
     (*out)->dictionary = MakeArray(dictionary_data);
 
     // Update internals for further uses of this DictionaryBuilder
@@ -286,6 +280,10 @@ class DictionaryBuilderBase : public ArrayBuilder {
   /// is the dictionary builder in the delta building mode
   bool is_building_delta() { return delta_offset_ > 0; }
 
+  std::shared_ptr<DataType> type() const override {
+    return ::arrow::dictionary(indices_builder_.type(), value_type_);
+  }
+
  protected:
   std::unique_ptr<DictionaryMemoTable> memo_table_;
 
@@ -302,14 +300,14 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
  public:
   DictionaryBuilderBase(const std::shared_ptr<DataType>& value_type,
                         MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(value_type, pool), indices_builder_(pool) {}
+      : ArrayBuilder(pool), indices_builder_(pool) {}
 
   explicit DictionaryBuilderBase(MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(null(), pool), indices_builder_(pool) {}
+      : ArrayBuilder(pool), indices_builder_(pool) {}
 
   DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
                         MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(dictionary->type(), pool), indices_builder_(pool) {}
+      : ArrayBuilder(pool), indices_builder_(pool) {}
 
   /// \brief Append a scalar null value
   Status AppendNull() final {
@@ -357,6 +355,10 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
 
   Status Finish(std::shared_ptr<DictionaryArray>* out) { return FinishTyped(out); }
 
+  std::shared_ptr<DataType> type() const override {
+    return ::arrow::dictionary(indices_builder_.type(), null());
+  }
+
  protected:
   BuilderType indices_builder_;
 };
@@ -381,14 +383,6 @@ class DictionaryBuilder : public internal::DictionaryBuilderBase<AdaptiveIntBuil
     this->length_ += length;
     this->null_count_ += this->indices_builder_.null_count() - null_count_before;
     return Status::OK();
-  }
-
- protected:
-  void UpdateType() override {
-    this->type_ =
-        dictionary(this->indices_builder_.type(), this->value_type_,
-                   internal::checked_cast<const DictionaryType&>(*this->type_).ordered());
-    this->UpdateParentType();
   }
 };
 

@@ -119,6 +119,8 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
+  std::shared_ptr<DataType> type() const override;
+
  protected:
   Status CommitPendingData() override;
   Status ExpandIntSize(uint8_t new_int_size);
@@ -129,11 +131,9 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
   template <typename new_type, typename old_type>
   typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
   ExpandIntSizeInternal();
-#define __LESS(a, b) (a) < (b)
   template <typename new_type, typename old_type>
-  typename std::enable_if<__LESS(sizeof(old_type), sizeof(new_type)), Status>::type
+  typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
   ExpandIntSizeInternal();
-#undef __LESS
 
   template <typename new_type>
   Status ExpandIntSizeN();
@@ -174,6 +174,8 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
+  std::shared_ptr<DataType> type() const override;
+
  protected:
   Status CommitPendingData() override;
   Status ExpandIntSize(uint8_t new_int_size);
@@ -184,11 +186,9 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
   template <typename new_type, typename old_type>
   typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
   ExpandIntSizeInternal();
-#define __LESS(a, b) (a) < (b)
   template <typename new_type, typename old_type>
-  typename std::enable_if<__LESS(sizeof(old_type), sizeof(new_type)), Status>::type
+  typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
   ExpandIntSizeInternal();
-#undef __LESS
 
   template <typename new_type>
   Status ExpandIntSizeN();

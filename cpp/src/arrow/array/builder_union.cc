@@ -26,15 +26,14 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 Status BasicUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> types, null_bitmap;
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
   RETURN_NOT_OK(types_builder_.Finish(&types));
 
-  // If the type has not been specified in the constructor, gather type_codes
-  auto type_codes = checked_cast<const UnionType&>(*type_).type_codes();
-  DCHECK_EQ(type_codes.size(), children_.size());
+  DCHECK_EQ(type_->type_codes().size(), children_.size());
 
   std::vector<std::shared_ptr<ArrayData>> child_data(children_.size());
   for (size_t i = 0; i < children_.size(); ++i) {
@@ -50,56 +49,42 @@ BasicUnionBuilder::BasicUnionBuilder(
     MemoryPool* pool, UnionMode::type mode,
     const std::vector<std::shared_ptr<ArrayBuilder>>& children,
     const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(type, pool), mode_(mode), types_builder_(pool) {
-  auto union_type = checked_cast<const UnionType*>(type.get());
-  DCHECK_NE(union_type, nullptr);
-  DCHECK_EQ(union_type->mode(), mode);
+    : ArrayBuilder(pool),
+      type_(checked_pointer_cast<UnionType>(type)),
+      types_builder_(pool) {
+  DCHECK_NE(type_, nullptr);
+  DCHECK_EQ(type_->mode(), mode);
 
   children_ = children;
-  for (const auto& child : children_) {
-    ChildBuilder(child.get());
-  }
-  type_id_to_children_.resize(union_type->max_type_code() + 1, nullptr);
-  DCHECK_LT(type_id_to_children_.size(),
-            static_cast<decltype(type_id_to_children_)::size_type>(
-                std::numeric_limits<int8_t>::max()));
+  type_id_to_children_.resize(type_->max_type_code() + 1, nullptr);
+  DCHECK_LT(type_id_to_children_.size(), std::numeric_limits<int8_t>::max());
 
-  auto field_it = type->children().begin();
   auto children_it = children.begin();
-  for (auto type_id : union_type->type_codes()) {
-    type_id_to_children_[type_id] = *children_it++;
-    field_names_.push_back((*field_it++)->name());
+  for (auto type_id : type_->type_codes()) {
+    type_id_to_children_[type_id] = children_it->get();
+    ++children_it;
   }
   DCHECK_EQ(children_it, children.end());
-  DCHECK_EQ(field_it, type->children().end());
 }
 
-void BasicUnionBuilder::UpdateType() {
-  auto fields = type_->children();
-  for (int i = 0; i < type_->num_children(); ++i) {
-    fields[i] = fields[i]->WithType(children_[i]->type());
-  }
-  auto type_codes = internal::checked_cast<const UnionType&>(*type_).type_codes();
-  type_ = union_(std::move(fields), std::move(type_codes), mode_);
-  UpdateParentType();
-}
+BasicUnionBuilder::BasicUnionBuilder(MemoryPool* pool, UnionMode::type mode)
+    : BasicUnionBuilder(pool, mode, {}, union_({}, mode)) {}
 
 int8_t BasicUnionBuilder::AppendChild(const std::shared_ptr<ArrayBuilder>& new_child,
                                       const std::string& field_name) {
   children_.push_back(new_child);
-  ChildBuilder(new_child.get());
 
   auto new_type_id = NextTypeId();
-  type_id_to_children_[new_type_id] = new_child;
+  type_id_to_children_[new_type_id] = new_child.get();
 
   auto fields = type_->children();
   fields.push_back(field(field_name, new_child->type()));
 
-  auto type_codes = checked_cast<const UnionType&>(*type_).type_codes();
+  auto type_codes = type_->type_codes();
   type_codes.push_back(static_cast<uint8_t>(new_type_id));
 
-  type_ = union_(std::move(fields), std::move(type_codes), mode_);
-  UpdateParentType();
+  type_ = checked_pointer_cast<UnionType>(
+      union_(std::move(fields), std::move(type_codes), type_->mode()));
   return new_type_id;
 }
 

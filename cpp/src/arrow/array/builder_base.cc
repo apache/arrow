@@ -34,10 +34,6 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
-ArrayBuilder::ArrayBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-    : type_(type), pool_(pool), null_bitmap_builder_(pool) {
-  DCHECK_NE(type_, nullptr);
-}
 
 Status ArrayBuilder::TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer) {
   if (buffer) {

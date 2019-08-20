@@ -37,7 +37,7 @@ using internal::AdaptiveIntBuilderBase;
 
 AdaptiveIntBuilderBase::AdaptiveIntBuilderBase(const std::shared_ptr<DataType>& type,
                                                MemoryPool* pool)
-    : ArrayBuilder(type, pool) {}
+    : ArrayBuilder(pool) {}
 
 void AdaptiveIntBuilderBase::Reset() {
   ArrayBuilder::Reset();
@@ -62,6 +62,38 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
   return ArrayBuilder::Resize(capacity);
 }
 
+std::shared_ptr<DataType> AdaptiveUIntBuilder::type() const {
+  switch (int_size_) {
+    case 1:
+      return uint8();
+    case 2:
+      return uint16();
+    case 4:
+      return uint32();
+    case 8:
+      return uint64();
+    default:
+      DCHECK(false);
+  }
+  return nullptr;
+}
+
+std::shared_ptr<DataType> AdaptiveIntBuilder::type() const {
+  switch (int_size_) {
+    case 1:
+      return int8();
+    case 2:
+      return int16();
+    case 4:
+      return int32();
+    case 8:
+      return int64();
+    default:
+      DCHECK(false);
+  }
+  return nullptr;
+}
+
 AdaptiveIntBuilder::AdaptiveIntBuilder(MemoryPool* pool)
     : AdaptiveIntBuilderBase(int8(), pool) {}
 
@@ -72,7 +104,7 @@ Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
   RETURN_NOT_OK(TrimBuffer(length_ * int_size_, data_.get()));
 
-  *out = ArrayData::Make(type_, length_, {null_bitmap, data_}, null_count_);
+  *out = ArrayData::Make(type(), length_, {null_bitmap, data_}, null_count_);
 
   data_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
@@ -116,7 +148,6 @@ Status AdaptiveIntBuilder::AppendValuesInternal(const int64_t* values, int64_t l
     if (new_int_size > int_size_) {
       // This updates int_size_
       RETURN_NOT_OK(ExpandIntSize(new_int_size));
-      UpdateParentType();
     }
 
     switch (int_size_) {
@@ -178,9 +209,8 @@ AdaptiveIntBuilder::ExpandIntSizeInternal() {
   return Status::OK();
 }
 
-#define __LESS(a, b) (a) < (b)
 template <typename new_type, typename old_type>
-typename std::enable_if<__LESS(sizeof(old_type), sizeof(new_type)), Status>::type
+typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
 AdaptiveIntBuilder::ExpandIntSizeInternal() {
   int_size_ = sizeof(new_type);
   expand_int_size_mask_ = internal::ExpandIntSizeMask<sizeof(new_type)>();
@@ -196,7 +226,6 @@ AdaptiveIntBuilder::ExpandIntSizeInternal() {
 
   return Status::OK();
 }
-#undef __LESS
 
 template <typename new_type>
 Status AdaptiveIntBuilder::ExpandIntSizeN() {
@@ -222,25 +251,16 @@ Status AdaptiveIntBuilder::ExpandIntSizeN() {
 Status AdaptiveIntBuilder::ExpandIntSize(uint8_t new_int_size) {
   switch (new_int_size) {
     case 1:
-      RETURN_NOT_OK((ExpandIntSizeN<int8_t>()));
-      type_ = int8();
-      break;
+      return ExpandIntSizeN<int8_t>();
     case 2:
-      RETURN_NOT_OK((ExpandIntSizeN<int16_t>()));
-      type_ = int16();
-      break;
+      return ExpandIntSizeN<int16_t>();
     case 4:
-      RETURN_NOT_OK((ExpandIntSizeN<int32_t>()));
-      type_ = int32();
-      break;
+      return ExpandIntSizeN<int32_t>();
     case 8:
-      RETURN_NOT_OK((ExpandIntSizeN<int64_t>()));
-      type_ = int64();
-      break;
+      return ExpandIntSizeN<int64_t>();
     default:
       DCHECK(false);
   }
-  UpdateParentType();
   return Status::OK();
 }
 
@@ -254,7 +274,7 @@ Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
   RETURN_NOT_OK(TrimBuffer(length_ * int_size_, data_.get()));
 
-  *out = ArrayData::Make(type_, length_, {null_bitmap, data_}, null_count_);
+  *out = ArrayData::Make(type(), length_, {null_bitmap, data_}, null_count_);
 
   data_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
@@ -282,7 +302,6 @@ Status AdaptiveUIntBuilder::AppendValuesInternal(const uint64_t* values, int64_t
     if (new_int_size > int_size_) {
       // This updates int_size_
       RETURN_NOT_OK(ExpandIntSize(new_int_size));
-      UpdateParentType();
     }
 
     switch (int_size_) {
@@ -333,7 +352,7 @@ AdaptiveUIntBuilder::ExpandIntSizeInternal() {
 
 #define __LESS(a, b) (a) < (b)
 template <typename new_type, typename old_type>
-typename std::enable_if<__LESS(sizeof(old_type), sizeof(new_type)), Status>::type
+typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
 AdaptiveUIntBuilder::ExpandIntSizeInternal() {
   int_size_ = sizeof(new_type);
   expand_int_size_mask_ = internal::ExpandIntSizeMask<sizeof(new_type)>();
@@ -353,17 +372,13 @@ template <typename new_type>
 Status AdaptiveUIntBuilder::ExpandIntSizeN() {
   switch (int_size_) {
     case 1:
-      RETURN_NOT_OK((ExpandIntSizeInternal<new_type, uint8_t>()));
-      break;
+      return ExpandIntSizeInternal<new_type, uint8_t>();
     case 2:
-      RETURN_NOT_OK((ExpandIntSizeInternal<new_type, uint16_t>()));
-      break;
+      return ExpandIntSizeInternal<new_type, uint16_t>();
     case 4:
-      RETURN_NOT_OK((ExpandIntSizeInternal<new_type, uint32_t>()));
-      break;
+      return ExpandIntSizeInternal<new_type, uint32_t>();
     case 8:
-      RETURN_NOT_OK((ExpandIntSizeInternal<new_type, uint64_t>()));
-      break;
+      return ExpandIntSizeInternal<new_type, uint64_t>();
     default:
       DCHECK(false);
   }
@@ -373,25 +388,16 @@ Status AdaptiveUIntBuilder::ExpandIntSizeN() {
 Status AdaptiveUIntBuilder::ExpandIntSize(uint8_t new_int_size) {
   switch (new_int_size) {
     case 1:
-      RETURN_NOT_OK((ExpandIntSizeN<uint8_t>()));
-      type_ = uint8();
-      break;
+      return ExpandIntSizeN<uint8_t>();
     case 2:
-      RETURN_NOT_OK((ExpandIntSizeN<uint16_t>()));
-      type_ = uint16();
-      break;
+      return ExpandIntSizeN<uint16_t>();
     case 4:
-      RETURN_NOT_OK((ExpandIntSizeN<uint32_t>()));
-      type_ = uint32();
-      break;
+      return ExpandIntSizeN<uint32_t>();
     case 8:
-      RETURN_NOT_OK((ExpandIntSizeN<uint64_t>()));
-      type_ = uint64();
-      break;
+      return ExpandIntSizeN<uint64_t>();
     default:
       DCHECK(false);
   }
-  UpdateParentType();
   return Status::OK();
 }
 

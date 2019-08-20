@@ -493,6 +493,17 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
   ASSERT_EQ(0, builder->null_count());
 }
 
+TEST(TestPrimitiveAdHoc, TestType) {
+  Int8Builder i8(default_memory_pool());
+  ASSERT_TRUE(i8.type()->Equals(int8()));
+
+  DictionaryBuilder<Int8Type> d_i8(utf8());
+  ASSERT_TRUE(d_i8.type()->Equals(dictionary(int8(), utf8())));
+
+  Dictionary32Builder<Int8Type> d32_i8(utf8());
+  ASSERT_TRUE(d32_i8.type()->Equals(dictionary(int32(), utf8())));
+}
+
 TEST(NumericBuilderAccessors, TestSettersGetters) {
   int64_t datum = 42;
   int64_t new_datum = 43;
