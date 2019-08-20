@@ -42,6 +42,8 @@ public class ArrowStreamReader extends ArrowReader {
 
   private MessageChannelReader messageReader;
 
+  private int loadedDictionaryCount;
+
   /**
    * Constructs a streaming reader using a MessageChannelReader. Non-blocking.
    *
@@ -124,6 +126,7 @@ public class ArrowStreamReader extends ArrowReader {
       // if it's dictionary message, read dictionary message out and continue to read unless get a batch or eos.
       ArrowDictionaryBatch dictionaryBatch = readDictionary(result);
       loadDictionary(dictionaryBatch);
+      loadedDictionaryCount++;
       return loadNextBatch();
     } else {
       throw new IOException("Expected RecordBatch or DictionaryBatch but header was " +
@@ -135,6 +138,10 @@ public class ArrowStreamReader extends ArrowReader {
    * When read a record batch, check whether its dictionaries are available.
    */
   private void checkDictionaries() throws IOException {
+    // if all dictionaries are loaded, return.
+    if (loadedDictionaryCount == dictionaries.size()) {
+      return;
+    }
     for (FieldVector vector : getVectorSchemaRoot().getFieldVectors()) {
       DictionaryEncoding encoding =  vector.getField().getDictionary();
       if (encoding != null) {
