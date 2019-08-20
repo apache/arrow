@@ -164,10 +164,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     bool has_page_index = HasPageIndex((reinterpret_cast<ColumnChunkMetaData*>(col.get())));
 
     if (has_page_index) {
-        ColumnIndex* col_index;
-        OffsetIndex* offset_index;
-        DeserializeColumnIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),col_index);
-        DeserializeOffsetIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),offset_index);
+        ColumnIndex col_index;
+        OffsetIndex offset_index;
+        DeserializeColumnIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&col_index);
+        DeserializeOffsetIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&offset_index);
         SkipPages(4340114);
     }
 

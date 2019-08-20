@@ -157,7 +157,7 @@ class PARQUET_EXPORT PageLocation{
   int64_t first_row_index;
 };
 
-class PARQUET_EXPORT ColumnIndex{
+class PARQUET_EXPORT ColumnIndex : format::PageHeader{
   public:
     static std::unique_ptr<ColumnIndex> Make(
       std::vector<bool> null_pages,
@@ -165,16 +165,14 @@ class PARQUET_EXPORT ColumnIndex{
       std::vector <Type> max_values,
       BoundaryOrder boundary_order,
       std::vector<int64_t> null_counts);
-    template <class T>
-    T read(T TProtocol);
+    uint32_t read(apache::thrift::protocol::TProtocol* tp)  { return parquet::format::PageHeader::read(tp); }
 };
 
-class PARQUET_EXPORT OffsetIndex{
+class PARQUET_EXPORT OffsetIndex : format::PageHeader{
   public:
     static std::unique_ptr<OffsetIndex>  Make(
       std::vector<PageLocation> page_locations);
-    template <class T>
-    T read(T TProtocol);
+    uint32_t read(apache::thrift::protocol::TProtocol* tp) { return parquet::format::PageHeader::read(tp); }
 };
 
 
