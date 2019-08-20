@@ -174,7 +174,7 @@ def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size):
     assert arrow_table.schema.metadata == table_read.schema.metadata
 
     df_read = table_read.to_pandas()
-    tm.assert_frame_equal(df, df_read, check_categorical=False)
+    tm.assert_frame_equal(df, df_read)
 
 
 def test_set_data_page_size():

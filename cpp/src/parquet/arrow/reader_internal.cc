@@ -597,6 +597,30 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
   return Status::OK();
 }
 
+Status ApplyOriginalMetadata(std::shared_ptr<Field> field, const Field& origin_field,
+                             std::shared_ptr<Field>* out) {
+  auto origin_type = origin_field.type();
+  if (field->type()->id() == ::arrow::Type::TIMESTAMP) {
+    // Restore time zone, if any
+    const auto& ts_type = static_cast<const ::arrow::TimestampType&>(*field->type());
+    const auto& ts_origin_type = static_cast<const ::arrow::TimestampType&>(*origin_type);
+
+    // If the unit is the same and the data is tz-aware, then set the original
+    // time zone, since Parquet has no native storage for timezones
+    if (ts_type.unit() == ts_origin_type.unit() && ts_type.timezone() == "UTC" &&
+        ts_origin_type.timezone() != "") {
+      field = field->WithType(origin_type);
+    }
+  }
+  if (origin_type->id() == ::arrow::Type::DICTIONARY &&
+      field->type()->id() != ::arrow::Type::DICTIONARY &&
+      IsDictionaryReadSupported(*field->type())) {
+    field = field->WithType(::arrow::dictionary(::arrow::int32(), field->type()));
+  }
+  *out = field;
+  return Status::OK();
+}
+
 Status BuildSchemaManifest(const SchemaDescriptor* schema,
                            const std::shared_ptr<const KeyValueMetadata>& metadata,
                            const ArrowReaderProperties& properties,
@@ -625,15 +649,8 @@ Status BuildSchemaManifest(const SchemaDescriptor* schema,
       continue;
     }
     auto origin_field = manifest->origin_schema->field(i);
-    auto current_type = out_field->field->type();
-    if (origin_field->type()->id() != ::arrow::Type::DICTIONARY) {
-      continue;
-    }
-    if (current_type->id() != ::arrow::Type::DICTIONARY &&
-        IsDictionaryReadSupported(*current_type)) {
-      out_field->field =
-          out_field->field->WithType(::arrow::dictionary(::arrow::int32(), current_type));
-    }
+    RETURN_NOT_OK(
+        ApplyOriginalMetadata(out_field->field, *origin_field, &out_field->field));
   }
   return Status::OK();
 }
