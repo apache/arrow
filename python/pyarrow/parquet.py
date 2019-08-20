@@ -27,7 +27,6 @@ import numpy as np
 import os
 import re
 import six
-import warnings
 
 import pyarrow as pa
 import pyarrow.lib as lib
@@ -1288,8 +1287,7 @@ def _mkdir_if_not_exists(fs, path):
 
 
 def write_to_dataset(table, root_path, partition_cols=None,
-                     partition_filename_cb=None, filesystem=None,
-                     preserve_index=None, **kwargs):
+                     partition_filename_cb=None, filesystem=None, **kwargs):
     """Wrapper around parquet.write_table for writing a Table to
     Parquet format by partitions.
     For each combination of partition columns and values,
@@ -1329,10 +1327,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
         dataset pieces. See docstring for `write_table` or
         `ParquetWriter` for more information.
     """
-    if preserve_index is not None:
-        warnings.warn('preserve_index argument is deprecated as of 0.13.0 and '
-                      'has no effect', DeprecationWarning)
-
     fs, root_path = _get_filesystem_and_path(filesystem, root_path)
 
     _mkdir_if_not_exists(fs, root_path)
