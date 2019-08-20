@@ -46,7 +46,9 @@
 #' column names and will not be included in the data frame. (Note that `FALSE`
 #' is not currently supported.) Alternatively, you can specify a character
 #' vector of column names.
-#' @param col_select A [tidy selection specification][tidyselect::vars_select]
+#' @param col_select A character vector of column names to keep, as in the
+#' "select" argument to `data.table::fread()`, or a
+#' [tidy selection specification][tidyselect::vars_select()]
 #' of columns, as used in `dplyr::select()`.
 #' @param skip_empty_rows Should blank rows be ignored altogether? If
 #' `TRUE`, blank rows will not be represented at all. If `FALSE`, they will be
