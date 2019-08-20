@@ -18,6 +18,8 @@
 #include "gtest/gtest.h"
 
 #include <memory>
+#include <sstream>
+#include <string>
 
 #include "arrow/python/platform.h"
 
@@ -80,15 +82,25 @@ TEST(OwnedRefNoGIL, TestMoves) {
   }
 }
 
+std::string FormatPythonException(const std::string& exc_class_name) {
+  std::stringstream ss;
+  ss << "Python exception: ";
+#if PY_MAJOR_VERSION < 3
+  ss << "exceptions.";
+#endif
+  ss << exc_class_name;
+  return ss.str();
+}
+
 TEST(CheckPyError, TestStatus) {
   Status st;
 
   auto check_error = [](Status& st, const char* expected_message = "some error",
-                        const char* expected_detail = nullptr) {
+                        std::string expected_detail = "") {
     st = CheckPyError();
     ASSERT_EQ(st.message(), expected_message);
     ASSERT_FALSE(PyErr_Occurred());
-    if (expected_detail) {
+    if (expected_detail.size() > 0) {
       auto detail = st.detail();
       ASSERT_NE(detail, nullptr);
       ASSERT_EQ(detail->ToString(), expected_detail);
@@ -102,7 +114,7 @@ TEST(CheckPyError, TestStatus) {
   }
 
   PyErr_SetString(PyExc_TypeError, "some error");
-  check_error(st, "some error", "Python exception: TypeError");
+  check_error(st, "some error", FormatPythonException("TypeError"));
   ASSERT_TRUE(st.IsTypeError());
 
   PyErr_SetString(PyExc_ValueError, "some error");
@@ -120,7 +132,7 @@ TEST(CheckPyError, TestStatus) {
   }
 
   PyErr_SetString(PyExc_NotImplementedError, "some error");
-  check_error(st, "some error", "Python exception: NotImplementedError");
+  check_error(st, "some error", FormatPythonException("NotImplementedError"));
   ASSERT_TRUE(st.IsNotImplemented());
 
   // No override if a specific status code is given
@@ -141,7 +153,7 @@ TEST(CheckPyError, TestStatusNoGIL) {
     lock.release();
     ASSERT_TRUE(st.IsUnknownError());
     ASSERT_EQ(st.message(), "zzzt");
-    ASSERT_EQ(st.detail()->ToString(), "Python exception: ZeroDivisionError");
+    ASSERT_EQ(st.detail()->ToString(), FormatPythonException("ZeroDivisionError"));
   }
 }
 
@@ -151,7 +163,7 @@ TEST(RestorePyError, Basics) {
   ASSERT_FALSE(PyErr_Occurred());
   ASSERT_TRUE(st.IsUnknownError());
   ASSERT_EQ(st.message(), "zzzt");
-  ASSERT_EQ(st.detail()->ToString(), "Python exception: ZeroDivisionError");
+  ASSERT_EQ(st.detail()->ToString(), FormatPythonException("ZeroDivisionError"));
 
   RestorePyError(st);
   ASSERT_TRUE(PyErr_Occurred());
