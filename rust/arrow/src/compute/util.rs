@@ -20,12 +20,16 @@
 use crate::array::*;
 use crate::bitmap::Bitmap;
 use crate::buffer::Buffer;
+use crate::datatypes::*;
 use crate::error::Result;
+use num::{One, Zero};
+use std::cmp::min;
+use std::ops::{Add, Div, Mul, Sub};
 
 /// Applies a given binary operation, `op`, to two references to `Option<Bitmap>`'s.
 ///
 /// This function is useful when implementing operations on higher level arrays.
-pub(crate) fn apply_bin_op_to_option_bitmap<F>(
+pub(super) fn apply_bin_op_to_option_bitmap<F>(
     left: &Option<Bitmap>,
     right: &Option<Bitmap>,
     op: F,
@@ -87,6 +91,67 @@ pub(super) fn take_value_indices_from_list(
     (UInt32Array::from(values), new_offsets)
 }
 
+/// Creates a new SIMD mask, i.e. `packed_simd::m32x16` or similar. that indicates if the
+/// corresponding array slots represented by the mask are 'valid'.  
+///
+/// Lanes of the SIMD mask can be set to 'valid' (`true`) if the corresponding array slot is not
+/// `NULL`, as indicated by it's `Bitmap`, and is within the length of the array.  Lanes outside the
+/// length represent padding and are set to 'invalid' (`false`).
+unsafe fn is_valid<T>(
+    bitmap: &Option<Bitmap>,
+    i: usize,
+    simd_width: usize,
+    array_len: usize,
+) -> T::SimdMask
+where
+    T: ArrowNumericType,
+{
+    let simd_upper_bound = i + simd_width;
+    let mut validity = T::mask_init(true);
+
+    // Validity based on `Bitmap`
+    if let &Some(b) = &bitmap {
+        for j in i..min(array_len, simd_upper_bound) {
+            if !b.is_set(j) {
+                validity = T::mask_set(validity, j - i, false);
+            }
+        }
+    }
+
+    // Validity based on the length of the Array
+    for j in array_len..simd_upper_bound {
+        validity = T::mask_set(validity, j - i, false);
+    }
+
+    validity
+}
+
+/// Performs a SIMD load but sets all 'invalid' lanes to 1.
+///
+/// 'invalid' lanes are lanes where the corresponding array slots are either `NULL` or between the
+/// length and capacity of the array, i.e. in the padded region.
+pub(super) unsafe fn simd_load_without_invalid_zeros<T>(
+    array: &PrimitiveArray<T>,
+    bitmap: &Option<Bitmap>,
+    i: usize,
+    simd_width: usize,
+) -> T::Simd
+where
+    T: ArrowNumericType,
+    T::Native: One + Zero,
+    T::Simd: Add<Output = T::Simd>
+        + Sub<Output = T::Simd>
+        + Mul<Output = T::Simd>
+        + Div<Output = T::Simd>,
+{
+    let simd_with_zeros = T::load(array.value_slice(i, simd_width));
+    T::mask_select(
+        is_valid::<T>(bitmap, i, simd_width, array.len()),
+        simd_with_zeros,
+        T::init(T::Native::one()),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -107,7 +172,7 @@ mod tests {
             apply_bin_op_to_option_bitmap(
                 &Some(Bitmap::from(Buffer::from([0b01101010]))),
                 &None,
-                |a, b| a & b
+                |a, b| a & b,
             )
         );
         assert_eq!(
@@ -115,7 +180,7 @@ mod tests {
             apply_bin_op_to_option_bitmap(
                 &None,
                 &Some(Bitmap::from(Buffer::from([0b01001110]))),
-                |a, b| a & b
+                |a, b| a & b,
             )
         );
         assert_eq!(
@@ -123,7 +188,7 @@ mod tests {
             apply_bin_op_to_option_bitmap(
                 &Some(Bitmap::from(Buffer::from([0b01101010]))),
                 &Some(Bitmap::from(Buffer::from([0b01001110]))),
-                |a, b| a & b
+                |a, b| a & b,
             )
         );
     }
