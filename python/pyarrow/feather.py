@@ -58,19 +58,19 @@ class FeatherReader(ext.FeatherReader):
             use_threads=use_threads)
 
 
-def check_chunked_overflow(col):
+def check_chunked_overflow(name, col):
     if col.num_chunks == 1:
         return
 
     if col.type in (ext.binary(), ext.string()):
         raise ValueError("Column '{0}' exceeds 2GB maximum capacity of "
                          "a Feather binary column. This restriction may be "
-                         "lifted in the future".format(col.name))
+                         "lifted in the future".format(name))
     else:
         # TODO(wesm): Not sure when else this might be reached
         raise ValueError("Column '{0}' of type {1} was chunked on conversion "
                          "to Arrow and cannot be currently written to "
-                         "Feather format".format(col.name, str(col.type)))
+                         "Feather format".format(name, str(col.type)))
 
 
 class FeatherWriter(object):
@@ -93,7 +93,7 @@ class FeatherWriter(object):
             table = Table.from_pandas(df, preserve_index=False)
             for i, name in enumerate(table.schema.names):
                 col = table[i]
-                check_chunked_overflow(col)
+                check_chunked_overflow(name, col)
                 self.writer.write_array(name, col.chunk(0))
 
         self.writer.close()

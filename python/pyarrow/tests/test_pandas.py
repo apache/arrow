@@ -2005,7 +2005,7 @@ class TestConvertStructTypes(object):
         data['x'][data['x'] < 0.2] = np.nan
 
         ty = pa.struct([pa.field('x', pa.float64()),
-                        pa.field('y', pa.binary(bs))])
+                        pa.field('y', pa.binary())])
         arr = pa.array(data, type=ty, from_pandas=True)
         assert arr.num_chunks == 2
 
