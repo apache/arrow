@@ -127,6 +127,28 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   }
 
+  void DeserializeColumnIndex(const ColumnChunkMetaData& col_chunk, ColumnIndex* column_index) {
+    int64_t ci_start = std::numeric_limits<int64_t>::max(); 
+    int64_t ci_end = std::numeric_limits<int64_t>::max();
+    string_view page_buffer;
+    ci_start = std::min(ci_start,col_chunk.column_index_offset());
+    ci_end = std::max(ci_end,col_chunk.offset_index_offset());
+    int8_t buffer_offset = col_chunk.column_index_offset() - ci_start;
+    uint32_t length = col_chunk.column_index_length();
+    DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(page_buffer.data()), &length, column_index);
+  }
+
+  void DeserializeOffsetIndex(const ColumnChunkMetaData& col_chunk, OffsetIndex* offset_index) {
+    int64_t ci_start = std::numeric_limits<int64_t>::max(); 
+    int64_t ci_end = std::numeric_limits<int64_t>::max();
+    string_view page_buffer;
+    ci_start = std::min(ci_start,col_chunk.column_index_offset());
+    ci_end = std::max(ci_end,col_chunk.offset_index_offset());
+    int8_t buffer_offset = col_chunk.column_index_offset() - ci_start;
+    uint32_t length = col_chunk.offset_index_length();
+    DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(page_buffer.data()) + col_chunk.column_index_length(), &length, offset_index);
+  }
+
   std::unique_ptr<PageReader> GetColumnPageReader(int i) override {
     // Read column chunk from the file
     auto col = row_group_metadata_->ColumnChunk(i);
@@ -140,8 +162,12 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     int64_t col_length = col->total_compressed_size();
 
     bool has_page_index = HasPageIndex((reinterpret_cast<ColumnChunkMetaData*>(col.get())));
-   
+
     if (has_page_index) {
+        ColumnIndex* col_index;
+        OffsetIndex* offset_index;
+        DeserializeColumnIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),col_index);
+        DeserializeOffsetIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),offset_index);
         SkipPages(4340114);
     }
 

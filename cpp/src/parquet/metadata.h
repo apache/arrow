@@ -158,30 +158,25 @@ class PARQUET_EXPORT PageLocation{
 };
 
 class PARQUET_EXPORT ColumnIndex{
-  public:	
-    std::vector<bool> null_pages;
-    std::vector <Type> min_values;
-    std::vector <Type> max_values;
-    BoundaryOrder boundary_order;
-    std::vector<int64_t> null_counts;
+  public:
+    static std::unique_ptr<ColumnIndex> Make(
+      std::vector<bool> null_pages,
+      std::vector <Type> min_values,
+      std::vector <Type> max_values,
+      BoundaryOrder boundary_order,
+      std::vector<int64_t> null_counts);
     template <class T>
     T read(T TProtocol);
 };
 
 class PARQUET_EXPORT OffsetIndex{
-  std::vector<PageLocation> page_locations;
+  public:
+    static std::unique_ptr<OffsetIndex>  Make(
+      std::vector<PageLocation> page_locations);
+    template <class T>
+    T read(T TProtocol);
 };
 
-void DeserializeColumnIndex(const ColumnChunkMetaData& col_chunk, ColumnIndex* column_index) {
-  int64_t ci_start = std::numeric_limits<int64_t>::max(); 
-  int64_t ci_end = std::numeric_limits<int64_t>::max();
-  string_view page_buffer;
-  ci_start = std::min(ci_start,col_chunk.column_index_offset());
-  ci_end = std::max(ci_end,col_chunk.offset_index_offset());
-  int8_t buffer_offset = col_chunk.column_index_offset() - ci_start;
-  uint32_t length = col_chunk.column_index_length();
-  DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(page_buffer.data()), &length, column_index);
-}
 
 class PARQUET_EXPORT RowGroupMetaData {
  public:
