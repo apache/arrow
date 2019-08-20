@@ -35,13 +35,13 @@ datafusion = "0.15.0-SNAPSHOT"
 #### Use as a bin
 ##### Build your own bin(requires rust toolchains)
 ```sh
-git clone https://github/apache/arrow
+git clone https://github.com/apache/arrow
 cd arrow/rust/datafusion
 cargo run --bin datafusion-cli
 ```
 ##### Use Dockerfile
 ```sh
-git clone https://github/apache/arrow
+git clone https://github.com/apache/arrow
 cd arrow
 docker build -f rust/datafusion/Dockerfile . --tag datafusion-cli
 docker run -it -v $(your_data_location):/data datafusion-cli

@@ -43,7 +43,7 @@ fn main() {
         Field::new("c8", DataType::UInt16, false),
         Field::new("c9", DataType::UInt32, false),
         Field::new("c10", DataType::UInt64, false),
-        Field::new("c11", DataType::Float32, false),
+        Field::new("c11", DataType::Float64, false),
         Field::new("c12", DataType::Float64, false),
         Field::new("c13", DataType::Utf8, false),
     ]));
