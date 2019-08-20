@@ -544,18 +544,19 @@ public class FixedSizeListVector extends BaseListVector implements FieldVector, 
   }
 
   @Override
-  public int getStartIndex(int index) {
+  public int getElementStartIndex(int index) {
     return listSize * index;
   }
 
   @Override
-  public int getEndIndex(int index) {
+  public int getElementEndIndex(int index) {
     return listSize * (index + 1);
   }
 
   @Override
-  public void setOffsetBufferValueIfNeeded(int index, int value) {
-
+  public void setDataVector(FieldVector dataVector) {
+    vector.clear();
+    this.vector = dataVector;
   }
 
   private class TransferImpl implements TransferPair {

@@ -19,17 +19,15 @@ package org.apache.arrow.vector.dictionary;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BaseIntVector;
-import org.apache.arrow.vector.BitVectorHelper;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.BaseListVector;
-import org.apache.arrow.vector.complex.FixedSizeListVector;
-import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * Sub fields encoder/decoder for Dictionary encoded {@link ListVector} and {@link FixedSizeListVector}.
+ * Sub fields encoder/decoder for Dictionary encoded {@link BaseListVector}.
  */
 public class ListSubfieldEncoder {
 
@@ -47,6 +45,16 @@ public class ListSubfieldEncoder {
     hashTable = new DictionaryHashTable(dictVector.getDataVector());
   }
 
+  private BaseListVector cloneVector(BaseListVector vector) {
+    TransferPair transferPair = vector.getTransferPair(allocator);
+    for (int i = 0; i < vector.getValueCount(); i++) {
+      transferPair.copyValueSafe(i, i);
+    }
+    BaseListVector cloned = (BaseListVector) transferPair.getTo();
+    cloned.setValueCount(vector.getValueCount());
+    return cloned;
+  }
+
   /**
    * Dictionary encodes subfields for complex vector with a provided dictionary.
    * The dictionary must contain all values in the sub fields vector.
@@ -60,21 +68,20 @@ public class ListSubfieldEncoder {
     FieldType indexFieldType = new FieldType(valueField.isNullable(), dictionary.getEncoding().getIndexType(),
         dictionary.getEncoding(), valueField.getMetadata());
 
-    BaseListVector encoded = (BaseListVector) valueField.createVector(allocator);
-    encoded.allocateNewSafe();
-    encoded.setValueCount(valueCount);
-    BaseIntVector indices = (BaseIntVector) encoded.addOrGetVector(indexFieldType).getVector();
+    // create data vector for list vector
+    BaseIntVector indices =
+        (BaseIntVector) indexFieldType.createNewSingleVector("indices", allocator, null);
+    indices.allocateNewSafe();
 
-    // copy validity buffer
-    int validityBufferSize = BitVectorHelper.getValidityBufferSize(valueCount);
-    encoded.getValidityBuffer().setBytes(0, vector.getValidityBuffer(), 0, validityBufferSize);
+    // clone list vector and reset data vector
+    BaseListVector encoded = cloneVector(vector);
+    encoded.setDataVector((FieldVector) indices);
+
     for (int i = 0; i < valueCount; i++) {
       if (!vector.isNull(i)) {
-        int start = vector.getStartIndex(i);
-        int end = vector.getEndIndex(i);
+        int start = vector.getElementStartIndex(i);
+        int end = vector.getElementEndIndex(i);
         ValueVector dataVector = vector.getDataVector();
-
-        encoded.setOffsetBufferValueIfNeeded(i, end);
 
         DictionaryEncoder.buildIndexVector(dataVector, indices, hashTable, start, end);
       }
@@ -93,27 +100,26 @@ public class ListSubfieldEncoder {
     int valueCount = vector.getValueCount();
     BaseListVector dictionaryVector = (BaseListVector) dictionary.getVector();
     int dictionaryValueCount = dictionaryVector.getDataVector().getValueCount();
-    // copy the dictionary values into the decoded vector
 
-    BaseListVector decoded =
-        (BaseListVector) dictionaryVector.getTransferPair(allocator).getTo();
-    decoded.allocateNewSafe();
-    decoded.setValueCount(valueCount);
+    // create data vector
+    ValueVector dataVector = dictionaryVector.getDataVector().getTransferPair(allocator).getTo();
+    dataVector.allocateNewSafe();
 
-    TransferPair transfer = dictionaryVector.getDataVector().makeTransferPair(decoded.getDataVector());
+    // clone list vector and reset data vector
+    BaseListVector decoded = cloneVector(vector);
+    decoded.setDataVector((FieldVector) dataVector);
 
-    BaseIntVector baseIntVector = (BaseIntVector) vector.getDataVector();
-    // copy validity buffer
-    int validityBufferSize = BitVectorHelper.getValidityBufferSize(valueCount);
-    decoded.getValidityBuffer().setBytes(0, vector.getValidityBuffer(), 0, validityBufferSize);
+
+    TransferPair transfer = dictionaryVector.getDataVector().makeTransferPair(dataVector);
+    BaseIntVector indices = (BaseIntVector) vector.getDataVector();
+
     for (int i = 0; i < valueCount; i++) {
 
       if (!vector.isNull(i)) {
-        int start = vector.getStartIndex(i);
-        int end = vector.getEndIndex(i);
-        decoded.setOffsetBufferValueIfNeeded(i, end);
+        int start = vector.getElementStartIndex(i);
+        int end = vector.getElementEndIndex(i);
 
-        DictionaryEncoder.retrieveIndexVector(baseIntVector, transfer, dictionaryValueCount, start, end);
+        DictionaryEncoder.retrieveIndexVector(indices, transfer, dictionaryValueCount, start, end);
       }
     }
     return decoded;

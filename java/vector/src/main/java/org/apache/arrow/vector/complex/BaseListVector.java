@@ -33,12 +33,12 @@ public abstract class BaseListVector extends BaseValueVector implements Promotab
   /**
    * Get data vector start index with the given list index.
    */
-  public abstract int getStartIndex(int index);
+  public abstract int getElementStartIndex(int index);
 
   /**
    * Get data vector end index with the given list index.
    */
-  public abstract int getEndIndex(int index);
+  public abstract int getElementEndIndex(int index);
 
   /**
    * Get the inner data vector for this list vector.
@@ -46,7 +46,7 @@ public abstract class BaseListVector extends BaseValueVector implements Promotab
   public abstract FieldVector getDataVector();
 
   /**
-   * Set offset buffer value at (index + 1) if needed.
+   * Set the inner data vector for this list vector.
    */
-  public abstract void setOffsetBufferValueIfNeeded(int index, int value);
+  public abstract void setDataVector(FieldVector dataVector);
 }

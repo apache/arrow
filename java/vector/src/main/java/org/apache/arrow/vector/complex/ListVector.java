@@ -831,17 +831,18 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   @Override
-  public int getStartIndex(int index) {
+  public int getElementStartIndex(int index) {
     return offsetBuffer.getInt(index * OFFSET_WIDTH);
   }
 
   @Override
-  public int getEndIndex(int index) {
+  public int getElementEndIndex(int index) {
     return offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
   }
 
   @Override
-  public void setOffsetBufferValueIfNeeded(int index, int value) {
-    offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, value);
+  public void setDataVector(FieldVector dataVector) {
+    this.vector.clear();
+    this.vector = dataVector;
   }
 }
