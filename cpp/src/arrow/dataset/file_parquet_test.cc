@@ -20,12 +20,18 @@
 #include <utility>
 
 #include "arrow/dataset/test_util.h"
+#include "arrow/filesystem/localfs.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/io_util.h"
 #include "parquet/arrow/writer.h"
 
 namespace arrow {
 namespace dataset {
+
+using fs::internal::GetAbstractPathExtension;
+using internal::TemporaryDir;
 
 constexpr int64_t kBatchSize = 1UL << 15;
 constexpr int64_t kBatchRepetitions = 1 << 10;
@@ -86,6 +92,85 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   }));
 
   ASSERT_EQ(row_count, kNumRows);
+}
+
+class TestFileSystemBasedDataSource : public FileSourceFixtureMixin {
+ public:
+  void SetUp() override {
+    format_ = std::make_shared<ParquetFileFormat>();
+
+    ASSERT_OK(TemporaryDir::Make("test-fsdatasource-", &temp_dir_));
+    local_fs_ = std::make_shared<fs::LocalFileSystem>();
+
+    auto path = temp_dir_->path().ToString();
+    fs_ = std::make_shared<fs::SubTreeFileSystem>(path, local_fs_);
+
+    CreateEmptyFiles();
+  }
+
+  void CreateFile(std::string path, std::string contents) {
+    auto parent = fs::internal::GetAbstractPathParent(path).first;
+    if (parent != "") {
+      ASSERT_OK(this->fs_->CreateDir(parent, true));
+    }
+    std::shared_ptr<io::OutputStream> file;
+    ASSERT_OK(this->fs_->OpenOutputStream(path, &file));
+    ASSERT_OK(file->Write(contents));
+  }
+
+  void CreateEmptyFiles() {
+    for (auto path : {"a/b/c.parquet", "a/b/c/d.parquet", "a/b.parquet", "a.parquet"}) {
+      CreateFile(path, "");
+    }
+  }
+
+  void MakeDataSource() {
+    ASSERT_OK(FileSystemBasedDataSource::Make(fs_.get(), selector_, format_,
+                                              std::make_shared<ScanOptions>(), &source_));
+  }
+
+ protected:
+  fs::Selector selector_;
+  std::unique_ptr<FileSystemBasedDataSource> source_;
+  std::shared_ptr<fs::LocalFileSystem> local_fs_;
+  std::shared_ptr<fs::FileSystem> fs_;
+  std::unique_ptr<TemporaryDir> temp_dir_;
+  std::shared_ptr<ParquetFileFormat> format_;
+};
+
+TEST_F(TestFileSystemBasedDataSource, NonRecursive) {
+  selector_.base_dir = "/";
+  MakeDataSource();
+
+  int count = 0;
+  ASSERT_OK(source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
+    auto file_fragment = internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
+    ++count;
+    auto extension =
+        fs::internal::GetAbstractPathExtension(file_fragment->source().path());
+    EXPECT_TRUE(format_->IsKnownExtension(extension));
+    return Status::OK();
+  }));
+
+  ASSERT_EQ(count, 1);
+}
+
+TEST_F(TestFileSystemBasedDataSource, Recursive) {
+  selector_.base_dir = "/";
+  selector_.recursive = true;
+  MakeDataSource();
+
+  int count = 0;
+  ASSERT_OK(source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
+    auto file_fragment = internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
+    ++count;
+    auto extension =
+        fs::internal::GetAbstractPathExtension(file_fragment->source().path());
+    EXPECT_TRUE(format_->IsKnownExtension(extension));
+    return Status::OK();
+  }));
+
+  ASSERT_EQ(count, 4);
 }
 
 }  // namespace dataset

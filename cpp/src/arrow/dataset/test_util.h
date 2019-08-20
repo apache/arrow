@@ -183,5 +183,40 @@ std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
   return internal::make_unique<GeneratedRecordBatch<Gen>>(schema, std::forward<Gen>(gen));
 }
 
+/// \brief A dummy FileFormat implementation
+class DummyFileFormat : public FileFormat {
+ public:
+  std::string name() const override { return "dummy"; }
+
+  /// \brief Return true if the given file extension
+  bool IsKnownExtension(const std::string& ext) const override { return ext == name(); }
+
+  /// \brief Open a file for scanning (always returns an empty iterator)
+  Status ScanFile(const FileSource& source, std::shared_ptr<ScanOptions> scan_options,
+                  std::shared_ptr<ScanContext> scan_context,
+                  std::unique_ptr<ScanTaskIterator>* out) const override {
+    *out = internal::make_unique<EmptyIterator<std::unique_ptr<ScanTask>>>();
+    return Status::OK();
+  }
+
+  Status MakeFragment(const FileSource& location, std::shared_ptr<ScanOptions> opts,
+                      std::unique_ptr<FileBasedDataFragment>* out) override;
+};
+
+class DummyFragment : public FileBasedDataFragment {
+ public:
+  DummyFragment(const FileSource& source, std::shared_ptr<ScanOptions> options)
+      : FileBasedDataFragment(source, std::make_shared<DummyFileFormat>(), options) {}
+
+  bool splittable() const override { return false; }
+};
+
+Status DummyFileFormat::MakeFragment(const FileSource& source,
+                                     std::shared_ptr<ScanOptions> opts,
+                                     std::unique_ptr<FileBasedDataFragment>* out) {
+  *out = internal::make_unique<DummyFragment>(source, opts);
+  return Status::OK();
+}
+
 }  // namespace dataset
 }  // namespace arrow

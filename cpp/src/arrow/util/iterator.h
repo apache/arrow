@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/status.h"
+#include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -109,6 +110,40 @@ template <typename Fn, typename I, typename O = typename std::result_of<Fn(I)>::
 std::unique_ptr<Iterator<O>> MakeMapIterator(Fn map, std::unique_ptr<Iterator<I>> it) {
   return std::unique_ptr<MapIterator<Fn, I, O>>(
       new MapIterator<Fn, I, O>(std::move(map), std::move(it)));
+}
+
+template <typename T>
+class EmptyIterator : public Iterator<T> {
+ public:
+  explicit EmptyIterator(Status s = Status::OK()) : status_(s) {}
+
+  Status Next(T* out) override {
+    *out = NULLPTR;
+    return status_;
+  }
+
+ private:
+  Status status_;
+};
+
+template <typename Fn, typename T>
+class FunctionIterator : public Iterator<T> {
+ public:
+  using IteratorType = Iterator<T>;
+
+  explicit FunctionIterator(Fn fn) : fn_(std::move(fn)) {}
+
+  Status Next(T* out) override { return fn_(out); }
+
+ private:
+  Fn fn_;
+};
+
+template <typename Fn, typename T = typename std::remove_pointer<
+                           single_call::argument_type<0, Fn>>::type>
+std::unique_ptr<FunctionIterator<Fn, T>> MakeIterator(Fn fn) {
+  return std::unique_ptr<FunctionIterator<Fn, T>>(
+      new FunctionIterator<Fn, T>(std::move(fn)));
 }
 
 }  // namespace arrow
