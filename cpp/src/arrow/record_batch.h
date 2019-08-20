@@ -164,7 +164,11 @@ class ARROW_EXPORT RecordBatch {
 };
 
 /// \brief Abstract interface for reading stream of record batches
-class ARROW_EXPORT RecordBatchReader : public RecordBatchIterator {
+class ARROW_EXPORT RecordBatchReader
+    /// \cond FALSE
+    : public RecordBatchIterator
+/// \endcond
+{
  public:
   /// \return the shared schema of the record batches in the stream
   virtual std::shared_ptr<Schema> schema() const = 0;
