@@ -39,11 +39,10 @@
 #include "parquet/column_writer.h"
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
+#include "parquet/test-util.h"
 
 namespace parquet {
 namespace test {
-
-std::string data_file(const char* file);
 
 using parquet::ConvertedType;
 using parquet::Repetition;
@@ -58,6 +57,13 @@ const char kFooterEncryptionKey[] = "0123456789012345";  // 128bit/16
 const char kColumnEncryptionKey1[] = "1234567890123450";
 const char kColumnEncryptionKey2[] = "1234567890123451";
 const char kFileName[] = "tester";
+
+inline std::string data_file(const char* file) {
+  std::string dir_string(test::get_data_dir());
+  std::stringstream ss;
+  ss << dir_string << "/" << file;
+  return ss.str();
+}
 
 }  // namespace test
 }  // namespace parquet

@@ -87,7 +87,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
         properties_(properties),
         total_bytes_written_(0),
         closed_(false),
-        row_group_ordinal_ (row_group_ordinal),
+        row_group_ordinal_(row_group_ordinal),
         next_column_index_(0),
         num_rows_(0),
         buffered_row_group_(buffered_row_group),
@@ -393,16 +393,16 @@ class FileSerializer : public ParquetFileWriter::Contents {
       PARQUET_THROW_NOT_OK(sink_->Write(kParquetMagic, 4));
     } else {
       // Check that all columns in columnEncryptionProperties exist in the schema.
-      auto columnEncryptionProperties = file_encryption_properties->column_properties();
+      auto encrypted_columns = file_encryption_properties->encrypted_columns();
       // if columnEncryptionProperties is empty, every column in file schema will be
       // encrypted with footer key.
-      if (columnEncryptionProperties.size() != 0) {
+      if (encrypted_columns.size() != 0) {
         std::vector<std::shared_ptr<schema::ColumnPath>> column_path_vec;
         // First, save all column paths in schema.
         for (int i = 0; i < num_columns(); i++)
           column_path_vec.push_back(schema_.Column(i)->path());
         // Check if column exists in schema.
-        for (const auto& elem : columnEncryptionProperties) {
+        for (const auto& elem : encrypted_columns) {
           auto it = std::find_if(column_path_vec.begin(), column_path_vec.end(),
                                  [&](std::shared_ptr<schema::ColumnPath> const& p) {
                                    return (p->ToDotString() == elem.first->ToDotString());

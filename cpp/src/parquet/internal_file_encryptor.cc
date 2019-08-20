@@ -108,7 +108,7 @@ InternalFileEncryptor::InternalFileEncryptor::GetColumnEncryptor(
       return column_data_map_.at(column_path);
     }
   }
-  auto column_prop = properties_->column_properties(column_path);
+  auto column_prop = properties_->column_encryption_properties(column_path);
   if (column_prop == NULLPTR) {
     return nullptr;
   }

@@ -332,7 +332,6 @@ if(ARROW_USE_OPENSSL)
                    encryption-write-configurations-test.cc
                    encryption-read-configurations-test.cc
                    encryption-properties-test.cc
-                   test-encryption-util.cc
                    test-util.cc)
 endif()
 

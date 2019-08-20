@@ -23,7 +23,12 @@
 #include <regex>
 #include <sstream>
 
-#include <encryption-reader-writer-all-crypto-options.h>
+#include <arrow/io/file.h>
+#include <arrow/util/logging.h>
+
+#include <parquet/api/reader.h>
+#include <parquet/api/writer.h>
+
 
 /*
  * This file contains samples for writing and reading encrypted Parquet files in different
@@ -95,6 +100,13 @@ const std::string kColumnEncryptionKey2 = "1234567890123451";
 const std::string fileName = "tester";
 
 using FileClass = ::arrow::io::FileOutputStream;
+using parquet::ConvertedType;
+using parquet::Repetition;
+using parquet::Type;
+using parquet::schema::GroupNode;
+using parquet::schema::PrimitiveNode;
+
+constexpr int FIXED_LENGTH = 10;
 
 void PrintDecryptionConfiguration(int configuration);
 // Check that the decryption result is as expected.
@@ -116,6 +128,30 @@ std::vector<std::string> GetDirectoryFiles(const std::string& path) {
   }
   closedir(dir);
   return files;
+}
+
+static std::shared_ptr<GroupNode> SetupSchema() {
+  parquet::schema::NodeVector fields;
+  // Create a primitive node named 'boolean_field' with type:BOOLEAN,
+  // repetition:REQUIRED
+  fields.push_back(PrimitiveNode::Make("boolean_field", Repetition::REQUIRED,
+                                       Type::BOOLEAN, ConvertedType::NONE));
+
+  // Create a primitive node named 'int32_field' with type:INT32, repetition:REQUIRED,
+  // logical type:TIME_MILLIS
+  fields.push_back(PrimitiveNode::Make("int32_field", Repetition::REQUIRED, Type::INT32,
+                                       ConvertedType::TIME_MILLIS));
+
+  fields.push_back(PrimitiveNode::Make("float_field", Repetition::REQUIRED, Type::FLOAT,
+                                       ConvertedType::NONE));
+
+  fields.push_back(PrimitiveNode::Make("double_field", Repetition::REQUIRED, Type::DOUBLE,
+                                       ConvertedType::NONE));
+
+  // Create a GroupNode named 'schema' using the primitive nodes defined above
+  // This GroupNode is the root node of the schema tree
+  return std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, fields));
 }
 
 void InteropTestWriteEncryptedParquetFiles(std::string root_path) {
@@ -157,7 +193,7 @@ void InteropTestWriteEncryptedParquetFiles(std::string root_path) {
 
   vector_of_encryption_configurations.push_back(
       file_encryption_builder_2.footer_key_metadata("kf")
-          ->column_properties(encryption_cols2)
+          ->encrypted_columns(encryption_cols2)
           ->build());
 
   // Encryption configuration 3: Encrypt two columns, with different keys.
@@ -179,7 +215,7 @@ void InteropTestWriteEncryptedParquetFiles(std::string root_path) {
 
   vector_of_encryption_configurations.push_back(
       file_encryption_builder_3.footer_key_metadata("kf")
-          ->column_properties(encryption_cols3)
+          ->encrypted_columns(encryption_cols3)
           ->set_plaintext_footer()
           ->build());
 
@@ -201,7 +237,7 @@ void InteropTestWriteEncryptedParquetFiles(std::string root_path) {
 
   vector_of_encryption_configurations.push_back(
       file_encryption_builder_4.footer_key_metadata("kf")
-          ->column_properties(encryption_cols4)
+          ->encrypted_columns(encryption_cols4)
           ->aad_prefix(fileName)
           ->build());
 
@@ -222,10 +258,10 @@ void InteropTestWriteEncryptedParquetFiles(std::string root_path) {
       kFooterEncryptionKey);
 
   vector_of_encryption_configurations.push_back(
-      file_encryption_builder_5.column_properties(encryption_cols5)
+      file_encryption_builder_5.encrypted_columns(encryption_cols5)
           ->footer_key_metadata("kf")
           ->aad_prefix(fileName)
-          ->disable_store_aad_prefix_storage()
+          ->disable_aad_prefix_storage()
           ->build());
 
   // Encryption configuration 6: Encrypt two columns and the footer, with different keys.
@@ -246,7 +282,7 @@ void InteropTestWriteEncryptedParquetFiles(std::string root_path) {
 
   vector_of_encryption_configurations.push_back(
       file_encryption_builder_6.footer_key_metadata("kf")
-          ->column_properties(encryption_cols6)
+          ->encrypted_columns(encryption_cols6)
           ->algorithm(parquet::ParquetCipher::AES_GCM_CTR_V1)
           ->build());
 
@@ -389,7 +425,7 @@ void InteropTestReadEncryptedParquetFiles(std::string root_path) {
   parquet::FileDecryptionProperties::Builder file_decryption_builder_3;
   vector_of_decryption_configurations.push_back(
       file_decryption_builder_3.footer_key(kFooterEncryptionKey)
-          ->column_properties(decryption_cols)
+          ->column_keys(decryption_cols)
           ->build());
 
   /**********************************************************************************

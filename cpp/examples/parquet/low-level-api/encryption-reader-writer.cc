@@ -84,7 +84,7 @@ int main(int argc, char** argv) {
 
     // Add the current encryption configuration to WriterProperties.
     builder.encryption(file_encryption_builder.footer_key_metadata("kf")
-                           ->column_properties(encryption_cols)
+                           ->encrypted_columns(encryption_cols)
                            ->build());
 
     std::shared_ptr<parquet::WriterProperties> props = builder.build();

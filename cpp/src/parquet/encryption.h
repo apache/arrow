@@ -100,9 +100,8 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
   class PARQUET_EXPORT Builder {
    public:
     /// Convenience builder for regular (not nested) columns.
-    explicit Builder(const std::string& name) {
-      Builder(schema::ColumnPath::FromDotString(name), true);
-    }
+    explicit Builder(const std::string& name)
+        : Builder(schema::ColumnPath::FromDotString(name), true) {}
 
     /// Convenience builder for encrypted columns.
     explicit Builder(const std::shared_ptr<schema::ColumnPath>& path)
@@ -282,8 +281,8 @@ class PARQUET_EXPORT FileDecryptionProperties {
     /// invocation of the retriever callback.
     /// If an explicit key is available for a footer or a column,
     /// its key metadata will be ignored.
-    Builder* column_properties(
-        const ColumnPathToDecryptionPropertiesMap& column_properties);
+    Builder* column_keys(
+        const ColumnPathToDecryptionPropertiesMap& column_decryption_properties);
 
     /// Set a key retriever callback. Its also possible to
     /// set explicit footer or column keys on this file property object.
@@ -327,14 +326,14 @@ class PARQUET_EXPORT FileDecryptionProperties {
     std::shared_ptr<FileDecryptionProperties> build() {
       return std::shared_ptr<FileDecryptionProperties>(new FileDecryptionProperties(
           footer_key_, key_retriever_, check_plaintext_footer_integrity_, aad_prefix_,
-          aad_prefix_verifier_, column_properties_, plaintext_files_allowed_));
+          aad_prefix_verifier_, column_decryption_properties_, plaintext_files_allowed_));
     }
 
    private:
     std::string footer_key_;
     std::string aad_prefix_;
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier_;
-    ColumnPathToDecryptionPropertiesMap column_properties_;
+    ColumnPathToDecryptionPropertiesMap column_decryption_properties_;
 
     std::shared_ptr<DecryptionKeyRetriever> key_retriever_;
     bool check_plaintext_footer_integrity_;
@@ -382,20 +381,20 @@ class PARQUET_EXPORT FileDecryptionProperties {
   std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier_;
 
   const std::string empty_string_ = "";
-  ColumnPathToDecryptionPropertiesMap column_properties_;
+  ColumnPathToDecryptionPropertiesMap column_decryption_properties_;
 
   std::shared_ptr<DecryptionKeyRetriever> key_retriever_;
   bool check_plaintext_footer_integrity_;
   bool plaintext_files_allowed_;
   bool utilized_;
 
-  FileDecryptionProperties(const std::string& footer_key,
-                           const std::shared_ptr<DecryptionKeyRetriever>& key_retriever,
-                           bool check_plaintext_footer_integrity,
-                           const std::string& aad_prefix,
-                           std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
-                           const ColumnPathToDecryptionPropertiesMap& column_properties,
-                           bool plaintext_files_allowed);
+  FileDecryptionProperties(
+      const std::string& footer_key,
+      const std::shared_ptr<DecryptionKeyRetriever>& key_retriever,
+      bool check_plaintext_footer_integrity, const std::string& aad_prefix,
+      std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
+      const ColumnPathToDecryptionPropertiesMap& column_decryption_properties,
+      bool plaintext_files_allowed);
 };
 
 class PARQUET_EXPORT FileEncryptionProperties {
@@ -436,18 +435,18 @@ class PARQUET_EXPORT FileEncryptionProperties {
 
     /// Skip storing AAD Prefix in file.
     /// If not called, and if AAD Prefix is set, it will be stored.
-    Builder* disable_store_aad_prefix_storage();
+    Builder* disable_aad_prefix_storage();
 
     /// Set the list of encrypted columns and their properties (keys etc).
     /// If not called, all columns will be encrypted with the footer key.
     /// If called, the file columns not in the list will be left unencrypted.
-    Builder* column_properties(
-        const ColumnPathToEncryptionPropertiesMap& column_properties);
+    Builder* encrypted_columns(
+        const ColumnPathToEncryptionPropertiesMap& encrypted_columns);
 
     std::shared_ptr<FileEncryptionProperties> build() {
       return std::shared_ptr<FileEncryptionProperties>(new FileEncryptionProperties(
           parquet_cipher_, footer_key_, footer_key_metadata_, encrypted_footer_,
-          aad_prefix_, store_aad_prefix_in_file_, column_properties_));
+          aad_prefix_, store_aad_prefix_in_file_, encrypted_columns_));
     }
 
    private:
@@ -458,7 +457,7 @@ class PARQUET_EXPORT FileEncryptionProperties {
 
     std::string aad_prefix_;
     bool store_aad_prefix_in_file_;
-    ColumnPathToEncryptionPropertiesMap column_properties_;
+    ColumnPathToEncryptionPropertiesMap encrypted_columns_;
   };
   bool encrypted_footer() const { return encrypted_footer_; }
 
@@ -470,7 +469,7 @@ class PARQUET_EXPORT FileEncryptionProperties {
 
   const std::string& file_aad() const { return file_aad_; }
 
-  std::shared_ptr<ColumnEncryptionProperties> column_properties(
+  std::shared_ptr<ColumnEncryptionProperties> column_encryption_properties(
       const std::shared_ptr<schema::ColumnPath>& column_path);
 
   bool is_utilized() { return utilized_; }
@@ -491,7 +490,7 @@ class PARQUET_EXPORT FileEncryptionProperties {
   /// aadPrefix will be cloned too)
   std::shared_ptr<FileEncryptionProperties> DeepClone(std::string new_aad_prefix = "");
 
-  ColumnPathToEncryptionPropertiesMap column_properties() { return column_properties_; }
+  ColumnPathToEncryptionPropertiesMap encrypted_columns() { return encrypted_columns_; }
 
  private:
   EncryptionAlgorithm algorithm_;
@@ -502,12 +501,12 @@ class PARQUET_EXPORT FileEncryptionProperties {
   std::string aad_prefix_;
   bool utilized_;
   bool store_aad_prefix_in_file_;
-  ColumnPathToEncryptionPropertiesMap column_properties_;
+  ColumnPathToEncryptionPropertiesMap encrypted_columns_;
 
   FileEncryptionProperties(ParquetCipher::type cipher, const std::string& footer_key,
                            const std::string& footer_key_metadata, bool encrypted_footer,
                            const std::string& aad_prefix, bool store_aad_prefix_in_file,
-                           const ColumnPathToEncryptionPropertiesMap& column_properties);
+                           const ColumnPathToEncryptionPropertiesMap& encrypted_columns);
 };
 
 }  // namespace parquet

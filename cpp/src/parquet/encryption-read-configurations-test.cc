@@ -158,11 +158,12 @@ class TestDecryptionConfiguration
     parquet::FileDecryptionProperties::Builder file_decryption_builder_3;
     vector_of_decryption_configurations_.push_back(
         file_decryption_builder_3.footer_key(kFooterEncryptionKey_)
-            ->column_properties(decryption_cols)
+            ->column_keys(decryption_cols)
             ->build());
 
-    // Decryption Configuration 4: use plaintext footer mode, read only footer + plaintext columns.
-      vector_of_decryption_configurations_.push_back(NULL);
+    // Decryption Configuration 4: use plaintext footer mode, read only footer + plaintext
+    // columns.
+    vector_of_decryption_configurations_.push_back(NULL);
   }
 
   void DecryptFile(std::string file, int decryption_config_num) {
@@ -170,9 +171,9 @@ class TestDecryptionConfiguration
     parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
     // if we get decryption_config_num = x then it means the actual number is x+1
     // and since we want decryption_config_num=4 we set the condition to 3
-    if(decryption_config_num != 3){
-        reader_properties.file_decryption_properties(
-                vector_of_decryption_configurations_[decryption_config_num]->DeepClone());
+    if (decryption_config_num != 3) {
+      reader_properties.file_decryption_properties(
+          vector_of_decryption_configurations_[decryption_config_num]->DeepClone());
     }
 
     auto file_reader =
@@ -296,49 +297,48 @@ class TestDecryptionConfiguration
         i++;
       }
 
-      if(decryption_config_num != 3){
+      if (decryption_config_num != 3) {
+        // Get the Column Reader for the Float column
+        column_reader = row_group_reader->Column(4);
+        parquet::FloatReader* float_reader =
+            static_cast<parquet::FloatReader*>(column_reader.get());
+        // Read all the rows in the column
+        i = 0;
+        while (float_reader->HasNext()) {
+          float value;
+          // Read one value at a time. The number of rows read is returned. values_read
+          // contains the number of non-null rows
+          rows_read = float_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+          // Ensure only one value is read
+          ASSERT_EQ(rows_read, 1);
+          // There are no NULL values in the rows written
+          ASSERT_EQ(values_read, 1);
+          // Verify the value written
+          float expected_value = static_cast<float>(i) * 1.1f;
+          ASSERT_EQ(value, expected_value);
+          i++;
+        }
 
-          // Get the Column Reader for the Float column
-          column_reader = row_group_reader->Column(4);
-          parquet::FloatReader* float_reader =
-                  static_cast<parquet::FloatReader*>(column_reader.get());
-          // Read all the rows in the column
-          i = 0;
-          while (float_reader->HasNext()) {
-              float value;
-              // Read one value at a time. The number of rows read is returned. values_read
-              // contains the number of non-null rows
-              rows_read = float_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
-              // Ensure only one value is read
-              ASSERT_EQ(rows_read, 1);
-              // There are no NULL values in the rows written
-              ASSERT_EQ(values_read, 1);
-              // Verify the value written
-              float expected_value = static_cast<float>(i) * 1.1f;
-              ASSERT_EQ(value, expected_value);
-              i++;
-          }
-
-          // Get the Column Reader for the Double column
-          column_reader = row_group_reader->Column(5);
-          parquet::DoubleReader* double_reader =
-                  static_cast<parquet::DoubleReader*>(column_reader.get());
-          // Read all the rows in the column
-          i = 0;
-          while (double_reader->HasNext()) {
-              double value;
-              // Read one value at a time. The number of rows read is returned. values_read
-              // contains the number of non-null rows
-              rows_read = double_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
-              // Ensure only one value is read
-              ASSERT_EQ(rows_read, 1);
-              // There are no NULL values in the rows written
-              ASSERT_EQ(values_read, 1);
-              // Verify the value written
-              double expected_value = i * 1.1111111;
-              ASSERT_EQ(value, expected_value);
-              i++;
-          }
+        // Get the Column Reader for the Double column
+        column_reader = row_group_reader->Column(5);
+        parquet::DoubleReader* double_reader =
+            static_cast<parquet::DoubleReader*>(column_reader.get());
+        // Read all the rows in the column
+        i = 0;
+        while (double_reader->HasNext()) {
+          double value;
+          // Read one value at a time. The number of rows read is returned. values_read
+          // contains the number of non-null rows
+          rows_read = double_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+          // Ensure only one value is read
+          ASSERT_EQ(rows_read, 1);
+          // There are no NULL values in the rows written
+          ASSERT_EQ(values_read, 1);
+          // Verify the value written
+          double expected_value = i * 1.1111111;
+          ASSERT_EQ(value, expected_value);
+          i++;
+        }
       }
 
       // Get the Column Reader for the ByteArray column
@@ -420,8 +420,8 @@ class TestDecryptionConfiguration
     }
 
     // decryption config 4 can only work when the encryption configuration is 3
-    if(decryption_config_num == 4 && encryption_config_num != 3){
-        return;
+    if (decryption_config_num == 4 && encryption_config_num != 3) {
+      return;
     }
     EXPECT_NO_THROW(DecryptFile(file_name, decryption_config_num - 1));
   }
