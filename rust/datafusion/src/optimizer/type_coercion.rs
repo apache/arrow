@@ -99,7 +99,11 @@ fn rewrite_expr(expr: &Expr, schema: &Schema) -> Result<Expr> {
             let left_type = left.get_type(schema);
             let right_type = right.get_type(schema);
             if left_type == right_type {
-                Ok(expr.clone())
+                Ok(Expr::BinaryExpr {
+                    left: Arc::new(left),
+                    op: op.clone(),
+                    right: Arc::new(right),
+                })
             } else {
                 let super_type = utils::get_supertype(&left_type, &right_type)?;
                 Ok(Expr::BinaryExpr {
