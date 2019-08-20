@@ -15,12 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_arrow_test(chunker-test PREFIX "arrow-csv")
-add_arrow_test(column-builder-test PREFIX "arrow-csv")
-add_arrow_test(converter-test PREFIX "arrow-csv")
-add_arrow_test(parser-test PREFIX "arrow-csv")
+add_arrow_test(chunker_test PREFIX "arrow-csv")
+add_arrow_test(column_builder_test PREFIX "arrow-csv")
+add_arrow_test(converter_test PREFIX "arrow-csv")
+add_arrow_test(parser_test PREFIX "arrow-csv")
 
-add_arrow_benchmark(converter-benchmark PREFIX "arrow-csv")
-add_arrow_benchmark(parser-benchmark PREFIX "arrow-csv")
+add_arrow_benchmark(converter_benchmark PREFIX "arrow-csv")
+add_arrow_benchmark(parser_benchmark PREFIX "arrow-csv")
 
 arrow_install_all_headers("arrow/csv")

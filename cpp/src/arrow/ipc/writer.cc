@@ -32,7 +32,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
-#include "arrow/ipc/metadata-internal.h"
+#include "arrow/ipc/metadata_internal.h"
 #include "arrow/ipc/util.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
@@ -42,7 +42,7 @@
 #include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
-#include "arrow/util/bit-util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
@@ -230,14 +230,14 @@ class RecordBatchSerializer : public ArrayVisitor {
 
     auto offsets = array.value_offsets();
 
+    int64_t required_bytes = sizeof(offset_type) * (array.length() + 1);
     if (array.offset() != 0) {
       // If we have a non-zero offset, then the value offsets do not start at
       // zero. We must a) create a new offsets array with shifted offsets and
       // b) slice the values array accordingly
 
       std::shared_ptr<Buffer> shifted_offsets;
-      RETURN_NOT_OK(AllocateBuffer(pool_, sizeof(offset_type) * (array.length() + 1),
-                                   &shifted_offsets));
+      RETURN_NOT_OK(AllocateBuffer(pool_, required_bytes, &shifted_offsets));
 
       offset_type* dest_offsets =
           reinterpret_cast<offset_type*>(shifted_offsets->mutable_data());
@@ -249,8 +249,13 @@ class RecordBatchSerializer : public ArrayVisitor {
       // Final offset
       dest_offsets[array.length()] = array.value_offset(array.length()) - start_offset;
       offsets = shifted_offsets;
+    } else {
+      // ARROW-6046: Slice offsets to used extent, in case we have a truncated
+      // slice
+      if (offsets != nullptr && offsets->size() > required_bytes) {
+        offsets = SliceBuffer(offsets, 0, required_bytes);
+      }
     }
-
     *value_offsets = offsets;
     return Status::OK();
   }

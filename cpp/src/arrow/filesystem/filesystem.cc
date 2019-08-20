@@ -18,7 +18,7 @@
 #include <utility>
 
 #include "arrow/filesystem/filesystem.h"
-#include "arrow/filesystem/path-util.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

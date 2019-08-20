@@ -40,6 +40,8 @@ pub trait Partition: Send + Sync {
 
 /// Iterator over RecordBatch that can be sent between threads
 pub trait BatchIterator: Send + Sync {
+    /// Get the schema for the batches returned by this iterator
+    fn schema(&self) -> Arc<Schema>;
     /// Get the next RecordBatch
     fn next(&mut self) -> Result<Option<RecordBatch>>;
 }

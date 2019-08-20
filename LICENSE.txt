@@ -1759,3 +1759,14 @@ Dynamic NDArray Developers list:
 
 Some source code from Ibis (https://github.com/cloudera/ibis) has been adapted
 for PyArrow. Ibis is released under the Apache License, Version 2.0.
+
+--------------------------------------------------------------------------------
+
+This project includes code from the autobrew project.
+
+* r/tools/autobrew and r/tools/apache-arrow.rb are based on code
+  from the autobrew project.
+
+Copyright: Copyright (c) 2017 - 2019, Jeroen Ooms.
+All rights reserved.
+Homepage: https://github.com/jeroen/autobrew

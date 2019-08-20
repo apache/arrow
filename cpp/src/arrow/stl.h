@@ -36,6 +36,14 @@ class Schema;
 
 namespace stl {
 
+namespace internal {
+
+template <size_t N, typename Tuple>
+using BareTupleElement = typename std::remove_const<typename std::remove_reference<
+    typename std::tuple_element<N, Tuple>::type>::type>::type;
+
+}  // namespace internal
+
 /// Traits meta class to map standard C/C++ types to equivalent Arrow types.
 template <typename T>
 struct ConversionTraits {};
@@ -117,7 +125,7 @@ struct ConversionTraits<std::vector<value_c_type>>
 /// column names at runtime, thus these methods are not constexpr.
 template <typename Tuple, std::size_t N = std::tuple_size<Tuple>::value>
 struct SchemaFromTuple {
-  using Element = typename std::tuple_element<N - 1, Tuple>::type;
+  using Element = internal::BareTupleElement<N - 1, Tuple>;
 
   // Implementations that take a vector-like object for the column names.
 
@@ -199,11 +207,12 @@ struct SchemaFromTuple<Tuple, 0> {
 };
 
 namespace internal {
+
 template <typename Tuple, std::size_t N = std::tuple_size<Tuple>::value>
 struct CreateBuildersRecursive {
   static Status Make(MemoryPool* pool,
                      std::vector<std::unique_ptr<ArrayBuilder>>* builders) {
-    using Element = typename std::tuple_element<N - 1, Tuple>::type;
+    using Element = BareTupleElement<N - 1, Tuple>;
     std::shared_ptr<DataType> type = ConversionTraits<Element>::type_singleton();
     ARROW_RETURN_NOT_OK(MakeBuilder(pool, type, &builders->at(N - 1)));
 
@@ -223,7 +232,7 @@ struct RowIterator {
   static Status Append(const std::vector<std::unique_ptr<ArrayBuilder>>& builders,
                        const Tuple& row) {
     using std::get;
-    using Element = typename std::tuple_element<N - 1, Tuple>::type;
+    using Element = BareTupleElement<N - 1, Tuple>;
     using BuilderType =
         typename TypeTraits<typename ConversionTraits<Element>::ArrowType>::BuilderType;
 
@@ -249,7 +258,7 @@ struct EnsureColumnTypes {
                      const compute::CastOptions& cast_options,
                      compute::FunctionContext* ctx,
                      std::reference_wrapper<const ::arrow::Table>* result) {
-    using Element = typename std::tuple_element<N - 1, Tuple>::type;
+    using Element = BareTupleElement<N - 1, Tuple>;
     std::shared_ptr<DataType> expected_type = ConversionTraits<Element>::type_singleton();
 
     if (!table.schema()->field(N - 1)->type()->Equals(*expected_type)) {

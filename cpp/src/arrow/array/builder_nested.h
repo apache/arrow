@@ -24,7 +24,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_base.h"
-#include "arrow/buffer-builder.h"
+#include "arrow/buffer_builder.h"
 
 namespace arrow {
 

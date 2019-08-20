@@ -31,7 +31,7 @@
 #include "arrow/builder.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -41,7 +41,7 @@
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/util-internal.h"
+#include "arrow/compute/kernels/util_internal.h"
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
@@ -1130,7 +1130,7 @@ class CastKernel : public CastKernelBase {
     return nullptr;                                                     \
   }
 
-#include "generated/cast-codegen-internal.h"  // NOLINT
+#include "generated/cast_codegen_internal.h"  // NOLINT
 
 GET_CAST_FUNCTION(BOOLEAN_CASES, BooleanType)
 GET_CAST_FUNCTION(UINT8_CASES, UInt8Type)

@@ -31,7 +31,7 @@
 #include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"  // IWYU pragma: export
@@ -320,7 +320,7 @@ class ARROW_EXPORT Array {
   /// Nested types are traversed in depth-first order. Data buffers must have
   /// the same item sizes, even though the logical types may be different.
   /// An error is returned if the types are not layout-compatible.
-  Status View(const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
+  Status View(const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out) const;
 
   /// Construct a zero-copy slice of the array with the indicated offset and
   /// length

@@ -141,7 +141,9 @@ public class DictionaryHashTable {
     for (DictionaryHashTable.Entry e = table[index]; e != null ; e = e.next) {
       if ((e.hash == hash)) {
         int dictIndex = e.index;
-        if (toEncode.accept(new RangeEqualsVisitor(dictionary, dictIndex, indexInArray, 1, false))) {
+
+        if (new RangeEqualsVisitor(dictionary, dictIndex, indexInArray, 1, false)
+            .equals(toEncode)) {
           return dictIndex;
         }
       }

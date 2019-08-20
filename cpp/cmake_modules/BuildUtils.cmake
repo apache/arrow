@@ -394,6 +394,9 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     set(BENCHMARK_NAME "${ARG_PREFIX}-${BENCHMARK_NAME}")
   endif()
 
+  # Make sure the executable name contains only hyphens, not underscores
+  string(REPLACE "_" "-" BENCHMARK_NAME ${BENCHMARK_NAME})
+
   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME}.cc)
     # This benchmark has a corresponding .cc file, set it up as an executable.
     set(BENCHMARK_PATH "${EXECUTABLE_OUTPUT_PATH}/${BENCHMARK_NAME}")
@@ -518,6 +521,9 @@ function(ADD_TEST_CASE REL_TEST_NAME)
   else()
     set(SOURCES "${REL_TEST_NAME}.cc")
   endif()
+
+  # Make sure the executable name contains only hyphens, not underscores
+  string(REPLACE "_" "-" TEST_NAME ${TEST_NAME})
 
   set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
   add_executable(${TEST_NAME} ${SOURCES})

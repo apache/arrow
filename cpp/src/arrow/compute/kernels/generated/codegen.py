@@ -130,7 +130,7 @@ def write_file_with_preamble(path, code):
 def write_files():
     here = os.path.abspath(os.path.dirname(__file__))
     cast_code = generate_cast_code()
-    write_file_with_preamble(os.path.join(here, 'cast-codegen-internal.h'),
+    write_file_with_preamble(os.path.join(here, 'cast_codegen_internal.h'),
                              cast_code)
 
 

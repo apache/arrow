@@ -190,6 +190,11 @@ impl CsvIterator {
 }
 
 impl BatchIterator for CsvIterator {
+    /// Get the schema
+    fn schema(&self) -> Arc<Schema> {
+        self.reader.schema()
+    }
+
     /// Get the next RecordBatch
     fn next(&mut self) -> Result<Option<RecordBatch>> {
         Ok(self.reader.next()?)

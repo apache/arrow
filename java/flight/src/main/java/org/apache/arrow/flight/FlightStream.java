@@ -27,6 +27,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flight.ArrowMessage.HeaderType;
+import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
@@ -40,7 +41,6 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.SettableFuture;
@@ -95,8 +95,40 @@ public class FlightStream implements AutoCloseable {
     return schema;
   }
 
+  /**
+   * Get the provider for dictionaries in this stream.
+   *
+   * <p>Does NOT retain a reference to the underlying dictionaries. Dictionaries may be updated as the stream is read.
+   * This method is intended for stream processing, where the application code will not retain references to values
+   * after the stream is closed.
+   *
+   * @throws IllegalStateException if {@link #takeDictionaryOwnership()} was called
+   * @see #takeDictionaryOwnership()
+   */
   public DictionaryProvider getDictionaryProvider() {
+    if (dictionaries == null) {
+      throw new IllegalStateException("Dictionary ownership was claimed by the application.");
+    }
     return dictionaries;
+  }
+
+  /**
+   * Get an owned reference to the dictionaries in this stream. Should be called after finishing reading the stream,
+   * but before closing.
+   *
+   * <p>If called, the client is responsible for closing the dictionaries in this provider. Can only be called once.
+   *
+   * @return The dictionary provider for the stream.
+   * @throws IllegalStateException if called more than once.
+   */
+  public DictionaryProvider takeDictionaryOwnership() {
+    if (dictionaries == null) {
+      throw new IllegalStateException("Dictionary ownership was claimed by the application.");
+    }
+    // Swap out the provider so it is not closed
+    final DictionaryProvider provider = dictionaries;
+    dictionaries = null;
+    return provider;
   }
 
   public FlightDescriptor getDescriptor() {
@@ -117,8 +149,13 @@ public class FlightStream implements AutoCloseable {
         .map(t -> ((AutoCloseable) t))
         .collect(Collectors.toList());
 
+    final List<FieldVector> dictionaryVectors =
+        dictionaries == null ? Collections.emptyList() : dictionaries.getDictionaryIds().stream()
+        .map(id -> dictionaries.lookup(id).getVector()).collect(Collectors.toList());
+
     // Must check for null since ImmutableList doesn't accept nulls
     AutoCloseables.close(Iterables.concat(closeables,
+        dictionaryVectors,
         applicationMetadata != null ? ImmutableList.of(root.get(), applicationMetadata)
             : ImmutableList.of(root.get())));
   }
@@ -168,6 +205,9 @@ public class FlightStream implements AutoCloseable {
           } else if (msg.getMessageType() == HeaderType.DICTIONARY_BATCH) {
             try (ArrowDictionaryBatch arb = msg.asDictionaryBatch()) {
               final long id = arb.getDictionaryId();
+              if (dictionaries == null) {
+                throw new IllegalStateException("Dictionary ownership was claimed by the application.");
+              }
               final Dictionary dictionary = dictionaries.lookup(id);
               if (dictionary == null) {
                 throw new IllegalArgumentException("Dictionary not defined in schema: ID " + id);
@@ -195,8 +235,10 @@ public class FlightStream implements AutoCloseable {
   public VectorSchemaRoot getRoot() {
     try {
       return root.get();
-    } catch (InterruptedException | ExecutionException e) {
-      throw Throwables.propagate(e);
+    } catch (InterruptedException e) {
+      throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
+    } catch (ExecutionException e) {
+      throw StatusUtils.fromThrowable(e.getCause());
     }
   }
 

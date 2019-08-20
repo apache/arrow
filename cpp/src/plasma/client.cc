@@ -44,7 +44,7 @@
 #include <vector>
 
 #include "arrow/buffer.h"
-#include "arrow/util/thread-pool.h"
+#include "arrow/util/thread_pool.h"
 
 #include "plasma/common.h"
 #include "plasma/fling.h"

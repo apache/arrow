@@ -23,13 +23,13 @@
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/io-util.h"
+#include "arrow/util/io_util.h"
 
 #include "plasma/common.h"
 #include "plasma/io.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
-#include "plasma/test-util.h"
+#include "plasma/test_util.h"
 
 namespace fb = plasma::flatbuf;
 

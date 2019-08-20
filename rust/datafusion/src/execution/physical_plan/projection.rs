@@ -116,6 +116,11 @@ struct ProjectionIterator {
 }
 
 impl BatchIterator for ProjectionIterator {
+    /// Get the schema
+    fn schema(&self) -> Arc<Schema> {
+        self.schema.clone()
+    }
+
     /// Get the next batch
     fn next(&mut self) -> Result<Option<RecordBatch>> {
         let mut input = self.input.lock().unwrap();

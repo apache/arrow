@@ -2348,6 +2348,38 @@ def test_write_to_dataset_no_partitions(tempdir):
     _test_write_to_dataset_no_partitions(str(tempdir))
 
 
+@pytest.mark.pandas
+def test_write_to_dataset_with_partitions_and_custom_filenames(tempdir):
+    output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
+                              'group2': list('eefeffgeee'),
+                              'num': list(range(10)),
+                              'nan': [pd.np.nan] * 10,
+                              'date': np.arange('2017-01-01', '2017-01-11',
+                                                dtype='datetime64[D]')})
+    partition_by = ['group1', 'group2']
+    output_table = pa.Table.from_pandas(output_df)
+    path = str(tempdir)
+
+    def partition_filename_callback(keys):
+        return "{0}-{1}.parquet".format(*keys)
+
+    pq.write_to_dataset(output_table, path,
+                        partition_by, partition_filename_callback)
+
+    dataset = pq.ParquetDataset(path)
+
+    # ARROW-3538: Ensure partition filenames match the given pattern
+    # defined in the local function partition_filename_callback
+    expected_basenames = [
+        'a-e.parquet', 'a-f.parquet',
+        'b-e.parquet', 'b-f.parquet',
+        'b-g.parquet', 'c-e.parquet'
+    ]
+    output_basenames = [os.path.basename(p.path) for p in dataset.pieces]
+
+    assert sorted(expected_basenames) == sorted(output_basenames)
+
+
 @pytest.mark.large_memory
 def test_large_table_int32_overflow():
     size = np.iinfo('int32').max + 1
@@ -2985,6 +3017,21 @@ def test_parquet_file_too_small(tempdir):
         pq.read_table(path)
 
 
+@pytest.mark.pandas
+def test_categorical_index_survives_roundtrip():
+    # ARROW-3652, addressed by ARROW-3246
+    df = pd.DataFrame([['a', 'b'], ['c', 'd']], columns=['c1', 'c2'])
+    df['c1'] = df['c1'].astype('category')
+    df = df.set_index(['c1'])
+
+    table = pa.Table.from_pandas(df)
+    bos = pa.BufferOutputStream()
+    pq.write_table(table, bos)
+    ref_df = pq.read_pandas(bos.getvalue()).to_pandas()
+    assert isinstance(ref_df.index, pd.CategoricalIndex)
+    assert ref_df.index.equals(df.index)
+
+
 def test_dictionary_array_automatically_read():
     # ARROW-3246
 
@@ -3031,6 +3078,25 @@ def test_pandas_categorical_na_type_row_groups():
     # Result is non-categorical
     assert result[0].equals(table[0])
     assert result[1].equals(table[1])
+
+
+@pytest.mark.pandas
+def test_pandas_categorical_roundtrip():
+    # ARROW-5480, this was enabled by ARROW-3246
+
+    # Have one of the categories unobserved and include a null (-1)
+    codes = np.array([2, 0, 0, 2, 0, -1, 2], dtype='int32')
+    categories = ['foo', 'bar', 'baz']
+    df = pd.DataFrame({'x': pd.Categorical.from_codes(
+        codes, categories=categories)})
+
+    buf = pa.BufferOutputStream()
+    pq.write_table(pa.table(df), buf)
+
+    result = pq.read_table(buf.getvalue()).to_pandas()
+    assert result.x.dtype == 'category'
+    assert (result.x.cat.categories == categories).all()
+    tm.assert_frame_equal(result, df)
 
 
 @pytest.mark.pandas

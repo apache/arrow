@@ -39,7 +39,7 @@ import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
-import org.apache.arrow.vector.compare.RangeEqualsVisitor;
+import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListReader;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListWriter;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -539,8 +539,8 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   }
 
   @Override
-  public boolean accept(RangeEqualsVisitor visitor) {
-    return visitor.visit(this);
+  public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
+    return visitor.visit(this, value);
   }
 
   private class TransferImpl implements TransferPair {

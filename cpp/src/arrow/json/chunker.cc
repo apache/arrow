@@ -21,7 +21,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/json/rapidjson-defs.h"
+#include "arrow/json/rapidjson_defs.h"
 #include "rapidjson/reader.h"
 
 #include "arrow/buffer.h"

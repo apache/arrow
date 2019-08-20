@@ -1467,7 +1467,7 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
         int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input)
 
 
-cdef extern from 'arrow/util/thread-pool.h' namespace 'arrow' nogil:
+cdef extern from 'arrow/util/thread_pool.h' namespace 'arrow' nogil:
     int GetCpuThreadPoolCapacity()
     CStatus SetCpuThreadPoolCapacity(int threads)
 

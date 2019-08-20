@@ -25,8 +25,9 @@ use arrow::csv;
 use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
-use crate::datasource::{RecordBatchIterator, ScanResult, TableProvider};
+use crate::datasource::{ScanResult, TableProvider};
 use crate::error::Result;
+use crate::execution::physical_plan::BatchIterator;
 
 /// Represents a CSV file with a provided schema
 // TODO: usage example (rather than documenting `new()`)
@@ -109,9 +110,9 @@ impl CsvBatchIterator {
     }
 }
 
-impl RecordBatchIterator for CsvBatchIterator {
-    fn schema(&self) -> &Arc<Schema> {
-        &self.schema
+impl BatchIterator for CsvBatchIterator {
+    fn schema(&self) -> Arc<Schema> {
+        self.schema.clone()
     }
 
     fn next(&mut self) -> Result<Option<RecordBatch>> {

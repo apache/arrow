@@ -42,13 +42,13 @@
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/util/io-util.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
 #include "arrow/util/uri.h"
 
 #include "arrow/flight/internal.h"
-#include "arrow/flight/serialization-internal.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/server_auth.h"
 #include "arrow/flight/types.h"
 

@@ -37,6 +37,7 @@ import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.ipc.JsonFileReader;
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.util.Validator;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -84,12 +85,19 @@ class IntegrationTestClient {
     final String host = cmd.getOptionValue("host", "localhost");
     final int port = Integer.parseInt(cmd.getOptionValue("port", "31337"));
 
-    final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     final Location defaultLocation = Location.forGrpcInsecure(host, port);
-    final FlightClient client = FlightClient.builder(allocator, defaultLocation).build();
+    try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+        final FlightClient client = FlightClient.builder(allocator, defaultLocation).build()) {
 
-    final String inputPath = cmd.getOptionValue("j");
+      final String inputPath = cmd.getOptionValue("j");
+      testStream(allocator, defaultLocation, client, inputPath);
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
+  private static void testStream(BufferAllocator allocator, Location server, FlightClient client, String inputPath)
+      throws IOException {
     // 1. Read data from JSON and upload to server.
     FlightDescriptor descriptor = FlightDescriptor.path(inputPath);
     VectorSchemaRoot jsonRoot;
@@ -121,7 +129,9 @@ class IntegrationTestClient {
         metadata.writeBytes(rawMetadata);
         // Transfers ownership of the buffer, so do not release it ourselves
         stream.putNext(metadata);
-        jsonLoader.load(unloader.getRecordBatch());
+        try (final ArrowRecordBatch arb = unloader.getRecordBatch()) {
+          jsonLoader.load(arb);
+        }
         root.clear();
         counter++;
       }
@@ -141,25 +151,29 @@ class IntegrationTestClient {
       // 3. Download the data from the server.
       List<Location> locations = endpoint.getLocations();
       if (locations.size() == 0) {
-        locations = Collections.singletonList(defaultLocation);
+        locations = Collections.singletonList(server);
       }
       for (Location location : locations) {
         System.out.println("Verifying location " + location.getUri());
-        FlightClient readClient = FlightClient.builder(allocator, location).build();
-        FlightStream stream = readClient.getStream(endpoint.getTicket());
-        VectorSchemaRoot downloadedRoot;
-        try (VectorSchemaRoot root = stream.getRoot()) {
-          downloadedRoot = VectorSchemaRoot.create(root.getSchema(), allocator);
+        try (FlightClient readClient = FlightClient.builder(allocator, location).build();
+            FlightStream stream = readClient.getStream(endpoint.getTicket());
+            VectorSchemaRoot root = stream.getRoot();
+            VectorSchemaRoot downloadedRoot = VectorSchemaRoot.create(root.getSchema(), allocator)) {
           VectorLoader loader = new VectorLoader(downloadedRoot);
           VectorUnloader unloader = new VectorUnloader(root);
           while (stream.next()) {
-            loader.load(unloader.getRecordBatch());
+            try (final ArrowRecordBatch arb = unloader.getRecordBatch()) {
+              loader.load(arb);
+            }
           }
-        }
 
-        // 4. Validate the data.
-        Validator.compareVectorSchemaRoot(jsonRoot, downloadedRoot);
+          // 4. Validate the data.
+          Validator.compareVectorSchemaRoot(jsonRoot, downloadedRoot);
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
       }
     }
+    jsonRoot.close();
   }
 }

@@ -27,7 +27,7 @@
 #include "arrow/util/logging.h"
 
 #include "parquet/exception.h"
-#include "parquet/schema-internal.h"
+#include "parquet/schema_internal.h"
 #include "parquet/thrift.h"
 
 using parquet::format::SchemaElement;

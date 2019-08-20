@@ -19,8 +19,8 @@
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/util-internal.h"
-#include "arrow/util/bit-util.h"
+#include "arrow/compute/kernels/util_internal.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

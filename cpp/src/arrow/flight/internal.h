@@ -20,7 +20,7 @@
 #include <memory>
 #include <string>
 
-#include "arrow/flight/protocol-internal.h"  // IWYU pragma: keep
+#include "arrow/flight/protocol_internal.h"  // IWYU pragma: keep
 #include "arrow/flight/types.h"
 #include "arrow/util/macros.h"
 

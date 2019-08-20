@@ -194,6 +194,8 @@ class ArrowMessage implements AutoCloseable {
     Preconditions.checkArgument(bufs.size() == 1, "A batch can only be consumed if it contains a single ArrowBuf.");
     Preconditions.checkArgument(getMessageType() == HeaderType.DICTIONARY_BATCH);
     ArrowBuf underlying = bufs.get(0);
+    // Retain a reference to keep the batch alive when the message is closed
+    underlying.getReferenceManager().retain();
     return MessageSerializer.deserializeDictionaryBatch(message, underlying);
   }
 

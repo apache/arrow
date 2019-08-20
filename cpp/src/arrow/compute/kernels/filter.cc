@@ -22,7 +22,7 @@
 #include <utility>
 
 #include "arrow/builder.h"
-#include "arrow/compute/kernels/take-internal.h"
+#include "arrow/compute/kernels/take_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 

@@ -22,7 +22,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/util/bit-util.h"
+#include "arrow/util/bit_util.h"
 
 #include "gandiva/selection_vector_impl.h"
 

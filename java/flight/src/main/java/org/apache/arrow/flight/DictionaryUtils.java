@@ -23,7 +23,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
@@ -73,5 +75,15 @@ final class DictionaryUtils {
       }
     }
     return schema;
+  }
+
+  static void closeDictionaries(final Schema schema, final DictionaryProvider provider) throws Exception {
+    // Close dictionaries
+    final Set<Long> dictionaryIds = new HashSet<>();
+    schema.getFields().forEach(field -> DictionaryUtility.toMessageFormat(field, provider, dictionaryIds));
+
+    final List<AutoCloseable> dictionaryVectors = dictionaryIds.stream()
+        .map(id -> (AutoCloseable) provider.lookup(id).getVector()).collect(Collectors.toList());
+    AutoCloseables.close(dictionaryVectors);
   }
 }

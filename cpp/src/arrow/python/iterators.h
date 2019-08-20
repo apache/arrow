@@ -21,7 +21,7 @@
 #include <utility>
 
 #include "arrow/python/common.h"
-#include "arrow/python/numpy-internal.h"
+#include "arrow/python/numpy_internal.h"
 
 namespace arrow {
 namespace py {
