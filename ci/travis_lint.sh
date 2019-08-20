@@ -23,7 +23,8 @@ set -ex
 export ARROW_TRAVIS_USE_TOOLCHAIN=0
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
-pip install pre_commit cmake_format==0.5.2 pytest
+# pytest, requests, and jira are needed to run the PR merge script unit tests
+pip install pre_commit cmake_format==0.5.2 pytest requests jira
 pre-commit install
 
 # TODO: Move more checks into pre-commit as this gives a nice summary
