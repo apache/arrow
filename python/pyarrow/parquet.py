@@ -1287,7 +1287,8 @@ def _mkdir_if_not_exists(fs, path):
             assert fs.exists(path)
 
 
-def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
+def write_to_dataset(table, root_path, partition_cols=None,
+                     partition_filename_cb=None, filesystem=None,
                      preserve_index=None, **kwargs):
     """Wrapper around parquet.write_table for writing a Table to
     Parquet format by partitions.
@@ -1318,6 +1319,10 @@ def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
     partition_cols : list,
         Column names by which to partition the dataset
         Columns are partitioned in the order they are given
+    partition_filename_cb : callable,
+        A callback function that takes the partition key(s) as an argument
+        and allow you to override the partition filename. If nothing is
+        passed, the filename will consist of a uuid.
     **kwargs : dict,
         kwargs for write_table function. Using `metadata_collector` in
         kwargs allows one to collect the file metadata instances of
@@ -1358,12 +1363,18 @@ def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
                                             schema=subschema, safe=False)
             prefix = '/'.join([root_path, subdir])
             _mkdir_if_not_exists(fs, prefix)
-            outfile = guid() + '.parquet'
+            if partition_filename_cb:
+                outfile = partition_filename_cb(keys)
+            else:
+                outfile = guid() + '.parquet'
             full_path = '/'.join([prefix, outfile])
             with fs.open(full_path, 'wb') as f:
                 write_table(subtable, f, **kwargs)
     else:
-        outfile = guid() + '.parquet'
+        if partition_filename_cb:
+            outfile = partition_filename_cb(None)
+        else:
+            outfile = guid() + '.parquet'
         full_path = '/'.join([root_path, outfile])
         with fs.open(full_path, 'wb') as f:
             write_table(table, f, **kwargs)
