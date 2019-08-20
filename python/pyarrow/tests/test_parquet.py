@@ -1093,6 +1093,14 @@ def test_date_time_types(tempdir):
     assert read_table.equals(expected)
 
 
+def test_timestamp_restore_timezone():
+    # ARROW-5888, restore timezone from serialized metadata
+    ty = pa.timestamp('ms', tz='America/New_York')
+    arr = pa.array([1, 2, 3], type=ty)
+    t = pa.table([arr], names=['f0'])
+    _check_roundtrip(t)
+
+
 @pytest.mark.pandas
 def test_list_of_datetime_time_roundtrip():
     # ARROW-4135
