@@ -161,7 +161,7 @@ tasks:
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - docker-compose build cpp-static-only
+        - docker-compose build cpp
         - docker-compose run cpp-static-only
 
   docker-c_glib:

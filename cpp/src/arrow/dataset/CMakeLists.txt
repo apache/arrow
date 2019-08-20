@@ -35,7 +35,7 @@ add_arrow_lib(arrow_dataset
               STATIC_LINK_LIBS
               arrow_static)
 
-if(ARROW_DATASET_TEST_LINKAGE STREQUAL "static")
+if(ARROW_TEST_LINKAGE STREQUAL "static")
   set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static ${ARROW_TEST_STATIC_LINK_LIBS})
 else()
   set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_shared ${ARROW_TEST_SHARED_LINK_LIBS})

@@ -175,7 +175,7 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
 
   # and uses less disk space, but in some cases we need to force static
   # linking (see rationale below).
-  if(ARG_USE_STATIC_LINKING)
+  if(ARG_USE_STATIC_LINKING OR ARROW_TEST_LINKAGE STREQUAL "static")
     add_test_case(${REL_TEST_NAME}
                   ${TEST_ARGUMENTS}
                   STATIC_LINK_LIBS
