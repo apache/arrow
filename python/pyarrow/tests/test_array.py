@@ -806,6 +806,15 @@ def test_cast_from_null():
             in_arr.cast(out_type)
 
 
+def test_view():
+    # ARROW-5992
+    arr = pa.array(['foo', 'bar', 'baz'], type=pa.utf8())
+    expected = pa.array(['foo', 'bar', 'baz'], type=pa.binary())
+
+    assert arr.view(pa.binary()).equals(expected)
+    assert arr.view('binary').equals(expected)
+
+
 def test_unique_simple():
     cases = [
         (pa.array([1, 2, 3, 1, 2, 3]), pa.array([1, 2, 3])),

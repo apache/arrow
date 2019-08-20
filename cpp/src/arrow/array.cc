@@ -1021,7 +1021,8 @@ struct ViewDataImpl {
           return;
         }
       }
-      if (in_layouts[in_layout_idx].bit_widths[in_buffer_idx] > 0) {
+      auto bit_width = in_layouts[in_layout_idx].bit_widths[in_buffer_idx];
+      if (bit_width > 0 || bit_width == DataTypeLayout::kVariableSizeBuffer) {
         return;
       }
       // Skip always-null input buffers
@@ -1128,8 +1129,8 @@ struct ViewDataImpl {
       }
 
       RETURN_NOT_OK(CheckInputAvailable());
-      if (out_bit_width == DataTypeLayout::kVariableSizeBuffer ||
-          out_bit_width != in_layouts[in_layout_idx].bit_widths[in_buffer_idx]) {
+      auto in_bit_width = in_layouts[in_layout_idx].bit_widths[in_buffer_idx];
+      if (out_bit_width != in_bit_width) {
         return InvalidView("incompatible layouts");
       }
       // Copy input buffer

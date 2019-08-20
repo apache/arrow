@@ -111,6 +111,13 @@ TEST(TestArrayView, PrimitiveAsFixedSizeBinary) {
   CheckView(expected, arr);
 }
 
+TEST(TestArrayView, StringAsBinary) {
+  auto arr = ArrayFromJSON(utf8(), R"(["foox", "barz", null])");
+  auto expected = ArrayFromJSON(binary(), R"(["foox", "barz", null])");
+  CheckView(arr, expected);
+  CheckView(expected, arr);
+}
+
 TEST(TestArrayView, PrimitiveWrongSize) {
   auto arr = ArrayFromJSON(int16(), "[0, -1, 42]");
   CheckViewFails(arr, int8());
