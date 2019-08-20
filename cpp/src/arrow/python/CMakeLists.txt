@@ -128,10 +128,13 @@ if(ARROW_BUILD_TESTS)
     target_link_libraries(arrow_python_test_main pthread ${CMAKE_DL_LIBS})
   endif()
 
-  set(ARROW_PYTHON_MIN_TEST_LIBS arrow_python_test_main arrow_python_shared
-                                 arrow_testing_shared arrow_shared)
-
-  set(ARROW_PYTHON_TEST_LINK_LIBS ${ARROW_PYTHON_MIN_TEST_LIBS})
+  if(ARROW_TEST_LINKAGE STREQUAL shared)
+    set(ARROW_PYTHON_TEST_LINK_LIBS arrow_python_test_main arrow_python_shared
+                                    arrow_testing_shared arrow_shared)
+  else()
+    set(ARROW_PYTHON_TEST_LINK_LIBS arrow_python_test_main arrow_python_static
+                                    arrow_testing_static arrow_static)
+  endif()
 
   add_arrow_test(python_test
                  STATIC_LINK_LIBS
