@@ -69,7 +69,6 @@ public class AvroMapConsumer implements Consumer {
     int end = (int) (vector.getOffsetBuffer().getInt(idx * 4) + count);
     vector.getOffsetBuffer().setInt((idx + 1) * 4, end);
 
-
     int dataValueCount = vector.getDataVector().getValueCount();
     for (int i = dataValueCount; i < end; i++) {
       BitVectorHelper.setValidityBitToOne(vector.getDataVector().getValidityBuffer(), i);

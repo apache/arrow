@@ -25,8 +25,6 @@ import org.apache.arrow.vector.complex.impl.FixedSizeBinaryWriterImpl;
 import org.apache.arrow.vector.complex.writer.FixedSizeBinaryWriter;
 import org.apache.avro.io.Decoder;
 
-import io.netty.buffer.ArrowBuf;
-
 /**
  * Consumer which consume fixed type values from avro decoder.
  * Write the data to {@link org.apache.arrow.vector.FixedSizeBinaryVector}.
@@ -36,7 +34,6 @@ public class AvroFixedConsumer implements Consumer {
   private final FixedSizeBinaryWriter writer;
   private final FixedSizeBinaryVector vector;
 
-  private final ArrowBuf cacheBuffer;
   private final byte[] reuseBytes;
 
   /**
@@ -45,15 +42,13 @@ public class AvroFixedConsumer implements Consumer {
   public AvroFixedConsumer(FixedSizeBinaryVector vector, int size) {
     this.vector = vector;
     this.writer = new FixedSizeBinaryWriterImpl(vector);
-    cacheBuffer = vector.getAllocator().buffer(size);
     reuseBytes = new byte[size];
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
     decoder.readFixed(reuseBytes);
-    cacheBuffer.setBytes(0, reuseBytes);
-    writer.writeFixedSizeBinary(cacheBuffer);
+    vector.setSafe(writer.getPosition(), reuseBytes);
     writer.setPosition(writer.getPosition() + 1);
   }
 

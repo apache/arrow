@@ -24,7 +24,6 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.complex.impl.VarBinaryWriterImpl;
 import org.apache.arrow.vector.complex.writer.VarBinaryWriter;
-import org.apache.arrow.vector.holders.VarBinaryHolder;
 import org.apache.avro.io.Decoder;
 
 /**
@@ -57,17 +56,11 @@ public class AvroBytesConsumer implements Consumer {
   }
 
   private void writeValue(Decoder decoder) throws IOException {
-    VarBinaryHolder holder = new VarBinaryHolder();
 
     // cacheBuffer is initialized null and create in the first consume,
     // if its capacity < size to read, decoder will create a new one with new capacity.
     cacheBuffer = decoder.readBytes(cacheBuffer);
-
-    holder.start = 0;
-    holder.end = cacheBuffer.limit();
-    holder.buffer = vector.getAllocator().buffer(cacheBuffer.limit());
-    holder.buffer.setBytes(0, cacheBuffer, 0,  cacheBuffer.limit());
-    writer.write(holder);
+    vector.setSafe(writer.getPosition(), cacheBuffer, 0, cacheBuffer.limit());
   }
 
   @Override

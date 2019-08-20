@@ -195,7 +195,7 @@ public class AvroToArrowUtils {
 
     // create struct vector as underlying vector of the map vector, its children vectors are from delegates.
     StructVector structVector =
-        new StructVector(name, allocator, FieldType.nullable(ArrowType.Struct.INSTANCE), null);
+        new StructVector(name, allocator, FieldType.nullable(ArrowType.Struct.INSTANCE), /*callBack=*/null);
 
     // crate keyConsumer and valueConsumer to consume key/value respectively.
     Consumer keyConsumer = new AvroStringConsumer(new VarCharVector("key", allocator));
@@ -207,7 +207,7 @@ public class AvroToArrowUtils {
     structVector.allocateNewSafe();
 
     // crate map vector and set the struct vector as its underlying vector.
-    MapVector mapVector = MapVector.empty(name, allocator, false);
+    MapVector mapVector = MapVector.empty(name, allocator, /*keySorted=*/false);
     mapVector.setDataVector(structVector);
 
     return new AvroMapConsumer(mapVector, keyConsumer, valueConsumer);

@@ -24,7 +24,6 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.impl.VarCharWriterImpl;
 import org.apache.arrow.vector.complex.writer.VarCharWriter;
-import org.apache.arrow.vector.holders.VarCharHolder;
 import org.apache.avro.io.Decoder;
 
 /**
@@ -57,18 +56,11 @@ public class AvroStringConsumer implements Consumer {
   }
 
   private void writeValue(Decoder decoder) throws IOException {
-    VarCharHolder holder = new VarCharHolder();
 
     // cacheBuffer is initialized null and create in the first consume,
     // if its capacity < size to read, decoder will create a new one with new capacity.
     cacheBuffer = decoder.readBytes(cacheBuffer);
-
-    holder.start = 0;
-    holder.end = cacheBuffer.limit();
-    holder.buffer = vector.getAllocator().buffer(cacheBuffer.limit());
-    holder.buffer.setBytes(0, cacheBuffer, 0, cacheBuffer.limit());
-
-    writer.write(holder);
+    vector.setSafe(writer.getPosition(), cacheBuffer, 0, cacheBuffer.limit());
   }
 
   @Override

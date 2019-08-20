@@ -25,7 +25,7 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume int type values from avro decoder.
+ * Consumer which consume array type values from avro decoder.
  * Write the data to {@link ListVector}.
  */
 public class AvroArraysConsumer implements Consumer {
