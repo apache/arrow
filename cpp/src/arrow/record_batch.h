@@ -168,7 +168,7 @@ class ARROW_EXPORT RecordBatchReader
     /// \cond FALSE
     : public RecordBatchIterator
 /// \endcond
-{
+{  // NOLINT whitespace/braces
  public:
   /// \return the shared schema of the record batches in the stream
   virtual std::shared_ptr<Schema> schema() const = 0;
