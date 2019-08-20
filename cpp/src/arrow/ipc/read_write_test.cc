@@ -884,6 +884,58 @@ TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
   ASSERT_EQ(nullptr, batch);
 }
 
+TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
+  // ARROW-6126
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeDictionaryFlat(&batch));
+
+  std::shared_ptr<io::BufferOutputStream> out;
+  ASSERT_OK(io::BufferOutputStream::Create(0, default_memory_pool(), &out));
+  std::shared_ptr<RecordBatchWriter> writer;
+  ASSERT_OK(RecordBatchStreamWriter::Open(out.get(), batch->schema(), &writer));
+  ASSERT_OK(writer->WriteRecordBatch(*batch));
+  ASSERT_OK(writer->Close());
+
+  // Now let's mangle the stream a little bit and make sure we return the right
+  // error
+  std::shared_ptr<arrow::Buffer> buffer;
+  ASSERT_OK(out->Finish(&buffer));
+  io::BufferReader buffer_reader(buffer);
+
+  ASSERT_OK(io::BufferOutputStream::Create(0, default_memory_pool(), &out));
+
+  std::unique_ptr<MessageReader> message_reader = MessageReader::Open(&buffer_reader);
+  std::unique_ptr<Message> msg;
+
+  // Parse and reassemble first two messages in stream
+  for (int i = 0; i < 2; ++i) {
+    internal::IpcPayload payload;
+    ASSERT_OK(message_reader->ReadNextMessage(&msg));
+    payload.type = msg->type();
+    payload.metadata = msg->metadata();
+    payload.body_buffers.push_back(msg->body());
+    payload.body_length = msg->body()->size();
+
+    int32_t unused_metadata_length = -1;
+    ASSERT_OK(internal::WriteIpcPayload(payload, out.get(), &unused_metadata_length));
+  }
+
+  //
+  std::shared_ptr<arrow::Buffer> incomplete_buffer;
+  ASSERT_OK(out->Finish(&incomplete_buffer));
+
+  io::BufferReader incomplete_reader(incomplete_buffer);
+  std::shared_ptr<RecordBatchReader> ipc_reader;
+  ASSERT_OK(RecordBatchStreamReader::Open(&incomplete_reader, &ipc_reader));
+
+  Status s = ipc_reader->ReadNext(&batch);
+  ASSERT_TRUE(s.IsInvalid());
+  std::string ex_message =
+      ("IPC stream ended without reading the expected number (3)"
+       " of dictionaries");
+  ASSERT_EQ(ex_message, s.message().substr(0, ex_message.size()));
+}
+
 class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
  public:
   void SetUp() { IpcTestFixture::SetUp(); }
