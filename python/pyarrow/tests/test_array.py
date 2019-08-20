@@ -1585,6 +1585,24 @@ def test_array_protocol():
     expected = pa.array([1, 2, 3], type=pa.float64())
     assert result.equals(expected)
 
+    # raise error when passing size or mask keywords
+    with pytest.raises(ValueError):
+        pa.array(arr, mask=np.array([True, False, True]))
+    with pytest.raises(ValueError):
+        pa.array(arr, size=3)
+
+    # ensure the return value is an Array
+    class MyArrayInvalid:
+        def __init__(self, data):
+            self.data = data
+
+        def __arrow_array__(self, type=None):
+            return np.array(self.data)
+
+    arr = MyArrayInvalid(np.array([1, 2, 3], dtype='int64'))
+    with pytest.raises(ValueError):
+        pa.array(arr)
+
 
 def test_concat_array():
     concatenated = pa.concat_arrays(

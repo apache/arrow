@@ -84,6 +84,18 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
         return pyarrow_wrap_array(chunked_out.get().chunk(0))
 
 
+def _handle_arrow_array_protocol(obj, type, mask, size):
+    if mask is not None or size is not None:
+        raise ValueError(
+            "Cannot specify a mask or a size when passing an object that is "
+            "converted with the __arrow_array__ protocol.")
+    res = obj.__arrow_array__(type=type)
+    if not isinstance(res, Array):
+        raise ValueError("The object's __arrow_array__ method does not "
+                         "return a pyarrow Array.")
+    return res
+
+
 def array(object obj, type=None, mask=None, size=None, from_pandas=None,
           bint safe=True, MemoryPool memory_pool=None):
     """
@@ -162,7 +174,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         c_from_pandas = from_pandas
 
     if hasattr(obj, '__arrow_array__'):
-        return obj.__arrow_array__(type=type)
+        return _handle_arrow_array_protocol(obj, type, mask, size)
     elif _is_array_like(obj):
         if mask is not None:
             # out argument unused
@@ -181,7 +193,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 values = values.data
 
         if hasattr(values, '__arrow_array__'):
-            return values.__arrow_array__(type=type)
+            return _handle_arrow_array_protocol(values, type, mask, size)
         elif pandas_api.is_categorical(values):
             return DictionaryArray.from_arrays(
                 values.codes, values.categories.values,
