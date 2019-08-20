@@ -2886,6 +2886,8 @@ def test_variable_dictionary_with_pandas():
 # Array protocol in pandas conversions tests
 
 
+@pytest.mark.skipif(LooseVersion(pd.__version__) < '0.24.0',
+                    reason='IntegerArray only introduced in 0.24')
 def test_array_protocol():
 
     def __arrow_array__(self, type=None):
@@ -2923,7 +2925,10 @@ def test_array_protocol():
     result = pa.array(df['a'].values, type=pa.float64())
     assert result.equals(expected2)
 
-    del pd.arrays.IntegerArray.__arrow_array__
+    try:
+        del pd.arrays.IntegerArray.__arrow_array__
+    except Exception:
+        pass
 
 
 # ----------------------------------------------------------------------

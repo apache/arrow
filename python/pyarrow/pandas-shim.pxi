@@ -49,20 +49,25 @@ cdef class _PandasAPIShim(object):
                 return
 
         self._pd = pd
+        self._version = pd.__version__
+        from distutils.version import LooseVersion
+        self._loose_version = LooseVersion(pd.__version__)
+
         self._compat_module = pdcompat
         self._data_frame = pd.DataFrame
         self._index = pd.Index
         self._categorical_type = pd.Categorical
         self._series = pd.Series
-        self._extension_array = pd.api.extensions.ExtensionArray
+        if self._loose_version >= LooseVersion('0.23.0'):
+            self._extension_array = pd.api.extensions.ExtensionArray
+            self._array_like_types = (
+                self._series, self._index, self._categorical_type,
+                self._extension_array)
+        else:
+            self._extension_array = None
+            self._array_like_types = (
+                self._series, self._index, self._categorical_type)
 
-        self._array_like_types = (self._series, self._index,
-                                  self._categorical_type,
-                                  self._extension_array)
-
-        self._version = pd.__version__
-        from distutils.version import LooseVersion
-        self._loose_version = LooseVersion(pd.__version__)
         if self._loose_version >= LooseVersion('0.20.0'):
             from pandas.api.types import DatetimeTZDtype
             self._types_api = pd.api.types
