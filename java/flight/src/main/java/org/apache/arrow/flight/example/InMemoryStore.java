@@ -39,7 +39,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 
 /**
- * A FlightProducer that hosts an in memory store of Arrow buffers.
+ * A FlightProducer that hosts an in memory store of Arrow buffers. Used for integration testing.
  */
 public class InMemoryStore implements FlightProducer, AutoCloseable {
 
@@ -80,8 +80,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public void listFlights(CallContext context, Criteria criteria,
-      StreamListener<FlightInfo> listener) {
+  public void listFlights(CallContext context, Criteria criteria, StreamListener<FlightInfo> listener) {
     try {
       for (FlightHolder h : holders.values()) {
         listener.onNext(h.getFlightInfo(location));
@@ -93,8 +92,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public FlightInfo getFlightInfo(CallContext context,
-      FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
     FlightHolder h = holders.get(descriptor);
     if (h == null) {
       throw new IllegalStateException("Unknown descriptor.");
@@ -121,6 +119,8 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
           ackStream.onNext(PutResult.metadata(flightStream.getLatestMetadata()));
           creator.add(unloader.getRecordBatch());
         }
+        // Closing the stream will release the dictionaries
+        flightStream.takeDictionaryOwnership();
         creator.complete();
         success = true;
       } finally {
