@@ -16,7 +16,7 @@
 .. under the License.
 
 .. currentmodule:: pyarrow
-.. _extending:
+.. _extending_types:
 
 Extending pyarrow
 =================

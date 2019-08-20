@@ -46,7 +46,7 @@ files into Arrow structures.
    json
    parquet
    cuda
-   extending2
+   extending_types
    extending
    api
    getting_involved
