@@ -402,6 +402,26 @@ TEST_P(TestIpcRoundTrip, ZeroLengthArrays) {
   CheckRoundtrip(bin_array2, 1 << 20);
 }
 
+TEST_F(TestWriteRecordBatch, SliceTruncatesBinaryOffsets) {
+  // ARROW-6046
+  std::shared_ptr<Array> array;
+  ASSERT_OK(MakeRandomStringArray(500, false, default_memory_pool(), &array));
+
+  auto f0 = field("f0", array->type());
+  auto schema = ::arrow::schema({f0});
+  auto batch = RecordBatch::Make(schema, array->length(), {array});
+  auto sliced_batch = batch->Slice(0, 5);
+
+  std::stringstream ss;
+  ss << "test-truncate-offsets";
+  ASSERT_OK(
+      io::MemoryMapFixture::InitMemoryMap(/*buffer_size=*/1 << 20, ss.str(), &mmap_));
+  DictionaryMemo dictionary_memo;
+  std::shared_ptr<RecordBatch> result;
+  ASSERT_OK(DoStandardRoundTrip(*sliced_batch, &dictionary_memo, &result));
+  ASSERT_EQ(6 * sizeof(int32_t), result->column(0)->data()->buffers[1]->size());
+}
+
 TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
   auto CheckArray = [this](const std::shared_ptr<Array>& array) {
     auto f0 = field("f0", array->type());
