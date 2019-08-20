@@ -394,10 +394,10 @@ class build_ext(_build_ext):
 
             if self.with_plasma:
                 # Move the plasma store
-                source = os.path.join(self.build_type, "plasma_store_server")
+                source = os.path.join(self.build_type, "plasma-store-server")
                 target = os.path.join(build_lib,
                                       self._get_build_dir(),
-                                      "plasma_store_server")
+                                      "plasma-store-server")
                 shutil.move(source, target)
 
     def _failure_permitted(self, name):
