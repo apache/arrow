@@ -138,11 +138,6 @@ FeatherTableReader <- function(file, mmap = TRUE, ...){
 }
 
 #' @export
-FeatherTableReader.default <- function(file, mmap = TRUE, ...) {
-  stop("unsupported")
-}
-
-#' @export
 FeatherTableReader.character <- function(file, mmap = TRUE, ...) {
   FeatherTableReader(fs::path_abs(file), mmap = mmap, ...)
 }
@@ -155,6 +150,11 @@ FeatherTableReader.fs_path <- function(file, mmap = TRUE, ...) {
     stream <- ReadableFile(file, ...)
   }
   FeatherTableReader(stream)
+}
+
+#' @export
+FeatherTableReader.raw <- function(file, mmap = TRUE, ...) {
+  FeatherTableReader(BufferReader(file), mmap = mmap, ...)
 }
 
 #' @export
