@@ -156,6 +156,31 @@ TEST_F(TestChunkedArray, Validate) {
   ASSERT_RAISES(Invalid, one_->Validate());
 }
 
+TEST_F(TestChunkedArray, View) {
+  auto in_ty = int32();
+  auto out_ty = fixed_size_binary(4);
+  auto arr = ArrayFromJSON(in_ty, "[2020568934, 2054316386, null]");
+  auto arr2 = ArrayFromJSON(in_ty, "[2020568934, 2054316386]");
+  auto ex = ArrayFromJSON(out_ty, R"(["foox", "barz", null])");
+  auto ex2 = ArrayFromJSON(out_ty, R"(["foox", "barz"])");
+
+  ArrayVector chunks = {arr, arr2};
+  ArrayVector ex_chunks = {ex, ex2};
+  auto carr = std::make_shared<ChunkedArray>(chunks);
+  auto expected = std::make_shared<ChunkedArray>(ex_chunks);
+
+  std::shared_ptr<ChunkedArray> result;
+  ASSERT_OK(carr->View(out_ty, &result));
+  AssertChunkedEqual(*expected, *result);
+
+  // Zero length
+  ArrayVector empty = {};
+  carr = std::make_shared<ChunkedArray>(empty, in_ty);
+  expected = std::make_shared<ChunkedArray>(empty, out_ty);
+  ASSERT_OK(carr->View(out_ty, &result));
+  AssertChunkedEqual(*expected, *result);
+}
+
 class TestTable : public TestBase {
  public:
   void MakeExample1(int length) {

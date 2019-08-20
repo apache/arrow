@@ -179,6 +179,16 @@ Status ChunkedArray::Flatten(MemoryPool* pool,
   return Status::OK();
 }
 
+Status ChunkedArray::View(const std::shared_ptr<DataType>& type,
+                          std::shared_ptr<ChunkedArray>* out) const {
+  ArrayVector out_chunks(this->num_chunks());
+  for (int i = 0; i < this->num_chunks(); ++i) {
+    RETURN_NOT_OK(chunks_[i]->View(type, &out_chunks[i]));
+  }
+  *out = std::make_shared<ChunkedArray>(out_chunks, type);
+  return Status::OK();
+}
+
 Status ChunkedArray::Validate() const {
   if (chunks_.size() == 0) {
     return Status::OK();

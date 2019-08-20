@@ -88,6 +88,12 @@ class ARROW_EXPORT ChunkedArray {
   /// \param[out] out The resulting vector of arrays
   Status Flatten(MemoryPool* pool, std::vector<std::shared_ptr<ChunkedArray>>* out) const;
 
+  /// Construct a zero-copy view of this chunked array with the given
+  /// type. Calls Array::View on each constituent chunk. Always succeeds if
+  /// there are zero chunks
+  Status View(const std::shared_ptr<DataType>& type,
+              std::shared_ptr<ChunkedArray>* out) const;
+
   std::shared_ptr<DataType> type() const { return type_; }
 
   /// \brief Determine if two chunked arrays are equal.

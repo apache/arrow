@@ -320,7 +320,7 @@ class ARROW_EXPORT Array {
   /// Nested types are traversed in depth-first order. Data buffers must have
   /// the same item sizes, even though the logical types may be different.
   /// An error is returned if the types are not layout-compatible.
-  Status View(const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
+  Status View(const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out) const;
 
   /// Construct a zero-copy slice of the array with the indicated offset and
   /// length
