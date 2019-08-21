@@ -98,6 +98,11 @@ parquet_file_reader.character <- function(file, props = parquet_arrow_reader_pro
   parquet_file_reader(fs::path_abs(file), props = parquet_arrow_reader_properties(), memory_map = memory_map, ...)
 }
 
+#' @export
+parquet_file_reader.raw <- function(file, props = parquet_arrow_reader_properties(), memory_map = TRUE, ...) {
+  parquet_file_reader(BufferReader(file), props = parquet_arrow_reader_properties(), memory_map = memory_map, ...)
+}
+
 #' Read a Parquet file
 #'
 #' '[Parquet](https://parquet.apache.org/)' is a columnar storage file format.
