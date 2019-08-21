@@ -517,8 +517,7 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
       if (message->type() != Message::DICTIONARY_BATCH) {
         return Status::Invalid("IPC stream did not have the expected number (",
                                dictionary_memo_.num_fields(),
-                               ") of dictionaries at "
-                               "the start of the stream");
+                               ") of dictionaries at the start of the stream");
       }
       RETURN_NOT_OK(ParseDictionary(*message));
     }

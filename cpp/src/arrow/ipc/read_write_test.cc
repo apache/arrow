@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -884,6 +885,41 @@ TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
   ASSERT_EQ(nullptr, batch);
 }
 
+void SpliceMessages(std::shared_ptr<Buffer> stream,
+                    const std::vector<int>& included_indices,
+                    std::shared_ptr<Buffer>* spliced_stream) {
+  std::shared_ptr<io::BufferOutputStream> out;
+  ASSERT_OK(io::BufferOutputStream::Create(0, default_memory_pool(), &out));
+
+  io::BufferReader buffer_reader(stream);
+  std::unique_ptr<MessageReader> message_reader = MessageReader::Open(&buffer_reader);
+  std::unique_ptr<Message> msg;
+
+  // Parse and reassemble first two messages in stream
+  int message_index = 0;
+  while (true) {
+    ASSERT_OK(message_reader->ReadNextMessage(&msg));
+    if (!msg) {
+      break;
+    }
+
+    if (std::find(included_indices.begin(), included_indices.end(), message_index++) ==
+        included_indices.end()) {
+      // Message being dropped, continue
+      continue;
+    }
+
+    internal::IpcPayload payload;
+    payload.type = msg->type();
+    payload.metadata = msg->metadata();
+    payload.body_buffers.push_back(msg->body());
+    payload.body_length = msg->body()->size();
+    int32_t unused_metadata_length = -1;
+    ASSERT_OK(internal::WriteIpcPayload(payload, out.get(), &unused_metadata_length));
+  }
+  ASSERT_OK(out->Finish(spliced_stream));
+}
+
 TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
   // ARROW-6126
   std::shared_ptr<RecordBatch> batch;
@@ -900,40 +936,31 @@ TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
   // error
   std::shared_ptr<arrow::Buffer> buffer;
   ASSERT_OK(out->Finish(&buffer));
-  io::BufferReader buffer_reader(buffer);
 
-  ASSERT_OK(io::BufferOutputStream::Create(0, default_memory_pool(), &out));
+  auto AssertFailsWith = [](std::shared_ptr<Buffer> stream, const std::string& ex_error) {
+    io::BufferReader reader(stream);
+    std::shared_ptr<RecordBatchReader> ipc_reader;
+    ASSERT_OK(RecordBatchStreamReader::Open(&reader, &ipc_reader));
+    std::shared_ptr<RecordBatch> batch;
+    Status s = ipc_reader->ReadNext(&batch);
+    ASSERT_TRUE(s.IsInvalid());
+    ASSERT_EQ(ex_error, s.message().substr(0, ex_error.size()));
+  };
 
-  std::unique_ptr<MessageReader> message_reader = MessageReader::Open(&buffer_reader);
-  std::unique_ptr<Message> msg;
-
-  // Parse and reassemble first two messages in stream
-  for (int i = 0; i < 2; ++i) {
-    internal::IpcPayload payload;
-    ASSERT_OK(message_reader->ReadNextMessage(&msg));
-    payload.type = msg->type();
-    payload.metadata = msg->metadata();
-    payload.body_buffers.push_back(msg->body());
-    payload.body_length = msg->body()->size();
-
-    int32_t unused_metadata_length = -1;
-    ASSERT_OK(internal::WriteIpcPayload(payload, out.get(), &unused_metadata_length));
-  }
-
-  //
-  std::shared_ptr<arrow::Buffer> incomplete_buffer;
-  ASSERT_OK(out->Finish(&incomplete_buffer));
-
-  io::BufferReader incomplete_reader(incomplete_buffer);
-  std::shared_ptr<RecordBatchReader> ipc_reader;
-  ASSERT_OK(RecordBatchStreamReader::Open(&incomplete_reader, &ipc_reader));
-
-  Status s = ipc_reader->ReadNext(&batch);
-  ASSERT_TRUE(s.IsInvalid());
+  // Stream terminates before reading all dictionaries
+  std::shared_ptr<Buffer> truncated_stream;
+  SpliceMessages(buffer, {0, 1}, &truncated_stream);
   std::string ex_message =
       ("IPC stream ended without reading the expected number (3)"
        " of dictionaries");
-  ASSERT_EQ(ex_message, s.message().substr(0, ex_message.size()));
+  AssertFailsWith(truncated_stream, ex_message);
+
+  // One of the dictionaries is missing, then we see a record batch
+  SpliceMessages(buffer, {0, 1, 2, 4}, &truncated_stream);
+  ex_message =
+      ("IPC stream did not have the expected number (3) of dictionaries "
+       "at the start of the stream");
+  AssertFailsWith(truncated_stream, ex_message);
 }
 
 class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
