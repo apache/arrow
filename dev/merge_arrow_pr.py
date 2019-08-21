@@ -354,18 +354,8 @@ class PullRequest(object):
             print("Author {}: {}".format(i + 1, author))
 
         if len(distinct_authors) > 1:
-            primary_author = self.cmd.prompt(
-                "Enter primary author in the format of "
-                "\"name <email>\" [%s]: " % distinct_authors[0])
-
-            if primary_author == "":
-                primary_author = distinct_authors[0]
-            else:
-                # When primary author is specified manually, de-dup it from
-                # author list and put it at the head of author list.
-                distinct_authors = [x for x in distinct_authors
-                                    if x != primary_author]
-                distinct_authors = [primary_author] + distinct_authors
+            primary_author, distinct_authors = get_primary_author(
+                self.cmd, distinct_authors)
         else:
             # If there is only one author, do not prompt for a lead author
             primary_author = distinct_authors[0]
@@ -439,6 +429,29 @@ class PullRequest(object):
         print("Pull request #%s merged!" % self.number)
         print("Merge hash: %s" % merge_hash)
         return merge_hash
+
+
+def get_primary_author(cmd, distinct_authors):
+    author_pat = re.compile(r'(.*) <(.*)>')
+
+    while True:
+        primary_author = cmd.prompt(
+            "Enter primary author in the format of "
+            "\"name <email>\" [%s]: " % distinct_authors[0])
+
+        if primary_author == "":
+            return primary_author, distinct_authors
+
+        if author_pat.match(primary_author):
+            break
+        print('Bad author "{}", please try again'.format(primary_author))
+
+    # When primary author is specified manually, de-dup it from
+    # author list and put it at the head of author list.
+    distinct_authors = [x for x in distinct_authors
+                        if x != primary_author]
+    distinct_authors = [primary_author] + distinct_authors
+    return primary_author, distinct_authors
 
 
 def prompt_for_fix_version(cmd, jira_issue):
