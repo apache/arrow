@@ -93,7 +93,7 @@ class MapIterator : public Iterator<O> {
 
     ARROW_RETURN_NOT_OK(it_->Next(&i));
     // Ensure loops exit.
-    *out = (i == nullptr) ? nullptr : map_(std::move(i));
+    *out = (i == NULLPTR) ? NULLPTR : map_(std::move(i));
 
     return Status::OK();
   }
