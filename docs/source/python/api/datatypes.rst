@@ -84,6 +84,7 @@ functions above.
    Time64Type
    FixedSizeBinaryType
    Decimal128Type
+   ExtensionType
    Field
    Schema
 
