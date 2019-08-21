@@ -245,12 +245,27 @@ class PeriodType(pa.GenericExtensionType):
             return NotImplemented
 
 
+@pytest.fixture
+def registered_period_type():
+    # setup
+    period_type = PeriodType('D')
+    pa.lib.register_extension_type(period_type)
+    yield
+    # teardown
+    try:
+        pa.lib.unregister_extension_type('pandas.period')
+    except KeyError:
+        pass
+
+
 def test_generic_ext_type():
     period_type = PeriodType('D')
     assert period_type.extension_name == "pandas.period"
+    assert period_type.storage_type == pa.int64()
 
-    pa.lib.register_extension_type(period_type)
 
+def test_generic_ext_type_ipc(registered_period_type):
+    period_type = PeriodType('D')
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(period_type, storage)
     batch = pa.RecordBatch.from_arrays([arr], ["ext"])
@@ -285,23 +300,47 @@ def test_generic_ext_type():
     assert result.type.freq == 'H'
     assert result.type == PeriodType('H')
 
-    # pa.lib.unregister_extension_type('pandas.period')
 
-    # test that trying to register other type does not segfault
-    with pytest.raises(TypeError):
-        pa.lib.register_extension_type(pa.string())
+def test_generic_ext_type_ipc_unknown(registered_period_type):
+    period_type = PeriodType('D')
+    storage = pa.array([1, 2, 3, 4], pa.int64())
+    arr = pa.ExtensionArray.from_storage(period_type, storage)
+    batch = pa.RecordBatch.from_arrays([arr], ["ext"])
 
-    # register second time raises KeyError
-    with pytest.raises(KeyError):
-        pa.lib.register_extension_type(period_type)
+    buf = ipc_write_batch(batch)
+    del batch
+
+    # unregister type before loading again => reading unknown extension type
+    # as plain array (but metadata in schema's field are preserved)
+    pa.lib.unregister_extension_type('pandas.period')
+
+    batch = ipc_read_batch(buf)
+    result = batch.column(0)
+
+    assert isinstance(result, pa.Int64Array)
+    ext_field = batch.schema.field_by_name('ext')
+    assert ext_field.metadata == {
+        b'ARROW:extension:metadata': b'freq=D',
+        b'ARROW:extension:name': b'pandas.period'
+    }
 
 
 def test_generic_ext_type_equality():
     period_type = PeriodType('D')
     assert period_type.extension_name == "pandas.period"
-    # pa.lib.register_extension_type(period_type)
 
     period_type2 = PeriodType('D')
     period_type3 = PeriodType('H')
     assert period_type == period_type2
     assert not period_type == period_type3
+
+
+def test_generic_ext_type_register(registered_period_type):
+    # test that trying to register other type does not segfault
+    with pytest.raises(TypeError):
+        pa.lib.register_extension_type(pa.string())
+
+    # register second time raises KeyError
+    period_type = PeriodType('D')
+    with pytest.raises(KeyError):
+        pa.lib.register_extension_type(period_type)

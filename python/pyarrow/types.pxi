@@ -658,19 +658,24 @@ cdef class GenericExtensionType(BaseExtensionType):
 _PYTHON_EXTENSION_TYPES_REGISTRY = []
 
 
-def register_extension_type(gen_ext_type):
+def register_extension_type(ext_type):
     """
     Register a Python extension type.
 
+    Parameters
+    ----------
+    ext_type : BaseExtensionType
+        The ExtensionType subclass to register.
+
     """
     cdef:
-        DataType _type = ensure_type(gen_ext_type, allow_none=False)
+        DataType _type = ensure_type(ext_type, allow_none=False)
 
     if not isinstance(_type, BaseExtensionType):
         raise TypeError("Only extension types can be registered")
 
     # register on the python side
-    _PYTHON_EXTENSION_TYPES_REGISTRY.append(gen_ext_type)
+    _PYTHON_EXTENSION_TYPES_REGISTRY.append(_type)
 
     # register on the C++ side
     check_status(
@@ -678,6 +683,15 @@ def register_extension_type(gen_ext_type):
 
 
 def unregister_extension_type(type_name):
+    """
+    Unregister a Python extension type.
+
+    Parameters
+    ----------
+    type_name : str
+        The name of the ExtensionType subclass to unregister.
+
+    """
     cdef:
         c_string c_type_name = tobytes(type_name)
     check_status(UnregisterPyExtensionType(c_type_name))

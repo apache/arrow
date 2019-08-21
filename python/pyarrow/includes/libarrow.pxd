@@ -1459,6 +1459,7 @@ cdef extern from 'arrow/python/extension_type.h' namespace 'arrow::py':
     CStatus RegisterPyExtensionType(shared_ptr[CDataType])
     CStatus UnregisterPyExtensionType(c_string type_name)
 
+
 cdef extern from 'arrow/python/benchmark.h' namespace 'arrow::py::benchmark':
     void Benchmark_PandasObjectIsNull(object lst) except *
 

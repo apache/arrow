@@ -65,12 +65,16 @@ cdef api shared_ptr[CDataType] pyarrow_unwrap_data_type(
     return shared_ptr[CDataType]()
 
 
+# Workaround for Cython parsing bug
+# https://github.com/cython/cython/issues/2143
+ctypedef const CPyExtensionType* _CPyExtensionTypePtr
+
+
 cdef api object pyarrow_wrap_data_type(
         const shared_ptr[CDataType]& type):
     cdef:
         const CExtensionType* ext_type
         const CPyExtensionType* cpy_ext_type
-        const CPyExtensionType* cgen_ext_type
         DataType out
 
     if type.get() == NULL:
@@ -94,16 +98,11 @@ cdef api object pyarrow_wrap_data_type(
         out = Decimal128Type.__new__(Decimal128Type)
     elif type.get().id() == _Type_EXTENSION:
         ext_type = <const CExtensionType*> type.get()
-        if ext_type.extension_name() == PyExtensionName():
-            cpy_ext_type = <const CPyExtensionType*> ext_type
+        cpy_ext_type = dynamic_cast[_CPyExtensionTypePtr](ext_type)
+        if cpy_ext_type != nullptr:
             return cpy_ext_type.GetInstance()
-        # TODO need to check if it is actually a GenericExtensionType, and
-        # otherwise fallback to BaseExtensionType (or UnknownExtensionType?)
         else:
-            cgen_ext_type = <const CPyExtensionType*> ext_type
-            return cgen_ext_type.GetInstance()
-        # else:
-        #     out = BaseExtensionType.__new__(BaseExtensionType)
+            out = BaseExtensionType.__new__(BaseExtensionType)
     else:
         out = DataType.__new__(DataType)
 
