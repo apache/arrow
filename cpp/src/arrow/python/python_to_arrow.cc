@@ -346,10 +346,10 @@ class Time32Converter
         default:
           return Status::UnknownError("Invalid time unit");
       }
-      return this->typed_builder_->Append(t);
     } else {
-      return internal::InvalidValue(obj, "converting to time32");
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for int32"));
     }
+    return this->typed_builder_->Append(t);
   }
 
  private:
@@ -376,10 +376,10 @@ class Time64Converter
         default:
           return Status::UnknownError("Invalid time unit");
       }
-      return this->typed_builder_->Append(t);
     } else {
-      return internal::InvalidValue(obj, "converting to time64");
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for int64"));
     }
+    return this->typed_builder_->Append(t);
   }
 
  private:
@@ -1056,13 +1056,6 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
     strict_conversions = true;
   }
   DCHECK_GE(size, 0);
-
-  // Handle NA / NullType case
-  if (real_type->id() == Type::NA) {
-    ArrayVector chunks = {std::make_shared<NullArray>(size)};
-    *out = std::make_shared<ChunkedArray>(chunks);
-    return Status::OK();
-  }
 
   // Create the sequence converter, initialize with the builder
   std::unique_ptr<SeqConverter> converter;

@@ -1047,18 +1047,39 @@ def test_array_conversions_no_sentinel_values():
 
 
 def test_binary_string_pandas_null_sentinels():
+    # ARROW-6227
     def _check_case(ty):
-        with pytest.raises(TypeError):
-            # NaN is a float by default
-            pa.array(['string', np.nan], type=ty)
-
         arr = pa.array(['string', np.nan], type=ty, from_pandas=True)
         expected = pa.array(['string', None], type=ty)
         assert arr.equals(expected)
-
-    _check_case(None)
     _check_case('binary')
     _check_case('utf8')
+
+
+def test_pandas_null_sentinels_raise_error():
+    # ARROW-6227
+    cases = [
+        ([None, np.nan], 'null'),
+        (['string', np.nan], 'binary'),
+        (['string', np.nan], 'utf8'),
+        (['string', np.nan], 'large_binary'),
+        (['string', np.nan], 'large_utf8'),
+        ([b'string', np.nan], pa.binary(6)),
+        ([True, np.nan], pa.bool_()),
+        ([0, np.nan], pa.date32()),
+        ([0, np.nan], pa.date64()),
+        ([0, np.nan], pa.time32('s')),
+        ([0, np.nan], pa.time64('us')),
+        ([0, np.nan], pa.timestamp('us')),
+    ]
+    for case, ty in cases:
+        # Both types of exceptions are raised. May want to clean that up
+        with pytest.raises((ValueError, TypeError)):
+            pa.array(case, type=ty)
+
+        # from_pandas option suppresses failure
+        result = pa.array(case, type=ty, from_pandas=True)
+        assert result.null_count == (1 if ty != 'null' else 2)
 
 
 def test_array_from_numpy_datetimeD():
