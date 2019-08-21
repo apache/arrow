@@ -39,7 +39,7 @@
 #include "parquet/column_writer.h"
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
-#include "parquet/test-util.h"
+#include "parquet/test_util.h"
 
 namespace parquet {
 namespace test {

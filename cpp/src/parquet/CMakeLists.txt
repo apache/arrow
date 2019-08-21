@@ -329,10 +329,10 @@ add_parquet_test(arrow-test
 if(ARROW_USE_OPENSSL)
   add_parquet_test(encryption-test
                    SOURCES
-                   encryption-write-configurations-test.cc
-                   encryption-read-configurations-test.cc
-                   encryption-properties-test.cc
-                   test-util.cc)
+                   encryption_write_configurations_test.cc
+                   encryption_read_configurations_test.cc
+                   encryption_properties_test.cc
+                   test_util.cc)
 endif()
 
 # Those tests need to use static linking as they access thrift-generated

@@ -26,8 +26,8 @@
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
 #include "parquet/platform.h"
-#include "parquet/test-encryption-util.h"
-#include "parquet/test-util.h"
+#include "parquet/test_encryption_util.h"
+#include "parquet/test_util.h"
 
 /*
  * This file contains unit-tests for writing encrypted Parquet files with
