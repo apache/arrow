@@ -24,7 +24,6 @@ import java.util.stream.Collectors;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.ReadChannel;
-import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.MessageChannelReader;
@@ -108,10 +107,5 @@ public class OrcStripeReader extends ArrowReader {
 
       return MessageSerializer.deserializeSchema(result.getMessage());
     }
-  }
-
-  @Override
-  protected ArrowDictionaryBatch readDictionary() throws IOException {
-    throw new UnsupportedOperationException();
   }
 }

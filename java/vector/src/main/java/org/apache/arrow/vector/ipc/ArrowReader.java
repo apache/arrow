@@ -45,7 +45,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   protected final BufferAllocator allocator;
   private VectorLoader loader;
   private VectorSchemaRoot root;
-  private Map<Long, Dictionary> dictionaries;
+  protected Map<Long, Dictionary> dictionaries;
   private boolean initialized = false;
 
   protected ArrowReader(BufferAllocator allocator) {
@@ -151,15 +151,6 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   protected abstract Schema readSchema() throws IOException;
 
   /**
-   * Read a dictionary batch from the source, will be invoked after the schema has been read and
-   * called N times, where N is the number of dictionaries indicated by the schema Fields.
-   *
-   * @return the read ArrowDictionaryBatch
-   * @throws IOException on error
-   */
-  protected abstract ArrowDictionaryBatch readDictionary() throws IOException;
-
-  /**
    * Initialize if not done previously.
    *
    * @throws IOException on error
@@ -174,7 +165,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   /**
    * Reads the schema and initializes the vectors.
    */
-  private void initialize() throws IOException {
+  protected void initialize() throws IOException {
     Schema originalSchema = readSchema();
     List<Field> fields = new ArrayList<>();
     List<FieldVector> vectors = new ArrayList<>();
@@ -191,12 +182,6 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
     this.root = new VectorSchemaRoot(schema, vectors, 0);
     this.loader = new VectorLoader(root);
     this.dictionaries = Collections.unmodifiableMap(dictionaries);
-
-    // Read and load all dictionaries from schema
-    for (int i = 0; i < dictionaries.size(); i++) {
-      ArrowDictionaryBatch dictionaryBatch = readDictionary();
-      loadDictionary(dictionaryBatch);
-    }
   }
 
   /**

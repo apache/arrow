@@ -57,6 +57,8 @@ public abstract class ArrowWriter implements AutoCloseable {
   private boolean started = false;
   private boolean ended = false;
 
+  private boolean dictWritten = false;
+
   /**
    * Note: fields are not closed when the writer is closed.
    *
@@ -103,6 +105,7 @@ public abstract class ArrowWriter implements AutoCloseable {
    */
   public void writeBatch() throws IOException {
     ensureStarted();
+    ensureDictionariesWritten();
     try (ArrowRecordBatch batch = unloader.getRecordBatch()) {
       writeRecordBatch(batch);
     }
@@ -138,6 +141,16 @@ public abstract class ArrowWriter implements AutoCloseable {
       // write the schema - for file formats this is duplicated in the footer, but matches
       // the streaming format
       MessageSerializer.serialize(out, schema);
+    }
+  }
+
+  /**
+   * Write dictionaries after schema and before recordBatches, dictionaries won't be
+   * written if empty stream (only has schema data in IPC).
+   */
+  private void ensureDictionariesWritten() throws IOException {
+    if (!dictWritten) {
+      dictWritten = true;
       // write out any dictionaries
       for (ArrowDictionaryBatch batch : dictionaries) {
         try {
