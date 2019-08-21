@@ -19,7 +19,9 @@
 
 #include <cstring>
 
+#include "arrow/buffer-builder.h"
 #include "arrow/buffer.h"
+#include "arrow/compute/context.h"
 #include "arrow/compute/kernels/boolean.h"
 #include "arrow/compute/kernels/compare.h"
 #include "arrow/record_batch.h"
@@ -29,12 +31,37 @@
 namespace arrow {
 namespace dataset {
 
+using arrow::compute::Datum;
 using internal::checked_cast;
+using internal::checked_pointer_cast;
+
+Status TrivialMask(MemoryPool* pool, const BooleanScalar& value, const RecordBatch& batch,
+                   std::shared_ptr<BooleanArray>* mask) {
+  if (!value.is_valid) {
+    std::shared_ptr<Array> mask_array;
+    RETURN_NOT_OK(MakeArrayOfNull(boolean(), batch.num_rows(), &mask_array));
+
+    *mask = checked_pointer_cast<BooleanArray>(mask_array);
+    return Status::OK();
+  }
+
+  TypedBufferBuilder<bool> builder;
+  RETURN_NOT_OK(builder.Append(batch.num_rows(), value.value));
+
+  std::shared_ptr<Buffer> values;
+  RETURN_NOT_OK(builder.Finish(&values));
+
+  *mask = std::make_shared<BooleanArray>(batch.num_rows(), values);
+  return Status::OK();
+}
 
 Status EvaluateExpression(compute::FunctionContext* ctx, const Expression& condition,
-                          const RecordBatch& batch,
-                          std::shared_ptr<BooleanArray>* filter) {
-  using arrow::compute::Datum;
+                          const RecordBatch& batch, std::shared_ptr<BooleanArray>* mask) {
+  BooleanScalar value;
+  if (condition.IsNullScalar() || condition.IsBooleanScalar(&value)) {
+    return TrivialMask(ctx->memory_pool(), value, batch, mask);
+  }
+
   if (!condition.IsOperatorExpression()) {
     return Status::Invalid("can't execute condition ", condition.ToString());
   }
@@ -44,14 +71,19 @@ Status EvaluateExpression(compute::FunctionContext* ctx, const Expression& condi
   if (condition.IsComparisonExpression()) {
     const auto& lhs = checked_cast<const FieldReferenceExpression&>(*op[0]);
     const auto& rhs = checked_cast<const ScalarExpression&>(*op[1]);
+    Datum out;
+    auto lhs_array = batch.GetColumnByName(lhs.name());
+    if (lhs_array == nullptr) {
+      // comparing a field absent from batch: return nulls
+      return TrivialMask(ctx->memory_pool(), BooleanScalar(), batch, mask);
+    }
     using arrow::compute::CompareOperator;
     arrow::compute::CompareOptions opts(static_cast<CompareOperator>(
         static_cast<int>(CompareOperator::EQUAL) + static_cast<int>(condition.type()) -
         static_cast<int>(ExpressionType::EQUAL)));
-    Datum out;
-    RETURN_NOT_OK(arrow::compute::Compare(ctx, Datum(batch.GetColumnByName(lhs.name())),
-                                          Datum(rhs.value()), opts, &out));
-    *filter = internal::checked_pointer_cast<BooleanArray>(out.make_array());
+    RETURN_NOT_OK(
+        arrow::compute::Compare(ctx, Datum(lhs_array), Datum(rhs.value()), opts, &out));
+    *mask = checked_pointer_cast<BooleanArray>(out.make_array());
     return Status::OK();
   }
 
@@ -60,7 +92,7 @@ Status EvaluateExpression(compute::FunctionContext* ctx, const Expression& condi
     RETURN_NOT_OK(EvaluateExpression(ctx, *op[0], batch, &to_invert));
     Datum out;
     RETURN_NOT_OK(arrow::compute::Invert(ctx, Datum(to_invert), &out));
-    *filter = internal::checked_pointer_cast<BooleanArray>(out.make_array());
+    *mask = checked_pointer_cast<BooleanArray>(out.make_array());
     return Status::OK();
   }
 
@@ -81,7 +113,7 @@ Status EvaluateExpression(compute::FunctionContext* ctx, const Expression& condi
     }
   }
 
-  *filter = internal::checked_pointer_cast<BooleanArray>(acc.make_array());
+  *mask = checked_pointer_cast<BooleanArray>(acc.make_array());
   return Status::OK();
 }
 
@@ -190,7 +222,7 @@ Result<std::shared_ptr<Expression>> Invert(const Expression& op) {
 
     case ExpressionType::AND:
     case ExpressionType::OR: {
-      std::vector<std::shared_ptr<Expression>> operands;
+      ExpressionVector operands;
       for (auto operand : checked_cast<const OperatorExpression&>(op).operands()) {
         ARROW_ASSIGN_OR_RAISE(auto inverted_operand, Invert(*operand));
         operands.push_back(inverted_operand);
@@ -489,7 +521,7 @@ Result<std::shared_ptr<Expression>> AssumeCompound(const OperatorExpression& e,
   bool trivial_condition = e.type() == ExpressionType::OR;
   bool simplify_to_trivial = false;
 
-  std::vector<std::shared_ptr<Expression>> operands;
+  ExpressionVector operands;
   for (auto operand : e.operands()) {
     ARROW_ASSIGN_OR_RAISE(operand, AssumeIfOperator(operand, given));
 
@@ -725,19 +757,17 @@ std::shared_ptr<Expression> ScalarExpression::Copy() const {
   return std::make_shared<ScalarExpression>(*this);
 }
 
-std::shared_ptr<OperatorExpression> and_(
-    std::vector<std::shared_ptr<Expression>> operands) {
+std::shared_ptr<OperatorExpression> and_(ExpressionVector operands) {
   return std::make_shared<OperatorExpression>(ExpressionType::AND, std::move(operands));
 }
 
-std::shared_ptr<OperatorExpression> or_(
-    std::vector<std::shared_ptr<Expression>> operands) {
+std::shared_ptr<OperatorExpression> or_(ExpressionVector operands) {
   return std::make_shared<OperatorExpression>(ExpressionType::OR, std::move(operands));
 }
 
 std::shared_ptr<OperatorExpression> not_(std::shared_ptr<Expression> operand) {
-  return std::make_shared<OperatorExpression>(
-      ExpressionType::NOT, std::vector<std::shared_ptr<Expression>>{std::move(operand)});
+  return std::make_shared<OperatorExpression>(ExpressionType::NOT,
+                                              ExpressionVector{std::move(operand)});
 }
 
 // flatten chains of and/or to a single OperatorExpression
@@ -746,7 +776,7 @@ OperatorExpression MaybeCombine(ExpressionType::type type, const OperatorExpress
   if (lhs.type() != type && rhs.type() != type) {
     return OperatorExpression(type, {lhs.Copy(), rhs.Copy()});
   }
-  std::vector<std::shared_ptr<Expression>> operands;
+  ExpressionVector operands;
   if (lhs.type() == type) {
     operands = lhs.operands();
     if (rhs.type() == type) {

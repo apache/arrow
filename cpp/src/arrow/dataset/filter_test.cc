@@ -32,6 +32,9 @@
 namespace arrow {
 namespace dataset {
 
+using namespace string_literals;
+using internal::checked_pointer_cast;
+
 class ExpressionsTest : public ::testing::Test {
  public:
   void AssertSimplifiesTo(OperatorExpression expr, const Expression& given,
@@ -63,8 +66,6 @@ class ExpressionsTest : public ::testing::Test {
 };
 
 TEST_F(ExpressionsTest, Equality) {
-  using namespace string_literals;
-
   ASSERT_TRUE("a"_.Equals("a"_));
   ASSERT_FALSE("a"_.Equals("b"_));
 
@@ -77,8 +78,6 @@ TEST_F(ExpressionsTest, Equality) {
 }
 
 TEST_F(ExpressionsTest, SimplificationOfCompoundQuery) {
-  using namespace string_literals;
-
   // chained "and" expressions are flattened
   auto multi_and = "b"_ > 5 and "b"_ < 10 and "b"_ != 7;
   AssertOperandsAre(multi_and, ExpressionType::AND, "b"_ > 5, "b"_ < 10, "b"_ != 7);
@@ -97,16 +96,12 @@ TEST_F(ExpressionsTest, SimplificationOfCompoundQuery) {
 }
 
 TEST_F(ExpressionsTest, SimplificationAgainstCompoundCondition) {
-  using namespace string_literals;
-
   AssertSimplifiesTo("b"_ > 5, "b"_ == 3 or "b"_ == 6, "b"_ > 5);
   AssertSimplifiesTo("b"_ > 7, "b"_ == 3 or "b"_ == 6, *never);
   AssertSimplifiesTo("b"_ > 5 and "b"_ < 10, "b"_ > 6 and "b"_ < 13, "b"_ < 10);
 }
 
 TEST_F(ExpressionsTest, SimplificationToNull) {
-  using namespace string_literals;
-
   auto null = ScalarExpression::MakeNull();
 
   AssertSimplifiesTo(*equal(fieldRef("b"), null), "b"_ == 3, *null);
@@ -117,29 +112,66 @@ TEST_F(ExpressionsTest, SimplificationToNull) {
 
 class FilterTest : public ::testing::Test {
  public:
-  void AssertFilter(OperatorExpression expr, std::vector<std::shared_ptr<Field>> fields,
-                    std::string batch_json) {
+  Status DoFilter(const Expression& expr, std::vector<std::shared_ptr<Field>> fields,
+                  std::string batch_json, std::shared_ptr<BooleanArray>* mask,
+                  std::shared_ptr<BooleanArray>* expected_mask) {
     // expected filter result is in the "in" field
     fields.push_back(field("in", boolean()));
 
     auto batch_array = ArrayFromJSON(struct_(std::move(fields)), std::move(batch_json));
     std::shared_ptr<RecordBatch> batch;
-    ASSERT_OK(RecordBatch::FromStructArray(batch_array, &batch));
+    RETURN_NOT_OK(RecordBatch::FromStructArray(batch_array, &batch));
 
-    auto expected_filter = batch->GetColumnByName("in");
+    *expected_mask = checked_pointer_cast<BooleanArray>(batch->GetColumnByName("in"));
 
-    std::shared_ptr<BooleanArray> filter;
-    ASSERT_OK(EvaluateExpression(&ctx_, expr, *batch, &filter));
+    return EvaluateExpression(&ctx_, expr, *batch, mask);
+  }
 
-    ASSERT_ARRAYS_EQUAL(*expected_filter, *filter);
+  void AssertFilter(const Expression& expr, std::vector<std::shared_ptr<Field>> fields,
+                    std::string batch_json) {
+    std::shared_ptr<BooleanArray> mask, expected_mask;
+    ASSERT_OK(
+        DoFilter(expr, std::move(fields), std::move(batch_json), &mask, &expected_mask));
+    ASSERT_ARRAYS_EQUAL(*expected_mask, *mask);
   }
 
   arrow::compute::FunctionContext ctx_;
 };
 
-TEST_F(FilterTest, Basics) {
-  using namespace string_literals;
+TEST_F(FilterTest, Trivial) {
+  AssertFilter(*scalar(true), {field("a", int64()), field("b", float64())}, R"([
+      {"a": 0, "b": -0.1, "in": 1},
+      {"a": 0, "b":  0.3, "in": 1},
+      {"a": 1, "b":  0.2, "in": 1},
+      {"a": 2, "b": -0.1, "in": 1},
+      {"a": 0, "b":  0.1, "in": 1},
+      {"a": 0, "b": null, "in": 1},
+      {"a": 0, "b":  1.0, "in": 1}
+  ])");
 
+  AssertFilter(*scalar(false), {field("a", int64()), field("b", float64())}, R"([
+      {"a": 0, "b": -0.1, "in": 0},
+      {"a": 0, "b":  0.3, "in": 0},
+      {"a": 1, "b":  0.2, "in": 0},
+      {"a": 2, "b": -0.1, "in": 0},
+      {"a": 0, "b":  0.1, "in": 0},
+      {"a": 0, "b": null, "in": 0},
+      {"a": 0, "b":  1.0, "in": 0}
+  ])");
+
+  AssertFilter(*ScalarExpression::MakeNull(),
+               {field("a", int64()), field("b", float64())}, R"([
+      {"a": 0, "b": -0.1, "in": null},
+      {"a": 0, "b":  0.3, "in": null},
+      {"a": 1, "b":  0.2, "in": null},
+      {"a": 2, "b": -0.1, "in": null},
+      {"a": 0, "b":  0.1, "in": null},
+      {"a": 0, "b": null, "in": null},
+      {"a": 0, "b":  1.0, "in": null}
+  ])");
+}
+
+TEST_F(FilterTest, Basics) {
   AssertFilter("a"_ == 0 and "b"_ > 0.0 and "b"_ < 1.0,
                {field("a", int64()), field("b", float64())}, R"([
       {"a": 0, "b": -0.1, "in": 0},
@@ -147,7 +179,32 @@ TEST_F(FilterTest, Basics) {
       {"a": 1, "b":  0.2, "in": 0},
       {"a": 2, "b": -0.1, "in": 0},
       {"a": 0, "b":  0.1, "in": 1},
+      {"a": 0, "b": null, "in": null},
       {"a": 0, "b":  1.0, "in": 0}
+  ])");
+
+  AssertFilter("a"_ != 0 and "b"_ > 0.1, {field("a", int64()), field("b", float64())},
+               R"([
+      {"a": 0, "b": -0.1, "in": 0},
+      {"a": 0, "b":  0.3, "in": 0},
+      {"a": 1, "b":  0.2, "in": 1},
+      {"a": 2, "b": -0.1, "in": 0},
+      {"a": 0, "b":  0.1, "in": 0},
+      {"a": 0, "b": null, "in": null},
+      {"a": 0, "b":  1.0, "in": 0}
+  ])");
+}
+
+TEST_F(FilterTest, ConditionOnAbsentColumn) {
+  AssertFilter("a"_ == 0 and "b"_ > 0.0 and "b"_ < 1.0 and "absent"_ == 0,
+               {field("a", int64()), field("b", float64())}, R"([
+      {"a": 0, "b": -0.1, "in": null},
+      {"a": 0, "b":  0.3, "in": null},
+      {"a": 1, "b":  0.2, "in": null},
+      {"a": 2, "b": -0.1, "in": null},
+      {"a": 0, "b":  0.1, "in": null},
+      {"a": 0, "b": null, "in": null},
+      {"a": 0, "b":  1.0, "in": null}
   ])");
 }
 
