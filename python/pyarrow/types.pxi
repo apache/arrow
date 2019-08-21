@@ -537,6 +537,16 @@ cdef class BaseExtensionType(DataType):
         """
         return pyarrow_wrap_data_type(self.ext_type.storage_type())
 
+    def __eq__(self, other):
+        # Default implementation to avoid infinite recursion through
+        # DataType.__eq__ -> ExtensionType::ExtensionEquals -> DataType.__eq__
+        if isinstance(other, BaseExtensionType):
+            return (type(self) == type(other) and
+                    self.extension_name == other.extension_name and
+                    self.storage_type == other.storage_type)
+        else:
+            return NotImplemented
+
 
 cdef class ExtensionType(BaseExtensionType):
     """
@@ -562,15 +572,6 @@ cdef class ExtensionType(BaseExtensionType):
         self.cpy_ext_type = <const CPyExtensionType*> type.get()
         # Store weakref and serialized version of self on C++ type instance
         check_status(self.cpy_ext_type.SetInstance(self))
-
-    def __eq__(self, other):
-        # Default implementation to avoid infinite recursion through
-        # DataType.__eq__ -> ExtensionType::ExtensionEquals -> DataType.__eq__
-        if isinstance(other, ExtensionType):
-            return (type(self) == type(other) and
-                    self.storage_type == other.storage_type)
-        else:
-            return NotImplemented
 
     def __reduce__(self):
         raise NotImplementedError("Please implement {0}.__reduce__"
@@ -626,23 +627,21 @@ cdef class GenericExtensionType(BaseExtensionType):
 
     def __init__(self, DataType storage_type, extension_name):
         cdef:
-            shared_ptr[CExtensionType] cgen_ext_type
+            shared_ptr[CExtensionType] cpy_ext_type
             c_string c_extension_name
 
         c_extension_name = tobytes(extension_name)
         assert storage_type is not None
-        # cgen_ext_type = CGenericExtensionType(
-        #     storage_type.sp_type, c_extension_name)
-        check_status(CGenericExtensionType.FromClass(
+        check_status(CPyExtensionType.FromClassAndName(
             storage_type.sp_type, c_extension_name, type(self),
-            &cgen_ext_type))
-        self.init(<shared_ptr[CDataType]> cgen_ext_type)
+            &cpy_ext_type))
+        self.init(<shared_ptr[CDataType]> cpy_ext_type)
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
         BaseExtensionType.init(self, type)
-        self.cgen_ext_type = <const CGenericExtensionType*> type.get()
+        self.cpy_ext_type = <const CPyExtensionType*> type.get()
         # Store weakref on C++ type instance
-        check_status(self.cgen_ext_type.SetInstance(self))
+        check_status(self.cpy_ext_type.SetInstance(self))
 
     def __arrow_ext_serialize__(self):
         # default for non-paramtrized type is to have no metadata
@@ -675,13 +674,13 @@ def register_extension_type(gen_ext_type):
 
     # register on the C++ side
     check_status(
-        RegisterGenericExtensionType(<shared_ptr[CDataType]> _type.sp_type))
+        RegisterPyExtensionType(<shared_ptr[CDataType]> _type.sp_type))
 
 
 def unregister_extension_type(type_name):
     cdef:
         c_string c_type_name = tobytes(type_name)
-    check_status(UnregisterGenericExtensionType(c_type_name))
+    check_status(UnregisterPyExtensionType(c_type_name))
 
 
 cdef class Field:
@@ -2074,7 +2073,7 @@ def _unregister_py_extension_types():
     # finalized.  If the C++ type is destroyed later in the process
     # teardown stage, it will invoke CPython APIs such as Py_DECREF
     # with a destroyed interpreter.
-    check_status(UnregisterPyExtensionType())
+    unregister_extension_type("arrow.py_extension_type")
     for ext_type in _PYTHON_EXTENSION_TYPES_REGISTRY:
         try:
             unregister_extension_type(ext_type.extension_name)

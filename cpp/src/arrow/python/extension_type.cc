@@ -72,9 +72,13 @@ static const char* kExtensionName = "arrow.py_extension_type";
 
 PyExtensionType::PyExtensionType(std::shared_ptr<DataType> storage_type, PyObject* typ,
                                  PyObject* inst)
-    : ExtensionType(storage_type), type_class_(typ), type_instance_(inst) {}
+    : ExtensionType(storage_type), extension_name_(kExtensionName),
+      type_class_(typ), type_instance_(inst) {}
 
-std::string PyExtensionType::extension_name() const { return kExtensionName; }
+PyExtensionType::PyExtensionType(std::shared_ptr<DataType> storage_type, std::string extension_name,
+                                 PyObject* typ, PyObject* inst)
+    : ExtensionType(storage_type), extension_name_(extension_name),
+      type_class_(typ), type_instance_(inst) {}
 
 bool PyExtensionType::ExtensionEquals(const ExtensionType& other) const {
   PyAcquireGIL lock;
@@ -115,14 +119,21 @@ error:
 
 std::shared_ptr<Array> PyExtensionType::MakeArray(std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
-  DCHECK_EQ(kExtensionName,
-            checked_cast<const ExtensionType&>(*data->type).extension_name());
+  // DCHECK_EQ(kExtensionName,
+  //           checked_cast<const ExtensionType&>(*data->type).extension_name());
   return std::make_shared<ExtensionArray>(data);
 }
 
 std::string PyExtensionType::Serialize() const {
+  PyAcquireGIL lock;
+
   DCHECK(type_instance_);
-  return serialized_;
+
+  OwnedRef inst(GetInstance());
+
+  std::string serialized;
+  SerializeExtInstance(inst.obj(), &serialized);
+  return serialized;
 }
 
 Status PyExtensionType::Deserialize(std::shared_ptr<DataType> storage_type,
@@ -182,115 +193,27 @@ Status PyExtensionType::FromClass(std::shared_ptr<DataType> storage_type, PyObje
   return Status::OK();
 }
 
-Status RegisterPyExtensionType(const std::shared_ptr<DataType>& type) {
-  DCHECK_EQ(type->id(), Type::EXTENSION);
-  auto ext_type = std::dynamic_pointer_cast<ExtensionType>(type);
-  DCHECK_EQ(ext_type->extension_name(), kExtensionName);
-  return RegisterExtensionType(ext_type);
-}
-
-Status UnregisterPyExtensionType() { return UnregisterExtensionType(kExtensionName); }
-
-std::string PyExtensionName() { return kExtensionName; }
-
-
-// Define a generic extension type class that takes the name as constructor
-// parameter
-
-GenericExtensionType::GenericExtensionType(std::shared_ptr<DataType> storage_type,
-                                           std::string extension_name,
-                                           PyObject* typ, PyObject* inst)
-    : ExtensionType(storage_type), extension_name_(extension_name),
-      type_class_(typ), type_instance_(inst) {}
-
-Status GenericExtensionType::FromClass(std::shared_ptr<DataType> storage_type,
-                                       std::string extension_name,
-                                       PyObject* typ,
-                                       std::shared_ptr<ExtensionType>* out) {
+Status PyExtensionType::FromClassAndName(std::shared_ptr<DataType> storage_type,
+                                         std::string extension_name,
+                                         PyObject* typ,
+                                         std::shared_ptr<ExtensionType>* out) {
   Py_INCREF(typ);
-  out->reset(new GenericExtensionType(storage_type, extension_name, typ));
+  out->reset(new PyExtensionType(storage_type, extension_name, typ));
   return Status::OK();
 }
 
-std::shared_ptr<Array> GenericExtensionType::MakeArray(std::shared_ptr<ArrayData> data) const {
-  DCHECK_EQ(data->type->id(), arrow::Type::EXTENSION);
-  return std::make_shared<ExtensionArray>(data);
-}
-
-PyObject* GenericExtensionType::GetInstance() const {
-  if (!type_instance_) {
-    PyErr_SetString(PyExc_TypeError, "Not an instance");
-    return nullptr;
-  }
-  DCHECK(PyWeakref_CheckRef(type_instance_.obj()));
-  PyObject* inst = PyWeakref_GET_OBJECT(type_instance_.obj());
-  Py_INCREF(inst);
-  if (inst != Py_None) {
-    // Cached instance still alive
-    Py_INCREF(inst);
-    return inst;
-  } else {
-    // Must reconstruct from serialized form
-    // XXX cache again?
-    return DeserializeExtInstance(type_class_.obj(), storage_type_, serialized_);
-  }
-}
-
-Status GenericExtensionType::SetInstance(PyObject* inst) const {
-  // Check we have the right type
-  PyObject* typ = reinterpret_cast<PyObject*>(Py_TYPE(inst));
-  if (typ != type_class_.obj()) {
-    return Status::TypeError("Unexpected Python ExtensionType class ",
-                             internal::PyObject_StdStringRepr(typ), " expected ",
-                             internal::PyObject_StdStringRepr(type_class_.obj()));
-  }
-
-  PyObject* wr = PyWeakref_NewRef(inst, nullptr);
-  if (wr == NULL) {
-    return ConvertPyError();
-  }
-  type_instance_.reset(wr);
-  return SerializeExtInstance(inst, &serialized_);
-}
-
-std::string GenericExtensionType::Serialize() const {
-  PyAcquireGIL lock;
-
-  DCHECK(type_instance_);
-
-  OwnedRef inst(GetInstance());
-
-  std::string serialized;
-  SerializeExtInstance(inst.obj(), &serialized);
-  return serialized;
-}
-
-Status GenericExtensionType::Deserialize(std::shared_ptr<DataType> storage_type,
-                                         const std::string& serialized_data,
-                                         std::shared_ptr<DataType>* out) const {
-  PyAcquireGIL lock;
-
-  if (import_pyarrow()) {
-    return ConvertPyError();
-  }
-  OwnedRef res(DeserializeExtInstance(type_class_.obj(), storage_type,
-                                      serialized_data));
-  if (!res) {
-    return ConvertPyError();
-  }
-  return unwrap_data_type(res.obj(), out);
-}
-
-Status RegisterGenericExtensionType(const std::shared_ptr<DataType>& type) {
+Status RegisterPyExtensionType(const std::shared_ptr<DataType>& type) {
   DCHECK_EQ(type->id(), Type::EXTENSION);
   auto ext_type = std::dynamic_pointer_cast<ExtensionType>(type);
+  // DCHECK_EQ(ext_type->extension_name(), kExtensionName);
   return RegisterExtensionType(ext_type);
 }
 
-Status UnregisterGenericExtensionType(const std::string& type_name) {
+Status UnregisterPyExtensionType(const std::string& type_name) {
   return UnregisterExtensionType(type_name);
 }
 
+std::string PyExtensionName() { return kExtensionName; }
 
 }  // namespace py
 }  // namespace arrow

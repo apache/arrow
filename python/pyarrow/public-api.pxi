@@ -70,7 +70,7 @@ cdef api object pyarrow_wrap_data_type(
     cdef:
         const CExtensionType* ext_type
         const CPyExtensionType* cpy_ext_type
-        const CGenericExtensionType* cgen_ext_type
+        const CPyExtensionType* cgen_ext_type
         DataType out
 
     if type.get() == NULL:
@@ -100,7 +100,7 @@ cdef api object pyarrow_wrap_data_type(
         # TODO need to check if it is actually a GenericExtensionType, and
         # otherwise fallback to BaseExtensionType (or UnknownExtensionType?)
         else:
-            cgen_ext_type = <const CGenericExtensionType*> ext_type
+            cgen_ext_type = <const CPyExtensionType*> ext_type
             return cgen_ext_type.GetInstance()
         # else:
         #     out = BaseExtensionType.__new__(BaseExtensionType)

@@ -127,7 +127,7 @@ cdef class ExtensionType(BaseExtensionType):
 
 cdef class GenericExtensionType(BaseExtensionType):
     cdef:
-        const CGenericExtensionType* cgen_ext_type
+        const CPyExtensionType* cpy_ext_type
 
 
 cdef class Field:
