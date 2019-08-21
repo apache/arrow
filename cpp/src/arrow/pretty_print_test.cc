@@ -651,4 +651,17 @@ five: list<item: int32 not null>
   Check(*sch, options, expected);
 }
 
+TEST_F(TestPrettyPrint, SchemaIndentation) {
+  // ARROW-6159
+  auto simple = field("one", int32());
+  auto non_null = field("two", int32(), false);
+  auto sch = schema({simple, non_null});
+
+  static const char* expected = R"expected(    one: int32
+    two: int32 not null)expected";
+
+  PrettyPrintOptions options{/*indent=*/4};
+  Check(*sch, options, expected);
+}
+
 }  // namespace arrow

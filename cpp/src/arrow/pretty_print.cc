@@ -589,6 +589,8 @@ class SchemaPrinter : public PrettyPrinter {
     for (int i = 0; i < schema_.num_fields(); ++i) {
       if (i > 0) {
         Newline();
+      } else {
+        Indent();
       }
       RETURN_NOT_OK(PrintField(*schema_.field(i)));
     }
