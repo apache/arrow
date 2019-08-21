@@ -51,6 +51,11 @@ public class DoubleConsumer implements JdbcConsumer<Float8Vector> {
   }
 
   @Override
+  public void close() throws Exception {
+    this.writer.close();
+  }
+
+  @Override
   public void resetValueVector(Float8Vector vector) {
     this.writer = new Float8WriterImpl(vector);
   }

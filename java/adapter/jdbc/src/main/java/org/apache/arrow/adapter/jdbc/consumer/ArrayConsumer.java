@@ -67,6 +67,12 @@ public class ArrayConsumer implements JdbcConsumer<ListVector> {
   }
 
   @Override
+  public void close() throws Exception {
+    this.vector.close();
+    this.delegate.close();
+  }
+
+  @Override
   public void resetValueVector(ListVector vector) {
     this.vector = vector;
   }

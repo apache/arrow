@@ -51,6 +51,11 @@ public class BitConsumer implements JdbcConsumer<BitVector> {
   }
 
   @Override
+  public void close() throws Exception {
+    this.writer.close();
+  }
+
+  @Override
   public void resetValueVector(BitVector vector) {
     this.writer = new BitWriterImpl(vector);
   }

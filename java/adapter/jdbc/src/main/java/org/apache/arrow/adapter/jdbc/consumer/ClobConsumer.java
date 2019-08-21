@@ -22,7 +22,7 @@ import java.sql.Clob;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.impl.VarCharWriterImpl;
 import org.apache.arrow.vector.complex.writer.VarCharWriter;
@@ -38,58 +38,57 @@ public class ClobConsumer implements JdbcConsumer<VarCharVector> {
   private static final int BUFFER_SIZE = 256;
 
   private VarCharWriter writer;
+  private VarCharVector vector;
   private final int columnIndexInResultSet;
-  private BufferAllocator allocator;
-
-  private ArrowBuf reuse;
 
   /**
    * Instantiate a ClobConsumer.
    */
   public ClobConsumer(VarCharVector vector, int index) {
+    this.vector = vector;
     this.writer = new VarCharWriterImpl(vector);
     this.columnIndexInResultSet = index;
-
-    this.allocator = vector.getAllocator();
-    reuse = allocator.buffer(1024);
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
     Clob clob = resultSet.getClob(columnIndexInResultSet);
+    int idx = writer.getPosition();
     if (!resultSet.wasNull()) {
       if (clob != null) {
         long length = clob.length();
-        if (length > reuse.capacity()) {
-          reuse.close();
-          reuse = allocator.buffer((int) length);
-        }
 
         int read = 1;
         int readSize = length < BUFFER_SIZE ? (int) length : BUFFER_SIZE;
         int totalBytes = 0;
+
+        ArrowBuf dataBuffer = vector.getDataBuffer();
+        ArrowBuf offsetBuffer = vector.getOffsetBuffer();
+        int startIndex = offsetBuffer.getInt(idx * 4);
         while (read <= length) {
           String str = clob.getSubString(read, readSize);
           byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
-          reuse.setBytes(totalBytes, bytes, 0, bytes.length);
+
+          dataBuffer.setBytes(startIndex + totalBytes, bytes);
           totalBytes += bytes.length;
           read += readSize;
         }
-        writer.writeVarChar(0, totalBytes, reuse);
+        offsetBuffer.setInt((idx + 1) * 4, startIndex + totalBytes);
+        BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), idx);
+        vector.setLastSet(idx);
       }
     }
     writer.setPosition(writer.getPosition() + 1);
   }
 
   @Override
-  public void close() {
-    if (reuse != null) {
-      reuse.close();
-    }
+  public void close() throws Exception {
+    writer.close();
   }
 
   @Override
   public void resetValueVector(VarCharVector vector) {
+    this.vector = vector;
     this.writer = new VarCharWriterImpl(vector);
   }
 }

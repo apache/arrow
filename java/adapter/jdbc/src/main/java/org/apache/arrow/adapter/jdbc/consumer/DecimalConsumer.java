@@ -52,6 +52,11 @@ public class DecimalConsumer implements JdbcConsumer<DecimalVector> {
   }
 
   @Override
+  public void close() throws Exception {
+    this.writer.close();
+  }
+
+  @Override
   public void resetValueVector(DecimalVector vector) {
     this.writer = new DecimalWriterImpl(vector);
   }

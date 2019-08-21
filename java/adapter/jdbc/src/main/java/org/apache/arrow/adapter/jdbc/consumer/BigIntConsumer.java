@@ -51,6 +51,11 @@ public class BigIntConsumer implements JdbcConsumer<BigIntVector> {
   }
 
   @Override
+  public void close() throws Exception {
+    this.writer.close();
+  }
+
+  @Override
   public void resetValueVector(BigIntVector vector) {
     this.writer = new BigIntWriterImpl(vector);
   }

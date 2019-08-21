@@ -22,12 +22,9 @@ import java.io.InputStream;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.complex.impl.VarBinaryWriterImpl;
 import org.apache.arrow.vector.complex.writer.VarBinaryWriter;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Consumer which consume binary type values from {@link ResultSet}.
@@ -38,22 +35,16 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
   private static final int BUFFER_SIZE = 1024;
 
   private VarBinaryWriter writer;
+  private VarBinaryVector vector;
   private final int columnIndexInResultSet;
-  private BufferAllocator allocator;
-
-  private ArrowBuf reuse;
-  private byte[] reuseBytes;
 
   /**
    * Instantiate a BinaryConsumer.
    */
   public BinaryConsumer(VarBinaryVector vector, int index) {
+    this.vector = vector;
     this.writer = new VarBinaryWriterImpl(vector);
     this.columnIndexInResultSet = index;
-
-    this.allocator = vector.getAllocator();
-    reuse = allocator.buffer(BUFFER_SIZE);
-    reuseBytes = new byte[BUFFER_SIZE];
   }
 
   /**
@@ -62,18 +53,15 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
   public void consume(InputStream is) throws IOException {
     if (is != null) {
       int length = is.available();
-      if (length > reuse.capacity()) {
-        reuse.close();
-        reuse = allocator.buffer(length);
-      }
+      byte[] bytes = new byte[length];
 
-      int total = 0;
-      int read;
-      while ((read = is.read(reuseBytes, 0, reuseBytes.length)) != -1) {
-        reuse.setBytes(total, reuseBytes, 0, read);
-        total += read;
+      int readSize = length < BUFFER_SIZE ? length : BUFFER_SIZE;
+      int totalBytes = 0;
+      while (totalBytes < length) {
+        is.read(bytes, totalBytes, readSize);
+        totalBytes += readSize;
       }
-      writer.writeVarBinary(0, total, reuse);
+      vector.setSafe(writer.getPosition(), bytes, 0, totalBytes);
     }
   }
 
@@ -91,14 +79,13 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
   }
 
   @Override
-  public void close() {
-    if (reuse != null) {
-      reuse.close();
-    }
+  public void close() throws Exception {
+    this.writer.close();
   }
 
   @Override
   public void resetValueVector(VarBinaryVector vector) {
+    this.vector = vector;
     this.writer = new VarBinaryWriterImpl(vector);
   }
 }

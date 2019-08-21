@@ -51,6 +51,11 @@ public class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
   }
 
   @Override
+  public void close() throws Exception {
+    writer.close();
+  }
+
+  @Override
   public void resetValueVector(TinyIntVector vector) {
     this.writer = new TinyIntWriterImpl(vector);
   }

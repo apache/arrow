@@ -47,10 +47,15 @@ public class CompositeJdbcConsumer implements JdbcConsumer {
 
   @Override
   public void close() {
-    // clean up
-    for (JdbcConsumer consumer : consumers) {
-      consumer.close();
+    try {
+      // clean up
+      for (JdbcConsumer consumer : consumers) {
+        consumer.close();
+      }
+    } catch (Exception e) {
+      throw new RuntimeException("Error occurs while releasing resources.", e);
     }
+
   }
 
   @Override

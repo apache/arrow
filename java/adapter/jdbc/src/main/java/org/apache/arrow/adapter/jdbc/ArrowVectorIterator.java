@@ -17,7 +17,6 @@
 
 package org.apache.arrow.adapter.jdbc;
 
-import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -42,7 +41,6 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
 
   private final JdbcConsumer[] consumers;
   private final CompositeJdbcConsumer compositeConsumer;
-  private boolean consumerCreated = false;
 
   private VectorSchemaRoot nextBatch;
 
@@ -62,6 +60,23 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
     this.compositeConsumer = new CompositeJdbcConsumer(consumers);
   }
 
+  private void initialize() throws SQLException {
+    try {
+      nextBatch = VectorSchemaRoot.create(schema, config.getAllocator());
+      JdbcToArrowUtils.allocateVectors(nextBatch, JdbcToArrowUtils.DEFAULT_BUFFER_SIZE);
+    } catch (Exception e) {
+      close();
+      throw new RuntimeException("Error occurs while initializing.", e);
+    }
+
+    for (int i = 1; i <= consumers.length; i++) {
+      consumers[i - 1] = JdbcToArrowUtils.getConsumer(resultSet, i, resultSet.getMetaData().getColumnType(i),
+          nextBatch.getVector(rsmd.getColumnName(i)), config);
+    }
+
+    consumeData(nextBatch);
+  }
+
   /**
    * Create a ArrowVectorIterator to partially convert data.
    */
@@ -72,7 +87,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
 
     ArrowVectorIterator iterator = new ArrowVectorIterator(resultSet, config);
     try {
-      iterator.load();
+      iterator.initialize();
       return iterator;
     } catch (Exception e) {
       iterator.close();
@@ -80,31 +95,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
     }
   }
 
-  // Loads the next schema root or null if no more rows are available.
-  private void load() throws IOException, SQLException {
-    VectorSchemaRoot root = null;
-    try {
-      root = VectorSchemaRoot.create(schema, config.getAllocator());
-      JdbcToArrowUtils.allocateVectors(root, JdbcToArrowUtils.DEFAULT_BUFFER_SIZE);
-    } catch (Exception e) {
-      if (root != null) {
-        root.close();
-      }
-      throw new RuntimeException("Error occurs while creating schema root.", e);
-    }
-
-    if (!consumerCreated) {
-      consumerCreated = true;
-      for (int i = 1; i <= consumers.length; i++) {
-        consumers[i - 1] = JdbcToArrowUtils.getConsumer(resultSet, i, resultSet.getMetaData().getColumnType(i),
-            root.getVector(rsmd.getColumnName(i)), config);
-      }
-    } else {
-      for (int i = 1; i <= consumers.length; i++) {
-        consumers[i - 1].resetValueVector(root.getVector(rsmd.getColumnName(i)));
-      }
-    }
-
+  private void consumeData(VectorSchemaRoot root) {
     // consume data
     try {
       int readRowCount = 0;
@@ -119,6 +110,26 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       compositeConsumer.close();
       throw new RuntimeException("Error occurs while consuming data.", e);
     }
+  }
+
+  // Loads the next schema root or null if no more rows are available.
+  private void load() throws SQLException {
+    VectorSchemaRoot root = null;
+    try {
+      root = VectorSchemaRoot.create(schema, config.getAllocator());
+      JdbcToArrowUtils.allocateVectors(root, JdbcToArrowUtils.DEFAULT_BUFFER_SIZE);
+    } catch (Exception e) {
+      if (root != null) {
+        root.close();
+      }
+      throw new RuntimeException("Error occurs while creating schema root.", e);
+    }
+
+    for (int i = 1; i <= consumers.length; i++) {
+      consumers[i - 1].resetValueVector(root.getVector(rsmd.getColumnName(i)));
+    }
+
+    consumeData(root);
 
     if (root.getRowCount() == 0) {
       root.close();

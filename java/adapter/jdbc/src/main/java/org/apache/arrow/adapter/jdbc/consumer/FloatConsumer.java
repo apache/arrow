@@ -51,6 +51,11 @@ public class FloatConsumer implements JdbcConsumer<Float4Vector> {
   }
 
   @Override
+  public void close() throws Exception {
+    writer.close();
+  }
+
+  @Override
   public void resetValueVector(Float4Vector vector) {
     this.writer = new Float4WriterImpl(vector);
   }

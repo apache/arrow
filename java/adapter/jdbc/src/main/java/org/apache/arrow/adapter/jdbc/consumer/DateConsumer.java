@@ -63,6 +63,11 @@ public class DateConsumer implements JdbcConsumer<DateMilliVector> {
   }
 
   @Override
+  public void close() throws Exception {
+    this.writer.close();
+  }
+
+  @Override
   public void resetValueVector(DateMilliVector vector) {
     this.writer = new DateMilliWriterImpl(vector);
   }

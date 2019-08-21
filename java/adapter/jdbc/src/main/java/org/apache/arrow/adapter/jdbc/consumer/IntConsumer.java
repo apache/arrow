@@ -51,6 +51,11 @@ public class IntConsumer implements JdbcConsumer<IntVector> {
   }
 
   @Override
+  public void close() throws Exception {
+    writer.close();
+  }
+
+  @Override
   public void resetValueVector(IntVector vector) {
     this.writer = new IntWriterImpl(vector);
   }

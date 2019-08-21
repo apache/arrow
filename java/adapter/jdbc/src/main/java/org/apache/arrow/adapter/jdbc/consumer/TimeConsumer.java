@@ -63,6 +63,11 @@ public class TimeConsumer implements JdbcConsumer<TimeMilliVector> {
   }
 
   @Override
+  public void close() throws Exception {
+    writer.close();
+  }
+
+  @Override
   public void resetValueVector(TimeMilliVector vector) {
     this.writer = new TimeMilliWriterImpl(vector);
   }

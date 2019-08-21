@@ -63,6 +63,11 @@ public class TimestampConsumer implements JdbcConsumer<TimeStampMilliTZVector> {
   }
 
   @Override
+  public void close() throws Exception {
+    writer.close();
+  }
+
+  @Override
   public void resetValueVector(TimeStampMilliTZVector vector) {
     this.writer = new TimeStampMilliTZWriterImpl(vector);
   }
