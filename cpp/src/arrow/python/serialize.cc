@@ -265,7 +265,7 @@ class DictBuilder {
   explicit DictBuilder(MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {
     builder_.reset(
         new StructBuilder(struct_({field("keys", union_({}, UnionMode::DENSE)),
-                                   field("keys", union_({}, UnionMode::DENSE))}),
+                                   field("vals", union_({}, UnionMode::DENSE))}),
                           pool, {keys_.builder(), vals_.builder()}));
   }
 
