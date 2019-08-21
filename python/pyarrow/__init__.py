@@ -176,7 +176,7 @@ def _plasma_store_entry_point():
     """
     import pyarrow
     plasma_store_executable = _os.path.join(pyarrow.__path__[0],
-                                            "plasma_store_server")
+                                            "plasma-store-server")
     _os.execv(plasma_store_executable, _sys.argv)
 
 # ----------------------------------------------------------------------
