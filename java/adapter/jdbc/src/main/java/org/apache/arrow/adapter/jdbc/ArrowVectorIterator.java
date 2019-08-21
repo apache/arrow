@@ -32,7 +32,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 /**
  * VectorSchemaRoot iterator for partially converting JDBC data.
  */
-public class ArrowVectorIterator implements Iterator<VectorSchemaRoot> {
+public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoCloseable {
 
   private final ResultSet resultSet;
   private final JdbcToArrowConfig config;
@@ -155,5 +155,6 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot> {
     if (nextBatch != null) {
       nextBatch.close();
     }
+    compositeConsumer.close();
   }
 }
