@@ -106,8 +106,6 @@ using parquet::Type;
 using parquet::schema::GroupNode;
 using parquet::schema::PrimitiveNode;
 
-constexpr int FIXED_LENGTH = 10;
-
 void PrintDecryptionConfiguration(int configuration);
 // Check that the decryption result is as expected.
 void CheckResult(std::string file, int example_id, std::string exception_msg);

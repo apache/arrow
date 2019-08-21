@@ -24,7 +24,6 @@
 #include "arrow/util/logging.h"
 
 #include <inttypes.h>
-#include <boost/regex.hpp>  // IWYU pragma: keep
 #include "parquet/encryption_internal.h"
 #include "parquet/exception.h"
 #include "parquet/internal_file_decryptor.h"
