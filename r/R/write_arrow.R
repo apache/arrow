@@ -71,7 +71,13 @@ write_arrow <- function(x, stream, ...) {
   file_stream <- FileOutputStream(stream)
   on.exit(file_stream$close())
   file_writer <- RecordBatchFileWriter(file_stream, x$schema)
-  on.exit(file_writer$close(), add = TRUE, after = FALSE)
+  on.exit({
+    # Re-set the exit code to close both connections, LIFO
+    file_writer$close()
+    file_stream$close()
+  })
+  # Available on R >= 3.5
+  # on.exit(file_writer$close(), add = TRUE, after = FALSE)
   write_arrow(x, file_writer, ...)
 }
 

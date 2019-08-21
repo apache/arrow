@@ -5,6 +5,11 @@
 
 [![cran](https://www.r-pkg.org/badges/version-last-release/arrow)](https://cran.r-project.org/package=arrow)
 [![conda-forge](https://img.shields.io/conda/vn/conda-forge/r-arrow.svg)](https://anaconda.org/conda-forge/r-arrow)
+[![Nightly macOS Build
+Status](https://travis-ci.org/ursa-labs/arrow-r-nightly.png?branch=master)](https://travis-ci.org/ursa-labs/arrow-r-nightly)
+[![Nightly Windows Build
+Status](https://ci.appveyor.com/api/projects/status/ume8udm5r26u2c9l/branch/master?svg=true)](https://ci.appveyor.com/project/nealrichardson/arrow-r-nightly-yxl55/branch/master)
+[![codecov](https://codecov.io/gh/ursa-labs/arrow-r-nightly/branch/master/graph/badge.svg)](https://codecov.io/gh/ursa-labs/arrow-r-nightly)
 
 [Apache Arrow](https://arrow.apache.org/) is a cross-language
 development platform for in-memory data. It specifies a standardized
@@ -88,36 +93,22 @@ as.data.frame(tab)
 
 ## Installing a development version
 
-To use the development version of the R package, you’ll need to install
-it from source, which requires the additional C++ library setup. On
-macOS, you may install the C++ library using
-[Homebrew](https://brew.sh/):
+Binary R packages for macOS and Windows are built daily and hosted at
+<https://dl.bintray.com/ursalabs/arrow-r/>. To install from there:
 
-``` shell
-# For the released version:
-brew install apache-arrow
-# Or for a development version, you can try:
-brew install apache-arrow --HEAD
+``` r
+install.packages("arrow", repos="https://dl.bintray.com/ursalabs/arrow-r")
 ```
 
-On Windows, you can download a .zip file with the arrow dependencies
-from the [rwinlib](https://github.com/rwinlib/arrow/releases) project,
-and then set the `RWINLIB_LOCAL` environment variable to point to that
-zip file before installing the `arrow` R package. That project contains
-released versions of the C++ library; for a development version, Windows
-users may be able to find a binary by going to the [Apache Arrow
-project’s
-Appveyor](https://ci.appveyor.com/project/ApacheSoftwareFoundation/arrow),
-selecting an R job from a recent build, and downloading the
-`build\arrow-*.zip` file from the “Artifacts” tab.
+These daily package builds are not official Apache releases and are not
+recommended for production use. They may be useful for testing bug fixes
+and new features under active development.
 
-Linux users can get a released version of the library from our PPAs, as
-described above. If you need a development version of the C++ library,
-you will likely need to build it from source. See “Development” below.
-
-Once you have the C++ library, you can install the R package from GitHub
-using the [`remotes`](https://remotes.r-lib.org/) package. From within
-an R session,
+Linux users will need to build the Arrow C++ library from source. See
+“Development” below. Once you have the C++ library, you can install
+the R package from GitHub using the
+[`remotes`](https://remotes.r-lib.org/) package. From within an R
+session,
 
 ``` r
 # install.packages("remotes") # Or install "devtools", which includes remotes
@@ -137,6 +128,29 @@ useful to match the R package version to the C++ library version you’ve
 installed.
 
 ## Developing
+
+Windows and macOS users who wish to contribute to the R package and
+don’t need to alter the Arrow C++ library may be able to obtain a
+recent version of the library without building from source. On macOS,
+you may install the C++ library using [Homebrew](https://brew.sh/):
+
+``` shell
+# For the released version:
+brew install apache-arrow
+# Or for a development version, you can try:
+brew install apache-arrow --HEAD
+```
+
+On Windows, you can download a .zip file with the arrow dependencies
+from the [rwinlib](https://github.com/rwinlib/arrow/releases) project,
+and then set the `RWINLIB_LOCAL` environment variable to point to that
+zip file before installing the `arrow` R package. That project contains
+released versions of the C++ library; for a development version, Windows
+users may be able to find a binary by going to the [Apache Arrow
+project’s
+Appveyor](https://ci.appveyor.com/project/ApacheSoftwareFoundation/arrow),
+selecting an R job from a recent build, and downloading the
+`build\arrow-*.zip` file from the “Artifacts” tab.
 
 If you need to alter both the Arrow C++ library and the R package code,
 or if you can’t get a binary version of the latest C++ library
@@ -158,7 +172,7 @@ checkout:
 
 ``` shell
 cd ../../r
-R -e 'install.packages("devtools"); devtools::install_dev_deps()'
+R -e 'install.packages(c("devtools", "roxygen2", "pkgdown")); devtools::install_dev_deps()'
 R CMD INSTALL .
 ```
 
@@ -210,7 +224,7 @@ devtools::load_all() # Load the dev package
 devtools::test(filter="^regexp$") # Run the test suite, optionally filtering file names
 devtools::document() # Update roxygen documentation
 rmarkdown::render("README.Rmd") # To rebuild README.md
-pkgdown::build_site(run_dont_run=TRUE) # To preview the documentation website
+pkgdown::build_site() # To preview the documentation website
 devtools::check() # All package checks; see also below
 ```
 
