@@ -127,7 +127,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   }
 
-  void DeserializeColumnIndex(const ColumnChunkMetaData& col_chunk, ColumnIndex* column_index) {
+  void DeserializeColumnIndex(const ColumnChunkMetaData& col_chunk, parquet::format::ColumnIndex* column_index, std::shared_ptr<ArrowInputFile>& source_, ReaderProperties& properties_) {
     int64_t ci_start = std::numeric_limits<int64_t>::max(); 
     int64_t ci_end = std::numeric_limits<int64_t>::max();
     string_view page_buffer;
@@ -135,10 +135,17 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     ci_end = std::max(ci_end,col_chunk.offset_index_offset());
     int8_t buffer_offset = col_chunk.column_index_offset() - ci_start;
     uint32_t length = col_chunk.column_index_length();
+
+    std::shared_ptr<ArrowInputStream> stream_ = properties_.GetStream(source_, ci_start, length);
+    PARQUET_THROW_NOT_OK(stream_->Peek(kDefaultPageHeaderSize,&page_buffer));
+    if (page_buffer.size() == 0) {
+       return;
+    }
+
     DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(page_buffer.data()), &length, column_index);
   }
 
-  void DeserializeOffsetIndex(const ColumnChunkMetaData& col_chunk, OffsetIndex* offset_index) {
+  void DeserializeOffsetIndex(const ColumnChunkMetaData& col_chunk, parquet::format::OffsetIndex* offset_index, std::shared_ptr<ArrowInputFile>& source_, ReaderProperties& properties_) {
     int64_t ci_start = std::numeric_limits<int64_t>::max(); 
     int64_t ci_end = std::numeric_limits<int64_t>::max();
     string_view page_buffer;
@@ -146,6 +153,13 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     ci_end = std::max(ci_end,col_chunk.offset_index_offset());
     int8_t buffer_offset = col_chunk.column_index_offset() - ci_start;
     uint32_t length = col_chunk.offset_index_length();
+
+    std::shared_ptr<ArrowInputStream> stream_ = properties_.GetStream(source_, ci_start, length);
+    PARQUET_THROW_NOT_OK(stream_->Peek(kDefaultPageHeaderSize, &page_buffer));
+    if (page_buffer.size() == 0) {
+       return;
+    }
+
     DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(page_buffer.data()) + col_chunk.column_index_length(), &length, offset_index);
   }
 
@@ -164,10 +178,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     bool has_page_index = HasPageIndex((reinterpret_cast<ColumnChunkMetaData*>(col.get())));
 
     if (has_page_index) {
-        ColumnIndex col_index;
-        OffsetIndex offset_index;
-        DeserializeColumnIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&col_index);
-        DeserializeOffsetIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&offset_index);
+        parquet::format::ColumnIndex col_index;
+        parquet::format::OffsetIndex offset_index;
+        DeserializeColumnIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&col_index, source_, properties_);
+        DeserializeOffsetIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&offset_index, source_, properties_);
         SkipPages(4340114);
     }
 

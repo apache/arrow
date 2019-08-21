@@ -145,36 +145,6 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::unique_ptr<ColumnChunkMetaDataImpl> impl_;
 };
 
-enum BoundaryOrder{
-  UNORDERED = 0,
-  ASCENDING = 1,
-  DESCENDING = 2
-};
-
-class PARQUET_EXPORT PageLocation{
-  int64_t offset;
-  int32_t compressed_page_size;
-  int64_t first_row_index;
-};
-
-class PARQUET_EXPORT ColumnIndex : format::PageHeader{
-  public:
-    static std::unique_ptr<ColumnIndex> Make(
-      std::vector<bool> null_pages,
-      std::vector <Type> min_values,
-      std::vector <Type> max_values,
-      BoundaryOrder boundary_order,
-      std::vector<int64_t> null_counts);
-    uint32_t read(apache::thrift::protocol::TProtocol* tp)  { return parquet::format::PageHeader::read(tp); }
-};
-
-class PARQUET_EXPORT OffsetIndex : format::PageHeader{
-  public:
-    static std::unique_ptr<OffsetIndex>  Make(
-      std::vector<PageLocation> page_locations);
-    uint32_t read(apache::thrift::protocol::TProtocol* tp) { return parquet::format::PageHeader::read(tp); }
-};
-
 
 class PARQUET_EXPORT RowGroupMetaData {
  public:
