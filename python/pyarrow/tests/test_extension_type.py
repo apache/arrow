@@ -237,6 +237,13 @@ class PeriodType(pa.GenericExtensionType):
         freq = serialized.split('=')[1]
         return PeriodType(freq)
 
+    def __eq__(self, other):
+        if isinstance(other, pa.BaseExtensionType):
+            return (type(self) == type(other) and
+                    self.freq == other.freq)
+        else:
+            return NotImplemented
+
 
 def test_generic_ext_type():
     period_type = PeriodType('D')
@@ -287,3 +294,14 @@ def test_generic_ext_type():
     # register second time raises KeyError
     with pytest.raises(KeyError):
         pa.lib.register_extension_type(period_type)
+
+
+def test_generic_ext_type_equality():
+    period_type = PeriodType('D')
+    assert period_type.extension_name == "pandas.period"
+    # pa.lib.register_extension_type(period_type)
+
+    period_type2 = PeriodType('D')
+    period_type3 = PeriodType('H')
+    assert period_type == period_type2
+    assert not period_type == period_type3
