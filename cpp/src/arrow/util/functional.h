@@ -19,6 +19,8 @@
 
 #include <tuple>
 
+#include "arrow/util/macros.h"
+
 namespace arrow {
 
 /// Helper struct for examining lambdas and other callables.
@@ -44,7 +46,7 @@ struct single_call {
 
   template <typename F>
   static constexpr bool check() {
-    return decltype(check_impl<typename std::decay<F>::type>(nullptr))::value;
+    return decltype(check_impl<typename std::decay<F>::type>(NULLPTR))::value;
   }
 
   template <typename F, typename T = void>
