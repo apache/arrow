@@ -65,8 +65,7 @@ public abstract class VectorValueComparator<V extends ValueVector> {
    * @param vector the vector to attach.
    */
   public void attachVector(V vector) {
-    this.vector1 = vector;
-    this.vector2 = vector;
+    attachVectors(vector, vector);
   }
 
   /**

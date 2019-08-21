@@ -17,6 +17,7 @@
 
 package org.apache.arrow.algorithm.search;
 
+import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
 import static org.junit.Assert.assertEquals;
 
 import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
@@ -24,8 +25,13 @@ import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.FieldType;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -188,6 +194,107 @@ public class TestVectorSearcher {
 
       // negative case
       assertEquals(-1, VectorSearcher.linearSearch(rawVector, comparator, negVector, 0));
+    }
+  }
+
+  private ListVector createListVector() {
+    final int innerCount = 100;
+    final int outerCount = 10;
+    final int listLength = innerCount / outerCount;
+
+    ListVector listVector = ListVector.empty("list vector", allocator);
+
+    Types.MinorType type = Types.MinorType.INT;
+    listVector.addOrGetVector(FieldType.nullable(type.getType()));
+
+    listVector.allocateNew();
+
+    IntVector dataVector = (IntVector) listVector.getDataVector();
+
+    for (int i = 0; i < innerCount; i++) {
+      dataVector.set(i, i);
+    }
+    dataVector.setValueCount(innerCount);
+
+    for (int i = 0; i < outerCount; i++) {
+      BitVectorHelper.setValidityBitToOne(listVector.getValidityBuffer(), i);
+      listVector.getOffsetBuffer().setInt(i * OFFSET_WIDTH, i * listLength);
+      listVector.getOffsetBuffer().setInt((i + 1) * OFFSET_WIDTH, (i + 1) * listLength);
+    }
+    listVector.setLastSet(outerCount - 1);
+    listVector.setValueCount(outerCount);
+
+    return listVector;
+  }
+
+  private ListVector createNegativeListVector() {
+    final int innerCount = 100;
+    final int outerCount = 10;
+    final int listLength = innerCount / outerCount;
+
+    ListVector listVector = ListVector.empty("list vector", allocator);
+
+    Types.MinorType type = Types.MinorType.INT;
+    listVector.addOrGetVector(FieldType.nullable(type.getType()));
+
+    listVector.allocateNew();
+
+    IntVector dataVector = (IntVector) listVector.getDataVector();
+
+    for (int i = 0; i < innerCount; i++) {
+      dataVector.set(i, i + 1000);
+    }
+    dataVector.setValueCount(innerCount);
+
+    for (int i = 0; i < outerCount; i++) {
+      BitVectorHelper.setValidityBitToOne(listVector.getValidityBuffer(), i);
+      listVector.getOffsetBuffer().setInt(i * OFFSET_WIDTH, i * listLength);
+      listVector.getOffsetBuffer().setInt((i + 1) * OFFSET_WIDTH, (i + 1) * listLength);
+    }
+    listVector.setValueCount(outerCount);
+
+    return listVector;
+  }
+
+  @Test
+  public void testBinarySearchList() {
+    try (ListVector rawVector = createListVector();
+         ListVector negVector = createNegativeListVector()) {
+
+      // do search
+      VectorValueComparator<ListVector> comparator =
+              DefaultVectorComparators.createDefaultComparator(rawVector);
+      for (int i = 0; i < rawVector.getValueCount(); i++) {
+        int result = VectorSearcher.binarySearch(rawVector, comparator, rawVector, i);
+        assertEquals(i, result);
+      }
+
+      // negative case
+      for (int i = 0; i < rawVector.getValueCount(); i++) {
+        int result = VectorSearcher.binarySearch(rawVector, comparator, negVector, i);
+        assertEquals(-1, result);
+      }
+    }
+  }
+
+  @Test
+  public void testLinearSearchList() {
+    try (ListVector rawVector = createListVector();
+         ListVector negVector = createNegativeListVector()) {
+
+      // do search
+      VectorValueComparator<ListVector> comparator =
+              DefaultVectorComparators.createDefaultComparator(rawVector);
+      for (int i = 0; i < rawVector.getValueCount(); i++) {
+        int result = VectorSearcher.linearSearch(rawVector, comparator, rawVector, i);
+        assertEquals(i, result);
+      }
+
+      // negative case
+      for (int i = 0; i < rawVector.getValueCount(); i++) {
+        int result = VectorSearcher.linearSearch(rawVector, comparator, negVector, i);
+        assertEquals(-1, result);
+      }
     }
   }
 }

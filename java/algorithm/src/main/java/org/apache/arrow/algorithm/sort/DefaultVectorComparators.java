@@ -17,6 +17,8 @@
 
 package org.apache.arrow.algorithm.sort;
 
+import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
+
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
@@ -27,6 +29,7 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 
 /**
  * Default comparator implementations for different types of vectors.
@@ -56,6 +59,10 @@ public class DefaultVectorComparators {
       }
     } else if (vector instanceof BaseVariableWidthVector) {
       return (VectorValueComparator<T>) new VariableWidthComparator();
+    } else if (vector instanceof BaseRepeatedValueVector) {
+      VectorValueComparator<?> innerComparator =
+              createDefaultComparator(((BaseRepeatedValueVector) vector).getDataVector());
+      return new RepeatedValueComparator(innerComparator);
     }
 
     throw new IllegalArgumentException("No default comparator for " + vector.getClass().getCanonicalName());
@@ -220,6 +227,51 @@ public class DefaultVectorComparators {
       vector1.getDataPointer(index1, reusablePointer1);
       vector2.getDataPointer(index2, reusablePointer2);
       return reusablePointer1.compareTo(reusablePointer2);
+    }
+  }
+
+  /**
+   * Default comparator for {@link BaseRepeatedValueVector}.
+   * It works by comparing the underlying vector in a lexicographic order.
+   * @param <T> inner vector type.
+   */
+  public static class RepeatedValueComparator<T extends ValueVector>
+          extends VectorValueComparator<BaseRepeatedValueVector> {
+
+    private VectorValueComparator<T> innerComparator;
+
+    public RepeatedValueComparator(VectorValueComparator<T> innerComparator) {
+      this.innerComparator = innerComparator;
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      int startIdx1 = vector1.getOffsetBuffer().getInt(index1 * OFFSET_WIDTH);
+      int startIdx2 = vector2.getOffsetBuffer().getInt(index2 * OFFSET_WIDTH);
+
+      int endIdx1 = vector1.getOffsetBuffer().getInt((index1 + 1) * OFFSET_WIDTH);
+      int endIdx2 = vector2.getOffsetBuffer().getInt((index2 + 1) * OFFSET_WIDTH);
+
+      int length1 = endIdx1 - startIdx1;
+      int length2 = endIdx2 - startIdx2;
+
+      int length = length1 < length2 ? length1 : length2;
+
+      for (int i = 0; i < length; i++) {
+        int result = innerComparator.compare(startIdx1 + i, startIdx2 + i);
+        if (result != 0) {
+          return result;
+        }
+      }
+      return length1 - length2;
+    }
+
+    @Override
+    public void attachVectors(BaseRepeatedValueVector vector1, BaseRepeatedValueVector vector2) {
+      this.vector1 = vector1;
+      this.vector2 = vector2;
+
+      innerComparator.attachVectors((T) vector1.getDataVector(), (T) vector2.getDataVector());
     }
   }
 
