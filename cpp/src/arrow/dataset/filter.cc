@@ -127,55 +127,43 @@ std::shared_ptr<ScalarExpression> ScalarExpression::Make(const char* value) {
       std::make_shared<StringScalar>(Buffer::Wrap(value, std::strlen(value))));
 }
 
+struct Comparison {
+  enum type {
+    LESS,
+    EQUAL,
+    GREATER,
+    NULL_,
+  };
+};
+
 struct CompareVisitor {
-  Status Visit(const NullType&) {
-    result_ = false;
-    return Status::OK();
-  }
-
-  Status Visit(const BooleanType&) {
-    result_ = checked_cast<const BooleanScalar&>(lhs_).value -
-              checked_cast<const BooleanScalar&>(rhs_).value;
-    return Status::OK();
-  }
-
   template <typename T>
   using ScalarType = typename TypeTraits<T>::ScalarType;
 
-  template <typename T>
-  typename std::enable_if<std::is_integral<typename T::c_type>::value, Status>::type
-  Visit(const T&) {
-    result_ = static_cast<int64_t>(checked_cast<const ScalarType<T>&>(lhs_).value -
-                                   checked_cast<const ScalarType<T>&>(rhs_).value);
+  Status Visit(const NullType&) {
+    result_ = Comparison::NULL_;
     return Status::OK();
   }
 
+  Status Visit(const BooleanType&) { return CompareValues<BooleanType>(); }
+
   template <typename T>
-  enable_if_floating_point<T, Status> Visit(const T&) {
-    auto delta = checked_cast<const ScalarType<T>&>(lhs_).value -
-                 checked_cast<const ScalarType<T>&>(rhs_).value;
-    constexpr decltype(delta) zero = 0;
-    result_ = delta < zero ? -1 : delta > zero ? +1 : 0;
-    return Status::OK();
+  enable_if_number<T, Status> Visit(const T&) {
+    return CompareValues<T>();
   }
 
   template <typename T>
   enable_if_binary_like<T, Status> Visit(const T&) {
     auto lhs = checked_cast<const ScalarType<T>&>(lhs_).value;
     auto rhs = checked_cast<const ScalarType<T>&>(rhs_).value;
-    result_ = std::memcmp(lhs->data(), rhs->data(), std::min(lhs->size(), rhs->size()));
-    if (result_ == 0) {
-      result_ = lhs->size() - rhs->size();
+    auto cmp = std::memcmp(lhs->data(), rhs->data(), std::min(lhs->size(), rhs->size()));
+    if (cmp == 0) {
+      return CompareValues(lhs->size(), rhs->size());
     }
-    return Status::OK();
+    return CompareValues(cmp, 0);
   }
 
-  Status Visit(const Decimal128Type&) {
-    auto lhs = checked_cast<const Decimal128Scalar&>(lhs_).value;
-    auto rhs = checked_cast<const Decimal128Scalar&>(rhs_).value;
-    result_ = (lhs - rhs).Sign();
-    return Status::OK();
-  }
+  Status Visit(const Decimal128Type&) { return CompareValues<Decimal128Type>(); }
 
   // explicit because both integral and floating point conditions match half float
   Status Visit(const HalfFloatType&) {
@@ -187,27 +175,40 @@ struct CompareVisitor {
     return Status::NotImplemented("comparison of scalars of type ", *lhs_.type);
   }
 
-  int64_t result_;
+  // defer comparison to ScalarType<T>::value
+  template <typename T>
+  Status CompareValues() {
+    auto lhs = checked_cast<const ScalarType<T>&>(lhs_).value;
+    auto rhs = checked_cast<const ScalarType<T>&>(rhs_).value;
+    return CompareValues(lhs, rhs);
+  }
+
+  // defer comparison to explicit values
+  template <typename Value>
+  Status CompareValues(Value lhs, Value rhs) {
+    result_ = lhs < rhs ? Comparison::LESS
+                        : lhs == rhs ? Comparison::EQUAL : Comparison::GREATER;
+    return Status::OK();
+  }
+
+  Comparison::type result_;
   const Scalar& lhs_;
   const Scalar& rhs_;
 };
 
 // Compare two scalars
-// lhs < rhs  => return < 0
-// lhs == rhs => return == 0
-// lhs > rhs  => return > 0
 // if either is null, return is null
-Result<Int64Scalar> Compare(const Scalar& lhs, const Scalar& rhs) {
+Result<Comparison::type> Compare(const Scalar& lhs, const Scalar& rhs) {
   if (!lhs.is_valid || !rhs.is_valid) {
-    return Int64Scalar();
+    return Comparison::NULL_;
   }
   if (!lhs.type->Equals(*rhs.type)) {
     return Status::TypeError("cannot compare scalars with differing type: ", *lhs.type,
                              " vs ", *rhs.type);
   }
-  CompareVisitor vis{0, lhs, rhs};
+  CompareVisitor vis{Comparison::NULL_, lhs, rhs};
   RETURN_NOT_OK(VisitTypeInline(*lhs.type, &vis));
-  return Int64Scalar(vis.result_);
+  return vis.result_;
 }
 
 Result<std::shared_ptr<Expression>> Invert(const Expression& op) {
@@ -286,7 +287,7 @@ Result<std::shared_ptr<Expression>> AssumeComparisonComparison(
 
   ARROW_ASSIGN_OR_RAISE(auto cmp, Compare(*e_rhs, *given_rhs));
 
-  if (!cmp.is_valid) {
+  if (cmp == Comparison::NULL_) {
     // the RHS of e or given was null
     return ScalarExpression::MakeNull();
   }
@@ -295,7 +296,7 @@ Result<std::shared_ptr<Expression>> AssumeComparisonComparison(
   static auto never = ScalarExpression::Make(false);
   auto unsimplified = e.Copy();
 
-  if (cmp.value == 0) {
+  if (cmp == Comparison::EQUAL) {
     // the rhs of the comparisons are equal
     switch (e.type()) {
       case ExpressionType::EQUAL:
@@ -367,7 +368,7 @@ Result<std::shared_ptr<Expression>> AssumeComparisonComparison(
       default:
         return unsimplified;
     }
-  } else if (cmp.value > 0) {
+  } else if (cmp == Comparison::GREATER) {
     // the rhs of e is greater than that of given
     switch (e.type()) {
       case ExpressionType::EQUAL:
