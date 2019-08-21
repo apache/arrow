@@ -36,11 +36,6 @@ public class AvroMapConsumer implements Consumer {
   private final Consumer valueDelegate;
 
   /**
-   * Indicated whether has read the first block of this map.
-   */
-  private boolean firstRead;
-
-  /**
    * Instantiate a AvroMapConsumer.
    */
   public AvroMapConsumer(MapVector vector, Consumer keyDelegate, Consumer valueDelegate) {
@@ -51,22 +46,19 @@ public class AvroMapConsumer implements Consumer {
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    long count;
-    if (!firstRead) {
-      count = decoder.readMapStart();
-      firstRead = true;
-    } else {
-      count = decoder.mapNext();
-    }
 
     int idx = vector.getValueCount();
     vector.startNewValue(idx);
-    for (int i = 0; i < count; i++) {
-      keyDelegate.consume(decoder);
-      valueDelegate.consume(decoder);
+    long totalCount = 0;
+    for (long count = decoder.readArrayStart(); count != 0; count = decoder.arrayNext()) {
+      totalCount += count;
+      for (int element = 0; element < count; element++) {
+        keyDelegate.consume(decoder);
+        valueDelegate.consume(decoder);
+      }
     }
 
-    int end = (int) (vector.getOffsetBuffer().getInt(idx * 4) + count);
+    int end = (int) (vector.getOffsetBuffer().getInt(idx * 4) + totalCount);
     vector.getOffsetBuffer().setInt((idx + 1) * 4, end);
 
     int dataValueCount = vector.getDataVector().getValueCount();
@@ -78,7 +70,6 @@ public class AvroMapConsumer implements Consumer {
     vector.setValueCount(idx + 1);
     // set data vector valueCount
     vector.getDataVector().setValueCount(end);
-    decoder.skipMap();
   }
 
   @Override
