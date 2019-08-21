@@ -26,8 +26,6 @@ extern crate datafusion;
 use arrow::array::*;
 use arrow::datatypes::{DataType, Field, Schema};
 
-use datafusion::datasource::parquet::ParquetTable;
-use datafusion::datasource::TableProvider;
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::execution::relation::Relation;
@@ -89,10 +87,7 @@ fn nyc() -> Result<()> {
 #[test]
 fn parquet_query() {
     let mut ctx = ExecutionContext::new();
-    ctx.register_table(
-        "alltypes_plain",
-        load_parquet_table("alltypes_plain.parquet"),
-    );
+    register_alltypes_parquet(&mut ctx);
     let sql = "SELECT id, string_col FROM alltypes_plain";
     let actual = execute(&mut ctx, sql);
     let expected = "4\t\"0\"\n5\t\"1\"\n6\t\"0\"\n7\t\"1\"\n2\t\"0\"\n3\t\"1\"\n0\t\"0\"\n1\t\"1\"\n".to_string();
@@ -407,11 +402,13 @@ fn register_csv(
     ctx.register_csv(name, filename, &schema, true);
 }
 
-fn load_parquet_table(name: &str) -> Rc<dyn TableProvider> {
+fn register_alltypes_parquet(ctx: &mut ExecutionContext) {
     let testdata = env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
-    let filename = format!("{}/{}", testdata, name);
-    let table = ParquetTable::try_new(&filename).unwrap();
-    Rc::new(table)
+    ctx.register_parquet(
+        "alltypes_plain",
+        &format!("{}/alltypes_plain.parquet", testdata),
+    )
+    .unwrap();
 }
 
 /// Execute query and return result set as tab delimited string
