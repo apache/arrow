@@ -214,6 +214,11 @@ class DummyFragment : public FileBasedDataFragment {
 Status DummyFileFormat::MakeFragment(const FileSource& source,
                                      std::shared_ptr<ScanOptions> opts,
                                      std::unique_ptr<FileBasedDataFragment>* out) {
+  fs::FileStats stats;
+  RETURN_NOT_OK(source.filesystem()->GetTargetStats(source.path(), &stats));
+  if (stats.type() == fs::FileType::NonExistent) {
+    return Status::Invalid("file doesn't exist");
+  }
   *out = internal::make_unique<DummyFragment>(source, opts);
   return Status::OK();
 }

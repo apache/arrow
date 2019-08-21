@@ -173,5 +173,27 @@ TEST_F(TestFileSystemBasedDataSource, Recursive) {
   ASSERT_EQ(count, 4);
 }
 
+TEST_F(TestFileSystemBasedDataSource, DeletedFile) {
+  selector_.base_dir = "/";
+  selector_.recursive = true;
+  MakeDataSource();
+  ASSERT_OK(this->fs_->DeleteFile("a/b.parquet"));
+
+  int count = 0;
+  ASSERT_RAISES(
+      Invalid,
+      source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
+        auto file_fragment =
+            internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
+        ++count;
+        auto extension =
+            fs::internal::GetAbstractPathExtension(file_fragment->source().path());
+        EXPECT_TRUE(format_->IsKnownExtension(extension));
+        return Status::OK();
+      }));
+
+  ASSERT_EQ(count, 2);
+}
+
 }  // namespace dataset
 }  // namespace arrow
