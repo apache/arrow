@@ -174,7 +174,7 @@ def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size):
     assert arrow_table.schema.metadata == table_read.schema.metadata
 
     df_read = table_read.to_pandas()
-    tm.assert_frame_equal(df, df_read, check_categorical=False)
+    tm.assert_frame_equal(df, df_read)
 
 
 def test_set_data_page_size():
@@ -1091,6 +1091,14 @@ def test_date_time_types(tempdir):
         assert parquet_schema.column(i).physical_type == 'INT96'
     read_table = _read_table(filename)
     assert read_table.equals(expected)
+
+
+def test_timestamp_restore_timezone():
+    # ARROW-5888, restore timezone from serialized metadata
+    ty = pa.timestamp('ms', tz='America/New_York')
+    arr = pa.array([1, 2, 3], type=ty)
+    t = pa.table([arr], names=['f0'])
+    _check_roundtrip(t)
 
 
 @pytest.mark.pandas
