@@ -29,7 +29,7 @@ if(NOT VERSION)
 endif()
 
 function(ADD_PARQUET_TEST REL_TEST_NAME)
-  set(options USE_STATIC_LINKING)
+  set(options USE_STATIC_LINKING_WIN32)
   set(one_value_args)
   set(multi_value_args EXTRA_DEPENDENCIES LABELS)
   cmake_parse_arguments(ARG
@@ -43,7 +43,7 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
   # By default we prefer shared linking with libparquet, as it's faster
   # and uses less disk space, but in some cases we need to force static
   # linking (see rationale below).
-  if(ARG_USE_STATIC_LINKING OR ARROW_TEST_LINKAGE STREQUAL "static")
+  if((ARG_USE_STATIC_LINKING_WIN32 AND WIN32) OR ARROW_TEST_LINKAGE STREQUAL "static")
     add_test_case(${REL_TEST_NAME}
                   STATIC_LINK_LIBS
                   ${PARQUET_STATIC_TEST_LINK_LIBS}
@@ -320,11 +320,11 @@ add_parquet_test(arrow-test
 # Those tests need to use static linking as they access thrift-generated
 # symbols which are not exported by parquet.dll on Windows (PARQUET-1420).
 add_parquet_test(file_deserialize_test
-                 USE_STATIC_LINKING
+                 USE_STATIC_LINKING_WIN32
                  SOURCES
                  file_deserialize_test.cc
                  test_util.cc)
-add_parquet_test(schema_test USE_STATIC_LINKING)
+add_parquet_test(schema_test USE_STATIC_LINKING_WIN32)
 
 add_parquet_benchmark(column_io_benchmark)
 add_parquet_benchmark(encoding_benchmark)
