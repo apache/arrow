@@ -1979,7 +1979,13 @@ def _unregister_py_extension_type():
     # finalized.  If the C++ type is destroyed later in the process
     # teardown stage, it will invoke CPython APIs such as Py_DECREF
     # with a destroyed interpreter.
-    check_status(UnregisterPyExtensionType())
+    #
+    # As reported in ARROW-6301 there are cases where UnregisterPyExtensionType
+    # might fail
+    cdef CStatus s = UnregisterPyExtensionType()
+    if not s.ok():
+        print("Calling UnregisterPyExtensionType failed, allowing to "
+              "pass silently: {}".format(s.ToString()))
 
 
 _register_py_extension_type()
