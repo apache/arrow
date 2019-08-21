@@ -18,6 +18,7 @@
 #include "arrow/dataset/dataset.h"
 
 #include <memory>
+#include <utility>
 
 #include "arrow/dataset/scanner.h"
 #include "arrow/util/stl.h"
@@ -45,7 +46,7 @@ Status ScanTaskIteratorFromRecordBatches(
 }
 
 Status SimpleDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
-                                    std::unique_ptr<ScanTaskIterator>* out) {
+                                std::unique_ptr<ScanTaskIterator>* out) {
   // Make an explicit copy of record_batches_ to ensure GetTasks can be called
   // multiple times.
   return ScanTaskIteratorFromRecordBatches(record_batches_, out);

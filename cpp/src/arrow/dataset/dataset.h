@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/dataset/type_fwd.h"
@@ -60,7 +61,7 @@ class ARROW_DS_EXPORT SimpleDataFragment : public DataFragment {
   explicit SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches);
 
   Status Scan(std::shared_ptr<ScanContext> scan_context,
-                  std::unique_ptr<ScanTaskIterator>* out) override;
+              std::unique_ptr<ScanTaskIterator>* out) override;
 
   bool splittable() const override { return false; }
 
