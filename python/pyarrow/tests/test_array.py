@@ -1046,6 +1046,21 @@ def test_array_conversions_no_sentinel_values():
     assert arr3.null_count == 0
 
 
+def test_binary_string_pandas_null_sentinels():
+    def _check_case(ty):
+        with pytest.raises(TypeError):
+            # NaN is a float by default
+            pa.array(['string', np.nan], type=ty)
+
+        arr = pa.array(['string', np.nan], type=ty, from_pandas=True)
+        expected = pa.array(['string', None], type=ty)
+        assert arr.equals(expected)
+
+    _check_case(None)
+    _check_case('binary')
+    _check_case('utf8')
+
+
 def test_array_from_numpy_datetimeD():
     arr = np.array([None, datetime.date(2017, 4, 4)], dtype='datetime64[D]')
 
