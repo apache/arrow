@@ -49,7 +49,7 @@ public class VectorRunDeduplicator<V extends ValueVector> implements AutoCloseab
 
   /**
    * Constructs a vector run deduplicator for a given vector.
-   * @param vector the given vector.
+   * @param vector the vector to dedulicate.  Ownership is NOT taken.
    * @param allocator the allocator used for allocating buffers for start indices.
    */
   public VectorRunDeduplicator(V vector, BufferAllocator allocator) {
