@@ -194,6 +194,11 @@ Status ChunkedArray::Validate() const {
     return Status::OK();
   }
 
+  for (auto chunk : chunks_) {
+    // Validate the chunks themselves
+    RETURN_NOT_OK(chunk->Validate());
+  }
+
   const auto& type = *chunks_[0]->type();
   // Make sure chunks all have the same type
   for (size_t i = 1; i < chunks_.size(); ++i) {

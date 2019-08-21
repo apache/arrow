@@ -1202,8 +1202,9 @@ struct ValidateVisitor {
     ARROW_RETURN_IF(array.data()->buffers.size() != 2,
                     Status::Invalid("number of buffers was != 2"));
 
-    ARROW_RETURN_IF(array.values() == nullptr, Status::Invalid("values was null"));
-
+    if (array.length() > 0 && array.values() == nullptr) {
+      return Status::Invalid("values was null");
+    }
     return Status::OK();
   }
 
@@ -1211,7 +1212,7 @@ struct ValidateVisitor {
     if (array.data()->buffers.size() != 2) {
       return Status::Invalid("number of buffers was != 2");
     }
-    if (array.values() == nullptr) {
+    if (array.length() > 0 && array.values() == nullptr) {
       return Status::Invalid("values was null");
     }
     return Status::OK();
@@ -1250,7 +1251,7 @@ struct ValidateVisitor {
       return Status::Invalid("key array invalid: ", key_valid.ToString());
     }
 
-    if (!array.values()) {
+    if (array.length() > 0 && !array.values()) {
       return Status::Invalid("values was null");
     }
     const Status values_valid = array.values()->Validate();
@@ -1272,7 +1273,7 @@ struct ValidateVisitor {
   }
 
   Status Visit(const FixedSizeListArray& array) {
-    if (!array.values()) {
+    if (array.length() > 0 && !array.values()) {
       return Status::Invalid("values was null");
     }
     if (array.values()->length() != array.length() * array.value_length()) {
@@ -1338,14 +1339,14 @@ struct ValidateVisitor {
  protected:
   template <typename ListArrayType>
   Status ValidateListArray(const ListArrayType& array) {
-    if (!array.values()) {
+    const auto last_offset = array.value_offset(array.length());
+    const auto data_extent = last_offset - array.value_offset(0);
+    if (data_extent > 0 && !array.values()) {
       return Status::Invalid("values was null");
     }
-
-    const auto last_offset = array.value_offset(array.length());
-    if (array.values()->length() != last_offset) {
-      return Status::Invalid("Final offset invariant not equal to values length: ",
-                             last_offset, "!=", array.values()->length());
+    if (array.values()->length() < last_offset) {
+      return Status::Invalid("Final offset larger than values array: ", last_offset, ">",
+                             array.values()->length());
     }
 
     const Status child_valid = array.values()->Validate();
