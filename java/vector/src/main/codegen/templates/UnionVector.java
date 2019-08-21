@@ -20,9 +20,11 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 
@@ -92,6 +94,12 @@ public class UnionVector implements FieldVector {
   private static final byte TYPE_WIDTH = 1;
   private static final FieldType INTERNAL_STRUCT_TYPE = new FieldType(false /*nullable*/,
       ArrowType.Struct.INSTANCE, null /*dictionary*/, null /*metadata*/);
+
+  public static UnionVector empty(String name, BufferAllocator allocator) {
+    FieldType fieldType = FieldType.nullable(new ArrowType.Union(
+        UnionMode.Sparse, null));
+    return new UnionVector(name, allocator, fieldType, null);
+  }
 
   @Deprecated
   public UnionVector(String name, BufferAllocator allocator, CallBack callBack) {
