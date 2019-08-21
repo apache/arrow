@@ -21,6 +21,7 @@
     <artifactId>arrow-gandiva</artifactId>
     <packaging>jar</packaging>
     <name>Arrow Gandiva</name>
+    <description>Java wrappers around the native Gandiva SQL expression compiler.</description>
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>

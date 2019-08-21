@@ -22,6 +22,7 @@
 
     <artifactId>arrow-jdbc</artifactId>
     <name>Arrow JDBC Adapter</name>
+    <description>(Contrib/Experimental)A library for converting JDBC data to Arrow data.</description>
     <url>http://maven.apache.org</url>
 
     <dependencies>

@@ -18,6 +18,7 @@
     </parent>
     <artifactId>arrow-plasma</artifactId>
     <name>Arrow Plasma Client</name>
+    <description>Java client for the Plasma object store.</description>
     <build>
         <plugins>
             <plugin>

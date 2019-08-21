@@ -88,6 +88,7 @@
     <groupId>org.apache.arrow.orc</groupId>
     <artifactId>arrow-orc</artifactId>
     <name>Arrow Orc Adapter</name>
+    <description>(Experimental/Contrib)A JNI wrapper for the C++ ORC reader implementation.</description>
     <packaging>jar</packaging>
     <properties>
         <arrow.cpp.build.dir>../../../cpp/release-build/</arrow.cpp.build.dir>
