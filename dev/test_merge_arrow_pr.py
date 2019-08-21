@@ -107,6 +107,22 @@ def test_jira_fix_versions():
     assert default_versions == ['0.11.0']
 
 
+def test_jira_no_suggest_patch_release():
+    versions_json = [
+        {'version': '0.11.1', 'released': False},
+        {'version': '0.12.0', 'released': False},
+    ]
+
+    versions = [FakeProjectVersion(raw['version'], raw)
+                for raw in versions_json]
+
+    jira = FakeJIRA(project_versions=versions, transitions=TRANSITIONS)
+    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
+    all_versions, default_versions = issue.get_candidate_fix_versions()
+    assert all_versions == versions
+    assert default_versions == ['0.12.0']
+
+
 def test_jira_invalid_issue():
     class Mock:
 
@@ -188,7 +204,7 @@ def test_jira_output_no_components():
     # ARROW-5472
     status = 'Interesting work'
     components = []
-    output = merge_arrow_pr.format_resolved_issue_status(
+    output = merge_arrow_pr.format_jira_output(
         'ARROW-1234', 'Resolved', status, FakeAssignee('Foo Bar'),
         components)
 
@@ -199,7 +215,7 @@ Components\tNO COMPONENTS!!!
 Status\t\tResolved
 URL\t\thttps://issues.apache.org/jira/browse/ARROW-1234"""
 
-    output = merge_arrow_pr.format_resolved_issue_status(
+    output = merge_arrow_pr.format_jira_output(
         'ARROW-1234', 'Resolved', status, FakeAssignee('Foo Bar'),
         [FakeComponent('C++'), FakeComponent('Python')])
 
