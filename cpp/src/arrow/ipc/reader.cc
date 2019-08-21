@@ -507,8 +507,8 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
           empty_stream_ = true;
           break;
         } else {
-          // ARROW-6126, we can fail in two cases, either that record batches
-          // begin before
+          // ARROW-6126, the stream terminated before receiving the expected
+          // number of dictionaries
           return Status::Invalid("IPC stream ended without reading the expected number (",
                                  dictionary_memo_.num_fields(), ") of dictionaries");
         }
