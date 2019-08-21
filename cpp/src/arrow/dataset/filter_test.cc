@@ -25,6 +25,7 @@
 
 #include "arrow/compute/api.h"
 #include "arrow/dataset/api.h"
+#include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
@@ -37,7 +38,7 @@ using internal::checked_pointer_cast;
 
 class ExpressionsTest : public ::testing::Test {
  public:
-  void AssertSimplifiesTo(OperatorExpression expr, const Expression& given,
+  void AssertSimplifiesTo(const Expression& expr, const Expression& given,
                           const Expression& expected) {
     auto simplified = expr.Assume(given);
     ASSERT_OK(simplified.status());
@@ -49,8 +50,8 @@ class ExpressionsTest : public ::testing::Test {
     }
   }
 
-  template <typename... T>
-  void AssertOperandsAre(OperatorExpression expr, ExpressionType::type type,
+  template <typename NnaryExpression, typename... T>
+  void AssertOperandsAre(const NnaryExpression& expr, ExpressionType::type type,
                          T... expected_operands) {
     ASSERT_EQ(expr.type(), type);
     ASSERT_EQ(expr.operands().size(), sizeof...(T));
@@ -112,9 +113,9 @@ TEST_F(ExpressionsTest, SimplificationToNull) {
 
 class FilterTest : public ::testing::Test {
  public:
-  Status DoFilter(const Expression& expr, std::vector<std::shared_ptr<Field>> fields,
-                  std::string batch_json, std::shared_ptr<BooleanArray>* mask,
-                  std::shared_ptr<BooleanArray>* expected_mask) {
+  Result<std::shared_ptr<BooleanArray>> DoFilter(
+      const Expression& expr, std::vector<std::shared_ptr<Field>> fields,
+      std::string batch_json, std::shared_ptr<BooleanArray>* expected_mask = nullptr) {
     // expected filter result is in the "in" field
     fields.push_back(field("in", boolean()));
 
@@ -122,17 +123,19 @@ class FilterTest : public ::testing::Test {
     std::shared_ptr<RecordBatch> batch;
     RETURN_NOT_OK(RecordBatch::FromStructArray(batch_array, &batch));
 
-    *expected_mask = checked_pointer_cast<BooleanArray>(batch->GetColumnByName("in"));
+    if (expected_mask) {
+      *expected_mask = checked_pointer_cast<BooleanArray>(batch->GetColumnByName("in"));
+    }
 
-    return EvaluateExpression(&ctx_, expr, *batch, mask);
+    return expr.Evaluate(&ctx_, *batch);
   }
 
   void AssertFilter(const Expression& expr, std::vector<std::shared_ptr<Field>> fields,
                     std::string batch_json) {
-    std::shared_ptr<BooleanArray> mask, expected_mask;
-    ASSERT_OK(
-        DoFilter(expr, std::move(fields), std::move(batch_json), &mask, &expected_mask));
-    ASSERT_ARRAYS_EQUAL(*expected_mask, *mask);
+    std::shared_ptr<BooleanArray> expected_mask;
+    auto mask = DoFilter(expr, std::move(fields), std::move(batch_json), &expected_mask);
+    ASSERT_OK(mask.status());
+    ASSERT_ARRAYS_EQUAL(*expected_mask, *mask.ValueOrDie());
   }
 
   arrow::compute::FunctionContext ctx_;

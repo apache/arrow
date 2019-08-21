@@ -57,7 +57,10 @@ class Filter;
 using FilterVector = std::vector<std::shared_ptr<Filter>>;
 
 class Expression;
-class OperatorExpression;
+class ComparisonExpression;
+class AndExpression;
+class OrExpression;
+class NotExpression;
 class ScalarExpression;
 class FieldReferenceExpression;
 using ExpressionVector = std::vector<std::shared_ptr<Expression>>;

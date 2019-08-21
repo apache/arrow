@@ -35,86 +35,95 @@ using arrow::compute::Datum;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-Status TrivialMask(MemoryPool* pool, const BooleanScalar& value, const RecordBatch& batch,
-                   std::shared_ptr<BooleanArray>* mask) {
-  if (!value.is_valid) {
+Result<std::shared_ptr<BooleanArray>> ScalarExpression::Evaluate(
+    compute::FunctionContext* ctx, const RecordBatch& batch) const {
+  if (!value_->is_valid) {
     std::shared_ptr<Array> mask_array;
-    RETURN_NOT_OK(MakeArrayOfNull(boolean(), batch.num_rows(), &mask_array));
+    RETURN_NOT_OK(
+        MakeArrayOfNull(ctx->memory_pool(), boolean(), batch.num_rows(), &mask_array));
 
-    *mask = checked_pointer_cast<BooleanArray>(mask_array);
-    return Status::OK();
+    return checked_pointer_cast<BooleanArray>(mask_array);
+  }
+
+  if (!value_->type->Equals(boolean())) {
+    return Status::Invalid("can't evaluate ", ToString());
   }
 
   TypedBufferBuilder<bool> builder;
-  RETURN_NOT_OK(builder.Append(batch.num_rows(), value.value));
+  RETURN_NOT_OK(builder.Append(batch.num_rows(),
+                               checked_cast<const BooleanScalar&>(*value_).value));
 
   std::shared_ptr<Buffer> values;
   RETURN_NOT_OK(builder.Finish(&values));
 
-  *mask = std::make_shared<BooleanArray>(batch.num_rows(), values);
-  return Status::OK();
+  return std::make_shared<BooleanArray>(batch.num_rows(), values);
 }
 
-Status EvaluateExpression(compute::FunctionContext* ctx, const Expression& condition,
-                          const RecordBatch& batch, std::shared_ptr<BooleanArray>* mask) {
-  BooleanScalar value;
-  if (condition.IsNullScalar() || condition.IsBooleanScalar(&value)) {
-    return TrivialMask(ctx->memory_pool(), value, batch, mask);
-  }
+Result<std::shared_ptr<BooleanArray>> NotExpression::Evaluate(
+    compute::FunctionContext* ctx, const RecordBatch& batch) const {
+  ARROW_ASSIGN_OR_RAISE(auto to_invert, operand_->Evaluate(ctx, batch));
+  Datum out;
+  RETURN_NOT_OK(arrow::compute::Invert(ctx, Datum(to_invert), &out));
+  return checked_pointer_cast<BooleanArray>(out.make_array());
+}
 
-  if (!condition.IsOperatorExpression()) {
-    return Status::Invalid("can't execute condition ", condition.ToString());
-  }
+template <typename Nnary>
+Result<std::shared_ptr<BooleanArray>> EvaluateNnary(const Nnary& nnary,
+                                                    compute::FunctionContext* ctx,
+                                                    const RecordBatch& batch) {
+  const auto& operands = nnary.operands();
 
-  const auto& op = checked_cast<const OperatorExpression&>(condition).operands();
-
-  if (condition.IsComparisonExpression()) {
-    const auto& lhs = checked_cast<const FieldReferenceExpression&>(*op[0]);
-    const auto& rhs = checked_cast<const ScalarExpression&>(*op[1]);
-    Datum out;
-    auto lhs_array = batch.GetColumnByName(lhs.name());
-    if (lhs_array == nullptr) {
-      // comparing a field absent from batch: return nulls
-      return TrivialMask(ctx->memory_pool(), BooleanScalar(), batch, mask);
-    }
-    using arrow::compute::CompareOperator;
-    arrow::compute::CompareOptions opts(static_cast<CompareOperator>(
-        static_cast<int>(CompareOperator::EQUAL) + static_cast<int>(condition.type()) -
-        static_cast<int>(ExpressionType::EQUAL)));
-    RETURN_NOT_OK(
-        arrow::compute::Compare(ctx, Datum(lhs_array), Datum(rhs.value()), opts, &out));
-    *mask = checked_pointer_cast<BooleanArray>(out.make_array());
-    return Status::OK();
-  }
-
-  if (condition.type() == ExpressionType::NOT) {
-    std::shared_ptr<BooleanArray> to_invert;
-    RETURN_NOT_OK(EvaluateExpression(ctx, *op[0], batch, &to_invert));
-    Datum out;
-    RETURN_NOT_OK(arrow::compute::Invert(ctx, Datum(to_invert), &out));
-    *mask = checked_pointer_cast<BooleanArray>(out.make_array());
-    return Status::OK();
-  }
-
-  DCHECK(condition.type() == ExpressionType::OR ||
-         condition.type() == ExpressionType::AND);
-
-  std::shared_ptr<BooleanArray> next;
-  RETURN_NOT_OK(EvaluateExpression(ctx, *op[0], batch, &next));
+  ARROW_ASSIGN_OR_RAISE(auto next, operands[0]->Evaluate(ctx, batch));
   Datum acc(next);
 
-  for (size_t i_next = 1; i_next < op.size(); ++i_next) {
-    RETURN_NOT_OK(EvaluateExpression(ctx, *op[i_next], batch, &next));
+  for (size_t i_next = 1; i_next < operands.size(); ++i_next) {
+    ARROW_ASSIGN_OR_RAISE(next, operands[i_next]->Evaluate(ctx, batch));
 
-    if (condition.type() == ExpressionType::OR) {
-      RETURN_NOT_OK(arrow::compute::Or(ctx, Datum(acc), Datum(next), &acc));
-    } else {
+    if (std::is_same<Nnary, AndExpression>::value) {
       RETURN_NOT_OK(arrow::compute::And(ctx, Datum(acc), Datum(next), &acc));
+    }
+
+    if (std::is_same<Nnary, OrExpression>::value) {
+      RETURN_NOT_OK(arrow::compute::Or(ctx, Datum(acc), Datum(next), &acc));
     }
   }
 
-  *mask = checked_pointer_cast<BooleanArray>(acc.make_array());
-  return Status::OK();
+  return checked_pointer_cast<BooleanArray>(acc.make_array());
+}
+
+Result<std::shared_ptr<BooleanArray>> AndExpression::Evaluate(
+    compute::FunctionContext* ctx, const RecordBatch& batch) const {
+  return EvaluateNnary(*this, ctx, batch);
+}
+
+Result<std::shared_ptr<BooleanArray>> OrExpression::Evaluate(
+    compute::FunctionContext* ctx, const RecordBatch& batch) const {
+  return EvaluateNnary(*this, ctx, batch);
+}
+
+Result<std::shared_ptr<BooleanArray>> ComparisonExpression::Evaluate(
+    compute::FunctionContext* ctx, const RecordBatch& batch) const {
+  if (left_operand_->type() != ExpressionType::FIELD) {
+    return Status::Invalid("left hand side of comparison must be a field reference");
+  }
+
+  if (right_operand_->type() != ExpressionType::SCALAR) {
+    return Status::Invalid("right hand side of comparison must be a scalar");
+  }
+
+  const auto& lhs = checked_cast<const FieldReferenceExpression&>(*left_operand_);
+  const auto& rhs = checked_cast<const ScalarExpression&>(*right_operand_);
+
+  auto lhs_array = batch.GetColumnByName(lhs.name());
+  if (lhs_array == nullptr) {
+    // comparing a field absent from batch: return nulls
+    return ScalarExpression::MakeNull()->Evaluate(ctx, batch);
+  }
+
+  Datum out;
+  RETURN_NOT_OK(arrow::compute::Compare(ctx, Datum(lhs_array), Datum(rhs.value()),
+                                        arrow::compute::CompareOptions(op_), &out));
+  return checked_pointer_cast<BooleanArray>(out.make_array());
 }
 
 std::shared_ptr<ScalarExpression> ScalarExpression::Make(std::string value) {
@@ -211,6 +220,7 @@ Result<Comparison::type> Compare(const Scalar& lhs, const Scalar& rhs) {
   return vis.result_;
 }
 
+/*
 Result<std::shared_ptr<Expression>> Invert(const Expression& op) {
   auto make_opposite = [&op](ExpressionType::type opposite_type) {
     return std::make_shared<OperatorExpression>(
@@ -258,9 +268,11 @@ Result<std::shared_ptr<Expression>> Invert(const Expression& op) {
 
   return op.Copy();
 }
+*/
 
 // If e can be cast to OperatorExpression try to simplify it against given.
 // Otherwise pass e through unchanged.
+/*
 Result<std::shared_ptr<Expression>> AssumeIfOperator(const std::shared_ptr<Expression>& e,
                                                      const Expression& given) {
   if (!e->IsOperatorExpression()) {
@@ -268,191 +280,38 @@ Result<std::shared_ptr<Expression>> AssumeIfOperator(const std::shared_ptr<Expre
   }
   return checked_cast<const OperatorExpression&>(*e).Assume(given);
 }
+*/
 
-// Try to simplify one comparison against another comparison.
-// For example,
-// (x > 3) is a subset of (x > 2), so (x > 2).Assume(x > 3) == (true)
-// (x < 0) is disjoint with (x > 2), so (x > 2).Assume(x < 0) == (false)
-// If simplification to (true) or (false) is not possible, pass e through unchanged.
-Result<std::shared_ptr<Expression>> AssumeComparisonComparison(
-    const OperatorExpression& e, const OperatorExpression& given) {
-  if (e.operands()[1]->type() != ExpressionType::SCALAR ||
-      given.operands()[1]->type() != ExpressionType::SCALAR) {
-    // TODO(bkietz) allow the RHS of e to be FIELD
-    return Status::Invalid("right hand side of comparison must be a scalar");
-  }
-
-  auto e_rhs = checked_cast<const ScalarExpression&>(*e.operands()[1]).value();
-  auto given_rhs = checked_cast<const ScalarExpression&>(*given.operands()[1]).value();
-
-  ARROW_ASSIGN_OR_RAISE(auto cmp, Compare(*e_rhs, *given_rhs));
-
-  if (cmp == Comparison::NULL_) {
-    // the RHS of e or given was null
-    return ScalarExpression::MakeNull();
-  }
-
-  static auto always = ScalarExpression::Make(true);
-  static auto never = ScalarExpression::Make(false);
-  auto unsimplified = e.Copy();
-
-  if (cmp == Comparison::EQUAL) {
-    // the rhs of the comparisons are equal
-    switch (e.type()) {
-      case ExpressionType::EQUAL:
-        switch (given.type()) {
-          case ExpressionType::NOT_EQUAL:
-          case ExpressionType::GREATER:
-          case ExpressionType::LESS:
-            return never;
-          case ExpressionType::EQUAL:
-            return always;
-          default:
-            return unsimplified;
-        }
-      case ExpressionType::NOT_EQUAL:
-        switch (given.type()) {
-          case ExpressionType::EQUAL:
-            return never;
-          case ExpressionType::NOT_EQUAL:
-          case ExpressionType::GREATER:
-          case ExpressionType::LESS:
-            return always;
-          default:
-            return unsimplified;
-        }
-      case ExpressionType::GREATER:
-        switch (given.type()) {
-          case ExpressionType::EQUAL:
-          case ExpressionType::LESS_EQUAL:
-          case ExpressionType::LESS:
-            return never;
-          case ExpressionType::GREATER:
-            return always;
-          default:
-            return unsimplified;
-        }
-      case ExpressionType::GREATER_EQUAL:
-        switch (given.type()) {
-          case ExpressionType::LESS:
-            return never;
-          case ExpressionType::EQUAL:
-          case ExpressionType::GREATER:
-          case ExpressionType::GREATER_EQUAL:
-            return always;
-          default:
-            return unsimplified;
-        }
-      case ExpressionType::LESS:
-        switch (given.type()) {
-          case ExpressionType::EQUAL:
-          case ExpressionType::GREATER:
-          case ExpressionType::GREATER_EQUAL:
-            return never;
-          case ExpressionType::LESS:
-            return always;
-          default:
-            return unsimplified;
-        }
-      case ExpressionType::LESS_EQUAL:
-        switch (given.type()) {
-          case ExpressionType::GREATER:
-            return never;
-          case ExpressionType::EQUAL:
-          case ExpressionType::LESS:
-          case ExpressionType::LESS_EQUAL:
-            return always;
-          default:
-            return unsimplified;
-        }
-      default:
-        return unsimplified;
-    }
-  } else if (cmp == Comparison::GREATER) {
-    // the rhs of e is greater than that of given
-    switch (e.type()) {
-      case ExpressionType::EQUAL:
-      case ExpressionType::GREATER:
-      case ExpressionType::GREATER_EQUAL:
-        switch (given.type()) {
-          case ExpressionType::EQUAL:
-          case ExpressionType::LESS:
-          case ExpressionType::LESS_EQUAL:
-            return never;
-          default:
-            return unsimplified;
-        }
-      case ExpressionType::NOT_EQUAL:
-      case ExpressionType::LESS:
-      case ExpressionType::LESS_EQUAL:
-        switch (given.type()) {
-          case ExpressionType::EQUAL:
-          case ExpressionType::LESS:
-          case ExpressionType::LESS_EQUAL:
-            return always;
-          default:
-            return unsimplified;
-        }
-      default:
-        return unsimplified;
-    }
-  } else {
-    // the rhs of e is less than that of given
-    switch (e.type()) {
-      case ExpressionType::EQUAL:
-      case ExpressionType::LESS:
-      case ExpressionType::LESS_EQUAL:
-        switch (given.type()) {
-          case ExpressionType::EQUAL:
-          case ExpressionType::GREATER:
-          case ExpressionType::GREATER_EQUAL:
-            return never;
-          default:
-            return unsimplified;
-        }
-      case ExpressionType::NOT_EQUAL:
-      case ExpressionType::GREATER:
-      case ExpressionType::GREATER_EQUAL:
-        switch (given.type()) {
-          case ExpressionType::EQUAL:
-          case ExpressionType::GREATER:
-          case ExpressionType::GREATER_EQUAL:
-            return always;
-          default:
-            return unsimplified;
-        }
-      default:
-        return unsimplified;
-    }
-  }
-
-  return unsimplified;
-}
-
-// Try to simplify a comparison against a compound expression.
-// The operands of the compound expression must be examined individually.
-Result<std::shared_ptr<Expression>> AssumeComparisonCompound(
-    const OperatorExpression& e, const OperatorExpression& given) {
-  auto unsimplified = e.Copy();
-
+Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
+    const Expression& given) const {
   switch (given.type()) {
+    case ExpressionType::COMPARISON: {
+      return AssumeGivenComparison(checked_cast<const ComparisonExpression&>(given));
+    }
+
     case ExpressionType::NOT: {
-      ARROW_ASSIGN_OR_RAISE(auto inverted, Invert(*given.operands()[0]));
-      return e.Assume(*inverted);
+      // const auto& to_invert = checked_cast<const NotExpression&>(given).operand();
+      // ARROW_ASSIGN_OR_RAISE(auto inverted, Invert(*to_invert));
+      // return Assume(*inverted);
+      return Copy();
     }
 
     case ExpressionType::OR: {
       bool simplify_to_always = true;
       bool simplify_to_never = true;
-      for (auto operand : given.operands()) {
-        ARROW_ASSIGN_OR_RAISE(auto simplified, e.Assume(*operand));
+      for (const auto& operand : checked_cast<const OrExpression&>(given).operands()) {
+        ARROW_ASSIGN_OR_RAISE(auto simplified, Assume(*operand));
+
         BooleanScalar scalar;
-        if (!simplified->IsBooleanScalar(&scalar)) {
-          return unsimplified;
+        if (!simplified->IsTrivialCondition(&scalar)) {
+          simplify_to_never = false;
+          simplify_to_always = false;
         }
 
-        // an expression should never simplify to null
-        DCHECK(scalar.is_valid);
+        if (!scalar.is_valid) {
+          // some subexpression of given is always null, return null
+          return ScalarExpression::MakeNull();
+        }
 
         if (scalar.value == true) {
           simplify_to_never = false;
@@ -469,80 +328,230 @@ Result<std::shared_ptr<Expression>> AssumeComparisonCompound(
         return ScalarExpression::Make(false);
       }
 
-      return unsimplified;
+      return Copy();
     }
 
     case ExpressionType::AND: {
-      std::shared_ptr<Expression> simplified = unsimplified;
-      for (auto operand : given.operands()) {
-        if (simplified->IsBooleanScalar()) {
+      auto simplified = Copy();
+      for (const auto& operand : checked_cast<const AndExpression&>(given).operands()) {
+        BooleanScalar value;
+        if (simplified->IsTrivialCondition(&value)) {
+          // FIXME(bkietz) but what if something later is null?
           break;
         }
 
-        DCHECK(simplified->IsOperatorExpression());
-        const auto& simplified_op = checked_cast<const OperatorExpression&>(*simplified);
-        ARROW_ASSIGN_OR_RAISE(simplified, simplified_op.Assume(*operand));
+        ARROW_ASSIGN_OR_RAISE(simplified, simplified->Assume(*operand));
       }
       return simplified;
     }
 
     default:
-      DCHECK(false);
+      break;
   }
 
-  return unsimplified;
+  return Copy();
 }
 
-Result<std::shared_ptr<Expression>> AssumeCompound(const OperatorExpression& e,
-                                                   const Expression& given) {
-  auto unsimplified = e.Copy();
-
-  if (e.type() == ExpressionType::NOT) {
-    DCHECK_EQ(e.operands().size(), 1);
-    ARROW_ASSIGN_OR_RAISE(auto operand, AssumeIfOperator(e.operands()[0], given));
-
-    if (operand->IsNullScalar()) {
-      return operand;
+// Try to simplify one comparison against another comparison.
+// For example,
+// (x > 3) is a subset of (x > 2), so (x > 2).Assume(x > 3) == (true)
+// (x < 0) is disjoint with (x > 2), so (x > 2).Assume(x < 0) == (false)
+// If simplification to (true) or (false) is not possible, pass e through unchanged.
+Result<std::shared_ptr<Expression>> ComparisonExpression::AssumeGivenComparison(
+    const ComparisonExpression& given) const {
+  for (auto comparison : {this, &given}) {
+    if (comparison->left_operand_->type() != ExpressionType::FIELD) {
+      return Status::Invalid("left hand side of comparison must be a field reference");
     }
 
-    BooleanScalar scalar;
-    if (!operand->IsBooleanScalar(&scalar)) {
-      return unsimplified;
+    if (comparison->right_operand_->type() != ExpressionType::SCALAR) {
+      return Status::Invalid("right hand side of comparison must be a scalar");
     }
-
-    return ScalarExpression::Make(!scalar.value);
   }
 
-  DCHECK(e.type() == ExpressionType::OR || e.type() == ExpressionType::AND);
+  const auto& this_lhs = checked_cast<const FieldReferenceExpression&>(*left_operand_);
+  const auto& given_lhs =
+      checked_cast<const FieldReferenceExpression&>(*given.left_operand_);
+  if (this_lhs.name() != given_lhs.name()) {
+    return Copy();
+  }
 
+  const auto& this_rhs = checked_cast<const ScalarExpression&>(*right_operand_).value();
+  const auto& given_rhs =
+      checked_cast<const ScalarExpression&>(*given.right_operand_).value();
+  ARROW_ASSIGN_OR_RAISE(auto cmp, Compare(*this_rhs, *given_rhs));
+
+  if (cmp == Comparison::NULL_) {
+    // the RHS of e or given was null
+    return ScalarExpression::MakeNull();
+  }
+
+  static auto always = ScalarExpression::Make(true);
+  static auto never = ScalarExpression::Make(false);
+
+  using compute::CompareOperator;
+
+  if (cmp == Comparison::EQUAL) {
+    // the rhs of the comparisons are equal
+    switch (op_) {
+      case CompareOperator::EQUAL:
+        switch (given.op()) {
+          case CompareOperator::NOT_EQUAL:
+          case CompareOperator::GREATER:
+          case CompareOperator::LESS:
+            return never;
+          case CompareOperator::EQUAL:
+            return always;
+          default:
+            return Copy();
+        }
+      case CompareOperator::NOT_EQUAL:
+        switch (given.op()) {
+          case CompareOperator::EQUAL:
+            return never;
+          case CompareOperator::NOT_EQUAL:
+          case CompareOperator::GREATER:
+          case CompareOperator::LESS:
+            return always;
+          default:
+            return Copy();
+        }
+      case CompareOperator::GREATER:
+        switch (given.op()) {
+          case CompareOperator::EQUAL:
+          case CompareOperator::LESS_EQUAL:
+          case CompareOperator::LESS:
+            return never;
+          case CompareOperator::GREATER:
+            return always;
+          default:
+            return Copy();
+        }
+      case CompareOperator::GREATER_EQUAL:
+        switch (given.op()) {
+          case CompareOperator::LESS:
+            return never;
+          case CompareOperator::EQUAL:
+          case CompareOperator::GREATER:
+          case CompareOperator::GREATER_EQUAL:
+            return always;
+          default:
+            return Copy();
+        }
+      case CompareOperator::LESS:
+        switch (given.op()) {
+          case CompareOperator::EQUAL:
+          case CompareOperator::GREATER:
+          case CompareOperator::GREATER_EQUAL:
+            return never;
+          case CompareOperator::LESS:
+            return always;
+          default:
+            return Copy();
+        }
+      case CompareOperator::LESS_EQUAL:
+        switch (given.op()) {
+          case CompareOperator::GREATER:
+            return never;
+          case CompareOperator::EQUAL:
+          case CompareOperator::LESS:
+          case CompareOperator::LESS_EQUAL:
+            return always;
+          default:
+            return Copy();
+        }
+      default:
+        return Copy();
+    }
+  } else if (cmp == Comparison::GREATER) {
+    // the rhs of e is greater than that of given
+    switch (op()) {
+      case CompareOperator::EQUAL:
+      case CompareOperator::GREATER:
+      case CompareOperator::GREATER_EQUAL:
+        switch (given.op()) {
+          case CompareOperator::EQUAL:
+          case CompareOperator::LESS:
+          case CompareOperator::LESS_EQUAL:
+            return never;
+          default:
+            return Copy();
+        }
+      case CompareOperator::NOT_EQUAL:
+      case CompareOperator::LESS:
+      case CompareOperator::LESS_EQUAL:
+        switch (given.op()) {
+          case CompareOperator::EQUAL:
+          case CompareOperator::LESS:
+          case CompareOperator::LESS_EQUAL:
+            return always;
+          default:
+            return Copy();
+        }
+      default:
+        return Copy();
+    }
+  } else {
+    // the rhs of e is less than that of given
+    switch (op()) {
+      case CompareOperator::EQUAL:
+      case CompareOperator::LESS:
+      case CompareOperator::LESS_EQUAL:
+        switch (given.op()) {
+          case CompareOperator::EQUAL:
+          case CompareOperator::GREATER:
+          case CompareOperator::GREATER_EQUAL:
+            return never;
+          default:
+            return Copy();
+        }
+      case CompareOperator::NOT_EQUAL:
+      case CompareOperator::GREATER:
+      case CompareOperator::GREATER_EQUAL:
+        switch (given.op()) {
+          case CompareOperator::EQUAL:
+          case CompareOperator::GREATER:
+          case CompareOperator::GREATER_EQUAL:
+            return always;
+          default:
+            return Copy();
+        }
+      default:
+        return Copy();
+    }
+  }
+
+  return Copy();
+}
+
+template <typename Nnary>
+Result<std::shared_ptr<Expression>> AssumeNnary(const Nnary& nnary,
+                                                const Expression& given) {
   // if any of the operands matches trivial_condition, we can return a trivial
   // expression:
   // anything OR true => true
   // anything AND false => false
-  bool trivial_condition = e.type() == ExpressionType::OR;
+  constexpr bool trivial_condition = std::is_same<Nnary, OrExpression>::value;
   bool simplify_to_trivial = false;
 
   ExpressionVector operands;
-  for (auto operand : e.operands()) {
-    ARROW_ASSIGN_OR_RAISE(operand, AssumeIfOperator(operand, given));
-
-    if (operand->IsNullScalar()) {
-      return operand;
-    }
-
-    if (simplify_to_trivial) {
-      continue;
-    }
+  for (auto operand : nnary.operands()) {
+    ARROW_ASSIGN_OR_RAISE(operand, operand->Assume(given));
 
     BooleanScalar scalar;
-    if (!operand->IsBooleanScalar(&scalar)) {
-      operands.push_back(operand);
+    if (operand->IsTrivialCondition(&scalar)) {
+      if (!scalar.is_valid) {
+        return ScalarExpression::MakeNull();
+      }
+
+      if (scalar.value == trivial_condition) {
+        simplify_to_trivial = true;
+      }
       continue;
     }
 
-    if (scalar.value == trivial_condition) {
-      simplify_to_trivial = true;
-      continue;
+    if (!simplify_to_trivial) {
+      operands.push_back(operand);
     }
   }
 
@@ -558,85 +567,55 @@ Result<std::shared_ptr<Expression>> AssumeCompound(const OperatorExpression& e,
     return ScalarExpression::Make(!trivial_condition);
   }
 
-  return std::make_shared<OperatorExpression>(e.type(), std::move(operands));
+  return std::make_shared<Nnary>(std::move(operands));
 }
 
-Result<std::shared_ptr<Expression>> OperatorExpression::Assume(
-    const Expression& given) const {
-  auto unsimplified = Copy();
+Result<std::shared_ptr<Expression>> AndExpression::Assume(const Expression& given) const {
+  return AssumeNnary(*this, given);
+}
 
-  if (IsComparisonExpression()) {
-    if (!given.IsOperatorExpression()) {
-      return unsimplified;
-    }
+Result<std::shared_ptr<Expression>> OrExpression::Assume(const Expression& given) const {
+  return AssumeNnary(*this, given);
+}
 
-    const auto& given_op = checked_cast<const OperatorExpression&>(given);
+Result<std::shared_ptr<Expression>> NotExpression::Assume(const Expression& given) const {
+  ARROW_ASSIGN_OR_RAISE(auto operand, operand_->Assume(given));
 
-    if (given.IsComparisonExpression()) {
-      // Both this and given are simple comparisons. If they constrain
-      // the same field, try to simplify this assuming given
-      DCHECK_EQ(operands_.size(), 2);
-      DCHECK_EQ(given_op.operands_.size(), 2);
-      auto get_name = [](const Expression& e) {
-        DCHECK_EQ(e.type(), ExpressionType::FIELD);
-        return checked_cast<const FieldReferenceExpression&>(e).name();
-      };
-      if (get_name(*operands_[0]) != get_name(*given_op.operands_[0])) {
-        return unsimplified;
-      }
-      return AssumeComparisonComparison(*this, given_op);
-    }
-
-    // must be NOT, AND, OR- decompose given
-    return AssumeComparisonCompound(*this, given_op);
+  BooleanScalar scalar;
+  if (operand->IsTrivialCondition(&scalar)) {
+    return Copy();
   }
 
-  return AssumeCompound(*this, given);
+  if (!scalar.is_valid) {
+    return ScalarExpression::MakeNull();
+  }
+
+  return ScalarExpression::Make(!scalar.value);
 }
 
 std::string FieldReferenceExpression::ToString() const {
   return std::string("field(") + name_ + ")";
 }
 
-std::string OperatorName(ExpressionType::type type) {
-  switch (type) {
-    case ExpressionType::AND:
-      return "AND";
-    case ExpressionType::OR:
-      return "OR";
-    case ExpressionType::NOT:
-      return "NOT";
-    case ExpressionType::EQUAL:
+std::string OperatorName(compute::CompareOperator op) {
+  using compute::CompareOperator;
+  switch (op) {
+    case CompareOperator::EQUAL:
       return "EQUAL";
-    case ExpressionType::NOT_EQUAL:
+    case CompareOperator::NOT_EQUAL:
       return "NOT_EQUAL";
-    case ExpressionType::LESS:
+    case CompareOperator::LESS:
       return "LESS";
-    case ExpressionType::LESS_EQUAL:
+    case CompareOperator::LESS_EQUAL:
       return "LESS_EQUAL";
-    case ExpressionType::GREATER:
+    case CompareOperator::GREATER:
       return "GREATER";
-    case ExpressionType::GREATER_EQUAL:
+    case CompareOperator::GREATER_EQUAL:
       return "GREATER_EQUAL";
     default:
       DCHECK(false);
   }
   return "";
-}
-
-std::string OperatorExpression::ToString() const {
-  auto out = OperatorName(type_) + "(";
-  bool comma = false;
-  for (const auto& operand : operands_) {
-    if (comma) {
-      out += ", ";
-    } else {
-      comma = true;
-    }
-    out += operand->ToString();
-  }
-  out += ")";
-  return out;
 }
 
 std::string ScalarExpression::ToString() const {
@@ -666,41 +645,96 @@ std::string ScalarExpression::ToString() const {
   return "scalar<" + value_->type->ToString() + ">(" + value + ")";
 }
 
+static std::string EulerNotation(std::string fn, const ExpressionVector& operands) {
+  fn += "(";
+  bool comma = false;
+  for (const auto& operand : operands) {
+    if (comma) {
+      fn += ", ";
+    } else {
+      comma = true;
+    }
+    fn += operand->ToString();
+  }
+  fn += ")";
+  return fn;
+}
+
+std::string AndExpression::ToString() const { return EulerNotation("AND", operands_); }
+
+std::string OrExpression::ToString() const { return EulerNotation("OR", operands_); }
+
+std::string ComparisonExpression::ToString() const {
+  return EulerNotation(OperatorName(op()), {left_operand_, right_operand_});
+}
+
+bool UnaryExpression::OperandsEqual(const UnaryExpression& other) const {
+  return operand_->Equals(other.operand_);
+}
+
+bool BinaryExpression::OperandsEqual(const BinaryExpression& other) const {
+  return left_operand_->Equals(other.left_operand_) &&
+         right_operand_->Equals(other.right_operand_);
+}
+
+bool NnaryExpression::OperandsEqual(const NnaryExpression& other) const {
+  if (operands_.size() != other.operands_.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < operands_.size(); ++i) {
+    if (!operands_[i]->Equals(other.operands_[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+struct ExpressionEqual {
+  Status Visit(const FieldReferenceExpression& rhs) {
+    result_ = checked_cast<const FieldReferenceExpression&>(lhs_).name() == rhs.name();
+    return Status::OK();
+  }
+
+  Status Visit(const ScalarExpression& rhs) {
+    result_ = checked_cast<const ScalarExpression&>(lhs_).value()->Equals(rhs.value());
+    return Status::OK();
+  }
+
+  Status Visit(const ComparisonExpression& rhs) {
+    const auto& lhs = checked_cast<const ComparisonExpression&>(lhs_);
+    result_ = lhs.op() == rhs.op() && lhs.OperandsEqual(rhs);
+    return Status::OK();
+  }
+
+  Status Visit(const NnaryExpression& rhs) {
+    const auto& lhs = checked_cast<const NnaryExpression&>(lhs_);
+    result_ = lhs.OperandsEqual(rhs);
+    return Status::OK();
+  }
+
+  Status Visit(const UnaryExpression& rhs) {
+    const auto& lhs = checked_cast<const UnaryExpression&>(lhs_);
+    result_ = lhs.OperandsEqual(rhs);
+    return Status::OK();
+  }
+
+  Status Visit(const Expression& rhs) { return Status::NotImplemented("halp"); }
+
+  bool Compare(const Expression& rhs) && {
+    DCHECK_OK(rhs.Accept(*this));
+    return result_;
+  }
+
+  const Expression& lhs_;
+  bool result_;
+};
+
 bool Expression::Equals(const Expression& other) const {
   if (type_ != other.type()) {
     return false;
   }
 
-  switch (type_) {
-    case ExpressionType::FIELD:
-      return checked_cast<const FieldReferenceExpression&>(*this).name() ==
-             checked_cast<const FieldReferenceExpression&>(other).name();
-
-    case ExpressionType::SCALAR: {
-      auto this_value = checked_cast<const ScalarExpression&>(*this).value();
-      auto other_value = checked_cast<const ScalarExpression&>(other).value();
-      return this_value->Equals(other_value);
-    }
-
-    default: {
-      DCHECK(IsOperatorExpression());
-      const auto& this_op = checked_cast<const OperatorExpression&>(*this).operands();
-      const auto& other_op = checked_cast<const OperatorExpression&>(other).operands();
-      if (this_op.size() != other_op.size()) {
-        return false;
-      }
-
-      for (size_t i = 0; i < this_op.size(); ++i) {
-        if (!this_op[i]->Equals(*other_op[i])) {
-          return false;
-        }
-      }
-
-      return true;
-    }
-  }
-
-  return true;
+  return ExpressionEqual{*this, false}.Compare(other);
 }
 
 bool Expression::Equals(const std::shared_ptr<Expression>& other) const {
@@ -710,44 +744,27 @@ bool Expression::Equals(const std::shared_ptr<Expression>& other) const {
   return Equals(*other);
 }
 
-bool Expression::IsOperatorExpression() const {
-  return static_cast<int>(type_) >= static_cast<int>(ExpressionType::NOT) &&
-         static_cast<int>(type_) <= static_cast<int>(ExpressionType::LESS_EQUAL);
-}
-
-bool Expression::IsComparisonExpression() const {
-  return static_cast<int>(type_) >= static_cast<int>(ExpressionType::EQUAL) &&
-         static_cast<int>(type_) <= static_cast<int>(ExpressionType::LESS_EQUAL);
-}
-
-bool Expression::IsNullScalar() const {
+bool Expression::IsTrivialCondition(BooleanScalar* out) const {
   if (type_ != ExpressionType::SCALAR) {
     return false;
   }
 
-  return !checked_cast<const ScalarExpression&>(*this).value()->is_valid;
-}
-
-bool Expression::IsBooleanScalar(BooleanScalar* out) const {
-  if (type_ != ExpressionType::SCALAR) {
-    return false;
+  const auto& scalar = checked_cast<const ScalarExpression&>(*this).value();
+  if (!scalar->is_valid) {
+    if (out) {
+      *out = BooleanScalar();
+    }
+    return true;
   }
 
-  auto scalar = checked_cast<const ScalarExpression&>(*this).value();
   if (scalar->type->id() != Type::BOOL) {
     return false;
   }
 
   if (out) {
-    out->type = boolean();
-    out->is_valid = scalar->is_valid;
-    out->value = checked_cast<const BooleanScalar&>(*scalar).value;
+    *out = BooleanScalar(checked_cast<const BooleanScalar&>(*scalar).value);
   }
   return true;
-}
-
-std::shared_ptr<Expression> OperatorExpression::Copy() const {
-  return std::make_shared<OperatorExpression>(*this);
 }
 
 std::shared_ptr<Expression> FieldReferenceExpression::Copy() const {
@@ -758,55 +775,49 @@ std::shared_ptr<Expression> ScalarExpression::Copy() const {
   return std::make_shared<ScalarExpression>(*this);
 }
 
-std::shared_ptr<OperatorExpression> and_(ExpressionVector operands) {
-  return std::make_shared<OperatorExpression>(ExpressionType::AND, std::move(operands));
+std::shared_ptr<AndExpression> and_(ExpressionVector operands) {
+  return std::make_shared<AndExpression>(std::move(operands));
 }
 
-std::shared_ptr<OperatorExpression> or_(ExpressionVector operands) {
-  return std::make_shared<OperatorExpression>(ExpressionType::OR, std::move(operands));
+std::shared_ptr<OrExpression> or_(ExpressionVector operands) {
+  return std::make_shared<OrExpression>(std::move(operands));
 }
 
-std::shared_ptr<OperatorExpression> not_(std::shared_ptr<Expression> operand) {
-  return std::make_shared<OperatorExpression>(ExpressionType::NOT,
-                                              ExpressionVector{std::move(operand)});
+std::shared_ptr<NotExpression> not_(std::shared_ptr<Expression> operand) {
+  return std::make_shared<NotExpression>(std::move(operand));
 }
 
 // flatten chains of and/or to a single OperatorExpression
-OperatorExpression MaybeCombine(ExpressionType::type type, const OperatorExpression& lhs,
-                                const OperatorExpression& rhs) {
-  if (lhs.type() != type && rhs.type() != type) {
-    return OperatorExpression(type, {lhs.Copy(), rhs.Copy()});
+template <typename Out>
+Out MaybeCombine(const Expression& lhs, const Expression& rhs) {
+  if (lhs.type() != Out::expression_type && rhs.type() != Out::expression_type) {
+    return Out(ExpressionVector{lhs.Copy(), rhs.Copy()});
   }
+
   ExpressionVector operands;
-  if (lhs.type() == type) {
-    operands = lhs.operands();
-    if (rhs.type() == type) {
-      for (auto operand : rhs.operands()) {
-        operands.emplace_back(std::move(operand));
-      }
-    } else {
-      operands.emplace_back(rhs.Copy());
+  for (auto side : {&lhs, &rhs}) {
+    if (side->type() != Out::expression_type) {
+      operands.emplace_back(side->Copy());
+      continue;
     }
-  } else {
-    operands = rhs.operands();
-    operands.emplace(operands.begin(), lhs.Copy());
+
+    for (auto operand : checked_cast<const Out&>(*side).operands()) {
+      operands.emplace_back(std::move(operand));
+    }
   }
-  return OperatorExpression(type, std::move(operands));
+
+  return Out(std::move(operands));
 }
 
-OperatorExpression operator and(const OperatorExpression& lhs,
-                                const OperatorExpression& rhs) {
-  return MaybeCombine(ExpressionType::AND, lhs, rhs);
+AndExpression operator and(const Expression& lhs, const Expression& rhs) {
+  return MaybeCombine<AndExpression>(lhs, rhs);
 }
 
-OperatorExpression operator or(const OperatorExpression& lhs,
-                               const OperatorExpression& rhs) {
-  return MaybeCombine(ExpressionType::OR, lhs, rhs);
+OrExpression operator or(const Expression& lhs, const Expression& rhs) {
+  return MaybeCombine<OrExpression>(lhs, rhs);
 }
 
-OperatorExpression operator not(const OperatorExpression& rhs) {
-  return OperatorExpression(ExpressionType::NOT, {rhs.Copy()});
-}
+NotExpression operator not(const Expression& rhs) { return NotExpression(rhs.Copy()); }
 
 }  // namespace dataset
 }  // namespace arrow
