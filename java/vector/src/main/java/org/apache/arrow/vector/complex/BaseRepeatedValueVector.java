@@ -28,6 +28,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BaseFixedWidthVector;
+import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.DensityAwareVector;
 import org.apache.arrow.vector.FieldVector;
@@ -43,7 +44,7 @@ import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 import io.netty.buffer.ArrowBuf;
 
 /** Base class for Vectors that contain repeated values. */
-public abstract class BaseRepeatedValueVector extends BaseListVector implements RepeatedValueVector {
+public abstract class BaseRepeatedValueVector extends BaseValueVector implements RepeatedValueVector {
 
   public static final FieldVector DEFAULT_DATA_VECTOR = ZeroVector.INSTANCE;
   public static final String DATA_VECTOR_NAME = "$data$";

@@ -57,7 +57,7 @@ import org.apache.arrow.vector.util.TransferPair;
 import io.netty.buffer.ArrowBuf;
 
 /** A ListVector where every list value is of the same size. */
-public class FixedSizeListVector extends BaseListVector implements FieldVector, PromotableVector {
+public class FixedSizeListVector extends BaseValueVector implements BaseListVector, PromotableVector {
 
   public static FixedSizeListVector empty(String name, int size, BufferAllocator allocator) {
     FieldType fieldType = FieldType.nullable(new ArrowType.FixedSizeList(size));

@@ -17,36 +17,25 @@
 
 package org.apache.arrow.vector.complex;
 
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.FieldVector;
 
 /**
  * Abstraction for all list type vectors.
  */
-public abstract class BaseListVector extends BaseValueVector implements PromotableVector {
-
-  protected BaseListVector(BufferAllocator allocator) {
-    super(allocator);
-  }
+public interface BaseListVector extends FieldVector {
 
   /**
    * Get data vector start index with the given list index.
    */
-  public abstract int getElementStartIndex(int index);
+  int getElementStartIndex(int index);
 
   /**
    * Get data vector end index with the given list index.
    */
-  public abstract int getElementEndIndex(int index);
+  int getElementEndIndex(int index);
 
   /**
-   * Get the inner data vector for this list vector.
+   * Set data vector for this list vector.
    */
-  public abstract FieldVector getDataVector();
-
-  /**
-   * Set the inner data vector for this list vector.
-   */
-  public abstract void setDataVector(FieldVector dataVector);
+  void setDataVector(FieldVector dataVector);
 }

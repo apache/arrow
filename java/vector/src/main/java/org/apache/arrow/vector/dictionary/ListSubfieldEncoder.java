@@ -42,7 +42,11 @@ public class ListSubfieldEncoder {
     this.dictionary = dictionary;
     this.allocator = allocator;
     BaseListVector dictVector = (BaseListVector) dictionary.getVector();
-    hashTable = new DictionaryHashTable(dictVector.getDataVector());
+    hashTable = new DictionaryHashTable(getDataVector(dictVector));
+  }
+
+  private FieldVector getDataVector(BaseListVector vector) {
+    return vector.getChildrenFromFields().get(0);
   }
 
   private BaseListVector cloneVector(BaseListVector vector) {
@@ -81,7 +85,7 @@ public class ListSubfieldEncoder {
       if (!vector.isNull(i)) {
         int start = vector.getElementStartIndex(i);
         int end = vector.getElementEndIndex(i);
-        ValueVector dataVector = vector.getDataVector();
+        ValueVector dataVector = getDataVector(vector);
 
         DictionaryEncoder.buildIndexVector(dataVector, indices, hashTable, start, end);
       }
@@ -99,10 +103,10 @@ public class ListSubfieldEncoder {
 
     int valueCount = vector.getValueCount();
     BaseListVector dictionaryVector = (BaseListVector) dictionary.getVector();
-    int dictionaryValueCount = dictionaryVector.getDataVector().getValueCount();
+    int dictionaryValueCount = getDataVector(dictionaryVector).getValueCount();
 
     // create data vector
-    ValueVector dataVector = dictionaryVector.getDataVector().getTransferPair(allocator).getTo();
+    ValueVector dataVector = getDataVector(dictionaryVector).getTransferPair(allocator).getTo();
     dataVector.allocateNewSafe();
 
     // clone list vector and reset data vector
@@ -110,8 +114,8 @@ public class ListSubfieldEncoder {
     decoded.setDataVector((FieldVector) dataVector);
 
 
-    TransferPair transfer = dictionaryVector.getDataVector().makeTransferPair(dataVector);
-    BaseIntVector indices = (BaseIntVector) vector.getDataVector();
+    TransferPair transfer = getDataVector(dictionaryVector).makeTransferPair(dataVector);
+    BaseIntVector indices = (BaseIntVector) getDataVector(vector);
 
     for (int i = 0; i < valueCount; i++) {
 
