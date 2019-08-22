@@ -18,7 +18,7 @@ from all the record batches in the reader
 \item a \link[=arrow__ipc__RecordBatchStreamReader]{arrow::ipc::RecordBatchStreamReader}:
 read an \link[=arrow__Table]{arrow::Table} from the remaining record batches
 in the reader
-\item a string or \link[fs:path_abs]{file path}: interpret the file as an arrow
+\item a string file path: interpret the file as an arrow
 binary file format, and uses a \link[=arrow__ipc__RecordBatchFileReader]{arrow::ipc::RecordBatchFileReader}
 to process it.
 \item a raw vector: read using a \link[=arrow__ipc__RecordBatchStreamReader]{arrow::ipc::RecordBatchStreamReader}
