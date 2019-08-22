@@ -43,7 +43,9 @@ column names and will not be included in the data frame. (Note that \code{FALSE}
 is not currently supported.) Alternatively, you can specify a character
 vector of column names.}
 
-\item{col_select}{A \link[tidyselect:vars_select]{tidy selection specification}
+\item{col_select}{A character vector of column names to keep, as in the
+"select" argument to \code{data.table::fread()}, or a
+\link[tidyselect:vars_select]{tidy selection specification}
 of columns, as used in \code{dplyr::select()}.}
 
 \item{skip_empty_rows}{Should blank rows be ignored altogether? If

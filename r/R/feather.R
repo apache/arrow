@@ -170,8 +170,7 @@ FeatherTableReader.raw <- function(file, mmap = TRUE, ...) {
 #' Read a Feather file
 #'
 #' @param file an `arrow::ipc::feather::TableReader` or whatever the [FeatherTableReader()] function can handle
-#' @param col_select [tidy selection][tidyselect::vars_select()] of columns to read.
-#' @param as_tibble should the [arrow::Table][arrow__Table] be converted to a tibble.
+#' @inheritParams read_delim_arrow
 #' @param ... additional parameters
 #'
 #' @return A `data.frame` if `as_tibble` is `TRUE` (the default), or a [arrow::Table][arrow__Table] otherwise
