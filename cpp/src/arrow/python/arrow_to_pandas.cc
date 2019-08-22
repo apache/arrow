@@ -51,6 +51,7 @@
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/numpy_internal.h"
+#include "arrow/python/pyarrow.h"
 #include "arrow/python/python_to_arrow.h"
 #include "arrow/python/type_traits.h"
 
@@ -307,7 +308,8 @@ class PandasBlock {
     DATETIME,
     DATETIME_WITH_TZ,
     TIMEDELTA,
-    CATEGORICAL
+    CATEGORICAL,
+    EXTENSION
   };
 
   PandasBlock(const PandasOptions& options, int64_t num_rows, int num_columns)
@@ -1459,6 +1461,57 @@ class CategoricalBlock : public PandasBlock {
   bool needs_copy_;
 };
 
+class ExtensionBlock : public PandasBlock {
+ public:
+  using PandasBlock::PandasBlock;
+
+  // Don't create a block array here, only the placement array
+  Status Allocate() override {
+    PyAcquireGIL lock;
+
+    npy_intp placement_dims[1] = {num_columns_};
+    PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
+
+    RETURN_IF_PYERROR();
+
+    placement_arr_.reset(placement_arr);
+
+    placement_data_ = reinterpret_cast<int64_t*>(
+        PyArray_DATA(reinterpret_cast<PyArrayObject*>(placement_arr)));
+
+    return Status::OK();
+  }
+
+  Status Write(const std::shared_ptr<ChunkedArray>& data, int64_t abs_placement,
+               int64_t rel_placement) override {
+    PyAcquireGIL lock;
+
+    // TODO taking the first chunk because there is no wrap_chunked_array
+    auto array = data->chunk(0);
+    PyObject* py_array;
+    py_array = wrap_array(array);
+    py_array_.reset(py_array);
+
+    placement_data_[rel_placement] = abs_placement;
+    return Status::OK();
+  }
+
+  Status GetPyResult(PyObject** output) override {
+    PyObject* result = PyDict_New();
+    RETURN_IF_PYERROR();
+
+    PyDict_SetItemString(result, "py_array", py_array_.obj());
+    PyDict_SetItemString(result, "placement", placement_arr_.obj());
+
+    *output = result;
+
+    return Status::OK();
+  }
+
+protected:
+  OwnedRefNoGIL py_array_;
+};
+
 Status MakeBlock(const PandasOptions& options, PandasBlock::type type, int64_t num_rows,
                  int num_columns, std::shared_ptr<PandasBlock>* block) {
 #define BLOCK_CASE(NAME, TYPE)                                       \
@@ -1498,7 +1551,7 @@ static Status GetPandasBlockType(const ChunkedArray& data, const PandasOptions& 
 #define INTEGER_CASE(NAME)                                                           \
   *output_type =                                                                     \
       data.null_count() > 0                                                          \
-          ? options.integer_object_nulls ? PandasBlock::OBJECT : PandasBlock::DOUBLE \
+          ? options.integer_object_nulls ? PandasBlock::EXTENSION : PandasBlock::DOUBLE \
           : PandasBlock::NAME;                                                       \
   break;
 
@@ -1623,6 +1676,10 @@ class DataFrameBlockCreator {
                                                   table_->num_rows());
         RETURN_NOT_OK(block->Allocate());
         datetimetz_blocks_[i] = block;
+      } else if (output_type == PandasBlock::EXTENSION) {
+        block = std::make_shared<ExtensionBlock>(options_, table_->num_rows(), 1);
+        RETURN_NOT_OK(block->Allocate());
+        extension_blocks_[i] = block;
       } else {
         auto it = type_counts_.find(output_type);
         if (it != type_counts_.end()) {
@@ -1662,6 +1719,12 @@ class DataFrameBlockCreator {
       auto it = this->datetimetz_blocks_.find(i);
       if (it == this->datetimetz_blocks_.end()) {
         return Status::KeyError("No datetimetz block allocated");
+      }
+      *block = it->second;
+    } else if (output_type == PandasBlock::EXTENSION) {
+      auto it = this->extension_blocks_.find(i);
+      if (it == this->extension_blocks_.end()) {
+        return Status::KeyError("No extension block allocated");
       }
       *block = it->second;
     } else {
@@ -1714,6 +1777,7 @@ class DataFrameBlockCreator {
     RETURN_NOT_OK(AppendBlocks(blocks_, result));
     RETURN_NOT_OK(AppendBlocks(categorical_blocks_, result));
     RETURN_NOT_OK(AppendBlocks(datetimetz_blocks_, result));
+    RETURN_NOT_OK(AppendBlocks(extension_blocks_, result));
 
     *out = result;
     return Status::OK();
@@ -1741,6 +1805,9 @@ class DataFrameBlockCreator {
 
   // column number -> datetimetz block
   BlockMap datetimetz_blocks_;
+
+  // column number -> extension block
+  BlockMap extension_blocks_;
 };
 
 class ArrowDeserializer {

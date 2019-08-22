@@ -649,7 +649,7 @@ def _reconstruct_block(item):
     # categorical types and Timestamps-with-timezones types to the proper
     # pandas Blocks
 
-    block_arr = item['block']
+    block_arr = item.get('block', None)
     placement = item['placement']
     if 'dictionary' in item:
         cat = _pandas_api.categorical_type.from_codes(
@@ -665,6 +665,24 @@ def _reconstruct_block(item):
     elif 'object' in item:
         block = _int.make_block(builtin_pickle.loads(block_arr),
                                 placement=placement, klass=_int.ObjectBlock)
+    elif 'py_array' in item:
+        arr = item['py_array']
+        # TODO have mechanism to know a method to create a
+        # pandas ExtensionArray given the pyarrow type
+        # Now hardcode here to create a pandas IntegerArray for the example
+        buflist = arr.buffers()
+        data = np.frombuffer(buflist[-1], dtype=arr.type.to_pandas_dtype())[
+            arr.offset:arr.offset + len(arr)]
+        bitmask = buflist[0].to_pybytes()
+        mask = np.array(
+            [bitmask[i // 8] & 1 << i % 8 != 0
+             for i in range(len(bitmask) * 8)][:len(arr)],
+            dtype='bool')
+        block_arr = _pandas_api.pd.arrays.IntegerArray(
+            data.copy(), ~mask, copy=False)
+        # create ExtensionBlock
+        block = _int.make_block(block_arr, placement=placement,
+                                klass=_int.ExtensionBlock)
     else:
         block = _int.make_block(block_arr, placement=placement)
 
