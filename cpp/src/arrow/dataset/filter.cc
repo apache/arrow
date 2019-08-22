@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstring>
 #include <string>
+#include <unordered_map>
 #include <utility>
 
 #include "arrow/buffer.h"
@@ -253,12 +254,12 @@ struct CompareVisitor {
 // Compare two scalars
 // if either is null, return is null
 Result<Comparison::type> Compare(const Scalar& lhs, const Scalar& rhs) {
-  if (!lhs.is_valid || !rhs.is_valid) {
-    return Comparison::NULL_;
-  }
   if (!lhs.type->Equals(*rhs.type)) {
     return Status::TypeError("cannot compare scalars with differing type: ", *lhs.type,
                              " vs ", *rhs.type);
+  }
+  if (!lhs.is_valid || !rhs.is_valid) {
+    return Comparison::NULL_;
   }
   CompareVisitor vis{Comparison::NULL_, lhs, rhs};
   RETURN_NOT_OK(VisitTypeInline(*lhs.type, &vis));
@@ -686,7 +687,7 @@ std::string ScalarExpression::ToString() const {
       value = checked_cast<const StringScalar&>(*value_).value->ToString();
       break;
     default:
-      value = "TODO";
+      value = "TODO(bkietz)";
       break;
   }
 
@@ -843,6 +844,73 @@ AnyExpression operator or(const Expression& lhs, const Expression& rhs) {
 }
 
 NotExpression operator not(const Expression& rhs) { return NotExpression(rhs.Copy()); }
+
+Result<std::shared_ptr<DataType>> ComparisonExpression::Validate(
+    const Schema& schema) const {
+  if (left_operand_->type() != ExpressionType::FIELD) {
+    return Status::NotImplemented("comparison with non-FIELD RHS");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto lhs_type, left_operand_->Validate(schema));
+  ARROW_ASSIGN_OR_RAISE(auto rhs_type, right_operand_->Validate(schema));
+  if (!lhs_type->Equals(rhs_type)) {
+    return Status::TypeError("cannot compare expressions of differing type, ", *lhs_type,
+                             " vs ", *rhs_type);
+  }
+
+  if (lhs_type->id() == Type::NA || rhs_type->id() == Type::NA) {
+    return null();
+  }
+
+  return boolean();
+}
+
+Status EnsureNullOrBool(const std::string& msg_prefix,
+                        const std::shared_ptr<DataType>& type) {
+  if (type->id() == Type::BOOL || type->id() == Type::NA) {
+    return Status::OK();
+  }
+  return Status::TypeError(msg_prefix, *type);
+}
+
+Result<std::shared_ptr<DataType>> ValidateNnary(const NnaryExpression& nnary,
+                                                const Schema& schema) {
+  auto out = boolean();
+  for (const auto& operand : nnary.operands()) {
+    ARROW_ASSIGN_OR_RAISE(auto type, operand->Validate(schema));
+    RETURN_NOT_OK(
+        EnsureNullOrBool("cannot combine expressions including one of type ", type));
+    if (type->id() == Type::NA) {
+      out = null();
+    }
+  }
+  return out;
+}
+
+Result<std::shared_ptr<DataType>> AllExpression::Validate(const Schema& schema) const {
+  return ValidateNnary(*this, schema);
+}
+
+Result<std::shared_ptr<DataType>> AnyExpression::Validate(const Schema& schema) const {
+  return ValidateNnary(*this, schema);
+}
+
+Result<std::shared_ptr<DataType>> NotExpression::Validate(const Schema& schema) const {
+  ARROW_ASSIGN_OR_RAISE(auto operand_type, operand_->Validate(schema));
+  RETURN_NOT_OK(EnsureNullOrBool("cannot invert an expression of type ", operand_type));
+  return operand_type;
+}
+
+Result<std::shared_ptr<DataType>> ScalarExpression::Validate(const Schema& schema) const {
+  return value_->type;
+}
+
+Result<std::shared_ptr<DataType>> FieldExpression::Validate(const Schema& schema) const {
+  if (auto field = schema.GetFieldByName(name_)) {
+    return field->type();
+  }
+  return null();
+}
 
 }  // namespace dataset
 }  // namespace arrow
