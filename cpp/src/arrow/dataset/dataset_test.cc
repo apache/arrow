@@ -22,7 +22,7 @@
 namespace arrow {
 namespace dataset {
 
-class TestSimpleDataFragment : public TestDataFragmentMixin {};
+class TestSimpleDataFragment : public DatasetFixtureMixin {};
 
 TEST_F(TestSimpleDataFragment, Scan) {
   constexpr int64_t kBatchSize = 1024;
@@ -38,7 +38,7 @@ TEST_F(TestSimpleDataFragment, Scan) {
   AssertFragmentEquals(reader.get(), &fragment);
 }
 
-class TestSimpleDataSource : public TestDataSourceMixin {};
+class TestSimpleDataSource : public DatasetFixtureMixin {};
 
 TEST_F(TestSimpleDataSource, GetFragments) {
   constexpr int64_t kNumberFragments = 4;

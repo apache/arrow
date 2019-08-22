@@ -73,6 +73,14 @@ if(NOT WIN32)
                  LABELS
                  "arrow_dataset")
 
+  add_arrow_test(scanner_test
+                 EXTRA_LINK_LIBS
+                 ${ARROW_DATASET_TEST_LINK_LIBS}
+                 PREFIX
+                 "arrow-dataset"
+                 LABELS
+                 "arrow_dataset")
+
   if(ARROW_PARQUET)
     add_arrow_test(file_parquet_test
                    EXTRA_LINK_LIBS

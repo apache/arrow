@@ -60,34 +60,31 @@ class DatasetFixtureMixin : public ::testing::Test {
  public:
   DatasetFixtureMixin() : ctx_(std::make_shared<ScanContext>()) {}
 
- protected:
-  std::shared_ptr<ScanOptions> options_;
-  std::shared_ptr<ScanContext> ctx_;
-};
+  /// \brief Ensure that record batches found in reader are equals to the
+  /// record batches yielded by the data fragment.
+  void AssertScanTaskEquals(RecordBatchReader* expected, ScanTask* task) {
+    auto it = task->Scan();
+    ARROW_EXPECT_OK(it->Visit([expected](std::shared_ptr<RecordBatch> rhs) -> Status {
+      std::shared_ptr<RecordBatch> lhs;
+      RETURN_NOT_OK(expected->ReadNext(&lhs));
+      EXPECT_NE(lhs, nullptr);
+      AssertBatchesEqual(*lhs, *rhs);
+      return Status::OK();
+    }));
+  }
 
-class TestDataFragmentMixin : public DatasetFixtureMixin {
- public:
   /// \brief Ensure that record batches found in reader are equals to the
   /// record batches yielded by the data fragment.
   void AssertFragmentEquals(RecordBatchReader* expected, DataFragment* fragment) {
     std::unique_ptr<ScanTaskIterator> it;
     ARROW_EXPECT_OK(fragment->Scan(ctx_, &it));
 
-    ARROW_EXPECT_OK(it->Visit([expected](std::unique_ptr<ScanTask> task) -> Status {
-      auto batch_it = task->Scan();
-      return batch_it->Visit([expected](std::shared_ptr<RecordBatch> rhs) -> Status {
-        std::shared_ptr<RecordBatch> lhs;
-        RETURN_NOT_OK(expected->ReadNext(&lhs));
-        EXPECT_NE(lhs, nullptr);
-        AssertBatchesEqual(*lhs, *rhs);
-        return Status::OK();
-      });
+    ARROW_EXPECT_OK(it->Visit([&](std::unique_ptr<ScanTask> task) -> Status {
+      AssertScanTaskEquals(expected, task.get());
+      return Status::OK();
     }));
   }
-};
 
-class TestDataSourceMixin : public TestDataFragmentMixin {
- public:
   /// \brief Ensure that record batches found in reader are equals to the
   /// record batches yielded by the data fragments of a source.
   void AssertDataSourceEquals(RecordBatchReader* expected, DataSource* source) {
@@ -98,6 +95,21 @@ class TestDataSourceMixin : public TestDataFragmentMixin {
       return Status::OK();
     }));
   }
+
+  /// \brief Ensure that record batches found in reader are equals to the
+  /// record batches yielded by a scanner.
+  void AssertScannerEquals(RecordBatchReader* expected, Scanner* scanner) {
+    auto it = scanner->Scan();
+
+    ARROW_EXPECT_OK(it->Visit([&](std::unique_ptr<ScanTask> task) -> Status {
+      AssertScanTaskEquals(expected, task.get());
+      return Status::OK();
+    }));
+  }
+
+ protected:
+  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<ScanContext> ctx_;
 };
 
 template <typename Format>
