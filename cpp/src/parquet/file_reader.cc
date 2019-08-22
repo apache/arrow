@@ -49,6 +49,9 @@ static constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
 static constexpr uint32_t kFooterSize = 8;
 static constexpr uint8_t kParquetMagic[4] = {'P', 'A', 'R', '1'};
 
+static constexpr uint32_t kColumnIndexReadSize = 16*1024;
+static constexpr uint32_t kOffsetIndexReadSize = 16*1024;
+
 // For PARQUET-816
 static constexpr int64_t kMaxDictHeaderSize = 100;
 
@@ -95,11 +98,9 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   const ReaderProperties* properties() const override { return &properties_; }
 
   void GoToPage(long int v, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index) const {
-      
   }
 
   void GoToPagewoIndex(long int v) const {
-
   }
 
   bool HasPageIndex(ColumnChunkMetaData* col) {
@@ -132,12 +133,12 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     int64_t ci_end = std::numeric_limits<int64_t>::max();
     string_view page_buffer;
     ci_start = std::min(ci_start,col_chunk.column_index_offset());
-    ci_end = std::max(ci_end,col_chunk.offset_index_offset());
+    ci_end = std::max(ci_end,col_chunk.column_index_offset() + col_chunk.column_index_length());
     int8_t buffer_offset = col_chunk.column_index_offset() - ci_start;
     uint32_t length = col_chunk.column_index_length();
 
     std::shared_ptr<ArrowInputStream> stream_ = properties_.GetStream(source_, ci_start, length);
-    PARQUET_THROW_NOT_OK(stream_->Peek(kDefaultPageHeaderSize,&page_buffer));
+    PARQUET_THROW_NOT_OK(stream_->Peek(kColumnIndexReadSize,&page_buffer));
     if (page_buffer.size() == 0) {
        return;
     }
@@ -146,21 +147,21 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   }
 
   void DeserializeOffsetIndex(const ColumnChunkMetaData& col_chunk, parquet::format::OffsetIndex* offset_index, std::shared_ptr<ArrowInputFile>& source_, ReaderProperties& properties_) {
-    int64_t ci_start = std::numeric_limits<int64_t>::max(); 
-    int64_t ci_end = std::numeric_limits<int64_t>::max();
+    int64_t oi_start = std::numeric_limits<int64_t>::max(); 
+    int64_t oi_end = std::numeric_limits<int64_t>::max();
     string_view page_buffer;
-    ci_start = std::min(ci_start,col_chunk.column_index_offset());
-    ci_end = std::max(ci_end,col_chunk.offset_index_offset());
-    int8_t buffer_offset = col_chunk.column_index_offset() - ci_start;
+    oi_start = std::min(oi_start,col_chunk.offset_index_offset());
+    oi_end = std::min(oi_end, col_chunk.offset_index_offset() + col_chunk.offset_index_length());
+    int8_t buffer_offset = col_chunk.offset_index_offset() - oi_start;
     uint32_t length = col_chunk.offset_index_length();
 
-    std::shared_ptr<ArrowInputStream> stream_ = properties_.GetStream(source_, ci_start, length);
-    PARQUET_THROW_NOT_OK(stream_->Peek(kDefaultPageHeaderSize, &page_buffer));
+    std::shared_ptr<ArrowInputStream> stream_ = properties_.GetStream(source_, oi_start, length);
+    PARQUET_THROW_NOT_OK(stream_->Peek(kOffsetIndexReadSize, &page_buffer));
     if (page_buffer.size() == 0) {
        return;
     }
 
-    DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(page_buffer.data()) + col_chunk.column_index_length(), &length, offset_index);
+    DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(page_buffer.data()), &length, offset_index);
   }
 
   std::unique_ptr<PageReader> GetColumnPageReader(int i) override {

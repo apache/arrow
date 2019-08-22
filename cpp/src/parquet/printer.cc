@@ -172,7 +172,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
       hasRow = false;
       for (auto scanner : scanners) {
         if (scanner->HasNext()) {
-          hasRow = true;
+          hasRow = false;
           scanner->PrintNext(stream, COL_WIDTH);
           stream << '|';
         }
