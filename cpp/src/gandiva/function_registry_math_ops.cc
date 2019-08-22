@@ -72,9 +72,10 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
       NativeFunction("truncate", {"trunc"}, DataTypeVector{int64(), int32()}, int64(),
                      kResultNullIfNull, "truncate_int64_int32"),
       NativeFunction("random", {"rand"}, DataTypeVector{}, float64(), kResultNullNever,
-                     "random_internal"),
+                     "gdv_fn_random", NativeFunction::kNeedsFunctionHolder),
       NativeFunction("random", {"rand"}, DataTypeVector{int32()}, float64(),
-                     kResultNullNever, "random_int32_internal")};
+                     kResultNullNever, "gdv_fn_random",
+                     NativeFunction::kNeedsFunctionHolder)};
 
   return math_fn_registry_;
 }

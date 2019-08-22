@@ -75,6 +75,7 @@ set(SRC_FILES
     selection_vector.cc
     tree_expr_builder.cc
     to_date_holder.cc
+    random_generator_holder.cc
     ${GANDIVA_PRECOMPILED_CC_PATH})
 
 set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE RE2::re2)
@@ -207,7 +208,8 @@ add_gandiva_test(internals-test
                  to_date_holder_test.cc
                  simple_arena_test.cc
                  like_holder_test.cc
-                 decimal_type_util_test.cc)
+                 decimal_type_util_test.cc
+                 random_generator_holder_test.cc)
 
 if(ARROW_GANDIVA_JAVA)
   add_subdirectory(jni)
