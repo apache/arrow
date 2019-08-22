@@ -18,7 +18,7 @@
 context("arrow::ArrayData")
 
 test_that("string vectors with only empty strings and nulls don't allocate a data buffer (ARROW-3693)", {
-  a <- array("")
+  a <- to_arrow("")
   expect_equal(a$length(), 1L)
 
   buffers <- a$data()$buffers

@@ -18,7 +18,7 @@
 context("test-type")
 
 test_that("type() gets the right type for arrow::Array", {
-  a <- array(1:10)
+  a <- to_arrow(1:10)
   expect_equal(type(a), a$type)
 })
 
@@ -35,7 +35,7 @@ test_that("type() infers from R type", {
   expect_equal(type(""), utf8())
   expect_equal(
     type(iris$Species),
-    dictionary(int8(), array(levels(iris$Species)), FALSE)
+    dictionary(int8(), to_arrow(levels(iris$Species)), FALSE)
   )
   expect_equal(
     type(lubridate::ymd_hms("2019-02-14 13:55:05")),

@@ -32,7 +32,7 @@ test_that("RecordBatch", {
     schema(
       int = int32(), dbl = float64(),
       lgl = boolean(), chr = utf8(),
-      fct = dictionary(int32(), array(letters[1:10]))
+      fct = dictionary(int32(), to_arrow(letters[1:10]))
     )
   )
   expect_equal(batch$num_columns, 5L)
@@ -67,12 +67,12 @@ test_that("RecordBatch", {
   col_fct <- batch$column(4)
   expect_true(inherits(col_fct, 'arrow::Array'))
   expect_equal(col_fct$as_vector(), tbl$fct)
-  expect_equal(col_fct$type, dictionary(int32(), array(letters[1:10])))
+  expect_equal(col_fct$type, dictionary(int32(), to_arrow(letters[1:10])))
 
   batch2 <- batch$RemoveColumn(0)
   expect_equal(
     batch2$schema,
-    schema(dbl = float64(), lgl = boolean(), chr = utf8(), fct = dictionary(int32(), array(letters[1:10])))
+    schema(dbl = float64(), lgl = boolean(), chr = utf8(), fct = dictionary(int32(), to_arrow(letters[1:10])))
   )
   expect_equal(batch2$column(0), batch$column(1))
   expect_identical(as.data.frame(batch2), tbl[,-1])
@@ -103,7 +103,7 @@ test_that("RecordBatch with 0 rows are supported", {
       dbl = float64(),
       lgl = boolean(),
       chr = utf8(),
-      fct = dictionary(int32(), array(c("a", "b")))
+      fct = dictionary(int32(), to_arrow(c("a", "b")))
     )
   )
 })
@@ -147,7 +147,7 @@ test_that("RecordBatch dim() and nrow() (ARROW-3816)", {
 })
 
 test_that("record_batch() handles arrow::Array", {
-  batch <- record_batch(x = 1:10, y = arrow::array(1:10))
+  batch <- record_batch(x = 1:10, y = to_arrow(1:10))
   expect_equal(batch$schema, schema(x = int32(), y = int32()))
 })
 
@@ -220,4 +220,3 @@ test_that("record_batch() only auto splice data frames", {
     regexp = "only data frames are allowed as unnamed arguments to be auto spliced"
   )
 })
-

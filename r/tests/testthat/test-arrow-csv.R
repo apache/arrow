@@ -28,7 +28,7 @@ test_that("Can read csv file", {
   tab3 <- read_csv_arrow(ReadableFile(tf), as_tibble = FALSE)
 
   iris$Species <- as.character(iris$Species)
-  tab0 <- table(!!!iris)
+  tab0 <- to_arrow(iris)
   expect_equal(tab0, tab1)
   expect_equal(tab0, tab2)
   expect_equal(tab0, tab3)
@@ -142,7 +142,7 @@ test_that("read_csv_arrow() respects col_select", {
   write.csv(iris, tf, row.names = FALSE, quote = FALSE)
 
   tab <- read_csv_arrow(tf, col_select = starts_with("Sepal"), as_tibble = FALSE)
-  expect_equal(tab, table(Sepal.Length = iris$Sepal.Length, Sepal.Width = iris$Sepal.Width))
+  expect_equal(tab, to_arrow(iris[, c("Sepal.Length", "Sepal.Width")]))
 
   tib <- read_csv_arrow(tf, col_select = starts_with("Sepal"), as_tibble = TRUE)
   expect_equal(tib, tibble::tibble(Sepal.Length = iris$Sepal.Length, Sepal.Width = iris$Sepal.Width))

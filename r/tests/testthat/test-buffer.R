@@ -56,7 +56,7 @@ test_that("can read remaining bytes of a RandomAccessFile", {
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10]
   )
-  tab <- arrow::table(!!!tbl)
+  tab <- to_arrow(tbl)
 
   tf <- tempfile()
   all_bytes <- write_arrow(tab, tf)

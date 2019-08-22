@@ -1,15 +1,28 @@
-to_arrow <- function(x) {
+to_arrow <- function(x, table, ...) {
   UseMethod("to_arrow")
 }
 
-`to_arrow.arrow::RecordBatch` <- function(x) x
-`to_arrow.arrow::Table` <- function(x) x
-
-# splice the data frame as arguments of table()
-# see ?rlang::list2()
-`to_arrow.data.frame` <- function(x) table(!!!x)
+`to_arrow.arrow::RecordBatch` <- function(x, table, ...) x
+`to_arrow.arrow::Table` <- function(x, table, ...) x
+`to_arrow.arrow::Array` <- function(x, table, ...) x
 
 #' Create an arrow::Table from a data frame
+#' ... may include `schema` when making a table or `type` when making an array
+to_arrow.data.frame <- function(x, table = is.null(list(...)$type), ...) {
+  if (table) {
+    # Default: make an arrow Table
+    shared_ptr(`arrow::Table`, Table__from_dots(x, schema = list(...)$schema))
+  } else {
+    # Make this a struct array
+    to_arrow.default(x, type = list(...)$type)
+  }
+}
+
+to_arrow.default <- function(x, table, ...) {
+  `arrow::Array`$dispatch(Array__from_vector(x, s_type = list(...)$type))
+}
+
+#' Create an arrow::Table from diverse inputs
 #'
 #' @param ... arrays, chunked arrays, or R vectors
 #' @param schema a schema. The default (`NULL`) infers the schema from the `...`
@@ -17,7 +30,7 @@ to_arrow <- function(x) {
 #' @return an arrow::Table
 #'
 #' @export
-table <- function(..., schema = NULL){
+table_from_dots <- function(..., schema = NULL){
   dots <- list2(...)
   # making sure there are always names
   if (is.null(names(dots))) {
@@ -25,14 +38,4 @@ table <- function(..., schema = NULL){
   }
   stopifnot(length(dots) > 0)
   shared_ptr(`arrow::Table`, Table__from_dots(dots, schema))
-}
-
-#' create an [arrow::Array][arrow__Array] from an R vector
-#'
-#' @param x R object
-#' @param type Explicit [type][arrow__DataType], or NULL (the default) to infer from the data
-#'
-#' @export
-array <- function(x, type = NULL){
-  `arrow::Array`$dispatch(Array__from_vector(x, type))
 }
