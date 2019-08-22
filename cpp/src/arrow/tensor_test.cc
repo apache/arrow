@@ -17,6 +17,7 @@
 
 // Unit tests for DataType (and subclasses), Field, and Schema
 
+#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -239,6 +240,74 @@ TEST(TestTensor, EqualsInt64) {
   // column-major and non-contiguous
   EXPECT_TRUE(tf1.Equals(tnc));
   EXPECT_FALSE(tf3.Equals(tnc));
+}
+
+TEST(TestTensor, EqualsFloat64) {
+  std::vector<int64_t> shape = {4, 4};
+
+  std::vector<double> c_values = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+  std::vector<int64_t> c_strides = {32, 8};
+  Tensor tc1(float64(), Buffer::Wrap(c_values), shape, c_strides);
+
+  std::vector<double> c_values_2 = c_values;
+  Tensor tc2(float64(), Buffer::Wrap(c_values_2), shape, c_strides);
+
+  std::vector<double> f_values = {1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15, 4, 8, 12, 16};
+  Tensor tc3(float64(), Buffer::Wrap(f_values), shape, c_strides);
+
+  std::vector<int64_t> f_strides = {8, 32};
+  Tensor tf1(float64(), Buffer::Wrap(f_values), shape, f_strides);
+
+  std::vector<double> f_values_2 = f_values;
+  Tensor tf2(float64(), Buffer::Wrap(f_values_2), shape, f_strides);
+
+  Tensor tf3(float64(), Buffer::Wrap(c_values), shape, f_strides);
+
+  std::vector<double> nc_values = {1, 0, 5, 0, 9,  0, 13, 0, 2, 0, 6, 0, 10, 0, 14, 0,
+                                   3, 0, 7, 0, 11, 0, 15, 0, 4, 0, 8, 0, 12, 0, 16, 0};
+  std::vector<int64_t> nc_strides = {16, 64};
+  Tensor tnc(float64(), Buffer::Wrap(nc_values), shape, nc_strides);
+
+  ASSERT_TRUE(tc1.is_contiguous());
+  ASSERT_TRUE(tc1.is_row_major());
+
+  ASSERT_TRUE(tf1.is_contiguous());
+  ASSERT_TRUE(tf1.is_column_major());
+
+  ASSERT_FALSE(tnc.is_contiguous());
+
+  // same object
+  EXPECT_TRUE(tc1.Equals(tc1));
+  EXPECT_TRUE(tf1.Equals(tf1));
+  EXPECT_TRUE(tnc.Equals(tnc));
+
+  // different memory
+  EXPECT_TRUE(tc1.Equals(tc2));
+  EXPECT_TRUE(tf1.Equals(tf2));
+  EXPECT_FALSE(tc1.Equals(tc3));
+
+  // row-major and column-major
+  EXPECT_TRUE(tc1.Equals(tf1));
+  EXPECT_FALSE(tc3.Equals(tf1));
+
+  // row-major and non-contiguous
+  EXPECT_TRUE(tc1.Equals(tnc));
+  EXPECT_FALSE(tc3.Equals(tnc));
+
+  // column-major and non-contiguous
+  EXPECT_TRUE(tf1.Equals(tnc));
+  EXPECT_FALSE(tf3.Equals(tnc));
+
+  // tensors with NaNs
+  c_values[0] = NAN;
+  EXPECT_TRUE(std::isnan(tc1.Value<DoubleType>({0, 0})));
+  EXPECT_FALSE(tc1.Equals(tc1)); // same object
+  EXPECT_FALSE(std::isnan(tc2.Value<DoubleType>({0, 0}))); // check the different memory
+  EXPECT_FALSE(tc1.Equals(tc2));
+
+  c_values_2[0] = NAN;
+  EXPECT_TRUE(std::isnan(tc2.Value<DoubleType>({0, 0})));
+  EXPECT_FALSE(tc1.Equals(tc2)); // different memory
 }
 
 TEST(TestNumericTensor, ElementAccessWithRowMajorStrides) {
