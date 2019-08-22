@@ -94,11 +94,11 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   const ReaderProperties* properties() const override { return &properties_; }
 
-  void SkipPages(long int v) const {
-
+  void GoToPage(long int v, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index) const {
+      
   }
 
-  void DontSkipPages(long int v) const {
+  void GoToPagewoIndex(long int v) const {
 
   }
 
@@ -182,10 +182,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         parquet::format::OffsetIndex offset_index;
         DeserializeColumnIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&col_index, source_, properties_);
         DeserializeOffsetIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&offset_index, source_, properties_);
-        SkipPages(4340114);
+        GoToPage(4340114,col_index,offset_index);
     }
 
-    DontSkipPages(4340114);
+    GoToPagewoIndex(4340114);
 
     // PARQUET-816 workaround for old files created by older parquet-mr
     const ApplicationVersion& version = file_metadata_->writer_version();
