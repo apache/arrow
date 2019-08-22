@@ -724,7 +724,9 @@ def crossbow(ctx, github_token, arrow_path, queue_path):
               help='Path of changelog to update')
 @click.option('--arrow-version', '-v', default=None,
               help='Set target version explicitly')
-@click.option('--is-website', '-w', default=False, is_flag=True, help='Whether to use website format for changelog. Uses markdown format if false.')
+@click.option('--is-website', '-w', default=False, is_flag=True,
+              help='Whether to use website format for changelog. '
+                   'Uses markdown format if false.')
 @click.option('--jira-username', '-u', default=None, help='JIRA username')
 @click.option('--jira-password', '-P', default=None, help='JIRA password')
 @click.option('--dry-run/--write', default=False,
