@@ -27,7 +27,7 @@
 #'   read an [arrow::Table][arrow__Table] from the remaining record batches
 #'   in the reader
 #'
-#'  - a string or [file path][fs::path_real()]: interpret the file as an arrow
+#'  - a string or [file path][fs::path_abs()]: interpret the file as an arrow
 #'    binary file format, and uses a [arrow::ipc::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader]
 #'    to process it.
 #'

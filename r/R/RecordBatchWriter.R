@@ -94,8 +94,8 @@
 #'
 #' @param sink Where to write. Can either be:
 #'
-#' - A string, meant as a file path, passed to [path_real()]
-#' - a [file path][path_real()]
+#' - A string, meant as a file path, passed to [fs::path_abs()]
+#' - a [file path][fs::path_abs()]
 #' - [arrow::io::OutputStream][arrow__io__OutputStream]
 #'
 #' @param schema The [arrow::Schema][arrow__Schema] for data to be written.
@@ -161,7 +161,7 @@ RecordBatchStreamWriter.fs_path <- function(sink, schema){
 #' @param sink Where to write. Can either be:
 #'
 #' - character vector of length one
-#' - a [file path][path_real()]
+#' - a [file path][fs::path_abs()]
 #' - [arrow::io::OutputStream][arrow__io__OutputStream]
 #'
 #' @param schema The [arrow::Schema][arrow__Schema] for data to be written.

@@ -16,7 +16,7 @@
 # under the License.
 
 #' @importFrom R6 R6Class
-#' @importFrom fs path_real
+#' @importFrom fs path_abs
 #' @importFrom purrr map map_int map2
 #' @importFrom assertthat assert_that
 #' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos
@@ -43,3 +43,5 @@ arrow_available <- function() {
 option_use_threads <- function() {
   !is_false(getOption("arrow.use_threads"))
 }
+
+path_real <- function(x) path_abs(normalizePath(x, mustWork = FALSE))
