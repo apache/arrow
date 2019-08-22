@@ -135,7 +135,7 @@ class ARROW_DS_EXPORT Expression {
   }
 
   /// returns a debug string representing this expression
-  virtual std::string ToString() const { return "FIXME"; }
+  virtual std::string ToString() const = 0;
 
   ExpressionType::type type() const { return type_; }
 
@@ -281,7 +281,7 @@ class ARROW_DS_EXPORT NotExpression final
  public:
   using ExpressionImpl::ExpressionImpl;
 
-  // std::string ToString() const override;
+  std::string ToString() const override;
 
   // Result<std::shared_ptr<Expression>> Validate(const Schema& schema) const override;
 

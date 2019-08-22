@@ -670,6 +670,8 @@ std::string AllExpression::ToString() const { return EulerNotation("ALL", operan
 
 std::string AnyExpression::ToString() const { return EulerNotation("ANY", operands_); }
 
+std::string NotExpression::ToString() const { return EulerNotation("NOT", {operand_}); }
+
 std::string ComparisonExpression::ToString() const {
   return EulerNotation(OperatorName(op()), {left_operand_, right_operand_});
 }
