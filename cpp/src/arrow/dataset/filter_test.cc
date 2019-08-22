@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/dataset/filter.h"
+
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -24,7 +26,6 @@
 #include <gtest/gtest.h>
 
 #include "arrow/compute/api.h"
-#include "arrow/dataset/api.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -33,7 +34,7 @@
 namespace arrow {
 namespace dataset {
 
-using namespace string_literals;
+using string_literals::operator""_;
 using internal::checked_pointer_cast;
 
 class ExpressionsTest : public ::testing::Test {

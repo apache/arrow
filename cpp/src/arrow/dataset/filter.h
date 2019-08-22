@@ -18,6 +18,8 @@
 #pragma once
 
 #include <memory>
+#include <string>
+#include <utility>
 
 #include "arrow/compute/kernels/compare.h"
 #include "arrow/dataset/type_fwd.h"
@@ -140,7 +142,8 @@ class ExpressionImpl : public Base {
   static constexpr ExpressionType::type expression_type = E;
 
   template <typename... A>
-  ExpressionImpl(A&&... args) : Base(expression_type, std::forward<A>(args)...) {}
+  explicit ExpressionImpl(A&&... args)
+      : Base(expression_type, std::forward<A>(args)...) {}
 
   std::shared_ptr<Expression> Copy() const override {
     return std::make_shared<Derived>(internal::checked_cast<const Derived&>(*this));

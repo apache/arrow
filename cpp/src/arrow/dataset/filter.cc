@@ -17,10 +17,13 @@
 
 #include "arrow/dataset/filter.h"
 
+#include <algorithm>
 #include <cstring>
+#include <string>
+#include <utility>
 
-#include "arrow/buffer-builder.h"
 #include "arrow/buffer.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernels/boolean.h"
 #include "arrow/compute/kernels/compare.h"
