@@ -1,34 +1,78 @@
-to_arrow <- function(x, table, ...) {
+#' Send R data structures to Arrow
+#'
+#' @param x an R vector or `data.frame`
+#' @param ... additional arguments passed to some methods:
+#' * `table` logical: when providing a `data.frame` input, should it be made
+#' into an Arrow Table or a struct-type Array? Default is `TRUE` unless you
+#' specify a `type`.
+#' * `type` an explicit [type][arrow__DataType], or NULL (the default) to
+#' infer from `x`. Only valid when making an `Array`.
+#' * `schema` a schema. The default (`NULL`) infers the schema from the `x`.
+#' Only valid when making a `Table` from a `data.frame`
+#' @return An `arrow::Table` if `x` is a `data.frame` unless otherwise directed,
+#' or an `arrow::Array`.
+#' @examples
+#' \donttest{
+#' tbl <- data.frame(
+#'   int = 1:10,
+#'   dbl = as.numeric(1:10),
+#'   lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+#'   chr = letters[1:10],
+#'   stringsAsFactors = FALSE
+#' )
+#' tab <- to_arrow(tbl)
+#' tab$schema
+#'
+#' a <- to_arrow(tbl$int)
+#'
+#' # Making a struct column from a data.frame
+#' df <- tibble::tibble(x = 1:10, y = 1:10)
+#' a <- to_arrow(df, table = FALSE)
+#' # Or specify a type
+#' a <- to_arrow(df, type = struct(x = float64(), y = int16()))
+#' }
+#' @export
+to_arrow <- function(x, ...) {
   UseMethod("to_arrow")
 }
 
-`to_arrow.arrow::RecordBatch` <- function(x, table, ...) x
-`to_arrow.arrow::Table` <- function(x, table, ...) x
-`to_arrow.arrow::Array` <- function(x, table, ...) x
+#' @export
+`to_arrow.arrow::Object` <- function(x, ...) x
 
-#' Create an arrow::Table from a data frame
-#' ... may include `schema` when making a table or `type` when making an array
-to_arrow.data.frame <- function(x, table = is.null(list(...)$type), ...) {
+#' @export
+to_arrow.data.frame <- function(x, table = is.null(type), type = NULL, schema = NULL, ...) {
+  # Validate that at least one of type or schema is null?
   if (table) {
     # Default: make an arrow Table
-    shared_ptr(`arrow::Table`, Table__from_dots(x, schema = list(...)$schema))
+    shared_ptr(`arrow::Table`, Table__from_dots(x, schema_sxp = schema))
   } else {
     # Make this a struct array
-    to_arrow.default(x, type = list(...)$type)
+    to_arrow.default(x, type = type)
   }
 }
 
-to_arrow.default <- function(x, table, ...) {
-  `arrow::Array`$dispatch(Array__from_vector(x, s_type = list(...)$type))
+#' @export
+to_arrow.default <- function(x, type = NULL, ...) {
+  `arrow::Array`$dispatch(Array__from_vector(x, s_type = type))
 }
 
 #' Create an arrow::Table from diverse inputs
 #'
-#' @param ... arrays, chunked arrays, or R vectors
+#' Unlike [to_arrow()], this function splices together inputs to form a Table.
+#' When providing columns, they can be a mix of Arrow arrays and R vectors.
+#'
+#' @param ... arrays, chunked arrays, or R vectors that should define the
+#' columns of the Arrow Table; alternatively, if record batches are given,
+#' they will be stacked.
 #' @param schema a schema. The default (`NULL`) infers the schema from the `...`
 #'
-#' @return an arrow::Table
-#'
+#' @return An `arrow::Table`
+#' @examples
+#' \donttest{
+#' tab1 <- table_from_dots(a = 1:10, b = letters[1:10])
+#' tab1
+#' as.data.frame(tab1)
+#' }
 #' @export
 table_from_dots <- function(..., schema = NULL){
   dots <- list2(...)

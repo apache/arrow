@@ -54,7 +54,8 @@ When installing from source, if the R and C++ library versions do not match, ins
 library(arrow)
 set.seed(24)
 
-tab <- arrow::table(x = 1:10, y = rnorm(10))
+df <- data.frame(x = 1:10, y = rnorm(10))
+tab <- to_arrow(df)
 tab$schema
 tab
 as.data.frame(tab)
