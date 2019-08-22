@@ -25,7 +25,7 @@ use arrow::datatypes::{DataType, Field, Schema};
 
 use datafusion::execution::context::ExecutionContext;
 
-/// This example demonstrates executing a simple query against an Arrow data source and
+/// This example demonstrates executing a simple query against an Arrow data source (CSV) and
 /// fetching results
 fn main() {
     // create local execution context
