@@ -82,7 +82,7 @@ TEST_F(ExpressionsTest, Equality) {
 TEST_F(ExpressionsTest, SimplificationOfCompoundQuery) {
   // chained "and" expressions are flattened
   auto multi_and = "b"_ > 5 and "b"_ < 10 and "b"_ != 7;
-  AssertOperandsAre(multi_and, ExpressionType::AND, "b"_ > 5, "b"_ < 10, "b"_ != 7);
+  AssertOperandsAre(multi_and, ExpressionType::ALL, "b"_ > 5, "b"_ < 10, "b"_ != 7);
 
   AssertSimplifiesTo("b"_ > 5 and "b"_ < 10, "b"_ == 3, *never);
   AssertSimplifiesTo("b"_ > 5 and "b"_ < 10, "b"_ == 6, *always);
