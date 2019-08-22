@@ -1058,19 +1058,19 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
       const std::vector<int64_t>& coords_strides,
       std::vector<typename IndexValueType::c_type>& coords_values) const {
     auto coords_data = Buffer::Wrap(coords_values);
-    auto coords = std::make_shared<NumericTensor<IndexValueType>>(coords_data, coords_shape, coords_strides);
+    auto coords = std::make_shared<NumericTensor<IndexValueType>>(
+        coords_data, coords_shape, coords_strides);
     return std::make_shared<SparseCOOIndex>(coords);
   }
 
   template <typename ValueType>
   std::shared_ptr<SparseTensorCOO> MakeSparseTensorCOO(
-      const std::shared_ptr<SparseCOOIndex>& si,
-      std::vector<ValueType>& sparse_values,
+      const std::shared_ptr<SparseCOOIndex>& si, std::vector<ValueType>& sparse_values,
       const std::vector<int64_t>& shape,
       const std::vector<std::string>& dim_names = {}) const {
     auto data = Buffer::Wrap(sparse_values);
-    return std::make_shared<SparseTensorCOO>(si, TypeTraits<IndexValueType>::type_singleton(),
-                                             data, shape, dim_names);
+    return std::make_shared<SparseTensorCOO>(
+        si, TypeTraits<IndexValueType>::type_singleton(), data, shape, dim_names);
   }
 };
 
@@ -1088,7 +1088,8 @@ void TestSparseTensorRoundTrip<IndexValueType>::CheckSparseTensorRoundTrip(
   ASSERT_OK(WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length,
                               default_memory_pool()));
 
-  const auto& sparse_index = checked_cast<const SparseCOOIndex&>(*sparse_tensor.sparse_index());
+  const auto& sparse_index =
+      checked_cast<const SparseCOOIndex&>(*sparse_tensor.sparse_index());
   const int64_t indices_length = elem_size * sparse_index.indices()->size();
   const int64_t data_length = elem_size * sparse_tensor.non_zero_length();
   const int64_t expected_body_length = indices_length + data_length;
@@ -1120,7 +1121,8 @@ void TestSparseTensorRoundTrip<IndexValueType>::CheckSparseTensorRoundTrip(
   ASSERT_OK(WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length,
                               default_memory_pool()));
 
-  const auto& sparse_index = checked_cast<const SparseCSRIndex&>(*sparse_tensor.sparse_index());
+  const auto& sparse_index =
+      checked_cast<const SparseCSRIndex&>(*sparse_tensor.sparse_index());
   const int64_t indptr_length = elem_size * sparse_index.indptr()->size();
   const int64_t indices_length = elem_size * sparse_index.indices()->size();
   const int64_t data_length = elem_size * sparse_tensor.non_zero_length();
@@ -1174,9 +1176,8 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
                                                    0, 2, 0, 0, 2, 2, 1, 0, 1, 1, 0, 3,
                                                    1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
   const size_t sizeof_index_value = sizeof(c_index_value_type);
-  auto si= this->MakeSparseCOOIndex({12, 3},
-                                    {sizeof_index_value * 3, sizeof_index_value},
-                                    coords_values);
+  auto si = this->MakeSparseCOOIndex(
+      {12, 3}, {sizeof_index_value * 3, sizeof_index_value}, coords_values);
 
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
@@ -1218,9 +1219,8 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
                                         0, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 2,
                                         0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
   const size_t sizeof_index_value = sizeof(c_index_value_type);
-  auto si = this->MakeSparseCOOIndex({12, 3},
-                                     {sizeof_index_value, sizeof_index_value * 12},
-                                     coords_values);
+  auto si = this->MakeSparseCOOIndex(
+      {12, 3}, {sizeof_index_value, sizeof_index_value * 12}, coords_values);
 
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
@@ -1247,10 +1247,8 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSRIndex) {
   this->CheckSparseTensorRoundTrip(st);
 }
 
-REGISTER_TYPED_TEST_CASE_P(TestSparseTensorRoundTrip,
-                           WithSparseCOOIndexRowMajor,
-                           WithSparseCOOIndexColumnMajor,
-                           WithSparseCSRIndex);
+REGISTER_TYPED_TEST_CASE_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor,
+                           WithSparseCOOIndexColumnMajor, WithSparseCSRIndex);
 
 INSTANTIATE_TYPED_TEST_CASE_P(TestInt64, TestSparseTensorRoundTrip, Int64Type);
 

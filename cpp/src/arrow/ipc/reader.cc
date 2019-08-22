@@ -884,7 +884,7 @@ Status ReadSparseCOOIndex(const flatbuf::SparseTensor* sparse_tensor, int64_t nd
     strides.push_back(indices_strides->Get(1));
   }
   *out = std::make_shared<SparseCOOIndex>(
-      std::make_shared<SparseCOOIndex::CoordsTensor>(indices_data, shape, strides));
+      std::make_shared<Tensor>(int64(), indices_data, shape, strides));
   return Status::OK();
 }
 
