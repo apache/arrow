@@ -277,6 +277,11 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType, CreationWithRowMajorIndex) {
   std::vector<int64_t> sparse_values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
   auto st = this->MakeSparseTensor(si, sparse_values);
 
+  ASSERT_EQ(std::vector<std::string>({"foo", "bar", "baz"}), st->dim_names());
+  ASSERT_EQ("foo", st->dim_name(0));
+  ASSERT_EQ("bar", st->dim_name(1));
+  ASSERT_EQ("baz", st->dim_name(2));
+
   ASSERT_TRUE(st->Equals(*this->sparse_tensor_from_dense_));
 }
 
@@ -299,6 +304,11 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType, CreationWithColumnMajorIndex)
 
   std::vector<int64_t> sparse_values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
   auto st = this->MakeSparseTensor(si, sparse_values);
+
+  ASSERT_EQ(std::vector<std::string>({"foo", "bar", "baz"}), st->dim_names());
+  ASSERT_EQ("foo", st->dim_name(0));
+  ASSERT_EQ("bar", st->dim_name(1));
+  ASSERT_EQ("baz", st->dim_name(2));
 
   ASSERT_TRUE(st->Equals(*this->sparse_tensor_from_dense_));
 }
