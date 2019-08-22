@@ -49,7 +49,7 @@ class ARROW_EXPORT BasicUnionBuilder : public ArrayBuilder {
   int8_t AppendChild(const std::shared_ptr<ArrayBuilder>& new_child,
                      const std::string& field_name = "");
 
-  std::shared_ptr<DataType> type() const override { return type_; }
+  std::shared_ptr<DataType> type() const override;
 
  protected:
   /// Use this constructor to initialize the UnionBuilder with no child builders,
@@ -65,7 +65,10 @@ class ARROW_EXPORT BasicUnionBuilder : public ArrayBuilder {
 
   int8_t NextTypeId();
 
-  std::shared_ptr<UnionType> type_;
+  std::vector<std::shared_ptr<Field>> child_fields_;
+  std::vector<uint8_t> type_codes_;
+  UnionMode::type mode_;
+
   std::vector<ArrayBuilder*> type_id_to_children_;
   // for all type_id < dense_type_id_, type_id_to_children_[type_id] != nullptr
   int8_t dense_type_id_ = 0;

@@ -44,7 +44,7 @@ class BaseListBuilder : public ArrayBuilder {
       : ArrayBuilder(pool),
         offsets_builder_(pool),
         value_builder_(value_builder),
-        value_field_(type->child(0)) {}
+        value_field_(type->child(0)->WithType(NULLPTR)) {}
 
   BaseListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder)
       : BaseListBuilder(pool, value_builder, list(value_builder->type())) {}
