@@ -78,4 +78,5 @@ Collate:
     'read_table.R'
     'reexports-bit64.R'
     'reexports-tidyselect.R'
+    'to-arrow.R'
     'write_arrow.R'

@@ -15,17 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-to_arrow <- function(x) {
-  UseMethod("to_arrow")
-}
-
-`to_arrow.arrow::RecordBatch` <- function(x) x
-`to_arrow.arrow::Table` <- function(x) x
-
-# splice the data frame as arguments of table()
-# see ?rlang::list2()
-`to_arrow.data.frame` <- function(x) table(!!!x)
-
 #' Write Arrow formatted data
 #'
 #' @param x an [arrow::Table][arrow__Table], an [arrow::RecordBatch][arrow__RecordBatch] or a data.frame

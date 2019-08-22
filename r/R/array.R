@@ -147,13 +147,3 @@
 
 #' @export
 `==.arrow::Array` <- function(x, y) x$Equals(y)
-
-#' create an [arrow::Array][arrow__Array] from an R vector
-#'
-#' @param x R object
-#' @param type Explicit [type][arrow__DataType], or NULL (the default) to infer from the data
-#'
-#' @export
-array <- function(x, type = NULL){
-  `arrow::Array`$dispatch(Array__from_vector(x, type))
-}
