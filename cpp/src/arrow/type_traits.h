@@ -35,7 +35,7 @@ namespace arrow {
 template <typename T>
 struct TypeTraits {};
 
-template <typename T>
+template <typename T, typename = void>
 struct CTypeTraits {};
 
 template <>
@@ -366,6 +366,49 @@ template <>
 struct TypeTraits<ExtensionType> {
   using ArrayType = ExtensionArray;
   constexpr static bool is_parameter_free = false;
+};
+
+namespace internal {
+
+template <typename... Ts>
+struct make_void {
+  using type = void;
+};
+
+template <typename... Ts>
+using void_t = typename make_void<Ts...>::type;
+
+template <typename T, typename = void>
+struct is_dereferencable : public std::false_type {};
+
+template <typename T>
+struct is_dereferencable<T, void_t<decltype(*std::declval<T>())>>
+    : public std::true_type {};
+
+template <typename T, typename = void>
+struct is_optional_like : public std::false_type {};
+
+template <typename T>
+struct is_optional_like<T,
+                        typename std::enable_if<std::is_constructible<bool, T>::value &&
+                                                is_dereferencable<T>::value>::type>
+    : public std::true_type {};
+
+}  // namespace internal
+
+template <typename T, typename R = void>
+using enable_if_optional_like =
+    typename std::enable_if<internal::is_optional_like<T>::value, R>::type;
+
+template <typename Optional>
+struct CTypeTraits<Optional, enable_if_optional_like<Optional>> {
+  using OptionalInnerType = typename std::remove_const<
+      typename std::remove_reference<decltype(*std::declval<Optional>())>::type>::type;
+  using ArrowType = typename CTypeTraits<OptionalInnerType>::ArrowType;
+
+  static std::shared_ptr<::arrow::DataType> type_singleton() {
+    return CTypeTraits<OptionalInnerType>::type_singleton();
+  }
 };
 
 //
