@@ -22,6 +22,7 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <boost/optional.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 
 #include "arrow/stl.h"
@@ -31,6 +32,17 @@
 
 using primitive_types_tuple = std::tuple<int8_t, int16_t, int32_t, int64_t, uint8_t,
                                          uint16_t, uint32_t, uint64_t, bool, std::string>;
+
+using boost_optional_types_tuple =
+    std::tuple<boost::optional<int8_t>, boost::optional<int16_t>,
+               boost::optional<int32_t>, boost::optional<int64_t>,
+               boost::optional<uint8_t>, boost::optional<uint16_t>,
+               boost::optional<uint32_t>, boost::optional<uint64_t>,
+               boost::optional<bool>, boost::optional<std::string>>;
+
+using raw_pointer_optional_types_tuple =
+    std::tuple<int8_t*, int16_t*, int32_t*, int64_t*, uint8_t*, uint16_t*, uint32_t*,
+               uint64_t*, bool*, std::string*>;
 
 struct CustomType {
   int8_t i8;
@@ -48,6 +60,7 @@ struct CustomType {
   auto tie() const -> decltype(ARROW_CUSTOM_TYPE_TIED) { return ARROW_CUSTOM_TYPE_TIED; }
 #undef ARROW_CUSTOM_TYPE_TIED
 };
+
 
 namespace arrow {
 namespace stl {
@@ -180,6 +193,96 @@ TEST(TestTableFromTupleVector, ReferenceTuple) {
   std::shared_ptr<Array> uint64_array = ArrayFromJSON(uint64(), "[4, 40]");
   std::shared_ptr<Array> bool_array = ArrayFromJSON(boolean(), "[true, false]");
   std::shared_ptr<Array> string_array = ArrayFromJSON(utf8(), R"(["Tests", "Other"])");
+  auto expected_table =
+      Table::Make(expected_schema,
+                  {int8_array, int16_array, int32_array, int64_array, uint8_array,
+                   uint16_array, uint32_array, uint64_array, bool_array, string_array});
+
+  ASSERT_TRUE(expected_table->Equals(*table));
+}
+
+TEST(TestTableFromTupleVector, NullableTypesWithBoostOptional) {
+  std::vector<std::string> names{"column1", "column2", "column3", "column4", "column5",
+                                 "column6", "column7", "column8", "column9", "column10"};
+  using types_tuple = boost_optional_types_tuple;
+  std::vector<types_tuple> rows{
+      types_tuple(-1, -2, -3, -4, 1, 2, 3, 4, true, "Tests"),
+      types_tuple(-10, -20, -30, -40, 10, 20, 30, 40, false, "Other"),
+      types_tuple(boost::none, boost::none, boost::none, boost::none, boost::none,
+                  boost::none, boost::none, boost::none, boost::none, boost::none),
+  };
+  std::shared_ptr<Table> table;
+  ASSERT_OK(TableFromTupleRange(default_memory_pool(), rows, names, &table));
+
+  std::shared_ptr<Schema> expected_schema =
+      schema({field("column1", int8(), true), field("column2", int16(), true),
+              field("column3", int32(), true), field("column4", int64(), true),
+              field("column5", uint8(), true), field("column6", uint16(), true),
+              field("column7", uint32(), true), field("column8", uint64(), true),
+              field("column9", boolean(), true), field("column10", utf8(), true)});
+
+  // Construct expected arrays
+  std::shared_ptr<Array> int8_array = ArrayFromJSON(int8(), "[-1, -10, null]");
+  std::shared_ptr<Array> int16_array = ArrayFromJSON(int16(), "[-2, -20, null]");
+  std::shared_ptr<Array> int32_array = ArrayFromJSON(int32(), "[-3, -30, null]");
+  std::shared_ptr<Array> int64_array = ArrayFromJSON(int64(), "[-4, -40, null]");
+  std::shared_ptr<Array> uint8_array = ArrayFromJSON(uint8(), "[1, 10, null]");
+  std::shared_ptr<Array> uint16_array = ArrayFromJSON(uint16(), "[2, 20, null]");
+  std::shared_ptr<Array> uint32_array = ArrayFromJSON(uint32(), "[3, 30, null]");
+  std::shared_ptr<Array> uint64_array = ArrayFromJSON(uint64(), "[4, 40, null]");
+  std::shared_ptr<Array> bool_array = ArrayFromJSON(boolean(), "[true, false, null]");
+  std::shared_ptr<Array> string_array = ArrayFromJSON(utf8(), R"(["Tests", "Other", null])");
+  auto expected_table =
+      Table::Make(expected_schema,
+                  {int8_array, int16_array, int32_array, int64_array, uint8_array,
+                   uint16_array, uint32_array, uint64_array, bool_array, string_array});
+
+  ASSERT_TRUE(expected_table->Equals(*table));
+}
+
+TEST(TestTableFromTupleVector, NullableTypesWithRawPointer) {
+  std::vector<std::string> names{"column1", "column2", "column3", "column4", "column5",
+                                 "column6", "column7", "column8", "column9", "column10"};
+  std::vector<primitive_types_tuple> data_rows{
+      primitive_types_tuple(-1, -2, -3, -4, 1, 2, 3, 4, true, "Tests"),
+      primitive_types_tuple(-10, -20, -30, -40, 10, 20, 30, 40, false, "Other"),
+  };
+  std::vector<raw_pointer_optional_types_tuple> pointer_rows;
+  for (auto& row : data_rows) {
+    pointer_rows.emplace_back(std::addressof(std::get<0>(row)),
+                              std::addressof(std::get<1>(row)),
+                              std::addressof(std::get<2>(row)),
+                              std::addressof(std::get<3>(row)),
+                              std::addressof(std::get<4>(row)),
+                              std::addressof(std::get<5>(row)),
+                              std::addressof(std::get<6>(row)),
+                              std::addressof(std::get<7>(row)),
+                              std::addressof(std::get<8>(row)),
+                              std::addressof(std::get<9>(row)));
+  }
+  pointer_rows.emplace_back(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+                            nullptr, nullptr, nullptr);
+  std::shared_ptr<Table> table;
+  ASSERT_OK(TableFromTupleRange(default_memory_pool(), pointer_rows, names, &table));
+
+  std::shared_ptr<Schema> expected_schema =
+      schema({field("column1", int8(), true), field("column2", int16(), true),
+              field("column3", int32(), true), field("column4", int64(), true),
+              field("column5", uint8(), true), field("column6", uint16(), true),
+              field("column7", uint32(), true), field("column8", uint64(), true),
+              field("column9", boolean(), true), field("column10", utf8(), true)});
+
+  // Construct expected arrays
+  std::shared_ptr<Array> int8_array = ArrayFromJSON(int8(), "[-1, -10, null]");
+  std::shared_ptr<Array> int16_array = ArrayFromJSON(int16(), "[-2, -20, null]");
+  std::shared_ptr<Array> int32_array = ArrayFromJSON(int32(), "[-3, -30, null]");
+  std::shared_ptr<Array> int64_array = ArrayFromJSON(int64(), "[-4, -40, null]");
+  std::shared_ptr<Array> uint8_array = ArrayFromJSON(uint8(), "[1, 10, null]");
+  std::shared_ptr<Array> uint16_array = ArrayFromJSON(uint16(), "[2, 20, null]");
+  std::shared_ptr<Array> uint32_array = ArrayFromJSON(uint32(), "[3, 30, null]");
+  std::shared_ptr<Array> uint64_array = ArrayFromJSON(uint64(), "[4, 40, null]");
+  std::shared_ptr<Array> bool_array = ArrayFromJSON(boolean(), "[true, false, null]");
+  std::shared_ptr<Array> string_array = ArrayFromJSON(utf8(), R"(["Tests", "Other", null])");
   auto expected_table =
       Table::Make(expected_schema,
                   {int8_array, int16_array, int32_array, int64_array, uint8_array,
