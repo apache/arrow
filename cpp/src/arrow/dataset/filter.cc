@@ -395,79 +395,7 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::AssumeGivenComparison(
 
   using compute::CompareOperator;
 
-  if (cmp == Comparison::EQUAL) {
-    // the rhs of the comparisons are equal
-    switch (op_) {
-      case CompareOperator::EQUAL:
-        switch (given.op()) {
-          case CompareOperator::NOT_EQUAL:
-          case CompareOperator::GREATER:
-          case CompareOperator::LESS:
-            return never;
-          case CompareOperator::EQUAL:
-            return always;
-          default:
-            return Copy();
-        }
-      case CompareOperator::NOT_EQUAL:
-        switch (given.op()) {
-          case CompareOperator::EQUAL:
-            return never;
-          case CompareOperator::NOT_EQUAL:
-          case CompareOperator::GREATER:
-          case CompareOperator::LESS:
-            return always;
-          default:
-            return Copy();
-        }
-      case CompareOperator::GREATER:
-        switch (given.op()) {
-          case CompareOperator::EQUAL:
-          case CompareOperator::LESS_EQUAL:
-          case CompareOperator::LESS:
-            return never;
-          case CompareOperator::GREATER:
-            return always;
-          default:
-            return Copy();
-        }
-      case CompareOperator::GREATER_EQUAL:
-        switch (given.op()) {
-          case CompareOperator::LESS:
-            return never;
-          case CompareOperator::EQUAL:
-          case CompareOperator::GREATER:
-          case CompareOperator::GREATER_EQUAL:
-            return always;
-          default:
-            return Copy();
-        }
-      case CompareOperator::LESS:
-        switch (given.op()) {
-          case CompareOperator::EQUAL:
-          case CompareOperator::GREATER:
-          case CompareOperator::GREATER_EQUAL:
-            return never;
-          case CompareOperator::LESS:
-            return always;
-          default:
-            return Copy();
-        }
-      case CompareOperator::LESS_EQUAL:
-        switch (given.op()) {
-          case CompareOperator::GREATER:
-            return never;
-          case CompareOperator::EQUAL:
-          case CompareOperator::LESS:
-          case CompareOperator::LESS_EQUAL:
-            return always;
-          default:
-            return Copy();
-        }
-      default:
-        return Copy();
-    }
-  } else if (cmp == Comparison::GREATER) {
+  if (cmp == Comparison::GREATER) {
     // the rhs of e is greater than that of given
     switch (op()) {
       case CompareOperator::EQUAL:
@@ -495,7 +423,9 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::AssumeGivenComparison(
       default:
         return Copy();
     }
-  } else {
+  }
+
+  if (cmp == Comparison::LESS) {
     // the rhs of e is less than that of given
     switch (op()) {
       case CompareOperator::EQUAL:
@@ -525,7 +455,79 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::AssumeGivenComparison(
     }
   }
 
-  return Copy();
+  DCHECK_EQ(cmp, Comparison::EQUAL);
+
+  // the rhs of the comparisons are equal
+  switch (op_) {
+    case CompareOperator::EQUAL:
+      switch (given.op()) {
+        case CompareOperator::NOT_EQUAL:
+        case CompareOperator::GREATER:
+        case CompareOperator::LESS:
+          return never;
+        case CompareOperator::EQUAL:
+          return always;
+        default:
+          return Copy();
+      }
+    case CompareOperator::NOT_EQUAL:
+      switch (given.op()) {
+        case CompareOperator::EQUAL:
+          return never;
+        case CompareOperator::NOT_EQUAL:
+        case CompareOperator::GREATER:
+        case CompareOperator::LESS:
+          return always;
+        default:
+          return Copy();
+      }
+    case CompareOperator::GREATER:
+      switch (given.op()) {
+        case CompareOperator::EQUAL:
+        case CompareOperator::LESS_EQUAL:
+        case CompareOperator::LESS:
+          return never;
+        case CompareOperator::GREATER:
+          return always;
+        default:
+          return Copy();
+      }
+    case CompareOperator::GREATER_EQUAL:
+      switch (given.op()) {
+        case CompareOperator::LESS:
+          return never;
+        case CompareOperator::EQUAL:
+        case CompareOperator::GREATER:
+        case CompareOperator::GREATER_EQUAL:
+          return always;
+        default:
+          return Copy();
+      }
+    case CompareOperator::LESS:
+      switch (given.op()) {
+        case CompareOperator::EQUAL:
+        case CompareOperator::GREATER:
+        case CompareOperator::GREATER_EQUAL:
+          return never;
+        case CompareOperator::LESS:
+          return always;
+        default:
+          return Copy();
+      }
+    case CompareOperator::LESS_EQUAL:
+      switch (given.op()) {
+        case CompareOperator::GREATER:
+          return never;
+        case CompareOperator::EQUAL:
+        case CompareOperator::LESS:
+        case CompareOperator::LESS_EQUAL:
+          return always;
+        default:
+          return Copy();
+      }
+    default:
+      return Copy();
+  }
 }
 
 template <typename Nnary>
@@ -672,73 +674,48 @@ std::string ComparisonExpression::ToString() const {
   return EulerNotation(OperatorName(op()), {left_operand_, right_operand_});
 }
 
-bool UnaryExpression::OperandsEqual(const UnaryExpression& other) const {
-  return operand_->Equals(other.operand_);
+bool UnaryExpression::Equals(const Expression& other) const {
+  return type_ == other.type() &&
+         operand_->Equals(checked_cast<const UnaryExpression&>(other).operand_);
 }
 
-bool BinaryExpression::OperandsEqual(const BinaryExpression& other) const {
-  return left_operand_->Equals(other.left_operand_) &&
-         right_operand_->Equals(other.right_operand_);
+bool BinaryExpression::Equals(const Expression& other) const {
+  return type_ == other.type() &&
+         left_operand_->Equals(
+             checked_cast<const BinaryExpression&>(other).left_operand_) &&
+         right_operand_->Equals(
+             checked_cast<const BinaryExpression&>(other).right_operand_);
 }
 
-bool NnaryExpression::OperandsEqual(const NnaryExpression& other) const {
-  if (operands_.size() != other.operands_.size()) {
+bool NnaryExpression::Equals(const Expression& other) const {
+  if (type_ != other.type()) {
+    return false;
+  }
+  const auto& other_operands = checked_cast<const NnaryExpression&>(other).operands_;
+  if (operands_.size() != other_operands.size()) {
     return false;
   }
   for (size_t i = 0; i < operands_.size(); ++i) {
-    if (!operands_[i]->Equals(other.operands_[i])) {
+    if (!operands_[i]->Equals(other_operands[i])) {
       return false;
     }
   }
   return true;
 }
 
-struct ExpressionEqual {
-  Status Visit(const FieldExpression& rhs) {
-    result_ = checked_cast<const FieldExpression&>(lhs_).name() == rhs.name();
-    return Status::OK();
-  }
+bool ComparisonExpression::Equals(const Expression& other) const {
+  return BinaryExpression::Equals(other) &&
+         op_ == checked_cast<const ComparisonExpression&>(other).op_;
+}
 
-  Status Visit(const ScalarExpression& rhs) {
-    result_ = checked_cast<const ScalarExpression&>(lhs_).value()->Equals(rhs.value());
-    return Status::OK();
-  }
+bool ScalarExpression::Equals(const Expression& other) const {
+  return other.type() == ExpressionType::SCALAR &&
+         value_->Equals(checked_cast<const ScalarExpression&>(other).value_);
+}
 
-  Status Visit(const ComparisonExpression& rhs) {
-    const auto& lhs = checked_cast<const ComparisonExpression&>(lhs_);
-    result_ = lhs.op() == rhs.op() && lhs.OperandsEqual(rhs);
-    return Status::OK();
-  }
-
-  Status Visit(const NnaryExpression& rhs) {
-    const auto& lhs = checked_cast<const NnaryExpression&>(lhs_);
-    result_ = lhs.OperandsEqual(rhs);
-    return Status::OK();
-  }
-
-  Status Visit(const UnaryExpression& rhs) {
-    const auto& lhs = checked_cast<const UnaryExpression&>(lhs_);
-    result_ = lhs.OperandsEqual(rhs);
-    return Status::OK();
-  }
-
-  Status Visit(const Expression& rhs) { return Status::NotImplemented("halp"); }
-
-  bool Compare(const Expression& rhs) && {
-    DCHECK_OK(rhs.Accept(*this));
-    return result_;
-  }
-
-  const Expression& lhs_;
-  bool result_;
-};
-
-bool Expression::Equals(const Expression& other) const {
-  if (type_ != other.type()) {
-    return false;
-  }
-
-  return ExpressionEqual{*this, false}.Compare(other);
+bool FieldExpression::Equals(const Expression& other) const {
+  return other.type() == ExpressionType::FIELD &&
+         name_ == checked_cast<const FieldExpression&>(other).name_;
 }
 
 bool Expression::Equals(const std::shared_ptr<Expression>& other) const {

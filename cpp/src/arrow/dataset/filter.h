@@ -107,7 +107,7 @@ class ARROW_DS_EXPORT Expression {
   /// Returns true iff the expressions are identical; does not check for equivalence.
   /// For example, (A and B) is not equal to (B and A) nor is (A and not A) equal to
   /// (false).
-  bool Equals(const Expression& other) const;
+  virtual bool Equals(const Expression& other) const = 0;
 
   bool Equals(const std::shared_ptr<Expression>& other) const;
 
@@ -173,13 +173,11 @@ class ARROW_DS_EXPORT UnaryExpression : public Expression {
  public:
   const std::shared_ptr<Expression>& operand() const { return operand_; }
 
+  bool Equals(const Expression& other) const override;
+
  protected:
   UnaryExpression(ExpressionType::type type, std::shared_ptr<Expression> operand)
       : Expression(type), operand_(std::move(operand)) {}
-
-  bool OperandsEqual(const UnaryExpression& other) const;
-
-  friend struct ExpressionEqual;
 
   std::shared_ptr<Expression> operand_;
 };
@@ -192,16 +190,14 @@ class ARROW_DS_EXPORT BinaryExpression : public Expression {
 
   const std::shared_ptr<Expression>& right_operand() const { return right_operand_; }
 
+  bool Equals(const Expression& other) const override;
+
  protected:
   BinaryExpression(ExpressionType::type type, std::shared_ptr<Expression> left_operand,
                    std::shared_ptr<Expression> right_operand)
       : Expression(type),
         left_operand_(std::move(left_operand)),
         right_operand_(std::move(right_operand)) {}
-
-  bool OperandsEqual(const BinaryExpression& other) const;
-
-  friend struct ExpressionEqual;
 
   std::shared_ptr<Expression> left_operand_, right_operand_;
 };
@@ -212,13 +208,11 @@ class ARROW_DS_EXPORT NnaryExpression : public Expression {
  public:
   const ExpressionVector& operands() const { return operands_; }
 
+  bool Equals(const Expression& other) const override;
+
  protected:
   NnaryExpression(ExpressionType::type type, ExpressionVector operands)
       : Expression(type), operands_(std::move(operands)) {}
-
-  bool OperandsEqual(const NnaryExpression& other) const;
-
-  friend struct ExpressionEqual;
 
   ExpressionVector operands_;
 };
@@ -233,6 +227,8 @@ class ARROW_DS_EXPORT ComparisonExpression final
       : ExpressionImpl(std::move(left_operand), std::move(right_operand)), op_(op) {}
 
   std::string ToString() const override;
+
+  bool Equals(const Expression& other) const override;
 
   // Result<std::shared_ptr<Expression>> Validate(const Schema& schema) const override;
 
@@ -305,6 +301,8 @@ class ARROW_DS_EXPORT ScalarExpression final : public Expression {
 
   std::string ToString() const override;
 
+  bool Equals(const Expression& other) const override;
+
   // Result<std::shared_ptr<Expression>> Validate(const Schema& schema) const override;
 
   static std::shared_ptr<ScalarExpression> Make(bool value) {
@@ -356,6 +354,8 @@ class ARROW_DS_EXPORT FieldExpression final : public Expression {
   std::string name() const { return name_; }
 
   std::string ToString() const override;
+
+  bool Equals(const Expression& other) const override;
 
   // Result<std::shared_ptr<Expression>> Validate(const Schema& schema) const override;
 
