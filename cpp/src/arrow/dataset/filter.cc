@@ -38,95 +38,137 @@ using arrow::compute::Datum;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-Result<std::shared_ptr<BooleanArray>> ScalarExpression::Evaluate(
-    compute::FunctionContext* ctx, const RecordBatch& batch) const {
-  if (!value_->is_valid) {
-    std::shared_ptr<Array> mask_array;
-    RETURN_NOT_OK(
-        MakeArrayOfNull(ctx->memory_pool(), boolean(), batch.num_rows(), &mask_array));
-
-    return checked_pointer_cast<BooleanArray>(mask_array);
-  }
-
-  if (!value_->type->Equals(boolean())) {
-    return Status::Invalid("can't evaluate ", ToString());
-  }
-
-  TypedBufferBuilder<bool> builder;
-  RETURN_NOT_OK(builder.Append(batch.num_rows(),
-                               checked_cast<const BooleanScalar&>(*value_).value));
-
-  std::shared_ptr<Buffer> values;
-  RETURN_NOT_OK(builder.Finish(&values));
-
-  return std::make_shared<BooleanArray>(batch.num_rows(), values);
+Result<Datum> ScalarExpression::Evaluate(compute::FunctionContext* ctx,
+                                         const RecordBatch& batch) const {
+  return value_;
 }
 
-Result<std::shared_ptr<BooleanArray>> NotExpression::Evaluate(
-    compute::FunctionContext* ctx, const RecordBatch& batch) const {
+Result<Datum> FieldExpression::Evaluate(compute::FunctionContext* ctx,
+                                        const RecordBatch& batch) const {
+  auto column = batch.GetColumnByName(name_);
+  if (column == nullptr) {
+    return Datum(std::make_shared<BooleanScalar>());
+  }
+  return column;
+}
+
+bool IsTrivialConditionDatum(const Datum& datum, BooleanScalar* condition) {
+  if (!datum.is_scalar()) {
+    return false;
+  }
+
+  auto scalar = datum.scalar();
+  if (!scalar->is_valid) {
+    *condition = BooleanScalar();
+    return true;
+  }
+
+  if (scalar->type->id() != Type::BOOL) {
+    return false;
+  }
+
+  *condition = checked_cast<const BooleanScalar&>(*scalar);
+  return true;
+}
+
+Result<Datum> NotExpression::Evaluate(compute::FunctionContext* ctx,
+                                      const RecordBatch& batch) const {
   ARROW_ASSIGN_OR_RAISE(auto to_invert, operand_->Evaluate(ctx, batch));
+  DCHECK(to_invert.type()->Equals(boolean()));
+
+  BooleanScalar trivial_condition;
+  if (IsTrivialConditionDatum(to_invert, &trivial_condition)) {
+    if (trivial_condition.is_valid) {
+      trivial_condition.value = !trivial_condition.value;
+    }
+    return Datum(std::make_shared<BooleanScalar>(trivial_condition));
+  }
+
+  DCHECK(to_invert.is_array());
   Datum out;
   RETURN_NOT_OK(arrow::compute::Invert(ctx, Datum(to_invert), &out));
-  return checked_pointer_cast<BooleanArray>(out.make_array());
+  return out;
 }
 
-template <typename Nnary>
-Result<std::shared_ptr<BooleanArray>> EvaluateNnary(const Nnary& nnary,
-                                                    compute::FunctionContext* ctx,
-                                                    const RecordBatch& batch) {
-  const auto& operands = nnary.operands();
+// TODO(bkietz) more reusable coallesce helper
+template <bool trivial_condition>
+bool FinishWithTrivial(const Datum& d, Datum* out) {
+  BooleanScalar trivial;
+  if (IsTrivialConditionDatum(d, &trivial)) {
+    if (!trivial.is_valid || trivial.value == trivial_condition) {
+      *out = d;
+      return true;
+    }
+  }
+  return false;
+}
 
-  ARROW_ASSIGN_OR_RAISE(auto next, operands[0]->Evaluate(ctx, batch));
+Result<Datum> AllExpression::Evaluate(compute::FunctionContext* ctx,
+                                      const RecordBatch& batch) const {
+  ARROW_ASSIGN_OR_RAISE(auto next, operands_[0]->Evaluate(ctx, batch));
   Datum acc(next);
 
-  for (size_t i_next = 1; i_next < operands.size(); ++i_next) {
-    ARROW_ASSIGN_OR_RAISE(next, operands[i_next]->Evaluate(ctx, batch));
+  if (FinishWithTrivial<false>(next, &acc)) {
+    return acc;
+  }
 
-    if (std::is_same<Nnary, AllExpression>::value) {
-      RETURN_NOT_OK(arrow::compute::And(ctx, Datum(acc), Datum(next), &acc));
+  for (size_t i_next = 1; i_next < operands_.size(); ++i_next) {
+    ARROW_ASSIGN_OR_RAISE(next, operands_[i_next]->Evaluate(ctx, batch));
+
+    if (FinishWithTrivial<false>(next, &acc)) {
+      return acc;
     }
 
-    if (std::is_same<Nnary, AnyExpression>::value) {
-      RETURN_NOT_OK(arrow::compute::Or(ctx, Datum(acc), Datum(next), &acc));
+    RETURN_NOT_OK(arrow::compute::And(ctx, Datum(acc), Datum(next), &acc));
+  }
+
+  return acc;
+}
+
+Result<Datum> AnyExpression::Evaluate(compute::FunctionContext* ctx,
+                                      const RecordBatch& batch) const {
+  ARROW_ASSIGN_OR_RAISE(auto next, operands_[0]->Evaluate(ctx, batch));
+  Datum acc(next);
+
+  if (FinishWithTrivial<true>(next, &acc)) {
+    return acc;
+  }
+
+  for (size_t i_next = 1; i_next < operands_.size(); ++i_next) {
+    ARROW_ASSIGN_OR_RAISE(next, operands_[i_next]->Evaluate(ctx, batch));
+
+    if (FinishWithTrivial<true>(next, &acc)) {
+      return acc;
     }
+
+    RETURN_NOT_OK(arrow::compute::And(ctx, Datum(acc), Datum(next), &acc));
   }
 
-  return checked_pointer_cast<BooleanArray>(acc.make_array());
+  return acc;
 }
 
-Result<std::shared_ptr<BooleanArray>> AllExpression::Evaluate(
-    compute::FunctionContext* ctx, const RecordBatch& batch) const {
-  return EvaluateNnary(*this, ctx, batch);
-}
+Result<Datum> ComparisonExpression::Evaluate(compute::FunctionContext* ctx,
+                                             const RecordBatch& batch) const {
+  ARROW_ASSIGN_OR_RAISE(auto lhs, left_operand_->Evaluate(ctx, batch));
+  ARROW_ASSIGN_OR_RAISE(auto rhs, right_operand_->Evaluate(ctx, batch));
 
-Result<std::shared_ptr<BooleanArray>> AnyExpression::Evaluate(
-    compute::FunctionContext* ctx, const RecordBatch& batch) const {
-  return EvaluateNnary(*this, ctx, batch);
-}
-
-Result<std::shared_ptr<BooleanArray>> ComparisonExpression::Evaluate(
-    compute::FunctionContext* ctx, const RecordBatch& batch) const {
-  if (left_operand_->type() != ExpressionType::FIELD) {
-    return Status::Invalid("left hand side of comparison must be a field reference");
+  if (lhs.is_scalar()) {
+    if (!lhs.scalar()->is_valid) {
+      return lhs;
+    }
+    return Status::NotImplemented("comparison with scalar LHS");
   }
 
-  if (right_operand_->type() != ExpressionType::SCALAR) {
-    return Status::Invalid("right hand side of comparison must be a scalar");
-  }
-
-  const auto& lhs = checked_cast<const FieldExpression&>(*left_operand_);
-  const auto& rhs = checked_cast<const ScalarExpression&>(*right_operand_);
-
-  auto lhs_array = batch.GetColumnByName(lhs.name());
-  if (lhs_array == nullptr) {
-    // comparing a field absent from batch: return nulls
-    return ScalarExpression::MakeNull()->Evaluate(ctx, batch);
+  if (rhs.is_scalar()) {
+    if (!rhs.scalar()->is_valid) {
+      return rhs;
+    }
   }
 
   Datum out;
-  RETURN_NOT_OK(arrow::compute::Compare(ctx, Datum(lhs_array), Datum(rhs.value()),
-                                        arrow::compute::CompareOptions(op_), &out));
-  return checked_pointer_cast<BooleanArray>(out.make_array());
+  RETURN_NOT_OK(
+      arrow::compute::Compare(ctx, lhs, rhs, arrow::compute::CompareOptions(op_), &out));
+  return out;
 }
 
 std::shared_ptr<ScalarExpression> ScalarExpression::Make(std::string value) {

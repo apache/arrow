@@ -35,6 +35,7 @@ namespace arrow {
 namespace dataset {
 
 using string_literals::operator""_;
+using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 class ExpressionsTest : public ::testing::Test {
@@ -117,9 +118,10 @@ TEST_F(ExpressionsTest, SimplificationToNull) {
 
 class FilterTest : public ::testing::Test {
  public:
-  Result<std::shared_ptr<BooleanArray>> DoFilter(
-      const Expression& expr, std::vector<std::shared_ptr<Field>> fields,
-      std::string batch_json, std::shared_ptr<BooleanArray>* expected_mask = nullptr) {
+  Result<Datum> DoFilter(const Expression& expr,
+                         std::vector<std::shared_ptr<Field>> fields,
+                         std::string batch_json,
+                         std::shared_ptr<BooleanArray>* expected_mask = nullptr) {
     // expected filter result is in the "in" field
     fields.push_back(field("in", boolean()));
 
@@ -137,9 +139,33 @@ class FilterTest : public ::testing::Test {
   void AssertFilter(const Expression& expr, std::vector<std::shared_ptr<Field>> fields,
                     std::string batch_json) {
     std::shared_ptr<BooleanArray> expected_mask;
-    auto mask = DoFilter(expr, std::move(fields), std::move(batch_json), &expected_mask);
-    ASSERT_OK(mask.status());
-    ASSERT_ARRAYS_EQUAL(*expected_mask, *mask.ValueOrDie());
+    auto mask_res =
+        DoFilter(expr, std::move(fields), std::move(batch_json), &expected_mask);
+    ASSERT_OK(mask_res.status());
+
+    auto mask = std::move(mask_res).ValueOrDie();
+    ASSERT_TRUE(mask.type()->Equals(null()) || mask.type()->Equals(boolean()));
+
+    if (mask.is_array()) {
+      ASSERT_ARRAYS_EQUAL(*expected_mask, *mask.make_array());
+      return;
+    }
+
+    ASSERT_TRUE(mask.is_scalar());
+    auto mask_scalar = mask.scalar();
+    if (!mask_scalar->is_valid) {
+      ASSERT_EQ(expected_mask->null_count(), expected_mask->length());
+      return;
+    }
+
+    TypedBufferBuilder<bool> builder;
+    ASSERT_OK(builder.Append(expected_mask->length(),
+                             checked_cast<const BooleanScalar&>(*mask_scalar).value));
+
+    std::shared_ptr<Buffer> values;
+    ASSERT_OK(builder.Finish(&values));
+
+    ASSERT_ARRAYS_EQUAL(*expected_mask, BooleanArray(expected_mask->length(), values));
   }
 
   arrow::compute::FunctionContext ctx_;

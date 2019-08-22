@@ -116,8 +116,8 @@ class ARROW_DS_EXPORT Expression {
   /// of this expression with schema information incorporated:
   /// - Scalars are cast to other data types if necessary to ensure comparisons are
   ///   between data of identical type
-  // virtual Result<std::shared_ptr<Expression>> Validate(const Schema& schema) const =
-  // 0;
+  // Result<std::shared_ptr<Expression>> Validate(
+  //    const Schema& schema, std::shared_ptr<DataType>* evaluated_type) const;
 
   /// Return a simplified form of this expression given some known conditions.
   /// For example, (a > 3).Assume(a == 5) == (true). This can be used to do less work
@@ -128,11 +128,10 @@ class ARROW_DS_EXPORT Expression {
     return Copy();
   }
 
-  // Evaluate an expression against a RecordBatch
-  virtual Result<std::shared_ptr<BooleanArray>> Evaluate(compute::FunctionContext* ctx,
-                                                         const RecordBatch& batch) const {
-    return Status::Invalid("can't evaluate ", ToString());
-  }
+  // Evaluate an expression against a RecordBatch.
+  // Returned Datum must be of either SCALAR or ARRAY kind.
+  virtual Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
+                                          const RecordBatch& batch) const = 0;
 
   /// returns a debug string representing this expression
   virtual std::string ToString() const = 0;
@@ -230,14 +229,12 @@ class ARROW_DS_EXPORT ComparisonExpression final
 
   bool Equals(const Expression& other) const override;
 
-  // Result<std::shared_ptr<Expression>> Validate(const Schema& schema) const override;
-
   Result<std::shared_ptr<Expression>> Assume(const Expression& given) const override;
 
   compute::CompareOperator op() const { return op_; }
 
-  Result<std::shared_ptr<BooleanArray>> Evaluate(compute::FunctionContext* ctx,
-                                                 const RecordBatch& batch) const override;
+  Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
+                                  const RecordBatch& batch) const override;
 
  private:
   Result<std::shared_ptr<Expression>> AssumeGivenComparison(
@@ -253,12 +250,10 @@ class ARROW_DS_EXPORT AllExpression final
 
   std::string ToString() const override;
 
-  // Result<std::shared_ptr<Expression>> Validate(const Schema& schema) const override;
-
   Result<std::shared_ptr<Expression>> Assume(const Expression& given) const override;
 
-  Result<std::shared_ptr<BooleanArray>> Evaluate(compute::FunctionContext* ctx,
-                                                 const RecordBatch& batch) const override;
+  Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
+                                  const RecordBatch& batch) const override;
 };
 
 class ARROW_DS_EXPORT AnyExpression final
@@ -268,12 +263,10 @@ class ARROW_DS_EXPORT AnyExpression final
 
   std::string ToString() const override;
 
-  // Result<std::shared_ptr<Expression>> Validate(const Schema& schema) const override;
-
   Result<std::shared_ptr<Expression>> Assume(const Expression& given) const override;
 
-  Result<std::shared_ptr<BooleanArray>> Evaluate(compute::FunctionContext* ctx,
-                                                 const RecordBatch& batch) const override;
+  Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
+                                  const RecordBatch& batch) const override;
 };
 
 class ARROW_DS_EXPORT NotExpression final
@@ -283,12 +276,10 @@ class ARROW_DS_EXPORT NotExpression final
 
   std::string ToString() const override;
 
-  // Result<std::shared_ptr<Expression>> Validate(const Schema& schema) const override;
-
   Result<std::shared_ptr<Expression>> Assume(const Expression& given) const override;
 
-  Result<std::shared_ptr<BooleanArray>> Evaluate(compute::FunctionContext* ctx,
-                                                 const RecordBatch& batch) const override;
+  Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
+                                  const RecordBatch& batch) const override;
 };
 
 /// Represents a scalar value; thin wrapper around arrow::Scalar
@@ -302,8 +293,6 @@ class ARROW_DS_EXPORT ScalarExpression final : public Expression {
   std::string ToString() const override;
 
   bool Equals(const Expression& other) const override;
-
-  // Result<std::shared_ptr<Expression>> Validate(const Schema& schema) const override;
 
   static std::shared_ptr<ScalarExpression> Make(bool value) {
     return std::make_shared<ScalarExpression>(std::make_shared<BooleanScalar>(value));
@@ -335,8 +324,8 @@ class ARROW_DS_EXPORT ScalarExpression final : public Expression {
     return std::make_shared<ScalarExpression>(std::make_shared<NullScalar>());
   }
 
-  Result<std::shared_ptr<BooleanArray>> Evaluate(compute::FunctionContext* ctx,
-                                                 const RecordBatch& batch) const override;
+  Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
+                                  const RecordBatch& batch) const override;
 
   std::shared_ptr<Expression> Copy() const override;
 
@@ -357,7 +346,8 @@ class ARROW_DS_EXPORT FieldExpression final : public Expression {
 
   bool Equals(const Expression& other) const override;
 
-  // Result<std::shared_ptr<Expression>> Validate(const Schema& schema) const override;
+  Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
+                                  const RecordBatch& batch) const override;
 
   std::shared_ptr<Expression> Copy() const override;
 
