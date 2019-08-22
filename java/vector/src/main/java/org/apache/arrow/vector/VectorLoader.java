@@ -70,6 +70,7 @@ public class VectorLoader {
       Field field,
       Iterator<ArrowBuf> buffers,
       Iterator<ArrowFieldNode> nodes) {
+
     checkArgument(nodes.hasNext(),
         "no more field nodes for for field " + field + " and vector " + vector);
     ArrowFieldNode fieldNode = nodes.next();

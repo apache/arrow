@@ -36,6 +36,7 @@ import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.IntervalYearVector;
+import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
@@ -57,7 +58,6 @@ import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
-import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
@@ -137,7 +137,7 @@ public class Types {
           Field field,
           BufferAllocator allocator,
           CallBack schemaChangeCallback) {
-        return ZeroVector.INSTANCE;
+        return new NullVector();
       }
 
       @Override

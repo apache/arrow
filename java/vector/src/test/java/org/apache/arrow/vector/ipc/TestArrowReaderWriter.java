@@ -44,6 +44,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.TestUtils;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorLoader;
@@ -173,6 +174,57 @@ public class TestArrowReaderWriter {
       FieldNode nodeFB = recordBatchFB.nodes(0);
       assertEquals(16, nodeFB.length());
       assertEquals(8, nodeFB.nullCount());
+    }
+  }
+
+  @Test
+  public void testWriteReadNullVector() throws IOException {
+
+    int valueCount = 3;
+
+    IntVector intVector = new IntVector("intVector", allocator);
+    intVector.allocateNewSafe();
+    intVector.setValueCount(valueCount);
+    intVector.set(0, 0);
+    intVector.set(1, 1);
+    intVector.set(2, 2);
+
+    NullVector nullVector = new NullVector();
+    nullVector.setValueCount(valueCount);
+
+    Schema schema = new Schema(asList(intVector.getField(), nullVector.getField()));
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try (VectorSchemaRoot root = new VectorSchemaRoot(schema.getFields(), asList(intVector, nullVector), valueCount);
+        ArrowFileWriter writer = new ArrowFileWriter(root, null, newChannel(out))) {
+      ArrowRecordBatch batch = new ArrowRecordBatch(valueCount,
+          asList(new ArrowFieldNode(valueCount, 0), new ArrowFieldNode(valueCount, 8)),
+          asList(intVector.getValidityBuffer(), intVector.getDataBuffer()));
+      VectorLoader loader = new VectorLoader(root);
+      loader.load(batch);
+      writer.writeBatch();
+    }
+
+    byte[] byteArray = out.toByteArray();
+
+    try (SeekableReadChannel channel = new SeekableReadChannel(new ByteArrayReadableSeekableByteChannel(byteArray));
+        ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
+      Schema readSchema = reader.getVectorSchemaRoot().getSchema();
+      assertEquals(schema, readSchema);
+      List<ArrowBlock> recordBatches = reader.getRecordBlocks();
+      assertEquals(1, recordBatches.size());
+
+      assertTrue(reader.loadNextBatch());
+      assertEquals(2, reader.getVectorSchemaRoot().getFieldVectors().size());
+
+      IntVector readIntVector = (IntVector) reader.getVectorSchemaRoot().getFieldVectors().get(0);
+      NullVector readNullVector = (NullVector) reader.getVectorSchemaRoot().getFieldVectors().get(1);
+      assertEquals(valueCount, readIntVector.getValueCount());
+      assertEquals(0, readIntVector.get(0));
+      assertEquals(1, readIntVector.get(1));
+      assertEquals(2, readIntVector.get(2));
+
+      assertEquals(valueCount, readNullVector.getValueCount());
     }
   }
 
