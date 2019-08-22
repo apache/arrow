@@ -149,7 +149,8 @@ TEST_F(TestFileSystemBasedDataSource, NonRecursive) {
     auto extension =
         fs::internal::GetAbstractPathExtension(file_fragment->source().path());
     EXPECT_TRUE(format_->IsKnownExtension(extension));
-    return Status::OK();
+    std::shared_ptr<io::RandomAccessFile> f;
+    return this->fs_->OpenInputFile(file_fragment->source().path(), &f);
   }));
 
   ASSERT_EQ(count, 1);
@@ -167,7 +168,8 @@ TEST_F(TestFileSystemBasedDataSource, Recursive) {
     auto extension =
         fs::internal::GetAbstractPathExtension(file_fragment->source().path());
     EXPECT_TRUE(format_->IsKnownExtension(extension));
-    return Status::OK();
+    std::shared_ptr<io::RandomAccessFile> f;
+    return this->fs_->OpenInputFile(file_fragment->source().path(), &f);
   }));
 
   ASSERT_EQ(count, 4);
@@ -180,14 +182,15 @@ TEST_F(TestFileSystemBasedDataSource, DeletedFile) {
   ASSERT_OK(this->fs_->DeleteFile("a/b.dummy"));
 
   ASSERT_RAISES(
-      Invalid,
+      IOError,
       source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
         auto file_fragment =
             internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
         auto extension =
             fs::internal::GetAbstractPathExtension(file_fragment->source().path());
         EXPECT_TRUE(format_->IsKnownExtension(extension));
-        return Status::OK();
+        std::shared_ptr<io::RandomAccessFile> f;
+        return this->fs_->OpenInputFile(file_fragment->source().path(), &f);
       }));
 }
 

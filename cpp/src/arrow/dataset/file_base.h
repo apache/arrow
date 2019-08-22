@@ -136,7 +136,7 @@ class ARROW_DS_EXPORT FileFormat {
   /// \brief Open a fragment
   virtual Status MakeFragment(const FileSource& location,
                               std::shared_ptr<ScanOptions> opts,
-                              std::unique_ptr<FileBasedDataFragment>* out) = 0;
+                              std::unique_ptr<DataFragment>* out) = 0;
 };
 
 /// \brief A DataFragment that is stored in a file with a known format

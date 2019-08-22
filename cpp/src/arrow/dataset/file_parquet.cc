@@ -177,12 +177,7 @@ Status ParquetFileFormat::ScanFile(const FileSource& source,
 
 Status ParquetFileFormat::MakeFragment(const FileSource& source,
                                        std::shared_ptr<ScanOptions> opts,
-                                       std::unique_ptr<FileBasedDataFragment>* out) {
-  fs::FileStats stats;
-  RETURN_NOT_OK(source.filesystem()->GetTargetStats(source.path(), &stats));
-  if (stats.type() == fs::FileType::NonExistent) {
-    return Status::Invalid("file doesn't exist");
-  }
+                                       std::unique_ptr<DataFragment>* out) {
   // TODO(bkietz) check location.path() against IsKnownExtension etc
   *out = internal::make_unique<ParquetFragment>(source, opts);
   return Status::OK();

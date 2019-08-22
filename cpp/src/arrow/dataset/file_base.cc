@@ -92,7 +92,7 @@ std::unique_ptr<DataFragmentIterator> FileSystemBasedDataSource::GetFragments(
       }
       FileSource src(stats_[i_++].path(), filesystem_);
 
-      std::unique_ptr<FileBasedDataFragment> fragment;
+      std::unique_ptr<DataFragment> fragment;
       RETURN_NOT_OK(format_->MakeFragment(src, scan_options_, &fragment));
       *out = std::move(fragment);
       return Status::OK();

@@ -53,7 +53,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
                   std::unique_ptr<ScanTaskIterator>* out) const override;
 
   Status MakeFragment(const FileSource& source, std::shared_ptr<ScanOptions> opts,
-                      std::unique_ptr<FileBasedDataFragment>* out) override;
+                      std::unique_ptr<DataFragment>* out) override;
 };
 
 class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {
