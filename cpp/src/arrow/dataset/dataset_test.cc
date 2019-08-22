@@ -22,8 +22,7 @@
 namespace arrow {
 namespace dataset {
 
-class TestSimpleDataFragment : public TestDataFragmentMixin,
-                               public ArrowBaseFixtureMixin {};
+class TestSimpleDataFragment : public TestDataFragmentMixin {};
 
 TEST_F(TestSimpleDataFragment, Scan) {
   constexpr int64_t kBatchSize = 1024;
@@ -36,10 +35,10 @@ TEST_F(TestSimpleDataFragment, Scan) {
   // Creates a SimpleDataFragment of the same repeated batch.
   auto fragment = SimpleDataFragment({kNumberBatches, batch});
 
-  EnsureEquals(reader.get(), &fragment);
+  AssertFragmentEquals(reader.get(), &fragment);
 }
 
-class TestSimpleDataSource : public TestDataSourceMixin, public ArrowBaseFixtureMixin {};
+class TestSimpleDataSource : public TestDataSourceMixin {};
 
 TEST_F(TestSimpleDataSource, GetFragments) {
   constexpr int64_t kNumberFragments = 4;
@@ -56,7 +55,7 @@ TEST_F(TestSimpleDataSource, GetFragments) {
   // the internal array.
   auto source = SimpleDataSource({kNumberFragments, fragment});
 
-  EnsureEquals(reader.get(), &source);
+  AssertDataSourceEquals(reader.get(), &source);
 }
 
 }  // namespace dataset

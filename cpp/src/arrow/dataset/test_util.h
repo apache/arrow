@@ -146,7 +146,7 @@ class TestDataFragmentMixin : public DatasetFixtureMixin {
  public:
   /// \brief Ensure that record batches found in reader are equals to the
   /// record batches yielded by the data fragment.
-  void EnsureEquals(RecordBatchReader* expected, DataFragment* fragment) {
+  void AssertFragmentEquals(RecordBatchReader* expected, DataFragment* fragment) {
     std::unique_ptr<ScanTaskIterator> it;
     ARROW_EXPECT_OK(fragment->Scan(ctx_, &it));
 
@@ -167,11 +167,11 @@ class TestDataSourceMixin : public TestDataFragmentMixin {
  public:
   /// \brief Ensure that record batches found in reader are equals to the
   /// record batches yielded by the data fragments of a source.
-  void EnsureEquals(RecordBatchReader* expected, DataSource* source) {
+  void AssertDataSourceEquals(RecordBatchReader* expected, DataSource* source) {
     auto it = source->GetFragments(options_);
 
     ARROW_EXPECT_OK(it->Visit([&](std::shared_ptr<DataFragment> fragment) -> Status {
-      TestDataFragmentMixin::EnsureEquals(expected, fragment.get());
+      AssertFragmentEquals(expected, fragment.get());
       return Status::OK();
     }));
   }
