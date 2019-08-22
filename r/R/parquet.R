@@ -95,7 +95,7 @@ parquet_file_reader.fs_path <- function(file, props = parquet_arrow_reader_prope
 
 #' @export
 parquet_file_reader.character <- function(file, props = parquet_arrow_reader_properties(), memory_map = TRUE, ...) {
-  parquet_file_reader(fs::path_abs(file), props = parquet_arrow_reader_properties(), memory_map = memory_map, ...)
+  parquet_file_reader(path_real(file), props = parquet_arrow_reader_properties(), memory_map = memory_map, ...)
 }
 
 #' @export

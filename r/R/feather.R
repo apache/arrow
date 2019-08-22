@@ -109,7 +109,7 @@ write_feather_RecordBatch <- function(data, stream) {
 #' @export
 #' @method write_feather_RecordBatch character
 `write_feather_RecordBatch.character` <- function(data, stream) {
-  `write_feather_RecordBatch.fs_path`(data, fs::path_abs(stream))
+  `write_feather_RecordBatch.fs_path`(data, path_real(stream))
 }
 
 #' @export
@@ -139,7 +139,7 @@ FeatherTableReader <- function(file, mmap = TRUE, ...){
 
 #' @export
 FeatherTableReader.character <- function(file, mmap = TRUE, ...) {
-  FeatherTableReader(fs::path_abs(file), mmap = mmap, ...)
+  FeatherTableReader(path_real(file), mmap = mmap, ...)
 }
 
 #' @export

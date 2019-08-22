@@ -36,7 +36,7 @@ to_arrow <- function(x) {
 #'      of `x` is used. The stream is left open. This uses the streaming format
 #'      or the binary file format depending on the type of the writer.
 #'
-#' - A string or [file path][fs::path_abs()]: `x` is serialized with
+#' - A string or [file path][path_real()]: `x` is serialized with
 #'      a [arrow::ipc::RecordBatchFileWriter][arrow__ipc__RecordBatchFileWriter], i.e.
 #'      using the binary file format.
 #'
@@ -61,7 +61,7 @@ write_arrow <- function(x, stream, ...) {
 
 #' @export
 `write_arrow.character` <- function(x, stream, ...) {
-  write_arrow(x, fs::path_abs(stream), ...)
+  write_arrow(x, path_real(stream), ...)
 }
 
 #' @export

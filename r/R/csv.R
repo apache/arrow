@@ -348,7 +348,7 @@ csv_table_reader.default <- function(file,
   convert_options = csv_convert_options(),
   ...
 ){
-  csv_table_reader(fs::path_abs(file),
+  csv_table_reader(path_real(file),
     read_options = read_options,
     parse_options = parse_options,
     convert_options = convert_options,

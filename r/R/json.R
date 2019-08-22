@@ -87,7 +87,7 @@ json_table_reader.default <- function(file,
   parse_options = json_parse_options(),
   ...
 ){
-  json_table_reader(fs::path_abs(file),
+  json_table_reader(path_real(file),
     read_options = read_options,
     parse_options = parse_options,
     ...
