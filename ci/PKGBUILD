@@ -63,9 +63,6 @@ build() {
   mkdir -p ${cpp_build_dir}
   pushd ${cpp_build_dir}
 
-  # Workaround to fix static libparquet
-  export CXXFLAGS="-DARROW_STATIC"
-
   # This is the difference between rtools-packages and rtools-backports
   # Remove this when submitting to rtools-packages
   export CC="/C/Rtools${MINGW_PREFIX/mingw/mingw_}/bin/gcc"
