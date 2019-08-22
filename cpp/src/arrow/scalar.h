@@ -102,8 +102,6 @@ struct BaseBinaryScalar : public Scalar {
   BaseBinaryScalar(const std::shared_ptr<Buffer>& value,
                    const std::shared_ptr<DataType>& type, bool is_valid = true)
       : Scalar{type, is_valid}, value(value) {}
-
-  static std::shared_ptr<Buffer> Empty();
 };
 
 struct ARROW_EXPORT BinaryScalar : public BaseBinaryScalar<BinaryType> {
