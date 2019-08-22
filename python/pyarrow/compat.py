@@ -63,6 +63,7 @@ if PY2:
 
     def guid():
         from uuid import uuid4
+
         return uuid4().get_hex()
 
     def u(s):
@@ -70,18 +71,20 @@ if PY2:
 
     def tobytes(o):
         if isinstance(o, unicode):
-            return o.encode('utf8')
+            return o.encode("utf8")
         else:
             return o
 
     def u_utf8(s):
-        return s.decode('utf-8')
+        return s.decode("utf-8")
 
     def frombytes(o):
         return o
 
     def unichar(s):
         return unichr(s)
+
+
 else:
     try:
         import pickle5 as builtin_pickle
@@ -92,18 +95,24 @@ else:
 
     unicode_type = str
     file_type = None
+
     def lzip(*x):
         return list(zip(*x))
+
     long = int
     zip = zip
     zip_longest = itertools.zip_longest
+
     def dict_values(x):
         return list(x.values())
+
     from decimal import Decimal
+
     range = range
 
     def guid():
         from uuid import uuid4
+
         return uuid4().hex
 
     def u(s):
@@ -111,7 +120,7 @@ else:
 
     def tobytes(o):
         if isinstance(o, str):
-            return o.encode('utf8')
+            return o.encode("utf8")
         else:
             return o
 
@@ -121,7 +130,7 @@ else:
         return s
 
     def frombytes(o):
-        return o.decode('utf8')
+        return o.decode("utf8")
 
     def unichar(s):
         return chr(s)
@@ -132,6 +141,7 @@ if sys.version_info >= (3, 7):
     ordered_dict = dict
 else:
     import collections
+
     ordered_dict = collections.OrderedDict
 
 
@@ -140,12 +150,14 @@ try:
 except ImportError:
     pickle = builtin_pickle
 
+
 def encode_file_path(path):
     import os
+
     if isinstance(path, unicode_type):
         # POSIX systems can handle utf-8. UTF8 is converted to utf16-le in
         # libarrow
-        encoded_path = path.encode('utf-8')
+        encoded_path = path.encode("utf-8")
     else:
         encoded_path = path
 
@@ -170,14 +182,15 @@ try:
     # See also: https://github.com/numpy/numpy/blob/master/numpy/lib/format.py
     from numpy.lib.format import descr_to_dtype
 except ImportError:
+
     def descr_to_dtype(descr):
-        '''
+        """
         descr may be stored as dtype.descr, which is a list of
         (name, format, [shape]) tuples where format may be a str or a tuple.
         Offsets are not explicitly saved, rather empty fields with
         name, format == '', '|Vn' are added as padding.
         This function reverses the process, eliminating the empty padding fields.
-        '''
+        """
         if isinstance(descr, str):
             # No padding removal needed
             return np.dtype(descr)
@@ -197,7 +210,7 @@ except ImportError:
 
             # Ignore padding bytes, which will be void bytes with '' as name
             # Once support for blank names is removed, only "if name == ''" needed)
-            is_pad = (name == '' and dt.type is np.void and dt.names is None)
+            is_pad = name == "" and dt.type is np.void and dt.names is None
             if not is_pad:
                 fields.append((name, dt, offset))
 
@@ -205,9 +218,17 @@ except ImportError:
 
         names, formats, offsets = zip(*fields)
         # names may be (title, names) tuples
-        nametups = (n  if isinstance(n, tuple) else (None, n) for n in names)
+        nametups = (n if isinstance(n, tuple) else (None, n) for n in names)
         titles, names = zip(*nametups)
-        return np.dtype({'names': names, 'formats': formats, 'titles': titles,
-                            'offsets': offsets, 'itemsize': offset})
+        return np.dtype(
+            {
+                "names": names,
+                "formats": formats,
+                "titles": titles,
+                "offsets": offsets,
+                "itemsize": offset,
+            }
+        )
+
 
 __all__ = []

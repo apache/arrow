@@ -32,17 +32,32 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
     connection details
     """
 
-    def __init__(self, host="default", port=0, user=None, kerb_ticket=None,
-                 driver='libhdfs', extra_conf=None):
-        if driver == 'libhdfs':
+    def __init__(
+        self,
+        host="default",
+        port=0,
+        user=None,
+        kerb_ticket=None,
+        driver="libhdfs",
+        extra_conf=None,
+    ):
+        if driver == "libhdfs":
             _maybe_set_hadoop_classpath()
 
         self._connect(host, port, user, kerb_ticket, driver, extra_conf)
 
     def __reduce__(self):
-        return (HadoopFileSystem, (self.host, self.port, self.user,
-                                   self.kerb_ticket, self.driver,
-                                   self.extra_conf))
+        return (
+            HadoopFileSystem,
+            (
+                self.host,
+                self.port,
+                self.user,
+                self.kerb_ticket,
+                self.driver,
+                self.extra_conf,
+            ),
+        )
 
     def _isfilestore(self):
         """
@@ -127,41 +142,42 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
 def _maybe_set_hadoop_classpath():
     import re
 
-    if re.search(r'hadoop-common[^/]+.jar', os.environ.get('CLASSPATH', '')):
+    if re.search(r"hadoop-common[^/]+.jar", os.environ.get("CLASSPATH", "")):
         return
 
-    if 'HADOOP_HOME' in os.environ:
-        if sys.platform != 'win32':
+    if "HADOOP_HOME" in os.environ:
+        if sys.platform != "win32":
             classpath = _derive_hadoop_classpath()
         else:
-            hadoop_bin = '{0}/bin/hadoop'.format(os.environ['HADOOP_HOME'])
+            hadoop_bin = "{0}/bin/hadoop".format(os.environ["HADOOP_HOME"])
             classpath = _hadoop_classpath_glob(hadoop_bin)
     else:
-        classpath = _hadoop_classpath_glob('hadoop')
+        classpath = _hadoop_classpath_glob("hadoop")
 
-    os.environ['CLASSPATH'] = classpath.decode('utf-8')
+    os.environ["CLASSPATH"] = classpath.decode("utf-8")
 
 
 def _derive_hadoop_classpath():
     import subprocess
 
-    find_args = ('find', '-L', os.environ['HADOOP_HOME'], '-name', '*.jar')
+    find_args = ("find", "-L", os.environ["HADOOP_HOME"], "-name", "*.jar")
     find = subprocess.Popen(find_args, stdout=subprocess.PIPE)
-    xargs_echo = subprocess.Popen(('xargs', 'echo'),
-                                  stdin=find.stdout,
-                                  stdout=subprocess.PIPE)
-    jars = subprocess.check_output(('tr', "' '", "':'"),
-                                   stdin=xargs_echo.stdout)
-    hadoop_conf = os.environ["HADOOP_CONF_DIR"] \
-        if "HADOOP_CONF_DIR" in os.environ \
+    xargs_echo = subprocess.Popen(
+        ("xargs", "echo"), stdin=find.stdout, stdout=subprocess.PIPE
+    )
+    jars = subprocess.check_output(("tr", "' '", "':'"), stdin=xargs_echo.stdout)
+    hadoop_conf = (
+        os.environ["HADOOP_CONF_DIR"]
+        if "HADOOP_CONF_DIR" in os.environ
         else os.environ["HADOOP_HOME"] + "/etc/hadoop"
+    )
     return (hadoop_conf + ":").encode("utf-8") + jars
 
 
 def _hadoop_classpath_glob(hadoop_bin):
     import subprocess
 
-    hadoop_classpath_args = (hadoop_bin, 'classpath', '--glob')
+    hadoop_classpath_args = (hadoop_bin, "classpath", "--glob")
     return subprocess.check_output(hadoop_classpath_args)
 
 
@@ -169,8 +185,8 @@ def _libhdfs_walk_files_dirs(top_path, contents):
     files = []
     directories = []
     for c in contents:
-        scrubbed_name = posixpath.split(c['name'])[1]
-        if c['kind'] == 'file':
+        scrubbed_name = posixpath.split(c["name"])[1]
+        if c["kind"] == "file":
             files.append(scrubbed_name)
         else:
             directories.append(scrubbed_name)
@@ -178,8 +194,14 @@ def _libhdfs_walk_files_dirs(top_path, contents):
     return directories, files
 
 
-def connect(host="default", port=0, user=None, kerb_ticket=None,
-            driver='libhdfs', extra_conf=None):
+def connect(
+    host="default",
+    port=0,
+    user=None,
+    kerb_ticket=None,
+    driver="libhdfs",
+    extra_conf=None,
+):
     """
     Connect to an HDFS cluster. All parameters are optional and should
     only be set if the defaults need to be overridden.
@@ -210,7 +232,12 @@ def connect(host="default", port=0, user=None, kerb_ticket=None,
     -------
     filesystem : HadoopFileSystem
     """
-    fs = HadoopFileSystem(host=host, port=port, user=user,
-                          kerb_ticket=kerb_ticket, driver=driver,
-                          extra_conf=extra_conf)
+    fs = HadoopFileSystem(
+        host=host,
+        port=port,
+        user=user,
+        kerb_ticket=kerb_ticket,
+        driver=driver,
+        extra_conf=extra_conf,
+    )
     return fs

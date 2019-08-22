@@ -24,15 +24,13 @@ import pyarrow as pa
 
 
 def test_schema_constructor_errors():
-    msg = ("Do not call Schema's constructor directly, use `pyarrow.schema` "
-           "instead")
+    msg = "Do not call Schema's constructor directly, use `pyarrow.schema` " "instead"
     with pytest.raises(TypeError, match=msg):
         pa.Schema()
 
 
 def test_type_integers():
-    dtypes = ['int8', 'int16', 'int32', 'int64',
-              'uint8', 'uint16', 'uint32', 'uint64']
+    dtypes = ["int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64"]
 
     for name in dtypes:
         factory = getattr(pa, name)
@@ -41,7 +39,7 @@ def test_type_integers():
 
 
 def test_type_to_pandas_dtype():
-    M8_ns = np.dtype('datetime64[ns]')
+    M8_ns = np.dtype("datetime64[ns]")
     cases = [
         (pa.null(), np.float64),
         (pa.bool_(), np.bool_),
@@ -58,7 +56,7 @@ def test_type_to_pandas_dtype():
         (pa.float64(), np.float64),
         (pa.date32(), M8_ns),
         (pa.date64(), M8_ns),
-        (pa.timestamp('ms'), M8_ns),
+        (pa.timestamp("ms"), M8_ns),
         (pa.binary(), np.object_),
         (pa.binary(12), np.object_),
         (pa.string(), np.object_),
@@ -71,55 +69,55 @@ def test_type_to_pandas_dtype():
 def test_type_list():
     value_type = pa.int32()
     list_type = pa.list_(value_type)
-    assert str(list_type) == 'list<item: int32>'
+    assert str(list_type) == "list<item: int32>"
 
-    field = pa.field('my_item', pa.string())
+    field = pa.field("my_item", pa.string())
     l2 = pa.list_(field)
-    assert str(l2) == 'list<my_item: string>'
+    assert str(l2) == "list<my_item: string>"
 
 
 def test_type_comparisons():
     val = pa.int32()
     assert val == pa.int32()
-    assert val == 'int32'
+    assert val == "int32"
     assert val != 5
 
 
 def test_type_for_alias():
     cases = [
-        ('i1', pa.int8()),
-        ('int8', pa.int8()),
-        ('i2', pa.int16()),
-        ('int16', pa.int16()),
-        ('i4', pa.int32()),
-        ('int32', pa.int32()),
-        ('i8', pa.int64()),
-        ('int64', pa.int64()),
-        ('u1', pa.uint8()),
-        ('uint8', pa.uint8()),
-        ('u2', pa.uint16()),
-        ('uint16', pa.uint16()),
-        ('u4', pa.uint32()),
-        ('uint32', pa.uint32()),
-        ('u8', pa.uint64()),
-        ('uint64', pa.uint64()),
-        ('f4', pa.float32()),
-        ('float32', pa.float32()),
-        ('f8', pa.float64()),
-        ('float64', pa.float64()),
-        ('date32', pa.date32()),
-        ('date64', pa.date64()),
-        ('string', pa.string()),
-        ('str', pa.string()),
-        ('binary', pa.binary()),
-        ('time32[s]', pa.time32('s')),
-        ('time32[ms]', pa.time32('ms')),
-        ('time64[us]', pa.time64('us')),
-        ('time64[ns]', pa.time64('ns')),
-        ('timestamp[s]', pa.timestamp('s')),
-        ('timestamp[ms]', pa.timestamp('ms')),
-        ('timestamp[us]', pa.timestamp('us')),
-        ('timestamp[ns]', pa.timestamp('ns')),
+        ("i1", pa.int8()),
+        ("int8", pa.int8()),
+        ("i2", pa.int16()),
+        ("int16", pa.int16()),
+        ("i4", pa.int32()),
+        ("int32", pa.int32()),
+        ("i8", pa.int64()),
+        ("int64", pa.int64()),
+        ("u1", pa.uint8()),
+        ("uint8", pa.uint8()),
+        ("u2", pa.uint16()),
+        ("uint16", pa.uint16()),
+        ("u4", pa.uint32()),
+        ("uint32", pa.uint32()),
+        ("u8", pa.uint64()),
+        ("uint64", pa.uint64()),
+        ("f4", pa.float32()),
+        ("float32", pa.float32()),
+        ("f8", pa.float64()),
+        ("float64", pa.float64()),
+        ("date32", pa.date32()),
+        ("date64", pa.date64()),
+        ("string", pa.string()),
+        ("str", pa.string()),
+        ("binary", pa.binary()),
+        ("time32[s]", pa.time32("s")),
+        ("time32[ms]", pa.time32("ms")),
+        ("time64[us]", pa.time64("us")),
+        ("time64[ns]", pa.time64("ns")),
+        ("timestamp[s]", pa.timestamp("s")),
+        ("timestamp[ms]", pa.timestamp("ms")),
+        ("timestamp[us]", pa.timestamp("us")),
+        ("timestamp[ns]", pa.timestamp("ns")),
     ]
 
     for val, expected in cases:
@@ -128,56 +126,56 @@ def test_type_for_alias():
 
 def test_type_string():
     t = pa.string()
-    assert str(t) == 'string'
+    assert str(t) == "string"
 
 
 def test_type_timestamp_with_tz():
-    tz = 'America/Los_Angeles'
-    t = pa.timestamp('ns', tz=tz)
-    assert t.unit == 'ns'
+    tz = "America/Los_Angeles"
+    t = pa.timestamp("ns", tz=tz)
+    assert t.unit == "ns"
     assert t.tz == tz
 
 
 def test_time_types():
-    t1 = pa.time32('s')
-    t2 = pa.time32('ms')
-    t3 = pa.time64('us')
-    t4 = pa.time64('ns')
+    t1 = pa.time32("s")
+    t2 = pa.time32("ms")
+    t3 = pa.time64("us")
+    t4 = pa.time64("ns")
 
-    assert t1.unit == 's'
-    assert t2.unit == 'ms'
-    assert t3.unit == 'us'
-    assert t4.unit == 'ns'
+    assert t1.unit == "s"
+    assert t2.unit == "ms"
+    assert t3.unit == "us"
+    assert t4.unit == "ns"
 
-    assert str(t1) == 'time32[s]'
-    assert str(t4) == 'time64[ns]'
-
-    with pytest.raises(ValueError):
-        pa.time32('us')
+    assert str(t1) == "time32[s]"
+    assert str(t4) == "time64[ns]"
 
     with pytest.raises(ValueError):
-        pa.time64('s')
+        pa.time32("us")
+
+    with pytest.raises(ValueError):
+        pa.time64("s")
 
 
 def test_from_numpy_dtype():
     cases = [
-        (np.dtype('bool'), pa.bool_()),
-        (np.dtype('int8'), pa.int8()),
-        (np.dtype('int16'), pa.int16()),
-        (np.dtype('int32'), pa.int32()),
-        (np.dtype('int64'), pa.int64()),
-        (np.dtype('uint8'), pa.uint8()),
-        (np.dtype('uint16'), pa.uint16()),
-        (np.dtype('uint32'), pa.uint32()),
-        (np.dtype('float16'), pa.float16()),
-        (np.dtype('float32'), pa.float32()),
-        (np.dtype('float64'), pa.float64()),
-        (np.dtype('U'), pa.string()),
-        (np.dtype('S'), pa.binary()),
-        (np.dtype('datetime64[s]'), pa.timestamp('s')),
-        (np.dtype('datetime64[ms]'), pa.timestamp('ms')),
-        (np.dtype('datetime64[us]'), pa.timestamp('us')),
-        (np.dtype('datetime64[ns]'), pa.timestamp('ns'))
+        (np.dtype("bool"), pa.bool_()),
+        (np.dtype("int8"), pa.int8()),
+        (np.dtype("int16"), pa.int16()),
+        (np.dtype("int32"), pa.int32()),
+        (np.dtype("int64"), pa.int64()),
+        (np.dtype("uint8"), pa.uint8()),
+        (np.dtype("uint16"), pa.uint16()),
+        (np.dtype("uint32"), pa.uint32()),
+        (np.dtype("float16"), pa.float16()),
+        (np.dtype("float32"), pa.float32()),
+        (np.dtype("float64"), pa.float64()),
+        (np.dtype("U"), pa.string()),
+        (np.dtype("S"), pa.binary()),
+        (np.dtype("datetime64[s]"), pa.timestamp("s")),
+        (np.dtype("datetime64[ms]"), pa.timestamp("ms")),
+        (np.dtype("datetime64[us]"), pa.timestamp("us")),
+        (np.dtype("datetime64[ns]"), pa.timestamp("ns")),
     ]
 
     for dt, pt in cases:
@@ -185,142 +183,150 @@ def test_from_numpy_dtype():
         assert result == pt
 
     # Things convertible to numpy dtypes work
-    assert pa.from_numpy_dtype('U') == pa.string()
+    assert pa.from_numpy_dtype("U") == pa.string()
     assert pa.from_numpy_dtype(np.unicode) == pa.string()
-    assert pa.from_numpy_dtype('int32') == pa.int32()
+    assert pa.from_numpy_dtype("int32") == pa.int32()
     assert pa.from_numpy_dtype(bool) == pa.bool_()
 
     with pytest.raises(NotImplementedError):
-        pa.from_numpy_dtype(np.dtype('O'))
+        pa.from_numpy_dtype(np.dtype("O"))
 
     with pytest.raises(TypeError):
-        pa.from_numpy_dtype('not_convertible_to_dtype')
+        pa.from_numpy_dtype("not_convertible_to_dtype")
 
 
 def test_schema():
     fields = [
-        pa.field('foo', pa.int32()),
-        pa.field('bar', pa.string()),
-        pa.field('baz', pa.list_(pa.int8()))
+        pa.field("foo", pa.int32()),
+        pa.field("bar", pa.string()),
+        pa.field("baz", pa.list_(pa.int8())),
     ]
     sch = pa.schema(fields)
 
-    assert sch.names == ['foo', 'bar', 'baz']
+    assert sch.names == ["foo", "bar", "baz"]
     assert sch.types == [pa.int32(), pa.string(), pa.list_(pa.int8())]
 
     assert len(sch) == 3
-    assert sch[0].name == 'foo'
+    assert sch[0].name == "foo"
     assert sch[0].type == fields[0].type
-    assert sch.field_by_name('foo').name == 'foo'
-    assert sch.field_by_name('foo').type == fields[0].type
+    assert sch.field_by_name("foo").name == "foo"
+    assert sch.field_by_name("foo").type == fields[0].type
 
-    assert repr(sch) == """\
+    assert (
+        repr(sch)
+        == """\
 foo: int32
 bar: string
 baz: list<item: int8>
   child 0, item: int8"""
+    )
 
     with pytest.raises(TypeError):
         pa.schema([None])
 
 
 def test_schema_from_tuples():
-    fields = [
-        ('foo', pa.int32()),
-        ('bar', pa.string()),
-        ('baz', pa.list_(pa.int8())),
-    ]
+    fields = [("foo", pa.int32()), ("bar", pa.string()), ("baz", pa.list_(pa.int8()))]
     sch = pa.schema(fields)
-    assert sch.names == ['foo', 'bar', 'baz']
+    assert sch.names == ["foo", "bar", "baz"]
     assert sch.types == [pa.int32(), pa.string(), pa.list_(pa.int8())]
     assert len(sch) == 3
-    assert repr(sch) == """\
+    assert (
+        repr(sch)
+        == """\
 foo: int32
 bar: string
 baz: list<item: int8>
   child 0, item: int8"""
+    )
 
     with pytest.raises(TypeError):
-        pa.schema([('foo', None)])
+        pa.schema([("foo", None)])
 
 
 def test_schema_from_mapping():
-    fields = OrderedDict([
-        ('foo', pa.int32()),
-        ('bar', pa.string()),
-        ('baz', pa.list_(pa.int8())),
-    ])
+    fields = OrderedDict(
+        [("foo", pa.int32()), ("bar", pa.string()), ("baz", pa.list_(pa.int8()))]
+    )
     sch = pa.schema(fields)
-    assert sch.names == ['foo', 'bar', 'baz']
+    assert sch.names == ["foo", "bar", "baz"]
     assert sch.types == [pa.int32(), pa.string(), pa.list_(pa.int8())]
     assert len(sch) == 3
-    assert repr(sch) == """\
+    assert (
+        repr(sch)
+        == """\
 foo: int32
 bar: string
 baz: list<item: int8>
   child 0, item: int8"""
+    )
 
-    fields = OrderedDict([('foo', None)])
+    fields = OrderedDict([("foo", None)])
     with pytest.raises(TypeError):
         pa.schema(fields)
 
 
 def test_schema_duplicate_fields():
     fields = [
-        pa.field('foo', pa.int32()),
-        pa.field('bar', pa.string()),
-        pa.field('foo', pa.list_(pa.int8())),
+        pa.field("foo", pa.int32()),
+        pa.field("bar", pa.string()),
+        pa.field("foo", pa.list_(pa.int8())),
     ]
     sch = pa.schema(fields)
-    assert sch.names == ['foo', 'bar', 'foo']
+    assert sch.names == ["foo", "bar", "foo"]
     assert sch.types == [pa.int32(), pa.string(), pa.list_(pa.int8())]
     assert len(sch) == 3
-    assert repr(sch) == """\
+    assert (
+        repr(sch)
+        == """\
 foo: int32
 bar: string
 foo: list<item: int8>
   child 0, item: int8"""
+    )
 
-    assert sch[0].name == 'foo'
+    assert sch[0].name == "foo"
     assert sch[0].type == fields[0].type
-    assert sch.field_by_name('bar') == fields[1]
-    assert sch.field_by_name('xxx') is None
+    assert sch.field_by_name("bar") == fields[1]
+    assert sch.field_by_name("xxx") is None
     with pytest.warns(UserWarning):
-        assert sch.field_by_name('foo') is None
+        assert sch.field_by_name("foo") is None
 
 
 def test_field_flatten():
-    f0 = pa.field('foo', pa.int32()).add_metadata({b'foo': b'bar'})
+    f0 = pa.field("foo", pa.int32()).add_metadata({b"foo": b"bar"})
     assert f0.flatten() == [f0]
 
-    f1 = pa.field('bar', pa.float64(), nullable=False)
-    ff = pa.field('ff', pa.struct([f0, f1]), nullable=False)
+    f1 = pa.field("bar", pa.float64(), nullable=False)
+    ff = pa.field("ff", pa.struct([f0, f1]), nullable=False)
     assert ff.flatten() == [
-        pa.field('ff.foo', pa.int32()).add_metadata({b'foo': b'bar'}),
-        pa.field('ff.bar', pa.float64(), nullable=False)]  # XXX
+        pa.field("ff.foo", pa.int32()).add_metadata({b"foo": b"bar"}),
+        pa.field("ff.bar", pa.float64(), nullable=False),
+    ]  # XXX
 
     # Nullable parent makes flattened child nullable
-    ff = pa.field('ff', pa.struct([f0, f1]))
+    ff = pa.field("ff", pa.struct([f0, f1]))
     assert ff.flatten() == [
-        pa.field('ff.foo', pa.int32()).add_metadata({b'foo': b'bar'}),
-        pa.field('ff.bar', pa.float64())]
+        pa.field("ff.foo", pa.int32()).add_metadata({b"foo": b"bar"}),
+        pa.field("ff.bar", pa.float64()),
+    ]
 
-    fff = pa.field('fff', pa.struct([ff]))
-    assert fff.flatten() == [pa.field('fff.ff', pa.struct([f0, f1]))]
+    fff = pa.field("fff", pa.struct([ff]))
+    assert fff.flatten() == [pa.field("fff.ff", pa.struct([f0, f1]))]
 
 
 def test_schema_add_remove_metadata():
     fields = [
-        pa.field('foo', pa.int32()),
-        pa.field('bar', pa.string()),
-        pa.field('baz', pa.list_(pa.int8()))
+        pa.field("foo", pa.int32()),
+        pa.field("bar", pa.string()),
+        pa.field("baz", pa.list_(pa.int8())),
     ]
 
     s1 = pa.schema(fields)
 
     assert s1.metadata is None
 
-    metadata = {b'foo': b'bar', b'pandas': b'badger'}
+    metadata = {b"foo": b"bar", b"pandas": b"badger"}
 
     s2 = s1.add_metadata(metadata)
     assert s2.metadata == metadata
@@ -335,11 +341,11 @@ def test_schema_add_remove_metadata():
 
 def test_schema_equals():
     fields = [
-        pa.field('foo', pa.int32()),
-        pa.field('bar', pa.string()),
-        pa.field('baz', pa.list_(pa.int8()))
+        pa.field("foo", pa.int32()),
+        pa.field("bar", pa.string()),
+        pa.field("baz", pa.list_(pa.int8())),
     ]
-    metadata = {b'foo': b'bar', b'pandas': b'badger'}
+    metadata = {b"foo": b"bar", b"pandas": b"badger"}
 
     sch1 = pa.schema(fields)
     sch2 = pa.schema(fields)
@@ -359,14 +365,13 @@ def test_schema_equals():
 
 def test_schema_equals_propagates_check_metadata():
     # ARROW-4088
-    schema1 = pa.schema([
-        pa.field('foo', pa.int32()),
-        pa.field('bar', pa.string())
-    ])
-    schema2 = pa.schema([
-        pa.field('foo', pa.int32()),
-        pa.field('bar', pa.string(), metadata={'a': 'alpha'}),
-    ])
+    schema1 = pa.schema([pa.field("foo", pa.int32()), pa.field("bar", pa.string())])
+    schema2 = pa.schema(
+        [
+            pa.field("foo", pa.int32()),
+            pa.field("bar", pa.string(), metadata={"a": "alpha"}),
+        ]
+    )
     assert not schema1.equals(schema2)
     assert schema1.equals(schema2, check_metadata=False)
 
@@ -375,18 +380,18 @@ def test_schema_equals_invalid_type():
     # ARROW-5873
     schema = pa.schema([pa.field("a", pa.int64())])
 
-    for val in [None, 'string', pa.array([1, 2])]:
+    for val in [None, "string", pa.array([1, 2])]:
         with pytest.raises(TypeError):
             schema.equals(val)
 
 
 def test_schema_equality_operators():
     fields = [
-        pa.field('foo', pa.int32()),
-        pa.field('bar', pa.string()),
-        pa.field('baz', pa.list_(pa.int8()))
+        pa.field("foo", pa.int32()),
+        pa.field("bar", pa.string()),
+        pa.field("baz", pa.list_(pa.int8())),
     ]
-    metadata = {b'foo': b'bar', b'pandas': b'badger'}
+    metadata = {b"foo": b"bar", b"pandas": b"badger"}
 
     sch1 = pa.schema(fields)
     sch2 = pa.schema(fields)
@@ -400,14 +405,14 @@ def test_schema_equality_operators():
 
     # comparison with other types doesn't raise
     assert sch1 != []
-    assert sch3 != 'foo'
+    assert sch3 != "foo"
 
 
 def test_schema_negative_indexing():
     fields = [
-        pa.field('foo', pa.int32()),
-        pa.field('bar', pa.string()),
-        pa.field('baz', pa.list_(pa.int8()))
+        pa.field("foo", pa.int32()),
+        pa.field("bar", pa.string()),
+        pa.field("baz", pa.list_(pa.int8())),
     ]
 
     schema = pa.schema(fields)
@@ -425,15 +430,14 @@ def test_schema_negative_indexing():
 
 def test_schema_repr_with_dictionaries():
     fields = [
-        pa.field('one', pa.dictionary(pa.int16(), pa.string())),
-        pa.field('two', pa.int32())
+        pa.field("one", pa.dictionary(pa.int16(), pa.string())),
+        pa.field("two", pa.int32()),
     ]
     sch = pa.schema(fields)
 
-    expected = (
-        """\
+    expected = """\
 one: dictionary<values=string, indices=int16, ordered=0>
-two: int32""")
+two: int32"""
 
     assert repr(sch) == expected
 
@@ -445,26 +449,23 @@ def test_type_schema_pickling():
         pa.binary(),
         pa.binary(10),
         pa.list_(pa.string()),
-        pa.struct([
-            pa.field('a', 'int8'),
-            pa.field('b', 'string')
-        ]),
-        pa.union([
-            pa.field('a', pa.int8()),
-            pa.field('b', pa.int16())
-        ], pa.lib.UnionMode_SPARSE),
-        pa.union([
-            pa.field('a', pa.int8()),
-            pa.field('b', pa.int16())
-        ], pa.lib.UnionMode_DENSE),
-        pa.time32('s'),
-        pa.time64('us'),
+        pa.struct([pa.field("a", "int8"), pa.field("b", "string")]),
+        pa.union(
+            [pa.field("a", pa.int8()), pa.field("b", pa.int16())],
+            pa.lib.UnionMode_SPARSE,
+        ),
+        pa.union(
+            [pa.field("a", pa.int8()), pa.field("b", pa.int16())],
+            pa.lib.UnionMode_DENSE,
+        ),
+        pa.time32("s"),
+        pa.time64("us"),
         pa.date32(),
         pa.date64(),
-        pa.timestamp('ms'),
-        pa.timestamp('ns'),
+        pa.timestamp("ms"),
+        pa.timestamp("ns"),
         pa.decimal128(12, 2),
-        pa.field('a', 'string', metadata={b'foo': b'bar'})
+        pa.field("a", "string", metadata={b"foo": b"bar"}),
     ]
 
     for val in cases:
@@ -476,17 +477,15 @@ def test_type_schema_pickling():
         if isinstance(f, pa.Field):
             fields.append(f)
         else:
-            fields.append(pa.field('_f{}'.format(i), f))
+            fields.append(pa.field("_f{}".format(i), f))
 
-    schema = pa.schema(fields, metadata={b'foo': b'bar'})
+    schema = pa.schema(fields, metadata={b"foo": b"bar"})
     roundtripped = pickle.loads(pickle.dumps(schema))
     assert schema == roundtripped
 
 
 def test_empty_table():
-    schema = pa.schema([
-        pa.field('oneField', pa.int64())
-    ])
+    schema = pa.schema([pa.field("oneField", pa.int64())])
     table = schema.empty_table()
     assert isinstance(table, pa.Table)
     assert table.num_rows == 0
@@ -496,18 +495,22 @@ def test_empty_table():
 @pytest.mark.pandas
 def test_schema_from_pandas():
     import pandas as pd
+
     inputs = [
         list(range(10)),
         pd.Categorical(list(range(10))),
-        ['foo', 'bar', None, 'baz', 'qux'],
-        np.array([
-            '2007-07-13T01:23:34.123456789',
-            '2006-01-13T12:34:56.432539784',
-            '2010-08-13T05:46:57.437699912'
-        ], dtype='datetime64[ns]')
+        ["foo", "bar", None, "baz", "qux"],
+        np.array(
+            [
+                "2007-07-13T01:23:34.123456789",
+                "2006-01-13T12:34:56.432539784",
+                "2010-08-13T05:46:57.437699912",
+            ],
+            dtype="datetime64[ns]",
+        ),
     ]
     for data in inputs:
-        df = pd.DataFrame({'a': data})
+        df = pd.DataFrame({"a": data})
         schema = pa.Schema.from_pandas(df)
         expected = pa.Table.from_pandas(df).schema
         assert schema == expected

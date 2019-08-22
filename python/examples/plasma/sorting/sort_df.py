@@ -49,7 +49,7 @@ column_to_sort = column_names[0]
 # Connect to clients
 def connect():
     global client
-    client = plasma.connect('/tmp/store')
+    client = plasma.connect("/tmp/store")
     np.random.seed(int(time.time() * 10e7) % 10000000)
 
 
@@ -81,8 +81,9 @@ def put_df(df):
 def get_dfs(object_ids):
     """Retrieve dataframes from the object store given their object IDs."""
     buffers = client.get_buffers(object_ids)
-    return [pa.RecordBatchStreamReader(buf).read_next_batch().to_pandas()
-            for buf in buffers]
+    return [
+        pa.RecordBatchStreamReader(buf).read_next_batch().to_pandas() for buf in buffers
+    ]
 
 
 def local_sort(object_id):
@@ -132,11 +133,11 @@ def merge(object_ids):
     return put_df(merged_df2)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Start the plasma store.
-    p = subprocess.Popen(['plasma_store',
-                          '-s', '/tmp/store',
-                          '-m', str(object_store_size)])
+    p = subprocess.Popen(
+        ["plasma_store", "-s", "/tmp/store", "-m", str(object_store_size)]
+    )
 
     # Connect to the plasma store.
     connect()
@@ -145,43 +146,43 @@ if __name__ == '__main__':
     pool = Pool(initializer=connect, initargs=(), processes=num_cores)
 
     # Create a DataFrame from a numpy array.
-    df = pd.DataFrame(np.random.randn(num_rows, num_cols),
-                      columns=column_names)
+    df = pd.DataFrame(np.random.randn(num_rows, num_cols), columns=column_names)
 
-    partition_ids = [put_df(partition) for partition
-                     in np.split(df, num_cores)]
+    partition_ids = [put_df(partition) for partition in np.split(df, num_cores)]
 
     # Begin timing the parallel sort example.
     parallel_sort_start = time.time()
 
     # Sort each partition and subsample them. The subsampled values will be
     # used to create buckets.
-    sorted_df_ids, pivot_groups = list(zip(*pool.map(local_sort,
-                                                     partition_ids)))
+    sorted_df_ids, pivot_groups = list(zip(*pool.map(local_sort, partition_ids)))
 
     # Choose the pivots.
     all_pivots = np.concatenate(pivot_groups)
-    indices = np.linspace(0, len(all_pivots) - 1, num=num_cores,
-                          dtype=np.int64)
+    indices = np.linspace(0, len(all_pivots) - 1, num=num_cores, dtype=np.int64)
     pivots = np.take(np.sort(all_pivots), indices)
 
     # Break all of the sorted partitions into even smaller partitions. Group
     # the object IDs from each bucket together.
-    results = list(zip(*pool.map(local_partitions,
-                                 zip(sorted_df_ids,
-                                     len(sorted_df_ids) * [pivots]))))
+    results = list(
+        zip(
+            *pool.map(
+                local_partitions, zip(sorted_df_ids, len(sorted_df_ids) * [pivots])
+            )
+        )
+    )
 
     # Merge each of the buckets and store the results in the object store.
     object_ids = pool.map(merge, results)
 
-    resulting_ids = [object_id for object_id in object_ids
-                     if object_id is not None]
+    resulting_ids = [object_id for object_id in object_ids if object_id is not None]
 
     # Stop timing the paralle sort example.
     parallel_sort_end = time.time()
 
-    print('Parallel sort took {} seconds.'
-          .format(parallel_sort_end - parallel_sort_start))
+    print(
+        "Parallel sort took {} seconds.".format(parallel_sort_end - parallel_sort_start)
+    )
 
     serial_sort_start = time.time()
 
@@ -194,8 +195,7 @@ if __name__ == '__main__':
     sorted_dfs = get_dfs(resulting_ids)
     sorted_df = pd.concat(sorted_dfs)
 
-    print('Serial sort took {} seconds.'
-          .format(serial_sort_end - serial_sort_start))
+    print("Serial sort took {} seconds.".format(serial_sort_end - serial_sort_start))
 
     assert np.allclose(sorted_df.values, original_sorted_df.values)
 

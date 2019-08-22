@@ -34,8 +34,7 @@ class SimplePlasmaThroughput(object):
     timer = timeit.default_timer
 
     def setup(self, size):
-        self.plasma_store_ctx = plasma.start_plasma_store(
-            plasma_store_memory=10**9)
+        self.plasma_store_ctx = plasma.start_plasma_store(plasma_store_memory=10 ** 9)
         plasma_store_name, p = self.plasma_store_ctx.__enter__()
         self.plasma_client = plasma.connect(plasma_store_name)
 
@@ -54,8 +53,7 @@ class SimplePlasmaLatency(object):
     timer = timeit.default_timer
 
     def setup(self):
-        self.plasma_store_ctx = plasma.start_plasma_store(
-            plasma_store_memory=10**9)
+        self.plasma_store_ctx = plasma.start_plasma_store(plasma_store_memory=10 ** 9)
         plasma_store_name, p = self.plasma_store_ctx.__enter__()
         self.plasma_client = plasma.connect(plasma_store_name)
 

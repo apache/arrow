@@ -21,15 +21,21 @@ from __future__ import absolute_import
 
 import pyarrow as pa
 
-from pyarrow.lib import (Message, MessageReader,  # noqa
-                         read_message, read_record_batch, read_schema,
-                         read_tensor, write_tensor,
-                         get_record_batch_size, get_tensor_size)
+from pyarrow.lib import (
+    Message,
+    MessageReader,  # noqa
+    read_message,
+    read_record_batch,
+    read_schema,
+    read_tensor,
+    write_tensor,
+    get_record_batch_size,
+    get_tensor_size,
+)
 import pyarrow.lib as lib
 
 
 class _ReadPandasOption(object):
-
     def read_pandas(self, **options):
         """
         Read contents of stream and convert to pandas.DataFrame using
@@ -56,6 +62,7 @@ class RecordBatchStreamReader(lib._RecordBatchStreamReader, _ReadPandasOption):
     source : bytes/buffer-like, pyarrow.NativeFile, or file-like Python object
         Either an in-memory buffer, or a readable file object
     """
+
     def __init__(self, source):
         self._open(source)
 
@@ -71,6 +78,7 @@ class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):
     schema : pyarrow.Schema
         The Arrow schema for data to be written to the file
     """
+
     def __init__(self, sink, schema):
         self._open(sink, schema)
 
@@ -87,6 +95,7 @@ class RecordBatchFileReader(lib._RecordBatchFileReader, _ReadPandasOption):
         If the file is embedded in some larger file, this is the byte offset to
         the very end of the file data
     """
+
     def __init__(self, source, footer_offset=None):
         self._open(source, footer_offset=footer_offset)
 
@@ -102,6 +111,7 @@ class RecordBatchFileWriter(lib._RecordBatchFileWriter):
     schema : pyarrow.Schema
         The Arrow schema for data to be written to the file
     """
+
     def __init__(self, sink, schema):
         self._open(sink, schema)
 
@@ -163,8 +173,9 @@ def serialize_pandas(df, nthreads=None, preserve_index=None):
     buf : buffer
         An object compatible with the buffer protocol
     """
-    batch = pa.RecordBatch.from_pandas(df, nthreads=nthreads,
-                                       preserve_index=preserve_index)
+    batch = pa.RecordBatch.from_pandas(
+        df, nthreads=nthreads, preserve_index=preserve_index
+    )
     sink = pa.BufferOutputStream()
     writer = pa.RecordBatchStreamWriter(sink, batch.schema)
     writer.write_batch(batch)

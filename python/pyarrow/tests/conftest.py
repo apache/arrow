@@ -26,110 +26,116 @@ except ImportError:
 
 
 # setup hypothesis profiles
-h.settings.register_profile('ci', max_examples=1000)
-h.settings.register_profile('dev', max_examples=10)
-h.settings.register_profile('debug', max_examples=10,
-                            verbosity=h.Verbosity.verbose)
+h.settings.register_profile("ci", max_examples=1000)
+h.settings.register_profile("dev", max_examples=10)
+h.settings.register_profile("debug", max_examples=10, verbosity=h.Verbosity.verbose)
 
 # load default hypothesis profile, either set HYPOTHESIS_PROFILE environment
 # variable or pass --hypothesis-profile option to pytest, to see the generated
 # examples try: pytest pyarrow -sv --only-hypothesis --hypothesis-profile=debug
-h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'dev'))
+h.settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "dev"))
 
 
 groups = [
-    'cython',
-    'hypothesis',
-    'fastparquet',
-    'gandiva',
-    'hdfs',
-    'large_memory',
-    'orc',
-    'pandas',
-    'parquet',
-    'plasma',
-    's3',
-    'tensorflow',
-    'flight'
+    "cython",
+    "hypothesis",
+    "fastparquet",
+    "gandiva",
+    "hdfs",
+    "large_memory",
+    "orc",
+    "pandas",
+    "parquet",
+    "plasma",
+    "s3",
+    "tensorflow",
+    "flight",
 ]
 
 
 defaults = {
-    'cython': False,
-    'fastparquet': False,
-    'hypothesis': False,
-    'gandiva': False,
-    'hdfs': False,
-    'large_memory': False,
-    'orc': False,
-    'pandas': False,
-    'parquet': False,
-    'plasma': False,
-    's3': False,
-    'tensorflow': False,
-    'flight': False,
+    "cython": False,
+    "fastparquet": False,
+    "hypothesis": False,
+    "gandiva": False,
+    "hdfs": False,
+    "large_memory": False,
+    "orc": False,
+    "pandas": False,
+    "parquet": False,
+    "plasma": False,
+    "s3": False,
+    "tensorflow": False,
+    "flight": False,
 }
 
 try:
     import cython  # noqa
-    defaults['cython'] = True
+
+    defaults["cython"] = True
 except ImportError:
     pass
 
 try:
     import fastparquet  # noqa
-    defaults['fastparquet'] = True
+
+    defaults["fastparquet"] = True
 except ImportError:
     pass
 
 try:
-    import pyarrow.gandiva # noqa
-    defaults['gandiva'] = True
+    import pyarrow.gandiva  # noqa
+
+    defaults["gandiva"] = True
 except ImportError:
     pass
 
 try:
-    import pyarrow.orc # noqa
-    defaults['orc'] = True
+    import pyarrow.orc  # noqa
+
+    defaults["orc"] = True
 except ImportError:
     pass
 
 try:
     import pandas  # noqa
-    defaults['pandas'] = True
+
+    defaults["pandas"] = True
 except ImportError:
     pass
 
 try:
     import pyarrow.parquet  # noqa
-    defaults['parquet'] = True
+
+    defaults["parquet"] = True
 except ImportError:
     pass
 
 try:
     import pyarrow.plasma as plasma  # noqa
-    defaults['plasma'] = True
+
+    defaults["plasma"] = True
 except ImportError:
     pass
 
 try:
     import tensorflow  # noqa
-    defaults['tensorflow'] = True
+
+    defaults["tensorflow"] = True
 except ImportError:
     pass
 
 try:
     import pyarrow.flight  # noqa
-    defaults['flight'] = True
+
+    defaults["flight"] = True
 except ImportError:
     pass
 
 
 def pytest_configure(config):
     for mark in groups:
-        config.addinivalue_line(
-            "markers", mark,
-        )
+        config.addinivalue_line("markers", mark)
 
 
 def pytest_addoption(parser):
@@ -138,42 +144,55 @@ def pytest_addoption(parser):
         if value is None:
             return default
         value = value.lower()
-        if value in {'1', 'true', 'on', 'yes', 'y'}:
+        if value in {"1", "true", "on", "yes", "y"}:
             return True
-        elif value in {'0', 'false', 'off', 'no', 'n'}:
+        elif value in {"0", "false", "off", "no", "n"}:
             return False
         else:
-            raise ValueError('{}={} is not parsable as boolean'
-                             .format(name.upper(), value))
+            raise ValueError(
+                "{}={} is not parsable as boolean".format(name.upper(), value)
+            )
 
     for group in groups:
-        for flag, envvar in [('--{}', 'PYARROW_TEST_{}'),
-                             ('--enable-{}', 'PYARROW_TEST_ENABLE_{}')]:
+        for flag, envvar in [
+            ("--{}", "PYARROW_TEST_{}"),
+            ("--enable-{}", "PYARROW_TEST_ENABLE_{}"),
+        ]:
             default = bool_env(envvar.format(group), defaults[group])
-            parser.addoption(flag.format(group),
-                             action='store_true', default=default,
-                             help=('Enable the {} test group'.format(group)))
+            parser.addoption(
+                flag.format(group),
+                action="store_true",
+                default=default,
+                help=("Enable the {} test group".format(group)),
+            )
 
-        default = bool_env('PYARROW_TEST_DISABLE_{}'.format(group), False)
-        parser.addoption('--disable-{}'.format(group),
-                         action='store_true', default=default,
-                         help=('Disable the {} test group'.format(group)))
+        default = bool_env("PYARROW_TEST_DISABLE_{}".format(group), False)
+        parser.addoption(
+            "--disable-{}".format(group),
+            action="store_true",
+            default=default,
+            help=("Disable the {} test group".format(group)),
+        )
 
-        default = bool_env('PYARROW_TEST_ONLY_{}'.format(group), False)
-        parser.addoption('--only-{}'.format(group),
-                         action='store_true', default=default,
-                         help=('Run only the {} test group'.format(group)))
+        default = bool_env("PYARROW_TEST_ONLY_{}".format(group), False)
+        parser.addoption(
+            "--only-{}".format(group),
+            action="store_true",
+            default=default,
+            help=("Run only the {} test group".format(group)),
+        )
 
-    parser.addoption('--runslow', action='store_true',
-                     default=False, help='run slow tests')
+    parser.addoption(
+        "--runslow", action="store_true", default=False, help="run slow tests"
+    )
 
 
 def pytest_collection_modifyitems(config, items):
-    if not config.getoption('--runslow'):
-        skip_slow = pytest.mark.skip(reason='need --runslow option to run')
+    if not config.getoption("--runslow"):
+        skip_slow = pytest.mark.skip(reason="need --runslow option to run")
 
         for item in items:
-            if 'slow' in item.keywords:
+            if "slow" in item.keywords:
                 item.add_marker(skip_slow)
 
 
@@ -183,29 +202,30 @@ def pytest_runtest_setup(item):
     item_marks = {mark.name: mark for mark in item.iter_markers()}
 
     for group in groups:
-        flag = '--{0}'.format(group)
-        only_flag = '--only-{0}'.format(group)
-        enable_flag = '--enable-{0}'.format(group)
-        disable_flag = '--disable-{0}'.format(group)
+        flag = "--{0}".format(group)
+        only_flag = "--only-{0}".format(group)
+        enable_flag = "--enable-{0}".format(group)
+        disable_flag = "--disable-{0}".format(group)
 
         if item.config.getoption(only_flag):
             only_set = True
         elif group in item_marks:
-            is_enabled = (item.config.getoption(flag) or
-                          item.config.getoption(enable_flag))
+            is_enabled = item.config.getoption(flag) or item.config.getoption(
+                enable_flag
+            )
             is_disabled = item.config.getoption(disable_flag)
             if is_disabled or not is_enabled:
-                pytest.skip('{0} NOT enabled'.format(flag))
+                pytest.skip("{0} NOT enabled".format(flag))
 
     if only_set:
         skip_item = True
         for group in groups:
-            only_flag = '--only-{0}'.format(group)
+            only_flag = "--only-{0}".format(group)
             if group in item_marks and item.config.getoption(only_flag):
                 skip_item = False
 
         if skip_item:
-            pytest.skip('Only running some groups with only flags')
+            pytest.skip("Only running some groups with only flags")
 
 
 @pytest.fixture
@@ -214,6 +234,6 @@ def tempdir(tmpdir):
     return pathlib.Path(tmpdir.strpath)
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def datadir():
-    return pathlib.Path(__file__).parent / 'data'
+    return pathlib.Path(__file__).parent / "data"

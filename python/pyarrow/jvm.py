@@ -96,11 +96,11 @@ def _from_jvm_float_type(jvm_type):
     typ: pyarrow.DataType
     """
     precision = jvm_type.getPrecision().toString()
-    if precision == 'HALF':
+    if precision == "HALF":
         return pa.float16()
-    elif precision == 'SINGLE':
+    elif precision == "SINGLE":
         return pa.float32()
-    elif precision == 'DOUBLE':
+    elif precision == "DOUBLE":
         return pa.float64()
 
 
@@ -117,18 +117,18 @@ def _from_jvm_time_type(jvm_type):
     typ: pyarrow.DataType
     """
     time_unit = jvm_type.getUnit().toString()
-    if time_unit == 'SECOND':
+    if time_unit == "SECOND":
         assert jvm_type.bitWidth == 32
-        return pa.time32('s')
-    elif time_unit == 'MILLISECOND':
+        return pa.time32("s")
+    elif time_unit == "MILLISECOND":
         assert jvm_type.bitWidth == 32
-        return pa.time32('ms')
-    elif time_unit == 'MICROSECOND':
+        return pa.time32("ms")
+    elif time_unit == "MICROSECOND":
         assert jvm_type.bitWidth == 64
-        return pa.time64('us')
-    elif time_unit == 'NANOSECOND':
+        return pa.time64("us")
+    elif time_unit == "NANOSECOND":
         assert jvm_type.bitWidth == 64
-        return pa.time64('ns')
+        return pa.time64("ns")
 
 
 def _from_jvm_timestamp_type(jvm_type):
@@ -145,14 +145,14 @@ def _from_jvm_timestamp_type(jvm_type):
     """
     time_unit = jvm_type.getUnit().toString()
     timezone = jvm_type.getTimezone()
-    if time_unit == 'SECOND':
-        return pa.timestamp('s', tz=timezone)
-    elif time_unit == 'MILLISECOND':
-        return pa.timestamp('ms', tz=timezone)
-    elif time_unit == 'MICROSECOND':
-        return pa.timestamp('us', tz=timezone)
-    elif time_unit == 'NANOSECOND':
-        return pa.timestamp('ns', tz=timezone)
+    if time_unit == "SECOND":
+        return pa.timestamp("s", tz=timezone)
+    elif time_unit == "MILLISECOND":
+        return pa.timestamp("ms", tz=timezone)
+    elif time_unit == "MICROSECOND":
+        return pa.timestamp("us", tz=timezone)
+    elif time_unit == "NANOSECOND":
+        return pa.timestamp("ns", tz=timezone)
 
 
 def _from_jvm_date_type(jvm_type):
@@ -168,9 +168,9 @@ def _from_jvm_date_type(jvm_type):
     typ: pyarrow.DataType
     """
     day_unit = jvm_type.getUnit().toString()
-    if day_unit == 'DAY':
+    if day_unit == "DAY":
         return pa.date32()
-    elif day_unit == 'MILLISECOND':
+    elif day_unit == "MILLISECOND":
         return pa.date64()
 
 
@@ -193,36 +193,36 @@ def field(jvm_field):
     typ = None
     if not jvm_type.isComplex():
         type_str = jvm_type.getTypeID().toString()
-        if type_str == 'Null':
+        if type_str == "Null":
             typ = pa.null()
-        elif type_str == 'Int':
+        elif type_str == "Int":
             typ = _from_jvm_int_type(jvm_type)
-        elif type_str == 'FloatingPoint':
+        elif type_str == "FloatingPoint":
             typ = _from_jvm_float_type(jvm_type)
-        elif type_str == 'Utf8':
+        elif type_str == "Utf8":
             typ = pa.string()
-        elif type_str == 'Binary':
+        elif type_str == "Binary":
             typ = pa.binary()
-        elif type_str == 'FixedSizeBinary':
+        elif type_str == "FixedSizeBinary":
             typ = pa.binary(jvm_type.getByteWidth())
-        elif type_str == 'Bool':
+        elif type_str == "Bool":
             typ = pa.bool_()
-        elif type_str == 'Time':
+        elif type_str == "Time":
             typ = _from_jvm_time_type(jvm_type)
-        elif type_str == 'Timestamp':
+        elif type_str == "Timestamp":
             typ = _from_jvm_timestamp_type(jvm_type)
-        elif type_str == 'Date':
+        elif type_str == "Date":
             typ = _from_jvm_date_type(jvm_type)
-        elif type_str == 'Decimal':
+        elif type_str == "Decimal":
             typ = pa.decimal128(jvm_type.getPrecision(), jvm_type.getScale())
         else:
-            raise NotImplementedError(
-                "Unsupported JVM type: {}".format(type_str))
+            raise NotImplementedError("Unsupported JVM type: {}".format(type_str))
     else:
         # TODO: The following JVM types are not implemented:
         #       Struct, List, FixedSizeList, Union, Dictionary
         raise NotImplementedError(
-            "JVM field conversion only implemented for primitive types.")
+            "JVM field conversion only implemented for primitive types."
+        )
 
     nullable = jvm_field.isNullable()
     if jvm_field.getMetadata().isEmpty():
@@ -271,11 +271,11 @@ def array(jvm_array):
         minor_type_str = jvm_array.getMinorType().toString()
         raise NotImplementedError(
             "Cannot convert JVM Arrow array of type {},"
-            " complex types not yet implemented.".format(minor_type_str))
+            " complex types not yet implemented.".format(minor_type_str)
+        )
     dtype = field(jvm_array.getField()).type
     length = jvm_array.getValueCount()
-    buffers = [jvm_buffer(buf)
-               for buf in list(jvm_array.getBuffers(False))]
+    buffers = [jvm_buffer(buf) for buf in list(jvm_array.getBuffers(False))]
     null_count = jvm_array.getNullCount()
     return pa.Array.from_buffers(dtype, length, buffers, null_count)
 
@@ -299,7 +299,5 @@ def record_batch(jvm_vector_schema_root):
         arrays.append(array(jvm_vector_schema_root.getVector(name)))
 
     return pa.RecordBatch.from_arrays(
-        arrays,
-        pa_schema.names,
-        metadata=pa_schema.metadata
+        arrays, pa_schema.names, metadata=pa_schema.metadata
     )

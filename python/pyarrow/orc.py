@@ -26,11 +26,13 @@ import pyarrow._orc as _orc
 
 
 def _is_map(typ):
-    return (types.is_list(typ) and
-            types.is_struct(typ.value_type) and
-            typ.value_type.num_children == 2 and
-            typ.value_type[0].name == 'key' and
-            typ.value_type[1].name == 'value')
+    return (
+        types.is_list(typ)
+        and types.is_struct(typ.value_type)
+        and typ.value_type.num_children == 2
+        and typ.value_type[0].name == "key"
+        and typ.value_type[1].name == "value"
+    )
 
 
 def _traverse(typ, counter):
@@ -58,7 +60,7 @@ def _traverse(typ, counter):
 
 
 def _schema_to_indices(schema):
-    return {'.'.join(i): c for i, c in _traverse(schema, count(1))}
+    return {".".join(i): c for i, c in _traverse(schema, count(1))}
 
 
 class ORCFile(object):
@@ -71,6 +73,7 @@ class ORCFile(object):
         Readable source. For passing Python file objects or byte buffers,
         see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
     """
+
     def __init__(self, source):
         self.reader = _orc.ORCReader()
         self.reader.open(source)
@@ -103,8 +106,10 @@ class ORCFile(object):
                 if 0 <= col < len(schema):
                     col = schema[col].name
                 else:
-                    raise ValueError("Column indices must be in 0 <= ind < %d,"
-                                     " got %d" % (len(schema), col))
+                    raise ValueError(
+                        "Column indices must be in 0 <= ind < %d,"
+                        " got %d" % (len(schema), col)
+                    )
             if col in self._column_index_lookup:
                 indices.append(self._column_index_lookup[col])
             else:

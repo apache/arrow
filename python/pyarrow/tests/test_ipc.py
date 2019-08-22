@@ -27,8 +27,7 @@ import pyarrow as pa
 
 
 try:
-    from pandas.util.testing import (assert_frame_equal,
-                                     assert_series_equal)
+    from pandas.util.testing import assert_frame_equal, assert_series_equal
     import pandas as pd
 except ImportError:
     pass
@@ -40,7 +39,6 @@ pytestmark = pytest.mark.pandas
 
 
 class IpcFixture(object):
-
     def __init__(self, sink_factory=lambda: io.BytesIO()):
         self._sink_factory = sink_factory
         self.sink = self.get_sink()
@@ -53,9 +51,12 @@ class IpcFixture(object):
 
     def write_batches(self, num_batches=5, as_table=False):
         nrows = 5
-        df = pd.DataFrame({
-            'one': np.random.randn(nrows),
-            'two': ['foo', np.nan, 'bar', 'bazbaz', 'qux']})
+        df = pd.DataFrame(
+            {
+                "one": np.random.randn(nrows),
+                "two": ["foo", np.nan, "bar", "bazbaz", "qux"],
+            }
+        )
         batch = pa.RecordBatch.from_pandas(df)
 
         writer = self._get_writer(self.sink, batch.schema)
@@ -64,7 +65,7 @@ class IpcFixture(object):
         batches = []
         for i in range(num_batches):
             unique_df = df.copy()
-            unique_df['one'] = np.random.randn(len(df))
+            unique_df["one"] = np.random.randn(len(df))
             batch = pa.RecordBatch.from_pandas(unique_df)
             frames.append(unique_df)
             batches.append(batch)
@@ -81,7 +82,6 @@ class IpcFixture(object):
 
 
 class FileFormatFixture(IpcFixture):
-
     def _get_writer(self, sink, schema):
         return pa.RecordBatchFileWriter(sink, schema)
 
@@ -101,13 +101,11 @@ class FileFormatFixture(IpcFixture):
 
 
 class StreamFormatFixture(IpcFixture):
-
     def _get_writer(self, sink, schema):
         return pa.RecordBatchStreamWriter(sink, schema)
 
 
 class MessageFixture(IpcFixture):
-
     def _get_writer(self, sink, schema):
         return pa.RecordBatchStreamWriter(sink, schema)
 
@@ -128,7 +126,7 @@ def stream_fixture():
 
 
 def test_empty_file():
-    buf = b''
+    buf = b""
     with pytest.raises(pa.ArrowInvalid):
         pa.ipc.open_file(pa.BufferReader(buf))
 
@@ -141,10 +139,9 @@ def test_file_write_table(file_fixture):
     file_fixture._check_roundtrip(as_table=True)
 
 
-@pytest.mark.parametrize("sink_factory", [
-    lambda: io.BytesIO(),
-    lambda: pa.BufferOutputStream()
-])
+@pytest.mark.parametrize(
+    "sink_factory", [lambda: io.BytesIO(), lambda: pa.BufferOutputStream()]
+)
 def test_file_read_all(sink_factory):
     fixture = FileFormatFixture(sink_factory)
 
@@ -186,16 +183,15 @@ def test_file_read_pandas(file_fixture):
     assert_frame_equal(result, expected)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 6),
-                    reason="need Python 3.6")
+@pytest.mark.skipif(sys.version_info < (3, 6), reason="need Python 3.6")
 def test_file_pathlib(file_fixture, tmpdir):
     import pathlib
 
     _, batches = file_fixture.write_batches()
     source = file_fixture.get_source()
 
-    path = tmpdir.join('file.arrow').strpath
-    with open(path, 'wb') as f:
+    path = tmpdir.join("file.arrow").strpath
+    with open(path, "wb") as f:
         f.write(source)
 
     t1 = pa.ipc.open_file(pathlib.Path(path)).read_all()
@@ -205,25 +201,28 @@ def test_file_pathlib(file_fixture, tmpdir):
 
 
 def test_empty_stream():
-    buf = io.BytesIO(b'')
+    buf = io.BytesIO(b"")
     with pytest.raises(pa.ArrowInvalid):
         pa.ipc.open_stream(buf)
 
 
 def test_stream_categorical_roundtrip(stream_fixture):
-    df = pd.DataFrame({
-        'one': np.random.randn(5),
-        'two': pd.Categorical(['foo', np.nan, 'bar', 'foo', 'foo'],
-                              categories=['foo', 'bar'],
-                              ordered=True)
-    })
+    df = pd.DataFrame(
+        {
+            "one": np.random.randn(5),
+            "two": pd.Categorical(
+                ["foo", np.nan, "bar", "foo", "foo"],
+                categories=["foo", "bar"],
+                ordered=True,
+            ),
+        }
+    )
     batch = pa.RecordBatch.from_pandas(df)
     writer = stream_fixture._get_writer(stream_fixture.sink, batch.schema)
     writer.write_batch(batch)
     writer.close()
 
-    table = (pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source()))
-             .read_all())
+    table = pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source())).read_all()
     assert_frame_equal(table.to_pandas(), df)
 
 
@@ -246,12 +245,16 @@ def test_open_stream_from_buffer(stream_fixture):
 
 def test_stream_write_dispatch(stream_fixture):
     # ARROW-1616
-    df = pd.DataFrame({
-        'one': np.random.randn(5),
-        'two': pd.Categorical(['foo', np.nan, 'bar', 'foo', 'foo'],
-                              categories=['foo', 'bar'],
-                              ordered=True)
-    })
+    df = pd.DataFrame(
+        {
+            "one": np.random.randn(5),
+            "two": pd.Categorical(
+                ["foo", np.nan, "bar", "foo", "foo"],
+                categories=["foo", "bar"],
+                ordered=True,
+            ),
+        }
+    )
     table = pa.Table.from_pandas(df, preserve_index=False)
     batch = pa.RecordBatch.from_pandas(df, preserve_index=False)
     writer = stream_fixture._get_writer(stream_fixture.sink, table.schema)
@@ -259,17 +262,13 @@ def test_stream_write_dispatch(stream_fixture):
     writer.write(batch)
     writer.close()
 
-    table = (pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source()))
-             .read_all())
-    assert_frame_equal(table.to_pandas(),
-                       pd.concat([df, df], ignore_index=True))
+    table = pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source())).read_all()
+    assert_frame_equal(table.to_pandas(), pd.concat([df, df], ignore_index=True))
 
 
 def test_stream_write_table_batches(stream_fixture):
     # ARROW-504
-    df = pd.DataFrame({
-        'one': np.random.randn(20),
-    })
+    df = pd.DataFrame({"one": np.random.randn(20)})
 
     b1 = pa.RecordBatch.from_pandas(df[:10], preserve_index=False)
     b2 = pa.RecordBatch.from_pandas(df, preserve_index=False)
@@ -284,9 +283,9 @@ def test_stream_write_table_batches(stream_fixture):
 
     assert list(map(len, batches)) == [10, 15, 5, 10]
     result_table = pa.Table.from_batches(batches)
-    assert_frame_equal(result_table.to_pandas(),
-                       pd.concat([df[:10], df, df[:10]],
-                                 ignore_index=True))
+    assert_frame_equal(
+        result_table.to_pandas(), pd.concat([df[:10], df, df[:10]], ignore_index=True)
+    )
 
 
 def test_stream_simple_roundtrip(stream_fixture):
@@ -348,12 +347,12 @@ def test_message_reader(example_messages):
     _, messages = example_messages
 
     assert len(messages) == 6
-    assert messages[0].type == 'schema'
+    assert messages[0].type == "schema"
     assert isinstance(messages[0].metadata, pa.Buffer)
     assert isinstance(messages[0].body, pa.Buffer)
 
     for msg in messages[1:]:
-        assert msg.type == 'record batch'
+        assert msg.type == "record batch"
         assert isinstance(msg.metadata, pa.Buffer)
         assert isinstance(msg.body, pa.Buffer)
 
@@ -386,10 +385,9 @@ def test_message_read_record_batch(example_messages):
 
 
 class StreamReaderServer(threading.Thread):
-
     def init(self, do_read_all):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._sock.bind(('127.0.0.1', 0))
+        self._sock.bind(("127.0.0.1", 0))
         self._sock.listen(1)
         host, port = self._sock.getsockname()
         self._do_read_all = do_read_all
@@ -401,7 +399,7 @@ class StreamReaderServer(threading.Thread):
     def run(self):
         connection, client_address = self._sock.accept()
         try:
-            source = connection.makefile(mode='rb')
+            source = connection.makefile(mode="rb")
             reader = pa.ipc.open_stream(source)
             self._schema = reader.schema
             if self._do_read_all:
@@ -413,12 +411,10 @@ class StreamReaderServer(threading.Thread):
             connection.close()
 
     def get_result(self):
-        return(self._schema, self._table if self._do_read_all
-               else self._batches)
+        return (self._schema, self._table if self._do_read_all else self._batches)
 
 
 class SocketStreamFixture(IpcFixture):
-
     def __init__(self):
         # XXX(wesm): test will decide when to start socket server. This should
         # probably be refactored
@@ -429,19 +425,20 @@ class SocketStreamFixture(IpcFixture):
         port = self._server.init(do_read_all)
         self._server.start()
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._sock.connect(('127.0.0.1', port))
+        self._sock.connect(("127.0.0.1", port))
         self.sink = self.get_sink()
 
     def stop_and_get_result(self):
         import struct
-        self.sink.write(struct.pack('i', 0))
+
+        self.sink.write(struct.pack("i", 0))
         self.sink.flush()
         self._sock.close()
         self._server.join()
         return self._server.get_result()
 
     def get_sink(self):
-        return self._sock.makefile(mode='wb')
+        return self._sock.makefile(mode="wb")
 
     def _get_writer(self, sink, schema):
         return pa.RecordBatchStreamWriter(sink, schema)
@@ -475,10 +472,11 @@ def test_socket_read_all(socket_fixture):
 # ----------------------------------------------------------------------
 # Miscellaneous IPC tests
 
+
 def test_ipc_file_stream_has_eos():
     # ARROW-5395
 
-    df = pd.DataFrame({'foo': [1.5]})
+    df = pd.DataFrame({"foo": [1.5]})
     batch = pa.RecordBatch.from_pandas(df)
     sink = pa.BufferOutputStream()
     write_file(batch, sink)
@@ -494,7 +492,7 @@ def test_ipc_file_stream_has_eos():
 
 
 def test_ipc_zero_copy_numpy():
-    df = pd.DataFrame({'foo': [1.5]})
+    df = pd.DataFrame({"foo": [1.5]})
 
     batch = pa.RecordBatch.from_pandas(df)
     sink = pa.BufferOutputStream()
@@ -511,9 +509,10 @@ def test_ipc_zero_copy_numpy():
 
 def test_ipc_stream_no_batches():
     # ARROW-2307
-    table = pa.Table.from_arrays([pa.array([1, 2, 3, 4]),
-                                  pa.array(['foo', 'bar', 'baz', 'qux'])],
-                                 names=['a', 'b'])
+    table = pa.Table.from_arrays(
+        [pa.array([1, 2, 3, 4]), pa.array(["foo", "bar", "baz", "qux"])],
+        names=["a", "b"],
+    )
 
     sink = pa.BufferOutputStream()
     writer = pa.RecordBatchStreamWriter(sink, table.schema)
@@ -530,7 +529,7 @@ def test_ipc_stream_no_batches():
 def test_get_record_batch_size():
     N = 10
     itemsize = 8
-    df = pd.DataFrame({'foo': np.random.randn(N)})
+    df = pd.DataFrame({"foo": np.random.randn(N)})
 
     batch = pa.RecordBatch.from_pandas(df)
     assert pa.get_record_batch_size(batch) > (N * itemsize)
@@ -543,35 +542,31 @@ def _check_serialize_pandas_round_trip(df, use_threads=False):
 
 
 def test_pandas_serialize_round_trip():
-    index = pd.Index([1, 2, 3], name='my_index')
-    columns = ['foo', 'bar']
+    index = pd.Index([1, 2, 3], name="my_index")
+    columns = ["foo", "bar"]
     df = pd.DataFrame(
-        {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
-        index=index, columns=columns
+        {"foo": [1.5, 1.6, 1.7], "bar": list("abc")}, index=index, columns=columns
     )
     _check_serialize_pandas_round_trip(df)
 
 
 def test_pandas_serialize_round_trip_nthreads():
-    index = pd.Index([1, 2, 3], name='my_index')
-    columns = ['foo', 'bar']
+    index = pd.Index([1, 2, 3], name="my_index")
+    columns = ["foo", "bar"]
     df = pd.DataFrame(
-        {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
-        index=index, columns=columns
+        {"foo": [1.5, 1.6, 1.7], "bar": list("abc")}, index=index, columns=columns
     )
     _check_serialize_pandas_round_trip(df, use_threads=True)
 
 
 def test_pandas_serialize_round_trip_multi_index():
-    index1 = pd.Index([1, 2, 3], name='level_1')
-    index2 = pd.Index(list('def'), name=None)
+    index1 = pd.Index([1, 2, 3], name="level_1")
+    index2 = pd.Index(list("def"), name=None)
     index = pd.MultiIndex.from_arrays([index1, index2])
 
-    columns = ['foo', 'bar']
+    columns = ["foo", "bar"]
     df = pd.DataFrame(
-        {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
-        index=index,
-        columns=columns,
+        {"foo": [1.5, 1.6, 1.7], "bar": list("abc")}, index=index, columns=columns
     )
     _check_serialize_pandas_round_trip(df)
 
@@ -582,15 +577,15 @@ def test_serialize_pandas_empty_dataframe():
 
 
 def test_pandas_serialize_round_trip_not_string_columns():
-    df = pd.DataFrame(list(zip([1.5, 1.6, 1.7], 'abc')))
+    df = pd.DataFrame(list(zip([1.5, 1.6, 1.7], "abc")))
     buf = pa.serialize_pandas(df)
     result = pa.deserialize_pandas(buf)
     assert_frame_equal(result, df)
 
 
 def test_serialize_pandas_no_preserve_index():
-    df = pd.DataFrame({'a': [1, 2, 3]}, index=[1, 2, 3])
-    expected = pd.DataFrame({'a': [1, 2, 3]})
+    df = pd.DataFrame({"a": [1, 2, 3]}, index=[1, 2, 3])
+    expected = pd.DataFrame({"a": [1, 2, 3]})
 
     buf = pa.serialize_pandas(df, preserve_index=False)
     result = pa.deserialize_pandas(buf)
@@ -602,31 +597,27 @@ def test_serialize_pandas_no_preserve_index():
 
 
 def test_serialize_with_pandas_objects():
-    df = pd.DataFrame({'a': [1, 2, 3]}, index=[1, 2, 3])
+    df = pd.DataFrame({"a": [1, 2, 3]}, index=[1, 2, 3])
     s = pd.Series([1, 2, 3, 4])
 
-    data = {
-        'a_series': df['a'],
-        'a_frame': df,
-        's_series': s
-    }
+    data = {"a_series": df["a"], "a_frame": df, "s_series": s}
 
     serialized = pa.serialize(data).to_buffer()
     deserialized = pa.deserialize(serialized)
-    assert_frame_equal(deserialized['a_frame'], df)
+    assert_frame_equal(deserialized["a_frame"], df)
 
-    assert_series_equal(deserialized['a_series'], df['a'])
-    assert deserialized['a_series'].name == 'a'
+    assert_series_equal(deserialized["a_series"], df["a"])
+    assert deserialized["a_series"].name == "a"
 
-    assert_series_equal(deserialized['s_series'], s)
-    assert deserialized['s_series'].name is None
+    assert_series_equal(deserialized["s_series"], s)
+    assert deserialized["s_series"].name is None
 
 
 def test_schema_batch_serialize_methods():
     nrows = 5
-    df = pd.DataFrame({
-        'one': np.random.randn(nrows),
-        'two': ['foo', np.nan, 'bar', 'bazbaz', 'qux']})
+    df = pd.DataFrame(
+        {"one": np.random.randn(nrows), "two": ["foo", np.nan, "bar", "bazbaz", "qux"]}
+    )
     batch = pa.RecordBatch.from_pandas(df)
 
     s_schema = batch.schema.serialize()
@@ -638,11 +629,11 @@ def test_schema_batch_serialize_methods():
 
 
 def test_schema_serialization_with_metadata():
-    field_metadata = {b'foo': b'bar', b'kind': b'field'}
-    schema_metadata = {b'foo': b'bar', b'kind': b'schema'}
+    field_metadata = {b"foo": b"bar", b"kind": b"field"}
+    schema_metadata = {b"foo": b"bar", b"kind": b"schema"}
 
-    f0 = pa.field('a', pa.int8())
-    f1 = pa.field('b', pa.string(), metadata=field_metadata)
+    f0 = pa.field("a", pa.int8())
+    f1 = pa.field("b", pa.string(), metadata=field_metadata)
 
     schema = pa.schema([f0, f1], metadata=schema_metadata)
 
@@ -663,14 +654,13 @@ def write_file(batch, sink):
 
 def read_file(source):
     reader = pa.ipc.open_file(source)
-    return [reader.get_batch(i)
-            for i in range(reader.num_record_batches)]
+    return [reader.get_batch(i) for i in range(reader.num_record_batches)]
 
 
 def test_write_empty_ipc_file():
     # ARROW-3894: IPC file was not being properly initialized when no record
     # batches are being written
-    schema = pa.schema([('field', pa.int64())])
+    schema = pa.schema([("field", pa.int64())])
 
     sink = pa.BufferOutputStream()
     writer = pa.RecordBatchFileWriter(sink, schema)

@@ -18,4 +18,4 @@
 import pyarrow as pa  # noqa
 import sys
 
-assert 'pandas' not in sys.modules
+assert "pandas" not in sys.modules

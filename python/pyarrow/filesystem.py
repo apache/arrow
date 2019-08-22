@@ -32,6 +32,7 @@ class FileSystem(object):
     """
     Abstract filesystem interface
     """
+
     def cat(self, path):
         """
         Return contents of file as a bytes object
@@ -40,7 +41,7 @@ class FileSystem(object):
         -------
         contents : bytes
         """
-        with self.open(path, 'rb') as f:
+        with self.open(path, "rb") as f:
             return f.read()
 
     def ls(self, path):
@@ -76,14 +77,14 @@ class FileSystem(object):
         """
         path = _stringify_path(path)
         path_info = self.stat(path)
-        if path_info['kind'] == 'file':
-            return path_info['size']
+        if path_info["kind"] == "file":
+            return path_info["size"]
 
         total = 0
         for root, directories, files in self.walk(path):
             for child_path in files:
                 abspath = self._path_join(root, child_path)
-                total += self.stat(abspath)['size']
+                total += self.stat(abspath)["size"]
 
         return total
 
@@ -97,7 +98,7 @@ class FileSystem(object):
         -------
         stat : dict
         """
-        raise NotImplementedError('FileSystem.stat')
+        raise NotImplementedError("FileSystem.stat")
 
     def rm(self, path, recursive=False):
         """
@@ -122,7 +123,7 @@ class FileSystem(object):
         new_path : string
             Path to move to
         """
-        raise NotImplementedError('FileSystem.rename')
+        raise NotImplementedError("FileSystem.rename")
 
     def mkdir(self, path, create_parents=True):
         raise NotImplementedError
@@ -149,8 +150,15 @@ class FileSystem(object):
         """
         raise NotImplementedError
 
-    def read_parquet(self, path, columns=None, metadata=None, schema=None,
-                     use_threads=True, use_pandas_metadata=False):
+    def read_parquet(
+        self,
+        path,
+        columns=None,
+        metadata=None,
+        schema=None,
+        use_threads=True,
+        use_pandas_metadata=False,
+    ):
         """
         Read Parquet data from path in file system. Can read from a single file
         or a directory of files
@@ -177,12 +185,17 @@ class FileSystem(object):
         table : pyarrow.Table
         """
         from pyarrow.parquet import ParquetDataset
-        dataset = ParquetDataset(path, schema=schema, metadata=metadata,
-                                 filesystem=self)
-        return dataset.read(columns=columns, use_threads=use_threads,
-                            use_pandas_metadata=use_pandas_metadata)
 
-    def open(self, path, mode='rb'):
+        dataset = ParquetDataset(
+            path, schema=schema, metadata=metadata, filesystem=self
+        )
+        return dataset.read(
+            columns=columns,
+            use_threads=use_threads,
+            use_pandas_metadata=use_pandas_metadata,
+        )
+
+    def open(self, path, mode="rb"):
         """
         Open file for reading or writing
         """
@@ -190,7 +203,7 @@ class FileSystem(object):
 
     @property
     def pathsep(self):
-        return '/'
+        return "/"
 
 
 class LocalFileSystem(FileSystem):
@@ -236,7 +249,7 @@ class LocalFileSystem(FileSystem):
         return os.path.exists(path)
 
     @implements(FileSystem.open)
-    def open(self, path, mode='rb'):
+    def open(self, path, mode="rb"):
         """
         Open file for reading or writing
         """
@@ -298,7 +311,7 @@ class DaskFileSystem(FileSystem):
             return self.fs.mkdir(path)
 
     @implements(FileSystem.open)
-    def open(self, path, mode='rb'):
+    def open(self, path, mode="rb"):
         """
         Open file for reading or writing
         """
@@ -318,7 +331,6 @@ class DaskFileSystem(FileSystem):
 
 
 class S3FSWrapper(DaskFileSystem):
-
     @implements(FileSystem.isdir)
     def isdir(self, path):
         path = _sanitize_s3(_stringify_path(path))
@@ -352,19 +364,17 @@ class S3FSWrapper(DaskFileSystem):
         files = set()
 
         for key in list(self.fs._ls(path, refresh=refresh)):
-            path = key['Key']
-            if key['StorageClass'] == 'DIRECTORY':
+            path = key["Key"]
+            if key["StorageClass"] == "DIRECTORY":
                 directories.add(path)
-            elif key['StorageClass'] == 'BUCKET':
+            elif key["StorageClass"] == "BUCKET":
                 pass
             else:
                 files.add(path)
 
         # s3fs creates duplicate 'DIRECTORY' entries
-        files = sorted([posixpath.split(f)[1] for f in files
-                        if f not in directories])
-        directories = sorted([posixpath.split(x)[1]
-                              for x in directories])
+        files = sorted([posixpath.split(f)[1] for f in files if f not in directories])
+        directories = sorted([posixpath.split(x)[1] for x in directories])
 
         yield path, directories, files
 
@@ -374,8 +384,8 @@ class S3FSWrapper(DaskFileSystem):
 
 
 def _sanitize_s3(path):
-    if path.startswith('s3://'):
-        return path.replace('s3://', '')
+    if path.startswith("s3://"):
+        return path.replace("s3://", "")
     else:
         return path
 
@@ -387,14 +397,14 @@ def _ensure_filesystem(fs):
     # interface and return it
     if not issubclass(fs_type, FileSystem):
         for mro in inspect.getmro(fs_type):
-            if mro.__name__ == 'S3FileSystem':
+            if mro.__name__ == "S3FileSystem":
                 return S3FSWrapper(fs)
             # In case its a simple LocalFileSystem (e.g. dask) use native arrow
             # FS
-            elif mro.__name__ == 'LocalFileSystem':
+            elif mro.__name__ == "LocalFileSystem":
                 return LocalFileSystem.get_instance()
 
-        raise IOError('Unrecognized filesystem: {0}'.format(fs_type))
+        raise IOError("Unrecognized filesystem: {0}".format(fs_type))
     else:
         return fs
 
@@ -406,8 +416,10 @@ def resolve_filesystem_and_path(where, filesystem=None):
     """
     if not _is_path_like(where):
         if filesystem is not None:
-            raise ValueError("filesystem passed but where is file-like, so"
-                             " there is nothing to open with filesystem.")
+            raise ValueError(
+                "filesystem passed but where is file-like, so"
+                " there is nothing to open with filesystem."
+            )
         return filesystem, where
 
     path = _stringify_path(where)
@@ -416,18 +428,18 @@ def resolve_filesystem_and_path(where, filesystem=None):
         return _ensure_filesystem(filesystem), path
 
     parsed_uri = urlparse(path)
-    if parsed_uri.scheme == 'hdfs':
+    if parsed_uri.scheme == "hdfs":
         # Input is hdfs URI such as hdfs://host:port/myfile.parquet
-        netloc_split = parsed_uri.netloc.split(':')
+        netloc_split = parsed_uri.netloc.split(":")
         host = netloc_split[0]
-        if host == '':
-            host = 'default'
+        if host == "":
+            host = "default"
         port = 0
         if len(netloc_split) == 2 and netloc_split[1].isnumeric():
             port = int(netloc_split[1])
         fs = pa.hdfs.connect(host=host, port=port)
         fs_path = parsed_uri.path
-    elif parsed_uri.scheme == 'file':
+    elif parsed_uri.scheme == "file":
         # Input is local URI such as file:///home/user/myfile.parquet
         fs = LocalFileSystem.get_instance()
         fs_path = parsed_uri.path

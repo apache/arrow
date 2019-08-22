@@ -26,12 +26,13 @@ def test_resolve_uri():
 
 
 def test_resolve_local_path():
-    for uri in ['/home/user/myfile.parquet',
-                'myfile.parquet',
-                'my # file ? parquet',
-                'C:/Windows/myfile.parquet',
-                r'C:\\Windows\\myfile.parquet',
-                ]:
+    for uri in [
+        "/home/user/myfile.parquet",
+        "myfile.parquet",
+        "my # file ? parquet",
+        "C:/Windows/myfile.parquet",
+        r"C:\\Windows\\myfile.parquet",
+    ]:
         fs, path = filesystem.resolve_filesystem_and_path(uri)
         assert isinstance(fs, filesystem.LocalFileSystem)
         assert path == uri

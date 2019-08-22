@@ -33,9 +33,9 @@ except ImportError:
     pass
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def datadir(datadir):
-    return datadir / 'orc'
+    return datadir / "orc"
 
 
 def fix_example_values(actual_cols, expected_cols):
@@ -64,8 +64,9 @@ def fix_example_values(actual_cols, expected_cols):
                 if not pd.isnull(v):
                     exp = d.as_tuple().exponent
                     factor = 10 ** -exp
-                    converted_decimals[i] = (
-                        decimal.Decimal(round(v * factor)).scaleb(exp))
+                    converted_decimals[i] = decimal.Decimal(round(v * factor)).scaleb(
+                        exp
+                    )
             expected = pd.Series(converted_decimals)
 
         expected_cols[name] = expected
@@ -106,20 +107,20 @@ def check_example_file(orc_path, expected_df, need_fix=False):
     json_pos = 0
     for i in range(orc_file.nstripes):
         batch = orc_file.read_stripe(i)
-        check_example_values(pd.DataFrame(batch.to_pydict()),
-                             expected_df,
-                             start=json_pos,
-                             stop=json_pos + len(batch))
+        check_example_values(
+            pd.DataFrame(batch.to_pydict()),
+            expected_df,
+            start=json_pos,
+            stop=json_pos + len(batch),
+        )
         json_pos += len(batch)
     assert json_pos == orc_file.nrows
 
 
 @pytest.mark.pandas
-@pytest.mark.parametrize('filename', [
-    'TestOrcFile.test1.orc',
-    'TestOrcFile.testDate1900.orc',
-    'decimal.orc'
-])
+@pytest.mark.parametrize(
+    "filename", ["TestOrcFile.test1.orc", "TestOrcFile.testDate1900.orc", "decimal.orc"]
+)
 def test_example_using_json(filename, datadir):
     """
     Check a ORC file example against the equivalent JSON file, as given
@@ -128,42 +129,62 @@ def test_example_using_json(filename, datadir):
     """
     # Read JSON file
     path = datadir / filename
-    table = pd.read_json(str(path.with_suffix('.jsn.gz')), lines=True)
+    table = pd.read_json(str(path.with_suffix(".jsn.gz")), lines=True)
     check_example_file(path, table, need_fix=True)
 
 
 def test_orcfile_empty(datadir):
     from pyarrow import orc
 
-    table = orc.ORCFile(datadir / 'TestOrcFile.emptyFile.orc').read()
+    table = orc.ORCFile(datadir / "TestOrcFile.emptyFile.orc").read()
     assert table.num_rows == 0
 
-    expected_schema = pa.schema([
-        ('boolean1', pa.bool_()),
-        ('byte1', pa.int8()),
-        ('short1', pa.int16()),
-        ('int1', pa.int32()),
-        ('long1', pa.int64()),
-        ('float1', pa.float32()),
-        ('double1', pa.float64()),
-        ('bytes1', pa.binary()),
-        ('string1', pa.string()),
-        ('middle', pa.struct([
-            ('list', pa.list_(pa.struct([
-                ('int1', pa.int32()),
-                ('string1', pa.string()),
-                ]))),
-            ])),
-        ('list', pa.list_(pa.struct([
-            ('int1', pa.int32()),
-            ('string1', pa.string()),
-            ]))),
-        ('map', pa.list_(pa.struct([
-            ('key', pa.string()),
-            ('value', pa.struct([
-                ('int1', pa.int32()),
-                ('string1', pa.string()),
-                ])),
-            ]))),
-        ])
+    expected_schema = pa.schema(
+        [
+            ("boolean1", pa.bool_()),
+            ("byte1", pa.int8()),
+            ("short1", pa.int16()),
+            ("int1", pa.int32()),
+            ("long1", pa.int64()),
+            ("float1", pa.float32()),
+            ("double1", pa.float64()),
+            ("bytes1", pa.binary()),
+            ("string1", pa.string()),
+            (
+                "middle",
+                pa.struct(
+                    [
+                        (
+                            "list",
+                            pa.list_(
+                                pa.struct(
+                                    [("int1", pa.int32()), ("string1", pa.string())]
+                                )
+                            ),
+                        )
+                    ]
+                ),
+            ),
+            (
+                "list",
+                pa.list_(pa.struct([("int1", pa.int32()), ("string1", pa.string())])),
+            ),
+            (
+                "map",
+                pa.list_(
+                    pa.struct(
+                        [
+                            ("key", pa.string()),
+                            (
+                                "value",
+                                pa.struct(
+                                    [("int1", pa.int32()), ("string1", pa.string())]
+                                ),
+                            ),
+                        ]
+                    )
+                ),
+            ),
+        ]
+    )
     assert table.schema == expected_schema

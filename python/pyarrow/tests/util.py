@@ -76,11 +76,11 @@ def randdecimal(precision, scale):
     decimal_value : decimal.Decimal
         A random decimal.Decimal object with the specifed precision and scale.
     """
-    assert 1 <= precision <= 38, 'precision must be between 1 and 38 inclusive'
+    assert 1 <= precision <= 38, "precision must be between 1 and 38 inclusive"
     if scale < 0:
         raise ValueError(
-            'randdecimal does not yet support generating decimals with '
-            'negative scale'
+            "randdecimal does not yet support generating decimals with "
+            "negative scale"
         )
     max_whole_value = 10 ** (precision - scale) - 1
     whole = random.randint(-max_whole_value, max_whole_value)
@@ -91,22 +91,19 @@ def randdecimal(precision, scale):
     max_fractional_value = 10 ** scale - 1
     fractional = random.randint(0, max_fractional_value)
 
-    return decimal.Decimal(
-        '{}.{}'.format(whole, str(fractional).rjust(scale, '0'))
-    )
+    return decimal.Decimal("{}.{}".format(whole, str(fractional).rjust(scale, "0")))
 
 
 def get_modified_env_with_pythonpath():
     # Prepend pyarrow root directory to PYTHONPATH
     env = os.environ.copy()
-    existing_pythonpath = env.get('PYTHONPATH', '')
+    existing_pythonpath = env.get("PYTHONPATH", "")
 
-    module_path = os.path.abspath(
-        os.path.dirname(os.path.dirname(pa.__file__)))
+    module_path = os.path.abspath(os.path.dirname(os.path.dirname(pa.__file__)))
 
     if existing_pythonpath:
         new_pythonpath = os.pathsep.join((module_path, existing_pythonpath))
     else:
         new_pythonpath = module_path
-    env['PYTHONPATH'] = new_pythonpath
+    env["PYTHONPATH"] = new_pythonpath
     return env

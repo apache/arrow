@@ -28,12 +28,11 @@ import pyarrow.lib as ext
 
 
 def _check_pandas_version():
-    if _pandas_api.loose_version < '0.17.0':
+    if _pandas_api.loose_version < "0.17.0":
         raise ImportError("feather requires pandas >= 0.17.0")
 
 
 class FeatherReader(ext.FeatherReader):
-
     def __init__(self, source):
         _check_pandas_version()
         self.source = source
@@ -49,13 +48,13 @@ class FeatherReader(ext.FeatherReader):
             return self._read_names(columns)
 
         column_type_names = [t.__name__ for t in column_types]
-        raise TypeError("Columns must be indices or names. "
-                        "Got columns {} of types {}"
-                        .format(columns, column_type_names))
+        raise TypeError(
+            "Columns must be indices or names. "
+            "Got columns {} of types {}".format(columns, column_type_names)
+        )
 
     def read_pandas(self, columns=None, use_threads=True):
-        return self.read_table(columns=columns).to_pandas(
-            use_threads=use_threads)
+        return self.read_table(columns=columns).to_pandas(use_threads=use_threads)
 
 
 def check_chunked_overflow(name, col):
@@ -63,18 +62,21 @@ def check_chunked_overflow(name, col):
         return
 
     if col.type in (ext.binary(), ext.string()):
-        raise ValueError("Column '{0}' exceeds 2GB maximum capacity of "
-                         "a Feather binary column. This restriction may be "
-                         "lifted in the future".format(name))
+        raise ValueError(
+            "Column '{0}' exceeds 2GB maximum capacity of "
+            "a Feather binary column. This restriction may be "
+            "lifted in the future".format(name)
+        )
     else:
         # TODO(wesm): Not sure when else this might be reached
-        raise ValueError("Column '{0}' of type {1} was chunked on conversion "
-                         "to Arrow and cannot be currently written to "
-                         "Feather format".format(name, str(col.type)))
+        raise ValueError(
+            "Column '{0}' of type {1} was chunked on conversion "
+            "to Arrow and cannot be currently written to "
+            "Feather format".format(name, str(col.type))
+        )
 
 
 class FeatherWriter(object):
-
     def __init__(self, dest):
         _check_pandas_version()
         self.dest = dest
@@ -110,6 +112,7 @@ class FeatherDataset(object):
     validate_schema : boolean, default True
         Check that individual file schemas are all the same / compatible
     """
+
     def __init__(self, path_or_paths, validate_schema=True):
         _check_pandas_version()
         self.paths = path_or_paths
@@ -142,10 +145,10 @@ class FeatherDataset(object):
 
     def validate_schemas(self, piece, table):
         if not self.schema.equals(table.schema):
-            raise ValueError('Schema in {0!s} was different. \n'
-                             '{1!s}\n\nvs\n\n{2!s}'
-                             .format(piece, self.schema,
-                                     table.schema))
+            raise ValueError(
+                "Schema in {0!s} was different. \n"
+                "{1!s}\n\nvs\n\n{2!s}".format(piece, self.schema, table.schema)
+            )
 
     def read_pandas(self, columns=None, use_threads=True):
         """
@@ -163,8 +166,7 @@ class FeatherDataset(object):
         pandas.DataFrame
             Content of the file as a pandas DataFrame (of columns)
         """
-        return self.read_table(columns=columns).to_pandas(
-            use_threads=use_threads)
+        return self.read_table(columns=columns).to_pandas(use_threads=use_threads)
 
 
 def write_feather(df, dest):
@@ -183,6 +185,7 @@ def write_feather(df, dest):
     except Exception:
         # Try to make sure the resource is closed
         import gc
+
         writer = None
         gc.collect()
         if isinstance(dest, six.string_types):

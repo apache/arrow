@@ -24,25 +24,25 @@ import pyarrow as pa
 
 class PandasConversionsBase(object):
     def setup(self, n, dtype):
-        if dtype == 'float64_nans':
-            arr = np.arange(n).astype('float64')
+        if dtype == "float64_nans":
+            arr = np.arange(n).astype("float64")
             arr[arr % 10 == 0] = np.nan
         else:
             arr = np.arange(n).astype(dtype)
-        self.data = pd.DataFrame({'column': arr})
+        self.data = pd.DataFrame({"column": arr})
 
 
 class PandasConversionsToArrow(PandasConversionsBase):
-    param_names = ('size', 'dtype')
-    params = ((10, 10 ** 6), ('int64', 'float64', 'float64_nans', 'str'))
+    param_names = ("size", "dtype")
+    params = ((10, 10 ** 6), ("int64", "float64", "float64_nans", "str"))
 
     def time_from_series(self, n, dtype):
         pa.Table.from_pandas(self.data)
 
 
 class PandasConversionsFromArrow(PandasConversionsBase):
-    param_names = ('size', 'dtype')
-    params = ((10, 10 ** 6), ('int64', 'float64', 'float64_nans', 'str'))
+    param_names = ("size", "dtype")
+    params = ((10, 10 ** 6), ("int64", "float64", "float64_nans", "str"))
 
     def setup(self, n, dtype):
         super(PandasConversionsFromArrow, self).setup(n, dtype)
@@ -54,7 +54,7 @@ class PandasConversionsFromArrow(PandasConversionsBase):
 
 class ToPandasStrings(object):
 
-    param_names = ('uniqueness', 'total')
+    param_names = ("uniqueness", "total")
     params = ((0.001, 0.01, 0.1, 0.5), (1000000,))
     string_length = 25
 
@@ -63,7 +63,7 @@ class ToPandasStrings(object):
         unique_values = [tm.rands(self.string_length) for i in range(nunique)]
         values = unique_values * (total // nunique)
         self.arr = pa.array(values, type=pa.string())
-        self.table = pa.Table.from_arrays([self.arr], ['f0'])
+        self.table = pa.Table.from_arrays([self.arr], ["f0"])
 
     def time_to_pandas_dedup(self, *args):
         self.arr.to_pandas()
@@ -73,7 +73,6 @@ class ToPandasStrings(object):
 
 
 class ZeroCopyPandasRead(object):
-
     def setup(self):
         # Transpose to make column-major
         values = np.random.randn(10, 100000)
@@ -93,11 +92,10 @@ class ZeroCopyPandasRead(object):
 
 
 class SerializeDeserializePandas(object):
-
     def setup(self):
         # 10 million length
         n = 10000000
-        self.df = pd.DataFrame({'data': np.random.randn(n)})
+        self.df = pd.DataFrame({"data": np.random.randn(n)})
         self.serialized = pa.serialize_pandas(self.df)
 
     def time_serialize_pandas(self):

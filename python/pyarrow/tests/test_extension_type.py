@@ -24,7 +24,6 @@ import pytest
 
 
 class UuidType(pa.ExtensionType):
-
     def __init__(self):
         pa.ExtensionType.__init__(self, pa.binary(16))
 
@@ -33,7 +32,6 @@ class UuidType(pa.ExtensionType):
 
 
 class ParamExtType(pa.ExtensionType):
-
     def __init__(self, width):
         self.width = width
         pa.ExtensionType.__init__(self, pa.binary(width))
@@ -197,7 +195,7 @@ def test_ipc_unknown_type():
     try:
         # Simulate the original Python type being unavailable.
         # Deserialization should not fail but return a placeholder type.
-        del globals()['ParamExtType']
+        del globals()["ParamExtType"]
 
         batch = ipc_read_batch(buf)
         arr = check_example_batch(batch)
@@ -211,7 +209,7 @@ def test_ipc_unknown_type():
         arr = check_example_batch(batch)
         assert isinstance(arr.type, pa.UnknownExtensionType)
     finally:
-        globals()['ParamExtType'] = orig_type
+        globals()["ParamExtType"] = orig_type
 
     # Deserialize again with the type restored
     batch = ipc_read_batch(buf2)

@@ -22,20 +22,20 @@ from . import common
 
 class PandasObjectIsNull(object):
     size = 10 ** 5
-    types = ('int', 'float', 'object', 'decimal')
+    types = ("int", "float", "object", "decimal")
 
-    param_names = ['type']
+    param_names = ["type"]
     params = [types]
 
     def setup(self, type_name):
         gen = common.BuiltinsGenerator()
-        if type_name == 'int':
+        if type_name == "int":
             lst = gen.generate_int_list(self.size)
-        elif type_name == 'float':
+        elif type_name == "float":
             lst = gen.generate_float_list(self.size, use_nan=True)
-        elif type_name == 'object':
+        elif type_name == "object":
             lst = gen.generate_object_list(self.size)
-        elif type_name == 'decimal':
+        elif type_name == "decimal":
             lst = gen.generate_decimal_list(self.size)
         else:
             assert 0

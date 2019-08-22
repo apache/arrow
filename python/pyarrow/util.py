@@ -27,8 +27,10 @@ import warnings
 try:
     from textwrap import indent
 except ImportError:
+
     def indent(text, prefix):
-        return ''.join(prefix + line for line in text.splitlines(True))
+        return "".join(prefix + line for line in text.splitlines(True))
+
 
 try:
     # pathlib might not be available
@@ -45,25 +47,30 @@ def implements(f):
     def decorator(g):
         g.__doc__ = f.__doc__
         return g
+
     return decorator
 
 
 def _deprecate_api(old_name, new_name, api, next_version):
-    msg = ('pyarrow.{0} is deprecated as of {1}, please use {2} instead'
-           .format(old_name, next_version, new_name))
+    msg = "pyarrow.{0} is deprecated as of {1}, please use {2} instead".format(
+        old_name, next_version, new_name
+    )
 
     def wrapper(*args, **kwargs):
         warnings.warn(msg, FutureWarning)
         return api(*args)
+
     return wrapper
 
 
 def _is_path_like(path):
     # PEP519 filesystem path protocol is available from python 3.6, so pathlib
     # doesn't implement __fspath__ for earlier versions
-    return (isinstance(path, six.string_types) or
-            hasattr(path, '__fspath__') or
-            (_has_pathlib and isinstance(path, pathlib.Path)))
+    return (
+        isinstance(path, six.string_types)
+        or hasattr(path, "__fspath__")
+        or (_has_pathlib and isinstance(path, pathlib.Path))
+    )
 
 
 def _stringify_path(path):
@@ -88,7 +95,7 @@ def product(seq):
     """
     Return a product of sequence items.
     """
-    return functools.reduce(lambda a, b: a*b, seq, 1)
+    return functools.reduce(lambda a, b: a * b, seq, 1)
 
 
 def get_contiguous_span(shape, strides, itemsize):
@@ -123,5 +130,5 @@ def get_contiguous_span(shape, strides, itemsize):
             elif stride < 0:
                 start += stride * (dim - 1)
         if end - start != itemsize * product(shape):
-            raise ValueError('array data is non-contiguous')
+            raise ValueError("array data is non-contiguous")
     return start, end

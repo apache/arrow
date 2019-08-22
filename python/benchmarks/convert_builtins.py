@@ -28,13 +28,27 @@ class ConvertPyListToArray(object):
     """
     Benchmark pa.array(list of values, type=...)
     """
-    size = 10 ** 5
-    types = ('int32', 'uint32', 'int64', 'uint64',
-             'float32', 'float64', 'bool', 'decimal',
-             'binary', 'binary10', 'ascii', 'unicode',
-             'int64 list', 'struct', 'struct from tuples')
 
-    param_names = ['type']
+    size = 10 ** 5
+    types = (
+        "int32",
+        "uint32",
+        "int64",
+        "uint64",
+        "float32",
+        "float64",
+        "bool",
+        "decimal",
+        "binary",
+        "binary10",
+        "ascii",
+        "unicode",
+        "int64 list",
+        "struct",
+        "struct from tuples",
+    )
+
+    param_names = ["type"]
     params = [types]
 
     def setup(self, type_name):
@@ -49,11 +63,21 @@ class InferPyListToArray(object):
     """
     Benchmark pa.array(list of values) with type inference
     """
-    size = 10 ** 5
-    types = ('int64', 'float64', 'bool', 'decimal', 'binary', 'ascii',
-             'unicode', 'int64 list', 'struct')
 
-    param_names = ['type']
+    size = 10 ** 5
+    types = (
+        "int64",
+        "float64",
+        "bool",
+        "decimal",
+        "binary",
+        "ascii",
+        "unicode",
+        "int64 list",
+        "struct",
+    )
+
+    param_names = ["type"]
     params = [types]
 
     def setup(self, type_name):
@@ -69,13 +93,26 @@ class ConvertArrayToPyList(object):
     """
     Benchmark pa.array.to_pylist()
     """
-    size = 10 ** 5
-    types = ('int32', 'uint32', 'int64', 'uint64',
-             'float32', 'float64', 'bool', 'decimal',
-             'binary', 'binary10', 'ascii', 'unicode',
-             'int64 list', 'struct')
 
-    param_names = ['type']
+    size = 10 ** 5
+    types = (
+        "int32",
+        "uint32",
+        "int64",
+        "uint64",
+        "float32",
+        "float64",
+        "bool",
+        "decimal",
+        "binary",
+        "binary10",
+        "ascii",
+        "unicode",
+        "int64 list",
+        "struct",
+    )
+
+    param_names = ["type"]
     params = [types]
 
     def setup(self, type_name):

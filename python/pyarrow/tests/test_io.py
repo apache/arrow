@@ -16,7 +16,7 @@
 # under the License.
 
 import bz2
-from io import (BytesIO, StringIO, TextIOWrapper, BufferedIOBase, IOBase)
+from io import BytesIO, StringIO, TextIOWrapper, BufferedIOBase, IOBase
 import gc
 import gzip
 import os
@@ -38,18 +38,18 @@ import pyarrow as pa
 
 
 def check_large_seeks(file_factory):
-    if sys.platform in ('win32', 'darwin'):
+    if sys.platform in ("win32", "darwin"):
         pytest.skip("need sparse file support")
     try:
-        filename = tempfile.mktemp(prefix='test_io')
-        with open(filename, 'wb') as f:
+        filename = tempfile.mktemp(prefix="test_io")
+        with open(filename, "wb") as f:
             f.truncate(2 ** 32 + 10)
             f.seek(2 ** 32 + 5)
-            f.write(b'mark\n')
+            f.write(b"mark\n")
         with file_factory(filename) as f:
             assert f.seek(2 ** 32 + 5) == 2 ** 32 + 5
             assert f.tell() == 2 ** 32 + 5
-            assert f.read(5) == b'mark\n'
+            assert f.read(5) == b"mark\n"
             assert f.tell() == 2 ** 32 + 10
     finally:
         os.unlink(filename)
@@ -66,8 +66,8 @@ def test_python_file_write():
 
     assert f.tell() == 0
 
-    s1 = b'enga\xc3\xb1ado'
-    s2 = b'foobar'
+    s1 = b"enga\xc3\xb1ado"
+    s2 = b"foobar"
 
     f.write(s1)
     assert f.tell() == len(s1)
@@ -88,16 +88,16 @@ def test_python_file_write():
 
 
 def test_python_file_read():
-    data = b'some sample data'
+    data = b"some sample data"
 
     buf = BytesIO(data)
-    f = pa.PythonFile(buf, mode='r')
+    f = pa.PythonFile(buf, mode="r")
 
     assert f.size() == len(data)
 
     assert f.tell() == 0
 
-    assert f.read(4) == b'some'
+    assert f.read(4) == b"some"
     assert f.tell() == 4
 
     f.seek(0)
@@ -107,7 +107,7 @@ def test_python_file_read():
     assert f.tell() == 5
 
     v = f.read(50)
-    assert v == b'sample data'
+    assert v == b"sample data"
     assert len(v) == 11
 
     assert f.size() == len(data)
@@ -117,18 +117,18 @@ def test_python_file_read():
     assert f.closed
 
     with pytest.raises(TypeError, match="binary file expected"):
-        pa.PythonFile(StringIO(), mode='r')
+        pa.PythonFile(StringIO(), mode="r")
 
 
 def test_python_file_read_at():
-    data = b'some sample data'
+    data = b"some sample data"
 
     buf = BytesIO(data)
-    f = pa.PythonFile(buf, mode='r')
+    f = pa.PythonFile(buf, mode="r")
 
     # test simple read at
     v = f.read_at(nbytes=5, offset=3)
-    assert v == b'e sam'
+    assert v == b"e sam"
     assert len(v) == 5
 
     # test reading entire file when nbytes > len(file)
@@ -138,20 +138,20 @@ def test_python_file_read_at():
 
 
 def test_python_file_readall():
-    data = b'some sample data'
+    data = b"some sample data"
 
     buf = BytesIO(data)
-    with pa.PythonFile(buf, mode='r') as f:
+    with pa.PythonFile(buf, mode="r") as f:
         assert f.readall() == data
 
 
 def test_python_file_readinto():
     length = 10
-    data = b'some sample data longer than 10'
+    data = b"some sample data longer than 10"
     dst_buf = bytearray(length)
     src_buf = BytesIO(data)
 
-    with pa.PythonFile(src_buf, mode='r') as f:
+    with pa.PythonFile(src_buf, mode="r") as f:
         assert f.readinto(dst_buf) == 10
 
         assert dst_buf[:length] == data[:length]
@@ -159,41 +159,41 @@ def test_python_file_readinto():
 
 
 def test_python_file_correct_abc():
-    with pa.PythonFile(BytesIO(b''), mode='r') as f:
+    with pa.PythonFile(BytesIO(b""), mode="r") as f:
         assert isinstance(f, BufferedIOBase)
         assert isinstance(f, IOBase)
 
 
 def test_python_file_iterable():
-    data = b'''line1
+    data = b"""line1
     line2
     line3
-    '''
+    """
 
     buf = BytesIO(data)
     buf2 = BytesIO(data)
 
-    with pa.PythonFile(buf, mode='r') as f:
+    with pa.PythonFile(buf, mode="r") as f:
         for read, expected in zip(f, buf2):
             assert read == expected
 
 
 def test_python_file_large_seeks():
     def factory(filename):
-        return pa.PythonFile(open(filename, 'rb'))
+        return pa.PythonFile(open(filename, "rb"))
 
     check_large_seeks(factory)
 
 
 def test_bytes_reader():
     # Like a BytesIO, but zero-copy underneath for C++ consumers
-    data = b'some sample data'
+    data = b"some sample data"
     f = pa.BufferReader(data)
     assert f.tell() == 0
 
     assert f.size() == len(data)
 
-    assert f.read(4) == b'some'
+    assert f.read(4) == b"some"
     assert f.tell() == 4
 
     f.seek(0)
@@ -205,7 +205,7 @@ def test_bytes_reader():
     f.seek(5)
     assert f.tell() == 5
 
-    assert f.read(50) == b'sample data'
+    assert f.read(50) == b"sample data"
 
     assert not f.closed
     f.close()
@@ -214,7 +214,7 @@ def test_bytes_reader():
 
 def test_bytes_reader_non_bytes():
     with pytest.raises(TypeError):
-        pa.BufferReader(u('some sample data'))
+        pa.BufferReader(u("some sample data"))
 
 
 def test_bytes_reader_retains_parent_reference():
@@ -222,58 +222,58 @@ def test_bytes_reader_retains_parent_reference():
 
     # ARROW-421
     def get_buffer():
-        data = b'some sample data' * 1000
+        data = b"some sample data" * 1000
         reader = pa.BufferReader(data)
         reader.seek(5)
         return reader.read_buffer(6)
 
     buf = get_buffer()
     gc.collect()
-    assert buf.to_pybytes() == b'sample'
+    assert buf.to_pybytes() == b"sample"
     assert buf.parent is not None
 
 
 def test_python_file_implicit_mode(tmpdir):
-    path = os.path.join(str(tmpdir), 'foo.txt')
-    with open(path, 'wb') as f:
+    path = os.path.join(str(tmpdir), "foo.txt")
+    with open(path, "wb") as f:
         pf = pa.PythonFile(f)
         assert pf.writable()
         assert not pf.readable()
         assert not pf.seekable()  # PyOutputStream isn't seekable
-        f.write(b'foobar\n')
+        f.write(b"foobar\n")
 
-    with open(path, 'rb') as f:
+    with open(path, "rb") as f:
         pf = pa.PythonFile(f)
         assert pf.readable()
         assert not pf.writable()
         assert pf.seekable()
-        assert pf.read() == b'foobar\n'
+        assert pf.read() == b"foobar\n"
 
     bio = BytesIO()
     pf = pa.PythonFile(bio)
     assert pf.writable()
     assert not pf.readable()
     assert not pf.seekable()
-    pf.write(b'foobar\n')
-    assert bio.getvalue() == b'foobar\n'
+    pf.write(b"foobar\n")
+    assert bio.getvalue() == b"foobar\n"
 
 
 def test_python_file_writelines(tmpdir):
-    lines = [b'line1\n', b'line2\n' b'line3']
-    path = os.path.join(str(tmpdir), 'foo.txt')
-    with open(path, 'wb') as f:
+    lines = [b"line1\n", b"line2\n" b"line3"]
+    path = os.path.join(str(tmpdir), "foo.txt")
+    with open(path, "wb") as f:
         try:
-            f = pa.PythonFile(f, mode='w')
+            f = pa.PythonFile(f, mode="w")
             assert f.writable()
             f.writelines(lines)
         finally:
             f.close()
 
-    with open(path, 'rb') as f:
+    with open(path, "rb") as f:
         try:
-            f = pa.PythonFile(f, mode='r')
+            f = pa.PythonFile(f, mode="r")
             assert f.readable()
-            assert f.read() == b''.join(lines)
+            assert f.read() == b"".join(lines)
         finally:
             f.close()
 
@@ -295,7 +295,7 @@ def test_python_file_closing():
 
 
 def test_buffer_bytes():
-    val = b'some data'
+    val = b"some data"
 
     buf = pa.py_buffer(val)
     assert isinstance(buf, pa.Buffer)
@@ -312,7 +312,7 @@ def test_buffer_bytes():
 
 
 def test_buffer_memoryview():
-    val = b'some data'
+    val = b"some data"
 
     buf = pa.py_buffer(val)
     assert isinstance(buf, pa.Buffer)
@@ -324,7 +324,7 @@ def test_buffer_memoryview():
 
 
 def test_buffer_bytearray():
-    val = bytearray(b'some data')
+    val = bytearray(b"some data")
 
     buf = pa.py_buffer(val)
     assert isinstance(buf, pa.Buffer)
@@ -336,15 +336,14 @@ def test_buffer_bytearray():
 
 
 def test_buffer_invalid():
-    with pytest.raises(TypeError,
-                       match="(bytes-like object|buffer interface)"):
+    with pytest.raises(TypeError, match="(bytes-like object|buffer interface)"):
         pa.py_buffer(None)
 
 
-@pytest.mark.parametrize('val, expected_hex_buffer',
-                         [(b'check', b'636865636B'),
-                          (b'\a0', b'0730'),
-                          (b'', b'')])
+@pytest.mark.parametrize(
+    "val, expected_hex_buffer",
+    [(b"check", b"636865636B"), (b"\a0", b"0730"), (b"", b"")],
+)
 def test_buffer_hex(val, expected_hex_buffer):
     buf = pa.py_buffer(val)
     assert buf.hex() == expected_hex_buffer
@@ -376,7 +375,7 @@ def test_buffer_from_numpy():
 
 
 def test_buffer_address():
-    b1 = b'some data!'
+    b1 = b"some data!"
     b2 = bytearray(b1)
     b3 = bytearray(b1)
 
@@ -407,7 +406,7 @@ def test_buffer_equals():
         assert not (a == b)
         assert a != b
 
-    b1 = b'some data!'
+    b1 = b"some data!"
     b2 = bytearray(b1)
     b3 = bytearray(b1)
     b3[0] = 42
@@ -425,7 +424,7 @@ def test_buffer_equals():
 
 
 def test_buffer_getitem():
-    data = bytearray(b'some data!')
+    data = bytearray(b"some data!")
     buf = pa.py_buffer(data)
 
     n = len(data)
@@ -440,15 +439,15 @@ def test_buffer_getitem():
 
 
 def test_buffer_slicing():
-    data = b'some data!'
+    data = b"some data!"
     buf = pa.py_buffer(data)
 
     sliced = buf.slice(2)
-    expected = pa.py_buffer(b'me data!')
+    expected = pa.py_buffer(b"me data!")
     assert sliced.equals(expected)
 
     sliced2 = buf.slice(2, 4)
-    expected2 = pa.py_buffer(b'me d')
+    expected2 = pa.py_buffer(b"me d")
     assert sliced2.equals(expected2)
 
     # 0 offset
@@ -478,7 +477,7 @@ def test_buffer_slicing():
 def test_buffer_hashing():
     # Buffers are unhashable
     with pytest.raises(TypeError, match="unhashable"):
-        hash(pa.py_buffer(b'123'))
+        hash(pa.py_buffer(b"123"))
 
 
 def test_buffer_protocol_respects_immutability():
@@ -486,7 +485,7 @@ def test_buffer_protocol_respects_immutability():
     # object is mutable by first attempting to get a mutable buffer using
     # PyObject_FromBuffer. If that fails, it assumes that the object is
     # immutable
-    a = b'12345'
+    a = b"12345"
     arrow_ref = pa.py_buffer(a)
     numpy_ref = np.frombuffer(arrow_ref, dtype=np.uint8)
     assert not numpy_ref.flags.writeable
@@ -511,7 +510,7 @@ def test_allocate_buffer():
     assert buf.is_mutable
     assert buf.parent is None
 
-    bit = b'abcde'
+    bit = b"abcde"
     writer = pa.FixedSizeBufferWriter(buf)
     writer.write(bit)
 
@@ -528,22 +527,20 @@ def test_allocate_buffer_resizable():
 
 def test_compress_decompress():
     INPUT_SIZE = 10000
-    test_data = (np.random.randint(0, 255, size=INPUT_SIZE)
-                 .astype(np.uint8)
-                 .tostring())
+    test_data = np.random.randint(0, 255, size=INPUT_SIZE).astype(np.uint8).tostring()
     test_buf = pa.py_buffer(test_data)
 
-    codecs = ['lz4', 'snappy', 'gzip', 'zstd', 'brotli']
+    codecs = ["lz4", "snappy", "gzip", "zstd", "brotli"]
     for codec in codecs:
         compressed_buf = pa.compress(test_buf, codec=codec)
         compressed_bytes = pa.compress(test_data, codec=codec, asbytes=True)
 
         assert isinstance(compressed_bytes, bytes)
 
-        decompressed_buf = pa.decompress(compressed_buf, INPUT_SIZE,
-                                         codec=codec)
-        decompressed_bytes = pa.decompress(compressed_bytes, INPUT_SIZE,
-                                           codec=codec, asbytes=True)
+        decompressed_buf = pa.decompress(compressed_buf, INPUT_SIZE, codec=codec)
+        decompressed_bytes = pa.decompress(
+            compressed_bytes, INPUT_SIZE, codec=codec, asbytes=True
+        )
 
         assert isinstance(decompressed_bytes, bytes)
 
@@ -555,7 +552,7 @@ def test_compress_decompress():
 
 
 def test_buffer_memoryview_is_immutable():
-    val = b'some data'
+    val = b"some data"
 
     buf = pa.py_buffer(val)
     assert not buf.is_mutable
@@ -565,13 +562,13 @@ def test_buffer_memoryview_is_immutable():
     assert result.readonly
 
     with pytest.raises(TypeError) as exc:
-        result[0] = b'h'
-        assert 'cannot modify read-only' in str(exc.value)
+        result[0] = b"h"
+        assert "cannot modify read-only" in str(exc.value)
 
     b = bytes(buf)
     with pytest.raises(TypeError) as exc:
-        b[0] = b'h'
-        assert 'cannot modify read-only' in str(exc.value)
+        b[0] = b"h"
+        assert "cannot modify read-only" in str(exc.value)
 
 
 def test_uninitialized_buffer():
@@ -583,7 +580,7 @@ def test_uninitialized_buffer():
 
 def test_memory_output_stream():
     # 10 bytes
-    val = b'dataabcdef'
+    val = b"dataabcdef"
     f = pa.BufferOutputStream()
 
     K = 1000
@@ -597,25 +594,25 @@ def test_memory_output_stream():
 
 def test_inmemory_write_after_closed():
     f = pa.BufferOutputStream()
-    f.write(b'ok')
+    f.write(b"ok")
     assert not f.closed
     f.getvalue()
     assert f.closed
 
     with pytest.raises(ValueError):
-        f.write(b'not ok')
+        f.write(b"not ok")
 
 
 def test_buffer_protocol_ref_counting():
     def make_buffer(bytes_obj):
         return bytearray(pa.py_buffer(bytes_obj))
 
-    buf = make_buffer(b'foo')
+    buf = make_buffer(b"foo")
     gc.collect()
-    assert buf == b'foo'
+    assert buf == b"foo"
 
     # ARROW-1053
-    val = b'foo'
+    val = b"foo"
     refcount_before = sys.getrefcount(val)
     for i in range(10):
         make_buffer(val)
@@ -625,9 +622,9 @@ def test_buffer_protocol_ref_counting():
 
 def test_nativefile_write_memoryview():
     f = pa.BufferOutputStream()
-    data = b'ok'
+    data = b"ok"
 
-    arr = np.frombuffer(data, dtype='S1')
+    arr = np.frombuffer(data, dtype="S1")
 
     f.write(arr)
     f.write(bytearray(data))
@@ -646,7 +643,7 @@ def test_mock_output_stream():
     # same size
 
     # 10 bytes
-    val = b'dataabcdef'
+    val = b"dataabcdef"
 
     f1 = pa.MockOutputStream()
     f2 = pa.BufferOutputStream()
@@ -659,7 +656,7 @@ def test_mock_output_stream():
     assert f1.size() == len(f2.getvalue())
 
     # Do the same test with a table
-    record_batch = pa.RecordBatch.from_arrays([pa.array([1, 2, 3])], ['a'])
+    record_batch = pa.RecordBatch.from_arrays([pa.array([1, 2, 3])], ["a"])
 
     f1 = pa.MockOutputStream()
     f2 = pa.BufferOutputStream()
@@ -682,12 +679,12 @@ def test_mock_output_stream():
 @pytest.fixture
 def sample_disk_data(request, tmpdir):
     SIZE = 4096
-    arr = np.random.randint(0, 256, size=SIZE).astype('u1')
+    arr = np.random.randint(0, 256, size=SIZE).astype("u1")
     data = arr.tobytes()[:SIZE]
 
     path = os.path.join(str(tmpdir), guid())
 
-    with open(path, 'wb') as f:
+    with open(path, "wb") as f:
         f.write(data)
 
     def teardown():
@@ -700,10 +697,10 @@ def sample_disk_data(request, tmpdir):
 def _check_native_file_reader(FACTORY, sample_data):
     path, data = sample_data
 
-    f = FACTORY(path, mode='r')
+    f = FACTORY(path, mode="r")
 
     assert f.read(10) == data[:10]
-    assert f.read(0) == b''
+    assert f.read(0) == b""
     assert f.tell() == 10
 
     assert f.read() == data[10:]
@@ -716,7 +713,7 @@ def _check_native_file_reader(FACTORY, sample_data):
     # Seeking past end of file not supported in memory maps
     f.seek(len(data) + 1)
     assert f.tell() == len(data) + 1
-    assert f.read(5) == b''
+    assert f.read(5) == b""
 
     # Test whence argument of seek, ARROW-1287
     assert f.seek(3) == 3
@@ -736,7 +733,7 @@ def test_memory_map_retain_buffer_reference(sample_disk_data):
     path, data = sample_disk_data
 
     cases = []
-    with pa.memory_map(path, 'rb') as f:
+    with pa.memory_map(path, "rb") as f:
         cases.append((f.read_buffer(100), data[:100]))
         cases.append((f.read_buffer(100), data[100:200]))
         cases.append((f.read_buffer(100), data[200:300]))
@@ -765,34 +762,34 @@ def _try_delete(path):
 
 def test_memory_map_writer(tmpdir):
     SIZE = 4096
-    arr = np.random.randint(0, 256, size=SIZE).astype('u1')
+    arr = np.random.randint(0, 256, size=SIZE).astype("u1")
     data = arr.tobytes()[:SIZE]
 
     path = os.path.join(str(tmpdir), guid())
-    with open(path, 'wb') as f:
+    with open(path, "wb") as f:
         f.write(data)
 
-    f = pa.memory_map(path, mode='r+b')
+    f = pa.memory_map(path, mode="r+b")
 
     f.seek(10)
-    f.write(b'peekaboo')
+    f.write(b"peekaboo")
     assert f.tell() == 18
 
     f.seek(10)
-    assert f.read(8) == b'peekaboo'
+    assert f.read(8) == b"peekaboo"
 
-    f2 = pa.memory_map(path, mode='r+b')
+    f2 = pa.memory_map(path, mode="r+b")
 
     f2.seek(10)
-    f2.write(b'booapeak')
+    f2.write(b"booapeak")
     f2.seek(10)
 
     f.seek(10)
-    assert f.read(8) == b'booapeak'
+    assert f.read(8) == b"booapeak"
 
     # Does not truncate file
-    f3 = pa.memory_map(path, mode='w')
-    f3.write(b'foo')
+    f3 = pa.memory_map(path, mode="w")
+    f3.write(b"foo")
 
     with pa.memory_map(path) as f4:
         assert f4.size() == SIZE
@@ -801,14 +798,14 @@ def test_memory_map_writer(tmpdir):
         f3.read(5)
 
     f.seek(0)
-    assert f.read(3) == b'foo'
+    assert f.read(3) == b"foo"
 
 
 def test_memory_map_resize(tmpdir):
     SIZE = 4096
     arr = np.random.randint(0, 256, size=SIZE).astype(np.uint8)
-    data1 = arr.tobytes()[:(SIZE // 2)]
-    data2 = arr.tobytes()[(SIZE // 2):]
+    data1 = arr.tobytes()[: (SIZE // 2)]
+    data2 = arr.tobytes()[(SIZE // 2) :]
 
     path = os.path.join(str(tmpdir), guid())
 
@@ -820,15 +817,15 @@ def test_memory_map_resize(tmpdir):
 
     mmap.close()
 
-    with open(path, 'rb') as f:
+    with open(path, "rb") as f:
         assert f.read() == arr.tobytes()
 
 
 def test_memory_zero_length(tmpdir):
     path = os.path.join(str(tmpdir), guid())
-    f = open(path, 'wb')
+    f = open(path, "wb")
     f.close()
-    with pa.memory_map(path, mode='r+b') as memory_map:
+    with pa.memory_map(path, mode="r+b") as memory_map:
         assert memory_map.size() == 0
 
 
@@ -838,16 +835,16 @@ def test_memory_map_large_seeks():
 
 def test_os_file_writer(tmpdir):
     SIZE = 4096
-    arr = np.random.randint(0, 256, size=SIZE).astype('u1')
+    arr = np.random.randint(0, 256, size=SIZE).astype("u1")
     data = arr.tobytes()[:SIZE]
 
     path = os.path.join(str(tmpdir), guid())
-    with open(path, 'wb') as f:
+    with open(path, "wb") as f:
         f.write(data)
 
     # Truncates file
-    f2 = pa.OSFile(path, mode='w')
-    f2.write(b'foo')
+    f2 = pa.OSFile(path, mode="w")
+    f2.write(b"foo")
 
     with pa.OSFile(path) as f3:
         assert f3.size() == 3
@@ -860,55 +857,55 @@ def test_native_file_write_reject_unicode():
     # ARROW-3227
     nf = pa.BufferOutputStream()
     with pytest.raises(TypeError):
-        nf.write(u'foo')
+        nf.write(u"foo")
 
 
 def test_native_file_modes(tmpdir):
     path = os.path.join(str(tmpdir), guid())
-    with open(path, 'wb') as f:
-        f.write(b'foooo')
+    with open(path, "wb") as f:
+        f.write(b"foooo")
 
-    with pa.OSFile(path, mode='r') as f:
-        assert f.mode == 'rb'
+    with pa.OSFile(path, mode="r") as f:
+        assert f.mode == "rb"
         assert f.readable()
         assert not f.writable()
         assert f.seekable()
 
-    with pa.OSFile(path, mode='rb') as f:
-        assert f.mode == 'rb'
+    with pa.OSFile(path, mode="rb") as f:
+        assert f.mode == "rb"
         assert f.readable()
         assert not f.writable()
         assert f.seekable()
 
-    with pa.OSFile(path, mode='w') as f:
-        assert f.mode == 'wb'
+    with pa.OSFile(path, mode="w") as f:
+        assert f.mode == "wb"
         assert not f.readable()
         assert f.writable()
         assert not f.seekable()
 
-    with pa.OSFile(path, mode='wb') as f:
-        assert f.mode == 'wb'
+    with pa.OSFile(path, mode="wb") as f:
+        assert f.mode == "wb"
         assert not f.readable()
         assert f.writable()
         assert not f.seekable()
 
-    with open(path, 'wb') as f:
-        f.write(b'foooo')
+    with open(path, "wb") as f:
+        f.write(b"foooo")
 
-    with pa.memory_map(path, 'r') as f:
-        assert f.mode == 'rb'
+    with pa.memory_map(path, "r") as f:
+        assert f.mode == "rb"
         assert f.readable()
         assert not f.writable()
         assert f.seekable()
 
-    with pa.memory_map(path, 'r+') as f:
-        assert f.mode == 'rb+'
+    with pa.memory_map(path, "r+") as f:
+        assert f.mode == "rb+"
         assert f.readable()
         assert f.writable()
         assert f.seekable()
 
-    with pa.memory_map(path, 'r+b') as f:
-        assert f.mode == 'rb+'
+    with pa.memory_map(path, "r+b") as f:
+        assert f.mode == "rb+"
         assert f.readable()
         assert f.writable()
         assert f.seekable()
@@ -916,27 +913,28 @@ def test_native_file_modes(tmpdir):
 
 def test_native_file_raises_ValueError_after_close(tmpdir):
     path = os.path.join(str(tmpdir), guid())
-    with open(path, 'wb') as f:
-        f.write(b'foooo')
+    with open(path, "wb") as f:
+        f.write(b"foooo")
 
-    with pa.OSFile(path, mode='rb') as os_file:
+    with pa.OSFile(path, mode="rb") as os_file:
         assert not os_file.closed
     assert os_file.closed
 
-    with pa.memory_map(path, mode='rb') as mmap_file:
+    with pa.memory_map(path, mode="rb") as mmap_file:
         assert not mmap_file.closed
     assert mmap_file.closed
 
-    files = [os_file,
-             mmap_file]
+    files = [os_file, mmap_file]
 
-    methods = [('tell', ()),
-               ('seek', (0,)),
-               ('size', ()),
-               ('flush', ()),
-               ('readable', ()),
-               ('writable', ()),
-               ('seekable', ())]
+    methods = [
+        ("tell", ()),
+        ("seek", (0,)),
+        ("size", ()),
+        ("flush", ()),
+        ("readable", ()),
+        ("writable", ()),
+        ("seekable", ()),
+    ]
 
     for f in files:
         for method, args in methods:
@@ -945,38 +943,37 @@ def test_native_file_raises_ValueError_after_close(tmpdir):
 
 
 def test_native_file_TextIOWrapper(tmpdir):
-    data = (u'foooo\n'
-            u'barrr\n'
-            u'bazzz\n')
+    data = u"foooo\n" u"barrr\n" u"bazzz\n"
 
     path = os.path.join(str(tmpdir), guid())
-    with open(path, 'wb') as f:
-        f.write(data.encode('utf-8'))
+    with open(path, "wb") as f:
+        f.write(data.encode("utf-8"))
 
-    with TextIOWrapper(pa.OSFile(path, mode='rb')) as fil:
+    with TextIOWrapper(pa.OSFile(path, mode="rb")) as fil:
         assert fil.readable()
         res = fil.read()
         assert res == data
     assert fil.closed
 
-    with TextIOWrapper(pa.OSFile(path, mode='rb')) as fil:
+    with TextIOWrapper(pa.OSFile(path, mode="rb")) as fil:
         # Iteration works
         lines = list(fil)
-        assert ''.join(lines) == data
+        assert "".join(lines) == data
 
     # Writing
     path2 = os.path.join(str(tmpdir), guid())
-    with TextIOWrapper(pa.OSFile(path2, mode='wb')) as fil:
+    with TextIOWrapper(pa.OSFile(path2, mode="wb")) as fil:
         assert fil.writable()
         fil.write(data)
 
-    with TextIOWrapper(pa.OSFile(path2, mode='rb')) as fil:
+    with TextIOWrapper(pa.OSFile(path2, mode="rb")) as fil:
         res = fil.read()
         assert res == data
 
 
 # ----------------------------------------------------------------------
 # Compressed input and output streams
+
 
 def check_compressed_input(data, fn, compression):
     raw = pa.OSFile(fn, mode="rb")
@@ -1082,8 +1079,7 @@ def test_compressed_output_bz2(tmpdir):
         assert got == data
 
 
-@pytest.mark.parametrize("compression",
-                         ["bz2", "brotli", "gzip", "lz4", "zstd"])
+@pytest.mark.parametrize("compression", ["bz2", "brotli", "gzip", "lz4", "zstd"])
 def test_compressed_roundtrip(compression):
     data = b"some test data\n" * 10 + b"eof\n"
     raw = pa.BufferOutputStream()
@@ -1107,27 +1103,30 @@ def test_compressed_roundtrip(compression):
 # High-level API
 
 if PY2:
+
     def gzip_compress(data):
-        fd, fn = tempfile.mkstemp(suffix='.gz')
+        fd, fn = tempfile.mkstemp(suffix=".gz")
         try:
             os.close(fd)
-            with gzip.GzipFile(fn, 'wb') as f:
+            with gzip.GzipFile(fn, "wb") as f:
                 f.write(data)
-            with open(fn, 'rb') as f:
+            with open(fn, "rb") as f:
                 return f.read()
         finally:
             os.unlink(fn)
 
     def gzip_decompress(data):
-        fd, fn = tempfile.mkstemp(suffix='.gz')
+        fd, fn = tempfile.mkstemp(suffix=".gz")
         try:
             os.close(fd)
-            with open(fn, 'wb') as f:
+            with open(fn, "wb") as f:
                 f.write(data)
-            with gzip.GzipFile(fn, 'rb') as f:
+            with gzip.GzipFile(fn, "rb") as f:
                 return f.read()
         finally:
             os.unlink(fn)
+
+
 else:
     gzip_compress = gzip.compress
     gzip_decompress = gzip.decompress
@@ -1142,14 +1141,14 @@ def test_input_stream_buffer():
     gz_data = gzip_compress(data)
     stream = pa.input_stream(memoryview(gz_data))
     assert stream.read() == gz_data
-    stream = pa.input_stream(memoryview(gz_data), compression='gzip')
+    stream = pa.input_stream(memoryview(gz_data), compression="gzip")
     assert stream.read() == data
 
 
 def test_input_stream_file_path(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
-    file_path = tmpdir / 'input_stream'
-    with open(str(file_path), 'wb') as f:
+    file_path = tmpdir / "input_stream"
+    with open(str(file_path), "wb") as f:
         f.write(data)
 
     stream = pa.input_stream(file_path)
@@ -1163,8 +1162,8 @@ def test_input_stream_file_path(tmpdir):
 def test_input_stream_file_path_compressed(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
     gz_data = gzip_compress(data)
-    file_path = tmpdir / 'input_stream.gz'
-    with open(str(file_path), 'wb') as f:
+    file_path = tmpdir / "input_stream.gz"
+    with open(str(file_path), "wb") as f:
         f.write(gz_data)
 
     stream = pa.input_stream(file_path)
@@ -1174,7 +1173,7 @@ def test_input_stream_file_path_compressed(tmpdir):
     stream = pa.input_stream(pathlib.Path(str(file_path)))
     assert stream.read() == data
 
-    stream = pa.input_stream(file_path, compression='gzip')
+    stream = pa.input_stream(file_path, compression="gzip")
     assert stream.read() == data
     stream = pa.input_stream(file_path, compression=None)
     assert stream.read() == gz_data
@@ -1182,8 +1181,8 @@ def test_input_stream_file_path_compressed(tmpdir):
 
 def test_input_stream_file_path_buffered(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
-    file_path = tmpdir / 'input_stream.buffered'
-    with open(str(file_path), 'wb') as f:
+    file_path = tmpdir / "input_stream.buffered"
+    with open(str(file_path), "wb") as f:
         f.write(data)
 
     stream = pa.input_stream(file_path, buffer_size=32)
@@ -1196,21 +1195,21 @@ def test_input_stream_file_path_buffered(tmpdir):
     unbuffered_stream = pa.input_stream(file_path, buffer_size=0)
     assert isinstance(unbuffered_stream, pa.OSFile)
 
-    msg = 'Buffer size must be larger than zero'
+    msg = "Buffer size must be larger than zero"
     with pytest.raises(ValueError, match=msg):
         pa.input_stream(file_path, buffer_size=-1)
     with pytest.raises(TypeError):
-        pa.input_stream(file_path, buffer_size='million')
+        pa.input_stream(file_path, buffer_size="million")
 
 
 def test_input_stream_file_path_compressed_and_buffered(tmpdir):
     data = b"some test data\n" * 100 + b"eof\n"
     gz_data = gzip_compress(data)
-    file_path = tmpdir / 'input_stream_compressed_and_buffered.gz'
-    with open(str(file_path), 'wb') as f:
+    file_path = tmpdir / "input_stream_compressed_and_buffered.gz"
+    with open(str(file_path), "wb") as f:
         f.write(gz_data)
 
-    stream = pa.input_stream(file_path, buffer_size=32, compression='gzip')
+    stream = pa.input_stream(file_path, buffer_size=32, compression="gzip")
     assert stream.read() == data
     stream = pa.input_stream(str(file_path), buffer_size=64)
     assert stream.read() == data
@@ -1230,13 +1229,13 @@ def test_input_stream_python_file(tmpdir):
     stream = pa.input_stream(bio)
     assert stream.read() == gz_data
     bio.seek(0)
-    stream = pa.input_stream(bio, compression='gzip')
+    stream = pa.input_stream(bio, compression="gzip")
     assert stream.read() == data
 
-    file_path = tmpdir / 'input_stream'
-    with open(str(file_path), 'wb') as f:
+    file_path = tmpdir / "input_stream"
+    with open(str(file_path), "wb") as f:
         f.write(data)
-    with open(str(file_path), 'rb') as f:
+    with open(str(file_path), "rb") as f:
         stream = pa.input_stream(f)
         assert stream.read() == data
 
@@ -1248,7 +1247,7 @@ def test_input_stream_native_file():
     stream = pa.input_stream(reader)
     assert stream is reader
     reader = pa.BufferReader(gz_data)
-    stream = pa.input_stream(reader, compression='gzip')
+    stream = pa.input_stream(reader, compression="gzip")
     assert stream.read() == data
 
 
@@ -1264,7 +1263,7 @@ def test_input_stream_errors(tmpdir):
     with pytest.raises(IOError):
         pa.input_stream("non_existent_file")
 
-    with open(str(tmpdir / 'new_file'), 'wb') as f:
+    with open(str(tmpdir / "new_file"), "wb") as f:
         with pytest.raises(TypeError, match="readable file expected"):
             pa.input_stream(f)
 
@@ -1284,12 +1283,12 @@ def test_output_stream_buffer():
 
 def test_output_stream_file_path(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
-    file_path = tmpdir / 'output_stream'
+    file_path = tmpdir / "output_stream"
 
     def check_data(file_path, data):
         with pa.output_stream(file_path) as stream:
             stream.write(data)
-        with open(str(file_path), 'rb') as f:
+        with open(str(file_path), "rb") as f:
             assert f.read() == data
 
     check_data(file_path, data)
@@ -1299,41 +1298,39 @@ def test_output_stream_file_path(tmpdir):
 
 def test_output_stream_file_path_compressed(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
-    file_path = tmpdir / 'output_stream.gz'
+    file_path = tmpdir / "output_stream.gz"
 
     def check_data(file_path, data, **kwargs):
         with pa.output_stream(file_path, **kwargs) as stream:
             stream.write(data)
-        with open(str(file_path), 'rb') as f:
+        with open(str(file_path), "rb") as f:
             return f.read()
 
     assert gzip_decompress(check_data(file_path, data)) == data
     assert gzip_decompress(check_data(str(file_path), data)) == data
-    assert gzip_decompress(
-        check_data(pathlib.Path(str(file_path)), data)) == data
+    assert gzip_decompress(check_data(pathlib.Path(str(file_path)), data)) == data
 
-    assert gzip_decompress(
-        check_data(file_path, data, compression='gzip')) == data
+    assert gzip_decompress(check_data(file_path, data, compression="gzip")) == data
     assert check_data(file_path, data, compression=None) == data
 
-    with pytest.raises(ValueError, match='Unrecognized compression type'):
-        assert check_data(file_path, data, compression='rabbit') == data
+    with pytest.raises(ValueError, match="Unrecognized compression type"):
+        assert check_data(file_path, data, compression="rabbit") == data
 
 
 def test_output_stream_file_path_buffered(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
-    file_path = tmpdir / 'output_stream.buffered'
+    file_path = tmpdir / "output_stream.buffered"
 
     def check_data(file_path, data, **kwargs):
         with pa.output_stream(file_path, **kwargs) as stream:
             stream.write(data)
-        with open(str(file_path), 'rb') as f:
+        with open(str(file_path), "rb") as f:
             return f.read()
 
     unbuffered_stream = pa.output_stream(file_path, buffer_size=0)
     assert isinstance(unbuffered_stream, pa.OSFile)
 
-    msg = 'Buffer size must be larger than zero'
+    msg = "Buffer size must be larger than zero"
     with pytest.raises(ValueError, match=msg):
         assert check_data(file_path, data, buffer_size=-128) == data
 
@@ -1347,12 +1344,12 @@ def test_output_stream_file_path_buffered(tmpdir):
 
 def test_output_stream_file_path_compressed_and_buffered(tmpdir):
     data = b"some test data\n" * 100 + b"eof\n"
-    file_path = tmpdir / 'output_stream_compressed_and_buffered.gz'
+    file_path = tmpdir / "output_stream_compressed_and_buffered.gz"
 
     def check_data(file_path, data, **kwargs):
         with pa.output_stream(file_path, **kwargs) as stream:
             stream.write(data)
-        with open(str(file_path), 'rb') as f:
+        with open(str(file_path), "rb") as f:
             return f.read()
 
     result = check_data(file_path, data, buffer_size=32)
@@ -1361,7 +1358,7 @@ def test_output_stream_file_path_compressed_and_buffered(tmpdir):
     result = check_data(file_path, data, buffer_size=1024)
     assert gzip_decompress(result) == data
 
-    result = check_data(file_path, data, buffer_size=1024, compression='gzip')
+    result = check_data(file_path, data, buffer_size=1024, compression="gzip")
     assert gzip_decompress(result) == data
 
 
@@ -1372,15 +1369,15 @@ def test_output_stream_python_file(tmpdir):
         # XXX cannot use BytesIO because stream.close() is necessary
         # to finish writing compressed data, but it will also close the
         # underlying BytesIO
-        fn = str(tmpdir / 'output_stream_file')
-        with open(fn, 'wb') as f:
+        fn = str(tmpdir / "output_stream_file")
+        with open(fn, "wb") as f:
             with pa.output_stream(f, **kwargs) as stream:
                 stream.write(data)
-        with open(fn, 'rb') as f:
+        with open(fn, "rb") as f:
             return f.read()
 
     assert check_data(data) == data
-    assert gzip_decompress(check_data(data, compression='gzip')) == data
+    assert gzip_decompress(check_data(data, compression="gzip")) == data
 
 
 def test_output_stream_errors(tmpdir):
@@ -1392,9 +1389,9 @@ def test_output_stream_errors(tmpdir):
         with pytest.raises(TypeError):
             pa.output_stream(arg)
 
-    fn = str(tmpdir / 'new_file')
-    with open(fn, 'wb') as f:
+    fn = str(tmpdir / "new_file")
+    with open(fn, "wb") as f:
         pass
-    with open(fn, 'rb') as f:
+    with open(fn, "rb") as f:
         with pytest.raises(TypeError, match="writable file expected"):
             pa.output_stream(f)

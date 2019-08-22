@@ -19,17 +19,19 @@ import numpy as np
 import pytest
 
 
-def run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name,
-                                   client, use_gpu, dtype):
-    FORCE_DEVICE = '/gpu' if use_gpu else '/cpu'
+def run_tensorflow_test_with_dtype(
+    tf, plasma, plasma_store_name, client, use_gpu, dtype
+):
+    FORCE_DEVICE = "/gpu" if use_gpu else "/cpu"
 
     object_id = np.random.bytes(20)
 
     data = np.random.randn(3, 244, 244).astype(dtype)
     ones = np.ones((3, 244, 244)).astype(dtype)
 
-    sess = tf.Session(config=tf.ConfigProto(
-        allow_soft_placement=True, log_device_placement=True))
+    sess = tf.Session(
+        config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)
+    )
 
     def ToPlasma():
         data_tensor = tf.constant(data)
@@ -37,13 +39,15 @@ def run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name,
         return plasma.tf_plasma_op.tensor_to_plasma(
             [data_tensor, ones_tensor],
             object_id,
-            plasma_store_socket_name=plasma_store_name)
+            plasma_store_socket_name=plasma_store_name,
+        )
 
     def FromPlasma():
         return plasma.tf_plasma_op.plasma_to_tensor(
             object_id,
             dtype=tf.as_dtype(dtype),
-            plasma_store_socket_name=plasma_store_name)
+            plasma_store_socket_name=plasma_store_name,
+        )
 
     with tf.device(FORCE_DEVICE):
         to_plasma = ToPlasma()
@@ -82,7 +86,7 @@ def run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name,
 
 @pytest.mark.plasma
 @pytest.mark.tensorflow
-@pytest.mark.skip(reason='Until ARROW-4259 is resolved')
+@pytest.mark.skip(reason="Until ARROW-4259 is resolved")
 def test_plasma_tf_op(use_gpu=False):
     import pyarrow.plasma as plasma
     import tensorflow as tf
@@ -92,13 +96,13 @@ def test_plasma_tf_op(use_gpu=False):
     if plasma.tf_plasma_op is None:
         pytest.skip("TensorFlow Op not found")
 
-    with plasma.start_plasma_store(10**8) as (plasma_store_name, p):
+    with plasma.start_plasma_store(10 ** 8) as (plasma_store_name, p):
         client = plasma.connect(plasma_store_name)
-        for dtype in [np.float32, np.float64,
-                      np.int8, np.int16, np.int32, np.int64]:
-            run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name,
-                                           client, use_gpu, dtype)
+        for dtype in [np.float32, np.float64, np.int8, np.int16, np.int32, np.int64]:
+            run_tensorflow_test_with_dtype(
+                tf, plasma, plasma_store_name, client, use_gpu, dtype
+            )
 
         # Make sure the objects have been released.
         for _, info in client.list().items():
-            assert info['ref_count'] == 0
+            assert info["ref_count"] == 0

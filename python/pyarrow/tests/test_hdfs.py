@@ -36,28 +36,26 @@ from pyarrow.pandas_compat import _pandas_api
 # HDFS tests
 
 
-def hdfs_test_client(driver='libhdfs'):
-    host = os.environ.get('ARROW_HDFS_TEST_HOST', 'default')
-    user = os.environ.get('ARROW_HDFS_TEST_USER', None)
+def hdfs_test_client(driver="libhdfs"):
+    host = os.environ.get("ARROW_HDFS_TEST_HOST", "default")
+    user = os.environ.get("ARROW_HDFS_TEST_USER", None)
     try:
-        port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 0))
+        port = int(os.environ.get("ARROW_HDFS_TEST_PORT", 0))
     except ValueError:
-        raise ValueError('Env variable ARROW_HDFS_TEST_PORT was not '
-                         'an integer')
+        raise ValueError("Env variable ARROW_HDFS_TEST_PORT was not " "an integer")
 
     return pa.hdfs.connect(host, port, user, driver=driver)
 
 
 @pytest.mark.hdfs
 class HdfsTestCases(object):
-
     def _make_test_file(self, hdfs, test_name, test_path, test_data):
         base_path = pjoin(self.tmp_path, test_name)
         hdfs.mkdir(base_path)
 
         full_path = pjoin(base_path, test_path)
 
-        with hdfs.open(full_path, 'wb') as f:
+        with hdfs.open(full_path, "wb") as f:
             f.write(test_data)
 
         return full_path
@@ -66,7 +64,7 @@ class HdfsTestCases(object):
     def setUpClass(cls):
         cls.check_driver()
         cls.hdfs = hdfs_test_client(cls.DRIVER)
-        cls.tmp_path = '/tmp/pyarrow-test-{0}'.format(random.randint(0, 1000))
+        cls.tmp_path = "/tmp/pyarrow-test-{0}".format(random.randint(0, 1000))
         cls.hdfs.mkdir(cls.tmp_path)
 
     @classmethod
@@ -91,10 +89,10 @@ class HdfsTestCases(object):
         h2.ls(self.tmp_path)
 
     def test_cat(self):
-        path = pjoin(self.tmp_path, 'cat-test')
+        path = pjoin(self.tmp_path, "cat-test")
 
-        data = b'foobarbaz'
-        with self.hdfs.open(path, 'wb') as f:
+        data = b"foobarbaz"
+        with self.hdfs.open(path, "wb") as f:
             f.write(data)
 
         contents = self.hdfs.cat(path)
@@ -116,11 +114,11 @@ class HdfsTestCases(object):
         assert not client.is_open
 
         with pytest.raises(Exception):
-            client.ls('/')
+            client.ls("/")
 
     def test_mkdir(self):
-        path = pjoin(self.tmp_path, 'test-dir/test-dir')
-        parent_path = pjoin(self.tmp_path, 'test-dir')
+        path = pjoin(self.tmp_path, "test-dir/test-dir")
+        parent_path = pjoin(self.tmp_path, "test-dir")
 
         self.hdfs.mkdir(path)
         assert self.hdfs.exists(path)
@@ -129,11 +127,11 @@ class HdfsTestCases(object):
         assert not self.hdfs.exists(path)
 
     def test_mv_rename(self):
-        path = pjoin(self.tmp_path, 'mv-test')
-        new_path = pjoin(self.tmp_path, 'mv-new-test')
+        path = pjoin(self.tmp_path, "mv-test")
+        new_path = pjoin(self.tmp_path, "mv-new-test")
 
-        data = b'foobarbaz'
-        with self.hdfs.open(path, 'wb') as f:
+        data = b"foobarbaz"
+        with self.hdfs.open(path, "wb") as f:
             f.write(data)
 
         assert self.hdfs.exists(path)
@@ -147,30 +145,30 @@ class HdfsTestCases(object):
         assert self.hdfs.cat(path) == data
 
     def test_info(self):
-        path = pjoin(self.tmp_path, 'info-base')
-        file_path = pjoin(path, 'ex')
+        path = pjoin(self.tmp_path, "info-base")
+        file_path = pjoin(path, "ex")
         self.hdfs.mkdir(path)
 
-        data = b'foobarbaz'
-        with self.hdfs.open(file_path, 'wb') as f:
+        data = b"foobarbaz"
+        with self.hdfs.open(file_path, "wb") as f:
             f.write(data)
 
         path_info = self.hdfs.info(path)
         file_path_info = self.hdfs.info(file_path)
 
-        assert path_info['kind'] == 'directory'
+        assert path_info["kind"] == "directory"
 
-        assert file_path_info['kind'] == 'file'
-        assert file_path_info['size'] == len(data)
+        assert file_path_info["kind"] == "file"
+        assert file_path_info["size"] == len(data)
 
     def test_exists_isdir_isfile(self):
-        dir_path = pjoin(self.tmp_path, 'info-base')
-        file_path = pjoin(dir_path, 'ex')
-        missing_path = pjoin(dir_path, 'this-path-is-missing')
+        dir_path = pjoin(self.tmp_path, "info-base")
+        file_path = pjoin(dir_path, "ex")
+        missing_path = pjoin(dir_path, "this-path-is-missing")
 
         self.hdfs.mkdir(dir_path)
-        with self.hdfs.open(file_path, 'wb') as f:
-            f.write(b'foobarbaz')
+        with self.hdfs.open(file_path, "wb") as f:
+            f.write(b"foobarbaz")
 
         assert self.hdfs.exists(dir_path)
         assert self.hdfs.exists(file_path)
@@ -185,12 +183,12 @@ class HdfsTestCases(object):
         assert not self.hdfs.isfile(missing_path)
 
     def test_disk_usage(self):
-        path = pjoin(self.tmp_path, 'disk-usage-base')
-        p1 = pjoin(path, 'p1')
-        p2 = pjoin(path, 'p2')
+        path = pjoin(self.tmp_path, "disk-usage-base")
+        p1 = pjoin(path, "p1")
+        p2 = pjoin(path, "p2")
 
-        subdir = pjoin(path, 'subdir')
-        p3 = pjoin(subdir, 'p3')
+        subdir = pjoin(path, "subdir")
+        p3 = pjoin(subdir, "p3")
 
         if self.hdfs.exists(path):
             self.hdfs.delete(path, True)
@@ -198,38 +196,38 @@ class HdfsTestCases(object):
         self.hdfs.mkdir(path)
         self.hdfs.mkdir(subdir)
 
-        data = b'foobarbaz'
+        data = b"foobarbaz"
 
         for file_path in [p1, p2, p3]:
-            with self.hdfs.open(file_path, 'wb') as f:
+            with self.hdfs.open(file_path, "wb") as f:
                 f.write(data)
 
         assert self.hdfs.disk_usage(path) == len(data) * 3
 
     def test_ls(self):
-        base_path = pjoin(self.tmp_path, 'ls-test')
+        base_path = pjoin(self.tmp_path, "ls-test")
         self.hdfs.mkdir(base_path)
 
-        dir_path = pjoin(base_path, 'a-dir')
-        f1_path = pjoin(base_path, 'a-file-1')
+        dir_path = pjoin(base_path, "a-dir")
+        f1_path = pjoin(base_path, "a-file-1")
 
         self.hdfs.mkdir(dir_path)
 
-        f = self.hdfs.open(f1_path, 'wb')
-        f.write(b'a' * 10)
+        f = self.hdfs.open(f1_path, "wb")
+        f.write(b"a" * 10)
 
         contents = sorted(self.hdfs.ls(base_path, False))
         assert contents == [dir_path, f1_path]
 
     def test_chmod_chown(self):
-        path = pjoin(self.tmp_path, 'chmod-test')
-        with self.hdfs.open(path, 'wb') as f:
-            f.write(b'a' * 10)
+        path = pjoin(self.tmp_path, "chmod-test")
+        with self.hdfs.open(path, "wb") as f:
+            f.write(b"a" * 10)
 
     def test_download_upload(self):
-        base_path = pjoin(self.tmp_path, 'upload-test')
+        base_path = pjoin(self.tmp_path, "upload-test")
 
-        data = b'foobarbaz'
+        data = b"foobarbaz"
         buf = BytesIO(data)
         buf.seek(0)
 
@@ -241,55 +239,56 @@ class HdfsTestCases(object):
         assert out_buf.getvalue() == data
 
     def test_file_context_manager(self):
-        path = pjoin(self.tmp_path, 'ctx-manager')
+        path = pjoin(self.tmp_path, "ctx-manager")
 
-        data = b'foo'
-        with self.hdfs.open(path, 'wb') as f:
+        data = b"foo"
+        with self.hdfs.open(path, "wb") as f:
             f.write(data)
 
-        with self.hdfs.open(path, 'rb') as f:
+        with self.hdfs.open(path, "rb") as f:
             assert f.size() == 3
             result = f.read(10)
             assert result == data
 
     def test_open_not_exist_error_message(self):
         # ARROW-226
-        path = pjoin(self.tmp_path, 'does-not-exist-123')
+        path = pjoin(self.tmp_path, "does-not-exist-123")
 
         try:
             self.hdfs.open(path)
         except Exception as e:
-            assert 'file does not exist' in e.args[0].lower()
+            assert "file does not exist" in e.args[0].lower()
 
     def test_read_whole_file(self):
-        path = pjoin(self.tmp_path, 'read-whole-file')
+        path = pjoin(self.tmp_path, "read-whole-file")
 
-        data = b'foo' * 1000
-        with self.hdfs.open(path, 'wb') as f:
+        data = b"foo" * 1000
+        with self.hdfs.open(path, "wb") as f:
             f.write(data)
 
-        with self.hdfs.open(path, 'rb') as f:
+        with self.hdfs.open(path, "rb") as f:
             result = f.read()
 
         assert result == data
 
     def _write_multiple_hdfs_pq_files(self, tmpdir):
         import pyarrow.parquet as pq
+
         nfiles = 10
         size = 5
         test_data = []
         for i in range(nfiles):
             df = test_parquet._test_dataframe(size, seed=i)
 
-            df['index'] = np.arange(i * size, (i + 1) * size)
+            df["index"] = np.arange(i * size, (i + 1) * size)
 
             # Hack so that we don't have a dtype cast in v1 files
-            df['uint32'] = df['uint32'].astype(np.int64)
+            df["uint32"] = df["uint32"].astype(np.int64)
 
-            path = pjoin(tmpdir, '{0}.parquet'.format(i))
+            path = pjoin(tmpdir, "{0}.parquet".format(i))
 
             table = pa.Table.from_pandas(df, preserve_index=False)
-            with self.hdfs.open(path, 'wb') as f:
+            with self.hdfs.open(path, "wb") as f:
                 pq.write_table(table, f)
 
             test_data.append(table)
@@ -301,24 +300,24 @@ class HdfsTestCases(object):
     @pytest.mark.parquet
     def test_read_multiple_parquet_files(self):
 
-        tmpdir = pjoin(self.tmp_path, 'multi-parquet-' + guid())
+        tmpdir = pjoin(self.tmp_path, "multi-parquet-" + guid())
 
         self.hdfs.mkdir(tmpdir)
 
         expected = self._write_multiple_hdfs_pq_files(tmpdir)
         result = self.hdfs.read_parquet(tmpdir)
 
-        _pandas_api.assert_frame_equal(result.to_pandas()
-                                       .sort_values(by='index')
-                                       .reset_index(drop=True),
-                                       expected.to_pandas())
+        _pandas_api.assert_frame_equal(
+            result.to_pandas().sort_values(by="index").reset_index(drop=True),
+            expected.to_pandas(),
+        )
 
     @pytest.mark.pandas
     @pytest.mark.parquet
     def test_read_multiple_parquet_files_with_uri(self):
         import pyarrow.parquet as pq
 
-        tmpdir = pjoin(self.tmp_path, 'multi-parquet-uri-' + guid())
+        tmpdir = pjoin(self.tmp_path, "multi-parquet-uri-" + guid())
 
         self.hdfs.mkdir(tmpdir)
 
@@ -326,24 +325,24 @@ class HdfsTestCases(object):
         path = _get_hdfs_uri(tmpdir)
         result = pq.read_table(path)
 
-        _pandas_api.assert_frame_equal(result.to_pandas()
-                                       .sort_values(by='index')
-                                       .reset_index(drop=True),
-                                       expected.to_pandas())
+        _pandas_api.assert_frame_equal(
+            result.to_pandas().sort_values(by="index").reset_index(drop=True),
+            expected.to_pandas(),
+        )
 
     @pytest.mark.pandas
     @pytest.mark.parquet
     def test_read_write_parquet_files_with_uri(self):
         import pyarrow.parquet as pq
 
-        tmpdir = pjoin(self.tmp_path, 'uri-parquet-' + guid())
+        tmpdir = pjoin(self.tmp_path, "uri-parquet-" + guid())
         self.hdfs.mkdir(tmpdir)
-        path = _get_hdfs_uri(pjoin(tmpdir, 'test.parquet'))
+        path = _get_hdfs_uri(pjoin(tmpdir, "test.parquet"))
 
         size = 5
         df = test_parquet._test_dataframe(size, seed=0)
         # Hack so that we don't have a dtype cast in v1 files
-        df['uint32'] = df['uint32'].astype(np.int64)
+        df["uint32"] = df["uint32"].astype(np.int64)
         table = pa.Table.from_pandas(df, preserve_index=False)
 
         pq.write_table(table, path, filesystem=self.hdfs)
@@ -354,38 +353,39 @@ class HdfsTestCases(object):
 
     @pytest.mark.parquet
     def test_read_common_metadata_files(self):
-        tmpdir = pjoin(self.tmp_path, 'common-metadata-' + guid())
+        tmpdir = pjoin(self.tmp_path, "common-metadata-" + guid())
         self.hdfs.mkdir(tmpdir)
         test_parquet._test_read_common_metadata_files(self.hdfs, tmpdir)
 
     @pytest.mark.parquet
     def test_write_to_dataset_with_partitions(self):
-        tmpdir = pjoin(self.tmp_path, 'write-partitions-' + guid())
+        tmpdir = pjoin(self.tmp_path, "write-partitions-" + guid())
         self.hdfs.mkdir(tmpdir)
         test_parquet._test_write_to_dataset_with_partitions(
-            tmpdir, filesystem=self.hdfs)
+            tmpdir, filesystem=self.hdfs
+        )
 
     @pytest.mark.parquet
     def test_write_to_dataset_no_partitions(self):
-        tmpdir = pjoin(self.tmp_path, 'write-no_partitions-' + guid())
+        tmpdir = pjoin(self.tmp_path, "write-no_partitions-" + guid())
         self.hdfs.mkdir(tmpdir)
-        test_parquet._test_write_to_dataset_no_partitions(
-            tmpdir, filesystem=self.hdfs)
+        test_parquet._test_write_to_dataset_no_partitions(tmpdir, filesystem=self.hdfs)
 
 
 class TestLibHdfs(HdfsTestCases, unittest.TestCase):
 
-    DRIVER = 'libhdfs'
+    DRIVER = "libhdfs"
 
     @classmethod
     def check_driver(cls):
         if not pa.have_libhdfs():
-            pytest.skip('No libhdfs available on system')
+            pytest.skip("No libhdfs available on system")
 
     def test_orphaned_file(self):
         hdfs = hdfs_test_client()
-        file_path = self._make_test_file(hdfs, 'orphaned_file_test', 'fname',
-                                         b'foobarbaz')
+        file_path = self._make_test_file(
+            hdfs, "orphaned_file_test", "fname", b"foobarbaz"
+        )
 
         f = hdfs.open(file_path)
         hdfs = None
@@ -394,21 +394,20 @@ class TestLibHdfs(HdfsTestCases, unittest.TestCase):
 
 class TestLibHdfs3(HdfsTestCases, unittest.TestCase):
 
-    DRIVER = 'libhdfs3'
+    DRIVER = "libhdfs3"
 
     @classmethod
     def check_driver(cls):
         if not pa.have_libhdfs3():
-            pytest.skip('No libhdfs3 available on system')
+            pytest.skip("No libhdfs3 available on system")
 
 
 def _get_hdfs_uri(path):
-    host = os.environ.get('ARROW_HDFS_TEST_HOST', 'localhost')
+    host = os.environ.get("ARROW_HDFS_TEST_HOST", "localhost")
     try:
-        port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 0))
+        port = int(os.environ.get("ARROW_HDFS_TEST_PORT", 0))
     except ValueError:
-        raise ValueError('Env variable ARROW_HDFS_TEST_PORT was not '
-                         'an integer')
+        raise ValueError("Env variable ARROW_HDFS_TEST_PORT was not " "an integer")
     uri = "hdfs://{}:{}{}".format(host, port, path)
 
     return uri
@@ -417,25 +416,26 @@ def _get_hdfs_uri(path):
 @pytest.mark.pandas
 @pytest.mark.parquet
 @pytest.mark.fastparquet
-@pytest.mark.parametrize('client', ['libhdfs', 'libhdfs3'])
+@pytest.mark.parametrize("client", ["libhdfs", "libhdfs3"])
 def test_fastparquet_read_with_hdfs(client):
     from pandas.util.testing import assert_frame_equal, makeDataFrame
 
     try:
         import snappy  # noqa
     except ImportError:
-        pytest.skip('fastparquet test requires snappy')
+        pytest.skip("fastparquet test requires snappy")
 
     import pyarrow.parquet as pq
-    fastparquet = pytest.importorskip('fastparquet')
+
+    fastparquet = pytest.importorskip("fastparquet")
 
     fs = hdfs_test_client(client)
 
     df = makeDataFrame()
     table = pa.Table.from_pandas(df)
 
-    path = '/tmp/testing.parquet'
-    with fs.open(path, 'wb') as f:
+    path = "/tmp/testing.parquet"
+    with fs.open(path, "wb") as f:
         pq.write_table(table, f)
 
     parquet_file = fastparquet.ParquetFile(path, open_with=fs.open)

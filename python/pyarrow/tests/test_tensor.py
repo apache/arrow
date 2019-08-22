@@ -24,17 +24,17 @@ import pyarrow as pa
 
 
 tensor_type_pairs = [
-    ('i1', pa.int8()),
-    ('i2', pa.int16()),
-    ('i4', pa.int32()),
-    ('i8', pa.int64()),
-    ('u1', pa.uint8()),
-    ('u2', pa.uint16()),
-    ('u4', pa.uint32()),
-    ('u8', pa.uint64()),
-    ('f2', pa.float16()),
-    ('f4', pa.float32()),
-    ('f8', pa.float64())
+    ("i1", pa.int8()),
+    ("i2", pa.int16()),
+    ("i4", pa.int32()),
+    ("i8", pa.int64()),
+    ("u1", pa.uint8()),
+    ("u2", pa.uint16()),
+    ("u4", pa.uint32()),
+    ("u8", pa.uint64()),
+    ("f2", pa.float16()),
+    ("f4", pa.float32()),
+    ("f8", pa.float64()),
 ]
 
 
@@ -59,11 +59,11 @@ def test_tensor_attrs():
     assert not tensor.is_mutable
 
     # With dim_names
-    tensor = pa.Tensor.from_numpy(data, dim_names=('x', 'y'))
+    tensor = pa.Tensor.from_numpy(data, dim_names=("x", "y"))
     assert tensor.ndim == 2
-    assert tensor.dim_names == ['x', 'y']
-    assert tensor.dim_name(0) == 'x'
-    assert tensor.dim_name(1) == 'y'
+    assert tensor.dim_names == ["x", "y"]
+    assert tensor.dim_name(0) == "x"
+    assert tensor.dim_name(1) == "y"
 
 
 def test_tensor_base_object():
@@ -73,7 +73,7 @@ def test_tensor_base_object():
     assert sys.getrefcount(tensor) == n + 1
 
 
-@pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
+@pytest.mark.parametrize("dtype_str,arrow_type", tensor_type_pairs)
 def test_tensor_numpy_roundtrip(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
     data = (100 * np.random.randn(10, 4)).astype(dtype)
@@ -91,7 +91,7 @@ def test_tensor_ipc_roundtrip(tmpdir):
     data = np.random.randn(10, 4)
     tensor = pa.Tensor.from_numpy(data)
 
-    path = os.path.join(str(tmpdir), 'pyarrow-tensor-ipc-roundtrip')
+    path = os.path.join(str(tmpdir), "pyarrow-tensor-ipc-roundtrip")
     mmap = pa.create_memory_map(path, 1024)
 
     pa.write_tensor(tensor, mmap)
@@ -109,7 +109,7 @@ def test_tensor_ipc_strided(tmpdir):
     data2 = np.random.randn(10, 6, 4)
     tensor2 = pa.Tensor.from_numpy(data2[::, ::2, ::])
 
-    path = os.path.join(str(tmpdir), 'pyarrow-tensor-ipc-strided')
+    path = os.path.join(str(tmpdir), "pyarrow-tensor-ipc-strided")
     mmap = pa.create_memory_map(path, 2048)
 
     for tensor in [tensor1, tensor2]:
@@ -160,25 +160,25 @@ def test_read_tensor(tmpdir):
     data = np.random.randn(10, 4)
     tensor = pa.Tensor.from_numpy(data)
     data_size = pa.get_tensor_size(tensor)
-    path = os.path.join(str(tmpdir), 'pyarrow-tensor-ipc-read-tensor')
+    path = os.path.join(str(tmpdir), "pyarrow-tensor-ipc-read-tensor")
     write_mmap = pa.create_memory_map(path, data_size)
     pa.write_tensor(tensor, write_mmap)
     # Try to read tensor
-    read_mmap = pa.memory_map(path, mode='r')
+    read_mmap = pa.memory_map(path, mode="r")
     array = pa.read_tensor(read_mmap).to_numpy()
     np.testing.assert_equal(data, array)
 
 
-@pytest.mark.skipif(sys.version_info < (3,),
-                    reason="requires Python 3+")
+@pytest.mark.skipif(sys.version_info < (3,), reason="requires Python 3+")
 def test_tensor_memoryview():
     # Tensors support the PEP 3118 buffer protocol
-    for dtype, expected_format in [(np.int8, '=b'),
-                                   (np.int64, '=q'),
-                                   (np.uint64, '=Q'),
-                                   (np.float16, 'e'),
-                                   (np.float64, 'd'),
-                                   ]:
+    for dtype, expected_format in [
+        (np.int8, "=b"),
+        (np.int64, "=q"),
+        (np.uint64, "=Q"),
+        (np.float16, "e"),
+        (np.float64, "d"),
+    ]:
         data = np.arange(10, dtype=dtype)
         dtype = data.dtype
         lst = data.tolist()

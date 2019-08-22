@@ -26,10 +26,16 @@ import sys
 import tempfile
 import time
 
-from pyarrow._plasma import (ObjectID, ObjectNotAvailable, # noqa
-                             PlasmaBuffer, PlasmaClient, connect,
-                             PlasmaObjectExists, PlasmaObjectNonexistent,
-                             PlasmaStoreFull)
+from pyarrow._plasma import (
+    ObjectID,
+    ObjectNotAvailable,  # noqa
+    PlasmaBuffer,
+    PlasmaClient,
+    connect,
+    PlasmaObjectExists,
+    PlasmaObjectNonexistent,
+    PlasmaStoreFull,
+)
 
 
 # The Plasma TensorFlow Operator needs to be compiled on the end user's
@@ -47,6 +53,7 @@ tf_plasma_op = None
 def load_plasma_tensorflow_op():
     global tf_plasma_op
     import tensorflow as tf
+
     tf_plasma_op = tf.load_op_library(TF_PLASMA_OP_PATH)
 
 
@@ -54,6 +61,7 @@ def build_plasma_tensorflow_op():
     global tf_plasma_op
     try:
         import tensorflow as tf
+
         print("TensorFlow version: " + tf.__version__)
     except ImportError:
         pass
@@ -63,10 +71,19 @@ def build_plasma_tensorflow_op():
         cc_path = os.path.join(dir_path, "tensorflow", "plasma_op.cc")
         so_path = os.path.join(dir_path, "tensorflow", "plasma_op.so")
         tf_cflags = tf.sysconfig.get_compile_flags()
-        if sys.platform == 'darwin':
+        if sys.platform == "darwin":
             tf_cflags = ["-undefined", "dynamic_lookup"] + tf_cflags
-        cmd = ["g++", "-std=c++11", "-g", "-shared", cc_path,
-               "-o", so_path, "-DNDEBUG", "-I" + pa.get_include()]
+        cmd = [
+            "g++",
+            "-std=c++11",
+            "-g",
+            "-shared",
+            cc_path,
+            "-o",
+            so_path,
+            "-DNDEBUG",
+            "-I" + pa.get_include(),
+        ]
         cmd += ["-L" + dir for dir in pa.get_library_dirs()]
         cmd += ["-lplasma", "-larrow_python", "-larrow", "-fPIC"]
         cmd += tf_cflags
@@ -80,10 +97,14 @@ def build_plasma_tensorflow_op():
 
 
 @contextlib.contextmanager
-def start_plasma_store(plasma_store_memory,
-                       use_valgrind=False, use_profiler=False,
-                       plasma_directory=None, use_hugepages=False,
-                       external_store=None):
+def start_plasma_store(
+    plasma_store_memory,
+    use_valgrind=False,
+    use_profiler=False,
+    plasma_directory=None,
+    use_hugepages=False,
+    external_store=None,
+):
     """Start a plasma store process.
     Args:
         plasma_store_memory (int): Capacity of the plasma store in bytes.
@@ -102,14 +123,17 @@ def start_plasma_store(plasma_store_memory,
     if use_valgrind and use_profiler:
         raise Exception("Cannot use valgrind and profiler at the same time.")
 
-    tmpdir = tempfile.mkdtemp(prefix='test_plasma-')
+    tmpdir = tempfile.mkdtemp(prefix="test_plasma-")
     try:
-        plasma_store_name = os.path.join(tmpdir, 'plasma.sock')
-        plasma_store_executable = os.path.join(
-            pa.__path__[0], "plasma-store-server")
-        command = [plasma_store_executable,
-                   "-s", plasma_store_name,
-                   "-m", str(plasma_store_memory)]
+        plasma_store_name = os.path.join(tmpdir, "plasma.sock")
+        plasma_store_executable = os.path.join(pa.__path__[0], "plasma-store-server")
+        command = [
+            plasma_store_executable,
+            "-s",
+            plasma_store_name,
+            "-m",
+            str(plasma_store_memory),
+        ]
         if plasma_directory:
             command += ["-d", plasma_directory]
         if use_hugepages:
@@ -119,28 +143,28 @@ def start_plasma_store(plasma_store_memory,
         stdout_file = None
         stderr_file = None
         if use_valgrind:
-            command = ["valgrind",
-                       "--track-origins=yes",
-                       "--leak-check=full",
-                       "--show-leak-kinds=all",
-                       "--leak-check-heuristics=stdstring",
-                       "--error-exitcode=1"] + command
-            proc = subprocess.Popen(command, stdout=stdout_file,
-                                    stderr=stderr_file)
+            command = [
+                "valgrind",
+                "--track-origins=yes",
+                "--leak-check=full",
+                "--show-leak-kinds=all",
+                "--leak-check-heuristics=stdstring",
+                "--error-exitcode=1",
+            ] + command
+            proc = subprocess.Popen(command, stdout=stdout_file, stderr=stderr_file)
             time.sleep(1.0)
         elif use_profiler:
             command = ["valgrind", "--tool=callgrind"] + command
-            proc = subprocess.Popen(command, stdout=stdout_file,
-                                    stderr=stderr_file)
+            proc = subprocess.Popen(command, stdout=stdout_file, stderr=stderr_file)
             time.sleep(1.0)
         else:
-            proc = subprocess.Popen(command, stdout=stdout_file,
-                                    stderr=stderr_file)
+            proc = subprocess.Popen(command, stdout=stdout_file, stderr=stderr_file)
             time.sleep(0.1)
         rc = proc.poll()
         if rc is not None:
-            raise RuntimeError("plasma_store exited unexpectedly with "
-                               "code %d" % (rc,))
+            raise RuntimeError(
+                "plasma_store exited unexpectedly with " "code %d" % (rc,)
+            )
 
         yield plasma_store_name, proc
     finally:

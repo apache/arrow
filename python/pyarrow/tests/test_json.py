@@ -50,13 +50,12 @@ def test_parse_options():
     opts.newlines_in_values = True
     assert opts.newlines_in_values is True
 
-    schema = pa.schema([pa.field('foo', pa.int32())])
+    schema = pa.schema([pa.field("foo", pa.int32())])
     opts.explicit_schema = schema
     assert opts.explicit_schema == schema
 
 
 class BaseTestJSONRead:
-
     def read_bytes(self, b, **kwargs):
         return self.read_json(pa.py_buffer(b), **kwargs)
 
@@ -66,7 +65,7 @@ class BaseTestJSONRead:
 
     def test_file_object(self):
         data = b'{"a": 1, "b": 2}\n'
-        expected_data = {'a': [1], 'b': [2]}
+        expected_data = {"a": [1], "b": [2]}
         bio = io.BytesIO(data)
         table = self.read_json(bio)
         assert table.to_pydict() == expected_data
@@ -79,58 +78,63 @@ class BaseTestJSONRead:
         # Infer integer columns
         rows = b'{"a": 1,"b": 2, "c": 3}\n{"a": 4,"b": 5, "c": 6}\n'
         table = self.read_bytes(rows)
-        schema = pa.schema([('a', pa.int64()),
-                            ('b', pa.int64()),
-                            ('c', pa.int64())])
+        schema = pa.schema([("a", pa.int64()), ("b", pa.int64()), ("c", pa.int64())])
         assert table.schema == schema
-        assert table.to_pydict() == {
-            'a': [1, 4],
-            'b': [2, 5],
-            'c': [3, 6],
-            }
+        assert table.to_pydict() == {"a": [1, 4], "b": [2, 5], "c": [3, 6]}
 
     def test_simple_varied(self):
         # Infer various kinds of data
-        rows = (b'{"a": 1,"b": 2, "c": "3", "d": false}\n'
-                b'{"a": 4.0, "b": -5, "c": "foo", "d": true}\n')
+        rows = (
+            b'{"a": 1,"b": 2, "c": "3", "d": false}\n'
+            b'{"a": 4.0, "b": -5, "c": "foo", "d": true}\n'
+        )
         table = self.read_bytes(rows)
-        schema = pa.schema([('a', pa.float64()),
-                            ('b', pa.int64()),
-                            ('c', pa.string()),
-                            ('d', pa.bool_())])
+        schema = pa.schema(
+            [
+                ("a", pa.float64()),
+                ("b", pa.int64()),
+                ("c", pa.string()),
+                ("d", pa.bool_()),
+            ]
+        )
         assert table.schema == schema
         assert table.to_pydict() == {
-            'a': [1.0, 4.0],
-            'b': [2, -5],
-            'c': [u"3", u"foo"],
-            'd': [False, True],
-            }
+            "a": [1.0, 4.0],
+            "b": [2, -5],
+            "c": [u"3", u"foo"],
+            "d": [False, True],
+        }
 
     def test_simple_nulls(self):
         # Infer various kinds of data, with nulls
-        rows = (b'{"a": 1, "b": 2, "c": null, "d": null, "e": null}\n'
-                b'{"a": null, "b": -5, "c": "foo", "d": null, "e": true}\n'
-                b'{"a": 4.5, "b": null, "c": "nan", "d": null,"e": false}\n')
+        rows = (
+            b'{"a": 1, "b": 2, "c": null, "d": null, "e": null}\n'
+            b'{"a": null, "b": -5, "c": "foo", "d": null, "e": true}\n'
+            b'{"a": 4.5, "b": null, "c": "nan", "d": null,"e": false}\n'
+        )
         table = self.read_bytes(rows)
-        schema = pa.schema([('a', pa.float64()),
-                            ('b', pa.int64()),
-                            ('c', pa.string()),
-                            ('d', pa.null()),
-                            ('e', pa.bool_())])
+        schema = pa.schema(
+            [
+                ("a", pa.float64()),
+                ("b", pa.int64()),
+                ("c", pa.string()),
+                ("d", pa.null()),
+                ("e", pa.bool_()),
+            ]
+        )
         assert table.schema == schema
         assert table.to_pydict() == {
-            'a': [1.0, None, 4.5],
-            'b': [2, -5, None],
-            'c': [None, u"foo", u"nan"],
-            'd': [None, None, None],
-            'e': [None, True, False],
-            }
+            "a": [1.0, None, 4.5],
+            "b": [2, -5, None],
+            "c": [None, u"foo", u"nan"],
+            "d": [None, None, None],
+            "e": [None, True, False],
+        }
 
 
 class TestSerialJSONRead(BaseTestJSONRead, unittest.TestCase):
-
     def read_json(self, *args, **kwargs):
-        read_options = kwargs.setdefault('read_options', ReadOptions())
+        read_options = kwargs.setdefault("read_options", ReadOptions())
         read_options.use_threads = False
         table = read_json(*args, **kwargs)
         table.validate()
@@ -138,9 +142,8 @@ class TestSerialJSONRead(BaseTestJSONRead, unittest.TestCase):
 
 
 class TestParallelJSONRead(BaseTestJSONRead, unittest.TestCase):
-
     def read_json(self, *args, **kwargs):
-        read_options = kwargs.setdefault('read_options', ReadOptions())
+        read_options = kwargs.setdefault("read_options", ReadOptions())
         read_options.use_threads = True
         table = read_json(*args, **kwargs)
         table.validate()

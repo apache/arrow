@@ -33,7 +33,7 @@ def test_string_builder_append():
     assert len(sbuilder) == 0
     assert isinstance(arr, pa.Array)
     assert arr.null_count == 2
-    assert arr.type == 'str'
+    assert arr.type == "str"
     expected = ["a byte string", "a string", None, None]
     assert arr.to_pylist() == expected
 

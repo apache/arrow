@@ -68,22 +68,23 @@ def test_cython_api(tmpdir):
     # Fail early if cython is not found
     import cython  # noqa
 
-    test_ld_path = os.environ.get('PYARROW_TEST_LD_PATH', '')
+    test_ld_path = os.environ.get("PYARROW_TEST_LD_PATH", "")
 
     with tmpdir.as_cwd():
         # Set up temporary workspace
-        pyx_file = 'pyarrow_cython_example.pyx'
-        shutil.copyfile(os.path.join(here, pyx_file),
-                        os.path.join(str(tmpdir), pyx_file))
+        pyx_file = "pyarrow_cython_example.pyx"
+        shutil.copyfile(
+            os.path.join(here, pyx_file), os.path.join(str(tmpdir), pyx_file)
+        )
         # Create setup.py file
-        if os.name == 'posix':
-            compiler_opts = ['-std=c++11']
+        if os.name == "posix":
+            compiler_opts = ["-std=c++11"]
         else:
             compiler_opts = []
-        setup_code = setup_template.format(pyx_file=pyx_file,
-                                           compiler_opts=compiler_opts,
-                                           test_ld_path=test_ld_path)
-        with open('setup.py', 'w') as f:
+        setup_code = setup_template.format(
+            pyx_file=pyx_file, compiler_opts=compiler_opts, test_ld_path=test_ld_path
+        )
+        with open("setup.py", "w") as f:
             f.write(setup_code)
 
         # ARROW-2263: Make environment with this pyarrow/ package first on the
@@ -91,15 +92,15 @@ def test_cython_api(tmpdir):
         subprocess_env = test_util.get_modified_env_with_pythonpath()
 
         # Compile extension module
-        subprocess.check_call([sys.executable, 'setup.py',
-                               'build_ext', '--inplace'],
-                              env=subprocess_env)
+        subprocess.check_call(
+            [sys.executable, "setup.py", "build_ext", "--inplace"], env=subprocess_env
+        )
 
         # Check basic functionality
         orig_path = sys.path[:]
         sys.path.insert(0, str(tmpdir))
         try:
-            mod = __import__('pyarrow_cython_example')
+            mod = __import__("pyarrow_cython_example")
             arr = pa.array([1, 2, 3])
             assert mod.get_array_length(arr) == 3
             with pytest.raises(TypeError, match="not an array"):
@@ -116,17 +117,19 @@ def test_cython_api(tmpdir):
             arr = mod.make_null_array(5)
             assert mod.get_array_length(arr) == 5
             assert arr.null_count == 5
-        """.format(mod_path=str(tmpdir), mod_name='pyarrow_cython_example')
-
-        if sys.platform == 'win32':
-            delim, var = ';', 'PATH'
-        else:
-            delim, var = ':', 'LD_LIBRARY_PATH'
-
-        subprocess_env[var] = delim.join(
-            pa.get_library_dirs() + [subprocess_env.get(var, '')]
+        """.format(
+            mod_path=str(tmpdir), mod_name="pyarrow_cython_example"
         )
 
-        subprocess.check_call([sys.executable, '-c', code],
-                              stdout=subprocess.PIPE,
-                              env=subprocess_env)
+        if sys.platform == "win32":
+            delim, var = ";", "PATH"
+        else:
+            delim, var = ":", "LD_LIBRARY_PATH"
+
+        subprocess_env[var] = delim.join(
+            pa.get_library_dirs() + [subprocess_env.get(var, "")]
+        )
+
+        subprocess.check_call(
+            [sys.executable, "-c", code], stdout=subprocess.PIPE, env=subprocess_env
+        )
