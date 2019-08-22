@@ -541,6 +541,27 @@ def test_table_pickle():
     assert result.equals(table)
 
 
+def test_table_get_field():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array(range(5, 10))
+    ]
+    table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
+
+    assert table.field('a').equals(table.schema.field('a'))
+    assert table.field(0).equals(table.schema.field('a'))
+
+    with pytest.raises(KeyError):
+        table.field('d')
+
+    with pytest.raises(TypeError):
+        table.field(None)
+
+    with pytest.raises(IndexError):
+        table.field(4)
+
+
 def test_table_select_column():
     data = [
         pa.array(range(5)),
@@ -556,6 +577,9 @@ def test_table_select_column():
 
     with pytest.raises(TypeError):
         table.column(None)
+
+    with pytest.raises(IndexError):
+        table.column(4)
 
 
 def test_table_add_column():

@@ -745,8 +745,8 @@ cdef class Schema:
         return self.schema.num_fields()
 
     def __getitem__(self, key):
-        cdef int index = <int> _normalize_index(key, self.schema.num_fields())
-        return pyarrow_wrap_field(self.schema.field(index))
+        # access by integer index
+        return self._field(key)
 
     def __iter__(self):
         for i in range(len(self)):
@@ -895,6 +895,34 @@ cdef class Schema:
             fields.append(field(name, type_))
         return schema(fields, metadata)
 
+    def field(self, i):
+        """
+        Select a field by its column name or numeric index.
+
+        Parameters
+        ----------
+        i : int or string
+
+        Returns
+        -------
+        pyarrow.Field
+        """
+        if isinstance(i, six.string_types):
+            field_index = self.get_field_index(i)
+            if field_index < 0:
+                raise KeyError("Column {} does not exist in schema".format(i))
+            else:
+                return self._field(field_index)
+        elif isinstance(i, six.integer_types):
+            return self._field(i)
+        else:
+            raise TypeError("Index must either be string or integer")
+
+    def _field(self, int i):
+        """Select a field by its numeric index."""
+        cdef int index = <int> _normalize_index(i, self.schema.num_fields())
+        return pyarrow_wrap_field(self.schema.field(index))
+
     def field_by_name(self, name):
         """
         Access a field by its name rather than the column index.
@@ -909,6 +937,10 @@ cdef class Schema:
         """
         cdef:
             vector[shared_ptr[CField]] results
+
+        warnings.warn(
+            "The 'field_by_name' method is deprecated, use 'field' instead",
+            FutureWarning, stacklevel=2)
 
         results = self.schema.GetAllFieldsByName(tobytes(name))
         if results.size() == 0:

@@ -352,7 +352,7 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
                 "Sparse pandas data (column {}) not supported.".format(name))
 
         if schema is not None:
-            field = schema.field_by_name(name)
+            field = schema.field(name)
         else:
             field = None
 

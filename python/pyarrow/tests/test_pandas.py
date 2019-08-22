@@ -1659,7 +1659,7 @@ class TestConvertListTypes(object):
         assert table.schema.equals(expected_schema)
 
         for column in df.columns:
-            field = schema.field_by_name(column)
+            field = schema.field(column)
             _check_array_roundtrip(df[column], type=field.type)
 
     def test_column_of_arrays_to_py(self):
@@ -1710,7 +1710,7 @@ class TestConvertListTypes(object):
         assert table.schema.equals(expected_schema)
 
         for column in df.columns:
-            field = schema.field_by_name(column)
+            field = schema.field(column)
             _check_array_roundtrip(df[column], type=field.type)
 
     def test_column_of_lists_first_empty(self):
@@ -2688,9 +2688,9 @@ def test_table_from_pandas_keeps_schema_nullability():
     ])
 
     table = pa.Table.from_pandas(df)
-    assert table.schema.field_by_name('a').nullable is True
+    assert table.schema.field('a').nullable is True
     table = pa.Table.from_pandas(df, schema=schema)
-    assert table.schema.field_by_name('a').nullable is False
+    assert table.schema.field('a').nullable is False
 
 
 # ----------------------------------------------------------------------
