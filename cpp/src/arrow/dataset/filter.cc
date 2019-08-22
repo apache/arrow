@@ -223,67 +223,67 @@ Result<Comparison::type> Compare(const Scalar& lhs, const Scalar& rhs) {
   return vis.result_;
 }
 
-/*
-Result<std::shared_ptr<Expression>> Invert(const Expression& op) {
-  auto make_opposite = [&op](ExpressionType::type opposite_type) {
-    return std::make_shared<OperatorExpression>(
-        opposite_type, checked_cast<const OperatorExpression&>(op).operands());
+std::shared_ptr<Expression> Invert(const ComparisonExpression& comparison) {
+  using compute::CompareOperator;
+  auto make_opposite = [&](CompareOperator opposite) {
+    return std::make_shared<ComparisonExpression>(opposite, comparison.left_operand(),
+                                                  comparison.right_operand());
   };
 
+  switch (comparison.op()) {
+    case CompareOperator::EQUAL:
+      return make_opposite(CompareOperator::NOT_EQUAL);
+
+    case CompareOperator::NOT_EQUAL:
+      return make_opposite(CompareOperator::EQUAL);
+
+    case CompareOperator::GREATER:
+      return make_opposite(CompareOperator::LESS_EQUAL);
+
+    case CompareOperator::GREATER_EQUAL:
+      return make_opposite(CompareOperator::LESS);
+
+    case CompareOperator::LESS:
+      return make_opposite(CompareOperator::GREATER_EQUAL);
+
+    case CompareOperator::LESS_EQUAL:
+      return make_opposite(CompareOperator::GREATER);
+
+    default:
+      break;
+  }
+
+  DCHECK(false);
+  return nullptr;
+}
+
+Result<std::shared_ptr<Expression>> Invert(const Expression& op) {
   switch (op.type()) {
     case ExpressionType::NOT:
-      return checked_cast<const OperatorExpression&>(op).operands()[0];
+      return checked_cast<const NotExpression&>(op).operand();
 
     case ExpressionType::AND:
     case ExpressionType::OR: {
-      ExpressionVector operands;
-      for (auto operand : checked_cast<const OperatorExpression&>(op).operands()) {
+      ExpressionVector inverted_operands;
+      for (auto operand : checked_cast<const NnaryExpression&>(op).operands()) {
         ARROW_ASSIGN_OR_RAISE(auto inverted_operand, Invert(*operand));
-        operands.push_back(inverted_operand);
+        inverted_operands.push_back(inverted_operand);
       }
 
-      auto opposite_type =
-          op.type() == ExpressionType::AND ? ExpressionType::OR : ExpressionType::AND;
-      return std::make_shared<OperatorExpression>(opposite_type, std::move(operands));
+      if (op.type() == ExpressionType::AND) {
+        return std::make_shared<OrExpression>(std::move(inverted_operands));
+      }
+      return std::make_shared<AndExpression>(std::move(inverted_operands));
     }
 
-    case ExpressionType::EQUAL:
-      return make_opposite(ExpressionType::NOT_EQUAL);
-
-    case ExpressionType::NOT_EQUAL:
-      return make_opposite(ExpressionType::EQUAL);
-
-    case ExpressionType::LESS:
-      return make_opposite(ExpressionType::GREATER_EQUAL);
-
-    case ExpressionType::LESS_EQUAL:
-      return make_opposite(ExpressionType::GREATER);
-
-    case ExpressionType::GREATER:
-      return make_opposite(ExpressionType::LESS_EQUAL);
-
-    case ExpressionType::GREATER_EQUAL:
-      return make_opposite(ExpressionType::LESS);
+    case ExpressionType::COMPARISON:
+      return Invert(checked_cast<const ComparisonExpression&>(op));
 
     default:
-      return Status::NotImplemented("can't invert this expression");
+      break;
   }
-
-  return op.Copy();
+  return Status::NotImplemented("can't invert this expression");
 }
-*/
-
-// If e can be cast to OperatorExpression try to simplify it against given.
-// Otherwise pass e through unchanged.
-/*
-Result<std::shared_ptr<Expression>> AssumeIfOperator(const std::shared_ptr<Expression>& e,
-                                                     const Expression& given) {
-  if (!e->IsOperatorExpression()) {
-    return e;
-  }
-  return checked_cast<const OperatorExpression&>(*e).Assume(given);
-}
-*/
 
 Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
     const Expression& given) const {
@@ -293,10 +293,12 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
     }
 
     case ExpressionType::NOT: {
-      // const auto& to_invert = checked_cast<const NotExpression&>(given).operand();
-      // ARROW_ASSIGN_OR_RAISE(auto inverted, Invert(*to_invert));
-      // return Assume(*inverted);
-      return Copy();
+      const auto& to_invert = checked_cast<const NotExpression&>(given).operand();
+      auto inverted = Invert(*to_invert);
+      if (!inverted.ok()) {
+        return Copy();
+      }
+      return Assume(*inverted.ValueOrDie());
     }
 
     case ExpressionType::OR: {
