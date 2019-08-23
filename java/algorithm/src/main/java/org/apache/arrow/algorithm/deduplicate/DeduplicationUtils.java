@@ -45,7 +45,8 @@ class DeduplicationUtils {
     BitVectorHelper.setValidityBitToOne(runStarts, 0);
 
     for (int i = 1; i < vector.getValueCount(); i++) {
-      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector, i - 1, i, 1, false);
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(
+              vector, i - 1, i, /* length */1, /* need check type*/false);
       if (!visitor.equals(vector)) {
         BitVectorHelper.setValidityBitToOne(runStarts, i);
       }
