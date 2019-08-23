@@ -1486,10 +1486,8 @@ class ExtensionBlock : public PandasBlock {
                int64_t rel_placement) override {
     PyAcquireGIL lock;
 
-    // TODO taking the first chunk because there is no wrap_chunked_array
-    auto array = data->chunk(0);
     PyObject* py_array;
-    py_array = wrap_array(array);
+    py_array = wrap_chunked_array(data);
     py_array_.reset(py_array);
 
     placement_data_[rel_placement] = abs_placement;
@@ -1508,7 +1506,7 @@ class ExtensionBlock : public PandasBlock {
     return Status::OK();
   }
 
-protected:
+ protected:
   OwnedRefNoGIL py_array_;
 };
 

@@ -670,14 +670,13 @@ def _reconstruct_block(item):
         # TODO have mechanism to know a method to create a
         # pandas ExtensionArray given the pyarrow type
         # Now hardcode here to create a pandas IntegerArray for the example
+        arr = arr.chunk(0)
         buflist = arr.buffers()
         data = np.frombuffer(buflist[-1], dtype=arr.type.to_pandas_dtype())[
             arr.offset:arr.offset + len(arr)]
-        bitmask = buflist[0].to_pybytes()
-        mask = np.array(
-            [bitmask[i // 8] & 1 << i % 8 != 0
-             for i in range(len(bitmask) * 8)][:len(arr)],
-            dtype='bool')
+        bitmask = buflist[0]
+        mask = pa.BooleanArray.from_buffers(
+            pa.bool_(), len(arr), [None, bitmask]).to_pandas()
         block_arr = _pandas_api.pd.arrays.IntegerArray(
             data.copy(), ~mask, copy=False)
         # create ExtensionBlock
