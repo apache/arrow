@@ -243,7 +243,9 @@ class GrpcStreamWriter : public FlightStreamWriter {
  public:
   ~GrpcStreamWriter() override = default;
 
-  GrpcStreamWriter() : app_metadata_(nullptr), batch_writer_(nullptr) {}
+  explicit GrpcStreamWriter(
+      std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer)
+      : app_metadata_(nullptr), batch_writer_(nullptr), writer_(writer) {}
 
   static Status Open(
       const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
@@ -259,6 +261,16 @@ class GrpcStreamWriter : public FlightStreamWriter {
     app_metadata_ = app_metadata;
     return batch_writer_->WriteRecordBatch(batch);
   }
+  Status DoneWriting() override {
+    if (done_writing_) {
+      return Status::OK();
+    }
+    done_writing_ = true;
+    if (!writer_->WritesDone()) {
+      return Status::IOError("Could not flush pending record batches.");
+    }
+    return Status::OK();
+  }
   void set_memory_pool(MemoryPool* pool) override {
     batch_writer_->set_memory_pool(pool);
   }
@@ -268,6 +280,8 @@ class GrpcStreamWriter : public FlightStreamWriter {
   friend class DoPutPayloadWriter;
   std::shared_ptr<Buffer> app_metadata_;
   std::unique_ptr<ipc::RecordBatchWriter> batch_writer_;
+  std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer_;
+  bool done_writing_ = false;
 };
 
 /// A IpcPayloadWriter implementation that writes to a DoPut stream
@@ -320,7 +334,7 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
   }
 
   Status Close() override {
-    bool finished_writes = writer_->WritesDone();
+    bool finished_writes = stream_writer_->done_writing_ ? true : writer_->WritesDone();
     // Drain the read side to avoid hanging
     pb::PutResult message;
     while (writer_->Read(&message)) {
@@ -348,7 +362,7 @@ Status GrpcStreamWriter::Open(
     std::unique_ptr<ClientRpc> rpc, std::unique_ptr<pb::PutResult> response,
     std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer,
     std::unique_ptr<FlightStreamWriter>* out) {
-  std::unique_ptr<GrpcStreamWriter> result(new GrpcStreamWriter);
+  std::unique_ptr<GrpcStreamWriter> result(new GrpcStreamWriter(writer));
   std::unique_ptr<ipc::internal::IpcPayloadWriter> payload_writer(new DoPutPayloadWriter(
       descriptor, std::move(rpc), std::move(response), writer, result.get()));
   RETURN_NOT_OK(ipc::internal::OpenRecordBatchWriter(std::move(payload_writer), schema,
