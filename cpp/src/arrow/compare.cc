@@ -1031,14 +1031,12 @@ bool StridedTensorContentEquals(int dim_index, int64_t left_offset, int64_t righ
   return true;
 }
 
-bool TensorEquals(const Tensor& left, const Tensor& right) {
+namespace {
+
+bool IntegerTensorEquals(const Tensor& left, const Tensor& right) {
   bool are_equal;
   // The arrays are the same object
   if (&left == &right) {
-    are_equal = true;
-  } else if (left.type_id() != right.type_id()) {
-    are_equal = false;
-  } else if (left.size() == 0) {
     are_equal = true;
   } else {
     const bool left_row_major_p = left.is_row_major();
@@ -1049,13 +1047,9 @@ bool TensorEquals(const Tensor& left, const Tensor& right) {
     if (!(left_row_major_p && right_row_major_p) &&
         !(left_column_major_p && right_column_major_p)) {
       const auto& shape = left.shape();
-      if (shape != right.shape()) {
-        are_equal = false;
-      } else {
-        const auto& type = checked_cast<const FixedWidthType&>(*left.type());
-        are_equal =
-            StridedTensorContentEquals(0, 0, 0, type.bit_width() / 8, left, right);
-      }
+      const auto& type = checked_cast<const FixedWidthType&>(*left.type());
+      are_equal =
+          StridedTensorContentEquals(0, 0, 0, type.bit_width() / 8, left, right);
     } else {
       const auto& size_meta = checked_cast<const FixedWidthType&>(*left.type());
       const int byte_width = size_meta.bit_width() / CHAR_BIT;
@@ -1069,6 +1063,33 @@ bool TensorEquals(const Tensor& left, const Tensor& right) {
     }
   }
   return are_equal;
+}
+
+bool FloatTensorEquals(const Tensor& left, const Tensor& right) {
+  return IntegerTensorEquals(left, right);
+}
+
+}
+
+bool TensorEquals(const Tensor& left, const Tensor& right) {
+  if (left.type_id() != right.type_id()) {
+    return false;
+  } else if (left.size() == 0) {
+    return true;
+  } else if (left.shape() != right.shape()) {
+    return false;
+  }
+
+  switch (left.type_id()) {
+    // TODO: Support half-float tensors
+    // case Type::HALF_FLOAT:
+    case Type::FLOAT:
+    case Type::DOUBLE:
+      return FloatTensorEquals(left, right);
+
+    default:
+      return IntegerTensorEquals(left, right);
+  }
 }
 
 namespace {
