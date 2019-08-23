@@ -107,7 +107,7 @@ class ARROW_EXPORT Tensor {
   /// Compute the number of non-zero values in the tensor
   Status CountNonZero(int64_t* result) const;
 
-  /// Returns the value at the given index
+  /// Returns the value at the given index without data-type and bounds checks
   template <typename ValueType>
   const typename ValueType::c_type& Value(const std::vector<int64_t>& index) const {
     using c_type = typename ValueType::c_type;
