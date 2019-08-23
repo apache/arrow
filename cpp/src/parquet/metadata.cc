@@ -623,6 +623,11 @@ bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
     return false;
   }
 
+  // Null only arrays do not have proper statistics
+  if (statistics.null_count > 0 && statistics.distinct_count == 0) {
+    return false;
+  }
+
   // PARQUET-251
   if (VersionLt(PARQUET_251_FIXED_VERSION())) {
     return false;
