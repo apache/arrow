@@ -238,8 +238,8 @@ def test_empty_table_roundtrip():
         [col.chunk(0)[:0] for col in table.itercolumns()],
         names=table.schema.names)
 
-    assert table.schema.field_by_name('null').type == pa.null()
-    assert table.schema.field_by_name('null_list').type == pa.list_(pa.null())
+    assert table.schema.field('null').type == pa.null()
+    assert table.schema.field('null_list').type == pa.list_(pa.null())
     _check_roundtrip(table, version='2.0')
 
 

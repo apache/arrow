@@ -211,8 +211,8 @@ def test_schema():
     assert len(sch) == 3
     assert sch[0].name == 'foo'
     assert sch[0].type == fields[0].type
-    assert sch.field_by_name('foo').name == 'foo'
-    assert sch.field_by_name('foo').type == fields[0].type
+    assert sch.field('foo').name == 'foo'
+    assert sch.field('foo').type == fields[0].type
 
     assert repr(sch) == """\
 foo: int32
@@ -283,9 +283,11 @@ foo: list<item: int8>
 
     assert sch[0].name == 'foo'
     assert sch[0].type == fields[0].type
-    assert sch.field_by_name('bar') == fields[1]
-    assert sch.field_by_name('xxx') is None
-    with pytest.warns(UserWarning):
+    with pytest.warns(FutureWarning):
+        assert sch.field_by_name('bar') == fields[1]
+    with pytest.warns(FutureWarning):
+        assert sch.field_by_name('xxx') is None
+    with pytest.warns((UserWarning, FutureWarning)):
         assert sch.field_by_name('foo') is None
 
 
@@ -401,6 +403,27 @@ def test_schema_equality_operators():
     # comparison with other types doesn't raise
     assert sch1 != []
     assert sch3 != 'foo'
+
+
+def test_schema_get_fields():
+    fields = [
+        pa.field('foo', pa.int32()),
+        pa.field('bar', pa.string()),
+        pa.field('baz', pa.list_(pa.int8()))
+    ]
+
+    schema = pa.schema(fields)
+
+    assert schema.field('foo').name == 'foo'
+    assert schema.field(0).name == 'foo'
+    assert schema.field(-1).name == 'baz'
+
+    with pytest.raises(KeyError):
+        schema.field('other')
+    with pytest.raises(TypeError):
+        schema.field(0.0)
+    with pytest.raises(IndexError):
+        schema.field(4)
 
 
 def test_schema_negative_indexing():

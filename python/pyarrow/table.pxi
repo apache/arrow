@@ -534,17 +534,14 @@ cdef class RecordBatch(_PandasConvertible):
         -------
         column : pyarrow.Array
         """
-        if not -self.num_columns <= i < self.num_columns:
-            raise IndexError(
-                'Record batch column index {:d} is out of range'.format(i)
-            )
-        return pyarrow_wrap_array(self.batch.column(i))
+        cdef int index = <int> _normalize_index(i, self.num_columns)
+        return pyarrow_wrap_array(self.batch.column(index))
 
     def __getitem__(self, key):
         if isinstance(key, slice):
             return _normalize_slice(self, key)
         else:
-            return self.column(_normalize_index(key, self.num_columns))
+            return self.column(key)
 
     def serialize(self, memory_pool=None):
         """
@@ -1194,7 +1191,7 @@ cdef class Table(_PandasConvertible):
 
     def field(self, i):
         """
-        Select a schema field by its numeric index.
+        Select a schema field by its colunm name or numeric index.
 
         Parameters
         ----------
@@ -1204,19 +1201,7 @@ cdef class Table(_PandasConvertible):
         -------
         pyarrow.Field
         """
-        cdef:
-            int num_columns = self.num_columns
-            int index
-
-        if not -num_columns <= i < num_columns:
-            raise IndexError(
-                'Table column index {:d} is out of range'.format(i)
-            )
-
-        index = i if i >= 0 else num_columns + i
-        assert index >= 0
-
-        return pyarrow_wrap_field(self.table.field(index))
+        return self.schema.field(i)
 
     def column(self, i):
         """
@@ -1253,30 +1238,18 @@ cdef class Table(_PandasConvertible):
         -------
         pyarrow.ChunkedArray
         """
-        cdef:
-            int num_columns = self.num_columns
-            int index
-
-        if not -num_columns <= i < num_columns:
-            raise IndexError(
-                'Table column index {:d} is out of range'.format(i)
-            )
-
-        index = i if i >= 0 else num_columns + i
-        assert index >= 0
-
+        cdef int index = <int> _normalize_index(i, self.num_columns)
         return pyarrow_wrap_chunked_array(self.table.column(index))
 
     def __getitem__(self, key):
-        cdef int index = <int> _normalize_index(key, self.num_columns)
-        return self.column(index)
+        return self._column(key)
 
     def itercolumns(self):
         """
         Iterator over all columns in their numerical order
         """
         for i in range(self.num_columns):
-            yield self.column(i)
+            yield self._column(i)
 
     @property
     def columns(self):
