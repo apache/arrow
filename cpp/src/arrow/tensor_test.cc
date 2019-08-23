@@ -198,6 +198,8 @@ TEST(TestTensor, EqualsInt64) {
   std::vector<int64_t> f_values = {1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15, 4, 8, 12, 16};
   Tensor tc3(int64(), Buffer::Wrap(f_values), shape, c_strides);
 
+  Tensor tc4(int64(), Buffer::Wrap(c_values), {8, 2}, {16, 8});
+
   std::vector<int64_t> f_strides = {8, 32};
   Tensor tf1(int64(), Buffer::Wrap(f_values), shape, f_strides);
 
@@ -228,6 +230,9 @@ TEST(TestTensor, EqualsInt64) {
   EXPECT_TRUE(tc1.Equals(tc2));
   EXPECT_TRUE(tf1.Equals(tf2));
   EXPECT_FALSE(tc1.Equals(tc3));
+
+  // different shapes but same data
+  EXPECT_FALSE(tc1.Equals(tc4));
 
   // row-major and column-major
   EXPECT_TRUE(tc1.Equals(tf1));
