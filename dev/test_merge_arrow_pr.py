@@ -188,6 +188,12 @@ def test_multiple_authors_bad_input():
     a2 = 'Hank Miller <hank.miller@protonmail.com>'
     distinct_authors = [a0, a1]
 
+    cmd = FakeCLI(responses=[''])
+    primary_author, new_distinct_authors = merge_arrow_pr.get_primary_author(
+        cmd, distinct_authors)
+    assert primary_author == a0
+    assert new_distinct_authors == [a0, a1]
+
     cmd = FakeCLI(responses=['oops', a1])
     primary_author, new_distinct_authors = merge_arrow_pr.get_primary_author(
         cmd, distinct_authors)

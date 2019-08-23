@@ -440,7 +440,7 @@ def get_primary_author(cmd, distinct_authors):
             "\"name <email>\" [%s]: " % distinct_authors[0])
 
         if primary_author == "":
-            return primary_author, distinct_authors
+            return distinct_authors[0], distinct_authors
 
         if author_pat.match(primary_author):
             break
