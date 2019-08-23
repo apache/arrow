@@ -554,9 +554,9 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
   }
 
   @Override
-  public void setDataVector(FieldVector dataVector) {
+  public void replaceDataVector(FieldVector v) {
     vector.clear();
-    this.vector = dataVector;
+    vector = v;
   }
 
   private class TransferImpl implements TransferPair {

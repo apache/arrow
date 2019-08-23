@@ -79,7 +79,7 @@ public class ListSubfieldEncoder {
 
     // clone list vector and reset data vector
     BaseListVector encoded = cloneVector(vector);
-    encoded.setDataVector((FieldVector) indices);
+    encoded.replaceDataVector((FieldVector) indices);
 
     for (int i = 0; i < valueCount; i++) {
       if (!vector.isNull(i)) {
@@ -111,7 +111,7 @@ public class ListSubfieldEncoder {
 
     // clone list vector and reset data vector
     BaseListVector decoded = cloneVector(vector);
-    decoded.setDataVector((FieldVector) dataVector);
+    decoded.replaceDataVector((FieldVector) dataVector);
 
 
     TransferPair transfer = getDataVector(dictionaryVector).makeTransferPair(dataVector);
