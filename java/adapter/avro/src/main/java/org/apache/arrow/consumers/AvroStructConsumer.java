@@ -20,32 +20,37 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.FixedSizeBinaryVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume fixed type values from avro decoder.
- * Write the data to {@link org.apache.arrow.vector.FixedSizeBinaryVector}.
+ * Consumer which consume nested record type values from avro decoder.
+ * Write the data to {@link org.apache.arrow.vector.complex.StructVector}.
  */
-public class AvroFixedConsumer implements Consumer {
+public class AvroStructConsumer implements Consumer {
 
-  private final FixedSizeBinaryVector vector;
-  private final byte[] reuseBytes;
+  private final Consumer[] delegates;
+  private StructVector vector;
 
   private int currentIndex;
 
+
   /**
-   * Instantiate a AvroFixedConsumer.
+   * Instantiate a AvroUnionConsumer.
    */
-  public AvroFixedConsumer(FixedSizeBinaryVector vector, int size) {
+  public AvroStructConsumer(StructVector vector, Consumer[] delegates) {
     this.vector = vector;
-    reuseBytes = new byte[size];
+    this.delegates = delegates;
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    decoder.readFixed(reuseBytes);
-    vector.setSafe(currentIndex++, reuseBytes);
+
+    for (int i = 0; i < delegates.length; i++) {
+      delegates[i].consume(decoder);
+    }
+    currentIndex++;
+
   }
 
   @Override
@@ -60,11 +65,15 @@ public class AvroFixedConsumer implements Consumer {
 
   @Override
   public FieldVector getVector() {
-    return vector;
+    vector.setValueCount(currentIndex);
+    return this.vector;
   }
 
   @Override
   public void close() throws Exception {
     vector.close();
+    for (Consumer delegate: delegates) {
+      delegate.close();
+    }
   }
 }

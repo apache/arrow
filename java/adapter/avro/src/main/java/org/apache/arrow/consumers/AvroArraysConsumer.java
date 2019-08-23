@@ -19,7 +19,6 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
-import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.avro.io.Decoder;
@@ -31,8 +30,9 @@ import org.apache.avro.io.Decoder;
 public class AvroArraysConsumer implements Consumer {
 
   private final ListVector vector;
-
   private final Consumer delegate;
+
+  private int currentIndex = 0;
 
   /**
    * Instantiate a ArrayConsumer.
@@ -45,8 +45,7 @@ public class AvroArraysConsumer implements Consumer {
   @Override
   public void consume(Decoder decoder) throws IOException {
 
-    int idx = vector.getValueCount();
-    vector.startNewValue(idx);
+    vector.startNewValue(currentIndex);
     long totalCount = 0;
     for (long count = decoder.readArrayStart(); count != 0; count = decoder.arrayNext()) {
       totalCount += count;
@@ -54,22 +53,18 @@ public class AvroArraysConsumer implements Consumer {
         delegate.consume(decoder);
       }
     }
-
-    int end = (int) (vector.getOffsetBuffer().getInt(idx * 4) + totalCount);
-    vector.getOffsetBuffer().setInt((idx + 1) * 4, end);
-    BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), vector.getValueCount());
-
-    vector.setValueCount(idx + 1);
+    vector.endValue(currentIndex, (int) totalCount);
+    currentIndex++;
   }
 
   @Override
   public void addNull() {
-    vector.setValueCount(vector.getValueCount() + 1);
+    currentIndex++;
   }
 
   @Override
   public void setPosition(int index) {
-    vector.startNewValue(index);
+    currentIndex = index;
   }
 
   @Override

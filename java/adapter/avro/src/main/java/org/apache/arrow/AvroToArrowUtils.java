@@ -23,6 +23,8 @@ import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +41,7 @@ import org.apache.arrow.consumers.AvroLongConsumer;
 import org.apache.arrow.consumers.AvroMapConsumer;
 import org.apache.arrow.consumers.AvroNullConsumer;
 import org.apache.arrow.consumers.AvroStringConsumer;
+import org.apache.arrow.consumers.AvroStructConsumer;
 import org.apache.arrow.consumers.AvroUnionsConsumer;
 import org.apache.arrow.consumers.CompositeAvroConsumer;
 import org.apache.arrow.consumers.Consumer;
@@ -89,19 +92,37 @@ public class AvroToArrowUtils {
    *   <li>DOUBLE --> ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)</li>
    *   <li>BOOLEAN --> ArrowType.Bool</li>
    *   <li>BYTES --> ArrowType.Binary</li>
+   *   <li>ARRAY --> ArrowType.List</li>
+   *   <li>MAP --> ArrowType.Map</li>
+   *   <li>FIXED --> ArrowType.FixedSizeBinary</li>
    * </ul>
    */
+
   private static Consumer createConsumer(Schema schema, String name, BufferAllocator allocator) {
-    return createConsumer(schema, name, false, INVALID_NULL_INDEX, allocator);
+    return createConsumer(schema, name, false, INVALID_NULL_INDEX, allocator, null);
   }
 
+  private static Consumer createConsumer(Schema schema, String name, BufferAllocator allocator, FieldVector vector) {
+    return createConsumer(schema, name, false, INVALID_NULL_INDEX, allocator, vector);
+  }
+
+  /**
+   * Create a consumer with the given avro schema
+   * @param schema avro schema
+   * @param name arrow field name
+   * @param v vector to keep in consumer, if v == null, will create a new vector via field.
+   * @return consumer
+   */
   private static Consumer createConsumer(
       Schema schema,
       String name,
       boolean nullable,
       int nullIndex,
-      BufferAllocator allocator) {
+      BufferAllocator allocator,
+      FieldVector v) {
+
     Preconditions.checkNotNull(schema, "Avro schema object can't be null");
+    Preconditions.checkNotNull(allocator, "allocator can't be null");
 
     Type type = schema.getType();
 
@@ -112,63 +133,71 @@ public class AvroToArrowUtils {
 
     switch (type) {
       case UNION:
-        return createUnionConsumer(schema, name, allocator);
+        consumer = createUnionConsumer(schema, name, allocator, v);
+        break;
       case ARRAY:
-        return createArrayConsumer(schema, name, allocator);
+        consumer = createArrayConsumer(schema, name, allocator, v);
+        break;
       case MAP:
-        return createMapConsumer(schema, name, allocator);
+        consumer = createMapConsumer(schema, name, allocator, v);
+        break;
+        //TODO implement enum and nested record type
+      case RECORD:
+        throw new UnsupportedOperationException();
+      case ENUM:
+        throw new UnsupportedOperationException();
       case STRING:
         arrowType = new ArrowType.Utf8();
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = fieldType.createNewSingleVector(name, allocator, null);
+        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
         consumer =  new AvroStringConsumer((VarCharVector) vector);
         break;
       case FIXED:
         arrowType = new ArrowType.FixedSizeBinary(schema.getFixedSize());
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = fieldType.createNewSingleVector(name, allocator, null);
+        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
         consumer =  new AvroFixedConsumer((FixedSizeBinaryVector) vector, schema.getFixedSize());
         break;
       case INT:
         arrowType = new ArrowType.Int(32, /*signed=*/true);
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = fieldType.createNewSingleVector(name, allocator, null);
+        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
         consumer = new AvroIntConsumer((IntVector) vector);
         break;
       case BOOLEAN:
         arrowType = new ArrowType.Bool();
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = fieldType.createNewSingleVector(name, allocator, null);
+        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
         consumer = new AvroBooleanConsumer((BitVector) vector);
         break;
       case LONG:
         arrowType = new ArrowType.Int(64, /*signed=*/true);
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = fieldType.createNewSingleVector(name, allocator, null);
+        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
         consumer =  new AvroLongConsumer((BigIntVector) vector);
         break;
       case FLOAT:
         arrowType =  new ArrowType.FloatingPoint(SINGLE);
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = fieldType.createNewSingleVector(name, allocator, null);
+        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
         consumer = new AvroFloatConsumer((Float4Vector) vector);
         break;
       case DOUBLE:
         arrowType = new ArrowType.FloatingPoint(DOUBLE);
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = fieldType.createNewSingleVector(name, allocator, null);
+        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
         consumer = new AvroDoubleConsumer((Float8Vector) vector);
         break;
       case BYTES:
         arrowType = new ArrowType.Binary();
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = fieldType.createNewSingleVector(name, allocator, null);
+        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
         consumer = new AvroBytesConsumer((VarBinaryVector) vector);
         break;
       case NULL:
         arrowType = new ArrowType.Null();
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = fieldType.createNewSingleVector(name, allocator, null);
+        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
         consumer = new AvroNullConsumer((ZeroVector) vector);
         break;
       default:
@@ -182,45 +211,139 @@ public class AvroToArrowUtils {
     return consumer;
   }
 
-  private static Consumer createArrayConsumer(Schema schema, String name, BufferAllocator allocator) {
+  private static String getDefaultFieldName(ArrowType type) {
+    Types.MinorType minorType = Types.getMinorTypeForArrowType(type);
+    return minorType.name().toLowerCase();
+  }
 
-    Consumer delegate = createConsumer(schema.getElementType(), schema.getElementType().getName(), allocator);
-    ListVector listVector = ListVector.empty(name, allocator);
-    listVector.setDataVector(delegate.getVector());
+  private static Field avroSchemaToField(Schema schema, String name) {
+    final Type type = schema.getType();
+    final ArrowType arrowType;
+
+    switch (type) {
+      case UNION:
+        List<Field> children = new ArrayList<>();
+        for (int i = 0; i < schema.getTypes().size(); i++) {
+          Schema childSchema = schema.getTypes().get(i);
+          // Union child vector should use default name
+          children.add(avroSchemaToField(childSchema, null));
+        }
+        arrowType = new ArrowType.Union(UnionMode.Sparse, null);
+        if (name == null) {
+          name = getDefaultFieldName(arrowType);
+        }
+        return new Field(name, FieldType.nullable(arrowType), children);
+      case ARRAY:
+        Schema elementSchema = schema.getElementType();
+        arrowType = new ArrowType.List();
+        if (name == null) {
+          name = getDefaultFieldName(arrowType);
+        }
+        return new Field(name, FieldType.nullable(arrowType),
+            Collections.singletonList(avroSchemaToField(elementSchema, elementSchema.getName())));
+      case MAP:
+        // MapVector internal struct field and key field should be non-nullable
+        FieldType keyFieldType = new FieldType(/*nullable=*/false, new ArrowType.Utf8(), /*dictionary=*/null);
+        Field keyField = new Field("key", keyFieldType, /*children=*/null);
+        Field valueField = avroSchemaToField(schema.getValueType(), "value");
+
+        FieldType structFieldType = new FieldType(false, new ArrowType.Struct(), /*dictionary=*/null);
+        Field structField = new Field("internal", structFieldType, Arrays.asList(keyField, valueField));
+        arrowType = new ArrowType.Map(/*keySorted=*/false);
+        if (name == null) {
+          name = getDefaultFieldName(arrowType);
+        }
+        return new Field(name, FieldType.nullable(arrowType), Collections.singletonList(structField));
+      case STRING:
+        arrowType = new ArrowType.Utf8();
+        break;
+      case FIXED:
+        arrowType = new ArrowType.FixedSizeBinary(schema.getFixedSize());
+        break;
+      case INT:
+        arrowType = new ArrowType.Int(32, /*signed=*/true);
+        break;
+      case BOOLEAN:
+        arrowType = new ArrowType.Bool();
+        break;
+      case LONG:
+        arrowType = new ArrowType.Int(64, /*signed=*/true);
+        break;
+      case FLOAT:
+        arrowType = new ArrowType.FloatingPoint(SINGLE);
+        break;
+      case DOUBLE:
+        arrowType = new ArrowType.FloatingPoint(DOUBLE);
+        break;
+      case BYTES:
+        arrowType = new ArrowType.Binary();
+        break;
+      case NULL:
+        arrowType = new ArrowType.Null();
+        break;
+      default:
+        // no-op, shouldn't get here
+        throw new UnsupportedOperationException();
+    }
+
+    if (name == null) {
+      name = getDefaultFieldName(arrowType);
+    }
+    return Field.nullable(name, arrowType);
+  }
+
+  private static Consumer createArrayConsumer(Schema schema, String name, BufferAllocator allocator, FieldVector v) {
+
+    ListVector listVector;
+    if (v == null) {
+      final Field field = avroSchemaToField(schema, name);
+      listVector = (ListVector) field.createVector(allocator);
+    } else {
+      listVector = (ListVector) v;
+    }
+
+    FieldVector dataVector = listVector.getDataVector();
+
+    // create delegate
+    Schema childSchema = schema.getElementType();
+    Consumer delegate = createConsumer(childSchema, childSchema.getName(), allocator, dataVector);
 
     return new AvroArraysConsumer(listVector, delegate);
   }
 
-  private static Consumer createMapConsumer(Schema schema, String name, BufferAllocator allocator) {
+  private static Consumer createMapConsumer(Schema schema, String name, BufferAllocator allocator, FieldVector v) {
 
-    // create struct vector as underlying vector of the map vector, its children vectors are from delegates.
-    StructVector structVector =
-        new StructVector(name, allocator, FieldType.nullable(ArrowType.Struct.INSTANCE), /*callBack=*/null);
+    MapVector mapVector;
+    if (v == null) {
+      final Field field = avroSchemaToField(schema, name);
+      mapVector = (MapVector) field.createVector(allocator);
+    } else {
+      mapVector = (MapVector) v;
+    }
 
-    // crate keyConsumer and valueConsumer to consume key/value respectively.
-    Consumer keyConsumer = new AvroStringConsumer(new VarCharVector("key", allocator));
-    Consumer valueConsumer = createConsumer(schema.getValueType(), schema.getValueType().getName(), allocator);
+    // create delegate struct consumer
+    StructVector structVector = (StructVector) mapVector.getDataVector();
 
-    // directly put delegates vectors to struct vector.
-    structVector.putChild(keyConsumer.getVector().getField().getName(), keyConsumer.getVector());
-    structVector.putChild(valueConsumer.getVector().getField().getName(), valueConsumer.getVector());
-    structVector.allocateNewSafe();
+    // keys in avro map are always assumed to be strings.
+    Consumer keyConsumer = new AvroStringConsumer(
+        (VarCharVector) structVector.getChildrenFromFields().get(0));
+    Consumer valueConsumer = createConsumer(schema.getValueType(), schema.getValueType().getName(),
+        allocator, structVector.getChildrenFromFields().get(1));
 
-    // crate map vector and set the struct vector as its underlying vector.
-    MapVector mapVector = MapVector.empty(name, allocator, /*keySorted=*/false);
-    mapVector.setDataVector(structVector);
+    AvroStructConsumer internalConsumer =
+        new AvroStructConsumer(structVector, new Consumer[] {keyConsumer, valueConsumer});
 
-    return new AvroMapConsumer(mapVector, keyConsumer, valueConsumer);
+    return new AvroMapConsumer(mapVector, internalConsumer);
   }
 
-  private static Consumer createUnionConsumer(Schema schema, String name, BufferAllocator allocator) {
+  private static Consumer createUnionConsumer(Schema schema, String name, BufferAllocator allocator, FieldVector v) {
     int size = schema.getTypes().size();
     long nullCount = schema.getTypes().stream().filter(s -> s.getType() == Type.NULL).count();
 
     // union only has one type, convert to primitive type
     if (size == 1) {
       Schema subSchema = schema.getTypes().get(0);
-      return createConsumer(subSchema, name, allocator);
+      return createConsumer(subSchema, name, allocator, v);
 
       // size == 2 and has null type, convert to nullable primitive type
     } else if (size == 2 && nullCount == 1) {
@@ -228,25 +351,30 @@ public class AvroToArrowUtils {
       int nullIndex = schema.getTypes().indexOf(nullSchema);
       Schema subSchema = schema.getTypes().stream().filter(s -> s.getType() != Type.NULL).findFirst().get();
       Preconditions.checkNotNull(subSchema, "schema should not be null.");
-      return createConsumer(subSchema, name, true, nullIndex, allocator);
+      return createConsumer(subSchema, name, true, nullIndex, allocator, v);
 
       // real union type
     } else {
 
-      final FieldType fieldType =  new FieldType(/*nullable=*/true,
-          new ArrowType.Union(UnionMode.Sparse, null), /*dictionary=*/null, getMetaData(schema));
-      UnionVector unionVector =
-          (UnionVector) fieldType.createNewSingleVector(name, allocator, null);
+      UnionVector unionVector;
+      if (v == null) {
+        final Field field = avroSchemaToField(schema, name);
+        unionVector = (UnionVector) field.createVector(allocator);
+      } else {
+        unionVector = (UnionVector) v;
+      }
+
+      List<FieldVector> childVectors = unionVector.getChildrenFromFields();
 
       Consumer[] delegates = new Consumer[size];
       Types.MinorType[] types = new Types.MinorType[size];
 
       for (int i = 0; i < size; i++) {
+        FieldVector child = childVectors.get(i);
         Schema subSchema = schema.getTypes().get(i);
-        Consumer delegate = createConsumer(subSchema, subSchema.getName(), allocator);
-        unionVector.directAddVector(delegate.getVector());
+        Consumer delegate = createConsumer(subSchema, subSchema.getName(), allocator, child);
         delegates[i] = delegate;
-        types[i] = delegate.getVector().getMinorType();
+        types[i] = child.getMinorType();
       }
       return new AvroUnionsConsumer(unionVector, delegates, types);
     }

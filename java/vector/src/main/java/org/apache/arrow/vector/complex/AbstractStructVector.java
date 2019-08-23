@@ -192,7 +192,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
    * @param name   the name of the child to add
    * @param vector the vector to add as a child
    */
-  public void putChild(String name, FieldVector vector) {
+  protected void putChild(String name, FieldVector vector) {
     putVector(name, vector);
   }
 

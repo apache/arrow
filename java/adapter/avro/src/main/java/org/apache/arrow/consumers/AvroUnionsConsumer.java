@@ -21,7 +21,6 @@ import java.io.IOException;
 
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.UnionVector;
-import org.apache.arrow.vector.complex.impl.UnionWriter;
 import org.apache.arrow.vector.types.Types;
 import org.apache.avro.io.Decoder;
 
@@ -34,15 +33,14 @@ public class AvroUnionsConsumer implements Consumer {
   private Consumer[] delegates;
   private Types.MinorType[] types;
 
-  private UnionWriter writer;
   private UnionVector vector;
+  private int currentIndex;
 
   /**
-   * Instantiate a AvroUnionConsumer.
+   * Instantiate an AvroUnionConsumer.
    */
   public AvroUnionsConsumer(UnionVector vector, Consumer[] delegates, Types.MinorType[] types) {
 
-    this.writer = new UnionWriter(vector);
     this.vector = vector;
     this.delegates = delegates;
     this.types = types;
@@ -51,39 +49,37 @@ public class AvroUnionsConsumer implements Consumer {
   @Override
   public void consume(Decoder decoder) throws IOException {
     int fieldIndex = decoder.readInt();
-    int position = writer.getPosition();
 
     Consumer delegate = delegates[fieldIndex];
 
-    vector.setType(position, types[fieldIndex]);
+    vector.setType(currentIndex, types[fieldIndex]);
     // In UnionVector we need to set sub vector writer position before consume a value
     // because in the previous iterations we might not have written to the specific union sub vector.
-    delegate.setPosition(position);
+    delegate.setPosition(currentIndex);
     delegate.consume(decoder);
 
-    writer.setPosition(position + 1);
-
+    currentIndex++;
   }
 
   @Override
   public void addNull() {
-    writer.setPosition(writer.getPosition() + 1);
+    currentIndex++;
   }
 
   @Override
   public void setPosition(int index) {
-    writer.setPosition(index);
+    currentIndex = index;
   }
 
   @Override
   public FieldVector getVector() {
-    vector.setValueCount(writer.getPosition());
+    vector.setValueCount(currentIndex);
     return this.vector;
   }
 
   @Override
   public void close() throws Exception {
-    writer.close();
+    vector.close();
     for (Consumer delegate: delegates) {
       delegate.close();
     }

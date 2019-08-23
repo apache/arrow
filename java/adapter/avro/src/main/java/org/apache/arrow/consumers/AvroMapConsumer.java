@@ -19,7 +19,6 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
-import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.avro.io.Decoder;
@@ -31,17 +30,14 @@ import org.apache.avro.io.Decoder;
 public class AvroMapConsumer implements Consumer {
 
   private final MapVector vector;
-
-  private final Consumer keyDelegate;
-  private final Consumer valueDelegate;
+  private final Consumer delegate;
 
   /**
    * Instantiate a AvroMapConsumer.
    */
-  public AvroMapConsumer(MapVector vector, Consumer keyDelegate, Consumer valueDelegate) {
+  public AvroMapConsumer(MapVector vector, Consumer delegate) {
     this.vector = vector;
-    this.keyDelegate = keyDelegate;
-    this.valueDelegate = valueDelegate;
+    this.delegate = delegate;
   }
 
   @Override
@@ -50,26 +46,16 @@ public class AvroMapConsumer implements Consumer {
     int idx = vector.getValueCount();
     vector.startNewValue(idx);
     long totalCount = 0;
-    for (long count = decoder.readArrayStart(); count != 0; count = decoder.arrayNext()) {
+    for (long count = decoder.readMapStart(); count != 0; count = decoder.mapNext()) {
       totalCount += count;
       for (int element = 0; element < count; element++) {
-        keyDelegate.consume(decoder);
-        valueDelegate.consume(decoder);
+        delegate.consume(decoder);
       }
     }
+    vector.endValue(idx, (int) totalCount);
 
-    int end = (int) (vector.getOffsetBuffer().getInt(idx * 4) + totalCount);
-    vector.getOffsetBuffer().setInt((idx + 1) * 4, end);
-
-    int dataValueCount = vector.getDataVector().getValueCount();
-    for (int i = dataValueCount; i < end; i++) {
-      BitVectorHelper.setValidityBitToOne(vector.getDataVector().getValidityBuffer(), i);
-    }
-
-    BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), vector.getValueCount());
     vector.setValueCount(idx + 1);
-    // set data vector valueCount
-    vector.getDataVector().setValueCount(end);
+
   }
 
   @Override
@@ -90,7 +76,6 @@ public class AvroMapConsumer implements Consumer {
   @Override
   public void close() throws Exception {
     vector.close();
-    keyDelegate.close();
-    valueDelegate.close();
+    delegate.close();
   }
 }
