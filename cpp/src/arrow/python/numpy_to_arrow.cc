@@ -438,9 +438,7 @@ inline Status NumPyConverter::PrepareInputData(std::shared_ptr<Buffer>* data) {
     return Status::NotImplemented("Byte-swapped arrays not supported");
   }
 
-  if (is_strided()) {
-    RETURN_NOT_OK(NumPyStridedConverter::Convert(arr_, length_, pool_, data));
-  } else if (dtype_->type_num == NPY_BOOL) {
+  if (dtype_->type_num == NPY_BOOL) {
     int64_t nbytes = BitUtil::BytesForBits(length_);
     std::shared_ptr<Buffer> buffer;
     RETURN_NOT_OK(AllocateBuffer(pool_, nbytes, &buffer));
@@ -451,6 +449,8 @@ inline Status NumPyConverter::PrepareInputData(std::shared_ptr<Buffer>* data) {
     GenerateBitsUnrolled(buffer->mutable_data(), 0, length_, generate);
 
     *data = buffer;
+  } else if (is_strided()) {
+    RETURN_NOT_OK(NumPyStridedConverter::Convert(arr_, length_, pool_, data));
   } else {
     // Can zero-copy
     *data = std::make_shared<NumPyBuffer>(reinterpret_cast<PyObject*>(arr_));

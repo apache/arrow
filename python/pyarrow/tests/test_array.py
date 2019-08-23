@@ -1264,6 +1264,17 @@ def test_array_from_invalid_dim_raises():
         pa.array(arr0d)
 
 
+def test_array_from_strided_bool():
+    # ARROW-6325
+    arr = np.ones((3, 2), dtype=bool)
+    result = pa.array(arr[:, 0])
+    expected = pa.array([True, True, True])
+    assert result.equals(expected)
+    result = pa.array(arr[0, :])
+    expected = pa.array([True, True])
+    assert result.equals(expected)
+
+
 def test_buffers_primitive():
     a = pa.array([1, 2, None, 4], type=pa.int16())
     buffers = a.buffers()
