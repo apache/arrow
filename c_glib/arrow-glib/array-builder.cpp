@@ -2788,7 +2788,7 @@ garrow_large_string_array_builder_append_value(GArrowLargeStringArrayBuilder *bu
 }
 
 /**
- * garrow_large_string_array_builder_append_values:
+ * garrow_large_string_array_builder_append_strings:
  * @builder: A #GArrowLargeStringArrayBuilder.
  * @values: (array length=values_length): The array of
  *   strings.
@@ -2808,12 +2808,12 @@ garrow_large_string_array_builder_append_value(GArrowLargeStringArrayBuilder *bu
  * Since: 0.15.0
  */
 gboolean
-garrow_large_string_array_builder_append_values(GArrowLargeStringArrayBuilder *builder,
-                                                const gchar **values,
-                                                gint64 values_length,
-                                                const gboolean *is_valids,
-                                                gint64 is_valids_length,
-                                                GError **error)
+garrow_large_string_array_builder_append_strings(GArrowLargeStringArrayBuilder *builder,
+                                                 const gchar **values,
+                                                 gint64 values_length,
+                                                 const gboolean *is_valids,
+                                                 gint64 is_valids_length,
+                                                 GError **error)
 {
   return garrow_array_builder_append_values<arrow::LargeStringBuilder *>
     (GARROW_ARRAY_BUILDER(builder),
@@ -2823,6 +2823,61 @@ garrow_large_string_array_builder_append_values(GArrowLargeStringArrayBuilder *b
      is_valids_length,
      error,
      "[large-string-array-builder][append-values]");
+}
+
+/**
+ * garrow_large_string_array_builder_append_values:
+ * @builder: A #GArrowLargeStringArrayBuilder.
+ * @values: (array length=values_length): The array of
+ *   GBytes.
+ * @values_length: The length of `values`.
+ * @is_valids: (nullable) (array length=is_valids_length): The array of
+ *   boolean that shows whether the Nth value is valid or not. If the
+ *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
+ *   the Nth value is null value.
+ * @is_valids_length: The length of `is_valids`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append multiple values at once. It's more efficient than multiple
+ * `append()` and `append_null()` calls.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.15.0
+ */
+gboolean
+garrow_large_string_array_builder_append_values(GArrowLargeStringArrayBuilder *builder,
+                                                GBytes **values,
+                                                gint64 values_length,
+                                                const gboolean *is_valids,
+                                                gint64 is_valids_length,
+                                                GError **error)
+{
+  std::vector<std::string> strings;
+  for (gsize i = 0; i < values_length; ++i) {
+    auto value = values[i];
+    size_t data_size;
+    auto raw_data = g_bytes_get_data(value, &data_size);
+    strings.push_back(std::string(static_cast<const char *>(raw_data),
+                      data_size));
+  }
+  auto arrow_builder =
+    static_cast<arrow::LargeStringBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  arrow::Status status;
+  if (is_valids_length > 0) {
+    uint8_t valid_bytes[is_valids_length];
+    for (gint64 i = 0; i < is_valids_length; ++i) {
+      valid_bytes[i] = is_valids[i];
+    }
+    status = arrow_builder->AppendValues(strings,
+                                         valid_bytes);
+  } else {
+    status = arrow_builder->AppendValues(strings, nullptr);
+  }
+  return garrow_error_check(error,
+                            status,
+                            "[large-string-array-builder][append-values]");
 }
 
 

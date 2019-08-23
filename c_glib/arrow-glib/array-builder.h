@@ -646,8 +646,15 @@ gboolean garrow_large_string_array_builder_append_value(GArrowLargeStringArrayBu
                                                         const gchar *value,
                                                         GError **error);
 GARROW_AVAILABLE_IN_0_15
+gboolean garrow_large_string_array_builder_append_strings(GArrowLargeStringArrayBuilder *builder,
+                                                          const gchar **values,
+                                                          gint64 values_length,
+                                                          const gboolean *is_valids,
+                                                          gint64 is_valids_length,
+                                                          GError **error);
+GARROW_AVAILABLE_IN_0_15
 gboolean garrow_large_string_array_builder_append_values(GArrowLargeStringArrayBuilder *builder,
-                                                         const gchar **values,
+                                                         GBytes **values,
                                                          gint64 values_length,
                                                          const gboolean *is_valids,
                                                          gint64 is_valids_length,
