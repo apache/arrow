@@ -186,11 +186,11 @@ if(ARROW_COMPUTE)
       compute/kernels/hash.cc
       compute/kernels/filter.cc
       compute/kernels/mean.cc
+      compute/kernels/sort_to_indices.cc
       compute/kernels/sum.cc
       compute/kernels/take.cc
       compute/kernels/isin.cc
       compute/kernels/util_internal.cc
-      compute/kernels/argsort.cc
       compute/operations/cast.cc
       compute/operations/literal.cc)
 endif()
