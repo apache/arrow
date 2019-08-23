@@ -426,10 +426,13 @@ TEST_F(DecimalTest, TestNoneAndNaN) {
   ASSERT_EQ(0, PyList_SetItem(list, 2, missing_value2));
   ASSERT_EQ(0, PyList_SetItem(list, 3, missing_value3));
 
-  std::shared_ptr<ChunkedArray> arr;
-  ASSERT_OK(ConvertPySequence(list, {}, &arr));
+  std::shared_ptr<ChunkedArray> arr, arr_from_pandas;
+  PyConversionOptions options;
+  ASSERT_RAISES(TypeError, ConvertPySequence(list, options, &arr));
 
-  auto c0 = arr->chunk(0);
+  options.from_pandas = true;
+  ASSERT_OK(ConvertPySequence(list, options, &arr_from_pandas));
+  auto c0 = arr_from_pandas->chunk(0);
   ASSERT_TRUE(c0->IsValid(0));
   ASSERT_TRUE(c0->IsNull(1));
   ASSERT_TRUE(c0->IsNull(2));
