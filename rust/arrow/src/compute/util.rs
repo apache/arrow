@@ -218,4 +218,31 @@ mod tests {
         .data();
         assert_eq!(data, indexed.data());
     }
+
+    #[test]
+    fn test_is_valid() {
+        let a = Int32Array::from(vec![
+            Some(15),
+            None,
+            None,
+            Some(1),
+            None,
+            None,
+            Some(5),
+            None,
+            None,
+            Some(4),
+        ]);
+        let simd_lanes = 16;
+        let data = a.data();
+        let bitmap = data.null_bitmap();
+        let result = unsafe { is_valid::<Int32Type>(&bitmap, 0, simd_lanes, a.len()) };
+        for i in 0..simd_lanes {
+            if i % 3 != 0 || i > 9 {
+                assert_eq!(false, result.extract(i));
+            } else {
+                assert_eq!(true, result.extract(i));
+            }
+        }
+    }
 }
