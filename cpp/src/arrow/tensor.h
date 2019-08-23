@@ -107,8 +107,25 @@ class ARROW_EXPORT Tensor {
   /// Compute the number of non-zero values in the tensor
   Status CountNonZero(int64_t* result) const;
 
+  /// Returns the value at the given index without data-type and bounds checks
+  template <typename ValueType>
+  const typename ValueType::c_type& Value(const std::vector<int64_t>& index) const {
+    using c_type = typename ValueType::c_type;
+    const int64_t offset = CalculateValueOffset(index);
+    const c_type* ptr = reinterpret_cast<const c_type*>(raw_data() + offset);
+    return *ptr;
+  }
+
  protected:
   Tensor() {}
+
+  int64_t CalculateValueOffset(const std::vector<int64_t>& index) const {
+    int64_t offset = 0;
+    for (size_t i = 0; i < index.size(); ++i) {
+      offset += index[i] * strides_[i];
+    }
+    return offset;
+  }
 
   std::shared_ptr<DataType> type_;
   std::shared_ptr<Buffer> data_;
@@ -147,18 +164,7 @@ class NumericTensor : public Tensor {
       : NumericTensor(data, shape, strides, {}) {}
 
   const value_type& Value(const std::vector<int64_t>& index) const {
-    int64_t offset = CalculateValueOffset(index);
-    const value_type* ptr = reinterpret_cast<const value_type*>(raw_data() + offset);
-    return *ptr;
-  }
-
- protected:
-  int64_t CalculateValueOffset(const std::vector<int64_t>& index) const {
-    int64_t offset = 0;
-    for (size_t i = 0; i < index.size(); ++i) {
-      offset += index[i] * strides_[i];
-    }
-    return offset;
+    return Tensor::Value<TypeClass>(index);
   }
 };
 

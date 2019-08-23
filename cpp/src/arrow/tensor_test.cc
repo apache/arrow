@@ -155,6 +155,35 @@ TEST(TestTensor, CountNonZeroForNonContiguousTensor) {
   AssertCountNonZero(t, 8);
 }
 
+TEST(TestTensor, ElementAccessInt32) {
+  std::vector<int64_t> shape = {2, 3};
+  std::vector<int32_t> values = {1, 2, 3, 4, 5, 6};
+  std::vector<int64_t> c_strides = {sizeof(int32_t) * 3, sizeof(int32_t)};
+  std::vector<int64_t> f_strides = {sizeof(int32_t), sizeof(int32_t) * 2};
+  Tensor tc(int64(), Buffer::Wrap(values), shape, c_strides);
+  Tensor tf(int64(), Buffer::Wrap(values), shape, f_strides);
+
+  EXPECT_EQ(1, tc.Value<Int32Type>({0, 0}));
+  EXPECT_EQ(2, tc.Value<Int32Type>({0, 1}));
+  EXPECT_EQ(4, tc.Value<Int32Type>({1, 0}));
+
+  EXPECT_EQ(1, tf.Value<Int32Type>({0, 0}));
+  EXPECT_EQ(3, tf.Value<Int32Type>({0, 1}));
+  EXPECT_EQ(2, tf.Value<Int32Type>({1, 0}));
+
+  // Tensor::Value<T>() doesn't prohibit element access if the type T is different from
+  // the value type of the tensor
+  EXPECT_NO_THROW({
+    int32_t x = 3;
+    EXPECT_EQ(*reinterpret_cast<int8_t*>(&x), tc.Value<Int8Type>({0, 2}));
+
+    int64_t y;
+    reinterpret_cast<int32_t*>(&y)[0] = 4;
+    reinterpret_cast<int32_t*>(&y)[1] = 5;
+    EXPECT_EQ(y, tc.Value<Int64Type>({1, 0}));
+  });
+}
+
 TEST(TestTensor, Equals) {
   std::vector<int64_t> shape = {4, 4};
 
