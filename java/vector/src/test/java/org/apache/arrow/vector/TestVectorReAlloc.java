@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -190,10 +191,15 @@ public class TestVectorReAlloc {
   }
 
   @Test
-  public void test() throws Exception {
+  public void testVarCharAllocateNew() throws Exception {
+    final int count = 6000;
+
     try (final VarCharVector vector = new VarCharVector("", allocator)) {
-      vector.allocateNew(6000);
-      Assert.assertEquals(1000, vector.getValidityBuffer().capacity() );
+      vector.allocateNew(count);
+      
+      // verify that the validity buffer and value buffer have capacity for atleast 'count' elements.
+      Assert.assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
+      Assert.assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * VarCharVector.OFFSET_WIDTH);
     }
   }
 
