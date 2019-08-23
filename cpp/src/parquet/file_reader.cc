@@ -97,10 +97,19 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   const ReaderProperties* properties() const override { return &properties_; }
 
-  void GoToPage(long int v, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index) const {
+  void GoToPage(int64_t v, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index) const {
+      std::vector<int>::size_type itemindex = 0;
+      for (;itemindex < col_index.min_values.size();itemindex++) {
+           char *ptr;
+           int64_t* l = (int64_t*)(void *)col_index.min_values[itemindex].c_str();
+           if ( *l == v ) {
+               break;
+           }
+      }
+      uint64_t page_offset = offset_index.page_locations[itemindex].offset;
   }
 
-  void GoToPagewoIndex(long int v) const {
+  void GoToPagewoIndex(int64_t v) const {
   }
 
   bool HasPageIndex(ColumnChunkMetaData* col) {
@@ -183,10 +192,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         parquet::format::OffsetIndex offset_index;
         DeserializeColumnIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&col_index, source_, properties_);
         DeserializeOffsetIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&offset_index, source_, properties_);
-        GoToPage(4340114,col_index,offset_index);
+        GoToPage(2983126,col_index,offset_index);
     }
 
-    GoToPagewoIndex(4340114);
+    GoToPagewoIndex(2983126);
 
     // PARQUET-816 workaround for old files created by older parquet-mr
     const ApplicationVersion& version = file_metadata_->writer_version();
