@@ -136,6 +136,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
   /**
    * Gets the next vector. The user is responsible for freeing its resources.
    */
+  @Override
   public VectorSchemaRoot next() {
     Preconditions.checkArgument(hasNext());
     VectorSchemaRoot returned = nextBatch;
@@ -151,6 +152,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
   /**
    * Clean up resources.
    */
+  @Override
   public void close() {
     if (nextBatch != null) {
       nextBatch.close();
