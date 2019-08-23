@@ -17,7 +17,9 @@
 
 package org.apache.arrow.vector;
 
-import org.apache.arrow.vector.compare.VectorVisitor;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.TransferPair;
 
 /**
  * A zero length vector of any type.
@@ -53,22 +55,41 @@ public final class ZeroVector extends NullVector {
   }
 
   @Override
-  public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
-    return visitor.visit(this, value);
+  public TransferPair getTransferPair(BufferAllocator allocator) {
+    return defaultPair;
   }
 
   @Override
-  public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
-    throw new UnsupportedOperationException();
+  public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
+    return defaultPair;
   }
 
   @Override
-  public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
-    throw new UnsupportedOperationException();
+  public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
+    return defaultPair;
   }
 
   @Override
-  public String getName() {
-    return getField().getName();
+  public TransferPair makeTransferPair(ValueVector target) {
+    return defaultPair;
   }
+
+  private final TransferPair defaultPair = new TransferPair() {
+    @Override
+    public void transfer() {
+    }
+
+    @Override
+    public void splitAndTransfer(int startIndex, int length) {
+    }
+
+    @Override
+    public ValueVector getTo() {
+      return ZeroVector.this;
+    }
+
+    @Override
+    public void copyValueSafe(int from, int to) {
+    }
+  };
 }

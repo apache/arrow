@@ -411,6 +411,38 @@ public class TestJSONFile extends BaseFileTest {
   }
 
   @Test
+  public void testWriteReadNullJSON() throws IOException {
+    File file = new File("target/mytest_null.json");
+
+    // write
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)
+    ) {
+
+      try (VectorSchemaRoot root = writeNullData(vectorAllocator)) {
+        printVectors(root.getFieldVectors());
+        validateNullData(root);
+        writeJSON(file, root, null);
+      }
+    }
+
+    // read
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+    ) {
+      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
+      Schema schema = reader.start();
+      LOGGER.debug("reading schema: " + schema);
+
+      // initialize vectors
+      try (VectorSchemaRoot root = reader.read();) {
+        validateNullData(root);
+      }
+      reader.close();
+    }
+  }
+
+  @Test
   public void testNoOverFlowWithUINT() {
     try (final UInt8Vector uInt8Vector = new UInt8Vector("uint8", allocator);
         final UInt4Vector uInt4Vector = new UInt4Vector("uint4", allocator);

@@ -70,10 +70,9 @@ public class NullVector implements FieldVector {
     return Types.MinorType.NULL;
   }
 
-
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return defaultPair;
+    return getTransferPair(null, allocator);
   }
 
   @Override
@@ -126,17 +125,17 @@ public class NullVector implements FieldVector {
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return defaultPair;
+    return new TransferImpl();
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
-    return defaultPair;
+    return getTransferPair(ref, allocator);
   }
 
   @Override
   public TransferPair makeTransferPair(ValueVector target) {
-    return defaultPair;
+    return new TransferImpl((NullVector) target);
   }
 
   @Override
@@ -248,22 +247,38 @@ public class NullVector implements FieldVector {
     throw new UnsupportedOperationException();
   }
 
-  protected final TransferPair defaultPair = new TransferPair() {
+  @Override
+  public String getName() {
+    return this.getField().getName();
+  }
+
+  private class TransferImpl implements TransferPair {
+    NullVector to;
+
+    public TransferImpl() {
+      to = new NullVector();
+    }
+
+    public TransferImpl(NullVector to) {
+      this.to = to;
+    }
+
+    @Override
+    public NullVector getTo() {
+      return to;
+    }
+
     @Override
     public void transfer() {
+      to.valueCount = valueCount;
     }
 
     @Override
     public void splitAndTransfer(int startIndex, int length) {
+      to.valueCount = length;
     }
 
     @Override
-    public ValueVector getTo() {
-      return NullVector.this;
-    }
-
-    @Override
-    public void copyValueSafe(int from, int to) {
-    }
-  };
+    public void copyValueSafe(int fromIndex, int toIndex) {}
+  }
 }

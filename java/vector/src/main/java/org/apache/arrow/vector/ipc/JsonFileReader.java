@@ -653,6 +653,11 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         vectorBuffers[v] = readIntoBuffer(allocator, bufferType, vector.getMinorType(), innerBufferValueCount);
       }
 
+      if (vectorBuffers.length == 0) {
+        readToken(END_OBJECT);
+        return;
+      }
+
       final int nullCount = BitVectorHelper.getNullCount(vectorBuffers[0], valueCount);
       final ArrowFieldNode fieldNode = new ArrowFieldNode(valueCount, nullCount);
       vector.loadFieldBuffers(fieldNode, Arrays.asList(vectorBuffers));
