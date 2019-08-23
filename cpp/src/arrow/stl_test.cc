@@ -344,8 +344,6 @@ TEST(TestTableFromTupleVector, NullableTypesDoNotBreakUserSpecialization) {
   std::shared_ptr<Table> table;
   ASSERT_OK(TableFromTupleRange(default_memory_pool(), rows, names, &table));
 
-  const Table& tab = *table;
-
   std::shared_ptr<Schema> expected_schema =
       schema({field("column1", utf8(), true)});
   std::shared_ptr<Array> string_array =
