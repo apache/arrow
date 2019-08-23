@@ -17,9 +17,7 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.nio.charset.StandardCharsets;
 
@@ -188,6 +186,14 @@ public class TestVectorReAlloc {
        */
       Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
       Assert.assertEquals(vector.valueBuffer.capacity(), savedValueBufferSize);
+    }
+  }
+
+  @Test
+  public void test() throws Exception {
+    try (final VarCharVector vector = new VarCharVector("", allocator)) {
+      vector.allocateNew(6000);
+      Assert.assertEquals(1000, vector.getValidityBuffer().capacity() );
     }
   }
 

@@ -31,6 +31,14 @@ public interface VariableWidthVector extends ElementAddressableVector, DensityAw
   void allocateNew(int totalBytes, int valueCount);
 
   /**
+   * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
+   * The initial size in bytes is either default (or) reused from previous allocation
+   *
+   * @param valueCount Number of values in the vector.
+   */
+  void allocateNew(int valueCount);
+
+  /**
    * Provide the maximum amount of variable width bytes that can be stored in this vector.
    *
    * @return the byte capacity of this vector
