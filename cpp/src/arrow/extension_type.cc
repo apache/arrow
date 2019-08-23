@@ -69,7 +69,7 @@ class ExtensionTypeRegistryImpl : public ExtensionTypeRegistry {
  public:
   ExtensionTypeRegistryImpl() {}
 
-  Status RegisterType(std::shared_ptr<ExtensionType> type) {
+  Status RegisterType(std::shared_ptr<ExtensionType> type) override {
     std::lock_guard<std::mutex> lock(lock_);
     std::string type_name = type->extension_name();
     auto it = name_to_type_.find(type_name);
@@ -81,7 +81,7 @@ class ExtensionTypeRegistryImpl : public ExtensionTypeRegistry {
     return Status::OK();
   }
 
-  Status UnregisterType(const std::string& type_name) {
+  Status UnregisterType(const std::string& type_name) override {
     std::lock_guard<std::mutex> lock(lock_);
     auto it = name_to_type_.find(type_name);
     if (it == name_to_type_.end()) {
@@ -91,7 +91,7 @@ class ExtensionTypeRegistryImpl : public ExtensionTypeRegistry {
     return Status::OK();
   }
 
-  std::shared_ptr<ExtensionType> GetType(const std::string& type_name) {
+  std::shared_ptr<ExtensionType> GetType(const std::string& type_name) override {
     std::lock_guard<std::mutex> lock(lock_);
     auto it = name_to_type_.find(type_name);
     if (it == name_to_type_.end()) {
