@@ -449,8 +449,7 @@ inline Status NumPyConverter::PrepareInputData(std::shared_ptr<Buffer>* data) {
     GenerateBitsUnrolled(buffer->mutable_data(), 0, length_, generate);
 
     *data = buffer;
-  }
-  else if (is_strided()) {
+  } else if (is_strided()) {
     RETURN_NOT_OK(NumPyStridedConverter::Convert(arr_, length_, pool_, data));
   } else {
     // Can zero-copy
