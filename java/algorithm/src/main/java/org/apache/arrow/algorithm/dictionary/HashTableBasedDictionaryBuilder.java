@@ -132,16 +132,15 @@ public class HashTableBasedDictionaryBuilder<V extends ElementAddressableVector>
    * @return the number of values actually added to the dictionary.
    */
   public int addValues(V targetVector) {
-    int ret = 0;
+    int oldDictSize = dictionary.getValueCount();
     for (int i = 0; i < targetVector.getValueCount(); i++) {
       if (!encodeNull && targetVector.isNull(i)) {
         continue;
       }
-      if (addValue(targetVector, i)) {
-        ret += 1;
-      }
+      addValue(targetVector, i);
     }
-    return ret;
+
+    return dictionary.getValueCount() - oldDictSize;
   }
 
   /**
@@ -149,12 +148,13 @@ public class HashTableBasedDictionaryBuilder<V extends ElementAddressableVector>
    *
    * @param targetVector the target vector containing new element.
    * @param targetIndex  the index of the new element in the target vector.
-   * @return true if the element is added to the dictionary, and false otherwise.
+   * @return the index of the new element in the dictionary.
    */
-  public boolean addValue(V targetVector, int targetIndex) {
+  public int addValue(V targetVector, int targetIndex) {
     targetVector.getDataPointer(targetIndex, nextPointer);
 
-    if (!hashMap.containsKey(nextPointer)) {
+    Integer index = hashMap.get(nextPointer);
+    if (index == null) {
       // a new dictionary element is found
 
       // insert it to the dictionary
@@ -167,8 +167,8 @@ public class HashTableBasedDictionaryBuilder<V extends ElementAddressableVector>
       hashMap.put(nextPointer, dictSize);
       nextPointer = new ArrowBufPointer(hasher);
 
-      return true;
+      return dictSize;
     }
-    return false;
+    return index;
   }
 }

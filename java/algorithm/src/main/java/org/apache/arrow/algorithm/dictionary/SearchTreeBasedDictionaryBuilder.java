@@ -116,35 +116,39 @@ public class SearchTreeBasedDictionaryBuilder<V extends ValueVector> {
    * @return the number of values actually added to the dictionary.
    */
   public int addValues(V targetVector) {
-    int ret = 0;
+    int oldDictSize = dictionary.getValueCount();
     for (int i = 0; i < targetVector.getValueCount(); i++) {
       if (!encodeNull && targetVector.isNull(i)) {
         continue;
       }
-      if (addValue(targetVector, i)) {
-        dictionary.setValueCount(dictionary.getValueCount() + 1);
-        ret += 1;
-      }
+      addValue(targetVector, i);
     }
-    return ret;
+    return dictionary.getValueCount() - oldDictSize;
   }
 
   /**
    * Try to add an element from the target vector to the dictionary.
    * @param targetVector the target vector containing new element.
    * @param targetIndex the index of the new element in the target vector.
-   * @return true if the element is added to the dictionary, and false otherwise.
+   * @return the index of the new element in the dictionary.
    */
-  public boolean addValue(V targetVector, int targetIndex) {
+  public int addValue(V targetVector, int targetIndex) {
     // first copy the value to the end of the dictionary
     int dictSize = dictionary.getValueCount();
     dictionary.copyFromSafe(targetIndex, dictSize, targetVector);
 
     // try to add the value to the dictionary,
     // if an equal element does not exist.
-    // this operation can be done in O(logn) time.
-    boolean ret = searchTree.add(dictSize);
-    return ret;
+    // this operation can be done in O(log(n)) time.
+    if (searchTree.add(dictSize)) {
+      // the element is successfully added
+      dictionary.setValueCount(dictSize + 1);
+      return dictSize;
+    } else {
+      // the element is already in the dictionary
+      // find its index in O(log(n)) time.
+      return searchTree.ceiling(dictSize);
+    }
   }
 
   /**
