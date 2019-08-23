@@ -1008,8 +1008,10 @@ bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_
   return are_equal;
 }
 
-bool StridedTensorContentEquals(int dim_index, int64_t left_offset, int64_t right_offset,
-                                int elem_size, const Tensor& left, const Tensor& right) {
+namespace {
+
+bool StridedIntegerTensorContentEquals(int dim_index, int64_t left_offset, int64_t right_offset,
+                                       int elem_size, const Tensor& left, const Tensor& right) {
   if (dim_index == left.ndim() - 1) {
     for (int64_t i = 0; i < left.shape()[dim_index]; ++i) {
       if (memcmp(left.raw_data() + left_offset + i * left.strides()[dim_index],
@@ -1021,8 +1023,8 @@ bool StridedTensorContentEquals(int dim_index, int64_t left_offset, int64_t righ
     return true;
   }
   for (int64_t i = 0; i < left.shape()[dim_index]; ++i) {
-    if (!StridedTensorContentEquals(dim_index + 1, left_offset, right_offset, elem_size,
-                                    left, right)) {
+    if (!StridedIntegerTensorContentEquals(dim_index + 1, left_offset, right_offset, elem_size,
+                                           left, right)) {
       return false;
     }
     left_offset += left.strides()[dim_index];
@@ -1030,8 +1032,6 @@ bool StridedTensorContentEquals(int dim_index, int64_t left_offset, int64_t righ
   }
   return true;
 }
-
-namespace {
 
 bool IntegerTensorEquals(const Tensor& left, const Tensor& right) {
   bool are_equal;
@@ -1049,7 +1049,7 @@ bool IntegerTensorEquals(const Tensor& left, const Tensor& right) {
       const auto& shape = left.shape();
       const auto& type = checked_cast<const FixedWidthType&>(*left.type());
       are_equal =
-          StridedTensorContentEquals(0, 0, 0, type.bit_width() / 8, left, right);
+          StridedIntegerTensorContentEquals(0, 0, 0, type.bit_width() / 8, left, right);
     } else {
       const auto& size_meta = checked_cast<const FixedWidthType&>(*left.type());
       const int byte_width = size_meta.bit_width() / CHAR_BIT;
@@ -1065,8 +1065,38 @@ bool IntegerTensorEquals(const Tensor& left, const Tensor& right) {
   return are_equal;
 }
 
+template <typename DataType>
+bool StridedFloatTensorContentEquals(int dim_index, int64_t left_offset, int64_t right_offset,
+                                     const Tensor& left, const Tensor& right) {
+  using c_type = typename DataType::c_type;
+  const int64_t n = left.shape()[dim_index];
+  if (dim_index == left.ndim() - 1) {
+    auto left_data = left.raw_data();
+    auto right_data = right.raw_data();
+    auto left_stride = left.strides()[dim_index];
+    auto right_stride = right.strides()[dim_index];
+    for (int64_t i = 0; i < n; ++i) {
+      c_type left_value = *reinterpret_cast<const c_type*>(left_data + left_offset + i * left_stride);
+      c_type right_value = *reinterpret_cast<const c_type*>(right_data + right_offset + i * right_stride);
+      if (left_value != right_value || std::isnan(left_value) || std::isnan(right_value)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  for (int64_t i = 0; i < n; ++i) {
+    if (!StridedFloatTensorContentEquals<DataType>(dim_index + 1, left_offset, right_offset, left, right)) {
+      return false;
+    }
+    left_offset += left.strides()[dim_index];
+    right_offset += right.strides()[dim_index];
+  }
+  return true;
+}
+
+template <typename DataType>
 bool FloatTensorEquals(const Tensor& left, const Tensor& right) {
-  return IntegerTensorEquals(left, right);
+  return StridedFloatTensorContentEquals<DataType>(0, 0, 0, left, right);
 }
 
 }
@@ -1084,8 +1114,10 @@ bool TensorEquals(const Tensor& left, const Tensor& right) {
     // TODO: Support half-float tensors
     // case Type::HALF_FLOAT:
     case Type::FLOAT:
+      return FloatTensorEquals<FloatType>(left, right);
+
     case Type::DOUBLE:
-      return FloatTensorEquals(left, right);
+      return FloatTensorEquals<DoubleType>(left, right);
 
     default:
       return IntegerTensorEquals(left, right);
