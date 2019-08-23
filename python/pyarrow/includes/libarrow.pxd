@@ -1412,6 +1412,10 @@ cdef extern from 'arrow/python/inference.h' namespace 'arrow::py':
 
 
 cdef extern from 'arrow/extension_type.h' namespace 'arrow':
+    cdef cppclass CExtensionTypeRegistry" arrow::ExtensionTypeRegistry":
+        @staticmethod
+        shared_ptr[CExtensionTypeRegistry] GetGlobalRegistry()
+
     cdef cppclass CExtensionType" arrow::ExtensionType"(CDataType):
         c_string extension_name()
         shared_ptr[CDataType] storage_type()
