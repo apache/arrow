@@ -22,9 +22,8 @@ use crate::bitmap::Bitmap;
 use crate::buffer::Buffer;
 use crate::datatypes::*;
 use crate::error::Result;
-use num::{One, Zero};
+use num::One;
 use std::cmp::min;
-use std::ops::{Add, Div, Mul, Sub};
 
 /// Applies a given binary operation, `op`, to two references to `Option<Bitmap>`'s.
 ///
@@ -130,6 +129,10 @@ where
 ///
 /// 'invalid' lanes are lanes where the corresponding array slots are either `NULL` or between the
 /// length and capacity of the array, i.e. in the padded region.
+///
+/// Note that the `array` below has it's own `Bitmap` separate from the `bitmap` argument.  This
+/// function is used to prepare `array`'s for binary operations.  The `bitmap` argument is the
+/// `Bitmap` after the binary operation.
 pub(super) unsafe fn simd_load_without_invalid_zeros<T>(
     array: &PrimitiveArray<T>,
     bitmap: &Option<Bitmap>,
@@ -138,11 +141,7 @@ pub(super) unsafe fn simd_load_without_invalid_zeros<T>(
 ) -> T::Simd
 where
     T: ArrowNumericType,
-    T::Native: One + Zero,
-    T::Simd: Add<Output = T::Simd>
-        + Sub<Output = T::Simd>
-        + Mul<Output = T::Simd>
-        + Div<Output = T::Simd>,
+    T::Native: One,
 {
     let simd_with_zeros = T::load(array.value_slice(i, simd_width));
     T::mask_select(
