@@ -22,19 +22,20 @@
 #include "arrow/util/macros.h"
 
 namespace arrow {
+namespace internal {
 
 /// Helper struct for examining lambdas and other callables.
-/// If the callable is not overloaded, the argument types of its call operator can be
-/// extracted via single_call::argument_type<Index, Function>
-struct single_call {
+/// TODO(bkietz) support function pointers
+struct call_traits {
+ private:
   template <typename R, typename... A>
-  static std::true_type check_impl(R(A...));
+  static std::true_type is_overloaded_impl(R(A...));
 
   template <typename F>
-  static std::true_type check_impl(decltype(&F::operator())*);
+  static std::true_type is_overloaded_impl(decltype(&F::operator())*);
 
   template <typename F>
-  static std::false_type check_impl(...);
+  static std::false_type is_overloaded_impl(...);
 
   template <std::size_t I, typename F, typename R, typename... A>
   static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
@@ -44,16 +45,26 @@ struct single_call {
   static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
       R (F::*)(A...) const);
 
+ public:
+  /// bool constant indicating whether F is a callable with exactly one possible
+  /// signature. Will be false_type for objects which define multiple operator() or which
+  /// define a template operator()
   template <typename F>
-  static constexpr bool check() {
-    return decltype(check_impl<typename std::decay<F>::type>(NULLPTR))::value;
-  }
+  using is_overloaded =
+      decltype(is_overloaded_impl<typename std::decay<F>::type>(NULLPTR));
 
   template <typename F, typename T = void>
-  using enable_if = typename std::enable_if<check<F>(), T>::type;
+  using enable_if_overloaded = typename std::enable_if<is_overloaded<F>::value, T>::type;
 
+  template <typename F, typename T = void>
+  using disable_if_overloaded =
+      typename std::enable_if<!is_overloaded<F>::value, T>::type;
+
+  /// If F is not overloaded, the argument types of its call operator can be
+  /// extracted via call_traits::argument_type<Index, F>
   template <std::size_t I, typename F>
   using argument_type = decltype(argument_type_impl<I>(&std::decay<F>::type::operator()));
 };
 
+}  // namespace internal
 }  // namespace arrow

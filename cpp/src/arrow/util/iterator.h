@@ -140,8 +140,8 @@ class FunctionIterator : public Iterator<T> {
 };
 
 template <typename Fn, typename T = typename std::remove_pointer<
-                           single_call::argument_type<0, Fn>>::type>
-std::unique_ptr<FunctionIterator<Fn, T>> MakeIterator(Fn fn) {
+                           internal::call_traits::argument_type<0, Fn>>::type>
+std::unique_ptr<FunctionIterator<Fn, T>> MakeFunctionIterator(Fn fn) {
   return std::unique_ptr<FunctionIterator<Fn, T>>(
       new FunctionIterator<Fn, T>(std::move(fn)));
 }
