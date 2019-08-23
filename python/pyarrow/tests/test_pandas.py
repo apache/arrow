@@ -772,6 +772,11 @@ class TestConvertPrimitiveTypes(object):
         expected = pd.Series([1.0, 1.0, 0.0, None, 1.0] * 2)
         _check_array_roundtrip(s, expected=expected, type=pa.float64())
 
+    def test_boolean_multiple_columns(self):
+        # ARROW-6325 (multiple columns resulting in strided conversion)
+        df = pd.DataFrame(np.ones((3, 2), dtype='bool'), columns=['a', 'b'])
+        _check_pandas_roundtrip(df)
+
     def test_float_object_nulls(self):
         arr = np.array([None, 1.5, np.float64(3.5)] * 5, dtype=object)
         df = pd.DataFrame({'floats': arr})
