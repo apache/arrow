@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -882,6 +883,87 @@ TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(reader->ReadNext(&batch));
   ASSERT_EQ(nullptr, batch);
+}
+
+// Delimit IPC stream messages and reassemble with the indicated messages
+// included. This way we can remove messages from an IPC stream to test
+// different failure modes or other difficult-to-test behaviors
+void SpliceMessages(std::shared_ptr<Buffer> stream,
+                    const std::vector<int>& included_indices,
+                    std::shared_ptr<Buffer>* spliced_stream) {
+  std::shared_ptr<io::BufferOutputStream> out;
+  ASSERT_OK(io::BufferOutputStream::Create(0, default_memory_pool(), &out));
+
+  io::BufferReader buffer_reader(stream);
+  std::unique_ptr<MessageReader> message_reader = MessageReader::Open(&buffer_reader);
+  std::unique_ptr<Message> msg;
+
+  // Parse and reassemble first two messages in stream
+  int message_index = 0;
+  while (true) {
+    ASSERT_OK(message_reader->ReadNextMessage(&msg));
+    if (!msg) {
+      break;
+    }
+
+    if (std::find(included_indices.begin(), included_indices.end(), message_index++) ==
+        included_indices.end()) {
+      // Message being dropped, continue
+      continue;
+    }
+
+    internal::IpcPayload payload;
+    payload.type = msg->type();
+    payload.metadata = msg->metadata();
+    payload.body_buffers.push_back(msg->body());
+    payload.body_length = msg->body()->size();
+    int32_t unused_metadata_length = -1;
+    ASSERT_OK(internal::WriteIpcPayload(payload, out.get(), &unused_metadata_length));
+  }
+  ASSERT_OK(out->Finish(spliced_stream));
+}
+
+TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
+  // ARROW-6126
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeDictionaryFlat(&batch));
+
+  std::shared_ptr<io::BufferOutputStream> out;
+  ASSERT_OK(io::BufferOutputStream::Create(0, default_memory_pool(), &out));
+  std::shared_ptr<RecordBatchWriter> writer;
+  ASSERT_OK(RecordBatchStreamWriter::Open(out.get(), batch->schema(), &writer));
+  ASSERT_OK(writer->WriteRecordBatch(*batch));
+  ASSERT_OK(writer->Close());
+
+  // Now let's mangle the stream a little bit and make sure we return the right
+  // error
+  std::shared_ptr<arrow::Buffer> buffer;
+  ASSERT_OK(out->Finish(&buffer));
+
+  auto AssertFailsWith = [](std::shared_ptr<Buffer> stream, const std::string& ex_error) {
+    io::BufferReader reader(stream);
+    std::shared_ptr<RecordBatchReader> ipc_reader;
+    ASSERT_OK(RecordBatchStreamReader::Open(&reader, &ipc_reader));
+    std::shared_ptr<RecordBatch> batch;
+    Status s = ipc_reader->ReadNext(&batch);
+    ASSERT_TRUE(s.IsInvalid());
+    ASSERT_EQ(ex_error, s.message().substr(0, ex_error.size()));
+  };
+
+  // Stream terminates before reading all dictionaries
+  std::shared_ptr<Buffer> truncated_stream;
+  SpliceMessages(buffer, {0, 1}, &truncated_stream);
+  std::string ex_message =
+      ("IPC stream ended without reading the expected number (3)"
+       " of dictionaries");
+  AssertFailsWith(truncated_stream, ex_message);
+
+  // One of the dictionaries is missing, then we see a record batch
+  SpliceMessages(buffer, {0, 1, 2, 4}, &truncated_stream);
+  ex_message =
+      ("IPC stream did not have the expected number (3) of dictionaries "
+       "at the start of the stream");
+  AssertFailsWith(truncated_stream, ex_message);
 }
 
 class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
