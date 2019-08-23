@@ -885,6 +885,9 @@ TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
   ASSERT_EQ(nullptr, batch);
 }
 
+// Delimit IPC stream messages and reassemble with the indicated messages
+// included. This way we can remove messages from an IPC stream to test
+// different failure modes or other difficult-to-test behaviors
 void SpliceMessages(std::shared_ptr<Buffer> stream,
                     const std::vector<int>& included_indices,
                     std::shared_ptr<Buffer>* spliced_stream) {
