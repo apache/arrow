@@ -97,7 +97,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   const ReaderProperties* properties() const override { return &properties_; }
 
-  void GoToPage(int64_t v, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index) const {
+  void GoToPage(int64_t v, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index, uint64_t& page_offset,uint64_t& num_values,uint64_t& next_page_offset) const {
       std::vector<int>::size_type itemindex = 0;
       for (;itemindex < col_index.min_values.size();itemindex++) {
            char *ptr;
@@ -106,7 +106,9 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                break;
            }
       }
-      uint64_t page_offset = offset_index.page_locations[itemindex].offset;
+      page_offset = offset_index.page_locations[itemindex].offset;
+      next_page_offset=offset_index.page_locations[itemindex+1].offset;
+      num_values = offset_index.page_locations[itemindex+1].first_row_index - offset_index.page_locations[itemindex].first_row_index;
   }
 
   void GoToPagewoIndex(int64_t v) const {
@@ -186,13 +188,13 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     int64_t col_length = col->total_compressed_size();
 
     bool has_page_index = HasPageIndex((reinterpret_cast<ColumnChunkMetaData*>(col.get())));
-
+    uint64_t page_offset,num_values,next_page_offset;
     if (has_page_index) {
         parquet::format::ColumnIndex col_index;
         parquet::format::OffsetIndex offset_index;
         DeserializeColumnIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&col_index, source_, properties_);
         DeserializeOffsetIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&offset_index, source_, properties_);
-        GoToPage(2983126,col_index,offset_index);
+        GoToPage(2983126,col_index,offset_index,page_offset,num_values,next_page_offset);
     }
 
     GoToPagewoIndex(2983126);
@@ -211,8 +213,8 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     }
 
     std::shared_ptr<ArrowInputStream> stream =
-        properties_.GetStream(source_, col_start, col_length);
-    return PageReader::Open(stream, col->num_values(), col->compression(),
+        properties_.GetStream(source_, page_offset, next_page_offset-page_offset);
+    return PageReader::Open(stream, num_values, col->compression(),
                             properties_.memory_pool());
   }
 
