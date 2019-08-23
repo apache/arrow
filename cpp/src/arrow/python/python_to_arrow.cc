@@ -194,8 +194,7 @@ struct Unbox<DoubleType> {
 
 // We use CRTP to avoid virtual calls to the AppendItem(), AppendNull(), and
 // IsNull() on the hot path
-template <typename Type, class Derived,
-          NullCoding null_coding = NullCoding::PANDAS_SENTINELS>
+template <typename Type, class Derived, NullCoding null_coding = NullCoding::NONE_ONLY>
 class TypedConverter : public SeqConverter {
  public:
   using BuilderType = typename TypeTraits<Type>::BuilderType;
@@ -257,7 +256,9 @@ class TypedConverter : public SeqConverter {
 // ----------------------------------------------------------------------
 // Sequence converter for null type
 
-class NullConverter : public TypedConverter<NullType, NullConverter> {
+template <NullCoding null_coding>
+class NullConverter
+    : public TypedConverter<NullType, NullConverter<null_coding>, null_coding> {
  public:
   Status AppendItem(PyObject* obj) {
     return internal::InvalidValue(obj, "converting to null type");
@@ -267,13 +268,15 @@ class NullConverter : public TypedConverter<NullType, NullConverter> {
 // ----------------------------------------------------------------------
 // Sequence converter for boolean type
 
-class BoolConverter : public TypedConverter<BooleanType, BoolConverter> {
+template <NullCoding null_coding>
+class BoolConverter
+    : public TypedConverter<BooleanType, BoolConverter<null_coding>, null_coding> {
  public:
   Status AppendItem(PyObject* obj) {
     if (obj == Py_True) {
-      return typed_builder_->Append(true);
+      return this->typed_builder_->Append(true);
     } else if (obj == Py_False) {
-      return typed_builder_->Append(false);
+      return this->typed_builder_->Append(false);
     } else {
       return internal::InvalidValue(obj, "tried to convert to boolean");
     }
@@ -290,7 +293,9 @@ class NumericConverter
 // ----------------------------------------------------------------------
 // Sequence converters for temporal types
 
-class Date32Converter : public TypedConverter<Date32Type, Date32Converter> {
+template <NullCoding null_coding>
+class Date32Converter
+    : public TypedConverter<Date32Type, Date32Converter<null_coding>, null_coding> {
  public:
   Status AppendItem(PyObject* obj) {
     int32_t t;
@@ -300,11 +305,13 @@ class Date32Converter : public TypedConverter<Date32Type, Date32Converter> {
     } else {
       RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for date32"));
     }
-    return typed_builder_->Append(t);
+    return this->typed_builder_->Append(t);
   }
 };
 
-class Date64Converter : public TypedConverter<Date64Type, Date64Converter> {
+template <NullCoding null_coding>
+class Date64Converter
+    : public TypedConverter<Date64Type, Date64Converter<null_coding>, null_coding> {
  public:
   Status AppendItem(PyObject* obj) {
     int64_t t;
@@ -314,11 +321,13 @@ class Date64Converter : public TypedConverter<Date64Type, Date64Converter> {
     } else {
       RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for date64"));
     }
-    return typed_builder_->Append(t);
+    return this->typed_builder_->Append(t);
   }
 };
 
-class Time32Converter : public TypedConverter<Time32Type, Time32Converter> {
+template <NullCoding null_coding>
+class Time32Converter
+    : public TypedConverter<Time32Type, Time32Converter<null_coding>, null_coding> {
  public:
   explicit Time32Converter(TimeUnit::type unit) : unit_(unit) {}
 
@@ -337,17 +346,19 @@ class Time32Converter : public TypedConverter<Time32Type, Time32Converter> {
         default:
           return Status::UnknownError("Invalid time unit");
       }
-      return typed_builder_->Append(t);
     } else {
-      return internal::InvalidValue(obj, "converting to time32");
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for int32"));
     }
+    return this->typed_builder_->Append(t);
   }
 
  private:
   TimeUnit::type unit_;
 };
 
-class Time64Converter : public TypedConverter<Time64Type, Time64Converter> {
+template <NullCoding null_coding>
+class Time64Converter
+    : public TypedConverter<Time64Type, Time64Converter<null_coding>, null_coding> {
  public:
   explicit Time64Converter(TimeUnit::type unit) : unit_(unit) {}
 
@@ -365,17 +376,19 @@ class Time64Converter : public TypedConverter<Time64Type, Time64Converter> {
         default:
           return Status::UnknownError("Invalid time unit");
       }
-      return typed_builder_->Append(t);
     } else {
-      return internal::InvalidValue(obj, "converting to time64");
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for int64"));
     }
+    return this->typed_builder_->Append(t);
   }
 
  private:
   TimeUnit::type unit_;
 };
 
-class TimestampConverter : public TypedConverter<TimestampType, TimestampConverter> {
+template <NullCoding null_coding>
+class TimestampConverter
+    : public TypedConverter<TimestampType, TimestampConverter<null_coding>, null_coding> {
  public:
   explicit TimestampConverter(TimeUnit::type unit) : unit_(unit) {}
 
@@ -418,12 +431,12 @@ class TimestampConverter : public TypedConverter<TimestampType, TimestampConvert
       t = reinterpret_cast<PyDatetimeScalarObject*>(obj)->obval;
       if (traits::isnull(t)) {
         // checks numpy NaT sentinel after conversion
-        return typed_builder_->AppendNull();
+        return this->typed_builder_->AppendNull();
       }
     } else {
       RETURN_NOT_OK(internal::CIntFromPython(obj, &t));
     }
-    return typed_builder_->Append(t);
+    return this->typed_builder_->Append(t);
   }
 
  private:
@@ -482,8 +495,9 @@ inline Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj,
 
 }  // namespace detail
 
-template <typename Type>
-class BinaryLikeConverter : public TypedConverter<Type, BinaryLikeConverter<Type>> {
+template <typename Type, NullCoding null_coding>
+class BinaryLikeConverter
+    : public TypedConverter<Type, BinaryLikeConverter<Type, null_coding>, null_coding> {
  public:
   Status AppendItem(PyObject* obj) {
     // Accessing members of the templated base requires using this-> here
@@ -503,17 +517,22 @@ class BinaryLikeConverter : public TypedConverter<Type, BinaryLikeConverter<Type
   }
 };
 
-class BytesConverter : public BinaryLikeConverter<BinaryType> {};
+template <NullCoding null_coding>
+class BytesConverter : public BinaryLikeConverter<BinaryType, null_coding> {};
 
-class LargeBytesConverter : public BinaryLikeConverter<LargeBinaryType> {};
+template <NullCoding null_coding>
+class LargeBytesConverter : public BinaryLikeConverter<LargeBinaryType, null_coding> {};
 
-class FixedWidthBytesConverter : public BinaryLikeConverter<FixedSizeBinaryType> {};
+template <NullCoding null_coding>
+class FixedWidthBytesConverter
+    : public BinaryLikeConverter<FixedSizeBinaryType, null_coding> {};
 
 // For String/UTF8, if strict_conversions enabled, we reject any non-UTF8,
 // otherwise we allow but return results as BinaryArray
-template <typename TypeClass, bool STRICT>
+template <typename TypeClass, bool STRICT, NullCoding null_coding>
 class StringConverter
-    : public TypedConverter<TypeClass, StringConverter<TypeClass, STRICT>> {
+    : public TypedConverter<TypeClass, StringConverter<TypeClass, STRICT, null_coding>,
+                            null_coding> {
  public:
   StringConverter() : binary_count_(0) {}
 
@@ -838,45 +857,44 @@ class StructConverter : public TypedConverter<StructType, StructConverter> {
   bool strict_conversions_;
 };
 
-class DecimalConverter : public TypedConverter<arrow::Decimal128Type, DecimalConverter> {
+template <NullCoding null_coding>
+class DecimalConverter
+    : public TypedConverter<arrow::Decimal128Type, DecimalConverter<null_coding>,
+                            null_coding> {
  public:
-  using BASE = TypedConverter<arrow::Decimal128Type, DecimalConverter>;
+  using BASE =
+      TypedConverter<arrow::Decimal128Type, DecimalConverter<null_coding>, null_coding>;
 
   Status Init(ArrayBuilder* builder) override {
     RETURN_NOT_OK(BASE::Init(builder));
-    decimal_type_ = checked_cast<const DecimalType*>(typed_builder_->type().get());
+    decimal_type_ = checked_cast<const DecimalType*>(this->typed_builder_->type().get());
     return Status::OK();
   }
 
   Status AppendItem(PyObject* obj) {
     Decimal128 value;
     RETURN_NOT_OK(internal::DecimalFromPyObject(obj, *decimal_type_, &value));
-    return typed_builder_->Append(value);
+    return this->typed_builder_->Append(value);
   }
 
  private:
   const DecimalType* decimal_type_ = nullptr;
 };
 
-#define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                           \
-  case Type::TYPE_ENUM:                                              \
-    if (from_pandas) {                                               \
-      *out = std::unique_ptr<SeqConverter>(                          \
-          new NumericConverter<TYPE, NullCoding::PANDAS_SENTINELS>); \
-    } else {                                                         \
-      *out = std::unique_ptr<SeqConverter>(                          \
-          new NumericConverter<TYPE, NullCoding::NONE_ONLY>);        \
-    }                                                                \
+#define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                                         \
+  case Type::TYPE_ENUM:                                                            \
+    *out = std::unique_ptr<SeqConverter>(new NumericConverter<TYPE, null_coding>); \
     break;
 
-#define SIMPLE_CONVERTER_CASE(TYPE_ENUM, TYPE_CLASS)      \
-  case Type::TYPE_ENUM:                                   \
-    *out = std::unique_ptr<SeqConverter>(new TYPE_CLASS); \
+#define SIMPLE_CONVERTER_CASE(TYPE_ENUM, TYPE_CLASS)                   \
+  case Type::TYPE_ENUM:                                                \
+    *out = std::unique_ptr<SeqConverter>(new TYPE_CLASS<null_coding>); \
     break;
 
 // Dynamic constructor for sequence converters
-Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
-                    bool strict_conversions, std::unique_ptr<SeqConverter>* out) {
+template <NullCoding null_coding>
+Status GetConverterFlat(const std::shared_ptr<DataType>& type, bool strict_conversions,
+                        std::unique_ptr<SeqConverter>* out) {
   switch (type->id()) {
     SIMPLE_CONVERTER_CASE(NA, NullConverter);
     SIMPLE_CONVERTER_CASE(BOOL, BoolConverter);
@@ -899,50 +917,68 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
     SIMPLE_CONVERTER_CASE(DATE64, Date64Converter);
     case Type::STRING:
       if (strict_conversions) {
-        *out = std::unique_ptr<SeqConverter>(new StringConverter<StringType, true>());
+        *out = std::unique_ptr<SeqConverter>(
+            new StringConverter<StringType, true, null_coding>());
       } else {
-        *out = std::unique_ptr<SeqConverter>(new StringConverter<StringType, false>());
+        *out = std::unique_ptr<SeqConverter>(
+            new StringConverter<StringType, false, null_coding>());
       }
       break;
     case Type::LARGE_STRING:
       if (strict_conversions) {
-        *out =
-            std::unique_ptr<SeqConverter>(new StringConverter<LargeStringType, true>());
+        *out = std::unique_ptr<SeqConverter>(
+            new StringConverter<LargeStringType, true, null_coding>());
       } else {
-        *out =
-            std::unique_ptr<SeqConverter>(new StringConverter<LargeStringType, false>());
+        *out = std::unique_ptr<SeqConverter>(
+            new StringConverter<LargeStringType, false, null_coding>());
       }
       break;
     case Type::TIME32: {
-      *out = std::unique_ptr<SeqConverter>(
-          new Time32Converter(checked_cast<const Time32Type&>(*type).unit()));
+      *out = std::unique_ptr<SeqConverter>(new Time32Converter<null_coding>(
+          checked_cast<const Time32Type&>(*type).unit()));
       break;
     }
     case Type::TIME64: {
-      *out = std::unique_ptr<SeqConverter>(
-          new Time64Converter(checked_cast<const Time64Type&>(*type).unit()));
+      *out = std::unique_ptr<SeqConverter>(new Time64Converter<null_coding>(
+          checked_cast<const Time64Type&>(*type).unit()));
       break;
     }
     case Type::TIMESTAMP: {
-      *out = std::unique_ptr<SeqConverter>(
-          new TimestampConverter(checked_cast<const TimestampType&>(*type).unit()));
+      *out = std::unique_ptr<SeqConverter>(new TimestampConverter<null_coding>(
+          checked_cast<const TimestampType&>(*type).unit()));
       break;
     }
-    case Type::LIST:
-      *out = std::unique_ptr<SeqConverter>(
-          new ListConverter<ListType>(from_pandas, strict_conversions));
-      break;
-    case Type::LARGE_LIST:
-      *out = std::unique_ptr<SeqConverter>(
-          new ListConverter<LargeListType>(from_pandas, strict_conversions));
-      break;
-    case Type::STRUCT:
-      *out = std::unique_ptr<SeqConverter>(
-          new StructConverter(from_pandas, strict_conversions));
-      break;
     default:
       return Status::NotImplemented("Sequence converter for type ", type->ToString(),
                                     " not implemented");
+  }
+  return Status::OK();
+}
+
+Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
+                    bool strict_conversions, std::unique_ptr<SeqConverter>* out) {
+  switch (type->id()) {
+    case Type::LIST:
+      *out = std::unique_ptr<SeqConverter>(
+          new ListConverter<ListType>(from_pandas, strict_conversions));
+      return Status::OK();
+    case Type::LARGE_LIST:
+      *out = std::unique_ptr<SeqConverter>(
+          new ListConverter<LargeListType>(from_pandas, strict_conversions));
+      return Status::OK();
+    case Type::STRUCT:
+      *out = std::unique_ptr<SeqConverter>(
+          new StructConverter(from_pandas, strict_conversions));
+      return Status::OK();
+    default:
+      break;
+  }
+
+  if (from_pandas) {
+    RETURN_NOT_OK(
+        GetConverterFlat<NullCoding::PANDAS_SENTINELS>(type, strict_conversions, out));
+  } else {
+    RETURN_NOT_OK(GetConverterFlat<NullCoding::NONE_ONLY>(type, strict_conversions, out));
   }
   return Status::OK();
 }
@@ -1020,13 +1056,6 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
     strict_conversions = true;
   }
   DCHECK_GE(size, 0);
-
-  // Handle NA / NullType case
-  if (real_type->id() == Type::NA) {
-    ArrayVector chunks = {std::make_shared<NullArray>(size)};
-    *out = std::make_shared<ChunkedArray>(chunks);
-    return Status::OK();
-  }
 
   // Create the sequence converter, initialize with the builder
   std::unique_ptr<SeqConverter> converter;
