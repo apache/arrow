@@ -1096,6 +1096,8 @@ bool StridedFloatTensorContentEquals(int dim_index, int64_t left_offset, int64_t
 
 template <typename DataType>
 bool FloatTensorEquals(const Tensor& left, const Tensor& right) {
+  static_assert(std::is_floating_point<typename DataType::c_type>::value,
+                "DataType must be a floating point type");
   return StridedFloatTensorContentEquals<DataType>(0, 0, 0, left, right);
 }
 
