@@ -58,5 +58,33 @@ TEST_F(TestSimpleDataSource, GetFragments) {
   AssertDataSourceEquals(reader.get(), &source);
 }
 
+class TestDataset : public DatasetFixtureMixin {};
+
+TEST_F(TestDataset, TrivialScan) {
+  constexpr int64_t kNumberFragments = 4;
+  constexpr int64_t kNumberBatches = 16;
+  constexpr int64_t kBatchSize = 1024;
+
+  auto s = schema({field("i32", int32()), field("f64", float64())});
+  auto batch = GetRecordBatch(kBatchSize, s);
+
+  std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
+  auto fragment = std::make_shared<SimpleDataFragment>(batches);
+  DataFragmentVector fragments{kNumberFragments, fragment};
+
+  std::vector<std::shared_ptr<DataSource>> sources = {
+      std::make_shared<SimpleDataSource>(fragments),
+      std::make_shared<SimpleDataSource>(fragments),
+  };
+
+  const int64_t total_batches = sources.size() * kNumberBatches * kNumberBatches;
+  auto reader = GetRecordBatchReader(total_batches, batch);
+
+  std::shared_ptr<Dataset> dataset;
+  ASSERT_OK(Dataset::Make(sources, s, &dataset));
+
+  AssertDatasetEquals(reader.get(), dataset.get());
+}
+
 }  // namespace dataset
 }  // namespace arrow

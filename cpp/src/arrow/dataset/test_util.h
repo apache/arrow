@@ -107,6 +107,20 @@ class DatasetFixtureMixin : public ::testing::Test {
     }));
   }
 
+  /// \brief Ensure that record batches found in reader are equals to the
+  /// record batches yielded by a dataset.
+  void AssertDatasetEquals(RecordBatchReader* expected, Dataset* dataset) {
+    std::unique_ptr<ScannerBuilder> builder;
+    ASSERT_OK(dataset->NewScan(&builder));
+
+    std::unique_ptr<Scanner> scanner;
+    ASSERT_OK(builder->Finish(&scanner));
+
+    auto it = scanner->Scan();
+
+    AssertScannerEquals(expected, scanner.get());
+  }
+
  protected:
   std::shared_ptr<ScanOptions> options_;
   std::shared_ptr<ScanContext> ctx_;

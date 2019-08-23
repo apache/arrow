@@ -75,6 +75,9 @@ std::unique_ptr<ScanTaskIterator> SimpleScanner::Scan() {
   // all the work of unwinding the chained iterators.
   return GetScanTaskIterator(std::move(fragments_it), context_);
 }
+ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
+                               std::shared_ptr<ScanContext> scan_context)
+    : dataset_(std::move(dataset)), scan_context_(std::move(scan_context)) {}
 
 ScannerBuilder* ScannerBuilder::Project(const std::vector<std::string>& columns) {
   return this;
