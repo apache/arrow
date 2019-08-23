@@ -36,22 +36,47 @@ import org.apache.arrow.vector.complex.UnionVector;
 public class ApproxEqualsVisitor extends RangeEqualsVisitor {
 
   /**
-   * The float/double values are treated as equal as long as the delta is <= epsilon.
+   * The float/double values are treated as equal as long as the difference calculated by function is <= epsilon.
    */
-  private final float epsilon;
+  private final float floatEpsilon;
+  private final double doubleEpsilon;
+
+  /**
+   * Functions to calculate difference between float/double values.
+   */
+  private DiffFunction<Float> floatDiffFunction =
+      (Float value1, Float value2) -> Math.abs(value1 - value2);
+  private DiffFunction<Double> doubleDiffFunction =
+      (Double value1, Double value2) -> Math.abs(value1 - value2);
 
   public ApproxEqualsVisitor(ValueVector right, float epsilon) {
-    this (right, epsilon, true);
+    this (right, epsilon, epsilon, true);
   }
 
-  public ApproxEqualsVisitor(ValueVector right, float epsilon, boolean typeCheckNeeded) {
-    this (right, epsilon, typeCheckNeeded, 0, 0, right.getValueCount());
+  public ApproxEqualsVisitor(ValueVector right, float floatEpsilon, double doubleEpsilon) {
+    this (right, floatEpsilon, doubleEpsilon, true);
   }
 
-  public ApproxEqualsVisitor(ValueVector right, float epsilon, boolean typeCheckNeeded,
+  public ApproxEqualsVisitor(ValueVector right, float floatEpsilon, double doubleEpsilon, boolean typeCheckNeeded) {
+    this (right, floatEpsilon, doubleEpsilon, typeCheckNeeded, 0, 0, right.getValueCount());
+  }
+
+  /**
+   * Construct an instance.
+   */
+  public ApproxEqualsVisitor(ValueVector right, float floatEpsilon, double doubleEpsilon, boolean typeCheckNeeded,
       int leftStart, int rightStart, int length) {
     super(right, rightStart, leftStart, length, typeCheckNeeded);
-    this.epsilon = epsilon;
+    this.floatEpsilon = floatEpsilon;
+    this.doubleEpsilon = doubleEpsilon;
+  }
+
+  public void setFloatDiffFunction(DiffFunction<Float> floatDiffFunction) {
+    this.floatDiffFunction = floatDiffFunction;
+  }
+
+  public void setDoubleDiffFunction(DiffFunction<Double> doubleDiffFunction) {
+    this.doubleDiffFunction = doubleDiffFunction;
   }
 
   @Override
@@ -79,7 +104,7 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
 
     for (int k = 0; k < leftChildren.size(); k++) {
       ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(rightChildren.get(k),
-          epsilon);
+          floatEpsilon, doubleEpsilon);
       if (!leftChildren.get(k).accept(visitor, null)) {
         return false;
       }
@@ -98,7 +123,7 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
 
     for (String name : left.getChildFieldNames()) {
       ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(rightVector.getChild(name),
-          epsilon);
+          floatEpsilon, doubleEpsilon);
       if (!left.getChild(name).accept(visitor, null)) {
         return false;
       }
@@ -135,8 +160,8 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
         ValueVector leftDataVector = left.getDataVector();
         ValueVector rightDataVector = ((ListVector)right).getDataVector();
 
-        if (!leftDataVector.accept(new ApproxEqualsVisitor(rightDataVector, epsilon, typeCheckNeeded,
-            startIndexLeft, startIndexRight, (endIndexLeft - startIndexLeft)), null)) {
+        if (!leftDataVector.accept(new ApproxEqualsVisitor(rightDataVector, floatEpsilon, doubleEpsilon,
+            typeCheckNeeded, startIndexLeft, startIndexRight, (endIndexLeft - startIndexLeft)), null)) {
           return false;
         }
       }
@@ -175,8 +200,8 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
         ValueVector leftDataVector = left.getDataVector();
         ValueVector rightDataVector = ((FixedSizeListVector)right).getDataVector();
 
-        if (!leftDataVector.accept(new ApproxEqualsVisitor(rightDataVector, epsilon, typeCheckNeeded,
-            startIndexLeft, startIndexRight, (endIndexLeft - startIndexLeft)), null)) {
+        if (!leftDataVector.accept(new ApproxEqualsVisitor(rightDataVector, floatEpsilon, doubleEpsilon,
+            typeCheckNeeded, startIndexLeft, startIndexRight, (endIndexLeft - startIndexLeft)), null)) {
           return false;
         }
       }
@@ -198,9 +223,15 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
 
       if (!isNull) {
 
-        float leftValue = left.get(leftIndex);
-        float rightValue = ((Float4Vector)right).get(rightIndex);
-        if (Math.abs(leftValue - rightValue) > epsilon) {
+        Float leftValue = left.get(leftIndex);
+        Float rightValue = ((Float4Vector)right).get(rightIndex);
+        if (leftValue.isNaN()) {
+          return rightValue.isNaN();
+        }
+        if (leftValue.isInfinite()) {
+          return rightValue.isInfinite() && Math.signum(leftValue) == Math.signum(rightValue);
+        }
+        if (floatDiffFunction.apply(leftValue, rightValue) > floatEpsilon) {
           return false;
         }
       }
@@ -221,9 +252,15 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
 
       if (!isNull) {
 
-        double leftValue = left.get(leftIndex);
-        double rightValue = ((Float8Vector)right).get(rightIndex);
-        if (Math.abs(leftValue - rightValue) > epsilon) {
+        Double leftValue = left.get(leftIndex);
+        Double rightValue = ((Float8Vector)right).get(rightIndex);
+        if (leftValue.isNaN()) {
+          return rightValue.isNaN();
+        }
+        if (leftValue.isInfinite()) {
+          return rightValue.isInfinite() && Math.signum(leftValue) == Math.signum(rightValue);
+        }
+        if (doubleDiffFunction.apply(leftValue, rightValue) > doubleEpsilon) {
           return false;
         }
       }
@@ -231,3 +268,5 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
     return true;
   }
 }
+
+
