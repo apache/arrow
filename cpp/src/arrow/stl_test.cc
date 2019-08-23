@@ -61,9 +61,56 @@ struct CustomType {
 #undef ARROW_CUSTOM_TYPE_TIED
 };
 
+// Mock optional object returning null, "yes", "no", null, "yes", "no", ...
+struct CustomOptionalTypeMock {
+  static int counter;
+  CustomOptionalTypeMock() = default;
+  explicit operator bool() const {
+    counter++;
+    return counter % 3 != 0;
+  }
+  std::string operator*() const {
+    switch (counter % 3) {
+      case 0:
+        ADD_FAILURE() << "Optional dereferenced in null value";
+      case 1:
+        return "yes";
+      case 2:
+        return "no";
+    }
+    return "error";
+  }
+};
+
+int CustomOptionalTypeMock::counter = -1;
 
 namespace arrow {
+
+template <>
+struct CTypeTraits<CustomOptionalTypeMock> {
+  using ArrowType = ::arrow::StringType;
+
+  static std::shared_ptr<::arrow::DataType> type_singleton() {
+    return ::arrow::utf8();
+  }
+};
+
 namespace stl {
+
+template <>
+struct ConversionTraits<CustomOptionalTypeMock>
+    : public CTypeTraits<CustomOptionalTypeMock> {
+  constexpr static bool nullable = true;
+
+  static Status AppendRow(typename TypeTraits<ArrowType>::BuilderType& builder,
+                          const CustomOptionalTypeMock& cell) {
+    if (cell) {
+        return builder.Append("mock " + *cell);
+    } else {
+        return builder.AppendNull();
+    }
+  }
+};
 
 TEST(TestSchemaFromTuple, PrimitiveTypesVector) {
   Schema expected_schema(
@@ -287,6 +334,23 @@ TEST(TestTableFromTupleVector, NullableTypesWithRawPointer) {
       Table::Make(expected_schema,
                   {int8_array, int16_array, int32_array, int64_array, uint8_array,
                    uint16_array, uint32_array, uint64_array, bool_array, string_array});
+
+  ASSERT_TRUE(expected_table->Equals(*table));
+}
+
+TEST(TestTableFromTupleVector, NullableTypesDoNotBreakUserSpecialization) {
+  std::vector<std::string> names{"column1"};
+  std::vector<std::tuple<CustomOptionalTypeMock>> rows(3);
+  std::shared_ptr<Table> table;
+  ASSERT_OK(TableFromTupleRange(default_memory_pool(), rows, names, &table));
+
+  const Table& tab = *table;
+
+  std::shared_ptr<Schema> expected_schema =
+      schema({field("column1", utf8(), true)});
+  std::shared_ptr<Array> string_array =
+      ArrayFromJSON(utf8(), R"([null, "mock yes", "mock no"])");
+  auto expected_table = Table::Make(expected_schema, {string_array});
 
   ASSERT_TRUE(expected_table->Equals(*table));
 }
