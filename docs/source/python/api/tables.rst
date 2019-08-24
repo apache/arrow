@@ -28,10 +28,10 @@ Factory Functions
 .. autosummary::
    :toctree: ../generated/
 
-   record_batch
-   table
    chunked_array
    concat_tables
+   record_batch
+   table
 
 Classes
 -------
