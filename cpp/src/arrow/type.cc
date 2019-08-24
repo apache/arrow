@@ -864,11 +864,14 @@ PARAMETER_LESS_FINGERPRINT(Date64)
 std::string DictionaryType::ComputeFingerprint() const {
   const auto& index_fingerprint = index_type_->fingerprint();
   const auto& value_fingerprint = value_type_->fingerprint();
+  std::string ordered_fingerprint = ordered_ ? "1" : "0";
+
   DCHECK(!index_fingerprint.empty());  // it's an integer type
   if (!value_fingerprint.empty()) {
-    return TypeIdFingerprint(*this) + index_fingerprint + value_fingerprint;
+    return TypeIdFingerprint(*this) + index_fingerprint + value_fingerprint +
+           ordered_fingerprint;
   }
-  return "";
+  return ordered_fingerprint;
 }
 
 std::string ListType::ComputeFingerprint() const {

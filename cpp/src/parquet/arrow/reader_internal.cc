@@ -615,7 +615,10 @@ Status ApplyOriginalMetadata(std::shared_ptr<Field> field, const Field& origin_f
   if (origin_type->id() == ::arrow::Type::DICTIONARY &&
       field->type()->id() != ::arrow::Type::DICTIONARY &&
       IsDictionaryReadSupported(*field->type())) {
-    field = field->WithType(::arrow::dictionary(::arrow::int32(), field->type()));
+    const auto& dict_origin_type =
+        static_cast<const ::arrow::DictionaryType&>(*origin_type);
+    field = field->WithType(
+        ::arrow::dictionary(::arrow::int32(), field->type(), dict_origin_type.ordered()));
   }
   *out = field;
   return Status::OK();
@@ -763,29 +766,6 @@ Status TransferDate64(RecordReader* reader, MemoryPool* pool,
 // ----------------------------------------------------------------------
 // Binary, direct to dictionary-encoded
 
-// Some ugly hacks here for now to handle binary dictionaries casted to their
-// logical type
-std::shared_ptr<Array> ShallowCast(const Array& arr,
-                                   const std::shared_ptr<DataType>& new_type) {
-  std::shared_ptr<::arrow::ArrayData> new_data = arr.data()->Copy();
-  new_data->type = new_type;
-  if (new_type->id() == ::arrow::Type::DICTIONARY) {
-    // Cast dictionary, too
-    const auto& dict_type = static_cast<const ::arrow::DictionaryType&>(*new_type);
-    new_data->dictionary = ShallowCast(*new_data->dictionary, dict_type.value_type());
-  }
-  return MakeArray(new_data);
-}
-
-std::shared_ptr<ChunkedArray> CastChunksTo(
-    const ChunkedArray& data, const std::shared_ptr<DataType>& logical_value_type) {
-  std::vector<std::shared_ptr<Array>> string_chunks;
-  for (int i = 0; i < data.num_chunks(); ++i) {
-    string_chunks.push_back(ShallowCast(*data.chunk(i), logical_value_type));
-  }
-  return std::make_shared<ChunkedArray>(string_chunks);
-}
-
 Status TransferDictionary(RecordReader* reader,
                           const std::shared_ptr<DataType>& logical_value_type,
                           std::shared_ptr<ChunkedArray>* out) {
@@ -793,7 +773,7 @@ Status TransferDictionary(RecordReader* reader,
   DCHECK(dict_reader);
   *out = dict_reader->GetResult();
   if (!logical_value_type->Equals(*(*out)->type())) {
-    *out = CastChunksTo(**out, logical_value_type);
+    RETURN_NOT_OK((*out)->View(logical_value_type, out));
   }
   return Status::OK();
 }
@@ -809,7 +789,7 @@ Status TransferBinary(RecordReader* reader,
   DCHECK(binary_reader);
   *out = std::make_shared<ChunkedArray>(binary_reader->GetBuilderChunks());
   if (!logical_value_type->Equals(*(*out)->type())) {
-    *out = CastChunksTo(**out, logical_value_type);
+    RETURN_NOT_OK((*out)->View(logical_value_type, out));
   }
   return Status::OK();
 }
