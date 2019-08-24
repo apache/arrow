@@ -90,9 +90,7 @@ template <>
 struct CTypeTraits<CustomOptionalTypeMock> {
   using ArrowType = ::arrow::StringType;
 
-  static std::shared_ptr<::arrow::DataType> type_singleton() {
-    return ::arrow::utf8();
-  }
+  static std::shared_ptr<::arrow::DataType> type_singleton() { return ::arrow::utf8(); }
 };
 
 namespace stl {
@@ -105,9 +103,9 @@ struct ConversionTraits<CustomOptionalTypeMock>
   static Status AppendRow(typename TypeTraits<ArrowType>::BuilderType& builder,
                           const CustomOptionalTypeMock& cell) {
     if (cell) {
-        return builder.Append("mock " + *cell);
+      return builder.Append("mock " + *cell);
     } else {
-        return builder.AppendNull();
+      return builder.AppendNull();
     }
   }
 };
@@ -278,7 +276,8 @@ TEST(TestTableFromTupleVector, NullableTypesWithBoostOptional) {
   std::shared_ptr<Array> uint32_array = ArrayFromJSON(uint32(), "[3, 30, null]");
   std::shared_ptr<Array> uint64_array = ArrayFromJSON(uint64(), "[4, 40, null]");
   std::shared_ptr<Array> bool_array = ArrayFromJSON(boolean(), "[true, false, null]");
-  std::shared_ptr<Array> string_array = ArrayFromJSON(utf8(), R"(["Tests", "Other", null])");
+  std::shared_ptr<Array> string_array =
+      ArrayFromJSON(utf8(), R"(["Tests", "Other", null])");
   auto expected_table =
       Table::Make(expected_schema,
                   {int8_array, int16_array, int32_array, int64_array, uint8_array,
@@ -296,16 +295,12 @@ TEST(TestTableFromTupleVector, NullableTypesWithRawPointer) {
   };
   std::vector<raw_pointer_optional_types_tuple> pointer_rows;
   for (auto& row : data_rows) {
-    pointer_rows.emplace_back(std::addressof(std::get<0>(row)),
-                              std::addressof(std::get<1>(row)),
-                              std::addressof(std::get<2>(row)),
-                              std::addressof(std::get<3>(row)),
-                              std::addressof(std::get<4>(row)),
-                              std::addressof(std::get<5>(row)),
-                              std::addressof(std::get<6>(row)),
-                              std::addressof(std::get<7>(row)),
-                              std::addressof(std::get<8>(row)),
-                              std::addressof(std::get<9>(row)));
+    pointer_rows.emplace_back(
+        std::addressof(std::get<0>(row)), std::addressof(std::get<1>(row)),
+        std::addressof(std::get<2>(row)), std::addressof(std::get<3>(row)),
+        std::addressof(std::get<4>(row)), std::addressof(std::get<5>(row)),
+        std::addressof(std::get<6>(row)), std::addressof(std::get<7>(row)),
+        std::addressof(std::get<8>(row)), std::addressof(std::get<9>(row)));
   }
   pointer_rows.emplace_back(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
                             nullptr, nullptr, nullptr);
@@ -329,7 +324,8 @@ TEST(TestTableFromTupleVector, NullableTypesWithRawPointer) {
   std::shared_ptr<Array> uint32_array = ArrayFromJSON(uint32(), "[3, 30, null]");
   std::shared_ptr<Array> uint64_array = ArrayFromJSON(uint64(), "[4, 40, null]");
   std::shared_ptr<Array> bool_array = ArrayFromJSON(boolean(), "[true, false, null]");
-  std::shared_ptr<Array> string_array = ArrayFromJSON(utf8(), R"(["Tests", "Other", null])");
+  std::shared_ptr<Array> string_array =
+      ArrayFromJSON(utf8(), R"(["Tests", "Other", null])");
   auto expected_table =
       Table::Make(expected_schema,
                   {int8_array, int16_array, int32_array, int64_array, uint8_array,
@@ -344,8 +340,7 @@ TEST(TestTableFromTupleVector, NullableTypesDoNotBreakUserSpecialization) {
   std::shared_ptr<Table> table;
   ASSERT_OK(TableFromTupleRange(default_memory_pool(), rows, names, &table));
 
-  std::shared_ptr<Schema> expected_schema =
-      schema({field("column1", utf8(), true)});
+  std::shared_ptr<Schema> expected_schema = schema({field("column1", utf8(), true)});
   std::shared_ptr<Array> string_array =
       ArrayFromJSON(utf8(), R"([null, "mock yes", "mock no"])");
   auto expected_table = Table::Make(expected_schema, {string_array});
