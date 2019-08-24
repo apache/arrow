@@ -103,6 +103,7 @@ def test_tensor_ipc_roundtrip(tmpdir):
 
 
 def test_tensor_ipc_read_from_compressed(tempdir):
+    # ARROW-5910
     data = np.random.randn(10, 4)
     tensor = pa.Tensor.from_numpy(data)
 
