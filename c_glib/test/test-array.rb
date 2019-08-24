@@ -125,9 +125,10 @@ class TestArray < Test::Unit::TestCase
     def test_invalid
       message = "[array][view]: Invalid: " +
                 "Can't view array of type int16 as int8: incompatible layouts"
-      assert_raise(Arrow::Error::Invalid.new(message)) do
+      error = assert_raise(Arrow::Error::Invalid) do
         build_int16_array([0, -1, 3]).view(Arrow::Int8DataType.new)
       end
+      assert_equal(message, error.message.lines.first.chomp)
     end
   end
 end
