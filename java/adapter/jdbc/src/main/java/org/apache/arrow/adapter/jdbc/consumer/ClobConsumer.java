@@ -24,8 +24,6 @@ import java.sql.SQLException;
 
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.VarCharVector;
-import org.apache.arrow.vector.complex.impl.VarCharWriterImpl;
-import org.apache.arrow.vector.complex.writer.VarCharWriter;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -37,23 +35,22 @@ public class ClobConsumer implements JdbcConsumer<VarCharVector> {
 
   private static final int BUFFER_SIZE = 256;
 
-  private VarCharWriter writer;
   private VarCharVector vector;
   private final int columnIndexInResultSet;
+
+  private int currentIndex;
 
   /**
    * Instantiate a ClobConsumer.
    */
   public ClobConsumer(VarCharVector vector, int index) {
     this.vector = vector;
-    this.writer = new VarCharWriterImpl(vector);
     this.columnIndexInResultSet = index;
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
     Clob clob = resultSet.getClob(columnIndexInResultSet);
-    int idx = writer.getPosition();
     if (!resultSet.wasNull()) {
       if (clob != null) {
         long length = clob.length();
@@ -64,7 +61,7 @@ public class ClobConsumer implements JdbcConsumer<VarCharVector> {
 
         ArrowBuf dataBuffer = vector.getDataBuffer();
         ArrowBuf offsetBuffer = vector.getOffsetBuffer();
-        int startIndex = offsetBuffer.getInt(idx * 4);
+        int startIndex = offsetBuffer.getInt(currentIndex * 4);
         while (read <= length) {
           String str = clob.getSubString(read, readSize);
           byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
@@ -73,22 +70,22 @@ public class ClobConsumer implements JdbcConsumer<VarCharVector> {
           totalBytes += bytes.length;
           read += readSize;
         }
-        offsetBuffer.setInt((idx + 1) * 4, startIndex + totalBytes);
-        BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), idx);
-        vector.setLastSet(idx);
+        offsetBuffer.setInt((currentIndex + 1) * 4, startIndex + totalBytes);
+        BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), currentIndex);
+        vector.setLastSet(currentIndex);
       }
     }
-    writer.setPosition(writer.getPosition() + 1);
+    currentIndex++;
   }
 
   @Override
   public void close() throws Exception {
-    writer.close();
+    vector.close();
   }
 
   @Override
   public void resetValueVector(VarCharVector vector) {
     this.vector = vector;
-    this.writer = new VarCharWriterImpl(vector);
+    this.currentIndex = 0;
   }
 }

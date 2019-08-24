@@ -23,8 +23,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.apache.arrow.vector.VarBinaryVector;
-import org.apache.arrow.vector.complex.impl.VarBinaryWriterImpl;
-import org.apache.arrow.vector.complex.writer.VarBinaryWriter;
 
 /**
  * Consumer which consume binary type values from {@link ResultSet}.
@@ -34,16 +32,16 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
 
   private static final int BUFFER_SIZE = 1024;
 
-  private VarBinaryWriter writer;
   private VarBinaryVector vector;
   private final int columnIndexInResultSet;
+
+  private int currentIndex;
 
   /**
    * Instantiate a BinaryConsumer.
    */
   public BinaryConsumer(VarBinaryVector vector, int index) {
     this.vector = vector;
-    this.writer = new VarBinaryWriterImpl(vector);
     this.columnIndexInResultSet = index;
   }
 
@@ -61,7 +59,7 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
         is.read(bytes, totalBytes, readSize);
         totalBytes += readSize;
       }
-      vector.setSafe(writer.getPosition(), bytes, 0, totalBytes);
+      vector.setSafe(currentIndex, bytes, 0, totalBytes);
     }
   }
 
@@ -71,21 +69,21 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
     if (!resultSet.wasNull()) {
       consume(is);
     }
-    writer.setPosition(writer.getPosition() + 1);
+    currentIndex++;
   }
 
   public void moveWriterPosition() {
-    writer.setPosition(writer.getPosition() + 1);
+    currentIndex++;
   }
 
   @Override
   public void close() throws Exception {
-    this.writer.close();
+    this.vector.close();
   }
 
   @Override
   public void resetValueVector(VarBinaryVector vector) {
     this.vector = vector;
-    this.writer = new VarBinaryWriterImpl(vector);
+    this.currentIndex = 0;
   }
 }

@@ -22,8 +22,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.apache.arrow.vector.VarCharVector;
-import org.apache.arrow.vector.complex.impl.VarCharWriterImpl;
-import org.apache.arrow.vector.complex.writer.VarCharWriter;
 
 /**
  * Consumer which consume varchar type values from {@link ResultSet}.
@@ -31,17 +29,16 @@ import org.apache.arrow.vector.complex.writer.VarCharWriter;
  */
 public class VarCharConsumer implements JdbcConsumer<VarCharVector> {
 
-  private VarCharWriter writer;
   private final int columnIndexInResultSet;
 
   private VarCharVector vector;
+  private int currentIndex;
 
   /**
    * Instantiate a VarCharConsumer.
    */
   public VarCharConsumer(VarCharVector vector, int index) {
     this.vector = vector;
-    this.writer = new VarCharWriterImpl(vector);
     this.columnIndexInResultSet = index;
   }
 
@@ -51,19 +48,18 @@ public class VarCharConsumer implements JdbcConsumer<VarCharVector> {
     if (!resultSet.wasNull()) {
       byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
 
-      vector.set(writer.getPosition(), bytes);
+      vector.setSafe(currentIndex++, bytes);
     }
-    writer.setPosition(writer.getPosition() + 1);
   }
 
   @Override
   public void close() throws Exception {
-    writer.close();
+    this.vector.close();
   }
 
   @Override
   public void resetValueVector(VarCharVector vector) {
     this.vector = vector;
-    this.writer = new VarCharWriterImpl(vector);
+    this.currentIndex = 0;
   }
 }
