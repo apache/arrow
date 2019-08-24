@@ -79,7 +79,7 @@
 //! ```
 //! # Example of reading multiple files
 //!
-//! ```rust,no_run
+//! ```rust,no_run,ignore
 //! use parquet::file::reader::SerializedFileReader;
 //! use std::convert::TryFrom;
 //!

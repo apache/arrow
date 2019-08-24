@@ -699,7 +699,6 @@ mod tests {
 
     use parquet_format::TypeDefinedOrder;
 
-    use crate::schema::parser::parse_message_type;
     use crate::{
         basic::SortOrder,
         schema::types::Type as SchemaType,
@@ -861,46 +860,46 @@ mod tests {
         assert!(reader.is_err());
     }
 
-    #[test]
-    fn test_file_reader_into_iter() -> Result<()> {
-        let path = get_test_path("alltypes_plain.parquet");
-        let vec = vec![path.clone(), path.clone()]
-            .iter()
-            .map(|p| SerializedFileReader::try_from(p.as_path()).unwrap())
-            .flat_map(|r| r.into_iter())
-            .flat_map(|r| r.get_int(0))
-            .collect::<Vec<_>>();
+    // #[test]
+    // fn test_file_reader_into_iter() -> Result<()> {
+    //     let path = get_test_path("alltypes_plain.parquet");
+    //     let vec = vec![path.clone(), path.clone()]
+    //         .iter()
+    //         .map(|p| SerializedFileReader::try_from(p.as_path()).unwrap())
+    //         .flat_map(|r| r.into_iter())
+    //         .flat_map(|r| r.get_int(0))
+    //         .collect::<Vec<_>>();
 
-        // rows in the parquet file are not sorted by "id"
-        // each file contains [id:4, id:5, id:6, id:7, id:2, id:3, id:0, id:1]
-        assert_eq!(vec, vec![4, 5, 6, 7, 2, 3, 0, 1, 4, 5, 6, 7, 2, 3, 0, 1]);
+    //     // rows in the parquet file are not sorted by "id"
+    //     // each file contains [id:4, id:5, id:6, id:7, id:2, id:3, id:0, id:1]
+    //     assert_eq!(vec, vec![4, 5, 6, 7, 2, 3, 0, 1, 4, 5, 6, 7, 2, 3, 0, 1]);
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    #[test]
-    fn test_file_reader_into_iter_project() -> Result<()> {
-        let path = get_test_path("alltypes_plain.parquet");
-        let result = vec![path]
-            .iter()
-            .map(|p| SerializedFileReader::try_from(p.as_path()).unwrap())
-            .flat_map(|r| {
-                let schema = "message schema { OPTIONAL INT32 id; }";
-                let proj = parse_message_type(&schema).ok();
+    // #[test]
+    // fn test_file_reader_into_iter_project() -> Result<()> {
+    //     let path = get_test_path("alltypes_plain.parquet");
+    //     let result = vec![path]
+    //         .iter()
+    //         .map(|p| SerializedFileReader::try_from(p.as_path()).unwrap())
+    //         .flat_map(|r| {
+    //             let schema = "message schema { OPTIONAL INT32 id; }";
+    //             let proj = parse_message_type(&schema).ok();
 
-                r.into_iter().project(proj).unwrap()
-            })
-            .map(|r| format!("{}", r))
-            .collect::<Vec<_>>()
-            .join(",");
+    //             r.into_iter().project(proj).unwrap()
+    //         })
+    //         .map(|r| format!("{}", r))
+    //         .collect::<Vec<_>>()
+    //         .join(",");
 
-        assert_eq!(
-            result,
-            "{id: 4},{id: 5},{id: 6},{id: 7},{id: 2},{id: 3},{id: 0},{id: 1}"
-        );
+    //     assert_eq!(
+    //         result,
+    //         "{id: 4},{id: 5},{id: 6},{id: 7},{id: 2},{id: 3},{id: 0},{id: 1}"
+    //     );
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     #[test]
     fn test_reuse_file_chunk() {
@@ -1104,34 +1103,34 @@ mod tests {
         assert_eq!(page_count, 2);
     }
 
-    #[test]
-    fn test_page_iterator() {
-        let file = get_test_file("alltypes_plain.parquet");
-        let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
+    // #[test]
+    // fn test_page_iterator() {
+    //     let file = get_test_file("alltypes_plain.parquet");
+    //     let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
 
-        let mut page_iterator = FilePageIterator::new(0, file_reader.clone()).unwrap();
+    //     let mut page_iterator = FilePageIterator::new(0, file_reader.clone()).unwrap();
 
-        // read first page
-        let page = page_iterator.next();
-        assert!(page.is_some());
-        assert!(page.unwrap().is_ok());
+    //     // read first page
+    //     let page = page_iterator.next();
+    //     assert!(page.is_some());
+    //     assert!(page.unwrap().is_ok());
 
-        // reach end of file
-        let page = page_iterator.next();
-        assert!(page.is_none());
+    //     // reach end of file
+    //     let page = page_iterator.next();
+    //     assert!(page.is_none());
 
-        let row_group_indices = Box::new(0..1);
-        let mut page_iterator =
-            FilePageIterator::with_row_groups(0, row_group_indices, file_reader.clone())
-                .unwrap();
+    //     let row_group_indices = Box::new(0..1);
+    //     let mut page_iterator =
+    //         FilePageIterator::with_row_groups(0, row_group_indices, file_reader.clone())
+    //             .unwrap();
 
-        // read first page
-        let page = page_iterator.next();
-        assert!(page.is_some());
-        assert!(page.unwrap().is_ok());
+    //     // read first page
+    //     let page = page_iterator.next();
+    //     assert!(page.is_some());
+    //     assert!(page.unwrap().is_ok());
 
-        // reach end of file
-        let page = page_iterator.next();
-        assert!(page.is_none());
-    }
+    //     // reach end of file
+    //     let page = page_iterator.next();
+    //     assert!(page.is_none());
+    // }
 }

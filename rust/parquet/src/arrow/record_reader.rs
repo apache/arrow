@@ -233,7 +233,7 @@ impl<T: DataType> RecordReader<T> {
     fn read_one_batch(&mut self, batch_size: usize) -> Result<usize> {
         // Reserve spaces
         self.records
-            .reserve(self.records.len() + batch_size * size_of::<T>())?;
+            .reserve(self.records.len() + batch_size * T::get_type_size())?;
         if let Some(ref mut buf) = self.rep_levels {
             buf.reserve(buf.len() + batch_size * size_of::<i16>())
                 .map(|_| ())?;
@@ -247,7 +247,7 @@ impl<T: DataType> RecordReader<T> {
         let values_buf = FatPtr::<T::T>::with_offset_and_size(
             &self.records,
             self.values_written,
-            size_of::<T>(),
+            T::get_type_size(),
         );
 
         let mut def_levels_buf = self
@@ -369,7 +369,7 @@ impl<T: DataType> RecordReader<T> {
     fn set_values_written(&mut self, new_values_written: usize) -> Result<()> {
         self.values_written = new_values_written;
         self.records
-            .resize(self.values_written * size_of::<T>())?;
+            .resize(self.values_written * T::get_type_size())?;
 
         let new_levels_len = self.values_written * size_of::<i16>();
 
