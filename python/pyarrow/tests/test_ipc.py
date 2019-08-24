@@ -373,6 +373,22 @@ def test_message_serialize_read_message(example_messages):
     assert msg.equals(restored3)
 
 
+def test_message_read_from_compressed(example_messages):
+    # Part of ARROW-5910
+    _, messages = example_messages
+    for message in messages:
+        raw_out = pa.BufferOutputStream()
+        compressed_out = pa.output_stream(raw_out, compression='gzip')
+        message.serialize_to(compressed_out)
+        compressed_out.close()
+
+        compressed_buf = raw_out.getvalue()
+
+        result = pa.read_message(pa.input_stream(compressed_buf,
+                                                 compression='gzip'))
+        assert result.equals(message)
+
+
 def test_message_read_record_batch(example_messages):
     batches, messages = example_messages
 
