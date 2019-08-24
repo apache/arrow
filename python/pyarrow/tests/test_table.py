@@ -334,43 +334,49 @@ def test_recordbatch_pickle():
     assert result.schema == schema
 
 
-def test_recordbatch_slice_getitem():
+def _table_like_slice_tests(factory):
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10])
     ]
     names = ['c0', 'c1']
 
-    batch = pa.RecordBatch.from_arrays(data, names)
+    obj = factory(data, names=names)
 
-    sliced = batch.slice(2)
+    sliced = obj.slice(2)
     assert sliced.num_rows == 3
 
-    expected = pa.RecordBatch.from_arrays(
-        [x.slice(2) for x in data], names)
+    expected = factory([x.slice(2) for x in data], names)
     assert sliced.equals(expected)
 
-    sliced2 = batch.slice(2, 2)
-    expected2 = pa.RecordBatch.from_arrays(
-        [x.slice(2, 2) for x in data], names)
+    sliced2 = obj.slice(2, 2)
+    expected2 = factory([x.slice(2, 2) for x in data], names)
     assert sliced2.equals(expected2)
 
     # 0 offset
-    assert batch.slice(0).equals(batch)
+    assert obj.slice(0).equals(obj)
 
     # Slice past end of array
-    assert len(batch.slice(len(batch))) == 0
+    assert len(obj.slice(len(obj))) == 0
 
     with pytest.raises(IndexError):
-        batch.slice(-1)
+        obj.slice(-1)
 
     # Check __getitem__-based slicing
-    assert batch.slice(0, 0).equals(batch[:0])
-    assert batch.slice(0, 2).equals(batch[:2])
-    assert batch.slice(2, 2).equals(batch[2:4])
-    assert batch.slice(2, len(batch) - 2).equals(batch[2:])
-    assert batch.slice(len(batch) - 2, 2).equals(batch[-2:])
-    assert batch.slice(len(batch) - 4, 2).equals(batch[-4:-2])
+    assert obj.slice(0, 0).equals(obj[:0])
+    assert obj.slice(0, 2).equals(obj[:2])
+    assert obj.slice(2, 2).equals(obj[2:4])
+    assert obj.slice(2, len(obj) - 2).equals(obj[2:])
+    assert obj.slice(len(obj) - 2, 2).equals(obj[-2:])
+    assert obj.slice(len(obj) - 4, 2).equals(obj[-4:-2])
+
+
+def test_recordbatch_slice_getitem():
+    return _table_like_slice_tests(pa.RecordBatch.from_arrays)
+
+
+def test_table_slice_getitem():
+    return _table_like_slice_tests(pa.table)
 
 
 def test_recordbatchlist_schema_equals():

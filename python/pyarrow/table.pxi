@@ -572,7 +572,7 @@ cdef class RecordBatch(_PandasConvertible):
         Parameters
         ----------
         offset : int, default 0
-            Offset from start of array to slice
+            Offset from start of record batch to slice
         length : int, default None
             Length of slice (default is until end of batch starting from
             offset)
@@ -765,6 +765,40 @@ cdef class Table(_PandasConvertible):
         # data twice
         columns = [col for col in self.columns]
         return _reconstruct_table, (columns, self.schema)
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return _normalize_slice(self, key)
+        else:
+            return self.column(key)
+
+    def slice(self, offset=0, length=None):
+        """
+        Compute zero-copy slice of this Table
+
+        Parameters
+        ----------
+        offset : int, default 0
+            Offset from start of table to slice
+        length : int, default None
+            Length of slice (default is until end of table starting from
+            offset)
+
+        Returns
+        -------
+        sliced : Table
+        """
+        cdef shared_ptr[CTable] result
+
+        if offset < 0:
+            raise IndexError('Offset must be non-negative')
+
+        if length is None:
+            result = self.table.Slice(offset)
+        else:
+            result = self.table.Slice(offset, length)
+
+        return pyarrow_wrap_table(result)
 
     def replace_schema_metadata(self, metadata=None):
         """
@@ -1240,9 +1274,6 @@ cdef class Table(_PandasConvertible):
         """
         cdef int index = <int> _normalize_index(i, self.num_columns)
         return pyarrow_wrap_chunked_array(self.table.column(index))
-
-    def __getitem__(self, key):
-        return self._column(key)
 
     def itercolumns(self):
         """
