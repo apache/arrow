@@ -1486,7 +1486,7 @@ garrow_array_is_in_chunked_array(GArrowArray *left,
 }
 
 /**
- * garrow_array_argsort:
+ * garrow_array_sort_to_indices:
  * @array: A #GArrowArray.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
@@ -1495,20 +1495,20 @@ garrow_array_is_in_chunked_array(GArrowArray *left,
  *
  * Since: 0.15.0
  */
-GArrowArray *
-garrow_array_argsort(GArrowArray *array,
-                     GError **error)
+GArrowUInt64Array *
+garrow_array_sort_to_indices(GArrowArray *array,
+                             GError **error)
 {
   auto arrow_array = garrow_array_get_raw(array);
   auto arrow_array_raw = arrow_array.get();
   auto memory_pool = arrow::default_memory_pool();
   arrow::compute::FunctionContext context(memory_pool);
   std::shared_ptr<arrow::Array> arrow_indices;
-  auto status = arrow::compute::Argsort(&context,
-                                        *arrow_array_raw,
-                                        &arrow_indices);
-  if (garrow_error_check(error, status, "[array][argsort]")) {
-    return garrow_array_new_raw(&arrow_indices);
+  auto status = arrow::compute::SortToIndices(&context,
+                                              *arrow_array_raw,
+                                              &arrow_indices);
+  if (garrow_error_check(error, status, "[array][sort-to-indices]")) {
+    return GARROW_UINT64_ARRAY(garrow_array_new_raw(&arrow_indices));
   } else {
     return NULL;
   }
