@@ -364,6 +364,18 @@ def test_dictionary_type():
         pa.dictionary(pa.uint32(), pa.string())
 
 
+def test_dictionary_ordered_equals():
+    # Python side checking of ARROW-6345
+    d1 = pa.dictionary('int32', 'binary', ordered=True)
+    d2 = pa.dictionary('int32', 'binary', ordered=False)
+    d3 = pa.dictionary('int8', 'binary', ordered=True)
+    d4 = pa.dictionary('int32', 'binary', ordered=True)
+
+    assert not d1.equals(d2)
+    assert not d1.equals(d3)
+    assert d1.equals(d4)
+
+
 def test_types_hashable():
     many_types = get_many_types()
     in_dict = {}

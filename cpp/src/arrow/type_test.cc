@@ -905,6 +905,10 @@ TEST(TestDictionaryType, Equals) {
   AssertTypesEqual(*t1, *t2);
   AssertTypesNotEqual(*t1, *t3);
   AssertTypesNotEqual(*t1, *t4);
+
+  auto t5 = dictionary(int8(), int32(), /*ordered=*/false);
+  auto t6 = dictionary(int8(), int32(), /*ordered=*/true);
+  AssertTypesNotEqual(*t5, *t6);
 }
 
 TEST(TestDictionaryType, UnifyNumeric) {

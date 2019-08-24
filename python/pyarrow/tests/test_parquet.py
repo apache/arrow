@@ -3050,7 +3050,8 @@ def test_categorical_order_survives_roundtrip():
     bos = pa.BufferOutputStream()
     pq.write_table(table, bos)
 
-    result = pq.read_pandas(bos.getvalue()).to_pandas()
+    contents = bos.getvalue()
+    result = pq.read_pandas(contents).to_pandas()
 
     tm.assert_frame_equal(result, df)
 
