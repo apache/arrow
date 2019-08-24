@@ -238,8 +238,8 @@ def test_empty_table_roundtrip():
         [col.chunk(0)[:0] for col in table.itercolumns()],
         names=table.schema.names)
 
-    assert table.schema.field_by_name('null').type == pa.null()
-    assert table.schema.field_by_name('null_list').type == pa.list_(pa.null())
+    assert table.schema.field('null').type == pa.null()
+    assert table.schema.field('null_list').type == pa.list_(pa.null())
     _check_roundtrip(table, version='2.0')
 
 
@@ -1669,21 +1669,21 @@ def test_invalid_pred_op(tempdir):
         pq.ParquetDataset(base_path,
                           filesystem=fs,
                           filters=[
-                              ('integers', '=<', 3),
+                            ('integers', '=<', 3),
                           ])
 
     with pytest.raises(ValueError):
         pq.ParquetDataset(base_path,
                           filesystem=fs,
                           filters=[
-                              ('integers', 'in', set()),
+                            ('integers', 'in', set()),
                           ])
 
     with pytest.raises(ValueError):
         pq.ParquetDataset(base_path,
                           filesystem=fs,
                           filters=[
-                              ('integers', '!=', {3}),
+                            ('integers', '!=', {3}),
                           ])
 
 
@@ -2213,8 +2213,8 @@ def test_noncoerced_nanoseconds_written_without_exception(tempdir):
     n = 9
     df = pd.DataFrame({'x': range(n)},
                       index=pd.DatetimeIndex(start='2017-01-01',
-                                             freq='1n',
-                                             periods=n))
+                      freq='1n',
+                      periods=n))
     tb = pa.Table.from_pandas(df)
 
     filename = tempdir / 'written.parquet'
@@ -3132,7 +3132,7 @@ def test_multi_dataset_metadata(tempdir):
         'one': [1, 2, 3],
         'two': [-1, -2, -3],
         'three': [[1, 2], [2, 3], [3, 4]],
-    })
+        })
     table = pa.Table.from_pandas(df)
 
     # write dataset twice and collect/merge metadata
