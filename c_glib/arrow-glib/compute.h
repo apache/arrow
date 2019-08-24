@@ -264,5 +264,9 @@ GArrowBooleanArray *
 garrow_array_is_in_chunked_array(GArrowArray *left,
                                  GArrowChunkedArray *right,
                                  GError **error);
+GARROW_AVAILABLE_IN_0_15
+GArrowUInt64Array *
+garrow_array_sort_to_indices(GArrowArray *array,
+                             GError **error);
 
 G_END_DECLS
