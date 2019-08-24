@@ -1214,11 +1214,7 @@ macro(build_thrift)
                       URL_HASH "MD5=${THRIFT_MD5_CHECKSUM}"
                       BUILD_BYPRODUCTS "${THRIFT_STATIC_LIB}" "${THRIFT_COMPILER}"
                       CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
-                      DEPENDS ${THRIFT_DEPENDENCIES}
-                              # ARROW-5576 showing verbose logs until we know
-                              # what is wrong
-                              # ${EP_LOG_OPTIONS}
-                      )
+                      DEPENDS ${THRIFT_DEPENDENCIES} ${EP_LOG_OPTIONS})
 
   add_library(Thrift::thrift STATIC IMPORTED)
   # The include directory must exist before it is referenced by a target.
