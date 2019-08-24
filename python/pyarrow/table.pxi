@@ -695,11 +695,11 @@ cdef class RecordBatch(_PandasConvertible):
         Parameters
         ----------
         arrays: list of pyarrow.Array
-            column-wise data vectors
+            One for each field in RecordBatch
         names : list of str, optional
-            Names for the table columns. If not passed, schema must be passed
+            Names for the batch fields. If not passed, schema must be passed
         schema : Schema, default None
-            Schema for the created table. If not passed, names must be passed
+            Schema for the created batch. If not passed, names must be passed
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
 
