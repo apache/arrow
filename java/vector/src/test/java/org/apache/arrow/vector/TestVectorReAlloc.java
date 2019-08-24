@@ -204,6 +204,19 @@ public class TestVectorReAlloc {
   }
 
   @Test
+  public void testVarCharAllocateNewUsingHelper() throws Exception {
+    final int count = 6000;
+
+    try (final VarCharVector vector = new VarCharVector("", allocator)) {
+      AllocationHelper.allocateNew(vector, count);
+
+      // verify that the validity buffer and value buffer have capacity for atleast 'count' elements.
+      Assert.assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
+      Assert.assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * VarCharVector.OFFSET_WIDTH);
+    }
+  }
+
+  @Test
   public void testFixedRepeatedClearAndSet() throws Exception {
     try (final IntVector vector = new IntVector("", allocator)) {
       vector.allocateNewSafe(); // Initial allocation
