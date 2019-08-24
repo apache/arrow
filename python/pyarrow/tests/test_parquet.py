@@ -1669,21 +1669,21 @@ def test_invalid_pred_op(tempdir):
         pq.ParquetDataset(base_path,
                           filesystem=fs,
                           filters=[
-                            ('integers', '=<', 3),
+                              ('integers', '=<', 3),
                           ])
 
     with pytest.raises(ValueError):
         pq.ParquetDataset(base_path,
                           filesystem=fs,
                           filters=[
-                            ('integers', 'in', set()),
+                              ('integers', 'in', set()),
                           ])
 
     with pytest.raises(ValueError):
         pq.ParquetDataset(base_path,
                           filesystem=fs,
                           filters=[
-                            ('integers', '!=', {3}),
+                              ('integers', '!=', {3}),
                           ])
 
 
@@ -2213,8 +2213,8 @@ def test_noncoerced_nanoseconds_written_without_exception(tempdir):
     n = 9
     df = pd.DataFrame({'x': range(n)},
                       index=pd.DatetimeIndex(start='2017-01-01',
-                      freq='1n',
-                      periods=n))
+                                             freq='1n',
+                                             periods=n))
     tb = pa.Table.from_pandas(df)
 
     filename = tempdir / 'written.parquet'
@@ -3040,6 +3040,21 @@ def test_categorical_index_survives_roundtrip():
     assert ref_df.index.equals(df.index)
 
 
+@pytest.mark.pandas
+def test_categorical_order_survives_roundtrip():
+    # ARROW-6302
+    df = pd.DataFrame({"a": pd.Categorical(
+        ["a", "b", "c", "a"], categories=["b", "c", "d"], ordered=True)})
+
+    table = pa.Table.from_pandas(df)
+    bos = pa.BufferOutputStream()
+    pq.write_table(table, bos)
+
+    result = pq.read_pandas(bos.getvalue()).to_pandas()
+
+    tm.assert_frame_equal(result, df)
+
+
 def test_dictionary_array_automatically_read():
     # ARROW-3246
 
@@ -3117,7 +3132,7 @@ def test_multi_dataset_metadata(tempdir):
         'one': [1, 2, 3],
         'two': [-1, -2, -3],
         'three': [[1, 2], [2, 3], [3, 4]],
-        })
+    })
     table = pa.Table.from_pandas(df)
 
     # write dataset twice and collect/merge metadata
