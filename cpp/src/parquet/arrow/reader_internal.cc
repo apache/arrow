@@ -615,7 +615,11 @@ Status ApplyOriginalMetadata(std::shared_ptr<Field> field, const Field& origin_f
   if (origin_type->id() == ::arrow::Type::DICTIONARY &&
       field->type()->id() != ::arrow::Type::DICTIONARY &&
       IsDictionaryReadSupported(*field->type())) {
-    field = field->WithType(::arrow::dictionary(::arrow::int32(), field->type()));
+    const auto& dict_origin_type =
+        static_cast<const ::arrow::DictionaryType&>(*origin_type);
+    field =
+        field->WithType(::arrow::dictionary(::arrow::int32(), field->type(),
+                        dict_origin_type.ordered()));
   }
   *out = field;
   return Status::OK();
