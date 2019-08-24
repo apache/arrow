@@ -3040,6 +3040,21 @@ def test_categorical_index_survives_roundtrip():
     assert ref_df.index.equals(df.index)
 
 
+@pytest.mark.pandas
+def test_categorical_order_survives_roundtrip():
+    # ARROW-6302
+    df = pd.DataFrame({"a": pd.Categorical(
+        ["a", "b", "c", "a"], categories=["b", "c", "d"], ordered=True)})
+
+    table = pa.Table.from_pandas(df)
+    bos = pa.BufferOutputStream()
+    pq.write_table(table, bos)
+
+    result = pq.read_pandas(bos.getvalue()).to_pandas()
+
+    tm.assert_frame_equal(result, df)
+
+
 def test_dictionary_array_automatically_read():
     # ARROW-3246
 
