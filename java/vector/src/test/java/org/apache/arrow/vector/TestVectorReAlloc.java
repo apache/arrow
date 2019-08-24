@@ -17,14 +17,13 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.nio.charset.StandardCharsets;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -188,6 +187,19 @@ public class TestVectorReAlloc {
        */
       Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
       Assert.assertEquals(vector.valueBuffer.capacity(), savedValueBufferSize);
+    }
+  }
+
+  @Test
+  public void testVarCharAllocateNew() throws Exception {
+    final int count = 6000;
+
+    try (final VarCharVector vector = new VarCharVector("", allocator)) {
+      vector.allocateNew(count);
+      
+      // verify that the validity buffer and value buffer have capacity for atleast 'count' elements.
+      Assert.assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
+      Assert.assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * VarCharVector.OFFSET_WIDTH);
     }
   }
 
