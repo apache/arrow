@@ -60,6 +60,10 @@ GArrowArray   *garrow_array_slice       (GArrowArray *array,
                                          gint64 length);
 gchar         *garrow_array_to_string   (GArrowArray *array,
                                          GError **error);
+GARROW_AVAILABLE_IN_0_15
+GArrowArray *garrow_array_view(GArrowArray *array,
+                               GArrowDataType *return_type,
+                               GError **error);
 
 
 #define GARROW_TYPE_NULL_ARRAY (garrow_null_array_get_type())
