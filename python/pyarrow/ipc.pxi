@@ -60,6 +60,28 @@ cdef class Message:
             result = self.message.get().Equals(deref(other.message.get()))
         return result
 
+    def serialize_to(self, NativeFile sink, alignment=8, memory_pool=None):
+        """
+        Write message to generic OutputStream
+
+        Parameters
+        ----------
+        sink : NativeFile
+        alignment : int, default 8
+            Byte alignment for metadata and body
+        memory_pool : MemoryPool, default None
+            Uses default memory pool if not specified
+        """
+        cdef:
+            int64_t output_length = 0
+            int32_t c_alignment = alignment
+            OutputStream* out
+
+        out = sink.get_output_stream().get()
+        with nogil:
+            check_status(self.message.get()
+                         .SerializeTo(out, c_alignment, &output_length))
+
     def serialize(self, alignment=8, memory_pool=None):
         """
         Write message as encapsulated IPC message
@@ -75,16 +97,8 @@ cdef class Message:
         -------
         serialized : Buffer
         """
-        cdef:
-            BufferOutputStream stream = BufferOutputStream(memory_pool)
-            int64_t output_length = 0
-            int32_t c_alignment = alignment
-
-        handle = stream.get_output_stream()
-        with nogil:
-            check_status(self.message.get()
-                         .SerializeTo(handle.get(), c_alignment,
-                                      &output_length))
+        stream = BufferOutputStream(memory_pool)
+        self.serialize_to(stream, alignment=alignment, memory_pool=memory_pool)
         return stream.getvalue()
 
     def __repr__(self):
@@ -448,7 +462,20 @@ def write_tensor(Tensor tensor, NativeFile dest):
     return metadata_length + body_length
 
 
-def read_tensor(NativeFile source):
+cdef NativeFile as_native_file(source):
+    if not isinstance(source, NativeFile):
+        if hasattr(source, 'read'):
+            source = PythonFile(source)
+        else:
+            source = BufferReader(source)
+
+    if not isinstance(source, NativeFile):
+        raise ValueError('Unable to read message from object with type: {0}'
+                         .format(type(source)))
+    return source
+
+
+def read_tensor(source):
     """Read pyarrow.Tensor from pyarrow.NativeFile object from current
     position. If the file source supports zero copy (e.g. a memory map), then
     this operation does not allocate any memory. This function not assume that
@@ -465,11 +492,13 @@ def read_tensor(NativeFile source):
     """
     cdef:
         shared_ptr[CTensor] sp_tensor
-        RandomAccessFile* rd_file
+        InputStream* c_stream
 
-    rd_file = source.get_random_access_file().get()
+    cdef NativeFile nf = as_native_file(source)
+
+    c_stream = nf.get_input_stream().get()
     with nogil:
-        check_status(ReadTensor(rd_file, &sp_tensor))
+        check_status(ReadTensor(c_stream, &sp_tensor))
     return pyarrow_wrap_tensor(sp_tensor)
 
 
@@ -487,24 +516,13 @@ def read_message(source):
     """
     cdef:
         Message result = Message.__new__(Message)
-        NativeFile cpp_file
-        RandomAccessFile* rd_file
+        InputStream* c_stream
 
-    if not isinstance(source, NativeFile):
-        if hasattr(source, 'read'):
-            source = PythonFile(source)
-        else:
-            source = BufferReader(source)
-
-    if not isinstance(source, NativeFile):
-        raise ValueError('Unable to read message from object with type: {0}'
-                         .format(type(source)))
-
-    cpp_file = source
-    rd_file = cpp_file.get_random_access_file().get()
+    cdef NativeFile nf = as_native_file(source)
+    c_stream = nf.get_input_stream().get()
 
     with nogil:
-        check_status(ReadMessage(rd_file, &result.message))
+        check_status(ReadMessage(c_stream, &result.message))
 
     return result
 
