@@ -39,26 +39,12 @@ import com.google.protobuf.ByteString;
  */
 public class SchemaResult {
 
-  private Schema schema;
+  private final Schema schema;
 
   public SchemaResult(Schema schema) {
     this.schema = schema;
   }
 
-  /**
-   * Constructs from the protocol buffer representation.
-   */
-  SchemaResult(Flight.SchemaResult pbSchemaResult) {
-    try {
-      final ByteBuffer schemaBuf = pbSchemaResult.getSchema().asReadOnlyByteBuffer();
-      schema = pbSchemaResult.getSchema().size() > 0 ?
-              MessageSerializer.deserializeSchema(
-                      new ReadChannel(Channels.newChannel(new ByteBufferBackedInputStream(schemaBuf))))
-              : new Schema(ImmutableList.of());
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
 
   public Schema getSchema() {
     return schema;
@@ -79,5 +65,21 @@ public class SchemaResult {
             .setSchema(ByteString.copyFrom(baos.toByteArray()))
             .build();
 
+  }
+
+  /**
+   * Converts from the protocol buffer representation.
+   */
+  public static SchemaResult fromProtocol(Flight.SchemaResult pbSchemaResult) {
+    try {
+      final ByteBuffer schemaBuf = pbSchemaResult.getSchema().asReadOnlyByteBuffer();
+      Schema schema = pbSchemaResult.getSchema().size() > 0 ?
+              MessageSerializer.deserializeSchema(
+                      new ReadChannel(Channels.newChannel(new ByteBufferBackedInputStream(schemaBuf))))
+              : new Schema(ImmutableList.of());
+      return new SchemaResult(schema);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 }

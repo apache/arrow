@@ -324,8 +324,6 @@ struct ARROW_FLIGHT_EXPORT SchemaResult {
  public:
   explicit SchemaResult(std::string schema)
       : raw_schema_(std::move(schema)), reconstructed_schema_(false) {}
-  explicit SchemaResult(std::string&& schema)
-      : raw_schema_(std::move(schema)), reconstructed_schema_(false) {}
 
   /// \brief Deserialize the Arrow schema of the dataset, to be passed
   /// to each call to DoGet. Populate any dictionary encoded fields
@@ -337,7 +335,6 @@ struct ARROW_FLIGHT_EXPORT SchemaResult {
                    std::shared_ptr<Schema>* out) const;
 
   const std::string& serialized_schema() const { return raw_schema_; }
-  void set_schema(const std::string& schema) { raw_schema_ = schema; }
 
  private:
   std::string raw_schema_;
