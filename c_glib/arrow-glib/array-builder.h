@@ -644,6 +644,7 @@ GArrowLargeStringArrayBuilder *garrow_large_string_array_builder_new(void);
 GARROW_AVAILABLE_IN_0_15
 gboolean garrow_large_string_array_builder_append_value(GArrowLargeStringArrayBuilder *builder,
                                                         const gchar *value,
+                                                        gint64 length,
                                                         GError **error);
 GARROW_AVAILABLE_IN_0_15
 gboolean garrow_large_string_array_builder_append_strings(GArrowLargeStringArrayBuilder *builder,

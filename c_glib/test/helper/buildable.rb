@@ -190,6 +190,8 @@ module Helper
       values.each do |value|
         if value.nil?
           builder.append_null
+        elsif builder.type_name == "GArrowLargeStringArrayBuilder"
+          builder.append_value(value, -1)
         else
           builder.append_value(value)
         end
