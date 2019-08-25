@@ -168,12 +168,12 @@ class StructArrayBuilderTest < Test::Unit::TestCase
       @builder.get_field_builder(1).append(2)
       array = @builder.finish
       assert_equal([
-                     [true, 1],
-                     [false, 2],
+                     {"visible" => true,  "count" => 1},
+                     {"visible" => false, "count" => 2},
                    ],
                    [
-                     array.get_value(0).values,
-                     array.get_value(1).values,
+                     array.get_value(0),
+                     array.get_value(1),
                    ])
     end
   end
