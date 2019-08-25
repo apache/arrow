@@ -320,10 +320,10 @@ G_DECLARE_DERIVABLE_TYPE(GArrowStringDataType,
                          garrow_string_data_type,
                          GARROW,
                          STRING_DATA_TYPE,
-                         GArrowDataType)
+                         GArrowBinaryDataType)
 struct _GArrowStringDataTypeClass
 {
-  GArrowDataTypeClass parent_class;
+  GArrowBinaryDataTypeClass parent_class;
 };
 
 GArrowStringDataType *garrow_string_data_type_new      (void);
@@ -334,10 +334,10 @@ G_DECLARE_DERIVABLE_TYPE(GArrowLargeStringDataType,
                          garrow_large_string_data_type,
                          GARROW,
                          LARGE_STRING_DATA_TYPE,
-                         GArrowDataType)
+                         GArrowLargeBinaryDataType)
 struct _GArrowLargeStringDataTypeClass
 {
-  GArrowDataTypeClass parent_class;
+  GArrowLargeBinaryDataTypeClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_0_15

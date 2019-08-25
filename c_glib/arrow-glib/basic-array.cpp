@@ -1764,7 +1764,7 @@ garrow_string_array_get_string(GArrowStringArray *array,
 
 G_DEFINE_TYPE(GArrowLargeStringArray,
               garrow_large_string_array,
-              GARROW_TYPE_BINARY_ARRAY)
+              GARROW_TYPE_LARGE_BINARY_ARRAY)
 
 static void
 garrow_large_string_array_init(GArrowLargeStringArray *object)
