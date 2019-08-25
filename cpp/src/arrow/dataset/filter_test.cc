@@ -109,12 +109,12 @@ TEST_F(ExpressionsTest, SimplificationAgainstCompoundCondition) {
 
 TEST_F(ExpressionsTest, SimplificationToNull) {
   auto null = ScalarExpression::MakeNull(boolean());
-  auto null64 = ScalarExpression::MakeNull(int64());
+  auto null32 = ScalarExpression::MakeNull(int32());
 
-  AssertSimplifiesTo(*equal(fieldRef("b"), null64), "b"_ == 3, *null);
-  AssertSimplifiesTo(*not_equal(fieldRef("b"), null64), "b"_ == 3, *null);
-  AssertSimplifiesTo(*not_equal(fieldRef("b"), null64) and "b"_ > 3, "b"_ == 3, *null);
-  AssertSimplifiesTo("b"_ > 3 and *not_equal(fieldRef("b"), null64), "b"_ == 3, *null);
+  AssertSimplifiesTo(*equal(fieldRef("b"), null32), "b"_ == 3, *null);
+  AssertSimplifiesTo(*not_equal(fieldRef("b"), null32), "b"_ == 3, *null);
+  AssertSimplifiesTo(*not_equal(fieldRef("b"), null32) and "b"_ > 3, "b"_ == 3, *null);
+  AssertSimplifiesTo("b"_ > 3 and *not_equal(fieldRef("b"), null32), "b"_ == 3, *null);
 }
 
 class FilterTest : public ::testing::Test {
@@ -173,7 +173,7 @@ class FilterTest : public ::testing::Test {
 };
 
 TEST_F(FilterTest, Trivial) {
-  AssertFilter(*scalar(true), {field("a", int64()), field("b", float64())}, R"([
+  AssertFilter(*scalar(true), {field("a", int32()), field("b", float64())}, R"([
       {"a": 0, "b": -0.1, "in": 1},
       {"a": 0, "b":  0.3, "in": 1},
       {"a": 1, "b":  0.2, "in": 1},
@@ -183,7 +183,7 @@ TEST_F(FilterTest, Trivial) {
       {"a": 0, "b":  1.0, "in": 1}
   ])");
 
-  AssertFilter(*scalar(false), {field("a", int64()), field("b", float64())}, R"([
+  AssertFilter(*scalar(false), {field("a", int32()), field("b", float64())}, R"([
       {"a": 0, "b": -0.1, "in": 0},
       {"a": 0, "b":  0.3, "in": 0},
       {"a": 1, "b":  0.2, "in": 0},
@@ -194,7 +194,7 @@ TEST_F(FilterTest, Trivial) {
   ])");
 
   AssertFilter(*ScalarExpression::MakeNull(boolean()),
-               {field("a", int64()), field("b", float64())}, R"([
+               {field("a", int32()), field("b", float64())}, R"([
       {"a": 0, "b": -0.1, "in": null},
       {"a": 0, "b":  0.3, "in": null},
       {"a": 1, "b":  0.2, "in": null},
@@ -207,7 +207,7 @@ TEST_F(FilterTest, Trivial) {
 
 TEST_F(FilterTest, Basics) {
   AssertFilter("a"_ == 0 and "b"_ > 0.0 and "b"_ < 1.0,
-               {field("a", int64()), field("b", float64())}, R"([
+               {field("a", int32()), field("b", float64())}, R"([
       {"a": 0, "b": -0.1, "in": 0},
       {"a": 0, "b":  0.3, "in": 1},
       {"a": 1, "b":  0.2, "in": 0},
@@ -217,7 +217,7 @@ TEST_F(FilterTest, Basics) {
       {"a": 0, "b":  1.0, "in": 0}
   ])");
 
-  AssertFilter("a"_ != 0 and "b"_ > 0.1, {field("a", int64()), field("b", float64())},
+  AssertFilter("a"_ != 0 and "b"_ > 0.1, {field("a", int32()), field("b", float64())},
                R"([
       {"a": 0, "b": -0.1, "in": 0},
       {"a": 0, "b":  0.3, "in": 0},
@@ -231,7 +231,7 @@ TEST_F(FilterTest, Basics) {
 
 TEST_F(FilterTest, ConditionOnAbsentColumn) {
   AssertFilter("a"_ == 0 and "b"_ > 0.0 and "b"_ < 1.0 and "absent"_ == 0,
-               {field("a", int64()), field("b", float64())}, R"([
+               {field("a", int32()), field("b", float64())}, R"([
       {"a": 0, "b": -0.1, "in": null},
       {"a": 0, "b":  0.3, "in": null},
       {"a": 1, "b":  0.2, "in": null},

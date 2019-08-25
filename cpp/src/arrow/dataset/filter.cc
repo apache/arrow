@@ -262,7 +262,7 @@ struct CompareVisitor {
 // if either is null, return is null
 Result<Comparison::type> Compare(const Scalar& lhs, const Scalar& rhs) {
   if (!lhs.type->Equals(*rhs.type)) {
-    return Status::TypeError("cannot compare scalars with differing type: ", *lhs.type,
+    return Status::TypeError("Cannot compare scalars of differing type: ", *lhs.type,
                              " vs ", *rhs.type);
   }
   if (!lhs.is_valid || !rhs.is_valid) {

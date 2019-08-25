@@ -302,19 +302,13 @@ class ARROW_DS_EXPORT ScalarExpression final : public Expression {
     return std::make_shared<ScalarExpression>(std::make_shared<BooleanScalar>(value));
   }
 
-  // FIXME(bkietz) create correct scalar type
   template <typename T>
-  static typename std::enable_if<std::is_integral<T>::value,
+  static typename std::enable_if<std::is_integral<T>::value ||
+                                     std::is_floating_point<T>::value,
                                  std::shared_ptr<ScalarExpression>>::type
   Make(T value) {
-    return std::make_shared<ScalarExpression>(std::make_shared<Int64Scalar>(value));
-  }
-
-  template <typename T>
-  static typename std::enable_if<std::is_floating_point<T>::value,
-                                 std::shared_ptr<ScalarExpression>>::type
-  Make(T value) {
-    return std::make_shared<ScalarExpression>(std::make_shared<DoubleScalar>(value));
+    using ScalarType = typename CTypeTraits<T>::ScalarType;
+    return std::make_shared<ScalarExpression>(std::make_shared<ScalarType>(value));
   }
 
   static std::shared_ptr<ScalarExpression> Make(std::string value);
