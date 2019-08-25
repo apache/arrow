@@ -15,13 +15,35 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/dataset/dataset.h"
+
+#include <memory>
+#include <utility>
+
 #include "arrow/dataset/scanner.h"
+#include "arrow/util/stl.h"
 
 namespace arrow {
 namespace dataset {
 
-std::unique_ptr<RecordBatchIterator> SimpleScanTask::Scan() {
-  return MakeIterator(record_batches_);
+SimpleDataFragment::SimpleDataFragment(
+    std::vector<std::shared_ptr<RecordBatch>> record_batches)
+    : record_batches_(std::move(record_batches)) {}
+
+Status SimpleDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
+                                std::unique_ptr<ScanTaskIterator>* out) {
+  // Make an explicit copy of record_batches_ to ensure Scan can be called
+  // multiple times.
+  auto it = MakeIterator(record_batches_);
+
+  // RecordBatch -> ScanTask
+  auto fn = [](std::shared_ptr<RecordBatch> batch) -> std::unique_ptr<ScanTask> {
+    std::vector<std::shared_ptr<RecordBatch>> batches{batch};
+    return internal::make_unique<SimpleScanTask>(std::move(batches));
+  };
+
+  *out = MakeMapIterator(fn, std::move(it));
+  return Status::OK();
 }
 
 }  // namespace dataset

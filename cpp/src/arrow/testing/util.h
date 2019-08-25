@@ -177,4 +177,26 @@ Result<std::shared_ptr<Array>> ArrayFromBuilderVisitor(
   return ArrayFromBuilderVisitor(type, length, length, std::forward<Fn>(fn));
 }
 
+class RepeatedRecordBatch : public RecordBatchReader {
+ public:
+  RepeatedRecordBatch(int64_t repetitions, std::shared_ptr<RecordBatch> batch)
+      : repetitions_(repetitions), batch_(std::move(batch)) {}
+
+  std::shared_ptr<Schema> schema() const override { return batch_->schema(); }
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
+    if (repetitions_ > 0) {
+      *batch = batch_;
+      --repetitions_;
+    } else {
+      *batch = nullptr;
+    }
+    return Status::OK();
+  }
+
+ private:
+  int64_t repetitions_;
+  std::shared_ptr<RecordBatch> batch_;
+};
+
 }  // namespace arrow

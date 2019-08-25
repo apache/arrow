@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/dataset/type_fwd.h"
@@ -53,6 +54,23 @@ class ARROW_DS_EXPORT DataFragment {
   virtual ~DataFragment() = default;
 };
 
+/// \brief A trivial DataFragment that yields ScanTask out of a fixed set of
+/// RecordBatch.
+class ARROW_DS_EXPORT SimpleDataFragment : public DataFragment {
+ public:
+  explicit SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches);
+
+  Status Scan(std::shared_ptr<ScanContext> scan_context,
+              std::unique_ptr<ScanTaskIterator>* out) override;
+
+  bool splittable() const override { return false; }
+
+  std::shared_ptr<ScanOptions> scan_options() const override { return NULLPTR; }
+
+ protected:
+  std::vector<std::shared_ptr<RecordBatch>> record_batches_;
+};
+
 /// \brief A basic component of a Dataset which yields zero or more
 /// DataFragments. A DataSource acts as a discovery mechanism of DataFragments
 /// and partitions, e.g. files deeply nested in a directory.
@@ -71,10 +89,15 @@ class ARROW_DS_EXPORT DataSource {
 /// \brief A DataSource consisting of a flat sequence of DataFragments
 class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
  public:
+  explicit SimpleDataSource(DataFragmentVector fragments)
+      : fragments_(std::move(fragments)) {}
+
   std::unique_ptr<DataFragmentIterator> GetFragments(
       std::shared_ptr<ScanOptions> options) override {
     return MakeIterator(fragments_);
   }
+
+  std::string type() const override { return "simple_data_source"; }
 
  private:
   DataFragmentVector fragments_;
