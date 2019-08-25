@@ -165,7 +165,7 @@ class ExpressionImpl : public Base {
   }
 };
 
-/// Represents an expression with exactly one operand; for example negation
+/// Base class for an expression with exactly one operand
 class ARROW_DS_EXPORT UnaryExpression : public Expression {
  public:
   const std::shared_ptr<Expression>& operand() const { return operand_; }
@@ -179,8 +179,7 @@ class ARROW_DS_EXPORT UnaryExpression : public Expression {
   std::shared_ptr<Expression> operand_;
 };
 
-/// Represents an expression with exactly two operands; for example a comparison of two
-/// expressions
+/// Base class for an expression with exactly two operands
 class ARROW_DS_EXPORT BinaryExpression : public Expression {
  public:
   const std::shared_ptr<Expression>& left_operand() const { return left_operand_; }
@@ -199,8 +198,7 @@ class ARROW_DS_EXPORT BinaryExpression : public Expression {
   std::shared_ptr<Expression> left_operand_, right_operand_;
 };
 
-/// Represents an expression with multiple operands; for example a conjunction or
-/// disjunction of other expressions
+/// Base class for an expression with multiple operands
 class ARROW_DS_EXPORT NnaryExpression : public Expression {
  public:
   const ExpressionVector& operands() const { return operands_; }
