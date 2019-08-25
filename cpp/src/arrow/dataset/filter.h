@@ -325,9 +325,8 @@ class ARROW_DS_EXPORT ScalarExpression final : public Expression {
     return std::make_shared<ScalarExpression>(std::move(value));
   }
 
-  static std::shared_ptr<ScalarExpression> MakeNull() {
-    return std::make_shared<ScalarExpression>(std::make_shared<NullScalar>());
-  }
+  static std::shared_ptr<ScalarExpression> MakeNull(
+      const std::shared_ptr<DataType>& type);
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 

@@ -246,4 +246,10 @@ class ARROW_EXPORT UnionScalar : public Scalar {};
 class ARROW_EXPORT DictionaryScalar : public Scalar {};
 class ARROW_EXPORT ExtensionScalar : public Scalar {};
 
+/// \param[in] type the type of scalar to produce
+/// \param[out] null output scalar with is_valid=false
+/// \return Status
+ARROW_EXPORT
+Status MakeNull(const std::shared_ptr<DataType>& type, std::shared_ptr<Scalar>* null);
+
 }  // namespace arrow

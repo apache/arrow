@@ -108,12 +108,13 @@ TEST_F(ExpressionsTest, SimplificationAgainstCompoundCondition) {
 }
 
 TEST_F(ExpressionsTest, SimplificationToNull) {
-  auto null = ScalarExpression::MakeNull();
+  auto null = ScalarExpression::MakeNull(boolean());
+  auto null64 = ScalarExpression::MakeNull(int64());
 
-  AssertSimplifiesTo(*equal(fieldRef("b"), null), "b"_ == 3, *null);
-  AssertSimplifiesTo(*not_equal(fieldRef("b"), null), "b"_ == 3, *null);
-  AssertSimplifiesTo(*not_equal(fieldRef("b"), null) and "b"_ > 3, "b"_ == 3, *null);
-  AssertSimplifiesTo("b"_ > 3 and *not_equal(fieldRef("b"), null), "b"_ == 3, *null);
+  AssertSimplifiesTo(*equal(fieldRef("b"), null64), "b"_ == 3, *null);
+  AssertSimplifiesTo(*not_equal(fieldRef("b"), null64), "b"_ == 3, *null);
+  AssertSimplifiesTo(*not_equal(fieldRef("b"), null64) and "b"_ > 3, "b"_ == 3, *null);
+  AssertSimplifiesTo("b"_ > 3 and *not_equal(fieldRef("b"), null64), "b"_ == 3, *null);
 }
 
 class FilterTest : public ::testing::Test {
@@ -192,7 +193,7 @@ TEST_F(FilterTest, Trivial) {
       {"a": 0, "b":  1.0, "in": 0}
   ])");
 
-  AssertFilter(*ScalarExpression::MakeNull(),
+  AssertFilter(*ScalarExpression::MakeNull(boolean()),
                {field("a", int64()), field("b", float64())}, R"([
       {"a": 0, "b": -0.1, "in": null},
       {"a": 0, "b":  0.3, "in": null},

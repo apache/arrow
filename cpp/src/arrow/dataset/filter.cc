@@ -182,6 +182,13 @@ std::shared_ptr<ScalarExpression> ScalarExpression::Make(const char* value) {
       std::make_shared<StringScalar>(Buffer::Wrap(value, std::strlen(value))));
 }
 
+std::shared_ptr<ScalarExpression> ScalarExpression::MakeNull(
+    const std::shared_ptr<DataType>& type) {
+  std::shared_ptr<Scalar> null;
+  DCHECK_OK(arrow::MakeNull(type, &null));
+  return Make(std::move(null));
+}
+
 struct Comparison {
   enum type {
     LESS,
@@ -358,7 +365,7 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
 
         if (!scalar.is_valid) {
           // some subexpression of given is always null, return null
-          return ScalarExpression::MakeNull();
+          return ScalarExpression::MakeNull(boolean());
         }
 
         if (scalar.value == true) {
@@ -430,7 +437,7 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::AssumeGivenComparison(
 
   if (cmp == Comparison::NULL_) {
     // the RHS of e or given was null
-    return ScalarExpression::MakeNull();
+    return ScalarExpression::MakeNull(boolean());
   }
 
   static auto always = ScalarExpression::Make(true);
@@ -590,7 +597,7 @@ Result<std::shared_ptr<Expression>> AssumeNnary(const Nnary& nnary,
     BooleanScalar scalar;
     if (operand->IsTrivialCondition(&scalar)) {
       if (!scalar.is_valid) {
-        return ScalarExpression::MakeNull();
+        return ScalarExpression::MakeNull(boolean());
       }
 
       if (scalar.value == trivial_condition) {
@@ -636,7 +643,7 @@ Result<std::shared_ptr<Expression>> NotExpression::Assume(const Expression& give
   }
 
   if (!scalar.is_valid) {
-    return ScalarExpression::MakeNull();
+    return ScalarExpression::MakeNull(boolean());
   }
 
   return ScalarExpression::Make(!scalar.value);
