@@ -25,6 +25,8 @@ import java.nio.ByteOrder;
 import java.nio.ReadOnlyBufferException;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.arrow.log.Logger;
+import org.apache.arrow.log.LoggerFactory;
 import org.apache.arrow.memory.AllocationManager;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BaseAllocator.Verbosity;
@@ -59,7 +61,7 @@ import io.netty.util.internal.PlatformDependent;
  */
 public final class ArrowBuf implements AutoCloseable {
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ArrowBuf.class);
+  private static final Logger logger = LoggerFactory.getLogger(ArrowBuf.class);
 
   private static final int SHORT_SIZE = Short.BYTES;
   private static final int INT_SIZE = Integer.BYTES;

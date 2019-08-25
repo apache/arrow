@@ -23,6 +23,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.apache.arrow.log.Logger;
+import org.apache.arrow.log.LoggerFactory;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BitVectorHelper;
@@ -38,7 +40,7 @@ import io.netty.buffer.ArrowBuf;
  * Base class for StructVectors. Currently used by NonNullableStructVector
  */
 public abstract class AbstractStructVector extends AbstractContainerVector {
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractContainerVector.class);
+  private static final Logger logger = LoggerFactory.getLogger(AbstractContainerVector.class);
 
   // Maintains a map with key as field name and value is the vector itself
   private final MapWithOrdinal<String, FieldVector> vectors = new MapWithOrdinal<>();

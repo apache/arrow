@@ -24,10 +24,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flatbuf.RecordBatch;
+import org.apache.arrow.log.Logger;
+import org.apache.arrow.log.LoggerFactory;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.DataSizeRoundingUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 

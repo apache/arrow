@@ -15,29 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory.util;
-
-import org.apache.arrow.log.Logger;
-import org.apache.arrow.log.LoggerFactory;
+package org.apache.arrow.log;
 
 /**
- * Utility class to that provides {@link #ASSERT_ENABLED} constant to determine if assertions are enabled.
+ * Used to create Arrow Logger instance.
+ *
  */
-public class AssertionUtil {
-
-  public static final boolean ASSERT_ENABLED;
-  static final Logger logger = LoggerFactory.getLogger(AssertionUtil.class);
-
-  static {
-    boolean isAssertEnabled = false;
-    assert isAssertEnabled = true;
-    ASSERT_ENABLED = isAssertEnabled;
-  }
-
-  private AssertionUtil() {
-  }
-
-  public static boolean isAssertionsEnabled() {
-    return ASSERT_ENABLED;
+public class LoggerFactory {
+  /**
+   * get Slf4j logger if the library exists, otherwise get the dummy one.
+   * @param clazz Class type that the logger is instantiated
+   * @return An ArrowLogger instance given the name of the class
+   */
+  public static Logger getLogger(Class<?> clazz) {
+    // try to use slf4j but if failed, returns a JDK14Logger
+    try {
+      return new SLF4JLogger(clazz);
+    } catch (Throwable ex) {
+      return new JDK14Logger(clazz.getName());
+    }
   }
 }

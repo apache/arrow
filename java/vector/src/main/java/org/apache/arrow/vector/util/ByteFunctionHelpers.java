@@ -17,6 +17,9 @@
 
 package org.apache.arrow.vector.util;
 
+import org.apache.arrow.log.Logger;
+import org.apache.arrow.log.LoggerFactory;
+
 import io.netty.buffer.ArrowBuf;
 
 /**
@@ -24,7 +27,7 @@ import io.netty.buffer.ArrowBuf;
  */
 @Deprecated
 public class ByteFunctionHelpers {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ByteFunctionHelpers.class);
+  static final Logger logger = LoggerFactory.getLogger(ByteFunctionHelpers.class);
 
   private ByteFunctionHelpers() {}
 

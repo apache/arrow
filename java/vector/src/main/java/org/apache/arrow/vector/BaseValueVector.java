@@ -20,14 +20,14 @@ package org.apache.arrow.vector;
 import java.util.Collections;
 import java.util.Iterator;
 
+import org.apache.arrow.log.Logger;
+import org.apache.arrow.log.LoggerFactory;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.util.TransferPair;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import io.netty.buffer.ArrowBuf;
 

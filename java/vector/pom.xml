@@ -57,10 +57,6 @@
       <artifactId>flatbuffers-java</artifactId>
       <version>${dep.fbs.version}</version>
     </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-    </dependency>
   </dependencies>
 
     <pluginRepositories>

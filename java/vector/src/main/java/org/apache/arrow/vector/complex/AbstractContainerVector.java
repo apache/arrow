@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector.complex;
 
+import org.apache.arrow.log.Logger;
+import org.apache.arrow.log.LoggerFactory;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.DensityAwareVector;
@@ -34,7 +36,7 @@ import org.apache.arrow.vector.util.CallBack;
  * <p>This class implements common functionality of composite vectors.
  */
 public abstract class AbstractContainerVector implements ValueVector, DensityAwareVector {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractContainerVector.class);
+  static final Logger logger = LoggerFactory.getLogger(AbstractContainerVector.class);
 
   protected final String name;
   protected final BufferAllocator allocator;

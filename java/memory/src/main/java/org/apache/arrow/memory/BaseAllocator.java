@@ -25,6 +25,8 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.arrow.log.Logger;
+import org.apache.arrow.log.LoggerFactory;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.util.AssertionUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
@@ -46,7 +48,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   public static final int DEBUG_LOG_LENGTH = 6;
   public static final boolean DEBUG = AssertionUtil.isAssertionsEnabled() ||
       Boolean.parseBoolean(System.getProperty(DEBUG_ALLOCATOR, "false"));
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseAllocator.class);
+  private static final Logger logger = LoggerFactory.getLogger(BaseAllocator.class);
   // Package exposed for sharing between AllocatorManger and BaseAllocator objects
   final String name;
   final RootAllocator root;

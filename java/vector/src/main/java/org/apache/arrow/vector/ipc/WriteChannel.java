@@ -21,10 +21,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 
+import org.apache.arrow.log.Logger;
+import org.apache.arrow.log.LoggerFactory;
 import org.apache.arrow.vector.ipc.message.FBSerializable;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 

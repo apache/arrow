@@ -19,6 +19,9 @@ package org.apache.arrow.memory;
 
 import java.util.Optional;
 
+import org.apache.arrow.log.Logger;
+import org.apache.arrow.log.LoggerFactory;
+
 /**
  * Indicates memory could not be allocated for Arrow buffers.
  *
@@ -28,7 +31,7 @@ import java.util.Optional;
  */
 public class OutOfMemoryException extends RuntimeException {
 
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(OutOfMemoryException
+  static final Logger logger = LoggerFactory.getLogger(OutOfMemoryException
       .class);
   private static final long serialVersionUID = -6858052345185793382L;
   private Optional<AllocationOutcomeDetails> outcomeDetails = Optional.empty();

@@ -21,8 +21,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.arrow.log.Logger;
+import org.apache.arrow.log.LoggerFactory;
 
 import io.netty.buffer.ArrowBuf;
 

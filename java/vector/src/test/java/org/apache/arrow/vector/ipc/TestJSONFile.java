@@ -20,6 +20,8 @@ package org.apache.arrow.vector.ipc;
 import java.io.File;
 import java.io.IOException;
 
+import org.apache.arrow.log.Logger;
+import org.apache.arrow.log.LoggerFactory;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -32,8 +34,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Validator;
 import org.junit.Assert;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class TestJSONFile extends BaseFileTest {
   private static final Logger LOGGER = LoggerFactory.getLogger(TestJSONFile.class);

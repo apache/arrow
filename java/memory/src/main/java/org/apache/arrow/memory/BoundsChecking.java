@@ -17,6 +17,9 @@
 
 package org.apache.arrow.memory;
 
+import org.apache.arrow.log.Logger;
+import org.apache.arrow.log.LoggerFactory;
+
 /**
  * Configuration class to determine if bounds checking should be turned on or off.
  *
@@ -31,7 +34,7 @@ package org.apache.arrow.memory;
 public class BoundsChecking {
 
   public static final boolean BOUNDS_CHECKING_ENABLED;
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BoundsChecking.class);
+  static final Logger logger = LoggerFactory.getLogger(BoundsChecking.class);
 
   static {
     String envProperty = System.getenv("ARROW_ENABLE_UNSAFE_MEMORY_ACCESS");

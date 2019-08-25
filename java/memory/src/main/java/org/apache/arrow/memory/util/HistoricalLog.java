@@ -20,7 +20,7 @@ package org.apache.arrow.memory.util;
 import java.util.Arrays;
 import java.util.LinkedList;
 
-import org.slf4j.Logger;
+import org.apache.arrow.log.Logger;
 
 /**
  * Utility class that can be used to log activity within a class

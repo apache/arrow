@@ -15,29 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory.util;
-
-import org.apache.arrow.log.Logger;
-import org.apache.arrow.log.LoggerFactory;
+package org.apache.arrow.log;
 
 /**
- * Utility class to that provides {@link #ASSERT_ENABLED} constant to determine if assertions are enabled.
+ * An interface for representing lambda expressions that supply values to
+ * placeholders in message formats.
+ * E.g., {@code Logger.debug("Value: {}", (ArgSupplier) () -> getValue());}
  */
-public class AssertionUtil {
-
-  public static final boolean ASSERT_ENABLED;
-  static final Logger logger = LoggerFactory.getLogger(AssertionUtil.class);
-
-  static {
-    boolean isAssertEnabled = false;
-    assert isAssertEnabled = true;
-    ASSERT_ENABLED = isAssertEnabled;
-  }
-
-  private AssertionUtil() {
-  }
-
-  public static boolean isAssertionsEnabled() {
-    return ASSERT_ENABLED;
-  }
+@FunctionalInterface
+public interface ArgSupplier {
+  Object get();
 }

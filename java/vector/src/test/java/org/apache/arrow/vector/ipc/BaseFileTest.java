@@ -33,6 +33,8 @@ import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.arrow.log.Logger;
+import org.apache.arrow.log.LoggerFactory;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Collections2;
@@ -85,8 +87,6 @@ import org.apache.arrow.vector.util.Text;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import io.netty.buffer.ArrowBuf;
 

@@ -19,6 +19,8 @@ package org.apache.arrow.vector.complex.impl;
 
 import java.util.Iterator;
 
+import org.apache.arrow.log.Logger;
+import org.apache.arrow.log.LoggerFactory;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
@@ -31,7 +33,7 @@ import org.apache.arrow.vector.holders.UnionHolder;
  */
 abstract class AbstractBaseReader implements FieldReader {
 
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractBaseReader.class);
+  static final Logger logger = LoggerFactory.getLogger(AbstractBaseReader.class);
 
   private int index;
 

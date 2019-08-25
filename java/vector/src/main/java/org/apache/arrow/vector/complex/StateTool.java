@@ -19,13 +19,16 @@ package org.apache.arrow.vector.complex;
 
 import java.util.Arrays;
 
+import org.apache.arrow.log.Logger;
+import org.apache.arrow.log.LoggerFactory;
+
 /**
  * Utility methods for state machines based on enums.
  */
 public class StateTool {
   private StateTool() {}
 
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(StateTool.class);
+  static final Logger logger = LoggerFactory.getLogger(StateTool.class);
 
   /**
    * Verifies <code>currentState</code> is in one of <code>expectedStates</code>,

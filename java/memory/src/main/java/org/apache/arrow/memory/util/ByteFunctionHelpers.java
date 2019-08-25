@@ -17,6 +17,8 @@
 
 package org.apache.arrow.memory.util;
 
+import org.apache.arrow.log.Logger;
+import org.apache.arrow.log.LoggerFactory;
 import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.DirectHasher;
@@ -28,7 +30,7 @@ import io.netty.util.internal.PlatformDependent;
  * Utility methods for memory comparison at a byte level.
  */
 public class ByteFunctionHelpers {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ByteFunctionHelpers.class);
+  static final Logger logger = LoggerFactory.getLogger(ByteFunctionHelpers.class);
 
   private ByteFunctionHelpers() {}
 
