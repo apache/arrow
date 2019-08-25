@@ -19,6 +19,7 @@
 
 #include <limits>
 #include <memory>
+#include <string>
 
 #ifdef ARROW_WITH_BROTLI
 #include "arrow/util/compression_brotli.h"
@@ -49,23 +50,45 @@
 namespace arrow {
 namespace util {
 
-int GetHintValueForDefaultCompressionLevel() { return std::numeric_limits<int>::min(); }
-
 Compressor::~Compressor() {}
 
 Decompressor::~Decompressor() {}
 
 Codec::~Codec() {}
 
+int Codec::UseDefaultCompressionLevel() { return std::numeric_limits<int>::min(); }
+
+std::string Codec::GetCodecAsString(Compression::type t) {
+  switch (t) {
+    case Compression::UNCOMPRESSED:
+      return "UNCOMPRESSED";
+    case Compression::SNAPPY:
+      return "SNAPPY";
+    case Compression::GZIP:
+      return "GZIP";
+    case Compression::LZO:
+      return "LZO";
+    case Compression::BROTLI:
+      return "BROTLI";
+    case Compression::LZ4:
+      return "LZ4";
+    case Compression::ZSTD:
+      return "ZSTD";
+    case Compression::BZ2:
+      return "BZ2";
+    default:
+      return "UNKNOWN";
+  }
+}
+
 Status Codec::Create(Compression::type codec_type, std::unique_ptr<Codec>* result) {
-  const int compression_level = GetHintValueForDefaultCompressionLevel();
-  return Codec::Create(codec_type, compression_level, result);
+  return Codec::Create(codec_type, Codec::UseDefaultCompressionLevel(), result);
 }
 
 Status Codec::Create(Compression::type codec_type, int compression_level,
                      std::unique_ptr<Codec>* result) {
   const bool use_default_compression_level =
-      (compression_level == GetHintValueForDefaultCompressionLevel());
+      (compression_level == Codec::UseDefaultCompressionLevel());
   Codec* codec = nullptr;
   switch (codec_type) {
     case Compression::UNCOMPRESSED:

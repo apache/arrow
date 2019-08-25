@@ -147,7 +147,7 @@ class SerializedPageWriter : public PageWriter {
         data_page_offset_(0),
         total_uncompressed_size_(0),
         total_compressed_size_(0) {
-    compressor_ = GetCodecFromArrow(codec, compression_level);
+    compressor_ = GetCodec(codec, compression_level);
     thrift_serializer_.reset(new ThriftSerializer);
   }
 

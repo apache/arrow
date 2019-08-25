@@ -107,9 +107,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     writer_properties_ = wp_builder.build();
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
-    std::unique_ptr<PageWriter> pager = PageWriter::Open(
-        sink_, column_properties.compression(),
-        arrow::util::GetHintValueForDefaultCompressionLevel(), metadata_.get());
+    std::unique_ptr<PageWriter> pager =
+        PageWriter::Open(sink_, column_properties.compression(),
+                         Codec::UseDefaultCompressionLevel(), metadata_.get());
     std::shared_ptr<ColumnWriter> writer =
         ColumnWriter::Make(metadata_.get(), std::move(pager), writer_properties_.get());
     return std::static_pointer_cast<TypedColumnWriter<TestType>>(writer);
@@ -132,7 +132,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   void TestRequiredWithSettings(
       Encoding::type encoding, Compression::type compression, bool enable_dictionary,
       bool enable_statistics, int64_t num_rows = SMALL_SIZE,
-      int compression_level = arrow::util::GetHintValueForDefaultCompressionLevel()) {
+      int compression_level = Codec::UseDefaultCompressionLevel()) {
     this->GenerateData(num_rows);
 
     this->WriteRequiredWithSettings(encoding, compression, enable_dictionary,
@@ -695,9 +695,9 @@ TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
   auto props = WriterProperties::Builder().build();
 
   auto metadata = ColumnChunkMetaDataBuilder::Make(props, schema.Column(0));
-  std::unique_ptr<PageWriter> pager = PageWriter::Open(
-      sink, Compression::UNCOMPRESSED,
-      ::arrow::util::GetHintValueForDefaultCompressionLevel(), metadata.get());
+  std::unique_ptr<PageWriter> pager =
+      PageWriter::Open(sink, Compression::UNCOMPRESSED,
+                       Codec::UseDefaultCompressionLevel(), metadata.get());
   std::shared_ptr<ColumnWriter> writer =
       ColumnWriter::Make(metadata.get(), std::move(pager), props.get());
   auto typed_writer = std::static_pointer_cast<TypedColumnWriter<Int32Type>>(writer);

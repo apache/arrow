@@ -97,7 +97,7 @@ class PARQUET_EXPORT ColumnProperties {
         dictionary_enabled_(dictionary_enabled),
         statistics_enabled_(statistics_enabled),
         max_stats_size_(max_stats_size),
-        compression_level_(::arrow::util::GetHintValueForDefaultCompressionLevel()) {}
+        compression_level_(Codec::UseDefaultCompressionLevel()) {}
 
   void set_encoding(Encoding::type encoding) { encoding_ = encoding; }
 
@@ -280,54 +280,50 @@ class PARQUET_EXPORT WriterProperties {
       return this->compression(path->ToDotString(), codec);
     }
 
-    /**
-     * Specify the default compression level for the compressor in every column.
-     * In case a column does not have an explicitly specified compression level,
-     * the default one would be used.
-     *
-     * The provided compression level is compressor specific. The user would have
-     * to familiarize oneself with the available levels for the selected compressor.
-     * If the compressor does not allow for selecting different compression levels,
-     * calling this function would not have any effect.
-     * Parquet and Arrow do not validate the passed compression level.
-     * If no level is selected by the user or if the special
-     * std::numeric_limits<int>::min() value is passed, then Arrow selects the compression
-     * level.
-     */
+    /// \brief Specify the default compression level for the compressor in
+    /// every column.  In case a column does not have an explicitly specified
+    /// compression level, the default one would be used.
+    ///
+    /// The provided compression level is compressor specific. The user would
+    /// have to familiarize oneself with the available levels for the selected
+    /// compressor.  If the compressor does not allow for selecting different
+    /// compression levels, calling this function would not have any effect.
+    /// Parquet and Arrow do not validate the passed compression level.  If no
+    /// level is selected by the user or if the special
+    /// std::numeric_limits<int>::min() value is passed, then Arrow selects the
+    /// compression level.
     Builder* compression_level(int compression_level) {
       default_column_properties_.set_compression_level(compression_level);
       return this;
     }
 
-    /**
-     * Specify a compression level for the compressor for the column described by path.
-     *
-     * The provided compression level is compressor specific. The user would have
-     * to familiarize oneself with the available levels for the selected compressor.
-     * If the compressor does not allow for selecting different compression levels,
-     * calling this function would not have any effect.
-     * Parquet and Arrow do not validate the passed compression level.
-     * If no level is selected by the user or if the special
-     * std::numeric_limits<int>::min() value is passed, then Arrow selects the compression
-     * level.
-     */
+    /// \brief Specify a compression level for the compressor for the column
+    /// described by path.
+    ///
+    /// The provided compression level is compressor specific. The user would
+    /// have to familiarize oneself with the available levels for the selected
+    /// compressor.  If the compressor does not allow for selecting different
+    /// compression levels, calling this function would not have any effect.
+    /// Parquet and Arrow do not validate the passed compression level.  If no
+    /// level is selected by the user or if the special
+    /// std::numeric_limits<int>::min() value is passed, then Arrow selects the
+    /// compression level.
     Builder* compression_level(const std::string& path, int compression_level) {
       codecs_compression_level_[path] = compression_level;
       return this;
     }
 
-    /**
-     * Specify a compression level for the compressor for the column described by path.
-     *
-     * The provided compression level is compressor specific. The user would have
-     * to familiarize oneself with the available levels for the selected compressor.
-     * If the compressor does not allow for selecting different compression levels,
-     * calling this function would not have any effect.
-     * Parquet and Arrow do not validate the passed compression level.
-     * If no level is selected by the user or if the special
-     * std::numeric_limits<int>::min() value is passed, then Arrow selects the compression
-     * level.
-     */
+    /// \brief Specify a compression level for the compressor for the column
+    /// described by path.
+    ///
+    /// The provided compression level is compressor specific. The user would
+    /// have to familiarize oneself with the available levels for the selected
+    /// compressor.  If the compressor does not allow for selecting different
+    /// compression levels, calling this function would not have any effect.
+    /// Parquet and Arrow do not validate the passed compression level.  If no
+    /// level is selected by the user or if the special
+    /// std::numeric_limits<int>::min() value is passed, then Arrow selects the
+    /// compression level.
     Builder* compression_level(const std::shared_ptr<schema::ColumnPath>& path,
                                int compression_level) {
       return this->compression_level(path->ToDotString(), compression_level);

@@ -334,6 +334,16 @@ class CodecTest : public ::testing::TestWithParam<Compression::type> {
   }
 };
 
+TEST(TestCodecMisc, GetCodecAsString) {
+  ASSERT_EQ("UNCOMPRESSED", Codec::GetCodecAsString(Compression::UNCOMPRESSED));
+  ASSERT_EQ("SNAPPY", Codec::GetCodecAsString(Compression::SNAPPY));
+  ASSERT_EQ("GZIP", Codec::GetCodecAsString(Compression::GZIP));
+  ASSERT_EQ("LZO", Codec::GetCodecAsString(Compression::LZO));
+  ASSERT_EQ("BROTLI", Codec::GetCodecAsString(Compression::BROTLI));
+  ASSERT_EQ("LZ4", Codec::GetCodecAsString(Compression::LZ4));
+  ASSERT_EQ("ZSTD", Codec::GetCodecAsString(Compression::ZSTD));
+}
+
 TEST_P(CodecTest, CodecRoundtrip) {
   const auto compression = GetCompression();
   if (compression == Compression::BZ2) {
