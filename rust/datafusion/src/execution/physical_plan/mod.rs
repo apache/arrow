@@ -57,5 +57,6 @@ pub trait PhysicalExpr: Send + Sync {
 }
 
 pub mod csv;
+pub mod datasource;
 pub mod expressions;
 pub mod projection;

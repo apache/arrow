@@ -27,6 +27,7 @@ use std::sync::Arc;
 use arrow::datatypes::*;
 
 use crate::arrow::array::{ArrayRef, BooleanBuilder};
+use crate::arrow::record_batch::RecordBatch;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
@@ -35,6 +36,9 @@ use crate::execution::aggregate::AggregateRelation;
 use crate::execution::expression::*;
 use crate::execution::filter::FilterRelation;
 use crate::execution::limit::LimitRelation;
+use crate::execution::physical_plan::datasource::DatasourceExec;
+use crate::execution::physical_plan::projection::ProjectionExec;
+use crate::execution::physical_plan::{ExecutionPlan, PhysicalExpr};
 use crate::execution::projection::ProjectRelation;
 use crate::execution::relation::{DataSourceRelation, Relation};
 use crate::execution::scalar_relation::ScalarRelation;
@@ -208,6 +212,69 @@ impl ExecutionContext {
             plan = rule.optimize(&plan)?;
         }
         Ok(plan)
+    }
+
+    /// Create a physical plan from a logical plan
+    pub fn create_physical_plan(
+        &mut self,
+        logical_plan: &Arc<LogicalPlan>,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        match logical_plan.as_ref() {
+            LogicalPlan::TableScan {
+                table_name,
+                projection,
+                ..
+            } => match (*self.datasources).borrow().get(table_name) {
+                Some(provider) => {
+                    let partitions = provider.scan(projection, 16 * 1024)?;
+                    if partitions.is_empty() {
+                        Err(ExecutionError::General(
+                            "Table provider returned no partitions".to_string(),
+                        ))
+                    } else {
+                        let partition = partitions[0].lock().unwrap();
+                        let schema = partition.schema();
+                        let exec =
+                            DatasourceExec::new(schema.clone(), partitions.clone());
+                        Ok(Arc::new(exec))
+                    }
+                }
+                _ => panic!(),
+            },
+            LogicalPlan::Projection { input, expr, .. } => {
+                let input = self.create_physical_plan(input)?;
+                let input_schema = input.as_ref().schema().clone();
+                //let me = self;
+                let runtime_expr = expr
+                    .iter()
+                    .map(|e| self.create_physical_expr(e, &input_schema))
+                    .collect::<Result<Vec<_>>>()?;
+                Ok(Arc::new(ProjectionExec::try_new(runtime_expr, input)?))
+            }
+            _ => Err(ExecutionError::General(
+                "Unsupported logical plan variant".to_string(),
+            )),
+        }
+    }
+
+    /// Create a physical expression from a logical expression
+    pub fn create_physical_expr(
+        &self,
+        _e: &Expr,
+        _input_schema: &Schema,
+    ) -> Result<Arc<dyn PhysicalExpr>> {
+        //TODO: implement this next
+        unimplemented!()
+    }
+
+    /// Execute a physical plan and collect the results in memory
+    pub fn collect(&self, _plan: &dyn ExecutionPlan) -> Result<Vec<RecordBatch>> {
+        unimplemented!()
+    }
+
+    /// Execute a physical plan and write the results in CSV format
+    pub fn write_csv(&self, _plan: &dyn ExecutionPlan, _path: &str) -> Result<()> {
+        unimplemented!()
     }
 
     /// Execute a logical plan and produce a Relation (a schema-aware iterator over a
