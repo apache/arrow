@@ -50,16 +50,16 @@ class StructArrayTest < Test::Unit::TestCase
 
     test("#[]") do
       assert_equal([
-                     Arrow::Struct.new(@array, 0),
-                     Arrow::Struct.new(@array, 1),
+                     {"visible" => true,  "count" => 1},
+                     {"visible" => false, "count" => 2},
                    ],
                    @array.to_a)
     end
 
     test("#get_value") do
       assert_equal([
-                     Arrow::Struct.new(@array, 0),
-                     Arrow::Struct.new(@array, 1),
+                     {"visible" => true,  "count" => 1},
+                     {"visible" => false, "count" => 2},
                    ],
                    [
                      @array.get_value(0),
