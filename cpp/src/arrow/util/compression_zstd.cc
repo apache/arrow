@@ -190,8 +190,9 @@ Status ZSTDCompressor::End(int64_t output_len, uint8_t* output, int64_t* bytes_w
 // ZSTD codec implementation
 
 ZSTDCodec::ZSTDCodec(int compression_level) {
-  compression_level_ = compression_level == kUseDefaultCompressionLevel ?
-    kZSTDDefaultCompressionLevel : compression_level;
+  compression_level_ = compression_level == kUseDefaultCompressionLevel
+                           ? kZSTDDefaultCompressionLevel
+                           : compression_level;
 }
 
 Status ZSTDCodec::MakeCompressor(std::shared_ptr<Compressor>* out) {

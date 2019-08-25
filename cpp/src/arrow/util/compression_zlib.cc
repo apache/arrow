@@ -505,8 +505,9 @@ class GZipCodec::GZipCodecImpl {
 };
 
 GZipCodec::GZipCodec(int compression_level, Format format) {
-  compression_level = compression_level == kUseDefaultCompressionLevel ?
-    kGZipDefaultCompressionLevel : compression_level;
+  compression_level = compression_level == kUseDefaultCompressionLevel
+                          ? kGZipDefaultCompressionLevel
+                          : compression_level;
   impl_.reset(new GZipCodecImpl(compression_level, format));
 }
 

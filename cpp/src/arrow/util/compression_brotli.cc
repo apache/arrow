@@ -31,13 +31,6 @@
 namespace arrow {
 namespace util {
 
-namespace {
-
-}  // namespace
-
-// ----------------------------------------------------------------------
-// Brotli decompressor implementation
-
 class BrotliDecompressor : public Decompressor {
  public:
   BrotliDecompressor() {}
@@ -192,8 +185,9 @@ Status BrotliCompressor::End(int64_t output_len, uint8_t* output, int64_t* bytes
 // Brotli codec implementation
 
 BrotliCodec::BrotliCodec(int compression_level) {
-  compression_level_ = compression_level == kUseDefaultCompressionLevel ?
-    kBrotliDefaultCompressionLevel : compression_level;
+  compression_level_ = compression_level == kUseDefaultCompressionLevel
+                           ? kBrotliDefaultCompressionLevel
+                           : compression_level;
 }
 
 Status BrotliCodec::MakeCompressor(std::shared_ptr<Compressor>* out) {

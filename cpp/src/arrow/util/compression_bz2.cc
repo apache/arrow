@@ -237,8 +237,9 @@ class BZ2Compressor : public Compressor {
 // bz2 codec implementation
 
 BZ2Codec::BZ2Codec(int compression_level) : compression_level_(compression_level) {
-  compression_level_ = compression_level == kUseDefaultCompressionLevel ?
-    kBZ2DefaultCompressionLevel : compression_level;
+  compression_level_ = compression_level == kUseDefaultCompressionLevel
+                           ? kBZ2DefaultCompressionLevel
+                           : compression_level;
 }
 
 Status BZ2Codec::MakeCompressor(std::shared_ptr<Compressor>* out) {
