@@ -33,10 +33,6 @@ namespace util {
 
 namespace {
 
-// Brotli compression quality is max (11) by default, which is slow.
-// We use 8 as a default as it is the best trade-off for Parquet workload.
-constexpr int kBrotliDefaultCompressionLevel = 8;
-
 }  // namespace
 
 // ----------------------------------------------------------------------
@@ -195,9 +191,10 @@ Status BrotliCompressor::End(int64_t output_len, uint8_t* output, int64_t* bytes
 // ----------------------------------------------------------------------
 // Brotli codec implementation
 
-BrotliCodec::BrotliCodec(int compression_level) : compression_level_(compression_level) {}
-
-BrotliCodec::BrotliCodec() : BrotliCodec(kBrotliDefaultCompressionLevel) {}
+BrotliCodec::BrotliCodec(int compression_level) {
+  compression_level_ = compression_level == kUseDefaultCompressionLevel ?
+    kBrotliDefaultCompressionLevel : compression_level;
+}
 
 Status BrotliCodec::MakeCompressor(std::shared_ptr<Compressor>* out) {
   auto ptr = std::make_shared<BrotliCompressor>(compression_level_);

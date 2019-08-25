@@ -28,11 +28,12 @@
 namespace arrow {
 namespace util {
 
+constexpr int kBZ2DefaultCompressionLevel = 9;
+
 // BZ2 codec.
 class ARROW_EXPORT BZ2Codec : public Codec {
  public:
-  explicit BZ2Codec(int compression_level);
-  BZ2Codec();
+  explicit BZ2Codec(int compression_level = kBZ2DefaultCompressionLevel);
   Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
                     uint8_t* output_buffer) override;
 

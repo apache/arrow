@@ -56,7 +56,7 @@ Decompressor::~Decompressor() {}
 
 Codec::~Codec() {}
 
-int Codec::UseDefaultCompressionLevel() { return std::numeric_limits<int>::min(); }
+int Codec::UseDefaultCompressionLevel() { return kUseDefaultCompressionLevel; }
 
 std::string Codec::GetCodecAsString(Compression::type t) {
   switch (t) {
@@ -87,8 +87,6 @@ Status Codec::Create(Compression::type codec_type, std::unique_ptr<Codec>* resul
 
 Status Codec::Create(Compression::type codec_type, int compression_level,
                      std::unique_ptr<Codec>* result) {
-  const bool use_default_compression_level =
-      (compression_level == Codec::UseDefaultCompressionLevel());
   Codec* codec = nullptr;
   switch (codec_type) {
     case Compression::UNCOMPRESSED:
@@ -102,11 +100,7 @@ Status Codec::Create(Compression::type codec_type, int compression_level,
 #endif
     case Compression::GZIP:
 #ifdef ARROW_WITH_ZLIB
-      if (use_default_compression_level) {
-        codec = new GZipCodec();
-      } else {
-        codec = new GZipCodec(compression_level);
-      }
+      codec = new GZipCodec(compression_level);
       break;
 #else
       return Status::NotImplemented("Gzip codec support not built");
@@ -115,11 +109,7 @@ Status Codec::Create(Compression::type codec_type, int compression_level,
       return Status::NotImplemented("LZO codec not implemented");
     case Compression::BROTLI:
 #ifdef ARROW_WITH_BROTLI
-      if (use_default_compression_level) {
-        codec = new BrotliCodec();
-      } else {
-        codec = new BrotliCodec(compression_level);
-      }
+      codec = new BrotliCodec(compression_level);
       break;
 #else
       return Status::NotImplemented("Brotli codec support not built");
@@ -133,22 +123,14 @@ Status Codec::Create(Compression::type codec_type, int compression_level,
 #endif
     case Compression::ZSTD:
 #ifdef ARROW_WITH_ZSTD
-      if (use_default_compression_level) {
-        codec = new ZSTDCodec();
-      } else {
-        codec = new ZSTDCodec(compression_level);
-      }
+      codec = new ZSTDCodec(compression_level);
       break;
 #else
       return Status::NotImplemented("ZSTD codec support not built");
 #endif
     case Compression::BZ2:
 #ifdef ARROW_WITH_BZ2
-      if (use_default_compression_level) {
-        codec = new BZ2Codec();
-      } else {
-        codec = new BZ2Codec(compression_level);
-      }
+      codec = new BZ2Codec(compression_level);
       break;
 #else
       return Status::NotImplemented("BZ2 codec support not built");

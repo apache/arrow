@@ -39,8 +39,6 @@ namespace util {
 
 namespace {
 
-constexpr int kBZ2DefaultCompressionLevel = 9;
-
 // Max number of bytes the bz2 APIs accept at a time
 constexpr auto kSizeLimit =
     static_cast<int64_t>(std::numeric_limits<unsigned int>::max());
@@ -238,9 +236,10 @@ class BZ2Compressor : public Compressor {
 // ----------------------------------------------------------------------
 // bz2 codec implementation
 
-BZ2Codec::BZ2Codec(int compression_level) : compression_level_(compression_level) {}
-
-BZ2Codec::BZ2Codec() : BZ2Codec(kBZ2DefaultCompressionLevel) {}
+BZ2Codec::BZ2Codec(int compression_level) : compression_level_(compression_level) {
+  compression_level_ = compression_level == kUseDefaultCompressionLevel ?
+    kBZ2DefaultCompressionLevel : compression_level;
+}
 
 Status BZ2Codec::MakeCompressor(std::shared_ptr<Compressor>* out) {
   auto ptr = std::make_shared<BZ2Compressor>(compression_level_);

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 
@@ -32,6 +33,8 @@ struct Compression {
 };
 
 namespace util {
+
+constexpr int kUseDefaultCompressionLevel = std::numeric_limits<int>::min();
 
 /// \brief Streaming compressor interface
 ///

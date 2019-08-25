@@ -50,8 +50,6 @@ constexpr int GZIP_CODEC = 16;
 // Determine if this is libz or gzip from header.
 constexpr int DETECT_CODEC = 32;
 
-constexpr int kGZipDefaultCompressionLevel = 9;
-
 int CompressionWindowBitsForFormat(GZipCodec::Format format) {
   int window_bits = WINDOW_BITS;
   switch (format) {
@@ -507,6 +505,8 @@ class GZipCodec::GZipCodecImpl {
 };
 
 GZipCodec::GZipCodec(int compression_level, Format format) {
+  compression_level = compression_level == kUseDefaultCompressionLevel ?
+    kGZipDefaultCompressionLevel : compression_level;
   impl_.reset(new GZipCodecImpl(compression_level, format));
 }
 

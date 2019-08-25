@@ -37,9 +37,6 @@ Status ZSTDError(size_t ret, const char* prefix_msg) {
   return Status::IOError(prefix_msg, ZSTD_getErrorName(ret));
 }
 
-// XXX level = 1 probably doesn't compress very much
-constexpr int kZSTDDefaultCompressionLevel = 1;
-
 }  // namespace
 
 // ----------------------------------------------------------------------
@@ -192,9 +189,10 @@ Status ZSTDCompressor::End(int64_t output_len, uint8_t* output, int64_t* bytes_w
 // ----------------------------------------------------------------------
 // ZSTD codec implementation
 
-ZSTDCodec::ZSTDCodec(int compression_level) : compression_level_(compression_level) {}
-
-ZSTDCodec::ZSTDCodec() : ZSTDCodec(kZSTDDefaultCompressionLevel) {}
+ZSTDCodec::ZSTDCodec(int compression_level) {
+  compression_level_ = compression_level == kUseDefaultCompressionLevel ?
+    kZSTDDefaultCompressionLevel : compression_level;
+}
 
 Status ZSTDCodec::MakeCompressor(std::shared_ptr<Compressor>* out) {
   auto ptr = std::make_shared<ZSTDCompressor>(compression_level_);
