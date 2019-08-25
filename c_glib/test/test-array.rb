@@ -115,4 +115,20 @@ class TestArray < Test::Unit::TestCase
 ]
     CONTENT
   end
+
+  sub_test_case("#view") do
+    def test_valid
+      assert_equal(build_float_array([0.0, 1.5, -2.5, nil]),
+                   build_int32_array([0, 1069547520, -1071644672, nil]).view(Arrow::FloatDataType.new))
+    end
+
+    def test_invalid
+      message = "[array][view]: Invalid: " +
+                "Can't view array of type int16 as int8: incompatible layouts"
+      error = assert_raise(Arrow::Error::Invalid) do
+        build_int16_array([0, -1, 3]).view(Arrow::Int8DataType.new)
+      end
+      assert_equal(message, error.message.lines.first.chomp)
+    end
+  end
 end
