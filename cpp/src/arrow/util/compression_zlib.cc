@@ -511,8 +511,6 @@ GZipCodec::GZipCodec(int compression_level, Format format) {
   impl_.reset(new GZipCodecImpl(compression_level, format));
 }
 
-GZipCodec::GZipCodec(Format format) : GZipCodec(kGZipDefaultCompressionLevel, format) {}
-
 GZipCodec::~GZipCodec() {}
 
 Status GZipCodec::Decompress(int64_t input_length, const uint8_t* input,
