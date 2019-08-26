@@ -1019,8 +1019,7 @@ bool StridedIntegerTensorContentEquals(const int dim_index, int64_t left_offset,
   if (dim_index == left.ndim() - 1) {
     for (int64_t i = 0; i < n; ++i) {
       if (memcmp(left.raw_data() + left_offset + i * left_stride,
-                 right.raw_data() + right_offset + i * right_stride,
-                 elem_size) != 0) {
+                 right.raw_data() + right_offset + i * right_stride, elem_size) != 0) {
         return false;
       }
     }
