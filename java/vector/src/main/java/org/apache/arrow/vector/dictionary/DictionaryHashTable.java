@@ -17,8 +17,6 @@
 
 package org.apache.arrow.vector.dictionary;
 
-import java.util.Objects;
-
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 
@@ -56,7 +54,7 @@ public class DictionaryHashTable {
    * The table, initialized on first use, and resized as
    * necessary. When allocated, length is always a power of two.
    */
-  transient DictionaryHashTable.Entry[] table = (DictionaryHashTable.Entry[]) EMPTY_TABLE;
+  transient DictionaryHashTable.Entry[] table = EMPTY_TABLE;
 
   /**
    * The number of key-value mappings contained in this map.
@@ -139,7 +137,7 @@ public class DictionaryHashTable {
     int hash = toEncode.hashCode(indexInArray);
     int index = indexFor(hash, table.length);
     for (DictionaryHashTable.Entry e = table[index]; e != null ; e = e.next) {
-      if ((e.hash == hash)) {
+      if (e.hash == hash) {
         int dictIndex = e.index;
 
         if (new RangeEqualsVisitor(dictionary, dictIndex, indexInArray, 1, false)
@@ -206,7 +204,7 @@ public class DictionaryHashTable {
     DictionaryHashTable.Entry[] newTable = new DictionaryHashTable.Entry[newCapacity];
     transfer(newTable);
     table = newTable;
-    threshold = (int)Math.min(newCapacity * loadFactor, MAXIMUM_CAPACITY + 1);
+    threshold = (int) Math.min(newCapacity * loadFactor, MAXIMUM_CAPACITY + 1);
   }
 
   /**
@@ -267,7 +265,7 @@ public class DictionaryHashTable {
         return false;
       }
       DictionaryHashTable.Entry e = (DictionaryHashTable.Entry) o;
-      if (Objects.equals(index, e.getIndex())) {
+      if (index == e.getIndex()) {
         return true;
       }
       return false;
