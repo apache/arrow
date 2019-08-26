@@ -16,7 +16,7 @@
 # under the License.
 
 #' @include enums.R
-#' @include R6.R
+#' @include arrow-package.R
 #' @include io.R
 
 `arrow::util::Codec` <- R6Class("arrow::util::Codec", inherit = `arrow::Object`)
