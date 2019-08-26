@@ -1047,7 +1047,6 @@ bool IntegerTensorEquals(const Tensor& left, const Tensor& right) {
 
     if (!(left_row_major_p && right_row_major_p) &&
         !(left_column_major_p && right_column_major_p)) {
-      const auto& shape = left.shape();
       const auto& type = checked_cast<const FixedWidthType&>(*left.type());
       are_equal =
           StridedIntegerTensorContentEquals(0, 0, 0, type.bit_width() / 8, left, right);
