@@ -65,39 +65,77 @@ void ExtensionArray::SetData(const std::shared_ptr<ArrayData>& data) {
   storage_ = MakeArray(storage_data);
 }
 
-std::unordered_map<std::string, std::shared_ptr<ExtensionType>> g_extension_registry;
-std::mutex g_extension_registry_guard;
+class ExtensionTypeRegistryImpl : public ExtensionTypeRegistry {
+ public:
+  ExtensionTypeRegistryImpl() {}
+
+  Status RegisterType(std::shared_ptr<ExtensionType> type) override {
+    std::lock_guard<std::mutex> lock(lock_);
+    std::string type_name = type->extension_name();
+    auto it = name_to_type_.find(type_name);
+    if (it != name_to_type_.end()) {
+      return Status::KeyError("A type extension with name ", type_name,
+                              " already defined");
+    }
+    name_to_type_[type_name] = std::move(type);
+    return Status::OK();
+  }
+
+  Status UnregisterType(const std::string& type_name) override {
+    std::lock_guard<std::mutex> lock(lock_);
+    auto it = name_to_type_.find(type_name);
+    if (it == name_to_type_.end()) {
+      return Status::KeyError("No type extension with name ", type_name, " found");
+    }
+    name_to_type_.erase(it);
+    return Status::OK();
+  }
+
+  std::shared_ptr<ExtensionType> GetType(const std::string& type_name) override {
+    std::lock_guard<std::mutex> lock(lock_);
+    auto it = name_to_type_.find(type_name);
+    if (it == name_to_type_.end()) {
+      return nullptr;
+    } else {
+      return it->second;
+    }
+    return nullptr;
+  }
+
+ private:
+  std::mutex lock_;
+  std::unordered_map<std::string, std::shared_ptr<ExtensionType>> name_to_type_;
+};
+
+static std::shared_ptr<ExtensionTypeRegistry> g_registry;
+static std::once_flag registry_initialized;
+
+namespace internal {
+
+static void CreateGlobalRegistry() {
+  g_registry = std::make_shared<ExtensionTypeRegistryImpl>();
+}
+
+}  // namespace internal
+
+std::shared_ptr<ExtensionTypeRegistry> ExtensionTypeRegistry::GetGlobalRegistry() {
+  std::call_once(registry_initialized, internal::CreateGlobalRegistry);
+  return g_registry;
+}
 
 Status RegisterExtensionType(std::shared_ptr<ExtensionType> type) {
-  std::lock_guard<std::mutex> lock_(g_extension_registry_guard);
-  std::string type_name = type->extension_name();
-  auto it = g_extension_registry.find(type_name);
-  if (it != g_extension_registry.end()) {
-    return Status::KeyError("A type extension with name ", type_name, " already defined");
-  }
-  g_extension_registry[type_name] = std::move(type);
-  return Status::OK();
+  auto registry = ExtensionTypeRegistry::GetGlobalRegistry();
+  return registry->RegisterType(type);
 }
 
 Status UnregisterExtensionType(const std::string& type_name) {
-  std::lock_guard<std::mutex> lock_(g_extension_registry_guard);
-  auto it = g_extension_registry.find(type_name);
-  if (it == g_extension_registry.end()) {
-    return Status::KeyError("No type extension with name ", type_name, " found");
-  }
-  g_extension_registry.erase(it);
-  return Status::OK();
+  auto registry = ExtensionTypeRegistry::GetGlobalRegistry();
+  return registry->UnregisterType(type_name);
 }
 
 std::shared_ptr<ExtensionType> GetExtensionType(const std::string& type_name) {
-  std::lock_guard<std::mutex> lock_(g_extension_registry_guard);
-  auto it = g_extension_registry.find(type_name);
-  if (it == g_extension_registry.end()) {
-    return nullptr;
-  } else {
-    return it->second;
-  }
-  return nullptr;
+  auto registry = ExtensionTypeRegistry::GetGlobalRegistry();
+  return registry->GetType(type_name);
 }
 
 }  // namespace arrow

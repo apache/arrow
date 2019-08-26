@@ -1961,6 +1961,21 @@ def is_float_value(object obj):
     return IsPyFloat(obj)
 
 
+cdef class _ExtensionRegistryNanny:
+    # Keep the registry alive until we have unregistered PyExtensionType
+    cdef:
+        shared_ptr[CExtensionTypeRegistry] registry
+
+    def __cinit__(self):
+        self.registry = CExtensionTypeRegistry.GetGlobalRegistry()
+
+    def release_registry(self):
+        self.registry.reset()
+
+
+_registry_nanny = _ExtensionRegistryNanny()
+
+
 def _register_py_extension_type():
     cdef:
         DataType storage_type
@@ -1980,6 +1995,7 @@ def _unregister_py_extension_type():
     # teardown stage, it will invoke CPython APIs such as Py_DECREF
     # with a destroyed interpreter.
     check_status(UnregisterPyExtensionType())
+    _registry_nanny.release_registry()
 
 
 _register_py_extension_type()
