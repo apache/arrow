@@ -68,13 +68,13 @@ date32()
 
 date64()
 
-time32(unit)
+time32(unit = c("ms", "s"))
 
-time64(unit)
+time64(unit = c("ns", "us"))
 
 null()
 
-timestamp(unit, timezone)
+timestamp(unit = c("s", "ms", "us", "ns"), timezone)
 
 decimal(precision, scale)
 
@@ -83,9 +83,11 @@ list_of(type)
 struct(...)
 }
 \arguments{
-\item{unit}{For date/time types, the time unit (day, second, millisecond, etc.)}
+\item{unit}{For time/timestamp types, the time unit. \code{time32()} can take
+either "s" or "ms", while \code{time64()} can be "us" or "ns". \code{timestamp()} can
+take any of those four values.}
 
-\item{timezone}{For \code{timestamp()}, an optional time zone.}
+\item{timezone}{For \code{timestamp()}, an optional time zone string.}
 
 \item{precision}{For \code{decimal()}, precision}
 
@@ -94,6 +96,9 @@ struct(...)
 \item{type}{For \code{list_of()}, a data type to make a list-of-type}
 
 \item{...}{For \code{struct()}, a named list of types to define the struct columns}
+}
+\value{
+An Arrow type object inheriting from \code{arrow::DataType}.
 }
 \description{
 These functions create type objects corresponding to Arrow types. Use them
@@ -110,11 +115,16 @@ A few functions have aliases:
 \item Called from \code{schema()} or \code{struct()}, \code{double()} also is supported as a
 way of creating a \code{float64()}
 }
+
+\code{date32()} creates a datetime type with a "day" unit, like the R \code{Date}
+class. \code{date64()} has a "ms" unit.
 }
 \examples{
 \donttest{
 bool()
 struct(a = int32(), b = double())
+timestamp("ms", timezone = "CEST")
+time64("ns")
 }
 }
 \seealso{
