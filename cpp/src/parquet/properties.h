@@ -24,6 +24,7 @@
 #include <unordered_set>
 
 #include "arrow/type.h"
+#include "arrow/util/compression.h"
 
 #include "parquet/exception.h"
 #include "parquet/parquet_version.h"
@@ -95,7 +96,8 @@ class PARQUET_EXPORT ColumnProperties {
         codec_(codec),
         dictionary_enabled_(dictionary_enabled),
         statistics_enabled_(statistics_enabled),
-        max_stats_size_(max_stats_size) {}
+        max_stats_size_(max_stats_size),
+        compression_level_(Codec::UseDefaultCompressionLevel()) {}
 
   void set_encoding(Encoding::type encoding) { encoding_ = encoding; }
 
@@ -113,6 +115,10 @@ class PARQUET_EXPORT ColumnProperties {
     max_stats_size_ = max_stats_size;
   }
 
+  void set_compression_level(int compression_level) {
+    compression_level_ = compression_level;
+  }
+
   Encoding::type encoding() const { return encoding_; }
 
   Compression::type compression() const { return codec_; }
@@ -123,12 +129,15 @@ class PARQUET_EXPORT ColumnProperties {
 
   size_t max_statistics_size() const { return max_stats_size_; }
 
+  int compression_level() const { return compression_level_; }
+
  private:
   Encoding::type encoding_;
   Compression::type codec_;
   bool dictionary_enabled_;
   bool statistics_enabled_;
   size_t max_stats_size_;
+  int compression_level_;
 };
 
 class PARQUET_EXPORT WriterProperties {
@@ -271,6 +280,55 @@ class PARQUET_EXPORT WriterProperties {
       return this->compression(path->ToDotString(), codec);
     }
 
+    /// \brief Specify the default compression level for the compressor in
+    /// every column.  In case a column does not have an explicitly specified
+    /// compression level, the default one would be used.
+    ///
+    /// The provided compression level is compressor specific. The user would
+    /// have to familiarize oneself with the available levels for the selected
+    /// compressor.  If the compressor does not allow for selecting different
+    /// compression levels, calling this function would not have any effect.
+    /// Parquet and Arrow do not validate the passed compression level.  If no
+    /// level is selected by the user or if the special
+    /// std::numeric_limits<int>::min() value is passed, then Arrow selects the
+    /// compression level.
+    Builder* compression_level(int compression_level) {
+      default_column_properties_.set_compression_level(compression_level);
+      return this;
+    }
+
+    /// \brief Specify a compression level for the compressor for the column
+    /// described by path.
+    ///
+    /// The provided compression level is compressor specific. The user would
+    /// have to familiarize oneself with the available levels for the selected
+    /// compressor.  If the compressor does not allow for selecting different
+    /// compression levels, calling this function would not have any effect.
+    /// Parquet and Arrow do not validate the passed compression level.  If no
+    /// level is selected by the user or if the special
+    /// std::numeric_limits<int>::min() value is passed, then Arrow selects the
+    /// compression level.
+    Builder* compression_level(const std::string& path, int compression_level) {
+      codecs_compression_level_[path] = compression_level;
+      return this;
+    }
+
+    /// \brief Specify a compression level for the compressor for the column
+    /// described by path.
+    ///
+    /// The provided compression level is compressor specific. The user would
+    /// have to familiarize oneself with the available levels for the selected
+    /// compressor.  If the compressor does not allow for selecting different
+    /// compression levels, calling this function would not have any effect.
+    /// Parquet and Arrow do not validate the passed compression level.  If no
+    /// level is selected by the user or if the special
+    /// std::numeric_limits<int>::min() value is passed, then Arrow selects the
+    /// compression level.
+    Builder* compression_level(const std::shared_ptr<schema::ColumnPath>& path,
+                               int compression_level) {
+      return this->compression_level(path->ToDotString(), compression_level);
+    }
+
     Builder* enable_statistics() {
       default_column_properties_.set_statistics_enabled(true);
       return this;
@@ -311,6 +369,8 @@ class PARQUET_EXPORT WriterProperties {
 
       for (const auto& item : encodings_) get(item.first).set_encoding(item.second);
       for (const auto& item : codecs_) get(item.first).set_compression(item.second);
+      for (const auto& item : codecs_compression_level_)
+        get(item.first).set_compression_level(item.second);
       for (const auto& item : dictionary_enabled_)
         get(item.first).set_dictionary_enabled(item.second);
       for (const auto& item : statistics_enabled_)
@@ -335,6 +395,7 @@ class PARQUET_EXPORT WriterProperties {
     ColumnProperties default_column_properties_;
     std::unordered_map<std::string, Encoding::type> encodings_;
     std::unordered_map<std::string, Compression::type> codecs_;
+    std::unordered_map<std::string, int32_t> codecs_compression_level_;
     std::unordered_map<std::string, bool> dictionary_enabled_;
     std::unordered_map<std::string, bool> statistics_enabled_;
   };
@@ -382,6 +443,10 @@ class PARQUET_EXPORT WriterProperties {
 
   Compression::type compression(const std::shared_ptr<schema::ColumnPath>& path) const {
     return column_properties(path).compression();
+  }
+
+  int compression_level(const std::shared_ptr<schema::ColumnPath>& path) const {
+    return column_properties(path).compression_level();
   }
 
   bool dictionary_enabled(const std::shared_ptr<schema::ColumnPath>& path) const {

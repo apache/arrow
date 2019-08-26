@@ -108,7 +108,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
     std::unique_ptr<PageWriter> pager =
-        PageWriter::Open(sink_, column_properties.compression(), metadata_.get());
+        PageWriter::Open(sink_, column_properties.compression(),
+                         Codec::UseDefaultCompressionLevel(), metadata_.get());
     std::shared_ptr<ColumnWriter> writer =
         ColumnWriter::Make(metadata_.get(), std::move(pager), writer_properties_.get());
     return std::static_pointer_cast<TypedColumnWriter<TestType>>(writer);
@@ -128,17 +129,18 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     return TestRequiredWithSettings(encoding, Compression::UNCOMPRESSED, false, false);
   }
 
-  void TestRequiredWithSettings(Encoding::type encoding, Compression::type compression,
-                                bool enable_dictionary, bool enable_statistics,
-                                int64_t num_rows = SMALL_SIZE) {
+  void TestRequiredWithSettings(
+      Encoding::type encoding, Compression::type compression, bool enable_dictionary,
+      bool enable_statistics, int64_t num_rows = SMALL_SIZE,
+      int compression_level = Codec::UseDefaultCompressionLevel()) {
     this->GenerateData(num_rows);
 
     this->WriteRequiredWithSettings(encoding, compression, enable_dictionary,
-                                    enable_statistics, num_rows);
+                                    enable_statistics, compression_level, num_rows);
     ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows));
 
     this->WriteRequiredWithSettingsSpaced(encoding, compression, enable_dictionary,
-                                          enable_statistics, num_rows);
+                                          enable_statistics, num_rows, compression_level);
     ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows));
   }
 
@@ -188,9 +190,10 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
   void WriteRequiredWithSettings(Encoding::type encoding, Compression::type compression,
                                  bool enable_dictionary, bool enable_statistics,
-                                 int64_t num_rows) {
+                                 int compression_level, int64_t num_rows) {
     ColumnProperties column_properties(encoding, compression, enable_dictionary,
                                        enable_statistics);
+    column_properties.set_compression_level(compression_level);
     std::shared_ptr<TypedColumnWriter<TestType>> writer =
         this->BuildWriter(num_rows, column_properties);
     writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
@@ -202,11 +205,12 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   void WriteRequiredWithSettingsSpaced(Encoding::type encoding,
                                        Compression::type compression,
                                        bool enable_dictionary, bool enable_statistics,
-                                       int64_t num_rows) {
+                                       int64_t num_rows, int compression_level) {
     std::vector<uint8_t> valid_bits(
         BitUtil::BytesForBits(static_cast<uint32_t>(this->values_.size())) + 1, 255);
     ColumnProperties column_properties(encoding, compression, enable_dictionary,
                                        enable_statistics);
+    column_properties.set_compression_level(compression_level);
     std::shared_ptr<TypedColumnWriter<TestType>> writer =
         this->BuildWriter(num_rows, column_properties);
     writer->WriteBatchSpaced(this->values_.size(), nullptr, nullptr, valid_bits.data(), 0,
@@ -406,9 +410,19 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithBrotliCompression) {
                                  LARGE_SIZE);
 }
 
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithBrotliCompressionAndLevel) {
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::BROTLI, false, false,
+                                 LARGE_SIZE, 10);
+}
+
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::GZIP, false, false,
                                  LARGE_SIZE);
+}
+
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCompressionAndLevel) {
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::GZIP, false, false,
+                                 LARGE_SIZE, 10);
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithLz4Compression) {
@@ -447,6 +461,11 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndLz4Compression) {
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithZstdCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::ZSTD, false, false,
                                  LARGE_SIZE);
+}
+
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithZstdCompressionAndLevel) {
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::ZSTD, false, false,
+                                 LARGE_SIZE, 6);
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndZstdCompression) {
@@ -677,7 +696,8 @@ TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
 
   auto metadata = ColumnChunkMetaDataBuilder::Make(props, schema.Column(0));
   std::unique_ptr<PageWriter> pager =
-      PageWriter::Open(sink, Compression::UNCOMPRESSED, metadata.get());
+      PageWriter::Open(sink, Compression::UNCOMPRESSED,
+                       Codec::UseDefaultCompressionLevel(), metadata.get());
   std::shared_ptr<ColumnWriter> writer =
       ColumnWriter::Make(metadata.get(), std::move(pager), props.get());
   auto typed_writer = std::static_pointer_cast<TypedColumnWriter<Int32Type>>(writer);

@@ -28,9 +28,14 @@
 namespace arrow {
 namespace util {
 
+// XXX level = 1 probably doesn't compress very much
+constexpr int kZSTDDefaultCompressionLevel = 1;
+
 // ZSTD codec.
 class ARROW_EXPORT ZSTDCodec : public Codec {
  public:
+  explicit ZSTDCodec(int compression_level = kZSTDDefaultCompressionLevel);
+
   Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
                     uint8_t* output_buffer) override;
 
@@ -47,6 +52,9 @@ class ARROW_EXPORT ZSTDCodec : public Codec {
   Status MakeDecompressor(std::shared_ptr<Decompressor>* out) override;
 
   const char* name() const override { return "zstd"; }
+
+ private:
+  int compression_level_;
 };
 
 }  // namespace util

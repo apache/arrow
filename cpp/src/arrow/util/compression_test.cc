@@ -53,14 +53,8 @@ std::vector<uint8_t> MakeCompressibleData(int data_size) {
 }
 
 // Check roundtrip of one-shot compression and decompression functions.
-
-void CheckCodecRoundtrip(Compression::type ctype, const std::vector<uint8_t>& data) {
-  // create multiple compressors to try to break them
-  std::unique_ptr<Codec> c1, c2;
-
-  ASSERT_OK(Codec::Create(ctype, &c1));
-  ASSERT_OK(Codec::Create(ctype, &c2));
-
+void CheckCodecRoundtrip(std::unique_ptr<Codec>& c1, std::unique_ptr<Codec>& c2,
+                         const std::vector<uint8_t>& data) {
   int max_compressed_len =
       static_cast<int>(c1->MaxCompressedLen(data.size(), data.data()));
   std::vector<uint8_t> compressed(max_compressed_len);
@@ -340,20 +334,74 @@ class CodecTest : public ::testing::TestWithParam<Compression::type> {
   }
 };
 
+TEST(TestCodecMisc, GetCodecAsString) {
+  ASSERT_EQ("UNCOMPRESSED", Codec::GetCodecAsString(Compression::UNCOMPRESSED));
+  ASSERT_EQ("SNAPPY", Codec::GetCodecAsString(Compression::SNAPPY));
+  ASSERT_EQ("GZIP", Codec::GetCodecAsString(Compression::GZIP));
+  ASSERT_EQ("LZO", Codec::GetCodecAsString(Compression::LZO));
+  ASSERT_EQ("BROTLI", Codec::GetCodecAsString(Compression::BROTLI));
+  ASSERT_EQ("LZ4", Codec::GetCodecAsString(Compression::LZ4));
+  ASSERT_EQ("ZSTD", Codec::GetCodecAsString(Compression::ZSTD));
+}
+
 TEST_P(CodecTest, CodecRoundtrip) {
-  if (GetCompression() == Compression::BZ2) {
+  const auto compression = GetCompression();
+  if (compression == Compression::BZ2) {
     // SKIP: BZ2 doesn't support one-shot compression
     return;
   }
 
   int sizes[] = {0, 10000, 100000};
+
+  // create multiple compressors to try to break them
+  std::unique_ptr<Codec> c1, c2;
+  ASSERT_OK(Codec::Create(compression, &c1));
+  ASSERT_OK(Codec::Create(compression, &c2));
+
   for (int data_size : sizes) {
     std::vector<uint8_t> data = MakeRandomData(data_size);
-    CheckCodecRoundtrip(GetCompression(), data);
+    CheckCodecRoundtrip(c1, c2, data);
 
     data = MakeCompressibleData(data_size);
-    CheckCodecRoundtrip(GetCompression(), data);
+    CheckCodecRoundtrip(c1, c2, data);
   }
+}
+
+TEST_P(CodecTest, SpecifyCompressionLevel) {
+  const auto compression = GetCompression();
+  // The compression level is codec specific.
+  int compression_level;
+  switch (compression) {
+    case Compression::LZ4:
+    case Compression::LZO:
+    case Compression::UNCOMPRESSED:
+    case Compression::SNAPPY:
+      // Compression level cannot be specified for these
+      // compression types.
+      return;
+    case Compression::GZIP:
+      compression_level = 2;
+      break;
+    case Compression::BZ2:
+      // SKIP: BZ2 doesn't support one-shot compression
+      return;
+    case Compression::ZSTD:
+      compression_level = 4;
+      break;
+    case Compression::BROTLI:
+      compression_level = 10;
+      break;
+    default:
+      FAIL() << "Unhandled compression type";
+      return;
+  }
+
+  std::vector<uint8_t> data = MakeRandomData(2000);
+  // create multiple compressors to try to break them
+  std::unique_ptr<Codec> c1, c2;
+  ASSERT_OK(Codec::Create(compression, compression_level, &c1));
+  ASSERT_OK(Codec::Create(compression, compression_level, &c2));
+  CheckCodecRoundtrip(c1, c2, data);
 }
 
 TEST_P(CodecTest, OutputBufferIsSmall) {

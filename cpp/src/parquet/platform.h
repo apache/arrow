@@ -26,6 +26,7 @@
 #include "arrow/memory_pool.h"       // IWYU pragma: export
 #include "arrow/status.h"            // IWYU pragma: export
 #include "arrow/util/bit_util.h"     // IWYU pragma: export
+#include "arrow/util/compression.h"  // IWYU pragma: export
 #include "arrow/util/macros.h"       // IWYU pragma: export
 #include "arrow/util/string_view.h"  // IWYU pragma: export
 
@@ -91,6 +92,8 @@ namespace parquet {
 namespace BitUtil = ::arrow::BitUtil;
 
 using Buffer = ::arrow::Buffer;
+using Codec = ::arrow::util::Codec;
+using Compression = ::arrow::Compression;
 using MemoryPool = ::arrow::MemoryPool;
 using MutableBuffer = ::arrow::MutableBuffer;
 using ResizableBuffer = ::arrow::ResizableBuffer;

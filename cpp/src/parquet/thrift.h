@@ -77,10 +77,6 @@ static inline Encoding::type FromThrift(format::Encoding::type type) {
   return static_cast<Encoding::type>(type);
 }
 
-static inline Compression::type FromThrift(format::CompressionCodec::type type) {
-  return static_cast<Compression::type>(type);
-}
-
 static inline format::Type::type ToThrift(Type::type type) {
   return static_cast<format::Type::type>(type);
 }
@@ -99,8 +95,48 @@ static inline format::Encoding::type ToThrift(Encoding::type type) {
   return static_cast<format::Encoding::type>(type);
 }
 
+static inline Compression::type FromThrift(format::CompressionCodec::type type) {
+  switch (type) {
+    case format::CompressionCodec::UNCOMPRESSED:
+      return Compression::UNCOMPRESSED;
+    case format::CompressionCodec::SNAPPY:
+      return Compression::SNAPPY;
+    case format::CompressionCodec::GZIP:
+      return Compression::GZIP;
+    case format::CompressionCodec::LZO:
+      return Compression::LZO;
+    case format::CompressionCodec::BROTLI:
+      return Compression::BROTLI;
+    case format::CompressionCodec::LZ4:
+      return Compression::LZ4;
+    case format::CompressionCodec::ZSTD:
+      return Compression::ZSTD;
+    default:
+      DCHECK(false) << "Cannot reach here";
+      return Compression::UNCOMPRESSED;
+  }
+}
+
 static inline format::CompressionCodec::type ToThrift(Compression::type type) {
-  return static_cast<format::CompressionCodec::type>(type);
+  switch (type) {
+    case Compression::UNCOMPRESSED:
+      return format::CompressionCodec::UNCOMPRESSED;
+    case Compression::SNAPPY:
+      return format::CompressionCodec::SNAPPY;
+    case Compression::GZIP:
+      return format::CompressionCodec::GZIP;
+    case Compression::LZO:
+      return format::CompressionCodec::LZO;
+    case Compression::BROTLI:
+      return format::CompressionCodec::BROTLI;
+    case Compression::LZ4:
+      return format::CompressionCodec::LZ4;
+    case Compression::ZSTD:
+      return format::CompressionCodec::ZSTD;
+    default:
+      DCHECK(false) << "Cannot reach here";
+      return format::CompressionCodec::UNCOMPRESSED;
+  }
 }
 
 static inline format::Statistics ToThrift(const EncodedStatistics& stats) {

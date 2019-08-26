@@ -456,13 +456,15 @@ struct Encoding {
   };
 };
 
-// Compression, mirrors parquet::CompressionCodec
-struct Compression {
-  enum type { UNCOMPRESSED, SNAPPY, GZIP, LZO, BROTLI, LZ4, ZSTD };
-};
+/// \brief Return true if Parquet supports indicated compression type
+PARQUET_EXPORT
+bool IsCodecSupported(Compression::type codec);
 
 PARQUET_EXPORT
-std::unique_ptr<::arrow::util::Codec> GetCodecFromArrow(Compression::type codec);
+std::unique_ptr<Codec> GetCodec(Compression::type codec);
+
+PARQUET_EXPORT
+std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level);
 
 struct Encryption {
   enum type { AES_GCM_V1 = 0, AES_GCM_CTR_V1 = 1 };
@@ -656,8 +658,6 @@ inline std::string format_fwf(int width) {
   ss << "%-" << width << type_traits<Type::type_num>::printf_code;
   return ss.str();
 }
-
-PARQUET_EXPORT std::string CompressionToString(Compression::type t);
 
 PARQUET_EXPORT std::string EncodingToString(Encoding::type t);
 

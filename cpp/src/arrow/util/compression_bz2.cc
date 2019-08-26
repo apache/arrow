@@ -37,11 +37,13 @@
 namespace arrow {
 namespace util {
 
-constexpr int kBZ2DefaultCompressionLevel = 9;
+namespace {
 
 // Max number of bytes the bz2 APIs accept at a time
-static constexpr auto kSizeLimit =
+constexpr auto kSizeLimit =
     static_cast<int64_t>(std::numeric_limits<unsigned int>::max());
+
+}  // namespace
 
 Status BZ2Error(const char* prefix_msg, int bz_result) {
   ARROW_CHECK(bz_result != BZ_OK && bz_result != BZ_RUN_OK && bz_result != BZ_FLUSH_OK &&
@@ -150,7 +152,8 @@ class BZ2Decompressor : public Decompressor {
 
 class BZ2Compressor : public Compressor {
  public:
-  BZ2Compressor() : initialized_(false) {}
+  explicit BZ2Compressor(int compression_level)
+      : initialized_(false), compression_level_(compression_level) {}
 
   ~BZ2Compressor() override {
     if (initialized_) {
@@ -162,7 +165,7 @@ class BZ2Compressor : public Compressor {
     DCHECK(!initialized_);
     memset(&stream_, 0, sizeof(stream_));
     int ret;
-    ret = BZ2_bzCompressInit(&stream_, kBZ2DefaultCompressionLevel, 0, 0);
+    ret = BZ2_bzCompressInit(&stream_, compression_level_, 0, 0);
     if (ret != BZ_OK) {
       return BZ2Error("bz2 compressor init failed: ", ret);
     }
@@ -227,13 +230,20 @@ class BZ2Compressor : public Compressor {
  protected:
   bz_stream stream_;
   bool initialized_;
+  int compression_level_;
 };
 
 // ----------------------------------------------------------------------
 // bz2 codec implementation
 
+BZ2Codec::BZ2Codec(int compression_level) : compression_level_(compression_level) {
+  compression_level_ = compression_level == kUseDefaultCompressionLevel
+                           ? kBZ2DefaultCompressionLevel
+                           : compression_level;
+}
+
 Status BZ2Codec::MakeCompressor(std::shared_ptr<Compressor>* out) {
-  auto ptr = std::make_shared<BZ2Compressor>();
+  auto ptr = std::make_shared<BZ2Compressor>(compression_level_);
   RETURN_NOT_OK(ptr->Init());
   *out = ptr;
   return Status::OK();

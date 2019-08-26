@@ -17,7 +17,9 @@
 
 #include "arrow/util/compression.h"
 
+#include <limits>
 #include <memory>
+#include <string>
 
 #ifdef ARROW_WITH_BROTLI
 #include "arrow/util/compression_brotli.h"
@@ -54,20 +56,51 @@ Decompressor::~Decompressor() {}
 
 Codec::~Codec() {}
 
+int Codec::UseDefaultCompressionLevel() { return kUseDefaultCompressionLevel; }
+
+std::string Codec::GetCodecAsString(Compression::type t) {
+  switch (t) {
+    case Compression::UNCOMPRESSED:
+      return "UNCOMPRESSED";
+    case Compression::SNAPPY:
+      return "SNAPPY";
+    case Compression::GZIP:
+      return "GZIP";
+    case Compression::LZO:
+      return "LZO";
+    case Compression::BROTLI:
+      return "BROTLI";
+    case Compression::LZ4:
+      return "LZ4";
+    case Compression::ZSTD:
+      return "ZSTD";
+    case Compression::BZ2:
+      return "BZ2";
+    default:
+      return "UNKNOWN";
+  }
+}
+
 Status Codec::Create(Compression::type codec_type, std::unique_ptr<Codec>* result) {
+  return Codec::Create(codec_type, Codec::UseDefaultCompressionLevel(), result);
+}
+
+Status Codec::Create(Compression::type codec_type, int compression_level,
+                     std::unique_ptr<Codec>* result) {
+  Codec* codec = nullptr;
   switch (codec_type) {
     case Compression::UNCOMPRESSED:
       break;
     case Compression::SNAPPY:
 #ifdef ARROW_WITH_SNAPPY
-      result->reset(new SnappyCodec());
+      codec = new SnappyCodec();
       break;
 #else
       return Status::NotImplemented("Snappy codec support not built");
 #endif
     case Compression::GZIP:
 #ifdef ARROW_WITH_ZLIB
-      result->reset(new GZipCodec());
+      codec = new GZipCodec(compression_level);
       break;
 #else
       return Status::NotImplemented("Gzip codec support not built");
@@ -76,28 +109,28 @@ Status Codec::Create(Compression::type codec_type, std::unique_ptr<Codec>* resul
       return Status::NotImplemented("LZO codec not implemented");
     case Compression::BROTLI:
 #ifdef ARROW_WITH_BROTLI
-      result->reset(new BrotliCodec());
+      codec = new BrotliCodec(compression_level);
       break;
 #else
       return Status::NotImplemented("Brotli codec support not built");
 #endif
     case Compression::LZ4:
 #ifdef ARROW_WITH_LZ4
-      result->reset(new Lz4Codec());
+      codec = new Lz4Codec();
       break;
 #else
       return Status::NotImplemented("LZ4 codec support not built");
 #endif
     case Compression::ZSTD:
 #ifdef ARROW_WITH_ZSTD
-      result->reset(new ZSTDCodec());
+      codec = new ZSTDCodec(compression_level);
       break;
 #else
       return Status::NotImplemented("ZSTD codec support not built");
 #endif
     case Compression::BZ2:
 #ifdef ARROW_WITH_BZ2
-      result->reset(new BZ2Codec());
+      codec = new BZ2Codec(compression_level);
       break;
 #else
       return Status::NotImplemented("BZ2 codec support not built");
@@ -105,6 +138,7 @@ Status Codec::Create(Compression::type codec_type, std::unique_ptr<Codec>* resul
     default:
       return Status::Invalid("Unrecognized codec");
   }
+  result->reset(codec);
   return Status::OK();
 }
 
