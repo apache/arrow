@@ -1010,8 +1010,9 @@ bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_
 
 namespace {
 
-bool StridedIntegerTensorContentEquals(int dim_index, int64_t left_offset, int64_t right_offset,
-                                       int elem_size, const Tensor& left, const Tensor& right) {
+bool StridedIntegerTensorContentEquals(int dim_index, int64_t left_offset,
+                                       int64_t right_offset, int elem_size,
+                                       const Tensor& left, const Tensor& right) {
   if (dim_index == left.ndim() - 1) {
     for (int64_t i = 0; i < left.shape()[dim_index]; ++i) {
       if (memcmp(left.raw_data() + left_offset + i * left.strides()[dim_index],
@@ -1023,8 +1024,8 @@ bool StridedIntegerTensorContentEquals(int dim_index, int64_t left_offset, int64
     return true;
   }
   for (int64_t i = 0; i < left.shape()[dim_index]; ++i) {
-    if (!StridedIntegerTensorContentEquals(dim_index + 1, left_offset, right_offset, elem_size,
-                                           left, right)) {
+    if (!StridedIntegerTensorContentEquals(dim_index + 1, left_offset, right_offset,
+                                           elem_size, left, right)) {
       return false;
     }
     left_offset += left.strides()[dim_index];
@@ -1066,8 +1067,9 @@ bool IntegerTensorEquals(const Tensor& left, const Tensor& right) {
 }
 
 template <typename DataType>
-bool StridedFloatTensorContentEquals(int dim_index, int64_t left_offset, int64_t right_offset,
-                                     const Tensor& left, const Tensor& right) {
+bool StridedFloatTensorContentEquals(int dim_index, int64_t left_offset,
+                                     int64_t right_offset, const Tensor& left,
+                                     const Tensor& right) {
   using c_type = typename DataType::c_type;
   const int64_t n = left.shape()[dim_index];
   if (dim_index == left.ndim() - 1) {
@@ -1076,16 +1078,20 @@ bool StridedFloatTensorContentEquals(int dim_index, int64_t left_offset, int64_t
     auto left_stride = left.strides()[dim_index];
     auto right_stride = right.strides()[dim_index];
     for (int64_t i = 0; i < n; ++i) {
-      c_type left_value = *reinterpret_cast<const c_type*>(left_data + left_offset + i * left_stride);
-      c_type right_value = *reinterpret_cast<const c_type*>(right_data + right_offset + i * right_stride);
-      if (left_value != right_value || std::isnan(left_value) || std::isnan(right_value)) {
+      c_type left_value =
+          *reinterpret_cast<const c_type*>(left_data + left_offset + i * left_stride);
+      c_type right_value =
+          *reinterpret_cast<const c_type*>(right_data + right_offset + i * right_stride);
+      if (left_value != right_value || std::isnan(left_value) ||
+          std::isnan(right_value)) {
         return false;
       }
     }
     return true;
   }
   for (int64_t i = 0; i < n; ++i) {
-    if (!StridedFloatTensorContentEquals<DataType>(dim_index + 1, left_offset, right_offset, left, right)) {
+    if (!StridedFloatTensorContentEquals<DataType>(dim_index + 1, left_offset,
+                                                   right_offset, left, right)) {
       return false;
     }
     left_offset += left.strides()[dim_index];
@@ -1101,7 +1107,7 @@ bool FloatTensorEquals(const Tensor& left, const Tensor& right) {
   return StridedFloatTensorContentEquals<DataType>(0, 0, 0, left, right);
 }
 
-}
+}  // namespace
 
 bool TensorEquals(const Tensor& left, const Tensor& right) {
   if (left.type_id() != right.type_id()) {
