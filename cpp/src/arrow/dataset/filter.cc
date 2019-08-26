@@ -50,7 +50,7 @@ Result<Datum> FieldExpression::Evaluate(compute::FunctionContext* ctx,
   if (column == nullptr) {
     return Datum(std::make_shared<BooleanScalar>());
   }
-  return column;
+  return std::move(column);
 }
 
 bool IsTrivialConditionDatum(const Datum& datum, BooleanScalar* condition) {
@@ -88,7 +88,7 @@ Result<Datum> NotExpression::Evaluate(compute::FunctionContext* ctx,
   DCHECK(to_invert.is_array());
   Datum out;
   RETURN_NOT_OK(arrow::compute::Invert(ctx, Datum(to_invert), &out));
-  return out;
+  return std::move(out);
 }
 
 // TODO(bkietz) more reusable coallesce helper
@@ -110,20 +110,20 @@ Result<Datum> AllExpression::Evaluate(compute::FunctionContext* ctx,
   Datum acc(next);
 
   if (FinishWithTrivial<false>(next, &acc)) {
-    return acc;
+    return std::move(acc);
   }
 
   for (size_t i_next = 1; i_next < operands_.size(); ++i_next) {
     ARROW_ASSIGN_OR_RAISE(next, operands_[i_next]->Evaluate(ctx, batch));
 
     if (FinishWithTrivial<false>(next, &acc)) {
-      return acc;
+      return std::move(acc);
     }
 
     RETURN_NOT_OK(arrow::compute::And(ctx, Datum(acc), Datum(next), &acc));
   }
 
-  return acc;
+  return std::move(acc);
 }
 
 Result<Datum> AnyExpression::Evaluate(compute::FunctionContext* ctx,
@@ -132,20 +132,20 @@ Result<Datum> AnyExpression::Evaluate(compute::FunctionContext* ctx,
   Datum acc(next);
 
   if (FinishWithTrivial<true>(next, &acc)) {
-    return acc;
+    return std::move(acc);
   }
 
   for (size_t i_next = 1; i_next < operands_.size(); ++i_next) {
     ARROW_ASSIGN_OR_RAISE(next, operands_[i_next]->Evaluate(ctx, batch));
 
     if (FinishWithTrivial<true>(next, &acc)) {
-      return acc;
+      return std::move(acc);
     }
 
     RETURN_NOT_OK(arrow::compute::And(ctx, Datum(acc), Datum(next), &acc));
   }
 
-  return acc;
+  return std::move(acc);
 }
 
 Result<Datum> ComparisonExpression::Evaluate(compute::FunctionContext* ctx,
@@ -155,21 +155,21 @@ Result<Datum> ComparisonExpression::Evaluate(compute::FunctionContext* ctx,
 
   if (lhs.is_scalar()) {
     if (!lhs.scalar()->is_valid) {
-      return lhs;
+      return std::move(lhs);
     }
     return Status::NotImplemented("comparison with scalar LHS");
   }
 
   if (rhs.is_scalar()) {
     if (!rhs.scalar()->is_valid) {
-      return rhs;
+      return std::move(rhs);
     }
   }
 
   Datum out;
   RETURN_NOT_OK(
       arrow::compute::Compare(ctx, lhs, rhs, arrow::compute::CompareOptions(op_), &out));
-  return out;
+  return std::move(out);
 }
 
 std::shared_ptr<ScalarExpression> ScalarExpression::Make(std::string value) {
@@ -397,7 +397,7 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
 
         ARROW_ASSIGN_OR_RAISE(simplified, simplified->Assume(*operand));
       }
-      return simplified;
+      return std::move(simplified);
     }
 
     default:
@@ -842,15 +842,15 @@ Out MaybeCombine(const Expression& lhs, const Expression& rhs) {
   return Out(std::move(operands));
 }
 
-AllExpression operator and(const Expression& lhs, const Expression& rhs) {
+AllExpression operator&&(const Expression& lhs, const Expression& rhs) {
   return MaybeCombine<AllExpression>(lhs, rhs);
 }
 
-AnyExpression operator or(const Expression& lhs, const Expression& rhs) {
+AnyExpression operator||(const Expression& lhs, const Expression& rhs) {
   return MaybeCombine<AnyExpression>(lhs, rhs);
 }
 
-NotExpression operator not(const Expression& rhs) { return NotExpression(rhs.Copy()); }
+NotExpression operator!(const Expression& rhs) { return NotExpression(rhs.Copy()); }
 
 Result<std::shared_ptr<DataType>> ComparisonExpression::Validate(
     const Schema& schema) const {
@@ -905,7 +905,7 @@ Result<std::shared_ptr<DataType>> AnyExpression::Validate(const Schema& schema) 
 Result<std::shared_ptr<DataType>> NotExpression::Validate(const Schema& schema) const {
   ARROW_ASSIGN_OR_RAISE(auto operand_type, operand_->Validate(schema));
   RETURN_NOT_OK(EnsureNullOrBool("cannot invert an expression of type ", operand_type));
-  return operand_type;
+  return std::move(operand_type);
 }
 
 Result<std::shared_ptr<DataType>> ScalarExpression::Validate(const Schema& schema) const {

@@ -359,15 +359,15 @@ class ARROW_DS_EXPORT FieldExpression final : public Expression {
 
 ARROW_DS_EXPORT std::shared_ptr<AllExpression> all(ExpressionVector operands);
 
-ARROW_DS_EXPORT AllExpression operator and(const Expression& lhs, const Expression& rhs);
+ARROW_DS_EXPORT AllExpression operator&&(const Expression& lhs, const Expression& rhs);
 
 ARROW_DS_EXPORT std::shared_ptr<AnyExpression> any(ExpressionVector operands);
 
-ARROW_DS_EXPORT AnyExpression operator or(const Expression& lhs, const Expression& rhs);
+ARROW_DS_EXPORT AnyExpression operator||(const Expression& lhs, const Expression& rhs);
 
 ARROW_DS_EXPORT std::shared_ptr<NotExpression> not_(std::shared_ptr<Expression> operand);
 
-ARROW_DS_EXPORT NotExpression operator not(const Expression& rhs);
+ARROW_DS_EXPORT NotExpression operator!(const Expression& rhs);
 
 #define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                                     \
   inline std::shared_ptr<ComparisonExpression> FACTORY_NAME(                           \
