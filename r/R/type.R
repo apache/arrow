@@ -15,26 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include enums.R
-`arrow::Object` <- R6Class("arrow::Object",
-  public = list(
-    initialize = function(xp) self$set_pointer(xp),
-
-    pointer = function() self$`.:xp:.`,
-    `.:xp:.` = NULL,
-    set_pointer = function(xp){
-      self$`.:xp:.` <- xp
-    },
-    print = function(...){
-      cat(class(self)[[1]], "\n")
-      if (!is.null(self$ToString)){
-        cat(self$ToString(), "\n")
-      }
-      invisible(self)
-    }
-  )
-)
-
 shared_ptr <- function(class, xp) {
   if (!shared_ptr_is_null(xp)) class$new(xp)
 }
