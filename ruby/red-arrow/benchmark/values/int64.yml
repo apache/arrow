@@ -27,49 +27,11 @@ prelude: |-
   state = ENV.fetch("FAKER_RANDOM_SEED", 17).to_i
   Faker::Config.random = Random.new(state)
 
-  n_rows = 1000
-  n_columns = 10
-  type = Arrow::DictionaryDataType.new(:int8, :string, true)
-
-  fields = n_columns.times.map {|i| ["column_#{i}".to_sym, type] }.to_h
-  schema = Arrow::Schema.new(**fields)
-  dictionary = Arrow::StringArray.new(
-    100.times.map { Faker::Book.genre }.uniq.sort
-  )
-  indices = Arrow::Int8Array.new(
-    n_rows.times.map {
-      Faker::Number.within(range: 0 ... dictionary.length)
-    }
-  )
-  arrays = n_columns.times.map do
-    Arrow::DictionaryArray.new(
-      type,
-      indices,
-      dictionary,
-    )
-  end
-  record_batch = Arrow::RecordBatch.new(schema, n_rows, arrays)
-
-  def pure_ruby_raw_records(record_batch)
-    n_rows = record_batch.n_rows
-    n_columns = record_batch.n_columns
-    columns = record_batch.columns
-    records = []
-    i = 0
-    while i < n_rows
-      record = []
-      j = 0
-      while j < n_columns
-        record << columns[j].data.indices[i]
-        j += 1
-      end
-      records << record
-      i += 1
-    end
-    records
-  end
+  n_values = 1000
+  values =  n_values.times.map { Faker::Number.number(digits: 18).to_i }
+  array = Arrow::Int64Array.new(values)
 benchmark:
   pure_ruby: |-
-    pure_ruby_raw_records(record_batch)
-  raw_records: |-
-    record_batch.raw_records
+    array.collect.to_a
+  values: |-
+    array.values
