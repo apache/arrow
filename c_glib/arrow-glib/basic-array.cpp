@@ -544,6 +544,31 @@ garrow_array_view(GArrowArray *array,
   }
 }
 
+/**
+ * garrow_array_diff:
+ * @array: A #GArrowArray.
+ * @other_array: A #GArrowArray to be compared.
+ *
+ * Returns: (transfer full): The #GArrowStructArray which expresses
+ *   the difference between two arrays.
+ *
+ * Since: 0.15.0
+ */
+GArrowStructArray *
+garrow_array_diff(GArrowArray *array, GArrowArray *other_array)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  const auto arrow_other_array = garrow_array_get_raw(other_array);
+  auto memory_pool = arrow::default_memory_pool();
+  auto arrow_result = arrow::Diff(*arrow_array,
+                                  *arrow_other_array,
+                                  memory_pool);
+  auto arrow_struct_array = arrow_result.ValueOrDie();
+  auto arrow_sub_array =
+    std::static_pointer_cast<arrow::Array>(arrow_struct_array);
+  return GARROW_STRUCT_ARRAY(garrow_array_new_raw(&arrow_sub_array));
+}
+
 
 G_DEFINE_TYPE(GArrowNullArray,
               garrow_null_array,

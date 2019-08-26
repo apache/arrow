@@ -131,4 +131,20 @@ class TestArray < Test::Unit::TestCase
       assert_equal(message, error.message.lines.first.chomp)
     end
   end
+
+  def test_diff
+    base = build_int32_array([1, 2, nil, 5])
+    target = build_int32_array([1, 2, 3, nil, 5])
+    struct_array = base.diff(target)
+    is_inserted = struct_array.flatten[0]
+    run_length = struct_array.flatten[1]
+    assert_equal([
+      is_inserted,
+      run_length
+    ],
+    [
+      build_boolean_array([false, true]),
+      build_int64_array([2, 2])
+    ])
+  end
 end
