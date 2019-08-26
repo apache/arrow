@@ -24,3 +24,7 @@ test_that("field() factory", {
   expect_true(x == x)
   expect_false(x == field("x", int64()))
 })
+
+test_that("Field validation", {
+  expect_error(schema(b = 32), "b must be arrow::DataType, not numeric")
+})

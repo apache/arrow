@@ -19,8 +19,8 @@ context("arrow::Schema")
 
 test_that("Alternate type names are supported", {
   expect_equal(
-    schema(a = int32(), b = double(), c = bool(), d = string()),
-    schema(a = int32(), b = float64(), c = boolean(), d = utf8())
+    schema(b = double(), c = bool(), d = string(), e = float(), f = halffloat()),
+    schema(b = float64(), c = boolean(), d = utf8(), e = float32(), f = float16())
   )
 })
 

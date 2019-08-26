@@ -307,7 +307,15 @@ float16 <- function() shared_ptr(`arrow::Float16`,  Float16__initialize())
 
 #' @rdname DataType
 #' @export
+halffloat <- float16
+
+#' @rdname DataType
+#' @export
 float32 <- function() shared_ptr(`arrow::Float32`, Float32__initialize())
+
+#' @rdname DataType
+#' @export
+float <- float32
 
 #' @rdname DataType
 #' @export
@@ -319,7 +327,15 @@ boolean <- function() shared_ptr(`arrow::Boolean`, Boolean__initialize())
 
 #' @rdname DataType
 #' @export
+bool <- boolean
+
+#' @rdname DataType
+#' @export
 utf8 <- function() shared_ptr(`arrow::Utf8`, Utf8__initialize())
+
+#' @rdname DataType
+#' @export
+string <- utf8
 
 #' @rdname DataType
 #' @export
