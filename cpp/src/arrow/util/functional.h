@@ -26,16 +26,17 @@ namespace internal {
 
 /// Helper struct for examining lambdas and other callables.
 /// TODO(bkietz) support function pointers
+/// TODO(bkietz) provide return_type accessor
 struct call_traits {
  private:
   template <typename R, typename... A>
-  static std::true_type is_overloaded_impl(R(A...));
+  static std::false_type is_overloaded_impl(R(A...));
 
   template <typename F>
-  static std::true_type is_overloaded_impl(decltype(&F::operator())*);
+  static std::false_type is_overloaded_impl(decltype(&F::operator())*);
 
   template <typename F>
-  static std::false_type is_overloaded_impl(...);
+  static std::true_type is_overloaded_impl(...);
 
   template <std::size_t I, typename F, typename R, typename... A>
   static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
@@ -46,8 +47,8 @@ struct call_traits {
       R (F::*)(A...) const);
 
  public:
-  /// bool constant indicating whether F is a callable with exactly one possible
-  /// signature. Will be false_type for objects which define multiple operator() or which
+  /// bool constant indicating whether F is a callable with more than one possible
+  /// signature. Will be true_type for objects which define multiple operator() or which
   /// define a template operator()
   template <typename F>
   using is_overloaded =
