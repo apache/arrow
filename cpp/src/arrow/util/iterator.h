@@ -79,7 +79,7 @@ class VectorIterator : public Iterator<T> {
 };
 
 template <typename T>
-std::unique_ptr<Iterator<T>> MakeIterator(std::vector<T> v) {
+std::unique_ptr<Iterator<T>> MakeVectorIterator(std::vector<T> v) {
   return std::unique_ptr<VectorIterator<T>>(new VectorIterator<T>(std::move(v)));
 }
 

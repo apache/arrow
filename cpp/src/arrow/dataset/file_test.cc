@@ -94,105 +94,18 @@ TEST(FileSource, BufferBased) {
   ASSERT_EQ(Compression::LZ4, source2.compression());
 }
 
-class TestFileSystemBasedDataSource : public FileSourceFixtureMixin {
- public:
-  void SetUp() override {
-    format_ = std::make_shared<DummyFileFormat>();
-
-    ASSERT_OK(TemporaryDir::Make("test-fsdatasource-", &temp_dir_));
-    local_fs_ = std::make_shared<fs::LocalFileSystem>();
-
-    auto path = temp_dir_->path().ToString();
-    fs_ = std::make_shared<fs::SubTreeFileSystem>(path, local_fs_);
-
-    CreateEmptyFiles();
+class TestDummyFileSystemBasedDataSource
+    : public FileSystemBasedDataSourceMixin<DummyFileFormat> {
+  std::vector<std::string> file_names() const override {
+    return {"a/b/c.dummy", "a/b/c/d.dummy", "a/b.dummy", "a.dummy"};
   }
-
-  void CreateFile(std::string path, std::string contents) {
-    auto parent = fs::internal::GetAbstractPathParent(path).first;
-    if (parent != "") {
-      ASSERT_OK(this->fs_->CreateDir(parent, true));
-    }
-    std::shared_ptr<io::OutputStream> file;
-    ASSERT_OK(this->fs_->OpenOutputStream(path, &file));
-    ASSERT_OK(file->Write(contents));
-  }
-
-  void CreateEmptyFiles() {
-    for (auto path : {"a/b/c.dummy", "a/b/c/d.dummy", "a/b.dummy", "a.dummy"}) {
-      CreateFile(path, "");
-    }
-  }
-
-  void MakeDataSource() {
-    ASSERT_OK(FileSystemBasedDataSource::Make(fs_.get(), selector_, format_,
-                                              std::make_shared<ScanOptions>(), &source_));
-  }
-
- protected:
-  fs::Selector selector_;
-  std::unique_ptr<FileSystemBasedDataSource> source_;
-  std::shared_ptr<fs::LocalFileSystem> local_fs_;
-  std::shared_ptr<fs::FileSystem> fs_;
-  std::unique_ptr<TemporaryDir> temp_dir_;
-  std::shared_ptr<DummyFileFormat> format_;
 };
 
-TEST_F(TestFileSystemBasedDataSource, NonRecursive) {
-  selector_.base_dir = "/";
-  MakeDataSource();
+TEST_F(TestDummyFileSystemBasedDataSource, NonRecursive) { this->NonRecursive(); }
 
-  int count = 0;
-  ASSERT_OK(source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
-    auto file_fragment = internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
-    ++count;
-    auto extension =
-        fs::internal::GetAbstractPathExtension(file_fragment->source().path());
-    EXPECT_TRUE(format_->IsKnownExtension(extension));
-    std::shared_ptr<io::RandomAccessFile> f;
-    return this->fs_->OpenInputFile(file_fragment->source().path(), &f);
-  }));
+TEST_F(TestDummyFileSystemBasedDataSource, Recursive) { this->Recursive(); }
 
-  ASSERT_EQ(count, 1);
-}
-
-TEST_F(TestFileSystemBasedDataSource, Recursive) {
-  selector_.base_dir = "/";
-  selector_.recursive = true;
-  MakeDataSource();
-
-  int count = 0;
-  ASSERT_OK(source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
-    auto file_fragment = internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
-    ++count;
-    auto extension =
-        fs::internal::GetAbstractPathExtension(file_fragment->source().path());
-    EXPECT_TRUE(format_->IsKnownExtension(extension));
-    std::shared_ptr<io::RandomAccessFile> f;
-    return this->fs_->OpenInputFile(file_fragment->source().path(), &f);
-  }));
-
-  ASSERT_EQ(count, 4);
-}
-
-TEST_F(TestFileSystemBasedDataSource, DeletedFile) {
-  selector_.base_dir = "/";
-  selector_.recursive = true;
-  MakeDataSource();
-  ASSERT_OK(this->fs_->DeleteFile("a/b.dummy"));
-
-  ASSERT_RAISES(
-      IOError,
-      source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
-        auto file_fragment =
-            internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
-        auto extension =
-            fs::internal::GetAbstractPathExtension(file_fragment->source().path());
-        EXPECT_TRUE(format_->IsKnownExtension(extension));
-        std::shared_ptr<io::RandomAccessFile> f;
-        return this->fs_->OpenInputFile(file_fragment->source().path(), &f);
-      }));
-}
+TEST_F(TestDummyFileSystemBasedDataSource, DeletedFile) { this->DeletedFile(); }
 
 }  // namespace dataset
 }  // namespace arrow

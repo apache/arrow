@@ -20,14 +20,20 @@
 #include <utility>
 
 #include "arrow/dataset/file_base.h"
+#include "arrow/filesystem/localfs.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/stl.h"
 
 #include "parquet/arrow/writer.h"
 
 namespace arrow {
 namespace dataset {
+
+using fs::internal::GetAbstractPathExtension;
+using internal::TemporaryDir;
 
 using parquet::ArrowWriterProperties;
 using parquet::default_arrow_writer_properties;
@@ -175,6 +181,111 @@ class TestDataSourceMixin : public TestDataFragmentMixin {
       return Status::OK();
     }));
   }
+};
+
+template <typename Format>
+class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
+ public:
+  virtual std::vector<std::string> file_names() const = 0;
+
+  void SetUp() override {
+    format_ = std::make_shared<Format>();
+
+    ASSERT_OK(
+        TemporaryDir::Make("test-fsdatasource-" + format_->name() + "-", &temp_dir_));
+    local_fs_ = std::make_shared<fs::LocalFileSystem>();
+
+    auto path = temp_dir_->path().ToString();
+    fs_ = std::make_shared<fs::SubTreeFileSystem>(path, local_fs_);
+
+    for (auto path : file_names()) {
+      CreateFile(path, "");
+    }
+  }
+
+  void CreateFile(std::string path, std::string contents) {
+    auto parent = fs::internal::GetAbstractPathParent(path).first;
+    if (parent != "") {
+      ASSERT_OK(this->fs_->CreateDir(parent, true));
+    }
+    std::shared_ptr<io::OutputStream> file;
+    ASSERT_OK(this->fs_->OpenOutputStream(path, &file));
+    ASSERT_OK(file->Write(contents));
+  }
+
+  void MakeDataSource() {
+    ASSERT_OK(FileSystemBasedDataSource::Make(fs_.get(), selector_, format_,
+                                              std::make_shared<ScanOptions>(), &source_));
+  }
+
+ protected:
+  void NonRecursive() {
+    selector_.base_dir = "/";
+    MakeDataSource();
+
+    int count = 0;
+    ASSERT_OK(
+        source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
+          auto file_fragment =
+              internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
+          ++count;
+          auto extension =
+              fs::internal::GetAbstractPathExtension(file_fragment->source().path());
+          EXPECT_TRUE(format_->IsKnownExtension(extension));
+          std::shared_ptr<io::RandomAccessFile> f;
+          return this->fs_->OpenInputFile(file_fragment->source().path(), &f);
+        }));
+
+    ASSERT_EQ(count, 1);
+  }
+
+  void Recursive() {
+    selector_.base_dir = "/";
+    selector_.recursive = true;
+    MakeDataSource();
+
+    int count = 0;
+    ASSERT_OK(
+        source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
+          auto file_fragment =
+              internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
+          ++count;
+          auto extension =
+              fs::internal::GetAbstractPathExtension(file_fragment->source().path());
+          EXPECT_TRUE(format_->IsKnownExtension(extension));
+          std::shared_ptr<io::RandomAccessFile> f;
+          return this->fs_->OpenInputFile(file_fragment->source().path(), &f);
+        }));
+
+    ASSERT_EQ(count, 4);
+  }
+
+  void DeletedFile() {
+    selector_.base_dir = "/";
+    selector_.recursive = true;
+    MakeDataSource();
+    ASSERT_GT(file_names().size(), 0);
+    ASSERT_OK(this->fs_->DeleteFile(file_names()[0]));
+
+    ASSERT_RAISES(
+        IOError,
+        source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
+          auto file_fragment =
+              internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
+          auto extension =
+              fs::internal::GetAbstractPathExtension(file_fragment->source().path());
+          EXPECT_TRUE(format_->IsKnownExtension(extension));
+          std::shared_ptr<io::RandomAccessFile> f;
+          return this->fs_->OpenInputFile(file_fragment->source().path(), &f);
+        }));
+  }
+
+  fs::Selector selector_;
+  std::unique_ptr<FileSystemBasedDataSource> source_;
+  std::shared_ptr<fs::LocalFileSystem> local_fs_;
+  std::shared_ptr<fs::FileSystem> fs_;
+  std::unique_ptr<TemporaryDir> temp_dir_;
+  std::shared_ptr<FileFormat> format_;
 };
 
 template <typename Gen>
