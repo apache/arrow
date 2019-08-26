@@ -77,7 +77,7 @@ reference:
   - dictionary
   - field
   - read_schema
-    - TimeUnit
+  - data-type
 - title: R6 classes
   contents:
   - arrow__Array

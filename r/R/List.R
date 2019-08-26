@@ -25,6 +25,6 @@
   )
 )
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 list_of <- function(type) shared_ptr(`arrow::ListType`, list__(type))

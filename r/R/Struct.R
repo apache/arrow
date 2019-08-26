@@ -25,7 +25,7 @@
   )
 )
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 struct <- function(...){
   xp <- struct_(.fields(list(...)))

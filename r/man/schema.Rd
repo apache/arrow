@@ -2,16 +2,19 @@
 % Please edit documentation in R/Schema.R
 \name{schema}
 \alias{schema}
-\title{Schema factory}
+\title{Create a schema}
 \usage{
 schema(...)
 }
 \arguments{
-\item{...}{named list of data types}
+\item{...}{named list of \link[=data-type]{data types}}
 }
 \value{
-a \link[=arrow__Schema]{schema}
+A \link[=arrow__Schema]{schema} object.
 }
 \description{
-Schema factory
+This function lets you define a schema for a table. This is useful when you
+want to convert an R \code{data.frame} to Arrow but don't want to rely on the
+default mapping of R types to Arrow types, such as when you want to choose a
+specific numeric precision.
 }

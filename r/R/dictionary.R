@@ -40,14 +40,14 @@
   )
 )
 
-#' dictionary type factory
+#' Create a dictionary type
 #'
 #' @param index_type index type, e.g. [int32()]
 #' @param value_type value type, probably [utf8()]
 #' @param ordered Is this an ordered dictionary ?
 #'
-#' @return a [arrow::DictionaryType][arrow__DictionaryType]
-#'
+#' @return An [arrow::DictionaryType][arrow__DictionaryType]
+#' @seealso [Other Arrow data types][data-type]
 #' @export
 dictionary <- function(index_type, value_type, ordered = FALSE) {
   assert_that(
