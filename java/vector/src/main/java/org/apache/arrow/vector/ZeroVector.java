@@ -46,7 +46,7 @@ public final class ZeroVector extends NullVector {
 
   @Override
   public boolean isNull(int index) {
-    return false;
+    throw new IndexOutOfBoundsException();
   }
 
   @Override
