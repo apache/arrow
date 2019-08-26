@@ -48,6 +48,7 @@ Suggests:
 Collate:
     'enums.R'
     'arrow-package.R'
+    'type.R'
     'ArrayData.R'
     'ChunkedArray.R'
     'Column.R'
@@ -77,5 +78,4 @@ Collate:
     'read_table.R'
     'reexports-bit64.R'
     'reexports-tidyselect.R'
-    'type.R'
     'write_arrow.R'

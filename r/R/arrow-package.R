@@ -62,3 +62,11 @@ option_use_threads <- function() {
     }
   )
 )
+
+shared_ptr <- function(class, xp) {
+  if (!shared_ptr_is_null(xp)) class$new(xp)
+}
+
+unique_ptr <- function(class, xp) {
+  if (!unique_ptr_is_null(xp)) class$new(xp)
+}

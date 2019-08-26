@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include type.R
 
 `arrow::StructType` <- R6Class("arrow::StructType",
   inherit = `arrow::NestedType`,

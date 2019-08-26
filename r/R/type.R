@@ -15,13 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-shared_ptr <- function(class, xp) {
-  if (!shared_ptr_is_null(xp)) class$new(xp)
-}
-
-unique_ptr <- function(class, xp) {
-  if (!unique_ptr_is_null(xp)) class$new(xp)
-}
+#' @include arrow-package.R
 
 #' @export
 `!=.arrow::Object` <- function(lhs, rhs){
