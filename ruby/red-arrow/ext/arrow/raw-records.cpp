@@ -21,21 +21,12 @@
 
 namespace red_arrow {
   namespace {
-    class RawRecordsBuilder : public arrow::ArrayVisitor {
+    class RawRecordsBuilder : private Converter, public arrow::ArrayVisitor {
     public:
       explicit RawRecordsBuilder(VALUE records, int n_columns)
-        : array_value_converter_(),
-          list_array_value_converter_(&array_value_converter_),
-          struct_array_value_converter_(&array_value_converter_),
-          union_array_value_converter_(&array_value_converter_),
-          dictionary_array_value_converter_(&array_value_converter_),
+        : Converter(),
           records_(records),
           n_columns_(n_columns) {
-        array_value_converter_.
-          set_sub_value_converters(&list_array_value_converter_,
-                                   &struct_array_value_converter_,
-                                   &union_array_value_converter_,
-                                   &dictionary_array_value_converter_);
       }
 
       void build(const arrow::RecordBatch& record_batch) {
@@ -119,12 +110,6 @@ namespace red_arrow {
 
     private:
       template <typename ArrayType>
-      inline VALUE convert_value(const ArrayType& array,
-                                 const int64_t i) {
-        return array_value_converter_.convert(array, i);
-      }
-
-      template <typename ArrayType>
       void convert(const ArrayType& array) {
         const auto n = array.length();
         if (array.null_count() > 0) {
@@ -143,12 +128,6 @@ namespace red_arrow {
           }
         }
       }
-
-      ArrayValueConverter array_value_converter_;
-      ListArrayValueConverter list_array_value_converter_;
-      StructArrayValueConverter struct_array_value_converter_;
-      UnionArrayValueConverter union_array_value_converter_;
-      DictionaryArrayValueConverter dictionary_array_value_converter_;
 
       // Destination for converted records.
       VALUE records_;

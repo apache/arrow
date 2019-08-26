@@ -21,21 +21,12 @@
 
 namespace red_arrow {
   namespace {
-    class ValuesBuilder : public arrow::ArrayVisitor {
+    class ValuesBuilder : private Converter, public arrow::ArrayVisitor {
     public:
       explicit ValuesBuilder(VALUE values)
-        : array_value_converter_(),
-          list_array_value_converter_(&array_value_converter_),
-          struct_array_value_converter_(&array_value_converter_),
-          union_array_value_converter_(&array_value_converter_),
-          dictionary_array_value_converter_(&array_value_converter_),
+        : Converter(),
           values_(values),
           row_offset_(0) {
-        array_value_converter_.
-          set_sub_value_converters(&list_array_value_converter_,
-                                   &struct_array_value_converter_,
-                                   &union_array_value_converter_,
-                                   &dictionary_array_value_converter_);
       }
 
       void build(const arrow::Array& array, VALUE rb_array) {
@@ -46,7 +37,8 @@ namespace red_arrow {
         });
       }
 
-      void build(const arrow::ChunkedArray& chunked_array, VALUE rb_chunked_array) {
+      void build(const arrow::ChunkedArray& chunked_array,
+                 VALUE rb_chunked_array) {
         rb::protect([&] {
           for (const auto& array : chunked_array.chunks()) {
             check_status(array->Accept(this),
@@ -99,12 +91,6 @@ namespace red_arrow {
 
     private:
       template <typename ArrayType>
-      inline VALUE convert_value(const ArrayType& array,
-                                 const int64_t i) {
-        return array_value_converter_.convert(array, i);
-      }
-
-      template <typename ArrayType>
       void convert(const ArrayType& array) {
         const auto n = array.length();
         if (array.null_count() > 0) {
@@ -122,13 +108,7 @@ namespace red_arrow {
         }
       }
 
-      ArrayValueConverter array_value_converter_;
-      ListArrayValueConverter list_array_value_converter_;
-      StructArrayValueConverter struct_array_value_converter_;
-      UnionArrayValueConverter union_array_value_converter_;
-      DictionaryArrayValueConverter dictionary_array_value_converter_;
-
-      // Destination for converted records.
+      // Destination for converted values.
       VALUE values_;
 
       // The current row offset.

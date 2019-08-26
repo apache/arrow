@@ -595,4 +595,32 @@ namespace red_arrow {
     int64_t index_;
     VALUE result_;
   };
+
+  class Converter {
+  public:
+    explicit Converter()
+      : array_value_converter_(),
+        list_array_value_converter_(&array_value_converter_),
+        struct_array_value_converter_(&array_value_converter_),
+        union_array_value_converter_(&array_value_converter_),
+        dictionary_array_value_converter_(&array_value_converter_) {
+      array_value_converter_.
+        set_sub_value_converters(&list_array_value_converter_,
+                                 &struct_array_value_converter_,
+                                 &union_array_value_converter_,
+                                 &dictionary_array_value_converter_);
+    }
+
+    template <typename ArrayType>
+    inline VALUE convert_value(const ArrayType& array,
+                               const int64_t i) {
+      return array_value_converter_.convert(array, i);
+    }
+
+    ArrayValueConverter array_value_converter_;
+    ListArrayValueConverter list_array_value_converter_;
+    StructArrayValueConverter struct_array_value_converter_;
+    UnionArrayValueConverter union_array_value_converter_;
+    DictionaryArrayValueConverter dictionary_array_value_converter_;
+  };
 }
