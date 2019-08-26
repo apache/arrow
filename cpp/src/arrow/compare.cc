@@ -1010,26 +1010,29 @@ bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_
 
 namespace {
 
-bool StridedIntegerTensorContentEquals(int dim_index, int64_t left_offset,
+bool StridedIntegerTensorContentEquals(const int dim_index, int64_t left_offset,
                                        int64_t right_offset, int elem_size,
                                        const Tensor& left, const Tensor& right) {
+  const auto n = left.shape()[dim_index];
+  const auto left_stride = left.strides()[dim_index];
+  const auto right_stride = right.strides()[dim_index];
   if (dim_index == left.ndim() - 1) {
-    for (int64_t i = 0; i < left.shape()[dim_index]; ++i) {
-      if (memcmp(left.raw_data() + left_offset + i * left.strides()[dim_index],
-                 right.raw_data() + right_offset + i * right.strides()[dim_index],
+    for (int64_t i = 0; i < n; ++i) {
+      if (memcmp(left.raw_data() + left_offset + i * left_stride,
+                 right.raw_data() + right_offset + i * right_stride,
                  elem_size) != 0) {
         return false;
       }
     }
     return true;
   }
-  for (int64_t i = 0; i < left.shape()[dim_index]; ++i) {
+  for (int64_t i = 0; i < n; ++i) {
     if (!StridedIntegerTensorContentEquals(dim_index + 1, left_offset, right_offset,
                                            elem_size, left, right)) {
       return false;
     }
-    left_offset += left.strides()[dim_index];
-    right_offset += right.strides()[dim_index];
+    left_offset += left_stride;
+    right_offset += right_stride;
   }
   return true;
 }
@@ -1066,16 +1069,16 @@ bool IntegerTensorEquals(const Tensor& left, const Tensor& right) {
 }
 
 template <typename DataType>
-bool StridedFloatTensorContentEquals(int dim_index, int64_t left_offset,
+bool StridedFloatTensorContentEquals(const int dim_index, int64_t left_offset,
                                      int64_t right_offset, const Tensor& left,
                                      const Tensor& right) {
   using c_type = typename DataType::c_type;
-  const int64_t n = left.shape()[dim_index];
+  const auto n = left.shape()[dim_index];
+  const auto left_stride = left.strides()[dim_index];
+  const auto right_stride = right.strides()[dim_index];
   if (dim_index == left.ndim() - 1) {
     auto left_data = left.raw_data();
     auto right_data = right.raw_data();
-    auto left_stride = left.strides()[dim_index];
-    auto right_stride = right.strides()[dim_index];
     for (int64_t i = 0; i < n; ++i) {
       c_type left_value =
           *reinterpret_cast<const c_type*>(left_data + left_offset + i * left_stride);
@@ -1093,8 +1096,8 @@ bool StridedFloatTensorContentEquals(int dim_index, int64_t left_offset,
                                                    right_offset, left, right)) {
       return false;
     }
-    left_offset += left.strides()[dim_index];
-    right_offset += right.strides()[dim_index];
+    left_offset += left_stride;
+    right_offset += right_stride;
   }
   return true;
 }
