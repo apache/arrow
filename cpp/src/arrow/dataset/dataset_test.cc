@@ -17,6 +17,7 @@
 
 #include "arrow/dataset/dataset.h"
 
+#include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/testing/generator.h"
 
@@ -85,6 +86,29 @@ TEST_F(TestDataset, TrivialScan) {
   ASSERT_OK(Dataset::Make(sources, s, &dataset));
 
   AssertDatasetEquals(reader.get(), dataset.get());
+}
+
+TEST(TestProjector, AugmentWithNull) {
+  constexpr int64_t kBatchSize = 1024;
+
+  auto from_schema = schema({field("f64", float64())});
+
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, from_schema);
+
+  auto to_schema = schema({field("i32", int32()), field("f64", float64())});
+
+  RecordBatchProjector projector(default_memory_pool(), from_schema, to_schema);
+  ASSERT_OK(projector.Init());
+
+  std::shared_ptr<Array> null_i32;
+  ASSERT_OK(MakeArrayOfNull(int32(), batch->num_rows(), &null_i32));
+  auto expected_batch =
+      RecordBatch::Make(to_schema, batch->num_rows(), {null_i32, batch->column(0)});
+
+  std::shared_ptr<RecordBatch> reconciled_batch;
+  ASSERT_OK(projector.Project(*batch, &reconciled_batch));
+
+  AssertBatchesEqual(*expected_batch, *reconciled_batch);
 }
 
 }  // namespace dataset

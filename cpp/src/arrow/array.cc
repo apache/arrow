@@ -1582,13 +1582,13 @@ class NullArrayFactory {
     int64_t length_, buffer_length_;
   };
 
-  NullArrayFactory(const std::shared_ptr<DataType>& type, int64_t length,
-                   std::shared_ptr<ArrayData>* out)
-      : type_(type), length_(length), out_(out) {}
+  NullArrayFactory(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                   int64_t length, std::shared_ptr<ArrayData>* out)
+      : pool_(pool), type_(type), length_(length), out_(out) {}
 
   Status CreateBuffer() {
     int64_t buffer_length = GetBufferLength(type_, length_);
-    RETURN_NOT_OK(AllocateBuffer(buffer_length, &buffer_));
+    RETURN_NOT_OK(AllocateBuffer(pool_, buffer_length, &buffer_));
     std::memset(buffer_->mutable_data(), 0, buffer_->size());
     return Status::OK();
   }
@@ -1654,12 +1654,13 @@ class NullArrayFactory {
   }
 
   Status CreateChild(int i, int64_t length, std::shared_ptr<ArrayData>* out) {
-    NullArrayFactory child_factory(type_->child(i)->type(), length,
+    NullArrayFactory child_factory(pool_, type_->child(i)->type(), length,
                                    &(*out_)->child_data[i]);
     child_factory.buffer_ = buffer_;
     return child_factory.Create();
   }
 
+  MemoryPool* pool_;
   std::shared_ptr<DataType> type_;
   int64_t length_;
   std::shared_ptr<ArrayData>* out_;
@@ -1668,12 +1669,17 @@ class NullArrayFactory {
 
 }  // namespace internal
 
-Status MakeArrayOfNull(const std::shared_ptr<DataType>& type, int64_t length,
-                       std::shared_ptr<Array>* out) {
+Status MakeArrayOfNull(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                       int64_t length, std::shared_ptr<Array>* out) {
   std::shared_ptr<ArrayData> out_data;
-  RETURN_NOT_OK(internal::NullArrayFactory(type, length, &out_data).Create());
+  RETURN_NOT_OK(internal::NullArrayFactory(pool, type, length, &out_data).Create());
   *out = MakeArray(out_data);
   return Status::OK();
+}
+
+Status MakeArrayOfNull(const std::shared_ptr<DataType>& type, int64_t length,
+                       std::shared_ptr<Array>* out) {
+  return MakeArrayOfNull(default_memory_pool(), type, length, out);
 }
 
 namespace internal {

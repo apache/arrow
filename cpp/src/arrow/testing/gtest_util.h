@@ -38,6 +38,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/stl.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

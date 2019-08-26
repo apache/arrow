@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_ARRAY_H
-#define ARROW_ARRAY_H
+#pragma once
 
 #include <cstdint>
 #include <iosfwd>
@@ -228,6 +227,15 @@ std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data);
 ARROW_EXPORT
 Status MakeArrayOfNull(const std::shared_ptr<DataType>& type, int64_t length,
                        std::shared_ptr<Array>* out);
+
+/// \brief Create a strongly-typed Array instance with all elements null
+/// \param[in] pool the pool from which memory for this array will be allocated
+/// \param[in] type the array type
+/// \param[in] length the array length
+/// \param[out] out resulting Array instance
+ARROW_EXPORT
+Status MakeArrayOfNull(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                       int64_t length, std::shared_ptr<Array>* out);
 
 // ----------------------------------------------------------------------
 // User array accessor types
@@ -1246,5 +1254,3 @@ ARROW_EXPORT
 Status ValidateArray(const Array& array);
 
 }  // namespace arrow
-
-#endif  // ARROW_ARRAY_H
