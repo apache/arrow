@@ -21,9 +21,9 @@
 
 namespace red_arrow {
   namespace {
-    class RawValuesBuilder : public arrow::ArrayVisitor {
+    class ValuesBuilder : public arrow::ArrayVisitor {
     public:
-      explicit RawValuesBuilder(VALUE values)
+      explicit ValuesBuilder(VALUE values)
         : array_value_converter_(),
           list_array_value_converter_(&array_value_converter_),
           struct_array_value_converter_(&array_value_converter_),
@@ -41,7 +41,7 @@ namespace red_arrow {
       void build(const arrow::Array& array, VALUE rb_array) {
         rb::protect([&] {
           check_status(array.Accept(this),
-                       "[array][raw-values]");
+                       "[array][values]");
           return Qnil;
         });
       }
@@ -50,7 +50,7 @@ namespace red_arrow {
         rb::protect([&] {
           for (const auto& array : chunked_array.chunks()) {
             check_status(array->Accept(this),
-                         "[chunked-array][raw-values]");
+                         "[chunked-array][values]");
             row_offset_ += array->length();
           }
           return Qnil;
@@ -144,7 +144,7 @@ namespace red_arrow {
     auto values = rb_ary_new_capa(n_rows);
 
     try {
-      RawValuesBuilder builder(values);
+      ValuesBuilder builder(values);
       builder.build(*array, rb_array);
     } catch (rb::State& state) {
       state.jump();
@@ -163,7 +163,7 @@ namespace red_arrow {
     auto values = rb_ary_new_capa(n_rows);
 
     try {
-      RawValuesBuilder builder(values);
+      ValuesBuilder builder(values);
       builder.build(*chunked_array, rb_chunked_array);
     } catch (rb::State& state) {
       state.jump();
