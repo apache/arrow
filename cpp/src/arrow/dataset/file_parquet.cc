@@ -128,7 +128,7 @@ class ParquetScanTaskIterator {
   }
 
   Status Next(ScanTaskPtr* task) {
-    auto partition = partitionner_.Next();
+    auto partition = partitioner_.Next();
 
     // Iteration is done.
     if (partition.size() == 0) {
@@ -155,11 +155,11 @@ class ParquetScanTaskIterator {
                           std::shared_ptr<parquet::FileMetaData> metadata,
                           std::unique_ptr<parquet::arrow::FileReader> reader)
       : columns_projection_(columns_projection),
-        partitionner_(std::move(metadata)),
+        partitioner_(std::move(metadata)),
         reader_(std::move(reader)) {}
 
   std::vector<int> columns_projection_;
-  ParquetRowGroupPartitioner partitionner_;
+  ParquetRowGroupPartitioner partitioner_;
   std::shared_ptr<parquet::arrow::FileReader> reader_;
 };
 
