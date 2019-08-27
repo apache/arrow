@@ -34,12 +34,6 @@ struct ARROW_DS_EXPORT ScanContext {
   MemoryPool* pool = arrow::default_memory_pool();
 };
 
-// TODO(wesm): API for handling of post-materialization filters. For
-// example, if the user requests [$col1 > 0, $col2 > 0] and $col1 is a
-// partition key, but $col2 is not, then the filter "$col2 > 0" must
-// be evaluated in-memory against the RecordBatch objects resulting
-// from the Scan
-
 class ARROW_DS_EXPORT ScanOptions {
  public:
   virtual ~ScanOptions() = default;

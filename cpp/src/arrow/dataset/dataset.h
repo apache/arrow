@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/dataset/filter.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/util/iterator.h"
@@ -79,9 +80,19 @@ class ARROW_DS_EXPORT DataSource {
   /// controls filtering and schema inference.
   virtual DataFragmentIterator GetFragments(std::shared_ptr<ScanOptions> options) = 0;
 
+  /// \brief An expression which evaluates to true for all data viewed by this DataSource.
+  /// May be null, which indicates no information is available.
+  const std::shared_ptr<Expression>& condition() const { return condition_; }
+
   virtual std::string type() const = 0;
 
   virtual ~DataSource() = default;
+
+ protected:
+  DataSource() = default;
+  explicit DataSource(std::shared_ptr<Expression> c) : condition_(std::move(c)) {}
+
+  std::shared_ptr<Expression> condition_;
 };
 
 /// \brief A DataSource consisting of a flat sequence of DataFragments
@@ -107,13 +118,12 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   /// WARNING, this constructor is not recommend, use Dataset::Make instead.
   /// \param[in] sources one or more input data sources
   /// \param[in] schema a known schema to conform to, may be nullptr
-  explicit Dataset(const std::vector<std::shared_ptr<DataSource>>& sources,
-                   const std::shared_ptr<Schema>& schema)
-      : schema_(schema), sources_(sources) {}
+  explicit Dataset(std::vector<std::shared_ptr<DataSource>> sources,
+                   std::shared_ptr<Schema> schema)
+      : schema_(std::move(schema)), sources_(std::move(sources)) {}
 
-  static Status Make(const std::vector<std::shared_ptr<DataSource>>& sources,
-                     const std::shared_ptr<Schema>& schema,
-                     std::shared_ptr<Dataset>* out);
+  static Status Make(std::vector<std::shared_ptr<DataSource>> sourcs,
+                     std::shared_ptr<Schema> schema, std::shared_ptr<Dataset>* out);
 
   /// \brief Begin to build a new Scan operation against this Dataset
   Status NewScan(std::unique_ptr<ScannerBuilder>* out);

@@ -46,11 +46,10 @@ Status SimpleDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
   return Status::OK();
 }
 
-Status Dataset::Make(const std::vector<std::shared_ptr<DataSource>>& sources,
-                     const std::shared_ptr<Schema>& schema,
-                     std::shared_ptr<Dataset>* out) {
+Status Dataset::Make(std::vector<std::shared_ptr<DataSource>> sources,
+                     std::shared_ptr<Schema> schema, std::shared_ptr<Dataset>* out) {
   // TODO: Ensure schema and sources align.
-  *out = std::make_shared<Dataset>(sources, schema);
+  *out = std::make_shared<Dataset>(std::move(sources), std::move(schema));
 
   return Status::OK();
 }
