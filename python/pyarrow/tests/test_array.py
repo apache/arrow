@@ -1667,6 +1667,45 @@ def test_array_from_large_pyints():
         pa.array([int(2 ** 63)])
 
 
+def test_array_protocol():
+
+    class MyArray:
+        def __init__(self, data):
+            self.data = data
+
+        def __arrow_array__(self, type=None):
+            return pa.array(self.data, type=type)
+
+    arr = MyArray(np.array([1, 2, 3], dtype='int64'))
+    result = pa.array(arr)
+    expected = pa.array([1, 2, 3], type=pa.int64())
+    assert result.equals(expected)
+    result = pa.array(arr, type=pa.int64())
+    expected = pa.array([1, 2, 3], type=pa.int64())
+    assert result.equals(expected)
+    result = pa.array(arr, type=pa.float64())
+    expected = pa.array([1, 2, 3], type=pa.float64())
+    assert result.equals(expected)
+
+    # raise error when passing size or mask keywords
+    with pytest.raises(ValueError):
+        pa.array(arr, mask=np.array([True, False, True]))
+    with pytest.raises(ValueError):
+        pa.array(arr, size=3)
+
+    # ensure the return value is an Array
+    class MyArrayInvalid:
+        def __init__(self, data):
+            self.data = data
+
+        def __arrow_array__(self, type=None):
+            return np.array(self.data)
+
+    arr = MyArrayInvalid(np.array([1, 2, 3], dtype='int64'))
+    with pytest.raises(TypeError):
+        pa.array(arr)
+
+
 def test_concat_array():
     concatenated = pa.concat_arrays(
         [pa.array([1, 2]), pa.array([3, 4])])
