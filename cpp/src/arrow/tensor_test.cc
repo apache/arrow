@@ -247,31 +247,50 @@ TEST(TestTensor, EqualsInt64) {
   EXPECT_FALSE(tf3.Equals(tnc));
 }
 
-TEST(TestTensor, EqualsFloat64) {
+template <typename DataType>
+class TestFloatTensor : public ::testing::Test {};
+
+TYPED_TEST_CASE_P(TestFloatTensor);
+
+TYPED_TEST_P(TestFloatTensor, Equals) {
+  using DataType = TypeParam;
+  using c_data_type = typename DataType::c_type;
+  const int unit_size = sizeof(c_data_type);
+
   std::vector<int64_t> shape = {4, 4};
 
-  std::vector<double> c_values = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-  std::vector<int64_t> c_strides = {32, 8};
-  Tensor tc1(float64(), Buffer::Wrap(c_values), shape, c_strides);
+  std::vector<c_data_type> c_values = {1, 2,  3,  4,  5,  6,  7,  8,
+                                       9, 10, 11, 12, 13, 14, 15, 16};
+  std::vector<int64_t> c_strides = {unit_size * shape[1], unit_size};
+  Tensor tc1(TypeTraits<DataType>::type_singleton(), Buffer::Wrap(c_values), shape,
+             c_strides);
 
-  std::vector<double> c_values_2 = c_values;
-  Tensor tc2(float64(), Buffer::Wrap(c_values_2), shape, c_strides);
+  std::vector<c_data_type> c_values_2 = c_values;
+  Tensor tc2(TypeTraits<DataType>::type_singleton(), Buffer::Wrap(c_values_2), shape,
+             c_strides);
 
-  std::vector<double> f_values = {1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15, 4, 8, 12, 16};
-  Tensor tc3(float64(), Buffer::Wrap(f_values), shape, c_strides);
+  std::vector<c_data_type> f_values = {1, 5, 9,  13, 2, 6, 10, 14,
+                                       3, 7, 11, 15, 4, 8, 12, 16};
+  Tensor tc3(TypeTraits<DataType>::type_singleton(), Buffer::Wrap(f_values), shape,
+             c_strides);
 
-  std::vector<int64_t> f_strides = {8, 32};
-  Tensor tf1(float64(), Buffer::Wrap(f_values), shape, f_strides);
+  std::vector<int64_t> f_strides = {unit_size, unit_size * shape[0]};
+  Tensor tf1(TypeTraits<DataType>::type_singleton(), Buffer::Wrap(f_values), shape,
+             f_strides);
 
-  std::vector<double> f_values_2 = f_values;
-  Tensor tf2(float64(), Buffer::Wrap(f_values_2), shape, f_strides);
+  std::vector<c_data_type> f_values_2 = f_values;
+  Tensor tf2(TypeTraits<DataType>::type_singleton(), Buffer::Wrap(f_values_2), shape,
+             f_strides);
 
-  Tensor tf3(float64(), Buffer::Wrap(c_values), shape, f_strides);
+  Tensor tf3(TypeTraits<DataType>::type_singleton(), Buffer::Wrap(c_values), shape,
+             f_strides);
 
-  std::vector<double> nc_values = {1, 0, 5, 0, 9,  0, 13, 0, 2, 0, 6, 0, 10, 0, 14, 0,
-                                   3, 0, 7, 0, 11, 0, 15, 0, 4, 0, 8, 0, 12, 0, 16, 0};
-  std::vector<int64_t> nc_strides = {16, 64};
-  Tensor tnc(float64(), Buffer::Wrap(nc_values), shape, nc_strides);
+  std::vector<c_data_type> nc_values = {1,  0,  5, 0,  9, 0, 13, 0, 2,  0,  6,
+                                        0,  10, 0, 14, 0, 3, 0,  7, 0,  11, 0,
+                                        15, 0,  4, 0,  8, 0, 12, 0, 16, 0};
+  std::vector<int64_t> nc_strides = {unit_size * 2, unit_size * 2 * shape[0]};
+  Tensor tnc(TypeTraits<DataType>::type_singleton(), Buffer::Wrap(nc_values), shape,
+             nc_strides);
 
   ASSERT_TRUE(tc1.is_contiguous());
   ASSERT_TRUE(tc1.is_row_major());
@@ -304,16 +323,22 @@ TEST(TestTensor, EqualsFloat64) {
   EXPECT_FALSE(tf3.Equals(tnc));
 
   // tensors with NaNs
-  c_values[0] = NAN;
-  EXPECT_TRUE(std::isnan(tc1.Value<DoubleType>({0, 0})));
+  const c_data_type nan_value = static_cast<c_data_type>(NAN);
+  c_values[0] = nan_value;
+  EXPECT_TRUE(std::isnan(tc1.Value<DataType>({0, 0})));
   EXPECT_FALSE(tc1.Equals(tc1));                            // same object
-  EXPECT_FALSE(std::isnan(tc2.Value<DoubleType>({0, 0})));  // check the different memory
+  EXPECT_FALSE(std::isnan(tc2.Value<DataType>({0, 0})));  // check the different memory
   EXPECT_FALSE(tc1.Equals(tc2));
 
-  c_values_2[0] = NAN;
-  EXPECT_TRUE(std::isnan(tc2.Value<DoubleType>({0, 0})));
+  c_values_2[0] = nan_value;
+  EXPECT_TRUE(std::isnan(tc2.Value<DataType>({0, 0})));
   EXPECT_FALSE(tc1.Equals(tc2));  // different memory
 }
+
+REGISTER_TYPED_TEST_CASE_P(TestFloatTensor, Equals);
+
+INSTANTIATE_TYPED_TEST_CASE_P(Float32, TestFloatTensor, FloatType);
+INSTANTIATE_TYPED_TEST_CASE_P(Float64, TestFloatTensor, DoubleType);
 
 TEST(TestNumericTensor, ElementAccessWithRowMajorStrides) {
   std::vector<int64_t> shape = {3, 4};
