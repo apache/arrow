@@ -267,20 +267,28 @@ type.default <- function(x) {
 #' * Called from `schema()` or `struct()`, `double()` also is supported as a
 #' way of creating a `float64()`
 #'
-#' @param unit For date/time types, the time unit (day, second, millisecond, etc.)
-#' @param timezone For `timestamp()`, an optional time zone.
+#' `date32()` creates a datetime type with a "day" unit, like the R `Date`
+#' class. `date64()` has a "ms" unit.
+#'
+#' @param unit For time/timestamp types, the time unit. `time32()` can take
+#' either "s" or "ms", while `time64()` can be "us" or "ns". `timestamp()` can
+#' take any of those four values.
+#' @param timezone For `timestamp()`, an optional time zone string.
 #' @param precision For `decimal()`, precision
 #' @param scale For `decimal()`, scale
 #' @param type For `list_of()`, a data type to make a list-of-type
 #' @param ... For `struct()`, a named list of types to define the struct columns
 #'
 #' @name data-type
+#' @return An Arrow type object inheriting from `arrow::DataType`.
 #' @export
 #' @seealso [dictionary()] for creating a dictionary (factor-like) type.
 #' @examples
 #' \donttest{
 #' bool()
 #' struct(a = int32(), b = double())
+#' timestamp("ms", timezone = "CEST")
+#' time64("ns")
 #' }
 int8 <- function() shared_ptr(`arrow::Int8`, Int8__initialize())
 
@@ -358,11 +366,64 @@ date64 <- function() shared_ptr(`arrow::Date64`, Date64__initialize())
 
 #' @rdname data-type
 #' @export
-time32 <- function(unit) shared_ptr(`arrow::Time32`, Time32__initialize(unit))
+time32 <- function(unit = c("ms", "s")) {
+  if (is.character(unit)) {
+    unit <- match.arg(unit)
+  }
+  unit <- make_valid_time_unit(unit, valid_time32_units)
+  shared_ptr(`arrow::Time32`, Time32__initialize(unit))
+}
+
+valid_time32_units <- c(
+  "ms" = TimeUnit$MILLI,
+  "s" = TimeUnit$SECOND
+)
+
+valid_time64_units <- c(
+  "ns" = TimeUnit$NANO,
+  "us" = TimeUnit$MICRO
+)
+
+make_valid_time_unit <- function(unit, valid_units) {
+  if (is.character(unit)) {
+    unit <- valid_units[match.arg(unit, choices = names(valid_units))]
+  }
+  if (is.numeric(unit)) {
+    # Allow non-integer input for convenience
+    unit <- as.integer(unit)
+  } else {
+    stop('"unit" should be one of ', oxford_paste(names(valid_units), "or"), call.=FALSE)
+  }
+  if (!(unit %in% valid_units)) {
+    stop('"unit" should be one of ', oxford_paste(valid_units, "or"), call.=FALSE)
+  }
+  unit
+}
+
+oxford_paste <- function(x, conjunction = "and") {
+  if (is.character(x)) {
+    x <- paste0('"', x, '"')
+  }
+  if (length(x) < 2) {
+    return(x)
+  }
+  x[length(x)] <- paste(conjunction, x[length(x)])
+  if (length(x) > 2) {
+    return(paste(x, collapse = ", "))
+  } else {
+    return(paste(x, collapse = " "))
+  }
+}
 
 #' @rdname data-type
 #' @export
-time64 <- function(unit) shared_ptr(`arrow::Time64`, Time64__initialize(unit))
+time64 <- function(unit = c("ns", "us")) {
+  if (is.character(unit)) {
+    unit <- match.arg(unit)
+  }
+  unit <- make_valid_time_unit(unit, valid_time64_units)
+  shared_ptr(`arrow::Time64`, Time64__initialize(unit))
+}
 
 #' @rdname data-type
 #' @export
@@ -370,10 +431,15 @@ null <- function() shared_ptr(`arrow::Null`, Null__initialize())
 
 #' @rdname data-type
 #' @export
-timestamp <- function(unit, timezone) {
+timestamp <- function(unit = c("s", "ms", "us", "ns"), timezone) {
+  if (is.character(unit)) {
+    unit <- match.arg(unit)
+  }
+  unit <- make_valid_time_unit(unit, c(valid_time64_units, valid_time32_units))
   if (missing(timezone)) {
     shared_ptr(`arrow::Timestamp`, Timestamp__initialize1(unit))
   } else {
+    assert_that(is.character(timezone), length(timezone) == 1)
     shared_ptr(`arrow::Timestamp`, Timestamp__initialize2(unit, timezone))
   }
 }
