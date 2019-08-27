@@ -51,3 +51,10 @@ test_that("reading schema from Buffer", {
   expect_is(message, "arrow::ipc::Message")
   expect_equal(message$type, MessageType$SCHEMA)
 })
+
+test_that("Input validation when creating a table with a schema", {
+  # TODO (npr): consider using table_from_dots once ARROW-5505 lands, and also
+  # allowing a list of types as a schema here
+  expect_error(Table__from_dots(list(b = 1), schema = c(b = float64())),
+    "schema must be an arrow::Schema or NULL")
+})
