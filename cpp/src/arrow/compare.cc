@@ -1126,7 +1126,7 @@ bool FloatTensorEquals(const Tensor& left, const Tensor& right,
 bool TensorEquals(const Tensor& left, const Tensor& right, const EqualOptions& opts) {
   if (left.type_id() != right.type_id()) {
     return false;
-  } else if (left.size() == 0) {
+  } else if (left.size() == 0 && right.size() == 0) {
     return true;
   } else if (left.shape() != right.shape()) {
     return false;

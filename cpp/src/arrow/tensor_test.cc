@@ -245,6 +245,15 @@ TEST(TestTensor, EqualsInt64) {
   // column-major and non-contiguous
   EXPECT_TRUE(tf1.Equals(tnc));
   EXPECT_FALSE(tf3.Equals(tnc));
+
+  // zero-size tensor
+  std::shared_ptr<Buffer> empty_buffer1, empty_buffer2;
+  ASSERT_OK(AllocateBuffer(0, &empty_buffer1));
+  ASSERT_OK(AllocateBuffer(0, &empty_buffer2));
+  Tensor empty1(int64(), empty_buffer1, {0});
+  Tensor empty2(int64(), empty_buffer2, {0});
+  EXPECT_FALSE(empty1.Equals(tc1));
+  EXPECT_TRUE(empty1.Equals(empty2));
 }
 
 template <typename DataType>
