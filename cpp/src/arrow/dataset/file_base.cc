@@ -45,20 +45,18 @@ Status FileBasedDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
   return format_->ScanFile(source_, scan_options_, scan_context, out);
 }
 
-FileSystemBasedDataSource::FileSystemBasedDataSource(
-    fs::FileSystem* filesystem, const fs::Selector& selector,
-    std::shared_ptr<FileFormat> format, std::shared_ptr<ScanOptions> scan_options,
-    std::vector<fs::FileStats> stats)
+FileSystemBasedDataSource::FileSystemBasedDataSource(fs::FileSystem* filesystem,
+                                                     const fs::Selector& selector,
+                                                     std::shared_ptr<FileFormat> format,
+                                                     std::vector<fs::FileStats> stats)
     : filesystem_(filesystem),
       selector_(std::move(selector)),
       format_(std::move(format)),
-      scan_options_(std::move(scan_options)),
       stats_(std::move(stats)) {}
 
 Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
                                        const fs::Selector& selector,
                                        std::shared_ptr<FileFormat> format,
-                                       std::shared_ptr<ScanOptions> scan_options,
                                        std::unique_ptr<FileSystemBasedDataSource>* out) {
   std::vector<fs::FileStats> stats;
   RETURN_NOT_OK(filesystem->GetTargetStats(selector, &stats));
@@ -71,7 +69,7 @@ Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
   stats.resize(new_end - stats.begin());
 
   out->reset(new FileSystemBasedDataSource(filesystem, selector, std::move(format),
-                                           std::move(scan_options), std::move(stats)));
+                                           std::move(stats)));
   return Status::OK();
 }
 

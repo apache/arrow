@@ -163,6 +163,8 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
 
   void SetUp() override {
     format_ = std::make_shared<Format>();
+    schema_ = schema({field("dummy", null())});
+    options_ = std::make_shared<ScanOptions>();
 
     ASSERT_OK(
         TemporaryDir::Make("test-fsdatasource-" + format_->name() + "-", &temp_dir_));
@@ -187,8 +189,7 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
   }
 
   void MakeDataSource() {
-    ASSERT_OK(FileSystemBasedDataSource::Make(fs_.get(), selector_, format_,
-                                              std::make_shared<ScanOptions>(), &source_));
+    ASSERT_OK(FileSystemBasedDataSource::Make(fs_.get(), selector_, format_, &source_));
   }
 
  protected:
@@ -197,8 +198,8 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
     MakeDataSource();
 
     int count = 0;
-    ASSERT_OK(
-        source_->GetFragments({}).Visit([&](std::shared_ptr<DataFragment> fragment) {
+    ASSERT_OK(source_->GetFragments(options_).Visit(
+        [&](std::shared_ptr<DataFragment> fragment) {
           auto file_fragment =
               internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
           ++count;
@@ -218,8 +219,8 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
     MakeDataSource();
 
     int count = 0;
-    ASSERT_OK(
-        source_->GetFragments({}).Visit([&](std::shared_ptr<DataFragment> fragment) {
+    ASSERT_OK(source_->GetFragments(options_).Visit(
+        [&](std::shared_ptr<DataFragment> fragment) {
           auto file_fragment =
               internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
           ++count;
@@ -242,15 +243,16 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
 
     ASSERT_RAISES(
         IOError,
-        source_->GetFragments({}).Visit([&](std::shared_ptr<DataFragment> fragment) {
-          auto file_fragment =
-              internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
-          auto extension =
-              fs::internal::GetAbstractPathExtension(file_fragment->source().path());
-          EXPECT_TRUE(format_->IsKnownExtension(extension));
-          std::shared_ptr<io::RandomAccessFile> f;
-          return this->fs_->OpenInputFile(file_fragment->source().path(), &f);
-        }));
+        source_->GetFragments(options_).Visit(
+            [&](std::shared_ptr<DataFragment> fragment) {
+              auto file_fragment =
+                  internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
+              auto extension =
+                  fs::internal::GetAbstractPathExtension(file_fragment->source().path());
+              EXPECT_TRUE(format_->IsKnownExtension(extension));
+              std::shared_ptr<io::RandomAccessFile> f;
+              return this->fs_->OpenInputFile(file_fragment->source().path(), &f);
+            }));
   }
 
   fs::Selector selector_;
@@ -259,6 +261,8 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
   std::shared_ptr<fs::FileSystem> fs_;
   std::unique_ptr<TemporaryDir> temp_dir_;
   std::shared_ptr<FileFormat> format_;
+  std::shared_ptr<Schema> schema_;
+  std::shared_ptr<ScanOptions> options_;
 };
 
 template <typename Gen>
