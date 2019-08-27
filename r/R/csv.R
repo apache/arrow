@@ -348,21 +348,6 @@ csv_table_reader.default <- function(file,
   convert_options = csv_convert_options(),
   ...
 ){
-  csv_table_reader(fs::path_abs(file),
-    read_options = read_options,
-    parse_options = parse_options,
-    convert_options = convert_options,
-    ...
-  )
-}
-
-#' @export
-`csv_table_reader.fs_path` <- function(file,
-  read_options = csv_read_options(),
-  parse_options = csv_parse_options(),
-  convert_options = csv_convert_options(),
-  ...
-){
   csv_table_reader(mmap_open(file),
     read_options = read_options,
     parse_options = parse_options,

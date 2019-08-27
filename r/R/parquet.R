@@ -85,7 +85,11 @@ parquet_file_reader <- function(file, props = parquet_arrow_reader_properties(),
 }
 
 #' @export
-parquet_file_reader.fs_path <- function(file, props = parquet_arrow_reader_properties(), memory_map = TRUE, ...) {
+parquet_file_reader.character <- function(file,
+                                          props = parquet_arrow_reader_properties(),
+                                          memory_map = TRUE,
+                                          ...) {
+  file <- normalizePath(file)
   if (isTRUE(memory_map)) {
     parquet_file_reader(mmap_open(file), props = props, ...)
   } else {
@@ -94,13 +98,8 @@ parquet_file_reader.fs_path <- function(file, props = parquet_arrow_reader_prope
 }
 
 #' @export
-parquet_file_reader.character <- function(file, props = parquet_arrow_reader_properties(), memory_map = TRUE, ...) {
-  parquet_file_reader(fs::path_abs(file), props = parquet_arrow_reader_properties(), memory_map = memory_map, ...)
-}
-
-#' @export
-parquet_file_reader.raw <- function(file, props = parquet_arrow_reader_properties(), memory_map = TRUE, ...) {
-  parquet_file_reader(BufferReader(file), props = parquet_arrow_reader_properties(), memory_map = memory_map, ...)
+parquet_file_reader.raw <- function(file, props = parquet_arrow_reader_properties(), ...) {
+  parquet_file_reader(BufferReader(file), props = props, ...)
 }
 
 #' Read a Parquet file

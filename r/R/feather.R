@@ -108,13 +108,7 @@ write_feather_RecordBatch <- function(data, stream) {
 
 #' @export
 #' @method write_feather_RecordBatch character
-`write_feather_RecordBatch.character` <- function(data, stream) {
-  `write_feather_RecordBatch.fs_path`(data, fs::path_abs(stream))
-}
-
-#' @export
-#' @method write_feather_RecordBatch fs_path
-`write_feather_RecordBatch.fs_path` <- function(data, stream) {
+write_feather_RecordBatch.character <- function(data, stream) {
   file_stream <- FileOutputStream(stream)
   on.exit(file_stream$close())
   `write_feather_RecordBatch.arrow::io::OutputStream`(data, file_stream)
@@ -129,7 +123,7 @@ write_feather_RecordBatch <- function(data, stream) {
 #' A `arrow::ipc::feather::TableReader` to read from a file
 #'
 #' @param file A file path or `arrow::io::RandomAccessFile`
-#' @param mmap Is the file memory mapped (applicable to the `character` and `fs_path` methods)
+#' @param mmap Is the file memory mapped (applicable to the `character` method)
 #' @param ... extra parameters
 #'
 #' @export
@@ -139,11 +133,6 @@ FeatherTableReader <- function(file, mmap = TRUE, ...){
 
 #' @export
 FeatherTableReader.character <- function(file, mmap = TRUE, ...) {
-  FeatherTableReader(fs::path_abs(file), mmap = mmap, ...)
-}
-
-#' @export
-FeatherTableReader.fs_path <- function(file, mmap = TRUE, ...) {
   if (isTRUE(mmap)) {
     stream <- mmap_open(file, ...)
   } else {

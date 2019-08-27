@@ -94,8 +94,7 @@
 #'
 #' @param sink Where to write. Can either be:
 #'
-#' - A string, meant as a file path, passed to [fs::path_abs()]
-#' - a [file path][fs::path_abs()]
+#' - A string file path
 #' - [arrow::io::OutputStream][arrow__io__OutputStream]
 #'
 #' @param schema The [arrow::Schema][arrow__Schema] for data to be written.
@@ -109,11 +108,6 @@ RecordBatchStreamWriter <- function(sink, schema) {
 
 #' @export
 RecordBatchStreamWriter.character <- function(sink, schema){
-  RecordBatchStreamWriter(fs::path_abs(sink), schema)
-}
-
-#' @export
-RecordBatchStreamWriter.fs_path <- function(sink, schema){
   RecordBatchStreamWriter(FileOutputStream(sink), schema)
 }
 
@@ -160,8 +154,7 @@ RecordBatchStreamWriter.fs_path <- function(sink, schema){
 #'
 #' @param sink Where to write. Can either be:
 #'
-#' - character vector of length one
-#' - a [file path][fs::path_abs()]
+#' - a string file path
 #' - [arrow::io::OutputStream][arrow__io__OutputStream]
 #'
 #' @param schema The [arrow::Schema][arrow__Schema] for data to be written.
@@ -175,11 +168,6 @@ RecordBatchFileWriter <- function(sink, schema) {
 
 #' @export
 RecordBatchFileWriter.character <- function(sink, schema){
-  RecordBatchFileWriter(fs::path_abs(sink), schema)
-}
-
-#' @export
-RecordBatchFileWriter.fs_path <- function(sink, schema){
   RecordBatchFileWriter(FileOutputStream(sink), schema)
 }
 

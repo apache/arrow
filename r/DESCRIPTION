@@ -28,7 +28,6 @@ LinkingTo:
 Imports:
     assertthat,
     bit64,
-    fs,
     purrr,
     R6,
     Rcpp (>= 1.0.1),
@@ -39,6 +38,7 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1
 Suggests:
     covr,
+    fs,
     hms,
     lubridate,
     rmarkdown,

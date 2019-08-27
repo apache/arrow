@@ -9,7 +9,7 @@ FeatherTableReader(file, mmap = TRUE, ...)
 \arguments{
 \item{file}{A file path or \code{arrow::io::RandomAccessFile}}
 
-\item{mmap}{Is the file memory mapped (applicable to the \code{character} and \code{fs_path} methods)}
+\item{mmap}{Is the file memory mapped (applicable to the \code{character} method)}
 
 \item{...}{extra parameters}
 }

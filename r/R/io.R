@@ -253,7 +253,7 @@
 #'
 #' @export
 mmap_create <- function(path, size) {
-  shared_ptr(`arrow::io::MemoryMappedFile`, io___MemoryMappedFile__Create(fs::path_abs(path), size))
+  shared_ptr(`arrow::io::MemoryMappedFile`, io___MemoryMappedFile__Create(normalizePath(path, mustWork = FALSE), size))
 }
 
 #' Open a memory mapped file
@@ -264,7 +264,7 @@ mmap_create <- function(path, size) {
 #' @export
 mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
   mode <- match(match.arg(mode), c("read", "write", "readwrite")) - 1L
-  shared_ptr(`arrow::io::MemoryMappedFile`, io___MemoryMappedFile__Open(fs::path_abs(path), mode))
+  shared_ptr(`arrow::io::MemoryMappedFile`, io___MemoryMappedFile__Open(normalizePath(path), mode))
 }
 
 #' open a [arrow::io::ReadableFile][arrow__io__ReadableFile]
@@ -275,7 +275,7 @@ mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
 #'
 #' @export
 ReadableFile <- function(path) {
-  shared_ptr(`arrow::io::ReadableFile`, io___ReadableFile__Open(fs::path_abs(path)))
+  shared_ptr(`arrow::io::ReadableFile`, io___ReadableFile__Open(normalizePath(path)))
 }
 
 #' Open a [arrow::io::FileOutputStream][arrow__io__FileOutputStream]
@@ -286,7 +286,7 @@ ReadableFile <- function(path) {
 #'
 #' @export
 FileOutputStream <- function(path) {
-  shared_ptr(`arrow::io::FileOutputStream`, io___FileOutputStream__Open(path))
+  shared_ptr(`arrow::io::FileOutputStream`, io___FileOutputStream__Open(normalizePath(path, mustWork = FALSE)))
 }
 
 #' Open a [arrow::io::MockOutputStream][arrow__io__MockOutputStream]

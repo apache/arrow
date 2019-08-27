@@ -124,11 +124,6 @@ RecordBatchFileReader <- function(file) {
 #' @export
 `RecordBatchFileReader.character` <- function(file) {
   assert_that(length(file) == 1L)
-  RecordBatchFileReader(fs::path_abs(file))
-}
-
-#' @export
-`RecordBatchFileReader.fs_path` <- function(file) {
   RecordBatchFileReader(ReadableFile(file))
 }
 

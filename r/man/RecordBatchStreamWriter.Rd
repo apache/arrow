@@ -9,8 +9,7 @@ RecordBatchStreamWriter(sink, schema)
 \arguments{
 \item{sink}{Where to write. Can either be:
 \itemize{
-\item A string, meant as a file path, passed to \code{\link[fs:path_abs]{fs::path_abs()}}
-\item a \link[fs:path_abs]{file path}
+\item A string file path
 \item \link[=arrow__io__OutputStream]{arrow::io::OutputStream}
 }}
 
