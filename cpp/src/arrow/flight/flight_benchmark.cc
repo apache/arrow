@@ -67,7 +67,19 @@ struct PerformanceStats {
   }
 };
 
-Status RunPerformanceTest(const std::string& hostname, const int port) {
+Status WaitForReady(FlightClient* client) {
+  Action action{"ping", nullptr};
+  for (int attempt = 0; attempt < 10; attempt++) {
+    std::unique_ptr<ResultStream> stream;
+    if (client->DoAction(action, &stream).ok()) {
+      return Status::OK();
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  }
+  return Status::IOError("Server was not available after 10 attempts");
+}
+
+Status RunPerformanceTest(FlightClient* client) {
   // TODO(wesm): Multiple servers
   // std::vector<std::unique_ptr<TestServer>> servers;
 
@@ -77,12 +89,7 @@ Status RunPerformanceTest(const std::string& hostname, const int port) {
   perf.set_records_per_stream(FLAGS_records_per_stream);
   perf.set_records_per_batch(FLAGS_records_per_batch);
 
-  // Construct client and plan the query
-  std::unique_ptr<FlightClient> client;
-  Location location;
-  RETURN_NOT_OK(Location::ForGrpcTcp("localhost", port, &location));
-  RETURN_NOT_OK(FlightClient::Connect(location, &client));
-
+  // Plan the query
   FlightDescriptor descriptor;
   descriptor.type = FlightDescriptor::CMD;
   perf.SerializeToString(&descriptor.cmd);
@@ -96,12 +103,10 @@ Status RunPerformanceTest(const std::string& hostname, const int port) {
   RETURN_NOT_OK(plan->GetSchema(&dict_memo, &schema));
 
   PerformanceStats stats;
-  auto ConsumeStream = [&stats, &port](const FlightEndpoint& endpoint) {
+  auto ConsumeStream = [&stats](const FlightEndpoint& endpoint) {
     // TODO(wesm): Use location from endpoint, same host/port for now
     std::unique_ptr<FlightClient> client;
-    Location location;
-    RETURN_NOT_OK(Location::ForGrpcTcp("localhost", port, &location));
-    RETURN_NOT_OK(FlightClient::Connect(location, &client));
+    RETURN_NOT_OK(FlightClient::Connect(endpoint.locations.front(), &client));
 
     perf::Token token;
     token.ParseFromString(endpoint.ticket.ticket);
@@ -114,7 +119,7 @@ Status RunPerformanceTest(const std::string& hostname, const int port) {
     // This is hard-coded for right now, 4 columns each with int64
     const int bytes_per_record = 32;
 
-    // This must also be set in perf-server.c
+    // This must also be set in perf_server.cc
     const bool verify = false;
 
     int64_t num_bytes = 0;
@@ -206,7 +211,14 @@ int main(int argc, char** argv) {
   std::cout << "Server host: " << hostname << std::endl
             << "Server port: " << FLAGS_server_port << std::endl;
 
-  arrow::Status s = arrow::flight::RunPerformanceTest(hostname, FLAGS_server_port);
+  std::unique_ptr<arrow::flight::FlightClient> client;
+  arrow::flight::Location location;
+  ABORT_NOT_OK(
+      arrow::flight::Location::ForGrpcTcp(hostname, FLAGS_server_port, &location));
+  ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location, &client));
+  ABORT_NOT_OK(arrow::flight::WaitForReady(client.get()));
+
+  arrow::Status s = arrow::flight::RunPerformanceTest(client.get());
 
   if (server) {
     server->Stop();
