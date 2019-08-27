@@ -49,6 +49,11 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
   private DiffFunction<Double> doubleDiffFunction =
       (Double value1, Double value2) -> Math.abs(value1 - value2);
 
+  public ApproxEqualsVisitor(float floatEpsilon, double doubleEpsilon) {
+    this.floatEpsilon = floatEpsilon;
+    this.doubleEpsilon = doubleEpsilon;
+  }
+
   public ApproxEqualsVisitor(ValueVector right, float epsilon) {
     this (right, epsilon, epsilon, true);
   }
@@ -66,9 +71,9 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
    */
   public ApproxEqualsVisitor(ValueVector right, float floatEpsilon, double doubleEpsilon, boolean typeCheckNeeded,
       int leftStart, int rightStart, int length) {
-    super(right, rightStart, leftStart, length, typeCheckNeeded);
     this.floatEpsilon = floatEpsilon;
     this.doubleEpsilon = doubleEpsilon;
+    set(right, rightStart, leftStart, length, typeCheckNeeded);
   }
 
   public void setFloatDiffFunction(DiffFunction<Float> floatDiffFunction) {
@@ -102,9 +107,9 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
       return false;
     }
 
+    ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(floatEpsilon, doubleEpsilon);
     for (int k = 0; k < leftChildren.size(); k++) {
-      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(rightChildren.get(k),
-          floatEpsilon, doubleEpsilon);
+      visitor.set(rightChildren.get(k), 0, 0, rightChildren.get(k).getValueCount(), true);
       if (!leftChildren.get(k).accept(visitor, null)) {
         return false;
       }
@@ -121,9 +126,9 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
       return false;
     }
 
+    ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(floatEpsilon, doubleEpsilon);
     for (String name : left.getChildFieldNames()) {
-      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(rightVector.getChild(name),
-          floatEpsilon, doubleEpsilon);
+      visitor.set(rightVector.getChild(name), 0, 0, rightVector.getChild(name).getValueCount(), true);
       if (!left.getChild(name).accept(visitor, null)) {
         return false;
       }
@@ -134,7 +139,7 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
 
   @Override
   protected boolean compareListVectors(ListVector left) {
-
+    ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(floatEpsilon, doubleEpsilon);
     for (int i = 0; i < length; i++) {
       int leftIndex = leftStart + i;
       int rightIndex = rightStart + i;
@@ -160,8 +165,8 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
         ValueVector leftDataVector = left.getDataVector();
         ValueVector rightDataVector = ((ListVector)right).getDataVector();
 
-        if (!leftDataVector.accept(new ApproxEqualsVisitor(rightDataVector, floatEpsilon, doubleEpsilon,
-            typeCheckNeeded, startIndexLeft, startIndexRight, (endIndexLeft - startIndexLeft)), null)) {
+        visitor.set(rightDataVector, startIndexRight, startIndexLeft, endIndexLeft - startIndexLeft, true);
+        if (!leftDataVector.accept(visitor, null)) {
           return false;
         }
       }
@@ -175,6 +180,7 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
       return false;
     }
 
+    ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(floatEpsilon, doubleEpsilon);
     for (int i = 0; i < length; i++) {
       int leftIndex = leftStart + i;
       int rightIndex = rightStart + i;
@@ -200,8 +206,8 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
         ValueVector leftDataVector = left.getDataVector();
         ValueVector rightDataVector = ((FixedSizeListVector)right).getDataVector();
 
-        if (!leftDataVector.accept(new ApproxEqualsVisitor(rightDataVector, floatEpsilon, doubleEpsilon,
-            typeCheckNeeded, startIndexLeft, startIndexRight, (endIndexLeft - startIndexLeft)), null)) {
+        visitor.set(rightDataVector, rightStart, leftStart, endIndexLeft - startIndexLeft, true);
+        if (!leftDataVector.accept(visitor, null)) {
           return false;
         }
       }

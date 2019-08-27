@@ -136,12 +136,13 @@ public class DictionaryHashTable {
   public int getIndex(int indexInArray, ValueVector toEncode) {
     int hash = toEncode.hashCode(indexInArray);
     int index = indexFor(hash, table.length);
+
+    RangeEqualsVisitor equalVisitor = new RangeEqualsVisitor();
     for (DictionaryHashTable.Entry e = table[index]; e != null ; e = e.next) {
       if (e.hash == hash) {
         int dictIndex = e.index;
-
-        if (new RangeEqualsVisitor(dictionary, dictIndex, indexInArray, 1, false)
-            .equals(toEncode)) {
+        equalVisitor.set(dictionary, dictIndex, indexInArray, 1, false);
+        if (equalVisitor.equals(toEncode)) {
           return dictIndex;
         }
       }
