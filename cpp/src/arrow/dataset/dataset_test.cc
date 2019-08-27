@@ -111,5 +111,33 @@ TEST(TestProjector, AugmentWithNull) {
   AssertBatchesEqual(*expected_batch, *reconciled_batch);
 }
 
+TEST(TestProjector, AugmentWithScalar) {
+  constexpr int64_t kBatchSize = 1024;
+  constexpr int64_t kScalarValue = 3;
+
+  auto from_schema = schema({field("f64", float64())});
+
+  auto batch = GetRecordBatch(kBatchSize, from_schema);
+
+  auto to_schema = schema({field("i32", int32()), field("f64", float64())});
+
+  auto scalar_i32 = std::make_shared<Int32Scalar>(kScalarValue);
+  RecordBatchProjector projector(default_memory_pool(), from_schema, to_schema,
+                                 {scalar_i32, nullptr});
+  ASSERT_OK(projector.Init());
+
+  std::shared_ptr<Array> array_i32;
+  Int32Builder builder;
+  ASSERT_OK(builder.AppendValues(std::vector<int32_t>(kBatchSize, kScalarValue)));
+  ASSERT_OK(builder.Finish(&array_i32));
+  auto expected_batch =
+      RecordBatch::Make(to_schema, batch->num_rows(), {array_i32, batch->column(0)});
+
+  std::shared_ptr<RecordBatch> reconciled_batch;
+  ASSERT_OK(projector.Project(*batch, &reconciled_batch));
+
+  AssertBatchesEqual(*expected_batch, *reconciled_batch);
+}
+
 }  // namespace dataset
 }  // namespace arrow

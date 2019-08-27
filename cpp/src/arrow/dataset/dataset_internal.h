@@ -49,7 +49,20 @@ class RecordBatchProjector {
         from_(std::move(from)),
         to_(std::move(to)),
         missing_columns_(to_->num_fields(), nullptr),
-        column_indices_(to_->num_fields(), kNoMatch) {}
+        column_indices_(to_->num_fields(), kNoMatch),
+        scalars_(to_->num_fields(), nullptr) {}
+
+  RecordBatchProjector(MemoryPool* pool, std::shared_ptr<Schema> from,
+                       std::shared_ptr<Schema> to,
+                       std::vector<std::shared_ptr<Scalar>> scalars)
+      : pool_(pool),
+        from_(std::move(from)),
+        to_(std::move(to)),
+        missing_columns_(to_->num_fields(), nullptr),
+        column_indices_(to_->num_fields(), kNoMatch),
+        scalars_(std::move(scalars)) {
+    DCHECK_EQ(scalars_.size(), missing_columns_.size());
+  }
 
   Status Init() {
     for (int i = 0; i < to_->num_fields(); ++i) {
@@ -102,13 +115,17 @@ class RecordBatchProjector {
   Status ResizeMissingColumns(int64_t new_length) {
     // TODO(bkietz) MakeArrayOfNull could use fewer buffers by reusing a single zeroed
     // buffer for every buffer in every column which is null
-    // TODO(bkietz) Allow construction of the array from a scalar for partition keys
-    for (auto& missing_column : missing_columns_) {
-      if (missing_column == nullptr) {
+    for (int i = 0; i < to_->num_fields(); ++i) {
+      if (missing_columns_[i] == nullptr) {
+        continue;
+      }
+      if (scalars_[i] == nullptr) {
+        RETURN_NOT_OK(MakeArrayOfNull(pool_, missing_columns_[i]->type(), new_length,
+                                      &missing_columns_[i]));
         continue;
       }
       RETURN_NOT_OK(
-          MakeArrayOfNull(pool_, missing_column->type(), new_length, &missing_column));
+          MakeArrayFromScalar(pool_, *scalars_[i], new_length, &missing_columns_[i]));
     }
     missing_columns_length_ = new_length;
     return Status::OK();
@@ -119,6 +136,7 @@ class RecordBatchProjector {
   int64_t missing_columns_length_ = 0;
   std::vector<std::shared_ptr<Array>> missing_columns_;
   std::vector<int> column_indices_;
+  std::vector<std::shared_ptr<Scalar>> scalars_;
 };
 
 constexpr int RecordBatchProjector::kNoMatch;
@@ -126,18 +144,29 @@ constexpr int RecordBatchProjector::kNoMatch;
 class ReconcilingRecordBatchIterator : public RecordBatchIterator {
  public:
   ReconcilingRecordBatchIterator(MemoryPool* pool, std::shared_ptr<Schema> schema,
+                                 std::vector<std::shared_ptr<Scalar>> scalars,
                                  std::unique_ptr<RecordBatchIterator> wrapped)
       : pool_(pool),
         schema_(std::move(schema)),
         wrapped_(std::move(wrapped)),
-        scalars_(schema_->num_fields(), nullptr) {}
+        scalars_(std::move(scalars)) {}
 
   static Status Make(MemoryPool* pool, std::shared_ptr<Schema> from_schema,
                      std::shared_ptr<Schema> to_schema,
                      std::unique_ptr<RecordBatchIterator> wrapped,
                      std::unique_ptr<RecordBatchIterator>* out) {
+    return Make(pool, std::move(from_schema), std::move(to_schema),
+                std::vector<std::shared_ptr<Scalar>>(to_schema->num_fields(), nullptr),
+                std::move(wrapped), out);
+  }
+
+  static Status Make(MemoryPool* pool, std::shared_ptr<Schema> from_schema,
+                     std::shared_ptr<Schema> to_schema,
+                     std::vector<std::shared_ptr<Scalar>> scalars,
+                     std::unique_ptr<RecordBatchIterator> wrapped,
+                     std::unique_ptr<RecordBatchIterator>* out) {
     auto it = internal::make_unique<ReconcilingRecordBatchIterator>(
-        pool, std::move(to_schema), std::move(wrapped));
+        pool, std::move(to_schema), std::move(scalars), std::move(wrapped));
     RETURN_NOT_OK(it->ResetProjector(std::move(from_schema)));
     *out = std::move(it);
     return Status::OK();
@@ -151,7 +180,7 @@ class ReconcilingRecordBatchIterator : public RecordBatchIterator {
       return Status::OK();
     }
 
-    if (projector_ == nullptr || !projector_->from()->Equals(*rb->schema())) {
+    if (!projector_->from()->Equals(*rb->schema())) {
       projector_.reset(new RecordBatchProjector(pool_, rb->schema(), schema_));
       RETURN_NOT_OK(projector_->Init());
     }
@@ -161,14 +190,12 @@ class ReconcilingRecordBatchIterator : public RecordBatchIterator {
  private:
   Status ResetProjector(std::shared_ptr<Schema> from_schema) {
     projector_ = internal::make_unique<RecordBatchProjector>(
-        pool_, std::move(from_schema), schema_);
+        pool_, std::move(from_schema), schema_, scalars_);
     return projector_->Init();
   }
 
   MemoryPool* pool_;
   std::shared_ptr<Schema> schema_;
-  // TODO(bkietz) cache the schema yielded by wrapped_ so we don't recompute things
-  // constantly in Next()
   std::unique_ptr<RecordBatchIterator> wrapped_;
   std::vector<std::shared_ptr<Scalar>> scalars_;
   std::unique_ptr<RecordBatchProjector> projector_;
