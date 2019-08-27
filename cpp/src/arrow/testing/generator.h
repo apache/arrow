@@ -148,6 +148,12 @@ class ARROW_EXPORT ConstantArrayGenerator {
     }
   }
 
+  /// \brief Generates a constant Array of zeroes
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] type the type of the Array
+  ///
+  /// \return a generated Array
   static std::shared_ptr<arrow::Array> Zeroes(int64_t size,
                                               const std::shared_ptr<DataType>& type) {
     switch (type->id()) {
@@ -185,7 +191,7 @@ class ARROW_EXPORT ConstantArrayGenerator {
   ///
   /// This function is handy to return of RecordBatch of a desired shape.
   ///
-  /// \return a generated Array
+  /// \return a generated RecordBatch
   static std::shared_ptr<arrow::RecordBatch> Zeroes(
       int64_t size, const std::shared_ptr<Schema>& schema) {
     std::vector<std::shared_ptr<Array>> arrays;
@@ -197,6 +203,12 @@ class ARROW_EXPORT ConstantArrayGenerator {
     return RecordBatch::Make(schema, size, arrays);
   }
 
+  /// \brief Generates a RecordBatchReader by repeating a RecordBatch
+  ///
+  /// \param[in] n_batch the number of times it repeats batch
+  /// \param[in] batch the RecordBatch to repeat
+  ///
+  /// \return a generated RecordBatchReader
   static std::shared_ptr<arrow::RecordBatchReader> Repeat(
       int64_t n_batch, const std::shared_ptr<RecordBatch> batch) {
     std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(n_batch),
@@ -206,6 +218,13 @@ class ARROW_EXPORT ConstantArrayGenerator {
     return reader;
   }
 
+  /// \brief Generates a RecordBatchReader of zeroes batches
+  ///
+  /// \param[in] n_batch the number of RecordBatch
+  /// \param[in] batch_size the size of each RecordBatch
+  /// \param[in] schema to conform to
+  ///
+  /// \return a generated RecordBatchReader
   static std::shared_ptr<arrow::RecordBatchReader> Zeroes(
       int64_t n_batch, int64_t batch_size, const std::shared_ptr<Schema>& schema) {
     return Repeat(n_batch, Zeroes(batch_size, schema));

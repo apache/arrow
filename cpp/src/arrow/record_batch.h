@@ -191,10 +191,10 @@ class ARROW_EXPORT RecordBatchReader
 
 /// \brief Creates a RecordBatchReader from a vector  of RecordBatch.
 ///
-/// \param[in]
-/// \param[in]
-/// \param[out]
-///
+/// \param[in] batches the vector of RecordBatch to read from
+/// \param[in] schema schema to conform to. Will be inferred from the first
+///            element if not provided.
+/// \param[out] out output pointer to store the RecordBatchReader to.
 /// \returns Status
 ARROW_EXPORT Status MakeRecordBatchReader(
     const std::vector<std::shared_ptr<RecordBatch>>& batches,
