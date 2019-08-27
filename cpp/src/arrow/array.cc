@@ -1699,8 +1699,8 @@ class RepeatedArrayFactory {
         checked_cast<const typename TypeTraits<T>::ScalarType&>(scalar_).value;
     std::shared_ptr<Buffer> buffer, offsets_buffer;
     RETURN_NOT_OK(CreateBufferOf(value->data(), value->size(), &buffer));
-    RETURN_NOT_OK(
-        CreateOffsetsBuffer<typename T::offset_type>(value->size(), &offsets_buffer));
+    auto size = static_cast<typename T::offset_type>(value->size());
+    RETURN_NOT_OK(CreateOffsetsBuffer(size, &offsets_buffer));
     *out_ = ArrayData::Make(boolean(), length_, {nullptr, buffer}, 0);
     return Status::OK();
   }
