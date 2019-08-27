@@ -1070,7 +1070,7 @@ bool IntegerTensorEquals(const Tensor& left, const Tensor& right) {
 template <typename DataType>
 bool StridedFloatTensorContentEquals(const int dim_index, int64_t left_offset,
                                      int64_t right_offset, const Tensor& left,
-                                     const Tensor& right) {
+                                     const Tensor& right, const EqualOptions& opts) {
   using c_type = typename DataType::c_type;
   const auto n = left.shape()[dim_index];
   const auto left_stride = left.strides()[dim_index];
@@ -1078,21 +1078,33 @@ bool StridedFloatTensorContentEquals(const int dim_index, int64_t left_offset,
   if (dim_index == left.ndim() - 1) {
     auto left_data = left.raw_data();
     auto right_data = right.raw_data();
-    for (int64_t i = 0; i < n; ++i) {
-      c_type left_value =
-          *reinterpret_cast<const c_type*>(left_data + left_offset + i * left_stride);
-      c_type right_value =
-          *reinterpret_cast<const c_type*>(right_data + right_offset + i * right_stride);
-      if (left_value != right_value || std::isnan(left_value) ||
-          std::isnan(right_value)) {
-        return false;
+    if (opts.nans_equal()) {
+      for (int64_t i = 0; i < n; ++i) {
+        c_type left_value =
+            *reinterpret_cast<const c_type*>(left_data + left_offset + i * left_stride);
+        c_type right_value = *reinterpret_cast<const c_type*>(right_data + right_offset +
+                                                              i * right_stride);
+        if (!(left_value == right_value ||
+              (std::isnan(left_value) && std::isnan(right_value)))) {
+          return false;
+        }
+      }
+    } else {
+      for (int64_t i = 0; i < n; ++i) {
+        c_type left_value =
+            *reinterpret_cast<const c_type*>(left_data + left_offset + i * left_stride);
+        c_type right_value = *reinterpret_cast<const c_type*>(right_data + right_offset +
+                                                              i * right_stride);
+        if (left_value != right_value) {
+          return false;
+        }
       }
     }
     return true;
   }
   for (int64_t i = 0; i < n; ++i) {
     if (!StridedFloatTensorContentEquals<DataType>(dim_index + 1, left_offset,
-                                                   right_offset, left, right)) {
+                                                   right_offset, left, right, opts)) {
       return false;
     }
     left_offset += left_stride;
@@ -1102,15 +1114,16 @@ bool StridedFloatTensorContentEquals(const int dim_index, int64_t left_offset,
 }
 
 template <typename DataType>
-bool FloatTensorEquals(const Tensor& left, const Tensor& right) {
+bool FloatTensorEquals(const Tensor& left, const Tensor& right,
+                       const EqualOptions& opts) {
   static_assert(std::is_floating_point<typename DataType::c_type>::value,
                 "DataType must be a floating point type");
-  return StridedFloatTensorContentEquals<DataType>(0, 0, 0, left, right);
+  return StridedFloatTensorContentEquals<DataType>(0, 0, 0, left, right, opts);
 }
 
 }  // namespace
 
-bool TensorEquals(const Tensor& left, const Tensor& right) {
+bool TensorEquals(const Tensor& left, const Tensor& right, const EqualOptions& opts) {
   if (left.type_id() != right.type_id()) {
     return false;
   } else if (left.size() == 0) {
@@ -1123,10 +1136,10 @@ bool TensorEquals(const Tensor& left, const Tensor& right) {
     // TODO: Support half-float tensors
     // case Type::HALF_FLOAT:
     case Type::FLOAT:
-      return FloatTensorEquals<FloatType>(left, right);
+      return FloatTensorEquals<FloatType>(left, right, opts);
 
     case Type::DOUBLE:
-      return FloatTensorEquals<DoubleType>(left, right);
+      return FloatTensorEquals<DoubleType>(left, right, opts);
 
     default:
       return IntegerTensorEquals(left, right);

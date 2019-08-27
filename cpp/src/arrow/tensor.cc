@@ -26,7 +26,6 @@
 #include <type_traits>
 #include <vector>
 
-#include "arrow/compare.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -124,7 +123,9 @@ bool Tensor::is_column_major() const {
 
 Type::type Tensor::type_id() const { return type_->id(); }
 
-bool Tensor::Equals(const Tensor& other) const { return TensorEquals(*this, other); }
+bool Tensor::Equals(const Tensor& other, const EqualOptions& opts) const {
+  return TensorEquals(*this, other, opts);
+}
 
 namespace {
 

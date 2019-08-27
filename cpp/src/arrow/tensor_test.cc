@@ -326,13 +326,16 @@ TYPED_TEST_P(TestFloatTensor, Equals) {
   const c_data_type nan_value = static_cast<c_data_type>(NAN);
   c_values[0] = nan_value;
   EXPECT_TRUE(std::isnan(tc1.Value<DataType>({0, 0})));
-  EXPECT_FALSE(tc1.Equals(tc1));                            // same object
-  EXPECT_FALSE(std::isnan(tc2.Value<DataType>({0, 0})));  // check the different memory
-  EXPECT_FALSE(tc1.Equals(tc2));
+  EXPECT_FALSE(tc1.Equals(tc1));                                  // same object
+  EXPECT_TRUE(tc1.Equals(tc1, EqualOptions().nans_equal(true)));  // same object
+  EXPECT_FALSE(std::isnan(tc2.Value<DataType>({0, 0})));
+  EXPECT_FALSE(tc1.Equals(tc2));                                   // different memory
+  EXPECT_FALSE(tc1.Equals(tc2, EqualOptions().nans_equal(true)));  // different memory
 
   c_values_2[0] = nan_value;
   EXPECT_TRUE(std::isnan(tc2.Value<DataType>({0, 0})));
-  EXPECT_FALSE(tc1.Equals(tc2));  // different memory
+  EXPECT_FALSE(tc1.Equals(tc2));                                  // different memory
+  EXPECT_TRUE(tc1.Equals(tc2, EqualOptions().nans_equal(true)));  // different memory
 }
 
 REGISTER_TYPED_TEST_CASE_P(TestFloatTensor, Equals);

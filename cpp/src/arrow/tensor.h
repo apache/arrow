@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/compare.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
@@ -102,7 +103,7 @@ class ARROW_EXPORT Tensor {
 
   Type::type type_id() const;
 
-  bool Equals(const Tensor& other) const;
+  bool Equals(const Tensor& other, const EqualOptions& = EqualOptions::Defaults()) const;
 
   /// Compute the number of non-zero values in the tensor
   Status CountNonZero(int64_t* result) const;
