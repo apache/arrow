@@ -125,19 +125,20 @@ where
     validity
 }
 
-/// Performs a SIMD load but sets all 'invalid' lanes to 1.
+/// Performs a SIMD load but sets all 'invalid' lanes to a constant value.
 ///
 /// 'invalid' lanes are lanes where the corresponding array slots are either `NULL` or between the
 /// length and capacity of the array, i.e. in the padded region.
 ///
-/// Note that the `array` below has it's own `Bitmap` separate from the `bitmap` argument.  This
+/// Note that `array` below has it's own `Bitmap` separate from the `bitmap` argument.  This
 /// function is used to prepare `array`'s for binary operations.  The `bitmap` argument is the
 /// `Bitmap` after the binary operation.
-pub(super) unsafe fn simd_load_without_invalid_zeros<T>(
+pub(super) unsafe fn simd_load_set_invalid<T>(
     array: &PrimitiveArray<T>,
     bitmap: &Option<Bitmap>,
     i: usize,
     simd_width: usize,
+    fill_value: T::Native,
 ) -> T::Simd
 where
     T: ArrowNumericType,
@@ -147,7 +148,7 @@ where
     T::mask_select(
         is_valid::<T>(bitmap, i, simd_width, array.len()),
         simd_with_zeros,
-        T::init(T::Native::one()),
+        T::init(fill_value),
     )
 }
 
@@ -247,12 +248,12 @@ mod tests {
     }
 
     #[test]
-    fn test_simd_load_without_invalid_zeros() {
+    fn test_simd_load_set_invalid() {
         let a = Int64Array::from(vec![None, Some(15), Some(5), Some(0)]);
         let new_bitmap = &Some(Bitmap::from(Buffer::from([0b00001010])));
         let simd_lanes = 8;
         let result = unsafe {
-            simd_load_without_invalid_zeros::<Int64Type>(&a, &new_bitmap, 0, simd_lanes)
+            simd_load_set_invalid::<Int64Type>(&a, &new_bitmap, 0, simd_lanes, 1)
         };
         for i in 0..simd_lanes {
             if i == 1 {

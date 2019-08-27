@@ -32,9 +32,7 @@ use num::{One, Zero};
 use crate::array::*;
 use crate::bitmap::Bitmap;
 use crate::buffer::MutableBuffer;
-use crate::compute::util::{
-    apply_bin_op_to_option_bitmap, simd_load_without_invalid_zeros,
-};
+use crate::compute::util::{apply_bin_op_to_option_bitmap, simd_load_set_invalid};
 use crate::datatypes;
 use crate::error::{ArrowError, Result};
 
@@ -156,13 +154,13 @@ where
 
     for i in (0..left.len()).step_by(lanes) {
         let right_no_invalid_zeros =
-            unsafe { simd_load_without_invalid_zeros(right, &bitmap, i, lanes) };
+            unsafe { simd_load_set_invalid(right, &bitmap, i, lanes, T::Native::one()) };
         let is_zero = T::eq(T::init(T::Native::zero()), right_no_invalid_zeros);
         if T::mask_any(is_zero) {
             return Err(ArrowError::DivideByZero);
         }
         let right_no_invalid_zeros =
-            unsafe { simd_load_without_invalid_zeros(right, &bitmap, i, lanes) };
+            unsafe { simd_load_set_invalid(right, &bitmap, i, lanes, T::Native::one()) };
         let simd_left = T::load(left.value_slice(i, lanes));
         let simd_result = T::bin_op(simd_left, right_no_invalid_zeros, |a, b| a / b);
 
