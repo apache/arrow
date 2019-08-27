@@ -15,33 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include enums.R
-`arrow::Object` <- R6Class("arrow::Object",
-  public = list(
-    initialize = function(xp) self$set_pointer(xp),
-
-    pointer = function() self$`.:xp:.`,
-    `.:xp:.` = NULL,
-    set_pointer = function(xp){
-      self$`.:xp:.` <- xp
-    },
-    print = function(...){
-      cat(class(self)[[1]], "\n")
-      if (!is.null(self$ToString)){
-        cat(self$ToString(), "\n")
-      }
-      invisible(self)
-    }
-  )
-)
-
-shared_ptr <- function(class, xp) {
-  if (!shared_ptr_is_null(xp)) class$new(xp)
-}
-
-unique_ptr <- function(class, xp) {
-  if (!unique_ptr_is_null(xp)) class$new(xp)
-}
+#' @include arrow-package.R
 
 #' @export
 `!=.arrow::Object` <- function(lhs, rhs){
@@ -280,88 +254,121 @@ type.default <- function(x) {
 
 #' Apache Arrow data types
 #'
-#' Apache Arrow data types
+#' These functions create type objects corresponding to Arrow types. Use them
+#' when defining a [schema()] or as inputs to other types, like `struct`. Most
+#' of these functions don't take arguments, but a few do.
 #'
-#' @param unit time unit
-#' @param timezone time zone
-#' @param precision precision
-#' @param scale scale
-#' @param type type
-#' @param ... ...
+#' A few functions have aliases:
 #'
-#' @rdname DataType
+#' * `utf8()` and `string()`
+#' * `float16()` and `halffloat()`
+#' * `float32()` and `float()`
+#' * `bool()` and `boolean()`
+#' * Called from `schema()` or `struct()`, `double()` also is supported as a
+#' way of creating a `float64()`
+#'
+#' @param unit For date/time types, the time unit (day, second, millisecond, etc.)
+#' @param timezone For `timestamp()`, an optional time zone.
+#' @param precision For `decimal()`, precision
+#' @param scale For `decimal()`, scale
+#' @param type For `list_of()`, a data type to make a list-of-type
+#' @param ... For `struct()`, a named list of types to define the struct columns
+#'
+#' @name data-type
 #' @export
+#' @seealso [dictionary()] for creating a dictionary (factor-like) type.
+#' @examples
+#' \donttest{
+#' bool()
+#' struct(a = int32(), b = double())
+#' }
 int8 <- function() shared_ptr(`arrow::Int8`, Int8__initialize())
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 int16 <- function() shared_ptr(`arrow::Int16`, Int16__initialize())
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 int32 <- function() shared_ptr(`arrow::Int32`, Int32__initialize())
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 int64 <- function() shared_ptr(`arrow::Int64`, Int64__initialize())
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 uint8 <- function() shared_ptr(`arrow::UInt8`, UInt8__initialize())
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 uint16 <- function() shared_ptr(`arrow::UInt16`, UInt16__initialize())
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 uint32 <- function() shared_ptr(`arrow::UInt32`, UInt32__initialize())
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 uint64 <- function() shared_ptr(`arrow::UInt64`, UInt64__initialize())
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 float16 <- function() shared_ptr(`arrow::Float16`,  Float16__initialize())
 
-#' @rdname DataType
+#' @rdname data-type
+#' @export
+halffloat <- float16
+
+#' @rdname data-type
 #' @export
 float32 <- function() shared_ptr(`arrow::Float32`, Float32__initialize())
 
-#' @rdname DataType
+#' @rdname data-type
+#' @export
+float <- float32
+
+#' @rdname data-type
 #' @export
 float64 <- function() shared_ptr(`arrow::Float64`, Float64__initialize())
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 boolean <- function() shared_ptr(`arrow::Boolean`, Boolean__initialize())
 
-#' @rdname DataType
+#' @rdname data-type
+#' @export
+bool <- boolean
+
+#' @rdname data-type
 #' @export
 utf8 <- function() shared_ptr(`arrow::Utf8`, Utf8__initialize())
 
-#' @rdname DataType
+#' @rdname data-type
+#' @export
+string <- utf8
+
+#' @rdname data-type
 #' @export
 date32 <- function() shared_ptr(`arrow::Date32`, Date32__initialize())
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 date64 <- function() shared_ptr(`arrow::Date64`, Date64__initialize())
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 time32 <- function(unit) shared_ptr(`arrow::Time32`, Time32__initialize(unit))
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 time64 <- function(unit) shared_ptr(`arrow::Time64`, Time64__initialize(unit))
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 null <- function() shared_ptr(`arrow::Null`, Null__initialize())
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 timestamp <- function(unit, timezone) {
   if (missing(timezone)) {
@@ -371,7 +378,7 @@ timestamp <- function(unit, timezone) {
   }
 }
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 decimal <- function(precision, scale) shared_ptr(`arrow::Decimal128Type`, Decimal128Type__initialize(precision, scale))
 

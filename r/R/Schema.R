@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include R6.R
+#' @include arrow-package.R
 
 #' @title class arrow::Schema
 #'
@@ -60,13 +60,19 @@
   lhs$Equals(rhs)
 }
 
-#' Schema factory
+#' Create a schema
 #'
-#' @param ... named list of data types
+#' This function lets you define a schema for a table. This is useful when you
+#' want to convert an R `data.frame` to Arrow but don't want to rely on the
+#' default mapping of R types to Arrow types, such as when you want to choose a
+#' specific numeric precision.
 #'
-#' @return a [schema][arrow__Schema]
+#' @param ... named list of [data types][data-type]
+#'
+#' @return A [schema][arrow__Schema] object.
 #'
 #' @export
+# TODO (npr): add examples once ARROW-5505 merges
 schema <- function(...){
   shared_ptr(`arrow::Schema`, schema_(.fields(list2(...))))
 }

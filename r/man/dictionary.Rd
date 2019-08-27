@@ -2,7 +2,7 @@
 % Please edit documentation in R/dictionary.R
 \name{dictionary}
 \alias{dictionary}
-\title{dictionary type factory}
+\title{Create a dictionary type}
 \usage{
 dictionary(index_type, value_type, ordered = FALSE)
 }
@@ -14,8 +14,11 @@ dictionary(index_type, value_type, ordered = FALSE)
 \item{ordered}{Is this an ordered dictionary ?}
 }
 \value{
-a \link[=arrow__DictionaryType]{arrow::DictionaryType}
+An \link[=arrow__DictionaryType]{arrow::DictionaryType}
 }
 \description{
-dictionary type factory
+Create a dictionary type
+}
+\seealso{
+\link[=data-type]{Other Arrow data types}
 }

@@ -47,7 +47,8 @@ Suggests:
     vctrs
 Collate:
     'enums.R'
-    'R6.R'
+    'arrow-package.R'
+    'type.R'
     'ArrayData.R'
     'ChunkedArray.R'
     'Column.R'
@@ -60,7 +61,6 @@ Collate:
     'Struct.R'
     'Table.R'
     'array.R'
-    'arrow-package.R'
     'arrowExports.R'
     'buffer.R'
     'io.R'

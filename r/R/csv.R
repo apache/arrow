@@ -189,7 +189,7 @@ read_tsv_arrow <- function(file,
   eval.parent(mc)
 }
 
-#' @include R6.R
+#' @include arrow-package.R
 
 `arrow::csv::TableReader` <- R6Class("arrow::csv::TableReader", inherit = `arrow::Object`,
   public = list(

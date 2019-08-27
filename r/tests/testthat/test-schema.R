@@ -17,6 +17,13 @@
 
 context("arrow::Schema")
 
+test_that("Alternate type names are supported", {
+  expect_equal(
+    schema(b = double(), c = bool(), d = string(), e = float(), f = halffloat()),
+    schema(b = float64(), c = boolean(), d = utf8(), e = float32(), f = float16())
+  )
+})
+
 test_that("reading schema from Buffer", {
   # TODO: this uses the streaming format, i.e. from RecordBatchStreamWriter
   #       maybe there is an easier way to serialize a schema

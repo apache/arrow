@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include R6.R
+#' @include arrow-package.R
 #'
 #' @title class arrow::MemoryPool
 #'
