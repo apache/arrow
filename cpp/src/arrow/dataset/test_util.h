@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "arrow/dataset/file_base.h"
 #include "arrow/filesystem/localfs.h"

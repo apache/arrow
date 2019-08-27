@@ -18,6 +18,7 @@
 #include "arrow/dataset/file_parquet.h"
 
 #include <utility>
+#include <vector>
 
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
