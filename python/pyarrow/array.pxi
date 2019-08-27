@@ -91,8 +91,8 @@ def _handle_arrow_array_protocol(obj, type, mask, size):
             "converted with the __arrow_array__ protocol.")
     res = obj.__arrow_array__(type=type)
     if not isinstance(res, Array):
-        raise ValueError("The object's __arrow_array__ method does not "
-                         "return a pyarrow Array.")
+        raise TypeError("The object's __arrow_array__ method does not "
+                        "return a pyarrow Array.")
     return res
 
 

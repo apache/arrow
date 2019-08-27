@@ -1600,7 +1600,7 @@ def test_array_protocol():
             return np.array(self.data)
 
     arr = MyArrayInvalid(np.array([1, 2, 3], dtype='int64'))
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         pa.array(arr)
 
 
