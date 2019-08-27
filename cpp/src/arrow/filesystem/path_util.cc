@@ -67,6 +67,20 @@ std::pair<std::string, std::string> GetAbstractPathParent(const std::string& s) 
   return {s.substr(0, pos), s.substr(pos + 1)};
 }
 
+std::string GetAbstractPathExtension(const std::string& s) {
+  util::string_view basename(s);
+  auto offset = basename.find_last_of(kSep);
+  if (offset != std::string::npos) {
+    basename = basename.substr(offset);
+  }
+  auto dot = basename.find_last_of('.');
+  if (dot == util::string_view::npos) {
+    // Empty extension
+    return "";
+  }
+  return basename.substr(dot + 1).to_string();
+}
+
 Status ValidateAbstractPathParts(const std::vector<std::string>& parts) {
   for (const auto& part : parts) {
     if (part.length() == 0) {

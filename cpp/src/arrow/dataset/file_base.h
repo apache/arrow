@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "arrow/buffer.h"
 #include "arrow/dataset/dataset.h"
@@ -27,6 +28,7 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/dataset/writer.h"
+#include "arrow/filesystem/filesystem.h"
 #include "arrow/io/file.h"
 #include "arrow/util/compression.h"
 
@@ -130,6 +132,11 @@ class ARROW_DS_EXPORT FileFormat {
                           std::shared_ptr<ScanOptions> scan_options,
                           std::shared_ptr<ScanContext> scan_context,
                           std::unique_ptr<ScanTaskIterator>* out) const = 0;
+
+  /// \brief Open a fragment
+  virtual Status MakeFragment(const FileSource& location,
+                              std::shared_ptr<ScanOptions> opts,
+                              std::unique_ptr<DataFragment>* out) = 0;
 };
 
 /// \brief A DataFragment that is stored in a file with a known format
@@ -147,10 +154,42 @@ class ARROW_DS_EXPORT FileBasedDataFragment : public DataFragment {
   const FileSource& source() const { return source_; }
   std::shared_ptr<FileFormat> format() const { return format_; }
 
+  std::shared_ptr<ScanOptions> scan_options() const override { return scan_options_; }
+
  protected:
   FileSource source_;
   std::shared_ptr<FileFormat> format_;
   std::shared_ptr<ScanOptions> scan_options_;
+};
+
+/// \brief A DataSource which takes files of one format from a directory
+///
+/// The directory is crawled upon construction (Make) and not updated afterward.
+/// GetFragments() will not include files added after this DataDource is constructed and
+/// will error if files are deleted/moved.
+class ARROW_DS_EXPORT FileSystemBasedDataSource : public DataSource {
+ public:
+  static Status Make(fs::FileSystem* filesystem, const fs::Selector& selector,
+                     std::shared_ptr<FileFormat> format,
+                     std::shared_ptr<ScanOptions> scan_options,
+                     std::unique_ptr<FileSystemBasedDataSource>* out);
+
+  std::string type() const override { return "directory"; }
+
+  std::unique_ptr<DataFragmentIterator> GetFragments(
+      std::shared_ptr<ScanOptions> options) override;
+
+ protected:
+  FileSystemBasedDataSource(fs::FileSystem* filesystem, const fs::Selector& selector,
+                            std::shared_ptr<FileFormat> format,
+                            std::shared_ptr<ScanOptions> scan_options,
+                            std::vector<fs::FileStats> stats);
+
+  fs::FileSystem* filesystem_ = NULLPTR;
+  fs::Selector selector_;
+  std::shared_ptr<FileFormat> format_;
+  std::shared_ptr<ScanOptions> scan_options_;
+  std::vector<fs::FileStats> stats_;
 };
 
 }  // namespace dataset

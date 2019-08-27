@@ -201,5 +201,9 @@ Status SubTreeFileSystem::OpenAppendStream(const std::string& path,
   return base_fs_->OpenAppendStream(s, out);
 }
 
+std::string FileStats::extension() const {
+  return internal::GetAbstractPathExtension(path_);
+}
+
 }  // namespace fs
 }  // namespace arrow

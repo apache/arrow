@@ -18,6 +18,7 @@
 #include "arrow/dataset/file_parquet.h"
 
 #include <utility>
+#include <vector>
 
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
@@ -87,6 +88,19 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
 
   ASSERT_EQ(row_count, kNumRows);
 }
+
+class TestParquetFileSystemBasedDataSource
+    : public FileSystemBasedDataSourceMixin<ParquetFileFormat> {
+  std::vector<std::string> file_names() const override {
+    return {"a/b/c.parquet", "a/b/c/d.parquet", "a/b.parquet", "a.parquet"};
+  }
+};
+
+TEST_F(TestParquetFileSystemBasedDataSource, NonRecursive) { this->NonRecursive(); }
+
+TEST_F(TestParquetFileSystemBasedDataSource, Recursive) { this->Recursive(); }
+
+TEST_F(TestParquetFileSystemBasedDataSource, DeletedFile) { this->DeletedFile(); }
 
 }  // namespace dataset
 }  // namespace arrow
