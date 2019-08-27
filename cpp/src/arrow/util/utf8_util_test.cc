@@ -90,7 +90,8 @@ std::vector<std::string> UTF8Test::all_invalid_sequences;
 class UTF8ValidationTest : public UTF8Test {};
 
 ::testing::AssertionResult IsValidUTF8(const std::string& s) {
-  if (ValidateUTF8(reinterpret_cast<const uint8_t*>(s.data()), s.size())) {
+  if (ValidateUTF8(reinterpret_cast<const uint8_t*>(s.data()), s.size()) &&
+      ValidateNonAscii(reinterpret_cast<const uint8_t*>(s.data()), s.size())) {
     return ::testing::AssertionSuccess();
   } else {
     std::string h = HexEncode(reinterpret_cast<const uint8_t*>(s.data()),
@@ -101,7 +102,8 @@ class UTF8ValidationTest : public UTF8Test {};
 }
 
 ::testing::AssertionResult IsInvalidUTF8(const std::string& s) {
-  if (!ValidateUTF8(reinterpret_cast<const uint8_t*>(s.data()), s.size())) {
+  if (!ValidateUTF8(reinterpret_cast<const uint8_t*>(s.data()), s.size()) &&
+      !ValidateNonAscii(reinterpret_cast<const uint8_t*>(s.data()), s.size())) {
     return ::testing::AssertionSuccess();
   } else {
     std::string h = HexEncode(reinterpret_cast<const uint8_t*>(s.data()),

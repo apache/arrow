@@ -26,8 +26,8 @@
 
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/neon-util.h"
-#include "arrow/util/sse-util.h"
+#include "arrow/util/neon_util.h"
+#include "arrow/util/sse_util.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
@@ -513,7 +513,7 @@ inline bool ValidateNonAscii(const uint8_t* data, int64_t len) {
       len -= 32;
     }
 
-    if (!_mm_testz_si128(error, error)) return -1;
+    if (!_mm_testz_si128(error, error)) return false;
 
     int32_t token4 = _mm_extract_epi32(prev_input, 3);
     const int8_t* token = (const int8_t*)&token4;
