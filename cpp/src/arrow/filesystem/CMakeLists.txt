@@ -20,3 +20,14 @@ arrow_install_all_headers("arrow/filesystem")
 
 add_arrow_test(filesystem_test)
 add_arrow_test(localfs_test)
+
+if(ARROW_S3)
+  add_arrow_test(s3fs_test)
+
+  if(ARROW_BUILD_TESTS)
+    add_executable(arrow-s3fs-narrative-test s3fs_narrative_test.cc)
+    target_link_libraries(arrow-s3fs-narrative-test ${ARROW_TEST_LINK_LIBS}
+                          ${GFLAGS_LIBRARIES} GTest::GTest)
+    add_dependencies(arrow-tests arrow-s3fs-narrative-test)
+  endif()
+endif()

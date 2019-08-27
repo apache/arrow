@@ -542,17 +542,13 @@ TEST_F(TestSubTreeFileSystem, GetTargetStatsSingle) {
   FileStats st;
   ASSERT_OK(subfs_->CreateDir("AB/CD"));
 
-  ASSERT_OK(subfs_->GetTargetStats("AB", &st));
-  AssertFileStats(st, "AB", FileType::Directory, time_);
-  ASSERT_OK(subfs_->GetTargetStats("AB/CD", &st));
-  AssertFileStats(st, "AB/CD", FileType::Directory, time_);
+  AssertFileStats(subfs_.get(), "AB", FileType::Directory, time_);
+  AssertFileStats(subfs_.get(), "AB/CD", FileType::Directory, time_);
 
   CreateFile("ab", "data");
-  ASSERT_OK(subfs_->GetTargetStats("ab", &st));
-  AssertFileStats(st, "ab", FileType::File, time_, 4);
+  AssertFileStats(subfs_.get(), "ab", FileType::File, time_, 4);
 
-  ASSERT_OK(subfs_->GetTargetStats("non-existent", &st));
-  AssertFileStats(st, "non-existent", FileType::NonExistent);
+  AssertFileStats(subfs_.get(), "non-existent", FileType::NonExistent);
 }
 
 TEST_F(TestSubTreeFileSystem, GetTargetStatsVector) {

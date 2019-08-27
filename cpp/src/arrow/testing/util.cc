@@ -59,6 +59,13 @@ void random_bytes(int64_t n, uint32_t seed, uint8_t* out) {
   std::generate(out, out + n, [&d, &gen] { return static_cast<uint8_t>(d(gen)); });
 }
 
+std::string random_string(int64_t n, uint32_t seed) {
+  std::string s;
+  s.resize(static_cast<size_t>(n));
+  random_bytes(n, seed, reinterpret_cast<uint8_t*>(&s[0]));
+  return s;
+}
+
 int32_t DecimalSize(int32_t precision) {
   DCHECK_GE(precision, 1) << "decimal precision must be greater than or equal to 1, got "
                           << precision;

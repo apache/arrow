@@ -19,6 +19,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <iosfwd>
 #include <memory>
 #include <string>
 #include <vector>
@@ -69,6 +70,8 @@ enum class ARROW_EXPORT FileType {
 };
 
 ARROW_EXPORT std::string ToString(FileType);
+
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, FileType);
 
 static const int64_t kNoSize = -1;
 static const TimePoint kNoTime = TimePoint(TimePoint::duration(-1));

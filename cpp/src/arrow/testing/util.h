@@ -69,6 +69,7 @@ ARROW_EXPORT void random_null_bytes(int64_t n, double pct_null, uint8_t* null_by
 ARROW_EXPORT void random_is_valid(int64_t n, double pct_null, std::vector<bool>* is_valid,
                                   int random_seed = 0);
 ARROW_EXPORT void random_bytes(int64_t n, uint32_t seed, uint8_t* out);
+ARROW_EXPORT std::string random_string(int64_t n, uint32_t seed);
 ARROW_EXPORT int32_t DecimalSize(int32_t precision);
 ARROW_EXPORT void random_decimals(int64_t n, uint32_t seed, int32_t precision,
                                   uint8_t* out);

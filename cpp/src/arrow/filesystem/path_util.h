@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/status.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace fs {
@@ -56,6 +57,9 @@ std::string ConcatAbstractPath(const std::string& base, const std::string& stem)
 ARROW_EXPORT
 std::string EnsureTrailingSlash(const std::string& s);
 
+ARROW_EXPORT
+util::string_view RemoveTrailingSlash(util::string_view s);
+
 // Join the components of an abstract path.
 template <class StringIt>
 std::string JoinAbstractPath(StringIt it, StringIt end) {
@@ -67,6 +71,11 @@ std::string JoinAbstractPath(StringIt it, StringIt end) {
     path += *it;
   }
   return path;
+}
+
+template <class StringRange>
+std::string JoinAbstractPath(const StringRange& range) {
+  return JoinAbstractPath(range.begin(), range.end());
 }
 
 }  // namespace internal
