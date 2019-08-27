@@ -189,4 +189,15 @@ class ARROW_EXPORT RecordBatchReader
   Status ReadAll(std::shared_ptr<Table>* table);
 };
 
+/// \brief Creates a RecordBatchReader from a vector  of RecordBatch.
+///
+/// \param[in]
+/// \param[in]
+/// \param[out]
+///
+/// \returns Status
+ARROW_EXPORT Status MakeRecordBatchReader(
+    const std::vector<std::shared_ptr<RecordBatch>>& batches,
+    std::shared_ptr<Schema> schema, std::shared_ptr<RecordBatchReader>* out);
+
 }  // namespace arrow

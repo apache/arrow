@@ -18,6 +18,7 @@
 #include "arrow/dataset/scanner.h"
 
 #include "arrow/dataset/test_util.h"
+#include "arrow/testing/generator.h"
 
 namespace arrow {
 namespace dataset {
@@ -30,7 +31,7 @@ TEST_F(TestSimpleScanner, Scan) {
   constexpr int64_t kBatchSize = 1024;
 
   auto s = schema({field("i32", int32()), field("f64", float64())});
-  auto batch = GetRecordBatch(kBatchSize, s);
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, s);
 
   std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
   auto fragment = std::make_shared<SimpleDataFragment>(batches);
@@ -42,7 +43,7 @@ TEST_F(TestSimpleScanner, Scan) {
   };
 
   const int64_t total_batches = sources.size() * kNumberBatches * kNumberBatches;
-  auto reader = GetRecordBatchReader(total_batches, batch);
+  auto reader = ConstantArrayGenerator::Repeat(total_batches, batch);
 
   SimpleScanner scanner{sources, options_, ctx_};
 

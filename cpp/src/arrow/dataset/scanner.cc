@@ -92,7 +92,10 @@ ScannerBuilder* ScannerBuilder::SetGlobalFileOptions(
   return this;
 }
 
-ScannerBuilder* ScannerBuilder::IncludePartitionKeys(bool include) { return this; }
+ScannerBuilder* ScannerBuilder::IncludePartitionKeys(bool include) {
+  include_partition_keys_ = include;
+  return this;
+}
 
 Status ScannerBuilder::Finish(std::unique_ptr<Scanner>* out) const {
   auto options = std::make_shared<ScanOptions>();
