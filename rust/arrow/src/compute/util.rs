@@ -245,4 +245,23 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_simd_load_without_invalid_zeros() {
+        let a = Int64Array::from(vec![None, Some(15), Some(5), Some(0)]);
+        let new_bitmap = &Some(Bitmap::from(Buffer::from([0b00001010])));
+        let simd_lanes = 8;
+        let result = unsafe {
+            simd_load_without_invalid_zeros::<Int64Type>(&a, &new_bitmap, 0, simd_lanes)
+        };
+        for i in 0..simd_lanes {
+            if i == 1 {
+                assert_eq!(15_i64, result.extract(i));
+            } else if i == 3 {
+                assert_eq!(0_i64, result.extract(i));
+            } else {
+                assert_eq!(1_i64, result.extract(i));
+            }
+        }
+    }
 }
