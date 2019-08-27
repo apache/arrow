@@ -1188,8 +1188,8 @@ void TestSparseTensorRoundTrip<IndexValueType>::CheckSparseTensorRoundTrip(
 
   ASSERT_OK(mmap_->Seek(0));
 
-  ASSERT_OK(WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length,
-                              default_memory_pool()));
+  ASSERT_OK(
+      WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length));
 
   const auto& sparse_index =
       checked_cast<const SparseCOOIndex&>(*sparse_tensor.sparse_index());
@@ -1224,8 +1224,8 @@ void TestSparseTensorRoundTrip<IndexValueType>::CheckSparseTensorRoundTrip(
 
   ASSERT_OK(mmap_->Seek(0));
 
-  ASSERT_OK(WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length,
-                              default_memory_pool()));
+  ASSERT_OK(
+      WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length));
 
   const auto& sparse_index =
       checked_cast<const SparseCSRIndex&>(*sparse_tensor.sparse_index());

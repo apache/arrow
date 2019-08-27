@@ -46,6 +46,11 @@ except ImportError:
     csr_matrix = None
     coo_matrix = None
 
+try:
+    import sparse
+except ImportError:
+    sparse = None
+
 
 def assert_equal(obj1, obj2):
     if torch is not None and torch.is_tensor(obj1) and torch.is_tensor(obj2):
@@ -532,11 +537,9 @@ def test_numpy_subclass_serialization():
     assert np.alltrue(new_x.view(np.ndarray) == np.zeros(3))
 
 
-@pytest.mark.filterwarnings(
-    "ignore:the matrix subclass:PendingDeprecationWarning")
 @pytest.mark.skip
 def test_sparse_tensor_coo_components_serialization(large_buffer):
-    data = np.array([1, 1, 1, 1, 1, 1, 1])
+    data = np.array([[1, 1, 1, 1, 1, 1, 1]]).T
     row = np.array([0, 0, 1, 3, 1, 0, 0])
     col = np.array([0, 2, 1, 3, 1, 0, 0])
     shape = (4, 4)
@@ -547,7 +550,7 @@ def test_sparse_tensor_coo_components_serialization(large_buffer):
 
 
 def test_sparse_tensor_coo_serialization(large_buffer):
-    data = np.array([1, 1, 1, 1, 1, 1, 1])
+    data = np.array([[1, 1, 1, 1, 1, 1, 1]]).T
     row = np.array([0, 0, 1, 3, 1, 0, 0])
     col = np.array([0, 2, 1, 3, 1, 0, 0])
     shape = (4, 4)
@@ -559,12 +562,12 @@ def test_sparse_tensor_coo_serialization(large_buffer):
     result = serialized.deserialize()
 
     data_result, coords_result = result.to_numpy()
-    assert np.array_equal(data_result[:, 0], data)
+    assert np.array_equal(data_result, data)
     assert np.array_equal(coords_result, coords)
 
 
 def test_sparse_tensor_csr_serialization(large_buffer):
-    data = np.array([1, 2, 3, 4, 5, 6])
+    data = np.array([[1, 2, 3, 4, 5, 6]]).T
     indptr = np.array([0, 2, 3, 6])
     indices = np.array([0, 2, 2, 0, 1, 2])
     shape = (3, 3)
@@ -575,13 +578,14 @@ def test_sparse_tensor_csr_serialization(large_buffer):
     result = serialized.deserialize()
 
     data_result, indptr_result, indices_result = result.to_numpy()
-    assert np.array_equal(data_result[:, 0], data)
+    assert np.array_equal(data_result, data)
     assert np.array_equal(indptr_result, indptr)
     assert np.array_equal(indices_result, indices)
 
 
+@pytest.mark.skipif(os.name == 'nt', reason="fails on windows")
 def test_sparse_tensor_csr_components_serialization(large_buffer):
-    data = np.array([1, 2, 3, 4, 5, 6])
+    data = np.array([[1, 2, 3, 4, 5, 6]]).T
     indptr = np.array([0, 2, 3, 6])
     indices = np.array([0, 2, 2, 0, 1, 2])
     shape = (3, 3)
@@ -618,6 +622,24 @@ def test_scipy_sparse_tensor_csr_serialization():
     assert np.array_equal(sparse_array.toarray(), result.toarray())
 
 
+@pytest.mark.skipif(not sparse, reason="requires pydata/sparse")
+def test_pydata_sparse__sparse_tensor_coo_serialization():
+    data = np.array([1, 1, 1, 1, 1, 1, 1])
+    coords = np.array([
+        [0, 0, 1, 3, 2, 1, 0],
+        [0, 2, 1, 3, 2, 0, 1],
+    ])
+    shape = (4, 4)
+
+    sparse_array = sparse.COO(data=data, coords=coords, shape=shape)
+    serialized = pa.serialize(sparse_array)
+    result = serialized.deserialize()
+
+    assert np.array_equal(sparse_array.todense(), result.todense())
+
+
+@pytest.mark.filterwarnings(
+    "ignore:the matrix subclass:PendingDeprecationWarning")
 def test_numpy_matrix_serialization(tmpdir):
     class CustomType(object):
         def __init__(self, val):

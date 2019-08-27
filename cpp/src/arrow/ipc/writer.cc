@@ -823,6 +823,18 @@ Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* ds
   return internal::WriteIpcPayload(payload, IpcOptions::Defaults(), dst, metadata_length);
 }
 
+Status GetSparseTensorMessage(const SparseTensor& sparse_tensor, MemoryPool* pool,
+                              std::unique_ptr<Message>* out) {
+  internal::IpcPayload payload;
+  RETURN_NOT_OK(internal::GetSparseTensorPayload(sparse_tensor, pool, &payload));
+
+  const std::shared_ptr<Buffer> metadata = payload.metadata;
+  const std::shared_ptr<Buffer> buffer = *payload.body_buffers.data();
+
+  out->reset(new Message(metadata, buffer));
+  return Status::OK();
+}
+
 Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
                        int64_t buffer_start_offset, io::OutputStream* dst,
                        int32_t* metadata_length, int64_t* body_length, MemoryPool* pool) {
@@ -832,7 +844,7 @@ Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dict
 
   // The body size is computed in the payload
   *body_length = payload.body_length;
-  return internal::WriteIpcPayload(payload, dst, metadata_length);
+  return internal::WriteIpcPayload(payload, IpcOptions::Defaults(), dst, metadata_length);
 }
 
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
@@ -1040,14 +1052,7 @@ class StreamBookKeeper {
   int64_t position_;
 };
 
-<<<<<<< HEAD
-/// A IpcPayloadWriter implementation that writes to a IPC stream
-=======
-// End of stream marker
-constexpr int32_t kEos = 0;
-
 /// A IpcPayloadWriter implementation that writes to an IPC stream
->>>>>>> Changes to GetSparseTensorMessage. Enabling comparison for SparseTensor roundtrip test.
 /// (with an end-of-stream marker)
 class PayloadStreamWriter : public internal::IpcPayloadWriter,
                             protected StreamBookKeeper {
