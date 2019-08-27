@@ -141,11 +141,11 @@ class RecordBatchProjector {
 
 constexpr int RecordBatchProjector::kNoMatch;
 
-class ReconcilingRecordBatchIterator : public RecordBatchIterator {
+class ReconcilingRecordBatchReader : public RecordBatchReader {
  public:
-  ReconcilingRecordBatchIterator(MemoryPool* pool, std::shared_ptr<Schema> schema,
-                                 std::vector<std::shared_ptr<Scalar>> scalars,
-                                 std::unique_ptr<RecordBatchIterator> wrapped)
+  ReconcilingRecordBatchReader(MemoryPool* pool, std::shared_ptr<Schema> schema,
+                               std::vector<std::shared_ptr<Scalar>> scalars,
+                               std::unique_ptr<RecordBatchIterator> wrapped)
       : pool_(pool),
         schema_(std::move(schema)),
         wrapped_(std::move(wrapped)),
@@ -165,14 +165,14 @@ class ReconcilingRecordBatchIterator : public RecordBatchIterator {
                      std::vector<std::shared_ptr<Scalar>> scalars,
                      std::unique_ptr<RecordBatchIterator> wrapped,
                      std::unique_ptr<RecordBatchIterator>* out) {
-    auto it = internal::make_unique<ReconcilingRecordBatchIterator>(
+    auto it = internal::make_unique<ReconcilingRecordBatchReader>(
         pool, std::move(to_schema), std::move(scalars), std::move(wrapped));
     RETURN_NOT_OK(it->ResetProjector(std::move(from_schema)));
     *out = std::move(it);
     return Status::OK();
   }
 
-  Status Next(std::shared_ptr<RecordBatch>* out) override {
+  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
     std::shared_ptr<RecordBatch> rb;
     RETURN_NOT_OK(wrapped_->Next(&rb));
     if (rb == nullptr) {
@@ -186,6 +186,8 @@ class ReconcilingRecordBatchIterator : public RecordBatchIterator {
     }
     return projector_->Project(*rb, out);
   }
+
+  std::shared_ptr<Schema> schema() const override { return schema_; }
 
  private:
   Status ResetProjector(std::shared_ptr<Schema> from_schema) {
