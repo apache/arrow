@@ -187,7 +187,9 @@ Status FromProto(const pb::Action& pb_action, Action* action) {
 
 Status ToProto(const Action& action, pb::Action* pb_action) {
   pb_action->set_type(action.type);
-  pb_action->set_body(action.body->ToString());
+  if (action.body) {
+    pb_action->set_body(action.body->ToString());
+  }
   return Status::OK();
 }
 
