@@ -29,31 +29,62 @@
 namespace arrow {
 namespace dataset {
 
-/// \brief Shared state for a Scan operation
-struct ARROW_DS_EXPORT ScanContext {
-  MemoryPool* pool = arrow::default_memory_pool();
+/// \brief Base class for file scanning options
+class ARROW_DS_EXPORT FileScanOptions {
+ public:
+  /// \brief The file format this options corresponds to
+  virtual std::shared_ptr<FileFormat> file_format() const = 0;
+
+  virtual ~FileScanOptions() = default;
 };
 
-// TODO(wesm): API for handling of post-materialization filters. For
-// example, if the user requests [$col1 > 0, $col2 > 0] and $col1 is a
-// partition key, but $col2 is not, then the filter "$col2 > 0" must
-// be evaluated in-memory against the RecordBatch objects resulting
-// from the Scan
-
-class ARROW_DS_EXPORT ScanOptions {
+struct ARROW_DS_EXPORT ScanContext final {
  public:
-  virtual ~ScanOptions() = default;
+  ScanContext() = default;
 
+  /// Filters
   const std::shared_ptr<DataSelector>& selector() const { return selector_; }
 
+  ScanContext& selector(std::shared_ptr<DataSelector> s) {
+    selector_ = std::move(s);
+    return *this;
+  }
+
+  /// Schema to which record batches will be projected
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
+  ScanContext& schema(std::shared_ptr<Schema> s) {
+    schema_ = std::move(s);
+    return *this;
+  }
+
+  /// MemoryPool used for allocating temporary memory and yielded record batches
+  MemoryPool* pool() const { return pool_; }
+
+  ScanContext& pool(MemoryPool* p) {
+    pool_ = p;
+    return *this;
+  }
+
+  /// format specific options
+  const std::vector<std::shared_ptr<FileScanOptions>>& options() const {
+    return options_;
+  }
+
+  ScanContext& AddFileScanOptions(std::shared_ptr<FileScanOptions> opts) {
+    options_.push_back(std::move(opts));
+    return *this;
+  }
+
  protected:
-  // Filters
   std::shared_ptr<DataSelector> selector_;
 
   // Schema to which record batches will be reconciled
   std::shared_ptr<Schema> schema_;
+
+  MemoryPool* pool_ = default_memory_pool();
+
+  std::vector<std::shared_ptr<FileScanOptions>> options_;
 };
 
 /// \brief Read record batches from a range of a single data fragment. A
@@ -116,24 +147,19 @@ class ARROW_DS_EXPORT Scanner {
 class ARROW_DS_EXPORT SimpleScanner : public Scanner {
  public:
   SimpleScanner(std::vector<std::shared_ptr<DataSource>> sources,
-                std::shared_ptr<ScanOptions> options,
                 std::shared_ptr<ScanContext> context)
-      : sources_(std::move(sources)),
-        options_(std::move(options)),
-        context_(std::move(context)) {}
+      : sources_(std::move(sources)), context_(std::move(context)) {}
 
   std::unique_ptr<ScanTaskIterator> Scan() override;
 
  private:
   std::vector<std::shared_ptr<DataSource>> sources_;
-  std::shared_ptr<ScanOptions> options_;
   std::shared_ptr<ScanContext> context_;
 };
 
 class ARROW_DS_EXPORT ScannerBuilder {
  public:
-  ScannerBuilder(std::shared_ptr<Dataset> dataset,
-                 std::shared_ptr<ScanContext> scan_context);
+  ScannerBuilder(std::shared_ptr<Dataset> dataset);
 
   /// \brief Set
   ScannerBuilder* Project(const std::vector<std::string>& columns);
@@ -152,7 +178,6 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
  private:
   std::shared_ptr<Dataset> dataset_;
-  std::shared_ptr<ScanContext> scan_context_;
   std::vector<std::string> project_columns_;
   FilterVector filters_;
   bool include_partition_keys_;

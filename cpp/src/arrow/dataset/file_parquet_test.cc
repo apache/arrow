@@ -142,22 +142,17 @@ class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
   }
 };
 
-class TestParquetFileFormat : public ParquetBufferFixtureMixin {
- public:
-  TestParquetFileFormat() : ctx_(std::make_shared<ScanContext>()) {}
-
- protected:
-  std::shared_ptr<ScanOptions> opts_;
-  std::shared_ptr<ScanContext> ctx_;
-};
+class TestParquetFileFormat : public ParquetBufferFixtureMixin {};
 
 TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   auto reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
-  auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
+  auto context = std::make_shared<ScanContext>();
+  context->schema(reader->schema());
+  auto fragment = std::make_shared<ParquetFragment>(*source, context);
 
   std::unique_ptr<ScanTaskIterator> it;
-  ASSERT_OK(fragment->Scan(ctx_, &it));
+  ASSERT_OK(fragment->Scan(&it));
   int64_t row_count = 0;
 
   ASSERT_OK(it->Visit([&row_count](std::unique_ptr<ScanTask> task) -> Status {

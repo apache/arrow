@@ -36,21 +36,6 @@ class FileSystem;
 
 namespace dataset {
 
-class ARROW_DS_EXPORT CsvScanOptions : public FileScanOptions {
- public:
-  std::string file_type() const override;
-
- private:
-  csv::ParseOptions parse_options_;
-  csv::ConvertOptions convert_options_;
-  csv::ReadOptions read_options_;
-};
-
-class ARROW_DS_EXPORT CsvWriteOptions : public FileWriteOptions {
- public:
-  std::string file_type() const override;
-};
-
 /// \brief A FileFormat implementation that reads from CSV files
 class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
  public:
@@ -60,9 +45,30 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
   bool IsKnownExtension(const std::string& ext) const override;
 
   /// \brief Open a file for scanning
-  Status ScanFile(const FileSource& source, std::shared_ptr<ScanOptions> scan_options,
-                  std::shared_ptr<ScanContext> scan_context,
+  Status ScanFile(const FileSource& source, std::shared_ptr<ScanContext> context,
                   std::unique_ptr<ScanTaskIterator>* out) const override;
+
+  Status MakeFragment(const FileSource& source, std::shared_ptr<ScanContext> context,
+                      std::unique_ptr<DataFragment>* out) override;
+};
+
+class ARROW_DS_EXPORT CsvScanOptions : public FileScanOptions {
+ public:
+  std::shared_ptr<FileFormat> file_format() const override {
+    return std::make_shared<CsvFileFormat>();
+  }
+
+ private:
+  csv::ParseOptions parse_options_;
+  csv::ConvertOptions convert_options_;
+  csv::ReadOptions read_options_;
+};
+
+class ARROW_DS_EXPORT CsvWriteOptions : public FileWriteOptions {
+ public:
+  std::shared_ptr<FileFormat> file_format() const override {
+    return std::make_shared<CsvFileFormat>();
+  }
 };
 
 }  // namespace dataset

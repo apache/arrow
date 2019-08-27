@@ -28,21 +28,6 @@
 namespace arrow {
 namespace dataset {
 
-class ARROW_DS_EXPORT JsonScanOptions : public FileScanOptions {
- public:
-  ///
-  std::string file_type() const override;
-
- private:
-  json::ParseOptions parse_options_;
-  json::ReadOptions read_options_;
-};
-
-class ARROW_DS_EXPORT JsonWriteOptions : public FileWriteOptions {
- public:
-  std::string file_type() const override;
-};
-
 /// \brief A FileFormat implementation that reads from JSON files
 class ARROW_DS_EXPORT JsonFileFormat : public FileFormat {
  public:
@@ -52,9 +37,29 @@ class ARROW_DS_EXPORT JsonFileFormat : public FileFormat {
   bool IsKnownExtension(const std::string& ext) const override;
 
   /// \brief Open a file for scanning
-  Status ScanFile(const FileSource& source, std::shared_ptr<ScanOptions> scan_options,
-                  std::shared_ptr<ScanContext> scan_context,
+  Status ScanFile(const FileSource& source, std::shared_ptr<ScanContext> context,
                   std::unique_ptr<ScanTaskIterator>* out) const override;
+
+  Status MakeFragment(const FileSource& source, std::shared_ptr<ScanContext> context,
+                      std::unique_ptr<DataFragment>* out) override;
+};
+
+class ARROW_DS_EXPORT JsonScanOptions : public FileScanOptions {
+ public:
+  std::shared_ptr<FileFormat> file_format() const override {
+    return std::make_shared<JsonFileFormat>();
+  }
+
+ private:
+  json::ParseOptions parse_options_;
+  json::ReadOptions read_options_;
+};
+
+class ARROW_DS_EXPORT JsonWriteOptions : public FileWriteOptions {
+ public:
+  std::shared_ptr<FileFormat> file_format() const override {
+    return std::make_shared<JsonFileFormat>();
+  }
 };
 
 }  // namespace dataset

@@ -161,17 +161,17 @@ class ARROW_DS_EXPORT SimplePartition : public Partition {
  public:
   SimplePartition(std::unique_ptr<PartitionKey> partition_key,
                   DataFragmentVector&& data_fragments, PartitionVector&& subpartitions,
-                  std::shared_ptr<ScanOptions> scan_options = NULLPTR)
+                  std::shared_ptr<ScanContext> context = NULLPTR)
       : key_(std::move(partition_key)),
         data_fragments_(std::move(data_fragments)),
         subpartitions_(std::move(subpartitions)),
-        scan_options_(scan_options) {}
+        context_(context) {}
 
   const PartitionKey* key() const override { return key_.get(); }
 
   int num_subpartitions() const { return static_cast<int>(subpartitions_.size()); }
 
-  int num_data_fragments() const { return static_cast<int>(data_fragments__.size()); }
+  int num_data_fragments() const { return static_cast<int>(data_fragments_.size()); }
 
   const PartitionVector& subpartitions() const { return subpartitions_; }
   const DataFragmentVector& data_fragments() const { return data_fragments_; }
@@ -192,7 +192,7 @@ class ARROW_DS_EXPORT SimplePartition : public Partition {
   std::vector<std::shared_ptr<Partition>> subpartitions_;
 
   /// \brief Default scan options to use for data fragments
-  std::shared_ptr<ScanOptions> scan_options_;
+  std::shared_ptr<ScanContext> context_;
 };
 
 /// \brief A PartitionSource that returns fragments as the result of input iterators

@@ -40,25 +40,25 @@ Status FileSource::Open(std::shared_ptr<arrow::io::RandomAccessFile>* out) const
   return Status::OK();
 }
 
-Status FileBasedDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
-                                   std::unique_ptr<ScanTaskIterator>* out) {
-  return format_->ScanFile(source_, scan_options_, scan_context, out);
+Status FileBasedDataFragment::Scan(std::unique_ptr<ScanTaskIterator>* out) {
+  return format_->ScanFile(source_, context_, out);
 }
 
-FileSystemBasedDataSource::FileSystemBasedDataSource(
-    fs::FileSystem* filesystem, const fs::Selector& selector,
-    std::shared_ptr<FileFormat> format, std::shared_ptr<ScanOptions> scan_options,
-    std::vector<fs::FileStats> stats)
+FileSystemBasedDataSource::FileSystemBasedDataSource(fs::FileSystem* filesystem,
+                                                     const fs::Selector& selector,
+                                                     std::shared_ptr<FileFormat> format,
+                                                     std::shared_ptr<ScanContext> context,
+                                                     std::vector<fs::FileStats> stats)
     : filesystem_(filesystem),
       selector_(std::move(selector)),
       format_(std::move(format)),
-      scan_options_(std::move(scan_options)),
+      context_(std::move(context)),
       stats_(std::move(stats)) {}
 
 Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
                                        const fs::Selector& selector,
                                        std::shared_ptr<FileFormat> format,
-                                       std::shared_ptr<ScanOptions> scan_options,
+                                       std::shared_ptr<ScanContext> context,
                                        std::unique_ptr<FileSystemBasedDataSource>* out) {
   std::vector<fs::FileStats> stats;
   RETURN_NOT_OK(filesystem->GetTargetStats(selector, &stats));
@@ -71,18 +71,18 @@ Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
   stats.resize(new_end - stats.begin());
 
   out->reset(new FileSystemBasedDataSource(filesystem, selector, std::move(format),
-                                           std::move(scan_options), std::move(stats)));
+                                           std::move(context), std::move(stats)));
   return Status::OK();
 }
 
 std::unique_ptr<DataFragmentIterator> FileSystemBasedDataSource::GetFragments(
-    std::shared_ptr<ScanOptions> options) {
+    std::shared_ptr<ScanContext> context) {
   struct Impl : DataFragmentIterator {
     Impl(fs::FileSystem* filesystem, std::shared_ptr<FileFormat> format,
-         std::shared_ptr<ScanOptions> scan_options, std::vector<fs::FileStats> stats)
+         std::shared_ptr<ScanContext> context, std::vector<fs::FileStats> stats)
         : filesystem_(filesystem),
           format_(std::move(format)),
-          scan_options_(std::move(scan_options)),
+          context_(std::move(context)),
           stats_(std::move(stats)) {}
 
     Status Next(std::shared_ptr<DataFragment>* out) {
@@ -93,7 +93,7 @@ std::unique_ptr<DataFragmentIterator> FileSystemBasedDataSource::GetFragments(
       FileSource src(stats_[i_++].path(), filesystem_);
 
       std::unique_ptr<DataFragment> fragment;
-      RETURN_NOT_OK(format_->MakeFragment(src, scan_options_, &fragment));
+      RETURN_NOT_OK(format_->MakeFragment(src, context_, &fragment));
       *out = std::move(fragment);
       return Status::OK();
     }
@@ -101,11 +101,11 @@ std::unique_ptr<DataFragmentIterator> FileSystemBasedDataSource::GetFragments(
     size_t i_ = 0;
     fs::FileSystem* filesystem_;
     std::shared_ptr<FileFormat> format_;
-    std::shared_ptr<ScanOptions> scan_options_;
+    std::shared_ptr<ScanContext> context_;
     std::vector<fs::FileStats> stats_;
   };
 
-  return internal::make_unique<Impl>(filesystem_, format_, options, stats_);
+  return internal::make_unique<Impl>(filesystem_, format_, context, stats_);
 }
 
 }  // namespace dataset

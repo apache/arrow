@@ -18,8 +18,6 @@
 #pragma once
 
 #include <memory>
-#include <string>
-#include <vector>
 
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
@@ -27,9 +25,13 @@
 namespace arrow {
 namespace dataset {
 
-class ARROW_DS_EXPORT WriteOptions {
+/// \brief Base class for file writing options
+class ARROW_DS_EXPORT FileWriteOptions {
  public:
-  virtual ~WriteOptions() = default;
+  /// \brief The file format this options corresponds to
+  virtual std::shared_ptr<FileFormat> file_format() const = 0;
+
+  virtual ~FileWriteOptions() = default;
 };
 
 }  // namespace dataset

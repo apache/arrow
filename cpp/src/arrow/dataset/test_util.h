@@ -90,7 +90,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   void AssertFragmentEquals(RecordBatchReader* expected, DataFragment* fragment,
                             bool ensure_drained = true) {
     std::unique_ptr<ScanTaskIterator> it;
-    ARROW_EXPECT_OK(fragment->Scan(ctx_, &it));
+    ARROW_EXPECT_OK(fragment->Scan(&it));
 
     ARROW_EXPECT_OK(it->Visit([&](std::unique_ptr<ScanTask> task) -> Status {
       AssertScanTaskEquals(expected, task.get(), false);
@@ -106,7 +106,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragments of a source.
   void AssertDataSourceEquals(RecordBatchReader* expected, DataSource* source,
                               bool ensure_drained = true) {
-    auto it = source->GetFragments(options_);
+    auto it = source->GetFragments(ctx_);
 
     ARROW_EXPECT_OK(it->Visit([&](std::shared_ptr<DataFragment> fragment) -> Status {
       AssertFragmentEquals(expected, fragment.get(), false);
@@ -152,7 +152,6 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
  protected:
-  std::shared_ptr<ScanOptions> options_ = nullptr;
   std::shared_ptr<ScanContext> ctx_;
 };
 
@@ -163,6 +162,9 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
 
   void SetUp() override {
     format_ = std::make_shared<Format>();
+    schema_ = schema({field("dummy", null())});
+    context_ = std::make_shared<ScanContext>();
+    context_->schema(schema_);
 
     ASSERT_OK(
         TemporaryDir::Make("test-fsdatasource-" + format_->name() + "-", &temp_dir_));
@@ -187,8 +189,8 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
   }
 
   void MakeDataSource() {
-    ASSERT_OK(FileSystemBasedDataSource::Make(fs_.get(), selector_, format_,
-                                              std::make_shared<ScanOptions>(), &source_));
+    ASSERT_OK(FileSystemBasedDataSource::Make(fs_.get(), selector_, format_, context_,
+                                              &source_));
   }
 
  protected:
@@ -197,8 +199,8 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
     MakeDataSource();
 
     int count = 0;
-    ASSERT_OK(
-        source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
+    ASSERT_OK(source_->GetFragments(context_)->Visit(
+        [&](std::shared_ptr<DataFragment> fragment) {
           auto file_fragment =
               internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
           ++count;
@@ -218,8 +220,8 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
     MakeDataSource();
 
     int count = 0;
-    ASSERT_OK(
-        source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
+    ASSERT_OK(source_->GetFragments(context_)->Visit(
+        [&](std::shared_ptr<DataFragment> fragment) {
           auto file_fragment =
               internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
           ++count;
@@ -242,15 +244,16 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
 
     ASSERT_RAISES(
         IOError,
-        source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
-          auto file_fragment =
-              internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
-          auto extension =
-              fs::internal::GetAbstractPathExtension(file_fragment->source().path());
-          EXPECT_TRUE(format_->IsKnownExtension(extension));
-          std::shared_ptr<io::RandomAccessFile> f;
-          return this->fs_->OpenInputFile(file_fragment->source().path(), &f);
-        }));
+        source_->GetFragments(context_)->Visit(
+            [&](std::shared_ptr<DataFragment> fragment) {
+              auto file_fragment =
+                  internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
+              auto extension =
+                  fs::internal::GetAbstractPathExtension(file_fragment->source().path());
+              EXPECT_TRUE(format_->IsKnownExtension(extension));
+              std::shared_ptr<io::RandomAccessFile> f;
+              return this->fs_->OpenInputFile(file_fragment->source().path(), &f);
+            }));
   }
 
   fs::Selector selector_;
@@ -259,6 +262,8 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
   std::shared_ptr<fs::FileSystem> fs_;
   std::unique_ptr<TemporaryDir> temp_dir_;
   std::shared_ptr<FileFormat> format_;
+  std::shared_ptr<ScanContext> context_;
+  std::shared_ptr<Schema> schema_;
 };
 
 template <typename Gen>
@@ -276,30 +281,29 @@ class DummyFileFormat : public FileFormat {
   bool IsKnownExtension(const std::string& ext) const override { return ext == name(); }
 
   /// \brief Open a file for scanning (always returns an empty iterator)
-  Status ScanFile(const FileSource& source, std::shared_ptr<ScanOptions> scan_options,
-                  std::shared_ptr<ScanContext> scan_context,
+  Status ScanFile(const FileSource& source, std::shared_ptr<ScanContext> context,
                   std::unique_ptr<ScanTaskIterator>* out) const override {
     *out = internal::make_unique<EmptyIterator<std::unique_ptr<ScanTask>>>();
     return Status::OK();
   }
 
   inline Status MakeFragment(const FileSource& location,
-                             std::shared_ptr<ScanOptions> opts,
+                             std::shared_ptr<ScanContext> context,
                              std::unique_ptr<DataFragment>* out) override;
 };
 
 class DummyFragment : public FileBasedDataFragment {
  public:
-  DummyFragment(const FileSource& source, std::shared_ptr<ScanOptions> options)
-      : FileBasedDataFragment(source, std::make_shared<DummyFileFormat>(), options) {}
+  DummyFragment(const FileSource& source, std::shared_ptr<ScanContext> context)
+      : FileBasedDataFragment(source, std::make_shared<DummyFileFormat>(), context) {}
 
   bool splittable() const override { return false; }
 };
 
 Status DummyFileFormat::MakeFragment(const FileSource& source,
-                                     std::shared_ptr<ScanOptions> opts,
+                                     std::shared_ptr<ScanContext> context,
                                      std::unique_ptr<DataFragment>* out) {
-  *out = internal::make_unique<DummyFragment>(source, opts);
+  *out = internal::make_unique<DummyFragment>(source, context);
   return Status::OK();
 }
 

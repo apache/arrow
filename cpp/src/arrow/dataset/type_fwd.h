@@ -57,7 +57,6 @@ using PartitionVector = std::vector<std::shared_ptr<Partition>>;
 using PartitionIterator = Iterator<std::shared_ptr<Partition>>;
 
 struct ScanContext;
-class ScanOptions;
 class Scanner;
 class ScannerBuilder;
 class ScanTask;

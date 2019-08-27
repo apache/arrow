@@ -27,16 +27,6 @@
 namespace arrow {
 namespace dataset {
 
-class ARROW_DS_EXPORT ParquetScanOptions : public FileScanOptions {
- public:
-  std::string file_type() const override { return "parquet"; }
-};
-
-class ARROW_DS_EXPORT ParquetWriteOptions : public FileWriteOptions {
- public:
-  std::string file_type() const override { return "parquet"; }
-};
-
 /// \brief A FileFormat implementation that reads from Parquet files
 class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
@@ -48,20 +38,34 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   }
 
   /// \brief Open a file for scanning
-  Status ScanFile(const FileSource& source, std::shared_ptr<ScanOptions> scan_options,
-                  std::shared_ptr<ScanContext> scan_context,
+  Status ScanFile(const FileSource& source, std::shared_ptr<ScanContext> context,
                   std::unique_ptr<ScanTaskIterator>* out) const override;
 
-  Status MakeFragment(const FileSource& source, std::shared_ptr<ScanOptions> opts,
+  Status MakeFragment(const FileSource& source, std::shared_ptr<ScanContext> context,
                       std::unique_ptr<DataFragment>* out) override;
 };
 
 class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {
  public:
-  ParquetFragment(const FileSource& source, std::shared_ptr<ScanOptions> options)
-      : FileBasedDataFragment(source, std::make_shared<ParquetFileFormat>(), options) {}
+  ParquetFragment(const FileSource& source, std::shared_ptr<ScanContext> context)
+      : FileBasedDataFragment(source, std::make_shared<ParquetFileFormat>(), context) {}
 
   bool splittable() const override { return true; }
+};
+
+class ARROW_DS_EXPORT ParquetScanOptions : public FileScanOptions {
+ public:
+  std::shared_ptr<FileFormat> file_format() const override {
+    return std::make_shared<ParquetFileFormat>();
+  }
+  // TODO(bkietz) probably this should wrap an ArrowReaderProperties
+};
+
+class ARROW_DS_EXPORT ParquetWriteOptions : public FileWriteOptions {
+ public:
+  std::shared_ptr<FileFormat> file_format() const override {
+    return std::make_shared<ParquetFileFormat>();
+  }
 };
 
 }  // namespace dataset

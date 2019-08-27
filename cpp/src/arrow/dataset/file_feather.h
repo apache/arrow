@@ -29,12 +29,12 @@ namespace dataset {
 
 class ARROW_DS_EXPORT FeatherScanOptions : public FileScanOptions {
  public:
-  std::string file_type() const override;
+  std::shared_ptr<FileFormat> file_format() const override;
 };
 
 class ARROW_DS_EXPORT FeatherWriterOptions : public FileWriteOptions {
  public:
-  std::string file_type() const override;
+  std::shared_ptr<FileFormat> file_format() const override;
 };
 
 /// \brief A FileFormat implementation that reads from Feather (Arrow
@@ -47,8 +47,7 @@ class ARROW_DS_EXPORT FeatherFileFormat : public FileFormat {
   bool IsKnownExtension(const std::string& ext) const override;
 
   /// \brief Open a file for scanning
-  Status ScanFile(const FileSource& source, std::shared_ptr<ScanOptions> scan_options,
-                  std::shared_ptr<ScanContext> scan_context,
+  Status ScanFile(const FileSource& source, std::shared_ptr<ScanContext> context,
                   std::unique_ptr<ScanTaskIterator>* out) const override;
 };
 

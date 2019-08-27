@@ -101,22 +101,6 @@ class ARROW_DS_EXPORT FileSource {
   std::shared_ptr<Buffer> buffer_;
 };
 
-/// \brief Base class for file scanning options
-class ARROW_DS_EXPORT FileScanOptions : public ScanOptions {
- public:
-  /// \brief The name of the file format this options corresponds to
-  virtual std::string file_type() const = 0;
-};
-
-/// \brief Base class for file writing options
-class ARROW_DS_EXPORT FileWriteOptions : public WriteOptions {
- public:
-  virtual ~FileWriteOptions() = default;
-
-  /// \brief The name of the file format this options corresponds to
-  virtual std::string file_type() const = 0;
-};
-
 /// \brief Base class for file format implementation
 class ARROW_DS_EXPORT FileFormat {
  public:
@@ -128,14 +112,12 @@ class ARROW_DS_EXPORT FileFormat {
   virtual bool IsKnownExtension(const std::string& ext) const = 0;
 
   /// \brief Open a file for scanning
-  virtual Status ScanFile(const FileSource& source,
-                          std::shared_ptr<ScanOptions> scan_options,
-                          std::shared_ptr<ScanContext> scan_context,
+  virtual Status ScanFile(const FileSource& source, std::shared_ptr<ScanContext> context,
                           std::unique_ptr<ScanTaskIterator>* out) const = 0;
 
   /// \brief Open a fragment
   virtual Status MakeFragment(const FileSource& location,
-                              std::shared_ptr<ScanOptions> opts,
+                              std::shared_ptr<ScanContext> context,
                               std::unique_ptr<DataFragment>* out) = 0;
 };
 
@@ -143,23 +125,20 @@ class ARROW_DS_EXPORT FileFormat {
 class ARROW_DS_EXPORT FileBasedDataFragment : public DataFragment {
  public:
   FileBasedDataFragment(const FileSource& source, std::shared_ptr<FileFormat> format,
-                        std::shared_ptr<ScanOptions> scan_options)
-      : source_(source),
-        format_(std::move(format)),
-        scan_options_(std::move(scan_options)) {}
+                        std::shared_ptr<ScanContext> context)
+      : source_(source), format_(std::move(format)), context_(std::move(context)) {}
 
-  Status Scan(std::shared_ptr<ScanContext> scan_context,
-              std::unique_ptr<ScanTaskIterator>* out) override;
+  Status Scan(std::unique_ptr<ScanTaskIterator>* out) override;
 
   const FileSource& source() const { return source_; }
   std::shared_ptr<FileFormat> format() const { return format_; }
 
-  std::shared_ptr<ScanOptions> scan_options() const override { return scan_options_; }
+  std::shared_ptr<ScanContext> context() const override { return context_; }
 
  protected:
   FileSource source_;
   std::shared_ptr<FileFormat> format_;
-  std::shared_ptr<ScanOptions> scan_options_;
+  std::shared_ptr<ScanContext> context_;
 };
 
 /// \brief A DataSource which takes files of one format from a directory
@@ -171,24 +150,24 @@ class ARROW_DS_EXPORT FileSystemBasedDataSource : public DataSource {
  public:
   static Status Make(fs::FileSystem* filesystem, const fs::Selector& selector,
                      std::shared_ptr<FileFormat> format,
-                     std::shared_ptr<ScanOptions> scan_options,
+                     std::shared_ptr<ScanContext> context,
                      std::unique_ptr<FileSystemBasedDataSource>* out);
 
   std::string type() const override { return "directory"; }
 
   std::unique_ptr<DataFragmentIterator> GetFragments(
-      std::shared_ptr<ScanOptions> options) override;
+      std::shared_ptr<ScanContext> context) override;
 
  protected:
   FileSystemBasedDataSource(fs::FileSystem* filesystem, const fs::Selector& selector,
                             std::shared_ptr<FileFormat> format,
-                            std::shared_ptr<ScanOptions> scan_options,
+                            std::shared_ptr<ScanContext> context,
                             std::vector<fs::FileStats> stats);
 
   fs::FileSystem* filesystem_ = NULLPTR;
   fs::Selector selector_;
   std::shared_ptr<FileFormat> format_;
-  std::shared_ptr<ScanOptions> scan_options_;
+  std::shared_ptr<ScanContext> context_;
   std::vector<fs::FileStats> stats_;
 };
 
