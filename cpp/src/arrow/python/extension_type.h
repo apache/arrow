@@ -44,11 +44,9 @@ class ARROW_PYTHON_EXPORT PyExtensionType : public ExtensionType {
   std::string Serialize() const override;
 
   // For use from Cython
-  static Status FromClass(std::shared_ptr<DataType> storage_type, PyObject* typ,
+  static Status FromClass(const std::shared_ptr<DataType> storage_type,
+                          const std::string extension_name, PyObject* typ,
                           std::shared_ptr<ExtensionType>* out);
-  static Status FromClassAndName(std::shared_ptr<DataType> storage_type,
-                                 std::string extension_name,
-                                 PyObject* typ, std::shared_ptr<ExtensionType>* out);
 
   // Return new ref
   PyObject* GetInstance() const;

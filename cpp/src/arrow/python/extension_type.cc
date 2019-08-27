@@ -77,7 +77,7 @@ PyExtensionType::PyExtensionType(std::shared_ptr<DataType> storage_type, PyObjec
 
 PyExtensionType::PyExtensionType(std::shared_ptr<DataType> storage_type, std::string extension_name,
                                  PyObject* typ, PyObject* inst)
-    : ExtensionType(storage_type), extension_name_(extension_name),
+    : ExtensionType(storage_type), extension_name_(std::move(extension_name)),
       type_class_(typ), type_instance_(inst) {}
 
 bool PyExtensionType::ExtensionEquals(const ExtensionType& other) const {
@@ -119,21 +119,12 @@ error:
 
 std::shared_ptr<Array> PyExtensionType::MakeArray(std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
-  // DCHECK_EQ(kExtensionName,
-  //           checked_cast<const ExtensionType&>(*data->type).extension_name());
   return std::make_shared<ExtensionArray>(data);
 }
 
 std::string PyExtensionType::Serialize() const {
-  PyAcquireGIL lock;
-
   DCHECK(type_instance_);
-
-  OwnedRef inst(GetInstance());
-
-  std::string serialized;
-  SerializeExtInstance(inst.obj(), &serialized);
-  return serialized;
+  return serialized_;
 }
 
 Status PyExtensionType::Deserialize(std::shared_ptr<DataType> storage_type,
@@ -186,26 +177,17 @@ Status PyExtensionType::SetInstance(PyObject* inst) const {
   return SerializeExtInstance(inst, &serialized_);
 }
 
-Status PyExtensionType::FromClass(std::shared_ptr<DataType> storage_type, PyObject* typ,
+Status PyExtensionType::FromClass(const std::shared_ptr<DataType> storage_type,
+                                  const std::string extension_name, PyObject* typ,
                                   std::shared_ptr<ExtensionType>* out) {
   Py_INCREF(typ);
-  out->reset(new PyExtensionType(storage_type, typ));
-  return Status::OK();
-}
-
-Status PyExtensionType::FromClassAndName(std::shared_ptr<DataType> storage_type,
-                                         std::string extension_name,
-                                         PyObject* typ,
-                                         std::shared_ptr<ExtensionType>* out) {
-  Py_INCREF(typ);
-  out->reset(new PyExtensionType(storage_type, extension_name, typ));
+  out->reset(new PyExtensionType(storage_type, std::move(extension_name), typ));
   return Status::OK();
 }
 
 Status RegisterPyExtensionType(const std::shared_ptr<DataType>& type) {
   DCHECK_EQ(type->id(), Type::EXTENSION);
   auto ext_type = std::dynamic_pointer_cast<ExtensionType>(type);
-  // DCHECK_EQ(ext_type->extension_name(), kExtensionName);
   return RegisterExtensionType(ext_type);
 }
 

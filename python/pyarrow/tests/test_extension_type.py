@@ -23,20 +23,20 @@ import pyarrow as pa
 import pytest
 
 
-class UuidType(pa.ExtensionType):
+class UuidType(pa.PyExtensionType):
 
     def __init__(self):
-        pa.ExtensionType.__init__(self, pa.binary(16))
+        pa.PyExtensionType.__init__(self, pa.binary(16))
 
     def __reduce__(self):
         return UuidType, ()
 
 
-class ParamExtType(pa.ExtensionType):
+class ParamExtType(pa.PyExtensionType):
 
     def __init__(self, width):
         self.width = width
-        pa.ExtensionType.__init__(self, pa.binary(width))
+        pa.PyExtensionType.__init__(self, pa.binary(width))
 
     def __reduce__(self):
         return ParamExtType, (self.width,)
@@ -219,13 +219,13 @@ def test_ipc_unknown_type():
     assert arr.type == ParamExtType(3)
 
 
-class PeriodType(pa.GenericExtensionType):
+class PeriodType(pa.ExtensionType):
 
     def __init__(self, freq):
         # attributes need to be set first before calling
         # super init (as that calls serialize)
         self.freq = freq
-        pa.GenericExtensionType.__init__(self, pa.int64(), 'pandas.period')
+        pa.ExtensionType.__init__(self, pa.int64(), 'pandas.period')
 
     def __arrow_ext_serialize__(self):
         return "freq={}".format(self.freq).encode()
@@ -318,7 +318,7 @@ def test_generic_ext_type_ipc_unknown(registered_period_type):
     result = batch.column(0)
 
     assert isinstance(result, pa.Int64Array)
-    ext_field = batch.schema.field_by_name('ext')
+    ext_field = batch.schema.field('ext')
     assert ext_field.metadata == {
         b'ARROW:extension:metadata': b'freq=D',
         b'ARROW:extension:name': b'pandas.period'

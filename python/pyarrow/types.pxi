@@ -537,16 +537,6 @@ cdef class BaseExtensionType(DataType):
         """
         return pyarrow_wrap_data_type(self.ext_type.storage_type())
 
-    def __eq__(self, other):
-        # Default implementation to avoid infinite recursion through
-        # DataType.__eq__ -> ExtensionType::ExtensionEquals -> DataType.__eq__
-        if isinstance(other, BaseExtensionType):
-            return (type(self) == type(other) and
-                    self.extension_name == other.extension_name and
-                    self.storage_type == other.storage_type)
-        else:
-            return NotImplemented
-
 
 cdef class ExtensionType(BaseExtensionType):
     """
@@ -558,13 +548,17 @@ cdef class ExtensionType(BaseExtensionType):
             raise TypeError("Can only instantiate subclasses of "
                             "ExtensionType")
 
-    def __init__(self, DataType storage_type):
+    def __init__(self, DataType storage_type, extension_name):
         cdef:
             shared_ptr[CExtensionType] cpy_ext_type
+            c_string c_extension_name
+
+        c_extension_name = tobytes(extension_name)
 
         assert storage_type is not None
-        check_status(CPyExtensionType.FromClass(storage_type.sp_type,
-                                                type(self), &cpy_ext_type))
+        check_status(CPyExtensionType.FromClass(
+            storage_type.sp_type, c_extension_name, type(self),
+            &cpy_ext_type))
         self.init(<shared_ptr[CDataType]> cpy_ext_type)
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -572,6 +566,37 @@ cdef class ExtensionType(BaseExtensionType):
         self.cpy_ext_type = <const CPyExtensionType*> type.get()
         # Store weakref and serialized version of self on C++ type instance
         check_status(self.cpy_ext_type.SetInstance(self))
+
+    def __eq__(self, other):
+        # Default implementation to avoid infinite recursion through
+        # DataType.__eq__ -> ExtensionType::ExtensionEquals -> DataType.__eq__
+        if isinstance(other, ExtensionType):
+            return (type(self) == type(other) and
+                    self.extension_name == other.extension_name and
+                    self.storage_type == other.storage_type)
+        else:
+            return NotImplemented
+
+    def __arrow_ext_serialize__(self):
+        return NotImplementedError
+
+    @classmethod
+    def __arrow_ext_deserialize__(self, storage_type, serialized):
+        return NotImplementedError
+
+
+cdef class PyExtensionType(ExtensionType):
+    """
+    Concrete base class for Python-defined extension types.
+    """
+
+    def __cinit__(self):
+        if type(self) is PyExtensionType:
+            raise TypeError("Can only instantiate subclasses of "
+                            "PyExtensionType")
+
+    def __init__(self, DataType storage_type):
+        ExtensionType.__init__(self, storage_type, "arrow.py_extension_type")
 
     def __reduce__(self):
         raise NotImplementedError("Please implement {0}.__reduce__"
@@ -598,7 +623,7 @@ cdef class ExtensionType(BaseExtensionType):
         return ty
 
 
-cdef class UnknownExtensionType(ExtensionType):
+cdef class UnknownExtensionType(PyExtensionType):
     """
     A concrete class for Python-defined extension types that refer to
     an unknown Python implementation.
@@ -609,50 +634,10 @@ cdef class UnknownExtensionType(ExtensionType):
 
     def __init__(self, DataType storage_type, serialized):
         self.serialized = serialized
-        ExtensionType.__init__(self, storage_type)
+        PyExtensionType.__init__(self, storage_type)
 
     def __arrow_ext_serialize__(self):
         return self.serialized
-
-
-cdef class GenericExtensionType(BaseExtensionType):
-    """
-    Concrete base class for Python-defined extension types.
-    """
-
-    def __cinit__(self):
-        if type(self) is GenericExtensionType:
-            raise TypeError("Can only instantiate subclasses of "
-                            "GenericExtensionType")
-
-    def __init__(self, DataType storage_type, extension_name):
-        cdef:
-            shared_ptr[CExtensionType] cpy_ext_type
-            c_string c_extension_name
-
-        c_extension_name = tobytes(extension_name)
-        assert storage_type is not None
-        check_status(CPyExtensionType.FromClassAndName(
-            storage_type.sp_type, c_extension_name, type(self),
-            &cpy_ext_type))
-        self.init(<shared_ptr[CDataType]> cpy_ext_type)
-
-    cdef void init(self, const shared_ptr[CDataType]& type) except *:
-        BaseExtensionType.init(self, type)
-        self.cpy_ext_type = <const CPyExtensionType*> type.get()
-        # Store weakref on C++ type instance
-        check_status(self.cpy_ext_type.SetInstance(self))
-
-    def __arrow_ext_serialize__(self):
-        # default for non-paramtrized type is to have no metadata
-        return b''
-
-    @classmethod
-    def __arrow_ext_deserialize__(self, storage_type, serialized):
-        return NotImplementedError
-        # if not serialized == b'':
-        #     raise TypeError
-        # return self
 
 
 _PYTHON_EXTENSION_TYPES_REGISTRY = []
@@ -2073,11 +2058,13 @@ def _register_py_extension_type():
     cdef:
         DataType storage_type
         shared_ptr[CExtensionType] cpy_ext_type
+        c_string c_extension_name = tobytes("arrow.py_extension_type")
 
     # Make a dummy C++ ExtensionType
     storage_type = null()
-    check_status(CPyExtensionType.FromClass(storage_type.sp_type,
-                                            ExtensionType, &cpy_ext_type))
+    check_status(CPyExtensionType.FromClass(
+        storage_type.sp_type, c_extension_name, PyExtensionType,
+        &cpy_ext_type))
     check_status(
         RegisterPyExtensionType(<shared_ptr[CDataType]> cpy_ext_type))
 

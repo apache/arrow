@@ -62,22 +62,21 @@ Pyarrow allows you to define such extension types from Python.
 
 There are currently two ways:
 
-* Subclassing :class:`ExtensionType`: the (de)serialization is based on pickle.
+* Subclassing :class:`PyExtensionType`: the (de)serialization is based on pickle.
   This is a good option for an extension type that is only used from Python.
-* Subclassing :class:`GenericExtensionType`: this allows to give a custom
+* Subclassing :class:`ExtensionType`: this allows to give a custom
   Python-independent name and serialized metadata, that can potentially be
   recognized by other (non-Python) Arrow implementations such as PySpark.
 
-
 For example, we could define a custom UUID type for 128-bit numbers which can
 be represented as ``FixedSizeBinary`` type with 16 bytes.
-Using the first approach, we create a `UuidType` subclass, and implement the
-``__reduce__`` dunder method to ensure the class can be properly pickled::
+Using the first approach, we create a ``UuidType`` subclass, and implement the
+``__reduce__`` method to ensure the class can be properly pickled::
 
-    class UuidType(pa.ExtensionType):
+    class UuidType(pa.PyExtensionType):
 
         def __init__(self):
-            pa.ExtensionType.__init__(self, pa.binary(16))
+            pa.PyExtensionType.__init__(self, pa.binary(16))
 
         def __reduce__(self):
             return UuidType, ()
@@ -108,10 +107,10 @@ as the definition of the class is available (the type can be unpickled).
 
 We can define the same type using the other option::
 
-    class UuidType(pa.GenericExtensionType):
+    class UuidType(pa.ExtensionType):
 
         def __init__(self):
-            pa.GenericExtensionType.__init__(self, pa.binary(16), "my_package.uuid")
+            pa.ExtensionType.__init__(self, pa.binary(16), "my_package.uuid")
 
         def __arrow_ext_serialize__(self):
             # since we don't have a parametrized type, we don't need extra
