@@ -51,7 +51,7 @@ class GANDIVA_EXPORT RandomGeneratorHolder : public FunctionHolder {
     generator_.seed(rd());
   }
 
-  std::ranlux48_base generator_;
+  std::mt19937_64 generator_;
   std::uniform_real_distribution<> distribution_;
 };
 

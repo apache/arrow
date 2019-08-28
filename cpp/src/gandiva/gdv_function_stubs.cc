@@ -37,7 +37,13 @@ bool gdv_fn_like_utf8_utf8(int64_t ptr, const char* data, int data_len,
   return (*holder)(std::string(data, data_len));
 }
 
-double gdv_fn_random(int64_t ptr, int32_t seed, bool seed_validity) {
+double gdv_fn_random(int64_t ptr) {
+  gandiva::RandomGeneratorHolder* holder =
+      reinterpret_cast<gandiva::RandomGeneratorHolder*>(ptr);
+  return (*holder)();
+}
+
+double gdv_fn_random_with_seed(int64_t ptr, int32_t seed, bool seed_validity) {
   gandiva::RandomGeneratorHolder* holder =
       reinterpret_cast<gandiva::RandomGeneratorHolder*>(ptr);
   return (*holder)();
@@ -239,9 +245,13 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
                                   reinterpret_cast<void*>(gdv_fn_populate_varlen_vector));
 
   // gdv_fn_random
-  args = {types->i64_type(), types->i32_type(), types->i1_type()};
+  args = {types->i64_type()};
   engine->AddGlobalMappingForFunc("gdv_fn_random", types->double_type(), args,
                                   reinterpret_cast<void*>(gdv_fn_random));
+
+  args = {types->i64_type(), types->i32_type(), types->i1_type()};
+  engine->AddGlobalMappingForFunc("gdv_fn_random_with_seed", types->double_type(), args,
+                                  reinterpret_cast<void*>(gdv_fn_random_with_seed));
 }
 
 }  // namespace gandiva
