@@ -25,11 +25,10 @@ Version has a corresponding Format Version, and multiple versions of
 the library may have the same format version. For example, library
 versions 2.0.0 and 3.0.0 may both track format version 1.0.0.
 
-For library versions prior to 1.0.0, major releases (e.g. 0.14.0 to
-0.15.0) may contain API changes. From 1.0.0 onward, we follow
-`Semantic Versioning <https://semver.org/>`_ with regards to
-communicating API changes. We expect most release to be major library
-releases.
+For library versions prior to 1.0.0, major releases may contain API
+changes. From 1.0.0 onward, we follow `Semantic Versioning
+<https://semver.org/>`_ with regards to communicating API changes. We
+expect most releases to be major library releases.
 
 Backward Compatibility
 ----------------------
@@ -60,7 +59,7 @@ indicates a disruption to these compatibility guarantees in some way.
 We **do not expect** this to be a frequent occurrence starting with
 the 1.0.0 library and format release. This would be an exceptional
 event and, should this come to pass, we would exercise caution in
-insuring that production applications are not harmed.
+ensuring that production applications are not harmed.
 
 Pre-1.0.0 Versions
 ------------------

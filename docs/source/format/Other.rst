@@ -32,14 +32,13 @@ Tensor (Multi-dimensional Array)
 The ``Tensor`` message types provides a way to write a
 multidimensional array of fixed-size values (such as a NumPy ndarray).
 
-When writing a standalone encapsulated tensor message, we use the format as
-indicated above, but additionally align the starting offset of the metadata as
-well as the starting offset of the tensor body (if writing to a shared memory
-region) to be multiples of 64 bytes: ::
+When writing a standalone encapsulated tensor message, we use the
+encapulated IPC format defined in the :ref:`Columnar Specification
+<format_columnar>`, but additionally align the starting offset of the
+tensor body to be a multiple of 64 bytes.::
 
+    <metadata prefix and metadata>
     <PADDING>
-    <metadata size: int32>
-    <metadata>
     <tensor body>
 
 Sparse Tensor
@@ -49,17 +48,16 @@ Sparse Tensor
 are generally almost all zeros.
 
 When writing a standalone encapsulated sparse tensor message, we use
-the format as indicated above, but additionally align the starting
-offset of the metadata as well as the starting offsets of the sparse
-index and the sparse tensor body (if writing to a shared memory
+the encapulated IPC format defined in the :ref:`Columnar Specification
+<format_columnar>`, but additionally align the starting offsets of the
+sparse index and the sparse tensor body (if writing to a shared memory
 region) to be multiples of 64 bytes: ::
 
+    <metadata prefix and metadata>
     <PADDING>
-    <metadata size: int32>
-    <metadata>
     <sparse index>
     <PADDING>
     <sparse tensor body>
 
-The contents of the sparse tensor index is depends on what kinds of sparse
+The contents of the sparse tensor index depends on what kind of sparse
 format is used.

@@ -40,12 +40,12 @@ The columnar format has some key features:
 * Relocatable without "pointer swizzling", allowing for true zero-copy
   access in shared memory
 
-Some things to keep in mind:
-
-* Some data types can be mutated in-place in memory, but others
-  cannot. The community has made deliberate trade-offs regarding
-  in-place mutability to provide analytical performance and data
-  locality guarantees
+The Arrow columnar format provides analytical performance and data
+locality guarantees in exchange for comparatively more expensive
+mutation operations. This document is concerned only with in-memory
+data representation and serialization details; issues such as
+coordinating mutation of data structures are left to be handled by
+implementations.
 
 Terminology
 ===========
@@ -61,38 +61,37 @@ concepts, here is a small glossary to help disambiguate.
 * **Buffer** or **Contiguous memory region**: a sequential virtual
   address space with a given length. Any byte can be reached via a
   single pointer offset less than the region's length.
-* **Physical Layout type**: The underlying memory layout for an array
+* **Physical Layout**: The underlying memory layout for an array
   without taking into account any value semantics. For example, a
   32-bit signed integer array and 32-bit floating point array have the
-  same layout type.
-* **Logical type**: An application-facing semantic value type that is
-  implemented using some physical layout type. For example, Decimal
-  values are stored as 16 bytes in a fixed-size binary
-  layout. Similarly, strings can be stored as ``List<1-byte>``. A
-  timestamp may be stored as 64-bit fixed-size layout.
-* **Nested** or **parametric type**: a data type whose full structure
-  depends on one or more other child types. Two fully-specified nested
-  types are equal if and only if their child types are equal. For
-  example, ``List<U>`` is distinct from ``List<V>`` iff U and V are
-  different types.
+  same layout.
 * **Parent** and **child arrays**: names to express relationships
   between physical value arrays in a nested type structure. For
   example, a ``List<T>``-type parent array has a T-type array as its
   child (see more on lists below).
-* **Leaf node** or **leaf**: A primitive value array that may or may
-  not be a child array of some array with a nested type.
+* **Primitive type**: a data type having no child types. This includes
+  such types as fixed bit-width, variable-size binary, and null types.
+* **Nested type**: a data type whose full structure depends on one or
+  more other child types. Two fully-specified nested types are equal
+  if and only if their child types are equal. For example, ``List<U>``
+  is distinct from ``List<V>`` iff U and V are different types.
+* **Logical type**: An application-facing semantic value type that is
+  implemented using some physical layout. For example, Decimal
+  values are stored as 16 bytes in a fixed-size binary
+  layout. Similarly, strings can be stored as ``List<1-byte>``. A
+  timestamp may be stored as 64-bit fixed-size layout.
 
 Physical Memory Layout
 ======================
 
 Arrays are defined by a few pieces of metadata and data:
 
-* A logical data type
-* A sequence of buffers
+* A logical data type.
+* A sequence of buffers.
 * A length as a 64-bit signed integer. Implementations are permitted
-  to be limited to 32-bit lengths, see more on this below
-* A null count as a 64-bit signed integer
-* An optional **dictionary**, for dictionary-encoded arrays
+  to be limited to 32-bit lengths, see more on this below.
+* A null count as a 64-bit signed integer.
+* An optional **dictionary**, for dictionary-encoded arrays.
 
 Nested arrays additionally have a sequence of one or more sets of
 these items, called the **child arrays**.
@@ -105,29 +104,36 @@ the different physical layouts defined by Arrow:
 * **Variable-size Binary**: a sequence of values each having a variable
   byte length. Two variants of this layout are supported using 32-bit
   and 64-bit length encoding.
-* **Fixed-size List**: a nested layout each each value has the same
+* **Fixed-size List**: a nested layout where each value has the same
   number of elements taken from a child data type.
-* **Variable-size List**: a nested layout type where each value is a
+* **Variable-size List**: a nested layout where each value is a
   variable-length sequence of values taken from a child data type. Two
   variants of this layout are supported using 32-bit and 64-bit length
   encoding.
-* **Struct**: a nested layout type consisting of a collection of child
-  **fields** each having the same length
-* **Sparse** and **Dense Union**: a nested layout type representing a
+* **Struct**: a nested layout consisting of a collection of named
+  child **fields** each having the same length but possibly different
+  types
+* **Sparse** and **Dense Union**: a nested layout representing a
   sequence of values, each of which can have type chosen from a
   collection of child array types.
 * **Null**: a sequence of all null values, having null logical type
 
+The Arrow columnar memory layout only applies to *data* and not
+*metadata*. Implementations are free to represent metadata in-memory
+in whichever form is convenient for them. We handle metadata
+**serialization** in an implementation-independent way using
+`Flatbuffers`_, detailed below.
+
 Buffer Alignment and Padding
 ----------------------------
 
-Implementations are recommended allocate memory on aligned (8- or
-64-byte boundaries) and pad (overallocate) to a length that is a
-multiple of 8 or 64 bytes. When serializing Arrow data for
-interprocess communication, these alignment and padding requirements
-are enforced. If possible, we suggest that you prefer using 64-byte
-alignment and padding. Unless otherwise noted, padded bytes do not
-need to have a specific value.
+Implementations are recommended to allocate memory on aligned
+addresses (multiple of 8- or 64-bytes) and pad (overallocate) to a
+length that is a multiple of 8 or 64 bytes. When serializing Arrow
+data for interprocess communication, these alignment and padding
+requirements are enforced. If possible, we suggest that you prefer
+using 64-byte alignment and padding. Unless otherwise noted, padded
+bytes do not need to have a specific value.
 
 The alignment requirement follows best practices for optimized memory
 access:
@@ -138,8 +144,8 @@ access:
 The recommendation for 64 byte alignment comes from the `Intel
 performance guide`_ that recommends alignment of memory to match SIMD
 register width.  The specific padding length was chosen because it
-matches the largest known SIMD instruction registers available as of
-April 2016 (Intel AVX-512).
+matches the largest SIMD instruction registers available on widely
+deployed x86 architecture (Intel AVX-512).
 
 The recommended padding of 64 bytes allows for using `SIMD`_
 instructions consistently in loops without additional conditional
@@ -150,20 +156,6 @@ parallelism on all the columnar values packed into the 64-byte
 buffer. Guaranteed padding can also allow certain compilers to
 generate more optimized code directly (e.g. One can safely use Intel's
 ``-qopt-assume-safe-padding``).
-
-Byte Order (`Endianness`_)
----------------------------
-
-The Arrow format is little endian by default.
-
-Serialized Schema metadata has an endianness field indicating
-endianness of RecordBatches. Typically this is the endianness of the
-system where the RecordBatch was generated. The main use case is
-exchanging RecordBatches between systems with the same Endianness.  At
-first we will return an error when trying to read a Schema with an
-endianness that does not match the underlying system. The reference
-implementation is focused on Little Endian and provides tests for
-it. Eventually we may provide automatic conversion via byte swapping.
 
 Array lengths
 -------------
@@ -209,26 +201,35 @@ right-to-left: ::
     j mod 8   7  6  5  4  3  2  1  0
               0  0  1  0  1  0  1  1
 
-Arrays having a 0 null count may choose to not allocate the null
-bitmap. Implementations may choose to always allocate one anyway as a matter of
-convenience, but this should be noted when memory is being shared.
+Arrays having a 0 null count may choose to not allocate the validity
+bitmap. Implementations may choose to always allocate one anyway as a
+matter of convenience, but this should be noted when memory is being
+shared.
 
-Nested type arrays have their own null bitmap and null count regardless of
-the null count and null bits of their child arrays.
+Nested type arrays have their own validity bitmap and null count
+regardless of the null count and valid bits of their child arrays.
 
-Primitive
----------
+Array slots which are null are not required to have a particular
+value; any "masked" memory can have any value and need not be zeroed,
+though implementations frequently choose to zero memory for null
+values.
 
-A primitive value array represents a fixed-length array of values each having
-the same physical slot width typically measured in bytes, though the spec also
-provides for bit-packed types (e.g. boolean values encoded in bits).
+Fixed-size Primitive Layout
+---------------------------
 
-Internally, the array contains a contiguous memory buffer whose total size is
-equal to the slot width multiplied by the array length. For bit-packed types,
-the size is rounded up to the nearest byte.
+A primitive value array represents an array of values each having the
+same physical slot width typically measured in bytes, though the spec
+also provides for bit-packed types (e.g. boolean values encoded in
+bits).
 
-The associated null bitmap is contiguously allocated (as described above) but
-does not need to be adjacent in memory to the values buffer.
+Internally, the array contains a contiguous memory buffer whose total
+size is at least as large as the slot width multiplied by the array
+length. For bit-packed types, the size is rounded up to the nearest
+byte.
+
+The associated validity bitmap is contiguously allocated (as described
+above) but does not need to be adjacent in memory to the values
+buffer.
 
 **Example Layout: Int32 Array**
 
@@ -239,7 +240,7 @@ For example a primitive array of int32s: ::
 Would look like: ::
 
     * Length: 5, Null count: 1
-    * Null bitmap buffer:
+    * Validity bitmap buffer:
 
       |Byte 0 (validity bitmap) | Bytes 1-63            |
       |-------------------------|-----------------------|
@@ -256,7 +257,7 @@ Would look like: ::
 ``[1, 2, 3, 4, 8]`` has two possible layouts: ::
 
     * Length: 5, Null count: 0
-    * Null bitmap buffer:
+    * Validity bitmap buffer:
 
       | Byte 0 (validity bitmap) | Bytes 1-63            |
       |--------------------------|-----------------------|
@@ -271,59 +272,61 @@ Would look like: ::
 or with the bitmap elided: ::
 
     * Length 5, Null count: 0
-    * Null bitmap buffer: Not required
+    * Validity bitmap buffer: Not required
     * Value Buffer:
 
       |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | bytes 12-15 | bytes 16-19 | Bytes 20-63 |
       |------------|-------------|-------------|-------------|-------------|-------------|
       | 1          | 2           | 3           | 4           | 8           | unspecified |
 
-Variable-size
--------------
+Variable-size Binary Layout
+---------------------------
 
-Each value in this layout type consists of 0 or more bytes. While
-primitive arrays have a single values buffer, variable-size binary
-have an **offsets** buffer and **data** buffer
+Each value in this layout consists of 0 or more bytes. While primitive
+arrays have a single values buffer, variable-size binary have an
+**offsets** buffer and **data** buffer
 
 The offsets buffer contains `length + 1` signed integers (either
-32-bit or 64-bit), which encode the start position of each element in
-the data buffer. The length of the value in each slot is computed
-using the first difference with the next element in the offsets
-array. For example, the position and length of slot j is computed as:
+32-bit or 64-bit, depending on the logical type), which encode the
+start position of each slot in the data buffer. The length of the
+value in each slot is computed using the difference between the offset
+at that slot's index and the subsequent offset. For example, the
+position and length of slot j is computed as:
 
 ::
 
     slot_position = offsets[j]
     slot_length = offsets[j + 1] - offsets[j]  // (for 0 <= j < length)
 
-Generally the first value in the offsets array is 0, and the last
-element is the length of the values array.
+Generally the first value in the offsets array is 0, and the last slot
+is the length of the values array. When serializing this layout, we
+recommend normalizing the offsets to start at 0.
 
-Variable-size List
-------------------
+Variable-size List Layout
+-------------------------
 
 List is a nested type which is semantically similar to variable-size
-binary. It is defined by two buffers: a validity bitmap and an offsets
-buffer. The offsets are the same as in the variable-size binary case,
-and both 32-bit and 64-bit signed integer offsets are
-supported. Rather than referencing an additional data buffer, instead
-these offsets reference a child array having any type.
+binary. It is defined by two buffers, a validity bitmap and an offsets
+buffer, and a child array. The offsets are the same as in the
+variable-size binary case, and both 32-bit and 64-bit signed integer
+offsets are supported options for the offsets. Rather than referencing
+an additional data buffer, instead these offsets reference the child
+array.
 
 A list type is specified like ``List<T>``, where ``T`` is any type
-(primitive or nested).
+(primitive or nested). In these examples we use 32-bit offsets where
+the 64-bit offset version would be denoted by ``LargeList<T>``.
 
-**Example Layout: ``List<Char>`` Array**
+**Example Layout: ``List<Int8>`` Array**
 
-We illustrate ``List<Int8>``.
-
-For an array of length 4 with respective values: ::
+We illustrate an example of ``List<Int8>`` with length 4 having values::
 
     [[12, -7, 25], null, [0, -127, 127, 50], []]
 
 will have the following representation: ::
 
     * Length: 4, Null count: 1
-    * Null bitmap buffer:
+    * Validity bitmap buffer:
 
       | Byte 0 (validity bitmap) | Bytes 1-63            |
       |--------------------------|-----------------------|
@@ -337,7 +340,8 @@ will have the following representation: ::
 
     * Values array (Int8array):
       * Length: 7,  Null count: 0
-      * Null bitmap buffer: Not required
+      * Validity bitmap buffer: Not required
+      * Values buffer (int8)
 
         | Bytes 0-6                   | Bytes 7-63  |
         |-----------------------------|-------------|
@@ -351,7 +355,7 @@ will be represented as follows: ::
 
     * Length 3
     * Nulls count: 0
-    * Null bitmap buffer: Not required
+    * Validity bitmap buffer: Not required
     * Offsets buffer (int32)
 
       | Bytes 0-3  | Bytes 4-7  | Bytes 8-11 | Bytes 12-15 | Bytes 16-63 |
@@ -360,7 +364,7 @@ will be represented as follows: ::
 
     * Values array (`List<Int8>`)
       * Length: 6, Null count: 1
-      * Null bitmap buffer:
+      * Validity bitmap buffer:
 
         | Byte 0 (validity bitmap) | Bytes 1-63  |
         |--------------------------|-------------|
@@ -374,22 +378,17 @@ will be represented as follows: ::
 
       * Values array (Int8):
         * Length: 10, Null count: 0
-        * Null bitmap buffer: Not required
+        * Validity bitmap buffer: Not required
 
           | Bytes 0-9                     | Bytes 10-63 |
           |-------------------------------|-------------|
           | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 | unspecified |
 
-Note that while the inner offsets buffer encodes the start position in
-the inner values array, the outer offsets buffer encodes the start
-position of corresponding outer element in the inner offsets buffer.
-
-Fixed-Size List
----------------
+Fixed-Size List Layout
+----------------------
 
 Fixed-Size List is a nested type in which each array slot contains a
-fixed-size sequence of values all having the same type (heterogeneity
-can be achieved through unions, described later).
+fixed-size sequence of values all having the same type.
 
 A fixed size list type is specified like ``FixedSizeList<T>[N]``,
 where ``T`` is any type (primitive or nested) and ``N`` is a 32-bit
@@ -411,7 +410,7 @@ For an array of length 4 with respective values: ::
 will have the following representation: ::
 
     * Length: 4, Null count: 1
-    * Null bitmap buffer:
+    * Validity bitmap buffer:
 
       | Byte 0 (validity bitmap) | Bytes 1-63            |
       |--------------------------|-----------------------|
@@ -419,26 +418,26 @@ will have the following representation: ::
 
     * Values array (byte array):
       * Length: 16,  Null count: 0
-      * Null bitmap buffer: Not required
+      * validity bitmap buffer: Not required
 
         | Bytes 0-3       | Bytes 4-7   | Bytes 8-15                      |
         |-----------------|-------------|---------------------------------|
         | 192, 168, 0, 12 | unspecified | 192, 168, 0, 25, 192, 168, 0, 1 |
 
 
-Struct
-------
+Struct Layout
+-------------
 
 A struct is a nested type parameterized by an ordered sequence of
-types (which can all be distinct), called its fields. Typically the
-fields have names, but the names and their types are part of the type
-metadata, not the physical memory layout.
+types (which can all be distinct), called its fields. Each field must
+have a UTF8-encoded name, and these field names are part of the type
+metadata.
 
 A struct array does not have any additional allocated physical storage
-for its values.  A struct array must still have an allocated null
+for its values.  A struct array must still have an allocated validity
 bitmap, if it has one or more null values.
 
-Physically, a struct type has one child array for each field. The
+Physically, a struct array has one child array for each field. The
 child arrays are independent and need not be adjacent to each other in
 memory.
 
@@ -446,28 +445,29 @@ For example, the struct (field names shown here as strings for illustration
 purposes)::
 
     Struct <
-      name: String (= List<char>),
+      name: VarBinary
       age: Int32
     >
 
-has two child arrays, one ``List<char>`` array (layout as above) and one 4-byte
-primitive value array having ``Int32`` logical type.
+has two child arrays, one ``VarBinary`` array (using variable-size binary
+layout) and one 4-byte primitive value array having ``Int32`` logical
+type.
 
-**Example Layout: ``Struct<List<char>, Int32>``**
+**Example Layout: ``Struct<VarBinary, Int32>``**
 
 The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]`` would be: ::
 
     * Length: 4, Null count: 1
-    * Null bitmap buffer:
+    * Validity bitmap buffer:
 
       |Byte 0 (validity bitmap) | Bytes 1-63            |
       |-------------------------|-----------------------|
       | 00001011                | 0 (padding)           |
 
     * Children arrays:
-      * field-0 array (`List<char>`):
+      * field-0 array (`VarBinary`):
         * Length: 4, Null count: 2
-        * Null bitmap buffer:
+        * Validity bitmap buffer:
 
           | Byte 0 (validity bitmap) | Bytes 1-63            |
           |--------------------------|-----------------------|
@@ -481,7 +481,7 @@ The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]`` would be: ::
 
          * Values array:
             * Length: 7, Null count: 0
-            * Null bitmap buffer: Not required
+            * Validity bitmap buffer: Not required
 
             * Value buffer:
 
@@ -491,7 +491,7 @@ The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]`` would be: ::
 
       * field-1 array (int32 array):
         * Length: 4, Null count: 1
-        * Null bitmap buffer:
+        * Validity bitmap buffer:
 
           | Byte 0 (validity bitmap) | Bytes 1-63            |
           |--------------------------|-----------------------|
@@ -505,40 +505,43 @@ The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]`` would be: ::
 
 While a struct does not have physical storage for each of its semantic
 slots (i.e. each scalar C-like struct), an entire struct slot can be
-set to null via the null bitmap. Any of the child field arrays can
-have null values according to their respective independent null
-bitmaps. This implies that for a particular struct slot the null
+set to null via the validity bitmap. Any of the child field arrays can
+have null values according to their respective independent validity
+bitmaps. This implies that for a particular struct slot the validity
 bitmap for the struct array might indicate a null slot when one or
 more of its child arrays has a non-null value in their corresponding
-slot.  When reading the struct array the parent null bitmap is
-authoritative.  This is illustrated in the example above, the child
-arrays have valid entries for the null struct but are 'hidden' from
-the consumer by the parent array's null bitmap.  However, when treated
+slot.  When reading the struct array the parent validity bitmap takes
+priority.  This is illustrated in the example above, the child arrays
+have valid entries for the null struct but are 'hidden' from the
+consumer by the parent array's validity bitmap.  However, when treated
 independently corresponding values of the children array will be
 non-null.
 
+Union Layout
+------------
+
+A union is defined by an ordered sequence of types; each slot in the
+union can have a value chosen from these types. The types are named
+like a struct's fields, and the names are part of the type metadata.
+
+We define two distinct union types, "dense" and "sparse", that are
+optimized for different use cases.
+
 Dense Union
------------
+~~~~~~~~~~~
 
-A dense union is semantically similar to a struct, and contains an
-ordered sequence of types. While a struct contains multiple arrays, a
-union is semantically a single array in which each slot can have a
-different type.
-
-The union types may be named, but like structs this will be a matter
-of the metadata and will not affect the physical memory layout.
-
-We define two distinct union types that are optimized for different use
-cases. This first, the dense union, represents a mixed-type array with 5 bytes
-of overhead for each value. Its physical layout is as follows:
+Dense union represents a mixed-type array with 5 bytes of overhead for
+each value. Its physical layout is as follows:
 
 * One child array for each type
-* Types buffer: A buffer of 8-bit signed integers, enumerated from 0 corresponding
-  to each type.  A union with more then 127 possible types can be modeled as a
-  union of unions.
-* Offsets buffer: A buffer of signed int32 values indicating the relative offset
-  into the respective child array for the type in a given slot. The respective
-  offsets for each child value array must be in order / increasing.
+* Types buffer: A buffer of 8-bit signed integers. Each type in the
+  union has a corresponding type id whose values are found in this
+  buffer. A union with more than 127 possible types can be modeled as
+  a union of unions.
+* Offsets buffer: A buffer of signed int32 values indicating the
+  relative offset into the respective child array for the type in a
+  given slot. The respective offsets for each child value array must
+  be in order / increasing.
 
 Critically, the dense union allows for minimal overhead in the ubiquitous
 union-of-structs with non-overlapping-fields use case (``Union<s1: Struct1, s2:
@@ -552,7 +555,7 @@ having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
 ::
 
     * Length: 4, Null count: 1
-    * Null bitmap buffer:
+    * Validity bitmap buffer:
       |Byte 0 (validity bitmap) | Bytes 1-63            |
       |-------------------------|-----------------------|
       |00001101                 | 0 (padding)           |
@@ -572,7 +575,7 @@ having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
     * Children arrays:
       * Field-0 array (f: float):
         * Length: 2, nulls: 0
-        * Null bitmap buffer: Not required
+        * Validity bitmap buffer: Not required
 
         * Value Buffer:
 
@@ -583,7 +586,7 @@ having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
 
       * Field-1 array (i: int32):
         * Length: 1, nulls: 0
-        * Null bitmap buffer: Not required
+        * Validity bitmap buffer: Not required
 
         * Value Buffer:
 
@@ -592,7 +595,7 @@ having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
           | 5         | unspecified |
 
 Sparse Union
-------------
+~~~~~~~~~~~~
 
 A sparse union has the same structure as a dense union, with the omission of
 the offsets array. In this case, the child arrays are each equal in length to
@@ -605,7 +608,7 @@ use cases:
 * A sparse union is more amenable to vectorized expression evaluation in some use cases.
 * Equal-length arrays can be interpreted as a union by only defining the types array.
 
-**Example layout: ``SparseUnion<u0: Int32, u1: Float, u2: List<Char>>``**
+**Example layout: ``SparseUnion<u0: Int32, u1: Float, u2: VarBinary>``**
 
 For the union array: ::
 
@@ -614,7 +617,7 @@ For the union array: ::
 will have the following layout: ::
 
     * Length: 6, Null count: 0
-    * Null bitmap buffer: Not required
+    * Validity bitmap buffer: Not required
 
     * Types buffer:
 
@@ -626,7 +629,7 @@ will have the following layout: ::
 
       * u0 (Int32):
         * Length: 6, Null count: 4
-        * Null bitmap buffer:
+        * Validity bitmap buffer:
 
           |Byte 0 (validity bitmap) | Bytes 1-63            |
           |-------------------------|-----------------------|
@@ -640,7 +643,7 @@ will have the following layout: ::
 
       * u1 (float):
         * Length: 6, Null count: 4
-        * Null bitmap buffer:
+        * Validity bitmap buffer:
 
           |Byte 0 (validity bitmap) | Bytes 1-63            |
           |-------------------------|-----------------------|
@@ -652,9 +655,9 @@ will have the following layout: ::
           |-------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
           | unspecified |  1.2        | unspecified | 3.4         | unspecified |  unspecified | unspecified (padding) |
 
-      * u2 (`List<char>`)
+      * u2 (`VarBinary`)
         * Length: 6, Null count: 4
-        * Null bitmap buffer:
+        * Validity bitmap buffer:
 
           | Byte 0 (validity bitmap) | Bytes 1-63            |
           |--------------------------|-----------------------|
@@ -666,35 +669,29 @@ will have the following layout: ::
           |------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
           | 0          | 0           | 0           | 3           | 3           | 3           | 7           | unspecified |
 
-        * Values array (char array):
+        * Values array (VarBinary):
           * Length: 7,  Null count: 0
-          * Null bitmap buffer: Not required
+          * Validity bitmap buffer: Not required
 
             | Bytes 0-6  | Bytes 7-63            |
             |------------|-----------------------|
             | joemark    | unspecified (padding) |
 
-Note that nested types in a sparse union must be internally consistent
-(e.g. see the List in the diagram), i.e. random access at any index j
-on any child array will not cause an error.  In other words, the array
-for the nested type must be valid if it is reinterpreted as a
-non-nested array.
-
 Similar to structs, a particular child array may have a non-null slot
-even if the null bitmap of the parent union array indicates the slot
-is null.  Additionally, a child array may have a non-null slot even if
-the types array indicates that a slot contains a different type at the
-index.
+even if the validity bitmap of the parent union array indicates the
+slot is null.  Additionally, a child array may have a non-null slot
+even if the types array indicates that a slot contains a different
+type at the index.
 
-Null
-----
+Null Layout
+-----------
 
 We provide a simplified memory-efficient layout for the Null data type
 where all values are null. In this case no memory buffers are
 allocated.
 
-Dictionary encoding
--------------------
+Dictionary-encoded Layout
+-------------------------
 
 Dictionary encoding is a data representation technique to represent
 values by integers referencing a **dictionary** usually consisting of
@@ -704,11 +701,14 @@ repeated values.
 Any array can be dictionary-encoded. The dictionary is stored as an
 optional property of an array. When a field is dictionary encoded, the
 values are represented by an array of signed integers representing the
-index of the value in the dictionary.
+index of the value in the dictionary. The memory layout for a
+dictionary-encoded array is the same as that of a primitive signed
+integer layout. The dictionary is handled as a separate columnar array
+with its own respective layout.
 
 As an example, you could have the following data: ::
 
-    type: String
+    type: VarBinary
 
     ['foo', 'bar', 'foo', 'bar', null, 'baz']
 
@@ -716,22 +716,38 @@ In dictionary-encoded form, this could appear as:
 
 ::
 
-    data String (dictionary-encoded)
+    data VarBinary (dictionary-encoded)
        index_type: Int32
        values: [0, 1, 0, 1, null, 2]
 
     dictionary
-       type: String
+       type: VarBinary
        values: ['foo', 'bar', 'baz']
+
+Note that a dictionary is permitted to contain duplicate values or
+nulls:
+
+::
+
+    data VarBinary (dictionary-encoded)
+       index_type: Int32
+       values: [0, 1, 3, 1, 4, 2]
+
+    dictionary
+       type: VarBinary
+       values: ['foo', 'bar', 'baz', 'foo', null]
+
+The null count of such arrays is dictated only by the validity bitmap
+of its indices, irrespective of any null values in the dictionary.
 
 We discuss dictionary encoding as it relates to serialization further
 below.
 
-Buffer Layout Listing
----------------------
+Buffer Listing for Each Layout
+------------------------------
 
 For the avoidance of ambiguity, we provide listing the order and type
-of memory buffers for each layout type.
+of memory buffers for each layout.
 
 .. csv-table:: Buffer Layouts
    :header: "Layout Type", "Buffer 0", "Buffer 1", "Buffer 2"
@@ -744,62 +760,130 @@ of memory buffers for each layout type.
    "Struct",validity,,
    "Sparse Union",validity,type ids,
    "Dense Union",validity,type ids,offsets
-   "Null",placeholder (length 0),,
+   "Null",,,
+   "Dictionary-encoded",validity,data (indices),
 
 Logical Types
 =============
 
-The `Schema.fbs`_ defines built-in logical types supported by Apache
-Arrow. Each logical type uses one of the above physical
-layouts. Parametric or nested logical types may have different
-physical layouts depending on the particular realization of the type.
+The `Schema.fbs`_ defines built-in logical types supported by the
+Arrow columnar format. Each logical type uses one of the above
+physical layouts. Nested logical types may have different physical
+layouts depending on the particular realization of the type.
 
 We do not go into detail about the logical types definitions in this
-document as we consider `Schema.fbs`_ to be the ultimate point of
-truth.
+document as we consider `Schema.fbs`_ to be authoritative.
 
-Serialization and Interprocess Communication
-============================================
+Serialization and Interprocess Communication (IPC)
+==================================================
 
-The primitive unit of serialized data in Apache Arrow is the "record
-batch". Semantically, a record batch is a collection of independent
-arrays each having the same length as one another but potentially
-different data types
+The primitive unit of serialized data in the columnar format is the
+"record batch". Semantically, a record batch is an ordered collection
+of arrays, known as its **fields**, each having the same length as one
+another but potentially different data types. A record batch's field
+names and types collectively form the batch's **schema**.
 
 In this section we define a protocol for serializing record batches
 into a stream of binary payloads and reconstructing record batches
 from these payloads without need for memory copying.
 
-Metadata serialization
-----------------------
+The columnar IPC protocol utilizes a one-way stream of binary messages
+of these types:
+
+* Schema
+* RecordBatch
+* DictionaryBatch
+
+We specify a so-called *encapsulated IPC message** format which
+includes a serialized Flatbuffer type along with an optional message
+body. We define this message format before describing how to serialize
+each constituent IPC message type.
+
+Encapsulated message format
+---------------------------
+
+For simple streaming and file-based serialization, we define a
+"encapsulated" message format for interprocess communication. Such
+messages can be "deserialized" into in-memory Arrow array objects by
+examining only the message metadata without any need to copy or move
+any of the actual data.
+
+The encapsulated binary message format is as follows:
+
+* A 32-bit continuation indicator. The value ``0xFFFFFFFF`` indicates
+  a valid message. This component was introduced in version 0.15.0 in
+  part to address the 8-byte alignment requirement of Flatbuffers
+* A 32-bit little-endian length prefix indicating the metadata size
+* The message metadata as using the ``Message`` type defined in
+  `Message.fbs`_
+* Padding bytes to an 8-byte boundary
+* The message body, whose length must be a multiple of 8 bytes
+
+Schematically, we have: ::
+
+    <continuation: 0xFFFFFFFF>
+    <metadata_size: int32>
+    <metadata_flatbuffer: bytes>
+    <padding>
+    <message body>
+
+The complete serialized message must be a multiple of 8 bytes so that messages
+can be relocated between streams. Otherwise the amount of padding between the
+metadata and the message body could be non-deterministic.
+
+The ``metadata_size`` includes the size of the ``Message`` plus
+padding. The ``metadata_flatbuffer`` contains a serialized ``Message``
+Flatbuffer value, which internally includes:
+
+* A version number
+* A particular message value (one of ``Schema``, ``RecordBatch``, or
+  ``DictionaryBatch``)
+* The size of the message body
+* A ``custom_metadata`` field for any application-supplied metadata
+
+When read from an input stream, generally the ``Message`` metadata is
+initially parsed and validated to obtain the body size. Then the body
+can be read.
+
+Schema message
+--------------
 
 The Flatbuffers files `Schema.fbs`_ contains the definitions for all
 built-in logical data types and the ``Schema`` metadata type which
-represents the schema of a given record batch. A schema consists of
-names, logical types, and child fields for each top-level schema
-field.
-
-The ``Schema`` message contains no data whatsoever. We provide both
-schema-level and field-level ``custom_metadata`` attributes allowing
-for systems to insert their own application defined metadata to
-customize behavior.
+represents the schema of a given record batch. A schema consists of of
+an ordered sequence of fields, each having a name and type. A
+serialized ``Schema`` does not contain any data buffers, only type
+metadata.
 
 The ``Field`` Flatbuffers type contains the metadata for a single
 array. This includes:
 
 * The field's name
 * The field's logical type
-* Whether the field is semantically nullable. Note that this has no
-  bearing on the array's layout
+* Whether the field is semantically nullable. While this has no
+  bearing on the array's physical layout, many systems distinguish
+  nullable and non-nullable fields and we want to allow them to
+  preserve this metadata to enable faithful schema round trips.
 * A collection of child ``Field`` values, for nested types
 * A ``dictionary`` property indicating whether the field is
-  dictionary-encoded or not
+  dictionary-encoded or not. If it is, a dictionary "id" is assigned
+  to allow matching a subsequent dictionary IPC message with the
+  appropriate field.
 
-RecordBatch serialization
--------------------------
+We additionally provide provide both schema-level and field-level
+``custom_metadata`` attributes allowing for systems to insert their
+own application defined metadata to customize behavior.
 
-A record batch can be considered to be the realization of a
-schema. The serialized form of the record batch is the following:
+RecordBatch message
+-------------------
+
+A RecordBatch message contains the actual data buffers corresponding
+to the physical memory layout determined by a schema. The metadata for
+this message provides the location and size of each buffer, permitting
+Arrat data structures to be reconstructed using pointer arithmetic and
+thus no memory copying.
+
+The serialized form of the record batch is the following:
 
 * The ``data header``, defined as the ``RecordBatch`` type in
   `Message.fbs`_.
@@ -849,58 +933,31 @@ The ``Buffer`` Flatbuffers value describes the location and size of a
 piece of memory. Generally these are interpreted relative to the
 **encapsulated message format** defined next.
 
-Encapsulated message format
+Byte Order (`Endianness`_)
 ---------------------------
 
-For simple streaming and file-based serialization, we define a
-so-called "encapsulated" message format for interprocess
-communication. Such messages can be "deserialized" into in-memory
-Arrow array objects by examining only the message metadata without any
-need to copy or move any of the actual data.
+The Arrow format is little endian by default.
 
-The encapsulated binary message format is as follows:
+Serialized Schema metadata has an endianness field indicating
+endianness of RecordBatches. Typically this is the endianness of the
+system where the RecordBatch was generated. The main use case is
+exchanging RecordBatches between systems with the same Endianness.  At
+first we will return an error when trying to read a Schema with an
+endianness that does not match the underlying system. The reference
+implementation is focused on Little Endian and provides tests for
+it. Eventually we may provide automatic conversion via byte swapping.
 
-* A 32-bit continuation indicator. The value ``0xFFFFFFFF`` indicates
-  a valid message. This component was introduced in version 0.15.0 in
-  part to address the 8-byte alignment requirement of Flatbuffers
-* A 32-bit little-endian length prefix indicating the metadata size
-* The message metadata as a Flatbuffer
-* Padding bytes to an 8-byte boundary
-* The message body, which must be a multiple of 8 bytes
+IPC Streaming Format
+--------------------
 
-Schematically, we have: ::
-
-    <continuation: 0xFFFFFFFF>
-    <metadata_size: int32>
-    <metadata_flatbuffer: bytes>
-    <padding>
-    <message body>
-
-The complete serialized message must be a multiple of 8 bytes so that messages
-can be relocated between streams. Otherwise the amount of padding between the
-metadata and the message body could be non-deterministic.
-
-The ``metadata_size`` includes the size of the flatbuffer plus padding. The
-``Message`` flatbuffer includes a version number, the particular message (as a
-flatbuffer union), and the size of the message body:
-
-Currently, we support 4 types of messages:
-
-* Schema
-* RecordBatch
-* DictionaryBatch
-* Tensor
-
-Streaming format
-----------------
-
-We provide a streaming format for record batches. It is presented as a sequence
-of encapsulated messages, each of which follows the format above. The schema
-comes first in the stream, and it is the same for all of the record batches
-that follow. If any fields in the schema are dictionary-encoded, one or more
-``DictionaryBatch`` messages will be included. ``DictionaryBatch`` and
-``RecordBatch`` messages may be interleaved, but before any dictionary key is used
-in a ``RecordBatch`` it should be defined in a ``DictionaryBatch``. ::
+We provide a streaming protocol or "format" for record batches. It is
+presented as a sequence of encapsulated messages, each of which
+follows the format above. The schema comes first in the stream, and it
+is the same for all of the record batches that follow. If any fields
+in the schema are dictionary-encoded, one or more ``DictionaryBatch``
+messages will be included. ``DictionaryBatch`` and ``RecordBatch``
+messages may be interleaved, but before any dictionary key is used in
+a ``RecordBatch`` it should be defined in a ``DictionaryBatch``. ::
 
     <SCHEMA>
     <DICTIONARY 0>
@@ -923,17 +980,17 @@ message flatbuffer is read, you can then read the message body.
 The stream writer can signal end-of-stream (EOS) either by writing 8
 zero (`0x00`) bytes or closing the stream interface.
 
-File format
------------
+IPC File Format
+---------------
 
-We define a "file format" supporting random access in a very similar format to
-the streaming format. The file starts and ends with a magic string ``ARROW1``
-(plus padding). What follows in the file is identical to the stream format. At
-the end of the file, we write a *footer* containing a redundant copy of the
-schema (which is a part of the streaming format) plus memory offsets and sizes
-for each of the data blocks in the file. This enables random access any record
-batch in the file. See ``File.fbs`` for the precise details of the file
-footer.
+We define a "file format" supporting random access that is build with
+the stream format. The file starts and ends with a magic string
+``ARROW1`` (plus padding). What follows in the file is identical to
+the stream format. At the end of the file, we write a *footer*
+containing a redundant copy of the schema (which is a part of the
+streaming format) plus memory offsets and sizes for each of the data
+blocks in the file. This enables random access any record batch in the
+file. See ``File.fbs`` for the precise details of the file footer.
 
 Schematically we have: ::
 
@@ -944,11 +1001,12 @@ Schematically we have: ::
     <FOOTER SIZE: int32>
     <magic number "ARROW1">
 
-In the file format, there is no requirement that dictionary keys should be
-defined in a ``DictionaryBatch`` before they are used in a ``RecordBatch``, as long
-as the keys are defined somewhere in the file.
+In the file format, there is no requirement that dictionary keys
+should be defined in a ``DictionaryBatch`` before they are used in a
+``RecordBatch``, as long as the keys are defined somewhere in the
+file.
 
-Dictionary Encoding
+Dictionary Messages
 -------------------
 
 Dictionaries are written in the stream and file formats as a sequence of record
@@ -969,12 +1027,13 @@ in the schema, so that dictionaries can even be used for multiple fields. See
 the :doc:`Layout` document for more about the semantics of
 dictionary-encoded data.
 
-The dictionary ``isDelta`` flag allows dictionary batches to be modified
-mid-stream.  A dictionary batch with ``isDelta`` set indicates that its vector
-should be concatenated with those of any previous batches with the same ``id``. A
-stream which encodes one column, the list of strings
-``["A", "B", "C", "B", "D", "C", "E", "A"]``, with a delta dictionary batch could
-take the form: ::
+The dictionary ``isDelta`` flag allows existing dictionaries to be
+expanded for future record batch materializations. A dictionary batch
+with ``isDelta`` set indicates that its vector should be concatenated
+with those of any previous batches with the same ``id``. In a stream
+which encodes one column, the list of strings ``["A", "B", "C", "B",
+"D", "C", "E", "A"]``, with a delta dictionary batch could take the
+form: ::
 
     <SCHEMA>
     <DICTIONARY 0>
@@ -1079,176 +1138,7 @@ An execution engine implementor can also extend their memory
 representation with their own vectors internally as long as they are
 never exposed. Before sending data to another system expecting Arrow
 data, these custom vectors should be converted to a type that exist in
-the Arrow spec.  An example of this is operating on compressed data.
-These custom vectors are not exchanged externally and there is no
-support for custom metadata.
-
-Integration Testing
-===================
-
-A JSON representation of the schema is provided for cross-language
-integration testing purposes.
-
-The high level structure of a JSON integration test files is as follows
-
-**Data file** ::
-
-    {
-      "schema": /*Schema*/,
-      "batches": [ /*RecordBatch*/ ],
-      "dictionaries": [ /*DictionaryBatch*/ ],
-    }
-
-**Schema** ::
-
-    {
-      "fields" : [
-        /* Field */
-      ]
-    }
-
-**Field** ::
-
-    {
-      "name" : "name_of_the_field",
-      "nullable" : false,
-      "type" : /* Type */,
-      "children" : [ /* Field */ ],
-    }
-
-RecordBatch and DictionaryBatch
--------------------------------
-
-**RecordBatch**::
-
-    {
-      "count": /*length of batch*/,
-      "columns": [ /* FieldData */ ]
-    }
-
-**FieldData**::
-
-    {
-      "name": "field_name",
-      "count" "field_length",
-      "BUFFER_TYPE": /* BufferData */
-      ...
-      "BUFFER_TYPE": /* BufferData */
-      "children": [ /* FieldData */ ]
-    }
-
-Here ``BUFFER_TYPE`` is one of ``VALIDITY``, ``OFFSET`` (for
-variable-length types), ``TYPE`` (for unions), or ``DATA``.
-
-``BufferData`` is encoded based on the type of buffer:
-
-* ``VALIDITY``: a JSON array of 1 (valid) and 0 (null)
-* ``OFFSET``: a JSON array of integers for 32-bit offsets or
-  string-formatted integers for 64-bit offsets
-* ``TYPE``: a JSON array of integers
-* ``DATA``: a JSON array of encoded values
-
-The value encoding for ``DATA`` is different depending on the logical
-type:
-
-* For boolean type: an array of 1 (true) and 0 (false)
-* For integer-based types (including timestamps): an array of integers
-* For 64-bit integers: an array of integers formatted as JSON strings
-  to avoid loss of precision
-* For floating point types: as is
-* For Binary types, a hex-string is produced to encode a variable- or
-  fixed-size binary value
-
-Logical Types
--------------
-
-Type: ::
-
-    {
-      "name" : "null|struct|list|largelist|fixedsizelist|union|int|floatingpoint|utf8|largeutf8|binary|largebinary|fixedsizebinary|bool|decimal|date|time|timestamp|interval|duration|map"
-      // fields as defined in the Flatbuffer depending on the type name
-    }
-
-Union: ::
-
-    {
-      "name" : "union",
-      "mode" : "Sparse|Dense",
-      "typeIds" : [ /* integer */ ]
-    }
-
-The ``typeIds`` field in the Union are the codes used to denote each type, which
-may be different from the index of the child array. This is so that the union
-type ids do not have to be enumerated from 0.
-
-Int: ::
-
-    {
-      "name" : "int",
-      "bitWidth" : /* integer */,
-      "isSigned" : /* boolean */
-    }
-
-FloatingPoint: ::
-
-    {
-      "name" : "floatingpoint",
-      "precision" : "HALF|SINGLE|DOUBLE"
-    }
-
-FixedSizeBinary: ::
-
-    {
-      "name" : "fixedsizebinary",
-      "byteWidth" : /* byte width */
-    }
-
-Decimal: ::
-
-    {
-      "name" : "decimal",
-      "precision" : /* integer */,
-      "scale" : /* integer */
-    }
-
-Timestamp: ::
-
-    {
-      "name" : "timestamp",
-      "unit" : "$TIME_UNIT"
-      "timezone": "$timezone" [optional]
-    }
-
-``$TIME_UNIT`` is one of ``"SECOND|MILLISECOND|MICROSECOND|NANOSECOND"``
-
-Duration: ::
-
-    {
-      "name" : "duration",
-      "unit" : "$TIME_UNIT"
-    }
-
-Date: ::
-
-    {
-      "name" : "date",
-      "unit" : "DAY|MILLISECOND"
-    }
-
-Time: ::
-
-    {
-      "name" : "time",
-      "unit" : "$TIME_UNIT",
-      "bitWidth": /* integer: 32 or 64 */
-    }
-
-Interval: ::
-
-    {
-      "name" : "interval",
-      "unit" : "YEAR_MONTH"
-    }
+the Arrow spec.
 
 References
 ----------

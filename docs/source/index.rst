@@ -51,6 +51,7 @@ such topics as:
    format/Versioning
    format/Columnar
    format/Flight
+   format/Integration
    format/Other
 
 .. _toc.usage:
