@@ -22,7 +22,6 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/dataset/filter.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/util/iterator.h"
@@ -84,6 +83,9 @@ class ARROW_DS_EXPORT DataSource {
   /// May be null, which indicates no information is available.
   const std::shared_ptr<Expression>& condition() const { return condition_; }
 
+  /// FIXME(bkietz) providing a simple mutator like this is probably not ideal
+  void condition(std::shared_ptr<Expression> c) { condition_ = std::move(c); }
+
   virtual std::string type() const = 0;
 
   virtual ~DataSource() = default;
@@ -91,6 +93,10 @@ class ARROW_DS_EXPORT DataSource {
  protected:
   DataSource() = default;
   explicit DataSource(std::shared_ptr<Expression> c) : condition_(std::move(c)) {}
+
+  /// Mutates a ScanOptions by assuming condition_ holds for all yielded fragments.
+  /// Returns non-null if context->selector is not satisfiable in this DataSource.
+  DataFragmentIterator AssumeCondition(std::shared_ptr<ScanOptions>* options) const;
 
   std::shared_ptr<Expression> condition_;
 };
@@ -101,9 +107,7 @@ class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
   explicit SimpleDataSource(DataFragmentVector fragments)
       : fragments_(std::move(fragments)) {}
 
-  DataFragmentIterator GetFragments(std::shared_ptr<ScanOptions> options) override {
-    return MakeVectorIterator(fragments_);
-  }
+  DataFragmentIterator GetFragments(std::shared_ptr<ScanOptions> options) override;
 
   std::string type() const override { return "simple_data_source"; }
 

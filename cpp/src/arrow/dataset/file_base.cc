@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <vector>
 
+#include "arrow/dataset/filter.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
@@ -75,7 +76,10 @@ Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
 
 DataFragmentIterator FileSystemBasedDataSource::GetFragments(
     std::shared_ptr<ScanOptions> options) {
-  // TODO(bkietz) examine options.filters vs this->condition
+  if (auto empty = AssumeCondition(&options)) {
+    return empty;
+  }
+
   struct Impl : DataFragmentIterator {
     Impl(fs::FileSystem* filesystem, std::shared_ptr<FileFormat> format,
          std::shared_ptr<ScanOptions> scan_options, std::vector<fs::FileStats> stats)

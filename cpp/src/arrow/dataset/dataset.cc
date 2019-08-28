@@ -20,6 +20,7 @@
 #include <memory>
 #include <utility>
 
+#include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/util/stl.h"
 
@@ -58,6 +59,37 @@ Status Dataset::NewScan(std::unique_ptr<ScannerBuilder>* out) {
   auto context = std::make_shared<ScanContext>();
   out->reset(new ScannerBuilder(this->shared_from_this(), context));
   return Status::OK();
+}
+
+DataFragmentIterator DataSource::AssumeCondition(
+    std::shared_ptr<ScanOptions>* options) const {
+  DCHECK_NE(options, nullptr);
+  if (*options == nullptr) {
+    // null scan context; no selector to simplify
+    return DataFragmentIterator();
+  }
+
+  auto c = SelectorAssume((*options)->selector, condition_);
+  DCHECK_OK(c.status());
+  auto expr = std::move(c).ValueOrDie();
+
+  bool trivial = true;
+  if (expr->IsNull() || (expr->IsTrivialCondition(&trivial) && !trivial)) {
+    // don't yield any fragments
+    return MakeEmptyIterator<std::shared_ptr<DataFragment>>();
+  }
+
+  *options = std::make_shared<ScanOptions>(**options);
+  (*options)->selector = ExpressionSelector(std::move(expr));
+  return DataFragmentIterator();
+}
+
+DataFragmentIterator SimpleDataSource::GetFragments(
+    std::shared_ptr<ScanOptions> options) {
+  if (auto empty = AssumeCondition(&options)) {
+    return empty;
+  }
+  return MakeVectorIterator(fragments_);
 }
 
 }  // namespace dataset

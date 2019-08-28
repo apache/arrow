@@ -403,5 +403,12 @@ inline FieldExpression operator"" _(const char* name, size_t name_length) {
 }
 }  // namespace string_literals
 
+ARROW_DS_EXPORT Result<std::shared_ptr<Expression>> SelectorAssume(
+    const std::shared_ptr<DataSelector>& selector,
+    const std::shared_ptr<Expression>& given);
+
+ARROW_DS_EXPORT std::shared_ptr<DataSelector> ExpressionSelector(
+    std::shared_ptr<Expression> e);
+
 }  // namespace dataset
 }  // namespace arrow

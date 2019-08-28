@@ -53,6 +53,7 @@ class FileFormat;
 class FileScanOptions;
 class FileWriteOptions;
 
+class Expression;
 class Filter;
 using FilterVector = std::vector<std::shared_ptr<Filter>>;
 

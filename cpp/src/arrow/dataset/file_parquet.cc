@@ -37,7 +37,7 @@ using RecordBatchReaderPtr = std::unique_ptr<RecordBatchReader>;
 // A set of RowGroup identifiers
 using RowGroupSet = std::vector<int>;
 
-// TODO(bkietz) refactor this to use ReconcilingRecordBatchReader
+// TODO(bkietz) refactor this to use ProjectedRecordBatchReader
 class ParquetScanTask : public ScanTask {
  public:
   static Status Make(RowGroupSet row_groups, const std::vector<int>& columns_projection,
