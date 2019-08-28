@@ -31,6 +31,7 @@
 namespace arrow {
 
 class Buffer;
+class MemoryPool;
 
 namespace io {
 
@@ -225,6 +226,14 @@ Status CheckAligned(io::FileInterface* stream, int32_t alignment = 8);
 /// message length is 0 (e.g. EOS in a stream)
 ARROW_EXPORT
 Status ReadMessage(io::InputStream* stream, std::unique_ptr<Message>* message);
+
+/// \brief Read encapsulated IPC message (metadata and body) from InputStream
+///
+/// Like ReadMessage, except that the metadata is copied in a new buffer.
+/// This is necessary if the stream returns non-CPU buffers.
+ARROW_EXPORT
+Status ReadMessageCopy(io::InputStream* stream, MemoryPool* pool,
+                       std::unique_ptr<Message>* message);
 
 /// Write encapsulated IPC message Does not make assumptions about
 /// whether the stream is aligned already. Can write legacy (pre

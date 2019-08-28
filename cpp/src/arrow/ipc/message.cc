@@ -296,7 +296,10 @@ Status CheckAligned(io::FileInterface* stream, int32_t alignment) {
   }
 }
 
-Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
+namespace {
+
+Status ReadMessage(io::InputStream* file, MemoryPool* pool, bool copy_metadata,
+                   std::unique_ptr<Message>* message) {
   int32_t continuation = 0;
   int32_t message_length = 0;
   int64_t bytes_read = 0;
@@ -325,13 +328,31 @@ Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
   }
 
   std::shared_ptr<Buffer> metadata;
-  RETURN_NOT_OK(file->Read(message_length, &metadata));
-  if (metadata->size() != message_length) {
+  if (copy_metadata) {
+    DCHECK_NE(pool, nullptr);
+    RETURN_NOT_OK(AllocateBuffer(pool, message_length, &metadata));
+    RETURN_NOT_OK(file->Read(message_length, &bytes_read, metadata->mutable_data()));
+  } else {
+    RETURN_NOT_OK(file->Read(message_length, &metadata));
+    bytes_read = metadata->size();
+  }
+  if (bytes_read != message_length) {
     return Status::Invalid("Expected to read ", message_length, " metadata bytes, but ",
-                           "only read ", metadata->size());
+                           "only read ", bytes_read);
   }
 
   return Message::ReadFrom(metadata, file, message);
+}
+
+}  // namespace
+
+Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
+  return ReadMessage(file, nullptr, false, message);
+}
+
+Status ReadMessageCopy(io::InputStream* file, MemoryPool* pool,
+                       std::unique_ptr<Message>* message) {
+  return ReadMessage(file, pool, true, message);
 }
 
 Status WriteMessage(const Buffer& message, const IpcOptions& options,
