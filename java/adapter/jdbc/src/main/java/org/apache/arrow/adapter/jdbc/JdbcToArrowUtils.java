@@ -361,6 +361,8 @@ public class JdbcToArrowUtils {
     }
 
     CompositeJdbcConsumer compositeConsumer = null;
+    // Only clean resources when occurs error,
+    // vectors within consumers are useful and users are responsible for its close.
     try {
       compositeConsumer = new CompositeJdbcConsumer(consumers);
       int readRowCount = 0;

@@ -61,20 +61,13 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
   }
 
   private void initialize() throws SQLException {
-    try {
-      nextBatch = VectorSchemaRoot.create(schema, config.getAllocator());
-      JdbcToArrowUtils.allocateVectors(nextBatch, JdbcToArrowUtils.DEFAULT_BUFFER_SIZE);
-    } catch (Exception e) {
-      close();
-      throw new RuntimeException("Error occurs while initializing.", e);
-    }
-
+    // create consumers
     for (int i = 1; i <= consumers.length; i++) {
       consumers[i - 1] = JdbcToArrowUtils.getConsumer(resultSet, i, resultSet.getMetaData().getColumnType(i),
-          nextBatch.getVector(rsmd.getColumnName(i)), config);
+          null, config);
     }
 
-    consumeData(nextBatch);
+    load(createVectorSchemaRoot());
   }
 
   /**
@@ -91,7 +84,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       return iterator;
     } catch (Exception e) {
       iterator.close();
-      throw new RuntimeException("Error occurs while creating iterator.", e);
+      throw new RuntimeException("Error occured while creating iterator.", e);
     }
   }
 
@@ -108,12 +101,11 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       root.setRowCount(readRowCount);
     } catch (Exception e) {
       compositeConsumer.close();
-      throw new RuntimeException("Error occurs while consuming data.", e);
+      throw new RuntimeException("Error occured while consuming data.", e);
     }
   }
 
-  // Loads the next schema root or null if no more rows are available.
-  private void load() throws SQLException {
+  private VectorSchemaRoot createVectorSchemaRoot() {
     VectorSchemaRoot root = null;
     try {
       root = VectorSchemaRoot.create(schema, config.getAllocator());
@@ -122,8 +114,13 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       if (root != null) {
         root.close();
       }
-      throw new RuntimeException("Error occurs while creating schema root.", e);
+      throw new RuntimeException("Error occured while creating schema root.", e);
     }
+    return root;
+  }
+
+  // Loads the next schema root or null if no more rows are available.
+  private void load(VectorSchemaRoot root) throws SQLException {
 
     for (int i = 1; i <= consumers.length; i++) {
       consumers[i - 1].resetValueVector(root.getVector(rsmd.getColumnName(i)));
@@ -152,10 +149,10 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
     Preconditions.checkArgument(hasNext());
     VectorSchemaRoot returned = nextBatch;
     try {
-      load();
+      load(createVectorSchemaRoot());
     } catch (Exception e) {
       close();
-      throw new RuntimeException("Error occurs while getting next schema root.", e);
+      throw new RuntimeException("Error occured while getting next schema root.", e);
     }
     return returned;
   }

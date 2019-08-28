@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.ValueVector;
 
 /**
@@ -47,13 +48,12 @@ public class CompositeJdbcConsumer implements JdbcConsumer {
 
   @Override
   public void close() {
+
     try {
       // clean up
-      for (JdbcConsumer consumer : consumers) {
-        consumer.close();
-      }
+      AutoCloseables.close(consumers);
     } catch (Exception e) {
-      throw new RuntimeException("Error occurs while releasing resources.", e);
+      throw new RuntimeException("Error occured while releasing resources.", e);
     }
 
   }
