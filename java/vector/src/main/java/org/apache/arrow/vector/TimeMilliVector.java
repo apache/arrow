@@ -17,8 +17,6 @@
 
 package org.apache.arrow.vector;
 
-import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
-
 import java.time.LocalDateTime;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -113,10 +111,7 @@ public class TimeMilliVector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public int get(int index) throws IllegalStateException {
-    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
-      throw new IllegalStateException("Value at index is null");
-    }
-    return valueBuffer.getInt(index * TYPE_WIDTH);
+    return getInt(index);
   }
 
   /**
@@ -158,10 +153,6 @@ public class TimeMilliVector extends BaseFixedWidthVector {
    *----------------------------------------------------------------*/
 
 
-  private void setValue(int index, int value) {
-    valueBuffer.setInt(index * TYPE_WIDTH, value);
-  }
-
   /**
    * Set the element at the given index to the given value.
    *
@@ -169,8 +160,7 @@ public class TimeMilliVector extends BaseFixedWidthVector {
    * @param value   value of element
    */
   public void set(int index, int value) {
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-    setValue(index, value);
+    setInt(index, value);
   }
 
   /**
@@ -186,7 +176,7 @@ public class TimeMilliVector extends BaseFixedWidthVector {
       throw new IllegalArgumentException();
     } else if (holder.isSet > 0) {
       BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-      setValue(index, holder.value);
+      setIntValue(index, holder.value);
     } else {
       BitVectorHelper.setValidityBit(validityBuffer, index, 0);
     }
@@ -200,7 +190,7 @@ public class TimeMilliVector extends BaseFixedWidthVector {
    */
   public void set(int index, TimeMilliHolder holder) {
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-    setValue(index, holder.value);
+    setIntValue(index, holder.value);
   }
 
   /**
@@ -212,8 +202,7 @@ public class TimeMilliVector extends BaseFixedWidthVector {
    * @param value   value of element
    */
   public void setSafe(int index, int value) {
-    handleSafe(index);
-    set(index, value);
+    setIntSafe(index, value);
   }
 
   /**
@@ -251,11 +240,7 @@ public class TimeMilliVector extends BaseFixedWidthVector {
    * @param value element value
    */
   public void set(int index, int isSet, int value) {
-    if (isSet > 0) {
-      set(index, value);
-    } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
-    }
+    setInt(index, isSet, value);
   }
 
   /**
@@ -268,8 +253,7 @@ public class TimeMilliVector extends BaseFixedWidthVector {
    * @param value element value
    */
   public void setSafe(int index, int isSet, int value) {
-    handleSafe(index);
-    set(index, isSet, value);
+    setIntSafe(index, isSet, value);
   }
 
 

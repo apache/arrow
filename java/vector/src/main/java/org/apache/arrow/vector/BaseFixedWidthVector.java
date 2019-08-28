@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -889,4 +891,93 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     return visitor.visit(this, value);
   }
 
+  /*----------------------------------------------------------------*
+   |                                                                              |
+   |          vector value setter/getter methods             |
+   |                                                                              |
+   *----------------------------------------------------------------*/
+
+  protected long getLong(int index) throws IllegalStateException {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
+      throw new IllegalStateException("Value at index is null");
+    }
+    return valueBuffer.getLong(index * BigIntVector.TYPE_WIDTH);
+  }
+
+  protected void setLong(int index, long value) {
+    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    setLongValue(index, value);
+  }
+
+  protected void setLongValue(int index, long value) {
+    valueBuffer.setLong(index * BigIntVector.TYPE_WIDTH, value);
+  }
+
+  protected void setLongSafe(int index, long value) {
+    handleSafe(index);
+    setLong(index, value);
+  }
+
+  protected void setLong(int index, int isSet, long value) {
+    if (isSet > 0) {
+      setLong(index, value);
+    } else {
+      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+    }
+  }
+
+  protected void setLongSafe(int index, int isSet, long value) {
+    handleSafe(index);
+    setLong(index, isSet, value);
+  }
+
+  protected Long getLongObject(int index) {
+    if (isSet(index) == 0) {
+      return null;
+    } else {
+      return valueBuffer.getLong(index * BigIntVector.TYPE_WIDTH);
+    }
+  }
+
+  protected int getInt(int index) throws IllegalStateException {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
+      throw new IllegalStateException("Value at index is null");
+    }
+    return valueBuffer.getInt(index * IntVector.TYPE_WIDTH);
+  }
+
+  protected void setIntValue(int index, int value) {
+    valueBuffer.setInt(index * IntVector.TYPE_WIDTH, value);
+  }
+
+  protected void setInt(int index, int value) {
+    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    setIntValue(index, value);
+  }
+
+  protected void setIntSafe(int index, int value) {
+    handleSafe(index);
+    setInt(index, value);
+  }
+
+  protected void setInt(int index, int isSet, int value) {
+    if (isSet > 0) {
+      setInt(index, value);
+    } else {
+      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+    }
+  }
+
+  protected void setIntSafe(int index, int isSet, int value) {
+    handleSafe(index);
+    setInt(index, isSet, value);
+  }
+
+  protected Integer getIntObject(int index) {
+    if (isSet(index) == 0) {
+      return null;
+    } else {
+      return valueBuffer.getInt(index * IntVector.TYPE_WIDTH);
+    }
+  }
 }

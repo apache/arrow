@@ -17,8 +17,6 @@
 
 package org.apache.arrow.vector;
 
-import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeMicroReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -111,10 +109,7 @@ public class TimeMicroVector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public long get(int index) throws IllegalStateException {
-    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
-      throw new IllegalStateException("Value at index is null");
-    }
-    return valueBuffer.getLong(index * TYPE_WIDTH);
+    return getLong(index);
   }
 
   /**
@@ -140,11 +135,7 @@ public class TimeMicroVector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public Long getObject(int index) {
-    if (isSet(index) == 0) {
-      return null;
-    } else {
-      return valueBuffer.getLong(index * TYPE_WIDTH);
-    }
+    return getLongObject(index);
   }
 
   /*----------------------------------------------------------------*
@@ -153,11 +144,6 @@ public class TimeMicroVector extends BaseFixedWidthVector {
    |                                                                |
    *----------------------------------------------------------------*/
 
-
-  private void setValue(int index, long value) {
-    valueBuffer.setLong(index * TYPE_WIDTH, value);
-  }
-
   /**
    * Set the element at the given index to the given value.
    *
@@ -165,8 +151,7 @@ public class TimeMicroVector extends BaseFixedWidthVector {
    * @param value   value of element
    */
   public void set(int index, long value) {
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-    setValue(index, value);
+    setLong(index, value);
   }
 
   /**
@@ -182,7 +167,7 @@ public class TimeMicroVector extends BaseFixedWidthVector {
       throw new IllegalArgumentException();
     } else if (holder.isSet > 0) {
       BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-      setValue(index, holder.value);
+      setLongValue(index, holder.value);
     } else {
       BitVectorHelper.setValidityBit(validityBuffer, index, 0);
     }
@@ -196,7 +181,7 @@ public class TimeMicroVector extends BaseFixedWidthVector {
    */
   public void set(int index, TimeMicroHolder holder) {
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-    setValue(index, holder.value);
+    setLongValue(index, holder.value);
   }
 
   /**
@@ -208,8 +193,7 @@ public class TimeMicroVector extends BaseFixedWidthVector {
    * @param value   value of element
    */
   public void setSafe(int index, long value) {
-    handleSafe(index);
-    set(index, value);
+    setLongSafe(index, value);
   }
 
   /**
@@ -247,11 +231,7 @@ public class TimeMicroVector extends BaseFixedWidthVector {
    * @param value element value
    */
   public void set(int index, int isSet, long value) {
-    if (isSet > 0) {
-      set(index, value);
-    } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
-    }
+    setLong(index, isSet, value);
   }
 
   /**
@@ -264,8 +244,7 @@ public class TimeMicroVector extends BaseFixedWidthVector {
    * @param value element value
    */
   public void setSafe(int index, int isSet, long value) {
-    handleSafe(index);
-    set(index, isSet, value);
+    setLongSafe(index, isSet, value);
   }
 
   /**
