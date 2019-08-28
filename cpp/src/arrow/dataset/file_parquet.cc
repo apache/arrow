@@ -37,6 +37,7 @@ using RecordBatchReaderPtr = std::unique_ptr<RecordBatchReader>;
 // A set of RowGroup identifiers
 using RowGroupSet = std::vector<int>;
 
+// TODO(bkietz) refactor this to use ReconcilingRecordBatchReader
 class ParquetScanTask : public ScanTask {
  public:
   static Status Make(RowGroupSet row_groups, const std::vector<int>& columns_projection,
@@ -145,7 +146,8 @@ class ParquetScanTaskIterator {
   static Status InferColumnProjection(const parquet::FileMetaData& metadata,
                                       const std::shared_ptr<ScanOptions>& options,
                                       std::vector<int>* out) {
-    // TODO(fsaintjacques): Compute intersection _and_ validity
+    // TODO(fsaintjacques): Compute intersection _and_ validity, could probably reuse
+    // RecordBatchProjector here
     *out = internal::Iota(metadata.num_columns());
 
     return Status::OK();

@@ -75,6 +75,7 @@ Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
 
 DataFragmentIterator FileSystemBasedDataSource::GetFragments(
     std::shared_ptr<ScanOptions> options) {
+  // TODO(bkietz) examine options.filters vs this->condition
   struct Impl : DataFragmentIterator {
     Impl(fs::FileSystem* filesystem, std::shared_ptr<FileFormat> format,
          std::shared_ptr<ScanOptions> scan_options, std::vector<fs::FileStats> stats)

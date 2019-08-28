@@ -21,6 +21,7 @@
 #include <string>
 #include <utility>
 
+#include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/compare.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
