@@ -383,8 +383,8 @@ Status WriteMessage(const Buffer& message, const IpcOptions& options,
   const int32_t prefix_size = options.write_legacy_ipc_format ? 4 : 8;
   const int32_t flatbuffer_size = static_cast<int32_t>(message.size());
 
-  int32_t padded_message_length =
-      PaddedLength(flatbuffer_size + prefix_size, options.alignment);
+  int32_t padded_message_length = static_cast<int32_t>(
+      PaddedLength(flatbuffer_size + prefix_size, options.alignment));
 
   int32_t padding = padded_message_length - flatbuffer_size - prefix_size;
 
