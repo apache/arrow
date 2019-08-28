@@ -101,9 +101,7 @@ Status BufferOutputStream::Write(const void* data, int64_t nbytes) {
   }
   DCHECK(buffer_);
   if (ARROW_PREDICT_TRUE(nbytes > 0)) {
-    if (ARROW_PREDICT_FALSE(position_ + nbytes >= capacity_)) {
-      RETURN_NOT_OK(Reserve(nbytes));
-    }
+    RETURN_NOT_OK(Reserve(nbytes));
     memcpy(mutable_data_ + position_, data, nbytes);
     position_ += nbytes;
   }

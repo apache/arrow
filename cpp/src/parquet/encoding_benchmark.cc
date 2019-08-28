@@ -370,13 +370,11 @@ class BM_ArrowBinaryPlain : public BenchmarkDecodeArrow {
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryPlain, Encode)
 (benchmark::State& state) { EncodeArrowBenchmark(state); }
-BENCHMARK_REGISTER_F(BM_ArrowBinaryPlain, Encode)
-  ->Range(1 << 18, 1 << 20);
+BENCHMARK_REGISTER_F(BM_ArrowBinaryPlain, Encode)->Range(1 << 18, 1 << 20);
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryPlain, DecodeArrow_Dense)
 (benchmark::State& state) { DecodeArrowBenchmark<ChunkedBinaryBuilder>(state); }
-BENCHMARK_REGISTER_F(BM_ArrowBinaryPlain, DecodeArrow_Dense)
-    ->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK_REGISTER_F(BM_ArrowBinaryPlain, DecodeArrow_Dense)->Range(MIN_RANGE, MAX_RANGE);
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryPlain, DecodeArrowNonNull_Dense)
 (benchmark::State& state) { DecodeArrowNonNullBenchmark<ChunkedBinaryBuilder>(state); }
@@ -385,8 +383,7 @@ BENCHMARK_REGISTER_F(BM_ArrowBinaryPlain, DecodeArrowNonNull_Dense)
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryPlain, DecodeArrow_Dict)
 (benchmark::State& state) { DecodeArrowBenchmark<BinaryDictionary32Builder>(state); }
-BENCHMARK_REGISTER_F(BM_ArrowBinaryPlain, DecodeArrow_Dict)
-    ->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK_REGISTER_F(BM_ArrowBinaryPlain, DecodeArrow_Dict)->Range(MIN_RANGE, MAX_RANGE);
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryPlain, DecodeArrowNonNull_Dict)
 (benchmark::State& state) {
@@ -442,8 +439,7 @@ class BM_ArrowBinaryDict : public BenchmarkDecodeArrow {
 BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, DecodeArrow_Dense)(benchmark::State& state) {
   DecodeArrowBenchmark<ChunkedBinaryBuilder>(state);
 }
-BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, DecodeArrow_Dense)
-    ->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, DecodeArrow_Dense)->Range(MIN_RANGE, MAX_RANGE);
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, DecodeArrowNonNull_Dense)
 (benchmark::State& state) { DecodeArrowNonNullBenchmark<ChunkedBinaryBuilder>(state); }
@@ -452,8 +448,7 @@ BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, DecodeArrowNonNull_Dense)
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, DecodeArrow_Dict)
 (benchmark::State& state) { DecodeArrowBenchmark<BinaryDictionary32Builder>(state); }
-BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, DecodeArrow_Dict)
-    ->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, DecodeArrow_Dict)->Range(MIN_RANGE, MAX_RANGE);
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, DecodeArrowNonNull_Dict)
 (benchmark::State& state) {
