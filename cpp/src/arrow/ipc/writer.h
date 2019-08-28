@@ -177,7 +177,9 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
   std::unique_ptr<RecordBatchFileWriterImpl> file_impl_;
 };
 
-/// \brief Low-level API for writing a record batch (without schema) to an OutputStream
+/// \brief Low-level API for writing a record batch (without schema)
+/// to an OutputStream as encapsulated IPC message. See Arrow format
+/// documentation for more detail.
 ///
 /// \param[in] batch the record batch to write
 /// \param[in] buffer_start_offset the start offset to use in the buffer metadata,
@@ -189,20 +191,6 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
 /// \param[in] options options for serialization
 /// \param[in] pool the memory pool to allocate memory from
 /// \return Status
-///
-/// Write the RecordBatch (collection of equal-length Arrow arrays) to the
-/// output stream in a contiguous block. The record batch metadata is written as
-/// a flatbuffer (see format/Message.fbs -- the RecordBatch message type)
-/// prefixed by its size, followed by each of the memory buffers in the batch
-/// written end to end (with appropriate alignment and padding):
-///
-/// \code
-/// <int32: metadata size> <uint8*: metadata> <buffers ...>
-/// \endcode
-///
-/// Finally, the absolute offsets (relative to the start of the output stream)
-/// to the end of the body and end of the metadata / data header (suffixed by
-/// the header size) is returned in out-variables
 ARROW_EXPORT
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                         io::OutputStream* dst, int32_t* metadata_length,
@@ -392,8 +380,8 @@ Status GetRecordBatchPayload(const RecordBatch& batch, const IpcOptions& options
                              MemoryPool* pool, IpcPayload* out);
 
 ARROW_EXPORT
-Status WriteIpcPayload(const IpcPayload& payload, io::OutputStream* dst,
-                       int32_t* metadata_length);
+Status WriteIpcPayload(const IpcPayload& payload, const IpcOptions& options,
+                       io::OutputStream* dst, int32_t* metadata_length);
 
 }  // namespace internal
 

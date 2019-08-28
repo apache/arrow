@@ -36,6 +36,14 @@ struct ARROW_EXPORT IpcOptions {
   // The maximum permitted schema nesting depth.
   int max_recursion_depth = kMaxNestingDepth;
 
+  // Write padding after memory buffers to this multiple of
+  // bytes. Generally 8 or 64
+  int32_t alignment = 8;
+
+  /// \brief Write the pre-0.15.0 encapsulated IPC message format
+  /// consisting of a 4-byte prefix instead of 8 byte
+  bool write_legacy_ipc_format = false;
+
   static IpcOptions Defaults();
 };
 
