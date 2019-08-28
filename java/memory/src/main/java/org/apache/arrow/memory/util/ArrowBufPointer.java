@@ -182,16 +182,7 @@ public final class ArrowBufPointer {
       }
     }
 
-    int length = this.length < that.length ? this.length : that.length;
-    for (int i = 0; i < length; i++) {
-      byte b1 = this.buf.getByte(this.offset + i);
-      byte b2 = that.buf.getByte(that.offset + i);
-      if (b1 != b2) {
-        return b1 - b2;
-      }
-    }
-
-    // the shorter buffer is smaller
-    return this.length - that.length;
+    return ByteFunctionHelpers.compare(this.buf, this.offset, this.offset + this.length,
+            that.buf, that.offset, that.offset + that.length);
   }
 }
