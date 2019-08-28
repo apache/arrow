@@ -880,15 +880,17 @@ def test_do_put_independent_read_write():
             flight.FlightDescriptor.for_path(''),
             table.schema)
 
+        count = [0]
         def _reader_thread():
             while metadata_reader.read() is not None:
-                pass
+                count[0] += 1
 
         thread = threading.Thread(target=_reader_thread)
         thread.start()
 
+        batches = table.to_batches(chunksize=1)
         with writer:
-            for idx, batch in enumerate(table.to_batches(chunksize=1)):
+            for idx, batch in enumerate(batches):
                 metadata = struct.pack('<i', idx)
                 writer.write_with_metadata(batch, metadata)
             # Causes the server to stop writing and end the call
@@ -897,3 +899,4 @@ def test_do_put_independent_read_write():
             thread.join()
         # writer.close() won't segfault since reader thread has
         # stopped
+        assert count[0] == len(batches)
