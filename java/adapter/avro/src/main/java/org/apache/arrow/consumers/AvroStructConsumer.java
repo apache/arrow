@@ -19,6 +19,7 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.avro.io.Decoder;
@@ -36,7 +37,7 @@ public class AvroStructConsumer implements Consumer {
 
 
   /**
-   * Instantiate a AvroUnionConsumer.
+   * Instantiate a AvroStructConsumer.
    */
   public AvroStructConsumer(StructVector vector, Consumer[] delegates) {
     this.vector = vector;
@@ -72,8 +73,6 @@ public class AvroStructConsumer implements Consumer {
   @Override
   public void close() throws Exception {
     vector.close();
-    for (Consumer delegate: delegates) {
-      delegate.close();
-    }
+    AutoCloseables.close(delegates);
   }
 }

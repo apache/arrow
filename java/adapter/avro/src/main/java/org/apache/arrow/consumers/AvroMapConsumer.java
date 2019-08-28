@@ -32,6 +32,8 @@ public class AvroMapConsumer implements Consumer {
   private final MapVector vector;
   private final Consumer delegate;
 
+  private int currentIndex;
+
   /**
    * Instantiate a AvroMapConsumer.
    */
@@ -43,8 +45,7 @@ public class AvroMapConsumer implements Consumer {
   @Override
   public void consume(Decoder decoder) throws IOException {
 
-    int idx = vector.getValueCount();
-    vector.startNewValue(idx);
+    vector.startNewValue(currentIndex);
     long totalCount = 0;
     for (long count = decoder.readMapStart(); count != 0; count = decoder.mapNext()) {
       totalCount += count;
@@ -52,10 +53,8 @@ public class AvroMapConsumer implements Consumer {
         delegate.consume(decoder);
       }
     }
-    vector.endValue(idx, (int) totalCount);
-
-    vector.setValueCount(idx + 1);
-
+    vector.endValue(currentIndex, (int) totalCount);
+    currentIndex++;
   }
 
   @Override
@@ -65,7 +64,7 @@ public class AvroMapConsumer implements Consumer {
 
   @Override
   public void setPosition(int index) {
-    vector.startNewValue(index);
+    this.currentIndex = index;
   }
 
   @Override

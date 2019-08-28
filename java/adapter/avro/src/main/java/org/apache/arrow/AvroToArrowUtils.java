@@ -149,55 +149,55 @@ public class AvroToArrowUtils {
       case STRING:
         arrowType = new ArrowType.Utf8();
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
+        vector = createVector(v, fieldType, name, allocator);
         consumer =  new AvroStringConsumer((VarCharVector) vector);
         break;
       case FIXED:
         arrowType = new ArrowType.FixedSizeBinary(schema.getFixedSize());
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
+        vector = createVector(v, fieldType, name, allocator);
         consumer =  new AvroFixedConsumer((FixedSizeBinaryVector) vector, schema.getFixedSize());
         break;
       case INT:
         arrowType = new ArrowType.Int(32, /*signed=*/true);
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
+        vector = createVector(v, fieldType, name, allocator);
         consumer = new AvroIntConsumer((IntVector) vector);
         break;
       case BOOLEAN:
         arrowType = new ArrowType.Bool();
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
+        vector = createVector(v, fieldType, name, allocator);
         consumer = new AvroBooleanConsumer((BitVector) vector);
         break;
       case LONG:
         arrowType = new ArrowType.Int(64, /*signed=*/true);
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
+        vector = createVector(v, fieldType, name, allocator);
         consumer =  new AvroLongConsumer((BigIntVector) vector);
         break;
       case FLOAT:
         arrowType =  new ArrowType.FloatingPoint(SINGLE);
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
+        vector = createVector(v, fieldType, name, allocator);
         consumer = new AvroFloatConsumer((Float4Vector) vector);
         break;
       case DOUBLE:
         arrowType = new ArrowType.FloatingPoint(DOUBLE);
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
+        vector = createVector(v, fieldType, name, allocator);
         consumer = new AvroDoubleConsumer((Float8Vector) vector);
         break;
       case BYTES:
         arrowType = new ArrowType.Binary();
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
+        vector = createVector(v, fieldType, name, allocator);
         consumer = new AvroBytesConsumer((VarBinaryVector) vector);
         break;
       case NULL:
         arrowType = new ArrowType.Null();
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
+        vector = createVector(v, fieldType, name, allocator);
         consumer = new AvroNullConsumer((ZeroVector) vector);
         break;
       default:
@@ -209,6 +209,10 @@ public class AvroToArrowUtils {
       return new NullableTypeConsumer(consumer, nullIndex);
     }
     return consumer;
+  }
+
+  private static FieldVector createVector(FieldVector v, FieldType fieldType, String name, BufferAllocator allocator) {
+    return v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
   }
 
   private static String getDefaultFieldName(ArrowType type) {
