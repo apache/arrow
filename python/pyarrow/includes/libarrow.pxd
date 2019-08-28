@@ -558,6 +558,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int num_columns()
         int64_t num_rows()
 
+        CStatus Validate()
+
         shared_ptr[CRecordBatch] ReplaceSchemaMetadata(
             const shared_ptr[CKeyValueMetadata]& metadata)
 

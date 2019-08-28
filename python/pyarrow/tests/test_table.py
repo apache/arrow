@@ -248,11 +248,11 @@ def test_chunked_array_flatten():
 
 def test_recordbatch_basics():
     data = [
-        pa.array(range(5)),
-        pa.array([-10, -5, 0, 5, 10])
+        pa.array(range(5), type='int16'),
+        pa.array([-10, -5, 0, 5, 10], type='int32')
     ]
 
-    batch = pa.RecordBatch.from_arrays(data, ['c0', 'c1'])
+    batch = pa.record_batch(data, ['c0', 'c1'])
     assert not batch.schema.metadata
 
     assert len(batch) == 5
@@ -276,8 +276,16 @@ def test_recordbatch_basics():
     schema = pa.schema([pa.field('c0', pa.int16()),
                         pa.field('c1', pa.int32())],
                        metadata={b'foo': b'bar'})
-    batch = pa.RecordBatch.from_arrays(data, schema)
+    batch = pa.record_batch(data, schema=schema)
     assert batch.schema == schema
+
+
+def test_recordbatch_from_arrays_validate_schema():
+    # ARROW-6263
+    arr = pa.array([])
+    schema = pa.schema([pa.field('f0', pa.utf8())])
+    with pytest.raises(ValueError):
+        pa.record_batch([arr], schema=schema)
 
 
 def test_recordbatch_from_arrays_validate_lengths():
@@ -286,11 +294,11 @@ def test_recordbatch_from_arrays_validate_lengths():
             pa.array(["derek"])]
 
     with pytest.raises(ValueError):
-        pa.RecordBatch.from_arrays(data, ['id', 'tags', 'name'])
+        pa.record_batch(data, ['id', 'tags', 'name'])
 
 
 def test_recordbatch_no_fields():
-    batch = pa.RecordBatch.from_arrays([], [])
+    batch = pa.record_batch([], [])
 
     assert len(batch) == 0
     assert batch.num_rows == 0
@@ -303,10 +311,10 @@ def test_recordbatch_from_arrays_invalid_names():
         pa.array([-10, -5, 0, 5, 10])
     ]
     with pytest.raises(ValueError):
-        pa.RecordBatch.from_arrays(data, names=['a', 'b', 'c'])
+        pa.record_batch(data, names=['a', 'b', 'c'])
 
     with pytest.raises(ValueError):
-        pa.RecordBatch.from_arrays(data, names=['a'])
+        pa.record_batch(data, names=['a'])
 
 
 def test_recordbatch_empty_metadata():
@@ -315,19 +323,19 @@ def test_recordbatch_empty_metadata():
         pa.array([-10, -5, 0, 5, 10])
     ]
 
-    batch = pa.RecordBatch.from_arrays(data, ['c0', 'c1'])
+    batch = pa.record_batch(data, ['c0', 'c1'])
     assert batch.schema.metadata is None
 
 
 def test_recordbatch_pickle():
     data = [
-        pa.array(range(5)),
-        pa.array([-10, -5, 0, 5, 10])
+        pa.array(range(5), type='int8'),
+        pa.array([-10, -5, 0, 5, 10], type='float32')
     ]
     schema = pa.schema([pa.field('ints', pa.int8()),
                         pa.field('floats', pa.float32()),
                         ]).add_metadata({b'foo': b'bar'})
-    batch = pa.RecordBatch.from_arrays(data, schema)
+    batch = pa.record_batch(data, schema=schema)
 
     result = pickle.loads(pickle.dumps(batch))
     assert result.equals(batch)
@@ -382,8 +390,8 @@ def test_table_slice_getitem():
 def test_recordbatchlist_schema_equals():
     a1 = np.array([1], dtype='uint32')
     a2 = np.array([4.0, 5.0], dtype='float64')
-    batch1 = pa.RecordBatch.from_arrays([pa.array(a1)], ['c1'])
-    batch2 = pa.RecordBatch.from_arrays([pa.array(a2)], ['c1'])
+    batch1 = pa.record_batch([pa.array(a1)], ['c1'])
+    batch2 = pa.record_batch([pa.array(a2)], ['c1'])
 
     with pytest.raises(pa.ArrowInvalid):
         pa.Table.from_batches([batch1, batch2])
@@ -402,8 +410,8 @@ def test_table_from_batches_and_schema():
         pa.field('a', pa.int64()),
         pa.field('b', pa.float64()),
     ])
-    batch = pa.RecordBatch.from_arrays([pa.array([1]), pa.array([3.14])],
-                                       names=['a', 'b'])
+    batch = pa.record_batch([pa.array([1]), pa.array([3.14])],
+                            names=['a', 'b'])
     table = pa.Table.from_batches([batch], schema)
     assert table.schema.equals(schema)
     assert table.column(0) == pa.chunked_array([[1]])
@@ -413,7 +421,7 @@ def test_table_from_batches_and_schema():
     with pytest.raises(pa.ArrowInvalid):
         pa.Table.from_batches([batch], incompatible_schema)
 
-    incompatible_batch = pa.RecordBatch.from_arrays([pa.array([1])], ['a'])
+    incompatible_batch = pa.record_batch([pa.array([1])], ['a'])
     with pytest.raises(pa.ArrowInvalid):
         pa.Table.from_batches([incompatible_batch], schema)
 
@@ -714,10 +722,10 @@ def test_table_flatten():
 
 
 def test_table_combine_chunks():
-    batch1 = pa.RecordBatch.from_arrays([pa.array([1]), pa.array(["a"])],
-                                        names=['f1', 'f2'])
-    batch2 = pa.RecordBatch.from_arrays([pa.array([2]), pa.array(["b"])],
-                                        names=['f1', 'f2'])
+    batch1 = pa.record_batch([pa.array([1]), pa.array(["a"])],
+                             names=['f1', 'f2'])
+    batch2 = pa.record_batch([pa.array([2]), pa.array(["b"])],
+                             names=['f1', 'f2'])
     table = pa.Table.from_batches([batch1, batch2])
     combined = table.combine_chunks()
     combined.validate()
