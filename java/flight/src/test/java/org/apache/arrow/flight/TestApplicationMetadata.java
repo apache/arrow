@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight;
 
+import java.util.Arrays;
 import java.util.Collections;
 
 import java.util.concurrent.ExecutionException;
@@ -43,6 +44,11 @@ import io.netty.buffer.ArrowBuf;
  */
 public class TestApplicationMetadata {
 
+  // The command used to trigger the test for ARROW-6136.
+  private static final byte[] COMMAND_ARROW_6136 = "ARROW-6136".getBytes();
+  // The expected error message.
+  private static final String MESSAGE_ARROW_6136 = "The stream should not be double-closed.";
+
   /**
    * Ensure that a client can read the metadata sent from the server.
    */
@@ -60,6 +66,25 @@ public class TestApplicationMetadata {
           Assert.assertEquals(i, stream.getLatestMetadata().getByte(0));
           i++;
         }
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    });
+  }
+
+  /** ARROW-6136: make sure that the Flight implementation doesn't double-close the server-to-client stream. */
+  @Test
+  public void arrow6136() {
+    final Schema schema = new Schema(Collections.emptyList());
+    test((allocator, client) -> {
+      try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+        final FlightDescriptor descriptor = FlightDescriptor.command(COMMAND_ARROW_6136);
+
+        final PutListener listener = new SyncPutListener();
+        final FlightClient.ClientStreamListener writer = client.startPut(descriptor, root, listener);
+        // Must attempt to retrieve the result to get any server-side errors.
+        final CallStatus status = FlightTestUtil.assertCode(FlightStatusCode.INTERNAL, writer::getResult);
+        Assert.assertEquals(MESSAGE_ARROW_6136, status.description());
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
@@ -219,6 +244,15 @@ public class TestApplicationMetadata {
     @Override
     public Runnable acceptPut(CallContext context, FlightStream stream, StreamListener<PutResult> ackStream) {
       return () -> {
+        // Wait for the descriptor to be sent
+        stream.getRoot();
+        if (stream.getDescriptor().isCommand() &&
+            Arrays.equals(stream.getDescriptor().getCommand(), COMMAND_ARROW_6136)) {
+          // ARROW-6136: Try closing the stream
+          ackStream.onError(
+              CallStatus.INTERNAL.withDescription(MESSAGE_ARROW_6136).toRuntimeException());
+          return;
+        }
         try {
           byte current = 0;
           while (stream.next()) {
@@ -233,10 +267,10 @@ public class TestApplicationMetadata {
             current++;
           }
           if (current != 10) {
-            throw new IllegalArgumentException("Wrong number of messages sent.");
+            throw CallStatus.INVALID_ARGUMENT.withDescription("Wrong number of messages sent.").toRuntimeException();
           }
         } catch (Exception e) {
-          throw new RuntimeException(e);
+          throw CallStatus.INTERNAL.withCause(e).withDescription(e.toString()).toRuntimeException();
         }
       };
     }
