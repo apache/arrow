@@ -136,7 +136,8 @@ struct MakeNullImpl {
   std::shared_ptr<Scalar>* out_;
 };
 
-Status MakeNull(const std::shared_ptr<DataType>& type, std::shared_ptr<Scalar>* null) {
+Status MakeNullScalar(const std::shared_ptr<DataType>& type,
+                      std::shared_ptr<Scalar>* null) {
   MakeNullImpl impl = {type, null};
   return VisitTypeInline(*type, &impl);
 }

@@ -104,7 +104,7 @@ bool FinishWithTrivial(const Datum& d, Datum* out) {
   return false;
 }
 
-Result<Datum> AllExpression::Evaluate(compute::FunctionContext* ctx,
+Result<Datum> AndExpression::Evaluate(compute::FunctionContext* ctx,
                                       const RecordBatch& batch) const {
   ARROW_ASSIGN_OR_RAISE(auto next, operands_[0]->Evaluate(ctx, batch));
   Datum acc(next);
@@ -126,8 +126,8 @@ Result<Datum> AllExpression::Evaluate(compute::FunctionContext* ctx,
   return std::move(acc);
 }
 
-Result<Datum> AnyExpression::Evaluate(compute::FunctionContext* ctx,
-                                      const RecordBatch& batch) const {
+Result<Datum> OrExpression::Evaluate(compute::FunctionContext* ctx,
+                                     const RecordBatch& batch) const {
   ARROW_ASSIGN_OR_RAISE(auto next, operands_[0]->Evaluate(ctx, batch));
   Datum acc(next);
 
@@ -185,7 +185,7 @@ std::shared_ptr<ScalarExpression> ScalarExpression::Make(const char* value) {
 std::shared_ptr<ScalarExpression> ScalarExpression::MakeNull(
     const std::shared_ptr<DataType>& type) {
   std::shared_ptr<Scalar> null;
-  DCHECK_OK(arrow::MakeNull(type, &null));
+  DCHECK_OK(arrow::MakeNullScalar(type, &null));
   return Make(std::move(null));
 }
 
@@ -312,18 +312,18 @@ Result<std::shared_ptr<Expression>> Invert(const Expression& op) {
     case ExpressionType::NOT:
       return checked_cast<const NotExpression&>(op).operand();
 
-    case ExpressionType::ALL:
-    case ExpressionType::ANY: {
+    case ExpressionType::AND:
+    case ExpressionType::OR: {
       ExpressionVector inverted_operands;
       for (auto operand : checked_cast<const NnaryExpression&>(op).operands()) {
         ARROW_ASSIGN_OR_RAISE(auto inverted_operand, Invert(*operand));
         inverted_operands.push_back(inverted_operand);
       }
 
-      if (op.type() == ExpressionType::ALL) {
-        return std::make_shared<AnyExpression>(std::move(inverted_operands));
+      if (op.type() == ExpressionType::AND) {
+        return std::make_shared<OrExpression>(std::move(inverted_operands));
       }
-      return std::make_shared<AllExpression>(std::move(inverted_operands));
+      return std::make_shared<AndExpression>(std::move(inverted_operands));
     }
 
     case ExpressionType::COMPARISON:
@@ -351,10 +351,10 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
       return Assume(*inverted.ValueOrDie());
     }
 
-    case ExpressionType::ANY: {
+    case ExpressionType::OR: {
       bool simplify_to_always = true;
       bool simplify_to_never = true;
-      for (const auto& operand : checked_cast<const AnyExpression&>(given).operands()) {
+      for (const auto& operand : checked_cast<const OrExpression&>(given).operands()) {
         ARROW_ASSIGN_OR_RAISE(auto simplified, Assume(*operand));
 
         BooleanScalar scalar;
@@ -386,9 +386,9 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
       return Copy();
     }
 
-    case ExpressionType::ALL: {
+    case ExpressionType::AND: {
       auto simplified = Copy();
-      for (const auto& operand : checked_cast<const AllExpression&>(given).operands()) {
+      for (const auto& operand : checked_cast<const AndExpression&>(given).operands()) {
         BooleanScalar value;
         if (simplified->IsTrivialCondition(&value)) {
           // FIXME(bkietz) but what if something later is null?
@@ -585,9 +585,9 @@ Result<std::shared_ptr<Expression>> AssumeNnary(const Nnary& nnary,
                                                 const Expression& given) {
   // if any of the operands matches trivial_condition, we can return a trivial
   // expression:
-  // anything ANY true => true
-  // anything ALL false => false
-  constexpr bool trivial_condition = std::is_same<Nnary, AnyExpression>::value;
+  // anything OR true => true
+  // anything AND false => false
+  constexpr bool trivial_condition = std::is_same<Nnary, OrExpression>::value;
   bool simplify_to_trivial = false;
 
   ExpressionVector operands;
@@ -626,11 +626,11 @@ Result<std::shared_ptr<Expression>> AssumeNnary(const Nnary& nnary,
   return std::make_shared<Nnary>(std::move(operands));
 }
 
-Result<std::shared_ptr<Expression>> AllExpression::Assume(const Expression& given) const {
+Result<std::shared_ptr<Expression>> AndExpression::Assume(const Expression& given) const {
   return AssumeNnary(*this, given);
 }
 
-Result<std::shared_ptr<Expression>> AnyExpression::Assume(const Expression& given) const {
+Result<std::shared_ptr<Expression>> OrExpression::Assume(const Expression& given) const {
   return AssumeNnary(*this, given);
 }
 
@@ -716,9 +716,9 @@ static std::string EulerNotation(std::string fn, const ExpressionVector& operand
   return fn;
 }
 
-std::string AllExpression::ToString() const { return EulerNotation("ALL", operands_); }
+std::string AndExpression::ToString() const { return EulerNotation("ALL", operands_); }
 
-std::string AnyExpression::ToString() const { return EulerNotation("ANY", operands_); }
+std::string OrExpression::ToString() const { return EulerNotation("ANY", operands_); }
 
 std::string NotExpression::ToString() const { return EulerNotation("NOT", {operand_}); }
 
@@ -808,12 +808,12 @@ std::shared_ptr<Expression> ScalarExpression::Copy() const {
   return std::make_shared<ScalarExpression>(*this);
 }
 
-std::shared_ptr<AllExpression> all(ExpressionVector operands) {
-  return std::make_shared<AllExpression>(std::move(operands));
+std::shared_ptr<AndExpression> and_(ExpressionVector operands) {
+  return std::make_shared<AndExpression>(std::move(operands));
 }
 
-std::shared_ptr<AnyExpression> any(ExpressionVector operands) {
-  return std::make_shared<AnyExpression>(std::move(operands));
+std::shared_ptr<OrExpression> or_(ExpressionVector operands) {
+  return std::make_shared<OrExpression>(std::move(operands));
 }
 
 std::shared_ptr<NotExpression> not_(std::shared_ptr<Expression> operand) {
@@ -842,12 +842,12 @@ Out MaybeCombine(const Expression& lhs, const Expression& rhs) {
   return Out(std::move(operands));
 }
 
-AllExpression operator&&(const Expression& lhs, const Expression& rhs) {
-  return MaybeCombine<AllExpression>(lhs, rhs);
+AndExpression operator&&(const Expression& lhs, const Expression& rhs) {
+  return MaybeCombine<AndExpression>(lhs, rhs);
 }
 
-AnyExpression operator||(const Expression& lhs, const Expression& rhs) {
-  return MaybeCombine<AnyExpression>(lhs, rhs);
+OrExpression operator||(const Expression& lhs, const Expression& rhs) {
+  return MaybeCombine<OrExpression>(lhs, rhs);
 }
 
 NotExpression operator!(const Expression& rhs) { return NotExpression(rhs.Copy()); }
@@ -894,11 +894,11 @@ Result<std::shared_ptr<DataType>> ValidateNnary(const NnaryExpression& nnary,
   return out;
 }
 
-Result<std::shared_ptr<DataType>> AllExpression::Validate(const Schema& schema) const {
+Result<std::shared_ptr<DataType>> AndExpression::Validate(const Schema& schema) const {
   return ValidateNnary(*this, schema);
 }
 
-Result<std::shared_ptr<DataType>> AnyExpression::Validate(const Schema& schema) const {
+Result<std::shared_ptr<DataType>> OrExpression::Validate(const Schema& schema) const {
   return ValidateNnary(*this, schema);
 }
 

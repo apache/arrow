@@ -250,6 +250,7 @@ class ARROW_EXPORT ExtensionScalar : public Scalar {};
 /// \param[out] null output scalar with is_valid=false
 /// \return Status
 ARROW_EXPORT
-Status MakeNull(const std::shared_ptr<DataType>& type, std::shared_ptr<Scalar>* null);
+Status MakeNullScalar(const std::shared_ptr<DataType>& type,
+                      std::shared_ptr<Scalar>* null);
 
 }  // namespace arrow

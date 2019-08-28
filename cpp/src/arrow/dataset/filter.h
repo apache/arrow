@@ -33,7 +33,7 @@ namespace dataset {
 struct FilterType {
   enum type {
     /// Simple boolean predicate consisting of comparisons and boolean
-    /// logic (ALL, ANY, NOT) involving Schema fields
+    /// logic (ALL, OR, NOT) involving Schema fields
     EXPRESSION,
 
     /// Non decomposable filter; must be evaluated against every record batch
@@ -54,7 +54,7 @@ class ARROW_DS_EXPORT Filter {
 };
 
 /// Filter subclass encapsulating a simple boolean predicate consisting of comparisons
-/// and boolean logic (ALL, ANY, NOT) involving Schema fields
+/// and boolean logic (ALL, OR, NOT) involving Schema fields
 class ARROW_DS_EXPORT ExpressionFilter : public Filter {
  public:
   explicit ExpressionFilter(const std::shared_ptr<Expression>& expression)
@@ -84,10 +84,10 @@ struct ExpressionType {
     // TODO(bkietz) CAST,
 
     /// a conjunction of multiple expressions (true if all operands are true)
-    ALL,
+    AND,
 
     /// a disjunction of multiple expressions (true if any operand is true)
-    ANY,
+    OR,
 
     /// a comparison of two other expressions
     COMPARISON,
@@ -241,8 +241,8 @@ class ARROW_DS_EXPORT ComparisonExpression final
   compute::CompareOperator op_;
 };
 
-class ARROW_DS_EXPORT AllExpression final
-    : public ExpressionImpl<NnaryExpression, AllExpression, ExpressionType::ALL> {
+class ARROW_DS_EXPORT AndExpression final
+    : public ExpressionImpl<NnaryExpression, AndExpression, ExpressionType::AND> {
  public:
   using ExpressionImpl::ExpressionImpl;
 
@@ -256,8 +256,8 @@ class ARROW_DS_EXPORT AllExpression final
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 };
 
-class ARROW_DS_EXPORT AnyExpression final
-    : public ExpressionImpl<NnaryExpression, AnyExpression, ExpressionType::ANY> {
+class ARROW_DS_EXPORT OrExpression final
+    : public ExpressionImpl<NnaryExpression, OrExpression, ExpressionType::OR> {
  public:
   using ExpressionImpl::ExpressionImpl;
 
@@ -357,13 +357,13 @@ class ARROW_DS_EXPORT FieldExpression final : public Expression {
   std::string name_;
 };
 
-ARROW_DS_EXPORT std::shared_ptr<AllExpression> all(ExpressionVector operands);
+ARROW_DS_EXPORT std::shared_ptr<AndExpression> and_(ExpressionVector operands);
 
-ARROW_DS_EXPORT AllExpression operator&&(const Expression& lhs, const Expression& rhs);
+ARROW_DS_EXPORT AndExpression operator&&(const Expression& lhs, const Expression& rhs);
 
-ARROW_DS_EXPORT std::shared_ptr<AnyExpression> any(ExpressionVector operands);
+ARROW_DS_EXPORT std::shared_ptr<OrExpression> or_(ExpressionVector operands);
 
-ARROW_DS_EXPORT AnyExpression operator||(const Expression& lhs, const Expression& rhs);
+ARROW_DS_EXPORT OrExpression operator||(const Expression& lhs, const Expression& rhs);
 
 ARROW_DS_EXPORT std::shared_ptr<NotExpression> not_(std::shared_ptr<Expression> operand);
 
@@ -414,8 +414,8 @@ Status Expression::Accept(Visitor&& visitor) const {
   switch (type_) {
     EXPRESSION_VISIT_CASE(FIELD, Field);
     EXPRESSION_VISIT_CASE(SCALAR, Scalar);
-    EXPRESSION_VISIT_CASE(ALL, All);
-    EXPRESSION_VISIT_CASE(ANY, Any);
+    EXPRESSION_VISIT_CASE(AND, And);
+    EXPRESSION_VISIT_CASE(OR, Or);
     EXPRESSION_VISIT_CASE(NOT, Not);
     EXPRESSION_VISIT_CASE(COMPARISON, Comparison);
     default:
