@@ -122,7 +122,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
  protected:
-  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<ScanOptions> options_ = nullptr;
   std::shared_ptr<ScanContext> ctx_;
 };
 
