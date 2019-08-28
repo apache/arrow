@@ -16,6 +16,7 @@
 
   <artifactId>arrow-flight</artifactId>
   <name>Arrow Flight</name>
+  <description>(Experimental)An RPC mechanism for transferring ValueVectors.</description>
   <packaging>jar</packaging>
 
   <properties>
