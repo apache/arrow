@@ -72,17 +72,17 @@ public class DictionaryEncoder {
   }
 
   /**
-   * Build index vector with the given vector and hash table.
+   * Populates indices between start and end with the encoded values of vector.
    * @param vector the vector to encode
    * @param indices the index vector
-   * @param hashTable the hash table
+   * @param encoding the hash table for encoding
    * @param start the start index
    * @param end the end index
    */
   static void buildIndexVector(
       ValueVector vector,
       BaseIntVector indices,
-      DictionaryHashTable hashTable,
+      DictionaryHashTable encoding,
       int start,
       int end) {
 
@@ -90,8 +90,7 @@ public class DictionaryEncoder {
       if (!vector.isNull(i)) {
         // if it's null leave it null
         // note: this may fail if value was not included in the dictionary
-        //int encoded = lookUps.get(value);
-        int encoded = hashTable.getIndex(i, vector);
+        int encoded = encoding.getIndex(i, vector);
         if (encoded == -1) {
           throw new IllegalArgumentException("Dictionary encoding not defined for value:" + vector.getObject(i));
         }

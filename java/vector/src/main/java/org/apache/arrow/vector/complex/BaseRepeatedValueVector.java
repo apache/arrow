@@ -300,7 +300,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     return new AddOrGetResult<>((T) vector, created);
   }
 
-  public void replaceDataVector(FieldVector v) {
+  protected void replaceDataVector(FieldVector v) {
     vector.clear();
     vector = v;
   }

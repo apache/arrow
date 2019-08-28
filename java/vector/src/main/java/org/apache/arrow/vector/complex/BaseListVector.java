@@ -33,9 +33,4 @@ public interface BaseListVector extends FieldVector {
    * Get data vector end index with the given list index.
    */
   int getElementEndIndex(int index);
-
-  /**
-   * Replace the data vector in this list vector.
-   */
-  void replaceDataVector(FieldVector v);
 }

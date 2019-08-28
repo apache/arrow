@@ -553,12 +553,6 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
     return listSize * (index + 1);
   }
 
-  @Override
-  public void replaceDataVector(FieldVector v) {
-    vector.clear();
-    vector = v;
-  }
-
   private class TransferImpl implements TransferPair {
 
     FixedSizeListVector to;
