@@ -19,6 +19,7 @@
     <artifactId>arrow-performance</artifactId>
     <packaging>jar</packaging>
     <name>Arrow Performance Benchmarks</name>
+    <description>JMH Performance benchmarks for other Arrow libraries.</description>
 
     <dependencies>
         <dependency>

@@ -18,6 +18,7 @@
     </parent>
     <artifactId>arrow-tools</artifactId>
     <name>Arrow Tools</name>
+    <description>Java applications for working with Arrow ValueVectors.</description>
 
     <dependencies>
         <dependency>

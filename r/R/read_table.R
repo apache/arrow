@@ -27,7 +27,7 @@
 #'   read an [arrow::Table][arrow__Table] from the remaining record batches
 #'   in the reader
 #'
-#'  - a string or [file path][fs::path_abs()]: interpret the file as an arrow
+#'  - a string file path: interpret the file as an arrow
 #'    binary file format, and uses a [arrow::ipc::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader]
 #'    to process it.
 #'
@@ -60,13 +60,8 @@ read_table <- function(stream){
 }
 
 #' @export
-read_table.character <- function(stream){
+read_table.character <- function(stream) {
   assert_that(length(stream) == 1L)
-  read_table(fs::path_abs(stream))
-}
-
-#' @export
-read_table.fs_path <- function(stream) {
   stream <- ReadableFile(stream)
   on.exit(stream$close())
   batch_reader <- RecordBatchFileReader(stream)

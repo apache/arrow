@@ -23,6 +23,7 @@
 #include "arrow/table.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/range.h"
+#include "arrow/util/stl.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/file_reader.h"
 
@@ -172,6 +173,14 @@ Status ParquetFileFormat::ScanFile(const FileSource& source,
   auto reader = parquet::ParquetFileReader::Open(input);
   return ParquetScanTaskIterator::Make(scan_options, scan_context, std::move(reader),
                                        out);
+}
+
+Status ParquetFileFormat::MakeFragment(const FileSource& source,
+                                       std::shared_ptr<ScanOptions> opts,
+                                       std::unique_ptr<DataFragment>* out) {
+  // TODO(bkietz) check location.path() against IsKnownExtension etc
+  *out = internal::make_unique<ParquetFragment>(source, opts);
+  return Status::OK();
 }
 
 }  // namespace dataset

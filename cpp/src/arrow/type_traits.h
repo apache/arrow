@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TYPE_TRAITS_H
-#define ARROW_TYPE_TRAITS_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -665,5 +664,3 @@ static inline bool is_fixed_width(Type::type type_id) {
 }
 
 }  // namespace arrow
-
-#endif  // ARROW_TYPE_TRAITS_H

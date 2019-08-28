@@ -66,15 +66,18 @@ reference:
   - array
   - chunked_array
   - record_batch
-  - schema
   - table
+  - read_message
+  - read_record_batch
+  - read_table
+- title: Arrow data types and schema
+  contents:
+  - schema
   - type
   - dictionary
   - field
-  - read_message
-  - read_record_batch
   - read_schema
-  - read_table
+  - data-type
 - title: R6 classes
   contents:
   - arrow__Array
@@ -116,7 +119,6 @@ reference:
   - BufferReader
   - CompressedInputStream
   - CompressedOutputStream
-  - TimeUnit
   - FeatherTableReader
   - FeatherTableWriter
   - FileOutputStream

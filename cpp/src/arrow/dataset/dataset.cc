@@ -34,7 +34,7 @@ Status SimpleDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
                                 std::unique_ptr<ScanTaskIterator>* out) {
   // Make an explicit copy of record_batches_ to ensure Scan can be called
   // multiple times.
-  auto it = MakeIterator(record_batches_);
+  auto it = MakeVectorIterator(record_batches_);
 
   // RecordBatch -> ScanTask
   auto fn = [](std::shared_ptr<RecordBatch> batch) -> std::unique_ptr<ScanTask> {

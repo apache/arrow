@@ -97,6 +97,9 @@ struct ARROW_EXPORT FileStats {
   int64_t size() const { return size_; }
   void set_size(int64_t size) { size_ = size; }
 
+  // The file extension
+  std::string extension() const;
+
   // The time of last modification, if available.
   TimePoint mtime() const { return mtime_; }
   void set_mtime(TimePoint mtime) { mtime_ = mtime; }

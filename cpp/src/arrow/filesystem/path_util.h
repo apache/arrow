@@ -36,6 +36,10 @@ constexpr char kSep = '/';
 ARROW_EXPORT
 std::vector<std::string> SplitAbstractPath(const std::string& s);
 
+// Return the extension of the file
+ARROW_EXPORT
+std::string GetAbstractPathExtension(const std::string& s);
+
 // Return the parent directory and basename of an abstract path.  Both values may be
 // empty.
 ARROW_EXPORT

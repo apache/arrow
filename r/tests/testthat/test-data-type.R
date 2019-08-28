@@ -237,6 +237,10 @@ test_that("timestamp type works as expected", {
   expect_equal(x$unit(), unclass(TimeUnit$NANO))
 })
 
+test_that("timestamp with timezone", {
+  expect_equal(timestamp(timezone = "EST")$ToString(), "timestamp[s, tz=EST]")
+})
+
 test_that("time32 types work as expected", {
   x <- time32(TimeUnit$SECOND)
   expect_equal(x$id, 19L)
@@ -283,6 +287,40 @@ test_that("time64 types work as expected", {
   expect_equal(x$children(), list())
   expect_equal(x$bit_width, 64L)
   expect_equal(x$unit(), unclass(TimeUnit$NANO))
+})
+
+test_that("time type unit validation", {
+  expect_equal(time32(TimeUnit$SECOND), time32("s"))
+  expect_equal(time32(TimeUnit$MILLI), time32("ms"))
+  expect_equal(time32(), time32(TimeUnit$MILLI))
+  expect_error(time32(4), '"unit" should be one of 1 or 0')
+  expect_error(time32(NULL), '"unit" should be one of "ms" or "s"')
+  expect_error(time32("years"), "'arg' should be one of")
+
+  expect_equal(time64(TimeUnit$NANO), time64("n"))
+  expect_equal(time64(TimeUnit$MICRO), time64("us"))
+  expect_equal(time64(), time64(TimeUnit$NANO))
+  expect_error(time64(4), '"unit" should be one of 3 or 2')
+  expect_error(time64(NULL), '"unit" should be one of "ns" or "us"')
+  expect_error(time64("years"), "'arg' should be one of")
+})
+
+test_that("timestamp type input validation", {
+  expect_equal(timestamp("ms"), timestamp(TimeUnit$MILLI))
+  expect_equal(timestamp(), timestamp(TimeUnit$SECOND))
+  expect_error(
+    timestamp(NULL),
+    '"unit" should be one of "ns", "us", "ms", or "s"'
+  )
+  expect_error(
+    timestamp(timezone = 1231231),
+    "timezone is not a character vector"
+  )
+  expect_error(
+    timestamp(timezone = c("not", "a", "timezone")),
+    "length(timezone) not equal to 1",
+    fixed = TRUE
+  )
 })
 
 test_that("list type works as expected", {

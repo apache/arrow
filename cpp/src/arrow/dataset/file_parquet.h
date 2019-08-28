@@ -51,6 +51,9 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   Status ScanFile(const FileSource& source, std::shared_ptr<ScanOptions> scan_options,
                   std::shared_ptr<ScanContext> scan_context,
                   std::unique_ptr<ScanTaskIterator>* out) const override;
+
+  Status MakeFragment(const FileSource& source, std::shared_ptr<ScanOptions> opts,
+                      std::unique_ptr<DataFragment>* out) override;
 };
 
 class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {
@@ -59,8 +62,6 @@ class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {
       : FileBasedDataFragment(source, std::make_shared<ParquetFileFormat>(), options) {}
 
   bool splittable() const override { return true; }
-
-  std::shared_ptr<ScanOptions> scan_options() const override { return NULLPTR; }
 };
 
 }  // namespace dataset

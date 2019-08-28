@@ -85,6 +85,17 @@ TEST(PathUtil, SplitAbstractPath) {
   AssertPartsEqual(parts, {"abc", "def.ghi"});
 }
 
+TEST(PathUtil, GetAbstractPathExtension) {
+  ASSERT_EQ(GetAbstractPathExtension("abc.txt"), "txt");
+  ASSERT_EQ(GetAbstractPathExtension("dir/abc.txt"), "txt");
+  ASSERT_EQ(GetAbstractPathExtension("/dir/abc.txt"), "txt");
+  ASSERT_EQ(GetAbstractPathExtension("dir/abc.txt.gz"), "gz");
+  ASSERT_EQ(GetAbstractPathExtension("/run.d/abc.txt"), "txt");
+  ASSERT_EQ(GetAbstractPathExtension("abc"), "");
+  ASSERT_EQ(GetAbstractPathExtension("/dir/abc"), "");
+  ASSERT_EQ(GetAbstractPathExtension("/run.d/abc"), "");
+}
+
 TEST(PathUtil, GetAbstractPathParent) {
   std::pair<std::string, std::string> pair;
 

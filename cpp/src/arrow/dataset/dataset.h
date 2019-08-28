@@ -94,7 +94,7 @@ class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
 
   std::unique_ptr<DataFragmentIterator> GetFragments(
       std::shared_ptr<ScanOptions> options) override {
-    return MakeIterator(fragments_);
+    return MakeVectorIterator(fragments_);
   }
 
   std::string type() const override { return "simple_data_source"; }

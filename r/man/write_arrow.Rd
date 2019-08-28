@@ -14,7 +14,7 @@ write_arrow(x, stream, ...)
 \item A \link[=arrow__ipc__RecordBatchWriter]{arrow::ipc::RecordBatchWriter}: the \code{$write()}
 of \code{x} is used. The stream is left open. This uses the streaming format
 or the binary file format depending on the type of the writer.
-\item A string or \link[fs:path_abs]{file path}: \code{x} is serialized with
+\item A string file path: \code{x} is serialized with
 a \link[=arrow__ipc__RecordBatchFileWriter]{arrow::ipc::RecordBatchFileWriter}, i.e.
 using the binary file format.
 \item A raw vector: typically of length zero (its data is ignored, and only used for

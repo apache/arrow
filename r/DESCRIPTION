@@ -28,7 +28,6 @@ LinkingTo:
 Imports:
     assertthat,
     bit64,
-    fs,
     purrr,
     R6,
     Rcpp (>= 1.0.1),
@@ -39,6 +38,7 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1
 Suggests:
     covr,
+    fs,
     hms,
     lubridate,
     rmarkdown,
@@ -47,7 +47,8 @@ Suggests:
     vctrs
 Collate:
     'enums.R'
-    'R6.R'
+    'arrow-package.R'
+    'type.R'
     'ArrayData.R'
     'ChunkedArray.R'
     'Column.R'
@@ -60,7 +61,6 @@ Collate:
     'Struct.R'
     'Table.R'
     'array.R'
-    'arrow-package.R'
     'arrowExports.R'
     'buffer.R'
     'io.R'

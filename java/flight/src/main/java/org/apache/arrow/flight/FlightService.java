@@ -187,16 +187,19 @@ class FlightService extends FlightServiceImplBase {
       responseObserver.onError(Status.CANCELLED.withCause(cause).withDescription(message).asException());
     }, responseObserver::request);
     executors.submit(() -> {
+      final StreamPipe<PutResult, Flight.PutResult> ackStream = StreamPipe
+          .wrap(responseObserver, PutResult::toProtocol);
       try {
-        producer.acceptPut(makeContext(responseObserver), fs,
-            StreamPipe.wrap(responseObserver, PutResult::toProtocol)).run();
-        responseObserver.onCompleted();
+        producer.acceptPut(makeContext(responseObserver), fs, ackStream).run();
       } catch (Exception ex) {
-        responseObserver.onError(StatusUtils.toGrpcException(ex));
+        ackStream.onError(StatusUtils.toGrpcException(ex));
         // The client may have terminated, so the exception here is effectively swallowed.
         // Log the error as well so -something- makes it to the developer.
         logger.error("Exception handling DoPut", ex);
       } finally {
+        // ARROW-6136: Close the stream if and only if acceptPut hasn't closed it itself
+        // We don't do this for other streams since the implementation may be asynchronous
+        ackStream.ensureCompleted();
         try {
           fs.close();
         } catch (Exception e) {

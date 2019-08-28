@@ -24,6 +24,7 @@
 
   <artifactId>arrow-avro</artifactId>
   <name>Arrow AVRO Adapter</name>
+  <description>(Contrib/Experimental) A library for converting Avro data to Arrow data.</description>
   <url>http://maven.apache.org</url>
 
   <dependencies>
