@@ -161,7 +161,7 @@ read_csv_arrow <- function(file,
 
   mc <- match.call()
   mc$delim <- ","
-  mc[[1]] <- as.name("read_delim_arrow")
+  mc[[1]] <- get("read_delim_arrow", envir = asNamespace("arrow"))
   eval.parent(mc)
 }
 
@@ -185,7 +185,7 @@ read_tsv_arrow <- function(file,
 
   mc <- match.call()
   mc$delim <- "\t"
-  mc[[1]] <- as.name("read_delim_arrow")
+  mc[[1]] <- get("read_delim_arrow", envir = asNamespace("arrow"))
   eval.parent(mc)
 }
 
