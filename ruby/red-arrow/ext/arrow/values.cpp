@@ -21,48 +21,29 @@
 
 namespace red_arrow {
   namespace {
-    class RawRecordsBuilder : private Converter, public arrow::ArrayVisitor {
+    class ValuesBuilder : private Converter, public arrow::ArrayVisitor {
     public:
-      explicit RawRecordsBuilder(VALUE records, int n_columns)
+      explicit ValuesBuilder(VALUE values)
         : Converter(),
-          records_(records),
-          n_columns_(n_columns) {
+          values_(values),
+          row_offset_(0) {
       }
 
-      void build(const arrow::RecordBatch& record_batch) {
+      void build(const arrow::Array& array, VALUE rb_array) {
         rb::protect([&] {
-          const auto n_rows = record_batch.num_rows();
-          for (int64_t i = 0; i < n_rows; ++i) {
-            auto record = rb_ary_new_capa(n_columns_);
-            rb_ary_push(records_, record);
-          }
-          row_offset_ = 0;
-          for (int i = 0; i < n_columns_; ++i) {
-            const auto array = record_batch.column(i).get();
-            column_index_ = i;
-            check_status(array->Accept(this),
-                         "[record-batch][raw-records]");
-          }
+          check_status(array.Accept(this),
+                       "[array][values]");
           return Qnil;
         });
       }
 
-      void build(const arrow::Table& table) {
+      void build(const arrow::ChunkedArray& chunked_array,
+                 VALUE rb_chunked_array) {
         rb::protect([&] {
-          const auto n_rows = table.num_rows();
-          for (int64_t i = 0; i < n_rows; ++i) {
-            auto record = rb_ary_new_capa(n_columns_);
-            rb_ary_push(records_, record);
-          }
-          for (int i = 0; i < n_columns_; ++i) {
-            const auto& chunked_array = table.column(i).get();
-            column_index_ = i;
-            row_offset_ = 0;
-            for (const auto array : chunked_array->chunks()) {
-              check_status(array->Accept(this),
-                           "[table][raw-records]");
-              row_offset_ += array->length();
-            }
+          for (const auto& array : chunked_array.chunks()) {
+            check_status(array->Accept(this),
+                         "[chunked-array][values]");
+            row_offset_ += array->length();
           }
           return Qnil;
         });
@@ -118,64 +99,56 @@ namespace red_arrow {
             if (!array.IsNull(i)) {
               value = convert_value(array, i);
             }
-            auto record = rb_ary_entry(records_, ii);
-            rb_ary_store(record, column_index_, value);
+            rb_ary_store(values_, ii, value);
           }
         } else {
           for (int64_t i = 0, ii = row_offset_; i < n; ++i, ++ii) {
-            auto record = rb_ary_entry(records_, ii);
-            rb_ary_store(record, column_index_, convert_value(array, i));
+            rb_ary_store(values_, ii, convert_value(array, i));
           }
         }
       }
 
-      // Destination for converted records.
-      VALUE records_;
-
-      // The current column index.
-      int column_index_;
+      // Destination for converted values.
+      VALUE values_;
 
       // The current row offset.
       int64_t row_offset_;
-
-      // The number of columns.
-      const int n_columns_;
     };
   }
 
   VALUE
-  record_batch_raw_records(VALUE rb_record_batch) {
-    auto garrow_record_batch = GARROW_RECORD_BATCH(RVAL2GOBJ(rb_record_batch));
-    auto record_batch = garrow_record_batch_get_raw(garrow_record_batch).get();
-    const auto n_rows = record_batch->num_rows();
-    const auto n_columns = record_batch->num_columns();
-    auto records = rb_ary_new_capa(n_rows);
+  array_values(VALUE rb_array) {
+    auto garrow_array = GARROW_ARRAY(RVAL2GOBJ(rb_array));
+    auto array = garrow_array_get_raw(garrow_array).get();
+    const auto n_rows = array->length();
+    auto values = rb_ary_new_capa(n_rows);
 
     try {
-      RawRecordsBuilder builder(records, n_columns);
-      builder.build(*record_batch);
+      ValuesBuilder builder(values);
+      builder.build(*array, rb_array);
     } catch (rb::State& state) {
       state.jump();
     }
 
-    return records;
+    return values;
   }
 
   VALUE
-  table_raw_records(VALUE rb_table) {
-    auto garrow_table = GARROW_TABLE(RVAL2GOBJ(rb_table));
-    auto table = garrow_table_get_raw(garrow_table).get();
-    const auto n_rows = table->num_rows();
-    const auto n_columns = table->num_columns();
-    auto records = rb_ary_new_capa(n_rows);
+  chunked_array_values(VALUE rb_chunked_array) {
+    auto garrow_chunked_array =
+      GARROW_CHUNKED_ARRAY(RVAL2GOBJ(rb_chunked_array));
+    auto chunked_array =
+      garrow_chunked_array_get_raw(garrow_chunked_array).get();
+    const auto n_rows = chunked_array->length();
+    auto values = rb_ary_new_capa(n_rows);
 
     try {
-      RawRecordsBuilder builder(records, n_columns);
-      builder.build(*table);
+      ValuesBuilder builder(values);
+      builder.build(*chunked_array, rb_chunked_array);
     } catch (rb::State& state) {
       state.jump();
     }
 
-    return records;
+    return values;
   }
 }

@@ -36,10 +36,12 @@ prelude: |-
   n_columns.times do |i|
     column_name = "column_#{i}"
     fields[column_name] = type
-    arrays[column_name] = n_rows.times.map {
-      len = Faker::Number.within(1 ... 100)
-      len.times.map { Faker::Number.normal(0, 1e+6) }
-    }
+    arrays[column_name] = n_rows.times.map do
+      n_elements = Faker::Number.within(range: 1 ... 100)
+      n_elements.times.map do
+        Faker::Number.normal(mean: 0, standard_deviation: 1e+6)
+      end
+    end
   end
   record_batch = Arrow::RecordBatch.new(fields, arrays)
 
