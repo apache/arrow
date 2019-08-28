@@ -317,18 +317,18 @@ class PullRequest(object):
 
         return JiraIssue(self.con, jira_id, project, self.cmd)
 
-    def merge(self, target_ref='master'):
+    def merge(self):
         """
         merge the requested PR and return the merge hash
         """
         pr_branch_name = "%s_MERGE_PR_%s" % (BRANCH_PREFIX, self.number)
         target_branch_name = "%s_MERGE_PR_%s_%s" % (BRANCH_PREFIX,
                                                     self.number,
-                                                    target_ref.upper())
+                                                    self.target_ref.upper())
         run_cmd("git fetch %s pull/%s/head:%s" % (self.git_remote,
                                                   self.number,
                                                   pr_branch_name))
-        run_cmd("git fetch %s %s:%s" % (self.git_remote, target_ref,
+        run_cmd("git fetch %s %s:%s" % (self.git_remote, self.target_ref,
                                         target_branch_name))
         run_cmd("git checkout %s" % target_branch_name)
 
@@ -415,7 +415,7 @@ class PullRequest(object):
         try:
             push_cmd = ('git push %s %s:%s' % (self.git_remote,
                                                target_branch_name,
-                                               target_ref))
+                                               self.target_ref))
             if DEBUG:
                 print(push_cmd)
             else:
