@@ -54,6 +54,11 @@ using internal::ThreadPool;
 
 namespace flight {
 
+struct PerformanceResult {
+  int64_t num_records;
+  int64_t num_bytes;
+};
+
 struct PerformanceStats {
   PerformanceStats() : total_records(0), total_bytes(0) {}
   std::mutex mutex;
@@ -77,6 +82,47 @@ Status WaitForReady(FlightClient* client) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   }
   return Status::IOError("Server was not available after 10 attempts");
+}
+
+arrow::Result<PerformanceResult> RunDoGetTest(FlightClient* client,
+                                              const perf::Token& token,
+                                              const FlightEndpoint& endpoint) {
+  std::unique_ptr<FlightStreamReader> reader;
+  RETURN_NOT_OK(client->DoGet(endpoint.ticket, &reader));
+
+  FlightStreamChunk batch;
+
+  // This is hard-coded for right now, 4 columns each with int64
+  const int bytes_per_record = 32;
+
+  // This must also be set in perf_server.cc
+  const bool verify = false;
+
+  int64_t num_bytes = 0;
+  int64_t num_records = 0;
+  while (true) {
+    RETURN_NOT_OK(reader->Next(&batch));
+    if (!batch.data) {
+      break;
+    }
+
+    if (verify) {
+      auto values = reinterpret_cast<const int64_t*>(
+          batch.data->column_data(0)->buffers[1]->data());
+      const int64_t start = token.start() + num_records;
+      for (int64_t i = 0; i < batch.data->num_rows(); ++i) {
+        if (values[i] != start + i) {
+          return std::move(Status::Invalid("verification failure"));
+        }
+      }
+    }
+
+    num_records += batch.data->num_rows();
+
+    // Hard-coded
+    num_bytes += batch.data->num_rows() * bytes_per_record;
+  }
+  return PerformanceResult{num_records, num_bytes};
 }
 
 Status RunPerformanceTest(FlightClient* client) {
@@ -111,43 +157,12 @@ Status RunPerformanceTest(FlightClient* client) {
     perf::Token token;
     token.ParseFromString(endpoint.ticket.ticket);
 
-    std::unique_ptr<FlightStreamReader> reader;
-    RETURN_NOT_OK(client->DoGet(endpoint.ticket, &reader));
-
-    FlightStreamChunk batch;
-
-    // This is hard-coded for right now, 4 columns each with int64
-    const int bytes_per_record = 32;
-
-    // This must also be set in perf_server.cc
-    const bool verify = false;
-
-    int64_t num_bytes = 0;
-    int64_t num_records = 0;
-    while (true) {
-      RETURN_NOT_OK(reader->Next(&batch));
-      if (!batch.data) {
-        break;
-      }
-
-      if (verify) {
-        auto values = reinterpret_cast<const int64_t*>(
-            batch.data->column_data(0)->buffers[1]->data());
-        const int64_t start = token.start() + num_records;
-        for (int64_t i = 0; i < batch.data->num_rows(); ++i) {
-          if (values[i] != start + i) {
-            return Status::Invalid("verification failure");
-          }
-        }
-      }
-
-      num_records += batch.data->num_rows();
-
-      // Hard-coded
-      num_bytes += batch.data->num_rows() * bytes_per_record;
+    const auto& result = RunDoGetTest(client.get(), token, endpoint);
+    if (result.ok()) {
+      const PerformanceResult& perf = result.ValueOrDie();
+      stats.Update(perf.num_records, perf.num_bytes);
     }
-    stats.Update(num_records, num_bytes);
-    return Status::OK();
+    return result.status();
   };
 
   StopWatch timer;
