@@ -198,6 +198,7 @@ BENCHMARK_TEMPLATE(MemoryBandwidth, PlatformMemcpy)->Apply(SetMemoryBandwidthArg
 
 #endif  // _MSC_VER
 #endif  // ARROW_WITH_BENCHMARKS_REFERENCE
+#endif  // ARROW_HAVE_SSE4_2
 
 static void ParallelMemoryCopy(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t n_threads = state.range(0);
@@ -224,5 +225,22 @@ BENCHMARK(ParallelMemoryCopy)
     ->ArgName("threads")
     ->UseRealTime();
 
+static void BufferOutputStreamSmallWrites(
+    benchmark::State& state) {  // NOLINT non-const reference
+  std::string datum = "abdefghi";
+  int64_t num_raw_values = 1 << 24;
+  const void* raw_data = datum.data();
+  int64_t raw_nbytes = static_cast<int64_t>(datum.size());
+  for (auto _ : state) {
+    std::shared_ptr<io::BufferOutputStream> out;
+    ABORT_NOT_OK(io::BufferOutputStream::Create(1024, default_memory_pool(), &out));
+    for (int64_t i = 0; i < num_raw_values; ++i) {
+      ABORT_NOT_OK(out->Write(raw_data, raw_nbytes));
+    }
+  }
+  state.SetBytesProcessed(int64_t(state.iterations()) * num_raw_values * raw_nbytes);
+}
+
+BENCHMARK(BufferOutputStreamSmallWrites)->UseRealTime();
+
 }  // namespace arrow
-#endif  // ARROW_HAVE_SSE4_2
