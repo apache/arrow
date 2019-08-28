@@ -141,11 +141,11 @@ class RecordBatchProjector {
 
 constexpr int RecordBatchProjector::kNoMatch;
 
-class ReconcilingRecordBatchReader : public RecordBatchReader {
+class ProjectedRecordBatchReader : public RecordBatchReader {
  public:
-  ReconcilingRecordBatchReader(MemoryPool* pool, std::shared_ptr<Schema> schema,
-                               std::vector<std::shared_ptr<Scalar>> scalars,
-                               std::unique_ptr<RecordBatchIterator> wrapped)
+  ProjectedRecordBatchReader(MemoryPool* pool, std::shared_ptr<Schema> schema,
+                             std::vector<std::shared_ptr<Scalar>> scalars,
+                             std::unique_ptr<RecordBatchIterator> wrapped)
       : pool_(pool),
         schema_(std::move(schema)),
         wrapped_(std::move(wrapped)),
@@ -165,7 +165,7 @@ class ReconcilingRecordBatchReader : public RecordBatchReader {
                      std::vector<std::shared_ptr<Scalar>> scalars,
                      std::unique_ptr<RecordBatchIterator> wrapped,
                      std::unique_ptr<RecordBatchIterator>* out) {
-    auto it = internal::make_unique<ReconcilingRecordBatchReader>(
+    auto it = internal::make_unique<ProjectedRecordBatchReader>(
         pool, std::move(to_schema), std::move(scalars), std::move(wrapped));
     RETURN_NOT_OK(it->ResetProjector(std::move(from_schema)));
     *out = std::move(it);
