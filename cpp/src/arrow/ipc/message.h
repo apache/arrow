@@ -17,8 +17,7 @@
 
 // C++ object model and user API for interprocess schema messaging
 
-#ifndef ARROW_IPC_MESSAGE_H
-#define ARROW_IPC_MESSAGE_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -137,13 +136,10 @@ class ARROW_EXPORT Message {
   /// \brief Write length-prefixed metadata and body to output stream
   ///
   /// \param[in] file output stream to write to
-  /// \param[in] alignment byte alignment for metadata, usually 8 or
-  /// 64. Whether the body is padded depends on the metadata; if the body
-  /// buffer is smaller than the size indicated in the metadata, then extra
-  /// padding bytes will be written
+  /// \param[in] options IPC writing options including alignment
   /// \param[out] output_length the number of bytes written
   /// \return Status
-  Status SerializeTo(io::OutputStream* file, int32_t alignment,
+  Status SerializeTo(io::OutputStream* file, const IpcOptions& options,
                      int64_t* output_length) const;
 
   /// \brief Return true if the Message metadata passes Flatbuffer validation
@@ -223,15 +219,31 @@ Status AlignStream(io::OutputStream* stream, int32_t alignment = 8);
 ARROW_EXPORT
 Status CheckAligned(io::FileInterface* stream, int32_t alignment = 8);
 
-/// \brief Read encapsulated RPC message (metadata and body) from InputStream
+/// \brief Read encapsulated IPC message (metadata and body) from InputStream
 ///
-/// Read length-prefixed message with as-yet unknown length. Returns null if
-/// there are not enough bytes available or the message length is 0 (e.g. EOS
-/// in a stream)
+/// Returns null if there are not enough bytes available or the
+/// message length is 0 (e.g. EOS in a stream)
 ARROW_EXPORT
 Status ReadMessage(io::InputStream* stream, std::unique_ptr<Message>* message);
 
+/// Write encapsulated IPC message Does not make assumptions about
+/// whether the stream is aligned already. Can write legacy (pre
+/// version 0.15.0) IPC message if option set
+///
+/// continuation: 0xFFFFFFFF
+/// message_size: int32
+/// message: const void*
+/// padding
+///
+/// \param[in] message a buffer containing the metadata to write
+/// \param[in] options IPC writing options, including alignment and
+/// legacy message support
+/// \param[in,out] file the OutputStream to write to
+/// \param[out] message_length the total size of the payload written including
+/// padding
+/// \return Status
+Status WriteMessage(const Buffer& message, const IpcOptions& options,
+                    io::OutputStream* file, int32_t* message_length);
+
 }  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_IPC_MESSAGE_H

@@ -106,27 +106,20 @@ TEST(TestMessage, SerializeTo) {
 
   std::shared_ptr<io::BufferOutputStream> stream;
 
-  {
-    const int32_t alignment = 8;
-
+  auto CheckWithAlignment = [&](int32_t alignment) {
+    IpcOptions options;
+    options.alignment = alignment;
+    const int32_t prefix_size = 8;
     ASSERT_OK(io::BufferOutputStream::Create(1 << 10, default_memory_pool(), &stream));
-    ASSERT_OK(message->SerializeTo(stream.get(), alignment, &output_length));
+    ASSERT_OK(message->SerializeTo(stream.get(), options, &output_length));
     ASSERT_OK(stream->Tell(&position));
-    ASSERT_EQ(BitUtil::RoundUp(metadata->size() + 4, alignment) + body_length,
+    ASSERT_EQ(BitUtil::RoundUp(metadata->size() + prefix_size, alignment) + body_length,
               output_length);
     ASSERT_EQ(output_length, position);
-  }
+  };
 
-  {
-    const int32_t alignment = 64;
-
-    ASSERT_OK(io::BufferOutputStream::Create(1 << 10, default_memory_pool(), &stream));
-    ASSERT_OK(message->SerializeTo(stream.get(), alignment, &output_length));
-    ASSERT_OK(stream->Tell(&position));
-    ASSERT_EQ(BitUtil::RoundUp(metadata->size() + 4, alignment) + body_length,
-              output_length);
-    ASSERT_EQ(output_length, position);
-  }
+  CheckWithAlignment(8);
+  CheckWithAlignment(64);
 }
 
 TEST(TestMessage, Verify) {
@@ -912,13 +905,15 @@ void SpliceMessages(std::shared_ptr<Buffer> stream,
       continue;
     }
 
+    IpcOptions options;
     internal::IpcPayload payload;
     payload.type = msg->type();
     payload.metadata = msg->metadata();
     payload.body_buffers.push_back(msg->body());
     payload.body_length = msg->body()->size();
     int32_t unused_metadata_length = -1;
-    ASSERT_OK(internal::WriteIpcPayload(payload, out.get(), &unused_metadata_length));
+    ASSERT_OK(
+        internal::WriteIpcPayload(payload, options, out.get(), &unused_metadata_length));
   }
   ASSERT_OK(out->Finish(spliced_stream));
 }

@@ -529,10 +529,9 @@ class DictionaryWriter : public RecordBatchSerializer {
   int64_t dictionary_id_;
 };
 
-Status WriteIpcPayload(const IpcPayload& payload, io::OutputStream* dst,
-                       int32_t* metadata_length) {
-  RETURN_NOT_OK(internal::WriteMessage(*payload.metadata, kArrowIpcAlignment, dst,
-                                       metadata_length));
+Status WriteIpcPayload(const IpcPayload& payload, const IpcOptions& options,
+                       io::OutputStream* dst, int32_t* metadata_length) {
+  RETURN_NOT_OK(WriteMessage(*payload.metadata, options, dst, metadata_length));
 
 #ifndef NDEBUG
   RETURN_NOT_OK(CheckAligned(dst));
@@ -604,7 +603,7 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
   // The body size is computed in the payload
   *body_length = payload.body_length;
 
-  return internal::WriteIpcPayload(payload, dst, metadata_length);
+  return internal::WriteIpcPayload(payload, options, dst, metadata_length);
 }
 
 Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& batches,
@@ -625,7 +624,9 @@ Status WriteTensorHeader(const Tensor& tensor, io::OutputStream* dst,
                          int32_t* metadata_length) {
   std::shared_ptr<Buffer> metadata;
   RETURN_NOT_OK(internal::WriteTensorMessage(tensor, 0, &metadata));
-  return internal::WriteMessage(*metadata, kTensorAlignment, dst, metadata_length);
+  IpcOptions options;
+  options.alignment = kTensorAlignment;
+  return WriteMessage(*metadata, options, dst, metadata_length);
 }
 
 Status WriteStridedTensorData(int dim_index, int64_t offset, int elem_size,
@@ -818,19 +819,7 @@ Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* ds
   RETURN_NOT_OK(writer.Assemble(sparse_tensor));
 
   *body_length = payload.body_length;
-  return internal::WriteIpcPayload(payload, dst, metadata_length);
-}
-
-Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
-                       int64_t buffer_start_offset, io::OutputStream* dst,
-                       int32_t* metadata_length, int64_t* body_length, MemoryPool* pool) {
-  auto options = IpcOptions::Defaults();
-  internal::IpcPayload payload;
-  RETURN_NOT_OK(GetDictionaryPayload(dictionary_id, dictionary, options, pool, &payload));
-
-  // The body size is computed in the payload
-  *body_length = payload.body_length;
-  return internal::WriteIpcPayload(payload, dst, metadata_length);
+  return internal::WriteIpcPayload(payload, IpcOptions::Defaults(), dst, metadata_length);
 }
 
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
@@ -1035,7 +1024,8 @@ constexpr int64_t kEos = 0;
 class PayloadStreamWriter : public internal::IpcPayloadWriter,
                             protected StreamBookKeeper {
  public:
-  explicit PayloadStreamWriter(io::OutputStream* sink) : StreamBookKeeper(sink) {}
+  PayloadStreamWriter(const IpcOptions& options, io::OutputStream* sink)
+      : StreamBookKeeper(sink), options_(options) {}
 
   ~PayloadStreamWriter() override = default;
 
@@ -1046,7 +1036,7 @@ class PayloadStreamWriter : public internal::IpcPayloadWriter,
 #endif
 
     int32_t metadata_length = 0;  // unused
-    RETURN_NOT_OK(WriteIpcPayload(payload, sink_, &metadata_length));
+    RETURN_NOT_OK(WriteIpcPayload(payload, options_, sink_, &metadata_length));
     RETURN_NOT_OK(UpdatePositionCheckAligned());
     return Status::OK();
   }
@@ -1055,14 +1045,18 @@ class PayloadStreamWriter : public internal::IpcPayloadWriter,
     // Write 0 EOS message
     return Write(&kEos, sizeof(int64_t));
   }
+
+ private:
+  IpcOptions options_;
 };
 
 /// A IpcPayloadWriter implementation that writes to a IPC file
 /// (with a footer as defined in File.fbs)
 class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBookKeeper {
  public:
-  PayloadFileWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema)
-      : StreamBookKeeper(sink), schema_(schema) {}
+  PayloadFileWriter(const IpcOptions& options, const std::shared_ptr<Schema>& schema,
+                    io::OutputStream* sink)
+      : StreamBookKeeper(sink), options_(options), schema_(schema) {}
 
   ~PayloadFileWriter() override = default;
 
@@ -1074,7 +1068,7 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
 
     // Metadata length must include padding, it's computed by WriteIpcPayload()
     FileBlock block = {position_, 0, payload.body_length};
-    RETURN_NOT_OK(WriteIpcPayload(payload, sink_, &block.metadata_length));
+    RETURN_NOT_OK(WriteIpcPayload(payload, options_, sink_, &block.metadata_length));
     RETURN_NOT_OK(UpdatePositionCheckAligned());
 
     // Record position and size of some message types, to list them in the footer
@@ -1128,6 +1122,7 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
   }
 
  protected:
+  IpcOptions options_;
   std::shared_ptr<Schema> schema_;
   std::vector<FileBlock> dictionaries_;
   std::vector<FileBlock> record_batches_;
@@ -1141,9 +1136,9 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl
   RecordBatchStreamWriterImpl(io::OutputStream* sink,
                               const std::shared_ptr<Schema>& schema,
                               const IpcOptions& options)
-      : RecordBatchPayloadWriter(
-            std::unique_ptr<internal::IpcPayloadWriter>(new PayloadStreamWriter(sink)),
-            schema, options) {}
+      : RecordBatchPayloadWriter(std::unique_ptr<internal::IpcPayloadWriter>(
+                                     new PayloadStreamWriter(options, sink)),
+                                 schema, options) {}
 
   ~RecordBatchStreamWriterImpl() = default;
 };
@@ -1153,7 +1148,7 @@ class RecordBatchFileWriter::RecordBatchFileWriterImpl : public RecordBatchPaylo
   RecordBatchFileWriterImpl(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
                             const IpcOptions& options)
       : RecordBatchPayloadWriter(std::unique_ptr<internal::IpcPayloadWriter>(
-                                     new PayloadFileWriter(sink, schema)),
+                                     new PayloadFileWriter(options, schema, sink)),
                                  schema, options) {}
 
   ~RecordBatchFileWriterImpl() = default;
@@ -1277,7 +1272,7 @@ Status SerializeSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
   RETURN_NOT_OK(io::BufferOutputStream::Create(1024, pool, &stream));
 
   auto options = IpcOptions::Defaults();
-  auto payload_writer = make_unique<PayloadStreamWriter>(stream.get());
+  auto payload_writer = make_unique<PayloadStreamWriter>(options, stream.get());
   RecordBatchPayloadWriter writer(std::move(payload_writer), schema, options,
                                   dictionary_memo);
   // Write schema and populate fields (but not dictionaries) in dictionary_memo
