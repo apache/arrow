@@ -150,7 +150,26 @@ triggers the force schedulers where you can specify a branch and/or commit to
 build. In the future specialized builders will have different fields to provide
 the neccessary information.
 
-## Locally running the buildmaster
+## Command line interface
+
+Ursabot has multiple CLI commands and a lot of options, so try to read the
+available options and arguments with passing `--help` before using a command.
+
+Install `ursabot` with either `pip`:
+
+```bash
+$ pip install ursabot
+$ ursabot --help
+```
+
+Or conda:
+
+```bash
+$ conda install -c conda-forge ursabot
+$ ursabot --help
+```
+
+### Locally running the buildmaster
 
 The following commands are spinning up a long-running local buildmaster,
 including as web interface and all of the configured services (authentication,
@@ -166,18 +185,6 @@ Start/stop/restart the master:
 
 ```bash
 $ ursabot -v start|stop|restart
-```
-
-## Command line interface
-
-Ursabot has multiple CLI commands and a lot of options, so try to read the
-available options and arguments with passing `--help` before using a command.
-
-Install it with:
-
-```bash
-$ pip install -e ursabot
-$ ursabot --help
 ```
 
 ### Describe the configurations
