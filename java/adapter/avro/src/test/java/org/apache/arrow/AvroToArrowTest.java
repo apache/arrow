@@ -332,14 +332,12 @@ public class AvroToArrowTest {
     VectorSchemaRoot root = writeAndRead(schema, data);
     MapVector vector = (MapVector) root.getFieldVectors().get(0);
 
-    checkPrimitiveResult(keys, vector.getDataVector().getChildrenFromFields().get(0), 0, 2);
-    checkPrimitiveResult(vals, vector.getDataVector().getChildrenFromFields().get(1), 0, 2);
-
-    checkPrimitiveResult(keys, vector.getDataVector().getChildrenFromFields().get(0), 2, 4);
-    checkPrimitiveResult(vals, vector.getDataVector().getChildrenFromFields().get(1), 2, 4);
-
-    checkPrimitiveResult(keys, vector.getDataVector().getChildrenFromFields().get(0), 4, 6);
-    checkPrimitiveResult(vals, vector.getDataVector().getChildrenFromFields().get(1), 4, 6);
+    checkPrimitiveResult(keys, vector.getDataVector().getChildrenFromFields().get(0));
+    checkPrimitiveResult(vals, vector.getDataVector().getChildrenFromFields().get(1));
+    assertEquals(0, vector.getOffsetBuffer().getInt(0));
+    assertEquals(2, vector.getOffsetBuffer().getInt(1 * 4));
+    assertEquals(4, vector.getOffsetBuffer().getInt(2 * 4));
+    assertEquals(6, vector.getOffsetBuffer().getInt(3 * 4));
   }
 
   @Test
@@ -436,27 +434,6 @@ public class AvroToArrowTest {
   private void checkPrimitiveResult(List data, FieldVector vector) {
     assertEquals(data.size(), vector.getValueCount());
     for (int i = 0; i < data.size(); i++) {
-      Object value1 = data.get(i);
-      Object value2 = vector.getObject(i);
-      if (value1 == null) {
-        assertTrue(value2 == null);
-        continue;
-      }
-      if (value2 instanceof byte[]) {
-        value2 = ByteBuffer.wrap((byte[]) value2);
-        if (value1 instanceof byte[]) {
-          value1 = ByteBuffer.wrap((byte[]) value1);
-        }
-      } else if (value2 instanceof Text) {
-        value2 = value2.toString();
-      }
-      assertTrue(Objects.equals(value1, value2));
-    }
-  }
-
-  private void checkPrimitiveResult(List data, FieldVector vector, int start, int end) {
-    assertEquals(data.size(), vector.getValueCount());
-    for (int i = start; i < end; i++) {
       Object value1 = data.get(i);
       Object value2 = vector.getObject(i);
       if (value1 == null) {

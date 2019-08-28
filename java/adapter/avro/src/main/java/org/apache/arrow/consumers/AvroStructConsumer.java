@@ -20,6 +20,7 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.avro.io.Decoder;
@@ -50,6 +51,8 @@ public class AvroStructConsumer implements Consumer {
     for (int i = 0; i < delegates.length; i++) {
       delegates[i].consume(decoder);
     }
+    vector.setIndexDefined(currentIndex);
+    BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), currentIndex);
     currentIndex++;
 
   }
