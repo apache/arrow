@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <random>
 #include "gandiva/precompiled/decimal_ops.h"
 
 extern "C" {
@@ -123,4 +122,5 @@ int64 truncate_int64_int32(int64 in, int32 out_scale) {
   return gandiva::decimalops::ToInt64(
       gandiva::BasicDecimalScalar128(decimal_with_outscale, 38, out_scale), &overflow);
 }
+
 }  // extern "C"

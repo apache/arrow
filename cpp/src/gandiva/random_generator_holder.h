@@ -37,22 +37,22 @@ class GANDIVA_EXPORT RandomGeneratorHolder : public FunctionHolder {
   static Status Make(const FunctionNode& node,
                      std::shared_ptr<RandomGeneratorHolder>* holder);
 
-  double operator()() { return distribution(generator_); }
+  double operator()() { return distribution_(generator_); }
 
  private:
-  explicit RandomGeneratorHolder(int seed) {
+  explicit RandomGeneratorHolder(int seed) : distribution_(0, 1) {
     int64_t seed64 = static_cast<int64_t>(seed);
     seed64 = (seed64 ^ 0x00000005DEECE66D) & 0x0000ffffffffffff;
     generator_.seed(static_cast<uint64_t>(seed64));
   }
 
-  RandomGeneratorHolder() {
+  RandomGeneratorHolder() : distribution_(0, 1) {
     std::random_device rd;
     generator_.seed(rd());
   }
 
-  std::mt19937_64 generator_;
-  std::uniform_real_distribution<> distribution;
+  std::ranlux48_base generator_;
+  std::uniform_real_distribution<> distribution_;
 };
 
 }  // namespace gandiva
