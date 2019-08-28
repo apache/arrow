@@ -970,6 +970,11 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MessageType_V4" arrow::ipc::MetadataVersion::V4"
 
     cdef cppclass CIpcOptions" arrow::ipc::IpcOptions":
+        c_bool allow_64bit
+        int max_recursion_depth
+        int32_t alignment
+        c_bool write_legacy_ipc_format
+
         @staticmethod
         CIpcOptions Defaults()
 
@@ -995,7 +1000,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MetadataVersion metadata_version()
         MessageType type()
 
-        CStatus SerializeTo(OutputStream* stream, int32_t alignment,
+        CStatus SerializeTo(OutputStream* stream, const CIpcOptions& options,
                             int64_t* output_length)
 
     c_string FormatMessageType(MessageType type)

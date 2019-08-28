@@ -32,9 +32,13 @@
 #include "arrow/ipc/util.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace ipc {
+
+// This 0xFFFFFFFF value is the first 4 bytes of a valid IPC message
+constexpr int32_t kIpcContinuationToken = -1;
 
 class Message::MessageImpl {
  public:
@@ -142,12 +146,19 @@ bool Message::Equals(const Message& other) const {
   }
 }
 
+Status CheckMetadataAndGetBodyLength(const Buffer& metadata, int64_t* body_length) {
+  // Check metadata memory alignment in debug builds
+  DCHECK_EQ(0, reinterpret_cast<uintptr_t>(metadata.data()) % 8);
+  const flatbuf::Message* fb_message;
+  RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &fb_message));
+  *body_length = fb_message->bodyLength();
+  return Status::OK();
+}
+
 Status Message::ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStream* stream,
                          std::unique_ptr<Message>* out) {
-  const flatbuf::Message* fb_message;
-  RETURN_NOT_OK(internal::VerifyMessage(metadata->data(), metadata->size(), &fb_message));
-
-  int64_t body_length = fb_message->bodyLength();
+  int64_t body_length = -1;
+  RETURN_NOT_OK(CheckMetadataAndGetBodyLength(*metadata, &body_length));
 
   std::shared_ptr<Buffer> body;
   RETURN_NOT_OK(stream->Read(body_length, &body));
@@ -161,9 +172,8 @@ Status Message::ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStrea
 
 Status Message::ReadFrom(const int64_t offset, const std::shared_ptr<Buffer>& metadata,
                          io::RandomAccessFile* file, std::unique_ptr<Message>* out) {
-  const flatbuf::Message* fb_message;
-  RETURN_NOT_OK(internal::VerifyMessage(metadata->data(), metadata->size(), &fb_message));
-  int64_t body_length = fb_message->bodyLength();
+  int64_t body_length = -1;
+  RETURN_NOT_OK(CheckMetadataAndGetBodyLength(*metadata, &body_length));
 
   std::shared_ptr<Buffer> body;
   RETURN_NOT_OK(file->ReadAt(offset, body_length, &body));
@@ -184,10 +194,10 @@ Status WritePadding(io::OutputStream* stream, int64_t nbytes) {
   return Status::OK();
 }
 
-Status Message::SerializeTo(io::OutputStream* stream, int32_t alignment,
+Status Message::SerializeTo(io::OutputStream* stream, const IpcOptions& options,
                             int64_t* output_length) const {
   int32_t metadata_length = 0;
-  RETURN_NOT_OK(internal::WriteMessage(*metadata(), alignment, stream, &metadata_length));
+  RETURN_NOT_OK(WriteMessage(*metadata(), options, stream, &metadata_length));
 
   *output_length = metadata_length;
 
@@ -237,15 +247,47 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
                            " metadata bytes but got ", buffer->size());
   }
 
-  int32_t flatbuffer_size = *reinterpret_cast<const int32_t*>(buffer->data());
+  const int32_t continuation = util::SafeLoadAs<int32_t>(buffer->data());
 
-  if (flatbuffer_size + static_cast<int>(sizeof(int32_t)) > metadata_length) {
-    return Status::Invalid("flatbuffer size ", metadata_length,
+  // The size of the Flatbuffer including padding
+  int32_t flatbuffer_length = -1;
+  int32_t prefix_size = -1;
+  if (continuation == kIpcContinuationToken) {
+    if (metadata_length < 8) {
+      return Status::Invalid(
+          "Corrupted IPC message, had continuation token "
+          " but length ",
+          metadata_length);
+    }
+
+    // Valid IPC message, parse the message length now
+    flatbuffer_length = util::SafeLoadAs<int32_t>(buffer->data() + 4);
+    prefix_size = 8;
+  } else if (continuation == 0) {
+    // EOS
+    *message = nullptr;
+    return Status::OK();
+  } else {
+    // ARROW-6314: Backwards compatibility for reading old IPC
+    // messages produced prior to version 0.15.0
+    flatbuffer_length = continuation;
+    prefix_size = 4;
+  }
+
+  if (flatbuffer_length + prefix_size != metadata_length) {
+    return Status::Invalid("flatbuffer size ", flatbuffer_length,
                            " invalid. File offset: ", offset,
                            ", metadata length: ", metadata_length);
   }
 
-  auto metadata = SliceBuffer(buffer, 4, buffer->size() - 4);
+  std::shared_ptr<Buffer> metadata =
+      SliceBuffer(buffer, prefix_size, buffer->size() - prefix_size);
+  if (prefix_size == 4) {
+    // ARROW-6314: For old messages we copy the metadata to fix UBSAN
+    // issues with Flatbuffers. For new messages, they are already
+    // aligned
+    RETURN_NOT_OK(metadata->Copy(0, metadata->size(), &metadata));
+  }
   return Message::ReadFrom(offset + metadata_length, metadata, file, message);
 }
 
@@ -269,37 +311,103 @@ Status CheckAligned(io::FileInterface* stream, int32_t alignment) {
   int64_t current_position;
   ARROW_RETURN_NOT_OK(stream->Tell(&current_position));
   if (current_position % alignment != 0) {
-    return Status::Invalid("Stream is not aligned");
+    return Status::Invalid("Stream is not aligned pos: ", current_position,
+                           " alignment: ", alignment);
   } else {
     return Status::OK();
   }
 }
 
-Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
-  int32_t message_length = 0;
+namespace {
+
+Status ReadMessage(io::InputStream* file, MemoryPool* pool, bool copy_metadata,
+                   std::unique_ptr<Message>* message) {
+  int32_t continuation = 0;
   int64_t bytes_read = 0;
   RETURN_NOT_OK(file->Read(sizeof(int32_t), &bytes_read,
-                           reinterpret_cast<uint8_t*>(&message_length)));
+                           reinterpret_cast<uint8_t*>(&continuation)));
 
   if (bytes_read != sizeof(int32_t)) {
+    // EOS
     *message = nullptr;
     return Status::OK();
   }
 
-  if (message_length == 0) {
-    // Optional 0 EOS control message
+  int32_t flatbuffer_length = -1;
+  bool legacy_format = false;
+  if (continuation == kIpcContinuationToken) {
+    // Valid IPC message, read the message length now
+    RETURN_NOT_OK(file->Read(sizeof(int32_t), &bytes_read,
+                             reinterpret_cast<uint8_t*>(&flatbuffer_length)));
+  } else if (continuation == 0) {
+    // EOS
     *message = nullptr;
     return Status::OK();
+  } else {
+    // ARROW-6314: Backwards compatibility for reading old IPC
+    // messages produced prior to version 0.15.0
+    flatbuffer_length = continuation;
+    legacy_format = true;
   }
 
   std::shared_ptr<Buffer> metadata;
-  RETURN_NOT_OK(file->Read(message_length, &metadata));
-  if (metadata->size() != message_length) {
-    return Status::Invalid("Expected to read ", message_length, " metadata bytes, but ",
-                           "only read ", metadata->size());
+  if (legacy_format || copy_metadata) {
+    DCHECK_NE(pool, nullptr);
+    RETURN_NOT_OK(AllocateBuffer(pool, flatbuffer_length, &metadata));
+    RETURN_NOT_OK(file->Read(flatbuffer_length, &bytes_read, metadata->mutable_data()));
+  } else {
+    RETURN_NOT_OK(file->Read(flatbuffer_length, &metadata));
+    bytes_read = metadata->size();
+  }
+  if (bytes_read != flatbuffer_length) {
+    return Status::Invalid("Expected to read ", flatbuffer_length,
+                           " metadata bytes, but ", "only read ", bytes_read);
   }
 
   return Message::ReadFrom(metadata, file, message);
+}
+
+}  // namespace
+
+Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* out) {
+  return ReadMessage(file, default_memory_pool(), /*copy_metadata=*/false, out);
+}
+
+Status ReadMessageCopy(io::InputStream* file, MemoryPool* pool,
+                       std::unique_ptr<Message>* out) {
+  return ReadMessage(file, pool, /*copy_metadata=*/true, out);
+}
+
+Status WriteMessage(const Buffer& message, const IpcOptions& options,
+                    io::OutputStream* file, int32_t* message_length) {
+  const int32_t prefix_size = options.write_legacy_ipc_format ? 4 : 8;
+  const int32_t flatbuffer_size = static_cast<int32_t>(message.size());
+
+  int32_t padded_message_length = static_cast<int32_t>(
+      PaddedLength(flatbuffer_size + prefix_size, options.alignment));
+
+  int32_t padding = padded_message_length - flatbuffer_size - prefix_size;
+
+  // The returned message size includes the length prefix, the flatbuffer,
+  // plus padding
+  *message_length = padded_message_length;
+
+  // ARROW-6314: Write continuation / padding token
+  if (!options.write_legacy_ipc_format) {
+    RETURN_NOT_OK(file->Write(&kIpcContinuationToken, sizeof(int32_t)));
+  }
+
+  // Write the flatbuffer size prefix including padding
+  int32_t padded_flatbuffer_size = padded_message_length - prefix_size;
+  RETURN_NOT_OK(file->Write(&padded_flatbuffer_size, sizeof(int32_t)));
+
+  // Write the flatbuffer
+  RETURN_NOT_OK(file->Write(message.data(), flatbuffer_size));
+  if (padding > 0) {
+    RETURN_NOT_OK(file->Write(kPaddingBytes, padding));
+  }
+
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
