@@ -46,7 +46,7 @@ bool Field::HasMetadata() const {
 }
 
 std::shared_ptr<Field> Field::WithMetadata(
-  const std::shared_ptr<const KeyValueMetadata>& metadata) const {
+    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
   return std::make_shared<Field>(name_, type_, nullable_, metadata);
 }
 
@@ -416,7 +416,7 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
 // Deprecated methods
 
 std::shared_ptr<Field> Field::AddMetadata(
-  const std::shared_ptr<const KeyValueMetadata>& metadata) const {
+    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
   return WithMetadata(metadata);
 }
 
@@ -611,13 +611,13 @@ bool Schema::HasMetadata() const {
 }
 
 std::shared_ptr<Schema> Schema::WithMetadata(
-  const std::shared_ptr<const KeyValueMetadata>& metadata) const {
+    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
   return std::make_shared<Schema>(impl_->fields_, metadata);
 }
 
 // deprecated method
 std::shared_ptr<Schema> Schema::AddMetadata(
-  const std::shared_ptr<const KeyValueMetadata>& metadata) const {
+    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
   return WithMetadata(metadata);
 }
 
