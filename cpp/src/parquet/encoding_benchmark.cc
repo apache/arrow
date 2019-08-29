@@ -270,7 +270,7 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
   void SetUp(const ::benchmark::State& state) override {
     num_values_ = static_cast<int>(state.range());
     InitDataInputs();
-    DoEncodeData();
+    DoEncodeArrow();
   }
 
   void TearDown(const ::benchmark::State& state) override {
@@ -289,9 +289,18 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
                                          min_length, max_length, /*null_probability=*/0);
     valid_bits_ = input_array_->null_bitmap()->data();
     total_size_ = input_array_->data()->buffers[2]->size();
+
+    values_.reserve(num_values_);
+    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*input_array_);
+    for (int64_t i = 0; i < binary_array.length(); i++) {
+      auto view = binary_array.GetView(i);
+      values_.emplace_back(static_cast<uint32_t>(view.length()),
+                           reinterpret_cast<const uint8_t*>(view.data()));
+    }
   }
 
-  virtual void DoEncodeData() = 0;
+  virtual void DoEncodeArrow() = 0;
+  virtual void DoEncodeLowLevel() = 0;
 
   virtual std::unique_ptr<ByteArrayDecoder> InitializeDecoder() = 0;
 
@@ -300,7 +309,14 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
 
   void EncodeArrowBenchmark(benchmark::State& state) {
     for (auto _ : state) {
-      DoEncodeData();
+      DoEncodeArrow();
+    }
+    state.SetBytesProcessed(state.iterations() * total_size_);
+  }
+
+  void EncodeLowLevelBenchmark(benchmark::State& state) {
+    for (auto _ : state) {
+      DoEncodeLowLevel();
     }
     state.SetBytesProcessed(state.iterations() * total_size_);
   }
@@ -330,6 +346,7 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
  protected:
   int num_values_;
   std::shared_ptr<::arrow::Array> input_array_;
+  std::vector<ByteArray> values_;
   uint64_t total_size_;
   const uint8_t* valid_bits_;
   std::shared_ptr<Buffer> buffer_;
@@ -355,9 +372,15 @@ std::unique_ptr<BinaryDictionary32Builder> BenchmarkDecodeArrow::CreateBuilder()
 // Benchmark Decoding from Plain Encoding
 class BM_ArrowBinaryPlain : public BenchmarkDecodeArrow {
  public:
-  void DoEncodeData() override {
+  void DoEncodeArrow() override {
     auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
     encoder->Put(*input_array_);
+    buffer_ = encoder->FlushValues();
+  }
+
+  void DoEncodeLowLevel() override {
+    auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
+    encoder->Put(values_.data(), num_values_);
     buffer_ = encoder->FlushValues();
   }
 
@@ -368,9 +391,13 @@ class BM_ArrowBinaryPlain : public BenchmarkDecodeArrow {
   }
 };
 
-BENCHMARK_DEFINE_F(BM_ArrowBinaryPlain, Encode)
+BENCHMARK_DEFINE_F(BM_ArrowBinaryPlain, EncodeArrow)
 (benchmark::State& state) { EncodeArrowBenchmark(state); }
-BENCHMARK_REGISTER_F(BM_ArrowBinaryPlain, Encode)->Range(1 << 18, 1 << 20);
+BENCHMARK_REGISTER_F(BM_ArrowBinaryPlain, EncodeArrow)->Range(1 << 18, 1 << 20);
+
+BENCHMARK_DEFINE_F(BM_ArrowBinaryPlain, EncodeLowLevel)
+(benchmark::State& state) { EncodeLowLevelBenchmark(state); }
+BENCHMARK_REGISTER_F(BM_ArrowBinaryPlain, EncodeLowLevel)->Range(1 << 18, 1 << 20);
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryPlain, DecodeArrow_Dense)
 (benchmark::State& state) { DecodeArrowBenchmark<ChunkedBinaryBuilder>(state); }
@@ -396,12 +423,14 @@ BENCHMARK_REGISTER_F(BM_ArrowBinaryPlain, DecodeArrowNonNull_Dict)
 // Benchmark Decoding from Dictionary Encoding
 class BM_ArrowBinaryDict : public BenchmarkDecodeArrow {
  public:
-  void DoEncodeData() override {
+  template <typename PutValuesFunc>
+  void DoEncode(PutValuesFunc&& put_values) {
     auto node = schema::ByteArray("name");
     descr_ = std::unique_ptr<ColumnDescriptor>(new ColumnDescriptor(node, 0, 0));
+
     auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN,
                                                    /*use_dictionary=*/true, descr_.get());
-    ASSERT_NO_THROW(encoder->Put(*input_array_));
+    put_values(encoder.get());
     buffer_ = encoder->FlushValues();
 
     auto dict_encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(encoder.get());
@@ -410,6 +439,20 @@ class BM_ArrowBinaryDict : public BenchmarkDecodeArrow {
         AllocateBuffer(default_memory_pool(), dict_encoder->dict_encoded_size());
     dict_encoder->WriteDict(dict_buffer_->mutable_data());
     num_dict_entries_ = dict_encoder->num_entries();
+  }
+
+  void DoEncodeArrow() override {
+    auto PutValues = [&](ByteArrayEncoder* encoder) {
+      ASSERT_NO_THROW(encoder->Put(*input_array_));
+    };
+    DoEncode(std::move(PutValues));
+  }
+
+  void DoEncodeLowLevel() override {
+    auto PutValues = [&](ByteArrayEncoder* encoder) {
+      encoder->Put(values_.data(), num_values_);
+    };
+    DoEncode(std::move(PutValues));
   }
 
   std::unique_ptr<ByteArrayDecoder> InitializeDecoder() override {
