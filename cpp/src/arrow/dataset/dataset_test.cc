@@ -78,7 +78,7 @@ TEST_F(TestDataset, TrivialScan) {
       std::make_shared<SimpleDataSource>(fragments),
   };
 
-  const int64_t total_batches = sources.size() * kNumberBatches * kNumberBatches;
+  const int64_t total_batches = sources.size() * kNumberFragments * kNumberBatches;
   auto reader = ConstantArrayGenerator::Repeat(total_batches, batch);
 
   std::shared_ptr<Dataset> dataset;

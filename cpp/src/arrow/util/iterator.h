@@ -32,9 +32,6 @@ namespace arrow {
 template <typename T>
 class Iterator {
  public:
-  static_assert(std::is_assignable<T, std::nullptr_t>::value,
-                "NULL is used to signal completion");
-
   virtual ~Iterator() = default;
 
   /// \brief Return the next element of the sequence, nullptr when the
@@ -95,6 +92,11 @@ class EmptyIterator : public Iterator<T> {
  private:
   Status status_;
 };
+
+template <typename T>
+std::unique_ptr<Iterator<T>> MakeEmptyIterator() {
+  return std::unique_ptr<EmptyIterator<T>>(new EmptyIterator<T>());
+}
 
 /// \brief Simple iterator which yields the elements of a std::vector
 template <typename T>
@@ -216,7 +218,7 @@ class FlattenIterator : public Iterator<T> {
 
     // Pop from current_ and lookout for depletion.
     ARROW_RETURN_NOT_OK(child_->Next(out));
-    if (out == NULLPTR) {
+    if (*out == NULLPTR) {
       // Reset state such that we pop from parent on the recursive call
       child_ = NULLPTR;
       return Next(out);
