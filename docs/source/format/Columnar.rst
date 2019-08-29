@@ -214,6 +214,14 @@ value; any "masked" memory can have any value and need not be zeroed,
 though implementations frequently choose to zero memory for null
 values.
 
+Null slots should be interpreted as unknowns. Thus if and only if an
+expression referencing an array slot would evaluate identically for
+every possible value of that slot then the expression's value is well
+defined even if the array slot is null. For example,
+``(slot 0 of [null, true, false]) AND false`` should evaluate to
+``false``, since ``x AND false`` evaluates to ``false`` for all
+possible boolean values of ``x``.
+
 Fixed-size Primitive Layout
 ---------------------------
 
