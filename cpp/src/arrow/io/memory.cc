@@ -111,15 +111,19 @@ Status BufferOutputStream::Write(const void* data, int64_t nbytes) {
 }
 
 Status BufferOutputStream::Reserve(int64_t nbytes) {
-  int64_t new_capacity = capacity_;
-  while (position_ + nbytes > new_capacity) {
-    new_capacity = std::max(kBufferMinimumSize, new_capacity * 2);
+  // Always overallocate by doubling.  It seems that it is a better growth
+  // strategy, at least for memory_benchmark.cc.
+  // This may be because it helps match the allocator's allocation buckets
+  // more exactly.  Or perhaps it hits a sweet spot in jemalloc.
+  int64_t new_capacity = std::max(kBufferMinimumSize, capacity_);
+  while (new_capacity < position_ + nbytes) {
+    new_capacity = new_capacity * 2;
   }
   if (new_capacity > capacity_) {
     RETURN_NOT_OK(buffer_->Resize(new_capacity));
     capacity_ = new_capacity;
+    mutable_data_ = buffer_->mutable_data();
   }
-  mutable_data_ = buffer_->mutable_data();
   return Status::OK();
 }
 
