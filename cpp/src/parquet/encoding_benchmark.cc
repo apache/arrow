@@ -479,6 +479,14 @@ class BM_ArrowBinaryDict : public BenchmarkDecodeArrow {
   int num_dict_entries_;
 };
 
+BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, EncodeArrow)
+(benchmark::State& state) { EncodeArrowBenchmark(state); }
+BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, EncodeArrow)->Range(1 << 18, 1 << 20);
+
+BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, EncodeLowLevel)
+(benchmark::State& state) { EncodeLowLevelBenchmark(state); }
+BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, EncodeLowLevel)->Range(1 << 18, 1 << 20);
+
 BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, DecodeArrow_Dense)(benchmark::State& state) {
   DecodeArrowBenchmark<ChunkedBinaryBuilder>(state);
 }
