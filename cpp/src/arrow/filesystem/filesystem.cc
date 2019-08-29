@@ -20,6 +20,7 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace fs {
@@ -43,6 +44,26 @@ std::string ToString(FileType ftype) {
       ARROW_LOG(FATAL) << "Invalid FileType value: " << static_cast<int>(ftype);
       return "???";
   }
+}
+
+// For googletest
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, FileType ftype) {
+#define FILE_TYPE_CASE(value_name)                  \
+  case FileType::value_name:                        \
+    os << "FileType::" ARROW_STRINGIFY(value_name); \
+    break;
+
+  switch (ftype) {
+    FILE_TYPE_CASE(NonExistent)
+    FILE_TYPE_CASE(Unknown)
+    FILE_TYPE_CASE(File)
+    FILE_TYPE_CASE(Directory)
+    default:
+      ARROW_LOG(FATAL) << "Invalid FileType value: " << static_cast<int>(ftype);
+  }
+
+#undef FILE_TYPE_CASE
+  return os;
 }
 
 std::string FileStats::base_name() const {

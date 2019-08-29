@@ -30,6 +30,13 @@ namespace fs {
 static constexpr double kTimeSlack = 2.0;  // In seconds
 
 ARROW_EXPORT
+void CreateFile(FileSystem* fs, const std::string& path, const std::string& data);
+
+// Sort a vector of FileStats by lexicographic path order
+ARROW_EXPORT
+void SortStats(std::vector<FileStats>* stats);
+
+ARROW_EXPORT
 void AssertFileStats(const FileStats& st, const std::string& path, FileType type);
 
 ARROW_EXPORT
@@ -45,11 +52,23 @@ void AssertFileStats(const FileStats& st, const std::string& path, FileType type
                      int64_t size);
 
 ARROW_EXPORT
-void CreateFile(FileSystem* fs, const std::string& path, const std::string& data);
+void AssertFileStats(FileSystem* fs, const std::string& path, FileType type);
 
-// Sort of vector of FileStats by lexicographic path order
 ARROW_EXPORT
-void SortStats(std::vector<FileStats>* stats);
+void AssertFileStats(FileSystem* fs, const std::string& path, FileType type,
+                     TimePoint mtime);
+
+ARROW_EXPORT
+void AssertFileStats(FileSystem* fs, const std::string& path, FileType type,
+                     TimePoint mtime, int64_t size);
+
+ARROW_EXPORT
+void AssertFileStats(FileSystem* fs, const std::string& path, FileType type,
+                     int64_t size);
+
+ARROW_EXPORT
+void AssertFileContents(FileSystem* fs, const std::string& path,
+                        const std::string& expected_data);
 
 template <typename Duration>
 void AssertDurationBetween(Duration d, double min_secs, double max_secs) {
@@ -83,7 +102,21 @@ class ARROW_EXPORT GenericFileSystemTest {
   void TestOpenInputFile();
 
  protected:
+  // This function should return the filesystem under test.
   virtual std::shared_ptr<FileSystem> GetEmptyFileSystem() = 0;
+
+  // Override the following functions to specify deviations from expected
+  // filesystem semantics.
+  // - Whether the filesystem may "implicitly" create intermediate directories
+  virtual bool have_implicit_directories() const { return false; }
+  // - Whether the filesystem may allow writing a file "over" a directory
+  virtual bool allow_write_file_over_dir() const { return false; }
+  // - Whether the filesystem allows moving a directory
+  virtual bool allow_move_dir() const { return true; }
+  // - Whether the filesystem allows appending to a file
+  virtual bool allow_append_to_file() const { return true; }
+  // - Whether the filesystem supports directory modification times
+  virtual bool have_directory_mtimes() const { return true; }
 
   void TestEmpty(FileSystem* fs);
   void TestCreateDir(FileSystem* fs);

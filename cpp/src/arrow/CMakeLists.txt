@@ -157,6 +157,10 @@ if(ARROW_JSON)
       json/reader.cc)
 endif()
 
+if(ARROW_S3)
+  set(ARROW_SRCS ${ARROW_SRCS} filesystem/s3fs.cc)
+endif()
+
 if(ARROW_WITH_URIPARSER)
   set(ARROW_SRCS ${ARROW_SRCS} util/uri.cc)
 endif()

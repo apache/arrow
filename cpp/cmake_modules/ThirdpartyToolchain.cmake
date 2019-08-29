@@ -51,6 +51,7 @@ endmacro()
 # Resolve the dependencies
 
 set(ARROW_THIRDPARTY_DEPENDENCIES
+    AWSSDK
     benchmark
     BOOST
     Brotli
@@ -127,7 +128,9 @@ foreach(DEPENDENCY ${ARROW_THIRDPARTY_DEPENDENCIES})
 endforeach()
 
 macro(build_dependency DEPENDENCY_NAME)
-  if("${DEPENDENCY_NAME}" STREQUAL "benchmark")
+  if("${DEPENDENCY_NAME}" STREQUAL "AWSSDK")
+    build_awssdk()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "benchmark")
     build_benchmark()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Brotli")
     build_brotli()
@@ -254,6 +257,13 @@ foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
 
   set(${_LIB_NAME} "${_LIB_VERSION}")
 endforeach()
+
+if(DEFINED ENV{ARROW_AWSSDK_URL})
+  set(AWSSDK_SOURCE_URL "$ENV{ARROW_AWSSDK_URL}")
+else()
+  set(AWSSDK_SOURCE_URL
+      "https://github.com/aws/aws-sdk-cpp/archive/${AWSSDK_VERSION}.tar.gz")
+endif()
 
 if(DEFINED ENV{ARROW_BOOST_URL})
   set(BOOST_SOURCE_URL "$ENV{ARROW_BOOST_URL}")
@@ -910,7 +920,7 @@ if(BREW_BIN AND NOT OPENSSL_ROOT_DIR)
     set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
   endif()
 endif()
-if(PARQUET_REQUIRE_ENCRYPTION OR ARROW_FLIGHT)
+if(PARQUET_REQUIRE_ENCRYPTION OR ARROW_FLIGHT OR ARROW_S3)
   # This must work
   find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
   set(ARROW_USE_OPENSSL ON)
@@ -2368,6 +2378,79 @@ if(ARROW_ORC)
   include_directories(SYSTEM ${ORC_INCLUDE_DIR})
   message(STATUS "Found ORC static library: ${ORC_STATIC_LIB}")
   message(STATUS "Found ORC headers: ${ORC_INCLUDE_DIR}")
+endif()
+
+# ----------------------------------------------------------------------
+# AWS SDK for C++
+
+macro(build_awssdk)
+  message(
+    FATAL_ERROR "FIXME: Building AWS C++ SDK from source will link with wrong libcrypto")
+  message("Building AWS C++ SDK from source")
+
+  set(AWSSDK_PREFIX "${THIRDPARTY_DIR}/awssdk_ep-install")
+  set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
+
+  if(WIN32)
+    # On Windows, need to match build types
+    set(AWSSDK_BUILD_TYPE ${CMAKE_BUILD_TYPE})
+  else()
+    # Otherwise, always build in release mode.
+    # Especially with gcc, debug builds can fail with "asm constraint" errors:
+    # https://github.com/TileDB-Inc/TileDB/issues/1351
+    set(AWSSDK_BUILD_TYPE Release)
+  endif()
+
+  set(AWSSDK_CMAKE_ARGS
+      -DCMAKE_BUILD_TYPE=Release
+      -DCMAKE_INSTALL_LIBDIR=lib
+      -DBUILD_ONLY=s3;core;config
+      -DENABLE_UNITY_BUILD=on
+      -DENABLE_TESTING=off
+      "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
+      "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}")
+
+  set(
+    AWSSDK_CORE_SHARED_LIB
+    "${AWSSDK_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}aws-cpp-sdk-core${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    )
+  set(
+    AWSSDK_S3_SHARED_LIB
+    "${AWSSDK_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}aws-cpp-sdk-s3${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    )
+  set(AWSSDK_SHARED_LIBS "${AWSSDK_CORE_SHARED_LIB}" "${AWSSDK_S3_SHARED_LIB}")
+
+  externalproject_add(awssdk_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${AWSSDK_SOURCE_URL}
+                      CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWSSDK_SHARED_LIBS})
+
+  file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})
+
+  add_dependencies(toolchain awssdk_ep)
+  set(AWSSDK_LINK_LIBRARIES ${AWSSDK_SHARED_LIBS})
+  set(AWSSDK_VENDORED TRUE)
+endmacro()
+
+if(ARROW_S3)
+  # See https://aws.amazon.com/blogs/developer/developer-experience-of-the-aws-sdk-for-c-now-simplified-by-cmake/
+
+  # Need to customize the find_package() call, so cannot call resolve_dependency()
+  if(AWSSDK_SOURCE STREQUAL "AUTO")
+    find_package(AWSSDK COMPONENTS config s3 transfer)
+    if(NOT AWSSDK_FOUND)
+      build_awssdk()
+    endif()
+  elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
+    build_awssdk()
+  elseif(AWSSDK_SOURCE STREQUAL "SYSTEM")
+    find_package(AWSSDK REQUIRED COMPONENTS config s3 transfer)
+  endif()
+
+  include_directories(SYSTEM ${AWSSDK_INCLUDE_DIR})
+  message(STATUS "Found AWS SDK headers: ${AWSSDK_INCLUDE_DIR}")
+  message(STATUS "Found AWS SDK libraries: ${AWSSDK_LINK_LIBRARIES}")
 endif()
 
 # Write out the package configurations.

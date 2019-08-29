@@ -42,6 +42,14 @@ if [ "$ARROW_TRAVIS_GANDIVA" == "1" ]; then
     sudo apt-get install -y -qq llvm-$ARROW_LLVM_MAJOR_VERSION-dev
 fi
 
+if [ "$ARROW_TRAVIS_S3" == "1" ]; then
+    # Download the Minio S3 server into PATH
+    S3FS_DIR=~/.local/bin/
+    mkdir -p $S3FS_DIR
+    wget --directory-prefix $S3FS_DIR https://dl.min.io/server/minio/release/linux-amd64/minio
+    chmod +x $S3FS_DIR/minio
+fi
+
 if [ "$ARROW_TRAVIS_USE_SYSTEM" == "1" ]; then
     if [ "$DISTRO_CODENAME" == "xenial" ]; then
         # TODO(ARROW-4761): Install libzstd-dev once we support zstd<1

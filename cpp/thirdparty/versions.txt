@@ -23,6 +23,7 @@
 # `DEPENDENCIES` array (see the comment on top of the declaration for the
 # format).
 
+AWSSDK_VERSION=1.7.160
 BOOST_VERSION=1.67.0
 BROTLI_VERSION=v1.0.7
 BZIP2_VERSION=1.0.6
@@ -55,6 +56,7 @@ ZSTD_VERSION=v1.4.0
 # generated archive file. The third field is the url of the project for the
 # given version.
 DEPENDENCIES=(
+  "ARROW_AWSSDK_URL aws-sdk-cpp-${AWSSDK_VERSION}.tar.gz https://github.com/aws/aws-sdk-cpp/archive/${AWSSDK_VERSION}.tar.gz"
   "ARROW_BOOST_URL boost-${BOOST_VERSION}.tar.gz https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION//./_}.tar.gz"
   "ARROW_BROTLI_URL brotli-${BROTLI_VERSION}.tar.gz https://github.com/google/brotli/archive/${BROTLI_VERSION}.tar.gz"
   "ARROW_CARES_URL cares-${CARES_VERSION}.tar.gz https://c-ares.haxx.se/download/c-ares-$CARES_VERSION.tar.gz"

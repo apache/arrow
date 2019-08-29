@@ -655,6 +655,10 @@ if(ARROW_USE_GLOG)
   add_definitions("-DARROW_USE_GLOG")
 endif()
 
+if(ARROW_S3)
+  list(APPEND ARROW_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
+endif()
+
 add_custom_target(arrow_dependencies)
 add_custom_target(arrow_benchmark_dependencies)
 add_custom_target(arrow_test_dependencies)
