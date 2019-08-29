@@ -452,7 +452,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 
   void UnsafeAppendNull() {
     UnsafeAppendToBitmap(false);
-    byte_builder_.UnsafeAdvance(byte_width_);
+    byte_builder_.UnsafeAppend(/*num_copies=*/byte_width_, 0);
   }
 
   void Reset() override;
