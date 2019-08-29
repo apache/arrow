@@ -92,6 +92,7 @@ class ARROW_EXPORT BufferBuilder {
     // for discussion.
     // Grow exactly if a large upsize (the caller might know the exact final size).
     // Otherwise overallocate by 1.5 to keep a linear amortized cost.
+    // TODO: revisit this?  See comment in BufferOutputStream::Reserve.
     return std::max(new_capacity, current_capacity * 3 / 2);
   }
 

@@ -198,6 +198,7 @@ BENCHMARK_TEMPLATE(MemoryBandwidth, PlatformMemcpy)->Apply(SetMemoryBandwidthArg
 
 #endif  // _MSC_VER
 #endif  // ARROW_WITH_BENCHMARKS_REFERENCE
+#endif  // ARROW_HAVE_SSE4_2
 
 static void ParallelMemoryCopy(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t n_threads = state.range(0);
@@ -224,5 +225,50 @@ BENCHMARK(ParallelMemoryCopy)
     ->ArgName("threads")
     ->UseRealTime();
 
+static void BenchmarkBufferOutputStream(
+    const std::string& datum,
+    benchmark::State& state) {  // NOLINT non-const reference
+  const void* raw_data = datum.data();
+  int64_t raw_nbytes = static_cast<int64_t>(datum.size());
+  // Write approx. 32 MB to each BufferOutputStream
+  int64_t num_raw_values = (1 << 25) / raw_nbytes;
+  for (auto _ : state) {
+    std::shared_ptr<io::BufferOutputStream> stream;
+    std::shared_ptr<Buffer> buf;
+    ABORT_NOT_OK(io::BufferOutputStream::Create(1024, default_memory_pool(), &stream));
+    for (int64_t i = 0; i < num_raw_values; ++i) {
+      ABORT_NOT_OK(stream->Write(raw_data, raw_nbytes));
+    }
+    ABORT_NOT_OK(stream->Finish(&buf));
+  }
+  state.SetBytesProcessed(int64_t(state.iterations()) * num_raw_values * raw_nbytes);
+}
+
+static void BufferOutputStreamTinyWrites(
+    benchmark::State& state) {  // NOLINT non-const reference
+  // A 8-byte datum
+  return BenchmarkBufferOutputStream("abdefghi", state);
+}
+
+static void BufferOutputStreamSmallWrites(
+    benchmark::State& state) {  // NOLINT non-const reference
+  // A 700-byte datum
+  std::string datum;
+  for (int i = 0; i < 100; ++i) {
+    datum += "abcdefg";
+  }
+  return BenchmarkBufferOutputStream(datum, state);
+}
+
+static void BufferOutputStreamLargeWrites(
+    benchmark::State& state) {  // NOLINT non-const reference
+  // A 1.5MB datum
+  std::string datum(1500000, 'x');
+  return BenchmarkBufferOutputStream(datum, state);
+}
+
+BENCHMARK(BufferOutputStreamTinyWrites)->UseRealTime();
+BENCHMARK(BufferOutputStreamSmallWrites)->UseRealTime();
+BENCHMARK(BufferOutputStreamLargeWrites)->UseRealTime();
+
 }  // namespace arrow
-#endif  // ARROW_HAVE_SSE4_2
