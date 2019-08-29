@@ -172,7 +172,7 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] options Per-RPC options
   /// \param[in] descriptor the dataset request, whether a named dataset or
   /// command
-  /// \param[out] info the SchemaResult describing the dataset schema
+  /// \param[out] schema_result the SchemaResult describing the dataset schema
   /// \return Status
   Status GetSchema(const FlightCallOptions& options, const FlightDescriptor& descriptor,
                    std::unique_ptr<SchemaResult>* schema_result);

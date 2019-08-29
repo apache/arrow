@@ -322,7 +322,7 @@ struct ARROW_FLIGHT_EXPORT FlightPayload {
 /// \brief Schema result returned after a schema request RPC
 struct ARROW_FLIGHT_EXPORT SchemaResult {
  public:
-  explicit SchemaResult(std::string schema): raw_schema_(std::move(schema)) {}
+  explicit SchemaResult(std::string schema) : raw_schema_(std::move(schema)) {}
 
   /// \brief return schema
   /// \param[out] out the reconstructed Schema
