@@ -22,7 +22,10 @@ import java.io.InputStream;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.VarBinaryVector;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * Consumer which consume binary type values from {@link ResultSet}.
@@ -50,16 +53,21 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
    */
   public void consume(InputStream is) throws IOException {
     if (is != null) {
-      int length = is.available();
-      byte[] bytes = new byte[length];
 
-      int readSize = length < BUFFER_SIZE ? length : BUFFER_SIZE;
+      int read;
+      byte[] bytes = new byte[BUFFER_SIZE];
       int totalBytes = 0;
-      while (totalBytes < length) {
-        is.read(bytes, totalBytes, readSize);
-        totalBytes += readSize;
+
+      ArrowBuf dataBuffer = vector.getDataBuffer();
+      ArrowBuf offsetBuffer = vector.getOffsetBuffer();
+      int startIndex = offsetBuffer.getInt(currentIndex * 4);
+      while ((read = is.read(bytes)) != -1) {
+        dataBuffer.setBytes(startIndex + totalBytes, bytes, 0 , read);
+        totalBytes += read;
       }
-      vector.setSafe(currentIndex, bytes, 0, totalBytes);
+      offsetBuffer.setInt((currentIndex + 1) * 4, startIndex + totalBytes);
+      BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), currentIndex);
+      vector.setLastSet(currentIndex);
     }
   }
 
