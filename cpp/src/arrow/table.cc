@@ -321,7 +321,7 @@ class SimpleTable : public Table {
 
   std::shared_ptr<Table> ReplaceSchemaMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const override {
-    auto new_schema = schema_->AddMetadata(metadata);
+    auto new_schema = schema_->WithMetadata(metadata);
     return Table::Make(new_schema, columns_);
   }
 

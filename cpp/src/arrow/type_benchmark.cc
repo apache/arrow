@@ -148,9 +148,9 @@ static void SchemaEqualsWithMetadata(
   auto md2 = key_value_metadata({"k1", "k2"}, {"some value1", "some value2"});
   auto md3 = key_value_metadata({"k2", "k1"}, {"some value2", "some value1"});
 
-  schema1 = schema1->AddMetadata(md1);
-  schema2 = schema1->AddMetadata(md2);
-  schema3 = schema1->AddMetadata(md3);
+  schema1 = schema1->WithMetadata(md1);
+  schema2 = schema1->WithMetadata(md2);
+  schema3 = schema1->WithMetadata(md3);
 
   int64_t total = 0;
   for (auto _ : state) {

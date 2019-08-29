@@ -132,7 +132,7 @@ class SimpleRecordBatch : public RecordBatch {
 
   std::shared_ptr<RecordBatch> ReplaceSchemaMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const override {
-    auto new_schema = schema_->AddMetadata(metadata);
+    auto new_schema = schema_->WithMetadata(metadata);
     return RecordBatch::Make(new_schema, num_rows_, columns_);
   }
 

@@ -342,8 +342,13 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   bool HasMetadata() const;
 
   /// \brief Return a copy of this field with the given metadata attached to it
+  std::shared_ptr<Field> WithMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+
+  ARROW_DEPRECATED("Use WithMetadata")
   std::shared_ptr<Field> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+
   /// \brief Return a copy of this field without any metadata attached to it
   std::shared_ptr<Field> RemoveMetadata() const;
 
@@ -1336,6 +1341,10 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable {
   ///
   /// \param[in] metadata new KeyValueMetadata
   /// \return new Schema
+  std::shared_ptr<Schema> WithMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+
+  ARROW_DEPRECATED("Use WithMetadata")
   std::shared_ptr<Schema> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
 
