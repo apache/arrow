@@ -421,7 +421,7 @@ endif()
 if(DEFINED ENV{BZIP2_SOURCE_URL})
   set(BZIP2_SOURCE_URL "$ENV{BZIP2_SOURCE_URL}")
 else()
-  set(BZIP2_SOURCE_URL "https://fossies.org/linux/misc/bzip2-${BZIP2_VERSION}.tar.gz")
+  set(BZIP2_SOURCE_URL "https://sourceware.org/pub/bzip2/bzip2-${BZIP2_VERSION}.tar.gz")
 endif()
 
 # ----------------------------------------------------------------------
