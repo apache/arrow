@@ -146,27 +146,32 @@ void AssertBinary(const arrow::Array& values) {
   }
 }
 
-template <typename EncoderType>
-void PutBinaryArray(const arrow::Array& values, EncoderType* encoder) {
+template <>
+void PlainEncoder<ByteArrayType>::Put(const arrow::Array& values) {
   AssertBinary(values);
   const auto& data = checked_cast<const arrow::BinaryArray&>(values);
+  const int64_t total_bytes = data.value_offset(data.length()) - data.value_offset(0);
+  PARQUET_THROW_NOT_OK(sink_.Reserve(total_bytes + data.length() * sizeof(uint32_t)));
+
+  auto AppendValue = [&](int64_t i) {
+    auto view = data.GetView(i);
+    const uint32_t length = static_cast<uint32_t>(view.size());
+    sink_.UnsafeAppend(&length, sizeof(uint32_t));
+    sink_.UnsafeAppend(view.data(), view.size());
+  };
+
   if (data.null_count() == 0) {
     // no nulls, just dump the data
     for (int64_t i = 0; i < data.length(); i++) {
-      encoder->Put(ByteArray(data.GetView(i)));
+      AppendValue(i);
     }
   } else {
     for (int64_t i = 0; i < data.length(); i++) {
       if (data.IsValid(i)) {
-        encoder->Put(ByteArray(data.GetView(i)));
+        AppendValue(i);
       }
     }
   }
-}
-
-template <>
-void PlainEncoder<ByteArrayType>::Put(const arrow::Array& values) {
-  PutBinaryArray(values, this);
 }
 
 template <>
@@ -561,7 +566,20 @@ void DictEncoderImpl<DType>::Put(const arrow::Array& values) {
 
 template <>
 void DictEncoderImpl<ByteArrayType>::Put(const arrow::Array& values) {
-  PutBinaryArray(values, this);
+  AssertBinary(values);
+  const auto& data = checked_cast<const arrow::BinaryArray&>(values);
+  if (data.null_count() == 0) {
+    // no nulls, just dump the data
+    for (int64_t i = 0; i < data.length(); i++) {
+      Put(ByteArray(data.GetView(i)));
+    }
+  } else {
+    for (int64_t i = 0; i < data.length(); i++) {
+      if (data.IsValid(i)) {
+        Put(ByteArray(data.GetView(i)));
+      }
+    }
+  }
 }
 
 template <typename DType>
