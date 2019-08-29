@@ -126,7 +126,7 @@ class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBas
                        std::unique_ptr<arrow::flight::FlightInfo>* info) override;
   Status GetSchema(const arrow::flight::ServerCallContext& context,
                    const arrow::flight::FlightDescriptor& request,
-                   std::unique_ptr<arrow::flight::SchemaResult>* info) override;
+                   std::unique_ptr<arrow::flight::SchemaResult>* result) override;
   Status DoGet(const arrow::flight::ServerCallContext& context,
                const arrow::flight::Ticket& request,
                std::unique_ptr<arrow::flight::FlightDataStream>* stream) override;

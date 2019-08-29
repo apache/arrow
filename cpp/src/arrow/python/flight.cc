@@ -108,9 +108,9 @@ Status PyFlightServer::GetFlightInfo(const arrow::flight::ServerCallContext& con
 
 Status PyFlightServer::GetSchema(const arrow::flight::ServerCallContext& context,
                                  const arrow::flight::FlightDescriptor& request,
-                                 std::unique_ptr<arrow::flight::SchemaResult>* info) {
+                                 std::unique_ptr<arrow::flight::SchemaResult>* result) {
   return SafeCallIntoPython([&] {
-    vtable_.get_schema(server_.obj(), context, request, info);
+    vtable_.get_schema(server_.obj(), context, request, result);
     return CheckPyError();
   });
 }

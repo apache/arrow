@@ -353,15 +353,15 @@ class FlightServiceImpl : public FlightService::Service {
     FlightDescriptor descr;
     GRPC_RETURN_NOT_OK(internal::FromProto(*request, &descr));
 
-    std::unique_ptr<SchemaResult> info;
-    GRPC_RETURN_NOT_OK(server_->GetSchema(flight_context, descr, &info));
+    std::unique_ptr<SchemaResult> result;
+    GRPC_RETURN_NOT_OK(server_->GetSchema(flight_context, descr, &result));
 
-    if (!info) {
+    if (!result) {
       // Treat null listing as no flights available
       return grpc::Status(grpc::StatusCode::NOT_FOUND, "Flight not found");
     }
 
-    GRPC_RETURN_NOT_OK(internal::ToProto(*info, response));
+    GRPC_RETURN_NOT_OK(internal::ToProto(*result, response));
     return grpc::Status::OK;
   }
 

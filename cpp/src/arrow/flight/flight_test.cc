@@ -558,13 +558,13 @@ TEST_F(TestFlightClient, GetFlightInfo) {
 
 TEST_F(TestFlightClient, GetSchema) {
   auto descr = FlightDescriptor::Path({"examples", "ints"});
-  std::unique_ptr<SchemaResult> info;
+  std::unique_ptr<SchemaResult> schema_result;
   std::shared_ptr<Schema> schema;
   ipc::DictionaryMemo dict_memo;
 
-  ASSERT_OK(client_->GetSchema(descr, &info));
-  ASSERT_NE(info, nullptr);
-  ASSERT_OK(info->GetSchema(&dict_memo, &schema));
+  ASSERT_OK(client_->GetSchema(descr, &schema_result));
+  ASSERT_NE(schema_result, nullptr);
+  ASSERT_OK(schema_result->GetSchema(&dict_memo, &schema));
 }
 
 TEST_F(TestFlightClient, GetFlightInfoNotFound) {

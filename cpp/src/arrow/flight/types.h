@@ -322,14 +322,9 @@ struct ARROW_FLIGHT_EXPORT FlightPayload {
 /// \brief Schema result returned after a schema request RPC
 struct ARROW_FLIGHT_EXPORT SchemaResult {
  public:
-  explicit SchemaResult(std::string schema)
-      : raw_schema_(std::move(schema)), reconstructed_schema_(false) {}
+  explicit SchemaResult(std::string schema): raw_schema_(std::move(schema)) {}
 
-  /// \brief Deserialize the Arrow schema of the dataset, to be passed
-  /// to each call to DoGet. Populate any dictionary encoded fields
-  /// into a DictionaryMemo for bookkeeping
-  /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
-  /// be modified
+  /// \brief return schema
   /// \param[out] out the reconstructed Schema
   Status GetSchema(ipc::DictionaryMemo* dictionary_memo,
                    std::shared_ptr<Schema>* out) const;
@@ -338,8 +333,6 @@ struct ARROW_FLIGHT_EXPORT SchemaResult {
 
  private:
   std::string raw_schema_;
-  mutable std::shared_ptr<Schema> schema_;
-  mutable bool reconstructed_schema_;
 };
 
 /// \brief The access coordinates for retireval of a dataset, returned by

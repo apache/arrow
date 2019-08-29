@@ -314,8 +314,8 @@ Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info) {
   return Status::OK();
 }
 
-Status FromProto(const pb::SchemaResult& pb_info, std::string* info) {
-  *info = pb_info.schema();
+Status FromProto(const pb::SchemaResult& pb_result, std::string* result) {
+  *result = pb_result.schema();
   return Status::OK();
 }
 
@@ -349,8 +349,8 @@ Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info) {
   return Status::OK();
 }
 
-Status ToProto(const SchemaResult& info, pb::SchemaResult* pb_info) {
-  pb_info->set_schema(info.serialized_schema());
+Status ToProto(const SchemaResult& result, pb::SchemaResult* pb_result) {
+  pb_result->set_schema(result.serialized_schema());
   return Status::OK();
 }
 

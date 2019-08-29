@@ -120,14 +120,8 @@ std::string FlightDescriptor::ToString() const {
 
 Status SchemaResult::GetSchema(ipc::DictionaryMemo* dictionary_memo,
                                std::shared_ptr<Schema>* out) const {
-  if (reconstructed_schema_) {
-    *out = schema_;
-    return Status::OK();
-  }
   io::BufferReader schema_reader(raw_schema_);
-  RETURN_NOT_OK(ipc::ReadSchema(&schema_reader, dictionary_memo, &schema_));
-  reconstructed_schema_ = true;
-  *out = schema_;
+  RETURN_NOT_OK(ipc::ReadSchema(&schema_reader, dictionary_memo, out));
   return Status::OK();
 }
 

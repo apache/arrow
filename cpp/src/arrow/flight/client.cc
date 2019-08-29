@@ -524,7 +524,7 @@ class FlightClient::FlightClientImpl {
   }
 
   Status GetSchema(const FlightCallOptions& options, const FlightDescriptor& descriptor,
-                   std::unique_ptr<SchemaResult>* info) {
+                   std::unique_ptr<SchemaResult>* schema_result) {
     pb::FlightDescriptor pb_descriptor;
     pb::SchemaResult pb_response;
 
@@ -538,7 +538,7 @@ class FlightClient::FlightClientImpl {
 
     std::string str;
     RETURN_NOT_OK(internal::FromProto(pb_response, &str));
-    info->reset(new SchemaResult(str));
+    schema_result->reset(new SchemaResult(str));
     return Status::OK();
   }
 
@@ -616,8 +616,8 @@ Status FlightClient::GetFlightInfo(const FlightCallOptions& options,
 
 Status FlightClient::GetSchema(const FlightCallOptions& options,
                                const FlightDescriptor& descriptor,
-                               std::unique_ptr<SchemaResult>* info) {
-  return impl_->GetSchema(options, descriptor, info);
+                               std::unique_ptr<SchemaResult>* schema_result) {
+  return impl_->GetSchema(options, descriptor, schema_result);
 }
 
 Status FlightClient::ListFlights(std::unique_ptr<FlightListing>* listing) {
