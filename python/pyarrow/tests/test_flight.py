@@ -881,6 +881,7 @@ def test_do_put_independent_read_write():
             table.schema)
 
         count = [0]
+
         def _reader_thread():
             while metadata_reader.read() is not None:
                 count[0] += 1

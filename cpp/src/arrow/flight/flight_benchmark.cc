@@ -108,12 +108,11 @@ arrow::Result<PerformanceResult> RunDoGetTest(FlightClient* client,
     }
 
     if (verify) {
-      auto values = reinterpret_cast<const int64_t*>(
-          batch.data->column_data(0)->buffers[1]->data());
+      auto values = batch.data->column_data(0)->GetValues<int64_t>(1);
       const int64_t start = token.start() + num_records;
       for (int64_t i = 0; i < batch.data->num_rows(); ++i) {
         if (values[i] != start + i) {
-          return std::move(Status::Invalid("verification failure"));
+          return Status::Invalid("verification failure");
         }
       }
     }
