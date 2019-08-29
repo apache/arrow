@@ -56,7 +56,7 @@ public class ListSubfieldEncoder {
 
     final FieldType fieldType = vector.getField().getFieldType();
     BaseListVector cloned = (BaseListVector) fieldType.createNewSingleVector(vector.getField().getName(),
-        allocator, null);
+        allocator, /*schemaCallBack=*/null);
 
     final ArrowFieldNode fieldNode = new ArrowFieldNode(vector.getValueCount(), vector.getNullCount());
     cloned.loadFieldBuffers(fieldNode, vector.getFieldBuffers());
