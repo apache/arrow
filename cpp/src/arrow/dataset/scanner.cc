@@ -37,7 +37,7 @@ static std::unique_ptr<DataFragmentIterator> GetFragmentsIterator(
   auto sources_it = MakeVectorIterator(sources);
 
   // DataSource -> Iterator<DataFragment>
-  auto fn = [&options](std::shared_ptr<DataSource> source)
+  auto fn = [options](std::shared_ptr<DataSource> source)
       -> std::unique_ptr<DataFragmentIterator> { return source->GetFragments(options); };
 
   // Iterator<Iterator<DataFragment>>
@@ -53,8 +53,8 @@ static std::unique_ptr<ScanTaskIterator> GetScanTaskIterator(
     std::unique_ptr<DataFragmentIterator> fragments,
     std::shared_ptr<ScanContext> context) {
   // DataFragment -> ScanTaskIterator
-  auto fn = [&context](std::shared_ptr<DataFragment> fragment,
-                       std::unique_ptr<ScanTaskIterator>* out) -> Status {
+  auto fn = [context](std::shared_ptr<DataFragment> fragment,
+                      std::unique_ptr<ScanTaskIterator>* out) -> Status {
     return fragment->Scan(context, out);
   };
 
