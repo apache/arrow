@@ -144,8 +144,6 @@ class DatasetFixtureMixin : public ::testing::Test {
     std::unique_ptr<Scanner> scanner;
     ASSERT_OK(builder->Finish(&scanner));
 
-    auto it = scanner->Scan();
-
     AssertScannerEquals(expected, scanner.get());
 
     if (ensure_drained) {

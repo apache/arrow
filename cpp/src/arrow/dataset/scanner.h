@@ -108,7 +108,7 @@ class ARROW_DS_EXPORT Scanner {
 /// where the previous methods can block for a long time, e.g. if fetching a
 /// DataFragment from cloud storage, or a DataFragment must be parsed before
 /// returning a ScanTaskIterator.
-class SimpleScanner : public Scanner {
+class ARROW_DS_EXPORT SimpleScanner : public Scanner {
  public:
   SimpleScanner(std::vector<std::shared_ptr<DataSource>> sources,
                 std::shared_ptr<ScanOptions> options,

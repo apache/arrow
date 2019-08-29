@@ -42,7 +42,7 @@ TEST_F(TestSimpleScanner, Scan) {
       std::make_shared<SimpleDataSource>(fragments),
   };
 
-  const int64_t total_batches = sources.size() * kNumberBatches * kNumberBatches;
+  const int64_t total_batches = sources.size() * kNumberBatches * kNumberFragments;
   auto reader = ConstantArrayGenerator::Repeat(total_batches, batch);
 
   SimpleScanner scanner{sources, options_, ctx_};

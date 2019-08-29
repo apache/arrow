@@ -189,7 +189,7 @@ class ARROW_EXPORT RecordBatchReader
   Status ReadAll(std::shared_ptr<Table>* table);
 };
 
-/// \brief Creates a RecordBatchReader from a vector  of RecordBatch.
+/// \brief Create a RecordBatchReader from a vector of RecordBatch.
 ///
 /// \param[in] batches the vector of RecordBatch to read from
 /// \param[in] schema schema to conform to. Will be inferred from the first

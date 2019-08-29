@@ -216,7 +216,7 @@ class FlattenIterator : public Iterator<T> {
       return Next(out);
     }
 
-    // Pop from current_ and lookout for depletion.
+    // Pop from child_ and lookout for depletion.
     ARROW_RETURN_NOT_OK(child_->Next(out));
     if (*out == NULLPTR) {
       // Reset state such that we pop from parent on the recursive call
