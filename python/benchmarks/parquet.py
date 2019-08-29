@@ -60,8 +60,8 @@ class ParquetManifestCreation(object):
 class ParquetWriteBinary(object):
 
     def setup(self):
-        nuniques = 1000
-        value_size = 10
+        nuniques = 100000
+        value_size = 50
         length = 1000000
         num_cols = 10
 
@@ -75,6 +75,10 @@ class ParquetWriteBinary(object):
     def time_write_binary_table(self):
         out = pa.BufferOutputStream()
         pq.write_table(self.table, out)
+
+    def time_write_binary_table_uncompressed(self):
+        out = pa.BufferOutputStream()
+        pq.write_table(self.table, out, compression='none')
 
     def time_write_binary_table_no_dictionary(self):
         out = pa.BufferOutputStream()
