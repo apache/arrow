@@ -132,7 +132,7 @@ public class EchoServer {
             }
           }
           writer.end();
-          Preconditions.checkState(reader.bytesRead() == writer.bytesWritten());
+          Preconditions.checkState(reader.bytesRead() + 4 == writer.bytesWritten());
           LOGGER.debug(String.format("Echoed %d records", echoed));
         }
       }

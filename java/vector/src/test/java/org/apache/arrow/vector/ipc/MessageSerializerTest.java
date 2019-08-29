@@ -95,7 +95,7 @@ public class MessageSerializerTest {
     buffer.putInt(3);
     buffer.flip();
     bytesWritten = MessageSerializer.writeMessageBuffer(out, 4, buffer);
-    assertEquals(8, bytesWritten);
+    assertEquals(16, bytesWritten);
 
     ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
     ReadChannel in = new ReadChannel(Channels.newChannel(inputStream));
@@ -103,15 +103,17 @@ public class MessageSerializerTest {
     in.readFully(result);
     result.rewind();
 
-    // First message size, 2 int values, 4 bytes of zero padding
-    assertEquals(12, result.getInt());
+    // First message continuation, size, and 2 int values
+    assertEquals(MessageSerializer.IPC_CONTINUATION_TOKEN, result.getInt());
+    assertEquals(8, result.getInt());
     assertEquals(1, result.getInt());
     assertEquals(2, result.getInt());
-    assertEquals(0, result.getInt());
 
-    // Second message size and 1 int value
-    assertEquals(4, result.getInt());
+    // Second message continuation, size, 1 int value and 4 bytes padding
+    assertEquals(MessageSerializer.IPC_CONTINUATION_TOKEN, result.getInt());
+    assertEquals(8, result.getInt());
     assertEquals(3, result.getInt());
+    assertEquals(0, result.getInt());
   }
 
   @Test
