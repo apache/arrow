@@ -1442,6 +1442,9 @@ cdef CStatus _list_actions(void* self, const CServerCallContext& context,
     try:
         result = (<object> self).list_actions(ServerCallContext.wrap(context))
         for action in result:
+            if not isinstance(action, tuple):
+                raise TypeError(
+                    "Results of list_actions must be ActionType or tuple")
             action_type.type = tobytes(action[0])
             action_type.description = tobytes(action[1])
             actions.push_back(action_type)

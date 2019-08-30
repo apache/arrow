@@ -226,6 +226,30 @@ class GetInfoFlightServer(FlightServerBase):
         return flight.SchemaResult(info.schema)
 
 
+class ListActionsFlightServer(FlightServerBase):
+    """A Flight server that tests ListActions."""
+
+    @classmethod
+    def expected_actions(cls):
+        return [
+            ("action-1", "description"),
+            ("action-2", ""),
+            flight.ActionType("action-3", "more detail"),
+        ]
+
+    def list_actions(self, context):
+        for action in self.expected_actions():
+            yield action
+
+
+class ListActionsErrorFlightServer(FlightServerBase):
+    """A Flight server that tests ListActions."""
+
+    def list_actions(self, context):
+        yield ("action-1", "")
+        yield "foo"
+
+
 class CheckTicketFlightServer(FlightServerBase):
     """A Flight server that compares the given ticket to an expected value."""
 
@@ -508,6 +532,20 @@ def test_flight_get_schema():
         client = flight.FlightClient.connect(server_location)
         info = client.get_schema(flight.FlightDescriptor.for_command(b''))
         assert info.schema == pa.schema([('a', pa.int32())])
+
+
+def test_list_actions():
+    """Make sure the return type of ListActions is validated."""
+    # ARROW-6392
+    with flight_server(ListActionsErrorFlightServer) as server_location:
+        client = flight.FlightClient.connect(server_location)
+        with pytest.raises(pa.ArrowException, match=".*unknown error.*"):
+            list(client.list_actions())
+
+    with flight_server(ListActionsFlightServer) as server_location:
+        client = flight.FlightClient.connect(server_location)
+        assert list(client.list_actions()) == \
+            ListActionsFlightServer.expected_actions()
 
 
 @pytest.mark.skipif(os.name == 'nt',
