@@ -83,6 +83,8 @@ std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReader(int i) {
 // Returns the rowgroup metadata
 const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->metadata(); }
 
+uint64_t page_offset=0,num_values=0,next_page_offset=0;
+
 // RowGroupReader::Contents implementation for the Parquet file specification
 class SerializedRowGroup : public RowGroupReader::Contents {
  public:
@@ -110,9 +112,12 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                min_diff = abs(*page_min - v);
            }
       }
-      page_offset = offset_index.page_locations[min_index].offset;
-      next_page_offset=offset_index.page_locations[min_index+1].offset;
-      num_values = offset_index.page_locations[min_index+1].first_row_index - offset_index.page_locations[min_index].first_row_index;
+
+      if ( page_offset == 0 && next_page_offset == 0 && num_values == 0 ) {
+        page_offset = offset_index.page_locations[min_index].offset;
+        next_page_offset=offset_index.page_locations[min_index+1].offset;
+        num_values = offset_index.page_locations[min_index+1].first_row_index - offset_index.page_locations[min_index].first_row_index;
+      }
   }
 
   void GoToPagewoIndex(int64_t v) const {
@@ -192,7 +197,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     int64_t col_length = col->total_compressed_size();
 
     bool has_page_index = HasPageIndex((reinterpret_cast<ColumnChunkMetaData*>(col.get())));
-    uint64_t page_offset,num_values,next_page_offset;
+    
     if (has_page_index) {
         parquet::format::ColumnIndex col_index;
         parquet::format::OffsetIndex offset_index;
