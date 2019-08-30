@@ -109,9 +109,9 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
   void Put(const ByteArray& val) {
     // Write the result to the output stream
-    if (ARROW_PREDICT_FALSE(sink_.length() + val.len + sizeof(uint32_t) >
-                            sink_.capacity())) {
-      PARQUET_THROW_NOT_OK(sink_.Reserve(val.len + sizeof(uint32_t)));
+    const int64_t increment = static_cast<int64_t>(val.len + sizeof(uint32_t));
+    if (ARROW_PREDICT_FALSE(sink_.length() + increment > sink_.capacity())) {
+      PARQUET_THROW_NOT_OK(sink_.Reserve(increment));
     }
     DCHECK(val.len == 0 || nullptr != val.ptr) << "Value ptr cannot be NULL";
     sink_.UnsafeAppend(&val.len, sizeof(uint32_t));
