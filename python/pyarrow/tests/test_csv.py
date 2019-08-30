@@ -80,12 +80,23 @@ def test_read_options():
     opts.column_names = ["ab", "cd"]
     assert opts.column_names == ["ab", "cd"]
 
+    assert opts.autogenerate_column_names is False
+    opts.autogenerate_column_names = True
+    assert opts.autogenerate_column_names is True
+
     opts = cls(block_size=1234, use_threads=False, skip_rows=42,
                column_names=["a", "b", "c"])
     assert opts.block_size == 1234
     assert opts.use_threads is False
     assert opts.skip_rows == 42
     assert opts.column_names == ["a", "b", "c"]
+    assert opts.autogenerate_column_names is False
+
+    opts = cls(autogenerate_column_names=True)
+    assert opts.use_threads is True
+    assert opts.skip_rows == 0
+    assert opts.column_names == []
+    assert opts.autogenerate_column_names is True
 
 
 def test_parse_options():
@@ -317,6 +328,31 @@ class BaseTestCSVRead:
             "x": ["ij", "mn"],
             "y": ["kl", "op"],
             }
+
+    def test_header_autogenerate_column_names(self):
+        rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
+
+        opts = ReadOptions()
+        opts.autogenerate_column_names = True
+        table = self.read_bytes(rows, read_options=opts)
+        self.check_names(table, ["f0", "f1"])
+        assert table.to_pydict() == {
+            "f0": ["ab", "ef", "ij", "mn"],
+            "f1": ["cd", "gh", "kl", "op"],
+            }
+
+        opts.skip_rows = 3
+        table = self.read_bytes(rows, read_options=opts)
+        self.check_names(table, ["f0", "f1"])
+        assert table.to_pydict() == {
+            "f0": ["mn"],
+            "f1": ["op"],
+            }
+
+        # Not enough rows, impossible to infer number of columns
+        opts.skip_rows = 4
+        with pytest.raises(pa.ArrowInvalid):
+            table = self.read_bytes(rows, read_options=opts)
 
     def test_include_columns(self):
         rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"

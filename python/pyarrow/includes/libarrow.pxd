@@ -1147,6 +1147,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         int32_t block_size
         int32_t skip_rows
         vector[c_string] column_names
+        c_bool autogenerate_column_names
 
         @staticmethod
         CCSVReadOptions Defaults()

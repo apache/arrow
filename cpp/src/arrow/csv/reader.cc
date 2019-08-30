@@ -162,29 +162,34 @@ class BaseTableReader : public csv::TableReader {
     }
 
     if (read_options_.column_names.empty()) {
-      // Read one row with column names
+      // Parse one row (either to read column names or to know the number of columns)
       BlockParser parser(pool_, parse_options_, num_csv_cols_, 1);
       uint32_t parsed_size = 0;
       RETURN_NOT_OK(parser.Parse(reinterpret_cast<const char*>(cur_data_),
                                  static_cast<uint32_t>(cur_size_), &parsed_size));
       if (parser.num_rows() != 1) {
         return Status::Invalid(
-            "Could not read column names from CSV file, either "
+            "Could not read first row from CSV file, either "
             "file is too short or header is larger than block size");
       }
       if (parser.num_cols() == 0) {
         return Status::Invalid("No columns in CSV file");
       }
-      // Read column names from last header row
-      auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-        column_names_.emplace_back(reinterpret_cast<const char*>(data), size);
-        return Status::OK();
-      };
-      RETURN_NOT_OK(parser.VisitLastRow(visit));
-      DCHECK_EQ(static_cast<size_t>(parser.num_cols()), column_names_.size());
-      // Skip parsed header row
-      cur_data_ += parsed_size;
-      cur_size_ -= parsed_size;
+
+      if (read_options_.autogenerate_column_names) {
+        column_names_ = GenerateColumnNames(parser.num_cols());
+      } else {
+        // Read column names from header row
+        auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+          column_names_.emplace_back(reinterpret_cast<const char*>(data), size);
+          return Status::OK();
+        };
+        RETURN_NOT_OK(parser.VisitLastRow(visit));
+        DCHECK_EQ(static_cast<size_t>(parser.num_cols()), column_names_.size());
+        // Skip parsed header row
+        cur_data_ += parsed_size;
+        cur_size_ -= parsed_size;
+      }
     } else {
       column_names_ = read_options_.column_names;
     }
@@ -269,6 +274,17 @@ class BaseTableReader : public csv::TableReader {
       type = null();
     }
     return ColumnBuilder::MakeNull(pool_, type, task_group_, out);
+  }
+
+  std::vector<std::string> GenerateColumnNames(int32_t num_cols) {
+    std::vector<std::string> res;
+    res.reserve(num_cols);
+    for (int32_t i = 0; i < num_cols; ++i) {
+      std::stringstream ss;
+      ss << "f" << i;
+      res.push_back(ss.str());
+    }
+    return res;
   }
 
   // Trigger conversion of parsed block data

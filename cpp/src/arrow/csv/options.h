@@ -100,8 +100,13 @@ struct ARROW_EXPORT ReadOptions {
 
   // Number of header rows to skip (not including the row of column names, if any)
   int32_t skip_rows = 0;
-  // Column names (if empty, will be read from first row after `skip_rows`)
+  // Column names for the target table.
+  // If empty, fall back on autogenerate_column_names.
   std::vector<std::string> column_names;
+  // Whether to autogenerate column names if `column_names` is empty.
+  // If true, column names will be of the form "f0", "f1"...
+  // If false, column names will be read from the first CSV row after `skip_rows`.
+  bool autogenerate_column_names = false;
 
   static ReadOptions Defaults();
 };
