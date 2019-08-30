@@ -159,7 +159,7 @@ class ARROW_DS_EXPORT SimpleScanner : public Scanner {
 
 class ARROW_DS_EXPORT ScannerBuilder {
  public:
-  ScannerBuilder(std::shared_ptr<Dataset> dataset);
+  explicit ScannerBuilder(std::shared_ptr<Dataset> dataset);
 
   /// \brief Set
   ScannerBuilder* Project(const std::vector<std::string>& columns);
