@@ -230,7 +230,7 @@ std::shared_ptr<DataType> StructBuilder::type() const {
   DCHECK_EQ(type_->children().size(), children_.size());
   std::vector<std::shared_ptr<Field>> fields(children_.size());
   for (size_t i = 0; i < fields.size(); ++i) {
-    fields[i] = fields[i]->WithType(children_[i]->type());
+    fields[i] = type_->child(i)->WithType(children_[i]->type());
   }
   return struct_(std::move(fields));
 }
