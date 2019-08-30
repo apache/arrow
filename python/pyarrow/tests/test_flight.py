@@ -503,7 +503,7 @@ def test_flight_get_info():
 
 
 def test_flight_get_schema():
-    """Make sure FlightEndpoint accepts string and object URIs."""
+    """Make sure GetSchema returns correct schema."""
     with flight_server(GetInfoFlightServer) as server_location:
         client = flight.FlightClient.connect(server_location)
         info = client.get_schema(flight.FlightDescriptor.for_command(b''))

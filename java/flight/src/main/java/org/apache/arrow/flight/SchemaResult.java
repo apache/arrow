@@ -70,7 +70,7 @@ public class SchemaResult {
   /**
    * Converts from the protocol buffer representation.
    */
-  public static SchemaResult fromProtocol(Flight.SchemaResult pbSchemaResult) {
+  static SchemaResult fromProtocol(Flight.SchemaResult pbSchemaResult) {
     try {
       final ByteBuffer schemaBuf = pbSchemaResult.getSchema().asReadOnlyByteBuffer();
       Schema schema = pbSchemaResult.getSchema().size() > 0 ?

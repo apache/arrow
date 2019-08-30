@@ -108,7 +108,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
                             unique_ptr[CFlightInfo]* out)
 
     cdef cppclass CSchemaResult" arrow::flight::SchemaResult":
-        CSchemaResult(CSchemaResult info)
+        CSchemaResult(CSchemaResult result)
         CStatus GetSchema(CDictionaryMemo* memo, shared_ptr[CSchema]* out)
 
     cdef cppclass CFlightListing" arrow::flight::FlightListing":
@@ -225,7 +225,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
                               unique_ptr[CFlightInfo]* info)
         CStatus GetSchema(CFlightCallOptions& options,
                           CFlightDescriptor& descriptor,
-                          unique_ptr[CSchemaResult]* info)
+                          unique_ptr[CSchemaResult]* result)
         CStatus DoGet(CFlightCallOptions& options, CTicket& ticket,
                       unique_ptr[CFlightStreamReader]* stream)
         CStatus DoPut(CFlightCallOptions& options,

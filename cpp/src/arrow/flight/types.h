@@ -325,6 +325,8 @@ struct ARROW_FLIGHT_EXPORT SchemaResult {
   explicit SchemaResult(std::string schema) : raw_schema_(std::move(schema)) {}
 
   /// \brief return schema
+  /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
+  /// be modified
   /// \param[out] out the reconstructed Schema
   Status GetSchema(ipc::DictionaryMemo* dictionary_memo,
                    std::shared_ptr<Schema>* out) const;
