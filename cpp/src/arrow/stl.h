@@ -47,7 +47,7 @@ using BareTupleElement = typename std::remove_const<typename std::remove_referen
 }  // namespace internal
 
 /// Traits meta class to map standard C/C++ types to equivalent Arrow types.
-template <typename T, typename = void>
+template <typename T, typename Enable = void>
 struct ConversionTraits {};
 
 #define ARROW_STL_CONVERSION(c_type, ArrowType_)                                    \
