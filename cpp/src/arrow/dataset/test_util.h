@@ -65,8 +65,6 @@ void EnsureRecordBatchReaderDrained(RecordBatchReader* reader) {
 
 class DatasetFixtureMixin : public ::testing::Test {
  public:
-  DatasetFixtureMixin() : ctx_(std::make_shared<ScanContext>()) {}
-
   /// \brief Ensure that record batches found in reader are equals to the
   /// record batches yielded by the data fragment.
   void AssertScanTaskEquals(RecordBatchReader* expected, ScanTask* task,
@@ -152,7 +150,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
  protected:
-  std::shared_ptr<ScanContext> ctx_;
+  ScanContext ctx_;
 };
 
 template <typename Format>
@@ -163,8 +161,7 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
   void SetUp() override {
     format_ = std::make_shared<Format>();
     schema_ = schema({field("dummy", null())});
-    context_ = std::make_shared<ScanContext>();
-    context_->schema(schema_);
+    context_.schema(schema_);
 
     ASSERT_OK(
         TemporaryDir::Make("test-fsdatasource-" + format_->name() + "-", &temp_dir_));
@@ -189,8 +186,7 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
   }
 
   void MakeDataSource() {
-    ASSERT_OK(FileSystemBasedDataSource::Make(fs_.get(), selector_, format_, context_,
-                                              &source_));
+    ASSERT_OK(FileSystemBasedDataSource::Make(fs_.get(), selector_, format_, &source_));
   }
 
  protected:
@@ -262,7 +258,7 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
   std::shared_ptr<fs::FileSystem> fs_;
   std::unique_ptr<TemporaryDir> temp_dir_;
   std::shared_ptr<FileFormat> format_;
-  std::shared_ptr<ScanContext> context_;
+  ScanContext context_;
   std::shared_ptr<Schema> schema_;
 };
 
@@ -281,27 +277,25 @@ class DummyFileFormat : public FileFormat {
   bool IsKnownExtension(const std::string& ext) const override { return ext == name(); }
 
   /// \brief Open a file for scanning (always returns an empty iterator)
-  Status ScanFile(const FileSource& source, std::shared_ptr<ScanContext> context,
+  Status ScanFile(const FileSource& source, const ScanContext& context,
                   std::unique_ptr<ScanTaskIterator>* out) const override {
     *out = internal::make_unique<EmptyIterator<std::unique_ptr<ScanTask>>>();
     return Status::OK();
   }
 
-  inline Status MakeFragment(const FileSource& location,
-                             std::shared_ptr<ScanContext> context,
+  inline Status MakeFragment(const FileSource& location, const ScanContext& context,
                              std::unique_ptr<DataFragment>* out) override;
 };
 
 class DummyFragment : public FileBasedDataFragment {
  public:
-  DummyFragment(const FileSource& source, std::shared_ptr<ScanContext> context)
+  DummyFragment(const FileSource& source, const ScanContext& context)
       : FileBasedDataFragment(source, std::make_shared<DummyFileFormat>(), context) {}
 
   bool splittable() const override { return false; }
 };
 
-Status DummyFileFormat::MakeFragment(const FileSource& source,
-                                     std::shared_ptr<ScanContext> context,
+Status DummyFileFormat::MakeFragment(const FileSource& source, const ScanContext& context,
                                      std::unique_ptr<DataFragment>* out) {
   *out = internal::make_unique<DummyFragment>(source, context);
   return Status::OK();

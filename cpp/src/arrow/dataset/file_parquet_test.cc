@@ -147,9 +147,7 @@ class TestParquetFileFormat : public ParquetBufferFixtureMixin {};
 TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   auto reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
-  auto context = std::make_shared<ScanContext>();
-  context->schema(reader->schema());
-  auto fragment = std::make_shared<ParquetFragment>(*source, context);
+  auto fragment = std::make_shared<ParquetFragment>(*source, ScanContext());
 
   std::unique_ptr<ScanTaskIterator> it;
   ASSERT_OK(fragment->Scan(&it));

@@ -47,18 +47,15 @@ Status FileBasedDataFragment::Scan(std::unique_ptr<ScanTaskIterator>* out) {
 FileSystemBasedDataSource::FileSystemBasedDataSource(fs::FileSystem* filesystem,
                                                      const fs::Selector& selector,
                                                      std::shared_ptr<FileFormat> format,
-                                                     std::shared_ptr<ScanContext> context,
                                                      std::vector<fs::FileStats> stats)
     : filesystem_(filesystem),
       selector_(std::move(selector)),
       format_(std::move(format)),
-      context_(std::move(context)),
       stats_(std::move(stats)) {}
 
 Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
                                        const fs::Selector& selector,
                                        std::shared_ptr<FileFormat> format,
-                                       std::shared_ptr<ScanContext> context,
                                        std::unique_ptr<FileSystemBasedDataSource>* out) {
   std::vector<fs::FileStats> stats;
   RETURN_NOT_OK(filesystem->GetTargetStats(selector, &stats));
@@ -71,18 +68,18 @@ Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
   stats.resize(new_end - stats.begin());
 
   out->reset(new FileSystemBasedDataSource(filesystem, selector, std::move(format),
-                                           std::move(context), std::move(stats)));
+                                           std::move(stats)));
   return Status::OK();
 }
 
 std::unique_ptr<DataFragmentIterator> FileSystemBasedDataSource::GetFragments(
-    std::shared_ptr<ScanContext> context) {
+    const ScanContext& context) {
   struct Impl : DataFragmentIterator {
     Impl(fs::FileSystem* filesystem, std::shared_ptr<FileFormat> format,
-         std::shared_ptr<ScanContext> context, std::vector<fs::FileStats> stats)
+         const ScanContext& context, std::vector<fs::FileStats> stats)
         : filesystem_(filesystem),
           format_(std::move(format)),
-          context_(std::move(context)),
+          context_(context),
           stats_(std::move(stats)) {}
 
     Status Next(std::shared_ptr<DataFragment>* out) {
@@ -101,7 +98,7 @@ std::unique_ptr<DataFragmentIterator> FileSystemBasedDataSource::GetFragments(
     size_t i_ = 0;
     fs::FileSystem* filesystem_;
     std::shared_ptr<FileFormat> format_;
-    std::shared_ptr<ScanContext> context_;
+    ScanContext context_;
     std::vector<fs::FileStats> stats_;
   };
 

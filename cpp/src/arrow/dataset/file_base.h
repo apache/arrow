@@ -112,12 +112,11 @@ class ARROW_DS_EXPORT FileFormat {
   virtual bool IsKnownExtension(const std::string& ext) const = 0;
 
   /// \brief Open a file for scanning
-  virtual Status ScanFile(const FileSource& source, std::shared_ptr<ScanContext> context,
+  virtual Status ScanFile(const FileSource& source, const ScanContext& context,
                           std::unique_ptr<ScanTaskIterator>* out) const = 0;
 
   /// \brief Open a fragment
-  virtual Status MakeFragment(const FileSource& location,
-                              std::shared_ptr<ScanContext> context,
+  virtual Status MakeFragment(const FileSource& location, const ScanContext& context,
                               std::unique_ptr<DataFragment>* out) = 0;
 };
 
@@ -125,7 +124,7 @@ class ARROW_DS_EXPORT FileFormat {
 class ARROW_DS_EXPORT FileBasedDataFragment : public DataFragment {
  public:
   FileBasedDataFragment(const FileSource& source, std::shared_ptr<FileFormat> format,
-                        std::shared_ptr<ScanContext> context)
+                        const ScanContext& context)
       : source_(source), format_(std::move(format)), context_(std::move(context)) {}
 
   Status Scan(std::unique_ptr<ScanTaskIterator>* out) override;
@@ -133,12 +132,12 @@ class ARROW_DS_EXPORT FileBasedDataFragment : public DataFragment {
   const FileSource& source() const { return source_; }
   std::shared_ptr<FileFormat> format() const { return format_; }
 
-  std::shared_ptr<ScanContext> context() const override { return context_; }
+  const ScanContext& context() const override { return context_; }
 
  protected:
   FileSource source_;
   std::shared_ptr<FileFormat> format_;
-  std::shared_ptr<ScanContext> context_;
+  ScanContext context_;
 };
 
 /// \brief A DataSource which takes files of one format from a directory
@@ -150,24 +149,20 @@ class ARROW_DS_EXPORT FileSystemBasedDataSource : public DataSource {
  public:
   static Status Make(fs::FileSystem* filesystem, const fs::Selector& selector,
                      std::shared_ptr<FileFormat> format,
-                     std::shared_ptr<ScanContext> context,
                      std::unique_ptr<FileSystemBasedDataSource>* out);
 
   std::string type() const override { return "directory"; }
 
-  std::unique_ptr<DataFragmentIterator> GetFragments(
-      std::shared_ptr<ScanContext> context) override;
+  std::unique_ptr<DataFragmentIterator> GetFragments(const ScanContext& context) override;
 
  protected:
   FileSystemBasedDataSource(fs::FileSystem* filesystem, const fs::Selector& selector,
                             std::shared_ptr<FileFormat> format,
-                            std::shared_ptr<ScanContext> context,
                             std::vector<fs::FileStats> stats);
 
   fs::FileSystem* filesystem_ = NULLPTR;
   fs::Selector selector_;
   std::shared_ptr<FileFormat> format_;
-  std::shared_ptr<ScanContext> context_;
   std::vector<fs::FileStats> stats_;
 };
 

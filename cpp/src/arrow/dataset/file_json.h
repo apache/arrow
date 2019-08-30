@@ -37,10 +37,10 @@ class ARROW_DS_EXPORT JsonFileFormat : public FileFormat {
   bool IsKnownExtension(const std::string& ext) const override;
 
   /// \brief Open a file for scanning
-  Status ScanFile(const FileSource& source, std::shared_ptr<ScanContext> context,
+  Status ScanFile(const FileSource& source, const ScanContext& context,
                   std::unique_ptr<ScanTaskIterator>* out) const override;
 
-  Status MakeFragment(const FileSource& source, std::shared_ptr<ScanContext> context,
+  Status MakeFragment(const FileSource& source, const ScanContext& context,
                       std::unique_ptr<DataFragment>* out) override;
 };
 
