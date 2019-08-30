@@ -24,7 +24,6 @@
 #include <iosfwd>
 #include <memory>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "arrow/result.h"
@@ -845,7 +844,7 @@ class ARROW_EXPORT StructType : public NestedType {
 
   static constexpr const char* type_name() { return "struct"; }
 
-  explicit StructType(std::vector<std::shared_ptr<Field>> fields);
+  explicit StructType(const std::vector<std::shared_ptr<Field>>& fields);
 
   ~StructType() override;
 
@@ -929,7 +928,8 @@ class ARROW_EXPORT UnionType : public NestedType {
 
   static constexpr const char* type_name() { return "union"; }
 
-  UnionType(std::vector<std::shared_ptr<Field>> fields, std::vector<uint8_t> type_codes,
+  UnionType(const std::vector<std::shared_ptr<Field>>& fields,
+            const std::vector<uint8_t>& type_codes,
             UnionMode::type mode = UnionMode::SPARSE);
 
   DataTypeLayout layout() const override;
@@ -1448,30 +1448,32 @@ std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
 
 /// \brief Create a StructType instance
 std::shared_ptr<DataType> ARROW_EXPORT
-struct_(std::vector<std::shared_ptr<Field>> fields);
+struct_(const std::vector<std::shared_ptr<Field>>& fields);
 
 /// \brief Create a UnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
-union_(std::vector<std::shared_ptr<Field>> child_fields, std::vector<uint8_t> type_codes,
-       UnionMode::type mode = UnionMode::SPARSE);
+union_(const std::vector<std::shared_ptr<Field>>& child_fields,
+       const std::vector<uint8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
 
 /// \brief Create a UnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
-union_(std::vector<std::shared_ptr<Array>> children, std::vector<std::string> field_names,
-       std::vector<uint8_t> type_codes, UnionMode::type mode = UnionMode::SPARSE);
+union_(const std::vector<std::shared_ptr<Array>>& children,
+       const std::vector<std::string>& field_names,
+       const std::vector<uint8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
 
 /// \brief Create a UnionType instance
 inline std::shared_ptr<DataType> ARROW_EXPORT
-union_(std::vector<std::shared_ptr<Array>> children, std::vector<std::string> field_names,
+union_(const std::vector<std::shared_ptr<Array>>& children,
+       const std::vector<std::string>& field_names,
        UnionMode::type mode = UnionMode::SPARSE) {
-  return union_(std::move(children), std::move(field_names), {}, mode);
+  return union_(children, field_names, {}, mode);
 }
 
 /// \brief Create a UnionType instance
 inline std::shared_ptr<DataType> ARROW_EXPORT
-union_(std::vector<std::shared_ptr<Array>> children,
+union_(const std::vector<std::shared_ptr<Array>>& children,
        UnionMode::type mode = UnionMode::SPARSE) {
-  return union_(std::move(children), {}, {}, mode);
+  return union_(children, {}, {}, mode);
 }
 
 /// \brief Create a DictionaryType instance

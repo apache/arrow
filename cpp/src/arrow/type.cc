@@ -283,13 +283,13 @@ std::string DurationType::ToString() const {
 // ----------------------------------------------------------------------
 // Union type
 
-UnionType::UnionType(std::vector<std::shared_ptr<Field>> fields,
-                     std::vector<uint8_t> type_codes, UnionMode::type mode)
-    : NestedType(Type::UNION), mode_(mode), type_codes_(std::move(type_codes)) {
+UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
+                     const std::vector<uint8_t>& type_codes, UnionMode::type mode)
+    : NestedType(Type::UNION), mode_(mode), type_codes_(type_codes) {
   DCHECK_LE(fields.size(), type_codes.size()) << "union field with unknown type id";
   DCHECK_GE(fields.size(), type_codes.size())
       << "type id provided without corresponding union field";
-  children_ = std::move(fields);
+  children_ = fields;
 }
 
 DataTypeLayout UnionType::layout() const {
@@ -365,9 +365,9 @@ class StructType::Impl {
   const std::unordered_multimap<std::string, int> name_to_index_;
 };
 
-StructType::StructType(std::vector<std::shared_ptr<Field>> fields)
+StructType::StructType(const std::vector<std::shared_ptr<Field>>& fields)
     : NestedType(Type::STRUCT), impl_(new Impl(fields)) {
-  children_ = std::move(fields);
+  children_ = fields;
 }
 
 StructType::~StructType() {}
@@ -1101,19 +1101,19 @@ std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_fi
   return std::make_shared<FixedSizeListType>(value_field, list_size);
 }
 
-std::shared_ptr<DataType> struct_(std::vector<std::shared_ptr<Field>> fields) {
+std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fields) {
   return std::make_shared<StructType>(fields);
 }
 
-std::shared_ptr<DataType> union_(std::vector<std::shared_ptr<Field>> child_fields,
-                                 std::vector<uint8_t> type_codes, UnionMode::type mode) {
-  return std::make_shared<UnionType>(std::move(child_fields), std::move(type_codes),
-                                     mode);
+std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& child_fields,
+                                 const std::vector<uint8_t>& type_codes,
+                                 UnionMode::type mode) {
+  return std::make_shared<UnionType>(child_fields, type_codes, mode);
 }
 
-std::shared_ptr<DataType> union_(std::vector<std::shared_ptr<Array>> children,
-                                 std::vector<std::string> field_names,
-                                 std::vector<uint8_t> given_type_codes,
+std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Array>>& children,
+                                 const std::vector<std::string>& field_names,
+                                 const std::vector<uint8_t>& given_type_codes,
                                  UnionMode::type mode) {
   std::vector<std::shared_ptr<Field>> fields;
   std::vector<uint8_t> type_codes(given_type_codes);
@@ -1129,7 +1129,7 @@ std::shared_ptr<DataType> union_(std::vector<std::shared_ptr<Array>> children,
     }
     counter++;
   }
-  return union_(std::move(fields), std::move(type_codes), mode);
+  return union_(fields, std::move(type_codes), mode);
 }
 
 std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,
