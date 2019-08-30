@@ -81,10 +81,6 @@ Status ResolveCurrentExecutable(fs::path* out) {
 
 }  // namespace
 
-static int next_listen_port_ = 30001;
-
-int GetListenPort() { return next_listen_port_++; }
-
 void TestServer::Start() {
   namespace fs = boost::filesystem;
 
