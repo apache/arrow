@@ -1059,7 +1059,7 @@ cdef class ParquetReader:
 
     def read_row_group(self, int i, column_indices=None,
                        bint use_threads=True):
-        return read_row_groups([i], column_indices, use_threads)
+        return self.read_row_groups([i], column_indices, use_threads)
 
     def read_row_groups(self, row_groups not None, column_indices=None,
                         bint use_threads=True):
