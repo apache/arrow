@@ -107,15 +107,19 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
     Put(data, num_valid_values);
   }
 
+  void UnsafePutByteArray(const void* data, uint32_t length) {
+    DCHECK(length == 0 || data != nullptr) << "Value ptr cannot be NULL";
+    sink_.UnsafeAppend(&length, sizeof(uint32_t));
+    sink_.UnsafeAppend(data, static_cast<int64_t>(length));
+  }
+
   void Put(const ByteArray& val) {
     // Write the result to the output stream
     const int64_t increment = static_cast<int64_t>(val.len + sizeof(uint32_t));
     if (ARROW_PREDICT_FALSE(sink_.length() + increment > sink_.capacity())) {
       PARQUET_THROW_NOT_OK(sink_.Reserve(increment));
     }
-    DCHECK(val.len == 0 || nullptr != val.ptr) << "Value ptr cannot be NULL";
-    sink_.UnsafeAppend(&val.len, sizeof(uint32_t));
-    sink_.UnsafeAppend(val.ptr, val.len);
+    UnsafePutByteArray(val.ptr, val.len);
   }
 
  protected:
@@ -124,7 +128,9 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
 template <typename DType>
 void PlainEncoder<DType>::Put(const T* buffer, int num_values) {
-  PARQUET_THROW_NOT_OK(sink_.Append(buffer, num_values * sizeof(T)));
+  if (num_values > 0) {
+    PARQUET_THROW_NOT_OK(sink_.Append(buffer, num_values * sizeof(T)));
+  }
 }
 
 template <>
@@ -153,22 +159,17 @@ void PlainEncoder<ByteArrayType>::Put(const arrow::Array& values) {
   const int64_t total_bytes = data.value_offset(data.length()) - data.value_offset(0);
   PARQUET_THROW_NOT_OK(sink_.Reserve(total_bytes + data.length() * sizeof(uint32_t)));
 
-  auto AppendValue = [&](int64_t i) {
-    auto view = data.GetView(i);
-    const uint32_t length = static_cast<uint32_t>(view.size());
-    sink_.UnsafeAppend(&length, sizeof(uint32_t));
-    sink_.UnsafeAppend(view.data(), view.size());
-  };
-
   if (data.null_count() == 0) {
     // no nulls, just dump the data
     for (int64_t i = 0; i < data.length(); i++) {
-      AppendValue(i);
+      auto view = data.GetView(i);
+      UnsafePutByteArray(view.data(), static_cast<uint32_t>(view.size()));
     }
   } else {
     for (int64_t i = 0; i < data.length(); i++) {
       if (data.IsValid(i)) {
-        AppendValue(i);
+        auto view = data.GetView(i);
+        UnsafePutByteArray(view.data(), static_cast<uint32_t>(view.size()));
       }
     }
   }
@@ -176,11 +177,12 @@ void PlainEncoder<ByteArrayType>::Put(const arrow::Array& values) {
 
 template <>
 inline void PlainEncoder<FLBAType>::Put(const FixedLenByteArray* src, int num_values) {
+  if (descr_->type_length() == 0) {
+    return;
+  }
   for (int i = 0; i < num_values; ++i) {
     // Write the result to the output stream
-    if (descr_->type_length() > 0) {
-      DCHECK(nullptr != src[i].ptr) << "Value ptr cannot be NULL";
-    }
+    DCHECK(src[i].ptr != nullptr) << "Value ptr cannot be NULL";
     PARQUET_THROW_NOT_OK(sink_.Append(src[i].ptr, descr_->type_length()));
   }
 }
@@ -199,10 +201,9 @@ class PlainBooleanEncoder : public EncoderImpl,
       : EncoderImpl(descr, Encoding::PLAIN, pool),
         bits_available_(kInMemoryDefaultCapacity * 8),
         bits_buffer_(AllocateBuffer(pool, kInMemoryDefaultCapacity)),
-        sink_(pool) {
-    bit_writer_.reset(new BitUtil::BitWriter(bits_buffer_->mutable_data(),
-                                             static_cast<int>(bits_buffer_->size())));
-  }
+        sink_(pool),
+        bit_writer_(bits_buffer_->mutable_data(),
+                    static_cast<int>(bits_buffer_->size())) {}
 
   int64_t EstimatedDataEncodedSize() override;
   std::shared_ptr<Buffer> FlushValues() override;
@@ -234,9 +235,9 @@ class PlainBooleanEncoder : public EncoderImpl,
 
  private:
   int bits_available_;
-  std::unique_ptr<arrow::BitUtil::BitWriter> bit_writer_;
   std::shared_ptr<ResizableBuffer> bits_buffer_;
   arrow::BufferBuilder sink_;
+  arrow::BitUtil::BitWriter bit_writer_;
 
   template <typename SequenceType>
   void PutImpl(const SequenceType& src, int num_values);
@@ -248,16 +249,16 @@ void PlainBooleanEncoder::PutImpl(const SequenceType& src, int num_values) {
   if (bits_available_ > 0) {
     int bits_to_write = std::min(bits_available_, num_values);
     for (int i = 0; i < bits_to_write; i++) {
-      bit_writer_->PutValue(src[i], 1);
+      bit_writer_.PutValue(src[i], 1);
     }
     bits_available_ -= bits_to_write;
     bit_offset = bits_to_write;
 
     if (bits_available_ == 0) {
-      bit_writer_->Flush();
+      bit_writer_.Flush();
       PARQUET_THROW_NOT_OK(
-          sink_.Append(bit_writer_->buffer(), bit_writer_->bytes_written()));
-      bit_writer_->Clear();
+          sink_.Append(bit_writer_.buffer(), bit_writer_.bytes_written()));
+      bit_writer_.Clear();
     }
   }
 
@@ -267,32 +268,31 @@ void PlainBooleanEncoder::PutImpl(const SequenceType& src, int num_values) {
 
     int bits_to_write = std::min(bits_available_, bits_remaining);
     for (int i = bit_offset; i < bit_offset + bits_to_write; i++) {
-      bit_writer_->PutValue(src[i], 1);
+      bit_writer_.PutValue(src[i], 1);
     }
     bit_offset += bits_to_write;
     bits_available_ -= bits_to_write;
     bits_remaining -= bits_to_write;
 
     if (bits_available_ == 0) {
-      bit_writer_->Flush();
+      bit_writer_.Flush();
       PARQUET_THROW_NOT_OK(
-          sink_.Append(bit_writer_->buffer(), bit_writer_->bytes_written()));
-      bit_writer_->Clear();
+          sink_.Append(bit_writer_.buffer(), bit_writer_.bytes_written()));
+      bit_writer_.Clear();
     }
   }
 }
 
 int64_t PlainBooleanEncoder::EstimatedDataEncodedSize() {
   int64_t position = sink_.length();
-  return position + bit_writer_->bytes_written();
+  return position + bit_writer_.bytes_written();
 }
 
 std::shared_ptr<Buffer> PlainBooleanEncoder::FlushValues() {
   if (bits_available_ > 0) {
-    bit_writer_->Flush();
-    PARQUET_THROW_NOT_OK(
-        sink_.Append(bit_writer_->buffer(), bit_writer_->bytes_written()));
-    bit_writer_->Clear();
+    bit_writer_.Flush();
+    PARQUET_THROW_NOT_OK(sink_.Append(bit_writer_.buffer(), bit_writer_.bytes_written()));
+    bit_writer_.Clear();
     bits_available_ = static_cast<int>(bits_buffer_->size()) * 8;
   }
 
@@ -395,6 +395,9 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   /// Encode value. Note that this does not actually write any data, just
   /// buffers the value's index to be written later.
   inline void Put(const T& value);
+
+  // Not implemented for other data types
+  inline void PutByteArray(const void* ptr, int32_t length);
 
   void Put(const T* src, int num_values) override {
     for (int32_t i = 0; i < num_values; i++) {
@@ -525,20 +528,30 @@ inline void DictEncoderImpl<DType>::Put(const T& v) {
   buffered_indices_.push_back(memo_index);
 }
 
+template <typename DType>
+inline void DictEncoderImpl<DType>::PutByteArray(const void* ptr, int32_t length) {
+  DCHECK(false);
+}
+
 template <>
-inline void DictEncoderImpl<ByteArrayType>::Put(const ByteArray& v) {
+inline void DictEncoderImpl<ByteArrayType>::PutByteArray(const void* ptr,
+                                                         int32_t length) {
   static const uint8_t empty[] = {0};
 
   auto on_found = [](int32_t memo_index) {};
   auto on_not_found = [&](int32_t memo_index) {
-    dict_encoded_size_ += static_cast<int>(v.len + sizeof(uint32_t));
+    dict_encoded_size_ += static_cast<int>(length + sizeof(uint32_t));
   };
 
-  DCHECK(v.ptr != nullptr || v.len == 0);
-  const void* ptr = (v.ptr != nullptr) ? v.ptr : empty;
-  auto memo_index =
-      memo_table_.GetOrInsert(ptr, static_cast<int32_t>(v.len), on_found, on_not_found);
+  DCHECK(ptr != nullptr || length == 0);
+  ptr = (ptr != nullptr) ? ptr : empty;
+  auto memo_index = memo_table_.GetOrInsert(ptr, length, on_found, on_not_found);
   buffered_indices_.push_back(memo_index);
+}
+
+template <>
+inline void DictEncoderImpl<ByteArrayType>::Put(const ByteArray& val) {
+  return PutByteArray(val.ptr, static_cast<int32_t>(val.len));
 }
 
 template <>
@@ -566,12 +579,14 @@ void DictEncoderImpl<ByteArrayType>::Put(const arrow::Array& values) {
   if (data.null_count() == 0) {
     // no nulls, just dump the data
     for (int64_t i = 0; i < data.length(); i++) {
-      Put(ByteArray(data.GetView(i)));
+      auto view = data.GetView(i);
+      PutByteArray(view.data(), static_cast<int32_t>(view.size()));
     }
   } else {
     for (int64_t i = 0; i < data.length(); i++) {
       if (data.IsValid(i)) {
-        Put(ByteArray(data.GetView(i)));
+        auto view = data.GetView(i);
+        PutByteArray(view.data(), static_cast<int32_t>(view.size()));
       }
     }
   }
