@@ -106,6 +106,7 @@ class build_ext(_build_ext):
                       'namespace of boost (default: boost)'),
                      ('with-cuda', None, 'build the Cuda extension'),
                      ('with-flight', None, 'build the Flight extension'),
+                     ('with-dataset', None, 'build the Dataset extension'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-static-boost', None, 'link boost statically'),
@@ -149,6 +150,8 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_CUDA', '0'))
         self.with_flight = strtobool(
             os.environ.get('PYARROW_WITH_FLIGHT', '0'))
+        self.with_dataset = strtobool(
+            os.environ.get('PYARROW_WITH_DATASET', '0'))
         self.with_parquet = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
         self.with_static_parquet = strtobool(
@@ -177,6 +180,7 @@ class build_ext(_build_ext):
         '_json',
         '_cuda',
         '_flight',
+        '_dataset',
         '_parquet',
         '_orc',
         '_plasma',
@@ -230,6 +234,7 @@ class build_ext(_build_ext):
             append_cmake_bool(self.with_cuda, 'PYARROW_BUILD_CUDA')
             append_cmake_bool(self.with_flight, 'PYARROW_BUILD_FLIGHT')
             append_cmake_bool(self.with_gandiva, 'PYARROW_BUILD_GANDIVA')
+            append_cmake_bool(self.with_dataset, 'PYARROW_BUILD_DATASET')
             append_cmake_bool(self.with_orc, 'PYARROW_BUILD_ORC')
             append_cmake_bool(self.with_parquet, 'PYARROW_BUILD_PARQUET')
             append_cmake_bool(self.with_plasma, 'PYARROW_BUILD_PLASMA')
@@ -355,6 +360,8 @@ class build_ext(_build_ext):
                     move_shared_libs(build_prefix, build_lib, "arrow_flight")
                     move_shared_libs(build_prefix, build_lib,
                                      "arrow_python_flight")
+                if self.with_dataset:
+                    move_shared_libs(build_prefix, build_lib, "arrow_dataset")
                 if self.with_plasma:
                     move_shared_libs(build_prefix, build_lib, "plasma")
                 if self.with_gandiva:
@@ -407,6 +414,8 @@ class build_ext(_build_ext):
         if name == '_s3fs' and not self.with_s3:
             return True
         if name == '_hdfs' and not self.with_hdfs:
+            return True
+        if name == '_dataset' and not self.with_dataset:
             return True
         if name == '_cuda' and not self.with_cuda:
             return True

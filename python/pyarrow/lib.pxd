@@ -26,6 +26,9 @@ from cpython cimport PyObject
 from libcpp cimport nullptr
 from libcpp.cast cimport dynamic_cast
 
+# TODO(kszucs): DEPRECATE
+# ctypedef RandomAccessFile = CRandomAccessFile
+
 
 cdef extern from "Python.h":
     int PySlice_Check(object)
