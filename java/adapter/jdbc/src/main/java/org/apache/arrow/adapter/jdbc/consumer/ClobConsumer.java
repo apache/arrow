@@ -26,6 +26,7 @@ import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.VarCharVector;
 
 import io.netty.buffer.ArrowBuf;
+import io.netty.util.internal.PlatformDependent;
 
 /**
  * Consumer which consume clob type values from {@link ResultSet}.
@@ -66,7 +67,12 @@ public class ClobConsumer implements JdbcConsumer<VarCharVector> {
           String str = clob.getSubString(read, readSize);
           byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
 
-          dataBuffer.setBytes(startIndex + totalBytes, bytes);
+          if ((dataBuffer.writerIndex() + bytes.length) > dataBuffer.capacity()) {
+            vector.reallocDataBuffer();
+          }
+          PlatformDependent.copyMemory(bytes, 0,
+              dataBuffer.memoryAddress() + startIndex + totalBytes, bytes.length);
+
           totalBytes += bytes.length;
           read += readSize;
         }

@@ -26,6 +26,7 @@ import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.VarBinaryVector;
 
 import io.netty.buffer.ArrowBuf;
+import io.netty.util.internal.PlatformDependent;
 
 /**
  * Consumer which consume binary type values from {@link ResultSet}.
@@ -62,7 +63,11 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
       ArrowBuf offsetBuffer = vector.getOffsetBuffer();
       int startIndex = offsetBuffer.getInt(currentIndex * 4);
       while ((read = is.read(bytes)) != -1) {
-        dataBuffer.setBytes(startIndex + totalBytes, bytes, 0 , read);
+        if ((dataBuffer.writerIndex() + read) > dataBuffer.capacity()) {
+          vector.reallocDataBuffer();
+        }
+        PlatformDependent.copyMemory(bytes, 0,
+            dataBuffer.memoryAddress() + startIndex + totalBytes, read);
         totalBytes += read;
       }
       offsetBuffer.setInt((currentIndex + 1) * 4, startIndex + totalBytes);
