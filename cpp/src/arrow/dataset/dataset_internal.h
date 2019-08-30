@@ -85,11 +85,17 @@ class RecordBatchProjector {
   }
 
   Status Project(const RecordBatch& batch, std::shared_ptr<RecordBatch>* out) {
-    std::vector<std::shared_ptr<Array>> columns(to_->num_fields());
+    if (!batch.schema()->Equals(*from_)) {
+      return Status::TypeError(
+          "Incoming record batch does not have the expected schema: ", from_->ToString(),
+          " got: ", batch.schema()->ToString());
+    }
 
     if (missing_columns_length_ < batch.num_rows()) {
       RETURN_NOT_OK(ResizeMissingColumns(batch.num_rows()));
     }
+
+    std::vector<std::shared_ptr<Array>> columns(to_->num_fields());
 
     for (int i = 0; i < to_->num_fields(); ++i) {
       int matching_index = column_indices_[i];
