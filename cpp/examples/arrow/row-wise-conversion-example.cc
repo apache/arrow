@@ -39,12 +39,12 @@ struct data_row {
 
 // Transforming a vector of structs into a columnar Table.
 //
-// The final representation should be an `arrow::Table` which in turn is made up of
-// an `arrow::Schema` and a list of `arrow::Column`. An `arrow::Column` is again a
-// named collection of one or more `arrow::Array` instances. As the first step, we
-// will iterate over the data and build up the arrays incrementally. For this task,
-// we provide `arrow::ArrayBuilder` classes that help in the construction of the
-// final `arrow::Array` instances.
+// The final representation should be an `arrow::Table` which in turn
+// is made up of an `arrow::Schema` and a list of
+// `arrow::ChunkedArray` instances. As the first step, we will iterate
+// over the data and build up the arrays incrementally.  For this
+// task, we provide `arrow::ArrayBuilder` classes that help in the
+// construction of the final `arrow::Array` instances.
 //
 // For each type, Arrow has a specially typed builder class. For the primitive
 // values `id` and `cost` we can use the respective `arrow::Int64Builder` and
