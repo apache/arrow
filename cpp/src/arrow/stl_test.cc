@@ -62,6 +62,10 @@ struct CustomType {
 };
 
 // Mock optional object returning null, "yes", "no", null, "yes", "no", ...
+// Note: This mock optional object will advance its state every time it's casted
+// to bool. Successive castings to bool may give inconsistent results. It
+// doesn't mock entire optional logic. It is used only for ensuring user
+// specialization isn't broken with templated Optionals.
 struct CustomOptionalTypeMock {
   static int counter;
   CustomOptionalTypeMock() = default;
