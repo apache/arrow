@@ -155,5 +155,42 @@ class RecordBatchProjector {
 
 constexpr int RecordBatchProjector::kNoMatch;
 
+/// Wraps a RecordBatchIterator and projects each yielded batch using the given projector.
+///
+/// Note that as with RecordBatchProjector, ProjectedRecordBatchReader is most efficient
+/// when projecting record batches with a consistent schema (for example batches from a
+/// table), but it can project record batches having any schema.
+class ProjectedRecordBatchReader : public RecordBatchReader {
+ public:
+  static Status Make(MemoryPool* pool, RecordBatchProjector projector,
+                     std::unique_ptr<RecordBatchIterator> wrapped,
+                     std::unique_ptr<RecordBatchIterator>* out) {
+    out->reset(
+        new ProjectedRecordBatchReader(pool, std::move(projector), std::move(wrapped)));
+    return Status::OK();
+  }
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
+    std::shared_ptr<RecordBatch> rb;
+    RETURN_NOT_OK(wrapped_->Next(&rb));
+    if (rb == nullptr) {
+      *out = nullptr;
+      return Status::OK();
+    }
+
+    return projector_.Project(*rb, out);
+  }
+
+  std::shared_ptr<Schema> schema() const override { return projector_.schema(); }
+
+ private:
+  ProjectedRecordBatchReader(MemoryPool* pool, RecordBatchProjector projector,
+                             std::unique_ptr<RecordBatchIterator> wrapped)
+      : projector_(std::move(projector)), wrapped_(std::move(wrapped)) {}
+
+  RecordBatchProjector projector_;
+  std::unique_ptr<RecordBatchIterator> wrapped_;
+};
+
 }  // namespace dataset
 }  // namespace arrow
