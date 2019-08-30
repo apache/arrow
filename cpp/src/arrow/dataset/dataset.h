@@ -24,7 +24,7 @@
 
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
-#include "arrow/util/iterator.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace dataset {
@@ -85,11 +85,6 @@ class ARROW_DS_EXPORT DataSource {
     return partition_expression_;
   }
 
-  /// FIXME(bkietz) providing a simple mutator like this is probably not ideal
-  void partition_expression(std::shared_ptr<Expression> e) {
-    partition_expression_ = std::move(e);
-  }
-
   virtual std::string type() const = 0;
 
   virtual ~DataSource() = default;
@@ -99,9 +94,9 @@ class ARROW_DS_EXPORT DataSource {
   explicit DataSource(std::shared_ptr<Expression> c)
       : partition_expression_(std::move(c)) {}
 
-  /// Mutates a ScanOptions by assuming condition_ holds for all yielded fragments.
-  /// Returns non-null if context->selector is not satisfiable in this DataSource.
-  DataFragmentIterator AssumeCondition(std::shared_ptr<ScanOptions>* options) const;
+  /// Mutates a ScanOptions by assuming partition_expression_ holds for all yielded
+  /// fragments. Returns false if the selector is not satisfiable in this DataSource.
+  bool AssumePartitionExpression(std::shared_ptr<ScanOptions>* options) const;
 
   std::shared_ptr<Expression> partition_expression_;
 };

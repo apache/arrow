@@ -22,6 +22,7 @@
 
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/stl.h"
 
 namespace arrow {
@@ -61,12 +62,11 @@ Status Dataset::NewScan(std::unique_ptr<ScannerBuilder>* out) {
   return Status::OK();
 }
 
-DataFragmentIterator DataSource::AssumeCondition(
-    std::shared_ptr<ScanOptions>* options) const {
+bool DataSource::AssumePartitionExpression(std::shared_ptr<ScanOptions>* options) const {
   DCHECK_NE(options, nullptr);
   if (*options == nullptr) {
     // null scan context; no selector to simplify
-    return DataFragmentIterator();
+    return true;
   }
 
   auto c = SelectorAssume((*options)->selector, partition_expression_);
@@ -75,19 +75,19 @@ DataFragmentIterator DataSource::AssumeCondition(
 
   bool trivial = true;
   if (expr->IsNull() || (expr->IsTrivialCondition(&trivial) && !trivial)) {
-    // don't yield any fragments
-    return MakeEmptyIterator<std::shared_ptr<DataFragment>>();
+    // selector is not satisfiable; yield no fragments
+    return false;
   }
 
   *options = std::make_shared<ScanOptions>(**options);
   (*options)->selector = ExpressionSelector(std::move(expr));
-  return DataFragmentIterator();
+  return true;
 }
 
 DataFragmentIterator SimpleDataSource::GetFragments(
     std::shared_ptr<ScanOptions> options) {
-  if (auto empty = AssumeCondition(&options)) {
-    return empty;
+  if (!AssumePartitionExpression(&options)) {
+    return MakeEmptyIterator<std::shared_ptr<DataFragment>>();
   }
   return MakeVectorIterator(fragments_);
 }

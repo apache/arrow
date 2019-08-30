@@ -28,6 +28,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/stl.h"
 
 namespace arrow {
@@ -196,8 +197,8 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
   }
 
   void MakeDataSource() {
-    ASSERT_OK(FileSystemBasedDataSource::Make(fs_.get(), selector_, format_, &source_));
-    source_->partition_expression(partition_expression_);
+    ASSERT_OK(FileSystemBasedDataSource::Make(fs_.get(), selector_, format_,
+                                              partition_expression_, &source_));
   }
 
  protected:
