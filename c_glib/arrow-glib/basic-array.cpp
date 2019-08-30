@@ -549,24 +549,23 @@ garrow_array_view(GArrowArray *array,
  * @array: A #GArrowArray.
  * @other_array: A #GArrowArray to be compared.
  *
- * Returns: (transfer full): The #GArrowStructArray which expresses
+ * Returns: (transfer full): The string representation of
  *   the difference between two arrays.
+ *
+ *   It should be freed with g_free() when no longer needed.
  *
  * Since: 0.15.0
  */
-GArrowStructArray *
+gchar *
 garrow_array_diff(GArrowArray *array, GArrowArray *other_array)
 {
   const auto arrow_array = garrow_array_get_raw(array);
   const auto arrow_other_array = garrow_array_get_raw(other_array);
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_result = arrow::Diff(*arrow_array,
-                                  *arrow_other_array,
-                                  memory_pool);
-  auto arrow_struct_array = arrow_result.ValueOrDie();
-  auto arrow_sub_array =
-    std::static_pointer_cast<arrow::Array>(arrow_struct_array);
-  return GARROW_STRUCT_ARRAY(garrow_array_new_raw(&arrow_sub_array));
+  std::stringstream diff;
+  arrow_array->Equals(arrow_other_array,
+                      arrow::EqualOptions().diff_sink(&diff));
+  auto string = diff.str();
+  return g_strndup(string.data(), string.size());
 }
 
 

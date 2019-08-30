@@ -22,7 +22,6 @@
 
 #include "arrow/array.h"                    // IYWU pragma: export
 #include "arrow/array/concatenate.h"        // IYWU pragma: export
-#include "arrow/array/diff.h"               // IYWU pragma: export
 #include "arrow/buffer.h"                   // IYWU pragma: export
 #include "arrow/builder.h"                  // IYWU pragma: export
 #include "arrow/compare.h"                  // IYWU pragma: export

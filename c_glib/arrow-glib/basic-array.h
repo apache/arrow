@@ -24,8 +24,6 @@
 
 G_BEGIN_DECLS
 
-typedef struct _GArrowStructArray GArrowStructArray;
-
 #define GARROW_TYPE_ARRAY (garrow_array_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowArray,
                          garrow_array,
@@ -67,8 +65,8 @@ GArrowArray *garrow_array_view(GArrowArray *array,
                                GArrowDataType *return_type,
                                GError **error);
 GARROW_AVAILABLE_IN_0_15
-GArrowStructArray *garrow_array_diff(GArrowArray *array,
-                                     GArrowArray *other_array);
+gchar *garrow_array_diff(GArrowArray *array,
+                         GArrowArray *other_array);
 
 
 #define GARROW_TYPE_NULL_ARRAY (garrow_null_array_get_type())

@@ -132,19 +132,23 @@ class TestArray < Test::Unit::TestCase
     end
   end
 
-  def test_diff
-    base = build_int32_array([1, 2, nil, 5])
-    target = build_int32_array([1, 2, 3, nil, 5])
-    struct_array = base.diff(target)
-    is_inserted = struct_array.flatten[0]
-    run_length = struct_array.flatten[1]
-    assert_equal([
-      is_inserted,
-      run_length
-    ],
-    [
-      build_boolean_array([false, true]),
-      build_int64_array([2, 2])
-    ])
+  sub_test_case("#diff") do
+    def test_no_diff
+      array = build_string_array(["Start", "Shutdown", "Reboot"])
+      other_array = build_string_array(["Start", "Shutdown", "Reboot"])
+      assert_equal("", array.diff(other_array))
+    end
+
+    def test_diff
+      array = build_string_array(["Start", "Shutdown", "Reboot"])
+      other_array = build_string_array(["Start", "Shutdonw", "Reboot"])
+      assert_equal(<<-STRING.chomp, array.diff(other_array))
+
+@@ -1, +1 @@
+-"Shutdown"
++"Shutdonw"
+
+      STRING
+    end
   end
 end
