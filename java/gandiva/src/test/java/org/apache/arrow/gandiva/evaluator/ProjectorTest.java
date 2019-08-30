@@ -19,6 +19,7 @@ package org.apache.arrow.gandiva.evaluator;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.Charset;
@@ -36,6 +37,7 @@ import org.apache.arrow.gandiva.expression.TreeBuilder;
 import org.apache.arrow.gandiva.expression.TreeNode;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
@@ -634,6 +636,62 @@ public class ProjectorTest extends BaseEvaluatorTest {
     releaseRecordBatch(batch);
     releaseValueVectors(output);
     eval.close();
+  }
+
+  @Test
+  public void testRand() throws GandivaException {
+
+    TreeNode randWithSeed =
+        TreeBuilder.makeFunction(
+            "rand",
+            Lists.newArrayList(TreeBuilder.makeLiteral(12)),
+            float64);
+    TreeNode rand =
+        TreeBuilder.makeFunction(
+            "rand",
+            Lists.newArrayList(),
+            float64);
+    ExpressionTree exprWithSeed = TreeBuilder.makeExpression(randWithSeed, Field.nullable("res", float64));
+    ExpressionTree expr = TreeBuilder.makeExpression(rand, Field.nullable("res2", float64));
+    Field x = Field.nullable("x", new ArrowType.Utf8());
+    Schema schema = new Schema(Lists.newArrayList(x));
+    Projector evalWithSeed = Projector.make(schema, Lists.newArrayList(exprWithSeed));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+
+    int numRows = 5;
+    byte[] validity = new byte[] {(byte) 255, 0};
+    String[] valuesX = new String[] {"mapD", "maps", "google maps", "map", "MapR"};
+    double[] expected = new double[] {0.1597116001879662D, 0.7347813877263527D, 0.6069965050584282D,
+        0.7240285696335824D, 0.09975540272957834D};
+
+    ArrowBuf validityX = buf(validity);
+    List<ArrowBuf> dataBufsX = stringBufs(valuesX);
+
+    ArrowRecordBatch batch =
+        new ArrowRecordBatch(
+            numRows,
+            Lists.newArrayList(new ArrowFieldNode(numRows, 0)),
+            Lists.newArrayList(validityX, dataBufsX.get(0), dataBufsX.get(1)));
+
+    Float8Vector float8Vector = new Float8Vector(EMPTY_SCHEMA_PATH, allocator);
+    float8Vector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(float8Vector);
+    evalWithSeed.evaluate(batch, output);
+
+    for (int i = 0; i < numRows; i++) {
+      assertFalse(float8Vector.isNull(i));
+      assertEquals(expected[i], float8Vector.getObject(i), 0.000000001);
+    }
+
+    eval.evaluate(batch, output); // without seed
+    assertNotEquals(float8Vector.getObject(0), float8Vector.getObject(1), 0.000000001);
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+    eval.close();
+    evalWithSeed.close();
   }
 
   @Test
