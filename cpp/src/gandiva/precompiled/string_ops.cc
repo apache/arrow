@@ -198,8 +198,9 @@ const char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_d
     return "";
   }
 
-  int32 num_in_chars;             // num of chars in input string
-  int32 char_start[in_data_len];  // stores start index of chars
+  int32 num_in_chars;  // num of chars in input string
+  int32* char_start =
+      reinterpret_cast<int32*>(malloc(in_data_len * 4));  // stores start index of chars
 
   int32 curr_char_pos = 0;
   char curr_char_num_bytes = 0;
@@ -223,6 +224,7 @@ const char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_d
 
   if (from_char < 0 || from_char >= num_in_chars) {
     *out_data_len = 0;
+    free(char_start);
     return "";
   }
 
@@ -237,9 +239,11 @@ const char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_d
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_data_len = 0;
+    free(char_start);
     return "";
   }
   memcpy(ret, input + char_start[from_char], *out_data_len);
+  free(char_start);
   return ret;
 }
 
