@@ -85,7 +85,7 @@ Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
   return Make(filesystem, selector, std::move(format), nullptr, out);
 }
 
-DataFragmentIterator FileSystemBasedDataSource::GetFragments(
+DataFragmentIterator FileSystemBasedDataSource::GetFragmentsImpl(
     std::shared_ptr<ScanOptions> options) {
   if (!AssumePartitionExpression(&options)) {
     return MakeEmptyIterator<std::shared_ptr<DataFragment>>();

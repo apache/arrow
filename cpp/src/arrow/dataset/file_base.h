@@ -179,9 +179,9 @@ class ARROW_DS_EXPORT FileSystemBasedDataSource : public DataSource {
 
   std::string type() const override { return "directory"; }
 
-  DataFragmentIterator GetFragments(std::shared_ptr<ScanOptions> options) override;
-
  protected:
+  DataFragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
+
   FileSystemBasedDataSource(fs::FileSystem* filesystem, const fs::Selector& selector,
                             std::shared_ptr<FileFormat> format,
                             std::shared_ptr<Expression> partition_expression,
