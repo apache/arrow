@@ -104,9 +104,9 @@ class RecordBatchProjector {
 
       if (matching_index != kNoMatch) {
         if (!from_->field(matching_index)->Equals(field)) {
-          return Status::Invalid("fields had matching names but were not equivalent ",
-                                 from_->field(matching_index)->ToString(), " vs ",
-                                 field->ToString());
+          return Status::TypeError("fields had matching names but were not equivalent ",
+                                   from_->field(matching_index)->ToString(), " vs ",
+                                   field->ToString());
         }
 
         // Mark column i as not missing by setting missing_columns_[i] to nullptr
@@ -154,44 +154,6 @@ class RecordBatchProjector {
 };
 
 constexpr int RecordBatchProjector::kNoMatch;
-
-/// Wraps a RecordBatchIterator and projects each yielded batch using the given projector.
-///
-/// Note that as with RecordBatchProjector, ProjectedRecordBatchReader is most efficient
-/// when projecting record batches with a consistent schema (for example batches from a
-/// table), but it can project record batches having any schema.
-class ProjectedRecordBatchReader : public RecordBatchReader {
- public:
-  static Status Make(MemoryPool* pool, std::unique_ptr<RecordBatchProjector> projector,
-                     std::unique_ptr<RecordBatchIterator> wrapped,
-                     std::unique_ptr<RecordBatchIterator>* out) {
-    out->reset(
-        new ProjectedRecordBatchReader(pool, std::move(projector), std::move(wrapped)));
-    return Status::OK();
-  }
-
-  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
-    std::shared_ptr<RecordBatch> rb;
-    RETURN_NOT_OK(wrapped_->Next(&rb));
-    if (rb == nullptr) {
-      *out = nullptr;
-      return Status::OK();
-    }
-
-    return projector_->Project(*rb, out);
-  }
-
-  std::shared_ptr<Schema> schema() const override { return projector_->schema(); }
-
- private:
-  ProjectedRecordBatchReader(MemoryPool* pool,
-                             std::unique_ptr<RecordBatchProjector> projector,
-                             std::unique_ptr<RecordBatchIterator> wrapped)
-      : projector_(std::move(projector)), wrapped_(std::move(wrapped)) {}
-
-  std::unique_ptr<RecordBatchProjector> projector_;
-  std::unique_ptr<RecordBatchIterator> wrapped_;
-};
 
 }  // namespace dataset
 }  // namespace arrow
