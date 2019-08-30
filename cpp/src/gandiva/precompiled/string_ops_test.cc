@@ -123,6 +123,26 @@ TEST(TestStringOps, TestSubstring) {
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());
 
+  out_str = substr_utf8_int64_int64(ctx_ptr, "अपाचे एरो", 25, 1, 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "अपाचे");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = substr_utf8_int64_int64(ctx_ptr, "अपाचे एरो", 25, 7, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "एरो");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = substr_utf8_int64_int64(ctx_ptr, "çåå†", 9, 4, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "†");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = substr_utf8_int64_int64(ctx_ptr, "çåå†", 9, 2, 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "åå");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = substr_utf8_int64_int64(ctx_ptr, "çåå†", 9, 0, 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "çå");
+  EXPECT_FALSE(ctx.has_error());
+
   out_str = substr_utf8_int64_int64(ctx_ptr, "afg", 4, 0, -5, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());
@@ -137,6 +157,10 @@ TEST(TestStringOps, TestSubstring) {
 
   out_str = substr_utf8_int64(ctx_ptr, "abcd", 4, 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "abcd");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = substr_utf8_int64(ctx_ptr, "çåå†", 9, 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "åå†");
   EXPECT_FALSE(ctx.has_error());
 }
 

@@ -191,38 +191,55 @@ VAR_LEN_TYPES(IS_NOT_NULL, isnotnull)
 #undef IS_NOT_NULL
 
 FORCE_INLINE
-const char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_len,
-                                    int64 offset64, int64 length, int32* out_len) {
-  if (length <= 0 || input == nullptr || in_len <= 0) {
-    *out_len = 0;
+const char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_data_len,
+                                    int64 offset64, int64 length, int32* out_data_len) {
+  if (length <= 0 || input == nullptr || in_data_len <= 0) {
+    *out_data_len = 0;
     return "";
   }
+
+  int32 num_in_chars;             // num of chars in input string
+  int32 char_start[in_data_len];  // stores start index of chars
+
+  int32 curr_char_pos = 0;
+  char curr_char_num_bytes = 0;
+
+  char_start[curr_char_pos] = 0;
+  for (int32 i = 0; i < in_data_len; i = i + curr_char_num_bytes) {
+    curr_char_num_bytes = utf8_char_length(input[i]);
+    char_start[curr_char_pos + 1] = char_start[curr_char_pos] + curr_char_num_bytes;
+    ++curr_char_pos;
+  }
+
+  num_in_chars = curr_char_pos;
 
   int32 offset = static_cast<int32>(offset64);
-  int32 startIndex = offset - 1;  // offset is 1 for first char
+  int32 from_char = offset - 1;  // offset is 1 for first char
   if (offset < 0) {
-    startIndex = in_len + offset;
+    from_char = num_in_chars + offset;
   } else if (offset == 0) {
-    startIndex = 0;
+    from_char = 0;
   }
 
-  if (startIndex < 0 || startIndex >= in_len) {
-    *out_len = 0;
+  if (from_char < 0 || from_char >= num_in_chars) {
+    *out_data_len = 0;
     return "";
   }
 
-  *out_len = static_cast<int32>(length);
-  if (length > in_len - startIndex) {
-    *out_len = in_len - startIndex;
+  int32 num_out_chars = static_cast<int32>(length);
+  if (length > num_in_chars - from_char) {
+    num_out_chars = num_in_chars - from_char;
   }
 
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  *out_data_len = char_start[num_out_chars + from_char] - char_start[from_char];
+  char* ret =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_data_len));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
+    *out_data_len = 0;
     return "";
   }
-  memcpy(ret, input + startIndex, *out_len);
+  memcpy(ret, input + char_start[from_char], *out_data_len);
   return ret;
 }
 
