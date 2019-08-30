@@ -37,26 +37,30 @@ namespace dataset {
 
 /// \brief Project a RecordBatch to a given schema.
 ///
-/// Columns will be reordered to match the given schema.
+/// Projected record batches will reorder columns from input record batches when possible,
+/// otherwise the given schema will be satisfied by augmenting with null or constant
+/// columns.
 ///
-/// Columns present in the given schema but absent from a record batch will be added as
-/// null or as arrays of a constant value.
+/// RecordBatchProjector is most efficient when projecting record batches with a
+/// consistent schema (for example batches from a table), but it can project record
+/// batches having any schema.
 class RecordBatchProjector {
  public:
-  RecordBatchProjector(MemoryPool* pool, std::shared_ptr<Schema> from,
-                       std::shared_ptr<Schema> to)
+  /// A column required by the given schema but absent from a record batch will be added
+  /// to the projected record batch with all its slots null.
+  RecordBatchProjector(MemoryPool* pool, std::shared_ptr<Schema> to)
       : pool_(pool),
-        from_(std::move(from)),
         to_(std::move(to)),
         missing_columns_(to_->num_fields(), nullptr),
         column_indices_(to_->num_fields(), kNoMatch),
         scalars_(to_->num_fields(), nullptr) {}
 
-  RecordBatchProjector(MemoryPool* pool, std::shared_ptr<Schema> from,
-                       std::shared_ptr<Schema> to,
+  /// A column required by the given schema but absent from a record batch will be added
+  /// to the projected record batch with all its slots equal to the corresponding entry in
+  /// scalars or null if the correspondign entry in scalars is nullptr.
+  RecordBatchProjector(MemoryPool* pool, std::shared_ptr<Schema> to,
                        std::vector<std::shared_ptr<Scalar>> scalars)
       : pool_(pool),
-        from_(std::move(from)),
         to_(std::move(to)),
         missing_columns_(to_->num_fields(), nullptr),
         column_indices_(to_->num_fields(), kNoMatch),
@@ -64,31 +68,9 @@ class RecordBatchProjector {
     DCHECK_EQ(scalars_.size(), missing_columns_.size());
   }
 
-  Status Init() {
-    for (int i = 0; i < to_->num_fields(); ++i) {
-      const auto& field = to_->field(i);
-      int matching_index = from_->GetFieldIndex(field->name());
-      if (matching_index != kNoMatch) {
-        if (!from_->field(matching_index)->Equals(field)) {
-          return Status::Invalid("fields had matching names but were not equivalent ",
-                                 from_->field(matching_index)->ToString(), " vs ",
-                                 field->ToString());
-        }
-      } else {
-        auto out_type = to_->field(i)->type();
-        RETURN_NOT_OK(MakeArrayOfNull(pool_, out_type, 0, &missing_columns_[i]));
-      }
-
-      column_indices_[i] = matching_index;
-    }
-    return Status::OK();
-  }
-
   Status Project(const RecordBatch& batch, std::shared_ptr<RecordBatch>* out) {
-    if (!batch.schema()->Equals(*from_)) {
-      return Status::TypeError(
-          "Incoming record batch does not have the expected schema: ", from_->ToString(),
-          " got: ", batch.schema()->ToString());
+    if (from_ == nullptr || !batch.schema()->Equals(*from_)) {
+      RETURN_NOT_OK(SetInputSchema(batch.schema()));
     }
 
     if (missing_columns_length_ < batch.num_rows()) {
@@ -111,9 +93,35 @@ class RecordBatchProjector {
     return Status::OK();
   }
 
-  const std::shared_ptr<Schema>& from() const { return from_; }
+  const std::shared_ptr<Schema>& schema() const { return to_; }
 
-  const std::shared_ptr<Schema>& to() const { return to_; }
+  Status SetInputSchema(std::shared_ptr<Schema> from) {
+    from_ = std::move(from);
+
+    for (int i = 0; i < to_->num_fields(); ++i) {
+      const auto& field = to_->field(i);
+      int matching_index = from_->GetFieldIndex(field->name());
+
+      if (matching_index != kNoMatch) {
+        if (!from_->field(matching_index)->Equals(field)) {
+          return Status::Invalid("fields had matching names but were not equivalent ",
+                                 from_->field(matching_index)->ToString(), " vs ",
+                                 field->ToString());
+        }
+
+        // Mark column i as not missing by setting missing_columns_[i] to nullptr
+        missing_columns_[i] = nullptr;
+      } else {
+        // Mark column i as missing by setting missing_columns_[i]
+        // to a non-null placeholder.
+        RETURN_NOT_OK(
+            MakeArrayOfNull(pool_, to_->field(i)->type(), 0, &missing_columns_[i]));
+      }
+
+      column_indices_[i] = matching_index;
+    }
+    return Status::OK();
+  }
 
  private:
   static constexpr int kNoMatch = -1;
@@ -147,34 +155,18 @@ class RecordBatchProjector {
 
 constexpr int RecordBatchProjector::kNoMatch;
 
+/// Wraps a RecordBatchIterator and projects each yielded batch using the given projector.
+///
+/// Note that as with RecordBatchProjector, ProjectedRecordBatchReader is most efficient
+/// when projecting record batches with a consistent schema (for example batches from a
+/// table), but it can project record batches having any schema.
 class ProjectedRecordBatchReader : public RecordBatchReader {
  public:
-  ProjectedRecordBatchReader(MemoryPool* pool, std::shared_ptr<Schema> schema,
-                             std::vector<std::shared_ptr<Scalar>> scalars,
-                             std::unique_ptr<RecordBatchIterator> wrapped)
-      : pool_(pool),
-        schema_(std::move(schema)),
-        wrapped_(std::move(wrapped)),
-        scalars_(std::move(scalars)) {}
-
-  static Status Make(MemoryPool* pool, std::shared_ptr<Schema> from_schema,
-                     std::shared_ptr<Schema> to_schema,
+  static Status Make(MemoryPool* pool, std::unique_ptr<RecordBatchProjector> projector,
                      std::unique_ptr<RecordBatchIterator> wrapped,
                      std::unique_ptr<RecordBatchIterator>* out) {
-    return Make(pool, std::move(from_schema), std::move(to_schema),
-                std::vector<std::shared_ptr<Scalar>>(to_schema->num_fields(), nullptr),
-                std::move(wrapped), out);
-  }
-
-  static Status Make(MemoryPool* pool, std::shared_ptr<Schema> from_schema,
-                     std::shared_ptr<Schema> to_schema,
-                     std::vector<std::shared_ptr<Scalar>> scalars,
-                     std::unique_ptr<RecordBatchIterator> wrapped,
-                     std::unique_ptr<RecordBatchIterator>* out) {
-    auto it = internal::make_unique<ProjectedRecordBatchReader>(
-        pool, std::move(to_schema), std::move(scalars), std::move(wrapped));
-    RETURN_NOT_OK(it->ResetProjector(std::move(from_schema)));
-    *out = std::move(it);
+    out->reset(
+        new ProjectedRecordBatchReader(pool, std::move(projector), std::move(wrapped)));
     return Status::OK();
   }
 
@@ -186,27 +178,19 @@ class ProjectedRecordBatchReader : public RecordBatchReader {
       return Status::OK();
     }
 
-    if (!projector_->from()->Equals(*rb->schema())) {
-      projector_.reset(new RecordBatchProjector(pool_, rb->schema(), schema_));
-      RETURN_NOT_OK(projector_->Init());
-    }
     return projector_->Project(*rb, out);
   }
 
-  std::shared_ptr<Schema> schema() const override { return schema_; }
+  std::shared_ptr<Schema> schema() const override { return projector_->schema(); }
 
  private:
-  Status ResetProjector(std::shared_ptr<Schema> from_schema) {
-    projector_ = internal::make_unique<RecordBatchProjector>(
-        pool_, std::move(from_schema), schema_, scalars_);
-    return projector_->Init();
-  }
+  ProjectedRecordBatchReader(MemoryPool* pool,
+                             std::unique_ptr<RecordBatchProjector> projector,
+                             std::unique_ptr<RecordBatchIterator> wrapped)
+      : projector_(std::move(projector)), wrapped_(std::move(wrapped)) {}
 
-  MemoryPool* pool_;
-  std::shared_ptr<Schema> schema_;
-  std::unique_ptr<RecordBatchIterator> wrapped_;
-  std::vector<std::shared_ptr<Scalar>> scalars_;
   std::unique_ptr<RecordBatchProjector> projector_;
+  std::unique_ptr<RecordBatchIterator> wrapped_;
 };
 
 }  // namespace dataset

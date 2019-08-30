@@ -97,8 +97,7 @@ TEST(TestProjector, AugmentWithNull) {
 
   auto to_schema = schema({field("i32", int32()), field("f64", float64())});
 
-  RecordBatchProjector projector(default_memory_pool(), from_schema, to_schema);
-  ASSERT_OK(projector.Init());
+  RecordBatchProjector projector(default_memory_pool(), to_schema);
 
   std::shared_ptr<Array> null_i32;
   ASSERT_OK(MakeArrayOfNull(int32(), batch->num_rows(), &null_i32));
@@ -122,9 +121,8 @@ TEST(TestProjector, AugmentWithScalar) {
   auto to_schema = schema({field("i32", int32()), field("f64", float64())});
 
   auto scalar_i32 = std::make_shared<Int32Scalar>(kScalarValue);
-  RecordBatchProjector projector(default_memory_pool(), from_schema, to_schema,
-                                 {scalar_i32, nullptr});
-  ASSERT_OK(projector.Init());
+
+  RecordBatchProjector projector(default_memory_pool(), to_schema, {scalar_i32, nullptr});
 
   std::shared_ptr<Array> array_i32;
   Int32Builder builder;
