@@ -55,3 +55,35 @@ class ParquetManifestCreation(object):
 
     def time_manifest_creation(self, num_partitions, num_threads):
         pq.ParquetManifest(self.tmpdir, metadata_nthreads=num_threads)
+
+
+class ParquetWriteBinary(object):
+
+    def setup(self):
+        nuniques = 100000
+        value_size = 50
+        length = 1000000
+        num_cols = 10
+
+        unique_values = np.array([pd.util.testing.rands(value_size) for
+                                  i in range(nuniques)], dtype='O')
+        values = unique_values[np.random.randint(0, nuniques, size=length)]
+        self.table = pa.table([pa.array(values) for i in range(num_cols)],
+                              names=['f{}'.format(i) for i in range(num_cols)])
+        self.table_df = self.table.to_pandas()
+
+    def time_write_binary_table(self):
+        out = pa.BufferOutputStream()
+        pq.write_table(self.table, out)
+
+    def time_write_binary_table_uncompressed(self):
+        out = pa.BufferOutputStream()
+        pq.write_table(self.table, out, compression='none')
+
+    def time_write_binary_table_no_dictionary(self):
+        out = pa.BufferOutputStream()
+        pq.write_table(self.table, out, use_dictionary=False)
+
+    def time_convert_pandas_and_write_binary_table(self):
+        out = pa.BufferOutputStream()
+        pq.write_table(pa.table(self.table_df), out)

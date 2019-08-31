@@ -16,6 +16,7 @@
 # under the License.
 
 # cython: language_level = 3
+# cython: embedsignature = True
 
 from __future__ import absolute_import
 
