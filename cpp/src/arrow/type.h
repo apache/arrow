@@ -1264,7 +1264,8 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   ///     one per input type.  Each integer vector represents the transposition
   ///     of input type indices into unified type indices.
   // XXX Should we return something special (an empty transpose map?) when
-  // the transposition is the identity function?
+  // the transposition is the identity function?  Currently this case is
+  // detected in DictionaryArray::Transpose.
   static Status Unify(MemoryPool* pool, const std::vector<const DataType*>& types,
                       const std::vector<const Array*>& dictionaries,
                       std::shared_ptr<DataType>* out_type,
