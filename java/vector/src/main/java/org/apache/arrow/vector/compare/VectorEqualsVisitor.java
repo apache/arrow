@@ -22,17 +22,7 @@ import org.apache.arrow.vector.ValueVector;
 /**
  * Visitor to compare vectors equal.
  */
-public class VectorEqualsVisitor extends RangeEqualsVisitor {
-
-  private final boolean typeCheckNeeded;
-
-  public VectorEqualsVisitor() {
-    this(true);
-  }
-
-  public VectorEqualsVisitor(boolean typeCheckNeeded) {
-    this.typeCheckNeeded = typeCheckNeeded;
-  }
+public class VectorEqualsVisitor {
 
   /**
    * Checks if two vectors are equals.
@@ -40,17 +30,23 @@ public class VectorEqualsVisitor extends RangeEqualsVisitor {
    * @param right the right vector to compare.
    * @return true if the vectors are equal, and false otherwise.
    */
-  public boolean vectorEquals(ValueVector left, ValueVector right) {
+  public static boolean vectorEquals(ValueVector left, ValueVector right) {
+    return vectorEquals(left, right, true);
+  }
+
+  /**
+   * Checks if two vectors are equals.
+   * @param left the left vector to compare.
+   * @param right the right vector to compare.
+   * @param isTypeCheckNeeded check equality of types
+   * @return true if the vectors are equal, and false otherwise.
+   */
+  public static boolean vectorEquals(ValueVector left, ValueVector right, boolean isTypeCheckNeeded) {
     if (left.getValueCount() != right.getValueCount()) {
       return false;
     }
-    RangeEqualsParameter param = new RangeEqualsParameter()
-            .setLeft(left)
-            .setRight(right)
-            .setLeftStart(0)
-            .setRightStart(0)
-            .setLength(left.getValueCount())
-            .setTypeCheckNeeded(typeCheckNeeded);
-    return super.rangeEquals(param);
+
+    RangeEqualsVisitor visitor = new RangeEqualsVisitor(left, right, isTypeCheckNeeded);
+    return visitor.rangeEquals(new Range(0, 0, left.getValueCount()));
   }
 }

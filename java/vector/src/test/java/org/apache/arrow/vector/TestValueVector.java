@@ -36,7 +36,7 @@ import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.ArrowBufPointer;
-import org.apache.arrow.vector.compare.RangeEqualsParameter;
+import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.complex.ListVector;
@@ -2635,14 +2635,7 @@ public class TestValueVector {
       vector2.setSafe(0, 1);
       vector2.setSafe(1, 2);
 
-      RangeEqualsVisitor visitor = new RangeEqualsVisitor();
-      RangeEqualsParameter param = new RangeEqualsParameter()
-              .setLeft(vector2)
-              .setRight(vector1)
-              .setRightStart(3)
-              .setLeftStart(2)
-              .setLength(1);
-      assertTrue(visitor.rangeEquals(param));
+      assertTrue(new RangeEqualsVisitor(vector1, vector2).rangeEquals(new Range(2, 3, 1)));
     }
   }
 

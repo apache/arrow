@@ -22,7 +22,7 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.compare.RangeEqualsParameter;
+import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 
 import io.netty.buffer.ArrowBuf;
@@ -44,15 +44,11 @@ class DeduplicationUtils {
     runStarts.setZero(0, bufSize);
 
     BitVectorHelper.setValidityBitToOne(runStarts, 0);
-    RangeEqualsVisitor visitor = new RangeEqualsVisitor();
-    RangeEqualsParameter param = new RangeEqualsParameter()
-            .setRight(vector)
-            .setLeft(vector)
-            .setLength(1)
-            .setTypeCheckNeeded(false);
+    RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector, vector, false);
+    Range range = new Range(0, 0, 1);
     for (int i = 1; i < vector.getValueCount(); i++) {
-      param.setLeftStart(i).setRightStart(i - 1);
-      if (!visitor.rangeEquals(param)) {
+      range.setLeftStart(i).setRightStart(i - 1);
+      if (!visitor.rangeEquals(range)) {
         BitVectorHelper.setValidityBitToOne(runStarts, i);
       }
     }
