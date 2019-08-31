@@ -139,7 +139,7 @@ class TestArray < Test::Unit::TestCase
       assert_equal(nil, array.diff_unified(other_array))
     end
 
-    def test_diff
+    def test_string
       array = build_string_array(["Start", "Shutdown", "Reboot"])
       other_array = build_string_array(["Start", "Shutdonw", "Reboot"])
       assert_equal(<<-STRING.chomp, array.diff_unified(other_array))
@@ -147,6 +147,20 @@ class TestArray < Test::Unit::TestCase
 @@ -1, +1 @@
 -"Shutdown"
 +"Shutdonw"
+
+      STRING
+    end
+
+    def test_int8
+      array = build_int8_array([2, 3, 7, 10, 12])
+      other_array = build_int8_array([2, 3, 6, 10])
+      assert_equal(<<-STRING.chomp, array.diff_unified(other_array))
+
+@@ -2, +2 @@
+-7
++6
+@@ -4, +4 @@
+-12
 
       STRING
     end
