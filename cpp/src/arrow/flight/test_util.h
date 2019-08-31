@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/status.h"
+#include "arrow/testing/util.h"
 
 #include "arrow/flight/client_auth.h"
 #include "arrow/flight/server.h"
@@ -44,16 +45,10 @@ namespace flight {
 // ----------------------------------------------------------------------
 // Fixture to use for running test servers
 
-// Get a TCP port number to listen on.  This is a different number every time,
-// as reusing the same port accross tests can produce spurious "Stream removed"
-// errors as Windows.
-ARROW_FLIGHT_EXPORT
-int GetListenPort();
-
 class ARROW_FLIGHT_EXPORT TestServer {
  public:
   explicit TestServer(const std::string& executable_name)
-      : executable_name_(executable_name), port_(GetListenPort()) {}
+      : executable_name_(executable_name), port_(::arrow::GetListenPort()) {}
   explicit TestServer(const std::string& executable_name, int port)
       : executable_name_(executable_name), port_(port) {}
 

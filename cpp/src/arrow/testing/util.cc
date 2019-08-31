@@ -170,4 +170,8 @@ Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
   return Status::OK();
 }
 
+static int next_listen_port_ = 30001;
+
+int GetListenPort() { return next_listen_port_++; }
+
 }  // namespace arrow

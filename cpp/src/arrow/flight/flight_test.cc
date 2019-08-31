@@ -32,6 +32,7 @@
 #include "arrow/ipc/test_common.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 
 #include "arrow/flight/api.h"
 
@@ -265,7 +266,7 @@ class TestFlightClient : public ::testing::Test {
     Location location;
     std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
-    ASSERT_OK(Location::ForGrpcTcp("localhost", GetListenPort(), &location));
+    ASSERT_OK(Location::ForGrpcTcp("localhost", ::arrow::GetListenPort(), &location));
     FlightServerOptions options(location);
     ASSERT_OK(server->Init(options));
 
@@ -423,7 +424,7 @@ class TestAuthHandler : public ::testing::Test {
     Location location;
     std::unique_ptr<FlightServerBase> server(new AuthTestServer);
 
-    ASSERT_OK(Location::ForGrpcTcp("localhost", GetListenPort(), &location));
+    ASSERT_OK(Location::ForGrpcTcp("localhost", ::arrow::GetListenPort(), &location));
     FlightServerOptions options(location);
     options.auth_handler =
         std::unique_ptr<ServerAuthHandler>(new TestServerAuthHandler("user", "p4ssw0rd"));
@@ -447,7 +448,7 @@ class TestDoPut : public ::testing::Test {
  public:
   void SetUp() {
     Location location;
-    ASSERT_OK(Location::ForGrpcTcp("localhost", GetListenPort(), &location));
+    ASSERT_OK(Location::ForGrpcTcp("localhost", ::arrow::GetListenPort(), &location));
 
     do_put_server_ = new DoPutTestServer();
     server_.reset(new InProcessTestServer(
@@ -496,7 +497,7 @@ class TestTls : public ::testing::Test {
     Location location;
     std::unique_ptr<FlightServerBase> server(new TlsTestServer);
 
-    ASSERT_OK(Location::ForGrpcTls("localhost", GetListenPort(), &location));
+    ASSERT_OK(Location::ForGrpcTls("localhost", ::arrow::GetListenPort(), &location));
     FlightServerOptions options(location);
     ASSERT_RAISES(UnknownError, server->Init(options));
     ASSERT_OK(ExampleTlsCertificates(&options.tls_certificates));

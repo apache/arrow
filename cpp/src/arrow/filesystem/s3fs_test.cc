@@ -94,9 +94,14 @@ namespace bp = boost::process;
 
 // TODO: allocate an ephemeral port
 static const char* kMinioExecutableName = "minio";
-static const char* kMinioConnectString = "127.0.0.1:9123";
 static const char* kMinioAccessKey = "minio";
 static const char* kMinioSecretKey = "miniopass";
+
+static std::string GenerateConnectString() {
+  std::stringstream ss;
+  ss << "127.0.0.1:" << GetListenPort();
+  return ss.str();
+}
 
 // A minio test server, managed as a child process
 
@@ -128,7 +133,7 @@ Status MinioTestServer::Start() {
   env["MINIO_ACCESS_KEY"] = kMinioAccessKey;
   env["MINIO_SECRET_KEY"] = kMinioSecretKey;
 
-  connect_string_ = kMinioConnectString;
+  connect_string_ = GenerateConnectString();
 
   auto exe_path = bp::search_path(kMinioExecutableName);
   if (exe_path.empty()) {
