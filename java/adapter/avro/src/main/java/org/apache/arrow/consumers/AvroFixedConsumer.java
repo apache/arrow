@@ -19,30 +19,33 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
-import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume long type values from avro decoder.
- * Write the data to {@link BigIntVector}.
+ * Consumer which consume fixed type values from avro decoder.
+ * Write the data to {@link org.apache.arrow.vector.FixedSizeBinaryVector}.
  */
-public class AvroLongConsumer implements Consumer {
+public class AvroFixedConsumer implements Consumer {
 
-  private final BigIntVector vector;
+  private final FixedSizeBinaryVector vector;
+  private final byte[] reuseBytes;
 
   private int currentIndex;
 
   /**
-   * Instantiate a AvroLongConsumer.
+   * Instantiate a AvroFixedConsumer.
    */
-  public AvroLongConsumer(BigIntVector vector) {
+  public AvroFixedConsumer(FixedSizeBinaryVector vector, int size) {
     this.vector = vector;
+    reuseBytes = new byte[size];
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    vector.setSafe(currentIndex++, decoder.readLong());
+    decoder.readFixed(reuseBytes);
+    vector.setSafe(currentIndex++, reuseBytes);
   }
 
   @Override
@@ -57,7 +60,7 @@ public class AvroLongConsumer implements Consumer {
 
   @Override
   public FieldVector getVector() {
-    return this.vector;
+    return vector;
   }
 
   @Override

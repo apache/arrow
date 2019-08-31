@@ -22,9 +22,6 @@ import java.nio.ByteBuffer;
 
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VarBinaryVector;
-import org.apache.arrow.vector.complex.impl.VarBinaryWriterImpl;
-import org.apache.arrow.vector.complex.writer.VarBinaryWriter;
-import org.apache.arrow.vector.holders.VarBinaryHolder;
 import org.apache.avro.io.Decoder;
 
 /**
@@ -33,46 +30,35 @@ import org.apache.avro.io.Decoder;
  */
 public class AvroBytesConsumer implements Consumer {
 
-  private final VarBinaryWriter writer;
   private final VarBinaryVector vector;
   private ByteBuffer cacheBuffer;
+
+  private int currentIndex;
 
   /**
    * Instantiate a AvroBytesConsumer.
    */
   public AvroBytesConsumer(VarBinaryVector vector) {
     this.vector = vector;
-    this.writer = new VarBinaryWriterImpl(vector);
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    writeValue(decoder);
-    writer.setPosition(writer.getPosition() + 1);
+    // cacheBuffer is initialized null and create in the first consume,
+    // if its capacity < size to read, decoder will create a new one with new capacity.
+    cacheBuffer = decoder.readBytes(cacheBuffer);
+    vector.setSafe(currentIndex, cacheBuffer, 0, cacheBuffer.limit());
+    currentIndex++;
   }
 
   @Override
   public void addNull() {
-    writer.setPosition(writer.getPosition() + 1);
-  }
-
-  private void writeValue(Decoder decoder) throws IOException {
-    VarBinaryHolder holder = new VarBinaryHolder();
-
-    // cacheBuffer is initialized null and create in the first consume,
-    // if its capacity < size to read, decoder will create a new one with new capacity.
-    cacheBuffer = decoder.readBytes(cacheBuffer);
-
-    holder.start = 0;
-    holder.end = cacheBuffer.limit();
-    holder.buffer = vector.getAllocator().buffer(cacheBuffer.limit());
-    holder.buffer.setBytes(0, cacheBuffer, 0,  cacheBuffer.limit());
-    writer.write(holder);
+    currentIndex++;
   }
 
   @Override
   public void setPosition(int index) {
-    writer.setPosition(index);
+    currentIndex = index;
   }
 
   @Override
@@ -82,6 +68,6 @@ public class AvroBytesConsumer implements Consumer {
 
   @Override
   public void close() throws Exception {
-    writer.close();
+    vector.close();
   }
 }

@@ -19,30 +19,40 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
-import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume long type values from avro decoder.
- * Write the data to {@link BigIntVector}.
+ * Consumer which consume nested record type values from avro decoder.
+ * Write the data to {@link org.apache.arrow.vector.complex.StructVector}.
  */
-public class AvroLongConsumer implements Consumer {
+public class AvroStructConsumer implements Consumer {
 
-  private final BigIntVector vector;
+  private final Consumer[] delegates;
+  private StructVector vector;
 
   private int currentIndex;
 
+
   /**
-   * Instantiate a AvroLongConsumer.
+   * Instantiate a AvroStructConsumer.
    */
-  public AvroLongConsumer(BigIntVector vector) {
+  public AvroStructConsumer(StructVector vector, Consumer[] delegates) {
     this.vector = vector;
+    this.delegates = delegates;
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    vector.setSafe(currentIndex++, decoder.readLong());
+
+    for (int i = 0; i < delegates.length; i++) {
+      delegates[i].consume(decoder);
+    }
+    vector.setIndexDefined(currentIndex);
+    currentIndex++;
+
   }
 
   @Override
@@ -57,11 +67,13 @@ public class AvroLongConsumer implements Consumer {
 
   @Override
   public FieldVector getVector() {
+    vector.setValueCount(currentIndex);
     return this.vector;
   }
 
   @Override
   public void close() throws Exception {
     vector.close();
+    AutoCloseables.close(delegates);
   }
 }

@@ -21,8 +21,6 @@ import java.io.IOException;
 
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
-import org.apache.arrow.vector.complex.impl.Float4WriterImpl;
-import org.apache.arrow.vector.complex.writer.Float4Writer;
 import org.apache.avro.io.Decoder;
 
 /**
@@ -31,31 +29,30 @@ import org.apache.avro.io.Decoder;
  */
 public class AvroFloatConsumer implements Consumer {
 
-  private final Float4Writer writer;
   private final Float4Vector vector;
+
+  private int currentIndex;
 
   /**
    * Instantiate a AvroFloatConsumer.
    */
   public AvroFloatConsumer(Float4Vector vector) {
     this.vector = vector;
-    this.writer = new Float4WriterImpl(vector);
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    writer.writeFloat4(decoder.readFloat());
-    writer.setPosition(writer.getPosition() + 1);
+    vector.setSafe(currentIndex++, decoder.readFloat());
   }
 
   @Override
   public void addNull() {
-    writer.setPosition(writer.getPosition() + 1);
+    currentIndex++;
   }
 
   @Override
   public void setPosition(int index) {
-    writer.setPosition(index);
+    currentIndex = index;
   }
 
   @Override
@@ -65,6 +62,6 @@ public class AvroFloatConsumer implements Consumer {
 
   @Override
   public void close() throws Exception {
-    writer.close();
+    vector.close();
   }
 }

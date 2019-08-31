@@ -19,30 +19,42 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
-import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume long type values from avro decoder.
- * Write the data to {@link BigIntVector}.
+ * Consumer which consume array type values from avro decoder.
+ * Write the data to {@link ListVector}.
  */
-public class AvroLongConsumer implements Consumer {
+public class AvroArraysConsumer implements Consumer {
 
-  private final BigIntVector vector;
+  private final ListVector vector;
+  private final Consumer delegate;
 
-  private int currentIndex;
+  private int currentIndex = 0;
 
   /**
-   * Instantiate a AvroLongConsumer.
+   * Instantiate a ArrayConsumer.
    */
-  public AvroLongConsumer(BigIntVector vector) {
+  public AvroArraysConsumer(ListVector vector, Consumer delegate) {
     this.vector = vector;
+    this.delegate = delegate;
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    vector.setSafe(currentIndex++, decoder.readLong());
+
+    vector.startNewValue(currentIndex);
+    long totalCount = 0;
+    for (long count = decoder.readArrayStart(); count != 0; count = decoder.arrayNext()) {
+      totalCount += count;
+      for (int element = 0; element < count; element++) {
+        delegate.consume(decoder);
+      }
+    }
+    vector.endValue(currentIndex, (int) totalCount);
+    currentIndex++;
   }
 
   @Override
@@ -63,5 +75,6 @@ public class AvroLongConsumer implements Consumer {
   @Override
   public void close() throws Exception {
     vector.close();
+    delegate.close();
   }
 }

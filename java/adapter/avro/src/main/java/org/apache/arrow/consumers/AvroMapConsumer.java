@@ -19,40 +19,52 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
-import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume long type values from avro decoder.
- * Write the data to {@link BigIntVector}.
+ * Consumer which consume map type values from avro decoder.
+ * Write the data to {@link MapVector}.
  */
-public class AvroLongConsumer implements Consumer {
+public class AvroMapConsumer implements Consumer {
 
-  private final BigIntVector vector;
+  private final MapVector vector;
+  private final Consumer delegate;
 
   private int currentIndex;
 
   /**
-   * Instantiate a AvroLongConsumer.
+   * Instantiate a AvroMapConsumer.
    */
-  public AvroLongConsumer(BigIntVector vector) {
+  public AvroMapConsumer(MapVector vector, Consumer delegate) {
     this.vector = vector;
+    this.delegate = delegate;
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    vector.setSafe(currentIndex++, decoder.readLong());
-  }
 
-  @Override
-  public void addNull() {
+    vector.startNewValue(currentIndex);
+    long totalCount = 0;
+    for (long count = decoder.readMapStart(); count != 0; count = decoder.mapNext()) {
+      totalCount += count;
+      for (int element = 0; element < count; element++) {
+        delegate.consume(decoder);
+      }
+    }
+    vector.endValue(currentIndex, (int) totalCount);
     currentIndex++;
   }
 
   @Override
+  public void addNull() {
+    vector.setValueCount(vector.getValueCount() + 1);
+  }
+
+  @Override
   public void setPosition(int index) {
-    currentIndex = index;
+    this.currentIndex = index;
   }
 
   @Override
@@ -63,5 +75,6 @@ public class AvroLongConsumer implements Consumer {
   @Override
   public void close() throws Exception {
     vector.close();
+    delegate.close();
   }
 }

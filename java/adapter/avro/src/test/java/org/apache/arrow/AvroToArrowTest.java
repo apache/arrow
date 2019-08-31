@@ -29,6 +29,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 
@@ -36,6 +37,9 @@ import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.Text;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -287,6 +291,76 @@ public class AvroToArrowTest {
   }
 
   @Test
+  public void testArrayType() throws Exception {
+    Schema schema = getSchema("test_array.avsc");
+    List<List> data = new ArrayList(Arrays.asList(
+        Arrays.asList("11", "222", "999"),
+        Arrays.asList("12222", "2333", "1000"),
+        Arrays.asList("1rrr", "2ggg"),
+        Arrays.asList("1vvv", "2bbb"),
+        Arrays.asList("1fff", "2")));
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    FieldVector vector = root.getFieldVectors().get(0);
+
+    checkArrayResult(data, (ListVector) vector);
+  }
+
+  @Test
+  public void testMapType() throws Exception {
+    Schema schema = getSchema("test_map.avsc");
+
+    List keys = Arrays.asList("key1", "key2", "key3", "key4", "key5", "key6");
+    List vals = Arrays.asList("val1", "val2", "val3", "val4", "val5", "val6");
+
+    List<LinkedHashMap> data = new ArrayList<>();
+    LinkedHashMap map1 = new LinkedHashMap();
+    map1.put(keys.get(0), vals.get(0));
+    map1.put(keys.get(1), vals.get(1));
+    data.add(map1);
+
+    LinkedHashMap map2 = new LinkedHashMap();
+    map2.put(keys.get(2), vals.get(2));
+    map2.put(keys.get(3), vals.get(3));
+    data.add(map2);
+
+    LinkedHashMap map3 = new LinkedHashMap();
+    map3.put(keys.get(4), vals.get(4));
+    map3.put(keys.get(5), vals.get(5));
+    data.add(map3);
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    MapVector vector = (MapVector) root.getFieldVectors().get(0);
+
+    checkPrimitiveResult(keys, vector.getDataVector().getChildrenFromFields().get(0));
+    checkPrimitiveResult(vals, vector.getDataVector().getChildrenFromFields().get(1));
+    assertEquals(0, vector.getOffsetBuffer().getInt(0));
+    assertEquals(2, vector.getOffsetBuffer().getInt(1 * 4));
+    assertEquals(4, vector.getOffsetBuffer().getInt(2 * 4));
+    assertEquals(6, vector.getOffsetBuffer().getInt(3 * 4));
+  }
+
+  @Test
+  public void testFixedType() throws Exception {
+    Schema schema = getSchema("test_fixed.avsc");
+
+    List<GenericData.Fixed> data = new ArrayList<>();
+    List<byte[]> expected = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      byte[] value = ("value" + i).getBytes(StandardCharsets.UTF_8);
+      expected.add(value);
+      GenericData.Fixed fixed = new GenericData.Fixed(schema);
+      fixed.bytes(value);
+      data.add(fixed);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    FieldVector vector = root.getFieldVectors().get(0);
+
+    checkPrimitiveResult(expected, vector);
+  }
+
+  @Test
   public void testUnionType() throws Exception {
     Schema schema = getSchema("test_union.avsc");
     ArrayList<GenericRecord> data = new ArrayList<>();
@@ -332,7 +406,32 @@ public class AvroToArrowTest {
     checkPrimitiveResult(expected, vector);
   }
 
-  private void checkPrimitiveResult(ArrayList data, FieldVector vector) {
+  private void checkArrayResult(List<List> expected, ListVector vector) {
+    assertEquals(expected.size(), vector.getValueCount());
+    for (int i = 0; i < expected.size(); i++) {
+      checkPrimitiveResult(expected.get(i), (JsonStringArrayList) vector.getObject(i));
+    }
+  }
+
+  private void checkPrimitiveResult(List expected, List actual) {
+    assertEquals(expected.size(), actual.size());
+    for (int i = 0; i < expected.size(); i++) {
+      Object value1 = expected.get(i);
+      Object value2 = actual.get(i);
+      if (value1 == null) {
+        assertTrue(value2 == null);
+        continue;
+      }
+      if (value2 instanceof byte[]) {
+        value2 = ByteBuffer.wrap((byte[]) value2);
+      } else if (value2 instanceof Text) {
+        value2 = value2.toString();
+      }
+      assertTrue(Objects.equals(value1, value2));
+    }
+  }
+
+  private void checkPrimitiveResult(List data, FieldVector vector) {
     assertEquals(data.size(), vector.getValueCount());
     for (int i = 0; i < data.size(); i++) {
       Object value1 = data.get(i);
@@ -343,6 +442,9 @@ public class AvroToArrowTest {
       }
       if (value2 instanceof byte[]) {
         value2 = ByteBuffer.wrap((byte[]) value2);
+        if (value1 instanceof byte[]) {
+          value1 = ByteBuffer.wrap((byte[]) value1);
+        }
       } else if (value2 instanceof Text) {
         value2 = value2.toString();
       }
