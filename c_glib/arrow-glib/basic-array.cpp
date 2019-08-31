@@ -550,7 +550,8 @@ garrow_array_view(GArrowArray *array,
  * @other_array: A #GArrowArray to be compared.
  *
  * Returns: (nullable) (transfer full): The string representation of
- *   the difference between two arrays as unified format.
+ *   the difference between two arrays as unified format. If there is
+ *   no difference, the return value is %NULL.
  *
  *   It should be freed with g_free() when no longer needed.
  *
