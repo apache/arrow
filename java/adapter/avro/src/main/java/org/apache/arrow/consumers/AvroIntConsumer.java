@@ -27,9 +27,9 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume int type values from avro decoder.
  * Write the data to {@link IntVector}.
  */
-public class AvroIntConsumer implements Consumer {
+public class AvroIntConsumer implements Consumer<IntVector> {
 
-  private final IntVector vector;
+  private IntVector vector;
 
   private int currentIndex;
 
@@ -63,5 +63,11 @@ public class AvroIntConsumer implements Consumer {
   @Override
   public void close() throws Exception {
     vector.close();
+  }
+
+  @Override
+  public void resetValueVector(IntVector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }
