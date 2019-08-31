@@ -39,8 +39,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # shared libraries
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
-
 # compiler flags that are common across debug/release builds
 if(WIN32)
   # TODO(wesm): Change usages of C runtime functions that MSVC says are
@@ -111,7 +109,7 @@ endif()
 # `RELEASE`, then it will default to `PRODUCTION`. The goal of defaulting to
 # `CHECKIN` is to avoid friction with long response time from CI.
 if(NOT BUILD_WARNING_LEVEL)
-  if("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+  if("${UPPERCASE_BUILD_TYPE}" STREQUAL "RELEASE")
     set(BUILD_WARNING_LEVEL PRODUCTION)
   else()
     set(BUILD_WARNING_LEVEL CHECKIN)
@@ -122,7 +120,7 @@ string(TOUPPER ${BUILD_WARNING_LEVEL} BUILD_WARNING_LEVEL)
 message(STATUS "Arrow build warning level: ${BUILD_WARNING_LEVEL}")
 
 macro(arrow_add_werror_if_debug)
-  if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+  if("${UPPERCASE_BUILD_TYPE}" STREQUAL "DEBUG")
     # Treat all compiler warnings as errors
     if("${COMPILER_FAMILY}" STREQUAL "msvc")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /WX")
@@ -362,7 +360,7 @@ if(NOT WIN32 AND NOT APPLE)
     if(MUST_USE_GOLD)
       message("Using hard-wired gold linker (version ${GOLD_VERSION})")
       if(ARROW_BUGGY_GOLD)
-        if("${ARROW_LINK}" STREQUAL "d" AND "${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+        if("${ARROW_LINK}" STREQUAL "d" AND "${UPPERCASE_BUILD_TYPE}" STREQUAL "RELEASE")
           message(SEND_ERROR "Configured to use buggy gold with dynamic linking "
                              "in a RELEASE build")
         endif()
@@ -417,21 +415,21 @@ set(CXX_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
 message(
   "Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})"
   )
-if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+if("${UPPERCASE_BUILD_TYPE}" STREQUAL "DEBUG")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_DEBUG}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_DEBUG}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")
+elseif("${UPPERCASE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")
 
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "FASTDEBUG")
+elseif("${UPPERCASE_BUILD_TYPE}" STREQUAL "FASTDEBUG")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_FASTDEBUG}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_FASTDEBUG}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+elseif("${UPPERCASE_BUILD_TYPE}" STREQUAL "RELEASE")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_RELEASE}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_RELEASE}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "PROFILE_GEN")
+elseif("${UPPERCASE_BUILD_TYPE}" STREQUAL "PROFILE_GEN")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_PROFILE_GEN}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_PROFILE_GEN}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "PROFILE_BUILD")
+elseif("${UPPERCASE_BUILD_TYPE}" STREQUAL "PROFILE_BUILD")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_PROFILE_BUILD}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_PROFILE_BUILD}")
 else()

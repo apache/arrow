@@ -19,6 +19,13 @@
 # projects, including Kudu, Impala, and libdynd. See python/LICENSE.txt
 
 cmake_minimum_required(VERSION 2.7)
+
+# If no build build type is specified, default to release builds
+if(NOT DEFINED CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build.")
+endif()
+string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
+
 project(pyarrow)
 
 # Running from a Python sdist tarball
