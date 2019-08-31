@@ -549,7 +549,7 @@ garrow_array_view(GArrowArray *array,
  * @array: A #GArrowArray.
  * @other_array: A #GArrowArray to be compared.
  *
- * Returns: (transfer full): The string representation of
+ * Returns: (nullable) (transfer full): The string representation of
  *   the difference between two arrays as unified format.
  *
  *   It should be freed with g_free() when no longer needed.
@@ -565,7 +565,11 @@ garrow_array_diff_unified(GArrowArray *array, GArrowArray *other_array)
   arrow_array->Equals(arrow_other_array,
                       arrow::EqualOptions().diff_sink(&diff));
   auto string = diff.str();
-  return g_strndup(string.data(), string.size());
+  if (string.empty()) {
+    return NULL;
+  } else {
+    return g_strndup(string.data(), string.size());
+  }
 }
 
 
