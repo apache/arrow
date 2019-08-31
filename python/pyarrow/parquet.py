@@ -215,7 +215,7 @@ class ParquetFile(object):
         """
         column_indices = self._get_column_indices(
             columns, use_pandas_metadata=use_pandas_metadata)
-        return self.reader.read_row_groups(row_groups, 
+        return self.reader.read_row_groups(row_groups,
                                            column_indices=column_indices,
                                            use_threads=use_threads)
 
