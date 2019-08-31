@@ -136,7 +136,7 @@ class TestArray < Test::Unit::TestCase
     def test_no_diff
       array = build_string_array(["Start", "Shutdown", "Reboot"])
       other_array = build_string_array(["Start", "Shutdown", "Reboot"])
-      assert_equal(nil, array.diff_unified(other_array))
+      assert_nil(array.diff_unified(other_array))
     end
 
     def test_diff
