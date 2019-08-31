@@ -17,8 +17,6 @@
 
 // Functions for pandas conversion via NumPy
 
-#define ARROW_NO_DEFAULT_MEMORY_POOL
-
 #include "arrow/python/numpy_to_arrow.h"
 #include "arrow/python/numpy_interop.h"
 

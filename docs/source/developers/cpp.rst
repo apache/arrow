@@ -641,7 +641,7 @@ The report is then generated in ``compat_reports/libarrow`` as a HTML.
 Debugging with Xcode on macOS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Xcode is the IDE provided with macOS and can be use to develop and debug Arrow 
+Xcode is the IDE provided with macOS and can be use to develop and debug Arrow
 by generating an Xcode project:
 
 .. code-block:: shell
@@ -652,10 +652,10 @@ by generating an Xcode project:
    cmake .. -G Xcode -DARROW_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=DEBUG
    open arrow.xcodeproj
 
-This will generate a project and open it in the Xcode app. As an alternative, 
+This will generate a project and open it in the Xcode app. As an alternative,
 the command ``xcodebuild`` will perform a command-line build using the
 generated project. It is recommended to use the "Automatically Create Schemes"
-option when first launching the project.  Selecting an auto-generated scheme 
+option when first launching the project.  Selecting an auto-generated scheme
 will allow you to build and run a unittest with breakpoints enabled.
 
 Developing on Windows
@@ -1027,9 +1027,10 @@ Memory Pools
 
 We provide a default memory pool with ``arrow::default_memory_pool()``. As a
 matter of convenience, some of the array builder classes have constructors
-which use the default pool without explicitly passing it. You can disable these
-constructors in your application (so that you are accounting properly for all
-memory allocations) by defining ``ARROW_NO_DEFAULT_MEMORY_POOL``.
+which use the default pool without explicitly passing it. One can override the
+default optional memory pool by defining the ``ARROW_MEMORY_POOL_DEFAULT``
+macro to an assignment of a global function,
+e.g. ``= my_default_memory_pool()``.
 
 Error Handling and Exceptions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
