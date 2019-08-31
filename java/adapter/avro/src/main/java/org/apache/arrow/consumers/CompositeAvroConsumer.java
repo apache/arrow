@@ -49,6 +49,15 @@ public class CompositeAvroConsumer implements AutoCloseable {
     }
   }
 
+  /**
+   * Reset vector of consumers with the given {@link VectorSchemaRoot}.
+   */
+  public void resetConsumerVectors(VectorSchemaRoot root) {
+    for (int i = 0; i < root.getFieldVectors().size(); i++) {
+      consumers.get(i).resetValueVector(root.getFieldVectors().get(i));
+    }
+  }
+
   @Override
   public void close() {
     // clean up

@@ -53,25 +53,26 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
       writer.write(value, encoder);
     }
 
-    return AvroToArrow.avroToArrowIterator(schema, decoder, allocator, 3);
+    return AvroToArrow.avroToArrowIterator(schema, decoder, allocator, /*targetBatchSize=*/3);
   }
 
   @Test
   public void testStringType() throws Exception {
     Schema schema = getSchema("test_primitive_string.avsc");
-    ArrayList<String> data = new ArrayList(Arrays.asList("v1", "v2", "v3", "v4", "v5"));
+    List<String> data = Arrays.asList("v1", "v2", "v3", "v4", "v5");
 
-    AvroToArrowVectorIterator iterator = writeAndRead(schema, data);
-    List<VectorSchemaRoot> roots = new ArrayList<>();
-    List<FieldVector> vectors = new ArrayList<>();
-    while (iterator.hasNext()) {
-      VectorSchemaRoot root = iterator.next();
-      FieldVector vector = root.getFieldVectors().get(0);
-      roots.add(root);
-      vectors.add(vector);
+    try (AvroToArrowVectorIterator iterator = writeAndRead(schema, data)) {
+      List<VectorSchemaRoot> roots = new ArrayList<>();
+      List<FieldVector> vectors = new ArrayList<>();
+      while (iterator.hasNext()) {
+        VectorSchemaRoot root = iterator.next();
+        FieldVector vector = root.getFieldVectors().get(0);
+        roots.add(root);
+        vectors.add(vector);
+      }
+      checkPrimitiveResult(data, vectors);
+      roots.forEach(root -> root.close());
     }
-    checkPrimitiveResult(data, vectors);
-    roots.forEach(root -> root.close());
   }
 
   @Test
@@ -88,17 +89,19 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
       data.add(record);
     }
 
-    AvroToArrowVectorIterator iterator = writeAndRead(schema, data);
-    List<VectorSchemaRoot> roots = new ArrayList<>();
-    List<FieldVector> vectors = new ArrayList<>();
-    while (iterator.hasNext()) {
-      VectorSchemaRoot root = iterator.next();
-      FieldVector vector = root.getFieldVectors().get(0);
-      roots.add(root);
-      vectors.add(vector);
+    try (AvroToArrowVectorIterator iterator = writeAndRead(schema, data);) {
+      List<VectorSchemaRoot> roots = new ArrayList<>();
+      List<FieldVector> vectors = new ArrayList<>();
+      while (iterator.hasNext()) {
+        VectorSchemaRoot root = iterator.next();
+        FieldVector vector = root.getFieldVectors().get(0);
+        roots.add(root);
+        vectors.add(vector);
+      }
+      checkPrimitiveResult(expected, vectors);
+      roots.forEach(root -> root.close());
     }
-    checkPrimitiveResult(expected, vectors);
-    roots.forEach(root -> root.close());
+
   }
 
   @Test
@@ -113,34 +116,37 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
       data.add(record);
     }
 
-    AvroToArrowVectorIterator iterator = writeAndRead(schema, data);
-    List<VectorSchemaRoot> roots = new ArrayList<>();
-    while (iterator.hasNext()) {
-      roots.add(iterator.next());
+    try (AvroToArrowVectorIterator iterator = writeAndRead(schema, data)) {
+      List<VectorSchemaRoot> roots = new ArrayList<>();
+      while (iterator.hasNext()) {
+        roots.add(iterator.next());
+      }
+      checkRecordResult(schema, data, roots);
+      roots.forEach(root -> root.close());
     }
-    checkRecordResult(schema, data, roots);
-    roots.forEach(root -> root.close());
+
   }
 
   @Test
   public void testArrayType() throws Exception {
     Schema schema = getSchema("test_array.avsc");
-    List<List> data = new ArrayList(Arrays.asList(
+    List<List<?>> data = Arrays.asList(
         Arrays.asList("11", "222", "999"),
         Arrays.asList("12222", "2333", "1000"),
         Arrays.asList("1rrr", "2ggg"),
         Arrays.asList("1vvv", "2bbb"),
-        Arrays.asList("1fff", "2")));
+        Arrays.asList("1fff", "2"));
 
-    AvroToArrowVectorIterator iterator = writeAndRead(schema, data);
-    List<VectorSchemaRoot> roots = new ArrayList<>();
-    List<ListVector> vectors = new ArrayList<>();
-    while (iterator.hasNext()) {
-      VectorSchemaRoot root = iterator.next();
-      roots.add(root);
-      vectors.add((ListVector) root.getFieldVectors().get(0));
+    try (AvroToArrowVectorIterator iterator = writeAndRead(schema, data)) {
+      List<VectorSchemaRoot> roots = new ArrayList<>();
+      List<ListVector> vectors = new ArrayList<>();
+      while (iterator.hasNext()) {
+        VectorSchemaRoot root = iterator.next();
+        roots.add(root);
+        vectors.add((ListVector) root.getFieldVectors().get(0));
+      }
+      checkArrayResult(data, vectors);
+      roots.forEach(root -> root.close());
     }
-    checkArrayResult(data, vectors);
-    roots.forEach(root -> root.close());
   }
 }

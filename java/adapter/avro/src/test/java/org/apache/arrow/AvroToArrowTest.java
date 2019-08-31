@@ -63,7 +63,7 @@ public class AvroToArrowTest extends AvroTestBase {
   @Test
   public void testStringType() throws Exception {
     Schema schema = getSchema("test_primitive_string.avsc");
-    ArrayList<String> data = new ArrayList(Arrays.asList("v1", "v2", "v3", "v4", "v5"));
+    List<String> data = Arrays.asList("v1", "v2", "v3", "v4", "v5");
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -105,7 +105,7 @@ public class AvroToArrowTest extends AvroTestBase {
   @Test
   public void testIntType() throws Exception {
     Schema schema = getSchema("test_primitive_int.avsc");
-    ArrayList<Integer> data = new ArrayList(Arrays.asList(1, 2, 3, 4, 5));
+    List<Integer> data = Arrays.asList(1, 2, 3, 4, 5);
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -131,7 +131,7 @@ public class AvroToArrowTest extends AvroTestBase {
   @Test
   public void testLongType() throws Exception {
     Schema schema = getSchema("test_primitive_long.avsc");
-    ArrayList<Long> data = new ArrayList(Arrays.asList(1L, 2L, 3L, 4L, 5L));
+    List<Long> data = Arrays.asList(1L, 2L, 3L, 4L, 5L);
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -157,7 +157,7 @@ public class AvroToArrowTest extends AvroTestBase {
   @Test
   public void testFloatType() throws Exception {
     Schema schema = getSchema("test_primitive_float.avsc");
-    ArrayList<Float> data = new ArrayList(Arrays.asList(1.1f, 2.2f, 3.3f, 4.4f, 5.5f));
+    List<Float> data = Arrays.asList(1.1f, 2.2f, 3.3f, 4.4f, 5.5f);
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -183,7 +183,7 @@ public class AvroToArrowTest extends AvroTestBase {
   @Test
   public void testDoubleType() throws Exception {
     Schema schema = getSchema("test_primitive_double.avsc");
-    ArrayList<Double> data = new ArrayList(Arrays.asList(1.1, 2.2, 3.3, 4.4, 5.5));
+    List<Double> data = Arrays.asList(1.1, 2.2, 3.3, 4.4, 5.5);
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -209,12 +209,12 @@ public class AvroToArrowTest extends AvroTestBase {
   @Test
   public void testBytesType() throws Exception {
     Schema schema = getSchema("test_primitive_bytes.avsc");
-    ArrayList<ByteBuffer> data = new ArrayList(Arrays.asList(
+    List<ByteBuffer> data = Arrays.asList(
         ByteBuffer.wrap("value1".getBytes(StandardCharsets.UTF_8)),
         ByteBuffer.wrap("value2".getBytes(StandardCharsets.UTF_8)),
         ByteBuffer.wrap("value3".getBytes(StandardCharsets.UTF_8)),
         ByteBuffer.wrap("value4".getBytes(StandardCharsets.UTF_8)),
-        ByteBuffer.wrap("value5".getBytes(StandardCharsets.UTF_8))));
+        ByteBuffer.wrap("value5".getBytes(StandardCharsets.UTF_8)));
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -240,7 +240,7 @@ public class AvroToArrowTest extends AvroTestBase {
   @Test
   public void testBooleanType() throws Exception {
     Schema schema = getSchema("test_primitive_boolean.avsc");
-    ArrayList<Boolean> data = new ArrayList(Arrays.asList(true, false, true, false, true));
+    List<Boolean> data = Arrays.asList(true, false, true, false, true);
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -266,12 +266,12 @@ public class AvroToArrowTest extends AvroTestBase {
   @Test
   public void testArrayType() throws Exception {
     Schema schema = getSchema("test_array.avsc");
-    List<List> data = new ArrayList(Arrays.asList(
+    List<List<?>> data = Arrays.asList(
         Arrays.asList("11", "222", "999"),
         Arrays.asList("12222", "2333", "1000"),
         Arrays.asList("1rrr", "2ggg"),
         Arrays.asList("1vvv", "2bbb"),
-        Arrays.asList("1fff", "2")));
+        Arrays.asList("1fff", "2"));
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -378,6 +378,5 @@ public class AvroToArrowTest extends AvroTestBase {
 
     checkPrimitiveResult(expected, vector);
   }
-
 
 }

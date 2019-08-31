@@ -58,7 +58,7 @@ public class AvroTestBase {
     return new Schema.Parser().parse(schemaPath.toFile());
   }
 
-  protected void checkArrayResult(List<List> expected, ListVector vector) {
+  protected void checkArrayResult(List<List<?>> expected, ListVector vector) {
     assertEquals(expected.size(), vector.getValueCount());
     for (int i = 0; i < expected.size(); i++) {
       checkArrayElement(expected.get(i), (JsonStringArrayList) vector.getObject(i));
@@ -100,7 +100,7 @@ public class AvroTestBase {
       } else if (value2 instanceof Text) {
         value2 = value2.toString();
       }
-      assertTrue(Objects.equals(value1, value2));
+      assertEquals(value1, value2);
     }
   }
 
@@ -122,7 +122,10 @@ public class AvroTestBase {
 
   // belows are for iterator api
 
-  protected void checkArrayResult(List<List> expected, List<ListVector> vectors) {
+  protected void checkArrayResult(List<List<?>> expected, List<ListVector> vectors) {
+    int valueCount = vectors.stream().mapToInt(v -> v.getValueCount()).sum();
+    assertEquals(expected.size(), valueCount);
+
     int index = 0;
     for (ListVector vector : vectors) {
       for (int i = 0; i < vector.getValueCount(); i++) {
@@ -171,7 +174,7 @@ public class AvroTestBase {
         } else if (value2 instanceof Text) {
           value2 = value2.toString();
         }
-        assertTrue(Objects.equals(value1, value2));
+        assertEquals(value1, value2);
       }
     }
   }

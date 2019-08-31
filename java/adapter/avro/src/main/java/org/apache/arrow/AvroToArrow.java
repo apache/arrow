@@ -32,12 +32,13 @@ public class AvroToArrow {
 
   /**
    * Fetch the data from {@link Decoder} and convert it to Arrow objects.
+   * Only for testing purpose.
    * @param schema avro schema.
    * @param decoder avro decoder
    * @param allocator Memory allocator to use.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
    */
-  public static VectorSchemaRoot avroToArrow(Schema schema, Decoder decoder, BaseAllocator allocator)
+  static VectorSchemaRoot avroToArrow(Schema schema, Decoder decoder, BaseAllocator allocator)
       throws IOException {
     Preconditions.checkNotNull(schema, "Avro schema object can not be null");
     Preconditions.checkNotNull(decoder, "Avro decoder object can not be null");

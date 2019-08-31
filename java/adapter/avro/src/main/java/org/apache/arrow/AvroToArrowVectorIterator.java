@@ -35,7 +35,7 @@ import org.apache.avro.io.Decoder;
 /**
  * VectorSchemaRoot iterator for partially converting avro data.
  */
-public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot> {
+public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoCloseable {
 
   public static final int NO_LIMIT_BATCH_SIZE = -1;
   public static final int DEFAULT_BATCH_SIZE = 1024;
@@ -123,9 +123,7 @@ public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot> {
     Preconditions.checkArgument(root.getFieldVectors().size() == compositeConsumer.getConsumers().size(),
         "Schema root vectors size not equals to consumers size.");
 
-    for (int i = 0; i < root.getFieldVectors().size(); i++) {
-      compositeConsumer.getConsumers().get(i).resetValueVector(root.getFieldVectors().get(i));
-    }
+    compositeConsumer.resetConsumerVectors(root);
 
     // consume data
     consumeData(root);
@@ -152,7 +150,6 @@ public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot> {
     try {
       load(VectorSchemaRoot.create(rootSchema, allocator));
     } catch (Exception e) {
-      close();
       throw new RuntimeException("Error occurs while getting next schema root.", e);
     }
     return returned;
