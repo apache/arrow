@@ -67,7 +67,7 @@ public class ClobConsumer implements JdbcConsumer<VarCharVector> {
           String str = clob.getSubString(read, readSize);
           byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
 
-          if ((dataBuffer.writerIndex() + bytes.length) > dataBuffer.capacity()) {
+          while ((dataBuffer.writerIndex() + bytes.length) > dataBuffer.capacity()) {
             vector.reallocDataBuffer();
           }
           PlatformDependent.copyMemory(bytes, 0,

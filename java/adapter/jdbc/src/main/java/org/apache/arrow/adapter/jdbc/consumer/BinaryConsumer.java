@@ -63,7 +63,7 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
       ArrowBuf offsetBuffer = vector.getOffsetBuffer();
       int startIndex = offsetBuffer.getInt(currentIndex * 4);
       while ((read = is.read(bytes)) != -1) {
-        if ((dataBuffer.writerIndex() + read) > dataBuffer.capacity()) {
+        while ((dataBuffer.writerIndex() + read) > dataBuffer.capacity()) {
           vector.reallocDataBuffer();
         }
         PlatformDependent.copyMemory(bytes, 0,
