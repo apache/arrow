@@ -190,7 +190,7 @@ class ParquetFile(object):
                                           use_threads=use_threads)
 
     def read_row_groups(self, row_groups, columns=None, use_threads=True,
-                       use_pandas_metadata=False):
+                        use_pandas_metadata=False):
         """
         Read a multiple row groups from a Parquet file
 
@@ -215,7 +215,8 @@ class ParquetFile(object):
         """
         column_indices = self._get_column_indices(
             columns, use_pandas_metadata=use_pandas_metadata)
-        return self.reader.read_row_groups(row_groups, column_indices=column_indices,
+        return self.reader.read_row_groups(row_groups, 
+                                           column_indices=column_indices,
                                            use_threads=use_threads)
 
     def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
