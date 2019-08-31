@@ -1080,7 +1080,7 @@ cdef class ParquetReader:
 
             with nogil:
                 check_status(self.reader.get()
-                             .ReadRowGroups(c_row_groups, c_column_indices, 
+                             .ReadRowGroups(c_row_groups, c_column_indices,
                                             &ctable))
         else:
             # Read all columns
