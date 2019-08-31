@@ -89,12 +89,14 @@ Status FromProto(const pb::FlightData& pb_data, FlightDescriptor* descriptor,
 Status FromProto(const pb::FlightDescriptor& pb_descr, FlightDescriptor* descr);
 Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint);
 Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info);
+Status FromProto(const pb::SchemaResult& pb_result, std::string* result);
 
 Status ToProto(const FlightDescriptor& descr, pb::FlightDescriptor* pb_descr);
 Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info);
 Status ToProto(const ActionType& type, pb::ActionType* pb_type);
 Status ToProto(const Action& action, pb::Action* pb_action);
 Status ToProto(const Result& result, pb::Result* pb_result);
+Status ToProto(const SchemaResult& result, pb::SchemaResult* pb_result);
 void ToProto(const Ticket& ticket, pb::Ticket* pb_ticket);
 
 }  // namespace internal

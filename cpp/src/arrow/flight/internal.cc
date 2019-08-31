@@ -314,6 +314,11 @@ Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info) {
   return Status::OK();
 }
 
+Status FromProto(const pb::SchemaResult& pb_result, std::string* result) {
+  *result = pb_result.schema();
+  return Status::OK();
+}
+
 Status SchemaToString(const Schema& schema, std::string* out) {
   // TODO(wesm): Do we care about better memory efficiency here?
   std::shared_ptr<Buffer> serialized_schema;
@@ -341,6 +346,11 @@ Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info) {
 
   pb_info->set_total_records(info.total_records());
   pb_info->set_total_bytes(info.total_bytes());
+  return Status::OK();
+}
+
+Status ToProto(const SchemaResult& result, pb::SchemaResult* pb_result) {
+  pb_result->set_schema(result.serialized_schema());
   return Status::OK();
 }
 

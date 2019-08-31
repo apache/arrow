@@ -344,6 +344,27 @@ class FlightServiceImpl : public FlightService::Service {
     return grpc::Status::OK;
   }
 
+  grpc::Status GetSchema(ServerContext* context, const pb::FlightDescriptor* request,
+                         pb::SchemaResult* response) {
+    CHECK_ARG_NOT_NULL(request, "FlightDescriptor cannot be null");
+    GrpcServerCallContext flight_context;
+    GRPC_RETURN_NOT_GRPC_OK(CheckAuth(context, flight_context));
+
+    FlightDescriptor descr;
+    GRPC_RETURN_NOT_OK(internal::FromProto(*request, &descr));
+
+    std::unique_ptr<SchemaResult> result;
+    GRPC_RETURN_NOT_OK(server_->GetSchema(flight_context, descr, &result));
+
+    if (!result) {
+      // Treat null listing as no flights available
+      return grpc::Status(grpc::StatusCode::NOT_FOUND, "Flight not found");
+    }
+
+    GRPC_RETURN_NOT_OK(internal::ToProto(*result, response));
+    return grpc::Status::OK;
+  }
+
   grpc::Status DoGet(ServerContext* context, const pb::Ticket* request,
                      ServerWriter<pb::FlightData>* writer) {
     CHECK_ARG_NOT_NULL(request, "ticket cannot be null");
@@ -624,6 +645,12 @@ Status FlightServerBase::DoAction(const ServerCallContext& context, const Action
 
 Status FlightServerBase::ListActions(const ServerCallContext& context,
                                      std::vector<ActionType>* actions) {
+  return Status::NotImplemented("NYI");
+}
+
+Status FlightServerBase::GetSchema(const ServerCallContext& context,
+                                   const FlightDescriptor& request,
+                                   std::unique_ptr<SchemaResult>* schema) {
   return Status::NotImplemented("NYI");
 }
 

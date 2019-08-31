@@ -222,6 +222,15 @@ public class FlightClient implements AutoCloseable {
   }
 
   /**
+   * Get schema for a stream.
+   * @param descriptor The descriptor for the stream.
+   * @param options RPC-layer hints for this call.
+   */
+  public SchemaResult getSchema(FlightDescriptor descriptor, CallOption... options) {
+    return SchemaResult.fromProtocol(CallOptions.wrapStub(blockingStub, options).getSchema(descriptor.toProtocol()));
+  }
+
+  /**
    * Retrieve a stream from the server.
    * @param ticket The ticket granting access to the data stream.
    * @param options RPC-layer hints for this call.

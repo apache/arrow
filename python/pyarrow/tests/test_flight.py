@@ -221,6 +221,10 @@ class GetInfoFlightServer(FlightServerBase):
             -1,
         )
 
+    def get_schema(self, context, descriptor):
+        info = self.get_flight_info(context, descriptor)
+        return flight.SchemaResult(info.schema)
+
 
 class CheckTicketFlightServer(FlightServerBase):
     """A Flight server that compares the given ticket to an expected value."""
@@ -496,6 +500,14 @@ def test_flight_get_info():
         assert info.endpoints[0].locations[0] == flight.Location('grpc://test')
         assert info.endpoints[1].locations[0] == \
             flight.Location.for_grpc_tcp('localhost', 5005)
+
+
+def test_flight_get_schema():
+    """Make sure GetSchema returns correct schema."""
+    with flight_server(GetInfoFlightServer) as server_location:
+        client = flight.FlightClient.connect(server_location)
+        info = client.get_schema(flight.FlightDescriptor.for_command(b''))
+        assert info.schema == pa.schema([('a', pa.int32())])
 
 
 @pytest.mark.skipif(os.name == 'nt',

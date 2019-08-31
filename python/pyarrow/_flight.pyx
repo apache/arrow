@@ -508,6 +508,34 @@ cdef class FlightEndpoint:
         return self.endpoint == other.endpoint
 
 
+cdef class SchemaResult:
+    """A result from a getschema request. Holding a schema"""
+    cdef:
+        unique_ptr[CSchemaResult] result
+
+    def __init__(self, Schema schema):
+        """Create a SchemaResult from a schema.
+
+        Parameters
+        ----------
+        schema: Schema
+            the schema of the data in this flight.
+        """
+        cdef:
+            shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
+        check_status(CreateSchemaResult(c_schema, &self.result))
+
+    @property
+    def schema(self):
+        """The schema of the data in this flight."""
+        cdef:
+            shared_ptr[CSchema] schema
+            CDictionaryMemo dummy_memo
+
+        check_status(self.result.get().GetSchema(&dummy_memo, &schema))
+        return pyarrow_wrap_schema(schema)
+
+
 cdef class FlightInfo:
     """A description of a Flight stream."""
     cdef:
@@ -899,6 +927,22 @@ cdef class FlightClient:
 
         return result
 
+    def get_schema(self, descriptor: FlightDescriptor,
+                   options: FlightCallOptions = None):
+        """Request schema for an available flight."""
+        cdef:
+            SchemaResult result = SchemaResult.__new__(SchemaResult)
+            CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
+            CFlightDescriptor c_descriptor = \
+                FlightDescriptor.unwrap(descriptor)
+        with nogil:
+            check_status(
+                self.client.get()
+                    .GetSchema(deref(c_options), c_descriptor, &result.result)
+            )
+
+        return result
+
     def do_get(self, ticket: Ticket, options: FlightCallOptions = None):
         """Request the data for a flight.
 
@@ -1287,6 +1331,22 @@ cdef CStatus _get_flight_info(void* self, const CServerCallContext& context,
     info.reset(new CFlightInfo(deref((<FlightInfo> result).info.get())))
     return CStatus_OK()
 
+cdef CStatus _get_schema(void* self, const CServerCallContext& context,
+                         CFlightDescriptor c_descriptor,
+                         unique_ptr[CSchemaResult]* info) except *:
+    """Callback for implementing Flight servers in Python."""
+    cdef:
+        FlightDescriptor py_descriptor = \
+            FlightDescriptor.__new__(FlightDescriptor)
+    py_descriptor.descriptor = c_descriptor
+    result = (<object> self).get_schema(ServerCallContext.wrap(context),
+                                        py_descriptor)
+    if not isinstance(result, SchemaResult):
+        raise TypeError("FlightServerBase.get_schema_info must return "
+                        "a SchemaResult instance, but got {}".format(
+                            type(result)))
+    info.reset(new CSchemaResult(deref((<SchemaResult> result).result.get())))
+    return CStatus_OK()
 
 cdef CStatus _do_put(void* self, const CServerCallContext& context,
                      unique_ptr[CFlightMessageReader] reader,
@@ -1556,6 +1616,7 @@ cdef class FlightServerBase:
 
         vtable.list_flights = &_list_flights
         vtable.get_flight_info = &_get_flight_info
+        vtable.get_schema = &_get_schema
         vtable.do_put = &_do_put
         vtable.do_get = &_do_get
         vtable.list_actions = &_list_actions
@@ -1582,6 +1643,9 @@ cdef class FlightServerBase:
         raise NotImplementedError
 
     def get_flight_info(self, context, descriptor):
+        raise NotImplementedError
+
+    def get_schema(self, context, descriptor):
         raise NotImplementedError
 
     def do_put(self, context, descriptor, reader,

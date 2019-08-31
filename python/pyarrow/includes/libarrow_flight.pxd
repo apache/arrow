@@ -107,6 +107,10 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CStatus Deserialize(const c_string& serialized,
                             unique_ptr[CFlightInfo]* out)
 
+    cdef cppclass CSchemaResult" arrow::flight::SchemaResult":
+        CSchemaResult(CSchemaResult result)
+        CStatus GetSchema(CDictionaryMemo* memo, shared_ptr[CSchema]* out)
+
     cdef cppclass CFlightListing" arrow::flight::FlightListing":
         CStatus Next(unique_ptr[CFlightInfo]* info)
 
@@ -219,7 +223,9 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CStatus GetFlightInfo(CFlightCallOptions& options,
                               CFlightDescriptor& descriptor,
                               unique_ptr[CFlightInfo]* info)
-
+        CStatus GetSchema(CFlightCallOptions& options,
+                          CFlightDescriptor& descriptor,
+                          unique_ptr[CSchemaResult]* result)
         CStatus DoGet(CFlightCallOptions& options, CTicket& ticket,
                       unique_ptr[CFlightStreamReader]* stream)
         CStatus DoPut(CFlightCallOptions& options,
@@ -261,6 +267,9 @@ ctypedef CStatus cb_list_flights(object, const CServerCallContext&,
 ctypedef CStatus cb_get_flight_info(object, const CServerCallContext&,
                                     const CFlightDescriptor&,
                                     unique_ptr[CFlightInfo]*)
+ctypedef CStatus cb_get_schema(object, const CServerCallContext&,
+                               const CFlightDescriptor&,
+                               unique_ptr[CSchemaResult]*)
 ctypedef CStatus cb_do_put(object, const CServerCallContext&,
                            unique_ptr[CFlightMessageReader],
                            unique_ptr[CFlightMetadataWriter])
@@ -286,6 +295,7 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         PyFlightServerVtable()
         function[cb_list_flights] list_flights
         function[cb_get_flight_info] get_flight_info
+        function[cb_get_schema] get_schema
         function[cb_do_put] do_put
         function[cb_do_get] do_get
         function[cb_do_action] do_action
@@ -340,6 +350,10 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         int64_t total_records,
         int64_t total_bytes,
         unique_ptr[CFlightInfo]* out)
+
+    cdef CStatus CreateSchemaResult" arrow::py::flight::CreateSchemaResult"(
+        shared_ptr[CSchema] schema,
+        unique_ptr[CSchemaResult]* out)
 
 
 cdef extern from "<utility>" namespace "std":
