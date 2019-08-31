@@ -1808,30 +1808,44 @@ def test_filters_read_table(tempdir):
 
 
 @pytest.yield_fixture
-def s3_example():
-    access_key = os.environ['PYARROW_TEST_S3_ACCESS_KEY']
-    secret_key = os.environ['PYARROW_TEST_S3_SECRET_KEY']
-    bucket_name = os.environ['PYARROW_TEST_S3_BUCKET']
-
+@pytest.mark.s3
+def s3_example(tempdir):
     import s3fs
-    fs = s3fs.S3FileSystem(key=access_key, secret=secret_key)
+    import subprocess
+
+    bucket_name = 'minio_bucket'
+    minio_access_key = 'minio'
+    minio_secret_key = 'miniopass'
+    endpoint = '127.0.0.1:9123'
+    client_kwargs = {'endpoint_url': 'http://' + endpoint}
+    os.environ["MINIO_ACCESS_KEY"] = minio_access_key
+    os.environ["MINIO_SECRET_KEY"] = minio_secret_key
+    os.makedirs(tempdir / bucket_name)
+
+    cmd = ['minio', 'server', '--compat', '--address', endpoint, str(tempdir)]
+    pro = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+
+    fs = s3fs.S3FileSystem(key=minio_access_key, secret=minio_secret_key,
+                           client_kwargs=client_kwargs)
 
     test_dir = guid()
-
     bucket_uri = 's3://{0}/{1}'.format(bucket_name, test_dir)
     fs.mkdir(bucket_uri)
     yield fs, bucket_uri
     fs.rm(bucket_uri, recursive=True)
+    pro.kill()
 
 
 @pytest.mark.pandas
 @pytest.mark.s3
 def test_read_partitioned_directory_s3fs(s3_example):
+    import pathlib
     from pyarrow.filesystem import S3FSWrapper
 
     fs, bucket_uri = s3_example
     wrapper = S3FSWrapper(fs)
-    _partition_test_for_filesystem(wrapper, bucket_uri)
+    bucket_path = pathlib.PurePosixPath(bucket_uri.replace('s3://', ''))
+    _partition_test_for_filesystem(wrapper, bucket_path)
 
     # Check that we can auto-wrap
     dataset = pq.ParquetDataset(bucket_uri, filesystem=fs)
@@ -1885,7 +1899,14 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
             this_part_keys = part_keys + [(name, value)]
 
             level_dir = base_dir / '{0}={1}'.format(name, value)
-            fs.mkdir(level_dir)
+            is_s3 = hasattr(fs, 'fs')
+
+            if is_s3:
+                fs.mkdir(level_dir, create_parents=False)
+                path = 's3://' + (level_dir / '_SUCCESS').as_posix()
+            else:
+                fs.mkdir(level_dir)
+                path = (level_dir / '_SUCCESS')
 
             if level == DEPTH - 1:
                 # Generate example data
@@ -1897,10 +1918,16 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
                     _write_table(part_table, f)
                 assert fs.exists(file_path)
 
-                (level_dir / '_SUCCESS').touch()
+                if is_s3:
+                    fs.fs.touch(path)
+                else:
+                    path.touch()
             else:
                 _visit_level(level_dir, level + 1, this_part_keys)
-                (level_dir / '_SUCCESS').touch()
+                if is_s3:
+                    fs.fs.touch(path)
+                else:
+                    path.touch()
 
     _visit_level(base_dir, 0, [])
 

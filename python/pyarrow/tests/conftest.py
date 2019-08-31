@@ -115,6 +115,13 @@ except ImportError:
     pass
 
 try:
+    from distutils.spawn import find_executable  # noga
+    if find_executable('minio') or find_executable('minio.exe'):
+        defaults['s3'] = True
+except ImportError:
+    pass
+
+try:
     import tensorflow  # noqa
     defaults['tensorflow'] = True
 except ImportError:

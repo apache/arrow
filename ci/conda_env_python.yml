@@ -23,5 +23,6 @@ pandas
 pytest
 pytest-faulthandler
 pytz
+s3fs
 setuptools
 setuptools_scm=3.2.0

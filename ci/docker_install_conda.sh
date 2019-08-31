@@ -40,3 +40,9 @@ conda config --add channels conda-forge
 
 # Update packages
 conda update --all -q -y
+
+# Download the Minio S3 server into PATH
+export S3FS_DIR=/usr/local/bin/
+mkdir -p $S3FS_DIR
+wget --directory-prefix $S3FS_DIR https://dl.min.io/server/minio/release/linux-amd64/minio
+chmod +x $S3FS_DIR/minio
