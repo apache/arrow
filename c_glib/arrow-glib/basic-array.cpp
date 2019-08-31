@@ -544,6 +544,35 @@ garrow_array_view(GArrowArray *array,
   }
 }
 
+/**
+ * garrow_array_diff_unified:
+ * @array: A #GArrowArray.
+ * @other_array: A #GArrowArray to be compared.
+ *
+ * Returns: (nullable) (transfer full): The string representation of
+ *   the difference between two arrays as unified format. If there is
+ *   no difference, the return value is %NULL.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 0.15.0
+ */
+gchar *
+garrow_array_diff_unified(GArrowArray *array, GArrowArray *other_array)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  const auto arrow_other_array = garrow_array_get_raw(other_array);
+  std::stringstream diff;
+  arrow_array->Equals(arrow_other_array,
+                      arrow::EqualOptions().diff_sink(&diff));
+  auto string = diff.str();
+  if (string.empty()) {
+    return NULL;
+  } else {
+    return g_strndup(string.data(), string.size());
+  }
+}
+
 
 G_DEFINE_TYPE(GArrowNullArray,
               garrow_null_array,

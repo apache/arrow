@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <arrow-glib/buffer.h>
 #include <arrow-glib/basic-data-type.h>
+#include <arrow-glib/buffer.h>
 
 G_BEGIN_DECLS
 
@@ -64,6 +64,9 @@ GARROW_AVAILABLE_IN_0_15
 GArrowArray *garrow_array_view(GArrowArray *array,
                                GArrowDataType *return_type,
                                GError **error);
+GARROW_AVAILABLE_IN_0_15
+gchar *garrow_array_diff_unified(GArrowArray *array,
+                                 GArrowArray *other_array);
 
 
 #define GARROW_TYPE_NULL_ARRAY (garrow_null_array_get_type())
