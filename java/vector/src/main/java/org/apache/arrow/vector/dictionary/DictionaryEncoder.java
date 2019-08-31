@@ -72,6 +72,59 @@ public class DictionaryEncoder {
   }
 
   /**
+   * Populates indices between start and end with the encoded values of vector.
+   * @param vector the vector to encode
+   * @param indices the index vector
+   * @param encoding the hash table for encoding
+   * @param start the start index
+   * @param end the end index
+   */
+  static void buildIndexVector(
+      ValueVector vector,
+      BaseIntVector indices,
+      DictionaryHashTable encoding,
+      int start,
+      int end) {
+
+    for (int i = start; i < end; i++) {
+      if (!vector.isNull(i)) {
+        // if it's null leave it null
+        // note: this may fail if value was not included in the dictionary
+        int encoded = encoding.getIndex(i, vector);
+        if (encoded == -1) {
+          throw new IllegalArgumentException("Dictionary encoding not defined for value:" + vector.getObject(i));
+        }
+        indices.setWithPossibleTruncate(i, encoded);
+      }
+    }
+  }
+
+  /**
+   * Retrieve values to target vector from index vector.
+   * @param indices the index vector
+   * @param transfer the {@link TransferPair} to copy dictionary data into target vector.
+   * @param dictionaryCount the value count of dictionary vector.
+   * @param start the start index
+   * @param end the end index
+   */
+  static void retrieveIndexVector(
+      BaseIntVector indices,
+      TransferPair transfer,
+      int dictionaryCount,
+      int start,
+      int end) {
+    for (int i = start; i < end; i++) {
+      if (!indices.isNull(i)) {
+        int indexAsInt = (int) indices.getValueAsLong(i);
+        if (indexAsInt > dictionaryCount) {
+          throw new IllegalArgumentException("Provided dictionary does not contain value for index " + indexAsInt);
+        }
+        transfer.copyValueSafe(indexAsInt, i);
+      }
+    }
+  }
+
+  /**
    * Encodes a vector with the built hash table in this encoder.
    */
   public ValueVector encode(ValueVector vector) {
@@ -91,22 +144,8 @@ public class DictionaryEncoder {
     BaseIntVector indices = (BaseIntVector) createdVector;
     indices.allocateNew();
 
-    int count = vector.getValueCount();
-
-    for (int i = 0; i < count; i++) {
-      if (!vector.isNull(i)) { // if it's null leave it null
-        // note: this may fail if value was not included in the dictionary
-        //int encoded = lookUps.get(value);
-        int encoded = hashTable.getIndex(i, vector);
-        if (encoded == -1) {
-          throw new IllegalArgumentException("Dictionary encoding not defined for value:" + vector.getObject(i));
-        }
-        indices.setWithPossibleTruncate(i, encoded);
-      }
-    }
-
-    indices.setValueCount(count);
-
+    buildIndexVector(vector, indices, hashTable, 0, vector.getValueCount());
+    indices.setValueCount(vector.getValueCount());
     return indices;
   }
 
@@ -122,15 +161,7 @@ public class DictionaryEncoder {
     transfer.getTo().allocateNewSafe();
 
     BaseIntVector baseIntVector = (BaseIntVector) indices;
-    for (int i = 0; i < count; i++) {
-      if (!baseIntVector.isNull(i)) {
-        int indexAsInt = (int) baseIntVector.getValueAsLong(i);
-        if (indexAsInt > dictionaryCount) {
-          throw new IllegalArgumentException("Provided dictionary does not contain value for index " + indexAsInt);
-        }
-        transfer.copyValueSafe(indexAsInt, i);
-      }
-    }
+    retrieveIndexVector(baseIntVector, transfer, dictionaryCount, 0, count);
     ValueVector decoded = transfer.getTo();
     decoded.setValueCount(count);
     return decoded;

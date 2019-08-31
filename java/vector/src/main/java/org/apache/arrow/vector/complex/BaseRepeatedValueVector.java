@@ -44,7 +44,7 @@ import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 import io.netty.buffer.ArrowBuf;
 
 /** Base class for Vectors that contain repeated values. */
-public abstract class BaseRepeatedValueVector extends BaseValueVector implements RepeatedValueVector {
+public abstract class BaseRepeatedValueVector extends BaseValueVector implements RepeatedValueVector, BaseListVector {
 
   public static final FieldVector DEFAULT_DATA_VECTOR = ZeroVector.INSTANCE;
   public static final String DATA_VECTOR_NAME = "$data$";
@@ -304,7 +304,6 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     vector.clear();
     vector = v;
   }
-
 
   @Override
   public int getValueCount() {

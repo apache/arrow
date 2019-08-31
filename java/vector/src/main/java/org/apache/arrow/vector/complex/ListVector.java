@@ -64,7 +64,7 @@ import io.netty.buffer.ArrowBuf;
  * </ol>
  * The latter two are managed by its superclass.
  */
-public class ListVector extends BaseRepeatedValueVector implements FieldVector, PromotableVector {
+public class ListVector extends BaseRepeatedValueVector implements PromotableVector {
 
   public static ListVector empty(String name, BufferAllocator allocator) {
     return new ListVector(name, allocator, FieldType.nullable(ArrowType.List.INSTANCE), null);
@@ -828,5 +828,15 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   public int getLastSet() {
     return lastSet;
+  }
+
+  @Override
+  public int getElementStartIndex(int index) {
+    return offsetBuffer.getInt(index * OFFSET_WIDTH);
+  }
+
+  @Override
+  public int getElementEndIndex(int index) {
+    return offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
   }
 }
