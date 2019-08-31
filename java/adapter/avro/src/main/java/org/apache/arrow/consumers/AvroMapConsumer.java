@@ -27,9 +27,9 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume map type values from avro decoder.
  * Write the data to {@link MapVector}.
  */
-public class AvroMapConsumer implements Consumer {
+public class AvroMapConsumer implements Consumer<MapVector> {
 
-  private final MapVector vector;
+  private MapVector vector;
   private final Consumer delegate;
 
   private int currentIndex;
@@ -76,5 +76,12 @@ public class AvroMapConsumer implements Consumer {
   public void close() throws Exception {
     vector.close();
     delegate.close();
+  }
+
+  @Override
+  public void resetValueVector(MapVector vector) {
+    this.vector = vector;
+    this.delegate.resetValueVector(vector.getDataVector());
+    this.currentIndex = 0;
   }
 }

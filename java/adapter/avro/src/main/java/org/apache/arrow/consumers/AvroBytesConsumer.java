@@ -28,9 +28,9 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume bytes type values from avro decoder.
  * Write the data to {@link VarBinaryVector}.
  */
-public class AvroBytesConsumer implements Consumer {
+public class AvroBytesConsumer implements Consumer<VarBinaryVector> {
 
-  private final VarBinaryVector vector;
+  private VarBinaryVector vector;
   private ByteBuffer cacheBuffer;
 
   private int currentIndex;
@@ -69,5 +69,11 @@ public class AvroBytesConsumer implements Consumer {
   @Override
   public void close() throws Exception {
     vector.close();
+  }
+
+  @Override
+  public void resetValueVector(VarBinaryVector vector) {
+    this.vector = vector;
+    this.currentIndex = currentIndex;
   }
 }

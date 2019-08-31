@@ -27,9 +27,9 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume double type values from avro decoder.
  * Write the data to {@link Float8Vector}.
  */
-public class AvroDoubleConsumer implements Consumer {
+public class AvroDoubleConsumer implements Consumer<Float8Vector> {
 
-  private final Float8Vector vector;
+  private Float8Vector vector;
 
   private int currentIndex;
 
@@ -63,5 +63,11 @@ public class AvroDoubleConsumer implements Consumer {
   @Override
   public void close() throws Exception {
     vector.close();
+  }
+
+  @Override
+  public void resetValueVector(Float8Vector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

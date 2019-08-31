@@ -27,9 +27,9 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume float type values from avro decoder.
  * Write the data to {@link Float4Vector}.
  */
-public class AvroFloatConsumer implements Consumer {
+public class AvroFloatConsumer implements Consumer<Float4Vector> {
 
-  private final Float4Vector vector;
+  private Float4Vector vector;
 
   private int currentIndex;
 
@@ -63,5 +63,11 @@ public class AvroFloatConsumer implements Consumer {
   @Override
   public void close() throws Exception {
     vector.close();
+  }
+
+  @Override
+  public void resetValueVector(Float4Vector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

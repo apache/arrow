@@ -23,7 +23,6 @@ import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.io.Decoder;
 
 /**
@@ -32,15 +31,57 @@ import org.apache.avro.io.Decoder;
 public class AvroToArrow {
 
   /**
-   * Fetch the data from {@link GenericDatumReader} and convert it to Arrow objects.
+   * Fetch the data from {@link Decoder} and convert it to Arrow objects.
    * @param schema avro schema.
+   * @param decoder avro decoder
    * @param allocator Memory allocator to use.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
    */
   public static VectorSchemaRoot avroToArrow(Schema schema, Decoder decoder, BaseAllocator allocator)
       throws IOException {
     Preconditions.checkNotNull(schema, "Avro schema object can not be null");
+    Preconditions.checkNotNull(decoder, "Avro decoder object can not be null");
+    Preconditions.checkNotNull(allocator, "allocator can not be null");
 
     return AvroToArrowUtils.avroToArrowVectors(schema, decoder, allocator);
+  }
+
+  /**
+   * Fetch the data from {@link Decoder} and iteratively convert it to Arrow objects.
+   * @param schema avro schema
+   * @param decoder avro decoder
+   * @param allocator the allocator
+   * @throws IOException on error
+   */
+  public static AvroToArrowVectorIterator avroToArrowIterator(
+      Schema schema,
+      Decoder decoder,
+      BaseAllocator allocator)
+      throws IOException {
+
+    return avroToArrowIterator(schema, decoder, allocator, AvroToArrowVectorIterator.DEFAULT_BATCH_SIZE);
+  }
+
+  /**
+   * Fetch the data from {@link Decoder} and iteratively convert it to Arrow objects.
+   * @param schema avro schema
+   * @param decoder avro decoder
+   * @param allocator the allocator
+   * @param targetBatchSize the max value count for a vector.
+   * @throws IOException on error
+   */
+  public static AvroToArrowVectorIterator avroToArrowIterator(
+      Schema schema,
+      Decoder decoder,
+      BaseAllocator allocator,
+      int targetBatchSize) throws IOException {
+
+    Preconditions.checkNotNull(schema, "Avro schema object can not be null");
+    Preconditions.checkNotNull(decoder, "Avro decoder object can not be null");
+    Preconditions.checkNotNull(allocator, "allocator can not be null");
+    Preconditions.checkArgument(targetBatchSize == AvroToArrowVectorIterator.NO_LIMIT_BATCH_SIZE ||
+        targetBatchSize > 0, "invalid targetBatchSize:" + targetBatchSize);
+
+    return AvroToArrowVectorIterator.create(decoder, schema, allocator, targetBatchSize);
   }
 }

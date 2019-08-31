@@ -27,9 +27,9 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume boolean type values from avro decoder.
  * Write the data to {@link BitVector}.
  */
-public class AvroBooleanConsumer implements Consumer {
+public class AvroBooleanConsumer implements Consumer<BitVector> {
 
-  private final BitVector vector;
+  private BitVector vector;
   private int currentIndex = 0;
 
   /**
@@ -63,6 +63,12 @@ public class AvroBooleanConsumer implements Consumer {
   @Override
   public void close() throws Exception {
     vector.close();
+  }
+
+  @Override
+  public void resetValueVector(BitVector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 
 }

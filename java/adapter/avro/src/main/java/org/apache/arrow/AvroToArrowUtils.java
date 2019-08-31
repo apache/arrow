@@ -211,6 +211,28 @@ public class AvroToArrowUtils {
     return consumer;
   }
 
+  static CompositeAvroConsumer createCompositeConsumer(
+      Schema schema, BufferAllocator allocator) {
+
+    List<Consumer> consumers = new ArrayList<>();
+    CompositeAvroConsumer compositeAvroConsumer = new CompositeAvroConsumer(consumers);
+
+    Schema.Type type = schema.getType();
+    if (type == Type.RECORD) {
+      for (Schema.Field field : schema.getFields()) {
+        Consumer consumer = createConsumer(field.schema(), field.name(), allocator);
+        consumers.add(consumer);
+      }
+    } else if (type == Type.ENUM) {
+      throw new UnsupportedOperationException();
+    } else {
+      Consumer consumer = createConsumer(schema, "", allocator);
+      consumers.add(consumer);
+    }
+
+    return compositeAvroConsumer;
+  }
+
   private static FieldVector createVector(FieldVector v, FieldType fieldType, String name, BufferAllocator allocator) {
     return v != null ? v : fieldType.createNewSingleVector(name, allocator, null);
   }

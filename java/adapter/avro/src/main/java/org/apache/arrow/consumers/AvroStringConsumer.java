@@ -28,9 +28,9 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume string type values from avro decoder.
  * Write the data to {@link VarCharVector}.
  */
-public class AvroStringConsumer implements Consumer {
+public class AvroStringConsumer implements Consumer<VarCharVector> {
 
-  private final VarCharVector vector;
+  private VarCharVector vector;
   private ByteBuffer cacheBuffer;
   private int currentIndex;
 
@@ -67,5 +67,11 @@ public class AvroStringConsumer implements Consumer {
   @Override
   public void close() throws Exception {
     vector.close();
+  }
+
+  @Override
+  public void resetValueVector(VarCharVector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

@@ -18,29 +18,21 @@
 package org.apache.arrow;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Objects;
 
-import org.apache.arrow.memory.BaseAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.util.JsonStringArrayList;
-import org.apache.arrow.vector.util.Text;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -50,28 +42,9 @@ import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.EncoderFactory;
-import org.junit.Before;
-import org.junit.ClassRule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 
-public class AvroToArrowTest {
-
-  @ClassRule
-  public static final TemporaryFolder TMP = new TemporaryFolder();
-
-  private BaseAllocator allocator;
-
-  @Before
-  public void init() {
-    allocator = new RootAllocator(Long.MAX_VALUE);
-  }
-
-  private Schema getSchema(String schemaName) throws Exception {
-    Path schemaPath = Paths.get(TestWriteReadAvroRecord.class.getResource("/").getPath(),
-        "schema", schemaName);
-    return new Schema.Parser().parse(schemaPath.toFile());
-  }
+public class AvroToArrowTest extends AvroTestBase {
 
   private VectorSchemaRoot writeAndRead(Schema schema, List data) throws Exception {
     File dataFile = TMP.newFile();
@@ -406,64 +379,5 @@ public class AvroToArrowTest {
     checkPrimitiveResult(expected, vector);
   }
 
-  private void checkArrayResult(List<List> expected, ListVector vector) {
-    assertEquals(expected.size(), vector.getValueCount());
-    for (int i = 0; i < expected.size(); i++) {
-      checkPrimitiveResult(expected.get(i), (JsonStringArrayList) vector.getObject(i));
-    }
-  }
 
-  private void checkPrimitiveResult(List expected, List actual) {
-    assertEquals(expected.size(), actual.size());
-    for (int i = 0; i < expected.size(); i++) {
-      Object value1 = expected.get(i);
-      Object value2 = actual.get(i);
-      if (value1 == null) {
-        assertTrue(value2 == null);
-        continue;
-      }
-      if (value2 instanceof byte[]) {
-        value2 = ByteBuffer.wrap((byte[]) value2);
-      } else if (value2 instanceof Text) {
-        value2 = value2.toString();
-      }
-      assertTrue(Objects.equals(value1, value2));
-    }
-  }
-
-  private void checkPrimitiveResult(List data, FieldVector vector) {
-    assertEquals(data.size(), vector.getValueCount());
-    for (int i = 0; i < data.size(); i++) {
-      Object value1 = data.get(i);
-      Object value2 = vector.getObject(i);
-      if (value1 == null) {
-        assertTrue(value2 == null);
-        continue;
-      }
-      if (value2 instanceof byte[]) {
-        value2 = ByteBuffer.wrap((byte[]) value2);
-        if (value1 instanceof byte[]) {
-          value1 = ByteBuffer.wrap((byte[]) value1);
-        }
-      } else if (value2 instanceof Text) {
-        value2 = value2.toString();
-      }
-      assertTrue(Objects.equals(value1, value2));
-    }
-  }
-
-  private void checkRecordResult(Schema schema, ArrayList<GenericRecord> data, VectorSchemaRoot root) {
-    assertEquals(data.size(), root.getRowCount());
-    assertEquals(schema.getFields().size(), root.getFieldVectors().size());
-
-    for (int i = 0; i < schema.getFields().size(); i++) {
-      ArrayList fieldData = new ArrayList();
-      for (GenericRecord record : data) {
-        fieldData.add(record.get(i));
-      }
-
-      checkPrimitiveResult(fieldData, root.getFieldVectors().get(i));
-    }
-
-  }
 }

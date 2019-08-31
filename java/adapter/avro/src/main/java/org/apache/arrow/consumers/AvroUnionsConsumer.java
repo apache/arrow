@@ -19,6 +19,7 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.types.Types;
@@ -28,7 +29,7 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume unions type values from avro decoder.
  * Write the data to {@link org.apache.arrow.vector.complex.UnionVector}.
  */
-public class AvroUnionsConsumer implements Consumer {
+public class AvroUnionsConsumer implements Consumer<UnionVector> {
 
   private Consumer[] delegates;
   private Types.MinorType[] types;
@@ -80,8 +81,15 @@ public class AvroUnionsConsumer implements Consumer {
   @Override
   public void close() throws Exception {
     vector.close();
-    for (Consumer delegate: delegates) {
-      delegate.close();
+    AutoCloseables.close(delegates);
+  }
+
+  @Override
+  public void resetValueVector(UnionVector vector) {
+    this.vector = vector;
+    for (int i = 0; i < delegates.length; i++) {
+      delegates[i].resetValueVector(vector.getChildrenFromFields().get(i));
     }
+    this.currentIndex = 0;
   }
 }

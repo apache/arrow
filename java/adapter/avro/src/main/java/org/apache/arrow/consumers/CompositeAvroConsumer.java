@@ -20,6 +20,7 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 import java.util.List;
 
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.avro.io.Decoder;
 
@@ -30,6 +31,10 @@ import org.apache.avro.io.Decoder;
 public class CompositeAvroConsumer implements AutoCloseable {
 
   private final List<Consumer> consumers;
+
+  public List<Consumer> getConsumers() {
+    return consumers;
+  }
 
   public CompositeAvroConsumer(List<Consumer> consumers) {
     this.consumers = consumers;
@@ -47,12 +52,10 @@ public class CompositeAvroConsumer implements AutoCloseable {
   @Override
   public void close() {
     // clean up
-    for (Consumer consumer : consumers) {
-      try {
-        consumer.close();
-      } catch (Exception e) {
-        throw new RuntimeException("Error occurs in close.", e);
-      }
+    try {
+      AutoCloseables.close(consumers);
+    } catch (Exception e) {
+      throw new RuntimeException("Error occurs in close.", e);
     }
   }
 }

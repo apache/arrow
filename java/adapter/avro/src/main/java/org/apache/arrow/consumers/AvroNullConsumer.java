@@ -27,9 +27,9 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume null type values from avro decoder.
  * Corresponding to {@link org.apache.arrow.vector.ZeroVector}.
  */
-public class AvroNullConsumer implements Consumer {
+public class AvroNullConsumer implements Consumer<ZeroVector> {
 
-  private final ZeroVector vector;
+  private ZeroVector vector;
 
   public AvroNullConsumer(ZeroVector vector) {
     this.vector = vector;
@@ -52,5 +52,10 @@ public class AvroNullConsumer implements Consumer {
   @Override
   public void close() {
     vector.close();
+  }
+
+  @Override
+  public void resetValueVector(ZeroVector vector) {
+    this.vector = vector;
   }
 }
