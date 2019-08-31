@@ -761,7 +761,7 @@ class ReaderWriterMixin {
 
     std::shared_ptr<Schema> schema = batch_bools->schema();
     ASSERT_FALSE(schema->HasMetadata());
-    schema = schema->AddMetadata(key_value_metadata({"some_key"}, {"some_value"}));
+    schema = schema->WithMetadata(key_value_metadata({"some_key"}, {"some_value"}));
 
     WriterHelper writer_helper;
     ASSERT_OK(writer_helper.Init(schema));

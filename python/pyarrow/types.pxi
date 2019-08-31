@@ -679,6 +679,11 @@ cdef class Field:
         return pyarrow_wrap_metadata(self.field.metadata())
 
     def add_metadata(self, metadata):
+        warnings.warn("The 'add_metadata' method is deprecated, use "
+                      "'with_metadata' instead", FutureWarning, stacklevel=2)
+        return self.with_metadata(metadata)
+
+    def with_metadata(self, metadata):
         """
         Add metadata as dict of string keys and values to Field
 
@@ -700,7 +705,7 @@ cdef class Field:
 
         c_meta = pyarrow_unwrap_metadata(metadata)
         with nogil:
-            c_field = self.field.AddMetadata(c_meta)
+            c_field = self.field.WithMetadata(c_meta)
 
         return pyarrow_wrap_field(c_field)
 
@@ -1041,6 +1046,11 @@ cdef class Schema:
         return pyarrow_wrap_schema(new_schema)
 
     def add_metadata(self, metadata):
+        warnings.warn("The 'add_metadata' method is deprecated, use "
+                      "'with_metadata' instead", FutureWarning, stacklevel=2)
+        return self.with_metadata(metadata)
+
+    def with_metadata(self, metadata):
         """
         Add metadata as dict of string keys and values to Schema
 
@@ -1062,7 +1072,7 @@ cdef class Schema:
 
         c_meta = pyarrow_unwrap_metadata(metadata)
         with nogil:
-            c_schema = self.schema.AddMetadata(c_meta)
+            c_schema = self.schema.WithMetadata(c_meta)
 
         return pyarrow_wrap_schema(c_schema)
 

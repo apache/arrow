@@ -332,9 +332,11 @@ def test_recordbatch_pickle():
         pa.array(range(5), type='int8'),
         pa.array([-10, -5, 0, 5, 10], type='float32')
     ]
-    schema = pa.schema([pa.field('ints', pa.int8()),
-                        pa.field('floats', pa.float32()),
-                        ]).add_metadata({b'foo': b'bar'})
+    fields = [
+        pa.field('ints', pa.int8()),
+        pa.field('floats', pa.float32()),
+    ]
+    schema = pa.schema(fields, metadata={b'foo': b'bar'})
     batch = pa.record_batch(data, schema=schema)
 
     result = pickle.loads(pickle.dumps(batch))
@@ -930,7 +932,7 @@ def test_table_from_pydict():
 
     # With metadata and inferred schema
     metadata = {b'foo': b'bar'}
-    schema = schema.add_metadata(metadata)
+    schema = schema.with_metadata(metadata)
     table = pa.Table.from_pydict(data, metadata=metadata)
     assert table.schema == schema
     assert table.schema.metadata == metadata

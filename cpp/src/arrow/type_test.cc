@@ -143,12 +143,12 @@ TEST(TestField, TestMetadataConstruction) {
   AssertFieldsEqual(*f0, *f1);
 }
 
-TEST(TestField, TestAddMetadata) {
+TEST(TestField, TestWithMetadata) {
   auto metadata = std::shared_ptr<KeyValueMetadata>(
       new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
   auto f0 = field("f0", int32());
   auto f1 = field("f0", int32(), true, metadata);
-  std::shared_ptr<Field> f2 = f0->AddMetadata(metadata);
+  std::shared_ptr<Field> f2 = f0->WithMetadata(metadata);
 
   AssertFieldsEqual(*f1, *f2);
   AssertFieldsNotEqual(*f0, *f2);
@@ -400,7 +400,7 @@ TEST_F(TestSchema, TestEmptyMetadata) {
   ASSERT_NE(schema1->metadata_fingerprint(), schema3->metadata_fingerprint());
 }
 
-TEST_F(TestSchema, TestAddMetadata) {
+TEST_F(TestSchema, TestWithMetadata) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8(), false);
   auto f2 = field("f2", utf8());
@@ -408,7 +408,7 @@ TEST_F(TestSchema, TestAddMetadata) {
   auto metadata = std::shared_ptr<KeyValueMetadata>(
       new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
   auto schema = std::make_shared<Schema>(fields);
-  std::shared_ptr<Schema> new_schema = schema->AddMetadata(metadata);
+  std::shared_ptr<Schema> new_schema = schema->WithMetadata(metadata);
   ASSERT_TRUE(metadata->Equals(*new_schema->metadata()));
 
   // Not copied

@@ -519,7 +519,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
     metadata = construct_metadata(df, column_names, index_columns,
                                   index_descriptors, preserve_index,
                                   types)
-    schema = schema.add_metadata(metadata)
+    schema = schema.with_metadata(metadata)
 
     return arrays, schema
 

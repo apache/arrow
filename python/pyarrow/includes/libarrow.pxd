@@ -297,6 +297,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         # Removed const in Cython so don't have to cast to get code to generate
         shared_ptr[CField] AddMetadata(
             const shared_ptr[CKeyValueMetadata]& metadata)
+        shared_ptr[CField] WithMetadata(
+            const shared_ptr[CKeyValueMetadata]& metadata)
         shared_ptr[CField] RemoveMetadata()
         vector[shared_ptr[CField]] Flatten()
 
@@ -341,6 +343,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         # Removed const in Cython so don't have to cast to get code to generate
         shared_ptr[CSchema] AddMetadata(
+            const shared_ptr[CKeyValueMetadata]& metadata)
+        shared_ptr[CSchema] WithMetadata(
             const shared_ptr[CKeyValueMetadata]& metadata)
         shared_ptr[CSchema] RemoveMetadata()
 
