@@ -132,17 +132,17 @@ class TestArray < Test::Unit::TestCase
     end
   end
 
-  sub_test_case("#diff") do
+  sub_test_case("#diff_unified") do
     def test_no_diff
       array = build_string_array(["Start", "Shutdown", "Reboot"])
       other_array = build_string_array(["Start", "Shutdown", "Reboot"])
-      assert_equal("", array.diff(other_array))
+      assert_equal("", array.diff_unified(other_array))
     end
 
     def test_diff
       array = build_string_array(["Start", "Shutdown", "Reboot"])
       other_array = build_string_array(["Start", "Shutdonw", "Reboot"])
-      assert_equal(<<-STRING.chomp, array.diff(other_array))
+      assert_equal(<<-STRING.chomp, array.diff_unified(other_array))
 
 @@ -1, +1 @@
 -"Shutdown"
