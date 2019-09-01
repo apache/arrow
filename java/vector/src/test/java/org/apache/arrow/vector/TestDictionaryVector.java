@@ -25,7 +25,9 @@ import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
@@ -36,6 +38,7 @@ import org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.ListSubfieldEncoder;
 import org.apache.arrow.vector.dictionary.StructSubfieldEncoder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
@@ -46,6 +49,7 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.JsonStringHashMap;
+import org.apache.arrow.vector.util.Text;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -846,31 +850,14 @@ public class TestDictionaryVector {
   @Test
   public void testEncodeStructSubField() {
     try (final StructVector vector = StructVector.empty("vector", allocator);
-        final StructVector dictVector = StructVector.empty("dict", allocator);) {
+         final VarCharVector dictVector1 = new VarCharVector("f0", allocator);
+         final VarCharVector dictVector2 = new VarCharVector("f1", allocator)) {
 
       vector.addOrGet("f0", FieldType.nullable(ArrowType.Utf8.INSTANCE), VarCharVector.class);
       vector.addOrGet("f1", FieldType.nullable(ArrowType.Utf8.INSTANCE), VarCharVector.class);
-      dictVector.addOrGet("f0", FieldType.nullable(ArrowType.Utf8.INSTANCE), VarCharVector.class);
-      dictVector.addOrGet("f1", FieldType.nullable(ArrowType.Utf8.INSTANCE), VarCharVector.class);
 
       NullableStructWriter writer = vector.getWriter();
       writer.allocate();
-
-      // initialize vector and dictionary
-      dictVector.allocateNewSafe();
-      VarCharVector dictChild1 = (VarCharVector) dictVector.getChildrenFromFields().get(0);
-      VarCharVector dictChild2 = (VarCharVector) dictVector.getChildrenFromFields().get(1);
-      dictChild1.setSafe(0, "aa".getBytes(StandardCharsets.UTF_8));
-      dictChild1.setSafe(1, "bb".getBytes(StandardCharsets.UTF_8));
-      dictChild1.setSafe(2, "cc".getBytes(StandardCharsets.UTF_8));
-      dictChild1.setSafe(3, "dd".getBytes(StandardCharsets.UTF_8));
-
-      dictChild2.setSafe(0, "foo".getBytes(StandardCharsets.UTF_8));
-      dictChild2.setSafe(1, "baz".getBytes(StandardCharsets.UTF_8));
-      dictChild2.setSafe(2, "bar".getBytes(StandardCharsets.UTF_8));
-      dictVector.setValueCount(4);
-
-
       //set some values
       writeStructVector(writer, "aa", "baz");
       writeStructVector(writer, "bb", "bar");
@@ -879,25 +866,44 @@ public class TestDictionaryVector {
       writeStructVector(writer, "dd", "foo");
       writer.setValueCount(5);
 
+      // initialize dictionaries
+      DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
 
-      Dictionary dictionary = new Dictionary(dictVector, new DictionaryEncoding(1L, false, null));
-      StructSubfieldEncoder encoder = new StructSubfieldEncoder(dictionary, allocator);
 
-      try (final StructVector encoded = (StructVector) encoder.encode(vector)) {
+      dictVector1.setSafe(0, "aa".getBytes(StandardCharsets.UTF_8));
+      dictVector1.setSafe(1, "bb".getBytes(StandardCharsets.UTF_8));
+      dictVector1.setSafe(2, "cc".getBytes(StandardCharsets.UTF_8));
+      dictVector1.setSafe(3, "dd".getBytes(StandardCharsets.UTF_8));
+      dictVector1.setValueCount(4);
+
+      dictVector2.setSafe(0, "foo".getBytes(StandardCharsets.UTF_8));
+      dictVector2.setSafe(1, "baz".getBytes(StandardCharsets.UTF_8));
+      dictVector2.setSafe(2, "bar".getBytes(StandardCharsets.UTF_8));
+      dictVector2.setValueCount(3);
+
+      provider.put(new Dictionary(dictVector1, new DictionaryEncoding(1L, false, null)));
+      provider.put(new Dictionary(dictVector2, new DictionaryEncoding(2L, false, null)));
+
+      StructSubfieldEncoder encoder = new StructSubfieldEncoder(allocator, provider);
+      Map<Integer, Long> columnToDictionaryId = new HashMap<>();
+      columnToDictionaryId.put(0, 1L);
+      columnToDictionaryId.put(1, 2L);
+
+      try (final StructVector encoded = (StructVector) encoder.encode(vector, columnToDictionaryId)) {
         // verify indices
         assertEquals(StructVector.class, encoded.getClass());
 
         assertEquals(5, encoded.getValueCount());
-        int[] realValue1 = convertMapValuesToIntArray((JsonStringHashMap) encoded.getObject(0));
-        assertTrue(Arrays.equals(new int[] {0,1}, realValue1));
-        int[] realValue2 = convertMapValuesToIntArray((JsonStringHashMap) encoded.getObject(1));
-        assertTrue(Arrays.equals(new int[] {1,2}, realValue2));
-        int[] realValue3 = convertMapValuesToIntArray((JsonStringHashMap) encoded.getObject(2));
-        assertTrue(Arrays.equals(new int[] {2,0}, realValue3));
-        int[] realValue4 = convertMapValuesToIntArray((JsonStringHashMap) encoded.getObject(3));
-        assertTrue(Arrays.equals(new int[] {0,0}, realValue4));
-        int[] realValue5 = convertMapValuesToIntArray((JsonStringHashMap) encoded.getObject(4));
-        assertTrue(Arrays.equals(new int[] {3,0}, realValue5));
+        Object[] realValue1 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(0));
+        assertTrue(Arrays.equals(new Object[] {0,1}, realValue1));
+        Object[] realValue2 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(1));
+        assertTrue(Arrays.equals(new Object[] {1,2}, realValue2));
+        Object[] realValue3 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(2));
+        assertTrue(Arrays.equals(new Object[] {2,0}, realValue3));
+        Object[] realValue4 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(3));
+        assertTrue(Arrays.equals(new Object[] {0,0}, realValue4));
+        Object[] realValue5 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(4));
+        assertTrue(Arrays.equals(new Object[] {3,0}, realValue5));
 
         // now run through the decoder and verify we get the original back
         try (ValueVector decoded = encoder.decode(encoded)) {
@@ -911,6 +917,68 @@ public class TestDictionaryVector {
     }
   }
 
+  @Test
+  public void testEncodeStructSubFieldWithCertainColumns() {
+    // in this case, some child vector is encoded and others are not
+    try (final StructVector vector = StructVector.empty("vector", allocator);
+         final VarCharVector dictVector1 = new VarCharVector("f0", allocator)) {
+
+      vector.addOrGet("f0", FieldType.nullable(ArrowType.Utf8.INSTANCE), VarCharVector.class);
+      vector.addOrGet("f1", FieldType.nullable(ArrowType.Utf8.INSTANCE), VarCharVector.class);
+
+      NullableStructWriter writer = vector.getWriter();
+      writer.allocate();
+      //set some values
+      writeStructVector(writer, "aa", "baz");
+      writeStructVector(writer, "bb", "bar");
+      writeStructVector(writer, "cc", "foo");
+      writeStructVector(writer, "aa", "foo");
+      writeStructVector(writer, "dd", "foo");
+      writer.setValueCount(5);
+
+      // initialize dictionaries
+      DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
+
+      dictVector1.setSafe(0, "aa".getBytes(StandardCharsets.UTF_8));
+      dictVector1.setSafe(1, "bb".getBytes(StandardCharsets.UTF_8));
+      dictVector1.setSafe(2, "cc".getBytes(StandardCharsets.UTF_8));
+      dictVector1.setSafe(3, "dd".getBytes(StandardCharsets.UTF_8));
+      dictVector1.setValueCount(4);
+
+      provider.put(new Dictionary(dictVector1, new DictionaryEncoding(1L, false, null)));
+      StructSubfieldEncoder encoder = new StructSubfieldEncoder(allocator, provider);
+      Map<Integer, Long> columnToDictionaryId = new HashMap<>();
+      columnToDictionaryId.put(0, 1L);
+
+      try (final StructVector encoded = (StructVector) encoder.encode(vector, columnToDictionaryId)) {
+        // verify indices
+        assertEquals(StructVector.class, encoded.getClass());
+
+        assertEquals(5, encoded.getValueCount());
+        Object[] realValue1 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(0));
+        assertTrue(Arrays.equals(new Object[] {0, new Text("baz")}, realValue1));
+        Object[] realValue2 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(1));
+        assertTrue(Arrays.equals(new Object[] {1, new Text("bar")}, realValue2));
+        Object[] realValue3 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(2));
+        assertTrue(Arrays.equals(new Object[] {2, new Text("foo")}, realValue3));
+        Object[] realValue4 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(3));
+        assertTrue(Arrays.equals(new Object[] {0, new Text("foo")}, realValue4));
+        Object[] realValue5 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(4));
+        assertTrue(Arrays.equals(new Object[] {3, new Text("foo")}, realValue5));
+
+        // now run through the decoder and verify we get the original back
+        try (ValueVector decoded = encoder.decode(encoded)) {
+          assertEquals(vector.getClass(), decoded.getClass());
+          assertEquals(vector.getValueCount(), decoded.getValueCount());
+          for (int i = 0; i < 5; i++) {
+            assertEquals(vector.getObject(i), decoded.getObject(i));
+          }
+        }
+      }
+
+    }
+  }
+
   private int[] convertListToIntArray(JsonStringArrayList list) {
     int[] values = new int[list.size()];
     for (int i = 0; i < list.size(); i++) {
@@ -919,11 +987,11 @@ public class TestDictionaryVector {
     return values;
   }
 
-  private int[] convertMapValuesToIntArray(JsonStringHashMap map) {
-    int[] values = new int[map.size()];
+  private Object[] convertMapValuesToArray(JsonStringHashMap map) {
+    Object[] values = new Object[map.size()];
     Iterator valueIterator = map.values().iterator();
     for (int i = 0; i < map.size(); i++) {
-      values[i] = (int) valueIterator.next();
+      values[i] = valueIterator.next();
     }
     return values;
   }
