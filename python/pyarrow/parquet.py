@@ -189,6 +189,36 @@ class ParquetFile(object):
         return self.reader.read_row_group(i, column_indices=column_indices,
                                           use_threads=use_threads)
 
+    def read_row_groups(self, row_groups, columns=None, use_threads=True,
+                        use_pandas_metadata=False):
+        """
+        Read a multiple row groups from a Parquet file
+
+        Parameters
+        ----------
+        row_groups: list
+            Only these row groups will be read from the file.
+        columns: list
+            If not None, only these columns will be read from the row group. A
+            column name may be a prefix of a nested field, e.g. 'a' will select
+            'a.b', 'a.c', and 'a.d.e'
+        use_threads : boolean, default True
+            Perform multi-threaded column reads
+        use_pandas_metadata : boolean, default False
+            If True and file has custom pandas schema metadata, ensure that
+            index columns are also loaded
+
+        Returns
+        -------
+        pyarrow.table.Table
+            Content of the row groups as a table (of columns)
+        """
+        column_indices = self._get_column_indices(
+            columns, use_pandas_metadata=use_pandas_metadata)
+        return self.reader.read_row_groups(row_groups,
+                                           column_indices=column_indices,
+                                           use_threads=use_threads)
+
     def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
         """
         Read a Table from Parquet format
