@@ -27,11 +27,12 @@ use std::ops::{Add, Div, Mul, Sub};
 use std::slice::from_raw_parts_mut;
 use std::sync::Arc;
 
-use num::Zero;
+use num::{One, Zero};
 
 use crate::array::*;
+use crate::bitmap::Bitmap;
 use crate::buffer::MutableBuffer;
-use crate::compute::util::apply_bin_op_to_option_bitmap;
+use crate::compute::util::{apply_bin_op_to_option_bitmap, simd_load_set_invalid};
 use crate::datatypes;
 use crate::error::{ArrowError, Result};
 
@@ -121,6 +122,71 @@ where
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
 }
 
+/// SIMD vectorized version of `divide`, the divide kernel needs it's own implementation as there
+/// is a need to handle situations where a divide by `0` occurs.  This is complicated by `NULL`
+/// slots and padding.
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+fn simd_divide<T>(
+    left: &PrimitiveArray<T>,
+    right: &PrimitiveArray<T>,
+) -> Result<PrimitiveArray<T>>
+where
+    T: datatypes::ArrowNumericType,
+    T::Native: One + Zero,
+{
+    if left.len() != right.len() {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform math operation on arrays of different length".to_string(),
+        ));
+    }
+
+    // Create the combined `Bitmap`
+    let null_bit_buffer = apply_bin_op_to_option_bitmap(
+        left.data().null_bitmap(),
+        right.data().null_bitmap(),
+        |a, b| a & b,
+    )?;
+    let bitmap = null_bit_buffer.map(Bitmap::from);
+
+    let lanes = T::lanes();
+    let buffer_size = left.len() * mem::size_of::<T::Native>();
+    let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
+
+    for i in (0..left.len()).step_by(lanes) {
+        let right_no_invalid_zeros =
+            unsafe { simd_load_set_invalid(right, &bitmap, i, lanes, T::Native::one()) };
+        let is_zero = T::eq(T::init(T::Native::zero()), right_no_invalid_zeros);
+        if T::mask_any(is_zero) {
+            return Err(ArrowError::DivideByZero);
+        }
+        let right_no_invalid_zeros =
+            unsafe { simd_load_set_invalid(right, &bitmap, i, lanes, T::Native::one()) };
+        let simd_left = T::load(left.value_slice(i, lanes));
+        let simd_result = T::bin_op(simd_left, right_no_invalid_zeros, |a, b| a / b);
+
+        let result_slice: &mut [T::Native] = unsafe {
+            from_raw_parts_mut(
+                (result.data_mut().as_mut_ptr() as *mut T::Native).offset(i as isize),
+                lanes,
+            )
+        };
+        T::write(simd_result, result_slice);
+    }
+
+    let null_bit_buffer = bitmap.and_then(|b| Some(b.bits));
+
+    let data = ArrayData::new(
+        T::get_data_type(),
+        left.len(),
+        None,
+        null_bit_buffer,
+        left.offset(),
+        vec![result.freeze()],
+        vec![],
+    );
+    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+}
+
 /// Perform `left + right` operation on two arrays. If either left or right value is null
 /// then the result is also null.
 pub fn add<T>(
@@ -197,8 +263,13 @@ where
         + Sub<Output = T::Native>
         + Mul<Output = T::Native>
         + Div<Output = T::Native>
-        + Zero,
+        + Zero
+        + One,
 {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    return simd_divide(&left, &right);
+
+    #[allow(unreachable_code)]
     math_op(left, right, |a, b| {
         if b.is_zero() {
             Err(ArrowError::DivideByZero)
@@ -272,6 +343,19 @@ mod tests {
         assert_eq!(1, c.value(2));
         assert_eq!(0, c.value(3));
         assert_eq!(9, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_divide_with_nulls() {
+        let a = Int32Array::from(vec![Some(15), None, Some(8), Some(1), Some(9), None]);
+        let b = Int32Array::from(vec![Some(5), Some(6), Some(8), Some(9), None, None]);
+        let c = divide(&a, &b).unwrap();
+        assert_eq!(3, c.value(0));
+        assert_eq!(true, c.is_null(1));
+        assert_eq!(1, c.value(2));
+        assert_eq!(0, c.value(3));
+        assert_eq!(true, c.is_null(4));
+        assert_eq!(true, c.is_null(5));
     }
 
     #[test]

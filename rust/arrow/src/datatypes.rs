@@ -320,11 +320,26 @@ where
     /// The number of SIMD lanes available
     fn lanes() -> usize;
 
+    /// Initializes a SIMD register to a constant value
+    fn init(value: Self::Native) -> Self::Simd;
+
     /// Loads a slice into a SIMD register
     fn load(slice: &[Self::Native]) -> Self::Simd;
 
+    /// Creates a new SIMD mask for this SIMD type filling it with `value`
+    fn mask_init(value: bool) -> Self::SimdMask;
+
     /// Gets the value of a single lane in a SIMD mask
     fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool;
+
+    /// Sets the value of a single lane of a SIMD mask
+    fn mask_set(mask: Self::SimdMask, idx: usize, value: bool) -> Self::SimdMask;
+
+    /// Selects elements of `a` and `b` using `mask`
+    fn mask_select(mask: Self::SimdMask, a: Self::Simd, b: Self::Simd) -> Self::Simd;
+
+    /// Returns `true` if any of the lanes in the mask are `true`
+    fn mask_any(mask: Self::SimdMask) -> bool;
 
     /// Performs a SIMD binary operation
     fn bin_op<F: Fn(Self::Simd, Self::Simd) -> Self::Simd>(
@@ -370,12 +385,37 @@ macro_rules! make_numeric_type {
                 Self::Simd::lanes()
             }
 
+            fn init(value: Self::Native) -> Self::Simd {
+                Self::Simd::splat(value)
+            }
+
             fn load(slice: &[Self::Native]) -> Self::Simd {
                 unsafe { Self::Simd::from_slice_unaligned_unchecked(slice) }
             }
 
+            fn mask_init(value: bool) -> Self::SimdMask {
+                Self::SimdMask::splat(value)
+            }
+
             fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool {
                 unsafe { mask.extract_unchecked(idx) }
+            }
+
+            fn mask_set(mask: Self::SimdMask, idx: usize, value: bool) -> Self::SimdMask {
+                unsafe { mask.replace_unchecked(idx, value) }
+            }
+
+            /// Selects elements of `a` and `b` using `mask`
+            fn mask_select(
+                mask: Self::SimdMask,
+                a: Self::Simd,
+                b: Self::Simd,
+            ) -> Self::Simd {
+                mask.select(a, b)
+            }
+
+            fn mask_any(mask: Self::SimdMask) -> bool {
+                mask.any()
             }
 
             fn bin_op<F: Fn(Self::Simd, Self::Simd) -> Self::Simd>(
