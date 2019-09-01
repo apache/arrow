@@ -547,15 +547,15 @@ using enable_if_number = typename std::enable_if<is_number_type<T>::value, R>::t
 namespace internal {
 
 // The partial specialization will match if T has the ATTR_NAME member
-#define GET_ATTR(ATTR_NAME, DEFAULT)                                            \
-  template <typename T, typename Enable = void>                                 \
-  struct GetAttr_##ATTR_NAME {                                                  \
-    using type = DEFAULT;                                                       \
-  };                                                                            \
-                                                                                \
-  template <typename T>                                                         \
-  struct GetAttr_##ATTR_NAME<T, typename void_t<typename T::ATTR_NAME>::type> { \
-    using type = typename T::ATTR_NAME;                                         \
+#define GET_ATTR(ATTR_NAME, DEFAULT)                             \
+  template <typename T, typename Enable = void>                  \
+  struct GetAttr_##ATTR_NAME {                                   \
+    using type = DEFAULT;                                        \
+  };                                                             \
+                                                                 \
+  template <typename T>                                          \
+  struct GetAttr_##ATTR_NAME<T, void_t<typename T::ATTR_NAME>> { \
+    using type = typename T::ATTR_NAME;                          \
   };
 
 GET_ATTR(c_type, void)
