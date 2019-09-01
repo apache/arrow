@@ -30,6 +30,7 @@ std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(List_ opt
   res->block_size = options["block_size"];
   res->skip_rows = options["skip_rows"];
   res->column_names = Rcpp::as<std::vector<std::string>>(options["column_names"]);
+  res->autogenerate_column_names = options["autogenerate_column_names"];
   return res;
 }
 

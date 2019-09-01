@@ -6,7 +6,8 @@
 \title{Read options for the Arrow file readers}
 \usage{
 csv_read_options(use_threads = option_use_threads(),
-  block_size = 1048576L, skip_rows = 0L, column_names = character(0))
+  block_size = 1048576L, skip_rows = 0L, column_names = character(0),
+  autogenerate_column_names = FALSE)
 
 json_read_options(use_threads = TRUE, block_size = 1048576L)
 }

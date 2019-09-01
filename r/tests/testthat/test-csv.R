@@ -87,7 +87,9 @@ test_that("read_csv_arrow parsing options: col_names", {
   # Writing the CSV without the header
   write.table(iris, tf, sep = ",", row.names = FALSE, col.names = FALSE)
 
-  expect_error(read_csv_arrow(tf, col_names = FALSE), "Not implemented")
+  # Reading with col_names = FALSE autogenerates names
+  no_names <- read_csv_arrow(tf, col_names = FALSE)
+  expect_equal(no_names$f0, iris$Sepal.Length)
 
   tab1 <- read_csv_arrow(tf, col_names = names(iris))
 
