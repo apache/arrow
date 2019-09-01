@@ -4,7 +4,8 @@
 \alias{csv_convert_options}
 \title{Conversion options for the CSV reader}
 \usage{
-csv_convert_options(check_utf8 = TRUE)
+csv_convert_options(check_utf8 = TRUE, null_values = c("", "NA"),
+  strings_can_be_null = FALSE)
 }
 \arguments{
 \item{check_utf8}{Whether to check UTF8 validity of string columns}

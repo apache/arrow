@@ -8,19 +8,21 @@
 \usage{
 read_delim_arrow(file, delim = ",", quote = "\\"",
   escape_double = TRUE, escape_backslash = FALSE, col_names = TRUE,
-  col_select = NULL, skip_empty_rows = TRUE, skip = 0L,
-  parse_options = NULL, convert_options = NULL, read_options = NULL,
-  as_tibble = TRUE)
+  col_select = NULL, na = c("", "NA"), quoted_na = TRUE,
+  skip_empty_rows = TRUE, skip = 0L, parse_options = NULL,
+  convert_options = NULL, read_options = NULL, as_tibble = TRUE)
 
 read_csv_arrow(file, quote = "\\"", escape_double = TRUE,
   escape_backslash = FALSE, col_names = TRUE, col_select = NULL,
-  skip_empty_rows = TRUE, skip = 0L, parse_options = NULL,
-  convert_options = NULL, read_options = NULL, as_tibble = TRUE)
+  na = c("", "NA"), quoted_na = TRUE, skip_empty_rows = TRUE,
+  skip = 0L, parse_options = NULL, convert_options = NULL,
+  read_options = NULL, as_tibble = TRUE)
 
 read_tsv_arrow(file, quote = "\\"", escape_double = TRUE,
   escape_backslash = FALSE, col_names = TRUE, col_select = NULL,
-  skip_empty_rows = TRUE, skip = 0L, parse_options = NULL,
-  convert_options = NULL, read_options = NULL, as_tibble = TRUE)
+  na = c("", "NA"), quoted_na = TRUE, skip_empty_rows = TRUE,
+  skip = 0L, parse_options = NULL, convert_options = NULL,
+  read_options = NULL, as_tibble = TRUE)
 }
 \arguments{
 \item{file}{A character path to a local file, or an Arrow input stream}
@@ -47,6 +49,13 @@ Alternatively, you can specify a character vector of column names.}
 "select" argument to \code{data.table::fread()}, or a
 \link[tidyselect:vars_select]{tidy selection specification}
 of columns, as used in \code{dplyr::select()}.}
+
+\item{na}{A character vector of strings to interpret as missing values.}
+
+\item{quoted_na}{Should missing values inside quotes be treated as missing
+values (the default) or strings. (Note that this is different from the
+the Arrow C++ default for the corresponding convert option,
+\code{strings_can_be_null}.)}
 
 \item{skip_empty_rows}{Should blank rows be ignored altogether? If
 \code{TRUE}, blank rows will not be represented at all. If \code{FALSE}, they will be

@@ -136,6 +136,29 @@ test_that("read_csv_arrow parsing options: skip_empty_rows", {
   expect_true(is.na(tail(tab1, 1)[[1]]))
 })
 
+test_that("read_csv_arrow parsing options: na strings", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  df <- data.frame(
+    a = c(1.2, NA, NA, 3.4),
+    b = c(NA, "B", "C", NA),
+    stringsAsFactors = FALSE
+  )
+  write.csv(df, tf, row.names=FALSE)
+  expect_equal(grep("NA", readLines(tf)), 2:5)
+
+  tab1 <- read_csv_arrow(tf)
+  expect_equal(is.na(tab1$a), is.na(df$a))
+  expect_equal(is.na(tab1$b), is.na(df$b))
+
+  write.csv(df, tf, row.names=FALSE, na = "asdf")
+  expect_equal(grep("asdf", readLines(tf)), 2:5)
+
+  tab2 <- read_csv_arrow(tf, na = "asdf")
+  expect_equal(is.na(tab2$a), is.na(df$a))
+  expect_equal(is.na(tab2$b), is.na(df$b))
+})
 
 test_that("read_csv_arrow() respects col_select", {
   tf <- tempfile()
