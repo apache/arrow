@@ -47,21 +47,27 @@ BasicUnionBuilder::BasicUnionBuilder(
     MemoryPool* pool, UnionMode::type mode,
     const std::vector<std::shared_ptr<ArrayBuilder>>& children,
     const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(pool), mode_(mode), types_builder_(pool) {
+    : ArrayBuilder(pool),
+      child_fields_(children.size()),
+      mode_(mode),
+      types_builder_(pool) {
   DCHECK_EQ(type->id(), Type::UNION);
   const auto& union_type = checked_cast<const UnionType&>(*type);
   DCHECK_EQ(union_type.mode(), mode);
+  DCHECK_EQ(children.size(), union_type.type_codes().size());
 
+  type_codes_ = union_type.type_codes();
   children_ = children;
+
   type_id_to_children_.resize(union_type.max_type_code() + 1, nullptr);
   DCHECK_LT(type_id_to_children_.size(), std::numeric_limits<int8_t>::max());
 
-  auto children_it = children.begin();
-  for (auto type_id : union_type.type_codes()) {
-    type_id_to_children_[type_id] = children_it->get();
-    ++children_it;
+  for (size_t i = 0; i < children.size(); ++i) {
+    child_fields_[i] = union_type.child(i);
+
+    auto type_id = union_type.type_codes()[i];
+    type_id_to_children_[type_id] = children[i].get();
   }
-  DCHECK_EQ(children_it, children.end());
 }
 
 BasicUnionBuilder::BasicUnionBuilder(MemoryPool* pool, UnionMode::type mode)
