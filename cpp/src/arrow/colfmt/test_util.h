@@ -202,15 +202,16 @@ void DatasetGenerator::GenerateRandomTree(int num_nodes, int num_levels, double 
     nodes->push_back(node);
 
     if (!node.null && node.level + 1 < num_levels) {
-      allowed_parents.push_back(nodes->size() - 1);
+      allowed_parents.push_back(static_cast<int>(nodes->size()) - 1);
     }
 
     if ((*nodes)[p].first_child == -1) {
-      (*nodes)[p].first_child = nodes->size() - 1;
-      (*nodes)[p].last_child = nodes->size() - 1;
+      (*nodes)[p].first_child = static_cast<int>(nodes->size()) - 1;
+      (*nodes)[p].last_child = static_cast<int>(nodes->size()) - 1;
     } else {
-      (*nodes)[(*nodes)[p].last_child].right_sibling = nodes->size() - 1;
-      (*nodes)[p].last_child = nodes->size() - 1;
+      (*nodes)[(*nodes)[p].last_child].right_sibling =
+          static_cast<int>(nodes->size()) - 1;
+      (*nodes)[p].last_child = static_cast<int>(nodes->size()) - 1;
     }
   }
 }
