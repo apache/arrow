@@ -36,12 +36,19 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         pass
 
     cdef cppclass CScanOptions" arrow::dataset::ScanOptions":
+        # const shared_ptr[DataSelector]& selector()
         pass
 
     cdef cppclass CScanContext" arrow::dataset::ScanContext":
+        CMemoryPool* pool
+
+    cdef cppclass CScanTask" arrow::dataset::ScanTask":
         pass
 
-    cdef cppclass CScanTaskIterator" arrow::dataset::ScanTaskIterator":
+    cdef cppclass CSimpleScanTask" arrow::dataset::SimpleScanTask":
+        pass
+
+    cdef cppclass CScanTaskIterator" arrow::dataset::ScanTaskIterator"(CIterator[unique_ptr[CScanTask]]):
         pass
 
     cdef cppclass CScannerBuilder" arrow::dataset::ScannerBuilder":
@@ -60,6 +67,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CScanner" arrow::dataset::Scanner":
         unique_ptr[CScanTaskIterator] Scan()
 
+    cdef cppclass CDataFragmentIterator" arrow::dataset::DataFragmentIterator"(CIterator[shared_ptr[CDataFragment]]):
+        pass
+
     cdef cppclass CDataFragment" arrow::dataset::DataFragment":
         CStatus Scan(shared_ptr[CScanContext] scan_context,
                      unique_ptr[CScanTaskIterator]* out)
@@ -68,10 +78,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CSimpleDataFragment" arrow::dataset::SimpleDataFragment"(CDataFragment):
         CSimpleDataFragment(vector[shared_ptr[CRecordBatch]] record_batches)
-        CStatus Scan(shared_ptr[CScanContext] scan_context,
-                     unique_ptr[CScanTaskIterator]* out)
-        c_bool splittable()
-        shared_ptr[CScanOptions] scan_options()
 
     cdef cppclass CDataFragmentIterator" arrow::dataset::DataFragmentIterator":
         pass
@@ -91,10 +97,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         c_string type()
 
     cdef cppclass CDataset" arrow::dataset::Dataset":
-        CDataset(shared_ptr[CDataSource] source, shared_ptr[CSchema] schema)
+        CDataset(shared_ptr[CDataSource] source,
+                 shared_ptr[CSchema] schema = NULLPTR)
         CDataset(const vector[shared_ptr[CDataSource]]& sources,
-                 shared_ptr[CSchema] schema)
-
+                 shared_ptr[CSchema] schema = NULLPTR)
         CScannerBuilder NewScan()
         vector[shared_ptr[CDataSource]]& sources()
         shared_ptr[CSchema] schema()

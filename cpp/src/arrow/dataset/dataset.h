@@ -123,6 +123,8 @@ class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
 
   DataFragmentIterator GetFragmentsImpl(ScanOptionsPtr options) override;
 
+  // NOTE(kszucs): shouldn't we use an enum here and use name() instead?
+  // similarly like the DataType API works
   std::string type() const override { return "simple_data_source"; }
 
  private:

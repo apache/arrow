@@ -22,4 +22,4 @@ import sys
 if sys.version_info < (3,):
     raise ImportError("Python Dataset bindings require Python 3")
 
-from pyarrow._flight import *  # noqa
+from pyarrow._dataset import *  # noqa

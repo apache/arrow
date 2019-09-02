@@ -33,6 +33,24 @@ cimport cpython
 cdef extern from * namespace "std" nogil:
     cdef shared_ptr[T] static_pointer_cast[T, U](shared_ptr[U])
 
+# vendored from the cymove project https://github.com/ozars/cymove
+cdef extern from * namespace "cymove":
+    """
+    #include <type_traits>
+    #include <utility>
+    namespace cymove {
+    template <typename T>
+    inline typename std::remove_reference<T>::type&& cymove(T& t) {
+        return std::move(t);
+    }
+    template <typename T>
+    inline typename std::remove_reference<T>::type&& cymove(T&& t) {
+        return std::move(t);
+    }
+    }  // namespace cymove
+    """
+    cdef T move" cymove::cymove"[T](T)
+
 cdef extern from "arrow/python/platform.h":
     pass
 

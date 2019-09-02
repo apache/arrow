@@ -85,6 +85,7 @@ class ARROW_DS_EXPORT ScanTask {
   /// \brief Iterate through sequence of materialized record batches
   /// resulting from the Scan. Execution semantics encapsulated in the
   /// particular ScanTask implementation
+  // TODO(kszucs): call it execute?
   virtual Result<RecordBatchIterator> Scan() = 0;
 
   virtual ~ScanTask() = default;
