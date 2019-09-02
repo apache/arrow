@@ -119,6 +119,8 @@ We can define the same type using the other option::
 
         @classmethod
         def __arrow_ext_deserialize__(self, storage_type, serialized):
+            # return an instance of this subclass given the serialized
+            # metadata.
             return UuidType()
 
 This is a slightly longer implementation (you need to implement the special
@@ -136,4 +138,68 @@ The receiving application doesn't need to be Python but can still recognize
 the extension type as a "uuid" type, if it has implemented its own extension
 type to receive it.
 
-TODO: add example of parametrized type
+Parametrized extension type
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The above example used a fixed storage type with no further metadata. But
+more flexible, parametrized extension types are also possible.
+
+The example given here implements an extension type for the pandas "period"
+data type, represententing time spans (e.g., a day, a month, a quarter, etc).
+It is stored as an int64 array which is interpreted as the number of time spans
+of the given frequency since 1970.
+
+::
+
+    class PeriodType(pa.ExtensionType):
+
+        def __init__(self, freq):
+            # attributes need to be set first before calling
+            # super init (as that calls serialize)
+            self._freq = freq
+            pa.ExtensionType.__init__(self, pa.int64(), 'my_package.period')
+
+        @property
+        def freq(self):
+            return self._freq
+
+        def __arrow_ext_serialize__(self):
+            return "freq={}".format(self.freq).encode()
+
+        @classmethod
+        def __arrow_ext_deserialize__(cls, storage_type, serialized):
+            # return an instance of this subclass given the serialized
+            # metadata.
+            serialized = serialized.decode()
+            assert serialized.startswith("freq=")
+            freq = serialized.split('=')[1]
+            return PeriodType(freq)
+
+Here, we ensure to store all information in the serialized metadata that is
+needed to reconstruct the instance (in the ``__arrow_ext_deserialize__`` class
+method), in this case the frequency string.
+
+Note that, once created, the data type instance is considered immutable. If,
+in the example above, the ``freq`` parameter would change after instantiation,
+the reconstruction of the type instance after IPC will be incorrect.
+In the example above, the ``freq`` parameter is therefore stored in a private
+attribute with a public read-only property to access it.
+
+Parametrized extension types are also possible using the pickle-based type
+subclassing :class:`PyExtensionType`. The equivalent example for the period
+data type from above would look like::
+
+    class PeriodType(pa.PyExtensionType):
+
+        def __init__(self, freq):
+            self._freq = freq
+            pa.PyExtensionType.__init__(self, pa.int64())
+
+        @property
+        def freq(self):
+            return self._freq
+
+        def __reduce__(self):
+            return PeriodType, (self.freq,)
+
+Also the storage type does not need to be fixed but can be parametrized.

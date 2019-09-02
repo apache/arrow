@@ -549,6 +549,17 @@ cdef class ExtensionType(BaseExtensionType):
                             "ExtensionType")
 
     def __init__(self, DataType storage_type, extension_name):
+        """
+        Initialize an extension type instance.
+
+        This should be called at the end of the subclass'
+        ``__init__`` method.
+
+        Parameters
+        ----------
+        storage_type : DataType
+        extension_name : str
+        """
         cdef:
             shared_ptr[CExtensionType] cpy_ext_type
             c_string c_extension_name
@@ -578,16 +589,34 @@ cdef class ExtensionType(BaseExtensionType):
             return NotImplemented
 
     def __arrow_ext_serialize__(self):
+        """
+        Serialized representation of metadata to reconstruct the type object.
+
+        This method should return a bytes object, and those serialized bytes
+        are stored in the custom metadata of the Field holding an extension
+        type in an IPC message.
+        The bytes are passed to ``__arrow_ext_deserialize`` and should hold
+        sufficient information to reconstruct the data type instance.
+        """
         return NotImplementedError
 
     @classmethod
     def __arrow_ext_deserialize__(self, storage_type, serialized):
+        """
+        Return an extension type instance from the storage type and serialized
+        metadata.
+
+        This method should return an instance of the ExtensionType subclass
+        that matches the passed storage type and serialized metadata (the
+        return value of ``__arrow_ext_serialize__``).
+        """
         return NotImplementedError
 
 
 cdef class PyExtensionType(ExtensionType):
     """
-    Concrete base class for Python-defined extension types.
+    Concrete base class for Python-defined extension types based on pickle
+    for (de)serialization.
     """
 
     def __cinit__(self):

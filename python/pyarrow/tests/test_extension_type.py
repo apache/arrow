@@ -35,8 +35,12 @@ class UuidType(pa.PyExtensionType):
 class ParamExtType(pa.PyExtensionType):
 
     def __init__(self, width):
-        self.width = width
+        self._width = width
         pa.PyExtensionType.__init__(self, pa.binary(width))
+
+    @property
+    def width(self):
+        return self._width
 
     def __reduce__(self):
         return ParamExtType, (self.width,)
@@ -224,8 +228,12 @@ class PeriodType(pa.ExtensionType):
     def __init__(self, freq):
         # attributes need to be set first before calling
         # super init (as that calls serialize)
-        self.freq = freq
+        self._freq = freq
         pa.ExtensionType.__init__(self, pa.int64(), 'pandas.period')
+
+    @property
+    def freq(self):
+        return self._freq
 
     def __arrow_ext_serialize__(self):
         return "freq={}".format(self.freq).encode()
