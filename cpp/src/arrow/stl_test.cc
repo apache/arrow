@@ -68,15 +68,23 @@ struct CustomType {
 // specialization isn't broken with templated Optionals.
 struct CustomOptionalTypeMock {
   static int counter;
+  mutable bool was_casted_once_ = false;
+
   CustomOptionalTypeMock() = default;
   explicit operator bool() const {
-    counter++;
-    return counter % 3 != 0;
+    if (!was_casted_once_) {
+      was_casted_once_ = true;
+      counter++;
+      return counter % 3 != 0;
+    }
+    ADD_FAILURE() << "A CustomOptionalTypeMock should be casted to bool only once.";
+    return false;
   }
   std::string operator*() const {
     switch (counter % 3) {
       case 0:
         ADD_FAILURE() << "Optional dereferenced in null value";
+        break;
       case 1:
         return "yes";
       case 2:
