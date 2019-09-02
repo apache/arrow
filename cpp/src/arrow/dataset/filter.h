@@ -92,8 +92,12 @@ struct ExpressionType {
     /// a comparison of two other expressions
     COMPARISON,
 
-    /// extract validity as an expression (true if operand is valid)
-    // TODO(bkietz) VALIDITY,
+    /// replace nulls with other expressions
+    /// currently only boolean expressions may be coalesced
+    // TODO(bkietz) COALESCE,
+
+    /// extract validity as a boolean expression
+    // TODO(bkietz) IS_VALID,
   };
 };
 
@@ -136,15 +140,15 @@ class ARROW_DS_EXPORT Expression {
 
   ExpressionType::type type() const { return type_; }
 
-  /// If true, this Expression is a ScalarExpression wrapping either a null Scalar or a
-  /// non-null BooleanScalar. Its value may be retrieved at the same time.
-  bool IsTrivialCondition(BooleanScalar* value = NULLPTR) const;
+  /// If true, this Expression is a ScalarExpression wrapping a null scalar.
+  bool IsNull() const;
+
+  /// If true, this Expression is a ScalarExpression wrapping a
+  /// BooleanScalar. Its value may be retrieved at the same time.
+  bool IsTrivialCondition(bool* value = NULLPTR) const;
 
   /// Copy this expression into a shared pointer.
   virtual std::shared_ptr<Expression> Copy() const = 0;
-
-  template <typename Visitor>
-  Status Accept(Visitor&& visitor) const;
 
  protected:
   ExpressionType::type type_;
@@ -198,20 +202,6 @@ class ARROW_DS_EXPORT BinaryExpression : public Expression {
   std::shared_ptr<Expression> left_operand_, right_operand_;
 };
 
-/// Base class for an expression with multiple operands
-class ARROW_DS_EXPORT NnaryExpression : public Expression {
- public:
-  const ExpressionVector& operands() const { return operands_; }
-
-  bool Equals(const Expression& other) const override;
-
- protected:
-  NnaryExpression(ExpressionType::type type, ExpressionVector operands)
-      : Expression(type), operands_(std::move(operands)) {}
-
-  ExpressionVector operands_;
-};
-
 class ARROW_DS_EXPORT ComparisonExpression final
     : public ExpressionImpl<BinaryExpression, ComparisonExpression,
                             ExpressionType::COMPARISON> {
@@ -242,7 +232,7 @@ class ARROW_DS_EXPORT ComparisonExpression final
 };
 
 class ARROW_DS_EXPORT AndExpression final
-    : public ExpressionImpl<NnaryExpression, AndExpression, ExpressionType::AND> {
+    : public ExpressionImpl<BinaryExpression, AndExpression, ExpressionType::AND> {
  public:
   using ExpressionImpl::ExpressionImpl;
 
@@ -257,7 +247,7 @@ class ARROW_DS_EXPORT AndExpression final
 };
 
 class ARROW_DS_EXPORT OrExpression final
-    : public ExpressionImpl<NnaryExpression, OrExpression, ExpressionType::OR> {
+    : public ExpressionImpl<BinaryExpression, OrExpression, ExpressionType::OR> {
  public:
   using ExpressionImpl::ExpressionImpl;
 
@@ -357,11 +347,13 @@ class ARROW_DS_EXPORT FieldExpression final : public Expression {
   std::string name_;
 };
 
-ARROW_DS_EXPORT std::shared_ptr<AndExpression> and_(ExpressionVector operands);
+ARROW_DS_EXPORT std::shared_ptr<AndExpression> and_(std::shared_ptr<Expression> lhs,
+                                                    std::shared_ptr<Expression> rhs);
 
 ARROW_DS_EXPORT AndExpression operator&&(const Expression& lhs, const Expression& rhs);
 
-ARROW_DS_EXPORT std::shared_ptr<OrExpression> or_(ExpressionVector operands);
+ARROW_DS_EXPORT std::shared_ptr<OrExpression> or_(std::shared_ptr<Expression> lhs,
+                                                  std::shared_ptr<Expression> rhs);
 
 ARROW_DS_EXPORT OrExpression operator||(const Expression& lhs, const Expression& rhs);
 
@@ -404,27 +396,6 @@ inline FieldExpression operator""_(const char* name, size_t name_length) {
   return FieldExpression({name, name_length});
 }
 }  // namespace string_literals
-
-#define EXPRESSION_VISIT_CASE(NAME, CLASS) \
-  case ExpressionType::NAME:               \
-    return visitor.Visit(internal::checked_cast<const CLASS##Expression&>(*this))
-
-template <typename Visitor>
-Status Expression::Accept(Visitor&& visitor) const {
-  switch (type_) {
-    EXPRESSION_VISIT_CASE(FIELD, Field);
-    EXPRESSION_VISIT_CASE(SCALAR, Scalar);
-    EXPRESSION_VISIT_CASE(AND, And);
-    EXPRESSION_VISIT_CASE(OR, Or);
-    EXPRESSION_VISIT_CASE(NOT, Not);
-    EXPRESSION_VISIT_CASE(COMPARISON, Comparison);
-    default:
-      break;
-  }
-  return Status::TypeError("unknown ExpressionType");
-}
-
-#undef EXPRESSION_VISIT_CASE
 
 }  // namespace dataset
 }  // namespace arrow

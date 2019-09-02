@@ -44,45 +44,57 @@ Result<Datum> ScalarExpression::Evaluate(compute::FunctionContext* ctx,
   return value_;
 }
 
+Datum NullDatum() { return Datum(std::make_shared<NullScalar>()); }
+
 Result<Datum> FieldExpression::Evaluate(compute::FunctionContext* ctx,
                                         const RecordBatch& batch) const {
   auto column = batch.GetColumnByName(name_);
   if (column == nullptr) {
-    return Datum(std::make_shared<BooleanScalar>());
+    return NullDatum();
   }
   return std::move(column);
 }
 
-bool IsTrivialConditionDatum(const Datum& datum, BooleanScalar* condition) {
+bool IsNullDatum(const Datum& datum) {
+  if (datum.is_scalar()) {
+    auto scalar = datum.scalar();
+    return !scalar->is_valid;
+  }
+
+  auto array_data = datum.array();
+  return array_data->GetNullCount() == array_data->length;
+}
+
+bool IsTrivialConditionDatum(const Datum& datum, bool* condition = nullptr) {
   if (!datum.is_scalar()) {
     return false;
   }
 
   auto scalar = datum.scalar();
   if (!scalar->is_valid) {
-    *condition = BooleanScalar();
-    return true;
+    return false;
   }
 
   if (scalar->type->id() != Type::BOOL) {
     return false;
   }
 
-  *condition = checked_cast<const BooleanScalar&>(*scalar);
+  if (condition) {
+    *condition = checked_cast<const BooleanScalar&>(*scalar).value;
+  }
   return true;
 }
 
 Result<Datum> NotExpression::Evaluate(compute::FunctionContext* ctx,
                                       const RecordBatch& batch) const {
   ARROW_ASSIGN_OR_RAISE(auto to_invert, operand_->Evaluate(ctx, batch));
-  DCHECK(to_invert.type()->Equals(boolean()));
+  if (IsNullDatum(to_invert)) {
+    return NullDatum();
+  }
 
-  BooleanScalar trivial_condition;
+  bool trivial_condition;
   if (IsTrivialConditionDatum(to_invert, &trivial_condition)) {
-    if (trivial_condition.is_valid) {
-      trivial_condition.value = !trivial_condition.value;
-    }
-    return Datum(std::make_shared<BooleanScalar>(trivial_condition));
+    return Datum(std::make_shared<BooleanScalar>(!trivial_condition));
   }
 
   DCHECK(to_invert.is_array());
@@ -91,61 +103,68 @@ Result<Datum> NotExpression::Evaluate(compute::FunctionContext* ctx,
   return std::move(out);
 }
 
-// TODO(bkietz) more reusable coallesce helper
-template <bool trivial_condition>
-bool FinishWithTrivial(const Datum& d, Datum* out) {
-  BooleanScalar trivial;
-  if (IsTrivialConditionDatum(d, &trivial)) {
-    if (!trivial.is_valid || trivial.value == trivial_condition) {
-      *out = d;
-      return true;
-    }
-  }
-  return false;
-}
-
 Result<Datum> AndExpression::Evaluate(compute::FunctionContext* ctx,
                                       const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto next, operands_[0]->Evaluate(ctx, batch));
-  Datum acc(next);
+  ARROW_ASSIGN_OR_RAISE(auto lhs, left_operand_->Evaluate(ctx, batch));
+  ARROW_ASSIGN_OR_RAISE(auto rhs, right_operand_->Evaluate(ctx, batch));
 
-  if (FinishWithTrivial<false>(next, &acc)) {
-    return std::move(acc);
+  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
+    return NullDatum();
   }
 
-  for (size_t i_next = 1; i_next < operands_.size(); ++i_next) {
-    ARROW_ASSIGN_OR_RAISE(next, operands_[i_next]->Evaluate(ctx, batch));
-
-    if (FinishWithTrivial<false>(next, &acc)) {
-      return std::move(acc);
-    }
-
-    RETURN_NOT_OK(arrow::compute::And(ctx, Datum(acc), Datum(next), &acc));
+  if (lhs.is_array() && rhs.is_array()) {
+    Datum out;
+    RETURN_NOT_OK(arrow::compute::And(ctx, lhs, rhs, &out));
+    return std::move(out);
   }
 
-  return std::move(acc);
+  if (lhs.is_scalar() && rhs.is_scalar()) {
+    return Datum(checked_cast<const BooleanScalar&>(*lhs.scalar()).value &&
+                 checked_cast<const BooleanScalar&>(*rhs.scalar()).value);
+  }
+
+  auto array_operand = (lhs.is_array() ? lhs : rhs).make_array();
+  bool scalar_operand =
+      checked_cast<const BooleanScalar&>(*(lhs.is_scalar() ? lhs : rhs).scalar()).value;
+
+  if (!scalar_operand) {
+    // FIXME(bkietz) this is an error if array_operand contains nulls
+    return Datum(false);
+  }
+
+  return Datum(array_operand);
 }
 
 Result<Datum> OrExpression::Evaluate(compute::FunctionContext* ctx,
                                      const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto next, operands_[0]->Evaluate(ctx, batch));
-  Datum acc(next);
+  ARROW_ASSIGN_OR_RAISE(auto lhs, left_operand_->Evaluate(ctx, batch));
+  ARROW_ASSIGN_OR_RAISE(auto rhs, right_operand_->Evaluate(ctx, batch));
 
-  if (FinishWithTrivial<true>(next, &acc)) {
-    return std::move(acc);
+  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
+    return NullDatum();
   }
 
-  for (size_t i_next = 1; i_next < operands_.size(); ++i_next) {
-    ARROW_ASSIGN_OR_RAISE(next, operands_[i_next]->Evaluate(ctx, batch));
-
-    if (FinishWithTrivial<true>(next, &acc)) {
-      return std::move(acc);
-    }
-
-    RETURN_NOT_OK(arrow::compute::And(ctx, Datum(acc), Datum(next), &acc));
+  if (lhs.is_array() && rhs.is_array()) {
+    Datum out;
+    RETURN_NOT_OK(arrow::compute::Or(ctx, lhs, rhs, &out));
+    return std::move(out);
   }
 
-  return std::move(acc);
+  if (lhs.is_scalar() && rhs.is_scalar()) {
+    return Datum(checked_cast<const BooleanScalar&>(*lhs.scalar()).value &&
+                 checked_cast<const BooleanScalar&>(*rhs.scalar()).value);
+  }
+
+  auto array_operand = (lhs.is_array() ? lhs : rhs).make_array();
+  bool scalar_operand =
+      checked_cast<const BooleanScalar&>(*(lhs.is_scalar() ? lhs : rhs).scalar()).value;
+
+  if (!scalar_operand) {
+    // FIXME(bkietz) this is an error if array_operand contains nulls
+    return Datum(true);
+  }
+
+  return Datum(array_operand);
 }
 
 Result<Datum> ComparisonExpression::Evaluate(compute::FunctionContext* ctx,
@@ -153,17 +172,12 @@ Result<Datum> ComparisonExpression::Evaluate(compute::FunctionContext* ctx,
   ARROW_ASSIGN_OR_RAISE(auto lhs, left_operand_->Evaluate(ctx, batch));
   ARROW_ASSIGN_OR_RAISE(auto rhs, right_operand_->Evaluate(ctx, batch));
 
-  if (lhs.is_scalar()) {
-    if (!lhs.scalar()->is_valid) {
-      return std::move(lhs);
-    }
-    return Status::NotImplemented("comparison with scalar LHS");
+  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
+    return NullDatum();
   }
 
-  if (rhs.is_scalar()) {
-    if (!rhs.scalar()->is_valid) {
-      return std::move(rhs);
-    }
+  if (lhs.is_scalar()) {
+    return Status::NotImplemented("comparison with scalar LHS");
   }
 
   Datum out;
@@ -273,61 +287,67 @@ Result<Comparison::type> Compare(const Scalar& lhs, const Scalar& rhs) {
   return vis.result_;
 }
 
-std::shared_ptr<Expression> Invert(const ComparisonExpression& comparison) {
+compute::CompareOperator InvertCompareOperator(compute::CompareOperator op) {
   using compute::CompareOperator;
-  auto make_opposite = [&](CompareOperator opposite) {
-    return std::make_shared<ComparisonExpression>(opposite, comparison.left_operand(),
-                                                  comparison.right_operand());
-  };
 
-  switch (comparison.op()) {
+  switch (op) {
     case CompareOperator::EQUAL:
-      return make_opposite(CompareOperator::NOT_EQUAL);
+      return CompareOperator::NOT_EQUAL;
 
     case CompareOperator::NOT_EQUAL:
-      return make_opposite(CompareOperator::EQUAL);
+      return CompareOperator::EQUAL;
 
     case CompareOperator::GREATER:
-      return make_opposite(CompareOperator::LESS_EQUAL);
+      return CompareOperator::LESS_EQUAL;
 
     case CompareOperator::GREATER_EQUAL:
-      return make_opposite(CompareOperator::LESS);
+      return CompareOperator::LESS;
 
     case CompareOperator::LESS:
-      return make_opposite(CompareOperator::GREATER_EQUAL);
+      return CompareOperator::GREATER_EQUAL;
 
     case CompareOperator::LESS_EQUAL:
-      return make_opposite(CompareOperator::GREATER);
+      return CompareOperator::GREATER;
 
     default:
       break;
   }
 
   DCHECK(false);
-  return nullptr;
+  return CompareOperator::EQUAL;
 }
 
-Result<std::shared_ptr<Expression>> Invert(const Expression& op) {
-  switch (op.type()) {
+template <typename Boolean>
+Result<std::shared_ptr<Expression>> InvertBoolean(const Boolean& expr) {
+  ARROW_ASSIGN_OR_RAISE(auto lhs, Invert(*expr.left_operand()));
+  ARROW_ASSIGN_OR_RAISE(auto rhs, Invert(*expr.right_operand()));
+
+  if (std::is_same<Boolean, AndExpression>::value) {
+    return std::make_shared<OrExpression>(std::move(lhs), std::move(rhs));
+  }
+
+  if (std::is_same<Boolean, OrExpression>::value) {
+    return std::make_shared<AndExpression>(std::move(lhs), std::move(rhs));
+  }
+}
+
+Result<std::shared_ptr<Expression>> Invert(const Expression& expr) {
+  switch (expr.type()) {
     case ExpressionType::NOT:
-      return checked_cast<const NotExpression&>(op).operand();
+      return checked_cast<const NotExpression&>(expr).operand();
 
     case ExpressionType::AND:
-    case ExpressionType::OR: {
-      ExpressionVector inverted_operands;
-      for (auto operand : checked_cast<const NnaryExpression&>(op).operands()) {
-        ARROW_ASSIGN_OR_RAISE(auto inverted_operand, Invert(*operand));
-        inverted_operands.push_back(inverted_operand);
-      }
+      return InvertBoolean(checked_cast<const AndExpression&>(expr));
 
-      if (op.type() == ExpressionType::AND) {
-        return std::make_shared<OrExpression>(std::move(inverted_operands));
-      }
-      return std::make_shared<AndExpression>(std::move(inverted_operands));
+    case ExpressionType::OR:
+      return InvertBoolean(checked_cast<const OrExpression&>(expr));
+
+    case ExpressionType::COMPARISON: {
+      const auto& comparison = checked_cast<const ComparisonExpression&>(expr);
+      auto inverted_op = InvertCompareOperator(comparison.op());
+      return std::make_shared<ComparisonExpression>(
+          inverted_op, comparison.left_operand(), comparison.right_operand());
     }
-
-    case ExpressionType::COMPARISON:
-      return Invert(checked_cast<const ComparisonExpression&>(op));
 
     default:
       break;
@@ -352,23 +372,28 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
     }
 
     case ExpressionType::OR: {
+      const auto& given_or = checked_cast<const OrExpression&>(given);
+
       bool simplify_to_always = true;
       bool simplify_to_never = true;
-      for (const auto& operand : checked_cast<const OrExpression&>(given).operands()) {
+      for (const auto& operand : {given_or.left_operand(), given_or.right_operand()}) {
         ARROW_ASSIGN_OR_RAISE(auto simplified, Assume(*operand));
 
-        BooleanScalar scalar;
-        if (!simplified->IsTrivialCondition(&scalar)) {
-          simplify_to_never = false;
-          simplify_to_always = false;
-        }
-
-        if (!scalar.is_valid) {
+        if (simplified->IsNull()) {
           // some subexpression of given is always null, return null
           return ScalarExpression::MakeNull(boolean());
         }
 
-        if (scalar.value == true) {
+        bool trivial;
+        if (!simplified->IsTrivialCondition(&trivial)) {
+          // Or cannot be simplified unless all of its operands simplify to the same
+          // trivial condition
+          simplify_to_never = false;
+          simplify_to_always = false;
+          continue;
+        }
+
+        if (trivial == true) {
           simplify_to_never = false;
         } else {
           simplify_to_always = false;
@@ -387,12 +412,16 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
     }
 
     case ExpressionType::AND: {
+      const auto& given_and = checked_cast<const AndExpression&>(given);
+
       auto simplified = Copy();
-      for (const auto& operand : checked_cast<const AndExpression&>(given).operands()) {
-        BooleanScalar value;
-        if (simplified->IsTrivialCondition(&value)) {
-          // FIXME(bkietz) but what if something later is null?
-          break;
+      for (const auto& operand : {given_and.left_operand(), given_and.right_operand()}) {
+        if (simplified->IsNull()) {
+          return ScalarExpression::MakeNull(boolean());
+        }
+
+        if (simplified->IsTrivialCondition()) {
+          return std::move(simplified);
         }
 
         ARROW_ASSIGN_OR_RAISE(simplified, simplified->Assume(*operand));
@@ -578,75 +607,84 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::AssumeGivenComparison(
     default:
       return Copy();
   }
-}
-
-template <typename Nnary>
-Result<std::shared_ptr<Expression>> AssumeNnary(const Nnary& nnary,
-                                                const Expression& given) {
-  // if any of the operands matches trivial_condition, we can return a trivial
-  // expression:
-  // anything OR true => true
-  // anything AND false => false
-  constexpr bool trivial_condition = std::is_same<Nnary, OrExpression>::value;
-  bool simplify_to_trivial = false;
-
-  ExpressionVector operands;
-  for (auto operand : nnary.operands()) {
-    ARROW_ASSIGN_OR_RAISE(operand, operand->Assume(given));
-
-    BooleanScalar scalar;
-    if (operand->IsTrivialCondition(&scalar)) {
-      if (!scalar.is_valid) {
-        return ScalarExpression::MakeNull(boolean());
-      }
-
-      if (scalar.value == trivial_condition) {
-        simplify_to_trivial = true;
-      }
-      continue;
-    }
-
-    if (!simplify_to_trivial) {
-      operands.push_back(operand);
-    }
-  }
-
-  if (simplify_to_trivial) {
-    return ScalarExpression::Make(trivial_condition);
-  }
-
-  if (operands.size() == 1) {
-    return operands[0];
-  }
-
-  if (operands.size() == 0) {
-    return ScalarExpression::Make(!trivial_condition);
-  }
-
-  return std::make_shared<Nnary>(std::move(operands));
+  return Copy();
 }
 
 Result<std::shared_ptr<Expression>> AndExpression::Assume(const Expression& given) const {
-  return AssumeNnary(*this, given);
+  ARROW_ASSIGN_OR_RAISE(auto left_operand, left_operand_->Assume(given));
+  ARROW_ASSIGN_OR_RAISE(auto right_operand, right_operand_->Assume(given));
+
+  // if either operand is trivially null then so is this AND
+  if (left_operand->IsNull() || right_operand->IsNull()) {
+    return ScalarExpression::MakeNull(boolean());
+  }
+
+  bool left_trivial, right_trivial;
+  bool left_is_trivial = left_operand->IsTrivialCondition(&left_trivial);
+  bool right_is_trivial = right_operand->IsTrivialCondition(&right_trivial);
+
+  // if neither of the operands is trivial, simply construct a new AND
+  if (!left_is_trivial && !right_is_trivial) {
+    return std::make_shared<AndExpression>(std::move(left_operand),
+                                           std::move(right_operand));
+  }
+
+  // if either of the operands is trivially false then so is this AND
+  if ((left_is_trivial && left_trivial == false) ||
+      (right_is_trivial && right_trivial == false)) {
+    // FIXME(bkietz) if left is false and right is a column conaining nulls, this is an
+    // error because we should be yielding null there rather than false
+    return ScalarExpression::Make(false);
+  }
+
+  // at least one of the operands is trivially true; return the other operand
+  return right_is_trivial ? std::move(left_operand) : std::move(right_operand);
 }
 
 Result<std::shared_ptr<Expression>> OrExpression::Assume(const Expression& given) const {
-  return AssumeNnary(*this, given);
+  ARROW_ASSIGN_OR_RAISE(auto left_operand, left_operand_->Assume(given));
+  ARROW_ASSIGN_OR_RAISE(auto right_operand, right_operand_->Assume(given));
+
+  // if either operand is trivially null then so is this OR
+  if (left_operand->IsNull() || right_operand->IsNull()) {
+    return ScalarExpression::MakeNull(boolean());
+  }
+
+  bool left_trivial, right_trivial;
+  bool left_is_trivial = left_operand->IsTrivialCondition(&left_trivial);
+  bool right_is_trivial = right_operand->IsTrivialCondition(&right_trivial);
+
+  // if neither of the operands is trivial, simply construct a new OR
+  if (!left_is_trivial && !right_is_trivial) {
+    return std::make_shared<OrExpression>(std::move(left_operand),
+                                          std::move(right_operand));
+  }
+
+  // if either of the operands is trivially true then so is this OR
+  if ((left_is_trivial && left_trivial == true) ||
+      (right_is_trivial && right_trivial == true)) {
+    // FIXME(bkietz) if left is true but right is a column conaining nulls, this is an
+    // error because we should be yielding null there rather than true
+    return ScalarExpression::Make(true);
+  }
+
+  // at least one of the operands is trivially false; return the other operand
+  return right_is_trivial ? std::move(left_operand) : std::move(right_operand);
 }
 
 Result<std::shared_ptr<Expression>> NotExpression::Assume(const Expression& given) const {
   ARROW_ASSIGN_OR_RAISE(auto operand, operand_->Assume(given));
 
-  BooleanScalar scalar;
-  if (operand->IsTrivialCondition(&scalar)) {
-    return Copy();
-  }
-
-  if (!scalar.is_valid) {
+  if (operand->IsNull()) {
     return ScalarExpression::MakeNull(boolean());
   }
 
-  return ScalarExpression::Make(!scalar.value);
+  bool trivial;
+  if (operand->IsTrivialCondition(&trivial)) {
+    return ScalarExpression::Make(!trivial);
+  }
+
+  return Copy();
 }
 
 std::string FieldExpression::ToString() const {
@@ -684,6 +722,9 @@ std::string ScalarExpression::ToString() const {
     case Type::BOOL:
       value = checked_cast<const BooleanScalar&>(*value_).value ? "true" : "false";
       break;
+    case Type::INT32:
+      value = std::to_string(checked_cast<const Int32Scalar&>(*value_).value);
+      break;
     case Type::INT64:
       value = std::to_string(checked_cast<const Int64Scalar&>(*value_).value);
       break;
@@ -716,9 +757,13 @@ static std::string EulerNotation(std::string fn, const ExpressionVector& operand
   return fn;
 }
 
-std::string AndExpression::ToString() const { return EulerNotation("ALL", operands_); }
+std::string AndExpression::ToString() const {
+  return EulerNotation("AND", {left_operand_, right_operand_});
+}
 
-std::string OrExpression::ToString() const { return EulerNotation("ANY", operands_); }
+std::string OrExpression::ToString() const {
+  return EulerNotation("OR", {left_operand_, right_operand_});
+}
 
 std::string NotExpression::ToString() const { return EulerNotation("NOT", {operand_}); }
 
@@ -737,22 +782,6 @@ bool BinaryExpression::Equals(const Expression& other) const {
              checked_cast<const BinaryExpression&>(other).left_operand_) &&
          right_operand_->Equals(
              checked_cast<const BinaryExpression&>(other).right_operand_);
-}
-
-bool NnaryExpression::Equals(const Expression& other) const {
-  if (type_ != other.type()) {
-    return false;
-  }
-  const auto& other_operands = checked_cast<const NnaryExpression&>(other).operands_;
-  if (operands_.size() != other_operands.size()) {
-    return false;
-  }
-  for (size_t i = 0; i < operands_.size(); ++i) {
-    if (!operands_[i]->Equals(other_operands[i])) {
-      return false;
-    }
-  }
-  return true;
 }
 
 bool ComparisonExpression::Equals(const Expression& other) const {
@@ -777,17 +806,27 @@ bool Expression::Equals(const std::shared_ptr<Expression>& other) const {
   return Equals(*other);
 }
 
-bool Expression::IsTrivialCondition(BooleanScalar* out) const {
+bool Expression::IsNull() const {
   if (type_ != ExpressionType::SCALAR) {
     return false;
   }
 
   const auto& scalar = checked_cast<const ScalarExpression&>(*this).value();
   if (!scalar->is_valid) {
-    if (out) {
-      *out = BooleanScalar();
-    }
     return true;
+  }
+
+  return false;
+}
+
+bool Expression::IsTrivialCondition(bool* out) const {
+  if (type_ != ExpressionType::SCALAR) {
+    return false;
+  }
+
+  const auto& scalar = checked_cast<const ScalarExpression&>(*this).value();
+  if (!scalar->is_valid) {
+    return false;
   }
 
   if (scalar->type->id() != Type::BOOL) {
@@ -795,7 +834,7 @@ bool Expression::IsTrivialCondition(BooleanScalar* out) const {
   }
 
   if (out) {
-    *out = BooleanScalar(checked_cast<const BooleanScalar&>(*scalar).value);
+    *out = checked_cast<const BooleanScalar&>(*scalar).value;
   }
   return true;
 }
@@ -808,46 +847,26 @@ std::shared_ptr<Expression> ScalarExpression::Copy() const {
   return std::make_shared<ScalarExpression>(*this);
 }
 
-std::shared_ptr<AndExpression> and_(ExpressionVector operands) {
-  return std::make_shared<AndExpression>(std::move(operands));
+std::shared_ptr<AndExpression> and_(std::shared_ptr<Expression> lhs,
+                                    std::shared_ptr<Expression> rhs) {
+  return std::make_shared<AndExpression>(std::move(lhs), std::move(rhs));
 }
 
-std::shared_ptr<OrExpression> or_(ExpressionVector operands) {
-  return std::make_shared<OrExpression>(std::move(operands));
+std::shared_ptr<OrExpression> or_(std::shared_ptr<Expression> lhs,
+                                  std::shared_ptr<Expression> rhs) {
+  return std::make_shared<OrExpression>(std::move(lhs), std::move(rhs));
 }
 
 std::shared_ptr<NotExpression> not_(std::shared_ptr<Expression> operand) {
   return std::make_shared<NotExpression>(std::move(operand));
 }
 
-// flatten chains of and/or to a single OperatorExpression
-template <typename Out>
-Out MaybeCombine(const Expression& lhs, const Expression& rhs) {
-  if (lhs.type() != Out::expression_type && rhs.type() != Out::expression_type) {
-    return Out(ExpressionVector{lhs.Copy(), rhs.Copy()});
-  }
-
-  ExpressionVector operands;
-  for (auto side : {&lhs, &rhs}) {
-    if (side->type() != Out::expression_type) {
-      operands.emplace_back(side->Copy());
-      continue;
-    }
-
-    for (auto operand : checked_cast<const Out&>(*side).operands()) {
-      operands.emplace_back(std::move(operand));
-    }
-  }
-
-  return Out(std::move(operands));
-}
-
 AndExpression operator&&(const Expression& lhs, const Expression& rhs) {
-  return MaybeCombine<AndExpression>(lhs, rhs);
+  return AndExpression(lhs.Copy(), rhs.Copy());
 }
 
 OrExpression operator||(const Expression& lhs, const Expression& rhs) {
-  return MaybeCombine<OrExpression>(lhs, rhs);
+  return OrExpression(lhs.Copy(), rhs.Copy());
 }
 
 NotExpression operator!(const Expression& rhs) { return NotExpression(rhs.Copy()); }
@@ -880,10 +899,10 @@ Status EnsureNullOrBool(const std::string& msg_prefix,
   return Status::TypeError(msg_prefix, *type);
 }
 
-Result<std::shared_ptr<DataType>> ValidateNnary(const NnaryExpression& nnary,
-                                                const Schema& schema) {
+Result<std::shared_ptr<DataType>> ValidateBoolean(const ExpressionVector& operands,
+                                                  const Schema& schema) {
   auto out = boolean();
-  for (const auto& operand : nnary.operands()) {
+  for (auto operand : operands) {
     ARROW_ASSIGN_OR_RAISE(auto type, operand->Validate(schema));
     RETURN_NOT_OK(
         EnsureNullOrBool("cannot combine expressions including one of type ", type));
@@ -891,21 +910,19 @@ Result<std::shared_ptr<DataType>> ValidateNnary(const NnaryExpression& nnary,
       out = null();
     }
   }
-  return out;
+  return std::move(out);
 }
 
 Result<std::shared_ptr<DataType>> AndExpression::Validate(const Schema& schema) const {
-  return ValidateNnary(*this, schema);
+  return ValidateBoolean({left_operand_, right_operand_}, schema);
 }
 
 Result<std::shared_ptr<DataType>> OrExpression::Validate(const Schema& schema) const {
-  return ValidateNnary(*this, schema);
+  return ValidateBoolean({left_operand_, right_operand_}, schema);
 }
 
 Result<std::shared_ptr<DataType>> NotExpression::Validate(const Schema& schema) const {
-  ARROW_ASSIGN_OR_RAISE(auto operand_type, operand_->Validate(schema));
-  RETURN_NOT_OK(EnsureNullOrBool("cannot invert an expression of type ", operand_type));
-  return std::move(operand_type);
+  return ValidateBoolean({operand_}, schema);
 }
 
 Result<std::shared_ptr<DataType>> ScalarExpression::Validate(const Schema& schema) const {

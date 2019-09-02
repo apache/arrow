@@ -52,16 +52,11 @@ class ExpressionsTest : public ::testing::Test {
     }
   }
 
-  template <typename NnaryExpression, typename... T>
-  void AssertOperandsAre(const NnaryExpression& expr, ExpressionType::type type,
-                         T... expected_operands) {
+  void AssertOperandsAre(const BinaryExpression& expr, ExpressionType::type type,
+                         const Expression& lhs, const Expression& rhs) {
     ASSERT_EQ(expr.type(), type);
-    ASSERT_EQ(expr.operands().size(), sizeof...(T));
-    std::shared_ptr<Expression> expected_operand_ptrs[] = {expected_operands.Copy()...};
-
-    for (size_t i = 0; i < sizeof...(T); ++i) {
-      ASSERT_TRUE(expr.operands()[i]->Equals(expected_operand_ptrs[i]));
-    }
+    ASSERT_TRUE(expr.left_operand()->Equals(lhs));
+    ASSERT_TRUE(expr.right_operand()->Equals(rhs));
   }
 
   std::shared_ptr<ScalarExpression> always = ScalarExpression::Make(true);
@@ -83,7 +78,7 @@ TEST_F(ExpressionsTest, Equality) {
 TEST_F(ExpressionsTest, SimplificationOfCompoundQuery) {
   // chained "and" expressions are flattened
   auto multi_and = "b"_ > 5 and "b"_ < 10 and "b"_ != 7;
-  AssertOperandsAre(multi_and, ExpressionType::AND, "b"_ > 5, "b"_ < 10, "b"_ != 7);
+  AssertOperandsAre(multi_and, ExpressionType::AND, ("b"_ > 5 and "b"_ < 10), "b"_ != 7);
 
   AssertSimplifiesTo("b"_ > 5 and "b"_ < 10, "b"_ == 3, *never);
   AssertSimplifiesTo("b"_ > 5 and "b"_ < 10, "b"_ == 6, *always);
