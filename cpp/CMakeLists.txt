@@ -758,6 +758,11 @@ if(THREADS_FOUND)
   list(APPEND ARROW_SYSTEM_LINK_LIBS Threads::Threads)
 endif()
 
+if(WIN32)
+  # Winsock
+  list(APPEND ARROW_SYSTEM_LINK_LIBS "Ws2_32.dll")
+endif()
+
 if(NOT WIN32 AND NOT APPLE)
   # Pass -lrt on Linux only
   list(APPEND ARROW_SYSTEM_LINK_LIBS rt)
