@@ -130,8 +130,11 @@ class ARROW_DS_EXPORT Expression {
     return Copy();
   }
 
-  // Evaluate an expression against a RecordBatch.
-  // Returned Datum must be of either SCALAR or ARRAY kind.
+  /// Evaluate this expression against each row of a RecordBatch.
+  /// Returned Datum will be of either SCALAR or ARRAY kind.
+  /// A return value of ARRAY kind will have length == batch.num_rows()
+  /// An return value of SCALAR kind is equivalent to an array of the same type whose
+  /// slots contain a single repeated value.
   virtual Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
                                           const RecordBatch& batch) const = 0;
 
@@ -387,7 +390,7 @@ auto scalar(T&& value) -> decltype(ScalarExpression::Make(std::forward<T>(value)
   return ScalarExpression::Make(std::forward<T>(value));
 }
 
-inline std::shared_ptr<FieldExpression> fieldRef(std::string name) {
+inline std::shared_ptr<FieldExpression> field_ref(std::string name) {
   return std::make_shared<FieldExpression>(std::move(name));
 }
 

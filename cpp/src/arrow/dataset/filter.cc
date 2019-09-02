@@ -329,6 +329,8 @@ Result<std::shared_ptr<Expression>> InvertBoolean(const Boolean& expr) {
   if (std::is_same<Boolean, OrExpression>::value) {
     return std::make_shared<AndExpression>(std::move(lhs), std::move(rhs));
   }
+
+  return Status::Invalid("unknown boolean expression ", expr.ToString());
 }
 
 Result<std::shared_ptr<Expression>> Invert(const Expression& expr) {
