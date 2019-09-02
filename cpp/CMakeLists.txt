@@ -26,6 +26,7 @@ string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSI
 if(NOT DEFINED CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build.")
 endif()
+string(TOLOWER ${CMAKE_BUILD_TYPE} LOWERCASE_BUILD_TYPE)
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
 
 project(arrow VERSION "${ARROW_BASE_VERSION}")
@@ -747,7 +748,12 @@ if(ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
   list(APPEND ARROW_SYSTEM_LINK_LIBS jemalloc::jemalloc)
-endif(ARROW_JEMALLOC)
+endif()
+
+if(ARROW_MIMALLOC)
+  add_definitions(-DARROW_MIMALLOC)
+  list(APPEND ARROW_SYSTEM_LINK_LIBS mimalloc::mimalloc)
+endif()
 
 if(THREADS_FOUND)
   list(APPEND ARROW_SYSTEM_LINK_LIBS Threads::Threads)

@@ -145,13 +145,29 @@ set(ARROW_SRCS
     util/utf8.cc
     vendored/datetime/tz.cpp)
 
+# Add dependencies for third-party allocators.
+# If possible we only want memory_pool.cc to wait for allocators to finish building,
+# but that only works with Ninja.
+
+set(_allocator_dependencies "") # Empty list
 if(ARROW_JEMALLOC)
+  list(APPEND _allocator_dependencies jemalloc_ep)
+endif()
+if(ARROW_MIMALLOC)
+  list(APPEND _allocator_dependencies mimalloc_ep)
+endif()
+
+if(_allocator_dependencies)
   if("${CMAKE_GENERATOR}" STREQUAL "Ninja")
-    set_source_files_properties(memory_pool.cc PROPERTIES OBJECT_DEPENDS jemalloc_ep)
+    foreach(_dep ${_allocator_dependencies})
+      set_source_files_properties(memory_pool.cc PROPERTIES OBJECT_DEPENDS ${_dep})
+    endforeach()
   else()
-    add_dependencies(arrow_dependencies jemalloc_ep)
+    add_dependencies(arrow_dependencies ${_allocator_dependencies})
   endif()
 endif()
+
+unset(_allocator_dependencies)
 
 if(ARROW_JSON)
   add_subdirectory(json)

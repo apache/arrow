@@ -68,6 +68,10 @@ static std::shared_ptr<BlockParser> BuildDecimal128Data(int32_t num_rows) {
   return result;
 }
 
+static std::shared_ptr<BlockParser> BuildStringData(int32_t num_rows) {
+  return BuildDecimal128Data(num_rows);
+}
+
 static void BenchmarkConversion(benchmark::State& state,  // NOLINT non-const reference
                                 BlockParser& parser,
                                 const std::shared_ptr<DataType>& type,
@@ -110,9 +114,17 @@ static void Decimal128Conversion(benchmark::State& state) {  // NOLINT non-const
   BenchmarkConversion(state, *parser, decimal(24, 9), options);
 }
 
+static void StringConversion(benchmark::State& state) {  // NOLINT non-const reference
+  auto parser = BuildStringData(num_rows);
+  auto options = ConvertOptions::Defaults();
+
+  BenchmarkConversion(state, *parser, utf8(), options);
+}
+
 BENCHMARK(Int64Conversion);
 BENCHMARK(FloatConversion);
 BENCHMARK(Decimal128Conversion);
+BENCHMARK(StringConversion);
 
 }  // namespace csv
 }  // namespace arrow

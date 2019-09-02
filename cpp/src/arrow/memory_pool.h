@@ -21,6 +21,7 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
@@ -96,6 +97,9 @@ class ARROW_EXPORT MemoryPool {
   /// returns -1
   virtual int64_t max_memory() const;
 
+  /// The name of the backend used by this MemoryPool (e.g. "system" or "jemalloc");
+  virtual std::string backend_name() const = 0;
+
  protected:
   MemoryPool();
 };
@@ -113,6 +117,8 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
   int64_t bytes_allocated() const override;
 
   int64_t max_memory() const override;
+
+  std::string backend_name() const override;
 
  private:
   MemoryPool* pool_;
@@ -136,6 +142,8 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
 
   int64_t max_memory() const override;
 
+  std::string backend_name() const override;
+
  private:
   class ProxyMemoryPoolImpl;
   std::unique_ptr<ProxyMemoryPoolImpl> impl_;
@@ -143,6 +151,19 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
 
 /// Return the process-wide default memory pool.
 ARROW_EXPORT MemoryPool* default_memory_pool();
+
+/// Return a process-wide memory pool based on the system allocator.
+ARROW_EXPORT MemoryPool* system_memory_pool();
+
+/// Return a process-wide memory pool based on jemalloc.
+///
+/// May return NotImplemented if jemalloc is not available.
+ARROW_EXPORT Status jemalloc_memory_pool(MemoryPool** out);
+
+/// Return a process-wide memory pool based on mimalloc.
+///
+/// May return NotImplemented if mimalloc is not available.
+ARROW_EXPORT Status mimalloc_memory_pool(MemoryPool** out);
 
 #ifndef ARROW_MEMORY_POOL_DEFAULT
 #define ARROW_MEMORY_POOL_DEFAULT = default_memory_pool()
