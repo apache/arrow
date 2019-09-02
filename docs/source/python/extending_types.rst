@@ -105,6 +105,23 @@ This array can be included in RecordBatches, sent over IPC and received in
 another Python process. The custom UUID type will be preserved there, as long
 as the definition of the class is available (the type can be unpickled).
 
+For example, creating a RecordBatch and writing it to a stream using the
+IPC protocol::
+
+    >>> batch = pa.RecordBatch.from_arrays([arr], ["ext"])
+    >>> sink = pa.BufferOutputStream()
+    >>> writer = pa.RecordBatchStreamWriter(sink, batch.schema)
+    >>> writer.write_batch(batch)
+    >>> writer.close()
+    >>> buf = sink.getvalue()
+
+and then reading it back yields the proper type::
+
+    >>> reader = pa.ipc.open_stream(buf)
+    >>> result = reader.read_all()
+    >>> result.column('ext').type
+    UuidType(extension<arrow.py_extension_type>)
+
 We can define the same type using the other option::
 
     class UuidType(pa.ExtensionType):
@@ -125,18 +142,21 @@ We can define the same type using the other option::
 
 This is a slightly longer implementation (you need to implement the special
 methods ``__arrow_ext_serialize__`` and ``__arrow_ext_deserialize__``), and the
-extension type needs to be registered to be received through IPC, but it has
+extension type needs to be registered to be received through IPC (using
+:func:`register_extension_type`), but it has
 now a unique name::
 
     >>> uuid_type = UuidType()
     >>> uuid_type.extension_name
     'my_package.uuid'
 
-    >>> pa.lib.register_extension_type(uuid_type)
+    >>> pa.register_extension_type(uuid_type)
 
 The receiving application doesn't need to be Python but can still recognize
 the extension type as a "uuid" type, if it has implemented its own extension
 type to receive it.
+If the type is not registered in the receiving application, it will fall back
+to the storage type.
 
 Parametrized extension type
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -144,8 +164,9 @@ Parametrized extension type
 The above example used a fixed storage type with no further metadata. But
 more flexible, parametrized extension types are also possible.
 
-The example given here implements an extension type for the pandas "period"
-data type, represententing time spans (e.g., a day, a month, a quarter, etc).
+The example given here implements an extension type for the `pandas "period"
+data type <https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#time-span-representation>`__,
+represententing time spans (e.g., a frequency of a day, a month, a quarter, etc).
 It is stored as an int64 array which is interpreted as the number of time spans
 of the given frequency since 1970.
 

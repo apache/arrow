@@ -16,6 +16,7 @@
 // under the License.
 
 #include <memory>
+#include <utility>
 
 #include "arrow/python/extension_type.h"
 #include "arrow/python/helpers.h"
@@ -72,13 +73,18 @@ static const char* kExtensionName = "arrow.py_extension_type";
 
 PyExtensionType::PyExtensionType(std::shared_ptr<DataType> storage_type, PyObject* typ,
                                  PyObject* inst)
-    : ExtensionType(storage_type), extension_name_(kExtensionName),
-      type_class_(typ), type_instance_(inst) {}
+    : ExtensionType(storage_type),
+      extension_name_(kExtensionName),
+      type_class_(typ),
+      type_instance_(inst) {}
 
-PyExtensionType::PyExtensionType(std::shared_ptr<DataType> storage_type, std::string extension_name,
-                                 PyObject* typ, PyObject* inst)
-    : ExtensionType(storage_type), extension_name_(std::move(extension_name)),
-      type_class_(typ), type_instance_(inst) {}
+PyExtensionType::PyExtensionType(std::shared_ptr<DataType> storage_type,
+                                 std::string extension_name, PyObject* typ,
+                                 PyObject* inst)
+    : ExtensionType(storage_type),
+      extension_name_(std::move(extension_name)),
+      type_class_(typ),
+      type_instance_(inst) {}
 
 bool PyExtensionType::ExtensionEquals(const ExtensionType& other) const {
   PyAcquireGIL lock;

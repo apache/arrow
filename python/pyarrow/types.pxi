@@ -669,16 +669,21 @@ cdef class UnknownExtensionType(PyExtensionType):
         return self.serialized
 
 
-_PYTHON_EXTENSION_TYPES_REGISTRY = []
+_python_extension_types_registry = []
 
 
 def register_extension_type(ext_type):
     """
     Register a Python extension type.
 
+    Registration is based on the extension name (so different registered types
+    need unique extension names). Registration needs an extension type
+    instance, but then works for any instance of the same subclass regardless
+    of parametrization of the type.
+
     Parameters
     ----------
-    ext_type : BaseExtensionType
+    ext_type : BaseExtensionType instance
         The ExtensionType subclass to register.
 
     """
@@ -688,12 +693,12 @@ def register_extension_type(ext_type):
     if not isinstance(_type, BaseExtensionType):
         raise TypeError("Only extension types can be registered")
 
-    # register on the python side
-    _PYTHON_EXTENSION_TYPES_REGISTRY.append(_type)
-
     # register on the C++ side
     check_status(
         RegisterPyExtensionType(<shared_ptr[CDataType]> _type.sp_type))
+
+    # register on the python side
+    _python_extension_types_registry.append(_type)
 
 
 def unregister_extension_type(type_name):
@@ -2104,7 +2109,7 @@ def _unregister_py_extension_types():
     # teardown stage, it will invoke CPython APIs such as Py_DECREF
     # with a destroyed interpreter.
     unregister_extension_type("arrow.py_extension_type")
-    for ext_type in _PYTHON_EXTENSION_TYPES_REGISTRY:
+    for ext_type in _python_extension_types_registry:
         try:
             unregister_extension_type(ext_type.extension_name)
         except KeyError:

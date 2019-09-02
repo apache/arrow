@@ -257,11 +257,11 @@ class PeriodType(pa.ExtensionType):
 def registered_period_type():
     # setup
     period_type = PeriodType('D')
-    pa.lib.register_extension_type(period_type)
+    pa.register_extension_type(period_type)
     yield
     # teardown
     try:
-        pa.lib.unregister_extension_type('pandas.period')
+        pa.unregister_extension_type('pandas.period')
     except KeyError:
         pass
 
@@ -320,7 +320,7 @@ def test_generic_ext_type_ipc_unknown(registered_period_type):
 
     # unregister type before loading again => reading unknown extension type
     # as plain array (but metadata in schema's field are preserved)
-    pa.lib.unregister_extension_type('pandas.period')
+    pa.unregister_extension_type('pandas.period')
 
     batch = ipc_read_batch(buf)
     result = batch.column(0)
@@ -346,9 +346,9 @@ def test_generic_ext_type_equality():
 def test_generic_ext_type_register(registered_period_type):
     # test that trying to register other type does not segfault
     with pytest.raises(TypeError):
-        pa.lib.register_extension_type(pa.string())
+        pa.register_extension_type(pa.string())
 
     # register second time raises KeyError
     period_type = PeriodType('D')
     with pytest.raises(KeyError):
-        pa.lib.register_extension_type(period_type)
+        pa.register_extension_type(period_type)
