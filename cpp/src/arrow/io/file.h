@@ -185,8 +185,13 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
   static Status Create(const std::string& path, int64_t size,
                        std::shared_ptr<MemoryMappedFile>* out);
 
+  // mmap() with whole file
   static Status Open(const std::string& path, FileMode::type mode,
                      std::shared_ptr<MemoryMappedFile>* out);
+
+  // mmap() with a region of file, the offset must be a multiple of the page size
+  static Status Open(const std::string& path, FileMode::type mode, const int64_t offset,
+                     const int64_t length, std::shared_ptr<MemoryMappedFile>* out);
 
   Status Close() override;
 
