@@ -65,25 +65,25 @@ void Annotator::PrepareBuffersForField(const FieldDescriptor& desc,
   // The validity buffer is optional. Use nullptr if it does not have one.
   if (array_data.buffers[buffer_idx]) {
     uint8_t* validity_buf = const_cast<uint8_t*>(array_data.buffers[buffer_idx]->data());
-    eval_batch->SetBuffer(desc.validity_idx(), validity_buf);
+    eval_batch->SetBuffer(desc.validity_idx(), validity_buf, array_data.offset);
   } else {
-    eval_batch->SetBuffer(desc.validity_idx(), nullptr);
+    eval_batch->SetBuffer(desc.validity_idx(), nullptr, array_data.offset);
   }
   ++buffer_idx;
 
   if (desc.HasOffsetsIdx()) {
     uint8_t* offsets_buf = const_cast<uint8_t*>(array_data.buffers[buffer_idx]->data());
-    eval_batch->SetBuffer(desc.offsets_idx(), offsets_buf);
+    eval_batch->SetBuffer(desc.offsets_idx(), offsets_buf, array_data.offset);
     ++buffer_idx;
   }
 
   uint8_t* data_buf = const_cast<uint8_t*>(array_data.buffers[buffer_idx]->data());
-  eval_batch->SetBuffer(desc.data_idx(), data_buf);
+  eval_batch->SetBuffer(desc.data_idx(), data_buf, array_data.offset);
   if (is_output) {
     // pass in the Buffer object for output data buffers. Can be used for resizing.
     uint8_t* data_buf_ptr =
         reinterpret_cast<uint8_t*>(array_data.buffers[buffer_idx].get());
-    eval_batch->SetBuffer(desc.data_buffer_ptr_idx(), data_buf_ptr);
+    eval_batch->SetBuffer(desc.data_buffer_ptr_idx(), data_buf_ptr, array_data.offset);
   }
 }
 

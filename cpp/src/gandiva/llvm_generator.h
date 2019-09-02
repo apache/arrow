@@ -90,8 +90,8 @@ class GANDIVA_EXPORT LLVMGenerator {
    public:
     Visitor(LLVMGenerator* generator, llvm::Function* function,
             llvm::BasicBlock* entry_block, llvm::Value* arg_addrs,
-            llvm::Value* arg_local_bitmaps, llvm::Value* arg_context_ptr,
-            llvm::Value* loop_var);
+            llvm::Value* arg_addr_offsets, llvm::Value* arg_local_bitmaps,
+            llvm::Value* arg_context_ptr, llvm::Value* loop_var);
 
     void Visit(const VectorReadValidityDex& dex) override;
     void Visit(const VectorReadFixedLenValueDex& dex) override;
@@ -146,6 +146,9 @@ class GANDIVA_EXPORT LLVMGenerator {
     // Switch to the entry_block and get reference of the validity/value/offsets buffer
     llvm::Value* GetBufferReference(int idx, BufferType buffer_type, FieldPtr field);
 
+    // Get offset of the validity/value/offsets buffer
+    llvm::Value* GetBufferOffset(int idx, FieldPtr field);
+
     // Switch to the entry_block and get reference to the local bitmap.
     llvm::Value* GetLocalBitMapReference(int idx);
 
@@ -157,6 +160,7 @@ class GANDIVA_EXPORT LLVMGenerator {
     llvm::Function* function_;
     llvm::BasicBlock* entry_block_;
     llvm::Value* arg_addrs_;
+    llvm::Value* arg_addr_offsets_;
     llvm::Value* arg_local_bitmaps_;
     llvm::Value* arg_context_ptr_;
     llvm::Value* loop_var_;
