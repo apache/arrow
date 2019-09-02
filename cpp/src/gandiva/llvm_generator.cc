@@ -250,7 +250,8 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
                                        SelectionVector::Mode selection_vector_mode) {
   llvm::IRBuilder<>* builder = ir_builder();
   // Create fn prototype :
-  //   int expr_1 (long **addrs, long *offsets, long **bitmaps, long *context_ptr, long nrec)
+  //   int expr_1 (long **addrs, long *offsets, long **bitmaps,
+  //               long *context_ptr, long nrec)
   std::vector<llvm::Type*> arguments;
   arguments.push_back(types()->i64_ptr_type());  // addrs
   arguments.push_back(types()->i64_ptr_type());  // offsets
@@ -327,8 +328,8 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
   }
 
   // The visitor can add code to both the entry/loop blocks.
-  Visitor visitor(this, *fn, loop_entry, arg_addrs, arg_addr_offsets, arg_local_bitmaps, arg_context_ptr,
-                  position_var);
+  Visitor visitor(this, *fn, loop_entry, arg_addrs, arg_addr_offsets,
+                  arg_local_bitmaps, arg_context_ptr, position_var);
   value_expr->Accept(visitor);
   LValuePtr output_value = visitor.result();
 
@@ -514,7 +515,8 @@ std::shared_ptr<DecimalLValue> LLVMGenerator::BuildDecimalLValue(llvm::Value* va
 // Visitor for generating the code for a decomposed expression.
 LLVMGenerator::Visitor::Visitor(LLVMGenerator* generator, llvm::Function* function,
                                 llvm::BasicBlock* entry_block, llvm::Value* arg_addrs,
-                                llvm::Value* arg_addr_offsets, llvm::Value* arg_local_bitmaps,
+                                llvm::Value* arg_addr_offsets,
+                                llvm::Value* arg_local_bitmaps,
                                 llvm::Value* arg_context_ptr, llvm::Value* loop_var)
     : generator_(generator),
       function_(function),
@@ -577,7 +579,8 @@ void LLVMGenerator::Visitor::Visit(const VectorReadVarLenValueDex& dex) {
 
   // => offset_end = offsets[loop_var + 1]
   llvm::Value* offsets_slot_index_next =
-      builder->CreateAdd(offsets_slot_index, generator_->types()->i64_constant(1), "loop_var+1");
+      builder->CreateAdd(offsets_slot_index, generator_->types()->i64_constant(1),
+                  "loop_var+1");
   slot = builder->CreateGEP(offsets_slot_ref, offsets_slot_index_next);
   llvm::Value* offset_end = builder->CreateLoad(slot, "offset_end");
 
@@ -1257,7 +1260,8 @@ llvm::Value* LLVMGenerator::Visitor::GetBufferOffset(int idx, FieldPtr field) {
 
   const std::string& name = field->name();
   llvm::Value* offsetAddr =
-      builder->CreateGEP(arg_addr_offsets_, generator_->types()->i32_constant(idx), name + "_offset_addr");
+      builder->CreateGEP(arg_addr_offsets_,
+                         generator_->types()->i32_constant(idx), name + "_offset_addr");
   llvm::Value* offset = builder->CreateLoad(offsetAddr, name + "_addr");
 
   return offset;
