@@ -277,7 +277,7 @@ def test_stream_write_table_batches(stream_fixture):
     table = pa.Table.from_batches([b1, b2, b1])
 
     writer = stream_fixture._get_writer(stream_fixture.sink, table.schema)
-    writer.write_table(table, chunksize=15)
+    writer.write_table(table, max_chunksize=15)
     writer.close()
 
     batches = list(pa.ipc.open_stream(stream_fixture.get_source()))

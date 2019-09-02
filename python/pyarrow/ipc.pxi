@@ -198,24 +198,28 @@ cdef class _CRecordBatchWriter:
             check_status(self.writer.get()
                          .WriteRecordBatch(deref(batch.batch)))
 
-    def write_table(self, Table table, chunksize=None):
+    def write_table(self, Table table, max_chunksize=None):
         """
-        Write RecordBatch to stream
+        Write Table to stream in (contiguous) RecordBatch objects, with maximum
+        chunk size
 
         Parameters
         ----------
-        batch : RecordBatch
+        table : Table
+        max_chunksize : int, default None
+            Maximum size for RecordBatch chunks. Individual chunks may be
+            smaller depending on the chunk layout of individual columns
         """
         cdef:
-            # Chunksize must be > 0 to have any impact
-            int64_t c_chunksize = -1
+            # max_chunksize must be > 0 to have any impact
+            int64_t c_max_chunksize = -1
 
-        if chunksize is not None:
-            c_chunksize = chunksize
+        if max_chunksize is not None:
+            c_max_chunksize = max_chunksize
 
         with nogil:
             check_status(self.writer.get().WriteTable(table.table[0],
-                                                      c_chunksize))
+                                                      c_max_chunksize))
 
     def close(self):
         """
