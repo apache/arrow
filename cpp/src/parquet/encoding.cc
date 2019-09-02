@@ -361,7 +361,8 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
     --buffer_len;
 
     arrow::util::RleEncoder encoder(buffer, buffer_len, bit_width());
-    for (int index : buffered_indices_) {
+
+    for (int32_t index : buffered_indices_) {
       if (!encoder.Put(index)) return -1;
     }
     encoder.Flush();
@@ -425,21 +426,22 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
     using ArrayType = typename arrow::TypeTraits<ArrowType>::ArrayType;
     const auto& indices = checked_cast<const ArrayType&>(data);
     auto values = indices.raw_values();
-    buffered_indices_.reserve(
-        buffered_indices_.size() +
-        static_cast<size_t>(indices.length() - indices.null_count()));
+
+    size_t buffer_position = buffered_indices_.size();
+    buffered_indices_.resize(
+        buffer_position + static_cast<size_t>(indices.length() - indices.null_count()));
     if (indices.null_count() > 0) {
       arrow::internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(),
                                                       indices.offset(), indices.length());
       for (int64_t i = 0; i < indices.length(); ++i) {
         if (valid_bits_reader.IsSet()) {
-          buffered_indices_.push_back(static_cast<int32_t>(values[i]));
+          buffered_indices_[buffer_position++] = static_cast<int32_t>(values[i]);
         }
         valid_bits_reader.Next();
       }
     } else {
       for (int64_t i = 0; i < indices.length(); ++i) {
-        buffered_indices_.push_back(static_cast<int32_t>(values[i]));
+        buffered_indices_[buffer_position++] = static_cast<int32_t>(values[i]);
       }
     }
   }
@@ -480,7 +482,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   void ClearIndices() { buffered_indices_.clear(); }
 
   /// Indices that have not yet be written out by WriteIndices().
-  std::vector<int> buffered_indices_;
+  std::vector<int32_t> buffered_indices_;
 
   /// The number of bytes needed to encode the dictionary.
   int dict_encoded_size_;
