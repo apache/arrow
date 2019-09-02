@@ -200,7 +200,10 @@ read_tsv_arrow <- function(file,
 #' @param skip_rows Number of lines to skip before reading data.
 #' @param column_names Character vector to supply column names. If length-0
 #' (the default), the first non-skipped row will be parsed to generate column
-#' names.
+#' names, unless `autogenerate_column_names` is `TRUE`.
+#' @param autogenerate_column_names Logical: generate column names instead of
+#' using the first non-skipped row (the default)? If `TRUE`, column names will
+#' be "f0", "f1", ..., "fN".
 #'
 #' @export
 csv_read_options <- function(use_threads = option_use_threads(),
@@ -288,6 +291,11 @@ csv_parse_options <- function(delimiter = ",",
 #' Conversion options for the CSV reader
 #'
 #' @param check_utf8 Whether to check UTF8 validity of string columns
+#' @param null_values character vector of recognized spellings for null values.
+#' Analogous to the `na.strings` argument to [read.csv()][utils::read.csv()] or
+#' `na` in `readr::read_csv()`.
+#' @param strings_can_be_null Logical: whether string / binary columns can have
+#' null values. Similar to the `quoted_na` argument to `readr::read_csv()`.
 #'
 #' @export
 csv_convert_options <- function(check_utf8 = TRUE,
