@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import warnings
+
 cdef class ChunkedArray(_PandasConvertible):
     """
     Array backed via one or more memory chunks.
@@ -1170,7 +1172,7 @@ cdef class Table(_PandasConvertible):
 
         return pyarrow_wrap_table(c_table)
 
-    def to_batches(self, max_chunksize=None):
+    def to_batches(self, max_chunksize=None, **kwargs):
         """
         Convert Table to list of (contiguous) RecordBatch objects, with maximum
         chunk size
@@ -1192,6 +1194,13 @@ cdef class Table(_PandasConvertible):
             shared_ptr[CRecordBatch] batch
 
         reader.reset(new TableBatchReader(deref(self.table)))
+
+        if 'chunksize' in kwargs:
+            max_chunksize = kwargs['chunksize']
+            msg = ('The parameter chunksize is deprecated for '
+                   'pyarrow.Table.to_batches as of 0.15, please use '
+                   'the parameter max_chunksize instead')
+            warnings.warn(msg, FutureWarning)
 
         if max_chunksize is not None:
             c_max_chunksize = max_chunksize

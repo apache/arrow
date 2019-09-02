@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import warnings
+
 cdef class Message:
     """
     Container for an Arrow IPC message with metadata and optional body
@@ -198,7 +200,7 @@ cdef class _CRecordBatchWriter:
             check_status(self.writer.get()
                          .WriteRecordBatch(deref(batch.batch)))
 
-    def write_table(self, Table table, max_chunksize=None):
+    def write_table(self, Table table, max_chunksize=None, **kwargs):
         """
         Write Table to stream in (contiguous) RecordBatch objects, with maximum
         chunk size
@@ -213,6 +215,13 @@ cdef class _CRecordBatchWriter:
         cdef:
             # max_chunksize must be > 0 to have any impact
             int64_t c_max_chunksize = -1
+
+        if 'chunksize' in kwargs:
+            max_chunksize = kwargs['chunksize']
+            msg = ('The parameter chunksize is deprecated for the write_table '
+                   'methods as of 0.15, please use parameter '
+                   'max_chunksize instead')
+            warnings.warn(msg, FutureWarning)
 
         if max_chunksize is not None:
             c_max_chunksize = max_chunksize
