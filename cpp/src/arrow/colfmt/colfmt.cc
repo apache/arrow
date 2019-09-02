@@ -23,6 +23,9 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/stl.h"
 
+namespace arrow {
+namespace colfmt {
+
 using arrow::internal::checked_cast;
 using arrow::internal::make_unique;
 
@@ -58,9 +61,6 @@ int FindColumn(const std::vector<arrow::colfmt::ColumnMap::Column>& columns,
 }
 
 }  // anonymous namespace
-
-namespace arrow {
-namespace colfmt {
 
 void ColumnMap::Put(const Column& column) {
   int i = FindColumn(columns_, column.field);
@@ -154,6 +154,8 @@ CopyValue(const typename TypeTraits<data_type>::ArrayType& array, int64_t i,
 
 // Shredder implementation
 namespace {
+
+using arrow::internal::make_unique;
 
 class ShredNode {
  public:
@@ -453,6 +455,8 @@ const std::shared_ptr<Field>& Shredder::schema() const { return impl_->root_->fi
 
 // Stitcher implementation
 namespace {
+
+using arrow::internal::make_unique;
 
 // Stitching algorithm transitions through a series of states.
 //

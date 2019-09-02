@@ -47,7 +47,7 @@ class ARROW_EXPORT ColumnMap {
   void Put(const std::shared_ptr<Field>& field,
            const std::shared_ptr<Int16Array>& rep_levels,
            const std::shared_ptr<Int16Array>& def_levels,
-           const std::shared_ptr<Array>& values = nullptr);
+           const std::shared_ptr<Array>& values = NULL);
 
   /// Return number of columns in map
   int size() const { return static_cast<int>(columns_.size()); }

@@ -16,7 +16,7 @@
 // under the License.
 
 #include "arrow/colfmt/api.h"
-#include "arrow/colfmt/test-util.h"
+#include "arrow/colfmt/test_util.h"
 #include "benchmark/benchmark.h"
 
 namespace arrow {
