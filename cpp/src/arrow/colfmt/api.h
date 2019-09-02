@@ -50,9 +50,7 @@ class ARROW_EXPORT ColumnMap {
            const std::shared_ptr<Array>& values = nullptr);
 
   /// Return number of columns in map
-  int size() const {
-    return static_cast<int>(columns_.size());
-  }
+  int size() const { return static_cast<int>(columns_.size()); }
 
   Result<Column> Get(int i) const;
 
@@ -61,7 +59,6 @@ class ARROW_EXPORT ColumnMap {
  private:
   std::vector<Column> columns_;
 };
-
 
 /// \class Shredder
 /// \brief Shred nested arrays into separate columns.
@@ -72,8 +69,8 @@ class ARROW_EXPORT Shredder {
  public:
   /// \brief Create new shredder.
   /// \param[in] schema Schema of the arrays which will be shredded.
-  static Result<std::shared_ptr<Shredder>>
-    Create(const std::shared_ptr<Field>& schema, MemoryPool* pool);
+  static Result<std::shared_ptr<Shredder>> Create(const std::shared_ptr<Field>& schema,
+                                                  MemoryPool* pool);
 
   ~Shredder();
 
@@ -103,7 +100,6 @@ class ARROW_EXPORT Shredder {
   std::unique_ptr<Impl> impl_;
 };
 
-
 /// \class Stitcher
 /// \brief Given a schema and column data for all leaf nodes, stitch column data
 /// into nested array of given schema type.
@@ -111,8 +107,8 @@ class ARROW_EXPORT Shredder {
 /// Unions are currently unsupported.
 class ARROW_EXPORT Stitcher {
  public:
-  static Result<std::shared_ptr<Stitcher>>
-    Create(const std::shared_ptr<Field>& schema, MemoryPool* pool);
+  static Result<std::shared_ptr<Stitcher>> Create(const std::shared_ptr<Field>& schema,
+                                                  MemoryPool* pool);
 
   ~Stitcher();
 
@@ -136,7 +132,5 @@ class ARROW_EXPORT Stitcher {
   std::unique_ptr<Impl> impl_;
 };
 
-
 }  // namespace colfmt
 }  // namespace arrow
-

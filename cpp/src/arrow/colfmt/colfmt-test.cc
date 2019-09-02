@@ -20,18 +20,18 @@
 #include <vector>
 
 #include "arrow/api.h"
-#include "arrow/testing/util.h"
-#include "arrow/testing/gtest_util.h"
-#include "arrow/type_traits.h"
 #include "arrow/colfmt/api.h"
 #include "arrow/colfmt/test-util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
+#include "arrow/type_traits.h"
 
 namespace arrow {
 namespace colfmt {
 
-template<typename data_type, typename c_type = typename data_type::c_type>
-std::shared_ptr<typename TypeTraits<data_type>::ArrayType>
-ArrayOf(const std::vector<c_type>& values) {
+template <typename data_type, typename c_type = typename data_type::c_type>
+std::shared_ptr<typename TypeTraits<data_type>::ArrayType> ArrayOf(
+    const std::vector<c_type>& values) {
   std::shared_ptr<Array> array;
   ArrayFromVector<data_type>(std::make_shared<data_type>(), values, &array);
   return std::static_pointer_cast<typename TypeTraits<data_type>::ArrayType>(array);
@@ -59,14 +59,12 @@ class TestColumnarFormat : public ::testing::Test {
   //  - shred(array_in) == colmap_in
   //  - stitch(shred(array_in)) == array_in
   void Roundtrip(const std::shared_ptr<Field>& schema,
-                 const std::shared_ptr<Array>& array_in,
-                 const ColumnMap& colmap_in) {
+                 const std::shared_ptr<Array>& array_in, const ColumnMap& colmap_in) {
     auto pool = default_memory_pool();
 
     ColumnMap colmap_out;
     {
-      Result<std::shared_ptr<Shredder>> shredder =
-        Shredder::Create(schema, pool);
+      Result<std::shared_ptr<Shredder>> shredder = Shredder::Create(schema, pool);
       ASSERT_OK(shredder);
       ASSERT_OK(shredder.ValueOrDie()->Shred(*array_in));
       Result<ColumnMap> res = shredder.ValueOrDie()->Finish();
@@ -94,8 +92,7 @@ class TestColumnarFormat : public ::testing::Test {
 
     std::shared_ptr<Array> array_out;
     {
-      Result<std::shared_ptr<Stitcher>> stitcher =
-        Stitcher::Create(schema, pool);
+      Result<std::shared_ptr<Stitcher>> stitcher = Stitcher::Create(schema, pool);
       ASSERT_OK(stitcher);
       ASSERT_OK(stitcher.ValueOrDie()->Stitch(colmap_out));
       Result<std::shared_ptr<Array>> array = stitcher.ValueOrDie()->Finish();
@@ -107,14 +104,13 @@ class TestColumnarFormat : public ::testing::Test {
     ASSERT_ARRAYS_EQUAL(*array_in, *array_out);
   }
 
-  void AssertStitchError(const std::string& error,
-                         std::shared_ptr<Int16Array> rep_levels,
+  void AssertStitchError(const std::string& error, std::shared_ptr<Int16Array> rep_levels,
                          std::shared_ptr<Int16Array> def_levels,
                          std::shared_ptr<Array> values) {
     auto f0 = field("f0", uint32(), true);
 
     Result<std::shared_ptr<Stitcher>> stitcher =
-      Stitcher::Create(f0, default_memory_pool());
+        Stitcher::Create(f0, default_memory_pool());
     ASSERT_OK(stitcher);
 
     ColumnMap colmap;
@@ -158,13 +154,16 @@ TEST_F(TestColumnarFormat, OptionalFields) {
   std::shared_ptr<Array> array = ArrayFromJSON(f0->type(), json);
 
   ColumnMap colmap;
-  colmap.Put(f0, ArrayOf<Int16Type>({0, 0, 0, 0}),
-                 ArrayOf<Int16Type>({0, 1, 1, 1}));
-  colmap.Put(f1, ArrayOf<Int16Type>({0, 0, 0, 0}),
-                 ArrayOf<Int16Type>({0, 1, 2, 3}));
-  colmap.Put(f2, ArrayOf<Int16Type>({0, 0, 0, 0, 1, 1}),
-                 ArrayOf<Int16Type>({0, 1, 2, 4, 3, 4}),
-                 ArrayOf<Int64Type>({5, 10}));
+  colmap.Put(f0,                                      // NOLINT
+             ArrayOf<Int16Type>({0, 0, 0, 0}),        // NOLINT
+             ArrayOf<Int16Type>({0, 1, 1, 1}));       // NOLINT
+  colmap.Put(f1,                                      // NOLINT
+             ArrayOf<Int16Type>({0, 0, 0, 0}),        // NOLINT
+             ArrayOf<Int16Type>({0, 1, 2, 3}));       // NOLINT
+  colmap.Put(f2,                                      // NOLINT
+             ArrayOf<Int16Type>({0, 0, 0, 0, 1, 1}),  // NOLINT
+             ArrayOf<Int16Type>({0, 1, 2, 4, 3, 4}),  // NOLINT
+             ArrayOf<Int64Type>({5, 10}));            // NOLINT
 
   Roundtrip(f0, array, colmap);
 }
@@ -185,13 +184,16 @@ TEST_F(TestColumnarFormat, RequiredFields) {
   std::shared_ptr<Array> array = ArrayFromJSON(f0->type(), json);
 
   ColumnMap colmap;
-  colmap.Put(f0, ArrayOf<Int16Type>({0, 0}),
-                 ArrayOf<Int16Type>({0, 0}));
-  colmap.Put(f1, ArrayOf<Int16Type>({0, 0}),
-                 ArrayOf<Int16Type>({0, 1}));
-  colmap.Put(f2, ArrayOf<Int16Type>({0, 0, 1, 1}),
-                 ArrayOf<Int16Type>({0, 1, 1, 1}),
-                 ArrayOf<Int64Type>({5, 10, 15}));
+  colmap.Put(f0,                                // NOLINT
+             ArrayOf<Int16Type>({0, 0}),        // NOLINT
+             ArrayOf<Int16Type>({0, 0}));       // NOLINT
+  colmap.Put(f1,                                // NOLINT
+             ArrayOf<Int16Type>({0, 0}),        // NOLINT
+             ArrayOf<Int16Type>({0, 1}));       // NOLINT
+  colmap.Put(f2,                                // NOLINT
+             ArrayOf<Int16Type>({0, 0, 1, 1}),  // NOLINT
+             ArrayOf<Int16Type>({0, 1, 1, 1}),  // NOLINT
+             ArrayOf<Int64Type>({5, 10, 15}));  // NOLINT
 
   Roundtrip(f0, array, colmap);
 }
@@ -221,24 +223,31 @@ TEST_F(TestColumnarFormat, Siblings) {
   std::shared_ptr<Array> array = ArrayFromJSON(f0->type(), json);
 
   ColumnMap colmap;
-  colmap.Put(f0, ArrayOf<Int16Type>({0}),
-                 ArrayOf<Int16Type>({0}));
-  colmap.Put(f1, ArrayOf<Int16Type>({0}),
-                 ArrayOf<Int16Type>({0}));
-  colmap.Put(f2, ArrayOf<Int16Type>({0}),
-                 ArrayOf<Int16Type>({0}),
-                 ArrayOf<Int64Type>({5}));
-  colmap.Put(f3, ArrayOf<Int16Type>({0}),
-                 ArrayOf<Int16Type>({0}),
-                 ArrayOf<Int64Type>({10}));
-  colmap.Put(f4, ArrayOf<Int16Type>({0}),
-                 ArrayOf<Int16Type>({0}));
-  colmap.Put(f5, ArrayOf<Int16Type>({0}),
-                 ArrayOf<Int16Type>({0}),
-                 ArrayOf<Int64Type>({15}));
-  colmap.Put(f6, ArrayOf<Int16Type>({0}),
-                 ArrayOf<Int16Type>({0}),
-                 ArrayOf<Int64Type>({20}));
+  colmap.Put(f0,                         // NOLINT
+             ArrayOf<Int16Type>({0}),    // NOLINT
+             ArrayOf<Int16Type>({0}));   // NOLINT
+  colmap.Put(f1,                         // NOLINT
+             ArrayOf<Int16Type>({0}),    // NOLINT
+             ArrayOf<Int16Type>({0}));   // NOLINT
+  colmap.Put(f2,                         // NOLINT
+             ArrayOf<Int16Type>({0}),    // NOLINT
+             ArrayOf<Int16Type>({0}),    // NOLINT
+             ArrayOf<Int64Type>({5}));   // NOLINT
+  colmap.Put(f3,                         // NOLINT
+             ArrayOf<Int16Type>({0}),    // NOLINT
+             ArrayOf<Int16Type>({0}),    // NOLINT
+             ArrayOf<Int64Type>({10}));  // NOLINT
+  colmap.Put(f4,                         // NOLINT
+             ArrayOf<Int16Type>({0}),    // NOLINT
+             ArrayOf<Int16Type>({0}));   // NOLINT
+  colmap.Put(f5,                         // NOLINT
+             ArrayOf<Int16Type>({0}),    // NOLINT
+             ArrayOf<Int16Type>({0}),    // NOLINT
+             ArrayOf<Int64Type>({15}));  // NOLINT
+  colmap.Put(f6,                         // NOLINT
+             ArrayOf<Int16Type>({0}),    // NOLINT
+             ArrayOf<Int16Type>({0}),    // NOLINT
+             ArrayOf<Int64Type>({20}));  // NOLINT
 
   Roundtrip(f0, array, colmap);
 }
@@ -253,17 +262,21 @@ TEST_F(TestColumnarFormat, PrimitiveTypes) {
   std::shared_ptr<Array> array = ArrayFromJSON(f0->type(), json);
 
   ColumnMap colmap;
-  colmap.Put(f0, ArrayOf<Int16Type>({0, 0, 0}),
-                 ArrayOf<Int16Type>({0, 0, 0}));
-  colmap.Put(f1, ArrayOf<Int16Type>({0, 0, 0}),
-                 ArrayOf<Int16Type>({1, 0, 0}),
-                 ArrayOf<UInt32Type>({4294967295}));
-  colmap.Put(f2, ArrayOf<Int16Type>({0, 0, 0}),
-                 ArrayOf<Int16Type>({0, 1, 0}),
-                 ArrayOf<StringType, std::string>({"abcde"}));
-  colmap.Put(f3, ArrayOf<Int16Type>({0, 0, 0}),
-                 ArrayOf<Int16Type>({0, 0, 1}),
-                 ArrayOf<BooleanType, bool>({true}));
+  colmap.Put(f0,                                            // NOLINT
+             ArrayOf<Int16Type>({0, 0, 0}),                 // NOLINT
+             ArrayOf<Int16Type>({0, 0, 0}));                // NOLINT
+  colmap.Put(f1,                                            // NOLINT
+             ArrayOf<Int16Type>({0, 0, 0}),                 // NOLINT
+             ArrayOf<Int16Type>({1, 0, 0}),                 // NOLINT
+             ArrayOf<UInt32Type>({4294967295}));            // NOLINT
+  colmap.Put(f2,                                            // NOLINT
+             ArrayOf<Int16Type>({0, 0, 0}),                 // NOLINT
+             ArrayOf<Int16Type>({0, 1, 0}),                 // NOLINT
+             ArrayOf<StringType, std::string>({"abcde"}));  // NOLINT
+  colmap.Put(f3,                                            // NOLINT
+             ArrayOf<Int16Type>({0, 0, 0}),                 // NOLINT
+             ArrayOf<Int16Type>({0, 0, 1}),                 // NOLINT
+             ArrayOf<BooleanType, bool>({true}));           // NOLINT
   Roundtrip(f0, array, colmap);
 }
 
@@ -275,8 +288,9 @@ TEST_F(TestColumnarFormat, ChildlessStruct) {
   std::shared_ptr<Array> array = ArrayFromJSON(f0->type(), json);
 
   ColumnMap colmap;
-  colmap.Put(f0, ArrayOf<Int16Type>({0, 0}),
-                 ArrayOf<Int16Type>({0, 1}));
+  colmap.Put(f0,                           // NOLINT
+             ArrayOf<Int16Type>({0, 0}),   // NOLINT
+             ArrayOf<Int16Type>({0, 1}));  // NOLINT
 
   Roundtrip(f0, array, colmap);
 }
@@ -287,7 +301,7 @@ TEST_F(TestColumnarFormat, ShredderSchemaMismatch) {
   auto array2 = ArrayOf<Int32Type>({1, 2, 3});
 
   Result<std::shared_ptr<Shredder>> shredder =
-    Shredder::Create(schema, default_memory_pool());
+      Shredder::Create(schema, default_memory_pool());
   ASSERT_OK(shredder);
 
   ASSERT_OK(shredder.ValueOrDie()->Shred(*array1));
@@ -297,65 +311,64 @@ TEST_F(TestColumnarFormat, ShredderSchemaMismatch) {
   ASSERT_OK(shredder.ValueOrDie()->Shred(*array1));
 }
 
-
 TEST_F(TestColumnarFormat, StitcherNoData) {
   auto f0 = field("f0", uint32(), true);
 
   Result<std::shared_ptr<Stitcher>> stitcher =
-    Stitcher::Create(f0, default_memory_pool());
+      Stitcher::Create(f0, default_memory_pool());
   ASSERT_OK(stitcher);
   ASSERT_RAISES_SUBSTR(Invalid, "No data for field",
                        stitcher.ValueOrDie()->Stitch(ColumnMap()));
 }
 
 TEST_F(TestColumnarFormat, StitcherDifferentNumberOfLevels) {
-  AssertStitchError("Different number of",
-                    ArrayOf<Int16Type>({0, 0, 0, 0}),
-                    ArrayOf<Int16Type>({0, 0, 0}),
-                    ArrayOf<UInt32Type>({}));
+  AssertStitchError("Different number of",             // NOLINT
+                    ArrayOf<Int16Type>({0, 0, 0, 0}),  // NOLINT
+                    ArrayOf<Int16Type>({0, 0, 0}),     // NOLINT
+                    ArrayOf<UInt32Type>({}));          // NOLINT
 }
 
 TEST_F(TestColumnarFormat, StitcherIncorrectValueType) {
-  AssertStitchError("Incorrect value type",
-                    ArrayOf<Int16Type>({0, 0, 0}),
-                    ArrayOf<Int16Type>({0, 0, 0}),
-                    ArrayOf<UInt64Type>({}));
+  AssertStitchError("Incorrect value type",         // NOLINT
+                    ArrayOf<Int16Type>({0, 0, 0}),  // NOLINT
+                    ArrayOf<Int16Type>({0, 0, 0}),  // NOLINT
+                    ArrayOf<UInt64Type>({}));       // NOLINT
 }
 
 TEST_F(TestColumnarFormat, StitcherNotEnoughValues) {
-  AssertStitchError("Not enough values",
-                    ArrayOf<Int16Type>({0, 0, 0}),
-                    ArrayOf<Int16Type>({1, 1, 1}),
-                    ArrayOf<UInt32Type>({5, 13}));
+  AssertStitchError("Not enough values",            // NOLINT
+                    ArrayOf<Int16Type>({0, 0, 0}),  // NOLINT
+                    ArrayOf<Int16Type>({1, 1, 1}),  // NOLINT
+                    ArrayOf<UInt32Type>({5, 13}));  // NOLINT
 }
 
 TEST_F(TestColumnarFormat, StitcherRepetitionLevelOutOfRange) {
-  AssertStitchError("Invalid repetition level",
-                    ArrayOf<Int16Type>({0, 0, 1}),
-                    ArrayOf<Int16Type>({1, 1, 1}),
-                    ArrayOf<UInt32Type>({5, 13, 25}));
-  AssertStitchError("Invalid repetition level",
-                    ArrayOf<Int16Type>({0, 0, -1}),
-                    ArrayOf<Int16Type>({1, 1, 1}),
-                    ArrayOf<UInt32Type>({5, 13, 25}));
+  AssertStitchError("Invalid repetition level",         // NOLINT
+                    ArrayOf<Int16Type>({0, 0, 1}),      // NOLINT
+                    ArrayOf<Int16Type>({1, 1, 1}),      // NOLINT
+                    ArrayOf<UInt32Type>({5, 13, 25}));  // NOLINT
+  AssertStitchError("Invalid repetition level",         // NOLINT
+                    ArrayOf<Int16Type>({0, 0, -1}),     // NOLINT
+                    ArrayOf<Int16Type>({1, 1, 1}),      // NOLINT
+                    ArrayOf<UInt32Type>({5, 13, 25}));  // NOLINT
 }
 
 TEST_F(TestColumnarFormat, StitcherDefinitionLevelOutOfRange) {
-  AssertStitchError("Invalid definition level",
-                    ArrayOf<Int16Type>({0, 0, 0}),
-                    ArrayOf<Int16Type>({1, 1, 2}),
-                    ArrayOf<UInt32Type>({5, 13, 25}));
-  AssertStitchError("Invalid definition level",
-                    ArrayOf<Int16Type>({0, 0, 0}),
-                    ArrayOf<Int16Type>({1, 1, -1}),
-                    ArrayOf<UInt32Type>({5, 13, 25}));
+  AssertStitchError("Invalid definition level",         // NOLINT
+                    ArrayOf<Int16Type>({0, 0, 0}),      // NOLINT
+                    ArrayOf<Int16Type>({1, 1, 2}),      // NOLINT
+                    ArrayOf<UInt32Type>({5, 13, 25}));  // NOLINT
+  AssertStitchError("Invalid definition level",         // NOLINT
+                    ArrayOf<Int16Type>({0, 0, 0}),      // NOLINT
+                    ArrayOf<Int16Type>({1, 1, -1}),     // NOLINT
+                    ArrayOf<UInt32Type>({5, 13, 25}));  // NOLINT
 }
 
 TEST_F(TestColumnarFormat, StitcherNotAllValuesConsumed) {
-  AssertStitchError("Not all values were consumed",
-                    ArrayOf<Int16Type>({0, 0, 0}),
-                    ArrayOf<Int16Type>({1, 1, 1}),
-                    ArrayOf<UInt32Type>({5, 13, 25, 40}));
+  AssertStitchError("Not all values were consumed",         // NOLINT
+                    ArrayOf<Int16Type>({0, 0, 0}),          // NOLINT
+                    ArrayOf<Int16Type>({1, 1, 1}),          // NOLINT
+                    ArrayOf<UInt32Type>({5, 13, 25, 40}));  // NOLINT
 }
 
 TEST_F(TestColumnarFormat, StitcherNotAllLevelsConsumed) {
@@ -365,20 +378,23 @@ TEST_F(TestColumnarFormat, StitcherNotAllLevelsConsumed) {
   auto f0 = field("f0", struct_({f1, f2, f3}), true);
 
   Result<std::shared_ptr<Stitcher>> stitcher =
-    Stitcher::Create(f0, default_memory_pool());
+      Stitcher::Create(f0, default_memory_pool());
   ASSERT_OK(stitcher);
 
   {
     ColumnMap colmap;
-    colmap.Put(f1, ArrayOf<Int16Type>({0, 0, 0}),
-                   ArrayOf<Int16Type>({0, 0, 0}),
-                   ArrayOf<UInt32Type>({}));
-    colmap.Put(f2, ArrayOf<Int16Type>({0, 0, 0, 0}),
-                   ArrayOf<Int16Type>({0, 0, 0, 0}),
-                   ArrayOf<UInt32Type>({}));
-    colmap.Put(f3, ArrayOf<Int16Type>({0, 0, 0}),
-                   ArrayOf<Int16Type>({0, 0, 0}),
-                   ArrayOf<UInt32Type>({}));
+    colmap.Put(f1,                                // NOLINT
+               ArrayOf<Int16Type>({0, 0, 0}),     // NOLINT
+               ArrayOf<Int16Type>({0, 0, 0}),     // NOLINT
+               ArrayOf<UInt32Type>({}));          // NOLINT
+    colmap.Put(f2,                                // NOLINT
+               ArrayOf<Int16Type>({0, 0, 0, 0}),  // NOLINT
+               ArrayOf<Int16Type>({0, 0, 0, 0}),  // NOLINT
+               ArrayOf<UInt32Type>({}));          // NOLINT
+    colmap.Put(f3,                                // NOLINT
+               ArrayOf<Int16Type>({0, 0, 0}),     // NOLINT
+               ArrayOf<Int16Type>({0, 0, 0}),     // NOLINT
+               ArrayOf<UInt32Type>({}));          // NOLINT
     ASSERT_RAISES_SUBSTR(Invalid, "Not all levels were consumed",
                          stitcher.ValueOrDie()->Stitch(colmap));
   }
@@ -392,4 +408,3 @@ TEST_F(TestColumnarFormat, RandomDeeplyNestedList) {
 
 }  // namespace colfmt
 }  // namespace arrow
-

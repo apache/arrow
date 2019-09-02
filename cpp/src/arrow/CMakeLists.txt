@@ -384,7 +384,6 @@ add_arrow_test(table_test)
 add_arrow_test(table_builder_test)
 add_arrow_test(tensor_test)
 add_arrow_test(sparse_tensor_test)
-add_arrow_test(columnar_format-test)
 
 add_arrow_benchmark(builder_benchmark)
 add_arrow_benchmark(type_benchmark)

@@ -85,19 +85,19 @@ inline Status GenericToStatus(const Result<T>& res) {
     ASSERT_EQ((message), _st.ToString());                                             \
   } while (false)
 
-#define ASSERT_RAISES_SUBSTR(ENUM, substr, expr)                                      \
-  do {                                                                                \
-    ::arrow::Status _st = (expr);                                                     \
-    if (!_st.Is##ENUM()) {                                                            \
-      FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
-                    ENUM) ", but got "                                                \
-             << _st.ToString();                                                       \
-    }                                                                                 \
-    if (_st.message().find(substr) == std::string::npos) {                            \
+#define ASSERT_RAISES_SUBSTR(ENUM, substr, expr)                                        \
+  do {                                                                                  \
+    ::arrow::Status _st = (expr);                                                       \
+    if (!_st.Is##ENUM()) {                                                              \
+      FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY(   \
+                    ENUM) ", but got "                                                  \
+             << _st.ToString();                                                         \
+    }                                                                                   \
+    if (_st.message().find(substr) == std::string::npos) {                              \
       FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to return error message "       \
                 "containing substring '" << substr << "', but got '"                  \
-                << _st.message() << "'";                                              \
-    }                                                                                 \
+                << _st.message() << "'"; \
+    }                                                                                   \
   } while (false)
 
 #define ASSERT_OK(expr)                                                       \

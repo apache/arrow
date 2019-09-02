@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/api.h"
-#include "arrow/testing/gtest_util.h"
-#include <random>
 #include <limits>
+#include <memory>
+#include <random>
 #include <string>
 #include <vector>
-#include <memory>
+#include "arrow/api.h"
+#include "arrow/testing/gtest_util.h"
 
 namespace arrow {
 namespace colfmt {
@@ -30,8 +30,7 @@ class Dataset {
  public:
   Dataset(const std::shared_ptr<arrow::Field>& schema,
           const std::shared_ptr<arrow::Array>& array)
-      : schema_(schema),
-        array_(array) {}
+      : schema_(schema), array_(array) {}
 
   std::shared_ptr<arrow::Field> schema() { return schema_; }
   std::shared_ptr<arrow::Array> array() { return array_; }
@@ -44,9 +43,7 @@ class Dataset {
 class DatasetGenerator {
  public:
   DatasetGenerator(arrow::MemoryPool* pool, uint32_t seed)
-      : pool_(pool),
-        rng_(seed),
-        pr_roll_(0.0, 1.0) {}
+      : pool_(pool), rng_(seed), pr_roll_(0.0, 1.0) {}
 
   /// Generates random data with the following shape:
   /// optional struct "s0" {
@@ -80,8 +77,7 @@ class DatasetGenerator {
   /// \param num_levels number of nested lists (depth)
   /// \param num_nodes number of nodes (lists + items) per document
   /// \param pr_null probability that any given node (list or item) is null
-  Dataset GenerateNestedList(int num_docs, int num_levels, int num_nodes,
-                             double pr_null);
+  Dataset GenerateNestedList(int num_docs, int num_levels, int num_nodes, double pr_null);
 
  private:
   struct Node {
@@ -97,8 +93,7 @@ class DatasetGenerator {
                           std::vector<Node>* nodes);
 
   /// Convert tree to format suitable for drawing with dot(1).
-  void ConvertTreeToDotFormat(const std::vector<Node>& nodes,
-                              std::ostream* out);
+  void ConvertTreeToDotFormat(const std::vector<Node>& nodes, std::ostream* out);
 
   int NextPreorder(const std::vector<Node>& nodes, int index);
 
@@ -128,7 +123,7 @@ Dataset DatasetGenerator::GenerateNestedStruct(int num_docs, int num_structs,
         builders.push_back(field_builders[j]);
       }
     } else {
-      std::string name = "s" + std::to_string(num_structs-1-struct_builders.size());
+      std::string name = "s" + std::to_string(num_structs - 1 - struct_builders.size());
       fields.push_back(arrow::field(name, struct_builders[0]->type(), true));
       builders.push_back(struct_builders[0]);
     }
@@ -167,8 +162,7 @@ Dataset DatasetGenerator::GenerateNestedStruct(int num_docs, int num_structs,
 }
 
 void DatasetGenerator::ConvertTreeToDotFormat(
-    const std::vector<DatasetGenerator::Node>& nodes,
-    std::ostream* out) {
+    const std::vector<DatasetGenerator::Node>& nodes, std::ostream* out) {
   *out << "digraph tree{" << std::endl;
   for (int i = 0; i < (int)nodes.size(); i++) {
     *out << "  " << i;
@@ -239,7 +233,7 @@ int DatasetGenerator::NextPreorder(const std::vector<DatasetGenerator::Node>& no
 Dataset DatasetGenerator::GenerateNestedList(int num_docs, int num_levels, int num_nodes,
                                              double pr_null) {
   std::shared_ptr<arrow::UInt64Builder> item_builder =
-    std::make_shared<UInt64Builder>(pool_);
+      std::make_shared<UInt64Builder>(pool_);
   std::vector<std::shared_ptr<arrow::ListBuilder>> list_builders;
 
   // instantiate builders
@@ -250,37 +244,36 @@ Dataset DatasetGenerator::GenerateNestedList(int num_docs, int num_levels, int n
       field = arrow::field("item", item_builder->type(), true);
       builder = item_builder;
     } else {
-      std::string name = "list" + std::to_string(list_builders.size()-1-i);
+      std::string name = "list" + std::to_string(list_builders.size() - 1 - i);
       field = arrow::field(name, list_builders[0]->type(), true);
       builder = list_builders[0];
     }
-    list_builders.insert(
-        list_builders.begin(),
-        std::make_shared<arrow::ListBuilder>(pool_, builder, arrow::list(field)));
+    list_builders.insert(list_builders.begin(), std::make_shared<arrow::ListBuilder>(
+                                                    pool_, builder, arrow::list(field)));
   }
   std::shared_ptr<arrow::Field> schema =
-    arrow::field("list0", list_builders[0]->type(), true);
+      arrow::field("list0", list_builders[0]->type(), true);
 
   for (int d = 0; d < num_docs; d++) {
     std::vector<Node> nodes;
     // one more level is for items
-    GenerateRandomTree(num_nodes, num_levels+1, pr_null, &nodes);
+    GenerateRandomTree(num_nodes, num_levels + 1, pr_null, &nodes);
 
     int i = 0;
     while (i != -1) {
       if (nodes[i].level == num_levels) {
         // lowest-level item
         if (nodes[i].null) {
-          item_builder->AppendNull();
+          ABORT_NOT_OK(item_builder->AppendNull());
         } else {
-          item_builder->Append(u64_roll_(rng_));
+          ABORT_NOT_OK(item_builder->Append(u64_roll_(rng_)));
         }
       } else {
         // list
         if (nodes[i].null) {
-          list_builders[nodes[i].level]->AppendNull();
+          ABORT_NOT_OK(list_builders[nodes[i].level]->AppendNull());
         } else {
-          list_builders[nodes[i].level]->Append();
+          ABORT_NOT_OK(list_builders[nodes[i].level]->Append());
         }
       }
       i = NextPreorder(nodes, i);

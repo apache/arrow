@@ -15,16 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "benchmark/benchmark.h"
 #include "arrow/colfmt/api.h"
 #include "arrow/colfmt/test-util.h"
+#include "benchmark/benchmark.h"
 
 namespace arrow {
 namespace colfmt {
 
 constexpr uint32_t kSeed = 23999;
 
-template<typename G>
+template <typename G>
 static void BenchmarkShred(benchmark::State& state) {  // NOLINT non-const reference
   auto pool = default_memory_pool();
   Dataset ds = G(pool, kSeed)();
@@ -39,7 +39,7 @@ static void BenchmarkShred(benchmark::State& state) {  // NOLINT non-const refer
                                                benchmark::Counter::kIsRate);
 }
 
-template<typename G>
+template <typename G>
 static void BenchmarkStitch(benchmark::State& state) {  // NOLINT non-const reference
   auto pool = default_memory_pool();
   Dataset ds = G(pool, kSeed)();
@@ -69,7 +69,7 @@ class NestedStruct : public DatasetGenerator {
                                 0.25); /* pr_field_null */
   }
 };
-BENCHMARK_TEMPLATE(BenchmarkShred,  NestedStruct);
+BENCHMARK_TEMPLATE(BenchmarkShred, NestedStruct);
 BENCHMARK_TEMPLATE(BenchmarkStitch, NestedStruct);
 
 class ShallowList : public DatasetGenerator {
@@ -82,7 +82,7 @@ class ShallowList : public DatasetGenerator {
                               0.2); /* pr_null */
   }
 };
-BENCHMARK_TEMPLATE(BenchmarkShred,  ShallowList);
+BENCHMARK_TEMPLATE(BenchmarkShred, ShallowList);
 BENCHMARK_TEMPLATE(BenchmarkStitch, ShallowList);
 
 class DeepList : public DatasetGenerator {
@@ -95,9 +95,8 @@ class DeepList : public DatasetGenerator {
                               0.2); /* pr_null */
   }
 };
-BENCHMARK_TEMPLATE(BenchmarkShred,  DeepList);
+BENCHMARK_TEMPLATE(BenchmarkShred, DeepList);
 BENCHMARK_TEMPLATE(BenchmarkStitch, DeepList);
-
 
 }  // namespace colfmt
 }  // namespace arrow
