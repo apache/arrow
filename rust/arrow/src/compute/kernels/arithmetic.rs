@@ -22,16 +22,22 @@
 //! `RUSTFLAGS="-C target-feature=+avx2"` for example.  See the documentation
 //! [here](https://doc.rust-lang.org/stable/core/arch/) for more information.
 
+#[cfg(feature = "simd")]
 use std::mem;
 use std::ops::{Add, Div, Mul, Sub};
+#[cfg(feature = "simd")]
 use std::slice::from_raw_parts_mut;
+#[cfg(feature = "simd")]
 use std::sync::Arc;
 
 use num::{One, Zero};
 
 use crate::array::*;
+#[cfg(feature = "simd")]
 use crate::bitmap::Bitmap;
+#[cfg(feature = "simd")]
 use crate::buffer::MutableBuffer;
+#[cfg(feature = "simd")]
 use crate::compute::util::{apply_bin_op_to_option_bitmap, simd_load_set_invalid};
 use crate::datatypes;
 use crate::error::{ArrowError, Result};
@@ -66,7 +72,7 @@ where
 }
 
 /// SIMD vectorized version of `math_op` above.
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 fn simd_math_op<T, F>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
@@ -125,7 +131,7 @@ where
 /// SIMD vectorized version of `divide`, the divide kernel needs it's own implementation as there
 /// is a need to handle situations where a divide by `0` occurs.  This is complicated by `NULL`
 /// slots and padding.
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 fn simd_divide<T>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
@@ -201,7 +207,7 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+    if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
         simd_math_op(&left, &right, |a, b| a + b)
     } else {
         math_op(left, right, |a, b| Ok(a + b))
@@ -222,7 +228,7 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+    if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
         simd_math_op(&left, &right, |a, b| a - b)
     } else {
         math_op(left, right, |a, b| Ok(a - b))
@@ -243,7 +249,7 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+    if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
         simd_math_op(&left, &right, |a, b| a * b)
     } else {
         math_op(left, right, |a, b| Ok(a * b))
@@ -266,7 +272,7 @@ where
         + Zero
         + One,
 {
-    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+    if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
         simd_divide(&left, &right)
     } else {
         math_op(left, right, |a, b| {

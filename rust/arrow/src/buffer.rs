@@ -18,6 +18,7 @@
 //! The main type in the module is `Buffer`, a contiguous immutable memory region of
 //! fixed size aligned at a 64-byte boundary. `MutableBuffer` is like `Buffer`, but it can
 //! be mutated and grown.
+#[cfg(feature = "simd")]
 use packed_simd::u8x64;
 
 use std::cmp;
@@ -26,7 +27,9 @@ use std::fmt::{Debug, Formatter};
 use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::mem;
 use std::ops::{BitAnd, BitOr, Not};
-use std::slice::{from_raw_parts, from_raw_parts_mut};
+#[cfg(feature = "simd")]
+use std::slice::from_raw_parts_mut;
+use std::slice::from_raw_parts;
 use std::sync::Arc;
 
 use crate::array::{BufferBuilderTrait, UInt8BufferBuilder};
@@ -183,7 +186,7 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
 }
 
 ///  Helper function for SIMD `BitAnd` and `BitOr` implementations
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 fn bitwise_bin_op_simd_helper<F>(left: &Buffer, right: &Buffer, op: F) -> Buffer
 where
     F: Fn(u8x64, u8x64) -> u8x64,
@@ -218,7 +221,7 @@ impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
             ));
         }
 
-        if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+        if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
             // SIMD implementation if available
             Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a & b))
         } else {
@@ -248,7 +251,7 @@ impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
             ));
         }
 
-        if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+        if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
             // SIMD implementation if available
             Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a | b))
         } else {
@@ -273,7 +276,7 @@ impl Not for &Buffer {
     type Output = Buffer;
 
     fn not(self) -> Buffer {
-        if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+        if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
             // SIMD implementation if available
             let mut result =
                 MutableBuffer::new(self.len()).with_bitset(self.len(), false);
