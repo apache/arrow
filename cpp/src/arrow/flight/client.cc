@@ -21,6 +21,7 @@
 #include "arrow/flight/platform.h"
 
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -243,11 +244,14 @@ class GrpcStreamWriter : public FlightStreamWriter {
  public:
   ~GrpcStreamWriter() override = default;
 
-  GrpcStreamWriter() : app_metadata_(nullptr), batch_writer_(nullptr) {}
+  explicit GrpcStreamWriter(
+      std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer)
+      : app_metadata_(nullptr), batch_writer_(nullptr), writer_(writer) {}
 
   static Status Open(
       const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
       std::unique_ptr<ClientRpc> rpc, std::unique_ptr<pb::PutResult> response,
+      std::shared_ptr<std::mutex> read_mutex,
       std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer,
       std::unique_ptr<FlightStreamWriter>* out);
 
@@ -259,6 +263,16 @@ class GrpcStreamWriter : public FlightStreamWriter {
     app_metadata_ = app_metadata;
     return batch_writer_->WriteRecordBatch(batch);
   }
+  Status DoneWriting() override {
+    if (done_writing_) {
+      return Status::OK();
+    }
+    done_writing_ = true;
+    if (!writer_->WritesDone()) {
+      return Status::IOError("Could not flush pending record batches.");
+    }
+    return Status::OK();
+  }
   void set_memory_pool(MemoryPool* pool) override {
     batch_writer_->set_memory_pool(pool);
   }
@@ -268,6 +282,8 @@ class GrpcStreamWriter : public FlightStreamWriter {
   friend class DoPutPayloadWriter;
   std::shared_ptr<Buffer> app_metadata_;
   std::unique_ptr<ipc::RecordBatchWriter> batch_writer_;
+  std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer_;
+  bool done_writing_ = false;
 };
 
 /// A IpcPayloadWriter implementation that writes to a DoPut stream
@@ -275,12 +291,13 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
  public:
   DoPutPayloadWriter(
       const FlightDescriptor& descriptor, std::unique_ptr<ClientRpc> rpc,
-      std::unique_ptr<pb::PutResult> response,
+      std::unique_ptr<pb::PutResult> response, std::shared_ptr<std::mutex> read_mutex,
       std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer,
       GrpcStreamWriter* stream_writer)
       : descriptor_(descriptor),
         rpc_(std::move(rpc)),
         response_(std::move(response)),
+        read_mutex_(read_mutex),
         writer_(std::move(writer)),
         first_payload_(true),
         stream_writer_(stream_writer) {}
@@ -320,8 +337,12 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
   }
 
   Status Close() override {
-    bool finished_writes = writer_->WritesDone();
+    bool finished_writes = stream_writer_->done_writing_ ? true : writer_->WritesDone();
     // Drain the read side to avoid hanging
+    std::unique_lock<std::mutex> guard(*read_mutex_, std::try_to_lock);
+    if (!guard.owns_lock()) {
+      return Status::IOError("Cannot close stream with pending read operation.");
+    }
     pb::PutResult message;
     while (writer_->Read(&message)) {
     }
@@ -338,6 +359,7 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
   const FlightDescriptor descriptor_;
   std::unique_ptr<ClientRpc> rpc_;
   std::unique_ptr<pb::PutResult> response_;
+  std::shared_ptr<std::mutex> read_mutex_;
   std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer_;
   bool first_payload_;
   GrpcStreamWriter* stream_writer_;
@@ -346,11 +368,12 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
 Status GrpcStreamWriter::Open(
     const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
     std::unique_ptr<ClientRpc> rpc, std::unique_ptr<pb::PutResult> response,
+    std::shared_ptr<std::mutex> read_mutex,
     std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer,
     std::unique_ptr<FlightStreamWriter>* out) {
-  std::unique_ptr<GrpcStreamWriter> result(new GrpcStreamWriter);
+  std::unique_ptr<GrpcStreamWriter> result(new GrpcStreamWriter(writer));
   std::unique_ptr<ipc::internal::IpcPayloadWriter> payload_writer(new DoPutPayloadWriter(
-      descriptor, std::move(rpc), std::move(response), writer, result.get()));
+      descriptor, std::move(rpc), std::move(response), read_mutex, writer, result.get()));
   RETURN_NOT_OK(ipc::internal::OpenRecordBatchWriter(std::move(payload_writer), schema,
                                                      &result->batch_writer_));
   *out = std::move(result);
@@ -362,10 +385,12 @@ FlightMetadataReader::~FlightMetadataReader() = default;
 class GrpcMetadataReader : public FlightMetadataReader {
  public:
   explicit GrpcMetadataReader(
-      std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> reader)
-      : reader_(reader) {}
+      std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> reader,
+      std::shared_ptr<std::mutex> read_mutex)
+      : reader_(reader), read_mutex_(read_mutex) {}
 
   Status ReadMetadata(std::shared_ptr<Buffer>* out) override {
+    std::lock_guard<std::mutex> guard(*read_mutex_);
     pb::PutResult message;
     if (reader_->Read(&message)) {
       *out = Buffer::FromString(std::move(*message.mutable_app_metadata()));
@@ -378,6 +403,7 @@ class GrpcMetadataReader : public FlightMetadataReader {
 
  private:
   std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> reader_;
+  std::shared_ptr<std::mutex> read_mutex_;
 };
 
 class FlightClient::FlightClientImpl {
@@ -568,9 +594,11 @@ class FlightClient::FlightClientImpl {
     std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer(
         stub_->DoPut(&rpc->context));
 
-    *reader = std::unique_ptr<FlightMetadataReader>(new GrpcMetadataReader(writer));
+    std::shared_ptr<std::mutex> read_mutex = std::make_shared<std::mutex>();
+    *reader =
+        std::unique_ptr<FlightMetadataReader>(new GrpcMetadataReader(writer, read_mutex));
     return GrpcStreamWriter::Open(descriptor, schema, std::move(rpc), std::move(response),
-                                  writer, out);
+                                  read_mutex, writer, out);
   }
 
  private:

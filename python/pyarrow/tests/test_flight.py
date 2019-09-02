@@ -912,3 +912,42 @@ def test_roundtrip_errors():
             list(client.do_action(flight.Action("unauthorized", b"")))
         with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
             list(client.list_flights())
+
+
+def test_do_put_independent_read_write():
+    """Ensure that separate threads can read/write on a DoPut."""
+    # ARROW-6063: previously this would cause gRPC to abort when the
+    # writer was closed (due to simultaneous reads), or would hang
+    # forever.
+    data = [
+        pa.array([-10, -5, 0, 5, 10])
+    ]
+    table = pa.Table.from_arrays(data, names=['a'])
+
+    with flight_server(MetadataFlightServer) as server_location:
+        client = flight.FlightClient.connect(server_location)
+        writer, metadata_reader = client.do_put(
+            flight.FlightDescriptor.for_path(''),
+            table.schema)
+
+        count = [0]
+
+        def _reader_thread():
+            while metadata_reader.read() is not None:
+                count[0] += 1
+
+        thread = threading.Thread(target=_reader_thread)
+        thread.start()
+
+        batches = table.to_batches(chunksize=1)
+        with writer:
+            for idx, batch in enumerate(batches):
+                metadata = struct.pack('<i', idx)
+                writer.write_with_metadata(batch, metadata)
+            # Causes the server to stop writing and end the call
+            writer.done_writing()
+            # Thus reader thread will break out of loop
+            thread.join()
+        # writer.close() won't segfault since reader thread has
+        # stopped
+        assert count[0] == len(batches)

@@ -480,6 +480,7 @@ class TestDoPut : public ::testing::Test {
     for (const auto& batch : batches) {
       ASSERT_OK(stream->WriteRecordBatch(*batch));
     }
+    ASSERT_OK(stream->DoneWriting());
     ASSERT_OK(stream->Close());
 
     CheckBatches(descr, batches);

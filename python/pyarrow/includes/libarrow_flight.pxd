@@ -149,6 +149,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
             " arrow::flight::FlightStreamWriter"(CRecordBatchWriter):
         CStatus WriteWithMetadata(const CRecordBatch& batch,
                                   shared_ptr[CBuffer] app_metadata)
+        CStatus DoneWriting()
 
     cdef cppclass CRecordBatchStream \
             " arrow::flight::RecordBatchStream"(CFlightDataStream):

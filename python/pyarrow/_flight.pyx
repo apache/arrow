@@ -752,6 +752,12 @@ cdef class FlightStreamWriter(_CRecordBatchWriter):
                 .WriteWithMetadata(deref(batch.batch),
                                    c_buf))
 
+    def done_writing(self):
+        with nogil:
+            check_flight_status(
+                (<CFlightStreamWriter*> self.writer.get())
+                .DoneWriting())
+
 
 cdef class FlightMetadataReader:
     """A reader for Flight metadata messages sent during a DoPut."""

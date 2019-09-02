@@ -87,6 +87,12 @@ class ARROW_FLIGHT_EXPORT FlightStreamWriter : public ipc::RecordBatchWriter {
  public:
   virtual Status WriteWithMetadata(const RecordBatch& batch,
                                    std::shared_ptr<Buffer> app_metadata) = 0;
+  /// \brief Indicate that the application is done writing to this stream.
+  ///
+  /// The application may not write to this stream after calling
+  /// this. This differs from closing the stream because this writer
+  /// may represent only one half of a readable and writable stream.
+  virtual Status DoneWriting() = 0;
 };
 
 #ifdef _MSC_VER
@@ -209,6 +215,11 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \brief Upload data to a Flight described by the given
   /// descriptor. The caller must call Close() on the returned stream
   /// once they are done writing.
+  ///
+  /// The reader and writer are linked; closing the writer will also
+  /// close the reader. Use \a DoneWriting to only close the write
+  /// side of the channel.
+  ///
   /// \param[in] options Per-RPC options
   /// \param[in] descriptor the descriptor of the stream
   /// \param[in] schema the schema for the data to upload

@@ -185,6 +185,30 @@ class FlightPerfServer : public FlightServerBase {
     return GetPerfBatches(token, perf_schema_, false, data_stream);
   }
 
+  Status DoPut(const ServerCallContext& context,
+               std::unique_ptr<FlightMessageReader> reader,
+               std::unique_ptr<FlightMetadataWriter> writer) override {
+    FlightStreamChunk chunk;
+    while (true) {
+      RETURN_NOT_OK(reader->Next(&chunk));
+      if (!chunk.data) break;
+      if (chunk.app_metadata) {
+        RETURN_NOT_OK(writer->WriteMetadata(*chunk.app_metadata));
+      }
+    }
+    return Status::OK();
+  }
+
+  Status DoAction(const ServerCallContext& context, const Action& action,
+                  std::unique_ptr<ResultStream>* result) override {
+    if (action.type == "ping") {
+      std::shared_ptr<Buffer> buf = Buffer::FromString("ok");
+      *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
+      return Status::OK();
+    }
+    return Status::NotImplemented(action.type);
+  }
+
  private:
   Location location_;
   std::shared_ptr<Schema> perf_schema_;
