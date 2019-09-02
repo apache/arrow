@@ -251,8 +251,7 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       return Status::OK();
     case flatbuf::Type_Decimal: {
       auto dec_type = static_cast<const flatbuf::Decimal*>(type_data);
-      *out = decimal(dec_type->precision(), dec_type->scale());
-      return Status::OK();
+      return Decimal128Type::Make(dec_type->precision(), dec_type->scale(), out);
     }
     case flatbuf::Type_Date: {
       auto date_type = static_cast<const flatbuf::Date*>(type_data);
