@@ -27,7 +27,6 @@ namespace arrow {
 namespace colfmt {
 
 using arrow::internal::checked_cast;
-using arrow::internal::make_unique;
 
 // ColumnMap implementation
 namespace {
@@ -155,8 +154,6 @@ CopyValue(const typename TypeTraits<data_type>::ArrayType& array, int64_t i,
 // Shredder implementation
 namespace {
 
-using arrow::internal::make_unique;
-
 class ShredNode {
  public:
   ShredNode(const std::shared_ptr<Field>& field, MemoryPool* pool)
@@ -217,7 +214,7 @@ class PrimitiveShredNode : public ShredNode {
   static Result<std::unique_ptr<ShredNode>> Create(const std::shared_ptr<Field>& field,
                                                    int16_t rep_level, int16_t def_level,
                                                    MemoryPool* pool) {
-    auto node = make_unique<PrimitiveShredNode<data_type>>(field, pool);
+    auto node = arrow::internal::make_unique<PrimitiveShredNode<data_type>>(field, pool);
     node->rep_level_ = rep_level;
     if (field->nullable()) {
       def_level++;
@@ -271,7 +268,7 @@ class StructShredNode : public ShredNode {
   static Result<std::unique_ptr<ShredNode>> Create(const std::shared_ptr<Field>& field,
                                                    int16_t rep_level, int16_t def_level,
                                                    MemoryPool* pool) {
-    auto node = make_unique<StructShredNode>(field, pool);
+    auto node = arrow::internal::make_unique<StructShredNode>(field, pool);
     node->rep_level_ = rep_level;
     if (field->nullable()) {
       def_level++;
@@ -331,7 +328,7 @@ class ListShredNode : public ShredNode {
     if (field->type()->num_children() != 1) {
       return Status::Invalid("List fields must have exactly one child: ", field->name());
     }
-    auto node = make_unique<ListShredNode>(field, pool);
+    auto node = arrow::internal::make_unique<ListShredNode>(field, pool);
     node->rep_level_ = ++rep_level;
     if (field->nullable()) {
       def_level++;
@@ -417,7 +414,8 @@ Result<std::shared_ptr<Shredder>> Shredder::Create(const std::shared_ptr<Field>&
   Result<std::unique_ptr<ShredNode>> root = ShredNode::CreateTree(schema, 0, 0, pool);
   RETURN_NOT_OK(root.status());
 
-  std::unique_ptr<Impl> impl = make_unique<Impl>(std::move(root).ValueOrDie());
+  std::unique_ptr<Impl> impl =
+      arrow::internal::make_unique<Impl>(std::move(root).ValueOrDie());
 
   std::shared_ptr<Shredder> shredder(new Shredder(std::move(impl)));
 
@@ -455,8 +453,6 @@ const std::shared_ptr<Field>& Shredder::schema() const { return impl_->root_->fi
 
 // Stitcher implementation
 namespace {
-
-using arrow::internal::make_unique;
 
 // Stitching algorithm transitions through a series of states.
 //
@@ -747,7 +743,7 @@ class PrimitiveStitchNode : public StitchNode {
   static Result<std::unique_ptr<StitchNode>> Create(const std::shared_ptr<Field>& field,
                                                     int16_t rep_level, int16_t def_level,
                                                     MemoryPool* pool) {
-    auto node = make_unique<PrimitiveStitchNode<data_type>>(field);
+    auto node = arrow::internal::make_unique<PrimitiveStitchNode<data_type>>(field);
 
     node->rep_level_ = rep_level;
     if (field->nullable()) {
@@ -804,7 +800,7 @@ class StructStitchNode : public StitchNode {
   static Result<std::unique_ptr<StitchNode>> Create(const std::shared_ptr<Field>& field,
                                                     int16_t rep_level, int16_t def_level,
                                                     MemoryPool* pool) {
-    auto node = make_unique<StructStitchNode>(field);
+    auto node = arrow::internal::make_unique<StructStitchNode>(field);
 
     node->rep_level_ = rep_level;
     if (field->nullable()) {
@@ -862,7 +858,7 @@ class ListStitchNode : public StitchNode {
       return Status::Invalid("List nodes must have exactly one child");
     }
 
-    auto node = make_unique<ListStitchNode>(field);
+    auto node = arrow::internal::make_unique<ListStitchNode>(field);
 
     node->rep_level_ = rep_level++;
     if (field->nullable()) {
@@ -948,7 +944,8 @@ Result<std::shared_ptr<Stitcher>> Stitcher::Create(const std::shared_ptr<Field>&
 
   root.ValueOrDie()->BuildTransitionTablesRecursive();
 
-  std::unique_ptr<Impl> impl = make_unique<Impl>(std::move(root).ValueOrDie(), pool);
+  std::unique_ptr<Impl> impl =
+      arrow::internal::make_unique<Impl>(std::move(root).ValueOrDie(), pool);
 
   std::shared_ptr<Stitcher> stitcher(new Stitcher(std::move(impl)));
 

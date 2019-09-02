@@ -69,6 +69,8 @@ class ARROW_EXPORT Shredder {
  public:
   /// \brief Create new shredder.
   /// \param[in] schema Schema of the arrays which will be shredded.
+  /// \param[in] pool Memory pool to create column arrays.
+  /// It must remain valid until destruction of the shredder.
   static Result<std::shared_ptr<Shredder>> Create(const std::shared_ptr<Field>& schema,
                                                   MemoryPool* pool);
 
