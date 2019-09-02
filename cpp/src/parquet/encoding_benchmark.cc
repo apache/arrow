@@ -505,15 +505,15 @@ BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, EncodeArrow)
 BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, EncodeArrow)->Range(1 << 18, 1 << 20);
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, EncodeDictDirectInt8)
-    (benchmark::State& state) { EncodeDictBenchmark<::arrow::Int8Type>(state); }
+(benchmark::State& state) { EncodeDictBenchmark<::arrow::Int8Type>(state); }
 BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, EncodeDictDirectInt8)->Range(1 << 20, 1 << 20);
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, EncodeDictDirectInt16)
-    (benchmark::State& state) { EncodeDictBenchmark<::arrow::Int16Type>(state); }
+(benchmark::State& state) { EncodeDictBenchmark<::arrow::Int16Type>(state); }
 BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, EncodeDictDirectInt16)->Range(1 << 20, 1 << 20);
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, EncodeDictDirectInt32)
-    (benchmark::State& state) { EncodeDictBenchmark<::arrow::Int32Type>(state); }
+(benchmark::State& state) { EncodeDictBenchmark<::arrow::Int32Type>(state); }
 BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, EncodeDictDirectInt32)->Range(1 << 20, 1 << 20);
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, EncodeDictDirectInt64)
