@@ -256,9 +256,6 @@ cdef class FileSystem:
             stream, path=path, compression=compression, buffer_size=buffer_size
         )
 
-    # CStatus OpenInputFile(const c_string& path,
-    #                       shared_ptr[RandomAccessFile]* out)
-
 
 cdef class LocalFileSystem(FileSystem):
 
