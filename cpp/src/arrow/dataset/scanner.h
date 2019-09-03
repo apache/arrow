@@ -29,15 +29,7 @@
 namespace arrow {
 namespace dataset {
 
-/// \brief Base class for file scanning options
-class ARROW_DS_EXPORT FileScanOptions {
- public:
-  /// \brief The file format this options corresponds to
-  virtual std::shared_ptr<FileFormat> file_format() const = 0;
-
-  virtual ~FileScanOptions() = default;
-};
-
+/// Container for scan state
 struct ARROW_DS_EXPORT ScanOptions final {
  public:
   ScanOptions() = default;
@@ -66,17 +58,36 @@ struct ARROW_DS_EXPORT ScanOptions final {
     return *this;
   }
 
+  /// \brief Base class for format specific file scanning options
+  class ARROW_DS_EXPORT FileOptions {
+   public:
+    /// \brief The file format this options corresponds to
+    virtual std::shared_ptr<FileFormat> file_format() const = 0;
+
+    virtual ~FileOptions() = default;
+  };
+
   /// Format-specific file scanning options
-  const std::vector<std::shared_ptr<FileScanOptions>>& file_scan_options() const {
-    return file_scan_options_;
+  const std::vector<std::shared_ptr<FileOptions>>& file_options() const {
+    return file_options_;
   }
 
-  ScanOptions& AddFileScanOptions(std::shared_ptr<FileScanOptions> file_scan_options) {
-    file_scan_options_.push_back(std::move(file_scan_options));
+  ScanOptions& AddFileOptions(std::shared_ptr<FileOptions> file_options) {
+    file_options_.push_back(std::move(file_options));
+    return *this;
+  }
+
+  /// Include columns generated from partition keys
+  bool include_partition_keys() const { return include_partition_keys_; }
+
+  ScanOptions& include_partition_keys(bool include_partition_keys) {
+    include_partition_keys_ = include_partition_keys;
     return *this;
   }
 
  protected:
+  bool include_partition_keys_;
+
   std::shared_ptr<DataSelector> selector_;
 
   // Schema to which record batches will be reconciled
@@ -84,7 +95,7 @@ struct ARROW_DS_EXPORT ScanOptions final {
 
   MemoryPool* pool_ = default_memory_pool();
 
-  std::vector<std::shared_ptr<FileScanOptions>> file_scan_options_;
+  std::vector<std::shared_ptr<FileOptions>> file_options_;
 };
 
 /// \brief Read record batches from a range of a single data fragment. A
@@ -166,7 +177,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
   ScannerBuilder* AddFilter(const std::shared_ptr<Filter>& filter);
 
-  ScannerBuilder* SetGlobalFileOptions(std::shared_ptr<FileScanOptions> options);
+  ScannerBuilder* SetGlobalFileOptions(std::shared_ptr<ScanOptions::FileOptions> options);
 
   /// \brief If true (default), add partition keys to the
   /// RecordBatches that the scan produces if they are not in the data

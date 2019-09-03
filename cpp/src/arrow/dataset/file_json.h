@@ -44,7 +44,7 @@ class ARROW_DS_EXPORT JsonFileFormat : public FileFormat {
                       std::unique_ptr<DataFragment>* out) override;
 };
 
-class ARROW_DS_EXPORT JsonScanOptions : public FileScanOptions {
+class ARROW_DS_EXPORT JsonScanOptions : public ScanOptions::FileOptions {
  public:
   std::shared_ptr<FileFormat> file_format() const override {
     return std::make_shared<JsonFileFormat>();

@@ -52,7 +52,7 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
                       std::unique_ptr<DataFragment>* out) override;
 };
 
-class ARROW_DS_EXPORT CsvScanOptions : public FileScanOptions {
+class ARROW_DS_EXPORT CsvScanOptions : public ScanOptions::FileOptions {
  public:
   std::shared_ptr<FileFormat> file_format() const override {
     return std::make_shared<CsvFileFormat>();

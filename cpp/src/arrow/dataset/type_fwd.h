@@ -44,7 +44,6 @@ struct DiscoveryOptions;
 
 class FileBasedDataFragment;
 class FileFormat;
-class FileScanOptions;
 class FileWriteOptions;
 
 class Filter;
