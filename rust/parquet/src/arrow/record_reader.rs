@@ -16,9 +16,9 @@
 // under the License.
 
 use std::cmp::{max, min};
-use std::mem::replace;
 use std::mem::size_of;
 use std::mem::transmute;
+use std::mem::{replace, swap};
 use std::slice;
 
 use crate::column::{page::PageReader, reader::ColumnReaderImpl};
@@ -187,40 +187,141 @@ impl<T: DataType> RecordReader<T> {
     }
 
     /// Returns definition level data.
+    /// The implementation has side effects. It will create a new buffer to hold those
+    /// definition level values that have already been read into memory but not counted
+    /// as record values, e.g. those from `self.num_values` to `self.values_written`.
     pub fn consume_def_levels(&mut self) -> Option<Buffer> {
-        let empty_def_buffer = if self.column_desc.max_def_level() > 0 {
-            Some(MutableBuffer::new(MIN_BATCH_SIZE))
+        let new_buffer = if let Some(ref mut def_levels_buf) = &mut self.def_levels {
+            let num_left_values = self.values_written - self.num_values;
+            let mut new_buffer = MutableBuffer::new(
+                size_of::<i16>() * max(MIN_BATCH_SIZE, num_left_values),
+            );
+            new_buffer
+                .resize(num_left_values * size_of::<i16>())
+                .unwrap();
+
+            let new_def_levels = FatPtr::<i16>::with_offset(&new_buffer, 0);
+            let new_def_levels = new_def_levels.to_slice_mut();
+            let left_def_levels =
+                FatPtr::<i16>::with_offset(&def_levels_buf, self.num_values);
+            let left_def_levels = left_def_levels.to_slice();
+
+            new_def_levels[0..num_left_values]
+                .copy_from_slice(&left_def_levels[0..num_left_values]);
+
+            def_levels_buf
+                .resize(self.num_values * size_of::<i16>())
+                .unwrap();
+            Some(new_buffer)
         } else {
             None
         };
 
-        replace(&mut self.def_levels, empty_def_buffer).map(|x| x.freeze())
+        replace(&mut self.def_levels, new_buffer).map(|x| x.freeze())
     }
 
-    /// Return repetition level data
+    /// Return repetition level data.
+    /// The side effect is similar to `consume_def_levels`.
     pub fn consume_rep_levels(&mut self) -> Option<Buffer> {
-        let empty_def_buffer = if self.column_desc.max_rep_level() > 0 {
-            Some(MutableBuffer::new(MIN_BATCH_SIZE))
+        // TODO: Optimize to reduce the copy
+        let new_buffer = if let Some(ref mut rep_levels_buf) = &mut self.rep_levels {
+            let num_left_values = self.values_written - self.num_values;
+            let mut new_buffer = MutableBuffer::new(
+                size_of::<i16>() * max(MIN_BATCH_SIZE, num_left_values),
+            );
+            new_buffer
+                .resize(num_left_values * size_of::<i16>())
+                .unwrap();
+
+            let new_rep_levels = FatPtr::<i16>::with_offset(&new_buffer, 0);
+            let new_rep_levels = new_rep_levels.to_slice_mut();
+            let left_rep_levels =
+                FatPtr::<i16>::with_offset(&rep_levels_buf, self.num_values);
+            let left_rep_levels = left_rep_levels.to_slice();
+
+            new_rep_levels[0..num_left_values]
+                .copy_from_slice(&left_rep_levels[0..num_left_values]);
+
+            rep_levels_buf
+                .resize(self.num_values * size_of::<i16>())
+                .unwrap();
+            Some(new_buffer)
         } else {
             None
         };
 
-        replace(&mut self.rep_levels, empty_def_buffer).map(|x| x.freeze())
+        replace(&mut self.rep_levels, new_buffer).map(|x| x.freeze())
     }
 
     /// Returns currently stored buffer data.
+    /// The side effect is similar to `consume_def_levels`.
     pub fn consume_record_data(&mut self) -> Buffer {
-        replace(&mut self.records, MutableBuffer::new(MIN_BATCH_SIZE)).freeze()
+        // TODO: Optimize to reduce the copy
+        let num_left_values = self.values_written - self.num_values;
+        let mut new_buffer = MutableBuffer::new(max(MIN_BATCH_SIZE, num_left_values));
+        new_buffer
+            .resize(num_left_values * T::get_type_size())
+            .unwrap();
+
+        let new_records =
+            FatPtr::<T::T>::with_offset_and_size(&new_buffer, 0, T::get_type_size());
+        let new_records = new_records.to_slice_mut();
+        let left_records = FatPtr::<T::T>::with_offset_and_size(
+            &self.records,
+            self.num_values,
+            T::get_type_size(),
+        );
+        let left_records = left_records.to_slice_mut();
+
+        for idx in 0..num_left_values {
+            swap(&mut new_records[idx], &mut left_records[idx]);
+        }
+
+        self.records
+            .resize(self.num_values * T::get_type_size())
+            .unwrap();
+        replace(&mut self.records, new_buffer).freeze()
     }
 
+    /// Returns currently stored null bitmap data.
+    /// The side effect is similar to `consume_def_levels`.
     pub fn consume_bitmap_buffer(&mut self) -> Option<Buffer> {
-        let bitmap_builder = if self.column_desc.max_def_level() > 0 {
-            Some(BooleanBufferBuilder::new(MIN_BATCH_SIZE))
+        // TODO: Optimize to reduce the copy
+        if self.column_desc.max_def_level() > 0 {
+            let num_left_values = self.values_written - self.num_values;
+            let new_bitmap_builder = Some(BooleanBufferBuilder::new(max(
+                MIN_BATCH_SIZE,
+                num_left_values,
+            )));
+            let old_bitmap = replace(&mut self.null_bitmap, new_bitmap_builder)
+                .map(|mut builder| builder.finish())
+                .unwrap();
+
+            let old_bitmap = Bitmap::from(old_bitmap);
+
+            for i in self.num_values..self.values_written {
+                self.null_bitmap
+                    .as_mut()
+                    .unwrap()
+                    .append(old_bitmap.is_set(i))
+                    .unwrap();
+            }
+
+            Some(old_bitmap.to_buffer())
         } else {
             None
-        };
+        }
+    }
 
-        replace(&mut self.null_bitmap, bitmap_builder).map(|mut builder| builder.finish())
+    /// Reset state of record reader.
+    /// Should be called after consuming data, e.g. `consume_rep_levels`,
+    /// `consume_rep_levels`, `consume_record_data` and `consume_bitmap_buffer`.
+    pub fn reset(&mut self) {
+        self.values_written = self.values_written - self.num_values;
+        self.num_records = 0;
+        self.num_values = 0;
+        self.values_seen = 0;
+        self.in_middle_of_record = false;
     }
 
     /// Returns bitmap data.

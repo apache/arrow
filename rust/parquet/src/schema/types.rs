@@ -164,6 +164,13 @@ impl Type {
             _ => false,
         }
     }
+
+    /// Returns `true` if this type is repeated or optional.
+    /// If this type doesn't have repetition defined, we still treat it as optional.
+    pub fn is_optional(&self) -> bool {
+        self.get_basic_info().has_repetition()
+            && self.get_basic_info().repetition() != Repetition::REQUIRED
+    }
 }
 
 /// A builder for primitive types. All attributes are optional
@@ -526,6 +533,21 @@ impl ColumnPath {
     /// ```
     pub fn string(&self) -> String {
         self.parts.join(".")
+    }
+
+    /// Appends more components to end of column path.
+    /// ```rust
+    /// use parquet::schema::types::ColumnPath;
+    ///
+    /// let mut path = ColumnPath::new(vec!["a".to_string(), "b".to_string(), "c"
+    /// .to_string()]);
+    /// assert_eq!(&path.string(), "a.b.c");
+    ///
+    /// path.append(vec!["d".to_string(), "e".to_string()]);
+    /// assert_eq!(&path.string(), "a.b.c.d.e");
+    /// ```
+    pub fn append(&mut self, mut tail: Vec<String>) -> () {
+        self.parts.append(&mut tail);
     }
 }
 
