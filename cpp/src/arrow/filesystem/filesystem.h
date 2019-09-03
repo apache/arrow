@@ -115,6 +115,7 @@ struct ARROW_EXPORT FileStats {
 };
 
 /// \brief EXPERIMENTAL: file selector
+// call it FileSelector?
 struct ARROW_EXPORT Selector {
   // The directory in which to select files.
   // If the path exists but doesn't point to a directory, this should be an error.
