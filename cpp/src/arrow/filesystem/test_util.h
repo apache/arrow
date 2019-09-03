@@ -88,6 +88,7 @@ class ARROW_EXPORT GenericFileSystemTest {
   void TestEmpty();
   void TestCreateDir();
   void TestDeleteDir();
+  void TestDeleteDirContents();
   void TestDeleteFile();
   void TestDeleteFiles();
   void TestMoveFile();
@@ -121,6 +122,7 @@ class ARROW_EXPORT GenericFileSystemTest {
   void TestEmpty(FileSystem* fs);
   void TestCreateDir(FileSystem* fs);
   void TestDeleteDir(FileSystem* fs);
+  void TestDeleteDirContents(FileSystem* fs);
   void TestDeleteFile(FileSystem* fs);
   void TestDeleteFiles(FileSystem* fs);
   void TestMoveFile(FileSystem* fs);
@@ -142,6 +144,7 @@ class ARROW_EXPORT GenericFileSystemTest {
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, Empty)                  \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, CreateDir)              \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteDir)              \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteDirContents)      \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteFile)             \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteFiles)            \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, MoveFile)               \

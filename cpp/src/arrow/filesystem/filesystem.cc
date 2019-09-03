@@ -172,6 +172,11 @@ Status SubTreeFileSystem::DeleteDir(const std::string& path) {
   return base_fs_->DeleteDir(s);
 }
 
+Status SubTreeFileSystem::DeleteDirContents(const std::string& path) {
+  auto s = PrependBase(path);
+  return base_fs_->DeleteDirContents(s);
+}
+
 Status SubTreeFileSystem::DeleteFile(const std::string& path) {
   auto s = path;
   RETURN_NOT_OK(PrependBaseNonEmpty(&s));

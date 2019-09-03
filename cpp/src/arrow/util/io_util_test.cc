@@ -115,6 +115,47 @@ TEST(CreateDirDeleteDir, Basics) {
   ASSERT_FALSE(deleted);
 }
 
+TEST(DeleteDirContents, Basics) {
+  const std::string BASE = "xxx-io-util-test-dir2";
+  bool created, deleted;
+  PlatformFilename parent, child1, child2;
+
+  ASSERT_OK(PlatformFilename::FromString(BASE, &parent));
+  ASSERT_EQ(parent.ToString(), BASE);
+
+  // Make sure the directory doesn't exist already
+  ARROW_UNUSED(DeleteDirTree(parent));
+
+  AssertNotExists(parent);
+
+  // Create the parent, a child dir and a child file
+  ASSERT_OK(CreateDir(parent, &created));
+  ASSERT_TRUE(created);
+  ASSERT_OK(PlatformFilename::FromString(BASE + "/child-dir", &child1));
+  ASSERT_OK(PlatformFilename::FromString(BASE + "/child-file", &child2));
+  ASSERT_OK(CreateDir(child1, &created));
+  ASSERT_TRUE(created);
+  int fd = -1;
+  ASSERT_OK(FileOpenWritable(child2, true /* write_only */, true /* truncate */,
+                             false /* append */, &fd));
+  ASSERT_OK(FileClose(fd));
+  AssertExists(child1);
+  AssertExists(child2);
+
+  ASSERT_OK(DeleteDirContents(parent, &deleted));
+  ASSERT_TRUE(deleted);
+  AssertExists(parent);
+  AssertNotExists(child1);
+  AssertNotExists(child2);
+  ASSERT_OK(DeleteDirContents(parent, &deleted));
+  ASSERT_TRUE(deleted);
+  AssertExists(parent);
+
+  // It's not an error to call DeleteDirContents on a non-existent path.
+  ASSERT_OK(DeleteDirTree(child1, &deleted));
+  ASSERT_FALSE(deleted);
+}
+
 TEST(TemporaryDir, Basics) {
   std::unique_ptr<TemporaryDir> temp_dir;
   PlatformFilename fn;

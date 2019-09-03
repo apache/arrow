@@ -889,7 +889,7 @@ class S3FileSystem::Impl {
     return Status::OK();
   }
 
-  Status DeleteDir(const std::string& bucket, const std::string& key) {
+  Status DeleteDirContents(const std::string& bucket, const std::string& key) {
     std::vector<std::string> file_keys;
     std::vector<std::string> dir_keys;
     RETURN_NOT_OK(WalkForDeleteDir(bucket, key, &file_keys, &dir_keys));
@@ -904,21 +904,19 @@ class S3FileSystem::Impl {
     // First delete all "files", then delete all child "directories"
     RETURN_NOT_OK(DeleteObjects(bucket, file_keys));
     // XXX This doesn't seem necessary on Minio
-    RETURN_NOT_OK(DeleteObjects(bucket, dir_keys));
-    // Finally, delete the base dir itself
-    if (!key.empty()) {
-      RETURN_NOT_OK(DeleteObject(bucket, key + kSep));
+    return DeleteObjects(bucket, dir_keys);
+  }
+
+  Status EnsureDirectoryExists(const S3Path& path) {
+    if (!path.key.empty()) {
+      return CreateEmptyDir(path.bucket, path.key);
     }
     return Status::OK();
   }
 
   Status EnsureParentExists(const S3Path& path) {
     if (path.has_parent()) {
-      // Parent may be implicitly deleted if it became empty, recreate it
-      S3Path parent = path.parent();
-      if (!parent.key.empty()) {
-        return CreateEmptyDir(parent.bucket, parent.key);
-      }
+      return EnsureDirectoryExists(path.parent());
     }
     return Status::OK();
   }
@@ -1088,15 +1086,30 @@ Status S3FileSystem::DeleteDir(const std::string& s) {
   if (path.empty()) {
     return Status::NotImplemented("Cannot delete all S3 buckets");
   }
-  RETURN_NOT_OK(impl_->DeleteDir(path.bucket, path.key));
+  RETURN_NOT_OK(impl_->DeleteDirContents(path.bucket, path.key));
   if (path.key.empty()) {
-    // Also delete bucket
+    // Delete bucket
     S3Model::DeleteBucketRequest req;
     req.SetBucket(ToAwsString(path.bucket));
     return OutcomeToStatus(impl_->client_->DeleteBucket(req));
+  } else {
+    // Delete "directory"
+    RETURN_NOT_OK(impl_->DeleteObject(path.bucket, path.key + kSep));
+    // Parent may be implicitly deleted if it became empty, recreate it
+    return impl_->EnsureParentExists(path);
   }
-  // Parent may be implicitly deleted if it became empty, recreate it
-  return impl_->EnsureParentExists(path);
+}
+
+Status S3FileSystem::DeleteDirContents(const std::string& s) {
+  S3Path path;
+  RETURN_NOT_OK(S3Path::FromString(s, &path));
+
+  if (path.empty()) {
+    return Status::NotImplemented("Cannot delete all S3 buckets");
+  }
+  RETURN_NOT_OK(impl_->DeleteDirContents(path.bucket, path.key));
+  // Directory may be implicitly deleted, recreate it
+  return impl_->EnsureDirectoryExists(path);
 }
 
 Status S3FileSystem::DeleteFile(const std::string& s) {

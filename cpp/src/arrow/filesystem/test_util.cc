@@ -231,6 +231,30 @@ void GenericFileSystemTest::TestDeleteDir(FileSystem* fs) {
   AssertAllFiles(fs, {"AB/abc", "AB/def"});
 }
 
+void GenericFileSystemTest::TestDeleteDirContents(FileSystem* fs) {
+  ASSERT_OK(fs->CreateDir("AB/CD/EF"));
+  ASSERT_OK(fs->CreateDir("AB/GH/IJ"));
+  CreateFile(fs, "AB/abc", "");
+  CreateFile(fs, "AB/CD/def", "");
+  CreateFile(fs, "AB/CD/EF/ghi", "");
+  ASSERT_OK(fs->DeleteDirContents("AB/CD"));
+  ASSERT_OK(fs->DeleteDirContents("AB/GH/IJ"));
+
+  AssertAllDirs(fs, {"AB", "AB/CD", "AB/GH", "AB/GH/IJ"});
+  AssertAllFiles(fs, {"AB/abc"});
+
+  // Also with "" (== wipe filesystem)
+  ASSERT_OK(fs->DeleteDirContents(""));
+  AssertAllDirs(fs, {});
+  AssertAllFiles(fs, {});
+
+  // Not a directory
+  CreateFile(fs, "abc", "");
+  ASSERT_RAISES(IOError, fs->DeleteDirContents("abc"));
+  AssertAllDirs(fs, {});
+  AssertAllFiles(fs, {"abc"});
+}
+
 void GenericFileSystemTest::TestDeleteFile(FileSystem* fs) {
   ASSERT_OK(fs->CreateDir("AB"));
   CreateFile(fs, "AB/def", "");
@@ -761,6 +785,7 @@ void GenericFileSystemTest::TestOpenInputFile(FileSystem* fs) {
 GENERIC_FS_TEST_DEFINE(TestEmpty)
 GENERIC_FS_TEST_DEFINE(TestCreateDir)
 GENERIC_FS_TEST_DEFINE(TestDeleteDir)
+GENERIC_FS_TEST_DEFINE(TestDeleteDirContents)
 GENERIC_FS_TEST_DEFINE(TestDeleteFile)
 GENERIC_FS_TEST_DEFINE(TestDeleteFiles)
 GENERIC_FS_TEST_DEFINE(TestMoveFile)

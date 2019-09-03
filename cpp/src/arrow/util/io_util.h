@@ -138,6 +138,7 @@ class ARROW_EXPORT PlatformFilename {
   // Those functions need access to the embedded path object
   friend ARROW_EXPORT Status CreateDir(const PlatformFilename&, bool*);
   friend ARROW_EXPORT Status CreateDirTree(const PlatformFilename&, bool*);
+  friend ARROW_EXPORT Status DeleteDirContents(const PlatformFilename&, bool*);
   friend ARROW_EXPORT Status DeleteDirTree(const PlatformFilename&, bool*);
   friend ARROW_EXPORT Status DeleteFile(const PlatformFilename&, bool*);
   friend ARROW_EXPORT Status FileExists(const PlatformFilename&, bool*);
@@ -147,6 +148,8 @@ ARROW_EXPORT
 Status CreateDir(const PlatformFilename& dir_path, bool* created = NULLPTR);
 ARROW_EXPORT
 Status CreateDirTree(const PlatformFilename& dir_path, bool* created = NULLPTR);
+ARROW_EXPORT
+Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted = NULLPTR);
 ARROW_EXPORT
 Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted = NULLPTR);
 ARROW_EXPORT

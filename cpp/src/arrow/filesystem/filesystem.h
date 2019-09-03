@@ -158,6 +158,12 @@ class ARROW_EXPORT FileSystem {
   /// Delete a directory and its contents, recursively.
   virtual Status DeleteDir(const std::string& path) = 0;
 
+  /// Delete a directory's contents, recursively.
+  ///
+  /// Like DeleteDir, but doesn't delete the directory itself.
+  /// Passing an empty path ("") will wipe the entire filesystem tree.
+  virtual Status DeleteDirContents(const std::string& path) = 0;
+
   /// Delete a file.
   virtual Status DeleteFile(const std::string& path) = 0;
   /// Delete many files.
@@ -220,6 +226,7 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
   Status DeleteDir(const std::string& path) override;
+  Status DeleteDirContents(const std::string& path) override;
 
   Status DeleteFile(const std::string& path) override;
 
