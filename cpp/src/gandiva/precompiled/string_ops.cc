@@ -198,52 +198,66 @@ const char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_d
     return "";
   }
 
-  int32 num_in_chars;  // num of chars in input string
-  int32* char_start =
-      reinterpret_cast<int32*>(malloc(in_data_len * 4));  // stores start index of chars
+  int32 in_glyphs_count = utf8_length(context, input, in_data_len);
 
-  int32 curr_char_pos = 0;
-  char curr_char_num_bytes = 0;
-
-  char_start[curr_char_pos] = 0;
-  for (int32 i = 0; i < in_data_len; i = i + curr_char_num_bytes) {
-    curr_char_num_bytes = utf8_char_length(input[i]);
-    char_start[curr_char_pos + 1] = char_start[curr_char_pos] + curr_char_num_bytes;
-    ++curr_char_pos;
-  }
-
-  num_in_chars = curr_char_pos;
-
-  int32 offset = static_cast<int32>(offset64);
-  int32 from_char = offset - 1;  // offset is 1 for first char
-  if (offset < 0) {
-    from_char = num_in_chars + offset;
-  } else if (offset == 0) {
-    from_char = 0;
-  }
-
-  if (from_char < 0 || from_char >= num_in_chars) {
+  // handle invalid glyphs in input
+  if (in_glyphs_count == 0) {
     *out_data_len = 0;
-    free(char_start);
     return "";
   }
 
-  int32 num_out_chars = static_cast<int32>(length);
-  if (length > num_in_chars - from_char) {
-    num_out_chars = num_in_chars - from_char;
+  int32 offset = static_cast<int32>(offset64);
+  int32 from_glyph = offset - 1;  // offset is 1 for first char
+  if (offset < 0) {
+    from_glyph = in_glyphs_count + offset;
+  } else if (offset == 0) {
+    from_glyph = 0;
   }
 
-  *out_data_len = char_start[num_out_chars + from_char] - char_start[from_char];
+  if (from_glyph < 0 || from_glyph >= in_glyphs_count) {
+    *out_data_len = 0;
+    return "";
+  }
+
+  int32 out_glyphs_count = static_cast<int32>(length);
+  if (length > in_glyphs_count - from_glyph) {
+    out_glyphs_count = in_glyphs_count - from_glyph;
+  }
+
+  int32 start_pos = 0;
+  int32 end_pos = in_data_len;
+
+  int32 n_glyphs = 0;
+  int32 pos = 0;
+  while (pos < static_cast<int64_t>(in_data_len)) {
+    if (n_glyphs == from_glyph) {
+      start_pos = pos;
+    }
+    int32 glyph_len = utf8_char_length(input[pos]);
+    // Skip invalid glyphs.
+    if (glyph_len == 0) {
+      glyph_len = 1;
+    }
+    pos += glyph_len;
+    if (n_glyphs - from_glyph + 1 == out_glyphs_count) {
+      end_pos = pos;
+    }
+    n_glyphs++;
+  }
+
+  if (end_pos > in_data_len || end_pos < 0) {  // <0 check to handle 'pos' overflow
+    end_pos = in_data_len;
+  }
+
+  *out_data_len = end_pos - start_pos;
   char* ret =
       reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_data_len));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_data_len = 0;
-    free(char_start);
     return "";
   }
-  memcpy(ret, input + char_start[from_char], *out_data_len);
-  free(char_start);
+  memcpy(ret, input + start_pos, *out_data_len);
   return ret;
 }
 
