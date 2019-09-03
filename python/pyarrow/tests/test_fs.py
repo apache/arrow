@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import os
-import subprocess
 try:
     import pathlib
 except ImportError:
@@ -27,7 +25,6 @@ import pytest
 from pyarrow import ArrowIOError
 from pyarrow.fs import (
     FileType,
-    FileStats,
     LocalFileSystem,
     SubTreeFileSystem,
     Selector
@@ -80,17 +77,17 @@ def test_stat_with_paths(fs, tempdir, testpath):
 
     aaa, bb, c = fs.stat([aaa_path, bb_path, c_path])
 
-    assert aaa.path == Path(aaa_path)
+    assert aaa.path == pathlib.Path(aaa_path)
     assert aaa.base_name == 'aaa'
     assert aaa.extension == ''
     assert aaa.type == FileType.Directory
 
-    assert bb.path == Path(bb_path)
+    assert bb.path == pathlib.Path(bb_path)
     assert bb.base_name == 'bb'
     assert bb.extension == ''
     assert bb.type == FileType.File
 
-    assert c.path == Path(c_path)
+    assert c.path == pathlib.Path(c_path)
     assert c.base_name == 'c.txt'
     assert c.extension == 'txt'
     assert c.type == FileType.File
