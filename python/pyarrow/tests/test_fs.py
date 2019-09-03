@@ -15,7 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pathlib import Path
+import os
+import subprocess
+try:
+    import pathlib
+except ImportError:
+    import pathlib2 as pathlib  # py2 compat
 
 import pytest
 
@@ -50,7 +55,7 @@ def fs(request, tempdir):
 
 
 @pytest.fixture(params=[
-    pytest.param(Path, id='Path'),
+    pytest.param(pathlib.Path, id='Path'),
     pytest.param(str, id='str')
 ])
 def testpath(request, fs, tempdir):
