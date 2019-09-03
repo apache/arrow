@@ -233,6 +233,15 @@ INSTANTIATE_TEST_CASE_P(TestZSTDInputStream, CompressedInputStreamTest,
                         ::testing::Values(Compression::ZSTD));
 #endif
 
+TEST(TestSnappyInputStream, NotImplemented) {
+  std::unique_ptr<Codec> codec;
+  ASSERT_OK(Codec::Create(Compression::SNAPPY, &codec));
+  std::shared_ptr<InputStream> stream = std::make_shared<BufferReader>("");
+  std::shared_ptr<CompressedInputStream> compressed_stream;
+  ASSERT_RAISES(NotImplemented,
+                CompressedInputStream::Make(codec.get(), stream, &compressed_stream));
+}
+
 class CompressedOutputStreamTest : public ::testing::TestWithParam<Compression::type> {
  protected:
   Compression::type GetCompression() { return GetParam(); }
@@ -270,6 +279,15 @@ INSTANTIATE_TEST_CASE_P(TestBrotliOutputStream, CompressedOutputStreamTest,
 INSTANTIATE_TEST_CASE_P(TestZSTDOutputStream, CompressedOutputStreamTest,
                         ::testing::Values(Compression::ZSTD));
 #endif
+
+TEST(TestSnappyOutputStream, NotImplemented) {
+  std::unique_ptr<Codec> codec;
+  ASSERT_OK(Codec::Create(Compression::SNAPPY, &codec));
+  std::shared_ptr<OutputStream> stream = std::make_shared<MockOutputStream>();
+  std::shared_ptr<CompressedOutputStream> compressed_stream;
+  ASSERT_RAISES(NotImplemented,
+                CompressedOutputStream::Make(codec.get(), stream, &compressed_stream));
+}
 
 }  // namespace io
 }  // namespace arrow
