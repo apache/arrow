@@ -18,16 +18,28 @@
 #include "arrow/testing/util.h"
 
 #include <chrono>
+#include <cstring>
 #include <random>
 
-#ifndef _WIN32
-#include <sys/stat.h>  // IWYU pragma: keep
-#include <sys/wait.h>  // IWYU pragma: keep
-#include <unistd.h>    // IWYU pragma: keep
+#ifdef _WIN32
+// clang-format off
+// (prevent include reordering)
+#include "arrow/util/windows_compatibility.h"
+#include <winsock2.h>
+// clang-format on
+#else
+#include <arpa/inet.h>   // IWYU pragma: keep
+#include <netinet/in.h>  // IWYU pragma: keep
+#include <sys/socket.h>  // IWYU pragma: keep
+#include <sys/stat.h>    // IWYU pragma: keep
+#include <sys/types.h>   // IWYU pragma: keep
+#include <sys/wait.h>    // IWYU pragma: keep
+#include <unistd.h>      // IWYU pragma: keep
 #endif
 
 #include "arrow/table.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -170,8 +182,56 @@ Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
   return Status::OK();
 }
 
-static int next_listen_port_ = 30001;
+int GetListenPort() {
+  // Get a new available port number by binding a socket to an ephemeral port
+  // and then closing it.  Since ephemeral port allocation tends to avoid
+  // reusing port numbers, this should give a different port number
+  // every time, even accross processes.
+  struct sockaddr_in sin;
+#ifdef _WIN32
+  SOCKET sock_fd;
+  auto sin_len = static_cast<int>(sizeof(sin));
+  auto errno_message = []() -> std::string {
+    return internal::WinErrorMessage(WSAGetLastError());
+  };
+#else
+#define INVALID_SOCKET -1
+#define SOCKET_ERROR -1
+  int sock_fd;
+  auto sin_len = static_cast<socklen_t>(sizeof(sin));
+  auto errno_message = []() -> std::string { return internal::ErrnoMessage(errno); };
+#endif
 
-int GetListenPort() { return next_listen_port_++; }
+#ifdef _WIN32
+  WSADATA wsa_data;
+  if (WSAStartup(0x0202, &wsa_data) != 0) {
+    ARROW_LOG(FATAL) << "Failed to initialize Windows Sockets";
+  }
+#endif
+
+  sock_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if (sock_fd == INVALID_SOCKET) {
+    Status::IOError("Failed to create TCP socket: ", errno_message()).Abort();
+  }
+  // First bind to ('0.0.0.0', 0)
+  memset(&sin, 0, sizeof(sin));
+  sin.sin_family = AF_INET;
+  if (bind(sock_fd, reinterpret_cast<struct sockaddr*>(&sin), sin_len) == SOCKET_ERROR) {
+    Status::IOError("bind() failed: ", errno_message()).Abort();
+  }
+  // Then get actual bound port number
+  if (getsockname(sock_fd, reinterpret_cast<struct sockaddr*>(&sin), &sin_len) ==
+      SOCKET_ERROR) {
+    Status::IOError("getsockname() failed: ", errno_message()).Abort();
+  }
+  int port = ntohs(sin.sin_port);
+#ifdef _WIN32
+  closesocket(sock_fd);
+#else
+  close(sock_fd);
+#endif
+
+  return port;
+}
 
 }  // namespace arrow

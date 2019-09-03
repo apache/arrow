@@ -203,8 +203,6 @@ class RepeatedRecordBatch : public RecordBatchReader {
 // Get a TCP port number to listen on.  This is a different number every time,
 // as reusing the same port accross tests can produce spurious bind errors on
 // Windows.
-//
-// This will only protect in a single process.
 ARROW_EXPORT int GetListenPort();
 
 }  // namespace arrow
