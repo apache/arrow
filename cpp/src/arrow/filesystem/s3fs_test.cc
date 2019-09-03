@@ -166,8 +166,6 @@ Status MinioTestServer::Stop() {
 
 class S3Environment : public ::testing::Environment {
  public:
-  virtual ~S3Environment() {}
-
   void SetUp() override {
     // Change this to increase logging during tests
     S3GlobalOptions options;
