@@ -85,7 +85,7 @@ class ARROW_EXPORT BufferBuilder {
     return Resize(GrowByFactor(capacity_, min_capacity), false);
   }
 
-  /// \brief Return a capacity expanded by an unspecified growth factor
+  /// \brief Return a capacity expanded by the desired growth factor
   static int64_t GrowByFactor(int64_t current_capacity, int64_t new_capacity) {
     // Doubling capacity except for large Reserve requests. 2x growth strategy
     // (versus 1.5x) seems to have slightly better performance when using

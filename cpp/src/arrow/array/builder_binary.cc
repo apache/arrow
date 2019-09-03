@@ -127,14 +127,15 @@ namespace internal {
 
 ChunkedBinaryBuilder::ChunkedBinaryBuilder(int32_t max_chunk_value_length,
                                            MemoryPool* pool)
-    : max_chunk_value_length_(max_chunk_value_length),
-      builder_(new BinaryBuilder(pool)) {}
+    : max_chunk_value_length_(max_chunk_value_length), builder_(new BinaryBuilder(pool)) {
+  DCHECK_LE(max_chunk_value_length, kBinaryMemoryLimit);
+}
 
 ChunkedBinaryBuilder::ChunkedBinaryBuilder(int32_t max_chunk_value_length,
                                            int32_t max_chunk_length, MemoryPool* pool)
-    : max_chunk_value_length_(max_chunk_value_length),
-      max_chunk_length_(max_chunk_length),
-      builder_(new BinaryBuilder(pool)) {}
+    : ChunkedBinaryBuilder(max_chunk_value_length, pool) {
+  max_chunk_length_ = max_chunk_length;
+}
 
 Status ChunkedBinaryBuilder::Finish(ArrayVector* out) {
   if (builder_->length() > 0 || chunks_.size() == 0) {

@@ -367,13 +367,6 @@ class TestArrowBuilderDecoding : public ::testing::Test {
     }
   }
 
-  std::unique_ptr<DenseBuilder> CreateDenseBuilder() {
-    // Use same default chunk size of 16MB as used in ByteArrayChunkedRecordReader
-    constexpr int32_t kChunkSize = 1 << 24;
-    return std::unique_ptr<DenseBuilder>(
-        new DenseBuilder(kChunkSize, default_memory_pool()));
-  }
-
   std::unique_ptr<DictBuilder> CreateDictBuilder() {
     return std::unique_ptr<DictBuilder>(new DictBuilder(default_memory_pool()));
   }
@@ -381,13 +374,9 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   // Setup encoder/decoder pair for testing with
   virtual void SetupEncoderDecoder() = 0;
 
-  template <typename Builder>
-  void CheckDense(int actual_num_values, Builder& builder) {
+  void CheckDense(int actual_num_values, const arrow::Array& chunk) {
     ASSERT_EQ(actual_num_values, num_values_ - null_count_);
-    arrow::ArrayVector actual_vec;
-    ASSERT_OK(builder.Finish(&actual_vec));
-    ASSERT_EQ(actual_vec.size(), 1);
-    ASSERT_ARRAYS_EQUAL(*actual_vec[0], *expected_dense_);
+    ASSERT_ARRAYS_EQUAL(chunk, *expected_dense_);
   }
 
   template <typename Builder>
@@ -401,10 +390,15 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   void CheckDecodeArrowUsingDenseBuilder() {
     for (auto np : null_probabilities_) {
       InitTestCase(np);
-      auto builder = CreateDenseBuilder();
+
+      ArrowBinaryAccumulator acc;
+      acc.builder.reset(new ::arrow::BinaryBuilder);
       auto actual_num_values =
-          decoder_->DecodeArrow(num_values_, null_count_, valid_bits_, 0, builder.get());
-      CheckDense(actual_num_values, *builder);
+          decoder_->DecodeArrow(num_values_, null_count_, valid_bits_, 0, &acc);
+
+      std::shared_ptr<::arrow::Array> chunk;
+      ASSERT_OK(acc.builder->Finish(&chunk));
+      CheckDense(actual_num_values, *chunk);
     }
   }
 
@@ -422,9 +416,12 @@ class TestArrowBuilderDecoding : public ::testing::Test {
     for (auto np : null_probabilities_) {
       InitTestCase(np);
       SKIP_TEST_IF(null_count_ > 0)
-      auto builder = CreateDenseBuilder();
-      auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, builder.get());
-      CheckDense(actual_num_values, *builder);
+      ArrowBinaryAccumulator acc;
+      acc.builder.reset(new ::arrow::BinaryBuilder);
+      auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, &acc);
+      std::shared_ptr<::arrow::Array> chunk;
+      ASSERT_OK(acc.builder->Finish(&chunk));
+      CheckDense(actual_num_values, *chunk);
     }
   }
 
@@ -502,14 +499,15 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
     int num_values = static_cast<int>(values->length() - values->null_count());
     decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
-    arrow::StringBuilder builder;
-    ASSERT_EQ(num_values, decoder->DecodeArrow(static_cast<int>(values->length()),
-                                               static_cast<int>(values->null_count()),
-                                               values->null_bitmap_data(),
-                                               values->offset(), &builder));
+    ArrowBinaryAccumulator acc;
+    acc.builder.reset(new arrow::StringBuilder);
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
 
-    std::shared_ptr<arrow::Array> result;
-    ASSERT_OK(builder.Finish(&result));
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.builder->Finish(&result));
     ASSERT_EQ(50, result->length());
     arrow::AssertArraysEqual(*values, *result);
 
@@ -567,14 +565,15 @@ TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
   int num_values = static_cast<int>(values->length() - values->null_count());
   GetBinaryDictDecoder(encoder, num_values, &buf, &dict_buf, &decoder);
 
-  arrow::StringBuilder builder;
+  ArrowBinaryAccumulator acc;
+  acc.builder.reset(new arrow::StringBuilder);
   ASSERT_EQ(num_values,
             decoder->DecodeArrow(static_cast<int>(values->length()),
                                  static_cast<int>(values->null_count()),
-                                 values->null_bitmap_data(), values->offset(), &builder));
+                                 values->null_bitmap_data(), values->offset(), &acc));
 
-  std::shared_ptr<arrow::Array> result;
-  ASSERT_OK(builder.Finish(&result));
+  std::shared_ptr<::arrow::Array> result;
+  ASSERT_OK(acc.builder->Finish(&result));
   arrow::AssertArraysEqual(*values, *result);
 }
 
@@ -607,14 +606,15 @@ TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
   int num_values = static_cast<int>(expected->length() - expected->null_count());
   GetBinaryDictDecoder(encoder, num_values, &buf, &dict_buf, &decoder);
 
-  arrow::BinaryBuilder builder;
-  ASSERT_EQ(num_values, decoder->DecodeArrow(static_cast<int>(expected->length()),
-                                             static_cast<int>(expected->null_count()),
-                                             expected->null_bitmap_data(),
-                                             expected->offset(), &builder));
+  ArrowBinaryAccumulator acc;
+  acc.builder.reset(new arrow::BinaryBuilder);
+  ASSERT_EQ(num_values,
+            decoder->DecodeArrow(static_cast<int>(expected->length()),
+                                 static_cast<int>(expected->null_count()),
+                                 expected->null_bitmap_data(), expected->offset(), &acc));
 
-  std::shared_ptr<arrow::Array> result;
-  ASSERT_OK(builder.Finish(&result));
+  std::shared_ptr<::arrow::Array> result;
+  ASSERT_OK(acc.builder->Finish(&result));
   arrow::AssertArraysEqual(*expected, *result);
 }
 

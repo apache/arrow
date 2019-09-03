@@ -1209,23 +1209,25 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
                                      virtual public BinaryRecordReader {
  public:
   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
-      : TypedRecordReader<ByteArrayType>(descr, pool), builder_(nullptr) {
-    // ARROW-4688(wesm): Using 2^31 - 1 chunks for now
-    constexpr int32_t kBinaryChunksize = 2147483647;
+      : TypedRecordReader<ByteArrayType>(descr, pool) {
     DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
-    builder_.reset(
-        new ::arrow::internal::ChunkedBinaryBuilder(kBinaryChunksize, this->pool_));
+    accumulator_.builder.reset(new ::arrow::BinaryBuilder(pool));
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
-    ::arrow::ArrayVector chunks;
-    PARQUET_THROW_NOT_OK(builder_->Finish(&chunks));
-    return chunks;
+    ::arrow::ArrayVector result = accumulator_.chunks;
+    if (result.size() == 0 || accumulator_.builder->length() > 0) {
+      std::shared_ptr<::arrow::Array> last_chunk;
+      PARQUET_THROW_NOT_OK(accumulator_.builder->Finish(&last_chunk));
+      result.push_back(last_chunk);
+    }
+    accumulator_.chunks = {};
+    return result;
   }
 
   void ReadValuesDense(int64_t values_to_read) override {
     int64_t num_decoded = this->current_decoder_->DecodeArrowNonNull(
-        static_cast<int>(values_to_read), builder_.get());
+        static_cast<int>(values_to_read), &accumulator_);
     DCHECK_EQ(num_decoded, values_to_read);
     ResetValues();
   }
@@ -1233,13 +1235,14 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
     int64_t num_decoded = this->current_decoder_->DecodeArrow(
         static_cast<int>(values_to_read), static_cast<int>(null_count),
-        valid_bits_->mutable_data(), values_written_, builder_.get());
+        valid_bits_->mutable_data(), values_written_, &accumulator_);
     DCHECK_EQ(num_decoded, values_to_read - null_count);
     ResetValues();
   }
 
  private:
-  std::unique_ptr<::arrow::internal::ChunkedBinaryBuilder> builder_;
+  // Helper data structure for accumulating builder chunks
+  ArrowBinaryAccumulator accumulator_;
 };
 
 class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
