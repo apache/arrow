@@ -44,7 +44,7 @@ namespace io {
 class CompressedOutputStream::Impl {
  public:
   Impl(MemoryPool* pool, const std::shared_ptr<OutputStream>& raw)
-      : pool_(pool), raw_(raw), is_open_(false), compressed_pos_(0) {}
+      : pool_(pool), raw_(raw), is_open_(false), compressed_pos_(0), total_pos_(0) {}
 
   ~Impl() { ARROW_CHECK_OK(Close()); }
 
@@ -57,7 +57,9 @@ class CompressedOutputStream::Impl {
   }
 
   Status Tell(int64_t* position) const {
-    return Status::NotImplemented("Cannot tell() a compressed stream");
+    std::lock_guard<std::mutex> guard(lock_);
+    *position = total_pos_;
+    return Status::OK();
   }
 
   std::shared_ptr<OutputStream> raw() const { return raw_; }
@@ -96,6 +98,7 @@ class CompressedOutputStream::Impl {
       }
       input += bytes_read;
       nbytes -= bytes_read;
+      total_pos_ += bytes_read;
       if (compressed_pos_ == compressed_->size()) {
         // Output buffer full, flush it
         RETURN_NOT_OK(FlushCompressed());
@@ -185,6 +188,8 @@ class CompressedOutputStream::Impl {
   std::shared_ptr<Compressor> compressor_;
   std::shared_ptr<ResizableBuffer> compressed_;
   int64_t compressed_pos_;
+  // Total number of bytes compressed
+  int64_t total_pos_;
 
   mutable std::mutex lock_;
 };
@@ -234,7 +239,8 @@ class CompressedInputStream::Impl {
         raw_(raw),
         is_open_(true),
         compressed_pos_(0),
-        decompressed_pos_(0) {}
+        decompressed_pos_(0),
+        total_pos_(0) {}
 
   Status Init(Codec* codec) {
     RETURN_NOT_OK(codec->MakeDecompressor(&decompressor_));
@@ -260,7 +266,9 @@ class CompressedInputStream::Impl {
   }
 
   Status Tell(int64_t* position) const {
-    return Status::NotImplemented("Cannot tell() a compressed stream");
+    std::lock_guard<std::mutex> guard(lock_);
+    *position = total_pos_;
+    return Status::OK();
   }
 
   // Read compressed data if necessary
@@ -374,6 +382,7 @@ class CompressedInputStream::Impl {
       RETURN_NOT_OK(RefillDecompressed(&decompressor_has_data));
     }
 
+    total_pos_ += total_read;
     *bytes_read = total_read;
     return Status::OK();
   }
@@ -401,11 +410,15 @@ class CompressedInputStream::Impl {
   bool is_open_;
   std::shared_ptr<Decompressor> decompressor_;
   std::shared_ptr<Buffer> compressed_;
+  // Position in compressed buffer
   int64_t compressed_pos_;
   std::shared_ptr<ResizableBuffer> decompressed_;
+  // Position in decompressed buffer
   int64_t decompressed_pos_;
   // True if the decompressor hasn't read any data yet.
   bool fresh_decompressor_;
+  // Total number of bytes decompressed
+  int64_t total_pos_;
 
   mutable std::mutex lock_;
 };

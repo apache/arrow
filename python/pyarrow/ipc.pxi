@@ -253,17 +253,13 @@ cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
 
 
 cdef _get_input_stream(object source, shared_ptr[InputStream]* out):
-    cdef:
-        shared_ptr[RandomAccessFile] file_handle
-
     try:
         source = as_buffer(source)
     except TypeError:
         # Non-buffer-like
         pass
 
-    get_reader(source, True, &file_handle)
-    out[0] = <shared_ptr[InputStream]> file_handle
+    get_input_stream(source, True, out)
 
 
 cdef class _CRecordBatchReader:

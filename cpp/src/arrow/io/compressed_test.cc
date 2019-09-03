@@ -81,7 +81,7 @@ std::shared_ptr<Buffer> CompressDataOneShot(Codec* codec,
 }
 
 Status RunCompressedInputStream(Codec* codec, std::shared_ptr<Buffer> compressed,
-                                std::vector<uint8_t>* out) {
+                                int64_t* stream_pos, std::vector<uint8_t>* out) {
   // Create compressed input stream
   auto buffer_reader = std::make_shared<BufferReader>(compressed);
   std::shared_ptr<CompressedInputStream> stream;
@@ -101,8 +101,16 @@ Status RunCompressedInputStream(Codec* codec, std::shared_ptr<Buffer> compressed
     memcpy(decompressed.data() + decompressed_size, buf->data(), buf->size());
     decompressed_size += buf->size();
   }
+  if (stream_pos != nullptr) {
+    RETURN_NOT_OK(stream->Tell(stream_pos));
+  }
   *out = std::move(decompressed);
   return Status::OK();
+}
+
+Status RunCompressedInputStream(Codec* codec, std::shared_ptr<Buffer> compressed,
+                                std::vector<uint8_t>* out) {
+  return RunCompressedInputStream(codec, compressed, nullptr, out);
 }
 
 void CheckCompressedInputStream(Codec* codec, const std::vector<uint8_t>& data) {
@@ -110,10 +118,12 @@ void CheckCompressedInputStream(Codec* codec, const std::vector<uint8_t>& data) 
   auto compressed = CompressDataOneShot(codec, data);
 
   std::vector<uint8_t> decompressed;
-  ASSERT_OK(RunCompressedInputStream(codec, compressed, &decompressed));
+  int64_t stream_pos = -1;
+  ASSERT_OK(RunCompressedInputStream(codec, compressed, &stream_pos, &decompressed));
 
   ASSERT_EQ(decompressed.size(), data.size());
   ASSERT_EQ(decompressed, data);
+  ASSERT_EQ(stream_pos, static_cast<int64_t>(decompressed.size()));
 }
 
 void CheckCompressedOutputStream(Codec* codec, const std::vector<uint8_t>& data,
@@ -123,6 +133,9 @@ void CheckCompressedOutputStream(Codec* codec, const std::vector<uint8_t>& data,
   ASSERT_OK(BufferOutputStream::Create(1024, default_memory_pool(), &buffer_writer));
   std::shared_ptr<CompressedOutputStream> stream;
   ASSERT_OK(CompressedOutputStream::Make(codec, buffer_writer, &stream));
+  int64_t pos = -1;
+  ASSERT_OK(stream->Tell(&pos));
+  ASSERT_EQ(pos, 0);
 
   const uint8_t* input = data.data();
   int64_t input_len = data.size();
@@ -136,6 +149,8 @@ void CheckCompressedOutputStream(Codec* codec, const std::vector<uint8_t>& data,
       ASSERT_OK(stream->Flush());
     }
   }
+  ASSERT_OK(stream->Tell(&pos));
+  ASSERT_EQ(pos, static_cast<int64_t>(data.size()));
   ASSERT_OK(stream->Close());
 
   // Get compressed data and decompress it
