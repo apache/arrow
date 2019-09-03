@@ -112,11 +112,11 @@ class ARROW_DS_EXPORT FileFormat {
   virtual bool IsKnownExtension(const std::string& ext) const = 0;
 
   /// \brief Open a file for scanning
-  virtual Status ScanFile(const FileSource& source, const ScanContext& context,
+  virtual Status ScanFile(const FileSource& source, const ScanOptions& scan_options,
                           std::unique_ptr<ScanTaskIterator>* out) const = 0;
 
   /// \brief Open a fragment
-  virtual Status MakeFragment(const FileSource& location, const ScanContext& context,
+  virtual Status MakeFragment(const FileSource& location, const ScanOptions& scan_options,
                               std::unique_ptr<DataFragment>* out) = 0;
 };
 
@@ -124,20 +124,20 @@ class ARROW_DS_EXPORT FileFormat {
 class ARROW_DS_EXPORT FileBasedDataFragment : public DataFragment {
  public:
   FileBasedDataFragment(const FileSource& source, std::shared_ptr<FileFormat> format,
-                        const ScanContext& context)
-      : source_(source), format_(std::move(format)), context_(std::move(context)) {}
+                        const ScanOptions& scan_options)
+      : source_(source), format_(std::move(format)), scan_options_(std::move(scan_options)) {}
 
   Status Scan(std::unique_ptr<ScanTaskIterator>* out) override;
 
   const FileSource& source() const { return source_; }
   std::shared_ptr<FileFormat> format() const { return format_; }
 
-  const ScanContext& context() const override { return context_; }
+  const ScanOptions& scan_options() const override { return scan_options_; }
 
  protected:
   FileSource source_;
   std::shared_ptr<FileFormat> format_;
-  ScanContext context_;
+  ScanOptions scan_options_;
 };
 
 /// \brief A DataSource which takes files of one format from a directory
@@ -153,7 +153,7 @@ class ARROW_DS_EXPORT FileSystemBasedDataSource : public DataSource {
 
   std::string type() const override { return "directory"; }
 
-  std::unique_ptr<DataFragmentIterator> GetFragments(const ScanContext& context) override;
+  std::unique_ptr<DataFragmentIterator> GetFragments(const ScanOptions& scan_options) override;
 
  protected:
   FileSystemBasedDataSource(fs::FileSystem* filesystem, const fs::Selector& selector,

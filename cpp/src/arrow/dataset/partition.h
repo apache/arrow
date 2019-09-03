@@ -161,11 +161,11 @@ class ARROW_DS_EXPORT SimplePartition : public Partition {
  public:
   SimplePartition(std::unique_ptr<PartitionKey> partition_key,
                   DataFragmentVector&& data_fragments, PartitionVector&& subpartitions,
-                  const ScanContext& context = NULLPTR)
+                  const ScanOptions& scan_options = NULLPTR)
       : key_(std::move(partition_key)),
         data_fragments_(std::move(data_fragments)),
         subpartitions_(std::move(subpartitions)),
-        context_(context) {}
+        scan_options_(scan_options) {}
 
   const PartitionKey* key() const override { return key_.get(); }
 
@@ -192,7 +192,7 @@ class ARROW_DS_EXPORT SimplePartition : public Partition {
   std::vector<std::shared_ptr<Partition>> subpartitions_;
 
   /// \brief Default scan options to use for data fragments
-  ScanContext context_;
+  ScanOptions scan_options_;
 };
 
 /// \brief A PartitionSource that returns fragments as the result of input iterators

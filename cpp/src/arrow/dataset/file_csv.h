@@ -45,10 +45,10 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
   bool IsKnownExtension(const std::string& ext) const override;
 
   /// \brief Open a file for scanning
-  Status ScanFile(const FileSource& source, const ScanContext& context,
+  Status ScanFile(const FileSource& source, const ScanOptions& scan_options,
                   std::unique_ptr<ScanTaskIterator>* out) const override;
 
-  Status MakeFragment(const FileSource& source, const ScanContext& context,
+  Status MakeFragment(const FileSource& source, const ScanOptions& scan_options,
                       std::unique_ptr<DataFragment>* out) override;
 };
 

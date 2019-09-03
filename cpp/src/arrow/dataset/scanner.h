@@ -38,14 +38,14 @@ class ARROW_DS_EXPORT FileScanOptions {
   virtual ~FileScanOptions() = default;
 };
 
-struct ARROW_DS_EXPORT ScanContext final {
+struct ARROW_DS_EXPORT ScanOptions final {
  public:
-  ScanContext() = default;
+  ScanOptions() = default;
 
   /// Filters
   const std::shared_ptr<DataSelector>& selector() const { return selector_; }
 
-  ScanContext& selector(std::shared_ptr<DataSelector> s) {
+  ScanOptions& selector(std::shared_ptr<DataSelector> s) {
     selector_ = std::move(s);
     return *this;
   }
@@ -53,7 +53,7 @@ struct ARROW_DS_EXPORT ScanContext final {
   /// Schema to which record batches will be projected
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
-  ScanContext& schema(std::shared_ptr<Schema> s) {
+  ScanOptions& schema(std::shared_ptr<Schema> s) {
     schema_ = std::move(s);
     return *this;
   }
@@ -61,7 +61,7 @@ struct ARROW_DS_EXPORT ScanContext final {
   /// MemoryPool used for allocating temporary memory and yielded record batches
   MemoryPool* pool() const { return pool_; }
 
-  ScanContext& pool(MemoryPool* p) {
+  ScanOptions& pool(MemoryPool* p) {
     pool_ = p;
     return *this;
   }
@@ -71,7 +71,7 @@ struct ARROW_DS_EXPORT ScanContext final {
     return options_;
   }
 
-  ScanContext& AddFileScanOptions(std::shared_ptr<FileScanOptions> opts) {
+  ScanOptions& AddFileScanOptions(std::shared_ptr<FileScanOptions> opts) {
     options_.push_back(std::move(opts));
     return *this;
   }

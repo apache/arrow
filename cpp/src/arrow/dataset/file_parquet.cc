@@ -109,15 +109,15 @@ class ParquetRowGroupPartitioner {
 
 class ParquetScanTaskIterator : public ScanTaskIterator {
  public:
-  static Status Make(const ScanContext& context, ParquetFileReaderPtr reader,
+  static Status Make(const ScanOptions& scan_options, ParquetFileReaderPtr reader,
                      std::unique_ptr<ScanTaskIterator>* out) {
     auto metadata = reader->metadata();
 
     std::vector<int> columns_projection;
-    RETURN_NOT_OK(InferColumnProjection(*metadata, context, &columns_projection));
+    RETURN_NOT_OK(InferColumnProjection(*metadata, scan_options, &columns_projection));
 
     std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
-    RETURN_NOT_OK(parquet::arrow::FileReader::Make(context.pool(), std::move(reader),
+    RETURN_NOT_OK(parquet::arrow::FileReader::Make(scan_options.pool(), std::move(reader),
                                                    &arrow_reader));
 
     out->reset(new ParquetScanTaskIterator(columns_projection, metadata,
@@ -142,7 +142,7 @@ class ParquetScanTaskIterator : public ScanTaskIterator {
  private:
   // Compute the column projection out of an optional arrow::Schema
   static Status InferColumnProjection(const parquet::FileMetaData& metadata,
-                                      const ScanContext& context, std::vector<int>* out) {
+                                      const ScanOptions& scan_options, std::vector<int>* out) {
     // TODO(fsaintjacques): Compute intersection _and_ validity
     *out = internal::Iota(metadata.num_columns());
 
@@ -161,20 +161,20 @@ class ParquetScanTaskIterator : public ScanTaskIterator {
   std::shared_ptr<parquet::arrow::FileReader> reader_;
 };
 
-Status ParquetFileFormat::ScanFile(const FileSource& source, const ScanContext& context,
+Status ParquetFileFormat::ScanFile(const FileSource& source, const ScanOptions& scan_options,
                                    std::unique_ptr<ScanTaskIterator>* out) const {
   std::shared_ptr<io::RandomAccessFile> input;
   RETURN_NOT_OK(source.Open(&input));
 
   auto reader = parquet::ParquetFileReader::Open(input);
-  return ParquetScanTaskIterator::Make(std::move(context), std::move(reader), out);
+  return ParquetScanTaskIterator::Make(std::move(scan_options), std::move(reader), out);
 }
 
 Status ParquetFileFormat::MakeFragment(const FileSource& source,
-                                       const ScanContext& context,
+                                       const ScanOptions& scan_options,
                                        std::unique_ptr<DataFragment>* out) {
   // TODO(bkietz) check source.path() against IsKnownExtension etc
-  *out = internal::make_unique<ParquetFragment>(source, std::move(context));
+  *out = internal::make_unique<ParquetFragment>(source, std::move(scan_options));
   return Status::OK();
 }
 

@@ -38,17 +38,17 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   }
 
   /// \brief Open a file for scanning
-  Status ScanFile(const FileSource& source, const ScanContext& context,
+  Status ScanFile(const FileSource& source, const ScanOptions& scan_options,
                   std::unique_ptr<ScanTaskIterator>* out) const override;
 
-  Status MakeFragment(const FileSource& source, const ScanContext& context,
+  Status MakeFragment(const FileSource& source, const ScanOptions& scan_options,
                       std::unique_ptr<DataFragment>* out) override;
 };
 
 class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {
  public:
-  ParquetFragment(const FileSource& source, const ScanContext& context)
-      : FileBasedDataFragment(source, std::make_shared<ParquetFileFormat>(), context) {}
+  ParquetFragment(const FileSource& source, const ScanOptions& scan_options)
+      : FileBasedDataFragment(source, std::make_shared<ParquetFileFormat>(), scan_options) {}
 
   bool splittable() const override { return true; }
 };

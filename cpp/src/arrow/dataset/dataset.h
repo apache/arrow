@@ -49,7 +49,7 @@ class ARROW_DS_EXPORT DataFragment {
   /// scanning this fragment. May be nullptr, which indicates that no filtering
   /// or schema reconciliation will be performed and all partitions will be
   /// scanned.
-  virtual const ScanContext& context() const = 0;
+  virtual const ScanOptions& scan_options() const = 0;
 
   virtual ~DataFragment() = default;
 };
@@ -64,11 +64,11 @@ class ARROW_DS_EXPORT SimpleDataFragment : public DataFragment {
 
   bool splittable() const override { return false; }
 
-  const ScanContext& context() const override { return context_; }
+  const ScanOptions& scan_options() const override { return scan_options_; }
 
  protected:
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
-  ScanContext context_;
+  ScanOptions scan_options_;
 };
 
 /// \brief A basic component of a Dataset which yields zero or more
@@ -76,10 +76,10 @@ class ARROW_DS_EXPORT SimpleDataFragment : public DataFragment {
 /// and partitions, e.g. files deeply nested in a directory.
 class ARROW_DS_EXPORT DataSource {
  public:
-  /// \brief GetFragments returns an iterator of DataFragments. The ScanContext
+  /// \brief GetFragments returns an iterator of DataFragments. The ScanOptions
   /// controls filtering and schema inference.
   virtual std::unique_ptr<DataFragmentIterator> GetFragments(
-      const ScanContext& context) = 0;
+      const ScanOptions& scan_options) = 0;
 
   virtual std::string type() const = 0;
 
@@ -93,7 +93,7 @@ class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
       : fragments_(std::move(fragments)) {}
 
   std::unique_ptr<DataFragmentIterator> GetFragments(
-      const ScanContext& context) override {
+      const ScanOptions& scan_options) override {
     return MakeVectorIterator(fragments_);
   }
 
