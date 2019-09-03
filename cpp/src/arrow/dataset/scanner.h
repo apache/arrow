@@ -66,13 +66,13 @@ struct ARROW_DS_EXPORT ScanOptions final {
     return *this;
   }
 
-  /// format specific options
-  const std::vector<std::shared_ptr<FileScanOptions>>& options() const {
-    return options_;
+  /// Format-specific file scanning options
+  const std::vector<std::shared_ptr<FileScanOptions>>& file_scan_options() const {
+    return file_scan_options_;
   }
 
-  ScanOptions& AddFileScanOptions(std::shared_ptr<FileScanOptions> opts) {
-    options_.push_back(std::move(opts));
+  ScanOptions& AddFileScanOptions(std::shared_ptr<FileScanOptions> file_scan_options) {
+    file_scan_options_.push_back(std::move(file_scan_options));
     return *this;
   }
 
@@ -84,7 +84,7 @@ struct ARROW_DS_EXPORT ScanOptions final {
 
   MemoryPool* pool_ = default_memory_pool();
 
-  std::vector<std::shared_ptr<FileScanOptions>> options_;
+  std::vector<std::shared_ptr<FileScanOptions>> file_scan_options_;
 };
 
 /// \brief Read record batches from a range of a single data fragment. A
