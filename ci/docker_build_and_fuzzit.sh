@@ -36,8 +36,8 @@ export ARROW_BUILD_UTILITIES="OFF"
 pushd /build/cpp
 
 mkdir ./relwithdebinfo/out
-cp ./relwithdebinfo/arrow-ipc-fuzzing-test ./relwithdebinfo/out/fuzzer
-ldd ./relwithdebinfo/arrow-ipc-fuzzing-test | grep "=> /" | awk '{print $3}' | xargs -I '{}' cp -v '{}' ./relwithdebinfo/out/.
+cp ./relwithdebinfo/arrow-ipc-fuzzing_test ./relwithdebinfo/out/fuzzer
+ldd ./relwithdebinfo/arrow-ipc-fuzzing_test | grep "=> /" | awk '{print $3}' | xargs -I '{}' cp -v '{}' ./relwithdebinfo/out/.
 cd ./relwithdebinfo/out/
 tar -czvf fuzzer.tar.gz *
 cd ../../
