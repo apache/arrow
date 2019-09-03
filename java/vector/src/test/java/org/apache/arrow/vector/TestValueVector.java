@@ -2242,6 +2242,7 @@ public class TestValueVector {
     }
   }
 
+  @Test
   public void testGetNullFromVariableWidthVector() {
     try (VarCharVector varCharVector = new VarCharVector("varcharvec", allocator);
     VarBinaryVector varBinaryVector = new VarBinaryVector("varbinary", allocator)) {

@@ -71,7 +71,7 @@ public class MessageSerializerTest {
   @Test
   public void testIntToBytes() {
     byte[] bytes = new byte[4];
-    int[] values = new int[] {1, 15, 1 << 8, 1 << 16, 1 << 32, Integer.MAX_VALUE};
+    int[] values = new int[] {1, 15, 1 << 8, 1 << 16, Integer.MAX_VALUE};
     for (int v: values) {
       assertEquals(intToByteRoundtrip(v, bytes), v);
     }

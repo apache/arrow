@@ -44,6 +44,7 @@ public class JdbcToArrowConfigTest {
     new JdbcToArrowConfigBuilder(null, null);
   }
 
+  @Test
   public void testConfigNullCalendar() {
     JdbcToArrowConfig config = new JdbcToArrowConfig(allocator, null);
     assertNull(config.getCalendar());

@@ -34,6 +34,7 @@ public class JdbcFieldInfoTest {
     assertEquals(0, fieldInfo.getScale());
   }
 
+  @Test
   public void testCreateJdbcFieldInfoWithJdbcTypePrecisionAndScale() {
     JdbcFieldInfo fieldInfo = new JdbcFieldInfo(Types.BLOB, 1, 2);
 

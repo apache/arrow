@@ -206,6 +206,11 @@ public class TestArrowBufPointer {
     }
 
     @Override
+    public int hashCode() {
+      return super.hashCode();
+    }
+
+    @Override
     public boolean equals(Object o) {
       return o != null && this.getClass() == o.getClass();
     }

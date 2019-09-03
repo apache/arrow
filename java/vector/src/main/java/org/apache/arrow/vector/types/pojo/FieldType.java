@@ -105,6 +105,11 @@ public class FieldType {
   }
 
   @Override
+  public int hashCode() {
+    return Objects.hash(nullable, type, dictionary, metadata);
+  }
+
+  @Override
   public boolean equals(Object obj) {
     if (!(obj instanceof FieldType)) {
       return false;

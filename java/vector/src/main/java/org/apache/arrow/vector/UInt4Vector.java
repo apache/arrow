@@ -84,7 +84,7 @@ public class UInt4Vector extends BaseFixedWidthVector implements BaseIntVector {
    */
   public static long getNoOverflow(final ArrowBuf buffer, final int index) {
     long l =  buffer.getInt(index * TYPE_WIDTH);
-    return ((long)0xFFFFFFFF) & l;
+    return (0x00000000FFFFFFFFL) & l;
   }
 
   /**
