@@ -415,6 +415,11 @@ struct CTypeTraits<Optional, enable_if_optional_like<Optional>> {
 //
 
 template <typename T>
+struct as_void {
+  using type = void;
+};
+
+template <typename T>
 using is_number_type = std::is_base_of<NumberType, T>;
 
 template <typename T>
@@ -441,6 +446,16 @@ struct is_8bit_int {
       (std::is_same<UInt8Type, T>::value || std::is_same<Int8Type, T>::value);
 };
 
+template <typename T, typename CType = void>
+struct is_integer_repr_type : std::false_type {};
+
+template <>
+struct is_integer_repr_type<HalfFloatType> : std::false_type {};
+
+template <typename T>
+struct is_integer_repr_type<T, typename as_void<typename T::c_type>::type>
+    : std::is_integral<typename T::c_type> {};
+
 template <typename T>
 struct is_any_string_type {
   static constexpr bool value =
@@ -456,6 +471,10 @@ using enable_if_primitive_ctype =
 
 template <typename T, typename R = void>
 using enable_if_integer = typename std::enable_if<is_integer_type<T>::value, R>::type;
+
+template <typename T, typename R = void>
+using enable_if_integer_repr =
+    typename std::enable_if<is_integer_repr_type<T>::value, R>::type;
 
 template <typename T>
 using is_signed_integer =
