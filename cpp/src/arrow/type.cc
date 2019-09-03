@@ -433,8 +433,17 @@ int StructType::GetChildIndex(const std::string& name) const {
 
 Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
     : DecimalType(16, precision, scale) {
-  ARROW_CHECK_GE(precision, 1);
-  ARROW_CHECK_LE(precision, 38);
+  ARROW_CHECK_GE(precision, kMinPrecision);
+  ARROW_CHECK_LE(precision, kMaxPrecision);
+}
+
+Status Decimal128Type::Make(int32_t precision, int32_t scale,
+                            std::shared_ptr<DataType>* out) {
+  if (precision < kMinPrecision || precision > kMaxPrecision) {
+    return Status::Invalid("Decimal precision out of range: ", precision);
+  }
+  *out = std::make_shared<Decimal128Type>(precision, scale);
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
