@@ -1073,6 +1073,8 @@ The ``ARROW`` pattern is a reserved namespace for internal Arrow use
 in the ``custom_metadata`` fields. For example,
 ``ARROW:extension:name``.
 
+.. _format_metadata_extension_types:
+
 Extension Types
 ---------------
 

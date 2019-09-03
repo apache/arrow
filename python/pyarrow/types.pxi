@@ -548,13 +548,28 @@ cdef class ExtensionType(BaseExtensionType):
             raise TypeError("Can only instantiate subclasses of "
                             "ExtensionType")
 
-    def __init__(self, DataType storage_type):
+    def __init__(self, DataType storage_type, extension_name):
+        """
+        Initialize an extension type instance.
+
+        This should be called at the end of the subclass'
+        ``__init__`` method.
+
+        Parameters
+        ----------
+        storage_type : DataType
+        extension_name : str
+        """
         cdef:
             shared_ptr[CExtensionType] cpy_ext_type
+            c_string c_extension_name
+
+        c_extension_name = tobytes(extension_name)
 
         assert storage_type is not None
-        check_status(CPyExtensionType.FromClass(storage_type.sp_type,
-                                                type(self), &cpy_ext_type))
+        check_status(CPyExtensionType.FromClass(
+            storage_type.sp_type, c_extension_name, type(self),
+            &cpy_ext_type))
         self.init(<shared_ptr[CDataType]> cpy_ext_type)
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -568,9 +583,49 @@ cdef class ExtensionType(BaseExtensionType):
         # DataType.__eq__ -> ExtensionType::ExtensionEquals -> DataType.__eq__
         if isinstance(other, ExtensionType):
             return (type(self) == type(other) and
+                    self.extension_name == other.extension_name and
                     self.storage_type == other.storage_type)
         else:
             return NotImplemented
+
+    def __arrow_ext_serialize__(self):
+        """
+        Serialized representation of metadata to reconstruct the type object.
+
+        This method should return a bytes object, and those serialized bytes
+        are stored in the custom metadata of the Field holding an extension
+        type in an IPC message.
+        The bytes are passed to ``__arrow_ext_deserialize`` and should hold
+        sufficient information to reconstruct the data type instance.
+        """
+        return NotImplementedError
+
+    @classmethod
+    def __arrow_ext_deserialize__(self, storage_type, serialized):
+        """
+        Return an extension type instance from the storage type and serialized
+        metadata.
+
+        This method should return an instance of the ExtensionType subclass
+        that matches the passed storage type and serialized metadata (the
+        return value of ``__arrow_ext_serialize__``).
+        """
+        return NotImplementedError
+
+
+cdef class PyExtensionType(ExtensionType):
+    """
+    Concrete base class for Python-defined extension types based on pickle
+    for (de)serialization.
+    """
+
+    def __cinit__(self):
+        if type(self) is PyExtensionType:
+            raise TypeError("Can only instantiate subclasses of "
+                            "PyExtensionType")
+
+    def __init__(self, DataType storage_type):
+        ExtensionType.__init__(self, storage_type, "arrow.py_extension_type")
 
     def __reduce__(self):
         raise NotImplementedError("Please implement {0}.__reduce__"
@@ -597,7 +652,7 @@ cdef class ExtensionType(BaseExtensionType):
         return ty
 
 
-cdef class UnknownExtensionType(ExtensionType):
+cdef class UnknownExtensionType(PyExtensionType):
     """
     A concrete class for Python-defined extension types that refer to
     an unknown Python implementation.
@@ -608,10 +663,57 @@ cdef class UnknownExtensionType(ExtensionType):
 
     def __init__(self, DataType storage_type, serialized):
         self.serialized = serialized
-        ExtensionType.__init__(self, storage_type)
+        PyExtensionType.__init__(self, storage_type)
 
     def __arrow_ext_serialize__(self):
         return self.serialized
+
+
+_python_extension_types_registry = []
+
+
+def register_extension_type(ext_type):
+    """
+    Register a Python extension type.
+
+    Registration is based on the extension name (so different registered types
+    need unique extension names). Registration needs an extension type
+    instance, but then works for any instance of the same subclass regardless
+    of parametrization of the type.
+
+    Parameters
+    ----------
+    ext_type : BaseExtensionType instance
+        The ExtensionType subclass to register.
+
+    """
+    cdef:
+        DataType _type = ensure_type(ext_type, allow_none=False)
+
+    if not isinstance(_type, BaseExtensionType):
+        raise TypeError("Only extension types can be registered")
+
+    # register on the C++ side
+    check_status(
+        RegisterPyExtensionType(<shared_ptr[CDataType]> _type.sp_type))
+
+    # register on the python side
+    _python_extension_types_registry.append(_type)
+
+
+def unregister_extension_type(type_name):
+    """
+    Unregister a Python extension type.
+
+    Parameters
+    ----------
+    type_name : str
+        The name of the ExtensionType subclass to unregister.
+
+    """
+    cdef:
+        c_string c_type_name = tobytes(type_name)
+    check_status(UnregisterPyExtensionType(c_type_name))
 
 
 cdef class Field:
@@ -1990,23 +2092,30 @@ def _register_py_extension_type():
     cdef:
         DataType storage_type
         shared_ptr[CExtensionType] cpy_ext_type
+        c_string c_extension_name = tobytes("arrow.py_extension_type")
 
     # Make a dummy C++ ExtensionType
     storage_type = null()
-    check_status(CPyExtensionType.FromClass(storage_type.sp_type,
-                                            ExtensionType, &cpy_ext_type))
+    check_status(CPyExtensionType.FromClass(
+        storage_type.sp_type, c_extension_name, PyExtensionType,
+        &cpy_ext_type))
     check_status(
         RegisterPyExtensionType(<shared_ptr[CDataType]> cpy_ext_type))
 
 
-def _unregister_py_extension_type():
+def _unregister_py_extension_types():
     # This needs to be done explicitly before the Python interpreter is
     # finalized.  If the C++ type is destroyed later in the process
     # teardown stage, it will invoke CPython APIs such as Py_DECREF
     # with a destroyed interpreter.
-    check_status(UnregisterPyExtensionType())
+    unregister_extension_type("arrow.py_extension_type")
+    for ext_type in _python_extension_types_registry:
+        try:
+            unregister_extension_type(ext_type.extension_name)
+        except KeyError:
+            pass
     _registry_nanny.release_registry()
 
 
 _register_py_extension_type()
-atexit.register(_unregister_py_extension_type)
+atexit.register(_unregister_py_extension_types)
