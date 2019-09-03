@@ -52,7 +52,6 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_GANDIVA_JAVA=ON \
     -DARROW_GANDIVA_JAVA7=ON \
     -DBoost_NAMESPACE=arrow_boost \
-    -Ddouble-conversion_SOURCE=BUNDLED \
     -Dgflags_SOURCE=BUNDLED \
     -DRapidJSON_SOURCE=BUNDLED \
     -DRE2_SOURCE=BUNDLED \
