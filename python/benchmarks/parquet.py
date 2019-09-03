@@ -18,6 +18,7 @@
 import shutil
 import tempfile
 
+from pandas.util.testing import rands
 import numpy as np
 import pandas as pd
 
@@ -65,7 +66,7 @@ class ParquetWriteBinary(object):
         length = 1000000
         num_cols = 10
 
-        unique_values = np.array([pd.util.testing.rands(value_size) for
+        unique_values = np.array([rands(value_size) for
                                   i in range(nuniques)], dtype='O')
         values = unique_values[np.random.randint(0, nuniques, size=length)]
         self.table = pa.table([pa.array(values) for i in range(num_cols)],
@@ -87,3 +88,46 @@ class ParquetWriteBinary(object):
     def time_convert_pandas_and_write_binary_table(self):
         out = pa.BufferOutputStream()
         pq.write_table(pa.table(self.table_df), out)
+
+
+def generate_dict_strings(string_size, nunique, length, random_order=True):
+    uniques = np.array([rands(string_size) for i in range(nunique)], dtype='O')
+    if random_order:
+        indices = np.random.randint(0, nunique, size=length).astype('i4')
+    else:
+        indices = np.arange(nunique).astype('i4').repeat(length // nunique)
+    return pa.DictionaryArray.from_arrays(indices, uniques)
+
+
+def generate_dict_table(num_cols, string_size, nunique, length,
+                        random_order=True):
+    data = generate_dict_strings(string_size, nunique, length,
+                                 random_order=random_order)
+    return pa.table([
+        data for i in range(num_cols)
+    ], names=['f{}'.format(i) for i in range(num_cols)])
+
+
+class ParquetWriteDictionaries(object):
+
+    param_names = ('nunique',)
+    params = [(1000), (100000)]
+
+    def setup(self, nunique):
+        self.num_cols = 10
+        self.value_size = 32
+        self.nunique = nunique
+        self.length = 10000000
+
+        self.table = generate_dict_table(self.num_cols, self.value_size,
+                                         self.nunique, self.length)
+        self.table_sequential = generate_dict_table(self.num_cols,
+                                                    self.value_size,
+                                                    self.nunique, self.length,
+                                                    random_order=False)
+
+    def time_write_random_order(self, nunique):
+        pq.write_table(self.table, pa.BufferOutputStream())
+
+    def time_write_sequential(self, nunique):
+        pq.write_table(self.table_sequential, pa.BufferOutputStream())

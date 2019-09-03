@@ -441,6 +441,27 @@ class BM_ArrowBinaryDict : public BenchmarkDecodeArrow {
     num_dict_entries_ = dict_encoder->num_entries();
   }
 
+  template <typename IndexType>
+  void EncodeDictBenchmark(benchmark::State& state) {
+    constexpr int64_t nunique = 100;
+    constexpr int64_t min_length = 32;
+    constexpr int64_t max_length = 32;
+    ::arrow::random::RandomArrayGenerator rag(0);
+    auto dict = rag.String(nunique, min_length, max_length,
+                           /*null_probability=*/0);
+    auto indices = rag.Numeric<IndexType, int32_t>(num_values_, 0, nunique - 1);
+
+    auto PutValues = [&](ByteArrayEncoder* encoder) {
+      auto dict_encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(encoder);
+      dict_encoder->PutDictionary(*dict);
+      dict_encoder->PutIndices(*indices);
+    };
+    for (auto _ : state) {
+      DoEncode(std::move(PutValues));
+    }
+    state.SetItemsProcessed(state.iterations() * num_values_);
+  }
+
   void DoEncodeArrow() override {
     auto PutValues = [&](ByteArrayEncoder* encoder) {
       ASSERT_NO_THROW(encoder->Put(*input_array_));
@@ -482,6 +503,22 @@ class BM_ArrowBinaryDict : public BenchmarkDecodeArrow {
 BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, EncodeArrow)
 (benchmark::State& state) { EncodeArrowBenchmark(state); }
 BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, EncodeArrow)->Range(1 << 18, 1 << 20);
+
+BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, EncodeDictDirectInt8)
+(benchmark::State& state) { EncodeDictBenchmark<::arrow::Int8Type>(state); }
+BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, EncodeDictDirectInt8)->Range(1 << 20, 1 << 20);
+
+BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, EncodeDictDirectInt16)
+(benchmark::State& state) { EncodeDictBenchmark<::arrow::Int16Type>(state); }
+BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, EncodeDictDirectInt16)->Range(1 << 20, 1 << 20);
+
+BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, EncodeDictDirectInt32)
+(benchmark::State& state) { EncodeDictBenchmark<::arrow::Int32Type>(state); }
+BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, EncodeDictDirectInt32)->Range(1 << 20, 1 << 20);
+
+BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, EncodeDictDirectInt64)
+(benchmark::State& state) { EncodeDictBenchmark<::arrow::Int64Type>(state); }
+BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, EncodeDictDirectInt64)->Range(1 << 20, 1 << 20);
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, EncodeLowLevel)
 (benchmark::State& state) { EncodeLowLevelBenchmark(state); }
