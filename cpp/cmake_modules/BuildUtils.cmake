@@ -689,6 +689,9 @@ function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
 
   get_filename_component(FUZZING_NAME ${REL_FUZZING_NAME} NAME_WE)
 
+  # Make sure the executable name contains only hyphens, not underscores
+  string(REPLACE "_" "-" FUZZING_NAME ${FUZZING_NAME})
+
   if(ARG_PREFIX)
     set(FUZZING_NAME "${ARG_PREFIX}-${FUZZING_NAME}")
   endif()
