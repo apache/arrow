@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthInterceptor;
@@ -224,7 +225,19 @@ public class FlightServer implements AutoCloseable {
                   new FlightBindingService(allocator, producer, authHandler, exec),
                   new ServerAuthInterceptor(authHandler)));
 
-      // Allow setting some Netty-specific options
+      // Allow hooking into the gRPC builder. This is not guaranteed to be available on all Arrow versions or
+      // Flight implementations.
+      builderOptions.computeIfPresent("grpc.builderConsumer", (key, builderConsumer) -> {
+        final Consumer<NettyServerBuilder> consumer = (Consumer<NettyServerBuilder>) builderConsumer;
+        consumer.accept(builder);
+        return null;
+      });
+
+      // Allow explicitly setting some Netty-specific options
+      builderOptions.computeIfPresent("netty.channelType", (key, channelType) -> {
+        builder.channelType((Class<? extends ServerChannel>) channelType);
+        return null;
+      });
       builderOptions.computeIfPresent("netty.bossEventLoopGroup", (key, elg) -> {
         builder.bossEventLoopGroup((EventLoopGroup) elg);
         return null;

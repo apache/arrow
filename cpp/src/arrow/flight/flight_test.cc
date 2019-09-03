@@ -257,6 +257,33 @@ TEST(TestFlight, RoundtripStatus) {
   ASSERT_EQ(FlightStatusCode::Unavailable, detail->code());
 }
 
+TEST(TestFlight, GetPort) {
+  Location location;
+  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+
+  ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
+  FlightServerOptions options(location);
+  ASSERT_OK(server->Init(options));
+  ASSERT_GT(server->port(), 0);
+}
+
+TEST(TestFlight, BuilderHook) {
+  Location location;
+  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+
+  ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
+  FlightServerOptions options(location);
+  bool builder_hook_run = false;
+  options.builder_hook = [&builder_hook_run](void* builder) {
+    ASSERT_NE(nullptr, builder);
+    builder_hook_run = true;
+  };
+  ASSERT_OK(server->Init(options));
+  ASSERT_TRUE(builder_hook_run);
+  ASSERT_GT(server->port(), 0);
+  ASSERT_OK(server->Shutdown());
+}
+
 // ----------------------------------------------------------------------
 // Client tests
 

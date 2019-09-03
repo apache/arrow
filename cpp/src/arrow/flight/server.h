@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -106,6 +107,13 @@ class ARROW_FLIGHT_EXPORT FlightServerOptions {
   Location location;
   std::unique_ptr<ServerAuthHandler> auth_handler;
   std::vector<CertKeyPair> tls_certificates;
+  /// \brief A Flight implementation-specific callback to customize
+  /// transport-specific options.
+  /// Not guaranteed to be called. The type of the parameter is
+  /// specific to the Flight implementation. Users should take care to
+  /// link to the same transport implementation as Flight to avoid
+  /// runtime problems.
+  std::function<void(void*)> builder_hook;
 };
 
 /// \brief Skeleton RPC server implementation which can be used to create
@@ -121,6 +129,12 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// This method must be called before any other method.
   /// \param[in] options The configuration for this server.
   Status Init(FlightServerOptions& options);
+
+  /// \brief Get the port that the Flight server is listening on.
+  /// This method must only be called after Init().  Will return a
+  /// non-positive value if no port exists (e.g. when listening on a
+  /// domain socket).
+  int port() const;
 
   /// \brief Set the server to stop when receiving any of the given signal
   /// numbers.
