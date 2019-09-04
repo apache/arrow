@@ -277,7 +277,7 @@ TEST_F(TestBuilder, TestReserve) {
 
   // Reserve overallocates for small upsizes.
   ASSERT_OK(builder.Reserve(1030));
-  ASSERT_GE(builder.capacity(), 1500);
+  ASSERT_GE(builder.capacity(), 2000);
 }
 
 TEST_F(TestBuilder, TestResizeDownsize) {
@@ -521,7 +521,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestInit) {
 
   // Small upsize => should overallocate
   ASSERT_OK(this->builder_->Reserve(1200));
-  ASSERT_GE(1500, this->builder_->capacity());
+  ASSERT_GE(2000, this->builder_->capacity());
 
   // Large upsize => should allocate exactly
   ASSERT_OK(this->builder_->Reserve(32768));
