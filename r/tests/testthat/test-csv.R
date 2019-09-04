@@ -152,12 +152,12 @@ test_that("read_csv_arrow parsing options: na strings", {
   expect_equal(is.na(tab1$a), is.na(df$a))
   expect_equal(is.na(tab1$b), is.na(df$b))
 
-  tf2 <- tempfile()
-  on.exit(unlink(tf2))
-  write.csv(df, tf2, row.names=FALSE, na = "asdf")
-  expect_equal(grep("asdf", readLines(tf2)), 2:5)
+  unlink(tf) # Delete and write to the same file name again
 
-  tab2 <- read_csv_arrow(tf2, na = "asdf")
+  write.csv(df, tf, row.names=FALSE, na = "asdf")
+  expect_equal(grep("asdf", readLines(tf)), 2:5)
+
+  tab2 <- read_csv_arrow(tf, na = "asdf")
   expect_equal(is.na(tab2$a), is.na(df$a))
   expect_equal(is.na(tab2$b), is.na(df$b))
 })
