@@ -18,6 +18,34 @@
 groups:
   # these groups are just for convenience
   # makes it easier to submit related tasks
+  nightly:
+    - docker-r
+    - docker-r-conda
+    - docker-rust
+    - docker-cpp
+    - docker-cpp-cmake32
+    - docker-cpp-release
+    - docker-cpp-fuzzit
+    - docker-cpp-static-only
+    - docker-c_glib
+    - docker-go
+    - docker-python-2.7
+    - docker-python-3.6
+    - docker-python-3.7
+    - docker-python-2.7-nopandas
+    - docker-python-3.6-nopandas
+    - docker-java
+    - docker-js
+    - docker-docs
+    - docker-lint
+    - docker-iwyu
+    - docker-clang-format
+    - docker-pandas-master
+    - docker-dask-integration
+    - docker-hdfs-integration
+    - docker-spark-integration
+    - docker-turbodbc-integration
+
   docker:
     - docker-r
     - docker-r-conda
