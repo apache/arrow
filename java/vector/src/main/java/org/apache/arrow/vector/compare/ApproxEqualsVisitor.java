@@ -17,18 +17,10 @@
 
 package org.apache.arrow.vector.compare;
 
-import java.util.List;
-
 import org.apache.arrow.vector.BaseFixedWidthVector;
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
-import org.apache.arrow.vector.complex.FixedSizeListVector;
-import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.NonNullableStructVector;
-import org.apache.arrow.vector.complex.UnionVector;
 
 /**
  * Visitor to compare floating point.
@@ -49,24 +41,16 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
   private DiffFunction<Double> doubleDiffFunction =
       (Double value1, Double value2) -> Math.abs(value1 - value2);
 
-  public ApproxEqualsVisitor(ValueVector right, float epsilon) {
-    this (right, epsilon, epsilon, true);
-  }
-
-  public ApproxEqualsVisitor(ValueVector right, float floatEpsilon, double doubleEpsilon) {
-    this (right, floatEpsilon, doubleEpsilon, true);
-  }
-
-  public ApproxEqualsVisitor(ValueVector right, float floatEpsilon, double doubleEpsilon, boolean typeCheckNeeded) {
-    this (right, floatEpsilon, doubleEpsilon, typeCheckNeeded, 0, 0, right.getValueCount());
-  }
-
   /**
-   * Construct an instance.
+   * Constructs a new instance.
+   *
+   * @param left left vector
+   * @param right right vector
+   * @param floatEpsilon difference for float values
+   * @param doubleEpsilon difference for double values
    */
-  public ApproxEqualsVisitor(ValueVector right, float floatEpsilon, double doubleEpsilon, boolean typeCheckNeeded,
-      int leftStart, int rightStart, int length) {
-    super(right, rightStart, leftStart, length, typeCheckNeeded);
+  public ApproxEqualsVisitor(ValueVector left, ValueVector right, float floatEpsilon, double doubleEpsilon) {
+    super(left, right, true);
     this.floatEpsilon = floatEpsilon;
     this.doubleEpsilon = doubleEpsilon;
   }
@@ -80,151 +64,38 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
   }
 
   @Override
-  public Boolean visit(BaseFixedWidthVector left, Void value) {
+  public Boolean visit(BaseFixedWidthVector left, Range range) {
     if (left instanceof Float4Vector) {
-      return validate(left) && float4ApproxEquals((Float4Vector) left);
+      return float4ApproxEquals(range);
     } else if (left instanceof Float8Vector) {
-      return validate(left) && float8ApproxEquals((Float8Vector) left);
+      return float8ApproxEquals(range);
     } else {
-      return super.visit(left, value);
+      return super.visit(left, range);
     }
   }
 
   @Override
-  protected boolean compareUnionVectors(UnionVector left) {
-
-    UnionVector rightVector = (UnionVector) right;
-
-    List<FieldVector> leftChildren = left.getChildrenFromFields();
-    List<FieldVector> rightChildren = rightVector.getChildrenFromFields();
-
-    if (leftChildren.size() != rightChildren.size()) {
-      return false;
-    }
-
-    for (int k = 0; k < leftChildren.size(); k++) {
-      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(rightChildren.get(k),
-          floatEpsilon, doubleEpsilon);
-      if (!leftChildren.get(k).accept(visitor, null)) {
-        return false;
-      }
-    }
-    return true;
+  protected ApproxEqualsVisitor createInnerVisitor(ValueVector left, ValueVector right) {
+    return new ApproxEqualsVisitor(left, right, floatEpsilon, doubleEpsilon);
   }
 
-  @Override
-  protected boolean compareStructVectors(NonNullableStructVector left) {
+  private boolean float4ApproxEquals(Range range) {
+    Float4Vector leftVector  = (Float4Vector) getLeft();
+    Float4Vector rightVector  = (Float4Vector) getRight();
 
-    NonNullableStructVector rightVector = (NonNullableStructVector) right;
+    for (int i = 0; i < range.getLength(); i++) {
+      int leftIndex = range.getLeftStart() + i;
+      int rightIndex = range.getRightStart() + i;
 
-    if (!left.getChildFieldNames().equals(rightVector.getChildFieldNames())) {
-      return false;
-    }
+      boolean isNull = leftVector.isNull(leftIndex);
 
-    for (String name : left.getChildFieldNames()) {
-      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(rightVector.getChild(name),
-          floatEpsilon, doubleEpsilon);
-      if (!left.getChild(name).accept(visitor, null)) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  @Override
-  protected boolean compareListVectors(ListVector left) {
-
-    for (int i = 0; i < length; i++) {
-      int leftIndex = leftStart + i;
-      int rightIndex = rightStart + i;
-
-      boolean isNull = left.isNull(leftIndex);
-      if (isNull != right.isNull(rightIndex)) {
-        return false;
-      }
-
-      int offsetWidth = BaseRepeatedValueVector.OFFSET_WIDTH;
-
-      if (!isNull) {
-        final int startIndexLeft = left.getOffsetBuffer().getInt(leftIndex * offsetWidth);
-        final int endIndexLeft = left.getOffsetBuffer().getInt((leftIndex + 1) * offsetWidth);
-
-        final int startIndexRight = right.getOffsetBuffer().getInt(rightIndex * offsetWidth);
-        final int endIndexRight = right.getOffsetBuffer().getInt((rightIndex + 1) * offsetWidth);
-
-        if ((endIndexLeft - startIndexLeft) != (endIndexRight - startIndexRight)) {
-          return false;
-        }
-
-        ValueVector leftDataVector = left.getDataVector();
-        ValueVector rightDataVector = ((ListVector)right).getDataVector();
-
-        if (!leftDataVector.accept(new ApproxEqualsVisitor(rightDataVector, floatEpsilon, doubleEpsilon,
-            typeCheckNeeded, startIndexLeft, startIndexRight, (endIndexLeft - startIndexLeft)), null)) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
-  protected boolean compareFixedSizeListVectors(FixedSizeListVector left) {
-
-    if (left.getListSize() != ((FixedSizeListVector)right).getListSize()) {
-      return false;
-    }
-
-    for (int i = 0; i < length; i++) {
-      int leftIndex = leftStart + i;
-      int rightIndex = rightStart + i;
-
-      boolean isNull = left.isNull(leftIndex);
-      if (isNull != right.isNull(rightIndex)) {
-        return false;
-      }
-
-      int listSize = left.getListSize();
-
-      if (!isNull) {
-        final int startIndexLeft = leftIndex * listSize;
-        final int endIndexLeft = (leftIndex + 1) * listSize;
-
-        final int startIndexRight = rightIndex * listSize;
-        final int endIndexRight = (rightIndex + 1) * listSize;
-
-        if ((endIndexLeft - startIndexLeft) != (endIndexRight - startIndexRight)) {
-          return false;
-        }
-
-        ValueVector leftDataVector = left.getDataVector();
-        ValueVector rightDataVector = ((FixedSizeListVector)right).getDataVector();
-
-        if (!leftDataVector.accept(new ApproxEqualsVisitor(rightDataVector, floatEpsilon, doubleEpsilon,
-            typeCheckNeeded, startIndexLeft, startIndexRight, (endIndexLeft - startIndexLeft)), null)) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
-  private boolean float4ApproxEquals(Float4Vector left) {
-
-    for (int i = 0; i < length; i++) {
-      int leftIndex = leftStart + i;
-      int rightIndex = rightStart + i;
-
-      boolean isNull = left.isNull(leftIndex);
-
-      if (isNull != right.isNull(rightIndex)) {
+      if (isNull != rightVector.isNull(rightIndex)) {
         return false;
       }
 
       if (!isNull) {
-
-        Float leftValue = left.get(leftIndex);
-        Float rightValue = ((Float4Vector)right).get(rightIndex);
+        Float leftValue = leftVector.get(leftIndex);
+        Float rightValue = rightVector.get(rightIndex);
         if (leftValue.isNaN()) {
           return rightValue.isNaN();
         }
@@ -239,21 +110,24 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
     return true;
   }
 
-  private boolean float8ApproxEquals(Float8Vector left) {
-    for (int i = 0; i < length; i++) {
-      int leftIndex = leftStart + i;
-      int rightIndex = rightStart + i;
+  private boolean float8ApproxEquals(Range range) {
+    Float8Vector leftVector  = (Float8Vector) getLeft();
+    Float8Vector rightVector  = (Float8Vector) getRight();
 
-      boolean isNull = left.isNull(leftIndex);
+    for (int i = 0; i < range.getLength(); i++) {
+      int leftIndex = range.getLeftStart() + i;
+      int rightIndex = range.getRightStart() + i;
 
-      if (isNull != right.isNull(rightIndex)) {
+      boolean isNull = leftVector.isNull(leftIndex);
+
+      if (isNull != rightVector.isNull(rightIndex)) {
         return false;
       }
 
       if (!isNull) {
 
-        Double leftValue = left.get(leftIndex);
-        Double rightValue = ((Float8Vector)right).get(rightIndex);
+        Double leftValue = leftVector.get(leftIndex);
+        Double rightValue = rightVector.get(rightIndex);
         if (leftValue.isNaN()) {
           return rightValue.isNaN();
         }

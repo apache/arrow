@@ -36,6 +36,7 @@ import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.ArrowBufPointer;
+import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.complex.ListVector;
@@ -2261,8 +2262,8 @@ public class TestValueVector {
     try (final ZeroVector vector1 = new ZeroVector();
         final ZeroVector vector2 = new ZeroVector()) {
 
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertTrue(visitor.equals(vector1));
+      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
+      assertTrue(visitor.vectorEquals(vector1, vector2));
     }
   }
 
@@ -2271,11 +2272,11 @@ public class TestValueVector {
     try (final IntVector intVector = new IntVector("int", allocator);
         final ZeroVector zeroVector = new ZeroVector()) {
 
-      VectorEqualsVisitor zeroVisitor = new VectorEqualsVisitor(zeroVector);
-      assertFalse(zeroVisitor.equals(intVector));
+      VectorEqualsVisitor zeroVisitor = new VectorEqualsVisitor();
+      assertFalse(zeroVisitor.vectorEquals(intVector, zeroVector));
 
-      VectorEqualsVisitor intVisitor = new VectorEqualsVisitor(intVector);
-      assertFalse(intVisitor.equals(zeroVector));
+      VectorEqualsVisitor intVisitor = new VectorEqualsVisitor();
+      assertFalse(intVisitor.vectorEquals(zeroVector, intVector));
     }
   }
 
@@ -2293,9 +2294,9 @@ public class TestValueVector {
       vector1.setSafe(1, 2);
 
       vector2.setSafe(0, 1);
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
+      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
 
-      assertFalse(visitor.equals(vector1));
+      assertFalse(visitor.vectorEquals(vector1, vector2));
     }
   }
 
@@ -2316,16 +2317,16 @@ public class TestValueVector {
       vector2.setSafe(0, 1);
       vector2.setSafe(1, 2);
 
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
+      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
 
-      assertFalse(visitor.equals(vector1));
+      assertFalse(visitor.vectorEquals(vector1, vector2));
 
       vector2.setValueCount(3);
       vector2.setSafe(2, 2);
       assertFalse(vector1.equals(vector2));
 
       vector2.setSafe(2, 3);
-      assertTrue(visitor.equals(vector1));
+      assertTrue(visitor.vectorEquals(vector1, vector2));
     }
   }
 
@@ -2351,11 +2352,11 @@ public class TestValueVector {
       vector3.setSafe(0, 100);
       vector3.setSafe(1, 200);
 
-      VectorEqualsVisitor visitor1 = new VectorEqualsVisitor(vector2);
-      VectorEqualsVisitor visitor2 = new VectorEqualsVisitor(vector3);
+      VectorEqualsVisitor visitor1 = new VectorEqualsVisitor();
+      VectorEqualsVisitor visitor2 = new VectorEqualsVisitor();
 
-      assertTrue(visitor1.equals(vector1));
-      assertFalse(visitor2.equals(vector1));
+      assertTrue(visitor1.vectorEquals(vector1, vector2));
+      assertFalse(visitor2.vectorEquals(vector1, vector3));
     }
   }
 
@@ -2375,8 +2376,8 @@ public class TestValueVector {
       vector2.setSafe(0, STR1, 0, STR1.length);
       vector2.setValueCount(2);
 
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertFalse(visitor.equals(vector1));
+      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
+      assertFalse(visitor.vectorEquals(vector1, vector2));
     }
   }
 
@@ -2398,12 +2399,12 @@ public class TestValueVector {
       vector2.setSafe(1, STR2, 0, STR2.length);
       vector2.setValueCount(2);
 
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertFalse(visitor.equals(vector1));
+      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
+      assertFalse(visitor.vectorEquals(vector1, vector2));
 
       vector2.setSafe(2, STR3, 0, STR3.length);
       vector2.setValueCount(3);
-      assertTrue(visitor.equals(vector1));
+      assertTrue(visitor.vectorEquals(vector1, vector2));
     }
   }
 
@@ -2425,12 +2426,12 @@ public class TestValueVector {
       vector2.setSafe(1, STR2, 0, STR2.length);
       vector2.setValueCount(2);
 
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertFalse(visitor.equals(vector1));
+      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
+      assertFalse(visitor.vectorEquals(vector1, vector2));
 
       vector2.setSafe(2, STR3, 0, STR3.length);
       vector2.setValueCount(3);
-      assertTrue(visitor.equals(vector1));
+      assertTrue(visitor.vectorEquals(vector1, vector2));
     }
   }
 
@@ -2456,9 +2457,9 @@ public class TestValueVector {
       writeListVector(writer2, new int[] {3, 4});
       writer2.setValueCount(3);
 
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
+      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
 
-      assertFalse(visitor.equals(vector1));
+      assertFalse(visitor.vectorEquals(vector1, vector2));
     }
   }
 
@@ -2484,13 +2485,13 @@ public class TestValueVector {
       writeListVector(writer2, new int[] {3, 4});
       writer2.setValueCount(2);
 
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertFalse(visitor.equals(vector1));
+      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
+      assertFalse(visitor.vectorEquals(vector1, vector2));
 
       writeListVector(writer2, new int[] {5, 6});
       writer2.setValueCount(3);
 
-      assertTrue(visitor.equals(vector1));
+      assertTrue(visitor.vectorEquals(vector1, vector2));
     }
   }
 
@@ -2519,8 +2520,8 @@ public class TestValueVector {
       writeStructVector(writer2, 3, 30L);
       writer2.setValueCount(3);
 
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertFalse(visitor.equals(vector1));
+      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
+      assertFalse(visitor.vectorEquals(vector1, vector2));
     }
   }
 
@@ -2548,13 +2549,13 @@ public class TestValueVector {
       writeStructVector(writer2, 2, 20L);
       writer2.setValueCount(2);
 
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertFalse(visitor.equals(vector1));
+      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
+      assertFalse(visitor.vectorEquals(vector1, vector2));
 
       writeStructVector(writer2, 3, 30L);
       writer2.setValueCount(3);
 
-      assertTrue(visitor.equals(vector1));
+      assertTrue(visitor.vectorEquals(vector1, vector2));
     }
   }
 
@@ -2581,8 +2582,8 @@ public class TestValueVector {
       writeStructVector(writer2, 2, 20L);
       writer2.setValueCount(2);
 
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertFalse(visitor.equals(vector1));
+      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
+      assertFalse(visitor.vectorEquals(vector1, vector2));
     }
   }
 
@@ -2613,8 +2614,8 @@ public class TestValueVector {
       vector2.setSafe(1, intHolder);
       vector2.setValueCount(2);
 
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor(vector2);
-      assertTrue(visitor.equals(vector1));
+      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
+      assertTrue(visitor.vectorEquals(vector1, vector2));
     }
   }
 
@@ -2634,8 +2635,7 @@ public class TestValueVector {
       vector2.setSafe(0, 1);
       vector2.setSafe(1, 2);
 
-      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector2, 3, 2, 1);
-      assertTrue(visitor.equals(vector1));
+      assertTrue(new RangeEqualsVisitor(vector1, vector2).rangeEquals(new Range(2, 3, 1)));
     }
   }
 

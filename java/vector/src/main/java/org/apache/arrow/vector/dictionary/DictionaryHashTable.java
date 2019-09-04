@@ -18,6 +18,7 @@
 package org.apache.arrow.vector.dictionary;
 
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 
 /**
@@ -136,12 +137,17 @@ public class DictionaryHashTable {
   public int getIndex(int indexInArray, ValueVector toEncode) {
     int hash = toEncode.hashCode(indexInArray);
     int index = indexFor(hash, table.length);
+
+    RangeEqualsVisitor equalVisitor = new RangeEqualsVisitor(dictionary, toEncode, false);
+    Range range = new Range(0, 0, 1);
+
     for (DictionaryHashTable.Entry e = table[index]; e != null ; e = e.next) {
       if (e.hash == hash) {
         int dictIndex = e.index;
 
-        if (new RangeEqualsVisitor(dictionary, dictIndex, indexInArray, 1, false)
-            .equals(toEncode)) {
+        range = range.setRightStart(indexInArray)
+            .setLeftStart(dictIndex);
+        if (equalVisitor.rangeEquals(range)) {
           return dictIndex;
         }
       }
