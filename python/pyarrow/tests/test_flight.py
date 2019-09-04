@@ -338,18 +338,20 @@ class HttpBasicServerAuthHandler(ServerAuthHandler):
         self.creds = creds
 
     def authenticate(self, outgoing, incoming):
-        pass
+        buf = incoming.read()
+        auth = flight.BasicAuth.deserialize(buf)
+        if auth.username not in self.creds:
+            raise flight.FlightUnauthenticatedError("unknown user")
+        if self.creds[auth.username] != auth.password:
+            raise flight.FlightUnauthenticatedError("wrong password")
+        outgoing.write(tobytes(auth.username))
 
     def is_valid(self, token):
         if not token:
             raise flight.FlightUnauthenticatedError("token not provided")
-        token = base64.b64decode(token)
-        username, password = token.split(b':')
-        if username not in self.creds:
+        if token not in self.creds:
             raise flight.FlightUnauthenticatedError("unknown user")
-        if self.creds[username] != password:
-            raise flight.FlightUnauthenticatedError("wrong password")
-        return username
+        return token
 
 
 class HttpBasicClientAuthHandler(ClientAuthHandler):
@@ -357,14 +359,16 @@ class HttpBasicClientAuthHandler(ClientAuthHandler):
 
     def __init__(self, username, password):
         super(HttpBasicClientAuthHandler, self).__init__()
-        self.username = tobytes(username)
-        self.password = tobytes(password)
+        self.basic_auth = flight.BasicAuth(username, password)
+        self.token = None
 
     def authenticate(self, outgoing, incoming):
-        pass
+        auth = self.basic_auth.serialize()
+        outgoing.write(auth)
+        self.token = incoming.read()
 
     def get_token(self):
-        return base64.b64encode(self.username + b':' + self.password)
+        return self.token
 
 
 class TokenServerAuthHandler(ServerAuthHandler):
@@ -679,9 +683,9 @@ def test_http_basic_auth_invalid_password():
                        auth_handler=basic_auth_handler) as server_location:
         client = flight.FlightClient.connect(server_location)
         action = flight.Action("who-am-i", b"")
-        client.authenticate(HttpBasicClientAuthHandler('test', 'wrong'))
         with pytest.raises(flight.FlightUnauthenticatedError,
                            match=".*wrong password.*"):
+            client.authenticate(HttpBasicClientAuthHandler('test', 'wrong'))
             next(client.do_action(action))
 
 

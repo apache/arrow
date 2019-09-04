@@ -143,6 +143,16 @@ struct ARROW_FLIGHT_EXPORT Result {
   std::shared_ptr<Buffer> body;
 };
 
+/// \brief message for simple auth
+struct ARROW_FLIGHT_EXPORT BasicAuth {
+  std::string username;
+  std::string password;
+
+  static Status Deserialize(const std::string& serialized, BasicAuth* out);
+
+  static Status Serialize(const BasicAuth& basic_auth, std::string* out);
+};
+
 /// \brief A message received after completing a DoPut stream
 struct ARROW_FLIGHT_EXPORT PutResult {};
 
