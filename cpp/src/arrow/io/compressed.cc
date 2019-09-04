@@ -44,7 +44,7 @@ namespace io {
 class CompressedOutputStream::Impl {
  public:
   Impl(MemoryPool* pool, const std::shared_ptr<OutputStream>& raw)
-      : pool_(pool), raw_(raw), is_open_(true), compressed_pos_(0) {}
+      : pool_(pool), raw_(raw), is_open_(false), compressed_pos_(0) {}
 
   ~Impl() { ARROW_CHECK_OK(Close()); }
 
@@ -52,6 +52,7 @@ class CompressedOutputStream::Impl {
     RETURN_NOT_OK(codec->MakeCompressor(&compressor_));
     RETURN_NOT_OK(AllocateResizableBuffer(pool_, kChunkSize, &compressed_));
     compressed_pos_ = 0;
+    is_open_ = true;
     return Status::OK();
   }
 
