@@ -34,6 +34,7 @@
 
 namespace red_arrow {
   extern VALUE cDate;
+
   extern VALUE cArrowTime;
 
   extern VALUE ArrowTimeUnitSECOND;
@@ -45,6 +46,9 @@ namespace red_arrow {
   extern ID id_jd;
   extern ID id_new;
   extern ID id_to_datetime;
+
+  VALUE array_values(VALUE obj);
+  VALUE chunked_array_values(VALUE obj);
 
   VALUE record_batch_raw_records(VALUE obj);
   VALUE table_raw_records(VALUE obj);
@@ -79,6 +83,13 @@ namespace red_arrow {
     default:
       rb_raise(rb_eArgError, "invalid arrow::TimeUnit: %d", unit);
       return Qnil;
+    }
+  }
+
+  inline void check_status(const arrow::Status&& status, const char* context) {
+    GError* error = nullptr;
+    if (!garrow_error_check(&error, status, context)) {
+      RG_RAISE_ERROR(error);
     }
   }
 }

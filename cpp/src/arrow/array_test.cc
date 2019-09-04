@@ -277,7 +277,7 @@ TEST_F(TestBuilder, TestReserve) {
 
   // Reserve overallocates for small upsizes.
   ASSERT_OK(builder.Reserve(1030));
-  ASSERT_GE(builder.capacity(), 1500);
+  ASSERT_GE(builder.capacity(), 2000);
 }
 
 TEST_F(TestBuilder, TestResizeDownsize) {
@@ -521,7 +521,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestInit) {
 
   // Small upsize => should overallocate
   ASSERT_OK(this->builder_->Reserve(1200));
-  ASSERT_GE(1500, this->builder_->capacity());
+  ASSERT_GE(2000, this->builder_->capacity());
 
   // Large upsize => should allocate exactly
   ASSERT_OK(this->builder_->Reserve(32768));
@@ -544,6 +544,13 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
   for (int64_t i = 0; i < size; ++i) {
     ASSERT_TRUE(result->IsNull(i)) << i;
   }
+
+  for (auto buffer : result->data()->buffers) {
+    for (int64_t i = 0; i < buffer->capacity(); i++) {
+      // Validates current implementation, algorithms shouldn't rely on this
+      ASSERT_EQ(0, *(buffer->data() + i)) << i;
+    }
+  }
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendNulls) {
@@ -555,6 +562,13 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNulls) {
 
   for (int64_t i = 0; i < size; ++i) {
     ASSERT_FALSE(result->IsValid(i));
+  }
+
+  for (auto buffer : result->data()->buffers) {
+    for (int64_t i = 0; i < buffer->capacity(); i++) {
+      // Validates current implementation, algorithms shouldn't rely on this
+      ASSERT_EQ(0, *(buffer->data() + i)) << i;
+    }
   }
 }
 
@@ -1369,6 +1383,26 @@ TEST_F(TestFWBinaryArray, Slice) {
   slice2 = array->Slice(1, 3);
   ASSERT_TRUE(slice->Equals(slice2));
   ASSERT_TRUE(array->RangeEquals(1, 3, 0, slice));
+}
+
+TEST_F(TestFWBinaryArray, BuilderNulls) {
+  auto type = fixed_size_binary(4);
+  FixedSizeBinaryBuilder builder(type);
+
+  for (int x = 0; x < 100; x++) {
+    ASSERT_OK(builder.AppendNull());
+  }
+  ASSERT_OK(builder.AppendNulls(500));
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(builder.Finish(&array));
+
+  for (auto buffer : array->data()->buffers) {
+    for (int64_t i = 0; i < buffer->capacity(); i++) {
+      // Validates current implementation, algorithms shouldn't rely on this
+      ASSERT_EQ(0, *(buffer->data() + i)) << i;
+    }
+  }
 }
 
 // ----------------------------------------------------------------------

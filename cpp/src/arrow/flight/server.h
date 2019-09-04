@@ -166,6 +166,15 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
                                const FlightDescriptor& request,
                                std::unique_ptr<FlightInfo>* info);
 
+  /// \brief Retrieve the schema for the indicated descriptor
+  /// \param[in] context The call context.
+  /// \param[in] request may be null
+  /// \param[out] schema the returned flight schema provider
+  /// \return Status
+  virtual Status GetSchema(const ServerCallContext& context,
+                           const FlightDescriptor& request,
+                           std::unique_ptr<SchemaResult>* schema);
+
   /// \brief Get a stream of IPC payloads to put on the wire
   /// \param[in] context The call context.
   /// \param[in] request an opaque ticket

@@ -25,6 +25,8 @@ import java.nio.charset.Charset;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.ZeroVector;
@@ -33,8 +35,11 @@ import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.holders.NullableFloat4Holder;
+import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
+import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -253,6 +258,191 @@ public class TestRangeEqualsVisitor {
     }
   }
 
+  @Test
+  public void testFloat4ApproxEquals() {
+    try (final Float4Vector vector1 = new Float4Vector("float", allocator);
+         final Float4Vector vector2 = new Float4Vector("float", allocator);
+         final Float4Vector vector3 = new Float4Vector("float", allocator)) {
+
+      vector1.allocateNew(2);
+      vector1.setValueCount(2);
+      vector2.allocateNew(2);
+      vector2.setValueCount(2);
+      vector3.allocateNew(2);
+      vector3.setValueCount(2);
+
+      vector1.setSafe(0, 1.1f);
+      vector1.setSafe(1, 2.2f);
+
+      float epsilon = 1.0E-6f;
+
+      vector2.setSafe(0, 1.1f + epsilon / 2);
+      vector2.setSafe(1, 2.2f + epsilon / 2);
+
+      vector3.setSafe(0, 1.1f + epsilon * 2);
+      vector3.setSafe(1, 2.2f + epsilon * 2);
+
+      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(vector1, epsilon);
+
+      assertTrue(visitor.equals(vector2));
+      assertFalse(visitor.equals(vector3));
+    }
+  }
+
+  @Test
+  public void testFloat8ApproxEquals() {
+    try (final Float8Vector vector1 = new Float8Vector("float", allocator);
+        final Float8Vector vector2 = new Float8Vector("float", allocator);
+        final Float8Vector vector3 = new Float8Vector("float", allocator)) {
+
+      vector1.allocateNew(2);
+      vector1.setValueCount(2);
+      vector2.allocateNew(2);
+      vector2.setValueCount(2);
+      vector3.allocateNew(2);
+      vector3.setValueCount(2);
+
+      vector1.setSafe(0, 1.1);
+      vector1.setSafe(1, 2.2);
+
+      float epsilon = 1.0E-6f;
+
+      vector2.setSafe(0, 1.1 + epsilon / 2);
+      vector2.setSafe(1, 2.2 + epsilon / 2);
+
+      vector3.setSafe(0, 1.1 + epsilon * 2);
+      vector3.setSafe(1, 2.2 + epsilon * 2);
+
+      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(vector1, epsilon);
+
+      assertTrue(visitor.equals(vector2));
+      assertFalse(visitor.equals(vector3));
+    }
+  }
+
+  @Test
+  public void testStructVectorApproxEquals() {
+    try (final StructVector right = StructVector.empty("struct", allocator);
+        final StructVector left1 = StructVector.empty("struct", allocator);
+        final StructVector left2 = StructVector.empty("struct", allocator);
+        ) {
+      right.addOrGet("f0",
+          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), Float4Vector.class);
+      right.addOrGet("f1",
+          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), Float8Vector.class);
+      left1.addOrGet("f0",
+          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), Float4Vector.class);
+      left1.addOrGet("f1",
+          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), Float8Vector.class);
+      left2.addOrGet("f0",
+          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), Float4Vector.class);
+      left2.addOrGet("f1",
+          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), Float8Vector.class);
+
+      final float epsilon = 1.0E-6f;
+
+      NullableStructWriter rightWriter = right.getWriter();
+      rightWriter.allocate();
+      writeStructVector(rightWriter, 1.1f, 2.2);
+      writeStructVector(rightWriter, 2.02f, 4.04);
+      rightWriter.setValueCount(2);
+
+      NullableStructWriter leftWriter1 = left1.getWriter();
+      leftWriter1.allocate();
+      writeStructVector(leftWriter1, 1.1f + epsilon / 2, 2.2 + epsilon / 2);
+      writeStructVector(leftWriter1, 2.02f - epsilon / 2, 4.04 - epsilon / 2);
+      leftWriter1.setValueCount(2);
+
+      NullableStructWriter leftWriter2 = left2.getWriter();
+      leftWriter2.allocate();
+      writeStructVector(leftWriter2, 1.1f + epsilon * 2, 2.2 + epsilon * 2);
+      writeStructVector(leftWriter2, 2.02f - epsilon * 2, 4.04 - epsilon * 2);
+      leftWriter2.setValueCount(2);
+
+      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(right, epsilon);
+      assertTrue(visitor.equals(left1));
+      assertFalse(visitor.equals(left2));
+    }
+  }
+
+  @Test
+  public void testUnionVectorApproxEquals() {
+    try (final UnionVector right = new UnionVector("union", allocator, null);
+         final UnionVector left1 = new UnionVector("union", allocator, null);
+         final UnionVector left2 = new UnionVector("union", allocator, null);) {
+
+      final NullableFloat4Holder float4Holder = new NullableFloat4Holder();
+      float4Holder.value = 1.01f;
+      float4Holder.isSet = 1;
+
+      final NullableFloat8Holder float8Holder = new NullableFloat8Holder();
+      float8Holder.value = 2.02f;
+      float8Holder.isSet = 1;
+
+      final float epsilon = 1.0E-6f;
+
+      right.setType(0, Types.MinorType.FLOAT4);
+      right.setSafe(0, float4Holder);
+      right.setType(1, Types.MinorType.FLOAT8);
+      right.setSafe(1, float8Holder);
+      right.setValueCount(2);
+
+      float4Holder.value += epsilon / 2;
+      float8Holder.value += epsilon / 2;
+
+      left1.setType(0, Types.MinorType.FLOAT4);
+      left1.setSafe(0, float4Holder);
+      left1.setType(1, Types.MinorType.FLOAT8);
+      left1.setSafe(1, float8Holder);
+      left1.setValueCount(2);
+
+      float4Holder.value += epsilon * 2;
+      float8Holder.value += epsilon * 2;
+
+      left2.setType(0, Types.MinorType.FLOAT4);
+      left2.setSafe(0, float4Holder);
+      left2.setType(1, Types.MinorType.FLOAT8);
+      left2.setSafe(1, float8Holder);
+      left2.setValueCount(2);
+
+      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(right, epsilon);
+      assertTrue(visitor.equals(left1));
+      assertFalse(visitor.equals(left2));
+    }
+  }
+
+  @Test
+  public void testListVectorApproxEquals() {
+    try (final ListVector right = ListVector.empty("list", allocator);
+         final ListVector left1 = ListVector.empty("list", allocator);
+         final ListVector left2 = ListVector.empty("list", allocator);) {
+
+      final float epsilon = 1.0E-6f;
+
+      UnionListWriter rightWriter = right.getWriter();
+      rightWriter.allocate();
+      writeListVector(rightWriter, new double[] {1, 2});
+      writeListVector(rightWriter, new double[] {1.01, 2.02});
+      rightWriter.setValueCount(2);
+
+      UnionListWriter leftWriter1 = left1.getWriter();
+      leftWriter1.allocate();
+      writeListVector(leftWriter1, new double[] {1, 2});
+      writeListVector(leftWriter1, new double[] {1.01 + epsilon / 2, 2.02 - epsilon / 2});
+      leftWriter1.setValueCount(2);
+
+      UnionListWriter leftWriter2 = left2.getWriter();
+      leftWriter2.allocate();
+      writeListVector(leftWriter2, new double[] {1, 2});
+      writeListVector(leftWriter2, new double[] {1.01 + epsilon * 2, 2.02 - epsilon * 2});
+      leftWriter2.setValueCount(2);
+
+      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(right, epsilon);
+      assertTrue(visitor.equals(left1));
+      assertFalse(visitor.equals(left2));
+    }
+  }
+
   private void writeStructVector(NullableStructWriter writer, int value1, long value2) {
     writer.start();
     writer.integer("f0").writeInt(value1);
@@ -260,10 +450,25 @@ public class TestRangeEqualsVisitor {
     writer.end();
   }
 
+  private void writeStructVector(NullableStructWriter writer, float value1, double value2) {
+    writer.start();
+    writer.float4("f0").writeFloat4(value1);
+    writer.float8("f1").writeFloat8(value2);
+    writer.end();
+  }
+
   private void writeListVector(UnionListWriter writer, int[] values) {
     writer.startList();
     for (int v: values) {
       writer.integer().writeInt(v);
+    }
+    writer.endList();
+  }
+
+  private void writeListVector(UnionListWriter writer, double[] values) {
+    writer.startList();
+    for (double v: values) {
+      writer.float8().writeFloat8(v);
     }
     writer.endList();
   }

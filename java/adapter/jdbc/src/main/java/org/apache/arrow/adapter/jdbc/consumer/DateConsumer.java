@@ -23,8 +23,6 @@ import java.util.Calendar;
 import java.util.Date;
 
 import org.apache.arrow.vector.DateMilliVector;
-import org.apache.arrow.vector.complex.impl.DateMilliWriterImpl;
-import org.apache.arrow.vector.complex.writer.DateMilliWriter;
 
 /**
  * Consumer which consume date type values from {@link ResultSet}.
@@ -32,9 +30,11 @@ import org.apache.arrow.vector.complex.writer.DateMilliWriter;
  */
 public class DateConsumer implements JdbcConsumer<DateMilliVector> {
 
-  private DateMilliWriter writer;
+  private DateMilliVector vector;
   private final int columnIndexInResultSet;
   private final Calendar calendar;
+
+  private int currentIndex;
 
   /**
    * Instantiate a DateConsumer.
@@ -47,7 +47,7 @@ public class DateConsumer implements JdbcConsumer<DateMilliVector> {
    * Instantiate a DateConsumer.
    */
   public DateConsumer(DateMilliVector vector, int index, Calendar calendar) {
-    this.writer = new DateMilliWriterImpl(vector);
+    this.vector = vector;
     this.columnIndexInResultSet = index;
     this.calendar = calendar;
   }
@@ -57,13 +57,18 @@ public class DateConsumer implements JdbcConsumer<DateMilliVector> {
     Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
         resultSet.getDate(columnIndexInResultSet, calendar);
     if (!resultSet.wasNull()) {
-      writer.writeDateMilli(date.getTime());
+      vector.setSafe(currentIndex++, date.getTime());
     }
-    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
   }
 
   @Override
   public void resetValueVector(DateMilliVector vector) {
-    this.writer = new DateMilliWriterImpl(vector);
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

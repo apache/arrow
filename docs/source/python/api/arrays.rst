@@ -70,6 +70,7 @@ may expose data type-specific methods or properties.
    LargeListArray
    StructArray
    UnionArray
+   ExtensionArray
 
 .. _api.scalar:
 

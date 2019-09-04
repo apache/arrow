@@ -641,7 +641,7 @@ The report is then generated in ``compat_reports/libarrow`` as a HTML.
 Debugging with Xcode on macOS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Xcode is the IDE provided with macOS and can be use to develop and debug Arrow 
+Xcode is the IDE provided with macOS and can be use to develop and debug Arrow
 by generating an Xcode project:
 
 .. code-block:: shell
@@ -652,10 +652,10 @@ by generating an Xcode project:
    cmake .. -G Xcode -DARROW_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=DEBUG
    open arrow.xcodeproj
 
-This will generate a project and open it in the Xcode app. As an alternative, 
+This will generate a project and open it in the Xcode app. As an alternative,
 the command ``xcodebuild`` will perform a command-line build using the
 generated project. It is recommended to use the "Automatically Create Schemes"
-option when first launching the project.  Selecting an auto-generated scheme 
+option when first launching the project.  Selecting an auto-generated scheme
 will allow you to build and run a unittest with breakpoints enabled.
 
 Developing on Windows
@@ -1011,38 +1011,48 @@ This section provides some information about some of the abstractions and
 development approaches we use to solve problems common to many parts of the C++
 project.
 
+File Naming
+~~~~~~~~~~~
+
+C++ source and header files should use underscores for word separation, not hyphens.
+Compiled executables, however, will automatically use hyphens (such that
+e.g. ``src/arrow/scalar_test.cc`` will be compiled into ``arrow-scalar-test``).
+
+C++ header files use the ``.h`` extension. Any header file name not
+containing ``internal`` is considered to be a public header, and will be
+automatically installed by the build.
+
 Memory Pools
 ~~~~~~~~~~~~
 
 We provide a default memory pool with ``arrow::default_memory_pool()``. As a
 matter of convenience, some of the array builder classes have constructors
-which use the default pool without explicitly passing it. You can disable these
-constructors in your application (so that you are accounting properly for all
-memory allocations) by defining ``ARROW_NO_DEFAULT_MEMORY_POOL``.
-
-Header files
-~~~~~~~~~~~~
-
-We use the ``.h`` extension for C++ header files. Any header file name not
-containing ``internal`` is considered to be a public header, and will be
-automatically installed by the build.
+which use the default pool without explicitly passing it. One can override the
+default optional memory pool by defining the ``ARROW_MEMORY_POOL_DEFAULT``
+macro to an assignment of a global function,
+e.g. ``= my_default_memory_pool()``.
 
 Error Handling and Exceptions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For error handling, we use ``arrow::Status`` values instead of throwing C++
+For error handling, we return ``arrow::Status`` values instead of throwing C++
 exceptions. Since the Arrow C++ libraries are intended to be useful as a
 component in larger C++ projects, using ``Status`` objects can help with good
 code hygiene by making explicit when a function is expected to be able to fail.
 
-For expressing invariants and "cannot fail" errors, we use DCHECK macros
+A more recent option is to return a ``arrow::Result<T>`` object that can
+represent either a successful result with a ``T`` value, or an error result
+with a ``Status`` value.
+
+For expressing internal invariants and "cannot fail" errors, we use ``DCHECK`` macros
 defined in ``arrow/util/logging.h``. These checks are disabled in release builds
 and are intended to catch internal development errors, particularly when
 refactoring. These macros are not to be included in any public header files.
 
 Since we do not use exceptions, we avoid doing expensive work in object
 constructors. Objects that are expensive to construct may often have private
-constructors, with public static factory methods that return ``Status``.
+constructors, with public static factory methods that return ``Status`` or
+``Result<T>``.
 
 There are a number of object constructors, like ``arrow::Schema`` and
 ``arrow::RecordBatch`` where larger STL container objects like ``std::vector`` may

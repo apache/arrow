@@ -1179,8 +1179,7 @@ cdef class CompressedInputStream(NativeFile):
     ----------
     stream : pa.NativeFile
     compression : str
-        The compression type ("bz2", "brotli", "gzip", "lz4", "snappy"
-        or "zstd")
+        The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd")
     """
     def __init__(self, NativeFile stream, compression):
         cdef:
@@ -1209,8 +1208,7 @@ cdef class CompressedOutputStream(NativeFile):
     ----------
     stream : pa.NativeFile
     compression : str
-        The compression type ("bz2", "brotli", "gzip", "lz4", "snappy"
-        or "zstd")
+        The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd")
     """
 
     def __init__(self, NativeFile stream, compression):

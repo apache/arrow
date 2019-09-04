@@ -29,6 +29,7 @@
 #include "parquet/internal_file_encryptor.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
+#include "parquet/types.h"
 
 using arrow::MemoryPool;
 
@@ -126,17 +127,14 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
 
     ++next_column_index_;
 
-    const ColumnDescriptor* column_descr = col_meta->descr();
-
+    const auto& path = col_meta->descr()->path();
     auto meta_encryptor =
-        file_encryptor_ ? file_encryptor_->GetColumnMetaEncryptor(column_descr->path())
-                        : NULLPTR;
+        file_encryptor_ ? file_encryptor_->GetColumnMetaEncryptor(path) : NULLPTR;
     auto data_encryptor =
-        file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(column_descr->path())
-                        : NULLPTR;
+        file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(path) : NULLPTR;
     std::unique_ptr<PageWriter> pager = PageWriter::Open(
-        sink_, properties_->compression(column_descr->path()), col_meta,
-        row_group_ordinal_, static_cast<int16_t>(next_column_index_ - 1),
+        sink_, properties_->compression(path), properties_->compression_level(path),
+        col_meta, row_group_ordinal_, static_cast<int16_t>(next_column_index_ - 1),
         properties_->memory_pool(), false, meta_encryptor, data_encryptor);
     column_writers_[0] = ColumnWriter::Make(col_meta, std::move(pager), properties_);
     return column_writers_[0].get();
@@ -233,17 +231,14 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   void InitColumns() {
     for (int i = 0; i < num_columns(); i++) {
       auto col_meta = metadata_->NextColumnChunk();
-      const ColumnDescriptor* column_descr = col_meta->descr();
-
+      const auto& path = col_meta->descr()->path();
       auto meta_encryptor =
-          file_encryptor_ ? file_encryptor_->GetColumnMetaEncryptor(column_descr->path())
-                          : NULLPTR;
+          file_encryptor_ ? file_encryptor_->GetColumnMetaEncryptor(path) : NULLPTR;
       auto data_encryptor =
-          file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(column_descr->path())
-                          : NULLPTR;
+          file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(path) : NULLPTR;
       std::unique_ptr<PageWriter> pager = PageWriter::Open(
-          sink_, properties_->compression(column_descr->path()), col_meta,
-          static_cast<int16_t>(row_group_ordinal_),
+          sink_, properties_->compression(path), properties_->compression_level(path),
+          col_meta, static_cast<int16_t>(row_group_ordinal_),
           static_cast<int16_t>(next_column_index_), properties_->memory_pool(),
           buffered_row_group_, meta_encryptor, data_encryptor);
       column_writers_.push_back(

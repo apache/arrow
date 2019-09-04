@@ -18,6 +18,7 @@
   </parent>
   <artifactId>arrow-algorithm</artifactId>
   <name>Arrow Algorithms</name>
+  <description>(Experimental/Contrib) A collection of algorithms for working with ValueVectors.</description>
 
   <dependencies>
     <dependency>

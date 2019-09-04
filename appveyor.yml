@@ -52,8 +52,10 @@ environment:
     CLCACHE_SERVER: 1
     CLCACHE_COMPRESS: 1
     CLCACHE_COMPRESSLEVEL: 6
+    ARROW_BUILD_FLIGHT: "OFF"
     ARROW_BUILD_GANDIVA: "OFF"
     ARROW_LLVM_VERSION: "7.0.*"
+    ARROW_S3: "OFF"
     PYTHON: "3.6"
     ARCH: "64"
 
@@ -67,6 +69,7 @@ environment:
     - JOB: "Toolchain"
       GENERATOR: Ninja
       CONFIGURATION: "Release"
+      ARROW_S3: "ON"
       ARROW_BUILD_FLIGHT: "ON"
       ARROW_BUILD_GANDIVA: "ON"
     # NOTE: Since ARROW-5403 we have disabled the static CRT build

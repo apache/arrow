@@ -23,8 +23,6 @@ import java.sql.Time;
 import java.util.Calendar;
 
 import org.apache.arrow.vector.TimeMilliVector;
-import org.apache.arrow.vector.complex.impl.TimeMilliWriterImpl;
-import org.apache.arrow.vector.complex.writer.TimeMilliWriter;
 
 /**
  * Consumer which consume time type values from {@link ResultSet}.
@@ -32,9 +30,11 @@ import org.apache.arrow.vector.complex.writer.TimeMilliWriter;
  */
 public class TimeConsumer implements JdbcConsumer<TimeMilliVector> {
 
-  private TimeMilliWriter writer;
+  private TimeMilliVector vector;
   private final int columnIndexInResultSet;
   private final Calendar calendar;
+
+  private int currentIndex;
 
   /**
    * Instantiate a TimeConsumer.
@@ -47,7 +47,7 @@ public class TimeConsumer implements JdbcConsumer<TimeMilliVector> {
    * Instantiate a TimeConsumer.
    */
   public TimeConsumer(TimeMilliVector vector, int index, Calendar calendar) {
-    this.writer = new TimeMilliWriterImpl(vector);
+    this.vector = vector;
     this.columnIndexInResultSet = index;
     this.calendar = calendar;
   }
@@ -57,13 +57,18 @@ public class TimeConsumer implements JdbcConsumer<TimeMilliVector> {
     Time time = calendar == null ? resultSet.getTime(columnIndexInResultSet) :
         resultSet.getTime(columnIndexInResultSet, calendar);
     if (!resultSet.wasNull()) {
-      writer.writeTimeMilli((int) time.getTime());
+      vector.setSafe(currentIndex++, (int) time.getTime());
     }
-    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
   }
 
   @Override
   public void resetValueVector(TimeMilliVector vector) {
-    this.writer = new TimeMilliWriterImpl(vector);
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

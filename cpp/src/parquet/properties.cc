@@ -15,11 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <sstream>
 #include <utility>
 
 #include "parquet/properties.h"
 
 #include "arrow/io/buffered.h"
+#include "arrow/util/logging.h"
 
 namespace parquet {
 
@@ -37,6 +39,13 @@ std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
   } else {
     std::shared_ptr<Buffer> data;
     PARQUET_THROW_NOT_OK(source->ReadAt(start, num_bytes, &data));
+
+    if (data->size() != num_bytes) {
+      std::stringstream ss;
+      ss << "Tried reading " << num_bytes << " bytes starting at position " << start
+         << " from file but only got " << data->size();
+      throw ParquetException(ss.str());
+    }
     return std::make_shared<::arrow::io::BufferReader>(data);
   }
 }

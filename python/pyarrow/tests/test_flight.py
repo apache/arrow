@@ -221,6 +221,34 @@ class GetInfoFlightServer(FlightServerBase):
             -1,
         )
 
+    def get_schema(self, context, descriptor):
+        info = self.get_flight_info(context, descriptor)
+        return flight.SchemaResult(info.schema)
+
+
+class ListActionsFlightServer(FlightServerBase):
+    """A Flight server that tests ListActions."""
+
+    @classmethod
+    def expected_actions(cls):
+        return [
+            ("action-1", "description"),
+            ("action-2", ""),
+            flight.ActionType("action-3", "more detail"),
+        ]
+
+    def list_actions(self, context):
+        for action in self.expected_actions():
+            yield action
+
+
+class ListActionsErrorFlightServer(FlightServerBase):
+    """A Flight server that tests ListActions."""
+
+    def list_actions(self, context):
+        yield ("action-1", "")
+        yield "foo"
+
 
 class CheckTicketFlightServer(FlightServerBase):
     """A Flight server that compares the given ticket to an expected value."""
@@ -496,6 +524,28 @@ def test_flight_get_info():
         assert info.endpoints[0].locations[0] == flight.Location('grpc://test')
         assert info.endpoints[1].locations[0] == \
             flight.Location.for_grpc_tcp('localhost', 5005)
+
+
+def test_flight_get_schema():
+    """Make sure GetSchema returns correct schema."""
+    with flight_server(GetInfoFlightServer) as server_location:
+        client = flight.FlightClient.connect(server_location)
+        info = client.get_schema(flight.FlightDescriptor.for_command(b''))
+        assert info.schema == pa.schema([('a', pa.int32())])
+
+
+def test_list_actions():
+    """Make sure the return type of ListActions is validated."""
+    # ARROW-6392
+    with flight_server(ListActionsErrorFlightServer) as server_location:
+        client = flight.FlightClient.connect(server_location)
+        with pytest.raises(pa.ArrowException, match=".*unknown error.*"):
+            list(client.list_actions())
+
+    with flight_server(ListActionsFlightServer) as server_location:
+        client = flight.FlightClient.connect(server_location)
+        assert list(client.list_actions()) == \
+            ListActionsFlightServer.expected_actions()
 
 
 @pytest.mark.skipif(os.name == 'nt',
@@ -862,3 +912,42 @@ def test_roundtrip_errors():
             list(client.do_action(flight.Action("unauthorized", b"")))
         with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
             list(client.list_flights())
+
+
+def test_do_put_independent_read_write():
+    """Ensure that separate threads can read/write on a DoPut."""
+    # ARROW-6063: previously this would cause gRPC to abort when the
+    # writer was closed (due to simultaneous reads), or would hang
+    # forever.
+    data = [
+        pa.array([-10, -5, 0, 5, 10])
+    ]
+    table = pa.Table.from_arrays(data, names=['a'])
+
+    with flight_server(MetadataFlightServer) as server_location:
+        client = flight.FlightClient.connect(server_location)
+        writer, metadata_reader = client.do_put(
+            flight.FlightDescriptor.for_path(''),
+            table.schema)
+
+        count = [0]
+
+        def _reader_thread():
+            while metadata_reader.read() is not None:
+                count[0] += 1
+
+        thread = threading.Thread(target=_reader_thread)
+        thread.start()
+
+        batches = table.to_batches(chunksize=1)
+        with writer:
+            for idx, batch in enumerate(batches):
+                metadata = struct.pack('<i', idx)
+                writer.write_with_metadata(batch, metadata)
+            # Causes the server to stop writing and end the call
+            writer.done_writing()
+            # Thus reader thread will break out of loop
+            thread.join()
+        # writer.close() won't segfault since reader thread has
+        # stopped
+        assert count[0] == len(batches)

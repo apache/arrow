@@ -21,12 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VarCharVector;
-import org.apache.arrow.vector.complex.impl.VarCharWriterImpl;
-import org.apache.arrow.vector.complex.writer.VarCharWriter;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Consumer which consume varchar type values from {@link ResultSet}.
@@ -34,19 +29,17 @@ import io.netty.buffer.ArrowBuf;
  */
 public class VarCharConsumer implements JdbcConsumer<VarCharVector> {
 
-  private VarCharWriter writer;
   private final int columnIndexInResultSet;
-  private BufferAllocator allocator;
 
-  private ArrowBuf reuse;
+  private VarCharVector vector;
+  private int currentIndex;
 
   /**
    * Instantiate a VarCharConsumer.
    */
   public VarCharConsumer(VarCharVector vector, int index) {
-    this.writer = new VarCharWriterImpl(vector);
+    this.vector = vector;
     this.columnIndexInResultSet = index;
-    this.allocator = vector.getAllocator();
   }
 
   @Override
@@ -54,28 +47,19 @@ public class VarCharConsumer implements JdbcConsumer<VarCharVector> {
     String value = resultSet.getString(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
       byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-      if (reuse == null) {
-        reuse = allocator.buffer(bytes.length);
-      }
-      if (bytes.length > reuse.capacity()) {
-        reuse.close();
-        reuse = allocator.buffer(bytes.length);
-      }
-      reuse.setBytes(0, bytes, 0, bytes.length);
-      writer.writeVarChar(0, bytes.length, reuse);
+
+      vector.setSafe(currentIndex++, bytes);
     }
-    writer.setPosition(writer.getPosition() + 1);
   }
 
   @Override
-  public void close() {
-    if (reuse != null) {
-      reuse.close();
-    }
+  public void close() throws Exception {
+    this.vector.close();
   }
 
   @Override
   public void resetValueVector(VarCharVector vector) {
-    this.writer = new VarCharWriterImpl(vector);
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

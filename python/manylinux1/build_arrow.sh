@@ -17,11 +17,16 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-# Usage:
-#   docker run --rm -v $PWD:/io arrow-base-x86_64 /io/build_arrow.sh
-
 # Build upon the scripts in https://github.com/matthew-brett/manylinux-builds
 # * Copyright (c) 2013-2016, Matt Terry and Matthew Brett (BSD 2-clause)
+#
+# Usage:
+#   either build:
+#     $ docker-compose build python-manylinux1
+#   or pull:
+#     $ docker-compose pull python-manylinux1
+#   an then run:
+#     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux1
 
 source /multibuild/manylinux_utils.sh
 

@@ -30,20 +30,23 @@ prelude: |-
   n_rows = 1000
   n_columns = 10
   type = Arrow::TimestampDataType.new(:micro)
-  base_timestamp = Time.at(Faker::Number.within(0 ... 1_000_000_000))
+  base_timestamp = Time.at(Faker::Number.within(range: 0 ... 1_000_000_000))
   thirty_days_in_sec = 30*24*3600
-  timestamp_range = [base_timestamp - thirty_days_in_sec, base_timestamp + thirty_days_in_sec]
+  timestamp_range = {
+    from: base_timestamp - thirty_days_in_sec,
+    to: base_timestamp + thirty_days_in_sec,
+  }
 
   fields = {}
   arrays = {}
   n_columns.times do |i|
     column_name = "column_#{i}"
     fields[column_name] = type
-    arrays[column_name] = n_rows.times.map {
-      sec = Faker::Time.between(*timestamp_range).to_i
-      micro = Faker::Number.within(0 ... 1_000_000)
+    arrays[column_name] = n_rows.times.map do
+      sec = Faker::Time.between(timestamp_range).to_i
+      micro = Faker::Number.within(range: 0 ... 1_000_000)
       sec * 1_000_000 + micro
-    }
+    end
   end
   record_batch = Arrow::RecordBatch.new(fields, arrays)
 

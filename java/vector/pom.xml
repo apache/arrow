@@ -18,6 +18,7 @@
   </parent>
   <artifactId>arrow-vector</artifactId>
   <name>Arrow Vectors</name>
+  <description>An off-heap reference implementation for Arrow columnar data format.</description>
 
   <dependencies>
 

@@ -1103,6 +1103,29 @@ def test_compressed_roundtrip(compression):
         assert got == data
 
 
+@pytest.mark.parametrize("compression",
+                         ["bz2", "brotli", "gzip", "lz4", "zstd"])
+def test_compressed_recordbatch_stream(compression):
+    # ARROW-4836: roundtrip a RecordBatch through a compressed stream
+    table = pa.Table.from_arrays([pa.array([1, 2, 3, 4, 5])], ['a'])
+    raw = pa.BufferOutputStream()
+    try:
+        stream = pa.CompressedOutputStream(raw, compression)
+    except NotImplementedError as e:
+        if compression == "bz2":
+            pytest.skip(str(e))
+        else:
+            raise
+    writer = pa.RecordBatchStreamWriter(stream, table.schema)
+    writer.write_table(table, chunksize=3)
+    writer.close()
+    stream.close()  # Flush data
+    buf = raw.getvalue()
+    stream = pa.CompressedInputStream(pa.BufferReader(buf), compression)
+    got_table = pa.RecordBatchStreamReader(stream).read_all()
+    assert got_table == table
+
+
 # ----------------------------------------------------------------------
 # High-level API
 

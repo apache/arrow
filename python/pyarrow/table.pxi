@@ -420,6 +420,31 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
     return converted_arrays
 
 
+cdef _sanitize_arrays(arrays, names, schema, metadata,
+                      shared_ptr[CSchema]* c_schema):
+    cdef Schema cy_schema
+    if schema is None:
+        converted_arrays = _schema_from_arrays(arrays, names, metadata,
+                                               c_schema)
+    else:
+        if names is not None:
+            raise ValueError('Cannot pass both schema and names')
+        if metadata is not None:
+            raise ValueError('Cannot pass both schema and metadata')
+        cy_schema = schema
+
+        if len(schema) != len(arrays):
+            raise ValueError('Schema and number of arrays unequal')
+
+        c_schema[0] = cy_schema.sp_schema
+        converted_arrays = []
+        for i, item in enumerate(arrays):
+            if not isinstance(item, (Array, ChunkedArray)):
+                item = array(item, type=schema[i].type)
+            converted_arrays.append(item)
+    return converted_arrays
+
+
 cdef class RecordBatch(_PandasConvertible):
     """
     Batch of rows of columns of equal length
@@ -447,6 +472,13 @@ cdef class RecordBatch(_PandasConvertible):
 
     def __len__(self):
         return self.batch.num_rows()
+
+    def validate(self):
+        """
+        Validate RecordBatch consistency.
+        """
+        with nogil:
+            check_status(self.batch.Validate())
 
     def replace_schema_metadata(self, metadata=None):
         """
@@ -534,17 +566,14 @@ cdef class RecordBatch(_PandasConvertible):
         -------
         column : pyarrow.Array
         """
-        if not -self.num_columns <= i < self.num_columns:
-            raise IndexError(
-                'Record batch column index {:d} is out of range'.format(i)
-            )
-        return pyarrow_wrap_array(self.batch.column(i))
+        cdef int index = <int> _normalize_index(i, self.num_columns)
+        return pyarrow_wrap_array(self.batch.column(index))
 
     def __getitem__(self, key):
         if isinstance(key, slice):
             return _normalize_slice(self, key)
         else:
-            return self.column(_normalize_index(key, self.num_columns))
+            return self.column(key)
 
     def serialize(self, memory_pool=None):
         """
@@ -575,7 +604,7 @@ cdef class RecordBatch(_PandasConvertible):
         Parameters
         ----------
         offset : int, default 0
-            Offset from start of array to slice
+            Offset from start of record batch to slice
         length : int, default None
             Length of slice (default is until end of batch starting from
             offset)
@@ -656,19 +685,23 @@ cdef class RecordBatch(_PandasConvertible):
         arrays, schema = dataframe_to_arrays(
             df, schema, preserve_index, nthreads=nthreads, columns=columns
         )
-        return cls.from_arrays(arrays, schema)
+        return cls.from_arrays(arrays, schema=schema)
 
     @staticmethod
-    def from_arrays(list arrays, names, metadata=None):
+    def from_arrays(list arrays, names=None, schema=None, metadata=None):
         """
         Construct a RecordBatch from multiple pyarrow.Arrays
 
         Parameters
         ----------
         arrays: list of pyarrow.Array
-            column-wise data vectors
-        names: pyarrow.Schema or list of str
-            schema or list of labels for the columns
+            One for each field in RecordBatch
+        names : list of str, optional
+            Names for the batch fields. If not passed, schema must be passed
+        schema : Schema, default None
+            Schema for the created batch. If not passed, names must be passed
+        metadata : dict or Mapping, default None
+            Optional metadata for the schema (if inferred).
 
         Returns
         -------
@@ -676,12 +709,9 @@ cdef class RecordBatch(_PandasConvertible):
         """
         cdef:
             Array arr
-            c_string c_name
             shared_ptr[CSchema] c_schema
             vector[shared_ptr[CArray]] c_arrays
             int64_t num_rows
-            int64_t i
-            int64_t number_of_arrays = len(arrays)
 
         if len(arrays) > 0:
             num_rows = len(arrays[0])
@@ -689,26 +719,34 @@ cdef class RecordBatch(_PandasConvertible):
             num_rows = 0
 
         if isinstance(names, Schema):
-            c_schema = (<Schema> names).sp_schema
-        else:
-            arrays = _schema_from_arrays(arrays, names, metadata, &c_schema)
+            import warnings
+            warnings.warn("Schema passed to names= option, please "
+                          "pass schema= explicitly. "
+                          "Will raise exception in future", FutureWarning)
+            schema = names
+            names = None
+
+        converted_arrays = _sanitize_arrays(arrays, names, schema, metadata,
+                                            &c_schema)
 
         c_arrays.reserve(len(arrays))
-        for arr in arrays:
+        for arr in converted_arrays:
             if len(arr) != num_rows:
                 raise ValueError('Arrays were not all the same length: '
                                  '{0} vs {1}'.format(len(arr), num_rows))
             c_arrays.push_back(arr.sp_array)
 
-        return pyarrow_wrap_batch(
-            CRecordBatch.Make(c_schema, num_rows, c_arrays))
+        result = pyarrow_wrap_batch(CRecordBatch.Make(c_schema, num_rows,
+                                                      c_arrays))
+        result.validate()
+        return result
 
 
 def _reconstruct_record_batch(columns, schema):
     """
     Internal: reconstruct RecordBatch from pickled components.
     """
-    return RecordBatch.from_arrays(columns, schema)
+    return RecordBatch.from_arrays(columns, schema=schema)
 
 
 def table_to_blocks(PandasOptions options, Table table,
@@ -768,6 +806,40 @@ cdef class Table(_PandasConvertible):
         # data twice
         columns = [col for col in self.columns]
         return _reconstruct_table, (columns, self.schema)
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return _normalize_slice(self, key)
+        else:
+            return self.column(key)
+
+    def slice(self, offset=0, length=None):
+        """
+        Compute zero-copy slice of this Table
+
+        Parameters
+        ----------
+        offset : int, default 0
+            Offset from start of table to slice
+        length : int, default None
+            Length of slice (default is until end of table starting from
+            offset)
+
+        Returns
+        -------
+        sliced : Table
+        """
+        cdef shared_ptr[CTable] result
+
+        if offset < 0:
+            raise IndexError('Offset must be non-negative')
+
+        if length is None:
+            result = self.table.Slice(offset)
+        else:
+            result = self.table.Slice(offset, length)
+
+        return pyarrow_wrap_table(result)
 
     def replace_schema_metadata(self, metadata=None):
         """
@@ -995,29 +1067,11 @@ cdef class Table(_PandasConvertible):
         """
         cdef:
             vector[shared_ptr[CChunkedArray]] columns
-            Schema cy_schema
             shared_ptr[CSchema] c_schema
             int i, K = <int> len(arrays)
 
-        if schema is None:
-            converted_arrays = _schema_from_arrays(arrays, names, metadata,
-                                                   &c_schema)
-        else:
-            if names is not None:
-                raise ValueError('Cannot pass both schema and names')
-            if metadata is not None:
-                raise ValueError('Cannot pass both schema and metadata')
-            cy_schema = schema
-
-            if len(schema) != len(arrays):
-                raise ValueError('Schema and number of arrays unequal')
-
-            c_schema = cy_schema.sp_schema
-            converted_arrays = []
-            for i, item in enumerate(arrays):
-                if not isinstance(item, (Array, ChunkedArray)):
-                    item = array(item, type=schema[i].type)
-                converted_arrays.append(item)
+        converted_arrays = _sanitize_arrays(arrays, names, schema, metadata,
+                                            &c_schema)
 
         columns.reserve(K)
         for item in converted_arrays:
@@ -1194,7 +1248,7 @@ cdef class Table(_PandasConvertible):
 
     def field(self, i):
         """
-        Select a schema field by its numeric index.
+        Select a schema field by its colunm name or numeric index.
 
         Parameters
         ----------
@@ -1204,19 +1258,7 @@ cdef class Table(_PandasConvertible):
         -------
         pyarrow.Field
         """
-        cdef:
-            int num_columns = self.num_columns
-            int index
-
-        if not -num_columns <= i < num_columns:
-            raise IndexError(
-                'Table column index {:d} is out of range'.format(i)
-            )
-
-        index = i if i >= 0 else num_columns + i
-        assert index >= 0
-
-        return pyarrow_wrap_field(self.table.field(index))
+        return self.schema.field(i)
 
     def column(self, i):
         """
@@ -1253,30 +1295,15 @@ cdef class Table(_PandasConvertible):
         -------
         pyarrow.ChunkedArray
         """
-        cdef:
-            int num_columns = self.num_columns
-            int index
-
-        if not -num_columns <= i < num_columns:
-            raise IndexError(
-                'Table column index {:d} is out of range'.format(i)
-            )
-
-        index = i if i >= 0 else num_columns + i
-        assert index >= 0
-
+        cdef int index = <int> _normalize_index(i, self.num_columns)
         return pyarrow_wrap_chunked_array(self.table.column(index))
-
-    def __getitem__(self, key):
-        cdef int index = <int> _normalize_index(key, self.num_columns)
-        return self.column(index)
 
     def itercolumns(self):
         """
         Iterator over all columns in their numerical order
         """
         for i in range(self.num_columns):
-            yield self.column(i)
+            yield self._column(i)
 
     @property
     def columns(self):
@@ -1451,6 +1478,42 @@ def _reconstruct_table(arrays, schema):
     Internal: reconstruct pa.Table from pickled components.
     """
     return Table.from_arrays(arrays, schema=schema)
+
+
+def record_batch(data, names=None, schema=None, metadata=None):
+    """
+    Create a pyarrow.RecordBatch from another Python data structure or sequence
+    of arrays
+
+    Parameters
+    ----------
+    data : pandas.DataFrame, dict, list
+        A DataFrame, mapping of strings to Arrays or Python lists, or list of
+        arrays or chunked arrays
+    names : list, default None
+        Column names if list of arrays passed as data. Mutually exclusive with
+        'schema' argument
+    schema : Schema, default None
+        The expected schema of the RecordBatch. If not passed, will be inferred
+        from the data. Mutually exclusive with 'names' argument
+    metadata : dict or Mapping, default None
+        Optional metadata for the schema (if schema not passed).
+
+    Returns
+    -------
+    RecordBatch
+
+    See Also
+    --------
+    RecordBatch.from_arrays, RecordBatch.from_pandas, Table.from_pydict
+    """
+    if isinstance(data, (list, tuple)):
+        return RecordBatch.from_arrays(data, names=names, schema=schema,
+                                       metadata=metadata)
+    elif isinstance(data, _pandas_api.pd.DataFrame):
+        return RecordBatch.from_pandas(data, schema=schema)
+    else:
+        return TypeError("Expected pandas DataFrame or python dictionary")
 
 
 def table(data, names=None, schema=None, metadata=None):

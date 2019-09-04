@@ -166,7 +166,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
     }
 
     schema = std::make_shared<arrow::Schema>(std::move(fields));
-  } else {
+  } else if (Rf_inherits(schema_sxp, "arrow::Schema")) {
     // use the schema that is given
     schema = arrow::r::extract<arrow::Schema>(schema_sxp);
 
@@ -198,6 +198,8 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
         j++;
       }
     }
+  } else {
+    Rcpp::stop("schema must be an arrow::Schema or NULL");
   }
 
   return arrow::Table::Make(schema, columns);

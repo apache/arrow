@@ -410,6 +410,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
     isClosed = true;
 
+    StringBuilder outstandingChildAllocators = new StringBuilder();
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
         verifyAllocator();
@@ -445,14 +446,21 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         }
 
       }
+    } else {
+      if (!childAllocators.isEmpty()) {
+        outstandingChildAllocators.append("Outstanding child allocators : \n");
+        for (final BaseAllocator childAllocator : childAllocators.keySet()) {
+          outstandingChildAllocators.append(String.format("  %s", childAllocator.toString()));
+        }
+      }
     }
 
     // Is there unaccounted-for outstanding allocation?
     final long allocated = getAllocatedMemory();
     if (allocated > 0) {
       throw new IllegalStateException(
-        String.format("Memory was leaked by query. Memory leaked: (%d)\n%s", allocated,
-          toString()));
+        String.format("Memory was leaked by query. Memory leaked: (%d)\n%s%s", allocated,
+          outstandingChildAllocators.toString(), toString()));
     }
 
     // we need to release our memory to our parent before we tell it we've closed.

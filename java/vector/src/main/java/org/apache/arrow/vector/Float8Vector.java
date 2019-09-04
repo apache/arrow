@@ -36,7 +36,7 @@ import io.netty.buffer.ArrowBuf;
  * double values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class Float8Vector extends BaseFixedWidthVector {
+public class Float8Vector extends BaseFixedWidthVector implements FloatingPointVector {
   public static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
 
@@ -283,6 +283,20 @@ public class Float8Vector extends BaseFixedWidthVector {
     return buffer.getDouble(index * TYPE_WIDTH);
   }
 
+  @Override
+  public void setWithPossibleTruncate(int index, double value) {
+    set(index, value);
+  }
+
+  @Override
+  public void setSafeWithPossibleTruncate(int index, double value) {
+    setSafe(index, value);
+  }
+
+  @Override
+  public double getValueAsDouble(int index) {
+    return get(index);
+  }
 
   /*----------------------------------------------------------------*
    |                                                                |

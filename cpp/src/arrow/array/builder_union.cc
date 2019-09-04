@@ -76,7 +76,9 @@ BasicUnionBuilder::BasicUnionBuilder(
 
   children_ = children;
   type_id_to_children_.resize(union_type->max_type_code() + 1, nullptr);
-  DCHECK_LT(type_id_to_children_.size(), std::numeric_limits<int8_t>::max());
+  DCHECK_LT(type_id_to_children_.size(),
+            static_cast<decltype(type_id_to_children_)::size_type>(
+                std::numeric_limits<int8_t>::max()));
 
   auto field_it = type->children().begin();
   auto children_it = children.begin();
@@ -107,7 +109,9 @@ int8_t BasicUnionBuilder::AppendChild(const std::shared_ptr<ArrayBuilder>& new_c
     }
   }
 
-  DCHECK_LT(type_id_to_children_.size(), std::numeric_limits<int8_t>::max());
+  DCHECK_LT(type_id_to_children_.size(),
+            static_cast<decltype(type_id_to_children_)::size_type>(
+                std::numeric_limits<int8_t>::max()));
 
   // type_id_to_children_ is already densely packed, so just append the new child
   type_id_to_children_.push_back(new_child);

@@ -60,7 +60,7 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
     std::string plasma_directory =
         external_test_executable.substr(0, external_test_executable.find_last_of('/'));
     std::string plasma_command = plasma_directory +
-                                 "/plasma_store_server -m 1024000 -e " +
+                                 "/plasma-store-server -m 1024000 -e " +
                                  "hashtable://test -s " + store_socket_name_ +
                                  " 1> /tmp/log.stdout 2> /tmp/log.stderr & " +
                                  "echo $! > " + store_socket_name_ + ".pid";

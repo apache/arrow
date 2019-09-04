@@ -17,6 +17,13 @@
 
 context("arrow::Schema")
 
+test_that("Alternate type names are supported", {
+  expect_equal(
+    schema(b = double(), c = bool(), d = string(), e = float(), f = halffloat()),
+    schema(b = float64(), c = boolean(), d = utf8(), e = float32(), f = float16())
+  )
+})
+
 test_that("reading schema from Buffer", {
   # TODO: this uses the streaming format, i.e. from RecordBatchStreamWriter
   #       maybe there is an easier way to serialize a schema
@@ -43,4 +50,11 @@ test_that("reading schema from Buffer", {
   message <- read_message(stream)
   expect_is(message, "arrow::ipc::Message")
   expect_equal(message$type, MessageType$SCHEMA)
+})
+
+test_that("Input validation when creating a table with a schema", {
+  # TODO (npr): consider using table_from_dots once ARROW-5505 lands, and also
+  # allowing a list of types as a schema here
+  expect_error(Table__from_dots(list(b = 1), schema = c(b = float64())),
+    "schema must be an arrow::Schema or NULL")
 })

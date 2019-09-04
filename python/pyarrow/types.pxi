@@ -548,13 +548,28 @@ cdef class ExtensionType(BaseExtensionType):
             raise TypeError("Can only instantiate subclasses of "
                             "ExtensionType")
 
-    def __init__(self, DataType storage_type):
+    def __init__(self, DataType storage_type, extension_name):
+        """
+        Initialize an extension type instance.
+
+        This should be called at the end of the subclass'
+        ``__init__`` method.
+
+        Parameters
+        ----------
+        storage_type : DataType
+        extension_name : str
+        """
         cdef:
             shared_ptr[CExtensionType] cpy_ext_type
+            c_string c_extension_name
+
+        c_extension_name = tobytes(extension_name)
 
         assert storage_type is not None
-        check_status(CPyExtensionType.FromClass(storage_type.sp_type,
-                                                type(self), &cpy_ext_type))
+        check_status(CPyExtensionType.FromClass(
+            storage_type.sp_type, c_extension_name, type(self),
+            &cpy_ext_type))
         self.init(<shared_ptr[CDataType]> cpy_ext_type)
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -568,9 +583,49 @@ cdef class ExtensionType(BaseExtensionType):
         # DataType.__eq__ -> ExtensionType::ExtensionEquals -> DataType.__eq__
         if isinstance(other, ExtensionType):
             return (type(self) == type(other) and
+                    self.extension_name == other.extension_name and
                     self.storage_type == other.storage_type)
         else:
             return NotImplemented
+
+    def __arrow_ext_serialize__(self):
+        """
+        Serialized representation of metadata to reconstruct the type object.
+
+        This method should return a bytes object, and those serialized bytes
+        are stored in the custom metadata of the Field holding an extension
+        type in an IPC message.
+        The bytes are passed to ``__arrow_ext_deserialize`` and should hold
+        sufficient information to reconstruct the data type instance.
+        """
+        return NotImplementedError
+
+    @classmethod
+    def __arrow_ext_deserialize__(self, storage_type, serialized):
+        """
+        Return an extension type instance from the storage type and serialized
+        metadata.
+
+        This method should return an instance of the ExtensionType subclass
+        that matches the passed storage type and serialized metadata (the
+        return value of ``__arrow_ext_serialize__``).
+        """
+        return NotImplementedError
+
+
+cdef class PyExtensionType(ExtensionType):
+    """
+    Concrete base class for Python-defined extension types based on pickle
+    for (de)serialization.
+    """
+
+    def __cinit__(self):
+        if type(self) is PyExtensionType:
+            raise TypeError("Can only instantiate subclasses of "
+                            "PyExtensionType")
+
+    def __init__(self, DataType storage_type):
+        ExtensionType.__init__(self, storage_type, "arrow.py_extension_type")
 
     def __reduce__(self):
         raise NotImplementedError("Please implement {0}.__reduce__"
@@ -597,7 +652,7 @@ cdef class ExtensionType(BaseExtensionType):
         return ty
 
 
-cdef class UnknownExtensionType(ExtensionType):
+cdef class UnknownExtensionType(PyExtensionType):
     """
     A concrete class for Python-defined extension types that refer to
     an unknown Python implementation.
@@ -608,10 +663,57 @@ cdef class UnknownExtensionType(ExtensionType):
 
     def __init__(self, DataType storage_type, serialized):
         self.serialized = serialized
-        ExtensionType.__init__(self, storage_type)
+        PyExtensionType.__init__(self, storage_type)
 
     def __arrow_ext_serialize__(self):
         return self.serialized
+
+
+_python_extension_types_registry = []
+
+
+def register_extension_type(ext_type):
+    """
+    Register a Python extension type.
+
+    Registration is based on the extension name (so different registered types
+    need unique extension names). Registration needs an extension type
+    instance, but then works for any instance of the same subclass regardless
+    of parametrization of the type.
+
+    Parameters
+    ----------
+    ext_type : BaseExtensionType instance
+        The ExtensionType subclass to register.
+
+    """
+    cdef:
+        DataType _type = ensure_type(ext_type, allow_none=False)
+
+    if not isinstance(_type, BaseExtensionType):
+        raise TypeError("Only extension types can be registered")
+
+    # register on the C++ side
+    check_status(
+        RegisterPyExtensionType(<shared_ptr[CDataType]> _type.sp_type))
+
+    # register on the python side
+    _python_extension_types_registry.append(_type)
+
+
+def unregister_extension_type(type_name):
+    """
+    Unregister a Python extension type.
+
+    Parameters
+    ----------
+    type_name : str
+        The name of the ExtensionType subclass to unregister.
+
+    """
+    cdef:
+        c_string c_type_name = tobytes(type_name)
+    check_status(UnregisterPyExtensionType(c_type_name))
 
 
 cdef class Field:
@@ -679,6 +781,11 @@ cdef class Field:
         return pyarrow_wrap_metadata(self.field.metadata())
 
     def add_metadata(self, metadata):
+        warnings.warn("The 'add_metadata' method is deprecated, use "
+                      "'with_metadata' instead", FutureWarning, stacklevel=2)
+        return self.with_metadata(metadata)
+
+    def with_metadata(self, metadata):
         """
         Add metadata as dict of string keys and values to Field
 
@@ -700,7 +807,7 @@ cdef class Field:
 
         c_meta = pyarrow_unwrap_metadata(metadata)
         with nogil:
-            c_field = self.field.AddMetadata(c_meta)
+            c_field = self.field.WithMetadata(c_meta)
 
         return pyarrow_wrap_field(c_field)
 
@@ -745,8 +852,8 @@ cdef class Schema:
         return self.schema.num_fields()
 
     def __getitem__(self, key):
-        cdef int index = <int> _normalize_index(key, self.schema.num_fields())
-        return pyarrow_wrap_field(self.schema.field(index))
+        # access by integer index
+        return self._field(key)
 
     def __iter__(self):
         for i in range(len(self)):
@@ -895,6 +1002,34 @@ cdef class Schema:
             fields.append(field(name, type_))
         return schema(fields, metadata)
 
+    def field(self, i):
+        """
+        Select a field by its column name or numeric index.
+
+        Parameters
+        ----------
+        i : int or string
+
+        Returns
+        -------
+        pyarrow.Field
+        """
+        if isinstance(i, six.string_types):
+            field_index = self.get_field_index(i)
+            if field_index < 0:
+                raise KeyError("Column {} does not exist in schema".format(i))
+            else:
+                return self._field(field_index)
+        elif isinstance(i, six.integer_types):
+            return self._field(i)
+        else:
+            raise TypeError("Index must either be string or integer")
+
+    def _field(self, int i):
+        """Select a field by its numeric index."""
+        cdef int index = <int> _normalize_index(i, self.schema.num_fields())
+        return pyarrow_wrap_field(self.schema.field(index))
+
     def field_by_name(self, name):
         """
         Access a field by its name rather than the column index.
@@ -909,6 +1044,10 @@ cdef class Schema:
         """
         cdef:
             vector[shared_ptr[CField]] results
+
+        warnings.warn(
+            "The 'field_by_name' method is deprecated, use 'field' instead",
+            FutureWarning, stacklevel=2)
 
         results = self.schema.GetAllFieldsByName(tobytes(name))
         if results.size() == 0:
@@ -1009,6 +1148,11 @@ cdef class Schema:
         return pyarrow_wrap_schema(new_schema)
 
     def add_metadata(self, metadata):
+        warnings.warn("The 'add_metadata' method is deprecated, use "
+                      "'with_metadata' instead", FutureWarning, stacklevel=2)
+        return self.with_metadata(metadata)
+
+    def with_metadata(self, metadata):
         """
         Add metadata as dict of string keys and values to Schema
 
@@ -1030,7 +1174,7 @@ cdef class Schema:
 
         c_meta = pyarrow_unwrap_metadata(metadata)
         with nogil:
-            c_schema = self.schema.AddMetadata(c_meta)
+            c_schema = self.schema.WithMetadata(c_meta)
 
         return pyarrow_wrap_schema(c_schema)
 
@@ -1929,26 +2073,49 @@ def is_float_value(object obj):
     return IsPyFloat(obj)
 
 
+cdef class _ExtensionRegistryNanny:
+    # Keep the registry alive until we have unregistered PyExtensionType
+    cdef:
+        shared_ptr[CExtensionTypeRegistry] registry
+
+    def __cinit__(self):
+        self.registry = CExtensionTypeRegistry.GetGlobalRegistry()
+
+    def release_registry(self):
+        self.registry.reset()
+
+
+_registry_nanny = _ExtensionRegistryNanny()
+
+
 def _register_py_extension_type():
     cdef:
         DataType storage_type
         shared_ptr[CExtensionType] cpy_ext_type
+        c_string c_extension_name = tobytes("arrow.py_extension_type")
 
     # Make a dummy C++ ExtensionType
     storage_type = null()
-    check_status(CPyExtensionType.FromClass(storage_type.sp_type,
-                                            ExtensionType, &cpy_ext_type))
+    check_status(CPyExtensionType.FromClass(
+        storage_type.sp_type, c_extension_name, PyExtensionType,
+        &cpy_ext_type))
     check_status(
         RegisterPyExtensionType(<shared_ptr[CDataType]> cpy_ext_type))
 
 
-def _unregister_py_extension_type():
+def _unregister_py_extension_types():
     # This needs to be done explicitly before the Python interpreter is
     # finalized.  If the C++ type is destroyed later in the process
     # teardown stage, it will invoke CPython APIs such as Py_DECREF
     # with a destroyed interpreter.
-    check_status(UnregisterPyExtensionType())
+    unregister_extension_type("arrow.py_extension_type")
+    for ext_type in _python_extension_types_registry:
+        try:
+            unregister_extension_type(ext_type.extension_name)
+        except KeyError:
+            pass
+    _registry_nanny.release_registry()
 
 
 _register_py_extension_type()
-atexit.register(_unregister_py_extension_type)
+atexit.register(_unregister_py_extension_types)

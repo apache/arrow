@@ -19,6 +19,9 @@
 
 #include <string>
 
+#include "arrow/buffer.h"
+#include "arrow/io/memory.h"
+
 #include "parquet/file_reader.h"
 #include "parquet/properties.h"
 
@@ -60,6 +63,24 @@ TEST(TestWriterProperties, AdvancedHandling) {
             props->encoding(ColumnPath::FromDotString("gzip")));
   ASSERT_EQ(Encoding::DELTA_LENGTH_BYTE_ARRAY,
             props->encoding(ColumnPath::FromDotString("delta-length")));
+}
+
+TEST(TestReaderProperties, GetStreamInsufficientData) {
+  // ARROW-6058
+  std::string data = "shorter than expected";
+  auto buf = std::make_shared<Buffer>(data);
+  auto reader = std::make_shared<arrow::io::BufferReader>(buf);
+
+  ReaderProperties props;
+  try {
+    ARROW_UNUSED(props.GetStream(reader, 12, 15));
+    FAIL() << "No exception raised";
+  } catch (const ParquetException& e) {
+    std::string ex_what =
+        ("Tried reading 15 bytes starting at position 12"
+         " from file but only got 9");
+    ASSERT_EQ(ex_what, e.what());
+  }
 }
 
 }  // namespace test

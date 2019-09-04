@@ -23,6 +23,7 @@
 
 namespace red_arrow {
   VALUE cDate;
+
   VALUE cArrowTime;
 
   VALUE ArrowTimeUnitSECOND;
@@ -38,6 +39,17 @@ namespace red_arrow {
 
 extern "C" void Init_arrow() {
   auto mArrow = rb_const_get_at(rb_cObject, rb_intern("Arrow"));
+
+  auto cArrowArray = rb_const_get_at(mArrow, rb_intern("Array"));
+  rb_define_method(cArrowArray, "values",
+                   reinterpret_cast<rb::RawMethod>(red_arrow::array_values),
+                   0);
+
+  auto cArrowChunkedArray = rb_const_get_at(mArrow, rb_intern("ChunkedArray"));
+  rb_define_method(cArrowChunkedArray, "values",
+                   reinterpret_cast<rb::RawMethod>(red_arrow::chunked_array_values),
+                   0);
+
   auto cArrowRecordBatch = rb_const_get_at(mArrow, rb_intern("RecordBatch"));
   rb_define_method(cArrowRecordBatch, "raw_records",
                    reinterpret_cast<rb::RawMethod>(red_arrow::record_batch_raw_records),
@@ -49,6 +61,7 @@ extern "C" void Init_arrow() {
                    0);
 
   red_arrow::cDate = rb_const_get(rb_cObject, rb_intern("Date"));
+
   red_arrow::cArrowTime = rb_const_get_at(mArrow, rb_intern("Time"));
 
   auto cArrowTimeUnit = rb_const_get_at(mArrow, rb_intern("TimeUnit"));

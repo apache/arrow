@@ -102,6 +102,21 @@ def test_tensor_ipc_roundtrip(tmpdir):
     assert result.equals(tensor)
 
 
+def test_tensor_ipc_read_from_compressed(tempdir):
+    # ARROW-5910
+    data = np.random.randn(10, 4)
+    tensor = pa.Tensor.from_numpy(data)
+
+    path = tempdir / 'tensor-compressed-file'
+
+    out_stream = pa.output_stream(path, compression='gzip')
+    pa.write_tensor(tensor, out_stream)
+    out_stream.close()
+
+    result = pa.read_tensor(pa.input_stream(path, compression='gzip'))
+    assert result.equals(tensor)
+
+
 def test_tensor_ipc_strided(tmpdir):
     data1 = np.random.randn(10, 4)
     tensor1 = pa.Tensor.from_numpy(data1[::2])

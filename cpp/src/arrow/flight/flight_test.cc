@@ -32,6 +32,7 @@
 #include "arrow/ipc/test_common.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 
 #include "arrow/flight/api.h"
 
@@ -265,7 +266,7 @@ class TestFlightClient : public ::testing::Test {
     Location location;
     std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
-    ASSERT_OK(Location::ForGrpcTcp("localhost", GetListenPort(), &location));
+    ASSERT_OK(Location::ForGrpcTcp("localhost", ::arrow::GetListenPort(), &location));
     FlightServerOptions options(location);
     ASSERT_OK(server->Init(options));
 
@@ -423,7 +424,7 @@ class TestAuthHandler : public ::testing::Test {
     Location location;
     std::unique_ptr<FlightServerBase> server(new AuthTestServer);
 
-    ASSERT_OK(Location::ForGrpcTcp("localhost", GetListenPort(), &location));
+    ASSERT_OK(Location::ForGrpcTcp("localhost", ::arrow::GetListenPort(), &location));
     FlightServerOptions options(location);
     options.auth_handler =
         std::unique_ptr<ServerAuthHandler>(new TestServerAuthHandler("user", "p4ssw0rd"));
@@ -447,7 +448,7 @@ class TestDoPut : public ::testing::Test {
  public:
   void SetUp() {
     Location location;
-    ASSERT_OK(Location::ForGrpcTcp("localhost", GetListenPort(), &location));
+    ASSERT_OK(Location::ForGrpcTcp("localhost", ::arrow::GetListenPort(), &location));
 
     do_put_server_ = new DoPutTestServer();
     server_.reset(new InProcessTestServer(
@@ -479,6 +480,7 @@ class TestDoPut : public ::testing::Test {
     for (const auto& batch : batches) {
       ASSERT_OK(stream->WriteRecordBatch(*batch));
     }
+    ASSERT_OK(stream->DoneWriting());
     ASSERT_OK(stream->Close());
 
     CheckBatches(descr, batches);
@@ -496,7 +498,7 @@ class TestTls : public ::testing::Test {
     Location location;
     std::unique_ptr<FlightServerBase> server(new TlsTestServer);
 
-    ASSERT_OK(Location::ForGrpcTls("localhost", GetListenPort(), &location));
+    ASSERT_OK(Location::ForGrpcTls("localhost", ::arrow::GetListenPort(), &location));
     FlightServerOptions options(location);
     ASSERT_RAISES(UnknownError, server->Init(options));
     ASSERT_OK(ExampleTlsCertificates(&options.tls_certificates));
@@ -554,6 +556,17 @@ TEST_F(TestFlightClient, GetFlightInfo) {
 
   std::vector<FlightInfo> flights = ExampleFlightInfo();
   AssertEqual(flights[0], *info);
+}
+
+TEST_F(TestFlightClient, GetSchema) {
+  auto descr = FlightDescriptor::Path({"examples", "ints"});
+  std::unique_ptr<SchemaResult> schema_result;
+  std::shared_ptr<Schema> schema;
+  ipc::DictionaryMemo dict_memo;
+
+  ASSERT_OK(client_->GetSchema(descr, &schema_result));
+  ASSERT_NE(schema_result, nullptr);
+  ASSERT_OK(schema_result->GetSchema(&dict_memo, &schema));
 }
 
 TEST_F(TestFlightClient, GetFlightInfoNotFound) {

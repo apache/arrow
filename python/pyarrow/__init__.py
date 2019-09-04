@@ -62,13 +62,14 @@ from pyarrow.lib import (null, bool_,
                          UnionType, TimestampType, Time32Type, Time64Type,
                          FixedSizeBinaryType, Decimal128Type,
                          BaseExtensionType, ExtensionType,
-                         UnknownExtensionType,
+                         PyExtensionType, UnknownExtensionType,
+                         register_extension_type, unregister_extension_type,
                          DictionaryMemo,
                          Field,
                          Schema,
                          schema,
                          Array, Tensor,
-                         array, chunked_array, table,
+                         array, chunked_array, record_batch, table,
                          SparseTensorCSR, SparseTensorCOO,
                          infer_type, from_numpy_dtype,
                          NullArray,
@@ -176,7 +177,7 @@ def _plasma_store_entry_point():
     """
     import pyarrow
     plasma_store_executable = _os.path.join(pyarrow.__path__[0],
-                                            "plasma_store_server")
+                                            "plasma-store-server")
     _os.execv(plasma_store_executable, _sys.argv)
 
 # ----------------------------------------------------------------------

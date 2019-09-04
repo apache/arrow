@@ -104,6 +104,14 @@ module Arrow
 
     def load_method_info(info, klass, method_name)
       case klass.name
+      when /Array\z/
+        case method_name
+        when "values"
+          method_name = "values_raw"
+        end
+      end
+
+      case klass.name
       when /Builder\z/
         case method_name
         when "append"

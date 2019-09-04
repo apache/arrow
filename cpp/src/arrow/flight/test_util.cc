@@ -81,10 +81,6 @@ Status ResolveCurrentExecutable(fs::path* out) {
 
 }  // namespace
 
-static int next_listen_port_ = 30001;
-
-int GetListenPort() { return next_listen_port_++; }
-
 void TestServer::Start() {
   namespace fs = boost::filesystem;
 
@@ -243,6 +239,20 @@ class FlightTestServer : public FlightServerBase {
     std::vector<ActionType> actions = ExampleActionTypes();
     *out = std::move(actions);
     return Status::OK();
+  }
+
+  Status GetSchema(const ServerCallContext& context, const FlightDescriptor& request,
+                   std::unique_ptr<SchemaResult>* schema) override {
+    std::vector<FlightInfo> flights = ExampleFlightInfo();
+
+    for (const auto& info : flights) {
+      if (info.descriptor().Equals(request)) {
+        *schema =
+            std::unique_ptr<SchemaResult>(new SchemaResult(info.serialized_schema()));
+        return Status::OK();
+      }
+    }
+    return Status::Invalid("Flight not found: ", request.ToString());
   }
 };
 

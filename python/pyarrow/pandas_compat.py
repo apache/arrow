@@ -352,7 +352,7 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
                 "Sparse pandas data (column {}) not supported.".format(name))
 
         if schema is not None:
-            field = schema.field_by_name(name)
+            field = schema.field(name)
         else:
             field = None
 
@@ -519,7 +519,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
     metadata = construct_metadata(df, column_names, index_columns,
                                   index_descriptors, preserve_index,
                                   types)
-    schema = schema.add_metadata(metadata)
+    schema = schema.with_metadata(metadata)
 
     return arrays, schema
 

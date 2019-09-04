@@ -408,6 +408,11 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     }
   }
 
+  @Override
+  public void allocateNew(int valueCount) {
+    allocateNew(lastValueAllocationSizeInBytes, valueCount);
+  }
+
   /* Check if the data buffer size is within bounds. */
   private void checkDataBufferSize(long size) {
     if (size > MAX_ALLOCATION_SIZE) {

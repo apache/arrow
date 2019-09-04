@@ -144,9 +144,7 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
 /// Return the process-wide default memory pool.
 ARROW_EXPORT MemoryPool* default_memory_pool();
 
-#ifdef ARROW_NO_DEFAULT_MEMORY_POOL
-#define ARROW_MEMORY_POOL_DEFAULT
-#else
+#ifndef ARROW_MEMORY_POOL_DEFAULT
 #define ARROW_MEMORY_POOL_DEFAULT = default_memory_pool()
 #endif
 

@@ -82,7 +82,7 @@ Status FixedSizeBinaryBuilder::AppendNull() {
 Status FixedSizeBinaryBuilder::AppendNulls(int64_t length) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(length, false);
-  byte_builder_.UnsafeAdvance(length * byte_width_);
+  byte_builder_.UnsafeAppend(/*num_copies=*/length * byte_width_, 0);
   return Status::OK();
 }
 

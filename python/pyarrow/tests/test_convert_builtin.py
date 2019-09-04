@@ -1219,11 +1219,16 @@ def test_structarray_from_arrays_coerce():
 
 def test_decimal_array_with_none_and_nan():
     values = [decimal.Decimal('1.234'), None, np.nan, decimal.Decimal('nan')]
-    array = pa.array(values)
+
+    with pytest.raises(TypeError):
+        # ARROW-6227: Without from_pandas=True, NaN is considered a float
+        array = pa.array(values)
+
+    array = pa.array(values, from_pandas=True)
     assert array.type == pa.decimal128(4, 3)
     assert array.to_pylist() == values[:2] + [None, None]
 
-    array = pa.array(values, type=pa.decimal128(10, 4))
+    array = pa.array(values, type=pa.decimal128(10, 4), from_pandas=True)
     assert array.to_pylist() == [decimal.Decimal('1.2340'), None, None, None]
 
 

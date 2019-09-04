@@ -78,5 +78,9 @@ module Arrow
     def value_data_type
       @value_data_type ||= value_data_type_raw
     end
+
+    def to_a
+      values
+    end
   end
 end

@@ -342,8 +342,13 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   bool HasMetadata() const;
 
   /// \brief Return a copy of this field with the given metadata attached to it
+  std::shared_ptr<Field> WithMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+
+  ARROW_DEPRECATED("Use WithMetadata")
   std::shared_ptr<Field> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+
   /// \brief Return a copy of this field without any metadata attached to it
   std::shared_ptr<Field> RemoveMetadata() const;
 
@@ -898,10 +903,17 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
 
   static constexpr const char* type_name() { return "decimal"; }
 
+  /// Decimal128Type constructor that aborts on invalid input.
   explicit Decimal128Type(int32_t precision, int32_t scale);
+
+  /// Decimal128Type constructor that returns an error on invalid input.
+  static Status Make(int32_t precision, int32_t scale, std::shared_ptr<DataType>* out);
 
   std::string ToString() const override;
   std::string name() const override { return "decimal"; }
+
+  static constexpr int32_t kMinPrecision = 1;
+  static constexpr int32_t kMaxPrecision = 38;
 };
 
 struct UnionMode {
@@ -1259,7 +1271,8 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   ///     one per input type.  Each integer vector represents the transposition
   ///     of input type indices into unified type indices.
   // XXX Should we return something special (an empty transpose map?) when
-  // the transposition is the identity function?
+  // the transposition is the identity function?  Currently this case is
+  // detected in DictionaryArray::Transpose.
   static Status Unify(MemoryPool* pool, const std::vector<const DataType*>& types,
                       const std::vector<const Array*>& dictionaries,
                       std::shared_ptr<DataType>* out_type,
@@ -1336,6 +1349,10 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable {
   ///
   /// \param[in] metadata new KeyValueMetadata
   /// \return new Schema
+  std::shared_ptr<Schema> WithMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+
+  ARROW_DEPRECATED("Use WithMetadata")
   std::shared_ptr<Schema> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
 

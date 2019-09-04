@@ -46,6 +46,10 @@ class ARROW_PYTHON_EXPORT PyFlightServerVtable {
                        std::unique_ptr<arrow::flight::FlightInfo>*)>
       get_flight_info;
   std::function<Status(PyObject*, const arrow::flight::ServerCallContext&,
+                       const arrow::flight::FlightDescriptor&,
+                       std::unique_ptr<arrow::flight::SchemaResult>*)>
+      get_schema;
+  std::function<Status(PyObject*, const arrow::flight::ServerCallContext&,
                        const arrow::flight::Ticket&,
                        std::unique_ptr<arrow::flight::FlightDataStream>*)>
       do_get;
@@ -120,6 +124,9 @@ class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBas
   Status GetFlightInfo(const arrow::flight::ServerCallContext& context,
                        const arrow::flight::FlightDescriptor& request,
                        std::unique_ptr<arrow::flight::FlightInfo>* info) override;
+  Status GetSchema(const arrow::flight::ServerCallContext& context,
+                   const arrow::flight::FlightDescriptor& request,
+                   std::unique_ptr<arrow::flight::SchemaResult>* result) override;
   Status DoGet(const arrow::flight::ServerCallContext& context,
                const arrow::flight::Ticket& request,
                std::unique_ptr<arrow::flight::FlightDataStream>* stream) override;
@@ -204,6 +211,11 @@ Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
                         const std::vector<arrow::flight::FlightEndpoint>& endpoints,
                         int64_t total_records, int64_t total_bytes,
                         std::unique_ptr<arrow::flight::FlightInfo>* out);
+
+/// \brief Create a SchemaResult from schema.
+ARROW_PYTHON_EXPORT
+Status CreateSchemaResult(const std::shared_ptr<arrow::Schema>& schema,
+                          std::unique_ptr<arrow::flight::SchemaResult>* out);
 
 }  // namespace flight
 }  // namespace py

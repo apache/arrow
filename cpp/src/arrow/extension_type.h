@@ -108,6 +108,20 @@ class ARROW_EXPORT ExtensionArray : public Array {
   std::shared_ptr<Array> storage_;
 };
 
+class ARROW_EXPORT ExtensionTypeRegistry {
+ public:
+  /// \brief Provide access to the global registry to allow code to control for
+  /// race conditions in registry teardown when some types need to be
+  /// unregistered and destroyed first
+  static std::shared_ptr<ExtensionTypeRegistry> GetGlobalRegistry();
+
+  virtual ~ExtensionTypeRegistry() = default;
+
+  virtual Status RegisterType(std::shared_ptr<ExtensionType> type) = 0;
+  virtual Status UnregisterType(const std::string& type_name) = 0;
+  virtual std::shared_ptr<ExtensionType> GetType(const std::string& type_name) = 0;
+};
+
 /// \brief Register an extension type globally. The name returned by the type's
 /// extension_name() method should be unique. This method is thread-safe
 /// \param[in] type an instance of the extension type

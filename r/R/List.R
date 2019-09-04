@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include R6.R
+#' @include type.R
 
 `arrow::ListType` <- R6Class("arrow::ListType",
   inherit = `arrow::NestedType`,
@@ -25,6 +25,6 @@
   )
 )
 
-#' @rdname DataType
+#' @rdname data-type
 #' @export
 list_of <- function(type) shared_ptr(`arrow::ListType`, list__(type))

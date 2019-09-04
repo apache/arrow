@@ -21,8 +21,6 @@ import java.io.IOException;
 
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.complex.impl.BitWriterImpl;
-import org.apache.arrow.vector.complex.writer.BitWriter;
 import org.apache.avro.io.Decoder;
 
 /**
@@ -31,31 +29,30 @@ import org.apache.avro.io.Decoder;
  */
 public class AvroBooleanConsumer implements Consumer {
 
-  private final BitWriter writer;
   private final BitVector vector;
+  private int currentIndex = 0;
 
   /**
    * Instantiate a AvroBooleanConsumer.
    */
   public AvroBooleanConsumer(BitVector vector) {
     this.vector = vector;
-    this.writer = new BitWriterImpl(vector);
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    writer.writeBit(decoder.readBoolean() ? 1 : 0);
-    writer.setPosition(writer.getPosition() + 1);
+    vector.setSafe(currentIndex, decoder.readBoolean() ? 1 : 0);
+    currentIndex++;
   }
 
   @Override
   public void addNull() {
-    writer.setPosition(writer.getPosition() + 1);
+    currentIndex++;
   }
 
   @Override
   public void setPosition(int index) {
-    writer.setPosition(index);
+    currentIndex = index;
   }
 
   @Override
@@ -65,7 +62,7 @@ public class AvroBooleanConsumer implements Consumer {
 
   @Override
   public void close() throws Exception {
-    writer.close();
+    vector.close();
   }
 
 }

@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include R6.R
+#' @include arrow-package.R
 
-#' @include R6.R
+#' @include arrow-package.R
 #'
 #' @title class arrow::json::TableReader
 #'
@@ -83,19 +83,6 @@ json_table_reader.default <- function(file,
 
 #' @export
 `json_table_reader.character` <- function(file,
-  read_options = json_read_options(),
-  parse_options = json_parse_options(),
-  ...
-){
-  json_table_reader(fs::path_abs(file),
-    read_options = read_options,
-    parse_options = parse_options,
-    ...
-  )
-}
-
-#' @export
-`json_table_reader.fs_path` <- function(file,
   read_options = json_read_options(),
   parse_options = json_parse_options(),
   ...

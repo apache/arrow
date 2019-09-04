@@ -46,7 +46,9 @@
 #' column names and will not be included in the data frame. (Note that `FALSE`
 #' is not currently supported.) Alternatively, you can specify a character
 #' vector of column names.
-#' @param col_select A [tidy selection specification][tidyselect::vars_select]
+#' @param col_select A character vector of column names to keep, as in the
+#' "select" argument to `data.table::fread()`, or a
+#' [tidy selection specification][tidyselect::vars_select()]
 #' of columns, as used in `dplyr::select()`.
 #' @param skip_empty_rows Should blank rows be ignored altogether? If
 #' `TRUE`, blank rows will not be represented at all. If `FALSE`, they will be
@@ -159,7 +161,7 @@ read_csv_arrow <- function(file,
 
   mc <- match.call()
   mc$delim <- ","
-  mc[[1]] <- as.name("read_delim_arrow")
+  mc[[1]] <- get("read_delim_arrow", envir = asNamespace("arrow"))
   eval.parent(mc)
 }
 
@@ -183,11 +185,11 @@ read_tsv_arrow <- function(file,
 
   mc <- match.call()
   mc$delim <- "\t"
-  mc[[1]] <- as.name("read_delim_arrow")
+  mc[[1]] <- get("read_delim_arrow", envir = asNamespace("arrow"))
   eval.parent(mc)
 }
 
-#' @include R6.R
+#' @include arrow-package.R
 
 `arrow::csv::TableReader` <- R6Class("arrow::csv::TableReader", inherit = `arrow::Object`,
   public = list(
@@ -341,21 +343,6 @@ csv_table_reader.default <- function(file,
 
 #' @export
 `csv_table_reader.character` <- function(file,
-  read_options = csv_read_options(),
-  parse_options = csv_parse_options(),
-  convert_options = csv_convert_options(),
-  ...
-){
-  csv_table_reader(fs::path_abs(file),
-    read_options = read_options,
-    parse_options = parse_options,
-    convert_options = convert_options,
-    ...
-  )
-}
-
-#' @export
-`csv_table_reader.fs_path` <- function(file,
   read_options = csv_read_options(),
   parse_options = csv_parse_options(),
   convert_options = csv_convert_options(),

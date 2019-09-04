@@ -87,6 +87,17 @@ functions above.
    Field
    Schema
 
+Specific classes and functions for extension types.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ExtensionType
+   PyExtensionType
+   register_extension_type
+   unregister_extension_type
+
+
 .. _api.types.checking:
 .. currentmodule:: pyarrow.types
 

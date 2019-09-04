@@ -34,7 +34,7 @@ if "%JOB%" == "Static_Crt_Build" (
   pushd cpp\build-debug
 
   cmake -G "%GENERATOR%" ^
-        -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
+        -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
         -DARROW_USE_STATIC_CRT=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DARROW_BUILD_SHARED=OFF ^

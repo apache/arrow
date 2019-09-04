@@ -118,6 +118,13 @@ std::string FlightDescriptor::ToString() const {
   return ss.str();
 }
 
+Status SchemaResult::GetSchema(ipc::DictionaryMemo* dictionary_memo,
+                               std::shared_ptr<Schema>* out) const {
+  io::BufferReader schema_reader(raw_schema_);
+  RETURN_NOT_OK(ipc::ReadSchema(&schema_reader, dictionary_memo, out));
+  return Status::OK();
+}
+
 Status FlightDescriptor::SerializeToString(std::string* out) const {
   pb::FlightDescriptor pb_descriptor;
   RETURN_NOT_OK(internal::ToProto(*this, &pb_descriptor));

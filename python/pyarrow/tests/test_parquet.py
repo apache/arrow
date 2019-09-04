@@ -174,7 +174,7 @@ def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size):
     assert arrow_table.schema.metadata == table_read.schema.metadata
 
     df_read = table_read.to_pandas()
-    tm.assert_frame_equal(df, df_read, check_categorical=False)
+    tm.assert_frame_equal(df, df_read)
 
 
 def test_set_data_page_size():
@@ -238,8 +238,8 @@ def test_empty_table_roundtrip():
         [col.chunk(0)[:0] for col in table.itercolumns()],
         names=table.schema.names)
 
-    assert table.schema.field_by_name('null').type == pa.null()
-    assert table.schema.field_by_name('null_list').type == pa.list_(pa.null())
+    assert table.schema.field('null').type == pa.null()
+    assert table.schema.field('null_list').type == pa.list_(pa.null())
     _check_roundtrip(table, version='2.0')
 
 
@@ -1093,6 +1093,14 @@ def test_date_time_types(tempdir):
     assert read_table.equals(expected)
 
 
+def test_timestamp_restore_timezone():
+    # ARROW-5888, restore timezone from serialized metadata
+    ty = pa.timestamp('ms', tz='America/New_York')
+    arr = pa.array([1, 2, 3], type=ty)
+    t = pa.table([arr], names=['f0'])
+    _check_roundtrip(t)
+
+
 @pytest.mark.pandas
 def test_list_of_datetime_time_roundtrip():
     # ARROW-4135
@@ -1308,6 +1316,50 @@ def test_read_single_row_group_with_column_subset():
     # being read uniquely.
     row_groups = [pf.read_row_group(i, columns=cols + cols) for i in range(K)]
     result = pa.concat_tables(row_groups)
+    tm.assert_frame_equal(df[cols], result.to_pandas())
+
+
+@pytest.mark.pandas
+def test_read_multiple_row_groups():
+    N, K = 10000, 4
+    df = alltypes_sample(size=N)
+
+    a_table = pa.Table.from_pandas(df)
+
+    buf = io.BytesIO()
+    _write_table(a_table, buf, row_group_size=N / K,
+                 compression='snappy', version='2.0')
+
+    buf.seek(0)
+
+    pf = pq.ParquetFile(buf)
+
+    assert pf.num_row_groups == K
+
+    result = pf.read_row_groups(range(K))
+    tm.assert_frame_equal(df, result.to_pandas())
+
+
+@pytest.mark.pandas
+def test_read_multiple_row_groups_with_column_subset():
+    N, K = 10000, 4
+    df = alltypes_sample(size=N)
+    a_table = pa.Table.from_pandas(df)
+
+    buf = io.BytesIO()
+    _write_table(a_table, buf, row_group_size=N / K,
+                 compression='snappy', version='2.0')
+
+    buf.seek(0)
+    pf = pq.ParquetFile(buf)
+
+    cols = list(df.columns[:2])
+    result = pf.read_row_groups(range(K), columns=cols)
+    tm.assert_frame_equal(df[cols], result.to_pandas())
+
+    # ARROW-4267: Selection of duplicate columns still leads to these columns
+    # being read uniquely.
+    result = pf.read_row_groups(range(K), columns=cols + cols)
     tm.assert_frame_equal(df[cols], result.to_pandas())
 
 
@@ -3030,6 +3082,22 @@ def test_categorical_index_survives_roundtrip():
     ref_df = pq.read_pandas(bos.getvalue()).to_pandas()
     assert isinstance(ref_df.index, pd.CategoricalIndex)
     assert ref_df.index.equals(df.index)
+
+
+@pytest.mark.pandas
+def test_categorical_order_survives_roundtrip():
+    # ARROW-6302
+    df = pd.DataFrame({"a": pd.Categorical(
+        ["a", "b", "c", "a"], categories=["b", "c", "d"], ordered=True)})
+
+    table = pa.Table.from_pandas(df)
+    bos = pa.BufferOutputStream()
+    pq.write_table(table, bos)
+
+    contents = bos.getvalue()
+    result = pq.read_pandas(contents).to_pandas()
+
+    tm.assert_frame_equal(result, df)
 
 
 def test_dictionary_array_automatically_read():

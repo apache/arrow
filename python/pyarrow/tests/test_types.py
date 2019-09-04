@@ -364,6 +364,18 @@ def test_dictionary_type():
         pa.dictionary(pa.uint32(), pa.string())
 
 
+def test_dictionary_ordered_equals():
+    # Python side checking of ARROW-6345
+    d1 = pa.dictionary('int32', 'binary', ordered=True)
+    d2 = pa.dictionary('int32', 'binary', ordered=False)
+    d3 = pa.dictionary('int8', 'binary', ordered=True)
+    d4 = pa.dictionary('int32', 'binary', ordered=True)
+
+    assert not d1.equals(d2)
+    assert not d1.equals(d3)
+    assert d1.equals(d4)
+
+
 def test_types_hashable():
     many_types = get_many_types()
     in_dict = {}
@@ -543,14 +555,14 @@ def test_field_add_remove_metadata():
         (b'b', b'beta')
     ])
 
-    f1 = f0.add_metadata(metadata)
+    f1 = f0.with_metadata(metadata)
     assert f1.metadata == metadata
 
-    f2 = f0.add_metadata(metadata2)
+    f2 = f0.with_metadata(metadata2)
     assert f2.metadata == metadata2
 
     with pytest.raises(TypeError):
-        f0.add_metadata([1, 2, 3])
+        f0.with_metadata([1, 2, 3])
 
     f3 = f1.remove_metadata()
     assert f3.metadata is None
@@ -560,7 +572,7 @@ def test_field_add_remove_metadata():
     assert f4.metadata is None
 
     f5 = pa.field('foo', pa.int32(), True, metadata)
-    f6 = f0.add_metadata(metadata)
+    f6 = f0.with_metadata(metadata)
     assert f5.equals(f6)
 
 

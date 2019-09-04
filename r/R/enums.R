@@ -27,17 +27,19 @@ enum <- function(class, ..., .list = list(...)){
   )
 }
 
-#' @rdname DataType
+#' Arrow enums
+#' @name enums
 #' @export
+#' @keywords internal
 TimeUnit <- enum("arrow::TimeUnit::type",
   SECOND = 0L, MILLI = 1L, MICRO = 2L, NANO = 3L
 )
 
-#' @rdname DataType
+#' @rdname enums
 #' @export
 DateUnit <- enum("arrow::DateUnit", DAY = 0L, MILLI = 1L)
 
-#' @rdname DataType
+#' @rdname enums
 #' @export
 Type <- enum("arrow::Type::type",
   "NA" = 0L, BOOL = 1L, UINT8 = 2L, INT8 = 3L, UINT16 = 4L, INT16 = 5L,
@@ -48,7 +50,7 @@ Type <- enum("arrow::Type::type",
   UNION = 25L, DICTIONARY = 26L, MAP = 27L
 )
 
-#' @rdname DataType
+#' @rdname enums
 #' @export
 StatusCode <- enum("arrow::StatusCode",
   OK = 0L, OutOfMemory = 1L, KeyError = 2L, TypeError = 3L,
@@ -59,19 +61,19 @@ StatusCode <- enum("arrow::StatusCode",
   PlasmaStoreFull = 22L, PlasmaObjectAlreadySealed = 23L
 )
 
-#' @rdname DataType
+#' @rdname enums
 #' @export
 FileMode <- enum("arrow::io::FileMode",
   READ = 0L, WRITE = 1L, READWRITE = 2L
 )
 
-#' @rdname DataType
+#' @rdname enums
 #' @export
 MessageType <- enum("arrow::ipc::Message::Type",
   NONE = 0L, SCHEMA = 1L, DICTIONARY_BATCH = 2L, RECORD_BATCH = 3L, TENSOR = 4L
 )
 
-#' @rdname DataType
+#' @rdname enums
 #' @export
 CompressionType <- enum("arrow::Compression::type",
   UNCOMPRESSED = 0L, SNAPPY = 1L, GZIP = 2L, BROTLI = 3L, ZSTD = 4L, LZ4 = 5L, LZO = 6L, BZ2 = 7L

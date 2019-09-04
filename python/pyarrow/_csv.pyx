@@ -55,8 +55,13 @@ cdef class ReadOptions:
         The number of rows to skip at the start of the CSV data, not
         including the row of column names (if any).
     column_names: list, optional
-        The column names in the CSV file.  If empty, column names will be
-        read from the first row after `skip_rows`.
+        The column names of the target table.  If empty, fall back on
+        `autogenerate_column_names`.
+    autogenerate_column_names: bool, optional (default False)
+        Whether to autogenerate column names if `column_names` is empty.
+        If true, column names will be of the form "f0", "f1"...
+        If false, column names will be read from the first CSV row
+        after `skip_rows`.
     """
     cdef:
         CCSVReadOptions options
@@ -65,7 +70,7 @@ cdef class ReadOptions:
     __slots__ = ()
 
     def __init__(self, use_threads=None, block_size=None, skip_rows=None,
-                 column_names=None):
+                 column_names=None, autogenerate_column_names=None):
         self.options = CCSVReadOptions.Defaults()
         if use_threads is not None:
             self.use_threads = use_threads
@@ -75,6 +80,8 @@ cdef class ReadOptions:
             self.skip_rows = skip_rows
         if column_names is not None:
             self.column_names = column_names
+        if autogenerate_column_names is not None:
+            self.autogenerate_column_names= autogenerate_column_names
 
     @property
     def use_threads(self):
@@ -115,8 +122,8 @@ cdef class ReadOptions:
     @property
     def column_names(self):
         """
-        The column names in the CSV file.  If empty, column names will be
-        read from the first row after `skip_rows`.
+        The column names of the target table.  If empty, fall back on
+        `autogenerate_column_names`.
         """
         return [frombytes(s) for s in self.options.column_names]
 
@@ -125,6 +132,20 @@ cdef class ReadOptions:
         self.options.column_names.clear()
         for item in value:
             self.options.column_names.push_back(tobytes(item))
+
+    @property
+    def autogenerate_column_names(self):
+        """
+        Whether to autogenerate column names if `column_names` is empty.
+        If true, column names will be of the form "f0", "f1"...
+        If false, column names will be read from the first CSV row
+        after `skip_rows`.
+        """
+        return self.options.autogenerate_column_names
+
+    @autogenerate_column_names.setter
+    def autogenerate_column_names(self, value):
+        self.options.autogenerate_column_names = value
 
 
 cdef class ParseOptions:

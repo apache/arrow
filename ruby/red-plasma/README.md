@@ -46,7 +46,7 @@ Install Red Plasma after you install Plasma GLib:
 Starting the Plasma store
 
 ```console
-plasma_store_server -m 1000000000 -s /tmp/plasma
+plasma-store-server -m 1000000000 -s /tmp/plasma
 ```
 
 Creating a Plasma client

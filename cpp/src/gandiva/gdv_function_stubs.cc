@@ -24,6 +24,7 @@
 #include "gandiva/exported_funcs.h"
 #include "gandiva/in_holder.h"
 #include "gandiva/like_holder.h"
+#include "gandiva/random_generator_holder.h"
 #include "gandiva/to_date_holder.h"
 
 /// Stub functions that can be accessed from LLVM or the pre-compiled library.
@@ -34,6 +35,18 @@ bool gdv_fn_like_utf8_utf8(int64_t ptr, const char* data, int data_len,
                            const char* pattern, int pattern_len) {
   gandiva::LikeHolder* holder = reinterpret_cast<gandiva::LikeHolder*>(ptr);
   return (*holder)(std::string(data, data_len));
+}
+
+double gdv_fn_random(int64_t ptr) {
+  gandiva::RandomGeneratorHolder* holder =
+      reinterpret_cast<gandiva::RandomGeneratorHolder*>(ptr);
+  return (*holder)();
+}
+
+double gdv_fn_random_with_seed(int64_t ptr, int32_t seed, bool seed_validity) {
+  gandiva::RandomGeneratorHolder* holder =
+      reinterpret_cast<gandiva::RandomGeneratorHolder*>(ptr);
+  return (*holder)();
 }
 
 int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
@@ -230,6 +243,15 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_populate_varlen_vector",
                                   types->i32_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_populate_varlen_vector));
+
+  // gdv_fn_random
+  args = {types->i64_type()};
+  engine->AddGlobalMappingForFunc("gdv_fn_random", types->double_type(), args,
+                                  reinterpret_cast<void*>(gdv_fn_random));
+
+  args = {types->i64_type(), types->i32_type(), types->i1_type()};
+  engine->AddGlobalMappingForFunc("gdv_fn_random_with_seed", types->double_type(), args,
+                                  reinterpret_cast<void*>(gdv_fn_random_with_seed));
 }
 
 }  // namespace gandiva

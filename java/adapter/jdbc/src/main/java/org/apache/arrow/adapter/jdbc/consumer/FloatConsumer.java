@@ -21,8 +21,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.apache.arrow.vector.Float4Vector;
-import org.apache.arrow.vector.complex.impl.Float4WriterImpl;
-import org.apache.arrow.vector.complex.writer.Float4Writer;
 
 /**
  * Consumer which consume float type values from {@link ResultSet}.
@@ -30,14 +28,16 @@ import org.apache.arrow.vector.complex.writer.Float4Writer;
  */
 public class FloatConsumer implements JdbcConsumer<Float4Vector> {
 
-  private Float4Writer writer;
+  private Float4Vector vector;
   private final int columnIndexInResultSet;
+
+  private int currentIndex;
 
   /**
    * Instantiate a FloatConsumer.
    */
   public FloatConsumer(Float4Vector vector, int index) {
-    this.writer = new Float4WriterImpl(vector);
+    this.vector = vector;
     this.columnIndexInResultSet = index;
   }
 
@@ -45,13 +45,18 @@ public class FloatConsumer implements JdbcConsumer<Float4Vector> {
   public void consume(ResultSet resultSet) throws SQLException {
     float value = resultSet.getFloat(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      writer.writeFloat4(value);
+      vector.setSafe(currentIndex++, value);
     }
-    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
   }
 
   @Override
   public void resetValueVector(Float4Vector vector) {
-    this.writer = new Float4WriterImpl(vector);
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

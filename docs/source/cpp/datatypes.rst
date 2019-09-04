@@ -22,7 +22,7 @@ Data Types
 ==========
 
 Data types govern how physical data is interpreted.  Their :ref:`specification
-<spec-logical-types>` allows binary interoperability between different Arrow
+<format_columnar>` allows binary interoperability between different Arrow
 implementations, including from different programming languages and runtimes
 (for example it is possible to access the same data, without copying, from
 both Python and Java using the :py:mod:`pyarrow.jvm` bridge module).

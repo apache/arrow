@@ -15,11 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_COMPRESSION_H
-#define ARROW_UTIL_COMPRESSION_H
+#pragma once
 
 #include <cstdint>
+#include <limits>
 #include <memory>
+#include <string>
 
 #include "arrow/util/visibility.h"
 
@@ -32,6 +33,8 @@ struct Compression {
 };
 
 namespace util {
+
+constexpr int kUseDefaultCompressionLevel = std::numeric_limits<int>::min();
 
 /// \brief Streaming compressor interface
 ///
@@ -97,7 +100,16 @@ class ARROW_EXPORT Codec {
  public:
   virtual ~Codec();
 
+  /// \brief Return special value to indicate that a codec implementation
+  /// should use its default compression level
+  static int UseDefaultCompressionLevel();
+
+  /// \brief Return a string name for compression type
+  static std::string GetCodecAsString(Compression::type t);
+
   static Status Create(Compression::type codec, std::unique_ptr<Codec>* out);
+  static Status Create(Compression::type codec, int compression_level,
+                       std::unique_ptr<Codec>* out);
 
   /// \brief One-shot decompression function
   ///
@@ -152,5 +164,3 @@ class ARROW_EXPORT Codec {
 
 }  // namespace util
 }  // namespace arrow
-
-#endif

@@ -498,19 +498,26 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     for (int i = 0; i < dictionary_memo_.num_fields(); ++i) {
       RETURN_NOT_OK(message_reader_->ReadNextMessage(&message));
       if (!message) {
-        /// ARROW-6006: If we fail to find any dictionaries in the stream, then
-        /// it may be that the stream has a schema but no actual data. In such
-        /// case we communicate that we were unable to find the dictionaries
-        /// (but there was no failure otherwise), so the caller can decide what
-        /// to do
-        empty_stream_ = true;
-        break;
+        if (i == 0) {
+          /// ARROW-6006: If we fail to find any dictionaries in the stream, then
+          /// it may be that the stream has a schema but no actual data. In such
+          /// case we communicate that we were unable to find the dictionaries
+          /// (but there was no failure otherwise), so the caller can decide what
+          /// to do
+          empty_stream_ = true;
+          break;
+        } else {
+          // ARROW-6126, the stream terminated before receiving the expected
+          // number of dictionaries
+          return Status::Invalid("IPC stream ended without reading the expected number (",
+                                 dictionary_memo_.num_fields(), ") of dictionaries");
+        }
       }
 
       if (message->type() != Message::DICTIONARY_BATCH) {
-        return Status::Invalid(
-            "IPC stream did not find the expected number of "
-            "dictionaries at the start of the stream");
+        return Status::Invalid("IPC stream did not have the expected number (",
+                               dictionary_memo_.num_fields(),
+                               ") of dictionaries at the start of the stream");
       }
       RETURN_NOT_OK(ParseDictionary(*message));
     }

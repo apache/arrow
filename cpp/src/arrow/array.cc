@@ -906,6 +906,16 @@ Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
   return Status::OK();
 }
 
+static bool IsTrivialTransposition(const std::vector<int32_t>& transpose_map,
+                                   int64_t input_dict_size) {
+  for (int64_t i = 0; i < input_dict_size; ++i) {
+    if (transpose_map[i] != i) {
+      return false;
+    }
+  }
+  return true;
+}
+
 template <typename InType, typename OutType>
 static Status TransposeDictIndices(MemoryPool* pool, const ArrayData& in_data,
                                    const std::vector<int32_t>& transpose_map,
@@ -927,6 +937,14 @@ Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataTy
   if (type->id() != Type::DICTIONARY) {
     return Status::TypeError("Expected dictionary type");
   }
+  const int64_t in_dict_len = data_->dictionary->length();
+  if (in_dict_len > static_cast<int64_t>(transpose_map.size())) {
+    return Status::Invalid(
+        "Transpose map too small for dictionary array "
+        "(has ",
+        transpose_map.size(), " values, need at least ", in_dict_len, ")");
+  }
+
   const auto& out_dict_type = checked_cast<const DictionaryType&>(*type);
 
   const auto& out_index_type =
@@ -935,12 +953,33 @@ Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataTy
   auto in_type_id = dict_type_->index_type()->id();
   auto out_type_id = out_index_type.id();
 
+  if (in_type_id == out_type_id && IsTrivialTransposition(transpose_map, in_dict_len)) {
+    // Index type and values will be identical => we can simply reuse
+    // the existing buffers.
+    auto out_data =
+        ArrayData::Make(type, data_->length, {data_->buffers[0], data_->buffers[1]},
+                        data_->null_count, data_->offset);
+    out_data->dictionary = dictionary;
+    *out = MakeArray(out_data);
+    return Status::OK();
+  }
+
+  // Default path: compute a buffer of transposed indices.
   std::shared_ptr<Buffer> out_buffer;
   RETURN_NOT_OK(AllocateBuffer(
       pool, data_->length * out_index_type.bit_width() * CHAR_BIT, &out_buffer));
-  // Null bitmap is unchanged
-  auto out_data = ArrayData::Make(type, data_->length, {data_->buffers[0], out_buffer},
-                                  data_->null_count);
+
+  // Shift null buffer if the original offset is non-zero
+  std::shared_ptr<Buffer> null_bitmap;
+  if (data_->offset != 0) {
+    RETURN_NOT_OK(
+        CopyBitmap(pool, null_bitmap_data_, data_->offset, data_->length, &null_bitmap));
+  } else {
+    null_bitmap = data_->buffers[0];
+  }
+
+  auto out_data =
+      ArrayData::Make(type, data_->length, {null_bitmap, out_buffer}, data_->null_count);
   out_data->dictionary = dictionary;
 
 #define TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, OUT_INDEX_TYPE)    \
@@ -1202,8 +1241,9 @@ struct ValidateVisitor {
     ARROW_RETURN_IF(array.data()->buffers.size() != 2,
                     Status::Invalid("number of buffers was != 2"));
 
-    ARROW_RETURN_IF(array.values() == nullptr, Status::Invalid("values was null"));
-
+    if (array.length() > 0 && array.values() == nullptr) {
+      return Status::Invalid("values was null");
+    }
     return Status::OK();
   }
 
@@ -1211,7 +1251,7 @@ struct ValidateVisitor {
     if (array.data()->buffers.size() != 2) {
       return Status::Invalid("number of buffers was != 2");
     }
-    if (array.values() == nullptr) {
+    if (array.length() > 0 && array.values() == nullptr) {
       return Status::Invalid("values was null");
     }
     return Status::OK();
@@ -1250,7 +1290,7 @@ struct ValidateVisitor {
       return Status::Invalid("key array invalid: ", key_valid.ToString());
     }
 
-    if (!array.values()) {
+    if (array.length() > 0 && !array.values()) {
       return Status::Invalid("values was null");
     }
     const Status values_valid = array.values()->Validate();
@@ -1272,7 +1312,7 @@ struct ValidateVisitor {
   }
 
   Status Visit(const FixedSizeListArray& array) {
-    if (!array.values()) {
+    if (array.length() > 0 && !array.values()) {
       return Status::Invalid("values was null");
     }
     if (array.values()->length() != array.length() * array.value_length()) {
@@ -1338,14 +1378,14 @@ struct ValidateVisitor {
  protected:
   template <typename ListArrayType>
   Status ValidateListArray(const ListArrayType& array) {
-    if (!array.values()) {
+    const auto last_offset = array.value_offset(array.length());
+    const auto data_extent = last_offset - array.value_offset(0);
+    if (data_extent > 0 && !array.values()) {
       return Status::Invalid("values was null");
     }
-
-    const auto last_offset = array.value_offset(array.length());
-    if (array.values()->length() != last_offset) {
-      return Status::Invalid("Final offset invariant not equal to values length: ",
-                             last_offset, "!=", array.values()->length());
+    if (array.values()->length() < last_offset) {
+      return Status::Invalid("Final offset larger than values array: ", last_offset, ">",
+                             array.values()->length());
     }
 
     const Status child_valid = array.values()->Validate();

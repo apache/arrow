@@ -277,7 +277,6 @@ if(ARROW_IPC AND NOT ARROW_JSON)
 endif()
 
 if(PARQUET_BUILD_EXAMPLES OR PARQUET_BUILD_EXECUTABLES)
-  set(ARROW_PARQUET ON)
   set(ARROW_BUILD_STATIC ON)
 endif()
 
@@ -656,6 +655,10 @@ if(ARROW_USE_GLOG)
   add_definitions("-DARROW_USE_GLOG")
 endif()
 
+if(ARROW_S3)
+  list(APPEND ARROW_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
+endif()
+
 add_custom_target(arrow_dependencies)
 add_custom_target(arrow_benchmark_dependencies)
 add_custom_target(arrow_test_dependencies)
@@ -670,12 +673,12 @@ if(ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 endif()
 
-set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS} ${BOOST_SYSTEM_LIBRARY}
-                                   ${BOOST_FILESYSTEM_LIBRARY})
+set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS} ${BOOST_FILESYSTEM_LIBRARY}
+                                   ${BOOST_SYSTEM_LIBRARY})
 
-list(APPEND ARROW_STATIC_LINK_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
+list(APPEND ARROW_STATIC_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_SYSTEM_LIBRARY})
 
-list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS boost_system boost_filesystem boost_regex)
+list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS boost_filesystem boost_system boost_regex)
 
 if(NOT MSVC)
   list(APPEND ARROW_LINK_LIBS ${CMAKE_DL_LIBS})
@@ -702,8 +705,8 @@ set(ARROW_TEST_SHARED_LINK_LIBS
     arrow_shared
     ${ARROW_LINK_LIBS}
     ${double-conversion_LIBRARIES}
-    ${BOOST_SYSTEM_LIBRARY}
     ${BOOST_FILESYSTEM_LIBRARY}
+    ${BOOST_SYSTEM_LIBRARY}
     ${ARROW_TEST_LINK_TOOLCHAIN})
 
 if(NOT MSVC)
@@ -753,6 +756,11 @@ endif(ARROW_JEMALLOC)
 
 if(THREADS_FOUND)
   list(APPEND ARROW_SYSTEM_LINK_LIBS Threads::Threads)
+endif()
+
+if(WIN32)
+  # Winsock
+  list(APPEND ARROW_SYSTEM_LINK_LIBS "Ws2_32.dll")
 endif()
 
 if(NOT WIN32 AND NOT APPLE)

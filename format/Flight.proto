@@ -62,6 +62,14 @@ service FlightService {
   rpc GetFlightInfo(FlightDescriptor) returns (FlightInfo) {}
 
   /*
+   * For a given FlightDescriptor, get the Schema as described in Schema.fbs::Schema
+   * This is used when a consumer needs the Schema of flight stream. Similar to
+   * GetFlightInfo this interface may generate a new flight that was not previously
+   * available in ListFlights.
+   */
+   rpc GetSchema(FlightDescriptor) returns (SchemaResult) {}
+
+  /*
    * Retrieve a single stream associated with a particular descriptor
    * associated with the referenced ticket. A Flight can be composed of one or
    * more streams where each stream can be retrieved using a separate opaque
@@ -167,6 +175,14 @@ message Action {
  */
 message Result {
   bytes body = 1;
+}
+
+/*
+ * Wrap the result of a getSchema call
+ */
+message SchemaResult {
+  // schema of the dataset as described in Schema.fbs::Schema.
+  bytes schema = 1;
 }
 
 /*

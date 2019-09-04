@@ -297,6 +297,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         # Removed const in Cython so don't have to cast to get code to generate
         shared_ptr[CField] AddMetadata(
             const shared_ptr[CKeyValueMetadata]& metadata)
+        shared_ptr[CField] WithMetadata(
+            const shared_ptr[CKeyValueMetadata]& metadata)
         shared_ptr[CField] RemoveMetadata()
         vector[shared_ptr[CField]] Flatten()
 
@@ -341,6 +343,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         # Removed const in Cython so don't have to cast to get code to generate
         shared_ptr[CSchema] AddMetadata(
+            const shared_ptr[CKeyValueMetadata]& metadata)
+        shared_ptr[CSchema] WithMetadata(
             const shared_ptr[CKeyValueMetadata]& metadata)
         shared_ptr[CSchema] RemoveMetadata()
 
@@ -558,6 +562,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int num_columns()
         int64_t num_rows()
 
+        CStatus Validate()
+
         shared_ptr[CRecordBatch] ReplaceSchemaMetadata(
             const shared_ptr[CKeyValueMetadata]& metadata)
 
@@ -607,6 +613,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         shared_ptr[CTable] ReplaceSchemaMetadata(
             const shared_ptr[CKeyValueMetadata]& metadata)
+
+        shared_ptr[CTable] Slice(int64_t offset)
+        shared_ptr[CTable] Slice(int64_t offset, int64_t length)
 
     cdef cppclass CRecordBatchReader" arrow::RecordBatchReader":
         shared_ptr[CSchema] schema()
@@ -1142,6 +1151,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         int32_t block_size
         int32_t skip_rows
         vector[c_string] column_names
+        c_bool autogenerate_column_names
 
         @staticmethod
         CCSVReadOptions Defaults()
@@ -1412,6 +1422,10 @@ cdef extern from 'arrow/python/inference.h' namespace 'arrow::py':
 
 
 cdef extern from 'arrow/extension_type.h' namespace 'arrow':
+    cdef cppclass CExtensionTypeRegistry" arrow::ExtensionTypeRegistry":
+        @staticmethod
+        shared_ptr[CExtensionTypeRegistry] GetGlobalRegistry()
+
     cdef cppclass CExtensionType" arrow::ExtensionType"(CDataType):
         c_string extension_name()
         shared_ptr[CDataType] storage_type()
@@ -1426,8 +1440,9 @@ cdef extern from 'arrow/python/extension_type.h' namespace 'arrow::py':
     cdef cppclass CPyExtensionType \
             " arrow::py::PyExtensionType"(CExtensionType):
         @staticmethod
-        CStatus FromClass(shared_ptr[CDataType] storage_type,
-                          object typ, shared_ptr[CExtensionType]* out)
+        CStatus FromClass(const shared_ptr[CDataType] storage_type,
+                          const c_string extension_name, object typ,
+                          shared_ptr[CExtensionType]* out)
 
         @staticmethod
         CStatus FromInstance(shared_ptr[CDataType] storage_type,
@@ -1438,7 +1453,7 @@ cdef extern from 'arrow/python/extension_type.h' namespace 'arrow::py':
 
     c_string PyExtensionName()
     CStatus RegisterPyExtensionType(shared_ptr[CDataType])
-    CStatus UnregisterPyExtensionType()
+    CStatus UnregisterPyExtensionType(c_string type_name)
 
 
 cdef extern from 'arrow/python/benchmark.h' namespace 'arrow::py::benchmark':

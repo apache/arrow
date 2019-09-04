@@ -391,6 +391,10 @@ ARROW_EXPORT
 Status GetRecordBatchPayload(const RecordBatch& batch, const IpcOptions& options,
                              MemoryPool* pool, IpcPayload* out);
 
+ARROW_EXPORT
+Status WriteIpcPayload(const IpcPayload& payload, io::OutputStream* dst,
+                       int32_t* metadata_length);
+
 }  // namespace internal
 
 }  // namespace ipc

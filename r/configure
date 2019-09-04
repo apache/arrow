@@ -91,7 +91,7 @@ else
 fi
 
 # Find compiler
-CXXCPP=$("${R_HOME}"/bin/R CMD config CXXCPP)
+CXXCPP="$(${R_HOME}/bin/R CMD config CXX11) -E"
 CXX11FLAGS=$("${R_HOME}"/bin/R CMD config CXX11FLAGS)
 CXX11STD=$("${R_HOME}"/bin/R CMD config CXX11STD)
 CPPFLAGS=$("${R_HOME}"/bin/R CMD config CPPFLAGS)

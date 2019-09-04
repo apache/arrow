@@ -36,7 +36,9 @@ prelude: |-
   n_columns.times do |i|
     column_name = "column_#{i}"
     fields[column_name] = type
-    arrays[column_name] = n_rows.times.map { Faker::Number.number(18).to_i }
+    arrays[column_name] = n_rows.times.map do
+      Faker::Number.number(digits: 18).to_i
+    end
   end
   record_batch = Arrow::RecordBatch.new(fields, arrays)
 

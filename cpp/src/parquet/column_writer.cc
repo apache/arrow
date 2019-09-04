@@ -139,8 +139,9 @@ int LevelEncoder::Encode(int batch_size, const int16_t* levels) {
 class SerializedPageWriter : public PageWriter {
  public:
   SerializedPageWriter(const std::shared_ptr<ArrowOutputStream>& sink,
-                       Compression::type codec, ColumnChunkMetaDataBuilder* metadata,
-                       int16_t row_group_ordinal, int16_t column_chunk_ordinal,
+                       Compression::type codec, int compression_level,
+                       ColumnChunkMetaDataBuilder* metadata, int16_t row_group_ordinal,
+                       int16_t column_chunk_ordinal,
                        MemoryPool* pool = arrow::default_memory_pool(),
                        std::shared_ptr<Encryptor> meta_encryptor = NULLPTR,
                        std::shared_ptr<Encryptor> data_encryptor = NULLPTR)
@@ -160,7 +161,7 @@ class SerializedPageWriter : public PageWriter {
     if (data_encryptor_ != NULLPTR || meta_encryptor_ != NULLPTR) {
       InitEncryption();
     }
-    compressor_ = GetCodecFromArrow(codec);
+    compressor_ = GetCodec(codec, compression_level);
     thrift_serializer_.reset(new ThriftSerializer);
   }
 
@@ -401,17 +402,17 @@ class SerializedPageWriter : public PageWriter {
 class BufferedPageWriter : public PageWriter {
  public:
   BufferedPageWriter(const std::shared_ptr<ArrowOutputStream>& sink,
-                     Compression::type codec, ColumnChunkMetaDataBuilder* metadata,
-                     int16_t row_group_ordinal, int16_t current_column_ordinal,
+                     Compression::type codec, int compression_level,
+                     ColumnChunkMetaDataBuilder* metadata, int16_t row_group_ordinal,
+                     int16_t current_column_ordinal,
                      MemoryPool* pool = arrow::default_memory_pool(),
                      std::shared_ptr<Encryptor> meta_encryptor = NULLPTR,
                      std::shared_ptr<Encryptor> data_encryptor = NULLPTR)
       : final_sink_(sink), metadata_(metadata) {
     in_memory_sink_ = CreateOutputStream(pool);
-
     pager_ = std::unique_ptr<SerializedPageWriter>(new SerializedPageWriter(
-        in_memory_sink_, codec, metadata, row_group_ordinal, current_column_ordinal, pool,
-        meta_encryptor, data_encryptor));
+        in_memory_sink_, codec, compression_level, metadata, row_group_ordinal,
+        current_column_ordinal, pool, meta_encryptor, data_encryptor));
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
@@ -455,18 +456,18 @@ class BufferedPageWriter : public PageWriter {
 
 std::unique_ptr<PageWriter> PageWriter::Open(
     const std::shared_ptr<ArrowOutputStream>& sink, Compression::type codec,
-    ColumnChunkMetaDataBuilder* metadata, int16_t row_group_ordinal,
-    int16_t column_chunk_ordinal, MemoryPool* pool, bool buffered_row_group,
-    std::shared_ptr<Encryptor> meta_encryptor,
+    int compression_level, ColumnChunkMetaDataBuilder* metadata,
+    int16_t row_group_ordinal, int16_t column_chunk_ordinal, MemoryPool* pool,
+    bool buffered_row_group, std::shared_ptr<Encryptor> meta_encryptor,
     std::shared_ptr<Encryptor> data_encryptor) {
   if (buffered_row_group) {
     return std::unique_ptr<PageWriter>(new BufferedPageWriter(
-        sink, codec, metadata, row_group_ordinal, column_chunk_ordinal, pool,
-        meta_encryptor, data_encryptor));
+        sink, codec, compression_level, metadata, row_group_ordinal, column_chunk_ordinal,
+        pool, meta_encryptor, data_encryptor));
   } else {
     return std::unique_ptr<PageWriter>(new SerializedPageWriter(
-        sink, codec, metadata, row_group_ordinal, column_chunk_ordinal, pool,
-        meta_encryptor, data_encryptor));
+        sink, codec, compression_level, metadata, row_group_ordinal, column_chunk_ordinal,
+        pool, meta_encryptor, data_encryptor));
   }
 }
 

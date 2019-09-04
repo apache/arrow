@@ -44,8 +44,8 @@ class FunctionContext;
 /// \param[in] values array to sort
 /// \param[out] offsets indices that would sort an array
 ARROW_EXPORT
-Status Argsort(FunctionContext* ctx, const Array& values,
-               std::shared_ptr<Array>* offsets);
+Status SortToIndices(FunctionContext* ctx, const Array& values,
+                     std::shared_ptr<Array>* offsets);
 
 }  // namespace compute
 }  // namespace arrow

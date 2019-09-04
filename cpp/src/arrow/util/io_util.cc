@@ -344,13 +344,39 @@ Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted) {
   // XXX There is a race here.
   auto st = bfs::symlink_status(path);
   if (st.type() != bfs::file_not_found && st.type() != bfs::directory_file) {
-    return Status::IOError("Cannot delete non -directory '", path.string(), "'");
+    return Status::IOError("Cannot delete non-directory '", path.string(), "'");
   }
   auto n_removed = bfs::remove_all(path);
   if (deleted) {
     *deleted = n_removed != 0;
   }
   BOOST_FILESYSTEM_CATCH
+  return Status::OK();
+}
+
+Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted) {
+  BOOST_FILESYSTEM_TRY
+  const auto& path = dir_path.impl_->path;
+  // XXX There is a race here.
+  auto st = bfs::symlink_status(path);
+  if (st.type() == bfs::file_not_found) {
+    if (deleted) {
+      *deleted = false;
+    }
+    return Status::OK();
+  }
+  if (st.type() != bfs::directory_file) {
+    return Status::IOError("Cannot delete contents of non-directory '", path.string(),
+                           "'");
+  }
+  // Delete children one by one
+  for (const auto& child : bfs::directory_iterator(path)) {
+    bfs::remove_all(child.path());
+  }
+  BOOST_FILESYSTEM_CATCH
+  if (deleted) {
+    *deleted = true;
+  }
   return Status::OK();
 }
 

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include R6.R
+#' @include arrow-package.R
 
 `arrow::ipc::feather::TableWriter` <- R6Class("arrow::ipc::feather::TableWriter", inherit = `arrow::Object`,
   public = list(
@@ -108,13 +108,7 @@ write_feather_RecordBatch <- function(data, stream) {
 
 #' @export
 #' @method write_feather_RecordBatch character
-`write_feather_RecordBatch.character` <- function(data, stream) {
-  `write_feather_RecordBatch.fs_path`(data, fs::path_abs(stream))
-}
-
-#' @export
-#' @method write_feather_RecordBatch fs_path
-`write_feather_RecordBatch.fs_path` <- function(data, stream) {
+write_feather_RecordBatch.character <- function(data, stream) {
   file_stream <- FileOutputStream(stream)
   on.exit(file_stream$close())
   `write_feather_RecordBatch.arrow::io::OutputStream`(data, file_stream)
@@ -129,7 +123,7 @@ write_feather_RecordBatch <- function(data, stream) {
 #' A `arrow::ipc::feather::TableReader` to read from a file
 #'
 #' @param file A file path or `arrow::io::RandomAccessFile`
-#' @param mmap Is the file memory mapped (applicable to the `character` and `fs_path` methods)
+#' @param mmap Is the file memory mapped (applicable to the `character` method)
 #' @param ... extra parameters
 #'
 #' @export
@@ -138,23 +132,18 @@ FeatherTableReader <- function(file, mmap = TRUE, ...){
 }
 
 #' @export
-FeatherTableReader.default <- function(file, mmap = TRUE, ...) {
-  stop("unsupported")
-}
-
-#' @export
 FeatherTableReader.character <- function(file, mmap = TRUE, ...) {
-  FeatherTableReader(fs::path_abs(file), mmap = mmap, ...)
-}
-
-#' @export
-FeatherTableReader.fs_path <- function(file, mmap = TRUE, ...) {
   if (isTRUE(mmap)) {
     stream <- mmap_open(file, ...)
   } else {
     stream <- ReadableFile(file, ...)
   }
   FeatherTableReader(stream)
+}
+
+#' @export
+FeatherTableReader.raw <- function(file, mmap = TRUE, ...) {
+  FeatherTableReader(BufferReader(file), mmap = mmap, ...)
 }
 
 #' @export
@@ -170,8 +159,7 @@ FeatherTableReader.fs_path <- function(file, mmap = TRUE, ...) {
 #' Read a Feather file
 #'
 #' @param file an `arrow::ipc::feather::TableReader` or whatever the [FeatherTableReader()] function can handle
-#' @param col_select [tidy selection][tidyselect::vars_select()] of columns to read.
-#' @param as_tibble should the [arrow::Table][arrow__Table] be converted to a tibble.
+#' @inheritParams read_delim_arrow
 #' @param ... additional parameters
 #'
 #' @return A `data.frame` if `as_tibble` is `TRUE` (the default), or a [arrow::Table][arrow__Table] otherwise

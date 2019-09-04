@@ -34,31 +34,35 @@ using arrow::util::Codec;
 
 namespace parquet {
 
-std::unique_ptr<Codec> GetCodecFromArrow(Compression::type codec) {
-  std::unique_ptr<Codec> result;
+bool IsCodecSupported(Compression::type codec) {
   switch (codec) {
     case Compression::UNCOMPRESSED:
-      break;
     case Compression::SNAPPY:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::SNAPPY, &result));
-      break;
     case Compression::GZIP:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::GZIP, &result));
-      break;
-    case Compression::LZO:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::LZO, &result));
-      break;
     case Compression::BROTLI:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::BROTLI, &result));
-      break;
-    case Compression::LZ4:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::LZ4, &result));
-      break;
     case Compression::ZSTD:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::ZSTD, &result));
-      break;
+    case Compression::LZ4:
+      return true;
     default:
-      break;
+      return false;
+  }
+}
+
+std::unique_ptr<Codec> GetCodec(Compression::type codec) {
+  return GetCodec(codec, Codec::UseDefaultCompressionLevel());
+}
+
+std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) {
+  std::unique_ptr<Codec> result;
+  if (!IsCodecSupported(codec)) {
+    std::stringstream ss;
+    ss << "Codec type " << Codec::GetCodecAsString(codec)
+       << " not supported in Parquet format";
+    throw ParquetException(ss.str());
+  }
+
+  if (codec != Compression::UNCOMPRESSED) {
+    PARQUET_THROW_NOT_OK(Codec::Create(codec, compression_level, &result));
   }
   return result;
 }
@@ -155,27 +159,6 @@ std::string EncodingToString(Encoding::type t) {
       return "DELTA_BYTE_ARRAY";
     case Encoding::RLE_DICTIONARY:
       return "RLE_DICTIONARY";
-    default:
-      return "UNKNOWN";
-  }
-}
-
-std::string CompressionToString(Compression::type t) {
-  switch (t) {
-    case Compression::UNCOMPRESSED:
-      return "UNCOMPRESSED";
-    case Compression::SNAPPY:
-      return "SNAPPY";
-    case Compression::GZIP:
-      return "GZIP";
-    case Compression::LZO:
-      return "LZO";
-    case Compression::BROTLI:
-      return "BROTLI";
-    case Compression::LZ4:
-      return "LZ4";
-    case Compression::ZSTD:
-      return "ZSTD";
     default:
       return "UNKNOWN";
   }

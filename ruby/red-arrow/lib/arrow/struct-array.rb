@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/struct"
-
 module Arrow
   class StructArray
     # @param i [Integer]
@@ -24,9 +22,13 @@ module Arrow
     #
     #   You can use {Arrow::Array#[]} for convenient value access.
     #
-    # @return [Arrow::Struct] The `i`-th value.
+    # @return [Hash] The `i`-th struct.
     def get_value(i)
-      Struct.new(self, i)
+      value = {}
+      value_data_type.fields.zip(fields) do |field, field_array|
+        value[field.name] = field_array[i]
+      end
+      value
     end
 
     # @overload find_field(index)
@@ -45,20 +47,20 @@ module Arrow
         (@name_to_field ||= build_name_to_field)[name.to_s]
       else
         index = index_or_name
-        cached_fields[index]
+        fields[index]
       end
     end
 
-    private
-    def cached_fields
-      @fields ||= fields
+    alias_method :fields_raw, :fields
+    def fields
+      @fields ||= fields_raw
     end
 
+    private
     def build_name_to_field
       name_to_field = {}
-      field_arrays = cached_fields
-      value_data_type.fields.each_with_index do |field, i|
-        name_to_field[field.name] = field_arrays[i]
+      value_data_type.fields.zip(fields) do |field, field_array|
+        name_to_field[field.name] = field_array
       end
       name_to_field
     end

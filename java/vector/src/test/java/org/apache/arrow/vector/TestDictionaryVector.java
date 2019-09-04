@@ -27,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -34,12 +35,14 @@ import org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
+import org.apache.arrow.vector.dictionary.ListSubfieldEncoder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -703,6 +706,144 @@ public class TestDictionaryVector {
         }
       }
     }
+  }
+
+  @Test
+  public void testEncodeListSubField() {
+    // Create a new value vector
+    try (final ListVector vector = ListVector.empty("vector", allocator);
+        final ListVector dictionaryVector = ListVector.empty("dict", allocator);) {
+
+      UnionListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      //set some values
+      writeListVector(writer, new int[]{10, 20});
+      writeListVector(writer, new int[]{10, 20});
+      writeListVector(writer, new int[]{10, 20});
+      writeListVector(writer, new int[]{30, 40, 50});
+      writeListVector(writer, new int[]{30, 40, 50});
+      writeListVector(writer, new int[]{10, 20});
+      writer.setValueCount(6);
+
+      UnionListWriter dictWriter = dictionaryVector.getWriter();
+      dictWriter.allocate();
+      writeListVector(dictWriter, new int[]{10, 20, 30, 40, 50});
+      dictionaryVector.setValueCount(1);
+
+      Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+      ListSubfieldEncoder encoder = new ListSubfieldEncoder(dictionary, allocator);
+
+      try (final ListVector encoded = (ListVector) encoder.encodeListSubField(vector)) {
+        // verify indices
+        assertEquals(ListVector.class, encoded.getClass());
+
+        assertEquals(6, encoded.getValueCount());
+        int[] realValue1 = convertListToIntArray((JsonStringArrayList) encoded.getObject(0));
+        assertTrue(Arrays.equals(new int[] {0,1}, realValue1));
+        int[] realValue2 = convertListToIntArray((JsonStringArrayList) encoded.getObject(1));
+        assertTrue(Arrays.equals(new int[] {0,1}, realValue2));
+        int[] realValue3 = convertListToIntArray((JsonStringArrayList) encoded.getObject(2));
+        assertTrue(Arrays.equals(new int[] {0,1}, realValue3));
+        int[] realValue4 = convertListToIntArray((JsonStringArrayList) encoded.getObject(3));
+        assertTrue(Arrays.equals(new int[] {2,3,4}, realValue4));
+        int[] realValue5 = convertListToIntArray((JsonStringArrayList) encoded.getObject(4));
+        assertTrue(Arrays.equals(new int[] {2,3,4}, realValue5));
+        int[] realValue6 = convertListToIntArray((JsonStringArrayList) encoded.getObject(5));
+        assertTrue(Arrays.equals(new int[] {0,1}, realValue6));
+
+        // now run through the decoder and verify we get the original back
+        try (ValueVector decoded = encoder.decodeListSubField(encoded)) {
+          assertEquals(vector.getClass(), decoded.getClass());
+          assertEquals(vector.getValueCount(), decoded.getValueCount());
+          for (int i = 0; i < 5; i++) {
+            assertEquals(vector.getObject(i), decoded.getObject(i));
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testEncodeFixedSizeListSubField() {
+    // Create a new value vector
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", 2, allocator);
+        final FixedSizeListVector dictionaryVector = FixedSizeListVector.empty("dict", 2, allocator)) {
+
+      vector.allocateNew();
+      vector.setValueCount(4);
+
+      IntVector dataVector =
+          (IntVector) vector.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType())).getVector();
+      dataVector.allocateNew(8);
+      dataVector.setValueCount(8);
+      // set value at index 0
+      vector.setNotNull(0);
+      dataVector.set(0, 10);
+      dataVector.set(1, 20);
+      // set value at index 1
+      vector.setNotNull(1);
+      dataVector.set(2, 10);
+      dataVector.set(3, 20);
+      // set value at index 2
+      vector.setNotNull(2);
+      dataVector.set(4, 30);
+      dataVector.set(5, 40);
+      // set value at index 3
+      vector.setNotNull(3);
+      dataVector.set(6, 10);
+      dataVector.set(7, 20);
+
+      dictionaryVector.allocateNew();
+      dictionaryVector.setValueCount(2);
+      IntVector dictDataVector =
+          (IntVector) dictionaryVector.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType())).getVector();
+      dictDataVector.allocateNew(4);
+      dictDataVector.setValueCount(4);
+
+      dictionaryVector.setNotNull(0);
+      dictDataVector.set(0, 10);
+      dictDataVector.set(1, 20);
+      dictionaryVector.setNotNull(1);
+      dictDataVector.set(2, 30);
+      dictDataVector.set(3, 40);
+
+      Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+      ListSubfieldEncoder encoder = new ListSubfieldEncoder(dictionary, allocator);
+
+      try (final FixedSizeListVector encoded =
+          (FixedSizeListVector) encoder.encodeListSubField(vector)) {
+        // verify indices
+        assertEquals(FixedSizeListVector.class, encoded.getClass());
+
+        assertEquals(4, encoded.getValueCount());
+        int[] realValue1 = convertListToIntArray((JsonStringArrayList) encoded.getObject(0));
+        assertTrue(Arrays.equals(new int[] {0,1}, realValue1));
+        int[] realValue2 = convertListToIntArray((JsonStringArrayList) encoded.getObject(1));
+        assertTrue(Arrays.equals(new int[] {0,1}, realValue2));
+        int[] realValue3 = convertListToIntArray((JsonStringArrayList) encoded.getObject(2));
+        assertTrue(Arrays.equals(new int[] {2,3}, realValue3));
+        int[] realValue4 = convertListToIntArray((JsonStringArrayList) encoded.getObject(3));
+        assertTrue(Arrays.equals(new int[] {0,1}, realValue4));
+
+        // now run through the decoder and verify we get the original back
+        try (ValueVector decoded = encoder.decodeListSubField(encoded)) {
+          assertEquals(vector.getClass(), decoded.getClass());
+          assertEquals(vector.getValueCount(), decoded.getValueCount());
+          for (int i = 0; i < 5; i++) {
+            assertEquals(vector.getObject(i), decoded.getObject(i));
+          }
+        }
+      }
+    }
+  }
+
+  private int[] convertListToIntArray(JsonStringArrayList list) {
+    int[] values = new int[list.size()];
+    for (int i = 0; i < list.size(); i++) {
+      values[i] = (int) list.get(i);
+    }
+    return values;
   }
 
   private void writeStructVector(NullableStructWriter writer, int value1, long value2) {

@@ -17,7 +17,6 @@
 
 package org.apache.arrow.consumers;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.util.List;
 
@@ -40,18 +39,8 @@ public class CompositeAvroConsumer implements AutoCloseable {
    * Consume decoder data and write into {@link VectorSchemaRoot}.
    */
   public void consume(Decoder decoder, VectorSchemaRoot root) throws IOException {
-    int valueCount = 0;
-    while (true) {
-      try {
-        for (Consumer consumer : consumers) {
-          consumer.consume(decoder);
-        }
-        valueCount++;
-        //reach end will throw EOFException.
-      } catch (EOFException eofException) {
-        root.setRowCount(valueCount);
-        break;
-      }
+    for (Consumer consumer : consumers) {
+      consumer.consume(decoder);
     }
   }
 

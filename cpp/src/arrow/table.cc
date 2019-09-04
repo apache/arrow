@@ -194,6 +194,11 @@ Status ChunkedArray::Validate() const {
     return Status::OK();
   }
 
+  for (auto chunk : chunks_) {
+    // Validate the chunks themselves
+    RETURN_NOT_OK(chunk->Validate());
+  }
+
   const auto& type = *chunks_[0]->type();
   // Make sure chunks all have the same type
   for (size_t i = 1; i < chunks_.size(); ++i) {
@@ -316,7 +321,7 @@ class SimpleTable : public Table {
 
   std::shared_ptr<Table> ReplaceSchemaMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const override {
-    auto new_schema = schema_->AddMetadata(metadata);
+    auto new_schema = schema_->WithMetadata(metadata);
     return Table::Make(new_schema, columns_);
   }
 

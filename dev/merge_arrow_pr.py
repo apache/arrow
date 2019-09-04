@@ -317,18 +317,18 @@ class PullRequest(object):
 
         return JiraIssue(self.con, jira_id, project, self.cmd)
 
-    def merge(self, target_ref='master'):
+    def merge(self):
         """
         merge the requested PR and return the merge hash
         """
         pr_branch_name = "%s_MERGE_PR_%s" % (BRANCH_PREFIX, self.number)
         target_branch_name = "%s_MERGE_PR_%s_%s" % (BRANCH_PREFIX,
                                                     self.number,
-                                                    target_ref.upper())
+                                                    self.target_ref.upper())
         run_cmd("git fetch %s pull/%s/head:%s" % (self.git_remote,
                                                   self.number,
                                                   pr_branch_name))
-        run_cmd("git fetch %s %s:%s" % (self.git_remote, target_ref,
+        run_cmd("git fetch %s %s:%s" % (self.git_remote, self.target_ref,
                                         target_branch_name))
         run_cmd("git checkout %s" % target_branch_name)
 
@@ -354,18 +354,8 @@ class PullRequest(object):
             print("Author {}: {}".format(i + 1, author))
 
         if len(distinct_authors) > 1:
-            primary_author = self.cmd.prompt(
-                "Enter primary author in the format of "
-                "\"name <email>\" [%s]: " % distinct_authors[0])
-
-            if primary_author == "":
-                primary_author = distinct_authors[0]
-            else:
-                # When primary author is specified manually, de-dup it from
-                # author list and put it at the head of author list.
-                distinct_authors = [x for x in distinct_authors
-                                    if x != primary_author]
-                distinct_authors = [primary_author] + distinct_authors
+            primary_author, distinct_authors = get_primary_author(
+                self.cmd, distinct_authors)
         else:
             # If there is only one author, do not prompt for a lead author
             primary_author = distinct_authors[0]
@@ -425,7 +415,7 @@ class PullRequest(object):
         try:
             push_cmd = ('git push %s %s:%s' % (self.git_remote,
                                                target_branch_name,
-                                               target_ref))
+                                               self.target_ref))
             if DEBUG:
                 print(push_cmd)
             else:
@@ -439,6 +429,29 @@ class PullRequest(object):
         print("Pull request #%s merged!" % self.number)
         print("Merge hash: %s" % merge_hash)
         return merge_hash
+
+
+def get_primary_author(cmd, distinct_authors):
+    author_pat = re.compile(r'(.*) <(.*)>')
+
+    while True:
+        primary_author = cmd.prompt(
+            "Enter primary author in the format of "
+            "\"name <email>\" [%s]: " % distinct_authors[0])
+
+        if primary_author == "":
+            return distinct_authors[0], distinct_authors
+
+        if author_pat.match(primary_author):
+            break
+        print('Bad author "{}", please try again'.format(primary_author))
+
+    # When primary author is specified manually, de-dup it from
+    # author list and put it at the head of author list.
+    distinct_authors = [x for x in distinct_authors
+                        if x != primary_author]
+    distinct_authors = [primary_author] + distinct_authors
+    return primary_author, distinct_authors
 
 
 def prompt_for_fix_version(cmd, jira_issue):

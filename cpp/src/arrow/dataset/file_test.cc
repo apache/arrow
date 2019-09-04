@@ -40,14 +40,19 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/dataset/api.h"
+#include "arrow/dataset/test_util.h"
+#include "arrow/filesystem/localfs.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
-
-#include "arrow/dataset/api.h"
-#include "arrow/filesystem/localfs.h"
+#include "arrow/util/io_util.h"
 
 namespace arrow {
 namespace dataset {
+
+using fs::internal::GetAbstractPathExtension;
+using internal::TemporaryDir;
 
 TEST(FileSource, PathBased) {
   fs::LocalFileSystem localfs;
@@ -88,6 +93,19 @@ TEST(FileSource, BufferBased) {
   ASSERT_TRUE(source2.buffer()->Equals(*buf));
   ASSERT_EQ(Compression::LZ4, source2.compression());
 }
+
+class TestDummyFileSystemBasedDataSource
+    : public FileSystemBasedDataSourceMixin<DummyFileFormat> {
+  std::vector<std::string> file_names() const override {
+    return {"a/b/c.dummy", "a/b/c/d.dummy", "a/b.dummy", "a.dummy"};
+  }
+};
+
+TEST_F(TestDummyFileSystemBasedDataSource, NonRecursive) { this->NonRecursive(); }
+
+TEST_F(TestDummyFileSystemBasedDataSource, Recursive) { this->Recursive(); }
+
+TEST_F(TestDummyFileSystemBasedDataSource, DeletedFile) { this->DeletedFile(); }
 
 }  // namespace dataset
 }  // namespace arrow

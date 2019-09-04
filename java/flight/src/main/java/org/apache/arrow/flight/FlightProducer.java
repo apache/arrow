@@ -56,6 +56,19 @@ public interface FlightProducer {
   FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor);
 
   /**
+   * Get schema for a particular data stream.
+   *
+   * @param context Per-call context.
+   * @param descriptor The descriptor identifying the data stream.
+   * @return Schema for the stream.
+   */
+  default SchemaResult getSchema(CallContext context, FlightDescriptor descriptor) {
+    FlightInfo info = getFlightInfo(context, descriptor);
+    return new SchemaResult(info.getSchema());
+  }
+
+
+  /**
    * Accept uploaded data for a particular stream.
    *
    * @param context Per-call context.

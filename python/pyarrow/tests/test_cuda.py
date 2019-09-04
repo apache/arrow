@@ -653,7 +653,7 @@ def make_recordbatch(length):
                         pa.field('f1', pa.int16())])
     a0 = pa.array(np.random.randint(0, 255, size=length, dtype=np.int16))
     a1 = pa.array(np.random.randint(0, 255, size=length, dtype=np.int16))
-    batch = pa.RecordBatch.from_arrays([a0, a1], schema)
+    batch = pa.record_batch([a0, a1], schema=schema)
     return batch
 
 

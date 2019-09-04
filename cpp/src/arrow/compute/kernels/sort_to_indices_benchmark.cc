@@ -17,7 +17,7 @@
 
 #include "benchmark/benchmark.h"
 
-#include "arrow/compute/kernels/argsort.h"
+#include "arrow/compute/kernels/sort_to_indices.h"
 
 #include "arrow/compute/benchmark_util.h"
 #include "arrow/compute/test_util.h"
@@ -28,17 +28,17 @@ namespace arrow {
 namespace compute {
 constexpr auto kSeed = 0x0ff1ce;
 
-static void ArgsortBenchmark(benchmark::State& state,
-                             const std::shared_ptr<Array>& values) {
+static void SortToIndicesBenchmark(benchmark::State& state,
+                                   const std::shared_ptr<Array>& values) {
   FunctionContext ctx;
   for (auto _ : state) {
     std::shared_ptr<Array> out;
-    ABORT_NOT_OK(Argsort(&ctx, *values, &out));
+    ABORT_NOT_OK(SortToIndices(&ctx, *values, &out));
     benchmark::DoNotOptimize(out);
   }
 }
 
-static void ArgsortInt64(benchmark::State& state) {
+static void SortToIndicesInt64(benchmark::State& state) {
   RegressionArgs args(state);
 
   const int64_t array_size = args.size / sizeof(int64_t);
@@ -46,10 +46,10 @@ static void ArgsortInt64(benchmark::State& state) {
 
   auto values = rand.Int64(array_size, -100, 100, args.null_proportion);
 
-  ArgsortBenchmark(state, values);
+  SortToIndicesBenchmark(state, values);
 }
 
-BENCHMARK(ArgsortInt64)
+BENCHMARK(SortToIndicesInt64)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 1})
     ->Args({1 << 23, 1})

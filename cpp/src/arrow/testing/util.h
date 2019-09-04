@@ -69,6 +69,7 @@ ARROW_EXPORT void random_null_bytes(int64_t n, double pct_null, uint8_t* null_by
 ARROW_EXPORT void random_is_valid(int64_t n, double pct_null, std::vector<bool>* is_valid,
                                   int random_seed = 0);
 ARROW_EXPORT void random_bytes(int64_t n, uint32_t seed, uint8_t* out);
+ARROW_EXPORT std::string random_string(int64_t n, uint32_t seed);
 ARROW_EXPORT int32_t DecimalSize(int32_t precision);
 ARROW_EXPORT void random_decimals(int64_t n, uint32_t seed, int32_t precision,
                                   uint8_t* out);
@@ -176,5 +177,32 @@ Result<std::shared_ptr<Array>> ArrayFromBuilderVisitor(
     const std::shared_ptr<DataType>& type, int64_t length, Fn&& fn) {
   return ArrayFromBuilderVisitor(type, length, length, std::forward<Fn>(fn));
 }
+
+class RepeatedRecordBatch : public RecordBatchReader {
+ public:
+  RepeatedRecordBatch(int64_t repetitions, std::shared_ptr<RecordBatch> batch)
+      : repetitions_(repetitions), batch_(std::move(batch)) {}
+
+  std::shared_ptr<Schema> schema() const override { return batch_->schema(); }
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
+    if (repetitions_ > 0) {
+      *batch = batch_;
+      --repetitions_;
+    } else {
+      *batch = nullptr;
+    }
+    return Status::OK();
+  }
+
+ private:
+  int64_t repetitions_;
+  std::shared_ptr<RecordBatch> batch_;
+};
+
+// Get a TCP port number to listen on.  This is a different number every time,
+// as reusing the same port accross tests can produce spurious bind errors on
+// Windows.
+ARROW_EXPORT int GetListenPort();
 
 }  // namespace arrow

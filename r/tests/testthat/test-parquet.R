@@ -43,3 +43,9 @@ test_that("read_parquet() supports col_select", {
   df <- read_parquet(pq_file, col_select = starts_with("c"))
   expect_equal(names(df), c("carat", "cut", "color", "clarity"))
 })
+
+test_that("read_parquet() with raw data", {
+  test_raw <- readBin(pq_file, what = "raw", n = 5000)
+  df <- read_parquet(test_raw)
+  expect_identical(dim(df), c(10L, 11L))
+})

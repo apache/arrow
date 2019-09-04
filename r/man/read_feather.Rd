@@ -9,9 +9,13 @@ read_feather(file, col_select = NULL, as_tibble = TRUE, ...)
 \arguments{
 \item{file}{an \code{arrow::ipc::feather::TableReader} or whatever the \code{\link[=FeatherTableReader]{FeatherTableReader()}} function can handle}
 
-\item{col_select}{\link[tidyselect:vars_select]{tidy selection} of columns to read.}
+\item{col_select}{A character vector of column names to keep, as in the
+"select" argument to \code{data.table::fread()}, or a
+\link[tidyselect:vars_select]{tidy selection specification}
+of columns, as used in \code{dplyr::select()}.}
 
-\item{as_tibble}{should the \link[=arrow__Table]{arrow::Table} be converted to a tibble.}
+\item{as_tibble}{Should the function return a \code{data.frame} or an
+\link[=arrow__Table]{arrow::Table}?}
 
 \item{...}{additional parameters}
 }

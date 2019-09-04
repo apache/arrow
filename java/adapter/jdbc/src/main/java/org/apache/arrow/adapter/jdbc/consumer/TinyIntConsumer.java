@@ -21,8 +21,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.apache.arrow.vector.TinyIntVector;
-import org.apache.arrow.vector.complex.impl.TinyIntWriterImpl;
-import org.apache.arrow.vector.complex.writer.TinyIntWriter;
 
 /**
  * Consumer which consume tinyInt type values from {@link ResultSet}.
@@ -30,14 +28,16 @@ import org.apache.arrow.vector.complex.writer.TinyIntWriter;
  */
 public class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
 
-  private TinyIntWriter writer;
+  private TinyIntVector vector;
   private final int columnIndexInResultSet;
+
+  private int currentIndex;
 
   /**
    * Instantiate a TinyIntConsumer.
    */
   public TinyIntConsumer(TinyIntVector vector, int index) {
-    this.writer = new TinyIntWriterImpl(vector);
+    this.vector = vector;
     this.columnIndexInResultSet = index;
   }
 
@@ -45,13 +45,18 @@ public class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
   public void consume(ResultSet resultSet) throws SQLException {
     byte value = resultSet.getByte(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      writer.writeTinyInt(value);
+      vector.setSafe(currentIndex++, value);
     }
-    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
   }
 
   @Override
   public void resetValueVector(TinyIntVector vector) {
-    this.writer = new TinyIntWriterImpl(vector);
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

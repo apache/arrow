@@ -16,6 +16,7 @@
 # under the License.
 
 # cython: language_level = 3
+# cython: embedsignature = True
 
 from __future__ import absolute_import
 
@@ -508,6 +509,34 @@ cdef class FlightEndpoint:
         return self.endpoint == other.endpoint
 
 
+cdef class SchemaResult:
+    """A result from a getschema request. Holding a schema"""
+    cdef:
+        unique_ptr[CSchemaResult] result
+
+    def __init__(self, Schema schema):
+        """Create a SchemaResult from a schema.
+
+        Parameters
+        ----------
+        schema: Schema
+            the schema of the data in this flight.
+        """
+        cdef:
+            shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
+        check_status(CreateSchemaResult(c_schema, &self.result))
+
+    @property
+    def schema(self):
+        """The schema of the data in this flight."""
+        cdef:
+            shared_ptr[CSchema] schema
+            CDictionaryMemo dummy_memo
+
+        check_status(self.result.get().GetSchema(&dummy_memo, &schema))
+        return pyarrow_wrap_schema(schema)
+
+
 cdef class FlightInfo:
     """A description of a Flight stream."""
     cdef:
@@ -723,6 +752,12 @@ cdef class FlightStreamWriter(_CRecordBatchWriter):
                 .WriteWithMetadata(deref(batch.batch),
                                    c_buf))
 
+    def done_writing(self):
+        with nogil:
+            check_flight_status(
+                (<CFlightStreamWriter*> self.writer.get())
+                .DoneWriting())
+
 
 cdef class FlightMetadataReader:
     """A reader for Flight metadata messages sent during a DoPut."""
@@ -896,6 +931,22 @@ cdef class FlightClient:
         with nogil:
             check_flight_status(self.client.get().GetFlightInfo(
                 deref(c_options), c_descriptor, &result.info))
+
+        return result
+
+    def get_schema(self, descriptor: FlightDescriptor,
+                   options: FlightCallOptions = None):
+        """Request schema for an available flight."""
+        cdef:
+            SchemaResult result = SchemaResult.__new__(SchemaResult)
+            CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
+            CFlightDescriptor c_descriptor = \
+                FlightDescriptor.unwrap(descriptor)
+        with nogil:
+            check_status(
+                self.client.get()
+                    .GetSchema(deref(c_options), c_descriptor, &result.result)
+            )
 
         return result
 
@@ -1287,6 +1338,22 @@ cdef CStatus _get_flight_info(void* self, const CServerCallContext& context,
     info.reset(new CFlightInfo(deref((<FlightInfo> result).info.get())))
     return CStatus_OK()
 
+cdef CStatus _get_schema(void* self, const CServerCallContext& context,
+                         CFlightDescriptor c_descriptor,
+                         unique_ptr[CSchemaResult]* info) except *:
+    """Callback for implementing Flight servers in Python."""
+    cdef:
+        FlightDescriptor py_descriptor = \
+            FlightDescriptor.__new__(FlightDescriptor)
+    py_descriptor.descriptor = c_descriptor
+    result = (<object> self).get_schema(ServerCallContext.wrap(context),
+                                        py_descriptor)
+    if not isinstance(result, SchemaResult):
+        raise TypeError("FlightServerBase.get_schema_info must return "
+                        "a SchemaResult instance, but got {}".format(
+                            type(result)))
+    info.reset(new CSchemaResult(deref((<SchemaResult> result).result.get())))
+    return CStatus_OK()
 
 cdef CStatus _do_put(void* self, const CServerCallContext& context,
                      unique_ptr[CFlightMessageReader] reader,
@@ -1381,6 +1448,9 @@ cdef CStatus _list_actions(void* self, const CServerCallContext& context,
     try:
         result = (<object> self).list_actions(ServerCallContext.wrap(context))
         for action in result:
+            if not isinstance(action, tuple):
+                raise TypeError(
+                    "Results of list_actions must be ActionType or tuple")
             action_type.type = tobytes(action[0])
             action_type.description = tobytes(action[1])
             actions.push_back(action_type)
@@ -1556,6 +1626,7 @@ cdef class FlightServerBase:
 
         vtable.list_flights = &_list_flights
         vtable.get_flight_info = &_get_flight_info
+        vtable.get_schema = &_get_schema
         vtable.do_put = &_do_put
         vtable.do_get = &_do_get
         vtable.list_actions = &_list_actions
@@ -1582,6 +1653,9 @@ cdef class FlightServerBase:
         raise NotImplementedError
 
     def get_flight_info(self, context, descriptor):
+        raise NotImplementedError
+
+    def get_schema(self, context, descriptor):
         raise NotImplementedError
 
     def do_put(self, context, descriptor, reader,

@@ -18,6 +18,7 @@
   </parent>
   <artifactId>arrow-memory</artifactId>
   <name>Arrow Memory</name>
+  <description>Core off-heap memory management libraries for Arrow ValueVectors.</description>
 
   <dependencies>
     <dependency>

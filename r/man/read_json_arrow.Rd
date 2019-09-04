@@ -9,7 +9,9 @@ read_json_arrow(file, col_select = NULL, as_tibble = TRUE, ...)
 \arguments{
 \item{file}{A character path to a local file, or an Arrow input stream}
 
-\item{col_select}{A \link[tidyselect:vars_select]{tidy selection specification}
+\item{col_select}{A character vector of column names to keep, as in the
+"select" argument to \code{data.table::fread()}, or a
+\link[tidyselect:vars_select]{tidy selection specification}
 of columns, as used in \code{dplyr::select()}.}
 
 \item{as_tibble}{Should the function return a \code{data.frame} or an

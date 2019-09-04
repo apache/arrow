@@ -52,7 +52,7 @@ public class BlobConsumer implements JdbcConsumer<VarBinaryVector> {
   }
 
   @Override
-  public void close() {
+  public void close() throws Exception {
     delegate.close();
   }
 

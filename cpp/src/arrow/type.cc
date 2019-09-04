@@ -45,7 +45,7 @@ bool Field::HasMetadata() const {
   return (metadata_ != nullptr) && (metadata_->size() > 0);
 }
 
-std::shared_ptr<Field> Field::AddMetadata(
+std::shared_ptr<Field> Field::WithMetadata(
     const std::shared_ptr<const KeyValueMetadata>& metadata) const {
   return std::make_shared<Field>(name_, type_, nullable_, metadata);
 }
@@ -415,6 +415,11 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
 
 // Deprecated methods
 
+std::shared_ptr<Field> Field::AddMetadata(
+    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
+  return WithMetadata(metadata);
+}
+
 std::shared_ptr<Field> StructType::GetChildByName(const std::string& name) const {
   return GetFieldByName(name);
 }
@@ -428,8 +433,17 @@ int StructType::GetChildIndex(const std::string& name) const {
 
 Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
     : DecimalType(16, precision, scale) {
-  ARROW_CHECK_GE(precision, 1);
-  ARROW_CHECK_LE(precision, 38);
+  ARROW_CHECK_GE(precision, kMinPrecision);
+  ARROW_CHECK_LE(precision, kMaxPrecision);
+}
+
+Status Decimal128Type::Make(int32_t precision, int32_t scale,
+                            std::shared_ptr<DataType>* out) {
+  if (precision < kMinPrecision || precision > kMaxPrecision) {
+    return Status::Invalid("Decimal precision out of range: ", precision);
+  }
+  *out = std::make_shared<Decimal128Type>(precision, scale);
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
@@ -605,9 +619,15 @@ bool Schema::HasMetadata() const {
   return (impl_->metadata_ != nullptr) && (impl_->metadata_->size() > 0);
 }
 
-std::shared_ptr<Schema> Schema::AddMetadata(
+std::shared_ptr<Schema> Schema::WithMetadata(
     const std::shared_ptr<const KeyValueMetadata>& metadata) const {
   return std::make_shared<Schema>(impl_->fields_, metadata);
+}
+
+// deprecated method
+std::shared_ptr<Schema> Schema::AddMetadata(
+    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
+  return WithMetadata(metadata);
 }
 
 std::shared_ptr<const KeyValueMetadata> Schema::metadata() const {
@@ -864,11 +884,14 @@ PARAMETER_LESS_FINGERPRINT(Date64)
 std::string DictionaryType::ComputeFingerprint() const {
   const auto& index_fingerprint = index_type_->fingerprint();
   const auto& value_fingerprint = value_type_->fingerprint();
+  std::string ordered_fingerprint = ordered_ ? "1" : "0";
+
   DCHECK(!index_fingerprint.empty());  // it's an integer type
   if (!value_fingerprint.empty()) {
-    return TypeIdFingerprint(*this) + index_fingerprint + value_fingerprint;
+    return TypeIdFingerprint(*this) + index_fingerprint + value_fingerprint +
+           ordered_fingerprint;
   }
-  return "";
+  return ordered_fingerprint;
 }
 
 std::string ListType::ComputeFingerprint() const {

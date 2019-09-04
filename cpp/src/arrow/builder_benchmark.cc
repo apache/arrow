@@ -371,6 +371,54 @@ static void ArrayDataConstructDestruct(
 }
 
 // ----------------------------------------------------------------------
+// BufferBuilder benchmarks
+
+static void BenchmarkBufferBuilder(
+    const std::string& datum,
+    benchmark::State& state) {  // NOLINT non-const reference
+  const void* raw_data = datum.data();
+  int64_t raw_nbytes = static_cast<int64_t>(datum.size());
+  // Write approx. 256 MB to BufferBuilder
+  int64_t num_raw_values = (1 << 28) / raw_nbytes;
+  for (auto _ : state) {
+    BufferBuilder builder;
+    std::shared_ptr<Buffer> buf;
+    for (int64_t i = 0; i < num_raw_values; ++i) {
+      ABORT_NOT_OK(builder.Append(raw_data, raw_nbytes));
+    }
+    ABORT_NOT_OK(builder.Finish(&buf));
+  }
+  state.SetBytesProcessed(int64_t(state.iterations()) * num_raw_values * raw_nbytes);
+}
+
+static void BufferBuilderTinyWrites(
+    benchmark::State& state) {  // NOLINT non-const reference
+  // A 8-byte datum
+  return BenchmarkBufferBuilder("abdefghi", state);
+}
+
+static void BufferBuilderSmallWrites(
+    benchmark::State& state) {  // NOLINT non-const reference
+  // A 700-byte datum
+  std::string datum;
+  for (int i = 0; i < 100; ++i) {
+    datum += "abcdefg";
+  }
+  return BenchmarkBufferBuilder(datum, state);
+}
+
+static void BufferBuilderLargeWrites(
+    benchmark::State& state) {  // NOLINT non-const reference
+  // A 1.5MB datum
+  std::string datum(1500000, 'x');
+  return BenchmarkBufferBuilder(datum, state);
+}
+
+BENCHMARK(BufferBuilderTinyWrites)->UseRealTime();
+BENCHMARK(BufferBuilderSmallWrites)->UseRealTime();
+BENCHMARK(BufferBuilderLargeWrites)->UseRealTime();
+
+// ----------------------------------------------------------------------
 // Benchmark declarations
 //
 

@@ -18,6 +18,7 @@
 #include "arrow/dataset/file_parquet.h"
 
 #include <utility>
+#include <vector>
 
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
@@ -30,6 +31,88 @@ namespace dataset {
 constexpr int64_t kBatchSize = 1UL << 15;
 constexpr int64_t kBatchRepetitions = 1 << 10;
 constexpr int64_t kNumRows = kBatchSize * kBatchRepetitions;
+
+using parquet::ArrowWriterProperties;
+using parquet::default_arrow_writer_properties;
+
+using parquet::default_writer_properties;
+using parquet::WriterProperties;
+
+using parquet::CreateOutputStream;
+using parquet::arrow::FileWriter;
+using parquet::arrow::WriteTable;
+
+Status WriteRecordBatch(const RecordBatch& batch, FileWriter* writer) {
+  auto schema = batch.schema();
+  auto size = batch.num_rows();
+
+  if (!schema->Equals(*writer->schema(), false)) {
+    return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
+                           schema->ToString(), "' this:'", writer->schema()->ToString(),
+                           "'");
+  }
+
+  RETURN_NOT_OK(writer->NewRowGroup(size));
+  for (int i = 0; i < batch.num_columns(); i++) {
+    RETURN_NOT_OK(writer->WriteColumnChunk(*batch.column(i)));
+  }
+
+  return Status::OK();
+}
+
+Status WriteRecordBatchReader(RecordBatchReader* reader, FileWriter* writer) {
+  auto schema = reader->schema();
+
+  if (!schema->Equals(*writer->schema(), false)) {
+    return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
+                           schema->ToString(), "' this:'", writer->schema()->ToString(),
+                           "'");
+  }
+
+  return reader->Visit([&](std::shared_ptr<RecordBatch> batch) -> Status {
+    return WriteRecordBatch(*batch, writer);
+  });
+}
+
+Status WriteRecordBatchReader(
+    RecordBatchReader* reader, MemoryPool* pool,
+    const std::shared_ptr<io::OutputStream>& sink,
+    const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
+    const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
+        default_arrow_writer_properties()) {
+  std::unique_ptr<FileWriter> writer;
+  RETURN_NOT_OK(FileWriter::Open(*reader->schema(), pool, sink, properties,
+                                 arrow_properties, &writer));
+  RETURN_NOT_OK(WriteRecordBatchReader(reader, writer.get()));
+  return writer->Close();
+}
+
+class ArrowParquetWriterMixin : public ::testing::Test {
+ public:
+  std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
+    auto pool = ::arrow::default_memory_pool();
+
+    std::shared_ptr<Buffer> out;
+    auto sink = CreateOutputStream(pool);
+
+    ARROW_EXPECT_OK(WriteRecordBatchReader(reader, pool, sink));
+    ARROW_EXPECT_OK(sink->Finish(&out));
+
+    return out;
+  }
+
+  std::shared_ptr<Buffer> Write(const Table& table) {
+    auto pool = ::arrow::default_memory_pool();
+
+    std::shared_ptr<Buffer> out;
+    auto sink = CreateOutputStream(pool);
+
+    ARROW_EXPECT_OK(WriteTable(table, pool, sink, 1U << 16));
+    ARROW_EXPECT_OK(sink->Finish(&out));
+
+    return out;
+  }
+};
 
 class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
  public:
@@ -87,6 +170,19 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
 
   ASSERT_EQ(row_count, kNumRows);
 }
+
+class TestParquetFileSystemBasedDataSource
+    : public FileSystemBasedDataSourceMixin<ParquetFileFormat> {
+  std::vector<std::string> file_names() const override {
+    return {"a/b/c.parquet", "a/b/c/d.parquet", "a/b.parquet", "a.parquet"};
+  }
+};
+
+TEST_F(TestParquetFileSystemBasedDataSource, NonRecursive) { this->NonRecursive(); }
+
+TEST_F(TestParquetFileSystemBasedDataSource, Recursive) { this->Recursive(); }
+
+TEST_F(TestParquetFileSystemBasedDataSource, DeletedFile) { this->DeletedFile(); }
 
 }  // namespace dataset
 }  // namespace arrow

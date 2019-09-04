@@ -198,6 +198,20 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_add_u32_i64() {
+        binary_cast_test(
+            DataType::UInt32,
+            DataType::Int64,
+            "CAST(#0 AS Int64) Plus #1",
+        );
+        binary_cast_test(
+            DataType::Int64,
+            DataType::UInt32,
+            "#0 Plus CAST(#1 AS Int64)",
+        );
+    }
+
     fn binary_cast_test(left_type: DataType, right_type: DataType, expected: &str) {
         let schema = Schema::new(vec![
             Field::new("c0", left_type, true),

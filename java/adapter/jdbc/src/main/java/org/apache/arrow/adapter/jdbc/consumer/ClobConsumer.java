@@ -22,12 +22,11 @@ import java.sql.Clob;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.VarCharVector;
-import org.apache.arrow.vector.complex.impl.VarCharWriterImpl;
-import org.apache.arrow.vector.complex.writer.VarCharWriter;
 
 import io.netty.buffer.ArrowBuf;
+import io.netty.util.internal.PlatformDependent;
 
 /**
  * Consumer which consume clob type values from {@link ResultSet}.
@@ -37,21 +36,17 @@ public class ClobConsumer implements JdbcConsumer<VarCharVector> {
 
   private static final int BUFFER_SIZE = 256;
 
-  private VarCharWriter writer;
+  private VarCharVector vector;
   private final int columnIndexInResultSet;
-  private BufferAllocator allocator;
 
-  private ArrowBuf reuse;
+  private int currentIndex;
 
   /**
    * Instantiate a ClobConsumer.
    */
   public ClobConsumer(VarCharVector vector, int index) {
-    this.writer = new VarCharWriterImpl(vector);
+    this.vector = vector;
     this.columnIndexInResultSet = index;
-
-    this.allocator = vector.getAllocator();
-    reuse = allocator.buffer(1024);
   }
 
   @Override
@@ -60,36 +55,43 @@ public class ClobConsumer implements JdbcConsumer<VarCharVector> {
     if (!resultSet.wasNull()) {
       if (clob != null) {
         long length = clob.length();
-        if (length > reuse.capacity()) {
-          reuse.close();
-          reuse = allocator.buffer((int) length);
-        }
 
         int read = 1;
         int readSize = length < BUFFER_SIZE ? (int) length : BUFFER_SIZE;
         int totalBytes = 0;
+
+        ArrowBuf dataBuffer = vector.getDataBuffer();
+        ArrowBuf offsetBuffer = vector.getOffsetBuffer();
+        int startIndex = offsetBuffer.getInt(currentIndex * 4);
         while (read <= length) {
           String str = clob.getSubString(read, readSize);
           byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
-          reuse.setBytes(totalBytes, bytes, 0, bytes.length);
+
+          while ((dataBuffer.writerIndex() + bytes.length) > dataBuffer.capacity()) {
+            vector.reallocDataBuffer();
+          }
+          PlatformDependent.copyMemory(bytes, 0,
+              dataBuffer.memoryAddress() + startIndex + totalBytes, bytes.length);
+
           totalBytes += bytes.length;
           read += readSize;
         }
-        writer.writeVarChar(0, totalBytes, reuse);
+        offsetBuffer.setInt((currentIndex + 1) * 4, startIndex + totalBytes);
+        BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), currentIndex);
+        vector.setLastSet(currentIndex);
       }
     }
-    writer.setPosition(writer.getPosition() + 1);
+    currentIndex++;
   }
 
   @Override
-  public void close() {
-    if (reuse != null) {
-      reuse.close();
-    }
+  public void close() throws Exception {
+    vector.close();
   }
 
   @Override
   public void resetValueVector(VarCharVector vector) {
-    this.writer = new VarCharWriterImpl(vector);
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

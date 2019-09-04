@@ -211,8 +211,8 @@ def test_schema():
     assert len(sch) == 3
     assert sch[0].name == 'foo'
     assert sch[0].type == fields[0].type
-    assert sch.field_by_name('foo').name == 'foo'
-    assert sch.field_by_name('foo').type == fields[0].type
+    assert sch.field('foo').name == 'foo'
+    assert sch.field('foo').type == fields[0].type
 
     assert repr(sch) == """\
 foo: int32
@@ -283,26 +283,28 @@ foo: list<item: int8>
 
     assert sch[0].name == 'foo'
     assert sch[0].type == fields[0].type
-    assert sch.field_by_name('bar') == fields[1]
-    assert sch.field_by_name('xxx') is None
-    with pytest.warns(UserWarning):
+    with pytest.warns(FutureWarning):
+        assert sch.field_by_name('bar') == fields[1]
+    with pytest.warns(FutureWarning):
+        assert sch.field_by_name('xxx') is None
+    with pytest.warns((UserWarning, FutureWarning)):
         assert sch.field_by_name('foo') is None
 
 
 def test_field_flatten():
-    f0 = pa.field('foo', pa.int32()).add_metadata({b'foo': b'bar'})
+    f0 = pa.field('foo', pa.int32()).with_metadata({b'foo': b'bar'})
     assert f0.flatten() == [f0]
 
     f1 = pa.field('bar', pa.float64(), nullable=False)
     ff = pa.field('ff', pa.struct([f0, f1]), nullable=False)
     assert ff.flatten() == [
-        pa.field('ff.foo', pa.int32()).add_metadata({b'foo': b'bar'}),
+        pa.field('ff.foo', pa.int32()).with_metadata({b'foo': b'bar'}),
         pa.field('ff.bar', pa.float64(), nullable=False)]  # XXX
 
     # Nullable parent makes flattened child nullable
     ff = pa.field('ff', pa.struct([f0, f1]))
     assert ff.flatten() == [
-        pa.field('ff.foo', pa.int32()).add_metadata({b'foo': b'bar'}),
+        pa.field('ff.foo', pa.int32()).with_metadata({b'foo': b'bar'}),
         pa.field('ff.bar', pa.float64())]
 
     fff = pa.field('fff', pa.struct([ff]))
@@ -322,7 +324,7 @@ def test_schema_add_remove_metadata():
 
     metadata = {b'foo': b'bar', b'pandas': b'badger'}
 
-    s2 = s1.add_metadata(metadata)
+    s2 = s1.with_metadata(metadata)
     assert s2.metadata == metadata
 
     s3 = s2.remove_metadata()
@@ -401,6 +403,27 @@ def test_schema_equality_operators():
     # comparison with other types doesn't raise
     assert sch1 != []
     assert sch3 != 'foo'
+
+
+def test_schema_get_fields():
+    fields = [
+        pa.field('foo', pa.int32()),
+        pa.field('bar', pa.string()),
+        pa.field('baz', pa.list_(pa.int8()))
+    ]
+
+    schema = pa.schema(fields)
+
+    assert schema.field('foo').name == 'foo'
+    assert schema.field(0).name == 'foo'
+    assert schema.field(-1).name == 'baz'
+
+    with pytest.raises(KeyError):
+        schema.field('other')
+    with pytest.raises(TypeError):
+        schema.field(0.0)
+    with pytest.raises(IndexError):
+        schema.field(4)
 
 
 def test_schema_negative_indexing():

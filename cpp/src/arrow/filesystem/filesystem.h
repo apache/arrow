@@ -19,6 +19,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <iosfwd>
 #include <memory>
 #include <string>
 #include <vector>
@@ -70,6 +71,8 @@ enum class ARROW_EXPORT FileType {
 
 ARROW_EXPORT std::string ToString(FileType);
 
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, FileType);
+
 static const int64_t kNoSize = -1;
 static const TimePoint kNoTime = TimePoint(TimePoint::duration(-1));
 
@@ -96,6 +99,9 @@ struct ARROW_EXPORT FileStats {
   // to have a size.
   int64_t size() const { return size_; }
   void set_size(int64_t size) { size_ = size; }
+
+  // The file extension
+  std::string extension() const;
 
   // The time of last modification, if available.
   TimePoint mtime() const { return mtime_; }
@@ -151,6 +157,12 @@ class ARROW_EXPORT FileSystem {
 
   /// Delete a directory and its contents, recursively.
   virtual Status DeleteDir(const std::string& path) = 0;
+
+  /// Delete a directory's contents, recursively.
+  ///
+  /// Like DeleteDir, but doesn't delete the directory itself.
+  /// Passing an empty path ("") will wipe the entire filesystem tree.
+  virtual Status DeleteDirContents(const std::string& path) = 0;
 
   /// Delete a file.
   virtual Status DeleteFile(const std::string& path) = 0;
@@ -214,6 +226,7 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
   Status DeleteDir(const std::string& path) override;
+  Status DeleteDirContents(const std::string& path) override;
 
   Status DeleteFile(const std::string& path) override;
 

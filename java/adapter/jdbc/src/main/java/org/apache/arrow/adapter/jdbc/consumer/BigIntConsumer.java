@@ -21,8 +21,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.apache.arrow.vector.BigIntVector;
-import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
-import org.apache.arrow.vector.complex.writer.BigIntWriter;
 
 /**
  * Consumer which consume bigint type values from {@link ResultSet}.
@@ -30,14 +28,16 @@ import org.apache.arrow.vector.complex.writer.BigIntWriter;
  */
 public class BigIntConsumer implements JdbcConsumer<BigIntVector> {
 
-  private BigIntWriter writer;
+  private BigIntVector vector;
   private final int columnIndexInResultSet;
+
+  private int currentIndex;
 
   /**
    * Instantiate a BigIntConsumer.
    */
   public BigIntConsumer(BigIntVector vector, int index) {
-    this.writer = new BigIntWriterImpl(vector);
+    this.vector = vector;
     this.columnIndexInResultSet = index;
   }
 
@@ -45,13 +45,18 @@ public class BigIntConsumer implements JdbcConsumer<BigIntVector> {
   public void consume(ResultSet resultSet) throws SQLException {
     long value = resultSet.getLong(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      writer.writeBigInt(value);
+      vector.setSafe(currentIndex++, value);
     }
-    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
   }
 
   @Override
   public void resetValueVector(BigIntVector vector) {
-    this.writer = new BigIntWriterImpl(vector);
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }
