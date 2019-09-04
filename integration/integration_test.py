@@ -1060,7 +1060,7 @@ def generate_interval_case():
     batch_sizes = [7, 10]
     skip = set()
     skip.add('JS')  # TODO(ARROW-5239)
-    return _generate_file("interval", fields, batch_sizes)
+    return _generate_file("interval", fields, batch_sizes, skip=skip)
 
 
 def generate_map_case():
