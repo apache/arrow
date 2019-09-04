@@ -298,6 +298,11 @@ position and length of slot j is computed as:
     slot_position = offsets[j]
     slot_length = offsets[j + 1] - offsets[j]  // (for 0 <= j < length)
 
+It should be noted that a null value may have a positive slot length.
+That is, a null value may occupy a **non-empty** memory space in the data
+buffer. When this is true, the content of the corresponding memory space
+is undefined.
+
 Generally the first value in the offsets array is 0, and the last slot
 is the length of the values array. When serializing this layout, we
 recommend normalizing the offsets to start at 0.
@@ -312,6 +317,10 @@ variable-size binary case, and both 32-bit and 64-bit signed integer
 offsets are supported options for the offsets. Rather than referencing
 an additional data buffer, instead these offsets reference the child
 array.
+
+Similar to the layout of variable-size binary, a null value may
+correspond to a **non-empty** segment in the child array. When this is
+true, the content of the corresponding segment can be arbitrary.
 
 A list type is specified like ``List<T>``, where ``T`` is any type
 (primitive or nested). In these examples we use 32-bit offsets where
