@@ -64,7 +64,7 @@ def test_get_target_stats(fs, tempdir, testpath):
 
     aaa_.mkdir(parents=True)
     bb_.touch()
-    c_.write_bytes('test')
+    c_.write_bytes(b'test')
 
     def ceiled_mtime_range(path):
         # arrow's filesystem implementation ceils mtime whereas pathlib rounds
