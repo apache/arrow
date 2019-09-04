@@ -17,7 +17,7 @@
 
 #' @include type.R
 
-#' @title class arrow::ArrayData
+#' @title class ArrayData
 #'
 #' @usage NULL
 #' @format NULL
@@ -41,7 +41,7 @@
 #'
 #' @rdname arrow__ArrayData
 #' @name arrow__ArrayData
-`arrow::ArrayData` <- R6Class("arrow::ArrayData",
+`ArrayData` <- R6Class("ArrayData",
   inherit = `arrow::Object`,
   active = list(
     type = function() `arrow::DataType`$dispatch(ArrayData__get_type(self)),

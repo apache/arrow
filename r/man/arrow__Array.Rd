@@ -3,12 +3,12 @@
 \docType{class}
 \name{arrow__Array}
 \alias{arrow__Array}
-\alias{arrow::Array}
-\title{class arrow::Array
+\alias{Array}
+\title{class Array
 
 Array base type. Immutable data array with some logical type and some length.}
 \description{
-class arrow::Array
+class Array
 
 Array base type. Immutable data array with some logical type and some length.
 }
@@ -46,7 +46,7 @@ a == a
 \item \code{$type_id()}: type id
 \item \code{$Equals(other)} : is this array equal to \code{other}
 \item \code{$ApproxEquals(other)} :
-\item \code{$data()}: return the underlying \link[=arrow__ArrayData]{arrow::ArrayData}
+\item \code{$data()}: return the underlying \link[=arrow__ArrayData]{ArrayData}
 \item \code{$as_vector()}: convert to an R vector
 \item \code{$ToString()}: string representation of the array
 \item \code{$Slice(offset, length = NULL)} : Construct a zero-copy slice of the array with the indicated offset and length. If length is \code{NULL}, the slice goes until the end of the array.

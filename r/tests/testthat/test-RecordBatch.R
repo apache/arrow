@@ -45,27 +45,27 @@ test_that("RecordBatch", {
   expect_equal(names(batch), c("int", "dbl", "lgl", "chr", "fct"))
 
   col_int <- batch$column(0)
-  expect_true(inherits(col_int, 'arrow::Array'))
+  expect_true(inherits(col_int, 'Array'))
   expect_equal(col_int$as_vector(), tbl$int)
   expect_equal(col_int$type, int32())
 
   col_dbl <- batch$column(1)
-  expect_true(inherits(col_dbl, 'arrow::Array'))
+  expect_true(inherits(col_dbl, 'Array'))
   expect_equal(col_dbl$as_vector(), tbl$dbl)
   expect_equal(col_dbl$type, float64())
 
   col_lgl <- batch$column(2)
-  expect_true(inherits(col_dbl, 'arrow::Array'))
+  expect_true(inherits(col_dbl, 'Array'))
   expect_equal(col_lgl$as_vector(), tbl$lgl)
   expect_equal(col_lgl$type, boolean())
 
   col_chr <- batch$column(3)
-  expect_true(inherits(col_chr, 'arrow::Array'))
+  expect_true(inherits(col_chr, 'Array'))
   expect_equal(col_chr$as_vector(), tbl$chr)
   expect_equal(col_chr$type, utf8())
 
   col_fct <- batch$column(4)
-  expect_true(inherits(col_fct, 'arrow::Array'))
+  expect_true(inherits(col_fct, 'Array'))
   expect_equal(col_fct$as_vector(), tbl$fct)
   expect_equal(col_fct$type, dictionary(int32(), array(letters[1:10])))
 
@@ -146,7 +146,7 @@ test_that("RecordBatch dim() and nrow() (ARROW-3816)", {
   expect_equal(nrow(batch), 10L)
 })
 
-test_that("record_batch() handles arrow::Array", {
+test_that("record_batch() handles Array", {
   batch <- record_batch(x = 1:10, y = arrow::array(1:10))
   expect_equal(batch$schema, schema(x = int32(), y = int32()))
 })
@@ -220,4 +220,3 @@ test_that("record_batch() only auto splice data frames", {
     regexp = "only data frames are allowed as unnamed arguments to be auto spliced"
   )
 })
-

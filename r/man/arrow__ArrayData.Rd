@@ -3,10 +3,10 @@
 \docType{class}
 \name{arrow__ArrayData}
 \alias{arrow__ArrayData}
-\alias{arrow::ArrayData}
-\title{class arrow::ArrayData}
+\alias{ArrayData}
+\title{class ArrayData}
 \description{
-class arrow::ArrayData
+class ArrayData
 }
 \section{Usage}{
 \preformatted{data <- array(x)$data()

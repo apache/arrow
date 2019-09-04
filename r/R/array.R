@@ -17,7 +17,7 @@
 
 #' @include arrow-package.R
 
-#' @title class arrow::Array
+#' @title class Array
 #'
 #' Array base type. Immutable data array with some logical type and some length.
 #'
@@ -59,7 +59,7 @@
 #' - `$type_id()`: type id
 #' - `$Equals(other)` : is this array equal to `other`
 #' - `$ApproxEquals(other)` :
-#' - `$data()`: return the underlying [arrow::ArrayData][arrow__ArrayData]
+#' - `$data()`: return the underlying [ArrayData][arrow__ArrayData]
 #' - `$as_vector()`: convert to an R vector
 #' - `$ToString()`: string representation of the array
 #' - `$Slice(offset, length = NULL)` : Construct a zero-copy slice of the array with the indicated offset and length. If length is `NULL`, the slice goes until the end of the array.
@@ -67,7 +67,7 @@
 #'
 #' @rdname arrow__Array
 #' @name arrow__Array
-`arrow::Array` <- R6Class("arrow::Array",
+`Array` <- R6Class("Array",
   inherit = `arrow::Object`,
   public = list(
     IsNull = function(i) Array__IsNull(self, i),
@@ -76,24 +76,24 @@
     type_id = function() Array__type_id(self),
     Equals = function(other) Array__Equals(self, other),
     ApproxEquals = function(other) Array__ApproxEquals(self, other),
-    data = function() shared_ptr(`arrow::ArrayData`, Array__data(self)),
+    data = function() shared_ptr(`ArrayData`, Array__data(self)),
     as_vector = function() Array__as_vector(self),
     ToString = function() Array__ToString(self),
     Slice = function(offset, length = NULL){
       if (is.null(length)) {
-        shared_ptr(`arrow::Array`, Array__Slice1(self, offset))
+        shared_ptr(`Array`, Array__Slice1(self, offset))
       } else {
-        shared_ptr(`arrow::Array`, Array__Slice2(self, offset, length))
+        shared_ptr(`Array`, Array__Slice2(self, offset, length))
       }
     },
     RangeEquals = function(other, start_idx, end_idx, other_start_idx) {
-      assert_that(inherits(other, "arrow::Array"))
+      assert_that(inherits(other, "Array"))
       Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx)
     },
     cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
       assert_that(inherits(target_type, "arrow::DataType"))
       assert_that(inherits(options, "arrow::compute::CastOptions"))
-      `arrow::Array`$dispatch(Array__cast(self, target_type, options))
+      `Array`$dispatch(Array__cast(self, target_type, options))
     }
   ),
   active = list(
@@ -103,24 +103,24 @@
   )
 )
 
-`arrow::DictionaryArray` <- R6Class("arrow::DictionaryArray", inherit = `arrow::Array`,
+`arrow::DictionaryArray` <- R6Class("arrow::DictionaryArray", inherit = `Array`,
   public = list(
-    indices = function() `arrow::Array`$dispatch(DictionaryArray__indices(self)),
-    dictionary = function() `arrow::Array`$dispatch(DictionaryArray__dictionary(self))
+    indices = function() `Array`$dispatch(DictionaryArray__indices(self)),
+    dictionary = function() `Array`$dispatch(DictionaryArray__dictionary(self))
   )
 )
 
-`arrow::StructArray` <- R6Class("arrow::StructArray", inherit = `arrow::Array`,
+`arrow::StructArray` <- R6Class("arrow::StructArray", inherit = `Array`,
   public = list(
-    field = function(i) `arrow::Array`$dispatch(StructArray__field(self, i)),
-    GetFieldByName = function(name) `arrow::Array`$dispatch(StructArray__GetFieldByName(self, name)),
-    Flatten = function() map(StructArray__Flatten(self), ~ `arrow::Array`$dispatch(.x))
+    field = function(i) `Array`$dispatch(StructArray__field(self, i)),
+    GetFieldByName = function(name) `Array`$dispatch(StructArray__GetFieldByName(self, name)),
+    Flatten = function() map(StructArray__Flatten(self), ~ `Array`$dispatch(.x))
   )
 )
 
-`arrow::ListArray` <- R6Class("arrow::ListArray", inherit = `arrow::Array`,
+`arrow::ListArray` <- R6Class("arrow::ListArray", inherit = `Array`,
   public = list(
-    values = function() `arrow::Array`$dispatch(ListArray__values(self)),
+    values = function() `Array`$dispatch(ListArray__values(self)),
     value_length = function(i) ListArray__value_length(self, i),
     value_offset = function(i) ListArray__value_offset(self, i),
     raw_value_offsets = function() ListArray__raw_value_offsets(self)
@@ -130,8 +130,8 @@
   )
 )
 
-`arrow::Array`$dispatch <- function(xp){
-  a <- shared_ptr(`arrow::Array`, xp)
+`Array`$dispatch <- function(xp){
+  a <- shared_ptr(`Array`, xp)
   if (a$type_id() == Type$DICTIONARY){
     a <- shared_ptr(`arrow::DictionaryArray`, xp)
   } else if (a$type_id() == Type$STRUCT) {
@@ -143,17 +143,17 @@
 }
 
 #' @export
-`length.arrow::Array` <- function(x) x$length()
+`length.Array` <- function(x) x$length()
 
 #' @export
-`==.arrow::Array` <- function(x, y) x$Equals(y)
+`==.Array` <- function(x, y) x$Equals(y)
 
-#' create an [arrow::Array][arrow__Array] from an R vector
+#' create an [Array][arrow__Array] from an R vector
 #'
 #' @param x R object
 #' @param type Explicit [type][arrow__DataType], or NULL (the default) to infer from the data
 #'
 #' @export
 array <- function(x, type = NULL){
-  `arrow::Array`$dispatch(Array__from_vector(x, type))
+  `Array`$dispatch(Array__from_vector(x, type))
 }

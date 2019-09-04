@@ -7,7 +7,7 @@
 record_batch(..., schema = NULL)
 }
 \arguments{
-\item{...}{A variable number of arrow::Array}
+\item{...}{A variable number of Array}
 
 \item{schema}{a arrow::Schema}
 }

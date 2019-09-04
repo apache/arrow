@@ -139,7 +139,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
         auto chunked_array = arrow::r::extract<arrow::ChunkedArray>(x);
         fields[j] = arrow::field(CHAR(name), chunked_array->type());
         columns[j] = chunked_array;
-      } else if (Rf_inherits(x, "arrow::Array")) {
+      } else if (Rf_inherits(x, "Array")) {
         auto array = arrow::r::extract<arrow::Array>(x);
         fields[j] = arrow::field(CHAR(name), array->type());
         columns[j] = std::make_shared<arrow::ChunkedArray>(array);
@@ -174,7 +174,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
       if (Rf_inherits(x, "arrow::ChunkedArray")) {
         auto chunked_array = arrow::r::extract<arrow::ChunkedArray>(x);
         columns[j] = chunked_array;
-      } else if (Rf_inherits(x, "arrow::Array")) {
+      } else if (Rf_inherits(x, "Array")) {
         auto array = arrow::r::extract<arrow::Array>(x);
         columns[j] = std::make_shared<arrow::ChunkedArray>(array);
       } else {
