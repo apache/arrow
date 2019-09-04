@@ -56,19 +56,41 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   @Override
+  public abstract String getName();
+
+  /**
+   * Representation of vector suitable for debugging.
+   */
+  @Override
   public String toString() {
     if (getValueCount() == 0) {
       return "[]";
     }
 
+    final int window = 10;
+    boolean skipComma = false;
+
     StringBuilder sb = new StringBuilder();
     sb.append('[');
     for (int i = 0; i < getValueCount(); i++) {
-      sb.append(getObject(i));
+      if (skipComma) {
+        skipComma = false;
+      }
+      if (i >= window && i < getValueCount() - window) {
+        sb.append("...");
+        i = getValueCount() - window - 1;
+        skipComma = true;
+      } else {
+        sb.append(getObject(i));
+      }
+
       if (i == getValueCount() - 1) {
         sb.append(']');
       } else {
-        sb.append(',').append(' ');
+        if (!skipComma) {
+          sb.append(',');
+        }
+        sb.append(' ');
       }
     }
 

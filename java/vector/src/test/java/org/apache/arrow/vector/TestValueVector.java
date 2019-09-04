@@ -2655,6 +2655,14 @@ public class TestValueVector {
       intVector.setSafe(2, 3);
       assertEquals("[1, 2, 3]", intVector.toString());
 
+      // validate intVector with plenty values
+      intVector.setValueCount(100);
+      for (int i = 0; i < 100; i++) {
+        intVector.setSafe(i, i);
+      }
+      assertEquals("[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, ... 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]",
+          intVector.toString());
+
       // validate listVector toString
       listVector.allocateNewSafe();
       listVector.initializeChildrenFromFields(
