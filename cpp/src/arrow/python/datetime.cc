@@ -170,7 +170,7 @@ int64_t PyTime_to_us(PyObject* pytime) {
 // total = next * quotient + remaining. Handles negative values by propagating
 // them: If total is negative, next will be negative and remaining will
 // always be non-negative.
-static int64_t split_time(int64_t total, int64_t quotient, int64_t* next) {
+static inline int64_t split_time(int64_t total, int64_t quotient, int64_t* next) {
   int64_t r = total % quotient;
   if (r < 0) {
     *next = total / quotient - 1;
@@ -181,7 +181,7 @@ static int64_t split_time(int64_t total, int64_t quotient, int64_t* next) {
   }
 }
 
-static Status PyTime_convert_int(int64_t val, const TimeUnit::type unit,
+static inline Status PyTime_convert_int(int64_t val, const TimeUnit::type unit,
                                         int64_t* hour, int64_t* minute, int64_t* second,
                                         int64_t* microsecond) {
   switch (unit) {
@@ -209,7 +209,7 @@ static Status PyTime_convert_int(int64_t val, const TimeUnit::type unit,
   return Status::OK();
 }
 
-static Status PyDate_convert_int(int64_t val, const DateUnit unit, int64_t* year,
+static inline Status PyDate_convert_int(int64_t val, const DateUnit unit, int64_t* year,
                                         int64_t* month, int64_t* day) {
   switch (unit) {
     case DateUnit::MILLI:
