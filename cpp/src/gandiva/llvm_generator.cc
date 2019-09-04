@@ -125,9 +125,8 @@ Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
 
     EvalFunc jit_function = compiled_expr->GetJITFunction(mode);
     jit_function(eval_batch->GetBufferArray(), eval_batch->GetBufferOffsetArray(),
-                 eval_batch->GetLocalBitMapArray(),
-                 selection_buffer, (int64_t)eval_batch->GetExecutionContext(),
-                 num_output_rows);
+                 eval_batch->GetLocalBitMapArray(), selection_buffer,
+                 (int64_t)eval_batch->GetExecutionContext(), num_output_rows);
 
     // check for execution errors
     ARROW_RETURN_IF(
@@ -328,8 +327,8 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
   }
 
   // The visitor can add code to both the entry/loop blocks.
-  Visitor visitor(this, *fn, loop_entry, arg_addrs, arg_addr_offsets,
-                  arg_local_bitmaps, arg_context_ptr, position_var);
+  Visitor visitor(this, *fn, loop_entry, arg_addrs, arg_addr_offsets, arg_local_bitmaps,
+                  arg_context_ptr, position_var);
   value_expr->Accept(visitor);
   LValuePtr output_value = visitor.result();
 
@@ -570,7 +569,7 @@ void LLVMGenerator::Visitor::Visit(const VectorReadVarLenValueDex& dex) {
   // compute len from the offsets array.
   llvm::Value* offsets_slot_ref =
       GetBufferReference(dex.OffsetsIdx(), kBufferTypeOffsets, dex.Field());
-  llvm::Value *offsets_slot_index =
+  llvm::Value* offsets_slot_index =
       builder->CreateAdd(loop_var_, GetBufferOffset(dex.OffsetsIdx(), dex.Field()));
 
   // => offset_start = offsets[loop_var]
@@ -578,9 +577,8 @@ void LLVMGenerator::Visitor::Visit(const VectorReadVarLenValueDex& dex) {
   llvm::Value* offset_start = builder->CreateLoad(slot, "offset_start");
 
   // => offset_end = offsets[loop_var + 1]
-  llvm::Value* offsets_slot_index_next =
-      builder->CreateAdd(offsets_slot_index, generator_->types()->i64_constant(1),
-                  "loop_var+1");
+  llvm::Value* offsets_slot_index_next = builder->CreateAdd(
+      offsets_slot_index, generator_->types()->i64_constant(1), "loop_var+1");
   slot = builder->CreateGEP(offsets_slot_ref, offsets_slot_index_next);
   llvm::Value* offset_end = builder->CreateLoad(slot, "offset_end");
 
@@ -1259,9 +1257,8 @@ llvm::Value* LLVMGenerator::Visitor::GetBufferOffset(int idx, FieldPtr field) {
   llvm::IRBuilder<>* builder = ir_builder();
 
   const std::string& name = field->name();
-  llvm::Value* offsetAddr =
-      builder->CreateGEP(arg_addr_offsets_,
-                         generator_->types()->i32_constant(idx), name + "_offset_addr");
+  llvm::Value* offsetAddr = builder->CreateGEP(
+      arg_addr_offsets_, generator_->types()->i32_constant(idx), name + "_offset_addr");
   llvm::Value* offset = builder->CreateLoad(offsetAddr, name + "_addr");
 
   return offset;

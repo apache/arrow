@@ -109,8 +109,8 @@ TEST_F(TestLLVMGenerator, TestAdd) {
       reinterpret_cast<uint8_t*>(out), reinterpret_cast<uint8_t*>(&out_bitmap),
   };
   int64_t addr_offsets[] = {0, 0, 0, 0, 0, 0};
-  eval_func(addrs, addr_offsets, nullptr, nullptr,
-            0 /* dummy context ptr */, num_records);
+  eval_func(addrs, addr_offsets, nullptr, nullptr, 0 /* dummy context ptr */,
+            num_records);
 
   uint32_t expected[] = {6, 8, 10, 12};
   for (int i = 0; i < num_records; i++) {

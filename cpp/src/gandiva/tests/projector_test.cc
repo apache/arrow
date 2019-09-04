@@ -739,8 +739,7 @@ TEST_F(TestProjector, TestOffset) {
   auto field_sum = field("sum", arrow::int32());
 
   // Build expression
-  auto sum_expr =
-      TreeExprBuilder::MakeExpression("add", {field0, field1}, field_sum);
+  auto sum_expr = TreeExprBuilder::MakeExpression("add", {field0, field1}, field_sum);
 
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {sum_expr}, TestConfiguration(), &projector);
