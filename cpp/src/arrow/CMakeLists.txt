@@ -146,8 +146,7 @@ set(ARROW_SRCS
     vendored/datetime/tz.cpp)
 
 if(ARROW_JEMALLOC)
-  set_source_files_properties(memory_pool.cc
-    PROPERTIES OBJECT_DEPENDS jemalloc_ep)
+  set_source_files_properties(memory_pool.cc PROPERTIES OBJECT_DEPENDS jemalloc_ep)
 endif()
 
 if(ARROW_JSON)
