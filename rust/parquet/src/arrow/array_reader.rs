@@ -94,7 +94,7 @@ pub trait ArrayReader {
 /// and read them into primitive arrays.
 pub struct PrimitiveArrayReader<T: DataType> {
     data_type: ArrowType,
-    pages: Box<PageIterator>,
+    pages: Box<dyn PageIterator>,
     def_levels_buffer: Option<Buffer>,
     rep_levels_buffer: Option<Buffer>,
     column_desc: ColumnDescPtr,
@@ -104,7 +104,10 @@ pub struct PrimitiveArrayReader<T: DataType> {
 
 impl<T: DataType> PrimitiveArrayReader<T> {
     /// Construct primitive array reader.
-    pub fn new(mut pages: Box<PageIterator>, column_desc: ColumnDescPtr) -> Result<Self> {
+    pub fn new(
+        mut pages: Box<dyn PageIterator>,
+        column_desc: ColumnDescPtr,
+    ) -> Result<Self> {
         let data_type = parquet_to_arrow_field(column_desc.clone())?
             .data_type()
             .clone();
@@ -137,7 +140,7 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
     }
 
     /// Reads at most `batch_size` records into array.
-    fn next_batch(&mut self, batch_size: usize) -> Result<Arc<Array>> {
+    fn next_batch(&mut self, batch_size: usize) -> Result<ArrayRef> {
         let mut records_read = 0usize;
         while records_read < batch_size {
             let records_to_read = batch_size - records_read;
@@ -247,6 +250,7 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
     }
 }
 
+/// Implementation of struct array reader.
 struct StructArrayReader {
     children: Vec<Box<dyn ArrayReader>>,
     data_type: ArrowType,
@@ -257,6 +261,7 @@ struct StructArrayReader {
 }
 
 impl StructArrayReader {
+    /// Construct struct array reader.
     pub fn new(
         data_type: ArrowType,
         children: Vec<Box<dyn ArrayReader>>,
@@ -275,13 +280,33 @@ impl StructArrayReader {
 }
 
 impl ArrayReader for StructArrayReader {
+    /// Returns data type.
+    /// This must be a struct.
     fn get_data_type(&self) -> &ArrowType {
         &self.data_type
     }
 
-    fn next_batch(&mut self, batch_size: usize) -> Result<Arc<Array>> {
+    /// Read `batch_size` struct records.
+    ///
+    /// Definition levels of struct array is calculated as following:
+    /// ```ignore
+    /// def_levels[i] = min(child1_def_levels[i], child2_def_levels[i], ...,
+    /// childn_def_levels[i]);
+    /// ```
+    ///
+    /// Repetition levels of struct array is calculated as following:
+    /// ```ignore
+    /// rep_levels[i] = child1_rep_levels[i];
+    /// ```
+    ///
+    /// The null bitmap of struct array is calculated from def_levels:
+    /// ```ignore
+    /// null_bitmap[i] = (def_levels[i] >= self.def_level);
+    /// ```
+    fn next_batch(&mut self, batch_size: usize) -> Result<ArrayRef> {
         if self.children.len() == 0 {
             self.def_level_buffer = None;
+            self.rep_level_buffer = None;
             return Ok(Arc::new(StructArray::from(Vec::new())));
         }
 
@@ -291,7 +316,7 @@ impl ArrayReader for StructArrayReader {
             .map(|reader| reader.next_batch(batch_size))
             .try_fold(
                 Vec::new(),
-                |mut result, child_array| -> Result<Vec<Arc<Array>>> {
+                |mut result, child_array| -> Result<Vec<ArrayRef>> {
                     result.push(child_array?);
                     Ok(result)
                 },
@@ -307,11 +332,6 @@ impl ArrayReader for StructArrayReader {
             return Err(general_err!("Not all children array length are the same!"));
         }
 
-        //        let data_type = children_array.iter()
-        //            .map(|arr| arr.data_ref().data_type().clone())
-        //            .collect::<Vec<ArrowType>>();
-        //
-        //        let data_type = ArrowType::Struct(data_type);
         // calculate struct def level data
         let buffer_size = children_array_len * size_of::<i16>();
         let mut def_level_data_buffer = MutableBuffer::new(buffer_size);
@@ -321,37 +341,36 @@ impl ArrayReader for StructArrayReader {
             let ptr = transmute::<*const u8, *mut i16>(def_level_data_buffer.raw_data());
             from_raw_parts_mut(ptr, children_array_len)
         };
+
         def_level_data
             .iter_mut()
             .for_each(|v| *v = self.struct_def_level);
 
-        self.children.iter().try_for_each(|child| {
+        for child in &self.children {
             if let Some(current_child_def_levels) = child.get_def_levels() {
                 if current_child_def_levels.len() != children_array_len {
-                    Err(general_err!("Child array length are not equal!"))
+                    return Err(general_err!("Child array length are not equal!"));
                 } else {
                     for i in 0..children_array_len {
                         def_level_data[i] =
                             min(def_level_data[i], current_child_def_levels[i]);
                     }
-                    Ok(())
                 }
-            } else {
-                Ok(())
             }
-        })?;
+        }
 
         // calculate bitmap for current array
         let mut bitmap_builder = BooleanBufferBuilder::new(children_array_len);
         let mut null_count = 0;
-        def_level_data.iter().try_for_each(|item| {
-            let is_null = *item < self.struct_def_level;
-            if is_null {
+        for def_level in def_level_data {
+            let not_null = *def_level >= self.struct_def_level;
+            if !not_null {
                 null_count += 1;
             }
-            bitmap_builder.append(is_null)
-        })?;
+            bitmap_builder.append(not_null)?;
+        }
 
+        // Now we can build array data
         let array_data = ArrayDataBuilder::new(self.data_type.clone())
             .len(children_array_len)
             .null_count(null_count)
@@ -395,7 +414,7 @@ impl ArrayReader for StructArrayReader {
 
 struct ListArrayReader {
     data_type: ArrowType,
-    child: Box<ArrayReader>,
+    child: Box<dyn ArrayReader>,
     rep_level: i16,
     def_level: i16,
     def_level_buffer: Option<Buffer>,
@@ -403,7 +422,7 @@ struct ListArrayReader {
 }
 
 impl ListArrayReader {
-    pub fn new(child: Box<ArrayReader>, rep_level: i16, def_level: i16) -> Self {
+    pub fn new(child: Box<dyn ArrayReader>, rep_level: i16, def_level: i16) -> Self {
         Self {
             data_type: List(Box::new(child.get_data_type().clone())),
             child,
@@ -420,7 +439,7 @@ impl ArrayReader for ListArrayReader {
         &self.data_type
     }
 
-    fn next_batch(&mut self, batch_size: usize) -> Result<Arc<Array>> {
+    fn next_batch(&mut self, batch_size: usize) -> Result<ArrayRef> {
         let child_array = self.child.next_batch(batch_size)?;
 
         let mut offset_builder = Int32BufferBuilder::new(child_array.len());
@@ -474,9 +493,6 @@ impl ArrayReader for ListArrayReader {
             rep_level_builder.append(cur_rep_level)?;
             def_level_builder.append(cur_def_level)?;
             offset_builder.append(child_array.len() as i32)?;
-
-            //            dbg!(&self.data_type);
-            //            dbg!(child_def_levels);
         }
 
         self.rep_level_buffer = Some(rep_level_builder.finish());
@@ -660,7 +676,7 @@ impl<'a> TypeVisitor<Option<Box<ArrayReader>>, &'a ArrayReaderBuilderContext>
         &mut self,
         _cur_type: Rc<Type>,
         _context: &'a ArrayReaderBuilderContext,
-    ) -> Result<Option<Box<ArrayReader>>> {
+    ) -> Result<Option<Box<dyn ArrayReader>>> {
         Err(ArrowError(format!(
             "Reading parquet map array into arrow is not supported yet!"
         )))
@@ -694,7 +710,7 @@ impl<'a> ArrayReaderBuilder {
     fn new(
         root_schema: TypePtr,
         columns_included: Rc<HashMap<*const Type, usize>>,
-        file_reader: Rc<FileReader>,
+        file_reader: Rc<dyn FileReader>,
     ) -> Self {
         Self {
             root_schema,
@@ -804,22 +820,25 @@ impl<'a> ArrayReaderBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::arrow::array_reader::{ArrayReader, PrimitiveArrayReader};
+    use crate::arrow::array_reader::{ArrayReader, PrimitiveArrayReader, StructArrayReader};
     use crate::basic::Encoding;
     use crate::column::page::Page;
     use crate::data_type::{DataType, Int32Type};
+    use crate::errors::Result;
     use crate::schema::parser::parse_message_type;
     use crate::schema::types::{ColumnDescPtr, SchemaDescriptor};
     use crate::util::test_common::make_pages;
     use crate::util::test_common::page_util::{
         DataPageBuilder, DataPageBuilderImpl, InMemoryPageIterator,
     };
-    use arrow::array::PrimitiveArray;
+    use arrow::array::{Array, ArrayRef, PrimitiveArray, StructArray};
     use arrow::compute::max;
     use arrow::datatypes::Int32Type as ArrowInt32;
+    use arrow::datatypes::{DataType as ArrowType, Field};
     use rand::distributions::range::SampleRange;
     use std::collections::VecDeque;
     use std::rc::Rc;
+    use std::sync::Arc;
 
     fn make_column_chuncks<T: DataType>(
         column_desc: ColumnDescPtr,
@@ -1038,5 +1057,88 @@ mod tests {
                 array_reader.get_rep_levels()
             );
         }
+    }
+
+    /// Array reader for test.
+    struct InMemoryArrayReader {
+        data_type: ArrowType,
+        array: ArrayRef,
+        def_levels: Option<Vec<i16>>,
+        rep_levels: Option<Vec<i16>>,
+    }
+
+    impl InMemoryArrayReader {
+        pub fn new(
+            data_type: ArrowType,
+            array: ArrayRef,
+            def_levels: Option<Vec<i16>>,
+            rep_levels: Option<Vec<i16>>,
+        ) -> Self {
+            Self {
+                data_type,
+                array,
+                def_levels,
+                rep_levels,
+            }
+        }
+    }
+
+    impl ArrayReader for InMemoryArrayReader {
+        fn get_data_type(&self) -> &ArrowType {
+            &self.data_type
+        }
+
+        fn next_batch(&mut self, batch_size: usize) -> Result<ArrayRef> {
+            Ok(self.array.clone())
+        }
+
+        fn get_def_levels(&self) -> Option<&[i16]> {
+            self.def_levels.as_ref().map(|v| v.as_slice())
+        }
+
+        fn get_rep_levels(&self) -> Option<&[i16]> {
+            self.rep_levels.as_ref().map(|v| v.as_slice())
+        }
+    }
+
+    #[test]
+    fn test_struct_array_reader() {
+        let array_1 = Arc::new(PrimitiveArray::<ArrowInt32>::from(vec![1, 2, 3, 4, 5]));
+        let array_reader_1 = InMemoryArrayReader::new(
+            ArrowType::Int32,
+            array_1.clone(),
+            Some(vec![0, 1, 2, 3, 1]),
+            Some(vec![1, 1, 1, 1, 1]),
+        );
+
+        let array_2 = Arc::new(PrimitiveArray::<ArrowInt32>::from(vec![5, 4, 3, 2, 1]));
+        let array_reader_2 = InMemoryArrayReader::new(
+            ArrowType::Int32,
+            array_2.clone(),
+            Some(vec![0, 1, 3, 1, 2]),
+            Some(vec![1, 1, 1, 1, 1]),
+        );
+
+        let struct_type = ArrowType::Struct(vec![
+            Field::new("f1", array_1.data_type().clone(), true),
+            Field::new("f2", array_2.data_type().clone(), true),
+        ]);
+
+        let mut struct_array_reader = StructArrayReader::new(struct_type, vec![Box::new
+            (array_reader_1), Box::new(array_reader_2)], 1, 1);
+
+
+        let struct_array = struct_array_reader.next_batch(5).unwrap();
+        let struct_array = struct_array.as_any()
+            .downcast_ref::<StructArray>()
+            .unwrap();
+
+        assert_eq!(5, struct_array.len());
+        assert_eq!(vec![true, false, false, false, false], (0..5).map(|idx| struct_array
+            .data_ref().is_null(idx)).collect::<Vec<bool>>());
+        assert_eq!(Some(vec![0, 1, 1, 1, 1].as_slice()), struct_array_reader
+            .get_def_levels());
+        assert_eq!(Some(vec![1, 1, 1, 1, 1].as_slice()), struct_array_reader
+            .get_rep_levels());
     }
 }
