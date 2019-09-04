@@ -81,7 +81,7 @@ public class AvroToArrow {
     Preconditions.checkNotNull(decoder, "Avro decoder object can not be null");
     Preconditions.checkNotNull(allocator, "allocator can not be null");
     Preconditions.checkArgument(targetBatchSize == AvroToArrowVectorIterator.NO_LIMIT_BATCH_SIZE ||
-        targetBatchSize > 0, "invalid targetBatchSize:" + targetBatchSize);
+        targetBatchSize > 0, "invalid targetBatchSize: %s", targetBatchSize);
 
     return AvroToArrowVectorIterator.create(decoder, schema, allocator, targetBatchSize);
   }
