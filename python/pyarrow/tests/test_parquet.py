@@ -2947,6 +2947,7 @@ def test_read_column_invalid_index():
             f.reader.read_column(index)
 
 
+@pytest.mark.pandas
 def test_direct_read_dictionary():
     # ARROW-3325
     repeats = 10
@@ -2970,6 +2971,7 @@ def test_direct_read_dictionary():
     assert result.equals(expected)
 
 
+@pytest.mark.pandas
 def test_dataset_read_dictionary(tempdir):
     path = tempdir / "ARROW-3325-dataset"
     t1 = pa.table([[tm.rands(10) for i in range(5)] * 10], names=['f0'])
@@ -2992,6 +2994,7 @@ def test_dataset_read_dictionary(tempdir):
         assert c1.equals(ex_chunks[0])
 
 
+@pytest.mark.pandas
 def test_direct_read_dictionary_subfield():
     repeats = 10
     nunique = 5
