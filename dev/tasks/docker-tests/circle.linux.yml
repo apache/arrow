@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-version: 2
+version: 2.1
 jobs:
   build:
     machine:
@@ -33,7 +33,13 @@ jobs:
             {{ command }}
           {%- endfor %}
           popd
+      - zulip/status:
+          stream: crossbow
+          fail_only: true
+          topic: "Docker nightly failed: ${CIRCLE_BRANCH}"
 
+orbs:
+   zulip: ponylang/zulip@1.0.2
 workflows:
   version: 2
   build:
