@@ -231,6 +231,7 @@ Status PyTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** out) {
 }
 
 Status PyDate_from_int(int64_t val, const DateUnit unit, PyObject** out) {
+  PyDateTime_IMPORT;
   int64_t year = 0, month = 0, day = 0;
   RETURN_NOT_OK(PyDate_convert_int(val, unit, &year, &month, &day));
   *out = PyDate_FromDate(static_cast<int32_t>(year), static_cast<int32_t>(month),
