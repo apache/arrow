@@ -77,7 +77,7 @@ Array <- R6Class("Array",
     type_id = function() Array__type_id(self),
     Equals = function(other) Array__Equals(self, other),
     ApproxEquals = function(other) Array__ApproxEquals(self, other),
-    data = function() shared_ptr(`ArrayData`, Array__data(self)),
+    data = function() shared_ptr(ArrayData, Array__data(self)),
     as_vector = function() Array__as_vector(self),
     ToString = function() Array__ToString(self),
     Slice = function(offset, length = NULL){
