@@ -50,6 +50,7 @@ cpdef enum FileType:
 
 
 cdef class FileStats:
+    """FileSystem entry stats"""
 
     cdef CFileStats stats
 
@@ -64,6 +65,20 @@ cdef class FileStats:
 
     @property
     def type(self):
+        """Type of the file
+
+        The returned enum variants have the following meanings:
+        - FileType.NonExistent: target does not exist
+        - FileType.Uknown: target exists but its type is unknown (could be a
+                           special file such as a Unix socket or character
+                           device, or Windows NUL / CON / ...)
+        - FileType.File: target is a regular file
+        - FileType.Directory: target is a regular directory
+
+        Returns
+        -------
+        type : FileType
+        """
         cdef CFileType ctype = self.stats.type()
         if ctype == CFileType_NonExistent:
             return FileType.NonExistent
@@ -78,29 +93,66 @@ cdef class FileStats:
 
     @property
     def path(self):
+        """The full file path in the filesystem."""
         return pathlib.Path(frombytes(self.stats.path()))
 
     @property
     def base_name(self):
+        """The file base name
+
+        Component after the last directory separator.
+        """
         return frombytes(self.stats.base_name())
 
     @property
     def size(self):
+        """The size in bytes, if available
+
+        Only regular files are guaranteed to have a size.
+        """
+        if self.stats.type() != CFileType_File:
+            raise ValueError(
+                'Only regular files are guaranteed to have a size'
+            )
         return self.stats.size()
 
     @property
     def extension(self):
+        """The file extension"""
         return frombytes(self.stats.extension())
 
     @property
     def mtime(self):
+        """The time of last modification, if available.
+
+        Returns
+        -------
+        mtime : datetime.datetime
+        """
         cdef PyObject *out
         check_status(PyDateTime_from_TimePoint(self.stats.mtime(), &out))
         return PyObject_to_object(out)
 
 
 cdef class Selector:
+    """File and directory selector.
 
+    It containt a set of options that describes how to search for files and
+    directories.
+
+    Parameters
+    ----------
+    base_dir : Union[str, pathlib.Path]
+        The directory in which to select files.
+        If the path exists but doesn't point to a directory, this should be an
+        error.
+    allow_non_existent : bool, default False
+        The behavior if `base_dir` doesn't exist in the filesystem.
+        If false, an error is returned.
+        If true, an empty selection is returned.
+    recursive : bool, default False
+        Whether to recurse into subdirectories.
+    """
     cdef CSelector selector
 
     def __init__(self, base_dir='', bint allow_non_existent=False,
@@ -135,6 +187,7 @@ cdef class Selector:
 
 
 cdef class FileSystem:
+    """Abstract file system API"""
 
     cdef:
         shared_ptr[CFileSystem] wrapped
@@ -148,6 +201,24 @@ cdef class FileSystem:
         self.fs = wrapped.get()
 
     def get_target_stats(self, paths_or_selector):
+        """Get statistics for the given target.
+
+        Any symlink is automatically dereferenced, recursively. A non-existing
+        or unreachable file returns an Ok status and has a FileType of value
+        NonExistent. An error status indicates a truly exceptional condition
+        (low-level I/O error, etc.).
+
+        Parameters
+        ----------
+        paths_or_selector: Union[Selector, List[Union[str, pathlib.Path]]]
+            Either a Selector object or a list of path-like objects.
+            The selector's base directory will not be part of the results, even
+            if it exists. If it doesn't exist, use `allow_non_existent`.
+
+        Returns
+        -------
+        file_stats : List[FileStats]
+        """
         cdef:
             vector[CFileStats] stats
             vector[c_string] paths
@@ -165,18 +236,71 @@ cdef class FileSystem:
         return [FileStats.wrap(stat) for stat in stats]
 
     def create_dir(self, path, bint recursive=True):
-        check_status(self.fs.CreateDir(_path_to_bytes(path), recursive=recursive))
+        """Create a directory and subdirectories.
+
+        This function succeeds if the directory already exists.
+
+        Parameters
+        ----------
+        path : Union[str, pathlib.Path]
+            The path of the new directory.
+        recursive: bool, default True
+            Create nested directories as well.
+        """
+        check_status(
+            self.fs.CreateDir(_path_to_bytes(path), recursive=recursive)
+        )
 
     def delete_dir(self, path):
+        """Delete a directory and its contents, recursively.
+
+        Parameters
+        ----------
+        path : Union[str, pathlib.Path]
+            The path of the directory to be deleted.
+        """
         check_status(self.fs.DeleteDir(_path_to_bytes(path)))
 
     def move(self, src, dest):
+        """Move / rename a file or directory.
+
+        If the destination exists:
+        - if it is a non-empty directory, an error is returned
+        - otherwise, if it has the same type as the source, it is replaced
+        - otherwise, behavior is unspecified (implementation-dependent).
+
+        Parameters
+        ----------
+        src : Union[str, pathlib.Path]
+            The path of the file or the directory to be moved.
+        dest : Union[str, pathlib.Path]
+            The destination path where the file or directory is moved to.
+        """
         check_status(self.fs.Move(_path_to_bytes(src), _path_to_bytes(dest)))
 
     def copy_file(self, src, dest):
+        """Copy a file.
+
+        If the destination exists and is a directory, an error is returned.
+        Otherwise, it is replaced.
+
+        Parameters
+        ----------
+        src : Union[str, pathlib.Path]
+            The path of the file to be copied from.
+        dest : Union[str, pathlib.Path]
+            The destination path where the file is copied to.
+        """
         check_status(self.fs.CopyFile(_path_to_bytes(src), _path_to_bytes(dest)))
 
     def delete_file(self, path):
+        """Delete a file.
+
+        Parameters
+        ----------
+        path : Union[str, pathlib.Path]
+            The path of the file to be deleted.
+        """
         check_status(self.fs.DeleteFile(_path_to_bytes(path)))
 
     def _wrap_input_stream(self, stream, path, compression, buffer_size):
@@ -198,6 +322,17 @@ cdef class FileSystem:
         return stream
 
     def open_input_file(self, path):
+        """Open an input file for random access reading.
+
+        Parameters
+        ----------
+        path : Union[str, pathlib.Path]
+            The source to open for reading.
+
+        Returns
+        -------
+        stram : NativeFile
+        """
         cdef:
             c_string pathstr = _path_to_bytes(path)
             NativeFile stream = NativeFile()
@@ -211,6 +346,26 @@ cdef class FileSystem:
         return stream
 
     def open_input_stream(self, path, compression='detect', buffer_size=None):
+        """Open an input stream for sequential reading.
+
+        Parameters
+        ----------
+        source: Union[str, pathlib.Path]
+            The source to open for reading.
+        compression: Optional[str], default 'detect'
+            The compression algorithm to use for on-the-fly decompression.
+            If "detect" and source is a file path, then compression will be
+            chosen based on the file extension.
+            If None, no compression will be applied. Otherwise, a well-known
+            algorithm name must be supplied (e.g. "gzip").
+        buffer_size: Optional[int], default None
+            If None or 0, no buffering will happen. Otherwise the size of the
+            temporary read buffer.
+
+        Returns
+        -------
+        stream : NativeFile
+        """
         cdef:
             c_string pathstr = _path_to_bytes(path)
             NativeFile stream = NativeFile()
@@ -227,6 +382,28 @@ cdef class FileSystem:
         )
 
     def open_output_stream(self, path, compression='detect', buffer_size=None):
+        """Open an output stream for sequential writing.
+
+        If the target already exists, existing data is truncated.
+
+        Parameters
+        ----------
+        path : Union[str, pathlib.Path]
+            The source to open for writing.
+        compression: Optional[str], default 'detect'
+            The compression algorithm to use for on-the-fly compression.
+            If "detect" and source is a file path, then compression will be
+            chosen based on the file extension.
+            If None, no compression will be applied. Otherwise, a well-known
+            algorithm name must be supplied (e.g. "gzip").
+        buffer_size: Optional[int], default None
+            If None or 0, no buffering will happen. Otherwise the size of the
+            temporary write buffer.
+
+        Returns
+        -------
+        stream : NativeFile
+        """
         cdef:
             c_string pathstr = _path_to_bytes(path)
             NativeFile stream = NativeFile()
@@ -243,6 +420,28 @@ cdef class FileSystem:
         )
 
     def open_append_stream(self, path, compression='detect', buffer_size=None):
+        """Open an output stream for appending.
+
+        If the target doesn't exist, a new empty file is created.
+
+        Parameters
+        ----------
+        path : Union[str, pathlib.Path]
+            The source to open for writing.
+        compression: Optional[str], default 'detect'
+            The compression algorithm to use for on-the-fly compression.
+            If "detect" and source is a file path, then compression will be
+            chosen based on the file extension.
+            If None, no compression will be applied. Otherwise, a well-known
+            algorithm name must be supplied (e.g. "gzip").
+        buffer_size: Optional[int], default None
+            If None or 0, no buffering will happen. Otherwise the size of the
+            temporary write buffer.
+
+        Returns
+        -------
+        stream : NativeFile
+        """
         cdef:
             c_string pathstr = _path_to_bytes(path)
             NativeFile stream = NativeFile()
@@ -260,6 +459,11 @@ cdef class FileSystem:
 
 
 cdef class LocalFileSystem(FileSystem):
+    """A FileSystem implementation accessing files on the local machine.
+
+    Details such as symlinks are abstracted away (symlinks are always followed,
+    except when deleting an entry).
+    """
 
     cdef:
         CLocalFileSystem* localfs
@@ -275,6 +479,15 @@ cdef class LocalFileSystem(FileSystem):
 
 
 cdef class SubTreeFileSystem(FileSystem):
+    """Delegates to another implementation after prepending a fixed base path.
+
+    This is useful to expose a logical view of a subtree of a filesystem,
+    for example a directory in a LocalFileSystem.
+
+    Note, that this makes no security guarantee. For example, symlinks may
+    allow to "escape" the subtree and access other parts of the underlying
+    filesystem.
+    """
 
     cdef:
         CSubTreeFileSystem* subtreefs

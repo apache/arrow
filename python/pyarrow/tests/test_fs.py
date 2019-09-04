@@ -64,7 +64,7 @@ def test_get_target_stats(fs, tempdir, testpath):
 
     aaa_.mkdir(parents=True)
     bb_.touch()
-    c_.touch()
+    c_.write_text('test')
 
     def ceiled_mtime_range(path):
         # arrow's filesystem implementation ceils mtime whereas pathlib rounds
@@ -80,17 +80,21 @@ def test_get_target_stats(fs, tempdir, testpath):
     assert aaa_stat.extension == ''
     assert aaa_stat.type == FileType.Directory
     assert aaa_stat.mtime in ceiled_mtime_range(aaa_)
+    with pytest.raises(ValueError):
+        aaa_stat.size
 
     assert bb_stat.path == pathlib.Path(bb)
     assert bb_stat.base_name == 'bb'
     assert bb_stat.extension == ''
     assert bb_stat.type == FileType.File
+    assert bb_stat.size == 0
     assert bb_stat.mtime in ceiled_mtime_range(bb_)
 
     assert c_stat.path == pathlib.Path(c)
     assert c_stat.base_name == 'c.txt'
     assert c_stat.extension == 'txt'
     assert c_stat.type == FileType.File
+    assert c_stat.size == 4
     assert c_stat.mtime in ceiled_mtime_range(c_)
 
     selector = Selector(testpath(''), allow_non_existent=False, recursive=True)
