@@ -1148,7 +1148,7 @@ def generate_nested_dictionary_case():
                           dictionaries=[dict0, dict1, dict2])
 
 
-def get_generated_json_files(tempdir=None, flight=False, testing_dir=None):
+def get_generated_json_files(tempdir=None, flight=False):
     tempdir = tempdir or tempfile.mkdtemp()
 
     def _temp_path():
