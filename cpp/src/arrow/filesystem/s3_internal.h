@@ -17,7 +17,9 @@
 
 #pragma once
 
+#include <sstream>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include <aws/core/Aws.h>
@@ -28,6 +30,7 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/print.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
@@ -79,21 +82,52 @@ inline bool IsAlreadyExists(const Aws::Client::AWSError<Aws::S3::S3Errors>& erro
 }
 
 template <typename ErrorType>
-inline Status ErrorToStatus(const Aws::Client::AWSError<ErrorType>& error) {
+Status ErrorToStatus(const std::string& prefix,
+                     const Aws::Client::AWSError<ErrorType>& error) {
   // XXX Handle fine-grained error types
   // See
   // https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_s3.html#ae3f82f8132b619b6e91c88a9f1bde371
-  return Status::IOError("AWS Error [code ", static_cast<int>(error.GetErrorType()),
+  return Status::IOError(prefix, "AWS Error [code ",
+                         static_cast<int>(error.GetErrorType()),
                          "]: ", error.GetMessage());
 }
 
+template <typename ErrorType, typename... Args>
+Status ErrorToStatus(const std::tuple<Args&...>& prefix,
+                     const Aws::Client::AWSError<ErrorType>& error) {
+  std::stringstream ss;
+  ::arrow::internal::PrintTuple(&ss, prefix);
+  return ErrorToStatus(ss.str(), error);
+}
+
+template <typename ErrorType>
+Status ErrorToStatus(const Aws::Client::AWSError<ErrorType>& error) {
+  return ErrorToStatus(std::string(), error);
+}
+
 template <typename Result, typename Error>
-inline Status OutcomeToStatus(const Aws::Utils::Outcome<Result, Error>& outcome) {
+Status OutcomeToStatus(const std::string& prefix,
+                       const Aws::Utils::Outcome<Result, Error>& outcome) {
   if (outcome.IsSuccess()) {
     return Status::OK();
   } else {
-    return ErrorToStatus(outcome.GetError());
+    return ErrorToStatus(prefix, outcome.GetError());
   }
+}
+
+template <typename Result, typename Error, typename... Args>
+Status OutcomeToStatus(const std::tuple<Args&...>& prefix,
+                       const Aws::Utils::Outcome<Result, Error>& outcome) {
+  if (outcome.IsSuccess()) {
+    return Status::OK();
+  } else {
+    return ErrorToStatus(prefix, outcome.GetError());
+  }
+}
+
+template <typename Result, typename Error>
+Status OutcomeToStatus(const Aws::Utils::Outcome<Result, Error>& outcome) {
+  return OutcomeToStatus(std::string(), outcome);
 }
 
 inline Aws::String ToAwsString(const std::string& s) {

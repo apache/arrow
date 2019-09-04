@@ -249,7 +249,10 @@ class ObjectInputFile : public io::RandomAccessFile {
       if (IsNotFound(outcome.GetError())) {
         return PathNotFound(path_);
       } else {
-        return ErrorToStatus(outcome.GetError());
+        return ErrorToStatus(
+            std::forward_as_tuple("When reading information for key '", path_.key,
+                                  "' in bucket '", path_.bucket, "': "),
+            outcome.GetError());
       }
     }
     content_length_ = outcome.GetResult().GetContentLength();
@@ -403,7 +406,10 @@ class ObjectOutputStream : public io::OutputStream {
 
     auto outcome = client_->CreateMultipartUpload(req);
     if (!outcome.IsSuccess()) {
-      return ErrorToStatus(outcome.GetError());
+      return ErrorToStatus(
+          std::forward_as_tuple("When initiating multiple part upload for key '",
+                                path_.key, "' in bucket '", path_.bucket, "': "),
+          outcome.GetError());
     }
     upload_id_ = outcome.GetResult().GetUploadId();
     closed_ = false;
@@ -418,7 +424,10 @@ class ObjectOutputStream : public io::OutputStream {
 
     auto outcome = client_->AbortMultipartUpload(req);
     if (!outcome.IsSuccess()) {
-      return ErrorToStatus(outcome.GetError());
+      return ErrorToStatus(
+          std::forward_as_tuple("When aborting multiple part upload for key '", path_.key,
+                                "' in bucket '", path_.bucket, "': "),
+          outcome.GetError());
     }
     current_part_.reset();
     closed_ = true;
@@ -451,7 +460,10 @@ class ObjectOutputStream : public io::OutputStream {
 
     auto outcome = client_->CompleteMultipartUpload(req);
     if (!outcome.IsSuccess()) {
-      return ErrorToStatus(outcome.GetError());
+      return ErrorToStatus(
+          std::forward_as_tuple("When completing multiple part upload for key '",
+                                path_.key, "' in bucket '", path_.bucket, "': "),
+          outcome.GetError());
     }
 
     closed_ = true;
@@ -538,7 +550,10 @@ class ObjectOutputStream : public io::OutputStream {
 
     auto outcome = client_->UploadPart(req);
     if (!outcome.IsSuccess()) {
-      return ErrorToStatus(outcome.GetError());
+      return ErrorToStatus(
+          std::forward_as_tuple("When uploading part for key '", path_.key,
+                                "' in bucket '", path_.bucket, "': "),
+          outcome.GetError());
     }
     // Append ETag and part number for this uploaded part
     // (will be needed for upload completion in Close())
@@ -627,7 +642,8 @@ class S3FileSystem::Impl {
 
     auto outcome = client_->CreateBucket(req);
     if (!outcome.IsSuccess() && !IsAlreadyExists(outcome.GetError())) {
-      return ErrorToStatus(outcome.GetError());
+      return ErrorToStatus(std::forward_as_tuple("When creating bucket '", bucket, "': "),
+                           outcome.GetError());
     }
     return Status::OK();
   }
@@ -637,7 +653,9 @@ class S3FileSystem::Impl {
     S3Model::PutObjectRequest req;
     req.SetBucket(ToAwsString(bucket));
     req.SetKey(ToAwsString(key));
-    return OutcomeToStatus(client_->PutObject(req));
+    return OutcomeToStatus(
+        std::forward_as_tuple("When creating key '", key, "' in bucket '", bucket, "': "),
+        client_->PutObject(req));
   }
 
   Status CreateEmptyDir(const std::string& bucket, const std::string& key) {
@@ -649,7 +667,9 @@ class S3FileSystem::Impl {
     S3Model::DeleteObjectRequest req;
     req.SetBucket(ToAwsString(bucket));
     req.SetKey(ToAwsString(key));
-    return OutcomeToStatus(client_->DeleteObject(req));
+    return OutcomeToStatus(
+        std::forward_as_tuple("When delete key '", key, "' in bucket '", bucket, "': "),
+        client_->DeleteObject(req));
   }
 
   Status CopyObject(const S3Path& src_path, const S3Path& dest_path) {
@@ -658,7 +678,11 @@ class S3FileSystem::Impl {
     req.SetKey(ToAwsString(dest_path.key));
     // Copy source "Must be URL-encoded" according to AWS SDK docs.
     req.SetCopySource(src_path.ToURLEncodedAwsString());
-    return OutcomeToStatus(client_->CopyObject(req));
+    return OutcomeToStatus(
+        std::forward_as_tuple("When copying key '", src_path.key, "' in bucket '",
+                              src_path.bucket, "' to key '", dest_path.key,
+                              "' in bucket '", dest_path.bucket, "': "),
+        client_->CopyObject(req));
   }
 
   // On Minio, an empty "directory" doesn't satisfy the same API requests as
@@ -679,7 +703,9 @@ class S3FileSystem::Impl {
       *out = false;
       return Status::OK();
     }
-    return ErrorToStatus(outcome.GetError());
+    return ErrorToStatus(std::forward_as_tuple("When reading information for key '", key,
+                                               "' in bucket '", bucket, "': "),
+                         outcome.GetError());
   }
 
   Status IsEmptyDirectory(const S3Path& path, bool* out) {
@@ -701,7 +727,10 @@ class S3FileSystem::Impl {
       *out = false;
       return Status::OK();
     }
-    return ErrorToStatus(outcome.GetError());
+    return ErrorToStatus(
+        std::forward_as_tuple("When listing objects under key '", path.key,
+                              "' in bucket '", path.bucket, "': "),
+        outcome.GetError());
   }
 
   // List objects under a given prefix, issuing continuation requests if necessary
@@ -789,7 +818,9 @@ class S3FileSystem::Impl {
       if (select.allow_non_existent && IsNotFound(error)) {
         return Status::OK();
       }
-      return ErrorToStatus(error);
+      return ErrorToStatus(std::forward_as_tuple("When listing objects under key '", key,
+                                                 "' in bucket '", bucket, "': "),
+                           error);
     };
 
     RETURN_NOT_OK(
@@ -843,7 +874,9 @@ class S3FileSystem::Impl {
     };
 
     auto handle_error = [&](const AWSError<S3Errors>& error) -> Status {
-      return ErrorToStatus(error);
+      return ErrorToStatus(std::forward_as_tuple("When listing objects under key '", key,
+                                                 "' in bucket '", bucket, "': "),
+                           error);
     };
 
     RETURN_NOT_OK(
@@ -925,7 +958,8 @@ class S3FileSystem::Impl {
     out->clear();
     auto outcome = client_->ListBuckets();
     if (!outcome.IsSuccess()) {
-      return ErrorToStatus(outcome.GetError());
+      return ErrorToStatus(std::forward_as_tuple("When listing buckets: "),
+                           outcome.GetError());
     }
     for (const auto& bucket : outcome.GetResult().GetBuckets()) {
       out->emplace_back(FromAwsString(bucket.GetName()));
@@ -966,7 +1000,10 @@ Status S3FileSystem::GetTargetStats(const std::string& s, FileStats* out) {
     auto outcome = impl_->client_->HeadBucket(req);
     if (!outcome.IsSuccess()) {
       if (!IsNotFound(outcome.GetError())) {
-        return ErrorToStatus(outcome.GetError());
+        return ErrorToStatus(
+            std::forward_as_tuple("When getting information for bucket '", path.bucket,
+                                  "': "),
+            outcome.GetError());
       }
       st.set_type(FileType::NonExistent);
       *out = st;
@@ -990,7 +1027,10 @@ Status S3FileSystem::GetTargetStats(const std::string& s, FileStats* out) {
       return FileObjectToStats(outcome.GetResult(), out);
     }
     if (!IsNotFound(outcome.GetError())) {
-      return ErrorToStatus(outcome.GetError());
+      return ErrorToStatus(
+          std::forward_as_tuple("When getting information for key '", path.key,
+                                "' in bucket '", path.bucket, "': "),
+          outcome.GetError());
     }
     // Not found => perhaps it's an empty "directory"
     bool is_dir = false;
@@ -1091,7 +1131,9 @@ Status S3FileSystem::DeleteDir(const std::string& s) {
     // Delete bucket
     S3Model::DeleteBucketRequest req;
     req.SetBucket(ToAwsString(path.bucket));
-    return OutcomeToStatus(impl_->client_->DeleteBucket(req));
+    return OutcomeToStatus(
+        std::forward_as_tuple("When deleting bucket '", path.bucket, "': "),
+        impl_->client_->DeleteBucket(req));
   } else {
     // Delete "directory"
     RETURN_NOT_OK(impl_->DeleteObject(path.bucket, path.key + kSep));
@@ -1127,7 +1169,10 @@ Status S3FileSystem::DeleteFile(const std::string& s) {
     if (IsNotFound(outcome.GetError())) {
       return PathNotFound(path);
     } else {
-      return ErrorToStatus(outcome.GetError());
+      return ErrorToStatus(
+          std::forward_as_tuple("When getting information for key '", path.key,
+                                "' in bucket '", path.bucket, "': "),
+          outcome.GetError());
     }
   }
   // Object found, delete it
