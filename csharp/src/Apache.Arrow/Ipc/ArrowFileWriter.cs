@@ -38,7 +38,12 @@ namespace Apache.Arrow.Ipc
         }
 
         public ArrowFileWriter(Stream stream, Schema schema, bool leaveOpen)
-            : base(stream, schema, leaveOpen)
+            : this(stream, schema, leaveOpen, options: null)
+        {
+        }
+
+        public ArrowFileWriter(Stream stream, Schema schema, bool leaveOpen, IpcOptions options)
+            : base(stream, schema, leaveOpen, options)
         {
             if (!stream.CanWrite)
             {

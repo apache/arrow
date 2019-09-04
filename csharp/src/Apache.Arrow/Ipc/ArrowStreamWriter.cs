@@ -145,6 +145,7 @@ namespace Apache.Arrow.Ipc
         protected Schema Schema { get; }
 
         private readonly bool _leaveOpen;
+        private readonly IpcOptions _options;
 
         private protected const Flatbuf.MetadataVersion CurrentMetadataVersion = Flatbuf.MetadataVersion.V4;
 
@@ -152,11 +153,17 @@ namespace Apache.Arrow.Ipc
 
         private readonly ArrowTypeFlatbufferBuilder _fieldTypeBuilder;
 
-        public ArrowStreamWriter(Stream baseStream, Schema schema) : this(baseStream, schema, leaveOpen: false)
+        public ArrowStreamWriter(Stream baseStream, Schema schema)
+            : this(baseStream, schema, leaveOpen: false)
         {
         }
 
         public ArrowStreamWriter(Stream baseStream, Schema schema, bool leaveOpen)
+            : this(baseStream, schema, leaveOpen, options: null)
+        {
+        }
+
+        public ArrowStreamWriter(Stream baseStream, Schema schema, bool leaveOpen, IpcOptions options)
         {
             BaseStream = baseStream ?? throw new ArgumentNullException(nameof(baseStream));
             Schema = schema ?? throw new ArgumentNullException(nameof(schema));
@@ -167,6 +174,7 @@ namespace Apache.Arrow.Ipc
             HasWrittenSchema = false;
 
             _fieldTypeBuilder = new ArrowTypeFlatbufferBuilder(Builder);
+            _options = options ?? IpcOptions.Default;
         }
 
         private protected async Task WriteRecordBatchInternalAsync(RecordBatch recordBatch,
@@ -348,10 +356,20 @@ namespace Apache.Arrow.Ipc
             var messageData = Builder.DataBuffer.ToReadOnlyMemory(Builder.DataBuffer.Position, Builder.Offset);
             var messagePaddingLength = CalculatePadding(messageData.Length);
 
-            await Buffers.RentReturnAsync(4, async (buffer) =>
+            int prefixSize = _options.WriteLegacyIpcFormat ? 4 : 8;
+
+            await Buffers.RentReturnAsync(prefixSize, async (buffer) =>
             {
+                Memory<byte> currentBufferPosition = buffer;
+                if (!_options.WriteLegacyIpcFormat)
+                {
+                    BinaryPrimitives.WriteInt32LittleEndian(
+                        currentBufferPosition.Span, MessageSerializer.IpcContinuationToken);
+                    currentBufferPosition = currentBufferPosition.Slice(4);
+                }
+
                 var metadataSize = messageData.Length + messagePaddingLength;
-                BinaryPrimitives.WriteInt32LittleEndian(buffer.Span, metadataSize);
+                BinaryPrimitives.WriteInt32LittleEndian(currentBufferPosition.Span, metadataSize);
                 await BaseStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
             }).ConfigureAwait(false);
 
@@ -360,7 +378,7 @@ namespace Apache.Arrow.Ipc
 
             checked
             {
-                return 4 + messageData.Length + messagePaddingLength;
+                return prefixSize + messageData.Length + messagePaddingLength;
             }
         }
 

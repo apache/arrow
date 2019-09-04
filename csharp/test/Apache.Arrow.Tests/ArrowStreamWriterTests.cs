@@ -16,6 +16,7 @@
 using Apache.Arrow.Ipc;
 using Apache.Arrow.Types;
 using System;
+using System.Buffers.Binary;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -122,11 +123,11 @@ namespace Apache.Arrow.Tests
             await TestRoundTripRecordBatch(originalBatch);
         }
 
-        private static async Task TestRoundTripRecordBatch(RecordBatch originalBatch)
+        private static async Task TestRoundTripRecordBatch(RecordBatch originalBatch, IpcOptions options = null)
         {
             using (MemoryStream stream = new MemoryStream())
             {
-                using (var writer = new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: true))
+                using (var writer = new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: true, options))
                 {
                     await writer.WriteRecordBatchAsync(originalBatch);
                 }
@@ -192,6 +193,46 @@ namespace Apache.Arrow.Tests
                 for (int i = 6; i > 0; i--)
                 {
                     Assert.Equal(0, writtenBytes[writtenBytes.Length - i]);
+                }
+            }
+        }
+
+        [Fact]
+        public async Task LegacyIpcFormatRoundTrips()
+        {
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            await TestRoundTripRecordBatch(originalBatch, new IpcOptions() { WriteLegacyIpcFormat = true });
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task WriteLegacyIpcFormat(bool writeLegacyIpcFormat)
+        {
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            var options = new IpcOptions() { WriteLegacyIpcFormat = writeLegacyIpcFormat };
+
+            using (MemoryStream stream = new MemoryStream())
+            {
+                using (var writer = new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: true, options))
+                {
+                    await writer.WriteRecordBatchAsync(originalBatch);
+                }
+
+                stream.Position = 0;
+
+                // ensure the continuation is written correctly
+                byte[] buffer = stream.GetBuffer();
+                int messageLength = BinaryPrimitives.ReadInt32LittleEndian(buffer);
+                if (writeLegacyIpcFormat)
+                {
+                    // the legacy IPC format doesn't have a continuation token at the start
+                    Assert.NotEqual(-1, messageLength);
+                }
+                else
+                {
+                    // the latest IPC format has a continuation token at the start
+                    Assert.Equal(-1, messageLength);
                 }
             }
         }
