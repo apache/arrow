@@ -42,6 +42,12 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
 
+#define XXH_INLINE_ALL
+#define XXH_PRIVATE_API
+#define XXH_NAMESPACE arrow_hashing_
+
+#include "arrow/vendored/xxhash.h"
+
 namespace arrow {
 namespace internal {
 
@@ -132,7 +138,7 @@ template <uint64_t AlgNum = 0>
 hash_t ComputeStringHash(const void* data, int64_t length) {
   if (ARROW_PREDICT_TRUE(length <= 16)) {
     // Specialize for small hash strings, as they are quite common as
-    // hash table keys.
+    // hash table keys.  Even XXH3 isn't quite as fast.
     auto p = reinterpret_cast<const uint8_t*>(data);
     auto n = static_cast<uint32_t>(length);
     if (n <= 8) {
@@ -166,21 +172,29 @@ hash_t ComputeStringHash(const void* data, int64_t length) {
     return n ^ hx ^ hy;
   }
 
-  if (HashUtil::have_hardware_crc32) {
-#ifdef ARROW_HAVE_ARMV8_CRYPTO
-    auto h = HashUtil::Armv8CrcHashParallel(data, static_cast<int32_t>(length), AlgNum);
-#else
-    // DoubleCrcHash is faster that Murmur2.
-    auto h = HashUtil::DoubleCrcHash(data, static_cast<int32_t>(length), AlgNum);
+#if XXH3_SECRET_SIZE_MIN != 136
+#error XXH3_SECRET_SIZE_MIN changed, please fix kXxh3Secrets
 #endif
-    return ScalarHelper<uint64_t, AlgNum>::ComputeHash(h);
-  } else {
-    // Fall back on 64-bit Murmur2 for longer strings.
-    // It has decent speed for medium-sized strings.  There may be faster
-    // hashes on long strings such as xxHash, but that may not matter much
-    // for the typical length distribution of hash keys.
-    return HashUtil::MurmurHash2_64(data, static_cast<int>(length), AlgNum);
-  }
+
+  // XXH3_64bits_withSeed generates a secret based on the seed, which is too slow.
+  // Instead, we use hard-coded random secrets.  To maximize cache efficiency,
+  // they reuse the same memory area.
+  static constexpr unsigned char kXxh3Secrets[XXH3_SECRET_SIZE_MIN + 1] = {
+      0xe7, 0x8b, 0x13, 0xf9, 0xfc, 0xb5, 0x8e, 0xef, 0x81, 0x48, 0x2c, 0xbf, 0xf9, 0x9f,
+      0xc1, 0x1e, 0x43, 0x6d, 0xbf, 0xa6, 0x6d, 0xb5, 0x72, 0xbc, 0x97, 0xd8, 0x61, 0x24,
+      0x0f, 0x12, 0xe3, 0x05, 0x21, 0xf7, 0x5c, 0x66, 0x67, 0xa5, 0x65, 0x03, 0x96, 0x26,
+      0x69, 0xd8, 0x29, 0x20, 0xf8, 0xc7, 0xb0, 0x3d, 0xdd, 0x7d, 0x18, 0xa0, 0x60, 0x75,
+      0x92, 0xa4, 0xce, 0xba, 0xc0, 0x77, 0xf4, 0xac, 0xb7, 0x03, 0x53, 0xf0, 0x98, 0xce,
+      0xe6, 0x2b, 0x20, 0xc7, 0x82, 0x91, 0xab, 0xbf, 0x68, 0x5c, 0x62, 0x4d, 0x33, 0xa3,
+      0xe1, 0xb3, 0xff, 0x97, 0x54, 0x4c, 0x44, 0x34, 0xb5, 0xb9, 0x32, 0x4c, 0x75, 0x42,
+      0x89, 0x53, 0x94, 0xd4, 0x9f, 0x2b, 0x76, 0x4d, 0x4e, 0xe6, 0xfa, 0x15, 0x3e, 0xc1,
+      0xdb, 0x71, 0x4b, 0x2c, 0x94, 0xf5, 0xfc, 0x8c, 0x89, 0x4b, 0xfb, 0xc1, 0x82, 0xa5,
+      0x6a, 0x53, 0xf9, 0x4a, 0xba, 0xce, 0x1f, 0xc0, 0x97, 0x1a, 0x87};
+
+  static_assert(AlgNum < 2, "AlgNum too large");
+  static constexpr auto secret = kXxh3Secrets + AlgNum;
+  return XXH3_64bits_withSecret(data, static_cast<size_t>(length), secret,
+                                XXH3_SECRET_SIZE_MIN);
 }
 
 // XXX add a HashEq<ArrowType> struct with both hash and compare functions?

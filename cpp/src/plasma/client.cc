@@ -64,7 +64,7 @@ using arrow::cuda::CudaDeviceManager;
 
 #define XXH_INLINE_ALL 1
 #define XXH_NAMESPACE plasma_client_
-#include "arrow/vendored/xxhash/xxhash.h"
+#include "arrow/vendored/xxhash.h"
 
 #define XXH64_DEFAULT_SEED 0
 
