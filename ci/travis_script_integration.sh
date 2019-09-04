@@ -63,9 +63,10 @@ conda install -y -q python=3.6 six numpy
 # ARROW-4008: Create a directory to write temporary files since /tmp can be
 # unstable in Travis CI
 INTEGRATION_TEMPDIR=$TRAVIS_BUILD_DIR/integration_temp
+GOLD_14_1=$ARROW_TEST_DATA/arrow-ipc/integration/0.14.1
 mkdir -p $INTEGRATION_TEMPDIR
 
-python integration_test.py --debug --tempdir=$INTEGRATION_TEMPDIR --run_flight
+python integration_test.py --debug --tempdir=$INTEGRATION_TEMPDIR --gold_dirs=$GOLD_14_1  --run_flight
 
 popd
 
