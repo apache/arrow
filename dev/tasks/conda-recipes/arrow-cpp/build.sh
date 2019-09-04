@@ -1,9 +1,10 @@
+#!/bin/bash
+
 set -e
 set -x
 
-cd cpp
-mkdir build-dir
-cd build-dir
+mkdir cpp/build
+pushd cpp/build
 
 EXTRA_CMAKE_ARGS=""
 
@@ -19,12 +20,12 @@ cmake \
     -DCMAKE_INSTALL_LIBDIR=$PREFIX/lib \
     -DLLVM_TOOLS_BINARY_DIR=$PREFIX/bin \
     -DARROW_DEPENDENCY_SOURCE=SYSTEM \
-    -Duriparser_SOURCE=BUNDLED \
     -DARROW_PACKAGE_PREFIX=$PREFIX \
     -DARROW_BOOST_USE_SHARED=ON \
     -DARROW_BUILD_BENCHMARKS=OFF \
     -DARROW_BUILD_UTILITIES=OFF \
     -DARROW_BUILD_TESTS=OFF \
+    -DARROW_BUILD_STATIC=OFF \
     -DARROW_JEMALLOC=ON \
     -DARROW_FLIGHT=ON \
     -DARROW_PLASMA=ON \
@@ -37,5 +38,6 @@ cmake \
     -GNinja \
     ${EXTRA_CMAKE_ARGS} \
     ..
-
 ninja install
+
+popd

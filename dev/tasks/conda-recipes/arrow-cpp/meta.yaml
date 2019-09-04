@@ -72,19 +72,6 @@ test:
     - if not exist %LIBRARY_INC%\\gandiva\\engine.h exit 1       # [win]
     - if not exist %LIBRARY_INC%\\parquet\\api\\reader.h exit 1  # [win]
 
-    # static
-    - test -f $PREFIX/lib/libarrow.a         # [unix]
-    - test -f $PREFIX/lib/libarrow_flight.a  # [unix]
-    - test -f $PREFIX/lib/libarrow_python.a  # [unix]
-    - test -f $PREFIX/lib/libplasma.a        # [unix]
-    - test -f $PREFIX/lib/libparquet.a       # [unix]
-    - test -f $PREFIX/lib/libgandiva.a       # [unix]
-    - if not exist %PREFIX%\\Library\\lib\\arrow_static.lib exit 1         # [win]
-    - if not exist %PREFIX%\\Library\\lib\\arrow_flight_static.lib exit 1  # [win]
-    - if not exist %PREFIX%\\Library\\lib\\arrow_python_static.lib exit 1  # [win]
-    - if not exist %PREFIX%\\Library\\lib\\parquet_static.lib exit 1       # [win]
-    - if not exist %PREFIX%\\Library\\lib\\gandiva_static.lib exit 1       # [win]
-
     # shared
     - test -f $PREFIX/lib/libarrow.so            # [linux]
     - test -f $PREFIX/lib/libarrow_flight.so     # [linux]
@@ -103,9 +90,28 @@ test:
     - if not exist %PREFIX%\\Library\\bin\\parquet.dll exit 1       # [win]
     - if not exist %PREFIX%\\Library\\bin\\gandiva.dll exit 1       # [win]
 
+    # absence of static libraries
+    - test ! -f $PREFIX/lib/libarrow.a         # [unix]
+    - test ! -f $PREFIX/lib/libarrow_flight.a  # [unix]
+    - test ! -f $PREFIX/lib/libarrow_python.a  # [unix]
+    - test ! -f $PREFIX/lib/libplasma.a        # [unix]
+    - test ! -f $PREFIX/lib/libparquet.a       # [unix]
+    - test ! -f $PREFIX/lib/libgandiva.a       # [unix]
+    - if exist %PREFIX%\\Library\\lib\\arrow_static.lib exit 1         # [win]
+    - if exist %PREFIX%\\Library\\lib\\arrow_flight_static.lib exit 1  # [win]
+    - if exist %PREFIX%\\Library\\lib\\arrow_python_static.lib exit 1  # [win]
+    - if exist %PREFIX%\\Library\\lib\\parquet_static.lib exit 1       # [win]
+    - if exist %PREFIX%\\Library\\lib\\gandiva_static.lib exit 1       # [win]
+
+    # conda tools
+    - conda inspect linkages -p $PREFIX $PKG_NAME  # [not win]
+    - conda inspect objects -p $PREFIX $PKG_NAME   # [osx]
+
 about:
   home: http://github.com/apache/arrow
   license: Apache 2.0
+  license_file:
+    - LICENSE.txt
   summary: 'C++ libraries for Apache Arrow'
 
 extra:
