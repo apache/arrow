@@ -328,4 +328,24 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
     }
     return actualBufSize;
   }
+
+  @Override
+  public String toString() {
+    if (getValueCount() == 0) {
+      return "[]";
+    }
+
+    StringBuilder sb = new StringBuilder();
+    sb.append('[');
+    for (int i = 0; i < getValueCount(); i++) {
+      sb.append(getObject(i));
+      if (i == getValueCount() - 1) {
+        sb.append(']');
+      } else {
+        sb.append(',').append(' ');
+      }
+    }
+
+    return sb.toString();
+  }
 }
