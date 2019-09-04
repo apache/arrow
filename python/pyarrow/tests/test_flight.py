@@ -192,7 +192,7 @@ class EchoStreamFlightServer(EchoFlightServer):
     def do_get(self, context, ticket):
         return flight.GeneratorStream(
             self.last_message.schema,
-            self.last_message.to_batches(chunksize=1024))
+            self.last_message.to_batches(max_chunksize=1024))
 
     def list_actions(self, context):
         return []
@@ -811,7 +811,7 @@ def test_flight_do_put_metadata():
             flight.FlightDescriptor.for_path(''),
             table.schema)
         with writer:
-            for idx, batch in enumerate(table.to_batches(chunksize=1)):
+            for idx, batch in enumerate(table.to_batches(max_chunksize=1)):
                 metadata = struct.pack('<i', idx)
                 writer.write_with_metadata(batch, metadata)
                 buf = metadata_reader.read()
@@ -939,7 +939,7 @@ def test_do_put_independent_read_write():
         thread = threading.Thread(target=_reader_thread)
         thread.start()
 
-        batches = table.to_batches(chunksize=1)
+        batches = table.to_batches(max_chunksize=1)
         with writer:
             for idx, batch in enumerate(batches):
                 metadata = struct.pack('<i', idx)
