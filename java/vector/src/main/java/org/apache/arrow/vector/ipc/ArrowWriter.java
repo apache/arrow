@@ -72,7 +72,7 @@ public abstract class ArrowWriter implements AutoCloseable {
    * @param root     the vectors to write to the output
    * @param provider where to find the dictionaries
    * @param out      the output where to write
-   * @param option   the option for IPC
+   * @param option   IPC write options
    */
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option) {
     this.unloader = new VectorUnloader(root);

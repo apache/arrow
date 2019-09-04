@@ -86,12 +86,12 @@ public class MessageSerializer {
   }
 
   /**
-   * Convert an long to a 8 byte array.
+   * Convert a long to a 8 byte array.
    *
    * @param value long value input
    * @param bytes existing byte array with minimum length of 8 to contain the conversion output
    */
-  public static void longToBytes(int value, byte[] bytes) {
+  public static void longToBytes(long value, byte[] bytes) {
     bytes[7] = (byte) (value >>> 64);
     bytes[6] = (byte) (value >>> 48);
     bytes[5] = (byte) (value >>> 40);
@@ -116,7 +116,7 @@ public class MessageSerializer {
    * @param messageLength Number of bytes in the message buffer, written as little Endian prefix
    * @param messageBuffer Message metadata buffer to be written, this does not include any
    *                      message body data which should be subsequently written to the Channel
-   * @param option options for IPC
+   * @param option IPC write options
    * @return Number of bytes written
    * @throws IOException on error
    */
@@ -223,7 +223,6 @@ public class MessageSerializer {
    * Serializes an ArrowRecordBatch. Returns the offset and length of the written batch.
    */
   public static ArrowBlock serialize(WriteChannel out, ArrowRecordBatch batch) throws IOException {
-
     return serialize(out, batch, new IpcOption());
   }
 

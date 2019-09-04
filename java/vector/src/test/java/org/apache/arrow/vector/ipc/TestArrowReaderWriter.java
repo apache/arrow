@@ -437,7 +437,6 @@ public class TestArrowReaderWriter {
     assertEquals(batch.getLength(), readBatch.getLength());
     assertEquals(batch.computeBodyLength(), readBatch.computeBodyLength());
 
-
     // write ipc format with continuation
     option.write_legacy_ipc_format = false;
     MessageSerializer.serialize(out, schema, option);
@@ -449,6 +448,5 @@ public class TestArrowReaderWriter {
     ArrowRecordBatch readBatch2 = MessageSerializer.deserializeRecordBatch(in2, allocator);
     assertEquals(batch.getLength(), readBatch2.getLength());
     assertEquals(batch.computeBodyLength(), readBatch2.computeBodyLength());
-
   }
 }

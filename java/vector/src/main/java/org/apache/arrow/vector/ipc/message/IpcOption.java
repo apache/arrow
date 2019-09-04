@@ -18,7 +18,7 @@
 package org.apache.arrow.vector.ipc.message;
 
 /**
- * Options for write/read IPC.
+ * IPC options, now only use for write.
  */
 public class IpcOption {
 

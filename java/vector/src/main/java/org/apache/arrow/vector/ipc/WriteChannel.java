@@ -104,7 +104,7 @@ public class WriteChannel implements AutoCloseable {
   /**
    * Writes <code>v</code> in little-endian format to the underlying channel.
    */
-  public long writeLongLittleEndian(int v) throws IOException {
+  public long writeLongLittleEndian(long v) throws IOException {
     byte[] outBuffer = new byte[8];
     MessageSerializer.longToBytes(v, outBuffer);
     return write(outBuffer);

@@ -56,7 +56,7 @@ public class ArrowStreamWriter extends ArrowWriter {
    * @param root Existing VectorSchemaRoot with vectors to be written.
    * @param provider DictionaryProvider for any vectors that are dictionary encoded.
    *                 (Optional, can be null)
-   * @param option options for IPC
+   * @param option IPC write options
    * @param out WritableByteChannel for writing.
    */
   public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
