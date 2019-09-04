@@ -31,11 +31,11 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
+#include "arrow/python/datetime.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
-#include "arrow/python/util/datetime.h"
 
 namespace arrow {
 namespace py {

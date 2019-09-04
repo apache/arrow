@@ -41,12 +41,12 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/python/common.h"
+#include "arrow/python/datetime.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/platform.h"
 #include "arrow/python/pyarrow.h"
-#include "arrow/python/util/datetime.h"
 
 constexpr int32_t kMaxRecursionDepth = 100;
 

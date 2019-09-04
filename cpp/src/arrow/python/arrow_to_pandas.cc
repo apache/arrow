@@ -46,13 +46,13 @@
 
 #include "arrow/python/common.h"
 #include "arrow/python/config.h"
+#include "arrow/python/datetime.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/numpy_internal.h"
 #include "arrow/python/python_to_arrow.h"
 #include "arrow/python/type_traits.h"
-#include "arrow/python/util/datetime.h"
 
 namespace arrow {
 

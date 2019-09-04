@@ -39,11 +39,11 @@
 #include "arrow/util/parsing.h"
 
 #include "arrow/python/common.h"
+#include "arrow/python/datetime.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/pyarrow.h"
 #include "arrow/python/serialize.h"
-#include "arrow/python/util/datetime.h"
 
 namespace arrow {
 

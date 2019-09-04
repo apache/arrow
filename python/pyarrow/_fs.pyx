@@ -17,10 +17,14 @@
 
 # cython: language_level = 3
 
-from pathlib import Path
+try:
+    import pathlib
+except ImportError:
+    import pathlib2 as pathlib  # py2 compat
 
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *
+from pyarrow.includes.libarrow cimport PyDateTime_from_TimePoint
 from pyarrow.includes.libarrow_fs cimport *
 from pyarrow.lib import _detect_compression
 from pyarrow.lib cimport (
@@ -33,7 +37,7 @@ from pyarrow.lib cimport (
 )
 
 
-cdef inline c_string _to_string(p):
+cdef inline c_string _path_to_bytes(p):
     # supports types: byte, str, pathlib.Path
     return tobytes(str(p))
 
@@ -43,10 +47,6 @@ cpdef enum FileType:
     Uknown
     File
     Directory
-
-
-cdef class TimePoint:
-    pass
 
 
 cdef class FileStats:
@@ -78,7 +78,7 @@ cdef class FileStats:
 
     @property
     def path(self):
-        return Path(frombytes(self.stats.path()))
+        return pathlib.Path(frombytes(self.stats.path()))
 
     @property
     def base_name(self):
@@ -92,9 +92,11 @@ cdef class FileStats:
     def extension(self):
         return frombytes(self.stats.extension())
 
-    # @property
-    # def mtime(self):
-    #     return self.stats.mtime()
+    @property
+    def mtime(self):
+        cdef PyObject *out
+        check_status(PyDateTime_from_TimePoint(self.stats.mtime(), &out))
+        return PyObject_to_object(out)
 
 
 cdef class Selector:
@@ -109,11 +111,11 @@ cdef class Selector:
 
     @property
     def base_dir(self):
-        return Path(self.selector.base_dir)
+        return pathlib.Path(self.selector.base_dir)
 
     @base_dir.setter
     def base_dir(self, base_dir):
-        self.selector.base_dir = _to_string(base_dir)
+        self.selector.base_dir = _path_to_bytes(base_dir)
 
     @property
     def allow_non_existent(self):
@@ -145,7 +147,7 @@ cdef class FileSystem:
         self.wrapped = wrapped
         self.fs = wrapped.get()
 
-    def stat(self, paths_or_selector):
+    def get_target_stats(self, paths_or_selector):
         cdef:
             vector[CFileStats] stats
             vector[c_string] paths
@@ -155,27 +157,27 @@ cdef class FileSystem:
             selector = (<Selector>paths_or_selector).selector
             check_status(self.fs.GetTargetStats(selector, &stats))
         elif isinstance(paths_or_selector, (list, tuple)):
-            paths = [_to_string(s) for s in paths_or_selector]
+            paths = [_path_to_bytes(s) for s in paths_or_selector]
             check_status(self.fs.GetTargetStats(paths, &stats))
         else:
             raise TypeError('Must pass either paths or a Selector')
 
         return [FileStats.wrap(stat) for stat in stats]
 
-    def mkdir(self, path, bint recursive=True):
-        check_status(self.fs.CreateDir(_to_string(path), recursive=recursive))
+    def create_dir(self, path, bint recursive=True):
+        check_status(self.fs.CreateDir(_path_to_bytes(path), recursive=recursive))
 
-    def rmdir(self, path):
-        check_status(self.fs.DeleteDir(_to_string(path)))
+    def delete_dir(self, path):
+        check_status(self.fs.DeleteDir(_path_to_bytes(path)))
 
-    def mv(self, src, dest):
-        check_status(self.fs.Move(_to_string(src), _to_string(dest)))
+    def move(self, src, dest):
+        check_status(self.fs.Move(_path_to_bytes(src), _path_to_bytes(dest)))
 
-    def cp(self, src, dest):
-        check_status(self.fs.CopyFile(_to_string(src), _to_string(dest)))
+    def copy_file(self, src, dest):
+        check_status(self.fs.CopyFile(_path_to_bytes(src), _path_to_bytes(dest)))
 
-    def rm(self, path):
-        check_status(self.fs.DeleteFile(_to_string(path)))
+    def delete_file(self, path):
+        check_status(self.fs.DeleteFile(_path_to_bytes(path)))
 
     def _wrap_input_stream(self, stream, path, compression, buffer_size):
         if buffer_size is not None and buffer_size != 0:
@@ -195,9 +197,9 @@ cdef class FileSystem:
             stream = CompressedOutputStream(stream, compression)
         return stream
 
-    def input_file(self, path):
+    def open_input_file(self, path):
         cdef:
-            c_string pathstr = _to_string(path)
+            c_string pathstr = _path_to_bytes(path)
             NativeFile stream = NativeFile()
             shared_ptr[CRandomAccessFile] in_handle
 
@@ -208,9 +210,9 @@ cdef class FileSystem:
         stream.is_readable = True
         return stream
 
-    def input_stream(self, path, compression='detect', buffer_size=None):
+    def open_input_stream(self, path, compression='detect', buffer_size=None):
         cdef:
-            c_string pathstr = _to_string(path)
+            c_string pathstr = _path_to_bytes(path)
             NativeFile stream = NativeFile()
             shared_ptr[CInputStream] in_handle
 
@@ -224,9 +226,9 @@ cdef class FileSystem:
             stream, path=path, compression=compression, buffer_size=buffer_size
         )
 
-    def output_stream(self, path, compression='detect', buffer_size=None):
+    def open_output_stream(self, path, compression='detect', buffer_size=None):
         cdef:
-            c_string pathstr = _to_string(path)
+            c_string pathstr = _path_to_bytes(path)
             NativeFile stream = NativeFile()
             shared_ptr[COutputStream] out_handle
 
@@ -240,9 +242,9 @@ cdef class FileSystem:
             stream, path=path, compression=compression, buffer_size=buffer_size
         )
 
-    def append_stream(self, path, compression='detect', buffer_size=None):
+    def open_append_stream(self, path, compression='detect', buffer_size=None):
         cdef:
-            c_string pathstr = _to_string(path)
+            c_string pathstr = _path_to_bytes(path)
             NativeFile stream = NativeFile()
             shared_ptr[COutputStream] out_handle
 

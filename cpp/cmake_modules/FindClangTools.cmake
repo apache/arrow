@@ -75,7 +75,7 @@ function(FIND_CLANG_TOOL NAME OUTPUT VERSION_CHECK_PATTERN)
 endfunction()
 
 find_clang_tool(clang-tidy CLANG_TIDY_BIN
-                "LLVM version ${ARROW_LLVM_MAJOR_VERSION}\\.${ARROW_LLVM_MINOR_VERSION}")
+                "LLVM version ${ARROW_LLVM_MAJOR_VERSION}")
 if(CLANG_TIDY_BIN)
   set(CLANG_TIDY_FOUND 1)
   message(STATUS "clang-tidy found at ${CLANG_TIDY_BIN}")
@@ -86,7 +86,7 @@ endif()
 
 find_clang_tool(
   clang-format CLANG_FORMAT_BIN
-  "^clang-format version ${ARROW_LLVM_MAJOR_VERSION}\\.${ARROW_LLVM_MINOR_VERSION}")
+  "^clang-format version ${ARROW_LLVM_MAJOR_VERSION}")
 if(CLANG_FORMAT_BIN)
   set(CLANG_FORMAT_FOUND 1)
   message(STATUS "clang-format found at ${CLANG_FORMAT_BIN}")
