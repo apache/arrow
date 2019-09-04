@@ -81,9 +81,8 @@ public class TestRangeEqualsVisitor {
       vector1.setSafe(1, 2);
 
       vector2.setSafe(0, 1);
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
 
-      assertFalse(visitor.vectorEquals(vector1, vector2));
+      assertFalse(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
   }
 
@@ -109,14 +108,8 @@ public class TestRangeEqualsVisitor {
       vector2.setSafe(3,4);
       vector2.setSafe(4,55);
 
-      RangeEqualsParameter param = new RangeEqualsParameter()
-              .setLeft(vector1)
-              .setRight(vector2)
-              .setLeftStart(1)
-              .setRightStart(1)
-              .setLength(3);
-      RangeEqualsVisitor visitor = new RangeEqualsVisitor();
-      assertTrue(visitor.rangeEquals(param));
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
+      assertTrue(visitor.rangeEquals(new Range(1, 1, 3)));
     }
   }
 
@@ -143,14 +136,8 @@ public class TestRangeEqualsVisitor {
       vector2.setSafe(4, STR1, 0, STR1.length);
       vector2.setValueCount(5);
 
-      RangeEqualsVisitor visitor = new RangeEqualsVisitor();
-      RangeEqualsParameter param = new RangeEqualsParameter()
-              .setLeft(vector1)
-              .setRight(vector2)
-              .setLeftStart(1)
-              .setRightStart(1)
-              .setLength(3);
-      assertTrue(visitor.rangeEquals(param));
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
+      assertTrue(visitor.rangeEquals(new Range(1, 1, 3)));
     }
   }
 
@@ -181,14 +168,8 @@ public class TestRangeEqualsVisitor {
       writeListVector(writer2, new int[] {0, 0});
       writer2.setValueCount(5);
 
-      RangeEqualsVisitor visitor = new RangeEqualsVisitor();
-      RangeEqualsParameter param = new RangeEqualsParameter()
-              .setLeft(vector1)
-              .setRight(vector2)
-              .setLeftStart(1)
-              .setRightStart(1)
-              .setLength(3);
-      assertTrue(visitor.rangeEquals(param));
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
+      assertTrue(visitor.rangeEquals(new Range(1, 1, 3)));
     }
   }
 
@@ -221,14 +202,8 @@ public class TestRangeEqualsVisitor {
       writeStructVector(writer2, 0, 0L);
       writer2.setValueCount(5);
 
-      RangeEqualsVisitor visitor = new RangeEqualsVisitor();
-      RangeEqualsParameter param = new RangeEqualsParameter()
-              .setLeft(vector1)
-              .setRight(vector2)
-              .setLeftStart(1)
-              .setRightStart(1)
-              .setLength(3);
-      assertTrue(visitor.rangeEquals(param));
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
+      assertTrue(visitor.rangeEquals(new Range(1, 1, 3)));
     }
   }
 
@@ -265,14 +240,8 @@ public class TestRangeEqualsVisitor {
       vector2.setSafe(2, intHolder);
       vector2.setValueCount(3);
 
-      RangeEqualsVisitor visitor = new RangeEqualsVisitor();
-      RangeEqualsParameter param = new RangeEqualsParameter()
-              .setLeft(vector1)
-              .setRight(vector2)
-              .setLeftStart(1)
-              .setRightStart(1)
-              .setLength(2);
-      assertTrue(visitor.rangeEquals(param));
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
+      assertTrue(visitor.rangeEquals(new Range(1, 1, 2)));
     }
   }
 
@@ -282,11 +251,8 @@ public class TestRangeEqualsVisitor {
     try (final IntVector intVector = new IntVector("int", allocator);
         final ZeroVector zeroVector = new ZeroVector()) {
 
-      VectorEqualsVisitor zeroVisitor = new VectorEqualsVisitor(false);
-      assertTrue(zeroVisitor.vectorEquals(intVector, zeroVector));
-
-      VectorEqualsVisitor intVisitor = new VectorEqualsVisitor(false);
-      assertTrue(intVisitor.vectorEquals(zeroVector, intVector));
+      assertTrue(VectorEqualsVisitor.vectorEquals(intVector, zeroVector, false));
+      assertTrue(VectorEqualsVisitor.vectorEquals(zeroVector, intVector, false));
     }
   }
 
@@ -314,18 +280,13 @@ public class TestRangeEqualsVisitor {
       vector3.setSafe(0, 1.1f + epsilon * 2);
       vector3.setSafe(1, 2.2f + epsilon * 2);
 
-      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(epsilon, epsilon);
-      RangeEqualsParameter param = new RangeEqualsParameter()
-              .setRight(vector1)
-              .setLeft(vector2)
-              .setLeftStart(0)
-              .setRightStart(0)
-              .setLength(vector1.getValueCount());
+      Range range = new Range(0, 0, vector1.getValueCount());
 
-      assertTrue(visitor.rangeEquals(param));
+      ApproxEqualsVisitor visitor12 = new ApproxEqualsVisitor(vector1, vector2, epsilon, epsilon);
+      assertTrue(visitor12.rangeEquals(range));
 
-      param.setLeft(vector3);
-      assertFalse(visitor.rangeEquals(param));
+      ApproxEqualsVisitor visitor13 = new ApproxEqualsVisitor(vector1, vector3, epsilon, epsilon);
+      assertFalse(visitor13.rangeEquals(range));
     }
   }
 
@@ -353,18 +314,9 @@ public class TestRangeEqualsVisitor {
       vector3.setSafe(0, 1.1 + epsilon * 2);
       vector3.setSafe(1, 2.2 + epsilon * 2);
 
-      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(epsilon, epsilon);
-      RangeEqualsParameter param = new RangeEqualsParameter()
-              .setRight(vector1)
-              .setLeft(vector2)
-              .setLeftStart(0)
-              .setRightStart(0)
-              .setLength(vector1.getValueCount());
-
-      assertTrue(visitor.rangeEquals(param));
-
-      param.setLeft(vector3);
-      assertFalse(visitor.rangeEquals(param));
+      Range range = new Range(0, 0, vector1.getValueCount());
+      assertTrue(new ApproxEqualsVisitor(vector1, vector2, epsilon, epsilon).rangeEquals(range));
+      assertFalse(new ApproxEqualsVisitor(vector1, vector3, epsilon, epsilon).rangeEquals(range));
     }
   }
 
@@ -407,18 +359,9 @@ public class TestRangeEqualsVisitor {
       writeStructVector(leftWriter2, 2.02f - epsilon * 2, 4.04 - epsilon * 2);
       leftWriter2.setValueCount(2);
 
-      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(epsilon, epsilon);
-      RangeEqualsParameter param = new RangeEqualsParameter()
-              .setRight(right)
-              .setLeft(left1)
-              .setLeftStart(0)
-              .setRightStart(0)
-              .setLength(right.getValueCount());
-
-      assertTrue(visitor.rangeEquals(param));
-
-      param.setLeft(left2);
-      assertFalse(visitor.rangeEquals(param));
+      Range range = new Range(0, 0, right.getValueCount());
+      assertTrue(new ApproxEqualsVisitor(left1, right, epsilon, epsilon).rangeEquals(range));
+      assertFalse(new ApproxEqualsVisitor(left2, right, epsilon, epsilon).rangeEquals(range));
     }
   }
 
@@ -462,18 +405,9 @@ public class TestRangeEqualsVisitor {
       left2.setSafe(1, float8Holder);
       left2.setValueCount(2);
 
-      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(epsilon, epsilon);
-      RangeEqualsParameter param = new RangeEqualsParameter()
-              .setRight(right)
-              .setLeft(left1)
-              .setLeftStart(0)
-              .setRightStart(0)
-              .setLength(right.getValueCount());
-
-      assertTrue(visitor.rangeEquals(param));
-
-      param.setLeft(left2);
-      assertFalse(visitor.rangeEquals(param));
+      Range range = new Range(0, 0, right.getValueCount());
+      assertTrue(new ApproxEqualsVisitor(left1, right, epsilon, epsilon).rangeEquals(range));
+      assertFalse(new ApproxEqualsVisitor(left2, right, epsilon, epsilon).rangeEquals(range));
     }
   }
 
@@ -503,18 +437,9 @@ public class TestRangeEqualsVisitor {
       writeListVector(leftWriter2, new double[] {1.01 + epsilon * 2, 2.02 - epsilon * 2});
       leftWriter2.setValueCount(2);
 
-      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(epsilon, epsilon);
-      RangeEqualsParameter param = new RangeEqualsParameter()
-              .setRight(right)
-              .setLeft(left1)
-              .setLeftStart(0)
-              .setRightStart(0)
-              .setLength(right.getValueCount());
-
-      assertTrue(visitor.rangeEquals(param));
-
-      param.setLeft(left2);
-      assertFalse(visitor.rangeEquals(param));
+      Range range = new Range(0, 0, right.getValueCount());
+      assertTrue(new ApproxEqualsVisitor(left1, right, epsilon, epsilon).rangeEquals(range));
+      assertFalse(new ApproxEqualsVisitor(left2, right, epsilon, epsilon).rangeEquals(range));
     }
   }
 

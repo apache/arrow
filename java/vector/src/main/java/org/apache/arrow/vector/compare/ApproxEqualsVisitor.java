@@ -20,6 +20,7 @@ package org.apache.arrow.vector.compare;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
+import org.apache.arrow.vector.ValueVector;
 
 /**
  * Visitor to compare floating point.
@@ -40,7 +41,16 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
   private DiffFunction<Double> doubleDiffFunction =
       (Double value1, Double value2) -> Math.abs(value1 - value2);
 
-  public ApproxEqualsVisitor(float floatEpsilon, double doubleEpsilon) {
+  /**
+   * Constructs a new instance.
+   *
+   * @param left left vector
+   * @param right right vector
+   * @param floatEpsilon difference for float values
+   * @param doubleEpsilon difference for double values
+   */
+  public ApproxEqualsVisitor(ValueVector left, ValueVector right, float floatEpsilon, double doubleEpsilon) {
+    super(left, right, true);
     this.floatEpsilon = floatEpsilon;
     this.doubleEpsilon = doubleEpsilon;
   }
@@ -54,29 +64,28 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
   }
 
   @Override
-  public Boolean visit(BaseFixedWidthVector left, RangeEqualsParameter parameter) {
-    parameter.setLeft(left);
+  public Boolean visit(BaseFixedWidthVector left, Range range) {
     if (left instanceof Float4Vector) {
-      return parameter.validate() && float4ApproxEquals(parameter);
+      return float4ApproxEquals(range);
     } else if (left instanceof Float8Vector) {
-      return parameter.validate() && float8ApproxEquals(parameter);
+      return float8ApproxEquals(range);
     } else {
-      return super.visit(left, parameter);
+      return super.visit(left, range);
     }
   }
 
   @Override
-  protected ApproxEqualsVisitor createInnerVisitor() {
-    return new ApproxEqualsVisitor(floatEpsilon, doubleEpsilon);
+  protected ApproxEqualsVisitor createInnerVisitor(ValueVector left, ValueVector right) {
+    return new ApproxEqualsVisitor(left, right, floatEpsilon, doubleEpsilon);
   }
 
-  private boolean float4ApproxEquals(RangeEqualsParameter parameter) {
-    Float4Vector leftVector  = (Float4Vector) parameter.getLeft();
-    Float4Vector rightVector  = (Float4Vector) parameter.getRight();
+  private boolean float4ApproxEquals(Range range) {
+    Float4Vector leftVector  = (Float4Vector) getLeft();
+    Float4Vector rightVector  = (Float4Vector) getRight();
 
-    for (int i = 0; i < parameter.getLength(); i++) {
-      int leftIndex = parameter.getLeftStart() + i;
-      int rightIndex = parameter.getRightStart() + i;
+    for (int i = 0; i < range.getLength(); i++) {
+      int leftIndex = range.getLeftStart() + i;
+      int rightIndex = range.getRightStart() + i;
 
       boolean isNull = leftVector.isNull(leftIndex);
 
@@ -101,13 +110,13 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
     return true;
   }
 
-  private boolean float8ApproxEquals(RangeEqualsParameter parameter) {
-    Float8Vector leftVector  = (Float8Vector) parameter.getLeft();
-    Float8Vector rightVector  = (Float8Vector) parameter.getRight();
+  private boolean float8ApproxEquals(Range range) {
+    Float8Vector leftVector  = (Float8Vector) getLeft();
+    Float8Vector rightVector  = (Float8Vector) getRight();
 
-    for (int i = 0; i < parameter.getLength(); i++) {
-      int leftIndex = parameter.getLeftStart() + i;
-      int rightIndex = parameter.getRightStart() + i;
+    for (int i = 0; i < range.getLength(); i++) {
+      int leftIndex = range.getLeftStart() + i;
+      int rightIndex = range.getRightStart() + i;
 
       boolean isNull = leftVector.isNull(leftIndex);
 
