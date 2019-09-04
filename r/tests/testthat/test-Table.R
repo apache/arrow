@@ -103,7 +103,7 @@ test_that("table() handles record batches with splicing", {
 })
 
 test_that("table() handles ... of arrays, chunked arrays, vectors", {
-  a <- array(1:10)
+  a <- Array$create(1:10)
   ca <- chunked_array(1:5, 6:10)
   v <- rnorm(10)
   tbl <- tibble::tibble(x = 1:10, y = letters[1:10])

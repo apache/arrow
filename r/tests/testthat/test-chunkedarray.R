@@ -207,7 +207,7 @@ test_that("chunked_array() supports the type= argument. conversion from INTSXP a
   }
 })
 
-test_that("array() aborts on overflow", {
+test_that("Array$create() aborts on overflow", {
   expect_error(chunked_array(128L, type = int8())$type, "Invalid.*downsize")
   expect_error(chunked_array(-129L, type = int8())$type, "Invalid.*downsize")
 
@@ -276,7 +276,7 @@ test_that("chunked_array() handles 0 chunks if given a type", {
 
 test_that("chunked_array() can ingest arrays (ARROW-3815)", {
   expect_equal(
-    chunked_array(1:5, array(6:10))$as_vector(),
+    chunked_array(1:5, Array$create(6:10))$as_vector(),
     1:10
   )
 })

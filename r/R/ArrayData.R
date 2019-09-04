@@ -26,7 +26,7 @@
 #' @section Usage:
 #'
 #' ```
-#' data <- array(x)$data()
+#' data <- Array$create(x)$data()
 #'
 #' data$type()
 #' data$length()
@@ -39,8 +39,8 @@
 #'
 #' ...
 #'
-#' @rdname arrow__ArrayData
-#' @name arrow__ArrayData
+#' @rdname ArrayData
+#' @name ArrayData
 `ArrayData` <- R6Class("ArrayData",
   inherit = `arrow::Object`,
   active = list(
