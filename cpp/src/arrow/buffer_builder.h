@@ -87,7 +87,10 @@ class ARROW_EXPORT BufferBuilder {
 
   /// \brief Return a capacity expanded by an unspecified growth factor
   static int64_t GrowByFactor(int64_t current_capacity, int64_t new_capacity) {
-    // Doubling capacity except for large Reserve requests
+    // Doubling capacity except for large Reserve requests. 2x growth strategy
+    // (versus 1.5x) seems to have slightly better performance when using
+    // jemalloc, but significantly better performance when using the system
+    // allocator. See ARROW-6450 for further discussion
     return std::max(new_capacity, current_capacity * 2);
   }
 
