@@ -260,6 +260,18 @@ Status LocalFileSystem::DeleteDir(const std::string& path) {
   }
 }
 
+Status LocalFileSystem::DeleteDirContents(const std::string& path) {
+  bool deleted = false;
+  PlatformFilename fn;
+  RETURN_NOT_OK(PlatformFilename::FromString(path, &fn));
+  RETURN_NOT_OK(::arrow::internal::DeleteDirContents(fn, &deleted));
+  if (deleted) {
+    return Status::OK();
+  } else {
+    return Status::IOError("Directory does not exist: '", path, "'");
+  }
+}
+
 Status LocalFileSystem::DeleteFile(const std::string& path) {
   bool deleted = false;
   PlatformFilename fn;

@@ -226,6 +226,8 @@ class MockFileSystem::Impl {
   explicit Impl(TimePoint current_time)
       : current_time(current_time), root(Directory("", current_time)) {}
 
+  Directory& RootDir() { return root.as_dir(); }
+
   template <typename It>
   Entry* FindEntry(It it, It end, size_t* nconsumed) {
     size_t consumed = 0;
@@ -410,8 +412,30 @@ Status MockFileSystem::DeleteDir(const std::string& path) {
   if (!child->is_dir()) {
     return NotADir(path);
   }
+
   bool deleted = parent_dir.DeleteEntry(parts.back());
   DCHECK(deleted);
+  return Status::OK();
+}
+
+Status MockFileSystem::DeleteDirContents(const std::string& path) {
+  auto parts = SplitAbstractPath(path);
+  RETURN_NOT_OK(ValidateAbstractPathParts(parts));
+
+  if (parts.empty()) {
+    // Wipe filesystem
+    impl_->RootDir().entries.clear();
+    return Status::OK();
+  }
+
+  Entry* entry = impl_->FindEntry(parts);
+  if (entry == nullptr) {
+    return PathNotFound(path);
+  }
+  if (!entry->is_dir()) {
+    return NotADir(path);
+  }
+  entry->as_dir().entries.clear();
   return Status::OK();
 }
 
@@ -608,13 +632,13 @@ Status MockFileSystem::OpenAppendStream(const std::string& path,
 
 std::vector<DirInfo> MockFileSystem::AllDirs() {
   std::vector<DirInfo> result;
-  impl_->DumpDirs("", impl_->root.as_dir(), &result);
+  impl_->DumpDirs("", impl_->RootDir(), &result);
   return result;
 }
 
 std::vector<FileInfo> MockFileSystem::AllFiles() {
   std::vector<FileInfo> result;
-  impl_->DumpFiles("", impl_->root.as_dir(), &result);
+  impl_->DumpFiles("", impl_->RootDir(), &result);
   return result;
 }
 

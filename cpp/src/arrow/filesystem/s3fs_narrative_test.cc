@@ -60,25 +60,7 @@ std::shared_ptr<FileSystem> MakeFileSystem() {
 void ClearBucket(int argc, char** argv) {
   auto fs = MakeFileSystem();
 
-  // TODO(ARROW-6358): delete in one shot without deleting the bucket itself
-  std::vector<FileStats> stats;
-  Selector select;
-  select.base_dir = "";
-  select.allow_non_existent = false;
-  select.recursive = false;
-  ASSERT_OK(fs->GetTargetStats(select, &stats));
-  for (const auto& st : stats) {
-    switch (st.type()) {
-      case FileType::File:
-        ASSERT_OK(fs->DeleteFile(st.path()));
-        break;
-      case FileType::Directory:
-        ASSERT_OK(fs->DeleteDir(st.path()));
-        break;
-      default:
-        FAIL() << "Unexpected file type: " << st.type();
-    }
-  }
+  ASSERT_OK(fs->DeleteDirContents(""));
 }
 
 void TestBucket(int argc, char** argv) {
