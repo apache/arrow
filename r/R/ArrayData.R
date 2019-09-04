@@ -41,7 +41,7 @@
 #'
 #' @rdname ArrayData
 #' @name ArrayData
-`ArrayData` <- R6Class("ArrayData",
+ArrayData <- R6Class("ArrayData",
   inherit = `arrow::Object`,
   active = list(
     type = function() `arrow::DataType`$dispatch(ArrayData__get_type(self)),

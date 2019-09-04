@@ -82,9 +82,9 @@ Array <- R6Class("Array",
     ToString = function() Array__ToString(self),
     Slice = function(offset, length = NULL){
       if (is.null(length)) {
-        shared_ptr(`Array`, Array__Slice1(self, offset))
+        shared_ptr(Array, Array__Slice1(self, offset))
       } else {
-        shared_ptr(`Array`, Array__Slice2(self, offset, length))
+        shared_ptr(Array, Array__Slice2(self, offset, length))
       }
     },
     RangeEquals = function(other, start_idx, end_idx, other_start_idx) {
@@ -104,14 +104,14 @@ Array <- R6Class("Array",
   )
 )
 
-`arrow::DictionaryArray` <- R6Class("arrow::DictionaryArray", inherit = `Array`,
+DictionaryArray <- R6Class("DictionaryArray", inherit = Array,
   public = list(
     indices = function() Array$create(DictionaryArray__indices(self)),
     dictionary = function() Array$create(DictionaryArray__dictionary(self))
   )
 )
 
-`arrow::StructArray` <- R6Class("arrow::StructArray", inherit = `Array`,
+StructArray <- R6Class("StructArray", inherit = Array,
   public = list(
     field = function(i) Array$create(StructArray__field(self, i)),
     GetFieldByName = function(name) Array$create(StructArray__GetFieldByName(self, name)),
@@ -119,7 +119,7 @@ Array <- R6Class("Array",
   )
 )
 
-`arrow::ListArray` <- R6Class("arrow::ListArray", inherit = `Array`,
+ListArray <- R6Class("ListArray", inherit = Array,
   public = list(
     values = function() Array$create(ListArray__values(self)),
     value_length = function(i) ListArray__value_length(self, i),
@@ -138,11 +138,11 @@ Array$create <- function(x, type = NULL) {
   }
   a <- shared_ptr(Array, x)
   if (a$type_id() == Type$DICTIONARY){
-    a <- shared_ptr(`arrow::DictionaryArray`, x)
+    a <- shared_ptr(DictionaryArray, x)
   } else if (a$type_id() == Type$STRUCT) {
-    a <- shared_ptr(`arrow::StructArray`, x)
+    a <- shared_ptr(StructArray, x)
   } else if (a$type_id() == Type$LIST) {
-    a <- shared_ptr(`arrow::ListArray`, x)
+    a <- shared_ptr(ListArray, x)
   }
   a
 }

@@ -31,7 +31,7 @@
 #' @name arrow__RecordBatch
 `arrow::RecordBatch` <- R6Class("arrow::RecordBatch", inherit = `arrow::Object`,
   public = list(
-    column = function(i) shared_ptr(`Array`, RecordBatch__column(self, i)),
+    column = function(i) shared_ptr(Array, RecordBatch__column(self, i)),
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
     Equals = function(other) {
@@ -65,7 +65,7 @@
     num_columns = function() RecordBatch__num_columns(self),
     num_rows = function() RecordBatch__num_rows(self),
     schema = function() shared_ptr(`arrow::Schema`, RecordBatch__schema(self)),
-    columns = function() map(RecordBatch__columns(self), shared_ptr, `Array`)
+    columns = function() map(RecordBatch__columns(self), shared_ptr, Array)
   )
 )
 
