@@ -21,8 +21,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.apache.arrow.vector.SmallIntVector;
-import org.apache.arrow.vector.complex.impl.SmallIntWriterImpl;
-import org.apache.arrow.vector.complex.writer.SmallIntWriter;
 
 /**
  * Consumer which consume smallInt type values from {@link ResultSet}.
@@ -30,14 +28,16 @@ import org.apache.arrow.vector.complex.writer.SmallIntWriter;
  */
 public class SmallIntConsumer implements JdbcConsumer<SmallIntVector> {
 
-  private SmallIntWriter writer;
+  private SmallIntVector vector;
   private final int columnIndexInResultSet;
+
+  private int currentIndex;
 
   /**
    * Instantiate a SmallIntConsumer.
    */
   public SmallIntConsumer(SmallIntVector vector, int index) {
-    this.writer = new SmallIntWriterImpl(vector);
+    this.vector = vector;
     this.columnIndexInResultSet = index;
   }
 
@@ -45,13 +45,18 @@ public class SmallIntConsumer implements JdbcConsumer<SmallIntVector> {
   public void consume(ResultSet resultSet) throws SQLException {
     short value = resultSet.getShort(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      writer.writeSmallInt(value);
+      vector.setSafe(currentIndex++, value);
     }
-    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
   }
 
   @Override
   public void resetValueVector(SmallIntVector vector) {
-    this.writer = new SmallIntWriterImpl(vector);
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

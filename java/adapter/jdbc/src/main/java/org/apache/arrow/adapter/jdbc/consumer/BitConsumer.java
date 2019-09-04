@@ -21,8 +21,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.complex.impl.BitWriterImpl;
-import org.apache.arrow.vector.complex.writer.BitWriter;
 
 /**
  * Consumer which consume bit type values from {@link ResultSet}.
@@ -30,14 +28,16 @@ import org.apache.arrow.vector.complex.writer.BitWriter;
  */
 public class BitConsumer implements JdbcConsumer<BitVector> {
 
-  private BitWriter writer;
+  private BitVector vector;
   private final int columnIndexInResultSet;
+
+  private int currentIndex;
 
   /**
    * Instantiate a BitConsumer.
    */
   public BitConsumer(BitVector vector, int index) {
-    this.writer = new BitWriterImpl(vector);
+    this.vector = vector;
     this.columnIndexInResultSet = index;
   }
 
@@ -45,13 +45,18 @@ public class BitConsumer implements JdbcConsumer<BitVector> {
   public void consume(ResultSet resultSet) throws SQLException {
     boolean value = resultSet.getBoolean(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      writer.writeBit(value ? 1 : 0);
+      vector.setSafe(currentIndex++, value ? 1 : 0);
     }
-    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
   }
 
   @Override
   public void resetValueVector(BitVector vector) {
-    this.writer = new BitWriterImpl(vector);
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

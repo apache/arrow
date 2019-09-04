@@ -21,8 +21,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.apache.arrow.vector.IntVector;
-import org.apache.arrow.vector.complex.impl.IntWriterImpl;
-import org.apache.arrow.vector.complex.writer.IntWriter;
 
 /**
  * Consumer which consume int type values from {@link ResultSet}.
@@ -30,14 +28,16 @@ import org.apache.arrow.vector.complex.writer.IntWriter;
  */
 public class IntConsumer implements JdbcConsumer<IntVector> {
 
-  private IntWriter writer;
+  private IntVector vector;
   private final int columnIndexInResultSet;
+
+  private int currentIndex;
 
   /**
    * Instantiate a IntConsumer.
    */
   public IntConsumer(IntVector vector, int index) {
-    this.writer = new IntWriterImpl(vector);
+    this.vector = vector;
     this.columnIndexInResultSet = index;
   }
 
@@ -45,13 +45,18 @@ public class IntConsumer implements JdbcConsumer<IntVector> {
   public void consume(ResultSet resultSet) throws SQLException {
     int value = resultSet.getInt(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      writer.writeInt(value);
+      vector.setSafe(currentIndex++, value);
     }
-    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
   }
 
   @Override
   public void resetValueVector(IntVector vector) {
-    this.writer = new IntWriterImpl(vector);
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

@@ -23,8 +23,6 @@ import java.sql.Timestamp;
 import java.util.Calendar;
 
 import org.apache.arrow.vector.TimeStampMilliTZVector;
-import org.apache.arrow.vector.complex.impl.TimeStampMilliTZWriterImpl;
-import org.apache.arrow.vector.complex.writer.TimeStampMilliTZWriter;
 
 /**
  * Consumer which consume timestamp type values from {@link ResultSet}.
@@ -32,9 +30,11 @@ import org.apache.arrow.vector.complex.writer.TimeStampMilliTZWriter;
  */
 public class TimestampConsumer implements JdbcConsumer<TimeStampMilliTZVector> {
 
-  private TimeStampMilliTZWriter writer;
+  private TimeStampMilliTZVector vector;
   private final int columnIndexInResultSet;
   private final Calendar calendar;
+
+  private int currentIndex;
 
   /**
    * Instantiate a TimestampConsumer.
@@ -47,7 +47,7 @@ public class TimestampConsumer implements JdbcConsumer<TimeStampMilliTZVector> {
    * Instantiate a TimestampConsumer.
    */
   public TimestampConsumer(TimeStampMilliTZVector vector, int index, Calendar calendar) {
-    this.writer = new TimeStampMilliTZWriterImpl(vector);
+    this.vector = vector;
     this.columnIndexInResultSet = index;
     this.calendar = calendar;
   }
@@ -57,13 +57,18 @@ public class TimestampConsumer implements JdbcConsumer<TimeStampMilliTZVector> {
     Timestamp timestamp = calendar == null ? resultSet.getTimestamp(columnIndexInResultSet) :
         resultSet.getTimestamp(columnIndexInResultSet, calendar);
     if (!resultSet.wasNull()) {
-      writer.writeTimeStampMilliTZ(timestamp.getTime());
+      vector.setSafe(currentIndex++, timestamp.getTime());
     }
-    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
   }
 
   @Override
   public void resetValueVector(TimeStampMilliTZVector vector) {
-    this.writer = new TimeStampMilliTZWriterImpl(vector);
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

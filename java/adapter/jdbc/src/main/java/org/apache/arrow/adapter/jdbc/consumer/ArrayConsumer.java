@@ -22,7 +22,6 @@ import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.complex.ListVector;
 
 /**
@@ -35,6 +34,7 @@ public class ArrayConsumer implements JdbcConsumer<ListVector> {
   private final int columnIndexInResultSet;
 
   private ListVector vector;
+  private int currentIndex;
 
   /**
    * Instantiate a ArrayConsumer.
@@ -48,10 +48,9 @@ public class ArrayConsumer implements JdbcConsumer<ListVector> {
   @Override
   public void consume(ResultSet resultSet) throws SQLException, IOException {
     final Array array = resultSet.getArray(columnIndexInResultSet);
-    int idx = vector.getValueCount();
     if (!resultSet.wasNull()) {
 
-      vector.startNewValue(idx);
+      vector.startNewValue(currentIndex);
       int count = 0;
       try (ResultSet rs = array.getResultSet()) {
         while (rs.next()) {
@@ -59,15 +58,20 @@ public class ArrayConsumer implements JdbcConsumer<ListVector> {
           count++;
         }
       }
-      int end = vector.getOffsetBuffer().getInt(idx * 4) + count;
-      vector.getOffsetBuffer().setInt((idx + 1) * 4, end);
-      BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), vector.getValueCount());
+      vector.endValue(currentIndex, count);
     }
-    vector.setValueCount(idx + 1);
+    currentIndex++;
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
+    this.delegate.close();
   }
 
   @Override
   public void resetValueVector(ListVector vector) {
     this.vector = vector;
+    this.currentIndex = 0;
   }
 }

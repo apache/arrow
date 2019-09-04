@@ -22,8 +22,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.apache.arrow.vector.DecimalVector;
-import org.apache.arrow.vector.complex.impl.DecimalWriterImpl;
-import org.apache.arrow.vector.complex.writer.DecimalWriter;
 
 /**
  * Consumer which consume decimal type values from {@link ResultSet}.
@@ -31,14 +29,16 @@ import org.apache.arrow.vector.complex.writer.DecimalWriter;
  */
 public class DecimalConsumer implements JdbcConsumer<DecimalVector> {
 
-  private DecimalWriter writer;
+  private DecimalVector vector;
   private final int columnIndexInResultSet;
+
+  private int currentIndex;
 
   /**
    * Instantiate a DecimalConsumer.
    */
   public DecimalConsumer(DecimalVector vector, int index) {
-    this.writer = new DecimalWriterImpl(vector);
+    this.vector = vector;
     this.columnIndexInResultSet = index;
   }
 
@@ -46,13 +46,18 @@ public class DecimalConsumer implements JdbcConsumer<DecimalVector> {
   public void consume(ResultSet resultSet) throws SQLException {
     BigDecimal value = resultSet.getBigDecimal(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      writer.writeDecimal(value);
+      vector.setSafe(currentIndex++, value);
     }
-    writer.setPosition(writer.getPosition() + 1);
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
   }
 
   @Override
   public void resetValueVector(DecimalVector vector) {
-    this.writer = new DecimalWriterImpl(vector);
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

@@ -22,12 +22,11 @@ import java.io.InputStream;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.VarBinaryVector;
-import org.apache.arrow.vector.complex.impl.VarBinaryWriterImpl;
-import org.apache.arrow.vector.complex.writer.VarBinaryWriter;
 
 import io.netty.buffer.ArrowBuf;
+import io.netty.util.internal.PlatformDependent;
 
 /**
  * Consumer which consume binary type values from {@link ResultSet}.
@@ -37,23 +36,17 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
 
   private static final int BUFFER_SIZE = 1024;
 
-  private VarBinaryWriter writer;
+  private VarBinaryVector vector;
   private final int columnIndexInResultSet;
-  private BufferAllocator allocator;
 
-  private ArrowBuf reuse;
-  private byte[] reuseBytes;
+  private int currentIndex;
 
   /**
    * Instantiate a BinaryConsumer.
    */
   public BinaryConsumer(VarBinaryVector vector, int index) {
-    this.writer = new VarBinaryWriterImpl(vector);
+    this.vector = vector;
     this.columnIndexInResultSet = index;
-
-    this.allocator = vector.getAllocator();
-    reuse = allocator.buffer(BUFFER_SIZE);
-    reuseBytes = new byte[BUFFER_SIZE];
   }
 
   /**
@@ -61,19 +54,25 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
    */
   public void consume(InputStream is) throws IOException {
     if (is != null) {
-      int length = is.available();
-      if (length > reuse.capacity()) {
-        reuse.close();
-        reuse = allocator.buffer(length);
-      }
 
-      int total = 0;
       int read;
-      while ((read = is.read(reuseBytes, 0, reuseBytes.length)) != -1) {
-        reuse.setBytes(total, reuseBytes, 0, read);
-        total += read;
+      byte[] bytes = new byte[BUFFER_SIZE];
+      int totalBytes = 0;
+
+      ArrowBuf dataBuffer = vector.getDataBuffer();
+      ArrowBuf offsetBuffer = vector.getOffsetBuffer();
+      int startIndex = offsetBuffer.getInt(currentIndex * 4);
+      while ((read = is.read(bytes)) != -1) {
+        while ((dataBuffer.writerIndex() + read) > dataBuffer.capacity()) {
+          vector.reallocDataBuffer();
+        }
+        PlatformDependent.copyMemory(bytes, 0,
+            dataBuffer.memoryAddress() + startIndex + totalBytes, read);
+        totalBytes += read;
       }
-      writer.writeVarBinary(0, total, reuse);
+      offsetBuffer.setInt((currentIndex + 1) * 4, startIndex + totalBytes);
+      BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), currentIndex);
+      vector.setLastSet(currentIndex);
     }
   }
 
@@ -83,22 +82,21 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
     if (!resultSet.wasNull()) {
       consume(is);
     }
-    writer.setPosition(writer.getPosition() + 1);
+    currentIndex++;
   }
 
   public void moveWriterPosition() {
-    writer.setPosition(writer.getPosition() + 1);
+    currentIndex++;
   }
 
   @Override
-  public void close() {
-    if (reuse != null) {
-      reuse.close();
-    }
+  public void close() throws Exception {
+    this.vector.close();
   }
 
   @Override
   public void resetValueVector(VarBinaryVector vector) {
-    this.writer = new VarBinaryWriterImpl(vector);
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

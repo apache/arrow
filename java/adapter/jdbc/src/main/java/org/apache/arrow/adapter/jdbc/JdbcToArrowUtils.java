@@ -360,13 +360,22 @@ public class JdbcToArrowUtils {
           root.getVector(rsmd.getColumnName(i)), config);
     }
 
-    try (CompositeJdbcConsumer compositeConsumer = new CompositeJdbcConsumer(consumers)) {
+    CompositeJdbcConsumer compositeConsumer = null;
+    // Only clean resources when occurs error,
+    // vectors within consumers are useful and users are responsible for its close.
+    try {
+      compositeConsumer = new CompositeJdbcConsumer(consumers);
       int readRowCount = 0;
       while (rs.next()) {
         compositeConsumer.consume(rs);
         readRowCount++;
       }
       root.setRowCount(readRowCount);
+    } catch (Exception e) {
+      // error occurs and clean up resources.
+      if (compositeConsumer != null) {
+        compositeConsumer.close();
+      }
     }
   }
 
@@ -421,8 +430,8 @@ public class JdbcToArrowUtils {
       case Types.CLOB:
         return new ClobConsumer((VarCharVector) vector, columnIndex);
       case Types.BLOB:
-        BinaryConsumer delegateConsumer = new BinaryConsumer((VarBinaryVector) vector, columnIndex);
-        return new BlobConsumer(delegateConsumer, columnIndex);
+        BinaryConsumer blobDelegate = new BinaryConsumer((VarBinaryVector) vector, columnIndex);
+        return new BlobConsumer(blobDelegate, columnIndex);
       default:
         // no-op, shouldn't get here
         throw new UnsupportedOperationException();
