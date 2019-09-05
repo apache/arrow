@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::csv::TableReader")
+context("CsvTableReader")
 
 test_that("Can read csv file", {
   tf <- tempfile()
