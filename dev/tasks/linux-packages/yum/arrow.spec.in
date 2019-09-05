@@ -253,7 +253,7 @@ This package contains the server for Plasma in-memory object store.
 %files -n plasma-store-server
 %defattr(-,root,root,-)
 %doc README.md LICENSE.txt NOTICE.txt
-%{_bindir}/plasma_store_server
+%{_bindir}/plasma-store-server
 
 %package -n plasma-devel
 Summary:	Libraries and header files for Plasma in-memory object store
