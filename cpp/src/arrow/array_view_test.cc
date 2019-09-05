@@ -406,18 +406,32 @@ TEST(TestArrayView, ExtensionType) {
 }
 
 TEST(TestArrayView, NonZeroOffset) {
-  auto arr = ArrayFromJSON(int16(), "[10, 11, 12, 13]")->Slice(1);
-  CheckViewFails(arr, uint16());
+  auto arr = ArrayFromJSON(int16(), "[10, 11, 12, 13]");
+
+  std::shared_ptr<Array> expected;
+  ASSERT_OK(arr->View(fixed_size_binary(2), &expected));
+  CheckView(arr->Slice(1), expected->Slice(1));
 }
 
 TEST(TestArrayView, NonZeroNestedOffset) {
-  auto list_values = ArrayFromJSON(int16(), "[10, 11, 12, 13]")->Slice(1);
+  auto list_values = ArrayFromJSON(int16(), "[10, 11, 12, 13, 14]");
+  auto view_values = ArrayFromJSON(uint16(), "[10, 11, 12, 13, 14]");
+
   auto list_offsets = ArrayFromJSON(int32(), "[0, 2, 3]");
-  std::shared_ptr<Array> list_array;
-  ASSERT_OK(ListArray::FromArrays(*list_offsets, *list_values, default_memory_pool(),
-                                  &list_array));
-  ASSERT_OK(list_array->Validate());
-  CheckViewFails(list_array, list(uint16()));
+
+  std::shared_ptr<Array> arr, expected;
+  ASSERT_OK(ListArray::FromArrays(*list_offsets, *list_values->Slice(2),
+                                  default_memory_pool(), &arr));
+  ASSERT_OK(ListArray::FromArrays(*list_offsets, *view_values->Slice(2),
+                                  default_memory_pool(), &expected));
+  ASSERT_OK(arr->Validate());
+  CheckView(arr->Slice(1), expected->Slice(1));
+
+  // Be extra paranoid about checking offsets
+  std::shared_ptr<Array> result;
+  ASSERT_OK(arr->Slice(1)->View(expected->type(), &result));
+  ASSERT_EQ(1, result->offset());
+  ASSERT_EQ(2, static_cast<const ListArray&>(*result).values()->offset());
 }
 
 }  // namespace arrow

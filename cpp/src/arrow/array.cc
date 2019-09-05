@@ -1084,15 +1084,6 @@ struct ViewDataImpl {
     return Status::OK();
   }
 
-  Status CheckInputAtZeroOffset() {
-    for (const auto& data : in_data) {
-      if (data->offset != 0) {
-        return InvalidView("input has non-zero offset");
-      }
-    }
-    return Status::OK();
-  }
-
   Status GetDictionaryView(const DataType& out_type, std::shared_ptr<Array>* out) {
     if (in_data[in_layout_idx]->type->id() != Type::DICTIONARY) {
       return InvalidView("Cannot get view as dictionary type");
@@ -1108,6 +1099,7 @@ struct ViewDataImpl {
 
     AdjustInputPointer();
     int64_t out_length = in_data_length;
+    int64_t out_offset = 0;
     int64_t out_null_count;
 
     std::shared_ptr<Array> dictionary;
@@ -1139,6 +1131,7 @@ struct ViewDataImpl {
       DCHECK_GT(in_data_item->buffers.size(), in_buffer_idx);
       out_buffers.push_back(in_data_item->buffers[in_buffer_idx]);
       out_length = in_data_item->length;
+      out_offset = in_data_item->offset;
       out_null_count = in_data_item->null_count;
       ++in_buffer_idx;
       AdjustInputPointer();
@@ -1176,14 +1169,15 @@ struct ViewDataImpl {
       // Copy input buffer
       const auto& in_data_item = in_data[in_layout_idx];
       out_length = in_data_item->length;
+      out_offset = in_data_item->offset;
       DCHECK_GT(in_data_item->buffers.size(), in_buffer_idx);
       out_buffers.push_back(in_data_item->buffers[in_buffer_idx]);
       ++in_buffer_idx;
       AdjustInputPointer();
     }
 
-    std::shared_ptr<ArrayData> out_data =
-        ArrayData::Make(out_type, out_length, std::move(out_buffers), out_null_count);
+    std::shared_ptr<ArrayData> out_data = ArrayData::Make(
+        out_type, out_length, std::move(out_buffers), out_null_count, out_offset);
     out_data->dictionary = dictionary;
 
     // Process children recursively, depth-first
@@ -1209,7 +1203,6 @@ Status Array::View(const std::shared_ptr<DataType>& out_type,
   impl.in_data_length = data_->length;
 
   std::shared_ptr<ArrayData> out_data;
-  RETURN_NOT_OK(impl.CheckInputAtZeroOffset());
   // Dummy field for output type
   auto out_field = field("", out_type);
   RETURN_NOT_OK(impl.MakeDataView(out_field, &out_data));
