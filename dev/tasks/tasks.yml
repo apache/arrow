@@ -141,7 +141,7 @@ tasks:
     platform: win
     template: conda-recipes/appveyor.win.yml
     params:
-      config: win_c_compilervs2015cxx_compilervs2015python3.6
+      config: win_c_compilervs2015cxx_compilervs2015python3.6vc14
     artifacts:
       - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
@@ -151,7 +151,7 @@ tasks:
     platform: win
     template: conda-recipes/appveyor.win.yml
     params:
-      config: win_c_compilervs2015cxx_compilervs2015python3.7
+      config: win_c_compilervs2015cxx_compilervs2015python3.7vc14
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2

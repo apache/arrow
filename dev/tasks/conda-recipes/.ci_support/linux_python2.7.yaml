@@ -14,11 +14,33 @@ cxx_compiler_version:
 - '7'
 docker_image:
 - condaforge/linux-anvil-comp7
+glog:
+- 0.4.0
+libprotobuf:
+- '3.8'
+lz4_c:
+- 1.8.3
 pin_run_as_build:
   boost-cpp:
+    max_pin: x.x.x
+  libprotobuf:
+    max_pin: x.x
+  lz4-c:
     max_pin: x.x.x
   python:
     min_pin: x.x
     max_pin: x.x
+  snappy:
+    max_pin: x.x.x
+  zlib:
+    max_pin: x.x
+  zstd:
+    max_pin: x.x.x
 python:
 - '2.7'
+snappy:
+- 1.1.7
+zlib:
+- '1.2'
+zstd:
+- 1.4.0
