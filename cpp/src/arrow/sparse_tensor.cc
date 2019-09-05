@@ -152,19 +152,19 @@ class SparseTensorConverter<TYPE, SparseCOOIndex>
     return Status::OK();
   }
 
-#define TYPE_CONVERT_INLINE(TYPE_CLASS) \
-  case TYPE_CLASS##Type::type_id:       \
+#define CALL_TYPE_SPECIFIC_CONVERT(TYPE_CLASS) \
+  case TYPE_CLASS##Type::type_id:              \
     return Convert<TYPE_CLASS##Type>();
 
   Status Convert() {
     switch (index_value_type_->id()) {
-      ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(TYPE_CONVERT_INLINE);
+      ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(CALL_TYPE_SPECIFIC_CONVERT);
       default:
         return Status::Invalid("Unsupported SparseTensor index value type");
     }
   }
 
-#undef TYPE_CONVERT_INLINE
+#undef CALL_TYPE_SPECIFIC_CONVERT
 
   std::shared_ptr<SparseCOOIndex> sparse_index;
   std::shared_ptr<Buffer> data;
@@ -290,61 +290,26 @@ void MakeSparseTensorFromTensor(const Tensor& tensor,
   *data = converter.data;
 }
 
+#define MAKE_SPARSE_TENSOR_FROM_TENSOR(TYPE_CLASS)                 \
+  case TYPE_CLASS##Type::type_id:                                  \
+    MakeSparseTensorFromTensor<TYPE_CLASS##Type, SparseIndexType>( \
+        tensor, index_value_type, sparse_index, data);             \
+    break;
+
 template <typename SparseIndexType>
 inline void MakeSparseTensorFromTensor(const Tensor& tensor,
                                        const std::shared_ptr<DataType>& index_value_type,
                                        std::shared_ptr<SparseIndex>* sparse_index,
                                        std::shared_ptr<Buffer>* data) {
   switch (tensor.type()->id()) {
-    case Type::UINT8:
-      MakeSparseTensorFromTensor<UInt8Type, SparseIndexType>(tensor, index_value_type,
-                                                             sparse_index, data);
-      break;
-    case Type::INT8:
-      MakeSparseTensorFromTensor<Int8Type, SparseIndexType>(tensor, index_value_type,
-                                                            sparse_index, data);
-      break;
-    case Type::UINT16:
-      MakeSparseTensorFromTensor<UInt16Type, SparseIndexType>(tensor, index_value_type,
-                                                              sparse_index, data);
-      break;
-    case Type::INT16:
-      MakeSparseTensorFromTensor<Int16Type, SparseIndexType>(tensor, index_value_type,
-                                                             sparse_index, data);
-      break;
-    case Type::UINT32:
-      MakeSparseTensorFromTensor<UInt32Type, SparseIndexType>(tensor, index_value_type,
-                                                              sparse_index, data);
-      break;
-    case Type::INT32:
-      MakeSparseTensorFromTensor<Int32Type, SparseIndexType>(tensor, index_value_type,
-                                                             sparse_index, data);
-      break;
-    case Type::UINT64:
-      MakeSparseTensorFromTensor<UInt64Type, SparseIndexType>(tensor, index_value_type,
-                                                              sparse_index, data);
-      break;
-    case Type::INT64:
-      MakeSparseTensorFromTensor<Int64Type, SparseIndexType>(tensor, index_value_type,
-                                                             sparse_index, data);
-      break;
-    case Type::HALF_FLOAT:
-      MakeSparseTensorFromTensor<HalfFloatType, SparseIndexType>(tensor, index_value_type,
-                                                                 sparse_index, data);
-      break;
-    case Type::FLOAT:
-      MakeSparseTensorFromTensor<FloatType, SparseIndexType>(tensor, index_value_type,
-                                                             sparse_index, data);
-      break;
-    case Type::DOUBLE:
-      MakeSparseTensorFromTensor<DoubleType, SparseIndexType>(tensor, index_value_type,
-                                                              sparse_index, data);
-      break;
+    ARROW_GENERATE_FOR_ALL_NUMERIC_TYPES(MAKE_SPARSE_TENSOR_FROM_TENSOR);
     default:
       ARROW_LOG(FATAL) << "Unsupported Tensor value type";
       break;
   }
 }
+
+#undef MAKE_SPARSE_TENSOR_FROM_TENSOR
 
 }  // namespace
 
