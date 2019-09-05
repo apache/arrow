@@ -173,7 +173,6 @@ set(PARQUET_SRCS
     printer.cc
     properties.cc
     schema.cc
-    schema_internal.cc
     statistics.cc
     types.cc)
 
