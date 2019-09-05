@@ -49,6 +49,7 @@ def lint_file(path):
     fail_rules = [
         # rule, error message, rule-specific exclusions list
         (lambda x: '<mutex>' in x, 'Uses <mutex>', []),
+        (lambda x: '<iostream>' in x, 'Uses <iostream>', []),
         (lambda x: re.match(_NULLPTR_REGEX, x), 'Uses nullptr', []),
         (lambda x: re.match(_RETURN_NOT_OK_REGEX, x),
          'Use ARROW_RETURN_NOT_OK in header files', _paths('''\

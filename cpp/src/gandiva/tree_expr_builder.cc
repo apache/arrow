@@ -17,6 +17,7 @@
 
 #include "gandiva/tree_expr_builder.h"
 
+#include <iostream>
 #include <utility>
 
 #include "gandiva/decimal_type_util.h"

@@ -15,10 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_IN_HOLDER_H
-#define GANDIVA_IN_HOLDER_H
+#pragma once
 
-#include <iostream>
 #include <string>
 #include <unordered_set>
 
@@ -45,5 +43,3 @@ class InHolder {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_IN_HOLDER_H

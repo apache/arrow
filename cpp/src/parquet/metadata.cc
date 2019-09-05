@@ -28,7 +28,7 @@
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
 #include "parquet/statistics.h"
-#include "parquet/thrift.h"
+#include "parquet/thrift_internal.h"
 
 // ARROW-6096: The boost regex library must be used when compiling with gcc < 4.9
 #if defined(PARQUET_USE_BOOST_REGEX)
