@@ -63,7 +63,7 @@ BasicUnionBuilder::BasicUnionBuilder(
   DCHECK_LT(type_id_to_children_.size(), std::numeric_limits<int8_t>::max());
 
   for (size_t i = 0; i < children.size(); ++i) {
-    child_fields_[i] = union_type.child(i);
+    child_fields_[i] = union_type.child(static_cast<int>(i));
 
     auto type_id = union_type.type_codes()[i];
     type_id_to_children_[type_id] = children[i].get();
