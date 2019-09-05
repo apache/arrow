@@ -1693,6 +1693,9 @@ class TestConvertListTypes(object):
         expected_df = pd.DataFrame({'col1': [[True, False], [True]]})
         tm.assert_frame_equal(df, expected_df)
 
+        s = table[0].to_pandas()
+        tm.assert_series_equal(pd.Series(s), df['col1'], check_names=False)
+
     def test_column_of_decimal_list(self):
         array = pa.array([[decimal.Decimal('1'), decimal.Decimal('2')],
                          [decimal.Decimal('3.3')]],
