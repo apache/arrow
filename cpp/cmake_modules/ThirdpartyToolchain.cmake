@@ -1408,7 +1408,6 @@ if(ARROW_JEMALLOC)
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src")
   add_dependencies(jemalloc::jemalloc jemalloc_ep)
-  add_dependencies(toolchain jemalloc_ep)
 endif()
 
 # ----------------------------------------------------------------------

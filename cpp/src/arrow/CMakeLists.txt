@@ -145,6 +145,14 @@ set(ARROW_SRCS
     util/utf8.cc
     vendored/datetime/tz.cpp)
 
+if(ARROW_JEMALLOC)
+  if("${CMAKE_GENERATOR}" STREQUAL "Ninja")
+    set_source_files_properties(memory_pool.cc PROPERTIES OBJECT_DEPENDS jemalloc_ep)
+  else()
+    add_dependencies(arrow_dependencies jemalloc_ep)
+  endif()
+endif()
+
 if(ARROW_JSON)
   add_subdirectory(json)
   set(ARROW_SRCS
@@ -203,10 +211,6 @@ if(ARROW_CUDA)
   # IPC extensions required to build the CUDA library
   set(ARROW_IPC ON)
   add_subdirectory(gpu)
-endif()
-
-if(ARROW_JEMALLOC AND JEMALLOC_VENDORED)
-  add_dependencies(arrow_dependencies jemalloc::jemalloc)
 endif()
 
 if(ARROW_WITH_BROTLI)
