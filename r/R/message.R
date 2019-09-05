@@ -40,8 +40,8 @@
   ),
   active = list(
     type = function() ipc___Message__type(self),
-    metadata = function() shared_ptr(`arrow::Buffer`, ipc___Message__metadata(self)),
-    body = function() shared_ptr(`arrow::Buffer`, ipc___Message__body(self))
+    metadata = function() shared_ptr(Buffer, ipc___Message__metadata(self)),
+    body = function() shared_ptr(Buffer, ipc___Message__body(self))
   )
 )
 

@@ -25,8 +25,8 @@ test_that("read_message can read from input stream", {
   message <- read_message(stream)
   expect_is(message, "arrow::ipc::Message")
   expect_equal(message$type, MessageType$RECORD_BATCH)
-  expect_is(message$body, "arrow::Buffer")
-  expect_is(message$metadata, "arrow::Buffer")
+  expect_is(message$body, "Buffer")
+  expect_is(message$metadata, "Buffer")
 
   message <- read_message(stream)
   expect_null(read_message(stream))
@@ -39,8 +39,8 @@ test_that("read_message() can read Schema messages", {
 
   expect_is(message, "arrow::ipc::Message")
   expect_equal(message$type, MessageType$SCHEMA)
-  expect_is(message$body, "arrow::Buffer")
-  expect_is(message$metadata, "arrow::Buffer")
+  expect_is(message$body, "Buffer")
+  expect_is(message$metadata, "Buffer")
 
   message <- read_message(stream)
   expect_null(read_message(stream))

@@ -15,37 +15,37 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::Buffer")
+context("Buffer")
 
-test_that("arrow::Buffer can be created from raw vector", {
+test_that("Buffer can be created from raw vector", {
   vec <- raw(123)
   buf <- buffer(vec)
-  expect_is(buf, "arrow::Buffer")
+  expect_is(buf, "Buffer")
   expect_equal(buf$size, 123)
 })
 
-test_that("arrow::Buffer can be created from integer vector", {
+test_that("Buffer can be created from integer vector", {
   vec <- integer(17)
   buf <- buffer(vec)
-  expect_is(buf, "arrow::Buffer")
+  expect_is(buf, "Buffer")
   expect_equal(buf$size, 17 * 4)
 })
 
-test_that("arrow::Buffer can be created from numeric vector", {
+test_that("Buffer can be created from numeric vector", {
   vec <- numeric(17)
   buf <- buffer(vec)
-  expect_is(buf, "arrow::Buffer")
+  expect_is(buf, "Buffer")
   expect_equal(buf$size, 17 * 8)
 })
 
-test_that("arrow::Buffer can be created from complex vector", {
+test_that("Buffer can be created from complex vector", {
   vec <- complex(3)
   buf <- buffer(vec)
-  expect_is(buf, "arrow::Buffer")
+  expect_is(buf, "Buffer")
   expect_equal(buf$size, 3 * 16)
 })
 
-test_that("can convert arrow::Buffer to raw", {
+test_that("can convert Buffer to raw", {
   buf <- buffer(rnorm(10))
   expect_equal(buf$data(), as.raw(buf))
 })

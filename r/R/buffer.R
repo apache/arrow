@@ -18,7 +18,7 @@
 #' @include arrow-package.R
 #' @include enums.R
 
-#' @title class arrow::Buffer
+#' @title class Buffer
 #'
 #' @usage NULL
 #' @format NULL
@@ -31,9 +31,9 @@
 #' - `$size()` :
 #' - `$capacity()`:
 #'
-#' @rdname arrow__Buffer
-#' @name arrow__Buffer
-`arrow::Buffer` <- R6Class("arrow::Buffer", inherit = Object,
+#' @rdname buffer
+#' @name buffer
+Buffer <- R6Class("Buffer", inherit = Object,
   public = list(
     ZeroPadding = function() Buffer__ZeroPadding(self),
     data = function() Buffer__data(self)
@@ -47,16 +47,16 @@
 )
 
 #' @export
-`as.raw.arrow::Buffer` <- function(x) x$data()
+as.raw.Buffer <- function(x) x$data()
 
-#' Create a [arrow::Buffer][arrow__Buffer] from an R object
+#' Create a [Buffer][buffer] from an R object
 #'
 #' @param x R object. Only raw, numeric and integer vectors are currently supported
 #'
-#' @return an instance of [arrow::Buffer][arrow__Buffer] that borrows memory from `x`
+#' @return an instance of [Buffer][buffer] that borrows memory from `x`
 #'
 #' @export
-buffer <- function(x){
+buffer <- function(x) {
   UseMethod("buffer")
 }
 
@@ -67,26 +67,23 @@ buffer.default <- function(x) {
 
 #' @export
 buffer.raw <- function(x) {
-  shared_ptr(`arrow::Buffer`, r___RBuffer__initialize(x))
+  shared_ptr(Buffer, r___RBuffer__initialize(x))
 }
 
 #' @export
 buffer.numeric <- function(x) {
-  shared_ptr(`arrow::Buffer`, r___RBuffer__initialize(x))
+  shared_ptr(Buffer, r___RBuffer__initialize(x))
 }
 
 #' @export
 buffer.integer <- function(x) {
-  shared_ptr(`arrow::Buffer`, r___RBuffer__initialize(x))
+  shared_ptr(Buffer, r___RBuffer__initialize(x))
 }
 
 #' @export
 buffer.complex <- function(x) {
-  shared_ptr(`arrow::Buffer`, r___RBuffer__initialize(x))
+  shared_ptr(Buffer, r___RBuffer__initialize(x))
 }
 
 #' @export
-`buffer.arrow::Buffer` <- function(x) {
-  x
-}
-
+buffer.Buffer <- function(x) x

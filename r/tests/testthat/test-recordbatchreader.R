@@ -30,7 +30,7 @@ test_that("RecordBatchStreamReader / Writer", {
   writer$close()
 
   buf <- sink$getvalue()
-  expect_is(buf, "arrow::Buffer")
+  expect_is(buf, "Buffer")
 
   reader <- RecordBatchStreamReader(buf)
   expect_is(reader, "arrow::ipc::RecordBatchStreamReader")
@@ -55,7 +55,7 @@ test_that("RecordBatchFileReader / Writer", {
   writer$close()
 
   buf <- sink$getvalue()
-  expect_is(buf, "arrow::Buffer")
+  expect_is(buf, "Buffer")
 
   reader <- RecordBatchFileReader(buf)
   expect_is(reader, "arrow::ipc::RecordBatchFileReader")

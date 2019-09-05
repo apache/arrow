@@ -7,7 +7,7 @@
 FixedSizeBufferWriter(buffer)
 }
 \arguments{
-\item{buffer}{\link[=arrow__Buffer]{arrow::Buffer} or something \code{\link[=buffer]{buffer()}} can handle}
+\item{buffer}{\link[=buffer]{Buffer} or something \code{\link[=buffer]{buffer()}} can handle}
 }
 \value{
 a \link[=arrow__io__BufferOutputStream]{arrow::io::BufferOutputStream}

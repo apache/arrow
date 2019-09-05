@@ -17,7 +17,7 @@
 
 #' read [arrow::RecordBatch][arrow__RecordBatch] as encapsulated IPC message, given a known [arrow::Schema][arrow__Schema]
 #'
-#' @param obj a [arrow::ipc::Message][arrow__ipc__Message], a [arrow::io::InputStream][arrow__io__InputStream], a [arrow::Buffer][arrow__Buffer], or a raw vector
+#' @param obj a [arrow::ipc::Message][arrow__ipc__Message], a [arrow::io::InputStream][arrow__io__InputStream], a [Buffer][buffer], or a raw vector
 #' @param schema a [arrow::Schema][arrow__Schema]
 #'
 #' @return a [arrow::RecordBatch][arrow__RecordBatch]
@@ -47,7 +47,7 @@ read_record_batch.raw <- function(obj, schema){
 }
 
 #' @export
-`read_record_batch.arrow::Buffer` <- function(obj, schema){
+`read_record_batch.Buffer` <- function(obj, schema){
   stream <- BufferReader(obj)
   on.exit(stream$close())
   read_record_batch(stream, schema)

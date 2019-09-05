@@ -26,8 +26,8 @@ test_that("MessageReader can be created from raw vectors", {
   message <- reader$ReadNextMessage()
   expect_is(message, "arrow::ipc::Message")
   expect_equal(message$type, MessageType$RECORD_BATCH)
-  expect_is(message$body, "arrow::Buffer")
-  expect_is(message$metadata, "arrow::Buffer")
+  expect_is(message$body, "Buffer")
+  expect_is(message$metadata, "Buffer")
 
   message <- reader$ReadNextMessage()
   expect_null(message)
@@ -40,8 +40,8 @@ test_that("MessageReader can be created from raw vectors", {
   message <- reader$ReadNextMessage()
   expect_is(message, "arrow::ipc::Message")
   expect_equal(message$type, MessageType$SCHEMA)
-  expect_is(message$body, "arrow::Buffer")
-  expect_is(message$metadata, "arrow::Buffer")
+  expect_is(message$body, "Buffer")
+  expect_is(message$metadata, "Buffer")
 
   message <- reader$ReadNextMessage()
   expect_null(message)
@@ -60,8 +60,8 @@ test_that("MessageReader can be created from input stream", {
   message <- reader$ReadNextMessage()
   expect_is(message, "arrow::ipc::Message")
   expect_equal(message$type, MessageType$RECORD_BATCH)
-  expect_is(message$body, "arrow::Buffer")
-  expect_is(message$metadata, "arrow::Buffer")
+  expect_is(message$body, "Buffer")
+  expect_is(message$metadata, "Buffer")
 
   message <- reader$ReadNextMessage()
   expect_null(message)
@@ -78,8 +78,8 @@ test_that("MessageReader can be created from input stream", {
   message <- reader$ReadNextMessage()
   expect_is(message, "arrow::ipc::Message")
   expect_equal(message$type, MessageType$SCHEMA)
-  expect_is(message$body, "arrow::Buffer")
-  expect_is(message$metadata, "arrow::Buffer")
+  expect_is(message$body, "Buffer")
+  expect_is(message$metadata, "Buffer")
 
   message <- reader$ReadNextMessage()
   expect_null(message)

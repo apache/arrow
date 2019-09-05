@@ -102,7 +102,7 @@ RecordBatchStreamReader <- function(stream){
 }
 
 #' @export
-`RecordBatchStreamReader.arrow::Buffer` <- function(stream) {
+`RecordBatchStreamReader.Buffer` <- function(stream) {
   RecordBatchStreamReader(BufferReader(stream))
 }
 
@@ -128,7 +128,7 @@ RecordBatchFileReader <- function(file) {
 }
 
 #' @export
-`RecordBatchFileReader.arrow::Buffer` <- function(file) {
+`RecordBatchFileReader.Buffer` <- function(file) {
   RecordBatchFileReader(BufferReader(file))
 }
 

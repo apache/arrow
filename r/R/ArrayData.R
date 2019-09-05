@@ -39,8 +39,8 @@
 #'
 #' ...
 #'
-#' @rdname ArrayData
-#' @name ArrayData
+#' @rdname array-data
+#' @name array-data
 ArrayData <- R6Class("ArrayData",
   inherit = Object,
   active = list(
@@ -48,6 +48,6 @@ ArrayData <- R6Class("ArrayData",
     length = function() ArrayData__get_length(self),
     null_count = function() ArrayData__get_null_count(self),
     offset = function() ArrayData__get_offset(self),
-    buffers = function() map(ArrayData__buffers(self), shared_ptr, class = `arrow::Buffer`)
+    buffers = function() map(ArrayData__buffers(self), shared_ptr, class = Buffer)
   )
 )

@@ -35,7 +35,7 @@
 #'
 #' @section Methods:
 #'
-#'  - `arrow::Buffer` `Read`(`int` nbytes):  Read `nbytes` bytes
+#'  - Buffer `Read`(`int` nbytes):  Read `nbytes` bytes
 #'  - `void` `close`(): close the stream
 #'
 #' @rdname arrow__io__OutputStream
@@ -93,7 +93,7 @@
 `arrow::io::BufferOutputStream` <- R6Class("arrow::io::BufferOutputStream", inherit = `arrow::io::OutputStream`,
   public = list(
     capacity = function() io___BufferOutputStream__capacity(self),
-    getvalue = function() shared_ptr(`arrow::Buffer`, io___BufferOutputStream__Finish(self)),
+    getvalue = function() shared_ptr(Buffer, io___BufferOutputStream__Finish(self)),
 
     Write = function(bytes) io___BufferOutputStream__Write(self, bytes),
     Tell = function() io___BufferOutputStream__Tell(self)
@@ -133,7 +133,7 @@
 #' @name arrow__io__Readable
 `arrow::io::Readable` <- R6Class("arrow::io::Readable", inherit = Object,
   public = list(
-    Read = function(nbytes) shared_ptr(`arrow::Buffer`, io___Readable__Read(self, nbytes))
+    Read = function(nbytes) shared_ptr(Buffer, io___Readable__Read(self, nbytes))
   )
 )
 
@@ -178,9 +178,9 @@
 
     Read = function(nbytes = NULL) {
       if (is.null(nbytes)) {
-        shared_ptr(`arrow::Buffer`, io___RandomAccessFile__Read0(self))
+        shared_ptr(Buffer, io___RandomAccessFile__Read0(self))
       } else {
-        shared_ptr(`arrow::Buffer`, io___Readable__Read(self, nbytes))
+        shared_ptr(Buffer, io___Readable__Read(self, nbytes))
       }
     },
 
@@ -188,7 +188,7 @@
       if (is.null(nbytes)) {
         nbytes <- self$GetSize() - position
       }
-      shared_ptr(`arrow::Buffer`, io___RandomAccessFile__ReadAt(self, position, nbytes))
+      shared_ptr(Buffer, io___RandomAccessFile__ReadAt(self, position, nbytes))
     }
   )
 )
@@ -311,7 +311,7 @@ BufferOutputStream <- function(initial_capacity = 0L) {
 
 #' Open a [arrow::io::FixedSizeBufferWriter][arrow__io__FixedSizeBufferWriter]
 #'
-#' @param buffer [arrow::Buffer][arrow__Buffer] or something [buffer()] can handle
+#' @param buffer [Buffer][buffer] or something [buffer()] can handle
 #'
 #' @return a [arrow::io::BufferOutputStream][arrow__io__BufferOutputStream]
 #'
@@ -326,7 +326,7 @@ FixedSizeBufferWriter.default <- function(buffer){
 }
 
 #' @export
-`FixedSizeBufferWriter.arrow::Buffer` <- function(buffer){
+`FixedSizeBufferWriter.Buffer` <- function(buffer){
   assert_that(buffer$is_mutable)
   shared_ptr(`arrow::io::FixedSizeBufferWriter`, io___FixedSizeBufferWriter__initialize(buffer))
 }
@@ -346,6 +346,6 @@ BufferReader.default <- function(x) {
 }
 
 #' @export
-`BufferReader.arrow::Buffer` <- function(x) {
+`BufferReader.Buffer` <- function(x) {
   shared_ptr(`arrow::io::BufferReader`, io___BufferReader__initialize(x))
 }

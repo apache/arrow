@@ -36,7 +36,7 @@ test_that("reading schema from Buffer", {
   writer$close()
 
   buffer <- stream$getvalue()
-  expect_is(buffer, "arrow::Buffer")
+  expect_is(buffer, "Buffer")
 
   reader <- MessageReader(buffer)
   expect_is(reader, "arrow::ipc::MessageReader")
