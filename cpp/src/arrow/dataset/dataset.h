@@ -98,7 +98,9 @@ class ARROW_DS_EXPORT DataSource {
 
   /// Mutates a ScanOptions by assuming partition_expression_ holds for all yielded
   /// fragments. Returns false if the selector is not satisfiable in this DataSource.
-  virtual bool AssumePartitionExpression(std::shared_ptr<ScanOptions>* options) const;
+  virtual bool AssumePartitionExpression(
+      const std::shared_ptr<ScanOptions>& scan_options,
+      std::shared_ptr<ScanOptions>* simplified_scan_options) const;
 
   std::shared_ptr<Expression> partition_expression_;
 };
