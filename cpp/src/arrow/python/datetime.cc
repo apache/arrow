@@ -28,6 +28,7 @@
 
 namespace arrow {
 namespace py {
+namespace internal {
 
 // The following code is adapted from
 // https://github.com/numpy/numpy/blob/master/numpy/core/src/multiarray/datetime.c
@@ -282,5 +283,6 @@ int64_t PyDateTime_to_s(PyDateTime_DateTime* pydatetime) {
          (PyDate_to_ms(reinterpret_cast<PyDateTime_Date*>(pydatetime)) / 1000LL);
 }
 
+}  // namespace internal
 }  // namespace py
 }  // namespace arrow

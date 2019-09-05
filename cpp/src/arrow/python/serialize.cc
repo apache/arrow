@@ -466,7 +466,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
     RETURN_NOT_OK(builder->AppendNone());
   } else if (PyDateTime_Check(elem)) {
     PyDateTime_DateTime* datetime = reinterpret_cast<PyDateTime_DateTime*>(elem);
-    RETURN_NOT_OK(builder->AppendDate64(PyDateTime_to_us(datetime)));
+    RETURN_NOT_OK(builder->AppendDate64(internal::PyDateTime_to_us(datetime)));
   } else if (is_buffer(elem)) {
     RETURN_NOT_OK(builder->AppendBuffer(static_cast<int32_t>(blobs_out->buffers.size())));
     std::shared_ptr<Buffer> buffer;

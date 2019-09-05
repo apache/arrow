@@ -154,7 +154,7 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
       *result = PyFloat_FromDouble(checked_cast<const DoubleArray&>(arr).Value(index));
       return Status::OK();
     case PythonType::DATE64: {
-      RETURN_NOT_OK(PyDateTime_from_int(
+      RETURN_NOT_OK(internal::PyDateTime_from_int(
           checked_cast<const Date64Array&>(arr).Value(index), TimeUnit::MICRO, result));
       RETURN_IF_PYERROR();
       return Status::OK();

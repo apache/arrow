@@ -28,6 +28,7 @@
 
 namespace arrow {
 namespace py {
+namespace internal {
 
 int64_t PyTime_to_us(PyObject* pytime);
 
@@ -70,6 +71,7 @@ inline int64_t PyDateTime_to_ns(PyDateTime_DateTime* pydatetime) {
   return PyDateTime_to_us(pydatetime) * 1000;
 }
 
+}  // namespace internal
 }  // namespace py
 }  // namespace arrow
 

@@ -1281,12 +1281,6 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
 
     object PyHalf_FromHalf(npy_half value)
 
-    cdef cppclass CTimePoint "arrow::py::TimePoint":
-        pass
-
-    cdef CStatus PyDateTime_from_int(int64_t val, const TimeUnit unit, PyObject** out)
-    cdef CStatus PyDateTime_from_TimePoint(CTimePoint val, PyObject** out)
-
     cdef cppclass PyConversionOptions:
         PyConversionOptions()
 
@@ -1412,6 +1406,15 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                                         int num_buffers,
                                         object buffers,
                                         CSerializedPyObject* out)
+
+
+cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
+
+    cdef cppclass CTimePoint "arrow::py::internal::TimePoint":
+        pass
+
+    cdef CStatus PyDateTime_from_int(int64_t val, const TimeUnit unit, PyObject** out)
+    cdef CStatus PyDateTime_from_TimePoint(CTimePoint val, PyObject** out)
 
 
 cdef extern from 'arrow/python/init.h':

@@ -654,7 +654,7 @@ static Status ConvertDates(const PandasOptions& options, const ChunkedArray& dat
     PyDateTime_IMPORT;
   }
   auto WrapValue = [](typename Type::c_type value, PyObject** out) {
-    RETURN_NOT_OK(PyDate_from_int(value, Type::UNIT, out));
+    RETURN_NOT_OK(internal::PyDate_from_int(value, Type::UNIT, out));
     RETURN_IF_PYERROR();
     return Status::OK();
   };
@@ -672,7 +672,7 @@ static Status ConvertTimes(const PandasOptions& options, const ChunkedArray& dat
   const TimeUnit::type unit = checked_cast<const Type&>(*data.type()).unit();
 
   auto WrapValue = [unit](typename Type::c_type value, PyObject** out) {
-    RETURN_NOT_OK(PyTime_from_int(value, unit, out));
+    RETURN_NOT_OK(internal::PyTime_from_int(value, unit, out));
     RETURN_IF_PYERROR();
     return Status::OK();
   };
