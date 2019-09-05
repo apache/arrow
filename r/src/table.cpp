@@ -135,7 +135,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
     SEXP names = Rf_getAttrib(lst, R_NamesSymbol);
 
     auto fill_one_column = [&columns, &fields](int j, SEXP x, SEXP name) {
-      if (Rf_inherits(x, "arrow::ChunkedArray")) {
+      if (Rf_inherits(x, "ChunkedArray")) {
         auto chunked_array = arrow::r::extract<arrow::ChunkedArray>(x);
         fields[j] = arrow::field(CHAR(name), chunked_array->type());
         columns[j] = chunked_array;
@@ -171,7 +171,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
     schema = arrow::r::extract<arrow::Schema>(schema_sxp);
 
     auto fill_one_column = [&columns, &schema](int j, SEXP x) {
-      if (Rf_inherits(x, "arrow::ChunkedArray")) {
+      if (Rf_inherits(x, "ChunkedArray")) {
         auto chunked_array = arrow::r::extract<arrow::ChunkedArray>(x);
         columns[j] = chunked_array;
       } else if (Rf_inherits(x, "Array")) {

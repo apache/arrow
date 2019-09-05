@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::ChunkedArray")
+context("ChunkedArray")
 
 test_that("ChunkedArray", {
   x <- chunked_array(1:10, 1:10, 1:5)
@@ -167,10 +167,10 @@ test_that("integer types casts for ChunkedArray (ARROW-3741)", {
   a_int32 <- a$cast(int32())
   a_int64 <- a$cast(int64())
 
-  expect_is(a_int8, "arrow::ChunkedArray")
-  expect_is(a_int16, "arrow::ChunkedArray")
-  expect_is(a_int32, "arrow::ChunkedArray")
-  expect_is(a_int64, "arrow::ChunkedArray")
+  expect_is(a_int8, "ChunkedArray")
+  expect_is(a_int16, "ChunkedArray")
+  expect_is(a_int32, "ChunkedArray")
+  expect_is(a_int64, "ChunkedArray")
   expect_equal(a_int8$type, int8())
   expect_equal(a_int16$type, int16())
   expect_equal(a_int32$type, int32())
@@ -181,10 +181,10 @@ test_that("integer types casts for ChunkedArray (ARROW-3741)", {
   a_uint32 <- a$cast(uint32())
   a_uint64 <- a$cast(uint64())
 
-  expect_is(a_uint8, "arrow::ChunkedArray")
-  expect_is(a_uint16, "arrow::ChunkedArray")
-  expect_is(a_uint32, "arrow::ChunkedArray")
-  expect_is(a_uint64, "arrow::ChunkedArray")
+  expect_is(a_uint8, "ChunkedArray")
+  expect_is(a_uint16, "ChunkedArray")
+  expect_is(a_uint32, "ChunkedArray")
+  expect_is(a_uint64, "ChunkedArray")
 
   expect_equal(a_uint8$type, uint8())
   expect_equal(a_uint16$type, uint16())

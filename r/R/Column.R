@@ -32,7 +32,7 @@
 `arrow::Column` <- R6Class("arrow::Column", inherit = Object,
   public = list(
     length = function() Column__length(self),
-    data = function() shared_ptr(`arrow::ChunkedArray`, Column__data(self))
+    data = function() shared_ptr(ChunkedArray, Column__data(self))
   ),
 
   active = list(

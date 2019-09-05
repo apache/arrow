@@ -2,7 +2,7 @@
 % Please edit documentation in R/ChunkedArray.R
 \name{chunked_array}
 \alias{chunked_array}
-\title{create an \link[=arrow__ChunkedArray]{arrow::ChunkedArray} from various R vectors}
+\title{Create a \link[=chunked-array]{ChunkedArray} from various R vectors}
 \usage{
 chunked_array(..., type = NULL)
 }
@@ -12,5 +12,5 @@ chunked_array(..., type = NULL)
 \item{type}{currently ignored}
 }
 \description{
-create an \link[=arrow__ChunkedArray]{arrow::ChunkedArray} from various R vectors
+Create a \link[=chunked-array]{ChunkedArray} from various R vectors
 }

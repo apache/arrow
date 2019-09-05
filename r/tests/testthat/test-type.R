@@ -22,7 +22,7 @@ test_that("type() gets the right type for arrow::Array", {
   expect_equal(type(a), a$type)
 })
 
-test_that("type() gets the right type for arrow::ChunkedArray", {
+test_that("type() gets the right type for ChunkedArray", {
   a <- chunked_array(1:10, 1:10)
   expect_equal(type(a), a$type)
 })

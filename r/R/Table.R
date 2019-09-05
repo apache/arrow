@@ -31,7 +31,7 @@
 #' @name arrow__Table
 `arrow::Table` <- R6Class("arrow::Table", inherit = Object,
   public = list(
-    column = function(i) shared_ptr(`arrow::ChunkedArray`, Table__column(self, i)),
+    column = function(i) shared_ptr(ChunkedArray, Table__column(self, i)),
     field = function(i) shared_ptr(`arrow::Field`, Table__field(self, i)),
 
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),

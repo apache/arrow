@@ -28,7 +28,7 @@ test_that("arrow::table round trip", {
   expect_equal(tab$num_columns, 3L)
   expect_equal(tab$num_rows, 10L)
 
-  # arrow::ChunkedArray
+  # ChunkedArray
   chunked_array_int <- tab$column(0)
   expect_equal(chunked_array_int$length(), 10L)
   expect_equal(chunked_array_int$null_count, 0L)
@@ -41,7 +41,7 @@ test_that("arrow::table round trip", {
     expect_equal(chunked_array_int$chunk(i-1L), chunks_int[[i]])
   }
 
-  # arrow::ChunkedArray
+  # ChunkedArray
   chunked_array_dbl <- tab$column(1)
   expect_equal(chunked_array_dbl$length(), 10L)
   expect_equal(chunked_array_dbl$null_count, 0L)
@@ -54,7 +54,7 @@ test_that("arrow::table round trip", {
     expect_equal(chunked_array_dbl$chunk(i-1L), chunks_dbl[[i]])
   }
 
-  # arrow::ChunkedArray
+  # ChunkedArray
   chunked_array_raw <- tab$column(2)
   expect_equal(chunked_array_raw$length(), 10L)
   expect_equal(chunked_array_raw$null_count, 0L)

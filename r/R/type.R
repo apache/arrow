@@ -117,7 +117,7 @@ type.default <- function(x) {
 type.Array <- function(x) x$type
 
 #' @export
-`type.arrow::ChunkedArray` <- function(x) x$type
+type.ChunkedArray <- function(x) x$type
 
 #' @export
 `type.arrow::Column` <- function(x) x$type
