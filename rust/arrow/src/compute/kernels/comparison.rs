@@ -116,11 +116,11 @@ pub fn eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Bool
 where
     T: ArrowNumericType,
 {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    return simd_compare_op(left, right, |a, b| T::eq(a, b));
-
-    #[allow(unreachable_code)]
-    compare_op(left, right, |a, b| a == b)
+    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+        simd_compare_op(left, right, |a, b| T::eq(a, b))
+    } else {
+        compare_op(left, right, |a, b| a == b)
+    }
 }
 
 /// Perform `left != right` operation on two arrays.
@@ -128,11 +128,11 @@ pub fn neq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Boo
 where
     T: ArrowNumericType,
 {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    return simd_compare_op(left, right, |a, b| T::ne(a, b));
-
-    #[allow(unreachable_code)]
-    compare_op(left, right, |a, b| a != b)
+    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+        simd_compare_op(left, right, |a, b| T::ne(a, b))
+    } else {
+        compare_op(left, right, |a, b| a != b)
+    }
 }
 
 /// Perform `left < right` operation on two arrays. Null values are less than non-null
@@ -141,16 +141,16 @@ pub fn lt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Bool
 where
     T: ArrowNumericType,
 {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    return simd_compare_op(left, right, |a, b| T::lt(a, b));
-
-    #[allow(unreachable_code)]
-    compare_op(left, right, |a, b| match (a, b) {
-        (None, None) => false,
-        (None, _) => true,
-        (_, None) => false,
-        (Some(aa), Some(bb)) => aa < bb,
-    })
+    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+        simd_compare_op(left, right, |a, b| T::lt(a, b))
+    } else {
+        compare_op(left, right, |a, b| match (a, b) {
+            (None, None) => false,
+            (None, _) => true,
+            (_, None) => false,
+            (Some(aa), Some(bb)) => aa < bb,
+        })
+    }
 }
 
 /// Perform `left <= right` operation on two arrays. Null values are less than non-null
@@ -162,16 +162,16 @@ pub fn lt_eq<T>(
 where
     T: ArrowNumericType,
 {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    return simd_compare_op(left, right, |a, b| T::le(a, b));
-
-    #[allow(unreachable_code)]
-    compare_op(left, right, |a, b| match (a, b) {
-        (None, None) => true,
-        (None, _) => true,
-        (_, None) => false,
-        (Some(aa), Some(bb)) => aa <= bb,
-    })
+    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+        simd_compare_op(left, right, |a, b| T::le(a, b))
+    } else {
+        compare_op(left, right, |a, b| match (a, b) {
+            (None, None) => true,
+            (None, _) => true,
+            (_, None) => false,
+            (Some(aa), Some(bb)) => aa <= bb,
+        })
+    }
 }
 
 /// Perform `left > right` operation on two arrays. Non-null values are greater than null
@@ -180,16 +180,16 @@ pub fn gt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Bool
 where
     T: ArrowNumericType,
 {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    return simd_compare_op(left, right, |a, b| T::gt(a, b));
-
-    #[allow(unreachable_code)]
-    compare_op(left, right, |a, b| match (a, b) {
-        (None, None) => false,
-        (None, _) => false,
-        (_, None) => true,
-        (Some(aa), Some(bb)) => aa > bb,
-    })
+    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+        simd_compare_op(left, right, |a, b| T::gt(a, b))
+    } else {
+        compare_op(left, right, |a, b| match (a, b) {
+            (None, None) => false,
+            (None, _) => false,
+            (_, None) => true,
+            (Some(aa), Some(bb)) => aa > bb,
+        })
+    }
 }
 
 /// Perform `left >= right` operation on two arrays. Non-null values are greater than null
@@ -201,16 +201,16 @@ pub fn gt_eq<T>(
 where
     T: ArrowNumericType,
 {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    return simd_compare_op(left, right, |a, b| T::ge(a, b));
-
-    #[allow(unreachable_code)]
-    compare_op(left, right, |a, b| match (a, b) {
-        (None, None) => true,
-        (None, _) => false,
-        (_, None) => true,
-        (Some(aa), Some(bb)) => aa >= bb,
-    })
+    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+        simd_compare_op(left, right, |a, b| T::ge(a, b))
+    } else {
+        compare_op(left, right, |a, b| match (a, b) {
+            (None, None) => true,
+            (None, _) => false,
+            (_, None) => true,
+            (Some(aa), Some(bb)) => aa >= bb,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -329,5 +329,4 @@ mod tests {
         assert_eq!(false, c.value(1));
         assert_eq!(true, c.value(2));
     }
-
 }

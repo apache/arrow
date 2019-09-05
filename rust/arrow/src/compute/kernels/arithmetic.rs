@@ -201,11 +201,11 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    return simd_math_op(&left, &right, |a, b| a + b);
-
-    #[allow(unreachable_code)]
-    math_op(left, right, |a, b| Ok(a + b))
+    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+        simd_math_op(&left, &right, |a, b| a + b)
+    } else {
+        math_op(left, right, |a, b| Ok(a + b))
+    }
 }
 
 /// Perform `left - right` operation on two arrays. If either left or right value is null
@@ -222,11 +222,11 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    return simd_math_op(&left, &right, |a, b| a - b);
-
-    #[allow(unreachable_code)]
-    math_op(left, right, |a, b| Ok(a - b))
+    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+        simd_math_op(&left, &right, |a, b| a - b)
+    } else {
+        math_op(left, right, |a, b| Ok(a - b))
+    }
 }
 
 /// Perform `left * right` operation on two arrays. If either left or right value is null
@@ -243,11 +243,11 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    return simd_math_op(&left, &right, |a, b| a * b);
-
-    #[allow(unreachable_code)]
-    math_op(left, right, |a, b| Ok(a * b))
+    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+        simd_math_op(&left, &right, |a, b| a * b)
+    } else {
+        math_op(left, right, |a, b| Ok(a * b))
+    }
 }
 
 /// Perform `left / right` operation on two arrays. If either left or right value is null
@@ -266,17 +266,17 @@ where
         + Zero
         + One,
 {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    return simd_divide(&left, &right);
-
-    #[allow(unreachable_code)]
-    math_op(left, right, |a, b| {
-        if b.is_zero() {
-            Err(ArrowError::DivideByZero)
-        } else {
-            Ok(a / b)
-        }
-    })
+    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+        simd_divide(&left, &right)
+    } else {
+        math_op(left, right, |a, b| {
+            if b.is_zero() {
+                Err(ArrowError::DivideByZero)
+            } else {
+                Ok(a / b)
+            }
+        })
+    }
 }
 
 #[cfg(test)]
@@ -389,5 +389,4 @@ mod tests {
         assert_eq!(true, c.is_null(3));
         assert_eq!(13, c.value(2));
     }
-
 }
