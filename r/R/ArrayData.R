@@ -42,7 +42,7 @@
 #' @rdname ArrayData
 #' @name ArrayData
 ArrayData <- R6Class("ArrayData",
-  inherit = `arrow::Object`,
+  inherit = Object,
   active = list(
     type = function() `arrow::DataType`$dispatch(ArrayData__get_type(self)),
     length = function() ArrayData__get_length(self),

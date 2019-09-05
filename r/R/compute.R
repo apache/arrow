@@ -17,7 +17,7 @@
 
 #' @include array.R
 
-`arrow::compute::CastOptions` <- R6Class("arrow::compute::CastOptions", inherit = `arrow::Object`)
+`arrow::compute::CastOptions` <- R6Class("arrow::compute::CastOptions", inherit = Object)
 
 #' Cast options
 #'

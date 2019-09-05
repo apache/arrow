@@ -19,7 +19,7 @@
 #' @include arrow-package.R
 #' @include io.R
 
-`arrow::util::Codec` <- R6Class("arrow::util::Codec", inherit = `arrow::Object`)
+`arrow::util::Codec` <- R6Class("arrow::util::Codec", inherit = Object)
 
 `arrow::io::CompressedOutputStream` <- R6Class("arrow::io::CompressedOutputStream", inherit = `arrow::io::OutputStream`)
 `arrow::io::CompressedInputStream` <- R6Class("arrow::io::CompressedInputStream", inherit = `arrow::io::InputStream`)

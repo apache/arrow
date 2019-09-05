@@ -36,7 +36,7 @@
 #'
 #' @rdname arrow__ipc__RecordBatchWriter
 #' @name arrow__ipc__RecordBatchWriter
-`arrow::ipc::RecordBatchWriter` <- R6Class("arrow::ipc::RecordBatchWriter", inherit = `arrow::Object`,
+`arrow::ipc::RecordBatchWriter` <- R6Class("arrow::ipc::RecordBatchWriter", inherit = Object,
   public = list(
     write_batch = function(batch) ipc___RecordBatchWriter__WriteRecordBatch(self, batch),
     write_table = function(table) ipc___RecordBatchWriter__WriteTable(self, table),

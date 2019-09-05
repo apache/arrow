@@ -42,7 +42,7 @@
 #' @rdname arrow__Schema
 #' @name arrow__Schema
 `arrow::Schema` <- R6Class("arrow::Schema",
-  inherit = `arrow::Object`,
+  inherit = Object,
   public = list(
     ToString = function() Schema__ToString(self),
     num_fields = function() Schema__num_fields(self),

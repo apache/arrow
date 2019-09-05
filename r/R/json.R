@@ -31,14 +31,14 @@
 #'
 #' @rdname arrow__json__TableReader
 #' @name arrow__json__TableReader
-`arrow::json::TableReader` <- R6Class("arrow::json::TableReader", inherit = `arrow::Object`,
+`arrow::json::TableReader` <- R6Class("arrow::json::TableReader", inherit = Object,
   public = list(
     Read = function() shared_ptr(`arrow::Table`, json___TableReader__Read(self))
   )
 )
 
-`arrow::json::ReadOptions` <- R6Class("arrow::json::ReadOptions", inherit = `arrow::Object`)
-`arrow::json::ParseOptions` <- R6Class("arrow::json::ParseOptions", inherit = `arrow::Object`)
+`arrow::json::ReadOptions` <- R6Class("arrow::json::ReadOptions", inherit = Object)
+`arrow::json::ParseOptions` <- R6Class("arrow::json::ParseOptions", inherit = Object)
 
 #' @rdname csv_read_options
 #' @export

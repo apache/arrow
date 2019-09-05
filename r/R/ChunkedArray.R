@@ -29,7 +29,7 @@
 #'
 #' @rdname arrow__ChunkedArray
 #' @name arrow__ChunkedArray
-`arrow::ChunkedArray` <- R6Class("arrow::ChunkedArray", inherit = `arrow::Object`,
+`arrow::ChunkedArray` <- R6Class("arrow::ChunkedArray", inherit = Object,
   public = list(
     length = function() ChunkedArray__length(self),
     chunk = function(i) Array$create(ChunkedArray__chunk(self, i)),

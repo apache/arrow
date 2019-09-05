@@ -29,7 +29,7 @@
 #'
 #' @rdname arrow__RecordBatchReader
 #' @name arrow__RecordBatchReader
-`arrow::RecordBatchReader` <- R6Class("arrow::RecordBatchReader", inherit = `arrow::Object`,
+`arrow::RecordBatchReader` <- R6Class("arrow::RecordBatchReader", inherit = Object,
   public = list(
     read_next_batch = function() {
       shared_ptr(`arrow::RecordBatch`, RecordBatchReader__ReadNext(self))
@@ -70,7 +70,7 @@
 #'
 #' @rdname arrow__ipc__RecordBatchFileReader
 #' @name arrow__ipc__RecordBatchFileReader
-`arrow::ipc::RecordBatchFileReader` <- R6Class("arrow::ipc::RecordBatchFileReader", inherit = `arrow::Object`,
+`arrow::ipc::RecordBatchFileReader` <- R6Class("arrow::ipc::RecordBatchFileReader", inherit = Object,
   public = list(
     get_batch = function(i) shared_ptr(`arrow::RecordBatch`, ipc___RecordBatchFileReader__ReadRecordBatch(self, i)),
 

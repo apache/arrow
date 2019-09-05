@@ -33,7 +33,7 @@
 #'
 #' @rdname arrow__Buffer
 #' @name arrow__Buffer
-`arrow::Buffer` <- R6Class("arrow::Buffer", inherit = `arrow::Object`,
+`arrow::Buffer` <- R6Class("arrow::Buffer", inherit = Object,
   public = list(
     ZeroPadding = function() Buffer__ZeroPadding(self),
     data = function() Buffer__data(self)

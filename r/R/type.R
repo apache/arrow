@@ -18,7 +18,7 @@
 #' @include arrow-package.R
 
 #' @export
-`!=.arrow::Object` <- function(lhs, rhs){
+`!=.Object` <- function(lhs, rhs){
   !(lhs == rhs)
 }
 
@@ -35,7 +35,7 @@
 #' @rdname arrow__DataType
 #' @name arrow__DataType
 `arrow::DataType` <- R6Class("arrow::DataType",
-  inherit = `arrow::Object`,
+  inherit = Object,
   public = list(
     ToString = function() {
       DataType__ToString(self)

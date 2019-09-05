@@ -17,7 +17,7 @@
 
 #' @include arrow-package.R
 
-`arrow::ipc::feather::TableWriter` <- R6Class("arrow::ipc::feather::TableWriter", inherit = `arrow::Object`,
+`arrow::ipc::feather::TableWriter` <- R6Class("arrow::ipc::feather::TableWriter", inherit = Object,
   public = list(
     SetDescription = function(description) ipc___feather___TableWriter__SetDescription(self, description),
     SetNumRows = function(num_rows) ipc___feather___TableWriter__SetNumRows(self, num_rows),
@@ -26,7 +26,7 @@
   )
 )
 
-`arrow::ipc::feather::TableReader` <- R6Class("arrow::ipc::feather::TableReader", inherit = `arrow::Object`,
+`arrow::ipc::feather::TableReader` <- R6Class("arrow::ipc::feather::TableReader", inherit = Object,
   public = list(
     GetDescription = function() ipc___feather___TableReader__GetDescription(self),
     HasDescription = function() ipc__feather___TableReader__HasDescription(self),

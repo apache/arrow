@@ -30,7 +30,7 @@
 #' @rdname arrow___MemoryPool
 #' @name arrow__MemoryPool
 `arrow::MemoryPool` <- R6Class("arrow::MemoryPool",
-  inherit = `arrow::Object`,
+  inherit = Object,
   public = list(
     # TODO: Allocate
     # TODO: Reallocate

@@ -181,15 +181,15 @@ read_tsv_arrow <- function(file,
 
 #' @include arrow-package.R
 
-`arrow::csv::TableReader` <- R6Class("arrow::csv::TableReader", inherit = `arrow::Object`,
+`arrow::csv::TableReader` <- R6Class("arrow::csv::TableReader", inherit = Object,
   public = list(
     Read = function() shared_ptr(`arrow::Table`, csv___TableReader__Read(self))
   )
 )
 
-`arrow::csv::ReadOptions` <- R6Class("arrow::csv::ReadOptions", inherit = `arrow::Object`)
-`arrow::csv::ParseOptions` <- R6Class("arrow::csv::ParseOptions", inherit = `arrow::Object`)
-`arrow::csv::ConvertOptions` <- R6Class("arrow::csv::ConvertOptions", inherit = `arrow::Object`)
+`arrow::csv::ReadOptions` <- R6Class("arrow::csv::ReadOptions", inherit = Object)
+`arrow::csv::ParseOptions` <- R6Class("arrow::csv::ParseOptions", inherit = Object)
+`arrow::csv::ConvertOptions` <- R6Class("arrow::csv::ConvertOptions", inherit = Object)
 
 #' Read options for the Arrow file readers
 #'

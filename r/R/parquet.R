@@ -18,7 +18,7 @@
 #' @include arrow-package.R
 
 `parquet::arrow::FileReader` <- R6Class("parquet::arrow::FileReader",
-  inherit = `arrow::Object`,
+  inherit = Object,
   public = list(
     ReadTable = function(col_select = NULL) {
       col_select <- enquo(col_select)
@@ -37,7 +37,7 @@
 )
 
 `parquet::arrow::ArrowReaderProperties` <- R6Class("parquet::arrow::ArrowReaderProperties",
-  inherit = `arrow::Object`,
+  inherit = Object,
   public = list(
     read_dictionary = function(column_index) {
       parquet___arrow___ArrowReaderProperties__get_read_dictionary(self, column_index)

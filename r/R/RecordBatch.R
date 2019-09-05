@@ -29,7 +29,7 @@
 #'
 #' @rdname arrow__RecordBatch
 #' @name arrow__RecordBatch
-`arrow::RecordBatch` <- R6Class("arrow::RecordBatch", inherit = `arrow::Object`,
+`arrow::RecordBatch` <- R6Class("arrow::RecordBatch", inherit = Object,
   public = list(
     column = function(i) shared_ptr(Array, RecordBatch__column(self, i)),
     column_name = function(i) RecordBatch__column_name(self, i),

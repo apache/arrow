@@ -21,7 +21,7 @@
 
 # OutputStream ------------------------------------------------------------
 
-`arrow::io::Writable` <- R6Class("arrow::io::Writable", inherit = `arrow::Object`,
+`arrow::io::Writable` <- R6Class("arrow::io::Writable", inherit = Object,
   public = list(
     write = function(x) io___Writable__write(self, buffer(x))
   )
@@ -131,7 +131,7 @@
 #'
 #' @rdname arrow__io__Readable
 #' @name arrow__io__Readable
-`arrow::io::Readable` <- R6Class("arrow::io::Readable", inherit = `arrow::Object`,
+`arrow::io::Readable` <- R6Class("arrow::io::Readable", inherit = Object,
   public = list(
     Read = function(nbytes) shared_ptr(`arrow::Buffer`, io___Readable__Read(self, nbytes))
   )

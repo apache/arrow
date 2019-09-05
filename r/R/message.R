@@ -29,7 +29,7 @@
 #'
 #' @rdname arrow__ipc__Message
 #' @name arrow__ipc__Message
-`arrow::ipc::Message` <- R6Class("arrow::ipc::Message", inherit = `arrow::Object`,
+`arrow::ipc::Message` <- R6Class("arrow::ipc::Message", inherit = Object,
   public = list(
     Equals = function(other){
       assert_that(inherits(other, "arrow::ipc::Message"))
@@ -60,7 +60,7 @@
 #'
 #' @rdname arrow__ipc__MessageReader
 #' @name arrow__ipc__MessageReader
-`arrow::ipc::MessageReader` <- R6Class("arrow::ipc::MessageReader", inherit = `arrow::Object`,
+`arrow::ipc::MessageReader` <- R6Class("arrow::ipc::MessageReader", inherit = Object,
   public = list(
     ReadNextMessage = function() unique_ptr(`arrow::ipc::Message`, ipc___MessageReader__ReadNextMessage(self))
   )

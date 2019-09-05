@@ -65,11 +65,11 @@
 #' - `$Slice(offset, length = NULL)` : Construct a zero-copy slice of the array with the indicated offset and length. If length is `NULL`, the slice goes until the end of the array.
 #' - `$RangeEquals(other, start_idx, end_idx, other_start_idx)` :
 #'
-#' @rdname Array
-#' @name Array
+#' @rdname array
+#' @name array
 #' @export
 Array <- R6Class("Array",
-  inherit = `arrow::Object`,
+  inherit = Object,
   public = list(
     IsNull = function(i) Array__IsNull(self, i),
     IsValid = function(i) Array__IsValid(self, i),
