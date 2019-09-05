@@ -422,8 +422,8 @@ For Build Tools for Visual Studio 2017 and Visual Studio 2017:
 .. code-block:: shell
 
    mkdir arrow\cpp\build
-   pushd arrow\cpp\build
    set ARROW_HOME=%cd%\arrow-dist
+   pushd arrow\cpp\build
    cmake -G "Visual Studio 15 2017 Win64" ^
        -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
        -DARROW_CXXFLAGS="/WX /MP" ^
