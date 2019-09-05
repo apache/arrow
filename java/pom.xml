@@ -41,7 +41,7 @@
     <arrow.vector.classifier></arrow.vector.classifier>
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
-    <javac.version>9+181-r4173-1</javac.version>
+    <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
   </properties>
 
   <scm>
@@ -717,7 +717,7 @@
             <configuration>
               <fork>true</fork>
               <compilerArgs combine.children="append">
-                <arg>-J-Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${javac.version}/javac-${javac.version}.jar</arg>
+                <arg>-J-Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${errorprone.javac.version}/javac-${errorprone.javac.version}.jar</arg>
               </compilerArgs>
             </configuration>
           </plugin>
