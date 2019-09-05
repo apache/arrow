@@ -50,13 +50,13 @@ read_table <- function(stream){
 }
 
 #' @export
-`read_table.arrow::RecordBatchFileReader` <- function(stream) {
-  shared_ptr(`arrow::Table`, Table__from_RecordBatchFileReader(stream))
+read_table.RecordBatchFileReader <- function(stream) {
+  shared_ptr(Table, Table__from_RecordBatchFileReader(stream))
 }
 
 #' @export
-`read_table.arrow::RecordBatchStreamReader` <- function(stream) {
-  shared_ptr(`arrow::Table`, Table__from_RecordBatchStreamReader(stream))
+read_table.RecordBatchStreamReader <- function(stream) {
+  shared_ptr(Table, Table__from_RecordBatchStreamReader(stream))
 }
 
 #' @export
@@ -64,16 +64,16 @@ read_table.character <- function(stream) {
   assert_that(length(stream) == 1L)
   stream <- ReadableFile$create(stream)
   on.exit(stream$close())
-  batch_reader <- RecordBatchFileReader(stream)
-  shared_ptr(`arrow::Table`, Table__from_RecordBatchFileReader(batch_reader))
+  batch_reader <- RecordBatchFileReader$create(stream)
+  shared_ptr(Table, Table__from_RecordBatchFileReader(batch_reader))
 }
 
 #' @export
 `read_table.raw` <- function(stream) {
   stream <- BufferReader$create(stream)
   on.exit(stream$close())
-  batch_reader <- RecordBatchStreamReader(stream)
-  shared_ptr(`arrow::Table`, Table__from_RecordBatchStreamReader(batch_reader))
+  batch_reader <- RecordBatchStreamReader$create(stream)
+  shared_ptr(Table, Table__from_RecordBatchStreamReader(batch_reader))
 }
 
 #' @rdname read_table

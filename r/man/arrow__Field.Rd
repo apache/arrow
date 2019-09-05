@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__Field}
 \alias{arrow__Field}
-\alias{arrow::Field}
+\alias{Field}
 \title{class arrow::Field}
 \description{
 class arrow::Field

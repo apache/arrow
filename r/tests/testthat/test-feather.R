@@ -95,7 +95,7 @@ test_that("feather handles col_select = <tidyselect helper>", {
 
 test_that("feather read/write round trip", {
   tab1 <- read_feather(feather_file, as_tibble = FALSE)
-  expect_is(tab1, "arrow::Table")
+  expect_is(tab1, "Table")
 
   expect_equal(tib, as.data.frame(tab1))
 })

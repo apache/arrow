@@ -20,7 +20,7 @@ of columns, as used in \code{dplyr::select()}.}
 \item{...}{Additional options, passed to \code{json_table_reader()}}
 }
 \value{
-A \code{data.frame}, or an \code{arrow::Table} if \code{as_tibble = FALSE}.
+A \code{data.frame}, or an Table if \code{as_tibble = FALSE}.
 }
 \description{
 Using \link[=arrow__json__TableReader]{JsonTableReader}

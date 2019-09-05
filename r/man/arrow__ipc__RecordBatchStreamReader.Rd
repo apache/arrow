@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__ipc__RecordBatchStreamReader}
 \alias{arrow__ipc__RecordBatchStreamReader}
-\alias{arrow::RecordBatchStreamReader}
+\alias{RecordBatchStreamReader}
 \title{class arrow::RecordBatchStreamReader}
 \description{
 class arrow::RecordBatchStreamReader

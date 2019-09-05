@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__DataType}
 \alias{arrow__DataType}
-\alias{arrow::DataType}
+\alias{DataType}
 \title{class arrow::DataType}
 \description{
 class arrow::DataType

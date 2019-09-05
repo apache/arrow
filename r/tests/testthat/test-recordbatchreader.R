@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::RecordBatch.*(Reader|Writer)")
+context("RecordBatch.*(Reader|Writer)")
 
 test_that("RecordBatchStreamReader / Writer", {
   batch <- record_batch(
@@ -24,19 +24,19 @@ test_that("RecordBatchStreamReader / Writer", {
   )
 
   sink <- BufferOutputStream$create()
-  writer <- RecordBatchStreamWriter(sink, batch$schema)
-  expect_is(writer, "arrow::RecordBatchStreamWriter")
+  writer <- RecordBatchStreamWriter$create(sink, batch$schema)
+  expect_is(writer, "RecordBatchStreamWriter")
   writer$write_batch(batch)
   writer$close()
 
   buf <- sink$getvalue()
   expect_is(buf, "Buffer")
 
-  reader <- RecordBatchStreamReader(buf)
-  expect_is(reader, "arrow::RecordBatchStreamReader")
+  reader <- RecordBatchStreamReader$create(buf)
+  expect_is(reader, "RecordBatchStreamReader")
 
   batch1 <- reader$read_next_batch()
-  expect_is(batch1, "arrow::RecordBatch")
+  expect_is(batch1, "RecordBatch")
   expect_equal(batch, batch1)
 
   expect_null(reader$read_next_batch())
@@ -49,19 +49,19 @@ test_that("RecordBatchFileReader / Writer", {
   )
 
   sink <- BufferOutputStream$create()
-  writer <- RecordBatchFileWriter(sink, batch$schema)
-  expect_is(writer, "arrow::RecordBatchFileWriter")
+  writer <- RecordBatchFileWriter$create(sink, batch$schema)
+  expect_is(writer, "RecordBatchFileWriter")
   writer$write_batch(batch)
   writer$close()
 
   buf <- sink$getvalue()
   expect_is(buf, "Buffer")
 
-  reader <- RecordBatchFileReader(buf)
-  expect_is(reader, "arrow::RecordBatchFileReader")
+  reader <- RecordBatchFileReader$create(buf)
+  expect_is(reader, "RecordBatchFileReader")
 
   batch1 <- reader$get_batch(0L)
-  expect_is(batch1, "arrow::RecordBatch")
+  expect_is(batch1, "RecordBatch")
   expect_equal(batch, batch1)
 
   expect_equal(reader$num_record_batches, 1L)

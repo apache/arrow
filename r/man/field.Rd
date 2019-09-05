@@ -2,19 +2,19 @@
 % Please edit documentation in R/Field.R
 \name{field}
 \alias{field}
-\title{Factory for a \code{arrow::Field}}
+\title{Factory for a Field}
 \usage{
 field(name, type, metadata)
 }
 \arguments{
 \item{name}{field name}
 
-\item{type}{logical type, instance of \code{arrow::DataType}}
+\item{type}{logical type, instance of DataType}
 
 \item{metadata}{currently ignored}
 }
 \description{
-Factory for a \code{arrow::Field}
+Factory for a Field
 }
 \examples{
 \donttest{

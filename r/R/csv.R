@@ -66,7 +66,7 @@
 #' @param as_tibble Should the function return a `data.frame` or an
 #' [arrow::Table][arrow__Table]?
 #'
-#' @return A `data.frame`, or an `arrow::Table` if `as_tibble = FALSE`.
+#' @return A `data.frame`, or an Table if `as_tibble = FALSE`.
 #' @export
 #' @examples
 #' \donttest{
@@ -183,7 +183,7 @@ read_tsv_arrow <- function(file,
 
 CsvTableReader <- R6Class("CsvTableReader", inherit = Object,
   public = list(
-    Read = function() shared_ptr(`arrow::Table`, csv___TableReader__Read(self))
+    Read = function() shared_ptr(Table, csv___TableReader__Read(self))
   )
 )
 

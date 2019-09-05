@@ -92,7 +92,7 @@ Array <- R6Class("Array",
       Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx)
     },
     cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
-      assert_that(inherits(target_type, "arrow::DataType"))
+      assert_that(inherits(target_type, "DataType"))
       assert_that(inherits(options, "CastOptions"))
       Array$create(Array__cast(self, target_type, options))
     }
@@ -100,7 +100,7 @@ Array <- R6Class("Array",
   active = list(
     null_count = function() Array__null_count(self),
     offset = function() Array__offset(self),
-    type = function() `arrow::DataType`$dispatch(Array__type(self))
+    type = function() DataType$dispatch(Array__type(self))
   )
 )
 
@@ -127,7 +127,7 @@ ListArray <- R6Class("ListArray", inherit = Array,
     raw_value_offsets = function() ListArray__raw_value_offsets(self)
   ),
   active = list(
-    value_type = function() `arrow::DataType`$dispatch(ListArray__value_type(self))
+    value_type = function() DataType$dispatch(ListArray__value_type(self))
   )
 )
 

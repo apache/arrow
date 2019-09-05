@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__ipc__RecordBatchWriter}
 \alias{arrow__ipc__RecordBatchWriter}
-\alias{arrow::RecordBatchWriter}
+\alias{RecordBatchWriter}
 \title{class arrow::RecordBatchWriter}
 \description{
 class arrow::RecordBatchWriter

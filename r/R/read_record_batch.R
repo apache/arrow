@@ -29,14 +29,14 @@ read_record_batch <- function(obj, schema){
 
 #' @export
 read_record_batch.Message <- function(obj, schema) {
-  assert_that(inherits(schema, "arrow::Schema"))
-  shared_ptr(`arrow::RecordBatch`, ipc___ReadRecordBatch__Message__Schema(obj, schema))
+  assert_that(inherits(schema, "Schema"))
+  shared_ptr(RecordBatch, ipc___ReadRecordBatch__Message__Schema(obj, schema))
 }
 
 #' @export
 read_record_batch.InputStream <- function(obj, schema) {
-  assert_that(inherits(schema, "arrow::Schema"))
-  shared_ptr(`arrow::RecordBatch`, ipc___ReadRecordBatch__InputStream__Schema(obj, schema))
+  assert_that(inherits(schema, "Schema"))
+  shared_ptr(RecordBatch, ipc___ReadRecordBatch__InputStream__Schema(obj, schema))
 }
 
 #' @export

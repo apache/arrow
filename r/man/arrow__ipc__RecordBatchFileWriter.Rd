@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__ipc__RecordBatchFileWriter}
 \alias{arrow__ipc__RecordBatchFileWriter}
-\alias{arrow::RecordBatchFileWriter}
+\alias{RecordBatchFileWriter}
 \title{class arrow::RecordBatchFileWriter
 
 Writer for the Arrow binary file format}
@@ -13,7 +13,7 @@ class arrow::RecordBatchFileWriter
 Writer for the Arrow binary file format
 }
 \section{usage}{
-\preformatted{writer <- RecordBatchFileWriter(sink, schema)
+\preformatted{writer <- RecordBatchFileWriter$create(sink, schema)
 
 writer$write_batch(batch)
 writer$write_table(table)

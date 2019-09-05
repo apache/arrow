@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::Schema")
+context("Schema")
 
 test_that("Alternate type names are supported", {
   expect_equal(
@@ -28,11 +28,11 @@ test_that("reading schema from Buffer", {
   # TODO: this uses the streaming format, i.e. from RecordBatchStreamWriter
   #       maybe there is an easier way to serialize a schema
   batch <- record_batch(x = 1:10)
-  expect_is(batch, "arrow::RecordBatch")
+  expect_is(batch, "RecordBatch")
 
   stream <- BufferOutputStream$create()
-  writer <- RecordBatchStreamWriter(stream, batch$schema)
-  expect_is(writer, "arrow::RecordBatchStreamWriter")
+  writer <- RecordBatchStreamWriter$create(stream, batch$schema)
+  expect_is(writer, "RecordBatchStreamWriter")
   writer$close()
 
   buffer <- stream$getvalue()

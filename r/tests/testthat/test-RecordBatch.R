@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::RecordBatch")
+context("RecordBatch")
 
 test_that("RecordBatch", {
   tbl <- tibble::tibble(

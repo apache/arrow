@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__ipc__RecordBatchStreamWriter}
 \alias{arrow__ipc__RecordBatchStreamWriter}
-\alias{arrow::RecordBatchStreamWriter}
+\alias{RecordBatchStreamWriter}
 \title{class arrow::RecordBatchStreamWriter
 
 Writer for the Arrow streaming binary format}
@@ -13,7 +13,7 @@ class arrow::RecordBatchStreamWriter
 Writer for the Arrow streaming binary format
 }
 \section{usage}{
-\preformatted{writer <- RecordBatchStreamWriter(sink, schema)
+\preformatted{writer <- RecordBatchStreamWriter$create(sink, schema)
 
 writer$write_batch(batch)
 writer$write_table(table)

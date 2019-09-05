@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__RecordBatchReader}
 \alias{arrow__RecordBatchReader}
-\alias{arrow::RecordBatchReader}
+\alias{RecordBatchReader}
 \title{class arrow::RecordBatchReader}
 \description{
 class arrow::RecordBatchReader

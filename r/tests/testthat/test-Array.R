@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::Array")
+context("Array")
 
 test_that("Array", {
   x <- Array$create(c(1:10, 1:10, 1:5))

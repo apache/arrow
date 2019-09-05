@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__RecordBatch}
 \alias{arrow__RecordBatch}
-\alias{arrow::RecordBatch}
+\alias{RecordBatch}
 \title{class arrow::RecordBatch}
 \description{
 class arrow::RecordBatch

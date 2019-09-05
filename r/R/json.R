@@ -22,7 +22,7 @@
 #' @inheritParams read_delim_arrow
 #' @param ... Additional options, passed to `json_table_reader()`
 #'
-#' @return A `data.frame`, or an `arrow::Table` if `as_tibble = FALSE`.
+#' @return A `data.frame`, or an Table if `as_tibble = FALSE`.
 #' @export
 #' @examples
 #' \donttest{
@@ -62,7 +62,7 @@ read_json_arrow <- function(file, col_select = NULL, as_tibble = TRUE, ...) {
 #' @name arrow__json__TableReader
 JsonTableReader <- R6Class("JsonTableReader", inherit = Object,
   public = list(
-    Read = function() shared_ptr(`arrow::Table`, json___TableReader__Read(self))
+    Read = function() shared_ptr(Table, json___TableReader__Read(self))
   )
 )
 JsonTableReader$create <- function(file,

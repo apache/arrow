@@ -42,7 +42,7 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
       }
     },
     cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
-      assert_that(inherits(target_type, "arrow::DataType"))
+      assert_that(inherits(target_type, "DataType"))
       assert_that(inherits(options, "CastOptions"))
       shared_ptr(ChunkedArray, ChunkedArray__cast(self, target_type, options))
     }
@@ -51,7 +51,7 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
     null_count = function() ChunkedArray__null_count(self),
     num_chunks = function() ChunkedArray__num_chunks(self),
     chunks = function() map(ChunkedArray__chunks(self), ~ Array$create(.x)),
-    type = function() `arrow::DataType`$dispatch(ChunkedArray__type(self))
+    type = function() DataType$dispatch(ChunkedArray__type(self))
   )
 )
 

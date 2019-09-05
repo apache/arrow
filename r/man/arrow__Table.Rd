@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__Table}
 \alias{arrow__Table}
-\alias{arrow::Table}
+\alias{Table}
 \title{class arrow::Table}
 \description{
 class arrow::Table

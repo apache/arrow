@@ -29,7 +29,7 @@
 #'
 #' @rdname arrow__Column
 #' @name arrow__Column
-`arrow::Column` <- R6Class("arrow::Column", inherit = Object,
+Column <- R6Class("Column", inherit = Object,
   public = list(
     length = function() Column__length(self),
     data = function() shared_ptr(ChunkedArray, Column__data(self))
@@ -37,6 +37,6 @@
 
   active = list(
     null_count = function() Column__null_count(self),
-    type = function() `arrow::DataType`$dispatch(Column__type(self))
+    type = function() DataType$dispatch(Column__type(self))
   )
 )

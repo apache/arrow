@@ -30,11 +30,11 @@
 #' @rdname arrow__DictionaryType
 #' @name arrow__DictionaryType
 DictionaryType <- R6Class("DictionaryType",
-  inherit = `arrow::FixedWidthType`,
+  inherit = FixedWidthType,
 
   active = list(
-    index_type = function() `arrow::DataType`$dispatch(DictionaryType__index_type(self)),
-    value_type = function() `arrow::DataType`$dispatch(DictionaryType__value_type(self)),
+    index_type = function() DataType$dispatch(DictionaryType__index_type(self)),
+    value_type = function() DataType$dispatch(DictionaryType__value_type(self)),
     name = function() DictionaryType__name(self),
     ordered = function() DictionaryType__ordered(self)
   )
@@ -51,8 +51,8 @@ DictionaryType <- R6Class("DictionaryType",
 #' @export
 dictionary <- function(index_type, value_type, ordered = FALSE) {
   assert_that(
-    inherits(index_type, "arrow::DataType"),
-    inherits(index_type, "arrow::DataType")
+    inherits(index_type, "DataType"),
+    inherits(index_type, "DataType")
   )
   shared_ptr(DictionaryType, DictionaryType__initialize(index_type, value_type, ordered))
 }

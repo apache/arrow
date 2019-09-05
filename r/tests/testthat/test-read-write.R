@@ -17,7 +17,7 @@
 
 context("read-write")
 
-test_that("arrow::table round trip", {
+test_that("table round trip", {
   tbl <- tibble::tibble(
     int = 1:10,
     dbl = as.numeric(1:10),
@@ -76,7 +76,7 @@ test_that("arrow::table round trip", {
   unlink(tf)
 })
 
-test_that("arrow::table round trip handles NA in integer and numeric", {
+test_that("table round trip handles NA in integer and numeric", {
   tbl <- tibble::tibble(
     int = c(NA, 2:10),
     dbl = as.numeric(c(1:5, NA, 7:9, NA)),

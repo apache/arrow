@@ -36,15 +36,15 @@
 #'
 #' @rdname arrow__ipc__RecordBatchWriter
 #' @name arrow__ipc__RecordBatchWriter
-`arrow::RecordBatchWriter` <- R6Class("arrow::RecordBatchWriter", inherit = Object,
+RecordBatchWriter <- R6Class("RecordBatchWriter", inherit = Object,
   public = list(
     write_batch = function(batch) ipc___RecordBatchWriter__WriteRecordBatch(self, batch),
     write_table = function(table) ipc___RecordBatchWriter__WriteTable(self, table),
 
     write = function(x) {
-      if (inherits(x, "arrow::RecordBatch")) {
+      if (inherits(x, "RecordBatch")) {
         self$write_batch(x)
-      } else if (inherits(x, "arrow::Table")) {
+      } else if (inherits(x, "Table")) {
         self$write_table(x)
       } else if (inherits(x, "data.frame")) {
         self$write_table(table(x))
@@ -68,7 +68,7 @@
 #' @section usage:
 #'
 #' ```
-#' writer <- RecordBatchStreamWriter(sink, schema)
+#' writer <- RecordBatchStreamWriter$create(sink, schema)
 #'
 #' writer$write_batch(batch)
 #' writer$write_table(table)
@@ -88,33 +88,16 @@
 #'
 #' @rdname arrow__ipc__RecordBatchStreamWriter
 #' @name arrow__ipc__RecordBatchStreamWriter
-`arrow::RecordBatchStreamWriter` <- R6Class("arrow::RecordBatchStreamWriter", inherit = `arrow::RecordBatchWriter`)
+RecordBatchStreamWriter <- R6Class("RecordBatchStreamWriter", inherit = RecordBatchWriter)
 
-#' Writer for the Arrow streaming binary format
-#'
-#' @param sink Where to write. Can either be:
-#'
-#' - A string file path
-#' - [arrow::io::OutputStream][arrow__io__OutputStream]
-#'
-#' @param schema The [arrow::Schema][arrow__Schema] for data to be written.
-#'
-#' @return a [arrow::RecordBatchStreamWriter][arrow__ipc__RecordBatchStreamWriter]
-#'
-#' @export
-RecordBatchStreamWriter <- function(sink, schema) {
-  UseMethod("RecordBatchStreamWriter")
-}
+RecordBatchStreamWriter$create <- function(sink, schema) {
+  if (is.character(sink)) {
+    sink <- FileOutputStream$create(sink)
+  }
+  assert_that(inherits(sink, "OutputStream"))
+  assert_that(inherits(schema, "Schema"))
 
-#' @export
-RecordBatchStreamWriter.character <- function(sink, schema){
-  RecordBatchStreamWriter(FileOutputStream$create(sink), schema)
-}
-
-#' @export
-RecordBatchStreamWriter.OutputStream <- function(sink, schema){
-  assert_that(inherits(schema, "arrow::Schema"))
-  shared_ptr(`arrow::RecordBatchStreamWriter`, ipc___RecordBatchStreamWriter__Open(sink, schema))
+  shared_ptr(RecordBatchStreamWriter, ipc___RecordBatchStreamWriter__Open(sink, schema))
 }
 
 #' @title class arrow::RecordBatchFileWriter
@@ -128,7 +111,7 @@ RecordBatchStreamWriter.OutputStream <- function(sink, schema){
 #' @section usage:
 #'
 #' ```
-#' writer <- RecordBatchFileWriter(sink, schema)
+#' writer <- RecordBatchFileWriter$create(sink, schema)
 #'
 #' writer$write_batch(batch)
 #' writer$write_table(table)
@@ -148,31 +131,14 @@ RecordBatchStreamWriter.OutputStream <- function(sink, schema){
 #'
 #' @rdname arrow__ipc__RecordBatchFileWriter
 #' @name arrow__ipc__RecordBatchFileWriter
-`arrow::RecordBatchFileWriter` <- R6Class("arrow::RecordBatchFileWriter", inherit = `arrow::RecordBatchStreamWriter`)
+RecordBatchFileWriter <- R6Class("RecordBatchFileWriter", inherit = RecordBatchStreamWriter)
 
-#' Create a record batch file writer from a stream
-#'
-#' @param sink Where to write. Can either be:
-#'
-#' - a string file path
-#' - [arrow::io::OutputStream][arrow__io__OutputStream]
-#'
-#' @param schema The [arrow::Schema][arrow__Schema] for data to be written.
-#'
-#' @return an `arrow::RecordBatchWriter` object
-#'
-#' @export
-RecordBatchFileWriter <- function(sink, schema) {
-  UseMethod("RecordBatchFileWriter")
-}
+RecordBatchFileWriter$create <- function(sink, schema) {
+  if (is.character(sink)) {
+    sink <- FileOutputStream$create(sink)
+  }
+  assert_that(inherits(sink, "OutputStream"))
+  assert_that(inherits(schema, "Schema"))
 
-#' @export
-RecordBatchFileWriter.character <- function(sink, schema){
-  RecordBatchFileWriter(FileOutputStream$create(sink), schema)
-}
-
-#' @export
-RecordBatchFileWriter.OutputStream <- function(sink, schema){
-  assert_that(inherits(schema, "arrow::Schema"))
-  shared_ptr(`arrow::RecordBatchFileWriter`, ipc___RecordBatchFileWriter__Open(sink, schema))
+  shared_ptr(RecordBatchFileWriter, ipc___RecordBatchFileWriter__Open(sink, schema))
 }

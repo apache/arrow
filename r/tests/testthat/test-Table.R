@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::Table")
+context("Table")
 
 test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tbl <- tibble::tibble(
@@ -34,21 +34,21 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tab2 <- read_table(fs::path_abs(tf))
 
   readable_file <- ReadableFile$create(tf)
-  file_reader1 <- RecordBatchFileReader(readable_file)
+  file_reader1 <- RecordBatchFileReader$create(readable_file)
   tab3 <- read_table(file_reader1)
   readable_file$close()
 
   mmap_file <- mmap_open(tf)
-  file_reader2 <- RecordBatchFileReader(mmap_file)
+  file_reader2 <- RecordBatchFileReader$create(mmap_file)
   tab4 <- read_table(file_reader2)
   mmap_file$close()
 
   tab5 <- read_table(bytes)
 
-  stream_reader <- RecordBatchStreamReader(bytes)
+  stream_reader <- RecordBatchStreamReader$create(bytes)
   tab6 <- read_table(stream_reader)
 
-  file_reader <- RecordBatchFileReader(tf)
+  file_reader <- RecordBatchFileReader$create(tf)
   tab7 <- read_table(file_reader)
 
   expect_equal(tab, tab1)

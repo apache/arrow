@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__FixedWidthType}
 \alias{arrow__FixedWidthType}
-\alias{arrow::FixedWidthType}
+\alias{FixedWidthType}
 \title{class arrow::FixedWidthType}
 \description{
 class arrow::FixedWidthType

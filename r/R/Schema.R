@@ -41,12 +41,12 @@
 #'
 #' @rdname arrow__Schema
 #' @name arrow__Schema
-`arrow::Schema` <- R6Class("arrow::Schema",
+Schema <- R6Class("Schema",
   inherit = Object,
   public = list(
     ToString = function() Schema__ToString(self),
     num_fields = function() Schema__num_fields(self),
-    field = function(i) shared_ptr(`arrow::Field`, Schema__field(self, i)),
+    field = function(i) shared_ptr(Field, Schema__field(self, i)),
     serialize = function() Schema__serialize(self),
     Equals = function(other, check_metadata = TRUE) Schema__Equals(self, other, isTRUE(check_metadata))
   ),
@@ -56,7 +56,7 @@
 )
 
 #' @export
-`==.arrow::Schema` <- function(lhs, rhs){
+`==.Schema` <- function(lhs, rhs){
   lhs$Equals(rhs)
 }
 
@@ -74,7 +74,7 @@
 #' @export
 # TODO (npr): add examples once ARROW-5505 merges
 schema <- function(...){
-  shared_ptr(`arrow::Schema`, schema_(.fields(list2(...))))
+  shared_ptr(Schema, schema_(.fields(list2(...))))
 }
 
 #' read a Schema from a stream
@@ -89,24 +89,24 @@ read_schema <- function(stream, ...) {
 
 #' @export
 read_schema.InputStream <- function(stream, ...) {
-  shared_ptr(`arrow::Schema`, ipc___ReadSchema_InputStream(stream))
+  shared_ptr(Schema, ipc___ReadSchema_InputStream(stream))
 }
 
 #' @export
 `read_schema.Buffer` <- function(stream, ...) {
   stream <- BufferReader$create(stream)
   on.exit(stream$close())
-  shared_ptr(`arrow::Schema`, ipc___ReadSchema_InputStream(stream))
+  shared_ptr(Schema, ipc___ReadSchema_InputStream(stream))
 }
 
 #' @export
 `read_schema.raw` <- function(stream, ...) {
   stream <- BufferReader$create(stream)
   on.exit(stream$close())
-  shared_ptr(`arrow::Schema`, ipc___ReadSchema_InputStream(stream))
+  shared_ptr(Schema, ipc___ReadSchema_InputStream(stream))
 }
 
 #' @export
-`read_schema.arrow::Message` <- function(stream, ...) {
-  shared_ptr(`arrow::Schema`, ipc___ReadSchema_Message(stream))
+read_schema.Message <- function(stream, ...) {
+  shared_ptr(Schema, ipc___ReadSchema_Message(stream))
 }

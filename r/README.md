@@ -71,11 +71,11 @@ set.seed(24)
 
 tab <- arrow::table(x = 1:10, y = rnorm(10))
 tab$schema
-#> arrow::Schema 
+#> Schema 
 #> x: int32
 #> y: double
 tab
-#> arrow::Table
+#> Table
 as.data.frame(tab)
 #>     x            y
 #> 1   1 -0.545880758

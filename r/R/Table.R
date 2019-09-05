@@ -29,18 +29,18 @@
 #'
 #' @rdname arrow__Table
 #' @name arrow__Table
-`arrow::Table` <- R6Class("arrow::Table", inherit = Object,
+Table <- R6Class("Table", inherit = Object,
   public = list(
     column = function(i) shared_ptr(ChunkedArray, Table__column(self, i)),
-    field = function(i) shared_ptr(`arrow::Field`, Table__field(self, i)),
+    field = function(i) shared_ptr(Field, Table__field(self, i)),
 
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
 
     cast = function(target_schema, safe = TRUE, options = cast_options(safe)) {
-      assert_that(inherits(target_schema, "arrow::Schema"))
+      assert_that(inherits(target_schema, "Schema"))
       assert_that(inherits(options, "CastOptions"))
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
-      shared_ptr(`arrow::Table`, Table__cast(self, target_schema, options))
+      shared_ptr(Table, Table__cast(self, target_schema, options))
     },
 
     select = function(spec) {
@@ -51,7 +51,7 @@
         all_vars <- Table__column_names(self)
         vars <- vars_select(all_vars, !!spec)
         indices <- match(vars, all_vars)
-        shared_ptr(`arrow::Table`, Table__select(self, indices))
+        shared_ptr(Table, Table__select(self, indices))
       }
 
     }
@@ -60,8 +60,8 @@
   active = list(
     num_columns = function() Table__num_columns(self),
     num_rows = function() Table__num_rows(self),
-    schema = function() shared_ptr(`arrow::Schema`, Table__schema(self)),
-    columns = function() map(Table__columns(self), shared_ptr, class = `arrow::Column`)
+    schema = function() shared_ptr(Schema, Table__schema(self)),
+    columns = function() map(Table__columns(self), shared_ptr, class = Column)
   )
 )
 
@@ -80,15 +80,15 @@ table <- function(..., schema = NULL){
     names(dots) <- rep_len("", length(dots))
   }
   stopifnot(length(dots) > 0)
-  shared_ptr(`arrow::Table`, Table__from_dots(dots, schema))
+  shared_ptr(Table, Table__from_dots(dots, schema))
 }
 
 #' @export
-`as.data.frame.arrow::Table` <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
+as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
   Table__to_dataframe(x, use_threads = option_use_threads())
 }
 
 #' @export
-`dim.arrow::Table` <- function(x) {
+dim.Table <- function(x) {
   c(x$num_rows, x$num_columns)
 }

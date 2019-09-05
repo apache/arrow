@@ -19,8 +19,8 @@ to_arrow <- function(x) {
   UseMethod("to_arrow")
 }
 
-`to_arrow.arrow::RecordBatch` <- function(x) x
-`to_arrow.arrow::Table` <- function(x) x
+to_arrow.RecordBatch <- function(x) x
+to_arrow.Table <- function(x) x
 
 # splice the data frame as arguments of table()
 # see ?rlang::list2()
@@ -55,7 +55,7 @@ write_arrow <- function(x, stream, ...) {
 }
 
 #' @export
-`write_arrow.arrow::RecordBatchWriter` <- function(x, stream, ...){
+write_arrow.RecordBatchWriter <- function(x, stream, ...){
   stream$write(x)
 }
 
@@ -65,7 +65,7 @@ write_arrow <- function(x, stream, ...) {
   x <- to_arrow(x)
   file_stream <- FileOutputStream$create(stream)
   on.exit(file_stream$close())
-  file_writer <- RecordBatchFileWriter(file_stream, x$schema)
+  file_writer <- RecordBatchFileWriter$create(file_stream, x$schema)
   on.exit({
     # Re-set the exit code to close both connections, LIFO
     file_writer$close()
@@ -83,7 +83,7 @@ write_arrow <- function(x, stream, ...) {
 
   # how many bytes do we need
   mock_stream <- MockOutputStream$create()
-  writer <- RecordBatchStreamWriter(mock_stream, schema)
+  writer <- RecordBatchStreamWriter$create(mock_stream, schema)
   writer$write(x)
   writer$close()
   n <- mock_stream$GetExtentBytesWritten()
@@ -91,7 +91,7 @@ write_arrow <- function(x, stream, ...) {
   # now that we know the size, stream in a buffer backed by an R raw vector
   bytes <- raw(n)
   buffer_writer <- FixedSizeBufferWriter$create(buffer(bytes))
-  writer <- RecordBatchStreamWriter(buffer_writer, schema)
+  writer <- RecordBatchStreamWriter$create(buffer_writer, schema)
   writer$write(x)
   writer$close()
 

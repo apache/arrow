@@ -17,7 +17,7 @@
 
 #' Write data in the Feather format
 #'
-#' @param data `data.frame` or `arrow::RecordBatch`
+#' @param data `data.frame` or RecordBatch
 #' @param stream A file path or an OutputStream
 #'
 #' @export
@@ -34,7 +34,7 @@ write_feather <- function(data, stream) {
   if (is.data.frame(data)) {
     data <- record_batch(data)
   }
-  assert_that(inherits(data, "arrow::RecordBatch"))
+  assert_that(inherits(data, "RecordBatch"))
 
   if (is.character(stream)) {
     stream <- FileOutputStream$create(stream)
@@ -62,7 +62,8 @@ FeatherTableWriter$create <- function(stream) {
 
 #' Read a Feather file
 #'
-#' @param file an FeatherTableReader or whatever the [FeatherTableReader()] function can handle
+#' @param file A character file path, a raw vector, or `InputStream`, passed to
+#' `FeatherTableReader$create()`.
 #' @inheritParams read_delim_arrow
 #' @param ... additional parameters
 #'
@@ -81,7 +82,7 @@ FeatherTableWriter$create <- function(stream) {
 #'   df <- read_feather(tf, col_select = starts_with("Sepal"))
 #' })
 #' }
-read_feather <- function(file, col_select = NULL, as_tibble = TRUE, ...){
+read_feather <- function(file, col_select = NULL, as_tibble = TRUE, ...) {
   reader <- FeatherTableReader$create(file, ...)
 
   all_columns <- ipc___feather___TableReader__column_names(reader)
@@ -107,7 +108,7 @@ FeatherTableReader <- R6Class("FeatherTableReader", inherit = Object,
     GetColumnName = function(i) ipc___feather___TableReader__GetColumnName(self, i),
     GetColumn = function(i) shared_ptr(Array, ipc___feather___TableReader__GetColumn(self, i)),
     Read = function(columns) {
-      shared_ptr(`arrow::Table`, ipc___feather___TableReader__Read(self, columns))
+      shared_ptr(Table, ipc___feather___TableReader__Read(self, columns))
     }
   )
 )

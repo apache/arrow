@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__MemoryPool}
 \alias{arrow__MemoryPool}
-\alias{arrow::MemoryPool}
+\alias{MemoryPool}
 \title{class arrow::MemoryPool}
 \description{
 class arrow::MemoryPool

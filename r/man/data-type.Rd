@@ -98,7 +98,7 @@ take any of those four values.}
 \item{...}{For \code{struct()}, a named list of types to define the struct columns}
 }
 \value{
-An Arrow type object inheriting from \code{arrow::DataType}.
+An Arrow type object inheriting from DataType.
 }
 \description{
 These functions create type objects corresponding to Arrow types. Use them

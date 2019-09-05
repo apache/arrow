@@ -29,13 +29,13 @@
 #'
 #' @rdname arrow__Field
 #' @name arrow__Field
-`arrow::Field` <- R6Class("arrow::Field", inherit = Object,
+Field <- R6Class("Field", inherit = Object,
   public = list(
     ToString = function() {
       Field__ToString(self)
     },
     Equals = function(other) {
-      inherits(other, "arrow::Field") && Field__Equals(self, other)
+      inherits(other, "Field") && Field__Equals(self, other)
     }
   ),
 
@@ -47,20 +47,20 @@
       Field__nullable(self)
     },
     type = function() {
-      `arrow::DataType`$dispatch(Field__type(self))
+      DataType$dispatch(Field__type(self))
     }
   )
 )
 
 #' @export
-`==.arrow::Field` <- function(lhs, rhs){
+`==.Field` <- function(lhs, rhs){
   lhs$Equals(rhs)
 }
 
-#' Factory for a `arrow::Field`
+#' Factory for a Field
 #'
 #' @param name field name
-#' @param type logical type, instance of `arrow::DataType`
+#' @param type logical type, instance of DataType
 #' @param metadata currently ignored
 #'
 #' @examples
@@ -72,7 +72,7 @@
 #' @export
 field <- function(name, type, metadata) {
   assert_that(inherits(name, "character"), length(name) == 1L)
-  if (!inherits(type, "arrow::DataType")) {
+  if (!inherits(type, "DataType")) {
     if (identical(type, double())) {
       # Magic so that we don't have to mask this base function
       type <- float64()
@@ -81,7 +81,7 @@ field <- function(name, type, metadata) {
     }
   }
   assert_that(missing(metadata), msg = "metadata= is currently ignored")
-  shared_ptr(`arrow::Field`, Field__initialize(name, type, TRUE))
+  shared_ptr(Field, Field__initialize(name, type, TRUE))
 }
 
 .fields <- function(.list){

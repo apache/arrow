@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__Schema}
 \alias{arrow__Schema}
-\alias{arrow::Schema}
+\alias{Schema}
 \title{class arrow::Schema}
 \description{
 class arrow::Schema

@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__Column}
 \alias{arrow__Column}
-\alias{arrow::Column}
+\alias{Column}
 \title{class arrow::Column}
 \description{
 class arrow::Column

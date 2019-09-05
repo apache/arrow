@@ -29,14 +29,14 @@
 #'
 #' @rdname arrow__RecordBatchReader
 #' @name arrow__RecordBatchReader
-`arrow::RecordBatchReader` <- R6Class("arrow::RecordBatchReader", inherit = Object,
+RecordBatchReader <- R6Class("RecordBatchReader", inherit = Object,
   public = list(
     read_next_batch = function() {
-      shared_ptr(`arrow::RecordBatch`, RecordBatchReader__ReadNext(self))
+      shared_ptr(RecordBatch, RecordBatchReader__ReadNext(self))
     }
   ),
   active = list(
-    schema = function() shared_ptr(`arrow::Schema`, RecordBatchReader__schema(self))
+    schema = function() shared_ptr(Schema, RecordBatchReader__schema(self))
   )
 )
 
@@ -52,11 +52,19 @@
 #'
 #' @rdname arrow__ipc__RecordBatchStreamReader
 #' @name arrow__ipc__RecordBatchStreamReader
-`arrow::RecordBatchStreamReader` <- R6Class("arrow::RecordBatchStreamReader", inherit = `arrow::RecordBatchReader`,
+RecordBatchStreamReader <- R6Class("RecordBatchStreamReader", inherit = RecordBatchReader,
   public = list(
-    batches = function() map(ipc___RecordBatchStreamReader__batches(self), shared_ptr, class = `arrow::RecordBatch`)
+    batches = function() map(ipc___RecordBatchStreamReader__batches(self), shared_ptr, class = RecordBatch)
   )
 )
+RecordBatchStreamReader$create <- function(stream){
+  if (inherits(stream, c("raw", "Buffer"))) {
+    stream <- BufferReader$create(stream)
+  }
+  assert_that(inherits(stream, "InputStream"))
+
+  shared_ptr(RecordBatchStreamReader, ipc___RecordBatchStreamReader__Open(stream))
+}
 
 #' @title class arrow::RecordBatchFileReader
 #'
@@ -70,69 +78,27 @@
 #'
 #' @rdname arrow__ipc__RecordBatchFileReader
 #' @name arrow__ipc__RecordBatchFileReader
-`arrow::RecordBatchFileReader` <- R6Class("arrow::RecordBatchFileReader", inherit = Object,
+RecordBatchFileReader <- R6Class("RecordBatchFileReader", inherit = Object,
+  # Why doesn't this inherit from RecordBatchReader?
   public = list(
-    get_batch = function(i) shared_ptr(`arrow::RecordBatch`, ipc___RecordBatchFileReader__ReadRecordBatch(self, i)),
+    get_batch = function(i) shared_ptr(RecordBatch, ipc___RecordBatchFileReader__ReadRecordBatch(self, i)),
 
-    batches = function() map(ipc___RecordBatchFileReader__batches(self), shared_ptr, class = `arrow::RecordBatch`)
+    batches = function() map(ipc___RecordBatchFileReader__batches(self), shared_ptr, class = RecordBatch)
   ),
   active = list(
     num_record_batches = function() ipc___RecordBatchFileReader__num_record_batches(self),
-    schema = function() shared_ptr(`arrow::Schema`, ipc___RecordBatchFileReader__schema(self))
+    schema = function() shared_ptr(Schema, ipc___RecordBatchFileReader__schema(self))
   )
 )
 
-#' Create a [arrow::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader] from an input stream
-#'
-#' @param stream input stream, an [arrow::io::InputStream][arrow__io__InputStream] or a raw vector
-#'
-#' @export
-RecordBatchStreamReader <- function(stream){
-  UseMethod("RecordBatchStreamReader")
-}
+RecordBatchFileReader$create <- function(file) {
+  if (inherits(file, c("raw", "Buffer"))) {
+    file <- BufferReader$create(file)
+  } else if (is.character(file)) {
+    assert_that(length(file) == 1L)
+    file <- ReadableFile$create(file)
+  }
+  assert_that(inherits(file, "RandomAccessFile"))
 
-#' @export
-RecordBatchStreamReader.InputStream <- function(stream) {
-  shared_ptr(`arrow::RecordBatchStreamReader`, ipc___RecordBatchStreamReader__Open(stream))
-}
-
-#' @export
-`RecordBatchStreamReader.raw` <- function(stream) {
-  RecordBatchStreamReader(BufferReader$create(stream))
-}
-
-#' @export
-`RecordBatchStreamReader.Buffer` <- function(stream) {
-  RecordBatchStreamReader(BufferReader$create(stream))
-}
-
-
-#' Create an [arrow::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader] from a file
-#'
-#' @param file The file to read from. A file path, or an [arrow::io::RandomAccessFile][arrow__ipc__RecordBatchFileReader]
-#'
-#' @export
-RecordBatchFileReader <- function(file) {
-  UseMethod("RecordBatchFileReader")
-}
-
-#' @export
-RecordBatchFileReader.RandomAccessFile <- function(file) {
-  shared_ptr(`arrow::RecordBatchFileReader`, ipc___RecordBatchFileReader__Open(file))
-}
-
-#' @export
-`RecordBatchFileReader.character` <- function(file) {
-  assert_that(length(file) == 1L)
-  RecordBatchFileReader(ReadableFile$create(file))
-}
-
-#' @export
-`RecordBatchFileReader.Buffer` <- function(file) {
-  RecordBatchFileReader(BufferReader$create(file))
-}
-
-#' @export
-`RecordBatchFileReader.raw` <- function(file) {
-  RecordBatchFileReader(BufferReader$create(file))
+  shared_ptr(RecordBatchFileReader, ipc___RecordBatchFileReader__Open(file))
 }

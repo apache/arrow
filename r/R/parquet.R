@@ -23,15 +23,15 @@
     ReadTable = function(col_select = NULL) {
       col_select <- enquo(col_select)
       if(quo_is_null(col_select)) {
-        shared_ptr(`arrow::Table`, parquet___arrow___FileReader__ReadTable1(self))
+        shared_ptr(Table, parquet___arrow___FileReader__ReadTable1(self))
       } else {
-        all_vars <- shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema(self))$names
+        all_vars <- shared_ptr(Schema, parquet___arrow___FileReader__GetSchema(self))$names
         indices <- match(vars_select(all_vars, !!col_select), all_vars) - 1L
-        shared_ptr(`arrow::Table`, parquet___arrow___FileReader__ReadTable2(self, indices))
+        shared_ptr(Table, parquet___arrow___FileReader__ReadTable2(self, indices))
       }
     },
     GetSchema = function() {
-      shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema(self))
+      shared_ptr(Schema, parquet___arrow___FileReader__GetSchema(self))
     }
   )
 )

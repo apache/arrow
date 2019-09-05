@@ -29,63 +29,73 @@
 #'
 #' @rdname arrow__RecordBatch
 #' @name arrow__RecordBatch
-`arrow::RecordBatch` <- R6Class("arrow::RecordBatch", inherit = Object,
+RecordBatch <- R6Class("RecordBatch", inherit = Object,
   public = list(
     column = function(i) shared_ptr(Array, RecordBatch__column(self, i)),
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
     Equals = function(other) {
-      assert_that(inherits(other, "arrow::RecordBatch"))
+      assert_that(inherits(other, "RecordBatch"))
       RecordBatch__Equals(self, other)
     },
 
     RemoveColumn = function(i){
-      shared_ptr(`arrow::RecordBatch`, RecordBatch__RemoveColumn(self, i))
+      shared_ptr(RecordBatch, RecordBatch__RemoveColumn(self, i))
     },
 
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
-        shared_ptr(`arrow::RecordBatch`, RecordBatch__Slice1(self, offset))
+        shared_ptr(RecordBatch, RecordBatch__Slice1(self, offset))
       } else {
-        shared_ptr(`arrow::RecordBatch`, RecordBatch__Slice2(self, offset, length))
+        shared_ptr(RecordBatch, RecordBatch__Slice2(self, offset, length))
       }
     },
 
     serialize = function() ipc___SerializeRecordBatch__Raw(self),
 
     cast = function(target_schema, safe = TRUE, options = cast_options(safe)) {
-      assert_that(inherits(target_schema, "arrow::Schema"))
+      assert_that(inherits(target_schema, "Schema"))
       assert_that(inherits(options, "CastOptions"))
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
-      shared_ptr(`arrow::RecordBatch`, RecordBatch__cast(self, target_schema, options))
+      shared_ptr(RecordBatch, RecordBatch__cast(self, target_schema, options))
     }
   ),
 
   active = list(
     num_columns = function() RecordBatch__num_columns(self),
     num_rows = function() RecordBatch__num_rows(self),
-    schema = function() shared_ptr(`arrow::Schema`, RecordBatch__schema(self)),
+    schema = function() shared_ptr(Schema, RecordBatch__schema(self)),
     columns = function() map(RecordBatch__columns(self), shared_ptr, Array)
   )
 )
 
+RecordBatch$create <- function(..., schema = NULL){
+  arrays <- list2(...)
+  # making sure there are always names
+  if (is.null(names(arrays))) {
+    names(arrays) <- rep_len("", length(arrays))
+  }
+  stopifnot(length(arrays) > 0)
+  shared_ptr(RecordBatch, RecordBatch__from_arrays(schema, arrays))
+}
+
 #' @export
-`names.arrow::RecordBatch` <- function(x) {
+names.RecordBatch <- function(x) {
   x$names()
 }
 
 #' @export
-`==.arrow::RecordBatch` <- function(x, y) {
+`==.RecordBatch` <- function(x, y) {
   x$Equals(y)
 }
 
 #' @export
-`dim.arrow::RecordBatch` <- function(x) {
+dim.RecordBatch <- function(x) {
   c(x$num_rows, x$num_columns)
 }
 
 #' @export
-`as.data.frame.arrow::RecordBatch` <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
+as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
   RecordBatch__to_dataframe(x, use_threads = option_use_threads())
 }
 
@@ -96,12 +106,4 @@
 #'
 #' @return a [arrow::RecordBatch][arrow__RecordBatch]
 #' @export
-record_batch <- function(..., schema = NULL){
-  arrays <- list2(...)
-  # making sure there are always names
-  if (is.null(names(arrays))) {
-    names(arrays) <- rep_len("", length(arrays))
-  }
-  stopifnot(length(arrays) > 0)
-  shared_ptr(`arrow::RecordBatch`, RecordBatch__from_arrays(schema, arrays))
-}
+record_batch <- RecordBatch$create

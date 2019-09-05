@@ -7,7 +7,7 @@
 write_feather(data, stream)
 }
 \arguments{
-\item{data}{\code{data.frame} or \code{arrow::RecordBatch}}
+\item{data}{\code{data.frame} or RecordBatch}
 
 \item{stream}{A file path or an OutputStream}
 }
