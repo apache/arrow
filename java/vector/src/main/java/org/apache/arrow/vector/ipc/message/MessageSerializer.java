@@ -92,7 +92,7 @@ public class MessageSerializer {
    * @param bytes existing byte array with minimum length of 8 to contain the conversion output
    */
   public static void longToBytes(long value, byte[] bytes) {
-    bytes[7] = (byte) (value >>> 64);
+    bytes[7] = (byte) (value >>> 56);
     bytes[6] = (byte) (value >>> 48);
     bytes[5] = (byte) (value >>> 40);
     bytes[4] = (byte) (value >>> 32);
@@ -653,16 +653,13 @@ public class MessageSerializer {
     ByteBuffer buffer = ByteBuffer.allocate(4);
     if (in.readFully(buffer) == 4) {
 
-      int continuation = MessageSerializer.bytesToInt(buffer.array());
-      int messageLength = 0;
-      if (continuation == IPC_CONTINUATION_TOKEN) {
+      int messageLength = MessageSerializer.bytesToInt(buffer.array());
+      if (messageLength == IPC_CONTINUATION_TOKEN) {
         buffer.clear();
         // ARROW-6313, if the first 4 bytes are continuation message, read the next 4 for the length
         if (in.readFully(buffer) == 4) {
           messageLength = MessageSerializer.bytesToInt(buffer.array());
         }
-      } else {
-        messageLength = continuation;
       }
 
       // Length of 0 indicates end of stream
