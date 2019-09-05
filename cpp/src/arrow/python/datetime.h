@@ -22,6 +22,7 @@
 #include <chrono>
 
 #include "arrow/python/platform.h"
+#include "arrow/python/visibility.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
@@ -30,43 +31,59 @@ namespace arrow {
 namespace py {
 namespace internal {
 
+ARROW_PYTHON_EXPORT
 int64_t PyTime_to_us(PyObject* pytime);
 
+ARROW_PYTHON_EXPORT
 inline int64_t PyTime_to_s(PyObject* pytime) { return PyTime_to_us(pytime) / 1000000; }
 
+ARROW_PYTHON_EXPORT
 inline int64_t PyTime_to_ms(PyObject* pytime) { return PyTime_to_us(pytime) / 1000; }
 
+ARROW_PYTHON_EXPORT
 inline int64_t PyTime_to_ns(PyObject* pytime) { return PyTime_to_us(pytime) * 1000; }
 
+ARROW_PYTHON_EXPORT
 Status PyTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** out);
+
+ARROW_PYTHON_EXPORT
 Status PyDate_from_int(int64_t val, const DateUnit unit, PyObject** out);
+
+ARROW_PYTHON_EXPORT
 Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** out);
 
-using TimePoint =
-    std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
+using TimePoint = ARROW_PYTHON_EXPORT
+     std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
 
+ARROW_PYTHON_EXPORT
 Status PyDateTime_from_TimePoint(TimePoint val, PyObject** out);
 
+ARROW_PYTHON_EXPORT
 int64_t PyDate_to_days(PyDateTime_Date* pydate);
 
+ARROW_PYTHON_EXPORT
 inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
   return PyDate_to_days(pydate) * 24 * 3600 * 1000;
 }
 
+ARROW_PYTHON_EXPORT
 int64_t PyDateTime_to_s(PyDateTime_DateTime* pydatetime);
 
+ARROW_PYTHON_EXPORT
 inline int64_t PyDateTime_to_ms(PyDateTime_DateTime* pydatetime) {
   int64_t date_ms = PyDateTime_to_s(pydatetime) * 1000;
   int ms = PyDateTime_DATE_GET_MICROSECOND(pydatetime) / 1000;
   return date_ms + ms;
 }
 
+ARROW_PYTHON_EXPORT
 inline int64_t PyDateTime_to_us(PyDateTime_DateTime* pydatetime) {
   int64_t ms = PyDateTime_to_s(pydatetime) * 1000;
   int us = PyDateTime_DATE_GET_MICROSECOND(pydatetime);
   return ms * 1000 + us;
 }
 
+ARROW_PYTHON_EXPORT
 inline int64_t PyDateTime_to_ns(PyDateTime_DateTime* pydatetime) {
   return PyDateTime_to_us(pydatetime) * 1000;
 }
