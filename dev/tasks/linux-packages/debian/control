@@ -197,7 +197,7 @@ Depends:
   libarrow-cuda15 (= ${binary:Version})
 Description: Plasma is an in-memory object store and cache for big data.
  .
- This package provides C++ library files to connect plasma_store_server.
+ This package provides C++ library files to connect plasma-store-server.
 
 Package: plasma-store-server
 Section: utils
@@ -209,7 +209,7 @@ Depends:
   libplasma15 (= ${binary:Version})
 Description: Plasma is an in-memory object store and cache for big data.
  .
- This package provides plasma_store_server.
+ This package provides plasma-store-server.
 
 Package: libplasma-dev
 Section: libdevel
@@ -402,7 +402,7 @@ Depends:
   libplasma15 (= ${binary:Version})
 Description: Plasma is an in-memory object store and cache for big data.
  .
- This package provides GLib based library files to connect plasma_store_server.
+ This package provides GLib based library files to connect plasma-store-server.
 
 Package: gir1.2-plasma-1.0
 Section: introspection
