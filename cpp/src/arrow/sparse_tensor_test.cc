@@ -83,12 +83,9 @@ class TestSparseCOOTensorBase : public ::testing::Test {
 
 class TestSparseCOOTensor : public TestSparseCOOTensorBase<Int64Type> {};
 
-TEST(TestSparseCOOTensor, CreationEmptyTensor) {
-  std::vector<int64_t> shape = {2, 3, 4};
-  SparseTensorImpl<SparseCOOIndex> st1(int64(), shape);
-
-  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
-  SparseTensorImpl<SparseCOOIndex> st2(int64(), shape, dim_names);
+TEST_F(TestSparseCOOTensor, CreationEmptyTensor) {
+  SparseTensorImpl<SparseCOOIndex> st1(int64(), this->shape_);
+  SparseTensorImpl<SparseCOOIndex> st2(int64(), this->shape_, this->dim_names_);
 
   ASSERT_EQ(0, st1.non_zero_length());
   ASSERT_EQ(0, st2.non_zero_length());
@@ -107,36 +104,17 @@ TEST(TestSparseCOOTensor, CreationEmptyTensor) {
   ASSERT_EQ("", st1.dim_name(2));
 }
 
-TEST(TestSparseCOOTensor, CreationFromNumericTensor) {
-  std::vector<int64_t> shape = {2, 3, 4};
-  std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
-                                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
-  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
-  NumericTensor<Int64Type> tensor1(buffer, shape);
-  NumericTensor<Int64Type> tensor2(buffer, shape, {}, dim_names);
-  SparseTensorImpl<SparseCOOIndex> st1(tensor1);
-  SparseTensorImpl<SparseCOOIndex> st2(tensor2);
+TEST_F(TestSparseCOOTensor, CreationFromNumericTensor) {
+  auto& st = *this->sparse_tensor_from_dense_;
+  CheckSparseIndexFormatType(SparseTensorFormat::COO, st);
 
-  CheckSparseIndexFormatType(SparseTensorFormat::COO, st1);
+  ASSERT_EQ(12, st.non_zero_length());
+  ASSERT_TRUE(st.is_mutable());
 
-  ASSERT_EQ(12, st1.non_zero_length());
-  ASSERT_TRUE(st1.is_mutable());
-
-  ASSERT_EQ(std::vector<std::string>({"foo", "bar", "baz"}), st2.dim_names());
-  ASSERT_EQ("foo", st2.dim_name(0));
-  ASSERT_EQ("bar", st2.dim_name(1));
-  ASSERT_EQ("baz", st2.dim_name(2));
-
-  ASSERT_EQ(std::vector<std::string>({}), st1.dim_names());
-  ASSERT_EQ("", st1.dim_name(0));
-  ASSERT_EQ("", st1.dim_name(1));
-  ASSERT_EQ("", st1.dim_name(2));
-
-  const int64_t* raw_data = reinterpret_cast<const int64_t*>(st1.raw_data());
+  const int64_t* raw_data = reinterpret_cast<const int64_t*>(st.raw_data());
   AssertNumericDataEqual(raw_data, {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16});
 
-  const auto& si = internal::checked_cast<const SparseCOOIndex&>(*st1.sparse_index());
+  const auto& si = internal::checked_cast<const SparseCOOIndex&>(*st.sparse_index());
   ASSERT_EQ(std::string("SparseCOOIndex"), si.ToString());
 
   std::shared_ptr<Tensor> sidx = si.indices();
@@ -150,90 +128,53 @@ TEST(TestSparseCOOTensor, CreationFromNumericTensor) {
   AssertCOOIndex(sidx, 11, {1, 2, 3});
 }
 
-TEST(TestSparseCOOTensor, CreationFromTensor) {
-  std::vector<int64_t> shape = {2, 3, 4};
+TEST_F(TestSparseCOOTensor, CreationFromTensor) {
   std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
                                  0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
   std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
-  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
-  Tensor tensor1(int64(), buffer, shape);
-  Tensor tensor2(int64(), buffer, shape, {}, dim_names);
-  SparseTensorImpl<SparseCOOIndex> st1(tensor1);
-  SparseTensorImpl<SparseCOOIndex> st2(tensor2);
-
-  ASSERT_EQ(12, st1.non_zero_length());
-  ASSERT_TRUE(st1.is_mutable());
-
-  ASSERT_EQ(std::vector<std::string>({"foo", "bar", "baz"}), st2.dim_names());
-  ASSERT_EQ("foo", st2.dim_name(0));
-  ASSERT_EQ("bar", st2.dim_name(1));
-  ASSERT_EQ("baz", st2.dim_name(2));
-
-  ASSERT_EQ(std::vector<std::string>({}), st1.dim_names());
-  ASSERT_EQ("", st1.dim_name(0));
-  ASSERT_EQ("", st1.dim_name(1));
-  ASSERT_EQ("", st1.dim_name(2));
-
-  const int64_t* raw_data = reinterpret_cast<const int64_t*>(st1.raw_data());
-  AssertNumericDataEqual(raw_data, {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16});
-
-  const auto& si = internal::checked_cast<const SparseCOOIndex&>(*st1.sparse_index());
-  std::shared_ptr<Tensor> sidx = si.indices();
-  ASSERT_EQ(std::vector<int64_t>({12, 3}), sidx->shape());
-  ASSERT_TRUE(sidx->is_column_major());
-
-  AssertCOOIndex(sidx, 0, {0, 0, 0});
-  AssertCOOIndex(sidx, 1, {0, 0, 2});
-  AssertCOOIndex(sidx, 2, {0, 1, 1});
-  AssertCOOIndex(sidx, 10, {1, 2, 1});
-  AssertCOOIndex(sidx, 11, {1, 2, 3});
-}
-
-TEST(TestSparseCOOTensor, CreationFromNonContiguousTensor) {
-  std::vector<int64_t> shape = {2, 3, 4};
-  std::vector<int64_t> values = {1,  0, 0, 0, 2,  0, 0, 0, 0, 0, 3,  0, 0, 0, 4,  0,
-                                 5,  0, 0, 0, 6,  0, 0, 0, 0, 0, 11, 0, 0, 0, 12, 0,
-                                 13, 0, 0, 0, 14, 0, 0, 0, 0, 0, 15, 0, 0, 0, 16, 0};
-  std::vector<int64_t> strides = {192, 64, 16};
-  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
-  Tensor tensor(int64(), buffer, shape, strides);
+  Tensor tensor(int64(), buffer, this->shape_, {}, this->dim_names_);
   SparseTensorImpl<SparseCOOIndex> st(tensor);
 
   ASSERT_EQ(12, st.non_zero_length());
   ASSERT_TRUE(st.is_mutable());
 
-  const int64_t* raw_data = reinterpret_cast<const int64_t*>(st.raw_data());
-  AssertNumericDataEqual(raw_data, {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16});
+  ASSERT_EQ(std::vector<std::string>({"foo", "bar", "baz"}), st.dim_names());
+  ASSERT_EQ("foo", st.dim_name(0));
+  ASSERT_EQ("bar", st.dim_name(1));
+  ASSERT_EQ("baz", st.dim_name(2));
 
-  const auto& si = internal::checked_cast<const SparseCOOIndex&>(*st.sparse_index());
-  std::shared_ptr<Tensor> sidx = si.indices();
-  ASSERT_EQ(std::vector<int64_t>({12, 3}), sidx->shape());
-  ASSERT_TRUE(sidx->is_column_major());
-
-  AssertCOOIndex(sidx, 0, {0, 0, 0});
-  AssertCOOIndex(sidx, 1, {0, 0, 2});
-  AssertCOOIndex(sidx, 2, {0, 1, 1});
-  AssertCOOIndex(sidx, 10, {1, 2, 1});
-  AssertCOOIndex(sidx, 11, {1, 2, 3});
+  ASSERT_TRUE(st.Equals(*this->sparse_tensor_from_dense_));
 }
 
-TEST(TestSparseCOOTensor, TensorEquality) {
-  std::vector<int64_t> shape = {2, 3, 4};
+TEST_F(TestSparseCOOTensor, CreationFromNonContiguousTensor) {
+  std::vector<int64_t> values = {1,  0, 0, 0, 2,  0, 0, 0, 0, 0, 3,  0, 0, 0, 4,  0,
+                                 5,  0, 0, 0, 6,  0, 0, 0, 0, 0, 11, 0, 0, 0, 12, 0,
+                                 13, 0, 0, 0, 14, 0, 0, 0, 0, 0, 15, 0, 0, 0, 16, 0};
+  std::vector<int64_t> strides = {192, 64, 16};
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
+  Tensor tensor(int64(), buffer, this->shape_, strides);
+  SparseTensorImpl<SparseCOOIndex> st(tensor);
+
+  ASSERT_EQ(12, st.non_zero_length());
+  ASSERT_TRUE(st.is_mutable());
+
+  ASSERT_TRUE(st.Equals(*this->sparse_tensor_from_dense_));
+}
+
+TEST_F(TestSparseCOOTensor, TensorEquality) {
   std::vector<int64_t> values1 = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
                                   0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
   std::vector<int64_t> values2 = {0, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
                                   0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
   std::shared_ptr<Buffer> buffer1 = Buffer::Wrap(values1);
   std::shared_ptr<Buffer> buffer2 = Buffer::Wrap(values2);
-  NumericTensor<Int64Type> tensor1(buffer1, shape);
-  NumericTensor<Int64Type> tensor2(buffer1, shape);
-  NumericTensor<Int64Type> tensor3(buffer2, shape);
+  NumericTensor<Int64Type> tensor1(buffer1, this->shape_);
+  NumericTensor<Int64Type> tensor2(buffer2, this->shape_);
   SparseTensorImpl<SparseCOOIndex> st1(tensor1);
   SparseTensorImpl<SparseCOOIndex> st2(tensor2);
-  SparseTensorImpl<SparseCOOIndex> st3(tensor3);
 
-  ASSERT_TRUE(st1.Equals(st2));
-  ASSERT_TRUE(!st1.Equals(st3));
+  ASSERT_TRUE(st1.Equals(*this->sparse_tensor_from_dense_));
+  ASSERT_FALSE(st1.Equals(st2));
 }
 
 template <typename IndexValueType>
