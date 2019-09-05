@@ -728,8 +728,8 @@ class Job(Serializable):
         config_tasks = dict(config['tasks'])
         valid_groups = set(config_groups.keys())
         valid_tasks = set(config_tasks.keys())
-        group_whitelist = group_whitelist or list(valid_groups)
-        task_whitelist = task_whitelist or list(valid_tasks)
+        group_whitelist = list(group_whitelist or valid_groups)
+        task_whitelist = list(task_whitelist or valid_tasks)
 
         requested_groups = set(group_whitelist or [])
         invalid_groups = requested_groups - valid_groups
