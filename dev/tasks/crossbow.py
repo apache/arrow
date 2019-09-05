@@ -753,7 +753,6 @@ class Job(Serializable):
         versions = {'version': target.version,
                     'no_rc_version': target.no_rc_version}
         for task_name in requested_tasks:
-            print(task_name)
             task = config_tasks[task_name]
             artifacts = task.pop('artifacts', None) or []  # because of yaml
             artifacts = [fn.format(**versions) for fn in artifacts]
