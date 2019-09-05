@@ -187,6 +187,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
 
     @Override
     public void splitAndTransfer(int startIndex, int length) {
+      assert startIndex + length <= valueCount;
       target.clear();
       splitAndTransferValidityBuffer(startIndex, length, target);
       super.splitAndTransfer(startIndex, length);
@@ -197,7 +198,6 @@ public class StructVector extends NonNullableStructVector implements FieldVector
    * transfer the validity.
    */
   private void splitAndTransferValidityBuffer(int startIndex, int length, StructVector target) {
-    assert startIndex + length <= valueCount;
     int firstByteSource = BitVectorHelper.byteIndex(startIndex);
     int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
     int byteSizeTarget = BitVectorHelper.getValidityBufferSize(length);
