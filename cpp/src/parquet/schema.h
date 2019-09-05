@@ -117,7 +117,7 @@ class PARQUET_EXPORT Node {
         id_(id),
         parent_(NULLPTR) {}
 
-  virtual ~Node() {}
+  virtual ~Node();
 
   bool is_primitive() const { return type_ == Node::PRIMITIVE; }
 
@@ -195,8 +195,6 @@ typedef std::vector<NodePtr> NodeVector;
 // parameters)
 class PARQUET_EXPORT PrimitiveNode : public Node {
  public:
-  ~PrimitiveNode();
-
   static std::unique_ptr<Node> FromParquet(const void* opaque_element, int id);
 
   static NodePtr Make(const std::string& name, Repetition::type repetition,
@@ -251,7 +249,6 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
 
 class PARQUET_EXPORT GroupNode : public Node {
  public:
-  ~GroupNode();
   static std::unique_ptr<Node> FromParquet(const void* opaque_element, int id,
                                            const NodeVector& fields);
 

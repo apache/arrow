@@ -96,6 +96,8 @@ const std::vector<std::string>& ColumnPath::ToDotVector() const { return path_; 
 // ----------------------------------------------------------------------
 // Base node
 
+Node::~Node() {}
+
 const std::shared_ptr<ColumnPath> Node::path() const {
   // TODO(itaiin): Cache the result, or more precisely, cache ->ToDotString()
   //    since it is being used to access the leaf nodes
@@ -112,8 +114,6 @@ void Node::SetParent(const Node* parent) { parent_ = parent; }
 
 // ----------------------------------------------------------------------
 // Primitive node
-
-PrimitiveNode::~PrimitiveNode() {}
 
 PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetition,
                              Type::type type, ConvertedType::type converted_type,
@@ -312,8 +312,6 @@ void PrimitiveNode::VisitConst(Node::ConstVisitor* visitor) const {
 
 // ----------------------------------------------------------------------
 // Group node
-
-GroupNode::~GroupNode() {}
 
 NodePtr GroupNode::field(int i) const { return fields_[i]; }
 
