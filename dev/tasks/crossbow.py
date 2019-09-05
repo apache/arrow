@@ -728,10 +728,10 @@ class Job(Serializable):
         config_tasks = dict(config['tasks'])
         valid_groups = set(config_groups.keys())
         valid_tasks = set(config_tasks.keys())
-        group_whitelist = list(group_whitelist or valid_groups)
-        task_whitelist = list(task_whitelist or valid_tasks)
+        group_whitelist = list(group_whitelist or [])
+        task_whitelist = list(task_whitelist or [])
 
-        requested_groups = set(group_whitelist or [])
+        requested_groups = set(group_whitelist )
         invalid_groups = requested_groups - valid_groups
         if invalid_groups:
             msg = 'Invalid group(s) {!r}. Must be one of {!r}'.format(
@@ -753,6 +753,7 @@ class Job(Serializable):
         versions = {'version': target.version,
                     'no_rc_version': target.no_rc_version}
         for task_name in requested_tasks:
+            print(task_name)
             task = config_tasks[task_name]
             artifacts = task.pop('artifacts', None) or []  # because of yaml
             artifacts = [fn.format(**versions) for fn in artifacts]

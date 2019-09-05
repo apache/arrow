@@ -4,11 +4,6 @@ jobs:
     vmImage: ubuntu-latest
   timeoutInMinutes: 360
   steps:
-    # for deployment
-    - task: CondaEnvironment@1
-      inputs:
-        packageSpecs: 'python=3.6'
-
     # for building the linux packages
     - task: UseRubyVersion@0
       inputs:
@@ -33,6 +28,9 @@ jobs:
     # (don't know why).
     # The tag upload took 43 minutes because of this scan, so use an
     # alternative upload script.
+    - task: CondaEnvironment@1
+      inputs:
+        packageSpecs: 'python=3.6'
     - script: |
         conda install -y --file arrow/ci/conda_env_crossbow.txt
         python crossbow.py upload-assets \

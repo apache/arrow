@@ -73,14 +73,17 @@ jobs:
     workingDirectory: arrow/dev/tasks/conda-recipes
     displayName: Build recipes
 
-  # Using github release tries to find a common ancestor between the currently
-  # pushed tag and the latest tag of the github repository (don't know why).
-  # The tag upload took 43 minutes because of this scan, so use an alternative
-  # upload script.
+  # Using github release tries to find a common ancestor between the
+  # currently pushed tag and the latest tag of the github repository
+  # (don't know why).
+  # The tag upload took 43 minutes because of this scan, so use an
+  # alternative upload script.
+  - task: CondaEnvironment@1
+    inputs:
+      packageSpecs: 'python=3.6'
   - script: |
-      source activate base
-      conda install -c conda-forge -y github3.py click
-      python upload-assets.py \
+      conda install -y --file arrow/ci/conda_env_crossbow.txt
+      python crossbow.py upload-assets \
         --sha {{ task.branch }} \
         --tag {{ task.tag }} \
         --pattern "conda-recipes/build_artifacts/osx-64/*.tar.bz2"
