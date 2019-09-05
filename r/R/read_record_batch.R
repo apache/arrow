@@ -15,12 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' read [arrow::RecordBatch][arrow__RecordBatch] as encapsulated IPC message, given a known [arrow::Schema][arrow__Schema]
+#' read [arrow::RecordBatch][RecordBatch] as encapsulated IPC message, given a known [arrow::Schema][schema]
 #'
-#' @param obj a [arrow::Message][arrow__ipc__Message], a [arrow::io::InputStream][arrow__io__InputStream], a [Buffer][buffer], or a raw vector
-#' @param schema a [arrow::Schema][arrow__Schema]
+#' @param obj a [arrow::Message][Message], a [arrow::io::InputStream][InputStream], a [Buffer][buffer], or a raw vector
+#' @param schema a [arrow::Schema][schema]
 #'
-#' @return a [arrow::RecordBatch][arrow__RecordBatch]
+#' @return a [arrow::RecordBatch][RecordBatch]
 #'
 #' @export
 read_record_batch <- function(obj, schema){

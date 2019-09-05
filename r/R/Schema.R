@@ -16,8 +16,12 @@
 # under the License.
 
 #' @include arrow-package.R
-
 #' @title class arrow::Schema
+#'
+#' @description Create a `Schema` when you
+#' want to convert an R `data.frame` to Arrow but don't want to rely on the
+#' default mapping of R types to Arrow types, such as when you want to choose a
+#' specific numeric precision.
 #'
 #' @usage NULL
 #' @format NULL
@@ -39,8 +43,8 @@
 #' - `$num_fields()`: returns the number of fields
 #' - `$field(i)`: returns the field at index `i` (0-based)
 #'
-#' @rdname arrow__Schema
-#' @name arrow__Schema
+#' @rdname Schema
+#' @name Schema
 Schema <- R6Class("Schema",
   inherit = Object,
   public = list(
@@ -60,18 +64,9 @@ Schema$create <- function(...) shared_ptr(Schema, schema_(.fields(list2(...))))
 #' @export
 `==.Schema` <- function(lhs, rhs) lhs$Equals(rhs)
 
-#' Create a schema
-#'
-#' This function lets you define a schema for a table. This is useful when you
-#' want to convert an R `data.frame` to Arrow but don't want to rely on the
-#' default mapping of R types to Arrow types, such as when you want to choose a
-#' specific numeric precision.
-#'
 #' @param ... named list of [data types][data-type]
-#'
-#' @return A [schema][arrow__Schema] object.
-#'
 #' @export
+#' @rdname Schema
 # TODO (npr): add examples once ARROW-5505 merges
 schema <- Schema$create
 

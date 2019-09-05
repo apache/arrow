@@ -16,19 +16,16 @@
 # under the License.
 
 #' @include arrow-package.R
-
 #' @title class arrow::Field
-#'
-#' @usage NULL
-#' @format NULL
 #' @docType class
 #'
 #' @section Methods:
 #'
-#' TODO
+#' - `f$ToString()`: convert to a string
+#' - `f$Equals(other)`: test for equality. More naturally called as `f == other`
 #'
-#' @rdname arrow__Field
-#' @name arrow__Field
+#' @rdname Field
+#' @name Field
 Field <- R6Class("Field", inherit = Object,
   public = list(
     ToString = function() {
@@ -57,18 +54,15 @@ Field <- R6Class("Field", inherit = Object,
   lhs$Equals(rhs)
 }
 
-#' Factory for a Field
-#'
 #' @param name field name
-#' @param type logical type, instance of DataType
+#' @param type logical type, instance of [DataType]
 #' @param metadata currently ignored
 #'
 #' @examples
 #' \donttest{
-#' try({
-#'    field("x", int32())
-#' })
+#' field("x", int32())
 #' }
+#' @rdname Field
 #' @export
 field <- function(name, type, metadata) {
   assert_that(inherits(name, "character"), length(name) == 1L)

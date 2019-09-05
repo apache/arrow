@@ -38,8 +38,8 @@ Writable <- R6Class("Writable", inherit = Object,
 #'  - Buffer `Read`(`int` nbytes):  Read `nbytes` bytes
 #'  - `void` `close`(): close the stream
 #'
-#' @rdname arrow__io__OutputStream
-#' @name arrow__io__OutputStream
+#' @rdname OutputStream
+#' @name OutputStream
 OutputStream <- R6Class("OutputStream", inherit = Writable,
   public = list(
     close = function() io___OutputStream__Close(self),
@@ -57,8 +57,8 @@ OutputStream <- R6Class("OutputStream", inherit = Writable,
 #'
 #'  TODO
 #'
-#' @rdname arrow__io__FileOutputStream
-#' @name arrow__io__FileOutputStream
+#' @rdname FileOutputStream
+#' @name FileOutputStream
 FileOutputStream <- R6Class("FileOutputStream", inherit = OutputStream)
 
 FileOutputStream$create <- function(path) {
@@ -77,8 +77,8 @@ FileOutputStream$create <- function(path) {
 #'
 #'  TODO
 #'
-#' @rdname arrow__io__MockOutputStream
-#' @name arrow__io__MockOutputStream
+#' @rdname MockOutputStream
+#' @name MockOutputStream
 MockOutputStream <- R6Class("MockOutputStream", inherit = OutputStream,
   public = list(
     GetExtentBytesWritten = function() io___MockOutputStream__GetExtentBytesWritten(self)
@@ -97,8 +97,8 @@ MockOutputStream$create <- function() {
 #'
 #'  TODO
 #'
-#' @rdname arrow__io__BufferOutputStream
-#' @name arrow__io__BufferOutputStream
+#' @rdname BufferOutputStream
+#' @name BufferOutputStream
 BufferOutputStream <- R6Class("BufferOutputStream", inherit = OutputStream,
   public = list(
     capacity = function() io___BufferOutputStream__capacity(self),
@@ -124,8 +124,8 @@ BufferOutputStream$create <- function(initial_capacity = 0L) {
 #'
 #'  TODO
 #'
-#' @rdname arrow__io__FixedSizeBufferWriter
-#' @name arrow__io__FixedSizeBufferWriter
+#' @rdname FixedSizeBufferWriter
+#' @name FixedSizeBufferWriter
 FixedSizeBufferWriter <- R6Class("FixedSizeBufferWriter", inherit = OutputStream)
 
 FixedSizeBufferWriter$create <- function(x) {
@@ -147,8 +147,8 @@ FixedSizeBufferWriter$create <- function(x) {
 #'
 #'  TODO
 #'
-#' @rdname arrow__io__Readable
-#' @name arrow__io__Readable
+#' @rdname Readable
+#' @name Readable
 Readable <- R6Class("Readable", inherit = Object,
   public = list(
     Read = function(nbytes) shared_ptr(Buffer, io___Readable__Read(self, nbytes))
@@ -166,8 +166,8 @@ Readable <- R6Class("Readable", inherit = Object,
 #'
 #'  TODO
 #'
-#' @rdname arrow__io__InputStream
-#' @name arrow__io__InputStream
+#' @rdname InputStream
+#' @name InputStream
 InputStream <- R6Class("InputStream", inherit = Readable,
   public = list(
     close = function() io___InputStream__Close(self)
@@ -185,8 +185,8 @@ InputStream <- R6Class("InputStream", inherit = Readable,
 #'
 #'  TODO
 #'
-#' @rdname arrow__io__RandomAccessFile
-#' @name arrow__io__RandomAccessFile
+#' @rdname RandomAccessFile
+#' @name RandomAccessFile
 RandomAccessFile <- R6Class("RandomAccessFile", inherit = InputStream,
   public = list(
     GetSize = function() io___RandomAccessFile__GetSize(self),
@@ -225,8 +225,8 @@ RandomAccessFile <- R6Class("RandomAccessFile", inherit = InputStream,
 #' @seealso [mmap_open()], [mmap_create()]
 #'
 #'
-#' @rdname arrow__io__MemoryMappedFile
-#' @name arrow__io__MemoryMappedFile
+#' @rdname MemoryMappedFile
+#' @name MemoryMappedFile
 MemoryMappedFile <- R6Class("MemoryMappedFile", inherit = RandomAccessFile,
   public = list(
     Resize = function(size) io___MemoryMappedFile__Resize(self, size)
@@ -244,8 +244,8 @@ MemoryMappedFile <- R6Class("MemoryMappedFile", inherit = RandomAccessFile,
 #'
 #'  TODO
 #'
-#' @rdname arrow__io__ReadableFile
-#' @name arrow__io__ReadableFile
+#' @rdname ReadableFile
+#' @name ReadableFile
 ReadableFile <- R6Class("ReadableFile", inherit = RandomAccessFile)
 
 ReadableFile$create <- function(path) {
@@ -262,8 +262,8 @@ ReadableFile$create <- function(path) {
 #'
 #'  TODO
 #'
-#' @rdname arrow__io__BufferReader
-#' @name arrow__io__BufferReader
+#' @rdname BufferReader
+#' @name BufferReader
 BufferReader <- R6Class("BufferReader", inherit = RandomAccessFile)
 
 BufferReader$create <- function(x) {
@@ -276,7 +276,7 @@ BufferReader$create <- function(x) {
 #' @param path file path
 #' @param size size in bytes
 #'
-#' @return a [arrow::io::MemoryMappedFile][arrow__io__MemoryMappedFile]
+#' @return a [arrow::io::MemoryMappedFile][MemoryMappedFile]
 #'
 #' @export
 mmap_create <- function(path, size) {

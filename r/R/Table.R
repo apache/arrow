@@ -34,8 +34,8 @@
 #'
 #' TODO
 #'
-#' @rdname arrow__Table
-#' @name arrow__Table
+#' @rdname Table
+#' @name Table
 #' @export
 Table <- R6Class("Table", inherit = Object,
   public = list(

@@ -32,8 +32,8 @@
 #'
 #' TODO
 #'
-#' @rdname arrow__DataType
-#' @name arrow__DataType
+#' @rdname DataType
+#' @name DataType
 DataType <- R6Class("DataType",
   inherit = Object,
   public = list(
@@ -125,8 +125,8 @@ type.Column <- function(x) x$type
 #'
 #' TODO
 #'
-#' @rdname arrow__FixedWidthType
-#' @name arrow__FixedWidthType
+#' @rdname FixedWidthType
+#' @name FixedWidthType
 FixedWidthType <- R6Class("FixedWidthType",
   inherit = DataType,
   active = list(

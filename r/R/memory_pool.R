@@ -27,8 +27,8 @@
 #'
 #' TODO
 #'
-#' @rdname arrow___MemoryPool
-#' @name arrow__MemoryPool
+#' @rdname MemoryPool
+#' @name MemoryPool
 MemoryPool <- R6Class("MemoryPool",
   inherit = Object,
   public = list(
@@ -40,9 +40,9 @@ MemoryPool <- R6Class("MemoryPool",
   )
 )
 
-#' default [arrow::MemoryPool][arrow__MemoryPool]
+#' default [arrow::MemoryPool][MemoryPool]
 #'
-#' @return the default [arrow::MemoryPool][arrow__MemoryPool]
+#' @return the default [arrow::MemoryPool][MemoryPool]
 #' @export
 default_memory_pool <- function() {
   shared_ptr(MemoryPool, MemoryPool__default())

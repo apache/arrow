@@ -27,8 +27,8 @@
 #'
 #' TODO
 #'
-#' @rdname arrow__RecordBatchReader
-#' @name arrow__RecordBatchReader
+#' @rdname RecordBatchReader
+#' @name RecordBatchReader
 RecordBatchReader <- R6Class("RecordBatchReader", inherit = Object,
   public = list(
     read_next_batch = function() {
@@ -50,8 +50,8 @@ RecordBatchReader <- R6Class("RecordBatchReader", inherit = Object,
 #'
 #' TODO
 #'
-#' @rdname arrow__ipc__RecordBatchStreamReader
-#' @name arrow__ipc__RecordBatchStreamReader
+#' @rdname RecordBatchStreamReader
+#' @name RecordBatchStreamReader
 RecordBatchStreamReader <- R6Class("RecordBatchStreamReader", inherit = RecordBatchReader,
   public = list(
     batches = function() map(ipc___RecordBatchStreamReader__batches(self), shared_ptr, class = RecordBatch)
@@ -76,8 +76,8 @@ RecordBatchStreamReader$create <- function(stream){
 #'
 #' TODO
 #'
-#' @rdname arrow__ipc__RecordBatchFileReader
-#' @name arrow__ipc__RecordBatchFileReader
+#' @rdname RecordBatchFileReader
+#' @name RecordBatchFileReader
 RecordBatchFileReader <- R6Class("RecordBatchFileReader", inherit = Object,
   # Why doesn't this inherit from RecordBatchReader?
   public = list(

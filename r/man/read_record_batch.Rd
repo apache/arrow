@@ -2,18 +2,18 @@
 % Please edit documentation in R/read_record_batch.R
 \name{read_record_batch}
 \alias{read_record_batch}
-\title{read \link[=arrow__RecordBatch]{arrow::RecordBatch} as encapsulated IPC message, given a known \link[=arrow__Schema]{arrow::Schema}}
+\title{read \link[=RecordBatch]{arrow::RecordBatch} as encapsulated IPC message, given a known \link[=schema]{arrow::Schema}}
 \usage{
 read_record_batch(obj, schema)
 }
 \arguments{
-\item{obj}{a \link[=arrow__ipc__Message]{arrow::Message}, a \link[=arrow__io__InputStream]{arrow::io::InputStream}, a \link[=buffer]{Buffer}, or a raw vector}
+\item{obj}{a \link[=Message]{arrow::Message}, a \link[=InputStream]{arrow::io::InputStream}, a \link[=buffer]{Buffer}, or a raw vector}
 
-\item{schema}{a \link[=arrow__Schema]{arrow::Schema}}
+\item{schema}{a \link[=schema]{arrow::Schema}}
 }
 \value{
-a \link[=arrow__RecordBatch]{arrow::RecordBatch}
+a \link[=RecordBatch]{arrow::RecordBatch}
 }
 \description{
-read \link[=arrow__RecordBatch]{arrow::RecordBatch} as encapsulated IPC message, given a known \link[=arrow__Schema]{arrow::Schema}
+read \link[=RecordBatch]{arrow::RecordBatch} as encapsulated IPC message, given a known \link[=schema]{arrow::Schema}
 }

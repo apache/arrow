@@ -2,7 +2,7 @@
 % Please edit documentation in R/RecordBatch.R
 \name{record_batch}
 \alias{record_batch}
-\title{Create an \link[=arrow__RecordBatch]{arrow::RecordBatch} from a data frame}
+\title{Create an \link[=RecordBatch]{arrow::RecordBatch} from a data frame}
 \usage{
 record_batch(..., schema = NULL)
 }
@@ -12,8 +12,8 @@ record_batch(..., schema = NULL)
 \item{schema}{a arrow::Schema}
 }
 \value{
-a \link[=arrow__RecordBatch]{arrow::RecordBatch}
+a \link[=RecordBatch]{arrow::RecordBatch}
 }
 \description{
-Create an \link[=arrow__RecordBatch]{arrow::RecordBatch} from a data frame
+Create an \link[=RecordBatch]{arrow::RecordBatch} from a data frame
 }

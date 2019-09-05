@@ -2,13 +2,13 @@
 % Please edit documentation in R/memory_pool.R
 \name{default_memory_pool}
 \alias{default_memory_pool}
-\title{default \link[=arrow__MemoryPool]{arrow::MemoryPool}}
+\title{default \link[=MemoryPool]{arrow::MemoryPool}}
 \usage{
 default_memory_pool()
 }
 \value{
-the default \link[=arrow__MemoryPool]{arrow::MemoryPool}
+the default \link[=MemoryPool]{arrow::MemoryPool}
 }
 \description{
-default \link[=arrow__MemoryPool]{arrow::MemoryPool}
+default \link[=MemoryPool]{arrow::MemoryPool}
 }

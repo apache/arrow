@@ -7,7 +7,7 @@
 write_parquet(table, file)
 }
 \arguments{
-\item{table}{An \link[=arrow__Table]{arrow::Table}, or an object convertible to it}
+\item{table}{An \link[=Table]{arrow::Table}, or an object convertible to it}
 
 \item{file}{a file path}
 }

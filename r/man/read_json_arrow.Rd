@@ -15,7 +15,7 @@ read_json_arrow(file, col_select = NULL, as_tibble = TRUE, ...)
 of columns, as used in \code{dplyr::select()}.}
 
 \item{as_tibble}{Should the function return a \code{data.frame} or an
-\link[=arrow__Table]{arrow::Table}?}
+\link[=Table]{arrow::Table}?}
 
 \item{...}{Additional options, passed to \code{json_table_reader()}}
 }
@@ -23,7 +23,7 @@ of columns, as used in \code{dplyr::select()}.}
 A \code{data.frame}, or an Table if \code{as_tibble = FALSE}.
 }
 \description{
-Using \link[=arrow__json__TableReader]{JsonTableReader}
+Using \link{JsonTableReader}
 }
 \examples{
 \donttest{

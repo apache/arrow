@@ -27,8 +27,8 @@
 #'
 #' TODO
 #'
-#' @rdname arrow__DictionaryType
-#' @name arrow__DictionaryType
+#' @rdname DictionaryType
+#' @name DictionaryType
 DictionaryType <- R6Class("DictionaryType",
   inherit = FixedWidthType,
 
@@ -46,7 +46,7 @@ DictionaryType <- R6Class("DictionaryType",
 #' @param value_type value type, probably [utf8()]
 #' @param ordered Is this an ordered dictionary ?
 #'
-#' @return An [DictionaryType][arrow__DictionaryType]
+#' @return A [DictionaryType]
 #' @seealso [Other Arrow data types][data-type]
 #' @export
 dictionary <- function(index_type, value_type, ordered = FALSE) {

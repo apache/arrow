@@ -27,8 +27,8 @@
 #'
 #' TODO
 #'
-#' @rdname arrow__ipc__Message
-#' @name arrow__ipc__Message
+#' @rdname Message
+#' @name Message
 Message <- R6Class("Message", inherit = Object,
   public = list(
     Equals = function(other){
@@ -58,8 +58,8 @@ Message <- R6Class("Message", inherit = Object,
 #'
 #' TODO
 #'
-#' @rdname arrow__ipc__MessageReader
-#' @name arrow__ipc__MessageReader
+#' @rdname MessageReader
+#' @name MessageReader
 #' @export
 MessageReader <- R6Class("MessageReader", inherit = Object,
   public = list(

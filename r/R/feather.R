@@ -67,7 +67,7 @@ FeatherTableWriter$create <- function(stream) {
 #' @inheritParams read_delim_arrow
 #' @param ... additional parameters
 #'
-#' @return A `data.frame` if `as_tibble` is `TRUE` (the default), or a [arrow::Table][arrow__Table] otherwise
+#' @return A `data.frame` if `as_tibble` is `TRUE` (the default), or a [arrow::Table][Table] otherwise
 #'
 #' @export
 #' @examples

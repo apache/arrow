@@ -110,7 +110,7 @@ parquet_file_reader.raw <- function(file, props = parquet_arrow_reader_propertie
 #' @inheritParams read_delim_arrow
 #' @inheritParams parquet_file_reader
 #'
-#' @return A [arrow::Table][arrow__Table], or a `data.frame` if `as_tibble` is
+#' @return A [arrow::Table][Table], or a `data.frame` if `as_tibble` is
 #' `TRUE`.
 #' @examples
 #' \donttest{
@@ -134,7 +134,7 @@ read_parquet <- function(file, col_select = NULL, as_tibble = TRUE, props = parq
 #' [Parquet](https://parquet.apache.org/) is a columnar storage file format.
 #' This function enables you to write Parquet files from R.
 #'
-#' @param table An [arrow::Table][arrow__Table], or an object convertible to it
+#' @param table An [arrow::Table][Table], or an object convertible to it
 #' @param file a file path
 #'
 #' @examples

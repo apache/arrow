@@ -71,7 +71,7 @@ parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, et
 \item{read_options}{see \code{\link[=csv_read_options]{csv_read_options()}}}
 
 \item{as_tibble}{Should the function return a \code{data.frame} or an
-\link[=arrow__Table]{arrow::Table}?}
+\link[=Table]{arrow::Table}?}
 }
 \value{
 A \code{data.frame}, or an Table if \code{as_tibble = FALSE}.

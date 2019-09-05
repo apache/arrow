@@ -15,33 +15,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' Read an [arrow::Table][arrow__Table] from a stream
+#' Read an [arrow::Table][Table] from a stream
 #'
 #' @param stream stream.
 #'
-#' - a [arrow::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader]:
-#'   read an [arrow::Table][arrow__Table]
+#' - a [arrow::RecordBatchFileReader][RecordBatchFileReader]:
+#'   read an [arrow::Table][Table]
 #'   from all the record batches in the reader
 #'
-#' - a [arrow::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader]:
-#'   read an [arrow::Table][arrow__Table] from the remaining record batches
+#' - a [arrow::RecordBatchStreamReader][RecordBatchStreamReader]:
+#'   read an [arrow::Table][Table] from the remaining record batches
 #'   in the reader
 #'
 #'  - a string file path: interpret the file as an arrow
-#'    binary file format, and uses a [arrow::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader]
+#'    binary file format, and uses a [arrow::RecordBatchFileReader][RecordBatchFileReader]
 #'    to process it.
 #'
-#'  - a raw vector: read using a [arrow::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader]
+#'  - a raw vector: read using a [arrow::RecordBatchStreamReader][RecordBatchStreamReader]
 #'
 #' @return
 #'
-#'  - `read_table` returns an [arrow::Table][arrow__Table]
+#'  - `read_table` returns an [arrow::Table][Table]
 #'  - `read_arrow` returns a `data.frame`
 #'
 #' @details
 #'
-#' The methods using [arrow::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader] and
-#' [arrow::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader] offer the most
+#' The methods using [arrow::RecordBatchFileReader][RecordBatchFileReader] and
+#' [arrow::RecordBatchStreamReader][RecordBatchStreamReader] offer the most
 #' flexibility. The other methods are for convenience.
 #'
 #' @export

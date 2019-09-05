@@ -31,11 +31,11 @@
 #'
 #' @section Derived classes:
 #'
-#' - [arrow::RecordBatchStreamWriter][arrow__ipc__RecordBatchStreamWriter] implements the streaming binary format
-#' - [arrow::RecordBatchFileWriter][arrow__ipc__RecordBatchFileWriter] implements the binary file format
+#' - [arrow::RecordBatchStreamWriter][RecordBatchStreamWriter] implements the streaming binary format
+#' - [arrow::RecordBatchFileWriter][RecordBatchFileWriter] implements the binary file format
 #'
-#' @rdname arrow__ipc__RecordBatchWriter
-#' @name arrow__ipc__RecordBatchWriter
+#' @rdname RecordBatchWriter
+#' @name RecordBatchWriter
 RecordBatchWriter <- R6Class("RecordBatchWriter", inherit = Object,
   public = list(
     write_batch = function(batch) ipc___RecordBatchWriter__WriteRecordBatch(self, batch),
@@ -80,14 +80,14 @@ RecordBatchWriter <- R6Class("RecordBatchWriter", inherit = Object,
 #' The [RecordBatchStreamWriter()] function creates a record batch stream writer.
 #'
 #' @section Methods:
-#' inherited from [arrow::RecordBatchWriter][arrow__ipc__RecordBatchWriter]
+#' inherited from [arrow::RecordBatchWriter][RecordBatchWriter]
 #'
 #' - `$write_batch(batch)`: Write record batch to stream
 #' - `$write_table(table)`: write Table to stream
 #' - `$close()`: close stream
 #'
-#' @rdname arrow__ipc__RecordBatchStreamWriter
-#' @name arrow__ipc__RecordBatchStreamWriter
+#' @rdname RecordBatchStreamWriter
+#' @name RecordBatchStreamWriter
 RecordBatchStreamWriter <- R6Class("RecordBatchStreamWriter", inherit = RecordBatchWriter)
 
 RecordBatchStreamWriter$create <- function(sink, schema) {
@@ -123,14 +123,14 @@ RecordBatchStreamWriter$create <- function(sink, schema) {
 #' The [RecordBatchFileWriter()] function creates a record batch stream writer.
 #'
 #' @section Methods:
-#' inherited from [arrow::RecordBatchWriter][arrow__ipc__RecordBatchWriter]
+#' inherited from [arrow::RecordBatchWriter][RecordBatchWriter]
 #'
 #' - `$write_batch(batch)`: Write record batch to stream
 #' - `$write_table(table)`: write Table to stream
 #' - `$close()`: close stream
 #'
-#' @rdname arrow__ipc__RecordBatchFileWriter
-#' @name arrow__ipc__RecordBatchFileWriter
+#' @rdname RecordBatchFileWriter
+#' @name RecordBatchFileWriter
 RecordBatchFileWriter <- R6Class("RecordBatchFileWriter", inherit = RecordBatchStreamWriter)
 
 RecordBatchFileWriter$create <- function(sink, schema) {

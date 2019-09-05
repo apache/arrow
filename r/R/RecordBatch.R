@@ -27,8 +27,8 @@
 #'
 #' TODO
 #'
-#' @rdname arrow__RecordBatch
-#' @name arrow__RecordBatch
+#' @rdname RecordBatch
+#' @name RecordBatch
 RecordBatch <- R6Class("RecordBatch", inherit = Object,
   public = list(
     column = function(i) shared_ptr(Array, RecordBatch__column(self, i)),
@@ -99,11 +99,11 @@ as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, use
   RecordBatch__to_dataframe(x, use_threads = option_use_threads())
 }
 
-#' Create an [arrow::RecordBatch][arrow__RecordBatch] from a data frame
+#' Create an [arrow::RecordBatch][RecordBatch] from a data frame
 #'
 #' @param ... A variable number of Array
 #' @param schema a arrow::Schema
 #'
-#' @return a [arrow::RecordBatch][arrow__RecordBatch]
+#' @return a [arrow::RecordBatch][RecordBatch]
 #' @export
 record_batch <- RecordBatch$create

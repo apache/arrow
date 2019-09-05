@@ -64,7 +64,7 @@
 #' @param convert_options see [csv_convert_options()]
 #' @param read_options see [csv_read_options()]
 #' @param as_tibble Should the function return a `data.frame` or an
-#' [arrow::Table][arrow__Table]?
+#' [arrow::Table][Table]?
 #'
 #' @return A `data.frame`, or an Table if `as_tibble = FALSE`.
 #' @export

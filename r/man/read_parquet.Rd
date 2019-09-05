@@ -16,14 +16,14 @@ read_parquet(file, col_select = NULL, as_tibble = TRUE,
 of columns, as used in \code{dplyr::select()}.}
 
 \item{as_tibble}{Should the function return a \code{data.frame} or an
-\link[=arrow__Table]{arrow::Table}?}
+\link[=Table]{arrow::Table}?}
 
 \item{props}{reader file properties, as created by \code{\link[=parquet_arrow_reader_properties]{parquet_arrow_reader_properties()}}}
 
 \item{...}{additional parameters}
 }
 \value{
-A \link[=arrow__Table]{arrow::Table}, or a \code{data.frame} if \code{as_tibble} is
+A \link[=Table]{arrow::Table}, or a \code{data.frame} if \code{as_tibble} is
 \code{TRUE}.
 }
 \description{

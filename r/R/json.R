@@ -17,7 +17,7 @@
 
 #' Read a JSON file
 #'
-#' Using [JsonTableReader][arrow__json__TableReader]
+#' Using [JsonTableReader]
 #'
 #' @inheritParams read_delim_arrow
 #' @param ... Additional options, passed to `json_table_reader()`
@@ -56,10 +56,10 @@ read_json_arrow <- function(file, col_select = NULL, as_tibble = TRUE, ...) {
 #'
 #' @section Methods:
 #'
-#' - `Read()` : read the JSON file as an [arrow::Table][arrow__Table]
+#' - `Read()` : read the JSON file as an [arrow::Table][Table]
 #'
-#' @rdname arrow__json__TableReader
-#' @name arrow__json__TableReader
+#' @rdname JsonTableReader
+#' @name JsonTableReader
 JsonTableReader <- R6Class("JsonTableReader", inherit = Object,
   public = list(
     Read = function() shared_ptr(Table, json___TableReader__Read(self))
