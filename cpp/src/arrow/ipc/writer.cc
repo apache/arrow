@@ -125,6 +125,8 @@ class RecordBatchSerializer : public ArrayVisitor {
   ~RecordBatchSerializer() override = default;
 
   Status VisitArray(const Array& arr) {
+    static std::shared_ptr<Buffer> kNullBuffer = std::make_shared<Buffer>(nullptr, 0);
+
     if (max_recursion_depth_ <= 0) {
       return Status::Invalid("Max recursion depth reached");
     }
@@ -136,14 +138,17 @@ class RecordBatchSerializer : public ArrayVisitor {
     // push back all common elements
     field_nodes_.push_back({arr.length(), arr.null_count(), 0});
 
-    if (arr.null_count() > 0) {
-      std::shared_ptr<Buffer> bitmap;
-      RETURN_NOT_OK(GetTruncatedBitmap(arr.offset(), arr.length(), arr.null_bitmap(),
-                                       pool_, &bitmap));
-      out_->body_buffers.emplace_back(bitmap);
-    } else {
-      // Push a dummy zero-length buffer, not to be copied
-      out_->body_buffers.emplace_back(std::make_shared<Buffer>(nullptr, 0));
+    // Null type has no validity bitmap
+    if (arr.type_id() != Type::NA) {
+      if (arr.null_count() > 0) {
+        std::shared_ptr<Buffer> bitmap;
+        RETURN_NOT_OK(GetTruncatedBitmap(arr.offset(), arr.length(), arr.null_bitmap(),
+                                         pool_, &bitmap));
+        out_->body_buffers.emplace_back(bitmap);
+      } else {
+        // Push a dummy zero-length buffer, not to be copied
+        out_->body_buffers.emplace_back(kNullBuffer);
+      }
     }
     return arr.Accept(this);
   }
@@ -318,10 +323,7 @@ class RecordBatchSerializer : public ArrayVisitor {
     return Status::OK();
   }
 
-  Status Visit(const NullArray& array) override {
-    out_->body_buffers.emplace_back(nullptr);
-    return Status::OK();
-  }
+  Status Visit(const NullArray& array) override { return Status::OK(); }
 
 #define VISIT_FIXED_WIDTH(TYPE) \
   Status Visit(const TYPE& array) override { return VisitFixedWidth<TYPE>(array); }
