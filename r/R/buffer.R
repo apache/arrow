@@ -33,6 +33,7 @@
 #'
 #' @rdname buffer
 #' @name buffer
+#' @export
 Buffer <- R6Class("Buffer", inherit = Object,
   public = list(
     ZeroPadding = function() Buffer__ZeroPadding(self),

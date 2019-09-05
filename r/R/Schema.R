@@ -55,10 +55,10 @@ Schema <- R6Class("Schema",
   )
 )
 
+Schema$create <- function(...) shared_ptr(Schema, schema_(.fields(list2(...))))
+
 #' @export
-`==.Schema` <- function(lhs, rhs){
-  lhs$Equals(rhs)
-}
+`==.Schema` <- function(lhs, rhs) lhs$Equals(rhs)
 
 #' Create a schema
 #'
@@ -73,9 +73,7 @@ Schema <- R6Class("Schema",
 #'
 #' @export
 # TODO (npr): add examples once ARROW-5505 merges
-schema <- function(...){
-  shared_ptr(Schema, schema_(.fields(list2(...))))
-}
+schema <- Schema$create
 
 #' read a Schema from a stream
 #'

@@ -29,6 +29,7 @@
 #'
 #' @rdname chunked-array
 #' @name chunked-array
+#' @export
 ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
   public = list(
     length = function() ChunkedArray__length(self),

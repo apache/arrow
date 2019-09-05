@@ -51,7 +51,7 @@ DataType <- R6Class("DataType",
       map(DataType__children_pointer(self), shared_ptr, class = Field)
     },
 
-    ..dispatch = function(){
+    ..dispatch = function() {
       switch(names(Type)[self$id + 1],
         "NA" = null(),
         BOOL = boolean(),
@@ -70,9 +70,9 @@ DataType <- R6Class("DataType",
         BINARY = stop("Type BINARY not implemented yet"),
         DATE32 = date32(),
         DATE64 = date64(),
-        TIMESTAMP = shared_ptr(Timestamp,self$pointer()),
-        TIME32 = shared_ptr(Time32,self$pointer()),
-        TIME64 = shared_ptr(Time64,self$pointer()),
+        TIMESTAMP = shared_ptr(Timestamp, self$pointer()),
+        TIME32 = shared_ptr(Time32, self$pointer()),
+        TIME64 = shared_ptr(Time64, self$pointer()),
         INTERVAL = stop("Type INTERVAL not implemented yet"),
         DECIMAL = shared_ptr(Decimal128Type, self$pointer()),
         LIST = shared_ptr(ListType, self$pointer()),
@@ -85,18 +85,12 @@ DataType <- R6Class("DataType",
   ),
 
   active = list(
-    id = function(){
-      DataType__id(self)
-    },
-    name = function() {
-      DataType__name(self)
-    }
+    id = function() DataType__id(self),
+    name = function() DataType__name(self)
   )
 )
 
-DataType$dispatch <- function(xp){
-  shared_ptr(DataType, xp)$..dispatch()
-}
+DataType$dispatch <- function(xp) shared_ptr(DataType, xp)$..dispatch()
 
 #' infer the arrow Array type from an R vector
 #'
@@ -104,14 +98,10 @@ DataType$dispatch <- function(xp){
 #'
 #' @return an arrow logical type
 #' @export
-type <- function(x) {
-  UseMethod("type")
-}
+type <- function(x) UseMethod("type")
 
 #' @export
-type.default <- function(x) {
-  DataType$dispatch(Array__infer_type(x))
-}
+type.default <- function(x) DataType$dispatch(Array__infer_type(x))
 
 #' @export
 type.Array <- function(x) x$type
@@ -145,60 +135,21 @@ FixedWidthType <- R6Class("FixedWidthType",
 )
 
 #' @export
-`==.DataType` <- function(lhs, rhs){
-  lhs$Equals(rhs)
-}
+`==.DataType` <- function(lhs, rhs) lhs$Equals(rhs)
 
-"Int8"    <- R6Class("Int8",
-  inherit = FixedWidthType
-)
-
-"Int16"    <- R6Class("Int16",
-  inherit = FixedWidthType
-)
-
-"Int32"    <- R6Class("Int32",
-  inherit = FixedWidthType
-)
-
-"Int64"    <- R6Class("Int64",
-  inherit = FixedWidthType
-)
-
-
-"UInt8"    <- R6Class("UInt8",
-  inherit = FixedWidthType
-)
-
-"UInt16"    <- R6Class("UInt16",
-  inherit = FixedWidthType
-)
-
-"UInt32"    <- R6Class("UInt32",
-  inherit = FixedWidthType
-)
-
-"UInt64"    <- R6Class("UInt64",
-  inherit = FixedWidthType
-)
-
-"Float16"    <- R6Class("Float16",
-  inherit = FixedWidthType
-)
-"Float32"    <- R6Class("Float32",
-  inherit = FixedWidthType
-)
-"Float64"    <- R6Class("Float64",
-  inherit = FixedWidthType
-)
-
-"Boolean"    <- R6Class("Boolean",
-  inherit = FixedWidthType
-)
-
-"Utf8"    <- R6Class("Utf8",
-  inherit = DataType
-)
+Int8 <- R6Class("Int8", inherit = FixedWidthType)
+Int16 <- R6Class("Int16", inherit = FixedWidthType)
+Int32 <- R6Class("Int32", inherit = FixedWidthType)
+Int64 <- R6Class("Int64", inherit = FixedWidthType)
+UInt8 <- R6Class("UInt8", inherit = FixedWidthType)
+UInt16 <- R6Class("UInt16", inherit = FixedWidthType)
+UInt32 <- R6Class("UInt32", inherit = FixedWidthType)
+UInt64 <- R6Class("UInt64", inherit = FixedWidthType)
+Float16 <- R6Class("Float16", inherit = FixedWidthType)
+Float32 <- R6Class("Float32", inherit = FixedWidthType)
+Float64 <- R6Class("Float64", inherit = FixedWidthType)
+Boolean <- R6Class("Boolean", inherit = FixedWidthType)
+Utf8 <- R6Class("Utf8", inherit = DataType)
 
 DateType <- R6Class("DateType",
   inherit = FixedWidthType,
@@ -206,51 +157,38 @@ DateType <- R6Class("DateType",
     unit = function() DateType__unit(self)
   )
 )
+Date32 <- R6Class("Date32", inherit = DateType)
+Date64 <- R6Class("Date64", inherit = DateType)
 
-"Date32"    <- R6Class("Date32",
-  inherit = DateType
-)
-"Date64"    <- R6Class("Date64",
-  inherit = DateType
-)
-
-"TimeType" <- R6Class("TimeType",
+TimeType <- R6Class("TimeType",
   inherit = FixedWidthType,
   public = list(
     unit = function() TimeType__unit(self)
   )
 )
-"Time32"    <- R6Class("Time32",
-  inherit = TimeType
-)
-"Time64"    <- R6Class("Time64",
-  inherit = TimeType
-)
+Time32 <- R6Class("Time32", inherit = TimeType)
+Time64 <- R6Class("Time64", inherit = TimeType)
 
-"Null" <- R6Class("Null",
-  inherit = DataType
-)
+Null <- R6Class("Null", inherit = DataType)
 
-Timestamp <- R6Class(
-  "Timestamp",
-  inherit = FixedWidthType ,
+Timestamp <- R6Class("Timestamp",
+  inherit = FixedWidthType,
   public = list(
     timezone = function()  TimestampType__timezone(self),
     unit = function() TimestampType__unit(self)
   )
 )
 
-DecimalType <- R6Class(":DecimalType",
+DecimalType <- R6Class("DecimalType",
   inherit = FixedWidthType,
   public = list(
     precision = function() DecimalType__precision(self),
     scale = function() DecimalType__scale(self)
   )
 )
+Decimal128Type <- R6Class("Decimal128Type", inherit = DecimalType)
 
-"Decimal128Type"    <- R6Class("Decimal128Type",
-  inherit = DecimalType
-)
+NestedType <- R6Class("NestedType", inherit = DataType)
 
 #' Apache Arrow data types
 #'
@@ -446,6 +384,6 @@ timestamp <- function(unit = c("s", "ms", "us", "ns"), timezone) {
 
 #' @rdname data-type
 #' @export
-decimal <- function(precision, scale) shared_ptr(Decimal128Type, Decimal128Type__initialize(precision, scale))
-
-NestedType <- R6Class("NestedType", inherit = DataType)
+decimal <- function(precision, scale) {
+  shared_ptr(Decimal128Type, Decimal128Type__initialize(precision, scale))
+}

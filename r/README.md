@@ -69,7 +69,7 @@ Arrow C++ library first.
 library(arrow)
 set.seed(24)
 
-tab <- arrow::table(x = 1:10, y = rnorm(10))
+tab <- Table$create(x = 1:10, y = rnorm(10))
 tab$schema
 #> Schema 
 #> x: int32

@@ -8,6 +8,16 @@
 \description{
 class arrow::Table
 }
+\section{Factory}{
+
+
+The \code{Table$create()} function takes the following arguments:
+\itemize{
+\item `...`` arrays, chunked arrays, or R vectors
+\item \code{schema} a schema. The default (\code{NULL}) infers the schema from the \code{...}
+}
+}
+
 \section{Methods}{
 
 

@@ -22,9 +22,9 @@ to_arrow <- function(x) {
 to_arrow.RecordBatch <- function(x) x
 to_arrow.Table <- function(x) x
 
-# splice the data frame as arguments of table()
+# splice the data frame as arguments of Table$create()
 # see ?rlang::list2()
-`to_arrow.data.frame` <- function(x) table(!!!x)
+`to_arrow.data.frame` <- function(x) Table$create(!!!x)
 
 #' Write Arrow formatted data
 #'

@@ -23,12 +23,20 @@
 #' @format NULL
 #' @docType class
 #'
+#' @section Factory:
+#'
+#' The `Table$create()` function takes the following arguments:
+#'
+#' * `...`` arrays, chunked arrays, or R vectors
+#' * `schema` a schema. The default (`NULL`) infers the schema from the `...`
+#'
 #' @section Methods:
 #'
 #' TODO
 #'
 #' @rdname arrow__Table
 #' @name arrow__Table
+#' @export
 Table <- R6Class("Table", inherit = Object,
   public = list(
     column = function(i) shared_ptr(ChunkedArray, Table__column(self, i)),
@@ -65,15 +73,7 @@ Table <- R6Class("Table", inherit = Object,
   )
 )
 
-#' Create an arrow::Table from a data frame
-#'
-#' @param ... arrays, chunked arrays, or R vectors
-#' @param schema a schema. The default (`NULL`) infers the schema from the `...`
-#'
-#' @return an arrow::Table
-#'
-#' @export
-table <- function(..., schema = NULL){
+Table$create <- function(..., schema = NULL){
   dots <- list2(...)
   # making sure there are always names
   if (is.null(names(dots))) {
