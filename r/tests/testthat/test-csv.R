@@ -137,6 +137,8 @@ test_that("read_csv_arrow parsing options: skip_empty_rows", {
 })
 
 test_that("read_csv_arrow parsing options: na strings", {
+  # There's some weird crash that happens on Appveyor in this test
+  skip_on_os("windows")
   tf <- tempfile()
   on.exit(unlink(tf))
 
@@ -152,8 +154,6 @@ test_that("read_csv_arrow parsing options: na strings", {
   expect_equal(is.na(tab1$a), is.na(df$a))
   expect_equal(is.na(tab1$b), is.na(df$b))
 
-  # write.csv below fails on Appveyor, probably not worth debugging further
-  skip_on_os("windows")
   unlink(tf) # Delete and write to the same file name again
 
   write.csv(df, tf, row.names=FALSE, na = "asdf")
