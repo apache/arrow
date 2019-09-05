@@ -87,7 +87,7 @@ json_table_reader.default <- function(file,
   parse_options = json_parse_options(),
   ...
 ){
-  json_table_reader(ReadableFile(file),
+  json_table_reader(ReadableFile$create(file),
     read_options = read_options,
     parse_options = parse_options,
     ...
@@ -95,7 +95,7 @@ json_table_reader.default <- function(file,
 }
 
 #' @export
-`json_table_reader.arrow::io::InputStream` <- function(file,
+json_table_reader.InputStream <- function(file,
   read_options = json_read_options(),
   parse_options = json_parse_options(),
   ...

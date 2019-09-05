@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__io__ReadableFile}
 \alias{arrow__io__ReadableFile}
-\alias{arrow::io::ReadableFile}
+\alias{ReadableFile}
 \title{class arrow::io::ReadableFile}
 \description{
 class arrow::io::ReadableFile

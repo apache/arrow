@@ -108,11 +108,11 @@ RecordBatchStreamWriter <- function(sink, schema) {
 
 #' @export
 RecordBatchStreamWriter.character <- function(sink, schema){
-  RecordBatchStreamWriter(FileOutputStream(sink), schema)
+  RecordBatchStreamWriter(FileOutputStream$create(sink), schema)
 }
 
 #' @export
-`RecordBatchStreamWriter.arrow::io::OutputStream` <- function(sink, schema){
+RecordBatchStreamWriter.OutputStream <- function(sink, schema){
   assert_that(inherits(schema, "arrow::Schema"))
   shared_ptr(`arrow::ipc::RecordBatchStreamWriter`, ipc___RecordBatchStreamWriter__Open(sink, schema))
 }
@@ -168,11 +168,11 @@ RecordBatchFileWriter <- function(sink, schema) {
 
 #' @export
 RecordBatchFileWriter.character <- function(sink, schema){
-  RecordBatchFileWriter(FileOutputStream(sink), schema)
+  RecordBatchFileWriter(FileOutputStream$create(sink), schema)
 }
 
 #' @export
-`RecordBatchFileWriter.arrow::io::OutputStream` <- function(sink, schema){
+RecordBatchFileWriter.OutputStream <- function(sink, schema){
   assert_that(inherits(schema, "arrow::Schema"))
   shared_ptr(`arrow::ipc::RecordBatchFileWriter`, ipc___RecordBatchFileWriter__Open(sink, schema))
 }

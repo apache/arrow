@@ -364,7 +364,7 @@ csv_table_reader.default <- function(file,
 }
 
 #' @export
-`csv_table_reader.arrow::io::InputStream` <- function(file,
+csv_table_reader.InputStream <- function(file,
   read_options = csv_read_options(),
   parse_options = csv_parse_options(),
   convert_options = csv_convert_options(),

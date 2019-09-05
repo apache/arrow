@@ -63,7 +63,7 @@ write_arrow <- function(x, stream, ...) {
 `write_arrow.character` <- function(x, stream, ...) {
   assert_that(length(stream) == 1L)
   x <- to_arrow(x)
-  file_stream <- FileOutputStream(stream)
+  file_stream <- FileOutputStream$create(stream)
   on.exit(file_stream$close())
   file_writer <- RecordBatchFileWriter(file_stream, x$schema)
   on.exit({
@@ -82,7 +82,7 @@ write_arrow <- function(x, stream, ...) {
   schema <- x$schema
 
   # how many bytes do we need
-  mock_stream <- MockOutputStream()
+  mock_stream <- MockOutputStream$create()
   writer <- RecordBatchStreamWriter(mock_stream, schema)
   writer$write(x)
   writer$close()
@@ -90,7 +90,7 @@ write_arrow <- function(x, stream, ...) {
 
   # now that we know the size, stream in a buffer backed by an R raw vector
   bytes <- raw(n)
-  buffer_writer <- FixedSizeBufferWriter(buffer(bytes))
+  buffer_writer <- FixedSizeBufferWriter$create(buffer(bytes))
   writer <- RecordBatchStreamWriter(buffer_writer, schema)
   writer$write(x)
   writer$close()

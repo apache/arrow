@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__io__MemoryMappedFile}
 \alias{arrow__io__MemoryMappedFile}
-\alias{arrow::io::MemoryMappedFile}
+\alias{MemoryMappedFile}
 \title{class arrow::io::MemoryMappedFile}
 \description{
 class arrow::io::MemoryMappedFile

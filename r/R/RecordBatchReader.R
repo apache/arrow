@@ -92,18 +92,18 @@ RecordBatchStreamReader <- function(stream){
 }
 
 #' @export
-`RecordBatchStreamReader.arrow::io::InputStream` <- function(stream) {
+RecordBatchStreamReader.InputStream <- function(stream) {
   shared_ptr(`arrow::ipc::RecordBatchStreamReader`, ipc___RecordBatchStreamReader__Open(stream))
 }
 
 #' @export
 `RecordBatchStreamReader.raw` <- function(stream) {
-  RecordBatchStreamReader(BufferReader(stream))
+  RecordBatchStreamReader(BufferReader$create(stream))
 }
 
 #' @export
 `RecordBatchStreamReader.Buffer` <- function(stream) {
-  RecordBatchStreamReader(BufferReader(stream))
+  RecordBatchStreamReader(BufferReader$create(stream))
 }
 
 
@@ -117,22 +117,22 @@ RecordBatchFileReader <- function(file) {
 }
 
 #' @export
-`RecordBatchFileReader.arrow::io::RandomAccessFile` <- function(file) {
+RecordBatchFileReader.RandomAccessFile <- function(file) {
   shared_ptr(`arrow::ipc::RecordBatchFileReader`, ipc___RecordBatchFileReader__Open(file))
 }
 
 #' @export
 `RecordBatchFileReader.character` <- function(file) {
   assert_that(length(file) == 1L)
-  RecordBatchFileReader(ReadableFile(file))
+  RecordBatchFileReader(ReadableFile$create(file))
 }
 
 #' @export
 `RecordBatchFileReader.Buffer` <- function(file) {
-  RecordBatchFileReader(BufferReader(file))
+  RecordBatchFileReader(BufferReader$create(file))
 }
 
 #' @export
 `RecordBatchFileReader.raw` <- function(file) {
-  RecordBatchFileReader(BufferReader(file))
+  RecordBatchFileReader(BufferReader$create(file))
 }

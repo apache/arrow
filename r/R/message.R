@@ -77,11 +77,11 @@ MessageReader <- function(stream) {
 
 #' @export
 MessageReader.default <- function(stream) {
-  MessageReader(BufferReader(stream))
+  MessageReader(BufferReader$create(stream))
 }
 
 #' @export
-`MessageReader.arrow::io::InputStream` <- function(stream) {
+MessageReader.InputStream <- function(stream) {
   unique_ptr(`arrow::ipc::MessageReader`, ipc___MessageReader__Open(stream))
 }
 
@@ -96,11 +96,11 @@ read_message <- function(stream) {
 
 #' @export
 read_message.default<- function(stream) {
-  read_message(BufferReader(stream))
+  read_message(BufferReader$create(stream))
 }
 
 #' @export
-`read_message.arrow::io::InputStream` <- function(stream) {
+read_message.InputStream <- function(stream) {
   unique_ptr(`arrow::ipc::Message`, ipc___ReadMessage(stream) )
 }
 

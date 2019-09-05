@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__io__FileOutputStream}
 \alias{arrow__io__FileOutputStream}
-\alias{arrow::io::FileOutputStream}
+\alias{FileOutputStream}
 \title{class arrow::io::FileOutputStream}
 \description{
 class arrow::io::FileOutputStream

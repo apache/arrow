@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__io__BufferReader}
 \alias{arrow__io__BufferReader}
-\alias{arrow::io::BufferReader}
+\alias{BufferReader}
 \title{class arrow::io::BufferReader}
 \description{
 class arrow::io::BufferReader

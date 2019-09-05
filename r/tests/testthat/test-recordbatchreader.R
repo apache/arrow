@@ -23,7 +23,7 @@ test_that("RecordBatchStreamReader / Writer", {
     y = letters[1:10]
   )
 
-  sink <- BufferOutputStream()
+  sink <- BufferOutputStream$create()
   writer <- RecordBatchStreamWriter(sink, batch$schema)
   expect_is(writer, "arrow::ipc::RecordBatchStreamWriter")
   writer$write_batch(batch)
@@ -48,7 +48,7 @@ test_that("RecordBatchFileReader / Writer", {
     y = letters[1:10]
   )
 
-  sink <- BufferOutputStream()
+  sink <- BufferOutputStream$create()
   writer <- RecordBatchFileWriter(sink, batch$schema)
   expect_is(writer, "arrow::ipc::RecordBatchFileWriter")
   writer$write_batch(batch)

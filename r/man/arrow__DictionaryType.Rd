@@ -3,10 +3,10 @@
 \docType{class}
 \name{arrow__DictionaryType}
 \alias{arrow__DictionaryType}
-\alias{arrow::DictionaryType}
-\title{class arrow::DictionaryType}
+\alias{DictionaryType}
+\title{class DictionaryType}
 \description{
-class arrow::DictionaryType
+class DictionaryType
 }
 \section{Methods}{
 

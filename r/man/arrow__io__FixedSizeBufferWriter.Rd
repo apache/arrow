@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__io__FixedSizeBufferWriter}
 \alias{arrow__io__FixedSizeBufferWriter}
-\alias{arrow::io::FixedSizeBufferWriter}
+\alias{FixedSizeBufferWriter}
 \title{class arrow::io::FixedSizeBufferWriter}
 \description{
 class arrow::io::FixedSizeBufferWriter

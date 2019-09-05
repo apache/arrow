@@ -25,7 +25,7 @@ test_that("Can read csv file", {
 
   tab1 <- read_csv_arrow(tf, as_tibble = FALSE)
   tab2 <- read_csv_arrow(mmap_open(tf), as_tibble = FALSE)
-  tab3 <- read_csv_arrow(ReadableFile(tf), as_tibble = FALSE)
+  tab3 <- read_csv_arrow(ReadableFile$create(tf), as_tibble = FALSE)
 
   iris$Species <- as.character(iris$Species)
   tab0 <- table(!!!iris)
@@ -42,7 +42,7 @@ test_that("read_csv_arrow(as_tibble=TRUE)", {
 
   tab1 <- read_csv_arrow(tf, as_tibble = TRUE)
   tab2 <- read_csv_arrow(mmap_open(tf), as_tibble = TRUE)
-  tab3 <- read_csv_arrow(ReadableFile(tf), as_tibble = TRUE)
+  tab3 <- read_csv_arrow(ReadableFile$create(tf), as_tibble = TRUE)
 
   iris$Species <- as.character(iris$Species)
   expect_equivalent(iris, tab1)

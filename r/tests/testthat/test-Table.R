@@ -33,7 +33,7 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tab1 <- read_table(tf)
   tab2 <- read_table(fs::path_abs(tf))
 
-  readable_file <- ReadableFile(tf)
+  readable_file <- ReadableFile$create(tf)
   file_reader1 <- RecordBatchFileReader(readable_file)
   tab3 <- read_table(file_reader1)
   readable_file$close()

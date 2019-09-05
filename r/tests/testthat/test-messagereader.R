@@ -51,8 +51,8 @@ test_that("MessageReader can be created from input stream", {
   batch <- record_batch(x = 1:10)
   bytes <- batch$serialize()
 
-  stream <- BufferReader(bytes)
-  expect_is(stream, "arrow::io::BufferReader")
+  stream <- BufferReader$create(bytes)
+  expect_is(stream, "BufferReader")
 
   reader <- MessageReader(stream)
   expect_is(reader, "arrow::ipc::MessageReader")
@@ -69,8 +69,8 @@ test_that("MessageReader can be created from input stream", {
   schema <- schema(x = int32())
   bytes <- schema$serialize()
 
-  stream <- BufferReader(bytes)
-  expect_is(stream, "arrow::io::BufferReader")
+  stream <- BufferReader$create(bytes)
+  expect_is(stream, "BufferReader")
 
   reader <- MessageReader(stream)
   expect_is(reader, "arrow::ipc::MessageReader")

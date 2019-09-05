@@ -88,20 +88,20 @@ read_schema <- function(stream, ...) {
 }
 
 #' @export
-`read_schema.arrow::io::InputStream` <- function(stream, ...) {
+read_schema.InputStream <- function(stream, ...) {
   shared_ptr(`arrow::Schema`, ipc___ReadSchema_InputStream(stream))
 }
 
 #' @export
 `read_schema.Buffer` <- function(stream, ...) {
-  stream <- BufferReader(stream)
+  stream <- BufferReader$create(stream)
   on.exit(stream$close())
   shared_ptr(`arrow::Schema`, ipc___ReadSchema_InputStream(stream))
 }
 
 #' @export
 `read_schema.raw` <- function(stream, ...) {
-  stream <- BufferReader(stream)
+  stream <- BufferReader$create(stream)
   on.exit(stream$close())
   shared_ptr(`arrow::Schema`, ipc___ReadSchema_InputStream(stream))
 }

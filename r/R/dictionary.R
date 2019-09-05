@@ -17,7 +17,7 @@
 
 #' @include type.R
 
-#' @title class arrow::DictionaryType
+#' @title class DictionaryType
 #'
 #' @usage NULL
 #' @format NULL
@@ -29,7 +29,7 @@
 #'
 #' @rdname arrow__DictionaryType
 #' @name arrow__DictionaryType
-`arrow::DictionaryType` <- R6Class("arrow::DictionaryType",
+DictionaryType <- R6Class("DictionaryType",
   inherit = `arrow::FixedWidthType`,
 
   active = list(
@@ -46,7 +46,7 @@
 #' @param value_type value type, probably [utf8()]
 #' @param ordered Is this an ordered dictionary ?
 #'
-#' @return An [arrow::DictionaryType][arrow__DictionaryType]
+#' @return An [DictionaryType][arrow__DictionaryType]
 #' @seealso [Other Arrow data types][data-type]
 #' @export
 dictionary <- function(index_type, value_type, ordered = FALSE) {
@@ -54,5 +54,5 @@ dictionary <- function(index_type, value_type, ordered = FALSE) {
     inherits(index_type, "arrow::DataType"),
     inherits(index_type, "arrow::DataType")
   )
-  shared_ptr(`arrow::DictionaryType`, DictionaryType__initialize(index_type, value_type, ordered))
+  shared_ptr(DictionaryType, DictionaryType__initialize(index_type, value_type, ordered))
 }

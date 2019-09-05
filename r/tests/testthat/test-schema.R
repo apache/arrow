@@ -30,7 +30,7 @@ test_that("reading schema from Buffer", {
   batch <- record_batch(x = 1:10)
   expect_is(batch, "arrow::RecordBatch")
 
-  stream <- BufferOutputStream()
+  stream <- BufferOutputStream$create()
   writer <- RecordBatchStreamWriter(stream, batch$schema)
   expect_is(writer, "arrow::ipc::RecordBatchStreamWriter")
   writer$close()
@@ -45,8 +45,8 @@ test_that("reading schema from Buffer", {
   expect_is(message, "arrow::ipc::Message")
   expect_equal(message$type, MessageType$SCHEMA)
 
-  stream <- BufferReader(buffer)
-  expect_is(stream, "arrow::io::BufferReader")
+  stream <- BufferReader$create(buffer)
+  expect_is(stream, "BufferReader")
   message <- read_message(stream)
   expect_is(message, "arrow::ipc::Message")
   expect_equal(message$type, MessageType$SCHEMA)

@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__io__MockOutputStream}
 \alias{arrow__io__MockOutputStream}
-\alias{arrow::io::MockOutputStream}
+\alias{MockOutputStream}
 \title{class arrow::io::MockOutputStream}
 \description{
 class arrow::io::MockOutputStream

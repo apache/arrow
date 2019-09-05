@@ -32,7 +32,7 @@ compression_codec <- function(type = "GZIP") {
 }
 
 
-CompressedOutputStream <- R6Class("CompressedOutputStream", inherit = `arrow::io::OutputStream`)
+CompressedOutputStream <- R6Class("CompressedOutputStream", inherit = OutputStream)
 
 CompressedOutputStream$create <- function(stream, codec = compression_codec()){
   if (.Platform$OS.type == "windows") {
@@ -40,9 +40,9 @@ CompressedOutputStream$create <- function(stream, codec = compression_codec()){
   }
   assert_that(inherits(codec, "Codec"))
   if (is.character(stream)) {
-    stream <- FileOutputStream(stream)
+    stream <- FileOutputStream$create(stream)
   }
-  assert_that(inherits(stream, "arrow::io::OutputStream"))
+  assert_that(inherits(stream, "OutputStream"))
   shared_ptr(CompressedOutputStream, io___CompressedOutputStream__Make(codec, stream))
 }
 
@@ -56,15 +56,15 @@ CompressedOutputStream$create <- function(stream, codec = compression_codec()){
 compressed_output_stream <- CompressedOutputStream$create
 
 
-CompressedInputStream <- R6Class("CompressedInputStream", inherit = `arrow::io::InputStream`)
+CompressedInputStream <- R6Class("CompressedInputStream", inherit = InputStream)
 
 CompressedInputStream$create <- function(stream, codec = compression_codec()){
   # TODO (npr): why would CompressedInputStream work on Windows if CompressedOutputStream doesn't? (and is it still the case that it does not?)
   assert_that(inherits(codec, "Codec"))
   if (is.character(stream)) {
-    stream <- ReadableFile(stream)
+    stream <- ReadableFile$create(stream)
   }
-  assert_that(inherits(stream, "arrow::io::InputStream"))
+  assert_that(inherits(stream, "InputStream"))
   shared_ptr(CompressedInputStream, io___CompressedInputStream__Make(codec, stream))
 }
 

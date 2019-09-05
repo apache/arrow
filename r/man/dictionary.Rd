@@ -14,7 +14,7 @@ dictionary(index_type, value_type, ordered = FALSE)
 \item{ordered}{Is this an ordered dictionary ?}
 }
 \value{
-An \link[=arrow__DictionaryType]{arrow::DictionaryType}
+An \link[=arrow__DictionaryType]{DictionaryType}
 }
 \description{
 Create a dictionary type

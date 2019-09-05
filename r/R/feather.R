@@ -51,14 +51,14 @@ FeatherTableWriter <- function(stream) {
 }
 
 #' @export
-`FeatherTableWriter.arrow::io::OutputStream` <- function(stream){
+FeatherTableWriter.OutputStream <- function(stream){
   unique_ptr(`arrow::ipc::feather::TableWriter`, ipc___feather___TableWriter__Open(stream))
 }
 
 #' Write data in the Feather format
 #'
 #' @param data `data.frame` or `arrow::RecordBatch`
-#' @param stream A file path or an `arrow::io::OutputStream`
+#' @param stream A file path or an OutputStream
 #'
 #' @export
 #' @examples
@@ -92,7 +92,7 @@ write_feather.data.frame <- function(data, stream) {
 #' Write a record batch in the feather format
 #'
 #' @param data `data.frame` or `arrow::RecordBatch`
-#' @param stream A file path or an `arrow::io::OutputStream`
+#' @param stream A file path or an OutputStream
 #'
 #' @export
 #' @keywords internal
@@ -101,28 +101,25 @@ write_feather_RecordBatch <- function(data, stream) {
 }
 
 #' @export
-#' @method write_feather_RecordBatch default
 `write_feather_RecordBatch.default` <- function(data, stream) {
   stop("unsupported")
 }
 
 #' @export
-#' @method write_feather_RecordBatch character
 write_feather_RecordBatch.character <- function(data, stream) {
-  file_stream <- FileOutputStream(stream)
+  file_stream <- FileOutputStream$create(stream)
   on.exit(file_stream$close())
-  `write_feather_RecordBatch.arrow::io::OutputStream`(data, file_stream)
+  write_feather_RecordBatch.OutputStream(data, file_stream)
 }
 
 #' @export
-#' @method write_feather_RecordBatch arrow::io::OutputStream
-`write_feather_RecordBatch.arrow::io::OutputStream` <- function(data, stream) {
+write_feather_RecordBatch.OutputStream <- function(data, stream) {
   ipc___TableWriter__RecordBatch__WriteFeather(FeatherTableWriter(stream), data)
 }
 
 #' A `arrow::ipc::feather::TableReader` to read from a file
 #'
-#' @param file A file path or `arrow::io::RandomAccessFile`
+#' @param file A file path or RandomAccessFile
 #' @param mmap Is the file memory mapped (applicable to the `character` method)
 #' @param ... extra parameters
 #'
@@ -136,18 +133,18 @@ FeatherTableReader.character <- function(file, mmap = TRUE, ...) {
   if (isTRUE(mmap)) {
     stream <- mmap_open(file, ...)
   } else {
-    stream <- ReadableFile(file, ...)
+    stream <- ReadableFile$create(file, ...)
   }
   FeatherTableReader(stream)
 }
 
 #' @export
 FeatherTableReader.raw <- function(file, mmap = TRUE, ...) {
-  FeatherTableReader(BufferReader(file), mmap = mmap, ...)
+  FeatherTableReader(BufferReader$create(file), mmap = mmap, ...)
 }
 
 #' @export
-`FeatherTableReader.arrow::io::RandomAccessFile` <- function(file, mmap = TRUE, ...){
+FeatherTableReader.RandomAccessFile <- function(file, mmap = TRUE, ...){
   unique_ptr(`arrow::ipc::feather::TableReader`, ipc___feather___TableReader__Open(file))
 }
 

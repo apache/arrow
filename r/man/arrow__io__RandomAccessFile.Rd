@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__io__RandomAccessFile}
 \alias{arrow__io__RandomAccessFile}
-\alias{arrow::io::RandomAccessFile}
+\alias{RandomAccessFile}
 \title{class arrow::io::RandomAccessFile}
 \description{
 class arrow::io::RandomAccessFile

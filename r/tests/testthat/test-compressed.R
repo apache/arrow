@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::io::Compressed.*Stream")
+context("Compressed.*Stream")
 
 test_that("can write Buffer to CompressedOutputStream and read back in CompressedInputStream", {
   skip_on_os("windows")
@@ -30,7 +30,7 @@ test_that("can write Buffer to CompressedOutputStream and read back in Compresse
   stream1$close()
 
   tf2 <- tempfile()
-  sink2 <- FileOutputStream(tf2)
+  sink2 <- FileOutputStream$create(tf2)
   stream2 <- compressed_output_stream(sink2)
   expect_equal(stream2$tell(), 0)
   stream2$write(buf)
@@ -42,7 +42,7 @@ test_that("can write Buffer to CompressedOutputStream and read back in Compresse
   input1 <- CompressedInputStream$create(tf1)
   buf1 <- input1$Read(1024L)
 
-  file2 <- ReadableFile(tf2)
+  file2 <- ReadableFile$create(tf2)
   input2 <- compressed_input_stream(file2)
   buf2 <- input2$Read(1024L)
 

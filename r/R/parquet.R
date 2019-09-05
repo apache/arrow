@@ -80,7 +80,7 @@ parquet_file_reader <- function(file, props = parquet_arrow_reader_properties(),
 }
 
 #' @export
-`parquet_file_reader.arrow::io::RandomAccessFile` <- function(file, props = parquet_arrow_reader_properties(), ...) {
+parquet_file_reader.RandomAccessFile <- function(file, props = parquet_arrow_reader_properties(), ...) {
   unique_ptr(`parquet::arrow::FileReader`, parquet___arrow___FileReader__OpenFile(file, props))
 }
 
@@ -93,13 +93,13 @@ parquet_file_reader.character <- function(file,
   if (isTRUE(memory_map)) {
     parquet_file_reader(mmap_open(file), props = props, ...)
   } else {
-    parquet_file_reader(ReadableFile(file), props = props, ...)
+    parquet_file_reader(ReadableFile$create(file), props = props, ...)
   }
 }
 
 #' @export
 parquet_file_reader.raw <- function(file, props = parquet_arrow_reader_properties(), ...) {
-  parquet_file_reader(BufferReader(file), props = props, ...)
+  parquet_file_reader(BufferReader$create(file), props = props, ...)
 }
 
 #' Read a Parquet file

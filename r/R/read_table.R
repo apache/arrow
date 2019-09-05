@@ -62,7 +62,7 @@ read_table <- function(stream){
 #' @export
 read_table.character <- function(stream) {
   assert_that(length(stream) == 1L)
-  stream <- ReadableFile(stream)
+  stream <- ReadableFile$create(stream)
   on.exit(stream$close())
   batch_reader <- RecordBatchFileReader(stream)
   shared_ptr(`arrow::Table`, Table__from_RecordBatchFileReader(batch_reader))
@@ -70,7 +70,7 @@ read_table.character <- function(stream) {
 
 #' @export
 `read_table.raw` <- function(stream) {
-  stream <- BufferReader(stream)
+  stream <- BufferReader$create(stream)
   on.exit(stream$close())
   batch_reader <- RecordBatchStreamReader(stream)
   shared_ptr(`arrow::Table`, Table__from_RecordBatchStreamReader(batch_reader))

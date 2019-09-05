@@ -78,7 +78,7 @@
         LIST = shared_ptr(`arrow::ListType`, self$pointer()),
         STRUCT = shared_ptr(`arrow::StructType`, self$pointer()),
         UNION = stop("Type UNION not implemented yet"),
-        DICTIONARY = shared_ptr(`arrow::DictionaryType`, self$pointer()),
+        DICTIONARY = shared_ptr(DictionaryType, self$pointer()),
         MAP = stop("Type MAP not implemented yet")
       )
     }

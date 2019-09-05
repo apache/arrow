@@ -29,7 +29,7 @@ test_that("Can read json file with scalars columns (ARROW-5503)", {
 
   tab1 <- read_json_arrow(tf, as_tibble = FALSE)
   tab2 <- read_json_arrow(mmap_open(tf), as_tibble = FALSE)
-  tab3 <- read_json_arrow(ReadableFile(tf), as_tibble = FALSE)
+  tab3 <- read_json_arrow(ReadableFile$create(tf), as_tibble = FALSE)
 
   expect_equal(tab1, tab2)
   expect_equal(tab1, tab3)
@@ -56,7 +56,7 @@ test_that("read_json_arrow() converts to tibble", {
 
   tab1 <- read_json_arrow(tf)
   tab2 <- read_json_arrow(mmap_open(tf))
-  tab3 <- read_json_arrow(ReadableFile(tf))
+  tab3 <- read_json_arrow(ReadableFile$create(tf))
 
   expect_is(tab1, "tbl_df")
   expect_is(tab2, "tbl_df")
@@ -100,7 +100,7 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
 
   tab1 <- read_json_arrow(tf, as_tibble = FALSE)
   tab2 <- read_json_arrow(mmap_open(tf), as_tibble = FALSE)
-  tab3 <- read_json_arrow(ReadableFile(tf), as_tibble = FALSE)
+  tab3 <- read_json_arrow(ReadableFile$create(tf), as_tibble = FALSE)
 
   expect_equal(tab1, tab2)
   expect_equal(tab1, tab3)
