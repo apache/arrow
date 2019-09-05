@@ -93,7 +93,7 @@ Array <- R6Class("Array",
     },
     cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
       assert_that(inherits(target_type, "arrow::DataType"))
-      assert_that(inherits(options, "arrow::compute::CastOptions"))
+      assert_that(inherits(options, "CastOptions"))
       Array$create(Array__cast(self, target_type, options))
     }
   ),
