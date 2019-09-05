@@ -46,8 +46,15 @@ Buffer <- R6Class("Buffer", inherit = Object,
   )
 )
 
-#' @export
-as.raw.Buffer <- function(x) x$data()
+Buffer$create <- function(x) {
+  if (inherits(x, "Buffer")) {
+    return(x)
+  } else if (inherits(x, c("raw", "numeric", "integer", "complex"))) {
+    return(shared_ptr(Buffer, r___RBuffer__initialize(x)))
+  } else {
+    stop("Cannot convert object of class ", class(x), " to arrow::Buffer")
+  }
+}
 
 #' Create a [Buffer][buffer] from an R object
 #'
@@ -56,34 +63,7 @@ as.raw.Buffer <- function(x) x$data()
 #' @return an instance of [Buffer][buffer] that borrows memory from `x`
 #'
 #' @export
-buffer <- function(x) {
-  UseMethod("buffer")
-}
+buffer <- Buffer$create
 
 #' @export
-buffer.default <- function(x) {
-  stop("cannot convert to Buffer")
-}
-
-#' @export
-buffer.raw <- function(x) {
-  shared_ptr(Buffer, r___RBuffer__initialize(x))
-}
-
-#' @export
-buffer.numeric <- function(x) {
-  shared_ptr(Buffer, r___RBuffer__initialize(x))
-}
-
-#' @export
-buffer.integer <- function(x) {
-  shared_ptr(Buffer, r___RBuffer__initialize(x))
-}
-
-#' @export
-buffer.complex <- function(x) {
-  shared_ptr(Buffer, r___RBuffer__initialize(x))
-}
-
-#' @export
-buffer.Buffer <- function(x) x
+as.raw.Buffer <- function(x) x$data()

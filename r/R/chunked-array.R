@@ -55,12 +55,14 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
   )
 )
 
+ChunkedArray$create <- function(..., type = NULL) {
+  shared_ptr(ChunkedArray, ChunkedArray__from_list(list2(...), type))
+}
+
 #' Create a [ChunkedArray][chunked-array] from various R vectors
 #'
 #' @param \dots Vectors to coerce
 #' @param type currently ignored
 #'
 #' @export
-chunked_array <- function(..., type = NULL) {
-  shared_ptr(ChunkedArray, ChunkedArray__from_list(list2(...), type))
-}
+chunked_array <- ChunkedArray$create

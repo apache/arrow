@@ -45,6 +45,17 @@ test_that("Buffer can be created from complex vector", {
   expect_equal(buf$size, 3 * 16)
 })
 
+test_that("buffer buffer buffers buffers", {
+  expect_is(buffer(buffer(42)), "Buffer")
+})
+
+test_that("Other types can't be converted to Buffers", {
+  expect_error(
+    buffer(data.frame(a="asdf")),
+    "Cannot convert object of class data.frame to arrow::Buffer"
+  )
+})
+
 test_that("can convert Buffer to raw", {
   buf <- buffer(rnorm(10))
   expect_equal(buf$data(), as.raw(buf))
