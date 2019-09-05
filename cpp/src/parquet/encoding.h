@@ -225,6 +225,13 @@ using Int96Decoder = TypedDecoder<Int96Type>;
 using FloatDecoder = TypedDecoder<FloatType>;
 using DoubleDecoder = TypedDecoder<DoubleType>;
 
+/// \brief Internal helper class for decoding BYTE_ARRAY data where we can
+/// overflow the capacity of a single arrow::BinaryArray
+struct ArrowBinaryAccumulator {
+  std::unique_ptr<::arrow::BinaryBuilder> builder;
+  std::vector<std::shared_ptr<::arrow::Array>> chunks;
+};
+
 class ByteArrayDecoder : virtual public TypedDecoder<ByteArrayType> {
  public:
   using TypedDecoder<ByteArrayType>::DecodeSpaced;
@@ -239,15 +246,9 @@ class ByteArrayDecoder : virtual public TypedDecoder<ByteArrayType> {
 
   /// \brief Returns number of encoded values decoded
   virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                          int64_t valid_bits_offset, ::arrow::BinaryBuilder* builder) = 0;
+                          int64_t valid_bits_offset, ArrowBinaryAccumulator* out) = 0;
 
-  /// \brief Returns number of encoded values decoded
-  virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                          int64_t valid_bits_offset,
-                          ::arrow::internal::ChunkedBinaryBuilder* builder) = 0;
-
-  virtual int DecodeArrowNonNull(int num_values,
-                                 ::arrow::internal::ChunkedBinaryBuilder* builder) = 0;
+  virtual int DecodeArrowNonNull(int num_values, ArrowBinaryAccumulator* out) = 0;
 };
 
 class FLBADecoder : virtual public TypedDecoder<FLBAType> {
