@@ -379,8 +379,25 @@ debugging a C++ unitttest, for example:
 Building on Windows
 ===================
 
-First, we bootstrap a conda environment similar to above, but skipping some of
-the Linux/macOS-only packages:
+.. warning::
+    Building on Windows is currently broken. The issue is being worked on
+    under the `Github PR #5247<https://github.com/apache/arrow/pull/5247>`.
+    
+Building on Windows requires one of the following
+
+- `Build Tools for Visual Studio 2017<https://download.visualstudio.microsoft.com/download/pr/3e542575-929e-4297-b6c6-bef34d0ee648/639c868e1219c651793aff537a1d3b77/vs_buildtools.exe`_
+- `Microsoft Build Tools 2015<http://download.microsoft.com/download/5/F/7/5F7ACAEB-8363-451F-9425-68A90F98B238/visualcppbuildtools_full.exe`_, or
+- Visual Studio 2015
+- Visual Studio 2017
+
+to be installed.
+
+During the setup of Build Tools ensure at least one Windows SDK is selected.
+
+Visual Studio 2019 and it's build tools are currently not supported.
+
+We bootstrap a conda environment similar to above, but skipping some of the
+Linux/macOS-only packages:
 
 First, starting from fresh clones of Apache Arrow:
 
@@ -390,27 +407,37 @@ First, starting from fresh clones of Apache Arrow:
 
 .. code-block:: shell
 
-    conda create -y -n pyarrow-dev -c conda-forge ^
-        --file arrow\ci\conda_env_cpp.yml ^
-        --file arrow\ci\conda_env_python.yml ^
-        python=3.7
+   conda create -y -n pyarrow-dev -c conda-forge ^
+       --file arrow\ci\conda_env_cpp.yml ^
+       --file arrow\ci\conda_env_python.yml ^
+       --file arrow\ci\conda_env_gandiva.yml ^
+       python=3.7
    conda activate pyarrow-dev
 
-Now, we build and install Arrow C++ libraries
+Now, we build and install Arrow C++ libraries.
+
+The CMake parameters will need to be adjusted according to the Build Tools or 
+Visual Studio version installed.
+
+For Build Tools for Visual Studio 2017 and Visual Studio 2017:
 
 .. code-block:: shell
 
-   mkdir cpp\build
-   cd cpp\build
-   set ARROW_HOME=C:\thirdparty
-   cmake -G "Visual Studio 14 2015 Win64" ^
-         -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
-         -DARROW_CXXFLAGS="/WX /MP" ^
-         -DARROW_GANDIVA=on ^
-         -DARROW_PARQUET=on ^
-         -DARROW_PYTHON=on ..
+   mkdir arrow\cpp\build
+   pushd arrow\cpp\build
+   set ARROW_HOME=%cd%\arrow-dist
+   cmake -G "Visual Studio 15 2017 Win64" ^
+       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+       -DARROW_CXXFLAGS="/WX /MP" ^
+       -DARROW_GANDIVA=on ^
+       -DARROW_PARQUET=on ^
+       -DARROW_PYTHON=on ^
+       ..
    cmake --build . --target INSTALL --config Release
-   cd ..\..
+   popd
+
+For Microsoft Build Tools 2015 and Visual Studio 2015, replace the string after
+`cmake -G` with `"Visual Studio 14 2015 Win64"`
 
 After that, we must put the install directory's bin path in our ``%PATH%``:
 
@@ -422,16 +449,19 @@ Now, we can build pyarrow:
 
 .. code-block:: shell
 
-   cd python
+   pushd arrow\python
    set PYARROW_WITH_GANDIVA=1
    set PYARROW_WITH_PARQUET=1
    python setup.py build_ext --inplace
+   popd
 
 Then run the unit tests with:
 
 .. code-block:: shell
 
+   pushd arrow\python
    py.test pyarrow -v
+   popd
 
 Running C++ unit tests for Python integration
 ---------------------------------------------
