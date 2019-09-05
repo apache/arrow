@@ -284,8 +284,7 @@ bool PrimitiveNode::EqualsInternal(const PrimitiveNode* other) const {
 }
 
 NodePtr PrimitiveNode::Make(const std::string& name, Repetition::type repetition,
-                            Type::type type,
-                            ConvertedType::type converted_type,
+                            Type::type type, ConvertedType::type converted_type,
                             int length, int precision, int scale) {
   return NodePtr(new PrimitiveNode(name, repetition, type, converted_type, length,
                                    precision, scale));
@@ -321,8 +320,7 @@ NodePtr GroupNode::field(int i) const { return fields_[i]; }
 int GroupNode::field_count() const { return static_cast<int>(fields_.size()); }
 
 NodePtr GroupNode::Make(const std::string& name, Repetition::type repetition,
-                        const NodeVector& fields,
-                        ConvertedType::type converted_type) {
+                        const NodeVector& fields, ConvertedType::type converted_type) {
   return NodePtr(new GroupNode(name, repetition, fields, converted_type));
 }
 
@@ -722,9 +720,7 @@ void SchemaDescriptor::Init(std::unique_ptr<schema::Node> schema) {
   Init(NodePtr(schema.release()));
 }
 
-int SchemaDescriptor::num_columns() const {
-  return static_cast<int>(leaves_.size());
-}
+int SchemaDescriptor::num_columns() const { return static_cast<int>(leaves_.size()); }
 
 const schema::GroupNode* SchemaDescriptor::group_node() const { return group_node_; }
 

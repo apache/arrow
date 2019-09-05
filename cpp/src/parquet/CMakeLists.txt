@@ -241,10 +241,8 @@ add_arrow_lib(parquet
               ${PARQUET_STATIC_LINK_LIBS})
 
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
-  add_library(parquet_test_support STATIC
-    parquet_constants.cpp
-    parquet_types.cpp
-    schema_internal.cc)
+  add_library(parquet_test_support STATIC parquet_constants.cpp parquet_types.cpp
+                                          schema_internal.cc)
   set(PARQUET_SHARED_TEST_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS} parquet_test_support)
   set(PARQUET_LIBRARIES ${PARQUET_LIBRARIES} parquet_test_support)
 endif()
