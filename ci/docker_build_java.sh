@@ -29,7 +29,7 @@ arrow_src=/build/java/arrow
 rm -rf $arrow_src
 
 pushd /arrow
-rsync -a header java format integration $arrow_src
+rsync -a header java format integration testing $arrow_src
 popd
 
 JAVA_ARGS=
@@ -37,7 +37,7 @@ if [ "$ARROW_JAVA_RUN_TESTS" != "1" ]; then
   JAVA_ARGS=-DskipTests
 fi
 
-if [ "$ARROW_JAVA_SHADE_FLATBUFS" == "1"]; then
+if [ "$ARROW_JAVA_SHADE_FLATBUFS" == "1" ]; then
   export SHADE_FLATBUFFERS = " -Pshade-flatbuffers"
 fi
 
