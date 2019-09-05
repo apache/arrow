@@ -57,6 +57,16 @@ def testpath(request, fs, tempdir):
         return lambda path: request.param(tempdir / path)
 
 
+def test_non_path_like_input_raises(fs):
+    class Path:
+        pass
+
+    invalid_paths = [1, 1.1, Path(), tuple(), {}, [], lambda: 1]
+    for path in invalid_paths:
+        with pytest.raises(TypeError):
+            fs.create_dir(path)
+
+
 def test_get_target_stats(fs, tempdir, testpath):
     aaa, aaa_ = testpath('a/aa/aaa'), tempdir / 'a' / 'aa' / 'aaa'
     bb, bb_ = testpath('a/bb'), tempdir / 'a' / 'bb'

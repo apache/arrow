@@ -22,6 +22,8 @@ try:
 except ImportError:
     import pathlib2 as pathlib  # py2 compat
 
+import six
+
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport PyDateTime_from_TimePoint
@@ -37,9 +39,15 @@ from pyarrow.lib cimport (
 )
 
 
-cdef inline c_string _path_to_bytes(p):
-    # supports types: byte, str, pathlib.Path
-    return tobytes(str(p))
+cdef inline c_string _path_to_bytes(path) except *:
+    if isinstance(path, six.binary_type):
+        return path
+    elif isinstance(path, six.string_types):
+        return tobytes(path)
+    elif isinstance(path, pathlib.Path):
+        return tobytes(str(path))
+    else:
+        raise TypeError('Path must be a string or an instance of pathlib.Path')
 
 
 cpdef enum FileType:
