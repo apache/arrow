@@ -19,10 +19,7 @@
 #' @include arrow-package.R
 #' @include io.R
 
-`arrow::util::Codec` <- R6Class("arrow::util::Codec", inherit = Object)
-
-`arrow::io::CompressedOutputStream` <- R6Class("arrow::io::CompressedOutputStream", inherit = `arrow::io::OutputStream`)
-`arrow::io::CompressedInputStream` <- R6Class("arrow::io::CompressedInputStream", inherit = `arrow::io::InputStream`)
+Codec <- R6Class("Codec", inherit = Object)
 
 #' codec
 #'
@@ -31,9 +28,23 @@
 #' @export
 compression_codec <- function(type = "GZIP") {
   type <- CompressionType[[match.arg(type, names(CompressionType))]]
-  unique_ptr(`arrow::util::Codec`, util___Codec__Create(type))
+  unique_ptr(Codec, util___Codec__Create(type))
 }
 
+
+CompressedOutputStream <- R6Class("CompressedOutputStream", inherit = `arrow::io::OutputStream`)
+
+CompressedOutputStream$create <- function(stream, codec = compression_codec()){
+  if (.Platform$OS.type == "windows") {
+    stop("'CompressedOutputStream' is unsupported in Windows.")
+  }
+  assert_that(inherits(codec, "Codec"))
+  if (is.character(stream)) {
+    stream <- FileOutputStream(stream)
+  }
+  assert_that(inherits(stream, "arrow::io::OutputStream"))
+  shared_ptr(CompressedOutputStream, io___CompressedOutputStream__Make(codec, stream))
+}
 
 #' Compressed output stream
 #'
@@ -42,21 +53,19 @@ compression_codec <- function(type = "GZIP") {
 #' @param stream Underlying raw output stream
 #' @param codec a codec
 #' @export
-CompressedOutputStream <- function(stream, codec = compression_codec("GZIP")){
-  if (.Platform$OS.type == "windows") stop("'CompressedOutputStream' is unsupported in Windows.")
+compressed_output_stream <- CompressedOutputStream$create
 
-  UseMethod("CompressedOutputStream")
-}
 
-#' @export
-CompressedOutputStream.character <- function(stream, codec = compression_codec("GZIP")){
-  CompressedOutputStream(FileOutputStream(stream), codec = codec)
-}
+CompressedInputStream <- R6Class("CompressedInputStream", inherit = `arrow::io::InputStream`)
 
-#' @export
-`CompressedOutputStream.arrow::io::OutputStream` <- function(stream, codec = compression_codec("GZIP")) {
-  assert_that(inherits(codec, "arrow::util::Codec"))
-  shared_ptr(`arrow::io::CompressedOutputStream`, io___CompressedOutputStream__Make(codec, stream))
+CompressedInputStream$create <- function(stream, codec = compression_codec()){
+  # TODO (npr): why would CompressedInputStream work on Windows if CompressedOutputStream doesn't? (and is it still the case that it does not?)
+  assert_that(inherits(codec, "Codec"))
+  if (is.character(stream)) {
+    stream <- ReadableFile(stream)
+  }
+  assert_that(inherits(stream, "arrow::io::InputStream"))
+  shared_ptr(CompressedInputStream, io___CompressedInputStream__Make(codec, stream))
 }
 
 #' Compressed input stream
@@ -64,17 +73,4 @@ CompressedOutputStream.character <- function(stream, codec = compression_codec("
 #' @param stream Underlying raw input stream
 #' @param codec a codec
 #' @export
-CompressedInputStream <- function(stream, codec = codec("GZIP")){
-  UseMethod("CompressedInputStream")
-}
-
-#' @export
-CompressedInputStream.character <- function(stream, codec = compression_codec("GZIP")){
-  CompressedInputStream(ReadableFile(stream), codec = codec)
-}
-
-#' @export
-`CompressedInputStream.arrow::io::InputStream` <- function(stream, codec = compression_codec("GZIP")) {
-  assert_that(inherits(codec, "arrow::util::Codec"))
-  shared_ptr(`arrow::io::CompressedInputStream`, io___CompressedInputStream__Make(codec, stream))
-}
+compressed_input_stream <- CompressedInputStream$create
