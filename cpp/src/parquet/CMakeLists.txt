@@ -29,7 +29,6 @@ if(NOT VERSION)
 endif()
 
 function(ADD_PARQUET_TEST REL_TEST_NAME)
-  set(options USE_STATIC_LINKING_WIN32)
   set(one_value_args)
   set(multi_value_args EXTRA_DEPENDENCIES LABELS)
   cmake_parse_arguments(ARG
@@ -40,10 +39,7 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
 
   set(TEST_ARGUMENTS PREFIX "parquet" LABELS "parquet-tests")
 
-  # By default we prefer shared linking with libparquet, as it's faster
-  # and uses less disk space, but in some cases we need to force static
-  # linking (see rationale below).
-  if((ARG_USE_STATIC_LINKING_WIN32 AND WIN32) OR ARROW_TEST_LINKAGE STREQUAL "static")
+  if(ARROW_TEST_LINKAGE STREQUAL "static")
     add_test_case(${REL_TEST_NAME}
                   STATIC_LINK_LIBS
                   ${PARQUET_STATIC_TEST_LINK_LIBS}
@@ -243,6 +239,12 @@ add_arrow_lib(parquet
               STATIC_LINK_LIBS
               ${PARQUET_STATIC_LINK_LIBS})
 
+if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
+  add_library(parquet_thrift STATIC parquet_constants.cpp parquet_types.cpp)
+
+  set(PARQUET_SHARED_TEST_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS} parquet_thrift)
+endif()
+
 if(ARROW_BUILD_STATIC AND WIN32)
   # ARROW-4848: Static Parquet lib needs to import static symbols on Windows
   target_compile_definitions(parquet_static PUBLIC ARROW_STATIC)
@@ -266,10 +268,7 @@ foreach(LIB_TARGET ${PARQUET_LIBRARIES})
   endif()
 endforeach()
 
-# We always build the Parquet static libraries (see PARQUET-1420) so we add the
-# PARQUET_STATIC public compile definition if we are building the unit tests OR
-# if we are building the static library
-if(WIN32 AND (NOT NO_TESTS OR ARROW_BUILD_STATIC))
+if(WIN32 AND ARROW_BUILD_STATIC)
   target_compile_definitions(parquet_static PUBLIC PARQUET_STATIC)
 endif()
 
@@ -319,12 +318,8 @@ add_parquet_test(arrow-test
 
 # Those tests need to use static linking as they access thrift-generated
 # symbols which are not exported by parquet.dll on Windows (PARQUET-1420).
-add_parquet_test(file_deserialize_test
-                 USE_STATIC_LINKING_WIN32
-                 SOURCES
-                 file_deserialize_test.cc
-                 test_util.cc)
-add_parquet_test(schema_test USE_STATIC_LINKING_WIN32)
+add_parquet_test(file_deserialize_test SOURCES file_deserialize_test.cc test_util.cc)
+add_parquet_test(schema_test)
 
 add_parquet_benchmark(column_io_benchmark)
 add_parquet_benchmark(encoding_benchmark)
