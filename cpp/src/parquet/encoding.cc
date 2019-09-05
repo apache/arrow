@@ -954,6 +954,9 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
                                  int* values_decoded) {
     ArrowBinaryHelper helper(out);
     num_values = std::min(num_values, num_values_);
+    RETURN_NOT_OK(helper.builder->Reserve(num_values));
+    RETURN_NOT_OK(helper.builder->ReserveData(
+        std::min<int64_t>(len_, helper.chunk_space_remaining)));
     for (int i = 0; i < num_values; ++i) {
       int32_t value_len = static_cast<int32_t>(arrow::util::SafeLoadAs<uint32_t>(data_));
       int increment = static_cast<int>(sizeof(uint32_t) + value_len);
@@ -961,8 +964,11 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
       if (ARROW_PREDICT_FALSE(!helper.CanFit(value_len))) {
         // This element would exceed the capacity of a chunk
         RETURN_NOT_OK(helper.PushChunk());
+        RETURN_NOT_OK(helper.builder->Reserve(num_values - i));
+        RETURN_NOT_OK(helper.builder->ReserveData(
+            std::min<int64_t>(len_, helper.chunk_space_remaining)));
       }
-      RETURN_NOT_OK(helper.Append(data_ + sizeof(uint32_t), value_len));
+      helper.UnsafeAppend(data_ + sizeof(uint32_t), value_len);
       data_ += increment;
       len_ -= increment;
     }
