@@ -146,7 +146,11 @@ set(ARROW_SRCS
     vendored/datetime/tz.cpp)
 
 if(ARROW_JEMALLOC)
-  set_source_files_properties(memory_pool.cc PROPERTIES OBJECT_DEPENDS jemalloc_ep)
+  if("${CMAKE_GENERATOR}" STREQUAL "Ninja")
+    set_source_files_properties(memory_pool.cc PROPERTIES OBJECT_DEPENDS jemalloc_ep)
+  else()
+    add_dependencies(arrow_dependencies jemalloc_ep)
+  endif()
 endif()
 
 if(ARROW_JSON)
