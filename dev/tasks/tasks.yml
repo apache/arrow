@@ -368,7 +368,7 @@ tasks:
   debian-stretch:
     ci: travis
     platform: linux
-    template: linux-packages/travis.linux.yml
+    template: linux-packages/azure.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=debian-stretch
       upload_extensions:
@@ -476,7 +476,7 @@ tasks:
   debian-buster:
     ci: travis
     platform: linux
-    template: linux-packages/travis.linux.yml
+    template: linux-packages/azure.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=debian-buster
       upload_extensions:
@@ -542,7 +542,7 @@ tasks:
   ubuntu-xenial:
     ci: travis
     platform: linux
-    template: linux-packages/travis.linux.yml
+    template: linux-packages/azure.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-xenial
       upload_extensions:
@@ -594,7 +594,7 @@ tasks:
   ubuntu-bionic:
     ci: travis
     platform: linux
-    template: linux-packages/travis.linux.yml
+    template: linux-packages/azure.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-bionic
       upload_extensions:
@@ -649,7 +649,7 @@ tasks:
   ubuntu-cosmic:
     ci: travis
     platform: linux
-    template: linux-packages/travis.linux.yml
+    template: linux-packages/azure.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-cosmic
       upload_extensions:
@@ -704,7 +704,7 @@ tasks:
   ubuntu-disco:
     ci: travis
     platform: linux
-    template: linux-packages/travis.linux.yml
+    template: linux-packages/azure.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-disco
       upload_extensions:
@@ -759,7 +759,7 @@ tasks:
   centos-6:
     ci: travis
     platform: linux
-    template: linux-packages/travis.linux.yml
+    template: linux-packages/azure.linux.yml
     params:
       build_command: rake yum:build CENTOS_VERSIONS=6
       upload_extensions:
@@ -779,7 +779,7 @@ tasks:
   centos-7:
     ci: travis
     platform: linux
-    template: linux-packages/travis.linux.yml
+    template: linux-packages/azure.linux.yml
     params:
       build_command: rake yum:build CENTOS_VERSIONS=7
       upload_extensions:
