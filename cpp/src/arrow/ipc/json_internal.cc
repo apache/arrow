@@ -18,7 +18,6 @@
 #include "arrow/ipc/json_internal.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <cstdlib>
 #include <memory>
 #include <sstream>
@@ -421,19 +420,8 @@ class ArrayWriter {
 
     // write strings instead of numbers since numbers can't represent all 64 bit integers
     for (int64_t i = 0; i < arr.length(); ++i) {
-      constexpr size_t kBufferSize = 128;
-      char str[kBufferSize] = {0};
-      int length = 0;
-      if (arr.IsValid(i)) {
-        if (std::is_signed<c_type>::value) {
-          length = snprintf(str, kBufferSize, "%li", static_cast<int64_t>(data[i]));
-        } else {
-          length = snprintf(str, kBufferSize, "%lu", static_cast<uint64_t>(data[i]));
-        }
-      } else {
-        str[0] = '0';
-      }
-      writer_->String(str, length);
+      auto str = std::to_string(data[i]);
+      writer_->String(str.c_str(), str.size());
     }
   }
 
