@@ -77,9 +77,10 @@ struct ListEncoding {
 
 class PARQUET_EXPORT ColumnPath {
  public:
-  ColumnPath() : path_() {}
-  explicit ColumnPath(const std::vector<std::string>& path) : path_(path) {}
-  explicit ColumnPath(std::vector<std::string>&& path) : path_(path) {}
+  ColumnPath();
+  ~ColumnPath();
+  explicit ColumnPath(const std::vector<std::string>& path);
+  explicit ColumnPath(std::vector<std::string>&& path);
 
   static std::shared_ptr<ColumnPath> FromDotString(const std::string& dotstring);
   static std::shared_ptr<ColumnPath> FromNode(const Node& node);
@@ -194,22 +195,18 @@ typedef std::vector<NodePtr> NodeVector;
 // parameters)
 class PARQUET_EXPORT PrimitiveNode : public Node {
  public:
+  ~PrimitiveNode();
+
   static std::unique_ptr<Node> FromParquet(const void* opaque_element, int id);
 
-  static inline NodePtr Make(const std::string& name, Repetition::type repetition,
-                             Type::type type,
-                             ConvertedType::type converted_type = ConvertedType::NONE,
-                             int length = -1, int precision = -1, int scale = -1) {
-    return NodePtr(new PrimitiveNode(name, repetition, type, converted_type, length,
-                                     precision, scale));
-  }
+  static NodePtr Make(const std::string& name, Repetition::type repetition,
+                      Type::type type,
+                      ConvertedType::type converted_type = ConvertedType::NONE,
+                      int length = -1, int precision = -1, int scale = -1);
 
-  static inline NodePtr Make(const std::string& name, Repetition::type repetition,
-                             std::shared_ptr<const LogicalType> logical_type,
-                             Type::type primitive_type, int primitive_length = -1) {
-    return NodePtr(new PrimitiveNode(name, repetition, logical_type, primitive_type,
-                                     primitive_length));
-  }
+  static NodePtr Make(const std::string& name, Repetition::type repetition,
+                      std::shared_ptr<const LogicalType> logical_type,
+                      Type::type primitive_type, int primitive_length = -1);
 
   bool Equals(const Node* other) const override;
 
@@ -254,24 +251,21 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
 
 class PARQUET_EXPORT GroupNode : public Node {
  public:
+  ~GroupNode();
   static std::unique_ptr<Node> FromParquet(const void* opaque_element, int id,
                                            const NodeVector& fields);
 
-  static inline NodePtr Make(const std::string& name, Repetition::type repetition,
-                             const NodeVector& fields,
-                             ConvertedType::type converted_type = ConvertedType::NONE) {
-    return NodePtr(new GroupNode(name, repetition, fields, converted_type));
-  }
+  static NodePtr Make(const std::string& name, Repetition::type repetition,
+                      const NodeVector& fields,
+                      ConvertedType::type converted_type = ConvertedType::NONE);
 
-  static inline NodePtr Make(const std::string& name, Repetition::type repetition,
-                             const NodeVector& fields,
-                             std::shared_ptr<const LogicalType> logical_type) {
-    return NodePtr(new GroupNode(name, repetition, fields, logical_type));
-  }
+  static NodePtr Make(const std::string& name, Repetition::type repetition,
+                      const NodeVector& fields,
+                      std::shared_ptr<const LogicalType> logical_type);
 
   bool Equals(const Node* other) const override;
 
-  NodePtr field(int i) const { return fields_[i]; }
+  NodePtr field(int i) const;
   // Get the index of a field by its name, or negative value if not found.
   // If several fields share the same name, it is unspecified which one
   // is returned.
@@ -279,7 +273,7 @@ class PARQUET_EXPORT GroupNode : public Node {
   // Get the index of a field by its node, or negative value if not found.
   int FieldIndex(const Node& node) const;
 
-  int field_count() const { return static_cast<int>(fields_.size()); }
+  int field_count() const;
 
   void ToParquet(void* element) const override;
   void Visit(Visitor* visitor) override;
@@ -339,6 +333,10 @@ class PARQUET_EXPORT ColumnDescriptor {
                    int16_t max_repetition_level,
                    const SchemaDescriptor* schema_descr = NULLPTR);
 
+  ~ColumnDescriptor();
+
+  ColumnDescriptor(ColumnDescriptor&& other) = default;
+
   bool Equals(const ColumnDescriptor& other) const;
 
   int16_t max_definition_level() const { return max_definition_level_; }
@@ -364,8 +362,7 @@ class PARQUET_EXPORT ColumnDescriptor {
   const std::string& name() const { return primitive_node_->name(); }
 
   const std::shared_ptr<schema::ColumnPath> path() const;
-
-  const schema::NodePtr& schema_node() const { return node_; }
+  const schema::NodePtr& schema_node() const;
 
   std::string ToString() const;
 
@@ -376,6 +373,8 @@ class PARQUET_EXPORT ColumnDescriptor {
   int type_scale() const;
 
  private:
+  PARQUET_DISALLOW_COPY_AND_ASSIGN(ColumnDescriptor);
+
   schema::NodePtr node_;
   const schema::PrimitiveNode* primitive_node_;
 
@@ -396,8 +395,8 @@ class PARQUET_EXPORT ColumnDescriptor {
 // TODO(wesm): this object can be recomputed from a Schema
 class PARQUET_EXPORT SchemaDescriptor {
  public:
-  SchemaDescriptor() {}
-  ~SchemaDescriptor() {}
+  SchemaDescriptor();
+  ~SchemaDescriptor();
 
   // Analyze the schema
   void Init(std::unique_ptr<schema::Node> schema);
@@ -415,11 +414,11 @@ class PARQUET_EXPORT SchemaDescriptor {
   bool Equals(const SchemaDescriptor& other) const;
 
   // The number of physical columns appearing in the file
-  int num_columns() const { return static_cast<int>(leaves_.size()); }
+  int num_columns() const;
 
   const schema::NodePtr& schema_root() const { return schema_; }
 
-  const schema::GroupNode* group_node() const { return group_node_; }
+  const schema::GroupNode* group_node() const;
 
   // Returns the root (child of the schema root) node of the leaf(column) node
   const schema::Node* GetColumnRoot(int i) const;
@@ -435,6 +434,7 @@ class PARQUET_EXPORT SchemaDescriptor {
   int GetColumnIndex(const schema::PrimitiveNode& node) const;
 
  private:
+  PARQUET_DISALLOW_COPY_AND_ASSIGN(SchemaDescriptor);
   friend class ColumnDescriptor;
 
   // Root Node

@@ -173,6 +173,7 @@ set(PARQUET_SRCS
     printer.cc
     properties.cc
     schema.cc
+    schema_internal.cc
     statistics.cc
     types.cc)
 
@@ -240,9 +241,12 @@ add_arrow_lib(parquet
               ${PARQUET_STATIC_LINK_LIBS})
 
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
-  add_library(parquet_thrift STATIC parquet_constants.cpp parquet_types.cpp)
-
-  set(PARQUET_SHARED_TEST_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS} parquet_thrift)
+  add_library(parquet_test_support STATIC
+    parquet_constants.cpp
+    parquet_types.cpp
+    schema_internal.cc)
+  set(PARQUET_SHARED_TEST_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS} parquet_test_support)
+  set(PARQUET_LIBRARIES ${PARQUET_LIBRARIES} parquet_test_support)
 endif()
 
 if(ARROW_BUILD_STATIC AND WIN32)
