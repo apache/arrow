@@ -19,19 +19,19 @@
 #'
 #' @param stream stream.
 #'
-#' - a [arrow::ipc::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader]:
+#' - a [arrow::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader]:
 #'   read an [arrow::Table][arrow__Table]
 #'   from all the record batches in the reader
 #'
-#' - a [arrow::ipc::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader]:
+#' - a [arrow::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader]:
 #'   read an [arrow::Table][arrow__Table] from the remaining record batches
 #'   in the reader
 #'
 #'  - a string file path: interpret the file as an arrow
-#'    binary file format, and uses a [arrow::ipc::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader]
+#'    binary file format, and uses a [arrow::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader]
 #'    to process it.
 #'
-#'  - a raw vector: read using a [arrow::ipc::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader]
+#'  - a raw vector: read using a [arrow::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader]
 #'
 #' @return
 #'
@@ -40,8 +40,8 @@
 #'
 #' @details
 #'
-#' The methods using [arrow::ipc::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader] and
-#' [arrow::ipc::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader] offer the most
+#' The methods using [arrow::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader] and
+#' [arrow::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader] offer the most
 #' flexibility. The other methods are for convenience.
 #'
 #' @export
@@ -50,12 +50,12 @@ read_table <- function(stream){
 }
 
 #' @export
-`read_table.arrow::ipc::RecordBatchFileReader` <- function(stream) {
+`read_table.arrow::RecordBatchFileReader` <- function(stream) {
   shared_ptr(`arrow::Table`, Table__from_RecordBatchFileReader(stream))
 }
 
 #' @export
-`read_table.arrow::ipc::RecordBatchStreamReader` <- function(stream) {
+`read_table.arrow::RecordBatchStreamReader` <- function(stream) {
   shared_ptr(`arrow::Table`, Table__from_RecordBatchStreamReader(stream))
 }
 

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::ipc::MessageReader")
+context("arrow::MessageReader")
 
 test_that("MessageReader can be created from raw vectors", {
   batch <- record_batch(x = 1:10)
@@ -24,7 +24,7 @@ test_that("MessageReader can be created from raw vectors", {
   reader <- MessageReader(bytes)
 
   message <- reader$ReadNextMessage()
-  expect_is(message, "arrow::ipc::Message")
+  expect_is(message, "arrow::Message")
   expect_equal(message$type, MessageType$RECORD_BATCH)
   expect_is(message$body, "Buffer")
   expect_is(message$metadata, "Buffer")
@@ -38,7 +38,7 @@ test_that("MessageReader can be created from raw vectors", {
   reader <- MessageReader(bytes)
 
   message <- reader$ReadNextMessage()
-  expect_is(message, "arrow::ipc::Message")
+  expect_is(message, "arrow::Message")
   expect_equal(message$type, MessageType$SCHEMA)
   expect_is(message$body, "Buffer")
   expect_is(message$metadata, "Buffer")
@@ -55,10 +55,10 @@ test_that("MessageReader can be created from input stream", {
   expect_is(stream, "BufferReader")
 
   reader <- MessageReader(stream)
-  expect_is(reader, "arrow::ipc::MessageReader")
+  expect_is(reader, "arrow::MessageReader")
 
   message <- reader$ReadNextMessage()
-  expect_is(message, "arrow::ipc::Message")
+  expect_is(message, "arrow::Message")
   expect_equal(message$type, MessageType$RECORD_BATCH)
   expect_is(message$body, "Buffer")
   expect_is(message$metadata, "Buffer")
@@ -73,10 +73,10 @@ test_that("MessageReader can be created from input stream", {
   expect_is(stream, "BufferReader")
 
   reader <- MessageReader(stream)
-  expect_is(reader, "arrow::ipc::MessageReader")
+  expect_is(reader, "arrow::MessageReader")
 
   message <- reader$ReadNextMessage()
-  expect_is(message, "arrow::ipc::Message")
+  expect_is(message, "arrow::Message")
   expect_equal(message$type, MessageType$SCHEMA)
   expect_is(message$body, "Buffer")
   expect_is(message$metadata, "Buffer")

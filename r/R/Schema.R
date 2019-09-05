@@ -107,6 +107,6 @@ read_schema.InputStream <- function(stream, ...) {
 }
 
 #' @export
-`read_schema.arrow::ipc::Message` <- function(stream, ...) {
+`read_schema.arrow::Message` <- function(stream, ...) {
   shared_ptr(`arrow::Schema`, ipc___ReadSchema_Message(stream))
 }

@@ -12,16 +12,16 @@ read_arrow(stream)
 \arguments{
 \item{stream}{stream.
 \itemize{
-\item a \link[=arrow__ipc__RecordBatchFileReader]{arrow::ipc::RecordBatchFileReader}:
+\item a \link[=arrow__ipc__RecordBatchFileReader]{arrow::RecordBatchFileReader}:
 read an \link[=arrow__Table]{arrow::Table}
 from all the record batches in the reader
-\item a \link[=arrow__ipc__RecordBatchStreamReader]{arrow::ipc::RecordBatchStreamReader}:
+\item a \link[=arrow__ipc__RecordBatchStreamReader]{arrow::RecordBatchStreamReader}:
 read an \link[=arrow__Table]{arrow::Table} from the remaining record batches
 in the reader
 \item a string file path: interpret the file as an arrow
-binary file format, and uses a \link[=arrow__ipc__RecordBatchFileReader]{arrow::ipc::RecordBatchFileReader}
+binary file format, and uses a \link[=arrow__ipc__RecordBatchFileReader]{arrow::RecordBatchFileReader}
 to process it.
-\item a raw vector: read using a \link[=arrow__ipc__RecordBatchStreamReader]{arrow::ipc::RecordBatchStreamReader}
+\item a raw vector: read using a \link[=arrow__ipc__RecordBatchStreamReader]{arrow::RecordBatchStreamReader}
 }}
 }
 \value{
@@ -34,7 +34,7 @@ to process it.
 Read an \link[=arrow__Table]{arrow::Table} from a stream
 }
 \details{
-The methods using \link[=arrow__ipc__RecordBatchFileReader]{arrow::ipc::RecordBatchFileReader} and
-\link[=arrow__ipc__RecordBatchStreamReader]{arrow::ipc::RecordBatchStreamReader} offer the most
+The methods using \link[=arrow__ipc__RecordBatchFileReader]{arrow::RecordBatchFileReader} and
+\link[=arrow__ipc__RecordBatchStreamReader]{arrow::RecordBatchStreamReader} offer the most
 flexibility. The other methods are for convenience.
 }

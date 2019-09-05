@@ -3,10 +3,10 @@
 \docType{class}
 \name{arrow__ipc__RecordBatchWriter}
 \alias{arrow__ipc__RecordBatchWriter}
-\alias{arrow::ipc::RecordBatchWriter}
-\title{class arrow::ipc::RecordBatchWriter}
+\alias{arrow::RecordBatchWriter}
+\title{class arrow::RecordBatchWriter}
 \description{
-class arrow::ipc::RecordBatchWriter
+class arrow::RecordBatchWriter
 }
 \section{Methods}{
 
@@ -20,8 +20,8 @@ class arrow::ipc::RecordBatchWriter
 \section{Derived classes}{
 
 \itemize{
-\item \link[=arrow__ipc__RecordBatchStreamWriter]{arrow::ipc::RecordBatchStreamWriter} implements the streaming binary format
-\item \link[=arrow__ipc__RecordBatchFileWriter]{arrow::ipc::RecordBatchFileWriter} implements the binary file format
+\item \link[=arrow__ipc__RecordBatchStreamWriter]{arrow::RecordBatchStreamWriter} implements the streaming binary format
+\item \link[=arrow__ipc__RecordBatchFileWriter]{arrow::RecordBatchFileWriter} implements the binary file format
 }
 }
 

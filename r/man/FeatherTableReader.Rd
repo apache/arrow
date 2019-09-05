@@ -2,7 +2,7 @@
 % Please edit documentation in R/feather.R
 \name{FeatherTableReader}
 \alias{FeatherTableReader}
-\title{A \code{arrow::ipc::feather::TableReader} to read from a file}
+\title{A \code{arrow::feather::TableReader} to read from a file}
 \usage{
 FeatherTableReader(file, mmap = TRUE, ...)
 }
@@ -14,5 +14,5 @@ FeatherTableReader(file, mmap = TRUE, ...)
 \item{...}{extra parameters}
 }
 \description{
-A \code{arrow::ipc::feather::TableReader} to read from a file
+A \code{arrow::feather::TableReader} to read from a file
 }

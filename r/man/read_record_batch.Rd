@@ -7,7 +7,7 @@
 read_record_batch(obj, schema)
 }
 \arguments{
-\item{obj}{a \link[=arrow__ipc__Message]{arrow::ipc::Message}, a \link[=arrow__io__InputStream]{arrow::io::InputStream}, a \link[=buffer]{Buffer}, or a raw vector}
+\item{obj}{a \link[=arrow__ipc__Message]{arrow::Message}, a \link[=arrow__io__InputStream]{arrow::io::InputStream}, a \link[=buffer]{Buffer}, or a raw vector}
 
 \item{schema}{a \link[=arrow__Schema]{arrow::Schema}}
 }

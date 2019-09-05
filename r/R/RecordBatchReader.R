@@ -40,7 +40,7 @@
   )
 )
 
-#' @title class arrow::ipc::RecordBatchStreamReader
+#' @title class arrow::RecordBatchStreamReader
 #'
 #' @usage NULL
 #' @format NULL
@@ -52,13 +52,13 @@
 #'
 #' @rdname arrow__ipc__RecordBatchStreamReader
 #' @name arrow__ipc__RecordBatchStreamReader
-`arrow::ipc::RecordBatchStreamReader` <- R6Class("arrow::ipc::RecordBatchStreamReader", inherit = `arrow::RecordBatchReader`,
+`arrow::RecordBatchStreamReader` <- R6Class("arrow::RecordBatchStreamReader", inherit = `arrow::RecordBatchReader`,
   public = list(
     batches = function() map(ipc___RecordBatchStreamReader__batches(self), shared_ptr, class = `arrow::RecordBatch`)
   )
 )
 
-#' @title class arrow::ipc::RecordBatchFileReader
+#' @title class arrow::RecordBatchFileReader
 #'
 #' @usage NULL
 #' @format NULL
@@ -70,7 +70,7 @@
 #'
 #' @rdname arrow__ipc__RecordBatchFileReader
 #' @name arrow__ipc__RecordBatchFileReader
-`arrow::ipc::RecordBatchFileReader` <- R6Class("arrow::ipc::RecordBatchFileReader", inherit = Object,
+`arrow::RecordBatchFileReader` <- R6Class("arrow::RecordBatchFileReader", inherit = Object,
   public = list(
     get_batch = function(i) shared_ptr(`arrow::RecordBatch`, ipc___RecordBatchFileReader__ReadRecordBatch(self, i)),
 
@@ -82,7 +82,7 @@
   )
 )
 
-#' Create a [arrow::ipc::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader] from an input stream
+#' Create a [arrow::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader] from an input stream
 #'
 #' @param stream input stream, an [arrow::io::InputStream][arrow__io__InputStream] or a raw vector
 #'
@@ -93,7 +93,7 @@ RecordBatchStreamReader <- function(stream){
 
 #' @export
 RecordBatchStreamReader.InputStream <- function(stream) {
-  shared_ptr(`arrow::ipc::RecordBatchStreamReader`, ipc___RecordBatchStreamReader__Open(stream))
+  shared_ptr(`arrow::RecordBatchStreamReader`, ipc___RecordBatchStreamReader__Open(stream))
 }
 
 #' @export
@@ -107,7 +107,7 @@ RecordBatchStreamReader.InputStream <- function(stream) {
 }
 
 
-#' Create an [arrow::ipc::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader] from a file
+#' Create an [arrow::RecordBatchFileReader][arrow__ipc__RecordBatchFileReader] from a file
 #'
 #' @param file The file to read from. A file path, or an [arrow::io::RandomAccessFile][arrow__ipc__RecordBatchFileReader]
 #'
@@ -118,7 +118,7 @@ RecordBatchFileReader <- function(file) {
 
 #' @export
 RecordBatchFileReader.RandomAccessFile <- function(file) {
-  shared_ptr(`arrow::ipc::RecordBatchFileReader`, ipc___RecordBatchFileReader__Open(file))
+  shared_ptr(`arrow::RecordBatchFileReader`, ipc___RecordBatchFileReader__Open(file))
 }
 
 #' @export

@@ -16,7 +16,7 @@ RecordBatchFileWriter(sink, schema)
 \item{schema}{The \link[=arrow__Schema]{arrow::Schema} for data to be written.}
 }
 \value{
-an \code{arrow::ipc::RecordBatchWriter} object
+an \code{arrow::RecordBatchWriter} object
 }
 \description{
 Create a record batch file writer from a stream

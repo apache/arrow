@@ -25,7 +25,7 @@ test_that("RecordBatchStreamReader / Writer", {
 
   sink <- BufferOutputStream$create()
   writer <- RecordBatchStreamWriter(sink, batch$schema)
-  expect_is(writer, "arrow::ipc::RecordBatchStreamWriter")
+  expect_is(writer, "arrow::RecordBatchStreamWriter")
   writer$write_batch(batch)
   writer$close()
 
@@ -33,7 +33,7 @@ test_that("RecordBatchStreamReader / Writer", {
   expect_is(buf, "Buffer")
 
   reader <- RecordBatchStreamReader(buf)
-  expect_is(reader, "arrow::ipc::RecordBatchStreamReader")
+  expect_is(reader, "arrow::RecordBatchStreamReader")
 
   batch1 <- reader$read_next_batch()
   expect_is(batch1, "arrow::RecordBatch")
@@ -50,7 +50,7 @@ test_that("RecordBatchFileReader / Writer", {
 
   sink <- BufferOutputStream$create()
   writer <- RecordBatchFileWriter(sink, batch$schema)
-  expect_is(writer, "arrow::ipc::RecordBatchFileWriter")
+  expect_is(writer, "arrow::RecordBatchFileWriter")
   writer$write_batch(batch)
   writer$close()
 
@@ -58,7 +58,7 @@ test_that("RecordBatchFileReader / Writer", {
   expect_is(buf, "Buffer")
 
   reader <- RecordBatchFileReader(buf)
-  expect_is(reader, "arrow::ipc::RecordBatchFileReader")
+  expect_is(reader, "arrow::RecordBatchFileReader")
 
   batch1 <- reader$get_batch(0L)
   expect_is(batch1, "arrow::RecordBatch")

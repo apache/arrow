@@ -3,12 +3,12 @@
 \docType{class}
 \name{arrow__ipc__RecordBatchStreamWriter}
 \alias{arrow__ipc__RecordBatchStreamWriter}
-\alias{arrow::ipc::RecordBatchStreamWriter}
-\title{class arrow::ipc::RecordBatchStreamWriter
+\alias{arrow::RecordBatchStreamWriter}
+\title{class arrow::RecordBatchStreamWriter
 
 Writer for the Arrow streaming binary format}
 \description{
-class arrow::ipc::RecordBatchStreamWriter
+class arrow::RecordBatchStreamWriter
 
 Writer for the Arrow streaming binary format
 }
@@ -29,7 +29,7 @@ The \code{\link[=RecordBatchStreamWriter]{RecordBatchStreamWriter()}} function c
 
 \section{Methods}{
 
-inherited from \link[=arrow__ipc__RecordBatchWriter]{arrow::ipc::RecordBatchWriter}
+inherited from \link[=arrow__ipc__RecordBatchWriter]{arrow::RecordBatchWriter}
 \itemize{
 \item \code{$write_batch(batch)}: Write record batch to stream
 \item \code{$write_table(table)}: write Table to stream

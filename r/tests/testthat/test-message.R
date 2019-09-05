@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::ipc::Message")
+context("arrow::Message")
 
 test_that("read_message can read from input stream", {
   batch <- record_batch(x = 1:10)
@@ -23,7 +23,7 @@ test_that("read_message can read from input stream", {
   stream <- BufferReader$create(bytes)
 
   message <- read_message(stream)
-  expect_is(message, "arrow::ipc::Message")
+  expect_is(message, "arrow::Message")
   expect_equal(message$type, MessageType$RECORD_BATCH)
   expect_is(message$body, "Buffer")
   expect_is(message$metadata, "Buffer")
@@ -37,7 +37,7 @@ test_that("read_message() can read Schema messages", {
   stream <- BufferReader$create(bytes)
   message <- read_message(stream)
 
-  expect_is(message, "arrow::ipc::Message")
+  expect_is(message, "arrow::Message")
   expect_equal(message$type, MessageType$SCHEMA)
   expect_is(message$body, "Buffer")
   expect_is(message$metadata, "Buffer")

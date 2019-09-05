@@ -3,10 +3,10 @@
 \docType{class}
 \name{arrow__ipc__MessageReader}
 \alias{arrow__ipc__MessageReader}
-\alias{arrow::ipc::MessageReader}
-\title{class arrow::ipc::MessageReader}
+\alias{arrow::MessageReader}
+\title{class arrow::MessageReader}
 \description{
-class arrow::ipc::MessageReader
+class arrow::MessageReader
 }
 \section{Methods}{
 

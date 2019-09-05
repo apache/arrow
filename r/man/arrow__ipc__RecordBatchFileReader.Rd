@@ -3,10 +3,10 @@
 \docType{class}
 \name{arrow__ipc__RecordBatchFileReader}
 \alias{arrow__ipc__RecordBatchFileReader}
-\alias{arrow::ipc::RecordBatchFileReader}
-\title{class arrow::ipc::RecordBatchFileReader}
+\alias{arrow::RecordBatchFileReader}
+\title{class arrow::RecordBatchFileReader}
 \description{
-class arrow::ipc::RecordBatchFileReader
+class arrow::RecordBatchFileReader
 }
 \section{Methods}{
 

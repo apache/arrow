@@ -16,7 +16,7 @@ RecordBatchStreamWriter(sink, schema)
 \item{schema}{The \link[=arrow__Schema]{arrow::Schema} for data to be written.}
 }
 \value{
-a \link[=arrow__ipc__RecordBatchStreamWriter]{arrow::ipc::RecordBatchStreamWriter}
+a \link[=arrow__ipc__RecordBatchStreamWriter]{arrow::RecordBatchStreamWriter}
 }
 \description{
 Writer for the Arrow streaming binary format

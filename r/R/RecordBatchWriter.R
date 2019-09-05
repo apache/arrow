@@ -17,7 +17,7 @@
 
 #' @include arrow-package.R
 
-#' @title class arrow::ipc::RecordBatchWriter
+#' @title class arrow::RecordBatchWriter
 #'
 #' @usage NULL
 #' @format NULL
@@ -31,12 +31,12 @@
 #'
 #' @section Derived classes:
 #'
-#' - [arrow::ipc::RecordBatchStreamWriter][arrow__ipc__RecordBatchStreamWriter] implements the streaming binary format
-#' - [arrow::ipc::RecordBatchFileWriter][arrow__ipc__RecordBatchFileWriter] implements the binary file format
+#' - [arrow::RecordBatchStreamWriter][arrow__ipc__RecordBatchStreamWriter] implements the streaming binary format
+#' - [arrow::RecordBatchFileWriter][arrow__ipc__RecordBatchFileWriter] implements the binary file format
 #'
 #' @rdname arrow__ipc__RecordBatchWriter
 #' @name arrow__ipc__RecordBatchWriter
-`arrow::ipc::RecordBatchWriter` <- R6Class("arrow::ipc::RecordBatchWriter", inherit = Object,
+`arrow::RecordBatchWriter` <- R6Class("arrow::RecordBatchWriter", inherit = Object,
   public = list(
     write_batch = function(batch) ipc___RecordBatchWriter__WriteRecordBatch(self, batch),
     write_table = function(table) ipc___RecordBatchWriter__WriteTable(self, table),
@@ -57,7 +57,7 @@
   )
 )
 
-#' @title class arrow::ipc::RecordBatchStreamWriter
+#' @title class arrow::RecordBatchStreamWriter
 #'
 #' Writer for the Arrow streaming binary format
 #'
@@ -80,7 +80,7 @@
 #' The [RecordBatchStreamWriter()] function creates a record batch stream writer.
 #'
 #' @section Methods:
-#' inherited from [arrow::ipc::RecordBatchWriter][arrow__ipc__RecordBatchWriter]
+#' inherited from [arrow::RecordBatchWriter][arrow__ipc__RecordBatchWriter]
 #'
 #' - `$write_batch(batch)`: Write record batch to stream
 #' - `$write_table(table)`: write Table to stream
@@ -88,7 +88,7 @@
 #'
 #' @rdname arrow__ipc__RecordBatchStreamWriter
 #' @name arrow__ipc__RecordBatchStreamWriter
-`arrow::ipc::RecordBatchStreamWriter` <- R6Class("arrow::ipc::RecordBatchStreamWriter", inherit = `arrow::ipc::RecordBatchWriter`)
+`arrow::RecordBatchStreamWriter` <- R6Class("arrow::RecordBatchStreamWriter", inherit = `arrow::RecordBatchWriter`)
 
 #' Writer for the Arrow streaming binary format
 #'
@@ -99,7 +99,7 @@
 #'
 #' @param schema The [arrow::Schema][arrow__Schema] for data to be written.
 #'
-#' @return a [arrow::ipc::RecordBatchStreamWriter][arrow__ipc__RecordBatchStreamWriter]
+#' @return a [arrow::RecordBatchStreamWriter][arrow__ipc__RecordBatchStreamWriter]
 #'
 #' @export
 RecordBatchStreamWriter <- function(sink, schema) {
@@ -114,10 +114,10 @@ RecordBatchStreamWriter.character <- function(sink, schema){
 #' @export
 RecordBatchStreamWriter.OutputStream <- function(sink, schema){
   assert_that(inherits(schema, "arrow::Schema"))
-  shared_ptr(`arrow::ipc::RecordBatchStreamWriter`, ipc___RecordBatchStreamWriter__Open(sink, schema))
+  shared_ptr(`arrow::RecordBatchStreamWriter`, ipc___RecordBatchStreamWriter__Open(sink, schema))
 }
 
-#' @title class arrow::ipc::RecordBatchFileWriter
+#' @title class arrow::RecordBatchFileWriter
 #'
 #' Writer for the Arrow binary file format
 #'
@@ -140,7 +140,7 @@ RecordBatchStreamWriter.OutputStream <- function(sink, schema){
 #' The [RecordBatchFileWriter()] function creates a record batch stream writer.
 #'
 #' @section Methods:
-#' inherited from [arrow::ipc::RecordBatchWriter][arrow__ipc__RecordBatchWriter]
+#' inherited from [arrow::RecordBatchWriter][arrow__ipc__RecordBatchWriter]
 #'
 #' - `$write_batch(batch)`: Write record batch to stream
 #' - `$write_table(table)`: write Table to stream
@@ -148,7 +148,7 @@ RecordBatchStreamWriter.OutputStream <- function(sink, schema){
 #'
 #' @rdname arrow__ipc__RecordBatchFileWriter
 #' @name arrow__ipc__RecordBatchFileWriter
-`arrow::ipc::RecordBatchFileWriter` <- R6Class("arrow::ipc::RecordBatchFileWriter", inherit = `arrow::ipc::RecordBatchStreamWriter`)
+`arrow::RecordBatchFileWriter` <- R6Class("arrow::RecordBatchFileWriter", inherit = `arrow::RecordBatchStreamWriter`)
 
 #' Create a record batch file writer from a stream
 #'
@@ -159,7 +159,7 @@ RecordBatchStreamWriter.OutputStream <- function(sink, schema){
 #'
 #' @param schema The [arrow::Schema][arrow__Schema] for data to be written.
 #'
-#' @return an `arrow::ipc::RecordBatchWriter` object
+#' @return an `arrow::RecordBatchWriter` object
 #'
 #' @export
 RecordBatchFileWriter <- function(sink, schema) {
@@ -174,5 +174,5 @@ RecordBatchFileWriter.character <- function(sink, schema){
 #' @export
 RecordBatchFileWriter.OutputStream <- function(sink, schema){
   assert_that(inherits(schema, "arrow::Schema"))
-  shared_ptr(`arrow::ipc::RecordBatchFileWriter`, ipc___RecordBatchFileWriter__Open(sink, schema))
+  shared_ptr(`arrow::RecordBatchFileWriter`, ipc___RecordBatchFileWriter__Open(sink, schema))
 }

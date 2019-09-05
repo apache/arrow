@@ -17,7 +17,7 @@
 
 #' read [arrow::RecordBatch][arrow__RecordBatch] as encapsulated IPC message, given a known [arrow::Schema][arrow__Schema]
 #'
-#' @param obj a [arrow::ipc::Message][arrow__ipc__Message], a [arrow::io::InputStream][arrow__io__InputStream], a [Buffer][buffer], or a raw vector
+#' @param obj a [arrow::Message][arrow__ipc__Message], a [arrow::io::InputStream][arrow__io__InputStream], a [Buffer][buffer], or a raw vector
 #' @param schema a [arrow::Schema][arrow__Schema]
 #'
 #' @return a [arrow::RecordBatch][arrow__RecordBatch]
@@ -28,7 +28,7 @@ read_record_batch <- function(obj, schema){
 }
 
 #' @export
-`read_record_batch.arrow::ipc::Message` <- function(obj, schema) {
+`read_record_batch.arrow::Message` <- function(obj, schema) {
   assert_that(inherits(schema, "arrow::Schema"))
   shared_ptr(`arrow::RecordBatch`, ipc___ReadRecordBatch__Message__Schema(obj, schema))
 }

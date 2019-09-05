@@ -27,7 +27,7 @@ test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
   tf <- tempfile()
 
   writer <- RecordBatchFileWriter(tf, tab$schema)
-  expect_is(writer, "arrow::ipc::RecordBatchFileWriter")
+  expect_is(writer, "arrow::RecordBatchFileWriter")
   writer$write_table(tab)
   writer$close()
   tab2 <- read_table(tf)
@@ -35,7 +35,7 @@ test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
 
   stream <- FileOutputStream$create(tf)
   writer <- RecordBatchFileWriter(stream, tab$schema)
-  expect_is(writer, "arrow::ipc::RecordBatchFileWriter")
+  expect_is(writer, "arrow::RecordBatchFileWriter")
   writer$write_table(tab)
   writer$close()
   tab3 <- read_table(tf)

@@ -2,7 +2,7 @@
 % Please edit documentation in R/RecordBatchReader.R
 \name{RecordBatchStreamReader}
 \alias{RecordBatchStreamReader}
-\title{Create a \link[=arrow__ipc__RecordBatchStreamReader]{arrow::ipc::RecordBatchStreamReader} from an input stream}
+\title{Create a \link[=arrow__ipc__RecordBatchStreamReader]{arrow::RecordBatchStreamReader} from an input stream}
 \usage{
 RecordBatchStreamReader(stream)
 }
@@ -10,5 +10,5 @@ RecordBatchStreamReader(stream)
 \item{stream}{input stream, an \link[=arrow__io__InputStream]{arrow::io::InputStream} or a raw vector}
 }
 \description{
-Create a \link[=arrow__ipc__RecordBatchStreamReader]{arrow::ipc::RecordBatchStreamReader} from an input stream
+Create a \link[=arrow__ipc__RecordBatchStreamReader]{arrow::RecordBatchStreamReader} from an input stream
 }

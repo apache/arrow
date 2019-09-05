@@ -17,7 +17,7 @@
 
 #' @include arrow-package.R
 
-`arrow::ipc::feather::TableWriter` <- R6Class("arrow::ipc::feather::TableWriter", inherit = Object,
+`arrow::feather::TableWriter` <- R6Class("arrow::feather::TableWriter", inherit = Object,
   public = list(
     SetDescription = function(description) ipc___feather___TableWriter__SetDescription(self, description),
     SetNumRows = function(num_rows) ipc___feather___TableWriter__SetNumRows(self, num_rows),
@@ -26,7 +26,7 @@
   )
 )
 
-`arrow::ipc::feather::TableReader` <- R6Class("arrow::ipc::feather::TableReader", inherit = Object,
+`arrow::feather::TableReader` <- R6Class("arrow::feather::TableReader", inherit = Object,
   public = list(
     GetDescription = function() ipc___feather___TableReader__GetDescription(self),
     HasDescription = function() ipc__feather___TableReader__HasDescription(self),
@@ -52,7 +52,7 @@ FeatherTableWriter <- function(stream) {
 
 #' @export
 FeatherTableWriter.OutputStream <- function(stream){
-  unique_ptr(`arrow::ipc::feather::TableWriter`, ipc___feather___TableWriter__Open(stream))
+  unique_ptr(`arrow::feather::TableWriter`, ipc___feather___TableWriter__Open(stream))
 }
 
 #' Write data in the Feather format
@@ -117,7 +117,7 @@ write_feather_RecordBatch.OutputStream <- function(data, stream) {
   ipc___TableWriter__RecordBatch__WriteFeather(FeatherTableWriter(stream), data)
 }
 
-#' A `arrow::ipc::feather::TableReader` to read from a file
+#' A `arrow::feather::TableReader` to read from a file
 #'
 #' @param file A file path or RandomAccessFile
 #' @param mmap Is the file memory mapped (applicable to the `character` method)
@@ -145,17 +145,17 @@ FeatherTableReader.raw <- function(file, mmap = TRUE, ...) {
 
 #' @export
 FeatherTableReader.RandomAccessFile <- function(file, mmap = TRUE, ...){
-  unique_ptr(`arrow::ipc::feather::TableReader`, ipc___feather___TableReader__Open(file))
+  unique_ptr(`arrow::feather::TableReader`, ipc___feather___TableReader__Open(file))
 }
 
 #' @export
-`FeatherTableReader.arrow::ipc::feather::TableReader` <- function(file, mmap = TRUE, ...){
+`FeatherTableReader.arrow::feather::TableReader` <- function(file, mmap = TRUE, ...){
   file
 }
 
 #' Read a Feather file
 #'
-#' @param file an `arrow::ipc::feather::TableReader` or whatever the [FeatherTableReader()] function can handle
+#' @param file an `arrow::feather::TableReader` or whatever the [FeatherTableReader()] function can handle
 #' @inheritParams read_delim_arrow
 #' @param ... additional parameters
 #'

@@ -2,7 +2,7 @@
 % Please edit documentation in R/RecordBatchReader.R
 \name{RecordBatchFileReader}
 \alias{RecordBatchFileReader}
-\title{Create an \link[=arrow__ipc__RecordBatchFileReader]{arrow::ipc::RecordBatchFileReader} from a file}
+\title{Create an \link[=arrow__ipc__RecordBatchFileReader]{arrow::RecordBatchFileReader} from a file}
 \usage{
 RecordBatchFileReader(file)
 }
@@ -10,5 +10,5 @@ RecordBatchFileReader(file)
 \item{file}{The file to read from. A file path, or an \link[=arrow__ipc__RecordBatchFileReader]{arrow::io::RandomAccessFile}}
 }
 \description{
-Create an \link[=arrow__ipc__RecordBatchFileReader]{arrow::ipc::RecordBatchFileReader} from a file
+Create an \link[=arrow__ipc__RecordBatchFileReader]{arrow::RecordBatchFileReader} from a file
 }

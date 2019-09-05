@@ -32,22 +32,22 @@ to_arrow <- function(x) {
 #'
 #' @param stream where to serialize to
 #'
-#' - A [arrow::ipc::RecordBatchWriter][arrow__ipc__RecordBatchWriter]: the `$write()`
+#' - A [arrow::RecordBatchWriter][arrow__ipc__RecordBatchWriter]: the `$write()`
 #'      of `x` is used. The stream is left open. This uses the streaming format
 #'      or the binary file format depending on the type of the writer.
 #'
 #' - A string file path: `x` is serialized with
-#'      a [arrow::ipc::RecordBatchFileWriter][arrow__ipc__RecordBatchFileWriter], i.e.
+#'      a [arrow::RecordBatchFileWriter][arrow__ipc__RecordBatchFileWriter], i.e.
 #'      using the binary file format.
 #'
 #' - A raw vector: typically of length zero (its data is ignored, and only used for
 #'      dispatch). `x` is serialized using the streaming format, i.e. using the
-#'      [arrow::ipc::RecordBatchStreamWriter][arrow__ipc__RecordBatchStreamWriter]
+#'      [arrow::RecordBatchStreamWriter][arrow__ipc__RecordBatchStreamWriter]
 #'
 #' @param ... extra parameters, currently ignored
 #'
-#' `write_arrow` is a convenience function, the classes [arrow::ipc::RecordBatchFileWriter][arrow__ipc__RecordBatchFileWriter]
-#' and [arrow::ipc::RecordBatchStreamWriter][arrow__ipc__RecordBatchStreamWriter] can be used for more flexibility.
+#' `write_arrow` is a convenience function, the classes [arrow::RecordBatchFileWriter][arrow__ipc__RecordBatchFileWriter]
+#' and [arrow::RecordBatchStreamWriter][arrow__ipc__RecordBatchStreamWriter] can be used for more flexibility.
 #'
 #' @export
 write_arrow <- function(x, stream, ...) {
@@ -55,7 +55,7 @@ write_arrow <- function(x, stream, ...) {
 }
 
 #' @export
-`write_arrow.arrow::ipc::RecordBatchWriter` <- function(x, stream, ...){
+`write_arrow.arrow::RecordBatchWriter` <- function(x, stream, ...){
   stream$write(x)
 }
 
