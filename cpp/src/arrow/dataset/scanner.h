@@ -76,14 +76,53 @@ class ARROW_DS_EXPORT SimpleScanTask : public ScanTask {
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
 };
 
-/// \brief Main interface for
+/// \brief Scanner is a materialized scan operation with context and options
+/// bound. A scanner is the class that glues ScanTask, DataFragment,
+/// and DataSource. In python pseudo code, it performs the following:
+///
+///  def Scan():
+///    for source in this.sources_:
+///      for fragment in source.GetFragments(this.options_):
+///        for scan_task in fragment.Scan(this.context_):
+///          yield scan_task
 class ARROW_DS_EXPORT Scanner {
  public:
-  /// \brief Return iterator yielding ScanTask instances to enable
-  /// serial or parallel execution of units of scanning work
+  /// \brief The Scan operator returns a stream of ScanTask. The caller is
+  /// responsible to dispatch/schedule said tasks. Tasks should be safe to run
+  /// in a concurrent fashion and outlive the iterator.
   virtual std::unique_ptr<ScanTaskIterator> Scan() = 0;
 
   virtual ~Scanner() = default;
+};
+
+/// \brief SimpleScanner is a trivial Scanner implementation that flattens
+/// chained iterators.
+///
+/// The returned iterator of SimpleScanner::Scan is a serial blocking
+/// iterator. It will block if any of the following methods blocks:
+///  - Iterator::Next
+///  - DataSource::GetFragments
+///  - DataFragment::Scan
+///
+/// Thus, this iterator is not suited for consumption of sources/fragments
+/// where the previous methods can block for a long time, e.g. if fetching a
+/// DataFragment from cloud storage, or a DataFragment must be parsed before
+/// returning a ScanTaskIterator.
+class ARROW_DS_EXPORT SimpleScanner : public Scanner {
+ public:
+  SimpleScanner(std::vector<std::shared_ptr<DataSource>> sources,
+                std::shared_ptr<ScanOptions> options,
+                std::shared_ptr<ScanContext> context)
+      : sources_(std::move(sources)),
+        options_(std::move(options)),
+        context_(std::move(context)) {}
+
+  std::unique_ptr<ScanTaskIterator> Scan() override;
+
+ private:
+  std::vector<std::shared_ptr<DataSource>> sources_;
+  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<ScanContext> context_;
 };
 
 class ARROW_DS_EXPORT ScannerBuilder {
@@ -104,7 +143,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ScannerBuilder* IncludePartitionKeys(bool include = true);
 
   /// \brief Return the constructed now-immutable Scanner object
-  std::unique_ptr<Scanner> Finish() const;
+  Status Finish(std::unique_ptr<Scanner>* out) const;
 
  private:
   std::shared_ptr<Dataset> dataset_;

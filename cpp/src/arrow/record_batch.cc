@@ -269,4 +269,41 @@ Status RecordBatchReader::ReadAll(std::shared_ptr<Table>* table) {
   return Table::FromRecordBatches(schema(), batches, table);
 }
 
+class SimpleRecordBatchReader : public RecordBatchReader {
+ public:
+  SimpleRecordBatchReader(std::unique_ptr<Iterator<std::shared_ptr<RecordBatch>>> it,
+                          std::shared_ptr<Schema> schema)
+      : schema_(schema), it_(std::move(it)) {}
+
+  SimpleRecordBatchReader(const std::vector<std::shared_ptr<RecordBatch>>& batches,
+                          std::shared_ptr<Schema> schema)
+      : schema_(schema), it_(MakeVectorIterator(batches)) {}
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
+    return it_->Next(batch);
+  }
+
+  std::shared_ptr<Schema> schema() const override { return schema_; }
+
+ protected:
+  std::shared_ptr<Schema> schema_;
+  std::unique_ptr<Iterator<std::shared_ptr<RecordBatch>>> it_;
+};
+
+Status MakeRecordBatchReader(const std::vector<std::shared_ptr<RecordBatch>>& batches,
+                             std::shared_ptr<Schema> schema,
+                             std::shared_ptr<RecordBatchReader>* out) {
+  if (schema == nullptr) {
+    if (batches.size() == 0 || batches[0] == nullptr) {
+      return Status::Invalid("Cannot infer schema from empty vector or nullptr");
+    }
+
+    schema = batches[0]->schema();
+  }
+
+  *out = std::make_shared<SimpleRecordBatchReader>(batches, schema);
+
+  return Status::OK();
+}
+
 }  // namespace arrow

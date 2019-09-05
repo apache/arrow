@@ -34,6 +34,7 @@ add_arrow_test(utility-test
                hashing_test.cc
                int_util_test.cc
                io_util_test.cc
+               iterator_test.cc
                parsing_util_test.cc
                range_test.cc
                stl_util_test.cc

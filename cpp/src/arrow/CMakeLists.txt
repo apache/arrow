@@ -317,6 +317,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
                 filesystem/test_util.cc
                 testing/gtest_util.cc
                 testing/random.cc
+                testing/generator.cc
                 OUTPUTS
                 ARROW_TESTING_LIBRARIES
                 DEPENDENCIES
