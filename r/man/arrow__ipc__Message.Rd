@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__ipc__Message}
 \alias{arrow__ipc__Message}
-\alias{arrow::Message}
+\alias{Message}
 \title{class arrow::Message}
 \description{
 class arrow::Message

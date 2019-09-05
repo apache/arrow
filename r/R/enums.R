@@ -69,7 +69,7 @@ FileMode <- enum("FileMode",
 
 #' @rdname enums
 #' @export
-MessageType <- enum("arrow::Message::Type",
+MessageType <- enum("Message::Type",
   NONE = 0L, SCHEMA = 1L, DICTIONARY_BATCH = 2L, RECORD_BATCH = 3L, TENSOR = 4L
 )
 

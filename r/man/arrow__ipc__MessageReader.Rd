@@ -3,7 +3,7 @@
 \docType{class}
 \name{arrow__ipc__MessageReader}
 \alias{arrow__ipc__MessageReader}
-\alias{arrow::MessageReader}
+\alias{MessageReader}
 \title{class arrow::MessageReader}
 \description{
 class arrow::MessageReader

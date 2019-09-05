@@ -28,7 +28,7 @@ read_record_batch <- function(obj, schema){
 }
 
 #' @export
-`read_record_batch.arrow::Message` <- function(obj, schema) {
+read_record_batch.Message <- function(obj, schema) {
   assert_that(inherits(schema, "arrow::Schema"))
   shared_ptr(`arrow::RecordBatch`, ipc___ReadRecordBatch__Message__Schema(obj, schema))
 }
@@ -47,7 +47,7 @@ read_record_batch.raw <- function(obj, schema){
 }
 
 #' @export
-`read_record_batch.Buffer` <- function(obj, schema){
+read_record_batch.Buffer <- function(obj, schema){
   stream <- BufferReader$create(obj)
   on.exit(stream$close())
   read_record_batch(stream, schema)

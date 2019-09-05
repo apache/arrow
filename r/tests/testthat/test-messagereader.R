@@ -15,16 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::MessageReader")
+context("MessageReader")
 
 test_that("MessageReader can be created from raw vectors", {
   batch <- record_batch(x = 1:10)
   bytes <- batch$serialize()
 
-  reader <- MessageReader(bytes)
+  reader <- MessageReader$create(bytes)
 
   message <- reader$ReadNextMessage()
-  expect_is(message, "arrow::Message")
+  expect_is(message, "Message")
   expect_equal(message$type, MessageType$RECORD_BATCH)
   expect_is(message$body, "Buffer")
   expect_is(message$metadata, "Buffer")
@@ -35,10 +35,10 @@ test_that("MessageReader can be created from raw vectors", {
   schema <- schema(x = int32())
   bytes <- schema$serialize()
 
-  reader <- MessageReader(bytes)
+  reader <- MessageReader$create(bytes)
 
   message <- reader$ReadNextMessage()
-  expect_is(message, "arrow::Message")
+  expect_is(message, "Message")
   expect_equal(message$type, MessageType$SCHEMA)
   expect_is(message$body, "Buffer")
   expect_is(message$metadata, "Buffer")
@@ -54,11 +54,11 @@ test_that("MessageReader can be created from input stream", {
   stream <- BufferReader$create(bytes)
   expect_is(stream, "BufferReader")
 
-  reader <- MessageReader(stream)
-  expect_is(reader, "arrow::MessageReader")
+  reader <- MessageReader$create(stream)
+  expect_is(reader, "MessageReader")
 
   message <- reader$ReadNextMessage()
-  expect_is(message, "arrow::Message")
+  expect_is(message, "Message")
   expect_equal(message$type, MessageType$RECORD_BATCH)
   expect_is(message$body, "Buffer")
   expect_is(message$metadata, "Buffer")
@@ -72,11 +72,11 @@ test_that("MessageReader can be created from input stream", {
   stream <- BufferReader$create(bytes)
   expect_is(stream, "BufferReader")
 
-  reader <- MessageReader(stream)
-  expect_is(reader, "arrow::MessageReader")
+  reader <- MessageReader$create(stream)
+  expect_is(reader, "MessageReader")
 
   message <- reader$ReadNextMessage()
-  expect_is(message, "arrow::Message")
+  expect_is(message, "Message")
   expect_equal(message$type, MessageType$SCHEMA)
   expect_is(message$body, "Buffer")
   expect_is(message$metadata, "Buffer")

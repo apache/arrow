@@ -29,10 +29,10 @@
 #'
 #' @rdname arrow__ipc__Message
 #' @name arrow__ipc__Message
-`arrow::Message` <- R6Class("arrow::Message", inherit = Object,
+Message <- R6Class("Message", inherit = Object,
   public = list(
     Equals = function(other){
-      assert_that(inherits(other, "arrow::Message"))
+      assert_that(inherits(other, "Message"))
       ipc___Message__Equals(self, other)
     },
     body_length = function() ipc___Message__body_length(self),
@@ -60,29 +60,18 @@
 #'
 #' @rdname arrow__ipc__MessageReader
 #' @name arrow__ipc__MessageReader
-`arrow::MessageReader` <- R6Class("arrow::MessageReader", inherit = Object,
+#' @export
+MessageReader <- R6Class("MessageReader", inherit = Object,
   public = list(
-    ReadNextMessage = function() unique_ptr(`arrow::Message`, ipc___MessageReader__ReadNextMessage(self))
+    ReadNextMessage = function() unique_ptr(Message, ipc___MessageReader__ReadNextMessage(self))
   )
 )
 
-#' Open a MessageReader that reads from a stream
-#'
-#' @param stream an InputStream
-#'
-#' @export
-MessageReader <- function(stream) {
-  UseMethod("MessageReader")
-}
-
-#' @export
-MessageReader.default <- function(stream) {
-  MessageReader(BufferReader$create(stream))
-}
-
-#' @export
-MessageReader.InputStream <- function(stream) {
-  unique_ptr(`arrow::MessageReader`, ipc___MessageReader__Open(stream))
+MessageReader$create <- function(stream) {
+  if (!inherits(stream, "InputStream")) {
+    stream <- BufferReader$create(stream)
+  }
+  unique_ptr(MessageReader, ipc___MessageReader__Open(stream))
 }
 
 #' Read a Message from a stream
@@ -95,16 +84,16 @@ read_message <- function(stream) {
 }
 
 #' @export
-read_message.default<- function(stream) {
+read_message.default <- function(stream) {
   read_message(BufferReader$create(stream))
 }
 
 #' @export
 read_message.InputStream <- function(stream) {
-  unique_ptr(`arrow::Message`, ipc___ReadMessage(stream) )
+  unique_ptr(Message, ipc___ReadMessage(stream) )
 }
 
 #' @export
-`read_message.arrow::MessageReader` <- function(stream) {
+read_message.MessageReader <- function(stream) {
   stream$ReadNextMessage()
 }

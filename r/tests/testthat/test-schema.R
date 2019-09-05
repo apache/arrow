@@ -38,17 +38,17 @@ test_that("reading schema from Buffer", {
   buffer <- stream$getvalue()
   expect_is(buffer, "Buffer")
 
-  reader <- MessageReader(buffer)
-  expect_is(reader, "arrow::MessageReader")
+  reader <- MessageReader$create(buffer)
+  expect_is(reader, "MessageReader")
 
   message <- reader$ReadNextMessage()
-  expect_is(message, "arrow::Message")
+  expect_is(message, "Message")
   expect_equal(message$type, MessageType$SCHEMA)
 
   stream <- BufferReader$create(buffer)
   expect_is(stream, "BufferReader")
   message <- read_message(stream)
-  expect_is(message, "arrow::Message")
+  expect_is(message, "Message")
   expect_equal(message$type, MessageType$SCHEMA)
 })
 
