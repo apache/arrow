@@ -48,9 +48,8 @@ Suggests:
 Collate:
     'enums.R'
     'arrow-package.R'
-    'type.R'
-    'Column.R'
     'Field.R'
+    'type.R'
     'List.R'
     'RecordBatch.R'
     'RecordBatchReader.R'
