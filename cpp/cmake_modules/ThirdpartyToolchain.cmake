@@ -628,14 +628,16 @@ macro(build_double_conversion)
   message(STATUS "Building double-conversion from source")
   set(DOUBLE_CONVERSION_PREFIX
       "${CMAKE_CURRENT_BINARY_DIR}/double-conversion_ep/src/double-conversion_ep")
+  set(DOUBLE_CONVERSION_LIB_DIR "lib")
   set(double-conversion_INCLUDE_DIRS "${DOUBLE_CONVERSION_PREFIX}/include")
   set(
     DOUBLE_CONVERSION_STATIC_LIB
-    "${DOUBLE_CONVERSION_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}double-conversion${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${DOUBLE_CONVERSION_PREFIX}/${DOUBLE_CONVERSION_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}double-conversion${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
 
   set(DOUBLE_CONVERSION_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
-                                   "-DCMAKE_INSTALL_PREFIX=${DOUBLE_CONVERSION_PREFIX}")
+                                   "-DCMAKE_INSTALL_PREFIX=${DOUBLE_CONVERSION_PREFIX}"
+                                   "-DCMAKE_INSTALL_LIBDIR=${DOUBLE_CONVERSION_LIB_DIR}")
 
   externalproject_add(double-conversion_ep
                       ${EP_LOG_OPTIONS}
@@ -865,7 +867,7 @@ macro(build_brotli)
     "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(BROTLI_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${BROTLI_PREFIX}"
-                        -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_SHARED_LIBS=OFF)
+                        -DCMAKE_INSTALL_LIBDIR=${BROTLI_LIB_DIR} -DBUILD_SHARED_LIBS=OFF)
 
   externalproject_add(brotli_ep
                       URL ${BROTLI_SOURCE_URL}
