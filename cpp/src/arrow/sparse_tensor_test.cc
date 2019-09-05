@@ -312,27 +312,55 @@ INSTANTIATE_TYPED_TEST_CASE_P(TestInt64, TestSparseCOOTensorForIndexValueType, I
 INSTANTIATE_TYPED_TEST_CASE_P(TestUInt64, TestSparseCOOTensorForIndexValueType,
                               UInt64Type);
 
-TEST(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
-  std::vector<int64_t> shape = {6, 4};
+template <typename IndexValueType>
+class TestSparseCSRMatrixBase : public ::testing::Test {
+ public:
+  void SetUp() {
+    shape_ = {6, 4};
+    dim_names_ = {"foo", "bar"};
+
+    // Dense representation:
+    // [
+    //    1  0  2  0
+    //    0  3  0  4
+    //    5  0  6  0
+    //    0 11  0 12
+    //   13  0 14  0
+    //    0 15  0 16
+    // ]
+    std::vector<int64_t> dense_values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                         0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+    auto dense_data = Buffer::Wrap(dense_values);
+    NumericTensor<Int64Type> dense_tensor(dense_data, shape_, {}, dim_names_);
+    sparse_tensor_from_dense_ = std::make_shared<SparseTensorCSR>(
+        dense_tensor, TypeTraits<IndexValueType>::type_singleton());
+  }
+
+ protected:
+  std::vector<int64_t> shape_;
+  std::vector<std::string> dim_names_;
+  std::shared_ptr<SparseTensorCSR> sparse_tensor_from_dense_;
+};
+
+class TestSparseCSRMatrix : public TestSparseCSRMatrixBase<Int64Type> {};
+
+TEST_F(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
   std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
                                  0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
   std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
-  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
-  NumericTensor<Int64Type> tensor1(buffer, shape);
-  NumericTensor<Int64Type> tensor2(buffer, shape, {}, dim_names);
+  NumericTensor<Int64Type> tensor(buffer, this->shape_);
 
-  SparseTensorImpl<SparseCSRIndex> st1(tensor1);
-  SparseTensorImpl<SparseCSRIndex> st2(tensor2);
+  SparseTensorImpl<SparseCSRIndex> st1(tensor);
+  SparseTensorImpl<SparseCSRIndex>& st2 = *this->sparse_tensor_from_dense_;
 
   CheckSparseIndexFormatType(SparseTensorFormat::CSR, st1);
 
   ASSERT_EQ(12, st1.non_zero_length());
   ASSERT_TRUE(st1.is_mutable());
 
-  ASSERT_EQ(std::vector<std::string>({"foo", "bar", "baz"}), st2.dim_names());
+  ASSERT_EQ(std::vector<std::string>({"foo", "bar"}), st2.dim_names());
   ASSERT_EQ("foo", st2.dim_name(0));
   ASSERT_EQ("bar", st2.dim_name(1));
-  ASSERT_EQ("baz", st2.dim_name(2));
 
   ASSERT_EQ(std::vector<std::string>({}), st1.dim_names());
   ASSERT_EQ("", st1.dim_name(0));
@@ -363,14 +391,13 @@ TEST(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
   ASSERT_EQ(std::vector<int64_t>({0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3}), indices_values);
 }
 
-TEST(TestSparseCSRMatrix, CreationFromNonContiguousTensor) {
-  std::vector<int64_t> shape = {6, 4};
+TEST_F(TestSparseCSRMatrix, CreationFromNonContiguousTensor) {
   std::vector<int64_t> values = {1,  0, 0, 0, 2,  0, 0, 0, 0, 0, 3,  0, 0, 0, 4,  0,
                                  5,  0, 0, 0, 6,  0, 0, 0, 0, 0, 11, 0, 0, 0, 12, 0,
                                  13, 0, 0, 0, 14, 0, 0, 0, 0, 0, 15, 0, 0, 0, 16, 0};
   std::vector<int64_t> strides = {64, 16};
   std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
-  Tensor tensor(int64(), buffer, shape, strides);
+  Tensor tensor(int64(), buffer, this->shape_, strides);
   SparseTensorImpl<SparseCSRIndex> st(tensor);
 
   ASSERT_EQ(12, st.non_zero_length());
@@ -397,26 +424,24 @@ TEST(TestSparseCSRMatrix, CreationFromNonContiguousTensor) {
 
   ASSERT_EQ(12, indices_values.size());
   ASSERT_EQ(std::vector<int64_t>({0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3}), indices_values);
+
+  ASSERT_TRUE(st.Equals(*this->sparse_tensor_from_dense_));
 }
 
-TEST(TestSparseCSRMatrix, TensorEquality) {
-  std::vector<int64_t> shape = {6, 4};
+TEST_F(TestSparseCSRMatrix, TensorEquality) {
   std::vector<int64_t> values1 = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
                                   0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-  std::vector<int64_t> values2 = {
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  };
+  std::vector<int64_t> values2 = {9, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                  0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
   std::shared_ptr<Buffer> buffer1 = Buffer::Wrap(values1);
   std::shared_ptr<Buffer> buffer2 = Buffer::Wrap(values2);
-  NumericTensor<Int64Type> tensor1(buffer1, shape);
-  NumericTensor<Int64Type> tensor2(buffer1, shape);
-  NumericTensor<Int64Type> tensor3(buffer2, shape);
+  NumericTensor<Int64Type> tensor1(buffer1, this->shape_);
+  NumericTensor<Int64Type> tensor2(buffer2, this->shape_);
   SparseTensorImpl<SparseCSRIndex> st1(tensor1);
   SparseTensorImpl<SparseCSRIndex> st2(tensor2);
-  SparseTensorImpl<SparseCSRIndex> st3(tensor3);
 
-  ASSERT_TRUE(st1.Equals(st2));
-  ASSERT_TRUE(!st1.Equals(st3));
+  ASSERT_TRUE(st1.Equals(*this->sparse_tensor_from_dense_));
+  ASSERT_FALSE(st1.Equals(st2));
 }
 
 }  // namespace arrow
