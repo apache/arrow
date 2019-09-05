@@ -216,7 +216,7 @@ CsvTableReader$create <- function(file,
 #' @param convert_options see [csv_convert_options()]
 #' @param ... additional parameters.
 #'
-#' @return An CsvTableReader or `arrow::json::TableReader` R6
+#' @return An CsvTableReader or JsonTableReader R6
 #' object. Call `$Read()` on it to get an Arrow Table.
 #' @export
 csv_table_reader <- CsvTableReader$create

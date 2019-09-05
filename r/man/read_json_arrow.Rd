@@ -23,7 +23,7 @@ of columns, as used in \code{dplyr::select()}.}
 A \code{data.frame}, or an \code{arrow::Table} if \code{as_tibble = FALSE}.
 }
 \description{
-Use \link[=arrow__json__TableReader]{arrow::json::TableReader} from \code{\link[=json_table_reader]{json_table_reader()}}
+Using \link[=arrow__json__TableReader]{JsonTableReader}
 }
 \examples{
 \donttest{

@@ -3,10 +3,10 @@
 \docType{class}
 \name{arrow__json__TableReader}
 \alias{arrow__json__TableReader}
-\alias{arrow::json::TableReader}
-\title{class arrow::json::TableReader}
+\alias{JsonTableReader}
+\title{class JsonTableReader}
 \description{
-class arrow::json::TableReader
+class JsonTableReader
 }
 \section{Methods}{
 

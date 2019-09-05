@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::json::TableReader")
+context("JsonTableReader")
 
 test_that("Can read json file with scalars columns (ARROW-5503)", {
   tf <- tempfile()
