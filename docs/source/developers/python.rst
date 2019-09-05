@@ -380,21 +380,19 @@ Building on Windows
 ===================
 
 .. warning::
-    Building on Windows is currently broken. The issue is being worked on
-    under the `Github PR #5247<https://github.com/apache/arrow/pull/5247>`.
+   Building on Windows is currently broken. The issue is being worked on
+   under the `Github PR #5247 <https://github.com/apache/arrow/pull/5247>`_.
     
-Building on Windows requires one of the following
+Building on Windows requires one of the following compilers to be installed:
 
-- `Build Tools for Visual Studio 2017<https://download.visualstudio.microsoft.com/download/pr/3e542575-929e-4297-b6c6-bef34d0ee648/639c868e1219c651793aff537a1d3b77/vs_buildtools.exe`_
-- `Microsoft Build Tools 2015<http://download.microsoft.com/download/5/F/7/5F7ACAEB-8363-451F-9425-68A90F98B238/visualcppbuildtools_full.exe`_, or
+- `Build Tools for Visual Studio 2017 <https://download.visualstudio.microsoft.com/download/pr/3e542575-929e-4297-b6c6-bef34d0ee648/639c868e1219c651793aff537a1d3b77/vs_buildtools.exe>`_
+- `Microsoft Build Tools 2015 <http://download.microsoft.com/download/5/F/7/5F7ACAEB-8363-451F-9425-68A90F98B238/visualcppbuildtools_full.exe>`_, or
 - Visual Studio 2015
 - Visual Studio 2017
 
-to be installed.
-
 During the setup of Build Tools ensure at least one Windows SDK is selected.
 
-Visual Studio 2019 and it's build tools are currently not supported.
+Visual Studio 2019 and its build tools are currently not supported.
 
 We bootstrap a conda environment similar to above, but skipping some of the
 Linux/macOS-only packages:
@@ -416,8 +414,8 @@ First, starting from fresh clones of Apache Arrow:
 
 Now, we build and install Arrow C++ libraries.
 
-The CMake parameters will need to be adjusted according to the Build Tools or 
-Visual Studio version installed.
+The CMake parameters need to be adjusted according to the Build Tools or Visual
+Studio version installed.
 
 For Build Tools for Visual Studio 2017 and Visual Studio 2017:
 
@@ -437,7 +435,7 @@ For Build Tools for Visual Studio 2017 and Visual Studio 2017:
    popd
 
 For Microsoft Build Tools 2015 and Visual Studio 2015, replace the string after
-`cmake -G` with `"Visual Studio 14 2015 Win64"`
+``cmake -G`` with ``"Visual Studio 14 2015 Win64"``.
 
 After that, we must put the install directory's bin path in our ``%PATH%``:
 
