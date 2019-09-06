@@ -1490,6 +1490,13 @@ class TestConvertStringLikeTypes(object):
         # This would segfault under 0.11.0
         table.to_pandas(categories=['col'])
 
+    def test_to_pandas_categories_already_dictionary(self):
+        # Showed up in ARROW-6434, ARROW-6435
+        array = pa.array(['foo', 'foo', 'foo', 'bar']).dictionary_encode()
+        table = pa.Table.from_arrays(arrays=[array], names=['col'])
+        result = table.to_pandas(categories=['col'])
+        assert table.to_pandas().equals(result)
+
     def test_table_str_to_categorical_without_na(self):
         values = ['a', 'a', 'b', 'b', 'c']
         df = pd.DataFrame({'strings': values})
