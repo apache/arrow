@@ -34,7 +34,7 @@
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
 #include "parquet/test_util.h"
-#include "parquet/thrift.h"
+#include "parquet/thrift_internal.h"
 #include "parquet/types.h"
 
 using arrow::default_memory_pool;

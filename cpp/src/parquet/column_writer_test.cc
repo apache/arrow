@@ -30,7 +30,7 @@
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/test_util.h"
-#include "parquet/thrift.h"
+#include "parquet/thrift_internal.h"
 #include "parquet/types.h"
 
 namespace parquet {
