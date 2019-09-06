@@ -605,6 +605,7 @@ Status StructReader::GetDefLevels(const int16_t** data, int64_t* length) {
     std::memset(def_levels_buffer_->mutable_data(), -1, size);
     result_levels = reinterpret_cast<int16_t*>(def_levels_buffer_->mutable_data());
     found_nullable_child = true;
+    break;
   }
 
   if (!found_nullable_child) {
