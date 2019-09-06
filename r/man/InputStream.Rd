@@ -3,14 +3,44 @@
 \docType{class}
 \name{InputStream}
 \alias{InputStream}
-\title{class arrow::io::InputStream}
+\alias{RandomAccessFile}
+\alias{MemoryMappedFile}
+\alias{ReadableFile}
+\alias{BufferReader}
+\title{InputStream classes}
 \description{
-class arrow::io::InputStream
+\code{RandomAccessFile} inherits from \code{InputStream} and is a base
+class for: \code{ReadableFile} for reading from a file; \code{MemoryMappedFile} for
+the same but with memory mapping; and \code{BufferReader} for reading from a
+buffer. Use these with the various table readers.
 }
+\section{Factory}{
+
+
+The \code{$create()} factory methods instantiate the \code{InputStream} object and
+take the following arguments, depending on the subclass:
+\itemize{
+\item \code{path} For \code{ReadableFile}, a character file name
+\item \code{x} For \code{BufferReader}, a \link{Buffer} or an object that can be
+made into a buffer via \code{buffer()}.
+}
+
+To instantiate a \code{MemoryMappedFile}, call \code{\link[=mmap_open]{mmap_open()}}.
+}
+
 \section{Methods}{
 
-
-TODO
+\itemize{
+\item \code{$GetSize()}:
+\item \code{$supports_zero_copy()}: Logical
+\item \code{$seek(position)}: go to that position in the stream
+\item \code{$tell()}: return the position in the stream
+\item \code{$close()}: close the stream
+\item \code{$Read(nbytes)}: read data from the stream, either a specified \code{nbytes} or
+all, if \code{nbytes} is not provided
+\item \code{$ReadAt(position, nbytes)}: similar to \code{$seek(position)$Read(nbytes)}
+\item \code{$Resize(size)}: for a \code{MemoryMappedFile} that is writeable
+}
 }
 
 \keyword{datasets}

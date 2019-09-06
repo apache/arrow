@@ -38,7 +38,7 @@ compression_codec <- function(type = "GZIP") {
 #' @docType class
 #' @usage NULL
 #' @format NULL
-#' @description `CompressedInputStream` and `CompressedOutputStream` 
+#' @description `CompressedInputStream` and `CompressedOutputStream`
 #' allow you to apply a [compression_codec()] to an
 #' input or output stream.
 #'
@@ -47,7 +47,7 @@ compression_codec <- function(type = "GZIP") {
 #' The `CompressedInputStream$create()` and `CompressedOutputStream$create()`
 #' factory methods instantiate the object and take the following arguments:
 #'
-#' - `stream` An `InputStream` or `OutputStream`, respectively
+#' - `stream` An [InputStream] or [OutputStream], respectively
 #' - `codec` A `Codec`
 #'
 #' @section Methods:

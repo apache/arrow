@@ -20,8 +20,11 @@ and takes the following arguments:
 
 \section{Methods}{
 
-
-TODO
+\itemize{
+\item \code{$read_dictionary(column_index)}
+\item \code{$set_read_dictionary(column_index, read_dict)}
+\item \code{$use_threads(use_threads)}
+}
 }
 
 \keyword{datasets}

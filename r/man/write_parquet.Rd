@@ -17,10 +17,8 @@ This function enables you to write Parquet files from R.
 }
 \examples{
 \donttest{
-try({
-  tf <- tempfile(fileext = ".parquet")
-  on.exit(unlink(tf))
-  write_parquet(tibble::tibble(x = 1:5), tf)
-})
+tf <- tempfile(fileext = ".parquet")
+on.exit(unlink(tf))
+write_parquet(tibble::tibble(x = 1:5), tf)
 }
 }

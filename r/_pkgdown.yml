@@ -49,6 +49,7 @@ reference:
   - read_json_arrow
   - read_feather
   - read_parquet
+  - read_table
   - write_arrow
   - write_feather
   - write_parquet
@@ -66,6 +67,8 @@ reference:
   - FeatherTableReader
   - FeatherTableWriter
   - JsonTableReader
+  - RecordBatchReader
+  - RecordBatchWriter
 - title: Arrow data containers
   contents:
   - buffer
@@ -78,7 +81,6 @@ reference:
   - Table
   - read_message
   - read_record_batch
-  - read_table
 - title: Arrow data types and schema
   contents:
   - Schema
@@ -93,29 +95,13 @@ reference:
   - cast_options
 - title: Input/Output
   contents:
-  - Buffer
-  - RecordBatchReader
-  - MemoryPool
-  - BufferOutputStream
-  - BufferReader
-  - FileOutputStream
-  - FixedSizeBufferWriter
   - InputStream
-  - MemoryMappedFile
-  - MockOutputStream
+  - mmap_open
+  - mmap_create
   - OutputStream
-  - RandomAccessFile
-  - Readable
-  - ReadableFile
   - Message
   - MessageReader
-  - RecordBatchFileReader
-  - RecordBatchFileWriter
-  - RecordBatchStreamReader
-  - RecordBatchStreamWriter
-  - RecordBatchWriter
   - compression
   - compression_codec
+  - MemoryPool
   - default_memory_pool
-  - mmap_create
-  - mmap_open

@@ -15,20 +15,36 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
 
-#' @title class arrow::RecordBatchReader
-#'
+#' @title RecordBatchReader classes
+#' @description `RecordBatchFileReader` and `RecordBatchStreamReader` are
+#' interfaces for generating record batches from different input sources.
 #' @usage NULL
 #' @format NULL
 #' @docType class
+#' @section Factory:
+#'
+#' The `RecordBatchFileReader$create()` and `RecordBatchStreamReader$create()`
+#' factory methods instantiate the object and
+#' take a single argument, named according to the class:
+#'
+#' - `file` A character file name, raw vector, or Arrow file connection object
+#'    (e.g. `RandomAccessFile`).
+#' - `stream` A raw vector, [Buffer], or `InputStream`.
 #'
 #' @section Methods:
 #'
-#' TODO
+#' - `$read_next_batch()`: Returns a `RecordBatch`
+#' - `$schema()`: Returns a [Schema]
+#' - `$batches()`: Returns a list of `RecordBatch`es
+#' - `$get_batch(i)`: For `RecordBatchFileReader`, return a particular batch
+#'    by an integer index.
+#' - `$num_record_batches()`: For `RecordBatchFileReader`, see how many batches
+#'    are in the file.
 #'
 #' @rdname RecordBatchReader
 #' @name RecordBatchReader
+#' @include arrow-package.R
 RecordBatchReader <- R6Class("RecordBatchReader", inherit = Object,
   public = list(
     read_next_batch = function() {
@@ -40,18 +56,10 @@ RecordBatchReader <- R6Class("RecordBatchReader", inherit = Object,
   )
 )
 
-#' @title class arrow::RecordBatchStreamReader
-#'
+#' @rdname RecordBatchReader
 #' @usage NULL
 #' @format NULL
-#' @docType class
-#'
-#' @section Methods:
-#'
-#' TODO
-#'
-#' @rdname RecordBatchStreamReader
-#' @name RecordBatchStreamReader
+#' @export
 RecordBatchStreamReader <- R6Class("RecordBatchStreamReader", inherit = RecordBatchReader,
   public = list(
     batches = function() map(ipc___RecordBatchStreamReader__batches(self), shared_ptr, class = RecordBatch)
@@ -66,18 +74,10 @@ RecordBatchStreamReader$create <- function(stream){
   shared_ptr(RecordBatchStreamReader, ipc___RecordBatchStreamReader__Open(stream))
 }
 
-#' @title class arrow::RecordBatchFileReader
-#'
+#' @rdname RecordBatchReader
 #' @usage NULL
 #' @format NULL
-#' @docType class
-#'
-#' @section Methods:
-#'
-#' TODO
-#'
-#' @rdname RecordBatchFileReader
-#' @name RecordBatchFileReader
+#' @export
 RecordBatchFileReader <- R6Class("RecordBatchFileReader", inherit = Object,
   # Why doesn't this inherit from RecordBatchReader?
   public = list(
@@ -90,7 +90,6 @@ RecordBatchFileReader <- R6Class("RecordBatchFileReader", inherit = Object,
     schema = function() shared_ptr(Schema, ipc___RecordBatchFileReader__schema(self))
   )
 )
-
 RecordBatchFileReader$create <- function(file) {
   file <- make_readable_file(file)
   shared_ptr(RecordBatchFileReader, ipc___RecordBatchFileReader__Open(file))

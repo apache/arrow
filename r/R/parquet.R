@@ -79,7 +79,7 @@ read_parquet <- function(file,
 #' f <- system.file("v0.7.1.parquet", package="arrow")
 #' pq <- ParquetFileReader$create(f)
 #' pq$GetSchema()
-#' tab <- pq$ReadTable()
+#' tab <- pq$ReadTable(starts_with("c"))
 #' tab$schema
 #' }
 #' @include arrow-package.R
@@ -130,7 +130,9 @@ ParquetFileReader$create <- function(file,
 #'
 #' @section Methods:
 #'
-#' TODO
+#' - `$read_dictionary(column_index)`
+#' - `$set_read_dictionary(column_index, read_dict)`
+#' - `$use_threads(use_threads)`
 #'
 #' @export
 ParquetReaderProperties <- R6Class("ParquetReaderProperties",
@@ -172,11 +174,9 @@ ParquetReaderProperties$create <- function(use_threads = option_use_threads()) {
 #'
 #' @examples
 #' \donttest{
-#' try({
-#'   tf <- tempfile(fileext = ".parquet")
-#'   on.exit(unlink(tf))
-#'   write_parquet(tibble::tibble(x = 1:5), tf)
-#' })
+#' tf <- tempfile(fileext = ".parquet")
+#' on.exit(unlink(tf))
+#' write_parquet(tibble::tibble(x = 1:5), tf)
 #' }
 #' @export
 write_parquet <- function(table, file) {

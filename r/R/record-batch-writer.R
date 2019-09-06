@@ -15,27 +15,42 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
-
-#' @title class arrow::RecordBatchWriter
-#'
+#' @title RecordBatchWriter classes
+#' @description `RecordBatchFileWriter` and `RecordBatchStreamWriter` are
+#' interfaces for writing record batches to either the binary file or streaming
+#' format.
 #' @usage NULL
 #' @format NULL
 #' @docType class
+#' @section Usage:
+#'
+#' ```
+#' writer <- RecordBatchStreamWriter$create(sink, schema)
+#'
+#' writer$write_batch(batch)
+#' writer$write_table(table)
+#' writer$close()
+#' ```
+#' @section Factory:
+#'
+#' The `RecordBatchFileWriter$create()` and `RecordBatchStreamWriter$create()`
+#' factory methods instantiate the object and
+#' take a single argument, named according to the class:
+#'
+#' - `sink` A character file name or an `OutputStream`.
+#' - `schema` A [Schema] for the data to be written.
 #'
 #' @section Methods:
 #'
-#' - `$write_batch(batch)`: Write record batch to stream
-#' - `$write_table(table)`: write Table to stream
+#' - `$write(x)`: Write a [RecordBatch], [Table], or `data.frame`, dispatching
+#'    to the methods below appropriately
+#' - `$write_batch(batch)`: Write a `RecordBatch` to stream
+#' - `$write_table(table)`: Write a `Table` to stream
 #' - `$close()`: close stream
-#'
-#' @section Derived classes:
-#'
-#' - [arrow::RecordBatchStreamWriter][RecordBatchStreamWriter] implements the streaming binary format
-#' - [arrow::RecordBatchFileWriter][RecordBatchFileWriter] implements the binary file format
 #'
 #' @rdname RecordBatchWriter
 #' @name RecordBatchWriter
+#' @include arrow-package.R
 RecordBatchWriter <- R6Class("RecordBatchWriter", inherit = Object,
   public = list(
     write_batch = function(batch) ipc___RecordBatchWriter__WriteRecordBatch(self, batch),
@@ -57,39 +72,11 @@ RecordBatchWriter <- R6Class("RecordBatchWriter", inherit = Object,
   )
 )
 
-#' @title class arrow::RecordBatchStreamWriter
-#'
-#' Writer for the Arrow streaming binary format
-#'
 #' @usage NULL
 #' @format NULL
-#' @docType class
-#'
-#' @section usage:
-#'
-#' ```
-#' writer <- RecordBatchStreamWriter$create(sink, schema)
-#'
-#' writer$write_batch(batch)
-#' writer$write_table(table)
-#' writer$close()
-#' ```
-#'
-#' @section Factory:
-#'
-#' The [RecordBatchStreamWriter()] function creates a record batch stream writer.
-#'
-#' @section Methods:
-#' inherited from [arrow::RecordBatchWriter][RecordBatchWriter]
-#'
-#' - `$write_batch(batch)`: Write record batch to stream
-#' - `$write_table(table)`: write Table to stream
-#' - `$close()`: close stream
-#'
-#' @rdname RecordBatchStreamWriter
-#' @name RecordBatchStreamWriter
+#' @rdname RecordBatchWriter
+#' @export
 RecordBatchStreamWriter <- R6Class("RecordBatchStreamWriter", inherit = RecordBatchWriter)
-
 RecordBatchStreamWriter$create <- function(sink, schema) {
   if (is.character(sink)) {
     sink <- FileOutputStream$create(sink)
@@ -100,39 +87,11 @@ RecordBatchStreamWriter$create <- function(sink, schema) {
   shared_ptr(RecordBatchStreamWriter, ipc___RecordBatchStreamWriter__Open(sink, schema))
 }
 
-#' @title class arrow::RecordBatchFileWriter
-#'
-#' Writer for the Arrow binary file format
-#'
 #' @usage NULL
 #' @format NULL
-#' @docType class
-#'
-#' @section usage:
-#'
-#' ```
-#' writer <- RecordBatchFileWriter$create(sink, schema)
-#'
-#' writer$write_batch(batch)
-#' writer$write_table(table)
-#' writer$close()
-#' ```
-#'
-#' @section Factory:
-#'
-#' The [RecordBatchFileWriter()] function creates a record batch stream writer.
-#'
-#' @section Methods:
-#' inherited from [arrow::RecordBatchWriter][RecordBatchWriter]
-#'
-#' - `$write_batch(batch)`: Write record batch to stream
-#' - `$write_table(table)`: write Table to stream
-#' - `$close()`: close stream
-#'
-#' @rdname RecordBatchFileWriter
-#' @name RecordBatchFileWriter
+#' @rdname RecordBatchWriter
+#' @export
 RecordBatchFileWriter <- R6Class("RecordBatchFileWriter", inherit = RecordBatchStreamWriter)
-
 RecordBatchFileWriter$create <- function(sink, schema) {
   if (is.character(sink)) {
     sink <- FileOutputStream$create(sink)

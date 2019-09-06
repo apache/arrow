@@ -3,24 +3,43 @@
 \docType{class}
 \name{RecordBatchWriter}
 \alias{RecordBatchWriter}
-\title{class arrow::RecordBatchWriter}
+\alias{RecordBatchStreamWriter}
+\alias{RecordBatchFileWriter}
+\title{RecordBatchWriter classes}
 \description{
-class arrow::RecordBatchWriter
+\code{RecordBatchFileWriter} and \code{RecordBatchStreamWriter} are
+interfaces for writing record batches to either the binary file or streaming
+format.
 }
+\section{Usage}{
+\preformatted{writer <- RecordBatchStreamWriter$create(sink, schema)
+
+writer$write_batch(batch)
+writer$write_table(table)
+writer$close()
+}
+}
+
+\section{Factory}{
+
+
+The \code{RecordBatchFileWriter$create()} and \code{RecordBatchStreamWriter$create()}
+factory methods instantiate the object and
+take a single argument, named according to the class:
+\itemize{
+\item \code{sink} A character file name or an \code{OutputStream}.
+\item \code{schema} A \link{Schema} for the data to be written.
+}
+}
+
 \section{Methods}{
 
 \itemize{
-\item \code{$write_batch(batch)}: Write record batch to stream
-\item \code{$write_table(table)}: write Table to stream
+\item \code{$write(x)}: Write a \link{RecordBatch}, \link{Table}, or \code{data.frame}, dispatching
+to the methods below appropriately
+\item \code{$write_batch(batch)}: Write a \code{RecordBatch} to stream
+\item \code{$write_table(table)}: Write a \code{Table} to stream
 \item \code{$close()}: close stream
-}
-}
-
-\section{Derived classes}{
-
-\itemize{
-\item \link[=RecordBatchStreamWriter]{arrow::RecordBatchStreamWriter} implements the streaming binary format
-\item \link[=RecordBatchFileWriter]{arrow::RecordBatchFileWriter} implements the binary file format
 }
 }
 

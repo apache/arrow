@@ -17,7 +17,7 @@ input or output stream.
 The \code{CompressedInputStream$create()} and \code{CompressedOutputStream$create()}
 factory methods instantiate the object and take the following arguments:
 \itemize{
-\item \code{stream} An \code{InputStream} or \code{OutputStream}, respectively
+\item \code{stream} An \link{InputStream} or \link{OutputStream}, respectively
 \item \code{codec} A \code{Codec}
 }
 }

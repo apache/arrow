@@ -36,7 +36,7 @@ with columns filtered by a character vector of column names or a
 f <- system.file("v0.7.1.parquet", package="arrow")
 pq <- ParquetFileReader$create(f)
 pq$GetSchema()
-tab <- pq$ReadTable()
+tab <- pq$ReadTable(starts_with("c"))
 tab$schema
 }
 }

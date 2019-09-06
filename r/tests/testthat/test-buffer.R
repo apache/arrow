@@ -73,7 +73,9 @@ test_that("can read remaining bytes of a RandomAccessFile", {
   all_bytes <- write_arrow(tab, tf)
 
   file <- ReadableFile$create(tf)
+  expect_equal(file$tell(), 0)
   x <- file$Read(20)$data()
+  expect_equal(file$tell(), 20)
   y <- file$Read()$data()
 
   file <- ReadableFile$create(tf)
