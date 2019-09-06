@@ -581,7 +581,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
     public void splitAndTransfer(int startIndex, int length) {
       Preconditions.checkArgument(startIndex + length <= valueCount);
       final int startPoint = listSize * startIndex;
-      final int sliceLength = listSize * (startIndex + length) - startPoint;
+      final int sliceLength = listSize * length;
       to.clear();
 
       /* splitAndTransfer validity buffer */
