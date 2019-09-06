@@ -1951,11 +1951,12 @@ Status ConvertTableToPandas(const PandasOptions& options,
     FunctionContext ctx;
     for (int i = 0; i < table->num_columns(); i++) {
       std::shared_ptr<ChunkedArray> col = table->column(i);
+      if (col->type()->id() == Type::DICTIONARY) {
+        // No need to dictionary encode again. Came up in ARROW-6434,
+        // ARROW-6435
+        continue;
+      }
       if (categorical_columns.count(table->field(i)->name())) {
-        if (table->field(i)->type()->id() == Type::DICTIONARY) {
-          // this column is already dictionary encoded
-          continue;
-        }
         Datum out;
         RETURN_NOT_OK(DictionaryEncode(&ctx, Datum(col), &out));
         std::shared_ptr<ChunkedArray> array = out.chunked_array();
