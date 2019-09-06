@@ -23,24 +23,9 @@
 
 #include "arrow/compare.h"
 #include "arrow/util/logging.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
-
-#define ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(ACTION) \
-  ACTION(Int8);                                      \
-  ACTION(UInt8);                                     \
-  ACTION(Int16);                                     \
-  ACTION(UInt16);                                    \
-  ACTION(Int32);                                     \
-  ACTION(UInt32);                                    \
-  ACTION(Int64);                                     \
-  ACTION(UInt64)
-
-#define ARROW_GENERATE_FOR_ALL_NUMERIC_TYPES(ACTION) \
-  ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(ACTION);      \
-  ACTION(HalfFloat);                                 \
-  ACTION(Float);                                     \
-  ACTION(Double)
 
 namespace {
 

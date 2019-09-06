@@ -31,39 +31,45 @@
 
 namespace arrow {
 
-#define ARROW_GENERATE_FOR_ALL_TYPES(ACTION) \
-  ACTION(Null);                              \
-  ACTION(Boolean);                           \
-  ACTION(Int8);                              \
-  ACTION(UInt8);                             \
-  ACTION(Int16);                             \
-  ACTION(UInt16);                            \
-  ACTION(Int32);                             \
-  ACTION(UInt32);                            \
-  ACTION(Int64);                             \
-  ACTION(UInt64);                            \
-  ACTION(HalfFloat);                         \
-  ACTION(Float);                             \
-  ACTION(Double);                            \
-  ACTION(String);                            \
-  ACTION(Binary);                            \
-  ACTION(LargeString);                       \
-  ACTION(LargeBinary);                       \
-  ACTION(FixedSizeBinary);                   \
-  ACTION(Duration);                          \
-  ACTION(Date32);                            \
-  ACTION(Date64);                            \
-  ACTION(Timestamp);                         \
-  ACTION(Time32);                            \
-  ACTION(Time64);                            \
-  ACTION(Decimal128);                        \
-  ACTION(List);                              \
-  ACTION(LargeList);                         \
-  ACTION(Map);                               \
-  ACTION(FixedSizeList);                     \
-  ACTION(Struct);                            \
-  ACTION(Union);                             \
-  ACTION(Dictionary);                        \
+#define ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(ACTION) \
+  ACTION(Int8);                                      \
+  ACTION(UInt8);                                     \
+  ACTION(Int16);                                     \
+  ACTION(UInt16);                                    \
+  ACTION(Int32);                                     \
+  ACTION(UInt32);                                    \
+  ACTION(Int64);                                     \
+  ACTION(UInt64)
+
+#define ARROW_GENERATE_FOR_ALL_NUMERIC_TYPES(ACTION) \
+  ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(ACTION);      \
+  ACTION(HalfFloat);                                 \
+  ACTION(Float);                                     \
+  ACTION(Double)
+
+#define ARROW_GENERATE_FOR_ALL_TYPES(ACTION)    \
+  ACTION(Null);                                 \
+  ACTION(Boolean);                              \
+  ARROW_GENERATE_FOR_ALL_NUMERIC_TYPES(ACTION); \
+  ACTION(String);                               \
+  ACTION(Binary);                               \
+  ACTION(LargeString);                          \
+  ACTION(LargeBinary);                          \
+  ACTION(FixedSizeBinary);                      \
+  ACTION(Duration);                             \
+  ACTION(Date32);                               \
+  ACTION(Date64);                               \
+  ACTION(Timestamp);                            \
+  ACTION(Time32);                               \
+  ACTION(Time64);                               \
+  ACTION(Decimal128);                           \
+  ACTION(List);                                 \
+  ACTION(LargeList);                            \
+  ACTION(Map);                                  \
+  ACTION(FixedSizeList);                        \
+  ACTION(Struct);                               \
+  ACTION(Union);                                \
+  ACTION(Dictionary);                           \
   ACTION(Extension)
 
 #define TYPE_VISIT_INLINE(TYPE_CLASS) \
