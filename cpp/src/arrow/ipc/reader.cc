@@ -61,7 +61,7 @@ namespace {
 
 Status InvalidMessageType(Message::Type expected, Message::Type actual) {
   return Status::IOError("Expected IPC message of type ", FormatMessageType(expected),
-                         " got ", FormatMessageType(actual));
+                         " but got ", FormatMessageType(actual));
 }
 
 #define CHECK_MESSAGE_TYPE(expected, actual)           \
@@ -358,7 +358,7 @@ Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& sc
 Status ReadRecordBatch(const Message& message, const std::shared_ptr<Schema>& schema,
                        const DictionaryMemo* dictionary_memo,
                        std::shared_ptr<RecordBatch>* out) {
-  CHECK_MESSAGE_TYPE(message.type(), Message::RECORD_BATCH);
+  CHECK_MESSAGE_TYPE(Message::RECORD_BATCH, message.type());
   CHECK_HAS_BODY(message);
   auto options = IpcOptions::Defaults();
   io::BufferReader reader(message.body());
@@ -820,7 +820,7 @@ Status ReadSchema(io::InputStream* stream, DictionaryMemo* dictionary_memo,
   if (!message) {
     return Status::Invalid("Tried reading schema message, was null or length 0");
   }
-  CHECK_MESSAGE_TYPE(message->type(), Message::SCHEMA);
+  CHECK_MESSAGE_TYPE(Message::SCHEMA, message->type());
   return ReadSchema(*message, dictionary_memo, out);
 }
 
@@ -978,7 +978,7 @@ Status ReadSparseTensor(const Message& message, std::shared_ptr<SparseTensor>* o
 Status ReadSparseTensor(io::InputStream* file, std::shared_ptr<SparseTensor>* out) {
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
-  CHECK_MESSAGE_TYPE(message->type(), Message::SPARSE_TENSOR);
+  CHECK_MESSAGE_TYPE(Message::SPARSE_TENSOR, message->type());
   CHECK_HAS_BODY(*message);
   io::BufferReader buffer_reader(message->body());
   return ReadSparseTensor(*message->metadata(), &buffer_reader, out);

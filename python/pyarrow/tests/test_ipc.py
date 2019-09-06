@@ -397,6 +397,19 @@ def test_message_read_record_batch(example_messages):
         assert read_batch.equals(batch)
 
 
+def test_read_record_batch_on_stream_error_message():
+    # ARROW-5374
+    batch = pa.record_batch([pa.array([b"foo"], type=pa.utf8())],
+                            names=['strs'])
+    stream = pa.BufferOutputStream()
+    with pa.RecordBatchStreamWriter(stream, batch.schema) as writer:
+        writer.write_batch(batch)
+    buf = stream.getvalue()
+    with pytest.raises(IOError,
+                       match="type record batch but got schema"):
+        pa.read_record_batch(buf, batch.schema)
+
+
 # ----------------------------------------------------------------------
 # Socket streaming testa
 

@@ -576,7 +576,8 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None):
 def read_record_batch(obj, Schema schema,
                       DictionaryMemo dictionary_memo=None):
     """
-    Read RecordBatch from message, given a known schema
+    Read RecordBatch from message, given a known schema. If reading data from a
+    complete IPC stream, use ipc.open_stream instead
 
     Parameters
     ----------
