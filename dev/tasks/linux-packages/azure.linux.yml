@@ -32,7 +32,7 @@ jobs:
       inputs:
         packageSpecs: 'python=3.6'
     - script: |
-        conda install -y --file arrow/ci/conda_env_crossbow.txt
+        conda install -c conda-forge -y --file arrow/ci/conda_env_crossbow.txt
     - script: |
         python crossbow.py upload-assets \
           --sha {{ task.branch }} \
