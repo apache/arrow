@@ -535,7 +535,8 @@ class Queue(Repo):
         if job.branch is not None:
             raise ValueError('`job.branch` is automatically generated, thus '
                              'it must be blank')
-        if job.target.upstream is None:
+
+        if job.target.remote is None:
             raise RuntimeError(
                 'Cannot determine git remote for the Arrow repository to '
                 'clone or push to, try to push the branch first to have a '
