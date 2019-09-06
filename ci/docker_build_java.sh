@@ -38,7 +38,7 @@ if [ "$ARROW_JAVA_RUN_TESTS" != "1" ]; then
 fi
 
 if [ "$ARROW_JAVA_SHADE_FLATBUFS" == "1" ]; then
-  export SHADE_FLATBUFFERS = " -Pshade-flatbuffers"
+  SHADE_FLATBUFFERS=-Pshade-flatbuffers
 fi
 
 pushd $arrow_src/java
