@@ -32,7 +32,7 @@
 #' `parse_options`, `convert_options`, or `read_options` arguments, or you can
 #' call [csv_table_reader()] directly for lower-level access.
 #'
-#' @param file A character path to a local file, or an Arrow input stream
+#' @inheritParams make_readable_file
 #' @param delim Single character used to separate fields within a record.
 #' @param quote Single character used to quote strings.
 #' @param escape_double Does the file escape quotes by doubling them?
@@ -192,16 +192,11 @@ CsvTableReader$create <- function(file,
                                   parse_options = csv_parse_options(),
                                   convert_options = csv_convert_options(),
                                   ...) {
-  if (is.character(file)) {
-    file <- mmap_open(file)
-  }
-  if (inherits(file, "InputStream")) {
-    file <- shared_ptr(CsvTableReader,
-      csv___TableReader__Make(file, read_options, parse_options, convert_options)
-    )
-  }
-  assert_that(inherits(file, c("CsvTableReader", "TableReader")))
-  file
+  file <- make_readable_file(file)
+  shared_ptr(
+    CsvTableReader,
+    csv___TableReader__Make(file, read_options, parse_options, convert_options)
+  )
 }
 
 #' Arrow CSV and JSON table readers

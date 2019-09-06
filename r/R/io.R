@@ -295,3 +295,23 @@ mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
   path <- normalizePath(path)
   shared_ptr(MemoryMappedFile, io___MemoryMappedFile__Open(path, mode))
 }
+
+#' Handle a range of possible input sources
+#' @param file A character file name, raw vector, or an Arrow input stream
+#' @param mmap Logical: whether to memory-map the file (default `TRUE`)
+#' @return An `InputStream` or a subclass of one.
+#' @keywords internal
+make_readable_file <- function(file, mmap = TRUE) {
+  if (is.character(file)) {
+    assert_that(length(file) == 1L)
+    if (isTRUE(mmap)) {
+      file <- mmap_open(file)
+    } else {
+      file <- ReadableFile$create(file)
+    }
+  } else if (inherits(file, c("raw", "Buffer"))) {
+    file <- BufferReader$create(file)
+  }
+  assert_that(inherits(file, "InputStream"))
+  file
+}

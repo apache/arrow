@@ -25,7 +25,7 @@ read_tsv_arrow(file, quote = "\\"", escape_double = TRUE,
   read_options = NULL, as_tibble = TRUE)
 }
 \arguments{
-\item{file}{A character path to a local file, or an Arrow input stream}
+\item{file}{A character file name, raw vector, or an Arrow input stream}
 
 \item{delim}{Single character used to separate fields within a record.}
 

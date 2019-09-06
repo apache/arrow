@@ -8,7 +8,7 @@ read_parquet(file, col_select = NULL, as_tibble = TRUE,
   props = ParquetReaderProperties$create(), ...)
 }
 \arguments{
-\item{file}{A character path to a local file, or an Arrow input stream}
+\item{file}{A character file name, raw vector, or an Arrow input stream}
 
 \item{col_select}{A character vector of column names to keep, as in the
 "select" argument to \code{data.table::fread()}, or a

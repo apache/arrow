@@ -105,16 +105,7 @@ ParquetFileReader$create <- function(file,
                                      props = ParquetReaderProperties$create(),
                                      mmap = TRUE,
                                      ...) {
-  if (is.character(file)) {
-    if (isTRUE(mmap)) {
-      file <- mmap_open(file)
-    } else {
-      file <- ReadableFile$create(file)
-    }
-  } else if (is.raw(file)) {
-    file <- BufferReader$create(file)
-  }
-  assert_that(inherits(file, "RandomAccessFile"))
+  file <- make_readable_file(file, mmap)
   assert_that(inherits(props, "ParquetReaderProperties"))
 
   unique_ptr(ParquetFileReader, parquet___arrow___FileReader__OpenFile(file, props))

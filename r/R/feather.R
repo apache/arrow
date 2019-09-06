@@ -113,17 +113,7 @@ FeatherTableReader <- R6Class("FeatherTableReader", inherit = Object,
   )
 )
 
-FeatherTableReader$create <- function(stream, mmap = TRUE, ...) {
-  if (is.character(stream)) {
-    if (isTRUE(mmap)) {
-      stream <- mmap_open(stream, ...)
-    } else {
-      stream <- ReadableFile$create(stream, ...)
-    }
-  } else if (is.raw(stream)) {
-    stream <- BufferReader$create(stream)
-  }
-
-  assert_that(inherits(stream, "InputStream"))
-  unique_ptr(FeatherTableReader, ipc___feather___TableReader__Open(stream))
+FeatherTableReader$create <- function(file, mmap = TRUE, ...) {
+  file <- make_readable_file(file, mmap)
+  unique_ptr(FeatherTableReader, ipc___feather___TableReader__Open(file))
 }

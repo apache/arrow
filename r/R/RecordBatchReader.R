@@ -92,13 +92,6 @@ RecordBatchFileReader <- R6Class("RecordBatchFileReader", inherit = Object,
 )
 
 RecordBatchFileReader$create <- function(file) {
-  if (inherits(file, c("raw", "Buffer"))) {
-    file <- BufferReader$create(file)
-  } else if (is.character(file)) {
-    assert_that(length(file) == 1L)
-    file <- ReadableFile$create(file)
-  }
-  assert_that(inherits(file, "RandomAccessFile"))
-
+  file <- make_readable_file(file)
   shared_ptr(RecordBatchFileReader, ipc___RecordBatchFileReader__Open(file))
 }

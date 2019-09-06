@@ -69,7 +69,7 @@ read_table.character <- function(stream) {
 }
 
 #' @export
-`read_table.raw` <- function(stream) {
+read_table.raw <- function(stream) {
   stream <- BufferReader$create(stream)
   on.exit(stream$close())
   batch_reader <- RecordBatchStreamReader$create(stream)
@@ -78,6 +78,6 @@ read_table.character <- function(stream) {
 
 #' @rdname read_table
 #' @export
-read_arrow <- function(stream){
+read_arrow <- function(stream) {
   as.data.frame(read_table(stream))
 }

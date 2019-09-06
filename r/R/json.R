@@ -70,16 +70,11 @@ JsonTableReader$create <- function(file,
                                    parse_options = json_parse_options(),
                                    ...) {
 
-  if (is.character(file)) {
-    file <- mmap_open(file)
-  }
-  if (inherits(file, "InputStream")) {
-    file <- shared_ptr(JsonTableReader,
-      json___TableReader__Make(file, read_options, parse_options)
-    )
-  }
-  assert_that(inherits(file, c("JsonTableReader", "TableReader")))
-  file
+  file <- make_readable_file(file)
+  shared_ptr(
+    JsonTableReader,
+    json___TableReader__Make(file, read_options, parse_options)
+  )
 }
 
 #' @rdname csv_table_reader
