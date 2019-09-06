@@ -849,7 +849,7 @@ def changelog(ctx, changelog_path, arrow_version, is_website, jira_username,
               help='Task configuration yml. Defaults to tasks.yml')
 @click.option('--arrow-version', '-v', default=None,
               help='Set target version explicitly.')
-@click.option('--arrow-remote', '-r', default='origin',
+@click.option('--arrow-remote', '-r', default=None,
               help='Set Github remote explicitly, which is going to be cloned '
                    'on the CI services. Note, that no validation happens '
                    'locally. Examples: https://github.com/apache/arrow or '
