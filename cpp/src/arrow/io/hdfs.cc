@@ -431,15 +431,6 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     return Status::OK();
   }
 
-  Status Stat(const std::string& path, FileStatistics* stat) {
-    HdfsPathInfo info;
-    RETURN_NOT_OK(GetPathInfo(path, &info));
-
-    stat->size = info.size;
-    stat->kind = info.kind;
-    return Status::OK();
-  }
-
   Status GetChildren(const std::string& path, std::vector<std::string>* listing) {
     std::vector<HdfsPathInfo> detailed_listing;
     RETURN_NOT_OK(ListDirectory(path, &detailed_listing));
@@ -577,10 +568,10 @@ Status HadoopFileSystem::GetTargetStats(const std::string& path, FileStats* out)
     out->set_type(FileType::NonExistent);
     return Status::OK();
   }
-  FileStatistics stat;
-  RETURN_NOT_OK(impl_->Stat(path, &stat));
-  out->set_size(stat.size);
-  out->set_type(stat.kind == ObjectType::FILE ? FileType::File : FileType::Directory);
+  HdfsPathInfo info;
+  RETURN_NOT_OK(impl_->GetPathInfo(path, &info));
+  out->set_size(info.size);
+  out->set_type(info.kind == ObjectType::FILE ? FileType::File : FileType::Directory);
   return Status::OK();
 }
 

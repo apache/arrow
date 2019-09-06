@@ -39,12 +39,6 @@ struct ObjectType {
   enum type { FILE, DIRECTORY };
 };
 
-struct ARROW_EXPORT FileStatistics {
-  /// Size of file, -1 if finding length is unsupported
-  int64_t size;
-  ObjectType::type kind;
-};
-
 class ARROW_EXPORT FileInterface {
  public:
   virtual ~FileInterface() = 0;
