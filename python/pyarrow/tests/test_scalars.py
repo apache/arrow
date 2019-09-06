@@ -218,6 +218,18 @@ class TestScalars(unittest.TestCase):
         v = arr[3]
         assert len(v) == 0
 
+    def test_date(self):
+        # ARROW-5125
+        import datetime
+        d1, d2 = datetime.date(3200, 1, 1), datetime.date(1960, 1, 1),
+        extremes = pa.array([d1, d2], type=pa.date32())
+        assert extremes[0] == d1
+        assert extremes[1] == d2
+        extremes = pa.array([d1, d2], type=pa.date64())
+        assert extremes[0] == d1
+        assert extremes[1] == d2
+
+
     @pytest.mark.pandas
     def test_timestamp(self):
         import pandas as pd

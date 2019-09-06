@@ -223,8 +223,8 @@ cdef class Date32Value(ArrayValue):
         cdef CDate32Array* ap = <CDate32Array*> self.sp_array.get()
 
         # Shift to seconds since epoch
-        return datetime.datetime.utcfromtimestamp(
-            int(ap.Value(self.index)) * 86400).date()
+        return (datetime.date(1970, 1, 1) +
+                datetime.timedelta(days=ap.Value(self.index)))
 
 
 cdef class Date64Value(ArrayValue):
@@ -237,8 +237,9 @@ cdef class Date64Value(ArrayValue):
         Return this value as a Python datetime.datetime instance.
         """
         cdef CDate64Array* ap = <CDate64Array*> self.sp_array.get()
-        return datetime.datetime.utcfromtimestamp(
-            ap.Value(self.index) / 1000).date()
+        return (datetime.date(1970, 1, 1) +
+                datetime.timedelta(
+                    days=ap.Value(self.index) / 86400000))
 
 
 cdef class Time32Value(ArrayValue):

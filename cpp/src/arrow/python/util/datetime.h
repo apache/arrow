@@ -272,9 +272,6 @@ static inline int64_t PyDate_to_days(PyDateTime_Date* pydate) {
 
 static inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
   int64_t total_seconds = 0;
-  total_seconds += PyDateTime_DATE_GET_SECOND(pydate);
-  total_seconds += PyDateTime_DATE_GET_MINUTE(pydate) * 60;
-  total_seconds += PyDateTime_DATE_GET_HOUR(pydate) * 3600;
   int64_t days =
       get_days_from_date(PyDateTime_GET_YEAR(pydate), PyDateTime_GET_MONTH(pydate),
                          PyDateTime_GET_DAY(pydate));
@@ -283,7 +280,13 @@ static inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
 }
 
 static inline int64_t PyDateTime_to_s(PyDateTime_DateTime* pydatetime) {
-  return PyDate_to_ms(reinterpret_cast<PyDateTime_Date*>(pydatetime)) / 1000LL;
+  int64_t total_seconds = 0;
+  total_seconds += PyDateTime_DATE_GET_SECOND(pydatetime);
+  total_seconds += PyDateTime_DATE_GET_MINUTE(pydatetime) * 60;
+  total_seconds += PyDateTime_DATE_GET_HOUR(pydatetime) * 3600;
+
+  return total_seconds +
+         (PyDate_to_ms(reinterpret_cast<PyDateTime_Date*>(pydatetime)) / 1000LL);
 }
 
 static inline int64_t PyDateTime_to_ms(PyDateTime_DateTime* pydatetime) {
