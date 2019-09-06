@@ -18,7 +18,8 @@
 ///! Many builders are available to easily create different types of arrow arrays
 extern crate arrow;
 
-use arrow::array::Int32Builder;
+use arrow::array::{Int32Builder, PrimitiveArray};
+use arrow::datatypes::{Date64Type, Time64NanosecondType};
 
 fn main() {
     // Primitive Arrays
@@ -38,6 +39,24 @@ fn main() {
     // Append a slice of primitive values
     primitive_array_builder.append_slice(&[39, 89, 12]).unwrap();
 
+    // Append lots of values
+    primitive_array_builder.append_null().unwrap();
+    primitive_array_builder
+        .append_slice(&(25..50).collect::<Vec<i32>>())
+        .unwrap();
+
     // Build the `PrimitiveArray`
-    let _primitive_array = primitive_array_builder.finish();
+    let primitive_array = primitive_array_builder.finish();
+    // Long arrays will have an ellipsis printed in the middle
+    println!("{:?}", primitive_array);
+
+    // Arrays can also be built from `Vec<Option<T>>`. `None`
+    // represents a null value in the array.
+    let date_array: PrimitiveArray<Date64Type> =
+        vec![Some(1550902545147), None, Some(1550902545147)].into();
+    println!("{:?}", date_array);
+
+    let time_array: PrimitiveArray<Time64NanosecondType> =
+        (0..100).collect::<Vec<i64>>().into();
+    println!("{:?}", time_array);
 }

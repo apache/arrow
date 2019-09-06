@@ -427,13 +427,9 @@ where
 impl<T: ArrowPrimitiveType> fmt::Debug for PrimitiveArray<T> {
     default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
-        for i in 0..self.len() {
-            if self.is_null(i) {
-                write!(f, "  null,\n")?;
-            } else {
-                write!(f, "  {:?},\n", self.value(i))?;
-            }
-        }
+        print_long_array(self, f, |array, index, f| {
+            fmt::Debug::fmt(&array.value(index), f)
+        })?;
         write!(f, "]")
     }
 }
@@ -441,13 +437,9 @@ impl<T: ArrowPrimitiveType> fmt::Debug for PrimitiveArray<T> {
 impl<T: ArrowNumericType> fmt::Debug for PrimitiveArray<T> {
     default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
-        for i in 0..self.len() {
-            if self.is_null(i) {
-                write!(f, "  null,\n")?;
-            } else {
-                write!(f, "  {:?},\n", self.value(i))?;
-            }
-        }
+        print_long_array(self, f, |array, index, f| {
+            fmt::Debug::fmt(&array.value(index), f)
+        })?;
         write!(f, "]")
     }
 }
@@ -458,31 +450,25 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
-        for i in 0..self.len() {
-            if self.is_null(i) {
-                write!(f, "  null,\n")?;
-            } else {
-                match T::get_data_type() {
-                    DataType::Date32(_) | DataType::Date64(_) => {
-                        match self.value_as_date(i) {
-                            Some(date) => write!(f, "  {:?},\n", date)?,
-                            None => write!(f, "  null,\n")?,
-                        }
-                    }
-                    DataType::Time32(_) | DataType::Time64(_) => {
-                        match self.value_as_time(i) {
-                            Some(time) => write!(f, "  {:?},\n", time)?,
-                            None => write!(f, "  null,\n")?,
-                        }
-                    }
-                    DataType::Timestamp(_) => match self.value_as_datetime(i) {
-                        Some(datetime) => write!(f, "  {:?},\n", datetime)?,
-                        None => write!(f, "  null,\n")?,
-                    },
-                    _ => write!(f, "  {:?},\n", "null,\n")?,
+        print_long_array(self, f, |array, index, f| match T::get_data_type() {
+            DataType::Date32(_) | DataType::Date64(_) => {
+                match array.value_as_date(index) {
+                    Some(date) => write!(f, "{:?}", date),
+                    None => write!(f, "null"),
                 }
             }
-        }
+            DataType::Time32(_) | DataType::Time64(_) => {
+                match array.value_as_time(index) {
+                    Some(time) => write!(f, "{:?}", time),
+                    None => write!(f, "null"),
+                }
+            }
+            DataType::Timestamp(_) => match array.value_as_datetime(index) {
+                Some(datetime) => write!(f, "{:?}", datetime),
+                None => write!(f, "null"),
+            },
+            _ => write!(f, "null"),
+        })?;
         write!(f, "]")
     }
 }
@@ -522,13 +508,9 @@ impl PrimitiveArray<BooleanType> {
 impl fmt::Debug for PrimitiveArray<BooleanType> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "PrimitiveArray<{:?}>\n[\n", BooleanType::get_data_type())?;
-        for i in 0..self.len() {
-            if self.is_null(i) {
-                write!(f, "  null,\n")?
-            } else {
-                write!(f, "  {:?},\n", self.value(i))?
-            }
-        }
+        print_long_array(self, f, |array, index, f| {
+            fmt::Debug::fmt(&array.value(index), f)
+        })?;
         write!(f, "]")
     }
 }
