@@ -132,7 +132,10 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
   <#elseif minor.class == "TimeStampSec">
     final long millis = java.util.concurrent.TimeUnit.SECONDS.toMillis(holder.value);
     return DateUtility.getLocalDateTimeFromEpochMilli(millis);
-  <#elseif minor.class == "TimeStampMilli" || minor.class == "DateMilli" || minor.class == "TimeMilli">
+  <#elseif minor.class == "DateMilli">
+    final long millis = java.util.concurrent.TimeUnit.SECONDS.toMillis(holder.value);
+    return DateUtility.getLocalDateFromEpochMilli(millis);
+  <#elseif minor.class == "TimeStampMilli" || minor.class == "TimeMilli">
     return DateUtility.getLocalDateTimeFromEpochMilli(holder.value);
   <#elseif minor.class == "TimeStampMicro">
     return DateUtility.getLocalDateTimeFromEpochMicro(holder.value);

@@ -19,7 +19,7 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.DateMilliReaderImpl;
@@ -141,12 +141,12 @@ public final class DateMilliVector extends BaseFixedWidthVector {
    * @param index   position of element
    * @return element at given index
    */
-  public LocalDateTime getObject(int index) {
+  public LocalDate getObject(int index) {
     if (isSet(index) == 0) {
       return null;
     } else {
       final long millis = valueBuffer.getLong(index * TYPE_WIDTH);
-      return DateUtility.getLocalDateTimeFromEpochMilli(millis);
+      return DateUtility.getLocalDateFromEpochMilli(millis);
     }
   }
 

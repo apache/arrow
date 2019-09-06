@@ -18,6 +18,7 @@
 package org.apache.arrow.vector.util;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
@@ -91,6 +92,27 @@ public class DateUtility {
   public static LocalDateTime getLocalDateTimeFromEpochMilli(long epochMillis) {
     return getLocalDateTimeFromEpochMilli(epochMillis, UTC);
   }
+
+  /**
+   * Convert milliseconds from epoch to a LocalDate with timeZone offset.
+   *
+   * @param epochMillis milliseconds from epoch
+   * @param timeZone current timeZone
+   * @return LocalDate object with timeZone offset
+   */
+  public static LocalDate getLocalDateFromEpochMilli(long epochMillis, String timeZone) {
+    final LocalDate localDate = LocalDateTime.ofInstant(
+         Instant.ofEpochMilli(epochMillis), TimeZone.getTimeZone(timeZone).toZoneId()).toLocalDate();
+    return localDate;
+  }
+
+  /**
+   * Convert milliseconds from epoch to a LocalDate with UTC offset.
+   */
+  public static LocalDate getLocalDateFromEpochMilli(long epochMillis) {
+    return getLocalDateFromEpochMilli(epochMillis, UTC);
+  }
+
 
   /**
    * Convert microseconds from epoch to a LocalDateTime with timeZone offset.

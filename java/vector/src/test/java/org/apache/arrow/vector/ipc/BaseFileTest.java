@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -273,8 +274,8 @@ public class BaseFileTest {
     for (int i = 0; i < count; i++) {
       LocalDateTime dt = makeDateTimeFromCount(i);
       LocalDateTime dtMilli = dt.minusNanos(i);
-      LocalDateTime dateVal = ((DateMilliVector) root.getVector("date")).getObject(i);
-      LocalDateTime dateExpected = dt.toLocalDate().atStartOfDay();
+      LocalDate dateVal = ((DateMilliVector) root.getVector("date")).getObject(i);
+      LocalDate dateExpected = dt.toLocalDate();
       Assert.assertEquals(dateExpected, dateVal);
       LocalTime timeVal = ((TimeMilliVector) root.getVector("time")).getObject(i).toLocalTime();
       Assert.assertEquals(dtMilli.toLocalTime(), timeVal);
