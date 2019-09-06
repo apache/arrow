@@ -480,7 +480,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
      */
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      assert startIndex + length <= valueCount;
+      Preconditions.checkArgument(startIndex + length <= valueCount);
       final int startPoint = offsetBuffer.getInt(startIndex * OFFSET_WIDTH);
       final int sliceLength = offsetBuffer.getInt((startIndex + length) * OFFSET_WIDTH) - startPoint;
       to.clear();

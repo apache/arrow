@@ -579,7 +579,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
 
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      assert startIndex + length <= valueCount;
+      Preconditions.checkArgument(startIndex + length <= valueCount);
       final int startPoint = listSize * startIndex;
       final int sliceLength = listSize * (startIndex + length) - startPoint;
       to.clear();
@@ -595,7 +595,6 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
      * transfer the validity.
      */
     private void splitAndTransferValidityBuffer(int startIndex, int length, FixedSizeListVector target) {
-      assert startIndex + length <= valueCount;
       int firstByteSource = BitVectorHelper.byteIndex(startIndex);
       int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
       int byteSizeTarget = getValidityBufferSizeFromCount(length);

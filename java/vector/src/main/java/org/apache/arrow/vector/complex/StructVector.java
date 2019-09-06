@@ -25,6 +25,7 @@ import java.util.List;
 
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferBacked;
@@ -187,7 +188,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
 
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      assert startIndex + length <= valueCount;
+      Preconditions.checkArgument(startIndex + length <= valueCount);
       target.clear();
       splitAndTransferValidityBuffer(startIndex, length, target);
       super.splitAndTransfer(startIndex, length);
