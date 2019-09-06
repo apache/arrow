@@ -1952,6 +1952,10 @@ Status ConvertTableToPandas(const PandasOptions& options,
     for (int i = 0; i < table->num_columns(); i++) {
       std::shared_ptr<ChunkedArray> col = table->column(i);
       if (categorical_columns.count(table->field(i)->name())) {
+        if (table->field(i)->type()->id() == Type::DICTIONARY) {
+          // this column is already dictionary encoded
+          continue;
+        }
         Datum out;
         RETURN_NOT_OK(DictionaryEncode(&ctx, Datum(col), &out));
         std::shared_ptr<ChunkedArray> array = out.chunked_array();
