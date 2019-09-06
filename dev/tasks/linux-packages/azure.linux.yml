@@ -16,12 +16,13 @@ jobs:
         git -C arrow submodule update --init --recursive
       displayName: Clone arrow
 
-    # - script: |
-    #     pushd arrow/dev/tasks/linux-packages
-    #     rake version:update
-    #     rake dist
-    #     {{ build_command }}
-    #     popd
+    - script: |
+        pushd arrow/dev/tasks/linux-packages
+        rake version:update
+        rake dist
+        {{ build_command }}
+        popd
+      displayName: Build
 
     # Using github release tries to find a common ancestor between the
     # currently pushed tag and the latest tag of the github repository
