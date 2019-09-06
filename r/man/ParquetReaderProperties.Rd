@@ -11,7 +11,7 @@ by \link{ParquetFileReader}.
 \section{Factory}{
 
 
-The \code{ParquetReaderProperties$create()} factor method instantiates the object
+The \code{ParquetReaderProperties$create()} factory method instantiates the object
 and takes the following arguments:
 \itemize{
 \item \code{use_threads} Logical: whether to use multithreading (default \code{TRUE})

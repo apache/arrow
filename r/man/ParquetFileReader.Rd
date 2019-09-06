@@ -10,7 +10,7 @@ This class enables you to interact with Parquet files.
 \section{Factory}{
 
 
-The \code{ParquetFileReader$create()} factor method instantiates the object and
+The \code{ParquetFileReader$create()} factory method instantiates the object and
 takes the following arguments:
 \itemize{
 \item \code{file} A character file name, raw vector, or Arrow file connection object

@@ -46,6 +46,35 @@ write_feather <- function(data, stream) {
   ipc___TableWriter__RecordBatch__WriteFeather(writer, data)
 }
 
+#' @title FeatherTableWriter class
+#' @rdname FeatherTableWriter
+#' @name FeatherTableWriter
+#' @docType class
+#' @usage NULL
+#' @format NULL
+#' @description This class enables you to write Feather files. See its usage in
+#' [write_feather()].
+#'
+#' @section Factory:
+#'
+#' The `FeatherTableWriter$create()` factory method instantiates the object and
+#' takes the following argument:
+#'
+#' - `stream` An `OutputStream`
+#'
+#' @section Methods:
+#'
+#' - `$GetDescription()`
+#' - `$HasDescription()`
+#' - `$version()`
+#' - `$num_rows()`
+#' - `$num_columns()`
+#' - `$GetColumnName()`
+#' - `$GetColumn()`
+#' - `$Read(columns)`
+#'
+#' @export
+#' @include arrow-package.R
 FeatherTableWriter <- R6Class("FeatherTableWriter", inherit = Object,
   public = list(
     SetDescription = function(description) ipc___feather___TableWriter__SetDescription(self, description),
@@ -67,7 +96,8 @@ FeatherTableWriter$create <- function(stream) {
 #' @inheritParams read_delim_arrow
 #' @param ... additional parameters
 #'
-#' @return A `data.frame` if `as_tibble` is `TRUE` (the default), or a [arrow::Table][Table] otherwise
+#' @return A `data.frame` if `as_tibble` is `TRUE` (the default), or an
+#' [arrow::Table][Table] otherwise
 #'
 #' @export
 #' @examples
@@ -98,6 +128,39 @@ read_feather <- function(file, col_select = NULL, as_tibble = TRUE, ...) {
   out
 }
 
+#' @title FeatherTableReader class
+#' @rdname FeatherTableReader
+#' @name FeatherTableReader
+#' @docType class
+#' @usage NULL
+#' @format NULL
+#' @description This class enables you to interact with Feather files. Create
+#' one to connect to a file or other InputStream, and call `Read()` on it to
+#' make an `arrow::Table`. See its usage in [`read_feather()`].
+#'
+#' @section Factory:
+#'
+#' The `FeatherTableReader$create()` factory method instantiates the object and
+#' takes the following arguments:
+#'
+#' - `file` A character file name, raw vector, or Arrow file connection object
+#'    (e.g. `RandomAccessFile`).
+#' - `mmap` Logical: whether to memory-map the file (default `TRUE`)
+#' - `...` Additional arguments, currently ignored
+#'
+#' @section Methods:
+#'
+#' - `$GetDescription()`
+#' - `$HasDescription()`
+#' - `$version()`
+#' - `$num_rows()`
+#' - `$num_columns()`
+#' - `$GetColumnName()`
+#' - `$GetColumn()`
+#' - `$Read(columns)`
+#'
+#' @export
+#' @include arrow-package.R
 FeatherTableReader <- R6Class("FeatherTableReader", inherit = Object,
   public = list(
     GetDescription = function() ipc___feather___TableReader__GetDescription(self),

@@ -16,7 +16,7 @@
 # under the License.
 
 #' @include arrow-package.R
-#' @title class arrow::Schema
+#' @title Schema class
 #'
 #' @description Create a `Schema` when you
 #' want to convert an R `data.frame` to Arrow but don't want to rely on the
@@ -45,6 +45,7 @@
 #'
 #' @rdname Schema
 #' @name Schema
+#' @export
 Schema <- R6Class("Schema",
   inherit = Object,
   public = list(

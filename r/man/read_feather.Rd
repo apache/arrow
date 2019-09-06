@@ -21,7 +21,8 @@ of columns, as used in \code{dplyr::select()}.}
 \item{...}{additional parameters}
 }
 \value{
-A \code{data.frame} if \code{as_tibble} is \code{TRUE} (the default), or a \link[=Table]{arrow::Table} otherwise
+A \code{data.frame} if \code{as_tibble} is \code{TRUE} (the default), or an
+\link[=Table]{arrow::Table} otherwise
 }
 \description{
 Read a Feather file

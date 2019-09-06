@@ -12,12 +12,10 @@ buffer(x)
 \item{x}{R object. Only raw, numeric and integer vectors are currently supported}
 }
 \value{
-an instance of \link[=buffer]{Buffer} that borrows memory from \code{x}
+an instance of \code{Buffer} that borrows memory from \code{x}
 }
 \description{
-class Buffer
-
-Create a \link[=buffer]{Buffer} from an R object
+\code{buffer()} lets you create an \code{arrow::Buffer} from an R object
 }
 \section{Methods}{
 

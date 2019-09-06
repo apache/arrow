@@ -57,7 +57,7 @@ read_parquet <- function(file,
 #'
 #' @section Factory:
 #'
-#' The `ParquetFileReader$create()` factor method instantiates the object and
+#' The `ParquetFileReader$create()` factory method instantiates the object and
 #' takes the following arguments:
 #'
 #' - `file` A character file name, raw vector, or Arrow file connection object
@@ -123,7 +123,7 @@ ParquetFileReader$create <- function(file,
 #'
 #' @section Factory:
 #'
-#' The `ParquetReaderProperties$create()` factor method instantiates the object
+#' The `ParquetReaderProperties$create()` factory method instantiates the object
 #' and takes the following arguments:
 #'
 #' - `use_threads` Logical: whether to use multithreading (default `TRUE`)

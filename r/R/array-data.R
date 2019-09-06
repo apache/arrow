@@ -15,13 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include type.R
-
-#' @title class ArrayData
-#'
+#' @title ArrayData class
 #' @usage NULL
 #' @format NULL
 #' @docType class
+#' @description The `ArrayData` class allows you to get and inspect the data
+#' inside an `arrow::Array`.
 #'
 #' @section Usage:
 #'
@@ -39,8 +38,9 @@
 #'
 #' ...
 #'
-#' @rdname array-data
-#' @name array-data
+#' @rdname ArrayData
+#' @name ArrayData
+#' @include type.R
 ArrayData <- R6Class("ArrayData",
   inherit = Object,
   active = list(

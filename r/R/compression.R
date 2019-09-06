@@ -31,9 +31,31 @@ compression_codec <- function(type = "GZIP") {
   unique_ptr(Codec, util___Codec__Create(type))
 }
 
-
+#' @title Compressed stream classes
+#' @rdname compression
+#' @name compression
+#' @aliases CompressedInputStream CompressedOutputStream
+#' @docType class
+#' @usage NULL
+#' @format NULL
+#' @description `CompressedInputStream` and `CompressedOutputStream` 
+#' allow you to apply a [compression_codec()] to an
+#' input or output stream.
+#'
+#' @section Factory:
+#'
+#' The `CompressedInputStream$create()` and `CompressedOutputStream$create()`
+#' factory methods instantiate the object and take the following arguments:
+#'
+#' - `stream` An `InputStream` or `OutputStream`, respectively
+#' - `codec` A `Codec`
+#'
+#' @section Methods:
+#'
+#' Methods are inherited from [InputStream] and [OutputStream], respectively
+#' @export
+#' @include arrow-package.R
 CompressedOutputStream <- R6Class("CompressedOutputStream", inherit = OutputStream)
-
 CompressedOutputStream$create <- function(stream, codec = compression_codec()){
   if (.Platform$OS.type == "windows") {
     stop("'CompressedOutputStream' is unsupported in Windows.")
@@ -46,18 +68,11 @@ CompressedOutputStream$create <- function(stream, codec = compression_codec()){
   shared_ptr(CompressedOutputStream, io___CompressedOutputStream__Make(codec, stream))
 }
 
-#' Compressed output stream
-#'
-#' @details This function is not supported in Windows.
-#'
-#' @param stream Underlying raw output stream
-#' @param codec a codec
+#' @rdname compression
+#' @usage NULL
+#' @format NULL
 #' @export
-compressed_output_stream <- CompressedOutputStream$create
-
-
 CompressedInputStream <- R6Class("CompressedInputStream", inherit = InputStream)
-
 CompressedInputStream$create <- function(stream, codec = compression_codec()){
   # TODO (npr): why would CompressedInputStream work on Windows if CompressedOutputStream doesn't? (and is it still the case that it does not?)
   assert_that(inherits(codec, "Codec"))
@@ -67,10 +82,3 @@ CompressedInputStream$create <- function(stream, codec = compression_codec()){
   assert_that(inherits(stream, "InputStream"))
   shared_ptr(CompressedInputStream, io___CompressedInputStream__Make(codec, stream))
 }
-
-#' Compressed input stream
-#'
-#' @param stream Underlying raw input stream
-#' @param codec a codec
-#' @export
-compressed_input_stream <- CompressedInputStream$create

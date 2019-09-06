@@ -31,7 +31,7 @@ test_that("can write Buffer to CompressedOutputStream and read back in Compresse
 
   tf2 <- tempfile()
   sink2 <- FileOutputStream$create(tf2)
-  stream2 <- compressed_output_stream(sink2)
+  stream2 <- CompressedOutputStream$create(sink2)
   expect_equal(stream2$tell(), 0)
   stream2$write(buf)
   expect_equal(stream2$tell(), buf$size)
@@ -43,7 +43,7 @@ test_that("can write Buffer to CompressedOutputStream and read back in Compresse
   buf1 <- input1$Read(1024L)
 
   file2 <- ReadableFile$create(tf2)
-  input2 <- compressed_input_stream(file2)
+  input2 <- CompressedInputStream$create(file2)
   buf2 <- input2$Read(1024L)
 
   expect_equal(buf, buf1)

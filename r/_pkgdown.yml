@@ -114,8 +114,7 @@ reference:
   - RecordBatchStreamReader
   - RecordBatchStreamWriter
   - RecordBatchWriter
-  - CompressedInputStream
-  - CompressedOutputStream
+  - compression
   - compression_codec
   - default_memory_pool
   - mmap_create

@@ -15,15 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
-#' @include enums.R
-
 #' @title class Buffer
-#'
 #' @usage NULL
 #' @format NULL
 #' @docType class
-#'
+#' @description `buffer()` lets you create an `arrow::Buffer` from an R object
 #' @section Methods:
 #'
 #' - `$is_mutable()` :
@@ -34,6 +30,8 @@
 #' @rdname buffer
 #' @name buffer
 #' @export
+#' @include arrow-package.R
+#' @include enums.R
 Buffer <- R6Class("Buffer", inherit = Object,
   public = list(
     ZeroPadding = function() Buffer__ZeroPadding(self),
@@ -57,12 +55,8 @@ Buffer$create <- function(x) {
   }
 }
 
-#' Create a [Buffer][buffer] from an R object
-#'
 #' @param x R object. Only raw, numeric and integer vectors are currently supported
-#'
-#' @return an instance of [Buffer][buffer] that borrows memory from `x`
-#'
+#' @return an instance of `Buffer` that borrows memory from `x`
 #' @export
 buffer <- Buffer$create
 
