@@ -315,6 +315,10 @@ class Date64Converter
  public:
   Status AppendItem(PyObject* obj) {
     int64_t t;
+    if (PyDateTime_Check(obj)) {
+      auto pydate = reinterpret_cast<PyDateTime_DateTime*>(obj);
+      t = PyDateTime_to_ms(pydate);
+    }
     if (PyDate_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
       t = PyDate_to_ms(pydate);
