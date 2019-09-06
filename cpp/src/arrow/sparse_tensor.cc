@@ -18,6 +18,7 @@
 #include "arrow/sparse_tensor.h"
 
 #include <functional>
+#include <limits>
 #include <memory>
 #include <numeric>
 
