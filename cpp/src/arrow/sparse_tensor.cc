@@ -93,7 +93,7 @@ class SparseTensorConverter<TYPE, SparseCOOIndex>
       const int64_t count = ndim == 0 ? 1 : tensor_.shape()[0];
       for (int64_t i = 0; i < count; ++i, ++data) {
         if (*data != 0) {
-          *indices++ = i;
+          *indices++ = static_cast<c_index_value_type>(i);
           *values++ = *data;
         }
       }
