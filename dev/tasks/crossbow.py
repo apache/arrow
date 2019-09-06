@@ -244,11 +244,13 @@ class Repo:
     require_https : boolean, default False
         Raise exception for SSH origin URLs
     """
-    def __init__(self, path, github_token=None, require_https=False):
+    def __init__(self, path, github_token=None, remote_url=None,
+                 require_https=False):
         self.path = Path(path)
         self.repo = pygit2.Repository(str(self.path))
         self.github_token = github_token
         self.require_https = require_https
+        self._remote_url = remote_url
         self._github_repo = None  # set by as_github_repo()
         self._updated_refs = []
 
@@ -315,7 +317,7 @@ class Repo:
         equivalent usable with Github OAuth token.
         """
         try:
-            return _git_ssh_to_https(self.remote.url)
+            return self._remote_url or _git_ssh_to_https(self.remote.url)
         except AttributeError:
             return None
 
@@ -393,7 +395,8 @@ class Repo:
         return blob.data
 
     def _parse_github_user_repo(self):
-        m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote_url)
+        url = self._remote_url if self._remote_url else self.remote_url
+        m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', url)
         user, repo = m.group(1), m.group(2)
         return user, repo
 
@@ -552,7 +555,6 @@ class Queue(Repo):
                 'Please checkout a branch.'
             )
 
-
         # auto increment and set next job id, e.g. build-85
         job._queue = self
         job.branch = self._next_job_id(prefix)
@@ -562,7 +564,7 @@ class Queue(Repo):
             # adding CI's name to the end of the branch in order to use skip
             # patterns on travis and circleci
             task.branch = '{}-{}-{}'.format(job.branch, task.ci, task_name)
-            files = task.render_files(job=job, arrow=job.target)
+            files = task.render_files(job=job, arrow=job.target, queue=self)
             branch = self.create_branch(task.branch, files=files)
             self.create_tag(task.tag, branch.target)
             task.commit = str(branch.target)
@@ -808,8 +810,10 @@ DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
               type=click.Path(exists=True), default=DEFAULT_QUEUE_PATH,
               help='The repository path used for scheduling the tasks. '
                    'Defaults to crossbow directory placed next to arrow')
+@click.option('--queue-remote', '-qr', default=None,
+              help='Force to use this remote URL for the Queue repository')
 @click.pass_context
-def crossbow(ctx, github_token, arrow_path, queue_path):
+def crossbow(ctx, github_token, arrow_path, queue_path, queue_remote):
     if github_token is None:
         raise click.ClickException(
             'Could not determine GitHub token. Please set the '
@@ -818,8 +822,8 @@ def crossbow(ctx, github_token, arrow_path, queue_path):
         )
 
     ctx.obj['arrow'] = Repo(arrow_path)
-    ctx.obj['queue'] = Queue(queue_path, github_token=github_token,
-                             require_https=True)
+    ctx.obj['queue'] = Queue(queue_path, remote_url=queue_remote,
+                             github_token=github_token, require_https=True)
 
 
 @crossbow.command()
@@ -906,9 +910,6 @@ def submit(ctx, tasks, groups, job_prefix, config_path, arrow_version,
 
     if dry_run:
         yaml.dump(job, output)
-        for task in job.tasks.values():
-            for fname, content in task.render_files(job=job, arrow=job.target).items():
-                print(content)
     else:
         queue.fetch()
         queue.put(job, prefix=job_prefix)
