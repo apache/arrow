@@ -31,6 +31,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.MapWithOrdinal;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -331,37 +332,6 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
 
   @Override
   public String toString() {
-    if (getValueCount() == 0) {
-      return "[]";
-    }
-
-    final int window = 10;
-    boolean skipComma = false;
-
-    StringBuilder sb = new StringBuilder();
-    sb.append('[');
-    for (int i = 0; i < getValueCount(); i++) {
-      if (skipComma) {
-        skipComma = false;
-      }
-      if (i >= window && i < getValueCount() - window) {
-        sb.append("...");
-        i = getValueCount() - window - 1;
-        skipComma = true;
-      } else {
-        sb.append(getObject(i));
-      }
-
-      if (i == getValueCount() - 1) {
-        sb.append(']');
-      } else {
-        if (!skipComma) {
-          sb.append(',');
-        }
-        sb.append(' ');
-      }
-    }
-
-    return sb.toString();
+    return ValueVectorUtility.getToString(this);
   }
 }

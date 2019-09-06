@@ -27,6 +27,7 @@ import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/UnionVector.java" />
@@ -44,6 +45,7 @@ import java.util.Iterator;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.vector.BaseValueVector;
@@ -699,37 +701,6 @@ public class UnionVector implements FieldVector {
 
     @Override
     public String toString() {
-      if (getValueCount() == 0) {
-        return "[]";
-      }
-
-      final int window = 10;
-      boolean skipComma = false;
-
-      StringBuilder sb = new StringBuilder();
-      sb.append('[');
-      for (int i = 0; i < getValueCount(); i++) {
-        if (skipComma) {
-          skipComma = false;
-        }
-        if (i >= window && i < getValueCount() - window) {
-          sb.append("...");
-          i = getValueCount() - window - 1;
-          skipComma = true;
-        } else {
-          sb.append(getObject(i));
-        }
-
-        if (i == getValueCount() - 1) {
-          sb.append(']');
-        } else {
-          if (!skipComma) {
-            sb.append(',');
-          }
-          sb.append(' ');
-        }
-      }
-
-      return sb.toString();
+      return ValueVectorUtility.getToString(this);
     }
 }
