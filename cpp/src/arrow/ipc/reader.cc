@@ -861,22 +861,20 @@ Status ReadTensor(const Message& message, std::shared_ptr<Tensor>* out) {
 
 namespace {
 
-Status ReadSparseCOOIndex(const flatbuf::SparseTensor* sparse_tensor, int64_t ndim,
-                          int64_t non_zero_length, io::RandomAccessFile* file,
-                          std::shared_ptr<SparseIndex>* out) {
+Status ReadSparseCOOIndex(const flatbuf::SparseTensor* sparse_tensor,
+                          const std::vector<int64_t>& shape, int64_t non_zero_length,
+                          io::RandomAccessFile* file, std::shared_ptr<SparseIndex>* out) {
   auto* sparse_index = sparse_tensor->sparseIndex_as_SparseTensorIndexCOO();
-  auto* indices_type = sparse_index->indicesType();
-  // SparseCOOIndex currently can have Int64 tensor for indices
-  if (indices_type->bitWidth() != 64) {
-    return Status::NotImplemented(
-        "SparseCOOIndex with more or less than 64-bit indices not implemented");
-  }
+
+  std::shared_ptr<DataType> indices_type;
+  RETURN_NOT_OK(internal::GetSparseCOOIndexMetadata(sparse_index, &indices_type));
 
   auto* indices_buffer = sparse_index->indicesBuffer();
   std::shared_ptr<Buffer> indices_data;
   RETURN_NOT_OK(
       file->ReadAt(indices_buffer->offset(), indices_buffer->length(), &indices_data));
-  std::vector<int64_t> shape({non_zero_length, ndim});
+  std::vector<int64_t> indices_shape(
+      {non_zero_length, static_cast<int64_t>(shape.size())});
   auto* indices_strides = sparse_index->indicesStrides();
   std::vector<int64_t> strides;
   if (indices_strides->size() > 0) {
@@ -884,28 +882,18 @@ Status ReadSparseCOOIndex(const flatbuf::SparseTensor* sparse_tensor, int64_t nd
     strides.push_back(indices_strides->Get(1));
   }
   *out = std::make_shared<SparseCOOIndex>(
-      std::make_shared<Tensor>(int64(), indices_data, shape, strides));
+      std::make_shared<Tensor>(indices_type, indices_data, indices_shape, strides));
   return Status::OK();
 }
 
-Status ReadSparseCSRIndex(const flatbuf::SparseTensor* sparse_tensor, int64_t ndim,
-                          int64_t non_zero_length, io::RandomAccessFile* file,
-                          std::shared_ptr<SparseIndex>* out) {
+Status ReadSparseCSRIndex(const flatbuf::SparseTensor* sparse_tensor,
+                          const std::vector<int64_t>& shape, int64_t non_zero_length,
+                          io::RandomAccessFile* file, std::shared_ptr<SparseIndex>* out) {
   auto* sparse_index = sparse_tensor->sparseIndex_as_SparseMatrixIndexCSR();
 
-  auto* indptr_type = sparse_index->indptrType();
-  // SparseCSRIndex currently can have Int64 tensor for indptr
-  if (indptr_type->bitWidth() != 64) {
-    return Status::NotImplemented(
-        "SparseCSRIndex with more or less than 64-bit indptr not implemented");
-  }
-
-  auto* indices_type = sparse_index->indicesType();
-  // SparseCSRIndex currently can have Int64 tensor for indices
-  if (indices_type->bitWidth() != 64) {
-    return Status::NotImplemented(
-        "SparseCSRIndex with more or less than 64-bit indices not implemented");
-  }
+  std::shared_ptr<DataType> indptr_type, indices_type;
+  RETURN_NOT_OK(
+      internal::GetSparseCSRIndexMetadata(sparse_index, &indptr_type, &indices_type));
 
   auto* indptr_buffer = sparse_index->indptrBuffer();
   std::shared_ptr<Buffer> indptr_data;
@@ -917,11 +905,12 @@ Status ReadSparseCSRIndex(const flatbuf::SparseTensor* sparse_tensor, int64_t nd
   RETURN_NOT_OK(
       file->ReadAt(indices_buffer->offset(), indices_buffer->length(), &indices_data));
 
-  std::vector<int64_t> indptr_shape({ndim + 1});
+  std::vector<int64_t> indptr_shape({shape[0] + 1});
   std::vector<int64_t> indices_shape({non_zero_length});
+
   *out = std::make_shared<SparseCSRIndex>(
-      std::make_shared<SparseCSRIndex::IndexTensor>(indptr_data, indptr_shape),
-      std::make_shared<SparseCSRIndex::IndexTensor>(indices_data, indices_shape));
+      std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
+      std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
   return Status::OK();
 }
 
@@ -978,15 +967,15 @@ Status ReadSparseTensor(const Buffer& metadata, io::RandomAccessFile* file,
   std::shared_ptr<SparseIndex> sparse_index;
   switch (sparse_tensor_format_id) {
     case SparseTensorFormat::COO:
-      RETURN_NOT_OK(ReadSparseCOOIndex(sparse_tensor, shape.size(), non_zero_length, file,
-                                       &sparse_index));
+      RETURN_NOT_OK(
+          ReadSparseCOOIndex(sparse_tensor, shape, non_zero_length, file, &sparse_index));
       return MakeSparseTensorWithSparseCOOIndex(
           type, shape, dim_names, checked_pointer_cast<SparseCOOIndex>(sparse_index),
           non_zero_length, data, out);
 
     case SparseTensorFormat::CSR:
-      RETURN_NOT_OK(ReadSparseCSRIndex(sparse_tensor, shape.size(), non_zero_length, file,
-                                       &sparse_index));
+      RETURN_NOT_OK(
+          ReadSparseCSRIndex(sparse_tensor, shape, non_zero_length, file, &sparse_index));
       return MakeSparseTensorWithSparseCSRIndex(
           type, shape, dim_names, checked_pointer_cast<SparseCSRIndex>(sparse_index),
           non_zero_length, data, out);

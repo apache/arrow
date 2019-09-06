@@ -118,19 +118,17 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
 /// as the number of non-zero-values.
 class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIndex> {
  public:
-  using IndexTensor = NumericTensor<Int64Type>;
-
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSR;
 
   // Constructor with two index vectors
-  explicit SparseCSRIndex(const std::shared_ptr<IndexTensor>& indptr,
-                          const std::shared_ptr<IndexTensor>& indices);
+  explicit SparseCSRIndex(const std::shared_ptr<Tensor>& indptr,
+                          const std::shared_ptr<Tensor>& indices);
 
   /// \brief Return a 1D tensor of indptr vector
-  const std::shared_ptr<IndexTensor>& indptr() const { return indptr_; }
+  const std::shared_ptr<Tensor>& indptr() const { return indptr_; }
 
   /// \brief Return a 1D tensor of indices vector
-  const std::shared_ptr<IndexTensor>& indices() const { return indices_; }
+  const std::shared_ptr<Tensor>& indices() const { return indices_; }
 
   /// \brief Return a string representation of the sparse index
   std::string ToString() const override;
@@ -141,8 +139,8 @@ class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIn
   }
 
  protected:
-  std::shared_ptr<IndexTensor> indptr_;
-  std::shared_ptr<IndexTensor> indices_;
+  std::shared_ptr<Tensor> indptr_;
+  std::shared_ptr<Tensor> indices_;
 };
 
 // ----------------------------------------------------------------------
