@@ -301,6 +301,13 @@ Status InvalidValue(PyObject* obj, const std::string& why) {
                          Py_TYPE(obj)->tp_name, ": ", why);
 }
 
+Status InvalidType(PyObject* obj, const std::string& why) {
+  std::string obj_as_str;
+  RETURN_NOT_OK(internal::PyObject_StdStringStr(obj, &obj_as_str));
+  return Status::TypeError("Could not convert ", obj_as_str, " with type ",
+                           Py_TYPE(obj)->tp_name, ": ", why);
+}
+
 Status UnboxIntegerAsInt64(PyObject* obj, int64_t* out) {
   if (PyLong_Check(obj)) {
     int overflow = 0;

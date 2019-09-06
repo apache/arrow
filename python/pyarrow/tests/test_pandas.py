@@ -1717,7 +1717,7 @@ class TestConvertListTypes(object):
 
     def test_nested_types_from_ndarray_null_entries(self):
         # Root cause of ARROW-6435
-        s = pd.Series([np.nan, np.nan], dtype=object)
+        s = pd.Series(np.array([np.nan, np.nan], dtype=object))
 
         for ty in [pa.list_(pa.int64()),
                    pa.large_list(pa.int64()),
@@ -1725,6 +1725,9 @@ class TestConvertListTypes(object):
             result = pa.array(s, type=ty)
             expected = pa.array([None, None], type=ty)
             assert result.equals(expected)
+
+            with pytest.raises(TypeError):
+                pa.array(s.values, type=ty)
 
     def test_column_of_lists(self):
         df, schema = dataframe_with_lists()

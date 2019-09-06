@@ -726,10 +726,12 @@ class ListConverter
     if (PyArray_Check(obj)) {
       return AppendNdarrayItem(obj);
     }
-    const auto list_size = static_cast<int64_t>(PySequence_Size(obj));
-    if (ARROW_PREDICT_FALSE(list_size == -1)) {
-      RETURN_IF_PYERROR();
+    if (!PySequence_Check(obj)) {
+      return internal::InvalidType(obj,
+                                   "was not a sequence or recognized null"
+                                   " for conversion to list type");
     }
+    int64_t list_size = static_cast<int64_t>(PySequence_Size(obj));
     return value_converter_->AppendMultiple(obj, list_size);
   }
 
@@ -807,7 +809,9 @@ class StructConverter
     } else if (PyTuple_Check(obj) && source_kind_ == TUPLES) {
       return AppendTupleItem(obj);
     } else {
-      return Status::TypeError("Expected sequence of dicts or tuples for struct type");
+      return internal::InvalidType(obj,
+                                   "was not a dict, tuple, or recognized null value"
+                                   " for conversion to struct type");
     }
   }
 
