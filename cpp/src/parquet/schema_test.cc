@@ -599,10 +599,10 @@ TEST(TestColumnDescriptor, TestAttrs) {
   // Test FIXED_LEN_BYTE_ARRAY
   node = PrimitiveNode::Make("name", Repetition::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY,
                              ConvertedType::DECIMAL, 12, 10, 4);
-  descr = ColumnDescriptor(node, 4, 1);
+  ColumnDescriptor descr2(node, 4, 1);
 
-  ASSERT_EQ(Type::FIXED_LEN_BYTE_ARRAY, descr.physical_type());
-  ASSERT_EQ(12, descr.type_length());
+  ASSERT_EQ(Type::FIXED_LEN_BYTE_ARRAY, descr2.physical_type());
+  ASSERT_EQ(12, descr2.type_length());
 
   expected_descr = R"(column descriptor = {
   name: name,
@@ -616,7 +616,7 @@ TEST(TestColumnDescriptor, TestAttrs) {
   precision: 10,
   scale: 4,
 })";
-  ASSERT_EQ(expected_descr, descr.ToString());
+  ASSERT_EQ(expected_descr, descr2.ToString());
 }
 
 class TestSchemaDescriptor : public ::testing::Test {

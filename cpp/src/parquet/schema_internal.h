@@ -42,10 +42,11 @@ namespace schema {
 // ----------------------------------------------------------------------
 // Conversion from Parquet Thrift metadata
 
+PARQUET_EXPORT
 std::shared_ptr<SchemaDescriptor> FromParquet(
     const std::vector<format::SchemaElement>& schema);
 
-class FlatSchemaConverter {
+class PARQUET_EXPORT FlatSchemaConverter {
  public:
   FlatSchemaConverter(const format::SchemaElement* elements, int length)
       : elements_(elements), length_(length), pos_(0), current_id_(0) {}
@@ -68,10 +69,11 @@ class FlatSchemaConverter {
 // ----------------------------------------------------------------------
 // Conversion to Parquet Thrift metadata
 
+PARQUET_EXPORT
 void ToParquet(const GroupNode* schema, std::vector<format::SchemaElement>* out);
 
 // Converts nested parquet schema back to a flat vector of Thrift structs
-class SchemaFlattener {
+class PARQUET_EXPORT SchemaFlattener {
  public:
   SchemaFlattener(const GroupNode* schema, std::vector<format::SchemaElement>* out);
 

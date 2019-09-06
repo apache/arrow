@@ -275,10 +275,6 @@ if(ARROW_IPC AND NOT ARROW_JSON)
   message(FATAL_ERROR "JSON support is required for Arrow IPC")
 endif()
 
-if(PARQUET_BUILD_EXAMPLES OR PARQUET_BUILD_EXECUTABLES)
-  set(ARROW_BUILD_STATIC ON)
-endif()
-
 if(MSVC)
   # ORC doesn't build on windows
   set(ARROW_ORC OFF)
