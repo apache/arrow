@@ -52,6 +52,8 @@ reference:
   - write_arrow
   - write_feather
   - write_parquet
+- title: C++ reader/writer interface
+  contents:
   - csv_convert_options
   - csv_parse_options
   - csv_read_options
@@ -59,7 +61,8 @@ reference:
   - json_parse_options
   - json_read_options
   - json_table_reader
-  - parquet_file_reader
+  - ParquetFileReader
+  - ParquetReaderProperties
   - FeatherTableReader
   - FeatherTableWriter
   - JsonTableReader

@@ -27,7 +27,7 @@
 #'
 #' The `Table$create()` function takes the following arguments:
 #'
-#' * `...`` arrays, chunked arrays, or R vectors
+#' * `...` arrays, chunked arrays, or R vectors
 #' * `schema` a schema. The default (`NULL`) infers the schema from the `...`
 #'
 #' @section Methods:
