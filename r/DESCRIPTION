@@ -36,10 +36,12 @@ Imports:
     utils
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1
+VignetteBuilder: knitr
 Suggests:
     covr,
     fs,
     hms,
+    knitr,
     lubridate,
     rmarkdown,
     testthat,

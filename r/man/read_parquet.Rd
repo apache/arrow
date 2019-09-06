@@ -19,6 +19,8 @@ of columns, as used in \code{dplyr::select()}.}
 \link[=Table]{arrow::Table}?}
 
 \item{props}{\link{ParquetReaderProperties}}
+
+\item{...}{Additional arguments passed to \code{ParquetFileReader$create()}}
 }
 \value{
 A \link[=Table]{arrow::Table}, or a \code{data.frame} if \code{as_tibble} is

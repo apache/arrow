@@ -23,6 +23,7 @@
 #'
 #' @inheritParams read_delim_arrow
 #' @param props [ParquetReaderProperties]
+#' @param ... Additional arguments passed to `ParquetFileReader$create()`
 #'
 #' @return A [arrow::Table][Table], or a `data.frame` if `as_tibble` is
 #' `TRUE`.
