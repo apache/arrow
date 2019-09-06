@@ -500,7 +500,7 @@ class Repo:
         default_mime = 'application/octet-stream'
 
         for pattern in patterns:
-            for path in glob.glob(pattern):
+            for path in glob.glob(pattern, recursive=True):
                 name = os.path.basename(path)
                 mime = mimetypes.guess_type(name)[0] or default_mime
 
