@@ -110,14 +110,6 @@ set(PARQUET_SHARED_TEST_LINK_LIBS arrow_testing_shared ${PARQUET_MIN_TEST_LIBS}
 set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static
                                   ${ARROW_LIBRARIES_FOR_STATIC_TESTS})
 
-if(WIN32 OR NOT ARROW_BUILD_SHARED)
-  # The benchmarks depend on some static Thrift symbols
-  set(PARQUET_BENCHMARK_LINK_OPTION STATIC_LINK_LIBS benchmark::benchmark_main
-                                    ${PARQUET_STATIC_TEST_LINK_LIBS})
-else()
-  set(PARQUET_BENCHMARK_LINK_OPTION EXTRA_LINK_LIBS parquet_shared)
-endif()
-
 #
 # Generated Thrift sources
 
@@ -188,7 +180,7 @@ if(NOT PARQUET_MINIMAL_DEPENDENCY)
   # do not need to be linked transitively by other linkers)
   set(PARQUET_SHARED_PRIVATE_LINK_LIBS ${PARQUET_BOOST_LINK_LIBS} Thrift::thrift)
 
-  # Link publicly with # parquet_static (because internal users need to
+  # Link publicly with parquet_static (because internal users need to
   # transitively link all dependencies)
   set(PARQUET_STATIC_LINK_LIBS ${PARQUET_STATIC_LINK_LIBS} ${PARQUET_BOOST_LINK_LIBS}
                                Thrift::thrift)
@@ -214,16 +206,7 @@ if(NOT APPLE AND NOT MSVC)
       "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 endif()
 
-# Because of PARQUET-1420 (Thrift-generated symbols not exported in DLL),
-# parquet tests must be linked against the static parquet lib.
-if(NO_TESTS)
-  set(PARQUET_LIB_OPTIONS)
-else()
-  set(PARQUET_LIB_OPTIONS "BUILD_STATIC")
-endif()
-
 add_arrow_lib(parquet
-              ${PARQUET_LIB_OPTIONS}
               SOURCES
               ${PARQUET_SRCS}
               OUTPUTS
@@ -243,6 +226,13 @@ if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   add_library(parquet_test_support STATIC parquet_constants.cpp parquet_types.cpp)
   set(PARQUET_SHARED_TEST_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS} parquet_test_support)
   set(PARQUET_LIBRARIES ${PARQUET_LIBRARIES} parquet_test_support)
+endif()
+
+if(NOT ARROW_BUILD_SHARED)
+  set(PARQUET_BENCHMARK_LINK_OPTION STATIC_LINK_LIBS benchmark::benchmark_main
+                                    ${PARQUET_STATIC_TEST_LINK_LIBS})
+else()
+  set(PARQUET_BENCHMARK_LINK_OPTION EXTRA_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS})
 endif()
 
 if(ARROW_BUILD_STATIC AND WIN32)
