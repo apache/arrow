@@ -80,6 +80,8 @@ public class StructSubfieldEncoder {
    * Dictionary encodes subfields for complex vector with a provided dictionary.
    * The dictionary must contain all values in the sub fields vector.
    * @param vector vector to encode
+   * @param columnToDictionaryId the mappings between child vector index and dictionary id. A null dictionary
+   *        id indicates the child vector is not encodable.
    * @return dictionary encoded vector
    */
   public StructVector encode(StructVector vector, Map<Integer, Long> columnToDictionaryId) {
