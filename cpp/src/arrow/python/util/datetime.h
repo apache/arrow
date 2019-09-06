@@ -290,7 +290,7 @@ static inline int64_t PyDateTime_to_s(PyDateTime_DateTime* pydatetime) {
 }
 
 static inline int64_t PyDateTime_to_ms(PyDateTime_DateTime* pydatetime) {
-  int64_t date_ms = PyDateTime_to_s(pydatetime) * 1000LL;
+  int64_t date_ms = PyDateTime_to_s(pydatetime) * 1000;
   int ms = PyDateTime_DATE_GET_MICROSECOND(pydatetime) / 1000;
   return date_ms + ms;
 }
