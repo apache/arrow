@@ -39,8 +39,6 @@ export ORC_HOME=$CONDA_PREFIX
 export PROTOBUF_HOME=$CONDA_PREFIX
 export BOOST_ROOT=$CONDA_PREFIX
 
-export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=1"
-
 pushd ../cpp
 mkdir -p build
 pushd build
@@ -49,11 +47,13 @@ cmake -GNinja \
       -DCMAKE_BUILD_TYPE=release \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DARROW_CXXFLAGS=$CXXFLAGS \
-      -DARROW_DEPENDENCY_SOURCE=CONDA \
       -DARROW_USE_GLOG=off \
+      -DARROW_FLIGHT=on \
+      -DARROW_ORC=on \
       -DARROW_PARQUET=on \
       -DARROW_PYTHON=on \
       -DARROW_PLASMA=on \
+      -DARROW_S3=on \
       -DARROW_BUILD_TESTS=off \
       ..
 cmake --build . --target install
@@ -65,6 +65,8 @@ popd
 export SETUPTOOLS_SCM_PRETEND_VERSION=0.0.1
 export PYARROW_BUILD_TYPE=release
 export PYARROW_PARALLEL=8
+export PYARROW_WITH_FLIGHT=1
+export PYARROW_WITH_ORC=1
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 
