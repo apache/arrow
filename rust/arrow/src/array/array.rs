@@ -44,7 +44,7 @@ const NANOSECONDS: i64 = 1_000_000_000;
 
 /// Trait for dealing with different types of array at runtime when the type of the
 /// array is not known in advance
-pub trait Array: Send + Sync + ArrayEqual + JsonEqual {
+pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// Returns the array as `Any` so that it can be downcast to a specific implementation
     fn as_any(&self) -> &Any;
 
@@ -421,6 +421,20 @@ where
             DataType::Interval(_) => None,
             _ => None,
         }
+    }
+}
+
+impl<T: ArrowPrimitiveType> fmt::Debug for PrimitiveArray<T> {
+    default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
+        for i in 0..self.len() {
+            if self.is_null(i) {
+                write!(f, "  null,\n")?;
+            } else {
+                write!(f, "  {:?},\n", self.value(i))?;
+            }
+        }
+        write!(f, "]")
     }
 }
 
@@ -809,7 +823,9 @@ impl fmt::Debug for ListArray {
             if self.is_null(i) {
                 write!(f, "  null,\n")?;
             } else {
-                write!(f, "  <subarray>,\n")?;
+                let array = self.value(i);
+                fmt::Debug::fmt(&array, f)?;
+                write!(f, ",\n")?;
             }
         }
         if self.len() > 10 {
@@ -820,7 +836,9 @@ impl fmt::Debug for ListArray {
                 if self.is_null(i) {
                     write!(f, "  null,\n")?;
                 } else {
-                    write!(f, "  <subarray>,\n")?;
+                    let array = self.value(i);
+                    fmt::Debug::fmt(&array, f)?;
+                    write!(f, ",\n")?;
                 }
             }
         }
@@ -1155,6 +1173,8 @@ impl fmt::Debug for StructArray {
                 name,
                 column.data_type()
             )?;
+            fmt::Debug::fmt(column, f)?;
+            write!(f, "\n")?;
         }
         write!(f, "]")
     }
