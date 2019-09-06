@@ -52,7 +52,7 @@ Status PyDate_from_int(int64_t val, const DateUnit unit, PyObject** out);
 ARROW_PYTHON_EXPORT
 Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** out);
 
-using TimePoint = ARROW_PYTHON_EXPORT
+using TimePoint =
      std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
 
 ARROW_PYTHON_EXPORT
