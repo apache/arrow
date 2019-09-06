@@ -49,6 +49,7 @@ cmake -GNinja \
       -DCMAKE_BUILD_TYPE=release \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DARROW_CXXFLAGS=$CXXFLAGS \
+      -DARROW_DEPENDENCY_SOURCE=CONDA \
       -DARROW_USE_GLOG=off \
       -DARROW_PARQUET=on \
       -DARROW_PYTHON=on \

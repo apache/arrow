@@ -45,6 +45,8 @@
     // "branches": ["master"], // for git
     // "branches": ["default"],    // for mercurial
 
+    "branches": ["ARROW-4880"], // for git
+
     // The DVCS being used.  If not set, it will be automatically
     // determined from "repo" by looking at the protocol in the URL
     // (if remote), or by looking for special directories, such as
