@@ -30,7 +30,7 @@ jobs:
     # alternative upload script.
     - task: CondaEnvironment@1
       inputs:
-        packageSpecs: 'python=3.6'
+        updateConda: true
     - script: |
         conda install -c conda-forge -y --file arrow/ci/conda_env_crossbow.txt
     - script: |
