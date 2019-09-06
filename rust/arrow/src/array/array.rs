@@ -802,6 +802,32 @@ impl Array for ListArray {
     }
 }
 
+impl fmt::Debug for ListArray {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "ListArray\n[\n")?;
+        for i in 0..std::cmp::min(10, self.len()) {
+            if self.is_null(i) {
+                write!(f, "  null,\n")?;
+            } else {
+                write!(f, "  <subarray>,\n")?;
+            }
+        }
+        if self.len() > 10 {
+            if self.len() > 20 {
+                write!(f, "...{} elements...", self.len() - 20)?;
+            }
+            for i in self.len() - 10..self.len() {
+                if self.is_null(i) {
+                    write!(f, "  null,\n")?;
+                } else {
+                    write!(f, "  <subarray>,\n")?;
+                }
+            }
+        }
+        write!(f, "]")
+    }
+}
+
 /// A special type of `ListArray` whose elements are binaries.
 pub struct BinaryArray {
     data: ArrayDataRef,
@@ -971,6 +997,34 @@ impl From<ListArray> for BinaryArray {
     }
 }
 
+impl fmt::Debug for BinaryArray {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "BinaryArray\n[\n")?;
+        for i in 0..std::cmp::min(10, self.len()) {
+            if self.is_null(i) {
+                write!(f, "  null,\n")?;
+            } else {
+                let value = self.value(i);
+                write!(f, "  {:?},\n", value)?;
+            }
+        }
+        if self.len() > 10 {
+            if self.len() > 20 {
+                write!(f, "...{} elements...", self.len() - 20)?;
+            }
+            for i in self.len() - 10..self.len() {
+                if self.is_null(i) {
+                    write!(f, "  null,\n")?;
+                } else {
+                    let value = self.value(i);
+                    write!(f, "  {:?},\n", value)?;
+                }
+            }
+        }
+        write!(f, "]")
+    }
+}
+
 impl Array for BinaryArray {
     fn as_any(&self) -> &Any {
         self
@@ -1086,6 +1140,23 @@ impl From<Vec<(Field, ArrayRef)>> for StructArray {
             .len(length)
             .build();
         Self::from(data)
+    }
+}
+
+impl fmt::Debug for StructArray {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "StructArray\n[\n")?;
+        for (child_index, name) in self.column_names().iter().enumerate() {
+            let column = self.column(child_index);
+            write!(
+                f,
+                "-- child {}: \"{}\" ({:?})\n",
+                child_index,
+                name,
+                column.data_type()
+            )?;
+        }
+        write!(f, "]")
     }
 }
 
