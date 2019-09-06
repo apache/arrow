@@ -147,17 +147,26 @@ garrow_record_batch_new(GArrowSchema *schema,
                         GList *columns,
                         GError **error)
 {
+  const gchar *tag = "[record-batch][new]";
+
   std::vector<std::shared_ptr<arrow::Array>> arrow_columns;
   for (GList *node = columns; node; node = node->next) {
     GArrowArray *column = GARROW_ARRAY(node->data);
     arrow_columns.push_back(garrow_array_get_raw(column));
   }
 
+  const auto &arrow_schema = garrow_schema_get_raw(schema);
+  if (arrow_schema->num_fields() != static_cast<int>(arrow_columns.size())) {
+    auto status =
+      arrow::Status::Invalid("Number of columns did not match schema");
+    garrow_error_check(error, status, tag);
+    return NULL;
+  }
+
   auto arrow_record_batch =
-    arrow::RecordBatch::Make(garrow_schema_get_raw(schema),
-                             n_rows, arrow_columns);
+    arrow::RecordBatch::Make(arrow_schema, n_rows, arrow_columns);
   auto status = arrow_record_batch->Validate();
-  if (garrow_error_check(error, status, "[record-batch][new]")) {
+  if (garrow_error_check(error, status, tag)) {
     return garrow_record_batch_new_raw(&arrow_record_batch);
   } else {
     return NULL;
