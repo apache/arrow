@@ -1622,6 +1622,23 @@ def test_cutoff_exclusive_datetime(tempdir):
 
 
 @pytest.mark.pandas
+def test_reconstruct_datetime_indexes():
+    # ARROW-3651
+    df = pd.DataFrame(1, index=pd.Index(list(range(5)), name='index'),
+                      columns=[pd.to_datetime("2018/01/01")])
+
+    # columns index is not DateTimeIndex anymore
+    munged_df = df.reset_index().set_index(['index'])
+    table = pa.Table.from_pandas(munged_df)
+
+    stream = pa.BufferOutputStream()
+    pq.write_table(table, stream)
+    buf = stream.getvalue()
+    result = pq.read_pandas(buf).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+
+@pytest.mark.pandas
 def test_inclusive_integer(tempdir):
     fs = LocalFileSystem.get_instance()
     base_path = tempdir

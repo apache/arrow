@@ -823,6 +823,7 @@ def _is_generated_index_name(name):
 
 _pandas_logical_type_map = {
     'date': 'datetime64[D]',
+    'datetime': 'datetime64[ns]',
     'unicode': np.unicode_,
     'bytes': np.bytes_,
     'string': np.str_,
