@@ -294,15 +294,18 @@ class Repo:
     @property
     def branch(self):
         """Currently checked out branch"""
-        return self.repo.branches[self.repo.head.shorthand]
+        try:
+            return self.repo.branches[self.repo.head.shorthand]
+        except KeyError:
+            return None  # detached
 
     @property
     def remote(self):
         """Currently checked out branch's remote counterpart"""
-        if self.branch.upstream is None:
-            return None
-        else:
+        try:
             return self.repo.remotes[self.branch.upstream.remote_name]
+        except (AttributeError, KeyError):
+            return None  # cannot detect
 
     @property
     def remote_url(self):
@@ -311,10 +314,10 @@ class Repo:
         If an SSH github url is set, it will be replaced by the https
         equivalent usable with Github OAuth token.
         """
-        if self.remote is None:
-            return None
-        else:
+        try:
             return _git_ssh_to_https(self.remote.url)
+        except AttributeError:
+            return None
 
     @property
     def user_name(self):
@@ -542,6 +545,13 @@ class Queue(Repo):
                 'clone or push to, try to push the branch first to have a '
                 'remote tracking counterpart.'
             )
+        if job.target.branch is None:
+            raise RuntimeError(
+                'Cannot determine the current branch of the Arrow repository '
+                'to clone or push to, perhaps it is in detached HEAD state. '
+                'Please checkout a branch.'
+            )
+
 
         # auto increment and set next job id, e.g. build-85
         job._queue = self
@@ -956,7 +966,7 @@ def status(ctx, job_name, output):
               type=click.Path(file_okay=False, dir_okay=True),
               help='Directory to download the build artifacts')
 @click.pass_context
-def download(ctx, job_name, target_dir):
+def download_artifacts(ctx, job_name, target_dir):
     """Download and sign build artifacts from github releases"""
     # fetch the queue repository
     queue = ctx.obj['queue']
@@ -1017,7 +1027,7 @@ def download(ctx, job_name, target_dir):
 @click.option('--pattern', '-p', 'patterns', required=True, multiple=True,
               help='File pattern to upload as assets')
 @click.pass_context
-def upload_assets(ctx, tag, sha, patterns):
+def upload_artifacts(ctx, tag, sha, patterns):
     queue = ctx.obj['queue']
     queue.github_overwrite_release_assets(
         tag_name=tag, target_commitish=sha, patterns=patterns
