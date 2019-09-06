@@ -30,16 +30,16 @@ jobs:
     # alternative upload script.
     - task: CondaEnvironment@1
       inputs:
-        updateConda: true
+        packageSpecs: 'click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz'
+        installOptions: '-c conda-forge'
+        updateConda: false
     - script: |
-        conda install -c conda-forge -y --file arrow/ci/conda_env_crossbow.txt
-    - script: |
-        python crossbow.py upload-assets \
+        python crossbow.py --queue-path ../../.. upload-assets \
           --sha {{ task.branch }} \
           --tag {{ task.tag }} \
-        {% for extension in upload_extensions -%}
+        {%- for extension in upload_extensions %}
           --pattern "**/*{{ extension }}"
-        {% endfor -%}
+        {% endfor %}
       env:
         CROSSBOW_GITHUB_REPO: $(Build.Repository.Name)
         CROSSBOW_GITHUB_TOKEN: $(CROSSBOW_GITHUB_TOKEN)

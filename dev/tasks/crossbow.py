@@ -300,11 +300,7 @@ class Repo:
     def remote(self):
         """Currently checked out branch's remote counterpart"""
         if self.branch.upstream is None:
-            raise RuntimeError(
-                'Cannot determine git remote for repository {} to clone or '
-                'push to, try to push the branch first to have a remote '
-                'tracking counterpart.'.format(self.path)
-            )
+            return None
         else:
             return self.repo.remotes[self.branch.upstream.remote_name]
 
@@ -315,7 +311,10 @@ class Repo:
         If an SSH github url is set, it will be replaced by the https
         equivalent usable with Github OAuth token.
         """
-        return _git_ssh_to_https(self.remote.url)
+        if self.remote is None:
+            return None
+        else:
+            return _git_ssh_to_https(self.remote.url)
 
     @property
     def user_name(self):
@@ -536,6 +535,12 @@ class Queue(Repo):
         if job.branch is not None:
             raise ValueError('`job.branch` is automatically generated, thus '
                              'it must be blank')
+        if job.target.upstream is None:
+            raise RuntimeError(
+                'Cannot determine git remote for the Arrow repository to '
+                'clone or push to, try to push the branch first to have a '
+                'remote tracking counterpart.'
+            )
 
         # auto increment and set next job id, e.g. build-85
         job._queue = self
@@ -890,6 +895,9 @@ def submit(ctx, tasks, groups, job_prefix, config_path, arrow_version,
 
     if dry_run:
         yaml.dump(job, output)
+        for task in job.tasks.values():
+            for fname, content in task.render_files(job=job, arrow=job.target).items():
+                print(content)
     else:
         queue.fetch()
         queue.put(job, prefix=job_prefix)
