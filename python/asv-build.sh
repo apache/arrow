@@ -21,9 +21,15 @@ set -e
 
 # ASV doesn't activate its conda environment for us
 if [ -z "$ASV_ENV_DIR" ]; then exit 1; fi
-# Avoid "conda activate" because it's only set up in interactive shells
-# (https://github.com/conda/conda/issues/8072)
-source activate $ASV_ENV_DIR
+
+if [ -z "$CONDA_HOME" ]; then
+  echo "Please set \$CONDA_HOME to point to your root conda installation"
+  exit 1;
+fi
+
+eval "$($CONDA_HOME/bin/conda shell.bash hook)"
+
+conda activate $ASV_ENV_DIR
 echo "== Conda Prefix for benchmarks: " $CONDA_PREFIX " =="
 
 # Build Arrow C++ libraries
