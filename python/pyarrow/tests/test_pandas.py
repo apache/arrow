@@ -237,16 +237,11 @@ class TestConvertMetadata(object):
 
     def test_multiindex_with_datetimes(self):
         # ARROW-3651
-        index = pd.MultiIndex.from_arrays(
-            [
-                ['one', 'two'],
-                pd.DatetimeIndex(['2017-08-01', '2017-08-02']),
-            ],
-            names=['level_1', 'level_2'],
-        )
-        columns = pd.Index([datetime.now()])
-        df = pd.DataFrame(0, index=index, columns=columns)
-        _check_pandas_roundtrip(df, preserve_index=True)
+        df = pd.DataFrame(1, index=pd.Index(list(range(5)), name='index'),
+                          columns=[pd.to_datetime("2018/01/01")])
+        munged_df = df.reset_index().set_index(['index'])
+        reconstructed = pa.table(munged_df).to_pandas()
+        tm.assert_frame_equal(df, reconstructed)
 
     def test_multiindex_columns_unicode(self):
         columns = pd.MultiIndex.from_arrays([[u'あ', u'い'], ['X', 'Y']])
