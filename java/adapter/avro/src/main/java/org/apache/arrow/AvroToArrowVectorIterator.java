@@ -150,6 +150,7 @@ public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot>, Au
     try {
       load(VectorSchemaRoot.create(rootSchema, allocator));
     } catch (Exception e) {
+      returned.close();
       throw new RuntimeException("Error occurs while getting next schema root.", e);
     }
     return returned;

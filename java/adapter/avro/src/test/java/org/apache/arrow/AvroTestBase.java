@@ -18,6 +18,7 @@
 package org.apache.arrow;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.nio.ByteBuffer;
@@ -25,7 +26,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -79,7 +79,7 @@ public class AvroTestBase {
       } else if (value2 instanceof Text) {
         value2 = value2.toString();
       }
-      assertTrue(Objects.equals(value1, value2));
+      assertEquals(value1, value2);
     }
   }
 
@@ -163,7 +163,7 @@ public class AvroTestBase {
         Object value1 = data.get(index++);
         Object value2 = vector.getObject(i);
         if (value1 == null) {
-          assertTrue(value2 == null);
+          assertNull(value2);
           continue;
         }
         if (value2 instanceof byte[]) {

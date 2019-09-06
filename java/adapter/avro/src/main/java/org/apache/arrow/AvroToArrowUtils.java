@@ -215,7 +215,6 @@ public class AvroToArrowUtils {
       Schema schema, BufferAllocator allocator) {
 
     List<Consumer> consumers = new ArrayList<>();
-    CompositeAvroConsumer compositeAvroConsumer = new CompositeAvroConsumer(consumers);
 
     Schema.Type type = schema.getType();
     if (type == Type.RECORD) {
@@ -230,7 +229,7 @@ public class AvroToArrowUtils {
       consumers.add(consumer);
     }
 
-    return compositeAvroConsumer;
+    return new CompositeAvroConsumer(consumers);
   }
 
   private static FieldVector createVector(FieldVector v, FieldType fieldType, String name, BufferAllocator allocator) {
