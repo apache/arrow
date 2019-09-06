@@ -20,6 +20,7 @@
 #include <memory>
 #include <utility>
 
+#include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/util/iterator.h"
@@ -41,7 +42,7 @@ Status SimpleDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
   // RecordBatch -> ScanTask
   auto fn = [](std::shared_ptr<RecordBatch> batch) -> std::unique_ptr<ScanTask> {
     std::vector<std::shared_ptr<RecordBatch>> batches{batch};
-    return internal::make_unique<SimpleScanTask>(std::move(batches));
+    return ::arrow::internal::make_unique<SimpleScanTask>(std::move(batches));
   };
 
   *out = MakeMapIterator(fn, std::move(it));
@@ -101,6 +102,11 @@ DataFragmentIterator DataSource::GetFragments(std::shared_ptr<ScanOptions> scan_
 DataFragmentIterator SimpleDataSource::GetFragmentsImpl(
     std::shared_ptr<ScanOptions> scan_options) {
   return MakeVectorIterator(fragments_);
+}
+
+DataFragmentIterator TreeDataSource::GetFragmentsImpl(
+    std::shared_ptr<ScanOptions> options) {
+  return GetFragmentsFromSources(children_, options);
 }
 
 }  // namespace dataset
