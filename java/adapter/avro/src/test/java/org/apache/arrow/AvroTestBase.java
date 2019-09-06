@@ -27,11 +27,12 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.Text;
 import org.apache.avro.Schema;
@@ -45,11 +46,12 @@ public class AvroTestBase {
   @ClassRule
   public static final TemporaryFolder TMP = new TemporaryFolder();
 
-  protected BaseAllocator allocator;
+  protected AvroToArrowConfig config;
 
   @Before
   public void init() {
-    allocator = new RootAllocator(Long.MAX_VALUE);
+    BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    config = new AvroToArrowConfig(allocator);
   }
 
   protected Schema getSchema(String schemaName) throws Exception {
@@ -115,6 +117,25 @@ public class AvroTestBase {
       }
 
       checkPrimitiveResult(fieldData, root.getFieldVectors().get(i));
+    }
+
+  }
+
+  protected void checkNestedRecordResult(Schema schema, List<GenericRecord> data, VectorSchemaRoot root) {
+    assertEquals(data.size(), root.getRowCount());
+    assertTrue(schema.getFields().size() == 1);
+
+    final Schema nestedSchema = schema.getFields().get(0).schema();
+    final StructVector structVector = (StructVector) root.getFieldVectors().get(0);
+
+    for (int i = 0; i < nestedSchema.getFields().size(); i++) {
+      ArrayList fieldData = new ArrayList();
+      for (GenericRecord record : data) {
+        GenericRecord nestedRecord = (GenericRecord) record.get(0);
+        fieldData.add(nestedRecord.get(i));
+      }
+
+      checkPrimitiveResult(fieldData, structVector.getChildrenFromFields().get(i));
     }
 
   }

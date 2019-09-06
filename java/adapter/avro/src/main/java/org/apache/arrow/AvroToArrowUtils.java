@@ -22,6 +22,7 @@ import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 
 import java.io.EOFException;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -34,6 +35,7 @@ import org.apache.arrow.consumers.AvroArraysConsumer;
 import org.apache.arrow.consumers.AvroBooleanConsumer;
 import org.apache.arrow.consumers.AvroBytesConsumer;
 import org.apache.arrow.consumers.AvroDoubleConsumer;
+import org.apache.arrow.consumers.AvroEnumConsumer;
 import org.apache.arrow.consumers.AvroFixedConsumer;
 import org.apache.arrow.consumers.AvroFloatConsumer;
 import org.apache.arrow.consumers.AvroIntConsumer;
@@ -63,9 +65,12 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.avro.Schema;
@@ -98,12 +103,12 @@ public class AvroToArrowUtils {
    * </ul>
    */
 
-  private static Consumer createConsumer(Schema schema, String name, BufferAllocator allocator) {
-    return createConsumer(schema, name, false, INVALID_NULL_INDEX, allocator, null);
+  private static Consumer createConsumer(Schema schema, String name, AvroToArrowConfig config) {
+    return createConsumer(schema, name, false, INVALID_NULL_INDEX, config, null);
   }
 
-  private static Consumer createConsumer(Schema schema, String name, BufferAllocator allocator, FieldVector vector) {
-    return createConsumer(schema, name, false, INVALID_NULL_INDEX, allocator, vector);
+  private static Consumer createConsumer(Schema schema, String name, AvroToArrowConfig config, FieldVector vector) {
+    return createConsumer(schema, name, false, INVALID_NULL_INDEX, config, vector);
   }
 
   /**
@@ -118,11 +123,13 @@ public class AvroToArrowUtils {
       String name,
       boolean nullable,
       int nullIndex,
-      BufferAllocator allocator,
+      AvroToArrowConfig config,
       FieldVector v) {
 
     Preconditions.checkNotNull(schema, "Avro schema object can't be null");
-    Preconditions.checkNotNull(allocator, "allocator can't be null");
+    Preconditions.checkNotNull(config, "Config can't be null");
+
+    final BufferAllocator allocator = config.getAllocator();
 
     Type type = schema.getType();
 
@@ -133,19 +140,20 @@ public class AvroToArrowUtils {
 
     switch (type) {
       case UNION:
-        consumer = createUnionConsumer(schema, name, allocator, v);
+        consumer = createUnionConsumer(schema, name, config, v);
         break;
       case ARRAY:
-        consumer = createArrayConsumer(schema, name, allocator, v);
+        consumer = createArrayConsumer(schema, name, config, v);
         break;
       case MAP:
-        consumer = createMapConsumer(schema, name, allocator, v);
+        consumer = createMapConsumer(schema, name, config, v);
         break;
-        //TODO implement enum and nested record type
       case RECORD:
-        throw new UnsupportedOperationException();
+        consumer = createStructConsumer(schema, name, config, v);
+        break;
       case ENUM:
-        throw new UnsupportedOperationException();
+        consumer = createEnumConsumer(schema, name, config, v);
+        break;
       case STRING:
         arrowType = new ArrowType.Utf8();
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
@@ -212,20 +220,20 @@ public class AvroToArrowUtils {
   }
 
   static CompositeAvroConsumer createCompositeConsumer(
-      Schema schema, BufferAllocator allocator) {
+      Schema schema, AvroToArrowConfig config) {
 
     List<Consumer> consumers = new ArrayList<>();
 
     Schema.Type type = schema.getType();
     if (type == Type.RECORD) {
       for (Schema.Field field : schema.getFields()) {
-        Consumer consumer = createConsumer(field.schema(), field.name(), allocator);
+        Consumer consumer = createConsumer(field.schema(), field.name(), config);
         consumers.add(consumer);
       }
     } else if (type == Type.ENUM) {
       throw new UnsupportedOperationException();
     } else {
-      Consumer consumer = createConsumer(schema, "", allocator);
+      Consumer consumer = createConsumer(schema, "", config);
       consumers.add(consumer);
     }
 
@@ -241,7 +249,7 @@ public class AvroToArrowUtils {
     return minorType.name().toLowerCase();
   }
 
-  private static Field avroSchemaToField(Schema schema, String name) {
+  private static Field avroSchemaToField(Schema schema, String name, AvroToArrowConfig config) {
     final Type type = schema.getType();
     final ArrowType arrowType;
 
@@ -251,7 +259,7 @@ public class AvroToArrowUtils {
         for (int i = 0; i < schema.getTypes().size(); i++) {
           Schema childSchema = schema.getTypes().get(i);
           // Union child vector should use default name
-          children.add(avroSchemaToField(childSchema, null));
+          children.add(avroSchemaToField(childSchema, null, config));
         }
         arrowType = new ArrowType.Union(UnionMode.Sparse, null);
         if (name == null) {
@@ -265,12 +273,12 @@ public class AvroToArrowUtils {
           name = getDefaultFieldName(arrowType);
         }
         return new Field(name, FieldType.nullable(arrowType),
-            Collections.singletonList(avroSchemaToField(elementSchema, elementSchema.getName())));
+            Collections.singletonList(avroSchemaToField(elementSchema, elementSchema.getName(), config)));
       case MAP:
         // MapVector internal struct field and key field should be non-nullable
         FieldType keyFieldType = new FieldType(/*nullable=*/false, new ArrowType.Utf8(), /*dictionary=*/null);
         Field keyField = new Field("key", keyFieldType, /*children=*/null);
-        Field valueField = avroSchemaToField(schema.getValueType(), "value");
+        Field valueField = avroSchemaToField(schema.getValueType(), "value", config);
 
         FieldType structFieldType = new FieldType(false, new ArrowType.Struct(), /*dictionary=*/null);
         Field structField = new Field("internal", structFieldType, Arrays.asList(keyField, valueField));
@@ -279,6 +287,25 @@ public class AvroToArrowUtils {
           name = getDefaultFieldName(arrowType);
         }
         return new Field(name, FieldType.nullable(arrowType), Collections.singletonList(structField));
+      case RECORD:
+        List<Field> childFields = new ArrayList<>();
+        for (int i = 0; i < schema.getFields().size(); i++) {
+          final Schema.Field field = schema.getFields().get(i);
+          Schema childSchema = field.schema();
+          childFields.add(avroSchemaToField(childSchema, field.name(), config));
+        }
+        arrowType = new ArrowType.Struct();
+        if (name == null) {
+          name = getDefaultFieldName(arrowType);
+        }
+        return new Field(name, FieldType.nullable(arrowType), childFields);
+      case ENUM:
+        DictionaryProvider.MapDictionaryProvider provider = config.getProvider();
+        int current = provider.getDictionaryIds().size();
+        FieldType indexFieldType = new FieldType(true, new ArrowType.Int(32, true),
+            new DictionaryEncoding(current, false, null));
+        return new Field(name, indexFieldType, null);
+
       case STRING:
         arrowType = new ArrowType.Utf8();
         break;
@@ -317,12 +344,12 @@ public class AvroToArrowUtils {
     return Field.nullable(name, arrowType);
   }
 
-  private static Consumer createArrayConsumer(Schema schema, String name, BufferAllocator allocator, FieldVector v) {
+  private static Consumer createArrayConsumer(Schema schema, String name, AvroToArrowConfig config, FieldVector v) {
 
     ListVector listVector;
     if (v == null) {
-      final Field field = avroSchemaToField(schema, name);
-      listVector = (ListVector) field.createVector(allocator);
+      final Field field = avroSchemaToField(schema, name, config);
+      listVector = (ListVector) field.createVector(config.getAllocator());
     } else {
       listVector = (ListVector) v;
     }
@@ -331,17 +358,64 @@ public class AvroToArrowUtils {
 
     // create delegate
     Schema childSchema = schema.getElementType();
-    Consumer delegate = createConsumer(childSchema, childSchema.getName(), allocator, dataVector);
+    Consumer delegate = createConsumer(childSchema, childSchema.getName(), config, dataVector);
 
     return new AvroArraysConsumer(listVector, delegate);
   }
 
-  private static Consumer createMapConsumer(Schema schema, String name, BufferAllocator allocator, FieldVector v) {
+  private static Consumer createStructConsumer(Schema schema, String name, AvroToArrowConfig config, FieldVector v) {
+
+    StructVector structVector;
+    if (v == null) {
+      final Field field = avroSchemaToField(schema, name, config);
+      structVector = (StructVector) field.createVector(config.getAllocator());
+    } else {
+      structVector = (StructVector) v;
+    }
+
+    Consumer[] delegates = new Consumer[schema.getFields().size()];
+    for (int i = 0; i < schema.getFields().size(); i++) {
+      Schema childSchema = schema.getFields().get(i).schema();
+      Consumer delegate = createConsumer(childSchema, childSchema.getName(),
+          config, structVector.getChildrenFromFields().get(i));
+      delegates[i] = delegate;
+    }
+
+    return new AvroStructConsumer(structVector, delegates);
+
+  }
+
+  private static Consumer createEnumConsumer(Schema schema, String name, AvroToArrowConfig config, FieldVector v) {
+
+    IntVector intVector;
+    if (v == null) {
+      final Field field = avroSchemaToField(schema, name, config);
+      intVector = (IntVector) field.createVector(config.getAllocator());
+    } else {
+      intVector = (IntVector) v;
+    }
+
+    final int valueCount = schema.getEnumSymbols().size();
+    VarCharVector dictVector = new VarCharVector(name, config.getAllocator());
+    dictVector.allocateNewSafe();
+    dictVector.setValueCount(valueCount);
+    for (int i = 0; i < valueCount; i++) {
+      dictVector.set(i, schema.getEnumSymbols().get(i).getBytes(StandardCharsets.UTF_8));
+    }
+    Dictionary dictionary =
+        new Dictionary(dictVector, intVector.getField().getDictionary());
+    config.getProvider().put(dictionary);
+
+    return new AvroEnumConsumer(intVector);
+
+  }
+
+  private static Consumer createMapConsumer(Schema schema, String name, AvroToArrowConfig config, FieldVector v) {
 
     MapVector mapVector;
     if (v == null) {
-      final Field field = avroSchemaToField(schema, name);
-      mapVector = (MapVector) field.createVector(allocator);
+      final Field field = avroSchemaToField(schema, name, config);
+      mapVector = (MapVector) field.createVector(config.getAllocator());
     } else {
       mapVector = (MapVector) v;
     }
@@ -353,7 +427,7 @@ public class AvroToArrowUtils {
     Consumer keyConsumer = new AvroStringConsumer(
         (VarCharVector) structVector.getChildrenFromFields().get(0));
     Consumer valueConsumer = createConsumer(schema.getValueType(), schema.getValueType().getName(),
-        allocator, structVector.getChildrenFromFields().get(1));
+        config, structVector.getChildrenFromFields().get(1));
 
     AvroStructConsumer internalConsumer =
         new AvroStructConsumer(structVector, new Consumer[] {keyConsumer, valueConsumer});
@@ -361,14 +435,14 @@ public class AvroToArrowUtils {
     return new AvroMapConsumer(mapVector, internalConsumer);
   }
 
-  private static Consumer createUnionConsumer(Schema schema, String name, BufferAllocator allocator, FieldVector v) {
+  private static Consumer createUnionConsumer(Schema schema, String name, AvroToArrowConfig config, FieldVector v) {
     int size = schema.getTypes().size();
     long nullCount = schema.getTypes().stream().filter(s -> s.getType() == Type.NULL).count();
 
     // union only has one type, convert to primitive type
     if (size == 1) {
       Schema subSchema = schema.getTypes().get(0);
-      return createConsumer(subSchema, name, allocator, v);
+      return createConsumer(subSchema, name, config, v);
 
       // size == 2 and has null type, convert to nullable primitive type
     } else if (size == 2 && nullCount == 1) {
@@ -376,15 +450,15 @@ public class AvroToArrowUtils {
       int nullIndex = schema.getTypes().indexOf(nullSchema);
       Schema subSchema = schema.getTypes().stream().filter(s -> s.getType() != Type.NULL).findFirst().get();
       Preconditions.checkNotNull(subSchema, "schema should not be null.");
-      return createConsumer(subSchema, name, true, nullIndex, allocator, v);
+      return createConsumer(subSchema, name, true, nullIndex, config, v);
 
       // real union type
     } else {
 
       UnionVector unionVector;
       if (v == null) {
-        final Field field = avroSchemaToField(schema, name);
-        unionVector = (UnionVector) field.createVector(allocator);
+        final Field field = avroSchemaToField(schema, name, config);
+        unionVector = (UnionVector) field.createVector(config.getAllocator());
       } else {
         unionVector = (UnionVector) v;
       }
@@ -397,7 +471,7 @@ public class AvroToArrowUtils {
       for (int i = 0; i < size; i++) {
         FieldVector child = childVectors.get(i);
         Schema subSchema = schema.getTypes().get(i);
-        Consumer delegate = createConsumer(subSchema, subSchema.getName(), allocator, child);
+        Consumer delegate = createConsumer(subSchema, subSchema.getName(), config, child);
         delegates[i] = delegate;
         types[i] = child.getMinorType();
       }
@@ -416,7 +490,10 @@ public class AvroToArrowUtils {
    * @param schema avro schema
    * @param decoder avro decoder to read data from
    */
-  public static VectorSchemaRoot avroToArrowVectors(Schema schema, Decoder decoder, BufferAllocator allocator)
+  static VectorSchemaRoot avroToArrowVectors(
+      Schema schema,
+      Decoder decoder,
+      AvroToArrowConfig config)
       throws IOException {
 
     List<FieldVector> vectors = new ArrayList<>();
@@ -425,14 +502,12 @@ public class AvroToArrowUtils {
     Schema.Type type = schema.getType();
     if (type == Type.RECORD) {
       for (Schema.Field field : schema.getFields()) {
-        Consumer consumer = createConsumer(field.schema(), field.name(), allocator);
+        Consumer consumer = createConsumer(field.schema(), field.name(), config);
         consumers.add(consumer);
         vectors.add(consumer.getVector());
       }
-    } else if (type == Type.ENUM) {
-      throw new UnsupportedOperationException();
     } else {
-      Consumer consumer = createConsumer(schema, "", allocator);
+      Consumer consumer = createConsumer(schema, "", config);
       consumers.add(consumer);
       vectors.add(consumer.getVector());
     }

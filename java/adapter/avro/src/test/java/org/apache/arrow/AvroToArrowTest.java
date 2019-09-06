@@ -30,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
@@ -57,7 +58,7 @@ public class AvroToArrowTest extends AvroTestBase {
       writer.write(value, encoder);
     }
 
-    return AvroToArrow.avroToArrow(schema, decoder, allocator);
+    return AvroToArrow.avroToArrow(schema, decoder, config);
   }
 
   @Test
@@ -100,6 +101,50 @@ public class AvroToArrowTest extends AvroTestBase {
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     checkRecordResult(schema, data, root);
+  }
+
+  @Test
+  public void testNestedRecordType() throws Exception {
+    Schema schema = getSchema("test_nested_record.avsc");
+    Schema nestedSchema = schema.getFields().get(0).schema();
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      GenericRecord nestedRecord = new GenericData.Record(nestedSchema);
+      nestedRecord.put(0, "test" + i);
+      nestedRecord.put(1, i);
+      record.put(0, nestedRecord);
+
+      data.add(record);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    checkNestedRecordResult(schema, data, root);
+  }
+
+  @Test
+  public void testEnumType() throws Exception {
+    Schema schema = getSchema("test_primitive_enum.avsc");
+    List<GenericData.EnumSymbol> data = Arrays.asList(
+        new GenericData.EnumSymbol(schema, "SPADES"),
+        new GenericData.EnumSymbol(schema, "HEARTS"),
+        new GenericData.EnumSymbol(schema, "DIAMONDS"),
+        new GenericData.EnumSymbol(schema, "CLUBS"),
+        new GenericData.EnumSymbol(schema, "SPADES"));
+    List<Integer> expectedIndices = Arrays.asList(0, 1, 2, 3, 0);
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    FieldVector vector = root.getFieldVectors().get(0);
+
+    checkPrimitiveResult(expectedIndices, vector);
+
+    VarCharVector dictVector = (VarCharVector) config.getProvider().lookup(0).getVector();
+    assertEquals(4, dictVector.getValueCount());
+
+    assertEquals("SPADES", dictVector.getObject(0).toString());
+    assertEquals("HEARTS", dictVector.getObject(1).toString());
+    assertEquals("DIAMONDS", dictVector.getObject(2).toString());
+    assertEquals("CLUBS", dictVector.getObject(3).toString());
   }
 
   @Test

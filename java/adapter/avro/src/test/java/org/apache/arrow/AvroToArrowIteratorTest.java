@@ -24,6 +24,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -41,6 +43,12 @@ import org.junit.Test;
 
 public class AvroToArrowIteratorTest extends AvroTestBase {
 
+  @Override
+  public void init() {
+    final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    this.config = new AvroToArrowConfig(allocator, /*targetBatchSize=*/3);
+  }
+
   private AvroToArrowVectorIterator writeAndRead(Schema schema, List data) throws Exception {
     File dataFile = TMP.newFile();
 
@@ -54,7 +62,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
       writer.write(value, encoder);
     }
 
-    return AvroToArrow.avroToArrowIterator(schema, decoder, allocator, /*targetBatchSize=*/3);
+    return AvroToArrow.avroToArrowIterator(schema, decoder, config);
   }
 
   @Test

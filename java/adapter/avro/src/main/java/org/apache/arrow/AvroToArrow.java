@@ -19,7 +19,6 @@ package org.apache.arrow;
 
 import java.io.IOException;
 
-import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.avro.Schema;
@@ -35,54 +34,34 @@ public class AvroToArrow {
    * Only for testing purpose.
    * @param schema avro schema.
    * @param decoder avro decoder
-   * @param allocator Memory allocator to use.
+   * @param config configuration of the conversion.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
    */
-  static VectorSchemaRoot avroToArrow(Schema schema, Decoder decoder, BaseAllocator allocator)
+  static VectorSchemaRoot avroToArrow(Schema schema, Decoder decoder, AvroToArrowConfig config)
       throws IOException {
     Preconditions.checkNotNull(schema, "Avro schema object can not be null");
     Preconditions.checkNotNull(decoder, "Avro decoder object can not be null");
-    Preconditions.checkNotNull(allocator, "allocator can not be null");
+    Preconditions.checkNotNull(config, "config can not be null");
 
-    return AvroToArrowUtils.avroToArrowVectors(schema, decoder, allocator);
+    return AvroToArrowUtils.avroToArrowVectors(schema, decoder, config);
   }
 
   /**
    * Fetch the data from {@link Decoder} and iteratively convert it to Arrow objects.
    * @param schema avro schema
    * @param decoder avro decoder
-   * @param allocator the allocator
+   * @param config configuration of the conversion.
    * @throws IOException on error
    */
   public static AvroToArrowVectorIterator avroToArrowIterator(
       Schema schema,
       Decoder decoder,
-      BaseAllocator allocator)
-      throws IOException {
-
-    return avroToArrowIterator(schema, decoder, allocator, AvroToArrowVectorIterator.DEFAULT_BATCH_SIZE);
-  }
-
-  /**
-   * Fetch the data from {@link Decoder} and iteratively convert it to Arrow objects.
-   * @param schema avro schema
-   * @param decoder avro decoder
-   * @param allocator the allocator
-   * @param targetBatchSize the max value count for a vector.
-   * @throws IOException on error
-   */
-  public static AvroToArrowVectorIterator avroToArrowIterator(
-      Schema schema,
-      Decoder decoder,
-      BaseAllocator allocator,
-      int targetBatchSize) throws IOException {
+      AvroToArrowConfig config) throws IOException {
 
     Preconditions.checkNotNull(schema, "Avro schema object can not be null");
     Preconditions.checkNotNull(decoder, "Avro decoder object can not be null");
-    Preconditions.checkNotNull(allocator, "allocator can not be null");
-    Preconditions.checkArgument(targetBatchSize == AvroToArrowVectorIterator.NO_LIMIT_BATCH_SIZE ||
-        targetBatchSize > 0, "invalid targetBatchSize: %s", targetBatchSize);
+    Preconditions.checkNotNull(config, "config can not be null");
 
-    return AvroToArrowVectorIterator.create(decoder, schema, allocator, targetBatchSize);
+    return AvroToArrowVectorIterator.create(decoder, schema, config);
   }
 }

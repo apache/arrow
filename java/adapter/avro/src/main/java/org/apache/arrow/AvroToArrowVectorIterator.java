@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.consumers.CompositeAvroConsumer;
-import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -43,7 +42,7 @@ public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot>, Au
   private final Decoder decoder;
   private final Schema schema;
 
-  private final BufferAllocator allocator;
+  private final AvroToArrowConfig config;
 
   private CompositeAvroConsumer compositeConsumer;
 
@@ -59,13 +58,12 @@ public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot>, Au
   private AvroToArrowVectorIterator(
       Decoder decoder,
       Schema schema,
-      BufferAllocator allocator,
-      int targetBatchSize) {
+      AvroToArrowConfig config) {
 
     this.decoder = decoder;
     this.schema = schema;
-    this.allocator = allocator;
-    this.targetBatchSize = targetBatchSize;
+    this.config = config;
+    this.targetBatchSize = config.getTargetBatchSize();
 
   }
 
@@ -75,10 +73,9 @@ public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot>, Au
   public static AvroToArrowVectorIterator create(
       Decoder decoder,
       Schema schema,
-      BufferAllocator allocator,
-      int targetBatchSize) {
+      AvroToArrowConfig config) {
 
-    AvroToArrowVectorIterator iterator = new AvroToArrowVectorIterator(decoder, schema, allocator, targetBatchSize);
+    AvroToArrowVectorIterator iterator = new AvroToArrowVectorIterator(decoder, schema, config);
     try {
       iterator.initialize();
       return iterator;
@@ -90,7 +87,7 @@ public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot>, Au
 
   private void initialize() {
     // create consumers
-    compositeConsumer = AvroToArrowUtils.createCompositeConsumer(schema, allocator);
+    compositeConsumer = AvroToArrowUtils.createCompositeConsumer(schema, config);
     List<FieldVector> vectors = new ArrayList<>();
     compositeConsumer.getConsumers().forEach(c -> vectors.add(c.getVector()));
     List<Field> fields = vectors.stream().map(t -> t.getField()).collect(Collectors.toList());
@@ -148,7 +145,7 @@ public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot>, Au
     Preconditions.checkArgument(hasNext());
     VectorSchemaRoot returned = nextBatch;
     try {
-      load(VectorSchemaRoot.create(rootSchema, allocator));
+      load(VectorSchemaRoot.create(rootSchema, config.getAllocator()));
     } catch (Exception e) {
       returned.close();
       throw new RuntimeException("Error occurs while getting next schema root.", e);
