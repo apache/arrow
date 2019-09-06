@@ -290,13 +290,13 @@ static inline int64_t PyDateTime_to_s(PyDateTime_DateTime* pydatetime) {
 }
 
 static inline int64_t PyDateTime_to_ms(PyDateTime_DateTime* pydatetime) {
-  int64_t date_ms = PyDate_to_ms(reinterpret_cast<PyDateTime_Date*>(pydatetime));
+  int64_t date_ms = PyDateTime_to_s(pydatetime) * 1000LL;
   int ms = PyDateTime_DATE_GET_MICROSECOND(pydatetime) / 1000;
   return date_ms + ms;
 }
 
 static inline int64_t PyDateTime_to_us(PyDateTime_DateTime* pydatetime) {
-  int64_t ms = PyDate_to_ms(reinterpret_cast<PyDateTime_Date*>(pydatetime));
+  int64_t ms = PyDateTime_to_ms(pydatetime) * 1000;
   int us = PyDateTime_DATE_GET_MICROSECOND(pydatetime);
   return ms * 1000 + us;
 }
