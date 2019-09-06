@@ -747,10 +747,11 @@ TEST_F(TestProjector, TestOffset) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array0 = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, true});
+  auto array0 = MakeArrowArrayInt32({1, 2, 3, 4, 5}, {true, true, true, true});
+  array0 = array0->Slice(1);
   auto array1 = MakeArrowArrayInt32({5, 6, 7, 8}, {true, true, true, true});
   // expected output
-  auto exp_sum = MakeArrowArrayInt32({8, 10, 12}, {true, true, true, true});
+  auto exp_sum = MakeArrowArrayInt32({9, 11, 13}, {true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
