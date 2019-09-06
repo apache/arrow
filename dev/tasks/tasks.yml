@@ -435,7 +435,7 @@ tasks:
   debian-stretch-arm64:
     ci: azure
     platform: linux
-    template: linux-packages/travis.linux.arm64.yml
+    template: linux-packages/azure.linux.arm64.yml
     params:
       build_command: rake apt:build APT_TARGETS=debian-stretch-arm64
       upload_extensions:
