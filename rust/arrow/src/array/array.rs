@@ -816,32 +816,44 @@ impl Array for ListArray {
     }
 }
 
-impl fmt::Debug for ListArray {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ListArray\n[\n")?;
-        for i in 0..std::cmp::min(10, self.len()) {
-            if self.is_null(i) {
+// Helper function for printing potentially long arrays.
+fn print_long_array<A, F>(array: &A, f: &mut fmt::Formatter, print_item: F) -> fmt::Result
+where
+    A: Array,
+    F: Fn(&A, usize, &mut fmt::Formatter) -> fmt::Result,
+{
+    for i in 0..std::cmp::min(10, array.len()) {
+        if array.is_null(i) {
+            write!(f, "  null,\n")?;
+        } else {
+            write!(f, "  ")?;
+            print_item(&array, i, f)?;
+            write!(f, ",\n")?;
+        }
+    }
+    if array.len() > 10 {
+        if array.len() > 20 {
+            write!(f, "  ...{} elements...,\n", array.len() - 20)?;
+        }
+        for i in array.len() - 10..array.len() {
+            if array.is_null(i) {
                 write!(f, "  null,\n")?;
             } else {
-                let array = self.value(i);
-                fmt::Debug::fmt(&array, f)?;
+                write!(f, "  ")?;
+                print_item(&array, i, f)?;
                 write!(f, ",\n")?;
             }
         }
-        if self.len() > 10 {
-            if self.len() > 20 {
-                write!(f, "...{} elements...", self.len() - 20)?;
-            }
-            for i in self.len() - 10..self.len() {
-                if self.is_null(i) {
-                    write!(f, "  null,\n")?;
-                } else {
-                    let array = self.value(i);
-                    fmt::Debug::fmt(&array, f)?;
-                    write!(f, ",\n")?;
-                }
-            }
-        }
+    }
+    Ok(())
+}
+
+impl fmt::Debug for ListArray {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "ListArray\n[\n")?;
+        print_long_array(self, f, |array, index, f| {
+            fmt::Debug::fmt(&array.value(index), f)
+        })?;
         write!(f, "]")
     }
 }
@@ -1018,27 +1030,9 @@ impl From<ListArray> for BinaryArray {
 impl fmt::Debug for BinaryArray {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "BinaryArray\n[\n")?;
-        for i in 0..std::cmp::min(10, self.len()) {
-            if self.is_null(i) {
-                write!(f, "  null,\n")?;
-            } else {
-                let value = self.value(i);
-                write!(f, "  {:?},\n", value)?;
-            }
-        }
-        if self.len() > 10 {
-            if self.len() > 20 {
-                write!(f, "...{} elements...", self.len() - 20)?;
-            }
-            for i in self.len() - 10..self.len() {
-                if self.is_null(i) {
-                    write!(f, "  null,\n")?;
-                } else {
-                    let value = self.value(i);
-                    write!(f, "  {:?},\n", value)?;
-                }
-            }
-        }
+        print_long_array(self, f, |array, index, f| {
+            fmt::Debug::fmt(&array.value(index), f)
+        })?;
         write!(f, "]")
     }
 }
