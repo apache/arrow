@@ -49,7 +49,7 @@ script:
   # We can remove this with binfmt-support 2.1.7 or later and
   # qemu-user-static 2.12 or later. It requires Debian buster or later,
   # or Ubuntu 18.10 or later.
-  - wget http://archive.ubuntu.com/ubuntu/pool/universe/q/qemu/qemu-user-static_3.1+dfsg-2ubuntu5_amd64.deb
+  - wget http://archive.ubuntu.com/ubuntu/pool/universe/q/qemu/qemu-user-static_3.1+dfsg-2ubuntu3.4_amd64.deb
   - unar *.deb
   - rm *.deb
   - pushd qemu-user-static*
