@@ -65,7 +65,7 @@
 
     // The Pythons you'd like to test against.  If not provided, defaults
     // to the current version of Python used to run `asv`.
-    "pythons": ["3.6"],
+    "pythons": ["3.7"],
 
     // The matrix of dependencies to test.  Each key is the name of a
     // package (in PyPI) and the values are version numbers.  An empty
@@ -83,19 +83,25 @@
     //     "pip+emcee": [""],   // emcee is only available for install with pip.
     // },
     "matrix": {
-        "boost-cpp": ["1.67.0"],
+        // Use older boost since it works on more editions of the project
+        "aws-sdk-cpp": [],
+        "boost-cpp": ["1.68.0"],
         "brotli": [],
         "cmake": [],
         "cython": [],
-        "flatbuffers": ["1.7.1"],
+        "double-conversion": [],
+        "flatbuffers": [],
+        "grpc-cpp": [],
         "libprotobuf": [],
         "lz4-c": [],
         "ninja": [],
-        "numpy": ["1.14.5"],
-        "pandas": ["0.23.3"],
+        "numpy": [],
+        "pandas": ["0.25.1"],
         "pip+setuptools_scm": [],
         "rapidjson": [],
+        "re2": [],
         "snappy": [],
+        "thrift-cpp": [],
         "zstd": [],
     },
 
