@@ -67,6 +67,11 @@ class GANDIVA_EXPORT BitMapAccumulator : public DexDefaultVisitor {
   /// Compute the intersection of the accumulated bitmaps and save the result in
   /// dst_bmap.
   static void IntersectBitMaps(uint8_t* dst_map, const std::vector<uint8_t*>& src_maps,
+                               int64_t num_records);
+
+  /// Compute the intersection of the accumulated bitmaps (with offsets) and save the
+  /// result in dst_bmap.
+  static void IntersectBitMaps(uint8_t* dst_map, const std::vector<uint8_t*>& src_maps,
                                const std::vector<int64_t>& src_maps_offsets,
                                int64_t num_records);
 
