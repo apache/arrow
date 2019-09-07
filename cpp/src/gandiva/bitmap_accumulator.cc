@@ -51,19 +51,17 @@ void BitMapAccumulator::IntersectBitMaps(uint8_t* dst_map,
     case 1: {
       // one src_maps_ bitmap. copy to dst_map
       memcpy(dst_map, src_maps[0], num_bytes);
-      arrow::internal::CopyBitmap(src_maps[0], src_map_offsets[0], num_records,
-                                  dst_map, 0);
+      arrow::internal::CopyBitmap(src_maps[0], src_map_offsets[0], num_records, dst_map,
+                                  0);
       break;
     }
 
     default: {
       // src_maps bitmaps ANDs
-      arrow::internal::BitmapAnd(src_maps[0], src_map_offsets[0],
-                                 src_maps[1], src_map_offsets[1],
-                                 num_records, 0, dst_map);
+      arrow::internal::BitmapAnd(src_maps[0], src_map_offsets[0], src_maps[1],
+                                 src_map_offsets[1], num_records, 0, dst_map);
       for (int64_t m = 2; m < nmaps; ++m) {
-        arrow::internal::BitmapAnd(dst_map, 0,
-                                   src_maps[m], src_map_offsets[m],
+        arrow::internal::BitmapAnd(dst_map, 0, src_maps[m], src_map_offsets[m],
                                    num_records, 0, dst_map);
       }
 
