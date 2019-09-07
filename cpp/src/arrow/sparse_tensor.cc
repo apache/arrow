@@ -178,11 +178,8 @@ class SparseTensorConverter<TYPE, SparseCSRIndex>
   template <typename IndexValueType>
   Status Convert() {
     using c_index_value_type = typename IndexValueType::c_type;
+    RETURN_NOT_OK(CheckMaximumValue(std::numeric_limits<c_index_value_type>::max()));
     const int64_t indices_elsize = sizeof(c_index_value_type);
-    if (std::numeric_limits<c_index_value_type>::max() <
-        static_cast<size_t>(tensor_.shape()[1])) {
-      return Status::Invalid("The bit width of the index value type is too small");
-    }
 
     const int64_t ndim = tensor_.ndim();
     if (ndim > 2) {
@@ -260,6 +257,18 @@ class SparseTensorConverter<TYPE, SparseCSRIndex>
  private:
   using BaseClass::index_value_type_;
   using BaseClass::tensor_;
+
+  template <typename c_value_type>
+  inline Status CheckMaximumValue(const c_value_type type_max) const {
+    if (static_cast<int64_t>(type_max) < tensor_.shape()[1]) {
+      return Status::Invalid("The bit width of the index value type is too small");
+    }
+    return Status::OK();
+  }
+
+  inline Status CheckMaximumValue(const int64_t) const { return Status::OK(); }
+
+  inline Status CheckMaximumValue(const uint64_t) const { return Status::OK(); }
 };
 
 // ----------------------------------------------------------------------

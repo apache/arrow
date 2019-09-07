@@ -1182,7 +1182,7 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
   std::vector<c_index_value_type> coords_values = {0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3,
                                                    0, 2, 0, 0, 2, 2, 1, 0, 1, 1, 0, 3,
                                                    1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
-  const size_t sizeof_index_value = sizeof(c_index_value_type);
+  const int sizeof_index_value = sizeof(c_index_value_type);
   auto si = this->MakeSparseCOOIndex(
       {12, 3}, {sizeof_index_value * 3, sizeof_index_value}, coords_values);
 
@@ -1225,7 +1225,7 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
   std::vector<c_index_value_type> coords_values = {0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1,
                                                    0, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 2,
                                                    0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
-  const size_t sizeof_index_value = sizeof(c_index_value_type);
+  const int sizeof_index_value = sizeof(c_index_value_type);
   auto si = this->MakeSparseCOOIndex(
       {12, 3}, {sizeof_index_value, sizeof_index_value * 12}, coords_values);
 
