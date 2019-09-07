@@ -844,6 +844,37 @@ def submit(ctx, task, group, job_prefix, config_path, arrow_version,
         click.echo('Pushed job identifier is: `{}`'.format(job.branch))
 
 
+class TaskStatus:
+
+    def __init__(self, queue, task_name, task, status):
+        self.queue = queue
+        self.task_name = task_name
+        self.task = task
+        self.artifacts = task.artifacts
+        self.status = status
+        self.state = status.state
+
+    def get_assets(self):
+        return self.queue.github_assets(self.task)
+
+
+class JobStatus:
+
+    def __init__(self, queue, job_name):
+        self.name = job_name
+        self.queue = queue
+
+        self.queue.fetch()
+        self.job = self.queue.get(self.name)
+        self.statuses = self.queue.github_statuses(self.job)
+
+        self.tasks = {
+            task_name: TaskStatus(self.queue, task_name, task,
+                                  self.statuses[task_name])
+            for task_name, task in self.job.tasks.items()
+        }
+
+
 @crossbow.command()
 @click.argument('job-name', required=True)
 @click.option('--output', metavar='<output>',
@@ -851,33 +882,28 @@ def submit(ctx, task, group, job_prefix, config_path, arrow_version,
               help='Capture output result into file.')
 @click.pass_context
 def status(ctx, job_name, output):
-    queue = ctx.obj['queue']
-    queue.fetch()
-
     tpl = '[{:>7}] {:<49} {:>20}'
     header = tpl.format('status', 'branch', 'artifacts')
     click.echo(header, file=output)
     click.echo('-' * len(header), file=output)
 
-    job = queue.get(job_name)
-    statuses = queue.github_statuses(job)
+    job_status = JobStatus(ctx.obj['queue'], job_name)
 
-    for task_name, task in sorted(job.tasks.items()):
-        status = statuses[task_name]
-        assets = queue.github_assets(task)
+    for task_name, ts in sorted(job_status.tasks.items()):
+        assets = ts.get_assets()
 
         uploaded = 'uploaded {} / {}'.format(
-            sum(a in assets for a in task.artifacts),
-            len(task.artifacts)
+            sum(a in assets for a in ts.artifacts),
+            len(ts.artifacts)
         )
-        leadline = tpl.format(status.state.upper(), task.branch, uploaded)
-        click.echo(click.style(leadline, fg=COLORS[status.state]), file=output)
+        leadline = tpl.format(ts.state.upper(), ts.task.branch, uploaded)
+        click.echo(click.style(leadline, fg=COLORS[ts.state]), file=output)
 
-        for artifact in task.artifacts:
+        for artifact in ts.artifacts:
             try:
                 asset = assets[artifact]
             except KeyError:
-                state = 'pending' if status.state == 'pending' else 'missing'
+                state = 'pending' if ts.state == 'pending' else 'missing'
                 filename = '{:>70} '.format(artifact)
             else:
                 state = 'ok'
@@ -886,6 +912,117 @@ def status(ctx, job_name, output):
             statemsg = '[{:>7}]'.format(state.upper())
             click.echo(filename + click.style(statemsg, fg=COLORS[state]),
                        file=output)
+
+
+@crossbow.command()
+@click.argument('job-name', required=True)
+@click.option('--sender_name', '-n',
+              default=os.environ.get('CROSSBOW_SENDER_NAME'),
+              help='Name to use for report e-mail.')
+@click.option('--recipient_email', '-r',
+              default=os.environ.get('CROSSBOW_RECIPIENT_EMAIL'),
+              help='Where to send the e-mail report')
+@click.option('--smtp_user', '-s',
+              default=os.environ.get('CROSSBOW_SMTP_USER'),
+              help='E-mail address to use for SMTP login')
+@click.option('--smtp_password', '-s',
+              default=os.environ.get('CROSSBOW_SMTP_PASSWORD'),
+              help='Name to use for report e-mail.')
+@click.option('--smtp_server',
+              default='smtp.gmail.com',
+              help='Name to use for report e-mail.')
+@click.option('--smtp_port', default=465,
+              help='Name to use for report e-mail.')
+@click.option('--stop_if_pending', default=True,
+              help='Do not send e-mail if there are still pending tasks')
+@click.pass_context
+def report(ctx, job_name, sender_name, recipient_email, smtp_user,
+           smtp_password, smtp_server, smtp_port, stop_if_pending):
+    """
+    Send an e-mail report showing success/failure of tasks in a Crossbow run
+    """
+    job_status = JobStatus(ctx.obj['queue'], job_name)
+    generate_email_report(job_status, sender_name, recipient_email,
+                          smtp_user, smtp_password, smtp_server, smtp_port,
+                          stop_if_pending)
+
+
+def generate_email_report(job, sender_name, recipient_email, smtp_user,
+                          smtp_password, smtp_server, smtp_port,
+                          stop_if_pending):
+    import smtplib
+
+    failed_tasks = []
+    pending_tasks = []
+    succeeded_tasks = []
+    for task_name, task in sorted(job.tasks.items()):
+        if task.state in ('ok', 'success'):
+            succeeded_tasks.append(task)
+        elif task.state in ('error', 'failure'):
+            failed_tasks.append(task)
+        else:
+            pending_tasks.append(task)
+
+    if stop_if_pending and len(pending_tasks) > 0:
+        print("The following tasks are still pending:")
+        for task in pending_tasks:
+            print("  - {}".format(task.name))
+
+    subject = "Crossbow Task Report for {}".format(job.name)
+
+    if len(failed_tasks) > 0:
+        subject += ": {} FAILURES".format(len(failed_tasks))
+
+    body = _format_report_body(job, succeeded_tasks, failed_tasks,
+                               pending_tasks)
+
+    email = """\
+From: {} <{}>
+To: {}
+Subject: {}
+
+{}""".format(sender_name, smtp_user, recipient_email, subject, body)
+
+    server = smtplib.SMTP_SSL(smtp_server, smtp_port)
+    server.ehlo()
+    server.login(smtp_user, smtp_password)
+    server.sendmail(smtp_user, recipient_email, email)
+    server.close()
+
+
+def _format_report_body(job, succeeded_tasks, failed_tasks, pending_tasks):
+    from io import StringIO
+    buf = StringIO()
+
+    repo = job.queue.remote_url.strip('.git')
+
+    def _get_github_url(query):
+        return ('{}/branches/all?utf8=%E2%9C%93&query={}'
+                .format(repo, query))
+
+    print("""\
+Crossbow Report for Job {}
+
+All tasks: {}\n""".format(job.name, _get_github_url(job.name)), file=buf)
+
+    def _print_tasks(kind, tasks):
+        print("{} Tasks".format(kind), file=buf)
+        for task in tasks:
+            branch = task.task.branch
+            print('  - {}'.format(branch), file=buf)
+            print('    URL: {}'.format(_get_github_url(branch)), file=buf)
+        buf.write('\n')
+
+    if len(failed_tasks) > 0:
+        _print_tasks('Failed', failed_tasks)
+
+    if len(pending_tasks) > 0:
+        _print_tasks('Pending', succeeded_tasks)
+
+    if len(succeeded_tasks) > 0:
+        _print_tasks('Succeeded', succeeded_tasks)
+
+    return buf.getvalue()
 
 
 def hashbytes(bytes, algoname):
