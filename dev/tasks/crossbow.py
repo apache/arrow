@@ -408,15 +408,23 @@ CombinedStatus = namedtuple('CombinedStatus', ('state', 'total_count'))
 
 class Queue(Repo):
 
+    def latest_job_for_prefix(self, prefix):
+        latest_id = self._latest_prefix_id(prefix)
+        return '{}-{}'.format(prefix, latest_id)
+
     def _next_job_id(self, prefix):
         """Auto increments the branch's identifier based on the prefix"""
+        latest_id = self._latest_prefix_id(prefix)
+        return '{}-{}'.format(prefix, latest_id + 1)
+
+    def _latest_prefix_id(self, prefix):
         pattern = re.compile(r'[\w\/-]*{}-(\d+)'.format(prefix))
         matches = list(filter(None, map(pattern.match, self.repo.branches)))
         if matches:
             latest = max(int(m.group(1)) for m in matches)
         else:
             latest = 0
-        return '{}-{}'.format(prefix, latest + 1)
+        return latest
 
     def get(self, job_name):
         branch_name = 'origin/{}'.format(job_name)
@@ -916,6 +924,14 @@ def status(ctx, job_name, output):
 
 
 @crossbow.command()
+@click.argument('prefix', required=True)
+@click.pass_context
+def latest_prefix(ctx, prefix):
+    queue = ctx.obj['queue']
+    print(queue.latest_job_for_prefix(prefix))
+
+
+@crossbow.command()
 @click.argument('job-name', required=True)
 @click.option('--sender_name', '-n',
               default=os.environ.get('CROSSBOW_SENDER_NAME'),
@@ -934,23 +950,49 @@ def status(ctx, job_name, output):
               help='Name to use for report e-mail.')
 @click.option('--smtp_port', default=465,
               help='Name to use for report e-mail.')
-@click.option('--stop_if_pending/--no_stop_if_pending', default=True,
-              help='Do not send e-mail if there are still pending tasks')
+@click.option('--wait_if_pending/--no_wait_if_pending', default=True,
+              help='Wait for completion if there are tasks pending')
+@click.option('--wait_min_for_completion', default=180,
+              help='If passed, poll for job completion')
+@click.option('--wait_min_poll_interval', default=10,
+              help='Number of minutes to wait to check job status again')
 @click.pass_context
 def report(ctx, job_name, sender_name, recipient_email, smtp_user,
-           smtp_password, smtp_server, smtp_port, stop_if_pending):
+           smtp_password, smtp_server, smtp_port, wait_if_pending,
+           wait_min_for_completion, wait_min_poll_interval):
     """
     Send an e-mail report showing success/failure of tasks in a Crossbow run
     """
-    job_status = JobStatus(ctx.obj['queue'], job_name)
-    generate_email_report(job_status, sender_name, recipient_email,
-                          smtp_user, smtp_password, smtp_server, smtp_port,
-                          stop_if_pending)
+    minutes_waited = 0
+
+    def _poll_and_maybe_email(waiting):
+        job_status = JobStatus(ctx.obj['queue'], job_name)
+        return generate_report(job_status, sender_name,
+                               recipient_email, smtp_user,
+                               smtp_password, smtp_server,
+                               smtp_port, waiting)
+
+    while True:
+        pending_tasks = _poll_and_maybe_email(wait_if_pending)
+        if len(pending_tasks) > 0:
+            if minutes_waited >= wait_min_for_completion:
+                print("Waited {} minutes, exiting".format(minutes_waited))
+                print("The following tasks are still pending:")
+                for task in pending_tasks:
+                    print("  - {}".format(task.task.branch))
+                _poll_and_maybe_email(False)
+                sys.exit(0)
+            print("Waiting {} minutes and then checking again"
+                  .format(wait_min_poll_interval))
+            time.sleep(wait_min_poll_interval * 60)
+            minutes_waited += wait_min_poll_interval
+        else:
+            break
 
 
-def generate_email_report(job, sender_name, recipient_email, smtp_user,
-                          smtp_password, smtp_server, smtp_port,
-                          stop_if_pending):
+def generate_report(job, sender_name, recipient_email, smtp_user,
+                    smtp_password, smtp_server, smtp_port,
+                    wait_if_pending):
     import smtplib
 
     failed_tasks = []
@@ -964,11 +1006,8 @@ def generate_email_report(job, sender_name, recipient_email, smtp_user,
         else:
             pending_tasks.append(task)
 
-    if stop_if_pending and len(pending_tasks) > 0:
-        print("The following tasks are still pending:")
-        for task in pending_tasks:
-            print("  - {}".format(task.task.branch))
-        sys.exit(0)
+    if wait_if_pending and len(pending_tasks) > 0:
+        return pending_tasks
 
     subject = "Crossbow Task Report for {}".format(job.name)
 
@@ -990,6 +1029,8 @@ Subject: {}
     server.login(smtp_user, smtp_password)
     server.sendmail(smtp_user, recipient_email, email)
     server.close()
+
+    return []
 
 
 def _format_report_body(job, succeeded_tasks, failed_tasks, pending_tasks):
@@ -1019,7 +1060,7 @@ All tasks: {}\n""".format(job.name, _get_github_url(job.name)), file=buf)
         _print_tasks('Failed', failed_tasks)
 
     if len(pending_tasks) > 0:
-        _print_tasks('Pending', succeeded_tasks)
+        _print_tasks('Pending', pending_tasks)
 
     if len(succeeded_tasks) > 0:
         _print_tasks('Succeeded', succeeded_tasks)
