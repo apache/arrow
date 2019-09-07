@@ -24,6 +24,7 @@ import java.nio.channels.WritableByteChannel;
 
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.ipc.message.IpcOption;
 
 /**
  * Writer for the Arrow stream format to send ArrowRecordBatches over a WriteChannel.
@@ -44,14 +45,23 @@ public class ArrowStreamWriter extends ArrowWriter {
 
   /**
    * Construct an ArrowStreamWriter with an optional DictionaryProvider for the WritableByteChannel.
+   */
+  public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
+    this(root, provider, out, new IpcOption());
+  }
+
+  /**
+   * Construct an ArrowStreamWriter with an optional DictionaryProvider for the WritableByteChannel.
    *
    * @param root Existing VectorSchemaRoot with vectors to be written.
    * @param provider DictionaryProvider for any vectors that are dictionary encoded.
    *                 (Optional, can be null)
+   * @param option IPC write options
    * @param out WritableByteChannel for writing.
    */
-  public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
-    super(root, provider, out);
+  public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
+      IpcOption option) {
+    super(root, provider, out, option);
   }
 
   /**
@@ -60,8 +70,12 @@ public class ArrowStreamWriter extends ArrowWriter {
    * @param out Open WriteChannel with an active Arrow stream.
    * @throws IOException on error
    */
-  public static void writeEndOfStream(WriteChannel out) throws IOException {
-    out.writeIntLittleEndian(0);
+  public void writeEndOfStream(WriteChannel out) throws IOException {
+    if (option.write_legacy_ipc_format) {
+      out.writeIntLittleEndian(0);
+    } else {
+      out.writeLongLittleEndian(0);
+    }
   }
 
   @Override
