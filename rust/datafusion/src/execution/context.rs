@@ -279,10 +279,18 @@ impl ExecutionContext {
                     let it = p.execute().unwrap();
                     let mut it = it.lock().unwrap();
                     let mut results: Vec<RecordBatch> = vec![];
-                    while let Ok(Some(batch)) = it.next() {
-                        results.push(batch);
+                    loop {
+                        match it.next() {
+                            Ok(Some(batch)) => {
+                                results.push(batch);
+                            }
+                            Ok(None) => {
+                                // end of result set
+                                return Ok(results);
+                            }
+                            Err(e) => return Err(e),
+                        }
                     }
-                    Ok(results)
                 })
             })
             .collect();
