@@ -1009,7 +1009,7 @@ def generate_report(job, sender_name, recipient_email, smtp_user,
     if wait_if_pending and len(pending_tasks) > 0:
         return pending_tasks
 
-    subject = "Crossbow Task Report for {}".format(job.name)
+    subject = "Apache Arrow Crossbow Task Report for {}".format(job.name)
 
     if len(failed_tasks) > 0:
         subject += ": {} FAILURES".format(len(failed_tasks))
