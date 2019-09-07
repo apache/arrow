@@ -588,22 +588,59 @@ Status StructReader::GetDefLevels(const int16_t** data, int64_t* length) {
 
   // We have at least one child
   const int16_t* child_def_levels;
-  int64_t child_length;
-  RETURN_NOT_OK(children_[0]->GetDefLevels(&child_def_levels, &child_length));
-  auto size = child_length * sizeof(int16_t);
-  RETURN_NOT_OK(AllocateResizableBuffer(ctx_.pool, size, &def_levels_buffer_));
-  // Initialize with the minimal def level
-  std::memset(def_levels_buffer_->mutable_data(), -1, size);
-  auto result_levels = reinterpret_cast<int16_t*>(def_levels_buffer_->mutable_data());
+  int64_t child_length = 0;
+  bool found_nullable_child = false;
+  int16_t* result_levels = nullptr;
+
+  int child_index = 0;
+  while (child_index < static_cast<int>(children_.size())) {
+    if (!children_[child_index]->field()->nullable()) {
+      ++child_index;
+      continue;
+    }
+    RETURN_NOT_OK(children_[child_index]->GetDefLevels(&child_def_levels, &child_length));
+    auto size = child_length * sizeof(int16_t);
+    RETURN_NOT_OK(AllocateResizableBuffer(ctx_.pool, size, &def_levels_buffer_));
+    // Initialize with the minimal def level
+    std::memset(def_levels_buffer_->mutable_data(), -1, size);
+    result_levels = reinterpret_cast<int16_t*>(def_levels_buffer_->mutable_data());
+    found_nullable_child = true;
+    break;
+  }
+
+  if (!found_nullable_child) {
+    *data = nullptr;
+    *length = 0;
+    return Status::OK();
+  }
+
+  // Look at the rest of the children
 
   // When a struct is defined, all of its children def levels are at least at
   // nesting level, and def level equals nesting level.
   // When a struct is not defined, all of its children def levels are less than
   // the nesting level, and the def level equals max(children def levels)
   // All other possibilities are malformed definition data.
-  for (auto& child : children_) {
+  for (; child_index < static_cast<int>(children_.size()); ++child_index) {
+    // Child is non-nullable, and therefore has no definition levels
+    if (!children_[child_index]->field()->nullable()) {
+      continue;
+    }
+
+    auto& child = children_[child_index];
     int64_t current_child_length;
     RETURN_NOT_OK(child->GetDefLevels(&child_def_levels, &current_child_length));
+
+    if (child_length != current_child_length) {
+      std::stringstream ss;
+      ss << "Parquet struct decoding error. Expected to decode " << child_length
+         << " definition levels"
+         << " from child field \"" << child->field()->ToString() << "\" in parent \""
+         << this->field()->ToString() << "\" but was only able to decode "
+         << current_child_length;
+      return Status::IOError(ss.str());
+    }
+
     DCHECK_EQ(child_length, current_child_length);
     for (int64_t i = 0; i < child_length; i++) {
       // Check that value is either uninitialized, or current
@@ -679,7 +716,10 @@ Status SchemaField::GetReader(const ReaderContext& ctx,
       child = &child->children[0];
     }
     if (child->field->type()->id() == ::arrow::Type::STRUCT) {
-      return Status::NotImplemented("Lists of structs not yet supported");
+      return Status::NotImplemented(
+          "Reading lists of structs from Parquet files "
+          "not yet supported: ",
+          this->field->ToString());
     }
     if (!ctx.IncludesLeaf(child->column_index)) {
       *out = nullptr;
