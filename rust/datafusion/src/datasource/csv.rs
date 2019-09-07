@@ -19,11 +19,11 @@
 
 use std::fs::File;
 
-use std::string::String;
-use std::sync::Arc;
 use arrow::csv;
 use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
+use std::string::String;
+use std::sync::Arc;
 
 use crate::datasource::{ScanResult, TableProvider};
 use crate::error::Result;

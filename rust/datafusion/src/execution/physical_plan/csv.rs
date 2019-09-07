@@ -18,8 +18,8 @@
 //! Execution plan for reading CSV files
 
 use std::fs;
-use std::fs::File;
 use std::fs::metadata;
+use std::fs::File;
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
