@@ -39,6 +39,7 @@ use crate::execution::filter::FilterRelation;
 use crate::execution::limit::LimitRelation;
 use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
+use crate::execution::physical_plan::expressions::Column;
 use crate::execution::physical_plan::{ExecutionPlan, PhysicalExpr};
 use crate::execution::projection::ProjectRelation;
 use crate::execution::relation::{DataSourceRelation, Relation};
@@ -261,11 +262,14 @@ impl ExecutionContext {
     /// Create a physical expression from a logical expression
     pub fn create_physical_expr(
         &self,
-        _e: &Expr,
+        e: &Expr,
         _input_schema: &Schema,
     ) -> Result<Arc<dyn PhysicalExpr>> {
-        //TODO: implement this next
-        unimplemented!()
+
+        match e {
+            Expr::Column(i) => Ok(Arc::new(Column::new(*i))),
+            _ => Err(ExecutionError::NotImplemented("Unsupported expression".to_string()))
+        }
     }
 
     /// Execute a physical plan and collect the results in memory
@@ -545,7 +549,8 @@ mod tests {
 
         let results = ctx.collect(physical_plan.as_ref())?;
 
-        assert_eq!(123, results.len());
+        assert_eq!(1, results.len());
+        assert_eq!(2, results[0].num_columns());
 
         Ok(())
     }
