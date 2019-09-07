@@ -38,8 +38,8 @@ use crate::execution::expression::*;
 use crate::execution::filter::FilterRelation;
 use crate::execution::limit::LimitRelation;
 use crate::execution::physical_plan::datasource::DatasourceExec;
-use crate::execution::physical_plan::projection::ProjectionExec;
 use crate::execution::physical_plan::expressions::Column;
+use crate::execution::physical_plan::projection::ProjectionExec;
 use crate::execution::physical_plan::{ExecutionPlan, PhysicalExpr};
 use crate::execution::projection::ProjectRelation;
 use crate::execution::relation::{DataSourceRelation, Relation};
@@ -265,10 +265,11 @@ impl ExecutionContext {
         e: &Expr,
         _input_schema: &Schema,
     ) -> Result<Arc<dyn PhysicalExpr>> {
-
         match e {
             Expr::Column(i) => Ok(Arc::new(Column::new(*i))),
-            _ => Err(ExecutionError::NotImplemented("Unsupported expression".to_string()))
+            _ => Err(ExecutionError::NotImplemented(
+                "Unsupported expression".to_string(),
+            )),
         }
     }
 
