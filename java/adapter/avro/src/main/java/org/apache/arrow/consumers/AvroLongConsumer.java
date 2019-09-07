@@ -27,9 +27,9 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume long type values from avro decoder.
  * Write the data to {@link BigIntVector}.
  */
-public class AvroLongConsumer implements Consumer {
+public class AvroLongConsumer implements Consumer<BigIntVector> {
 
-  private final BigIntVector vector;
+  private BigIntVector vector;
 
   private int currentIndex;
 
@@ -63,5 +63,11 @@ public class AvroLongConsumer implements Consumer {
   @Override
   public void close() throws Exception {
     vector.close();
+  }
+
+  @Override
+  public void resetValueVector(BigIntVector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }
