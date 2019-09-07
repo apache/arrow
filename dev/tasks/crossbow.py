@@ -1111,6 +1111,14 @@ def status(ctx, job_name, output):
 
 
 @crossbow.command()
+@click.argument('prefix', required=True)
+@click.pass_context
+def latest_prefix(ctx, prefix):
+    queue = ctx.obj['queue']
+    print(queue.latest_job_for_prefix(prefix))
+
+
+@crossbow.command()
 @click.argument('job-name', required=True)
 @click.option('--sender-name', '-n',
               help='Name to use for report e-mail.')
