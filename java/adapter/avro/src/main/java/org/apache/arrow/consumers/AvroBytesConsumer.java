@@ -74,6 +74,6 @@ public class AvroBytesConsumer implements Consumer<VarBinaryVector> {
   @Override
   public void resetValueVector(VarBinaryVector vector) {
     this.vector = vector;
-    this.currentIndex = currentIndex;
+    this.currentIndex = 0;
   }
 }
