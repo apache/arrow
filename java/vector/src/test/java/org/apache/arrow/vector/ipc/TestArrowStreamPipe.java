@@ -156,6 +156,6 @@ public class TestArrowStreamPipe {
     writer.join();
 
     assertEquals(NUM_BATCHES, reader.getBatchesRead());
-    assertEquals(writer.bytesWritten(), reader.bytesRead());
+    assertEquals(writer.bytesWritten(), reader.bytesRead() + 4);
   }
 }
