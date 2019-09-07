@@ -500,3 +500,54 @@ impl SchemaProvider for ExecutionContextSchemaProvider {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn parallel_projection() -> Result<()> {
+        let mut ctx = ExecutionContext::new();
+
+        // define schema for data source (csv file)
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("c1", DataType::Utf8, false),
+            Field::new("c2", DataType::UInt32, false),
+            Field::new("c3", DataType::Int8, false),
+            Field::new("c4", DataType::Int16, false),
+            Field::new("c5", DataType::Int32, false),
+            Field::new("c6", DataType::Int64, false),
+            Field::new("c7", DataType::UInt8, false),
+            Field::new("c8", DataType::UInt16, false),
+            Field::new("c9", DataType::UInt32, false),
+            Field::new("c10", DataType::UInt64, false),
+            Field::new("c11", DataType::Float32, false),
+            Field::new("c12", DataType::Float64, false),
+            Field::new("c13", DataType::Utf8, false),
+        ]));
+
+        let testdata =
+            ::std::env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+
+        // register csv file with the execution context
+        ctx.register_csv(
+            "aggregate_test_100",
+            &format!("{}/csv/aggregate_test_100.csv", testdata),
+            &schema,
+            true,
+        );
+
+        let logical_plan =
+            ctx.create_logical_plan("SELECT c1, c13 FROM aggregate_test_100")?;
+
+        let physical_plan = ctx.create_physical_plan(&logical_plan)?;
+
+        let results = ctx.collect(physical_plan.as_ref())?;
+
+        assert_eq!(123, results.len());
+
+        Ok(())
+    }
+
+}
