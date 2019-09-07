@@ -19,6 +19,7 @@
 
 use std::fs;
 use std::fs::File;
+use std::fs::metadata;
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
@@ -97,19 +98,26 @@ impl CsvExec {
 
     /// Recursively build a list of csv files in a directory
     fn build_file_list(&self, dir: &str, filenames: &mut Vec<String>) -> Result<()> {
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if let Some(path_name) = path.to_str() {
-                if path.is_dir() {
-                    self.build_file_list(path_name, filenames)?;
-                } else {
-                    if path_name.ends_with(".csv") {
-                        filenames.push(path_name.to_string());
+        let metadata = metadata(dir)?;
+        if metadata.is_file() {
+            if dir.ends_with(".csv") {
+                filenames.push(dir.to_string());
+            }
+        } else {
+            for entry in fs::read_dir(dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                if let Some(path_name) = path.to_str() {
+                    if path.is_dir() {
+                        self.build_file_list(path_name, filenames)?;
+                    } else {
+                        if path_name.ends_with(".csv") {
+                            filenames.push(path_name.to_string());
+                        }
                     }
+                } else {
+                    return Err(ExecutionError::General("Invalid path".to_string()));
                 }
-            } else {
-                return Err(ExecutionError::General("Invalid path".to_string()));
             }
         }
         Ok(())

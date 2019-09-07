@@ -304,7 +304,7 @@ impl ExecutionContext {
         let mut combined_results: Vec<RecordBatch> = vec![];
         for thread in threads {
             let result = thread.join().unwrap();
-            let result = result.unwrap();
+            let result = result?;
             result
                 .iter()
                 .for_each(|batch| combined_results.push(batch.clone()));
@@ -534,7 +534,7 @@ mod tests {
             let mut file = File::create(file_path)?;
 
             // generate some data
-            for i in 0..10 {
+            for i in 0..=10 {
                 let data = format!("{},{}\n", partition, i);
                 file.write_all(data.as_bytes())?;
             }
