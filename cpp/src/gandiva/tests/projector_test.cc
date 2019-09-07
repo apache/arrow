@@ -747,7 +747,7 @@ TEST_F(TestProjector, TestOffset) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array0 = MakeArrowArrayInt32({1, 2, 3, 4, 5}, {true, true, true, true});
+  auto array0 = MakeArrowArrayInt32({1, 2, 3, 4, 5}, {true, true, true, true, true});
   array0 = array0->Slice(1);
   auto array1 = MakeArrowArrayInt32({5, 6, 7, 8}, {true, true, true, true});
   // expected output

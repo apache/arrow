@@ -313,10 +313,10 @@ TEST_F(TestFilter, TestOffset) {
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
-  int num_records = 4;
-  auto array0 = MakeArrowArrayInt32({0, 1, 2, 3, 4, 6}, {true, true, true, false, true});
+  int num_records = 5;
+  auto array0 = MakeArrowArrayInt32({0, 1, 2, 3, 4, 6}, {true, true, true, true, true, true});
   array0 = array0->Slice(1);
-  auto array1 = MakeArrowArrayInt32({5, 9, 6, 17, 3}, {true, true, false, true, true});
+  auto array1 = MakeArrowArrayInt32({5, 9, 6, 17, 3}, {true, true, true, true, true});
   // expected output (indices for which condition matches)
   auto exp = MakeArrowArrayUint16({1, 3});
 

@@ -56,7 +56,12 @@ class EvalBatch {
     return (buffers_array_.get())[idx];
   }
 
-  void SetBuffer(int idx, uint8_t* buffer, int64_t offset = 0) {
+  int64_t GetBufferOffset(int idx) const {
+    DCHECK(idx <= num_buffers_);
+    return (buffer_offsets_array_.get())[idx];
+  }
+
+  void SetBuffer(int idx, uint8_t* buffer, int64_t offset) {
     DCHECK(idx <= num_buffers_);
     (buffers_array_.get())[idx] = buffer;
     (buffer_offsets_array_.get())[idx] = offset;
