@@ -749,7 +749,7 @@ class Job(Serializable):
         group_whitelist = list(group_whitelist or [])
         task_whitelist = list(task_whitelist or [])
 
-        requested_groups = set(group_whitelist )
+        requested_groups = set(group_whitelist)
         invalid_groups = requested_groups - valid_groups
         if invalid_groups:
             msg = 'Invalid group(s) {!r}. Must be one of {!r}'.format(
