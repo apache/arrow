@@ -315,11 +315,11 @@ TEST_F(TestFilter, TestOffset) {
   // Create a row-batch with some sample data
   int num_records = 5;
   auto array0 =
-      MakeArrowArrayInt32({0, 1, 2, 3, 4, 6}, {true, true, true, true, true, true});
+      MakeArrowArrayInt32({0, 1, 2, 3, 4, 6}, {true, true, true, true, false, true});
   array0 = array0->Slice(1);
-  auto array1 = MakeArrowArrayInt32({5, 9, 6, 17, 3}, {true, true, true, true, true});
+  auto array1 = MakeArrowArrayInt32({5, 9, 6, 17, 3}, {true, true, false, true, true});
   // expected output (indices for which condition matches)
-  auto exp = MakeArrowArrayUint16({1, 3});
+  auto exp = MakeArrowArrayUint16({3});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});

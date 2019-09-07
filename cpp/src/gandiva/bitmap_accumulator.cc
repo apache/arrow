@@ -72,13 +72,15 @@ void BitMapAccumulator::IntersectBitMaps(uint8_t* dst_map,
 
     case 1: {
       // one src_maps_ bitmap. copy to dst_map
-      memcpy(dst_map, src_maps[0], num_bytes);
       arrow::internal::CopyBitmap(src_maps[0], src_map_offsets[0], num_records, dst_map,
                                   0);
       break;
     }
 
     default: {
+      // initialize all output bits to 0 (as required by BitmapAnd)
+      arrow::BitUtil::SetBitsTo(dst_map, 0, num_records, false);
+
       // src_maps bitmaps ANDs
       BitmapAnd(src_maps[0], src_map_offsets[0], src_maps[1], src_map_offsets[1],
                 num_records, dst_map);
