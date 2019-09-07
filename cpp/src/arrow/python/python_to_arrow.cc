@@ -318,6 +318,8 @@ class Date64Converter
     if (PyDateTime_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_DateTime*>(obj);
       t = PyDateTime_to_ms(pydate);
+      // Truncate any intraday milliseconds
+      t -= t % 86400000LL;
     } else if (PyDate_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
       t = PyDate_to_ms(pydate);
