@@ -39,7 +39,7 @@ import io.netty.buffer.ArrowBuf;
  * A validity buffer (bit vector) is maintained to track which elements in the
  * vector are null.
  */
-public class IntervalDayVector extends BaseFixedWidthVector {
+public final class IntervalDayVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 8;
   private static final byte MILLISECOND_OFFSET = 4;
   private final FieldReader reader;
