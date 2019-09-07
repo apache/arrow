@@ -701,6 +701,6 @@ public class UnionVector implements FieldVector {
 
     @Override
     public String toString() {
-      return ValueVectorUtility.getToString(this);
+      return ValueVectorUtility.getToString(this, 0, getValueCount());
     }
 }

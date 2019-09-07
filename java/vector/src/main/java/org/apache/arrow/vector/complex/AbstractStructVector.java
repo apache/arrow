@@ -332,6 +332,6 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
 
   @Override
   public String toString() {
-    return ValueVectorUtility.getToString(this);
+    return ValueVectorUtility.getToString(this, 0 , getValueCount());
   }
 }

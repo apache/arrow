@@ -64,7 +64,7 @@ public abstract class BaseValueVector implements ValueVector {
    */
   @Override
   public String toString() {
-    return ValueVectorUtility.getToString(this);
+    return ValueVectorUtility.getToString(this, 0, getValueCount());
   }
 
   @Override

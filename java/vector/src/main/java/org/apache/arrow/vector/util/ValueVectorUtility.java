@@ -28,10 +28,10 @@ public class ValueVectorUtility {
   /**
    * Get the toString() representation of vector suitable for debugging.
    */
-  public static String getToString(ValueVector vector) {
+  public static String getToString(ValueVector vector, int start, int end) {
     Preconditions.checkNotNull(vector);
-    final int valueCount = vector.getValueCount();
-    if (valueCount == 0) {
+    final int length = end - start;
+    if (length == 0) {
       return "[]";
     }
 
@@ -40,19 +40,19 @@ public class ValueVectorUtility {
 
     StringBuilder sb = new StringBuilder();
     sb.append('[');
-    for (int i = 0; i < valueCount; i++) {
+    for (int i = start; i < end; i++) {
       if (skipComma) {
         skipComma = false;
       }
-      if (i >= window && i < valueCount - window) {
+      if (i - start >= window && i < end - window) {
         sb.append("...");
-        i = valueCount - window - 1;
+        i = end - window - 1;
         skipComma = true;
       } else {
         sb.append(vector.getObject(i));
       }
 
-      if (i == valueCount - 1) {
+      if (i == end - 1) {
         sb.append(']');
       } else {
         if (!skipComma) {
