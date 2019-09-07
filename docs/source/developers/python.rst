@@ -482,7 +482,7 @@ Then run the unit tests with:
    If you want to bundle the Arrow C++ libraries with ``pyarrow`` add 
    ``--bundle-arrow-cpp`` as build parameter:
 
-   ``python setup.py build_ext --inplace --bundle_arrow_cpp``
+   ``python setup.py build_ext --inplace --bundle-arrow-cpp``
 
 Running C++ unit tests for Python integration
 ---------------------------------------------
