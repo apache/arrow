@@ -25,7 +25,7 @@ use std::sync::{Arc, Mutex};
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
 use arrow::csv;
-use arrow::datatypes::{Field, Schema};
+use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
 /// Execution plan for scanning a CSV file
@@ -77,19 +77,9 @@ impl CsvExec {
         projection: Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Self> {
-        let projected_schema = match &projection {
-            Some(p) => {
-                let projected_fields: Vec<Field> =
-                    p.iter().map(|i| schema.fields()[*i].clone()).collect();
-
-                Arc::new(Schema::new(projected_fields))
-            }
-            None => schema,
-        };
-
         Ok(Self {
             path: path.to_string(),
-            schema: projected_schema,
+            schema,
             has_header,
             projection,
             batch_size,
