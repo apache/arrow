@@ -22,10 +22,12 @@ import re
 import glob
 import time
 import mimetypes
+import textwrap
 from io import StringIO
 from pathlib import Path
 from textwrap import dedent
 from datetime import datetime
+from functools import partial
 from collections import namedtuple
 
 import click
@@ -395,8 +397,7 @@ class Repo:
         return blob.data
 
     def _parse_github_user_repo(self):
-        url = self._remote_url if self._remote_url else self.remote_url
-        m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', url)
+        m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote_url)
         user, repo = m.group(1), m.group(2)
         return user, repo
 
@@ -691,13 +692,15 @@ class Task(Serializable):
             num_matches = len(matches)
 
             # validate artifact pattern matches single asset
-            if num_matches > 1:
+            if num_matches == 0:
+                artifacts[artifact] = None
+            elif num_matches == 1:
+                artifacts[artifact] = assets[matches[0].group(0)]
+            else:
                 raise ValueError(
                     'Only a single asset should match pattern `{}`, there are '
                     'multiple ones: {}'.format(', '.join(matches))
                 )
-            elif num_matches == 1:
-                artifacts[artifact] = assets[matches[0].group(0)]
 
         return artifacts
 
@@ -779,19 +782,193 @@ class Job(Serializable):
         return cls(target=target, tasks=tasks)
 
 
+class Report:
+
+    def __init__(self, job):
+        self.job = job
+
+    def show(self):
+        raise NotImplementedError()
+
+
+class ConsoleReport(Report):
+    """Report the status of a Job to the console using click"""
+
+    # output table's header template
+    HEADER = '[{state:>7}] {branch:<49} {content:>20}'
+
+    # output table's row template for assets
+    ARTIFACT_NAME = '{artifact:>70} '
+    ARTIFACT_STATE = '[{state:>7}]'
+
+    # state color mapping to highlight console output
+    COLORS = {
+        # from CombinedStatus
+        'error': 'red',
+        'failure': 'red',
+        'pending': 'yellow',
+        'success': 'green',
+        # custom state messages
+        'ok': 'green',
+        'missing': 'red'
+    }
+
+    def lead(self, state, branch, n_uploaded, n_expected):
+        line = self.HEADER.format(
+            state=state.upper(),
+            branch=branch,
+            content='uploaded {} / {}'.format(n_uploaded, n_expected)
+        )
+        return click.style(line, fg=self.COLORS[state.lower()])
+
+    def header(self):
+        header = self.HEADER.format(
+            state='state',
+            branch='Task / Branch',
+            content='Artifacts'
+        )
+        delimiter = '-' * len(header)
+        return '{}\n{}'.format(header, delimiter)
+
+    def artifact(self, state, pattern, asset):
+        if asset is None:
+            artifact = pattern
+            state = 'pending' if state == 'pending' else 'missing'
+        else:
+            artifact = asset.name
+            state = 'ok'
+
+        name_ = self.ARTIFACT_NAME.format(artifact=artifact)
+        state_ = click.style(
+            self.ARTIFACT_STATE.format(state=state.upper()),
+            self.COLORS[state]
+        )
+        return name_ + state_
+
+    def show(self, outstream, asset_callback=None):
+        echo = partial(click.echo, file=outstream)
+
+        # write table's header
+        echo(self.header())
+
+        # write table's body
+        for task_name, task in sorted(self.job.tasks.items()):
+            status = task.status()
+            assets = task.assets()
+
+            # write summary of the uploaded vs total assets
+            n_expected = len(assets)
+            n_uploaded = len(list(filter(None, assets.values())))
+            echo(self.lead(status.state, task.branch, n_uploaded, n_expected))
+
+            # write per asset status
+            for artifact, asset in task.assets().items():
+                if asset_callback is not None:
+                    asset_callback(task_name, task, asset)
+                # artifact is a pattern for the expected asset
+                echo(self.artifact(status.state, artifact, asset))
+
+
+class EmailReport(Report):
+
+    HEADER = textwrap.dedent("""
+        Crossbow Report for Job {job_name}
+
+        All tasks: {all_tasks_url}
+    """)
+
+    TASK = textwrap.dedent("""
+          - {name}:
+            URL: {url}
+    """).strip()
+
+    EMAIL = textwrap.dedent("""
+        From: {sender_name} <{sender_email}>
+        To: {recipient_email}
+        Subject: {subject}
+
+        {body}
+    """).strip()
+
+    STATUS_HEADERS = {
+        # from CombinedStatus
+        'error': 'Errored Tasks:',
+        'failure': 'Failed Tasks:',
+        'pending': 'Pending Tasks:',
+        'success': 'Succeeded Tasks:',
+    }
+
+    def __init__(self, job, sender_name, sender_email, recipient_email):
+        self.sender_name = sender_name
+        self.sender_email = sender_email
+        self.recipient_email = recipient_email
+        super().__init__(job)
+
+    def url(self, query):
+        repo_url = self.job._queue.remote_url.strip('.git')
+        return '{}/branches/all?query={}'.format(repo_url, query)
+
+    def listing(self, tasks):
+        entries = (
+            self.TASK.format(name=task_name, url=self.url(task_name))
+            for task_name, task in tasks.items()
+        )
+        return '\n'.join(entries)
+
+    def header(self):
+        url = self.url(self.job.branch)
+        return self.HEADER.format(job_name=self.job.branch, all_tasks_url=url)
+
+    def subject(self):
+        return "Crossbow Task Report for {}".format(self.job.queue)
+
+    def body(self):
+        buffer = StringIO()
+        buffer.write(self.header())
+
+        tasks_by_state = toolz.groupby(
+            lambda tpl: tpl[1].status().state,
+            self.job.tasks.items()
+        )
+
+        for state in ('failure', 'error', 'pending', 'success'):
+            if state in tasks_by_state:
+                tasks = dict(tasks_by_state[state])
+                buffer.write('\n')
+                buffer.write(self.STATUS_HEADERS[state])
+                buffer.write('\n')
+                buffer.write(self.listing(tasks))
+                buffer.write('\n')
+
+        return buffer.getvalue()
+
+    def show(self, outstream):
+        outstream.write(self.body())
+
+    def send(self, smtp_port, smtp_user, smtp_server, smtp_password):
+        import smtplib
+
+        email = self.EMAIL.format(
+            sender_name=self.sender_name,
+            sender_email=self.sender_email,
+            recipient_email=self.recipient_email,
+            subject=self.subject(),
+            body=self.body()
+        )
+
+        server = smtplib.SMTP_SSL(smtp_server, smtp_port)
+        server.ehlo()
+        server.login(smtp_user, smtp_password)
+        server.sendmail(smtp_user, self.recipient_email, email)
+        server.close()
+
+
 # configure yaml serializer
 yaml = YAML()
 yaml.register_class(Job)
 yaml.register_class(Task)
 yaml.register_class(Target)
 
-# state color mapping to highlight console output
-COLORS = {'ok': 'green',
-          'error': 'red',
-          'missing': 'red',
-          'failure': 'red',
-          'pending': 'yellow',
-          'success': 'green'}
 
 # define default paths
 DEFAULT_CONFIG_PATH = CWD / 'tasks.yml'
@@ -928,37 +1105,62 @@ def status(ctx, job_name, output):
     queue = ctx.obj['queue']
     queue.fetch()
 
-    tpl = '[{:>7}] {:<49} {:>20}'
-    header = tpl.format('status', 'branch', 'artifacts')
-    click.echo(header, file=output)
-    click.echo('-' * len(header), file=output)
+    job = queue.get(job_name)
+    ConsoleReport(job).show(output)
+
+
+@crossbow.command()
+@click.argument('job-name', required=True)
+@click.option('--sender-name', '-n',
+              help='Name to use for report e-mail.')
+@click.option('--sender-email', '-e',
+              help='E-mail to use for report e-mail.')
+@click.option('--recipient-email', '-r',
+              help='Where to send the e-mail report')
+@click.option('--smtp-user', '-u',
+              help='E-mail address to use for SMTP login')
+@click.option('--smtp-password', '-P',
+              help='SMTP password to use for report e-mail.')
+@click.option('--smtp-server', '-s', default='smtp.gmail.com',
+              help='SMTP server to use for report e-mail.')
+@click.option('--smtp-port', '-p', default=465,
+              help='SMTP port to use for report e-mail.')
+@click.option('--stop-if-pending', default=True,
+              help='Do not send e-mail if there are still pending tasks')
+@click.option('--dry-run/--send', default=True,
+              help='Just display the report, don\'t send it')
+@click.option('--output', metavar='<output>',
+              type=click.File('w', encoding='utf8'), default='-',
+              help='Capture output result into file, only works with '
+                   '--dry-run flag enabled.')
+@click.pass_context
+def report(ctx, job_name, sender_name, sender_email, recipient_email,
+           smtp_user, smtp_password, smtp_server, smtp_port, stop_if_pending,
+           dry_run, output):
+    """
+    Send an e-mail report showing success/failure of tasks in a Crossbow run
+    """
+    queue = ctx.obj['queue']
+    queue.fetch()
 
     job = queue.get(job_name)
 
-    for task_name, task in sorted(job.tasks.items()):
-        status = task.status()
-        assets = task.assets()
+    report = EmailReport(
+        job=job,
+        sender_name=sender_name,
+        sender_email=sender_email,
+        recipient_email=recipient_email
+    )
 
-        uploaded = 'uploaded {} / {}'.format(
-            sum(a in assets for a in task.artifacts),
-            len(task.artifacts)
+    if dry_run:
+        report.show(output)
+    else:
+        report.send(
+            smtp_user=smtp_user,
+            smtp_password=smtp_password,
+            smtp_server=smtp_server,
+            smtp_port=smtp_port
         )
-        leadline = tpl.format(status.state.upper(), task.branch, uploaded)
-        click.echo(click.style(leadline, fg=COLORS[status.state]), file=output)
-
-        for artifact in task.artifacts:
-            try:
-                asset = assets[artifact]
-            except KeyError:
-                state = 'pending' if status.state == 'pending' else 'missing'
-                filename = '{:>70} '.format(artifact)
-            else:
-                state = 'ok'
-                filename = '{:>70} '.format(asset.name)
-
-            statemsg = '[{:>7}]'.format(state.upper())
-            click.echo(filename + click.style(statemsg, fg=COLORS[state]),
-                       file=output)
 
 
 @crossbow.command()
@@ -966,8 +1168,11 @@ def status(ctx, job_name, output):
 @click.option('-t', '--target-dir', default=DEFAULT_ARROW_PATH / 'packages',
               type=click.Path(file_okay=False, dir_okay=True),
               help='Directory to download the build artifacts')
+@click.option('--output', metavar='<output>',
+              type=click.File('w', encoding='utf8'), default='-',
+              help='Capture output result into file.')
 @click.pass_context
-def download_artifacts(ctx, job_name, target_dir):
+def download_artifacts(ctx, job_name, target_dir, output):
     """Download and sign build artifacts from github releases"""
     # fetch the queue repository
     queue = ctx.obj['queue']
@@ -976,50 +1181,23 @@ def download_artifacts(ctx, job_name, target_dir):
     # query the job's artifacts
     job = queue.get(job_name)
 
+    # create directory to download the assets to
     target_dir = Path(target_dir).absolute() / job_name
     target_dir.mkdir(parents=True, exist_ok=True)
-    click.echo('Download {}\'s artifacts to {}'.format(job_name, target_dir))
 
-    tpl = '{:<10} {:>73}'
+    # download the assets while showing the job status
+    def asset_callback(task_name, task, asset):
+        if asset is not None:
+            path = target_dir / task_name / asset.name
+            path.parent.mkdir(exist_ok=True)
+            asset.download(path)
 
-    task_items = sorted(job.tasks.items())
-    ntasks = len(task_items)
+    click.echo('Downloading {}\'s artifacts.'.format(job_name))
+    click.echo('Destination directory is {}'.format(target_dir))
+    click.echo()
 
-    for i, (task_name, task) in enumerate(task_items, start=1):
-        assets = task.assets()
-        artifact_dir = target_dir / task_name
-        artifact_dir.mkdir(exist_ok=True)
-
-        basemsg = 'Downloading assets for task {}'.format(
-            click.style(task_name, bold=True)
-        )
-        click.echo(
-            '\n{} {:>{size}}' .format(
-                basemsg,
-                click.style('{}/{}'.format(i, ntasks), bold=True),
-                size=89 - (len(basemsg) + 1) + 2 * len(
-                    click.style('', bold=True))
-            )
-        )
-        click.echo('-' * 89)
-
-        for artifact in task.artifacts:
-            try:
-                asset = assets[artifact]
-            except KeyError:
-                msg = click.style('[{:>13}]'.format('MISSING'),
-                                  fg=COLORS['missing'])
-                click.echo(tpl.format(msg, artifact))
-            else:
-                click.echo(click.style(artifact, bold=True))
-
-                # download artifact
-                artifact_path = artifact_dir / asset.name
-                asset.download(artifact_path)
-
-                msg = click.style('[{:>13}]'.format('DOWNLOADED'),
-                                  fg=COLORS['ok'])
-                click.echo(tpl.format(msg, str(asset.name)))
+    report = ConsoleReport(job)
+    report.show(output, asset_callback=asset_callback)
 
 
 @crossbow.command()
