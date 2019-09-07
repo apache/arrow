@@ -510,6 +510,9 @@ impl SchemaProvider for ExecutionContextSchemaProvider {
 mod tests {
 
     use super::*;
+    use std::fs::File;
+    use std::io::prelude::*;
+    use tempdir::TempDir;
 
     #[test]
     fn parallel_projection() -> Result<()> {
@@ -517,41 +520,43 @@ mod tests {
 
         // define schema for data source (csv file)
         let schema = Arc::new(Schema::new(vec![
-            Field::new("c1", DataType::Utf8, false),
+            Field::new("c1", DataType::UInt32, false),
             Field::new("c2", DataType::UInt32, false),
-            Field::new("c3", DataType::Int8, false),
-            Field::new("c4", DataType::Int16, false),
-            Field::new("c5", DataType::Int32, false),
-            Field::new("c6", DataType::Int64, false),
-            Field::new("c7", DataType::UInt8, false),
-            Field::new("c8", DataType::UInt16, false),
-            Field::new("c9", DataType::UInt32, false),
-            Field::new("c10", DataType::UInt64, false),
-            Field::new("c11", DataType::Float32, false),
-            Field::new("c12", DataType::Float64, false),
-            Field::new("c13", DataType::Utf8, false),
         ]));
 
-        let testdata =
-            ::std::env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let tmp_dir = TempDir::new("parallel_projection")?;
+
+        // generate a partitioned file
+        let partition_count = 4;
+        for partition in 0..partition_count {
+            let filename = format!("partition-{}.csv", partition);
+            let file_path = tmp_dir.path().join(&filename);
+            let mut file = File::create(file_path)?;
+
+            // generate some data
+            for i in 0..10 {
+                let data = format!("{},{}\n", partition, i);
+                file.write_all(data.as_bytes())?;
+            }
+        }
 
         // register csv file with the execution context
-        ctx.register_csv(
-            "aggregate_test_100",
-            &format!("{}/csv/aggregate_test_100.csv", testdata),
-            &schema,
-            true,
-        );
+        ctx.register_csv("test", tmp_dir.path().to_str().unwrap(), &schema, true);
 
-        let logical_plan =
-            ctx.create_logical_plan("SELECT c1, c13 FROM aggregate_test_100")?;
+        let logical_plan = ctx.create_logical_plan("SELECT c1, c2 FROM test")?;
 
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
 
         let results = ctx.collect(physical_plan.as_ref())?;
 
-        assert_eq!(1, results.len());
-        assert_eq!(2, results[0].num_columns());
+        // there should be one batch per partition
+        assert_eq!(partition_count, results.len());
+
+        // each batch should contain 2 columns and 10 rows
+        for batch in &results {
+            assert_eq!(2, batch.num_columns());
+            assert_eq!(10, batch.num_rows());
+        }
 
         Ok(())
     }
