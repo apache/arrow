@@ -47,8 +47,7 @@ groups:
     - wheel-win-cp37m
   linux:
     - debian-stretch
-    # We can't finish this on Travis CI for now.
-    # - debian-stretch-arm64
+    - debian-stretch-arm64
     - debian-buster
     - ubuntu-xenial
     - ubuntu-bionic
@@ -431,7 +430,6 @@ tasks:
       - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
-  # Don't use this for now. We can't complete this task in 50min on Travis CI.
   debian-stretch-arm64:
     ci: azure
     platform: linux
