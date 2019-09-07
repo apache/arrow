@@ -127,7 +127,7 @@ public class EchoServerTest {
       }
       Assert.assertFalse(reader.loadNextBatch());
       assertEquals(0, reader.getVectorSchemaRoot().getRowCount());
-      assertEquals(reader.bytesRead(), writer.bytesWritten());
+      assertEquals(reader.bytesRead() + 4, writer.bytesWritten());
     }
   }
 

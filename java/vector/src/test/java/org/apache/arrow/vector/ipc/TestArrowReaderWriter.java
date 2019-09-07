@@ -25,6 +25,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -42,6 +43,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.TestUtils;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorLoader;
@@ -54,6 +56,7 @@ import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
@@ -75,7 +78,7 @@ public class TestArrowReaderWriter {
   private Dictionary dictionary2;
 
   private Schema schema;
-  private Schema encodedchema;
+  private Schema encodedSchema;
 
   @Before
   public void init() {
@@ -161,7 +164,8 @@ public class TestArrowReaderWriter {
       // deserialize the buffer.
       ByteBuffer headerBuffer = ByteBuffer.allocate(recordBatches.get(0).getMetadataLength());
       headerBuffer.put(byteArray, (int) recordBatches.get(0).getOffset(), headerBuffer.capacity());
-      headerBuffer.position(4);
+      // new format prefix_size ==8
+      headerBuffer.position(8);
       Message messageFB = Message.getRootAsMessage(headerBuffer);
       RecordBatch recordBatchFB = (RecordBatch) messageFB.header(new RecordBatch());
       assertEquals(2, recordBatchFB.buffersLength());
@@ -335,7 +339,7 @@ public class TestArrowReaderWriter {
     try (ArrowStreamReader reader = new ArrowStreamReader(
         new ByteArrayReadableSeekableByteChannel(outStream.toByteArray()), allocator)) {
       Schema readSchema = reader.getVectorSchemaRoot().getSchema();
-      assertEquals(encodedchema, readSchema);
+      assertEquals(encodedSchema, readSchema);
       assertEquals(2, reader.getDictionaryVectors().size());
       assertTrue(reader.loadNextBatch());
       assertTrue(reader.loadNextBatch());
@@ -401,8 +405,48 @@ public class TestArrowReaderWriter {
     schemaFields.add(DictionaryUtility.toMessageFormat(encodedVectorA2.getField(), provider, new HashSet<>()));
     schema = new Schema(schemaFields);
 
-    encodedchema = new Schema(Arrays.asList(encodedVectorA1.getField(), encodedVectorA2.getField()));
+    encodedSchema = new Schema(Arrays.asList(encodedVectorA1.getField(), encodedVectorA2.getField()));
 
     return batches;
+  }
+
+  @Test
+  public void testLegacyIpcBackwardsCompatibility() throws Exception {
+    Schema schema = new Schema(asList(Field.nullable("field", new ArrowType.Int(32, true))));
+    IntVector vector = new IntVector("vector", allocator);
+    final int valueCount = 2;
+    vector.setValueCount(valueCount);
+    vector.setSafe(0, 1);
+    vector.setSafe(1, 2);
+    ArrowRecordBatch batch = new ArrowRecordBatch(valueCount, asList(new ArrowFieldNode(valueCount, 0)),
+        asList(vector.getValidityBuffer(), vector.getDataBuffer()));
+
+    ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+    WriteChannel out = new WriteChannel(newChannel(outStream));
+
+    // write legacy ipc format
+    IpcOption option = new IpcOption();
+    option.write_legacy_ipc_format = true;
+    MessageSerializer.serialize(out, schema, option);
+    MessageSerializer.serialize(out, batch);
+
+    ReadChannel in = new ReadChannel(newChannel(new ByteArrayInputStream(outStream.toByteArray())));
+    Schema readSchema = MessageSerializer.deserializeSchema(in);
+    assertEquals(schema, readSchema);
+    ArrowRecordBatch readBatch = MessageSerializer.deserializeRecordBatch(in, allocator);
+    assertEquals(batch.getLength(), readBatch.getLength());
+    assertEquals(batch.computeBodyLength(), readBatch.computeBodyLength());
+
+    // write ipc format with continuation
+    option.write_legacy_ipc_format = false;
+    MessageSerializer.serialize(out, schema, option);
+    MessageSerializer.serialize(out, batch);
+
+    ReadChannel in2 = new ReadChannel(newChannel(new ByteArrayInputStream(outStream.toByteArray())));
+    Schema readSchema2 = MessageSerializer.deserializeSchema(in2);
+    assertEquals(schema, readSchema2);
+    ArrowRecordBatch readBatch2 = MessageSerializer.deserializeRecordBatch(in2, allocator);
+    assertEquals(batch.getLength(), readBatch2.getLength());
+    assertEquals(batch.computeBodyLength(), readBatch2.computeBodyLength());
   }
 }

@@ -33,6 +33,7 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -59,16 +60,24 @@ public abstract class ArrowWriter implements AutoCloseable {
 
   private boolean dictWritten = false;
 
+  protected IpcOption option;
+
+  protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
+    this (root, provider, out, new IpcOption());
+  }
+
   /**
    * Note: fields are not closed when the writer is closed.
    *
    * @param root     the vectors to write to the output
    * @param provider where to find the dictionaries
    * @param out      the output where to write
+   * @param option   IPC write options
    */
-  protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
+  protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option) {
     this.unloader = new VectorUnloader(root);
     this.out = new WriteChannel(out);
+    this.option = option;
 
     List<Field> fields = new ArrayList<>(root.getSchema().getFields().size());
     Set<Long> dictionaryIdsUsed = new HashSet<>();
@@ -112,14 +121,14 @@ public abstract class ArrowWriter implements AutoCloseable {
   }
 
   protected ArrowBlock writeDictionaryBatch(ArrowDictionaryBatch batch) throws IOException {
-    ArrowBlock block = MessageSerializer.serialize(out, batch);
+    ArrowBlock block = MessageSerializer.serialize(out, batch, option);
     LOGGER.debug("DictionaryRecordBatch at {}, metadata: {}, body: {}",
         block.getOffset(), block.getMetadataLength(), block.getBodyLength());
     return block;
   }
 
   protected ArrowBlock writeRecordBatch(ArrowRecordBatch batch) throws IOException {
-    ArrowBlock block = MessageSerializer.serialize(out, batch);
+    ArrowBlock block = MessageSerializer.serialize(out, batch, option);
     LOGGER.debug("RecordBatch at {}, metadata: {}, body: {}",
         block.getOffset(), block.getMetadataLength(), block.getBodyLength());
     return block;
@@ -140,7 +149,7 @@ public abstract class ArrowWriter implements AutoCloseable {
       startInternal(out);
       // write the schema - for file formats this is duplicated in the footer, but matches
       // the streaming format
-      MessageSerializer.serialize(out, schema);
+      MessageSerializer.serialize(out, schema, option);
     }
   }
 
