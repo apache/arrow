@@ -19,6 +19,7 @@
 
 import os
 import re
+import sys
 import time
 import hashlib
 from io import StringIO
@@ -933,7 +934,7 @@ def status(ctx, job_name, output):
               help='Name to use for report e-mail.')
 @click.option('--smtp_port', default=465,
               help='Name to use for report e-mail.')
-@click.option('--stop_if_pending', default=True,
+@click.option('--stop_if_pending/--no_stop_if_pending', default=True,
               help='Do not send e-mail if there are still pending tasks')
 @click.pass_context
 def report(ctx, job_name, sender_name, recipient_email, smtp_user,
@@ -966,7 +967,8 @@ def generate_email_report(job, sender_name, recipient_email, smtp_user,
     if stop_if_pending and len(pending_tasks) > 0:
         print("The following tasks are still pending:")
         for task in pending_tasks:
-            print("  - {}".format(task.name))
+            print("  - {}".format(task.task.branch))
+        sys.exit(0)
 
     subject = "Crossbow Task Report for {}".format(job.name)
 
