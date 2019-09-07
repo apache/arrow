@@ -111,4 +111,4 @@ cdef class ORCReader:
             with nogil:
                 check_status(deref(self.reader).Read(indices, &sp_table))
 
-        return pyarrow_wrap_table(sp_table)
+        return pyarrow_wrap_table(None, sp_table)

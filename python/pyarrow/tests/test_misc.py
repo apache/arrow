@@ -121,6 +121,9 @@ def test_cpu_count():
 ])
 def test_extension_type_constructor_errors(klass):
     # ARROW-2638: prevent calling extension class constructors directly
+    klass_name = klass.__name__
+    if klass_name.startswith('_'):
+        klass_name = klass_name[1:]
     msg = "Do not call {cls}'s constructor directly, use .* instead."
-    with pytest.raises(TypeError, match=msg.format(cls=klass.__name__)):
+    with pytest.raises(TypeError, match=msg.format(cls=klass_name)):
         klass()

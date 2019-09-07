@@ -490,7 +490,8 @@ cdef public object pyarrow_wrap_field(const shared_ptr[CField]& field)
 cdef public object pyarrow_wrap_resizable_buffer(
     const shared_ptr[CResizableBuffer]& buf)
 cdef public object pyarrow_wrap_schema(const shared_ptr[CSchema]& type)
-cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
+cdef public object pyarrow_wrap_table(
+    object table_class, const shared_ptr[CTable]& ctable)
 cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
 cdef public object pyarrow_wrap_sparse_tensor_coo(
     const shared_ptr[CSparseTensorCOO]& sp_sparse_tensor)

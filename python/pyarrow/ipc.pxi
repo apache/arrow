@@ -316,7 +316,7 @@ cdef class _CRecordBatchReader:
         cdef shared_ptr[CTable] table
         with nogil:
             check_status(self.reader.get().ReadAll(&table))
-        return pyarrow_wrap_table(table)
+        return pyarrow_wrap_table(None, table)
 
 
 cdef class _RecordBatchStreamReader(_CRecordBatchReader):
@@ -420,7 +420,7 @@ cdef class _RecordBatchFileReader:
             check_status(CTable.FromRecordBatches(self.schema.sp_schema,
                                                   batches, &table))
 
-        return pyarrow_wrap_table(table)
+        return pyarrow_wrap_table(None, table)
 
 
 def get_tensor_size(Tensor tensor):

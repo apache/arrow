@@ -540,4 +540,4 @@ def read_csv(input_file, read_options=None, parse_options=None,
     with nogil:
         check_status(reader.get().Read(&table))
 
-    return pyarrow_wrap_table(table)
+    return pyarrow_wrap_table(None, table)

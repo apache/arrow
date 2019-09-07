@@ -111,7 +111,7 @@ cdef class FeatherReader:
             check_status(self.reader.get()
                          .Read(&sp_table))
 
-        return pyarrow_wrap_table(sp_table)
+        return pyarrow_wrap_table(None, sp_table)
 
     def _read_indices(self, indices):
         cdef:
@@ -124,7 +124,7 @@ cdef class FeatherReader:
             check_status(self.reader.get()
                          .Read(c_indices, &sp_table))
 
-        return pyarrow_wrap_table(sp_table)
+        return pyarrow_wrap_table(None, sp_table)
 
     def _read_names(self, names):
         cdef:
@@ -137,4 +137,4 @@ cdef class FeatherReader:
             check_status(self.reader.get()
                          .Read(c_names, &sp_table))
 
-        return pyarrow_wrap_table(sp_table)
+        return pyarrow_wrap_table(None, sp_table)

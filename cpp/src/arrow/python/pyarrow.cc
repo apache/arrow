@@ -173,7 +173,8 @@ Status unwrap_table(PyObject* table, std::shared_ptr<Table>* out) {
 }
 
 PyObject* wrap_table(const std::shared_ptr<Table>& table) {
-  return ::pyarrow_wrap_table(table);
+  Py_INCREF(Py_None);
+  return ::pyarrow_wrap_table(Py_None, table);
 }
 
 bool is_record_batch(PyObject* batch) { return ::pyarrow_is_batch(batch) != 0; }

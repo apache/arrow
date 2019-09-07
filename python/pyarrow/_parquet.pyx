@@ -1087,7 +1087,7 @@ cdef class ParquetReader:
             with nogil:
                 check_status(self.reader.get()
                              .ReadRowGroups(c_row_groups, &ctable))
-        return pyarrow_wrap_table(ctable)
+        return pyarrow_wrap_table(None, ctable)
 
     def read_all(self, column_indices=None, bint use_threads=True):
         cdef:
@@ -1109,7 +1109,7 @@ cdef class ParquetReader:
             with nogil:
                 check_status(self.reader.get()
                              .ReadTable(&ctable))
-        return pyarrow_wrap_table(ctable)
+        return pyarrow_wrap_table(None, ctable)
 
     def scan_contents(self, column_indices=None, batch_size=65536):
         cdef:

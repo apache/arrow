@@ -841,7 +841,7 @@ cdef class Table(_PandasConvertible):
         else:
             result = self.table.Slice(offset, length)
 
-        return pyarrow_wrap_table(result)
+        return pyarrow_wrap_table(type(self), result)
 
     def replace_schema_metadata(self, metadata=None):
         """
@@ -869,7 +869,7 @@ cdef class Table(_PandasConvertible):
         with nogil:
             c_table = self.table.ReplaceSchemaMetadata(c_meta)
 
-        return pyarrow_wrap_table(c_table)
+        return pyarrow_wrap_table(type(self), c_table)
 
     def flatten(self, MemoryPool memory_pool=None):
         """
@@ -892,7 +892,7 @@ cdef class Table(_PandasConvertible):
         with nogil:
             check_status(self.table.Flatten(pool, &flattened))
 
-        return pyarrow_wrap_table(flattened)
+        return pyarrow_wrap_table(type(self), flattened)
 
     def combine_chunks(self, MemoryPool memory_pool=None):
         """
@@ -917,7 +917,7 @@ cdef class Table(_PandasConvertible):
         with nogil:
             check_status(self.table.CombineChunks(pool, &combined))
 
-        return pyarrow_wrap_table(combined)
+        return pyarrow_wrap_table(type(self), combined)
 
     def __eq__(self, other):
         try:
@@ -1046,8 +1046,8 @@ cdef class Table(_PandasConvertible):
         )
         return cls.from_arrays(arrays, schema=schema)
 
-    @staticmethod
-    def from_arrays(arrays, names=None, schema=None, metadata=None):
+    @classmethod
+    def from_arrays(cls, arrays, names=None, schema=None, metadata=None):
         """
         Construct a Table from Arrow arrays
 
@@ -1088,12 +1088,12 @@ cdef class Table(_PandasConvertible):
             else:
                 raise TypeError(type(item))
 
-        result = pyarrow_wrap_table(CTable.Make(c_schema, columns))
+        result = pyarrow_wrap_table(cls, CTable.Make(c_schema, columns))
         result.validate()
         return result
 
-    @staticmethod
-    def from_pydict(mapping, schema=None, metadata=None):
+    @classmethod
+    def from_pydict(cls, mapping, schema=None, metadata=None):
         """
         Construct a Table from Arrow arrays or columns
 
@@ -1123,7 +1123,7 @@ cdef class Table(_PandasConvertible):
                         raise e
                 arrays.append(array(v, type=field.type))
             # Will raise if metadata is not None
-            return Table.from_arrays(arrays, schema=schema, metadata=metadata)
+            return cls.from_arrays(arrays, schema=schema, metadata=metadata)
         else:
             names = []
             for k, v in mapping.items():
@@ -1131,10 +1131,10 @@ cdef class Table(_PandasConvertible):
                 if not isinstance(v, (Array, ChunkedArray)):
                     v = array(v)
                 arrays.append(v)
-            return Table.from_arrays(arrays, names, metadata=metadata)
+            return cls.from_arrays(arrays, names, metadata=metadata)
 
-    @staticmethod
-    def from_batches(batches, Schema schema=None):
+    @classmethod
+    def from_batches(cls, batches, Schema schema=None):
         """
         Construct a Table from a sequence or iterator of Arrow RecordBatches
 
@@ -1170,7 +1170,7 @@ cdef class Table(_PandasConvertible):
             check_status(CTable.FromRecordBatches(c_schema, c_batches,
                                                   &c_table))
 
-        return pyarrow_wrap_table(c_table)
+        return pyarrow_wrap_table(cls, c_table)
 
     def to_batches(self, max_chunksize=None, **kwargs):
         """
@@ -1388,7 +1388,7 @@ cdef class Table(_PandasConvertible):
                                               c_arr.sp_chunked_array,
                                               &c_table))
 
-        return pyarrow_wrap_table(c_table)
+        return pyarrow_wrap_table(type(self), c_table)
 
     def append_column(self, field_, column):
         """
@@ -1405,7 +1405,7 @@ cdef class Table(_PandasConvertible):
         with nogil:
             check_status(self.table.RemoveColumn(i, &c_table))
 
-        return pyarrow_wrap_table(c_table)
+        return pyarrow_wrap_table(type(self), c_table)
 
     def set_column(self, int i, field_, column):
         """
@@ -1431,7 +1431,7 @@ cdef class Table(_PandasConvertible):
                                               c_arr.sp_chunked_array,
                                               &c_table))
 
-        return pyarrow_wrap_table(c_table)
+        return pyarrow_wrap_table(type(self), c_table)
 
     @property
     def column_names(self):
@@ -1455,7 +1455,7 @@ cdef class Table(_PandasConvertible):
         with nogil:
             check_status(self.table.RenameColumns(c_names, &c_table))
 
-        return pyarrow_wrap_table(c_table)
+        return pyarrow_wrap_table(type(self), c_table)
 
     def drop(self, columns):
         """
@@ -1585,4 +1585,4 @@ def concat_tables(tables):
     with nogil:
         check_status(ConcatenateTables(c_tables, &c_result))
 
-    return pyarrow_wrap_table(c_result)
+    return pyarrow_wrap_table(None, c_result)

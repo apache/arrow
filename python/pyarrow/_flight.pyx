@@ -734,7 +734,7 @@ cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader,
             shared_ptr[CTable] c_table
         with nogil:
             check_flight_status(self.reader.get().ReadAll(&c_table))
-        return pyarrow_wrap_table(c_table)
+        return pyarrow_wrap_table(None, c_table)
 
     def read_chunk(self):
         """Read the next RecordBatch along with any metadata.

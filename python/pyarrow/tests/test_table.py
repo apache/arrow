@@ -991,3 +991,60 @@ def test_table_function_unicode_schema():
     result = pa.table(d, schema=schema)
     assert result[0].chunk(0).equals(pa.array([1, 2, 3], type='int32'))
     assert result[1].chunk(0).equals(pa.array(['a', 'b', 'c'], type='string'))
+
+
+def test_table_subclassing():
+    class MyTable(pa.Table):
+        pass
+
+    table = MyTable.from_arrays([], [])
+    assert type(table) == MyTable
+
+    table = MyTable.from_pydict({})
+    assert type(table) == MyTable
+
+    schema = pa.schema([
+        pa.field('a', pa.int64()),
+        pa.field('b', pa.float64()),
+    ])
+    batch = pa.record_batch([pa.array([1]), pa.array([3.14])],
+                            names=['a', 'b'])
+    table = MyTable.from_batches([batch], schema)
+    assert type(table) == MyTable
+
+    import pandas as pd
+    d = OrderedDict([('b', ['a', 'b', 'c']), ('a', [1, 2, 3])])
+    df = pd.DataFrame(d)
+    table = MyTable.from_pandas(df)
+    assert type(table) == MyTable
+
+    table = MyTable.from_arrays([[1, 2, 3]], ['A'])
+    assert type(table[1:2]) == MyTable
+
+    table = table.replace_schema_metadata(table.schema.metadata)
+    assert type(table) == MyTable
+
+    table = table.flatten()
+    assert type(table) == MyTable
+
+    table = table.combine_chunks()
+    assert type(table) == MyTable
+
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array(range(5, 10))
+    ]
+    table = MyTable.from_arrays(data, names=('a', 'b', 'c'))
+    new_field = pa.field('d', data[1].type)
+    table = table.add_column(3, new_field, data[1])
+    assert type(table) == MyTable
+
+    table = table.remove_column(3)
+    assert type(table) == MyTable
+
+    table = table.set_column(0, new_field, data[1])
+    assert type(table) == MyTable
+
+    table = table.rename_columns(table.column_names)
+    assert type(table) == MyTable
