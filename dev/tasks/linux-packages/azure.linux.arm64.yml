@@ -1,0 +1,82 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+jobs:
+- job: linux
+  pool:
+    vmImage: ubuntu-latest
+  timeoutInMinutes: 360
+  steps:
+    # for building the linux packages
+    - task: UseRubyVersion@0
+      inputs:
+        addToPath: true
+
+    - script: |
+        git clone --no-checkout {{ arrow.remote }} arrow
+        git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+        git -C arrow checkout FETCH_HEAD
+        git -C arrow submodule update --init --recursive
+      displayName: Clone arrow
+
+    # We can remove this with binfmt-support 2.1.7 or later and
+    # qemu-user-static 2.12 or later. It requires Debian buster or later,
+    # or Ubuntu 18.10 or later.
+    - script: |
+        sudo apt install -y qemu-user-static unar
+        wget http://archive.ubuntu.com/ubuntu/pool/universe/q/qemu/qemu-user-static_3.1+dfsg-2ubuntu3.4_amd64.deb
+        unar *.deb
+        rm *.deb
+        pushd qemu-user-static*
+        unar data.*
+        for arm64_image in ../arrow/dev/tasks/linux-packages/apt/*-arm64/; do
+          cp data/usr/bin/qemu-aarch64-static ${arm64_image}
+        done
+        popd
+      displayName: Prepare qemu-user-static
+
+    - script: |
+        pushd arrow/dev/tasks/linux-packages
+        rake version:update
+        rake dist
+        {{ build_command }}
+        popd
+      displayName: Build
+
+    # Using github release tries to find a common ancestor between the
+    # currently pushed tag and the latest tag of the github repository
+    # (don't know why).
+    # The tag upload took 43 minutes because of this scan, so use an
+    # alternative upload script.
+    - task: CondaEnvironment@1
+      inputs:
+        packageSpecs: 'click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz'
+        installOptions: '-c conda-forge'
+        updateConda: false
+    - script: |
+        python arrow/dev/tasks/crossbow.py \
+          --queue-path . \
+          --queue-remote {{ queue.remote_url }} \
+          upload-artifacts \
+        {%- for extension in upload_extensions %}
+          --pattern "**/*{{ extension }}" \
+        {%- endfor %}
+          --sha {{ task.branch }} \
+          --tag {{ task.tag }}
+      env:
+        CROSSBOW_GITHUB_TOKEN: $(CROSSBOW_GITHUB_TOKEN)
+      displayName: Upload packages as a GitHub release

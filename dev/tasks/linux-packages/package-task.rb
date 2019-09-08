@@ -294,11 +294,23 @@ VERSION=#{@deb_upstream_version}
   end
 
   def packager_name
-    ENV["DEBFULLNAME"] || ENV["NAME"] || `git config --get user.name`.chomp
+    ENV["DEBFULLNAME"] || ENV["NAME"] || guess_packager_name_from_git
+  end
+
+  def guess_packager_name_from_git
+    name = `git config --get user.name`.chomp
+    return name unless name.empty?
+    `git log -n 1 --format=%aN`.chomp
   end
 
   def packager_email
-    ENV["DEBEMAIL"] || ENV["EMAIL"] || `git config --get user.email`.chomp
+    ENV["DEBEMAIL"] || ENV["EMAIL"] || guess_packager_email_from_git
+  end
+
+  def guess_packager_email_from_git
+    email = `git config --get user.email`.chomp
+    return email unless email.empty?
+    `git log -n 1 --format=%aE`.chomp
   end
 
   def update_content(path)
@@ -342,5 +354,4 @@ VERSION=#{@deb_upstream_version}
       content.rstrip
     end
   end
-
 end

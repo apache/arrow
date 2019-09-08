@@ -19,8 +19,9 @@
 
 import os
 import re
+import glob
 import time
-import hashlib
+import mimetypes
 from io import StringIO
 from pathlib import Path
 from textwrap import dedent
@@ -28,7 +29,6 @@ from datetime import datetime
 from collections import namedtuple
 
 import click
-import gnupg
 import toolz
 import pygit2
 import github3
@@ -244,11 +244,13 @@ class Repo:
     require_https : boolean, default False
         Raise exception for SSH origin URLs
     """
-    def __init__(self, path, github_token=None, require_https=False):
+    def __init__(self, path, github_token=None, remote_url=None,
+                 require_https=False):
         self.path = Path(path)
         self.repo = pygit2.Repository(str(self.path))
         self.github_token = github_token
         self.require_https = require_https
+        self._remote_url = remote_url
         self._github_repo = None  # set by as_github_repo()
         self._updated_refs = []
 
@@ -294,17 +296,18 @@ class Repo:
     @property
     def branch(self):
         """Currently checked out branch"""
-        return self.repo.branches[self.repo.head.shorthand]
+        try:
+            return self.repo.branches[self.repo.head.shorthand]
+        except KeyError:
+            return None  # detached
 
     @property
     def remote(self):
         """Currently checked out branch's remote counterpart"""
-        if self.branch.upstream is None:
-            raise RuntimeError('Cannot determine git remote to push to, try '
-                               'to push the branch first to have a remote '
-                               'tracking counterpart.')
-        else:
+        try:
             return self.repo.remotes[self.branch.upstream.remote_name]
+        except (AttributeError, KeyError):
+            return None  # cannot detect
 
     @property
     def remote_url(self):
@@ -313,7 +316,10 @@ class Repo:
         If an SSH github url is set, it will be replaced by the https
         equivalent usable with Github OAuth token.
         """
-        return _git_ssh_to_https(self.remote.url)
+        try:
+            return self._remote_url or _git_ssh_to_https(self.remote.url)
+        except AttributeError:
+            return None
 
     @property
     def user_name(self):
@@ -389,7 +395,8 @@ class Repo:
         return blob.data
 
     def _parse_github_user_repo(self):
-        m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote_url)
+        url = self._remote_url if self._remote_url else self.remote_url
+        m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', url)
         user, repo = m.group(1), m.group(2)
         return user, repo
 
@@ -401,53 +408,7 @@ class Repo:
             return gh.repository(username, reponame)
         return self._github_repo
 
-
-CombinedStatus = namedtuple('CombinedStatus', ('state', 'total_count'))
-
-
-class Queue(Repo):
-
-    def _next_job_id(self, prefix):
-        """Auto increments the branch's identifier based on the prefix"""
-        pattern = re.compile(r'[\w\/-]*{}-(\d+)'.format(prefix))
-        matches = list(filter(None, map(pattern.match, self.repo.branches)))
-        if matches:
-            latest = max(int(m.group(1)) for m in matches)
-        else:
-            latest = 0
-        return '{}-{}'.format(prefix, latest + 1)
-
-    def get(self, job_name):
-        branch_name = 'origin/{}'.format(job_name)
-        branch = self.repo.branches[branch_name]
-        content = self.file_contents(branch.target, 'job.yml')
-        buffer = StringIO(content.decode('utf-8'))
-        return yaml.load(buffer)
-
-    def put(self, job, prefix='build'):
-        if not isinstance(job, Job):
-            raise ValueError('`job` must be an instance of Job')
-        if job.branch is not None:
-            raise ValueError('`job.branch` is automatically generated, thus '
-                             'it must be blank')
-
-        # auto increment and set next job id, e.g. build-85
-        job.branch = self._next_job_id(prefix)
-
-        # create tasks' branches
-        for task_name, task in job.tasks.items():
-            # adding CI's name to the end of the branch in order to use skip
-            # patterns on travis and circleci
-            task.branch = '{}-{}-{}'.format(job.branch, task.ci, task_name)
-            files = task.render_files(job=job, arrow=job.target)
-            branch = self.create_branch(task.branch, files=files)
-            self.create_tag(task.tag, branch.target)
-            task.commit = str(branch.target)
-
-        # create job's branch with its description
-        return self.create_branch(job.branch, files=job.render_files())
-
-    def combined_status(self, task):
+    def github_commit_status(self, commit):
         """Combine the results from status and checks API to a single state.
 
         Azure pipelines uses checks API which doesn't provide a combined
@@ -470,8 +431,8 @@ class Queue(Repo):
 
         Parameters
         ----------
-        task : Task
-            Task to query the combined status for.
+        commit : str
+            Commit to query the combined status for.
 
         Returns
         -------
@@ -481,7 +442,7 @@ class Queue(Repo):
         )
         """
         repo = self.as_github_repo()
-        commit = repo.commit(task.commit)
+        commit = repo.commit(commit)
         states = []
 
         for status in commit.status().statuses:
@@ -510,48 +471,106 @@ class Queue(Repo):
 
         return CombinedStatus(state=combined_state, total_count=len(states))
 
-    def github_statuses(self, job):
-        return toolz.valmap(self.combined_status, job.tasks)
-
-    def github_assets(self, task):
+    def github_release_assets(self, tag):
         repo = self.as_github_repo()
         try:
-            release = repo.release_from_tag(task.tag)
+            release = repo.release_from_tag(tag)
         except github3.exceptions.NotFoundError:
             return {}
+        else:
+            return {a.name: a for a in release.assets()}
 
-        assets = {a.name: a for a in release.assets()}
-
-        artifacts = {}
-        for artifact in task.artifacts:
-            # artifact can be a regex pattern
-            pattern = re.compile(artifact)
-            matches = list(filter(None, map(pattern.match, assets.keys())))
-            num_matches = len(matches)
-
-            # validate artifact pattern matches single asset
-            if num_matches > 1:
-                raise ValueError(
-                    'Only a single asset should match pattern `{}`, there are '
-                    'multiple ones: {}'.format(', '.join(matches))
-                )
-            elif num_matches == 1:
-                artifacts[artifact] = assets[matches[0].group(0)]
-
-        return artifacts
-
-    def upload_assets(self, job, files, content_type):
+    def github_overwrite_release_assets(self, tag_name, target_commitish,
+                                        patterns):
         repo = self.as_github_repo()
-        release = repo.release_from_tag(job.branch)
-        assets = {a.name: a for a in release.assets()}
+        if not tag_name:
+            raise ValueError('Empty tag name')
+        if not target_commitish:
+            raise ValueError('Empty target commit for the release tag')
 
-        for path in files:
-            if path.name in assets:
-                # remove already uploaded asset
-                assets[path.name].delete()
-            with path.open('rb') as fp:
-                release.upload_asset(name=path.name, asset=fp,
-                                     content_type=content_type)
+        # remove the whole release if it already exists
+        try:
+            release = repo.release_from_tag(tag_name)
+        except github3.exceptions.NotFoundError:
+            pass
+        else:
+            release.delete()
+
+        release = repo.create_release(tag_name, target_commitish)
+        default_mime = 'application/octet-stream'
+
+        for pattern in patterns:
+            for path in glob.glob(pattern, recursive=True):
+                name = os.path.basename(path)
+                mime = mimetypes.guess_type(name)[0] or default_mime
+
+                # TODO(kszucs): use logging
+                click.echo('Uploading asset `{}`...'.format(name))
+                with open(path, 'rb') as fp:
+                    release.upload_asset(name=name, asset=fp,
+                                         content_type=mime)
+
+
+CombinedStatus = namedtuple('CombinedStatus', ('state', 'total_count'))
+
+
+class Queue(Repo):
+
+    def _next_job_id(self, prefix):
+        """Auto increments the branch's identifier based on the prefix"""
+        pattern = re.compile(r'[\w\/-]*{}-(\d+)'.format(prefix))
+        matches = list(filter(None, map(pattern.match, self.repo.branches)))
+        if matches:
+            latest = max(int(m.group(1)) for m in matches)
+        else:
+            latest = 0
+        return '{}-{}'.format(prefix, latest + 1)
+
+    def get(self, job_name):
+        branch_name = 'origin/{}'.format(job_name)
+        branch = self.repo.branches[branch_name]
+        content = self.file_contents(branch.target, 'job.yml')
+        buffer = StringIO(content.decode('utf-8'))
+        job = yaml.load(buffer)
+        job.queue = self
+        return job
+
+    def put(self, job, prefix='build'):
+        if not isinstance(job, Job):
+            raise ValueError('`job` must be an instance of Job')
+        if job.branch is not None:
+            raise ValueError('`job.branch` is automatically generated, thus '
+                             'it must be blank')
+
+        if job.target.remote is None:
+            raise RuntimeError(
+                'Cannot determine git remote for the Arrow repository to '
+                'clone or push to, try to push the branch first to have a '
+                'remote tracking counterpart.'
+            )
+        if job.target.branch is None:
+            raise RuntimeError(
+                'Cannot determine the current branch of the Arrow repository '
+                'to clone or push to, perhaps it is in detached HEAD state. '
+                'Please checkout a branch.'
+            )
+
+        # auto increment and set next job id, e.g. build-85
+        job._queue = self
+        job.branch = self._next_job_id(prefix)
+
+        # create tasks' branches
+        for task_name, task in job.tasks.items():
+            # adding CI's name to the end of the branch in order to use skip
+            # patterns on travis and circleci
+            task.branch = '{}-{}-{}'.format(job.branch, task.ci, task_name)
+            files = task.render_files(job=job, arrow=job.target, queue=self)
+            branch = self.create_branch(task.branch, files=files)
+            self.create_tag(task.tag, branch.target)
+            task.commit = str(branch.target)
+
+        # create job's branch with its description
+        return self.create_branch(job.branch, files=job.render_files())
 
 
 def get_version(root, **kwargs):
@@ -564,7 +583,16 @@ def get_version(root, **kwargs):
     return parse_git_version(root, **kwargs)
 
 
-class Target:
+class Serializable:
+
+    @classmethod
+    def to_yaml(cls, representer, data):
+        tag = '!{}'.format(cls.__name__)
+        dct = {k: v for k, v in data.__dict__.items() if not k.startswith('_')}
+        return representer.represent_mapping(tag, dct)
+
+
+class Target(Serializable):
     """Describes target repository and revision the builds run against
 
     This serializable data container holding information about arrow's
@@ -604,7 +632,7 @@ class Target:
                    version=version)
 
 
-class Task:
+class Task(Serializable):
     """Describes a build task and metadata required to render CI templates
 
     A task is represented as a single git commit and branch containing jinja2
@@ -624,7 +652,8 @@ class Task:
         self.artifacts = artifacts or []
         self.params = params or {}
         self.branch = None  # filled after adding to a queue
-        self.commit = None
+        self.commit = None  # filled after adding to a queue
+        self._queue = None  # set by the queue object after put or get
 
     def render_files(self, **extra_params):
         path = CWD / self.template
@@ -647,8 +676,33 @@ class Task:
         }
         return config_files[self.ci]
 
+    def status(self):
+        return self._queue.github_commit_status(self.commit)
 
-class Job:
+    def assets(self):
+        assets = self._queue.github_release_assets(self.tag)
+
+        # validate the artifacts
+        artifacts = {}
+        for artifact in self.artifacts:
+            # artifact can be a regex pattern
+            pattern = re.compile(artifact)
+            matches = list(filter(None, map(pattern.match, assets.keys())))
+            num_matches = len(matches)
+
+            # validate artifact pattern matches single asset
+            if num_matches > 1:
+                raise ValueError(
+                    'Only a single asset should match pattern `{}`, there are '
+                    'multiple ones: {}'.format(', '.join(matches))
+                )
+            elif num_matches == 1:
+                artifacts[artifact] = assets[matches[0].group(0)]
+
+        return artifacts
+
+
+class Job(Serializable):
     """Describes multiple tasks against a single target repository"""
 
     def __init__(self, target, tasks):
@@ -661,6 +715,7 @@ class Job:
         self.target = target
         self.tasks = tasks
         self.branch = None  # filled after adding to a queue
+        self._queue = None  # set by the queue object after put or get
 
     def render_files(self):
         with StringIO() as buf:
@@ -669,8 +724,59 @@ class Job:
         return toolz.merge(_default_tree, {'job.yml': content})
 
     @property
+    def queue(self):
+        assert isinstance(self._queue, Queue)
+        return self._queue
+
+    @queue.setter
+    def queue(self, queue):
+        assert isinstance(queue, Queue)
+        self._queue = queue
+        for task in self.tasks.values():
+            task._queue = queue
+
+    @property
     def email(self):
         return os.environ.get('CROSSBOW_EMAIL', self.target.email)
+
+    @classmethod
+    def from_config(cls, config, target, task_whitelist=None,
+                    group_whitelist=None):
+        config_groups = dict(config['groups'])
+        config_tasks = dict(config['tasks'])
+        valid_groups = set(config_groups.keys())
+        valid_tasks = set(config_tasks.keys())
+        group_whitelist = list(group_whitelist or [])
+        task_whitelist = list(task_whitelist or [])
+
+        requested_groups = set(group_whitelist)
+        invalid_groups = requested_groups - valid_groups
+        if invalid_groups:
+            msg = 'Invalid group(s) {!r}. Must be one of {!r}'.format(
+                invalid_groups, valid_groups
+            )
+            raise click.ClickException(msg)
+
+        requested_tasks = [list(config_groups[name])
+                           for name in group_whitelist]
+        requested_tasks = set(sum(requested_tasks, task_whitelist))
+        invalid_tasks = requested_tasks - valid_tasks
+        if invalid_tasks:
+            msg = 'Invalid task(s) {!r}. Must be one of {!r}'.format(
+                invalid_tasks, valid_tasks
+            )
+            raise click.ClickException(msg)
+
+        tasks = {}
+        versions = {'version': target.version,
+                    'no_rc_version': target.no_rc_version}
+        for task_name in requested_tasks:
+            task = config_tasks[task_name]
+            artifacts = task.pop('artifacts', None) or []  # because of yaml
+            artifacts = [fn.format(**versions) for fn in artifacts]
+            tasks[task_name] = Task(artifacts=artifacts, **task)
+
+        return cls(target=target, tasks=tasks)
 
 
 # configure yaml serializer
@@ -704,8 +810,10 @@ DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
               type=click.Path(exists=True), default=DEFAULT_QUEUE_PATH,
               help='The repository path used for scheduling the tasks. '
                    'Defaults to crossbow directory placed next to arrow')
+@click.option('--queue-remote', '-qr', default=None,
+              help='Force to use this remote URL for the Queue repository')
 @click.pass_context
-def crossbow(ctx, github_token, arrow_path, queue_path):
+def crossbow(ctx, github_token, arrow_path, queue_path, queue_remote):
     if github_token is None:
         raise click.ClickException(
             'Could not determine GitHub token. Please set the '
@@ -714,8 +822,8 @@ def crossbow(ctx, github_token, arrow_path, queue_path):
         )
 
     ctx.obj['arrow'] = Repo(arrow_path)
-    ctx.obj['queue'] = Queue(queue_path, github_token=github_token,
-                             require_https=True)
+    ctx.obj['queue'] = Queue(queue_path, remote_url=queue_remote,
+                             github_token=github_token, require_https=True)
 
 
 @crossbow.command()
@@ -750,35 +858,9 @@ def changelog(ctx, changelog_path, arrow_version, is_website, jira_username,
                    'changes')
 
 
-def load_tasks_from_config(config_path, task_names, group_names):
-    with Path(config_path).open() as fp:
-        config = yaml.load(fp)
-
-    groups = config['groups']
-    tasks = config['tasks']
-
-    valid_groups = set(groups.keys())
-    valid_tasks = set(tasks.keys())
-
-    requested_groups = set(group_names)
-    invalid_groups = requested_groups - valid_groups
-    if invalid_groups:
-        raise click.ClickException('Invalid group(s) {!r}. Must be one of {!r}'
-                                   .format(invalid_groups, valid_groups))
-
-    requested_tasks = [list(groups[name]) for name in group_names]
-    requested_tasks = set(sum(requested_tasks, list(task_names)))
-    invalid_tasks = requested_tasks - valid_tasks
-    if invalid_tasks:
-        raise click.ClickException('Invalid task(s) {!r}. Must be one of {!r}'
-                                   .format(invalid_tasks, valid_tasks))
-
-    return {t: config['tasks'][t] for t in requested_tasks}
-
-
 @crossbow.command()
-@click.argument('task', nargs=-1, required=False)
-@click.option('--group', '-g', multiple=True,
+@click.argument('tasks', nargs=-1, required=False)
+@click.option('--group', '-g', 'groups', multiple=True,
               help='Submit task groups as defined in task.yml')
 @click.option('--job-prefix', default='build',
               help='Arbitrary prefix for branch names, e.g. nightly')
@@ -804,9 +886,13 @@ def load_tasks_from_config(config_path, task_names, group_names):
               type=click.File('w', encoding='utf8'), default='-',
               help='Capture output result into file.')
 @click.pass_context
-def submit(ctx, task, group, job_prefix, config_path, arrow_version,
+def submit(ctx, tasks, groups, job_prefix, config_path, arrow_version,
            arrow_remote, arrow_branch, arrow_sha, dry_run, output):
     queue, arrow = ctx.obj['queue'], ctx.obj['arrow']
+
+    # load available tasks configuration and groups from yaml
+    with Path(config_path).open() as fp:
+        config = yaml.load(fp)
 
     # Override the detected repo url / remote, branch and sha - this aims to
     # make release procedure a bit simpler.
@@ -817,22 +903,10 @@ def submit(ctx, task, group, job_prefix, config_path, arrow_version,
     # which will be reduced to a single command in the future.
     target = Target.from_repo(arrow, remote=arrow_remote, branch=arrow_branch,
                               head=arrow_sha, version=arrow_version)
-    params = {
-        'version': target.version,
-        'no_rc_version': target.no_rc_version,
-    }
 
-    # task and group variables are lists, containing multiple values
-    tasks = {}
-    task_configs = load_tasks_from_config(config_path, task, group)
-    for name, task in task_configs.items():
-        # replace version number and create task instance from configuration
-        artifacts = task.pop('artifacts', None) or []  # because of yaml
-        artifacts = [fn.format(**params) for fn in artifacts]
-        tasks[name] = Task(artifacts=artifacts, **task)
-
-    # create job instance, doesn't mutate git data yet
-    job = Job(target=target, tasks=tasks)
+    # instantiate the job object
+    job = Job.from_config(config, target=target, task_whitelist=tasks,
+                          group_whitelist=groups)
 
     if dry_run:
         yaml.dump(job, output)
@@ -860,11 +934,10 @@ def status(ctx, job_name, output):
     click.echo('-' * len(header), file=output)
 
     job = queue.get(job_name)
-    statuses = queue.github_statuses(job)
 
     for task_name, task in sorted(job.tasks.items()):
-        status = statuses[task_name]
-        assets = queue.github_assets(task)
+        status = task.status()
+        assets = task.assets()
 
         uploaded = 'uploaded {} / {}'.format(
             sum(a in assets for a in task.artifacts),
@@ -888,48 +961,14 @@ def status(ctx, job_name, output):
                        file=output)
 
 
-def hashbytes(bytes, algoname):
-    """Hash `bytes` using the algorithm named `algoname`.
-
-    Parameters
-    ----------
-    bytes : bytes
-        The bytes to hash
-    algoname : str
-        The name of class in the hashlib standard library module
-
-    Returns
-    -------
-    str
-        Hexadecimal digest of `bytes` hashed using `algoname`
-    """
-    algo = getattr(hashlib, algoname)()
-    algo.update(bytes)
-    result = algo.hexdigest()
-    return result
-
-
 @crossbow.command()
 @click.argument('job-name', required=True)
-@click.option('-g', '--gpg-homedir', default=None,
-              type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              help=('Full pathname to directory containing the public and '
-                    'private keyrings. Default is whatever GnuPG defaults to'))
 @click.option('-t', '--target-dir', default=DEFAULT_ARROW_PATH / 'packages',
               type=click.Path(file_okay=False, dir_okay=True),
               help='Directory to download the build artifacts')
-@click.option('-a', '--algorithm',
-              default=['sha256', 'sha512'],
-              show_default=True,
-              type=click.Choice(sorted(hashlib.algorithms_guaranteed)),
-              multiple=True,
-              help=('Algorithm(s) used to generate checksums. Pass multiple '
-                    'algorithms by passing -a/--algorithm multiple times'))
 @click.pass_context
-def sign(ctx, job_name, gpg_homedir, target_dir, algorithm):
+def download_artifacts(ctx, job_name, target_dir):
     """Download and sign build artifacts from github releases"""
-    gpg = gnupg.GPG(gnupghome=gpg_homedir)
-
     # fetch the queue repository
     queue = ctx.obj['queue']
     queue.fetch()
@@ -947,11 +986,11 @@ def sign(ctx, job_name, gpg_homedir, target_dir, algorithm):
     ntasks = len(task_items)
 
     for i, (task_name, task) in enumerate(task_items, start=1):
-        assets = queue.github_assets(task)
+        assets = task.assets()
         artifact_dir = target_dir / task_name
         artifact_dir.mkdir(exist_ok=True)
 
-        basemsg = 'Downloading and signing assets for task {}'.format(
+        basemsg = 'Downloading assets for task {}'.format(
             click.style(task_name, bold=True)
         )
         click.echo(
@@ -978,30 +1017,22 @@ def sign(ctx, job_name, gpg_homedir, target_dir, algorithm):
                 artifact_path = artifact_dir / asset.name
                 asset.download(artifact_path)
 
-                # sign the artifact
-                signature_path = Path(str(artifact_path) + '.asc')
-                with artifact_path.open('rb') as fp:
-                    gpg.sign_file(fp, detach=True, clearsign=False,
-                                  binary=False,
-                                  output=str(signature_path))
+                msg = click.style('[{:>13}]'.format('DOWNLOADED'),
+                                  fg=COLORS['ok'])
+                click.echo(tpl.format(msg, str(asset.name)))
 
-                # compute checksums for the artifact
-                artifact_bytes = artifact_path.read_bytes()
-                for algo in algorithm:
-                    suffix = '.{}'.format(algo)
-                    checksum_path = Path(str(artifact_path) + suffix)
-                    checksum = '{}  {}'.format(
-                        hashbytes(artifact_bytes, algo), artifact_path.name
-                    )
-                    checksum_path.write_text(checksum)
-                    msg = click.style(
-                        '[{:>13}]'.format('{} HASHED'.format(algo)),
-                        fg='blue'
-                    )
-                    click.echo(tpl.format(msg, checksum_path.name))
 
-                msg = click.style('[{:>13}]'.format('SIGNED'), fg=COLORS['ok'])
-                click.echo(tpl.format(msg, str(signature_path.name)))
+@crossbow.command()
+@click.option('--sha', required=True, help='Target committish')
+@click.option('--tag', required=True, help='Target tag')
+@click.option('--pattern', '-p', 'patterns', required=True, multiple=True,
+              help='File pattern to upload as assets')
+@click.pass_context
+def upload_artifacts(ctx, tag, sha, patterns):
+    queue = ctx.obj['queue']
+    queue.github_overwrite_release_assets(
+        tag_name=tag, target_commitish=sha, patterns=patterns
+    )
 
 
 if __name__ == '__main__':

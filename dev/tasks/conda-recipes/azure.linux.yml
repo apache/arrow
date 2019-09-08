@@ -30,23 +30,24 @@ jobs:
     displayName: Run docker build
     workingDirectory: arrow/dev/tasks/conda-recipes
 
-  # Using github release tries to find a common ancestor between the currently
-  # pushed tag and the latest tag of the github repository (don't know why).
-  # The tag upload took 43 minutes because of this scan, so use an alternative
-  # upload script.
-  - task: UsePythonVersion@0
+  # Using github release tries to find a common ancestor between the
+  # currently pushed tag and the latest tag of the github repository
+  # (don't know why).
+  # The tag upload took 43 minutes because of this scan, so use an
+  # alternative upload script.
+  - task: CondaEnvironment@1
     inputs:
-      versionSpec: '3.6'
-      architecture: 'x64'
-
+      packageSpecs: 'click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz'
+      installOptions: '-c conda-forge'
+      updateConda: false
   - script: |
-      python -m pip install github3-py click
-      python upload-assets.py \
+      python arrow/dev/tasks/crossbow.py \
+        --queue-path . \
+        --queue-remote {{ queue.remote_url }} \
+        upload-artifacts \
         --sha {{ task.branch }} \
         --tag {{ task.tag }} \
-        --pattern "conda-recipes/build_artifacts/linux-64/*.tar.bz2"
+        --pattern "arrow/dev/tasks/conda-recipes/build_artifacts/linux-64/*.tar.bz2"
     env:
-      CROSSBOW_GITHUB_REPO: $(Build.Repository.Name)
       CROSSBOW_GITHUB_TOKEN: $(CROSSBOW_GITHUB_TOKEN)
     displayName: Upload packages as a GitHub release
-    workingDirectory: arrow/dev/tasks
