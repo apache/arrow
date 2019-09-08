@@ -412,9 +412,9 @@ Now, we build and install Arrow C++ libraries.
 
 We set a number of environment variables:
 
-- the path of the installation directory of the Arrow C++ library as arrow
+- the path of the installation directory of the Arrow C++ libraries as
   ``ARROW_HOME``
-- add the path of its built .dll-libraris to ``PATH``
+- add the path of installed DLL libraries to ``PATH``
 - and choose the compiler to be used
 
 .. code-block:: shell
@@ -472,27 +472,35 @@ Then run the unit tests with:
 .. note::
 
    With the above instructions the Arrow C++ libraries are not bundled with
-   the python extension. This is recommended for development as it allows the
+   the Python extension. This is recommended for development as it allows the
    C++ libraries to be re-built separately.
 
    As a consequence however, ``python setup.py install`` will also not install
-   the Arrow C++ libraries. Therefore, to use ``pyarrow`` in python, ``PATH`` 
+   the Arrow C++ libraries. Therefore, to use ``pyarrow`` in python, ``PATH``
    must contain the directory with the Arrow .dll-files.
 
-   If you want to bundle the Arrow C++ libraries with ``pyarrow`` add 
+   If you want to bundle the Arrow C++ libraries with ``pyarrow`` add
    ``--bundle-arrow-cpp`` as build parameter:
 
-   ``python setup.py build_ext --inplace --bundle-arrow-cpp``
+   ``python setup.py build_ext --bundle-arrow-cpp``
+
+   Important: If you combine ``--bundle-arrow-cpp`` with ``--inplace`` the
+   Arrow C++ libraries get copied to the python source tree and are not cleared
+   by ``python setup.py clean``. They remain in place and will take precedence
+   over any later Arrow C++ libraries contained in ``PATH``. This can lead to
+   incompatibilities when ``pyarrow`` is later built without
+   ``--bundle-arrow-cpp``.
 
 Running C++ unit tests for Python integration
 ---------------------------------------------
 
 Running C++ unit tests should not be necessary for most developers. If you do
-want to run them, you need to pass ``-DARROW_BUILD_TESTS=ON`` during 
+want to run them, you need to pass ``-DARROW_BUILD_TESTS=ON`` during
 configuration of the Arrow C++ library build:
 
 .. code-block:: shell
 
+   mkdir arrow\cpp\build
    pushd arrow\cpp\build
    cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
        -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
