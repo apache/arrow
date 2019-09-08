@@ -34,7 +34,7 @@ namespace arrow {
 template <typename T>
 struct TypeTraits {};
 
-template <typename T>
+template <typename T, typename Enable = void>
 struct CTypeTraits {};
 
 template <>
@@ -367,6 +367,49 @@ struct TypeTraits<ExtensionType> {
   constexpr static bool is_parameter_free = false;
 };
 
+namespace internal {
+
+template <typename... Ts>
+struct make_void {
+  using type = void;
+};
+
+template <typename... Ts>
+using void_t = typename make_void<Ts...>::type;
+
+template <typename T, typename = void>
+struct is_dereferencable : public std::false_type {};
+
+template <typename T>
+struct is_dereferencable<T, void_t<decltype(*std::declval<T>())>>
+    : public std::true_type {};
+
+template <typename T, typename = void>
+struct is_optional_like : public std::false_type {};
+
+template <typename T>
+struct is_optional_like<T,
+                        typename std::enable_if<std::is_constructible<bool, T>::value &&
+                                                is_dereferencable<T>::value>::type>
+    : public std::true_type {};
+
+}  // namespace internal
+
+template <typename T, typename R = void>
+using enable_if_optional_like =
+    typename std::enable_if<internal::is_optional_like<T>::value, R>::type;
+
+template <typename Optional>
+struct CTypeTraits<Optional, enable_if_optional_like<Optional>> {
+  using OptionalInnerType =
+      typename std::decay<decltype(*std::declval<Optional>())>::type;
+  using ArrowType = typename CTypeTraits<OptionalInnerType>::ArrowType;
+
+  static std::shared_ptr<::arrow::DataType> type_singleton() {
+    return CTypeTraits<OptionalInnerType>::type_singleton();
+  }
+};
+
 //
 // Useful type predicates
 //
@@ -500,24 +543,18 @@ using enable_if_fixed_size_list =
 template <typename T, typename R = void>
 using enable_if_number = typename std::enable_if<is_number_type<T>::value, R>::type;
 
-namespace detail {
-
-// Not all type classes have a c_type
-template <typename T>
-struct as_void {
-  using type = void;
-};
+namespace internal {
 
 // The partial specialization will match if T has the ATTR_NAME member
-#define GET_ATTR(ATTR_NAME, DEFAULT)                                             \
-  template <typename T, typename Enable = void>                                  \
-  struct GetAttr_##ATTR_NAME {                                                   \
-    using type = DEFAULT;                                                        \
-  };                                                                             \
-                                                                                 \
-  template <typename T>                                                          \
-  struct GetAttr_##ATTR_NAME<T, typename as_void<typename T::ATTR_NAME>::type> { \
-    using type = typename T::ATTR_NAME;                                          \
+#define GET_ATTR(ATTR_NAME, DEFAULT)                             \
+  template <typename T, typename Enable = void>                  \
+  struct GetAttr_##ATTR_NAME {                                   \
+    using type = DEFAULT;                                        \
+  };                                                             \
+                                                                 \
+  template <typename T>                                          \
+  struct GetAttr_##ATTR_NAME<T, void_t<typename T::ATTR_NAME>> { \
+    using type = typename T::ATTR_NAME;                          \
   };
 
 GET_ATTR(c_type, void)
@@ -525,13 +562,13 @@ GET_ATTR(TypeClass, void)
 
 #undef GET_ATTR
 
-}  // namespace detail
+}  // namespace internal
 
-#define PRIMITIVE_TRAITS(T)                                                         \
-  using TypeClass =                                                                 \
-      typename std::conditional<std::is_base_of<DataType, T>::value, T,             \
-                                typename detail::GetAttr_TypeClass<T>::type>::type; \
-  using c_type = typename detail::GetAttr_c_type<TypeClass>::type
+#define PRIMITIVE_TRAITS(T)                                                           \
+  using TypeClass =                                                                   \
+      typename std::conditional<std::is_base_of<DataType, T>::value, T,               \
+                                typename internal::GetAttr_TypeClass<T>::type>::type; \
+  using c_type = typename internal::GetAttr_c_type<TypeClass>::type
 
 template <typename T>
 struct IsUnsignedInt {
