@@ -751,7 +751,7 @@ def _reconstruct_record_batch(columns, schema):
     return RecordBatch.from_arrays(columns, schema=schema)
 
 
-def table_to_blocks(PandasOptions options, Table table,
+def table_to_blocks(PandasOptions options, _Table table,
                     MemoryPool memory_pool, categories):
     cdef:
         PyObject* result_obj
@@ -772,7 +772,7 @@ def table_to_blocks(PandasOptions options, Table table,
     return PyObject_to_object(result_obj)
 
 
-cdef class Table(_PandasConvertible):
+cdef class _Table(_PandasConvertible):
     """
     A collection of top-level named, equal length Arrow arrays.
 
@@ -925,7 +925,7 @@ cdef class Table(_PandasConvertible):
         except TypeError:
             return NotImplemented
 
-    def equals(self, Table other):
+    def equals(self, _Table other):
         """
         Check if contents of two tables are equal
 
@@ -1481,6 +1481,8 @@ cdef class Table(_PandasConvertible):
 
         return table
 
+Table = _Table
+
 
 def _reconstruct_table(arrays, schema):
     """
@@ -1577,7 +1579,7 @@ def concat_tables(tables):
     cdef:
         vector[shared_ptr[CTable]] c_tables
         shared_ptr[CTable] c_result
-        Table table
+        _Table table
 
     for table in tables:
         c_tables.push_back(table.sp_table)

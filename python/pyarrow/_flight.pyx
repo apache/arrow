@@ -1067,7 +1067,7 @@ cdef class RecordBatchStream(FlightDataStream):
         data_source : RecordBatchReader or Table
         """
         if (not isinstance(data_source, _CRecordBatchReader) and
-                not isinstance(data_source, lib.Table)):
+                not isinstance(data_source, lib._Table)):
             raise TypeError("Expected RecordBatchReader or Table, "
                             "but got: {}".format(type(data_source)))
         self.data_source = data_source
@@ -1078,7 +1078,7 @@ cdef class RecordBatchStream(FlightDataStream):
         if isinstance(self.data_source, _CRecordBatchReader):
             reader = (<_CRecordBatchReader> self.data_source).reader
         elif isinstance(self.data_source, lib.Table):
-            table = (<Table> self.data_source).table
+            table = (<_Table> self.data_source).table
             reader.reset(new TableBatchReader(deref(table)))
         else:
             raise RuntimeError("Can't construct RecordBatchStream "
@@ -1291,7 +1291,7 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
     else:
         result, metadata = result, None
 
-    if isinstance(result, (Table, _CRecordBatchReader)):
+    if isinstance(result, (_Table, _CRecordBatchReader)):
         if metadata:
             raise ValueError("Can only return metadata alongside a "
                              "RecordBatch.")

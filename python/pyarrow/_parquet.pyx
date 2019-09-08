@@ -33,7 +33,7 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (Buffer, Array, Schema,
                           check_status,
                           MemoryPool, maybe_unbox_memory_pool,
-                          Table, NativeFile,
+                          _Table, NativeFile,
                           pyarrow_wrap_chunked_array,
                           pyarrow_wrap_schema,
                           pyarrow_wrap_table,
@@ -1324,7 +1324,7 @@ cdef class ParquetWriter:
             if self.own_sink:
                 check_status(self.sink.get().Close())
 
-    def write_table(self, Table table, row_group_size=None):
+    def write_table(self, _Table table, row_group_size=None):
         cdef:
             CTable* ctable = table.table
             int64_t c_row_group_size

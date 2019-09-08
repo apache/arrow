@@ -183,7 +183,7 @@ cdef class _CRecordBatchWriter:
         """
         if isinstance(table_or_batch, RecordBatch):
             self.write_batch(table_or_batch)
-        elif isinstance(table_or_batch, Table):
+        elif isinstance(table_or_batch, _Table):
             self.write_table(table_or_batch)
         else:
             raise ValueError(type(table_or_batch))
@@ -200,7 +200,7 @@ cdef class _CRecordBatchWriter:
             check_status(self.writer.get()
                          .WriteRecordBatch(deref(batch.batch)))
 
-    def write_table(self, Table table, max_chunksize=None, **kwargs):
+    def write_table(self, _Table table, max_chunksize=None, **kwargs):
         """
         Write Table to stream in (contiguous) RecordBatch objects, with maximum
         chunk size

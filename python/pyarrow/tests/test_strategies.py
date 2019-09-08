@@ -53,4 +53,4 @@ def test_record_batches(record_bath):
 
 @h.given(past.all_tables)
 def test_tables(table):
-    assert isinstance(table, pa.lib.Table)
+    assert isinstance(table, pa.lib._Table)

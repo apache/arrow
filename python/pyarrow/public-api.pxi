@@ -304,13 +304,13 @@ cdef api object pyarrow_wrap_sparse_tensor_csr(
 
 
 cdef api bint pyarrow_is_table(object table):
-    return isinstance(table, Table)
+    return isinstance(table, _Table)
 
 
 cdef api shared_ptr[CTable] pyarrow_unwrap_table(object table):
-    cdef Table tab
+    cdef _Table tab
     if pyarrow_is_table(table):
-        tab = <Table>(table)
+        tab = <_Table>(table)
         return tab.sp_table
 
     return shared_ptr[CTable]()
@@ -322,7 +322,7 @@ cdef api object pyarrow_wrap_table(
         table_class = Table
     # Ensure that wrapped table is Valid
     check_status(ctable.get().Validate())
-    cdef Table table = table_class.__new__(table_class)
+    cdef _Table table = table_class.__new__(table_class)
     table.init(ctable)
     return table
 

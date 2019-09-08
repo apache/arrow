@@ -396,7 +396,7 @@ cdef class ChunkedArray(_PandasConvertible):
     cdef getitem(self, int64_t i)
 
 
-cdef class Table(_PandasConvertible):
+cdef class _Table(_PandasConvertible):
     cdef:
         shared_ptr[CTable] sp_table
         CTable* table
