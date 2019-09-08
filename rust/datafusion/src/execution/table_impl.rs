@@ -184,7 +184,6 @@ mod tests {
     use super::*;
     use crate::execution::context::ExecutionContext;
     use crate::test;
-    use std::env;
 
     #[test]
     fn column_index() {
@@ -308,7 +307,7 @@ mod tests {
 
     fn register_aggregate_csv(ctx: &mut ExecutionContext) {
         let schema = test::aggr_test_schema();
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = test::arrow_testdata_path();
         ctx.register_csv(
             "aggregate_test_100",
             &format!("{}/csv/aggregate_test_100.csv", testdata),

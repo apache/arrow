@@ -34,7 +34,7 @@ pub fn arrow_testdata_path() -> String {
 
 /// Generated partitioned copy of a CSV file
 pub fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<String> {
-    let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+    let testdata = arrow_testdata_path();
     let path = format!("{}/csv/{}", testdata, filename);
 
     let mut dir = env::temp_dir();

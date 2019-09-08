@@ -1198,13 +1198,12 @@ mod tests {
     use crate::logicalplan::Expr;
     use crate::test;
     use arrow::datatypes::{DataType, Field, Schema};
-    use std::env;
     use std::sync::Mutex;
 
     #[test]
     fn min_f64_group_by_string() {
         let schema = test::aggr_test_schema();
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = test::arrow_testdata_path();
         let relation =
             load_csv(&format!("{}/csv/aggregate_test_100.csv", testdata), &schema);
         let context = ExecutionContext::new();
@@ -1241,7 +1240,7 @@ mod tests {
     #[test]
     fn count() {
         let schema = test::aggr_test_schema();
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = test::arrow_testdata_path();
         let relation =
             load_csv(&format!("{}/csv/aggregate_test_100.csv", testdata), &schema);
         let context = ExecutionContext::new();
@@ -1278,7 +1277,7 @@ mod tests {
     #[test]
     fn max_f64_group_by_string() {
         let schema = test::aggr_test_schema();
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = test::arrow_testdata_path();
         let relation =
             load_csv(&format!("{}/csv/aggregate_test_100.csv", testdata), &schema);
         let context = ExecutionContext::new();
@@ -1315,7 +1314,7 @@ mod tests {
     #[test]
     fn test_min_max_sum_count_avg_f64_group_by_uint32() {
         let schema = test::aggr_test_schema();
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = test::arrow_testdata_path();
         let relation =
             load_csv(&format!("{}/csv/aggregate_test_100.csv", testdata), &schema);
 
