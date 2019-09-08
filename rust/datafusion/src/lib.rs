@@ -30,3 +30,6 @@ pub mod logicalplan;
 pub mod optimizer;
 pub mod sql;
 pub mod table;
+
+#[cfg(test)]
+pub mod test;
