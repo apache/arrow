@@ -145,8 +145,10 @@ class SparseTensorConverter<TYPE, SparseCOOIndex>
   Status Convert() {
     switch (index_value_type_->id()) {
       ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(CALL_TYPE_SPECIFIC_CONVERT);
+      // LCOV_EXCL_START: The following invalid causes program failure.
       default:
         return Status::Invalid("Unsupported SparseTensor index value type");
+        // LCOV_EXCL_STOP
     }
   }
 
@@ -183,7 +185,9 @@ class SparseTensorConverter<TYPE, SparseCSRIndex>
 
     const int64_t ndim = tensor_.ndim();
     if (ndim > 2) {
+      // LCOV_EXCL_START: The following invalid causes program failure.
       return Status::Invalid("Invalid tensor dimension");
+      // LCOV_EXCL_STOP
     }
 
     const int64_t nr = tensor_.shape()[0];
@@ -244,8 +248,10 @@ class SparseTensorConverter<TYPE, SparseCSRIndex>
   Status Convert() {
     switch (index_value_type_->id()) {
       ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(CALL_TYPE_SPECIFIC_CONVERT);
+      // LCOV_EXCL_START: The following invalid causes program failure.
       default:
         return Status::Invalid("Unsupported SparseTensor index value type");
+        // LCOV_EXCL_STOP
     }
   }
 
@@ -261,7 +267,9 @@ class SparseTensorConverter<TYPE, SparseCSRIndex>
   template <typename c_value_type>
   inline Status CheckMaximumValue(const c_value_type type_max) const {
     if (static_cast<int64_t>(type_max) < tensor_.shape()[1]) {
+      // LCOV_EXCL_START: The following invalid causes program failure.
       return Status::Invalid("The bit width of the index value type is too small");
+      // LCOV_EXCL_STOP
     }
     return Status::OK();
   }
@@ -322,9 +330,11 @@ inline void MakeSparseTensorFromTensor(const Tensor& tensor,
                                        std::shared_ptr<Buffer>* data) {
   switch (tensor.type()->id()) {
     ARROW_GENERATE_FOR_ALL_NUMERIC_TYPES(MAKE_SPARSE_TENSOR_FROM_TENSOR);
+    // LCOV_EXCL_START: ignore program failure
     default:
       ARROW_LOG(FATAL) << "Unsupported Tensor value type";
       break;
+      // LCOV_EXCL_STOP
   }
 }
 
@@ -346,9 +356,11 @@ void MakeSparseTensorFromTensor(const Tensor& tensor,
       MakeSparseTensorFromTensor<SparseCSRIndex>(tensor, index_value_type, sparse_index,
                                                  data);
       break;
+    // LCOV_EXCL_START: ignore program failure
     default:
       ARROW_LOG(FATAL) << "Invalid sparse tensor format ID";
       break;
+      // LCOV_EXCL_STOP
   }
 }
 

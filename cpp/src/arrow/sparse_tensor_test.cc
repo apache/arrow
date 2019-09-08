@@ -111,7 +111,7 @@ TEST_F(TestSparseCOOTensor, CreationFromNumericTensor) {
   ASSERT_EQ(12, st.non_zero_length());
   ASSERT_TRUE(st.is_mutable());
 
-  const int64_t* raw_data = reinterpret_cast<const int64_t*>(st.raw_data());
+  auto* raw_data = reinterpret_cast<const int64_t*>(st.raw_data());
   AssertNumericDataEqual(raw_data, {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16});
 
   const auto& si = internal::checked_cast<const SparseCOOIndex&>(*st.sparse_index());
@@ -126,6 +126,31 @@ TEST_F(TestSparseCOOTensor, CreationFromNumericTensor) {
   AssertCOOIndex(sidx, 2, {0, 1, 1});
   AssertCOOIndex(sidx, 10, {1, 2, 1});
   AssertCOOIndex(sidx, 11, {1, 2, 3});
+}
+
+TEST_F(TestSparseCOOTensor, CreationFromNumericTensor1D) {
+  std::vector<int64_t> dense_values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                       0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+  auto dense_data = Buffer::Wrap(dense_values);
+  std::vector<int64_t> dense_shape({static_cast<int64_t>(dense_values.size())});
+  NumericTensor<Int64Type> dense_vector(dense_data, dense_shape);
+  SparseTensorImpl<SparseCOOIndex> st(dense_vector);
+
+  ASSERT_EQ(12, st.non_zero_length());
+  ASSERT_TRUE(st.is_mutable());
+
+  auto* raw_data = reinterpret_cast<const int64_t*>(st.raw_data());
+  AssertNumericDataEqual(raw_data, {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16});
+
+  const auto& si = internal::checked_cast<const SparseCOOIndex&>(*st.sparse_index());
+  auto sidx = si.indices();
+  ASSERT_EQ(std::vector<int64_t>({12, 1}), sidx->shape());
+
+  AssertCOOIndex(sidx, 0, {0});
+  AssertCOOIndex(sidx, 1, {2});
+  AssertCOOIndex(sidx, 2, {5});
+  AssertCOOIndex(sidx, 10, {21});
+  AssertCOOIndex(sidx, 11, {23});
 }
 
 TEST_F(TestSparseCOOTensor, CreationFromTensor) {
