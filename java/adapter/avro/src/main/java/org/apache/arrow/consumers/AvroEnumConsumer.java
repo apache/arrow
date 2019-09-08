@@ -18,35 +18,31 @@
 package org.apache.arrow.consumers;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.IntVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume string type values from avro decoder.
- * Write the data to {@link VarCharVector}.
+ * Consumer which consume enum type values from avro decoder.
+ * Write the data to {@link IntVector}.
  */
-public class AvroStringConsumer implements Consumer<VarCharVector> {
+public class AvroEnumConsumer implements Consumer<IntVector> {
 
-  private VarCharVector vector;
-  private ByteBuffer cacheBuffer;
+  private IntVector vector;
+
   private int currentIndex;
 
   /**
-   * Instantiate a AvroStringConsumer.
+   * Instantiate a AvroEnumConsumer.
    */
-  public AvroStringConsumer(VarCharVector vector) {
+  public AvroEnumConsumer(IntVector vector) {
     this.vector = vector;
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    // cacheBuffer is initialized null and create in the first consume,
-    // if its capacity < size to read, decoder will create a new one with new capacity.
-    cacheBuffer = decoder.readBytes(cacheBuffer);
-    vector.setSafe(currentIndex++, cacheBuffer, 0, cacheBuffer.limit());
+    vector.setSafe(currentIndex++, decoder.readEnum());
   }
 
   @Override
@@ -70,7 +66,7 @@ public class AvroStringConsumer implements Consumer<VarCharVector> {
   }
 
   @Override
-  public void resetValueVector(VarCharVector vector) {
+  public void resetValueVector(IntVector vector) {
     this.vector = vector;
     this.currentIndex = 0;
   }

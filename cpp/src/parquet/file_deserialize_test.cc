@@ -27,7 +27,7 @@
 #include "parquet/file_reader.h"
 #include "parquet/platform.h"
 #include "parquet/test_util.h"
-#include "parquet/thrift.h"
+#include "parquet/thrift_internal.h"
 #include "parquet/types.h"
 
 #include "arrow/io/memory.h"

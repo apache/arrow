@@ -1490,6 +1490,13 @@ class TestConvertStringLikeTypes(object):
         # This would segfault under 0.11.0
         table.to_pandas(categories=['col'])
 
+    def test_to_pandas_categories_already_dictionary(self):
+        # Showed up in ARROW-6434, ARROW-6435
+        array = pa.array(['foo', 'foo', 'foo', 'bar']).dictionary_encode()
+        table = pa.Table.from_arrays(arrays=[array], names=['col'])
+        result = table.to_pandas(categories=['col'])
+        assert table.to_pandas().equals(result)
+
     def test_table_str_to_categorical_without_na(self):
         values = ['a', 'a', 'b', 'b', 'c']
         df = pd.DataFrame({'strings': values})
@@ -1693,6 +1700,9 @@ class TestConvertListTypes(object):
         expected_df = pd.DataFrame({'col1': [[True, False], [True]]})
         tm.assert_frame_equal(df, expected_df)
 
+        s = table[0].to_pandas()
+        tm.assert_series_equal(pd.Series(s), df['col1'], check_names=False)
+
     def test_column_of_decimal_list(self):
         array = pa.array([[decimal.Decimal('1'), decimal.Decimal('2')],
                          [decimal.Decimal('3.3')]],
@@ -1704,6 +1714,20 @@ class TestConvertListTypes(object):
                 {'col1': [[decimal.Decimal('1'), decimal.Decimal('2')],
                           [decimal.Decimal('3.3')]]})
         tm.assert_frame_equal(df, expected_df)
+
+    def test_nested_types_from_ndarray_null_entries(self):
+        # Root cause of ARROW-6435
+        s = pd.Series(np.array([np.nan, np.nan], dtype=object))
+
+        for ty in [pa.list_(pa.int64()),
+                   pa.large_list(pa.int64()),
+                   pa.struct([pa.field('f0', 'int32')])]:
+            result = pa.array(s, type=ty)
+            expected = pa.array([None, None], type=ty)
+            assert result.equals(expected)
+
+            with pytest.raises(TypeError):
+                pa.array(s.values, type=ty)
 
     def test_column_of_lists(self):
         df, schema = dataframe_with_lists()

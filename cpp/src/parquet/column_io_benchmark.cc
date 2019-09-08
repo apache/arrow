@@ -25,7 +25,7 @@
 #include "parquet/file_reader.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
-#include "parquet/thrift.h"
+#include "parquet/thrift_internal.h"
 
 namespace parquet {
 

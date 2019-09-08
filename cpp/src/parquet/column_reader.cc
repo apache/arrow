@@ -40,7 +40,7 @@
 #include "parquet/encoding.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
-#include "parquet/thrift.h"  // IWYU pragma: keep
+#include "parquet/thrift_internal.h"  // IWYU pragma: keep
 
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;

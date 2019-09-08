@@ -19,11 +19,9 @@ package org.apache.arrow;
 
 import java.io.IOException;
 
-import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.io.Decoder;
 
 /**
@@ -32,15 +30,38 @@ import org.apache.avro.io.Decoder;
 public class AvroToArrow {
 
   /**
-   * Fetch the data from {@link GenericDatumReader} and convert it to Arrow objects.
+   * Fetch the data from {@link Decoder} and convert it to Arrow objects.
+   * Only for testing purpose.
    * @param schema avro schema.
-   * @param allocator Memory allocator to use.
+   * @param decoder avro decoder
+   * @param config configuration of the conversion.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
    */
-  public static VectorSchemaRoot avroToArrow(Schema schema, Decoder decoder, BaseAllocator allocator)
+  static VectorSchemaRoot avroToArrow(Schema schema, Decoder decoder, AvroToArrowConfig config)
       throws IOException {
     Preconditions.checkNotNull(schema, "Avro schema object can not be null");
+    Preconditions.checkNotNull(decoder, "Avro decoder object can not be null");
+    Preconditions.checkNotNull(config, "config can not be null");
 
-    return AvroToArrowUtils.avroToArrowVectors(schema, decoder, allocator);
+    return AvroToArrowUtils.avroToArrowVectors(schema, decoder, config);
+  }
+
+  /**
+   * Fetch the data from {@link Decoder} and iteratively convert it to Arrow objects.
+   * @param schema avro schema
+   * @param decoder avro decoder
+   * @param config configuration of the conversion.
+   * @throws IOException on error
+   */
+  public static AvroToArrowVectorIterator avroToArrowIterator(
+      Schema schema,
+      Decoder decoder,
+      AvroToArrowConfig config) throws IOException {
+
+    Preconditions.checkNotNull(schema, "Avro schema object can not be null");
+    Preconditions.checkNotNull(decoder, "Avro decoder object can not be null");
+    Preconditions.checkNotNull(config, "config can not be null");
+
+    return AvroToArrowVectorIterator.create(decoder, schema, config);
   }
 }

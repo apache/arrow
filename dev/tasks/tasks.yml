@@ -47,8 +47,7 @@ groups:
     - wheel-win-cp37m
   linux:
     - debian-stretch
-    # We can't finish this on Travis CI for now.
-    # - debian-stretch-arm64
+    - debian-stretch-arm64
     - debian-buster
     - ubuntu-xenial
     - ubuntu-bionic
@@ -366,9 +365,9 @@ tasks:
   ############################## Linux PKGS ####################################
 
   debian-stretch:
-    ci: travis
+    ci: azure
     platform: linux
-    template: linux-packages/travis.linux.yml
+    template: linux-packages/azure.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=debian-stretch
       upload_extensions:
@@ -431,11 +430,10 @@ tasks:
       - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
-  # Don't use this for now. We can't complete this task in 50min on Travis CI.
   debian-stretch-arm64:
-    ci: travis
+    ci: azure
     platform: linux
-    template: linux-packages/travis.linux.arm64.yml
+    template: linux-packages/azure.linux.arm64.yml
     params:
       build_command: rake apt:build APT_TARGETS=debian-stretch-arm64
       upload_extensions:
@@ -474,9 +472,9 @@ tasks:
       - libparquet15_{no_rc_version}-1_amd64.deb
 
   debian-buster:
-    ci: travis
+    ci: azure
     platform: linux
-    template: linux-packages/travis.linux.yml
+    template: linux-packages/azure.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=debian-buster
       upload_extensions:
@@ -540,9 +538,9 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
   ubuntu-xenial:
-    ci: travis
+    ci: azure
     platform: linux
-    template: linux-packages/travis.linux.yml
+    template: linux-packages/azure.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-xenial
       upload_extensions:
@@ -592,9 +590,9 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
   ubuntu-bionic:
-    ci: travis
+    ci: azure
     platform: linux
-    template: linux-packages/travis.linux.yml
+    template: linux-packages/azure.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-bionic
       upload_extensions:
@@ -647,9 +645,9 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
   ubuntu-cosmic:
-    ci: travis
+    ci: azure
     platform: linux
-    template: linux-packages/travis.linux.yml
+    template: linux-packages/azure.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-cosmic
       upload_extensions:
@@ -702,9 +700,9 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
   ubuntu-disco:
-    ci: travis
+    ci: azure
     platform: linux
-    template: linux-packages/travis.linux.yml
+    template: linux-packages/azure.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-disco
       upload_extensions:
@@ -757,9 +755,9 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
   centos-6:
-    ci: travis
+    ci: azure
     platform: linux
-    template: linux-packages/travis.linux.yml
+    template: linux-packages/azure.linux.yml
     params:
       build_command: rake yum:build CENTOS_VERSIONS=6
       upload_extensions:
@@ -777,9 +775,9 @@ tasks:
       - plasma-libs-{no_rc_version}-1.el6.x86_64.rpm
 
   centos-7:
-    ci: travis
+    ci: azure
     platform: linux
-    template: linux-packages/travis.linux.yml
+    template: linux-packages/azure.linux.yml
     params:
       build_command: rake yum:build CENTOS_VERSIONS=7
       upload_extensions:

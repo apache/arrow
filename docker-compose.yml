@@ -595,7 +595,7 @@ services:
     #   docker-compose build python
     #   docker-compose build hdfs-integration
     #   docker-compose run hdfs-integration
-    image: arrow:hdfs-${HDFS_VERSION:-2.6.5}
+    image: arrow:hdfs-${HDFS_VERSION:-2.9.2}
     links:
       - hdfs-namenode:hdfs-namenode
       - hdfs-datanode-1:hdfs-datanode-1
@@ -608,7 +608,7 @@ services:
       context: .
       dockerfile: integration/hdfs/Dockerfile
       args:
-        HDFS_VERSION: ${HDFS_VERSION:-2.6.5}
+        HDFS_VERSION: ${HDFS_VERSION:-2.9.2}
     volumes: *ubuntu-volumes
 
   # TODO(kszucs): pass dask version explicitly as a build argument

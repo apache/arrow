@@ -18,29 +18,22 @@
 package org.apache.arrow;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Objects;
 
-import org.apache.arrow.memory.BaseAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.util.JsonStringArrayList;
-import org.apache.arrow.vector.util.Text;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -50,28 +43,9 @@ import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.EncoderFactory;
-import org.junit.Before;
-import org.junit.ClassRule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 
-public class AvroToArrowTest {
-
-  @ClassRule
-  public static final TemporaryFolder TMP = new TemporaryFolder();
-
-  private BaseAllocator allocator;
-
-  @Before
-  public void init() {
-    allocator = new RootAllocator(Long.MAX_VALUE);
-  }
-
-  private Schema getSchema(String schemaName) throws Exception {
-    Path schemaPath = Paths.get(TestWriteReadAvroRecord.class.getResource("/").getPath(),
-        "schema", schemaName);
-    return new Schema.Parser().parse(schemaPath.toFile());
-  }
+public class AvroToArrowTest extends AvroTestBase {
 
   private VectorSchemaRoot writeAndRead(Schema schema, List data) throws Exception {
     File dataFile = TMP.newFile();
@@ -84,13 +58,13 @@ public class AvroToArrowTest {
       writer.write(value, encoder);
     }
 
-    return AvroToArrow.avroToArrow(schema, decoder, allocator);
+    return AvroToArrow.avroToArrow(schema, decoder, config);
   }
 
   @Test
   public void testStringType() throws Exception {
     Schema schema = getSchema("test_primitive_string.avsc");
-    ArrayList<String> data = new ArrayList(Arrays.asList("v1", "v2", "v3", "v4", "v5"));
+    List<String> data = Arrays.asList("v1", "v2", "v3", "v4", "v5");
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -130,9 +104,53 @@ public class AvroToArrowTest {
   }
 
   @Test
+  public void testNestedRecordType() throws Exception {
+    Schema schema = getSchema("test_nested_record.avsc");
+    Schema nestedSchema = schema.getFields().get(0).schema();
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      GenericRecord nestedRecord = new GenericData.Record(nestedSchema);
+      nestedRecord.put(0, "test" + i);
+      nestedRecord.put(1, i);
+      record.put(0, nestedRecord);
+
+      data.add(record);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    checkNestedRecordResult(schema, data, root);
+  }
+
+  @Test
+  public void testEnumType() throws Exception {
+    Schema schema = getSchema("test_primitive_enum.avsc");
+    List<GenericData.EnumSymbol> data = Arrays.asList(
+        new GenericData.EnumSymbol(schema, "SPADES"),
+        new GenericData.EnumSymbol(schema, "HEARTS"),
+        new GenericData.EnumSymbol(schema, "DIAMONDS"),
+        new GenericData.EnumSymbol(schema, "CLUBS"),
+        new GenericData.EnumSymbol(schema, "SPADES"));
+    List<Integer> expectedIndices = Arrays.asList(0, 1, 2, 3, 0);
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    FieldVector vector = root.getFieldVectors().get(0);
+
+    checkPrimitiveResult(expectedIndices, vector);
+
+    VarCharVector dictVector = (VarCharVector) config.getProvider().lookup(0).getVector();
+    assertEquals(4, dictVector.getValueCount());
+
+    assertEquals("SPADES", dictVector.getObject(0).toString());
+    assertEquals("HEARTS", dictVector.getObject(1).toString());
+    assertEquals("DIAMONDS", dictVector.getObject(2).toString());
+    assertEquals("CLUBS", dictVector.getObject(3).toString());
+  }
+
+  @Test
   public void testIntType() throws Exception {
     Schema schema = getSchema("test_primitive_int.avsc");
-    ArrayList<Integer> data = new ArrayList(Arrays.asList(1, 2, 3, 4, 5));
+    List<Integer> data = Arrays.asList(1, 2, 3, 4, 5);
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -158,7 +176,7 @@ public class AvroToArrowTest {
   @Test
   public void testLongType() throws Exception {
     Schema schema = getSchema("test_primitive_long.avsc");
-    ArrayList<Long> data = new ArrayList(Arrays.asList(1L, 2L, 3L, 4L, 5L));
+    List<Long> data = Arrays.asList(1L, 2L, 3L, 4L, 5L);
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -184,7 +202,7 @@ public class AvroToArrowTest {
   @Test
   public void testFloatType() throws Exception {
     Schema schema = getSchema("test_primitive_float.avsc");
-    ArrayList<Float> data = new ArrayList(Arrays.asList(1.1f, 2.2f, 3.3f, 4.4f, 5.5f));
+    List<Float> data = Arrays.asList(1.1f, 2.2f, 3.3f, 4.4f, 5.5f);
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -210,7 +228,7 @@ public class AvroToArrowTest {
   @Test
   public void testDoubleType() throws Exception {
     Schema schema = getSchema("test_primitive_double.avsc");
-    ArrayList<Double> data = new ArrayList(Arrays.asList(1.1, 2.2, 3.3, 4.4, 5.5));
+    List<Double> data = Arrays.asList(1.1, 2.2, 3.3, 4.4, 5.5);
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -236,12 +254,12 @@ public class AvroToArrowTest {
   @Test
   public void testBytesType() throws Exception {
     Schema schema = getSchema("test_primitive_bytes.avsc");
-    ArrayList<ByteBuffer> data = new ArrayList(Arrays.asList(
+    List<ByteBuffer> data = Arrays.asList(
         ByteBuffer.wrap("value1".getBytes(StandardCharsets.UTF_8)),
         ByteBuffer.wrap("value2".getBytes(StandardCharsets.UTF_8)),
         ByteBuffer.wrap("value3".getBytes(StandardCharsets.UTF_8)),
         ByteBuffer.wrap("value4".getBytes(StandardCharsets.UTF_8)),
-        ByteBuffer.wrap("value5".getBytes(StandardCharsets.UTF_8))));
+        ByteBuffer.wrap("value5".getBytes(StandardCharsets.UTF_8)));
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -267,7 +285,7 @@ public class AvroToArrowTest {
   @Test
   public void testBooleanType() throws Exception {
     Schema schema = getSchema("test_primitive_boolean.avsc");
-    ArrayList<Boolean> data = new ArrayList(Arrays.asList(true, false, true, false, true));
+    List<Boolean> data = Arrays.asList(true, false, true, false, true);
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -293,12 +311,12 @@ public class AvroToArrowTest {
   @Test
   public void testArrayType() throws Exception {
     Schema schema = getSchema("test_array.avsc");
-    List<List> data = new ArrayList(Arrays.asList(
+    List<List<?>> data = Arrays.asList(
         Arrays.asList("11", "222", "999"),
         Arrays.asList("12222", "2333", "1000"),
         Arrays.asList("1rrr", "2ggg"),
         Arrays.asList("1vvv", "2bbb"),
-        Arrays.asList("1fff", "2")));
+        Arrays.asList("1fff", "2"));
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -406,64 +424,4 @@ public class AvroToArrowTest {
     checkPrimitiveResult(expected, vector);
   }
 
-  private void checkArrayResult(List<List> expected, ListVector vector) {
-    assertEquals(expected.size(), vector.getValueCount());
-    for (int i = 0; i < expected.size(); i++) {
-      checkPrimitiveResult(expected.get(i), (JsonStringArrayList) vector.getObject(i));
-    }
-  }
-
-  private void checkPrimitiveResult(List expected, List actual) {
-    assertEquals(expected.size(), actual.size());
-    for (int i = 0; i < expected.size(); i++) {
-      Object value1 = expected.get(i);
-      Object value2 = actual.get(i);
-      if (value1 == null) {
-        assertTrue(value2 == null);
-        continue;
-      }
-      if (value2 instanceof byte[]) {
-        value2 = ByteBuffer.wrap((byte[]) value2);
-      } else if (value2 instanceof Text) {
-        value2 = value2.toString();
-      }
-      assertTrue(Objects.equals(value1, value2));
-    }
-  }
-
-  private void checkPrimitiveResult(List data, FieldVector vector) {
-    assertEquals(data.size(), vector.getValueCount());
-    for (int i = 0; i < data.size(); i++) {
-      Object value1 = data.get(i);
-      Object value2 = vector.getObject(i);
-      if (value1 == null) {
-        assertTrue(value2 == null);
-        continue;
-      }
-      if (value2 instanceof byte[]) {
-        value2 = ByteBuffer.wrap((byte[]) value2);
-        if (value1 instanceof byte[]) {
-          value1 = ByteBuffer.wrap((byte[]) value1);
-        }
-      } else if (value2 instanceof Text) {
-        value2 = value2.toString();
-      }
-      assertTrue(Objects.equals(value1, value2));
-    }
-  }
-
-  private void checkRecordResult(Schema schema, ArrayList<GenericRecord> data, VectorSchemaRoot root) {
-    assertEquals(data.size(), root.getRowCount());
-    assertEquals(schema.getFields().size(), root.getFieldVectors().size());
-
-    for (int i = 0; i < schema.getFields().size(); i++) {
-      ArrayList fieldData = new ArrayList();
-      for (GenericRecord record : data) {
-        fieldData.add(record.get(i));
-      }
-
-      checkPrimitiveResult(fieldData, root.getFieldVectors().get(i));
-    }
-
-  }
 }

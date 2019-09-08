@@ -27,9 +27,9 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume fixed type values from avro decoder.
  * Write the data to {@link org.apache.arrow.vector.FixedSizeBinaryVector}.
  */
-public class AvroFixedConsumer implements Consumer {
+public class AvroFixedConsumer implements Consumer<FixedSizeBinaryVector> {
 
-  private final FixedSizeBinaryVector vector;
+  private FixedSizeBinaryVector vector;
   private final byte[] reuseBytes;
 
   private int currentIndex;
@@ -66,5 +66,11 @@ public class AvroFixedConsumer implements Consumer {
   @Override
   public void close() throws Exception {
     vector.close();
+  }
+
+  @Override
+  public void resetValueVector(FixedSizeBinaryVector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }
