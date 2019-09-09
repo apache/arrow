@@ -20,7 +20,6 @@
 import os
 import re
 import glob
-import sys
 import time
 import mimetypes
 import textwrap
@@ -943,7 +942,7 @@ class EmailReport(Report):
         super().__init__(job)
 
     def url(self, query):
-        repo_url = self.job._queue.remote_url.strip('.git')
+        repo_url = self.job.queue.remote_url.strip('.git')
         return '{}/branches/all?query={}'.format(repo_url, query)
 
     def listing(self, tasks):
@@ -1155,7 +1154,7 @@ def latest_prefix(ctx, prefix):
     queue.fetch()
 
     latest = queue.latest_for_prefix(prefix)
-    click.echo(latest)
+    click.echo(latest.branch)
 
 
 @crossbow.command()
