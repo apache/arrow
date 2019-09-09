@@ -37,8 +37,10 @@ GRPC_VERSION=v1.20.0
 GTEST_VERSION=1.8.1
 JEMALLOC_VERSION=17c897976c60b0e6e4f4a365c751027244dada7a
 LZ4_VERSION=v1.8.3
-# Need post-v1.0.6 version for https://github.com/microsoft/mimalloc/pull/140
-MIMALLOC_VERSION=afaf4924cbe02e386111e2a9d8ce209d0b0341d3
+# Need post-v1.0.6 version for https://github.com/microsoft/mimalloc/pull/140,
+# https://github.com/microsoft/mimalloc/pull/145 and
+# https://github.com/microsoft/mimalloc/pull/148
+MIMALLOC_VERSION=270e765454f98e8bab9d42609b153425f749fff6
 ORC_VERSION=1.5.5
 PROTOBUF_VERSION=v3.7.1
 # Because of https://github.com/Tencent/rapidjson/pull/1323, we require

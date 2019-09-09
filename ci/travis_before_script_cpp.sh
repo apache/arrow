@@ -62,11 +62,7 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_WITH_BZ2=ON"
 fi
 
-if [ $TRAVIS_OS_NAME == "osx" ]; then
-  # Linking mimalloc fails on Travis Xenial, see
-  # https://github.com/microsoft/mimalloc/pull/140#issuecomment-525786712
-  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_MIMALLOC=ON"
-fi
+CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_MIMALLOC=ON"
 
 if [ $only_library_mode == "yes" ]; then
   CMAKE_COMMON_FLAGS="\

@@ -340,8 +340,6 @@ endif()
 if(DEFINED ENV{ARROW_JEMALLOC_URL})
   set(JEMALLOC_SOURCE_URL "$ENV{ARROW_JEMALLOC_URL}")
 else()
-  # XXX jemalloc has two possible download URLs.  This one includes the configure
-  # script.  The one in thirdparty/versions.txt doesn't.
   set(
     JEMALLOC_SOURCE_URL
     "https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2"
@@ -1441,8 +1439,12 @@ if(ARROW_MIMALLOC)
     "${MIMALLOC_PREFIX}/lib/mimalloc-1.0/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
 
-  set(MIMALLOC_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
-                          "-DCMAKE_INSTALL_PREFIX=${MIMALLOC_PREFIX}" -DMI_OVERRIDE=off)
+  set(MIMALLOC_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      "-DCMAKE_INSTALL_PREFIX=${MIMALLOC_PREFIX}"
+      -DMI_OVERRIDE=OFF
+      -DMI_LOCAL_DYNAMIC_TLS=ON
+      -DMI_BUILD_TESTS=OFF)
 
   externalproject_add(mimalloc_ep
                       URL ${MIMALLOC_SOURCE_URL}
