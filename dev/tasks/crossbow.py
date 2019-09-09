@@ -688,7 +688,9 @@ class Task(Serializable):
         return config_files[self.ci]
 
     def status(self, force_query=False):
-        if force_query or self._status is None:
+        # _status might be uninitialized because of yaml serialization
+        _status = getattr(self, '_status', None)
+        if force_query or _status is None:
             self._status = self._queue.github_commit_status(self.commit)
         return self._status
 
@@ -947,7 +949,7 @@ class EmailReport(Report):
 
     def listing(self, tasks):
         entries = (
-            self.TASK.format(name=task_name, url=self.url(task_name))
+            self.TASK.format(name=task_name, url=self.url(task.branch))
             for task_name, task in tasks.items()
         )
         return '\n'.join(entries)
@@ -957,7 +959,7 @@ class EmailReport(Report):
         return self.HEADER.format(job_name=self.job.branch, all_tasks_url=url)
 
     def subject(self):
-        return "Crossbow Task Report for {}".format(self.job.queue)
+        return "Crossbow Task Report for {}".format(self.job.branch)
 
     def body(self):
         buffer = StringIO()
@@ -979,19 +981,22 @@ class EmailReport(Report):
 
         return buffer.getvalue()
 
-    def show(self, outstream):
-        outstream.write(self.body())
-
-    def send(self, smtp_port, smtp_user, smtp_server, smtp_password):
-        import smtplib
-
-        email = self.EMAIL.format(
+    def email(self):
+        return self.EMAIL.format(
             sender_name=self.sender_name,
             sender_email=self.sender_email,
             recipient_email=self.recipient_email,
             subject=self.subject(),
             body=self.body()
         )
+
+    def show(self, outstream):
+        outstream.write(self.email())
+
+    def send(self, smtp_user, smtp_password, smtp_server, smtp_port):
+        import smtplib
+
+        email = self.email()
 
         server = smtplib.SMTP_SSL(smtp_server, smtp_port)
         server.ehlo()
@@ -1179,7 +1184,7 @@ def latest_prefix(ctx, prefix):
               help='Maximum amount of time waiting for job completion')
 @click.option('--poll-interval-minutes', default=10,
               help='Number of minutes to wait to check job status again')
-@click.option('--dry-run/--send', default=True,
+@click.option('--send/--dry-run', default=False,
               help='Just display the report, don\'t send it')
 @click.option('--output', metavar='<output>',
               type=click.File('w', encoding='utf8'), default='-',
@@ -1188,7 +1193,7 @@ def latest_prefix(ctx, prefix):
 @click.pass_context
 def report(ctx, job_name, sender_name, sender_email, recipient_email,
            smtp_user, smtp_password, smtp_server, smtp_port, poll,
-           max_wait_minutes, poll_interval_minutes, dry_run, output):
+           max_wait_minutes, poll_interval_minutes, send, output):
     """
     Send an e-mail report showing success/failure of tasks in a Crossbow run
     """
@@ -1209,15 +1214,15 @@ def report(ctx, job_name, sender_name, sender_email, recipient_email,
             poll_interval_minutes=poll_interval_minutes
         )
 
-    if dry_run:
-        report.show(output)
-    else:
+    if send:
         report.send(
             smtp_user=smtp_user,
             smtp_password=smtp_password,
             smtp_server=smtp_server,
             smtp_port=smtp_port
         )
+    else:
+        report.show(output)
 
 
 @crossbow.command()
