@@ -354,7 +354,6 @@ struct Unbox<Type, enable_if_integer<Type>> {
     }
     return Status::OK();
   }
-
 };
 
 template <>
