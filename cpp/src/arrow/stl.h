@@ -112,16 +112,17 @@ struct HasAppendMultipleRows : public std::false_type {};
 template <typename CType, typename BuilderType, typename Range>
 struct HasAppendMultipleRows<CType, BuilderType, Range,
                              void_t<decltype(ConversionTraits<CType>::AppendMultipleRows(
-                                 std::declval<BuilderType>(), std::declval<Range>))>>
+                                 std::declval<BuilderType&>(), std::declval<Range>()))>>
     : public std::true_type {};
 
 template <typename ValueCType>
 using ElementBuilderType =
     typename TypeTraits<typename ConversionTraits<ValueCType>::ArrowType>::BuilderType;
 
-template <typename ValueCType, typename BuilderType, typename Range, typename = void>
+template <typename ValueCType, typename BuilderType, typename Range,
+          typename Enable = void>
 struct AppendMultipleRowsHelper {
-  static Status impl(BuilderType&& builder, Range&& cell_range) {
+  static Status impl(BuilderType& builder, Range&& cell_range) {
     ARROW_RETURN_NOT_OK(builder.Append());
     auto& value_builder =
         ::arrow::internal::checked_cast<ElementBuilderType<ValueCType>&>(
@@ -137,10 +138,10 @@ template <typename ValueCType, typename BuilderType, typename Range>
 struct AppendMultipleRowsHelper<
     ValueCType, BuilderType, Range,
     typename std::enable_if<HasAppendMultipleRows<
-        ValueCType, ElementBuilderType<ValueCType>&, Range>::value>::type> {
-  static Status impl(BuilderType&& builder, Range&& cell_range) {
+        ValueCType, ElementBuilderType<ValueCType>, Range>::value>::type> {
+  static Status impl(BuilderType& builder, Range&& cell_range) {
     ARROW_RETURN_NOT_OK(builder.Append());
-    ElementBuilderType<ValueCType>& value_builder =
+    auto& value_builder =
         ::arrow::internal::checked_cast<ElementBuilderType<ValueCType>&>(
             *builder.value_builder());
     return ConversionTraits<ValueCType>::AppendMultipleRows(value_builder, cell_range);
@@ -153,17 +154,16 @@ struct AppendMultipleRowsHelper<
 /// Rows will be added using ConversionTraits<ValueCType>::AppendMultipleRows()
 /// if provided. If it doesn't exist, each value will be added using
 /// ConversionTraits<ValueCType>::AppendRows() by iterating over cell range.
-template <typename ValueCType, typename Builder, typename Range>
-Status AppendMultipleRows(Builder&& builder, Range&& cell_range) {
-  using BareBuilderType = typename std::decay<Builder>::type;
-  constexpr bool is_list_builder = std::is_same<BareBuilderType, ListBuilder>::value;
+template <typename ValueCType, typename BuilderType, typename Range>
+Status AppendMultipleRows(BuilderType& builder, Range&& cell_range) {
+  constexpr bool is_list_builder = std::is_same<BuilderType, ListBuilder>::value;
   constexpr bool is_large_list_builder =
-      std::is_same<BareBuilderType, LargeListBuilder>::value;
+      std::is_same<BuilderType, LargeListBuilder>::value;
   static_assert(
       is_list_builder || is_large_list_builder,
       "Builder type must be either ListBuilder or LargeListBuilder for appending "
       "multiple rows.");
-  return internal::AppendMultipleRowsHelper<ValueCType, Builder, Range>::impl(
+  return internal::AppendMultipleRowsHelper<ValueCType, BuilderType, Range>::impl(
       builder, std::forward<Range>(cell_range));
 }
 
