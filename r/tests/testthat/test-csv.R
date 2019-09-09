@@ -87,7 +87,9 @@ test_that("read_csv_arrow parsing options: col_names", {
   # Writing the CSV without the header
   write.table(iris, tf, sep = ",", row.names = FALSE, col.names = FALSE)
 
-  expect_error(read_csv_arrow(tf, col_names = FALSE), "Not implemented")
+  # Reading with col_names = FALSE autogenerates names
+  no_names <- read_csv_arrow(tf, col_names = FALSE)
+  expect_equal(no_names$f0, iris$Sepal.Length)
 
   tab1 <- read_csv_arrow(tf, col_names = names(iris))
 
@@ -134,6 +136,33 @@ test_that("read_csv_arrow parsing options: skip_empty_rows", {
   expect_true(is.na(tail(tab1, 1)[[1]]))
 })
 
+test_that("read_csv_arrow parsing options: na strings", {
+  # There's some weird crash that happens on Appveyor in this test
+  skip_on_os("windows")
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  df <- data.frame(
+    a = c(1.2, NA, NA, 3.4),
+    b = c(NA, "B", "C", NA),
+    stringsAsFactors = FALSE
+  )
+  write.csv(df, tf, row.names=FALSE)
+  expect_equal(grep("NA", readLines(tf)), 2:5)
+
+  tab1 <- read_csv_arrow(tf)
+  expect_equal(is.na(tab1$a), is.na(df$a))
+  expect_equal(is.na(tab1$b), is.na(df$b))
+
+  unlink(tf) # Delete and write to the same file name again
+
+  write.csv(df, tf, row.names=FALSE, na = "asdf")
+  expect_equal(grep("asdf", readLines(tf)), 2:5)
+
+  tab2 <- read_csv_arrow(tf, na = "asdf")
+  expect_equal(is.na(tab2$a), is.na(df$a))
+  expect_equal(is.na(tab2$b), is.na(df$b))
+})
 
 test_that("read_csv_arrow() respects col_select", {
   tf <- tempfile()

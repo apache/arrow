@@ -6,7 +6,8 @@
 \title{Read options for the Arrow file readers}
 \usage{
 csv_read_options(use_threads = option_use_threads(),
-  block_size = 1048576L, skip_rows = 0L, column_names = character(0))
+  block_size = 1048576L, skip_rows = 0L, column_names = character(0),
+  autogenerate_column_names = FALSE)
 
 json_read_options(use_threads = TRUE, block_size = 1048576L)
 }
@@ -21,7 +22,11 @@ must end with an empty line.}
 
 \item{column_names}{Character vector to supply column names. If length-0
 (the default), the first non-skipped row will be parsed to generate column
-names.}
+names, unless \code{autogenerate_column_names} is \code{TRUE}.}
+
+\item{autogenerate_column_names}{Logical: generate column names instead of
+using the first non-skipped row (the default)? If \code{TRUE}, column names will
+be "f0", "f1", ..., "fN".}
 }
 \description{
 Read options for the Arrow file readers

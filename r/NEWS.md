@@ -19,7 +19,7 @@
 
 # arrow 0.14.1.9000
 
-* `read_csv_arrow()` supports more parsing options, including `col_names` and `skip`
+* `read_csv_arrow()` supports more parsing options, including `col_names`, `na`, `quoted_na`, and `skip`
 * `read_parquet()` and `read_feather()` can ingest data from a `raw` vector ([ARROW-6278](https://issues.apache.org/jira/browse/ARROW-6278))
 * File readers now properly handle paths that need expanding, such as `~/file.parquet` ([ARROW-6323](https://issues.apache.org/jira/browse/ARROW-6323))
 
