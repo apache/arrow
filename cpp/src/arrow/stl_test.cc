@@ -96,6 +96,10 @@ struct CustomOptionalTypeMock {
 
 int CustomOptionalTypeMock::counter = -1;
 
+struct TestInt32TypeForAppendingMultipleRows {
+  int32_t value;
+};
+
 namespace arrow {
 
 template <>
@@ -103,6 +107,13 @@ struct CTypeTraits<CustomOptionalTypeMock> {
   using ArrowType = ::arrow::StringType;
 
   static std::shared_ptr<::arrow::DataType> type_singleton() { return ::arrow::utf8(); }
+};
+
+template <>
+struct CTypeTraits<TestInt32TypeForAppendingMultipleRows> {
+  using ArrowType = ::arrow::Int32Type;
+
+  static std::shared_ptr<::arrow::DataType> type_singleton() { return ::arrow::int32(); }
 };
 
 namespace stl {
@@ -119,6 +130,21 @@ struct ConversionTraits<CustomOptionalTypeMock>
     } else {
       return builder.AppendNull();
     }
+  }
+};
+
+template <>
+struct ConversionTraits<TestInt32TypeForAppendingMultipleRows>
+    : public CTypeTraits<TestInt32TypeForAppendingMultipleRows> {
+  constexpr static bool nullable = false;
+
+  // AppendRow is not needed, since it won't be called.
+
+  static Status AppendMultipleRows(
+      Int32Builder& builder,
+      const std::vector<TestInt32TypeForAppendingMultipleRows>& range) {
+    return builder.AppendValues(reinterpret_cast<const int32_t*>(range.data()),
+                                range.size());
   }
 };
 
@@ -356,6 +382,24 @@ TEST(TestTableFromTupleVector, NullableTypesDoNotBreakUserSpecialization) {
   std::shared_ptr<Array> string_array =
       ArrayFromJSON(utf8(), R"([null, "mock yes", "mock no"])");
   auto expected_table = Table::Make(expected_schema, {string_array});
+
+  ASSERT_TRUE(expected_table->Equals(*table));
+}
+
+TEST(TestTableFromTupleVector, AppendingMultipleRows) {
+  std::vector<std::string> names{"column1"};
+  std::vector<std::tuple<std::vector<TestInt32TypeForAppendingMultipleRows>>> rows = {
+      {{{1}, {2}, {3}}},    //
+      {{{10}, {20}, {30}}}  //
+  };
+  std::shared_ptr<Table> table;
+  ASSERT_OK(TableFromTupleRange(default_memory_pool(), rows, names, &table));
+
+  std::shared_ptr<Schema> expected_schema =
+      schema({field("column1", list(int32()), false)});
+  std::shared_ptr<Array> int_array =
+      ArrayFromJSON(list(int32()), R"([[1, 2, 3], [10, 20, 30])");
+  auto expected_table = Table::Make(expected_schema, {int_array});
 
   ASSERT_TRUE(expected_table->Equals(*table));
 }
