@@ -664,6 +664,20 @@ Status NumPyConverter::Visit(const StringType& type) {
   const bool is_unicode_type = dtype_->type_num == NPY_UNICODE;
 
   if (!is_binary_type && !is_unicode_type) {
+    const bool is_float_type = dtype_->kind == 'f';
+    if (from_pandas_ && is_float_type) {
+      RETURN_NOT_OK(NumPyNullsConverter::Convert(pool_, arr_, from_pandas_, &null_bitmap_,
+                                                 &null_count_));
+      if (null_count_ == length_) {
+        auto arr = std::make_shared<NullArray>(length_);
+        std::shared_ptr<Array> out;
+        compute::FunctionContext context(pool_);
+        RETURN_NOT_OK(
+            compute::Cast(&context, *arr, arrow::utf8(), cast_options_, &out));
+        out_arrays_.emplace_back(out);
+        return Status::OK();
+      }
+    }
     std::string dtype_string;
     RETURN_NOT_OK(internal::PyObject_StdStringStr(
       reinterpret_cast<PyObject*>(dtype_), &dtype_string));
