@@ -26,6 +26,7 @@
 #include <utility>
 
 #include "arrow/buffer.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/compare.h"
 #include "arrow/extension_type.h"
 #include "arrow/pretty_print.h"
@@ -1582,13 +1583,13 @@ class NullArrayFactory {
     int64_t length_, buffer_length_;
   };
 
-  NullArrayFactory(const std::shared_ptr<DataType>& type, int64_t length,
-                   std::shared_ptr<ArrayData>* out)
-      : type_(type), length_(length), out_(out) {}
+  NullArrayFactory(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                   int64_t length, std::shared_ptr<ArrayData>* out)
+      : pool_(pool), type_(type), length_(length), out_(out) {}
 
   Status CreateBuffer() {
     int64_t buffer_length = GetBufferLength(type_, length_);
-    RETURN_NOT_OK(AllocateBuffer(buffer_length, &buffer_));
+    RETURN_NOT_OK(AllocateBuffer(pool_, buffer_length, &buffer_));
     std::memset(buffer_->mutable_data(), 0, buffer_->size());
     return Status::OK();
   }
@@ -1654,26 +1655,133 @@ class NullArrayFactory {
   }
 
   Status CreateChild(int i, int64_t length, std::shared_ptr<ArrayData>* out) {
-    NullArrayFactory child_factory(type_->child(i)->type(), length,
+    NullArrayFactory child_factory(pool_, type_->child(i)->type(), length,
                                    &(*out_)->child_data[i]);
     child_factory.buffer_ = buffer_;
     return child_factory.Create();
   }
 
+  MemoryPool* pool_;
   std::shared_ptr<DataType> type_;
   int64_t length_;
   std::shared_ptr<ArrayData>* out_;
   std::shared_ptr<Buffer> buffer_;
 };
 
+class RepeatedArrayFactory {
+ public:
+  RepeatedArrayFactory(MemoryPool* pool, const Scalar& scalar, int64_t length,
+                       std::shared_ptr<Array>* out)
+      : pool_(pool), scalar_(scalar), length_(length), out_(out) {}
+
+  Status Create() { return VisitTypeInline(*scalar_.type, this); }
+
+  Status Visit(const NullType&) { return Status::OK(); }
+
+  Status Visit(const BooleanType&) {
+    std::shared_ptr<Buffer> buffer;
+    RETURN_NOT_OK(AllocateBitmap(pool_, length_, &buffer));
+    BitUtil::SetBitsTo(buffer->mutable_data(), 0, length_,
+                       checked_cast<const BooleanScalar&>(scalar_).value);
+    *out_ = std::make_shared<BooleanArray>(length_, buffer);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_number<T, Status> Visit(const T&) {
+    auto value = checked_cast<const typename TypeTraits<T>::ScalarType&>(scalar_).value;
+    return FinishFixedWidth(&value, sizeof(value));
+  }
+
+  template <typename T>
+  enable_if_binary<T, Status> Visit(const T&) {
+    std::shared_ptr<Buffer> value =
+        checked_cast<const typename TypeTraits<T>::ScalarType&>(scalar_).value;
+    std::shared_ptr<Buffer> values_buffer, offsets_buffer;
+    RETURN_NOT_OK(CreateBufferOf(value->data(), value->size(), &values_buffer));
+    auto size = static_cast<typename T::offset_type>(value->size());
+    RETURN_NOT_OK(CreateOffsetsBuffer(size, &offsets_buffer));
+    *out_ = std::make_shared<typename TypeTraits<T>::ArrayType>(length_, offsets_buffer,
+                                                                values_buffer);
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeBinaryType&) {
+    std::shared_ptr<Buffer> value =
+        checked_cast<const FixedSizeBinaryScalar&>(scalar_).value;
+    return FinishFixedWidth(value->data(), value->size());
+  }
+
+  Status Visit(const Decimal128Type&) {
+    auto value = checked_cast<const Decimal128Scalar&>(scalar_).value.ToBytes();
+    return FinishFixedWidth(value.data(), value.size());
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
+  }
+
+  template <typename OffsetType>
+  Status CreateOffsetsBuffer(OffsetType value_length, std::shared_ptr<Buffer>* out) {
+    TypedBufferBuilder<OffsetType> builder(pool_);
+    RETURN_NOT_OK(builder.Resize(length_ + 1));
+    OffsetType offset = 0;
+    for (int64_t i = 0; i < length_ + 1; ++i, offset += value_length) {
+      builder.UnsafeAppend(offset);
+    }
+    return builder.Finish(out);
+  }
+
+  Status CreateBufferOf(const void* data, size_t data_length,
+                        std::shared_ptr<Buffer>* out) {
+    BufferBuilder builder(pool_);
+    RETURN_NOT_OK(builder.Resize(length_ * data_length));
+    for (int64_t i = 0; i < length_; ++i) {
+      builder.UnsafeAppend(data, data_length);
+    }
+    return builder.Finish(out);
+  }
+
+  Status FinishFixedWidth(const void* data, size_t data_length) {
+    std::shared_ptr<Buffer> buffer;
+    RETURN_NOT_OK(CreateBufferOf(data, data_length, &buffer));
+    *out_ = MakeArray(
+        ArrayData::Make(scalar_.type, length_, {nullptr, std::move(buffer)}, 0));
+    return Status::OK();
+  }
+
+  MemoryPool* pool_;
+  const Scalar& scalar_;
+  int64_t length_;
+  std::shared_ptr<Array>* out_;
+};
+
 }  // namespace internal
+
+Status MakeArrayOfNull(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                       int64_t length, std::shared_ptr<Array>* out) {
+  std::shared_ptr<ArrayData> out_data;
+  RETURN_NOT_OK(internal::NullArrayFactory(pool, type, length, &out_data).Create());
+  *out = MakeArray(out_data);
+  return Status::OK();
+}
 
 Status MakeArrayOfNull(const std::shared_ptr<DataType>& type, int64_t length,
                        std::shared_ptr<Array>* out) {
-  std::shared_ptr<ArrayData> out_data;
-  RETURN_NOT_OK(internal::NullArrayFactory(type, length, &out_data).Create());
-  *out = MakeArray(out_data);
-  return Status::OK();
+  return MakeArrayOfNull(default_memory_pool(), type, length, out);
+}
+
+Status MakeArrayFromScalar(MemoryPool* pool, const Scalar& scalar, int64_t length,
+                           std::shared_ptr<Array>* out) {
+  if (!scalar.is_valid) {
+    return MakeArrayOfNull(pool, scalar.type, length, out);
+  }
+  return internal::RepeatedArrayFactory(pool, scalar, length, out).Create();
+}
+
+Status MakeArrayFromScalar(const Scalar& scalar, int64_t length,
+                           std::shared_ptr<Array>* out) {
+  return MakeArrayFromScalar(default_memory_pool(), scalar, length, out);
 }
 
 namespace internal {

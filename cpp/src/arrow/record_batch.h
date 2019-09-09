@@ -180,7 +180,7 @@ class ARROW_EXPORT RecordBatchReader
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
 
-  Status Next(std::shared_ptr<RecordBatch>* batch) override { return ReadNext(batch); }
+  Status Next(std::shared_ptr<RecordBatch>* batch) final { return ReadNext(batch); }
 
   /// \brief Consume entire stream as a vector of record batches
   Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);

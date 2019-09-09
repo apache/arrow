@@ -46,9 +46,14 @@ class ARROW_DS_EXPORT ScanOptions {
 
   const std::shared_ptr<DataSelector>& selector() const { return selector_; }
 
+  const std::shared_ptr<Schema>& schema() const { return schema_; }
+
  protected:
   // Filters
   std::shared_ptr<DataSelector> selector_;
+
+  // Schema to which record batches will be reconciled
+  std::shared_ptr<Schema> schema_;
 };
 
 /// \brief Read record batches from a range of a single data fragment. A
