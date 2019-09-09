@@ -663,6 +663,13 @@ Status NumPyConverter::Visit(const StringType& type) {
   const bool is_binary_type = dtype_->type_num == NPY_STRING;
   const bool is_unicode_type = dtype_->type_num == NPY_UNICODE;
 
+  if (!is_binary_type && !is_unicode_type) {
+    std::string dtype_string;
+    RETURN_NOT_OK(internal::PyObject_StdStringStr(
+      reinterpret_cast<PyObject*>(dtype_), &dtype_string));
+    return Status::Invalid("Expected a string or bytes dtype, got ", dtype_string);
+  }
+
   auto AppendNonNullValue = [&](const uint8_t* data) {
     if (is_binary_type) {
       if (ARROW_PREDICT_TRUE(util::ValidateUTF8(data, itemsize_))) {
@@ -671,14 +678,10 @@ Status NumPyConverter::Visit(const StringType& type) {
         return Status::Invalid("Encountered non-UTF8 binary value: ",
                                HexEncode(data, itemsize_));
       }
-    } else if (is_unicode_type) {
+    } else {
+      // is_unicode_type case
       return AppendUTF32(reinterpret_cast<const char*>(data), itemsize_, byteorder,
                          &builder);
-    } else {
-      std::string dtype_string;
-      RETURN_NOT_OK(internal::PyObject_StdStringStr(
-        reinterpret_cast<PyObject*>(dtype_), &dtype_string));
-      return Status::Invalid("Expected a string or bytes dtype, got ", dtype_string);
     }
   };
 
