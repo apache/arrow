@@ -163,9 +163,9 @@ class ExpressionImpl : public Base {
  public:
   static constexpr ExpressionType::type expression_type = E;
 
-  template <typename... A>
-  explicit ExpressionImpl(A&&... args)
-      : Base(expression_type, std::forward<A>(args)...) {}
+  template <typename A0, typename... A>
+  explicit ExpressionImpl(A0&& arg0, A&&... args)
+      : Base(expression_type, std::forward<A0>(arg0), std::forward<A>(args)...) {}
 
   std::shared_ptr<Expression> Copy() const override {
     return std::make_shared<Derived>(internal::checked_cast<const Derived&>(*this));
