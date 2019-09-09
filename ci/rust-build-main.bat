@@ -30,7 +30,7 @@ pushd rust
 rustup default nightly
 rustup show
 cargo build --target %TARGET% --all-targets --release || exit /B
-cargo build --target %TARGET% --all-targets --no-default-features --release || exit /B
+cargo build --target %TARGET% --all-targets --no-default-features || exit /B
 @echo
 @echo Test (release)
 @echo --------------
