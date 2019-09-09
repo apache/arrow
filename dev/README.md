@@ -27,7 +27,7 @@ you need to have linked your GitHub and ASF accounts on
 https://gitbox.apache.org/setup/ to be able to push to GitHub as the main
 remote.
 
-* How to merge a Pull request:
+## How to merge a Pull request
 
 ```
 git remote add apache git@github.com:apache/arrow.git
@@ -39,13 +39,21 @@ run the following command
 dev/merge_arrow_pr.py
 ```
 
+This script uses requests and jira libraries.  Before running this script,
+run the following command to prepare them:
+
+```
+pip install requests jira
+```
+
 This uses the GitHub REST API; if you encounter rate limit issues, you may set
 a `ARROW_GITHUB_API_TOKEN` environment variable to use a Personal Access Token.
 
-Note:
+You can specify the username and the password of your JIRA account in
+`APACHE_JIRA_USERNAME` and `APACHE_JIRA_PASSWORD` environment variables.
+If these aren't supplied, the script will ask you the values of them.
 
-* The directory name of your Arrow git clone must be called arrow
-* Without jira-python installed you'll have to close the JIRA manually
+Note that the directory name of your Arrow git clone must be called arrow.
 
 example output:
 ```
