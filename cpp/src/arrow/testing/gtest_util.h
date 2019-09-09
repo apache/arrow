@@ -347,4 +347,10 @@ void AssertSortedEquals(std::vector<T> u, std::vector<T> v) {
   ASSERT_EQ(u, v);
 }
 
+#ifndef ARROW_LARGE_MEMORY_TESTS
+#define LARGE_MEMORY_TEST(name) DISABLED_##name
+#else
+#define LARGE_MEMORY_TEST(name) name
+#endif
+
 }  // namespace arrow
