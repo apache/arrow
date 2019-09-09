@@ -142,7 +142,8 @@ class ParquetScanTaskIterator : public ScanTaskIterator {
  private:
   // Compute the column projection out of an optional arrow::Schema
   static Status InferColumnProjection(const parquet::FileMetaData& metadata,
-                                      const ScanOptions& scan_options, std::vector<int>* out) {
+                                      const ScanOptions& scan_options,
+                                      std::vector<int>* out) {
     // TODO(fsaintjacques): Compute intersection _and_ validity
     *out = internal::Iota(metadata.num_columns());
 
@@ -161,7 +162,8 @@ class ParquetScanTaskIterator : public ScanTaskIterator {
   std::shared_ptr<parquet::arrow::FileReader> reader_;
 };
 
-Status ParquetFileFormat::ScanFile(const FileSource& source, const ScanOptions& scan_options,
+Status ParquetFileFormat::ScanFile(const FileSource& source,
+                                   const ScanOptions& scan_options,
                                    std::unique_ptr<ScanTaskIterator>* out) const {
   std::shared_ptr<io::RandomAccessFile> input;
   RETURN_NOT_OK(source.Open(&input));

@@ -48,7 +48,8 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {
  public:
   ParquetFragment(const FileSource& source, const ScanOptions& scan_options)
-      : FileBasedDataFragment(source, std::make_shared<ParquetFileFormat>(), scan_options) {}
+      : FileBasedDataFragment(source, std::make_shared<ParquetFileFormat>(),
+                              scan_options) {}
 
   bool splittable() const override { return true; }
 };

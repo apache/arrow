@@ -125,7 +125,9 @@ class ARROW_DS_EXPORT FileBasedDataFragment : public DataFragment {
  public:
   FileBasedDataFragment(const FileSource& source, std::shared_ptr<FileFormat> format,
                         const ScanOptions& scan_options)
-      : source_(source), format_(std::move(format)), scan_options_(std::move(scan_options)) {}
+      : source_(source),
+        format_(std::move(format)),
+        scan_options_(std::move(scan_options)) {}
 
   Status Scan(std::unique_ptr<ScanTaskIterator>* out) override;
 
@@ -153,7 +155,8 @@ class ARROW_DS_EXPORT FileSystemBasedDataSource : public DataSource {
 
   std::string type() const override { return "directory"; }
 
-  std::unique_ptr<DataFragmentIterator> GetFragments(const ScanOptions& scan_options) override;
+  std::unique_ptr<DataFragmentIterator> GetFragments(
+      const ScanOptions& scan_options) override;
 
  protected:
   FileSystemBasedDataSource(fs::FileSystem* filesystem, const fs::Selector& selector,
