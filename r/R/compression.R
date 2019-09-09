@@ -27,8 +27,15 @@ Codec <- R6Class("Codec", inherit = Object)
 #'
 #' @export
 compression_codec <- function(type = "GZIP") {
-  type <- CompressionType[[match.arg(type, names(CompressionType))]]
-  unique_ptr(Codec, util___Codec__Create(type))
+  if (is.character(type)) {
+    type <- unique_ptr("Codec", util___Codec__Create(
+      CompressionType[[match.arg(type, names(CompressionType))]]
+    ))
+  } else if (!inherits(type, "Codec")) {
+    abort("Not compatible with requested type")
+  }
+
+  type
 }
 
 #' @title Compressed stream classes
@@ -56,11 +63,8 @@ compression_codec <- function(type = "GZIP") {
 #' @export
 #' @include arrow-package.R
 CompressedOutputStream <- R6Class("CompressedOutputStream", inherit = OutputStream)
-CompressedOutputStream$create <- function(stream, codec = compression_codec()){
-  if (.Platform$OS.type == "windows") {
-    stop("'CompressedOutputStream' is unsupported in Windows.")
-  }
-  assert_is(codec, "Codec")
+CompressedOutputStream$create <- function(stream, codec = "GZIP"){
+  codec <- compression_codec(codec)
   if (is.character(stream)) {
     stream <- FileOutputStream$create(stream)
   }
@@ -73,9 +77,8 @@ CompressedOutputStream$create <- function(stream, codec = compression_codec()){
 #' @format NULL
 #' @export
 CompressedInputStream <- R6Class("CompressedInputStream", inherit = InputStream)
-CompressedInputStream$create <- function(stream, codec = compression_codec()){
-  # TODO (npr): why would CompressedInputStream work on Windows if CompressedOutputStream doesn't? (and is it still the case that it does not?)
-  assert_is(codec, "Codec")
+CompressedInputStream$create <- function(stream, codec = "GZIP"){
+  codec <- compression_codec(codec)
   if (is.character(stream)) {
     stream <- ReadableFile$create(stream)
   }
