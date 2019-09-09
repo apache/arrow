@@ -661,6 +661,7 @@ Status NumPyConverter::Visit(const StringType& type) {
   PyAcquireGIL gil_lock;
 
   const bool is_binary_type = dtype_->type_num == NPY_STRING;
+  const bool is_unicode_type = dtype_->type_num == NPY_UNICODE;
 
   auto AppendNonNullValue = [&](const uint8_t* data) {
     if (is_binary_type) {
@@ -670,9 +671,11 @@ Status NumPyConverter::Visit(const StringType& type) {
         return Status::Invalid("Encountered non-UTF8 binary value: ",
                                HexEncode(data, itemsize_));
       }
-    } else {
+    } else if (is_unicode_type) {
       return AppendUTF32(reinterpret_cast<const char*>(data), itemsize_, byteorder,
                          &builder);
+    } else {
+      return Status::Invalid("Expected a string or bytes dtype, got ", dtype_->kind);
     }
   };
 

@@ -1254,6 +1254,12 @@ def test_array_from_numpy_unicode():
     assert arrow_arr.equals(expected)
 
 
+def test_array_from_non_string():
+    # ARROW-5682 - when converting to string raise on non string-like dtype
+    with pytest.raises(ValueError):
+        pa.array(np.array([1, 2, 3]), type=pa.string())
+
+
 def test_array_from_masked():
     ma = np.ma.array([1, 2, 3, 4], dtype='int64',
                      mask=[False, False, True, False])
