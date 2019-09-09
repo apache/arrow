@@ -167,9 +167,17 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
 
     /// Appends a slice of type `T`, growing the internal buffer as needed.
     fn append_slice(&mut self, slice: &[bool]) -> Result<()> {
-        let array_slots = slice.len();
-        for i in 0..array_slots {
-            self.append(slice[i])?;
+        self.reserve(slice.len())?;
+        for v in slice {
+            if *v {
+                // For performance the `len` of the buffer is not
+                // updated on each append but is updated in the
+                // `freeze` method instead.
+                unsafe {
+                    bit_util::set_bit_raw(self.buffer.raw_data() as *mut u8, self.len);
+                }
+            }
+            self.len += 1;
         }
         Ok(())
     }
@@ -838,6 +846,30 @@ mod tests {
         let mut b = Int32BufferBuilder::new(0);
         let bytes = [8, 16, 32, 64].to_byte_slice();
         b.write_bytes(bytes, 4).unwrap();
+    }
+
+    #[test]
+    fn test_boolean_array_builder_append_slice() {
+        let arr1 =
+            BooleanArray::from(vec![Some(true), Some(false), None, None, Some(false)]);
+
+        let mut builder = BooleanArray::builder(0);
+        builder.append_slice(&[true, false]).unwrap();
+        builder.append_null().unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(false).unwrap();
+        let arr2 = builder.finish();
+
+        assert_eq!(arr1.len(), arr2.len());
+        assert_eq!(arr1.offset(), arr2.offset());
+        assert_eq!(arr1.null_count(), arr2.null_count());
+        for i in 0..5 {
+            assert_eq!(arr1.is_null(i), arr2.is_null(i));
+            assert_eq!(arr1.is_valid(i), arr2.is_valid(i));
+            if arr1.is_valid(i) {
+                assert_eq!(arr1.value(i), arr2.value(i));
+            }
+        }
     }
 
     #[test]
