@@ -266,6 +266,11 @@ public class DictionaryHashTable {
       return this.index;
     }
 
+    @Override
+    public int hashCode() {
+      return hash;
+    }
+
     public final boolean equals(Object o) {
       if (!(o instanceof DictionaryHashTable.Entry)) {
         return false;

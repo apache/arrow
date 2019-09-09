@@ -138,7 +138,7 @@ public class FlightDescriptor {
   public int hashCode() {
     final int prime = 31;
     int result = 1;
-    result = prime * result + ((cmd == null) ? 0 : cmd.hashCode());
+    result = prime * result + ((cmd == null) ? 0 : Arrays.hashCode(cmd));
     result = prime * result + (isCmd ? 1231 : 1237);
     result = prime * result + ((path == null) ? 0 : path.hashCode());
     return result;
