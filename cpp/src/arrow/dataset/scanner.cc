@@ -31,8 +31,7 @@ std::unique_ptr<RecordBatchIterator> SimpleScanTask::Scan() {
 /// \brief GetFragmentsIterator transforms a vector<DataSource> in a flattened
 /// Iterator<DataFragment>.
 static std::unique_ptr<DataFragmentIterator> GetFragmentsIterator(
-    const std::vector<std::shared_ptr<DataSource>>& sources,
-    std::shared_ptr<ScanOptions> options) {
+    const std::vector<std::shared_ptr<DataSource>>& sources, const ScanOptions& options) {
   // Iterator<DataSource>
   auto sources_it = MakeVectorIterator(sources);
 
@@ -50,12 +49,11 @@ static std::unique_ptr<DataFragmentIterator> GetFragmentsIterator(
 /// \brief GetScanTaskIterator transforms an Iterator<DataFragment> in a
 /// flattened Iterator<ScanTask>.
 static std::unique_ptr<ScanTaskIterator> GetScanTaskIterator(
-    std::unique_ptr<DataFragmentIterator> fragments,
-    std::shared_ptr<ScanContext> context) {
+    std::unique_ptr<DataFragmentIterator> fragments) {
   // DataFragment -> ScanTaskIterator
-  auto fn = [context](std::shared_ptr<DataFragment> fragment,
-                      std::unique_ptr<ScanTaskIterator>* out) -> Status {
-    return fragment->Scan(context, out);
+  auto fn = [](std::shared_ptr<DataFragment> fragment,
+               std::unique_ptr<ScanTaskIterator>* out) -> Status {
+    return fragment->Scan(out);
   };
 
   // Iterator<Iterator<ScanTask>>
@@ -73,11 +71,10 @@ std::unique_ptr<ScanTaskIterator> SimpleScanner::Scan() {
   // Second, transforms Iterator<DataFragment> into a unified
   // Iterator<ScanTask>. The first Iterator::Next invocation is going to do
   // all the work of unwinding the chained iterators.
-  return GetScanTaskIterator(std::move(fragments_it), context_);
+  return GetScanTaskIterator(std::move(fragments_it));
 }
-ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
-                               std::shared_ptr<ScanContext> scan_context)
-    : dataset_(std::move(dataset)), scan_context_(std::move(scan_context)) {}
+ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset)
+    : dataset_(std::move(dataset)) {}
 
 ScannerBuilder* ScannerBuilder::Project(const std::vector<std::string>& columns) {
   return this;
@@ -88,7 +85,7 @@ ScannerBuilder* ScannerBuilder::AddFilter(const std::shared_ptr<Filter>& filter)
 }
 
 ScannerBuilder* ScannerBuilder::SetGlobalFileOptions(
-    std::shared_ptr<FileScanOptions> options) {
+    std::shared_ptr<ScanOptions::FileOptions> options) {
   return this;
 }
 
@@ -98,8 +95,7 @@ ScannerBuilder* ScannerBuilder::IncludePartitionKeys(bool include) {
 }
 
 Status ScannerBuilder::Finish(std::unique_ptr<Scanner>* out) const {
-  auto options = std::make_shared<ScanOptions>();
-  out->reset(new SimpleScanner(dataset_->sources(), options, scan_context_));
+  out->reset(new SimpleScanner(dataset_->sources(), ScanOptions()));
   return Status::OK();
 }
 

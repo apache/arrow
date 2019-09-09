@@ -157,15 +157,14 @@ class ARROW_DS_EXPORT Scanner {
 /// returning a ScanTaskIterator.
 class ARROW_DS_EXPORT SimpleScanner : public Scanner {
  public:
-  SimpleScanner(std::vector<std::shared_ptr<DataSource>> sources,
-                std::shared_ptr<ScanContext> context)
-      : sources_(std::move(sources)), context_(std::move(context)) {}
+  SimpleScanner(std::vector<std::shared_ptr<DataSource>> sources, ScanOptions options)
+      : sources_(std::move(sources)), options_(std::move(options)) {}
 
   std::unique_ptr<ScanTaskIterator> Scan() override;
 
  private:
   std::vector<std::shared_ptr<DataSource>> sources_;
-  std::shared_ptr<ScanContext> context_;
+  ScanOptions options_;
 };
 
 class ARROW_DS_EXPORT ScannerBuilder {

@@ -55,8 +55,7 @@ Status Dataset::Make(const std::vector<std::shared_ptr<DataSource>>& sources,
 }
 
 Status Dataset::NewScan(std::unique_ptr<ScannerBuilder>* out) {
-  auto context = std::make_shared<ScanContext>();
-  out->reset(new ScannerBuilder(this->shared_from_this(), context));
+  out->reset(new ScannerBuilder(this->shared_from_this()));
   return Status::OK();
 }
 

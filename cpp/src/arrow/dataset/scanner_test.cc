@@ -45,7 +45,7 @@ TEST_F(TestSimpleScanner, Scan) {
   const int64_t total_batches = sources.size() * kNumberBatches * kNumberFragments;
   auto reader = ConstantArrayGenerator::Repeat(total_batches, batch);
 
-  SimpleScanner scanner{sources, options_, ctx_};
+  SimpleScanner scanner{sources, ScanOptions()};
 
   // Verifies that the unified BatchReader is equivalent to flattening all the
   // structures of the scanner, i.e. Scanner[DataSource[ScanTask[RecordBatch]]]
