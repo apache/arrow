@@ -421,7 +421,7 @@ class ArrayWriter {
     // write strings instead of numbers since numbers can't represent all 64 bit integers
     for (int64_t i = 0; i < arr.length(); ++i) {
       auto str = std::to_string(data[i]);
-      writer_->String(str.c_str(), str.size());
+      writer_->String(str.c_str(), static_cast<rj::SizeType>(str.size()));
     }
   }
 
