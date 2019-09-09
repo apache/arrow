@@ -387,13 +387,20 @@ test_that("array() aborts on overflow", {
   expect_error(array(bit64::as.integer64(2^32), type = uint32()), "Invalid.*downsize")
 })
 
-test_that("array() does not convert doubles to integer", {
+test_that("array() can convert doubles to integer", {
   types <- list(
     int8(), int16(), int32(), int64(),
     uint8(), uint16(), uint32(), uint64()
   )
   for(type in types) {
-    expect_error(array(10, type = type)$type, "Cannot convert.*REALSXP")
+    a <- array(10, type = type)
+    expect_equal(a$type, type)
+
+    # exception for now because we cannot handle
+    # unsigned 64 bit integers yet
+    if (type != uint64()) {
+      expect_true(a$as_vector() == 10L)
+    }
   }
 })
 
