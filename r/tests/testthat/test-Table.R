@@ -87,7 +87,7 @@ test_that("table() handles record batches with splicing", {
   tab <- table(batch, batch, batch)
   expect_equal(tab$schema, batch$schema)
   expect_equal(tab$num_rows, 6L)
-  expect_equal(
+  expect_equivalent(
     as.data.frame(tab),
     vctrs::vec_rbind(as.data.frame(batch), as.data.frame(batch), as.data.frame(batch))
   )
@@ -96,7 +96,7 @@ test_that("table() handles record batches with splicing", {
   tab <- table(!!!batches)
   expect_equal(tab$schema, batch$schema)
   expect_equal(tab$num_rows, 6L)
-  expect_equal(
+  expect_equivalent(
     as.data.frame(tab),
     vctrs::vec_rbind(!!!purrr::map(batches, as.data.frame))
   )
