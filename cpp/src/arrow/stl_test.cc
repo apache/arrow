@@ -398,7 +398,7 @@ TEST(TestTableFromTupleVector, AppendingMultipleRows) {
   std::shared_ptr<Schema> expected_schema =
       schema({field("column1", list(int32()), false)});
   std::shared_ptr<Array> int_array =
-      ArrayFromJSON(list(int32()), R"([[1, 2, 3], [10, 20, 30])");
+      ArrayFromJSON(list(int32()), "[[1, 2, 3], [10, 20, 30]]");
   auto expected_table = Table::Make(expected_schema, {int_array});
 
   ASSERT_TRUE(expected_table->Equals(*table));
