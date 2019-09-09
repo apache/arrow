@@ -518,15 +518,24 @@ CombinedStatus = namedtuple('CombinedStatus', ('state', 'total_count'))
 
 class Queue(Repo):
 
-    def _next_job_id(self, prefix):
-        """Auto increments the branch's identifier based on the prefix"""
+    def _latest_prefix_id(self, prefix):
         pattern = re.compile(r'[\w\/-]*{}-(\d+)'.format(prefix))
         matches = list(filter(None, map(pattern.match, self.repo.branches)))
         if matches:
             latest = max(int(m.group(1)) for m in matches)
         else:
             latest = 0
-        return '{}-{}'.format(prefix, latest + 1)
+        return latest
+
+    def _next_job_id(self, prefix):
+        """Auto increments the branch's identifier based on the prefix"""
+        latest_id = self._latest_prefix_id(prefix)
+        return '{}-{}'.format(prefix, latest_id + 1)
+
+    def latest_for_prefix(self, prefix):
+        latest_id = self._latest_prefix_id(prefix)
+        job_name = '{}-{}'.format(prefix, latest_id)
+        return self.get(job_name)
 
     def get(self, job_name):
         branch_name = 'origin/{}'.format(job_name)
@@ -656,6 +665,7 @@ class Task(Serializable):
         self.branch = None  # filled after adding to a queue
         self.commit = None  # filled after adding to a queue
         self._queue = None  # set by the queue object after put or get
+        self._status = None  # status cache
 
     def render_files(self, **extra_params):
         path = CWD / self.template
@@ -678,8 +688,10 @@ class Task(Serializable):
         }
         return config_files[self.ci]
 
-    def status(self):
-        return self._queue.github_commit_status(self.commit)
+    def status(self, force_query=False):
+        if force_query or self._status is None:
+            self._status = self._queue.github_commit_status(self.commit)
+        return self._status
 
     def assets(self):
         assets = self._queue.github_release_assets(self.tag)
@@ -781,6 +793,31 @@ class Job(Serializable):
             tasks[task_name] = Task(artifacts=artifacts, **task)
 
         return cls(target=target, tasks=tasks)
+
+    def is_finished(self):
+        for task in self.tasks.values():
+            status = task.status(force_query=True)
+            if status.state == 'pending':
+                return False
+        return True
+
+    def wait_until_finished(self, max_wait_minutes=120,
+                            poll_interval_minutes=10):
+        started_at = time.time()
+        while True:
+            if self.is_finished():
+                break
+
+            waited_for_minutes = (time.time() - started_at) / 60
+            if waited_for_minutes > max_wait_minutes:
+                msg = ('Exceeded the maximum amount of time waiting for job '
+                       'to finish, waited for {} minutes.')
+                raise RuntimeError(msg.format(waited_for_minutes))
+
+            # TODO(kszucs): use logging
+            click.echo('Waiting {} minutes and then checking again'
+                       .format(poll_interval_minutes))
+            time.sleep(poll_interval_minutes * 60)
 
 
 class Report:
@@ -1115,7 +1152,10 @@ def status(ctx, job_name, output):
 @click.pass_context
 def latest_prefix(ctx, prefix):
     queue = ctx.obj['queue']
-    print(queue.latest_job_for_prefix(prefix))
+    queue.fetch()
+
+    latest = queue.latest_for_prefix(prefix)
+    click.echo(latest)
 
 
 @crossbow.command()
@@ -1134,8 +1174,12 @@ def latest_prefix(ctx, prefix):
               help='SMTP server to use for report e-mail.')
 @click.option('--smtp-port', '-p', default=465,
               help='SMTP port to use for report e-mail.')
-@click.option('--stop-if-pending', default=True,
-              help='Do not send e-mail if there are still pending tasks')
+@click.option('--poll/--no-poll', default=False,
+              help='Wait for completion if there are tasks pending')
+@click.option('--max-wait-minutes', default=180,
+              help='Maximum amount of time waiting for job completion')
+@click.option('--poll-interval-minutes', default=10,
+              help='Number of minutes to wait to check job status again')
 @click.option('--dry-run/--send', default=True,
               help='Just display the report, don\'t send it')
 @click.option('--output', metavar='<output>',
@@ -1144,8 +1188,8 @@ def latest_prefix(ctx, prefix):
                    '--dry-run flag enabled.')
 @click.pass_context
 def report(ctx, job_name, sender_name, sender_email, recipient_email,
-           smtp_user, smtp_password, smtp_server, smtp_port, stop_if_pending,
-           dry_run, output):
+           smtp_user, smtp_password, smtp_server, smtp_port, poll,
+           max_wait_minutes, poll_interval_minutes, dry_run, output):
     """
     Send an e-mail report showing success/failure of tasks in a Crossbow run
     """
@@ -1153,13 +1197,18 @@ def report(ctx, job_name, sender_name, sender_email, recipient_email,
     queue.fetch()
 
     job = queue.get(job_name)
-
     report = EmailReport(
         job=job,
         sender_name=sender_name,
         sender_email=sender_email,
         recipient_email=recipient_email
     )
+
+    if poll:
+        job.wait_until_finished(
+            max_wait_minutes=max_wait_minutes,
+            poll_interval_minutes=poll_interval_minutes
+        )
 
     if dry_run:
         report.show(output)
