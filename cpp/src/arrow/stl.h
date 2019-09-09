@@ -52,11 +52,11 @@ using BareTupleElement = typename std::remove_const<typename std::remove_referen
 template <typename T, typename Enable = void>
 struct ConversionTraits {};
 
-#define ARROW_STL_CONVERSION(c_type, ArrowType_)                                         \
+#define ARROW_STL_CONVERSION(CType_, ArrowType_)                                         \
   template <>                                                                            \
-  struct ConversionTraits<c_type> : public CTypeTraits<c_type> {                         \
+  struct ConversionTraits<CType_> : public CTypeTraits<CType_> {                         \
     static Status AppendRow(typename TypeTraits<ArrowType_>::BuilderType& builder,       \
-                            c_type cell) {                                               \
+                            CType_ cell) {                                               \
       return builder.Append(cell);                                                       \
     }                                                                                    \
     template <typename Range>                                                            \
@@ -66,7 +66,7 @@ struct ConversionTraits {};
                     "Appending multiple rows to given range type isn't implemented for " \
                     "this type.");                                                       \
     }                                                                                    \
-    static c_type GetEntry(const typename TypeTraits<ArrowType_>::ArrayType& array,      \
+    static CType_ GetEntry(const typename TypeTraits<ArrowType_>::ArrayType& array,      \
                            size_t j) {                                                   \
       return array.Value(j);                                                             \
     }                                                                                    \
@@ -74,9 +74,9 @@ struct ConversionTraits {};
   };                                                                                     \
                                                                                          \
   template <>                                                                            \
-  Status ConversionTraits<c_type>::AppendMultipleRows<const std::vector<c_type>&>(       \
+  Status ConversionTraits<CType_>::AppendMultipleRows<const std::vector<CType_>&>(       \
       typename TypeTraits<ArrowType_>::BuilderType & builder,                            \
-      const std::vector<c_type>& cell_range) {                                           \
+      const std::vector<CType_>& cell_range) {                                           \
     return builder.AppendValues(cell_range);                                             \
   }
 
@@ -167,24 +167,24 @@ Status AppendMultipleRows(Builder&& builder, Range&& cell_range) {
       builder, std::forward<Range>(cell_range));
 }
 
-template <typename value_c_type>
-struct ConversionTraits<std::vector<value_c_type>>
-    : public CTypeTraits<std::vector<value_c_type>> {
-  static Status AppendRow(ListBuilder& builder, const std::vector<value_c_type>& cell) {
-    return AppendMultipleRows<value_c_type>(builder, cell);
+template <typename ValueCType>
+struct ConversionTraits<std::vector<ValueCType>>
+    : public CTypeTraits<std::vector<ValueCType>> {
+  static Status AppendRow(ListBuilder& builder, const std::vector<ValueCType>& cell) {
+    return AppendMultipleRows<ValueCType>(builder, cell);
   }
 
-  static std::vector<value_c_type> GetEntry(const ListArray& array, size_t j) {
-    using ElementArrayType = typename TypeTraits<
-        typename ConversionTraits<value_c_type>::ArrowType>::ArrayType;
+  static std::vector<ValueCType> GetEntry(const ListArray& array, size_t j) {
+    using ElementArrayType =
+        typename TypeTraits<typename ConversionTraits<ValueCType>::ArrowType>::ArrayType;
 
     const ElementArrayType& value_array =
         ::arrow::internal::checked_cast<const ElementArrayType&>(*array.values());
 
-    std::vector<value_c_type> vec(array.value_length(j));
+    std::vector<ValueCType> vec(array.value_length(j));
     for (int64_t i = 0; i < array.value_length(j); i++) {
-      vec[i] = ConversionTraits<value_c_type>::GetEntry(value_array,
-                                                        array.value_offset(j) + i);
+      vec[i] =
+          ConversionTraits<ValueCType>::GetEntry(value_array, array.value_offset(j) + i);
     }
     return vec;
   }
