@@ -951,6 +951,9 @@ def _add_any_metadata(table, pandas_metadata):
     schema = table.schema
 
     index_columns = pandas_metadata['index_columns']
+    # only take index columns into account if they are an actual table column
+    index_columns = [idx_col for idx_col in index_columns
+                     if isinstance(idx_col, six.string_types)]
     n_index_levels = len(index_columns)
     n_columns = len(pandas_metadata['columns']) - n_index_levels
 
@@ -959,7 +962,7 @@ def _add_any_metadata(table, pandas_metadata):
 
         raw_name = col_meta.get('field_name')
         if not raw_name:
-            # deal with metadata written with arrow < 0.8
+            # deal with metadata written with arrow < 0.8 or fastparquet
             raw_name = col_meta['name']
             if i >= n_columns:
                 # index columns
