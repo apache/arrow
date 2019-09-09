@@ -221,7 +221,10 @@ impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
             ));
         }
 
-        if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
+        if cfg!(all(
+            any(target_arch = "x86", target_arch = "x86_64"),
+            feature = "simd"
+        )) {
             // SIMD implementation if available
             Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a & b))
         } else {
@@ -251,7 +254,10 @@ impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
             ));
         }
 
-        if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
+        if cfg!(all(
+            any(target_arch = "x86", target_arch = "x86_64"),
+            feature = "simd"
+        )) {
             // SIMD implementation if available
             Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a | b))
         } else {
@@ -276,7 +282,10 @@ impl Not for &Buffer {
     type Output = Buffer;
 
     fn not(self) -> Buffer {
-        if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
+        if cfg!(all(
+            any(target_arch = "x86", target_arch = "x86_64"),
+            feature = "simd"
+        )) {
             // SIMD implementation if available
             let mut result =
                 MutableBuffer::new(self.len()).with_bitset(self.len(), false);

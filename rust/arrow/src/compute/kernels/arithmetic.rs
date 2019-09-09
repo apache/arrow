@@ -207,7 +207,10 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
+    if cfg!(all(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        feature = "simd"
+    )) {
         simd_math_op(&left, &right, |a, b| a + b)
     } else {
         math_op(left, right, |a, b| Ok(a + b))
@@ -228,7 +231,10 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
+    if cfg!(all(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        feature = "simd"
+    )) {
         simd_math_op(&left, &right, |a, b| a - b)
     } else {
         math_op(left, right, |a, b| Ok(a - b))
@@ -249,7 +255,10 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
+    if cfg!(all(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        feature = "simd"
+    )) {
         simd_math_op(&left, &right, |a, b| a * b)
     } else {
         math_op(left, right, |a, b| Ok(a * b))
@@ -272,7 +281,10 @@ where
         + Zero
         + One,
 {
-    if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
+    if cfg!(all(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        feature = "simd"
+    )) {
         simd_divide(&left, &right)
     } else {
         math_op(left, right, |a, b| {

@@ -120,7 +120,10 @@ pub fn eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Bool
 where
     T: ArrowNumericType,
 {
-    if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
+    if cfg!(all(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        feature = "simd"
+    )) {
         simd_compare_op(left, right, |a, b| T::eq(a, b))
     } else {
         compare_op(left, right, |a, b| a == b)
@@ -132,7 +135,10 @@ pub fn neq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Boo
 where
     T: ArrowNumericType,
 {
-    if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
+    if cfg!(all(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        feature = "simd"
+    )) {
         simd_compare_op(left, right, |a, b| T::ne(a, b))
     } else {
         compare_op(left, right, |a, b| a != b)
@@ -145,7 +151,10 @@ pub fn lt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Bool
 where
     T: ArrowNumericType,
 {
-    if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
+    if cfg!(all(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        feature = "simd"
+    )) {
         simd_compare_op(left, right, |a, b| T::lt(a, b))
     } else {
         compare_op(left, right, |a, b| match (a, b) {
@@ -166,7 +175,10 @@ pub fn lt_eq<T>(
 where
     T: ArrowNumericType,
 {
-    if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
+    if cfg!(all(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        feature = "simd"
+    )) {
         simd_compare_op(left, right, |a, b| T::le(a, b))
     } else {
         compare_op(left, right, |a, b| match (a, b) {
@@ -184,7 +196,10 @@ pub fn gt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Bool
 where
     T: ArrowNumericType,
 {
-    if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
+    if cfg!(all(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        feature = "simd"
+    )) {
         simd_compare_op(left, right, |a, b| T::gt(a, b))
     } else {
         compare_op(left, right, |a, b| match (a, b) {
@@ -205,7 +220,10 @@ pub fn gt_eq<T>(
 where
     T: ArrowNumericType,
 {
-    if cfg!(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")) {
+    if cfg!(all(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        feature = "simd"
+    )) {
         simd_compare_op(left, right, |a, b| T::ge(a, b))
     } else {
         compare_op(left, right, |a, b| match (a, b) {
