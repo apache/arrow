@@ -57,7 +57,9 @@ class ARROW_EXPORT Converter {
 
   virtual Status Initialize() = 0;
 
-  const ConvertOptions options_;
+  // CAUTION: ConvertOptions can grow large (if it customizes hundreds or
+  // thousands of columns), so avoid copying it in each Converter.
+  const ConvertOptions& options_;
   MemoryPool* pool_;
   std::shared_ptr<DataType> type_;
 };

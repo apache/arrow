@@ -153,7 +153,9 @@ class TypedColumnBuilder : public ColumnBuilder {
 
   std::shared_ptr<DataType> type_;
   int32_t col_index_;
-  ConvertOptions options_;
+  // CAUTION: ConvertOptions can grow large (if it customizes hundreds or
+  // thousands of columns), so avoid copying it in each TypedColumnBuilder.
+  const ConvertOptions& options_;
   MemoryPool* pool_;
 
   std::shared_ptr<Converter> converter_;
@@ -231,7 +233,9 @@ class InferringColumnBuilder : public ColumnBuilder {
   std::mutex mutex_;
 
   int32_t col_index_;
-  ConvertOptions options_;
+  // CAUTION: ConvertOptions can grow large (if it customizes hundreds or
+  // thousands of columns), so avoid copying it in each InferringColumnBuilder.
+  const ConvertOptions& options_;
   MemoryPool* pool_;
   std::shared_ptr<Converter> converter_;
 
