@@ -26,7 +26,7 @@ import textwrap
 from io import StringIO
 from pathlib import Path
 from textwrap import dedent
-from datetime import datetime
+from datetime import date, datetime
 from functools import partial
 from collections import namedtuple
 
@@ -523,7 +523,7 @@ class Queue(Repo):
         if matches:
             latest = max(int(m.group(1)) for m in matches)
         else:
-            latest = 0
+            latest = -1
         return latest
 
     def _next_job_id(self, prefix):
@@ -533,6 +533,10 @@ class Queue(Repo):
 
     def latest_for_prefix(self, prefix):
         latest_id = self._latest_prefix_id(prefix)
+        if latest_id < 0:
+            raise RuntimeError(
+                'No job has been submitted with prefix {} yet'.format(prefix)
+            )
         job_name = '{}-{}'.format(prefix, latest_id)
         return self.get(job_name)
 
