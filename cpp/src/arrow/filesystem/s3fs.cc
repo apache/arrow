@@ -63,6 +63,7 @@
 #include "arrow/filesystem/s3_internal.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -390,12 +391,9 @@ class ObjectOutputStream : public io::OutputStream {
       : client_(client), path_(path) {}
 
   ~ObjectOutputStream() override {
-    if (!closed_) {
-      auto st = Abort();
-      if (!st.ok()) {
-        ARROW_LOG(ERROR) << "Could not abort multipart upload: " << st;
-      }
-    }
+    // For compliance with the rest of the IO stack, Close rather than Abort,
+    // even though it may be more expensive.
+    io::internal::CloseFromDestructor(this);
   }
 
   Status Init() {
@@ -416,7 +414,11 @@ class ObjectOutputStream : public io::OutputStream {
     return Status::OK();
   }
 
-  Status Abort() {
+  Status Abort() override {
+    if (closed_) {
+      return Status::OK();
+    }
+
     S3Model::AbortMultipartUploadRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));

@@ -23,6 +23,7 @@
 #include <mutex>
 
 #include "arrow/buffer.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -63,9 +64,8 @@ Status BufferOutputStream::Reset(int64_t initial_capacity, MemoryPool* pool) {
 }
 
 BufferOutputStream::~BufferOutputStream() {
-  // This can fail, better to explicitly call close
   if (buffer_) {
-    ARROW_CHECK_OK(Close());
+    internal::CloseFromDestructor(this);
   }
 }
 
@@ -196,9 +196,9 @@ class FixedSizeBufferWriter::FixedSizeBufferWriterImpl {
       return Status::IOError("Write out of bounds");
     }
     if (nbytes > memcopy_threshold_ && memcopy_num_threads_ > 1) {
-      internal::parallel_memcopy(mutable_data_ + position_,
-                                 reinterpret_cast<const uint8_t*>(data), nbytes,
-                                 memcopy_blocksize_, memcopy_num_threads_);
+      ::arrow::internal::parallel_memcopy(mutable_data_ + position_,
+                                          reinterpret_cast<const uint8_t*>(data), nbytes,
+                                          memcopy_blocksize_, memcopy_num_threads_);
     } else {
       memcpy(mutable_data_ + position_, data, nbytes);
     }

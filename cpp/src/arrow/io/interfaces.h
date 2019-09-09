@@ -67,8 +67,30 @@ class ARROW_EXPORT FileSystem {
 class ARROW_EXPORT FileInterface {
  public:
   virtual ~FileInterface() = 0;
+
+  /// \brief Close the stream cleanly
+  ///
+  /// For writable streams, this will attempt to flush any pending data
+  /// before releasing the underlying resource.
+  ///
+  /// After Close() is called, closed() returns true and the stream is not
+  /// available for further operations.
   virtual Status Close() = 0;
+
+  /// \brief Close the stream abruptly
+  ///
+  /// This method does not guarantee that any pending data is flushed.
+  /// It merely releases any underlying resource used by the stream for
+  /// its operation.
+  ///
+  /// After Abort() is called, closed() returns true and the stream is not
+  /// available for further operations.
+  virtual Status Abort();
+
+  /// \brief Return the position in this stream
   virtual Status Tell(int64_t* position) const = 0;
+
+  /// \brief Return whether the stream is closed
   virtual bool closed() const = 0;
 
   FileMode::type mode() const { return mode_; }
