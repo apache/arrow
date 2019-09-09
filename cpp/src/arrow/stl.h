@@ -338,7 +338,7 @@ struct TupleSetter<Range, Tuple, 0> {
 }  // namespace internal
 
 template <typename Range>
-Status TableFromTupleRange(MemoryPool* pool, const Range& rows,
+Status TableFromTupleRange(MemoryPool* pool, Range&& rows,
                            const std::vector<std::string>& names,
                            std::shared_ptr<Table>* table) {
   using row_type = typename std::iterator_traits<decltype(std::begin(rows))>::value_type;
