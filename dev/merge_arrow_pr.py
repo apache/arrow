@@ -334,7 +334,7 @@ class PullRequest(object):
 
         had_conflicts = False
         try:
-            run_cmd(['git', 'merge', pr_branch_name, '--squash'])
+            run_cmd(['git', 'merge', pr_branch_name, '--ff', '--squash'])
         except Exception as e:
             msg = ("Error merging: %s\nWould you like to "
                    "manually fix-up this merge?" % e)
