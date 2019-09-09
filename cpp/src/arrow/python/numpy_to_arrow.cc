@@ -675,7 +675,10 @@ Status NumPyConverter::Visit(const StringType& type) {
       return AppendUTF32(reinterpret_cast<const char*>(data), itemsize_, byteorder,
                          &builder);
     } else {
-      return Status::Invalid("Expected a string or bytes dtype, got ", dtype_->kind);
+      std::string dtype_string;
+      RETURN_NOT_OK(internal::PyObject_StdStringStr(
+        reinterpret_cast<PyObject*>(dtype_), &dtype_string));
+      return Status::Invalid("Expected a string or bytes dtype, got ", dtype_string);
     }
   };
 
