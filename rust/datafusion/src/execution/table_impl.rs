@@ -183,7 +183,7 @@ impl TableImpl {
 mod tests {
     use super::*;
     use crate::execution::context::ExecutionContext;
-    use std::env;
+    use crate::test;
 
     #[test]
     fn column_index() {
@@ -306,32 +306,14 @@ mod tests {
     }
 
     fn register_aggregate_csv(ctx: &mut ExecutionContext) {
-        let schema = aggr_test_schema();
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let schema = test::aggr_test_schema();
+        let testdata = test::arrow_testdata_path();
         ctx.register_csv(
             "aggregate_test_100",
             &format!("{}/csv/aggregate_test_100.csv", testdata),
             &schema,
             true,
         );
-    }
-
-    fn aggr_test_schema() -> Arc<Schema> {
-        Arc::new(Schema::new(vec![
-            Field::new("c1", DataType::Utf8, false),
-            Field::new("c2", DataType::UInt32, false),
-            Field::new("c3", DataType::Int8, false),
-            Field::new("c4", DataType::Int16, false),
-            Field::new("c5", DataType::Int32, false),
-            Field::new("c6", DataType::Int64, false),
-            Field::new("c7", DataType::UInt8, false),
-            Field::new("c8", DataType::UInt16, false),
-            Field::new("c9", DataType::UInt32, false),
-            Field::new("c10", DataType::UInt64, false),
-            Field::new("c11", DataType::Float32, false),
-            Field::new("c12", DataType::Float64, false),
-            Field::new("c13", DataType::Utf8, false),
-        ]))
     }
 
 }
