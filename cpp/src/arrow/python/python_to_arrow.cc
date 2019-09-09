@@ -317,7 +317,7 @@ class Date64Converter
     int64_t t;
     if (PyDateTime_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_DateTime*>(obj);
-      t = PyDateTime_to_ms(pydate);
+      t = internal::PyDateTime_to_ms(pydate);
       // Truncate any intraday milliseconds
       t -= t % 86400000LL;
     } else if (PyDate_Check(obj)) {
