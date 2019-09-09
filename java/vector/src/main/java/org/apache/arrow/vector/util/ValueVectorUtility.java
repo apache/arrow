@@ -31,6 +31,10 @@ public class ValueVectorUtility {
   public static String getToString(ValueVector vector, int start, int end) {
     Preconditions.checkNotNull(vector);
     final int length = end - start;
+    Preconditions.checkArgument(length >= 0);
+    Preconditions.checkArgument(start >= 0);
+    Preconditions.checkArgument(end <= vector.getValueCount());
+
     if (length == 0) {
       return "[]";
     }
