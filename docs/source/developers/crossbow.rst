@@ -21,8 +21,8 @@
 Packaging and Testing with Crossbow
 ===================================
 
-The content of this directory aims for automating the historically error
-prone process of Arrow packaging and integration testing.
+The content of ``arrow/dev/tasks`` directory aims for automating the process of
+Arrow packaging and integration testing.
 
 Packages:
   - C++ and Python `conda-forge packages`_ for Linux, Mac and Windows
@@ -44,24 +44,29 @@ Architecture
 Executors
 ~~~~~~~~~
 
-Individual jobs are executed on public CI services, currently: - Linux:
-TravisCI - Mac: TravisCI - Windows: AppVeyor
+Individual jobs are executed on public CI services, currently:
+
+- Linux: TravisCI, CircleCI, Azure Pipelines
+- Mac: TravisCI, Azure Pipelines
+- Windows: AppVeyor, Azure Pipelines
 
 Queue
 ~~~~~
 
 Because of the nature of how the CI services work, the scheduling of
 jobs happens through an additional git repository, which acts like a job
-queue for the tasks. A job is a git commit on a particular git branch,
-containing only the required configuration file to run the requested
-build (like ``.travis.yml``, ``appveyor.yml`` or ``azure-pipelines.yml``).
+queue for the tasks. Anyone can host a ``queue`` repository which is usually
+called as ``crossbow``.
+
+A job is a git commit on a particular git branch, containing only the required
+configuration file to run the requested build (like ``.travis.yml``,
+``appveyor.yml`` or ``azure-pipelines.yml``).
 
 Scheduler
 ~~~~~~~~~
 
 `Crossbow.py`_ handles version generation, task rendering and
-submission. The packaging tasks are defined in ``tasks.yml`` and the
-integration tests are configured in ``tests.yml``.
+submission. The tasks are defined in ``tasks.yml``.
 
 Install
 -------
@@ -76,8 +81,10 @@ Install
 
    -  turn off Travis’ `auto cancellation`_ feature on branches
 
-3. Clone the newly created, by default the scripts looks for
-   ``crossbow`` next to arrow repository.
+3. Clone the newly created repository next to the arrow repository:
+
+   By default the scripts looks for ``crossbow`` next to arrow repository, but
+   this can configured through command line arguments.
 
    .. code:: bash
 
@@ -115,7 +122,7 @@ Install
    On Appveyor check the ``skip branches without appveyor.yml`` checkbox
    on the web UI under crossbow repository’s settings.
 
-7. Install Python 3.6:
+7. Install Python (minimum supported version is 3.6):
 
    Miniconda is preferred, see installation instructions:
    https://conda.io/docs/user-guide/install/index.html
@@ -124,16 +131,7 @@ Install
 
    .. code:: bash
 
-      conda install -c conda-forge -y \
-          jinja2 \
-          pygit2 \
-          click \
-          ruamel.yaml \
-          setuptools_scm \
-          github3.py \
-          python-gnupg \
-          toolz \
-          jira
+      conda install -c conda-forge -y --file arrow/ci/conda_env_crossbow.yml
 
    .. code:: bash
 
@@ -145,7 +143,6 @@ Install
           ruamel.yaml \
           setuptools_scm \
           github3.py \
-          python-gnupg \
           toolz \
           jira
 
@@ -170,11 +167,12 @@ The script does the following:
       $ git clone https://github.com/kszucs/crossbow
 
       $ cd arrow/dev/tasks
+      $ python crossbow.py submit --help  # show the available options
       $ python crossbow.py submit conda-win conda-linux conda-osx
 
 2. Gets the HEAD commit of the currently checked out branch and
    generates the version number based on `setuptools_scm`_. So to build
-   a particular branch, just check out before running the script:
+   a particular branch check out before running the script:
 
    .. code:: bash
 
@@ -200,6 +198,9 @@ The script does the following:
 Query the build status
 ~~~~~~~~~~~~~~~~~~~~~~
 
+Build id (which has a corresponding branch in the queue repository) is returned
+by the ``submit`` command.
+
 .. code:: bash
 
    python crossbow.py status <build id / branch name>
@@ -214,8 +215,8 @@ Download the build artifacts
 Examples
 ~~~~~~~~
 
-The script accepts a pattern as a first argument to narrow the build
-scope:
+Submit command accepts a list of task names and/or a list of task-group names
+to select which tasks to build.
 
 Run multiple builds:
 
@@ -239,7 +240,7 @@ Run only ``conda`` package builds and a Linux one:
 
 .. code:: bash
 
-   $ python crossbow.py submit -g conda centos-7
+   $ python crossbow.py submit --group conda centos-7
 
 Run ``wheel`` builds:
 
@@ -247,20 +248,8 @@ Run ``wheel`` builds:
 
    $ python crossbow.py submit --group wheel
 
-In order to submit docker tests defined in the ``docker-compose.yml`` use the
-``tests.yml`` job configuration file:
-
-.. code:: bash
-
-   $ python crossbow.py submit -c arrow/dev/tasks/tests.yml docker-cpp
-
-Currently there are three task groups in the ``tasks.yml``: docker, integration
-and cpp-python. To submit one or more tasks groups:
-
-.. code:: bash
-
-   $ python crossbow.py submit -c arrow/dev/tasks/tests.yml -g integration
-   $ python crossbow.py submit -c arrow/dev/tasks/tests.yml -g cpp-python
+There are multiple task groups in the ``tasks.yml`` like docker, integration
+and cpp-python for running docker based tests.
 
 ``python crossbow.py submit`` supports multiple options and arguments, for more
 see its help page:
