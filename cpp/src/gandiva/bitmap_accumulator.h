@@ -29,7 +29,7 @@
 namespace gandiva {
 
 /// \brief Extract bitmap buffer from either the input/buffer vectors or the
-/// local validity bitmap, and accumultes them to do the final computation.
+/// local validity bitmap, and accumulates them to do the final computation.
 class GANDIVA_EXPORT BitMapAccumulator : public DexDefaultVisitor {
  public:
   explicit BitMapAccumulator(const EvalBatch& eval_batch)
@@ -39,13 +39,17 @@ class GANDIVA_EXPORT BitMapAccumulator : public DexDefaultVisitor {
     int idx = dex.ValidityIdx();
     auto bitmap = eval_batch_.GetBuffer(idx);
     // The bitmap could be null. Ignore it in this case.
-    if (bitmap != NULLPTR) src_maps_.push_back(bitmap);
+    if (bitmap != NULLPTR) {
+      src_maps_.push_back(bitmap);
+      src_map_offsets_.push_back(eval_batch_.GetBufferOffset(idx));
+    }
   }
 
   void Visit(const LocalBitMapValidityDex& dex) {
     int idx = dex.local_bitmap_idx();
     auto bitmap = eval_batch_.GetLocalBitMap(idx);
     src_maps_.push_back(bitmap);
+    src_map_offsets_.push_back(0);  // local bitmap has offset 0
   }
 
   void Visit(const TrueDex& dex) {
@@ -60,14 +64,16 @@ class GANDIVA_EXPORT BitMapAccumulator : public DexDefaultVisitor {
   /// Compute the dst_bmap based on the contents and type of the accumulated bitmap dex.
   void ComputeResult(uint8_t* dst_bitmap);
 
-  /// Compute the intersection of the accumulated bitmaps and save the result in
-  /// dst_bmap.
+  /// Compute the intersection of the accumulated bitmaps (with offsets) and save the
+  /// result in dst_bmap.
   static void IntersectBitMaps(uint8_t* dst_map, const std::vector<uint8_t*>& src_maps,
+                               const std::vector<int64_t>& src_maps_offsets,
                                int64_t num_records);
 
  private:
   const EvalBatch& eval_batch_;
   std::vector<uint8_t*> src_maps_;
+  std::vector<int64_t> src_map_offsets_;
   bool all_invalid_;
 };
 
