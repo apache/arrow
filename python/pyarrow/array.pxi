@@ -859,8 +859,8 @@ cdef class Array(_PandasConvertible):
                 "The mask should be boolean type, got {}".format(mask.type))
 
         with nogil:
-            check_status(Filter(_context(), CDatum(self.sp_array),
-                                CDatum(mask.sp_array), &out))
+            check_status(FilterKernel(_context(), CDatum(self.sp_array),
+                                      CDatum(mask.sp_array), &out))
 
         return wrap_datum(out)
 
