@@ -47,7 +47,7 @@ def fs(request, tempdir):
     pytest.param(str, id='str')
 ])
 def testpath(request, fs, tempdir):
-    # we always use the tempdir for rewding and writing test artifacts, but
+    # we always use the tempdir for reading and writing test artifacts, but
     # if the filesystem is wrapped in a SubTreeFileSystem then we don't need
     # to prepend the path with the tempdir, we also test the API with both
     # pathlib.Path objects and plain python strings

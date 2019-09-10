@@ -45,14 +45,14 @@ cdef inline c_string _path_to_bytes(path) except *:
     elif isinstance(path, six.string_types):
         return tobytes(path)
     elif isinstance(path, pathlib.Path):
-        return tobytes(str(path))
+        return tobytes(path.as_posix())
     else:
         raise TypeError('Path must be a string or an instance of pathlib.Path')
 
 
 cpdef enum FileType:
     NonExistent
-    Uknown
+    Unknown
     File
     Directory
 
@@ -77,9 +77,9 @@ cdef class FileStats:
 
         The returned enum variants have the following meanings:
         - FileType.NonExistent: target does not exist
-        - FileType.Uknown: target exists but its type is unknown (could be a
-                           special file such as a Unix socket or character
-                           device, or Windows NUL / CON / ...)
+        - FileType.Unknown: target exists but its type is unknown (could be a
+                            special file such as a Unix socket or character
+                            device, or Windows NUL / CON / ...)
         - FileType.File: target is a regular file
         - FileType.Directory: target is a regular directory
 
@@ -91,7 +91,7 @@ cdef class FileStats:
         if ctype == CFileType_NonExistent:
             return FileType.NonExistent
         elif ctype == CFileType_Unknown:
-            return FileType.Uknown
+            return FileType.Unknown
         elif ctype == CFileType_File:
             return FileType.File
         elif ctype == CFileType_Directory:
@@ -150,7 +150,7 @@ cdef class Selector:
 
     Parameters
     ----------
-    base_dir : Union[str, pathlib.Path]
+    base_dir : str or pathlib.Path
         The directory in which to select files.
         If the path exists but doesn't point to a directory, this should be an
         error.
@@ -212,20 +212,20 @@ cdef class FileSystem:
         """Get statistics for the given target.
 
         Any symlink is automatically dereferenced, recursively. A non-existing
-        or unreachable file returns an Ok status and has a FileType of value
-        NonExistent. An error status indicates a truly exceptional condition
+        or unreachable file returns a FileStats object and has a FileType of
+        value NonExistent. An exception indicates a truly exceptional condition
         (low-level I/O error, etc.).
 
         Parameters
         ----------
-        paths_or_selector: Union[Selector, List[Union[str, pathlib.Path]]]
+        paths_or_selector: Selector or list of path-likes
             Either a Selector object or a list of path-like objects.
             The selector's base directory will not be part of the results, even
             if it exists. If it doesn't exist, use `allow_non_existent`.
 
         Returns
         -------
-        file_stats : List[FileStats]
+        file_stats : list of FileStats
         """
         cdef:
             vector[CFileStats] stats
@@ -233,11 +233,13 @@ cdef class FileSystem:
             CSelector selector
 
         if isinstance(paths_or_selector, Selector):
-            selector = (<Selector>paths_or_selector).selector
-            check_status(self.fs.GetTargetStats(selector, &stats))
+            with nogil:
+                selector = (<Selector>paths_or_selector).selector
+                check_status(self.fs.GetTargetStats(selector, &stats))
         elif isinstance(paths_or_selector, (list, tuple)):
             paths = [_path_to_bytes(s) for s in paths_or_selector]
-            check_status(self.fs.GetTargetStats(paths, &stats))
+            with nogil:
+                check_status(self.fs.GetTargetStats(paths, &stats))
         else:
             raise TypeError('Must pass either paths or a Selector')
 
@@ -250,24 +252,26 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        path : Union[str, pathlib.Path]
+        path : str or pathlib.Path
             The path of the new directory.
         recursive: bool, default True
             Create nested directories as well.
         """
-        check_status(
-            self.fs.CreateDir(_path_to_bytes(path), recursive=recursive)
-        )
+        cdef c_string directory = _path_to_bytes(path)
+        with nogil:
+            check_status(self.fs.CreateDir(directory, recursive=recursive))
 
     def delete_dir(self, path):
         """Delete a directory and its contents, recursively.
 
         Parameters
         ----------
-        path : Union[str, pathlib.Path]
+        path : str or pathlib.Path
             The path of the directory to be deleted.
         """
-        check_status(self.fs.DeleteDir(_path_to_bytes(path)))
+        cdef c_string directory = _path_to_bytes(path)
+        with nogil:
+            check_status(self.fs.DeleteDir(directory))
 
     def move(self, src, dest):
         """Move / rename a file or directory.
@@ -279,12 +283,16 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        src : Union[str, pathlib.Path]
+        src : str or pathlib.Path
             The path of the file or the directory to be moved.
-        dest : Union[str, pathlib.Path]
+        dest : str or pathlib.Path
             The destination path where the file or directory is moved to.
         """
-        check_status(self.fs.Move(_path_to_bytes(src), _path_to_bytes(dest)))
+        cdef:
+            c_string source = _path_to_bytes(src)
+            c_string destination = _path_to_bytes(dest)
+        with nogil:
+            check_status(self.fs.Move(source, destination))
 
     def copy_file(self, src, dest):
         """Copy a file.
@@ -294,22 +302,28 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        src : Union[str, pathlib.Path]
+        src : str or pathlib.Path
             The path of the file to be copied from.
-        dest : Union[str, pathlib.Path]
+        dest : str or pathlib.Path
             The destination path where the file is copied to.
         """
-        check_status(self.fs.CopyFile(_path_to_bytes(src), _path_to_bytes(dest)))
+        cdef:
+            c_string source = _path_to_bytes(src)
+            c_string destination = _path_to_bytes(dest)
+        with nogil:
+            check_status(self.fs.CopyFile(source, destination))
 
     def delete_file(self, path):
         """Delete a file.
 
         Parameters
         ----------
-        path : Union[str, pathlib.Path]
+        path : str or pathlib.Path
             The path of the file to be deleted.
         """
-        check_status(self.fs.DeleteFile(_path_to_bytes(path)))
+        cdef c_string file = _path_to_bytes(path)
+        with nogil:
+            check_status(self.fs.DeleteFile(file))
 
     def _wrap_input_stream(self, stream, path, compression, buffer_size):
         if buffer_size is not None and buffer_size != 0:
@@ -358,15 +372,15 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        source: Union[str, pathlib.Path]
+        source: str or pathlib.Path
             The source to open for reading.
-        compression: Optional[str], default 'detect'
+        compression: str optional, default 'detect'
             The compression algorithm to use for on-the-fly decompression.
             If "detect" and source is a file path, then compression will be
             chosen based on the file extension.
             If None, no compression will be applied. Otherwise, a well-known
             algorithm name must be supplied (e.g. "gzip").
-        buffer_size: Optional[int], default None
+        buffer_size: int optional, default None
             If None or 0, no buffering will happen. Otherwise the size of the
             temporary read buffer.
 
@@ -396,15 +410,15 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        path : Union[str, pathlib.Path]
+        path : str or pathlib.Path
             The source to open for writing.
-        compression: Optional[str], default 'detect'
+        compression: str optional, default 'detect'
             The compression algorithm to use for on-the-fly compression.
             If "detect" and source is a file path, then compression will be
             chosen based on the file extension.
             If None, no compression will be applied. Otherwise, a well-known
             algorithm name must be supplied (e.g. "gzip").
-        buffer_size: Optional[int], default None
+        buffer_size: int optional, default None
             If None or 0, no buffering will happen. Otherwise the size of the
             temporary write buffer.
 
@@ -434,15 +448,15 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        path : Union[str, pathlib.Path]
+        path : str or pathlib.Path
             The source to open for writing.
-        compression: Optional[str], default 'detect'
+        compression: str optional, default 'detect'
             The compression algorithm to use for on-the-fly compression.
             If "detect" and source is a file path, then compression will be
             chosen based on the file extension.
             If None, no compression will be applied. Otherwise, a well-known
             algorithm name must be supplied (e.g. "gzip").
-        buffer_size: Optional[int], default None
+        buffer_size: int optional, default None
             If None or 0, no buffering will happen. Otherwise the size of the
             temporary write buffer.
 
