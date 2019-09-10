@@ -93,7 +93,7 @@ table SparseMatrixIndexCSR {
   ///   indptr(X) = [0, 2, 3, 5, 5, 8, 10].
   indptrBuffer: Buffer;
 
-  /// The type of values in indciesBuffer
+  /// The type of values in indicesBuffer
   indicesType: Int;
 
   /// indicesBuffer stores the location and size of the array that
