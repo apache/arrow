@@ -220,6 +220,7 @@ impl ExecutionContext {
     pub fn create_physical_plan(
         &mut self,
         logical_plan: &Arc<LogicalPlan>,
+        batch_size: usize,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         match logical_plan.as_ref() {
             LogicalPlan::TableScan {
@@ -228,7 +229,7 @@ impl ExecutionContext {
                 ..
             } => match (*self.datasources).borrow().get(table_name) {
                 Some(provider) => {
-                    let partitions = provider.scan(projection, 16 * 1024)?;
+                    let partitions = provider.scan(projection, batch_size)?;
                     if partitions.is_empty() {
                         Err(ExecutionError::General(
                             "Table provider returned no partitions".to_string(),
@@ -241,12 +242,14 @@ impl ExecutionContext {
                         Ok(Arc::new(exec))
                     }
                 }
-                _ => panic!(),
+                _ => Err(ExecutionError::General(format!(
+                    "No table named {}",
+                    table_name
+                ))),
             },
             LogicalPlan::Projection { input, expr, .. } => {
-                let input = self.create_physical_plan(input)?;
+                let input = self.create_physical_plan(input, batch_size)?;
                 let input_schema = input.as_ref().schema().clone();
-                //let me = self;
                 let runtime_expr = expr
                     .iter()
                     .map(|e| self.create_physical_expr(e, &input_schema))
@@ -545,7 +548,7 @@ mod tests {
 
         let logical_plan = ctx.create_logical_plan("SELECT c1, c2 FROM test")?;
 
-        let physical_plan = ctx.create_physical_plan(&logical_plan)?;
+        let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
 
         let results = ctx.collect(physical_plan.as_ref())?;
 
