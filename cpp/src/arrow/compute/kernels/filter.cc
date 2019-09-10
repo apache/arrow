@@ -109,6 +109,11 @@ Status FilterKernel::Call(FunctionContext* ctx, const Datum& values, const Datum
   if (!values.is_array() || !filter.is_array()) {
     return Status::Invalid("FilterKernel expects array values and filter");
   }
+  auto filter_type = filter.type();
+  if (filter_type->id() != Type::BOOL) {
+    return Status::TypeError("filter array must be of boolean type, got ", *filter_type);
+  }
+
   auto values_array = values.make_array();
   auto filter_array = checked_pointer_cast<BooleanArray>(filter.make_array());
   std::shared_ptr<Array> out_array;

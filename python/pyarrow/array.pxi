@@ -854,10 +854,6 @@ cdef class Array(_PandasConvertible):
         cdef:
             cdef CDatum out
 
-        if mask.type.id != _Type_BOOL:
-            raise TypeError(
-                "The mask should be boolean type, got {}".format(mask.type))
-
         with nogil:
             check_status(FilterKernel(_context(), CDatum(self.sp_array),
                                       CDatum(mask.sp_array), &out))
