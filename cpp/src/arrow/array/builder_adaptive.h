@@ -27,7 +27,7 @@ namespace internal {
 
 class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
  public:
-  AdaptiveIntBuilderBase(MemoryPool* pool);
+  explicit AdaptiveIntBuilderBase(MemoryPool* pool);
 
   /// \brief Append multiple nulls
   /// \param[in] length the number of nulls to append
