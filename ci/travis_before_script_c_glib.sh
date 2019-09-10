@@ -36,8 +36,6 @@ else
   conda install -q -y ninja
 fi
 
-gem install test-unit gobject-introspection
-
 if [ $TRAVIS_OS_NAME = "osx" ]; then
   sudo env PKG_CONFIG_PATH=$PKG_CONFIG_PATH luarocks install lgi
 else
@@ -46,6 +44,8 @@ else
 fi
 
 pushd $ARROW_C_GLIB_DIR
+
+bundle install
 
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib
