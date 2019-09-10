@@ -1117,17 +1117,11 @@ TEST(TestDictionary, CanCompareIndices) {
 
   auto compare_and_swap = [](const DictionaryArray& l, const DictionaryArray& r,
                              bool expected) {
-    ASSERT_OK_AND_ASSIGN(auto match, l.CanCompareIndices(r));
-    ASSERT_EQ(match, expected) << "left: " << l.ToString() << "\nright: " << r.ToString();
-    ASSERT_OK_AND_ASSIGN(match, r.CanCompareIndices(l));
-    ASSERT_EQ(match, expected) << "left: " << r.ToString() << "\nright: " << l.ToString();
+    ASSERT_EQ(l.CanCompareIndices(r), expected)
+        << "left: " << l.ToString() << "\nright: " << r.ToString();
+    ASSERT_EQ(r.CanCompareIndices(l), expected)
+        << "left: " << r.ToString() << "\nright: " << l.ToString();
   };
-
-  {
-    auto array = make_dict(int16(), utf8(), R"(["0", "1", "2"])");
-    auto wrong_type = make_dict(int16(), int32(), R"([0, 1, 2])");
-    ASSERT_RAISES(TypeError, array->CanCompareIndices(*wrong_type).status());
-  }
 
   {
     auto array = make_dict(int16(), utf8(), R"(["foo", "bar"])");

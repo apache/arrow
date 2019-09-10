@@ -152,11 +152,10 @@ Status DictionaryType::Unify(MemoryPool* pool, const std::vector<const DataType*
   return Status::OK();
 }
 
-Result<bool> DictionaryArray::CanCompareIndices(const DictionaryArray& other) const {
-  if (!dictionary()->type()->Equals(other.dictionary()->type())) {
-    return Status::TypeError("dictionaries have differing type ", *dictionary()->type(),
-                             " vs ", *other.dictionary()->type());
-  }
+bool DictionaryArray::CanCompareIndices(const DictionaryArray& other) const {
+  DCHECK(dictionary()->type()->Equals(other.dictionary()->type()))
+      << "dictionaries have differing type " << *dictionary()->type() << " vs "
+      << *other.dictionary()->type();
 
   if (!indices()->type()->Equals(other.indices()->type())) {
     return false;

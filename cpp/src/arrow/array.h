@@ -1254,7 +1254,7 @@ class ARROW_EXPORT DictionaryArray : public Array {
                    std::shared_ptr<Array>* out) const;
 
   /// \brief Determine whether dictionary arrays may be compared without unification
-  Result<bool> CanCompareIndices(const DictionaryArray& other) const;
+  bool CanCompareIndices(const DictionaryArray& other) const;
 
   /// \brief Return the dictionary for this array, which is stored as
   /// a member of the ArrayData internal structure
