@@ -97,6 +97,7 @@ class ARROW_EXPORT GenericFileSystemTest {
   void TestGetTargetStatsSingle();
   void TestGetTargetStatsVector();
   void TestGetTargetStatsSelector();
+  void TestGetTargetStatsSelectorWithRecursion();
   void TestOpenOutputStream();
   void TestOpenAppendStream();
   void TestOpenInputStream();
@@ -131,6 +132,7 @@ class ARROW_EXPORT GenericFileSystemTest {
   void TestGetTargetStatsSingle(FileSystem* fs);
   void TestGetTargetStatsVector(FileSystem* fs);
   void TestGetTargetStatsSelector(FileSystem* fs);
+  void TestGetTargetStatsSelectorWithRecursion(FileSystem* fs);
   void TestOpenOutputStream(FileSystem* fs);
   void TestOpenAppendStream(FileSystem* fs);
   void TestOpenInputStream(FileSystem* fs);
@@ -140,22 +142,23 @@ class ARROW_EXPORT GenericFileSystemTest {
 #define GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, NAME) \
   TEST_MACRO(TEST_CLASS, NAME) { this->Test##NAME(); }
 
-#define GENERIC_FS_TEST_FUNCTIONS_MACROS(TEST_MACRO, TEST_CLASS)           \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, Empty)                  \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, CreateDir)              \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteDir)              \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteDirContents)      \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteFile)             \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteFiles)            \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, MoveFile)               \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, MoveDir)                \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, CopyFile)               \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetTargetStatsSingle)   \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetTargetStatsVector)   \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetTargetStatsSelector) \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenOutputStream)       \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenAppendStream)       \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputStream)        \
+#define GENERIC_FS_TEST_FUNCTIONS_MACROS(TEST_MACRO, TEST_CLASS)                        \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, Empty)                               \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, CreateDir)                           \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteDir)                           \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteDirContents)                   \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteFile)                          \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteFiles)                         \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, MoveFile)                            \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, MoveDir)                             \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, CopyFile)                            \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetTargetStatsSingle)                \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetTargetStatsVector)                \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetTargetStatsSelector)              \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetTargetStatsSelectorWithRecursion) \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenOutputStream)                    \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenAppendStream)                    \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputStream)                     \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFile)
 
 #define GENERIC_FS_TEST_FUNCTIONS(TEST_CLASS) \
