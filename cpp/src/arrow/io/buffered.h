@@ -68,6 +68,7 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   /// \brief Close the buffered output stream.  This implicitly closes the
   /// underlying raw output stream.
   Status Close() override;
+  Status Abort() override;
   bool closed() const override;
 
   Status Tell(int64_t* position) const override;
@@ -134,6 +135,7 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   Status Peek(int64_t nbytes, util::string_view* out) override;
 
   Status Close() override;
+  Status Abort() override;
   bool closed() const override;
 
   /// \brief Returns the position of the buffered stream, though the position

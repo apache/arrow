@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <typeinfo>
 #include <utility>
 
 #include "arrow/buffer.h"
@@ -32,6 +33,8 @@ namespace arrow {
 namespace io {
 
 FileInterface::~FileInterface() = default;
+
+Status FileInterface::Abort() { return Close(); }
 
 Status InputStream::Advance(int64_t nbytes) {
   std::shared_ptr<Buffer> temp;
@@ -136,5 +139,16 @@ std::shared_ptr<InputStream> RandomAccessFile::GetStream(
   return std::make_shared<FileSegmentReader>(std::move(file), file_offset, nbytes);
 }
 
+//////////////////////////////////////////////////////////////////////////
+// Implement utilities exported from util_internal.h
+
+namespace internal {
+
+void CloseFromDestructor(FileInterface* file) {
+  ARROW_CHECK_OK_PREPEND(
+      file->Close(), std::string("When destroying file of type ") + typeid(*file).name());
+}
+
+}  // namespace internal
 }  // namespace io
 }  // namespace arrow

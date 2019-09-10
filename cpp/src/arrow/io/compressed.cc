@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "arrow/buffer.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/compression.h"
@@ -45,8 +46,6 @@ class CompressedOutputStream::Impl {
  public:
   Impl(MemoryPool* pool, const std::shared_ptr<OutputStream>& raw)
       : pool_(pool), raw_(raw), is_open_(false), compressed_pos_(0), total_pos_(0) {}
-
-  ~Impl() { ARROW_CHECK_OK(Close()); }
 
   Status Init(Codec* codec) {
     RETURN_NOT_OK(codec->MakeCompressor(&compressor_));
@@ -173,6 +172,17 @@ class CompressedOutputStream::Impl {
     }
   }
 
+  Status Abort() {
+    std::lock_guard<std::mutex> guard(lock_);
+
+    if (is_open_) {
+      is_open_ = false;
+      return raw_->Abort();
+    } else {
+      return Status::OK();
+    }
+  }
+
   bool closed() {
     std::lock_guard<std::mutex> guard(lock_);
     return !is_open_;
@@ -211,9 +221,11 @@ Status CompressedOutputStream::Make(MemoryPool* pool, util::Codec* codec,
   return Status::OK();
 }
 
-CompressedOutputStream::~CompressedOutputStream() {}
+CompressedOutputStream::~CompressedOutputStream() { internal::CloseFromDestructor(this); }
 
 Status CompressedOutputStream::Close() { return impl_->Close(); }
+
+Status CompressedOutputStream::Abort() { return impl_->Abort(); }
 
 bool CompressedOutputStream::closed() const { return impl_->closed(); }
 
@@ -248,13 +260,21 @@ class CompressedInputStream::Impl {
     return Status::OK();
   }
 
-  ~Impl() { ARROW_CHECK_OK(Close()); }
-
   Status Close() {
     std::lock_guard<std::mutex> guard(lock_);
     if (is_open_) {
       is_open_ = false;
       return raw_->Close();
+    } else {
+      return Status::OK();
+    }
+  }
+
+  Status Abort() {
+    std::lock_guard<std::mutex> guard(lock_);
+    if (is_open_) {
+      is_open_ = false;
+      return raw_->Abort();
     } else {
       return Status::OK();
     }
@@ -439,9 +459,11 @@ Status CompressedInputStream::Make(MemoryPool* pool, Codec* codec,
   return Status::OK();
 }
 
-CompressedInputStream::~CompressedInputStream() {}
+CompressedInputStream::~CompressedInputStream() { internal::CloseFromDestructor(this); }
 
 Status CompressedInputStream::Close() { return impl_->Close(); }
+
+Status CompressedInputStream::Abort() { return impl_->Abort(); }
 
 bool CompressedInputStream::closed() const { return impl_->closed(); }
 

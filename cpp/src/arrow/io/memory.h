@@ -53,6 +53,8 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   ~BufferOutputStream() override;
 
   // Implement the OutputStream interface
+
+  /// Close the stream, preserving the buffer (retrieve it with Finish()).
   Status Close() override;
   bool closed() const override;
   Status Tell(int64_t* position) const override;

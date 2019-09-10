@@ -53,6 +53,10 @@ cdef class NativeFile:
     While this class exposes methods to read or write data from Python, the
     primary intent of using a Arrow stream is to pass it to other Arrow
     facilities that will make use of it, such as Arrow IPC routines.
+
+    Be aware that there are subtle differences with regular Python files,
+    e.g. destroying a writable Arrow stream without closing it explicitly
+    will not flush any pending data.
     """
 
     def __cinit__(self):
