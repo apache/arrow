@@ -380,7 +380,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
 
 Package: libgandiva-glib-doc
 Section: doc
-Architecture: any
+Architecture: all
 Multi-Arch: foreign
 Depends:
   ${misc:Depends}
