@@ -284,7 +284,7 @@ impl ExecutionContext {
             .map(|p| {
                 let p = p.clone();
                 thread::spawn(move || {
-                    let it = p.execute().unwrap();
+                    let it = p.execute()?;
                     let mut it = it.lock().unwrap();
                     let mut results: Vec<RecordBatch> = vec![];
                     loop {
@@ -306,11 +306,17 @@ impl ExecutionContext {
         // combine the results from each thread
         let mut combined_results: Vec<RecordBatch> = vec![];
         for thread in threads {
-            let result = thread.join().unwrap();
-            let result = result?;
-            result
-                .iter()
-                .for_each(|batch| combined_results.push(batch.clone()));
+            match thread.join() {
+                Ok(result) => {
+                    let result = result?;
+                    result
+                        .iter()
+                        .for_each(|batch| combined_results.push(batch.clone()));
+                }
+                Err(_) => {
+                    return Err(ExecutionError::General("Thread failed".to_string()))
+                }
+            }
         }
 
         Ok(combined_results)
