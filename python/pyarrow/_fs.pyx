@@ -46,14 +46,11 @@ cdef inline c_string _path_to_bytes(path) except *:
     since the C++ side then decodes from utf-8. On Unix, os.fsencode may be
     better.
     """
-    if isinstance(path, six.binary_type):
-        return path
-    elif isinstance(path, six.string_types):
-        return tobytes(path)
-    elif isinstance(path, pathlib.Path):
-        return tobytes(path.as_posix())
-    else:
+    if isinstance(path, six.string_types):
+        path = pathlib.Path(path)
+    elif not isinstance(path, pathlib.Path):
         raise TypeError('Path must be a string or an instance of pathlib.Path')
+    return tobytes(path.as_posix())
 
 
 cpdef enum FileType:
