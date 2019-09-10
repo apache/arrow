@@ -45,8 +45,8 @@ Table <- R6Class("Table", inherit = Object,
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
 
     cast = function(target_schema, safe = TRUE, options = cast_options(safe)) {
-      assert_that(inherits(target_schema, "Schema"))
-      assert_that(inherits(options, "CastOptions"))
+      assert_is(target_schema, "Schema")
+      assert_is(options, "CastOptions")
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
       shared_ptr(Table, Table__cast(self, target_schema, options))
     },

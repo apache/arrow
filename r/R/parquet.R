@@ -107,7 +107,7 @@ ParquetFileReader$create <- function(file,
                                      mmap = TRUE,
                                      ...) {
   file <- make_readable_file(file, mmap)
-  assert_that(inherits(props, "ParquetReaderProperties"))
+  assert_is(props, "ParquetReaderProperties")
 
   unique_ptr(ParquetFileReader, parquet___arrow___FileReader__OpenFile(file, props))
 }

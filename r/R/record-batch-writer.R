@@ -81,8 +81,8 @@ RecordBatchStreamWriter$create <- function(sink, schema) {
   if (is.character(sink)) {
     sink <- FileOutputStream$create(sink)
   }
-  assert_that(inherits(sink, "OutputStream"))
-  assert_that(inherits(schema, "Schema"))
+  assert_is(sink, "OutputStream")
+  assert_is(schema, "Schema")
 
   shared_ptr(RecordBatchStreamWriter, ipc___RecordBatchStreamWriter__Open(sink, schema))
 }
@@ -96,8 +96,8 @@ RecordBatchFileWriter$create <- function(sink, schema) {
   if (is.character(sink)) {
     sink <- FileOutputStream$create(sink)
   }
-  assert_that(inherits(sink, "OutputStream"))
-  assert_that(inherits(schema, "Schema"))
+  assert_is(sink, "OutputStream")
+  assert_is(schema, "Schema")
 
   shared_ptr(RecordBatchFileWriter, ipc___RecordBatchFileWriter__Open(sink, schema))
 }

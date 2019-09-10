@@ -35,7 +35,7 @@ RecordBatch <- R6Class("RecordBatch", inherit = Object,
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
     Equals = function(other) {
-      assert_that(inherits(other, "RecordBatch"))
+      assert_is(other, "RecordBatch")
       RecordBatch__Equals(self, other)
     },
 
@@ -54,8 +54,8 @@ RecordBatch <- R6Class("RecordBatch", inherit = Object,
     serialize = function() ipc___SerializeRecordBatch__Raw(self),
 
     cast = function(target_schema, safe = TRUE, options = cast_options(safe)) {
-      assert_that(inherits(target_schema, "Schema"))
-      assert_that(inherits(options, "CastOptions"))
+      assert_is(target_schema, "Schema")
+      assert_is(options, "CastOptions")
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
       shared_ptr(RecordBatch, RecordBatch__cast(self, target_schema, options))
     }

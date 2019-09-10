@@ -60,11 +60,11 @@ CompressedOutputStream$create <- function(stream, codec = compression_codec()){
   if (.Platform$OS.type == "windows") {
     stop("'CompressedOutputStream' is unsupported in Windows.")
   }
-  assert_that(inherits(codec, "Codec"))
+  assert_is(codec, "Codec")
   if (is.character(stream)) {
     stream <- FileOutputStream$create(stream)
   }
-  assert_that(inherits(stream, "OutputStream"))
+  assert_is(stream, "OutputStream")
   shared_ptr(CompressedOutputStream, io___CompressedOutputStream__Make(codec, stream))
 }
 
@@ -75,10 +75,10 @@ CompressedOutputStream$create <- function(stream, codec = compression_codec()){
 CompressedInputStream <- R6Class("CompressedInputStream", inherit = InputStream)
 CompressedInputStream$create <- function(stream, codec = compression_codec()){
   # TODO (npr): why would CompressedInputStream work on Windows if CompressedOutputStream doesn't? (and is it still the case that it does not?)
-  assert_that(inherits(codec, "Codec"))
+  assert_is(codec, "Codec")
   if (is.character(stream)) {
     stream <- ReadableFile$create(stream)
   }
-  assert_that(inherits(stream, "InputStream"))
+  assert_is(stream, "InputStream")
   shared_ptr(CompressedInputStream, io___CompressedInputStream__Make(codec, stream))
 }

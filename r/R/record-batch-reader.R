@@ -69,7 +69,7 @@ RecordBatchStreamReader$create <- function(stream){
   if (inherits(stream, c("raw", "Buffer"))) {
     stream <- BufferReader$create(stream)
   }
-  assert_that(inherits(stream, "InputStream"))
+  assert_is(stream, "InputStream")
 
   shared_ptr(RecordBatchStreamReader, ipc___RecordBatchStreamReader__Open(stream))
 }

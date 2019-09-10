@@ -43,8 +43,8 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
       }
     },
     cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
-      assert_that(inherits(target_type, "DataType"))
-      assert_that(inherits(options, "CastOptions"))
+      assert_is(target_type, "DataType")
+      assert_is(options, "CastOptions")
       shared_ptr(ChunkedArray, ChunkedArray__cast(self, target_type, options))
     }
   ),

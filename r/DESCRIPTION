@@ -79,4 +79,5 @@ Collate:
     'schema.R'
     'struct.R'
     'table.R'
+    'util.R'
     'write-arrow.R'

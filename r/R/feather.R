@@ -34,13 +34,13 @@ write_feather <- function(data, stream) {
   if (is.data.frame(data)) {
     data <- record_batch(data)
   }
-  assert_that(inherits(data, "RecordBatch"))
+  assert_is(data, "RecordBatch")
 
   if (is.character(stream)) {
     stream <- FileOutputStream$create(stream)
     on.exit(stream$close())
   }
-  assert_that(inherits(stream, "OutputStream"))
+  assert_is(stream, "OutputStream")
 
   writer <- FeatherTableWriter$create(stream)
   ipc___TableWriter__RecordBatch__WriteFeather(writer, data)
@@ -85,7 +85,7 @@ FeatherTableWriter <- R6Class("FeatherTableWriter", inherit = Object,
 )
 
 FeatherTableWriter$create <- function(stream) {
-  assert_that(inherits(stream, "OutputStream"))
+  assert_is(stream, "OutputStream")
   unique_ptr(FeatherTableWriter, ipc___feather___TableWriter__Open(stream))
 }
 

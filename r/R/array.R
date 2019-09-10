@@ -88,12 +88,12 @@ Array <- R6Class("Array",
       }
     },
     RangeEquals = function(other, start_idx, end_idx, other_start_idx) {
-      assert_that(inherits(other, "Array"))
+      assert_is(other, "Array")
       Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx)
     },
     cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
-      assert_that(inherits(target_type, "DataType"))
-      assert_that(inherits(options, "CastOptions"))
+      assert_is(target_type, "DataType")
+      assert_is(options, "CastOptions")
       Array$create(Array__cast(self, target_type, options))
     }
   ),

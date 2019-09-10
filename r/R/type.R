@@ -41,7 +41,7 @@ DataType <- R6Class("DataType",
       DataType__ToString(self)
     },
     Equals = function(other) {
-      assert_that(inherits(other, "DataType"))
+      assert_is(other, "DataType")
       DataType__Equals(self, other)
     },
     num_children = function() {
@@ -336,21 +336,6 @@ make_valid_time_unit <- function(unit, valid_units) {
     stop('"unit" should be one of ', oxford_paste(valid_units, "or"), call.=FALSE)
   }
   unit
-}
-
-oxford_paste <- function(x, conjunction = "and") {
-  if (is.character(x)) {
-    x <- paste0('"', x, '"')
-  }
-  if (length(x) < 2) {
-    return(x)
-  }
-  x[length(x)] <- paste(conjunction, x[length(x)])
-  if (length(x) > 2) {
-    return(paste(x, collapse = ", "))
-  } else {
-    return(paste(x, collapse = " "))
-  }
 }
 
 #' @rdname data-type

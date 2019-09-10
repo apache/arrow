@@ -264,6 +264,6 @@ make_readable_file <- function(file, mmap = TRUE) {
   } else if (inherits(file, c("raw", "Buffer"))) {
     file <- BufferReader$create(file)
   }
-  assert_that(inherits(file, "InputStream"))
+  assert_is(file, "InputStream")
   file
 }

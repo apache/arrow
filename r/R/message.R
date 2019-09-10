@@ -32,7 +32,7 @@
 Message <- R6Class("Message", inherit = Object,
   public = list(
     Equals = function(other){
-      assert_that(inherits(other, "Message"))
+      assert_is(other, "Message")
       ipc___Message__Equals(self, other)
     },
     body_length = function() ipc___Message__body_length(self),
