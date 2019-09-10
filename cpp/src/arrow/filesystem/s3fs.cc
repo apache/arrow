@@ -35,6 +35,7 @@
 
 #include <aws/core/Aws.h>
 #include <aws/core/auth/AWSCredentials.h>
+#include <aws/core/auth/AWSCredentialsProviderChain.h>
 #include <aws/core/client/RetryStrategy.h>
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/core/utils/stream/PreallocatedStreamBuf.h>
@@ -129,6 +130,22 @@ Status FinalizeS3() {
   Aws::ShutdownAPI(aws_options);
   aws_initialized.store(false);
   return Status::OK();
+}
+
+S3Options S3Options::Defaults() {
+  S3Options options;
+  options.credentials_provider =
+      std::make_shared<Aws::Auth::DefaultAWSCredentialsProviderChain>();
+  return options;
+}
+
+S3Options S3Options::FromAccessKey(const std::string& access_key,
+                                   const std::string& secret_key) {
+  S3Options options;
+  options.credentials_provider =
+      std::make_shared<Aws::Auth::SimpleAWSCredentialsProvider>(ToAwsString(access_key),
+                                                                ToAwsString(secret_key));
+  return options;
 }
 
 namespace {
@@ -613,7 +630,7 @@ class S3FileSystem::Impl {
   explicit Impl(S3Options options) : options_(std::move(options)) {}
 
   Status Init() {
-    credentials_ = {ToAwsString(options_.access_key), ToAwsString(options_.secret_key)};
+    credentials_ = options_.credentials_provider->GetAWSCredentials();
     client_config_.region = ToAwsString(options_.region);
     client_config_.endpointOverride = ToAwsString(options_.endpoint_override);
     if (options_.scheme == "http") {
