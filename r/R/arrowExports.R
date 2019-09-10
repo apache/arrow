@@ -100,6 +100,18 @@ ListArray__raw_value_offsets <- function(array){
     .Call(`_arrow_ListArray__raw_value_offsets` , array)
 }
 
+Array__infer_type <- function(x){
+    .Call(`_arrow_Array__infer_type` , x)
+}
+
+Array__from_vector <- function(x, s_type){
+    .Call(`_arrow_Array__from_vector` , x, s_type)
+}
+
+ChunkedArray__from_list <- function(chunks, s_type){
+    .Call(`_arrow_ChunkedArray__from_list` , chunks, s_type)
+}
+
 Array__as_vector <- function(array){
     .Call(`_arrow_Array__as_vector` , array)
 }
@@ -114,18 +126,6 @@ RecordBatch__to_dataframe <- function(batch, use_threads){
 
 Table__to_dataframe <- function(table, use_threads){
     .Call(`_arrow_Table__to_dataframe` , table, use_threads)
-}
-
-Array__infer_type <- function(x){
-    .Call(`_arrow_Array__infer_type` , x)
-}
-
-Array__from_vector <- function(x, s_type){
-    .Call(`_arrow_Array__from_vector` , x, s_type)
-}
-
-ChunkedArray__from_list <- function(chunks, s_type){
-    .Call(`_arrow_ChunkedArray__from_list` , chunks, s_type)
 }
 
 ArrayData__get_type <- function(x){
