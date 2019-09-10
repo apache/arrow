@@ -15,15 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
-#' @include enums.R
-
-#' @title class arrow::Buffer
-#'
+#' @title Buffer class
 #' @usage NULL
 #' @format NULL
 #' @docType class
-#'
+#' @description A Buffer is an object containing a pointer to a piece of
+#' contiguous memory with a particular size.
+#' @section Factory:
+#' `buffer()` lets you create an `arrow::Buffer` from an R object
 #' @section Methods:
 #'
 #' - `$is_mutable()` :
@@ -31,9 +30,12 @@
 #' - `$size()` :
 #' - `$capacity()`:
 #'
-#' @rdname arrow__Buffer
-#' @name arrow__Buffer
-`arrow::Buffer` <- R6Class("arrow::Buffer", inherit = `arrow::Object`,
+#' @rdname buffer
+#' @name buffer
+#' @export
+#' @include arrow-package.R
+#' @include enums.R
+Buffer <- R6Class("Buffer", inherit = Object,
   public = list(
     ZeroPadding = function() Buffer__ZeroPadding(self),
     data = function() Buffer__data(self)
@@ -46,47 +48,20 @@
   )
 )
 
-#' @export
-`as.raw.arrow::Buffer` <- function(x) x$data()
+Buffer$create <- function(x) {
+  if (inherits(x, "Buffer")) {
+    return(x)
+  } else if (inherits(x, c("raw", "numeric", "integer", "complex"))) {
+    return(shared_ptr(Buffer, r___RBuffer__initialize(x)))
+  } else {
+    stop("Cannot convert object of class ", class(x), " to arrow::Buffer")
+  }
+}
 
-#' Create a [arrow::Buffer][arrow__Buffer] from an R object
-#'
 #' @param x R object. Only raw, numeric and integer vectors are currently supported
-#'
-#' @return an instance of [arrow::Buffer][arrow__Buffer] that borrows memory from `x`
-#'
+#' @return an instance of `Buffer` that borrows memory from `x`
 #' @export
-buffer <- function(x){
-  UseMethod("buffer")
-}
+buffer <- Buffer$create
 
 #' @export
-buffer.default <- function(x) {
-  stop("cannot convert to Buffer")
-}
-
-#' @export
-buffer.raw <- function(x) {
-  shared_ptr(`arrow::Buffer`, r___RBuffer__initialize(x))
-}
-
-#' @export
-buffer.numeric <- function(x) {
-  shared_ptr(`arrow::Buffer`, r___RBuffer__initialize(x))
-}
-
-#' @export
-buffer.integer <- function(x) {
-  shared_ptr(`arrow::Buffer`, r___RBuffer__initialize(x))
-}
-
-#' @export
-buffer.complex <- function(x) {
-  shared_ptr(`arrow::Buffer`, r___RBuffer__initialize(x))
-}
-
-#' @export
-`buffer.arrow::Buffer` <- function(x) {
-  x
-}
-
+as.raw.Buffer <- function(x) x$data()

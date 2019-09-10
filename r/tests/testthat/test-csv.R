@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::csv::TableReader")
+context("CsvTableReader")
 
 test_that("Can read csv file", {
   tf <- tempfile()
@@ -25,10 +25,10 @@ test_that("Can read csv file", {
 
   tab1 <- read_csv_arrow(tf, as_tibble = FALSE)
   tab2 <- read_csv_arrow(mmap_open(tf), as_tibble = FALSE)
-  tab3 <- read_csv_arrow(ReadableFile(tf), as_tibble = FALSE)
+  tab3 <- read_csv_arrow(ReadableFile$create(tf), as_tibble = FALSE)
 
   iris$Species <- as.character(iris$Species)
-  tab0 <- table(!!!iris)
+  tab0 <- Table$create(!!!iris)
   expect_equal(tab0, tab1)
   expect_equal(tab0, tab2)
   expect_equal(tab0, tab3)
@@ -42,7 +42,7 @@ test_that("read_csv_arrow(as_tibble=TRUE)", {
 
   tab1 <- read_csv_arrow(tf, as_tibble = TRUE)
   tab2 <- read_csv_arrow(mmap_open(tf), as_tibble = TRUE)
-  tab3 <- read_csv_arrow(ReadableFile(tf), as_tibble = TRUE)
+  tab3 <- read_csv_arrow(ReadableFile$create(tf), as_tibble = TRUE)
 
   iris$Species <- as.character(iris$Species)
   expect_equivalent(iris, tab1)
@@ -171,7 +171,7 @@ test_that("read_csv_arrow() respects col_select", {
   write.csv(iris, tf, row.names = FALSE, quote = FALSE)
 
   tab <- read_csv_arrow(tf, col_select = starts_with("Sepal"), as_tibble = FALSE)
-  expect_equal(tab, table(Sepal.Length = iris$Sepal.Length, Sepal.Width = iris$Sepal.Width))
+  expect_equal(tab, Table$create(Sepal.Length = iris$Sepal.Length, Sepal.Width = iris$Sepal.Width))
 
   tib <- read_csv_arrow(tf, col_select = starts_with("Sepal"), as_tibble = TRUE)
   expect_equal(tib, tibble::tibble(Sepal.Length = iris$Sepal.Length, Sepal.Width = iris$Sepal.Width))
