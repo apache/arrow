@@ -18,6 +18,9 @@
 groups:
   # these groups are just for convenience
   # makes it easier to submit related tasks
+
+  ############################# Packaging tasks ###############################
+
   conda:
     - conda-linux-gcc-py27
     - conda-linux-gcc-py36
@@ -27,6 +30,7 @@ groups:
     - conda-osx-clang-py37
     - conda-win-vs2015-py36
     - conda-win-vs2015-py37
+
   wheel:
     - wheel-manylinux1-cp27m
     - wheel-manylinux1-cp27mu
@@ -45,6 +49,7 @@ groups:
     - wheel-win-cp35m
     - wheel-win-cp36m
     - wheel-win-cp37m
+
   linux:
     - debian-stretch
     - debian-stretch-arm64
@@ -55,9 +60,128 @@ groups:
     - ubuntu-disco
     - centos-6
     - centos-7
+
   gandiva:
     - gandiva-jar-trusty
     - gandiva-jar-osx
+
+  ############################# Testing tasks #################################
+
+  docker:
+    - docker-r
+    - docker-r-conda
+    - docker-rust
+    - docker-cpp
+    - docker-cpp-alpine
+    - docker-cpp-cmake32
+    - docker-cpp-release
+    - docker-cpp-fuzzit
+    - docker-cpp-static-only
+    - docker-c_glib
+    - docker-go
+    - docker-python-2.7
+    - docker-python-3.6
+    - docker-python-3.7
+    - docker-python-2.7-alpine
+    - docker-python-3.6-alpine
+    - docker-python-2.7-nopandas
+    - docker-python-3.6-nopandas
+    - docker-java
+    - docker-js
+    - docker-docs
+    - docker-lint
+    - docker-iwyu
+    - docker-clang-format
+    - docker-pandas-master
+    - docker-dask-integration
+    - docker-hdfs-integration
+    - docker-spark-integration
+    - docker-turbodbc-integration
+
+  integration:
+    - docker-pandas-master
+    - docker-dask-integration
+    - docker-hdfs-integration
+    - docker-spark-integration
+    - docker-turbodbc-integration
+
+  cpp-python:
+    - docker-cpp
+    - docker-cpp-alpine
+    - docker-cpp-cmake32
+    - docker-python-2.7
+    - docker-python-2.7-alpine
+    - docker-python-2.7-nopandas
+    - docker-python-3.6
+    - docker-python-3.6-alpine
+    - docker-python-3.6-nopandas
+    - docker-python-3.7
+
+  ######################## Tasks to run regularly #############################
+
+  nightly:
+    - conda-linux-gcc-py27
+    - conda-linux-gcc-py36
+    - conda-linux-gcc-py37
+    - conda-osx-clang-py27
+    - conda-osx-clang-py36
+    - conda-osx-clang-py37
+    - conda-win-vs2015-py36
+    - conda-win-vs2015-py37
+    - wheel-manylinux1-cp27m
+    - wheel-manylinux1-cp27mu
+    - wheel-manylinux1-cp35m
+    - wheel-manylinux1-cp36m
+    - wheel-manylinux1-cp37m
+    - wheel-manylinux2010-cp27m
+    - wheel-manylinux2010-cp27mu
+    - wheel-manylinux2010-cp35m
+    - wheel-manylinux2010-cp36m
+    - wheel-manylinux2010-cp37m
+    - wheel-osx-cp27m
+    - wheel-osx-cp35m
+    - wheel-osx-cp36m
+    - wheel-osx-cp37m
+    - wheel-win-cp35m
+    - wheel-win-cp36m
+    - wheel-win-cp37m
+    - debian-stretch
+    - debian-stretch-arm64
+    - debian-buster
+    - ubuntu-xenial
+    - ubuntu-bionic
+    - ubuntu-cosmic
+    - ubuntu-disco
+    - centos-6
+    - centos-7
+    - gandiva-jar-trusty
+    - gandiva-jar-osx
+    - docker-r
+    - docker-r-conda
+    - docker-rust
+    - docker-cpp
+    - docker-cpp-cmake32
+    - docker-cpp-release
+    - docker-cpp-fuzzit
+    - docker-cpp-static-only
+    - docker-c_glib
+    - docker-go
+    - docker-python-2.7
+    - docker-python-3.6
+    - docker-python-3.7
+    - docker-python-2.7-nopandas
+    - docker-python-3.6-nopandas
+    - docker-java
+    - docker-js
+    - docker-docs
+    - docker-lint
+    - docker-iwyu
+    - docker-clang-format
+    - docker-pandas-master
+    - docker-dask-integration
+    - docker-hdfs-integration
+    - docker-spark-integration
+    - docker-turbodbc-integration
 
 tasks:
   # arbitrary_task_name:
@@ -820,3 +944,335 @@ tasks:
     template: gandiva-jars/travis.osx.yml
     artifacts:
       - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
+
+  ############################## Docker tests #################################
+
+  docker-r:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp
+        - docker-compose build r
+        - docker-compose run r
+
+  docker-r-conda:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp
+        - docker-compose build r-conda
+        - docker-compose run r-conda
+
+  docker-rust:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build rust
+        - docker-compose run rust
+
+  docker-cpp:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp
+        - docker-compose run cpp
+
+  docker-cpp-release:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp
+        - docker-compose run cpp-release
+
+  docker-cpp-alpine:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp-alpine
+        - docker-compose run cpp-alpine
+
+  docker-cpp-cmake32:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp-cmake32
+        - docker-compose run cpp-cmake32
+
+  docker-cpp-fuzzit:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp
+        - docker-compose build fuzzit
+        - docker-compose run fuzzit
+
+  docker-cpp-static-only:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp
+        - docker-compose run cpp-static-only
+
+  docker-c_glib:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp
+        - docker-compose build c_glib
+        - docker-compose run c_glib
+
+  docker-go:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build go
+        - docker-compose run go
+
+  docker-js:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build js
+        - docker-compose run js
+
+  docker-java:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build java
+        - docker-compose run java
+
+  docker-python-2.7:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 2.7
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose run python
+
+  docker-python-3.6:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose run python
+
+  docker-python-3.7:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.7
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose run python
+
+  docker-python-2.7-alpine:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 2.7
+      commands:
+        - docker-compose build cpp-alpine
+        - docker-compose build python-alpine
+        - docker-compose run python-alpine
+
+  docker-python-3.6-alpine:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp-alpine
+        - docker-compose build python-alpine
+        - docker-compose run python-alpine
+
+  docker-python-2.7-nopandas:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 2.7
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build python-nopandas
+        - docker-compose run python-nopandas
+
+  docker-python-3.6-nopandas:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build python-nopandas
+        - docker-compose run python-nopandas
+
+  ###################### Documentation building tests #########################
+
+  docker-docs:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build docs
+        - docker-compose run docs
+
+  ############################## Linter tests #################################
+
+  docker-lint:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build lint
+        - docker-compose run lint
+
+  docker-iwyu:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build lint
+        - docker-compose run iwyu
+
+  docker-clang-format:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build lint
+        - docker-compose run clang-format
+
+  ############################## Integration tests ############################
+
+  docker-dask-integration:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build dask-integration
+        - docker-compose run dask-integration
+
+  docker-hdfs-integration:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build hdfs-integration
+        - docker-compose run hdfs-integration
+
+  docker-spark-integration:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build spark-integration
+        - docker-compose run spark-integration
+
+  docker-turbodbc-integration:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build turbodbc-integration
+        - docker-compose run turbodbc-integration
+
+  docker-pandas-master:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build --no-cache pandas-master
+        - docker-compose run pandas-master
