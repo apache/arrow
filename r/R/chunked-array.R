@@ -17,18 +17,31 @@
 
 #' @include arrow-package.R
 
-#' @title class ChunkedArray
-#'
+#' @title ChunkedArray class
 #' @usage NULL
 #' @format NULL
 #' @docType class
+#' @description A `ChunkedArray` is a data structure managing a list of
+#' primitive Arrow [Arrays][Array] logically as one large array.
+#' @section Factory:
+#' The `ChunkedArray$create()` factory method instantiates the object from
+#' various Arrays or R vectors. `chunked_array()` is an alias for it.
 #'
 #' @section Methods:
 #'
-#' TODO
+#' - `$length()`
+#' - `$chunk(i)`
+#' - `$as_vector()`
+#' - `$Slice(offset, length = NULL)`
+#' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`
+#' - `$null_count()`
+#' - `$chunks()`
+#' - `$num_chunks()`
+#' - `$type()`
 #'
-#' @rdname chunked-array
-#' @name chunked-array
+#' @rdname ChunkedArray
+#' @name ChunkedArray
+#' @seealso [Array]
 #' @export
 ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
   public = list(
@@ -60,10 +73,8 @@ ChunkedArray$create <- function(..., type = NULL) {
   shared_ptr(ChunkedArray, ChunkedArray__from_list(list2(...), type))
 }
 
-#' Create a [ChunkedArray][chunked-array] from various R vectors
-#'
 #' @param \dots Vectors to coerce
 #' @param type currently ignored
-#'
+#' @rdname ChunkedArray
 #' @export
 chunked_array <- ChunkedArray$create

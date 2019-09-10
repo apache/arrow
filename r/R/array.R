@@ -17,32 +17,24 @@
 
 #' @include arrow-package.R
 
-#' @title class Array
-#'
-#' Array base type. Immutable data array with some logical type and some length.
-#'
+#' @title Array class
+#' @description Array base type. Immutable data array with some logical type
+#' and some length.
 #' @usage NULL
 #' @format NULL
 #' @docType class
 #'
+#' @section Factory:
+#' The `Array$create()` factory method instantiates an `Array` and
+#' takes the following arguments:
+#' * `x`: an R vector, list, or `data.frame`
+#' * `type`: an optional [data type][data-type] for `x`. If omitted, the type
+#'    will be inferred from the data.
 #' @section Usage:
 #'
 #' ```
 #' a <- Array$create(x)
-#'
-#' a$IsNull(i)
-#' a$IsValid(i)
-#' a$length() or length(a)
-#' a$offset()
-#' a$null_count()
-#' a$type()
-#' a$type_id()
-#' a$Equals(b)
-#' a$ApproxEquals(b)
-#' a$as_vector()
-#' a$ToString()
-#' a$Slice(offset, length = NULL)
-#' a$RangeEquals(other, start_idx, end_idx, other_start_idx)
+#' length(a)
 #'
 #' print(a)
 #' a == a

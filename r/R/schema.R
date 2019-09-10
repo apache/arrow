@@ -87,14 +87,14 @@ read_schema.InputStream <- function(stream, ...) {
 }
 
 #' @export
-`read_schema.Buffer` <- function(stream, ...) {
+read_schema.Buffer <- function(stream, ...) {
   stream <- BufferReader$create(stream)
   on.exit(stream$close())
   shared_ptr(Schema, ipc___ReadSchema_InputStream(stream))
 }
 
 #' @export
-`read_schema.raw` <- function(stream, ...) {
+read_schema.raw <- function(stream, ...) {
   stream <- BufferReader$create(stream)
   on.exit(stream$close())
   shared_ptr(Schema, ipc___ReadSchema_InputStream(stream))

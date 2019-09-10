@@ -4,30 +4,25 @@
 \name{array}
 \alias{array}
 \alias{Array}
-\title{class Array
-
-Array base type. Immutable data array with some logical type and some length.}
+\title{Array class}
 \description{
-class Array
-
-Array base type. Immutable data array with some logical type and some length.
+Array base type. Immutable data array with some logical type
+and some length.
 }
+\section{Factory}{
+
+The \code{Array$create()} factory method instantiates an \code{Array} and
+takes the following arguments:
+\itemize{
+\item \code{x}: an R vector, list, or \code{data.frame}
+\item \code{type}: an optional \link[=data-type]{data type} for \code{x}. If omitted, the type
+will be inferred from the data.
+}
+}
+
 \section{Usage}{
 \preformatted{a <- Array$create(x)
-
-a$IsNull(i)
-a$IsValid(i)
-a$length() or length(a)
-a$offset()
-a$null_count()
-a$type()
-a$type_id()
-a$Equals(b)
-a$ApproxEquals(b)
-a$as_vector()
-a$ToString()
-a$Slice(offset, length = NULL)
-a$RangeEquals(other, start_idx, end_idx, other_start_idx)
+length(a)
 
 print(a)
 a == a

@@ -15,11 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @title class Buffer
+#' @title Buffer class
 #' @usage NULL
 #' @format NULL
 #' @docType class
-#' @description `buffer()` lets you create an `arrow::Buffer` from an R object
+#' @description A Buffer is an object containing a pointer to a piece of
+#' contiguous memory with a particular size.
+#' @section Factory:
+#' `buffer()` lets you create an `arrow::Buffer` from an R object
 #' @section Methods:
 #'
 #' - `$is_mutable()` :

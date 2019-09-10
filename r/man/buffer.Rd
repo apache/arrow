@@ -4,7 +4,7 @@
 \name{buffer}
 \alias{buffer}
 \alias{Buffer}
-\title{class Buffer}
+\title{Buffer class}
 \usage{
 buffer(x)
 }
@@ -15,8 +15,14 @@ buffer(x)
 an instance of \code{Buffer} that borrows memory from \code{x}
 }
 \description{
+A Buffer is an object containing a pointer to a piece of
+contiguous memory with a particular size.
+}
+\section{Factory}{
+
 \code{buffer()} lets you create an \code{arrow::Buffer} from an R object
 }
+
 \section{Methods}{
 
 \itemize{
