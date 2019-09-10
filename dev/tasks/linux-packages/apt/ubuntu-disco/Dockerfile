@@ -56,7 +56,6 @@ RUN \
     libzstd-dev \
     lsb-release \
     ninja-build \
-    nvidia-cuda-toolkit \
     pkg-config \
     protobuf-compiler \
     protobuf-compiler-grpc \
@@ -65,6 +64,7 @@ RUN \
     python3-pip \
     rapidjson-dev \
     tzdata && \
+  if [ "$(uname -m)" = "x86_64" -o "$(uname -m)" = "i386"  ]; then apt install -y nvidia-cuda-toolkit;fi && \
   apt clean && \
   pip3 install --upgrade meson && \
   ln -s /usr/local/bin/meson /usr/bin/ && \

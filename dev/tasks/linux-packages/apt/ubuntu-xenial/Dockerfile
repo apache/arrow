@@ -37,7 +37,6 @@ RUN \
     autoconf-archive \
     bison \
     build-essential \
-    clang-7 \
     cmake \
     debhelper\
     devscripts \
@@ -61,10 +60,10 @@ RUN \
     libssl-dev \
     libzstd-dev \
     lsb-release \
-    nvidia-cuda-toolkit \
     pkg-config \
     protobuf-compiler \
     python3-dev \
     python3-numpy && \
+  if [ "$(uname -m)" = "x86_64" -o "$(uname -m)" = "i386"  ]; then apt install -y nvidia-cuda-toolkit clang-7;fi && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*

@@ -51,13 +51,13 @@ RUN \
     libzstd-dev \
     lsb-release \
     ninja-build \
-    nvidia-cuda-toolkit \
     pkg-config \
     python3-dev \
     python3-numpy \
     python3-pip \
     rapidjson-dev \
     tzdata && \
+  if [ "$(uname -m)" = "x86_64" -o "$(uname -m)" = "i386"  ]; then apt install -y nvidia-cuda-toolkit;fi && \
   apt install -y -V -t bionic-backports ${quiet} \
     debhelper && \
   pip3 install --upgrade meson && \

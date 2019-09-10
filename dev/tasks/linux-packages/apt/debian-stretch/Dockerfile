@@ -68,6 +68,7 @@ RUN \
     python3-numpy \
     python3-pip \
     tzdata && \
+  if [ "$(uname -m)" = "x86_64" -o "$(uname -m)" = "i386"  ]; then apt install -y nvidia-cuda-toolkit;fi && \
   apt install -y -V -t stretch-backports ${quiet} \
     debhelper \
     libgmock-dev \
@@ -75,7 +76,6 @@ RUN \
     libgtest-dev \
     libprotobuf-dev \
     libprotoc-dev \
-    nvidia-cuda-toolkit \
     protobuf-compiler \
     protobuf-compiler-grpc \
     rapidjson-dev && \
