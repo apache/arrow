@@ -1610,7 +1610,7 @@ def input_stream(source, compression='detect', buffer_size=None):
     ----------
     source: str, Path, buffer, file-like object, ...
         The source to open for reading
-    compression: Optional[str], default 'detect'
+    compression: str optional, default 'detect'
         The compression algorithm to use for on-the-fly decompression.
         If "detect" and source is a file path, then compression will be
         chosen based on the file extension.
@@ -1662,7 +1662,7 @@ def output_stream(source, compression='detect', buffer_size=None):
     ----------
     source: str, Path, buffer, file-like object, ...
         The source to open for writing
-    compression: Optional[str], default 'detect'
+    compression: str optional, default 'detect'
         The compression algorithm to use for on-the-fly compression.
         If "detect" and source is a file path, then compression will be
         chosen based on the file extension.
