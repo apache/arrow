@@ -45,7 +45,7 @@
 #include "parquet/properties.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
-#include "parquet/thrift.h"
+#include "parquet/thrift_internal.h"
 #include "parquet/types.h"
 
 namespace parquet {

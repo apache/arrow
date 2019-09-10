@@ -286,5 +286,17 @@ Status SimpleResultStream::Next(std::unique_ptr<Result>* result) {
   return Status::OK();
 }
 
+Status BasicAuth::Deserialize(const std::string& serialized, BasicAuth* out) {
+  pb::BasicAuth pb_result;
+  pb_result.ParseFromString(serialized);
+  return internal::FromProto(pb_result, out);
+}
+
+Status BasicAuth::Serialize(const BasicAuth& basic_auth, std::string* out) {
+  pb::BasicAuth pb_result;
+  RETURN_NOT_OK(internal::ToProto(basic_auth, &pb_result));
+  *out = pb_result.SerializeAsString();
+  return Status::OK();
+}
 }  // namespace flight
 }  // namespace arrow

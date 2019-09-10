@@ -25,6 +25,7 @@ import os
 import shutil
 import string
 import tempfile
+import time
 import unittest
 
 import pytest
@@ -58,6 +59,13 @@ def make_random_csv(num_cols=2, num_rows=10, linesep=u'\r\n'):
     columns = [pa.array(a, type=pa.int64()) for a in arr]
     expected = pa.Table.from_arrays(columns, col_names)
     return csv, expected
+
+
+def make_empty_csv(column_names):
+    csv = io.StringIO()
+    csv.write(u",".join(column_names))
+    csv.write(u"\n")
+    return csv.getvalue().encode()
 
 
 def test_read_options():
@@ -692,6 +700,30 @@ class BaseTestCSVRead:
                 if not table.equals(expected):
                     # Better error output
                     assert table.to_pydict() == expected.to_pydict()
+
+    def test_stress_convert_options_blowup(self):
+        # ARROW-6481: A convert_options with a very large number of columns
+        # should not blow memory and CPU time.
+        try:
+            clock = time.thread_time
+        except AttributeError:
+            clock = time.time
+        num_columns = 10000
+        col_names = ["K{0}".format(i) for i in range(num_columns)]
+        csv = make_empty_csv(col_names)
+        t1 = clock()
+        convert_options = ConvertOptions(
+            column_types={k: pa.string() for k in col_names[::2]})
+        table = self.read_bytes(csv, convert_options=convert_options)
+        dt = clock() - t1
+        # Check that processing time didn't blow up.
+        # This is a conservative check (it takes less than 300 ms
+        # in debug mode on my local machine).
+        assert dt <= 10.0
+        # Check result
+        assert table.num_columns == num_columns
+        assert table.num_rows == 0
+        assert table.column_names == col_names
 
 
 class TestSerialCSVRead(BaseTestCSVRead, unittest.TestCase):

@@ -28,7 +28,7 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume nested record type values from avro decoder.
  * Write the data to {@link org.apache.arrow.vector.complex.StructVector}.
  */
-public class AvroStructConsumer implements Consumer {
+public class AvroStructConsumer implements Consumer<StructVector> {
 
   private final Consumer[] delegates;
   private StructVector vector;
@@ -75,5 +75,14 @@ public class AvroStructConsumer implements Consumer {
   public void close() throws Exception {
     vector.close();
     AutoCloseables.close(delegates);
+  }
+
+  @Override
+  public void resetValueVector(StructVector vector) {
+    this.vector = vector;
+    for (int i = 0; i < delegates.length; i++) {
+      delegates[i].resetValueVector(vector.getChildrenFromFields().get(i));
+    }
+    this.currentIndex = 0;
   }
 }

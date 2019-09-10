@@ -218,15 +218,11 @@ impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
             ));
         }
 
-        // SIMD implementation if available
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        {
-            return Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a & b));
-        }
-
-        // Default implementation
-        #[allow(unreachable_code)]
-        {
+        if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+            // SIMD implementation if available
+            Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a & b))
+        } else {
+            // Default implementation
             let mut builder = UInt8BufferBuilder::new(self.len());
             for i in 0..self.len() {
                 unsafe {
@@ -252,15 +248,12 @@ impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
             ));
         }
 
-        // SIMD implementation if available
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        {
-            return Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a | b));
-        }
+        if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+            // SIMD implementation if available
+            Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a | b))
+        } else {
+            // Default implementation
 
-        // Default implementation
-        #[allow(unreachable_code)]
-        {
             let mut builder = UInt8BufferBuilder::new(self.len());
             for i in 0..self.len() {
                 unsafe {
@@ -280,9 +273,8 @@ impl Not for &Buffer {
     type Output = Buffer;
 
     fn not(self) -> Buffer {
-        // SIMD implementation if available
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        {
+        if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+            // SIMD implementation if available
             let mut result =
                 MutableBuffer::new(self.len()).with_bitset(self.len(), false);
             let lanes = u8x64::lanes();
@@ -298,12 +290,9 @@ impl Not for &Buffer {
                     simd_result.write_to_slice_unaligned_unchecked(result_slice);
                 }
             }
-            return result.freeze();
-        }
-
-        // Default implementation
-        #[allow(unreachable_code)]
-        {
+            result.freeze()
+        } else {
+            // Default implementation
             let mut builder = UInt8BufferBuilder::new(self.len());
             for i in 0..self.len() {
                 unsafe {

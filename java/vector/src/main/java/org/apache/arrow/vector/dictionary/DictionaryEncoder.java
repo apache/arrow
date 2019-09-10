@@ -18,9 +18,11 @@
 package org.apache.arrow.vector.dictionary;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
@@ -69,6 +71,24 @@ public class DictionaryEncoder {
   public static ValueVector decode(ValueVector indices, Dictionary dictionary) {
     DictionaryEncoder encoder = new DictionaryEncoder(dictionary, indices.getAllocator());
     return encoder.decode(indices);
+  }
+
+  /**
+   * Get the indexType according to the dictionary vector valueCount.
+   * @param valueCount dictionary vector valueCount.
+   * @return index type.
+   */
+  public static ArrowType.Int getIndexType(int valueCount) {
+    Preconditions.checkArgument(valueCount >= 0);
+    if (valueCount <= Byte.MAX_VALUE) {
+      return new ArrowType.Int(8, true);
+    } else if (valueCount <= Character.MAX_VALUE) {
+      return new ArrowType.Int(16, true);
+    } else if (valueCount <= Integer.MAX_VALUE) {
+      return new ArrowType.Int(32, true);
+    } else {
+      return new ArrowType.Int(64, true);
+    }
   }
 
   /**

@@ -4,10 +4,18 @@
 \alias{csv_convert_options}
 \title{Conversion options for the CSV reader}
 \usage{
-csv_convert_options(check_utf8 = TRUE)
+csv_convert_options(check_utf8 = TRUE, null_values = c("", "NA"),
+  strings_can_be_null = FALSE)
 }
 \arguments{
 \item{check_utf8}{Whether to check UTF8 validity of string columns}
+
+\item{null_values}{character vector of recognized spellings for null values.
+Analogous to the \code{na.strings} argument to \link[utils:read.csv]{read.csv()} or
+\code{na} in \code{readr::read_csv()}.}
+
+\item{strings_can_be_null}{Logical: whether string / binary columns can have
+null values. Similar to the \code{quoted_na} argument to \code{readr::read_csv()}.}
 }
 \description{
 Conversion options for the CSV reader

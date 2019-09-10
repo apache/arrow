@@ -444,6 +444,32 @@ class TestAuthHandler : public ::testing::Test {
   std::unique_ptr<InProcessTestServer> server_;
 };
 
+class TestBasicAuthHandler : public ::testing::Test {
+ public:
+  void SetUp() {
+    Location location;
+    std::unique_ptr<FlightServerBase> server(new AuthTestServer);
+
+    ASSERT_OK(Location::ForGrpcTcp("localhost", GetListenPort(), &location));
+    FlightServerOptions options(location);
+    options.auth_handler = std::unique_ptr<ServerAuthHandler>(
+        new TestServerBasicAuthHandler("user", "p4ssw0rd"));
+    ASSERT_OK(server->Init(options));
+
+    server_.reset(new InProcessTestServer(std::move(server), location));
+    ASSERT_OK(server_->Start());
+    ASSERT_OK(ConnectClient());
+  }
+
+  void TearDown() { server_->Stop(); }
+
+  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
+
+ protected:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<InProcessTestServer> server_;
+};
+
 class TestDoPut : public ::testing::Test {
  public:
   void SetUp() {
@@ -810,6 +836,104 @@ TEST_F(TestAuthHandler, CheckPeerIdentity) {
   ASSERT_OK(client_->Authenticate(
       {},
       std::unique_ptr<ClientAuthHandler>(new TestClientAuthHandler("user", "p4ssw0rd"))));
+
+  Action action;
+  action.type = "who-am-i";
+  action.body = Buffer::FromString("");
+  std::unique_ptr<ResultStream> results;
+  ASSERT_OK(client_->DoAction(action, &results));
+  ASSERT_NE(results, nullptr);
+
+  std::unique_ptr<Result> result;
+  ASSERT_OK(results->Next(&result));
+  ASSERT_NE(result, nullptr);
+  // Action returns the peer identity as the result.
+  ASSERT_EQ(result->body->ToString(), "user");
+}
+
+TEST_F(TestBasicAuthHandler, PassAuthenticatedCalls) {
+  ASSERT_OK(
+      client_->Authenticate({}, std::unique_ptr<ClientAuthHandler>(
+                                    new TestClientBasicAuthHandler("user", "p4ssw0rd"))));
+
+  Status status;
+  std::unique_ptr<FlightListing> listing;
+  status = client_->ListFlights(&listing);
+  ASSERT_RAISES(NotImplemented, status);
+
+  std::unique_ptr<ResultStream> results;
+  Action action;
+  action.type = "";
+  action.body = Buffer::FromString("");
+  status = client_->DoAction(action, &results);
+  ASSERT_OK(status);
+
+  std::vector<ActionType> actions;
+  status = client_->ListActions(&actions);
+  ASSERT_RAISES(NotImplemented, status);
+
+  std::unique_ptr<FlightInfo> info;
+  status = client_->GetFlightInfo(FlightDescriptor{}, &info);
+  ASSERT_RAISES(NotImplemented, status);
+
+  std::unique_ptr<FlightStreamReader> stream;
+  status = client_->DoGet(Ticket{}, &stream);
+  ASSERT_RAISES(NotImplemented, status);
+
+  std::unique_ptr<FlightStreamWriter> writer;
+  std::unique_ptr<FlightMetadataReader> reader;
+  std::shared_ptr<Schema> schema = arrow::schema({});
+  status = client_->DoPut(FlightDescriptor{}, schema, &writer, &reader);
+  ASSERT_OK(status);
+  status = writer->Close();
+  ASSERT_RAISES(NotImplemented, status);
+}
+
+TEST_F(TestBasicAuthHandler, FailUnauthenticatedCalls) {
+  Status status;
+  std::unique_ptr<FlightListing> listing;
+  status = client_->ListFlights(&listing);
+  ASSERT_RAISES(IOError, status);
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
+
+  std::unique_ptr<ResultStream> results;
+  Action action;
+  action.type = "";
+  action.body = Buffer::FromString("");
+  status = client_->DoAction(action, &results);
+  ASSERT_RAISES(IOError, status);
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
+
+  std::vector<ActionType> actions;
+  status = client_->ListActions(&actions);
+  ASSERT_RAISES(IOError, status);
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
+
+  std::unique_ptr<FlightInfo> info;
+  status = client_->GetFlightInfo(FlightDescriptor{}, &info);
+  ASSERT_RAISES(IOError, status);
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
+
+  std::unique_ptr<FlightStreamReader> stream;
+  status = client_->DoGet(Ticket{}, &stream);
+  ASSERT_RAISES(IOError, status);
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
+
+  std::unique_ptr<FlightStreamWriter> writer;
+  std::unique_ptr<FlightMetadataReader> reader;
+  std::shared_ptr<Schema> schema(
+      (new arrow::Schema(std::vector<std::shared_ptr<Field>>())));
+  status = client_->DoPut(FlightDescriptor{}, schema, &writer, &reader);
+  ASSERT_OK(status);
+  status = writer->Close();
+  ASSERT_RAISES(IOError, status);
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
+}
+
+TEST_F(TestBasicAuthHandler, CheckPeerIdentity) {
+  ASSERT_OK(
+      client_->Authenticate({}, std::unique_ptr<ClientAuthHandler>(
+                                    new TestClientBasicAuthHandler("user", "p4ssw0rd"))));
 
   Action action;
   action.type = "who-am-i";

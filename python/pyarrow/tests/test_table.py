@@ -449,7 +449,7 @@ def test_table_to_batches():
     assert_frame_equal(pa.Table.from_batches(batches).to_pandas(),
                        expected_df)
 
-    batches = table.to_batches(chunksize=15)
+    batches = table.to_batches(max_chunksize=15)
     assert list(map(len, batches)) == [10, 15, 5, 10]
 
     assert_frame_equal(table.to_pandas(), expected_df)

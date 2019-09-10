@@ -80,6 +80,13 @@ RUN Rscript -e "install.packages(c( \
         'lubridate'), \
         repos = 'https://cran.rstudio.com')"
 
+# ARROW-6171: Because lz4 is installed in the base Ubuntu image, there's an
+# issue of which library is loaded at runtime. R by default will override
+# LD_LIBRARY_PATH at runtime by concatenating (in that order)
+# R_LD_LIBRARY_PATH, R_JAVA_LD_LIBRARY_PATH and LD_LIBRARY_PATH. If
+# R_LD_LIBRARY_PATH is not set, it'll default to a list of directories which
+# contains /usr/lib/x86_64-linux-gnu.
+ENV R_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
 
 # build, install, test R package
 CMD ["/bin/bash", "-c", "/arrow/ci/docker_build_cpp.sh && \

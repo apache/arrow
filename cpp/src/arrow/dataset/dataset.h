@@ -107,30 +107,23 @@ class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
 /// from possibly multiple sources.
 class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  public:
-  /// \param[in] source a single input data source
-  /// \param[in] schema a known schema to conform to, may be nullptr
-  explicit Dataset(std::shared_ptr<DataSource> source,
-                   std::shared_ptr<Schema> schema = NULLPTR);
-
+  /// WARNING, this constructor is not recommend, use Dataset::Make instead.
   /// \param[in] sources one or more input data sources
   /// \param[in] schema a known schema to conform to, may be nullptr
   explicit Dataset(const std::vector<std::shared_ptr<DataSource>>& sources,
-                   std::shared_ptr<Schema> schema = NULLPTR);
+                   const std::shared_ptr<Schema>& schema)
+      : schema_(schema), sources_(sources) {}
 
-  virtual ~Dataset() = default;
+  static Status Make(const std::vector<std::shared_ptr<DataSource>>& sources,
+                     const std::shared_ptr<Schema>& schema,
+                     std::shared_ptr<Dataset>* out);
 
   /// \brief Begin to build a new Scan operation against this Dataset
-  ScannerBuilder NewScan() const;
+  Status NewScan(std::unique_ptr<ScannerBuilder>* out);
 
   const std::vector<std::shared_ptr<DataSource>>& sources() const { return sources_; }
 
   std::shared_ptr<Schema> schema() const { return schema_; }
-
-  /// \brief Compute consensus schema from input data sources
-  Status InferSchema(std::shared_ptr<Schema>* out);
-
-  /// \brief Return a copy of Dataset with a new target schema
-  Status ReplaceSchema(std::shared_ptr<Schema> schema, std::unique_ptr<Dataset>* out);
 
  protected:
   // The data sources must conform their output to this schema (with

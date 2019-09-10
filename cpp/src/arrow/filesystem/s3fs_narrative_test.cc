@@ -34,6 +34,8 @@
 DEFINE_bool(clear, false, "delete all bucket contents");
 DEFINE_bool(test, false, "run narrative test against bucket");
 
+DEFINE_bool(verbose, false, "be more verbose");
+
 DEFINE_string(access_key, "", "S3 access key");
 DEFINE_string(secret_key, "", "S3 secret key");
 
@@ -45,6 +47,13 @@ DEFINE_string(scheme, "https", "Connection scheme");
 namespace arrow {
 namespace fs {
 
+#define ASSERT_RAISES_PRINT(context_msg, error_type, expr) \
+  do {                                                     \
+    Status _st;                                            \
+    ASSERT_RAISES(error_type, (_st = (expr)));             \
+    PrintError(context_msg, _st);                          \
+  } while (0)
+
 std::shared_ptr<FileSystem> MakeFileSystem() {
   std::shared_ptr<S3FileSystem> s3fs;
   S3Options options;
@@ -55,6 +64,13 @@ std::shared_ptr<FileSystem> MakeFileSystem() {
   options.region = FLAGS_region;
   ABORT_NOT_OK(S3FileSystem::Make(options, &s3fs));
   return std::make_shared<SubTreeFileSystem>(FLAGS_bucket, s3fs);
+}
+
+void PrintError(const std::string& context_msg, const Status& st) {
+  if (FLAGS_verbose) {
+    std::cout << "-- Error printout (" << context_msg << ") --\n"
+              << st.ToString() << std::endl;
+  }
 }
 
 void ClearBucket(int argc, char** argv) {
@@ -72,6 +88,7 @@ void TestBucket(int argc, char** argv) {
   std::shared_ptr<io::RandomAccessFile> file;
   std::shared_ptr<Buffer> buf;
   int64_t pos;
+  Status status;
 
   // Check bucket exists and is empty
   select.base_dir = "";
@@ -84,7 +101,8 @@ void TestBucket(int argc, char** argv) {
   ASSERT_OK(fs->CreateDir("EmptyDir", /*recursive=*/false));
   ASSERT_OK(fs->CreateDir("Dir1", /*recursive=*/false));
   ASSERT_OK(fs->CreateDir("Dir1/Subdir", /*recursive=*/false));
-  ASSERT_RAISES(IOError, fs->CreateDir("Dir2/Subdir", /*recursive=*/false));
+  ASSERT_RAISES_PRINT("CreateDir in non-existing parent", IOError,
+                      fs->CreateDir("Dir2/Subdir", /*recursive=*/false));
   ASSERT_OK(fs->CreateDir("Dir2/Subdir", /*recursive=*/true));
   CreateFile(fs.get(), "File1", "first data");
   CreateFile(fs.get(), "Dir1/File2", "second data");
@@ -101,7 +119,8 @@ void TestBucket(int argc, char** argv) {
   AssertFileStats(stats[3], "File1", FileType::File, 10);
 
   select.base_dir = "zzzz";
-  ASSERT_RAISES(IOError, fs->GetTargetStats(select, &stats));
+  ASSERT_RAISES_PRINT("GetTargetStats(Selector) with non-existing base_dir", IOError,
+                      fs->GetTargetStats(select, &stats));
   select.allow_non_existent = true;
   ASSERT_OK(fs->GetTargetStats(select, &stats));
   ASSERT_EQ(stats.size(), 0);
@@ -121,7 +140,8 @@ void TestBucket(int argc, char** argv) {
   AssertFileStats(stats[1], "Dir2/Subdir/File3", FileType::File, 10);
 
   // Read a file
-  ASSERT_RAISES(IOError, fs->OpenInputStream("zzz", &is));
+  ASSERT_RAISES_PRINT("OpenInputStream with non-existing file", IOError,
+                      fs->OpenInputStream("zzz", &is));
   ASSERT_OK(fs->OpenInputStream("File1", &is));
   ASSERT_OK(is->Read(5, &buf));
   AssertBufferEqual(*buf, "first");

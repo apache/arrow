@@ -1855,6 +1855,7 @@ class ArrowDeserializer {
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
     auto list_type = std::static_pointer_cast<ListType>(data_->type());
     switch (list_type->value_type()->id()) {
+      CONVERTVALUES_LISTSLIKE_CASE(BooleanType, BOOL)
       CONVERTVALUES_LISTSLIKE_CASE(UInt8Type, UINT8)
       CONVERTVALUES_LISTSLIKE_CASE(Int8Type, INT8)
       CONVERTVALUES_LISTSLIKE_CASE(UInt16Type, UINT16)
@@ -1950,6 +1951,11 @@ Status ConvertTableToPandas(const PandasOptions& options,
     FunctionContext ctx;
     for (int i = 0; i < table->num_columns(); i++) {
       std::shared_ptr<ChunkedArray> col = table->column(i);
+      if (col->type()->id() == Type::DICTIONARY) {
+        // No need to dictionary encode again. Came up in ARROW-6434,
+        // ARROW-6435
+        continue;
+      }
       if (categorical_columns.count(table->field(i)->name())) {
         Datum out;
         RETURN_NOT_OK(DictionaryEncode(&ctx, Datum(col), &out));

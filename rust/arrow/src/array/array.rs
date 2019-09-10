@@ -44,7 +44,7 @@ const NANOSECONDS: i64 = 1_000_000_000;
 
 /// Trait for dealing with different types of array at runtime when the type of the
 /// array is not known in advance
-pub trait Array: Send + Sync + ArrayEqual + JsonEqual {
+pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// Returns the array as `Any` so that it can be downcast to a specific implementation
     fn as_any(&self) -> &Any;
 
@@ -424,16 +424,22 @@ where
     }
 }
 
+impl<T: ArrowPrimitiveType> fmt::Debug for PrimitiveArray<T> {
+    default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
+        print_long_array(self, f, |array, index, f| {
+            fmt::Debug::fmt(&array.value(index), f)
+        })?;
+        write!(f, "]")
+    }
+}
+
 impl<T: ArrowNumericType> fmt::Debug for PrimitiveArray<T> {
     default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
-        for i in 0..self.len() {
-            if self.is_null(i) {
-                write!(f, "  null,\n")?;
-            } else {
-                write!(f, "  {:?},\n", self.value(i))?;
-            }
-        }
+        print_long_array(self, f, |array, index, f| {
+            fmt::Debug::fmt(&array.value(index), f)
+        })?;
         write!(f, "]")
     }
 }
@@ -444,31 +450,25 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
-        for i in 0..self.len() {
-            if self.is_null(i) {
-                write!(f, "  null,\n")?;
-            } else {
-                match T::get_data_type() {
-                    DataType::Date32(_) | DataType::Date64(_) => {
-                        match self.value_as_date(i) {
-                            Some(date) => write!(f, "  {:?},\n", date)?,
-                            None => write!(f, "  null,\n")?,
-                        }
-                    }
-                    DataType::Time32(_) | DataType::Time64(_) => {
-                        match self.value_as_time(i) {
-                            Some(time) => write!(f, "  {:?},\n", time)?,
-                            None => write!(f, "  null,\n")?,
-                        }
-                    }
-                    DataType::Timestamp(_) => match self.value_as_datetime(i) {
-                        Some(datetime) => write!(f, "  {:?},\n", datetime)?,
-                        None => write!(f, "  null,\n")?,
-                    },
-                    _ => write!(f, "  {:?},\n", "null,\n")?,
+        print_long_array(self, f, |array, index, f| match T::get_data_type() {
+            DataType::Date32(_) | DataType::Date64(_) => {
+                match array.value_as_date(index) {
+                    Some(date) => write!(f, "{:?}", date),
+                    None => write!(f, "null"),
                 }
             }
-        }
+            DataType::Time32(_) | DataType::Time64(_) => {
+                match array.value_as_time(index) {
+                    Some(time) => write!(f, "{:?}", time),
+                    None => write!(f, "null"),
+                }
+            }
+            DataType::Timestamp(_) => match array.value_as_datetime(index) {
+                Some(datetime) => write!(f, "{:?}", datetime),
+                None => write!(f, "null"),
+            },
+            _ => write!(f, "null"),
+        })?;
         write!(f, "]")
     }
 }
@@ -508,13 +508,9 @@ impl PrimitiveArray<BooleanType> {
 impl fmt::Debug for PrimitiveArray<BooleanType> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "PrimitiveArray<{:?}>\n[\n", BooleanType::get_data_type())?;
-        for i in 0..self.len() {
-            if self.is_null(i) {
-                write!(f, "  null,\n")?
-            } else {
-                write!(f, "  {:?},\n", self.value(i))?
-            }
-        }
+        print_long_array(self, f, |array, index, f| {
+            fmt::Debug::fmt(&array.value(index), f)
+        })?;
         write!(f, "]")
     }
 }
@@ -802,6 +798,48 @@ impl Array for ListArray {
     }
 }
 
+// Helper function for printing potentially long arrays.
+fn print_long_array<A, F>(array: &A, f: &mut fmt::Formatter, print_item: F) -> fmt::Result
+where
+    A: Array,
+    F: Fn(&A, usize, &mut fmt::Formatter) -> fmt::Result,
+{
+    for i in 0..std::cmp::min(10, array.len()) {
+        if array.is_null(i) {
+            write!(f, "  null,\n")?;
+        } else {
+            write!(f, "  ")?;
+            print_item(&array, i, f)?;
+            write!(f, ",\n")?;
+        }
+    }
+    if array.len() > 10 {
+        if array.len() > 20 {
+            write!(f, "  ...{} elements...,\n", array.len() - 20)?;
+        }
+        for i in array.len() - 10..array.len() {
+            if array.is_null(i) {
+                write!(f, "  null,\n")?;
+            } else {
+                write!(f, "  ")?;
+                print_item(&array, i, f)?;
+                write!(f, ",\n")?;
+            }
+        }
+    }
+    Ok(())
+}
+
+impl fmt::Debug for ListArray {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "ListArray\n[\n")?;
+        print_long_array(self, f, |array, index, f| {
+            fmt::Debug::fmt(&array.value(index), f)
+        })?;
+        write!(f, "]")
+    }
+}
+
 /// A special type of `ListArray` whose elements are binaries.
 pub struct BinaryArray {
     data: ArrayDataRef,
@@ -971,6 +1009,16 @@ impl From<ListArray> for BinaryArray {
     }
 }
 
+impl fmt::Debug for BinaryArray {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "BinaryArray\n[\n")?;
+        print_long_array(self, f, |array, index, f| {
+            fmt::Debug::fmt(&array.value(index), f)
+        })?;
+        write!(f, "]")
+    }
+}
+
 impl Array for BinaryArray {
     fn as_any(&self) -> &Any {
         self
@@ -1086,6 +1134,25 @@ impl From<Vec<(Field, ArrayRef)>> for StructArray {
             .len(length)
             .build();
         Self::from(data)
+    }
+}
+
+impl fmt::Debug for StructArray {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "StructArray\n[\n")?;
+        for (child_index, name) in self.column_names().iter().enumerate() {
+            let column = self.column(child_index);
+            write!(
+                f,
+                "-- child {}: \"{}\" ({:?})\n",
+                child_index,
+                name,
+                column.data_type()
+            )?;
+            fmt::Debug::fmt(column, f)?;
+            write!(f, "\n")?;
+        }
+        write!(f, "]")
     }
 }
 

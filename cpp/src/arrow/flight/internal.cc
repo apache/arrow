@@ -222,6 +222,12 @@ void ToProto(const Location& location, pb::Location* pb_location) {
   pb_location->set_uri(location.ToString());
 }
 
+Status ToProto(const BasicAuth& basic_auth, pb::BasicAuth* pb_basic_auth) {
+  pb_basic_auth->set_username(basic_auth.username);
+  pb_basic_auth->set_password(basic_auth.password);
+  return Status::OK();
+}
+
 // Ticket
 
 Status FromProto(const pb::Ticket& pb_ticket, Ticket* ticket) {
@@ -313,6 +319,13 @@ Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info) {
 
   info->total_records = pb_info.total_records();
   info->total_bytes = pb_info.total_bytes();
+  return Status::OK();
+}
+
+Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* basic_auth) {
+  basic_auth->password = pb_basic_auth.password();
+  basic_auth->username = pb_basic_auth.username();
+
   return Status::OK();
 }
 

@@ -1388,6 +1388,25 @@ def test_output_stream_file_path_compressed_and_buffered(tmpdir):
     assert gzip_decompress(result) == data
 
 
+def test_output_stream_destructor(tmpdir):
+    # The wrapper returned by pa.output_stream() should respect Python
+    # file semantics, i.e. destroying it should close the underlying
+    # file cleanly.
+    data = b"some test data\n"
+    file_path = tmpdir / 'output_stream.buffered'
+
+    def check_data(file_path, data, **kwargs):
+        stream = pa.output_stream(file_path, **kwargs)
+        stream.write(data)
+        del stream
+        gc.collect()
+        with open(str(file_path), 'rb') as f:
+            return f.read()
+
+    assert check_data(file_path, data, buffer_size=0) == data
+    assert check_data(file_path, data, buffer_size=1024) == data
+
+
 def test_output_stream_python_file(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
 

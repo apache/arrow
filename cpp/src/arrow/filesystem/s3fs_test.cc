@@ -683,9 +683,19 @@ TEST_F(TestS3FS, OpenOutputStreamAbort) {
   std::shared_ptr<io::OutputStream> stream;
   ASSERT_OK(fs_->OpenOutputStream("bucket/somefile", &stream));
   ASSERT_OK(stream->Write("new data"));
-  // Destructor implicitly aborts stream and the underlying multipart upload.
-  stream.reset();
+  // Abort() cancels the multipart upload.
+  ASSERT_OK(stream->Abort());
+  ASSERT_EQ(stream->closed(), true);
   AssertObjectContents(client_.get(), "bucket", "somefile", "some data");
+}
+
+TEST_F(TestS3FS, OpenOutputStreamDestructor) {
+  std::shared_ptr<io::OutputStream> stream;
+  ASSERT_OK(fs_->OpenOutputStream("bucket/somefile", &stream));
+  ASSERT_OK(stream->Write("new data"));
+  // Destructor implicitly closes stream and completes the multipart upload.
+  stream.reset();
+  AssertObjectContents(client_.get(), "bucket", "somefile", "new data");
 }
 
 ////////////////////////////////////////////////////////////////////////////

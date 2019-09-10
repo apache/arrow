@@ -346,6 +346,13 @@ else()
     )
 endif()
 
+if(DEFINED ENV{ARROW_MIMALLOC_URL})
+  set(MIMALLOC_SOURCE_URL "$ENV{ARROW_MIMALLOC_URL}")
+else()
+  set(MIMALLOC_SOURCE_URL
+      "https://github.com/microsoft/mimalloc/archive/${MIMALLOC_VERSION}.tar.gz")
+endif()
+
 if(DEFINED ENV{ARROW_LZ4_URL})
   set(LZ4_SOURCE_URL "$ENV{ARROW_LZ4_URL}")
 else()
@@ -628,14 +635,16 @@ macro(build_double_conversion)
   message(STATUS "Building double-conversion from source")
   set(DOUBLE_CONVERSION_PREFIX
       "${CMAKE_CURRENT_BINARY_DIR}/double-conversion_ep/src/double-conversion_ep")
+  set(DOUBLE_CONVERSION_LIB_DIR "lib")
   set(double-conversion_INCLUDE_DIRS "${DOUBLE_CONVERSION_PREFIX}/include")
   set(
     DOUBLE_CONVERSION_STATIC_LIB
-    "${DOUBLE_CONVERSION_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}double-conversion${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${DOUBLE_CONVERSION_PREFIX}/${DOUBLE_CONVERSION_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}double-conversion${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
 
   set(DOUBLE_CONVERSION_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
-                                   "-DCMAKE_INSTALL_PREFIX=${DOUBLE_CONVERSION_PREFIX}")
+                                   "-DCMAKE_INSTALL_PREFIX=${DOUBLE_CONVERSION_PREFIX}"
+                                   "-DCMAKE_INSTALL_LIBDIR=${DOUBLE_CONVERSION_LIB_DIR}")
 
   externalproject_add(double-conversion_ep
                       ${EP_LOG_OPTIONS}
@@ -865,7 +874,7 @@ macro(build_brotli)
     "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(BROTLI_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${BROTLI_PREFIX}"
-                        -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_SHARED_LIBS=OFF)
+                        -DCMAKE_INSTALL_LIBDIR=${BROTLI_LIB_DIR} -DBUILD_SHARED_LIBS=OFF)
 
   externalproject_add(brotli_ep
                       URL ${BROTLI_SOURCE_URL}
@@ -1355,6 +1364,9 @@ if(ARROW_WITH_PROTOBUF)
   message(STATUS "Found protobuf headers: ${PROTOBUF_INCLUDE_DIR}")
 endif()
 
+# ----------------------------------------------------------------------
+# jemalloc - Unix-only high-performance allocator
+
 if(WIN32)
   # jemalloc is not supported on Windows
   set(ARROW_JEMALLOC off)
@@ -1375,19 +1387,16 @@ if(ARROW_JEMALLOC)
       "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
   externalproject_add(
     jemalloc_ep
-    URL ${JEMALLOC_SOURCE_URL}
+    URL ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/jemalloc/${JEMALLOC_VERSION}.tar.gz
     PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
-    CONFIGURE_COMMAND ./configure
+    CONFIGURE_COMMAND ./autogen.sh
                       "AR=${CMAKE_AR}"
                       "CC=${CMAKE_C_COMPILER}"
                       "--prefix=${JEMALLOC_PREFIX}"
                       "--with-jemalloc-prefix=je_arrow_"
                       "--with-private-namespace=je_arrow_private_"
-                      "--without-export"
-                      # Don't override operator new()
-                      "--disable-cxx" "--disable-libdl"
-                      # See https://github.com/jemalloc/jemalloc/issues/1237
-                      "--disable-initial-exec-tls" ${EP_LOG_OPTIONS}
+                      "--disable-tls"
+                      ${EP_LOG_OPTIONS}
     BUILD_IN_SOURCE 1
     BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS}
     BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}"
@@ -1407,7 +1416,55 @@ if(ARROW_JEMALLOC)
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src")
   add_dependencies(jemalloc::jemalloc jemalloc_ep)
-  add_dependencies(toolchain jemalloc_ep)
+endif()
+
+# ----------------------------------------------------------------------
+# mimalloc - Cross-platform high-performance allocator, from Microsoft
+
+if(ARROW_MIMALLOC)
+  message(STATUS "Building (vendored) mimalloc from source")
+  # We only use a vendored mimalloc as we want to control its build options.
+
+  # XXX Careful: mimalloc library naming varies depend on build type capitalization:
+  # https://github.com/microsoft/mimalloc/issues/144
+  set(MIMALLOC_LIB_BASE_NAME "mimalloc")
+  if(WIN32)
+    set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-static")
+  endif()
+  set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-${LOWERCASE_BUILD_TYPE}")
+
+  set(MIMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/mimalloc_ep/src/mimalloc_ep")
+  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/lib/mimalloc-1.0/include")
+  set(
+    MIMALLOC_STATIC_LIB
+    "${MIMALLOC_PREFIX}/lib/mimalloc-1.0/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+
+  set(MIMALLOC_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      "-DCMAKE_INSTALL_PREFIX=${MIMALLOC_PREFIX}"
+      -DMI_OVERRIDE=OFF
+      -DMI_LOCAL_DYNAMIC_TLS=ON
+      -DMI_BUILD_TESTS=OFF)
+
+  externalproject_add(mimalloc_ep
+                      URL ${MIMALLOC_SOURCE_URL}
+                      CMAKE_ARGS ${MIMALLOC_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS "${MIMALLOC_STATIC_LIB}")
+
+  include_directories(SYSTEM ${MIMALLOC_INCLUDE_DIR})
+  file(MAKE_DIRECTORY ${MIMALLOC_INCLUDE_DIR})
+
+  add_library(mimalloc::mimalloc STATIC IMPORTED)
+  set_target_properties(mimalloc::mimalloc
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   Threads::Threads
+                                   IMPORTED_LOCATION
+                                   "${MIMALLOC_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${MIMALLOC_INCLUDE_DIR}")
+  add_dependencies(mimalloc::mimalloc mimalloc_ep)
+  add_dependencies(toolchain mimalloc_ep)
 endif()
 
 # ----------------------------------------------------------------------

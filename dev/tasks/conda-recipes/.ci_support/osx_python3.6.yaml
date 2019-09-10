@@ -14,6 +14,12 @@ cxx_compiler:
 - clangxx
 cxx_compiler_version:
 - '4'
+glog:
+- 0.4.0
+libprotobuf:
+- '3.8'
+lz4_c:
+- 1.8.3
 macos_machine:
 - x86_64-apple-darwin13.4.0
 macos_min_version:
@@ -21,8 +27,24 @@ macos_min_version:
 pin_run_as_build:
   boost-cpp:
     max_pin: x.x.x
+  libprotobuf:
+    max_pin: x.x
+  lz4-c:
+    max_pin: x.x.x
   python:
     min_pin: x.x
     max_pin: x.x
+  snappy:
+    max_pin: x.x.x
+  zlib:
+    max_pin: x.x
+  zstd:
+    max_pin: x.x.x
 python:
 - '3.6'
+snappy:
+- 1.1.7
+zlib:
+- '1.2'
+zstd:
+- 1.4.0

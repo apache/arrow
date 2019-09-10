@@ -18,37 +18,36 @@ requirements:
   host:
     # directly pin boost-cpp as we also seem to directly include boost symbols
     # in the Python modules.
+    - arrow-cpp {{ ARROW_VERSION }}
     - boost-cpp
+    - cython
+    - numpy 1.14.*
     - python
     - setuptools
     - setuptools_scm
-    - cython
-    - numpy 1.14.*
     - six
-    - arrow-cpp {{ ARROW_VERSION }}
 
   run:
-    - glog
-    - snappy
-    - boost-cpp
-    - python
-    - setuptools
+    - {{ pin_compatible('arrow-cpp') }}
     - {{ pin_compatible('numpy', lower_bound='1.14') }}
+    - boost-cpp
+    - futures  # [py==27]
+    - glog
     - pandas
-    - six
-    - futures  # [py27]
-    - arrow-cpp {{ ARROW_VERSION }}
-    # - {{ pin_compatible('arrow-cpp') }}
     # empty parquet-cpp metapackage, force old versions to be uninstalled
     - parquet-cpp 1.5.1.*
+    - python
+    - six
+    - snappy
 
 test:
   imports:
     - pyarrow
-    - pyarrow.flight  # [py>=35]
-    - pyarrow.plasma  # [unix]
+    - pyarrow.flight   # [not py==27]
+    - pyarrow.gandiva  # [not py==27]
+    - pyarrow.orc      # [unix]
     - pyarrow.parquet
-    - pyarrow.gandiva  # [py>=35]
+    - pyarrow.plasma   # [unix]
 
   requires:
     - pytest
@@ -60,6 +59,7 @@ test:
 about:
   home: http://github.com/apache/arrow
   license: Apache 2.0
+  license_file: LICENSE.txt
   summary: 'Python libraries for Apache Arrow'
 
 extra:

@@ -55,6 +55,7 @@ class ARROW_EXPORT CompressedOutputStream : public OutputStream {
   /// \brief Close the compressed output stream.  This implicitly closes the
   /// underlying raw output stream.
   Status Close() override;
+  Status Abort() override;
   bool closed() const override;
 
   Status Tell(int64_t* position) const override;
@@ -90,6 +91,7 @@ class ARROW_EXPORT CompressedInputStream : public InputStream {
   /// \brief Close the compressed input stream.  This implicitly closes the
   /// underlying raw input stream.
   Status Close() override;
+  Status Abort() override;
   bool closed() const override;
 
   Status Tell(int64_t* position) const override;

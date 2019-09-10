@@ -277,7 +277,7 @@ def test_stream_write_table_batches(stream_fixture):
     table = pa.Table.from_batches([b1, b2, b1])
 
     writer = stream_fixture._get_writer(stream_fixture.sink, table.schema)
-    writer.write_table(table, chunksize=15)
+    writer.write_table(table, max_chunksize=15)
     writer.close()
 
     batches = list(pa.ipc.open_stream(stream_fixture.get_source()))
@@ -395,6 +395,19 @@ def test_message_read_record_batch(example_messages):
     for batch, message in zip(batches, messages[1:]):
         read_batch = pa.read_record_batch(message, batch.schema)
         assert read_batch.equals(batch)
+
+
+def test_read_record_batch_on_stream_error_message():
+    # ARROW-5374
+    batch = pa.record_batch([pa.array([b"foo"], type=pa.utf8())],
+                            names=['strs'])
+    stream = pa.BufferOutputStream()
+    with pa.RecordBatchStreamWriter(stream, batch.schema) as writer:
+        writer.write_batch(batch)
+    buf = stream.getvalue()
+    with pytest.raises(IOError,
+                       match="type record batch but got schema"):
+        pa.read_record_batch(buf, batch.schema)
 
 
 # ----------------------------------------------------------------------

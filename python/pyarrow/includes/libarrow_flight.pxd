@@ -37,6 +37,13 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CFlightResult(CFlightResult)
         shared_ptr[CBuffer] body
 
+    cdef cppclass CBasicAuth" arrow::flight::BasicAuth":
+        CBasicAuth()
+        CBasicAuth(CBuffer)
+        CBasicAuth(CBasicAuth)
+        c_string username
+        c_string password
+
     cdef cppclass CResultStream" arrow::flight::ResultStream":
         CStatus Next(unique_ptr[CFlightResult]* result)
 
@@ -356,6 +363,14 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         shared_ptr[CSchema] schema,
         unique_ptr[CSchemaResult]* out)
 
+    cdef CStatus DeserializeBasicAuth\
+        " arrow::py::flight::DeserializeBasicAuth"(
+            c_string buf,
+            unique_ptr[CBasicAuth]* out)
+
+    cdef CStatus SerializeBasicAuth" arrow::py::flight::SerializeBasicAuth"(
+        CBasicAuth basic_auth,
+        c_string* out)
 
 cdef extern from "<utility>" namespace "std":
     unique_ptr[CFlightDataStream] move(unique_ptr[CFlightDataStream]) nogil

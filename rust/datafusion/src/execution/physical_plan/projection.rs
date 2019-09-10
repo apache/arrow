@@ -141,13 +141,8 @@ mod tests {
     use super::*;
     use crate::execution::physical_plan::csv::CsvExec;
     use crate::execution::physical_plan::expressions::Column;
+    use crate::test;
     use arrow::datatypes::{DataType, Field, Schema};
-    use std::env;
-    use std::fs;
-    use std::fs::File;
-    use std::io::prelude::*;
-    use std::io::{BufReader, BufWriter};
-    use std::path::Path;
 
     #[test]
     fn project_first_column() -> Result<()> {
@@ -168,7 +163,7 @@ mod tests {
         ]));
 
         let partitions = 4;
-        let path = create_partitioned_csv("aggregate_test_100.csv", partitions)?;
+        let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
 
         let csv = CsvExec::try_new(&path, schema, true, None, 1024)?;
 
@@ -192,52 +187,4 @@ mod tests {
         Ok(())
     }
 
-    /// Generated partitioned copy of a CSV file
-    fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<String> {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
-        let path = format!("{}/csv/{}", testdata, filename);
-
-        let mut dir = env::temp_dir();
-        dir.push(&format!("{}-{}", filename, partitions));
-
-        if Path::new(&dir).exists() {
-            fs::remove_dir_all(&dir).unwrap();
-        }
-        fs::create_dir(dir.clone()).unwrap();
-
-        let mut writers = vec![];
-        for i in 0..partitions {
-            let mut filename = dir.clone();
-            filename.push(format!("part{}.csv", i));
-            let writer = BufWriter::new(File::create(&filename).unwrap());
-            writers.push(writer);
-        }
-
-        let f = File::open(&path)?;
-        let f = BufReader::new(f);
-        let mut i = 0;
-        for line in f.lines() {
-            let line = line.unwrap();
-
-            if i == 0 {
-                // write header to all partitions
-                for w in writers.iter_mut() {
-                    w.write(line.as_bytes()).unwrap();
-                    w.write(b"\n").unwrap();
-                }
-            } else {
-                // write data line to single partition
-                let partition = i % partitions;
-                writers[partition].write(line.as_bytes()).unwrap();
-                writers[partition].write(b"\n").unwrap();
-            }
-
-            i += 1;
-        }
-        for w in writers.iter_mut() {
-            w.flush().unwrap();
-        }
-
-        Ok(dir.as_os_str().to_str().unwrap().to_string())
-    }
 }

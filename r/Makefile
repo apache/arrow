@@ -23,7 +23,7 @@ doc:
 	-git add --all man/*.Rd
 
 test:
-	export ARROW_R_DEV=$(ARROW_R_DEV) && R CMD INSTALL --install-tests .
+	export ARROW_R_DEV=$(ARROW_R_DEV) && R CMD INSTALL --install-tests --no-byte-compile .
 	export NOT_CRAN=true && R --slave -e 'library(testthat); setwd(file.path(.libPaths()[1], "arrow", "tests")); system.time(test_check("arrow", filter="${file}", reporter=ifelse(nchar("${r}"), "${r}", "summary")))'
 
 deps:

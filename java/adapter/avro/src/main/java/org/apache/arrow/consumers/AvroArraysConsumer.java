@@ -27,9 +27,9 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume array type values from avro decoder.
  * Write the data to {@link ListVector}.
  */
-public class AvroArraysConsumer implements Consumer {
+public class AvroArraysConsumer implements Consumer<ListVector> {
 
-  private final ListVector vector;
+  private ListVector vector;
   private final Consumer delegate;
 
   private int currentIndex = 0;
@@ -76,5 +76,12 @@ public class AvroArraysConsumer implements Consumer {
   public void close() throws Exception {
     vector.close();
     delegate.close();
+  }
+
+  @Override
+  public void resetValueVector(ListVector vector) {
+    this.currentIndex = 0;
+    this.vector = vector;
+    this.delegate.resetValueVector(vector.getDataVector());
   }
 }

@@ -212,6 +212,48 @@ cdef class Result:
         return pyarrow_wrap_buffer(self.result.get().body)
 
 
+cdef class BasicAuth:
+    """A container for basic auth."""
+    cdef:
+        unique_ptr[CBasicAuth] basic_auth
+
+    def __init__(self, username=None, password=None):
+        """Create a new basic auth object.
+
+        Parameters
+        ----------
+        username : string
+        password : string
+        """
+        self.basic_auth.reset(new CBasicAuth())
+        if username:
+            self.basic_auth.get().username = tobytes(username)
+        if password:
+            self.basic_auth.get().password = tobytes(password)
+
+    @property
+    def username(self):
+        """Get the username."""
+        return self.basic_auth.get().username
+
+    @property
+    def password(self):
+        """Get the password."""
+        return self.basic_auth.get().password
+
+    @staticmethod
+    def deserialize(string):
+        auth = BasicAuth()
+        check_flight_status(DeserializeBasicAuth(string, &auth.basic_auth))
+        return auth
+
+    def serialize(self):
+        cdef:
+            c_string auth
+        check_flight_status(SerializeBasicAuth(deref(self.basic_auth), &auth))
+        return frombytes(auth)
+
+
 class DescriptorType(enum.Enum):
     """
     The type of a FlightDescriptor.

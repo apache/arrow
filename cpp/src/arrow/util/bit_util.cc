@@ -285,6 +285,8 @@ void UnalignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* 
   for (int64_t i = 0; i < length; ++i) {
     if (op(left_reader.IsSet(), right_reader.IsSet())) {
       writer.Set();
+    } else {
+      writer.Clear();
     }
     left_reader.Next();
     right_reader.Next();

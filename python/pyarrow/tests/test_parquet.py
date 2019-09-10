@@ -2445,11 +2445,29 @@ def test_large_table_int32_overflow():
     _write_table(table, f)
 
 
-def _simple_table_roundtrip(table):
+def _simple_table_roundtrip(table, **write_kwargs):
     stream = pa.BufferOutputStream()
-    _write_table(table, stream)
+    _write_table(table, stream, **write_kwargs)
     buf = stream.getvalue()
     return _read_table(buf)
+
+
+@pytest.mark.large_memory
+def test_byte_array_exactly_2gb():
+    # Test edge case reported in ARROW-3762
+    val = b'x' * (1 << 10)
+
+    base = pa.array([val] * ((1 << 21) - 1))
+    cases = [
+        [b'x' * 1023],  # 2^31 - 1
+        [b'x' * 1024],  # 2^31
+        [b'x' * 1025]   # 2^31 + 1
+    ]
+    for case in cases:
+        values = pa.chunked_array([base, pa.array(case)])
+        t = pa.table([values], names=['f0'])
+        result = _simple_table_roundtrip(t, use_dictionary=False)
+        assert t.equals(result)
 
 
 @pytest.mark.pandas
@@ -2947,6 +2965,7 @@ def test_read_column_invalid_index():
             f.reader.read_column(index)
 
 
+@pytest.mark.pandas
 def test_direct_read_dictionary():
     # ARROW-3325
     repeats = 10
@@ -2970,6 +2989,7 @@ def test_direct_read_dictionary():
     assert result.equals(expected)
 
 
+@pytest.mark.pandas
 def test_dataset_read_dictionary(tempdir):
     path = tempdir / "ARROW-3325-dataset"
     t1 = pa.table([[tm.rands(10) for i in range(5)] * 10], names=['f0'])
@@ -2992,6 +3012,7 @@ def test_dataset_read_dictionary(tempdir):
         assert c1.equals(ex_chunks[0])
 
 
+@pytest.mark.pandas
 def test_direct_read_dictionary_subfield():
     repeats = 10
     nunique = 5

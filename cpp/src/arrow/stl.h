@@ -19,8 +19,10 @@
 #define ARROW_STL_H
 
 #include <memory>
+#include <sstream>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <vector>
 
 #include "arrow/builder.h"
@@ -45,7 +47,7 @@ using BareTupleElement = typename std::remove_const<typename std::remove_referen
 }  // namespace internal
 
 /// Traits meta class to map standard C/C++ types to equivalent Arrow types.
-template <typename T>
+template <typename T, typename Enable = void>
 struct ConversionTraits {};
 
 #define ARROW_STL_CONVERSION(c_type, ArrowType_)                                    \
@@ -119,6 +121,26 @@ struct ConversionTraits<std::vector<value_c_type>>
   constexpr static bool nullable = false;
 };
 
+template <typename Optional>
+struct ConversionTraits<Optional, enable_if_optional_like<Optional>>
+    : public CTypeTraits<Optional> {
+  // Dependent names from base template class needs to be brought into scope.
+  using typename CTypeTraits<Optional>::OptionalInnerType;
+  using typename CTypeTraits<Optional>::ArrowType;
+  using CTypeTraits<Optional>::type_singleton;
+
+  constexpr static bool nullable = true;
+
+  static Status AppendRow(typename TypeTraits<ArrowType>::BuilderType& builder,
+                          const Optional& cell) {
+    if (cell) {
+      return ConversionTraits<OptionalInnerType>::AppendRow(builder, *cell);
+    } else {
+      return builder.AppendNull();
+    }
+  }
+};
+
 /// Build an arrow::Schema based upon the types defined in a std::tuple-like structure.
 ///
 /// While the type information is available at compile-time, we still need to add the
@@ -137,7 +159,7 @@ struct SchemaFromTuple {
     std::vector<std::shared_ptr<Field>> ret =
         SchemaFromTuple<Tuple, N - 1>::MakeSchemaRecursion(names);
     std::shared_ptr<DataType> type = CTypeTraits<Element>::type_singleton();
-    ret.push_back(field(names[N - 1], type, false /* nullable */));
+    ret.push_back(field(names[N - 1], type, ConversionTraits<Element>::nullable));
     return ret;
   }
 

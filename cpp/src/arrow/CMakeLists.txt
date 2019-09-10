@@ -145,6 +145,30 @@ set(ARROW_SRCS
     util/utf8.cc
     vendored/datetime/tz.cpp)
 
+# Add dependencies for third-party allocators.
+# If possible we only want memory_pool.cc to wait for allocators to finish building,
+# but that only works with Ninja
+# (see https://gitlab.kitware.com/cmake/cmake/issues/19677)
+
+set(_allocator_dependencies "") # Empty list
+if(ARROW_JEMALLOC)
+  list(APPEND _allocator_dependencies jemalloc_ep)
+endif()
+if(ARROW_MIMALLOC)
+  list(APPEND _allocator_dependencies mimalloc_ep)
+endif()
+
+if(_allocator_dependencies)
+  if("${CMAKE_GENERATOR}" STREQUAL "Ninja")
+    set_source_files_properties(memory_pool.cc PROPERTIES OBJECT_DEPENDS
+                                "${_allocator_dependencies}")
+  else()
+    add_dependencies(arrow_dependencies ${_allocator_dependencies})
+  endif()
+endif()
+
+unset(_allocator_dependencies)
+
 if(ARROW_JSON)
   add_subdirectory(json)
   set(ARROW_SRCS
@@ -203,10 +227,6 @@ if(ARROW_CUDA)
   # IPC extensions required to build the CUDA library
   set(ARROW_IPC ON)
   add_subdirectory(gpu)
-endif()
-
-if(ARROW_JEMALLOC AND JEMALLOC_VENDORED)
-  add_dependencies(arrow_dependencies jemalloc::jemalloc)
 endif()
 
 if(ARROW_WITH_BROTLI)
@@ -313,6 +333,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
                 filesystem/test_util.cc
                 testing/gtest_util.cc
                 testing/random.cc
+                testing/generator.cc
                 OUTPUTS
                 ARROW_TESTING_LIBRARIES
                 DEPENDENCIES

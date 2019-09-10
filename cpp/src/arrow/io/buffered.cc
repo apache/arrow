@@ -24,6 +24,7 @@
 #include <utility>
 
 #include "arrow/buffer.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
@@ -101,6 +102,15 @@ class BufferedOutputStream::Impl : public BufferedBase {
       is_open_ = false;
       RETURN_NOT_OK(raw_->Close());
       return st;
+    }
+    return Status::OK();
+  }
+
+  Status Abort() {
+    std::lock_guard<std::mutex> guard(lock_);
+    if (is_open_) {
+      is_open_ = false;
+      return raw_->Abort();
     }
     return Status::OK();
   }
@@ -191,7 +201,7 @@ Status BufferedOutputStream::Create(int64_t buffer_size, MemoryPool* pool,
   return Status::OK();
 }
 
-BufferedOutputStream::~BufferedOutputStream() { ARROW_CHECK_OK(impl_->Close()); }
+BufferedOutputStream::~BufferedOutputStream() { internal::CloseFromDestructor(this); }
 
 Status BufferedOutputStream::SetBufferSize(int64_t new_buffer_size) {
   return impl_->SetBufferSize(new_buffer_size);
@@ -204,6 +214,8 @@ Status BufferedOutputStream::Detach(std::shared_ptr<OutputStream>* raw) {
 }
 
 Status BufferedOutputStream::Close() { return impl_->Close(); }
+
+Status BufferedOutputStream::Abort() { return impl_->Abort(); }
 
 bool BufferedOutputStream::closed() const { return impl_->closed(); }
 
@@ -231,13 +243,20 @@ class BufferedInputStream::Impl : public BufferedBase {
         raw_read_bound_(raw_total_bytes_bound),
         bytes_buffered_(0) {}
 
-  ~Impl() { ARROW_CHECK_OK(Close()); }
-
   Status Close() {
     std::lock_guard<std::mutex> guard(lock_);
     if (is_open_) {
       is_open_ = false;
       return raw_->Close();
+    }
+    return Status::OK();
+  }
+
+  Status Abort() {
+    std::lock_guard<std::mutex> guard(lock_);
+    if (is_open_) {
+      is_open_ = false;
+      return raw_->Abort();
     }
     return Status::OK();
   }
@@ -412,7 +431,7 @@ BufferedInputStream::BufferedInputStream(std::shared_ptr<InputStream> raw,
   impl_.reset(new Impl(std::move(raw), pool, raw_total_bytes_bound));
 }
 
-BufferedInputStream::~BufferedInputStream() { ARROW_CHECK_OK(impl_->Close()); }
+BufferedInputStream::~BufferedInputStream() { internal::CloseFromDestructor(this); }
 
 Status BufferedInputStream::Create(int64_t buffer_size, MemoryPool* pool,
                                    std::shared_ptr<InputStream> raw,
@@ -426,6 +445,8 @@ Status BufferedInputStream::Create(int64_t buffer_size, MemoryPool* pool,
 }
 
 Status BufferedInputStream::Close() { return impl_->Close(); }
+
+Status BufferedInputStream::Abort() { return impl_->Abort(); }
 
 bool BufferedInputStream::closed() const { return impl_->closed(); }
 

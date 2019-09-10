@@ -28,7 +28,7 @@ using arrow::boolean;
 using arrow::float32;
 using arrow::int32;
 
-class DISABLED_TestHugeProjector : public ::testing::Test {
+class LARGE_MEMORY_TEST(TestHugeProjector) : public ::testing::Test {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
@@ -36,7 +36,7 @@ class DISABLED_TestHugeProjector : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-class DISABLED_TestHugeFilter : public ::testing::Test {
+class LARGE_MEMORY_TEST(TestHugeFilter) : public ::testing::Test {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
@@ -44,7 +44,7 @@ class DISABLED_TestHugeFilter : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-TEST_F(DISABLED_TestHugeProjector, SimpleTestSumHuge) {
+TEST_F(LARGE_MEMORY_TEST(TestHugeProjector), SimpleTestSumHuge) {
   auto atype = arrow::TypeTraits<arrow::Int32Type>::type_singleton();
 
   // schema for input fields
@@ -96,7 +96,7 @@ TEST_F(DISABLED_TestHugeProjector, SimpleTestSumHuge) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_sum, outputs.at(0));
 }
 
-TEST_F(DISABLED_TestHugeFilter, TestSimpleHugeFilter) {
+TEST_F(LARGE_MEMORY_TEST(TestHugeFilter), TestSimpleHugeFilter) {
   // Create a row-batch with some sample data
   // Cause an overflow in int32_t
   int64_t num_records = static_cast<int64_t>(INT32_MAX) + 3;

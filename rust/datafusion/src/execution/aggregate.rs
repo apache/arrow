@@ -1196,14 +1196,14 @@ mod tests {
     use crate::execution::expression;
     use crate::execution::relation::DataSourceRelation;
     use crate::logicalplan::Expr;
+    use crate::test;
     use arrow::datatypes::{DataType, Field, Schema};
-    use std::env;
     use std::sync::Mutex;
 
     #[test]
     fn min_f64_group_by_string() {
-        let schema = aggr_test_schema();
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let schema = test::aggr_test_schema();
+        let testdata = test::arrow_testdata_path();
         let relation =
             load_csv(&format!("{}/csv/aggregate_test_100.csv", testdata), &schema);
         let context = ExecutionContext::new();
@@ -1239,8 +1239,8 @@ mod tests {
 
     #[test]
     fn count() {
-        let schema = aggr_test_schema();
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let schema = test::aggr_test_schema();
+        let testdata = test::arrow_testdata_path();
         let relation =
             load_csv(&format!("{}/csv/aggregate_test_100.csv", testdata), &schema);
         let context = ExecutionContext::new();
@@ -1276,8 +1276,8 @@ mod tests {
 
     #[test]
     fn max_f64_group_by_string() {
-        let schema = aggr_test_schema();
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let schema = test::aggr_test_schema();
+        let testdata = test::arrow_testdata_path();
         let relation =
             load_csv(&format!("{}/csv/aggregate_test_100.csv", testdata), &schema);
         let context = ExecutionContext::new();
@@ -1313,8 +1313,8 @@ mod tests {
 
     #[test]
     fn test_min_max_sum_count_avg_f64_group_by_uint32() {
-        let schema = aggr_test_schema();
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let schema = test::aggr_test_schema();
+        let testdata = test::arrow_testdata_path();
         let relation =
             load_csv(&format!("{}/csv/aggregate_test_100.csv", testdata), &schema);
 
@@ -1462,24 +1462,6 @@ mod tests {
         assert_eq!(11.239667565763519, sum.value(4));
         assert_eq!(22, count.value(4));
         assert_eq!(0.5108939802619781, avg.value(4));
-    }
-
-    fn aggr_test_schema() -> Arc<Schema> {
-        Arc::new(Schema::new(vec![
-            Field::new("c1", DataType::Utf8, false),
-            Field::new("c2", DataType::UInt32, false),
-            Field::new("c3", DataType::Int8, false),
-            Field::new("c3", DataType::Int16, false),
-            Field::new("c4", DataType::Int32, false),
-            Field::new("c5", DataType::Int64, false),
-            Field::new("c6", DataType::UInt8, false),
-            Field::new("c7", DataType::UInt16, false),
-            Field::new("c8", DataType::UInt32, false),
-            Field::new("c9", DataType::UInt64, false),
-            Field::new("c10", DataType::Float32, false),
-            Field::new("c11", DataType::Float64, false),
-            Field::new("c12", DataType::Utf8, false),
-        ]))
     }
 
     fn load_csv(filename: &str, schema: &Arc<Schema>) -> Rc<RefCell<dyn Relation>> {

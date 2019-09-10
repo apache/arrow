@@ -20,7 +20,7 @@ package org.apache.arrow.vector;
 /**
  * Interface for all int type vectors.
  */
-public interface BaseIntVector extends ValueVector {
+public interface BaseIntVector extends FieldVector {
 
   /**
    * Sets the value at index, note this value may need to be need truncated.

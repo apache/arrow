@@ -37,6 +37,7 @@ class EvalBatch {
       : num_records_(num_records), num_buffers_(num_buffers) {
     if (num_buffers > 0) {
       buffers_array_.reset(new uint8_t*[num_buffers]);
+      buffer_offsets_array_.reset(new int64_t[num_buffers]);
     }
     local_bitmaps_holder_.reset(new LocalBitMapsHolder(num_records, num_local_bitmaps));
     execution_context_.reset(new ExecutionContext());
@@ -46,6 +47,8 @@ class EvalBatch {
 
   uint8_t** GetBufferArray() const { return buffers_array_.get(); }
 
+  int64_t* GetBufferOffsetArray() const { return buffer_offsets_array_.get(); }
+
   int GetNumBuffers() const { return num_buffers_; }
 
   uint8_t* GetBuffer(int idx) const {
@@ -53,9 +56,15 @@ class EvalBatch {
     return (buffers_array_.get())[idx];
   }
 
-  void SetBuffer(int idx, uint8_t* buffer) {
+  int64_t GetBufferOffset(int idx) const {
+    DCHECK(idx <= num_buffers_);
+    return (buffer_offsets_array_.get())[idx];
+  }
+
+  void SetBuffer(int idx, uint8_t* buffer, int64_t offset) {
     DCHECK(idx <= num_buffers_);
     (buffers_array_.get())[idx] = buffer;
+    (buffer_offsets_array_.get())[idx] = offset;
   }
 
   int GetNumLocalBitMaps() const { return local_bitmaps_holder_->GetNumLocalBitMaps(); }
@@ -86,6 +95,10 @@ class EvalBatch {
   /// sizes depends on the data type, but all of them have the same
   /// number of slots (equal to num_records_).
   std::unique_ptr<uint8_t*[]> buffers_array_;
+
+  /// An array of 'num_buffers_', each containing the offset for
+  /// corresponding buffer.
+  std::unique_ptr<int64_t[]> buffer_offsets_array_;
 
   std::unique_ptr<LocalBitMapsHolder> local_bitmaps_holder_;
 

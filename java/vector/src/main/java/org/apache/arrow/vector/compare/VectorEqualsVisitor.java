@@ -17,27 +17,36 @@
 
 package org.apache.arrow.vector.compare;
 
-import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.ValueVector;
 
 /**
  * Visitor to compare vectors equal.
  */
-public class VectorEqualsVisitor extends RangeEqualsVisitor {
+public class VectorEqualsVisitor {
 
-  public VectorEqualsVisitor(ValueVector right) {
-    this(right, true);
+  /**
+   * Checks if two vectors are equals.
+   * @param left the left vector to compare.
+   * @param right the right vector to compare.
+   * @return true if the vectors are equal, and false otherwise.
+   */
+  public static boolean vectorEquals(ValueVector left, ValueVector right) {
+    return vectorEquals(left, right, true);
   }
 
-  public VectorEqualsVisitor(ValueVector right, boolean typeCheckNeeded) {
-    super(Preconditions.checkNotNull(right), 0, 0, right.getValueCount(), typeCheckNeeded);
-  }
-
-  @Override
-  protected boolean compareValueVector(ValueVector left, ValueVector right) {
-    if (!super.compareValueVector(left, right)) {
+  /**
+   * Checks if two vectors are equals.
+   * @param left the left vector to compare.
+   * @param right the right vector to compare.
+   * @param isTypeCheckNeeded check equality of types
+   * @return true if the vectors are equal, and false otherwise.
+   */
+  public static boolean vectorEquals(ValueVector left, ValueVector right, boolean isTypeCheckNeeded) {
+    if (left.getValueCount() != right.getValueCount()) {
       return false;
     }
-    return left.getValueCount() == right.getValueCount();
+
+    RangeEqualsVisitor visitor = new RangeEqualsVisitor(left, right, isTypeCheckNeeded);
+    return visitor.rangeEquals(new Range(0, 0, left.getValueCount()));
   }
 }
