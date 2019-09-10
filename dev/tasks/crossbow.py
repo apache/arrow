@@ -806,7 +806,7 @@ class Job(Serializable):
                 return False
         return True
 
-    def wait_until_finished(self, max_wait_minutes=120,
+    def wait_until_finished(self, poll_max_minutes=120,
                             poll_interval_minutes=10):
         started_at = time.time()
         while True:
@@ -814,7 +814,7 @@ class Job(Serializable):
                 break
 
             waited_for_minutes = (time.time() - started_at) / 60
-            if waited_for_minutes > max_wait_minutes:
+            if waited_for_minutes > poll_max_minutes:
                 msg = ('Exceeded the maximum amount of time waiting for job '
                        'to finish, waited for {} minutes.')
                 raise RuntimeError(msg.format(waited_for_minutes))
@@ -1035,8 +1035,12 @@ DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
                    'Defaults to crossbow directory placed next to arrow')
 @click.option('--queue-remote', '-qr', default=None,
               help='Force to use this remote URL for the Queue repository')
+@click.option('--output-file', metavar='<output>',
+              type=click.File('w', encoding='utf8'), default='-',
+              help='Capture output result into file.')
 @click.pass_context
-def crossbow(ctx, github_token, arrow_path, queue_path, queue_remote):
+def crossbow(ctx, github_token, arrow_path, queue_path, queue_remote,
+             output_file):
     if github_token is None:
         raise click.ClickException(
             'Could not determine GitHub token. Please set the '
@@ -1044,6 +1048,8 @@ def crossbow(ctx, github_token, arrow_path, queue_path, queue_remote):
             'valid GitHub access token or pass one to --github-token.'
         )
 
+    ctx.ensure_object(dict)
+    ctx.obj['output'] = output_file
     ctx.obj['arrow'] = Repo(arrow_path)
     ctx.obj['queue'] = Queue(queue_path, remote_url=queue_remote,
                              github_token=github_token, require_https=True)
@@ -1061,11 +1067,11 @@ def crossbow(ctx, github_token, arrow_path, queue_path, queue_remote):
 @click.option('--jira-password', '-P', default=None, help='JIRA password')
 @click.option('--dry-run/--write', default=False,
               help='Just display the new changelog, don\'t write it')
-@click.pass_context
-def changelog(ctx, changelog_path, arrow_version, is_website, jira_username,
+@click.pass_obj
+def changelog(obj, changelog_path, arrow_version, is_website, jira_username,
               jira_password, dry_run):
     changelog_path = Path(changelog_path)
-    target = Target.from_repo(ctx.obj['arrow'])
+    target = Target.from_repo(obj['arrow'])
     version = arrow_version or target.version
 
     changelog = JiraChangelog(version, username=jira_username,
@@ -1105,13 +1111,11 @@ def changelog(ctx, changelog_path, arrow_version, is_website, jira_username,
 @click.option('--dry-run/--push', default=False,
               help='Just display the rendered CI configurations without '
                    'submitting them')
-@click.option('--output', metavar='<output>',
-              type=click.File('w', encoding='utf8'), default='-',
-              help='Capture output result into file.')
-@click.pass_context
-def submit(ctx, tasks, groups, job_prefix, config_path, arrow_version,
-           arrow_remote, arrow_branch, arrow_sha, dry_run, output):
-    queue, arrow = ctx.obj['queue'], ctx.obj['arrow']
+@click.pass_obj
+def submit(obj, tasks, groups, job_prefix, config_path, arrow_version,
+           arrow_remote, arrow_branch, arrow_sha, dry_run):
+    output = obj['output']
+    queue, arrow = obj['queue'], obj['arrow']
 
     # load available tasks configuration and groups from yaml
     with Path(config_path).open() as fp:
@@ -1143,12 +1147,10 @@ def submit(ctx, tasks, groups, job_prefix, config_path, arrow_version,
 
 @crossbow.command()
 @click.argument('job-name', required=True)
-@click.option('--output', metavar='<output>',
-              type=click.File('w', encoding='utf8'), default='-',
-              help='Capture output result into file.')
-@click.pass_context
-def status(ctx, job_name, output):
-    queue = ctx.obj['queue']
+@click.pass_obj
+def status(obj, job_name):
+    output = obj['output']
+    queue = obj['queue']
     queue.fetch()
 
     job = queue.get(job_name)
@@ -1157,9 +1159,9 @@ def status(ctx, job_name, output):
 
 @crossbow.command()
 @click.argument('prefix', required=True)
-@click.pass_context
-def latest_prefix(ctx, prefix):
-    queue = ctx.obj['queue']
+@click.pass_obj
+def latest_prefix(obj, prefix):
+    queue = obj['queue']
     queue.fetch()
 
     latest = queue.latest_for_prefix(prefix)
@@ -1184,24 +1186,21 @@ def latest_prefix(ctx, prefix):
               help='SMTP port to use for report e-mail.')
 @click.option('--poll/--no-poll', default=False,
               help='Wait for completion if there are tasks pending')
-@click.option('--max-wait-minutes', default=180,
+@click.option('--poll-max-minutes', default=180,
               help='Maximum amount of time waiting for job completion')
 @click.option('--poll-interval-minutes', default=10,
               help='Number of minutes to wait to check job status again')
 @click.option('--send/--dry-run', default=False,
               help='Just display the report, don\'t send it')
-@click.option('--output', metavar='<output>',
-              type=click.File('w', encoding='utf8'), default='-',
-              help='Capture output result into file, only works with '
-                   '--dry-run flag enabled.')
-@click.pass_context
-def report(ctx, job_name, sender_name, sender_email, recipient_email,
+@click.pass_obj
+def report(obj, job_name, sender_name, sender_email, recipient_email,
            smtp_user, smtp_password, smtp_server, smtp_port, poll,
-           max_wait_minutes, poll_interval_minutes, send, output):
+           poll_max_minutes, poll_interval_minutes, send):
     """
     Send an e-mail report showing success/failure of tasks in a Crossbow run
     """
-    queue = ctx.obj['queue']
+    output = obj['output']
+    queue = obj['queue']
     queue.fetch()
 
     job = queue.get(job_name)
@@ -1214,7 +1213,7 @@ def report(ctx, job_name, sender_name, sender_email, recipient_email,
 
     if poll:
         job.wait_until_finished(
-            max_wait_minutes=max_wait_minutes,
+            poll_max_minutes=poll_max_minutes,
             poll_interval_minutes=poll_interval_minutes
         )
 
@@ -1234,14 +1233,13 @@ def report(ctx, job_name, sender_name, sender_email, recipient_email,
 @click.option('-t', '--target-dir', default=DEFAULT_ARROW_PATH / 'packages',
               type=click.Path(file_okay=False, dir_okay=True),
               help='Directory to download the build artifacts')
-@click.option('--output', metavar='<output>',
-              type=click.File('w', encoding='utf8'), default='-',
-              help='Capture output result into file.')
-@click.pass_context
-def download_artifacts(ctx, job_name, target_dir, output):
+@click.pass_obj
+def download_artifacts(obj, job_name, target_dir):
     """Download and sign build artifacts from github releases"""
+    output = obj['output']
+
     # fetch the queue repository
-    queue = ctx.obj['queue']
+    queue = obj['queue']
     queue.fetch()
 
     # query the job's artifacts
@@ -1271,9 +1269,9 @@ def download_artifacts(ctx, job_name, target_dir, output):
 @click.option('--tag', required=True, help='Target tag')
 @click.option('--pattern', '-p', 'patterns', required=True, multiple=True,
               help='File pattern to upload as assets')
-@click.pass_context
-def upload_artifacts(ctx, tag, sha, patterns):
-    queue = ctx.obj['queue']
+@click.pass_obj
+def upload_artifacts(obj, tag, sha, patterns):
+    queue = obj['queue']
     queue.github_overwrite_release_assets(
         tag_name=tag, target_commitish=sha, patterns=patterns
     )
