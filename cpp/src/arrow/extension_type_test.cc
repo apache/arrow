@@ -197,7 +197,7 @@ class ExtStructArray : public ExtensionArray {
 
 class ExtStructType : public ExtensionType {
  public:
-  explicit ExtStructType()
+  ExtStructType()
       : ExtensionType(struct_({field("a", int64()), field("b", float64())})) {}
 
   std::string extension_name() const override { return "ext-struct-type"; }
