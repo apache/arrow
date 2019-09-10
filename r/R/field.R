@@ -47,7 +47,7 @@ Field <- R6Class("Field", inherit = Object,
       Field__nullable(self)
     },
     type = function() {
-      DataType$dispatch(Field__type(self))
+      DataType$create(Field__type(self))
     }
   )
 )

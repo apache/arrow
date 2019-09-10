@@ -21,7 +21,7 @@ ListType <- R6Class("ListType",
   inherit = NestedType,
   active = list(
     value_field = function() shared_ptr(Field, ListType__value_field(self)),
-    value_type = function() DataType$dispatch(ListType__value_type(self))
+    value_type = function() DataType$create(ListType__value_type(self))
   )
 )
 

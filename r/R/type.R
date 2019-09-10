@@ -90,7 +90,7 @@ DataType <- R6Class("DataType",
   )
 )
 
-DataType$dispatch <- function(xp) shared_ptr(DataType, xp)$..dispatch()
+DataType$create <- function(xp) shared_ptr(DataType, xp)$..dispatch()
 
 #' infer the arrow Array type from an R vector
 #'
@@ -101,7 +101,7 @@ DataType$dispatch <- function(xp) shared_ptr(DataType, xp)$..dispatch()
 type <- function(x) UseMethod("type")
 
 #' @export
-type.default <- function(x) DataType$dispatch(Array__infer_type(x))
+type.default <- function(x) DataType$create(Array__infer_type(x))
 
 #' @export
 type.Array <- function(x) x$type

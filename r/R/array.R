@@ -100,7 +100,7 @@ Array <- R6Class("Array",
   active = list(
     null_count = function() Array__null_count(self),
     offset = function() Array__offset(self),
-    type = function() DataType$dispatch(Array__type(self))
+    type = function() DataType$create(Array__type(self))
   )
 )
 
@@ -127,7 +127,7 @@ ListArray <- R6Class("ListArray", inherit = Array,
     raw_value_offsets = function() ListArray__raw_value_offsets(self)
   ),
   active = list(
-    value_type = function() DataType$dispatch(ListArray__value_type(self))
+    value_type = function() DataType$create(ListArray__value_type(self))
   )
 )
 
