@@ -38,7 +38,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   UnionVector data;
   private StructWriter structWriter;
   private UnionListWriter listWriter;
-  private List<BaseWriter> writers = new java.util.ArrayList<>();
+  private BaseWriter[] writers = new BaseWriter[MinorType.values().length];
   private final NullableStructWriterFactory nullableStructWriterFactory;
 
   public UnionWriter(UnionVector vector) {
@@ -54,7 +54,9 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   public void setPosition(int index) {
     super.setPosition(index);
     for (BaseWriter writer : writers) {
-      writer.setPosition(index);
+      if (writer != null) {
+        writer.setPosition(index);
+      }
     }
   }
 
@@ -85,7 +87,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     if (structWriter == null) {
       structWriter = nullableStructWriterFactory.build(data.getStruct());
       structWriter.setPosition(idx());
-      writers.add(structWriter);
+      writers[Types.MinorType.STRUCT.ordinal()] = structWriter;
     }
     return structWriter;
   }
@@ -99,7 +101,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     if (listWriter == null) {
       listWriter = new UnionListWriter(data.getList(), nullableStructWriterFactory);
       listWriter.setPosition(idx());
-      writers.add(listWriter);
+      writers[Types.MinorType.LIST.ordinal()] = listWriter;
     }
     return listWriter;
   }
@@ -110,6 +112,9 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   }
 
   BaseWriter getWriter(MinorType minorType) {
+    if (writers[minorType.ordinal()] != null) {
+      return writers[minorType.ordinal()];
+    }
     switch (minorType) {
     case STRUCT:
       return getStructWriter();
@@ -143,7 +148,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     if (${uncappedName}Writer == null) {
       ${uncappedName}Writer = new ${name}WriterImpl(data.get${name}Vector());
       ${uncappedName}Writer.setPosition(idx());
-      writers.add(${uncappedName}Writer);
+      writers[MinorType.${name?upper_case}.ordinal()] = ${uncappedName}Writer;
     }
     return ${uncappedName}Writer;
   }

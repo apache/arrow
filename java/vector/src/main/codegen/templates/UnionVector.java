@@ -76,6 +76,7 @@ public class UnionVector implements FieldVector {
   int valueCount;
 
   NonNullableStructVector internalStruct;
+  FieldVector[] internalVectors = new FieldVector[MinorType.values().length];
   protected ArrowBuf typeBuffer;
 
   private StructVector structVector;
@@ -211,6 +212,7 @@ public class UnionVector implements FieldVector {
       structVector = addOrGet(MinorType.STRUCT, StructVector.class);
       if (internalStruct.size() > vectorCount) {
         structVector.allocateNew();
+        internalVectors[MinorType.STRUCT.ordinal()] = structVector;
         if (callBack != null) {
           callBack.doWork();
         }
@@ -234,6 +236,7 @@ public class UnionVector implements FieldVector {
       ${uncappedName}Vector = addOrGet(MinorType.${name?upper_case}, ${name}Vector.class);
       if (internalStruct.size() > vectorCount) {
         ${uncappedName}Vector.allocateNew();
+        internalVectors[MinorType.${name?upper_case}.ordinal()] = ${uncappedName}Vector;
         if (callBack != null) {
           callBack.doWork();
         }
@@ -251,6 +254,7 @@ public class UnionVector implements FieldVector {
       listVector = addOrGet(MinorType.LIST, ListVector.class);
       if (internalStruct.size() > vectorCount) {
         listVector.allocateNew();
+        internalVectors[MinorType.LIST.ordinal()] = listVector;
         if (callBack != null) {
           callBack.doWork();
         }
@@ -544,6 +548,10 @@ public class UnionVector implements FieldVector {
 
     private ValueVector getVector(int index) {
       int type = typeBuffer.getByte(index * TYPE_WIDTH);
+      if (internalVectors[type] != null) {
+        return internalVectors[type];
+      }
+
       switch (MinorType.values()[type]) {
         case NULL:
           return null;
