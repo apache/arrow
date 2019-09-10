@@ -346,6 +346,13 @@ else()
     )
 endif()
 
+if(DEFINED ENV{ARROW_MIMALLOC_URL})
+  set(MIMALLOC_SOURCE_URL "$ENV{ARROW_MIMALLOC_URL}")
+else()
+  set(MIMALLOC_SOURCE_URL
+      "https://github.com/microsoft/mimalloc/archive/${MIMALLOC_VERSION}.tar.gz")
+endif()
+
 if(DEFINED ENV{ARROW_LZ4_URL})
   set(LZ4_SOURCE_URL "$ENV{ARROW_LZ4_URL}")
 else()
@@ -1356,6 +1363,9 @@ if(ARROW_WITH_PROTOBUF)
   message(STATUS "Found protobuf headers: ${PROTOBUF_INCLUDE_DIR}")
 endif()
 
+# ----------------------------------------------------------------------
+# jemalloc - Unix-only high-performance allocator
+
 if(WIN32)
   # jemalloc is not supported on Windows
   set(ARROW_JEMALLOC off)
@@ -1405,6 +1415,55 @@ if(ARROW_JEMALLOC)
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src")
   add_dependencies(jemalloc::jemalloc jemalloc_ep)
+endif()
+
+# ----------------------------------------------------------------------
+# mimalloc - Cross-platform high-performance allocator, from Microsoft
+
+if(ARROW_MIMALLOC)
+  message(STATUS "Building (vendored) mimalloc from source")
+  # We only use a vendored mimalloc as we want to control its build options.
+
+  # XXX Careful: mimalloc library naming varies depend on build type capitalization:
+  # https://github.com/microsoft/mimalloc/issues/144
+  set(MIMALLOC_LIB_BASE_NAME "mimalloc")
+  if(WIN32)
+    set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-static")
+  endif()
+  set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-${LOWERCASE_BUILD_TYPE}")
+
+  set(MIMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/mimalloc_ep/src/mimalloc_ep")
+  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/lib/mimalloc-1.0/include")
+  set(
+    MIMALLOC_STATIC_LIB
+    "${MIMALLOC_PREFIX}/lib/mimalloc-1.0/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+
+  set(MIMALLOC_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      "-DCMAKE_INSTALL_PREFIX=${MIMALLOC_PREFIX}"
+      -DMI_OVERRIDE=OFF
+      -DMI_LOCAL_DYNAMIC_TLS=ON
+      -DMI_BUILD_TESTS=OFF)
+
+  externalproject_add(mimalloc_ep
+                      URL ${MIMALLOC_SOURCE_URL}
+                      CMAKE_ARGS ${MIMALLOC_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS "${MIMALLOC_STATIC_LIB}")
+
+  include_directories(SYSTEM ${MIMALLOC_INCLUDE_DIR})
+  file(MAKE_DIRECTORY ${MIMALLOC_INCLUDE_DIR})
+
+  add_library(mimalloc::mimalloc STATIC IMPORTED)
+  set_target_properties(mimalloc::mimalloc
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   Threads::Threads
+                                   IMPORTED_LOCATION
+                                   "${MIMALLOC_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${MIMALLOC_INCLUDE_DIR}")
+  add_dependencies(mimalloc::mimalloc mimalloc_ep)
+  add_dependencies(toolchain mimalloc_ep)
 endif()
 
 # ----------------------------------------------------------------------

@@ -162,6 +162,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_JEMALLOC "Build the Arrow jemalloc-based allocator" ON)
 
+  define_option(ARROW_MIMALLOC "Build the Arrow mimalloc-based allocator" OFF)
+
   define_option(ARROW_HDFS "Build the Arrow HDFS bridge" ON)
 
   define_option(ARROW_PYTHON "Build the Arrow CPython extensions" OFF)

@@ -37,6 +37,10 @@ GRPC_VERSION=v1.20.0
 GTEST_VERSION=1.8.1
 JEMALLOC_VERSION=17c897976c60b0e6e4f4a365c751027244dada7a
 LZ4_VERSION=v1.8.3
+# Need post-v1.0.6 version for https://github.com/microsoft/mimalloc/pull/140,
+# https://github.com/microsoft/mimalloc/pull/145 and
+# https://github.com/microsoft/mimalloc/pull/148
+MIMALLOC_VERSION=270e765454f98e8bab9d42609b153425f749fff6
 ORC_VERSION=1.5.5
 PROTOBUF_VERSION=v3.7.1
 # Because of https://github.com/Tencent/rapidjson/pull/1323, we require
@@ -69,6 +73,7 @@ DEPENDENCIES=(
   "ARROW_GRPC_URL grpc-${GRPC_VERSION}.tar.gz https://github.com/grpc/grpc/archive/${GRPC_VERSION}.tar.gz"
   "ARROW_GTEST_URL gtest-${GTEST_VERSION}.tar.gz https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
   "ARROW_LZ4_URL lz4-${LZ4_VERSION}.tar.gz https://github.com/lz4/lz4/archive/${LZ4_VERSION}.tar.gz"
+  "ARROW_MIMALLOC_URL mimalloc-${MIMALLOC_VERSION}.tar.gz https://github.com/microsoft/mimalloc/archive/${MIMALLOC_VERSION}.tar.gz"
   "ARROW_ORC_URL orc-${ORC_VERSION}.tar.gz https://github.com/apache/orc/archive/rel/release-${ORC_VERSION}.tar.gz"
   "ARROW_PROTOBUF_URL protobuf-${PROTOBUF_VERSION}.tar.gz https://github.com/google/protobuf/releases/download/${PROTOBUF_VERSION}/protobuf-all-${PROTOBUF_VERSION:1}.tar.gz"
   "ARROW_RAPIDJSON_URL rapidjson-${RAPIDJSON_VERSION}.tar.gz https://github.com/miloyip/rapidjson/archive/${RAPIDJSON_VERSION}.tar.gz"
