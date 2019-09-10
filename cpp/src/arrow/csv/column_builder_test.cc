@@ -52,6 +52,8 @@ void AssertBuilding(const std::shared_ptr<ColumnBuilder>& builder,
   ASSERT_OK((*out)->Validate());
 }
 
+static ConvertOptions default_options = ConvertOptions::Defaults();
+
 //////////////////////////////////////////////////////////////////////////
 // Tests for null column builder
 
@@ -123,10 +125,11 @@ TEST(NullColumnBuilder, InsertTyped) {
 // Tests for fixed-type column builder
 
 TEST(ColumnBuilder, Empty) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), int32(), 0,
-                                ConvertOptions::Defaults(), tg, &builder));
+  ASSERT_OK(
+      ColumnBuilder::Make(default_memory_pool(), int32(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {}, &actual);
@@ -136,10 +139,11 @@ TEST(ColumnBuilder, Empty) {
 }
 
 TEST(ColumnBuilder, Basics) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), int32(), 0,
-                                ConvertOptions::Defaults(), tg, &builder));
+  ASSERT_OK(
+      ColumnBuilder::Make(default_memory_pool(), int32(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {{"123", "-456"}}, &actual);
@@ -151,10 +155,11 @@ TEST(ColumnBuilder, Basics) {
 
 TEST(ColumnBuilder, Insert) {
   // Test ColumnBuilder::Insert()
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), int32(), 0,
-                                ConvertOptions::Defaults(), tg, &builder));
+  ASSERT_OK(
+      ColumnBuilder::Make(default_memory_pool(), int32(), 0, options, tg, &builder));
 
   std::shared_ptr<BlockParser> parser;
   std::shared_ptr<ChunkedArray> actual, expected;
@@ -171,10 +176,11 @@ TEST(ColumnBuilder, Insert) {
 }
 
 TEST(ColumnBuilder, MultipleChunks) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), int32(), 0,
-                                ConvertOptions::Defaults(), tg, &builder));
+  ASSERT_OK(
+      ColumnBuilder::Make(default_memory_pool(), int32(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {{"1", "2", "3"}, {"4", "5"}}, &actual);
@@ -185,10 +191,11 @@ TEST(ColumnBuilder, MultipleChunks) {
 }
 
 TEST(ColumnBuilder, MultipleChunksParallel) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeThreaded(GetCpuThreadPool());
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), int32(), 0,
-                                ConvertOptions::Defaults(), tg, &builder));
+  ASSERT_OK(
+      ColumnBuilder::Make(default_memory_pool(), int32(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {{"1", "2"}, {"3"}, {"4", "5"}, {"6", "7"}}, &actual);
@@ -202,10 +209,10 @@ TEST(ColumnBuilder, MultipleChunksParallel) {
 // Tests for type-inferring column builder
 
 TEST(InferringColumnBuilder, Empty) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, ConvertOptions::Defaults(), tg,
-                                &builder));
+  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {}, &actual);
@@ -215,10 +222,10 @@ TEST(InferringColumnBuilder, Empty) {
 }
 
 TEST(InferringColumnBuilder, SingleChunkNull) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, ConvertOptions::Defaults(), tg,
-                                &builder));
+  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {{"", "NA"}}, &actual);
@@ -228,10 +235,10 @@ TEST(InferringColumnBuilder, SingleChunkNull) {
 }
 
 TEST(InferringColumnBuilder, MultipleChunkNull) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, ConvertOptions::Defaults(), tg,
-                                &builder));
+  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {{"", "NA"}, {""}, {"NaN"}}, &actual);
@@ -241,10 +248,10 @@ TEST(InferringColumnBuilder, MultipleChunkNull) {
 }
 
 TEST(InferringColumnBuilder, SingleChunkInteger) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, ConvertOptions::Defaults(), tg,
-                                &builder));
+  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {{"", "123", "456"}}, &actual);
@@ -255,10 +262,10 @@ TEST(InferringColumnBuilder, SingleChunkInteger) {
 }
 
 TEST(InferringColumnBuilder, MultipleChunkInteger) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, ConvertOptions::Defaults(), tg,
-                                &builder));
+  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {{""}, {"NA", "123", "456"}}, &actual);
@@ -270,10 +277,10 @@ TEST(InferringColumnBuilder, MultipleChunkInteger) {
 }
 
 TEST(InferringColumnBuilder, SingleChunkBoolean) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, ConvertOptions::Defaults(), tg,
-                                &builder));
+  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {{"", "0", "FALSE"}}, &actual);
@@ -285,10 +292,10 @@ TEST(InferringColumnBuilder, SingleChunkBoolean) {
 }
 
 TEST(InferringColumnBuilder, MultipleChunkBoolean) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, ConvertOptions::Defaults(), tg,
-                                &builder));
+  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {{""}, {"1", "True", "0"}}, &actual);
@@ -300,10 +307,10 @@ TEST(InferringColumnBuilder, MultipleChunkBoolean) {
 }
 
 TEST(InferringColumnBuilder, SingleChunkReal) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, ConvertOptions::Defaults(), tg,
-                                &builder));
+  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {{"", "0.0", "12.5"}}, &actual);
@@ -315,10 +322,10 @@ TEST(InferringColumnBuilder, SingleChunkReal) {
 }
 
 TEST(InferringColumnBuilder, MultipleChunkReal) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, ConvertOptions::Defaults(), tg,
-                                &builder));
+  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {{""}, {"008"}, {"NaN", "12.5"}}, &actual);
@@ -330,10 +337,10 @@ TEST(InferringColumnBuilder, MultipleChunkReal) {
 }
 
 TEST(InferringColumnBuilder, SingleChunkTimestamp) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, ConvertOptions::Defaults(), tg,
-                                &builder));
+  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {{"", "1970-01-01", "2018-11-13 17:11:10"}}, &actual);
@@ -346,10 +353,10 @@ TEST(InferringColumnBuilder, SingleChunkTimestamp) {
 }
 
 TEST(InferringColumnBuilder, MultipleChunkTimestamp) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, ConvertOptions::Defaults(), tg,
-                                &builder));
+  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {{""}, {"1970-01-01"}, {"2018-11-13 17:11:10"}}, &actual);
@@ -362,14 +369,14 @@ TEST(InferringColumnBuilder, MultipleChunkTimestamp) {
 }
 
 TEST(InferringColumnBuilder, SingleChunkString) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
   std::shared_ptr<ChunkedArray> actual;
   std::shared_ptr<ChunkedArray> expected;
 
   // With valid UTF8
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, ConvertOptions::Defaults(), tg,
-                                &builder));
+  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
   AssertBuilding(builder, {{"", "foo", "baré"}}, &actual);
 
   ChunkedArrayFromVector<StringType, std::string>({{true, true, true}},
@@ -377,7 +384,6 @@ TEST(InferringColumnBuilder, SingleChunkString) {
   AssertChunkedEqual(*expected, *actual);
 
   // With invalid UTF8, non-checking
-  auto options = ConvertOptions::Defaults();
   options.check_utf8 = false;
   tg = TaskGroup::MakeSerial();
   ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
@@ -389,14 +395,14 @@ TEST(InferringColumnBuilder, SingleChunkString) {
 }
 
 TEST(InferringColumnBuilder, SingleChunkBinary) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
   std::shared_ptr<ChunkedArray> actual;
   std::shared_ptr<ChunkedArray> expected;
 
   // With invalid UTF8, checking
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, ConvertOptions::Defaults(), tg,
-                                &builder));
+  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
   AssertBuilding(builder, {{"", "foo\xff", "baré"}}, &actual);
 
   ChunkedArrayFromVector<BinaryType, std::string>({{true, true, true}},
@@ -405,10 +411,10 @@ TEST(InferringColumnBuilder, SingleChunkBinary) {
 }
 
 TEST(InferringColumnBuilder, MultipleChunkString) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, ConvertOptions::Defaults(), tg,
-                                &builder));
+  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {{""}, {"008"}, {"NaN", "baré"}}, &actual);
@@ -420,10 +426,10 @@ TEST(InferringColumnBuilder, MultipleChunkString) {
 }
 
 TEST(InferringColumnBuilder, MultipleChunkBinary) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, ConvertOptions::Defaults(), tg,
-                                &builder));
+  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {{""}, {"008"}, {"NaN", "baré\xff"}}, &actual);
@@ -438,10 +444,10 @@ TEST(InferringColumnBuilder, MultipleChunkBinary) {
 // (see python/pyarrow/tests/test_csv.py)
 
 TEST(InferringColumnBuilder, MultipleChunkIntegerParallel) {
+  auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeThreaded(GetCpuThreadPool());
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, ConvertOptions::Defaults(), tg,
-                                &builder));
+  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {{"1", "2"}, {"3"}, {"4", "5"}, {"6", "7"}}, &actual);
