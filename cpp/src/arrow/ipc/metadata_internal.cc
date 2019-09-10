@@ -967,9 +967,23 @@ Status MakeSparseTensorIndexCOO(FBB& fbb, const SparseCOOIndex& sparse_index,
                                 flatbuf::SparseTensorIndex* fb_sparse_index_type,
                                 Offset* fb_sparse_index, size_t* num_buffers) {
   *fb_sparse_index_type = flatbuf::SparseTensorIndex_SparseTensorIndexCOO;
+
+  // We assume that the value type of indices tensor is an integer.
+  const auto& index_value_type =
+      checked_cast<const IntegerType&>(*sparse_index.indices()->type());
+  auto indices_type_offset =
+      flatbuf::CreateInt(fbb, index_value_type.bit_width(), index_value_type.is_signed());
+
+  auto fb_strides =
+      fbb.CreateVector(util::MakeNonNull(sparse_index.indices()->strides().data()),
+                       sparse_index.indices()->strides().size());
+
   const BufferMetadata& indices_metadata = buffers[0];
   flatbuf::Buffer indices(indices_metadata.offset, indices_metadata.length);
-  *fb_sparse_index = flatbuf::CreateSparseTensorIndexCOO(fbb, &indices).Union();
+
+  *fb_sparse_index =
+      flatbuf::CreateSparseTensorIndexCOO(fbb, indices_type_offset, fb_strides, &indices)
+          .Union();
   *num_buffers = 1;
   return Status::OK();
 }
@@ -979,11 +993,28 @@ Status MakeSparseMatrixIndexCSR(FBB& fbb, const SparseCSRIndex& sparse_index,
                                 flatbuf::SparseTensorIndex* fb_sparse_index_type,
                                 Offset* fb_sparse_index, size_t* num_buffers) {
   *fb_sparse_index_type = flatbuf::SparseTensorIndex_SparseMatrixIndexCSR;
+
+  // We assume that the value type of indptr tensor is an integer.
+  const auto& indptr_value_type =
+      checked_cast<const IntegerType&>(*sparse_index.indptr()->type());
+  auto indptr_type_offset = flatbuf::CreateInt(fbb, indptr_value_type.bit_width(),
+                                               indptr_value_type.is_signed());
+
   const BufferMetadata& indptr_metadata = buffers[0];
-  const BufferMetadata& indices_metadata = buffers[1];
   flatbuf::Buffer indptr(indptr_metadata.offset, indptr_metadata.length);
+
+  // We assume that the value type of indices tensor is an integer.
+  const auto& indices_value_type =
+      checked_cast<const IntegerType&>(*sparse_index.indices()->type());
+  auto indices_type_offset = flatbuf::CreateInt(fbb, indices_value_type.bit_width(),
+                                                indices_value_type.is_signed());
+
+  const BufferMetadata& indices_metadata = buffers[1];
   flatbuf::Buffer indices(indices_metadata.offset, indices_metadata.length);
-  *fb_sparse_index = flatbuf::CreateSparseMatrixIndexCSR(fbb, &indptr, &indices).Union();
+
+  *fb_sparse_index = flatbuf::CreateSparseMatrixIndexCSR(fbb, indptr_type_offset, &indptr,
+                                                         indices_type_offset, &indices)
+                         .Union();
   *num_buffers = 2;
   return Status::OK();
 }
@@ -1187,6 +1218,19 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
         "Type-pointer in custom metadata of flatbuffer-encoded Tensor is null.");
   }
   return ConcreteTypeFromFlatbuffer(tensor->type_type(), type_data, {}, type);
+}
+
+Status GetSparseCOOIndexMetadata(const flatbuf::SparseTensorIndexCOO* sparse_index,
+                                 std::shared_ptr<DataType>* indices_type) {
+  return IntFromFlatbuffer(sparse_index->indicesType(), indices_type);
+}
+
+Status GetSparseCSRIndexMetadata(const flatbuf::SparseMatrixIndexCSR* sparse_index,
+                                 std::shared_ptr<DataType>* indptr_type,
+                                 std::shared_ptr<DataType>* indices_type) {
+  RETURN_NOT_OK(IntFromFlatbuffer(sparse_index->indptrType(), indptr_type));
+  RETURN_NOT_OK(IntFromFlatbuffer(sparse_index->indicesType(), indices_type));
+  return Status::OK();
 }
 
 Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
