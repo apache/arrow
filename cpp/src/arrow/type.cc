@@ -17,6 +17,7 @@
 
 #include "arrow/type.h"
 
+#include <algorithm>
 #include <climits>
 #include <cstddef>
 #include <ostream>
@@ -476,6 +477,47 @@ std::string DictionaryType::ToString() const {
   ss << this->name() << "<values=" << value_type_->ToString()
      << ", indices=" << index_type_->ToString() << ", ordered=" << ordered_ << ">";
   return ss.str();
+}
+
+Result<bool> DictionaryType::ComparableWithoutUnification(
+    std::vector<const Array*> arrays) {
+  if (arrays.size() == 0) {
+    return Status::Invalid("need at least one input array");
+  }
+
+  for (auto a : arrays) {
+    if (a->type_id() != Type::DICTIONARY) {
+      return Status::TypeError("input arrays must be dictionary arrays");
+    }
+  }
+
+  for (auto a : arrays) {
+    // XXX should this be a false return instead of an error? Unification can
+    // reconcile differing index types, for example
+    if (!a->type()->Equals(arrays[0]->type())) {
+      return Status::TypeError("array types not all consistent ", *arrays[0]->type(),
+                               " vs ", *a->type());
+    }
+  }
+
+  auto dict = [](const Array* a) {
+    return checked_cast<const DictionaryArray*>(a)->dictionary();
+  };
+
+  std::sort(arrays.begin(), arrays.end(), [&](const Array* l, const Array* r) {
+    return dict(l)->length() < dict(r)->length();
+  });
+  auto largest_dict = dict(arrays.back());
+  arrays.pop_back();
+
+  for (auto a : arrays) {
+    auto a_dict = dict(a);
+    if (!largest_dict->Slice(0, a_dict->length())->Equals(*a_dict)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 // ----------------------------------------------------------------------

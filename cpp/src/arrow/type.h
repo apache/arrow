@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/checked_cast.h"
@@ -1255,6 +1256,10 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   std::shared_ptr<DataType> value_type() const { return value_type_; }
 
   bool ordered() const { return ordered_; }
+
+  /// \brief Determine whether dictionary arrays may be compared without unification
+  /// (smaller dictionaries are prefixes of larger dictionaries)
+  static Result<bool> ComparableWithoutUnification(std::vector<const Array*> arrays);
 
   /// \brief Unify dictionaries types
   ///
