@@ -17,6 +17,7 @@
 
 #include "arrow/array/dict_internal.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <type_traits>
@@ -150,19 +151,6 @@ Status DictionaryType::Unify(MemoryPool* pool, const std::vector<const DataType*
   *out_type = arrow::dictionary(index_type, values->type());
   *out_dictionary = values;
   return Status::OK();
-}
-
-bool DictionaryArray::CanCompareIndices(const DictionaryArray& other) const {
-  DCHECK(dictionary()->type()->Equals(other.dictionary()->type()))
-      << "dictionaries have differing type " << *dictionary()->type() << " vs "
-      << *other.dictionary()->type();
-
-  if (!indices()->type()->Equals(other.indices()->type())) {
-    return false;
-  }
-
-  auto min_length = std::min(dictionary()->length(), other.dictionary()->length());
-  return dictionary()->RangeEquals(other.dictionary(), 0, min_length, 0);
 }
 
 // ----------------------------------------------------------------------

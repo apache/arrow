@@ -912,6 +912,19 @@ Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
   return Status::OK();
 }
 
+bool DictionaryArray::CanCompareIndices(const DictionaryArray& other) const {
+  DCHECK(dictionary()->type()->Equals(other.dictionary()->type()))
+      << "dictionaries have differing type " << *dictionary()->type() << " vs "
+      << *other.dictionary()->type();
+
+  if (!indices()->type()->Equals(other.indices()->type())) {
+    return false;
+  }
+
+  auto min_length = std::min(dictionary()->length(), other.dictionary()->length());
+  return dictionary()->RangeEquals(other.dictionary(), 0, min_length, 0);
+}
+
 // ----------------------------------------------------------------------
 // Implement Array::View
 
