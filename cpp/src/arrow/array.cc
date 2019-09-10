@@ -1017,6 +1017,20 @@ Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataTy
 #undef TRANSPOSE_IN_OUT_CASE
 }
 
+Result<bool> DictionaryArray::CanCompareIndices(const DictionaryArray& other) const {
+  if (!dictionary()->type()->Equals(other.dictionary()->type())) {
+    return Status::TypeError("dictionaries have differing type ", *dictionary()->type(),
+                             " vs ", *other.dictionary()->type());
+  }
+
+  if (!indices()->type()->Equals(other.indices()->type())) {
+    return false;
+  }
+
+  auto min_length = std::min(dictionary()->length(), other.dictionary()->length());
+  return dictionary()->RangeEquals(other.dictionary(), 0, min_length, 0);
+}
+
 // ----------------------------------------------------------------------
 // Implement Array::View
 

@@ -1049,50 +1049,6 @@ TEST(TestDictionaryType, UnifyLarge) {
   ASSERT_TRUE(out_dict->Equals(*expected_dict));
 }
 
-TEST(TestDictionaryType, ComparableWithoutUnification) {
-  std::vector<std::shared_ptr<Array>> dict_arrays;
-  constexpr int kNotAPrefixMask = 1 << 2;
-  for (auto dict_json : {R"(["foo", "bar"])",            // prefix
-                         R"(["foo", "bar", "quux"])",    // prefix
-                         R"(["foo", "blink", "quux"])",  // not a prefix
-                         R"(["foo", "bar", "quux", ""])"}) {
-    std::shared_ptr<Array> out;
-    ARROW_EXPECT_OK(DictionaryArray::FromArrays(dictionary(int16(), utf8()),
-                                                ArrayFromJSON(int16(), "[]"),
-                                                ArrayFromJSON(utf8(), dict_json), &out));
-    dict_arrays.push_back(out);
-  }
-
-  // static_assert(3 & kNotAPrefixMask, "");
-
-  for (int selection_mask = 0; selection_mask < (1 << dict_arrays.size());
-       ++selection_mask) {
-    std::vector<const Array*> selection;
-    for (size_t bit_index = 0; bit_index < dict_arrays.size(); ++bit_index) {
-      if (selection_mask & (1 << bit_index)) {
-        selection.push_back(dict_arrays[bit_index].get());
-      }
-    }
-
-    auto r = DictionaryType::ComparableWithoutUnification(selection);
-    if (selection.size() == 0) {
-      ASSERT_RAISES(Invalid, r.status());
-      continue;
-    }
-
-    if (selection.size() == 1) {
-      EXPECT_TRUE(r.ValueOrDie());
-      continue;
-    }
-
-    if (selection_mask & kNotAPrefixMask) {
-      EXPECT_FALSE(r.ValueOrDie()) << selection_mask;
-    } else {
-      EXPECT_TRUE(r.ValueOrDie()) << selection_mask;
-    }
-  }
-}
-
 TEST(TypesTest, TestDecimal128Small) {
   Decimal128Type t1(8, 4);
 

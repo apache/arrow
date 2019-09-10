@@ -1257,10 +1257,6 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 
   bool ordered() const { return ordered_; }
 
-  /// \brief Determine whether dictionary arrays may be compared without unification
-  /// (smaller dictionaries are prefixes of larger dictionaries)
-  static Result<bool> ComparableWithoutUnification(std::vector<const Array*> arrays);
-
   /// \brief Unify dictionaries types
   ///
   /// Compute a resulting dictionary that will allow the union of values
