@@ -35,9 +35,7 @@ namespace arrow {
 
 using internal::AdaptiveIntBuilderBase;
 
-AdaptiveIntBuilderBase::AdaptiveIntBuilderBase(const std::shared_ptr<DataType>& type,
-                                               MemoryPool* pool)
-    : ArrayBuilder(pool) {}
+AdaptiveIntBuilderBase::AdaptiveIntBuilderBase(MemoryPool* pool) : ArrayBuilder(pool) {}
 
 void AdaptiveIntBuilderBase::Reset() {
   ArrayBuilder::Reset();
@@ -63,7 +61,13 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
 }
 
 std::shared_ptr<DataType> AdaptiveUIntBuilder::type() const {
-  switch (int_size_) {
+  auto int_size = int_size_;
+  if (pending_pos_ != 0) {
+    const uint8_t* valid_bytes = pending_has_nulls_ ? pending_valid_ : nullptr;
+    int_size =
+        internal::DetectUIntWidth(pending_data_, valid_bytes, pending_pos_, int_size_);
+  }
+  switch (int_size) {
     case 1:
       return uint8();
     case 2:
@@ -79,7 +83,13 @@ std::shared_ptr<DataType> AdaptiveUIntBuilder::type() const {
 }
 
 std::shared_ptr<DataType> AdaptiveIntBuilder::type() const {
-  switch (int_size_) {
+  auto int_size = int_size_;
+  if (pending_pos_ != 0) {
+    const uint8_t* valid_bytes = pending_has_nulls_ ? pending_valid_ : nullptr;
+    int_size = internal::DetectIntWidth(reinterpret_cast<const int64_t*>(pending_data_),
+                                        valid_bytes, pending_pos_, int_size_);
+  }
+  switch (int_size) {
     case 1:
       return int8();
     case 2:
@@ -94,8 +104,7 @@ std::shared_ptr<DataType> AdaptiveIntBuilder::type() const {
   return nullptr;
 }
 
-AdaptiveIntBuilder::AdaptiveIntBuilder(MemoryPool* pool)
-    : AdaptiveIntBuilderBase(int8(), pool) {}
+AdaptiveIntBuilder::AdaptiveIntBuilder(MemoryPool* pool) : AdaptiveIntBuilderBase(pool) {}
 
 Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(CommitPendingData());
@@ -135,14 +144,7 @@ Status AdaptiveIntBuilder::AppendValuesInternal(const int64_t* values, int64_t l
     const int64_t chunk_size = std::min(length, kAdaptiveIntChunkSize);
 
     uint8_t new_int_size;
-    if (values == reinterpret_cast<const int64_t*>(pending_data_)) {
-      // only the most recent addition to pending_data_ may expand int size
-      auto i = pending_pos_ - 1;
-      new_int_size = internal::DetectIntWidth(
-          values + i, valid_bytes ? valid_bytes + i : nullptr, 1, int_size_);
-    } else {
-      new_int_size = internal::DetectIntWidth(values, valid_bytes, chunk_size, int_size_);
-    }
+    new_int_size = internal::DetectIntWidth(values, valid_bytes, chunk_size, int_size_);
 
     DCHECK_GE(new_int_size, int_size_);
     if (new_int_size > int_size_) {
@@ -213,8 +215,6 @@ template <typename new_type, typename old_type>
 typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
 AdaptiveIntBuilder::ExpandIntSizeInternal() {
   int_size_ = sizeof(new_type);
-  expand_int_size_mask_ = internal::ExpandIntSizeMask<sizeof(new_type)>();
-  expand_int_size_addend_ = internal::ExpandIntSizeAddend<sizeof(new_type)>();
   RETURN_NOT_OK(Resize(data_->size() / sizeof(old_type)));
   raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
   const old_type* src = reinterpret_cast<old_type*>(raw_data_);
@@ -231,17 +231,13 @@ template <typename new_type>
 Status AdaptiveIntBuilder::ExpandIntSizeN() {
   switch (int_size_) {
     case 1:
-      RETURN_NOT_OK((ExpandIntSizeInternal<new_type, int8_t>()));
-      break;
+      return ExpandIntSizeInternal<new_type, int8_t>();
     case 2:
-      RETURN_NOT_OK((ExpandIntSizeInternal<new_type, int16_t>()));
-      break;
+      return ExpandIntSizeInternal<new_type, int16_t>();
     case 4:
-      RETURN_NOT_OK((ExpandIntSizeInternal<new_type, int32_t>()));
-      break;
+      return ExpandIntSizeInternal<new_type, int32_t>();
     case 8:
-      RETURN_NOT_OK((ExpandIntSizeInternal<new_type, int64_t>()));
-      break;
+      return ExpandIntSizeInternal<new_type, int64_t>();
     default:
       DCHECK(false);
   }
@@ -265,7 +261,7 @@ Status AdaptiveIntBuilder::ExpandIntSize(uint8_t new_int_size) {
 }
 
 AdaptiveUIntBuilder::AdaptiveUIntBuilder(MemoryPool* pool)
-    : AdaptiveIntBuilderBase(uint8(), pool) {}
+    : AdaptiveIntBuilderBase(pool) {}
 
 Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(CommitPendingData());
@@ -350,12 +346,10 @@ AdaptiveUIntBuilder::ExpandIntSizeInternal() {
   return Status::OK();
 }
 
-#define __LESS(a, b) (a) < (b)
 template <typename new_type, typename old_type>
 typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
 AdaptiveUIntBuilder::ExpandIntSizeInternal() {
   int_size_ = sizeof(new_type);
-  expand_int_size_mask_ = internal::ExpandIntSizeMask<sizeof(new_type)>();
   RETURN_NOT_OK(Resize(data_->size() / sizeof(old_type)));
 
   old_type* src = reinterpret_cast<old_type*>(raw_data_);
@@ -366,7 +360,6 @@ AdaptiveUIntBuilder::ExpandIntSizeInternal() {
 
   return Status::OK();
 }
-#undef __LESS
 
 template <typename new_type>
 Status AdaptiveUIntBuilder::ExpandIntSizeN() {
