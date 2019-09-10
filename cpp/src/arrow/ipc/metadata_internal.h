@@ -103,6 +103,15 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
                          std::vector<int64_t>* shape, std::vector<int64_t>* strides,
                          std::vector<std::string>* dim_names);
 
+// EXPERIMENTAL: Extracting metadata of a SparseCOOIndex from the message
+Status GetSparseCOOIndexMetadata(const flatbuf::SparseTensorIndexCOO* sparse_index,
+                                 std::shared_ptr<DataType>* indices_type);
+
+// EXPERIMENTAL: Extracting metadata of a SparseCSRIndex from the message
+Status GetSparseCSRIndexMetadata(const flatbuf::SparseMatrixIndexCSR* sparse_index,
+                                 std::shared_ptr<DataType>* indptr_type,
+                                 std::shared_ptr<DataType>* indices_type);
+
 // EXPERIMENTAL: Extracting metadata of a sparse tensor from the message
 Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
                                std::vector<int64_t>* shape,
