@@ -26,7 +26,7 @@ import textwrap
 from io import StringIO
 from pathlib import Path
 from textwrap import dedent
-from datetime import date, datetime
+from datetime import datetime
 from functools import partial
 from collections import namedtuple
 
