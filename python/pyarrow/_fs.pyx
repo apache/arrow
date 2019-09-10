@@ -40,6 +40,12 @@ from pyarrow.lib cimport (
 
 
 cdef inline c_string _path_to_bytes(path) except *:
+    """Converts path-like objects to bytestring
+
+    tobytes always uses utf-8, which is more or less ok, at least on Windows
+    since the C++ side then decodes from utf-8. On Unix, os.fsencode may be
+    better.
+    """
     if isinstance(path, six.binary_type):
         return path
     elif isinstance(path, six.string_types):

@@ -157,13 +157,6 @@ static void get_date_from_days(int64_t days, int64_t* date_year, int64_t* date_m
   return;
 }
 
-int64_t PyTime_to_us(PyObject* pytime) {
-  return (static_cast<int64_t>(PyDateTime_TIME_GET_HOUR(pytime)) * 3600000000LL +
-          static_cast<int64_t>(PyDateTime_TIME_GET_MINUTE(pytime)) * 60000000LL +
-          static_cast<int64_t>(PyDateTime_TIME_GET_SECOND(pytime)) * 1000000LL +
-          PyDateTime_TIME_GET_MICROSECOND(pytime));
-}
-
 // Splitting time quantities, for example splitting total seconds into
 // minutes and remaining seconds. After we run
 // int64_t remaining = split_time(total, quotient, &next)
@@ -261,9 +254,6 @@ using TimePoint =
 Status PyDateTime_from_TimePoint(TimePoint val, PyObject** out) {
   auto nanos = val.time_since_epoch();
   auto micros = std::chrono::duration_cast<std::chrono::microseconds>(nanos);
-  if (micros < nanos) {
-    micros += std::chrono::microseconds(1);  // ceil
-  }
   RETURN_NOT_OK(PyDateTime_from_int(micros.count(), TimeUnit::MICRO, out));
   return Status::OK();
 }
@@ -271,16 +261,6 @@ Status PyDateTime_from_TimePoint(TimePoint val, PyObject** out) {
 int64_t PyDate_to_days(PyDateTime_Date* pydate) {
   return get_days_from_date(PyDateTime_GET_YEAR(pydate), PyDateTime_GET_MONTH(pydate),
                             PyDateTime_GET_DAY(pydate));
-}
-
-int64_t PyDateTime_to_s(PyDateTime_DateTime* pydatetime) {
-  int64_t total_seconds = 0;
-  total_seconds += PyDateTime_DATE_GET_SECOND(pydatetime);
-  total_seconds += PyDateTime_DATE_GET_MINUTE(pydatetime) * 60;
-  total_seconds += PyDateTime_DATE_GET_HOUR(pydatetime) * 3600;
-
-  return total_seconds +
-         (PyDate_to_ms(reinterpret_cast<PyDateTime_Date*>(pydatetime)) / 1000LL);
 }
 
 }  // namespace internal

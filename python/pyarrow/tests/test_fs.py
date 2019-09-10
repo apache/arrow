@@ -76,12 +76,12 @@ def test_get_target_stats(fs, tempdir, testpath):
     bb_.touch()
     c_.write_bytes(b'test')
 
-    def ceiled_mtime_range(path):
-        # arrow's filesystem implementation ceils mtime whereas pathlib rounds
-        return {
-            datetime.utcfromtimestamp(path.stat().st_mtime),
-            datetime.utcfromtimestamp(path.stat().st_mtime + 10**-6)
-        }
+    def mtime_almost_equal(fs_dt, pathlib_ts):
+        # arrow's filesystem implementation truncates mtime to microsends
+        # resolution whereas pathlib rounds
+        pathlib_dt = datetime.utcfromtimestamp(pathlib_ts)
+        difference = (fs_dt - pathlib_dt).total_seconds()
+        return abs(difference) <= 10**-6
 
     aaa_stat, bb_stat, c_stat = fs.get_target_stats([aaa, bb, c])
 
@@ -89,7 +89,7 @@ def test_get_target_stats(fs, tempdir, testpath):
     assert aaa_stat.base_name == 'aaa'
     assert aaa_stat.extension == ''
     assert aaa_stat.type == FileType.Directory
-    assert aaa_stat.mtime in ceiled_mtime_range(aaa_)
+    assert mtime_almost_equal(aaa_stat.mtime, aaa_.stat().st_mtime)
     with pytest.raises(ValueError):
         aaa_stat.size
 
@@ -98,14 +98,14 @@ def test_get_target_stats(fs, tempdir, testpath):
     assert bb_stat.extension == ''
     assert bb_stat.type == FileType.File
     assert bb_stat.size == 0
-    assert bb_stat.mtime in ceiled_mtime_range(bb_)
+    assert mtime_almost_equal(bb_stat.mtime, bb_.stat().st_mtime)
 
     assert c_stat.path == pathlib.Path(c)
     assert c_stat.base_name == 'c.txt'
     assert c_stat.extension == 'txt'
     assert c_stat.type == FileType.File
     assert c_stat.size == 4
-    assert c_stat.mtime in ceiled_mtime_range(c_)
+    assert mtime_almost_equal(c_stat.mtime, c_.stat().st_mtime)
 
     selector = Selector(testpath(''), allow_non_existent=False, recursive=True)
     nodes = fs.get_target_stats(selector)
