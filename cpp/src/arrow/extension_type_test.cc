@@ -187,13 +187,11 @@ class Parametric2Type : public ExtensionType {
   int32_t parameter_;
 };
 
-
 // An extension type with a non-primitive storage type
 class ExtStructArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
 };
-
 
 class ExtStructType : public ExtensionType {
  public:
@@ -226,7 +224,6 @@ class ExtStructType : public ExtensionType {
 
   std::string Serialize() const override { return "ext-struct-type-unique-code"; }
 };
-
 
 class TestExtensionType : public ::testing::Test {
  public:

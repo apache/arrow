@@ -1450,9 +1450,9 @@ Status Array::Validate() const {
   if (type.id() != Type::EXTENSION) {
     if (data.child_data.size() != static_cast<size_t>(type.num_children())) {
       return Status::Invalid("Expected ", type.num_children(),
-                            " child arrays in array "
-                            "of type ",
-                            type.ToString(), ", got ", data.child_data.size());
+                             " child arrays in array "
+                             "of type ",
+                             type.ToString(), ", got ", data.child_data.size());
     }
   }
   if (layout.has_dictionary && !data.dictionary) {
