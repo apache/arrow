@@ -374,6 +374,7 @@ SparseCOOIndex::SparseCOOIndex(const std::shared_ptr<Tensor>& coords)
     : SparseIndexBase(coords->shape()[0]), coords_(coords) {
   ARROW_CHECK(is_integer(coords_->type_id()));
   ARROW_CHECK(coords_->is_contiguous());
+  ARROW_CHECK_EQ(2, coords_->ndim());
 }
 
 std::string SparseCOOIndex::ToString() const { return std::string("SparseCOOIndex"); }

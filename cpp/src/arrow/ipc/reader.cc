@@ -876,10 +876,9 @@ Status ReadSparseCOOIndex(const flatbuf::SparseTensor* sparse_tensor,
       {non_zero_length, static_cast<int64_t>(shape.size())});
   auto* indices_strides = sparse_index->indicesStrides();
   std::vector<int64_t> strides;
-  if (indices_strides->size() > 0) {
-    strides.push_back(indices_strides->Get(0));
-    strides.push_back(indices_strides->Get(1));
-  }
+  // Assume indices_strides is a 2-length array.
+  strides.push_back(indices_strides->Get(0));
+  strides.push_back(indices_strides->Get(1));
   *out = std::make_shared<SparseCOOIndex>(
       std::make_shared<Tensor>(indices_type, indices_data, indices_shape, strides));
   return Status::OK();
