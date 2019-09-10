@@ -112,6 +112,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_FUZZING "Build Arrow Fuzzing executables" OFF)
 
+  define_option(ARROW_LARGE_MEMORY_TESTS "Enable unit tests which use large memory" OFF)
+
   #----------------------------------------------------------------------
   set_option_category("Lint")
 

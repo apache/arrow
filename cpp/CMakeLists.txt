@@ -325,6 +325,10 @@ if(NOT ARROW_FUZZING)
   set(NO_FUZZING 1)
 endif()
 
+if(ARROW_LARGE_MEMORY_TESTS)
+  add_definitions(-DARROW_LARGE_MEMORY_TESTS)
+endif()
+
 if(MSVC
    AND ARROW_USE_CLCACHE
    AND (("${CMAKE_GENERATOR}" STREQUAL "NMake Makefiles")
