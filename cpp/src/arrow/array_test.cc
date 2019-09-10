@@ -1478,6 +1478,20 @@ TEST_F(TestAdaptiveIntBuilder, TestInt16) {
   AssertArraysEqual(*expected_, *result_);
 }
 
+TEST_F(TestAdaptiveIntBuilder, TestInt16Nulls) {
+  ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->type()->id(), Type::INT8);
+  ASSERT_OK(builder_->Append(128));
+  ASSERT_EQ(builder_->type()->id(), Type::INT16);
+  ASSERT_OK(builder_->AppendNull());
+  ASSERT_EQ(builder_->type()->id(), Type::INT16);
+  Done();
+
+  std::vector<int16_t> expected_values({0, 128, 0});
+  ArrayFromVector<Int16Type, int16_t>({1, 1, 0}, expected_values, &expected_);
+  ASSERT_ARRAYS_EQUAL(*expected_, *result_);
+}
+
 TEST_F(TestAdaptiveIntBuilder, TestInt32) {
   ASSERT_OK(builder_->Append(0));
   ASSERT_EQ(builder_->type()->id(), Type::INT8);
@@ -1679,6 +1693,20 @@ TEST_F(TestAdaptiveUIntBuilder, TestUInt16) {
 
   ArrayFromVector<UInt16Type, uint16_t>(expected_values, &expected_);
   ASSERT_TRUE(expected_->Equals(result_));
+}
+
+TEST_F(TestAdaptiveUIntBuilder, TestUInt16Nulls) {
+  ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->type()->id(), Type::UINT8);
+  ASSERT_OK(builder_->Append(256));
+  ASSERT_EQ(builder_->type()->id(), Type::UINT16);
+  ASSERT_OK(builder_->AppendNull());
+  ASSERT_EQ(builder_->type()->id(), Type::UINT16);
+  Done();
+
+  std::vector<uint16_t> expected_values({0, 256, 0});
+  ArrayFromVector<UInt16Type, uint16_t>({1, 1, 0}, expected_values, &expected_);
+  ASSERT_ARRAYS_EQUAL(*expected_, *result_);
 }
 
 TEST_F(TestAdaptiveUIntBuilder, TestUInt32) {

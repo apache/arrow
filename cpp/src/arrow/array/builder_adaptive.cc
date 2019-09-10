@@ -284,15 +284,7 @@ Status AdaptiveUIntBuilder::AppendValuesInternal(const uint64_t* values, int64_t
     const int64_t chunk_size = std::min(length, kAdaptiveIntChunkSize);
 
     uint8_t new_int_size;
-    if (values == pending_data_) {
-      // only the most recent addition to pending_data_ may expand int size
-      auto i = pending_pos_ - 1;
-      new_int_size = internal::DetectUIntWidth(
-          values + i, valid_bytes ? valid_bytes + i : nullptr, 1, int_size_);
-    } else {
-      new_int_size =
-          internal::DetectUIntWidth(values, valid_bytes, chunk_size, int_size_);
-    }
+    new_int_size = internal::DetectUIntWidth(values, valid_bytes, chunk_size, int_size_);
 
     DCHECK_GE(new_int_size, int_size_);
     if (new_int_size > int_size_) {
