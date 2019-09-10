@@ -28,7 +28,7 @@ Codec <- R6Class("Codec", inherit = Object)
 #' @export
 compression_codec <- function(type = "GZIP") {
   if (is.character(type)) {
-    type <- unique_ptr("Codec", util___Codec__Create(
+    type <- unique_ptr(Codec, util___Codec__Create(
       CompressionType[[match.arg(type, names(CompressionType))]]
     ))
   } else if (!inherits(type, "Codec")) {
