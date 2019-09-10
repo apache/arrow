@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::Table")
+context("Table")
 
 test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tbl <- tibble::tibble(
@@ -23,7 +23,7 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10]
   )
-  tab <- arrow::table(!!!tbl)
+  tab <- Table$create(!!!tbl)
 
   tf <- tempfile()
   write_arrow(tab, tf)
@@ -33,22 +33,22 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tab1 <- read_table(tf)
   tab2 <- read_table(fs::path_abs(tf))
 
-  readable_file <- ReadableFile(tf)
-  file_reader1 <- RecordBatchFileReader(readable_file)
+  readable_file <- ReadableFile$create(tf)
+  file_reader1 <- RecordBatchFileReader$create(readable_file)
   tab3 <- read_table(file_reader1)
   readable_file$close()
 
   mmap_file <- mmap_open(tf)
-  file_reader2 <- RecordBatchFileReader(mmap_file)
+  file_reader2 <- RecordBatchFileReader$create(mmap_file)
   tab4 <- read_table(file_reader2)
   mmap_file$close()
 
   tab5 <- read_table(bytes)
 
-  stream_reader <- RecordBatchStreamReader(bytes)
+  stream_reader <- RecordBatchStreamReader$create(bytes)
   tab6 <- read_table(stream_reader)
 
-  file_reader <- RecordBatchFileReader(tf)
+  file_reader <- RecordBatchFileReader$create(tf)
   tab7 <- read_table(file_reader)
 
   expect_equal(tab, tab1)
@@ -64,7 +64,7 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
 })
 
 test_that("Table cast (ARROW-3741)", {
-  tab <- table(x = 1:10, y = 1:10)
+  tab <- Table$create(x = 1:10, y = 1:10)
 
   expect_error(tab$cast(schema(x = int32())))
   expect_error(tab$cast(schema(x = int32(), z = int32())))
@@ -77,14 +77,14 @@ test_that("Table cast (ARROW-3741)", {
 })
 
 test_that("Table dim() and nrow() (ARROW-3816)", {
-  tab <- table(x = 1:10, y  = 1:10)
+  tab <- Table$create(x = 1:10, y  = 1:10)
   expect_equal(dim(tab), c(10L, 2L))
   expect_equal(nrow(tab), 10L)
 })
 
 test_that("table() handles record batches with splicing", {
   batch <- record_batch(x = 1:2, y = letters[1:2])
-  tab <- table(batch, batch, batch)
+  tab <- Table$create(batch, batch, batch)
   expect_equal(tab$schema, batch$schema)
   expect_equal(tab$num_rows, 6L)
   expect_equivalent(
@@ -93,7 +93,7 @@ test_that("table() handles record batches with splicing", {
   )
 
   batches <- list(batch, batch, batch)
-  tab <- table(!!!batches)
+  tab <- Table$create(!!!batches)
   expect_equal(tab$schema, batch$schema)
   expect_equal(tab$num_rows, 6L)
   expect_equivalent(
@@ -103,12 +103,12 @@ test_that("table() handles record batches with splicing", {
 })
 
 test_that("table() handles ... of arrays, chunked arrays, vectors", {
-  a <- array(1:10)
+  a <- Array$create(1:10)
   ca <- chunked_array(1:5, 6:10)
   v <- rnorm(10)
   tbl <- tibble::tibble(x = 1:10, y = letters[1:10])
 
-  tab <- table(a = a, b = ca, c = v, !!!tbl)
+  tab <- Table$create(a = a, b = ca, c = v, !!!tbl)
   expect_equal(
     tab$schema,
     schema(a = int32(), b = int32(), c = float64(), x = int32(), y = utf8())
@@ -123,15 +123,15 @@ test_that("table() handles ... of arrays, chunked arrays, vectors", {
 test_that("table() auto splices (ARROW-5718)", {
   df <- tibble::tibble(x = 1:10, y = letters[1:10])
 
-  tab1 <- table(df)
-  tab2 <- table(!!!df)
+  tab1 <- Table$create(df)
+  tab2 <- Table$create(!!!df)
   expect_equal(tab1, tab2)
   expect_equal(tab1$schema, schema(x = int32(), y = utf8()))
   expect_equivalent(as.data.frame(tab1), df)
 
   s <- schema(x = float64(), y = utf8())
-  tab3 <- table(df, schema = s)
-  tab4 <- table(!!!df, schema = s)
+  tab3 <- Table$create(df, schema = s)
+  tab4 <- Table$create(!!!df, schema = s)
   expect_equal(tab3, tab4)
   expect_equal(tab3$schema, s)
   expect_equivalent(as.data.frame(tab3), df)

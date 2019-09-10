@@ -7,7 +7,7 @@
 read_json_arrow(file, col_select = NULL, as_tibble = TRUE, ...)
 }
 \arguments{
-\item{file}{A character path to a local file, or an Arrow input stream}
+\item{file}{A character file name, raw vector, or an Arrow input stream}
 
 \item{col_select}{A character vector of column names to keep, as in the
 "select" argument to \code{data.table::fread()}, or a
@@ -15,15 +15,15 @@ read_json_arrow(file, col_select = NULL, as_tibble = TRUE, ...)
 of columns, as used in \code{dplyr::select()}.}
 
 \item{as_tibble}{Should the function return a \code{data.frame} or an
-\link[=arrow__Table]{arrow::Table}?}
+\link[=Table]{arrow::Table}?}
 
 \item{...}{Additional options, passed to \code{json_table_reader()}}
 }
 \value{
-A \code{data.frame}, or an \code{arrow::Table} if \code{as_tibble = FALSE}.
+A \code{data.frame}, or an Table if \code{as_tibble = FALSE}.
 }
 \description{
-Use \link[=arrow__json__TableReader]{arrow::json::TableReader} from \code{\link[=json_table_reader]{json_table_reader()}}
+Using \link{JsonTableReader}
 }
 \examples{
 \donttest{

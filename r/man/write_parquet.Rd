@@ -7,7 +7,7 @@
 write_parquet(table, file)
 }
 \arguments{
-\item{table}{An \link[=arrow__Table]{arrow::Table}, or an object convertible to it}
+\item{table}{An \link[=Table]{arrow::Table}, or an object convertible to it}
 
 \item{file}{a file path}
 }
@@ -17,10 +17,8 @@ This function enables you to write Parquet files from R.
 }
 \examples{
 \donttest{
-try({
-  tf <- tempfile(fileext = ".parquet")
-  on.exit(unlink(tf))
-  write_parquet(tibble::tibble(x = 1:5), tf)
-})
+tf <- tempfile(fileext = ".parquet")
+on.exit(unlink(tf))
+write_parquet(tibble::tibble(x = 1:5), tf)
 }
 }

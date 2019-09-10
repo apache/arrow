@@ -7,7 +7,8 @@
 read_feather(file, col_select = NULL, as_tibble = TRUE, ...)
 }
 \arguments{
-\item{file}{an \code{arrow::ipc::feather::TableReader} or whatever the \code{\link[=FeatherTableReader]{FeatherTableReader()}} function can handle}
+\item{file}{A character file path, a raw vector, or \code{InputStream}, passed to
+\code{FeatherTableReader$create()}.}
 
 \item{col_select}{A character vector of column names to keep, as in the
 "select" argument to \code{data.table::fread()}, or a
@@ -15,12 +16,13 @@ read_feather(file, col_select = NULL, as_tibble = TRUE, ...)
 of columns, as used in \code{dplyr::select()}.}
 
 \item{as_tibble}{Should the function return a \code{data.frame} or an
-\link[=arrow__Table]{arrow::Table}?}
+\link[=Table]{arrow::Table}?}
 
 \item{...}{additional parameters}
 }
 \value{
-A \code{data.frame} if \code{as_tibble} is \code{TRUE} (the default), or a \link[=arrow__Table]{arrow::Table} otherwise
+A \code{data.frame} if \code{as_tibble} is \code{TRUE} (the default), or an
+\link[=Table]{arrow::Table} otherwise
 }
 \description{
 Read a Feather file

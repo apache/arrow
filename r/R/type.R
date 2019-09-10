@@ -18,7 +18,7 @@
 #' @include arrow-package.R
 
 #' @export
-`!=.arrow::Object` <- function(lhs, rhs){
+`!=.Object` <- function(lhs, rhs){
   !(lhs == rhs)
 }
 
@@ -32,26 +32,26 @@
 #'
 #' TODO
 #'
-#' @rdname arrow__DataType
-#' @name arrow__DataType
-`arrow::DataType` <- R6Class("arrow::DataType",
-  inherit = `arrow::Object`,
+#' @rdname DataType
+#' @name DataType
+DataType <- R6Class("DataType",
+  inherit = Object,
   public = list(
     ToString = function() {
       DataType__ToString(self)
     },
     Equals = function(other) {
-      assert_that(inherits(other, "arrow::DataType"))
+      assert_is(other, "DataType")
       DataType__Equals(self, other)
     },
     num_children = function() {
       DataType__num_children(self)
     },
     children = function() {
-      map(DataType__children_pointer(self), shared_ptr, class= `arrow::Field`)
+      map(DataType__children_pointer(self), shared_ptr, class = Field)
     },
 
-    ..dispatch = function(){
+    ..dispatch = function() {
       switch(names(Type)[self$id + 1],
         "NA" = null(),
         BOOL = boolean(),
@@ -70,33 +70,27 @@
         BINARY = stop("Type BINARY not implemented yet"),
         DATE32 = date32(),
         DATE64 = date64(),
-        TIMESTAMP = shared_ptr(`arrow::Timestamp`,self$pointer()),
-        TIME32 = shared_ptr(`arrow::Time32`,self$pointer()),
-        TIME64 = shared_ptr(`arrow::Time64`,self$pointer()),
+        TIMESTAMP = shared_ptr(Timestamp, self$pointer()),
+        TIME32 = shared_ptr(Time32, self$pointer()),
+        TIME64 = shared_ptr(Time64, self$pointer()),
         INTERVAL = stop("Type INTERVAL not implemented yet"),
-        DECIMAL = shared_ptr(`arrow::Decimal128Type`, self$pointer()),
-        LIST = shared_ptr(`arrow::ListType`, self$pointer()),
-        STRUCT = shared_ptr(`arrow::StructType`, self$pointer()),
+        DECIMAL = shared_ptr(Decimal128Type, self$pointer()),
+        LIST = shared_ptr(ListType, self$pointer()),
+        STRUCT = shared_ptr(StructType, self$pointer()),
         UNION = stop("Type UNION not implemented yet"),
-        DICTIONARY = shared_ptr(`arrow::DictionaryType`, self$pointer()),
+        DICTIONARY = shared_ptr(DictionaryType, self$pointer()),
         MAP = stop("Type MAP not implemented yet")
       )
     }
   ),
 
   active = list(
-    id = function(){
-      DataType__id(self)
-    },
-    name = function() {
-      DataType__name(self)
-    }
+    id = function() DataType__id(self),
+    name = function() DataType__name(self)
   )
 )
 
-`arrow::DataType`$dispatch <- function(xp){
-  shared_ptr(`arrow::DataType`, xp)$..dispatch()
-}
+DataType$create <- function(xp) shared_ptr(DataType, xp)$..dispatch()
 
 #' infer the arrow Array type from an R vector
 #'
@@ -104,23 +98,19 @@
 #'
 #' @return an arrow logical type
 #' @export
-type <- function(x) {
-  UseMethod("type")
-}
+type <- function(x) UseMethod("type")
 
 #' @export
-type.default <- function(x) {
-  `arrow::DataType`$dispatch(Array__infer_type(x))
-}
+type.default <- function(x) DataType$create(Array__infer_type(x))
 
 #' @export
-`type.arrow::Array` <- function(x) x$type
+type.Array <- function(x) x$type
 
 #' @export
-`type.arrow::ChunkedArray` <- function(x) x$type
+type.ChunkedArray <- function(x) x$type
 
 #' @export
-`type.arrow::Column` <- function(x) x$type
+type.Column <- function(x) x$type
 
 
 #----- metadata
@@ -135,122 +125,70 @@ type.default <- function(x) {
 #'
 #' TODO
 #'
-#' @rdname arrow__FixedWidthType
-#' @name arrow__FixedWidthType
-`arrow::FixedWidthType` <- R6Class("arrow::FixedWidthType",
-  inherit = `arrow::DataType`,
+#' @rdname FixedWidthType
+#' @name FixedWidthType
+FixedWidthType <- R6Class("FixedWidthType",
+  inherit = DataType,
   active = list(
     bit_width = function() FixedWidthType__bit_width(self)
   )
 )
 
 #' @export
-`==.arrow::DataType` <- function(lhs, rhs){
-  lhs$Equals(rhs)
-}
+`==.DataType` <- function(lhs, rhs) lhs$Equals(rhs)
 
-"arrow::Int8"    <- R6Class("arrow::Int8",
-  inherit = `arrow::FixedWidthType`
-)
+Int8 <- R6Class("Int8", inherit = FixedWidthType)
+Int16 <- R6Class("Int16", inherit = FixedWidthType)
+Int32 <- R6Class("Int32", inherit = FixedWidthType)
+Int64 <- R6Class("Int64", inherit = FixedWidthType)
+UInt8 <- R6Class("UInt8", inherit = FixedWidthType)
+UInt16 <- R6Class("UInt16", inherit = FixedWidthType)
+UInt32 <- R6Class("UInt32", inherit = FixedWidthType)
+UInt64 <- R6Class("UInt64", inherit = FixedWidthType)
+Float16 <- R6Class("Float16", inherit = FixedWidthType)
+Float32 <- R6Class("Float32", inherit = FixedWidthType)
+Float64 <- R6Class("Float64", inherit = FixedWidthType)
+Boolean <- R6Class("Boolean", inherit = FixedWidthType)
+Utf8 <- R6Class("Utf8", inherit = DataType)
 
-"arrow::Int16"    <- R6Class("arrow::Int16",
-  inherit = `arrow::FixedWidthType`
-)
-
-"arrow::Int32"    <- R6Class("arrow::Int32",
-  inherit = `arrow::FixedWidthType`
-)
-
-"arrow::Int64"    <- R6Class("arrow::Int64",
-  inherit = `arrow::FixedWidthType`
-)
-
-
-"arrow::UInt8"    <- R6Class("arrow::UInt8",
-  inherit = `arrow::FixedWidthType`
-)
-
-"arrow::UInt16"    <- R6Class("arrow::UInt16",
-  inherit = `arrow::FixedWidthType`
-)
-
-"arrow::UInt32"    <- R6Class("arrow::UInt32",
-  inherit = `arrow::FixedWidthType`
-)
-
-"arrow::UInt64"    <- R6Class("arrow::UInt64",
-  inherit = `arrow::FixedWidthType`
-)
-
-"arrow::Float16"    <- R6Class("arrow::Float16",
-  inherit = `arrow::FixedWidthType`
-)
-"arrow::Float32"    <- R6Class("arrow::Float32",
-  inherit = `arrow::FixedWidthType`
-)
-"arrow::Float64"    <- R6Class("arrow::Float64",
-  inherit = `arrow::FixedWidthType`
-)
-
-"arrow::Boolean"    <- R6Class("arrow::Boolean",
-  inherit = `arrow::FixedWidthType`
-)
-
-"arrow::Utf8"    <- R6Class("arrow::Utf8",
-  inherit = `arrow::DataType`
-)
-
-`arrow::DateType` <- R6Class("arrow::DateType",
-  inherit = `arrow::FixedWidthType`,
+DateType <- R6Class("DateType",
+  inherit = FixedWidthType,
   public = list(
     unit = function() DateType__unit(self)
   )
 )
+Date32 <- R6Class("Date32", inherit = DateType)
+Date64 <- R6Class("Date64", inherit = DateType)
 
-"arrow::Date32"    <- R6Class("arrow::Date32",
-  inherit = `arrow::DateType`
-)
-"arrow::Date64"    <- R6Class("arrow::Date64",
-  inherit = `arrow::DateType`
-)
-
-"arrow::TimeType" <- R6Class("arrow::TimeType",
-  inherit = `arrow::FixedWidthType`,
+TimeType <- R6Class("TimeType",
+  inherit = FixedWidthType,
   public = list(
     unit = function() TimeType__unit(self)
   )
 )
-"arrow::Time32"    <- R6Class("arrow::Time32",
-  inherit = `arrow::TimeType`
-)
-"arrow::Time64"    <- R6Class("arrow::Time64",
-  inherit = `arrow::TimeType`
-)
+Time32 <- R6Class("Time32", inherit = TimeType)
+Time64 <- R6Class("Time64", inherit = TimeType)
 
-"arrow::Null" <- R6Class("arrow::Null",
-  inherit = `arrow::DataType`
-)
+Null <- R6Class("Null", inherit = DataType)
 
-`arrow::Timestamp` <- R6Class(
-  "arrow::Timestamp",
-  inherit = `arrow::FixedWidthType` ,
+Timestamp <- R6Class("Timestamp",
+  inherit = FixedWidthType,
   public = list(
     timezone = function()  TimestampType__timezone(self),
     unit = function() TimestampType__unit(self)
   )
 )
 
-`arrow::DecimalType` <- R6Class("arrow:::DecimalType",
-  inherit = `arrow::FixedWidthType`,
+DecimalType <- R6Class("DecimalType",
+  inherit = FixedWidthType,
   public = list(
     precision = function() DecimalType__precision(self),
     scale = function() DecimalType__scale(self)
   )
 )
+Decimal128Type <- R6Class("Decimal128Type", inherit = DecimalType)
 
-"arrow::Decimal128Type"    <- R6Class("arrow::Decimal128Type",
-  inherit = `arrow::DecimalType`
-)
+NestedType <- R6Class("NestedType", inherit = DataType)
 
 #' Apache Arrow data types
 #'
@@ -280,7 +218,7 @@ type.default <- function(x) {
 #' @param ... For `struct()`, a named list of types to define the struct columns
 #'
 #' @name data-type
-#' @return An Arrow type object inheriting from `arrow::DataType`.
+#' @return An Arrow type object inheriting from DataType.
 #' @export
 #' @seealso [dictionary()] for creating a dictionary (factor-like) type.
 #' @examples
@@ -290,39 +228,39 @@ type.default <- function(x) {
 #' timestamp("ms", timezone = "CEST")
 #' time64("ns")
 #' }
-int8 <- function() shared_ptr(`arrow::Int8`, Int8__initialize())
+int8 <- function() shared_ptr(Int8, Int8__initialize())
 
 #' @rdname data-type
 #' @export
-int16 <- function() shared_ptr(`arrow::Int16`, Int16__initialize())
+int16 <- function() shared_ptr(Int16, Int16__initialize())
 
 #' @rdname data-type
 #' @export
-int32 <- function() shared_ptr(`arrow::Int32`, Int32__initialize())
+int32 <- function() shared_ptr(Int32, Int32__initialize())
 
 #' @rdname data-type
 #' @export
-int64 <- function() shared_ptr(`arrow::Int64`, Int64__initialize())
+int64 <- function() shared_ptr(Int64, Int64__initialize())
 
 #' @rdname data-type
 #' @export
-uint8 <- function() shared_ptr(`arrow::UInt8`, UInt8__initialize())
+uint8 <- function() shared_ptr(UInt8, UInt8__initialize())
 
 #' @rdname data-type
 #' @export
-uint16 <- function() shared_ptr(`arrow::UInt16`, UInt16__initialize())
+uint16 <- function() shared_ptr(UInt16, UInt16__initialize())
 
 #' @rdname data-type
 #' @export
-uint32 <- function() shared_ptr(`arrow::UInt32`, UInt32__initialize())
+uint32 <- function() shared_ptr(UInt32, UInt32__initialize())
 
 #' @rdname data-type
 #' @export
-uint64 <- function() shared_ptr(`arrow::UInt64`, UInt64__initialize())
+uint64 <- function() shared_ptr(UInt64, UInt64__initialize())
 
 #' @rdname data-type
 #' @export
-float16 <- function() shared_ptr(`arrow::Float16`,  Float16__initialize())
+float16 <- function() shared_ptr(Float16,  Float16__initialize())
 
 #' @rdname data-type
 #' @export
@@ -330,7 +268,7 @@ halffloat <- float16
 
 #' @rdname data-type
 #' @export
-float32 <- function() shared_ptr(`arrow::Float32`, Float32__initialize())
+float32 <- function() shared_ptr(Float32, Float32__initialize())
 
 #' @rdname data-type
 #' @export
@@ -338,11 +276,11 @@ float <- float32
 
 #' @rdname data-type
 #' @export
-float64 <- function() shared_ptr(`arrow::Float64`, Float64__initialize())
+float64 <- function() shared_ptr(Float64, Float64__initialize())
 
 #' @rdname data-type
 #' @export
-boolean <- function() shared_ptr(`arrow::Boolean`, Boolean__initialize())
+boolean <- function() shared_ptr(Boolean, Boolean__initialize())
 
 #' @rdname data-type
 #' @export
@@ -350,7 +288,7 @@ bool <- boolean
 
 #' @rdname data-type
 #' @export
-utf8 <- function() shared_ptr(`arrow::Utf8`, Utf8__initialize())
+utf8 <- function() shared_ptr(Utf8, Utf8__initialize())
 
 #' @rdname data-type
 #' @export
@@ -358,11 +296,11 @@ string <- utf8
 
 #' @rdname data-type
 #' @export
-date32 <- function() shared_ptr(`arrow::Date32`, Date32__initialize())
+date32 <- function() shared_ptr(Date32, Date32__initialize())
 
 #' @rdname data-type
 #' @export
-date64 <- function() shared_ptr(`arrow::Date64`, Date64__initialize())
+date64 <- function() shared_ptr(Date64, Date64__initialize())
 
 #' @rdname data-type
 #' @export
@@ -371,7 +309,7 @@ time32 <- function(unit = c("ms", "s")) {
     unit <- match.arg(unit)
   }
   unit <- make_valid_time_unit(unit, valid_time32_units)
-  shared_ptr(`arrow::Time32`, Time32__initialize(unit))
+  shared_ptr(Time32, Time32__initialize(unit))
 }
 
 valid_time32_units <- c(
@@ -400,21 +338,6 @@ make_valid_time_unit <- function(unit, valid_units) {
   unit
 }
 
-oxford_paste <- function(x, conjunction = "and") {
-  if (is.character(x)) {
-    x <- paste0('"', x, '"')
-  }
-  if (length(x) < 2) {
-    return(x)
-  }
-  x[length(x)] <- paste(conjunction, x[length(x)])
-  if (length(x) > 2) {
-    return(paste(x, collapse = ", "))
-  } else {
-    return(paste(x, collapse = " "))
-  }
-}
-
 #' @rdname data-type
 #' @export
 time64 <- function(unit = c("ns", "us")) {
@@ -422,12 +345,12 @@ time64 <- function(unit = c("ns", "us")) {
     unit <- match.arg(unit)
   }
   unit <- make_valid_time_unit(unit, valid_time64_units)
-  shared_ptr(`arrow::Time64`, Time64__initialize(unit))
+  shared_ptr(Time64, Time64__initialize(unit))
 }
 
 #' @rdname data-type
 #' @export
-null <- function() shared_ptr(`arrow::Null`, Null__initialize())
+null <- function() shared_ptr(Null, Null__initialize())
 
 #' @rdname data-type
 #' @export
@@ -437,15 +360,15 @@ timestamp <- function(unit = c("s", "ms", "us", "ns"), timezone) {
   }
   unit <- make_valid_time_unit(unit, c(valid_time64_units, valid_time32_units))
   if (missing(timezone)) {
-    shared_ptr(`arrow::Timestamp`, Timestamp__initialize1(unit))
+    shared_ptr(Timestamp, Timestamp__initialize1(unit))
   } else {
     assert_that(is.character(timezone), length(timezone) == 1)
-    shared_ptr(`arrow::Timestamp`, Timestamp__initialize2(unit, timezone))
+    shared_ptr(Timestamp, Timestamp__initialize2(unit, timezone))
   }
 }
 
 #' @rdname data-type
 #' @export
-decimal <- function(precision, scale) shared_ptr(`arrow::Decimal128Type`, Decimal128Type__initialize(precision, scale))
-
-`arrow::NestedType` <- R6Class("arrow::NestedType", inherit = `arrow::DataType`)
+decimal <- function(precision, scale) {
+  shared_ptr(Decimal128Type, Decimal128Type__initialize(precision, scale))
+}

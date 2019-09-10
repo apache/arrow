@@ -19,10 +19,7 @@
 #' @include arrow-package.R
 #' @include io.R
 
-`arrow::util::Codec` <- R6Class("arrow::util::Codec", inherit = `arrow::Object`)
-
-`arrow::io::CompressedOutputStream` <- R6Class("arrow::io::CompressedOutputStream", inherit = `arrow::io::OutputStream`)
-`arrow::io::CompressedInputStream` <- R6Class("arrow::io::CompressedInputStream", inherit = `arrow::io::InputStream`)
+Codec <- R6Class("Codec", inherit = Object)
 
 #' codec
 #'
@@ -31,50 +28,57 @@
 #' @export
 compression_codec <- function(type = "GZIP") {
   type <- CompressionType[[match.arg(type, names(CompressionType))]]
-  unique_ptr(`arrow::util::Codec`, util___Codec__Create(type))
+  unique_ptr(Codec, util___Codec__Create(type))
 }
 
-
-#' Compressed output stream
+#' @title Compressed stream classes
+#' @rdname compression
+#' @name compression
+#' @aliases CompressedInputStream CompressedOutputStream
+#' @docType class
+#' @usage NULL
+#' @format NULL
+#' @description `CompressedInputStream` and `CompressedOutputStream`
+#' allow you to apply a [compression_codec()] to an
+#' input or output stream.
 #'
-#' @details This function is not supported in Windows.
+#' @section Factory:
 #'
-#' @param stream Underlying raw output stream
-#' @param codec a codec
-#' @export
-CompressedOutputStream <- function(stream, codec = compression_codec("GZIP")){
-  if (.Platform$OS.type == "windows") stop("'CompressedOutputStream' is unsupported in Windows.")
-
-  UseMethod("CompressedOutputStream")
-}
-
-#' @export
-CompressedOutputStream.character <- function(stream, codec = compression_codec("GZIP")){
-  CompressedOutputStream(FileOutputStream(stream), codec = codec)
-}
-
-#' @export
-`CompressedOutputStream.arrow::io::OutputStream` <- function(stream, codec = compression_codec("GZIP")) {
-  assert_that(inherits(codec, "arrow::util::Codec"))
-  shared_ptr(`arrow::io::CompressedOutputStream`, io___CompressedOutputStream__Make(codec, stream))
-}
-
-#' Compressed input stream
+#' The `CompressedInputStream$create()` and `CompressedOutputStream$create()`
+#' factory methods instantiate the object and take the following arguments:
 #'
-#' @param stream Underlying raw input stream
-#' @param codec a codec
+#' - `stream` An [InputStream] or [OutputStream], respectively
+#' - `codec` A `Codec`
+#'
+#' @section Methods:
+#'
+#' Methods are inherited from [InputStream] and [OutputStream], respectively
 #' @export
-CompressedInputStream <- function(stream, codec = codec("GZIP")){
-  UseMethod("CompressedInputStream")
+#' @include arrow-package.R
+CompressedOutputStream <- R6Class("CompressedOutputStream", inherit = OutputStream)
+CompressedOutputStream$create <- function(stream, codec = compression_codec()){
+  if (.Platform$OS.type == "windows") {
+    stop("'CompressedOutputStream' is unsupported in Windows.")
+  }
+  assert_is(codec, "Codec")
+  if (is.character(stream)) {
+    stream <- FileOutputStream$create(stream)
+  }
+  assert_is(stream, "OutputStream")
+  shared_ptr(CompressedOutputStream, io___CompressedOutputStream__Make(codec, stream))
 }
 
+#' @rdname compression
+#' @usage NULL
+#' @format NULL
 #' @export
-CompressedInputStream.character <- function(stream, codec = compression_codec("GZIP")){
-  CompressedInputStream(ReadableFile(stream), codec = codec)
-}
-
-#' @export
-`CompressedInputStream.arrow::io::InputStream` <- function(stream, codec = compression_codec("GZIP")) {
-  assert_that(inherits(codec, "arrow::util::Codec"))
-  shared_ptr(`arrow::io::CompressedInputStream`, io___CompressedInputStream__Make(codec, stream))
+CompressedInputStream <- R6Class("CompressedInputStream", inherit = InputStream)
+CompressedInputStream$create <- function(stream, codec = compression_codec()){
+  # TODO (npr): why would CompressedInputStream work on Windows if CompressedOutputStream doesn't? (and is it still the case that it does not?)
+  assert_is(codec, "Codec")
+  if (is.character(stream)) {
+    stream <- ReadableFile$create(stream)
+  }
+  assert_is(stream, "InputStream")
+  shared_ptr(CompressedInputStream, io___CompressedInputStream__Make(codec, stream))
 }

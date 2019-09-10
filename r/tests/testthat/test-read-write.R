@@ -17,18 +17,18 @@
 
 context("read-write")
 
-test_that("arrow::table round trip", {
+test_that("table round trip", {
   tbl <- tibble::tibble(
     int = 1:10,
     dbl = as.numeric(1:10),
     raw = as.raw(1:10)
   )
 
-  tab <- arrow::table(!!!tbl)
+  tab <- Table$create(!!!tbl)
   expect_equal(tab$num_columns, 3L)
   expect_equal(tab$num_rows, 10L)
 
-  # arrow::ChunkedArray
+  # ChunkedArray
   chunked_array_int <- tab$column(0)
   expect_equal(chunked_array_int$length(), 10L)
   expect_equal(chunked_array_int$null_count, 0L)
@@ -41,7 +41,7 @@ test_that("arrow::table round trip", {
     expect_equal(chunked_array_int$chunk(i-1L), chunks_int[[i]])
   }
 
-  # arrow::ChunkedArray
+  # ChunkedArray
   chunked_array_dbl <- tab$column(1)
   expect_equal(chunked_array_dbl$length(), 10L)
   expect_equal(chunked_array_dbl$null_count, 0L)
@@ -54,7 +54,7 @@ test_that("arrow::table round trip", {
     expect_equal(chunked_array_dbl$chunk(i-1L), chunks_dbl[[i]])
   }
 
-  # arrow::ChunkedArray
+  # ChunkedArray
   chunked_array_raw <- tab$column(2)
   expect_equal(chunked_array_raw$length(), 10L)
   expect_equal(chunked_array_raw$null_count, 0L)
@@ -76,14 +76,14 @@ test_that("arrow::table round trip", {
   unlink(tf)
 })
 
-test_that("arrow::table round trip handles NA in integer and numeric", {
+test_that("table round trip handles NA in integer and numeric", {
   tbl <- tibble::tibble(
     int = c(NA, 2:10),
     dbl = as.numeric(c(1:5, NA, 7:9, NA)),
     raw = as.raw(1:10)
   )
 
-  tab <- arrow::table(!!!tbl)
+  tab <- Table$create(!!!tbl)
   expect_equal(tab$num_columns, 3L)
   expect_equal(tab$num_rows, 10L)
 
