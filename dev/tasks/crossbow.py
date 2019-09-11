@@ -963,7 +963,9 @@ class EmailReport(Report):
         return self.HEADER.format(job_name=self.job.branch, all_tasks_url=url)
 
     def subject(self):
-        return "Crossbow Task Report for {}".format(self.job.branch)
+        return (
+            "[NIGHTLY] Arrow Build Report for {}".format(self.job.branch)
+        )
 
     def body(self):
         buffer = StringIO()
