@@ -114,12 +114,11 @@ struct ConversionTraits<std::string> : public CTypeTraits<std::string> {
   constexpr static bool nullable = false;
 };
 
-/// Append cell range elements as a single value to list.
+/// Append cell range elements as a single value to the list builder.
 ///
-/// Rows will be added using ConversionTraits<ValueCType>::AppendListValues()
-/// if provided. If it doesn't have a specialized implementation, each value
-/// will be added using ConversionTraits<ValueCType>::AppendRows() by
-/// iterating over the cell range by default.
+/// Cell range will be added to child builder using AppendListValues<ValueCType>()
+/// if provided. AppendListValues<ValueCType>() has a default implementation, but
+/// it can be specialized by users.
 template <typename ValueCType, typename ListBuilderType, typename Range>
 Status AppendCellRange(ListBuilderType& builder, Range&& cell_range) {
   constexpr bool is_list_builder = std::is_same<ListBuilderType, ListBuilder>::value;
