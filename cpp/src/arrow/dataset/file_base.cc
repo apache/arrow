@@ -86,8 +86,9 @@ Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
 }
 
 DataFragmentIterator FileSystemBasedDataSource::GetFragmentsImpl(
-    std::shared_ptr<ScanOptions> options) {
-  if (!AssumePartitionExpression(&options)) {
+    std::shared_ptr<ScanOptions> scan_options) {
+  std::shared_ptr<ScanOptions> simplified_scan_options;
+  if (!AssumePartitionExpression(scan_options, &simplified_scan_options)) {
     return MakeEmptyIterator<std::shared_ptr<DataFragment>>();
   }
 
@@ -119,7 +120,7 @@ DataFragmentIterator FileSystemBasedDataSource::GetFragmentsImpl(
     std::vector<fs::FileStats> stats_;
   };
 
-  return DataFragmentIterator(Impl(filesystem_, format_, options, stats_));
+  return DataFragmentIterator(Impl(filesystem_, format_, scan_options, stats_));
 }
 
 }  // namespace dataset
