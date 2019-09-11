@@ -522,7 +522,7 @@ cdef class SubTreeFileSystem(FileSystem):
             c_string pathstr
             shared_ptr[CSubTreeFileSystem] wrapped
 
-        pathstr = tobytes(str(base_path))
+        pathstr = _path_to_bytes(base_path)
         wrapped = make_shared[CSubTreeFileSystem](pathstr, base_fs.wrapped)
 
         self.init(<shared_ptr[CFileSystem]> wrapped)

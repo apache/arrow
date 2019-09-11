@@ -15,16 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <chrono>
 #include <algorithm>
+#include <chrono>
 #include <iostream>
 
-#include "arrow/python/platform.h"
 #include "arrow/python/datetime.h"
+#include "arrow/python/platform.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
-
 
 namespace arrow {
 namespace py {
