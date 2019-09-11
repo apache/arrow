@@ -257,6 +257,44 @@ class TestScalars(unittest.TestCase):
             assert arrow_arr[0].as_py() == expected
             assert arrow_arr[0].value * 1000**i == expected.value
 
+    @pytest.mark.nopandas
+    def test_timestamp_nanos_nopandas(self):
+        # ARROW-5450
+        import pytz
+        tz = 'America/New_York'
+        ty = pa.timestamp('ns', tz=tz)
+        arr = pa.array([
+            946684800000000000,  # 2000-01-01 00:00:00
+        ], type=ty)
+
+        tzinfo = pytz.timezone(tz)
+        expected = datetime.datetime(2000, 1, 1, tzinfo=tzinfo)
+        expected = tzinfo.fromutc(expected)
+        result = arr[0].as_py()
+        assert result == expected
+        assert result.year == 1999
+        assert result.hour == 19
+
+        # Non-zero nanos yields ValueError
+        arr = pa.array([946684800000000001], type=ty)
+        with pytest.raises(ValueError):
+            arr[0].as_py()
+
+    def test_timestamp_no_overflow(self):
+        # ARROW-5450
+        import pytz
+        timestamp_rows = [
+            datetime.datetime(1, 1, 1, 0, 0, 0, tzinfo=pytz.utc),
+            None,
+            datetime.datetime(9999, 12, 31, 23, 59, 59, 999999,
+                              tzinfo=pytz.utc),
+            datetime.datetime(1970, 1, 1, 0, 0, 0,
+                              tzinfo=pytz.utc),
+        ]
+        arr = pa.array(timestamp_rows, pa.timestamp("us", tz="UTC"))
+        result = arr.to_pylist()
+        assert result == timestamp_rows
+
     @pytest.mark.pandas
     def test_dictionary(self):
         import pandas as pd
