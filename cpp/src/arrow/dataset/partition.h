@@ -26,6 +26,7 @@
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace dataset {
@@ -72,9 +73,11 @@ class ARROW_DS_EXPORT PartitionScheme {
   /// \brief The name identifying the kind of partition scheme
   virtual std::string name() const = 0;
 
-  virtual bool CanParse(const std::string& path) const = 0;
+  /// \brief Return true if path can be parsed
+  virtual bool CanParse(util::string_view path) const = 0;
 
-  virtual Status Parse(const std::string& path,
+  /// \brief Parse a path into a partition expression
+  virtual Status Parse(util::string_view path,
                        std::shared_ptr<Expression>* out) const = 0;
 };
 
@@ -87,10 +90,9 @@ class ARROW_DS_EXPORT SimplePartitionScheme : public PartitionScheme {
 
   std::string name() const override { return "simple_partition_scheme"; }
 
-  /// \brief Return true if path
-  bool CanParse(const std::string& path) const override { return true; }
+  bool CanParse(util::string_view path) const override { return true; }
 
-  Status Parse(const std::string& path, std::shared_ptr<Expression>* out) const override {
+  Status Parse(util::string_view path, std::shared_ptr<Expression>* out) const override {
     *out = partition_expression_;
     return Status::OK();
   }
@@ -106,8 +108,22 @@ class ARROW_DS_EXPORT SimplePartitionScheme : public PartitionScheme {
 /// the form $key=$value in directory names
 class ARROW_DS_EXPORT HivePartitionScheme : public PartitionScheme {
  public:
-  /// \brief Return true if path
-  // bool CanParse(const std::string& path) const override;
+  explicit HivePartitionScheme(std::shared_ptr<Schema> schema)
+      : schema_(std::move(schema)) {}
+
+  std::string name() const override { return "hive_partition_scheme"; }
+
+  bool CanParse(util::string_view path) const override;
+
+  Status Parse(util::string_view path, std::shared_ptr<Expression>* out) const override;
+
+ protected:
+  /// XXX do we have a schema when constructing partition schemes?
+  /// If so: where do we get that?
+  /// If not: we don't know what the types of RHSs are; they must stay strings
+  /// for later conversion. This means among other things that some errors are
+  /// deferred until the schema is given, including some parse errors.
+  std::shared_ptr<Schema> schema_;
 };
 
 // ----------------------------------------------------------------------

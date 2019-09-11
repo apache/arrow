@@ -30,6 +30,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -52,6 +53,9 @@ struct ARROW_EXPORT Scalar {
     if (other) return Equals(*other);
     return false;
   }
+
+  static Status Parse(const std::shared_ptr<DataType>& type, util::string_view s,
+                      std::shared_ptr<Scalar>* out);
 
  protected:
   Scalar(const std::shared_ptr<DataType>& type, bool is_valid)

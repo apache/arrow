@@ -31,13 +31,13 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace dataset {
 
 TEST(PartitionScheme, Simple) {
-  auto expr = std::make_shared<Expression>();
-  expr->values["alpha"] = std::make_shared<Int16Scalar>(3);
+  auto expr = equal(field_ref("alpha"), scalar<int16_t>(3));
   SimplePartitionScheme scheme(expr);
   ASSERT_TRUE(scheme.CanParse("/hello/world"));
 
@@ -45,6 +45,19 @@ TEST(PartitionScheme, Simple) {
   ASSERT_OK(scheme.Parse("/hello/world", &parsed));
   ASSERT_NE(parsed, nullptr);
   ASSERT_TRUE(parsed->Equals(*expr));
+}
+
+TEST(PartitionScheme, Hive) {
+  HivePartitionScheme scheme(schema({field("alpha", int32()), field("beta", float32())}));
+  util::string_view path = "/base/alpha=0/beta=3.25";
+  ASSERT_TRUE(scheme.CanParse(path));
+
+  std::shared_ptr<Expression> parsed;
+  ASSERT_OK(scheme.Parse(path, &parsed));
+  ASSERT_NE(parsed, nullptr);
+  auto expected = "alpha"_ == int32_t(0) and "beta"_ == 3.25f;
+  ASSERT_TRUE(parsed->Equals(expected)) << parsed->ToString() << "\n"
+                                        << expected.ToString();
 }
 
 }  // namespace dataset

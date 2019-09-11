@@ -26,6 +26,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/parsing.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -132,13 +133,56 @@ struct MakeNullImpl {
     return Status::NotImplemented("construcing null scalars of type ", t);
   }
 
-  std::shared_ptr<DataType> type_;
+  const std::shared_ptr<DataType>& type_;
   std::shared_ptr<Scalar>* out_;
 };
 
 Status MakeNullScalar(const std::shared_ptr<DataType>& type,
                       std::shared_ptr<Scalar>* null) {
   MakeNullImpl impl = {type, null};
+  return VisitTypeInline(*type, &impl);
+}
+
+struct ScalarParseImpl {
+  template <typename T>
+  using ScalarType = typename TypeTraits<T>::ScalarType;
+
+  template <typename T, typename Converter = internal::StringConverter<T>,
+            typename Value = typename Converter::value_type>
+  Status Visit(const T& t) {
+    Value value;
+    if (!Converter{type_}(s_.data(), s_.size(), &value)) {
+      return Status::Invalid("error parsing \"", s_, "\" as scalar of type ", t);
+    }
+    Construct<ScalarType<T>, Value>(std::move(value));
+    return Status::OK();
+  }
+
+  Status Visit(const DataType& t) {
+    return Status::NotImplemented("parsing scalars of type ", t);
+  }
+
+  template <typename ScalarType, typename Value>
+  typename std::enable_if<std::is_constructible<
+      ScalarType, Value&&, const std::shared_ptr<DataType>&>::value>::type
+  Construct(Value&& value) {
+    *out_ = std::make_shared<ScalarType>(std::move(value), type_);
+  }
+
+  template <typename ScalarType, typename Value>
+  typename std::enable_if<std::is_constructible<ScalarType, Value&&>::value>::type
+  Construct(Value&& value) {
+    *out_ = std::make_shared<ScalarType>(std::move(value));
+  }
+
+  const std::shared_ptr<DataType>& type_;
+  util::string_view s_;
+  std::shared_ptr<Scalar>* out_;
+};  // namespace arrow
+
+Status Scalar::Parse(const std::shared_ptr<DataType>& type, util::string_view s,
+                     std::shared_ptr<Scalar>* out) {
+  ScalarParseImpl impl = {type, s, out};
   return VisitTypeInline(*type, &impl);
 }
 

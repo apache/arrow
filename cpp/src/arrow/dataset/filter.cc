@@ -731,6 +731,9 @@ std::string ScalarExpression::ToString() const {
     case Type::INT64:
       value = std::to_string(checked_cast<const Int64Scalar&>(*value_).value);
       break;
+    case Type::FLOAT:
+      value = std::to_string(checked_cast<const FloatScalar&>(*value_).value);
+      break;
     case Type::DOUBLE:
       value = std::to_string(checked_cast<const DoubleScalar&>(*value_).value);
       break;

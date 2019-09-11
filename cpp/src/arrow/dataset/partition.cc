@@ -22,13 +22,59 @@
 
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/filesystem/path_util.h"
+#include "arrow/scalar.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/stl.h"
 
 namespace arrow {
 namespace dataset {
 
-//
+using util::string_view;
+
+bool ParseOneKey(string_view path, string_view* key, string_view* value,
+                 string_view* parent) {
+  auto parent_end = path.find_last_of(fs::internal::kSep);
+  if (parent_end == string_view::npos) {
+    return false;
+  }
+
+  auto key_length = path.substr(parent_end + 1).find_first_of('=');
+  if (key_length == string_view::npos) {
+    return false;
+  }
+
+  *key = path.substr(parent_end + 1, key_length);
+  *value = path.substr(parent_end + 1 + key_length + 1);
+  *parent = path.substr(0, parent_end);
+  return true;
+}
+
+bool HivePartitionScheme::CanParse(string_view path) const {
+  // at worst we return an empty expression
+  return true;
+}
+
+Status HivePartitionScheme::Parse(string_view path,
+                                  std::shared_ptr<Expression>* out) const {
+  *out = nullptr;
+  string_view key, value;
+  while (ParseOneKey(path, &key, &value, &path)) {
+    auto name = key.to_string();
+    auto type = schema_->GetFieldByName(name)->type();
+    std::shared_ptr<Scalar> scalar;
+    RETURN_NOT_OK(Scalar::Parse(type, value, &scalar));
+
+    auto expr = equal(field_ref(name), ScalarExpression::Make(scalar));
+    if (*out == nullptr) {
+      *out = std::move(expr);
+    } else {
+      *out = and_(std::move(expr), std::move(*out));
+    }
+  }
+
+  return Status::OK();
+}
 
 }  // namespace dataset
 }  // namespace arrow
