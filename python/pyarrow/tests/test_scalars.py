@@ -260,14 +260,20 @@ class TestScalars(unittest.TestCase):
     @pytest.mark.nopandas
     def test_timestamp_nanos_nopandas(self):
         # ARROW-5450
+        import pytz
         tz = 'America/New_York'
         ty = pa.timestamp('ns', tz=tz)
         arr = pa.array([
             946684800000000000,  # 2000-01-01 00:00:00
         ], type=ty)
 
-        expected = datetime.datetime(1999, 12, 31, 19, 0, 0)
-        assert arr[0].as_py() == expected
+        tzinfo = pytz.timezone(tz)
+        expected = datetime.datetime(2000, 1, 1, tzinfo=tzinfo)
+        expected = tzinfo.fromutc(expected)
+        result = arr[0].as_py()
+        assert result == expected
+        assert result.year == 1999
+        assert result.hour == 19
 
         # Non-zero nanos yields ValueError
         arr = pa.array([946684800000000001], type=ty)
