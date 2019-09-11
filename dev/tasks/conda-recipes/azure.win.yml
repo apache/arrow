@@ -98,14 +98,13 @@ jobs:
         packageSpecs: 'click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz'
         installOptions: '-c conda-forge'
         updateConda: false
-
     - script: |
-        python arrow/dev/tasks/crossbow.py \
-          --queue-path . \
-          --queue-remote {{ queue.remote_url }} \
-          upload-artifacts \
-          --sha {{ task.branch }} \
-          --tag {{ task.tag }} \
+        python arrow/dev/tasks/crossbow.py ^
+          --queue-path . ^
+          --queue-remote {{ queue.remote_url }} ^
+          upload-artifacts ^
+          --sha {{ task.branch }} ^
+          --tag {{ task.tag }} ^
           --pattern "arrow/dev/tasks/conda-recipes/build_artifacts/win-64/*.tar.bz2"
       env:
         CROSSBOW_GITHUB_TOKEN: $(CROSSBOW_GITHUB_TOKEN)
