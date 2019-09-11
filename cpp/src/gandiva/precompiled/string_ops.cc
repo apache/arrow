@@ -19,6 +19,7 @@
 
 extern "C" {
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -121,9 +122,15 @@ int32 utf8_length(int64 context, const char* data, int32 data_len) {
   int count = 0;
   for (int i = 0; i < data_len; i += char_len) {
     char_len = utf8_char_length(data[i]);
-    if (char_len == 0) {
+    if (char_len == 0 || i + char_len > data_len) {  // invalid byte or incomplete glyph
       set_error_for_invalid_utf(context, data[i]);
       return 0;
+    }
+    for (int j = 1; j < char_len; ++j) {
+      if (data[i + j] > 0) {  // bytes following head-byte of glyph
+        set_error_for_invalid_utf(context, data[i + j]);
+        return 0;
+      }
     }
     ++count;
   }
@@ -190,27 +197,41 @@ VAR_LEN_TYPES(IS_NOT_NULL, isnotnull)
 
 #undef IS_NOT_NULL
 
+/*
+ We follow Oracle semantics for offset:
+ - If position is positive, then the first glyph in the substring is determined by
+ counting that many glyphs forward from the beginning of the input. (i.e., for position ==
+ 1 the first glyph in the substring will be identical to the first glyph in the output)
+
+ - If position is negative, then the first glyph in the substring is determined by
+ counting that many glyphs backward from the end of the input. (i.e., for position == -1
+ the first glyph in the substring will be identical to the last glyph in the output)
+
+ - If position is 0 then it is treated as 1.
+ */
 FORCE_INLINE
 const char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_data_len,
-                                    int64 offset64, int64 length, int32* out_data_len) {
-  if (length <= 0 || input == nullptr || in_data_len <= 0) {
+                                    int64 position, int64 substring_length,
+                                    int32* out_data_len) {
+  if (substring_length <= 0 || input == nullptr || in_data_len <= 0) {
     *out_data_len = 0;
     return "";
   }
 
-  int32 in_glyphs_count = utf8_length(context, input, in_data_len);
+  int64 in_glyphs_count = static_cast<int64>(utf8_length(context, input, in_data_len));
 
-  // handle invalid glyphs in input
+  // in_glyphs_count is zero if input has invalid glyphs
   if (in_glyphs_count == 0) {
     *out_data_len = 0;
     return "";
   }
 
-  int32 offset = static_cast<int32>(offset64);
-  int32 from_glyph = offset - 1;  // offset is 1 for first char
-  if (offset < 0) {
-    from_glyph = in_glyphs_count + offset;
-  } else if (offset == 0) {
+  int64 from_glyph;  // from_glyph==0 indicates the first glyph of the input
+  if (position > 0) {
+    from_glyph = position - 1;
+  } else if (position < 0) {
+    from_glyph = in_glyphs_count + position;
+  } else {
     from_glyph = 0;
   }
 
@@ -219,37 +240,33 @@ const char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_d
     return "";
   }
 
-  int32 out_glyphs_count = static_cast<int32>(length);
-  if (length > in_glyphs_count - from_glyph) {
+  int64 out_glyphs_count = substring_length;
+  if (substring_length > in_glyphs_count - from_glyph) {
     out_glyphs_count = in_glyphs_count - from_glyph;
   }
 
-  int32 start_pos = 0;
-  int32 end_pos = in_data_len;
+  int64 in_data_len64 = static_cast<int64>(in_data_len);
+  int64 start_pos = 0;
+  int64 end_pos = in_data_len64;
 
-  int32 n_glyphs = 0;
-  int32 pos = 0;
-  while (pos < static_cast<int64_t>(in_data_len)) {
-    if (n_glyphs == from_glyph) {
+  int64 current_glyph = 0;
+  int64 pos = 0;
+  while (pos < in_data_len64) {
+    if (current_glyph == from_glyph) {
       start_pos = pos;
     }
-    int32 glyph_len = utf8_char_length(input[pos]);
-    // Skip invalid glyphs.
-    if (glyph_len == 0) {
-      glyph_len = 1;
-    }
-    pos += glyph_len;
-    if (n_glyphs - from_glyph + 1 == out_glyphs_count) {
+    pos += static_cast<int64>(utf8_char_length(input[pos]));
+    if (current_glyph - from_glyph + 1 == out_glyphs_count) {
       end_pos = pos;
     }
-    n_glyphs++;
+    current_glyph++;
   }
 
-  if (end_pos > in_data_len || end_pos < 0) {  // <0 check to handle 'pos' overflow
-    end_pos = in_data_len;
+  if (end_pos > in_data_len64 || end_pos > INT_MAX) {
+    end_pos = in_data_len64;
   }
 
-  *out_data_len = end_pos - start_pos;
+  *out_data_len = static_cast<int32>(end_pos - start_pos);
   char* ret =
       reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_data_len));
   if (ret == nullptr) {

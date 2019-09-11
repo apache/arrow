@@ -164,6 +164,46 @@ TEST(TestStringOps, TestSubstring) {
   EXPECT_FALSE(ctx.has_error());
 }
 
+TEST(TestStringOps, TestSubstringInvalidInputs) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64>(&ctx);
+  int32 out_len = 0;
+
+  char bytes[] = {'\xA7', 'a'};
+  const char* out_str = substr_utf8_int64_int64(ctx_ptr, bytes, 2, 1, 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_TRUE(ctx.has_error());
+  ctx.Reset();
+
+  char midbytes[] = {'c', '\xA7', 'a'};
+  out_str = substr_utf8_int64_int64(ctx_ptr, midbytes, 3, 1, 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_TRUE(ctx.has_error());
+  ctx.Reset();
+
+  char midbytes2[] = {'\xC3', 'a', 'a'};
+  out_str = substr_utf8_int64_int64(ctx_ptr, midbytes2, 3, 1, 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_TRUE(ctx.has_error());
+  ctx.Reset();
+
+  char endbytes[] = {'a', 'a', '\xA7'};
+  out_str = substr_utf8_int64_int64(ctx_ptr, endbytes, 3, 1, 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_TRUE(ctx.has_error());
+  ctx.Reset();
+
+  char endbytes2[] = {'a', 'a', '\xC3'};
+  out_str = substr_utf8_int64_int64(ctx_ptr, endbytes2, 3, 1, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_TRUE(ctx.has_error());
+  ctx.Reset();
+
+  out_str = substr_utf8_int64_int64(ctx_ptr, "çåå†", 9, 2147483656, 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+}
+
 TEST(TestStringOps, TestConcat) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<int64>(&ctx);
