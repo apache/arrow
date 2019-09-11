@@ -27,7 +27,7 @@ import org.apache.arrow.flight.impl.Flight;
 import com.google.common.collect.ImmutableList;
 
 /**
- * POJO to convert to/from the underlying protobuf FlighEndpoint.
+ * POJO to convert to/from the underlying protobuf FlightEndpoint.
  */
 public class FlightEndpoint {
   private List<Location> locations;

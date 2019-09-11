@@ -261,7 +261,7 @@ public class ByteFunctionHelpers {
   /**
    * Generate a new hashCode with the given current hashCode and new hashCode.
    */
-  public static int comebineHash(int currentHash, int newHash) {
+  public static int combineHash(int currentHash, int newHash) {
     return currentHash * 31 + newHash;
   }
 }

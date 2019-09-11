@@ -73,13 +73,13 @@ public class TestTypeEqualsVisitor {
   public void testTypeEqualsWithMetadata() {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("key1", "value1");
-    FieldType typeWithouMeta = new FieldType(true, new ArrowType.Int(32, true),
+    FieldType typeWithoutMeta = new FieldType(true, new ArrowType.Int(32, true),
         null, null);
     FieldType typeWithMeta = new FieldType(true, new ArrowType.Int(32, true),
         null, metadata);
 
-    try (IntVector right = (IntVector) typeWithouMeta.createNewSingleVector("int", allocator, null);
-         IntVector left1 = (IntVector) typeWithouMeta.createNewSingleVector("int", allocator, null);
+    try (IntVector right = (IntVector) typeWithoutMeta.createNewSingleVector("int", allocator, null);
+         IntVector left1 = (IntVector) typeWithoutMeta.createNewSingleVector("int", allocator, null);
          IntVector left2 = (IntVector) typeWithMeta.createNewSingleVector("int", allocator, null)) {
 
       TypeEqualsVisitor visitor = new TypeEqualsVisitor(right);

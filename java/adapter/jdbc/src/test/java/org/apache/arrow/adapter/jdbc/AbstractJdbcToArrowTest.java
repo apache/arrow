@@ -111,7 +111,7 @@ public abstract class AbstractJdbcToArrowTest {
    * @throws IOException on error
    */
   @Test
-  public abstract void testJdbcToArroValues() throws SQLException, IOException;
+  public abstract void testJdbcToArrowValues() throws SQLException, IOException;
 
   /**
    * Abstract method to implement logic to assert test various datatype values.

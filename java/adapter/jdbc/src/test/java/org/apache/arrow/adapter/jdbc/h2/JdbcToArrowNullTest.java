@@ -95,7 +95,7 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
    * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes with null values.
    */
   @Test
-  public void testJdbcToArroValues() throws SQLException, IOException {
+  public void testJdbcToArrowValues() throws SQLException, IOException {
     testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
         Calendar.getInstance()));
     testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)));
