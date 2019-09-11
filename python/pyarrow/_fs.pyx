@@ -54,10 +54,10 @@ cdef inline c_string _path_to_bytes(path) except *:
 
 
 cpdef enum FileType:
-    NonExistent
-    Unknown
-    File
-    Directory
+    NonExistent = <int8_t> CFileType_NonExistent
+    Unknown = <int8_t> CFileType_Unknown
+    File = <int8_t> CFileType_File
+    Directory = <int8_t> CFileType_Directory
 
 
 cdef class FileStats:
@@ -90,17 +90,7 @@ cdef class FileStats:
         -------
         type : FileType
         """
-        cdef CFileType ctype = self.stats.type()
-        if ctype == CFileType_NonExistent:
-            return FileType.NonExistent
-        elif ctype == CFileType_Unknown:
-            return FileType.Unknown
-        elif ctype == CFileType_File:
-            return FileType.File
-        elif ctype == CFileType_Directory:
-            return FileType.Directory
-        else:
-            raise ValueError('Unhandled FileType {}'.format(type))
+        return FileType(<int8_t> self.stats.type())
 
     @property
     def path(self):
