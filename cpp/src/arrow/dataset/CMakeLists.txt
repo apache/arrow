@@ -23,7 +23,7 @@ arrow_install_all_headers("arrow/dataset")
 # pkg-config support
 arrow_add_pkg_config("arrow-dataset")
 
-set(ARROW_DATASET_SRCS dataset.cc file_base.cc scanner.cc)
+set(ARROW_DATASET_SRCS dataset.cc file_base.cc filter.cc scanner.cc)
 set(ARROW_DATASET_LINK_STATIC arrow_static)
 set(ARROW_DATASET_LINK_SHARED arrow_shared)
 
@@ -79,22 +79,23 @@ function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
     set(LABELS "arrow_dataset")
   endif()
 
-  if(NOT WIN32)
-    add_arrow_test(${REL_TEST_NAME}
-                   EXTRA_LINK_LIBS
-                   ${ARROW_DATASET_TEST_LINK_LIBS}
-                   PREFIX
-                   ${PREFIX}
-                   LABELS
-                   ${LABELS}
-                   ${ARG_UNPARSED_ARGUMENTS})
-  endif()
+  add_arrow_test(${REL_TEST_NAME}
+                 EXTRA_LINK_LIBS
+                 ${ARROW_DATASET_TEST_LINK_LIBS}
+                 PREFIX
+                 ${PREFIX}
+                 LABELS
+                 ${LABELS}
+                 ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
-add_arrow_dataset_test(dataset_test)
-add_arrow_dataset_test(file_test)
-add_arrow_dataset_test(scanner_test)
+if(NOT WIN32)
+  add_arrow_dataset_test(dataset_test)
+  add_arrow_dataset_test(file_test)
+  add_arrow_dataset_test(filter_test)
+  add_arrow_dataset_test(scanner_test)
 
-if(ARROW_PARQUET)
-  add_arrow_dataset_test(file_parquet_test)
+  if(ARROW_PARQUET)
+    add_arrow_dataset_test(file_parquet_test)
+  endif()
 endif()
