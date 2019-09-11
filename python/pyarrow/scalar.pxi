@@ -308,6 +308,10 @@ cdef _add_micros_maybe_localize(dt, micros, tzinfo):
         return dt.replace(microsecond=micros)
 
 
+cdef _datetime_from_seconds(int64_t v):
+    return datetime.datetime(1970, 1, 1) + datetime.timedelta(seconds=v)
+
+
 def _nanoseconds_to_datetime_safe(v, tzinfo):
     if v % 1000 != 0:
         raise ValueError("Nanosecond timestamp {} is not safely convertible "
@@ -317,24 +321,24 @@ def _nanoseconds_to_datetime_safe(v, tzinfo):
     v = v // 1000
     micros = v % 1_000_000
 
-    dt = datetime.datetime.utcfromtimestamp(v // 1_000_000)
+    dt = _datetime_from_seconds(v // 1_000_000)
     return _add_micros_maybe_localize(dt, micros, tzinfo)
 
 
 def _microseconds_to_datetime(v, tzinfo):
     micros = v % 1_000_000
-    dt = datetime.datetime.utcfromtimestamp(v // 1_000_000)
+    dt = _datetime_from_seconds(v // 1_000_000)
     return _add_micros_maybe_localize(dt, micros, tzinfo)
 
 
 def _millis_to_datetime(v, tzinfo):
     millis = v % 1_000
-    dt = datetime.datetime.utcfromtimestamp(v // 1000)
+    dt = _datetime_from_seconds(v // 1000)
     return _add_micros_maybe_localize(dt, millis * 1000, tzinfo)
 
 
 def _seconds_to_datetime(v, tzinfo):
-    dt = datetime.datetime.utcfromtimestamp(v)
+    dt = _datetime_from_seconds(v)
     return _add_micros_maybe_localize(dt, 0, tzinfo)
 
 
