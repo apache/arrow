@@ -25,6 +25,7 @@ import java.nio.channels.WritableByteChannel;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.IpcOption;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
 
 /**
  * Writer for the Arrow stream format to send ArrowRecordBatches over a WriteChannel.
@@ -68,18 +69,18 @@ public class ArrowStreamWriter extends ArrowWriter {
    * Write an EOS identifier to the WriteChannel.
    *
    * @param out Open WriteChannel with an active Arrow stream.
+   * @param option IPC write option
    * @throws IOException on error
    */
-  public void writeEndOfStream(WriteChannel out) throws IOException {
-    if (option.write_legacy_ipc_format) {
-      out.writeIntLittleEndian(0);
-    } else {
-      out.writeLongLittleEndian(0);
+  public static void writeEndOfStream(WriteChannel out, IpcOption option) throws IOException {
+    if (!option.write_legacy_ipc_format) {
+      out.writeIntLittleEndian(MessageSerializer.IPC_CONTINUATION_TOKEN);
     }
+    out.writeIntLittleEndian(0);
   }
 
   @Override
   protected void endInternal(WriteChannel out) throws IOException {
-    writeEndOfStream(out);
+    writeEndOfStream(out, option);
   }
 }
