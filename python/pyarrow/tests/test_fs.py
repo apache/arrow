@@ -85,7 +85,7 @@ def test_get_target_stats(fs, tempdir, testpath):
 
     aaa_stat, bb_stat, c_stat = fs.get_target_stats([aaa, bb, c])
 
-    assert aaa_stat.path == pathlib.Path(aaa)
+    assert aaa_stat.path == pathlib.Path(aaa).as_posix()
     assert aaa_stat.base_name == 'aaa'
     assert aaa_stat.extension == ''
     assert aaa_stat.type == FileType.Directory
@@ -93,14 +93,14 @@ def test_get_target_stats(fs, tempdir, testpath):
     with pytest.raises(ValueError):
         aaa_stat.size
 
-    assert bb_stat.path == pathlib.Path(bb)
+    assert bb_stat.path == pathlib.Path(bb).as_posix()
     assert bb_stat.base_name == 'bb'
     assert bb_stat.extension == ''
     assert bb_stat.type == FileType.File
     assert bb_stat.size == 0
     assert mtime_almost_equal(bb_stat.mtime, bb_.stat().st_mtime)
 
-    assert c_stat.path == pathlib.Path(c)
+    assert c_stat.path == pathlib.Path(c).as_posix()
     assert c_stat.base_name == 'c.txt'
     assert c_stat.extension == 'txt'
     assert c_stat.type == FileType.File
