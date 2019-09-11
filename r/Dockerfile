@@ -66,7 +66,9 @@ RUN printf "options(Ncpus = parallel::detectCores(), repos = 'https://cloud.r-pr
 RUN printf "MAKEFLAGS=-j8\n" >> /usr/lib/R/etc/Makeconf
 
 RUN Rscript -e "install.packages(c('remotes', 'dplyr', 'glue'))"
-RUN Rscript -e "remotes::install_deps('./r', dependencies = TRUE)"
+# Find the package description, whether or not this Dockerfile is run from
+# the current dir or from the parent dir
+RUN Rscript -e "path <- ifelse('DESCRIPTION' %in% dir(), '.', './r'); remotes::install_deps(path, dependencies = TRUE)"
 RUN Rscript -e "remotes::install_github('romainfrancois/decor')"
 
 # ARROW-6171: Because lz4 is installed in the base Ubuntu image, there's an
