@@ -299,13 +299,12 @@ cdef c_bool _datetime_conversion_initialized = False
 
 cdef _add_micros_maybe_localize(dt, micros, tzinfo):
     import pytz
+    dt = dt.replace(microsecond=micros)
     if tzinfo is not None:
         if not isinstance(tzinfo, datetime.tzinfo):
             tzinfo = string_to_tzinfo(tzinfo)
-        dt = dt.replace(microsecond=micros, tzinfo=tzinfo)
-        return tzinfo.fromutc(dt)
-    else:
-        return dt.replace(microsecond=micros)
+        dt = tzinfo.fromutc(dt)
+    return dt
 
 
 cdef _datetime_from_seconds(int64_t v):
@@ -317,7 +316,7 @@ def _nanoseconds_to_datetime_safe(v, tzinfo):
         raise ValueError("Nanosecond timestamp {} is not safely convertible "
                          " to microseconds to convert to datetime.datetime."
                          " Install pandas to return as Timestamp with "
-                         " nanosecond support.")
+                         " nanosecond support or access the .value attribute.")
     v = v // 1000
     micros = v % 1_000_000
 
