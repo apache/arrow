@@ -61,7 +61,7 @@ ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/build/cpp/src/arrow:/opt/conda/lib/pkgco
 ENV LD_LIBRARY_PATH=/opt/conda/lib/:/build/cpp/src/arrow:/arrow/r/src
 
 # Ensure parallel R package installation
-RUN printf "options(Ncpus = parallel::detectCores(), repos = 'https://cloud.r-project.org')\n" >> /etc/R/Rprofile.site
+RUN printf "options(Ncpus = parallel::detectCores(), repos = 'https://demo.rstudiopm.com/all/__linux__/bionic/latest')\n" >> /etc/R/Rprofile.site
 # Also ensure parallel compilation of each individual package
 RUN printf "MAKEFLAGS=-j8\n" >> /usr/lib/R/etc/Makeconf
 
