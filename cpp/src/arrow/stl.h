@@ -70,23 +70,25 @@ Status AppendListValues(CBuilderType<ValueCType>& value_builder, Range&& cell_ra
   return Status::OK();
 }
 
-#define ARROW_STL_CONVERSION(CType_, ArrowType_)                                       \
-  template <>                                                                          \
-  struct ConversionTraits<CType_> : public CTypeTraits<CType_> {                       \
-    static Status AppendRow(typename TypeTraits<ArrowType_>::BuilderType& builder,     \
-                            CType_ cell) {                                             \
-      return builder.Append(cell);                                                     \
-    }                                                                                  \
-    static CType_ GetEntry(const typename TypeTraits<ArrowType_>::ArrayType& array,    \
-                           size_t j) {                                                 \
-      return array.Value(j);                                                           \
-    }                                                                                  \
-    constexpr static bool nullable = false;                                            \
-  };                                                                                   \
-                                                                                       \
-  Status AppendListValues(typename TypeTraits<ArrowType_>::BuilderType& value_builder, \
-                          const std::vector<CType_>& cell_range) {                     \
-    return value_builder.AppendValues(cell_range);                                     \
+#define ARROW_STL_CONVERSION(CType_, ArrowType_)                                    \
+  template <>                                                                       \
+  struct ConversionTraits<CType_> : public CTypeTraits<CType_> {                    \
+    static Status AppendRow(typename TypeTraits<ArrowType_>::BuilderType& builder,  \
+                            CType_ cell) {                                          \
+      return builder.Append(cell);                                                  \
+    }                                                                               \
+    static CType_ GetEntry(const typename TypeTraits<ArrowType_>::ArrayType& array, \
+                           size_t j) {                                              \
+      return array.Value(j);                                                        \
+    }                                                                               \
+    constexpr static bool nullable = false;                                         \
+  };                                                                                \
+                                                                                    \
+  template <>                                                                       \
+  Status AppendListValues<CType_>(                                                  \
+      typename TypeTraits<ArrowType_>::BuilderType & value_builder,                 \
+      const std::vector<CType_>& cell_range) {                                      \
+    return value_builder.AppendValues(cell_range);                                  \
   }
 
 ARROW_STL_CONVERSION(bool, BooleanType)
