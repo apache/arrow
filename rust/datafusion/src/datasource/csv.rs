@@ -18,16 +18,17 @@
 //! CSV Data source
 
 use std::fs::File;
-use std::string::String;
-use std::sync::{Arc, Mutex};
 
 use arrow::csv;
 use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
+use std::string::String;
+use std::sync::Arc;
 
 use crate::datasource::{ScanResult, TableProvider};
 use crate::error::Result;
-use crate::execution::physical_plan::BatchIterator;
+use crate::execution::physical_plan::csv::CsvExec;
+use crate::execution::physical_plan::{BatchIterator, ExecutionPlan};
 
 /// Represents a CSV file with a provided schema
 // TODO: usage example (rather than documenting `new()`)
@@ -58,13 +59,19 @@ impl TableProvider for CsvFile {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Vec<ScanResult>> {
-        Ok(vec![Arc::new(Mutex::new(CsvBatchIterator::new(
+        let exec = CsvExec::try_new(
             &self.filename,
             self.schema.clone(),
             self.has_header,
-            projection,
+            projection.clone(),
             batch_size,
-        )))])
+        )?;
+        let partitions = exec.partitions()?;
+        let iterators = partitions
+            .iter()
+            .map(|p| p.execute())
+            .collect::<Result<Vec<_>>>()?;
+        Ok(iterators)
     }
 }
 
