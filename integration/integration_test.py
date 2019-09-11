@@ -179,6 +179,16 @@ class PrimitiveColumn(Column):
         ]
 
 
+class IntegerColumn(PrimitiveColumn):
+
+    def __init__(self, name, count, is_valid, values, bit_width):
+        super(IntegerColumn, self).__init__(name, count, is_valid, values)
+        self.bit_width = bit_width
+
+    def _encode_value(self, x):
+        return x if self.bit_width < 64 else str(x)
+
+
 TEST_INT_MAX = 2 ** 31 - 1
 TEST_INT_MIN = ~TEST_INT_MAX
 
@@ -225,7 +235,7 @@ class IntegerType(PrimitiveType):
 
         if name is None:
             name = self.name
-        return PrimitiveColumn(name, size, is_valid, values)
+        return IntegerColumn(name, size, is_valid, values, self.bit_width)
 
 
 class DateType(IntegerType):

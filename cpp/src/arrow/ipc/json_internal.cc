@@ -39,6 +39,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/parsing.h"
 #include "arrow/util/string.h"
 #include "arrow/visitor_inline.h"
 
@@ -398,36 +399,34 @@ class ArrayWriter {
   }
 
   template <typename T>
-  typename std::enable_if<IsSignedInt<T>::value, void>::type WriteDataValues(
-      const T& arr) {
-    static const char null_string[] = "0";
+  enable_if_integer_repr<typename T::TypeClass> WriteDataValues(const T& arr) {
+    using c_type = typename T::TypeClass::c_type;
     const auto data = arr.raw_values();
-    for (int64_t i = 0; i < arr.length(); ++i) {
-      if (arr.IsValid(i)) {
-        writer_->Int64(data[i]);
-      } else {
-        writer_->RawNumber(null_string, sizeof(null_string));
+
+    if (sizeof(c_type) < sizeof(int64_t)) {
+      for (int64_t i = 0; i < arr.length(); ++i) {
+        if (arr.IsValid(i)) {
+          if (std::is_signed<c_type>::value) {
+            writer_->Int(static_cast<int32_t>(data[i]));
+          } else {
+            writer_->Uint(static_cast<uint32_t>(data[i]));
+          }
+        } else {
+          writer_->RawNumber("0", sizeof("0"));
+        }
       }
+      return;
+    }
+
+    // write strings instead of numbers since numbers can't represent all 64 bit integers
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      auto str = std::to_string(data[i]);
+      writer_->String(str.c_str(), static_cast<rj::SizeType>(str.size()));
     }
   }
 
   template <typename T>
-  typename std::enable_if<IsUnsignedInt<T>::value, void>::type WriteDataValues(
-      const T& arr) {
-    static const char null_string[] = "0";
-    const auto data = arr.raw_values();
-    for (int64_t i = 0; i < arr.length(); ++i) {
-      if (arr.IsValid(i)) {
-        writer_->Uint64(data[i]);
-      } else {
-        writer_->RawNumber(null_string, sizeof(null_string));
-      }
-    }
-  }
-
-  template <typename T>
-  typename std::enable_if<IsFloatingPoint<T>::value, void>::type WriteDataValues(
-      const T& arr) {
+  enable_if_floating_point<typename T::TypeClass> WriteDataValues(const T& arr) {
     static const char null_string[] = "0.";
     const auto data = arr.raw_values();
     for (int64_t i = 0; i < arr.length(); ++i) {
@@ -1054,30 +1053,34 @@ static Status GetField(const rj::Value& obj, DictionaryMemo* dictionary_memo,
   return Status::OK();
 }
 
-template <typename T>
-inline typename std::enable_if<IsSignedInt<T>::value, typename T::c_type>::type
-UnboxValue(const rj::Value& val) {
-  DCHECK(val.IsInt64());
-  return static_cast<typename T::c_type>(val.GetInt64());
+template <typename T, typename CType = typename T::c_type>
+enable_if_integer_repr<T, CType> UnboxValue(
+    const rj::Value& val,
+    typename std::enable_if<!std::is_same<T, HalfFloatType>::value>::type* = nullptr) {
+  if (sizeof(CType) < sizeof(int64_t)) {
+    if (IsSignedInt<T>::value) {
+      DCHECK(val.IsInt());
+      return static_cast<CType>(val.GetInt());
+    }
+    DCHECK(val.IsUint());
+    return static_cast<CType>(val.GetUint());
+  }
+
+  ::arrow::internal::StringConverter<typename CTypeTraits<CType>::ArrowType> converter;
+  CType out;
+  auto success = converter(val.GetString(), val.GetStringLength(), &out);
+  DCHECK(success);
+  return out;
 }
 
 template <typename T>
-inline typename std::enable_if<IsUnsignedInt<T>::value, typename T::c_type>::type
-UnboxValue(const rj::Value& val) {
-  DCHECK(val.IsUint());
-  return static_cast<typename T::c_type>(val.GetUint64());
-}
-
-template <typename T>
-inline typename std::enable_if<IsFloatingPoint<T>::value, typename T::c_type>::type
-UnboxValue(const rj::Value& val) {
+enable_if_floating_point<T, typename T::c_type> UnboxValue(const rj::Value& val) {
   DCHECK(val.IsFloat());
   return static_cast<typename T::c_type>(val.GetDouble());
 }
 
 template <typename T>
-inline typename std::enable_if<std::is_base_of<BooleanType, T>::value, bool>::type
-UnboxValue(const rj::Value& val) {
+enable_if_boolean<T, bool> UnboxValue(const rj::Value& val) {
   DCHECK(val.IsBool());
   return val.GetBool();
 }
