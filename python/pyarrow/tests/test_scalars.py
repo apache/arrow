@@ -280,6 +280,21 @@ class TestScalars(unittest.TestCase):
         with pytest.raises(ValueError):
             arr[0].as_py()
 
+    def test_timestamp_no_overflow(self):
+        # ARROW-5450
+        import pytz
+        timestamp_rows = [
+            datetime.datetime(1, 1, 1, 0, 0, 0, tzinfo=pytz.utc),
+            None,
+            datetime.datetime(9999, 12, 31, 23, 59, 59, 999999,
+                              tzinfo=pytz.utc),
+            datetime.datetime(1970, 1, 1, 0, 0, 0,
+                              tzinfo=pytz.utc),
+        ]
+        arr = pa.array(timestamp_rows, pa.timestamp("us", tz="UTC"))
+        result = arr.to_pylist()
+        assert result == timestamp_rows
+
     @pytest.mark.pandas
     def test_dictionary(self):
         import pandas as pd
