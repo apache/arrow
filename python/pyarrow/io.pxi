@@ -1560,10 +1560,9 @@ def input_stream(source, compression='detect', buffer_size=None):
         stream = OSFile(source_path, 'r')
     elif isinstance(source, (Buffer, memoryview)):
         stream = BufferReader(as_buffer(source))
-    elif isinstance(source, BufferedIOBase):
-        stream = PythonFile(source, 'r')
-    elif file_type is not None and isinstance(source, file_type):
-        # Python 2 file type
+    elif (hasattr(source, 'read') and
+          hasattr(source, 'close') and
+          hasattr(source, 'closed')):
         stream = PythonFile(source, 'r')
     else:
         raise TypeError("pa.input_stream() called with instance of '{}'"
@@ -1612,10 +1611,9 @@ def output_stream(source, compression='detect', buffer_size=None):
         stream = OSFile(source_path, 'w')
     elif isinstance(source, (Buffer, memoryview)):
         stream = FixedSizeBufferWriter(as_buffer(source))
-    elif isinstance(source, BufferedIOBase):
-        stream = PythonFile(source, 'w')
-    elif file_type is not None and isinstance(source, file_type):
-        # Python 2 file type
+    elif (hasattr(source, 'write') and
+          hasattr(source, 'close') and
+          hasattr(source, 'closed')):
         stream = PythonFile(source, 'w')
     else:
         raise TypeError("pa.output_stream() called with instance of '{}'"
