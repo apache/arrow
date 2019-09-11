@@ -71,6 +71,9 @@ class ARROW_EXPORT RecordBatch {
       const std::shared_ptr<Schema>& schema, int64_t num_rows,
       const std::vector<std::shared_ptr<ArrayData>>& columns);
 
+  static Status FromStructArray(const std::shared_ptr<Array>& array,
+                                std::shared_ptr<RecordBatch>* out);
+
   /// \brief Determine if two record batches are exactly equal
   /// \return true if batches are equal
   bool Equals(const RecordBatch& other) const;

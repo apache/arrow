@@ -244,7 +244,10 @@ Status Compare(FunctionContext* context, const Datum& left, const Datum& right,
   DCHECK(out);
 
   auto type = left.type();
-  DCHECK(type->Equals(right.type()));
+  if (!type->Equals(right.type())) {
+    return Status::TypeError("Cannot compare data of differing type ", *type, " vs ",
+                             *right.type());
+  }
   // Requires that both types are equal.
   auto fn = MakeCompareFunction(context, *type, options);
   if (fn == nullptr) {
