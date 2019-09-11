@@ -25,8 +25,14 @@ python -c "import pyarrow.orc"
 python -c "import pyarrow.parquet"
 
 pushd /tmp
-git clone https://github.com/blue-yonder/turbodbc.git
+
+# ARROW-6428: Using PR branch until upstream PR accepted
+
+# git clone https://github.com/blue-yonder/turbodbc.git
+git clone https://github.com/wesm/turbodbc.git
 pushd turbodbc
+git checkout arrow-0.15-updates
+
 git submodule update --init --recursive
 
 service postgresql start
