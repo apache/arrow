@@ -915,7 +915,7 @@ class ConsoleReport(Report):
 class EmailReport(Report):
 
     HEADER = textwrap.dedent("""
-        Crossbow Report for Job {job_name}
+        Arrow Build Report for Job {job_name}
 
         All tasks: {all_tasks_url}
     """)
@@ -964,7 +964,7 @@ class EmailReport(Report):
 
     def subject(self):
         return (
-            "[NIGHTLY] Arrow Build Report for job {}".format(self.job.branch)
+            "[NIGHTLY] Arrow Build Report for Job {}".format(self.job.branch)
         )
 
     def body(self):
