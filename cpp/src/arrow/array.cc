@@ -1447,11 +1447,13 @@ Status Array::Validate() const {
                            "of type ",
                            type.ToString(), ", got ", data.buffers.size());
   }
-  if (data.child_data.size() != static_cast<size_t>(type.num_children())) {
-    return Status::Invalid("Expected ", type.num_children(),
-                           " child arrays in array "
-                           "of type ",
-                           type.ToString(), ", got ", data.child_data.size());
+  if (type.id() != Type::EXTENSION) {
+    if (data.child_data.size() != static_cast<size_t>(type.num_children())) {
+      return Status::Invalid("Expected ", type.num_children(),
+                             " child arrays in array "
+                             "of type ",
+                             type.ToString(), ", got ", data.child_data.size());
+    }
   }
   if (layout.has_dictionary && !data.dictionary) {
     return Status::Invalid("Array of type ", type.ToString(),
