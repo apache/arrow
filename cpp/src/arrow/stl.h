@@ -52,13 +52,18 @@ using BareTupleElement = typename std::remove_const<typename std::remove_referen
 template <typename T, typename Enable = void>
 struct ConversionTraits {};
 
+/// Returns builder type for given standard C/C++ type.
+template <typename CType>
+using CBuilderType =
+    typename TypeTraits<typename ConversionTraits<CType>::ArrowType>::BuilderType;
+
 /// Default implementation of AppendListValues.
 ///
-/// If user doesn't specialize this implementation, it will call
-/// ConversionTraits<ValueCType>::AppendRow() for each value in the range by
-/// default.
-template <typename ValueCType, typename ChildBuilderType, typename Range>
-Status AppendListValues(ChildBuilderType& value_builder, Range&& cell_range) {
+/// This function can be specialized by user to take advantage of appending
+/// contigiuous ranges while appending. This default implementation will call
+/// ConversionTraits<ValueCType>::AppendRow() for each value in the range.
+template <typename ValueCType, typename Range>
+Status AppendListValues(CBuilderType<ValueCType>& value_builder, Range&& cell_range) {
   for (auto const& value : cell_range) {
     ARROW_RETURN_NOT_OK(ConversionTraits<ValueCType>::AppendRow(value_builder, value));
   }
@@ -123,8 +128,7 @@ Status AppendCellRange(ListBuilderType& builder, Range&& cell_range) {
       "Builder type must be either ListBuilder or LargeListBuilder for appending "
       "multiple rows.");
 
-  using ChildBuilderType =
-      typename TypeTraits<typename ConversionTraits<ValueCType>::ArrowType>::BuilderType;
+  using ChildBuilderType = CBuilderType<ValueCType>;
   ARROW_RETURN_NOT_OK(builder.Append());
   auto& value_builder =
       ::arrow::internal::checked_cast<ChildBuilderType&>(*builder.value_builder());

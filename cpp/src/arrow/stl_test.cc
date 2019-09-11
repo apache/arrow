@@ -143,7 +143,7 @@ struct ConversionTraits<TestInt32Type> : public CTypeTraits<TestInt32Type> {
 };
 
 template <>
-Status AppendListValues<TestInt32Type, Int32Builder, const std::vector<TestInt32Type>&>(
+Status AppendListValues<TestInt32Type, const std::vector<TestInt32Type>&>(
     Int32Builder& value_builder, const std::vector<TestInt32Type>& cell_range) {
   return value_builder.AppendValues(reinterpret_cast<const int32_t*>(cell_range.data()),
                                     cell_range.size());
