@@ -65,11 +65,8 @@ RUN printf "options(Ncpus = parallel::detectCores(), repos = 'https://cloud.r-pr
 # Also ensure parallel compilation of each individual package
 RUN printf "MAKEFLAGS=-j8\n" >> /usr/lib/R/etc/Makeconf
 
-RUN Rscript -e "install.packages(c('remotes', 'dplyr', 'glue'))"
-# Find the package description, whether or not this Dockerfile is run from
-# the current dir or from the dir that crossbow has it in
-RUN Rscript -e "path <- ifelse('DESCRIPTION' %in% dir(), '.', '~/project/arrow/r'); remotes::install_deps(path, dependencies = TRUE)"
-RUN Rscript -e "remotes::install_github('romainfrancois/decor')"
+# Install R dependencies
+CMD ["/bin/bash", "-c", "/arrow/ci/docker_install_r_deps.sh"]
 
 # ARROW-6171: Because lz4 is installed in the base Ubuntu image, there's an
 # issue of which library is loaded at runtime. R by default will override
