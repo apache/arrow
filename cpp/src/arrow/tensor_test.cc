@@ -38,6 +38,72 @@ void AssertCountNonZero(const Tensor& t, int64_t expected) {
   ASSERT_EQ(count, expected);
 }
 
+TEST(TestTensor, Make) {
+  // without strides and dim_names
+  std::vector<int64_t> shape = {3, 6};
+  std::vector<double> values = {1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  auto data = Buffer::Wrap(values);
+  std::shared_ptr<Tensor> tensor1;
+  ASSERT_OK(Tensor::Make(float64(), data, shape, &tensor1));
+
+  // without dim_names
+  std::vector<int64_t> strides = {sizeof(double) * 6, sizeof(double)};
+  std::shared_ptr<Tensor> tensor2;
+  ASSERT_OK(Tensor::Make(float64(), data, {3, 6}, strides, &tensor2));
+  EXPECT_TRUE(tensor2->Equals(*tensor1));
+
+  // without strides
+  std::vector<std::string> dim_names = {"foo", "bar"};
+  std::shared_ptr<Tensor> tensor3;
+  ASSERT_OK(Tensor::Make(float64(), data, {3, 6}, dim_names, &tensor3));
+  EXPECT_TRUE(tensor3->Equals(*tensor1));
+  EXPECT_TRUE(tensor3->Equals(*tensor2));
+
+  // supply all parameters
+  std::shared_ptr<Tensor> tensor4;
+  ASSERT_OK(Tensor::Make(float64(), data, {3, 6}, strides, dim_names, &tensor4));
+  EXPECT_TRUE(tensor4->Equals(*tensor1));
+  EXPECT_TRUE(tensor4->Equals(*tensor2));
+  EXPECT_TRUE(tensor4->Equals(*tensor3));
+}
+
+TEST(TestTensor, MakeFailureCases) {
+  std::vector<int64_t> shape = {3, 6};
+  std::vector<double> values = {1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  auto data = Buffer::Wrap(values);
+  std::shared_ptr<Tensor> tensor1;
+
+  // null type
+  ASSERT_RAISES(Invalid, Tensor::Make(nullptr, data, shape, &tensor1));
+
+  // invalid type
+  ASSERT_RAISES(Invalid, Tensor::Make(binary(), data, shape, &tensor1));
+
+  // null data
+  ASSERT_RAISES(Invalid, Tensor::Make(float64(), nullptr, shape, &tensor1));
+
+  // empty shape
+  ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, {}, &tensor1));
+
+  // invalid stride length
+  ASSERT_RAISES(Invalid,
+                Tensor::Make(float64(), data, shape, {sizeof(double)}, &tensor1));
+  ASSERT_RAISES(Invalid,
+                Tensor::Make(float64(), data, shape,
+                             {sizeof(double), sizeof(double), sizeof(double)}, &tensor1));
+
+  // invalid stride values to involve buffer over run
+  ASSERT_RAISES(Invalid,
+                Tensor::Make(float64(), data, shape,
+                             {sizeof(double) * 6, sizeof(double) * 2}, &tensor1));
+  ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, shape,
+                                      {sizeof(double) * 12, sizeof(double)}, &tensor1));
+
+  // too many dim_names are supplied
+  ASSERT_RAISES(
+      Invalid, Tensor::Make(float64(), data, shape, {}, {"foo", "bar", "baz"}, &tensor1));
+}
+
 TEST(TestTensor, ZeroDim) {
   const int64_t values = 1;
   std::vector<int64_t> shape = {};

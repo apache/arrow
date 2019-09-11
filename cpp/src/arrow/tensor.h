@@ -57,6 +57,71 @@ class SparseTensorImpl;
 
 class ARROW_EXPORT Tensor {
  public:
+  /// \brief Create a Tensor with full parameters
+  ///
+  /// This factory function will return Status::Invalid when the parameters are
+  /// inconsistent
+  ///
+  /// \param[in] type The data type of the tensor values
+  /// \param[in] data The buffer of the tensor content
+  /// \param[in] shape The shape of the tensor
+  /// \param[in] strides The strides of the tensor
+  ///            (if this is empty, the data assumed to be row-major)
+  /// \param[in] dim_names The names of the tensor dimensions
+  /// \param[out] out The result tensor
+  static Status Make(const std::shared_ptr<DataType>& type,
+                     const std::shared_ptr<Buffer>& data,
+                     const std::vector<int64_t>& shape,
+                     const std::vector<int64_t>& strides,
+                     const std::vector<std::string>& dim_names,
+                     std::shared_ptr<Tensor>* out);
+
+  /// \brief Create a Tensor with full parameters with empty dim_names
+  ///
+  /// This factory function will return Status::Invalid when the parameters are
+  /// inconsistent
+  ///
+  /// \param[in] type The data type of the tensor values
+  /// \param[in] data The buffer of the tensor content
+  /// \param[in] shape The shape of the tensor
+  /// \param[in] strides The strides of the tensor
+  /// \param[out] out The result tensor
+  static Status Make(const std::shared_ptr<DataType>& type,
+                     const std::shared_ptr<Buffer>& data,
+                     const std::vector<int64_t>& shape,
+                     const std::vector<int64_t>& strides, std::shared_ptr<Tensor>* out);
+
+  /// \brief Create a Tensor with full parameters with empty strides, the data assumed to be row-major
+  ///
+  /// This factory function will return Status::Invalid when the parameters are
+  /// inconsistent
+  ///
+  /// \param[in] type The data type of the tensor values
+  /// \param[in] data The buffer of the tensor content
+  /// \param[in] shape The shape of the tensor
+  /// \param[in] dim_names The names of the tensor dimensions
+  /// \param[out] out The result tensor
+  static Status Make(const std::shared_ptr<DataType>& type,
+                     const std::shared_ptr<Buffer>& data,
+                     const std::vector<int64_t>& shape,
+                     const std::vector<std::string>& dim_names, std::shared_ptr<Tensor>* out) {
+    return Make(type, data, shape, {}, dim_names, out);
+  }
+
+  /// \brief Create a Tensor with full parameters with empty dim_names, the data assumed
+  /// to be row-major
+  ///
+  /// This factory function will return Status::Invalid when the
+  /// parameters are inconsistent
+  ///
+  /// \param[in] type The data type of the tensor values
+  /// \param[in] data The buffer of the tensor content
+  /// \param[in] shape The shape of the tensor
+  /// \param[out] out The result tensor
+  static Status Make(const std::shared_ptr<DataType>& type,
+                     const std::shared_ptr<Buffer>& data,
+                     const std::vector<int64_t>& shape, std::shared_ptr<Tensor>* out);
+
   virtual ~Tensor() = default;
 
   /// Constructor with no dimension names or strides, data assumed to be row-major
@@ -108,25 +173,28 @@ class ARROW_EXPORT Tensor {
   /// Compute the number of non-zero values in the tensor
   Status CountNonZero(int64_t* result) const;
 
+  /// Return the offset of the given index on the given strides
+  static int64_t CalculateValueOffset(const std::vector<int64_t>& strides,
+                                      const std::vector<int64_t>& index) {
+    const int64_t n = static_cast<int64_t>(index.size());
+    int64_t offset = 0;
+    for (int64_t i = 0; i < n; ++i) {
+      offset += index[i] * strides[i];
+    }
+    return offset;
+  }
+
   /// Returns the value at the given index without data-type and bounds checks
   template <typename ValueType>
   const typename ValueType::c_type& Value(const std::vector<int64_t>& index) const {
     using c_type = typename ValueType::c_type;
-    const int64_t offset = CalculateValueOffset(index);
+    const int64_t offset = Tensor::CalculateValueOffset(strides_, index);
     const c_type* ptr = reinterpret_cast<const c_type*>(raw_data() + offset);
     return *ptr;
   }
 
  protected:
   Tensor() {}
-
-  int64_t CalculateValueOffset(const std::vector<int64_t>& index) const {
-    int64_t offset = 0;
-    for (size_t i = 0; i < index.size(); ++i) {
-      offset += index[i] * strides_[i];
-    }
-    return offset;
-  }
 
   std::shared_ptr<DataType> type_;
   std::shared_ptr<Buffer> data_;

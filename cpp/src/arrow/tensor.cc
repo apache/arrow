@@ -72,6 +72,77 @@ static void ComputeColumnMajorStrides(const FixedWidthType& type,
   }
 }
 
+namespace {
+
+inline Status CheckTensorValidity(const std::shared_ptr<DataType>& type,
+                                  const std::shared_ptr<Buffer>& data,
+                                  const std::vector<int64_t>& shape) {
+  if (!type) {
+    return Status::Invalid("Null type is supplied");
+  }
+  if (!is_tensor_supported(type->id())) {
+    return Status::Invalid(type->ToString(), " is not valid data type for a tensor");
+  }
+  if (!data) {
+    return Status::Invalid("Null data is supplied");
+  }
+  if (shape.size() == 0) {
+    return Status::Invalid("Empty shape is supplied");
+  }
+  return Status::OK();
+}
+
+Status CheckTensorStridesValidity(const std::shared_ptr<Buffer>& data,
+                                  const std::vector<int64_t>& shape,
+                                  const std::vector<int64_t>& strides) {
+  if (strides.size() != shape.size()) {
+    return Status::Invalid("strides must have the same length as shape");
+  }
+
+  std::vector<int64_t> last_index(shape);
+  const int64_t n = static_cast<int64_t>(shape.size());
+  for (int64_t i = 0; i < n; ++i) {
+    --last_index[i];
+  }
+  int64_t last_offset = Tensor::CalculateValueOffset(strides, last_index);
+  if (last_offset >= data->size()) {
+    return Status::Invalid("strides must not involve buffer over run");
+  }
+  return Status::OK();
+}
+
+}  // namespace
+
+Status Tensor::Make(const std::shared_ptr<DataType>& type,
+                    const std::shared_ptr<Buffer>& data,
+                    const std::vector<int64_t>& shape,
+                    const std::vector<int64_t>& strides,
+                    const std::vector<std::string>& dim_names,
+                    std::shared_ptr<Tensor>* out) {
+  RETURN_NOT_OK(CheckTensorValidity(type, data, shape));
+  if (!strides.empty()) {
+    RETURN_NOT_OK(CheckTensorStridesValidity(data, shape, strides));
+  }
+  if (dim_names.size() > shape.size()) {
+    return Status::Invalid("too many dim_names are supplied");
+  }
+  *out = std::make_shared<Tensor>(type, data, shape, strides, dim_names);
+  return Status::OK();
+}
+
+Status Tensor::Make(const std::shared_ptr<DataType>& type,
+                    const std::shared_ptr<Buffer>& data,
+                    const std::vector<int64_t>& shape,
+                    const std::vector<int64_t>& strides, std::shared_ptr<Tensor>* out) {
+  return Make(type, data, shape, strides, {}, out);
+}
+
+Status Tensor::Make(const std::shared_ptr<DataType>& type,
+                    const std::shared_ptr<Buffer>& data,
+                    const std::vector<int64_t>& shape, std::shared_ptr<Tensor>* out) {
+  return Make(type, data, shape, {}, {}, out);
+}
+
 /// Constructor with strides and dimension names
 Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
                const std::vector<int64_t>& shape, const std::vector<int64_t>& strides,
