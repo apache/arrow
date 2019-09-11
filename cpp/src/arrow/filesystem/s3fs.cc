@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <condition_variable>
 #include <mutex>
 #include <sstream>
 #include <utility>
@@ -386,9 +387,13 @@ static constexpr int64_t kMinimumPartUpload = 5 * 1024 * 1024;
 
 // An OutputStream that writes to a S3 object
 class ObjectOutputStream : public io::OutputStream {
+ protected:
+  struct UploadState;
+
  public:
-  ObjectOutputStream(Aws::S3::S3Client* client, const S3Path& path)
-      : client_(client), path_(path) {}
+  ObjectOutputStream(Aws::S3::S3Client* client, const S3Path& path,
+                     const S3Options& options)
+      : client_(client), path_(path), options_(options) {}
 
   ~ObjectOutputStream() override {
     // For compliance with the rest of the IO stack, Close rather than Abort,
@@ -410,6 +415,7 @@ class ObjectOutputStream : public io::OutputStream {
           outcome.GetError());
     }
     upload_id_ = outcome.GetResult().GetUploadId();
+    upload_state_ = std::make_shared<UploadState>();
     closed_ = false;
     return Status::OK();
   }
@@ -449,16 +455,25 @@ class ObjectOutputStream : public io::OutputStream {
     }
 
     // S3 mandates at least one part, upload an empty one if necessary
-    if (completed_upload_.GetParts().empty()) {
+    if (part_number_ == 1) {
       RETURN_NOT_OK(UploadPart("", 0));
     }
-    DCHECK(completed_upload_.PartsHasBeenSet());
 
+    // Wait for in-progress uploads to finish (if async writes are enabled)
+    RETURN_NOT_OK(Flush());
+
+    // At this point, all part uploads have finished successfully
+    DCHECK_GT(part_number_, 1);
+    DCHECK_EQ(upload_state_->completed_parts.size(),
+              static_cast<size_t>(part_number_ - 1));
+
+    S3Model::CompletedMultipartUpload completed_upload;
+    completed_upload.SetParts(upload_state_->completed_parts);
     S3Model::CompleteMultipartUploadRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
     req.SetUploadId(upload_id_);
-    req.SetMultipartUpload(completed_upload_);
+    req.SetMultipartUpload(std::move(completed_upload));
 
     auto outcome = client_->CompleteMultipartUpload(req);
     if (!outcome.IsSuccess()) {
@@ -530,54 +545,130 @@ class ObjectOutputStream : public io::OutputStream {
     if (closed_) {
       return Status::Invalid("Operation on closed stream");
     }
-    return Status::OK();
+    // Wait for background writes to finish
+    std::unique_lock<std::mutex> lock(upload_state_->mutex);
+    upload_state_->cv.wait(lock,
+                           [this]() { return upload_state_->parts_in_progress == 0; });
+    return upload_state_->status;
   }
+
+  // Upload-related helpers
 
   Status CommitCurrentPart() {
     std::shared_ptr<Buffer> buf;
     RETURN_NOT_OK(current_part_->Finish(&buf));
     current_part_.reset();
     current_part_size_ = 0;
-    return UploadPart(buf->data(), buf->size());
+    return UploadPart(std::move(buf));
   }
 
-  Status UploadPart(const void* data, int64_t nbytes) {
+  Status UploadPart(std::shared_ptr<Buffer> buffer) {
+    return UploadPart(buffer->data(), buffer->size(), buffer);
+  }
+
+  Status UploadPart(const void* data, int64_t nbytes,
+                    std::shared_ptr<Buffer> owned_buffer = nullptr) {
     S3Model::UploadPartRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
     req.SetUploadId(upload_id_);
     req.SetPartNumber(part_number_);
     req.SetContentLength(nbytes);
-    req.SetBody(std::make_shared<StringViewStream>(data, nbytes));
 
-    auto outcome = client_->UploadPart(req);
-    if (!outcome.IsSuccess()) {
-      return ErrorToStatus(
-          std::forward_as_tuple("When uploading part for key '", path_.key,
-                                "' in bucket '", path_.bucket, "': "),
-          outcome.GetError());
+    if (!options_.background_writes) {
+      req.SetBody(std::make_shared<StringViewStream>(data, nbytes));
+      auto outcome = client_->UploadPart(req);
+      if (!outcome.IsSuccess()) {
+        return UploadPartError(req, outcome);
+      } else {
+        AddCompletedPart(upload_state_, part_number_, outcome.GetResult());
+      }
+    } else {
+      std::unique_lock<std::mutex> lock(upload_state_->mutex);
+      auto state = upload_state_;  // Keep upload state alive in closure
+      auto part_number = part_number_;
+
+      // If the data isn't owned, make an immutable copy for the lifetime of the closure
+      if (owned_buffer == nullptr) {
+        RETURN_NOT_OK(AllocateBuffer(nbytes, &owned_buffer));
+        memcpy(owned_buffer->mutable_data(), data, nbytes);
+      } else {
+        DCHECK_EQ(data, owned_buffer->data());
+        DCHECK_EQ(nbytes, owned_buffer->size());
+      }
+      req.SetBody(
+          std::make_shared<StringViewStream>(owned_buffer->data(), owned_buffer->size()));
+
+      auto handler =
+          [state, owned_buffer, part_number](
+              const Aws::S3::S3Client*, const S3Model::UploadPartRequest& req,
+              const S3Model::UploadPartOutcome& outcome,
+              const std::shared_ptr<const Aws::Client::AsyncCallerContext>&) -> void {
+        std::unique_lock<std::mutex> lock(state->mutex);
+        if (!outcome.IsSuccess()) {
+          state->status &= UploadPartError(req, outcome);
+        } else {
+          AddCompletedPart(state, part_number, outcome.GetResult());
+        }
+        // Notify completion, regardless of success / error status
+        if (--state->parts_in_progress == 0) {
+          state->cv.notify_all();
+        }
+      };
+      ++upload_state_->parts_in_progress;
+      client_->UploadPartAsync(req, handler);
     }
-    // Append ETag and part number for this uploaded part
-    // (will be needed for upload completion in Close())
-    S3Model::CompletedPart part;
-    part.SetPartNumber(part_number_);
-    part.SetETag(outcome.GetResult().GetETag());
-    completed_upload_.AddParts(std::move(part));
     ++part_number_;
     return Status::OK();
+  }
+
+  static void AddCompletedPart(const std::shared_ptr<UploadState>& state, int part_number,
+                               const S3Model::UploadPartResult& result) {
+    S3Model::CompletedPart part;
+    // Append ETag and part number for this uploaded part
+    // (will be needed for upload completion in Close())
+    part.SetPartNumber(part_number);
+    part.SetETag(result.GetETag());
+    int slot = part_number - 1;
+    if (state->completed_parts.size() <= static_cast<size_t>(slot)) {
+      state->completed_parts.resize(slot + 1);
+    }
+    DCHECK(!state->completed_parts[slot].PartNumberHasBeenSet());
+    state->completed_parts[slot] = std::move(part);
+  }
+
+  static Status UploadPartError(const S3Model::UploadPartRequest& req,
+                                const S3Model::UploadPartOutcome& outcome) {
+    return ErrorToStatus(
+        std::forward_as_tuple("When uploading part for key '", req.GetKey(),
+                              "' in bucket '", req.GetBucket(), "': "),
+        outcome.GetError());
   }
 
  protected:
   Aws::S3::S3Client* client_;
   S3Path path_;
+  const S3Options& options_;
   Aws::String upload_id_;
-  S3Model::CompletedMultipartUpload completed_upload_;
   bool closed_ = true;
   int64_t pos_ = 0;
   int32_t part_number_ = 1;
   std::shared_ptr<io::BufferOutputStream> current_part_;
   int64_t current_part_size_ = 0;
   int64_t part_upload_threshold_ = kMinimumPartUpload;
+
+  // This struct is kept alive through background writes to avoid problems
+  // in the completion handler.
+  struct UploadState {
+    std::mutex mutex;
+    std::condition_variable cv;
+    Aws::Vector<S3Model::CompletedPart> completed_parts;
+    int64_t parts_in_progress = 0;
+    Status status;
+
+    UploadState() : status(Status::OK()) {}
+  };
+  std::shared_ptr<UploadState> upload_state_;
 };
 
 // This function assumes st->path() is already set
@@ -1246,7 +1337,8 @@ Status S3FileSystem::OpenOutputStream(const std::string& s,
   RETURN_NOT_OK(S3Path::FromString(s, &path));
   RETURN_NOT_OK(ValidateFilePath(path));
 
-  auto ptr = std::make_shared<ObjectOutputStream>(impl_->client_.get(), path);
+  auto ptr =
+      std::make_shared<ObjectOutputStream>(impl_->client_.get(), path, impl_->options_);
   RETURN_NOT_OK(ptr->Init());
   *out = std::move(ptr);
   return Status::OK();

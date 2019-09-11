@@ -216,7 +216,8 @@ void AssertGetObject(Aws::S3::Model::GetObjectResult& result,
   stream.read(&actual[0], length + 1);
   ASSERT_EQ(stream.gcount(), length);  // EOF was reached before length + 1
   actual.resize(length);
-  ASSERT_EQ(actual, expected);
+  ASSERT_EQ(actual.size(), expected.size());
+  ASSERT_TRUE(actual == expected);  // Avoid ASSERT_EQ on large data
 }
 
 void AssertObjectContents(Aws::S3::S3Client* client, const std::string& bucket,
@@ -252,11 +253,7 @@ class TestS3FS : public S3TestMixin {
  public:
   void SetUp() override {
     S3TestMixin::SetUp();
-    options_.access_key = minio_.access_key();
-    options_.secret_key = minio_.secret_key();
-    options_.scheme = "http";
-    options_.endpoint_override = minio_.connect_string();
-    ASSERT_OK(S3FileSystem::Make(options_, &fs_));
+    MakeFileSystem();
 
     // Set up test bucket
     {
@@ -280,6 +277,89 @@ class TestS3FS : public S3TestMixin {
       req.SetBody(std::make_shared<std::stringstream>("some data"));
       ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
     }
+  }
+
+  void MakeFileSystem() {
+    options_.access_key = minio_.access_key();
+    options_.secret_key = minio_.secret_key();
+    options_.scheme = "http";
+    options_.endpoint_override = minio_.connect_string();
+    ASSERT_OK(S3FileSystem::Make(options_, &fs_));
+  }
+
+  void TestOpenOutputStream() {
+    std::shared_ptr<io::OutputStream> stream;
+
+    // Non-existent
+    ASSERT_RAISES(IOError,
+                  fs_->OpenOutputStream("non-existent-bucket/somefile", &stream));
+
+    // Create new empty file
+    ASSERT_OK(fs_->OpenOutputStream("bucket/newfile1", &stream));
+    ASSERT_OK(stream->Close());
+    AssertObjectContents(client_.get(), "bucket", "newfile1", "");
+
+    // Create new file with 1 small write
+    ASSERT_OK(fs_->OpenOutputStream("bucket/newfile2", &stream));
+    ASSERT_OK(stream->Write("some data"));
+    ASSERT_OK(stream->Close());
+    AssertObjectContents(client_.get(), "bucket", "newfile2", "some data");
+
+    // Create new file with 3 small writes
+    ASSERT_OK(fs_->OpenOutputStream("bucket/newfile3", &stream));
+    ASSERT_OK(stream->Write("some "));
+    ASSERT_OK(stream->Write(""));
+    ASSERT_OK(stream->Write("new data"));
+    ASSERT_OK(stream->Close());
+    AssertObjectContents(client_.get(), "bucket", "newfile3", "some new data");
+
+    // Create new file with some large writes
+    std::string s1, s2, s3, s4, s5, expected;
+    s1 = random_string(6000000, /*seed =*/42);  // More than the 5 MB minimum part upload
+    s2 = "xxx";
+    s3 = random_string(6000000, 43);
+    s4 = "zzz";
+    s5 = random_string(600000, 44);
+    expected = s1 + s2 + s3 + s4 + s5;
+    ASSERT_OK(fs_->OpenOutputStream("bucket/newfile4", &stream));
+    for (auto input : {s1, s2, s3, s4, s5}) {
+      ASSERT_OK(stream->Write(input));
+      // Clobber source contents.  This shouldn't reflect in the data written.
+      input.front() = 'x';
+      input.back() = 'x';
+    }
+    ASSERT_OK(stream->Close());
+    AssertObjectContents(client_.get(), "bucket", "newfile4", expected);
+
+    // Overwrite
+    ASSERT_OK(fs_->OpenOutputStream("bucket/newfile1", &stream));
+    ASSERT_OK(stream->Write("overwritten data"));
+    ASSERT_OK(stream->Close());
+    AssertObjectContents(client_.get(), "bucket", "newfile1", "overwritten data");
+
+    // Overwrite and make empty
+    ASSERT_OK(fs_->OpenOutputStream("bucket/newfile1", &stream));
+    ASSERT_OK(stream->Close());
+    AssertObjectContents(client_.get(), "bucket", "newfile1", "");
+  }
+
+  void TestOpenOutputStreamAbort() {
+    std::shared_ptr<io::OutputStream> stream;
+    ASSERT_OK(fs_->OpenOutputStream("bucket/somefile", &stream));
+    ASSERT_OK(stream->Write("new data"));
+    // Abort() cancels the multipart upload.
+    ASSERT_OK(stream->Abort());
+    ASSERT_EQ(stream->closed(), true);
+    AssertObjectContents(client_.get(), "bucket", "somefile", "some data");
+  }
+
+  void TestOpenOutputStreamDestructor() {
+    std::shared_ptr<io::OutputStream> stream;
+    ASSERT_OK(fs_->OpenOutputStream("bucket/somefile", &stream));
+    ASSERT_OK(stream->Write("new data"));
+    // Destructor implicitly closes stream and completes the multipart upload.
+    stream.reset();
+    AssertObjectContents(client_.get(), "bucket", "somefile", "new data");
   }
 
  protected:
@@ -626,76 +706,30 @@ TEST_F(TestS3FS, OpenInputFile) {
   ASSERT_RAISES(IOError, file->Seek(10));
 }
 
-TEST_F(TestS3FS, OpenOutputStream) {
-  std::shared_ptr<io::OutputStream> stream;
+TEST_F(TestS3FS, OpenOutputStreamBackgroundWrites) { TestOpenOutputStream(); }
 
-  // Non-existent
-  ASSERT_RAISES(IOError, fs_->OpenOutputStream("non-existent-bucket/somefile", &stream));
-
-  // Create new empty file
-  ASSERT_OK(fs_->OpenOutputStream("bucket/newfile1", &stream));
-  ASSERT_OK(stream->Close());
-  AssertObjectContents(client_.get(), "bucket", "newfile1", "");
-
-  // Create new file with 1 small write
-  ASSERT_OK(fs_->OpenOutputStream("bucket/newfile2", &stream));
-  ASSERT_OK(stream->Write("some data"));
-  ASSERT_OK(stream->Close());
-  AssertObjectContents(client_.get(), "bucket", "newfile2", "some data");
-
-  // Create new file with 3 small writes
-  ASSERT_OK(fs_->OpenOutputStream("bucket/newfile3", &stream));
-  ASSERT_OK(stream->Write("some "));
-  ASSERT_OK(stream->Write(""));
-  ASSERT_OK(stream->Write("new data"));
-  ASSERT_OK(stream->Close());
-  AssertObjectContents(client_.get(), "bucket", "newfile3", "some new data");
-
-  // Create new file with some large writes
-  std::string s1, s2, s3, s4, s5;
-  s1 = random_string(6000000, /*seed =*/42);  // More than the 5 MB minimum part upload
-  s2 = "xxx";
-  s3 = random_string(6000000, 43);
-  s4 = "zzz";
-  s5 = random_string(600000, 44);
-  ASSERT_OK(fs_->OpenOutputStream("bucket/newfile4", &stream));
-  ASSERT_OK(stream->Write(s1));
-  ASSERT_OK(stream->Write(s2));
-  ASSERT_OK(stream->Write(s3));
-  ASSERT_OK(stream->Write(s4));
-  ASSERT_OK(stream->Write(s5));
-  ASSERT_OK(stream->Close());
-  AssertObjectContents(client_.get(), "bucket", "newfile4", s1 + s2 + s3 + s4 + s5);
-
-  // Overwrite
-  ASSERT_OK(fs_->OpenOutputStream("bucket/newfile1", &stream));
-  ASSERT_OK(stream->Write("overwritten data"));
-  ASSERT_OK(stream->Close());
-  AssertObjectContents(client_.get(), "bucket", "newfile1", "overwritten data");
-
-  // Overwrite and make empty
-  ASSERT_OK(fs_->OpenOutputStream("bucket/newfile1", &stream));
-  ASSERT_OK(stream->Close());
-  AssertObjectContents(client_.get(), "bucket", "newfile1", "");
+TEST_F(TestS3FS, OpenOutputStreamSyncWrites) {
+  options_.background_writes = false;
+  MakeFileSystem();
+  TestOpenOutputStream();
 }
 
-TEST_F(TestS3FS, OpenOutputStreamAbort) {
-  std::shared_ptr<io::OutputStream> stream;
-  ASSERT_OK(fs_->OpenOutputStream("bucket/somefile", &stream));
-  ASSERT_OK(stream->Write("new data"));
-  // Abort() cancels the multipart upload.
-  ASSERT_OK(stream->Abort());
-  ASSERT_EQ(stream->closed(), true);
-  AssertObjectContents(client_.get(), "bucket", "somefile", "some data");
+TEST_F(TestS3FS, OpenOutputStreamAbortBackgroundWrites) { TestOpenOutputStreamAbort(); }
+
+TEST_F(TestS3FS, OpenOutputStreamAbortSyncWrites) {
+  options_.background_writes = false;
+  MakeFileSystem();
+  TestOpenOutputStreamAbort();
 }
 
-TEST_F(TestS3FS, OpenOutputStreamDestructor) {
-  std::shared_ptr<io::OutputStream> stream;
-  ASSERT_OK(fs_->OpenOutputStream("bucket/somefile", &stream));
-  ASSERT_OK(stream->Write("new data"));
-  // Destructor implicitly closes stream and completes the multipart upload.
-  stream.reset();
-  AssertObjectContents(client_.get(), "bucket", "somefile", "new data");
+TEST_F(TestS3FS, OpenOutputStreamDestructorBackgroundWrites) {
+  TestOpenOutputStreamDestructor();
+}
+
+TEST_F(TestS3FS, OpenOutputStreamDestructorSyncWrite) {
+  options_.background_writes = false;
+  MakeFileSystem();
+  TestOpenOutputStreamDestructor();
 }
 
 ////////////////////////////////////////////////////////////////////////////
