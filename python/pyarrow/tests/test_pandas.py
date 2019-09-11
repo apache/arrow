@@ -3194,4 +3194,5 @@ def test_metadata_compat_missing_field_name():
 
         )})
     result = table.to_pandas()
-    tm.assert_frame_equal(result, expected)
+    # on python 3.5 the column order can differ -> adding check_like=True
+    tm.assert_frame_equal(result, expected, check_like=True)
