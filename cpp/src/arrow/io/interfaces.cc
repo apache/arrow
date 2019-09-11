@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <sstream>
 #include <typeinfo>
 #include <utility>
 
@@ -145,8 +146,18 @@ std::shared_ptr<InputStream> RandomAccessFile::GetStream(
 namespace internal {
 
 void CloseFromDestructor(FileInterface* file) {
-  ARROW_CHECK_OK_PREPEND(
-      file->Close(), std::string("When destroying file of type ") + typeid(*file).name());
+  Status st = file->Close();
+  if (!st.ok()) {
+    auto file_type = typeid(*file).name();
+#ifdef NDEBUG
+    ARROW_LOG(ERROR) << "Error ignored when destroying file of type " << file_type << ": "
+                     << st;
+#else
+    std::stringstream ss;
+    ss << "When destroying file of type " << file_type << ": " << st.message();
+    ARROW_LOG(FATAL) << st.WithMessage(ss.str());
+#endif
+  }
 }
 
 }  // namespace internal
