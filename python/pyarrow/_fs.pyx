@@ -135,10 +135,11 @@ cdef class Selector:
 
     Parameters
     ----------
-    base_dir : str or pathlib.Path
-        The directory in which to select files.
-        If the path exists but doesn't point to a directory, this should be an
-        error.
+    base_dir : str or pathlib.Path, default ''
+        The directory in which to select files. Passing an empty string refers
+        to the root directory of the FileSystem:
+        - the root directory of the LocalFileSystem
+        - the base path of the SubTreeFileSystem
     allow_non_existent : bool, default False
         The behavior if `base_dir` doesn't exist in the filesystem.
         If false, an error is returned.
@@ -187,7 +188,9 @@ cdef class FileSystem:
         CFileSystem* fs
 
     def __init__(self):
-        raise TypeError('dont initialize me')
+        raise TypeError("FileSystem is an abstract class, initialize one of "
+                        "the subclasses instead: LocalFileSystem or "
+                        "SubTreeFileSystem")
 
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):
         self.wrapped = wrapped

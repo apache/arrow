@@ -24,7 +24,8 @@ except ImportError:
 import pytest
 
 from pyarrow import ArrowIOError
-from pyarrow.fs import FileType, LocalFileSystem, SubTreeFileSystem, Selector
+from pyarrow.fs import (FileType, Selector, FileSystem, LocalFileSystem,
+                        SubTreeFileSystem)
 from pyarrow.tests.test_io import gzip_compress, gzip_decompress
 
 
@@ -55,6 +56,11 @@ def testpath(request, fs, tempdir):
         return lambda path: request.param(path)
     else:
         return lambda path: request.param(tempdir / path)
+
+
+def test_cannot_instantiate_base_filesystem():
+    with pytest.raises(TypeError):
+        FileSystem()
 
 
 def test_non_path_like_input_raises(fs):
@@ -107,7 +113,10 @@ def test_get_target_stats(fs, tempdir, testpath):
     assert c_stat.size == 4
     assert mtime_almost_equal(c_stat.mtime, c_.stat().st_mtime)
 
-    selector = Selector(testpath(''), allow_non_existent=False, recursive=True)
+    base_dir = testpath('')
+    selector = Selector(base_dir, allow_non_existent=False, recursive=True)
+    assert selector.base_dir == str(base_dir)
+
     nodes = fs.get_target_stats(selector)
     assert len(nodes) == 5
     assert len(list(n for n in nodes if n.type == FileType.File)) == 2
