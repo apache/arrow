@@ -67,8 +67,8 @@ RUN printf "MAKEFLAGS=-j8\n" >> /usr/lib/R/etc/Makeconf
 
 RUN Rscript -e "install.packages(c('remotes', 'dplyr', 'glue'))"
 # Find the package description, whether or not this Dockerfile is run from
-# the current dir or from the parent dir
-RUN Rscript -e "print(getwd()); path <- ifelse('DESCRIPTION' %in% dir(), '.', './r'); remotes::install_deps(path, dependencies = TRUE)"
+# the current dir or from the dir that crossbow has it in
+RUN Rscript -e "path <- ifelse('DESCRIPTION' %in% dir(), '.', '~/project/arrow/r'); remotes::install_deps(path, dependencies = TRUE)"
 RUN Rscript -e "remotes::install_github('romainfrancois/decor')"
 
 # ARROW-6171: Because lz4 is installed in the base Ubuntu image, there's an
