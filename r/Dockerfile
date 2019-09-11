@@ -75,4 +75,4 @@ ENV R_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
 
 # build, install, test R package
 CMD ["/bin/bash", "-c", "/arrow/ci/docker_build_cpp.sh && \
-    && /arrow/ci/docker_install_r_deps.sh && /arrow/ci/docker_build_r.sh"]
+    /arrow/ci/docker_install_r_deps.sh && /arrow/ci/docker_build_r.sh"]
