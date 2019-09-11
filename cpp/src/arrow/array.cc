@@ -109,6 +109,12 @@ int64_t ArrayData::GetNullCount() const {
 
 int64_t Array::null_count() const { return data_->GetNullCount(); }
 
+std::string Array::Diff(const Array& other) const {
+  std::stringstream diff;
+  ARROW_IGNORE_EXPR(Equals(other, EqualOptions().diff_sink(&diff)));
+  return diff.str();
+}
+
 bool Array::Equals(const Array& arr, const EqualOptions& opts) const {
   return ArrayEquals(*this, arr, opts);
 }

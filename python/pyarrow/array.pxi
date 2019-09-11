@@ -481,6 +481,16 @@ cdef class Array(_PandasConvertible):
         with nogil:
             check_status(DebugPrint(deref(self.ap), 0))
 
+    def diff(self, Array other):
+        """
+        Return string containing the result of arrow::Diff comparing contents
+        of this array against the other array
+        """
+        cdef c_string result
+        with nogil:
+            result = self.ap.Diff(deref(other.ap))
+        return frombytes(result)
+
     def cast(self, object target_type, bint safe=True):
         """
         Cast array values to another data type.
