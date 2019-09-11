@@ -71,6 +71,10 @@ std::string FileStats::base_name() const {
   return internal::GetAbstractPathParent(path_).second;
 }
 
+std::string FileStats::dir_name() const {
+  return internal::GetAbstractPathParent(path_).first;
+}
+
 // Debug helper
 std::ostream& operator<<(std::ostream& os, const FileStats& stats) {
   return os << "FileStats(" << stats.type() << ", " << stats.path() << ")";

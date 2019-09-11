@@ -97,6 +97,9 @@ struct ARROW_EXPORT FileStats {
   /// The file base name (component after the last directory separator)
   std::string base_name() const;
 
+  // The directory base name (component before the file base name).
+  std::string dir_name() const;
+
   /// The size in bytes, if available
   ///
   /// Only regular files are guaranteed to have a size.
@@ -109,6 +112,9 @@ struct ARROW_EXPORT FileStats {
   /// The time of last modification, if available
   TimePoint mtime() const { return mtime_; }
   void set_mtime(TimePoint mtime) { mtime_ = mtime; }
+
+  bool IsFile() const { return type_ == FileType::File; }
+  bool IsDirectory() const { return type_ == FileType::Directory; }
 
   bool operator==(const FileStats& other) const {
     return type() == other.type() && path() == other.path() && size() == other.size() &&

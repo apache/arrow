@@ -649,20 +649,6 @@ void GenericFileSystemTest::TestGetTargetStatsSelector(FileSystem* fs) {
   ASSERT_RAISES(IOError, fs->GetTargetStats(s, &stats));
 }
 
-FileStats File(std::string path) {
-  FileStats st;
-  st.set_type(FileType::File);
-  st.set_path(path);
-  return st;
-}
-
-FileStats Dir(std::string path) {
-  FileStats st;
-  st.set_type(FileType::Directory);
-  st.set_path(path);
-  return st;
-}
-
 void GetSortedStats(FileSystem* fs, Selector s, std::vector<FileStats>& stats) {
   ASSERT_OK(fs->GetTargetStats(s, &stats));
   // Clear mtime & size for easier testing.
