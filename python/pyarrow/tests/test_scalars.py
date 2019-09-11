@@ -257,6 +257,23 @@ class TestScalars(unittest.TestCase):
             assert arrow_arr[0].as_py() == expected
             assert arrow_arr[0].value * 1000**i == expected.value
 
+    @pytest.mark.nopandas
+    def test_timestamp_nanos_nopandas(self):
+        # ARROW-5450
+        tz = 'America/New_York'
+        ty = pa.timestamp('ns', tz=tz)
+        arr = pa.array([
+            946684800000000000,  # 2000-01-01 00:00:00
+        ], type=ty)
+
+        expected = datetime.datetime(1999, 12, 31, 19, 0, 0)
+        assert arr[0].as_py() == expected
+
+        # Non-zero nanos yields ValueError
+        arr = pa.array([946684800000000001], type=ty)
+        with pytest.raises(ValueError):
+            arr[0].as_py()
+
     @pytest.mark.pandas
     def test_dictionary(self):
         import pandas as pd

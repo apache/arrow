@@ -2855,8 +2855,8 @@ def test_cast_timestamp_unit():
 
     arr2 = pa.Array.from_pandas(s, type=pa.timestamp('us'))
 
-    assert arr[0].as_py() == s_nyc[0]
-    assert arr2[0].as_py() == s[0]
+    assert arr[0].as_py() == s_nyc[0].to_pydatetime()
+    assert arr2[0].as_py() == s[0].to_pydatetime()
 
     # Disallow truncation
     arr = pa.array([123123], type='int64').cast(pa.timestamp('ms'))

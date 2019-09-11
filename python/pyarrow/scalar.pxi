@@ -297,42 +297,69 @@ cdef dict _DATETIME_CONVERSION_FUNCTIONS = {}
 cdef c_bool _datetime_conversion_initialized = False
 
 
+cdef _add_micros_maybe_localize(dt, micros, tzinfo):
+    import pytz
+    if tzinfo is not None:
+        if not isinstance(tzinfo, datetime.tzinfo):
+            tzinfo = string_to_tzinfo(tzinfo)
+        dt = dt.replace(microsecond=micros, tzinfo=tzinfo)
+        return tzinfo.fromutc(dt)
+    else:
+        return dt.replace(microsecond=micros)
+
+
+def _nanoseconds_to_datetime_safe(v, tzinfo):
+    if v % 1000 != 0:
+        raise ValueError("Nanosecond timestamp {} is not safely convertible "
+                         " to microseconds to convert to datetime.datetime."
+                         " Install pandas to return as Timestamp with "
+                         " nanosecond support.")
+    v = v // 1000
+    micros = v % 1_000_000
+
+    dt = datetime.datetime.utcfromtimestamp(v // 1_000_000)
+    return _add_micros_maybe_localize(dt, micros, tzinfo)
+
+
+def _microseconds_to_datetime(v, tzinfo):
+    micros = v % 1_000_000
+    dt = datetime.datetime.utcfromtimestamp(v // 1_000_000)
+    return _add_micros_maybe_localize(dt, micros, tzinfo)
+
+
+def _millis_to_datetime(v, tzinfo):
+    millis = v % 1_000
+    dt = datetime.datetime.utcfromtimestamp(v // 1000)
+    return _add_micros_maybe_localize(dt, millis * 1000, tzinfo)
+
+
+def _seconds_to_datetime(v, tzinfo):
+    dt = datetime.datetime.utcfromtimestamp(v)
+    return _add_micros_maybe_localize(dt, 0, tzinfo)
+
+
 def _datetime_conversion_functions():
     global _datetime_conversion_initialized
     if _datetime_conversion_initialized:
         return _DATETIME_CONVERSION_FUNCTIONS
 
+    _DATETIME_CONVERSION_FUNCTIONS.update({
+        TimeUnit_SECOND: _seconds_to_datetime,
+        TimeUnit_MILLI: _millis_to_datetime,
+        TimeUnit_MICRO: _microseconds_to_datetime,
+        TimeUnit_NANO: _nanoseconds_to_datetime_safe
+    })
+
     try:
         import pandas as pd
-    except ImportError:
-        _DATETIME_CONVERSION_FUNCTIONS.update({
-            TimeUnit_SECOND: lambda x, tzinfo: (
-                datetime.datetime.utcfromtimestamp(x).replace(tzinfo=tzinfo)
-            ),
-            TimeUnit_MILLI: lambda x, tzinfo: (
-                (datetime.datetime.utcfromtimestamp(x / 1e3)
-                 .replace(tzinfo=tzinfo))
-            ),
-            TimeUnit_MICRO: lambda x, tzinfo: (
-                (datetime.datetime.utcfromtimestamp(x / 1e6)
-                 .replace(tzinfo=tzinfo))
-            ),
-        })
-    else:
-        _DATETIME_CONVERSION_FUNCTIONS.update({
-            TimeUnit_SECOND: lambda x, tzinfo: pd.Timestamp(
-                x * 1000000000, tz=tzinfo, unit='ns',
-            ),
-            TimeUnit_MILLI: lambda x, tzinfo: pd.Timestamp(
-                x * 1000000, tz=tzinfo, unit='ns',
-            ),
-            TimeUnit_MICRO: lambda x, tzinfo: pd.Timestamp(
-                x * 1000, tz=tzinfo, unit='ns',
-            ),
-            TimeUnit_NANO: lambda x, tzinfo: pd.Timestamp(
+        _DATETIME_CONVERSION_FUNCTIONS[TimeUnit_NANO] = (
+            lambda x, tzinfo: pd.Timestamp(
                 x, tz=tzinfo, unit='ns',
             )
-        })
+        )
+    except ImportError:
+        pass
+
     _datetime_conversion_initialized = True
     return _DATETIME_CONVERSION_FUNCTIONS
 
