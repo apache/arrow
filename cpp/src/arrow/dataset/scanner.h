@@ -64,7 +64,7 @@ class ARROW_DS_EXPORT ScanTask {
   /// \brief Iterate through sequence of materialized record batches
   /// resulting from the Scan. Execution semantics encapsulated in the
   /// particular ScanTask implementation
-  virtual std::unique_ptr<RecordBatchIterator> Scan() = 0;
+  virtual RecordBatchIterator Scan() = 0;
 
   virtual ~ScanTask() = default;
 };
@@ -75,7 +75,7 @@ class ARROW_DS_EXPORT SimpleScanTask : public ScanTask {
   explicit SimpleScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches)
       : record_batches_(std::move(record_batches)) {}
 
-  std::unique_ptr<RecordBatchIterator> Scan() override;
+  RecordBatchIterator Scan() override;
 
  protected:
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
@@ -95,7 +95,7 @@ class ARROW_DS_EXPORT Scanner {
   /// \brief The Scan operator returns a stream of ScanTask. The caller is
   /// responsible to dispatch/schedule said tasks. Tasks should be safe to run
   /// in a concurrent fashion and outlive the iterator.
-  virtual std::unique_ptr<ScanTaskIterator> Scan() = 0;
+  virtual ScanTaskIterator Scan() = 0;
 
   virtual ~Scanner() = default;
 };
@@ -122,7 +122,7 @@ class ARROW_DS_EXPORT SimpleScanner : public Scanner {
         options_(std::move(options)),
         context_(std::move(context)) {}
 
-  std::unique_ptr<ScanTaskIterator> Scan() override;
+  ScanTaskIterator Scan() override;
 
  private:
   std::vector<std::shared_ptr<DataSource>> sources_;

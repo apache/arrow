@@ -555,98 +555,71 @@ Status Table::CombineChunks(MemoryPool* pool, std::shared_ptr<Table>* out) const
 // ----------------------------------------------------------------------
 // Convert a table to a sequence of record batches
 
-class TableBatchReader::TableBatchReaderImpl {
- public:
-  explicit TableBatchReaderImpl(const Table& table)
-      : table_(table),
-        column_data_(table.num_columns()),
-        chunk_numbers_(table.num_columns(), 0),
-        chunk_offsets_(table.num_columns(), 0),
-        absolute_row_position_(0),
-        max_chunksize_(std::numeric_limits<int64_t>::max()) {
-    for (int i = 0; i < table.num_columns(); ++i) {
-      column_data_[i] = table.column(i).get();
-    }
+TableBatchReader::TableBatchReader(const Table& table)
+    : table_(table),
+      column_data_(table.num_columns()),
+      chunk_numbers_(table.num_columns(), 0),
+      chunk_offsets_(table.num_columns(), 0),
+      absolute_row_position_(0),
+      max_chunksize_(std::numeric_limits<int64_t>::max()) {
+  for (int i = 0; i < table.num_columns(); ++i) {
+    column_data_[i] = table.column(i).get();
   }
+}
 
-  Status ReadNext(std::shared_ptr<RecordBatch>* out) {
-    if (absolute_row_position_ == table_.num_rows()) {
-      *out = nullptr;
-      return Status::OK();
-    }
+std::shared_ptr<Schema> TableBatchReader::schema() const { return table_.schema(); }
 
-    // Determine the minimum contiguous slice across all columns
-    int64_t chunksize = std::min(table_.num_rows(), max_chunksize_);
-    std::vector<const Array*> chunks(table_.num_columns());
-    for (int i = 0; i < table_.num_columns(); ++i) {
-      auto chunk = column_data_[i]->chunk(chunk_numbers_[i]).get();
-      int64_t chunk_remaining = chunk->length() - chunk_offsets_[i];
+void TableBatchReader::set_chunksize(int64_t chunksize) { max_chunksize_ = chunksize; }
 
-      if (chunk_remaining < chunksize) {
-        chunksize = chunk_remaining;
-      }
-
-      chunks[i] = chunk;
-    }
-
-    // Slice chunks and advance chunk index as appropriate
-    std::vector<std::shared_ptr<ArrayData>> batch_data(table_.num_columns());
-
-    for (int i = 0; i < table_.num_columns(); ++i) {
-      // Exhausted chunk
-      const Array* chunk = chunks[i];
-      const int64_t offset = chunk_offsets_[i];
-      std::shared_ptr<ArrayData> slice_data;
-      if ((chunk->length() - offset) == chunksize) {
-        ++chunk_numbers_[i];
-        chunk_offsets_[i] = 0;
-        if (offset > 0) {
-          // Need to slice
-          slice_data = chunk->Slice(offset, chunksize)->data();
-        } else {
-          // No slice
-          slice_data = chunk->data();
-        }
-      } else {
-        chunk_offsets_[i] += chunksize;
-        slice_data = chunk->Slice(offset, chunksize)->data();
-      }
-      batch_data[i] = std::move(slice_data);
-    }
-
-    absolute_row_position_ += chunksize;
-    *out = RecordBatch::Make(table_.schema(), chunksize, std::move(batch_data));
-
+Status TableBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
+  if (absolute_row_position_ == table_.num_rows()) {
+    *out = nullptr;
     return Status::OK();
   }
 
-  std::shared_ptr<Schema> schema() const { return table_.schema(); }
+  // Determine the minimum contiguous slice across all columns
+  int64_t chunksize = std::min(table_.num_rows(), max_chunksize_);
+  std::vector<const Array*> chunks(table_.num_columns());
+  for (int i = 0; i < table_.num_columns(); ++i) {
+    auto chunk = column_data_[i]->chunk(chunk_numbers_[i]).get();
+    int64_t chunk_remaining = chunk->length() - chunk_offsets_[i];
 
-  void set_chunksize(int64_t chunksize) { max_chunksize_ = chunksize; }
+    if (chunk_remaining < chunksize) {
+      chunksize = chunk_remaining;
+    }
 
- private:
-  const Table& table_;
-  std::vector<ChunkedArray*> column_data_;
-  std::vector<int> chunk_numbers_;
-  std::vector<int64_t> chunk_offsets_;
-  int64_t absolute_row_position_;
-  int64_t max_chunksize_;
-};
+    chunks[i] = chunk;
+  }
 
-TableBatchReader::TableBatchReader(const Table& table) {
-  impl_.reset(new TableBatchReaderImpl(table));
-}
+  // Slice chunks and advance chunk index as appropriate
+  std::vector<std::shared_ptr<ArrayData>> batch_data(table_.num_columns());
 
-TableBatchReader::~TableBatchReader() {}
+  for (int i = 0; i < table_.num_columns(); ++i) {
+    // Exhausted chunk
+    const Array* chunk = chunks[i];
+    const int64_t offset = chunk_offsets_[i];
+    std::shared_ptr<ArrayData> slice_data;
+    if ((chunk->length() - offset) == chunksize) {
+      ++chunk_numbers_[i];
+      chunk_offsets_[i] = 0;
+      if (offset > 0) {
+        // Need to slice
+        slice_data = chunk->Slice(offset, chunksize)->data();
+      } else {
+        // No slice
+        slice_data = chunk->data();
+      }
+    } else {
+      chunk_offsets_[i] += chunksize;
+      slice_data = chunk->Slice(offset, chunksize)->data();
+    }
+    batch_data[i] = std::move(slice_data);
+  }
 
-std::shared_ptr<Schema> TableBatchReader::schema() const { return impl_->schema(); }
+  absolute_row_position_ += chunksize;
+  *out = RecordBatch::Make(table_.schema(), chunksize, std::move(batch_data));
 
-void TableBatchReader::set_chunksize(int64_t chunksize) {
-  impl_->set_chunksize(chunksize);
-}
-
-Status TableBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
-  return impl_->ReadNext(out);
+  return Status::OK();
 }
 
 }  // namespace arrow

@@ -24,21 +24,20 @@
 namespace arrow {
 namespace dataset {
 
-std::unique_ptr<RecordBatchIterator> SimpleScanTask::Scan() {
-  return MakeVectorIterator(record_batches_);
-}
+RecordBatchIterator SimpleScanTask::Scan() { return MakeVectorIterator(record_batches_); }
 
 /// \brief GetFragmentsIterator transforms a vector<DataSource> in a flattened
 /// Iterator<DataFragment>.
-static std::unique_ptr<DataFragmentIterator> GetFragmentsIterator(
+static DataFragmentIterator GetFragmentsIterator(
     const std::vector<std::shared_ptr<DataSource>>& sources,
     std::shared_ptr<ScanOptions> options) {
   // Iterator<DataSource>
   auto sources_it = MakeVectorIterator(sources);
 
   // DataSource -> Iterator<DataFragment>
-  auto fn = [options](std::shared_ptr<DataSource> source)
-      -> std::unique_ptr<DataFragmentIterator> { return source->GetFragments(options); };
+  auto fn = [options](std::shared_ptr<DataSource> source) -> DataFragmentIterator {
+    return source->GetFragments(options);
+  };
 
   // Iterator<Iterator<DataFragment>>
   auto fragments_it = MakeMapIterator(fn, std::move(sources_it));
@@ -49,12 +48,11 @@ static std::unique_ptr<DataFragmentIterator> GetFragmentsIterator(
 
 /// \brief GetScanTaskIterator transforms an Iterator<DataFragment> in a
 /// flattened Iterator<ScanTask>.
-static std::unique_ptr<ScanTaskIterator> GetScanTaskIterator(
-    std::unique_ptr<DataFragmentIterator> fragments,
-    std::shared_ptr<ScanContext> context) {
+static ScanTaskIterator GetScanTaskIterator(DataFragmentIterator fragments,
+                                            std::shared_ptr<ScanContext> context) {
   // DataFragment -> ScanTaskIterator
   auto fn = [context](std::shared_ptr<DataFragment> fragment,
-                      std::unique_ptr<ScanTaskIterator>* out) -> Status {
+                      ScanTaskIterator* out) -> Status {
     return fragment->Scan(context, out);
   };
 
@@ -65,7 +63,7 @@ static std::unique_ptr<ScanTaskIterator> GetScanTaskIterator(
   return MakeFlattenIterator(std::move(maybe_scantask_it));
 }
 
-std::unique_ptr<ScanTaskIterator> SimpleScanner::Scan() {
+ScanTaskIterator SimpleScanner::Scan() {
   // First, transforms DataSources in a flat Iterator<DataFragment>. This
   // iterator is lazily constructed, i.e. DataSource::GetFragments is never
   // invoked.

@@ -39,7 +39,7 @@ class ARROW_DS_EXPORT DataFragment {
   /// \brief Scan returns an iterator of ScanTasks, each of which yields
   /// RecordBatches from this DataFragment.
   virtual Status Scan(std::shared_ptr<ScanContext> scan_context,
-                      std::unique_ptr<ScanTaskIterator>* out) = 0;
+                      ScanTaskIterator* out) = 0;
 
   /// \brief Return true if the fragment can benefit from parallel
   /// scanning
@@ -60,8 +60,7 @@ class ARROW_DS_EXPORT SimpleDataFragment : public DataFragment {
  public:
   explicit SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches);
 
-  Status Scan(std::shared_ptr<ScanContext> scan_context,
-              std::unique_ptr<ScanTaskIterator>* out) override;
+  Status Scan(std::shared_ptr<ScanContext> scan_context, ScanTaskIterator* out) override;
 
   bool splittable() const override { return false; }
 
@@ -78,8 +77,7 @@ class ARROW_DS_EXPORT DataSource {
  public:
   /// \brief GetFragments returns an iterator of DataFragments. The ScanOptions
   /// controls filtering and schema inference.
-  virtual std::unique_ptr<DataFragmentIterator> GetFragments(
-      std::shared_ptr<ScanOptions> options) = 0;
+  virtual DataFragmentIterator GetFragments(std::shared_ptr<ScanOptions> options) = 0;
 
   virtual std::string type() const = 0;
 
@@ -92,8 +90,7 @@ class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
   explicit SimpleDataSource(DataFragmentVector fragments)
       : fragments_(std::move(fragments)) {}
 
-  std::unique_ptr<DataFragmentIterator> GetFragments(
-      std::shared_ptr<ScanOptions> options) override {
+  DataFragmentIterator GetFragments(std::shared_ptr<ScanOptions> options) override {
     return MakeVectorIterator(fragments_);
   }
 

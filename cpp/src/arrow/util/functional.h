@@ -66,5 +66,10 @@ struct call_traits {
   using argument_type = decltype(argument_type_impl<I>(&std::decay<F>::type::operator()));
 };
 
+template <typename T>
+struct type_constant {
+  using type = T;
+};
+
 }  // namespace internal
 }  // namespace arrow

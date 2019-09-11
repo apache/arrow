@@ -60,8 +60,8 @@ Status WriteRecordBatch(const RecordBatch& batch, FileWriter* writer) {
   return Status::OK();
 }
 
-Status WriteRecordBatchReader(RecordBatchReader* reader, FileWriter* writer) {
-  auto schema = reader->schema();
+Status WriteRecordBatchReader(RecordBatchReader&& reader, FileWriter* writer) {
+  auto schema = reader.schema();
 
   if (!schema->Equals(*writer->schema(), false)) {
     return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
@@ -69,33 +69,34 @@ Status WriteRecordBatchReader(RecordBatchReader* reader, FileWriter* writer) {
                            "'");
   }
 
-  return reader->Visit([&](std::shared_ptr<RecordBatch> batch) -> Status {
-    return WriteRecordBatch(*batch, writer);
-  });
+  return MakePointerIterator(&reader).Visit(
+      [&](std::shared_ptr<RecordBatch> batch) -> Status {
+        return WriteRecordBatch(*batch, writer);
+      });
 }
 
 Status WriteRecordBatchReader(
-    RecordBatchReader* reader, MemoryPool* pool,
+    RecordBatchReader&& reader, MemoryPool* pool,
     const std::shared_ptr<io::OutputStream>& sink,
     const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
     const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
         default_arrow_writer_properties()) {
   std::unique_ptr<FileWriter> writer;
-  RETURN_NOT_OK(FileWriter::Open(*reader->schema(), pool, sink, properties,
+  RETURN_NOT_OK(FileWriter::Open(*reader.schema(), pool, sink, properties,
                                  arrow_properties, &writer));
-  RETURN_NOT_OK(WriteRecordBatchReader(reader, writer.get()));
+  RETURN_NOT_OK(WriteRecordBatchReader(std::move(reader), writer.get()));
   return writer->Close();
 }
 
 class ArrowParquetWriterMixin : public ::testing::Test {
  public:
-  std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
+  std::shared_ptr<Buffer> Write(RecordBatchReader&& reader) {
     auto pool = ::arrow::default_memory_pool();
 
     std::shared_ptr<Buffer> out;
     auto sink = CreateOutputStream(pool);
 
-    ARROW_EXPECT_OK(WriteRecordBatchReader(reader, pool, sink));
+    ARROW_EXPECT_OK(WriteRecordBatchReader(std::move(reader), pool, sink));
     ARROW_EXPECT_OK(sink->Finish(&out));
 
     return out;
@@ -116,8 +117,8 @@ class ArrowParquetWriterMixin : public ::testing::Test {
 
 class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
  public:
-  std::unique_ptr<FileSource> GetFileSource(RecordBatchReader* reader) {
-    auto buffer = Write(reader);
+  std::unique_ptr<FileSource> GetFileSource(RecordBatchReader&& reader) {
+    auto buffer = Write(std::move(reader));
     return internal::make_unique<FileSource>(std::move(buffer));
   }
 
@@ -153,16 +154,16 @@ class TestParquetFileFormat : public ParquetBufferFixtureMixin {
 
 TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   auto reader = GetRecordBatchReader();
-  auto source = GetFileSource(reader.get());
+  auto source = GetFileSource(std::move(*reader));
   auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
 
-  std::unique_ptr<ScanTaskIterator> it;
+  ScanTaskIterator it;
   ASSERT_OK(fragment->Scan(ctx_, &it));
   int64_t row_count = 0;
 
-  ASSERT_OK(it->Visit([&row_count](std::unique_ptr<ScanTask> task) -> Status {
+  ASSERT_OK(it.Visit([&row_count](std::unique_ptr<ScanTask> task) -> Status {
     auto batch_it = task->Scan();
-    return batch_it->Visit([&row_count](std::shared_ptr<RecordBatch> batch) -> Status {
+    return batch_it.Visit([&row_count](std::shared_ptr<RecordBatch> batch) -> Status {
       row_count += batch->num_rows();
       return Status::OK();
     });

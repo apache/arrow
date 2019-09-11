@@ -151,8 +151,7 @@ class ARROW_DS_EXPORT Partition : public DataSource {
   /// e.g. for the top-level partitioned source container
   virtual const PartitionKey* key() const = 0;
 
-  virtual std::unique_ptr<DataFragmentIterator> GetFragments(
-      const Selector& selector) = 0;
+  virtual DataFragmentIterator GetFragments(const Selector& selector) = 0;
 };
 
 /// \brief Simple implementation of Partition, which consists of a
@@ -176,8 +175,7 @@ class ARROW_DS_EXPORT SimplePartition : public Partition {
   const PartitionVector& subpartitions() const { return subpartitions_; }
   const DataFragmentVector& data_fragments() const { return data_fragments_; }
 
-  std::unique_ptr<DataFragmentIterator> GetFragments(
-      const FilterVector& filters) override;
+  DataFragmentIterator GetFragments(const FilterVector& filters) override;
 
  private:
   std::unique_ptr<PartitionKey> key_;
@@ -200,13 +198,12 @@ class ARROW_DS_EXPORT LazyPartition : public Partition {
  public:
   const PartitionKey* key() const override;
 
-  std::unique_ptr<DataFragmentIterator> GetFragments(
-      const& DataSelector selector) override;
+  DataFragmentIterator GetFragments(const& DataSelector selector) override;
 
   // TODO(wesm): Iterate over subpartitions
 
  protected:
-  std::unique_ptr<PartitionIterator> partition_iter_;
+  PartitionIterator partition_iter_;
 
   // By default, once this source is consumed using GetFragments, it
   // cannot be consumed again. By setting this to true, we cache
