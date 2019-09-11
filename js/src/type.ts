@@ -38,9 +38,16 @@ export type IntBitWidth = 8 | 16 | 32 | 64;
 export type IsSigned = { 'true': true; 'false': false };
 /** @ignore */
 export type RowLike<T extends { [key: string]: DataType }> =
-      ( Iterable<T[keyof T]['TValue'] | null> )
+      ( Iterable<[string, T[keyof T]['TValue'] | null]> )
     & { [P in keyof T]: T[P]['TValue'] | null }
     & { get<K extends keyof T>(key: K): T[K]['TValue'] | null; }
+    & { set<K extends keyof T>(key: K, val: T[K]['TValue'] | null): void; }
+    ;
+
+/** @ignore */
+export type MapLike<K extends DataType = any, V extends DataType = any> =
+      { [P in K['TValue']]: V['TValue'] | null }
+    & ( Map<K['TValue'], V['TValue'] | null> )
     ;
 
 export interface DataType<TType extends Type = Type, TChildren extends { [key: string]: DataType } = any> {
@@ -426,7 +433,7 @@ export class Struct<T extends { [key: string]: DataType } = any> extends DataTyp
         this.children = children;
     }
     public get typeId() { return Type.Struct as Type.Struct; }
-    public toString() { return `Struct<[${this.children.map((f) => f.type).join(`, `)}]>`; }
+    public toString() { return `Struct<{${this.children.map((f) => `${f.name}:${f.type}`).join(`, `)}}>`; }
     protected static [Symbol.toStringTag] = ((proto: Struct) => {
         (<any> proto).children = null;
         return proto[Symbol.toStringTag] = 'Struct';
@@ -522,15 +529,25 @@ export class FixedSizeList<T extends DataType = any> extends DataType<Type.Fixed
 }
 
 /** @ignore */
-export interface Map_<T extends { [key: string]: DataType } = any> extends DataType<Type.Map> { TArray: IterableArrayLike<RowLike<T>>; TValue: RowLike<T>; dataTypes: T; }
+export interface Map_<TKey extends DataType = any, TValue extends DataType = any> extends DataType<Type.Map> {
+    TArray: IterableArrayLike<Map<TKey['TValue'], TValue['TValue'] | null>>;
+    TChild: Struct<{ key: TKey, value: TValue }>;
+    TValue: MapLike<TKey, TValue>;
+}
+
 /** @ignore */
-export class Map_<T extends { [key: string]: DataType } = any> extends DataType<Type.Map, T> {
-    constructor(public readonly children: Field<T[keyof T]>[],
-                public readonly keysSorted: boolean = false) {
+export class Map_<TKey extends DataType = any, TValue extends DataType = any> extends DataType<Type.Map> {
+    constructor(child: Field<Struct<{ key: TKey, value: TValue }>>, keysSorted = false) {
         super();
+        this.children = [child];
+        this.keysSorted = keysSorted;
     }
+    public readonly keysSorted: boolean;
+    public readonly children: Field<Struct<{ key: TKey, value: TValue }>>[];
     public get typeId() { return Type.Map as Type.Map; }
-    public toString() { return `Map<{${this.children.map((f) => `${f.name}:${f.type}`).join(`, `)}}>`; }
+    public get keyType(): TKey { return this.children[0].type.children[0].type as TKey; }
+    public get valueType(): TValue { return this.children[0].type.children[1].type as TValue; }
+    public toString() { return `Map<{${this.children[0].type.children.map((f) => `${f.name}:${f.type}`).join(`, `)}}>`; }
     protected static [Symbol.toStringTag] = ((proto: Map_) => {
         (<any> proto).children = null;
         (<any> proto).keysSorted = null;
