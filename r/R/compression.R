@@ -19,22 +19,29 @@
 #' @include arrow-package.R
 #' @include io.R
 
-Codec <- R6Class("Codec", inherit = Object)
-
-#' codec
-#'
-#' @param type type of codec
-#'
+#' @title Compression Codec class
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#' @description Codecs allow you to create [compressed input and output
+#' streams][compression].
+#' @section Factory:
+#' The `Codec$create()` factory method takes the following argument:
+#' * `type`: string name of the compression method. See [CompressionType] for
+#'    a list of possible values. `type` may be upper- or lower-cased. Support
+#'    for compression methods depends on build-time flags for the C++ library.
+#'    Most builds support at least "gzip" and "snappy".
+#' @rdname Codec
+#' @name Codec
 #' @export
-compression_codec <- function(type = "GZIP") {
+Codec <- R6Class("Codec", inherit = Object)
+Codec$create <- function(type = "gzip") {
   if (is.character(type)) {
     type <- unique_ptr(Codec, util___Codec__Create(
-      CompressionType[[match.arg(type, names(CompressionType))]]
+      CompressionType[[match.arg(toupper(type), names(CompressionType))]]
     ))
-  } else if (!inherits(type, "Codec")) {
-    abort("Not compatible with requested type")
   }
-
+  assert_is(type, "Codec")
   type
 }
 
@@ -46,7 +53,7 @@ compression_codec <- function(type = "GZIP") {
 #' @usage NULL
 #' @format NULL
 #' @description `CompressedInputStream` and `CompressedOutputStream`
-#' allow you to apply a [compression_codec()] to an
+#' allow you to apply a compression [Codec] to an
 #' input or output stream.
 #'
 #' @section Factory:
@@ -63,8 +70,8 @@ compression_codec <- function(type = "GZIP") {
 #' @export
 #' @include arrow-package.R
 CompressedOutputStream <- R6Class("CompressedOutputStream", inherit = OutputStream)
-CompressedOutputStream$create <- function(stream, codec = "GZIP"){
-  codec <- compression_codec(codec)
+CompressedOutputStream$create <- function(stream, codec = "gzip"){
+  codec <- Codec$create(codec)
   if (is.character(stream)) {
     stream <- FileOutputStream$create(stream)
   }
@@ -77,8 +84,8 @@ CompressedOutputStream$create <- function(stream, codec = "GZIP"){
 #' @format NULL
 #' @export
 CompressedInputStream <- R6Class("CompressedInputStream", inherit = InputStream)
-CompressedInputStream$create <- function(stream, codec = "GZIP"){
-  codec <- compression_codec(codec)
+CompressedInputStream$create <- function(stream, codec = "gzip"){
+  codec <- Codec$create(codec)
   if (is.character(stream)) {
     stream <- ReadableFile$create(stream)
   }
