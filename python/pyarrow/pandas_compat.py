@@ -675,8 +675,11 @@ def _reconstruct_block(item):
         data = np.frombuffer(buflist[-1], dtype=arr.type.to_pandas_dtype())[
             arr.offset:arr.offset + len(arr)]
         bitmask = buflist[0]
-        mask = pa.BooleanArray.from_buffers(
-            pa.bool_(), len(arr), [None, bitmask]).to_pandas()
+        if bitmask is not None:
+            mask = pa.BooleanArray.from_buffers(
+                pa.bool_(), len(arr), [None, bitmask]).to_pandas()
+        else:
+            mask = np.ones(len(arr), dtype=bool)
         block_arr = _pandas_api.pd.arrays.IntegerArray(
             data.copy(), ~mask, copy=False)
         # create ExtensionBlock
@@ -698,7 +701,7 @@ def make_datetimetz(tz):
 
 
 def table_to_blockmanager(options, table, categories=None,
-                          ignore_metadata=False):
+                          extension_columns=None, ignore_metadata=False):
     from pandas.core.internals import BlockManager
 
     all_columns = []
@@ -716,7 +719,7 @@ def table_to_blockmanager(options, table, categories=None,
         index = _pandas_api.pd.RangeIndex(table.num_rows)
 
     _check_data_column_metadata_consistency(all_columns)
-    blocks = _table_to_blocks(options, table, categories)
+    blocks = _table_to_blocks(options, table, categories, extension_columns)
     columns = _deserialize_column_index(table, all_columns, column_indexes)
 
     axes = [columns, index]
@@ -984,11 +987,12 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
     return pd.MultiIndex(new_levels, labels, names=columns.names)
 
 
-def _table_to_blocks(options, block_table, categories):
+def _table_to_blocks(options, block_table, categories, extension_columns):
     # Part of table_to_blockmanager
 
     # Convert an arrow table to Block from the internal pandas API
-    result = pa.lib.table_to_blocks(options, block_table, categories)
+    result = pa.lib.table_to_blocks(options, block_table, categories,
+                                    extension_columns)
 
     # Defined above
     return [_reconstruct_block(item) for item in result]

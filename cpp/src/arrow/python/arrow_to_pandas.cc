@@ -1549,7 +1549,7 @@ static Status GetPandasBlockType(const ChunkedArray& data, const PandasOptions& 
 #define INTEGER_CASE(NAME)                                                           \
   *output_type =                                                                     \
       data.null_count() > 0                                                          \
-          ? options.integer_object_nulls ? PandasBlock::EXTENSION : PandasBlock::DOUBLE \
+          ? options.integer_object_nulls ? PandasBlock::OBJECT : PandasBlock::DOUBLE \
           : PandasBlock::NAME;                                                       \
   break;
 
@@ -1642,8 +1642,11 @@ static Status GetPandasBlockType(const ChunkedArray& data, const PandasOptions& 
 class DataFrameBlockCreator {
  public:
   explicit DataFrameBlockCreator(const PandasOptions& options,
+                                 const std::unordered_set<std::string>& extension_columns,
                                  const std::shared_ptr<Table>& table)
-      : table_(table), options_(options) {}
+      : table_(table),
+        options_(options),
+        extension_columns_(extension_columns) {}
 
   Status Convert(PyObject** output) {
     column_types_.resize(table_->num_columns());
@@ -1661,7 +1664,11 @@ class DataFrameBlockCreator {
     for (int i = 0; i < table_->num_columns(); ++i) {
       std::shared_ptr<ChunkedArray> col = table_->column(i);
       PandasBlock::type output_type = PandasBlock::OBJECT;
-      RETURN_NOT_OK(GetPandasBlockType(*col, options_, &output_type));
+      if (extension_columns_.count(table_->field(i)->name())) {
+        output_type = PandasBlock::EXTENSION;
+      } else {
+        RETURN_NOT_OK(GetPandasBlockType(*col, options_, &output_type));
+      }
 
       int block_placement = 0;
       std::shared_ptr<PandasBlock> block;
@@ -1794,6 +1801,7 @@ class DataFrameBlockCreator {
   std::unordered_map<int, int> type_counts_;
 
   PandasOptions options_;
+  std::unordered_set<std::string> extension_columns_;
 
   // block type -> block
   BlockMap blocks_;
@@ -2184,6 +2192,14 @@ Status ConvertTableToPandas(const PandasOptions& options,
 Status ConvertTableToPandas(const PandasOptions& options,
                             const std::unordered_set<std::string>& categorical_columns,
                             const std::shared_ptr<Table>& table, PyObject** out) {
+  return ConvertTableToPandas(options, categorical_columns,
+                              std::unordered_set<std::string>(), table, out);
+}
+
+Status ConvertTableToPandas(const PandasOptions& options,
+                            const std::unordered_set<std::string>& categorical_columns,
+                            const std::unordered_set<std::string>& extension_columns,
+                            const std::shared_ptr<Table>& table, PyObject** out) {
   std::shared_ptr<Table> current_table = table;
   if (!categorical_columns.empty()) {
     FunctionContext ctx;
@@ -2205,7 +2221,7 @@ Status ConvertTableToPandas(const PandasOptions& options,
     }
   }
 
-  DataFrameBlockCreator helper(options, current_table);
+  DataFrameBlockCreator helper(options, extension_columns, current_table);
   return helper.Convert(out);
 }
 
