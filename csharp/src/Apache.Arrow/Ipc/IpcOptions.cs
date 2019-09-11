@@ -28,5 +28,10 @@ namespace Apache.Arrow.Ipc
         public IpcOptions()
         {
         }
+
+        /// <summary>
+        /// Gets the number of bytes used in the IPC message prefix.
+        /// </summary>
+        internal int SizeOfIpcLength => WriteLegacyIpcFormat ? 4 : 8;
     }
 }

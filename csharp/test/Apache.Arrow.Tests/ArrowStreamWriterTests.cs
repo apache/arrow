@@ -72,6 +72,8 @@ namespace Apache.Arrow.Tests
                 using (var writer = new ArrowStreamWriter(stream, originalBatch.Schema))
                 {
                     await writer.WriteRecordBatchAsync(originalBatch);
+                    await writer.WriteEndAsync();
+
                     stream.Flush();
                 }
             }
@@ -130,6 +132,7 @@ namespace Apache.Arrow.Tests
                 using (var writer = new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: true, options))
                 {
                     await writer.WriteRecordBatchAsync(originalBatch);
+                    await writer.WriteEndAsync();
                 }
 
                 stream.Position = 0;
@@ -176,23 +179,34 @@ namespace Apache.Arrow.Tests
                 using (var writer = new ArrowStreamWriter(stream, batch.Schema, leaveOpen: true))
                 {
                     await writer.WriteRecordBatchAsync(batch);
+                    await writer.WriteEndAsync();
                 }
 
                 byte[] writtenBytes = stream.ToArray();
 
                 // ensure that the data buffers at the end are 8-byte aligned
-                Assert.Equal(value1, writtenBytes[writtenBytes.Length - 16]);
-                Assert.Equal(value1, writtenBytes[writtenBytes.Length - 15]);
+                Assert.Equal(value1, writtenBytes[writtenBytes.Length - 24]);
+                Assert.Equal(value1, writtenBytes[writtenBytes.Length - 23]);
+                for (int i = 22; i > 16; i--)
+                {
+                    Assert.Equal(0, writtenBytes[writtenBytes.Length - i]);
+                }
+
+                Assert.Equal(value2, writtenBytes[writtenBytes.Length - 16]);
+                Assert.Equal(value2, writtenBytes[writtenBytes.Length - 15]);
                 for (int i = 14; i > 8; i--)
                 {
                     Assert.Equal(0, writtenBytes[writtenBytes.Length - i]);
                 }
 
-                Assert.Equal(value2, writtenBytes[writtenBytes.Length - 8]);
-                Assert.Equal(value2, writtenBytes[writtenBytes.Length - 7]);
-                for (int i = 6; i > 0; i--)
+                // verify the EOS is written correctly
+                for (int i = 8; i > 4; i--)
                 {
-                    Assert.Equal(0, writtenBytes[writtenBytes.Length - i]);
+                    Assert.Equal(0xFF, writtenBytes[writtenBytes.Length - i]);
+                }
+                for (int i = 4; i > 0; i--)
+                {
+                    Assert.Equal(0x00, writtenBytes[writtenBytes.Length - i]);
                 }
             }
         }
@@ -217,23 +231,30 @@ namespace Apache.Arrow.Tests
                 using (var writer = new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: true, options))
                 {
                     await writer.WriteRecordBatchAsync(originalBatch);
+                    await writer.WriteEndAsync();
                 }
 
                 stream.Position = 0;
 
                 // ensure the continuation is written correctly
-                byte[] buffer = stream.GetBuffer();
+                byte[] buffer = stream.ToArray();
                 int messageLength = BinaryPrimitives.ReadInt32LittleEndian(buffer);
+                int endOfBuffer1 = BinaryPrimitives.ReadInt32LittleEndian(buffer.AsSpan(buffer.Length - 8));
+                int endOfBuffer2 = BinaryPrimitives.ReadInt32LittleEndian(buffer.AsSpan(buffer.Length - 4));
                 if (writeLegacyIpcFormat)
                 {
                     // the legacy IPC format doesn't have a continuation token at the start
                     Assert.NotEqual(-1, messageLength);
+                    Assert.NotEqual(-1, endOfBuffer1);
                 }
                 else
                 {
                     // the latest IPC format has a continuation token at the start
                     Assert.Equal(-1, messageLength);
+                    Assert.Equal(-1, endOfBuffer1);
                 }
+
+                Assert.Equal(0, endOfBuffer2);
             }
         }
     }

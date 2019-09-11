@@ -142,6 +142,8 @@ namespace Apache.Arrow.Ipc
 
         protected bool HasWrittenSchema { get; set; }
 
+        private bool HasWrittenEnd { get; set; }
+
         protected Schema Schema { get; }
 
         private readonly bool _leaveOpen;
@@ -270,6 +272,11 @@ namespace Apache.Arrow.Ipc
             FinishedWritingRecordBatch(bodyLength + bodyPaddingLength, metadataLength);
         }
 
+        private protected virtual ValueTask WriteEndInternalAsync(CancellationToken cancellationToken)
+        {
+            return WriteIpcMessageLengthAsync(length: 0, cancellationToken);
+        }
+
         private protected virtual void StartingWritingRecordBatch()
         {
         }
@@ -281,6 +288,15 @@ namespace Apache.Arrow.Ipc
         public virtual Task WriteRecordBatchAsync(RecordBatch recordBatch, CancellationToken cancellationToken = default)
         {
             return WriteRecordBatchInternalAsync(recordBatch, cancellationToken);
+        }
+        
+        public async Task WriteEndAsync(CancellationToken cancellationToken = default)
+        {
+            if (!HasWrittenEnd)
+            {
+                await WriteEndInternalAsync(cancellationToken);
+                HasWrittenEnd = true;
+            }
         }
 
         private ValueTask WriteBufferAsync(ArrowBuffer arrowBuffer, CancellationToken cancellationToken = default)
@@ -356,29 +372,15 @@ namespace Apache.Arrow.Ipc
             var messageData = Builder.DataBuffer.ToReadOnlyMemory(Builder.DataBuffer.Position, Builder.Offset);
             var messagePaddingLength = CalculatePadding(messageData.Length);
 
-            int prefixSize = _options.WriteLegacyIpcFormat ? 4 : 8;
-
-            await Buffers.RentReturnAsync(prefixSize, async (buffer) =>
-            {
-                Memory<byte> currentBufferPosition = buffer;
-                if (!_options.WriteLegacyIpcFormat)
-                {
-                    BinaryPrimitives.WriteInt32LittleEndian(
-                        currentBufferPosition.Span, MessageSerializer.IpcContinuationToken);
-                    currentBufferPosition = currentBufferPosition.Slice(4);
-                }
-
-                var metadataSize = messageData.Length + messagePaddingLength;
-                BinaryPrimitives.WriteInt32LittleEndian(currentBufferPosition.Span, metadataSize);
-                await BaseStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
-            }).ConfigureAwait(false);
+            await WriteIpcMessageLengthAsync(messageData.Length + messagePaddingLength, cancellationToken)
+                .ConfigureAwait(false);
 
             await BaseStream.WriteAsync(messageData, cancellationToken).ConfigureAwait(false);
             await WritePaddingAsync(messagePaddingLength).ConfigureAwait(false);
 
             checked
             {
-                return prefixSize + messageData.Length + messagePaddingLength;
+                return _options.SizeOfIpcLength + messageData.Length + messagePaddingLength;
             }
         }
 
@@ -387,6 +389,23 @@ namespace Apache.Arrow.Ipc
             var segment = Builder.DataBuffer.ToReadOnlyMemory(Builder.DataBuffer.Position, Builder.Offset);
 
             await BaseStream.WriteAsync(segment, cancellationToken).ConfigureAwait(false);
+        }
+
+        private async ValueTask WriteIpcMessageLengthAsync(int length, CancellationToken cancellationToken)
+        {
+            await Buffers.RentReturnAsync(_options.SizeOfIpcLength, async (buffer) =>
+            {
+                Memory<byte> currentBufferPosition = buffer;
+                if (!_options.WriteLegacyIpcFormat)
+                {
+                    BinaryPrimitives.WriteInt32LittleEndian(
+                        currentBufferPosition.Span, MessageSerializer.IpcContinuationToken);
+                    currentBufferPosition = currentBufferPosition.Slice(sizeof(int));
+                }
+
+                BinaryPrimitives.WriteInt32LittleEndian(currentBufferPosition.Span, length);
+                await BaseStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
+            }).ConfigureAwait(false);
         }
 
         protected int CalculatePadding(long offset, int alignment = 8)
