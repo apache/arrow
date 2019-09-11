@@ -124,10 +124,6 @@ def test_filter(ty, values):
     expected = pa.array([values[0], values[3], None], type=ty)
     assert result.equals(expected)
 
-
-def test_filter_invalid():
-    arr = pa.array([0, 1, 2, 3, 4])
-
     # non-boolean dtype
     mask = pa.array([0, 1, 0, 1, 0])
     with pytest.raises(TypeError, match="got int64"):
