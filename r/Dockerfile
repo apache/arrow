@@ -65,7 +65,7 @@ RUN printf "options(Ncpus = parallel::detectCores(), repos = 'https://cloud.r-pr
 # Also ensure parallel compilation of each individual package
 RUN printf "MAKEFLAGS=-j8\n" >> /usr/lib/R/etc/Makeconf
 
-RUN Rscript -e "install.packages(c('remotes', 'dplyr', 'glue')"
+RUN Rscript -e "install.packages(c('remotes', 'dplyr', 'glue'))"
 RUN Rscript -e "remotes::install_deps('/arrow/r', dependencies = TRUE)"
 RUN Rscript -e "remotes::install_github('romainfrancois/decor')"
 
