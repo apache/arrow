@@ -2931,7 +2931,7 @@ def test_variable_dictionary_with_pandas():
 
 def test_array_protocol():
     if LooseVersion(pd.__version__) < '0.24.0':
-        pytest.skip(reason='IntegerArray only introduced in 0.24')
+        pytest.skip('IntegerArray only introduced in 0.24')
 
     def __arrow_array__(self, type=None):
         return pa.array(self._data, mask=self._mask, type=type)
@@ -3194,4 +3194,5 @@ def test_metadata_compat_missing_field_name():
 
         )})
     result = table.to_pandas()
-    tm.assert_frame_equal(result, expected)
+    # on python 3.5 the column order can differ -> adding check_like=True
+    tm.assert_frame_equal(result, expected, check_like=True)
