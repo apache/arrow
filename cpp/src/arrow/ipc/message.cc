@@ -37,9 +37,6 @@
 namespace arrow {
 namespace ipc {
 
-// This 0xFFFFFFFF value is the first 4 bytes of a valid IPC message
-constexpr int32_t kIpcContinuationToken = -1;
-
 class Message::MessageImpl {
  public:
   explicit MessageImpl(const std::shared_ptr<Buffer>& metadata,
@@ -252,7 +249,7 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
   // The size of the Flatbuffer including padding
   int32_t flatbuffer_length = -1;
   int32_t prefix_size = -1;
-  if (continuation == kIpcContinuationToken) {
+  if (continuation == internal::kIpcContinuationToken) {
     if (metadata_length < 8) {
       return Status::Invalid(
           "Corrupted IPC message, had continuation token "
@@ -263,15 +260,17 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
     // Valid IPC message, parse the message length now
     flatbuffer_length = util::SafeLoadAs<int32_t>(buffer->data() + 4);
     prefix_size = 8;
-  } else if (continuation == 0) {
-    // EOS
-    *message = nullptr;
-    return Status::OK();
   } else {
     // ARROW-6314: Backwards compatibility for reading old IPC
     // messages produced prior to version 0.15.0
     flatbuffer_length = continuation;
     prefix_size = 4;
+  }
+
+  if (flatbuffer_length == 0) {
+    // EOS
+    *message = nullptr;
+    return Status::OK();
   }
 
   if (flatbuffer_length + prefix_size != metadata_length) {
@@ -328,26 +327,28 @@ Status ReadMessage(io::InputStream* file, MemoryPool* pool, bool copy_metadata,
                            reinterpret_cast<uint8_t*>(&continuation)));
 
   if (bytes_read != sizeof(int32_t)) {
-    // EOS
+    // EOS without indication
     *message = nullptr;
     return Status::OK();
   }
 
   int32_t flatbuffer_length = -1;
   bool legacy_format = false;
-  if (continuation == kIpcContinuationToken) {
+  if (continuation == internal::kIpcContinuationToken) {
     // Valid IPC message, read the message length now
     RETURN_NOT_OK(file->Read(sizeof(int32_t), &bytes_read,
                              reinterpret_cast<uint8_t*>(&flatbuffer_length)));
-  } else if (continuation == 0) {
-    // EOS
-    *message = nullptr;
-    return Status::OK();
   } else {
     // ARROW-6314: Backwards compatibility for reading old IPC
     // messages produced prior to version 0.15.0
     flatbuffer_length = continuation;
     legacy_format = true;
+  }
+
+  if (flatbuffer_length == 0) {
+    // EOS
+    *message = nullptr;
+    return Status::OK();
   }
 
   std::shared_ptr<Buffer> metadata;
@@ -394,7 +395,7 @@ Status WriteMessage(const Buffer& message, const IpcOptions& options,
 
   // ARROW-6314: Write continuation / padding token
   if (!options.write_legacy_ipc_format) {
-    RETURN_NOT_OK(file->Write(&kIpcContinuationToken, sizeof(int32_t)));
+    RETURN_NOT_OK(file->Write(&internal::kIpcContinuationToken, sizeof(int32_t)));
   }
 
   // Write the flatbuffer size prefix including padding

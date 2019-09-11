@@ -979,15 +979,16 @@ a ``RecordBatch`` it should be defined in a ``DictionaryBatch``. ::
     <DICTIONARY y DELTA>
     ...
     <RECORD BATCH n - 1>
-    <EOS [optional]: 0x0000000000000000>
+    <EOS [optional]: 0xFFFFFFFF 0x00000000>
 
 When a stream reader implementation is reading a stream, after each
 message, it may read the next 8 bytes to determine both if the stream
 continues and the size of the message metadata that follows. Once the
 message flatbuffer is read, you can then read the message body.
 
-The stream writer can signal end-of-stream (EOS) either by writing 8
-zero (`0x00`) bytes or closing the stream interface.
+The stream writer can signal end-of-stream (EOS) either by writing 8 bytes
+containing the 4-byte continuation indicator (``0xFFFFFFFF``) followed by 0
+metadata length (``0x00000000``) or closing the stream interface.
 
 IPC File Format
 ---------------

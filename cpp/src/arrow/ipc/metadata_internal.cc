@@ -33,6 +33,7 @@
 #include "arrow/ipc/SparseTensor_generated.h"  // IWYU pragma: keep
 #include "arrow/ipc/Tensor_generated.h"        // IWYU pragma: keep
 #include "arrow/ipc/message.h"
+#include "arrow/ipc/options.h"
 #include "arrow/ipc/util.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
