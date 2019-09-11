@@ -964,7 +964,7 @@ class EmailReport(Report):
 
     def subject(self):
         return (
-            "[NIGHTLY] Arrow Build Report for {}".format(self.job.branch)
+            "[NIGHTLY] Arrow Build Report for job {}".format(self.job.branch)
         )
 
     def body(self):
