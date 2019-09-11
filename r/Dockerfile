@@ -65,9 +65,6 @@ RUN printf "options(Ncpus = parallel::detectCores(), repos = 'https://cloud.r-pr
 # Also ensure parallel compilation of each individual package
 RUN printf "MAKEFLAGS=-j8\n" >> /usr/lib/R/etc/Makeconf
 
-# Install R dependencies
-CMD ["/bin/bash", "-c", "/arrow/ci/docker_install_r_deps.sh"]
-
 # ARROW-6171: Because lz4 is installed in the base Ubuntu image, there's an
 # issue of which library is loaded at runtime. R by default will override
 # LD_LIBRARY_PATH at runtime by concatenating (in that order)
@@ -78,4 +75,4 @@ ENV R_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
 
 # build, install, test R package
 CMD ["/bin/bash", "-c", "/arrow/ci/docker_build_cpp.sh && \
-    /arrow/ci/docker_build_r.sh"]
+    && /arrow/ci/docker_install_r_deps.sh && /arrow/ci/docker_build_r.sh"]
