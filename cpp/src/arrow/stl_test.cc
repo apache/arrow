@@ -29,6 +29,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 
 using primitive_types_tuple = std::tuple<int8_t, int16_t, int32_t, int64_t, uint8_t,
                                          uint16_t, uint32_t, uint64_t, bool, std::string>;
@@ -96,7 +97,8 @@ struct CustomOptionalTypeMock {
 
 int CustomOptionalTypeMock::counter = -1;
 
-struct TestInt32TypeForAppendingMultipleRows {
+// This is for testing appending list values with custom types
+struct TestInt32Type {
   int32_t value;
 };
 
@@ -110,7 +112,7 @@ struct CTypeTraits<CustomOptionalTypeMock> {
 };
 
 template <>
-struct CTypeTraits<TestInt32TypeForAppendingMultipleRows> {
+struct CTypeTraits<TestInt32Type> {
   using ArrowType = ::arrow::Int32Type;
 
   static std::shared_ptr<::arrow::DataType> type_singleton() { return ::arrow::int32(); }
@@ -134,19 +136,18 @@ struct ConversionTraits<CustomOptionalTypeMock>
 };
 
 template <>
-struct ConversionTraits<TestInt32TypeForAppendingMultipleRows>
-    : public CTypeTraits<TestInt32TypeForAppendingMultipleRows> {
+struct ConversionTraits<TestInt32Type> : public CTypeTraits<TestInt32Type> {
   constexpr static bool nullable = false;
 
-  // AppendRow is not needed, since it won't be called.
-
-  static Status AppendMultipleRows(
-      Int32Builder& builder,
-      const std::vector<TestInt32TypeForAppendingMultipleRows>& range) {
-    return builder.AppendValues(reinterpret_cast<const int32_t*>(range.data()),
-                                range.size());
-  }
+  // AppendRow is not needed, since it shouldn't be called.
 };
+
+template <>
+Status AppendListValues<TestInt32Type, Int32Builder, const std::vector<TestInt32Type>&>(
+    Int32Builder& value_builder, const std::vector<TestInt32Type>& cell_range) {
+  return value_builder.AppendValues(reinterpret_cast<const int32_t*>(cell_range.data()),
+                                    cell_range.size());
+}
 
 TEST(TestSchemaFromTuple, PrimitiveTypesVector) {
   Schema expected_schema(
@@ -388,7 +389,7 @@ TEST(TestTableFromTupleVector, NullableTypesDoNotBreakUserSpecialization) {
 
 TEST(TestTableFromTupleVector, AppendingMultipleRows) {
   std::vector<std::string> names{"column1"};
-  std::vector<std::tuple<std::vector<TestInt32TypeForAppendingMultipleRows>>> rows = {
+  std::vector<std::tuple<std::vector<TestInt32Type>>> rows = {
       {{{1}, {2}, {3}}},    //
       {{{10}, {20}, {30}}}  //
   };
