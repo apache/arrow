@@ -8,7 +8,7 @@
 \title{Compressed stream classes}
 \description{
 \code{CompressedInputStream} and \code{CompressedOutputStream}
-allow you to apply a \code{\link[=compression_codec]{compression_codec()}} to an
+allow you to apply a compression \link{Codec} to an
 input or output stream.
 }
 \section{Factory}{

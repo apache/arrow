@@ -16,7 +16,7 @@
 # under the License.
 
 # Wrap testthat::test_that with a check for the C++ library
-options(..skip.tests = !arrow::arrow_available())
+options(..skip.tests = !arrow:::arrow_available())
 
 test_that <- function(what, code) {
   testthat::test_that(what, {
