@@ -824,6 +824,42 @@ cdef class Array(_PandasConvertible):
 
         return wrap_datum(out)
 
+    def filter(self, Array mask):
+        """
+        Filter the array with a boolean mask.
+
+        Parameters
+        ----------
+        mask : Array
+            The boolean mask indicating which values to extract.
+
+        Returns
+        -------
+        Array
+
+        Examples
+        --------
+
+        >>> import pyarrow as pa
+        >>> arr = pa.array(["a", "b", "c", None, "e"])
+        >>> mask = pa.array([True, False, None, False, True])
+        >>> arr.filter(mask)
+        <pyarrow.lib.StringArray object at 0x7fa826df9200>
+        [
+          "a",
+          null,
+          "e"
+        ]
+        """
+        cdef:
+            cdef CDatum out
+
+        with nogil:
+            check_status(FilterKernel(_context(), CDatum(self.sp_array),
+                                      CDatum(mask.sp_array), &out))
+
+        return wrap_datum(out)
+
     def _to_pandas(self, options, **kwargs):
         cdef:
             PyObject* out

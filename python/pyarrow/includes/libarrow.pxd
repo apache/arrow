@@ -1257,6 +1257,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
                  const CDatum& indices, const CTakeOptions& options,
                  CDatum* out)
 
+    # Filter clashes with gandiva.pyx::Filter
+    CStatus FilterKernel" arrow::compute::Filter"(
+        CFunctionContext* context, const CDatum& values,
+        const CDatum& filter, CDatum* out)
+
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":
     # Requires GIL
