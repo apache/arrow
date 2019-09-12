@@ -1254,6 +1254,26 @@ def test_array_from_numpy_unicode():
     assert arrow_arr.equals(expected)
 
 
+def test_array_string_from_non_string():
+    # ARROW-5682 - when converting to string raise on non string-like dtype
+    with pytest.raises(TypeError):
+        pa.array(np.array([1, 2, 3]), type=pa.string())
+
+
+def test_array_string_from_all_null():
+    # ARROW-5682
+    vals = np.array([None, None], dtype=object)
+    arr = pa.array(vals, type=pa.string())
+    assert arr.null_count == 2
+
+    vals = np.array([np.nan, np.nan], dtype='float64')
+    # by default raises, but accept as all-null when from_pandas=True
+    with pytest.raises(TypeError):
+        pa.array(vals, type=pa.string())
+    arr = pa.array(vals, type=pa.string(), from_pandas=True)
+    assert arr.null_count == 2
+
+
 def test_array_from_masked():
     ma = np.ma.array([1, 2, 3, 4], dtype='int64',
                      mask=[False, False, True, False])
