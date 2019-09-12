@@ -17,6 +17,7 @@ using Apache.Arrow.Flatbuf;
 using FlatBuffers;
 using System;
 using System.Buffers.Binary;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -57,6 +58,23 @@ namespace Apache.Arrow.Ipc
                 //reached the end
                 return null;
             }
+            else if (messageLength == MessageSerializer.IpcContinuationToken)
+            {
+                // ARROW-6313, if the first 4 bytes are continuation message, read the next 4 for the length
+                if (_buffer.Length <= _bufferPosition + sizeof(int))
+                {
+                    throw new InvalidDataException("Corrupted IPC message. Received a continuation token at the end of the message.");
+                }
+
+                messageLength = BinaryPrimitives.ReadInt32LittleEndian(_buffer.Span.Slice(_bufferPosition));
+                _bufferPosition += sizeof(int);
+
+                if (messageLength == 0)
+                {
+                    //reached the end
+                    return null;
+                }
+            }
 
             Message message = Message.GetRootAsMessage(
                 CreateByteBuffer(_buffer.Slice(_bufferPosition, messageLength)));
@@ -79,6 +97,18 @@ namespace Apache.Arrow.Ipc
             // Figure out length of schema
             int schemaMessageLength = BinaryPrimitives.ReadInt32LittleEndian(_buffer.Span.Slice(_bufferPosition));
             _bufferPosition += sizeof(int);
+
+            if (schemaMessageLength == MessageSerializer.IpcContinuationToken)
+            {
+                // ARROW-6313, if the first 4 bytes are continuation message, read the next 4 for the length
+                if (_buffer.Length <= _bufferPosition + sizeof(int))
+                {
+                    throw new InvalidDataException("Corrupted IPC message. Received a continuation token at the end of the message.");
+                }
+
+                schemaMessageLength = BinaryPrimitives.ReadInt32LittleEndian(_buffer.Span.Slice(_bufferPosition));
+                _bufferPosition += sizeof(int);
+            }
 
             ByteBuffer schemaBuffer = CreateByteBuffer(_buffer.Slice(_bufferPosition));
             Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemaBuffer));
