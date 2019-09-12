@@ -91,7 +91,7 @@ class ARROW_EXPORT Message {
   /// \return Status
   ///
   /// \note If stream supports zero-copy, this is zero-copy
-  static Status ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStream* stream,
+  static Status ReadFrom(std::shared_ptr<Buffer> metadata, io::InputStream* stream,
                          std::unique_ptr<Message>* out);
 
   /// \brief Read message body from position in file, and create Message given
@@ -103,7 +103,7 @@ class ARROW_EXPORT Message {
   /// \return Status
   ///
   /// \note If file supports zero-copy, this is zero-copy
-  static Status ReadFrom(const int64_t offset, const std::shared_ptr<Buffer>& metadata,
+  static Status ReadFrom(const int64_t offset, std::shared_ptr<Buffer> metadata,
                          io::RandomAccessFile* file, std::unique_ptr<Message>* out);
 
   /// \brief Return true if message type and contents are equal

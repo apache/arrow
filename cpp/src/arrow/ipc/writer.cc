@@ -984,7 +984,8 @@ class RecordBatchPayloadWriter : public RecordBatchWriter {
 
 class StreamBookKeeper {
  public:
-  explicit StreamBookKeeper(io::OutputStream* sink) : sink_(sink), position_(-1) {}
+  explicit StreamBookKeeper(const IpcOptions& options, io::OutputStream* sink)
+      : options_(options), sink_(sink), position_(-1) {}
 
   Status UpdatePosition() { return sink_->Tell(&position_); }
 
@@ -1013,11 +1014,15 @@ class StreamBookKeeper {
 
   Status WriteEOS() {
     // End of stream marker
-    constexpr int64_t kEos = 0;
-    return Write(&kEos, sizeof(kEos));
+    constexpr int32_t kZeroLength = 0;
+    if (!options_.write_legacy_ipc_format) {
+      RETURN_NOT_OK(Write(&internal::kIpcContinuationToken, sizeof(int32_t)));
+    }
+    return Write(&kZeroLength, sizeof(int32_t));
   }
 
  protected:
+  IpcOptions options_;
   io::OutputStream* sink_;
   int64_t position_;
 };
@@ -1028,7 +1033,7 @@ class PayloadStreamWriter : public internal::IpcPayloadWriter,
                             protected StreamBookKeeper {
  public:
   PayloadStreamWriter(const IpcOptions& options, io::OutputStream* sink)
-      : StreamBookKeeper(sink), options_(options) {}
+      : StreamBookKeeper(options, sink) {}
 
   ~PayloadStreamWriter() override = default;
 
@@ -1045,9 +1050,6 @@ class PayloadStreamWriter : public internal::IpcPayloadWriter,
   }
 
   Status Close() override { return WriteEOS(); }
-
- private:
-  IpcOptions options_;
 };
 
 /// A IpcPayloadWriter implementation that writes to a IPC file
@@ -1056,7 +1058,7 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
  public:
   PayloadFileWriter(const IpcOptions& options, const std::shared_ptr<Schema>& schema,
                     io::OutputStream* sink)
-      : StreamBookKeeper(sink), options_(options), schema_(schema) {}
+      : StreamBookKeeper(options, sink), schema_(schema) {}
 
   ~PayloadFileWriter() override = default;
 
@@ -1122,7 +1124,6 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
   }
 
  protected:
-  IpcOptions options_;
   std::shared_ptr<Schema> schema_;
   std::vector<FileBlock> dictionaries_;
   std::vector<FileBlock> record_batches_;
