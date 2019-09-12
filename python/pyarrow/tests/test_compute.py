@@ -22,22 +22,7 @@ import pytest
 import pyarrow as pa
 
 
-@pytest.mark.parametrize('arrow_type', [
-    pa.int8(),
-    pa.int16(),
-    pa.int64(),
-    pa.uint8(),
-    pa.uint16(),
-    pa.uint64(),
-    pa.float32(),
-    pa.float64()
-])
-def test_sum(arrow_type):
-    arr = pa.array([1, 2, 3, 4], type=arrow_type)
-    assert arr.sum() == 10
-
-
-@pytest.mark.parametrize(('ty', 'values'), [
+all_array_types = [
     ('bool', [True, False, False, True, True]),
     ('uint8', np.arange(5)),
     ('int8', np.arange(5)),
@@ -56,7 +41,25 @@ def test_sum(arrow_type):
     (pa.large_list(pa.int16()), [[1], [2, 3, 4], [5, 6], None, [9, 16]]),
     (pa.struct([('a', pa.int8()), ('b', pa.int8())]), [
      {'a': 1, 'b': 2}, None, {'a': 3, 'b': 4}, None, {'a': 5, 'b': 6}]),
+]
+
+
+@pytest.mark.parametrize('arrow_type', [
+    pa.int8(),
+    pa.int16(),
+    pa.int64(),
+    pa.uint8(),
+    pa.uint16(),
+    pa.uint64(),
+    pa.float32(),
+    pa.float64()
 ])
+def test_sum(arrow_type):
+    arr = pa.array([1, 2, 3, 4], type=arrow_type)
+    assert arr.sum() == 10
+
+
+@pytest.mark.parametrize(('ty', 'values'), all_array_types)
 def test_take(ty, values):
     arr = pa.array(values, type=ty)
     for indices_type in [pa.uint8(), pa.int64()]:
@@ -108,3 +111,25 @@ def test_take_dictionary(ordered):
     assert result.to_pylist() == ['a', 'b', 'a']
     assert result.dictionary.to_pylist() == ['a', 'b', 'c']
     assert result.type.ordered is ordered
+
+
+@pytest.mark.parametrize(('ty', 'values'), all_array_types)
+def test_filter(ty, values):
+    arr = pa.array(values, type=ty)
+
+    mask = pa.array([True, False, False, True, None])
+    result = arr.filter(mask)
+    result.validate()
+
+    expected = pa.array([values[0], values[3], None], type=ty)
+    assert result.equals(expected)
+
+    # non-boolean dtype
+    mask = pa.array([0, 1, 0, 1, 0])
+    with pytest.raises(TypeError, match="got int64"):
+        arr.filter(mask)
+
+    # wrong length
+    mask = pa.array([True, False, True])
+    with pytest.raises(ValueError, match="must have identical lengths"):
+        arr.filter(mask)
