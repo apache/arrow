@@ -40,6 +40,11 @@ export class MessageReader implements IterableIterator<Message> {
     public next(): IteratorResult<Message> {
         let r;
         if ((r = this.readMetadataLength()).done) { return ITERATOR_DONE; }
+        // ARROW-6313: If the first 4 bytes are continuation indicator (-1), read
+        // the next 4 for the 32-bit metadata length. Otherwise, assume this is a
+        // pre-v0.15 message, where the first 4 bytes are the metadata length.
+        if ((r.value === -1) &&
+            (r = this.readMetadataLength()).done) { return ITERATOR_DONE; }
         if ((r = this.readMetadata(r.value)).done) { return ITERATOR_DONE; }
         return (<any> r) as IteratorResult<Message>;
     }
@@ -76,8 +81,8 @@ export class MessageReader implements IterableIterator<Message> {
     protected readMetadataLength(): IteratorResult<number> {
         const buf = this.source.read(PADDING);
         const bb = buf && new ByteBuffer(buf);
-        const len = +(bb && bb.readInt32(0))!;
-        return { done: len <= 0, value: len };
+        const len = bb && bb.readInt32(0) || 0;
+        return { done: len === 0, value: len };
     }
     protected readMetadata(metadataLength: number): IteratorResult<Message> {
         const buf = this.source.read(metadataLength);
@@ -104,6 +109,11 @@ export class AsyncMessageReader implements AsyncIterableIterator<Message> {
     public async next(): Promise<IteratorResult<Message>> {
         let r;
         if ((r = await this.readMetadataLength()).done) { return ITERATOR_DONE; }
+        // ARROW-6313: If the first 4 bytes are continuation indicator (-1), read
+        // the next 4 for the 32-bit metadata length. Otherwise, assume this is a
+        // pre-v0.15 message, where the first 4 bytes are the metadata length.
+        if ((r.value === -1) &&
+            (r = await this.readMetadataLength()).done) { return ITERATOR_DONE; }
         if ((r = await this.readMetadata(r.value)).done) { return ITERATOR_DONE; }
         return (<any> r) as IteratorResult<Message>;
     }
@@ -140,8 +150,8 @@ export class AsyncMessageReader implements AsyncIterableIterator<Message> {
     protected async readMetadataLength(): Promise<IteratorResult<number>> {
         const buf = await this.source.read(PADDING);
         const bb = buf && new ByteBuffer(buf);
-        const len = +(bb && bb.readInt32(0))!;
-        return { done: len <= 0, value: len };
+        const len = bb && bb.readInt32(0) || 0;
+        return { done: len === 0, value: len };
     }
     protected async readMetadata(metadataLength: number): Promise<IteratorResult<Message>> {
         const buf = await this.source.read(metadataLength);
