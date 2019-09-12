@@ -45,7 +45,7 @@ def fs(request, tempdir):
 
 
 @pytest.fixture(params=[
-    pytest.param(pathlib.Path, id='Path'),
+    pytest.param(pathlib.PurePosixPath, id='Path'),
     pytest.param(str, id='str')
 ])
 def testpath(request, fs, tempdir):
@@ -53,10 +53,16 @@ def testpath(request, fs, tempdir):
     # if the filesystem is wrapped in a SubTreeFileSystem then we don't need
     # to prepend the path with the tempdir, we also test the API with both
     # pathlib.Path objects and plain python strings
-    if isinstance(fs, SubTreeFileSystem):
-        return lambda path: request.param(path)
-    else:
-        return lambda path: request.param(tempdir / path)
+    def convert(path):
+        if isinstance(fs, SubTreeFileSystem):
+            path = pathlib.PurePosixPath(path)
+        else:
+            path = tempdir / path
+        # convert to abstract, slash separated paths with as_posix
+        path = path.as_posix()
+        # return with the corrent
+        return request.param(path)
+    return convert
 
 
 def test_cannot_instantiate_base_filesystem():

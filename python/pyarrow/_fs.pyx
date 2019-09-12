@@ -35,14 +35,14 @@ from pyarrow.lib cimport (
 )
 
 
-cdef inline c_string _as_posix_path(path) except *:
+cdef inline c_string _path_as_bytes(path) except *:
     """Converts path-like objects to bytestring with posix separators
 
     tobytes always uses utf-8, which is more or less ok, at least on Windows
     since the C++ side then decodes from utf-8. On Unix, os.fsencode may be
     better.
     """
-    return tobytes(_stringify_path(path).replace('\\', '/'))
+    return tobytes(_stringify_path(path))
 
 
 cpdef enum FileType:
@@ -159,7 +159,7 @@ cdef class Selector:
 
     @base_dir.setter
     def base_dir(self, base_dir):
-        self.selector.base_dir = _as_posix_path(base_dir)
+        self.selector.base_dir = _path_as_bytes(base_dir)
 
     @property
     def allow_non_existent(self):
@@ -223,7 +223,7 @@ cdef class FileSystem:
                 selector = (<Selector>paths_or_selector).selector
                 check_status(self.fs.GetTargetStats(selector, &stats))
         elif isinstance(paths_or_selector, (list, tuple)):
-            paths = [_as_posix_path(s) for s in paths_or_selector]
+            paths = [_path_as_bytes(s) for s in paths_or_selector]
             with nogil:
                 check_status(self.fs.GetTargetStats(paths, &stats))
         else:
@@ -243,7 +243,7 @@ cdef class FileSystem:
         recursive: bool, default True
             Create nested directories as well.
         """
-        cdef c_string directory = _as_posix_path(path)
+        cdef c_string directory = _path_as_bytes(path)
         with nogil:
             check_status(self.fs.CreateDir(directory, recursive=recursive))
 
@@ -255,7 +255,7 @@ cdef class FileSystem:
         path : str or pathlib.Path
             The path of the directory to be deleted.
         """
-        cdef c_string directory = _as_posix_path(path)
+        cdef c_string directory = _path_as_bytes(path)
         with nogil:
             check_status(self.fs.DeleteDir(directory))
 
@@ -275,8 +275,8 @@ cdef class FileSystem:
             The destination path where the file or directory is moved to.
         """
         cdef:
-            c_string source = _as_posix_path(src)
-            c_string destination = _as_posix_path(dest)
+            c_string source = _path_as_bytes(src)
+            c_string destination = _path_as_bytes(dest)
         with nogil:
             check_status(self.fs.Move(source, destination))
 
@@ -294,8 +294,8 @@ cdef class FileSystem:
             The destination path where the file is copied to.
         """
         cdef:
-            c_string source = _as_posix_path(src)
-            c_string destination = _as_posix_path(dest)
+            c_string source = _path_as_bytes(src)
+            c_string destination = _path_as_bytes(dest)
         with nogil:
             check_status(self.fs.CopyFile(source, destination))
 
@@ -307,7 +307,7 @@ cdef class FileSystem:
         path : str or pathlib.Path
             The path of the file to be deleted.
         """
-        cdef c_string file = _as_posix_path(path)
+        cdef c_string file = _path_as_bytes(path)
         with nogil:
             check_status(self.fs.DeleteFile(file))
 
@@ -342,7 +342,7 @@ cdef class FileSystem:
         stram : NativeFile
         """
         cdef:
-            c_string pathstr = _as_posix_path(path)
+            c_string pathstr = _path_as_bytes(path)
             NativeFile stream = NativeFile()
             shared_ptr[CRandomAccessFile] in_handle
 
@@ -375,7 +375,7 @@ cdef class FileSystem:
         stream : NativeFile
         """
         cdef:
-            c_string pathstr = _as_posix_path(path)
+            c_string pathstr = _path_as_bytes(path)
             NativeFile stream = NativeFile()
             shared_ptr[CInputStream] in_handle
 
@@ -413,7 +413,7 @@ cdef class FileSystem:
         stream : NativeFile
         """
         cdef:
-            c_string pathstr = _as_posix_path(path)
+            c_string pathstr = _path_as_bytes(path)
             NativeFile stream = NativeFile()
             shared_ptr[COutputStream] out_handle
 
@@ -451,7 +451,7 @@ cdef class FileSystem:
         stream : NativeFile
         """
         cdef:
-            c_string pathstr = _as_posix_path(path)
+            c_string pathstr = _path_as_bytes(path)
             NativeFile stream = NativeFile()
             shared_ptr[COutputStream] out_handle
 
@@ -505,7 +505,7 @@ cdef class SubTreeFileSystem(FileSystem):
             c_string pathstr
             shared_ptr[CSubTreeFileSystem] wrapped
 
-        pathstr = _as_posix_path(base_path)
+        pathstr = _path_as_bytes(base_path)
         wrapped = make_shared[CSubTreeFileSystem](pathstr, base_fs.wrapped)
 
         self.init(<shared_ptr[CFileSystem]> wrapped)

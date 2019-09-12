@@ -247,9 +247,6 @@ Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** ou
   return Status::OK();
 }
 
-using TimePoint =
-    std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
-
 Status PyDateTime_from_TimePoint(TimePoint val, PyObject** out) {
   auto nanos = val.time_since_epoch();
   auto micros = std::chrono::duration_cast<std::chrono::microseconds>(nanos);
