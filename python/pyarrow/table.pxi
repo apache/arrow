@@ -1522,7 +1522,7 @@ def record_batch(data, names=None, schema=None, metadata=None):
         return TypeError("Expected pandas DataFrame or python dictionary")
 
 
-def table(data, names=None, schema=None, metadata=None):
+def table(data, schema=None, names=None, metadata=None):
     """
     Create a pyarrow.Table from another Python data structure or sequence of
     arrays
@@ -1531,13 +1531,13 @@ def table(data, names=None, schema=None, metadata=None):
     ----------
     data : pandas.DataFrame, dict, list
         A DataFrame, mapping of strings to Arrays or Python lists, or list of
-        arrays or chunked arrays
-    names : list, default None
-        Column names if list of arrays passed as data. Mutually exclusive with
-        'schema' argument
+        arrays or chunked arrays.
     schema : Schema, default None
         The expected schema of the Arrow Table. If not passed, will be inferred
-        from the data. Mutually exclusive with 'names' argument
+        from the data. Mutually exclusive with 'names' argument.
+    names : list, default None
+        Column names if list of arrays passed as data. Mutually exclusive with
+        'schema' argument.
     metadata : dict or Mapping, default None
         Optional metadata for the schema (if schema not passed).
 
@@ -1553,8 +1553,15 @@ def table(data, names=None, schema=None, metadata=None):
         return Table.from_arrays(data, names=names, schema=schema,
                                  metadata=metadata)
     elif isinstance(data, dict):
+        if names is not None:
+            raise ValueError(
+                "The 'names' argument is not valid when passing a dictionary")
         return Table.from_pydict(data, schema=schema, metadata=metadata)
     elif isinstance(data, _pandas_api.pd.DataFrame):
+        if names is not None or metadata is not None:
+            raise ValueError(
+                "The 'names' and 'metadata' arguments are not valid when "
+                "passing a pandas DataFrame")
         return Table.from_pandas(data, schema=schema)
     else:
         return TypeError("Expected pandas DataFrame or python dictionary")

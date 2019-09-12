@@ -356,11 +356,11 @@ def _table_like_slice_tests(factory):
     sliced = obj.slice(2)
     assert sliced.num_rows == 3
 
-    expected = factory([x.slice(2) for x in data], names)
+    expected = factory([x.slice(2) for x in data], names=names)
     assert sliced.equals(expected)
 
     sliced2 = obj.slice(2, 2)
-    expected2 = factory([x.slice(2, 2) for x in data], names)
+    expected2 = factory([x.slice(2, 2) for x in data], names=names)
     assert sliced2.equals(expected2)
 
     # 0 offset
@@ -1062,6 +1062,29 @@ def test_table_factory_function():
     table1 = pa.table(d, schema=schema)
     table2 = pa.Table.from_pydict(d, schema=schema)
     assert table1.equals(table2)
+
+
+def test_table_factory_function_args():
+    # from_pydict not accepting names:
+    with pytest.raises(ValueError):
+        pa.table({'a': [1, 2, 3]}, names=['a'])
+
+    # backwards compatibility for schema as first argument
+    schema = pa.schema([('a', pa.int32())])
+    table = pa.table({'a': pa.array([1, 2, 3], type=pa.int64())}, schema)
+    assert table.column('a').type == pa.int32()
+
+
+@pytest.mark.pandas
+def test_table_factory_function_args_pandas():
+    import pandas as pd
+
+    # from_pandas not accepting names or metadata:
+    with pytest.raises(ValueError):
+        pa.table(pd.DataFrame({'a': [1, 2, 3]}), names=['a'])
+
+    with pytest.raises(ValueError):
+        pa.table(pd.DataFrame({'a': [1, 2, 3]}), metadata={b'foo': b'bar'})
 
 
 def test_table_function_unicode_schema():
