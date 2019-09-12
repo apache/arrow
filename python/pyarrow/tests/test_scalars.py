@@ -37,6 +37,10 @@ class TestScalars(unittest.TestCase):
             assert v is pa.NA
             assert v.as_py() is None
 
+    def test_null_equality(self):
+        assert (pa.NA == pa.NA) is pa.NA
+        assert (pa.NA == 1) is pa.NA
+
     def test_bool(self):
         arr = pa.array([True, None, False, None])
 
