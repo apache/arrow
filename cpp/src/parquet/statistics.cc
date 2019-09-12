@@ -146,7 +146,7 @@ template <>
 double CleanStatistic(double val) {
   // ARROW-5562: Return positive 0 for -0 and any value within double epsilon
   // of 0
-  return fabs(val) < 1E-13 ? 0.0f : val;
+  return fabs(val) < 1E-13 ? 0.0 : val;
 }
 
 template <bool is_signed, typename DType>
