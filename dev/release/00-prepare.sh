@@ -59,6 +59,11 @@ update_versions() {
     PKGBUILD
   rm -f PKGBUILD.bak
   git add PKGBUILD
+  sed -i.bak -E -e \
+    "s/^  url .+(arrow-[0-9.]+[0-9]+)/arrow-${r_version}/g" \
+    apache-arrow.rb
+  rm -f apache-arrow.rb.bak
+  git add apache-arrow.rb
   cd -
 
   cd "${SOURCE_DIR}/../../cpp"
