@@ -395,7 +395,9 @@ inline std::shared_ptr<FieldExpression> field_ref(std::string name) {
 }
 
 inline namespace string_literals {
-inline FieldExpression operator""_(const char* name, size_t name_length) {
+// clang-format off
+inline FieldExpression operator"" _(const char* name, size_t name_length) {
+  // clang-format on
   return FieldExpression({name, name_length});
 }
 }  // namespace string_literals
