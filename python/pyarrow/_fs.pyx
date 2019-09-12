@@ -130,7 +130,7 @@ cdef class FileStats:
 cdef class Selector:
     """File and directory selector.
 
-    It containt a set of options that describes how to search for files and
+    It contains a set of options that describes how to search for files and
     directories.
 
     Parameters
