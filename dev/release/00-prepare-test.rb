@@ -256,6 +256,13 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "ci/apache-arrow.rb",
+                     hunks: [
+                       ["-  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\"",
+                        "+  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@release_version}.9000/apache-arrow-#{@release_version}.9000.tar.gz\""],
+                     ],
+                   },
+                   {
                      path: "cpp/CMakeLists.txt",
                      hunks: [
                        ["-set(ARROW_VERSION \"#{@release_version}\")",
