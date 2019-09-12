@@ -15,15 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import shutil
-import tempfile
 import time
-
 import pyarrow as pa
-try:
-    import pyarrow.parquet as pq
-except ImportError:
-    pq = None
 
 
 class HighLatencyReader(object):
@@ -37,7 +30,7 @@ class HighLatencyReader(object):
 
     @property
     def closed(self):
-        return False
+        return self.raw.closed
 
     def read(self, nbytes=None):
         time.sleep(self.latency)
@@ -55,7 +48,7 @@ class HighLatencyWriter(object):
 
     @property
     def closed(self):
-        return False
+        return self.raw.closed
 
     def write(self, data):
         time.sleep(self.latency)
