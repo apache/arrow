@@ -58,6 +58,9 @@ class DictionaryMemo;
 
 namespace internal {
 
+// This 0xFFFFFFFF value is the first 4 bytes of a valid IPC message
+constexpr int32_t kIpcContinuationToken = -1;
+
 static constexpr flatbuf::MetadataVersion kCurrentMetadataVersion =
     flatbuf::MetadataVersion_V4;
 
