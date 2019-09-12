@@ -46,6 +46,9 @@ cdef class NullType(Scalar):
         """
         return None
 
+    def __eq__(self, other):
+        return NA
+
 
 _NULL = NA = NullType()
 
