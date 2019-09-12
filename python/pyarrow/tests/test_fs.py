@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
 from datetime import datetime
 try:
     import pathlib
@@ -116,14 +117,27 @@ def test_get_target_stats(fs, tempdir, testpath):
 
 @pytest.mark.parametrize('base_dir', ['.', '..'])
 def test_get_target_stats_with_selector(fs, tempdir, testpath, base_dir):
+    def walk(directory):
+        # utility function to recusively list entries under a directory,
+        # including symlinks and hidden files
+        for root, dirs, files in os.walk(directory, followlinks=True):
+            for d in dirs:
+                yield os.path.join(root, d)
+            for f in files:
+                yield os.path.join(root, f)
+
     base_dir = testpath(base_dir)
     base_dir_ = tempdir / base_dir
 
     selector = Selector(base_dir, allow_non_existent=False, recursive=True)
     assert selector.base_dir == pathlib.Path(base_dir).as_posix()
 
+    (tempdir / 'test_file').touch()
+    (tempdir / 'test_directory').mkdir()
+
     stats = fs.get_target_stats(selector)
-    assert len(stats) == len(list(base_dir_.iterdir()))
+    expected = list(walk(str(base_dir_)))
+    assert len(stats) == len(expected)
 
     for st in stats:
         p = base_dir_ / st.path
