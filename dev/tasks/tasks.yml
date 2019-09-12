@@ -1091,7 +1091,7 @@ tasks:
   homebrew-formula:
     ci: travis
     platform: osx
-    template: travis.homebrew.yml
+    template: homebrew-formulae/travis.osx.yml
 
   ############################## Gandiva Tasks ################################
 
