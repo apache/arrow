@@ -1550,6 +1550,9 @@ def table(data, schema=None, names=None, metadata=None):
     Table.from_arrays, Table.from_pandas, Table.from_pydict
     """
     if isinstance(data, (list, tuple)):
+        if not isinstance(schema, Schema) and names is None:
+            names = schema
+            schema = None
         return Table.from_arrays(data, names=names, schema=schema,
                                  metadata=metadata)
     elif isinstance(data, dict):
