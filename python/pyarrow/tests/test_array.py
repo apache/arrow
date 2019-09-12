@@ -250,6 +250,25 @@ def test_array_slice():
             assert arr[start:stop].to_pylist() == arr.to_pylist()[start:stop]
 
 
+def test_array_diff():
+    # ARROW-6252
+    arr1 = pa.array(['foo'], type=pa.utf8())
+    arr2 = pa.array(['foo', 'bar', None], type=pa.utf8())
+    arr3 = pa.array([1, 2, 3])
+    arr4 = pa.array([[], [1], None], type=pa.list_(pa.int64()))
+
+    assert arr1.diff(arr1) == ''
+    assert arr1.diff(arr2) == '''
+@@ -1, +1 @@
++"bar"
++null
+'''
+    assert arr1.diff(arr3) == '# Array types differed: string vs int64'
+    assert arr1.diff(arr3) == '# Array types differed: string vs int64'
+    assert arr1.diff(arr4) == ('# Array types differed: string vs '
+                               'list<item: int64>')
+
+
 def test_array_iter():
     arr = pa.array(range(10))
 
