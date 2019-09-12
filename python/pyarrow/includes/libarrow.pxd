@@ -143,6 +143,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         int num_fields()
 
+        c_string Diff(const CArray& other)
         c_bool Equals(const CArray& arr)
         c_bool IsNull(int i)
 
