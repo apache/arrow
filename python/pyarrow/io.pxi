@@ -133,12 +133,6 @@ cdef class NativeFile:
                 else:
                     check_status(self.output_stream.get().Close())
 
-    def flush(self):
-        """Flush the buffer stream, if applicable.
-
-        No-op to match the IOBase interface."""
-        self._assert_open()
-
     cdef set_random_access_file(self, shared_ptr[RandomAccessFile] handle):
         self.input_stream = <shared_ptr[InputStream]> handle
         self.random_access = handle
@@ -253,6 +247,19 @@ cdef class NativeFile:
             check_status(handle.get().Seek(offset))
 
         return self.tell()
+
+    def flush(self):
+        """
+        Flush the stream, if applicable.
+
+        An error is raised if stream is not writable.
+        """
+        self._assert_open()
+        # For IOBase compatibility, flush() on an input stream is a no-op
+        if self.is_writable:
+            handle = self.get_output_stream()
+            with nogil:
+                check_status(handle.get().Flush())
 
     def write(self, data):
         """
@@ -1234,6 +1241,11 @@ cdef class CompressedOutputStream(NativeFile):
         self.is_writable = True
 
 
+ctypedef CBufferedInputStream* _CBufferedInputStreamPtr
+ctypedef CBufferedOutputStream* _CBufferedOutputStreamPtr
+ctypedef RandomAccessFile* _RandomAccessFilePtr
+
+
 cdef class BufferedInputStream(NativeFile):
 
     def __init__(self, NativeFile stream, int buffer_size,
@@ -1248,6 +1260,40 @@ cdef class BufferedInputStream(NativeFile):
 
         self.set_input_stream(<shared_ptr[InputStream]> buffered_stream)
         self.is_readable = True
+
+    def detach(self):
+        """
+        Release the raw InputStream.
+        Further operations on this stream are invalid.
+
+        Returns
+        -------
+        raw : NativeFile
+            The underlying raw input stream
+        """
+        cdef:
+            shared_ptr[InputStream] c_raw
+            _CBufferedInputStreamPtr buffered
+            NativeFile raw
+
+        buffered = dynamic_cast[_CBufferedInputStreamPtr](
+            self.input_stream.get())
+        assert buffered != nullptr
+
+        with nogil:
+            c_raw = buffered.Detach()
+
+        raw = NativeFile()
+        raw.is_readable = True
+        # Find out whether the raw stream is a RandomAccessFile
+        # or a mere InputStream.  This helps us support seek() etc.
+        # selectively.
+        if dynamic_cast[_RandomAccessFilePtr](c_raw.get()) != nullptr:
+            raw.set_random_access_file(
+                static_pointer_cast[RandomAccessFile, InputStream](c_raw))
+        else:
+            raw.set_input_stream(c_raw)
+        return raw
 
 
 cdef class BufferedOutputStream(NativeFile):
@@ -1264,6 +1310,33 @@ cdef class BufferedOutputStream(NativeFile):
 
         self.set_output_stream(<shared_ptr[OutputStream]> buffered_stream)
         self.is_writable = True
+
+    def detach(self):
+        """
+        Flush any buffered writes and release the raw OutputStream.
+        Further operations on this stream are invalid.
+
+        Returns
+        -------
+        raw : NativeFile
+            The underlying raw output stream
+        """
+        cdef:
+            shared_ptr[OutputStream] c_raw
+            _CBufferedOutputStreamPtr buffered
+            NativeFile raw
+
+        buffered = dynamic_cast[_CBufferedOutputStreamPtr](
+            self.output_stream.get())
+        assert buffered != nullptr
+
+        with nogil:
+            check_status(buffered.Detach(&c_raw))
+
+        raw = NativeFile()
+        raw.is_writable = True
+        raw.set_output_stream(c_raw)
+        return raw
 
 
 def py_buffer(object obj):

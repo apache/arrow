@@ -976,6 +976,77 @@ def test_native_file_TextIOWrapper(tmpdir):
 
 
 # ----------------------------------------------------------------------
+# Buffered streams
+
+def test_buffered_input_stream():
+    raw = pa.BufferReader(b"123456789")
+    f = pa.BufferedInputStream(raw, buffer_size=4)
+    assert f.read(2) == b"12"
+    assert raw.tell() == 4
+    f.close()
+    assert f.closed
+    assert raw.closed
+
+
+def test_buffered_input_stream_detach_seekable():
+    # detach() to a seekable file (io::RandomAccessFile in C++)
+    f = pa.BufferedInputStream(pa.BufferReader(b"123456789"), buffer_size=4)
+    assert f.read(2) == b"12"
+    raw = f.detach()
+    assert f.closed
+    assert not raw.closed
+    assert raw.seekable()
+    assert raw.read(4) == b"5678"
+    raw.seek(2)
+    assert raw.read(4) == b"3456"
+
+
+def test_buffered_input_stream_detach_non_seekable():
+    # detach() to a non-seekable file (io::InputStream in C++)
+    f = pa.BufferedInputStream(
+        pa.BufferedInputStream(pa.BufferReader(b"123456789"), buffer_size=4),
+        buffer_size=4)
+    assert f.read(2) == b"12"
+    raw = f.detach()
+    assert f.closed
+    assert not raw.closed
+    assert not raw.seekable()
+    assert raw.read(4) == b"5678"
+    with pytest.raises(EnvironmentError):
+        raw.seek(2)
+
+
+def test_buffered_output_stream():
+    np_buf = np.zeros(100, dtype=np.int8)  # zero-initialized buffer
+    buf = pa.py_buffer(np_buf)
+
+    raw = pa.FixedSizeBufferWriter(buf)
+    f = pa.BufferedOutputStream(raw, buffer_size=4)
+    f.write(b"12")
+    assert np_buf[:4].tobytes() == b'\0\0\0\0'
+    f.flush()
+    assert np_buf[:4].tobytes() == b'12\0\0'
+    f.write(b"3456789")
+    f.close()
+    assert f.closed
+    assert raw.closed
+    assert np_buf[:10].tobytes() == b'123456789\0'
+
+
+def test_buffered_output_stream_detach():
+    np_buf = np.zeros(100, dtype=np.int8)  # zero-initialized buffer
+    buf = pa.py_buffer(np_buf)
+
+    f = pa.BufferedOutputStream(pa.FixedSizeBufferWriter(buf), buffer_size=4)
+    f.write(b"12")
+    assert np_buf[:4].tobytes() == b'\0\0\0\0'
+    raw = f.detach()
+    assert f.closed
+    assert not raw.closed
+    assert np_buf[:4].tobytes() == b'12\0\0'
+
+
+# ----------------------------------------------------------------------
 # Compressed input and output streams
 
 def check_compressed_input(data, fn, compression):
@@ -1228,10 +1299,13 @@ def test_input_stream_file_path_buffered(tmpdir):
         f.write(data)
 
     stream = pa.input_stream(file_path, buffer_size=32)
+    assert isinstance(stream, pa.BufferedInputStream)
     assert stream.read() == data
     stream = pa.input_stream(str(file_path), buffer_size=64)
+    assert isinstance(stream, pa.BufferedInputStream)
     assert stream.read() == data
     stream = pa.input_stream(pathlib.Path(str(file_path)), buffer_size=1024)
+    assert isinstance(stream, pa.BufferedInputStream)
     assert stream.read() == data
 
     unbuffered_stream = pa.input_stream(file_path, buffer_size=0)
@@ -1389,6 +1463,8 @@ def test_output_stream_file_path_buffered(tmpdir):
 
     def check_data(file_path, data, **kwargs):
         with pa.output_stream(file_path, **kwargs) as stream:
+            if kwargs.get('buffer_size', 0) > 0:
+                assert isinstance(stream, pa.BufferedOutputStream)
             stream.write(data)
         with open(str(file_path), 'rb') as f:
             return f.read()

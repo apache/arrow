@@ -29,6 +29,9 @@ from libcpp.unordered_set cimport unordered_set
 from cpython cimport PyObject
 cimport cpython
 
+cdef extern from * namespace "std" nogil:
+    cdef shared_ptr[T] static_pointer_cast[T, U](shared_ptr[U])
+
 cdef extern from "arrow/python/platform.h":
     pass
 
