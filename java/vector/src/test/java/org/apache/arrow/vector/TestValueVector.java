@@ -2649,6 +2649,7 @@ public class TestValueVector {
          final StructVector structVector = StructVector.empty("structVector", allocator)) {
 
       // validate intVector toString
+      assertEquals("[]", intVector.toString());
       intVector.setValueCount(3);
       intVector.setSafe(0, 1);
       intVector.setSafe(1, 2);
