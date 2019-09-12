@@ -163,7 +163,7 @@ cdef class ChunkedArray(_PandasConvertible):
                 self.sp_chunked_array,
                 self, &out))
 
-        return pandas_api.series(wrap_array_output(out))
+        return pandas_api.series(wrap_array_output(out), name=self._name)
 
     def __array__(self, dtype=None):
         values = self.to_pandas().values
@@ -570,7 +570,9 @@ cdef class RecordBatch(_PandasConvertible):
         column : pyarrow.Array
         """
         cdef int index = <int> _normalize_index(i, self.num_columns)
-        return pyarrow_wrap_array(self.batch.column(index))
+        cdef Array result = pyarrow_wrap_array(self.batch.column(index))
+        result._name = self.schema[index].name
+        return result
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -1306,7 +1308,10 @@ cdef class Table(_PandasConvertible):
         pyarrow.ChunkedArray
         """
         cdef int index = <int> _normalize_index(i, self.num_columns)
-        return pyarrow_wrap_chunked_array(self.table.column(index))
+        cdef ChunkedArray result = pyarrow_wrap_chunked_array(
+            self.table.column(index))
+        result._name = self.schema[index].name
+        return result
 
     def itercolumns(self):
         """

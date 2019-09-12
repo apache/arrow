@@ -2773,6 +2773,13 @@ def test_recordbatchlist_to_pandas():
     tm.assert_frame_equal(data, result)
 
 
+def test_recordbatch_table_pass_name_to_pandas():
+    rb = pa.record_batch([pa.array([1, 2, 3, 4])], names=['a0'])
+    t = pa.table([pa.array([1, 2, 3, 4])], names=['a0'])
+    assert rb[0].to_pandas().name == 'a0'
+    assert t[0].to_pandas().name == 'a0'
+
+
 # ----------------------------------------------------------------------
 # Metadata serialization
 

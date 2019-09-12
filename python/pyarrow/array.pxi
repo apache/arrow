@@ -440,7 +440,7 @@ cdef class _PandasConvertible:
 
         Returns
         -------
-        NumPy array or DataFrame depending on type of object
+        pandas.Series or pandas.DataFrame depending on type of object
         """
         cdef:
             PyObject* out
@@ -868,7 +868,7 @@ cdef class Array(_PandasConvertible):
         with nogil:
             check_status(ConvertArrayToPandas(c_options, self.sp_array,
                                               self, &out))
-        return pandas_api.series(wrap_array_output(out))
+        return pandas_api.series(wrap_array_output(out), name=self._name)
 
     def __array__(self, dtype=None):
         values = self.to_pandas().values
