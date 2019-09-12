@@ -21,7 +21,10 @@
 from __future__ import absolute_import
 
 import collections
+import contextlib
 import enum
+import socket
+import threading
 
 import six
 
@@ -858,7 +861,7 @@ cdef class FlightClient:
 
         tls_root_certs : bytes or None
             PEM-encoded
-        unsafe_override_hostname : str or None
+        override_hostname : str or None
             Override the hostname checked by TLS. Insecure, use with caution.
         """
         cdef:
@@ -1624,17 +1627,25 @@ cdef class ClientAuthHandler:
         return new PyClientAuthHandler(self, vtable)
 
 
+def _find_free_port():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    with contextlib.closing(sock) as sock:
+        sock.bind(('', 0))
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        return sock.getsockname()[1]
+
+
 cdef class FlightServerBase:
     """A Flight service definition.
 
     Override methods to define your Flight service.
-
     """
 
     cdef:
         unique_ptr[PyFlightServer] server
 
-    def init(self, location, auth_handler=None, tls_certificates=None):
+    cdef init(self, Location location, ServerAuthHandler auth_handler=None,
+              list tls_certificates=None):
         """Initialize this server.
 
         Parameters
@@ -1680,6 +1691,7 @@ cdef class FlightServerBase:
             check_flight_status(c_server.Init(deref(c_options)))
 
     def port(self):
+        # deprecate
         """
         Get the port that this server is listening on.
 
@@ -1688,18 +1700,6 @@ cdef class FlightServerBase:
         socket).
         """
         return self.server.get().port()
-
-    def run(self):
-        """
-        Start serving.  This method only returns if shutdown() is called
-        or a signal a received.
-
-        You must have called init() first.
-        """
-        if self.server.get() == nullptr:
-            raise ValueError("run() on uninitialized FlightServerBase")
-        with nogil:
-            check_flight_status(self.server.get().ServeWithSignals())
 
     def list_flights(self, context, criteria):
         raise NotImplementedError
@@ -1723,6 +1723,18 @@ cdef class FlightServerBase:
     def do_action(self, context, action):
         raise NotImplementedError
 
+    def run(self):
+        """
+        Start serving.  This method only returns if shutdown() is called
+        or a signal a received.
+
+        You must have called init() first.
+        """
+        if self.server.get() == nullptr:
+            raise ValueError("run() on uninitialized FlightServerBase")
+        with nogil:
+            check_flight_status(self.server.get().ServeWithSignals())
+
     def shutdown(self):
         """Shut down the server, blocking until current requests finish.
 
@@ -1739,3 +1751,62 @@ cdef class FlightServerBase:
             raise ValueError("shutdown() on uninitialized FlightServerBase")
         with nogil:
             check_flight_status(self.server.get().Shutdown())
+
+
+cdef class FlightServer(FlightServerBase):
+
+    cdef:
+        object _thread
+
+    cdef readonly:
+        Location location
+
+    def __init__(self, location=None, auth_handler=None,
+                 tls_certificates=None):
+        if isinstance(location, six.string_types):
+            location = Location(location)
+        elif isinstance(location, (tuple, type(None))):
+            if location is None:
+                location = ('localhost', _find_free_port())
+            host, port = location
+            if tls_certificates:
+                location = Location.for_grpc_tls(host, port)
+            else:
+                location = Location.for_grpc_tcp(host, port)
+        elif not isinstance(location, Location):
+            raise TypeError('`location` argument must be a string, tuple or a '
+                            'Location instance')
+        self.init(location, auth_handler, tls_certificates)
+        self.location = location
+
+    @property
+    def port(self):
+        return self.server.get().port()
+
+    def connect(self, tls_root_certs=None, override_hostname=None):
+        """
+        Connect to the Flight server
+
+        Parameters
+        ----------
+        tls_root_certs : bytes or None
+            PEM-encoded
+        override_hostname : str or None
+            Override the hostname checked by TLS. Insecure, use with caution.
+
+        Returns
+        -------
+        client : FlightClient
+        """
+        return FlightClient.connect(self.location,
+                                    tls_root_certs=tls_root_certs,
+                                    override_hostname=override_hostname)
+
+    def __enter__(self):
+        self._thread = threading.Thread(target=self.run, daemon=True)
+        self._thread.start()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):  # add timeout
+        self.shutdown()
+        self._thread.join(3)
