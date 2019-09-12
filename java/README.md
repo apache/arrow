@@ -49,7 +49,7 @@ deprecation warnings.
 
 Arrow uses Google's Flatbuffers to transport metadata.  The java version of the library
 requires the generated flatbuffer classes can only be used with the same version that
-generated them.  Arrow packages a verion of the arrow-vector module that shades flatbuffers
+generated them.  Arrow packages a version of the arrow-vector module that shades flatbuffers
 and arrow-format into a single JAR.  Using the classifier "shade-format-flatbuffers" in your
 pom.xml will make use of this JAR, you can then exclude/resolve the original dependency to
 a version of your choosing.

@@ -67,7 +67,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
   }
 
   @Override
-  public void testJdbcToArroValues() throws SQLException, IOException {
+  public void testJdbcToArrowValues() throws SQLException, IOException {
 
     JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
         Calendar.getInstance()).setTargetBatchSize(3).build();
