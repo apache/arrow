@@ -20,6 +20,7 @@ namespace Apache.Arrow.Ipc
 {
     internal class MessageSerializer
     {
+        public const int IpcContinuationToken = -1;
 
         public static Types.NumberType GetNumberType(int bitWidth, bool signed)
         {
