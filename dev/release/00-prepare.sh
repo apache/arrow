@@ -42,14 +42,6 @@ update_versions() {
       ;;
   esac
 
-  cd "${SOURCE_DIR}/../../cpp"
-  sed -i.bak -E -e \
-    "s/^set\(ARROW_VERSION \".+\"\)/set(ARROW_VERSION \"${version}\")/" \
-    CMakeLists.txt
-  rm -f CMakeLists.txt.bak
-  git add CMakeLists.txt
-  cd -
-
   cd "${SOURCE_DIR}/../../c_glib"
   sed -i.bak -E -e \
     "s/^m4_define\(\[arrow_glib_version\], .+\)/m4_define([arrow_glib_version], ${version})/" \
@@ -59,6 +51,22 @@ update_versions() {
     meson.build
   rm -f configure.ac.bak meson.build.bak
   git add configure.ac meson.build
+  cd -
+
+  cd "${SOURCE_DIR}/../../ci"
+  sed -i.bak -E -e \
+    "s/^pkgver=.+/pkgver=${r_version}/" \
+    PKGBUILD
+  rm -f PKGBUILD.bak
+  git add PKGBUILD
+  cd -
+
+  cd "${SOURCE_DIR}/../../cpp"
+  sed -i.bak -E -e \
+    "s/^set\(ARROW_VERSION \".+\"\)/set(ARROW_VERSION \"${version}\")/" \
+    CMakeLists.txt
+  rm -f CMakeLists.txt.bak
+  git add CMakeLists.txt
   cd -
 
   cd "${SOURCE_DIR}/../../csharp"
@@ -99,17 +107,6 @@ update_versions() {
     DESCRIPTION
   rm -f DESCRIPTION.bak
   git add DESCRIPTION
-  cd -
-
-  cd "${SOURCE_DIR}/../../ci"
-  sed -i.bak -E -e \
-    "s/^pkgver=.+/pkgver=${r_version}/" \
-    PKGBUILD
-  rm -f PKGBUILD.bak
-  git add PKGBUILD
-  cd -
-
-  cd "${SOURCE_DIR}/../../r"
   if [ ${type} = "snapshot" ]; then
     # Add a news entry for the new dev version
     echo "dev"
