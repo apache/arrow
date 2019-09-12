@@ -224,7 +224,6 @@ Status PyTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** out) {
 }
 
 Status PyDate_from_int(int64_t val, const DateUnit unit, PyObject** out) {
-  PyDateTime_IMPORT;
   int64_t year = 0, month = 0, day = 0;
   RETURN_NOT_OK(PyDate_convert_int(val, unit, &year, &month, &day));
   *out = PyDate_FromDate(static_cast<int32_t>(year), static_cast<int32_t>(month),
@@ -233,7 +232,6 @@ Status PyDate_from_int(int64_t val, const DateUnit unit, PyObject** out) {
 }
 
 Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** out) {
-  PyDateTime_IMPORT;
   int64_t hour = 0, minute = 0, second = 0, microsecond = 0;
   RETURN_NOT_OK(PyTime_convert_int(val, unit, &hour, &minute, &second, &microsecond));
   int64_t total_days = 0;
@@ -248,6 +246,7 @@ Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** ou
 }
 
 Status PyDateTime_from_TimePoint(TimePoint val, PyObject** out) {
+  PyDateTime_IMPORT;
   auto nanos = val.time_since_epoch();
   auto micros = std::chrono::duration_cast<std::chrono::microseconds>(nanos);
   RETURN_NOT_OK(PyDateTime_from_int(micros.count(), TimeUnit::MICRO, out));
