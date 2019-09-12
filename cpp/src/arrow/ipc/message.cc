@@ -143,17 +143,25 @@ bool Message::Equals(const Message& other) const {
   }
 }
 
+Status MaybeAlignMetadata(std::shared_ptr<Buffer>* metadata) {
+  if (reinterpret_cast<uintptr_t>((*metadata)->data()) % 8 != 0) {
+    // If the metadata memory is not aligned, we copy it here to avoid
+    // potential UBSAN issues from Flatbuffers
+    RETURN_NOT_OK((*metadata)->Copy(0, (*metadata)->size(), metadata));
+  }
+  return Status::OK();
+}
+
 Status CheckMetadataAndGetBodyLength(const Buffer& metadata, int64_t* body_length) {
-  // Check metadata memory alignment in debug builds
-  DCHECK_EQ(0, reinterpret_cast<uintptr_t>(metadata.data()) % 8);
   const flatbuf::Message* fb_message;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &fb_message));
   *body_length = fb_message->bodyLength();
   return Status::OK();
 }
 
-Status Message::ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStream* stream,
+Status Message::ReadFrom(std::shared_ptr<Buffer> metadata, io::InputStream* stream,
                          std::unique_ptr<Message>* out) {
+  RETURN_NOT_OK(MaybeAlignMetadata(&metadata));
   int64_t body_length = -1;
   RETURN_NOT_OK(CheckMetadataAndGetBodyLength(*metadata, &body_length));
 
@@ -167,8 +175,9 @@ Status Message::ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStrea
   return Message::Open(metadata, body, out);
 }
 
-Status Message::ReadFrom(const int64_t offset, const std::shared_ptr<Buffer>& metadata,
+Status Message::ReadFrom(const int64_t offset, std::shared_ptr<Buffer> metadata,
                          io::RandomAccessFile* file, std::unique_ptr<Message>* out) {
+  RETURN_NOT_OK(MaybeAlignMetadata(&metadata));
   int64_t body_length = -1;
   RETURN_NOT_OK(CheckMetadataAndGetBodyLength(*metadata, &body_length));
 
@@ -281,12 +290,6 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
 
   std::shared_ptr<Buffer> metadata =
       SliceBuffer(buffer, prefix_size, buffer->size() - prefix_size);
-  if (prefix_size == 4) {
-    // ARROW-6314: For old messages we copy the metadata to fix UBSAN
-    // issues with Flatbuffers. For new messages, they are already
-    // aligned
-    RETURN_NOT_OK(metadata->Copy(0, metadata->size(), &metadata));
-  }
   return Message::ReadFrom(offset + metadata_length, metadata, file, message);
 }
 
