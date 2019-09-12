@@ -85,7 +85,7 @@ Status AppendListValues(CBuilderType<ValueCType>& value_builder, Range&& cell_ra
   };                                                                                \
                                                                                     \
   template <>                                                                       \
-  Status AppendListValues<CType_>(                                                  \
+  Status AppendListValues<CType_, const std::vector<CType_>&>(                      \
       typename TypeTraits<ArrowType_>::BuilderType & value_builder,                 \
       const std::vector<CType_>& cell_range) {                                      \
     return value_builder.AppendValues(cell_range);                                  \
