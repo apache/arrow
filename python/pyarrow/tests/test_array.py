@@ -252,8 +252,8 @@ def test_array_slice():
 
 def test_array_diff():
     # ARROW-6252
-    arr1 = pa.array(['foo'])
-    arr2 = pa.array(['foo', 'bar', None])
+    arr1 = pa.array(['foo'], type=pa.utf8())
+    arr2 = pa.array(['foo', 'bar', None], type=pa.utf8())
     arr3 = pa.array([1, 2, 3])
     arr4 = pa.array([[], [1], None], type=pa.list_(pa.int64()))
 
