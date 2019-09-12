@@ -107,7 +107,7 @@ public class PlasmaClientTest {
 
   private void cleanup() {
     if (storeProcess != null && killProcess(storeProcess)) {
-      System.out.println("Kill plasma store process forcely");
+      System.out.println("Kill plasma store process forcibly");
     }
   }
 
@@ -206,7 +206,7 @@ public class PlasmaClientTest {
     assert !pLink.contains(id6);
     System.out.println("Plasma java client delete test success.");
     
-    // Test calling shuntdown while getting the object.
+    // Test calling shutdown while getting the object.
     Thread thread = new Thread(() -> {
       try {
         TimeUnit.SECONDS.sleep(1);
@@ -230,7 +230,7 @@ public class PlasmaClientTest {
     try {
       thread.join();
     } catch (Exception e) {
-      System.out.println(String.format("Excpetion caught: %s", e));
+      System.out.println(String.format("Exception caught: %s", e));
     }
     System.out.println("All test success.");
 

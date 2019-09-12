@@ -277,12 +277,12 @@ public class TestDecimalVector {
          ArrowBuf buf = allocator.buffer(8);) {
       decimalVector.allocateNew();
 
-      // add a positive value equivalen to 705.32
+      // add a positive value equivalent to 705.32
       int val = 70532;
       buf.setInt(0, val);
       decimalVector.setSafe(0, 0, buf, 4);
 
-      // add a -ve value equivalen to -705.32
+      // add a -ve value equivalent to -705.32
       val = -70532;
       buf.setInt(4, val);
       decimalVector.setSafe(1, 4, buf, 4);

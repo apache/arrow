@@ -302,7 +302,7 @@ public class NonNullableStructVector extends AbstractStructVector {
     for (String child : getChildFieldNames()) {
       ValueVector v = getChild(child);
       if (v != null && index < v.getValueCount()) {
-        hash = ByteFunctionHelpers.comebineHash(hash, v.hashCode(index));
+        hash = ByteFunctionHelpers.combineHash(hash, v.hashCode(index));
       }
     }
     return hash;

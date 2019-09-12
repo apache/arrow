@@ -292,7 +292,7 @@ public final class ArrowBuf implements AutoCloseable {
    * byte address for get/set operation in the underlying chunk
    *
    * @param index the index at which we the user wants to read/write
-   * @return the absolute address within the memro
+   * @return the absolute address within the memory
    */
   private long addr(int index) {
     return addr + index;
@@ -892,7 +892,7 @@ public final class ArrowBuf implements AutoCloseable {
     checkIndex(index, length);
     if (src.isDirect()) {
       // copy length bytes of data from src ByteBuffer starting at address
-      // srcAddress into this ArrowBuf at address dstAddres
+      // srcAddress into this ArrowBuf at address dstAddress
       final long srcAddress = PlatformDependent.directBufferAddress(src) + (long)srcIndex;
       final long dstAddress = addr(index);
       PlatformDependent.copyMemory(srcAddress, dstAddress, (long)length);

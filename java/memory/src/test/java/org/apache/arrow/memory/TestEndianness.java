@@ -23,7 +23,7 @@ import org.junit.Test;
 
 import io.netty.buffer.ByteBuf;
 
-public class TestEndianess {
+public class TestEndianness {
 
   @Test
   public void testLittleEndian() {
