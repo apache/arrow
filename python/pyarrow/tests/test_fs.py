@@ -113,14 +113,24 @@ def test_get_target_stats(fs, tempdir, testpath):
     assert c_stat.size == 4
     assert mtime_almost_equal(c_stat.mtime, c_.stat().st_mtime)
 
-    base_dir = testpath('')
-    selector = Selector(base_dir, allow_non_existent=False, recursive=True)
-    assert selector.base_dir == str(base_dir)
 
-    nodes = fs.get_target_stats(selector)
-    assert len(nodes) == 5
-    assert len(list(n for n in nodes if n.type == FileType.File)) == 2
-    assert len(list(n for n in nodes if n.type == FileType.Directory)) == 3
+@pytest.mark.parametrize('base_dir', ['.', '..'])
+def test_get_target_stats_with_selector(fs, tempdir, testpath, base_dir):
+    base_dir = testpath(base_dir)
+    base_dir_ = tempdir / base_dir
+
+    selector = Selector(base_dir, allow_non_existent=False, recursive=True)
+    assert selector.base_dir == pathlib.Path(base_dir).as_posix()
+
+    stats = fs.get_target_stats(selector)
+    assert len(stats) == len(list(base_dir_.iterdir()))
+
+    for st in stats:
+        p = base_dir_ / st.path
+        if p.is_dir():
+            assert st.type == FileType.Directory
+        if p.is_file():
+            assert st.type == FileType.File
 
 
 def test_create_dir(fs, tempdir, testpath):
