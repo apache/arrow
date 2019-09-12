@@ -163,12 +163,13 @@ cdef class ChunkedArray(_PandasConvertible):
                 self.sp_chunked_array,
                 self, &out))
 
-        return wrap_array_output(out)
+        return pandas_api.series(wrap_array_output(out))
 
     def __array__(self, dtype=None):
+        values = self.to_pandas().values
         if dtype is None:
-            return self.to_pandas()
-        return self.to_pandas().astype(dtype)
+            return values
+        return values.astype(dtype)
 
     def cast(self, object target_type, bint safe=True):
         """
