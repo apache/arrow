@@ -71,7 +71,7 @@ add_custom_command(OUTPUT ${FBS_OUTPUT_FILES}
                            -o
                            ${OUTPUT_DIR}
                            ${ABS_FBS_SRC}
-                   DEPENDS flatbuffers::flatc
+                   DEPENDS flatbuffers::flatc ${ABS_FBS_SRC}
                    COMMENT "Running flatc compiler on ${ABS_FBS_SRC}"
                    VERBATIM)
 
