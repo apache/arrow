@@ -1410,6 +1410,7 @@ if(ARROW_JEMALLOC)
     jemalloc_ep
     URL ${JEMALLOC_SOURCE_URL}
     PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
+    # The prefix "je_arrow_" must be kept in sync with the value in memory_pool.cc
     CONFIGURE_COMMAND ./configure
                       "AR=${CMAKE_AR}"
                       "CC=${CMAKE_C_COMPILER}"
