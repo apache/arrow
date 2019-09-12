@@ -225,7 +225,7 @@ def asarray(values, type=None):
     -------
     arr : Array
     """
-    if isinstance(values, Array):
+    if isinstance(values, (Array, ChunkedArray)):
         if type is not None and not values.type.equals(type):
             values = values.cast(type)
 

@@ -282,9 +282,9 @@ def test_recordbatch_basics():
 
 def test_recordbatch_from_arrays_validate_schema():
     # ARROW-6263
-    arr = pa.array([])
+    arr = pa.array([1, 2])
     schema = pa.schema([pa.field('f0', pa.utf8())])
-    with pytest.raises(ValueError):
+    with pytest.raises(NotImplementedError):
         pa.record_batch([arr], schema=schema)
 
 
@@ -897,6 +897,48 @@ def test_invalid_table_construct():
         pa.Table.from_arrays(arrays, names=["a1", "a2"])
 
 
+@pytest.mark.parametrize('data', [
+    [[u'', u'foo', u'bar'], [4.5, 5, None]],
+    [pa.array([u'', u'foo', u'bar']), pa.array([4.5, 5, None])],
+    [
+        pa.chunked_array([[u''], [u'foo', u'bar']]),
+        pa.chunked_array([[4.5], [5., None]])
+    ],
+])
+def test_from_arrays_schema(data):
+    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float32())])
+
+    table = pa.Table.from_arrays(data, schema=schema)
+    assert table.num_columns == 2
+    assert table.num_rows == 3
+    assert table.schema == schema
+
+    # lenth of data and schema not matching
+    schema = pa.schema([('strs', pa.utf8())])
+    with pytest.raises(ValueError):
+        pa.Table.from_arrays(data, schema=schema)
+
+    # with different but compatible schema
+    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float32())])
+    table = pa.Table.from_arrays(data, schema=schema)
+    assert pa.types.is_float32(table.column('floats').type)
+    assert table.num_columns == 2
+    assert table.num_rows == 3
+    assert table.schema == schema
+
+    # with different and incompatible schema
+    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.timestamp('s'))])
+    with pytest.raises((NotImplementedError, TypeError)):
+        pa.Table.from_pydict(data, schema=schema)
+
+    # Cannot pass both schema and metadata / names
+    with pytest.raises(ValueError):
+        pa.Table.from_arrays(data, schema=schema, names=['strs', 'floats'])
+
+    with pytest.raises(ValueError):
+        pa.Table.from_arrays(data, schema=schema, metadata={b'foo': b'bar'})
+
+
 def test_table_from_pydict():
     table = pa.Table.from_pydict({})
     assert table.num_columns == 0
@@ -904,22 +946,7 @@ def test_table_from_pydict():
     assert table.schema == pa.schema([])
     assert table.to_pydict() == {}
 
-    # With arrays as values
-    data = OrderedDict([('strs', pa.array([u'', u'foo', u'bar'])),
-                        ('floats', pa.array([4.5, 5, None]))])
     schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64())])
-    table = pa.Table.from_pydict(data)
-    assert table.num_columns == 2
-    assert table.num_rows == 3
-    assert table.schema == schema
-
-    # With chunked arrays as values
-    data = OrderedDict([('strs', pa.chunked_array([[u''], [u'foo', u'bar']])),
-                        ('floats', pa.chunked_array([[4.5], [5., None]]))])
-    table = pa.Table.from_pydict(data)
-    assert table.num_columns == 2
-    assert table.num_rows == 3
-    assert table.schema == schema
 
     # With lists as values
     data = OrderedDict([('strs', [u'', u'foo', u'bar']),
@@ -947,6 +974,64 @@ def test_table_from_pydict():
     # Cannot pass both schema and metadata
     with pytest.raises(ValueError):
         pa.Table.from_pydict(data, schema=schema, metadata=metadata)
+
+
+@pytest.mark.parametrize('data', [
+    OrderedDict([('strs', pa.array([u'', u'foo', u'bar'])),
+                 ('floats', pa.array([4.5, 5, None]))]),
+    OrderedDict([('strs', pa.chunked_array([[u''], [u'foo', u'bar']])),
+                 ('floats', pa.chunked_array([[4.5], [5., None]]))])
+])
+def test_table_from_pydict_arrow_arrays(data):
+    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64())])
+
+    # With arrays as values
+    table = pa.Table.from_pydict(data)
+    assert table.num_columns == 2
+    assert table.num_rows == 3
+    assert table.schema == schema
+
+    # With explicit (matching) schema
+    table = pa.Table.from_pydict(data, schema=schema)
+    assert table.num_columns == 2
+    assert table.num_rows == 3
+    assert table.schema == schema
+
+    # with different but compatible schema
+    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float32())])
+    table = pa.Table.from_pydict(data, schema=schema)
+    assert pa.types.is_float32(table.column('floats').type)
+    assert table.num_columns == 2
+    assert table.num_rows == 3
+    assert table.schema == schema
+
+    # with different and incompatible schema
+    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.timestamp('s'))])
+    with pytest.raises((NotImplementedError, TypeError)):
+        pa.Table.from_pydict(data, schema=schema)
+
+
+@pytest.mark.parametrize('data', [
+    OrderedDict([('strs', pa.array([u'', u'foo', u'bar'])),
+                 ('floats', pa.array([4.5, 5, None]))]),
+    OrderedDict([('strs', [u'', u'foo', u'bar']),
+                 ('floats', [4.5, 5, None])])
+])
+def test_table_from_pydict_schema(data):
+    # passed schema is source of truth for the columns
+
+    # schema has columns not present in data -> error
+    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64()),
+                        ('ints', pa.int64())])
+    with pytest.raises(KeyError, match='ints'):
+        pa.Table.from_pydict(data, schema)
+
+    # data has columns not present in schema -> ignored
+    schema = pa.schema([('strs', pa.utf8())])
+    table = pa.Table.from_pydict(data, schema=schema)
+    assert table.num_columns == 1
+    assert table.schema == schema
+    assert table.column_names == ['strs']
 
 
 @pytest.mark.pandas

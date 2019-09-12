@@ -441,8 +441,7 @@ cdef _sanitize_arrays(arrays, names, schema, metadata,
         c_schema[0] = cy_schema.sp_schema
         converted_arrays = []
         for i, item in enumerate(arrays):
-            if not isinstance(item, (Array, ChunkedArray)):
-                item = array(item, type=schema[i].type)
+            item = asarray(item, type=schema[i].type)
             converted_arrays.append(item)
     return converted_arrays
 
@@ -1121,16 +1120,14 @@ cdef class Table(_PandasConvertible):
                         v = mapping[tobytes(field.name)]
                     except KeyError as e2:
                         raise e
-                arrays.append(array(v, type=field.type))
+                arrays.append(asarray(v, type=field.type))
             # Will raise if metadata is not None
             return Table.from_arrays(arrays, schema=schema, metadata=metadata)
         else:
             names = []
             for k, v in mapping.items():
                 names.append(k)
-                if not isinstance(v, (Array, ChunkedArray)):
-                    v = array(v)
-                arrays.append(v)
+                arrays.append(asarray(v))
             return Table.from_arrays(arrays, names, metadata=metadata)
 
     @staticmethod
