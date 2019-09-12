@@ -1169,6 +1169,24 @@ def test_input_stream_buffer():
     assert stream.read() == data
 
 
+def test_input_stream_duck_typing():
+    # Accept objects having the right file-like methods...
+    class DuckReader(object):
+
+        def close(self):
+            pass
+
+        @property
+        def closed(self):
+            return False
+
+        def read(self, nbytes=None):
+            return b'hello'
+
+    stream = pa.input_stream(DuckReader())
+    assert stream.read(5) == b'hello'
+
+
 def test_input_stream_file_path(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
     file_path = tmpdir / 'input_stream'
@@ -1303,6 +1321,28 @@ def test_output_stream_buffer():
     stream = pa.output_stream(memoryview(buf))
     stream.write(data)
     assert buf == data
+
+
+def test_output_stream_duck_typing():
+    # Accept objects having the right file-like methods...
+    class DuckWriter(object):
+        def __init__(self):
+            self.buf = pa.BufferOutputStream()
+
+        def close(self):
+            pass
+
+        @property
+        def closed(self):
+            return False
+
+        def write(self, data):
+            self.buf.write(data)
+
+    duck_writer = DuckWriter()
+    stream = pa.output_stream(duck_writer)
+    assert stream.write(b'hello')
+    assert duck_writer.buf.getvalue().to_pybytes() == b'hello'
 
 
 def test_output_stream_file_path(tmpdir):
