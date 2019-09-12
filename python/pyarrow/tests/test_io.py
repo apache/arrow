@@ -1012,7 +1012,7 @@ def test_buffered_input_stream_detach_non_seekable():
     assert not raw.closed
     assert not raw.seekable()
     assert raw.read(4) == b"5678"
-    with pytest.raises(OSError):
+    with pytest.raises(EnvironmentError):
         raw.seek(2)
 
 
