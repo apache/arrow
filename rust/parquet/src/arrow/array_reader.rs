@@ -22,49 +22,27 @@ use std::mem::size_of;
 use std::mem::transmute;
 use std::rc::Rc;
 use std::result::Result::Ok;
-use std::slice::from_raw_parts;
 use std::slice::from_raw_parts_mut;
 use std::sync::Arc;
 use std::vec::Vec;
 
-use arrow::array::ArrayDataRef;
-use arrow::array::ArrayRef;
-use arrow::array::BufferBuilderTrait;
-use arrow::array::StructArray;
-use arrow::array::{Array, ListArray};
-use arrow::array::{ArrayDataBuilder, Int32BufferBuilder};
-use arrow::array::{BooleanBufferBuilder, Int16BufferBuilder};
-use arrow::bitmap::Bitmap;
-use arrow::buffer::Buffer;
-use arrow::buffer::MutableBuffer;
-use arrow::datatypes::DataType::List;
+use arrow::array::{ArrayDataRef, ArrayRef, BufferBuilderTrait, StructArray,
+                   ArrayDataBuilder, BooleanBufferBuilder,
+                   Int16BufferBuilder};
+use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::datatypes::{DataType as ArrowType, Field};
 
-use crate::arrow::converter::BooleanConverter;
-use crate::arrow::converter::Converter;
-use crate::arrow::converter::Float32Converter;
-use crate::arrow::converter::Float64Converter;
-use crate::arrow::converter::Int16Converter;
-use crate::arrow::converter::Int32Converter;
-use crate::arrow::converter::Int64Converter;
-use crate::arrow::converter::Int8Converter;
-use crate::arrow::converter::UInt16Converter;
-use crate::arrow::converter::UInt32Converter;
-use crate::arrow::converter::UInt64Converter;
-use crate::arrow::converter::UInt8Converter;
+use crate::arrow::converter::{BooleanConverter, Converter, Float32Converter,
+                              Float64Converter, Int16Converter, Int32Converter,
+                              Int64Converter, Int8Converter, UInt16Converter,
+                              UInt32Converter, UInt64Converter, UInt8Converter};
 use crate::arrow::record_reader::RecordReader;
 use crate::arrow::schema::parquet_to_arrow_field;
 use crate::basic::{Repetition, Type as PhysicalType};
 use crate::column::page::PageIterator;
-use crate::data_type::DataType;
-use crate::data_type::DoubleType;
-use crate::data_type::FloatType;
-use crate::data_type::Int32Type;
-use crate::data_type::Int64Type;
-use crate::data_type::{BoolType, ByteArrayType, Int96Type};
-use crate::errors::ParquetError;
-use crate::errors::ParquetError::ArrowError;
-use crate::errors::Result;
+use crate::data_type::{DataType, DoubleType, FloatType, Int32Type, Int64Type, BoolType,
+                       ByteArrayType, Int96Type};
+use crate::errors::{ParquetError, ParquetError::ArrowError, Result};
 use crate::file::reader::{FilePageIterator, FileReader};
 use crate::schema::types::{
     ColumnDescPtr, ColumnDescriptor, ColumnPath, SchemaDescPtr, Type, TypePtr,
@@ -412,129 +390,12 @@ impl ArrayReader for StructArrayReader {
     }
 }
 
-struct ListArrayReader {
-    data_type: ArrowType,
-    child: Box<dyn ArrayReader>,
-    rep_level: i16,
-    def_level: i16,
-    def_level_buffer: Option<Buffer>,
-    rep_level_buffer: Option<Buffer>,
-}
-
-impl ListArrayReader {
-    pub fn new(child: Box<dyn ArrayReader>, rep_level: i16, def_level: i16) -> Self {
-        Self {
-            data_type: List(Box::new(child.get_data_type().clone())),
-            child,
-            rep_level,
-            def_level,
-            def_level_buffer: None,
-            rep_level_buffer: None,
-        }
-    }
-}
-
-impl ArrayReader for ListArrayReader {
-    fn get_data_type(&self) -> &ArrowType {
-        &self.data_type
-    }
-
-    fn next_batch(&mut self, batch_size: usize) -> Result<ArrayRef> {
-        let child_array = self.child.next_batch(batch_size)?;
-
-        let mut offset_builder = Int32BufferBuilder::new(child_array.len());
-        let mut null_bitmap_builder = BooleanBufferBuilder::new(child_array.len());
-        let mut rep_level_builder = Int16BufferBuilder::new(child_array.len());
-        let mut def_level_builder = Int16BufferBuilder::new(child_array.len());
-        let mut len = 0;
-
-        let arrow_type = ArrowType::List(Box::new(child_array.data_type().clone()));
-
-        if child_array.len() > 0 {
-            // Since this is a list, we assume that child array should have repetition
-            // levels and definition levels
-            let child_rep_levels = self.child.get_rep_levels().ok_or_else(|| {
-                general_err!(
-                    "Repetition levels should exist for list \
-                     array!"
-                )
-            })?;
-            let child_def_levels = self.child.get_def_levels().ok_or_else(|| {
-                general_err!(
-                    "Definition levels should exist for list \
-                     array!"
-                )
-            })?;
-
-            let mut cur_rep_level = child_rep_levels[0];
-            let mut cur_def_level = child_def_levels[0];
-            offset_builder.append(0)?;
-            len = 1;
-
-            for idx in 1..child_array.len() {
-                if child_rep_levels[idx] < self.rep_level {
-                    len = len + 1;
-                    rep_level_builder.append(cur_rep_level)?;
-                    def_level_builder.append(cur_def_level)?;
-
-                    let current_not_null = cur_def_level >= self.def_level;
-                    null_bitmap_builder.append(current_not_null)?;
-
-                    offset_builder.append(idx as i32)?;
-                    cur_rep_level = child_rep_levels[idx];
-                    cur_def_level = child_def_levels[idx];
-                } else {
-                    cur_rep_level = min(cur_rep_level, child_rep_levels[idx]);
-                    cur_def_level = min(cur_def_level, child_def_levels[idx]);
-                }
-            }
-
-            null_bitmap_builder.append(cur_def_level >= self.def_level)?;
-            rep_level_builder.append(cur_rep_level)?;
-            def_level_builder.append(cur_def_level)?;
-            offset_builder.append(child_array.len() as i32)?;
-        }
-
-        self.rep_level_buffer = Some(rep_level_builder.finish());
-        self.def_level_buffer = Some(def_level_builder.finish());
-
-        let offset_buffer = offset_builder.finish();
-        let null_bitmap = null_bitmap_builder.finish();
-
-        let array_data = ArrayDataBuilder::new(arrow_type)
-            .len(len)
-            .add_buffer(offset_buffer)
-            .null_bit_buffer(null_bitmap)
-            .add_child_data(child_array.data())
-            .build();
-
-        Ok(Arc::new(ListArray::from(array_data)))
-    }
-
-    fn get_def_levels(&self) -> Option<&[i16]> {
-        self.def_level_buffer.as_ref().map(|buf| {
-            let len = buf.len() * size_of::<u8>() / size_of::<i16>();
-            unsafe {
-                from_raw_parts(transmute::<*const u8, *const i16>(buf.raw_data()), len)
-            }
-        })
-    }
-
-    fn get_rep_levels(&self) -> Option<&[i16]> {
-        self.rep_level_buffer.as_ref().map(|buf| {
-            let len = buf.len() * size_of::<u8>() / size_of::<i16>();
-            unsafe {
-                from_raw_parts(transmute::<*const u8, *const i16>(buf.raw_data()), len)
-            }
-        })
-    }
-}
-
+/// Create array reader from parquet schema, column indices, and parquet file reader.
 pub fn build_array_reader<T>(
     parquet_schema: SchemaDescPtr,
     column_indices: T,
-    file_reader: Rc<FileReader>,
-) -> Result<Box<ArrayReader>>
+    file_reader: Rc<dyn FileReader>,
+) -> Result<Box<dyn ArrayReader>>
 where
     T: IntoIterator<Item = usize>,
 {
@@ -566,14 +427,16 @@ where
     .build_array_reader()
 }
 
+/// Used to build array reader.
 struct ArrayReaderBuilder {
     root_schema: TypePtr,
     // Key: columns that need to be included in final array builder
     // Value: column index in schema
     columns_included: Rc<HashMap<*const Type, usize>>,
-    file_reader: Rc<FileReader>,
+    file_reader: Rc<dyn FileReader>,
 }
 
+/// Used in type visitor.
 #[derive(Clone)]
 struct ArrayReaderBuilderContext {
     def_level: i16,
@@ -591,15 +454,18 @@ impl Default for ArrayReaderBuilderContext {
     }
 }
 
-impl<'a> TypeVisitor<Option<Box<ArrayReader>>, &'a ArrayReaderBuilderContext>
+/// Create array reader by visiting schema.
+impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext>
     for ArrayReaderBuilder
 {
     /// Build array reader for primitive type.
+    /// Currently we don't have a list reader implementation, so repeated type is not
+    /// supported yet.
     fn visit_primitive(
         &mut self,
         cur_type: TypePtr,
         context: &'a ArrayReaderBuilderContext,
-    ) -> Result<Option<Box<ArrayReader>>> {
+    ) -> Result<Option<Box<dyn ArrayReader>>> {
         if self.is_included(cur_type.as_ref()) {
             let mut new_context = context.clone();
             new_context.path.append(vec![cur_type.name().to_string()]);
@@ -619,11 +485,9 @@ impl<'a> TypeVisitor<Option<Box<ArrayReader>>, &'a ArrayReaderBuilderContext>
                 self.build_for_primitive_type_inner(cur_type.clone(), &new_context)?;
 
             if cur_type.get_basic_info().repetition() == Repetition::REPEATED {
-                Ok(Some(Box::new(ListArrayReader::new(
-                    reader,
-                    new_context.rep_level,
-                    new_context.def_level,
-                ))))
+                Err(ArrowError(
+                    "Reading repeated field is not supported yet!".to_string(),
+                ))
             } else {
                 Ok(Some(reader))
             }
@@ -632,6 +496,7 @@ impl<'a> TypeVisitor<Option<Box<ArrayReader>>, &'a ArrayReaderBuilderContext>
         }
     }
 
+    /// Build array reader for struct type.
     fn visit_struct(
         &mut self,
         cur_type: Rc<Type>,
@@ -659,11 +524,9 @@ impl<'a> TypeVisitor<Option<Box<ArrayReader>>, &'a ArrayReaderBuilderContext>
             if cur_type.get_basic_info().has_repetition()
                 && cur_type.get_basic_info().repetition() == Repetition::REPEATED
             {
-                Ok(Some(Box::new(ListArrayReader::new(
-                    reader,
-                    new_context.rep_level,
-                    new_context.def_level,
-                ))))
+                Err(ArrowError(
+                    "Reading repeated field is not supported yet!".to_string(),
+                ))
             } else {
                 Ok(Some(reader))
             }
@@ -672,41 +535,34 @@ impl<'a> TypeVisitor<Option<Box<ArrayReader>>, &'a ArrayReaderBuilderContext>
         }
     }
 
+    /// Build array reader for map type.
+    /// Currently this is not supported.
     fn visit_map(
         &mut self,
         _cur_type: Rc<Type>,
         _context: &'a ArrayReaderBuilderContext,
     ) -> Result<Option<Box<dyn ArrayReader>>> {
-        Err(ArrowError(format!(
-            "Reading parquet map array into arrow is not supported yet!"
-        )))
+        Err(ArrowError(
+            "Reading parquet map array into arrow is not supported yet!".to_string(),
+        ))
     }
 
+    /// Build array reader for list type.
+    /// Currently this is not supported.
     fn visit_list_with_item(
         &mut self,
-        list_type: Rc<Type>,
-        item_type: &Type,
-        context: &'a ArrayReaderBuilderContext,
-    ) -> Result<Option<Box<ArrayReader>>> {
-        let mut new_context = context.clone();
-        new_context.rep_level += 1;
-        new_context.def_level += 1;
-        new_context.path.append(vec![list_type.name().to_string()]);
-
-        self.dispatch(Rc::new(item_type.clone()), &new_context)
-            .map(|child_opt| {
-                child_opt.map(|child| -> Box<dyn ArrayReader> {
-                    Box::new(ListArrayReader::new(
-                        child,
-                        new_context.rep_level,
-                        new_context.def_level,
-                    ))
-                })
-            })
+        _list_type: Rc<Type>,
+        _item_type: &Type,
+        _context: &'a ArrayReaderBuilderContext,
+    ) -> Result<Option<Box<dyn ArrayReader>>> {
+        Err(ArrowError(
+            "Reading parquet list array into arrow is not supported yet!".to_string(),
+        ))
     }
 }
 
 impl<'a> ArrayReaderBuilder {
+    /// Construct array reader builder.
     fn new(
         root_schema: TypePtr,
         columns_included: Rc<HashMap<*const Type, usize>>,
@@ -719,7 +575,8 @@ impl<'a> ArrayReaderBuilder {
         }
     }
 
-    fn build_array_reader(&mut self) -> Result<Box<ArrayReader>> {
+    /// Main entry point.
+    fn build_array_reader(&mut self) -> Result<Box<dyn ArrayReader>> {
         let context = ArrayReaderBuilderContext::default();
 
         self.visit_struct(self.root_schema.clone(), &context)
@@ -727,16 +584,18 @@ impl<'a> ArrayReaderBuilder {
     }
 
     // Utility functions
+
+    /// Check whether one column in included in this array reader builder.
     fn is_included(&self, t: &Type) -> bool {
         self.columns_included.contains_key(&(t as *const Type))
     }
 
-    // Functions for primitive types.
+    /// Creates primitive array reader for each primitive type.
     fn build_for_primitive_type_inner(
         &self,
         cur_type: TypePtr,
         context: &'a ArrayReaderBuilderContext,
-    ) -> Result<Box<ArrayReader>> {
+    ) -> Result<Box<dyn ArrayReader>> {
         let column_desc = Rc::new(ColumnDescriptor::new(
             cur_type.clone(),
             Some(self.root_schema.clone()),
@@ -785,11 +644,12 @@ impl<'a> ArrayReaderBuilder {
         }
     }
 
+    /// Constructs struct array reader without considering repetition.
     fn build_for_struct_type_inner(
         &mut self,
         cur_type: TypePtr,
         context: &'a ArrayReaderBuilderContext,
-    ) -> Result<Option<Box<ArrayReader>>> {
+    ) -> Result<Option<Box<dyn ArrayReader>>> {
         let mut fields = Vec::with_capacity(cur_type.get_fields().len());
         let mut children_reader = Vec::with_capacity(cur_type.get_fields().len());
 
@@ -820,25 +680,22 @@ impl<'a> ArrayReaderBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::arrow::array_reader::{ArrayReader, PrimitiveArrayReader, StructArrayReader};
+    use crate::arrow::array_reader::{ArrayReader, PrimitiveArrayReader, StructArrayReader, build_array_reader};
     use crate::basic::Encoding;
     use crate::column::page::Page;
     use crate::data_type::{DataType, Int32Type};
     use crate::errors::Result;
     use crate::schema::parser::parse_message_type;
     use crate::schema::types::{ColumnDescPtr, SchemaDescriptor};
-    use crate::util::test_common::make_pages;
-    use crate::util::test_common::page_util::{
-        DataPageBuilder, DataPageBuilderImpl, InMemoryPageIterator,
-    };
+    use crate::util::test_common::{make_pages, get_test_file};
+    use crate::util::test_common::page_util::InMemoryPageIterator;
     use arrow::array::{Array, ArrayRef, PrimitiveArray, StructArray};
-    use arrow::compute::max;
-    use arrow::datatypes::Int32Type as ArrowInt32;
-    use arrow::datatypes::{DataType as ArrowType, Field};
+    use arrow::datatypes::{Int32Type as ArrowInt32, DataType as ArrowType, Field};
     use rand::distributions::range::SampleRange;
     use std::collections::VecDeque;
     use std::rc::Rc;
     use std::sync::Arc;
+    use crate::file::reader::{FileReader, SerializedFileReader};
 
     fn make_column_chuncks<T: DataType>(
         column_desc: ColumnDescPtr,
@@ -1088,7 +945,7 @@ mod tests {
             &self.data_type
         }
 
-        fn next_batch(&mut self, batch_size: usize) -> Result<ArrayRef> {
+        fn next_batch(&mut self, _batch_size: usize) -> Result<ArrayRef> {
             Ok(self.array.clone())
         }
 
@@ -1124,21 +981,50 @@ mod tests {
             Field::new("f2", array_2.data_type().clone(), true),
         ]);
 
-        let mut struct_array_reader = StructArrayReader::new(struct_type, vec![Box::new
-            (array_reader_1), Box::new(array_reader_2)], 1, 1);
-
+        let mut struct_array_reader = StructArrayReader::new(
+            struct_type,
+            vec![Box::new(array_reader_1), Box::new(array_reader_2)],
+            1,
+            1,
+        );
 
         let struct_array = struct_array_reader.next_batch(5).unwrap();
-        let struct_array = struct_array.as_any()
-            .downcast_ref::<StructArray>()
-            .unwrap();
+        let struct_array = struct_array.as_any().downcast_ref::<StructArray>().unwrap();
 
         assert_eq!(5, struct_array.len());
-        assert_eq!(vec![true, false, false, false, false], (0..5).map(|idx| struct_array
-            .data_ref().is_null(idx)).collect::<Vec<bool>>());
-        assert_eq!(Some(vec![0, 1, 1, 1, 1].as_slice()), struct_array_reader
-            .get_def_levels());
-        assert_eq!(Some(vec![1, 1, 1, 1, 1].as_slice()), struct_array_reader
-            .get_rep_levels());
+        assert_eq!(
+            vec![true, false, false, false, false],
+            (0..5)
+                .map(|idx| struct_array.data_ref().is_null(idx))
+                .collect::<Vec<bool>>()
+        );
+        assert_eq!(
+            Some(vec![0, 1, 1, 1, 1].as_slice()),
+            struct_array_reader.get_def_levels()
+        );
+        assert_eq!(
+            Some(vec![1, 1, 1, 1, 1].as_slice()),
+            struct_array_reader.get_rep_levels()
+        );
+    }
+
+    #[test]
+    fn test_create_array_reader() {
+        let file =  get_test_file("nulls.snappy.parquet");
+        let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
+
+        let array_reader = build_array_reader(file_reader.metadata().file_metadata()
+                                                  .schema_descr_ptr(),
+                                              vec![0usize].into_iter(),
+                                              file_reader).unwrap();
+
+        // Create arrow types
+        let arrow_type = ArrowType::Struct(vec![
+            Field::new("b_struct", ArrowType::Struct(vec![
+                Field::new("b_c_int", ArrowType::Int32, true),
+            ]), true),
+        ]);
+
+        assert_eq!(array_reader.get_data_type(), &arrow_type);
     }
 }

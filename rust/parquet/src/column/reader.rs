@@ -517,13 +517,8 @@ mod tests {
 
     use crate::basic::Type as PhysicalType;
     use crate::column::page::Page;
-    use crate::encodings::encoding::{DictEncoder, Encoder};
     use crate::schema::types::{ColumnDescriptor, ColumnPath, Type as SchemaType};
-    use crate::util::{
-        memory::MemTracker,
-        test_common::page_util::{DataPageBuilder, DataPageBuilderImpl},
-        test_common::{make_pages, random_numbers_range},
-    };
+    use crate::util::test_common::make_pages;
 
     const NUM_LEVELS: usize = 128;
     const NUM_PAGES: usize = 2;
