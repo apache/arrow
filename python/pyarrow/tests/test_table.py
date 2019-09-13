@@ -900,15 +900,13 @@ def test_invalid_table_construct():
         pa.Table.from_arrays(arrays, names=["a1", "a2"])
 
 
-@pytest.mark.parametrize('data', [
-    [[u'', u'foo', u'bar'], [4.5, 5, None]],
-    [pa.array([u'', u'foo', u'bar']), pa.array([4.5, 5, None])],
-    [
-        pa.chunked_array([[u''], [u'foo', u'bar']]),
-        pa.chunked_array([[4.5], [5., None]])
-    ],
+@pytest.mark.parametrize('data, klass', [
+    (([u'', u'foo', u'bar'], [4.5, 5, None]), list),
+    (([u'', u'foo', u'bar'], [4.5, 5, None]), pa.array),
+    (([[u''], [u'foo', u'bar']], [[4.5], [5., None]]), pa.chunked_array),
 ])
-def test_from_arrays_schema(data):
+def test_from_arrays_schema(data, klass):
+    data = [klass(data[0]), klass(data[1])]
     schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float32())])
 
     table = pa.Table.from_arrays(data, schema=schema)
@@ -979,13 +977,12 @@ def test_table_from_pydict():
         pa.Table.from_pydict(data, schema=schema, metadata=metadata)
 
 
-@pytest.mark.parametrize('data', [
-    OrderedDict([('strs', pa.array([u'', u'foo', u'bar'])),
-                 ('floats', pa.array([4.5, 5, None]))]),
-    OrderedDict([('strs', pa.chunked_array([[u''], [u'foo', u'bar']])),
-                 ('floats', pa.chunked_array([[4.5], [5., None]]))])
+@pytest.mark.parametrize('data, klass', [
+    (([u'', u'foo', u'bar'], [4.5, 5, None]), pa.array),
+    (([[u''], [u'foo', u'bar']], [[4.5], [5., None]]), pa.chunked_array),
 ])
-def test_table_from_pydict_arrow_arrays(data):
+def test_table_from_pydict_arrow_arrays(data, klass):
+    data = OrderedDict([('strs', klass(data[0])), ('floats', klass(data[1]))])
     schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64())])
 
     # With arrays as values
@@ -1014,14 +1011,15 @@ def test_table_from_pydict_arrow_arrays(data):
         pa.Table.from_pydict(data, schema=schema)
 
 
-@pytest.mark.parametrize('data', [
-    OrderedDict([('strs', pa.array([u'', u'foo', u'bar'])),
-                 ('floats', pa.array([4.5, 5, None]))]),
-    OrderedDict([('strs', [u'', u'foo', u'bar']),
-                 ('floats', [4.5, 5, None])])
+@pytest.mark.parametrize('data, klass', [
+    (([u'', u'foo', u'bar'], [4.5, 5, None]), list),
+    (([u'', u'foo', u'bar'], [4.5, 5, None]), pa.array),
+    (([[u''], [u'foo', u'bar']], [[4.5], [5., None]]), pa.chunked_array),
 ])
-def test_table_from_pydict_schema(data):
+def test_table_from_pydict_schema(data, klass):
     # passed schema is source of truth for the columns
+
+    data = OrderedDict([('strs', klass(data[0])), ('floats', klass(data[1]))])
 
     # schema has columns not present in data -> error
     schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64()),
@@ -1038,13 +1036,7 @@ def test_table_from_pydict_schema(data):
 
 
 @pytest.mark.pandas
-@pytest.mark.parametrize('data', [
-    OrderedDict([('strs', pa.array([u'', u'foo', u'bar'])),
-                 ('floats', pa.array([4.5, 5, None]))]),
-    OrderedDict([('strs', [u'', u'foo', u'bar']),
-                 ('floats', [4.5, 5, None])])
-])
-def test_table_from_pandas_schema(data):
+def test_table_from_pandas_schema():
     # passed schema is source of truth for the columns
     import pandas as pd
 
