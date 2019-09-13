@@ -32,6 +32,7 @@ cdef class _PandasAPIShim(object):
         object _data_frame, _index, _series, _categorical_type
         object _datetimetz_type, _extension_array
         object _array_like_types
+        bint has_sparse
 
     def __init__(self):
         self._tried_importing_pandas = False
@@ -80,6 +81,12 @@ cdef class _PandasAPIShim(object):
 
         self._datetimetz_type = DatetimeTZDtype
         self._have_pandas = True
+
+        try:
+            from pandas import SparseDataFrame
+            self.has_sparse = True
+        except ImportError:
+            self.has_sparse = False
 
     cdef inline _check_import(self, bint raise_=True):
         if self._tried_importing_pandas:
