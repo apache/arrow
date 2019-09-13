@@ -152,7 +152,7 @@ public class TestIntegration {
 
   @Test
   public void testJSONRoundTripWithVariableWidth() throws Exception {
-    File testJSONFile = new File("../../integration/data/simple.json");
+    File testJSONFile = new File("../../integration/data/simple.json").getCanonicalFile();
     if (!testJSONFile.exists()) {
       testJSONFile = new File("../integration/data/simple.json");
     }
@@ -186,7 +186,7 @@ public class TestIntegration {
 
   @Test
   public void testJSONRoundTripWithStruct() throws Exception {
-    File testJSONFile = new File("../../integration/data/struct_example.json");
+    File testJSONFile = new File("../../integration/data/struct_example.json").getCanonicalFile();
     if (!testJSONFile.exists()) {
       testJSONFile = new File("../integration/data/struct_example.json");
     }
