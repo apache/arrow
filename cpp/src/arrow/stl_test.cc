@@ -252,8 +252,9 @@ TEST(TestTableFromTupleVector, ReferenceTuple) {
 
   std::vector<std::string> names{"column1", "column2", "column3", "column4", "column5",
                                  "column6", "column7", "column8", "column9", "column10"};
-  std::vector<CustomType> rows{{-1, -2, -3, -4, 1, 2, 3, 4, true, "Tests"},
-                               {-10, -20, -30, -40, 10, 20, 30, 40, false, "Other"}};
+  std::vector<CustomType> rows{
+      {-1, -2, -3, -4, 1, 2, 3, 4, true, std::string("Tests")},
+      {-10, -20, -30, -40, 10, 20, 30, 40, false, std::string("Other")}};
   auto rng_rows =
       transform(rows, [](const CustomType& c) -> decltype(c.tie()) { return c.tie(); });
   std::shared_ptr<Table> table;
@@ -290,8 +291,8 @@ TEST(TestTableFromTupleVector, NullableTypesWithBoostOptional) {
                                  "column6", "column7", "column8", "column9", "column10"};
   using types_tuple = boost_optional_types_tuple;
   std::vector<types_tuple> rows{
-      types_tuple(-1, -2, -3, -4, 1, 2, 3, 4, true, "Tests"),
-      types_tuple(-10, -20, -30, -40, 10, 20, 30, 40, false, "Other"),
+      types_tuple(-1, -2, -3, -4, 1, 2, 3, 4, true, std::string("Tests")),
+      types_tuple(-10, -20, -30, -40, 10, 20, 30, 40, false, std::string("Other")),
       types_tuple(boost::none, boost::none, boost::none, boost::none, boost::none,
                   boost::none, boost::none, boost::none, boost::none, boost::none),
   };
@@ -329,8 +330,9 @@ TEST(TestTableFromTupleVector, NullableTypesWithRawPointer) {
   std::vector<std::string> names{"column1", "column2", "column3", "column4", "column5",
                                  "column6", "column7", "column8", "column9", "column10"};
   std::vector<primitive_types_tuple> data_rows{
-      primitive_types_tuple(-1, -2, -3, -4, 1, 2, 3, 4, true, "Tests"),
-      primitive_types_tuple(-10, -20, -30, -40, 10, 20, 30, 40, false, "Other"),
+      primitive_types_tuple(-1, -2, -3, -4, 1, 2, 3, 4, true, std::string("Tests")),
+      primitive_types_tuple(-10, -20, -30, -40, 10, 20, 30, 40, false,
+                            std::string("Other")),
   };
   std::vector<raw_pointer_optional_types_tuple> pointer_rows;
   for (auto& row : data_rows) {
@@ -388,10 +390,11 @@ TEST(TestTableFromTupleVector, NullableTypesDoNotBreakUserSpecialization) {
 }
 
 TEST(TestTableFromTupleVector, AppendingMultipleRows) {
+  using row_type = std::tuple<std::vector<TestInt32Type>>;
   std::vector<std::string> names{"column1"};
-  std::vector<std::tuple<std::vector<TestInt32Type>>> rows = {
-      {{{1}, {2}, {3}}},    //
-      {{{10}, {20}, {30}}}  //
+  std::vector<row_type> rows = {
+      row_type{{{1}, {2}, {3}}},    //
+      row_type{{{10}, {20}, {30}}}  //
   };
   std::shared_ptr<Table> table;
   ASSERT_OK(TableFromTupleRange(default_memory_pool(), rows, names, &table));

@@ -34,7 +34,10 @@
 namespace arrow {
 namespace dataset {
 
-using string_literals::operator""_;
+// clang-format off
+using string_literals::operator"" _;
+// clang-format on
+
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
