@@ -1513,6 +1513,11 @@ def record_batch(data, names=None, schema=None, metadata=None):
     --------
     RecordBatch.from_arrays, RecordBatch.from_pandas, Table.from_pydict
     """
+    # accept schema as first argument for backwards compatibility / usability
+    if isinstance(names, Schema) and schema is None:
+        schema = names
+        names = None
+
     if isinstance(data, (list, tuple)):
         return RecordBatch.from_arrays(data, names=names, schema=schema,
                                        metadata=metadata)
@@ -1522,7 +1527,7 @@ def record_batch(data, names=None, schema=None, metadata=None):
         return TypeError("Expected pandas DataFrame or python dictionary")
 
 
-def table(data, schema=None, names=None, metadata=None):
+def table(data, names=None, schema=None, metadata=None):
     """
     Create a pyarrow.Table from another Python data structure or sequence of
     arrays
@@ -1532,12 +1537,12 @@ def table(data, schema=None, names=None, metadata=None):
     data : pandas.DataFrame, dict, list
         A DataFrame, mapping of strings to Arrays or Python lists, or list of
         arrays or chunked arrays.
-    schema : Schema, default None
-        The expected schema of the Arrow Table. If not passed, will be inferred
-        from the data. Mutually exclusive with 'names' argument.
     names : list, default None
         Column names if list of arrays passed as data. Mutually exclusive with
         'schema' argument.
+    schema : Schema, default None
+        The expected schema of the Arrow Table. If not passed, will be inferred
+        from the data. Mutually exclusive with 'names' argument.
     metadata : dict or Mapping, default None
         Optional metadata for the schema (if schema not passed).
 
@@ -1549,10 +1554,12 @@ def table(data, schema=None, names=None, metadata=None):
     --------
     Table.from_arrays, Table.from_pandas, Table.from_pydict
     """
+    # accept schema as first argument for backwards compatibility / usability
+    if isinstance(names, Schema) and schema is None:
+        schema = names
+        names = None
+
     if isinstance(data, (list, tuple)):
-        if not isinstance(schema, Schema) and names is None:
-            names = schema
-            schema = None
         return Table.from_arrays(data, names=names, schema=schema,
                                  metadata=metadata)
     elif isinstance(data, dict):
