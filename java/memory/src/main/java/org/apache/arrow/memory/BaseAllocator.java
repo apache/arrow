@@ -460,7 +460,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     if (allocated > 0) {
       String msg =  String.format("Memory was leaked by query. Memory leaked: (%d)\n%s", allocated,
           toString());
-      logger.error(msg);
+      //logger.error(msg);
       throw new IllegalStateException(msg);
     }
 
