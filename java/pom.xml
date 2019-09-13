@@ -39,7 +39,7 @@
     <dep.fbs.version>1.9.0</dep.fbs.version>
     <dep.flatc.version>1.9.0</dep.flatc.version>
     <arrow.vector.classifier></arrow.vector.classifier>
-    <forkCount>0</forkCount>
+    <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
   </properties>
