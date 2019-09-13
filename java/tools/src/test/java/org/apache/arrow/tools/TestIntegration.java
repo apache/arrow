@@ -219,7 +219,7 @@ public class TestIntegration {
   }
 
   private BufferedReader readNormalized(File f) throws IOException {
-    Map<?, ?> tree = om.readValue(f, Map.class);
+    Map<?, ?> tree = om.readValue(f.getCanonicalFile(), Map.class);
     String normalized = om.writeValueAsString(tree);
     return new BufferedReader(new StringReader(normalized));
   }
