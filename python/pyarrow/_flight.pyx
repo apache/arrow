@@ -24,7 +24,9 @@ import collections
 import contextlib
 import enum
 import socket
+import time
 import threading
+import warnings
 
 import six
 
@@ -840,32 +842,42 @@ cdef class FlightMetadataWriter:
 
 
 cdef class FlightClient:
-    """A client to a Flight service."""
+    """A client to a Flight service.
+
+    Connect to a Flight service on the given host and port.
+
+    Parameters
+    ----------
+    location : Location
+        location to connect to
+    tls_root_certs : bytes or None
+        PEM-encoded
+    override_hostname : str or None
+        Override the hostname checked by TLS. Insecure, use with caution.
+    """
     cdef:
         unique_ptr[CFlightClient] client
 
-    def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use "
-                        "`pyarrow.flight.FlightClient.connect` instead."
-                        .format(self.__class__.__name__))
+    def __init__(self, location, tls_root_certs=None, override_hostname=None,
+                 wait_for_available=True, wait_timeout=5):
+        if isinstance(location, six.string_types):
+            location = Location(location)
+        elif isinstance(location, tuple):
+            host, port = location
+            if tls_root_certs:
+                location = Location.for_grpc_tls(host, port)
+            else:
+                location = Location.for_grpc_tcp(host, port)
+        elif not isinstance(location, Location):
+            raise TypeError('`location` argument must be a string, tuple or a '
+                            'Location instance')
 
-    @staticmethod
-    def connect(location, tls_root_certs=None, override_hostname=None):
-        """
-        Connect to a Flight service on the given host and port.
+        self.init(location, tls_root_certs, override_hostname)
+        if wait_for_available:
+            self.wait_for_available(timeout=wait_timeout)
 
-        Parameters
-        ----------
-        location : Location
-            location to connect to
-
-        tls_root_certs : bytes or None
-            PEM-encoded
-        override_hostname : str or None
-            Override the hostname checked by TLS. Insecure, use with caution.
-        """
+    cdef init(self, Location location, tls_root_certs, override_hostname):
         cdef:
-            FlightClient result = FlightClient.__new__(FlightClient)
             int c_port = 0
             CLocation c_location = Location.unwrap(location)
             CFlightClientOptions c_options
@@ -877,9 +889,29 @@ cdef class FlightClient:
 
         with nogil:
             check_flight_status(CFlightClient.Connect(c_location, c_options,
-                                                      &result.client))
+                                                      &self.client))
 
-        return result
+    def wait_for_available(self, timeout=5):
+        deadline = time.time() + timeout
+        while True:
+            try:
+                list(self.list_flights())
+            except Exception as e:
+                if 'Connect Failed' in str(e):
+                    if time.time() < deadline:
+                        time.sleep(0.025)
+                        continue
+                    else:
+                        raise
+            break
+
+    @classmethod
+    def connect(cls, location, tls_root_certs=None, override_hostname=None):
+        warnings.warn("The 'FlightClient.connect' method is deprecated, use "
+                      "FlightClient contructor or pyarrow.flight.connect "
+                      "function instead")
+        return FlightClient(location, tls_root_certs=tls_root_certs,
+                            override_hostname=override_hostname)
 
     def authenticate(self, auth_handler, options: FlightCallOptions = None):
         """Authenticate to the server.
@@ -1635,27 +1667,51 @@ def _find_free_port():
         return sock.getsockname()[1]
 
 
-cdef class FlightServerBase:
+cdef class FlightServer:
     """A Flight service definition.
 
     Override methods to define your Flight service.
+
+    Parameters
+    ----------
+    location : str, tuple or Location optional, default None
+        Location to connect to.
+        # TODO
+    auth_handler : ServerAuthHandler optional, default None
+        An authentication mechanism to use. May be None.
+    tls_certificates : list optional, default None
+        A list of (certificate, key) pairs.
     """
 
     cdef:
         unique_ptr[PyFlightServer] server
+        object _server_thread
+        float _shutdown_timeout
 
-    cdef init(self, Location location, ServerAuthHandler auth_handler=None,
-              list tls_certificates=None):
-        """Initialize this server.
+    cdef readonly:
+        Location location
 
-        Parameters
-        ----------
-        location : Location
-        auth_handler : ServerAuthHandler
-            An authentication mechanism to use. May be None.
-        tls_certificates : list
-            A list of (certificate, key) pairs.
-        """
+    def __init__(self, location=None, auth_handler=None,
+                 tls_certificates=None, float shutdown_timeout=3):
+        if isinstance(location, six.string_types):
+            location = Location(location)
+        elif isinstance(location, (tuple, type(None))):
+            if location is None:
+                location = ('localhost', _find_free_port())
+            host, port = location
+            if tls_certificates:
+                location = Location.for_grpc_tls(host, port)
+            else:
+                location = Location.for_grpc_tcp(host, port)
+        elif not isinstance(location, Location):
+            raise TypeError('`location` argument must be a string, tuple or a '
+                            'Location instance')
+        self.init(location, auth_handler, tls_certificates)
+        self.location = location
+        self._shutdown_timeout = shutdown_timeout
+
+    cdef init(self, Location location, ServerAuthHandler auth_handler,
+              list tls_certificates):
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
             PyFlightServer* c_server
@@ -1690,8 +1746,8 @@ cdef class FlightServerBase:
         with nogil:
             check_flight_status(c_server.Init(deref(c_options)))
 
+    @property
     def port(self):
-        # deprecate
         """
         Get the port that this server is listening on.
 
@@ -1752,61 +1808,48 @@ cdef class FlightServerBase:
         with nogil:
             check_flight_status(self.server.get().Shutdown())
 
-
-cdef class FlightServer(FlightServerBase):
-
-    cdef:
-        object _thread
-
-    cdef readonly:
-        Location location
-
-    def __init__(self, location=None, auth_handler=None,
-                 tls_certificates=None):
-        if isinstance(location, six.string_types):
-            location = Location(location)
-        elif isinstance(location, (tuple, type(None))):
-            if location is None:
-                location = ('localhost', _find_free_port())
-            host, port = location
-            if tls_certificates:
-                location = Location.for_grpc_tls(host, port)
-            else:
-                location = Location.for_grpc_tcp(host, port)
-        elif not isinstance(location, Location):
-            raise TypeError('`location` argument must be a string, tuple or a '
-                            'Location instance')
-        self.init(location, auth_handler, tls_certificates)
-        self.location = location
-
-    @property
-    def port(self):
-        return self.server.get().port()
-
-    def connect(self, tls_root_certs=None, override_hostname=None):
-        """
-        Connect to the Flight server
-
-        Parameters
-        ----------
-        tls_root_certs : bytes or None
-            PEM-encoded
-        override_hostname : str or None
-            Override the hostname checked by TLS. Insecure, use with caution.
-
-        Returns
-        -------
-        client : FlightClient
-        """
-        return FlightClient.connect(self.location,
-                                    tls_root_certs=tls_root_certs,
-                                    override_hostname=override_hostname)
-
     def __enter__(self):
-        self._thread = threading.Thread(target=self.run, daemon=True)
-        self._thread.start()
+        self._server_thread = threading.Thread(target=self.run, daemon=True)
+        self._server_thread.start()
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):  # add timeout
+    def __exit__(self, exc_type, exc_value, traceback):
+        def thread_is_alive():
+            if six.PY2:
+                return self._server_thread.isAlive()
+            else:
+                return self._server_thread.is_alive()
+
         self.shutdown()
-        self._thread.join(3)
+        self._server_thread.join(self._shutdown_timeout)
+
+        if thread_is_alive():
+            raise TimeoutError(
+                "Server's thread is still alive after {} seconds".format(
+                    self._shutdown_timeout
+                )
+            )
+
+
+FlightServerBase = FlightServer
+
+
+def connect(location, tls_root_certs=None, override_hostname=None):
+    """
+    Connect to the Flight server
+
+    Parameters
+    ----------
+    location : str, tuple or Location
+        Location to connect to.
+    tls_root_certs : bytes or None
+        PEM-encoded
+    override_hostname : str or None
+        Override the hostname checked by TLS. Insecure, use with caution.
+
+    Returns
+    -------
+    client : FlightClient
+    """
+    return FlightClient(location, tls_root_certs=tls_root_certs,
+                        override_hostname=override_hostname)

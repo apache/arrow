@@ -33,12 +33,12 @@ from pyarrow.util import pathlib
 try:
     from pyarrow import flight
     from pyarrow.flight import (
-        FlightServerBase, FlightServer, ServerAuthHandler, ClientAuthHandler
+        FlightClient, FlightServer, ServerAuthHandler, ClientAuthHandler
     )
     from pyarrow._flight import _find_free_port
 except ImportError:
     flight = None
-    FlightServerBase, FlightServer = object, object
+    FlightClient, FlightServer = object, object
     ServerAuthHandler, ClientAuthHandler = object, object
 
 
@@ -303,6 +303,20 @@ class SlowFlightServer(FlightServer):
         yield pa.Table.from_arrays(data1, names=['a'])
 
 
+class SlowStartingFlightServer(FlightServer):
+
+    def run(self):
+        # delay the startup
+        threading.Timer(5, super().run).start()
+
+
+class SlowStoppingFlightServer(FlightServer):
+
+    def shutdown(self):
+        # delay the shutdown
+        threading.Timer(0.2, super().shutdown).start()
+
+
 class ErrorFlightServer(FlightServer):
     """A Flight server that uses all the Flight-specific errors."""
 
@@ -422,12 +436,49 @@ def test_flight_server_instantiation():
         assert isinstance(server.location, flight.Location)
 
 
+@pytest.mark.slow
+def test_server_shutdown_timeout():
+    started = time.time()
+    with SlowStoppingFlightServer():
+        pass
+    elapsed = time.time() - started
+    assert elapsed >= 0.2
+
+    started = time.time()
+    with pytest.raises(TimeoutError):
+        with SlowStoppingFlightServer(shutdown_timeout=0.1):
+            pass
+    elapsed = time.time() - started
+    assert 0.05 <= elapsed <= 0.2
+
+
+def test_server_exit_reraises_exception():
+    with pytest.raises(ValueError):
+        with FlightServer():
+            raise ValueError()
+
+
+# @pytest.mark.slow
+# def test_client_wait_for_available():
+#     started = time.time()
+#     with SlowStartingFlightServer() as server:
+#         FlightClient(server.location)
+#     elapsed = time.time() - started
+#     assert elapsed >= 0.2
+#
+#     started = time.time()
+#     with SlowStartingFlightServer() as server:
+#         FlightClient(server.location, wait_for_available=False)
+#     elapsed = time.time() - started
+#     assert elapsed < 0.2
+
+
 def test_flight_do_get_ints():
     """Try a simple do_get call."""
     table = simple_ints_table()
 
     with ConstantFlightServer() as server:
-        client = server.connect()
+        client = flight.connect(server.location)
         data = client.do_get(flight.Ticket(b'ints')).read_all()
         assert data.equals(table)
 
@@ -465,7 +516,7 @@ def test_flight_do_get_ticket():
 def test_flight_get_info():
     """Make sure FlightEndpoint accepts string and object URIs."""
     with GetInfoFlightServer() as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         info = client.get_flight_info(flight.FlightDescriptor.for_command(b''))
         assert info.total_records == -1
         assert info.total_bytes == -1
@@ -480,7 +531,7 @@ def test_flight_get_info():
 def test_flight_get_schema():
     """Make sure GetSchema returns correct schema."""
     with GetInfoFlightServer() as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         info = client.get_schema(flight.FlightDescriptor.for_command(b''))
         assert info.schema == pa.schema([('a', pa.int32())])
 
@@ -489,12 +540,12 @@ def test_list_actions():
     """Make sure the return type of ListActions is validated."""
     # ARROW-6392
     with ListActionsErrorFlightServer() as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         with pytest.raises(pa.ArrowException, match=".*unknown error.*"):
             list(client.list_actions())
 
     with ListActionsFlightServer() as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         assert list(client.list_actions()) == \
             ListActionsFlightServer.expected_actions()
 
@@ -515,8 +566,8 @@ def test_flight_domain_socket():
     with tempfile.NamedTemporaryFile() as sock:
         sock.close()
         location = flight.Location.for_grpc_unix(sock.name)
-        with ConstantFlightServer(location=location) as server:
-            client = server.connect()
+        with ConstantFlightServer(location=location):
+            client = FlightClient(location)
 
             reader = client.do_get(flight.Ticket(b'ints'))
             table = simple_ints_table()
@@ -543,7 +594,7 @@ def test_flight_large_message():
     ], names=['a'])
 
     with EchoFlightServer(expected_schema=data.schema) as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
                                   data.schema)
         # Write a single giant chunk
@@ -560,7 +611,7 @@ def test_flight_generator_stream():
     ], names=['a'])
 
     with EchoStreamFlightServer() as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
                                   data.schema)
         writer.write_table(data)
@@ -572,7 +623,7 @@ def test_flight_generator_stream():
 def test_flight_invalid_generator_stream():
     """Try streaming data with mismatched schemas."""
     with InvalidStreamFlightServer() as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         with pytest.raises(pa.ArrowException):
             client.do_get(flight.Ticket(b'')).read_all()
 
@@ -582,7 +633,7 @@ def test_timeout_fires():
     # Do this in a separate thread so that if it fails, we don't hang
     # the entire test process
     with SlowFlightServer() as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         action = flight.Action("", b"")
         options = flight.FlightCallOptions(timeout=0.2)
         # gRPC error messages change based on version, so don't look
@@ -594,7 +645,7 @@ def test_timeout_fires():
 def test_timeout_passes():
     """Make sure timeouts do not fire on fast requests."""
     with ConstantFlightServer() as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         options = flight.FlightCallOptions(timeout=5.0)
         client.do_get(flight.Ticket(b'ints'), options=options).read_all()
 
@@ -612,7 +663,7 @@ token_auth_handler = TokenServerAuthHandler(creds={
 def test_http_basic_unauth():
     """Test that auth fails when not authenticated."""
     with EchoStreamFlightServer(auth_handler=basic_auth_handler) as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         action = flight.Action("who-am-i", b"")
         with pytest.raises(flight.FlightUnauthenticatedError,
                            match=".*unauthenticated.*"):
@@ -622,7 +673,7 @@ def test_http_basic_unauth():
 def test_http_basic_auth():
     """Test a Python implementation of HTTP basic authentication."""
     with EchoStreamFlightServer(auth_handler=basic_auth_handler) as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         action = flight.Action("who-am-i", b"")
         client.authenticate(HttpBasicClientAuthHandler('test', 'p4ssw0rd'))
         identity = next(client.do_action(action))
@@ -632,7 +683,7 @@ def test_http_basic_auth():
 def test_http_basic_auth_invalid_password():
     """Test that auth fails with the wrong password."""
     with EchoStreamFlightServer(auth_handler=basic_auth_handler) as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         action = flight.Action("who-am-i", b"")
         with pytest.raises(flight.FlightUnauthenticatedError,
                            match=".*wrong password.*"):
@@ -643,7 +694,7 @@ def test_http_basic_auth_invalid_password():
 def test_token_auth():
     """Test an auth mechanism that uses a handshake."""
     with EchoStreamFlightServer(auth_handler=token_auth_handler) as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         action = flight.Action("who-am-i", b"")
         client.authenticate(TokenClientAuthHandler('test', 'p4ssw0rd'))
         identity = next(client.do_action(action))
@@ -653,7 +704,7 @@ def test_token_auth():
 def test_token_auth_invalid():
     """Test an auth mechanism that uses a handshake."""
     with EchoStreamFlightServer(auth_handler=token_auth_handler) as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         with pytest.raises(flight.FlightUnauthenticatedError):
             client.authenticate(TokenClientAuthHandler('test', 'wrong'))
 
@@ -683,7 +734,7 @@ def test_tls_fails():
     with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
         # Ensure client doesn't connect when certificate verification
         # fails (this is a slow test since gRPC does retry a few times)
-        client = s.connect(tls_root_certs=certs["root_cert"])
+        client = FlightServer(s.location, tls_root_certs=certs["root_cert"])
 
         # gRPC error messages change based on version, so don't look
         # for a particular error
@@ -698,7 +749,7 @@ def test_tls_do_get():
     certs = example_tls_certs()
 
     with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
-        client = s.connect(tls_root_certs=certs["root_cert"])
+        client = FlightClient(s.location, tls_root_certs=certs["root_cert"])
         data = client.do_get(flight.Ticket(b'ints')).read_all()
         assert data.equals(table)
 
@@ -709,10 +760,8 @@ def test_tls_override_hostname():
     certs = example_tls_certs()
 
     with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
-        client = s.connect(
-            tls_root_certs=certs["root_cert"],
-            override_hostname="fakehostname"
-        )
+        client = flight.connect(s.location, tls_root_certs=certs["root_cert"],
+                                override_hostname="fakehostname")
         with pytest.raises(flight.FlightUnavailableError):
             client.do_get(flight.Ticket(b'ints'))
 
@@ -726,7 +775,7 @@ def test_flight_do_get_metadata():
 
     batches = []
     with MetadataFlightServer() as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         reader = client.do_get(flight.Ticket(b''))
         idx = 0
         while True:
@@ -750,7 +799,7 @@ def test_flight_do_put_metadata():
     table = pa.Table.from_arrays(data, names=['a'])
 
     with MetadataFlightServer() as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         writer, metadata_reader = client.do_put(
             flight.FlightDescriptor.for_path(''),
             table.schema)
@@ -768,7 +817,7 @@ def test_flight_do_put_metadata():
 def test_cancel_do_get():
     """Test canceling a DoGet operation on the client side."""
     with ConstantFlightServer() as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         reader = client.do_get(flight.Ticket(b'ints'))
         reader.cancel()
         with pytest.raises(flight.FlightCancelledError, match=".*Cancel.*"):
@@ -779,7 +828,7 @@ def test_cancel_do_get():
 def test_cancel_do_get_threaded():
     """Test canceling a DoGet operation from another thread."""
     with SlowFlightServer() as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         reader = client.do_get(flight.Ticket(b'ints'))
 
         read_first_message = threading.Event()
@@ -843,7 +892,7 @@ def test_roundtrip_types():
 def test_roundtrip_errors():
     """Ensure that Flight errors propagate from server to client."""
     with ErrorFlightServer() as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
             list(client.do_action(flight.Action("internal", b"")))
         with pytest.raises(flight.FlightTimedOutError, match=".*foo.*"):
@@ -869,7 +918,7 @@ def test_do_put_independent_read_write():
     table = pa.Table.from_arrays(data, names=['a'])
 
     with MetadataFlightServer() as server:
-        client = server.connect()
+        client = FlightClient(server.location)
         writer, metadata_reader = client.do_put(
             flight.FlightDescriptor.for_path(''),
             table.schema)

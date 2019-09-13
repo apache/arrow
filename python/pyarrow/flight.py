@@ -23,6 +23,7 @@ if sys.version_info < (3,):
     raise ImportError("Python Flight bindings require Python 3")
 
 from pyarrow._flight import (  # noqa
+    connect,
     Action,
     ActionType,
     CertKeyPair,
