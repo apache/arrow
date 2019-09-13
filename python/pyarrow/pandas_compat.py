@@ -774,7 +774,7 @@ def _extract_index_level(table, result_table, field_name,
     pd = _pandas_api.pd
 
     col = table.column(i)
-    values = col.to_pandas()
+    values = col.to_pandas().values
 
     if hasattr(values, 'flags') and not values.flags.writeable:
         # ARROW-1054: in pandas 0.19.2, factorize will reject

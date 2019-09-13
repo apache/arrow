@@ -280,6 +280,12 @@ def test_recordbatch_basics():
     assert batch.schema == schema
 
 
+def test_recordbatch_column_sets_private_name():
+    # ARROW-6429
+    rb = pa.record_batch([pa.array([1, 2, 3, 4])], names=['a0'])
+    assert rb[0]._name == 'a0'
+
+
 def test_recordbatch_from_arrays_validate_schema():
     # ARROW-6263
     arr = pa.array([])
@@ -397,6 +403,12 @@ def test_recordbatchlist_schema_equals():
 
     with pytest.raises(pa.ArrowInvalid):
         pa.Table.from_batches([batch1, batch2])
+
+
+def test_table_column_sets_private_name():
+    # ARROW-6429
+    t = pa.table([pa.array([1, 2, 3, 4])], names=['a0'])
+    assert t[0]._name == 'a0'
 
 
 def test_table_equals():

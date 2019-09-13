@@ -90,7 +90,7 @@ cdef class _PandasAPIShim(object):
         self._tried_importing_pandas = True
         self._import_pandas(raise_)
 
-    def make_series(self, *args, **kwargs):
+    def series(self, *args, **kwargs):
         self._check_import()
         return self._series(*args, **kwargs)
 
