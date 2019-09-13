@@ -73,6 +73,35 @@ TEST(TestStringOps, TestCharLength) {
                   "unexpected byte \\f8 encountered while decoding utf8 string") !=
               std::string::npos)
       << ctx.get_error();
+  ctx.Reset();
+
+  std::string d("aa\xc3");
+  EXPECT_EQ(utf8_length(ctx_ptr, d.data(), static_cast<int>(d.length())), 0);
+  EXPECT_TRUE(ctx.get_error().find(
+                  "unexpected byte \\c3 encountered while decoding utf8 string") !=
+              std::string::npos)
+      << ctx.get_error();
+  ctx.Reset();
+
+  std::string e(
+      "a\xc3"
+      "a");
+  EXPECT_EQ(utf8_length(ctx_ptr, e.data(), static_cast<int>(e.length())), 0);
+  EXPECT_TRUE(ctx.get_error().find(
+                  "unexpected byte \\61 encountered while decoding utf8 string") !=
+              std::string::npos)
+      << ctx.get_error();
+  ctx.Reset();
+
+  std::string f(
+      "a\xc3\xe3"
+      "a");
+  EXPECT_EQ(utf8_length(ctx_ptr, f.data(), static_cast<int>(f.length())), 0);
+  EXPECT_TRUE(ctx.get_error().find(
+                  "unexpected byte \\e3 encountered while decoding utf8 string") !=
+              std::string::npos)
+      << ctx.get_error();
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestCastVarhcar) {

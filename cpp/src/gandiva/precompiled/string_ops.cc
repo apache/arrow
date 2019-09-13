@@ -116,6 +116,7 @@ void set_error_for_invalid_utf(int64_t execution_context, char val) {
 }
 
 // Count the number of utf8 characters
+// return 0 for invalid/incomplete input byte sequences
 FORCE_INLINE
 int32 utf8_length(int64 context, const char* data, int32 data_len) {
   int char_len = 0;
@@ -127,7 +128,7 @@ int32 utf8_length(int64 context, const char* data, int32 data_len) {
       return 0;
     }
     for (int j = 1; j < char_len; ++j) {
-      if (data[i + j] > 0) {  // bytes following head-byte of glyph
+      if ((data[i + j] & 0xC0) != 0x80) {  // bytes following head-byte of glyph
         set_error_for_invalid_utf(context, data[i + j]);
         return 0;
       }
@@ -201,11 +202,11 @@ VAR_LEN_TYPES(IS_NOT_NULL, isnotnull)
  We follow Oracle semantics for offset:
  - If position is positive, then the first glyph in the substring is determined by
  counting that many glyphs forward from the beginning of the input. (i.e., for position ==
- 1 the first glyph in the substring will be identical to the first glyph in the output)
+ 1 the first glyph in the substring will be identical to the first glyph in the input)
 
  - If position is negative, then the first glyph in the substring is determined by
  counting that many glyphs backward from the end of the input. (i.e., for position == -1
- the first glyph in the substring will be identical to the last glyph in the output)
+ the first glyph in the substring will be identical to the last glyph in the input)
 
  - If position is 0 then it is treated as 1.
  */
