@@ -288,9 +288,21 @@ function generateFloat<T extends Float>(this: TestDataVectorGenerator, type: T, 
 function generateUtf8<T extends Utf8>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = length * 0.2 | 0): GeneratedVector<V<T>> {
     const nullBitmap = createBitmap(length, nullCount);
     const offsets = createVariableWidthOffsets(length, nullBitmap, undefined, undefined, nullCount != 0);
-    const values = [...offsets.slice(1)]
+    const values: string[] = new Array(offsets.length - 1).fill(null);
+    [...offsets.slice(1)]
         .map((o, i) => isValid(nullBitmap, i) ? o - offsets[i] : null)
-        .map((length) => length == null ? null : randomString(length));
+        .reduce((map, length, i) => {
+            if (length !== null) {
+                if (length > 0) {
+                    do {
+                        values[i] = randomString(length);
+                    } while (map.has(values[i]));
+                    return map.set(values[i], i);
+                }
+                values[i] = '';
+            }
+            return map;
+        }, new Map<string, number>());
     const data = createVariableWidthBytes(length, nullBitmap, offsets, (i) => encodeUtf8(values[i]));
     return { values: () => values, vector: Vector.new(Data.Utf8(type, 0, length, nullCount, nullBitmap, offsets, data)) };
 }
