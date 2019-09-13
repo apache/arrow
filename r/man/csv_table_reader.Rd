@@ -24,7 +24,7 @@ json_table_reader(file, read_options = json_read_options(),
 \item{...}{additional parameters.}
 }
 \value{
-An \code{arrow::csv::TableReader} or \code{arrow::json::TableReader} R6
+An CsvTableReader or JsonTableReader R6
 object. Call \code{$Read()} on it to get an Arrow Table.
 }
 \description{

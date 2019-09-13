@@ -426,7 +426,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     final int start = offsetBuffer.getInt(index * OFFSET_WIDTH);
     final int end = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
     for (int i = start; i < end; i++) {
-      hash = ByteFunctionHelpers.comebineHash(hash, vector.hashCode(i));
+      hash = ByteFunctionHelpers.combineHash(hash, vector.hashCode(i));
     }
     return hash;
   }

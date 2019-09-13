@@ -728,4 +728,42 @@ TEST_F(TestProjector, TestConcat) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_concat, outputs.at(0));
 }
+
+TEST_F(TestProjector, TestOffset) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::int32());
+  auto field1 = field("f1", arrow::int32());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_sum = field("sum", arrow::int32());
+
+  // Build expression
+  auto sum_expr = TreeExprBuilder::MakeExpression("add", {field0, field1}, field_sum);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {sum_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayInt32({1, 2, 3, 4, 5}, {true, true, true, true, false});
+  array0 = array0->Slice(1);
+  auto array1 = MakeArrowArrayInt32({5, 6, 7, 8}, {true, false, true, true});
+  // expected output
+  auto exp_sum = MakeArrowArrayInt32({9, 11, 13}, {false, true, false});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+  in_batch = in_batch->Slice(1);
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_sum, outputs.at(0));
+}
+
 }  // namespace gandiva

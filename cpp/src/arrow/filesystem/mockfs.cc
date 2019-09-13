@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <iterator>
 #include <map>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -176,6 +177,18 @@ class MockFSOutputStream : public io::OutputStream {
   // Implement the OutputStream interface
   Status Close() override {
     closed_ = true;
+    return Status::OK();
+  }
+
+  Status Abort() override {
+    if (!closed_) {
+      // MockFSOutputStream is mainly used for debugging and testing, so
+      // mark an aborted file's contents explicitly.
+      std::stringstream ss;
+      ss << "MockFSOutputStream aborted after " << file_->data.size() << " bytes written";
+      file_->data = ss.str();
+      closed_ = true;
+    }
     return Status::OK();
   }
 

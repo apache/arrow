@@ -44,7 +44,7 @@ option_use_threads <- function() {
 }
 
 #' @include enums.R
-`arrow::Object` <- R6Class("arrow::Object",
+Object <- R6Class("Object",
   public = list(
     initialize = function(xp) self$set_pointer(xp),
 

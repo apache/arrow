@@ -21,166 +21,167 @@
 
 # OutputStream ------------------------------------------------------------
 
-`arrow::io::Writable` <- R6Class("arrow::io::Writable", inherit = `arrow::Object`,
+Writable <- R6Class("Writable", inherit = Object,
   public = list(
     write = function(x) io___Writable__write(self, buffer(x))
   )
 )
 
-#' @title OutputStream
-#'
+#' @title OutputStream classes
+#' @description `FileOutputStream` is for writing to a file;
+#' `BufferOutputStream` and `FixedSizeBufferWriter` write to buffers;
+#' `MockOutputStream` just reports back how many bytes it received, for testing
+#' purposes. You can create one and pass it to any of the table writers, for
+#' example.
 #' @usage NULL
 #' @format NULL
 #' @docType class
+#' @section Factory:
+#'
+#' The `$create()` factory methods instantiate the `OutputStream` object and
+#' take the following arguments, depending on the subclass:
+#'
+#' - `path` For `FileOutputStream`, a character file name
+#' - `initial_capacity` For `BufferOutputStream`, the size in bytes of the
+#'    buffer.
+#' - `x` For `FixedSizeBufferWriter`, a [Buffer] or an object that can be
+#'    made into a buffer via `buffer()`.
+#'
+#' `MockOutputStream$create()` does not take any arguments.
 #'
 #' @section Methods:
 #'
-#'  - `arrow::Buffer` `Read`(`int` nbytes):  Read `nbytes` bytes
-#'  - `void` `close`(): close the stream
+#'  - `$tell()`: return the position in the stream
+#'  - `$close()`: close the stream
+#'  - `$write(x)`: send `x` to the stream
+#'  - `$capacity()`: for `BufferOutputStream`
+#'  - `$getvalue()`: for `BufferOutputStream`
+#'  - `$GetExtentBytesWritten()`: for `MockOutputStream`, report how many bytes
+#'    were sent.
 #'
-#' @rdname arrow__io__OutputStream
-#' @name arrow__io__OutputStream
-`arrow::io::OutputStream` <- R6Class("arrow::io::OutputStream", inherit = `arrow::io::Writable`,
+#' @rdname OutputStream
+#' @name OutputStream
+OutputStream <- R6Class("OutputStream", inherit = Writable,
   public = list(
     close = function() io___OutputStream__Close(self),
     tell = function() io___OutputStream__Tell(self)
   )
 )
 
-#' @title class arrow::io::FileOutputStream
-#'
 #' @usage NULL
 #' @format NULL
-#' @docType class
-#'
-#' @section Methods:
-#'
-#'  TODO
-#'
-#' @rdname arrow__io__FileOutputStream
-#' @name arrow__io__FileOutputStream
-`arrow::io::FileOutputStream` <- R6Class("arrow::io::FileOutputStream", inherit = `arrow::io::OutputStream`)
+#' @rdname OutputStream
+#' @export
+FileOutputStream <- R6Class("FileOutputStream", inherit = OutputStream)
+FileOutputStream$create <- function(path) {
+  path <- normalizePath(path, mustWork = FALSE)
+  shared_ptr(FileOutputStream, io___FileOutputStream__Open(path))
+}
 
-#' @title class arrow::io::MockOutputStream
-#'
 #' @usage NULL
 #' @format NULL
-#' @docType class
-#'
-#'
-#' @section Methods:
-#'
-#'  TODO
-#'
-#' @rdname arrow__io__MockOutputStream
-#' @name arrow__io__MockOutputStream
-`arrow::io::MockOutputStream` <- R6Class("arrow::io::MockOutputStream", inherit = `arrow::io::OutputStream`,
+#' @rdname OutputStream
+#' @export
+MockOutputStream <- R6Class("MockOutputStream", inherit = OutputStream,
   public = list(
     GetExtentBytesWritten = function() io___MockOutputStream__GetExtentBytesWritten(self)
   )
 )
+MockOutputStream$create <- function() {
+  shared_ptr(MockOutputStream, io___MockOutputStream__initialize())
+}
 
-#' @title class arrow::io::BufferOutputStream
-#'
-#' @usage NULL
-#' @docType class
-#' @section Methods:
-#'
-#'  TODO
-#'
-#' @rdname arrow__io__BufferOutputStream
-#' @name arrow__io__BufferOutputStream
-`arrow::io::BufferOutputStream` <- R6Class("arrow::io::BufferOutputStream", inherit = `arrow::io::OutputStream`,
-  public = list(
-    capacity = function() io___BufferOutputStream__capacity(self),
-    getvalue = function() shared_ptr(`arrow::Buffer`, io___BufferOutputStream__Finish(self)),
-
-    Write = function(bytes) io___BufferOutputStream__Write(self, bytes),
-    Tell = function() io___BufferOutputStream__Tell(self)
-  )
-)
-
-#' @title class arrow::io::FixedSizeBufferWriter
-#'
 #' @usage NULL
 #' @format NULL
-#' @docType class
-#'
-#'
-#' @section Methods:
-#'
-#'  TODO
-#'
-#' @rdname arrow__io__FixedSizeBufferWriter
-#' @name arrow__io__FixedSizeBufferWriter
-`arrow::io::FixedSizeBufferWriter` <- R6Class("arrow::io::FixedSizeBufferWriter", inherit = `arrow::io::OutputStream`)
+#' @rdname OutputStream
+#' @export
+BufferOutputStream <- R6Class("BufferOutputStream", inherit = OutputStream,
+  public = list(
+    capacity = function() io___BufferOutputStream__capacity(self),
+    getvalue = function() shared_ptr(Buffer, io___BufferOutputStream__Finish(self)),
+    write = function(bytes) io___BufferOutputStream__Write(self, bytes),
+    tell = function() io___BufferOutputStream__Tell(self)
+  )
+)
+BufferOutputStream$create <- function(initial_capacity = 0L) {
+  shared_ptr(BufferOutputStream, io___BufferOutputStream__Create(initial_capacity))
+}
 
+#' @usage NULL
+#' @format NULL
+#' @rdname OutputStream
+#' @export
+FixedSizeBufferWriter <- R6Class("FixedSizeBufferWriter", inherit = OutputStream)
+FixedSizeBufferWriter$create <- function(x) {
+  x <- buffer(x)
+  assert_that(x$is_mutable)
+  shared_ptr(FixedSizeBufferWriter, io___FixedSizeBufferWriter__initialize(x))
+}
 
 # InputStream -------------------------------------------------------------
 
-#' @title class arrow::io::Readable
-#'
-#' @usage NULL
-#' @format NULL
-#' @docType class
-#'
-#'
-#' @section Methods:
-#'
-#'  TODO
-#'
-#' @rdname arrow__io__Readable
-#' @name arrow__io__Readable
-`arrow::io::Readable` <- R6Class("arrow::io::Readable", inherit = `arrow::Object`,
+
+Readable <- R6Class("Readable", inherit = Object,
   public = list(
-    Read = function(nbytes) shared_ptr(`arrow::Buffer`, io___Readable__Read(self, nbytes))
+    Read = function(nbytes) shared_ptr(Buffer, io___Readable__Read(self, nbytes))
   )
 )
 
-#' @title class arrow::io::InputStream
-#'
+#' @title InputStream classes
+#' @description `RandomAccessFile` inherits from `InputStream` and is a base
+#' class for: `ReadableFile` for reading from a file; `MemoryMappedFile` for
+#' the same but with memory mapping; and `BufferReader` for reading from a
+#' buffer. Use these with the various table readers.
 #' @usage NULL
 #' @format NULL
 #' @docType class
+#' @section Factory:
 #'
+#' The `$create()` factory methods instantiate the `InputStream` object and
+#' take the following arguments, depending on the subclass:
+#'
+#' - `path` For `ReadableFile`, a character file name
+#' - `x` For `BufferReader`, a [Buffer] or an object that can be
+#'    made into a buffer via `buffer()`.
+#'
+#' To instantiate a `MemoryMappedFile`, call [mmap_open()].
 #'
 #' @section Methods:
 #'
-#'  TODO
+#'  - `$GetSize()`: 
+#'  - `$supports_zero_copy()`: Logical
+#'  - `$seek(position)`: go to that position in the stream
+#'  - `$tell()`: return the position in the stream
+#'  - `$close()`: close the stream
+#'  - `$Read(nbytes)`: read data from the stream, either a specified `nbytes` or
+#'    all, if `nbytes` is not provided
+#'  - `$ReadAt(position, nbytes)`: similar to `$seek(position)$Read(nbytes)`
+#'  - `$Resize(size)`: for a `MemoryMappedFile` that is writeable
 #'
-#' @rdname arrow__io__InputStream
-#' @name arrow__io__InputStream
-`arrow::io::InputStream` <- R6Class("arrow::io::InputStream", inherit = `arrow::io::Readable`,
+#' @rdname InputStream
+#' @name InputStream
+InputStream <- R6Class("InputStream", inherit = Readable,
   public = list(
     close = function() io___InputStream__Close(self)
   )
 )
 
-#' @title class arrow::io::RandomAccessFile
-#'
 #' @usage NULL
 #' @format NULL
-#' @docType class
-#'
-#'
-#' @section Methods:
-#'
-#'  TODO
-#'
-#' @rdname arrow__io__RandomAccessFile
-#' @name arrow__io__RandomAccessFile
-`arrow::io::RandomAccessFile` <- R6Class("arrow::io::RandomAccessFile", inherit = `arrow::io::InputStream`,
+#' @rdname InputStream
+#' @export
+RandomAccessFile <- R6Class("RandomAccessFile", inherit = InputStream,
   public = list(
     GetSize = function() io___RandomAccessFile__GetSize(self),
     supports_zero_copy = function() io___RandomAccessFile__supports_zero_copy(self),
-    Seek = function(position) io___RandomAccessFile__Seek(self, position),
-    Tell = function() io___RandomAccessFile__Tell(self),
+    seek = function(position) io___RandomAccessFile__Seek(self, position),
+    tell = function() io___RandomAccessFile__Tell(self),
 
     Read = function(nbytes = NULL) {
       if (is.null(nbytes)) {
-        shared_ptr(`arrow::Buffer`, io___RandomAccessFile__Read0(self))
+        shared_ptr(Buffer, io___RandomAccessFile__Read0(self))
       } else {
-        shared_ptr(`arrow::Buffer`, io___Readable__Read(self, nbytes))
+        shared_ptr(Buffer, io___Readable__Read(self, nbytes))
       }
     },
 
@@ -188,72 +189,51 @@
       if (is.null(nbytes)) {
         nbytes <- self$GetSize() - position
       }
-      shared_ptr(`arrow::Buffer`, io___RandomAccessFile__ReadAt(self, position, nbytes))
+      shared_ptr(Buffer, io___RandomAccessFile__ReadAt(self, position, nbytes))
     }
   )
 )
 
-#' @title class arrow::io::MemoryMappedFile
-#'
 #' @usage NULL
 #' @format NULL
-#' @docType class
-#'
-#'
-#' @section Methods:
-#'
-#'  TODO
-#'
-#' @seealso [mmap_open()], [mmap_create()]
-#'
-#'
-#' @rdname arrow__io__MemoryMappedFile
-#' @name arrow__io__MemoryMappedFile
-`arrow::io::MemoryMappedFile` <- R6Class("arrow::io::MemoryMappedFile", inherit = `arrow::io::RandomAccessFile`,
+#' @rdname InputStream
+#' @export
+MemoryMappedFile <- R6Class("MemoryMappedFile", inherit = RandomAccessFile,
   public = list(
     Resize = function(size) io___MemoryMappedFile__Resize(self, size)
   )
 )
 
-#' @title class arrow::io::ReadableFile
-#'
 #' @usage NULL
 #' @format NULL
-#' @docType class
-#'
-#'
-#' @section Methods:
-#'
-#'  TODO
-#'
-#' @rdname arrow__io__ReadableFile
-#' @name arrow__io__ReadableFile
-`arrow::io::ReadableFile` <- R6Class("arrow::io::ReadableFile", inherit = `arrow::io::RandomAccessFile`)
+#' @rdname InputStream
+#' @export
+ReadableFile <- R6Class("ReadableFile", inherit = RandomAccessFile)
+ReadableFile$create <- function(path) {
+  shared_ptr(ReadableFile, io___ReadableFile__Open(normalizePath(path)))
+}
 
-#' @title class arrow::io::BufferReader
-#'
 #' @usage NULL
 #' @format NULL
-#' @docType class
-#'
-#' @section Methods:
-#'
-#'  TODO
-#'
-#' @rdname arrow__io__BufferReader
-#' @name arrow__io__BufferReader
-`arrow::io::BufferReader` <- R6Class("arrow::io::BufferReader", inherit = `arrow::io::RandomAccessFile`)
+#' @rdname InputStream
+#' @export
+BufferReader <- R6Class("BufferReader", inherit = RandomAccessFile)
+BufferReader$create <- function(x) {
+  x <- buffer(x)
+  shared_ptr(BufferReader, io___BufferReader__initialize(x))
+}
 
 #' Create a new read/write memory mapped file of a given size
 #'
 #' @param path file path
 #' @param size size in bytes
 #'
-#' @return a [arrow::io::MemoryMappedFile][arrow__io__MemoryMappedFile]
+#' @return a [arrow::io::MemoryMappedFile][MemoryMappedFile]
 #'
 #' @export
 mmap_create <- function(path, size) {
-  shared_ptr(`arrow::io::MemoryMappedFile`, io___MemoryMappedFile__Create(normalizePath(path, mustWork = FALSE), size))
+  path <- normalizePath(path, mustWork = FALSE)
+  shared_ptr(MemoryMappedFile, io___MemoryMappedFile__Create(path, size))
 }
 
 #' Open a memory mapped file
@@ -264,88 +244,26 @@ mmap_create <- function(path, size) {
 #' @export
 mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
   mode <- match(match.arg(mode), c("read", "write", "readwrite")) - 1L
-  shared_ptr(`arrow::io::MemoryMappedFile`, io___MemoryMappedFile__Open(normalizePath(path), mode))
+  path <- normalizePath(path)
+  shared_ptr(MemoryMappedFile, io___MemoryMappedFile__Open(path, mode))
 }
 
-#' open a [arrow::io::ReadableFile][arrow__io__ReadableFile]
-#'
-#' @param path file path
-#'
-#' @return a [arrow::io::ReadableFile][arrow__io__ReadableFile]
-#'
-#' @export
-ReadableFile <- function(path) {
-  shared_ptr(`arrow::io::ReadableFile`, io___ReadableFile__Open(normalizePath(path)))
-}
-
-#' Open a [arrow::io::FileOutputStream][arrow__io__FileOutputStream]
-#'
-#' @param path file path
-#'
-#' @return a [arrow::io::FileOutputStream][arrow__io__FileOutputStream]
-#'
-#' @export
-FileOutputStream <- function(path) {
-  shared_ptr(`arrow::io::FileOutputStream`, io___FileOutputStream__Open(normalizePath(path, mustWork = FALSE)))
-}
-
-#' Open a [arrow::io::MockOutputStream][arrow__io__MockOutputStream]
-#'
-#' @return a [arrow::io::MockOutputStream][arrow__io__MockOutputStream]
-#'
-#' @export
-MockOutputStream <- function() {
-  shared_ptr(`arrow::io::MockOutputStream`, io___MockOutputStream__initialize())
-}
-
-#' Open a [arrow::io::BufferOutputStream][arrow__io__BufferOutputStream]
-#'
-#' @param initial_capacity initial capacity
-#'
-#' @return a [arrow::io::BufferOutputStream][arrow__io__BufferOutputStream]
-#'
-#' @export
-BufferOutputStream <- function(initial_capacity = 0L) {
-  shared_ptr(`arrow::io::BufferOutputStream`, io___BufferOutputStream__Create(initial_capacity))
-}
-
-#' Open a [arrow::io::FixedSizeBufferWriter][arrow__io__FixedSizeBufferWriter]
-#'
-#' @param buffer [arrow::Buffer][arrow__Buffer] or something [buffer()] can handle
-#'
-#' @return a [arrow::io::BufferOutputStream][arrow__io__BufferOutputStream]
-#'
-#' @export
-FixedSizeBufferWriter <- function(buffer){
-  UseMethod("FixedSizeBufferWriter")
-}
-
-#' @export
-FixedSizeBufferWriter.default <- function(buffer){
-  FixedSizeBufferWriter(buffer(buffer))
-}
-
-#' @export
-`FixedSizeBufferWriter.arrow::Buffer` <- function(buffer){
-  assert_that(buffer$is_mutable)
-  shared_ptr(`arrow::io::FixedSizeBufferWriter`, io___FixedSizeBufferWriter__initialize(buffer))
-}
-
-#' Create a [arrow::io::BufferReader][arrow__io__BufferReader]
-#'
-#' @param x R object to treat as a buffer or a buffer created by [buffer()]
-#'
-#' @export
-BufferReader <- function(x) {
-  UseMethod("BufferReader")
-}
-
-#' @export
-BufferReader.default <- function(x) {
-  BufferReader(buffer(x))
-}
-
-#' @export
-`BufferReader.arrow::Buffer` <- function(x) {
-  shared_ptr(`arrow::io::BufferReader`, io___BufferReader__initialize(x))
+#' Handle a range of possible input sources
+#' @param file A character file name, raw vector, or an Arrow input stream
+#' @param mmap Logical: whether to memory-map the file (default `TRUE`)
+#' @return An `InputStream` or a subclass of one.
+#' @keywords internal
+make_readable_file <- function(file, mmap = TRUE) {
+  if (is.character(file)) {
+    assert_that(length(file) == 1L)
+    if (isTRUE(mmap)) {
+      file <- mmap_open(file)
+    } else {
+      file <- ReadableFile$create(file)
+    }
+  } else if (inherits(file, c("raw", "Buffer"))) {
+    file <- BufferReader$create(file)
+  }
+  assert_is(file, "InputStream")
+  file
 }

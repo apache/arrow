@@ -143,6 +143,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         int num_fields()
 
+        c_string Diff(const CArray& other)
         c_bool Equals(const CArray& arr)
         c_bool IsNull(int i)
 
@@ -761,6 +762,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
     cdef cppclass Writable:
         CStatus Write(const uint8_t* data, int64_t nbytes)
+        CStatus Flush()
 
     cdef cppclass OutputStream(FileInterface, Writable):
         pass
@@ -849,6 +851,8 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
                        shared_ptr[InputStream] raw,
                        shared_ptr[CBufferedInputStream]* out)
 
+        shared_ptr[InputStream] Detach()
+
     cdef cppclass CBufferedOutputStream \
             " arrow::io::BufferedOutputStream"(OutputStream):
 
@@ -856,6 +860,8 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CStatus Create(int64_t buffer_size, CMemoryPool* pool,
                        shared_ptr[OutputStream] raw,
                        shared_ptr[CBufferedOutputStream]* out)
+
+        CStatus Detach(shared_ptr[OutputStream]* raw)
 
     # ----------------------------------------------------------------------
     # HDFS
@@ -964,6 +970,11 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MessageType_V4" arrow::ipc::MetadataVersion::V4"
 
     cdef cppclass CIpcOptions" arrow::ipc::IpcOptions":
+        c_bool allow_64bit
+        int max_recursion_depth
+        int32_t alignment
+        c_bool write_legacy_ipc_format
+
         @staticmethod
         CIpcOptions Defaults()
 
@@ -989,7 +1000,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MetadataVersion metadata_version()
         MessageType type()
 
-        CStatus SerializeTo(OutputStream* stream, int32_t alignment,
+        CStatus SerializeTo(OutputStream* stream, const CIpcOptions& options,
                             int64_t* output_length)
 
     c_string FormatMessageType(MessageType type)
@@ -1256,6 +1267,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     CStatus Take(CFunctionContext* context, const CDatum& values,
                  const CDatum& indices, const CTakeOptions& options,
                  CDatum* out)
+
+    # Filter clashes with gandiva.pyx::Filter
+    CStatus FilterKernel" arrow::compute::Filter"(
+        CFunctionContext* context, const CDatum& values,
+        const CDatum& filter, CDatum* out)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":

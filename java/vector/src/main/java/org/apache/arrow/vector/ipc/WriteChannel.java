@@ -70,7 +70,7 @@ public class WriteChannel implements AutoCloseable {
   }
 
   /**
-   * Writes enough bytes to align the channel to an 8-byte bounary.
+   * Writes enough bytes to align the channel to an 8-byte boundary.
    */
   public long align() throws IOException {
     if (currentPosition % 8 != 0) { // align on 8 byte boundaries

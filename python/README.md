@@ -34,11 +34,15 @@ package manager:
 conda install pyarrow -c conda-forge
 ```
 
-On Linux/macOS and Windows, you can also install binary wheels from PyPI with pip:
+On Linux, macOS, and Windows, you can also install binary wheels from PyPI with
+pip:
 
 ```shell
 pip install pyarrow
 ```
+
+If you encounter any issues importing the pip wheels on Windows, you may need
+to install the [Visual C++ Redistributable for Visual Studio 2015][6].
 
 ## Development
 
@@ -52,3 +56,4 @@ See [documentation build instructions][1] in the documentation subproject.
 [2]: https://github.com/apache/arrow/blob/master/docs/source/developers/python.rst
 [3]: https://github.com/pandas-dev/pandas
 [5]: https://arrow.apache.org/docs/latest/python/benchmarks.html
+[6]: https://www.microsoft.com/en-us/download/details.aspx?id=48145

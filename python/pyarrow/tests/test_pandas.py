@@ -235,6 +235,20 @@ class TestConvertMetadata(object):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
         _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_multiindex_with_datetimes(self):
+        # ARROW-3651. This bug occurred only when the dtype of the columns is
+        # object. It does not occur for datetime64[ns]
+        df = pd.DataFrame(1, index=pd.Index(list(range(5)), name='index'),
+                          columns=pd.Index([datetime(2018, 1, 1)], dtype='O'))
+        assert df.columns.dtype == 'object'
+        reconstructed = pa.table(df).to_pandas()
+
+        # The reconstruction process results in object->datetime64[ns]
+        df_expected = df.copy()
+        df_expected.columns = df.columns.values
+        assert df_expected.columns.dtype == 'datetime64[ns]'
+        tm.assert_frame_equal(df_expected, reconstructed)
+
     def test_multiindex_columns_unicode(self):
         columns = pd.MultiIndex.from_arrays([[u'あ', u'い'], ['X', 'Y']])
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
@@ -1087,27 +1101,24 @@ class TestConvertDateTimeLikeTypes(object):
                 None,
                 date(1970, 1, 1),
                 date(2040, 2, 26)]
-        expected = np.array(['2000-01-01',
-                             None,
-                             '1970-01-01',
-                             '2040-02-26'], dtype='datetime64')
+        expected_d = np.array(['2000-01-01', None, '1970-01-01',
+                               '2040-02-26'], dtype='datetime64[D]')
 
-        objects = [
-            # The second value is the expected value for date_as_object=False
-            (pa.array(data), expected),
-            (pa.chunked_array([data]), expected)]
+        expected_ns = np.array(['2000-01-01', None, '1970-01-01',
+                                '2040-02-26'], dtype='datetime64[ns]')
 
-        assert objects[0][0].equals(pa.array(expected))
+        objects = [pa.array(data),
+                   pa.chunked_array([data])]
 
-        for obj, expected_datetime64 in objects:
+        for obj in objects:
             result = obj.to_pandas()
-            expected_obj = expected.astype(object)
+            expected_obj = expected_d.astype(object)
             assert result.dtype == expected_obj.dtype
             npt.assert_array_equal(result, expected_obj)
 
             result = obj.to_pandas(date_as_object=False)
-            assert result.dtype == expected_datetime64.dtype
-            npt.assert_array_equal(result, expected_datetime64)
+            assert result.dtype == expected_ns.dtype
+            npt.assert_array_equal(result, expected_ns)
 
     def test_table_convert_date_as_object(self):
         df = pd.DataFrame({
@@ -1291,17 +1302,13 @@ class TestConvertDateTimeLikeTypes(object):
 
         names = ['time64[us]', 'time64[ns]', 'time32[ms]', 'time32[s]']
         batch = pa.RecordBatch.from_arrays([a1, a2, a3, a4], names)
-        arr = a1.to_pandas()
-        assert (arr == expected).all()
 
-        arr = a2.to_pandas()
-        assert (arr == expected).all()
-
-        arr = a3.to_pandas()
-        assert (arr == expected_ms).all()
-
-        arr = a4.to_pandas()
-        assert (arr == expected_s).all()
+        for arr, expected_values in [(a1, expected),
+                                     (a2, expected),
+                                     (a3, expected_ms),
+                                     (a4, expected_s)]:
+            result_pandas = arr.to_pandas()
+            assert (result_pandas.values == expected_values).all()
 
         df = batch.to_pandas()
         expected_df = pd.DataFrame({'time64[us]': expected,
@@ -2369,13 +2376,15 @@ class TestConvertMisc(object):
 
     def test_convert_empty_table(self):
         arr = pa.array([], type=pa.int64())
-        tm.assert_almost_equal(arr.to_pandas(), np.array([], dtype=np.int64))
+        empty_objects = pd.Series(np.array([], dtype=object))
+        tm.assert_almost_equal(arr.to_pandas(),
+                               pd.Series(np.array([], dtype=np.int64)))
         arr = pa.array([], type=pa.string())
-        tm.assert_almost_equal(arr.to_pandas(), np.array([], dtype=object))
+        tm.assert_almost_equal(arr.to_pandas(), empty_objects)
         arr = pa.array([], type=pa.list_(pa.int64()))
-        tm.assert_almost_equal(arr.to_pandas(), np.array([], dtype=object))
+        tm.assert_almost_equal(arr.to_pandas(), empty_objects)
         arr = pa.array([], type=pa.struct([pa.field('a', pa.int64())]))
-        tm.assert_almost_equal(arr.to_pandas(), np.array([], dtype=object))
+        tm.assert_almost_equal(arr.to_pandas(), empty_objects)
 
     def test_non_natural_stride(self):
         """
@@ -2764,6 +2773,13 @@ def test_recordbatchlist_to_pandas():
     tm.assert_frame_equal(data, result)
 
 
+def test_recordbatch_table_pass_name_to_pandas():
+    rb = pa.record_batch([pa.array([1, 2, 3, 4])], names=['a0'])
+    t = pa.table([pa.array([1, 2, 3, 4])], names=['a0'])
+    assert rb[0].to_pandas().name == 'a0'
+    assert t[0].to_pandas().name == 'a0'
+
+
 # ----------------------------------------------------------------------
 # Metadata serialization
 
@@ -2841,8 +2857,8 @@ def test_cast_timestamp_unit():
 
     arr2 = pa.Array.from_pandas(s, type=pa.timestamp('us'))
 
-    assert arr[0].as_py() == s_nyc[0]
-    assert arr2[0].as_py() == s[0]
+    assert arr[0].as_py() == s_nyc[0].to_pydatetime()
+    assert arr2[0].as_py() == s[0].to_pydatetime()
 
     # Disallow truncation
     arr = pa.array([123123], type='int64').cast(pa.timestamp('ms'))
@@ -2917,7 +2933,7 @@ def test_variable_dictionary_with_pandas():
 
 def test_array_protocol():
     if LooseVersion(pd.__version__) < '0.24.0':
-        pytest.skip(reason='IntegerArray only introduced in 0.24')
+        pytest.skip('IntegerArray only introduced in 0.24')
 
     def __arrow_array__(self, type=None):
         return pa.array(self._data, mask=self._mask, type=type)
@@ -2963,7 +2979,7 @@ def test_array_protocol():
 # Legacy metadata compatibility tests
 
 
-def test_range_index_pre_0_12():
+def test_metadata_compat_range_index_pre_0_12():
     # Forward compatibility for metadata created from pandas.RangeIndex
     # prior to pyarrow 0.13.0
     a_values = [u'foo', u'bar', None, u'baz']
@@ -3130,3 +3146,55 @@ def test_range_index_pre_0_12():
         )})
     r5 = t5.to_pandas()
     tm.assert_frame_equal(r5, e5)
+
+
+def test_metadata_compat_missing_field_name():
+    # Combination of missing field name but with index column as metadata.
+    # This combo occurs in the latest versions of fastparquet (0.3.2), but not
+    # in pyarrow itself (since field_name was added in 0.8, index as metadata
+    # only added later)
+
+    a_values = [1, 2, 3, 4]
+    b_values = [u'a', u'b', u'c', u'd']
+    a_arrow = pa.array(a_values, type='int64')
+    b_arrow = pa.array(b_values, type='utf8')
+
+    expected = pd.DataFrame({
+        'a': a_values,
+        'b': b_values,
+    }, index=pd.RangeIndex(0, 8, step=2, name='qux'))
+    table = pa.table({'a': a_arrow, 'b': b_arrow})
+
+    # metadata generated by fastparquet 0.3.2 with missing field_names
+    table = table.replace_schema_metadata({
+        b'pandas': json.dumps(
+            {'column_indexes': [
+                {'field_name': None,
+                 'metadata': None,
+                 'name': None,
+                 'numpy_type': 'object',
+                 'pandas_type': 'mixed-integer'}
+                ],
+             'columns': [
+                 {'metadata': None,
+                  'name': 'a',
+                  'numpy_type': 'int64',
+                  'pandas_type': 'int64'},
+                 {'metadata': None,
+                  'name': 'b',
+                  'numpy_type': 'object',
+                  'pandas_type': 'unicode'}
+                 ],
+             'index_columns': [
+                 {'kind': 'range',
+                  'name': 'qux',
+                  'start': 0,
+                  'step': 2,
+                  'stop': 8}
+                 ],
+             'pandas_version': '0.25.0'}
+
+        )})
+    result = table.to_pandas()
+    # on python 3.5 the column order can differ -> adding check_like=True
+    tm.assert_frame_equal(result, expected, check_like=True)

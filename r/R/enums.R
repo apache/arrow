@@ -31,17 +31,17 @@ enum <- function(class, ..., .list = list(...)){
 #' @name enums
 #' @export
 #' @keywords internal
-TimeUnit <- enum("arrow::TimeUnit::type",
+TimeUnit <- enum("TimeUnit::type",
   SECOND = 0L, MILLI = 1L, MICRO = 2L, NANO = 3L
 )
 
 #' @rdname enums
 #' @export
-DateUnit <- enum("arrow::DateUnit", DAY = 0L, MILLI = 1L)
+DateUnit <- enum("DateUnit", DAY = 0L, MILLI = 1L)
 
 #' @rdname enums
 #' @export
-Type <- enum("arrow::Type::type",
+Type <- enum("Type::type",
   "NA" = 0L, BOOL = 1L, UINT8 = 2L, INT8 = 3L, UINT16 = 4L, INT16 = 5L,
   UINT32 = 6L, INT32 = 7L, UINT64 = 8L, INT64 = 9L,
   HALF_FLOAT = 10L, FLOAT = 11L, DOUBLE = 12L, STRING = 13L,
@@ -52,7 +52,7 @@ Type <- enum("arrow::Type::type",
 
 #' @rdname enums
 #' @export
-StatusCode <- enum("arrow::StatusCode",
+StatusCode <- enum("StatusCode",
   OK = 0L, OutOfMemory = 1L, KeyError = 2L, TypeError = 3L,
   Invalid = 4L, IOError = 5L, CapacityError = 6L, IndexError = 7L,
   UnknownError = 9L, NotImplemented = 10L, SerializationError = 11L,
@@ -63,18 +63,18 @@ StatusCode <- enum("arrow::StatusCode",
 
 #' @rdname enums
 #' @export
-FileMode <- enum("arrow::io::FileMode",
+FileMode <- enum("FileMode",
   READ = 0L, WRITE = 1L, READWRITE = 2L
 )
 
 #' @rdname enums
 #' @export
-MessageType <- enum("arrow::ipc::Message::Type",
+MessageType <- enum("Message::Type",
   NONE = 0L, SCHEMA = 1L, DICTIONARY_BATCH = 2L, RECORD_BATCH = 3L, TENSOR = 4L
 )
 
 #' @rdname enums
 #' @export
-CompressionType <- enum("arrow::Compression::type",
+CompressionType <- enum("Compression::type",
   UNCOMPRESSED = 0L, SNAPPY = 1L, GZIP = 2L, BROTLI = 3L, ZSTD = 4L, LZ4 = 5L, LZO = 6L, BZ2 = 7L
 )

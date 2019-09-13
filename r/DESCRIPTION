@@ -36,10 +36,12 @@ Imports:
     utils
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1
+VignetteBuilder: knitr
 Suggests:
     covr,
     fs,
     hms,
+    knitr,
     lubridate,
     rmarkdown,
     testthat,
@@ -49,33 +51,33 @@ Collate:
     'enums.R'
     'arrow-package.R'
     'type.R'
-    'ArrayData.R'
-    'ChunkedArray.R'
-    'Column.R'
-    'Field.R'
-    'List.R'
-    'RecordBatch.R'
-    'RecordBatchReader.R'
-    'RecordBatchWriter.R'
-    'Schema.R'
-    'Struct.R'
-    'Table.R'
+    'array-data.R'
     'array.R'
     'arrowExports.R'
     'buffer.R'
+    'chunked-array.R'
     'io.R'
     'compression.R'
     'compute.R'
     'csv.R'
     'dictionary.R'
     'feather.R'
+    'field.R'
     'install-arrow.R'
     'json.R'
-    'memory_pool.R'
+    'list.R'
+    'memory-pool.R'
     'message.R'
     'parquet.R'
-    'read_record_batch.R'
-    'read_table.R'
+    'read-record-batch.R'
+    'read-table.R'
+    'record-batch-reader.R'
+    'record-batch-writer.R'
+    'record-batch.R'
     'reexports-bit64.R'
     'reexports-tidyselect.R'
-    'write_arrow.R'
+    'schema.R'
+    'struct.R'
+    'table.R'
+    'util.R'
+    'write-arrow.R'

@@ -494,6 +494,8 @@ class MyMemoryPool : public MemoryPool {
 
   int64_t bytes_allocated() const override { return -1; }
 
+  std::string backend_name() const override { return "my"; }
+
   int64_t num_allocations() const { return num_allocations_.load(); }
 
  private:
@@ -1023,7 +1025,7 @@ TEST_F(TestMemoryMappedFile, ReadOnly) {
   ASSERT_OK(rommap->Close());
 }
 
-TEST_F(TestMemoryMappedFile, DISABLED_ReadWriteOver4GbFile) {
+TEST_F(TestMemoryMappedFile, LARGE_MEMORY_TEST(ReadWriteOver4GbFile)) {
   // ARROW-1096
   const int64_t buffer_size = 1000 * 1000;
   std::vector<uint8_t> buffer(buffer_size);

@@ -15,18 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! ExecutionContext contains methods for registering data sources and executing SQL
-//! queries
+//! ExecutionContext contains methods for registering data sources and executing queries
 
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::string::String;
 use std::sync::Arc;
+use std::thread;
+use std::thread::JoinHandle;
 
 use arrow::datatypes::*;
 
 use crate::arrow::array::{ArrayRef, BooleanBuilder};
+use crate::arrow::record_batch::RecordBatch;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
@@ -35,6 +37,10 @@ use crate::execution::aggregate::AggregateRelation;
 use crate::execution::expression::*;
 use crate::execution::filter::FilterRelation;
 use crate::execution::limit::LimitRelation;
+use crate::execution::physical_plan::datasource::DatasourceExec;
+use crate::execution::physical_plan::expressions::Column;
+use crate::execution::physical_plan::projection::ProjectionExec;
+use crate::execution::physical_plan::{ExecutionPlan, PhysicalExpr};
 use crate::execution::projection::ProjectRelation;
 use crate::execution::relation::{DataSourceRelation, Relation};
 use crate::execution::scalar_relation::ScalarRelation;
@@ -208,6 +214,112 @@ impl ExecutionContext {
             plan = rule.optimize(&plan)?;
         }
         Ok(plan)
+    }
+
+    /// Create a physical plan from a logical plan
+    pub fn create_physical_plan(
+        &mut self,
+        logical_plan: &Arc<LogicalPlan>,
+        batch_size: usize,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        match logical_plan.as_ref() {
+            LogicalPlan::TableScan {
+                table_name,
+                projection,
+                ..
+            } => match (*self.datasources).borrow().get(table_name) {
+                Some(provider) => {
+                    let partitions = provider.scan(projection, batch_size)?;
+                    if partitions.is_empty() {
+                        Err(ExecutionError::General(
+                            "Table provider returned no partitions".to_string(),
+                        ))
+                    } else {
+                        let partition = partitions[0].lock().unwrap();
+                        let schema = partition.schema();
+                        let exec =
+                            DatasourceExec::new(schema.clone(), partitions.clone());
+                        Ok(Arc::new(exec))
+                    }
+                }
+                _ => Err(ExecutionError::General(format!(
+                    "No table named {}",
+                    table_name
+                ))),
+            },
+            LogicalPlan::Projection { input, expr, .. } => {
+                let input = self.create_physical_plan(input, batch_size)?;
+                let input_schema = input.as_ref().schema().clone();
+                let runtime_expr = expr
+                    .iter()
+                    .map(|e| self.create_physical_expr(e, &input_schema))
+                    .collect::<Result<Vec<_>>>()?;
+                Ok(Arc::new(ProjectionExec::try_new(runtime_expr, input)?))
+            }
+            _ => Err(ExecutionError::General(
+                "Unsupported logical plan variant".to_string(),
+            )),
+        }
+    }
+
+    /// Create a physical expression from a logical expression
+    pub fn create_physical_expr(
+        &self,
+        e: &Expr,
+        _input_schema: &Schema,
+    ) -> Result<Arc<dyn PhysicalExpr>> {
+        match e {
+            Expr::Column(i) => Ok(Arc::new(Column::new(*i))),
+            _ => Err(ExecutionError::NotImplemented(
+                "Unsupported expression".to_string(),
+            )),
+        }
+    }
+
+    /// Execute a physical plan and collect the results in memory
+    pub fn collect(&self, plan: &dyn ExecutionPlan) -> Result<Vec<RecordBatch>> {
+        let threads: Vec<JoinHandle<Result<Vec<RecordBatch>>>> = plan
+            .partitions()?
+            .iter()
+            .map(|p| {
+                let p = p.clone();
+                thread::spawn(move || {
+                    let it = p.execute()?;
+                    let mut it = it.lock().unwrap();
+                    let mut results: Vec<RecordBatch> = vec![];
+                    loop {
+                        match it.next() {
+                            Ok(Some(batch)) => {
+                                results.push(batch);
+                            }
+                            Ok(None) => {
+                                // end of result set
+                                return Ok(results);
+                            }
+                            Err(e) => return Err(e),
+                        }
+                    }
+                })
+            })
+            .collect();
+
+        // combine the results from each thread
+        let mut combined_results: Vec<RecordBatch> = vec![];
+        for thread in threads {
+            match thread.join() {
+                Ok(result) => {
+                    let result = result?;
+                    result
+                        .iter()
+                        .for_each(|batch| combined_results.push(batch.clone()));
+                }
+                Err(_) => {
+                    return Err(ExecutionError::General("Thread failed".to_string()))
+                }
+            }
+        }
+
+        Ok(combined_results)
     }
 
     /// Execute a logical plan and produce a Relation (a schema-aware iterator over a
@@ -401,4 +513,61 @@ impl SchemaProvider for ExecutionContextSchemaProvider {
     fn get_function_meta(&self, _name: &str) -> Option<Arc<FunctionMeta>> {
         None
     }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use std::fs::File;
+    use std::io::prelude::*;
+    use tempdir::TempDir;
+
+    #[test]
+    fn parallel_projection() -> Result<()> {
+        let mut ctx = ExecutionContext::new();
+
+        // define schema for data source (csv file)
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("c1", DataType::UInt32, false),
+            Field::new("c2", DataType::UInt32, false),
+        ]));
+
+        let tmp_dir = TempDir::new("parallel_projection")?;
+
+        // generate a partitioned file
+        let partition_count = 4;
+        for partition in 0..partition_count {
+            let filename = format!("partition-{}.csv", partition);
+            let file_path = tmp_dir.path().join(&filename);
+            let mut file = File::create(file_path)?;
+
+            // generate some data
+            for i in 0..=10 {
+                let data = format!("{},{}\n", partition, i);
+                file.write_all(data.as_bytes())?;
+            }
+        }
+
+        // register csv file with the execution context
+        ctx.register_csv("test", tmp_dir.path().to_str().unwrap(), &schema, true);
+
+        let logical_plan = ctx.create_logical_plan("SELECT c1, c2 FROM test")?;
+
+        let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
+
+        let results = ctx.collect(physical_plan.as_ref())?;
+
+        // there should be one batch per partition
+        assert_eq!(partition_count, results.len());
+
+        // each batch should contain 2 columns and 10 rows
+        for batch in &results {
+            assert_eq!(2, batch.num_columns());
+            assert_eq!(10, batch.num_rows());
+        }
+
+        Ok(())
+    }
+
 }

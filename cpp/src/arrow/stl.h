@@ -23,10 +23,12 @@
 #include <string>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "arrow/builder.h"
 #include "arrow/compute/api.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -50,19 +52,44 @@ using BareTupleElement = typename std::remove_const<typename std::remove_referen
 template <typename T, typename Enable = void>
 struct ConversionTraits {};
 
-#define ARROW_STL_CONVERSION(c_type, ArrowType_)                                    \
+/// Returns builder type for given standard C/C++ type.
+template <typename CType>
+using CBuilderType =
+    typename TypeTraits<typename ConversionTraits<CType>::ArrowType>::BuilderType;
+
+/// Default implementation of AppendListValues.
+///
+/// This function can be specialized by user to take advantage of appending
+/// contigiuous ranges while appending. This default implementation will call
+/// ConversionTraits<ValueCType>::AppendRow() for each value in the range.
+template <typename ValueCType, typename Range>
+Status AppendListValues(CBuilderType<ValueCType>& value_builder, Range&& cell_range) {
+  for (auto const& value : cell_range) {
+    ARROW_RETURN_NOT_OK(ConversionTraits<ValueCType>::AppendRow(value_builder, value));
+  }
+  return Status::OK();
+}
+
+#define ARROW_STL_CONVERSION(CType_, ArrowType_)                                    \
   template <>                                                                       \
-  struct ConversionTraits<c_type> : public CTypeTraits<c_type> {                    \
+  struct ConversionTraits<CType_> : public CTypeTraits<CType_> {                    \
     static Status AppendRow(typename TypeTraits<ArrowType_>::BuilderType& builder,  \
-                            c_type cell) {                                          \
+                            CType_ cell) {                                          \
       return builder.Append(cell);                                                  \
     }                                                                               \
-    static c_type GetEntry(const typename TypeTraits<ArrowType_>::ArrayType& array, \
+    static CType_ GetEntry(const typename TypeTraits<ArrowType_>::ArrayType& array, \
                            size_t j) {                                              \
       return array.Value(j);                                                        \
     }                                                                               \
     constexpr static bool nullable = false;                                         \
-  };
+  };                                                                                \
+                                                                                    \
+  template <>                                                                       \
+  Status AppendListValues<CType_, const std::vector<CType_>&>(                      \
+      typename TypeTraits<ArrowType_>::BuilderType & value_builder,                 \
+      const std::vector<CType_>& cell_range) {                                      \
+    return value_builder.AppendValues(cell_range);                                  \
+  }
 
 ARROW_STL_CONVERSION(bool, BooleanType)
 ARROW_STL_CONVERSION(int8_t, Int8Type)
@@ -87,33 +114,48 @@ struct ConversionTraits<std::string> : public CTypeTraits<std::string> {
   constexpr static bool nullable = false;
 };
 
-template <typename value_c_type>
-struct ConversionTraits<std::vector<value_c_type>>
-    : public CTypeTraits<std::vector<value_c_type>> {
-  static Status AppendRow(ListBuilder& builder, std::vector<value_c_type> cell) {
-    using ElementBuilderType = typename TypeTraits<
-        typename ConversionTraits<value_c_type>::ArrowType>::BuilderType;
-    ARROW_RETURN_NOT_OK(builder.Append());
-    ElementBuilderType& value_builder =
-        ::arrow::internal::checked_cast<ElementBuilderType&>(*builder.value_builder());
-    for (auto const& value : cell) {
-      ARROW_RETURN_NOT_OK(
-          ConversionTraits<value_c_type>::AppendRow(value_builder, value));
-    }
-    return Status::OK();
+/// Append cell range elements as a single value to the list builder.
+///
+/// Cell range will be added to child builder using AppendListValues<ValueCType>()
+/// if provided. AppendListValues<ValueCType>() has a default implementation, but
+/// it can be specialized by users.
+template <typename ValueCType, typename ListBuilderType, typename Range>
+Status AppendCellRange(ListBuilderType& builder, Range&& cell_range) {
+  constexpr bool is_list_builder = std::is_same<ListBuilderType, ListBuilder>::value;
+  constexpr bool is_large_list_builder =
+      std::is_same<ListBuilderType, LargeListBuilder>::value;
+  static_assert(
+      is_list_builder || is_large_list_builder,
+      "Builder type must be either ListBuilder or LargeListBuilder for appending "
+      "multiple rows.");
+
+  using ChildBuilderType = CBuilderType<ValueCType>;
+  ARROW_RETURN_NOT_OK(builder.Append());
+  auto& value_builder =
+      ::arrow::internal::checked_cast<ChildBuilderType&>(*builder.value_builder());
+
+  // XXX: Remove appended value before returning if status isn't OK?
+  return AppendListValues<ValueCType>(value_builder, std::forward<Range>(cell_range));
+}
+
+template <typename ValueCType>
+struct ConversionTraits<std::vector<ValueCType>>
+    : public CTypeTraits<std::vector<ValueCType>> {
+  static Status AppendRow(ListBuilder& builder, const std::vector<ValueCType>& cell) {
+    return AppendCellRange<ValueCType>(builder, cell);
   }
 
-  static std::vector<value_c_type> GetEntry(const ListArray& array, size_t j) {
-    using ElementArrayType = typename TypeTraits<
-        typename ConversionTraits<value_c_type>::ArrowType>::ArrayType;
+  static std::vector<ValueCType> GetEntry(const ListArray& array, size_t j) {
+    using ElementArrayType =
+        typename TypeTraits<typename ConversionTraits<ValueCType>::ArrowType>::ArrayType;
 
     const ElementArrayType& value_array =
         ::arrow::internal::checked_cast<const ElementArrayType&>(*array.values());
 
-    std::vector<value_c_type> vec(array.value_length(j));
+    std::vector<ValueCType> vec(array.value_length(j));
     for (int64_t i = 0; i < array.value_length(j); i++) {
-      vec[i] = ConversionTraits<value_c_type>::GetEntry(value_array,
-                                                        array.value_offset(j) + i);
+      vec[i] =
+          ConversionTraits<ValueCType>::GetEntry(value_array, array.value_offset(j) + i);
     }
     return vec;
   }
@@ -338,7 +380,7 @@ struct TupleSetter<Range, Tuple, 0> {
 }  // namespace internal
 
 template <typename Range>
-Status TableFromTupleRange(MemoryPool* pool, const Range& rows,
+Status TableFromTupleRange(MemoryPool* pool, Range&& rows,
                            const std::vector<std::string>& names,
                            std::shared_ptr<Table>* table) {
   using row_type = typename std::iterator_traits<decltype(std::begin(rows))>::value_type;

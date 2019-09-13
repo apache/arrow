@@ -45,6 +45,7 @@
 
 #include "arrow/io/file.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/io/util_internal.h"
 
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
@@ -67,13 +68,13 @@ class OSFile {
                       bool write_only) {
     RETURN_NOT_OK(SetFileName(path));
 
-    RETURN_NOT_OK(
-        internal::FileOpenWritable(file_name_, write_only, truncate, append, &fd_));
+    RETURN_NOT_OK(::arrow::internal::FileOpenWritable(file_name_, write_only, truncate,
+                                                      append, &fd_));
     is_open_ = true;
     mode_ = write_only ? FileMode::WRITE : FileMode::READWRITE;
 
     if (!truncate) {
-      RETURN_NOT_OK(internal::FileGetSize(fd_, &size_));
+      RETURN_NOT_OK(::arrow::internal::FileGetSize(fd_, &size_));
     } else {
       size_ = 0;
     }
@@ -83,7 +84,7 @@ class OSFile {
   // This is different from OpenWritable(string, ...) in that it doesn't
   // truncate nor mandate a seekable file
   Status OpenWritable(int fd) {
-    if (!internal::FileGetSize(fd, &size_).ok()) {
+    if (!::arrow::internal::FileGetSize(fd, &size_).ok()) {
       // Non-seekable file
       size_ = -1;
     }
@@ -97,8 +98,8 @@ class OSFile {
   Status OpenReadable(const std::string& path) {
     RETURN_NOT_OK(SetFileName(path));
 
-    RETURN_NOT_OK(internal::FileOpenReadable(file_name_, &fd_));
-    RETURN_NOT_OK(internal::FileGetSize(fd_, &size_));
+    RETURN_NOT_OK(::arrow::internal::FileOpenReadable(file_name_, &fd_));
+    RETURN_NOT_OK(::arrow::internal::FileGetSize(fd_, &size_));
 
     is_open_ = true;
     mode_ = FileMode::READ;
@@ -106,7 +107,7 @@ class OSFile {
   }
 
   Status OpenReadable(int fd) {
-    RETURN_NOT_OK(internal::FileGetSize(fd, &size_));
+    RETURN_NOT_OK(::arrow::internal::FileGetSize(fd, &size_));
     RETURN_NOT_OK(SetFileName(fd));
     is_open_ = true;
     mode_ = FileMode::READ;
@@ -128,7 +129,7 @@ class OSFile {
       is_open_ = false;
       int fd = fd_;
       fd_ = -1;
-      RETURN_NOT_OK(internal::FileClose(fd));
+      RETURN_NOT_OK(::arrow::internal::FileClose(fd));
     }
     return Status::OK();
   }
@@ -136,7 +137,8 @@ class OSFile {
   Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
     RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(CheckPositioned());
-    return internal::FileRead(fd_, reinterpret_cast<uint8_t*>(out), nbytes, bytes_read);
+    return ::arrow::internal::FileRead(fd_, reinterpret_cast<uint8_t*>(out), nbytes,
+                                       bytes_read);
   }
 
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* out) {
@@ -144,8 +146,8 @@ class OSFile {
     // ReadAt() leaves the file position undefined, so require that we seek
     // before calling Read() or Write().
     need_seeking_.store(true);
-    return internal::FileReadAt(fd_, reinterpret_cast<uint8_t*>(out), position, nbytes,
-                                bytes_read);
+    return ::arrow::internal::FileReadAt(fd_, reinterpret_cast<uint8_t*>(out), position,
+                                         nbytes, bytes_read);
   }
 
   Status Seek(int64_t pos) {
@@ -153,7 +155,7 @@ class OSFile {
     if (pos < 0) {
       return Status::Invalid("Invalid position");
     }
-    Status st = internal::FileSeek(fd_, pos);
+    Status st = ::arrow::internal::FileSeek(fd_, pos);
     if (st.ok()) {
       need_seeking_.store(false);
     }
@@ -162,7 +164,7 @@ class OSFile {
 
   Status Tell(int64_t* pos) const {
     RETURN_NOT_OK(CheckClosed());
-    return internal::FileTell(fd_, pos);
+    return ::arrow::internal::FileTell(fd_, pos);
   }
 
   Status Write(const void* data, int64_t length) {
@@ -173,7 +175,8 @@ class OSFile {
     if (length < 0) {
       return Status::IOError("Length must be non-negative");
     }
-    return internal::FileWrite(fd_, reinterpret_cast<const uint8_t*>(data), length);
+    return ::arrow::internal::FileWrite(fd_, reinterpret_cast<const uint8_t*>(data),
+                                        length);
   }
 
   int fd() const { return fd_; }
@@ -188,7 +191,7 @@ class OSFile {
 
  protected:
   Status SetFileName(const std::string& file_name) {
-    return internal::FileNameFromString(file_name, &file_name_);
+    return ::arrow::internal::FileNameFromString(file_name, &file_name_);
   }
   Status SetFileName(int fd) {
     std::stringstream ss;
@@ -205,7 +208,7 @@ class OSFile {
     return Status::OK();
   }
 
-  internal::PlatformFilename file_name_;
+  ::arrow::internal::PlatformFilename file_name_;
 
   std::mutex lock_;
 
@@ -264,7 +267,7 @@ class ReadableFile::ReadableFileImpl : public OSFile {
 
 ReadableFile::ReadableFile(MemoryPool* pool) { impl_.reset(new ReadableFileImpl(pool)); }
 
-ReadableFile::~ReadableFile() { ARROW_CHECK_OK(impl_->Close()); }
+ReadableFile::~ReadableFile() { internal::CloseFromDestructor(this); }
 
 Status ReadableFile::Open(const std::string& path, std::shared_ptr<ReadableFile>* file) {
   return Open(path, default_memory_pool(), file);
@@ -335,10 +338,7 @@ class FileOutputStream::FileOutputStreamImpl : public OSFile {
 
 FileOutputStream::FileOutputStream() { impl_.reset(new FileOutputStreamImpl()); }
 
-FileOutputStream::~FileOutputStream() {
-  // This can fail; better to explicitly call close
-  ARROW_CHECK_OK(impl_->Close());
-}
+FileOutputStream::~FileOutputStream() { internal::CloseFromDestructor(this); }
 
 Status FileOutputStream::Open(const std::string& path,
                               std::shared_ptr<OutputStream>* file) {
@@ -462,7 +462,7 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
         if (munmap(mutable_data_, capacity_) != 0) {
           return Status::IOError("Cannot unmap the file");
         }
-        RETURN_NOT_OK(internal::FileTruncate(file_->fd(), 0));
+        RETURN_NOT_OK(::arrow::internal::FileTruncate(file_->fd(), 0));
         data_ = mutable_data_ = nullptr;
         map_len_ = offset_ = size_ = capacity_ = 0;
       }
@@ -472,8 +472,8 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
 
     if (mutable_data_) {
       void* result;
-      RETURN_NOT_OK(
-          internal::MemoryMapRemap(mutable_data_, size_, new_size, file_->fd(), &result));
+      RETURN_NOT_OK(::arrow::internal::MemoryMapRemap(mutable_data_, size_, new_size,
+                                                      file_->fd(), &result));
       map_len_ = size_ = capacity_ = new_size;
       offset_ = 0;
       data_ = mutable_data_ = static_cast<uint8_t*>(result);
@@ -521,7 +521,7 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
   Status InitMMap(int64_t initial_size, bool resize_file = false,
                   const int64_t offset = 0, const int64_t length = -1) {
     if (resize_file) {
-      RETURN_NOT_OK(internal::FileTruncate(file_->fd(), initial_size));
+      RETURN_NOT_OK(::arrow::internal::FileTruncate(file_->fd(), initial_size));
     }
     DCHECK(data_ == nullptr && mutable_data_ == nullptr);
 
@@ -556,14 +556,15 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
 };
 
 MemoryMappedFile::MemoryMappedFile() {}
-MemoryMappedFile::~MemoryMappedFile() {}
+
+MemoryMappedFile::~MemoryMappedFile() { internal::CloseFromDestructor(this); }
 
 Status MemoryMappedFile::Create(const std::string& path, int64_t size,
                                 std::shared_ptr<MemoryMappedFile>* out) {
   std::shared_ptr<FileOutputStream> file;
   RETURN_NOT_OK(FileOutputStream::Open(path, &file));
 
-  RETURN_NOT_OK(internal::FileTruncate(file->file_descriptor(), size));
+  RETURN_NOT_OK(::arrow::internal::FileTruncate(file->file_descriptor(), size));
 
   RETURN_NOT_OK(file->Close());
   return MemoryMappedFile::Open(path, FileMode::READWRITE, out);

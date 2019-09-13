@@ -58,6 +58,9 @@ class DictionaryMemo;
 
 namespace internal {
 
+// This 0xFFFFFFFF value is the first 4 bytes of a valid IPC message
+constexpr int32_t kIpcContinuationToken = -1;
+
 static constexpr flatbuf::MetadataVersion kCurrentMetadataVersion =
     flatbuf::MetadataVersion_V4;
 
@@ -103,6 +106,15 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
                          std::vector<int64_t>* shape, std::vector<int64_t>* strides,
                          std::vector<std::string>* dim_names);
 
+// EXPERIMENTAL: Extracting metadata of a SparseCOOIndex from the message
+Status GetSparseCOOIndexMetadata(const flatbuf::SparseTensorIndexCOO* sparse_index,
+                                 std::shared_ptr<DataType>* indices_type);
+
+// EXPERIMENTAL: Extracting metadata of a SparseCSRIndex from the message
+Status GetSparseCSRIndexMetadata(const flatbuf::SparseMatrixIndexCSR* sparse_index,
+                                 std::shared_ptr<DataType>* indptr_type,
+                                 std::shared_ptr<DataType>* indices_type);
+
 // EXPERIMENTAL: Extracting metadata of a sparse tensor from the message
 Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
                                std::vector<int64_t>* shape,
@@ -118,22 +130,6 @@ static inline Status VerifyMessage(const uint8_t* data, int64_t size,
   *out = flatbuf::GetMessage(data);
   return Status::OK();
 }
-
-/// Write a serialized message metadata with a length-prefix and padding to an
-/// 8-byte offset. Does not make assumptions about whether the stream is
-/// aligned already
-///
-/// <message_size: int32><message: const void*><padding>
-///
-/// \param[in] message a buffer containing the metadata to write
-/// \param[in] alignment the size multiple of the total message size including
-/// length prefix, metadata, and padding. Usually 8 or 64
-/// \param[in,out] file the OutputStream to write to
-/// \param[out] message_length the total size of the payload written including
-/// padding
-/// \return Status
-Status WriteMessage(const Buffer& message, int32_t alignment, io::OutputStream* file,
-                    int32_t* message_length);
 
 // Serialize arrow::Schema as a Flatbuffer
 //

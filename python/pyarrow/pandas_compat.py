@@ -774,7 +774,7 @@ def _extract_index_level(table, result_table, field_name,
     pd = _pandas_api.pd
 
     col = table.column(i)
-    values = col.to_pandas()
+    values = col.to_pandas().values
 
     if hasattr(values, 'flags') and not values.flags.writeable:
         # ARROW-1054: in pandas 0.19.2, factorize will reject
@@ -823,6 +823,7 @@ def _is_generated_index_name(name):
 
 _pandas_logical_type_map = {
     'date': 'datetime64[D]',
+    'datetime': 'datetime64[ns]',
     'unicode': np.unicode_,
     'bytes': np.bytes_,
     'string': np.str_,
@@ -951,6 +952,9 @@ def _add_any_metadata(table, pandas_metadata):
     schema = table.schema
 
     index_columns = pandas_metadata['index_columns']
+    # only take index columns into account if they are an actual table column
+    index_columns = [idx_col for idx_col in index_columns
+                     if isinstance(idx_col, six.string_types)]
     n_index_levels = len(index_columns)
     n_columns = len(pandas_metadata['columns']) - n_index_levels
 
@@ -959,7 +963,7 @@ def _add_any_metadata(table, pandas_metadata):
 
         raw_name = col_meta.get('field_name')
         if not raw_name:
-            # deal with metadata written with arrow < 0.8
+            # deal with metadata written with arrow < 0.8 or fastparquet
             raw_name = col_meta['name']
             if i >= n_columns:
                 # index columns

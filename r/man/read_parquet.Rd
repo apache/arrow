@@ -5,10 +5,10 @@
 \title{Read a Parquet file}
 \usage{
 read_parquet(file, col_select = NULL, as_tibble = TRUE,
-  props = parquet_arrow_reader_properties(), ...)
+  props = ParquetReaderProperties$create(), ...)
 }
 \arguments{
-\item{file}{A character path to a local file, or an Arrow input stream}
+\item{file}{A character file name, raw vector, or an Arrow input stream}
 
 \item{col_select}{A character vector of column names to keep, as in the
 "select" argument to \code{data.table::fread()}, or a
@@ -16,14 +16,14 @@ read_parquet(file, col_select = NULL, as_tibble = TRUE,
 of columns, as used in \code{dplyr::select()}.}
 
 \item{as_tibble}{Should the function return a \code{data.frame} or an
-\link[=arrow__Table]{arrow::Table}?}
+\link[=Table]{arrow::Table}?}
 
-\item{props}{reader file properties, as created by \code{\link[=parquet_arrow_reader_properties]{parquet_arrow_reader_properties()}}}
+\item{props}{\link{ParquetReaderProperties}}
 
-\item{...}{additional parameters}
+\item{...}{Additional arguments passed to \code{ParquetFileReader$create()}}
 }
 \value{
-A \link[=arrow__Table]{arrow::Table}, or a \code{data.frame} if \code{as_tibble} is
+A \link[=Table]{arrow::Table}, or a \code{data.frame} if \code{as_tibble} is
 \code{TRUE}.
 }
 \description{
@@ -32,8 +32,7 @@ This function enables you to read Parquet files into R.
 }
 \examples{
 \donttest{
-try({
-  df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
-})
+df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
+head(df)
 }
 }

@@ -21,6 +21,26 @@
 namespace arrow {
 namespace r {
 
+template <typename T>
+inline bool is_na(T value) {
+  return false;
+}
+
+template <>
+inline bool is_na<int64_t>(int64_t value) {
+  return value == NA_INT64;
+}
+
+template <>
+inline bool is_na<double>(double value) {
+  return ISNA(value);
+}
+
+template <>
+inline bool is_na<int>(int value) {
+  return value == NA_INTEGER;
+}
+
 std::shared_ptr<Array> MakeStringArray(Rcpp::StringVector_ vec) {
   R_xlen_t n = vec.size();
 
@@ -302,12 +322,14 @@ struct Unbox<Type, enable_if_integer<Type>> {
   static inline Status Ingest(BuilderType* builder, SEXP obj) {
     switch (TYPEOF(obj)) {
       case INTSXP:
-        return IngestRange<int>(builder, INTEGER(obj), XLENGTH(obj), NA_INTEGER);
+        return IngestRange<int>(builder, INTEGER(obj), XLENGTH(obj));
       case REALSXP:
         if (Rf_inherits(obj, "integer64")) {
           return IngestRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)),
-                                      XLENGTH(obj), NA_INT64);
+                                      XLENGTH(obj));
         }
+        return IngestRange(builder, REAL(obj), XLENGTH(obj));
+
       // TODO: handle raw and logical
       default:
         break;
@@ -319,10 +341,10 @@ struct Unbox<Type, enable_if_integer<Type>> {
   }
 
   template <typename T>
-  static inline Status IngestRange(BuilderType* builder, T* p, R_xlen_t n, T na) {
+  static inline Status IngestRange(BuilderType* builder, T* p, R_xlen_t n) {
     RETURN_NOT_OK(builder->Resize(n));
     for (R_xlen_t i = 0; i < n; i++, ++p) {
-      if (*p == na) {
+      if (is_na<T>(*p)) {
         builder->UnsafeAppendNull();
       } else {
         CType value = 0;
@@ -771,7 +793,7 @@ std::shared_ptr<arrow::DataType> GetFactorType(SEXP factor) {
 std::shared_ptr<arrow::DataType> InferType(SEXP x) {
   switch (TYPEOF(x)) {
     case ENVSXP:
-      if (Rf_inherits(x, "arrow::Array")) {
+      if (Rf_inherits(x, "Array")) {
         Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Array>> array(
             x);
         return static_cast<std::shared_ptr<arrow::Array>>(array)->type();
@@ -845,25 +867,6 @@ bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type) {
   return false;
 }
 
-template <typename T>
-inline bool is_na(T value) {
-  return false;
-}
-
-template <>
-inline bool is_na<int64_t>(int64_t value) {
-  return value == NA_INT64;
-}
-
-template <>
-inline bool is_na<double>(double value) {
-  return ISNA(value);
-}
-
-template <>
-inline bool is_na<int>(int value) {
-  return value == NA_INTEGER;
-}
 // this is only used on some special cases when the arrow Array can just use the memory of
 // the R object, via an RBuffer, hence be zero copy
 template <int RTYPE, typename Type>
@@ -973,7 +976,7 @@ arrow::Status CheckCompatibleStruct(SEXP obj,
 std::shared_ptr<arrow::Array> Array__from_vector(
     SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_infered) {
   // short circuit if `x` is already an Array
-  if (Rf_inherits(x, "arrow::Array")) {
+  if (Rf_inherits(x, "Array")) {
     return Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Array>>(x);
   }
 

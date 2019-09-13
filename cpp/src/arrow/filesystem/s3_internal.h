@@ -81,6 +81,8 @@ inline bool IsAlreadyExists(const Aws::Client::AWSError<Aws::S3::S3Errors>& erro
           error_type == Aws::S3::S3Errors::BUCKET_ALREADY_OWNED_BY_YOU);
 }
 
+// TODO qualify error messages with a prefix indicating context
+// (e.g. "When completing multipart upload to bucket 'xxx', key 'xxx': ...")
 template <typename ErrorType>
 Status ErrorToStatus(const std::string& prefix,
                      const Aws::Client::AWSError<ErrorType>& error) {

@@ -76,6 +76,7 @@ struct ARROW_EXPORT BooleanScalar : public internal::PrimitiveScalar {
   bool value;
   explicit BooleanScalar(bool value, bool is_valid = true)
       : internal::PrimitiveScalar{boolean(), is_valid}, value(value) {}
+  BooleanScalar() : BooleanScalar(false, false) {}
 };
 
 template <typename Type>
@@ -85,6 +86,8 @@ struct NumericScalar : public internal::PrimitiveScalar {
 
   explicit NumericScalar(T value, bool is_valid = true)
       : NumericScalar(value, TypeTraits<Type>::type_singleton(), is_valid) {}
+
+  NumericScalar() : NumericScalar(0, false) {}
 
  protected:
   explicit NumericScalar(T value, const std::shared_ptr<DataType>& type, bool is_valid)
@@ -105,6 +108,8 @@ struct ARROW_EXPORT BinaryScalar : public BaseBinaryScalar<BinaryType> {
   explicit BinaryScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
       : BaseBinaryScalar(value, binary(), is_valid) {}
 
+  BinaryScalar() : BinaryScalar(NULLPTR, false) {}
+
  protected:
   using BaseBinaryScalar::BaseBinaryScalar;
 };
@@ -112,11 +117,15 @@ struct ARROW_EXPORT BinaryScalar : public BaseBinaryScalar<BinaryType> {
 struct ARROW_EXPORT StringScalar : public BinaryScalar {
   explicit StringScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
       : BinaryScalar(value, utf8(), is_valid) {}
+
+  StringScalar() : StringScalar(NULLPTR, false) {}
 };
 
 struct ARROW_EXPORT LargeBinaryScalar : public BaseBinaryScalar<LargeBinaryType> {
   explicit LargeBinaryScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
       : BaseBinaryScalar(value, large_binary(), is_valid) {}
+
+  LargeBinaryScalar() : LargeBinaryScalar(NULLPTR, false) {}
 
  protected:
   using BaseBinaryScalar::BaseBinaryScalar;
@@ -125,6 +134,8 @@ struct ARROW_EXPORT LargeBinaryScalar : public BaseBinaryScalar<LargeBinaryType>
 struct ARROW_EXPORT LargeStringScalar : public LargeBinaryScalar {
   explicit LargeStringScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
       : LargeBinaryScalar(value, utf8(), is_valid) {}
+
+  LargeStringScalar() : LargeStringScalar(NULLPTR, false) {}
 };
 
 struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
@@ -234,5 +245,12 @@ struct ARROW_EXPORT StructScalar : public Scalar {
 class ARROW_EXPORT UnionScalar : public Scalar {};
 class ARROW_EXPORT DictionaryScalar : public Scalar {};
 class ARROW_EXPORT ExtensionScalar : public Scalar {};
+
+/// \param[in] type the type of scalar to produce
+/// \param[out] null output scalar with is_valid=false
+/// \return Status
+ARROW_EXPORT
+Status MakeNullScalar(const std::shared_ptr<DataType>& type,
+                      std::shared_ptr<Scalar>* null);
 
 }  // namespace arrow

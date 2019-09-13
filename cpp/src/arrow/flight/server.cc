@@ -482,6 +482,7 @@ using ::arrow::internal::SignalHandler;
 struct FlightServerBase::Impl {
   std::unique_ptr<FlightServiceImpl> service_;
   std::unique_ptr<grpc::Server> server_;
+  int port_;
 #ifdef _WIN32
   // Signal handlers are executed in a separate thread on Windows, so getting
   // the current thread instance wouldn't make sense.  This means only a single
@@ -517,7 +518,7 @@ thread_local std::atomic<FlightServerBase::Impl*>
 #endif
 
 FlightServerOptions::FlightServerOptions(const Location& location_)
-    : location(location_), auth_handler(nullptr), tls_certificates() {}
+    : location(location_), auth_handler(nullptr), tls_certificates(), builder_hook() {}
 
 FlightServerBase::FlightServerBase() { impl_.reset(new Impl); }
 
@@ -548,7 +549,7 @@ Status FlightServerBase::Init(FlightServerOptions& options) {
       creds = grpc::InsecureServerCredentials();
     }
 
-    builder.AddListeningPort(address.str(), creds);
+    builder.AddListeningPort(address.str(), creds, &impl_->port_);
   } else if (scheme == kSchemeGrpcUnix) {
     std::stringstream address;
     address << "unix:" << location.uri_->path();
@@ -563,12 +564,18 @@ Status FlightServerBase::Init(FlightServerOptions& options) {
   // leftover processes can handle requests on accident
   builder.AddChannelArgument(GRPC_ARG_ALLOW_REUSEPORT, 0);
 
+  if (options.builder_hook) {
+    options.builder_hook(&builder);
+  }
+
   impl_->server_ = builder.BuildAndStart();
   if (!impl_->server_) {
     return Status::UnknownError("Server did not start properly");
   }
   return Status::OK();
 }
+
+int FlightServerBase::port() const { return impl_->port_; }
 
 Status FlightServerBase::SetShutdownOnSignals(const std::vector<int> sigs) {
   impl_->signals_ = sigs;

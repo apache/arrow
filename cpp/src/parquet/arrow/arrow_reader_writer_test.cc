@@ -2633,7 +2633,7 @@ TEST(TestArrowReaderAdHoc, CorruptedSchema) {
   TryReadDataFile(path, ::arrow::StatusCode::IOError);
 }
 
-TEST(TestArrowReaderAdHoc, DISABLED_LargeStringColumn) {
+TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
   // ARROW-3762
   ::arrow::StringBuilder builder;
   int64_t length = 1 << 30;

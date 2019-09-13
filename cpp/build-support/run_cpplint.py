@@ -35,6 +35,7 @@ _filters = '''
 -whitespace/comments
 -readability/casting
 -readability/todo
+-readability/alt_tokens
 -build/header_guard
 -build/c++11
 -runtime/references

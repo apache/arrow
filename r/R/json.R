@@ -15,113 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
-
-#' @include arrow-package.R
-#'
-#' @title class arrow::json::TableReader
-#'
-#' @usage NULL
-#' @format NULL
-#' @docType class
-#'
-#' @section Methods:
-#'
-#' - `Read()` : read the JSON file as an [arrow::Table][arrow__Table]
-#'
-#' @rdname arrow__json__TableReader
-#' @name arrow__json__TableReader
-`arrow::json::TableReader` <- R6Class("arrow::json::TableReader", inherit = `arrow::Object`,
-  public = list(
-    Read = function() shared_ptr(`arrow::Table`, json___TableReader__Read(self))
-  )
-)
-
-`arrow::json::ReadOptions` <- R6Class("arrow::json::ReadOptions", inherit = `arrow::Object`)
-`arrow::json::ParseOptions` <- R6Class("arrow::json::ParseOptions", inherit = `arrow::Object`)
-
-#' @rdname csv_read_options
-#' @export
-json_read_options <- function(use_threads = TRUE, block_size = 1048576L) {
-  shared_ptr(`arrow::json::ReadOptions`, json___ReadOptions__initialize(
-    list(
-      use_threads = use_threads,
-      block_size = block_size
-    )
-  ))
-}
-
-#' @rdname csv_parse_options
-#' @export
-json_parse_options <- function(newlines_in_values = FALSE) {
-  shared_ptr(`arrow::json::ParseOptions`, json___ParseOptions__initialize(
-    list(
-      newlines_in_values = newlines_in_values
-    )
-  ))
-}
-
-#' @rdname csv_table_reader
-#' @export
-json_table_reader <- function(file,
-  read_options = json_read_options(),
-  parse_options = json_parse_options(),
-  ...
-){
-  UseMethod("json_table_reader")
-}
-
-#' @importFrom rlang abort
-#' @export
-json_table_reader.default <- function(file,
-  read_options = json_read_options(),
-  parse_options = json_parse_options(),
-  ...
-) {
-  abort("unsupported")
-}
-
-#' @export
-`json_table_reader.character` <- function(file,
-  read_options = json_read_options(),
-  parse_options = json_parse_options(),
-  ...
-){
-  json_table_reader(ReadableFile(file),
-    read_options = read_options,
-    parse_options = parse_options,
-    ...
-  )
-}
-
-#' @export
-`json_table_reader.arrow::io::InputStream` <- function(file,
-  read_options = json_read_options(),
-  parse_options = json_parse_options(),
-  ...
-){
-  shared_ptr(`arrow::json::TableReader`,
-    json___TableReader__Make(file, read_options, parse_options)
-  )
-}
-
-#' @export
-`json_table_reader.arrow::json::TableReader` <- function(file,
-  read_options = json_read_options(),
-  parse_options = json_parse_options(),
-  ...
-){
-  file
-}
-
 #' Read a JSON file
 #'
-#' Use [arrow::json::TableReader][arrow__json__TableReader] from [json_table_reader()]
+#' Using [JsonTableReader]
 #'
 #' @inheritParams read_delim_arrow
 #' @param ... Additional options, passed to `json_table_reader()`
 #'
-#' @return A `data.frame`, or an `arrow::Table` if `as_tibble = FALSE`.
+#' @return A `data.frame`, or an Table if `as_tibble = FALSE`.
 #' @export
 #' @examples
 #' \donttest{
@@ -144,3 +45,66 @@ read_json_arrow <- function(file, col_select = NULL, as_tibble = TRUE, ...) {
   }
   tab
 }
+
+#' @include arrow-package.R
+#'
+#' @title class JsonTableReader
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' - `Read()` : read the JSON file as an [arrow::Table][Table]
+#'
+#' @rdname JsonTableReader
+#' @name JsonTableReader
+JsonTableReader <- R6Class("JsonTableReader", inherit = Object,
+  public = list(
+    Read = function() shared_ptr(Table, json___TableReader__Read(self))
+  )
+)
+JsonTableReader$create <- function(file,
+                                   read_options = json_read_options(),
+                                   parse_options = json_parse_options(),
+                                   ...) {
+
+  file <- make_readable_file(file)
+  shared_ptr(
+    JsonTableReader,
+    json___TableReader__Make(file, read_options, parse_options)
+  )
+}
+
+#' @rdname csv_table_reader
+#' @export
+json_table_reader <- JsonTableReader$create
+
+JsonReadOptions <- R6Class("JsonReadOptions", inherit = Object)
+JsonReadOptions$create <- function(use_threads = TRUE, block_size = 1048576L) {
+  shared_ptr(JsonReadOptions, json___ReadOptions__initialize(
+    list(
+      use_threads = use_threads,
+      block_size = block_size
+    )
+  ))
+}
+
+#' @rdname csv_read_options
+#' @export
+json_read_options <- JsonReadOptions$create
+
+JsonParseOptions <- R6Class("JsonParseOptions", inherit = Object)
+JsonParseOptions$create <- function(newlines_in_values = FALSE) {
+  shared_ptr(JsonParseOptions, json___ParseOptions__initialize(
+    list(
+      newlines_in_values = newlines_in_values
+    )
+  ))
+}
+
+
+#' @rdname csv_parse_options
+#' @export
+json_parse_options <- JsonParseOptions$create

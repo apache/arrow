@@ -1679,6 +1679,16 @@ cdef class FlightServerBase:
         with nogil:
             check_flight_status(c_server.Init(deref(c_options)))
 
+    def port(self):
+        """
+        Get the port that this server is listening on.
+
+        Returns a non-positive value if the operation is invalid
+        (e.g. init() was not called or server is listening on a domain
+        socket).
+        """
+        return self.server.get().port()
+
     def run(self):
         """
         Start serving.  This method only returns if shutdown() is called

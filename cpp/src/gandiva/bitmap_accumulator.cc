@@ -28,15 +28,30 @@ void BitMapAccumulator::ComputeResult(uint8_t* dst_bitmap) {
     // set all bits to 0.
     memset(dst_bitmap, 0, arrow::BitUtil::BytesForBits(num_records));
   } else {
-    IntersectBitMaps(dst_bitmap, src_maps_, num_records);
+    IntersectBitMaps(dst_bitmap, src_maps_, src_map_offsets_, num_records);
+  }
+}
+
+void BitmapAnd(uint8_t* left, int64_t left_offset, uint8_t* right, int64_t right_offset,
+               int64_t length, uint8_t* out) {
+  if (left_offset == 0 && right_offset == 0) {
+    int64_t num_words = (length + 63) / 64;  // aligned to 8-byte.
+    auto left64 = reinterpret_cast<uint64_t*>(left);
+    auto right64 = reinterpret_cast<uint64_t*>(right);
+    auto out64 = reinterpret_cast<uint64_t*>(out);
+    for (int64_t i = 0; i < num_words; ++i) {
+      out64[i] = left64[i] & right64[i];
+    }
+  } else {
+    arrow::internal::BitmapAnd(left, left_offset, right, right_offset, length, 0, out);
   }
 }
 
 /// Compute the intersection of multiple bitmaps.
 void BitMapAccumulator::IntersectBitMaps(uint8_t* dst_map,
                                          const std::vector<uint8_t*>& src_maps,
+                                         const std::vector<int64_t>& src_map_offsets,
                                          int64_t num_records) {
-  uint64_t* dst_map64 = reinterpret_cast<uint64_t*>(dst_map);
   int64_t num_words = (num_records + 63) / 64;  // aligned to 8-byte.
   int64_t num_bytes = num_words * 8;
   int64_t nmaps = src_maps.size();
@@ -50,29 +65,17 @@ void BitMapAccumulator::IntersectBitMaps(uint8_t* dst_map,
 
     case 1: {
       // one src_maps_ bitmap. copy to dst_map
-      memcpy(dst_map, src_maps[0], num_bytes);
-      break;
-    }
-
-    case 2: {
-      // two src_maps bitmaps. do 64-bit ANDs
-      uint64_t* src_maps0_64 = reinterpret_cast<uint64_t*>(src_maps[0]);
-      uint64_t* src_maps1_64 = reinterpret_cast<uint64_t*>(src_maps[1]);
-      for (int64_t i = 0; i < num_words; ++i) {
-        dst_map64[i] = src_maps0_64[i] & src_maps1_64[i];
-      }
+      arrow::internal::CopyBitmap(src_maps[0], src_map_offsets[0], num_records, dst_map,
+                                  0);
       break;
     }
 
     default: {
-      /* > 2 src_maps bitmaps. do 64-bit ANDs */
-      uint64_t* src_maps0_64 = reinterpret_cast<uint64_t*>(src_maps[0]);
-      memcpy(dst_map64, src_maps0_64, num_bytes);
-      for (int64_t m = 1; m < nmaps; ++m) {
-        for (int64_t i = 0; i < num_words; ++i) {
-          uint64_t* src_mapsm_64 = reinterpret_cast<uint64_t*>(src_maps[m]);
-          dst_map64[i] &= src_mapsm_64[i];
-        }
+      // src_maps bitmaps ANDs
+      BitmapAnd(src_maps[0], src_map_offsets[0], src_maps[1], src_map_offsets[1],
+                num_records, dst_map);
+      for (int64_t m = 2; m < nmaps; ++m) {
+        BitmapAnd(dst_map, 0, src_maps[m], src_map_offsets[m], num_records, dst_map);
       }
 
       break;

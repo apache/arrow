@@ -47,7 +47,7 @@ Gem::Specification.new do |spec|
   spec.extensions = ["ext/arrow/extconf.rb"]
 
   spec.add_runtime_dependency("extpp", ">= 0.0.7")
-  spec.add_runtime_dependency("gio2", ">= 3.3.6")
+  spec.add_runtime_dependency("gio2", "= 3.3.7")
   spec.add_runtime_dependency("native-package-installer")
   spec.add_runtime_dependency("pkg-config")
 

@@ -17,7 +17,7 @@
 
 #' @include type.R
 
-#' @title class arrow::DictionaryType
+#' @title class DictionaryType
 #'
 #' @usage NULL
 #' @format NULL
@@ -27,14 +27,14 @@
 #'
 #' TODO
 #'
-#' @rdname arrow__DictionaryType
-#' @name arrow__DictionaryType
-`arrow::DictionaryType` <- R6Class("arrow::DictionaryType",
-  inherit = `arrow::FixedWidthType`,
+#' @rdname DictionaryType
+#' @name DictionaryType
+DictionaryType <- R6Class("DictionaryType",
+  inherit = FixedWidthType,
 
   active = list(
-    index_type = function() `arrow::DataType`$dispatch(DictionaryType__index_type(self)),
-    value_type = function() `arrow::DataType`$dispatch(DictionaryType__value_type(self)),
+    index_type = function() DataType$create(DictionaryType__index_type(self)),
+    value_type = function() DataType$create(DictionaryType__value_type(self)),
     name = function() DictionaryType__name(self),
     ordered = function() DictionaryType__ordered(self)
   )
@@ -46,13 +46,13 @@
 #' @param value_type value type, probably [utf8()]
 #' @param ordered Is this an ordered dictionary ?
 #'
-#' @return An [arrow::DictionaryType][arrow__DictionaryType]
+#' @return A [DictionaryType]
 #' @seealso [Other Arrow data types][data-type]
 #' @export
 dictionary <- function(index_type, value_type, ordered = FALSE) {
   assert_that(
-    inherits(index_type, "arrow::DataType"),
-    inherits(index_type, "arrow::DataType")
+    inherits(index_type, "DataType"),
+    inherits(index_type, "DataType")
   )
-  shared_ptr(`arrow::DictionaryType`, DictionaryType__initialize(index_type, value_type, ordered))
+  shared_ptr(DictionaryType, DictionaryType__initialize(index_type, value_type, ordered))
 }

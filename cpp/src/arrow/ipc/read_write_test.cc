@@ -106,27 +106,69 @@ TEST(TestMessage, SerializeTo) {
 
   std::shared_ptr<io::BufferOutputStream> stream;
 
-  {
-    const int32_t alignment = 8;
-
+  auto CheckWithAlignment = [&](int32_t alignment) {
+    IpcOptions options;
+    options.alignment = alignment;
+    const int32_t prefix_size = 8;
     ASSERT_OK(io::BufferOutputStream::Create(1 << 10, default_memory_pool(), &stream));
-    ASSERT_OK(message->SerializeTo(stream.get(), alignment, &output_length));
+    ASSERT_OK(message->SerializeTo(stream.get(), options, &output_length));
     ASSERT_OK(stream->Tell(&position));
-    ASSERT_EQ(BitUtil::RoundUp(metadata->size() + 4, alignment) + body_length,
+    ASSERT_EQ(BitUtil::RoundUp(metadata->size() + prefix_size, alignment) + body_length,
               output_length);
     ASSERT_EQ(output_length, position);
-  }
+  };
 
-  {
-    const int32_t alignment = 64;
+  CheckWithAlignment(8);
+  CheckWithAlignment(64);
+}
 
-    ASSERT_OK(io::BufferOutputStream::Create(1 << 10, default_memory_pool(), &stream));
-    ASSERT_OK(message->SerializeTo(stream.get(), alignment, &output_length));
-    ASSERT_OK(stream->Tell(&position));
-    ASSERT_EQ(BitUtil::RoundUp(metadata->size() + 4, alignment) + body_length,
-              output_length);
-    ASSERT_EQ(output_length, position);
-  }
+void BuffersOverlapEquals(const Buffer& left, const Buffer& right) {
+  ASSERT_GT(left.size(), 0);
+  ASSERT_GT(right.size(), 0);
+  ASSERT_TRUE(left.Equals(right, std::min(left.size(), right.size())));
+}
+
+TEST(TestMessage, LegacyIpcBackwardsCompatibility) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntBatchSized(36, &batch));
+
+  auto RoundtripWithOptions = [&](const IpcOptions& arg_options,
+                                  std::shared_ptr<Buffer>* out_serialized,
+                                  std::unique_ptr<Message>* out) {
+    internal::IpcPayload payload;
+    ASSERT_OK(internal::GetRecordBatchPayload(*batch, arg_options, default_memory_pool(),
+                                              &payload));
+
+    std::shared_ptr<io::BufferOutputStream> stream;
+    ASSERT_OK(io::BufferOutputStream::Create(1 << 20, default_memory_pool(), &stream));
+
+    int32_t metadata_length = -1;
+    ASSERT_OK(
+        internal::WriteIpcPayload(payload, arg_options, stream.get(), &metadata_length));
+
+    ASSERT_OK(stream->Finish(out_serialized));
+    io::BufferReader io_reader(*out_serialized);
+    ASSERT_OK(ReadMessage(&io_reader, out));
+  };
+
+  std::shared_ptr<Buffer> serialized, legacy_serialized;
+  std::unique_ptr<Message> message, legacy_message;
+
+  IpcOptions options;
+  RoundtripWithOptions(options, &serialized, &message);
+
+  // First 4 bytes 0xFFFFFFFF Continuation marker
+  ASSERT_EQ(-1, util::SafeLoadAs<int32_t>(serialized->data()));
+
+  options.write_legacy_ipc_format = true;
+  RoundtripWithOptions(options, &legacy_serialized, &legacy_message);
+
+  // Check that the continuation marker is not written
+  ASSERT_NE(-1, util::SafeLoadAs<int32_t>(legacy_serialized->data()));
+
+  // Have to use the smaller size to exclude padding
+  BuffersOverlapEquals(*legacy_message->metadata(), *message->metadata());
+  ASSERT_TRUE(legacy_message->body()->Equals(*message->body()));
 }
 
 TEST(TestMessage, Verify) {
@@ -635,13 +677,14 @@ TEST_F(RecursionLimits, StressLimit) {
 #endif  // !defined(_WIN32) || defined(NDEBUG)
 
 struct FileWriterHelper {
-  Status Init(const std::shared_ptr<Schema>& schema) {
+  Status Init(const std::shared_ptr<Schema>& schema, const IpcOptions& options) {
     num_batches_written_ = 0;
 
     RETURN_NOT_OK(AllocateResizableBuffer(0, &buffer_));
     sink_.reset(new io::BufferOutputStream(buffer_));
-
-    return RecordBatchFileWriter::Open(sink_.get(), schema, &writer_);
+    ARROW_ASSIGN_OR_RAISE(writer_,
+                          RecordBatchFileWriter::Open(sink_.get(), schema, options));
+    return Status::OK();
   }
 
   Status WriteBatch(const std::shared_ptr<RecordBatch>& batch) {
@@ -680,11 +723,12 @@ struct FileWriterHelper {
 };
 
 struct StreamWriterHelper {
-  Status Init(const std::shared_ptr<Schema>& schema) {
+  Status Init(const std::shared_ptr<Schema>& schema, const IpcOptions& options) {
     RETURN_NOT_OK(AllocateResizableBuffer(0, &buffer_));
     sink_.reset(new io::BufferOutputStream(buffer_));
-
-    return RecordBatchStreamWriter::Open(sink_.get(), schema, &writer_);
+    ARROW_ASSIGN_OR_RAISE(writer_,
+                          RecordBatchStreamWriter::Open(sink_.get(), schema, options));
+    return Status::OK();
   }
 
   Status WriteBatch(const std::shared_ptr<RecordBatch>& batch) {
@@ -718,7 +762,7 @@ class ReaderWriterMixin {
 
   // Check simple RecordBatch roundtripping
   template <typename Param>
-  void TestRoundTrip(Param&& param) {
+  void TestRoundTrip(Param&& param, const IpcOptions& options) {
     std::shared_ptr<RecordBatch> batch1;
     std::shared_ptr<RecordBatch> batch2;
     ASSERT_OK(param(&batch1));  // NOLINT clang-tidy gtest issue
@@ -727,7 +771,7 @@ class ReaderWriterMixin {
     BatchVector in_batches = {batch1, batch2};
     BatchVector out_batches;
 
-    ASSERT_OK(RoundTripHelper(in_batches, &out_batches));
+    ASSERT_OK(RoundTripHelper(in_batches, options, &out_batches));
     ASSERT_EQ(out_batches.size(), in_batches.size());
 
     // Compare batches
@@ -741,7 +785,7 @@ class ReaderWriterMixin {
     ASSERT_OK(MakeDictionary(&batch));
 
     BatchVector out_batches;
-    ASSERT_OK(RoundTripHelper({batch}, &out_batches));
+    ASSERT_OK(RoundTripHelper({batch}, IpcOptions::Defaults(), &out_batches));
     ASSERT_EQ(out_batches.size(), 1);
 
     // TODO(wesm): This was broken in ARROW-3144. I'm not sure how to
@@ -764,7 +808,7 @@ class ReaderWriterMixin {
     schema = schema->WithMetadata(key_value_metadata({"some_key"}, {"some_value"}));
 
     WriterHelper writer_helper;
-    ASSERT_OK(writer_helper.Init(schema));
+    ASSERT_OK(writer_helper.Init(schema, IpcOptions::Defaults()));
     // Writing a record batch with a different schema
     ASSERT_RAISES(Invalid, writer_helper.WriteBatch(batch_ints));
     // Writing a record batch with the same schema (except metadata)
@@ -781,9 +825,10 @@ class ReaderWriterMixin {
   }
 
  private:
-  Status RoundTripHelper(const BatchVector& in_batches, BatchVector* out_batches) {
+  Status RoundTripHelper(const BatchVector& in_batches, const IpcOptions& options,
+                         BatchVector* out_batches) {
     WriterHelper writer_helper;
-    RETURN_NOT_OK(writer_helper.Init(in_batches[0]->schema()));
+    RETURN_NOT_OK(writer_helper.Init(in_batches[0]->schema(), options));
     for (const auto& batch : in_batches) {
       RETURN_NOT_OK(writer_helper.WriteBatch(batch));
     }
@@ -813,9 +858,21 @@ class TestFileFormat : public ReaderWriterMixin<FileWriterHelper>,
 class TestStreamFormat : public ReaderWriterMixin<StreamWriterHelper>,
                          public ::testing::TestWithParam<MakeRecordBatch*> {};
 
-TEST_P(TestFileFormat, RoundTrip) { TestRoundTrip(*GetParam()); }
+TEST_P(TestFileFormat, RoundTrip) {
+  TestRoundTrip(*GetParam(), IpcOptions::Defaults());
 
-TEST_P(TestStreamFormat, RoundTrip) { TestRoundTrip(*GetParam()); }
+  IpcOptions options;
+  options.write_legacy_ipc_format = true;
+  TestRoundTrip(*GetParam(), options);
+}
+
+TEST_P(TestStreamFormat, RoundTrip) {
+  TestRoundTrip(*GetParam(), IpcOptions::Defaults());
+
+  IpcOptions options;
+  options.write_legacy_ipc_format = true;
+  TestRoundTrip(*GetParam(), options);
+}
 
 INSTANTIATE_TEST_CASE_P(GenericIpcRoundTripTests, TestIpcRoundTrip, BATCH_CASES());
 INSTANTIATE_TEST_CASE_P(FileRoundTripTests, TestFileFormat, BATCH_CASES());
@@ -912,13 +969,15 @@ void SpliceMessages(std::shared_ptr<Buffer> stream,
       continue;
     }
 
+    IpcOptions options;
     internal::IpcPayload payload;
     payload.type = msg->type();
     payload.metadata = msg->metadata();
     payload.body_buffers.push_back(msg->body());
     payload.body_length = msg->body()->size();
     int32_t unused_metadata_length = -1;
-    ASSERT_OK(internal::WriteIpcPayload(payload, out.get(), &unused_metadata_length));
+    ASSERT_OK(
+        internal::WriteIpcPayload(payload, options, out.get(), &unused_metadata_length));
   }
   ASSERT_OK(out->Finish(spliced_stream));
 }
@@ -1043,34 +1102,58 @@ TEST_F(TestTensorRoundTrip, NonContiguous) {
   CheckTensorRoundTrip(tensor);
 }
 
+template <typename IndexValueType>
 class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
  public:
   void SetUp() { IpcTestFixture::SetUp(); }
   void TearDown() { IpcTestFixture::TearDown(); }
 
-  template <typename SparseIndexType>
-  void CheckSparseTensorRoundTrip(const SparseTensorImpl<SparseIndexType>& tensor) {
-    GTEST_FAIL();
+  void CheckSparseTensorRoundTrip(const SparseTensorCOO& sparse_tensor);
+  void CheckSparseTensorRoundTrip(const SparseTensorCSR& sparse_tensor);
+
+ protected:
+  std::shared_ptr<SparseCOOIndex> MakeSparseCOOIndex(
+      const std::vector<int64_t>& coords_shape,
+      const std::vector<int64_t>& coords_strides,
+      std::vector<typename IndexValueType::c_type>& coords_values) const {
+    auto coords_data = Buffer::Wrap(coords_values);
+    auto coords = std::make_shared<NumericTensor<IndexValueType>>(
+        coords_data, coords_shape, coords_strides);
+    return std::make_shared<SparseCOOIndex>(coords);
+  }
+
+  template <typename ValueType>
+  std::shared_ptr<SparseTensorCOO> MakeSparseTensorCOO(
+      const std::shared_ptr<SparseCOOIndex>& si, std::vector<ValueType>& sparse_values,
+      const std::vector<int64_t>& shape,
+      const std::vector<std::string>& dim_names = {}) const {
+    auto data = Buffer::Wrap(sparse_values);
+    return std::make_shared<SparseTensorCOO>(si, CTypeTraits<ValueType>::type_singleton(),
+                                             data, shape, dim_names);
   }
 };
 
-template <>
-void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCOOIndex>(
-    const SparseTensorImpl<SparseCOOIndex>& tensor) {
-  const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
+template <typename IndexValueType>
+void TestSparseTensorRoundTrip<IndexValueType>::CheckSparseTensorRoundTrip(
+    const SparseTensorCOO& sparse_tensor) {
+  const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
   const int elem_size = type.bit_width() / 8;
+  const int index_elem_size = sizeof(typename IndexValueType::c_type);
 
   int32_t metadata_length;
   int64_t body_length;
 
   ASSERT_OK(mmap_->Seek(0));
 
-  ASSERT_OK(WriteSparseTensor(tensor, mmap_.get(), &metadata_length, &body_length,
+  ASSERT_OK(WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length,
                               default_memory_pool()));
 
-  const auto& sparse_index = checked_cast<const SparseCOOIndex&>(*tensor.sparse_index());
-  const int64_t indices_length = elem_size * sparse_index.indices()->size();
-  const int64_t data_length = elem_size * tensor.non_zero_length();
+  const auto& sparse_index =
+      checked_cast<const SparseCOOIndex&>(*sparse_tensor.sparse_index());
+  const int64_t indices_length =
+      BitUtil::RoundUpToMultipleOf8(index_elem_size * sparse_index.indices()->size());
+  const int64_t data_length =
+      BitUtil::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
   const int64_t expected_body_length = indices_length + data_length;
   ASSERT_EQ(expected_body_length, body_length);
 
@@ -1083,27 +1166,32 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCOOIndex>(
       checked_cast<const SparseCOOIndex&>(*result->sparse_index());
   ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
   ASSERT_EQ(result->data()->size(), data_length);
-  ASSERT_TRUE(result->Equals(*result));
+  ASSERT_TRUE(result->Equals(sparse_tensor));
 }
 
-template <>
-void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCSRIndex>(
-    const SparseTensorImpl<SparseCSRIndex>& tensor) {
-  const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
+template <typename IndexValueType>
+void TestSparseTensorRoundTrip<IndexValueType>::CheckSparseTensorRoundTrip(
+    const SparseTensorCSR& sparse_tensor) {
+  const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
   const int elem_size = type.bit_width() / 8;
+  const int index_elem_size = sizeof(typename IndexValueType::c_type);
 
   int32_t metadata_length;
   int64_t body_length;
 
   ASSERT_OK(mmap_->Seek(0));
 
-  ASSERT_OK(WriteSparseTensor(tensor, mmap_.get(), &metadata_length, &body_length,
+  ASSERT_OK(WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length,
                               default_memory_pool()));
 
-  const auto& sparse_index = checked_cast<const SparseCSRIndex&>(*tensor.sparse_index());
-  const int64_t indptr_length = elem_size * sparse_index.indptr()->size();
-  const int64_t indices_length = elem_size * sparse_index.indices()->size();
-  const int64_t data_length = elem_size * tensor.non_zero_length();
+  const auto& sparse_index =
+      checked_cast<const SparseCSRIndex&>(*sparse_tensor.sparse_index());
+  const int64_t indptr_length =
+      BitUtil::RoundUpToMultipleOf8(index_elem_size * sparse_index.indptr()->size());
+  const int64_t indices_length =
+      BitUtil::RoundUpToMultipleOf8(index_elem_size * sparse_index.indices()->size());
+  const int64_t data_length =
+      BitUtil::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
   const int64_t expected_body_length = indptr_length + indices_length + data_length;
   ASSERT_EQ(expected_body_length, body_length);
 
@@ -1117,30 +1205,103 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCSRIndex>(
   ASSERT_EQ(resulted_sparse_index.indptr()->data()->size(), indptr_length);
   ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
   ASSERT_EQ(result->data()->size(), data_length);
-  ASSERT_TRUE(result->Equals(*result));
+  ASSERT_TRUE(result->Equals(sparse_tensor));
 }
 
-TEST_F(TestSparseTensorRoundTrip, WithSparseCOOIndex) {
+TYPED_TEST_CASE_P(TestSparseTensorRoundTrip);
+
+TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
+  using IndexValueType = TypeParam;
+  using c_index_value_type = typename IndexValueType::c_type;
+
   std::string path = "test-write-sparse-coo-tensor";
   constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
+  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &this->mmap_));
+
+  // Dense representation:
+  // [
+  //   [
+  //     1 0 2 0
+  //     0 3 0 4
+  //     5 0 6 0
+  //   ],
+  //   [
+  //      0 11  0 12
+  //     13  0 14  0
+  //      0 15  0 16
+  //   ]
+  // ]
+  //
+  // Sparse representation:
+  // idx[0] = [0 0 0 0 0 0  1  1  1  1  1  1]
+  // idx[1] = [0 0 1 1 2 2  0  0  1  1  2  2]
+  // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
+  // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
+
+  std::vector<c_index_value_type> coords_values = {0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3,
+                                                   0, 2, 0, 0, 2, 2, 1, 0, 1, 1, 0, 3,
+                                                   1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
+  const int sizeof_index_value = sizeof(c_index_value_type);
+  auto si = this->MakeSparseCOOIndex(
+      {12, 3}, {sizeof_index_value * 3, sizeof_index_value}, coords_values);
 
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
-  std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
-                                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+  std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
+  auto st = this->MakeSparseTensorCOO(si, values, shape, dim_names);
 
-  auto data = Buffer::Wrap(values);
-  NumericTensor<Int64Type> t(data, shape, {}, dim_names);
-  SparseTensorImpl<SparseCOOIndex> st(t);
-
-  CheckSparseTensorRoundTrip(st);
+  this->CheckSparseTensorRoundTrip(*st);
 }
 
-TEST_F(TestSparseTensorRoundTrip, WithSparseCSRIndex) {
+TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
+  using IndexValueType = TypeParam;
+  using c_index_value_type = typename IndexValueType::c_type;
+
+  std::string path = "test-write-sparse-coo-tensor";
+  constexpr int64_t kBufferSize = 1 << 20;
+  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &this->mmap_));
+
+  // Dense representation:
+  // [
+  //   [
+  //     1 0 2 0
+  //     0 3 0 4
+  //     5 0 6 0
+  //   ],
+  //   [
+  //      0 11  0 12
+  //     13  0 14  0
+  //      0 15  0 16
+  //   ]
+  // ]
+  //
+  // Sparse representation:
+  // idx[0] = [0 0 0 0 0 0  1  1  1  1  1  1]
+  // idx[1] = [0 0 1 1 2 2  0  0  1  1  2  2]
+  // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
+  // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
+
+  std::vector<c_index_value_type> coords_values = {0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1,
+                                                   0, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 2,
+                                                   0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
+  const int sizeof_index_value = sizeof(c_index_value_type);
+  auto si = this->MakeSparseCOOIndex(
+      {12, 3}, {sizeof_index_value, sizeof_index_value * 12}, coords_values);
+
+  std::vector<int64_t> shape = {2, 3, 4};
+  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
+  std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
+  auto st = this->MakeSparseTensorCOO(si, values, shape, dim_names);
+
+  this->CheckSparseTensorRoundTrip(*st);
+}
+
+TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSRIndex) {
+  using IndexValueType = TypeParam;
+
   std::string path = "test-write-sparse-csr-matrix";
   constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
+  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &this->mmap_));
 
   std::vector<int64_t> shape = {4, 6};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
@@ -1149,10 +1310,22 @@ TEST_F(TestSparseTensorRoundTrip, WithSparseCSRIndex) {
 
   auto data = Buffer::Wrap(values);
   NumericTensor<Int64Type> t(data, shape, {}, dim_names);
-  SparseTensorImpl<SparseCSRIndex> st(t);
+  SparseTensorImpl<SparseCSRIndex> st(t, TypeTraits<IndexValueType>::type_singleton());
 
-  CheckSparseTensorRoundTrip(st);
+  this->CheckSparseTensorRoundTrip(st);
 }
+
+REGISTER_TYPED_TEST_CASE_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor,
+                           WithSparseCOOIndexColumnMajor, WithSparseCSRIndex);
+
+INSTANTIATE_TYPED_TEST_CASE_P(TestInt8, TestSparseTensorRoundTrip, Int8Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestUInt8, TestSparseTensorRoundTrip, UInt8Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestInt16, TestSparseTensorRoundTrip, Int16Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestUInt16, TestSparseTensorRoundTrip, UInt16Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestInt32, TestSparseTensorRoundTrip, Int32Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestUInt32, TestSparseTensorRoundTrip, UInt32Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestInt64, TestSparseTensorRoundTrip, Int64Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestUInt64, TestSparseTensorRoundTrip, UInt64Type);
 
 TEST(TestRecordBatchStreamReader, MalformedInput) {
   const std::string empty_str = "";

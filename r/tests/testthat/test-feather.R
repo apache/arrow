@@ -31,7 +31,7 @@ test_that("feather read/write round trip", {
   expect_true(fs::file_exists(tf2))
 
   tf3 <- tempfile()
-  stream <- FileOutputStream(tf3)
+  stream <- FileOutputStream$create(tf3)
   write_feather(tib, stream)
   stream$close()
   expect_true(fs::file_exists(tf3))
@@ -50,7 +50,7 @@ test_that("feather read/write round trip", {
   expect_is(tab4, "data.frame")
 
   # reading directly from arrow::io::ReadableFile
-  tab5 <- read_feather(ReadableFile(tf3))
+  tab5 <- read_feather(ReadableFile$create(tf3))
   expect_is(tab5, "data.frame")
 
   expect_equal(tib, tab1)
@@ -95,7 +95,7 @@ test_that("feather handles col_select = <tidyselect helper>", {
 
 test_that("feather read/write round trip", {
   tab1 <- read_feather(feather_file, as_tibble = FALSE)
-  expect_is(tab1, "arrow::Table")
+  expect_is(tab1, "Table")
 
   expect_equal(tib, as.data.frame(tab1))
 })

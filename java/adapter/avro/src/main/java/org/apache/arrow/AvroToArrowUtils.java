@@ -50,6 +50,7 @@ import org.apache.arrow.consumers.Consumer;
 import org.apache.arrow.consumers.NullableTypeConsumer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.FieldVector;
@@ -66,6 +67,7 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.UnionMode;
@@ -303,8 +305,10 @@ public class AvroToArrowUtils {
       case ENUM:
         DictionaryProvider.MapDictionaryProvider provider = config.getProvider();
         int current = provider.getDictionaryIds().size();
-        FieldType indexFieldType = new FieldType(true, new ArrowType.Int(32, /*isSigned=*/true),
-            new DictionaryEncoding(current, /*ordered=*/false, /*indexType=*/null));
+        int enumCount = schema.getEnumSymbols().size();
+        ArrowType.Int indexType = DictionaryEncoder.getIndexType(enumCount);
+        FieldType indexFieldType = new FieldType(true, indexType,
+            new DictionaryEncoding(current, /*ordered=*/false, /*indexType=*/indexType));
         return new Field(name, indexFieldType, null);
 
       case STRING:
@@ -391,12 +395,12 @@ public class AvroToArrowUtils {
   private static Consumer createEnumConsumer(Schema schema, String name, AvroToArrowConfig config,
       FieldVector consumerVector) {
 
-    IntVector intVector;
+    BaseIntVector indexVector;
     if (consumerVector == null) {
       final Field field = avroSchemaToField(schema, name, config);
-      intVector = (IntVector) field.createVector(config.getAllocator());
+      indexVector = (BaseIntVector) field.createVector(config.getAllocator());
     } else {
-      intVector = (IntVector) consumerVector;
+      indexVector = (BaseIntVector) consumerVector;
     }
 
     final int valueCount = schema.getEnumSymbols().size();
@@ -407,10 +411,10 @@ public class AvroToArrowUtils {
       dictVector.set(i, schema.getEnumSymbols().get(i).getBytes(StandardCharsets.UTF_8));
     }
     Dictionary dictionary =
-        new Dictionary(dictVector, intVector.getField().getDictionary());
+        new Dictionary(dictVector, indexVector.getField().getDictionary());
     config.getProvider().put(dictionary);
 
-    return new AvroEnumConsumer(intVector);
+    return new AvroEnumConsumer(indexVector);
 
   }
 

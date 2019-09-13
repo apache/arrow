@@ -234,7 +234,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__known_schema(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SEXP lst) {
-  if (Rf_inherits(schema_sxp, "arrow::Schema")) {
+  if (Rf_inherits(schema_sxp, "Schema")) {
     return RecordBatch__from_arrays__known_schema(
         arrow::r::extract<arrow::Schema>(schema_sxp), lst);
   }
