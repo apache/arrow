@@ -29,6 +29,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
@@ -37,6 +38,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 // ----------------------------------------------------------------------
 // Dictionary tests
@@ -1101,6 +1103,49 @@ TEST(TestDictionary, DISABLED_ListOfDictionary) {
   auto actual_dict =
       checked_cast<const DictionaryArray&>(*list_array->values()).dictionary();
   ASSERT_ARRAYS_EQUAL(*expected_dict, *actual_dict);
+}
+
+TEST(TestDictionary, CanCompareIndices) {
+  auto make_dict = [](std::shared_ptr<DataType> index_type,
+                      std::shared_ptr<DataType> value_type, std::string dictionary_json) {
+    std::shared_ptr<Array> out;
+    ARROW_EXPECT_OK(DictionaryArray::FromArrays(
+        dictionary(index_type, value_type), ArrayFromJSON(index_type, "[]"),
+        ArrayFromJSON(value_type, dictionary_json), &out));
+    return checked_pointer_cast<DictionaryArray>(out);
+  };
+
+  auto compare_and_swap = [](const DictionaryArray& l, const DictionaryArray& r,
+                             bool expected) {
+    ASSERT_EQ(l.CanCompareIndices(r), expected)
+        << "left: " << l.ToString() << "\nright: " << r.ToString();
+    ASSERT_EQ(r.CanCompareIndices(l), expected)
+        << "left: " << r.ToString() << "\nright: " << l.ToString();
+  };
+
+  {
+    auto array = make_dict(int16(), utf8(), R"(["foo", "bar"])");
+    auto same = make_dict(int16(), utf8(), R"(["foo", "bar"])");
+    compare_and_swap(*array, *same, true);
+  }
+
+  {
+    auto array = make_dict(int16(), utf8(), R"(["foo", "bar", "quux"])");
+    auto prefix_dict = make_dict(int16(), utf8(), R"(["foo", "bar"])");
+    compare_and_swap(*array, *prefix_dict, true);
+  }
+
+  {
+    auto array = make_dict(int16(), utf8(), R"(["foo", "bar"])");
+    auto indices_need_casting = make_dict(int8(), utf8(), R"(["foo", "bar"])");
+    compare_and_swap(*array, *indices_need_casting, false);
+  }
+
+  {
+    auto array = make_dict(int16(), utf8(), R"(["foo", "bar", "quux"])");
+    auto non_prefix_dict = make_dict(int16(), utf8(), R"(["foo", "blink"])");
+    compare_and_swap(*array, *non_prefix_dict, false);
+  }
 }
 
 }  // namespace arrow
