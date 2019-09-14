@@ -17,6 +17,7 @@
 
 #include "arrow/type.h"
 
+#include <algorithm>
 #include <climits>
 #include <cstddef>
 #include <ostream>
