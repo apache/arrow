@@ -78,14 +78,30 @@ warn_level_type = click.Choice(["everything", "checkin", "production"],
                                case_sensitive=False)
 
 
+def cpp_toolchain_options(cmd):
+    options = [
+        click.option("--cc", metavar="<compiler>", help="C compiler."),
+        click.option("--cxx", metavar="<compiler>", help="C++ compiler."),
+        click.option("--cxx-flags", help="C++ compiler flags."),
+        click.option("--cpp-package-prefix",
+                     help=("Value to pass for ARROW_PACKAGE_PREFIX and "
+                           "use ARROW_DEPENDENCY_SOURCE=SYSTEM"))
+    ]
+    return _apply_options(cmd, options)
+
+
+def _apply_options(cmd, options):
+    for option in options:
+        cmd = option(cmd)
+    return cmd
+
+
 @archery.command(short_help="Initialize an Arrow C++ build")
 @click.option("--src", metavar="<arrow_src>", default=ArrowSources.find(),
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
 # toolchain
-@click.option("--cc", metavar="<compiler>", help="C compiler.")
-@click.option("--cxx", metavar="<compiler>", help="C++ compiler.")
-@click.option("--cxx-flags", help="C++ compiler flags.")
+@cpp_toolchain_options
 @click.option("--build-type", default="release", type=build_type,
               help="CMake's CMAKE_BUILD_TYPE")
 @click.option("--warn-level", default="production", type=warn_level_type,
@@ -168,23 +184,46 @@ def benchmark(ctx):
     pass
 
 
+def benchmark_common_options(cmd):
+    options = [
+        click.option("--src", metavar="<arrow_src>", show_default=True,
+                     default=ArrowSources.find(),
+                     callback=validate_arrow_sources,
+                     help="Specify Arrow source directory"),
+        click.option("--preserve", type=bool, default=False, show_default=True,
+                     is_flag=True,
+                     help="Preserve workspace for investigation."),
+        click.option("--output", metavar="<output>",
+                     type=click.File("w", encoding="utf8"), default="-",
+                     help="Capture output result into file."),
+        click.option("--cmake-extras", type=str, multiple=True,
+                     help="Extra flags/options to pass to cmake invocation. "
+                     "Can be stacked"),
+    ]
+
+    cmd = cpp_toolchain_options(cmd)
+    return _apply_options(cmd, options)
+
+
+def benchmark_filter_options(cmd):
+    options = [
+        click.option("--suite-filter", metavar="<regex>", show_default=True,
+                     type=str, default=None,
+                     help="Regex filtering benchmark suites."),
+        click.option("--benchmark-filter", metavar="<regex>",
+                     show_default=True, type=str, default=None,
+                     help="Regex filtering benchmark suites.")
+    ]
+    return _apply_options(cmd, options)
+
+
 @benchmark.command(name="list", short_help="List benchmark suite")
-@click.option("--src", metavar="<arrow_src>", show_default=True,
-              default=ArrowSources.find(),
-              callback=validate_arrow_sources,
-              help="Specify Arrow source directory")
-@click.option("--preserve", type=bool, default=False, show_default=True,
-              is_flag=True, help="Preserve workspace for investigation.")
-@click.option("--output", metavar="<output>",
-              type=click.File("w", encoding="utf8"), default="-",
-              help="Capture output result into file.")
-@click.option("--cmake-extras", type=str, multiple=True,
-              help="Extra flags/options to pass to cmake invocation. "
-              "Can be stacked")
-@click.argument("rev_or_path", metavar="[<rev_or_path>]", default="WORKSPACE",
-                required=False)
+@click.argument("rev_or_path", metavar="[<rev_or_path>]",
+                default="WORKSPACE", required=False)
+@benchmark_common_options
 @click.pass_context
-def benchmark_list(ctx, src, preserve, output, cmake_extras, rev_or_path):
+def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
+                   **kwargs):
     """ List benchmark suite.
     """
     with tmpdir(preserve) as root:
@@ -192,7 +231,8 @@ def benchmark_list(ctx, src, preserve, output, cmake_extras, rev_or_path):
 
         conf = CppConfiguration(
             build_type="release", with_tests=True, with_benchmarks=True,
-            with_python=False, cmake_extras=cmake_extras)
+            with_python=False, cmake_extras=cmake_extras,
+            **kwargs)
 
         runner_base = BenchmarkRunner.from_rev_or_path(
             src, root, rev_or_path, conf)
@@ -202,28 +242,13 @@ def benchmark_list(ctx, src, preserve, output, cmake_extras, rev_or_path):
 
 
 @benchmark.command(name="run", short_help="Run benchmark suite")
-@click.option("--src", metavar="<arrow_src>", show_default=True,
-              default=ArrowSources.find(),
-              callback=validate_arrow_sources,
-              help="Specify Arrow source directory")
-@click.option("--suite-filter", metavar="<regex>", show_default=True,
-              type=str, default=None, help="Regex filtering benchmark suites.")
-@click.option("--benchmark-filter", metavar="<regex>", show_default=True,
-              type=str, default=None,
-              help="Regex filtering benchmark suites.")
-@click.option("--preserve", type=bool, default=False, show_default=True,
-              is_flag=True, help="Preserve workspace for investigation.")
-@click.option("--output", metavar="<output>",
-              type=click.File("w", encoding="utf8"), default="-",
-              help="Capture output result into file.")
-@click.option("--cmake-extras", type=str, multiple=True,
-              help="Extra flags/options to pass to cmake invocation. "
-              "Can be stacked")
-@click.argument("rev_or_path", metavar="[<rev_or_path>]", default="WORKSPACE",
-                required=False)
+@click.argument("rev_or_path", metavar="[<rev_or_path>]",
+                default="WORKSPACE", required=False)
+@benchmark_common_options
+@benchmark_filter_options
 @click.pass_context
-def benchmark_run(ctx, src, preserve, suite_filter, benchmark_filter,
-                  output, cmake_extras, rev_or_path):
+def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
+                  suite_filter, benchmark_filter, **kwargs):
     """ Run benchmark suite.
 
     This command will run the benchmark suite for a single build. This is
@@ -261,7 +286,7 @@ def benchmark_run(ctx, src, preserve, suite_filter, benchmark_filter,
 
         conf = CppConfiguration(
             build_type="release", with_tests=True, with_benchmarks=True,
-            with_python=False, cmake_extras=cmake_extras)
+            with_python=False, cmake_extras=cmake_extras, **kwargs)
 
         runner_base = BenchmarkRunner.from_rev_or_path(
             src, root, rev_or_path, conf,
@@ -271,33 +296,19 @@ def benchmark_run(ctx, src, preserve, suite_filter, benchmark_filter,
 
 
 @benchmark.command(name="diff", short_help="Compare benchmark suites")
-@click.option("--src", metavar="<arrow_src>", show_default=True,
-              default=ArrowSources.find(),
-              callback=validate_arrow_sources,
-              help="Specify Arrow source directory")
-@click.option("--suite-filter", metavar="<regex>", show_default=True,
-              type=str, default=None, help="Regex filtering benchmark suites.")
-@click.option("--benchmark-filter", metavar="<regex>", show_default=True,
-              type=str, default=None,
-              help="Regex filtering benchmark suites.")
-@click.option("--preserve", type=bool, default=False, show_default=True,
-              is_flag=True, help="Preserve workspace for investigation.")
+@benchmark_common_options
+@benchmark_filter_options
 @click.option("--threshold", type=float, default=DEFAULT_THRESHOLD,
               show_default=True,
               help="Regression failure threshold in percentage.")
-@click.option("--output", metavar="<output>",
-              type=click.File("w", encoding="utf8"), default="-",
-              help="Capture output result into file.")
-@click.option("--cmake-extras", type=str, multiple=True,
-              help="Extra flags/options to pass to cmake invocation. "
-              "Can be stacked")
 @click.argument("contender", metavar="[<contender>",
                 default=ArrowSources.WORKSPACE, required=False)
 @click.argument("baseline", metavar="[<baseline>]]", default="master",
                 required=False)
 @click.pass_context
-def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
-                   threshold, output, cmake_extras, contender, baseline):
+def benchmark_diff(ctx, src, preserve, output, cmake_extras,
+                   suite_filter, benchmark_filter,
+                   threshold, contender, baseline, **kwargs):
     """ Compare (diff) benchmark runs.
 
     This command acts like git-diff but for benchmark results.
@@ -374,7 +385,7 @@ def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
 
         conf = CppConfiguration(
             build_type="release", with_tests=True, with_benchmarks=True,
-            with_python=False, cmake_extras=cmake_extras)
+            with_python=False, cmake_extras=cmake_extras, **kwargs)
 
         runner_cont = BenchmarkRunner.from_rev_or_path(
             src, root, contender, conf,
