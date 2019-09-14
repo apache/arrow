@@ -26,11 +26,28 @@ class TestBuffer < Test::Unit::TestCase
   def test_new_bytes
     bytes_data = GLib::Bytes.new(@data)
     buffer = Arrow::Buffer.new(bytes_data)
-    if GLib.check_binding_version?(3, 2, 2)
-      assert_equal(bytes_data.pointer, buffer.data.pointer)
-    else
-      assert_equal(@data, buffer.data.to_s)
-    end
+    assert_equal([
+                   bytes_data.pointer,
+                   @data,
+                 ],
+                 [
+                   buffer.data.pointer,
+                   buffer.data.to_s,
+                 ])
+  end
+
+  def test_new_bytes_slice
+    bytes_data = GLib::Bytes.new(@data)
+    buffer = Arrow::Buffer.new(bytes_data)
+    sliced_buffer = buffer.slice(1, 3)
+    assert_equal([
+                   bytes_data.pointer + 1,
+                   @data[1, 3],
+                 ],
+                 [
+                   sliced_buffer.data.pointer,
+                   sliced_buffer.data.to_s,
+                 ])
   end
 
   def test_equal
