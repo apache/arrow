@@ -338,5 +338,4 @@ mod tests {
     fn test_codec_zstd() {
         test_codec(CodecType::ZSTD);
     }
-
 }

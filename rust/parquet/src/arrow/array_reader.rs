@@ -26,22 +26,26 @@ use std::slice::from_raw_parts_mut;
 use std::sync::Arc;
 use std::vec::Vec;
 
-use arrow::array::{ArrayDataRef, ArrayRef, BufferBuilderTrait, StructArray,
-                   ArrayDataBuilder, BooleanBufferBuilder,
-                   Int16BufferBuilder};
+use arrow::array::{
+    ArrayDataBuilder, ArrayDataRef, ArrayRef, BooleanBufferBuilder, BufferBuilderTrait,
+    Int16BufferBuilder, StructArray,
+};
 use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::datatypes::{DataType as ArrowType, Field};
 
-use crate::arrow::converter::{BooleanConverter, Converter, Float32Converter,
-                              Float64Converter, Int16Converter, Int32Converter,
-                              Int64Converter, Int8Converter, UInt16Converter,
-                              UInt32Converter, UInt64Converter, UInt8Converter};
+use crate::arrow::converter::{
+    BooleanConverter, Converter, Float32Converter, Float64Converter, Int16Converter,
+    Int32Converter, Int64Converter, Int8Converter, UInt16Converter, UInt32Converter,
+    UInt64Converter, UInt8Converter,
+};
 use crate::arrow::record_reader::RecordReader;
 use crate::arrow::schema::parquet_to_arrow_field;
 use crate::basic::{Repetition, Type as PhysicalType};
 use crate::column::page::PageIterator;
-use crate::data_type::{DataType, DoubleType, FloatType, Int32Type, Int64Type, BoolType,
-                       ByteArrayType, Int96Type};
+use crate::data_type::{
+    BoolType, ByteArrayType, DataType, DoubleType, FloatType, Int32Type, Int64Type,
+    Int96Type,
+};
 use crate::errors::{ParquetError, ParquetError::ArrowError, Result};
 use crate::file::reader::{FilePageIterator, FileReader};
 use crate::schema::types::{
@@ -680,22 +684,24 @@ impl<'a> ArrayReaderBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::arrow::array_reader::{ArrayReader, PrimitiveArrayReader, StructArrayReader, build_array_reader};
+    use crate::arrow::array_reader::{
+        build_array_reader, ArrayReader, PrimitiveArrayReader, StructArrayReader,
+    };
     use crate::basic::Encoding;
     use crate::column::page::Page;
     use crate::data_type::{DataType, Int32Type};
     use crate::errors::Result;
+    use crate::file::reader::{FileReader, SerializedFileReader};
     use crate::schema::parser::parse_message_type;
     use crate::schema::types::{ColumnDescPtr, SchemaDescriptor};
-    use crate::util::test_common::{make_pages, get_test_file};
     use crate::util::test_common::page_util::InMemoryPageIterator;
+    use crate::util::test_common::{get_test_file, make_pages};
     use arrow::array::{Array, ArrayRef, PrimitiveArray, StructArray};
-    use arrow::datatypes::{Int32Type as ArrowInt32, DataType as ArrowType, Field};
+    use arrow::datatypes::{DataType as ArrowType, Field, Int32Type as ArrowInt32};
     use rand::distributions::range::SampleRange;
     use std::collections::VecDeque;
     use std::rc::Rc;
     use std::sync::Arc;
-    use crate::file::reader::{FileReader, SerializedFileReader};
 
     fn make_column_chuncks<T: DataType>(
         column_desc: ColumnDescPtr,
@@ -1010,20 +1016,22 @@ mod tests {
 
     #[test]
     fn test_create_array_reader() {
-        let file =  get_test_file("nulls.snappy.parquet");
+        let file = get_test_file("nulls.snappy.parquet");
         let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
 
-        let array_reader = build_array_reader(file_reader.metadata().file_metadata()
-                                                  .schema_descr_ptr(),
-                                              vec![0usize].into_iter(),
-                                              file_reader).unwrap();
+        let array_reader = build_array_reader(
+            file_reader.metadata().file_metadata().schema_descr_ptr(),
+            vec![0usize].into_iter(),
+            file_reader,
+        )
+        .unwrap();
 
         // Create arrow types
-        let arrow_type = ArrowType::Struct(vec![
-            Field::new("b_struct", ArrowType::Struct(vec![
-                Field::new("b_c_int", ArrowType::Int32, true),
-            ]), true),
-        ]);
+        let arrow_type = ArrowType::Struct(vec![Field::new(
+            "b_struct",
+            ArrowType::Struct(vec![Field::new("b_c_int", ArrowType::Int32, true)]),
+            true,
+        )]);
 
         assert_eq!(array_reader.get_data_type(), &arrow_type);
     }
