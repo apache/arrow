@@ -89,7 +89,7 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=True,
         assert table.schema.equals(expected_schema, check_metadata=False)
 
     if expected is None:
-        expected = df if schema is None else df[schema.names]
+        expected = df
 
     tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
                           check_index_type=('equiv' if preserve_index
@@ -2363,6 +2363,7 @@ class TestConvertMisc(object):
         ])
 
         _check_pandas_roundtrip(df, schema=partial_schema,
+                                expected=df[['c', 'a']],
                                 expected_schema=partial_schema)
 
     def test_table_batch_empty_dataframe(self):
@@ -2729,6 +2730,95 @@ def test_table_from_pandas_keeps_schema_nullability():
     assert table.schema.field('a').nullable is True
     table = pa.Table.from_pandas(df, schema=schema)
     assert table.schema.field('a').nullable is False
+
+
+def test_table_from_pandas_schema_index_columns():
+    # ARROW-5220
+    df = pd.DataFrame({'a': [1, 2, 3], 'b': [0.1, 0.2, 0.3]})
+
+    schema = pa.schema([
+        ('a', pa.int64()),
+        ('b', pa.float64()),
+        ('index', pa.int32()),
+    ])
+
+    # schema includes index with name not in dataframe
+    with pytest.raises(KeyError):
+        pa.Table.from_pandas(df, schema=schema)
+
+    df.index.name = 'index'
+
+    # schema includes correct index name -> roundtrip works
+    _check_pandas_roundtrip(df, schema=schema, preserve_index=True,
+                            expected_schema=schema)
+
+    # schema includes correct index name but preserve_index=False
+    with pytest.raises(KeyError):
+        pa.Table.from_pandas(df, schema=schema, preserve_index=False)
+
+    # in case of preserve_index=None -> RangeIndex serialized as metadata
+    # clashes with the index in the schema
+    with pytest.raises(KeyError):
+        pa.Table.from_pandas(df, schema=schema, preserve_index=None)
+
+    df.index = pd.Index([0, 1, 2], name='index')
+
+    # for non-RangeIndex, both preserve_index=None and True work
+    _check_pandas_roundtrip(df, schema=schema, preserve_index=None,
+                            expected_schema=schema)
+    _check_pandas_roundtrip(df, schema=schema, preserve_index=True,
+                            expected_schema=schema)
+
+    # schema has different order (index column not at the end)
+    schema = pa.schema([
+        ('index', pa.int32()),
+        ('a', pa.int64()),
+        ('b', pa.float64()),
+    ])
+    _check_pandas_roundtrip(df, schema=schema, preserve_index=None,
+                            expected_schema=schema)
+    _check_pandas_roundtrip(df, schema=schema, preserve_index=True,
+                            expected_schema=schema)
+
+    # schema does not include the index -> index is not included as column
+    # even though preserve_index=True/None
+    schema = pa.schema([
+        ('a', pa.int64()),
+        ('b', pa.float64()),
+    ])
+    expected = df.copy()
+    expected = expected.reset_index(drop=True)
+    _check_pandas_roundtrip(df, schema=schema, preserve_index=None,
+                            expected_schema=schema, expected=expected)
+    _check_pandas_roundtrip(df, schema=schema, preserve_index=True,
+                            expected_schema=schema, expected=expected)
+
+    # dataframe with a MultiIndex
+    df.index = pd.MultiIndex.from_tuples([('a', 1), ('a', 2), ('b', 1)],
+                                         names=['level1', 'level2'])
+    schema = pa.schema([
+        ('level1', pa.string()),
+        ('level2', pa.int64()),
+        ('a', pa.int64()),
+        ('b', pa.float64()),
+    ])
+    _check_pandas_roundtrip(df, schema=schema, preserve_index=True,
+                            expected_schema=schema)
+    _check_pandas_roundtrip(df, schema=schema, preserve_index=None,
+                            expected_schema=schema)
+
+    # only one of the levels of the MultiIndex is included
+    schema = pa.schema([
+        ('level2', pa.int64()),
+        ('a', pa.int64()),
+        ('b', pa.float64()),
+    ])
+    expected = df.copy()
+    expected = expected.reset_index('level1', drop=True)
+    _check_pandas_roundtrip(df, schema=schema, preserve_index=True,
+                            expected_schema=schema, expected=expected)
+    _check_pandas_roundtrip(df, schema=schema, preserve_index=None,
+                            expected_schema=schema, expected=expected)
 
 
 # ----------------------------------------------------------------------
