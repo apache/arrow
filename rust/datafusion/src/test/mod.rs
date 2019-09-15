@@ -20,6 +20,7 @@
 use crate::error::Result;
 use crate::execution::context::ExecutionContext;
 use crate::execution::physical_plan::ExecutionPlan;
+use arrow::array;
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use std::env;
@@ -101,4 +102,87 @@ pub fn aggr_test_schema() -> Arc<Schema> {
         Field::new("c12", DataType::Float64, false),
         Field::new("c13", DataType::Utf8, false),
     ]))
+}
+
+/// Format a batch as csv
+pub fn format_batch(batch: &RecordBatch) -> Vec<String> {
+    let mut rows = vec![];
+    for row_index in 0..batch.num_rows() {
+        let mut s = String::new();
+        for column_index in 0..batch.num_columns() {
+            if column_index > 0 {
+                s.push(',');
+            }
+            let array = batch.column(column_index);
+            match array.data_type() {
+                DataType::Int8 => s.push_str(&format!(
+                    "{:?}",
+                    array
+                        .as_any()
+                        .downcast_ref::<array::Int8Array>()
+                        .unwrap()
+                        .value(row_index)
+                )),
+                DataType::Int16 => s.push_str(&format!(
+                    "{:?}",
+                    array
+                        .as_any()
+                        .downcast_ref::<array::Int16Array>()
+                        .unwrap()
+                        .value(row_index)
+                )),
+                DataType::Int32 => s.push_str(&format!(
+                    "{:?}",
+                    array
+                        .as_any()
+                        .downcast_ref::<array::Int32Array>()
+                        .unwrap()
+                        .value(row_index)
+                )),
+                DataType::Int64 => s.push_str(&format!(
+                    "{:?}",
+                    array
+                        .as_any()
+                        .downcast_ref::<array::Int64Array>()
+                        .unwrap()
+                        .value(row_index)
+                )),
+                DataType::UInt8 => s.push_str(&format!(
+                    "{:?}",
+                    array
+                        .as_any()
+                        .downcast_ref::<array::UInt8Array>()
+                        .unwrap()
+                        .value(row_index)
+                )),
+                DataType::UInt16 => s.push_str(&format!(
+                    "{:?}",
+                    array
+                        .as_any()
+                        .downcast_ref::<array::UInt16Array>()
+                        .unwrap()
+                        .value(row_index)
+                )),
+                DataType::UInt32 => s.push_str(&format!(
+                    "{:?}",
+                    array
+                        .as_any()
+                        .downcast_ref::<array::UInt32Array>()
+                        .unwrap()
+                        .value(row_index)
+                )),
+                DataType::UInt64 => s.push_str(&format!(
+                    "{:?}",
+                    array
+                        .as_any()
+                        .downcast_ref::<array::UInt64Array>()
+                        .unwrap()
+                        .value(row_index)
+                )),
+                _ => s.push('?'),
+            }
+        }
+        rows.push(s);
+    }
+    rows
 }

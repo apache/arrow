@@ -259,10 +259,6 @@ impl BatchIterator for HashAggregateIterator {
 
         // iterate over input and perform aggregation
         while let Some(batch) = input.next()? {
-            //TODO add optimization for case where there are no grouping expressions and
-            // we can just perform vectorized operations on columns in the batch rather
-            // than iterating over each row
-
             // evaluate the grouping expressions for this batch
             let group_values = self
                 .group_expr

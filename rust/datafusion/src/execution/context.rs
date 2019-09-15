@@ -546,71 +546,66 @@ impl SchemaProvider for ExecutionContextSchemaProvider {
 mod tests {
 
     use super::*;
+    use crate::test;
     use std::fs::File;
     use std::io::prelude::*;
     use tempdir::TempDir;
 
     #[test]
     fn parallel_projection() -> Result<()> {
-        let mut ctx = ExecutionContext::new();
-
-        // define schema for data source (csv file)
-        let schema = Arc::new(Schema::new(vec![
-            Field::new("c1", DataType::UInt32, false),
-            Field::new("c2", DataType::UInt32, false),
-        ]));
-
-        let tmp_dir = TempDir::new("parallel_projection")?;
-
-        // generate a partitioned file
         let partition_count = 4;
-        for partition in 0..partition_count {
-            let filename = format!("partition-{}.csv", partition);
-            let file_path = tmp_dir.path().join(&filename);
-            let mut file = File::create(file_path)?;
-
-            // generate some data
-            for i in 0..=10 {
-                let data = format!("{},{}\n", partition, i);
-                file.write_all(data.as_bytes())?;
-            }
-        }
-
-        // register csv file with the execution context
-        ctx.register_csv("test", tmp_dir.path().to_str().unwrap(), &schema, true);
-
-        let logical_plan = ctx.create_logical_plan("SELECT c1, c2 FROM test")?;
-
-        let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
-
-        let results = ctx.collect(physical_plan.as_ref())?;
+        let results = execute("SELECT c1, c2 FROM test", partition_count)?;
 
         // there should be one batch per partition
-        assert_eq!(partition_count, results.len());
+        assert_eq!(results.len(), partition_count);
 
         // each batch should contain 2 columns and 10 rows
         for batch in &results {
-            assert_eq!(2, batch.num_columns());
-            assert_eq!(10, batch.num_rows());
+            assert_eq!(batch.num_columns(), 2);
+            assert_eq!(batch.num_rows(), 10);
         }
 
         Ok(())
     }
 
     #[test]
-    fn aggregate() -> Result<()> {
+    fn aggregate_() -> Result<()> {
+        let results = execute("SELECT c1, SUM(c2) FROM test GROUP BY c1", 4)?;
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+        let expected: Vec<&str> = vec!["0,55", "1,55", "2,55", "3,55"];
+        let mut rows = test::format_batch(&batch);
+        rows.sort();
+        assert_eq!(rows, expected);
+
+        Ok(())
+    }
+
+    /// Execute SQL and return results
+    fn execute(sql: &str, partition_count: usize) -> Result<Vec<RecordBatch>> {
+        let tmp_dir = TempDir::new("execute")?;
+        let mut ctx = create_ctx(&tmp_dir, partition_count)?;
+
+        let logical_plan = ctx.create_logical_plan(sql)?;
+        let logical_plan = ctx.optimize(&logical_plan)?;
+
+        let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
+
+        ctx.collect(physical_plan.as_ref())
+    }
+
+    /// Generate a partitioned CSV file and register it with an execution context
+    fn create_ctx(tmp_dir: &TempDir, partition_count: usize) -> Result<ExecutionContext> {
         let mut ctx = ExecutionContext::new();
 
         // define schema for data source (csv file)
         let schema = Arc::new(Schema::new(vec![
             Field::new("c1", DataType::UInt32, false),
-            Field::new("c2", DataType::UInt32, false),
+            Field::new("c2", DataType::UInt64, false),
         ]));
 
-        let tmp_dir = TempDir::new("aggregate")?;
-
         // generate a partitioned file
-        let partition_count = 4;
         for partition in 0..partition_count {
             let filename = format!("partition-{}.csv", partition);
             let file_path = tmp_dir.path().join(&filename);
@@ -626,21 +621,7 @@ mod tests {
         // register csv file with the execution context
         ctx.register_csv("test", tmp_dir.path().to_str().unwrap(), &schema, true);
 
-        let logical_plan =
-            ctx.create_logical_plan("SELECT c1, SUM(c2) FROM test GROUP BY c1")?;
-
-        let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
-
-        let results = ctx.collect(physical_plan.as_ref())?;
-
-        assert_eq!(results.len(), 1);
-
-        let batch = &results[0];
-
-        assert_eq!(batch.num_columns(), 2);
-        assert_eq!(batch.num_rows(), 4);
-
-        Ok(())
+        Ok(ctx)
     }
 
 }
