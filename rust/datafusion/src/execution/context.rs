@@ -40,7 +40,7 @@ use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::expressions::Column;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
-use crate::execution::physical_plan::{ExecutionPlan, PhysicalExpr};
+use crate::execution::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr};
 use crate::execution::projection::ProjectRelation;
 use crate::execution::relation::{DataSourceRelation, Relation};
 use crate::execution::scalar_relation::ScalarRelation;
@@ -256,6 +256,29 @@ impl ExecutionContext {
                     .collect::<Result<Vec<_>>>()?;
                 Ok(Arc::new(ProjectionExec::try_new(runtime_expr, input)?))
             }
+            LogicalPlan::Aggregate {
+                input,
+                group_expr,
+                aggr_expr,
+                schema,
+            } => {
+                let input = self.create_physical_plan(input, batch_size)?;
+                let input_schema = input.as_ref().schema().clone();
+                let group_expr = group_expr
+                    .iter()
+                    .map(|e| self.create_physical_expr(e, &input_schema))
+                    .collect::<Result<Vec<_>>>()?;
+                let aggr_expr = aggr_expr
+                    .iter()
+                    .map(|e| self.create_aggregate_expr(e, &input_schema))
+                    .collect::<Result<Vec<_>>>()?;
+                Ok(Arc::new(HashAggregateExec::try_new(
+                    group_expr,
+                    aggr_expr,
+                    input,
+                    schema.clone(),
+                )?))
+            }
             _ => Err(ExecutionError::General(
                 "Unsupported logical plan variant".to_string(),
             )),
@@ -272,6 +295,30 @@ impl ExecutionContext {
             Expr::Column(i) => Ok(Arc::new(Column::new(*i))),
             _ => Err(ExecutionError::NotImplemented(
                 "Unsupported expression".to_string(),
+            )),
+        }
+    }
+
+    /// Create an aggregate expression from a logical expression
+    pub fn create_aggregate_expr(
+        &self,
+        e: &Expr,
+        input_schema: &Schema,
+    ) -> Result<Arc<dyn AggregateExpr>> {
+        match e {
+            Expr::AggregateFunction { name, args, .. } => {
+                match name.to_lowercase().as_ref() {
+                    "sum" => Ok(Arc::new(Sum::new(
+                        self.create_physical_expr(&args[0], input_schema)?,
+                    ))),
+                    other => Err(ExecutionError::NotImplemented(format!(
+                        "Unsupported aggregate function '{}'",
+                        other
+                    ))),
+                }
+            }
+            _ => Err(ExecutionError::NotImplemented(
+                "Unsupported aggregate expression".to_string(),
             )),
         }
     }
@@ -546,6 +593,52 @@ mod tests {
             assert_eq!(2, batch.num_columns());
             assert_eq!(10, batch.num_rows());
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn aggregate() -> Result<()> {
+        let mut ctx = ExecutionContext::new();
+
+        // define schema for data source (csv file)
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("c1", DataType::UInt32, false),
+            Field::new("c2", DataType::UInt32, false),
+        ]));
+
+        let tmp_dir = TempDir::new("aggregate")?;
+
+        // generate a partitioned file
+        let partition_count = 4;
+        for partition in 0..partition_count {
+            let filename = format!("partition-{}.csv", partition);
+            let file_path = tmp_dir.path().join(&filename);
+            let mut file = File::create(file_path)?;
+
+            // generate some data
+            for i in 0..=10 {
+                let data = format!("{},{}\n", partition, i);
+                file.write_all(data.as_bytes())?;
+            }
+        }
+
+        // register csv file with the execution context
+        ctx.register_csv("test", tmp_dir.path().to_str().unwrap(), &schema, true);
+
+        let logical_plan =
+            ctx.create_logical_plan("SELECT c1, SUM(c2) FROM test GROUP BY c1")?;
+
+        let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
+
+        let results = ctx.collect(physical_plan.as_ref())?;
+
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+
+        assert_eq!(batch.num_columns(), 2);
+        assert_eq!(batch.num_rows(), 4);
 
         Ok(())
     }

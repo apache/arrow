@@ -18,7 +18,10 @@
 //! Common unit test utility methods
 
 use crate::error::Result;
+use crate::execution::context::ExecutionContext;
+use crate::execution::physical_plan::ExecutionPlan;
 use arrow::datatypes::{DataType, Field, Schema};
+use arrow::record_batch::RecordBatch;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
@@ -29,6 +32,12 @@ use tempdir::TempDir;
 /// Get the value of the ARROW_TEST_DATA environment variable
 pub fn arrow_testdata_path() -> String {
     env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined")
+}
+
+/// Execute a physical plan and collect the results
+pub fn execute(plan: &dyn ExecutionPlan) -> Result<Vec<RecordBatch>> {
+    let ctx = ExecutionContext::new();
+    ctx.collect(plan)
 }
 
 /// Generated partitioned copy of a CSV file
