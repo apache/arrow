@@ -210,11 +210,13 @@ const getList = <T extends List>(vector: VectorType<T>, index: number): T['TValu
 };
 
 /** @ignore */
-const getNested = <
-    S extends { [key: string]: DataType },
-    V extends VectorType<Map_<S>> | VectorType<Struct<S>>
->(vector: V, index: number): V['TValue'] => {
-    return vector.rowProxy.bind(index) as V['TValue'];
+const getMap = <T extends Map_>(vector: VectorType<T>, index: number): T['TValue'] => {
+    return vector.bind(index) as T['TValue'];
+};
+
+/** @ignore */
+const getStruct = <T extends Struct>(vector: VectorType<T>, index: number): T['TValue'] => {
+    return vector.bind(index) as T['TValue'];
 };
 
 /* istanbul ignore next */
@@ -304,7 +306,7 @@ GetVisitor.prototype.visitTimeMicrosecond      =      getTimeMicrosecond;
 GetVisitor.prototype.visitTimeNanosecond       =       getTimeNanosecond;
 GetVisitor.prototype.visitDecimal              =              getDecimal;
 GetVisitor.prototype.visitList                 =                 getList;
-GetVisitor.prototype.visitStruct               =               getNested;
+GetVisitor.prototype.visitStruct               =               getStruct;
 GetVisitor.prototype.visitUnion                =                getUnion;
 GetVisitor.prototype.visitDenseUnion           =           getDenseUnion;
 GetVisitor.prototype.visitSparseUnion          =          getSparseUnion;
@@ -313,7 +315,7 @@ GetVisitor.prototype.visitInterval             =             getInterval;
 GetVisitor.prototype.visitIntervalDayTime      =      getIntervalDayTime;
 GetVisitor.prototype.visitIntervalYearMonth    =    getIntervalYearMonth;
 GetVisitor.prototype.visitFixedSizeList        =        getFixedSizeList;
-GetVisitor.prototype.visitMap                  =               getNested;
+GetVisitor.prototype.visitMap                  =                  getMap;
 
 /** @ignore */
 export const instance = new GetVisitor();

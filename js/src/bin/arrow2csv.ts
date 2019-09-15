@@ -177,7 +177,7 @@ function batchesToString(state: ToStringState, schema: Schema) {
                     if (rowId++ % 350 === 0) {
                         this.push(`${formatRow(header, maxColWidths, sep)}\n`);
                     }
-                    this.push(`${formatRow([rowId, ...row].map(valueToString), maxColWidths, sep)}\n`);
+                    this.push(`${formatRow([rowId, ...row.toArray()].map(valueToString), maxColWidths, sep)}\n`);
                 }
             }
             cb();
