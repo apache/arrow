@@ -145,6 +145,7 @@ def test_to_numpy_unsupported_types():
         null_arr.to_numpy()
 
 
+@pytest.mark.pandas
 def test_to_pandas_zero_copy():
     import gc
 
@@ -172,6 +173,7 @@ def test_to_pandas_zero_copy():
         np_arr.sum()
 
 
+@pytest.mark.pandas
 def test_asarray():
     arr = pa.array(range(4))
 
