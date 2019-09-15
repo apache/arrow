@@ -3025,18 +3025,14 @@ def test_array_protocol():
     if LooseVersion(pd.__version__) < '0.24.0':
         pytest.skip('IntegerArray only introduced in 0.24')
 
-    def __arrow_array__(self, type=None):
-        return pa.array(self._data, mask=self._mask, type=type)
-
     df = pd.DataFrame({'a': pd.Series([1, 2, None], dtype='Int64')})
 
-    # with latest pandas/arrow, trying to convert nullable integer errors
-    with pytest.raises(TypeError):
-        pa.table(df)
-
-    try:
-        # patch IntegerArray with the protocol
-        pd.arrays.IntegerArray.__arrow_array__ = __arrow_array__
+    if LooseVersion(pd.__version__) < '0.26.0.dev':
+        # with pandas<=0.25, trying to convert nullable integer errors
+        with pytest.raises(TypeError):
+            pa.table(df)
+    else:
+        # __arrow_array__ added to pandas IntegerArray in 0.26.0.dev
 
         # default conversion
         result = pa.table(df)
@@ -3060,9 +3056,6 @@ def test_array_protocol():
         assert result.equals(expected)
         result = pa.array(df['a'].values, type=pa.float64())
         assert result.equals(expected2)
-
-    finally:
-        del pd.arrays.IntegerArray.__arrow_array__
 
 
 # ----------------------------------------------------------------------
