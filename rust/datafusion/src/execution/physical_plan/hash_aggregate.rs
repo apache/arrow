@@ -151,12 +151,20 @@ impl HashAggregatePartition {
 
 impl Partition for HashAggregatePartition {
     fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
-        Ok(Arc::new(Mutex::new(HashAggregateIterator::new(
-            self.schema.clone(),
-            self.group_expr.clone(),
-            self.aggr_expr.clone(),
-            self.input.execute()?,
-        ))))
+        if self.group_expr.is_empty() {
+            Ok(Arc::new(Mutex::new(HashAggregateIterator::new(
+                self.schema.clone(),
+                self.aggr_expr.clone(),
+                self.input.execute()?,
+            ))))
+        } else {
+            Ok(Arc::new(Mutex::new(GroupedHashAggregateIterator::new(
+                self.schema.clone(),
+                self.group_expr.clone(),
+                self.aggr_expr.clone(),
+                self.input.execute()?,
+            ))))
+        }
     }
 }
 
@@ -212,7 +220,7 @@ struct MapEntry {
     v: Vec<Option<ScalarValue>>,
 }
 
-struct HashAggregateIterator {
+struct GroupedHashAggregateIterator {
     schema: Arc<Schema>,
     group_expr: Vec<Arc<dyn PhysicalExpr>>,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
@@ -220,7 +228,7 @@ struct HashAggregateIterator {
     finished: bool,
 }
 
-impl HashAggregateIterator {
+impl GroupedHashAggregateIterator {
     /// Create a new HashAggregateIterator
     pub fn new(
         schema: Arc<Schema>,
@@ -228,7 +236,7 @@ impl HashAggregateIterator {
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
         input: Arc<Mutex<dyn BatchIterator>>,
     ) -> Self {
-        HashAggregateIterator {
+        GroupedHashAggregateIterator {
             schema,
             group_expr,
             aggr_expr,
@@ -238,7 +246,7 @@ impl HashAggregateIterator {
     }
 }
 
-impl BatchIterator for HashAggregateIterator {
+impl BatchIterator for GroupedHashAggregateIterator {
     fn schema(&self) -> Arc<Schema> {
         self.schema.clone()
     }
@@ -439,6 +447,127 @@ impl BatchIterator for HashAggregateIterator {
             let name = expr.name();
             fields.push(Field::new(&name, expr.data_type(&input_schema)?, true))
         }
+        for expr in &self.aggr_expr {
+            let name = expr.name();
+            fields.push(Field::new(&name, expr.data_type(&input_schema)?, true))
+        }
+        let schema = Schema::new(fields);
+
+        let batch = RecordBatch::try_new(Arc::new(schema), result_arrays)?;
+        Ok(Some(batch))
+    }
+}
+
+struct HashAggregateIterator {
+    schema: Arc<Schema>,
+    aggr_expr: Vec<Arc<dyn AggregateExpr>>,
+    input: Arc<Mutex<dyn BatchIterator>>,
+    finished: bool,
+}
+
+impl HashAggregateIterator {
+    /// Create a new HashAggregateIterator
+    pub fn new(
+        schema: Arc<Schema>,
+        aggr_expr: Vec<Arc<dyn AggregateExpr>>,
+        input: Arc<Mutex<dyn BatchIterator>>,
+    ) -> Self {
+        HashAggregateIterator {
+            schema,
+            aggr_expr,
+            input,
+            finished: false,
+        }
+    }
+}
+
+impl BatchIterator for HashAggregateIterator {
+    fn schema(&self) -> Arc<Schema> {
+        self.schema.clone()
+    }
+
+    fn next(&mut self) -> Result<Option<RecordBatch>> {
+        if self.finished {
+            return Ok(None);
+        }
+
+        self.finished = true;
+
+        let accumulators: Vec<Rc<RefCell<dyn Accumulator>>> = self
+            .aggr_expr
+            .iter()
+            .map(|expr| expr.create_accumulator())
+            .collect();
+
+        // iterate over all input batches and update the accumulators
+        let mut input = self.input.lock().unwrap();
+
+        // iterate over input and perform aggregation
+        while let Some(batch) = input.next()? {
+            // iterate over each row in the batch
+            for row in 0..batch.num_rows() {
+                let _ = accumulators
+                    .iter()
+                    .map(|accum| accum.borrow_mut().accumulate(&batch, row))
+                    .collect::<Result<Vec<_>>>()?;
+            }
+        }
+
+        let input_schema = input.schema();
+
+        // build the result arrays
+        let mut result_arrays: Vec<ArrayRef> = Vec::with_capacity(self.aggr_expr.len());
+
+        let entries = vec![MapEntry {
+            k: vec![],
+            v: accumulators
+                .iter()
+                .map(|accum| accum.borrow_mut().get_value())
+                .collect::<Result<Vec<_>>>()?,
+        }];
+
+        // aggregate values
+        for i in 0..self.aggr_expr.len() {
+            let aggr_data_type = self.aggr_expr[i].data_type(&input_schema)?;
+            let array = match aggr_data_type {
+                DataType::UInt8 => {
+                    aggr_array_from_map_entries!(UInt64Builder, UInt8, u64, entries, i)
+                }
+                DataType::UInt16 => {
+                    aggr_array_from_map_entries!(UInt64Builder, UInt16, u64, entries, i)
+                }
+                DataType::UInt32 => {
+                    aggr_array_from_map_entries!(UInt64Builder, UInt32, u64, entries, i)
+                }
+                DataType::UInt64 => {
+                    aggr_array_from_map_entries!(UInt64Builder, UInt64, u64, entries, i)
+                }
+                DataType::Int8 => {
+                    aggr_array_from_map_entries!(Int64Builder, Int8, i64, entries, i)
+                }
+                DataType::Int16 => {
+                    aggr_array_from_map_entries!(Int64Builder, Int16, i64, entries, i)
+                }
+                DataType::Int32 => {
+                    aggr_array_from_map_entries!(Int64Builder, Int32, i64, entries, i)
+                }
+                DataType::Int64 => {
+                    aggr_array_from_map_entries!(Int64Builder, Int64, i64, entries, i)
+                }
+                DataType::Float32 => {
+                    aggr_array_from_map_entries!(Float32Builder, Float32, f32, entries, i)
+                }
+                DataType::Float64 => {
+                    aggr_array_from_map_entries!(Float64Builder, Float64, f64, entries, i)
+                }
+                _ => Err(ExecutionError::ExecutionError(
+                    "Unsupported aggregate expr".to_string(),
+                )),
+            };
+            result_arrays.push(array?);
+        }
+
+        let mut fields = vec![];
         for expr in &self.aggr_expr {
             let name = expr.name();
             fields.push(Field::new(&name, expr.data_type(&input_schema)?, true))
