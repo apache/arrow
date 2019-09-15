@@ -140,8 +140,8 @@ pub(super) fn compile_aggregate_expr(
 
 macro_rules! binary_op {
     ($LEFT:expr, $RIGHT:expr, $OP:ident, $DT:ident) => {{
-        let ll = $LEFT.as_any().downcast_ref::<$DT>().expect("x");
-        let rr = $RIGHT.as_any().downcast_ref::<$DT>().expect("x");
+        let ll = $LEFT.as_any().downcast_ref::<$DT>().unwrap();
+        let rr = $RIGHT.as_any().downcast_ref::<$DT>().unwrap();
         Ok(Arc::new(compute::$OP(&ll, &rr)?))
     }};
 }
@@ -237,14 +237,11 @@ macro_rules! boolean_ops {
         let left_values = $LEFT.invoke($BATCH)?;
         let right_values = $RIGHT.invoke($BATCH)?;
         Ok(Arc::new(compute::$OP(
-            left_values
-                .as_any()
-                .downcast_ref::<BooleanArray>()
-                .expect("y"),
+            left_values.as_any().downcast_ref::<BooleanArray>().unwrap(),
             right_values
                 .as_any()
                 .downcast_ref::<BooleanArray>()
-                .expect("z"),
+                .unwrap(),
         )?))
     }};
 }
