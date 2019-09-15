@@ -20,12 +20,11 @@
 use crate::error::Result;
 use arrow::datatypes::{DataType, Field, Schema};
 use std::env;
-use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
-use std::path::Path;
 use std::sync::Arc;
+use tempdir::TempDir;
 
 /// Get the value of the ARROW_TEST_DATA environment variable
 pub fn arrow_testdata_path() -> String {
@@ -37,18 +36,13 @@ pub fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<Strin
     let testdata = arrow_testdata_path();
     let path = format!("{}/csv/{}", testdata, filename);
 
-    let mut dir = env::temp_dir();
-    dir.push(&format!("{}-{}", filename, partitions));
-
-    if Path::new(&dir).exists() {
-        fs::remove_dir_all(&dir).unwrap();
-    }
-    fs::create_dir(dir.clone()).unwrap();
+    let tmp_dir = TempDir::new("create_partitioned_csv")?;
 
     let mut writers = vec![];
     for i in 0..partitions {
-        let mut filename = dir.clone();
-        filename.push(format!("part{}.csv", i));
+        let filename = format!("partition-{}.csv", i);
+        let filename = tmp_dir.path().join(&filename);
+
         let writer = BufWriter::new(File::create(&filename).unwrap());
         writers.push(writer);
     }
@@ -78,7 +72,7 @@ pub fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<Strin
         w.flush().unwrap();
     }
 
-    Ok(dir.as_os_str().to_str().unwrap().to_string())
+    Ok(tmp_dir.into_path().to_str().unwrap().to_string())
 }
 
 /// Get the schema for the aggregate_test_* csv files
