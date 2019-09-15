@@ -99,7 +99,7 @@ export abstract class BaseVector<T extends DataType = any> extends AbstractVecto
     public toJSON(): any { return [...this]; }
 
     protected _sliceInternal(self: this, begin: number, end: number) {
-        return self.clone(self.data.slice(begin, end - begin));
+        return self.clone(self.data.slice(begin, end - begin), null!);
     }
 
     // @ts-ignore

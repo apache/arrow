@@ -66,7 +66,7 @@ interface TestDataVectorGenerator extends Visitor {
     visit<T extends Dictionary>      (type: T, length?: number, nullCount?: number, dictionary?: Vector): GeneratedVector<V<T>>;
     visit<T extends Union>           (type: T, length?: number, nullCount?: number, children?: Vector[]): GeneratedVector<V<T>>;
     visit<T extends Struct>          (type: T, length?: number, nullCount?: number, children?: Vector[]): GeneratedVector<V<T>>;
-    visit<T extends Map_>            (type: T, length?: number, nullCount?: number, children?: Vector[]): GeneratedVector<V<T>>;
+    visit<T extends Map_>            (type: T, length?: number, nullCount?: number, child?: Vector): GeneratedVector<V<T>>;
     visit<T extends DataType>        (type: T, length?: number, ...args: any[]): GeneratedVector<V<T>>;
 
     visitNull:            typeof generateNull;
@@ -126,10 +126,17 @@ const defaultStructChildren = () => [
     new Field('struct[2]', new List(new Field('list[DateDay]', new DateDay())))
 ];
 
+const defaultMapChild = () => [
+    new Field('', new Struct<{ key: Utf8, value: Float32 }>([
+        new Field('key', new Utf8()),
+        new Field('value', new Float32())
+    ]))
+][0];
+
 const defaultUnionChildren = () => [
     new Field('union[0]', new Float64()),
     new Field('union[1]', new Dictionary(new Uint32(), new Int32())),
-    new Field('union[2]', new Map_(defaultStructChildren()))
+    new Field('union[2]', new Map_(defaultMapChild()))
 ];
 
 export interface GeneratedTable {
@@ -221,7 +228,7 @@ export const dictionary = <T extends DataType = Utf8, TKey extends TKeys = Int32
 export const intervalDayTime = (length = 100, nullCount = length * 0.2 | 0) => vectorGenerator.visit(new IntervalDayTime(), length, nullCount);
 export const intervalYearMonth = (length = 100, nullCount = length * 0.2 | 0) => vectorGenerator.visit(new IntervalYearMonth(), length, nullCount);
 export const fixedSizeList = (length = 100, nullCount = length * 0.2 | 0, listSize = 2, child = defaultListChild) => vectorGenerator.visit(new FixedSizeList(listSize, child), length, nullCount);
-export const map = <T extends { [key: string]: DataType } = any>(length = 100, nullCount = length * 0.2 | 0, children: Field<T[keyof T]>[] = <any> defaultStructChildren()) => vectorGenerator.visit(new Map_<T>(children), length, nullCount);
+export const map = <TKey extends DataType = any, TValue extends DataType = any>(length = 100, nullCount = length * 0.2 | 0, child: Field<Struct<{key: TKey, value: TValue}>> = <any> defaultMapChild()) => vectorGenerator.visit(new Map_<TKey, TValue>(child), length, nullCount);
 
 export const vecs = {
     null_, bool, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float16, float32, float64, utf8, binary, fixedSizeBinary, dateDay, dateMillisecond, timestampSecond, timestampMillisecond, timestampMicrosecond, timestampNanosecond, timeSecond, timeMillisecond, timeMicrosecond, timeNanosecond, decimal, list, struct, denseUnion, sparseUnion, dictionary, intervalDayTime, intervalYearMonth, fixedSizeList, map
@@ -270,7 +277,6 @@ function generateFloat<T extends Float>(this: TestDataVectorGenerator, type: T, 
     const values = memoize(() => {
         const values = [] as (number | null)[];
         iterateBitmap(length, nullBitmap, (i, valid) => {
-            // values[i] = !valid ? null : precision > 0 ? data[i] : (data[i] - 32767) / 32767;
             values[i] = !valid ? null : precision > 0 ? data[i] : util.uint16ToFloat64(data[i]);
         });
         return values;
@@ -281,17 +287,29 @@ function generateFloat<T extends Float>(this: TestDataVectorGenerator, type: T, 
 
 function generateUtf8<T extends Utf8>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = length * 0.2 | 0): GeneratedVector<V<T>> {
     const nullBitmap = createBitmap(length, nullCount);
-    const offsets = createVariableWidthOffsets(length, nullBitmap);
-    const values = [...offsets.slice(1)]
+    const offsets = createVariableWidthOffsets(length, nullBitmap, undefined, undefined, nullCount != 0);
+    const values: string[] = new Array(offsets.length - 1).fill(null);
+    [...offsets.slice(1)]
         .map((o, i) => isValid(nullBitmap, i) ? o - offsets[i] : null)
-        .map((length) => length == null ? null : randomString(length));
+        .reduce((map, length, i) => {
+            if (length !== null) {
+                if (length > 0) {
+                    do {
+                        values[i] = randomString(length);
+                    } while (map.has(values[i]));
+                    return map.set(values[i], i);
+                }
+                values[i] = '';
+            }
+            return map;
+        }, new Map<string, number>());
     const data = createVariableWidthBytes(length, nullBitmap, offsets, (i) => encodeUtf8(values[i]));
     return { values: () => values, vector: Vector.new(Data.Utf8(type, 0, length, nullCount, nullBitmap, offsets, data)) };
 }
 
 function generateBinary<T extends Binary>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = length * 0.2 | 0): GeneratedVector<V<T>> {
     const nullBitmap = createBitmap(length, nullCount);
-    const offsets = createVariableWidthOffsets(length, nullBitmap);
+    const offsets = createVariableWidthOffsets(length, nullBitmap, undefined, undefined, nullCount != 0);
     const values = [...offsets.slice(1)]
         .map((o, i) => isValid(nullBitmap, i) ? o - offsets[i] : null)
         .map((length) => length == null ? null : randomBytes(length));
@@ -512,21 +530,6 @@ function generateStruct<T extends Struct>(this: TestDataVectorGenerator, type: T
     const values = memoize(() => {
         const values = [] as any[];
         const childValues = cols.map((x) => x());
-        iterateBitmap(length, nullBitmap, (i, valid) => {
-            values[i] = !valid ? null : childValues.map((col) => col[i]);
-        });
-        return values;
-    });
-    return { values, vector: Vector.new(Data.Struct(type, 0, length, nullCount, nullBitmap, vecs)) };
-}
-
-function generateMap<T extends Map_>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = length * 0.2 | 0, children = type.children.map((f) => this.visit(f.type, length, nullCount))): GeneratedVector<V<T>> {
-    const vecs = children.map(({ vector }) => vector);
-    const cols = children.map(({ values }) => values);
-    const nullBitmap = createBitmap(length, nullCount);
-    const values = memoize(() => {
-        const values = [] as any[];
-        const childValues = cols.map((x) => x());
         const names = type.children.map((f) => f.name);
         iterateBitmap(length, nullBitmap, (i, valid) => {
             values[i] = !valid ? null : childValues.reduce((row, col, j) => ({
@@ -535,7 +538,35 @@ function generateMap<T extends Map_>(this: TestDataVectorGenerator, type: T, len
         });
         return values;
     });
-    return { values, vector: Vector.new(Data.Map(type, 0, length, nullCount, nullBitmap, vecs)) };
+    return { values, vector: Vector.new(Data.Struct(type, 0, length, nullCount, nullBitmap, vecs)) };
+}
+
+function generateMap<T extends Map_>(this: TestDataVectorGenerator,
+                                     type: T, length = 100, nullCount = length * 0.2 | 0,
+                                     child = this.visit(type.children[0].type, length * 3, 0, [
+                                         this.visit(type.children[0].type.children[0].type, length * 3, 0),
+                                         this.visit(type.children[0].type.children[1].type, length * 3, nullCount * 3)
+                                     ])): GeneratedVector<V<T>> {
+
+    type K = T['keyType']['TValue'];
+    type V = T['valueType']['TValue'];
+
+    const childVec = child.vector;
+    const nullBitmap = createBitmap(length, nullCount);
+    const stride = childVec.length / (length - nullCount);
+    const offsets = createVariableWidthOffsets(length, nullBitmap, childVec.length, stride);
+    const values = memoize(() => {
+        const childValues = child.values() as { key: K; value: V; }[];
+        const values: (T['TValue'] | null)[] = [...offsets.slice(1)]
+            .map((offset, i) => isValid(nullBitmap, i) ? offset : null)
+            .map((o, i) => o == null ? null : (() => {
+                const slice = childValues.slice(offsets[i], o);
+                const pairs = slice.map(({ key, value }) => [key, value]);
+                return new Map<K, V>(pairs as any as (readonly [K, V])[]);
+            })());
+        return values;
+    });
+    return { values, vector: Vector.new(Data.Map(type, 0, length, nullCount, nullBitmap, offsets, childVec)) };
 }
 
 type TypedArrayConstructor =
@@ -594,10 +625,16 @@ function createBitmap(length: number, nullCount: number) {
     return bytes;
 }
 
-function createVariableWidthOffsets(length: number, nullBitmap: Uint8Array, max = Infinity, stride = 20) {
+function createVariableWidthOffsets(length: number, nullBitmap: Uint8Array, max = Infinity, stride = 20, allowEmpty = true) {
     const offsets = new Int32Array(length + 1);
     iterateBitmap(length, nullBitmap, (i, valid) => {
-        offsets[i + 1] = valid ? Math.min(max, offsets[i] + (rand() * stride | 0)) : offsets[i];
+        if (!valid) {
+            offsets[i + 1] = offsets[i];
+        } else {
+            do {
+                offsets[i + 1] = Math.min(max, offsets[i] + (rand() * stride | 0));
+            } while (!allowEmpty && offsets[i + 1] === offsets[i]);
+        }
     });
     return offsets;
 }

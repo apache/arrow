@@ -16,7 +16,7 @@
 // under the License.
 
 import { Vector } from '../vector';
-import { Row, kLength } from '../vector/row';
+import { MapRow, StructRow } from '../vector/row';
 import { compareArrayLike } from '../util/buffer';
 import { BigInt, BigIntAvailable } from './compat';
 
@@ -81,110 +81,118 @@ export function createElementComparator(search: any) {
         const valueOfSearch = search.valueOf();
         return (value: any) => value instanceof Date ? (value.valueOf() === valueOfSearch) : false;
     }
+    // Compare TypedArrays
     if (ArrayBuffer.isView(search)) {
         return (value: any) => value ? compareArrayLike(search, value) : false;
     }
+    // Compare Maps and Rows
+    if (search instanceof Map) { return creatMapComparator(search); }
     // Compare Array-likes
-    if (Array.isArray(search)) {
-        return createArrayLikeComparator(search);
-    }
-    // Compare Rows
-    if (search instanceof Row) {
-        return createRowComparator(search);
-    }
+    if (Array.isArray(search)) { return createArrayLikeComparator(search); }
     // Compare Vectors
-    if (search instanceof Vector) {
-        return createVectorComparator(search);
-    }
+    if (search instanceof Vector) { return createVectorComparator(search); }
     // Compare non-empty Objects
-    const keys = Object.keys(search);
-    if (keys.length > 0) {
-        return createObjectKeysComparator(search, keys);
-    }
-    // No valid comparator
-    return () => false;
+    return createObjectComparator(search);
 }
 
 /** @ignore */
-function createArrayLikeComparator(search: ArrayLike<any>) {
-    const n = search.length;
-    const fns = [] as ((x: any) => boolean)[];
-    for (let i = -1; ++i < n;) {
-        fns[i] = createElementComparator((search as any)[i]);
+function createArrayLikeComparator(lhs: ArrayLike<any>) {
+    const comparitors = [] as ((x: any) => boolean)[];
+    for (let i = -1, n = lhs.length; ++i < n;) {
+        comparitors[i] = createElementComparator(lhs[i]);
     }
-    return (value: any) => {
-        if (!value) { return false; }
-        // Handle the case where the search element is an Array, but the
-        // values are Rows or Vectors, e.g. list.indexOf(['foo', 'bar'])
-        if (value instanceof Row) {
-            if (value[kLength] !== n) { return false; }
-            for (let i = -1; ++i < n;) {
-                if (!(fns[i](value.get(i)))) { return false; }
-            }
-            return true;
-        }
-        if (value.length !== n) { return false; }
-        if (value instanceof Vector) {
-            for (let i = -1; ++i < n;) {
-                if (!(fns[i](value.get(i)))) { return false; }
-            }
-            return true;
-        }
-        for (let i = -1; ++i < n;) {
-            if (!(fns[i](value[i]))) { return false; }
-        }
-        return true;
-    };
+    return createSubElementsComparator(comparitors);
 }
 
 /** @ignore */
-function createRowComparator(search: Row<any>) {
-    const n = search[kLength];
-    const C = search.constructor as any;
-    const fns = [] as ((x: any) => boolean)[];
-    for (let i = -1; ++i < n;) {
-        fns[i] = createElementComparator(search.get(i));
-    }
-    return (value: any) => {
-        if (!(value instanceof C)) { return false; }
-        if (!(value[kLength] === n)) { return false; }
-        for (let i = -1; ++i < n;) {
-            if (!(fns[i](value.get(i)))) { return false; }
-        }
-        return true;
-    };
+function creatMapComparator(lhs: Map<any, any>) {
+    let i = -1;
+    const comparitors = [] as ((x: any) => boolean)[];
+    lhs.forEach((v) => comparitors[++i] = createElementComparator(v));
+    return createSubElementsComparator(comparitors);
 }
 
 /** @ignore */
-function createVectorComparator(search: Vector<any>) {
-    const n = search.length;
-    const C = search.constructor as any;
-    const fns = [] as ((x: any) => boolean)[];
-    for (let i = -1; ++i < n;) {
-        fns[i] = createElementComparator((search as any).get(i));
+function createVectorComparator(lhs: Vector<any>) {
+    const comparitors = [] as ((x: any) => boolean)[];
+    for (let i = -1, n = lhs.length; ++i < n;) {
+        comparitors[i] = createElementComparator(lhs.get(i));
     }
-    return (value: any) => {
-        if (!(value instanceof C)) { return false; }
-        if (!(value.length === n)) { return false; }
-        for (let i = -1; ++i < n;) {
-            if (!(fns[i](value.get(i)))) { return false; }
-        }
-        return true;
-    };
+    return createSubElementsComparator(comparitors);
 }
 
 /** @ignore */
-function createObjectKeysComparator(search: any, keys: string[]) {
-    const n = keys.length;
-    const fns = [] as ((x: any) => boolean)[];
-    for (let i = -1; ++i < n;) {
-        fns[i] = createElementComparator(search[keys[i]]);
+function createObjectComparator(lhs: any) {
+    const keys = Object.keys(lhs);
+    // Only compare non-empty Objects
+    if (keys.length === 0) { return () => false; }
+    const comparitors = [] as ((x: any) => boolean)[];
+    for (let i = -1, n = keys.length; ++i < n;) {
+        comparitors[i] = createElementComparator(lhs[keys[i]]);
     }
-    return (value: any) => {
-        if (!value || typeof value !== 'object') { return false; }
-        for (let i = -1; ++i < n;) {
-            if (!(fns[i](value[keys[i]]))) { return false; }
+    return createSubElementsComparator(comparitors, keys);
+}
+
+function createSubElementsComparator(comparitors: ((x: any) => boolean)[], keys?: Iterable<string>) {
+    return (rhs: any) => {
+        if (!rhs || typeof rhs !== 'object') {
+            return false;
         }
-        return true;
+        switch (rhs.constructor) {
+            case Array: return compareArray(comparitors, rhs);
+            case Map:
+            case MapRow:
+            case StructRow:
+                return compareObject(comparitors, rhs, rhs.keys());
+            case Object:
+            case undefined: // support `Object.create(null)` objects
+                return compareObject(comparitors, rhs, keys || Object.keys(rhs));
+        }
+        return rhs instanceof Vector ? compareVector(comparitors, rhs) : false;
     };
+}
+
+function compareArray(comparitors: ((x: any) => boolean)[], arr: any[]) {
+    const n = comparitors.length;
+    if (arr.length !== n) { return false; }
+    for (let i = -1; ++i < n;) {
+        if (!(comparitors[i](arr[i]))) { return false; }
+    }
+    return true;
+}
+
+function compareVector(comparitors: ((x: any) => boolean)[], vec: Vector) {
+    const n = comparitors.length;
+    if (vec.length !== n) { return false; }
+    for (let i = -1; ++i < n;) {
+        if (!(comparitors[i](vec.get(i)))) { return false; }
+    }
+    return true;
+}
+
+function compareObject(comparitors: ((x: any) => boolean)[], obj: Map<any, any>, keys: Iterable<string>) {
+
+    const lKeyItr = keys[Symbol.iterator]();
+    const rKeyItr = obj instanceof Map ? obj.keys() : Object.keys(obj)[Symbol.iterator]();
+    const rValItr = obj instanceof Map ? obj.values() : Object.values(obj)[Symbol.iterator]();
+
+    let i = 0;
+    let n = comparitors.length;
+    let rVal = rValItr.next();
+    let lKey = lKeyItr.next();
+    let rKey = rKeyItr.next();
+
+    for (; i < n && !lKey.done && !rKey.done && !rVal.done;
+         ++i, lKey = lKeyItr.next(), rKey = rKeyItr.next(), rVal = rValItr.next()) {
+        if (lKey.value !== rKey.value || !comparitors[i](rVal.value)) {
+            break;
+        }
+    }
+    if (i === n && lKey.done && rKey.done && rVal.done) {
+        return true;
+    }
+    lKeyItr.return && lKeyItr.return();
+    rKeyItr.return && rKeyItr.return();
+    rValItr.return && rValItr.return();
+    return false;
 }
