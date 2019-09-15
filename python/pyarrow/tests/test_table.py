@@ -198,6 +198,7 @@ def test_chunked_array_to_pandas():
     assert array[0] == -10
 
 
+@pytest.mark.pandas
 def test_chunked_array_asarray():
     data = [
         pa.array([0]),
