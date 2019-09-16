@@ -122,10 +122,9 @@ def test_get_target_stats(fs, tempdir, testpath):
     assert mtime_almost_equal(c_stat.mtime, c_.stat().st_mtime)
 
 
-@pytest.mark.parametrize('base_dir', ['.'])
-def test_get_target_stats_with_selector(fs, tempdir, testpath, base_dir):
-    base_dir = testpath(base_dir)
-    base_dir_ = tempdir / base_dir
+def test_get_target_stats_with_selector(fs, tempdir, testpath):
+    base_dir = testpath('.')
+    base_dir_ = tempdir
 
     selector = Selector(base_dir, allow_non_existent=False, recursive=True)
     assert selector.base_dir == str(base_dir)
