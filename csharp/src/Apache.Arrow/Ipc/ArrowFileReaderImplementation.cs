@@ -36,7 +36,7 @@ namespace Apache.Arrow.Ipc
         /// <summary>
         /// Notes what byte position where the footer data is in the stream
         /// </summary>
-        private int _footerStartPostion;
+        private long _footerStartPostion;
 
         private ArrowFooter _footer;
 
@@ -110,7 +110,7 @@ namespace Apache.Arrow.Ipc
 
             ArrayPool<byte>.Shared.RentReturn(footerLength, (buffer) =>
             {
-                _footerStartPostion = (int)GetFooterLengthPosition() - footerLength;
+                _footerStartPostion = GetFooterLengthPosition() - footerLength;
 
                 BaseStream.Position = _footerStartPostion;
 
