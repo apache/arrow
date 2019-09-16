@@ -854,6 +854,8 @@ cdef class FlightClient:
         PEM-encoded
     override_hostname : str or None
         Override the hostname checked by TLS. Insecure, use with caution.
+    wait_for_available : boolean, default True
+        Block until the server can be contacted.
     """
     cdef:
         unique_ptr[CFlightClient] client
@@ -892,6 +894,13 @@ cdef class FlightClient:
                                                       &self.client))
 
     def wait_for_available(self, timeout=5):
+        """Block until the server can be contacted.
+
+        Parameters
+        ----------
+        timeout : int, default 5
+            The maximum seconds to wait.
+        """
         deadline = time.time() + timeout
         while True:
             try:
@@ -906,12 +915,14 @@ cdef class FlightClient:
             break
 
     @classmethod
-    def connect(cls, location, tls_root_certs=None, override_hostname=None):
+    def connect(cls, location, tls_root_certs=None, override_hostname=None,
+                wait_for_available=True):
         warnings.warn("The 'FlightClient.connect' method is deprecated, use "
                       "FlightClient contructor or pyarrow.flight.connect "
                       "function instead")
         return FlightClient(location, tls_root_certs=tls_root_certs,
-                            override_hostname=override_hostname)
+                            override_hostname=override_hostname,
+                            wait_for_available=wait_for_available)
 
     def authenticate(self, auth_handler, options: FlightCallOptions = None):
         """Authenticate to the server.
@@ -1659,14 +1670,6 @@ cdef class ClientAuthHandler:
         return new PyClientAuthHandler(self, vtable)
 
 
-def _find_free_port():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    with contextlib.closing(sock) as sock:
-        sock.bind(('', 0))
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        return sock.getsockname()[1]
-
-
 cdef class FlightServer:
     """A Flight service definition.
 
@@ -1686,16 +1689,13 @@ cdef class FlightServer:
     cdef:
         unique_ptr[PyFlightServer] server
 
-    cdef readonly:
-        Location location
-
     def __init__(self, location=None, auth_handler=None,
                  tls_certificates=None):
         if isinstance(location, six.string_types):
             location = Location(location)
         elif isinstance(location, (tuple, type(None))):
             if location is None:
-                location = ('localhost', _find_free_port())
+                location = ('localhost', 0)
             host, port = location
             if tls_certificates:
                 location = Location.for_grpc_tls(host, port)
@@ -1705,7 +1705,6 @@ cdef class FlightServer:
             raise TypeError('`location` argument must be a string, tuple or a '
                             'Location instance')
         self.init(location, auth_handler, tls_certificates)
-        self.location = location
 
     cdef init(self, Location location, ServerAuthHandler auth_handler,
               list tls_certificates):
@@ -1777,16 +1776,20 @@ cdef class FlightServer:
         raise NotImplementedError
 
     def serve(self):
-        """
-        Start serving.  This method only returns if shutdown() is called
-        or a signal a received.
+        """Start serving.
 
-        You must have called init() first.
+        This method only returns if shutdown() is called or a signal a
+        received.
         """
         if self.server.get() == nullptr:
             raise ValueError("run() on uninitialized FlightServerBase")
         with nogil:
             check_flight_status(self.server.get().ServeWithSignals())
+
+    def run(self):
+        warnings.warn("The 'FlightServer.run' method is deprecated, use "
+                      "FlightServer.serve method instead")
+        self.serve()
 
     def shutdown(self):
         """Shut down the server, blocking until current requests finish.
@@ -1826,7 +1829,8 @@ class FlightServerBase(FlightServer):
         super().__init__(**args, **kwargs)
 
 
-def connect(location, tls_root_certs=None, override_hostname=None):
+def connect(location, tls_root_certs=None, override_hostname=None,
+            wait_for_available=True):
     """
     Connect to the Flight server
 
@@ -1838,6 +1842,8 @@ def connect(location, tls_root_certs=None, override_hostname=None):
         PEM-encoded
     override_hostname : str or None
         Override the hostname checked by TLS. Insecure, use with caution.
+    wait_for_available : boolean, default True
+        Block until the server can be contacted.
 
     Returns
     -------
