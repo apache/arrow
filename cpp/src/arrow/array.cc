@@ -632,6 +632,7 @@ std::shared_ptr<Array> StructArray::GetFieldByName(const std::string& name) cons
 
 Status StructArray::Flatten(MemoryPool* pool, ArrayVector* out) const {
   ArrayVector flattened;
+  flattened.reserve(data_->child_data.size());
   std::shared_ptr<Buffer> null_bitmap = data_->buffers[0];
 
   for (auto& child_data : data_->child_data) {

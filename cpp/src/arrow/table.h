@@ -41,7 +41,7 @@ class ARROW_EXPORT ChunkedArray {
  public:
   /// \brief Construct a chunked array from a vector of arrays
   ///
-  /// The vector should be non-empty and all its elements should have the same
+  /// The vector must be non-empty and all its elements must have the same
   /// data type.
   explicit ChunkedArray(const ArrayVector& chunks);
 

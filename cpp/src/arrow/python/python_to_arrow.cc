@@ -94,12 +94,12 @@ class SeqConverter {
     return Status::OK();
   }
 
-  virtual Status GetResult(std::vector<std::shared_ptr<Array>>* chunks) {
+  virtual Status GetResult(std::shared_ptr<ChunkedArray>* out) {
     // Still some accumulated data in the builder. If there are no chunks, we
     // always call Finish to deal with the edge case where a size-0 sequence
     // was converted with a specific output type, like array([], type=t)
     RETURN_NOT_OK(Close());
-    *chunks = chunks_;
+    *out = std::make_shared<ChunkedArray>(chunks_, builder_->type());
     return Status::OK();
   }
 
@@ -581,7 +581,7 @@ class StringConverter
     return Status::OK();
   }
 
-  virtual Status GetResult(std::vector<std::shared_ptr<Array>>* out) {
+  virtual Status GetResult(std::shared_ptr<ChunkedArray>* out) {
     RETURN_NOT_OK(SeqConverter::GetResult(out));
 
     // If we saw any non-unicode, cast results to BinaryArray
@@ -589,14 +589,9 @@ class StringConverter
       // We should have bailed out earlier
       DCHECK(!STRICT);
 
-      using EquivalentBinaryType = typename TypeClass::EquivalentBinaryType;
-      using EquivalentBinaryArray = typename TypeTraits<EquivalentBinaryType>::ArrayType;
-
-      for (size_t i = 0; i < out->size(); ++i) {
-        auto binary_data = (*out)[i]->data()->Copy();
-        binary_data->type = TypeTraits<EquivalentBinaryType>::type_singleton();
-        (*out)[i] = std::make_shared<EquivalentBinaryArray>(binary_data);
-      }
+      auto binary_type =
+          TypeTraits<typename TypeClass::EquivalentBinaryType>::type_singleton();
+      return (*out)->View(binary_type, out);
     }
     return Status::OK();
   }
@@ -740,14 +735,14 @@ class ListConverter
     return value_converter_->AppendMultiple(obj, list_size);
   }
 
-  virtual Status GetResult(std::vector<std::shared_ptr<Array>>* chunks) {
+  virtual Status GetResult(std::shared_ptr<ChunkedArray>* out) {
     // TODO: Improved handling of chunked children
     if (value_converter_->num_chunks() > 0) {
       return Status::Invalid("List child type ",
                              value_converter_->builder()->type()->ToString(),
                              " overflowed the capacity of a single chunk");
     }
-    return SeqConverter::GetResult(chunks);
+    return SeqConverter::GetResult(out);
   }
 
  protected:
@@ -1105,11 +1100,7 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
   }
 
   // Retrieve result. Conversion may yield one or more array values
-  std::vector<std::shared_ptr<Array>> chunks;
-  RETURN_NOT_OK(converter->GetResult(&chunks));
-
-  *out = std::make_shared<ChunkedArray>(chunks);
-  return Status::OK();
+  return converter->GetResult(out);
 }
 
 Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,

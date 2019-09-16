@@ -449,8 +449,8 @@ class FileWriterImpl : public FileWriter {
 
   Status WriteColumnChunk(const Array& data) override {
     // A bit awkward here since cannot instantiate ChunkedArray from const Array&
-    ::arrow::ArrayVector chunks = {::arrow::MakeArray(data.data())};
-    auto chunked_array = std::make_shared<::arrow::ChunkedArray>(chunks);
+    auto chunk = ::arrow::MakeArray(data.data());
+    auto chunked_array = std::make_shared<::arrow::ChunkedArray>(chunk);
     return WriteColumnChunk(chunked_array, 0, data.length());
   }
 
