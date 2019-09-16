@@ -29,6 +29,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/atomic_shared_ptr.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
 

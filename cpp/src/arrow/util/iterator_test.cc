@@ -45,8 +45,11 @@ struct TestInt {
   int value;
 
   bool operator==(const TestInt& other) const { return value == other.value; }
+};
 
-  friend TestInt IteratorEnd(internal::type_constant<TestInt>) { return TestInt(); }
+template <>
+struct IterationTraits<TestInt> {
+  static TestInt End() { return TestInt(); }
 };
 
 template <typename T>

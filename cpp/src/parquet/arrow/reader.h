@@ -22,7 +22,6 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/util/iterator.h"
 #include "parquet/file_reader.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"

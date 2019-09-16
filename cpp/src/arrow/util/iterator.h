@@ -31,19 +31,13 @@ namespace arrow {
 template <typename T>
 class Iterator;
 
-/// \brief IteratorEnd returns a reserved value which indicates the end of iteration. By
-/// default this is NULLPTR since most iterators yield pointer types. Overload
-/// if different end semantics are required.
 template <typename T>
-static T IteratorEnd(internal::type_constant<T>) {
-  return T(NULLPTR);
-}
-
-/// Convenience function, overload the type_constant version above and not this one.
-template <typename T>
-static T IteratorEnd() {
-  return IteratorEnd(internal::type_constant<T>{});
-}
+struct IterationTraits {
+  /// \brief a reserved value which indicates the end of iteration. By
+  /// default this is NULLPTR since most iterators yield pointer types.
+  /// Specialize IterationTraits if different end semantics are required.
+  static T End() { return T(NULLPTR); }
+};
 
 /// \brief A generic Iterator that can return errors
 template <typename T>
@@ -60,7 +54,7 @@ class Iterator {
 
   Iterator() : ptr_(NULLPTR, NoopDelete) {}
 
-  /// \brief Return the next element of the sequence, IteratorEnd<T>() when the
+  /// \brief Return the next element of the sequence, IterationTraits<T>::End() when the
   /// iteration is completed. Calling this on a default constructed Iterator
   /// will result in undefined behavior.
   Status Next(T* out) { return next_(ptr_.get(), out); }
@@ -71,7 +65,7 @@ class Iterator {
   Status Visit(Visitor&& visitor) {
     Status status;
 
-    for (T value, end = IteratorEnd<T>();;) {
+    for (T value, end = IterationTraits<T>::End();;) {
       status = Next(&value);
 
       if (!status.ok()) return status;
@@ -115,12 +109,13 @@ class Iterator {
   /// next_ is a function pointer which first casts from void* to a pointer to the wrapped
   /// type then invokes its Next member function.
   Status (*next_)(void*, T*) = NULLPTR;
+};
 
-  friend Iterator IteratorEnd(internal::type_constant<Iterator>) {
-    // The end condition for an Iterator of Iterators is a default constructed (null)
-    // Iterator.
-    return Iterator();
-  }
+template <typename T>
+struct IterationTraits<Iterator<T>> {
+  // The end condition for an Iterator of Iterators is a default constructed (null)
+  // Iterator.
+  static Iterator<T> End() { return Iterator<T>(); }
 };
 
 template <typename Ptr, typename T>
@@ -165,7 +160,7 @@ Iterator<T> MakeFunctionIterator(Fn fn) {
 template <typename T>
 Iterator<T> MakeEmptyIterator() {
   return MakeFunctionIterator([](T* out) {
-    *out = IteratorEnd<T>();
+    *out = IterationTraits<T>::End();
     return Status::OK();
   });
 }
@@ -177,7 +172,8 @@ class VectorIterator {
   explicit VectorIterator(std::vector<T> v) : elements_(std::move(v)) {}
 
   Status Next(T* out) {
-    *out = i_ == elements_.size() ? IteratorEnd<T>() : std::move(elements_[i_++]);
+    *out =
+        i_ == elements_.size() ? IterationTraits<T>::End() : std::move(elements_[i_++]);
     return Status::OK();
   }
 
@@ -207,7 +203,8 @@ class MapIterator {
 
     ARROW_RETURN_NOT_OK(it_.Next(&i));
     // Ensure loops exit.
-    *out = i == IteratorEnd<I>() ? IteratorEnd<O>() : map_(std::move(i));
+    *out =
+        i == IterationTraits<I>::End() ? IterationTraits<O>::End() : map_(std::move(i));
 
     return Status::OK();
   }
@@ -240,8 +237,8 @@ class MaybeMapIterator {
     I i;
 
     ARROW_RETURN_NOT_OK(it_.Next(&i));
-    if (i == IteratorEnd<I>()) {
-      *out = IteratorEnd<O>();
+    if (i == IterationTraits<I>::End()) {
+      *out = IterationTraits<O>::End();
       return Status::OK();
     }
 
@@ -272,23 +269,23 @@ class FlattenIterator {
 
   Status Next(T* out) {
     if (done_) {
-      *out = IteratorEnd<T>();
+      *out = IterationTraits<T>::End();
       return Status::OK();
     }
 
-    if (child_ == IteratorEnd<Iterator<T>>()) {
+    if (child_ == IterationTraits<Iterator<T>>::End()) {
       // Pop from parent's iterator.
       ARROW_RETURN_NOT_OK(parent_.Next(&child_));
       // Check if final iteration reached.
-      done_ = (child_ == IteratorEnd<Iterator<T>>());
+      done_ = (child_ == IterationTraits<Iterator<T>>::End());
       return Next(out);
     }
 
     // Pop from child_ and lookout for depletion.
     ARROW_RETURN_NOT_OK(child_.Next(out));
-    if (*out == IteratorEnd<T>()) {
+    if (*out == IterationTraits<T>::End()) {
       // Reset state such that we pop from parent on the recursive call
-      child_ = IteratorEnd<Iterator<T>>();
+      child_ = IterationTraits<Iterator<T>>::End();
       return Next(out);
     }
 
@@ -297,7 +294,7 @@ class FlattenIterator {
 
  private:
   Iterator<Iterator<T>> parent_;
-  Iterator<T> child_ = IteratorEnd<Iterator<T>>();
+  Iterator<T> child_ = IterationTraits<Iterator<T>>::End();
   // The usage of done_ could be avoided by setting parent_ to null, but this
   // would hamper debugging.
   bool done_ = false;
