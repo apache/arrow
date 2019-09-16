@@ -117,8 +117,8 @@ class ConstantFlightServer(FlightServer):
     does not properly hold a reference to the Table object.
     """
 
-    def __init__(self, *args, **kwargs):
-        super(ConstantFlightServer, self).__init__(*args, **kwargs)
+    def __init__(self, location=None, **kwargs):
+        super(ConstantFlightServer, self).__init__(location, **kwargs)
         # Ticket -> Table
         self.table_factories = {
             b'ints': simple_ints_table,
@@ -253,8 +253,8 @@ class ListActionsErrorFlightServer(FlightServer):
 class CheckTicketFlightServer(FlightServer):
     """A Flight server that compares the given ticket to an expected value."""
 
-    def __init__(self, *args, expected_ticket, **kwargs):
-        super(CheckTicketFlightServer, self).__init__(*args, **kwargs)
+    def __init__(self, expected_ticket, location=None, **kwargs):
+        super(CheckTicketFlightServer, self).__init__(location, **kwargs)
         self.expected_ticket = expected_ticket
 
     def do_get(self, context, ticket):
@@ -302,13 +302,6 @@ class SlowFlightServer(FlightServer):
         # cancel before we send this
         time.sleep(10)
         yield pa.Table.from_arrays(data1, names=['a'])
-
-
-class SlowStartingFlightServer(FlightServer):
-
-    def run(self):
-        # delay the startup
-        threading.Timer(5, super().run).start()
 
 
 class SlowStoppingFlightServer(FlightServer):
@@ -437,41 +430,31 @@ def test_flight_server_instantiation():
         assert isinstance(server.location, flight.Location)
 
 
-@pytest.mark.slow
-def test_server_shutdown_timeout():
-    started = time.time()
-    with SlowStoppingFlightServer():
-        pass
-    elapsed = time.time() - started
-    assert elapsed >= 0.2
-
-    started = time.time()
-    with pytest.raises(TimeoutError):
-        with SlowStoppingFlightServer(shutdown_timeout=0.1):
-            pass
-    elapsed = time.time() - started
-    assert 0.05 <= elapsed <= 0.2
-
-
 def test_server_exit_reraises_exception():
     with pytest.raises(ValueError):
         with FlightServer():
             raise ValueError()
 
 
-# @pytest.mark.slow
-# def test_client_wait_for_available():
-#     started = time.time()
-#     with SlowStartingFlightServer() as server:
-#         FlightClient(server.location)
-#     elapsed = time.time() - started
-#     assert elapsed >= 0.2
-#
-#     started = time.time()
-#     with SlowStartingFlightServer() as server:
-#         FlightClient(server.location, wait_for_available=False)
-#     elapsed = time.time() - started
-#     assert elapsed < 0.2
+@pytest.mark.slow
+def test_client_wait_for_available():
+    location = ('localhost', _find_free_port())
+    server = None
+
+    def serve():
+        global server
+        time.sleep(0.2)
+        server = FlightServer(location)
+        server.serve()
+
+    client = FlightClient(location, wait_for_available=False)
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+
+    started = time.time()
+    client.wait_for_available(timeout=0.5)
+    elapsed = time.time() - started
+    assert elapsed >= 0.2
 
 
 def test_flight_do_get_ints():

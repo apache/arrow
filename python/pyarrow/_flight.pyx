@@ -897,7 +897,7 @@ cdef class FlightClient:
             try:
                 list(self.list_flights())
             except Exception as e:
-                if 'Connect Failed' in str(e):
+                if 'failed to connect' in str(e):
                     if time.time() < deadline:
                         time.sleep(0.025)
                         continue
@@ -1776,7 +1776,7 @@ cdef class FlightServer:
     def do_action(self, context, action):
         raise NotImplementedError
 
-    def run(self):
+    def serve(self):
         """
         Start serving.  This method only returns if shutdown() is called
         or a signal a received.
