@@ -38,6 +38,21 @@
 #include <mimalloc.h>
 #endif
 
+#ifdef ARROW_JEMALLOC
+
+// Compile-time configuration for jemalloc options.
+// Note the prefix ("je_arrow_") must match the symbol prefix given when
+// building jemalloc.
+// See discussion in https://github.com/jemalloc/jemalloc/issues/1621
+
+#ifdef NDEBUG
+const char* je_arrow_malloc_conf = "oversize_threshold:0";
+#else
+// In debug mode, add memory poisoning on alloc / free
+const char* je_arrow_malloc_conf = "oversize_threshold:0,junk:true";
+#endif
+#endif
+
 namespace arrow {
 
 constexpr size_t kAlignment = 64;
