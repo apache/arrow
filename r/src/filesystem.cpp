@@ -76,4 +76,23 @@ void fs___FileStats__set_mtime(const std::shared_ptr<arrow::fs::FileStats>& x, S
   x->set_mtime(arrow::fs::TimePoint(secs));
 }
 
+
+// Selector
+
+// [[arrow::export]]
+std::string fs___Selector__base_dir(const std::shared_ptr<arrow::fs::Selector>& selector) {
+  return selector->base_dir;
+}
+
+// [[arrow::export]]
+bool fs___Selector__allow_non_existent(const std::shared_ptr<arrow::fs::Selector>& selector) {
+  return selector->allow_non_existent;
+}
+
+// [[arrow::export]]
+bool fs___Selector__recursive(const std::shared_ptr<arrow::fs::Selector>& selector) {
+  return selector->recursive;
+}
+
+
 #endif

@@ -2233,6 +2233,51 @@ RcppExport SEXP _arrow_fs___FileStats__set_mtime(SEXP x_sexp, SEXP time_sexp){
 }
 #endif
 
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string fs___Selector__base_dir(const std::shared_ptr<arrow::fs::Selector>& selector);
+RcppExport SEXP _arrow_fs___Selector__base_dir(SEXP selector_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::Selector>&>::type selector(selector_sexp);
+	return Rcpp::wrap(fs___Selector__base_dir(selector));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___Selector__base_dir(SEXP selector_sexp){
+	Rf_error("Cannot call fs___Selector__base_dir(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool fs___Selector__allow_non_existent(const std::shared_ptr<arrow::fs::Selector>& selector);
+RcppExport SEXP _arrow_fs___Selector__allow_non_existent(SEXP selector_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::Selector>&>::type selector(selector_sexp);
+	return Rcpp::wrap(fs___Selector__allow_non_existent(selector));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___Selector__allow_non_existent(SEXP selector_sexp){
+	Rf_error("Cannot call fs___Selector__allow_non_existent(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool fs___Selector__recursive(const std::shared_ptr<arrow::fs::Selector>& selector);
+RcppExport SEXP _arrow_fs___Selector__recursive(SEXP selector_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::Selector>&>::type selector(selector_sexp);
+	return Rcpp::wrap(fs___Selector__recursive(selector));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___Selector__recursive(SEXP selector_sexp){
+	Rf_error("Cannot call fs___Selector__recursive(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Buffer> io___Readable__Read(const std::shared_ptr<arrow::io::Readable>& x, int64_t nbytes);
@@ -4003,6 +4048,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___FileStats__extension", (DL_FUNC) &_arrow_fs___FileStats__extension, 1}, 
 		{ "_arrow_fs___FileStats__mtime", (DL_FUNC) &_arrow_fs___FileStats__mtime, 1}, 
 		{ "_arrow_fs___FileStats__set_mtime", (DL_FUNC) &_arrow_fs___FileStats__set_mtime, 2}, 
+		{ "_arrow_fs___Selector__base_dir", (DL_FUNC) &_arrow_fs___Selector__base_dir, 1}, 
+		{ "_arrow_fs___Selector__allow_non_existent", (DL_FUNC) &_arrow_fs___Selector__allow_non_existent, 1}, 
+		{ "_arrow_fs___Selector__recursive", (DL_FUNC) &_arrow_fs___Selector__recursive, 1}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
 		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1}, 
 		{ "_arrow_io___OutputStream__Close", (DL_FUNC) &_arrow_io___OutputStream__Close, 1}, 

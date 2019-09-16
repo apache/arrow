@@ -63,3 +63,23 @@ FileStats <- R6Class("FileStats",
     }
   )
 )
+
+#' @title Selector class
+#' @description EXPERIMENTAL: file selector
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @rdname Selector
+#' @name Selector
+#' @export
+Selector <- R6Class("Selector",
+  inherit = Object,
+  active = list(
+    base_dir = function() fs___Selector__base_dir(self),
+    allow_non_existent = function() fs___Selector__allow_non_existent(self),
+    recursive = function() fs___Selector__recursive(self)
+  )
+)
+

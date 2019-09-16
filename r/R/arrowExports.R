@@ -580,6 +580,18 @@ fs___FileStats__set_mtime <- function(x, time){
     invisible(.Call(`_arrow_fs___FileStats__set_mtime` , x, time))
 }
 
+fs___Selector__base_dir <- function(selector){
+    .Call(`_arrow_fs___Selector__base_dir` , selector)
+}
+
+fs___Selector__allow_non_existent <- function(selector){
+    .Call(`_arrow_fs___Selector__allow_non_existent` , selector)
+}
+
+fs___Selector__recursive <- function(selector){
+    .Call(`_arrow_fs___Selector__recursive` , selector)
+}
+
 io___Readable__Read <- function(x, nbytes){
     .Call(`_arrow_io___Readable__Read` , x, nbytes)
 }
