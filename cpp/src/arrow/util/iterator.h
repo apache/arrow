@@ -138,8 +138,8 @@ class PointerIterator {
 /// to invoke its Next function
 template <typename Ptr,
           typename Pointed = typename std::decay<decltype(*std::declval<Ptr>())>::type,
-          typename T = typename decltype(
-              internal::member_function_argument_type<0>(&Pointed::Next))::type>
+          typename T = typename std::remove_pointer<typename decltype(
+              internal::member_function_argument_type<0>(&Pointed::Next))::type>::type>
 Iterator<T> MakePointerIterator(Ptr ptr) {
   return Iterator<T>(PointerIterator<Ptr, T>(std::move(ptr)));
 }
