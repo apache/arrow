@@ -205,15 +205,27 @@ CudaBufferReader::CudaBufferReader(const std::shared_ptr<Buffer>& buffer)
 
 CudaBufferReader::~CudaBufferReader() {}
 
-Status CudaBufferReader::Read(int64_t nbytes, int64_t* bytes_read, void* buffer) {
-  nbytes = std::min(nbytes, size_ - position_);
+Status CudaBufferReader::DoReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                                  void* buffer) {
+  nbytes = std::min(nbytes, size_ - position);
   *bytes_read = nbytes;
-  RETURN_NOT_OK(context_->CopyDeviceToHost(buffer, data_ + position_, nbytes));
-  position_ += nbytes;
+  return context_->CopyDeviceToHost(buffer, data_ + position, nbytes);
+}
+
+Status CudaBufferReader::DoRead(int64_t nbytes, int64_t* bytes_read, void* buffer) {
+  RETURN_NOT_OK(DoReadAt(position_, nbytes, bytes_read, buffer));
+  position_ += *bytes_read;
   return Status::OK();
 }
 
-Status CudaBufferReader::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+Status CudaBufferReader::DoReadAt(int64_t position, int64_t nbytes,
+                                  std::shared_ptr<Buffer>* out) {
+  int64_t size = std::min(nbytes, size_ - position);
+  *out = std::make_shared<CudaBuffer>(cuda_buffer_, position, size);
+  return Status::OK();
+}
+
+Status CudaBufferReader::DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out) {
   int64_t size = std::min(nbytes, size_ - position_);
   *out = std::make_shared<CudaBuffer>(cuda_buffer_, position_, size);
   position_ += size;

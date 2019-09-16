@@ -44,6 +44,17 @@
 #include "arrow/util/io_util.h"
 
 namespace arrow {
+
+using internal::CreatePipe;
+using internal::FileClose;
+using internal::FileGetSize;
+using internal::FileNameFromString;
+using internal::FileOpenReadable;
+using internal::FileOpenWritable;
+using internal::FileRead;
+using internal::FileSeek;
+using internal::PlatformFilename;
+
 namespace io {
 
 class FileTestFixture : public ::testing::Test {
@@ -75,16 +86,14 @@ class TestFileOutputStream : public FileTestFixture {
     ASSERT_OK(FileOutputStream::Open(path_, append, &stream_));
   }
   void OpenFileDescriptor() {
-    internal::PlatformFilename file_name;
-    ASSERT_OK(internal::FileNameFromString(path_, &file_name));
+    PlatformFilename file_name;
+    ASSERT_OK(FileNameFromString(path_, &file_name));
     int fd_file, fd_stream;
-    ASSERT_OK(internal::FileOpenWritable(file_name, true /* write_only */,
-                                         false /* truncate */, false /* append */,
-                                         &fd_file));
+    ASSERT_OK(FileOpenWritable(file_name, true /* write_only */, false /* truncate */,
+                               false /* append */, &fd_file));
     ASSERT_OK(FileOutputStream::Open(fd_file, &file_));
-    ASSERT_OK(internal::FileOpenWritable(file_name, true /* write_only */,
-                                         false /* truncate */, false /* append */,
-                                         &fd_stream));
+    ASSERT_OK(FileOpenWritable(file_name, true /* write_only */, false /* truncate */,
+                               false /* append */, &fd_stream));
     ASSERT_OK(FileOutputStream::Open(fd_stream, &stream_));
   }
 
@@ -180,11 +189,11 @@ TEST_F(TestFileOutputStream, FromFileDescriptor) {
   AssertFileContents(path_, data1);
 
   // Re-open at end of file
-  internal::PlatformFilename file_name;
-  ASSERT_OK(internal::FileNameFromString(path_, &file_name));
-  ASSERT_OK(internal::FileOpenWritable(file_name, true /* write_only */,
-                                       false /* truncate */, false /* append */, &fd));
-  ASSERT_OK(internal::FileSeek(fd, 0, SEEK_END));
+  PlatformFilename file_name;
+  ASSERT_OK(FileNameFromString(path_, &file_name));
+  ASSERT_OK(FileOpenWritable(file_name, true /* write_only */, false /* truncate */,
+                             false /* append */, &fd));
+  ASSERT_OK(FileSeek(fd, 0, SEEK_END));
   ASSERT_OK(FileOutputStream::Open(fd, &stream_));
 
   std::string data2 = "data";
@@ -328,12 +337,12 @@ TEST_F(TestReadableFile, Close) {
 TEST_F(TestReadableFile, FromFileDescriptor) {
   MakeTestFile();
 
-  internal::PlatformFilename file_name;
+  PlatformFilename file_name;
   int fd = -2;
-  ASSERT_OK(internal::FileNameFromString(path_, &file_name));
-  ASSERT_OK(internal::FileOpenReadable(file_name, &fd));
+  ASSERT_OK(FileNameFromString(path_, &file_name));
+  ASSERT_OK(FileOpenReadable(file_name, &fd));
   ASSERT_GE(fd, 0);
-  ASSERT_OK(internal::FileSeek(fd, 4));
+  ASSERT_OK(FileSeek(fd, 4));
 
   ASSERT_OK(ReadableFile::Open(fd, &file_));
   ASSERT_EQ(file_->file_descriptor(), fd);
@@ -558,7 +567,7 @@ class TestPipeIO : public ::testing::Test {
  public:
   void MakePipe() {
     int fd[2];
-    ASSERT_OK(internal::CreatePipe(fd));
+    ASSERT_OK(CreatePipe(fd));
     r_ = fd[0];
     w_ = fd[1];
     ASSERT_GE(r_, 0);
@@ -566,11 +575,11 @@ class TestPipeIO : public ::testing::Test {
   }
   void ClosePipe() {
     if (r_ != -1) {
-      ASSERT_OK(internal::FileClose(r_));
+      ASSERT_OK(FileClose(r_));
       r_ = -1;
     }
     if (w_ != -1) {
-      ASSERT_OK(internal::FileClose(w_));
+      ASSERT_OK(FileClose(w_));
       w_ = -1;
     }
   }
@@ -591,23 +600,23 @@ TEST_F(TestPipeIO, TestWrite) {
   w_ = -1;  // now owned by FileOutputStream
 
   ASSERT_OK(file->Write(data1.data(), data1.size()));
-  ASSERT_OK(internal::FileRead(r_, buffer, 4, &bytes_read));
+  ASSERT_OK(FileRead(r_, buffer, 4, &bytes_read));
   ASSERT_EQ(bytes_read, 4);
   ASSERT_EQ(0, std::memcmp(buffer, "test", 4));
 
   ASSERT_OK(file->Write(data2.data(), data2.size()));
-  ASSERT_OK(internal::FileRead(r_, buffer, 4, &bytes_read));
+  ASSERT_OK(FileRead(r_, buffer, 4, &bytes_read));
   ASSERT_EQ(bytes_read, 4);
   ASSERT_EQ(0, std::memcmp(buffer, "data", 4));
 
   ASSERT_FALSE(file->closed());
   ASSERT_OK(file->Close());
   ASSERT_TRUE(file->closed());
-  ASSERT_OK(internal::FileRead(r_, buffer, 2, &bytes_read));
+  ASSERT_OK(FileRead(r_, buffer, 2, &bytes_read));
   ASSERT_EQ(bytes_read, 1);
   ASSERT_EQ(0, std::memcmp(buffer, "!", 1));
   // EOF reached
-  ASSERT_OK(internal::FileRead(r_, buffer, 2, &bytes_read));
+  ASSERT_OK(FileRead(r_, buffer, 2, &bytes_read));
   ASSERT_EQ(bytes_read, 0);
 }
 
@@ -792,7 +801,7 @@ TEST_F(TestMemoryMappedFile, ResizeRaisesOnExported) {
   ASSERT_EQ(map_size, 2 * buffer_size);
 
   int64_t file_size;
-  ASSERT_OK(internal::FileGetSize(result->file_descriptor(), &file_size));
+  ASSERT_OK(FileGetSize(result->file_descriptor(), &file_size));
   ASSERT_EQ(file_size, buffer_size * 2);
 }
 
@@ -838,7 +847,7 @@ TEST_F(TestMemoryMappedFile, WriteThenShrink) {
   ASSERT_EQ(map_size, buffer_size / 2);
 
   int64_t file_size;
-  ASSERT_OK(internal::FileGetSize(result->file_descriptor(), &file_size));
+  ASSERT_OK(FileGetSize(result->file_descriptor(), &file_size));
   ASSERT_EQ(file_size, buffer_size / 2);
 }
 
@@ -875,7 +884,7 @@ TEST_F(TestMemoryMappedFile, WriteThenShrinkToHalfThenWrite) {
   ASSERT_EQ(map_size, buffer_size);
 
   int64_t file_size;
-  ASSERT_OK(internal::FileGetSize(result->file_descriptor(), &file_size));
+  ASSERT_OK(FileGetSize(result->file_descriptor(), &file_size));
   ASSERT_EQ(file_size, buffer_size);
 }
 
@@ -905,7 +914,7 @@ TEST_F(TestMemoryMappedFile, ResizeToZeroThanWrite) {
   ASSERT_EQ(position, 0);
 
   int64_t file_size;
-  ASSERT_OK(internal::FileGetSize(result->file_descriptor(), &file_size));
+  ASSERT_OK(FileGetSize(result->file_descriptor(), &file_size));
   ASSERT_EQ(file_size, 0);
 
   // provision a vector to the buffer size in case ReadAt decides
