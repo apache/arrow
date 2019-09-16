@@ -1818,7 +1818,12 @@ cdef class FlightServer:
         self.wait()
 
 
-FlightServerBase = FlightServer
+class FlightServerBase(FlightServer):
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn("The 'FlightServerBase' class is deprecated, use "
+                      "FlightServer instead.")
+        super().__init__(**args, **kwargs)
 
 
 def connect(location, tls_root_certs=None, override_hostname=None):

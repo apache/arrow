@@ -473,7 +473,7 @@ def test_do_get_ints_pandas():
     table = simple_ints_table()
 
     with ConstantFlightServer() as server:
-        client = flight.FlightClient.connect(server.location)
+        client = flight.connect(server.location)
         data = client.do_get(flight.Ticket(b'ints')).read_pandas()
         assert list(data['some_ints']) == table.column(0).to_pylist()
 
@@ -482,7 +482,7 @@ def test_flight_do_get_dicts():
     table = simple_dicts_table()
 
     with ConstantFlightServer() as server:
-        client = flight.FlightClient.connect(server.location)
+        client = flight.connect(server.location)
         data = client.do_get(flight.Ticket(b'dicts')).read_all()
         assert data.equals(table)
 
@@ -492,7 +492,7 @@ def test_flight_do_get_ticket():
     data1 = [pa.array([-10, -5, 0, 5, 10], type=pa.int32())]
     table = pa.Table.from_arrays(data1, names=['a'])
     with CheckTicketFlightServer(expected_ticket=b'the-ticket') as server:
-        client = flight.FlightClient.connect(server.location)
+        client = flight.connect(server.location)
         data = client.do_get(flight.Ticket(b'the-ticket')).read_all()
         assert data.equals(table)
 
