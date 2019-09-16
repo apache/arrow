@@ -1782,6 +1782,20 @@ class TestConvertListTypes(object):
 
         tm.assert_frame_equal(result, df)
 
+    def test_empty_column_of_lists_chunked(self):
+        df = pd.DataFrame({
+            'lists': np.array([], dtype=object)
+        })
+
+        schema = pa.schema([
+            pa.field('lists', pa.list_(pa.int64()))
+        ])
+
+        table = pa.Table.from_pandas(df, schema=schema)
+        result = table.to_pandas()
+
+        tm.assert_frame_equal(result, df)
+
     def test_column_of_lists_chunked2(self):
         data1 = [[0, 1], [2, 3], [4, 5], [6, 7], [10, 11],
                  [12, 13], [14, 15], [16, 17]]
