@@ -172,8 +172,8 @@ class MetadataFlightServer(FlightServer):
 class EchoFlightServer(FlightServer):
     """A Flight server that returns the last data uploaded."""
 
-    def __init__(self, *args, expected_schema=None, **kwargs):
-        super(EchoFlightServer, self).__init__(*args, **kwargs)
+    def __init__(self, location=None, expected_schema=None, **kwargs):
+        super(EchoFlightServer, self).__init__(location, **kwargs)
         self.last_message = None
         self.expected_schema = expected_schema
 
