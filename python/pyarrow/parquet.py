@@ -124,8 +124,9 @@ class ParquetFile(object):
     memory_map : boolean, default True
         If the source is a file path, use a memory map to read file, which can
         improve performance in some environments
-    enable_buffered_stream : int, default 0
-        The size of the temporary read buffer.
+    buffer_size : int, default 0
+        If positive, perform read buffering when deserializing individual
+        column chunks. Otherwise IO calls are unbuffered.
     """
     def __init__(self, source, metadata=None, common_metadata=None,
                  read_dictionary=None, memory_map=True, buffer_size=0):
@@ -935,8 +936,8 @@ memory_map : boolean, default True
     If the source is a file path, use a memory map to read file, which can
     improve performance in some environments
 buffer_size : int, default 0
-    If 0 then no buffering will happen, othersize the temporary read
-    buffer"""
+    If positive, perform read buffering when deserializing individual
+    column chunks. Otherwise IO calls are unbuffered."""
 
 
 class ParquetDataset(object):
@@ -986,7 +987,7 @@ metadata_nthreads: int, default 1
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
                  filters=None, metadata_nthreads=1, read_dictionary=None,
-                 memory_map=True, buffer_size=False):
+                 memory_map=True, buffer_size=0):
         a_path = path_or_paths
         if isinstance(a_path, list):
             a_path = a_path[0]
@@ -1231,7 +1232,7 @@ Returns
 def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=True,
                read_dictionary=None, filesystem=None, filters=None,
-               buffer_size=False):
+               buffer_size=0):
     if _is_path_like(source):
         pf = ParquetDataset(source, metadata=metadata, memory_map=memory_map,
                             read_dictionary=read_dictionary,
@@ -1257,7 +1258,7 @@ read_table.__doc__ = _read_table_docstring.format(
 
 
 def read_pandas(source, columns=None, use_threads=True, memory_map=True,
-                metadata=None, filters=None, buffer_size=False):
+                metadata=None, filters=None, buffer_size=0):
     return read_table(
         source,
         columns=columns,
