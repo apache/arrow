@@ -126,6 +126,9 @@ class RleDecoder {
   int GetBatchWithDict(const T* dictionary, T* values, int batch_size);
 
   /// Like GetBatchWithDict but add spacing for null entries
+  ///
+  /// Null entries will be zero-initialized in `values` to avoid leaking
+  /// private data.
   template <typename T>
   int GetBatchWithDictSpaced(const T* dictionary, T* values, int batch_size,
                              int null_count, const uint8_t* valid_bits,
@@ -433,6 +436,8 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary, T* out, int b
   DCHECK_GE(bit_width_, 0);
   int values_read = 0;
   int remaining_nulls = null_count;
+  T zero;
+  memset(&zero, 0, sizeof(T));
 
   arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, batch_size);
 
@@ -484,6 +489,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary, T* out, int b
             *out = dictionary[indices[literals_read]];
             literals_read++;
           } else {
+            *out = zero;
             skipped++;
           }
           ++out;
@@ -494,6 +500,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary, T* out, int b
         remaining_nulls -= skipped;
       }
     } else {
+      *out = zero;
       ++out;
       values_read++;
       remaining_nulls--;
