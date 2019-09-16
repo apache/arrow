@@ -991,7 +991,7 @@ cdef class ParquetReader:
 
     def open(self, object source, bint use_memory_map=True,
              read_dictionary=None, FileMetaData metadata=None,
-             bint enable_buffered_stream=False):
+             int buffer_size=0):
         cdef:
             shared_ptr[RandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
@@ -1004,10 +1004,13 @@ cdef class ParquetReader:
         if metadata is not None:
             c_metadata = metadata.sp_metadata
 
-        if enable_buffered_stream:
+        if buffer_size > 0:
             properties.enable_buffered_stream()
-        else:
+            properties.set_buffer_size(buffer_size)
+        elif buffer_size == 0:
             properties.disable_buffered_stream()
+        else:
+            raise ValueError('Buffer size must be larger than zero')
 
         self.source = source
 

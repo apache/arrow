@@ -124,15 +124,14 @@ class ParquetFile(object):
     memory_map : boolean, default True
         If the source is a file path, use a memory map to read file, which can
         improve performance in some environments
-    enable_buffered_stream : boolean, default False
-        Enable stream buffering.
+    enable_buffered_stream : int, default 0
+        The size of the temporary read buffer.
     """
     def __init__(self, source, metadata=None, common_metadata=None,
-                 read_dictionary=None, memory_map=True,
-                 enable_buffered_stream=False):
+                 read_dictionary=None, memory_map=True, buffer_size=0):
         self.reader = ParquetReader()
         self.reader.open(source, use_memory_map=memory_map,
-                         enable_buffered_stream=enable_buffered_stream,
+                         buffer_size=buffer_size,
                          read_dictionary=read_dictionary, metadata=metadata)
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
@@ -920,7 +919,7 @@ def _open_dataset_file(dataset, path, meta=None):
         memory_map=dataset.memory_map,
         read_dictionary=dataset.read_dictionary,
         common_metadata=dataset.common_metadata,
-        enable_buffered_stream=dataset.enable_buffered_stream
+        buffer_size=dataset.buffer_size
     )
 
 
@@ -935,8 +934,9 @@ read_dictionary : list, default None
 memory_map : boolean, default True
     If the source is a file path, use a memory map to read file, which can
     improve performance in some environments
-enable_buffered_stream : boolean, default False
-    Enable stream buffering."""
+buffer_size : int, default 0
+    If 0 then no buffering will happen, othersize the temporary read
+    buffer"""
 
 
 class ParquetDataset(object):
@@ -986,7 +986,7 @@ metadata_nthreads: int, default 1
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
                  filters=None, metadata_nthreads=1, read_dictionary=None,
-                 memory_map=True, enable_buffered_stream=False):
+                 memory_map=True, buffer_size=False):
         a_path = path_or_paths
         if isinstance(a_path, list):
             a_path = a_path[0]
@@ -999,7 +999,7 @@ metadata_nthreads: int, default 1
 
         self.read_dictionary = read_dictionary
         self.memory_map = memory_map
-        self.enable_buffered_stream = enable_buffered_stream
+        self.buffer_size = buffer_size
 
         (self.pieces,
          self.partitions,
@@ -1043,7 +1043,7 @@ metadata_nthreads: int, default 1
         for prop in ('paths', 'memory_map', 'pieces', 'partitions',
                      'common_metadata_path', 'metadata_path',
                      'common_metadata', 'metadata', 'schema',
-                     'enable_buffered_stream', 'split_row_groups'):
+                     'buffer_size', 'split_row_groups'):
             if getattr(self, prop) != getattr(other, prop):
                 return False
 
@@ -1231,17 +1231,17 @@ Returns
 def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=True,
                read_dictionary=None, filesystem=None, filters=None,
-               enable_buffered_stream=False):
+               buffer_size=False):
     if _is_path_like(source):
         pf = ParquetDataset(source, metadata=metadata, memory_map=memory_map,
                             read_dictionary=read_dictionary,
-                            enable_buffered_stream=enable_buffered_stream,
+                            buffer_size=buffer_size,
                             filesystem=filesystem, filters=filters)
     else:
         pf = ParquetFile(source, metadata=metadata,
                          read_dictionary=read_dictionary,
                          memory_map=memory_map,
-                         enable_buffered_stream=enable_buffered_stream)
+                         buffer_size=buffer_size)
     return pf.read(columns=columns, use_threads=use_threads,
                    use_pandas_metadata=use_pandas_metadata)
 
@@ -1257,7 +1257,7 @@ read_table.__doc__ = _read_table_docstring.format(
 
 
 def read_pandas(source, columns=None, use_threads=True, memory_map=True,
-                metadata=None, filters=None, enable_buffered_stream=False):
+                metadata=None, filters=None, buffer_size=False):
     return read_table(
         source,
         columns=columns,
@@ -1265,7 +1265,7 @@ def read_pandas(source, columns=None, use_threads=True, memory_map=True,
         metadata=metadata,
         filters=filters,
         memory_map=memory_map,
-        enable_buffered_stream=enable_buffered_stream,
+        buffer_size=buffer_size,
         use_pandas_metadata=True,
     )
 

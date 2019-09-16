@@ -325,6 +325,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
     cdef cppclass CReaderProperties" parquet::ReaderProperties":
         void enable_buffered_stream()
         void disable_buffered_stream()
+        void set_buffer_size(int64_t buf_size)
+        int64_t buffer_size() const
 
     CReaderProperties default_reader_properties()
 
