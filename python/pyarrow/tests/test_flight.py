@@ -104,7 +104,8 @@ def simple_dicts_table():
     data = [
         pa.chunked_array([
             pa.DictionaryArray.from_arrays([1, 0, None], dict_values),
-            pa.DictionaryArray.from_arrays([2, 1], dict_values)]),
+            pa.DictionaryArray.from_arrays([2, 1], dict_values)
+        ])
     ]
     return pa.Table.from_arrays(data, names=['some_dicts'])
 

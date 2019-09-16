@@ -1685,14 +1685,12 @@ cdef class FlightServer:
 
     cdef:
         unique_ptr[PyFlightServer] server
-        object _server_thread
-        float _shutdown_timeout
 
     cdef readonly:
         Location location
 
     def __init__(self, location=None, auth_handler=None,
-                 tls_certificates=None, float shutdown_timeout=3):
+                 tls_certificates=None):
         if isinstance(location, six.string_types):
             location = Location(location)
         elif isinstance(location, (tuple, type(None))):
@@ -1708,7 +1706,6 @@ cdef class FlightServer:
                             'Location instance')
         self.init(location, auth_handler, tls_certificates)
         self.location = location
-        self._shutdown_timeout = shutdown_timeout
 
     cdef init(self, Location location, ServerAuthHandler auth_handler,
               list tls_certificates):
@@ -1808,27 +1805,17 @@ cdef class FlightServer:
         with nogil:
             check_flight_status(self.server.get().Shutdown())
 
+    def wait(self):
+        """Block until server is terminated with shutdown."""
+        with nogil:
+            self.server.get().Wait()
+
     def __enter__(self):
-        self._server_thread = threading.Thread(target=self.run, daemon=True)
-        self._server_thread.start()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        def thread_is_alive():
-            if six.PY2:
-                return self._server_thread.isAlive()
-            else:
-                return self._server_thread.is_alive()
-
         self.shutdown()
-        self._server_thread.join(self._shutdown_timeout)
-
-        if thread_is_alive():
-            raise TimeoutError(
-                "Server's thread is still alive after {} seconds".format(
-                    self._shutdown_timeout
-                )
-            )
+        self.wait()
 
 
 FlightServerBase = FlightServer

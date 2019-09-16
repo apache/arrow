@@ -622,6 +622,12 @@ Status FlightServerBase::Shutdown() {
   return Status::OK();
 }
 
+Status FlightServerBase::Wait() {
+  impl_->server_->Wait();
+  impl_->running_instance_ = nullptr;
+  return Status::OK();
+}
+
 Status FlightServerBase::ListFlights(const ServerCallContext& context,
                                      const Criteria* criteria,
                                      std::unique_ptr<FlightListing>* listings) {
