@@ -351,8 +351,7 @@ TEST_F(TestProjector, TestMonthsBetween) {
   std::shared_ptr<Projector> projector;
   auto status =
       Projector::Make(schema, {months_between_expr}, TestConfiguration(), &projector);
-  std::cout << status.message();
-  ASSERT_TRUE(status.ok());
+  ASSERT_TRUE(status.ok()) << status.message();
 
   time_t epoch = Epoch();
 
