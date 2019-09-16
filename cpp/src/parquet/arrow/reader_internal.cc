@@ -738,7 +738,13 @@ Status TransferInt96(RecordReader* reader, MemoryPool* pool,
   RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * sizeof(int64_t), &data));
   auto data_ptr = reinterpret_cast<int64_t*>(data->mutable_data());
   for (int64_t i = 0; i < length; i++) {
-    *data_ptr++ = Int96GetNanoSeconds(values[i]);
+    if (values[i].value[2] == 0) {
+      // Happens for null entries: avoid triggering UBSAN as that Int96 timestamp
+      // isn't representable as a 64-bit Unix timestamp.
+      *data_ptr++ = 0;
+    } else {
+      *data_ptr++ = Int96GetNanoSeconds(values[i]);
+    }
   }
   *out = std::make_shared<TimestampArray>(type, length, data, reader->ReleaseIsValid(),
                                           reader->null_count());
