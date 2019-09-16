@@ -33,7 +33,7 @@ template <typename T>
 class Iterator;
 
 /// \brief IteratorEnd returns a reserved value which indicates the end of iteration. By
-/// default this is NULLPTR since most iterators yield pointer types. Specialize/overload
+/// default this is NULLPTR since most iterators yield pointer types. Overload
 /// if different end semantics are required.
 template <typename T>
 static T IteratorEnd(internal::type_constant<T>) {
@@ -50,11 +50,11 @@ static T IteratorEnd() {
 template <typename T>
 class Iterator {
  public:
-  /// \brief Iterator may be constructed from any type which has member function
-  /// Status HasNext::Next(T*);
-  template <typename HasNext>
-  explicit Iterator(HasNext has_next)
-      : ptr_(new HasNext(std::move(has_next)), Delete<HasNext>), next_(Next<HasNext>) {}
+  /// \brief Iterator may be constructed from any type which has a member function
+  /// with signature Status Next(T*);
+  template <typename Wrapped>
+  explicit Iterator(Wrapped has_next)
+      : ptr_(new Wrapped(std::move(has_next)), Delete<Wrapped>), next_(Next<Wrapped>) {}
 
   Iterator() : ptr_(NULLPTR, NoopDelete) {}
 
@@ -82,28 +82,41 @@ class Iterator {
     return status;
   }
 
+  /// Iterators will only compare equal if they are both null
   bool operator==(const Iterator& other) const { return ptr_ == other.ptr_; }
 
-  explicit operator bool() const { return ptr_ == NULLPTR; }
+  explicit operator bool() const { return ptr_ != NULLPTR; }
 
  private:
+  /// Implementation of deleter for ptr_: Casts from void* to the wrapped type and
+  /// deletes that.
   template <typename HasNext>
   static void Delete(void* ptr) {
     delete static_cast<HasNext*>(ptr);
   }
 
+  /// Noop delete, used only by the default constructed case where ptr_ is null and
+  /// nothing must be deleted.
   static void NoopDelete(void*) {}
 
+  /// Implementation of Next: Casts from void* to the wrapped type and invokes that
+  /// type's Next member function.
   template <typename HasNext>
   static Status Next(void* ptr, T* out) {
     return static_cast<HasNext*>(ptr)->Next(out);
   }
 
+  /// ptr_ is a unique_ptr to void with a custom deleter: a function pointer which first
+  /// casts from void* to a pointer to the wrapped type then deletes that.
   std::unique_ptr<void, void (*)(void*)> ptr_;
+
+  /// next_ is a function pointer which first casts from void* to a pointer to the wrapped
+  /// type then invokes its Next member function.
   Status (*next_)(void*, T*) = NULLPTR;
 
   friend Iterator IteratorEnd(internal::type_constant<Iterator>) {
-    // end condition for an Iterator of Iterators is a default constructed (null) iterator
+    // The end condition for an Iterator of Iterators is a default constructed (null)
+    // Iterator.
     return Iterator();
   }
 };
@@ -123,9 +136,8 @@ class PointerIterator {
 /// to invoke its Next function
 template <typename Ptr,
           typename Pointed = typename std::decay<decltype(*std::declval<Ptr>())>::type,
-          typename Fn = decltype(std::mem_fun(&Pointed::Next)),
-          typename T = typename std::remove_pointer<
-              internal::call_traits::argument_type<1, Fn>>::type>
+          typename T = typename decltype(
+              internal::member_function_argument_type<0>(&Pointed::Next))::type>
 Iterator<T> MakePointerIterator(Ptr ptr) {
   return Iterator<T>(PointerIterator<Ptr, T>(std::move(ptr)));
 }
@@ -149,10 +161,10 @@ Iterator<T> MakeFunctionIterator(Fn fn) {
 }
 
 template <typename T>
-Iterator<T> MakeEmptyIterator(Status s = Status::OK()) {
-  return MakeFunctionIterator([s](T* out) {
+Iterator<T> MakeEmptyIterator() {
+  return MakeFunctionIterator([](T* out) {
     *out = IteratorEnd<T>();
-    return s;
+    return Status::OK();
   });
 }
 
