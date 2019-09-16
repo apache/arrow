@@ -198,9 +198,9 @@ function assembleFlatListVector<T extends Utf8 | Binary>(this: VectorAssembler, 
 }
 
 /** @ignore */
-function assembleListVector<T extends List | FixedSizeList>(this: VectorAssembler, vector: V<T>) {
+function assembleListVector<T extends Map_ | List | FixedSizeList>(this: VectorAssembler, vector: V<T>) {
     const { length, valueOffsets } = vector;
-    // If we have valueOffsets (ListVector), push that buffer first
+    // If we have valueOffsets (MapVector, ListVector), push that buffer first
     if (valueOffsets) {
         addBuffer.call(this, rebaseValueOffsets(valueOffsets[0], length, valueOffsets));
     }
@@ -209,7 +209,7 @@ function assembleListVector<T extends List | FixedSizeList>(this: VectorAssemble
 }
 
 /** @ignore */
-function assembleNestedVector<T extends Struct | Map_ | Union>(this: VectorAssembler, vector: V<T>) {
+function assembleNestedVector<T extends Struct | Union>(this: VectorAssembler, vector: V<T>) {
     return this.visitMany(vector.type.children.map((_, i) => vector.getChildAt(i)!).filter(Boolean))[0];
 }
 
@@ -228,4 +228,4 @@ VectorAssembler.prototype.visitStruct          =   assembleNestedVector;
 VectorAssembler.prototype.visitUnion           =          assembleUnion;
 VectorAssembler.prototype.visitInterval        =     assembleFlatVector;
 VectorAssembler.prototype.visitFixedSizeList   =     assembleListVector;
-VectorAssembler.prototype.visitMap             =   assembleNestedVector;
+VectorAssembler.prototype.visitMap             =     assembleListVector;

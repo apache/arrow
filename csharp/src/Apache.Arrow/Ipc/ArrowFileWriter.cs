@@ -28,7 +28,6 @@ namespace Apache.Arrow.Ipc
         private long _currentRecordBatchOffset = -1;
 
         private bool HasWrittenHeader { get; set; }
-        private bool HasWrittenFooter { get; set; }
 
         private List<Block> RecordBatchBlocks { get; }
 
@@ -38,7 +37,12 @@ namespace Apache.Arrow.Ipc
         }
 
         public ArrowFileWriter(Stream stream, Schema schema, bool leaveOpen)
-            : base(stream, schema, leaveOpen)
+            : this(stream, schema, leaveOpen, options: null)
+        {
+        }
+
+        public ArrowFileWriter(Stream stream, Schema schema, bool leaveOpen, IpcOptions options)
+            : base(stream, schema, leaveOpen, options)
         {
             if (!stream.CanWrite)
             {
@@ -53,7 +57,6 @@ namespace Apache.Arrow.Ipc
             }
 
             HasWrittenHeader = false;
-            HasWrittenFooter = false;
 
             RecordBatchBlocks = new List<Block>();
         }
@@ -101,15 +104,11 @@ namespace Apache.Arrow.Ipc
             _currentRecordBatchOffset = -1;
         }
 
-        public async Task WriteFooterAsync(CancellationToken cancellationToken = default)
+        private protected override async ValueTask WriteEndInternalAsync(CancellationToken cancellationToken)
         {
-            if (!HasWrittenFooter)
-            {
-                await WriteFooterAsync(Schema, cancellationToken).ConfigureAwait(false);
-                HasWrittenFooter = true;
-            }
+            await base.WriteEndInternalAsync(cancellationToken);
 
-            await BaseStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            await WriteFooterAsync(Schema, cancellationToken);
         }
 
         private async Task WriteHeaderAsync(CancellationToken cancellationToken)

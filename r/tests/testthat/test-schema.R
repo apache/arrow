@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::Schema")
+context("Schema")
 
 test_that("Alternate type names are supported", {
   expect_equal(
@@ -28,27 +28,27 @@ test_that("reading schema from Buffer", {
   # TODO: this uses the streaming format, i.e. from RecordBatchStreamWriter
   #       maybe there is an easier way to serialize a schema
   batch <- record_batch(x = 1:10)
-  expect_is(batch, "arrow::RecordBatch")
+  expect_is(batch, "RecordBatch")
 
-  stream <- BufferOutputStream()
-  writer <- RecordBatchStreamWriter(stream, batch$schema)
-  expect_is(writer, "arrow::ipc::RecordBatchStreamWriter")
+  stream <- BufferOutputStream$create()
+  writer <- RecordBatchStreamWriter$create(stream, batch$schema)
+  expect_is(writer, "RecordBatchStreamWriter")
   writer$close()
 
   buffer <- stream$getvalue()
-  expect_is(buffer, "arrow::Buffer")
+  expect_is(buffer, "Buffer")
 
-  reader <- MessageReader(buffer)
-  expect_is(reader, "arrow::ipc::MessageReader")
+  reader <- MessageReader$create(buffer)
+  expect_is(reader, "MessageReader")
 
   message <- reader$ReadNextMessage()
-  expect_is(message, "arrow::ipc::Message")
+  expect_is(message, "Message")
   expect_equal(message$type, MessageType$SCHEMA)
 
-  stream <- BufferReader(buffer)
-  expect_is(stream, "arrow::io::BufferReader")
+  stream <- BufferReader$create(buffer)
+  expect_is(stream, "BufferReader")
   message <- read_message(stream)
-  expect_is(message, "arrow::ipc::Message")
+  expect_is(message, "Message")
   expect_equal(message$type, MessageType$SCHEMA)
 })
 

@@ -112,6 +112,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_FUZZING "Build Arrow Fuzzing executables" OFF)
 
+  define_option(ARROW_LARGE_MEMORY_TESTS "Enable unit tests which use large memory" OFF)
+
   #----------------------------------------------------------------------
   set_option_category("Lint")
 
@@ -161,6 +163,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
 
   define_option(ARROW_JEMALLOC "Build the Arrow jemalloc-based allocator" ON)
+
+  define_option(ARROW_MIMALLOC "Build the Arrow mimalloc-based allocator" OFF)
 
   define_option(ARROW_HDFS "Build the Arrow HDFS bridge" ON)
 

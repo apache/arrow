@@ -515,7 +515,11 @@ class TestFeatherReader(unittest.TestCase):
         result = read_feather(buf)
         assert_frame_equal(result, df)
 
+    @pytest.mark.filterwarnings("ignore:Sparse:FutureWarning")
+    @pytest.mark.filterwarnings("ignore:DataFrame.to_sparse:FutureWarning")
     def test_sparse_dataframe(self):
+        if not hasattr(pd, 'SparseDataFrame'):
+            pytest.skip("version of pandas does not support SparseDataFrame")
         # GH #221
         data = {'A': [0, 1, 2],
                 'B': [1, 0, 1]}

@@ -26,20 +26,64 @@
 
 namespace arrow {
 
-class TestDefaultMemoryPool : public ::arrow::TestMemoryPoolBase {
- public:
-  ::arrow::MemoryPool* memory_pool() override { return ::arrow::default_memory_pool(); }
+struct DefaultMemoryPoolFactory {
+  static MemoryPool* memory_pool() { return default_memory_pool(); }
 };
 
-TEST_F(TestDefaultMemoryPool, MemoryTracking) { this->TestMemoryTracking(); }
+struct SystemMemoryPoolFactory {
+  static MemoryPool* memory_pool() { return system_memory_pool(); }
+};
 
-TEST_F(TestDefaultMemoryPool, OOM) {
+#ifdef ARROW_JEMALLOC
+struct JemallocMemoryPoolFactory {
+  static MemoryPool* memory_pool() {
+    MemoryPool* pool;
+    ABORT_NOT_OK(jemalloc_memory_pool(&pool));
+    return pool;
+  }
+};
+#endif
+
+#ifdef ARROW_MIMALLOC
+struct MimallocMemoryPoolFactory {
+  static MemoryPool* memory_pool() {
+    MemoryPool* pool;
+    ABORT_NOT_OK(mimalloc_memory_pool(&pool));
+    return pool;
+  }
+};
+#endif
+
+template <typename Factory>
+class TestMemoryPool : public ::arrow::TestMemoryPoolBase {
+ public:
+  MemoryPool* memory_pool() override { return Factory::memory_pool(); }
+};
+
+TYPED_TEST_CASE_P(TestMemoryPool);
+
+TYPED_TEST_P(TestMemoryPool, MemoryTracking) { this->TestMemoryTracking(); }
+
+TYPED_TEST_P(TestMemoryPool, OOM) {
 #ifndef ADDRESS_SANITIZER
   this->TestOOM();
 #endif
 }
 
-TEST_F(TestDefaultMemoryPool, Reallocate) { this->TestReallocate(); }
+TYPED_TEST_P(TestMemoryPool, Reallocate) { this->TestReallocate(); }
+
+REGISTER_TYPED_TEST_CASE_P(TestMemoryPool, MemoryTracking, OOM, Reallocate);
+
+INSTANTIATE_TYPED_TEST_CASE_P(Default, TestMemoryPool, DefaultMemoryPoolFactory);
+INSTANTIATE_TYPED_TEST_CASE_P(System, TestMemoryPool, SystemMemoryPoolFactory);
+
+#ifdef ARROW_JEMALLOC
+INSTANTIATE_TYPED_TEST_CASE_P(Jemalloc, TestMemoryPool, JemallocMemoryPoolFactory);
+#endif
+
+#ifdef ARROW_MIMALLOC
+INSTANTIATE_TYPED_TEST_CASE_P(Mimalloc, TestMemoryPool, MimallocMemoryPoolFactory);
+#endif
 
 // Death tests and valgrind are known to not play well 100% of the time. See
 // googletest documentation

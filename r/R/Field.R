@@ -16,26 +16,26 @@
 # under the License.
 
 #' @include arrow-package.R
-
 #' @title class arrow::Field
-#'
-#' @usage NULL
-#' @format NULL
 #' @docType class
-#'
+#' @description `field()` lets you create an `arrow::Field` that maps a
+#' [DataType][data-type] to a column name. Fields are contained in
+#' [Schemas][Schema].
 #' @section Methods:
 #'
-#' TODO
+#' - `f$ToString()`: convert to a string
+#' - `f$Equals(other)`: test for equality. More naturally called as `f == other`
 #'
-#' @rdname arrow__Field
-#' @name arrow__Field
-`arrow::Field` <- R6Class("arrow::Field", inherit = `arrow::Object`,
+#' @rdname Field
+#' @name Field
+#' @export
+Field <- R6Class("Field", inherit = Object,
   public = list(
     ToString = function() {
       Field__ToString(self)
     },
     Equals = function(other) {
-      inherits(other, "arrow::Field") && Field__Equals(self, other)
+      inherits(other, "Field") && Field__Equals(self, other)
     }
   ),
 
@@ -47,32 +47,13 @@
       Field__nullable(self)
     },
     type = function() {
-      `arrow::DataType`$dispatch(Field__type(self))
+      DataType$create(Field__type(self))
     }
   )
 )
-
-#' @export
-`==.arrow::Field` <- function(lhs, rhs){
-  lhs$Equals(rhs)
-}
-
-#' Factory for a `arrow::Field`
-#'
-#' @param name field name
-#' @param type logical type, instance of `arrow::DataType`
-#' @param metadata currently ignored
-#'
-#' @examples
-#' \donttest{
-#' try({
-#'    field("x", int32())
-#' })
-#' }
-#' @export
-field <- function(name, type, metadata) {
+Field$create <- function(name, type, metadata) {
   assert_that(inherits(name, "character"), length(name) == 1L)
-  if (!inherits(type, "arrow::DataType")) {
+  if (!inherits(type, "DataType")) {
     if (identical(type, double())) {
       # Magic so that we don't have to mask this base function
       type <- float64()
@@ -81,8 +62,25 @@ field <- function(name, type, metadata) {
     }
   }
   assert_that(missing(metadata), msg = "metadata= is currently ignored")
-  shared_ptr(`arrow::Field`, Field__initialize(name, type, TRUE))
+  shared_ptr(Field, Field__initialize(name, type, TRUE))
 }
+
+#' @export
+`==.Field` <- function(lhs, rhs){
+  lhs$Equals(rhs)
+}
+
+#' @param name field name
+#' @param type logical type, instance of [DataType]
+#' @param metadata currently ignored
+#'
+#' @examples
+#' \donttest{
+#' field("x", int32())
+#' }
+#' @rdname Field
+#' @export
+field <- Field$create
 
 .fields <- function(.list){
   assert_that(!is.null(nms <- names(.list)))

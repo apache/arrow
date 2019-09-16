@@ -23,4 +23,4 @@ npm install
 npx gulp
 
 # publish the JS target modules to npm
-npx lerna exec -- npm publish
+npx lerna exec --no-bail -- npm publish

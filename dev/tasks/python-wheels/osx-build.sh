@@ -140,6 +140,7 @@ function build_wheel {
           -Dzlib_SOURCE=BUNDLED \
           -DARROW_PROTOBUF_USE_SHARED=OFF \
           -DOPENSSL_USE_STATIC_LIBS=ON  \
+          -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1) \
           -DMAKE=make \
           ..
     make -j5

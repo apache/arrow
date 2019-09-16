@@ -49,9 +49,12 @@ reference:
   - read_json_arrow
   - read_feather
   - read_parquet
+  - read_table
   - write_arrow
   - write_feather
   - write_parquet
+- title: C++ reader/writer interface
+  contents:
   - csv_convert_options
   - csv_parse_options
   - csv_read_options
@@ -59,79 +62,46 @@ reference:
   - json_parse_options
   - json_read_options
   - json_table_reader
-  - parquet_file_reader
+  - ParquetFileReader
+  - ParquetReaderProperties
+  - FeatherTableReader
+  - FeatherTableWriter
+  - JsonTableReader
+  - RecordBatchReader
+  - RecordBatchWriter
 - title: Arrow data containers
   contents:
   - buffer
   - array
+  - ArrayData
   - chunked_array
+  - ChunkedArray
   - record_batch
-  - table
+  - RecordBatch
+  - Table
   - read_message
   - read_record_batch
-  - read_table
 - title: Arrow data types and schema
   contents:
-  - schema
+  - Schema
   - type
   - dictionary
-  - field
+  - Field
   - read_schema
   - data-type
-- title: R6 classes
-  contents:
-  - arrow__Array
-  - arrow__ArrayData
-  - arrow__Buffer
-  - arrow__ChunkedArray
-  - arrow__Column
-  - arrow__DataType
-  - arrow__DictionaryType
-  - arrow__Field
-  - arrow__FixedWidthType
-  - arrow__RecordBatch
-  - arrow__RecordBatchReader
-  - arrow__Schema
-  - arrow__Table
-  - arrow__MemoryPool
-  - arrow__io__BufferOutputStream
-  - arrow__io__BufferReader
-  - arrow__io__FileOutputStream
-  - arrow__io__FixedSizeBufferWriter
-  - arrow__io__InputStream
-  - arrow__io__MemoryMappedFile
-  - arrow__io__MockOutputStream
-  - arrow__io__OutputStream
-  - arrow__io__RandomAccessFile
-  - arrow__io__Readable
-  - arrow__io__ReadableFile
-  - arrow__json__TableReader
-  - arrow__ipc__Message
-  - arrow__ipc__MessageReader
-  - arrow__ipc__RecordBatchFileReader
-  - arrow__ipc__RecordBatchFileWriter
-  - arrow__ipc__RecordBatchStreamReader
-  - arrow__ipc__RecordBatchStreamWriter
-  - arrow__ipc__RecordBatchWriter
-- title: Other functions
-  contents:
-  - BufferOutputStream
-  - BufferReader
-  - CompressedInputStream
-  - CompressedOutputStream
-  - FeatherTableReader
-  - FeatherTableWriter
-  - FileOutputStream
-  - FixedSizeBufferWriter
-  - MessageReader
-  - MockOutputStream
-  - ReadableFile
-  - RecordBatchFileReader
-  - RecordBatchFileWriter
-  - RecordBatchStreamReader
-  - RecordBatchStreamWriter
+  - DataType
+  - DictionaryType
+  - FixedWidthType
   - cast_options
-  - compression_codec
-  - default_memory_pool
-  - mmap_create
+- title: Input/Output
+  contents:
+  - InputStream
   - mmap_open
+  - mmap_create
+  - OutputStream
+  - Message
+  - MessageReader
+  - compression
+  - compression_codec
+  - MemoryPool
+  - default_memory_pool

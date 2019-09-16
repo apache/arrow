@@ -76,7 +76,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   /**
-   * Construcs a new instance.
+   * Constructs a new instance.
    *
    * @param v The vector to initialize the writer with.
    * @param parentContainer The parent container for the vector.

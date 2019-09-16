@@ -187,6 +187,44 @@ class Parametric2Type : public ExtensionType {
   int32_t parameter_;
 };
 
+// An extension type with a non-primitive storage type
+class ExtStructArray : public ExtensionArray {
+ public:
+  using ExtensionArray::ExtensionArray;
+};
+
+class ExtStructType : public ExtensionType {
+ public:
+  ExtStructType()
+      : ExtensionType(struct_({field("a", int64()), field("b", float64())})) {}
+
+  std::string extension_name() const override { return "ext-struct-type"; }
+
+  bool ExtensionEquals(const ExtensionType& other) const override {
+    const auto& other_ext = static_cast<const ExtensionType&>(other);
+    if (other_ext.extension_name() != this->extension_name()) {
+      return false;
+    }
+    return true;
+  }
+
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
+    return std::make_shared<ExtStructArray>(data);
+  }
+
+  Status Deserialize(std::shared_ptr<DataType> storage_type,
+                     const std::string& serialized,
+                     std::shared_ptr<DataType>* out) const override {
+    if (serialized != "ext-struct-type-unique-code") {
+      return Status::Invalid("Type identifier did not match");
+    }
+    *out = std::make_shared<ExtStructType>();
+    return Status::OK();
+  }
+
+  std::string Serialize() const override { return "ext-struct-type-unique-code"; }
+};
+
 class TestExtensionType : public ::testing::Test {
  public:
   void SetUp() { ASSERT_OK(RegisterExtensionType(std::make_shared<UUIDType>())); }
@@ -338,6 +376,27 @@ TEST_F(TestExtensionType, ParametricEquals) {
   ASSERT_FALSE(p1_type->Equals(p3_type));
 
   ASSERT_EQ(p1_type->fingerprint(), "");
+}
+
+std::shared_ptr<Array> ExampleStruct() {
+  auto ext_type = std::make_shared<ExtStructType>();
+  auto storage_type = ext_type->storage_type();
+  auto arr = ArrayFromJSON(storage_type, "[[1, 0.1], [2, 0.2]]");
+
+  auto ext_data = arr->data()->Copy();
+  ext_data->type = ext_type;
+  return MakeArray(ext_data);
+}
+
+TEST_F(TestExtensionType, ValidateExtensionArray) {
+  auto ext_arr1 = ExampleUUID();
+  auto p1_type = std::make_shared<Parametric1Type>(6);
+  auto ext_arr2 = ExampleParametric(p1_type, "[null, 1, 2, 3]");
+  auto ext_arr3 = ExampleStruct();
+
+  ASSERT_OK(ext_arr1->Validate());
+  ASSERT_OK(ext_arr2->Validate());
+  ASSERT_OK(ext_arr3->Validate());
 }
 
 }  // namespace arrow

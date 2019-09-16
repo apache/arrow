@@ -145,6 +145,7 @@ def test_to_numpy_unsupported_types():
         null_arr.to_numpy()
 
 
+@pytest.mark.pandas
 def test_to_pandas_zero_copy():
     import gc
 
@@ -172,6 +173,7 @@ def test_to_pandas_zero_copy():
         np_arr.sum()
 
 
+@pytest.mark.pandas
 def test_asarray():
     arr = pa.array(range(4))
 
@@ -248,6 +250,25 @@ def test_array_slice():
     for start in range(-n * 2, n * 2):
         for stop in range(-n * 2, n * 2):
             assert arr[start:stop].to_pylist() == arr.to_pylist()[start:stop]
+
+
+def test_array_diff():
+    # ARROW-6252
+    arr1 = pa.array(['foo'], type=pa.utf8())
+    arr2 = pa.array(['foo', 'bar', None], type=pa.utf8())
+    arr3 = pa.array([1, 2, 3])
+    arr4 = pa.array([[], [1], None], type=pa.list_(pa.int64()))
+
+    assert arr1.diff(arr1) == ''
+    assert arr1.diff(arr2) == '''
+@@ -1, +1 @@
++"bar"
++null
+'''
+    assert arr1.diff(arr3) == '# Array types differed: string vs int64'
+    assert arr1.diff(arr3) == '# Array types differed: string vs int64'
+    assert arr1.diff(arr4) == ('# Array types differed: string vs '
+                               'list<item: int64>')
 
 
 def test_array_iter():
@@ -1252,6 +1273,26 @@ def test_array_from_numpy_unicode():
     arrow_arr = pa.array(arr)
     expected = pa.array(['', '', ''], type='utf8')
     assert arrow_arr.equals(expected)
+
+
+def test_array_string_from_non_string():
+    # ARROW-5682 - when converting to string raise on non string-like dtype
+    with pytest.raises(TypeError):
+        pa.array(np.array([1, 2, 3]), type=pa.string())
+
+
+def test_array_string_from_all_null():
+    # ARROW-5682
+    vals = np.array([None, None], dtype=object)
+    arr = pa.array(vals, type=pa.string())
+    assert arr.null_count == 2
+
+    vals = np.array([np.nan, np.nan], dtype='float64')
+    # by default raises, but accept as all-null when from_pandas=True
+    with pytest.raises(TypeError):
+        pa.array(vals, type=pa.string())
+    arr = pa.array(vals, type=pa.string(), from_pandas=True)
+    assert arr.null_count == 2
 
 
 def test_array_from_masked():

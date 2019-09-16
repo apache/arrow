@@ -56,6 +56,9 @@ import io.netty.buffer.ArrowBuf;
  */
 public class MessageSerializer {
 
+  // This 0xFFFFFFFF value is the first 4 bytes of a valid IPC message
+  public static final int IPC_CONTINUATION_TOKEN = -1;
+
   /**
    * Convert an array of 4 bytes to a little endian i32 value.
    *
@@ -83,6 +86,28 @@ public class MessageSerializer {
   }
 
   /**
+   * Convert a long to a 8 byte array.
+   *
+   * @param value long value input
+   * @param bytes existing byte array with minimum length of 8 to contain the conversion output
+   */
+  public static void longToBytes(long value, byte[] bytes) {
+    bytes[7] = (byte) (value >>> 56);
+    bytes[6] = (byte) (value >>> 48);
+    bytes[5] = (byte) (value >>> 40);
+    bytes[4] = (byte) (value >>> 32);
+    bytes[3] = (byte) (value >>> 24);
+    bytes[2] = (byte) (value >>> 16);
+    bytes[1] = (byte) (value >>> 8);
+    bytes[0] = (byte) (value);
+  }
+
+  public static int writeMessageBuffer(WriteChannel out, int messageLength, ByteBuffer messageBuffer)
+      throws IOException {
+    return writeMessageBuffer(out, messageLength, messageBuffer, new IpcOption());
+  }
+
+  /**
    * Write the serialized Message metadata, prefixed by the length, to the output Channel. This
    * ensures that it aligns to an 8 byte boundary and will adjust the message length to include
    * any padding used for alignment.
@@ -91,22 +116,36 @@ public class MessageSerializer {
    * @param messageLength Number of bytes in the message buffer, written as little Endian prefix
    * @param messageBuffer Message metadata buffer to be written, this does not include any
    *                      message body data which should be subsequently written to the Channel
+   * @param option IPC write options
    * @return Number of bytes written
    * @throws IOException on error
    */
-  public static int writeMessageBuffer(WriteChannel out, int messageLength, ByteBuffer messageBuffer)
+  public static int writeMessageBuffer(WriteChannel out, int messageLength, ByteBuffer messageBuffer, IpcOption option)
       throws IOException {
 
-    // ensure that message aligns to 8 byte padding - 4 bytes for size, then message body
-    if ((messageLength + 4) % 8 != 0) {
-      messageLength += 8 - (messageLength + 4) % 8;
+    // if write the pre-0.15.0 encapsulated IPC message format consisting of a 4-byte prefix instead of 8 byte
+    int prefixSize = option.write_legacy_ipc_format ? 4 : 8;
+
+    // ensure that message aligns to 8 byte padding - prefix_size bytes, then message body
+    if ((messageLength + prefixSize ) % 8 != 0) {
+      messageLength += 8 - (messageLength + prefixSize) % 8;
+    }
+    if (!option.write_legacy_ipc_format) {
+      out.writeIntLittleEndian(IPC_CONTINUATION_TOKEN);
     }
     out.writeIntLittleEndian(messageLength);
     out.write(messageBuffer);
     out.align();
 
     // any bytes written are already captured by our size modification above
-    return messageLength + 4;
+    return messageLength + prefixSize;
+  }
+
+  /**
+   * Serialize a schema object.
+   */
+  public static long serialize(WriteChannel out, Schema schema) throws IOException {
+    return serialize(out, schema, new IpcOption());
   }
 
   /**
@@ -117,7 +156,7 @@ public class MessageSerializer {
    * @return the number of bytes written
    * @throws IOException if something went wrong
    */
-  public static long serialize(WriteChannel out, Schema schema) throws IOException {
+  public static long serialize(WriteChannel out, Schema schema, IpcOption option) throws IOException {
     long start = out.getCurrentPosition();
     assert start % 8 == 0;
 
@@ -125,7 +164,7 @@ public class MessageSerializer {
 
     int messageLength = serializedMessage.remaining();
 
-    int bytesWritten = writeMessageBuffer(out, messageLength, serializedMessage);
+    int bytesWritten = writeMessageBuffer(out, messageLength, serializedMessage, option);
     assert bytesWritten % 8 == 0;
     return bytesWritten;
   }
@@ -182,13 +221,20 @@ public class MessageSerializer {
 
   /**
    * Serializes an ArrowRecordBatch. Returns the offset and length of the written batch.
+   */
+  public static ArrowBlock serialize(WriteChannel out, ArrowRecordBatch batch) throws IOException {
+    return serialize(out, batch, new IpcOption());
+  }
+
+  /**
+   * Serializes an ArrowRecordBatch. Returns the offset and length of the written batch.
    *
    * @param out   where to write the batch
    * @param batch the object to serialize to out
    * @return the serialized block metadata
    * @throws IOException if something went wrong
    */
-  public static ArrowBlock serialize(WriteChannel out, ArrowRecordBatch batch) throws IOException {
+  public static ArrowBlock serialize(WriteChannel out, ArrowRecordBatch batch, IpcOption option) throws IOException {
 
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
@@ -198,8 +244,14 @@ public class MessageSerializer {
 
     int metadataLength = serializedMessage.remaining();
 
+    int prefixSize = 4;
+    if (!option.write_legacy_ipc_format) {
+      out.writeIntLittleEndian(IPC_CONTINUATION_TOKEN);
+      prefixSize = 8;
+    }
+
     // calculate alignment bytes so that metadata length points to the correct location after alignment
-    int padding = (int) ((start + metadataLength + 4) % 8);
+    int padding = (int) ((start + metadataLength + prefixSize) % 8);
     if (padding != 0) {
       metadataLength += (8 - padding);
     }
@@ -214,7 +266,7 @@ public class MessageSerializer {
     assert bufferLength % 8 == 0;
 
     // Metadata size in the Block account for the size prefix
-    return new ArrowBlock(start, metadataLength + 4, bufferLength);
+    return new ArrowBlock(start, metadataLength + prefixSize, bufferLength);
   }
 
   /**
@@ -305,7 +357,7 @@ public class MessageSerializer {
    */
   public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, ArrowBlock block, BufferAllocator alloc)
       throws IOException {
-    // Metadata length contains integer prefix plus byte padding
+    // Metadata length contains prefix_size bytes plus byte padding
     long totalLen = block.getMetadataLength() + block.getBodyLength();
 
     if (totalLen > Integer.MAX_VALUE) {
@@ -317,7 +369,9 @@ public class MessageSerializer {
       throw new IOException("Unexpected end of input trying to read batch.");
     }
 
-    ArrowBuf metadataBuffer = buffer.slice(4, block.getMetadataLength() - 4);
+    int prefixSize = buffer.getInt(0) == IPC_CONTINUATION_TOKEN ? 8 : 4;
+
+    ArrowBuf metadataBuffer = buffer.slice(prefixSize, block.getMetadataLength() - prefixSize);
 
     Message messageFB =
         Message.getRootAsMessage(metadataBuffer.nioBuffer().asReadOnlyBuffer());
@@ -375,15 +429,21 @@ public class MessageSerializer {
     return deserializeRecordBatch(serializedMessage.getMessage(), underlying);
   }
 
+  public static ArrowBlock serialize(WriteChannel out, ArrowDictionaryBatch batch) throws IOException {
+    return serialize(out, batch, new IpcOption());
+  }
+
   /**
    * Serializes a dictionary ArrowRecordBatch. Returns the offset and length of the written batch.
    *
    * @param out   where to serialize
    * @param batch the batch to serialize
+   * @param option options for IPC
    * @return the metadata of the serialized block
    * @throws IOException if something went wrong
    */
-  public static ArrowBlock serialize(WriteChannel out, ArrowDictionaryBatch batch) throws IOException {
+  public static ArrowBlock serialize(WriteChannel out, ArrowDictionaryBatch batch, IpcOption option)
+      throws IOException {
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
     assert bodyLength % 8 == 0;
@@ -392,8 +452,14 @@ public class MessageSerializer {
 
     int metadataLength = serializedMessage.remaining();
 
+    int prefixSize = 4;
+    if (!option.write_legacy_ipc_format) {
+      out.writeIntLittleEndian(IPC_CONTINUATION_TOKEN);
+      prefixSize = 8;
+    }
+
     // calculate alignment bytes so that metadata length points to the correct location after alignment
-    int padding = (int) ((start + metadataLength + 4) % 8);
+    int padding = (int) ((start + metadataLength + prefixSize) % 8);
     if (padding != 0) {
       metadataLength += (8 - padding);
     }
@@ -409,7 +475,7 @@ public class MessageSerializer {
     assert bufferLength % 8 == 0;
 
     // Metadata size in the Block account for the size prefix
-    return new ArrowBlock(start, metadataLength + 4, bufferLength);
+    return new ArrowBlock(start, metadataLength + prefixSize, bufferLength);
   }
 
   /**
@@ -491,7 +557,9 @@ public class MessageSerializer {
       throw new IOException("Unexpected end of input trying to read batch.");
     }
 
-    ArrowBuf metadataBuffer = buffer.slice(4, block.getMetadataLength() - 4);
+    int prefixSize = buffer.getInt(0) == IPC_CONTINUATION_TOKEN ? 8 : 4;
+
+    ArrowBuf metadataBuffer = buffer.slice(prefixSize, block.getMetadataLength() - prefixSize);
 
     Message messageFB =
         Message.getRootAsMessage(metadataBuffer.nioBuffer().asReadOnlyBuffer());
@@ -584,7 +652,15 @@ public class MessageSerializer {
     // Read the message size. There is an i32 little endian prefix.
     ByteBuffer buffer = ByteBuffer.allocate(4);
     if (in.readFully(buffer) == 4) {
+
       int messageLength = MessageSerializer.bytesToInt(buffer.array());
+      if (messageLength == IPC_CONTINUATION_TOKEN) {
+        buffer.clear();
+        // ARROW-6313, if the first 4 bytes are continuation message, read the next 4 for the length
+        if (in.readFully(buffer) == 4) {
+          messageLength = MessageSerializer.bytesToInt(buffer.array());
+        }
+      }
 
       // Length of 0 indicates end of stream
       if (messageLength != 0) {

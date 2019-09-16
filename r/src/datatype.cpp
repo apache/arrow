@@ -116,12 +116,12 @@ std::shared_ptr<arrow::DataType> Time64__initialize(arrow::TimeUnit::type unit) 
 
 // [[arrow::export]]
 SEXP list__(SEXP x) {
-  if (Rf_inherits(x, "arrow::Field")) {
+  if (Rf_inherits(x, "Field")) {
     Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Field>> field(x);
     return wrap(arrow::list(field));
   }
 
-  if (Rf_inherits(x, "arrow::DataType")) {
+  if (Rf_inherits(x, "DataType")) {
     Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::DataType>> type(x);
     return wrap(arrow::list(type));
   }

@@ -181,7 +181,7 @@ public interface BufferAllocator extends AutoCloseable {
   /**
    * Return whether or not this allocator (or one if its parents) is over its limits. In the case
    * that an allocator is
-   * over its limit, all consumers of that allocator should aggressively try to addrss the
+   * over its limit, all consumers of that allocator should aggressively try to address the
    * overlimit situation.
    *
    * @return whether or not this allocator (or one if its parents) is over its limits

@@ -111,7 +111,7 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
    * the multi-byte CJK characters.
    */
   @Test
-  public void testJdbcToArroValues() throws SQLException, IOException {
+  public void testJdbcToArrowValues() throws SQLException, IOException {
     testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
         Calendar.getInstance()));
     testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)));

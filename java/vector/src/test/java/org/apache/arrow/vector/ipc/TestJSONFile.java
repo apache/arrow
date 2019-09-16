@@ -330,6 +330,9 @@ public class TestJSONFile extends BaseFileTest {
   @Test
   public void testSetStructLength() throws IOException {
     File file = new File("../../integration/data/struct_example.json");
+    if (!file.exists()) {
+      file = new File("../integration/data/struct_example.json");
+    }
     try (
         BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
     ) {

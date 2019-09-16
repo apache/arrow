@@ -7,9 +7,9 @@
 write_feather(data, stream)
 }
 \arguments{
-\item{data}{\code{data.frame} or \code{arrow::RecordBatch}}
+\item{data}{\code{data.frame} or RecordBatch}
 
-\item{stream}{A file path or an \code{arrow::io::OutputStream}}
+\item{stream}{A file path or an OutputStream}
 }
 \description{
 Write data in the Feather format

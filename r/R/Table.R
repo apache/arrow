@@ -23,24 +23,32 @@
 #' @format NULL
 #' @docType class
 #'
+#' @section Factory:
+#'
+#' The `Table$create()` function takes the following arguments:
+#'
+#' * `...` arrays, chunked arrays, or R vectors
+#' * `schema` a schema. The default (`NULL`) infers the schema from the `...`
+#'
 #' @section Methods:
 #'
 #' TODO
 #'
-#' @rdname arrow__Table
-#' @name arrow__Table
-`arrow::Table` <- R6Class("arrow::Table", inherit = `arrow::Object`,
+#' @rdname Table
+#' @name Table
+#' @export
+Table <- R6Class("Table", inherit = Object,
   public = list(
-    column = function(i) shared_ptr(`arrow::ChunkedArray`, Table__column(self, i)),
-    field = function(i) shared_ptr(`arrow::Field`, Table__field(self, i)),
+    column = function(i) shared_ptr(ChunkedArray, Table__column(self, i)),
+    field = function(i) shared_ptr(Field, Table__field(self, i)),
 
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
 
     cast = function(target_schema, safe = TRUE, options = cast_options(safe)) {
-      assert_that(inherits(target_schema, "arrow::Schema"))
-      assert_that(inherits(options, "arrow::compute::CastOptions"))
+      assert_is(target_schema, "Schema")
+      assert_is(options, "CastOptions")
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
-      shared_ptr(`arrow::Table`, Table__cast(self, target_schema, options))
+      shared_ptr(Table, Table__cast(self, target_schema, options))
     },
 
     select = function(spec) {
@@ -51,7 +59,7 @@
         all_vars <- Table__column_names(self)
         vars <- vars_select(all_vars, !!spec)
         indices <- match(vars, all_vars)
-        shared_ptr(`arrow::Table`, Table__select(self, indices))
+        shared_ptr(Table, Table__select(self, indices))
       }
 
     }
@@ -60,35 +68,27 @@
   active = list(
     num_columns = function() Table__num_columns(self),
     num_rows = function() Table__num_rows(self),
-    schema = function() shared_ptr(`arrow::Schema`, Table__schema(self)),
-    columns = function() map(Table__columns(self), shared_ptr, class = `arrow::Column`)
+    schema = function() shared_ptr(Schema, Table__schema(self)),
+    columns = function() map(Table__columns(self), shared_ptr, class = Column)
   )
 )
 
-#' Create an arrow::Table from a data frame
-#'
-#' @param ... arrays, chunked arrays, or R vectors
-#' @param schema a schema. The default (`NULL`) infers the schema from the `...`
-#'
-#' @return an arrow::Table
-#'
-#' @export
-table <- function(..., schema = NULL){
+Table$create <- function(..., schema = NULL){
   dots <- list2(...)
   # making sure there are always names
   if (is.null(names(dots))) {
     names(dots) <- rep_len("", length(dots))
   }
   stopifnot(length(dots) > 0)
-  shared_ptr(`arrow::Table`, Table__from_dots(dots, schema))
+  shared_ptr(Table, Table__from_dots(dots, schema))
 }
 
 #' @export
-`as.data.frame.arrow::Table` <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
+as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
   Table__to_dataframe(x, use_threads = option_use_threads())
 }
 
 #' @export
-`dim.arrow::Table` <- function(x) {
+dim.Table <- function(x) {
   c(x$num_rows, x$num_columns)
 }

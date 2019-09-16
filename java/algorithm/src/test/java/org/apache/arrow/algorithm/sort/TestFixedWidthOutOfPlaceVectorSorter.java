@@ -283,7 +283,7 @@ public class TestFixedWidthOutOfPlaceVectorSorter {
   }
 
   @Test
-  public void testSortDobule() {
+  public void testSortDouble() {
     try (Float8Vector vec = new Float8Vector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);

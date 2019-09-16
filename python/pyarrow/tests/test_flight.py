@@ -552,6 +552,16 @@ def test_list_actions():
             ListActionsFlightServer.expected_actions()
 
 
+def test_get_port():
+    """Make sure port() works."""
+    server = GetInfoFlightServer()
+    server.init("grpc://localhost:0")
+    try:
+        assert server.port() > 0
+    finally:
+        server.shutdown()
+
+
 @pytest.mark.skipif(os.name == 'nt',
                     reason="Unix sockets can't be tested on Windows")
 def test_flight_domain_socket():

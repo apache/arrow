@@ -73,7 +73,7 @@ export class VectorLoader extends Visitor {
     public visitDictionary      <T extends type.Dictionary>      (type: T, { length, nullCount } = this.nextFieldNode()) { return      Data.Dictionary(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type.indices), this.readDictionary(type));                        }
     public visitInterval        <T extends type.Interval>        (type: T, { length, nullCount } = this.nextFieldNode()) { return        Data.Interval(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type));                                                           }
     public visitFixedSizeList   <T extends type.FixedSizeList>   (type: T, { length, nullCount } = this.nextFieldNode()) { return   Data.FixedSizeList(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.visit(type.children[0]));                                                  }
-    public visitMap             <T extends type.Map_>            (type: T, { length, nullCount } = this.nextFieldNode()) { return             Data.Map(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.visitMany(type.children));                                                 }
+    public visitMap             <T extends type.Map_>            (type: T, { length, nullCount } = this.nextFieldNode()) { return             Data.Map(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readOffsets(type), this.visit(type.children[0]));                          }
 
     protected nextFieldNode() { return this.nodes[++this.nodesIndex]; }
     protected nextBufferRange() { return this.buffers[++this.buffersIndex]; }

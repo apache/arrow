@@ -323,6 +323,7 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         PyFlightServer(object server, PyFlightServerVtable vtable)
 
         CStatus Init(CFlightServerOptions& options)
+        int port()
         CStatus ServeWithSignals() except *
         CStatus Shutdown()
 

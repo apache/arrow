@@ -29,6 +29,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 
 using primitive_types_tuple = std::tuple<int8_t, int16_t, int32_t, int64_t, uint8_t,
                                          uint16_t, uint32_t, uint64_t, bool, std::string>;
@@ -96,6 +97,11 @@ struct CustomOptionalTypeMock {
 
 int CustomOptionalTypeMock::counter = -1;
 
+// This is for testing appending list values with custom types
+struct TestInt32Type {
+  int32_t value;
+};
+
 namespace arrow {
 
 template <>
@@ -103,6 +109,13 @@ struct CTypeTraits<CustomOptionalTypeMock> {
   using ArrowType = ::arrow::StringType;
 
   static std::shared_ptr<::arrow::DataType> type_singleton() { return ::arrow::utf8(); }
+};
+
+template <>
+struct CTypeTraits<TestInt32Type> {
+  using ArrowType = ::arrow::Int32Type;
+
+  static std::shared_ptr<::arrow::DataType> type_singleton() { return ::arrow::int32(); }
 };
 
 namespace stl {
@@ -121,6 +134,20 @@ struct ConversionTraits<CustomOptionalTypeMock>
     }
   }
 };
+
+template <>
+struct ConversionTraits<TestInt32Type> : public CTypeTraits<TestInt32Type> {
+  constexpr static bool nullable = false;
+
+  // AppendRow is not needed, since it shouldn't be called.
+};
+
+template <>
+Status AppendListValues<TestInt32Type, const std::vector<TestInt32Type>&>(
+    Int32Builder& value_builder, const std::vector<TestInt32Type>& cell_range) {
+  return value_builder.AppendValues(reinterpret_cast<const int32_t*>(cell_range.data()),
+                                    cell_range.size());
+}
 
 TEST(TestSchemaFromTuple, PrimitiveTypesVector) {
   Schema expected_schema(
@@ -225,8 +252,9 @@ TEST(TestTableFromTupleVector, ReferenceTuple) {
 
   std::vector<std::string> names{"column1", "column2", "column3", "column4", "column5",
                                  "column6", "column7", "column8", "column9", "column10"};
-  std::vector<CustomType> rows{{-1, -2, -3, -4, 1, 2, 3, 4, true, "Tests"},
-                               {-10, -20, -30, -40, 10, 20, 30, 40, false, "Other"}};
+  std::vector<CustomType> rows{
+      {-1, -2, -3, -4, 1, 2, 3, 4, true, std::string("Tests")},
+      {-10, -20, -30, -40, 10, 20, 30, 40, false, std::string("Other")}};
   auto rng_rows =
       transform(rows, [](const CustomType& c) -> decltype(c.tie()) { return c.tie(); });
   std::shared_ptr<Table> table;
@@ -263,8 +291,8 @@ TEST(TestTableFromTupleVector, NullableTypesWithBoostOptional) {
                                  "column6", "column7", "column8", "column9", "column10"};
   using types_tuple = boost_optional_types_tuple;
   std::vector<types_tuple> rows{
-      types_tuple(-1, -2, -3, -4, 1, 2, 3, 4, true, "Tests"),
-      types_tuple(-10, -20, -30, -40, 10, 20, 30, 40, false, "Other"),
+      types_tuple(-1, -2, -3, -4, 1, 2, 3, 4, true, std::string("Tests")),
+      types_tuple(-10, -20, -30, -40, 10, 20, 30, 40, false, std::string("Other")),
       types_tuple(boost::none, boost::none, boost::none, boost::none, boost::none,
                   boost::none, boost::none, boost::none, boost::none, boost::none),
   };
@@ -302,8 +330,9 @@ TEST(TestTableFromTupleVector, NullableTypesWithRawPointer) {
   std::vector<std::string> names{"column1", "column2", "column3", "column4", "column5",
                                  "column6", "column7", "column8", "column9", "column10"};
   std::vector<primitive_types_tuple> data_rows{
-      primitive_types_tuple(-1, -2, -3, -4, 1, 2, 3, 4, true, "Tests"),
-      primitive_types_tuple(-10, -20, -30, -40, 10, 20, 30, 40, false, "Other"),
+      primitive_types_tuple(-1, -2, -3, -4, 1, 2, 3, 4, true, std::string("Tests")),
+      primitive_types_tuple(-10, -20, -30, -40, 10, 20, 30, 40, false,
+                            std::string("Other")),
   };
   std::vector<raw_pointer_optional_types_tuple> pointer_rows;
   for (auto& row : data_rows) {
@@ -356,6 +385,25 @@ TEST(TestTableFromTupleVector, NullableTypesDoNotBreakUserSpecialization) {
   std::shared_ptr<Array> string_array =
       ArrayFromJSON(utf8(), R"([null, "mock yes", "mock no"])");
   auto expected_table = Table::Make(expected_schema, {string_array});
+
+  ASSERT_TRUE(expected_table->Equals(*table));
+}
+
+TEST(TestTableFromTupleVector, AppendingMultipleRows) {
+  using row_type = std::tuple<std::vector<TestInt32Type>>;
+  std::vector<std::string> names{"column1"};
+  std::vector<row_type> rows = {
+      row_type{{{1}, {2}, {3}}},    //
+      row_type{{{10}, {20}, {30}}}  //
+  };
+  std::shared_ptr<Table> table;
+  ASSERT_OK(TableFromTupleRange(default_memory_pool(), rows, names, &table));
+
+  std::shared_ptr<Schema> expected_schema =
+      schema({field("column1", list(int32()), false)});
+  std::shared_ptr<Array> int_array =
+      ArrayFromJSON(list(int32()), "[[1, 2, 3], [10, 20, 30]]");
+  auto expected_table = Table::Make(expected_schema, {int_array});
 
   ASSERT_TRUE(expected_table->Equals(*table));
 }

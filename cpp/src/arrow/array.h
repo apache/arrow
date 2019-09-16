@@ -318,6 +318,10 @@ class ARROW_EXPORT Array {
   bool Equals(const std::shared_ptr<Array>& arr,
               const EqualOptions& = EqualOptions::Defaults()) const;
 
+  /// \brief Return the formatted unified diff of arrow::Diff between this
+  /// Array and another Array
+  std::string Diff(const Array& other) const;
+
   /// Approximate equality comparison with another array
   ///
   /// epsilon is only used if this is FloatArray or DoubleArray
@@ -1248,6 +1252,9 @@ class ARROW_EXPORT DictionaryArray : public Array {
                    const std::shared_ptr<Array>& dictionary,
                    const std::vector<int32_t>& transpose_map,
                    std::shared_ptr<Array>* out) const;
+
+  /// \brief Determine whether dictionary arrays may be compared without unification
+  bool CanCompareIndices(const DictionaryArray& other) const;
 
   /// \brief Return the dictionary for this array, which is stored as
   /// a member of the ArrayData internal structure

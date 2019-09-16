@@ -11,7 +11,7 @@
 \alias{MessageType}
 \alias{CompressionType}
 \title{Arrow enums}
-\format{An object of class \code{arrow::TimeUnit::type} (inherits from \code{arrow-enum}) of length 4.}
+\format{An object of class \code{TimeUnit::type} (inherits from \code{arrow-enum}) of length 4.}
 \usage{
 TimeUnit
 

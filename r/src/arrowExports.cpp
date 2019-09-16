@@ -394,68 +394,6 @@ RcppExport SEXP _arrow_ListArray__raw_value_offsets(SEXP array_sexp){
 }
 #endif
 
-// array__to_vector.cpp
-#if defined(ARROW_R_WITH_ARROW)
-SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
-RcppExport SEXP _arrow_Array__as_vector(SEXP array_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
-	return Rcpp::wrap(Array__as_vector(array));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Array__as_vector(SEXP array_sexp){
-	Rf_error("Cannot call Array__as_vector(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// array__to_vector.cpp
-#if defined(ARROW_R_WITH_ARROW)
-SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
-RcppExport SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
-	return Rcpp::wrap(ChunkedArray__as_vector(chunked_array));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp){
-	Rf_error("Cannot call ChunkedArray__as_vector(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// array__to_vector.cpp
-#if defined(ARROW_R_WITH_ARROW)
-Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch, bool use_threads);
-RcppExport SEXP _arrow_RecordBatch__to_dataframe(SEXP batch_sexp, SEXP use_threads_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-	Rcpp::traits::input_parameter<bool>::type use_threads(use_threads_sexp);
-	return Rcpp::wrap(RecordBatch__to_dataframe(batch, use_threads));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_RecordBatch__to_dataframe(SEXP batch_sexp, SEXP use_threads_sexp){
-	Rf_error("Cannot call RecordBatch__to_dataframe(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// array__to_vector.cpp
-#if defined(ARROW_R_WITH_ARROW)
-Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table, bool use_threads);
-RcppExport SEXP _arrow_Table__to_dataframe(SEXP table_sexp, SEXP use_threads_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	Rcpp::traits::input_parameter<bool>::type use_threads(use_threads_sexp);
-	return Rcpp::wrap(Table__to_dataframe(table, use_threads));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Table__to_dataframe(SEXP table_sexp, SEXP use_threads_sexp){
-	Rf_error("Cannot call Table__to_dataframe(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
 // array_from_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x);
@@ -500,6 +438,68 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_ChunkedArray__from_list(SEXP chunks_sexp, SEXP s_type_sexp){
 	Rf_error("Cannot call ChunkedArray__from_list(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// array_to_vector.cpp
+#if defined(ARROW_R_WITH_ARROW)
+SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
+RcppExport SEXP _arrow_Array__as_vector(SEXP array_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	return Rcpp::wrap(Array__as_vector(array));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Array__as_vector(SEXP array_sexp){
+	Rf_error("Cannot call Array__as_vector(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// array_to_vector.cpp
+#if defined(ARROW_R_WITH_ARROW)
+SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+RcppExport SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	return Rcpp::wrap(ChunkedArray__as_vector(chunked_array));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp){
+	Rf_error("Cannot call ChunkedArray__as_vector(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// array_to_vector.cpp
+#if defined(ARROW_R_WITH_ARROW)
+Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch, bool use_threads);
+RcppExport SEXP _arrow_RecordBatch__to_dataframe(SEXP batch_sexp, SEXP use_threads_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	Rcpp::traits::input_parameter<bool>::type use_threads(use_threads_sexp);
+	return Rcpp::wrap(RecordBatch__to_dataframe(batch, use_threads));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_RecordBatch__to_dataframe(SEXP batch_sexp, SEXP use_threads_sexp){
+	Rf_error("Cannot call RecordBatch__to_dataframe(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// array_to_vector.cpp
+#if defined(ARROW_R_WITH_ARROW)
+Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table, bool use_threads);
+RcppExport SEXP _arrow_Table__to_dataframe(SEXP table_sexp, SEXP use_threads_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	Rcpp::traits::input_parameter<bool>::type use_threads(use_threads_sexp);
+	return Rcpp::wrap(Table__to_dataframe(table, use_threads));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Table__to_dataframe(SEXP table_sexp, SEXP use_threads_sexp){
+	Rf_error("Cannot call Table__to_dataframe(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3725,13 +3725,13 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ListArray__value_length", (DL_FUNC) &_arrow_ListArray__value_length, 2}, 
 		{ "_arrow_ListArray__value_offset", (DL_FUNC) &_arrow_ListArray__value_offset, 2}, 
 		{ "_arrow_ListArray__raw_value_offsets", (DL_FUNC) &_arrow_ListArray__raw_value_offsets, 1}, 
+		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1}, 
+		{ "_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 2}, 
+		{ "_arrow_ChunkedArray__from_list", (DL_FUNC) &_arrow_ChunkedArray__from_list, 2}, 
 		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
 		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1}, 
 		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 
 		{ "_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 2}, 
-		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1}, 
-		{ "_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 2}, 
-		{ "_arrow_ChunkedArray__from_list", (DL_FUNC) &_arrow_ChunkedArray__from_list, 2}, 
 		{ "_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1}, 
 		{ "_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1}, 
 		{ "_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1}, 

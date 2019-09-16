@@ -153,6 +153,7 @@ export class JSONVectorAssembler extends Visitor {
     }
     public visitMap<T extends Map_>(vector: V<T>) {
         return {
+            'OFFSET': [...vector.valueOffsets],
             'children': vector.type.children.map((f, i) =>
                 this.visit(new Column(f, [vector.getChildAt(i)!])))
         };

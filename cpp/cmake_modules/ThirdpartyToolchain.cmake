@@ -346,6 +346,13 @@ else()
     )
 endif()
 
+if(DEFINED ENV{ARROW_MIMALLOC_URL})
+  set(MIMALLOC_SOURCE_URL "$ENV{ARROW_MIMALLOC_URL}")
+else()
+  set(MIMALLOC_SOURCE_URL
+      "https://github.com/microsoft/mimalloc/archive/${MIMALLOC_VERSION}.tar.gz")
+endif()
+
 if(DEFINED ENV{ARROW_LZ4_URL})
   set(LZ4_SOURCE_URL "$ENV{ARROW_LZ4_URL}")
 else()
@@ -513,17 +520,27 @@ macro(build_boost)
 
   set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
   set(BOOST_BUILD_LINK "static")
+  if(MSVC)
+    string(REGEX
+           REPLACE "^([0-9]+)\\.([0-9]+)\\.[0-9]+$" "\\1_\\2"
+                   BOOST_VERSION_NO_MICRO_UNDERSCORE ${BOOST_VERSION})
+    set(BOOST_LIBRARY_SUFFIX
+        "-vc${MSVC_TOOLSET_VERSION}-mt-x64-${BOOST_VERSION_NO_MICRO_UNDERSCORE}")
+  else()
+    set(BOOST_LIBRARY_SUFFIX "")
+  endif()
   set(
     BOOST_STATIC_SYSTEM_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_system${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${BOOST_LIB_DIR}/libboost_system${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(
     BOOST_STATIC_FILESYSTEM_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${BOOST_LIB_DIR}/libboost_filesystem${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(
     BOOST_STATIC_REGEX_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_regex${CMAKE_STATIC_LIBRARY_SUFFIX}"
+
+    "${BOOST_LIB_DIR}/libboost_regex${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(BOOST_SYSTEM_LIBRARY boost_system_static)
   set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
@@ -531,15 +548,27 @@ macro(build_boost)
   set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
                            ${BOOST_STATIC_FILESYSTEM_LIBRARY}
                            ${BOOST_STATIC_REGEX_LIBRARY})
-  set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh" "--prefix=${BOOST_PREFIX}"
-                              "--with-libraries=filesystem,regex,system")
+  if(MSVC)
+    set(BOOST_CONFIGURE_COMMAND ".\\\\bootstrap.bat")
+  else()
+    set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh")
+  endif()
+  list(APPEND BOOST_CONFIGURE_COMMAND "--prefix=${BOOST_PREFIX}"
+              "--with-libraries=filesystem,regex,system")
   if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
     set(BOOST_BUILD_VARIANT "debug")
   else()
     set(BOOST_BUILD_VARIANT "release")
   endif()
   set(BOOST_BUILD_COMMAND "./b2" "link=${BOOST_BUILD_LINK}"
-                          "variant=${BOOST_BUILD_VARIANT}" "cxxflags=-fPIC")
+                          "variant=${BOOST_BUILD_VARIANT}")
+  if(MSVC)
+    string(REGEX
+           REPLACE "([0-9])$" ".\\1" BOOST_TOOLSET_MSVC_VERSION ${MSVC_TOOLSET_VERSION})
+    list(APPEND BOOST_BUILD_COMMAND "toolset=msvc-${BOOST_TOOLSET_MSVC_VERSION}")
+  else()
+    list(APPEND BOOST_BUILD_COMMAND "cxxflags=-fPIC")
+  endif()
 
   add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
 
@@ -1356,6 +1385,9 @@ if(ARROW_WITH_PROTOBUF)
   message(STATUS "Found protobuf headers: ${PROTOBUF_INCLUDE_DIR}")
 endif()
 
+# ----------------------------------------------------------------------
+# jemalloc - Unix-only high-performance allocator
+
 if(WIN32)
   # jemalloc is not supported on Windows
   set(ARROW_JEMALLOC off)
@@ -1405,6 +1437,55 @@ if(ARROW_JEMALLOC)
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src")
   add_dependencies(jemalloc::jemalloc jemalloc_ep)
+endif()
+
+# ----------------------------------------------------------------------
+# mimalloc - Cross-platform high-performance allocator, from Microsoft
+
+if(ARROW_MIMALLOC)
+  message(STATUS "Building (vendored) mimalloc from source")
+  # We only use a vendored mimalloc as we want to control its build options.
+
+  # XXX Careful: mimalloc library naming varies depend on build type capitalization:
+  # https://github.com/microsoft/mimalloc/issues/144
+  set(MIMALLOC_LIB_BASE_NAME "mimalloc")
+  if(WIN32)
+    set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-static")
+  endif()
+  set(MIMALLOC_LIB_BASE_NAME "${MIMALLOC_LIB_BASE_NAME}-${LOWERCASE_BUILD_TYPE}")
+
+  set(MIMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/mimalloc_ep/src/mimalloc_ep")
+  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/lib/mimalloc-1.0/include")
+  set(
+    MIMALLOC_STATIC_LIB
+    "${MIMALLOC_PREFIX}/lib/mimalloc-1.0/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+
+  set(MIMALLOC_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      "-DCMAKE_INSTALL_PREFIX=${MIMALLOC_PREFIX}"
+      -DMI_OVERRIDE=OFF
+      -DMI_LOCAL_DYNAMIC_TLS=ON
+      -DMI_BUILD_TESTS=OFF)
+
+  externalproject_add(mimalloc_ep
+                      URL ${MIMALLOC_SOURCE_URL}
+                      CMAKE_ARGS ${MIMALLOC_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS "${MIMALLOC_STATIC_LIB}")
+
+  include_directories(SYSTEM ${MIMALLOC_INCLUDE_DIR})
+  file(MAKE_DIRECTORY ${MIMALLOC_INCLUDE_DIR})
+
+  add_library(mimalloc::mimalloc STATIC IMPORTED)
+  set_target_properties(mimalloc::mimalloc
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   Threads::Threads
+                                   IMPORTED_LOCATION
+                                   "${MIMALLOC_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${MIMALLOC_INCLUDE_DIR}")
+  add_dependencies(mimalloc::mimalloc mimalloc_ep)
+  add_dependencies(toolchain mimalloc_ep)
 endif()
 
 # ----------------------------------------------------------------------

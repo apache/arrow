@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/checked_cast.h"

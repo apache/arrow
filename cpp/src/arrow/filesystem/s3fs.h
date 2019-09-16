@@ -41,6 +41,9 @@ struct ARROW_EXPORT S3Options {
 
   std::string access_key;
   std::string secret_key;
+
+  // Whether OutputStream writes will be issued in the background, without blocking.
+  bool background_writes = true;
 };
 
 /// S3-backed FileSystem implementation.

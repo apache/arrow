@@ -25,7 +25,7 @@ read_tsv_arrow(file, quote = "\\"", escape_double = TRUE,
   read_options = NULL, as_tibble = TRUE)
 }
 \arguments{
-\item{file}{A character path to a local file, or an Arrow input stream}
+\item{file}{A character file name, raw vector, or an Arrow input stream}
 
 \item{delim}{Single character used to separate fields within a record.}
 
@@ -71,10 +71,10 @@ parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, et
 \item{read_options}{see \code{\link[=csv_read_options]{csv_read_options()}}}
 
 \item{as_tibble}{Should the function return a \code{data.frame} or an
-\link[=arrow__Table]{arrow::Table}?}
+\link[=Table]{arrow::Table}?}
 }
 \value{
-A \code{data.frame}, or an \code{arrow::Table} if \code{as_tibble = FALSE}.
+A \code{data.frame}, or an Table if \code{as_tibble = FALSE}.
 }
 \description{
 These functions uses the Arrow C++ CSV reader to read into a \code{data.frame}.

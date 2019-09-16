@@ -15,29 +15,128 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
 
-`parquet::arrow::FileReader` <- R6Class("parquet::arrow::FileReader",
-  inherit = `arrow::Object`,
+#' Read a Parquet file
+#'
+#' '[Parquet](https://parquet.apache.org/)' is a columnar storage file format.
+#' This function enables you to read Parquet files into R.
+#'
+#' @inheritParams read_delim_arrow
+#' @param props [ParquetReaderProperties]
+#' @param ... Additional arguments passed to `ParquetFileReader$create()`
+#'
+#' @return A [arrow::Table][Table], or a `data.frame` if `as_tibble` is
+#' `TRUE`.
+#' @examples
+#' \donttest{
+#' df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
+#' head(df)
+#' }
+#' @export
+read_parquet <- function(file,
+                         col_select = NULL,
+                         as_tibble = TRUE,
+                         props = ParquetReaderProperties$create(),
+                         ...) {
+  reader <- ParquetFileReader$create(file, props = props, ...)
+  tab <- reader$ReadTable(!!enquo(col_select))
+
+  if (as_tibble) {
+    tab <- as.data.frame(tab)
+  }
+  tab
+}
+
+#' @title ParquetFileReader class
+#' @rdname ParquetFileReader
+#' @name ParquetFileReader
+#' @docType class
+#' @usage NULL
+#' @format NULL
+#' @description This class enables you to interact with Parquet files.
+#'
+#' @section Factory:
+#'
+#' The `ParquetFileReader$create()` factory method instantiates the object and
+#' takes the following arguments:
+#'
+#' - `file` A character file name, raw vector, or Arrow file connection object
+#'    (e.g. `RandomAccessFile`).
+#' - `props` Optional [ParquetReaderProperties]
+#' - `mmap` Logical: whether to memory-map the file (default `TRUE`)
+#' - `...` Additional arguments, currently ignored
+#'
+#' @section Methods:
+#'
+#' - `$ReadTable(col_select)`: get an `arrow::Table` from the file, possibly
+#'    with columns filtered by a character vector of column names or a
+#'    `tidyselect` specification.
+#' - `$GetSchema()`: get the `arrow::Schema` of the data in the file
+#'
+#' @export
+#' @examples
+#' \donttest{
+#' f <- system.file("v0.7.1.parquet", package="arrow")
+#' pq <- ParquetFileReader$create(f)
+#' pq$GetSchema()
+#' tab <- pq$ReadTable(starts_with("c"))
+#' tab$schema
+#' }
+#' @include arrow-package.R
+ParquetFileReader <- R6Class("ParquetFileReader",
+  inherit = Object,
   public = list(
     ReadTable = function(col_select = NULL) {
       col_select <- enquo(col_select)
-      if(quo_is_null(col_select)) {
-        shared_ptr(`arrow::Table`, parquet___arrow___FileReader__ReadTable1(self))
+      if (quo_is_null(col_select)) {
+        shared_ptr(Table, parquet___arrow___FileReader__ReadTable1(self))
       } else {
-        all_vars <- shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema(self))$names
+        all_vars <- shared_ptr(Schema, parquet___arrow___FileReader__GetSchema(self))$names
         indices <- match(vars_select(all_vars, !!col_select), all_vars) - 1L
-        shared_ptr(`arrow::Table`, parquet___arrow___FileReader__ReadTable2(self, indices))
+        shared_ptr(Table, parquet___arrow___FileReader__ReadTable2(self, indices))
       }
     },
     GetSchema = function() {
-      shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema(self))
+      shared_ptr(Schema, parquet___arrow___FileReader__GetSchema(self))
     }
   )
 )
 
-`parquet::arrow::ArrowReaderProperties` <- R6Class("parquet::arrow::ArrowReaderProperties",
-  inherit = `arrow::Object`,
+ParquetFileReader$create <- function(file,
+                                     props = ParquetReaderProperties$create(),
+                                     mmap = TRUE,
+                                     ...) {
+  file <- make_readable_file(file, mmap)
+  assert_is(props, "ParquetReaderProperties")
+
+  unique_ptr(ParquetFileReader, parquet___arrow___FileReader__OpenFile(file, props))
+}
+
+#' @title ParquetReaderProperties class
+#' @rdname ParquetReaderProperties
+#' @name ParquetReaderProperties
+#' @docType class
+#' @usage NULL
+#' @format NULL
+#' @description This class holds settings to control how a Parquet file is read
+#' by [ParquetFileReader].
+#'
+#' @section Factory:
+#'
+#' The `ParquetReaderProperties$create()` factory method instantiates the object
+#' and takes the following arguments:
+#'
+#' - `use_threads` Logical: whether to use multithreading (default `TRUE`)
+#'
+#' @section Methods:
+#'
+#' - `$read_dictionary(column_index)`
+#' - `$set_read_dictionary(column_index, read_dict)`
+#' - `$use_threads(use_threads)`
+#'
+#' @export
+ParquetReaderProperties <- R6Class("ParquetReaderProperties",
+  inherit = Object,
   public = list(
     read_dictionary = function(column_index) {
       parquet___arrow___ArrowReaderProperties__get_read_dictionary(self, column_index)
@@ -57,93 +156,27 @@
   )
 )
 
-#' Create a new ArrowReaderProperties instance
-#'
-#' @param use_threads use threads?
-#'
-#' @export
-#' @keywords internal
-parquet_arrow_reader_properties <- function(use_threads = option_use_threads()) {
-  shared_ptr(`parquet::arrow::ArrowReaderProperties`, parquet___arrow___ArrowReaderProperties__Make(isTRUE(use_threads)))
+ParquetReaderProperties$create <- function(use_threads = option_use_threads()) {
+  shared_ptr(
+    ParquetReaderProperties,
+    parquet___arrow___ArrowReaderProperties__Make(isTRUE(use_threads))
+  )
 }
 
-#' Parquet file reader
-#'
-#' @inheritParams read_delim_arrow
-#' @param props reader file properties, as created by [parquet_arrow_reader_properties()]
-#'
-#' @param ... additional parameters
-#'
-#' @export
-parquet_file_reader <- function(file, props = parquet_arrow_reader_properties(), ...) {
-  UseMethod("parquet_file_reader")
-}
-
-#' @export
-`parquet_file_reader.arrow::io::RandomAccessFile` <- function(file, props = parquet_arrow_reader_properties(), ...) {
-  unique_ptr(`parquet::arrow::FileReader`, parquet___arrow___FileReader__OpenFile(file, props))
-}
-
-#' @export
-parquet_file_reader.character <- function(file,
-                                          props = parquet_arrow_reader_properties(),
-                                          memory_map = TRUE,
-                                          ...) {
-  file <- normalizePath(file)
-  if (isTRUE(memory_map)) {
-    parquet_file_reader(mmap_open(file), props = props, ...)
-  } else {
-    parquet_file_reader(ReadableFile(file), props = props, ...)
-  }
-}
-
-#' @export
-parquet_file_reader.raw <- function(file, props = parquet_arrow_reader_properties(), ...) {
-  parquet_file_reader(BufferReader(file), props = props, ...)
-}
-
-#' Read a Parquet file
-#'
-#' '[Parquet](https://parquet.apache.org/)' is a columnar storage file format.
-#' This function enables you to read Parquet files into R.
-#'
-#' @inheritParams read_delim_arrow
-#' @inheritParams parquet_file_reader
-#'
-#' @return A [arrow::Table][arrow__Table], or a `data.frame` if `as_tibble` is
-#' `TRUE`.
-#' @examples
-#' \donttest{
-#' try({
-#'   df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
-#' })
-#' }
-#' @export
-read_parquet <- function(file, col_select = NULL, as_tibble = TRUE, props = parquet_arrow_reader_properties(), ...) {
-  reader <- parquet_file_reader(file, props = props, ...)
-  tab <- reader$ReadTable(!!enquo(col_select))
-
-  if (as_tibble) {
-    tab <- as.data.frame(tab)
-  }
-  tab
-}
 
 #' Write Parquet file to disk
 #'
 #' [Parquet](https://parquet.apache.org/) is a columnar storage file format.
 #' This function enables you to write Parquet files from R.
 #'
-#' @param table An [arrow::Table][arrow__Table], or an object convertible to it
+#' @param table An [arrow::Table][Table], or an object convertible to it
 #' @param file a file path
 #'
 #' @examples
 #' \donttest{
-#' try({
-#'   tf <- tempfile(fileext = ".parquet")
-#'   on.exit(unlink(tf))
-#'   write_parquet(tibble::tibble(x = 1:5), tf)
-#' })
+#' tf <- tempfile(fileext = ".parquet")
+#' on.exit(unlink(tf))
+#' write_parquet(tibble::tibble(x = 1:5), tf)
 #' }
 #' @export
 write_parquet <- function(table, file) {

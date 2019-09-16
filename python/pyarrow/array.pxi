@@ -440,7 +440,7 @@ cdef class _PandasConvertible:
 
         Returns
         -------
-        NumPy array or DataFrame depending on type of object
+        pandas.Series or pandas.DataFrame depending on type of object
         """
         cdef:
             PyObject* out
@@ -480,6 +480,16 @@ cdef class Array(_PandasConvertible):
     def _debug_print(self):
         with nogil:
             check_status(DebugPrint(deref(self.ap), 0))
+
+    def diff(self, Array other):
+        """
+        Return string containing the result of arrow::Diff comparing contents
+        of this array against the other array
+        """
+        cdef c_string result
+        with nogil:
+            result = self.ap.Diff(deref(other.ap))
+        return frombytes(result)
 
     def cast(self, object target_type, bint safe=True):
         """
@@ -824,6 +834,42 @@ cdef class Array(_PandasConvertible):
 
         return wrap_datum(out)
 
+    def filter(self, Array mask):
+        """
+        Filter the array with a boolean mask.
+
+        Parameters
+        ----------
+        mask : Array
+            The boolean mask indicating which values to extract.
+
+        Returns
+        -------
+        Array
+
+        Examples
+        --------
+
+        >>> import pyarrow as pa
+        >>> arr = pa.array(["a", "b", "c", None, "e"])
+        >>> mask = pa.array([True, False, None, False, True])
+        >>> arr.filter(mask)
+        <pyarrow.lib.StringArray object at 0x7fa826df9200>
+        [
+          "a",
+          null,
+          "e"
+        ]
+        """
+        cdef:
+            cdef CDatum out
+
+        with nogil:
+            check_status(FilterKernel(_context(), CDatum(self.sp_array),
+                                      CDatum(mask.sp_array), &out))
+
+        return wrap_datum(out)
+
     def _to_pandas(self, options, **kwargs):
         cdef:
             PyObject* out
@@ -832,12 +878,13 @@ cdef class Array(_PandasConvertible):
         with nogil:
             check_status(ConvertArrayToPandas(c_options, self.sp_array,
                                               self, &out))
-        return wrap_array_output(out)
+        return pandas_api.series(wrap_array_output(out), name=self._name)
 
     def __array__(self, dtype=None):
+        values = self.to_pandas().values
         if dtype is None:
-            return self.to_pandas()
-        return self.to_pandas().astype(dtype)
+            return values
+        return values.astype(dtype)
 
     def to_numpy(self):
         """
@@ -1618,7 +1665,7 @@ cdef object get_series_values(object obj, bint* is_series):
         result = obj
         is_series[0] = False
     else:
-        result = pandas_api.make_series(obj).values
+        result = pandas_api.series(obj).values
         is_series[0] = False
 
     return result

@@ -32,7 +32,7 @@
 #' `parse_options`, `convert_options`, or `read_options` arguments, or you can
 #' call [csv_table_reader()] directly for lower-level access.
 #'
-#' @param file A character path to a local file, or an Arrow input stream
+#' @inheritParams make_readable_file
 #' @param delim Single character used to separate fields within a record.
 #' @param quote Single character used to quote strings.
 #' @param escape_double Does the file escape quotes by doubling them?
@@ -64,9 +64,9 @@
 #' @param convert_options see [csv_convert_options()]
 #' @param read_options see [csv_read_options()]
 #' @param as_tibble Should the function return a `data.frame` or an
-#' [arrow::Table][arrow__Table]?
+#' [arrow::Table][Table]?
 #'
-#' @return A `data.frame`, or an `arrow::Table` if `as_tibble = FALSE`.
+#' @return A `data.frame`, or an Table if `as_tibble = FALSE`.
 #' @export
 #' @examples
 #' \donttest{
@@ -181,15 +181,57 @@ read_tsv_arrow <- function(file,
 
 #' @include arrow-package.R
 
-`arrow::csv::TableReader` <- R6Class("arrow::csv::TableReader", inherit = `arrow::Object`,
+CsvTableReader <- R6Class("CsvTableReader", inherit = Object,
   public = list(
-    Read = function() shared_ptr(`arrow::Table`, csv___TableReader__Read(self))
+    Read = function() shared_ptr(Table, csv___TableReader__Read(self))
   )
 )
 
-`arrow::csv::ReadOptions` <- R6Class("arrow::csv::ReadOptions", inherit = `arrow::Object`)
-`arrow::csv::ParseOptions` <- R6Class("arrow::csv::ParseOptions", inherit = `arrow::Object`)
-`arrow::csv::ConvertOptions` <- R6Class("arrow::csv::ConvertOptions", inherit = `arrow::Object`)
+CsvTableReader$create <- function(file,
+                                  read_options = csv_read_options(),
+                                  parse_options = csv_parse_options(),
+                                  convert_options = csv_convert_options(),
+                                  ...) {
+  file <- make_readable_file(file)
+  shared_ptr(
+    CsvTableReader,
+    csv___TableReader__Make(file, read_options, parse_options, convert_options)
+  )
+}
+
+#' Arrow CSV and JSON table readers
+#'
+#' These methods wrap the Arrow C++ CSV and JSON table readers.
+#' For an interface to the CSV reader that's more familiar for R users, see
+#' [read_csv_arrow()]
+#'
+#' @param file A character path to a local file, or an Arrow input stream
+#' @param read_options see [csv_read_options()]
+#' @param parse_options see [csv_parse_options()]
+#' @param convert_options see [csv_convert_options()]
+#' @param ... additional parameters.
+#'
+#' @return An CsvTableReader or JsonTableReader R6
+#' object. Call `$Read()` on it to get an Arrow Table.
+#' @export
+csv_table_reader <- CsvTableReader$create
+
+CsvReadOptions <- R6Class("CsvReadOptions", inherit = Object)
+CsvReadOptions$create <- function(use_threads = option_use_threads(),
+                                  block_size = 1048576L,
+                                  skip_rows = 0L,
+                                  column_names = character(0),
+                                  autogenerate_column_names = FALSE) {
+  shared_ptr(CsvReadOptions, csv___ReadOptions__initialize(
+    list(
+      use_threads = use_threads,
+      block_size = block_size,
+      skip_rows = skip_rows,
+      column_names = column_names,
+      autogenerate_column_names = autogenerate_column_names
+    )
+  ))
+}
 
 #' Read options for the Arrow file readers
 #'
@@ -206,21 +248,7 @@ read_tsv_arrow <- function(file,
 #' be "f0", "f1", ..., "fN".
 #'
 #' @export
-csv_read_options <- function(use_threads = option_use_threads(),
-                             block_size = 1048576L,
-                             skip_rows = 0L,
-                             column_names = character(0),
-                             autogenerate_column_names = FALSE) {
-  shared_ptr(`arrow::csv::ReadOptions`, csv___ReadOptions__initialize(
-    list(
-      use_threads = use_threads,
-      block_size = block_size,
-      skip_rows = skip_rows,
-      column_names = column_names,
-      autogenerate_column_names = autogenerate_column_names
-    )
-  ))
-}
+csv_read_options <- CsvReadOptions$create
 
 readr_to_csv_read_options <- function(skip, col_names) {
   if (isTRUE(col_names)) {
@@ -233,6 +261,44 @@ readr_to_csv_read_options <- function(skip, col_names) {
     csv_read_options(skip_rows = skip, column_names = col_names)
   }
 }
+
+CsvParseOptions <- R6Class("CsvParseOptions", inherit = Object)
+CsvParseOptions$create <- function(delimiter = ",",
+                                   quoting = TRUE,
+                                   quote_char = '"',
+                                   double_quote = TRUE,
+                                   escaping = FALSE,
+                                   escape_char = '\\',
+                                   newlines_in_values = FALSE,
+                                   ignore_empty_lines = TRUE) {
+
+  shared_ptr(CsvParseOptions, csv___ParseOptions__initialize(
+    list(
+      delimiter = delimiter,
+      quoting = quoting,
+      quote_char = quote_char,
+      double_quote = double_quote,
+      escaping = escaping,
+      escape_char = escape_char,
+      newlines_in_values = newlines_in_values,
+      ignore_empty_lines = ignore_empty_lines
+    )
+  ))
+}
+
+#' Parsing options for Arrow file readers
+#'
+#' @param delimiter Field delimiter
+#' @param quoting Whether quoting is used
+#' @param quote_char Quoting character (if `quoting` is `TRUE`)
+#' @param double_quote Whether a quote inside a value is double-quoted
+#' @param escaping Whether escaping is used
+#' @param escape_char Escaping character (if `escaping` is `TRUE`)
+#' @param newlines_in_values Whether values are allowed to contain CR (`0x0d`) and LF (`0x0a`) characters
+#' @param ignore_empty_lines Whether empty lines are ignored.  If `FALSE`, an empty line represents
+#'
+#' @export
+csv_parse_options <- CsvParseOptions$create
 
 readr_to_csv_parse_options <- function(delim = ",",
                                        quote = '"',
@@ -253,37 +319,22 @@ readr_to_csv_parse_options <- function(delim = ",",
   )
 }
 
-#' Parsing options for Arrow file readers
-#'
-#' @param delimiter Field delimiter
-#' @param quoting Whether quoting is used
-#' @param quote_char Quoting character (if `quoting` is `TRUE`)
-#' @param double_quote Whether a quote inside a value is double-quoted
-#' @param escaping Whether escaping is used
-#' @param escape_char Escaping character (if `escaping` is `TRUE`)
-#' @param newlines_in_values Whether values are allowed to contain CR (`0x0d`) and LF (`0x0a`) characters
-#' @param ignore_empty_lines Whether empty lines are ignored.  If `FALSE`, an empty line represents
-#'
-#' @export
-csv_parse_options <- function(delimiter = ",",
-                              quoting = TRUE,
-                              quote_char = '"',
-                              double_quote = TRUE,
-                              escaping = FALSE,
-                              escape_char = '\\',
-                              newlines_in_values = FALSE,
-                              ignore_empty_lines = TRUE) {
+CsvConvertOptions <- R6Class("CsvConvertOptions", inherit = Object)
+CsvConvertOptions$create <- function(check_utf8 = TRUE,
+                                     null_values = c("", "NA"),
+                                     strings_can_be_null = FALSE) {
+  # TODO: there are more conversion options available:
+  # // Optional per-column types (disabling type inference on those columns)
+  # std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
+  # // Recognized spellings for boolean values
+  # std::vector<std::string> true_values;
+  # std::vector<std::string> false_values;
 
-  shared_ptr(`arrow::csv::ParseOptions`, csv___ParseOptions__initialize(
+  shared_ptr(CsvConvertOptions, csv___ConvertOptions__initialize(
     list(
-      delimiter = delimiter,
-      quoting = quoting,
-      quote_char = quote_char,
-      double_quote = double_quote,
-      escaping = escaping,
-      escape_char = escape_char,
-      newlines_in_values = newlines_in_values,
-      ignore_empty_lines = ignore_empty_lines
+      check_utf8 = check_utf8,
+      null_values = null_values,
+      strings_can_be_null = strings_can_be_null
     )
   ))
 }
@@ -298,89 +349,8 @@ csv_parse_options <- function(delimiter = ",",
 #' null values. Similar to the `quoted_na` argument to `readr::read_csv()`.
 #'
 #' @export
-csv_convert_options <- function(check_utf8 = TRUE,
-                                null_values = c("", "NA"),
-                                strings_can_be_null = FALSE) {
-  shared_ptr(`arrow::csv::ConvertOptions`, csv___ConvertOptions__initialize(
-    list(
-      check_utf8 = check_utf8,
-      null_values = null_values,
-      strings_can_be_null = strings_can_be_null
-    )
-  ))
-}
+csv_convert_options <- CsvConvertOptions$create
 
 readr_to_csv_convert_options <- function(na, quoted_na) {
-  csv_convert_options(null_values = na, strings_can_be_null = quoted_na)
-}
-
-#' Arrow CSV and JSON table readers
-#'
-#' These methods wrap the Arrow C++ CSV and JSON table readers.
-#' For an interface to the CSV reader that's more familiar for R users, see
-#' [read_csv_arrow()]
-#'
-#' @param file A character path to a local file, or an Arrow input stream
-#' @param read_options see [csv_read_options()]
-#' @param parse_options see [csv_parse_options()]
-#' @param convert_options see [csv_convert_options()]
-#' @param ... additional parameters.
-#'
-#' @return An `arrow::csv::TableReader` or `arrow::json::TableReader` R6
-#' object. Call `$Read()` on it to get an Arrow Table.
-#' @export
-csv_table_reader <- function(file,
-  read_options = csv_read_options(),
-  parse_options = csv_parse_options(),
-  convert_options = csv_convert_options(),
-  ...
-){
-  UseMethod("csv_table_reader")
-}
-
-#' @export
-csv_table_reader.default <- function(file,
-  read_options = csv_read_options(),
-  parse_options = csv_parse_options(),
-  convert_options = csv_convert_options(),
-  ...
-) {
-  abort("unsupported")
-}
-
-#' @export
-`csv_table_reader.character` <- function(file,
-  read_options = csv_read_options(),
-  parse_options = csv_parse_options(),
-  convert_options = csv_convert_options(),
-  ...
-){
-  csv_table_reader(mmap_open(file),
-    read_options = read_options,
-    parse_options = parse_options,
-    convert_options = convert_options,
-    ...
-  )
-}
-
-#' @export
-`csv_table_reader.arrow::io::InputStream` <- function(file,
-  read_options = csv_read_options(),
-  parse_options = csv_parse_options(),
-  convert_options = csv_convert_options(),
-  ...
-){
-  shared_ptr(`arrow::csv::TableReader`,
-    csv___TableReader__Make(file, read_options, parse_options, convert_options)
-  )
-}
-
-#' @export
-`csv_table_reader.arrow::csv::TableReader` <- function(file,
-  read_options = csv_read_options(),
-  parse_options = csv_parse_options(),
-  convert_options = csv_convert_options(),
-  ...
-){
-  file
+    csv_convert_options(null_values = na, strings_can_be_null = quoted_na)
 }

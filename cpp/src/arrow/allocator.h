@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <memory>
+#include <string>
 #include <utility>
 
 #include "arrow/memory_pool.h"
@@ -130,6 +131,8 @@ class STLMemoryPool : public MemoryPool {
   int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
 
   int64_t max_memory() const override { return stats_.max_memory(); }
+
+  std::string backend_name() const override { return "stl"; }
 
  private:
   Allocator alloc_;

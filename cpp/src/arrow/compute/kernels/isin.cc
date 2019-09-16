@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/dict_internal.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/compute/context.h"

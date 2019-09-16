@@ -22,6 +22,7 @@ import {
 
 import * as generate from '../../../generate-test-data';
 import { validateRecordBatchIterator } from '../validate';
+import { RecordBatchStreamWriterOptions } from '../../../../src/ipc/writer';
 import { DictionaryVector, Dictionary, Uint32, Int32 } from '../../../Arrow';
 import { Table, Schema, Chunked, Builder, RecordBatch, RecordBatchReader, RecordBatchStreamWriter } from '../../../Arrow';
 
@@ -31,15 +32,21 @@ describe('RecordBatchStreamWriter', () => {
         const type = generate.sparseUnion(0, 0).vector.type;
         const schema = Schema.new({ 'dictSparseUnion': type });
         const table = generate.table([10, 20, 30], schema).table;
-        testStreamWriter(table, `[${table.schema.fields.join(', ')}]`);
+        const testName = `[${table.schema.fields.join(', ')}]`;
+        testStreamWriter(table, testName, { writeLegacyIpcFormat: true });
+        testStreamWriter(table, testName, { writeLegacyIpcFormat: false });
     })();
 
     for (const table of generateRandomTables([10, 20, 30])) {
-        testStreamWriter(table, `[${table.schema.fields.join(', ')}]`);
+        const testName = `[${table.schema.fields.join(', ')}]`;
+        testStreamWriter(table, testName, { writeLegacyIpcFormat: true });
+        testStreamWriter(table, testName, { writeLegacyIpcFormat: false });
     }
 
     for (const table of generateDictionaryTables([10, 20, 30])) {
-        testStreamWriter(table, `${table.schema.fields[0]}`);
+        const testName = `${table.schema.fields[0]}`;
+        testStreamWriter(table, testName, { writeLegacyIpcFormat: true });
+        testStreamWriter(table, testName, { writeLegacyIpcFormat: false });
     }
 
     it(`should write multiple tables to the same output stream`, async () => {
@@ -98,14 +105,14 @@ describe('RecordBatchStreamWriter', () => {
     });
 });
 
-function testStreamWriter(table: Table, name: string) {
+function testStreamWriter(table: Table, name: string, options: RecordBatchStreamWriterOptions) {
     describe(`should write the Arrow IPC stream format (${name})`, () => {
-        test(`Table`, validateTable.bind(0, table));
+        test(`Table`, validateTable.bind(0, table, options));
     });
 }
 
-async function validateTable(source: Table) {
-    const writer = RecordBatchStreamWriter.writeAll(source);
+async function validateTable(source: Table, options: RecordBatchStreamWriterOptions) {
+    const writer = RecordBatchStreamWriter.writeAll(source, options);
     const result = await Table.from(writer.toUint8Array());
     validateRecordBatchIterator(3, source.chunks);
     expect(result).toEqualTable(source);
