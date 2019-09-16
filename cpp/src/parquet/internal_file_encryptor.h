@@ -35,7 +35,7 @@ class AesEncryptor;
 class FileEncryptionProperties;
 class ColumnEncryptionProperties;
 
-class Encryptor {
+class PARQUET_EXPORT Encryptor {
  public:
   Encryptor(encryption::AesEncryptor* aes_encryptor, const std::string& key,
             const std::string& file_aad, const std::string& aad,

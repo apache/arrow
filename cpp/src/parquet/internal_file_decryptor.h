@@ -34,7 +34,7 @@ class AesEncryptor;
 
 class FileDecryptionProperties;
 
-class Decryptor {
+class PARQUET_EXPORT Decryptor {
  public:
   Decryptor(encryption::AesDecryptor* decryptor, const std::string& key,
             const std::string& file_aad, const std::string& aad,
