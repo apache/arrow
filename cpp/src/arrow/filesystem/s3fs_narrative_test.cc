@@ -193,7 +193,7 @@ void TestBucket(int argc, char** argv) {
 
 void TestMain(int argc, char** argv) {
   S3GlobalOptions options;
-  options.log_level = S3LogLevel::Fatal;
+  options.log_level = FLAGS_verbose ? S3LogLevel::Debug : S3LogLevel::Fatal;
   ASSERT_OK(InitializeS3(options));
 
   if (FLAGS_clear) {
