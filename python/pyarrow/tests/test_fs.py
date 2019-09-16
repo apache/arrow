@@ -136,7 +136,7 @@ def test_get_target_stats_with_selector(fs, tempdir, testpath, base_dir):
     base_dir_ = tempdir / base_dir
 
     selector = Selector(base_dir, allow_non_existent=False, recursive=True)
-    assert selector.base_dir == pathlib.Path(base_dir).as_posix()
+    assert selector.base_dir == str(base_dir)
 
     (tempdir / 'test_file').touch()
     (tempdir / 'test_directory').mkdir()
