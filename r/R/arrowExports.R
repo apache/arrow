@@ -640,8 +640,8 @@ fs___FileSystem__OpenAppendStream <- function(file_system, path){
     .Call(`_arrow_fs___FileSystem__OpenAppendStream` , file_system, path)
 }
 
-fs___SubTreeFileSystem__create <- function(base_fs, base_path){
-    .Call(`_arrow_fs___SubTreeFileSystem__create` , base_fs, base_path)
+fs___SubTreeFileSystem__create <- function(base_path, base_fs){
+    .Call(`_arrow_fs___SubTreeFileSystem__create` , base_path, base_fs)
 }
 
 io___Readable__Read <- function(x, nbytes){

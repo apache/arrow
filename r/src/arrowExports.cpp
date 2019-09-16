@@ -2482,16 +2482,16 @@ RcppExport SEXP _arrow_fs___FileSystem__OpenAppendStream(SEXP file_system_sexp, 
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(const std::shared_ptr<arrow::fs::FileSystem>& base_fs, const std::string& base_path);
-RcppExport SEXP _arrow_fs___SubTreeFileSystem__create(SEXP base_fs_sexp, SEXP base_path_sexp){
+std::shared_ptr<arrow::fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(const std::string& base_path, const std::shared_ptr<arrow::fs::FileSystem>& base_fs);
+RcppExport SEXP _arrow_fs___SubTreeFileSystem__create(SEXP base_path_sexp, SEXP base_fs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type base_fs(base_fs_sexp);
 	Rcpp::traits::input_parameter<const std::string&>::type base_path(base_path_sexp);
-	return Rcpp::wrap(fs___SubTreeFileSystem__create(base_fs, base_path));
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type base_fs(base_fs_sexp);
+	return Rcpp::wrap(fs___SubTreeFileSystem__create(base_path, base_fs));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___SubTreeFileSystem__create(SEXP base_fs_sexp, SEXP base_path_sexp){
+RcppExport SEXP _arrow_fs___SubTreeFileSystem__create(SEXP base_path_sexp, SEXP base_fs_sexp){
 	Rf_error("Cannot call fs___SubTreeFileSystem__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
