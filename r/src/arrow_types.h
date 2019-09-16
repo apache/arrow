@@ -175,6 +175,7 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/ipc/writer.h>
 #include <arrow/json/reader.h>
 #include <arrow/type.h>
+#include <arrow/filesystem/filesystem.h>
 #include <arrow/util/compression.h>
 #include <parquet/arrow/reader.h>
 #include <parquet/arrow/writer.h>
@@ -187,6 +188,7 @@ RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
 RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::Message::Type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::Compression::type)
+RCPP_EXPOSED_ENUM_NODECL(arrow::fs::FileType)
 
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
