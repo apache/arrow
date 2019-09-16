@@ -1850,4 +1850,5 @@ def connect(location, tls_root_certs=None, override_hostname=None,
     client : FlightClient
     """
     return FlightClient(location, tls_root_certs=tls_root_certs,
-                        override_hostname=override_hostname)
+                        override_hostname=override_hostname,
+                        wait_for_available=wait_for_available)
