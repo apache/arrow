@@ -63,6 +63,7 @@ Collate:
     'dictionary.R'
     'feather.R'
     'field.R'
+    'filesystem.R'
     'install-arrow.R'
     'json.R'
     'list.R'

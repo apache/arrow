@@ -540,6 +540,46 @@ Field__type <- function(field){
     .Call(`_arrow_Field__type` , field)
 }
 
+fs___FileStats__type <- function(x){
+    .Call(`_arrow_fs___FileStats__type` , x)
+}
+
+fs___FileStats__set_type <- function(x, type){
+    invisible(.Call(`_arrow_fs___FileStats__set_type` , x, type))
+}
+
+fs___FileStats__path <- function(x){
+    .Call(`_arrow_fs___FileStats__path` , x)
+}
+
+fs___FileStats__set_path <- function(x, path){
+    invisible(.Call(`_arrow_fs___FileStats__set_path` , x, path))
+}
+
+fs___FileStats__size <- function(x){
+    .Call(`_arrow_fs___FileStats__size` , x)
+}
+
+fs___FileStats__set_size <- function(x, size){
+    invisible(.Call(`_arrow_fs___FileStats__set_size` , x, size))
+}
+
+fs___FileStats__base_name <- function(x){
+    .Call(`_arrow_fs___FileStats__base_name` , x)
+}
+
+fs___FileStats__extension <- function(x){
+    .Call(`_arrow_fs___FileStats__extension` , x)
+}
+
+fs___FileStats__mtime <- function(x){
+    .Call(`_arrow_fs___FileStats__mtime` , x)
+}
+
+fs___FileStats__set_mtime <- function(x, time){
+    invisible(.Call(`_arrow_fs___FileStats__set_mtime` , x, time))
+}
+
 io___Readable__Read <- function(x, nbytes){
     .Call(`_arrow_io___Readable__Read` , x, nbytes)
 }

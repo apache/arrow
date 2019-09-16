@@ -33,6 +33,11 @@ struct symbols {
   static SEXP inspect;
   static SEXP row_names;
 };
+
+struct data {
+  static SEXP classes_POSIXct;
+};
+
 }  // namespace r
 }  // namespace arrow
 
