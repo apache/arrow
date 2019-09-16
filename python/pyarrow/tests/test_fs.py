@@ -99,6 +99,7 @@ def test_get_target_stats(fs, tempdir, testpath):
     aaa_stat, bb_stat, c_stat = fs.get_target_stats([aaa, bb, c])
 
     assert aaa_stat.path == str(aaa)
+    assert 'aaa' in repr(aaa_stat)
     assert aaa_stat.base_name == 'aaa'
     assert aaa_stat.extension == ''
     assert aaa_stat.type == FileType.Directory
@@ -121,17 +122,8 @@ def test_get_target_stats(fs, tempdir, testpath):
     assert mtime_almost_equal(c_stat.mtime, c_.stat().st_mtime)
 
 
-@pytest.mark.parametrize('base_dir', ['.', '..'])
+@pytest.mark.parametrize('base_dir', ['.'])
 def test_get_target_stats_with_selector(fs, tempdir, testpath, base_dir):
-    def walk(directory):
-        # utility function to recusively list entries under a directory,
-        # including symlinks and hidden files
-        for root, dirs, files in os.walk(directory, followlinks=True):
-            for d in dirs:
-                yield os.path.join(root, d)
-            for f in files:
-                yield os.path.join(root, f)
-
     base_dir = testpath(base_dir)
     base_dir_ = tempdir / base_dir
 
@@ -142,7 +134,7 @@ def test_get_target_stats_with_selector(fs, tempdir, testpath, base_dir):
     (tempdir / 'test_directory').mkdir()
 
     stats = fs.get_target_stats(selector)
-    expected = list(walk(str(base_dir_)))
+    expected = list(base_dir_.iterdir())
     assert len(stats) == len(expected)
 
     for st in stats:

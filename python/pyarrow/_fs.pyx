@@ -66,6 +66,16 @@ cdef class FileStats:
         self.stats = stats
         return self
 
+    def __repr__(self):
+        def getvalue(attr):
+            try:
+                return getattr(self, attr)
+            except ValueError:
+                return ''
+        attrs = ['type', 'path', 'base_name', 'size', 'extension', 'mtime']
+        attrs = '\n'.join('{}: {}'.format(a, getvalue(a)) for a in attrs)
+        return '{}\n{}'.format(object.__repr__(self), attrs)
+
     @property
     def type(self):
         """Type of the file
