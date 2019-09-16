@@ -2278,6 +2278,224 @@ RcppExport SEXP _arrow_fs___Selector__recursive(SEXP selector_sexp){
 }
 #endif
 
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::vector<std::shared_ptr<arrow::fs::FileStats>> fs___FileSystem__GetTargetStats_1(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::vector<std::string>& paths);
+RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_1(SEXP file_system_sexp, SEXP paths_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::vector<std::string>&>::type paths(paths_sexp);
+	return Rcpp::wrap(fs___FileSystem__GetTargetStats_1(file_system, paths));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_1(SEXP file_system_sexp, SEXP paths_sexp){
+	Rf_error("Cannot call fs___FileSystem__GetTargetStats_1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void fs___FileSystem__CreateDir(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path, bool recursive);
+RcppExport SEXP _arrow_fs___FileSystem__CreateDir(SEXP file_system_sexp, SEXP path_sexp, SEXP recursive_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
+	Rcpp::traits::input_parameter<bool>::type recursive(recursive_sexp);
+	fs___FileSystem__CreateDir(file_system, path, recursive);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___FileSystem__CreateDir(SEXP file_system_sexp, SEXP path_sexp, SEXP recursive_sexp){
+	Rf_error("Cannot call fs___FileSystem__CreateDir(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void fs___FileSystem__DeleteDir(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path);
+RcppExport SEXP _arrow_fs___FileSystem__DeleteDir(SEXP file_system_sexp, SEXP path_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
+	fs___FileSystem__DeleteDir(file_system, path);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___FileSystem__DeleteDir(SEXP file_system_sexp, SEXP path_sexp){
+	Rf_error("Cannot call fs___FileSystem__DeleteDir(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void fs___FileSystem__DeleteDirContents(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path);
+RcppExport SEXP _arrow_fs___FileSystem__DeleteDirContents(SEXP file_system_sexp, SEXP path_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
+	fs___FileSystem__DeleteDirContents(file_system, path);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___FileSystem__DeleteDirContents(SEXP file_system_sexp, SEXP path_sexp){
+	Rf_error("Cannot call fs___FileSystem__DeleteDirContents(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void fs___FileSystem__DeleteFile(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path);
+RcppExport SEXP _arrow_fs___FileSystem__DeleteFile(SEXP file_system_sexp, SEXP path_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
+	fs___FileSystem__DeleteFile(file_system, path);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___FileSystem__DeleteFile(SEXP file_system_sexp, SEXP path_sexp){
+	Rf_error("Cannot call fs___FileSystem__DeleteFile(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void fs___FileSystem__DeleteFiles(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::vector<std::string>& paths);
+RcppExport SEXP _arrow_fs___FileSystem__DeleteFiles(SEXP file_system_sexp, SEXP paths_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::vector<std::string>&>::type paths(paths_sexp);
+	fs___FileSystem__DeleteFiles(file_system, paths);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___FileSystem__DeleteFiles(SEXP file_system_sexp, SEXP paths_sexp){
+	Rf_error("Cannot call fs___FileSystem__DeleteFiles(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void fs___FileSystem__Move(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& src, const std::string& dest);
+RcppExport SEXP _arrow_fs___FileSystem__Move(SEXP file_system_sexp, SEXP src_sexp, SEXP dest_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type src(src_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type dest(dest_sexp);
+	fs___FileSystem__Move(file_system, src, dest);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___FileSystem__Move(SEXP file_system_sexp, SEXP src_sexp, SEXP dest_sexp){
+	Rf_error("Cannot call fs___FileSystem__Move(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void fs___FileSystem__CopyFile(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& src, const std::string& dest);
+RcppExport SEXP _arrow_fs___FileSystem__CopyFile(SEXP file_system_sexp, SEXP src_sexp, SEXP dest_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type src(src_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type dest(dest_sexp);
+	fs___FileSystem__CopyFile(file_system, src, dest);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___FileSystem__CopyFile(SEXP file_system_sexp, SEXP src_sexp, SEXP dest_sexp){
+	Rf_error("Cannot call fs___FileSystem__CopyFile(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::io::InputStream> fs___FileSystem__OpenInputStream(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path);
+RcppExport SEXP _arrow_fs___FileSystem__OpenInputStream(SEXP file_system_sexp, SEXP path_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
+	return Rcpp::wrap(fs___FileSystem__OpenInputStream(file_system, path));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___FileSystem__OpenInputStream(SEXP file_system_sexp, SEXP path_sexp){
+	Rf_error("Cannot call fs___FileSystem__OpenInputStream(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::io::RandomAccessFile> fs___FileSystem__OpenInputFile(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path);
+RcppExport SEXP _arrow_fs___FileSystem__OpenInputFile(SEXP file_system_sexp, SEXP path_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
+	return Rcpp::wrap(fs___FileSystem__OpenInputFile(file_system, path));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___FileSystem__OpenInputFile(SEXP file_system_sexp, SEXP path_sexp){
+	Rf_error("Cannot call fs___FileSystem__OpenInputFile(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::io::OutputStream> fs___FileSystem__OpenOutputStream(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path);
+RcppExport SEXP _arrow_fs___FileSystem__OpenOutputStream(SEXP file_system_sexp, SEXP path_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
+	return Rcpp::wrap(fs___FileSystem__OpenOutputStream(file_system, path));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___FileSystem__OpenOutputStream(SEXP file_system_sexp, SEXP path_sexp){
+	Rf_error("Cannot call fs___FileSystem__OpenOutputStream(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::io::OutputStream> fs___FileSystem__OpenAppendStream(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path);
+RcppExport SEXP _arrow_fs___FileSystem__OpenAppendStream(SEXP file_system_sexp, SEXP path_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
+	return Rcpp::wrap(fs___FileSystem__OpenAppendStream(file_system, path));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___FileSystem__OpenAppendStream(SEXP file_system_sexp, SEXP path_sexp){
+	Rf_error("Cannot call fs___FileSystem__OpenAppendStream(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(const std::shared_ptr<arrow::fs::FileSystem>& base_fs, const std::string& base_path);
+RcppExport SEXP _arrow_fs___SubTreeFileSystem__create(SEXP base_fs_sexp, SEXP base_path_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type base_fs(base_fs_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type base_path(base_path_sexp);
+	return Rcpp::wrap(fs___SubTreeFileSystem__create(base_fs, base_path));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___SubTreeFileSystem__create(SEXP base_fs_sexp, SEXP base_path_sexp){
+	Rf_error("Cannot call fs___SubTreeFileSystem__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Buffer> io___Readable__Read(const std::shared_ptr<arrow::io::Readable>& x, int64_t nbytes);
@@ -4051,6 +4269,19 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___Selector__base_dir", (DL_FUNC) &_arrow_fs___Selector__base_dir, 1}, 
 		{ "_arrow_fs___Selector__allow_non_existent", (DL_FUNC) &_arrow_fs___Selector__allow_non_existent, 1}, 
 		{ "_arrow_fs___Selector__recursive", (DL_FUNC) &_arrow_fs___Selector__recursive, 1}, 
+		{ "_arrow_fs___FileSystem__GetTargetStats_1", (DL_FUNC) &_arrow_fs___FileSystem__GetTargetStats_1, 2}, 
+		{ "_arrow_fs___FileSystem__CreateDir", (DL_FUNC) &_arrow_fs___FileSystem__CreateDir, 3}, 
+		{ "_arrow_fs___FileSystem__DeleteDir", (DL_FUNC) &_arrow_fs___FileSystem__DeleteDir, 2}, 
+		{ "_arrow_fs___FileSystem__DeleteDirContents", (DL_FUNC) &_arrow_fs___FileSystem__DeleteDirContents, 2}, 
+		{ "_arrow_fs___FileSystem__DeleteFile", (DL_FUNC) &_arrow_fs___FileSystem__DeleteFile, 2}, 
+		{ "_arrow_fs___FileSystem__DeleteFiles", (DL_FUNC) &_arrow_fs___FileSystem__DeleteFiles, 2}, 
+		{ "_arrow_fs___FileSystem__Move", (DL_FUNC) &_arrow_fs___FileSystem__Move, 3}, 
+		{ "_arrow_fs___FileSystem__CopyFile", (DL_FUNC) &_arrow_fs___FileSystem__CopyFile, 3}, 
+		{ "_arrow_fs___FileSystem__OpenInputStream", (DL_FUNC) &_arrow_fs___FileSystem__OpenInputStream, 2}, 
+		{ "_arrow_fs___FileSystem__OpenInputFile", (DL_FUNC) &_arrow_fs___FileSystem__OpenInputFile, 2}, 
+		{ "_arrow_fs___FileSystem__OpenOutputStream", (DL_FUNC) &_arrow_fs___FileSystem__OpenOutputStream, 2}, 
+		{ "_arrow_fs___FileSystem__OpenAppendStream", (DL_FUNC) &_arrow_fs___FileSystem__OpenAppendStream, 2}, 
+		{ "_arrow_fs___SubTreeFileSystem__create", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__create, 2}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
 		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1}, 
 		{ "_arrow_io___OutputStream__Close", (DL_FUNC) &_arrow_io___OutputStream__Close, 1}, 

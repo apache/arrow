@@ -83,3 +83,82 @@ Selector <- R6Class("Selector",
   )
 )
 
+#' @title FileSystem class
+#' @description EXPERIMENTAL: abstract file system API
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @rdname FileSystem
+#' @name FileSystem
+#' @export
+FileSystem <- R6Class("FileSystem", inherit = Object,
+    public = list(
+      GetTargetStats = function(paths, selector = NULL) {
+        if (is.null(selector)) {
+          shared_ptr(FileStats, fs___FileSystem__GetTargetStats_1(paths))
+        } else {
+          shared_ptr(FileStats, fs___FileSystem__GetTargetStats_2(paths, selector))
+        }
+      },
+
+      CreateDir = function(path, recursive = TRUE) {
+        fs___FileSystem__CreateDir(self, path, isTRUE(recursive))
+      },
+
+      DeleteDir = function(path) {
+        fs___FileSystem__DeleteDir(self, path)
+      },
+
+      DeleteDirContents = function(path) {
+        fs___FileSystem__DeleteDirContents(self, path)
+      },
+
+      DeleteFile = function(path) {
+        fs___FileSystem__DeleteFile(self, path)
+      },
+
+      DeleteFiles = function(path) {
+        fs___FileSystem__DeleteFiles(self, paths)
+      },
+
+      Move = function(src, dest) {
+        fs___FileSystem__Move(self, src, dest)
+      },
+
+      CopyFile = function(src, dest) {
+        fs___FileSystem__CopyFile(self, src, dest)
+      },
+
+      OpenInputStream = function(path) {
+        shared_ptr(InputStream, fs___FileSystem__OpenInputStream(self, path))
+      },
+      OpenInputFile = function(path) {
+        shared_ptr(InputStream, fs___FileSystem__OpenInputFile(self, path))
+      },
+      OpenOutputStream = function(path) {
+        shared_ptr(OutputStream, fs___FileSystem__OpenOutputStream(self, path))
+      },
+      OpenAppendStream = function(path) {
+        shared_ptr(OutputStream, fs___FileSystem__OpenAppendStream(self, path))
+      }
+
+    )
+)
+
+#' @title SubTreeFileSystem class
+#' @description EXPERIMENTAL: abstract file system API
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @rdname SubTreeFileSystem
+#' @name SubTreeFileSystem
+#' @export
+SubTreeFileSystem <- R6Class("SubTreeFileSystem", inherit = FileSystem)
+
+SubTreeFileSystem$create <- function(base_fs, base_path) {
+  shared_ptr(SubTreeFileSystem, fs___SubTreeFileSystem__create(base_fs, base_path))
+}

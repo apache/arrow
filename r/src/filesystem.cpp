@@ -94,5 +94,85 @@ bool fs___Selector__recursive(const std::shared_ptr<arrow::fs::Selector>& select
   return selector->recursive;
 }
 
+// FileSystem
+
+
+// [[arrow::export]]
+std::vector<std::shared_ptr<arrow::fs::FileStats>> fs___FileSystem__GetTargetStats_1(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::vector<std::string>& paths) {
+  auto n = paths.size();
+  std::vector<std::shared_ptr<arrow::fs::FileStats>> res(n);
+  for (decltype(n) i=0; i<n; i++) {
+    STOP_IF_NOT_OK(file_system->GetTargetStats(paths[i], res[i].get()));
+  }
+  return res;
+}
+
+// [[arrow::export]]
+void fs___FileSystem__CreateDir(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path, bool recursive) {
+  STOP_IF_NOT_OK(file_system->CreateDir(path, recursive));
+}
+
+// [[arrow::export]]
+void fs___FileSystem__DeleteDir(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path) {
+  STOP_IF_NOT_OK(file_system->DeleteDir(path));
+}
+
+// [[arrow::export]]
+void fs___FileSystem__DeleteDirContents(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path) {
+  STOP_IF_NOT_OK(file_system->DeleteDirContents(path));
+}
+
+// [[arrow::export]]
+void fs___FileSystem__DeleteFile(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path) {
+  STOP_IF_NOT_OK(file_system->DeleteFile(path));
+}
+
+// [[arrow::export]]
+void fs___FileSystem__DeleteFiles(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::vector<std::string>& paths) {
+  STOP_IF_NOT_OK(file_system->DeleteFiles(paths));
+}
+
+// [[arrow::export]]
+void fs___FileSystem__Move(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& src, const std::string& dest) {
+  STOP_IF_NOT_OK(file_system->Move(src, dest));
+}
+
+// [[arrow::export]]
+void fs___FileSystem__CopyFile(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& src, const std::string& dest) {
+  STOP_IF_NOT_OK(file_system->CopyFile(src, dest));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::io::InputStream> fs___FileSystem__OpenInputStream(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path) {
+  std::shared_ptr<arrow::io::InputStream> stream;
+  STOP_IF_NOT_OK(file_system->OpenInputStream(path, &stream));
+  return stream;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::io::RandomAccessFile> fs___FileSystem__OpenInputFile(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path) {
+  std::shared_ptr<arrow::io::RandomAccessFile> file;
+  STOP_IF_NOT_OK(file_system->OpenInputFile(path, &file));
+  return file;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::io::OutputStream> fs___FileSystem__OpenOutputStream(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path) {
+  std::shared_ptr<arrow::io::OutputStream> stream;
+  STOP_IF_NOT_OK(file_system->OpenOutputStream(path, &stream));
+  return stream;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::io::OutputStream> fs___FileSystem__OpenAppendStream(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path) {
+  std::shared_ptr<arrow::io::OutputStream> stream;
+  STOP_IF_NOT_OK(file_system->OpenAppendStream(path, &stream));
+  return stream;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(const std::string& base_path, const std::shared_ptr<arrow::fs::FileSystem>& base_fs) {
+  return std::make_shared<arrow::fs::SubTreeFileSystem>(base_path, base_fs);
+}
 
 #endif
