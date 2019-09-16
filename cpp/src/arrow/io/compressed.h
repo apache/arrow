@@ -96,7 +96,7 @@ class ARROW_EXPORT CompressedInputStream
   std::shared_ptr<InputStream> raw() const;
 
  private:
-  friend class InputStreamConcurrencyWrapper<CompressedInputStream>;
+  friend InputStreamConcurrencyWrapper<CompressedInputStream>;
   ARROW_DISALLOW_COPY_AND_ASSIGN(CompressedInputStream);
 
   CompressedInputStream() = default;

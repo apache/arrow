@@ -151,7 +151,7 @@ class ARROW_EXPORT ReadableFile
   int file_descriptor() const;
 
  private:
-  friend class RandomAccessFileConcurrencyWrapper<ReadableFile>;
+  friend RandomAccessFileConcurrencyWrapper<ReadableFile>;
 
   explicit ReadableFile(MemoryPool* pool);
 

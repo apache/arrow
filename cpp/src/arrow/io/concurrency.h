@@ -136,7 +136,7 @@ class ARROW_EXPORT InputStreamConcurrencyWrapper : public InputStream {
   These methods should be protected in the derived class and
   InputStreamConcurrencyWrapper declared as a friend with
 
-  friend class InputStreamConcurrencyWrapper<derived>;
+  friend InputStreamConcurrencyWrapper<derived>;
   */
 
  protected:
@@ -231,7 +231,7 @@ class ARROW_EXPORT RandomAccessFileConcurrencyWrapper : public RandomAccessFile 
   These methods should be protected in the derived class and
   RandomAccessFileConcurrencyWrapper declared as a friend with
 
-  friend class RandomAccessFileConcurrencyWrapper<derived>;
+  friend RandomAccessFileConcurrencyWrapper<derived>;
   */
 
  protected:

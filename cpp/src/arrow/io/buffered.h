@@ -134,7 +134,7 @@ class ARROW_EXPORT BufferedInputStream
   bool closed() const override;
 
  private:
-  friend class InputStreamConcurrencyWrapper<BufferedInputStream>;
+  friend InputStreamConcurrencyWrapper<BufferedInputStream>;
 
   explicit BufferedInputStream(std::shared_ptr<InputStream> raw, MemoryPool* pool,
                                int64_t raw_total_bytes_bound);

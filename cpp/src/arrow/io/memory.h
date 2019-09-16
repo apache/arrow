@@ -149,7 +149,7 @@ class ARROW_EXPORT BufferReader
   std::shared_ptr<Buffer> buffer() const { return buffer_; }
 
  protected:
-  friend class RandomAccessFileConcurrencyWrapper<BufferReader>;
+  friend RandomAccessFileConcurrencyWrapper<BufferReader>;
 
   // These methods are virtual for CudaBuffer...
   virtual Status DoClose();
