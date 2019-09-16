@@ -1359,7 +1359,6 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         const PandasOptions& options,
         const unordered_set[c_string]& categorical_columns,
         const shared_ptr[CTable]& table,
-        CMemoryPool* pool,
         PyObject** out)
 
     void c_set_default_memory_pool \
@@ -1383,7 +1382,8 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     cdef cppclass PyOutputStream(OutputStream):
         PyOutputStream(object fo)
 
-    cdef struct PandasOptions:
+    cdef cppclass PandasOptions:
+        CMemoryPool* pool
         c_bool strings_to_categorical
         c_bool zero_copy_only
         c_bool integer_object_nulls

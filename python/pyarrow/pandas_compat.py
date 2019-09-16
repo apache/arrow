@@ -695,8 +695,7 @@ def table_to_blockmanager(options, table, categories=None,
         index = _pandas_api.pd.RangeIndex(table.num_rows)
 
     _check_data_column_metadata_consistency(all_columns)
-    blocks = _table_to_blocks(options, table, pa.default_memory_pool(),
-                              categories)
+    blocks = _table_to_blocks(options, table, categories)
     columns = _deserialize_column_index(table, all_columns, column_indexes)
 
     axes = [columns, index]
@@ -964,12 +963,11 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
     return pd.MultiIndex(new_levels, labels, names=columns.names)
 
 
-def _table_to_blocks(options, block_table, memory_pool, categories):
+def _table_to_blocks(options, block_table, categories):
     # Part of table_to_blockmanager
 
     # Convert an arrow table to Block from the internal pandas API
-    result = pa.lib.table_to_blocks(options, block_table, memory_pool,
-                                    categories)
+    result = pa.lib.table_to_blocks(options, block_table, categories)
 
     # Defined above
     return [_reconstruct_block(item) for item in result]
