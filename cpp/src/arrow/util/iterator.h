@@ -52,6 +52,9 @@ class Iterator {
  public:
   /// \brief Iterator may be constructed from any type which has a member function
   /// with signature Status Next(T*);
+  /// The argument is moved or copied to the heap and kept in a unique_ptr<void>. Only
+  /// its destructor and its Next method (which are stored in function pointers) are
+  /// referenced after construction.
   template <typename Wrapped>
   explicit Iterator(Wrapped has_next)
       : ptr_(new Wrapped(std::move(has_next)), Delete<Wrapped>), next_(Next<Wrapped>) {}
