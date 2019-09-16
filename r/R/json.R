@@ -26,7 +26,6 @@
 #' @export
 #' @examples
 #' \donttest{
-#' try({
 #'   tf <- tempfile()
 #'   on.exit(unlink(tf))
 #'   writeLines('
@@ -35,10 +34,9 @@
 #'     { "hello": 0.0, "world": true, "yo": null }
 #'   ', tf, useBytes=TRUE)
 #'   df <- read_json_arrow(tf)
-#' })
 #' }
 read_json_arrow <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
-  tab <- json_table_reader(file, ...)$Read()$select(!!enquo(col_select))
+  tab <- JsonTableReader$create(file, ...)$Read()$select(!!enquo(col_select))
 
   if (isTRUE(as_data_frame)) {
     tab <- as.data.frame(tab)
@@ -47,27 +45,19 @@ read_json_arrow <- function(file, col_select = NULL, as_data_frame = TRUE, ...) 
 }
 
 #' @include arrow-package.R
-#'
-#' @title class JsonTableReader
-#'
+#' @rdname CsvTableReader
 #' @usage NULL
 #' @format NULL
 #' @docType class
-#'
-#' @section Methods:
-#'
-#' - `Read()` : read the JSON file as an [arrow::Table][Table]
-#'
-#' @rdname JsonTableReader
-#' @name JsonTableReader
+#' @export
 JsonTableReader <- R6Class("JsonTableReader", inherit = Object,
   public = list(
     Read = function() shared_ptr(Table, json___TableReader__Read(self))
   )
 )
 JsonTableReader$create <- function(file,
-                                   read_options = json_read_options(),
-                                   parse_options = json_parse_options(),
+                                   read_options = JsonReadOptions$create(),
+                                   parse_options = JsonParseOptions$create(),
                                    ...) {
 
   file <- make_readable_file(file)
@@ -77,10 +67,11 @@ JsonTableReader$create <- function(file,
   )
 }
 
-#' @rdname csv_table_reader
+#' @rdname CsvReadOptions
+#' @usage NULL
+#' @format NULL
+#' @docType class
 #' @export
-json_table_reader <- JsonTableReader$create
-
 JsonReadOptions <- R6Class("JsonReadOptions", inherit = Object)
 JsonReadOptions$create <- function(use_threads = TRUE, block_size = 1048576L) {
   shared_ptr(JsonReadOptions, json___ReadOptions__initialize(
@@ -91,10 +82,11 @@ JsonReadOptions$create <- function(use_threads = TRUE, block_size = 1048576L) {
   ))
 }
 
-#' @rdname csv_read_options
+#' @rdname CsvReadOptions
+#' @usage NULL
+#' @format NULL
+#' @docType class
 #' @export
-json_read_options <- JsonReadOptions$create
-
 JsonParseOptions <- R6Class("JsonParseOptions", inherit = Object)
 JsonParseOptions$create <- function(newlines_in_values = FALSE) {
   shared_ptr(JsonParseOptions, json___ParseOptions__initialize(
@@ -103,8 +95,3 @@ JsonParseOptions$create <- function(newlines_in_values = FALSE) {
     )
   ))
 }
-
-
-#' @rdname csv_parse_options
-#' @export
-json_parse_options <- JsonParseOptions$create
