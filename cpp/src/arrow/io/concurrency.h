@@ -116,7 +116,7 @@ class ARROW_EXPORT InputStreamConcurrencyWrapper : public InputStream {
   }
 
   Status Peek(int64_t nbytes, util::string_view* out) final {
-    auto guard = lock_.shared_guard();  // Peek doesn't advance stream pointer
+    auto guard = lock_.exclusive_guard();
     return derived()->DoPeek(nbytes, out);
   }
 
@@ -186,6 +186,11 @@ class ARROW_EXPORT RandomAccessFileConcurrencyWrapper : public RandomAccessFile 
     return derived()->DoRead(nbytes, out);
   }
 
+  Status Peek(int64_t nbytes, util::string_view* out) final {
+    auto guard = lock_.exclusive_guard();
+    return derived()->DoPeek(nbytes, out);
+  }
+
   Status Seek(int64_t position) final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoSeek(position);
@@ -196,19 +201,20 @@ class ARROW_EXPORT RandomAccessFileConcurrencyWrapper : public RandomAccessFile 
     return derived()->DoGetSize(size);
   }
 
+  // NOTE: ReadAt doesn't use stream pointer, but it is allowed to update it
+  // (it's the case on Windows when using ReadFileEx).
+  // So any method that relies on the current position (even if it doesn't
+  // update it, such as Peek) cannot run in parallel with ReadAt and has
+  // to use the exclusive_guard.
+
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* out) final {
-    auto guard = lock_.shared_guard();  // ReadAt doesn't advance stream pointer
+    auto guard = lock_.shared_guard();
     return derived()->DoReadAt(position, nbytes, bytes_read, out);
   }
 
   Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) final {
-    auto guard = lock_.shared_guard();  // ReadAt doesn't advance stream pointer
+    auto guard = lock_.shared_guard();
     return derived()->DoReadAt(position, nbytes, out);
-  }
-
-  Status Peek(int64_t nbytes, util::string_view* out) final {
-    auto guard = lock_.shared_guard();  // Peek doesn't advance stream pointer
-    return derived()->DoPeek(nbytes, out);
   }
 
   /*

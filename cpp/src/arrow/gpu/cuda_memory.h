@@ -152,8 +152,8 @@ class ARROW_EXPORT CudaIpcMemHandle {
 /// \brief File interface for zero-copy read from CUDA buffers
 ///
 /// CAUTION: reading to a Buffer returns a Buffer pointing to device memory.
-/// It will generally not be compatible with Arrow code expecting an usual
-/// buffer pointing to CPU memory.
+/// It will generally not be compatible with Arrow code expecting a buffer
+/// pointing to CPU memory.
 /// Reading to a raw pointer, though, copies device memory into the host
 /// memory pointed to.
 class ARROW_EXPORT CudaBufferReader : public io::BufferReader {
