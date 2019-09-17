@@ -649,14 +649,13 @@ TYPED_TEST(TestParquetIO, SingleColumnRequiredWrite) {
   ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleColumnFile(*values));
 }
 
-TYPED_TEST(TestParquetIO, EmptyColumnTable) {
-  std::shared_ptr<Array> values;
-  ASSERT_OK(NonNullArray<TypeParam>(0, &values));
-  std::shared_ptr<Table> table = MakeSimpleTable(values, false);
+TYPED_TEST(TestParquetIO, ZeroChunksTable) {
+  auto values = std::make_shared<ChunkedArray>(::arrow::ArrayVector{}, ::arrow::int32());
+  auto table = MakeSimpleTable(values, false);
 
   this->ResetSink();
-  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
-                                values->length(), default_writer_properties()));
+  ASSERT_OK_NO_THROW(
+      WriteTable(*table, ::arrow::default_memory_pool(), this->sink_, SMALL_SIZE));
 
   std::shared_ptr<Table> out;
   std::unique_ptr<FileReader> reader;
@@ -664,11 +663,9 @@ TYPED_TEST(TestParquetIO, EmptyColumnTable) {
   ASSERT_NO_FATAL_FAILURE(this->ReadTableFromFile(std::move(reader), &out));
   ASSERT_EQ(1, out->num_columns());
   ASSERT_EQ(0, out->num_rows());
-
-  std::shared_ptr<ChunkedArray> chunked_array = out->column(0);
-  ASSERT_EQ(1, chunked_array->num_chunks());
-
-  AssertArraysEqual(*values, *chunked_array->chunk(0));
+  ASSERT_EQ(0, out->column(0)->length());
+  // odd: even though zero chunks were written, a single empty chunk is read
+  ASSERT_EQ(1, out->column(0)->num_chunks());
 }
 
 TYPED_TEST(TestParquetIO, SingleColumnTableRequiredWrite) {
