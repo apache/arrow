@@ -61,7 +61,7 @@ impl Partition for MergeExec {
         // combine the results from each thread
         let mut combined_results: Vec<Arc<RecordBatch>> = vec![];
         for thread in threads {
-            let join = thread.join().unwrap();
+            let join = thread.join().expect("Failed to join thread");
             let result = join?;
             result
                 .iter()
