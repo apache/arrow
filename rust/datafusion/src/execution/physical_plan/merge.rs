@@ -61,7 +61,8 @@ impl Partition for MergeExec {
         // combine the results from each thread
         let mut combined_results: Vec<Arc<RecordBatch>> = vec![];
         for thread in threads {
-            let result = thread.join().unwrap().unwrap();
+            let join = thread.join().unwrap();
+            let result = join?;
             result
                 .iter()
                 .for_each(|batch| combined_results.push(Arc::new(batch.clone())));
