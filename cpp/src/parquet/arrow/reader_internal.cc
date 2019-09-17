@@ -799,7 +799,7 @@ Status TransferBinary(RecordReader* reader,
       return ChunkedArray(chunks).View(logical_value_type, out);
     }
   }
-  *out = std::make_shared<ChunkedArray>(chunks);
+  *out = std::make_shared<ChunkedArray>(chunks, logical_value_type);
   return Status::OK();
 }
 
