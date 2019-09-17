@@ -149,33 +149,28 @@ std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset) const {
 
 Status ChunkedArray::Flatten(MemoryPool* pool,
                              std::vector<std::shared_ptr<ChunkedArray>>* out) const {
-  std::vector<std::shared_ptr<ChunkedArray>> flattened;
+  out->clear();
   if (type()->id() != Type::STRUCT) {
     // Emulate non-existent copy constructor
-    flattened.emplace_back(std::make_shared<ChunkedArray>(chunks_, type_));
-    *out = flattened;
+    *out = {std::make_shared<ChunkedArray>(chunks_, type_)};
     return Status::OK();
   }
-  std::vector<ArrayVector> flattened_chunks;
+
+  std::vector<ArrayVector> flattened_chunks(type()->num_children());
   for (const auto& chunk : chunks_) {
     ArrayVector res;
     RETURN_NOT_OK(checked_cast<const StructArray&>(*chunk).Flatten(pool, &res));
-    if (!flattened_chunks.size()) {
-      // First chunk
-      for (const auto& array : res) {
-        flattened_chunks.push_back({array});
-      }
-    } else {
-      DCHECK_EQ(flattened_chunks.size(), res.size());
-      for (size_t i = 0; i < res.size(); ++i) {
-        flattened_chunks[i].push_back(res[i]);
-      }
+    DCHECK_EQ(res.size(), flattened_chunks.size());
+    for (size_t i = 0; i < res.size(); ++i) {
+      flattened_chunks[i].push_back(res[i]);
     }
   }
-  for (const auto& vec : flattened_chunks) {
-    flattened.emplace_back(std::make_shared<ChunkedArray>(vec));
+
+  out->resize(type()->num_children());
+  for (size_t i = 0; i < out->size(); ++i) {
+    auto child_type = type()->child(static_cast<int>(i))->type();
+    out->at(i) = std::make_shared<ChunkedArray>(flattened_chunks[i], child_type);
   }
-  *out = flattened;
   return Status::OK();
 }
 
@@ -491,7 +486,7 @@ Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
   std::shared_ptr<Schema> schema = tables[0]->schema();
 
   const int ntables = static_cast<int>(tables.size());
-  const int ncolumns = static_cast<int>(schema->num_fields());
+  const int ncolumns = schema->num_fields();
 
   for (int i = 1; i < ntables; ++i) {
     if (!tables[i]->schema()->Equals(*schema, false)) {
@@ -510,7 +505,7 @@ Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
         column_arrays.push_back(chunk);
       }
     }
-    columns[i] = std::make_shared<ChunkedArray>(column_arrays);
+    columns[i] = std::make_shared<ChunkedArray>(column_arrays, schema->field(i)->type());
   }
   *table = Table::Make(schema, columns);
   return Status::OK();

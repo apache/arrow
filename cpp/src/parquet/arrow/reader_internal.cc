@@ -793,10 +793,13 @@ Status TransferBinary(RecordReader* reader,
   }
   auto binary_reader = dynamic_cast<internal::BinaryRecordReader*>(reader);
   DCHECK(binary_reader);
-  *out = std::make_shared<ChunkedArray>(binary_reader->GetBuilderChunks());
-  if (!logical_value_type->Equals(*(*out)->type())) {
-    RETURN_NOT_OK((*out)->View(logical_value_type, out));
+  auto chunks = binary_reader->GetBuilderChunks();
+  for (const auto& chunk : chunks) {
+    if (!chunk->type()->Equals(*logical_value_type)) {
+      return ChunkedArray(chunks).View(logical_value_type, out);
+    }
   }
+  *out = std::make_shared<ChunkedArray>(chunks, logical_value_type);
   return Status::OK();
 }
 
@@ -1091,7 +1094,7 @@ Status TransferDecimal(RecordReader* reader, MemoryPool* pool,
     // Replace the chunk, which will hopefully also free memory as we go
     chunks[i] = chunk_as_decimal;
   }
-  *out = std::make_shared<ChunkedArray>(chunks);
+  *out = std::make_shared<ChunkedArray>(chunks, type);
   return Status::OK();
 }
 
