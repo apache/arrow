@@ -26,6 +26,7 @@ import org.apache.arrow.AvroToArrowConfig;
 import org.apache.arrow.AvroToArrowVectorIterator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -36,9 +37,7 @@ import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.EncoderFactory;
-import org.junit.ClassRule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
@@ -57,9 +56,6 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @State(Scope.Benchmark)
 public class AvroAdapterBenchmarks {
-
-  @ClassRule
-  public static final TemporaryFolder TMP = new TemporaryFolder();
 
   private final int valueCount = 3000;
 
@@ -119,13 +115,18 @@ public class AvroAdapterBenchmarks {
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public int testAvroToArrow() throws Exception {
+    int sum = 0;
     try (AvroToArrowVectorIterator iter = AvroToArrow.avroToArrowIterator(schema, decoder, config)) {
       while (iter.hasNext()) {
         VectorSchemaRoot root = iter.next();
+        IntVector intVector = (IntVector) root.getVector("f1");
+        for (int i = 0; i < intVector.getValueCount(); i++) {
+          sum += intVector.get(i);
+        }
         root.close();
       }
     }
-    return 0;
+    return sum;
   }
 
   @Test
