@@ -539,7 +539,7 @@ Status WriteIpcPayload(const IpcPayload& payload, const IpcOptions& options,
 
   // Now write the buffers
   for (size_t i = 0; i < payload.body_buffers.size(); ++i) {
-    const Buffer* buffer = payload.body_buffers[i].get();
+    const std::shared_ptr<Buffer>& buffer = payload.body_buffers[i];
     int64_t size = 0;
     int64_t padding = 0;
 
@@ -550,7 +550,7 @@ Status WriteIpcPayload(const IpcPayload& payload, const IpcOptions& options,
     }
 
     if (size > 0) {
-      RETURN_NOT_OK(dst->Write(buffer->data(), size));
+      RETURN_NOT_OK(dst->Write(buffer));
     }
 
     if (padding > 0) {

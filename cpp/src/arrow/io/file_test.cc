@@ -227,7 +227,7 @@ TEST_F(TestFileOutputStream, Tell) {
   ASSERT_OK(stream_->Tell(&position));
   ASSERT_EQ(0, position);
 
-  ASSERT_OK(stream_->Write(data, 8));
+  ASSERT_OK(stream_->Write(Buffer::FromString(data)));
   ASSERT_OK(stream_->Tell(&position));
   ASSERT_EQ(8, position);
 }
@@ -604,7 +604,7 @@ TEST_F(TestPipeIO, TestWrite) {
   ASSERT_EQ(bytes_read, 4);
   ASSERT_EQ(0, std::memcmp(buffer, "test", 4));
 
-  ASSERT_OK(file->Write(data2.data(), data2.size()));
+  ASSERT_OK(file->Write(Buffer::FromString(std::string(data2))));
   ASSERT_OK(FileRead(r_, buffer, 4, &bytes_read));
   ASSERT_EQ(bytes_read, 4);
   ASSERT_EQ(0, std::memcmp(buffer, "data", 4));

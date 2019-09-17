@@ -78,6 +78,10 @@ Status Writable::Write(const std::string& data) {
   return Write(data.c_str(), static_cast<int64_t>(data.size()));
 }
 
+Status Writable::Write(const std::shared_ptr<Buffer>& data) {
+  return Write(data->data(), data->size());
+}
+
 Status Writable::Flush() { return Status::OK(); }
 
 class FileSegmentReader

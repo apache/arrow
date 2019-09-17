@@ -114,7 +114,20 @@ class ARROW_EXPORT Writable {
  public:
   virtual ~Writable() = default;
 
+  /// \brief Write the given data to the stream
+  ///
+  /// This method always processes the bytes in full.  Depending on the
+  /// semantics of the stream, the data may be written out immediately,
+  /// held in a buffer, or written asynchronously.  In the case where
+  /// the stream buffers the data, it will be copied.  To avoid potentially
+  /// large copies, use the Write variant that takes an owned Buffer.
   virtual Status Write(const void* data, int64_t nbytes) = 0;
+
+  /// \brief Write the given data to the stream
+  ///
+  /// Since the Buffer owns its memory, this method can avoid a copy if
+  /// buffering is required.  See Write(const void*, int64_t) for details.
+  virtual Status Write(const std::shared_ptr<Buffer>& data);
 
   /// \brief Flush buffered bytes, if any
   virtual Status Flush();

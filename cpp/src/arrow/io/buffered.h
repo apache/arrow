@@ -75,6 +75,7 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   Status Tell(int64_t* position) const override;
   // Write bytes to the stream. Thread-safe
   Status Write(const void* data, int64_t nbytes) override;
+  Status Write(const std::shared_ptr<Buffer>& data) override;
 
   Status Flush() override;
 

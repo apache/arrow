@@ -209,7 +209,7 @@ Status Message::SerializeTo(io::OutputStream* stream, const IpcOptions& options,
 
   auto body_buffer = body();
   if (body_buffer) {
-    RETURN_NOT_OK(stream->Write(body_buffer->data(), body_buffer->size()));
+    RETURN_NOT_OK(stream->Write(body_buffer));
     *output_length += body_buffer->size();
 
     DCHECK_GE(this->body_length(), body_buffer->size());

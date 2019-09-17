@@ -29,6 +29,7 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/python/common.h"
+#include "arrow/python/pyarrow.h"
 
 namespace arrow {
 namespace py {
@@ -107,8 +108,22 @@ class PythonFile {
   Status Write(const void* data, int64_t nbytes) {
     RETURN_NOT_OK(CheckClosed());
 
+    // Since the data isn't owned, we have to make a copy
     PyObject* py_data =
         PyBytes_FromStringAndSize(reinterpret_cast<const char*>(data), nbytes);
+    PY_RETURN_IF_ERROR(StatusCode::IOError);
+
+    PyObject* result = cpp_PyObject_CallMethod(file_.obj(), "write", "(O)", py_data);
+    Py_XDECREF(py_data);
+    Py_XDECREF(result);
+    PY_RETURN_IF_ERROR(StatusCode::IOError);
+    return Status::OK();
+  }
+
+  Status Write(const std::shared_ptr<Buffer>& buffer) {
+    RETURN_NOT_OK(CheckClosed());
+
+    PyObject* py_data = wrap_buffer(buffer);
     PY_RETURN_IF_ERROR(StatusCode::IOError);
 
     PyObject* result = cpp_PyObject_CallMethod(file_.obj(), "write", "(O)", py_data);
@@ -277,6 +292,13 @@ Status PyOutputStream::Write(const void* data, int64_t nbytes) {
   return SafeCallIntoPython([=]() {
     position_ += nbytes;
     return file_->Write(data, nbytes);
+  });
+}
+
+Status PyOutputStream::Write(const std::shared_ptr<Buffer>& buffer) {
+  return SafeCallIntoPython([=]() {
+    position_ += buffer->size();
+    return file_->Write(buffer);
   });
 }
 
