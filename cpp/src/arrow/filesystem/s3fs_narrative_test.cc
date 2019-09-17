@@ -57,8 +57,11 @@ namespace fs {
 std::shared_ptr<FileSystem> MakeFileSystem() {
   std::shared_ptr<S3FileSystem> s3fs;
   S3Options options;
-  options.access_key = FLAGS_access_key;
-  options.secret_key = FLAGS_secret_key;
+  if (!FLAGS_access_key.empty()) {
+    options = S3Options::FromAccessKey(FLAGS_access_key, FLAGS_secret_key);
+  } else {
+    options = S3Options::Defaults();
+  }
   options.endpoint_override = FLAGS_endpoint;
   options.scheme = FLAGS_scheme;
   options.region = FLAGS_region;
@@ -190,7 +193,7 @@ void TestBucket(int argc, char** argv) {
 
 void TestMain(int argc, char** argv) {
   S3GlobalOptions options;
-  options.log_level = S3LogLevel::Fatal;
+  options.log_level = FLAGS_verbose ? S3LogLevel::Debug : S3LogLevel::Fatal;
   ASSERT_OK(InitializeS3(options));
 
   if (FLAGS_clear) {

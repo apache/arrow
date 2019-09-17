@@ -24,26 +24,50 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/util/macros.h"
 
+namespace Aws {
+namespace Auth {
+
+class AWSCredentialsProvider;
+
+}  // namespace Auth
+}  // namespace Aws
+
 namespace arrow {
 namespace fs {
 
 extern ARROW_EXPORT const char* kS3DefaultRegion;
 
+/// Options for the S3 FileSystem implementation.
 struct ARROW_EXPORT S3Options {
-  // AWS region to connect to (default "us-east-1")
+  /// AWS region to connect to (default "us-east-1")
   std::string region = kS3DefaultRegion;
 
+  /// If non-empty, override region with a connect string such as "localhost:9000"
   // XXX perhaps instead take a URL like "http://localhost:9000"?
-  // If non-empty, override region with a connect string such as "localhost:9000"
   std::string endpoint_override;
-  // Default "https"
+  /// S3 connection transport, default "https"
   std::string scheme = "https";
 
-  std::string access_key;
-  std::string secret_key;
+  /// AWS credentials provider
+  std::shared_ptr<Aws::Auth::AWSCredentialsProvider> credentials_provider;
 
-  // Whether OutputStream writes will be issued in the background, without blocking.
+  /// Whether OutputStream writes will be issued in the background, without blocking.
   bool background_writes = true;
+
+  /// Configure with the default AWS credentials provider chain.
+  void ConfigureDefaultCredentials();
+
+  /// Configure with explicit access and secret key.
+  void ConfigureAccessKey(const std::string& access_key, const std::string& secret_key);
+
+  /// \brief Initialize with default credentials provider chain
+  ///
+  /// This is recommended if you use the standard AWS environment variables
+  /// and/or configuration file.
+  static S3Options Defaults();
+  /// \brief Initialize with explicit access and secret key
+  static S3Options FromAccessKey(const std::string& access_key,
+                                 const std::string& secret_key);
 };
 
 /// S3-backed FileSystem implementation.

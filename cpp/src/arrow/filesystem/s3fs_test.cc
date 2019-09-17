@@ -254,7 +254,6 @@ class TestS3FS : public S3TestMixin {
   void SetUp() override {
     S3TestMixin::SetUp();
     MakeFileSystem();
-
     // Set up test bucket
     {
       Aws::S3::Model::CreateBucketRequest req;
@@ -280,8 +279,7 @@ class TestS3FS : public S3TestMixin {
   }
 
   void MakeFileSystem() {
-    options_.access_key = minio_.access_key();
-    options_.secret_key = minio_.secret_key();
+    options_.ConfigureAccessKey(minio_.access_key(), minio_.secret_key());
     options_.scheme = "http";
     options_.endpoint_override = minio_.connect_string();
     ASSERT_OK(S3FileSystem::Make(options_, &fs_));
@@ -746,8 +744,7 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
       ASSERT_OK(OutcomeToStatus(client_->CreateBucket(req)));
     }
 
-    options_.access_key = minio_.access_key();
-    options_.secret_key = minio_.secret_key();
+    options_.ConfigureAccessKey(minio_.access_key(), minio_.secret_key());
     options_.scheme = "http";
     options_.endpoint_override = minio_.connect_string();
     ASSERT_OK(S3FileSystem::Make(options_, &s3fs_));
