@@ -35,11 +35,11 @@ from pyarrow.util import pathlib
 try:
     from pyarrow import flight
     from pyarrow.flight import (
-        FlightClient, FlightServer, ServerAuthHandler, ClientAuthHandler
+        FlightClient, FlightServerBase, ServerAuthHandler, ClientAuthHandler
     )
-except ImportError as e:
+except ImportError:
     flight = None
-    FlightClient, FlightServer = object, object
+    FlightClient, FlightServerBase = object, object
     ServerAuthHandler, ClientAuthHandler = object, object
 
 
@@ -119,7 +119,7 @@ def simple_dicts_table():
     return pa.Table.from_arrays(data, names=['some_dicts'])
 
 
-class ConstantFlightServer(FlightServer):
+class ConstantFlightServer(FlightServerBase):
     """A Flight server that always returns the same data.
 
     See ARROW-4796: this server implementation will segfault if Flight
@@ -141,7 +141,7 @@ class ConstantFlightServer(FlightServer):
         return flight.RecordBatchStream(table)
 
 
-class MetadataFlightServer(FlightServer):
+class MetadataFlightServer(FlightServerBase):
     """A Flight server that numbers incoming/outgoing data."""
 
     def do_get(self, context, ticket):
@@ -178,7 +178,7 @@ class MetadataFlightServer(FlightServer):
             yield batch, buf
 
 
-class EchoFlightServer(FlightServer):
+class EchoFlightServer(FlightServerBase):
     """A Flight server that returns the last data uploaded."""
 
     def __init__(self, location=None, expected_schema=None, **kwargs):
@@ -212,7 +212,7 @@ class EchoStreamFlightServer(EchoFlightServer):
         raise NotImplementedError
 
 
-class GetInfoFlightServer(FlightServer):
+class GetInfoFlightServer(FlightServerBase):
     """A Flight server that tests GetFlightInfo."""
 
     def get_flight_info(self, context, descriptor):
@@ -235,7 +235,7 @@ class GetInfoFlightServer(FlightServer):
         return flight.SchemaResult(info.schema)
 
 
-class ListActionsFlightServer(FlightServer):
+class ListActionsFlightServer(FlightServerBase):
     """A Flight server that tests ListActions."""
 
     @classmethod
@@ -251,7 +251,7 @@ class ListActionsFlightServer(FlightServer):
             yield action
 
 
-class ListActionsErrorFlightServer(FlightServer):
+class ListActionsErrorFlightServer(FlightServerBase):
     """A Flight server that tests ListActions."""
 
     def list_actions(self, context):
@@ -259,7 +259,7 @@ class ListActionsErrorFlightServer(FlightServer):
         yield "foo"
 
 
-class CheckTicketFlightServer(FlightServer):
+class CheckTicketFlightServer(FlightServerBase):
     """A Flight server that compares the given ticket to an expected value."""
 
     def __init__(self, expected_ticket, location=None, **kwargs):
@@ -276,7 +276,7 @@ class CheckTicketFlightServer(FlightServer):
         self.last_message = reader.read_all()
 
 
-class InvalidStreamFlightServer(FlightServer):
+class InvalidStreamFlightServer(FlightServerBase):
     """A Flight server that tries to return messages with differing schemas."""
 
     schema = pa.schema([('a', pa.int32())])
@@ -292,7 +292,7 @@ class InvalidStreamFlightServer(FlightServer):
         return flight.GeneratorStream(self.schema, [table1, table2])
 
 
-class SlowFlightServer(FlightServer):
+class SlowFlightServer(FlightServerBase):
     """A Flight server that delays its responses to test timeouts."""
 
     def do_get(self, context, ticket):
@@ -313,7 +313,7 @@ class SlowFlightServer(FlightServer):
         yield pa.Table.from_arrays(data1, names=['a'])
 
 
-class ErrorFlightServer(FlightServer):
+class ErrorFlightServer(FlightServerBase):
     """A Flight server that uses all the Flight-specific errors."""
 
     def do_action(self, context, action):
@@ -428,28 +428,28 @@ def test_flight_server_location_argument():
         ('localhost', find_free_port()),
     ]
     for location in locations:
-        with FlightServer(location) as server:
-            assert isinstance(server, FlightServer)
+        with FlightServerBase(location) as server:
+            assert isinstance(server, FlightServerBase)
 
 
 def test_server_exit_reraises_exception():
     with pytest.raises(ValueError):
-        with FlightServer():
+        with FlightServerBase():
             raise ValueError()
 
 
 @pytest.mark.slow
 def test_client_wait_for_available():
-    location = ('localhost', _find_free_port())
+    location = ('localhost', find_free_port())
     server = None
 
     def serve():
         global server
         time.sleep(0.5)
-        server = FlightServer(location)
+        server = FlightServerBase(location)
         server.serve()
 
-    client = FlightClient(location, wait_for_available=False)
+    client = FlightClient(location)
     thread = threading.Thread(target=serve, daemon=True)
     thread.start()
 
@@ -720,8 +720,8 @@ def test_tls_fails():
     with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
         # Ensure client doesn't connect when certificate verification
         # fails (this is a slow test since gRPC does retry a few times)
-        client = FlightServer(('localhost', s.port),
-                              tls_root_certs=certs["root_cert"])
+        client = FlightServerBase(('localhost', s.port),
+                                  tls_root_certs=certs["root_cert"])
 
         # gRPC error messages change based on version, so don't look
         # for a particular error
@@ -750,8 +750,7 @@ def test_tls_override_hostname():
     with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
         client = flight.connect(('localhost', s.port),
                                 tls_root_certs=certs["root_cert"],
-                                override_hostname="fakehostname",
-                                wait_for_available=False)
+                                override_hostname="fakehostname")
         with pytest.raises(flight.FlightUnavailableError):
             client.do_get(flight.Ticket(b'ints'))
 

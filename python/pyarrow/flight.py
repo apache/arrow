@@ -34,7 +34,6 @@ from pyarrow._flight import (  # noqa
     FlightEndpoint,
     FlightInfo,
     SchemaResult,
-    FlightServer,
     FlightServerBase,
     FlightError,
     FlightInternalError,

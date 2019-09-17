@@ -854,14 +854,11 @@ cdef class FlightClient:
         PEM-encoded
     override_hostname : str or None
         Override the hostname checked by TLS. Insecure, use with caution.
-    wait_for_available : boolean, default True
-        Block until the server can be contacted.
     """
     cdef:
         unique_ptr[CFlightClient] client
 
-    def __init__(self, location, tls_root_certs=None, override_hostname=None,
-                 wait_for_available=True, wait_timeout=5):
+    def __init__(self, location, tls_root_certs=None, override_hostname=None):
         if isinstance(location, six.string_types):
             location = Location(location)
         elif isinstance(location, tuple):
@@ -873,10 +870,7 @@ cdef class FlightClient:
         elif not isinstance(location, Location):
             raise TypeError('`location` argument must be a string, tuple or a '
                             'Location instance')
-
         self.init(location, tls_root_certs, override_hostname)
-        if wait_for_available:
-            self.wait_for_available(timeout=wait_timeout)
 
     cdef init(self, Location location, tls_root_certs, override_hostname):
         cdef:
@@ -905,24 +899,26 @@ cdef class FlightClient:
         while True:
             try:
                 list(self.list_flights())
-            except Exception as e:
-                if 'failed to connect' in str(e):
-                    if time.time() < deadline:
-                        time.sleep(0.025)
-                        continue
-                    else:
-                        raise
-            break
+            except FlightUnavailableError:
+                if time.time() < deadline:
+                    time.sleep(0.025)
+                    continue
+                else:
+                    raise
+            except NotImplementedError:
+                # allow if list_flights is not implemented, because
+                # the server can be contacted nonetheless
+                break
+            else:
+                break
 
     @classmethod
-    def connect(cls, location, tls_root_certs=None, override_hostname=None,
-                wait_for_available=True):
+    def connect(cls, location, tls_root_certs=None, override_hostname=None):
         warnings.warn("The 'FlightClient.connect' method is deprecated, use "
                       "FlightClient contructor or pyarrow.flight.connect "
                       "function instead")
         return FlightClient(location, tls_root_certs=tls_root_certs,
-                            override_hostname=override_hostname,
-                            wait_for_available=wait_for_available)
+                            override_hostname=override_hostname)
 
     def authenticate(self, auth_handler, options: FlightCallOptions = None):
         """Authenticate to the server.
@@ -1670,7 +1666,7 @@ cdef class ClientAuthHandler:
         return new PyClientAuthHandler(self, vtable)
 
 
-cdef class FlightServer:
+cdef class FlightServerBase:
     """A Flight service definition.
 
     Override methods to define your Flight service.
@@ -1821,16 +1817,7 @@ cdef class FlightServer:
         self.wait()
 
 
-class FlightServerBase(FlightServer):
-
-    def __init__(self, *args, **kwargs):
-        warnings.warn("The 'FlightServerBase' class is deprecated, use "
-                      "FlightServer instead.")
-        super().__init__(**args, **kwargs)
-
-
-def connect(location, tls_root_certs=None, override_hostname=None,
-            wait_for_available=True):
+def connect(location, tls_root_certs=None, override_hostname=None):
     """
     Connect to the Flight server
 
@@ -1842,13 +1829,10 @@ def connect(location, tls_root_certs=None, override_hostname=None,
         PEM-encoded
     override_hostname : str or None
         Override the hostname checked by TLS. Insecure, use with caution.
-    wait_for_available : boolean, default True
-        Block until the server can be contacted.
 
     Returns
     -------
     client : FlightClient
     """
     return FlightClient(location, tls_root_certs=tls_root_certs,
-                        override_hostname=override_hostname,
-                        wait_for_available=wait_for_available)
+                        override_hostname=override_hostname)
