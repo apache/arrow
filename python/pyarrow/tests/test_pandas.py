@@ -2913,9 +2913,12 @@ def test_logical_type(type, expected):
 
 def test_array_uses_memory_pool():
     # ARROW-6570
-    N = 10_000
+    N = 10000
     arr = pa.array(np.arange(N, dtype=np.int64),
                    mask=np.random.randint(0, 2, size=N).astype(np.bool_))
+
+    # In the case the gc is caught loafing
+    gc.collect()
 
     prior_allocation = pa.total_allocated_bytes()
 
@@ -2935,7 +2938,7 @@ def test_array_uses_memory_pool():
 
 
 def test_table_uses_memory_pool():
-    N = 10_000
+    N = 10000
     arr = pa.array(np.arange(N, dtype=np.int64))
     t = pa.table([arr], ['f0'])
 
