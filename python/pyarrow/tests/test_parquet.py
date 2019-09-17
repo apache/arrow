@@ -772,8 +772,7 @@ def test_parquet_raise_on_unset_statistics():
     meta = make_sample_file(pa.Table.from_pandas(df)).metadata
 
     assert not meta.row_group(0).column(0).statistics.has_min_max
-    with pytest.raises(ValueError):
-        meta.row_group(0).column(0).statistics.max
+    assert meta.row_group(0).column(0).statistics.max is None
 
 
 def _close(type, left, right):

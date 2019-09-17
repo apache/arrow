@@ -119,28 +119,28 @@ cdef class Statistics:
         if self.has_min_max:
             return _cast_statistic_raw_min(self.statistics.get())
         else:
-            raise ValueError("min/max not set")
+            return None
 
     @property
     def max_raw(self):
         if self.has_min_max:
             return _cast_statistic_raw_max(self.statistics.get())
         else:
-            raise ValueError("min/max not set")
+            return None
 
     @property
     def min(self):
         if self.has_min_max:
             return _cast_statistic_min(self.statistics.get())
         else:
-            raise ValueError("min/max not set")
+            return None
 
     @property
     def max(self):
         if self.has_min_max:
             return _cast_statistic_max(self.statistics.get())
         else:
-            raise ValueError("min/max not set")
+            return None
 
     @property
     def null_count(self):
