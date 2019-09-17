@@ -1094,9 +1094,14 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
           valid_bits_->mutable_data(), values_written_);
       values_to_read = values_with_nulls - null_count;
       ReadValuesSpaced(values_with_nulls, null_count);
-      this->ConsumeBufferedValues(levels_position_ - start_levels_position);
     } else {
       ReadValuesDense(values_to_read);
+    }
+    if (this->max_def_level_ > 0) {
+      // Optional, repeated, or some mix thereof
+      this->ConsumeBufferedValues(levels_position_ - start_levels_position);
+    } else {
+      // Flat, non-repeated
       this->ConsumeBufferedValues(values_to_read);
     }
     // Total values, including null spaces, if any

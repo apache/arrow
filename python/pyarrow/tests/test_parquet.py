@@ -272,6 +272,17 @@ def test_empty_lists_table_roundtrip():
     _check_roundtrip(table)
 
 
+def test_nested_list_nonnullable_roundtrip_bug():
+    # Reproduce failure in ARROW-5630
+    typ = pa.list_(pa.field("item", pa.float32(), False))
+    num_rows = 10000
+    t = pa.table([
+        pa.array(([[0] * ((i + 5) % 10) for i in range(0, 10)]
+                  * (num_rows // 10)), type=typ)
+    ], ['a'])
+    _check_roundtrip(t, data_page_size=4096)
+
+
 @pytest.mark.pandas
 def test_pandas_parquet_datetime_tz():
     s = pd.Series([datetime.datetime(2017, 9, 6)])
