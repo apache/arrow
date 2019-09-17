@@ -217,6 +217,21 @@ def test_no_memory_map(tempdir):
     assert table_read.equals(table)
 
 
+@pytest.mark.pandas
+def test_enable_buffered_stream(tempdir):
+    df = alltypes_sample(size=10)
+
+    table = pa.Table.from_pandas(df)
+    _check_roundtrip(table, read_table_kwargs={'buffer_size': 1025},
+                     version='2.0')
+
+    filename = str(tempdir / 'tmp_file')
+    with open(filename, 'wb') as f:
+        _write_table(table, f, version='2.0')
+    table_read = pq.read_pandas(filename, buffer_size=4096)
+    assert table_read.equals(table)
+
+
 def test_special_chars_filename(tempdir):
     table = pa.Table.from_arrays([pa.array([42])], ["ints"])
     filename = "foo # bar"
@@ -2093,6 +2108,24 @@ def test_dataset_no_memory_map(tempdir):
     # used. Mocking is not especially easy for pa.memory_map
     dataset = pq.ParquetDataset(dirpath, memory_map=False)
     assert dataset.pieces[0].read().equals(table)
+
+
+@pytest.mark.pandas
+def test_dataset_enable_buffered_stream(tempdir):
+    dirpath = tempdir / guid()
+    dirpath.mkdir()
+
+    df = _test_dataframe(10, seed=0)
+    path = dirpath / '{}.parquet'.format(0)
+    table = pa.Table.from_pandas(df)
+    _write_table(table, path, version='2.0')
+
+    with pytest.raises(ValueError):
+        pq.ParquetDataset(dirpath, buffer_size=-64)
+
+    for buffer_size in [128, 1024]:
+        dataset = pq.ParquetDataset(dirpath, buffer_size=buffer_size)
+        assert dataset.pieces[0].read().equals(table)
 
 
 @pytest.mark.pandas

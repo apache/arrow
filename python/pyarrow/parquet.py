@@ -124,11 +124,15 @@ class ParquetFile(object):
     memory_map : boolean, default True
         If the source is a file path, use a memory map to read file, which can
         improve performance in some environments
+    buffer_size : int, default 0
+        If positive, perform read buffering when deserializing individual
+        column chunks. Otherwise IO calls are unbuffered.
     """
     def __init__(self, source, metadata=None, common_metadata=None,
-                 read_dictionary=None, memory_map=True):
+                 read_dictionary=None, memory_map=True, buffer_size=0):
         self.reader = ParquetReader()
         self.reader.open(source, use_memory_map=memory_map,
+                         buffer_size=buffer_size,
                          read_dictionary=read_dictionary, metadata=metadata)
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
@@ -908,15 +912,16 @@ EXCLUDED_PARQUET_PATHS = {'_SUCCESS'}
 
 
 def _open_dataset_file(dataset, path, meta=None):
-    if dataset.fs is None or isinstance(dataset.fs, LocalFileSystem):
-        return ParquetFile(path, metadata=meta, memory_map=dataset.memory_map,
-                           read_dictionary=dataset.read_dictionary,
-                           common_metadata=dataset.common_metadata)
-    else:
-        return ParquetFile(dataset.fs.open(path, mode='rb'), metadata=meta,
-                           memory_map=dataset.memory_map,
-                           read_dictionary=dataset.read_dictionary,
-                           common_metadata=dataset.common_metadata)
+    if dataset.fs is not None and not isinstance(dataset.fs, LocalFileSystem):
+        path = dataset.fs.open(path, mode='rb')
+    return ParquetFile(
+        path,
+        metadata=meta,
+        memory_map=dataset.memory_map,
+        read_dictionary=dataset.read_dictionary,
+        common_metadata=dataset.common_metadata,
+        buffer_size=dataset.buffer_size
+    )
 
 
 _read_docstring_common = """\
@@ -929,7 +934,10 @@ read_dictionary : list, default None
     file's schema to obtain the paths.
 memory_map : boolean, default True
     If the source is a file path, use a memory map to read file, which can
-    improve performance in some environments"""
+    improve performance in some environments
+buffer_size : int, default 0
+    If positive, perform read buffering when deserializing individual
+    column chunks. Otherwise IO calls are unbuffered."""
 
 
 class ParquetDataset(object):
@@ -978,8 +986,8 @@ metadata_nthreads: int, default 1
 
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
-                 filters=None, metadata_nthreads=1,
-                 read_dictionary=None, memory_map=True):
+                 filters=None, metadata_nthreads=1, read_dictionary=None,
+                 memory_map=True, buffer_size=0):
         a_path = path_or_paths
         if isinstance(a_path, list):
             a_path = a_path[0]
@@ -992,6 +1000,7 @@ metadata_nthreads: int, default 1
 
         self.read_dictionary = read_dictionary
         self.memory_map = memory_map
+        self.buffer_size = buffer_size
 
         (self.pieces,
          self.partitions,
@@ -1035,7 +1044,7 @@ metadata_nthreads: int, default 1
         for prop in ('paths', 'memory_map', 'pieces', 'partitions',
                      'common_metadata_path', 'metadata_path',
                      'common_metadata', 'metadata', 'schema',
-                     'split_row_groups'):
+                     'buffer_size', 'split_row_groups'):
             if getattr(self, prop) != getattr(other, prop):
                 return False
 
@@ -1222,15 +1231,18 @@ Returns
 
 def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=True,
-               read_dictionary=None, filesystem=None, filters=None):
+               read_dictionary=None, filesystem=None, filters=None,
+               buffer_size=0):
     if _is_path_like(source):
         pf = ParquetDataset(source, metadata=metadata, memory_map=memory_map,
                             read_dictionary=read_dictionary,
+                            buffer_size=buffer_size,
                             filesystem=filesystem, filters=filters)
     else:
         pf = ParquetFile(source, metadata=metadata,
                          read_dictionary=read_dictionary,
-                         memory_map=memory_map)
+                         memory_map=memory_map,
+                         buffer_size=buffer_size)
     return pf.read(columns=columns, use_threads=use_threads,
                    use_pandas_metadata=use_pandas_metadata)
 
@@ -1246,12 +1258,17 @@ read_table.__doc__ = _read_table_docstring.format(
 
 
 def read_pandas(source, columns=None, use_threads=True, memory_map=True,
-                metadata=None, filters=None):
-    return read_table(source, columns=columns,
-                      use_threads=use_threads,
-                      metadata=metadata, memory_map=True,
-                      filters=filters,
-                      use_pandas_metadata=True)
+                metadata=None, filters=None, buffer_size=0):
+    return read_table(
+        source,
+        columns=columns,
+        use_threads=use_threads,
+        metadata=metadata,
+        filters=filters,
+        memory_map=memory_map,
+        buffer_size=buffer_size,
+        use_pandas_metadata=True,
+    )
 
 
 read_pandas.__doc__ = _read_table_docstring.format(

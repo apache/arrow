@@ -989,12 +989,13 @@ cdef class ParquetReader:
         self.pool = maybe_unbox_memory_pool(memory_pool)
         self._metadata = None
 
-    def open(self, object source, c_bool use_memory_map=True,
-             read_dictionary=None, FileMetaData metadata=None):
+    def open(self, object source, bint use_memory_map=True,
+             read_dictionary=None, FileMetaData metadata=None,
+             int buffer_size=0):
         cdef:
             shared_ptr[RandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
-            ReaderProperties properties = default_reader_properties()
+            CReaderProperties properties = default_reader_properties()
             ArrowReaderProperties arrow_props = (
                 default_arrow_reader_properties())
             c_string path
@@ -1002,6 +1003,14 @@ cdef class ParquetReader:
 
         if metadata is not None:
             c_metadata = metadata.sp_metadata
+
+        if buffer_size > 0:
+            properties.enable_buffered_stream()
+            properties.set_buffer_size(buffer_size)
+        elif buffer_size == 0:
+            properties.disable_buffered_stream()
+        else:
+            raise ValueError('Buffer size must be larger than zero')
 
         self.source = source
 

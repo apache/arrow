@@ -322,10 +322,13 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         " parquet::FileMetaData::Make"(const void* serialized_metadata,
                                        uint32_t* metadata_len)
 
-    cdef cppclass ReaderProperties:
-        pass
+    cdef cppclass CReaderProperties" parquet::ReaderProperties":
+        void enable_buffered_stream()
+        void disable_buffered_stream()
+        void set_buffer_size(int64_t buf_size)
+        int64_t buffer_size() const
 
-    ReaderProperties default_reader_properties()
+    CReaderProperties default_reader_properties()
 
     cdef cppclass ArrowReaderProperties:
         ArrowReaderProperties()
@@ -401,7 +404,7 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
     cdef cppclass FileReaderBuilder:
         FileReaderBuilder()
         CStatus Open(const shared_ptr[RandomAccessFile]& file,
-                     const ReaderProperties& properties,
+                     const CReaderProperties& properties,
                      const shared_ptr[CFileMetaData]& metadata)
 
         ParquetFileReader* raw_reader()
