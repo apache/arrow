@@ -168,8 +168,8 @@ Status ChunkedArray::Flatten(MemoryPool* pool,
 
   out->resize(type()->num_children());
   for (size_t i = 0; i < out->size(); ++i) {
-    out->at(i) =
-        std::make_shared<ChunkedArray>(flattened_chunks[i], type()->child(i)->type());
+    auto child_type = type()->child(static_cast<int>(i))->type();
+    out->at(i) = std::make_shared<ChunkedArray>(flattened_chunks[i], child_type);
   }
   return Status::OK();
 }
@@ -486,7 +486,7 @@ Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
   std::shared_ptr<Schema> schema = tables[0]->schema();
 
   const int ntables = static_cast<int>(tables.size());
-  const int ncolumns = static_cast<int>(schema->num_fields());
+  const int ncolumns = schema->num_fields();
 
   for (int i = 1; i < ntables; ++i) {
     if (!tables[i]->schema()->Equals(*schema, false)) {
