@@ -35,7 +35,7 @@ GFLAGS_VERSION=v2.2.0
 GLOG_VERSION=v0.3.5
 GRPC_VERSION=v1.20.0
 GTEST_VERSION=1.8.1
-JEMALLOC_VERSION=17c897976c60b0e6e4f4a365c751027244dada7a
+JEMALLOC_VERSION=5.2.1
 LZ4_VERSION=v1.8.3
 # Need post-v1.0.6 version for https://github.com/microsoft/mimalloc/pull/140,
 # https://github.com/microsoft/mimalloc/pull/145 and
@@ -72,6 +72,7 @@ DEPENDENCIES=(
   "ARROW_GLOG_URL glog-${GLOG_VERSION}.tar.gz https://github.com/google/glog/archive/${GLOG_VERSION}.tar.gz"
   "ARROW_GRPC_URL grpc-${GRPC_VERSION}.tar.gz https://github.com/grpc/grpc/archive/${GRPC_VERSION}.tar.gz"
   "ARROW_GTEST_URL gtest-${GTEST_VERSION}.tar.gz https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
+  "ARROW_JEMALLOC_URL jemalloc-${JEMALLOC_VERSION}.tar.bz2 https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2"
   "ARROW_LZ4_URL lz4-${LZ4_VERSION}.tar.gz https://github.com/lz4/lz4/archive/${LZ4_VERSION}.tar.gz"
   "ARROW_MIMALLOC_URL mimalloc-${MIMALLOC_VERSION}.tar.gz https://github.com/microsoft/mimalloc/archive/${MIMALLOC_VERSION}.tar.gz"
   "ARROW_ORC_URL orc-${ORC_VERSION}.tar.gz https://github.com/apache/orc/archive/rel/release-${ORC_VERSION}.tar.gz"
