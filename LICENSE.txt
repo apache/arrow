@@ -1847,7 +1847,7 @@ Homepage: https://github.com/jeroen/autobrew
 
 --------------------------------------------------------------------------------
 
-The files under dev/tasks/homebrew-formulae have the following license:
+ci/apache-arrow.rb has the following license:
 
 BSD 2-Clause License
 
