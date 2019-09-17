@@ -848,8 +848,9 @@ cdef class FlightClient:
 
     Parameters
     ----------
-    location : Location
-        location to connect to
+    location : str, tuple or Location
+        Location to connect to. Either a gRPC URI like `grpc://localhost:port`,
+        a tuple of (host, port) pair, or a Location instance.
     tls_root_certs : bytes or None
         PEM-encoded
     override_hostname : str or None
@@ -1674,8 +1675,10 @@ cdef class FlightServerBase:
     Parameters
     ----------
     location : str, tuple or Location optional, default None
-        Location to connect to.
-        # TODO
+        Location to serve on. Either a gRPC URI like `grpc://localhost:port`,
+        a tuple of (host, port) pair, or a Location instance.
+        If None is passed then the server will be started on localhost with a
+        system provided random port.
     auth_handler : ServerAuthHandler optional, default None
         An authentication mechanism to use. May be None.
     tls_certificates : list optional, default None
@@ -1824,7 +1827,8 @@ def connect(location, tls_root_certs=None, override_hostname=None):
     Parameters
     ----------
     location : str, tuple or Location
-        Location to connect to.
+        Location to connect to. Either a gRPC URI like `grpc://localhost:port`,
+        a tuple of (host, port) pair, or a Location instance.
     tls_root_certs : bytes or None
         PEM-encoded
     override_hostname : str or None
