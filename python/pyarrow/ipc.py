@@ -117,7 +117,7 @@ class RecordBatchFileWriter(lib._RecordBatchFileWriter):
 def _get_legacy_format_default(use_legacy_format):
     if use_legacy_format is None:
         import os
-        return bool(int(os.environ.get('PYARROW_LEGACY_IPC_FORMAT', '0')))
+        return bool(int(os.environ.get('ARROW_PRE_0_15_IPC_FORMAT', '0')))
     else:
         return use_legacy_format
 

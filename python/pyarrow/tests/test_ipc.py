@@ -325,13 +325,13 @@ def test_envvar_set_legacy_ipc_format():
     assert not writer._use_legacy_format
 
     import os
-    os.environ['PYARROW_LEGACY_IPC_FORMAT'] = '1'
+    os.environ['ARROW_PRE_0_15_IPC_FORMAT'] = '1'
     writer = pa.RecordBatchStreamWriter(pa.BufferOutputStream(), schema)
     assert writer._use_legacy_format
     writer = pa.RecordBatchFileWriter(pa.BufferOutputStream(), schema)
     assert writer._use_legacy_format
 
-    del os.environ['PYARROW_LEGACY_IPC_FORMAT']
+    del os.environ['ARROW_PRE_0_15_IPC_FORMAT']
 
 
 def test_stream_read_all(stream_fixture):
