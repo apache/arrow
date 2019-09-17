@@ -57,7 +57,7 @@ using TimePoint =
     std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
 
 /// \brief EXPERIMENTAL: FileSystem entry type
-enum class ARROW_EXPORT FileType {
+enum class ARROW_EXPORT FileType : int8_t {
   // Target does not exist
   NonExistent,
   // Target exists but its type is unknown (could be a special file such

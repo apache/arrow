@@ -1610,7 +1610,7 @@ def input_stream(source, compression='detect', buffer_size=None):
     ----------
     source: str, Path, buffer, file-like object, ...
         The source to open for reading
-    compression: str or None
+    compression: str optional, default 'detect'
         The compression algorithm to use for on-the-fly decompression.
         If "detect" and source is a file path, then compression will be
         chosen based on the file extension.
@@ -1642,6 +1642,7 @@ def input_stream(source, compression='detect', buffer_size=None):
                         .format(source.__class__))
 
     if compression == 'detect':
+        # detect for OSFile too
         compression = _detect_compression(source_path)
 
     if buffer_size is not None and buffer_size != 0:
@@ -1661,7 +1662,7 @@ def output_stream(source, compression='detect', buffer_size=None):
     ----------
     source: str, Path, buffer, file-like object, ...
         The source to open for writing
-    compression: str or None
+    compression: str optional, default 'detect'
         The compression algorithm to use for on-the-fly compression.
         If "detect" and source is a file path, then compression will be
         chosen based on the file extension.

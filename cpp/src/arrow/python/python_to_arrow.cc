@@ -38,13 +38,13 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
+#include "arrow/python/datetime.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/inference.h"
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/type_traits.h"
-#include "arrow/python/util/datetime.h"
 
 namespace arrow {
 
@@ -301,7 +301,7 @@ class Date32Converter
     int32_t t;
     if (PyDate_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
-      t = static_cast<int32_t>(PyDate_to_days(pydate));
+      t = static_cast<int32_t>(internal::PyDate_to_days(pydate));
     } else {
       RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for date32"));
     }
@@ -317,12 +317,12 @@ class Date64Converter
     int64_t t;
     if (PyDateTime_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_DateTime*>(obj);
-      t = PyDateTime_to_ms(pydate);
+      t = internal::PyDateTime_to_ms(pydate);
       // Truncate any intraday milliseconds
       t -= t % 86400000LL;
     } else if (PyDate_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
-      t = PyDate_to_ms(pydate);
+      t = internal::PyDate_to_ms(pydate);
     } else {
       RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for date64"));
     }
@@ -343,10 +343,10 @@ class Time32Converter
       // datetime.time stores microsecond resolution
       switch (unit_) {
         case TimeUnit::SECOND:
-          t = static_cast<int32_t>(PyTime_to_s(obj));
+          t = static_cast<int32_t>(internal::PyTime_to_s(obj));
           break;
         case TimeUnit::MILLI:
-          t = static_cast<int32_t>(PyTime_to_ms(obj));
+          t = static_cast<int32_t>(internal::PyTime_to_ms(obj));
           break;
         default:
           return Status::UnknownError("Invalid time unit");
@@ -373,10 +373,10 @@ class Time64Converter
       // datetime.time stores microsecond resolution
       switch (unit_) {
         case TimeUnit::MICRO:
-          t = PyTime_to_us(obj);
+          t = internal::PyTime_to_us(obj);
           break;
         case TimeUnit::NANO:
-          t = PyTime_to_ns(obj);
+          t = internal::PyTime_to_ns(obj);
           break;
         default:
           return Status::UnknownError("Invalid time unit");
@@ -404,16 +404,16 @@ class TimestampConverter
 
       switch (unit_) {
         case TimeUnit::SECOND:
-          t = PyDateTime_to_s(pydatetime);
+          t = internal::PyDateTime_to_s(pydatetime);
           break;
         case TimeUnit::MILLI:
-          t = PyDateTime_to_ms(pydatetime);
+          t = internal::PyDateTime_to_ms(pydatetime);
           break;
         case TimeUnit::MICRO:
-          t = PyDateTime_to_us(pydatetime);
+          t = internal::PyDateTime_to_us(pydatetime);
           break;
         case TimeUnit::NANO:
-          t = PyDateTime_to_ns(pydatetime);
+          t = internal::PyDateTime_to_ns(pydatetime);
           break;
         default:
           return Status::UnknownError("Invalid time unit");

@@ -15,18 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_UTIL_DATETIME_H
-#define PYARROW_UTIL_DATETIME_H
-
 #include <algorithm>
+#include <chrono>
+#include <iostream>
 
-#include <datetime.h>
+#include "arrow/python/datetime.h"
 #include "arrow/python/platform.h"
 #include "arrow/status.h"
+#include "arrow/type.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
 namespace py {
+namespace internal {
 
 // The following code is adapted from
 // https://github.com/numpy/numpy/blob/master/numpy/core/src/multiarray/datetime.c
@@ -155,25 +156,6 @@ static void get_date_from_days(int64_t days, int64_t* date_year, int64_t* date_m
   return;
 }
 
-static inline int64_t PyTime_to_us(PyObject* pytime) {
-  return (static_cast<int64_t>(PyDateTime_TIME_GET_HOUR(pytime)) * 3600000000LL +
-          static_cast<int64_t>(PyDateTime_TIME_GET_MINUTE(pytime)) * 60000000LL +
-          static_cast<int64_t>(PyDateTime_TIME_GET_SECOND(pytime)) * 1000000LL +
-          PyDateTime_TIME_GET_MICROSECOND(pytime));
-}
-
-static inline int64_t PyTime_to_s(PyObject* pytime) {
-  return PyTime_to_us(pytime) / 1000000;
-}
-
-static inline int64_t PyTime_to_ms(PyObject* pytime) {
-  return PyTime_to_us(pytime) / 1000;
-}
-
-static inline int64_t PyTime_to_ns(PyObject* pytime) {
-  return PyTime_to_us(pytime) * 1000;
-}
-
 // Splitting time quantities, for example splitting total seconds into
 // minutes and remaining seconds. After we run
 // int64_t remaining = split_time(total, quotient, &next)
@@ -233,8 +215,7 @@ static inline Status PyDate_convert_int(int64_t val, const DateUnit unit, int64_
   return Status::OK();
 }
 
-static inline Status PyTime_from_int(int64_t val, const TimeUnit::type unit,
-                                     PyObject** out) {
+Status PyTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** out) {
   int64_t hour = 0, minute = 0, second = 0, microsecond = 0;
   RETURN_NOT_OK(PyTime_convert_int(val, unit, &hour, &minute, &second, &microsecond));
   *out = PyTime_FromTime(static_cast<int32_t>(hour), static_cast<int32_t>(minute),
@@ -242,7 +223,7 @@ static inline Status PyTime_from_int(int64_t val, const TimeUnit::type unit,
   return Status::OK();
 }
 
-static inline Status PyDate_from_int(int64_t val, const DateUnit unit, PyObject** out) {
+Status PyDate_from_int(int64_t val, const DateUnit unit, PyObject** out) {
   int64_t year = 0, month = 0, day = 0;
   RETURN_NOT_OK(PyDate_convert_int(val, unit, &year, &month, &day));
   *out = PyDate_FromDate(static_cast<int32_t>(year), static_cast<int32_t>(month),
@@ -250,8 +231,7 @@ static inline Status PyDate_from_int(int64_t val, const DateUnit unit, PyObject*
   return Status::OK();
 }
 
-static inline Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit,
-                                         PyObject** out) {
+Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** out) {
   int64_t hour = 0, minute = 0, second = 0, microsecond = 0;
   RETURN_NOT_OK(PyTime_convert_int(val, unit, &hour, &minute, &second, &microsecond));
   int64_t total_days = 0;
@@ -265,47 +245,19 @@ static inline Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit,
   return Status::OK();
 }
 
-static inline int64_t PyDate_to_days(PyDateTime_Date* pydate) {
+Status PyDateTime_from_TimePoint(TimePoint val, PyObject** out) {
+  PyDateTime_IMPORT;
+  auto nanos = val.time_since_epoch();
+  auto micros = std::chrono::duration_cast<std::chrono::microseconds>(nanos);
+  RETURN_NOT_OK(PyDateTime_from_int(micros.count(), TimeUnit::MICRO, out));
+  return Status::OK();
+}
+
+int64_t PyDate_to_days(PyDateTime_Date* pydate) {
   return get_days_from_date(PyDateTime_GET_YEAR(pydate), PyDateTime_GET_MONTH(pydate),
                             PyDateTime_GET_DAY(pydate));
 }
 
-static inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
-  int64_t total_seconds = 0;
-  int64_t days =
-      get_days_from_date(PyDateTime_GET_YEAR(pydate), PyDateTime_GET_MONTH(pydate),
-                         PyDateTime_GET_DAY(pydate));
-  total_seconds += days * 24 * 3600;
-  return total_seconds * 1000;
-}
-
-static inline int64_t PyDateTime_to_s(PyDateTime_DateTime* pydatetime) {
-  int64_t total_seconds = 0;
-  total_seconds += PyDateTime_DATE_GET_SECOND(pydatetime);
-  total_seconds += PyDateTime_DATE_GET_MINUTE(pydatetime) * 60;
-  total_seconds += PyDateTime_DATE_GET_HOUR(pydatetime) * 3600;
-
-  return total_seconds +
-         (PyDate_to_ms(reinterpret_cast<PyDateTime_Date*>(pydatetime)) / 1000LL);
-}
-
-static inline int64_t PyDateTime_to_ms(PyDateTime_DateTime* pydatetime) {
-  int64_t date_ms = PyDateTime_to_s(pydatetime) * 1000;
-  int ms = PyDateTime_DATE_GET_MICROSECOND(pydatetime) / 1000;
-  return date_ms + ms;
-}
-
-static inline int64_t PyDateTime_to_us(PyDateTime_DateTime* pydatetime) {
-  int64_t ms = PyDateTime_to_s(pydatetime) * 1000;
-  int us = PyDateTime_DATE_GET_MICROSECOND(pydatetime);
-  return ms * 1000 + us;
-}
-
-static inline int64_t PyDateTime_to_ns(PyDateTime_DateTime* pydatetime) {
-  return PyDateTime_to_us(pydatetime) * 1000;
-}
-
+}  // namespace internal
 }  // namespace py
 }  // namespace arrow
-
-#endif  // PYARROW_UTIL_DATETIME_H

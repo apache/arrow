@@ -458,6 +458,22 @@ cdef class NativeFile:
     cdef shared_ptr[OutputStream] get_output_stream(self) except *
 
 
+cdef class BufferedInputStream(NativeFile):
+    pass
+
+
+cdef class BufferedOutputStream(NativeFile):
+    pass
+
+
+cdef class CompressedInputStream(NativeFile):
+    pass
+
+
+cdef class CompressedOutputStream(NativeFile):
+    pass
+
+
 cdef class _CRecordBatchWriter:
     cdef:
         shared_ptr[CRecordBatchWriter] writer

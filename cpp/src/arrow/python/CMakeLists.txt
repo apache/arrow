@@ -32,6 +32,7 @@ set(ARROW_PYTHON_SRCS
     benchmark.cc
     common.cc
     config.cc
+    datetime.cc
     decimal.cc
     deserialize.cc
     extension_type.cc
