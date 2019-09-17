@@ -358,8 +358,10 @@ if(PYARROW_BUNDLE_ARROW_CPP)
   endif()
 
   if(MSVC)
+    find_package(ZLIB)
     bundle_arrow_implib(ARROW_SHARED_IMP_LIB)
     bundle_arrow_implib(ARROW_PYTHON_SHARED_IMP_LIB)
+    bundle_arrow_dependency(zlib zlib.dll)
   endif()
 endif()
 
