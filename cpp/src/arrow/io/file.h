@@ -24,6 +24,7 @@
 #include <memory>
 #include <string>
 
+#include "arrow/io/concurrency.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/util/visibility.h"
 
@@ -107,7 +108,8 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
 };
 
 // Operating system file
-class ARROW_EXPORT ReadableFile : public RandomAccessFile {
+class ARROW_EXPORT ReadableFile
+    : public internal::RandomAccessFileConcurrencyWrapper<ReadableFile> {
  public:
   ~ReadableFile() override;
 
@@ -144,28 +146,28 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
   /// on Close() or destruction.
   static Status Open(int fd, MemoryPool* pool, std::shared_ptr<ReadableFile>* file);
 
-  Status Close() override;
   bool closed() const override;
-  Status Tell(int64_t* position) const override;
-
-  // Read bytes from the file. Thread-safe
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* buffer) override;
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-
-  /// \brief Thread-safe implementation of ReadAt
-  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                void* out) override;
-
-  /// \brief Thread-safe implementation of ReadAt
-  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-
-  Status GetSize(int64_t* size) override;
-  Status Seek(int64_t position) override;
 
   int file_descriptor() const;
 
  private:
+  friend RandomAccessFileConcurrencyWrapper<ReadableFile>;
+
   explicit ReadableFile(MemoryPool* pool);
+
+  Status DoClose();
+  Status DoTell(int64_t* position) const;
+  Status DoRead(int64_t nbytes, int64_t* bytes_read, void* buffer);
+  Status DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out);
+
+  /// \brief Thread-safe implementation of ReadAt
+  Status DoReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* out);
+
+  /// \brief Thread-safe implementation of ReadAt
+  Status DoReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out);
+
+  Status DoGetSize(int64_t* size);
+  Status DoSeek(int64_t position);
 
   class ARROW_NO_EXPORT ReadableFileImpl;
   std::unique_ptr<ReadableFileImpl> impl_;

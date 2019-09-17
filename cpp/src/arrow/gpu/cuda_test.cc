@@ -283,7 +283,6 @@ TEST_F(TestCudaBufferReader, Basics) {
 
   CudaBufferReader reader(device_buffer);
 
-  // Read to host memory
   uint8_t stack_buffer[100] = {0};
   int64_t bytes_read = 0;
   ASSERT_OK(reader.Seek(950));
@@ -292,21 +291,42 @@ TEST_F(TestCudaBufferReader, Basics) {
   ASSERT_OK(reader.Tell(&position));
   ASSERT_EQ(950, position);
 
+  // Read() to host memory
   ASSERT_OK(reader.Read(100, &bytes_read, stack_buffer));
   ASSERT_EQ(50, bytes_read);
   ASSERT_EQ(0, std::memcmp(stack_buffer, host_data + 950, 50));
   ASSERT_OK(reader.Tell(&position));
   ASSERT_EQ(1000, position);
 
-  ASSERT_OK(reader.Seek(925));
+  // ReadAt() to host memory
+  ASSERT_OK(reader.ReadAt(123, 45, &bytes_read, stack_buffer));
+  ASSERT_EQ(45, bytes_read);
+  ASSERT_EQ(0, std::memcmp(stack_buffer, host_data + 123, 45));
+  ASSERT_OK(reader.Tell(&position));
+  ASSERT_EQ(1000, position);
+
+  // Read() to device buffer
   std::shared_ptr<Buffer> tmp;
+  ASSERT_OK(reader.Seek(925));
   ASSERT_OK(reader.Read(100, &tmp));
   ASSERT_EQ(75, tmp->size());
   ASSERT_OK(reader.Tell(&position));
   ASSERT_EQ(1000, position);
 
-  ASSERT_OK(std::dynamic_pointer_cast<CudaBuffer>(tmp)->CopyToHost(0, 75, stack_buffer));
-  ASSERT_EQ(0, std::memcmp(stack_buffer, host_data + 925, 75));
+  ASSERT_OK(std::dynamic_pointer_cast<CudaBuffer>(tmp)->CopyToHost(0, tmp->size(),
+                                                                   stack_buffer));
+  ASSERT_EQ(0, std::memcmp(stack_buffer, host_data + 925, tmp->size()));
+
+  // ReadAt() to device buffer
+  ASSERT_OK(reader.Seek(42));
+  ASSERT_OK(reader.ReadAt(980, 30, &tmp));
+  ASSERT_EQ(20, tmp->size());
+  ASSERT_OK(reader.Tell(&position));
+  ASSERT_EQ(42, position);
+
+  ASSERT_OK(std::dynamic_pointer_cast<CudaBuffer>(tmp)->CopyToHost(0, tmp->size(),
+                                                                   stack_buffer));
+  ASSERT_EQ(0, std::memcmp(stack_buffer, host_data + 980, tmp->size()));
 }
 
 class TestCudaArrowIpc : public TestCudaBufferBase {

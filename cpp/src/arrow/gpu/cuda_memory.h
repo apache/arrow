@@ -151,27 +151,27 @@ class ARROW_EXPORT CudaIpcMemHandle {
 /// \class CudaBufferReader
 /// \brief File interface for zero-copy read from CUDA buffers
 ///
-/// Note: Reads return pointers to device memory. This means you must be
-/// careful using this interface with any Arrow code which may expect to be
-/// able to do anything other than pointer arithmetic on the returned buffers
+/// CAUTION: reading to a Buffer returns a Buffer pointing to device memory.
+/// It will generally not be compatible with Arrow code expecting a buffer
+/// pointing to CPU memory.
+/// Reading to a raw pointer, though, copies device memory into the host
+/// memory pointed to.
 class ARROW_EXPORT CudaBufferReader : public io::BufferReader {
  public:
   explicit CudaBufferReader(const std::shared_ptr<Buffer>& buffer);
   ~CudaBufferReader() override;
 
-  /// \brief Read bytes into pre-allocated host memory
-  /// \param[in] nbytes number of bytes to read
-  /// \param[out] bytes_read actual number of bytes read
-  /// \param[out] buffer pre-allocated memory to write into
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* buffer) override;
-
-  /// \brief Zero-copy read from device memory
-  /// \param[in] nbytes number of bytes to read
-  /// \param[out] out a Buffer referencing device memory
-  /// \return Status
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-
  private:
+  // Read to host memory (copy)
+  Status DoRead(int64_t nbytes, int64_t* bytes_read, void* out) override;
+  Status DoReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                  void* out) override;
+
+  // Read to device buffer (zero-copy)
+  Status DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+  Status DoReadAt(int64_t position, int64_t nbytes,
+                  std::shared_ptr<Buffer>* out) override;
+
   std::shared_ptr<CudaBuffer> cuda_buffer_;
   std::shared_ptr<CudaContext> context_;
 };

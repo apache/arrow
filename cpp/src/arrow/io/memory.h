@@ -23,6 +23,7 @@
 #include <memory>
 
 #include "arrow/buffer.h"
+#include "arrow/io/concurrency.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/util/string_view.h"
@@ -130,7 +131,8 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WritableFile {
 
 /// \class BufferReader
 /// \brief Random access zero-copy reads on an arrow::Buffer
-class ARROW_EXPORT BufferReader : public RandomAccessFile {
+class ARROW_EXPORT BufferReader
+    : public internal::RandomAccessFileConcurrencyWrapper<BufferReader> {
  public:
   explicit BufferReader(const std::shared_ptr<Buffer>& buffer);
   explicit BufferReader(const Buffer& buffer);
@@ -140,27 +142,29 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
   /// own data
   explicit BufferReader(const util::string_view& data);
 
-  Status Close() override;
   bool closed() const override;
-  Status Tell(int64_t* position) const override;
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* buffer) override;
-  // Zero copy read
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-
-  Status Peek(int64_t nbytes, util::string_view* out) override;
 
   bool supports_zero_copy() const override;
-
-  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                void* out) override;
-  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-
-  Status GetSize(int64_t* size) override;
-  Status Seek(int64_t position) override;
 
   std::shared_ptr<Buffer> buffer() const { return buffer_; }
 
  protected:
+  friend RandomAccessFileConcurrencyWrapper<BufferReader>;
+
+  // These methods are virtual for CudaBuffer...
+  virtual Status DoClose();
+  virtual Status DoRead(int64_t nbytes, int64_t* bytes_read, void* buffer);
+  // Zero copy read
+  virtual Status DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out);
+  virtual Status DoReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                          void* out);
+  virtual Status DoReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out);
+  Status DoPeek(int64_t nbytes, util::string_view* out) override;
+
+  Status DoTell(int64_t* position) const;
+  Status DoSeek(int64_t position);
+  Status DoGetSize(int64_t* size);
+
   inline Status CheckClosed() const;
 
   std::shared_ptr<Buffer> buffer_;

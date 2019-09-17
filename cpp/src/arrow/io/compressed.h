@@ -23,6 +23,7 @@
 #include <memory>
 #include <string>
 
+#include "arrow/io/concurrency.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/util/visibility.h"
 
@@ -75,7 +76,8 @@ class ARROW_EXPORT CompressedOutputStream : public OutputStream {
   std::unique_ptr<Impl> impl_;
 };
 
-class ARROW_EXPORT CompressedInputStream : public InputStream {
+class ARROW_EXPORT CompressedInputStream
+    : public internal::InputStreamConcurrencyWrapper<CompressedInputStream> {
  public:
   ~CompressedInputStream() override;
 
@@ -88,24 +90,24 @@ class ARROW_EXPORT CompressedInputStream : public InputStream {
 
   // InputStream interface
 
-  /// \brief Close the compressed input stream.  This implicitly closes the
-  /// underlying raw input stream.
-  Status Close() override;
-  Status Abort() override;
   bool closed() const override;
-
-  Status Tell(int64_t* position) const override;
-
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override;
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
   /// \brief Return the underlying raw input stream.
   std::shared_ptr<InputStream> raw() const;
 
  private:
+  friend InputStreamConcurrencyWrapper<CompressedInputStream>;
   ARROW_DISALLOW_COPY_AND_ASSIGN(CompressedInputStream);
 
   CompressedInputStream() = default;
+
+  /// \brief Close the compressed input stream.  This implicitly closes the
+  /// underlying raw input stream.
+  Status DoClose();
+  Status DoAbort() override;
+  Status DoTell(int64_t* position) const;
+  Status DoRead(int64_t nbytes, int64_t* bytes_read, void* out);
+  Status DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out);
 
   class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
