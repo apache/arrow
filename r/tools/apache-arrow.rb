@@ -31,11 +31,11 @@ class ApacheArrow < Formula
 
   depends_on "cmake" => :build
   depends_on "flatbuffers" => :build
-  depends_on "double-conversion"
   depends_on "boost"
+  depends_on "double-conversion"
   depends_on "lz4"
-  depends_on "thrift"
   depends_on "snappy"
+  depends_on "thrift"
 
   def install
     ENV.cxx11
