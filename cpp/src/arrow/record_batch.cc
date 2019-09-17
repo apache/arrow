@@ -29,6 +29,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/atomic_shared_ptr.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
 
@@ -286,7 +287,7 @@ Status RecordBatchReader::ReadAll(std::shared_ptr<Table>* table) {
 
 class SimpleRecordBatchReader : public RecordBatchReader {
  public:
-  SimpleRecordBatchReader(std::unique_ptr<Iterator<std::shared_ptr<RecordBatch>>> it,
+  SimpleRecordBatchReader(Iterator<std::shared_ptr<RecordBatch>> it,
                           std::shared_ptr<Schema> schema)
       : schema_(schema), it_(std::move(it)) {}
 
@@ -295,14 +296,14 @@ class SimpleRecordBatchReader : public RecordBatchReader {
       : schema_(schema), it_(MakeVectorIterator(batches)) {}
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
-    return it_->Next(batch);
+    return it_.Next(batch);
   }
 
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
  protected:
   std::shared_ptr<Schema> schema_;
-  std::unique_ptr<Iterator<std::shared_ptr<RecordBatch>>> it_;
+  Iterator<std::shared_ptr<RecordBatch>> it_;
 };
 
 Status MakeRecordBatchReader(const std::vector<std::shared_ptr<RecordBatch>>& batches,

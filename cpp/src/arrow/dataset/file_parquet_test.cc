@@ -69,9 +69,10 @@ Status WriteRecordBatchReader(RecordBatchReader* reader, FileWriter* writer) {
                            "'");
   }
 
-  return reader->Visit([&](std::shared_ptr<RecordBatch> batch) -> Status {
-    return WriteRecordBatch(*batch, writer);
-  });
+  return MakePointerIterator(reader).Visit(
+      [&](std::shared_ptr<RecordBatch> batch) -> Status {
+        return WriteRecordBatch(*batch, writer);
+      });
 }
 
 Status WriteRecordBatchReader(
@@ -156,13 +157,13 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   auto source = GetFileSource(reader.get());
   auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
 
-  std::unique_ptr<ScanTaskIterator> it;
+  ScanTaskIterator it;
   ASSERT_OK(fragment->Scan(ctx_, &it));
   int64_t row_count = 0;
 
-  ASSERT_OK(it->Visit([&row_count](std::unique_ptr<ScanTask> task) -> Status {
+  ASSERT_OK(it.Visit([&row_count](std::unique_ptr<ScanTask> task) -> Status {
     auto batch_it = task->Scan();
-    return batch_it->Visit([&row_count](std::shared_ptr<RecordBatch> batch) -> Status {
+    return batch_it.Visit([&row_count](std::shared_ptr<RecordBatch> batch) -> Status {
       row_count += batch->num_rows();
       return Status::OK();
     });

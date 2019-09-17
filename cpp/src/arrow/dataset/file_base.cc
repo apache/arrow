@@ -41,7 +41,7 @@ Status FileSource::Open(std::shared_ptr<arrow::io::RandomAccessFile>* out) const
 }
 
 Status FileBasedDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
-                                   std::unique_ptr<ScanTaskIterator>* out) {
+                                   ScanTaskIterator* out) {
   return format_->ScanFile(source_, scan_options_, scan_context, out);
 }
 
@@ -75,7 +75,7 @@ Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
   return Status::OK();
 }
 
-std::unique_ptr<DataFragmentIterator> FileSystemBasedDataSource::GetFragments(
+DataFragmentIterator FileSystemBasedDataSource::GetFragments(
     std::shared_ptr<ScanOptions> options) {
   struct Impl : DataFragmentIterator {
     Impl(fs::FileSystem* filesystem, std::shared_ptr<FileFormat> format,
@@ -105,7 +105,7 @@ std::unique_ptr<DataFragmentIterator> FileSystemBasedDataSource::GetFragments(
     std::vector<fs::FileStats> stats_;
   };
 
-  return internal::make_unique<Impl>(filesystem_, format_, options, stats_);
+  return DataFragmentIterator(Impl(filesystem_, format_, options, stats_));
 }
 
 }  // namespace dataset

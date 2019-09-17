@@ -54,8 +54,8 @@ class ParquetScanTask : public ScanTask {
     return Status::OK();
   }
 
-  std::unique_ptr<RecordBatchIterator> Scan() override {
-    return std::move(record_batch_reader_);
+  RecordBatchIterator Scan() {
+    return MakePointerIterator(std::move(record_batch_reader_));
   }
 
  private:
@@ -107,11 +107,11 @@ class ParquetRowGroupPartitioner {
   int num_row_groups_;
 };
 
-class ParquetScanTaskIterator : public ScanTaskIterator {
+class ParquetScanTaskIterator {
  public:
   static Status Make(std::shared_ptr<ScanOptions> options,
                      std::shared_ptr<ScanContext> context, ParquetFileReaderPtr reader,
-                     std::unique_ptr<ScanTaskIterator>* out) {
+                     ScanTaskIterator* out) {
     auto metadata = reader->metadata();
 
     std::vector<int> columns_projection;
@@ -121,13 +121,13 @@ class ParquetScanTaskIterator : public ScanTaskIterator {
     RETURN_NOT_OK(parquet::arrow::FileReader::Make(context->pool, std::move(reader),
                                                    &arrow_reader));
 
-    out->reset(new ParquetScanTaskIterator(columns_projection, metadata,
-                                           std::move(arrow_reader)));
+    *out = ScanTaskIterator(
+        ParquetScanTaskIterator(columns_projection, metadata, std::move(arrow_reader)));
 
     return Status::OK();
   }
 
-  Status Next(ScanTaskPtr* task) override {
+  Status Next(ScanTaskPtr* task) {
     auto partition = partitionner_.Next();
 
     // Iteration is done.
@@ -166,7 +166,7 @@ class ParquetScanTaskIterator : public ScanTaskIterator {
 Status ParquetFileFormat::ScanFile(const FileSource& source,
                                    std::shared_ptr<ScanOptions> scan_options,
                                    std::shared_ptr<ScanContext> scan_context,
-                                   std::unique_ptr<ScanTaskIterator>* out) const {
+                                   ScanTaskIterator* out) const {
   std::shared_ptr<io::RandomAccessFile> input;
   RETURN_NOT_OK(source.Open(&input));
 

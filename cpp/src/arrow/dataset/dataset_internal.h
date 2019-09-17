@@ -163,16 +163,15 @@ constexpr int RecordBatchProjector::kNoMatch;
 class ProjectedRecordBatchReader : public RecordBatchReader {
  public:
   static Status Make(MemoryPool* pool, RecordBatchProjector projector,
-                     std::unique_ptr<RecordBatchIterator> wrapped,
-                     std::unique_ptr<RecordBatchIterator>* out) {
-    out->reset(
-        new ProjectedRecordBatchReader(pool, std::move(projector), std::move(wrapped)));
+                     RecordBatchIterator wrapped, RecordBatchIterator* out) {
+    *out = RecordBatchIterator(
+        ProjectedRecordBatchReader(pool, std::move(projector), std::move(wrapped)));
     return Status::OK();
   }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
     std::shared_ptr<RecordBatch> rb;
-    RETURN_NOT_OK(wrapped_->Next(&rb));
+    RETURN_NOT_OK(wrapped_.Next(&rb));
     if (rb == nullptr) {
       *out = nullptr;
       return Status::OK();
@@ -185,11 +184,11 @@ class ProjectedRecordBatchReader : public RecordBatchReader {
 
  private:
   ProjectedRecordBatchReader(MemoryPool* pool, RecordBatchProjector projector,
-                             std::unique_ptr<RecordBatchIterator> wrapped)
+                             RecordBatchIterator wrapped)
       : projector_(std::move(projector)), wrapped_(std::move(wrapped)) {}
 
   RecordBatchProjector projector_;
-  std::unique_ptr<RecordBatchIterator> wrapped_;
+  RecordBatchIterator wrapped_;
 };
 
 }  // namespace dataset

@@ -66,5 +66,16 @@ struct call_traits {
   using argument_type = decltype(argument_type_impl<I>(&std::decay<F>::type::operator()));
 };
 
+template <typename T>
+struct type_constant {
+  using type = T;
+};
+
+template <std::size_t I, typename T, typename R, typename... A>
+constexpr type_constant<typename std::tuple_element<I, std::tuple<A...>>::type>
+member_function_argument_type(R (T::*fn)(A...)) {
+  return {};
+}
+
 }  // namespace internal
 }  // namespace arrow

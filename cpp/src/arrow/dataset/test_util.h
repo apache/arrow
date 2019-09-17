@@ -72,7 +72,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   void AssertScanTaskEquals(RecordBatchReader* expected, ScanTask* task,
                             bool ensure_drained = true) {
     auto it = task->Scan();
-    ARROW_EXPECT_OK(it->Visit([expected](std::shared_ptr<RecordBatch> rhs) -> Status {
+    ARROW_EXPECT_OK(it.Visit([expected](std::shared_ptr<RecordBatch> rhs) -> Status {
       std::shared_ptr<RecordBatch> lhs;
       RETURN_NOT_OK(expected->ReadNext(&lhs));
       EXPECT_NE(lhs, nullptr);
@@ -89,10 +89,10 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragment.
   void AssertFragmentEquals(RecordBatchReader* expected, DataFragment* fragment,
                             bool ensure_drained = true) {
-    std::unique_ptr<ScanTaskIterator> it;
+    ScanTaskIterator it;
     ARROW_EXPECT_OK(fragment->Scan(ctx_, &it));
 
-    ARROW_EXPECT_OK(it->Visit([&](std::unique_ptr<ScanTask> task) -> Status {
+    ARROW_EXPECT_OK(it.Visit([&](std::unique_ptr<ScanTask> task) -> Status {
       AssertScanTaskEquals(expected, task.get(), false);
       return Status::OK();
     }));
@@ -108,7 +108,7 @@ class DatasetFixtureMixin : public ::testing::Test {
                               bool ensure_drained = true) {
     auto it = source->GetFragments(options_);
 
-    ARROW_EXPECT_OK(it->Visit([&](std::shared_ptr<DataFragment> fragment) -> Status {
+    ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<DataFragment> fragment) -> Status {
       AssertFragmentEquals(expected, fragment.get(), false);
       return Status::OK();
     }));
@@ -124,7 +124,7 @@ class DatasetFixtureMixin : public ::testing::Test {
                            bool ensure_drained = true) {
     auto it = scanner->Scan();
 
-    ARROW_EXPECT_OK(it->Visit([&](std::unique_ptr<ScanTask> task) -> Status {
+    ARROW_EXPECT_OK(it.Visit([&](std::unique_ptr<ScanTask> task) -> Status {
       AssertScanTaskEquals(expected, task.get(), false);
       return Status::OK();
     }));
@@ -198,7 +198,7 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
 
     int count = 0;
     ASSERT_OK(
-        source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
+        source_->GetFragments({}).Visit([&](std::shared_ptr<DataFragment> fragment) {
           auto file_fragment =
               internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
           ++count;
@@ -219,7 +219,7 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
 
     int count = 0;
     ASSERT_OK(
-        source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
+        source_->GetFragments({}).Visit([&](std::shared_ptr<DataFragment> fragment) {
           auto file_fragment =
               internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
           ++count;
@@ -242,7 +242,7 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
 
     ASSERT_RAISES(
         IOError,
-        source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
+        source_->GetFragments({}).Visit([&](std::shared_ptr<DataFragment> fragment) {
           auto file_fragment =
               internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
           auto extension =
@@ -278,8 +278,8 @@ class DummyFileFormat : public FileFormat {
   /// \brief Open a file for scanning (always returns an empty iterator)
   Status ScanFile(const FileSource& source, std::shared_ptr<ScanOptions> scan_options,
                   std::shared_ptr<ScanContext> scan_context,
-                  std::unique_ptr<ScanTaskIterator>* out) const override {
-    *out = internal::make_unique<EmptyIterator<std::unique_ptr<ScanTask>>>();
+                  ScanTaskIterator* out) const override {
+    *out = MakeEmptyIterator<std::unique_ptr<ScanTask>>();
     return Status::OK();
   }
 
