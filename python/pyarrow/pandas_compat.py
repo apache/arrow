@@ -412,14 +412,18 @@ def _get_columns_to_convert_given_schema(df, schema, preserve_index):
                 col = df.index.get_level_values(name)
                 if (preserve_index is None and
                         isinstance(col, _pandas_api.pd.RangeIndex)):
-                    # TODO better error message
-                    raise KeyError("name {} in schema not in columns "
-                                   "or index".format(name))
+                    raise ValueError(
+                        "name '{}' is present in the schema, but it is a "
+                        "RangeIndex which will not be converted as a column "
+                        "in the Table, but saved as metadata-only not in "
+                        "columns. Specify 'preserve_index=True' to force it "
+                        "being added as a column, or remove it from the "
+                        "specified schema".format(name))
                 is_index = True
             else:
-                # TODO better error message
-                raise KeyError("name {} in schema not in columns "
-                               "or index".format(name))
+                raise KeyError(
+                    "name '{}' present in the specified schema is not found "
+                    "in the columns or index".format(name))
 
         name = _column_name_to_strings(name)
 
