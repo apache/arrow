@@ -176,6 +176,13 @@ void PlainEncoder<ByteArrayType>::Put(const arrow::Array& values) {
   }
 }
 
+void AssertFixedSizeBinary(const arrow::Array& values) {
+  if (values.type_id() != arrow::Type::FIXED_SIZE_BINARY &&
+      values.type_id() != arrow::Type::DECIMAL) {
+    throw ParquetException("Only FixedSizeBinaryArray and subclasses supported");
+  }
+}
+
 template <>
 inline void PlainEncoder<FLBAType>::Put(const FixedLenByteArray* src, int num_values) {
   if (descr_->type_length() == 0) {
@@ -570,9 +577,57 @@ inline void DictEncoderImpl<FLBAType>::Put(const FixedLenByteArray& v) {
   buffered_indices_.push_back(memo_index);
 }
 
+template <>
+void DictEncoderImpl<Int96Type>::Put(const arrow::Array& values) {
+  ParquetException::NYI(values.type()->ToString());
+}
+
+template <>
+void DictEncoderImpl<Int96Type>::PutDictionary(const arrow::Array& values) {
+  ParquetException::NYI(values.type()->ToString());
+}
+
 template <typename DType>
 void DictEncoderImpl<DType>::Put(const arrow::Array& values) {
-  ParquetException::NYI(values.type()->ToString());
+  using ArrayType = typename arrow::CTypeTraits<typename DType::c_type>::ArrayType;
+  // FIXME(bkietz) assert appropriate type?
+  const auto& data = checked_cast<const ArrayType&>(values);
+  if (data.null_count() == 0) {
+    // no nulls, just dump the data
+    for (int64_t i = 0; i < data.length(); i++) {
+      Put(data.Value(i));
+    }
+  } else {
+    std::vector<uint8_t> empty(type_length_, 0);
+    for (int64_t i = 0; i < data.length(); i++) {
+      if (data.IsValid(i)) {
+        Put(data.Value(i));
+      } else {
+        Put(0);
+      }
+    }
+  }
+}
+
+template <>
+void DictEncoderImpl<FLBAType>::Put(const arrow::Array& values) {
+  AssertFixedSizeBinary(values);
+  const auto& data = checked_cast<const arrow::FixedSizeBinaryArray&>(values);
+  if (data.null_count() == 0) {
+    // no nulls, just dump the data
+    for (int64_t i = 0; i < data.length(); i++) {
+      Put(FixedLenByteArray(data.Value(i)));
+    }
+  } else {
+    std::vector<uint8_t> empty(type_length_, 0);
+    for (int64_t i = 0; i < data.length(); i++) {
+      if (data.IsValid(i)) {
+        Put(FixedLenByteArray(data.Value(i)));
+      } else {
+        Put(FixedLenByteArray(empty.data()));
+      }
+    }
+  }
 }
 
 template <>
@@ -597,7 +652,47 @@ void DictEncoderImpl<ByteArrayType>::Put(const arrow::Array& values) {
 
 template <typename DType>
 void DictEncoderImpl<DType>::PutDictionary(const arrow::Array& values) {
-  ParquetException::NYI(values.type()->ToString());
+  if (this->num_entries() > 0) {
+    throw ParquetException("Can only call PutDictionary on an empty DictEncoder");
+  }
+
+  using ArrayType = typename arrow::CTypeTraits<typename DType::c_type>::ArrayType;
+  const auto& data = checked_cast<const ArrayType&>(values);
+  if (data.null_count() > 0) {
+    throw ParquetException("Inserted dictionary cannot cannot contain nulls");
+  }
+
+  // FIXME(bkietz) is this correct accounting of dict_encoded_size_?
+  dict_encoded_size_ += static_cast<int>(type_length_ * data.length());
+  for (int64_t i = 0; i < data.length(); i++) {
+    ARROW_IGNORE_EXPR(
+        memo_table_.GetOrInsert(data.Value(i),
+                                /*on_found=*/[](int32_t memo_index) {},
+                                /*on_not_found=*/[](int32_t memo_index) {}));
+  }
+}
+
+template <>
+void DictEncoderImpl<FLBAType>::PutDictionary(const arrow::Array& values) {
+  AssertFixedSizeBinary(values);
+  if (this->num_entries() > 0) {
+    throw ParquetException("Can only call PutDictionary on an empty DictEncoder");
+  }
+
+  const auto& data = checked_cast<const arrow::FixedSizeBinaryArray&>(values);
+  if (data.null_count() > 0) {
+    throw ParquetException("Inserted dictionary cannot cannot contain nulls");
+  }
+
+  // FIXME(bkietz) is this correct accounting of dict_encoded_size_?
+  dict_encoded_size_ +=
+      static_cast<int>((type_length_ + sizeof(uint32_t)) * data.length());
+  for (int64_t i = 0; i < data.length(); i++) {
+    ARROW_IGNORE_EXPR(
+        memo_table_.GetOrInsert(data.Value(i), type_length_,
+                                /*on_found=*/[](int32_t memo_index) {},
+                                /*on_not_found=*/[](int32_t memo_index) {}));
+  }
 }
 
 template <>
@@ -611,6 +706,7 @@ void DictEncoderImpl<ByteArrayType>::PutDictionary(const arrow::Array& values) {
   if (data.null_count() > 0) {
     throw ParquetException("Inserted binary dictionary cannot cannot contain nulls");
   }
+
   for (int64_t i = 0; i < data.length(); i++) {
     auto v = data.GetView(i);
     dict_encoded_size_ += static_cast<int>(v.size() + sizeof(uint32_t));
