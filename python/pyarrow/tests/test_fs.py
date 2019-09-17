@@ -24,6 +24,7 @@ except ImportError:
 import pytest
 
 from pyarrow import ArrowIOError
+from pyarrow.compat import tobytes, unicode_type
 from pyarrow.fs import (FileType, Selector, FileSystem, LocalFileSystem,
                         SubTreeFileSystem)
 from pyarrow.tests.test_io import gzip_compress, gzip_decompress
@@ -43,10 +44,7 @@ def fs(request, tempdir):
     return request.param(tempdir.as_posix())
 
 
-@pytest.fixture(params=[
-    pytest.param(pathlib.PurePosixPath, id='Path'),
-    pytest.param(str, id='str')
-])
+@pytest.fixture
 def testpath(request, fs, tempdir):
     # we always use the tempdir for reading and writing test artifacts, but
     # if the filesystem is wrapped in a SubTreeFileSystem then we don't need
@@ -54,13 +52,10 @@ def testpath(request, fs, tempdir):
     # pathlib.Path objects and plain python strings
     def convert(path):
         if isinstance(fs, SubTreeFileSystem):
-            path = pathlib.PurePosixPath(path)
+            path = pathlib.Path(path)
         else:
             path = tempdir / path
-        # convert to abstract, slash separated paths with as_posix
-        path = path.as_posix()
-        # return with the corrent
-        return request.param(path)
+        return path.as_posix()
     return convert
 
 
@@ -73,7 +68,8 @@ def test_non_path_like_input_raises(fs):
     class Path:
         pass
 
-    invalid_paths = [1, 1.1, Path(), tuple(), {}, [], lambda: 1]
+    invalid_paths = [1, 1.1, Path(), tuple(), {}, [], lambda: 1,
+                     pathlib.Path()]
     for path in invalid_paths:
         with pytest.raises(TypeError):
             fs.create_dir(path)
@@ -97,7 +93,7 @@ def test_get_target_stats(fs, tempdir, testpath):
 
     aaa_stat, bb_stat, c_stat = fs.get_target_stats([aaa, bb, c])
 
-    assert aaa_stat.path == str(aaa)
+    assert aaa_stat.path == aaa
     assert 'aaa' in repr(aaa_stat)
     assert aaa_stat.base_name == 'aaa'
     assert aaa_stat.extension == ''

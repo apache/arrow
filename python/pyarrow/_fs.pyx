@@ -36,13 +36,14 @@ from pyarrow.lib cimport (
 
 
 cdef inline c_string _path_as_bytes(path) except *:
-    """Converts path-like objects to bytestring with posix separators
-
-    tobytes always uses utf-8, which is more or less ok, at least on Windows
-    since the C++ side then decodes from utf-8. On Unix, os.fsencode may be
-    better.
-    """
-    return tobytes(_stringify_path(path))
+    # handle only abstract paths, not bound to any filesystem like pathlib is,
+    # so we only accept plain strings
+    if not isinstance(path, six.string_types):
+        raise TypeError('Path must be a string')
+    # tobytes always uses utf-8, which is more or less ok, at least on Windows
+    # since the C++ side then decodes from utf-8. On Unix, os.fsencode may be
+    # better.
+    return tobytes(path)
 
 
 cpdef enum FileType:
