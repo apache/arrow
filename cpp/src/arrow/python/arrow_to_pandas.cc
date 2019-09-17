@@ -242,7 +242,7 @@ Status PyArray_NewFromPool(int nd, npy_intp* dims, int typenum,
   *out = PyArray_NewFromDescr(&PyArray_Type, descr, nd, dims,
                               /*strides=*/nullptr,
                               /*data=*/buffer->mutable_data(),
-                              /*flags=*/0,
+                              /*flags=*/NPY_ARRAY_CARRAY | NPY_ARRAY_WRITEABLE,
                               /*obj=*/nullptr);
   if (*out == nullptr) {
     RETURN_IF_PYERROR();
@@ -309,9 +309,8 @@ class PandasBlock {
     } else {
       block_dims[0] = num_rows_;
     }
-    RETURN_NOT_OK(
-        PyArray_NewFromPool(ndim, block_dims, npy_type,
-                            /*arrow_type=*/nullptr, options_.pool, &block_arr));
+    RETURN_NOT_OK(PyArray_NewFromPool(ndim, block_dims, npy_type,
+                                      /*arrow_type=*/nullptr, options_.pool, &block_arr));
 
     npy_intp placement_dims[1] = {num_columns_};
     PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
