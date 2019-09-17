@@ -457,7 +457,7 @@ class Converter_Promotion : public Converter {
   }
 };
 
-template <typename value_type>
+template <typename value_type, typename unit_type = TimeType>
 class Converter_Time : public Converter {
  public:
   explicit Converter_Time(const ArrayVector& arrays) : Converter(arrays) {}
@@ -485,7 +485,7 @@ class Converter_Time : public Converter {
 
  private:
   int TimeUnit_multiplier(const std::shared_ptr<Array>& array) const {
-    switch (static_cast<TimeType*>(array->type().get())->unit()) {
+    switch (static_cast<unit_type*>(array->type().get())->unit()) {
       case TimeUnit::SECOND:
         return 1;
       case TimeUnit::MILLI:
@@ -501,10 +501,10 @@ class Converter_Time : public Converter {
 };
 
 template <typename value_type>
-class Converter_Timestamp : public Converter_Time<value_type> {
+class Converter_Timestamp : public Converter_Time<value_type, TimestampType> {
  public:
   explicit Converter_Timestamp(const ArrayVector& arrays)
-      : Converter_Time<value_type>(arrays) {}
+      : Converter_Time<value_type, TimestampType>(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
     Rcpp::NumericVector data(no_init(n));
