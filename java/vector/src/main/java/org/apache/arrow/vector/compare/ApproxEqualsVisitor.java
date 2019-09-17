@@ -23,7 +23,7 @@ import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.ValueVector;
 
 /**
- * Visitor to compare floating point.
+ * Visitor to compare floating point vectors approximately.
  */
 public class ApproxEqualsVisitor extends RangeEqualsVisitor {
 
@@ -36,10 +36,8 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
   /**
    * Functions to calculate difference between float/double values.
    */
-  private DiffFunction<Float> floatDiffFunction =
-      (Float value1, Float value2) -> Math.abs(value1 - value2);
-  private DiffFunction<Double> doubleDiffFunction =
-      (Double value1, Double value2) -> Math.abs(value1 - value2);
+  private DiffFunctionFloat floatDiffFunction;
+  private DiffFunctionDouble doubleDiffFunction;
 
   /**
    * Constructs a new instance.
@@ -53,13 +51,18 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
     super(left, right, true);
     this.floatEpsilon = floatEpsilon;
     this.doubleEpsilon = doubleEpsilon;
+
+    floatDiffFunction =
+        (float value1, float value2) -> Math.abs(value1 - value2) <= floatEpsilon;
+    doubleDiffFunction =
+        (double value1, double value2) -> Math.abs(value1 - value2) <= doubleEpsilon;
   }
 
-  public void setFloatDiffFunction(DiffFunction<Float> floatDiffFunction) {
+  public void setFloatDiffFunction(DiffFunctionFloat floatDiffFunction) {
     this.floatDiffFunction = floatDiffFunction;
   }
 
-  public void setDoubleDiffFunction(DiffFunction<Double> doubleDiffFunction) {
+  public void setDoubleDiffFunction(DiffFunctionDouble doubleDiffFunction) {
     this.doubleDiffFunction = doubleDiffFunction;
   }
 
@@ -94,15 +97,15 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
       }
 
       if (!isNull) {
-        Float leftValue = leftVector.get(leftIndex);
-        Float rightValue = rightVector.get(rightIndex);
-        if (leftValue.isNaN()) {
-          return rightValue.isNaN();
+        float leftValue = leftVector.get(leftIndex);
+        float rightValue = rightVector.get(rightIndex);
+        if (Float.isNaN(leftValue)) {
+          return Float.isNaN(rightValue);
         }
-        if (leftValue.isInfinite()) {
-          return rightValue.isInfinite() && Math.signum(leftValue) == Math.signum(rightValue);
+        if (Float.isInfinite(leftValue)) {
+          return Float.isInfinite(rightValue) && Math.signum(leftValue) == Math.signum(rightValue);
         }
-        if (floatDiffFunction.apply(leftValue, rightValue) > floatEpsilon) {
+        if (!floatDiffFunction.approxEquals(leftValue, rightValue)) {
           return false;
         }
       }
@@ -126,21 +129,33 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
 
       if (!isNull) {
 
-        Double leftValue = leftVector.get(leftIndex);
-        Double rightValue = rightVector.get(rightIndex);
-        if (leftValue.isNaN()) {
-          return rightValue.isNaN();
+        double leftValue = leftVector.get(leftIndex);
+        double rightValue = rightVector.get(rightIndex);
+        if (Double.isNaN(leftValue)) {
+          return Double.isNaN(rightValue);
         }
-        if (leftValue.isInfinite()) {
-          return rightValue.isInfinite() && Math.signum(leftValue) == Math.signum(rightValue);
+        if (Double.isInfinite(leftValue)) {
+          return Double.isInfinite(rightValue) && Math.signum(leftValue) == Math.signum(rightValue);
         }
-        if (doubleDiffFunction.apply(leftValue, rightValue) > doubleEpsilon) {
+        if (!doubleDiffFunction.approxEquals(leftValue, rightValue)) {
           return false;
         }
       }
     }
     return true;
   }
+
+  /**
+   * Difference function for float values.
+   */
+  public interface DiffFunctionFloat {
+    boolean approxEquals(float v1, float v2);
+  }
+
+  /**
+   * Difference function for double values.
+   */
+  public interface DiffFunctionDouble {
+    boolean approxEquals(double v1, double v2);
+  }
 }
-
-
