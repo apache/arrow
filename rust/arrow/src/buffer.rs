@@ -38,7 +38,6 @@ use crate::error::{ArrowError, Result};
 use crate::memory;
 use crate::util::bit_util;
 
-
 /// Buffer is a contiguous memory region of fixed size and is aligned at a 64-byte
 /// boundary. Buffer is immutable.
 #[derive(PartialEq, Debug)]
