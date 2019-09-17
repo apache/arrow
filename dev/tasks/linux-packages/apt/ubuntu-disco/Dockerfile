@@ -15,7 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ubuntu:19.04
+ARG FROM=ubuntu:cosmic
+FROM ${FROM}
+
+COPY qemu-* /usr/bin/
 
 RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
@@ -64,7 +67,9 @@ RUN \
     python3-pip \
     rapidjson-dev \
     tzdata && \
-  if [ "$(uname -m)" = "x86_64" -o "$(uname -m)" = "i386"  ]; then apt install -y nvidia-cuda-toolkit;fi && \
+  if apt list | grep '^nvidia-cuda-toolkit/'; then \
+    apt install -y -V ${quiet} nvidia-cuda-toolkit; \
+  fi && \
   apt clean && \
   pip3 install --upgrade meson && \
   ln -s /usr/local/bin/meson /usr/bin/ && \
