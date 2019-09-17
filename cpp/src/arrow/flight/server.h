@@ -158,6 +158,9 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// TODO(wesm): Shutdown with deadline
   Status Shutdown();
 
+  /// \brief Block until server is terminated with Shutdown.
+  Status Wait();
+
   // Implement these methods to create your own server. The default
   // implementations will return a not-implemented result to the client
 

@@ -326,6 +326,7 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         int port()
         CStatus ServeWithSignals() except *
         CStatus Shutdown()
+        CStatus Wait()
 
     cdef cppclass PyServerAuthHandler\
             " arrow::py::flight::PyServerAuthHandler"(CServerAuthHandler):
