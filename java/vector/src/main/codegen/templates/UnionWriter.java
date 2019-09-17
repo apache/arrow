@@ -39,6 +39,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   private StructWriter structWriter;
   private UnionListWriter listWriter;
   private BaseWriter[] writers = new BaseWriter[MinorType.values().length];
+  private List<BaseWriter> writerList = new java.util.ArrayList<>();
   private final NullableStructWriterFactory nullableStructWriterFactory;
 
   public UnionWriter(UnionVector vector) {
@@ -53,13 +54,10 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   @Override
   public void setPosition(int index) {
     super.setPosition(index);
-    for (BaseWriter writer : writers) {
-      if (writer != null) {
-        writer.setPosition(index);
-      }
+    for (BaseWriter writer : writerList) {
+      writer.setPosition(index);
     }
   }
-
 
   @Override
   public void start() {
@@ -88,6 +86,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
       structWriter = nullableStructWriterFactory.build(data.getStruct());
       structWriter.setPosition(idx());
       writers[Types.MinorType.STRUCT.ordinal()] = structWriter;
+      writerList.add(structWriter);
     }
     return structWriter;
   }
@@ -102,6 +101,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
       listWriter = new UnionListWriter(data.getList(), nullableStructWriterFactory);
       listWriter.setPosition(idx());
       writers[Types.MinorType.LIST.ordinal()] = listWriter;
+      writerList.add(listWriter);
     }
     return listWriter;
   }
@@ -149,6 +149,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
       ${uncappedName}Writer = new ${name}WriterImpl(data.get${name}Vector());
       ${uncappedName}Writer.setPosition(idx());
       writers[MinorType.${name?upper_case}.ordinal()] = ${uncappedName}Writer;
+      writerList.add(${uncappedName}Writer);
     }
     return ${uncappedName}Writer;
   }
