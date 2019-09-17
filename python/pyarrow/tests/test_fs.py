@@ -24,7 +24,6 @@ except ImportError:
 import pytest
 
 from pyarrow import ArrowIOError
-from pyarrow.compat import tobytes, unicode_type
 from pyarrow.fs import (FileType, Selector, FileSystem, LocalFileSystem,
                         SubTreeFileSystem)
 from pyarrow.tests.test_io import gzip_compress, gzip_decompress
