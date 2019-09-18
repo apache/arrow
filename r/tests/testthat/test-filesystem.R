@@ -35,7 +35,6 @@ test_that("LocalFilesystem", {
   stat <- fs$GetTargetStats(tf)[[1]]
   expect_equal(stat$extension(), "txt")
   expect_equal(stat$size, info$size)
-  expect_true(stat$mtime > info$mtime)
   expect_equal(readLines(DESCRIPTION), readLines(tf))
 
   tf2 <- tempfile(fileext = ".txt")
@@ -76,7 +75,7 @@ test_that("LocalFilesystem", {
 test_that("SubTreeFilesystem", {
   dir.create(td <- tempfile())
   DESCRIPTION <- system.file("DESCRIPTION", package = "arrow")
-  file.copy(DESCRIPTION, td)
+  file.copy(DESCRIPTION, file.path(td, "DESCRIPTION"))
 
   local_fs <- LocalFileSystem$create()
   st_fs <- SubTreeFileSystem$create(td, local_fs)
