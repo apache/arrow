@@ -1000,8 +1000,8 @@ ipc___RecordBatchFileWriter__Open <- function(stream, schema){
     .Call(`_arrow_ipc___RecordBatchFileWriter__Open` , stream, schema)
 }
 
-ipc___RecordBatchStreamWriter__Open <- function(stream, schema){
-    .Call(`_arrow_ipc___RecordBatchStreamWriter__Open` , stream, schema)
+ipc___RecordBatchStreamWriter__Open <- function(stream, schema, use_legacy_format){
+    .Call(`_arrow_ipc___RecordBatchStreamWriter__Open` , stream, schema, use_legacy_format)
 }
 
 schema_ <- function(fields){
