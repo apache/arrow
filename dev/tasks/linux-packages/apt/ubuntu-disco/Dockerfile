@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG FROM=ubuntu:cosmic
+ARG FROM=ubuntu:disco
 FROM ${FROM}
 
 COPY qemu-* /usr/bin/
