@@ -90,7 +90,6 @@ impl AggregateExpr for Sum {
             DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
                 Ok(DataType::UInt64)
             }
-            DataType::Float32 | DataType::Float64 => Ok(DataType::Float64),
             other => Ok(other.clone()),
         }
     }
