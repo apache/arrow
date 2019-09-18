@@ -40,14 +40,8 @@ Building requires:
 * A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be
   sufficient. For Windows, at least Visual Studio 2015 is required.
 * CMake 3.2 or higher
-* Boost 1.58 or higher, though some unit tests require 1.64 or
-  newer.
-* ``bison`` and ``flex`` (for building Apache Thrift from source only, an
-  Apache Parquet dependency.)
-
-Running the unit tests using ``ctest`` requires:
-
-* python
+* On Linux and macOS, either ``make`` or ``ninja`` build utilities
+* Boost 1.58 or higher, though some unit tests require 1.64 or newer.
 
 On Ubuntu/Debian you can install the requirements with:
 
@@ -57,13 +51,9 @@ On Ubuntu/Debian you can install the requirements with:
         autoconf \
         build-essential \
         cmake \
-        libboost-dev \
         libboost-filesystem-dev \
         libboost-regex-dev \
-        libboost-system-dev \
-        python \
-        bison \
-        flex
+        libboost-system-dev
 
 On Alpine Linux:
 
@@ -130,10 +120,10 @@ Minimal release build:
    cd arrow/cpp
    mkdir release
    cd release
-   cmake -DARROW_BUILD_TESTS=ON ..
-   make unittest
+   cmake ..
+   make
 
-Minimal debug build:
+Minimal debug build with unit tests:
 
 .. code-block:: shell
 
@@ -144,8 +134,9 @@ Minimal debug build:
    cmake -DCMAKE_BUILD_TYPE=Debug -DARROW_BUILD_TESTS=ON ..
    make unittest
 
-If you do not need to build the test suite, you can omit the
-``ARROW_BUILD_TESTS`` option (the default is not to build the unit tests).
+The unit tests are not built by default. After building, one can also invoke
+the unit tests using the ``ctest`` tool provided by CMake (not that ``test``
+depends on ``python`` being available).
 
 On some Linux distributions, running the test suite might require setting an
 explicit locale. If you see any locale-related errors, try setting the
@@ -957,6 +948,11 @@ can be built with the ``parquet`` make target:
 .. code-block:: shell
 
    make parquet
+
+On Linux and macOS if you do not have Apache Thrift installed on your system,
+or you are building with ``-DThrift_SOURCE=BUNDLED``, you must install
+``bison`` and ``flex`` packages. On Windows we handle these build dependencies
+automatically when building Thrift from source.
 
 Running ``ctest -L unittest`` will run all built C++ unit tests, while ``ctest -L
 parquet`` will run only the Parquet unit tests. The unit tests depend on an
