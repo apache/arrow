@@ -17,9 +17,12 @@
 
 //! Traits for physical query plan, supporting parallel execution for partitioned relations.
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 use crate::error::Result;
+use crate::logicalplan::ScalarValue;
 use arrow::array::ArrayRef;
 use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
@@ -54,6 +57,28 @@ pub trait PhysicalExpr: Send + Sync {
     fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
     /// Evaluate an expression against a RecordBatch
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef>;
+}
+
+/// Agggregate expression that can be evaluated against a RecordBatch
+pub trait AggregateExpr: Send + Sync {
+    /// Get the name to use in a schema to represent the result of this expression
+    fn name(&self) -> String;
+    /// Get the data type of this expression, given the schema of the input
+    fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
+    /// Create an accumulator for this aggregate expression
+    fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>>;
+    /// Create an aggregate expression for combining the results of accumulators from partitions.
+    /// For example, to combine the results of a parallel SUM we just need to do another SUM, but
+    /// to combine the results of parallel COUNT we would also use SUM.
+    fn create_combiner(&self, column_index: usize) -> Arc<dyn AggregateExpr>;
+}
+
+/// Aggregate accumulator
+pub trait Accumulator {
+    /// Update the accumulator based on a row in a batch
+    fn accumulate(&mut self, batch: &RecordBatch, row_index: usize) -> Result<()>;
+    /// Get the final value for the accumulator
+    fn get_value(&self) -> Result<Option<ScalarValue>>;
 }
 
 pub mod csv;
