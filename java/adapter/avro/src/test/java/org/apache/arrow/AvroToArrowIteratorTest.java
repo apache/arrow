@@ -17,9 +17,14 @@
 
 package org.apache.arrow;
 
+import static org.junit.Assert.assertEquals;
+
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -37,8 +42,10 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.BinaryDecoder;
 import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
+import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.EncoderFactory;
+import org.apache.avro.util.Utf8;
 import org.junit.Test;
 
 public class AvroToArrowIteratorTest extends AvroTestBase {
@@ -157,5 +164,150 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
     }
     checkArrayResult(data, vectors);
     AutoCloseables.close(roots);
+  }
+
+  @Test
+  public void runLargeNumberOfRows() throws Exception {
+    Schema schema = getSchema("test_large_data.avsc");
+    int x = 0;
+    final int targetRows = 600000;
+    Decoder fakeDecoder = new FakeDecoder(targetRows);
+    try (AvroToArrowVectorIterator iter =
+        AvroToArrow.avroToArrowIterator(schema, fakeDecoder, new AvroToArrowConfig(config.getAllocator()))) {
+      while (iter.hasNext()) {
+        VectorSchemaRoot root = iter.next();
+        x += root.getRowCount();
+        root.close();
+      }
+    }
+
+    assertEquals(x, targetRows);
+  }
+
+  /**
+   * Fake avro decoder to test large data.
+   */
+  private class FakeDecoder extends Decoder {
+
+    private int numRows;
+
+    FakeDecoder(int numRows) {
+      this.numRows = numRows;
+    }
+
+    // note that Decoder has no hasNext() API, assume enum is the first type in schema
+    // and fixed is the last type in schema and they are unique.
+    private void validate() throws EOFException {
+      if (numRows <= 0) {
+        throw new EOFException();
+      }
+    }
+
+    @Override
+    public void readNull() throws IOException {
+    }
+
+    @Override
+    public boolean readBoolean() throws IOException {
+      return false;
+    }
+
+    @Override
+    public int readInt() throws IOException {
+      return 0;
+    }
+
+    @Override
+    public long readLong() throws IOException {
+      return 0;
+    }
+
+    @Override
+    public float readFloat() throws IOException {
+      return 0;
+    }
+
+    @Override
+    public double readDouble() throws IOException {
+      return 0;
+    }
+
+    @Override
+    public Utf8 readString(Utf8 old) throws IOException {
+      return new Utf8("test123test123" + numRows);
+    }
+
+    @Override
+    public String readString() throws IOException {
+      return "test123test123" + numRows;
+    }
+
+    @Override
+    public void skipString() throws IOException {
+
+    }
+
+    @Override
+    public ByteBuffer readBytes(ByteBuffer old) throws IOException {
+      return ByteBuffer.allocate(0);
+    }
+
+    @Override
+    public void skipBytes() throws IOException {
+
+    }
+
+    @Override
+    public void readFixed(byte[] bytes, int start, int length) throws IOException {
+      // fixed type is last column, after read value, decrease numRows
+      numRows--;
+    }
+
+    @Override
+    public void skipFixed(int length) throws IOException {
+
+    }
+
+    @Override
+    public int readEnum() throws IOException {
+      // enum type is first column, validate numRows first.
+      validate();
+      return 0;
+    }
+
+    @Override
+    public long readArrayStart() throws IOException {
+      return 5;
+    }
+
+    @Override
+    public long arrayNext() throws IOException {
+      return 0;
+    }
+
+    @Override
+    public long skipArray() throws IOException {
+      return 0;
+    }
+
+    @Override
+    public long readMapStart() throws IOException {
+      return 5;
+    }
+
+    @Override
+    public long mapNext() throws IOException {
+      return 0;
+    }
+
+    @Override
+    public long skipMap() throws IOException {
+      return 0;
+    }
+
+    @Override
+    public int readIndex() throws IOException {
+      return 0;
+    }
   }
 }
