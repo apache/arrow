@@ -99,6 +99,17 @@ bool fs___Selector__recursive(const std::shared_ptr<arrow::fs::Selector>& select
   return selector->recursive;
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::fs::Selector> fs___Selector__create(const std::string& base_dir,
+                                                           bool allow_non_existent,
+                                                           bool recursive) {
+  auto selector = std::make_shared<arrow::fs::Selector>();
+  selector->base_dir = base_dir;
+  selector->allow_non_existent = allow_non_existent;
+  selector->recursive = recursive;
+  return selector;
+}
+
 // FileSystem
 
 template <typename T>

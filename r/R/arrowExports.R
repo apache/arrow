@@ -592,6 +592,10 @@ fs___Selector__recursive <- function(selector){
     .Call(`_arrow_fs___Selector__recursive` , selector)
 }
 
+fs___Selector__create <- function(base_dir, allow_non_existent, recursive){
+    .Call(`_arrow_fs___Selector__create` , base_dir, allow_non_existent, recursive)
+}
+
 fs___FileSystem__GetTargetStats_Paths <- function(file_system, paths){
     .Call(`_arrow_fs___FileSystem__GetTargetStats_Paths` , file_system, paths)
 }

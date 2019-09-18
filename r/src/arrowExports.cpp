@@ -2280,6 +2280,23 @@ RcppExport SEXP _arrow_fs___Selector__recursive(SEXP selector_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::fs::Selector> fs___Selector__create(const std::string& base_dir, bool allow_non_existent, bool recursive);
+RcppExport SEXP _arrow_fs___Selector__create(SEXP base_dir_sexp, SEXP allow_non_existent_sexp, SEXP recursive_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::string&>::type base_dir(base_dir_sexp);
+	Rcpp::traits::input_parameter<bool>::type allow_non_existent(allow_non_existent_sexp);
+	Rcpp::traits::input_parameter<bool>::type recursive(recursive_sexp);
+	return Rcpp::wrap(fs___Selector__create(base_dir, allow_non_existent, recursive));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___Selector__create(SEXP base_dir_sexp, SEXP allow_non_existent_sexp, SEXP recursive_sexp){
+	Rf_error("Cannot call fs___Selector__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::vector<std::shared_ptr<arrow::fs::FileStats>> fs___FileSystem__GetTargetStats_Paths(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::vector<std::string>& paths);
 RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_Paths(SEXP file_system_sexp, SEXP paths_sexp){
 BEGIN_RCPP
@@ -4299,6 +4316,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___Selector__base_dir", (DL_FUNC) &_arrow_fs___Selector__base_dir, 1}, 
 		{ "_arrow_fs___Selector__allow_non_existent", (DL_FUNC) &_arrow_fs___Selector__allow_non_existent, 1}, 
 		{ "_arrow_fs___Selector__recursive", (DL_FUNC) &_arrow_fs___Selector__recursive, 1}, 
+		{ "_arrow_fs___Selector__create", (DL_FUNC) &_arrow_fs___Selector__create, 3}, 
 		{ "_arrow_fs___FileSystem__GetTargetStats_Paths", (DL_FUNC) &_arrow_fs___FileSystem__GetTargetStats_Paths, 2}, 
 		{ "_arrow_fs___FileSystem__GetTargetStats_Selector", (DL_FUNC) &_arrow_fs___FileSystem__GetTargetStats_Selector, 2}, 
 		{ "_arrow_fs___FileSystem__CreateDir", (DL_FUNC) &_arrow_fs___FileSystem__CreateDir, 3}, 

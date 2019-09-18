@@ -83,6 +83,10 @@ Selector <- R6Class("Selector",
   )
 )
 
+Selector$create <- function(base_dir, allow_non_existent = FALSE, recursive = FALSE) {
+  shared_ptr(Selector, fs___Selector__create(base_dir, allow_non_existent, recursive))
+}
+
 #' @title FileSystem class
 #' @description EXPERIMENTAL: abstract file system API
 #'

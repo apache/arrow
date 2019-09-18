@@ -98,3 +98,26 @@ test_that("SubTreeFilesystem", {
   expect_equal(stats[[3L]]$type, FileType$NonExistent)
   expect_equal(stats[[4L]]$type, FileType$NonExistent)
 })
+
+test_that("LocalFileSystem + Selector", {
+  fs <- LocalFileSystem$create()
+  dir.create(td <- tempfile())
+  writeLines("blah blah", file.path(td, "one.txt"))
+  writeLines("yada yada", file.path(td, "two.txt"))
+  dir.create(file.path(td, "dir"))
+  writeLines("...", file.path(td, "dir", "three.txt"))
+
+  selector <- Selector$create(td, recursive = TRUE)
+  stats <- fs$GetTargetStats(selector)
+  expect_equal(length(stats), 4L)
+  types <- sapply(stats, function(.x) .x$type)
+  expect_equal(sum(types == FileType$File), 3L)
+  expect_equal(sum(types == FileType$Directory), 1L)
+
+  selector <- Selector$create(td, recursive = FALSE)
+  stats <- fs$GetTargetStats(selector)
+  expect_equal(length(stats), 3L)
+  types <- sapply(stats, function(.x) .x$type)
+  expect_equal(sum(types == FileType$File), 2L)
+  expect_equal(sum(types == FileType$Directory), 1L)
+})
