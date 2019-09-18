@@ -94,12 +94,13 @@ RecordBatchStreamWriter$create <- function(sink, schema, use_legacy_format = NUL
 #' @rdname RecordBatchWriter
 #' @export
 RecordBatchFileWriter <- R6Class("RecordBatchFileWriter", inherit = RecordBatchStreamWriter)
-RecordBatchFileWriter$create <- function(sink, schema) {
+RecordBatchFileWriter$create <- function(sink, schema, use_legacy_format = NULL) {
   if (is.character(sink)) {
     sink <- FileOutputStream$create(sink)
   }
+  use_legacy_format <- use_legacy_format %||% identical(Sys.getenv("ARROW_PRE_0_15_IPC_FORMAT"), "1")
   assert_is(sink, "OutputStream")
   assert_is(schema, "Schema")
 
-  shared_ptr(RecordBatchFileWriter, ipc___RecordBatchFileWriter__Open(sink, schema))
+  shared_ptr(RecordBatchFileWriter, ipc___RecordBatchFileWriter__Open(sink, schema, use_legacy_format))
 }
