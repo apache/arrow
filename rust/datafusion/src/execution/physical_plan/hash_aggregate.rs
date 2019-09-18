@@ -112,15 +112,15 @@ impl ExecutionPlan for HashAggregateExec {
             let name = expr.name();
             fields.push(Field::new(&name, expr.data_type(&self.schema)?, true));
         }
-        let schema = Schema::new(fields);
+        let schema = Arc::new(Schema::new(fields));
 
-        let merge = MergeExec::new(partitions);
+        let merge = MergeExec::new(schema.clone(), partitions);
 
         Ok(vec![Arc::new(HashAggregatePartition::new(
             final_group,
             final_aggr,
             Arc::new(merge),
-            Arc::new(schema),
+            schema,
         ))])
     }
 }
