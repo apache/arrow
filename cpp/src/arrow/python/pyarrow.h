@@ -26,6 +26,9 @@
 
 #include "arrow/sparse_tensor.h"
 
+// Work around ARROW-2317 (C linkage warning from Cython)
+extern "C++" {
+
 namespace arrow {
 
 class Array;
@@ -97,5 +100,7 @@ ARROW_PYTHON_EXPORT int check_status(const Status& status);
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow
+
+}  // extern "C++"
 
 #endif  // ARROW_PYTHON_PYARROW_H
