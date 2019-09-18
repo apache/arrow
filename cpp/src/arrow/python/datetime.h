@@ -27,9 +27,21 @@
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 
+// By default, PyDateTimeAPI is a *static* variable.  This forces
+// PyDateTime_IMPORT to be called in every C/C++ module using the
+// C datetime API.  This is error-prone and potentially costly.
+// Instead, we redefine PyDateTimeAPI to point to a global variable,
+// which is initialized once by calling InitDatetime().
+#define PyDateTimeAPI ::arrow::py::internal::datetime_api
+
 namespace arrow {
 namespace py {
 namespace internal {
+
+extern PyDateTime_CAPI* datetime_api;
+
+ARROW_PYTHON_EXPORT
+void InitDatetime();
 
 ARROW_PYTHON_EXPORT
 inline int64_t PyTime_to_us(PyObject* pytime) {

@@ -1060,8 +1060,6 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
                          std::shared_ptr<ChunkedArray>* out) {
   PyAcquireGIL lock;
 
-  PyDateTime_IMPORT;
-
   PyObject* seq;
   OwnedRef tmp_seq_nanny;
 
