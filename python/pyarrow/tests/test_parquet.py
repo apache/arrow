@@ -203,17 +203,17 @@ def test_chunked_table_write():
 
 
 @pytest.mark.pandas
-def test_no_memory_map(tempdir):
+def test_memory_map(tempdir):
     df = alltypes_sample(size=10)
 
     table = pa.Table.from_pandas(df)
-    _check_roundtrip(table, read_table_kwargs={'memory_map': False},
+    _check_roundtrip(table, read_table_kwargs={'memory_map': True},
                      version='2.0')
 
     filename = str(tempdir / 'tmp_file')
     with open(filename, 'wb') as f:
         _write_table(table, f, version='2.0')
-    table_read = pq.read_pandas(filename, memory_map=False)
+    table_read = pq.read_pandas(filename, memory_map=True)
     assert table_read.equals(table)
 
 
@@ -2115,8 +2115,8 @@ def test_dataset_read_pandas(tempdir):
 
 
 @pytest.mark.pandas
-def test_dataset_no_memory_map(tempdir):
-    # ARROW-2627: Check that we can use ParquetDataset without memory-mapping
+def test_dataset_memory_map(tempdir):
+    # ARROW-2627: Check that we can use ParquetDataset with memory-mapping
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
@@ -2125,9 +2125,7 @@ def test_dataset_no_memory_map(tempdir):
     table = pa.Table.from_pandas(df)
     _write_table(table, path, version='2.0')
 
-    # TODO(wesm): Not sure how to easily check that memory mapping is _not_
-    # used. Mocking is not especially easy for pa.memory_map
-    dataset = pq.ParquetDataset(dirpath, memory_map=False)
+    dataset = pq.ParquetDataset(dirpath, memory_map=True)
     assert dataset.pieces[0].read().equals(table)
 
 

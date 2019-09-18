@@ -121,7 +121,7 @@ class ParquetFile(object):
     common_metadata : FileMetaData, default None
         Will be used in reads for pandas schema metadata if not found in the
         main file's metadata, no other uses at the moment
-    memory_map : boolean, default True
+    memory_map : boolean, default False
         If the source is a file path, use a memory map to read file, which can
         improve performance in some environments
     buffer_size : int, default 0
@@ -129,7 +129,7 @@ class ParquetFile(object):
         column chunks. Otherwise IO calls are unbuffered.
     """
     def __init__(self, source, metadata=None, common_metadata=None,
-                 read_dictionary=None, memory_map=True, buffer_size=0):
+                 read_dictionary=None, memory_map=False, buffer_size=0):
         self.reader = ParquetReader()
         self.reader.open(source, use_memory_map=memory_map,
                          buffer_size=buffer_size,
@@ -932,7 +932,7 @@ read_dictionary : list, default None
     nested types, you must pass the full column "path", which could be
     something like level1.level2.list.item. Refer to the Parquet
     file's schema to obtain the paths.
-memory_map : boolean, default True
+memory_map : boolean, default False
     If the source is a file path, use a memory map to read file, which can
     improve performance in some environments
 buffer_size : int, default 0
@@ -987,7 +987,7 @@ metadata_nthreads: int, default 1
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
                  filters=None, metadata_nthreads=1, read_dictionary=None,
-                 memory_map=True, buffer_size=0):
+                 memory_map=False, buffer_size=0):
         a_path = path_or_paths
         if isinstance(a_path, list):
             a_path = a_path[0]
@@ -1230,7 +1230,7 @@ Returns
 
 
 def read_table(source, columns=None, use_threads=True, metadata=None,
-               use_pandas_metadata=False, memory_map=True,
+               use_pandas_metadata=False, memory_map=False,
                read_dictionary=None, filesystem=None, filters=None,
                buffer_size=0):
     if _is_path_like(source):
@@ -1257,7 +1257,7 @@ read_table.__doc__ = _read_table_docstring.format(
     Content of the file as a table (of columns)""")
 
 
-def read_pandas(source, columns=None, use_threads=True, memory_map=True,
+def read_pandas(source, columns=None, use_threads=True, memory_map=False,
                 metadata=None, filters=None, buffer_size=0):
     return read_table(
         source,
