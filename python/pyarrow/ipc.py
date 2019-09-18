@@ -74,6 +74,7 @@ use_legacy_format : boolean, default None
 
 class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):
     __doc__ = """Writer for the Arrow streaming binary format
+
 {}""".format(_ipc_writer_class_doc)
 
     def __init__(self, sink, schema, use_legacy_format=None):
@@ -100,6 +101,7 @@ class RecordBatchFileReader(lib._RecordBatchFileReader, _ReadPandasOption):
 class RecordBatchFileWriter(lib._RecordBatchFileWriter):
 
     __doc__ = """Writer to create the Arrow binary file format
+
 {}""".format(_ipc_writer_class_doc)
 
     def __init__(self, sink, schema, use_legacy_format=None):
