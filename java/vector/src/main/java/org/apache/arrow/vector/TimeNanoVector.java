@@ -36,7 +36,7 @@ import io.netty.buffer.ArrowBuf;
  * time (nanosecond resolution) values which could be null. A validity buffer
  * (bit vector) is maintained to track which elements in the vector are null.
  */
-public class TimeNanoVector extends BaseFixedWidthVector {
+public final class TimeNanoVector extends BaseFixedWidthVector {
   private static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
 

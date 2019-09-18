@@ -32,7 +32,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * values which could be NULL. A validity buffer (bit vector) is maintained
  * to track which elements in the vector are null.
  */
-public class VarBinaryVector extends BaseVariableWidthVector {
+public final class VarBinaryVector extends BaseVariableWidthVector {
   private final FieldReader reader;
 
   /**

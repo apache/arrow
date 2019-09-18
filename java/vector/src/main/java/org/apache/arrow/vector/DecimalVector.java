@@ -41,7 +41,7 @@ import io.netty.util.internal.PlatformDependent;
  * decimal values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class DecimalVector extends BaseFixedWidthVector {
+public final class DecimalVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 16;
   private final FieldReader reader;
 
