@@ -221,14 +221,15 @@ impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
             ));
         }
 
-        if cfg!(all(
-            any(target_arch = "x86", target_arch = "x86_64"),
-            feature = "simd"
-        )) {
-            // SIMD implementation if available
-            Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a & b))
-        } else {
-            // Default implementation
+        // SIMD implementation if available
+        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+        {
+            return Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a & b));
+        }
+
+        // Default implementation
+        #[allow(unreachable_code)]
+        {
             let mut builder = UInt8BufferBuilder::new(self.len());
             for i in 0..self.len() {
                 unsafe {
@@ -254,15 +255,15 @@ impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
             ));
         }
 
-        if cfg!(all(
-            any(target_arch = "x86", target_arch = "x86_64"),
-            feature = "simd"
-        )) {
-            // SIMD implementation if available
-            Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a | b))
-        } else {
-            // Default implementation
+        // SIMD implementation if available
+        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+        {
+            return Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a | b));
+        }
 
+        // Default implementation
+        #[allow(unreachable_code)]
+        {
             let mut builder = UInt8BufferBuilder::new(self.len());
             for i in 0..self.len() {
                 unsafe {
@@ -282,11 +283,9 @@ impl Not for &Buffer {
     type Output = Buffer;
 
     fn not(self) -> Buffer {
-        if cfg!(all(
-            any(target_arch = "x86", target_arch = "x86_64"),
-            feature = "simd"
-        )) {
-            // SIMD implementation if available
+        // SIMD implementation if available
+        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+        {
             let mut result =
                 MutableBuffer::new(self.len()).with_bitset(self.len(), false);
             let lanes = u8x64::lanes();
@@ -302,9 +301,12 @@ impl Not for &Buffer {
                     simd_result.write_to_slice_unaligned_unchecked(result_slice);
                 }
             }
-            result.freeze()
-        } else {
-            // Default implementation
+            return result.freeze();
+        }
+
+        // Default implementation
+        #[allow(unreachable_code)]
+        {
             let mut builder = UInt8BufferBuilder::new(self.len());
             for i in 0..self.len() {
                 unsafe {
