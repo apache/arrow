@@ -21,7 +21,7 @@
 # docker build -t arrow_cpp_minimal .
 # docker run --rm -t -i -v $PWD:/io arrow_cpp_minimal /io/build.sh
 
-git clone https://github.com/apache/arrow.git
+git clone --depth 1 https://github.com/apache/arrow.git
 
 BUILD_DIR=arrow/cpp/build
 
@@ -33,7 +33,7 @@ cmake .. -DBOOST_SOURCE=BUNDLED \
       -DARROW_COMPUTE=OFF \
       -DARROW_DATASET=OFF \
       -DARROW_JEMALLOC=OFF \
-      -DARROW_JSON=ON \
+      -DARROW_JSON=OFF \
       -DARROW_USE_GLOG=OFF \
       -DARROW_WITH_BZ2=OFF \
       -DARROW_WITH_ZLIB=OFF \
