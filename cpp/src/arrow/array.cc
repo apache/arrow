@@ -1434,9 +1434,8 @@ class NullArrayFactory {
     GetBufferLength(const std::shared_ptr<DataType>& type, int64_t length)
         : type_(*type), length_(length), buffer_length_(BitUtil::BytesForBits(length)) {}
 
-    operator int64_t() && {
-      // TODO this should implement proper error propagation
-      ARROW_CHECK_OK(VisitTypeInline(type_, this));
+    Result<int64_t> Finish() && {
+      RETURN_NOT_OK(VisitTypeInline(type_, this));
       return buffer_length_;
     }
 
@@ -1445,37 +1444,48 @@ class NullArrayFactory {
       return MaxOf(TypeTraits<T>::bytes_required(length_));
     }
 
-    Status Visit(const ListType& type) {
-      // list's values array may be empty, but there must be at least one offset of 0
-      return MaxOf(sizeof(int32_t));
+    template <typename T>
+    enable_if_base_list<T, Status> Visit(const T&) {
+      // values array may be empty, but there must be at least one offset of 0
+      return MaxOf(sizeof(typename T::offset_type) * (length_ + 1));
+    }
+
+    template <typename T>
+    enable_if_base_binary<T, Status> Visit(const T&) {
+      // values buffer may be empty, but there must be at least one offset of 0
+      return MaxOf(sizeof(typename T::offset_type) * (length_ + 1));
     }
 
     Status Visit(const FixedSizeListType& type) {
       return MaxOf(GetBufferLength(type.value_type(), type.list_size() * length_));
     }
 
+    Status Visit(const FixedSizeBinaryType& type) {
+      return MaxOf(type.byte_width() * length_);
+    }
+
     Status Visit(const StructType& type) {
       for (const auto& child : type.children()) {
-        DCHECK_OK(MaxOf(GetBufferLength(child->type(), length_)));
+        RETURN_NOT_OK(MaxOf(GetBufferLength(child->type(), length_)));
       }
       return Status::OK();
     }
 
     Status Visit(const UnionType& type) {
       // type codes
-      DCHECK_OK(MaxOf(length_));
+      RETURN_NOT_OK(MaxOf(length_));
       if (type.mode() == UnionMode::DENSE) {
         // offsets
-        DCHECK_OK(MaxOf(sizeof(int32_t) * length_));
+        RETURN_NOT_OK(MaxOf(sizeof(int32_t) * length_));
       }
       for (const auto& child : type.children()) {
-        DCHECK_OK(MaxOf(GetBufferLength(child->type(), length_)));
+        RETURN_NOT_OK(MaxOf(GetBufferLength(child->type(), length_)));
       }
       return Status::OK();
     }
 
     Status Visit(const DictionaryType& type) {
-      DCHECK_OK(MaxOf(GetBufferLength(type.value_type(), length_)));
+      RETURN_NOT_OK(MaxOf(GetBufferLength(type.value_type(), length_)));
       return MaxOf(GetBufferLength(type.index_type(), length_));
     }
 
@@ -1489,6 +1499,11 @@ class NullArrayFactory {
     }
 
    private:
+    Status MaxOf(GetBufferLength&& other) {
+      ARROW_ASSIGN_OR_RAISE(int64_t buffer_length, std::move(other).Finish());
+      return MaxOf(buffer_length);
+    }
+
     Status MaxOf(int64_t buffer_length) {
       if (buffer_length > buffer_length_) {
         buffer_length_ = buffer_length;
@@ -1505,7 +1520,8 @@ class NullArrayFactory {
       : pool_(pool), type_(type), length_(length), out_(out) {}
 
   Status CreateBuffer() {
-    int64_t buffer_length = GetBufferLength(type_, length_);
+    ARROW_ASSIGN_OR_RAISE(int64_t buffer_length,
+                          GetBufferLength(type_, length_).Finish());
     RETURN_NOT_OK(AllocateBuffer(pool_, buffer_length, &buffer_));
     std::memset(buffer_->mutable_data(), 0, buffer_->size());
     return Status::OK();
@@ -1527,12 +1543,14 @@ class NullArrayFactory {
     return Status::OK();
   }
 
-  Status Visit(const BinaryType&) {
+  template <typename T>
+  enable_if_base_binary<T, Status> Visit(const T&) {
     (*out_)->buffers.resize(3, buffer_);
     return Status::OK();
   }
 
-  Status Visit(const ListType& type) {
+  template <typename T>
+  enable_if_base_list<T, Status> Visit(const T& type) {
     (*out_)->buffers.resize(2, buffer_);
     return CreateChild(0, length_, &(*out_)->child_data[0]);
   }
@@ -1552,7 +1570,7 @@ class NullArrayFactory {
     if (type.mode() == UnionMode::DENSE) {
       (*out_)->buffers.resize(3, buffer_);
     } else {
-      (*out_)->buffers.resize(2, buffer_);
+      (*out_)->buffers = {buffer_, buffer_, nullptr};
     }
 
     for (int i = 0; i < type_->num_children(); ++i) {
@@ -1611,7 +1629,7 @@ class RepeatedArrayFactory {
   }
 
   template <typename T>
-  enable_if_binary<T, Status> Visit(const T&) {
+  enable_if_base_binary<T, Status> Visit(const T&) {
     std::shared_ptr<Buffer> value =
         checked_cast<const typename TypeTraits<T>::ScalarType&>(scalar_).value;
     std::shared_ptr<Buffer> values_buffer, offsets_buffer;

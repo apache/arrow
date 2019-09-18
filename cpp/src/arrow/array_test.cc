@@ -248,6 +248,68 @@ TEST_F(TestArray, BuildLargeInMemoryArray) {
 
 TEST_F(TestArray, TestCopy) {}
 
+TEST_F(TestArray, TestMakeArrayOfNull) {
+  std::shared_ptr<DataType> types[] = {
+      null(),
+      boolean(),
+      int8(),
+      uint16(),
+      int32(),
+      uint64(),
+      float64(),
+      binary(),
+      large_binary(),
+      fixed_size_binary(3),
+      decimal(16, 4),
+      utf8(),
+      large_utf8(),
+      list(utf8()),
+      large_list(large_utf8()),
+      fixed_size_list(utf8(), 3),
+      dictionary(int32(), utf8()),
+      struct_({field("a", utf8()), field("b", int32())}),
+      union_({field("a", utf8()), field("b", int32())}, {0, 1}, UnionMode::SPARSE),
+      union_({field("a", utf8()), field("b", int32())}, {0, 1}, UnionMode::DENSE)};
+
+  for (int64_t length : {16}) {
+    for (auto type : types) {
+      std::shared_ptr<Array> array;
+      ASSERT_OK(MakeArrayOfNull(type, length, &array));
+      ASSERT_OK(array->Validate());
+      ASSERT_EQ(array->length(), length);
+      ASSERT_EQ(array->null_count(), length);
+    }
+  }
+}
+
+TEST_F(TestArray, TestMakeArrayFromScalar) {
+  auto hello = Buffer::FromString("hello");
+  std::shared_ptr<Scalar> scalars[] = {
+      std::make_shared<BooleanScalar>(false),
+      std::make_shared<Int8Scalar>(3),
+      std::make_shared<UInt16Scalar>(3),
+      std::make_shared<Int32Scalar>(3),
+      std::make_shared<UInt64Scalar>(3),
+      std::make_shared<DoubleScalar>(3.0),
+      std::make_shared<BinaryScalar>(hello),
+      std::make_shared<LargeBinaryScalar>(hello),
+      std::make_shared<FixedSizeBinaryScalar>(
+          hello, fixed_size_binary(static_cast<int32_t>(hello->size()))),
+      std::make_shared<Decimal128Scalar>(Decimal128(10), decimal(16, 4)),
+      std::make_shared<StringScalar>(hello),
+      std::make_shared<LargeStringScalar>(hello)};
+
+  for (int64_t length : {16}) {
+    for (auto scalar : scalars) {
+      std::shared_ptr<Array> array;
+      ASSERT_OK(MakeArrayFromScalar(*scalar, length, &array));
+      ASSERT_OK(array->Validate());
+      ASSERT_EQ(array->length(), length);
+      ASSERT_EQ(array->null_count(), 0);
+    }
+  }
+}
+
 // ----------------------------------------------------------------------
 // Null type tests
 
