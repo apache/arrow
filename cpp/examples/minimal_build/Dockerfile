@@ -21,14 +21,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
-      wget software-properties-common gpg-agent \
       autoconf \
       build-essential \
-      ca-certificates \
       cmake \
       g++ \
-      gcc \
-      git && \
+      gcc && \
       apt-get clean && rm -rf /var/lib/apt/lists*
-
-CMD ["build.sh"]
