@@ -16,6 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import gc
 import six
 import decimal
 import json
@@ -2919,6 +2920,51 @@ def test_recordbatch_table_pass_name_to_pandas():
 )
 def test_logical_type(type, expected):
     assert get_logical_type(type) == expected
+
+
+# ----------------------------------------------------------------------
+# to_pandas uses MemoryPool
+
+def test_array_uses_memory_pool():
+    # ARROW-6570
+    N = 10000
+    arr = pa.array(np.arange(N, dtype=np.int64),
+                   mask=np.random.randint(0, 2, size=N).astype(np.bool_))
+
+    # In the case the gc is caught loafing
+    gc.collect()
+
+    prior_allocation = pa.total_allocated_bytes()
+
+    x = arr.to_pandas()
+    assert pa.total_allocated_bytes() == (prior_allocation + N * 8)
+    x = None  # noqa
+    gc.collect()
+
+    assert pa.total_allocated_bytes() == prior_allocation
+
+    # zero copy does not allocate memory
+    arr = pa.array(np.arange(N, dtype=np.int64))
+
+    prior_allocation = pa.total_allocated_bytes()
+    x = arr.to_pandas()  # noqa
+    assert pa.total_allocated_bytes() == prior_allocation
+
+
+def test_table_uses_memory_pool():
+    N = 10000
+    arr = pa.array(np.arange(N, dtype=np.int64))
+    t = pa.table([arr], ['f0'])
+
+    prior_allocation = pa.total_allocated_bytes()
+    x = t.to_pandas()
+
+    assert pa.total_allocated_bytes() == (prior_allocation + N * 8)
+
+    # Check successful garbage collection
+    x = None  # noqa
+    gc.collect()
+    assert pa.total_allocated_bytes() == prior_allocation
 
 
 # ----------------------------------------------------------------------

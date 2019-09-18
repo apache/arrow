@@ -155,7 +155,7 @@ cdef class ChunkedArray(_PandasConvertible):
     def _to_pandas(self, options, **kwargs):
         cdef:
             PyObject* out
-            PandasOptions c_options = options
+            PandasOptions c_options = _convert_pandas_options(options)
 
         with nogil:
             check_status(libarrow.ConvertChunkedArrayToPandas(
@@ -754,22 +754,21 @@ def _reconstruct_record_batch(columns, schema):
     return RecordBatch.from_arrays(columns, schema=schema)
 
 
-def table_to_blocks(PandasOptions options, Table table,
-                    MemoryPool memory_pool, categories):
+def table_to_blocks(options, Table table, categories):
     cdef:
         PyObject* result_obj
         shared_ptr[CTable] c_table = table.sp_table
         CMemoryPool* pool
         unordered_set[c_string] categorical_columns
+        PandasOptions c_options = _convert_pandas_options(options)
 
     if categories is not None:
         categorical_columns = {tobytes(cat) for cat in categories}
 
-    pool = maybe_unbox_memory_pool(memory_pool)
     with nogil:
         check_status(
             libarrow.ConvertTableToPandas(
-                options, categorical_columns, c_table, pool, &result_obj)
+                c_options, categorical_columns, c_table, &result_obj)
         )
 
     return PyObject_to_object(result_obj)

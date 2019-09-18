@@ -408,15 +408,26 @@ def _restore_array(data):
 
 cdef class _PandasConvertible:
 
-    def to_pandas(self, categories=None, bint strings_to_categorical=False,
-                  bint zero_copy_only=False, bint integer_object_nulls=False,
-                  bint date_as_object=True, bint use_threads=True,
-                  bint deduplicate_objects=True, bint ignore_metadata=False):
+    def to_pandas(
+            self,
+            memory_pool=None,
+            categories=None,
+            bint strings_to_categorical=False,
+            bint zero_copy_only=False,
+            bint integer_object_nulls=False,
+            bint date_as_object=True,
+            bint use_threads=True,
+            bint deduplicate_objects=True,
+            bint ignore_metadata=False
+    ):
         """
         Convert to a pandas-compatible NumPy array or DataFrame, as appropriate
 
         Parameters
         ----------
+        memory_pool : MemoryPool, default None
+            Arrow MemoryPool to use for allocations. Uses the default memory
+            pool is not passed
         strings_to_categorical : boolean, default False
             Encode string (UTF8) and binary types to pandas.Categorical
         categories: list, default empty
@@ -442,20 +453,29 @@ cdef class _PandasConvertible:
         -------
         pandas.Series or pandas.DataFrame depending on type of object
         """
-        cdef:
-            PyObject* out
-            PandasOptions options
-
-        options = PandasOptions(
+        options = dict(
+            pool=memory_pool,
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
             integer_object_nulls=integer_object_nulls,
             date_as_object=date_as_object,
             use_threads=use_threads,
-            deduplicate_objects=deduplicate_objects)
-
+            deduplicate_objects=deduplicate_objects
+        )
         return self._to_pandas(options, categories=categories,
                                ignore_metadata=ignore_metadata)
+
+
+cdef PandasOptions _convert_pandas_options(dict options):
+    cdef PandasOptions result
+    result.pool = maybe_unbox_memory_pool(options['pool'])
+    result.strings_to_categorical = options['strings_to_categorical']
+    result.zero_copy_only = options['zero_copy_only']
+    result.integer_object_nulls = options['integer_object_nulls']
+    result.date_as_object = options['date_as_object']
+    result.use_threads = options['use_threads']
+    result.deduplicate_objects = options['deduplicate_objects']
+    return result
 
 
 cdef class Array(_PandasConvertible):
@@ -873,7 +893,7 @@ cdef class Array(_PandasConvertible):
     def _to_pandas(self, options, **kwargs):
         cdef:
             PyObject* out
-            PandasOptions c_options = options
+            PandasOptions c_options = _convert_pandas_options(options)
 
         with nogil:
             check_status(ConvertArrayToPandas(c_options, self.sp_array,

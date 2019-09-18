@@ -132,22 +132,67 @@ static inline bool ListTypeSupported(const DataType& type) {
 // ----------------------------------------------------------------------
 // PyCapsule code for setting ndarray base to reference C++ object
 
-struct ArrowCapsule {
+struct ArrayCapsule {
   std::shared_ptr<Array> array;
+};
+
+struct BufferCapsule {
+  std::shared_ptr<Buffer> buffer;
 };
 
 namespace {
 
-void ArrowCapsule_Destructor(PyObject* capsule) {
-  delete reinterpret_cast<ArrowCapsule*>(PyCapsule_GetPointer(capsule, "arrow"));
+void ArrayCapsule_Destructor(PyObject* capsule) {
+  delete reinterpret_cast<ArrayCapsule*>(PyCapsule_GetPointer(capsule, "arrow::Array"));
+}
+
+void BufferCapsule_Destructor(PyObject* capsule) {
+  delete reinterpret_cast<BufferCapsule*>(PyCapsule_GetPointer(capsule, "arrow::Buffer"));
 }
 
 }  // namespace
 
+Status CapsulizeArray(const std::shared_ptr<Array>& arr, PyObject** out) {
+  auto capsule = new ArrayCapsule{{arr}};
+  *out = PyCapsule_New(reinterpret_cast<void*>(capsule), "arrow::Array",
+                       &ArrayCapsule_Destructor);
+  if (*out == nullptr) {
+    delete capsule;
+    RETURN_IF_PYERROR();
+  }
+  return Status::OK();
+}
+
+Status CapsulizeBuffer(const std::shared_ptr<Buffer>& buffer, PyObject** out) {
+  auto capsule = new BufferCapsule{{buffer}};
+  *out = PyCapsule_New(reinterpret_cast<void*>(capsule), "arrow::Buffer",
+                       &BufferCapsule_Destructor);
+  if (*out == nullptr) {
+    delete capsule;
+    RETURN_IF_PYERROR();
+  }
+  return Status::OK();
+}
+
+Status SetNdarrayBase(PyArrayObject* arr, PyObject* base) {
+  if (PyArray_SetBaseObject(arr, base) == -1) {
+    // Error occurred, trust that SetBaseObject sets the error state
+    Py_XDECREF(base);
+    RETURN_IF_PYERROR();
+  }
+  return Status::OK();
+}
+
+Status SetBufferBase(PyArrayObject* arr, const std::shared_ptr<Buffer>& buffer) {
+  PyObject* base;
+  RETURN_NOT_OK(CapsulizeBuffer(buffer, &base));
+  return SetNdarrayBase(arr, base);
+}
+
 // ----------------------------------------------------------------------
 // pandas 0.x DataFrame conversion internals
 
-inline void set_numpy_metadata(int type, DataType* datatype, PyArray_Descr* out) {
+inline void set_numpy_metadata(int type, const DataType* datatype, PyArray_Descr* out) {
   if (type == NPY_DATETIME) {
     auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(out->c_metadata);
     if (datatype->id() == Type::TIMESTAMP) {
@@ -174,21 +219,39 @@ inline void set_numpy_metadata(int type, DataType* datatype, PyArray_Descr* out)
   }
 }
 
-static inline PyObject* NewArray1DFromType(DataType* arrow_type, int type, int64_t length,
-                                           void* data) {
-  npy_intp dims[1] = {length};
+namespace {
 
-  PyArray_Descr* descr = internal::GetSafeNumPyDtype(type);
-  if (descr == nullptr) {
-    // Error occurred, trust error state is set
-    return nullptr;
+Status PyArray_NewFromPool(int nd, npy_intp* dims, int typenum,
+                           const DataType* arrow_type, MemoryPool* pool, PyObject** out) {
+  // ARROW-6570: Allocate memory from MemoryPool for a couple reasons
+  //
+  // * Track allocations
+  // * Get better performance through custom allocators
+  PyArray_Descr* descr = internal::GetSafeNumPyDtype(typenum);
+  if (arrow_type != nullptr) {
+    set_numpy_metadata(typenum, arrow_type, descr);
   }
 
-  set_numpy_metadata(type, arrow_type, descr);
-  return PyArray_NewFromDescr(&PyArray_Type, descr, 1, dims, nullptr, data,
-                              NPY_ARRAY_OWNDATA | NPY_ARRAY_CARRAY | NPY_ARRAY_WRITEABLE,
-                              nullptr);
+  int64_t total_size = descr->elsize;
+  for (int i = 0; i < nd; ++i) {
+    total_size *= dims[i];
+  }
+
+  std::shared_ptr<Buffer> buffer;
+  RETURN_NOT_OK(AllocateBuffer(pool, total_size, &buffer));
+  *out = PyArray_NewFromDescr(&PyArray_Type, descr, nd, dims,
+                              /*strides=*/nullptr,
+                              /*data=*/buffer->mutable_data(),
+                              /*flags=*/NPY_ARRAY_CARRAY | NPY_ARRAY_WRITEABLE,
+                              /*obj=*/nullptr);
+  if (*out == nullptr) {
+    RETURN_IF_PYERROR();
+    // Trust that error set if NULL returned
+  }
+  return SetBufferBase(reinterpret_cast<PyArrayObject*>(*out), buffer);
 }
+
+}  // namespace
 
 class PandasBlock {
  public:
@@ -237,20 +300,17 @@ class PandasBlock {
   Status AllocateNDArray(int npy_type, int ndim = 2) {
     PyAcquireGIL lock;
 
-    PyArray_Descr* descr = internal::GetSafeNumPyDtype(npy_type);
-
     PyObject* block_arr;
+    npy_intp block_dims[2] = {0, 0};
+
     if (ndim == 2) {
-      npy_intp block_dims[2] = {num_columns_, num_rows_};
-      block_arr = PyArray_SimpleNewFromDescr(2, block_dims, descr);
+      block_dims[0] = num_columns_;
+      block_dims[1] = num_rows_;
     } else {
-      npy_intp block_dims[1] = {num_rows_};
-      block_arr = PyArray_SimpleNewFromDescr(1, block_dims, descr);
+      block_dims[0] = num_rows_;
     }
-
-    RETURN_IF_PYERROR();
-
-    PyArray_ENABLEFLAGS(reinterpret_cast<PyArrayObject*>(block_arr), NPY_ARRAY_OWNDATA);
+    RETURN_NOT_OK(PyArray_NewFromPool(ndim, block_dims, npy_type,
+                                      /*arrow_type=*/nullptr, options_.pool, &block_arr));
 
     npy_intp placement_dims[1] = {num_columns_};
     PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
@@ -1044,12 +1104,8 @@ Status MakeZeroLengthArray(const std::shared_ptr<DataType>& type,
 
 class CategoricalBlock : public PandasBlock {
  public:
-  explicit CategoricalBlock(const PandasOptions& options, MemoryPool* pool,
-                            int64_t num_rows)
-      : PandasBlock(options, num_rows, 1),
-        pool_(pool),
-        ordered_(false),
-        needs_copy_(false) {}
+  explicit CategoricalBlock(const PandasOptions& options, int64_t num_rows)
+      : PandasBlock(options, num_rows, 1), ordered_(false), needs_copy_(false) {}
 
   Status Allocate() override {
     return Status::NotImplemented(
@@ -1086,7 +1142,7 @@ class CategoricalBlock : public PandasBlock {
 
     if (!needs_copy_ && data->num_chunks() == 1 && indices_first->null_count() == 0) {
       RETURN_NOT_OK(CheckIndices(*indices_first, dict_arr_first.dictionary()->length()));
-      RETURN_NOT_OK(AllocateNDArrayFromIndices<T>(npy_type, indices_first));
+      RETURN_NOT_OK(WrapIndicesZeroCopy<T>(npy_type, indices_first));
     } else {
       if (options_.zero_copy_only) {
         if (needs_copy_) {
@@ -1128,7 +1184,7 @@ class CategoricalBlock : public PandasBlock {
     if (options_.strings_to_categorical &&
         (data->type()->id() == Type::STRING || data->type()->id() == Type::BINARY)) {
       needs_copy_ = true;
-      compute::FunctionContext ctx(pool_);
+      compute::FunctionContext ctx(options_.pool);
 
       Datum out;
       RETURN_NOT_OK(compute::DictionaryEncode(&ctx, data, &out));
@@ -1214,10 +1270,8 @@ class CategoricalBlock : public PandasBlock {
 
  protected:
   template <typename T>
-  Status AllocateNDArrayFromIndices(int npy_type,
-                                    const std::shared_ptr<PrimitiveArray>& indices) {
-    npy_intp block_dims[1] = {num_rows_};
-
+  Status WrapIndicesZeroCopy(int npy_type,
+                             const std::shared_ptr<PrimitiveArray>& indices) {
     const T* in_values = GetPrimitiveValues<T>(*indices);
     void* data = const_cast<T*>(in_values);
 
@@ -1229,25 +1283,16 @@ class CategoricalBlock : public PandasBlock {
       return Status::OK();
     }
 
+    npy_intp block_dims[1] = {num_rows_};
     PyObject* block_arr = PyArray_NewFromDescr(&PyArray_Type, descr, 1, block_dims,
                                                nullptr, data, NPY_ARRAY_CARRAY, nullptr);
     RETURN_IF_PYERROR();
 
     // Add a reference to the underlying Array. Otherwise the array may be
     // deleted once we leave the block conversion.
-    auto capsule = new ArrowCapsule{{indices}};
-    PyObject* base = PyCapsule_New(reinterpret_cast<void*>(capsule), "arrow",
-                                   &ArrowCapsule_Destructor);
-    if (base == nullptr) {
-      delete capsule;
-      RETURN_IF_PYERROR();
-    }
-
-    if (PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(block_arr), base) == -1) {
-      // Error occurred, trust that SetBaseObject set the error state
-      Py_XDECREF(base);
-      return Status::OK();
-    }
+    PyObject* base;
+    RETURN_NOT_OK(CapsulizeArray(indices, &base));
+    RETURN_NOT_OK(SetNdarrayBase(reinterpret_cast<PyArrayObject*>(block_arr), base));
 
     npy_intp placement_dims[1] = {num_columns_};
     PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
@@ -1265,7 +1310,6 @@ class CategoricalBlock : public PandasBlock {
     return Status::OK();
   }
 
-  MemoryPool* pool_;
   OwnedRefNoGIL dictionary_;
   bool ordered_;
   bool needs_copy_;
@@ -1397,8 +1441,8 @@ static Status GetPandasBlockType(const ChunkedArray& data, const PandasOptions& 
 class DataFrameBlockCreator {
  public:
   explicit DataFrameBlockCreator(const PandasOptions& options,
-                                 const std::shared_ptr<Table>& table, MemoryPool* pool)
-      : table_(table), options_(options), pool_(pool) {}
+                                 const std::shared_ptr<Table>& table)
+      : table_(table), options_(options) {}
 
   Status Convert(PyObject** output) {
     column_types_.resize(table_->num_columns());
@@ -1421,7 +1465,7 @@ class DataFrameBlockCreator {
       int block_placement = 0;
       std::shared_ptr<PandasBlock> block;
       if (output_type == PandasBlock::CATEGORICAL) {
-        block = std::make_shared<CategoricalBlock>(options_, pool_, table_->num_rows());
+        block = std::make_shared<CategoricalBlock>(options_, table_->num_rows());
         categorical_blocks_[i] = block;
       } else if (output_type == PandasBlock::DATETIME_WITH_TZ) {
         const auto& ts_type = checked_cast<const TimestampType&>(*col->type());
@@ -1539,9 +1583,6 @@ class DataFrameBlockCreator {
 
   PandasOptions options_;
 
-  // Memory pool for dictionary encoding
-  MemoryPool* pool_;
-
   // block type -> block
   BlockMap blocks_;
 
@@ -1561,8 +1602,9 @@ class ArrowDeserializer {
   Status AllocateOutput(int type) {
     PyAcquireGIL lock;
 
-    result_ = NewArray1DFromType(data_->type().get(), type, data_->length(), nullptr);
-    RETURN_IF_PYERROR();
+    npy_intp dims[1] = {data_->length()};
+    RETURN_NOT_OK(
+        PyArray_NewFromPool(1, dims, type, data_->type().get(), options_.pool, &result_));
     arr_ = reinterpret_cast<PyArrayObject*>(result_);
     return Status::OK();
   }
@@ -1575,12 +1617,14 @@ class ArrowDeserializer {
     const T* in_values = GetPrimitiveValues<T>(*arr);
 
     // Zero-Copy. We can pass the data pointer directly to NumPy.
-    void* data = const_cast<T*>(in_values);
-
     PyAcquireGIL lock;
 
-    // Zero-Copy. We can pass the data pointer directly to NumPy.
-    result_ = NewArray1DFromType(data_->type().get(), npy_type, data_->length(), data);
+    PyArray_Descr* descr = internal::GetSafeNumPyDtype(npy_type);
+    npy_intp dims[1] = {arr->length()};
+    set_numpy_metadata(npy_type, arr->type().get(), descr);
+    result_ = PyArray_NewFromDescr(&PyArray_Type, descr, 1, dims,
+                                   /*strides=*/nullptr, const_cast<T*>(in_values),
+                                   /*flags=*/0, nullptr);
     arr_ = reinterpret_cast<PyArrayObject*>(result_);
 
     if (arr_ == nullptr) {
@@ -1633,29 +1677,16 @@ class ArrowDeserializer {
 
     PyObject* base;
     if (py_ref_ == nullptr) {
-      auto capsule = new ArrowCapsule{{arr}};
-      base = PyCapsule_New(reinterpret_cast<void*>(capsule), "arrow",
-                           &ArrowCapsule_Destructor);
-      if (base == nullptr) {
-        delete capsule;
-        RETURN_IF_PYERROR();
-      }
+      RETURN_NOT_OK(CapsulizeArray(arr, &base));
     } else {
       base = py_ref_;
       Py_INCREF(base);
     }
 
-    if (PyArray_SetBaseObject(arr_, base) == -1) {
-      // Error occurred, trust that SetBaseObject set the error state
-      Py_XDECREF(base);
-      return Status::OK();
-    }
+    RETURN_NOT_OK(SetNdarrayBase(arr_, base));
 
     // Arrow data is immutable.
     PyArray_CLEARFLAGS(arr_, NPY_ARRAY_WRITEABLE);
-
-    // Arrow data is owned by another
-    PyArray_CLEARFLAGS(arr_, NPY_ARRAY_OWNDATA);
 
     return Status::OK();
   }
@@ -1876,7 +1907,7 @@ class ArrowDeserializer {
   }
 
   Status Visit(const DictionaryType& type) {
-    auto block = std::make_shared<CategoricalBlock>(options_, nullptr, data_->length());
+    auto block = std::make_shared<CategoricalBlock>(options_, data_->length());
     RETURN_NOT_OK(block->Write(data_, 0, 0));
 
     PyAcquireGIL lock;
@@ -1928,16 +1959,13 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
 }
 
 Status ConvertTableToPandas(const PandasOptions& options,
-                            const std::shared_ptr<Table>& table, MemoryPool* pool,
-                            PyObject** out) {
-  return ConvertTableToPandas(options, std::unordered_set<std::string>(), table, pool,
-                              out);
+                            const std::shared_ptr<Table>& table, PyObject** out) {
+  return ConvertTableToPandas(options, std::unordered_set<std::string>(), table, out);
 }
 
 Status ConvertTableToPandas(const PandasOptions& options,
                             const std::unordered_set<std::string>& categorical_columns,
-                            const std::shared_ptr<Table>& table, MemoryPool* pool,
-                            PyObject** out) {
+                            const std::shared_ptr<Table>& table, PyObject** out) {
   std::shared_ptr<Table> current_table = table;
   if (!categorical_columns.empty()) {
     FunctionContext ctx;
@@ -1959,7 +1987,7 @@ Status ConvertTableToPandas(const PandasOptions& options,
     }
   }
 
-  DataFrameBlockCreator helper(options, current_table, pool);
+  DataFrameBlockCreator helper(options, current_table);
   return helper.Convert(out);
 }
 
