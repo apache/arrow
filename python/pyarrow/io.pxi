@@ -133,29 +133,29 @@ cdef class NativeFile:
                 else:
                     check_status(self.output_stream.get().Close())
 
-    cdef set_random_access_file(self, shared_ptr[RandomAccessFile] handle):
-        self.input_stream = <shared_ptr[InputStream]> handle
+    cdef set_random_access_file(self, shared_ptr[CRandomAccessFile] handle):
+        self.input_stream = <shared_ptr[CInputStream]> handle
         self.random_access = handle
         self.is_seekable = True
 
-    cdef set_input_stream(self, shared_ptr[InputStream] handle):
+    cdef set_input_stream(self, shared_ptr[CInputStream] handle):
         self.input_stream = handle
         self.random_access.reset()
         self.is_seekable = False
 
-    cdef set_output_stream(self, shared_ptr[OutputStream] handle):
+    cdef set_output_stream(self, shared_ptr[COutputStream] handle):
         self.output_stream = handle
 
-    cdef shared_ptr[RandomAccessFile] get_random_access_file(self) except *:
+    cdef shared_ptr[CRandomAccessFile] get_random_access_file(self) except *:
         self._assert_readable()
         self._assert_seekable()
         return self.random_access
 
-    cdef shared_ptr[InputStream] get_input_stream(self) except *:
+    cdef shared_ptr[CInputStream] get_input_stream(self) except *:
         self._assert_readable()
         return self.input_stream
 
-    cdef shared_ptr[OutputStream] get_output_stream(self) except *:
+    cdef shared_ptr[COutputStream] get_output_stream(self) except *:
         self._assert_writable()
         return self.output_stream
 
@@ -679,11 +679,11 @@ cdef class PythonFile(NativeFile):
 
         if kind == 'r':
             self.set_random_access_file(
-                shared_ptr[RandomAccessFile](new PyReadableFile(handle)))
+                shared_ptr[CRandomAccessFile](new PyReadableFile(handle)))
             self.is_readable = True
         else:
             self.set_output_stream(
-                shared_ptr[OutputStream](new PyOutputStream(handle)))
+                shared_ptr[COutputStream](new PyOutputStream(handle)))
             self.is_writable = True
 
     def truncate(self, pos=None):
@@ -720,8 +720,8 @@ cdef class MemoryMappedFile(NativeFile):
         result.path = path
         result.is_readable = True
         result.is_writable = True
-        result.set_output_stream(<shared_ptr[OutputStream]> handle)
-        result.set_random_access_file(<shared_ptr[RandomAccessFile]> handle)
+        result.set_output_stream(<shared_ptr[COutputStream]> handle)
+        result.set_random_access_file(<shared_ptr[CRandomAccessFile]> handle)
         result.handle = handle
 
         return result
@@ -750,8 +750,8 @@ cdef class MemoryMappedFile(NativeFile):
         with nogil:
             check_status(CMemoryMappedFile.Open(c_path, c_mode, &handle))
 
-        self.set_output_stream(<shared_ptr[OutputStream]> handle)
-        self.set_random_access_file(<shared_ptr[RandomAccessFile]> handle)
+        self.set_output_stream(<shared_ptr[COutputStream]> handle)
+        self.set_random_access_file(<shared_ptr[CRandomAccessFile]> handle)
         self.handle = handle
 
     def resize(self, new_size):
@@ -836,7 +836,7 @@ cdef class OSFile(NativeFile):
             check_status(ReadableFile.Open(path, pool, &handle))
 
         self.is_readable = True
-        self.set_random_access_file(<shared_ptr[RandomAccessFile]> handle)
+        self.set_random_access_file(<shared_ptr[CRandomAccessFile]> handle)
 
     cdef _open_writable(self, c_string path):
         with nogil:
@@ -1174,7 +1174,7 @@ cdef class BufferReader(NativeFile):
 
     def __cinit__(self, object obj):
         self.buffer = as_buffer(obj)
-        self.set_random_access_file(shared_ptr[RandomAccessFile](
+        self.set_random_access_file(shared_ptr[CRandomAccessFile](
             new CBufferReader(self.buffer.buffer)))
         self.is_readable = True
 
@@ -1204,7 +1204,7 @@ cdef class CompressedInputStream(NativeFile):
         check_status(CCompressedInputStream.Make(
             codec.get(), stream.get_input_stream(), &compressed_stream))
 
-        self.set_input_stream(<shared_ptr[InputStream]> compressed_stream)
+        self.set_input_stream(<shared_ptr[CInputStream]> compressed_stream)
         self.is_readable = True
 
 
@@ -1234,13 +1234,13 @@ cdef class CompressedOutputStream(NativeFile):
         check_status(CCompressedOutputStream.Make(
             codec.get(), stream.get_output_stream(), &compressed_stream))
 
-        self.set_output_stream(<shared_ptr[OutputStream]> compressed_stream)
+        self.set_output_stream(<shared_ptr[COutputStream]> compressed_stream)
         self.is_writable = True
 
 
 ctypedef CBufferedInputStream* _CBufferedInputStreamPtr
 ctypedef CBufferedOutputStream* _CBufferedOutputStreamPtr
-ctypedef RandomAccessFile* _RandomAccessFilePtr
+ctypedef CRandomAccessFile* _RandomAccessFilePtr
 
 
 cdef class BufferedInputStream(NativeFile):
@@ -1255,7 +1255,7 @@ cdef class BufferedInputStream(NativeFile):
             buffer_size, maybe_unbox_memory_pool(memory_pool),
             stream.get_input_stream(), &buffered_stream))
 
-        self.set_input_stream(<shared_ptr[InputStream]> buffered_stream)
+        self.set_input_stream(<shared_ptr[CInputStream]> buffered_stream)
         self.is_readable = True
 
     def detach(self):
@@ -1269,7 +1269,7 @@ cdef class BufferedInputStream(NativeFile):
             The underlying raw input stream
         """
         cdef:
-            shared_ptr[InputStream] c_raw
+            shared_ptr[CInputStream] c_raw
             _CBufferedInputStreamPtr buffered
             NativeFile raw
 
@@ -1287,7 +1287,7 @@ cdef class BufferedInputStream(NativeFile):
         # selectively.
         if dynamic_cast[_RandomAccessFilePtr](c_raw.get()) != nullptr:
             raw.set_random_access_file(
-                static_pointer_cast[RandomAccessFile, InputStream](c_raw))
+                static_pointer_cast[CRandomAccessFile, CInputStream](c_raw))
         else:
             raw.set_input_stream(c_raw)
         return raw
@@ -1305,7 +1305,7 @@ cdef class BufferedOutputStream(NativeFile):
             buffer_size, maybe_unbox_memory_pool(memory_pool),
             stream.get_output_stream(), &buffered_stream))
 
-        self.set_output_stream(<shared_ptr[OutputStream]> buffered_stream)
+        self.set_output_stream(<shared_ptr[COutputStream]> buffered_stream)
         self.is_writable = True
 
     def detach(self):
@@ -1319,7 +1319,7 @@ cdef class BufferedOutputStream(NativeFile):
             The underlying raw output stream
         """
         cdef:
-            shared_ptr[OutputStream] c_raw
+            shared_ptr[COutputStream] c_raw
             _CBufferedOutputStreamPtr buffered
             NativeFile raw
 
@@ -1400,7 +1400,7 @@ cdef NativeFile _get_native_file(object source, c_bool use_memory_map):
 
 
 cdef get_reader(object source, c_bool use_memory_map,
-                shared_ptr[RandomAccessFile]* reader):
+                shared_ptr[CRandomAccessFile]* reader):
     cdef NativeFile nf
 
     nf = _get_native_file(source, use_memory_map)
@@ -1408,7 +1408,7 @@ cdef get_reader(object source, c_bool use_memory_map,
 
 
 cdef get_input_stream(object source, c_bool use_memory_map,
-                      shared_ptr[InputStream]* out):
+                      shared_ptr[CInputStream]* out):
     """
     Like get_reader(), but can automatically decompress, and returns
     an InputStream.
@@ -1416,7 +1416,7 @@ cdef get_input_stream(object source, c_bool use_memory_map,
     cdef:
         NativeFile nf
         unique_ptr[CCodec] codec
-        shared_ptr[InputStream] input_stream
+        shared_ptr[CInputStream] input_stream
         shared_ptr[CCompressedInputStream] compressed_stream
         CompressionType compression_type
 
@@ -1435,12 +1435,12 @@ cdef get_input_stream(object source, c_bool use_memory_map,
         check_status(CCodec.Create(compression_type, &codec))
         check_status(CCompressedInputStream.Make(codec.get(), input_stream,
                                                  &compressed_stream))
-        input_stream = <shared_ptr[InputStream]> compressed_stream
+        input_stream = <shared_ptr[CInputStream]> compressed_stream
 
     out[0] = input_stream
 
 
-cdef get_writer(object source, shared_ptr[OutputStream]* writer):
+cdef get_writer(object source, shared_ptr[COutputStream]* writer):
     cdef NativeFile nf
 
     try:

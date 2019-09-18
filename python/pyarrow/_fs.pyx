@@ -22,17 +22,8 @@ import six
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport PyDateTime_from_TimePoint
-from pyarrow.includes.libarrow_fs cimport *
-from pyarrow.util import _stringify_path
 from pyarrow.lib import _detect_compression
-from pyarrow.lib cimport (
-    check_status,
-    NativeFile,
-    BufferedOutputStream,
-    BufferedInputStream,
-    CompressedInputStream,
-    CompressedOutputStream
-)
+from pyarrow.lib cimport *
 
 
 cdef inline c_string _path_as_bytes(path) except *:

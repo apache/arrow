@@ -2535,6 +2535,12 @@ if(ARROW_S3)
   include_directories(SYSTEM ${AWSSDK_INCLUDE_DIR})
   message(STATUS "Found AWS SDK headers: ${AWSSDK_INCLUDE_DIR}")
   message(STATUS "Found AWS SDK libraries: ${AWSSDK_LINK_LIBRARIES}")
+
+  if(APPLE)
+   set_target_properties(AWS::aws-c-common PROPERTIES
+    INTERFACE_LINK_LIBRARIES "-pthread;pthread;-framework CoreFoundation"
+   )
+  endif()
 endif()
 
 # Write out the package configurations.

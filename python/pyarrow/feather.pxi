@@ -34,7 +34,7 @@ cdef class FeatherWriter:
         self.num_rows = -1
 
     def open(self, object dest):
-        cdef shared_ptr[OutputStream] sink
+        cdef shared_ptr[COutputStream] sink
         get_writer(dest, &sink)
 
         with nogil:
@@ -76,7 +76,7 @@ cdef class FeatherReader:
         pass
 
     def open(self, source, c_bool use_memory_map=True):
-        cdef shared_ptr[RandomAccessFile] reader
+        cdef shared_ptr[CRandomAccessFile] reader
         get_reader(source, use_memory_map, &reader)
 
         with nogil:

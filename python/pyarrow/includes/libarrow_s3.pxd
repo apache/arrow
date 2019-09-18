@@ -15,11 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from __future__ import absolute_import
+# distutils: language = c++
 
-from pyarrow._fs import *  # noqa
+from libcpp.functional cimport function
 
-try:
-    from pyarrow._s3 import *  # noqa
-except ImportError:
-    pass
+from pyarrow.includes.common cimport *
+from pyarrow.includes.libarrow cimport CFileSystem
+
+cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
+
+    cdef struct CS3Options "arrow::fs::S3Options":
+        c_string region
+        c_string endpoint_override
+        c_string scheme
+        c_string access_key
+        c_string secret_key
+
+    cdef cppclass CS3FileSystem "arrow::fs::S3FileSystem"(CFileSystem):
+        @staticmethod
+        CStatus Make(const CS3Options& options, shared_ptr[CS3FileSystem]* out)

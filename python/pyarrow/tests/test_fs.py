@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
 from datetime import datetime
 try:
     import pathlib
@@ -307,3 +308,33 @@ def test_open_append_stream(fs, tempdir, testpath, compression, buffer_size,
         f.write(b'\nnewly added')
 
     assert decompressor(file_.read_bytes()) == b'already existing\nnewly added'
+
+
+import subprocess
+
+
+@pytest.fixture
+def minio_server(tempdir):
+    host, port = '127.0.0.1', 9000
+    access_key, secret_key = 'arrow', 'apachearrow'
+
+    datadir = tempdir / 'minio'
+    address = '{}:{}'.format(host, port)
+
+    args = ['minio', '--compat', 'server', '--address', address, str(datadir)]
+    env = os.environ.copy()
+    env.update({
+        'MINIO_ACCESS_KEY': access_key,
+        'MINIO_SECRET_KEY': secret_key
+    })
+
+    try:
+        with subprocess.Popen(args, env=env) as proc:
+            yield host, port
+            proc.terminate()
+    except FileNotFoundError as e:
+        pytest.skip('Minio executable cannot be located')
+
+
+def test_minio(minio_server):
+    host, port = minio_server

@@ -126,6 +126,12 @@ try:
 except ImportError:
     pass
 
+try:
+    from pyarrow.fs import S3FileSystem
+    defaults['s3'] = True
+except ImportError:
+    pass
+
 
 def pytest_configure(config):
     for mark in groups:
