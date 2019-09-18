@@ -50,6 +50,7 @@ jobs:
       displayName: Prepare qemu-user-static
 
     - script: |
+        set -e
         pushd arrow/dev/tasks/linux-packages
         rake version:update
         rake dist
