@@ -22,7 +22,9 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
@@ -142,6 +144,45 @@ public class DictionaryEncoder {
         transfer.copyValueSafe(indexAsInt, i);
       }
     }
+  }
+
+  /**
+   * Get child vector of FieldVector, used for sub field encoding.
+   */
+  static FieldVector getChildVector(FieldVector vector, int index) {
+    return vector.getChildrenFromFields().get(index);
+  }
+
+  /**
+   * Clone FieldVector, mainly used for sub field encoding.
+   * @param vector vector to clone from.
+   * @param allocator buffer allocator.
+   * @return the cloned vector
+   */
+  static FieldVector cloneVector(FieldVector vector, BufferAllocator allocator) {
+
+    final FieldType fieldType = vector.getField().getFieldType();
+    FieldVector cloned = fieldType.createNewSingleVector(
+        vector.getField().getName(), allocator, /*schemaCallback=*/null);
+
+    final ArrowFieldNode fieldNode = new ArrowFieldNode(vector.getValueCount(), vector.getNullCount());
+    cloned.loadFieldBuffers(fieldNode, vector.getFieldBuffers());
+
+    return cloned;
+  }
+
+  /**
+   * Get the child vector dictionary, return null if not dictionary encoded.
+   * Mainly used for sub field encoding.
+   */
+  static Dictionary getChildVectorDictionary(DictionaryProvider provider, FieldVector childVector) {
+    DictionaryEncoding dictionaryEncoding = childVector.getField().getDictionary();
+    if (dictionaryEncoding != null) {
+      Dictionary dictionary = provider.lookup(dictionaryEncoding.getId());
+      Preconditions.checkNotNull(dictionary, "Dictionary not found with id:" + dictionary);
+      return dictionary;
+    }
+    return null;
   }
 
   /**

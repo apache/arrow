@@ -17,6 +17,10 @@
 
 package org.apache.arrow.vector.dictionary;
 
+import static org.apache.arrow.vector.dictionary.DictionaryEncoder.cloneVector;
+import static org.apache.arrow.vector.dictionary.DictionaryEncoder.getChildVector;
+import static org.apache.arrow.vector.dictionary.DictionaryEncoder.getChildVectorDictionary;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,8 +31,6 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.StructVector;
-import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
-import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
@@ -39,10 +41,10 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public class StructSubfieldEncoder {
 
-  private final BufferAllocator allocator;
+  protected final BufferAllocator allocator;
 
-  private final DictionaryProvider.MapDictionaryProvider provider;
-  private final Map<Long, DictionaryHashTable> dictionaryIdToHashTable;
+  protected final DictionaryProvider.MapDictionaryProvider provider;
+  protected final Map<Long, DictionaryHashTable> dictionaryIdToHashTable;
 
   /**
    * Construct an instance.
@@ -60,22 +62,6 @@ public class StructSubfieldEncoder {
         dictionaryIdToHashTable.put(id, new DictionaryHashTable(provider.lookup(id).getVector())));
   }
 
-  private FieldVector getChildVector(StructVector vector, int index) {
-    return vector.getChildrenFromFields().get(index);
-  }
-
-  private StructVector cloneVector(StructVector vector) {
-
-    final FieldType fieldType = vector.getField().getFieldType();
-    StructVector cloned = (StructVector) fieldType.createNewSingleVector(
-        vector.getField().getName(), allocator, /*schemaCallback=*/null);
-
-    final ArrowFieldNode fieldNode = new ArrowFieldNode(vector.getValueCount(), vector.getNullCount());
-    cloned.loadFieldBuffers(fieldNode, vector.getFieldBuffers());
-
-    return cloned;
-  }
-
   /**
    * Dictionary encodes subfields for complex vector with a provided dictionary.
    * The dictionary must contain all values in the sub fields vector.
@@ -84,7 +70,8 @@ public class StructSubfieldEncoder {
    *        id indicates the child vector is not encodable.
    * @return dictionary encoded vector
    */
-  public StructVector encode(StructVector vector, Map<Integer, Long> columnToDictionaryId) {
+  public FieldVector encode(FieldVector vector, Map<Integer, Long> columnToDictionaryId) {
+    checkVectorType(vector);
     final int valueCount = vector.getValueCount();
     final int childCount = vector.getChildrenFromFields().size();
 
@@ -107,7 +94,7 @@ public class StructSubfieldEncoder {
     }
 
     // clone list vector and initialize data vector
-    StructVector encoded = cloneVector(vector);
+    FieldVector encoded = cloneVector(vector, allocator);
     encoded.initializeChildrenFromFields(childrenFields);
     encoded.setValueCount(valueCount);
 
@@ -132,22 +119,25 @@ public class StructSubfieldEncoder {
    * @param vector dictionary encoded vector, its child vector must be int type
    * @return vector with values restored from dictionary
    */
-  public StructVector decode(StructVector vector) {
+  public FieldVector decode(FieldVector vector) {
+    checkVectorType(vector);
 
     final int valueCount = vector.getValueCount();
     final int childCount = vector.getChildrenFromFields().size();
 
     // clone list vector and initialize child vectors
-    StructVector decoded = cloneVector(vector);
+    FieldVector decoded = cloneVector(vector, allocator);
     List<Field> childFields = new ArrayList<>();
     for (int i = 0; i < childCount; i++) {
       FieldVector childVector = getChildVector(vector, i);
-      Dictionary dictionary = getChildVectorDictionary(childVector);
+      Dictionary dictionary = getChildVectorDictionary(provider, childVector);
       // childVector is not encoded.
       if (dictionary == null) {
         childFields.add(childVector.getField());
       } else {
-        childFields.add(dictionary.getVector().getField());
+        // union child vector name should always be MinorType.name
+        Field field = Field.nullable(childVector.getField().getName(), dictionary.getVectorType());
+        childFields.add(field);
       }
     }
     decoded.initializeChildrenFromFields(childFields);
@@ -157,7 +147,7 @@ public class StructSubfieldEncoder {
       // get child vector
       FieldVector childVector = getChildVector(vector, index);
       FieldVector decodedChildVector = getChildVector(decoded, index);
-      Dictionary dictionary = getChildVectorDictionary(childVector);
+      Dictionary dictionary = getChildVectorDictionary(provider, childVector);
       if (dictionary == null) {
         childVector.makeTransferPair(decodedChildVector).splitAndTransfer(0, valueCount);
       } else {
@@ -171,16 +161,7 @@ public class StructSubfieldEncoder {
     return decoded;
   }
 
-  /**
-   * Get the child vector dictionary, return null if not dictionary encoded.
-   */
-  private Dictionary getChildVectorDictionary(FieldVector childVector) {
-    DictionaryEncoding dictionaryEncoding = childVector.getField().getDictionary();
-    if (dictionaryEncoding != null) {
-      Dictionary dictionary = provider.lookup(dictionaryEncoding.getId());
-      Preconditions.checkNotNull(dictionary, "Dictionary not found with id:" + dictionary);
-      return dictionary;
-    }
-    return null;
+  protected void checkVectorType(FieldVector vector) {
+    Preconditions.checkArgument(vector instanceof StructVector);
   }
 }

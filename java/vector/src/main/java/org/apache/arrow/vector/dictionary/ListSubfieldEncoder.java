@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector.dictionary;
 
+import static org.apache.arrow.vector.dictionary.DictionaryEncoder.cloneVector;
+
 import java.util.Collections;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -24,7 +26,6 @@ import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.BaseListVector;
-import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
@@ -44,24 +45,11 @@ public class ListSubfieldEncoder {
   public ListSubfieldEncoder(Dictionary dictionary, BufferAllocator allocator) {
     this.dictionary = dictionary;
     this.allocator = allocator;
-    BaseListVector dictVector = (BaseListVector) dictionary.getVector();
-    hashTable = new DictionaryHashTable(getDataVector(dictVector));
+    hashTable = new DictionaryHashTable(dictionary.getVector());
   }
 
   private FieldVector getDataVector(BaseListVector vector) {
     return vector.getChildrenFromFields().get(0);
-  }
-
-  private BaseListVector cloneVector(BaseListVector vector) {
-
-    final FieldType fieldType = vector.getField().getFieldType();
-    BaseListVector cloned = (BaseListVector) fieldType.createNewSingleVector(vector.getField().getName(),
-        allocator, /*schemaCallBack=*/null);
-
-    final ArrowFieldNode fieldNode = new ArrowFieldNode(vector.getValueCount(), vector.getNullCount());
-    cloned.loadFieldBuffers(fieldNode, vector.getFieldBuffers());
-
-    return cloned;
   }
 
   /**
@@ -78,7 +66,7 @@ public class ListSubfieldEncoder {
     Field valueField = new Field(vector.getField().getName(), indexFieldType,null);
 
     // clone list vector and initialize data vector
-    BaseListVector encoded = cloneVector(vector);
+    BaseListVector encoded = (BaseListVector) cloneVector(vector, allocator);
     encoded.initializeChildrenFromFields(Collections.singletonList(valueField));
     BaseIntVector indices = (BaseIntVector) getDataVector(encoded);
 
@@ -103,18 +91,18 @@ public class ListSubfieldEncoder {
   public BaseListVector decodeListSubField(BaseListVector vector) {
 
     int valueCount = vector.getValueCount();
-    BaseListVector dictionaryVector = (BaseListVector) dictionary.getVector();
-    int dictionaryValueCount = getDataVector(dictionaryVector).getValueCount();
+    FieldVector dictionaryVector = dictionary.getVector();
+    int dictionaryValueCount = dictionaryVector.getValueCount();
 
     // clone list vector and initialize data vector
-    BaseListVector decoded = cloneVector(vector);
-    Field dataVectorField = getDataVector(dictionaryVector).getField();
+    BaseListVector decoded = (BaseListVector) cloneVector(vector, allocator);
+    Field dataVectorField = dictionaryVector.getField();
     decoded.initializeChildrenFromFields(Collections.singletonList(dataVectorField));
 
     // get data vector
     ValueVector dataVector = getDataVector(decoded);
 
-    TransferPair transfer = getDataVector(dictionaryVector).makeTransferPair(dataVector);
+    TransferPair transfer = dictionaryVector.makeTransferPair(dataVector);
     BaseIntVector indices = (BaseIntVector) getDataVector(vector);
 
     for (int i = 0; i < valueCount; i++) {

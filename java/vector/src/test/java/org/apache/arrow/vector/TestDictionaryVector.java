@@ -36,11 +36,13 @@ import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.ListSubfieldEncoder;
 import org.apache.arrow.vector.dictionary.StructSubfieldEncoder;
+import org.apache.arrow.vector.dictionary.UnionSubfieldEncoder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.types.Types;
@@ -721,7 +723,7 @@ public class TestDictionaryVector {
   public void testEncodeListSubField() {
     // Create a new value vector
     try (final ListVector vector = ListVector.empty("vector", allocator);
-        final ListVector dictionaryVector = ListVector.empty("dict", allocator);) {
+         final IntVector dictionaryVector = new IntVector("dict", allocator)) {
 
       UnionListWriter writer = vector.getWriter();
       writer.allocate();
@@ -735,10 +737,17 @@ public class TestDictionaryVector {
       writeListVector(writer, new int[]{10, 20});
       writer.setValueCount(6);
 
-      UnionListWriter dictWriter = dictionaryVector.getWriter();
+      /*UnionListWriter dictWriter = dictionaryVector.getWriter();
       dictWriter.allocate();
       writeListVector(dictWriter, new int[]{10, 20, 30, 40, 50});
-      dictionaryVector.setValueCount(1);
+      dictionaryVector.setValueCount(1);*/
+
+      dictionaryVector.setValueCount(5);
+      dictionaryVector.set(0, 10);
+      dictionaryVector.set(1, 20);
+      dictionaryVector.set(2, 30);
+      dictionaryVector.set(3, 40);
+      dictionaryVector.set(4, 50);
 
       Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
       ListSubfieldEncoder encoder = new ListSubfieldEncoder(dictionary, allocator);
@@ -777,7 +786,7 @@ public class TestDictionaryVector {
   public void testEncodeFixedSizeListSubField() {
     // Create a new value vector
     try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", 2, allocator);
-        final FixedSizeListVector dictionaryVector = FixedSizeListVector.empty("dict", 2, allocator)) {
+         final IntVector dictionaryVector = new IntVector("dict", allocator)) {
 
       vector.allocateNew();
       vector.setValueCount(4);
@@ -803,19 +812,11 @@ public class TestDictionaryVector {
       dataVector.set(6, 10);
       dataVector.set(7, 20);
 
-      dictionaryVector.allocateNew();
-      dictionaryVector.setValueCount(2);
-      IntVector dictDataVector =
-          (IntVector) dictionaryVector.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType())).getVector();
-      dictDataVector.allocateNew(4);
-      dictDataVector.setValueCount(4);
-
-      dictionaryVector.setNotNull(0);
-      dictDataVector.set(0, 10);
-      dictDataVector.set(1, 20);
-      dictionaryVector.setNotNull(1);
-      dictDataVector.set(2, 30);
-      dictDataVector.set(3, 40);
+      dictionaryVector.setValueCount(4);
+      dictionaryVector.set(0, 10);
+      dictionaryVector.set(1, 20);
+      dictionaryVector.set(2, 30);
+      dictionaryVector.set(3, 40);
 
       Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
       ListSubfieldEncoder encoder = new ListSubfieldEncoder(dictionary, allocator);
@@ -979,6 +980,71 @@ public class TestDictionaryVector {
     }
   }
 
+  @Test
+  public void testEncodeUnionSubField() {
+    try (final UnionVector vector = UnionVector.empty("vector", allocator);
+        final IntVector dictVector1 = new IntVector("f0", allocator);
+        final VarCharVector dictVector2 = new VarCharVector("f1", allocator)) {
+
+      // set some values
+      FieldWriter writer = vector.getWriter();
+      writeUnionVector(writer, 0, 1);
+      writeUnionVector(writer, 1, 2);
+      writeUnionVector(writer, 2, 2);
+      writeUnionVector(writer, 3, "aaa".getBytes(StandardCharsets.UTF_8));
+      writeUnionVector(writer, 4, "ccc".getBytes(StandardCharsets.UTF_8));
+      writeUnionVector(writer, 5, "bbb".getBytes(StandardCharsets.UTF_8));
+      vector.setValueCount(6);
+
+      // initialize dictionaries
+      DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
+
+
+      dictVector1.setSafe(0, 1);
+      dictVector1.setSafe(1, 2);
+      dictVector1.setSafe(2, 3);
+      dictVector1.setValueCount(3);
+
+      dictVector2.setSafe(0, "aaa".getBytes(StandardCharsets.UTF_8));
+      dictVector2.setSafe(1, "bbb".getBytes(StandardCharsets.UTF_8));
+      dictVector2.setSafe(2, "ccc".getBytes(StandardCharsets.UTF_8));
+      dictVector2.setValueCount(3);
+
+      provider.put(new Dictionary(dictVector1, new DictionaryEncoding(1L, false, null)));
+      provider.put(new Dictionary(dictVector2, new DictionaryEncoding(2L, false, null)));
+
+      UnionSubfieldEncoder encoder = new UnionSubfieldEncoder(allocator, provider);
+      Map<Integer, Long> columnToDictionaryId = new HashMap<>();
+      columnToDictionaryId.put(0, 1L);
+      columnToDictionaryId.put(1, 2L);
+
+      try (final UnionVector encoded = (UnionVector) encoder.encode(vector, columnToDictionaryId)) {
+        // verify indices
+        assertEquals(UnionVector.class, encoded.getClass());
+
+        assertEquals(6, encoded.getValueCount());
+        BaseIntVector firstIndices = (BaseIntVector) encoded.getChildrenFromFields().get(0);
+        BaseIntVector secondIndices = (BaseIntVector) encoded.getChildrenFromFields().get(1);
+
+        assertEquals(0, firstIndices.getValueAsLong(0));
+        assertEquals(1, firstIndices.getValueAsLong(1));
+        assertEquals(1, firstIndices.getValueAsLong(2));
+        assertEquals(0, secondIndices.getValueAsLong(3));
+        assertEquals(2, secondIndices.getValueAsLong(4));
+        assertEquals(1, secondIndices.getValueAsLong(5));
+
+        // now run through the decoder and verify we get the original back
+        try (ValueVector decoded = encoder.decode(encoded)) {
+          assertEquals(vector.getClass(), decoded.getClass());
+          assertEquals(vector.getValueCount(), decoded.getValueCount());
+          for (int i = 0; i < 6; i++) {
+            assertEquals(vector.getObject(i), decoded.getObject(i));
+          }
+        }
+      }
+    }
+  }
+
   private int[] convertListToIntArray(JsonStringArrayList list) {
     int[] values = new int[list.size()];
     for (int i = 0; i < list.size(); i++) {
@@ -1024,5 +1090,18 @@ public class TestDictionaryVector {
       writer.integer().writeInt(v);
     }
     writer.endList();
+  }
+
+  private void writeUnionVector(FieldWriter writer, int index, int value) {
+    writer.setPosition(index);
+    writer.writeInt(value);
+  }
+
+  private void writeUnionVector(FieldWriter writer, int index, byte[] values) {
+    ArrowBuf buf = allocator.buffer(values.length);
+    buf.setBytes(0, values);
+    writer.setPosition(index);
+    writer.writeVarChar(0, values.length, buf);
+    buf.close();
   }
 }
