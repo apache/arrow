@@ -442,8 +442,7 @@ cdef _sanitize_arrays(arrays, names, schema, metadata,
         c_schema[0] = cy_schema.sp_schema
         converted_arrays = []
         for i, item in enumerate(arrays):
-            if not isinstance(item, (Array, ChunkedArray)):
-                item = array(item, type=schema[i].type)
+            item = asarray(item, type=schema[i].type)
             converted_arrays.append(item)
     return converted_arrays
 
@@ -1123,16 +1122,14 @@ cdef class Table(_PandasConvertible):
                         v = mapping[tobytes(field.name)]
                     except KeyError as e2:
                         raise e
-                arrays.append(array(v, type=field.type))
+                arrays.append(asarray(v, type=field.type))
             # Will raise if metadata is not None
             return Table.from_arrays(arrays, schema=schema, metadata=metadata)
         else:
             names = []
             for k, v in mapping.items():
                 names.append(k)
-                if not isinstance(v, (Array, ChunkedArray)):
-                    v = array(v)
-                arrays.append(v)
+                arrays.append(asarray(v))
             return Table.from_arrays(arrays, names, metadata=metadata)
 
     @staticmethod
@@ -1521,6 +1518,11 @@ def record_batch(data, names=None, schema=None, metadata=None):
     --------
     RecordBatch.from_arrays, RecordBatch.from_pandas, Table.from_pydict
     """
+    # accept schema as first argument for backwards compatibility / usability
+    if isinstance(names, Schema) and schema is None:
+        schema = names
+        names = None
+
     if isinstance(data, (list, tuple)):
         return RecordBatch.from_arrays(data, names=names, schema=schema,
                                        metadata=metadata)
@@ -1539,13 +1541,13 @@ def table(data, names=None, schema=None, metadata=None):
     ----------
     data : pandas.DataFrame, dict, list
         A DataFrame, mapping of strings to Arrays or Python lists, or list of
-        arrays or chunked arrays
+        arrays or chunked arrays.
     names : list, default None
         Column names if list of arrays passed as data. Mutually exclusive with
-        'schema' argument
+        'schema' argument.
     schema : Schema, default None
         The expected schema of the Arrow Table. If not passed, will be inferred
-        from the data. Mutually exclusive with 'names' argument
+        from the data. Mutually exclusive with 'names' argument.
     metadata : dict or Mapping, default None
         Optional metadata for the schema (if schema not passed).
 
@@ -1557,12 +1559,24 @@ def table(data, names=None, schema=None, metadata=None):
     --------
     Table.from_arrays, Table.from_pandas, Table.from_pydict
     """
+    # accept schema as first argument for backwards compatibility / usability
+    if isinstance(names, Schema) and schema is None:
+        schema = names
+        names = None
+
     if isinstance(data, (list, tuple)):
         return Table.from_arrays(data, names=names, schema=schema,
                                  metadata=metadata)
     elif isinstance(data, dict):
+        if names is not None:
+            raise ValueError(
+                "The 'names' argument is not valid when passing a dictionary")
         return Table.from_pydict(data, schema=schema, metadata=metadata)
     elif isinstance(data, _pandas_api.pd.DataFrame):
+        if names is not None or metadata is not None:
+            raise ValueError(
+                "The 'names' and 'metadata' arguments are not valid when "
+                "passing a pandas DataFrame")
         return Table.from_pandas(data, schema=schema)
     else:
         return TypeError("Expected pandas DataFrame or python dictionary")

@@ -218,14 +218,17 @@ def asarray(values, type=None):
 
     Parameters
     ----------
-    values : array-like (sequence, numpy.ndarray, pyarrow.Array)
+    values : array-like
+        This can be a sequence, numpy.ndarray, pyarrow.Array or
+        pyarrow.ChunkedArray. If a ChunkedArray is passed, the output will be
+        a ChunkedArray, otherwise the output will be a Array.
     type : string or DataType
 
     Returns
     -------
-    arr : Array
+    arr : Array or ChunkedArray
     """
-    if isinstance(values, Array):
+    if isinstance(values, (Array, ChunkedArray)):
         if type is not None and not values.type.equals(type):
             values = values.cast(type)
 
