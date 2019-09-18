@@ -133,7 +133,7 @@ struct ARROW_EXPORT LargeBinaryScalar : public BaseBinaryScalar<LargeBinaryType>
 
 struct ARROW_EXPORT LargeStringScalar : public LargeBinaryScalar {
   explicit LargeStringScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
-      : LargeBinaryScalar(value, utf8(), is_valid) {}
+      : LargeBinaryScalar(value, large_utf8(), is_valid) {}
 
   LargeStringScalar() : LargeStringScalar(NULLPTR, false) {}
 };
