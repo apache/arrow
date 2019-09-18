@@ -957,7 +957,7 @@ Result<std::shared_ptr<Expression>> SelectorAssume(
   }
 
   if (given == nullptr) {
-    return out_expr;
+    return std::move(out_expr);
   }
   return out_expr->Assume(*given);
 }
