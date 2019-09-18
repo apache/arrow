@@ -463,7 +463,7 @@ class SocketStreamFixture(IpcFixture):
 
     def stop_and_get_result(self):
         import struct
-        self.sink.write(struct.pack('i', 0))
+        self.sink.write(struct.pack('Q', 0))
         self.sink.flush()
         self._sock.close()
         self._server.join()
