@@ -927,7 +927,7 @@ def test_from_arrays_schema(data, klass):
     assert table.num_rows == 3
     assert table.schema == schema
 
-    # lenth of data and schema not matching
+    # length of data and schema not matching
     schema = pa.schema([('strs', pa.utf8())])
     with pytest.raises(ValueError):
         pa.Table.from_arrays(data, schema=schema)
@@ -988,6 +988,11 @@ def test_table_from_pydict():
     # Cannot pass both schema and metadata
     with pytest.raises(ValueError):
         pa.Table.from_pydict(data, schema=schema, metadata=metadata)
+
+    # Non-convertible values given schema
+    with pytest.raises(TypeError):
+        pa.Table.from_pydict({'c0': [0, 1, 2]},
+                             schema=pa.schema([("c0", pa.string())]))
 
 
 @pytest.mark.parametrize('data, klass', [
