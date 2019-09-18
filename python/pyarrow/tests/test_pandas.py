@@ -2758,7 +2758,7 @@ def test_table_from_pandas_schema_index_columns():
     ])
 
     # schema includes index with name not in dataframe
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError, match="name 'index' present in the"):
         pa.Table.from_pandas(df, schema=schema)
 
     df.index.name = 'index'
@@ -2773,7 +2773,8 @@ def test_table_from_pandas_schema_index_columns():
 
     # in case of preserve_index=None -> RangeIndex serialized as metadata
     # clashes with the index in the schema
-    with pytest.raises(KeyError):
+    with pytest.raises(ValueError, match="name 'index' is present in the "
+                                         "schema, but it is a RangeIndex"):
         pa.Table.from_pandas(df, schema=schema, preserve_index=None)
 
     df.index = pd.Index([0, 1, 2], name='index')

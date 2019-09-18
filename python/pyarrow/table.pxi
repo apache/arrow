@@ -670,6 +670,11 @@ cdef class RecordBatch(_PandasConvertible):
         schema: pyarrow.Schema, optional
             The expected schema of the RecordBatch. This can be used to
             indicate the type of columns if we cannot infer it automatically.
+            If passed, the output will have exactly this schema. Columns
+            specified in the schema that are not found in the DataFrame columns
+            or its index will raise an error. Additional columns or index
+            levels in the DataFrame which are not specified in the schema will
+            be ignored.
         preserve_index : bool, optional
             Whether to store the index as an additional column in the resulting
             ``RecordBatch``. The default of None will store the index as a
@@ -1007,6 +1012,11 @@ cdef class Table(_PandasConvertible):
         schema : pyarrow.Schema, optional
             The expected schema of the Arrow Table. This can be used to
             indicate the type of columns if we cannot infer it automatically.
+            If passed, the output will have exactly this schema. Columns
+            specified in the schema that are not found in the DataFrame columns
+            or its index will raise an error. Additional columns or index
+            levels in the DataFrame which are not specified in the schema will
+            be ignored.
         preserve_index : bool, optional
             Whether to store the index as an additional column in the resulting
             ``Table``. The default of None will store the index as a column,
@@ -1548,6 +1558,9 @@ def table(data, names=None, schema=None, metadata=None):
     schema : Schema, default None
         The expected schema of the Arrow Table. If not passed, will be inferred
         from the data. Mutually exclusive with 'names' argument.
+        If passed, the output will have exactly this schema (raising an error
+        when columns are not found in the data and ignoring additional data not
+        specified in the schema, when data is a dict or DataFrame).
     metadata : dict or Mapping, default None
         Optional metadata for the schema (if schema not passed).
 
