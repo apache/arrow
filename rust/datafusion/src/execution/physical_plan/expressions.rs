@@ -114,18 +114,20 @@ impl AggregateExpr for Sum {
 macro_rules! sum_accumulate {
     ($SELF:ident, $ARRAY:ident, $ROW_INDEX:expr, $ARRAY_TYPE:ident, $SCALAR_VARIANT:ident, $TY:ty) => {{
         if let Some(array) = $ARRAY.as_any().downcast_ref::<$ARRAY_TYPE>() {
-            let value = array.value($ROW_INDEX);
-            $SELF.sum = match $SELF.sum {
-                Some(ScalarValue::$SCALAR_VARIANT(n)) => {
-                    Some(ScalarValue::$SCALAR_VARIANT(n + value as $TY))
-                }
-                Some(_) => {
-                    return Err(ExecutionError::InternalError(
-                        "Unexpected ScalarValue variant".to_string(),
-                    ))
-                }
-                None => Some(ScalarValue::$SCALAR_VARIANT(value as $TY)),
-            };
+            if $ARRAY.is_valid($ROW_INDEX) {
+                let value = array.value($ROW_INDEX);
+                $SELF.sum = match $SELF.sum {
+                    Some(ScalarValue::$SCALAR_VARIANT(n)) => {
+                        Some(ScalarValue::$SCALAR_VARIANT(n + value as $TY))
+                    }
+                    Some(_) => {
+                        return Err(ExecutionError::InternalError(
+                            "Unexpected ScalarValue variant".to_string(),
+                        ))
+                    }
+                    None => Some(ScalarValue::$SCALAR_VARIANT(value as $TY)),
+                };
+            }
             Ok(())
         } else {
             Err(ExecutionError::General(
@@ -231,6 +233,18 @@ mod tests {
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
         assert_eq!(do_sum(&batch)?, Some(ScalarValue::Int64(13)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn sum_i32_all_nulls() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let a = Int32Array::from(vec![None, None]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_sum(&batch)?, None);
 
         Ok(())
     }
