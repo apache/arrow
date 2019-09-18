@@ -754,13 +754,14 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     cdef cppclass Readable:
         # put overload under a different name to avoid cython bug with multiple
         # layers of inheritance
-        CStatus ReadB" Read"(int64_t nbytes, shared_ptr[CBuffer]* out)
+        CStatus ReadBuffer" Read"(int64_t nbytes, shared_ptr[CBuffer]* out)
         CStatus Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out)
 
     cdef cppclass Seekable:
         CStatus Seek(int64_t position)
 
     cdef cppclass Writable:
+        CStatus WriteBuffer" Write"(shared_ptr[CBuffer] data)
         CStatus Write(const uint8_t* data, int64_t nbytes)
         CStatus Flush()
 

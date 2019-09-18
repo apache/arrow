@@ -522,7 +522,16 @@ class ObjectOutputStream : public io::OutputStream {
     return Status::OK();
   }
 
+  Status Write(const std::shared_ptr<Buffer>& buffer) override {
+    return DoWrite(buffer->data(), buffer->size(), buffer);
+  }
+
   Status Write(const void* data, int64_t nbytes) override {
+    return DoWrite(data, nbytes);
+  }
+
+  Status DoWrite(const void* data, int64_t nbytes,
+                 std::shared_ptr<Buffer> owned_buffer = nullptr) {
     if (closed_) {
       return Status::Invalid("Operation on closed stream");
     }
@@ -543,8 +552,9 @@ class ObjectOutputStream : public io::OutputStream {
     }
 
     if (!current_part_ && nbytes >= part_upload_threshold_) {
-      // No current part and data large enough, upload it directly without copying
-      RETURN_NOT_OK(UploadPart(data, nbytes));
+      // No current part and data large enough, upload it directly
+      // (without copying if the buffer is owned)
+      RETURN_NOT_OK(UploadPart(data, nbytes, owned_buffer));
       pos_ += nbytes;
       return Status::OK();
     }
@@ -584,7 +594,7 @@ class ObjectOutputStream : public io::OutputStream {
     RETURN_NOT_OK(current_part_->Finish(&buf));
     current_part_.reset();
     current_part_size_ = 0;
-    return UploadPart(std::move(buf));
+    return UploadPart(buf);
   }
 
   Status UploadPart(std::shared_ptr<Buffer> buffer) {

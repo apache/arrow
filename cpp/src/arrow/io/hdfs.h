@@ -230,8 +230,8 @@ class ARROW_EXPORT HdfsOutputStream : public OutputStream {
 
   bool closed() const override;
 
+  using OutputStream::Write;
   Status Write(const void* buffer, int64_t nbytes) override;
-
   Status Write(const void* buffer, int64_t nbytes, int64_t* bytes_written);
 
   Status Flush() override;

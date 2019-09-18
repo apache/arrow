@@ -125,7 +125,14 @@ class BufferedOutputStream::Impl : public BufferedBase {
     return Status::OK();
   }
 
-  Status Write(const void* data, int64_t nbytes) {
+  Status Write(const void* data, int64_t nbytes) { return DoWrite(data, nbytes); }
+
+  Status Write(const std::shared_ptr<Buffer>& buffer) {
+    return DoWrite(buffer->data(), buffer->size(), buffer);
+  }
+
+  Status DoWrite(const void* data, int64_t nbytes,
+                 const std::shared_ptr<Buffer>& buffer = nullptr) {
     std::lock_guard<std::mutex> guard(lock_);
     if (nbytes < 0) {
       return Status::Invalid("write count should be >= 0");
@@ -138,7 +145,11 @@ class BufferedOutputStream::Impl : public BufferedBase {
       DCHECK_EQ(buffer_pos_, 0);
       if (nbytes >= buffer_size_) {
         // Direct write
-        return raw_->Write(data, nbytes);
+        if (buffer) {
+          return raw_->Write(buffer);
+        } else {
+          return raw_->Write(data, nbytes);
+        }
       }
     }
     AppendToBuffer(data, nbytes);
@@ -225,6 +236,10 @@ Status BufferedOutputStream::Tell(int64_t* position) const {
 
 Status BufferedOutputStream::Write(const void* data, int64_t nbytes) {
   return impl_->Write(data, nbytes);
+}
+
+Status BufferedOutputStream::Write(const std::shared_ptr<Buffer>& data) {
+  return impl_->Write(data);
 }
 
 Status BufferedOutputStream::Flush() { return impl_->Flush(); }

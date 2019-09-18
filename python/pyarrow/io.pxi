@@ -275,16 +275,13 @@ cdef class NativeFile:
         nbytes : number of bytes written
         """
         self._assert_writable()
-
-        cdef Buffer arrow_buffer = py_buffer(data)
-
-        cdef const uint8_t* buf = arrow_buffer.buffer.get().data()
-        cdef int64_t bufsize = len(arrow_buffer)
         handle = self.get_output_stream()
 
+        cdef shared_ptr[CBuffer] buf = as_c_buffer(data)
+
         with nogil:
-            check_status(handle.get().Write(buf, bufsize))
-        return bufsize
+            check_status(handle.get().WriteBuffer(buf))
+        return buf.get().size()
 
     def read(self, nbytes=None):
         """
@@ -459,7 +456,7 @@ cdef class NativeFile:
             c_nbytes = nbytes
 
         with nogil:
-            check_status(handle.get().ReadB(c_nbytes, &output))
+            check_status(handle.get().ReadBuffer(c_nbytes, &output))
 
         return pyarrow_wrap_buffer(output)
 
@@ -1373,6 +1370,17 @@ def as_buffer(object o):
     return py_buffer(o)
 
 
+cdef shared_ptr[CBuffer] as_c_buffer(object o) except *:
+    cdef shared_ptr[CBuffer] buf
+    if isinstance(o, Buffer):
+        buf = (<Buffer> o).buffer
+        if buf == nullptr:
+            raise ValueError("got null buffer")
+    else:
+        check_status(PyBuffer.FromPyObject(o, &buf))
+    return buf
+
+
 cdef NativeFile _get_native_file(object source, c_bool use_memory_map):
     try:
         source_path = _stringify_path(source)
@@ -1507,15 +1515,16 @@ def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
     cdef:
         CompressionType c_codec = _get_compression_type(codec)
         unique_ptr[CCodec] compressor
-        cdef CBuffer* c_buf
+        cdef shared_ptr[CBuffer] owned_buf
+        CBuffer* c_buf
         cdef PyObject* pyobj
         cdef ResizableBuffer out_buf
 
     with nogil:
         check_status(CCodec.Create(c_codec, &compressor))
 
-    buf = as_buffer(buf)
-    c_buf = (<Buffer> buf).buffer.get()
+    owned_buf = as_c_buffer(buf)
+    c_buf = owned_buf.get()
 
     cdef int64_t max_output_size = (compressor.get()
                                     .MaxCompressedLen(c_buf.size(),
@@ -1571,14 +1580,15 @@ def decompress(object buf, decompressed_size=None, codec='lz4',
     cdef:
         CompressionType c_codec = _get_compression_type(codec)
         unique_ptr[CCodec] compressor
+        cdef shared_ptr[CBuffer] owned_buf
         cdef CBuffer* c_buf
         cdef Buffer out_buf
 
     with nogil:
         check_status(CCodec.Create(c_codec, &compressor))
 
-    buf = as_buffer(buf)
-    c_buf = (<Buffer> buf).buffer.get()
+    owned_buf = as_c_buffer(buf)
+    c_buf = owned_buf.get()
 
     if decompressed_size is None:
         raise ValueError("Must pass decompressed_size for {0} codec"

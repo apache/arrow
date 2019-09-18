@@ -181,7 +181,7 @@ class SerializedPageWriter : public PageWriter {
       dictionary_page_offset_ = start_pos;
     }
     int64_t header_size = thrift_serializer_->Serialize(&page_header, sink_.get());
-    PARQUET_THROW_NOT_OK(sink_->Write(compressed_data->data(), compressed_data->size()));
+    PARQUET_THROW_NOT_OK(sink_->Write(compressed_data));
 
     total_uncompressed_size_ += uncompressed_size + header_size;
     total_compressed_size_ += compressed_data->size() + header_size;
@@ -249,7 +249,7 @@ class SerializedPageWriter : public PageWriter {
     }
 
     int64_t header_size = thrift_serializer_->Serialize(&page_header, sink_.get());
-    PARQUET_THROW_NOT_OK(sink_->Write(compressed_data->data(), compressed_data->size()));
+    PARQUET_THROW_NOT_OK(sink_->Write(compressed_data));
 
     total_uncompressed_size_ += uncompressed_size + header_size;
     total_compressed_size_ += compressed_data->size() + header_size;
@@ -320,7 +320,7 @@ class BufferedPageWriter : public PageWriter {
     // flush everything to the serialized sink
     std::shared_ptr<Buffer> buffer;
     PARQUET_THROW_NOT_OK(in_memory_sink_->Finish(&buffer));
-    PARQUET_THROW_NOT_OK(final_sink_->Write(buffer->data(), buffer->size()));
+    PARQUET_THROW_NOT_OK(final_sink_->Write(buffer));
   }
 
   int64_t WriteDataPage(const CompressedDataPage& page) override {

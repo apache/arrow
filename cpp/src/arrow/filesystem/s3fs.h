@@ -110,10 +110,10 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
 
   /// Create a sequential output stream for writing to a S3 object.
   ///
-  /// NOTE: Writes to the stream will be buffered but synchronous (i.e.
-  /// when a buffer is implicitly flushed, it waits for the upload to
-  /// complete and the server to respond).  You may want to issue writes
-  /// in the background to avoid idle waits.
+  /// NOTE: Writes to the stream will be buffered.  Depending on
+  /// S3Options.background_writes, they can be synchronous or not.
+  /// It is recommended to enable background_writes unless you prefer
+  /// implementing your own background execution strategy.
   Status OpenOutputStream(const std::string& path,
                           std::shared_ptr<io::OutputStream>* out) override;
 

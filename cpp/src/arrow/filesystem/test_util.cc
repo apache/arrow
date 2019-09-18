@@ -74,10 +74,6 @@ void AssertAllFiles(FileSystem* fs, const std::vector<std::string>& expected_pat
   AssertPaths(GetAllFiles(fs), expected_paths);
 }
 
-Status WriteString(io::OutputStream* stream, const std::string& s) {
-  return stream->Write(s.data(), static_cast<int64_t>(s.length()));
-}
-
 void ValidateTimePoint(TimePoint tp) { ASSERT_GE(tp.time_since_epoch().count(), 0); }
 
 };  // namespace
@@ -105,7 +101,7 @@ void AssertFileContents(FileSystem* fs, const std::string& path,
 void CreateFile(FileSystem* fs, const std::string& path, const std::string& data) {
   std::shared_ptr<io::OutputStream> stream;
   ASSERT_OK(fs->OpenOutputStream(path, &stream));
-  ASSERT_OK(WriteString(stream.get(), data));
+  ASSERT_OK(stream->Write(data));
   ASSERT_OK(stream->Close());
 }
 
@@ -674,8 +670,8 @@ void GenericFileSystemTest::TestOpenOutputStream(FileSystem* fs) {
   // Several writes
   ASSERT_OK(fs->CreateDir("CD"));
   ASSERT_OK(fs->OpenOutputStream("CD/ghi", &stream));
-  ASSERT_OK(WriteString(stream.get(), "some "));
-  ASSERT_OK(WriteString(stream.get(), "data"));
+  ASSERT_OK(stream->Write("some "));
+  ASSERT_OK(stream->Write(Buffer::FromString("data")));
   ASSERT_OK(stream->Tell(&position));
   ASSERT_EQ(position, 9);
   ASSERT_OK(stream->Close());
@@ -685,13 +681,13 @@ void GenericFileSystemTest::TestOpenOutputStream(FileSystem* fs) {
 
   // Overwrite
   ASSERT_OK(fs->OpenOutputStream("CD/ghi", &stream));
-  ASSERT_OK(WriteString(stream.get(), "overwritten"));
+  ASSERT_OK(stream->Write("overwritten"));
   ASSERT_OK(stream->Close());
   AssertAllDirs(fs, {"CD"});
   AssertAllFiles(fs, {"CD/ghi", "abc"});
   AssertFileContents(fs, "CD/ghi", "overwritten");
 
-  ASSERT_RAISES(Invalid, WriteString(stream.get(), "x"));  // Stream is closed
+  ASSERT_RAISES(Invalid, stream->Write("x"));  // Stream is closed
 
   if (!allow_write_file_over_dir()) {
     // Cannot turn dir into file
@@ -711,8 +707,8 @@ void GenericFileSystemTest::TestOpenAppendStream(FileSystem* fs) {
   ASSERT_OK(fs->OpenAppendStream("abc", &stream));
   ASSERT_OK(stream->Tell(&position));
   ASSERT_EQ(position, 0);
-  ASSERT_OK(WriteString(stream.get(), "some "));
-  ASSERT_OK(WriteString(stream.get(), "data"));
+  ASSERT_OK(stream->Write("some "));
+  ASSERT_OK(stream->Write(Buffer::FromString("data")));
   ASSERT_OK(stream->Tell(&position));
   ASSERT_EQ(position, 9);
   ASSERT_OK(stream->Close());
@@ -723,13 +719,13 @@ void GenericFileSystemTest::TestOpenAppendStream(FileSystem* fs) {
   ASSERT_OK(fs->OpenAppendStream("abc", &stream));
   ASSERT_OK(stream->Tell(&position));
   ASSERT_EQ(position, 9);
-  ASSERT_OK(WriteString(stream.get(), " appended"));
+  ASSERT_OK(stream->Write(" appended"));
   ASSERT_OK(stream->Close());
   AssertAllDirs(fs, {});
   AssertAllFiles(fs, {"abc"});
   AssertFileContents(fs, "abc", "some data appended");
 
-  ASSERT_RAISES(Invalid, WriteString(stream.get(), "x"));  // Stream is closed
+  ASSERT_RAISES(Invalid, stream->Write("x"));  // Stream is closed
 }
 
 void GenericFileSystemTest::TestOpenInputStream(FileSystem* fs) {

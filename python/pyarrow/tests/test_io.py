@@ -631,10 +631,13 @@ def test_nativefile_write_memoryview():
 
     f.write(arr)
     f.write(bytearray(data))
+    f.write(pa.py_buffer(data))
+    with pytest.raises(TypeError):
+        f.write(data.decode('utf8'))
 
     buf = f.getvalue()
 
-    assert buf.to_pybytes() == data * 2
+    assert buf.to_pybytes() == data * 3
 
 
 # ----------------------------------------------------------------------

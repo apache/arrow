@@ -34,7 +34,8 @@
 DEFINE_bool(clear, false, "delete all bucket contents");
 DEFINE_bool(test, false, "run narrative test against bucket");
 
-DEFINE_bool(verbose, false, "be more verbose");
+DEFINE_bool(verbose, false, "be more verbose (includes AWS warnings)");
+DEFINE_bool(debug, false, "be very verbose (includes AWS debug logs)");
 
 DEFINE_string(access_key, "", "S3 access key");
 DEFINE_string(secret_key, "", "S3 secret key");
@@ -193,7 +194,9 @@ void TestBucket(int argc, char** argv) {
 
 void TestMain(int argc, char** argv) {
   S3GlobalOptions options;
-  options.log_level = FLAGS_verbose ? S3LogLevel::Debug : S3LogLevel::Fatal;
+  options.log_level = FLAGS_debug
+                          ? S3LogLevel::Debug
+                          : (FLAGS_verbose ? S3LogLevel::Warn : S3LogLevel::Fatal);
   ASSERT_OK(InitializeS3(options));
 
   if (FLAGS_clear) {
