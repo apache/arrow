@@ -31,27 +31,27 @@ override_dh_auto_configure:
 	else							\
 	  ARROW_GANDIVA=OFF;					\
 	fi;							\
-	dh_auto_configure \
-	  --sourcedirectory=cpp \
-	  --builddirectory=cpp_build \
-	  -- \
+	dh_auto_configure					\
+	  --sourcedirectory=cpp					\
+	  --builddirectory=cpp_build				\
+	  --							\
 	  -DARROW_CUDA=$${ARROW_CUDA}				\
 	  -DARROW_GANDIVA=$${ARROW_GANDIVA}			\
-	  -DARROW_GANDIVA_JAVA=OFF \
-	  -DARROW_ORC=ON \
-	  -DARROW_PARQUET=ON \
+	  -DARROW_GANDIVA_JAVA=OFF				\
+	  -DARROW_ORC=ON					\
+	  -DARROW_PARQUET=ON					\
 	  -DARROW_PLASMA=$${ARROW_PLASMA}			\
-	  -DARROW_PYTHON=ON \
-	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
-	  -DPythonInterp_FIND_VERSION=ON \
+	  -DARROW_PYTHON=ON					\
+	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)			\
+	  -DPythonInterp_FIND_VERSION=ON			\
 	  -DPythonInterp_FIND_VERSION_MAJOR=3
-	dh_auto_configure \
-	  --sourcedirectory=c_glib \
-	  --builddirectory=c_glib_build \
-	  -- \
-	  --with-arrow-cpp-build-dir=$(CURDIR)/cpp_build \
-	  --with-arrow-cpp-build-type=$(BUILD_TYPE) \
-	  --enable-gtk-doc \
+	dh_auto_configure						\
+	  --sourcedirectory=c_glib					\
+	  --builddirectory=c_glib_build					\
+	  --								\
+	  --with-arrow-cpp-build-dir=$(CURDIR)/cpp_build		\
+	  --with-arrow-cpp-build-type=$(BUILD_TYPE)			\
+	  --enable-gtk-doc						\
 	  --with-html-dir=\$${prefix}/share/doc/libarrow-glib-doc
 
 override_dh_auto_build:
