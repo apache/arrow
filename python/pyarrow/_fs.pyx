@@ -37,17 +37,8 @@ cdef inline c_string _path_as_bytes(path) except *:
     return tobytes(path)
 
 
-cpdef enum FileType:
-    NonExistent = <int8_t> CFileType_NonExistent
-    Unknown = <int8_t> CFileType_Unknown
-    File = <int8_t> CFileType_File
-    Directory = <int8_t> CFileType_Directory
-
-
 cdef class FileStats:
     """FileSystem entry stats"""
-
-    cdef CFileStats stats
 
     def __init__(self):
         raise TypeError('dont initialize me')
@@ -147,7 +138,6 @@ cdef class Selector:
     recursive : bool, default False
         Whether to recurse into subdirectories.
     """
-    cdef CSelector selector
 
     def __init__(self, base_dir, bint allow_non_existent=False,
                  bint recursive=False):
@@ -182,10 +172,6 @@ cdef class Selector:
 
 cdef class FileSystem:
     """Abstract file system API"""
-
-    cdef:
-        shared_ptr[CFileSystem] wrapped
-        CFileSystem* fs
 
     def __init__(self):
         raise TypeError("FileSystem is an abstract class, instantiate one of "
@@ -475,9 +461,6 @@ cdef class LocalFileSystem(FileSystem):
     except when deleting an entry).
     """
 
-    cdef:
-        CLocalFileSystem* localfs
-
     def __init__(self):
         cdef shared_ptr[CLocalFileSystem] wrapped
         wrapped = make_shared[CLocalFileSystem]()
@@ -498,9 +481,6 @@ cdef class SubTreeFileSystem(FileSystem):
     allow to "escape" the subtree and access other parts of the underlying
     filesystem.
     """
-
-    cdef:
-        CSubTreeFileSystem* subtreefs
 
     def __init__(self, base_path, FileSystem base_fs):
         cdef:

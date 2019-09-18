@@ -21,9 +21,10 @@ import six
 
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport PyDateTime_from_TimePoint
-from pyarrow.lib import _detect_compression
-from pyarrow.lib cimport *
+from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_s3 cimport *
+from pyarrow._fs cimport FileSystem
+from pyarrow.lib cimport check_status
 
 
 cdef class S3FileSystem(FileSystem):
