@@ -436,8 +436,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary, T* out, int b
   DCHECK_GE(bit_width_, 0);
   int values_read = 0;
   int remaining_nulls = null_count;
-  T zero;
-  memset(&zero, 0, sizeof(T));
+  T zero = {};
 
   arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, batch_size);
 
