@@ -16,19 +16,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Run with
+# Set $ARROW_ROOT to the path of your Arrow clone and run
 
 # docker build -t arrow_cpp_minimal .
-# docker run --rm -t -i -v $PWD:/io arrow_cpp_minimal /io/build.sh
+# docker run --rm -t -i -v $PWD:/io -v $ARROW_ROOT:/arrow  arrow_cpp_minimal /io/build.sh
 
-git clone --depth 1 https://github.com/apache/arrow.git
-
-BUILD_DIR=arrow/cpp/build
+BUILD_DIR=/build
 
 mkdir $BUILD_DIR
 pushd $BUILD_DIR
 
-cmake .. -DBOOST_SOURCE=BUNDLED \
+cmake /arrow/cpp -DBOOST_SOURCE=BUNDLED \
       -DARROW_BOOST_USE_SHARED=OFF \
       -DARROW_COMPUTE=OFF \
       -DARROW_DATASET=OFF \
