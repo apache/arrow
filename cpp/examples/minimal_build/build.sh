@@ -16,6 +16,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Run with
+
+# docker build -t arrow_cpp_minimal .
+# docker run --rm -t -i -v $PWD:/io arrow_cpp_minimal /io/build.sh
+
 git clone https://github.com/apache/arrow.git
 
 BUILD_DIR=arrow/cpp/build
