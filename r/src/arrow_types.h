@@ -172,6 +172,8 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
 #include <arrow/csv/reader.h>
+#include <arrow/filesystem/filesystem.h>
+#include <arrow/filesystem/localfs.h>
 #include <arrow/io/compressed.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
@@ -180,7 +182,6 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/ipc/writer.h>
 #include <arrow/json/reader.h>
 #include <arrow/type.h>
-#include <arrow/filesystem/filesystem.h>
 #include <arrow/util/compression.h>
 #include <parquet/arrow/reader.h>
 #include <parquet/arrow/writer.h>

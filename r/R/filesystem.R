@@ -95,11 +95,13 @@ Selector <- R6Class("Selector",
 #' @export
 FileSystem <- R6Class("FileSystem", inherit = Object,
     public = list(
-      GetTargetStats = function(paths, selector = NULL) {
-        if (is.null(selector)) {
-          shared_ptr(FileStats, fs___FileSystem__GetTargetStats_1(paths))
+      GetTargetStats = function(x) {
+        if (inherits(x, "Selector")) {
+          map(fs___FileSystem__GetTargetStats_Selector(self, x), shared_ptr, class = FileStats)
+        } else if (is.character(x)){
+          map(fs___FileSystem__GetTargetStats_Paths(self, x), shared_ptr, class = FileStats)
         } else {
-          shared_ptr(FileStats, fs___FileSystem__GetTargetStats_2(paths, selector))
+          abort("incompatible type for FileSystem$GetTargetStarts()")
         }
       },
 
@@ -119,7 +121,7 @@ FileSystem <- R6Class("FileSystem", inherit = Object,
         fs___FileSystem__DeleteFile(self, path)
       },
 
-      DeleteFiles = function(path) {
+      DeleteFiles = function(paths) {
         fs___FileSystem__DeleteFiles(self, paths)
       },
 
@@ -146,6 +148,24 @@ FileSystem <- R6Class("FileSystem", inherit = Object,
 
     )
 )
+
+#' @title LocalFileSystem class
+#' @description EXPERIMENTAL: a [FileSystem][FileSystem] implementation accessing files
+#' on the local machine.
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @rdname LocalFileSystem
+#' @name LocalFileSystem
+#' @export
+LocalFileSystem <- R6Class("LocalFileSystem", inherit = FileSystem)
+
+LocalFileSystem$create <- function() {
+  shared_ptr(LocalFileSystem, fs___LocalFileSystem__create())
+}
+
 
 #' @title SubTreeFileSystem class
 #' @description EXPERIMENTAL: abstract file system API

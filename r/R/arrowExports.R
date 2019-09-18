@@ -592,8 +592,12 @@ fs___Selector__recursive <- function(selector){
     .Call(`_arrow_fs___Selector__recursive` , selector)
 }
 
-fs___FileSystem__GetTargetStats_1 <- function(file_system, paths){
-    .Call(`_arrow_fs___FileSystem__GetTargetStats_1` , file_system, paths)
+fs___FileSystem__GetTargetStats_Paths <- function(file_system, paths){
+    .Call(`_arrow_fs___FileSystem__GetTargetStats_Paths` , file_system, paths)
+}
+
+fs___FileSystem__GetTargetStats_Selector <- function(file_system, selector){
+    .Call(`_arrow_fs___FileSystem__GetTargetStats_Selector` , file_system, selector)
 }
 
 fs___FileSystem__CreateDir <- function(file_system, path, recursive){
@@ -638,6 +642,10 @@ fs___FileSystem__OpenOutputStream <- function(file_system, path){
 
 fs___FileSystem__OpenAppendStream <- function(file_system, path){
     .Call(`_arrow_fs___FileSystem__OpenAppendStream` , file_system, path)
+}
+
+fs___LocalFileSystem__create <- function(){
+    .Call(`_arrow_fs___LocalFileSystem__create` )
 }
 
 fs___SubTreeFileSystem__create <- function(base_path, base_fs){

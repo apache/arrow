@@ -2280,17 +2280,33 @@ RcppExport SEXP _arrow_fs___Selector__recursive(SEXP selector_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::vector<std::shared_ptr<arrow::fs::FileStats>> fs___FileSystem__GetTargetStats_1(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::vector<std::string>& paths);
-RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_1(SEXP file_system_sexp, SEXP paths_sexp){
+std::vector<std::shared_ptr<arrow::fs::FileStats>> fs___FileSystem__GetTargetStats_Paths(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::vector<std::string>& paths);
+RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_Paths(SEXP file_system_sexp, SEXP paths_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
 	Rcpp::traits::input_parameter<const std::vector<std::string>&>::type paths(paths_sexp);
-	return Rcpp::wrap(fs___FileSystem__GetTargetStats_1(file_system, paths));
+	return Rcpp::wrap(fs___FileSystem__GetTargetStats_Paths(file_system, paths));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_1(SEXP file_system_sexp, SEXP paths_sexp){
-	Rf_error("Cannot call fs___FileSystem__GetTargetStats_1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_Paths(SEXP file_system_sexp, SEXP paths_sexp){
+	Rf_error("Cannot call fs___FileSystem__GetTargetStats_Paths(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::vector<std::shared_ptr<arrow::fs::FileStats>> fs___FileSystem__GetTargetStats_Selector(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::shared_ptr<arrow::fs::Selector>& selector);
+RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_Selector(SEXP file_system_sexp, SEXP selector_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::Selector>&>::type selector(selector_sexp);
+	return Rcpp::wrap(fs___FileSystem__GetTargetStats_Selector(file_system, selector));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_Selector(SEXP file_system_sexp, SEXP selector_sexp){
+	Rf_error("Cannot call fs___FileSystem__GetTargetStats_Selector(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2477,6 +2493,20 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_fs___FileSystem__OpenAppendStream(SEXP file_system_sexp, SEXP path_sexp){
 	Rf_error("Cannot call fs___FileSystem__OpenAppendStream(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::fs::LocalFileSystem> fs___LocalFileSystem__create();
+RcppExport SEXP _arrow_fs___LocalFileSystem__create(){
+BEGIN_RCPP
+	return Rcpp::wrap(fs___LocalFileSystem__create());
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___LocalFileSystem__create(){
+	Rf_error("Cannot call fs___LocalFileSystem__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -4269,7 +4299,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___Selector__base_dir", (DL_FUNC) &_arrow_fs___Selector__base_dir, 1}, 
 		{ "_arrow_fs___Selector__allow_non_existent", (DL_FUNC) &_arrow_fs___Selector__allow_non_existent, 1}, 
 		{ "_arrow_fs___Selector__recursive", (DL_FUNC) &_arrow_fs___Selector__recursive, 1}, 
-		{ "_arrow_fs___FileSystem__GetTargetStats_1", (DL_FUNC) &_arrow_fs___FileSystem__GetTargetStats_1, 2}, 
+		{ "_arrow_fs___FileSystem__GetTargetStats_Paths", (DL_FUNC) &_arrow_fs___FileSystem__GetTargetStats_Paths, 2}, 
+		{ "_arrow_fs___FileSystem__GetTargetStats_Selector", (DL_FUNC) &_arrow_fs___FileSystem__GetTargetStats_Selector, 2}, 
 		{ "_arrow_fs___FileSystem__CreateDir", (DL_FUNC) &_arrow_fs___FileSystem__CreateDir, 3}, 
 		{ "_arrow_fs___FileSystem__DeleteDir", (DL_FUNC) &_arrow_fs___FileSystem__DeleteDir, 2}, 
 		{ "_arrow_fs___FileSystem__DeleteDirContents", (DL_FUNC) &_arrow_fs___FileSystem__DeleteDirContents, 2}, 
@@ -4281,6 +4312,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___FileSystem__OpenInputFile", (DL_FUNC) &_arrow_fs___FileSystem__OpenInputFile, 2}, 
 		{ "_arrow_fs___FileSystem__OpenOutputStream", (DL_FUNC) &_arrow_fs___FileSystem__OpenOutputStream, 2}, 
 		{ "_arrow_fs___FileSystem__OpenAppendStream", (DL_FUNC) &_arrow_fs___FileSystem__OpenAppendStream, 2}, 
+		{ "_arrow_fs___LocalFileSystem__create", (DL_FUNC) &_arrow_fs___LocalFileSystem__create, 0}, 
 		{ "_arrow_fs___SubTreeFileSystem__create", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__create, 2}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
 		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1}, 

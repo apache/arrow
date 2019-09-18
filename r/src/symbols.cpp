@@ -29,7 +29,7 @@ SEXP get_classes_POSIXct() {
   SEXP classes = Rf_allocVector(STRSXP, 2);
   R_PreserveObject(classes);
   SET_STRING_ELT(classes, 0, Rf_mkChar("POSIXct"));
-  SET_STRING_ELT(classes, 0, Rf_mkChar("POSIXt"));
+  SET_STRING_ELT(classes, 1, Rf_mkChar("POSIXt"));
   return classes;
 }
 
