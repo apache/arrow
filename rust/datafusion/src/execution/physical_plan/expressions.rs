@@ -224,6 +224,18 @@ mod tests {
     }
 
     #[test]
+    fn sum_i32_with_nulls() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let a = Int32Array::from(vec![Some(1), None, Some(3), Some(4), Some(5)]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_sum(&batch)?, Some(ScalarValue::Int64(13)));
+
+        Ok(())
+    }
+
+    #[test]
     fn sum_u32() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::UInt32, false)]);
 
