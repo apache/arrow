@@ -248,6 +248,7 @@ cdef class _CRecordBatchWriter:
 cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
     cdef:
         shared_ptr[OutputStream] sink
+        CIpcOptions options
         bint closed
 
     def __cinit__(self):
@@ -256,14 +257,20 @@ cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
     def __dealloc__(self):
         pass
 
-    def _open(self, sink, Schema schema):
-        get_writer(sink, &self.sink)
+    @property
+    def _use_legacy_format(self):
+        return self.options.write_legacy_ipc_format
 
+    def _open(self, sink, Schema schema, use_legacy_format=False):
+        cdef:
+            CResult[shared_ptr[CRecordBatchWriter]] result
+
+        self.options.write_legacy_ipc_format = use_legacy_format
+        get_writer(sink, &self.sink)
         with nogil:
-            check_status(
-                CRecordBatchStreamWriter.Open(self.sink.get(),
-                                              schema.sp_schema,
-                                              &self.writer))
+            result = CRecordBatchStreamWriter.Open(
+                self.sink.get(), schema.sp_schema, self.options)
+        self.writer = GetResultValue(result)
 
 
 cdef _get_input_stream(object source, shared_ptr[InputStream]* out):
@@ -341,13 +348,17 @@ cdef class _RecordBatchStreamReader(_CRecordBatchReader):
 
 cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
 
-    def _open(self, sink, Schema schema):
-        get_writer(sink, &self.sink)
+    def _open(self, sink, Schema schema, use_legacy_format=False):
+        cdef:
+            CResult[shared_ptr[CRecordBatchWriter]] result
 
+        self.options.write_legacy_ipc_format = use_legacy_format
+        get_writer(sink, &self.sink)
         with nogil:
-            check_status(
-                CRecordBatchFileWriter.Open(self.sink.get(), schema.sp_schema,
-                                            &self.writer))
+            result = CRecordBatchFileWriter.Open(self.sink.get(),
+                                                 schema.sp_schema,
+                                                 self.options)
+        self.writer = GetResultValue(result)
 
 
 cdef class _RecordBatchFileReader:

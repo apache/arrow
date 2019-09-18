@@ -1030,14 +1030,16 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     cdef cppclass CRecordBatchStreamWriter \
             " arrow::ipc::RecordBatchStreamWriter"(CRecordBatchWriter):
         @staticmethod
-        CStatus Open(OutputStream* sink, const shared_ptr[CSchema]& schema,
-                     shared_ptr[CRecordBatchWriter]* out)
+        CResult[shared_ptr[CRecordBatchWriter]] Open(
+            OutputStream* sink, const shared_ptr[CSchema]& schema,
+            CIpcOptions& options)
 
     cdef cppclass CRecordBatchFileWriter \
             " arrow::ipc::RecordBatchFileWriter"(CRecordBatchWriter):
         @staticmethod
-        CStatus Open(OutputStream* sink, const shared_ptr[CSchema]& schema,
-                     shared_ptr[CRecordBatchWriter]* out)
+        CResult[shared_ptr[CRecordBatchWriter]] Open(
+            OutputStream* sink, const shared_ptr[CSchema]& schema,
+            CIpcOptions& options)
 
     cdef cppclass CRecordBatchFileReader \
             " arrow::ipc::RecordBatchFileReader":

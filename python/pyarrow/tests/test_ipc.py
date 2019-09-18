@@ -102,8 +102,15 @@ class FileFormatFixture(IpcFixture):
 
 class StreamFormatFixture(IpcFixture):
 
+    # ARROW-6474, for testing writing old IPC protocol with 4-byte prefix
+    use_legacy_ipc_format = False
+
     def _get_writer(self, sink, schema):
-        return pa.RecordBatchStreamWriter(sink, schema)
+        return pa.RecordBatchStreamWriter(
+            sink,
+            schema,
+            use_legacy_format=self.use_legacy_ipc_format
+        )
 
 
 class MessageFixture(IpcFixture):
@@ -289,7 +296,9 @@ def test_stream_write_table_batches(stream_fixture):
                                  ignore_index=True))
 
 
-def test_stream_simple_roundtrip(stream_fixture):
+@pytest.mark.parametrize('use_legacy_ipc_format', [False, True])
+def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
+    stream_fixture.use_legacy_ipc_format = use_legacy_ipc_format
     _, batches = stream_fixture.write_batches()
     file_contents = pa.BufferReader(stream_fixture.get_source())
     reader = pa.ipc.open_stream(file_contents)
@@ -305,6 +314,24 @@ def test_stream_simple_roundtrip(stream_fixture):
 
     with pytest.raises(StopIteration):
         reader.read_next_batch()
+
+
+def test_envvar_set_legacy_ipc_format():
+    schema = pa.schema([pa.field('foo', pa.int32())])
+
+    writer = pa.RecordBatchStreamWriter(pa.BufferOutputStream(), schema)
+    assert not writer._use_legacy_format
+    writer = pa.RecordBatchFileWriter(pa.BufferOutputStream(), schema)
+    assert not writer._use_legacy_format
+
+    import os
+    os.environ['ARROW_PRE_0_15_IPC_FORMAT'] = '1'
+    writer = pa.RecordBatchStreamWriter(pa.BufferOutputStream(), schema)
+    assert writer._use_legacy_format
+    writer = pa.RecordBatchFileWriter(pa.BufferOutputStream(), schema)
+    assert writer._use_legacy_format
+
+    del os.environ['ARROW_PRE_0_15_IPC_FORMAT']
 
 
 def test_stream_read_all(stream_fixture):
