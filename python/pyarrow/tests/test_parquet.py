@@ -791,6 +791,16 @@ def test_parquet_column_statistics_api(data, type, physical_type, min_value,
     assert stat.physical_type == physical_type
 
 
+# ARROW-6339
+@pytest.mark.pandas
+def test_parquet_raise_on_unset_statistics():
+    df = pd.DataFrame({"t": pd.Series([pd.NaT], dtype="datetime64[ns]")})
+    meta = make_sample_file(pa.Table.from_pandas(df)).metadata
+
+    assert not meta.row_group(0).column(0).statistics.has_min_max
+    assert meta.row_group(0).column(0).statistics.max is None
+
+
 def _close(type, left, right):
     if type == pa.float32():
         return abs(left - right) < 1E-7

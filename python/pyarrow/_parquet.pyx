@@ -116,19 +116,31 @@ cdef class Statistics:
 
     @property
     def min_raw(self):
-        return _cast_statistic_raw_min(self.statistics.get())
+        if self.has_min_max:
+            return _cast_statistic_raw_min(self.statistics.get())
+        else:
+            return None
 
     @property
     def max_raw(self):
-        return _cast_statistic_raw_max(self.statistics.get())
+        if self.has_min_max:
+            return _cast_statistic_raw_max(self.statistics.get())
+        else:
+            return None
 
     @property
     def min(self):
-        return _cast_statistic_min(self.statistics.get())
+        if self.has_min_max:
+            return _cast_statistic_min(self.statistics.get())
+        else:
+            return None
 
     @property
     def max(self):
-        return _cast_statistic_max(self.statistics.get())
+        if self.has_min_max:
+            return _cast_statistic_max(self.statistics.get())
+        else:
+            return None
 
     @property
     def null_count(self):
