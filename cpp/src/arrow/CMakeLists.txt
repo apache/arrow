@@ -272,7 +272,8 @@ endif()
 if(ARROW_IPC)
   add_subdirectory(ipc)
 
-  set(ARROW_SRCS ${ARROW_SRCS}
+  set(ARROW_SRCS
+      ${ARROW_SRCS}
       ipc/dictionary.cc
       ipc/feather.cc
       ipc/message.cc
@@ -282,10 +283,8 @@ if(ARROW_IPC)
       ipc/writer.cc)
 
   if(ARROW_JSON)
-    set(ARROW_SRCS ${ARROW_SRCS}
-      ipc/json_integration.cc
-      ipc/json_internal.cc
-      ipc/json_simple.cc)
+    set(ARROW_SRCS ${ARROW_SRCS} ipc/json_integration.cc ipc/json_internal.cc
+                   ipc/json_simple.cc)
   endif()
   add_dependencies(arrow_dependencies metadata_fbs)
 endif()
