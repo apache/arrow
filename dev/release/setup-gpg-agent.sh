@@ -19,6 +19,6 @@
 #
 
 # source me
-eval $(gpg-agent --daemon --allow-preset-passphrase)
+eval $(gpg-agent --daemon --allow-preset-passphrase --default-cache-ttl 36000 --max-cache-ttl 36000)
 gpg --use-agent -s LICENSE.txt
 rm -rf LICENSE.txt.gpg
