@@ -267,8 +267,6 @@ VERSION=#{@deb_upstream_version}
               # "ubuntu-xenial-arm64",
               "ubuntu-bionic",
               # "ubuntu-bionic-arm64",
-              "ubuntu-cosmic",
-              # "ubuntu-cosmic-arm64",
               "ubuntu-disco",
               # "ubuntu-disco-arm64",
             ]
