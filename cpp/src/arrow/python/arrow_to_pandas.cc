@@ -650,10 +650,6 @@ inline void ConvertDatetimeNanos(const ChunkedArray& data, int64_t* out_values) 
 template <typename Type>
 static Status ConvertDates(const PandasOptions& options, const ChunkedArray& data,
                            PyObject** out_values) {
-  {
-    PyAcquireGIL lock;
-    PyDateTime_IMPORT;
-  }
   auto WrapValue = [](typename Type::c_type value, PyObject** out) {
     RETURN_NOT_OK(internal::PyDate_from_int(value, Type::UNIT, out));
     RETURN_IF_PYERROR();
@@ -665,11 +661,6 @@ static Status ConvertDates(const PandasOptions& options, const ChunkedArray& dat
 template <typename Type>
 static Status ConvertTimes(const PandasOptions& options, const ChunkedArray& data,
                            PyObject** out_values) {
-  {
-    PyAcquireGIL lock;
-    PyDateTime_IMPORT;
-  }
-
   const TimeUnit::type unit = checked_cast<const Type&>(*data.type()).unit();
 
   auto WrapValue = [unit](typename Type::c_type value, PyObject** out) {

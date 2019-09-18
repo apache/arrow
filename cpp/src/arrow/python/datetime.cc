@@ -19,6 +19,7 @@
 #include <chrono>
 #include <iostream>
 
+#include "arrow/python/common.h"
 #include "arrow/python/datetime.h"
 #include "arrow/python/platform.h"
 #include "arrow/status.h"
@@ -28,6 +29,17 @@
 namespace arrow {
 namespace py {
 namespace internal {
+
+PyDateTime_CAPI* datetime_api = nullptr;
+
+void InitDatetime() {
+  PyAcquireGIL lock;
+  datetime_api =
+      reinterpret_cast<PyDateTime_CAPI*>(PyCapsule_Import(PyDateTime_CAPSULE_NAME, 0));
+  if (datetime_api == nullptr) {
+    Py_FatalError("Could not import datetime C API");
+  }
+}
 
 // The following code is adapted from
 // https://github.com/numpy/numpy/blob/master/numpy/core/src/multiarray/datetime.c
@@ -246,7 +258,6 @@ Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** ou
 }
 
 Status PyDateTime_from_TimePoint(TimePoint val, PyObject** out) {
-  PyDateTime_IMPORT;
   auto nanos = val.time_since_epoch();
   auto micros = std::chrono::duration_cast<std::chrono::microseconds>(nanos);
   RETURN_NOT_OK(PyDateTime_from_int(micros.count(), TimeUnit::MICRO, out));

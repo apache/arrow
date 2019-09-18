@@ -343,7 +343,6 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
 Status DeserializeObject(PyObject* context, const SerializedPyObject& obj, PyObject* base,
                          PyObject** out) {
   PyAcquireGIL lock;
-  PyDateTime_IMPORT;
   return DeserializeList(context, *obj.batch->column(0), 0, obj.batch->num_rows(), base,
                          obj, out);
 }
