@@ -104,7 +104,7 @@ mod tests {
     use crate::test;
 
     #[test]
-    fn project_first_column() -> Result<()> {
+    fn merge() -> Result<()> {
         let schema = test::aggr_test_schema();
 
         let num_partitions = 4;
