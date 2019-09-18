@@ -594,11 +594,11 @@ class ObjectOutputStream : public io::OutputStream {
     RETURN_NOT_OK(current_part_->Finish(&buf));
     current_part_.reset();
     current_part_size_ = 0;
-    return UploadPart(std::move(buf));
+    return UploadPart(buf);
   }
 
   Status UploadPart(std::shared_ptr<Buffer> buffer) {
-    return UploadPart(buffer->data(), buffer->size(), std::move(buffer));
+    return UploadPart(buffer->data(), buffer->size(), buffer);
   }
 
   Status UploadPart(const void* data, int64_t nbytes,
