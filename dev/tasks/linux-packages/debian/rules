@@ -36,7 +36,6 @@ override_dh_auto_configure:
 	  --builddirectory=cpp_build				\
 	  --buildsystem=$${cpp_build_system}			\
 	  --							\
-	  -DARROW_BUILD_TESTS=OFF				\
 	  -DARROW_CUDA=$${ARROW_CUDA}				\
 	  -DARROW_FLIGHT=ON					\
 	  -DARROW_GANDIVA=$${ARROW_GANDIVA}			\
