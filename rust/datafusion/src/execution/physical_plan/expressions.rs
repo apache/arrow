@@ -73,7 +73,7 @@ pub struct Sum {
 impl Sum {
     /// Create a new SUM aggregate function
     pub fn new(expr: Arc<dyn PhysicalExpr>) -> Self {
-        Sum { expr }
+        Self { expr }
     }
 }
 
@@ -90,7 +90,12 @@ impl AggregateExpr for Sum {
             DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
                 Ok(DataType::UInt64)
             }
-            other => Ok(other.clone()),
+            DataType::Float32 => Ok(DataType::Float32),
+            DataType::Float64 => Ok(DataType::Float64),
+            other => Err(ExecutionError::General(format!(
+                "SUM does not support {:?}",
+                other
+            ))),
         }
     }
 
@@ -114,7 +119,12 @@ macro_rules! sum_accumulate {
                 Some(ScalarValue::$SCALAR_VARIANT(n)) => {
                     Some(ScalarValue::$SCALAR_VARIANT(n + value as $TY))
                 }
-                _ => Some(ScalarValue::$SCALAR_VARIANT(value as $TY)),
+                Some(_) => {
+                    return Err(ExecutionError::InternalError(
+                        "Unexpected ScalarValue variant".to_string(),
+                    ))
+                }
+                None => Some(ScalarValue::$SCALAR_VARIANT(value as $TY)),
             };
             Ok(())
         } else {
@@ -184,22 +194,11 @@ pub fn sum(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
 mod tests {
     use super::*;
     use crate::error::Result;
-    use arrow::array::*;
-    use arrow::buffer::*;
     use arrow::datatypes::*;
 
     #[test]
-    fn aggr_sum() -> Result<()> {
+    fn sum_contract() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-
-        let v = vec![1, 2, 3, 4, 5];
-        let array_data = ArrayData::builder(DataType::Int32)
-            .len(5)
-            .add_buffer(Buffer::from(v.to_byte_slice()))
-            .build();
-        let a = Int32Array::from(array_data);
-
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
         let sum = sum(col(0));
         assert_eq!("SUM".to_string(), sum.name());
@@ -209,13 +208,64 @@ mod tests {
         assert_eq!("SUM".to_string(), combiner.name());
         assert_eq!(DataType::Int64, combiner.data_type(&schema)?);
 
+        Ok(())
+    }
+
+    #[test]
+    fn sum_i32() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_sum(&batch)?, Some(ScalarValue::Int64(15)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn sum_u32() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::UInt32, false)]);
+
+        let a = UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_sum(&batch)?, Some(ScalarValue::UInt64(15_u64)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn sum_f32() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Float32, false)]);
+
+        let a = Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_sum(&batch)?, Some(ScalarValue::Float32(15_f32)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn sum_f64() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Float64, false)]);
+
+        let a = Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_sum(&batch)?, Some(ScalarValue::Float64(15_f64)));
+
+        Ok(())
+    }
+
+    fn do_sum(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
+        let sum = sum(col(0));
         let accum = sum.create_accumulator();
         let mut accum = accum.borrow_mut();
         for i in 0..batch.num_rows() {
             accum.accumulate(&batch, i)?;
         }
-        assert_eq!(accum.get_value()?, Some(ScalarValue::Int64(15)));
-
-        Ok(())
+        accum.get_value()
     }
 }
