@@ -173,8 +173,11 @@ def test_to_pandas_zero_copy():
         np_arr.sum()
 
 
+@pytest.mark.nopandas
 @pytest.mark.pandas
 def test_asarray():
+    # ensure this is tested both when pandas is present or not (ARROW-6564)
+
     arr = pa.array(range(4))
 
     # The iterator interface gives back an array of Int64Value's
@@ -201,6 +204,13 @@ def test_asarray():
     assert elements[:3] == [0., 1., 2.]
     assert np.isnan(elements[3])
     assert np_arr.dtype == np.dtype('float64')
+
+    # DictionaryType data will be converted to dense numpy array
+    arr = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, 2, 0, 1]), pa.array(['a', 'b', 'c']))
+    np_arr = np.asarray(arr)
+    assert np_arr.dtype == np.dtype('object')
+    assert np_arr.tolist() == ['a', 'b', 'c', 'a', 'b']
 
 
 def test_array_getitem():
