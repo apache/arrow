@@ -19,8 +19,8 @@
 //! into a single partition
 
 use crate::error::Result;
-use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::common::RecordBatchIterator;
+use crate::execution::physical_plan::{common, ExecutionPlan};
 use crate::execution::physical_plan::{BatchIterator, Partition};
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
@@ -44,7 +44,27 @@ impl MergeExec {
     }
 }
 
-impl Partition for MergeExec {
+impl ExecutionPlan for MergeExec {
+    fn schema(&self) -> Arc<Schema> {
+        self.schema.clone()
+    }
+
+    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
+        Ok(vec![Arc::new(MergePartition {
+            schema: self.schema.clone(),
+            partitions: self.partitions.clone(),
+        })])
+    }
+}
+
+struct MergePartition {
+    /// Input schema
+    schema: Arc<Schema>,
+    /// Input partitions
+    partitions: Vec<Arc<dyn Partition>>,
+}
+
+impl Partition for MergePartition {
     fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
         let threads: Vec<JoinHandle<Result<Vec<RecordBatch>>>> = self
             .partitions
@@ -73,4 +93,46 @@ impl Partition for MergeExec {
             combined_results,
         ))))
     }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::execution::physical_plan::common;
+    use crate::execution::physical_plan::csv::CsvExec;
+    use crate::test;
+
+    #[test]
+    fn project_first_column() -> Result<()> {
+        let schema = test::aggr_test_schema();
+
+        let num_partitions = 4;
+        let path =
+            test::create_partitioned_csv("aggregate_test_100.csv", num_partitions)?;
+
+        let csv = CsvExec::try_new(&path, schema.clone(), true, None, 1024)?;
+
+        // input should have 4 partitions
+        let input = csv.partitions()?;
+        assert_eq!(input.len(), num_partitions);
+
+        let merge = MergeExec::new(schema.clone(), input);
+
+        // output of MergeExec should have a single partition
+        let merged = merge.partitions()?;
+        assert_eq!(merged.len(), 1);
+
+        // the result should contain 4 batches (one per input partition)
+        let iter = merged[0].execute()?;
+        let batches = common::collect(iter)?;
+        assert_eq!(batches.len(), num_partitions);
+
+        // there should be a total of 100 rows
+        let row_count: usize = batches.iter().map(|batch| batch.num_rows()).sum();
+        assert_eq!(row_count, 100);
+
+        Ok(())
+    }
+
 }

@@ -40,7 +40,7 @@ use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::expressions::Column;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
-use crate::execution::physical_plan::{ExecutionPlan, Partition, PhysicalExpr};
+use crate::execution::physical_plan::{ExecutionPlan, PhysicalExpr};
 use crate::execution::projection::ProjectRelation;
 use crate::execution::relation::{DataSourceRelation, Relation};
 use crate::execution::scalar_relation::ScalarRelation;
@@ -288,7 +288,8 @@ impl ExecutionContext {
             }
             _ => {
                 let plan = MergeExec::new(plan.schema().clone(), partitions);
-                let it = plan.execute()?;
+                let partitions = plan.partitions()?;
+                let it = partitions[0].execute()?;
                 common::collect(it)
             }
         }
