@@ -4,7 +4,7 @@
 \alias{read_feather}
 \title{Read a Feather file}
 \usage{
-read_feather(file, col_select = NULL, as_tibble = TRUE, ...)
+read_feather(file, col_select = NULL, as_data_frame = TRUE, ...)
 }
 \arguments{
 \item{file}{A character file path, a raw vector, or \code{InputStream}, passed to
@@ -15,13 +15,13 @@ read_feather(file, col_select = NULL, as_tibble = TRUE, ...)
 \link[tidyselect:vars_select]{tidy selection specification}
 of columns, as used in \code{dplyr::select()}.}
 
-\item{as_tibble}{Should the function return a \code{data.frame} or an
+\item{as_data_frame}{Should the function return a \code{data.frame} or an
 \link[=Table]{arrow::Table}?}
 
 \item{...}{additional parameters}
 }
 \value{
-A \code{data.frame} if \code{as_tibble} is \code{TRUE} (the default), or an
+A \code{data.frame} if \code{as_data_frame} is \code{TRUE} (the default), or an
 \link[=Table]{arrow::Table} otherwise
 }
 \description{

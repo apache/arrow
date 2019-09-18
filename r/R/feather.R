@@ -96,7 +96,7 @@ FeatherTableWriter$create <- function(stream) {
 #' @inheritParams read_delim_arrow
 #' @param ... additional parameters
 #'
-#' @return A `data.frame` if `as_tibble` is `TRUE` (the default), or an
+#' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
 #' [arrow::Table][Table] otherwise
 #'
 #' @export
@@ -112,7 +112,7 @@ FeatherTableWriter$create <- function(stream) {
 #'   df <- read_feather(tf, col_select = starts_with("Sepal"))
 #' })
 #' }
-read_feather <- function(file, col_select = NULL, as_tibble = TRUE, ...) {
+read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   reader <- FeatherTableReader$create(file, ...)
 
   all_columns <- ipc___feather___TableReader__column_names(reader)
@@ -122,7 +122,7 @@ read_feather <- function(file, col_select = NULL, as_tibble = TRUE, ...) {
   }
 
   out <- reader$Read(columns)
-  if (isTRUE(as_tibble)) {
+  if (isTRUE(as_data_frame)) {
     out <- as.data.frame(out)
   }
   out

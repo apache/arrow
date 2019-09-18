@@ -4,7 +4,7 @@
 \alias{read_json_arrow}
 \title{Read a JSON file}
 \usage{
-read_json_arrow(file, col_select = NULL, as_tibble = TRUE, ...)
+read_json_arrow(file, col_select = NULL, as_data_frame = TRUE, ...)
 }
 \arguments{
 \item{file}{A character file name, raw vector, or an Arrow input stream}
@@ -14,13 +14,13 @@ read_json_arrow(file, col_select = NULL, as_tibble = TRUE, ...)
 \link[tidyselect:vars_select]{tidy selection specification}
 of columns, as used in \code{dplyr::select()}.}
 
-\item{as_tibble}{Should the function return a \code{data.frame} or an
+\item{as_data_frame}{Should the function return a \code{data.frame} or an
 \link[=Table]{arrow::Table}?}
 
 \item{...}{Additional options, passed to \code{json_table_reader()}}
 }
 \value{
-A \code{data.frame}, or an Table if \code{as_tibble = FALSE}.
+A \code{data.frame}, or an Table if \code{as_data_frame = FALSE}.
 }
 \description{
 Using \link{JsonTableReader}

@@ -22,7 +22,7 @@
 #' @inheritParams read_delim_arrow
 #' @param ... Additional options, passed to `json_table_reader()`
 #'
-#' @return A `data.frame`, or an Table if `as_tibble = FALSE`.
+#' @return A `data.frame`, or an Table if `as_data_frame = FALSE`.
 #' @export
 #' @examples
 #' \donttest{
@@ -37,10 +37,10 @@
 #'   df <- read_json_arrow(tf)
 #' })
 #' }
-read_json_arrow <- function(file, col_select = NULL, as_tibble = TRUE, ...) {
+read_json_arrow <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   tab <- json_table_reader(file, ...)$Read()$select(!!enquo(col_select))
 
-  if (isTRUE(as_tibble)) {
+  if (isTRUE(as_data_frame)) {
     tab <- as.data.frame(tab)
   }
   tab

@@ -25,7 +25,7 @@
 #' @param props [ParquetReaderProperties]
 #' @param ... Additional arguments passed to `ParquetFileReader$create()`
 #'
-#' @return A [arrow::Table][Table], or a `data.frame` if `as_tibble` is
+#' @return A [arrow::Table][Table], or a `data.frame` if `as_data_frame` is
 #' `TRUE`.
 #' @examples
 #' \donttest{
@@ -35,13 +35,13 @@
 #' @export
 read_parquet <- function(file,
                          col_select = NULL,
-                         as_tibble = TRUE,
+                         as_data_frame = TRUE,
                          props = ParquetReaderProperties$create(),
                          ...) {
   reader <- ParquetFileReader$create(file, props = props, ...)
   tab <- reader$ReadTable(!!enquo(col_select))
 
-  if (as_tibble) {
+  if (as_data_frame) {
     tab <- as.data.frame(tab)
   }
   tab

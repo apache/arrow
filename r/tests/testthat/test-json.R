@@ -27,9 +27,9 @@ test_that("Can read json file with scalars columns (ARROW-5503)", {
     { "hello": 0.0, "world": true, "yo": null }
   ', tf, useBytes=TRUE)
 
-  tab1 <- read_json_arrow(tf, as_tibble = FALSE)
-  tab2 <- read_json_arrow(mmap_open(tf), as_tibble = FALSE)
-  tab3 <- read_json_arrow(ReadableFile$create(tf), as_tibble = FALSE)
+  tab1 <- read_json_arrow(tf, as_data_frame = FALSE)
+  tab2 <- read_json_arrow(mmap_open(tf), as_data_frame = FALSE)
+  tab3 <- read_json_arrow(ReadableFile$create(tf), as_data_frame = FALSE)
 
   expect_equal(tab1, tab2)
   expect_equal(tab1, tab3)
@@ -98,9 +98,9 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
     { "arr": [5.0, 6.0], "nuf": { "ps": 19 } }
   ', tf)
 
-  tab1 <- read_json_arrow(tf, as_tibble = FALSE)
-  tab2 <- read_json_arrow(mmap_open(tf), as_tibble = FALSE)
-  tab3 <- read_json_arrow(ReadableFile$create(tf), as_tibble = FALSE)
+  tab1 <- read_json_arrow(tf, as_data_frame = FALSE)
+  tab2 <- read_json_arrow(mmap_open(tf), as_data_frame = FALSE)
+  tab3 <- read_json_arrow(ReadableFile$create(tf), as_data_frame = FALSE)
 
   expect_equal(tab1, tab2)
   expect_equal(tab1, tab3)

@@ -63,10 +63,10 @@
 #' parsing options provided in other arguments (e.g. `delim`, `quote`, etc.).
 #' @param convert_options see [csv_convert_options()]
 #' @param read_options see [csv_read_options()]
-#' @param as_tibble Should the function return a `data.frame` or an
+#' @param as_data_frame Should the function return a `data.frame` or an
 #' [arrow::Table][Table]?
 #'
-#' @return A `data.frame`, or an Table if `as_tibble = FALSE`.
+#' @return A `data.frame`, or an Table if `as_data_frame = FALSE`.
 #' @export
 #' @examples
 #' \donttest{
@@ -95,7 +95,7 @@ read_delim_arrow <- function(file,
                              parse_options = NULL,
                              convert_options = NULL,
                              read_options = NULL,
-                             as_tibble = TRUE) {
+                             as_data_frame = TRUE) {
 
   if (is.null(parse_options)) {
     parse_options <- readr_to_csv_parse_options(
@@ -124,7 +124,7 @@ read_delim_arrow <- function(file,
 
   tab <- reader$Read()$select(!!enquo(col_select))
 
-  if (isTRUE(as_tibble)) {
+  if (isTRUE(as_data_frame)) {
     tab <- as.data.frame(tab)
   }
 
@@ -147,7 +147,7 @@ read_csv_arrow <- function(file,
                            parse_options = NULL,
                            convert_options = NULL,
                            read_options = NULL,
-                           as_tibble = TRUE) {
+                           as_data_frame = TRUE) {
 
   mc <- match.call()
   mc$delim <- ","
@@ -171,7 +171,7 @@ read_tsv_arrow <- function(file,
                            parse_options = NULL,
                            convert_options = NULL,
                            read_options = NULL,
-                           as_tibble = TRUE) {
+                           as_data_frame = TRUE) {
 
   mc <- match.call()
   mc$delim <- "\t"

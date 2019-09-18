@@ -10,19 +10,19 @@ read_delim_arrow(file, delim = ",", quote = "\\"",
   escape_double = TRUE, escape_backslash = FALSE, col_names = TRUE,
   col_select = NULL, na = c("", "NA"), quoted_na = TRUE,
   skip_empty_rows = TRUE, skip = 0L, parse_options = NULL,
-  convert_options = NULL, read_options = NULL, as_tibble = TRUE)
+  convert_options = NULL, read_options = NULL, as_data_frame = TRUE)
 
 read_csv_arrow(file, quote = "\\"", escape_double = TRUE,
   escape_backslash = FALSE, col_names = TRUE, col_select = NULL,
   na = c("", "NA"), quoted_na = TRUE, skip_empty_rows = TRUE,
   skip = 0L, parse_options = NULL, convert_options = NULL,
-  read_options = NULL, as_tibble = TRUE)
+  read_options = NULL, as_data_frame = TRUE)
 
 read_tsv_arrow(file, quote = "\\"", escape_double = TRUE,
   escape_backslash = FALSE, col_names = TRUE, col_select = NULL,
   na = c("", "NA"), quoted_na = TRUE, skip_empty_rows = TRUE,
   skip = 0L, parse_options = NULL, convert_options = NULL,
-  read_options = NULL, as_tibble = TRUE)
+  read_options = NULL, as_data_frame = TRUE)
 }
 \arguments{
 \item{file}{A character file name, raw vector, or an Arrow input stream}
@@ -70,11 +70,11 @@ parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, et
 
 \item{read_options}{see \code{\link[=csv_read_options]{csv_read_options()}}}
 
-\item{as_tibble}{Should the function return a \code{data.frame} or an
+\item{as_data_frame}{Should the function return a \code{data.frame} or an
 \link[=Table]{arrow::Table}?}
 }
 \value{
-A \code{data.frame}, or an Table if \code{as_tibble = FALSE}.
+A \code{data.frame}, or an Table if \code{as_data_frame = FALSE}.
 }
 \description{
 These functions uses the Arrow C++ CSV reader to read into a \code{data.frame}.
