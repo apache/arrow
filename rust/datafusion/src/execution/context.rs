@@ -287,10 +287,17 @@ impl ExecutionContext {
                 common::collect(it)
             }
             _ => {
+                // merge into a single partition
                 let plan = MergeExec::new(plan.schema().clone(), partitions);
                 let partitions = plan.partitions()?;
-                let it = partitions[0].execute()?;
-                common::collect(it)
+                if partitions.len() == 1 {
+                    common::collect(partitions[0].execute()?)
+                } else {
+                    Err(ExecutionError::InternalError(format!(
+                        "MergeExec returned {} partitions",
+                        partitions.len()
+                    )))
+                }
             }
         }
     }
