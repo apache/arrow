@@ -696,11 +696,6 @@ services:
     volumes:
       - .:/arrow:delegated
 
-  ubuntu-cosmic:
-    image: ubuntu:cosmic
-    volumes:
-      - .:/arrow:delegated
-
   ubuntu-disco:
     image: ubuntu:disco
     volumes:
