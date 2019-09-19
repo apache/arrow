@@ -31,29 +31,26 @@ parquet___arrow___ArrowReaderProperties__Make(bool use_threads) {
 
 // [[arrow::export]]
 void parquet___arrow___ArrowReaderProperties__set_use_threads(
-    const std::shared_ptr<parquet::ArrowReaderProperties>& properties,
-    bool use_threads) {
+    const std::shared_ptr<parquet::ArrowReaderProperties>& properties, bool use_threads) {
   properties->set_use_threads(use_threads);
 }
 
 // [[arrow::export]]
 bool parquet___arrow___ArrowReaderProperties__get_use_threads(
-    const std::shared_ptr<parquet::ArrowReaderProperties>& properties,
-    bool use_threads) {
+    const std::shared_ptr<parquet::ArrowReaderProperties>& properties, bool use_threads) {
   return properties->use_threads();
 }
 
 // [[arrow::export]]
 bool parquet___arrow___ArrowReaderProperties__get_read_dictionary(
-    const std::shared_ptr<parquet::ArrowReaderProperties>& properties,
-    int column_index) {
+    const std::shared_ptr<parquet::ArrowReaderProperties>& properties, int column_index) {
   return properties->read_dictionary(column_index);
 }
 
 // [[arrow::export]]
 void parquet___arrow___ArrowReaderProperties__set_read_dictionary(
-    const std::shared_ptr<parquet::ArrowReaderProperties>& properties,
-    int column_index, bool read_dict) {
+    const std::shared_ptr<parquet::ArrowReaderProperties>& properties, int column_index,
+    bool read_dict) {
   properties->set_read_dictionary(column_index, read_dict);
 }
 

@@ -540,6 +540,122 @@ Field__type <- function(field){
     .Call(`_arrow_Field__type` , field)
 }
 
+fs___FileStats__type <- function(x){
+    .Call(`_arrow_fs___FileStats__type` , x)
+}
+
+fs___FileStats__set_type <- function(x, type){
+    invisible(.Call(`_arrow_fs___FileStats__set_type` , x, type))
+}
+
+fs___FileStats__path <- function(x){
+    .Call(`_arrow_fs___FileStats__path` , x)
+}
+
+fs___FileStats__set_path <- function(x, path){
+    invisible(.Call(`_arrow_fs___FileStats__set_path` , x, path))
+}
+
+fs___FileStats__size <- function(x){
+    .Call(`_arrow_fs___FileStats__size` , x)
+}
+
+fs___FileStats__set_size <- function(x, size){
+    invisible(.Call(`_arrow_fs___FileStats__set_size` , x, size))
+}
+
+fs___FileStats__base_name <- function(x){
+    .Call(`_arrow_fs___FileStats__base_name` , x)
+}
+
+fs___FileStats__extension <- function(x){
+    .Call(`_arrow_fs___FileStats__extension` , x)
+}
+
+fs___FileStats__mtime <- function(x){
+    .Call(`_arrow_fs___FileStats__mtime` , x)
+}
+
+fs___FileStats__set_mtime <- function(x, time){
+    invisible(.Call(`_arrow_fs___FileStats__set_mtime` , x, time))
+}
+
+fs___Selector__base_dir <- function(selector){
+    .Call(`_arrow_fs___Selector__base_dir` , selector)
+}
+
+fs___Selector__allow_non_existent <- function(selector){
+    .Call(`_arrow_fs___Selector__allow_non_existent` , selector)
+}
+
+fs___Selector__recursive <- function(selector){
+    .Call(`_arrow_fs___Selector__recursive` , selector)
+}
+
+fs___Selector__create <- function(base_dir, allow_non_existent, recursive){
+    .Call(`_arrow_fs___Selector__create` , base_dir, allow_non_existent, recursive)
+}
+
+fs___FileSystem__GetTargetStats_Paths <- function(file_system, paths){
+    .Call(`_arrow_fs___FileSystem__GetTargetStats_Paths` , file_system, paths)
+}
+
+fs___FileSystem__GetTargetStats_Selector <- function(file_system, selector){
+    .Call(`_arrow_fs___FileSystem__GetTargetStats_Selector` , file_system, selector)
+}
+
+fs___FileSystem__CreateDir <- function(file_system, path, recursive){
+    invisible(.Call(`_arrow_fs___FileSystem__CreateDir` , file_system, path, recursive))
+}
+
+fs___FileSystem__DeleteDir <- function(file_system, path){
+    invisible(.Call(`_arrow_fs___FileSystem__DeleteDir` , file_system, path))
+}
+
+fs___FileSystem__DeleteDirContents <- function(file_system, path){
+    invisible(.Call(`_arrow_fs___FileSystem__DeleteDirContents` , file_system, path))
+}
+
+fs___FileSystem__DeleteFile <- function(file_system, path){
+    invisible(.Call(`_arrow_fs___FileSystem__DeleteFile` , file_system, path))
+}
+
+fs___FileSystem__DeleteFiles <- function(file_system, paths){
+    invisible(.Call(`_arrow_fs___FileSystem__DeleteFiles` , file_system, paths))
+}
+
+fs___FileSystem__Move <- function(file_system, src, dest){
+    invisible(.Call(`_arrow_fs___FileSystem__Move` , file_system, src, dest))
+}
+
+fs___FileSystem__CopyFile <- function(file_system, src, dest){
+    invisible(.Call(`_arrow_fs___FileSystem__CopyFile` , file_system, src, dest))
+}
+
+fs___FileSystem__OpenInputStream <- function(file_system, path){
+    .Call(`_arrow_fs___FileSystem__OpenInputStream` , file_system, path)
+}
+
+fs___FileSystem__OpenInputFile <- function(file_system, path){
+    .Call(`_arrow_fs___FileSystem__OpenInputFile` , file_system, path)
+}
+
+fs___FileSystem__OpenOutputStream <- function(file_system, path){
+    .Call(`_arrow_fs___FileSystem__OpenOutputStream` , file_system, path)
+}
+
+fs___FileSystem__OpenAppendStream <- function(file_system, path){
+    .Call(`_arrow_fs___FileSystem__OpenAppendStream` , file_system, path)
+}
+
+fs___LocalFileSystem__create <- function(){
+    .Call(`_arrow_fs___LocalFileSystem__create` )
+}
+
+fs___SubTreeFileSystem__create <- function(base_path, base_fs){
+    .Call(`_arrow_fs___SubTreeFileSystem__create` , base_path, base_fs)
+}
+
 io___Readable__Read <- function(x, nbytes){
     .Call(`_arrow_io___Readable__Read` , x, nbytes)
 }

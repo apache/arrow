@@ -33,6 +33,11 @@ struct symbols {
   static SEXP inspect;
   static SEXP row_names;
 };
+
+struct data {
+  static SEXP classes_POSIXct;
+};
+
 }  // namespace r
 }  // namespace arrow
 
@@ -167,6 +172,8 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
 #include <arrow/csv/reader.h>
+#include <arrow/filesystem/filesystem.h>
+#include <arrow/filesystem/localfs.h>
 #include <arrow/io/compressed.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
@@ -187,6 +194,7 @@ RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
 RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::Message::Type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::Compression::type)
+RCPP_EXPOSED_ENUM_NODECL(arrow::fs::FileType)
 
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
