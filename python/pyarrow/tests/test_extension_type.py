@@ -355,8 +355,8 @@ def test_generic_ext_type_register(registered_period_type):
 
 
 @pytest.mark.parquet
-def test_parquet_fallback(tmpdir):
-    # extension type falls back to its storage type when writing to parquet
+def test_parquet(tmpdir, registered_period_type):
+    # parquet support for extension types
     period_type = PeriodType('D')
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(period_type, storage)
@@ -368,16 +368,20 @@ def test_parquet_fallback(tmpdir):
     pq.write_table(table, filename)
 
     # stored in parquet as storage type but with extension metadata saved
-    # in serialized arrow schema
+    # in the serialized arrow schema
     meta = pq.read_metadata(filename)
     assert meta.schema.column(0).physical_type == "INT64"
     assert b"ARROW:schema" in meta.metadata
     schema = pa.read_schema(pa.BufferReader(meta.metadata[b"ARROW:schema"]))
-    assert schema.field("ext").type == pa.int64()
     assert schema.field("ext").metadata == {
         b'ARROW:extension:metadata': b'freq=D',
         b'ARROW:extension:name': b'pandas.period'}
 
-    # when reading in, use storage type
+    # when reading in, properly create extension type if it is registered
+    result = pq.read_table(filename)
+    assert result.column("ext").type == period_type
+
+    # when the type is not registered, read in as storage type
+    pa.unregister_extension_type(period_type.extension_name)
     result = pq.read_table(filename)
     assert result.column("ext").type == pa.int64()
