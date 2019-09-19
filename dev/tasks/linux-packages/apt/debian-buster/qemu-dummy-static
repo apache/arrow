@@ -28,6 +28,6 @@
 # the "COPY" isn't failed. It means that we can copy "qemu*" only when we
 # need.
 #
-# See also "script" in dev/tasks/linux-packages/travis.linux.yml.
-# Travis CI uses old Ubuntu. So we need to put "qemu-aarch64-static" into
-# this directory.
+# See also "script" in dev/tasks/linux-packages/azure.linux.arm64.yml.
+# Azure Pipelines uses old Ubuntu (18.04).
+# So we need to put "qemu-aarch64-static" into this directory.

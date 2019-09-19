@@ -110,7 +110,9 @@ class PackageTask
     absolute_output_path
   end
 
-  def run_docker(id)
+  def run_docker(os, architecture=nil)
+    id = os
+    id = "#{id}-#{architecture}" if architecture
     docker_tag = "#{@package}-#{id}"
     build_command_line = [
       "docker",
@@ -128,7 +130,16 @@ class PackageTask
       build_command_line.concat(["--build-arg", "DEBUG=yes"])
       run_command_line.concat(["--env", "DEBUG=yes"])
     end
-    build_command_line << id
+    if File.exist?(File.join(id, "Dockerfile"))
+      docker_context = id
+    else
+      from = File.readlines(File.join(id, "from")).find do |line|
+        /^[a-z]/i =~ line
+      end
+      build_command_line.concat(["--build-arg", "FROM=#{from.chomp}"])
+      docker_context = os
+    end
+    build_command_line << docker_context
     run_command_line.concat([docker_tag, "/host/build.sh"])
 
     sh(*build_command_line)
@@ -193,13 +204,13 @@ RELEASE=#{@rpm_release}
           distribution_versions = (ENV["CENTOS_VERSIONS"] || "6,7").split(",")
           threads = []
           distribution_versions.each do |version|
-            id = "#{distribution}-#{version}"
+            os = "#{distribution}-#{version}"
             if parallel_build?
-              threads << Thread.new(id) do |local_id|
-                run_docker(local_id)
+              threads << Thread.new(os) do |local_os|
+                run_docker(local_os)
               end
             else
-              run_docker(id)
+              run_docker(os)
             end
           end
           threads.each(&:join)
@@ -245,26 +256,31 @@ VERSION=#{@deb_upstream_version}
           threads = []
           targets = (ENV["APT_TARGETS"] || "").split(",")
           if targets.empty?
+            # Disable arm64 targets by default for now
+            # because they require some setups on host.
             targets = [
               "debian-stretch",
-              # Disable by default for now because it requires some setups on host.
               # "debian-stretch-arm64",
               "debian-buster",
+              # "debian-stretch-arm64",
               "ubuntu-xenial",
+              # "ubuntu-xenial-arm64",
               "ubuntu-bionic",
-              "ubuntu-cosmic",
+              # "ubuntu-bionic-arm64",
               "ubuntu-disco",
+              # "ubuntu-disco-arm64",
             ]
           end
           targets.each do |target|
             next unless Dir.exist?(target)
-            id = target
+            distribution, version, architecture = target.split("-", 3)
+            os = "#{distribution}-#{version}"
             if parallel_build?
-              threads << Thread.new(id) do |local_id|
-                run_docker(local_id)
+              threads << Thread.new(os) do |local_os|
+                run_docker(local_os, architecture)
               end
             else
-              run_docker(id)
+              run_docker(os, architecture)
             end
           end
           threads.each(&:join)

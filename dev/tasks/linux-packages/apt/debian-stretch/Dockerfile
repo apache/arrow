@@ -15,7 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM debian:stretch
+ARG FROM=debian:stretch
+FROM ${FROM}
+
+COPY qemu-* /usr/bin/
 
 RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
@@ -75,10 +78,12 @@ RUN \
     libgtest-dev \
     libprotobuf-dev \
     libprotoc-dev \
-    nvidia-cuda-toolkit \
     protobuf-compiler \
     protobuf-compiler-grpc \
     rapidjson-dev && \
+  if apt list | grep '^nvidia-cuda-toolkit/'; then \
+    apt install -y -V -t stretch-backports ${quiet} nvidia-cuda-toolkit; \
+  fi && \
   pip3 install --upgrade meson && \
   ln -s /usr/local/bin/meson /usr/bin/ && \
   apt clean && \

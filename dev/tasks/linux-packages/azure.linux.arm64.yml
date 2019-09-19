@@ -43,13 +43,14 @@ jobs:
         rm *.deb
         pushd qemu-user-static*
         unar data.*
-        for arm64_image in ../arrow/dev/tasks/linux-packages/apt/*-arm64/; do
-          cp data/usr/bin/qemu-aarch64-static ${arm64_image}
+        for docker_context in ../arrow/dev/tasks/linux-packages/apt/*/; do
+          cp data/usr/bin/qemu-aarch64-static ${docker_context}
         done
         popd
       displayName: Prepare qemu-user-static
 
     - script: |
+        set -e
         pushd arrow/dev/tasks/linux-packages
         rake version:update
         rake dist
