@@ -82,11 +82,10 @@ cdef class _PandasAPIShim(object):
         self._datetimetz_type = DatetimeTZDtype
         self._have_pandas = True
 
-        try:
-            from pandas import SparseDataFrame
-            self.has_sparse = True
-        except ImportError:
+        if self._loose_version > LooseVersion('0.25'):
             self.has_sparse = False
+        else:
+            self.has_sparse = True
 
     cdef inline _check_import(self, bint raise_=True):
         if self._tried_importing_pandas:
