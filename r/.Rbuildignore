@@ -20,3 +20,4 @@ clang_format.sh
 ^.*\.cmd$
 ^autobrew$
 ^apache-arrow.rb$
+^.*\.Rhistory$

@@ -58,11 +58,14 @@ python/doc/
 .idea/
 .pytest_cache/
 pkgs
-.Rproj.user
-arrow.Rcheck/
 docker_cache
 .gdb_history
 .DS_Store
 *.orig
 
 site/
+
+# R files
+**/.Rproj.user
+**/*.Rcheck/
+**/.Rhistory
