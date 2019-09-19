@@ -17,15 +17,23 @@
 
 #' @include arrow-package.R
 
-#' @title FileStats class
-#' @description FileSystem entry stats
-#'
+#' @title FileSystem entry stats
 #' @usage NULL
 #' @format NULL
-#' @docType class
+#'
+#' @section Methods:
+#'
+#' - `base_name()` : The file base name (component after the last directory separator).
+#' - `extension()` : The file extension
+#'
+#' @section Active bindings:
+#'
+#' - `$type`: The file type
+#' - `$path`: The full file path in the filesystem
+#' - `$size`: The size in bytes, if available.  Only regular files are guaranteed to have a size.
+#' - `$mtime`: The time of last modification, if available.
 #'
 #' @rdname FileStats
-#' @name FileStats
 #' @export
 FileStats <- R6Class("FileStats",
   inherit = Object,
@@ -34,7 +42,13 @@ FileStats <- R6Class("FileStats",
     extension = function() fs___FileStats__extension(self)
   ),
   active = list(
-    type = function() fs___FileStats__type(self),
+    type = function(type) {
+      if (missing(type)) {
+        fs___FileStats__type(self)
+      } else {
+        fs___FileStats__set_type(self, type)
+      }
+    },
     path = function(path) {
       if (missing(path)) {
         fs___FileStats__path(self)
@@ -64,15 +78,20 @@ FileStats <- R6Class("FileStats",
   )
 )
 
-#' @title Selector class
-#' @description EXPERIMENTAL: file selector
-#'
-#' @usage NULL
+#' @title file selector
 #' @format NULL
-#' @docType class
+#'
+#' @section Factory:
+#'
+#' The `$create()` factory method instantiates a `Selector` given the 3 fields described below.
+#'
+#' @section Fields:
+#'
+#' - `base_dir`: The directory in which to select files. If the path exists but doesn't point to a directory, this should be an error.
+#' - `allow_non_existent`: The behavior if `base_dir` doesn't exist in the filesystem. If `FALSE`, an error is returned.  If `TRUE`, an empty selection is returned
+#' - `recursive`: Whether to recurse into subdirectories.
 #'
 #' @rdname Selector
-#' @name Selector
 #' @export
 Selector <- R6Class("Selector",
   inherit = Object,
@@ -87,8 +106,39 @@ Selector$create <- function(base_dir, allow_non_existent = FALSE, recursive = FA
   shared_ptr(Selector, fs___Selector__create(base_dir, allow_non_existent, recursive))
 }
 
-#' @title FileSystem class
-#' @description EXPERIMENTAL: abstract file system API
+#' @title FileSystem classes
+#' @description `FileSystem` is an abstract file system API,
+#' `LocalFileSystem` is an implementation accessing files
+#' on the local machine. `SubTreeFileSystem` is an implementation that delegates to another
+#' implementation after prepending a fixed base path
+#'
+#' @section Factory:
+#'
+#' The `$create()` factory methods instantiate the `FileSystem` object and
+#' take the following arguments, depending on the subclass:
+#'
+#' - no argument is needed for instantiating a `LocalFileSystem`
+#' - `base_path` and `base_fs` for instantiating a `SubTreeFileSystem`
+#'
+#' @section Methods:
+#'
+#' - `$GetTargetStats(x)`: `x` may be a [Selector][Selector] or a character vector of paths. Returns a list of [FileStats][FileStats]
+#' - `$CreateDir(path, recursive = TRUE)`: Create a directory and subdirectories.
+#' - `$DeleteDir(path)`: Delete a directory and its contents, recursively.
+#' - `$DeleteDirContents(path)`: Delete a directory's contents, recursively. Like `$DeleteDir()`,
+#'    but doesn't delete the directory itself. Passing an empty path (`""`) will wipe the entire filesystem tree.
+#' - `$DeleteFile(path)` : Delete a file.
+#' - `$DeleteFiles(paths)` : Delete many files. The default implementation issues individual delete operations in sequence.
+#' - `$Move(src, dest)`: Move / rename a file or directory. If the destination exists:
+#'      if it is a non-empty directory, an error is returned
+#'      otherwise, if it has the same type as the source, it is replaced
+#'      otherwise, behavior is unspecified (implementation-dependent).
+#' - `$CopyFile(src, dest)`: Copy a file. If the destination exists and is a directory, an error is returned.
+#'      Otherwise, it is replaced.
+#' - `$OpenInputStream(path)`: Open an [InputStream][input stream] for sequential reading.
+#' - `$OpenInputFile(path)`: On an [RandomAccessFile][input file] for random access reading.
+#' - `$OpenOutputStream(path)`: Open an [OutputStream][output stream] for sequential writing.
+#' - `$OpenAppendStream(path)`: Open an [OutputStream][output stream] for appending.
 #'
 #' @usage NULL
 #' @format NULL
@@ -153,16 +203,9 @@ FileSystem <- R6Class("FileSystem", inherit = Object,
     )
 )
 
-#' @title LocalFileSystem class
-#' @description EXPERIMENTAL: a [FileSystem][FileSystem] implementation accessing files
-#' on the local machine.
-#'
 #' @usage NULL
 #' @format NULL
-#' @docType class
-#'
-#' @rdname LocalFileSystem
-#' @name LocalFileSystem
+#' @rdname FileSystem
 #' @export
 LocalFileSystem <- R6Class("LocalFileSystem", inherit = FileSystem)
 
@@ -171,16 +214,11 @@ LocalFileSystem$create <- function() {
 }
 
 
-#' @title SubTreeFileSystem class
-#' @description EXPERIMENTAL: abstract file system API
-#'
 #' @usage NULL
 #' @format NULL
-#' @docType class
-#'
-#' @rdname SubTreeFileSystem
-#' @name SubTreeFileSystem
+#' @rdname FileSystem
 #' @export
+
 SubTreeFileSystem <- R6Class("SubTreeFileSystem", inherit = FileSystem)
 
 SubTreeFileSystem$create <- function(base_path, base_fs) {
