@@ -48,7 +48,6 @@ On Ubuntu/Debian you can install the requirements with:
 .. code-block:: shell
 
    sudo apt-get install \
-        autoconf \
         build-essential \
         cmake \
         libboost-filesystem-dev \
