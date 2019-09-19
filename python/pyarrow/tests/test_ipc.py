@@ -390,14 +390,23 @@ def test_message_serialize_read_message(example_messages):
 
     msg = messages[0]
     buf = msg.serialize()
+    reader = pa.BufferReader(buf.to_pybytes() * 2)
 
     restored = pa.read_message(buf)
-    restored2 = pa.read_message(pa.BufferReader(buf))
+    restored2 = pa.read_message(reader)
     restored3 = pa.read_message(buf.to_pybytes())
+    restored4 = pa.read_message(reader)
 
     assert msg.equals(restored)
     assert msg.equals(restored2)
     assert msg.equals(restored3)
+    assert msg.equals(restored4)
+
+    with pytest.raises(pa.ArrowInvalid, match="Corrupted message"):
+        pa.read_message(pa.BufferReader(b'ab'))
+
+    with pytest.raises(EOFError):
+        pa.read_message(reader)
 
 
 def test_message_read_from_compressed(example_messages):
