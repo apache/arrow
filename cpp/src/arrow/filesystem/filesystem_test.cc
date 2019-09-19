@@ -612,6 +612,27 @@ TEST_F(TestSubTreeFileSystem, GetTargetStatsSelector) {
   ASSERT_EQ(stats.size(), 0);
 }
 
+////////////////////////////////////////////////////////////////////////////
+// Generic SlowFileSystem tests
+
+class TestSlowFSGeneric : public ::testing::Test, public GenericFileSystemTest {
+ public:
+  void SetUp() override {
+    time_ = TimePoint(TimePoint::duration(42));
+    fs_ = std::make_shared<MockFileSystem>(time_);
+    slow_fs_ = std::make_shared<SlowFileSystem>(fs_, 0.001);
+  }
+
+ protected:
+  std::shared_ptr<FileSystem> GetEmptyFileSystem() override { return slow_fs_; }
+
+  TimePoint time_;
+  std::shared_ptr<MockFileSystem> fs_;
+  std::shared_ptr<SlowFileSystem> slow_fs_;
+};
+
+GENERIC_FS_TEST_FUNCTIONS(TestSlowFSGeneric);
+
 }  // namespace internal
 }  // namespace fs
 }  // namespace arrow

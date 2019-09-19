@@ -19,6 +19,7 @@
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/io/slow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
@@ -73,6 +74,10 @@ std::string FileStats::base_name() const {
 // Debug helper
 std::ostream& operator<<(std::ostream& os, const FileStats& stats) {
   return os << "FileStats(" << stats.type() << ", " << stats.path() << ")";
+}
+
+std::string FileStats::extension() const {
+  return internal::GetAbstractPathExtension(path_);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -232,8 +237,91 @@ Status SubTreeFileSystem::OpenAppendStream(const std::string& path,
   return base_fs_->OpenAppendStream(s, out);
 }
 
-std::string FileStats::extension() const {
-  return internal::GetAbstractPathExtension(path_);
+//////////////////////////////////////////////////////////////////////////
+// SlowFileSystem implementation
+
+SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
+                               std::shared_ptr<io::LatencyGenerator> latencies)
+    : base_fs_(base_fs), latencies_(latencies) {}
+
+SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
+                               double average_latency)
+    : base_fs_(base_fs), latencies_(io::LatencyGenerator::Make(average_latency)) {}
+
+SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
+                               double average_latency, int32_t seed)
+    : base_fs_(base_fs), latencies_(io::LatencyGenerator::Make(average_latency, seed)) {}
+
+Status SlowFileSystem::GetTargetStats(const std::string& path, FileStats* out) {
+  latencies_->Sleep();
+  return base_fs_->GetTargetStats(path, out);
+}
+
+Status SlowFileSystem::GetTargetStats(const Selector& selector,
+                                      std::vector<FileStats>* out) {
+  latencies_->Sleep();
+  return base_fs_->GetTargetStats(selector, out);
+}
+
+Status SlowFileSystem::CreateDir(const std::string& path, bool recursive) {
+  latencies_->Sleep();
+  return base_fs_->CreateDir(path, recursive);
+}
+
+Status SlowFileSystem::DeleteDir(const std::string& path) {
+  latencies_->Sleep();
+  return base_fs_->DeleteDir(path);
+}
+
+Status SlowFileSystem::DeleteDirContents(const std::string& path) {
+  latencies_->Sleep();
+  return base_fs_->DeleteDirContents(path);
+}
+
+Status SlowFileSystem::DeleteFile(const std::string& path) {
+  latencies_->Sleep();
+  return base_fs_->DeleteFile(path);
+}
+
+Status SlowFileSystem::Move(const std::string& src, const std::string& dest) {
+  latencies_->Sleep();
+  return base_fs_->Move(src, dest);
+}
+
+Status SlowFileSystem::CopyFile(const std::string& src, const std::string& dest) {
+  latencies_->Sleep();
+  return base_fs_->CopyFile(src, dest);
+}
+
+Status SlowFileSystem::OpenInputStream(const std::string& path,
+                                       std::shared_ptr<io::InputStream>* out) {
+  latencies_->Sleep();
+  std::shared_ptr<io::InputStream> stream;
+  RETURN_NOT_OK(base_fs_->OpenInputStream(path, &stream));
+  *out = std::make_shared<io::SlowInputStream>(stream, latencies_);
+  return Status::OK();
+}
+
+Status SlowFileSystem::OpenInputFile(const std::string& path,
+                                     std::shared_ptr<io::RandomAccessFile>* out) {
+  latencies_->Sleep();
+  std::shared_ptr<io::RandomAccessFile> file;
+  RETURN_NOT_OK(base_fs_->OpenInputFile(path, &file));
+  *out = std::make_shared<io::SlowRandomAccessFile>(file, latencies_);
+  return Status::OK();
+}
+
+Status SlowFileSystem::OpenOutputStream(const std::string& path,
+                                        std::shared_ptr<io::OutputStream>* out) {
+  latencies_->Sleep();
+  // XXX Should we have a SlowOutputStream that waits on Flush() and Close()?
+  return base_fs_->OpenOutputStream(path, out);
+}
+
+Status SlowFileSystem::OpenAppendStream(const std::string& path,
+                                        std::shared_ptr<io::OutputStream>* out) {
+  latencies_->Sleep();
+  return base_fs_->OpenAppendStream(path, out);
 }
 
 }  // namespace fs

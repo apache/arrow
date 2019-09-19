@@ -127,6 +127,7 @@ set(ARROW_SRCS
     io/interfaces.cc
     io/memory.cc
     io/readahead.cc
+    io/slow.cc
     testing/util.cc
     util/basic_decimal.cc
     util/bit_util.cc
