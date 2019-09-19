@@ -59,7 +59,7 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
     if (dictionary.null_count() > 0) {
       return Status::Invalid("Cannot yet unify dictionaries with nulls");
     }
-    if (dictionary.type()->Equals(*value_type_)) {
+    if (!dictionary.type()->Equals(*value_type_)) {
       return Status::Invalid("Dictionary type different from unifier: ",
                              dictionary.type()->ToString());
     }
@@ -74,7 +74,7 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
     if (dictionary.null_count() > 0) {
       return Status::Invalid("Cannot yet unify dictionaries with nulls");
     }
-    if (dictionary.type()->Equals(*value_type_)) {
+    if (!dictionary.type()->Equals(*value_type_)) {
       return Status::Invalid("Dictionary type different from unifier: ",
                              dictionary.type()->ToString());
     }

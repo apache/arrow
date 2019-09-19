@@ -1267,8 +1267,10 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 };
 
 /// \brief Helper class for incremental dictionary unification
-class DictionaryUnifier {
+class ARROW_EXPORT DictionaryUnifier {
  public:
+  virtual ~DictionaryUnifier() = default;
+
   /// \brief Construct a DictionaryUnifier
   /// \param[in] pool MemoryPool to use for memory allocations
   /// \param[in] value_type the data type of the dictionaries
