@@ -85,5 +85,6 @@ pub mod common;
 pub mod csv;
 pub mod datasource;
 pub mod expressions;
+pub mod hash_aggregate;
 pub mod merge;
 pub mod projection;

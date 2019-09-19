@@ -115,13 +115,20 @@ impl ExecutionPlan for HashAggregateExec {
         let schema = Arc::new(Schema::new(fields));
 
         let merge = MergeExec::new(schema.clone(), partitions);
-
-        Ok(vec![Arc::new(HashAggregatePartition::new(
-            final_group,
-            final_aggr,
-            Arc::new(merge),
-            schema,
-        ))])
+        let merged: Vec<Arc<dyn Partition>> = merge.partitions()?;
+        if merged.len() == 1 {
+            Ok(vec![Arc::new(HashAggregatePartition::new(
+                final_group,
+                final_aggr,
+                merged[0].clone(),
+                schema,
+            ))])
+        } else {
+            Err(ExecutionError::InternalError(format!(
+                "MergeExec returned {} partitions",
+                merged.len()
+            )))
+        }
     }
 }
 
