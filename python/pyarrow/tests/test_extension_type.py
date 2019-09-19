@@ -366,5 +366,18 @@ def test_parquet_fallback(tmpdir):
 
     filename = tmpdir / 'extension_type.parquet'
     pq.write_table(table, filename)
+
+    # stored in parquet as storage type but with extension metadata saved
+    # in serialized arrow schema
+    meta = pq.read_metadata(filename)
+    assert meta.schema.column(0).physical_type == "INT64"
+    assert b"ARROW:schema" in meta.metadata
+    schema = pa.read_schema(pa.BufferReader(meta.metadata[b"ARROW:schema"]))
+    assert schema.field("ext").type == pa.int64()
+    assert schema.field("ext").metadata == {
+        b'ARROW:extension:metadata': b'freq=D',
+        b'ARROW:extension:name': b'pandas.period'}
+
+    # when reading in, use storage type
     result = pq.read_table(filename)
     assert result.column("ext").type == pa.int64()
