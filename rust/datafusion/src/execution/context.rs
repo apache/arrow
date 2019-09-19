@@ -22,8 +22,6 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::string::String;
 use std::sync::Arc;
-use std::thread;
-use std::thread::JoinHandle;
 
 use arrow::datatypes::*;
 
@@ -37,8 +35,10 @@ use crate::execution::aggregate::AggregateRelation;
 use crate::execution::expression::*;
 use crate::execution::filter::FilterRelation;
 use crate::execution::limit::LimitRelation;
+use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::expressions::Column;
+use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
 use crate::execution::physical_plan::{ExecutionPlan, PhysicalExpr};
 use crate::execution::projection::ProjectRelation;
@@ -278,48 +278,28 @@ impl ExecutionContext {
 
     /// Execute a physical plan and collect the results in memory
     pub fn collect(&self, plan: &dyn ExecutionPlan) -> Result<Vec<RecordBatch>> {
-        let threads: Vec<JoinHandle<Result<Vec<RecordBatch>>>> = plan
-            .partitions()?
-            .iter()
-            .map(|p| {
-                let p = p.clone();
-                thread::spawn(move || {
-                    let it = p.execute()?;
-                    let mut it = it.lock().unwrap();
-                    let mut results: Vec<RecordBatch> = vec![];
-                    loop {
-                        match it.next() {
-                            Ok(Some(batch)) => {
-                                results.push(batch);
-                            }
-                            Ok(None) => {
-                                // end of result set
-                                return Ok(results);
-                            }
-                            Err(e) => return Err(e),
-                        }
-                    }
-                })
-            })
-            .collect();
+        let partitions = plan.partitions()?;
 
-        // combine the results from each thread
-        let mut combined_results: Vec<RecordBatch> = vec![];
-        for thread in threads {
-            match thread.join() {
-                Ok(result) => {
-                    let result = result?;
-                    result
-                        .iter()
-                        .for_each(|batch| combined_results.push(batch.clone()));
-                }
-                Err(_) => {
-                    return Err(ExecutionError::General("Thread failed".to_string()))
+        match partitions.len() {
+            0 => Ok(vec![]),
+            1 => {
+                let it = partitions[0].execute()?;
+                common::collect(it)
+            }
+            _ => {
+                // merge into a single partition
+                let plan = MergeExec::new(plan.schema().clone(), partitions);
+                let partitions = plan.partitions()?;
+                if partitions.len() == 1 {
+                    common::collect(partitions[0].execute()?)
+                } else {
+                    Err(ExecutionError::InternalError(format!(
+                        "MergeExec returned {} partitions",
+                        partitions.len()
+                    )))
                 }
             }
         }
-
-        Ok(combined_results)
     }
 
     /// Execute a logical plan and produce a Relation (a schema-aware iterator over a

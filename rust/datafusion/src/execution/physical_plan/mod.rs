@@ -81,7 +81,9 @@ pub trait Accumulator {
     fn get_value(&self) -> Result<Option<ScalarValue>>;
 }
 
+pub mod common;
 pub mod csv;
 pub mod datasource;
 pub mod expressions;
+pub mod merge;
 pub mod projection;
