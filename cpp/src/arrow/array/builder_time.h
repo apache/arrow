@@ -42,8 +42,7 @@ class ARROW_EXPORT DayTimeIntervalBuilder : public ArrayBuilder {
 
   DayTimeIntervalBuilder(std::shared_ptr<DataType> type,
                          MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
-      : ArrayBuilder(type, pool),
-        builder_(fixed_size_binary(sizeof(DayMilliseconds)), pool) {}
+      : ArrayBuilder(pool), builder_(fixed_size_binary(sizeof(DayMilliseconds)), pool) {}
 
   void Reset() override { builder_.Reset(); }
   Status Resize(int64_t capacity) override { return builder_.Resize(capacity); }
@@ -63,6 +62,8 @@ class ARROW_EXPORT DayTimeIntervalBuilder : public ArrayBuilder {
     }
     return result;
   }
+
+  std::shared_ptr<DataType> type() const override { return day_time_interval(); }
 
  private:
   FixedSizeBinaryBuilder builder_;

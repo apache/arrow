@@ -41,24 +41,11 @@ namespace arrow {
 using internal::checked_cast;
 
 // ----------------------------------------------------------------------
-// String and binary
-
-BinaryBuilder::BinaryBuilder(MemoryPool* pool) : BaseBinaryBuilder(binary(), pool) {}
-
-StringBuilder::StringBuilder(MemoryPool* pool) : BinaryBuilder(utf8(), pool) {}
-
-LargeBinaryBuilder::LargeBinaryBuilder(MemoryPool* pool)
-    : BaseBinaryBuilder(large_binary(), pool) {}
-
-LargeStringBuilder::LargeStringBuilder(MemoryPool* pool)
-    : LargeBinaryBuilder(large_utf8(), pool) {}
-
-// ----------------------------------------------------------------------
 // Fixed width binary
 
 FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
                                                MemoryPool* pool)
-    : ArrayBuilder(type, pool),
+    : ArrayBuilder(pool),
       byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()),
       byte_builder_(pool) {}
 
@@ -103,7 +90,7 @@ Status FixedSizeBinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
   std::shared_ptr<Buffer> null_bitmap;
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
-  *out = ArrayData::Make(type_, length_, {null_bitmap, data}, null_count_);
+  *out = ArrayData::Make(type(), length_, {null_bitmap, data}, null_count_);
 
   capacity_ = length_ = null_count_ = 0;
   return Status::OK();

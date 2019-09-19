@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/array.h"
@@ -48,12 +49,13 @@ class ARROW_EXPORT BasicUnionBuilder : public ArrayBuilder {
   int8_t AppendChild(const std::shared_ptr<ArrayBuilder>& new_child,
                      const std::string& field_name = "");
 
+  std::shared_ptr<DataType> type() const override;
+
  protected:
   /// Use this constructor to initialize the UnionBuilder with no child builders,
   /// allowing type to be inferred. You will need to call AppendChild for each of the
   /// children builders you want to use.
-  explicit BasicUnionBuilder(MemoryPool* pool, UnionMode::type mode)
-      : ArrayBuilder(NULLPTR, pool), mode_(mode), types_builder_(pool) {}
+  BasicUnionBuilder(MemoryPool* pool, UnionMode::type mode);
 
   /// Use this constructor to specify the type explicitly.
   /// You can still add child builders to the union after using this constructor
@@ -61,12 +63,16 @@ class ARROW_EXPORT BasicUnionBuilder : public ArrayBuilder {
                     const std::vector<std::shared_ptr<ArrayBuilder>>& children,
                     const std::shared_ptr<DataType>& type);
 
+  int8_t NextTypeId();
+
+  std::vector<std::shared_ptr<Field>> child_fields_;
+  std::vector<uint8_t> type_codes_;
   UnionMode::type mode_;
-  std::vector<std::shared_ptr<ArrayBuilder>> type_id_to_children_;
+
+  std::vector<ArrayBuilder*> type_id_to_children_;
   // for all type_id < dense_type_id_, type_id_to_children_[type_id] != nullptr
   int8_t dense_type_id_ = 0;
   TypedBufferBuilder<int8_t> types_builder_;
-  std::vector<std::string> field_names_;
 };
 
 /// \class DenseUnionBuilder

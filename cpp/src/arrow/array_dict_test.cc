@@ -792,10 +792,10 @@ TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
   const auto& decimal_type = arrow::decimal(21, 0);
 
   // Build the dictionary Array
-  DictionaryBuilder<FixedSizeBinaryType> builder(decimal_type);
+  DictionaryBuilder<FixedSizeBinaryType> dict_builder(decimal_type);
 
   // Build expected data
-  FixedSizeBinaryBuilder fsb_builder(decimal_type);
+  Decimal128Builder decimal_builder(decimal_type);
   Int16Builder int_builder;
 
   // Fill with 1024 different values
@@ -816,29 +816,29 @@ TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
                              12,
                              static_cast<uint8_t>(i / 128),
                              static_cast<uint8_t>(i % 128)};
-    ASSERT_OK(builder.Append(bytes));
-    ASSERT_OK(fsb_builder.Append(bytes));
+    ASSERT_OK(dict_builder.Append(bytes));
+    ASSERT_OK(decimal_builder.Append(bytes));
     ASSERT_OK(int_builder.Append(static_cast<uint16_t>(i)));
   }
   // Fill with an already existing value
   const uint8_t known_value[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 12, 0, 1};
   for (int64_t i = 0; i < 1024; i++) {
-    ASSERT_OK(builder.Append(known_value));
+    ASSERT_OK(dict_builder.Append(known_value));
     ASSERT_OK(int_builder.Append(1));
   }
 
   // Finalize result
   std::shared_ptr<Array> result;
-  ASSERT_OK(builder.Finish(&result));
+  ASSERT_OK(dict_builder.Finish(&result));
 
   // Finalize expected data
-  std::shared_ptr<Array> fsb_array;
-  ASSERT_OK(fsb_builder.Finish(&fsb_array));
+  std::shared_ptr<Array> decimal_array;
+  ASSERT_OK(decimal_builder.Finish(&decimal_array));
 
   std::shared_ptr<Array> int_array;
   ASSERT_OK(int_builder.Finish(&int_array));
 
-  DictionaryArray expected(dictionary(int16(), decimal_type), int_array, fsb_array);
+  DictionaryArray expected(dictionary(int16(), decimal_type), int_array, decimal_array);
   ASSERT_TRUE(expected.Equals(result));
 }
 
@@ -1060,7 +1060,7 @@ TEST(TestDictionary, TransposeNulls) {
   CheckTranspose(sliced, {1, 3, 2}, out_dict_type, out_dict, expected_indices);
 }
 
-TEST(TestDictionary, DISABLED_ListOfDictionary) {
+TEST(TestDictionary, ListOfDictionary) {
   std::unique_ptr<ArrayBuilder> root_builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), list(dictionary(int8(), utf8())),
                         &root_builder));
@@ -1070,17 +1070,17 @@ TEST(TestDictionary, DISABLED_ListOfDictionary) {
 
   ASSERT_OK(list_builder->Append());
   std::vector<std::string> expected;
-  for (char a : "abc") {
-    for (char d : "def") {
-      for (char g : "ghi") {
-        for (char j : "jkl") {
-          for (char m : "mno") {
-            for (char p : "pqr") {
+  for (char a : util::string_view("abc")) {
+    for (char d : util::string_view("def")) {
+      for (char g : util::string_view("ghi")) {
+        for (char j : util::string_view("jkl")) {
+          for (char m : util::string_view("mno")) {
+            for (char p : util::string_view("pqr")) {
               if ((static_cast<int>(a) + d + g + j + m + p) % 16 == 0) {
                 ASSERT_OK(list_builder->Append());
               }
               // 3**6 distinct strings; too large for int8
-              char str[6] = {a, d, g, j, m, p};
+              char str[] = {a, d, g, j, m, p, '\0'};
               ASSERT_OK(dict_builder->Append(str));
               expected.push_back(str);
             }
@@ -1089,6 +1089,9 @@ TEST(TestDictionary, DISABLED_ListOfDictionary) {
       }
     }
   }
+
+  ASSERT_TRUE(list_builder->type()->Equals(list(dictionary(int16(), utf8()))));
+
   std::shared_ptr<Array> expected_dict;
   ArrayFromVector<StringType, std::string>(expected, &expected_dict);
 

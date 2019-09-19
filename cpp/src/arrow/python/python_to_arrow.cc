@@ -49,6 +49,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 namespace py {
 
@@ -765,18 +766,18 @@ class StructConverter
   Status Init(ArrayBuilder* builder) {
     this->builder_ = builder;
     this->typed_builder_ = checked_cast<StructBuilder*>(builder);
-    const auto& struct_type = checked_cast<const StructType&>(*builder->type());
+    auto struct_type = checked_pointer_cast<StructType>(builder->type());
 
     num_fields_ = this->typed_builder_->num_fields();
-    DCHECK_EQ(num_fields_, struct_type.num_children());
+    DCHECK_EQ(num_fields_, struct_type->num_children());
 
     field_name_list_.reset(PyList_New(num_fields_));
     RETURN_IF_PYERROR();
 
     // Initialize the child converters and field names
     for (int i = 0; i < num_fields_; i++) {
-      const std::string& field_name(struct_type.child(i)->name());
-      std::shared_ptr<DataType> field_type(struct_type.child(i)->type());
+      const std::string& field_name(struct_type->child(i)->name());
+      std::shared_ptr<DataType> field_type(struct_type->child(i)->type());
 
       std::unique_ptr<SeqConverter> value_converter;
       RETURN_NOT_OK(
@@ -869,7 +870,7 @@ class DecimalConverter
 
   Status Init(ArrayBuilder* builder) override {
     RETURN_NOT_OK(BASE::Init(builder));
-    decimal_type_ = checked_cast<const DecimalType*>(this->typed_builder_->type().get());
+    decimal_type_ = checked_pointer_cast<DecimalType>(this->typed_builder_->type());
     return Status::OK();
   }
 
@@ -880,7 +881,7 @@ class DecimalConverter
   }
 
  private:
-  const DecimalType* decimal_type_ = nullptr;
+  std::shared_ptr<DecimalType> decimal_type_ = nullptr;
 };
 
 #define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                                         \
