@@ -402,6 +402,9 @@ def test_message_serialize_read_message(example_messages):
     assert msg.equals(restored3)
     assert msg.equals(restored4)
 
+    with pytest.raises(pa.ArrowInvalid, match="Corrupted message"):
+        pa.read_message(pa.BufferReader(b'ab'))
+
     with pytest.raises(EOFError):
         pa.read_message(reader)
 

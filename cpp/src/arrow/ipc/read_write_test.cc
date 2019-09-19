@@ -403,6 +403,18 @@ TEST_F(TestIpcRoundTrip, MetadataVersion) {
   ASSERT_EQ(MetadataVersion::V4, message->metadata_version());
 }
 
+TEST(TestReadMessage, CorruptedSmallInput) {
+  std::string data = "abc";
+  io::BufferReader reader(data);
+  std::unique_ptr<Message> message;
+  ASSERT_RAISES(Invalid, ReadMessage(&reader, &message));
+
+  // But no error on unsignaled EOS
+  io::BufferReader reader2("");
+  ASSERT_OK(ReadMessage(&reader2, &message));
+  ASSERT_EQ(nullptr, message);
+}
+
 TEST_P(TestIpcRoundTrip, SliceRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
