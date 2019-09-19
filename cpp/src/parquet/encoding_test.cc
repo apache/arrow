@@ -391,7 +391,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
     for (auto np : null_probabilities_) {
       InitTestCase(np);
 
-      ArrowBinaryAccumulator acc;
+      typename EncodingTraits<ByteArrayType>::Accumulator acc;
       acc.builder.reset(new ::arrow::BinaryBuilder);
       auto actual_num_values =
           decoder_->DecodeArrow(num_values_, null_count_, valid_bits_, 0, &acc);
@@ -416,7 +416,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
     for (auto np : null_probabilities_) {
       InitTestCase(np);
       SKIP_TEST_IF(null_count_ > 0)
-      ArrowBinaryAccumulator acc;
+      typename EncodingTraits<ByteArrayType>::Accumulator acc;
       acc.builder.reset(new ::arrow::BinaryBuilder);
       auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, &acc);
       std::shared_ptr<::arrow::Array> chunk;
@@ -499,7 +499,7 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
     int num_values = static_cast<int>(values->length() - values->null_count());
     decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
-    ArrowBinaryAccumulator acc;
+    typename EncodingTraits<ByteArrayType>::Accumulator acc;
     acc.builder.reset(new arrow::StringBuilder);
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(values->length()),
@@ -510,10 +510,40 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
     ASSERT_OK(acc.builder->Finish(&result));
     ASSERT_EQ(50, result->length());
     arrow::AssertArraysEqual(*values, *result);
+  };
 
-    // Type checked
-    auto i32_values = rag.Int32(size, 0, 10, null_probability);
-    ASSERT_THROW(encoder->Put(*i32_values), ParquetException);
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    CheckSeed(seed);
+  }
+}
+
+TEST(PlainEncodingAdHoc, ArrowInt32DirectPut) {
+  const int64_t size = 50;
+  const double null_probability = 0.25;
+
+  auto CheckSeed = [&](int seed) {
+    arrow::random::RandomArrayGenerator rag(seed);
+    auto values = rag.Int32(size, 0, 10, null_probability);
+
+    auto encoder = MakeTypedEncoder<Int32Type>(Encoding::PLAIN);
+    auto decoder = MakeTypedDecoder<Int32Type>(Encoding::PLAIN);
+
+    ASSERT_NO_THROW(encoder->Put(*values));
+    auto buf = encoder->FlushValues();
+
+    int num_values = static_cast<int>(values->length() - values->null_count());
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    arrow::NumericBuilder<::arrow::Int32Type> acc;
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.Finish(&result));
+    ASSERT_EQ(50, result->length());
+    arrow::AssertArraysEqual(*values, *result);
   };
 
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
@@ -565,7 +595,7 @@ TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
   int num_values = static_cast<int>(values->length() - values->null_count());
   GetBinaryDictDecoder(encoder, num_values, &buf, &dict_buf, &decoder);
 
-  ArrowBinaryAccumulator acc;
+  typename EncodingTraits<ByteArrayType>::Accumulator acc;
   acc.builder.reset(new arrow::StringBuilder);
   ASSERT_EQ(num_values,
             decoder->DecodeArrow(static_cast<int>(values->length()),
@@ -606,7 +636,7 @@ TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
   int num_values = static_cast<int>(expected->length() - expected->null_count());
   GetBinaryDictDecoder(encoder, num_values, &buf, &dict_buf, &decoder);
 
-  ArrowBinaryAccumulator acc;
+  typename EncodingTraits<ByteArrayType>::Accumulator acc;
   acc.builder.reset(new arrow::BinaryBuilder);
   ASSERT_EQ(num_values,
             decoder->DecodeArrow(static_cast<int>(expected->length()),

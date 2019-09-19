@@ -1337,7 +1337,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
 
  private:
   // Helper data structure for accumulating builder chunks
-  ArrowBinaryAccumulator accumulator_;
+  typename EncodingTraits<ByteArrayType>::Accumulator accumulator_;
 };
 
 class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,

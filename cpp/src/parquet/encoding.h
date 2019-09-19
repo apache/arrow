@@ -33,15 +33,89 @@ class ArrayBuilder;
 class BinaryArray;
 class BinaryBuilder;
 class BinaryDictionary32Builder;
+class Int32Type;
+template <typename T>
+class NumericBuilder;
+template <typename T>
+class Dictionary32Builder;
 
-namespace internal {
-
-class ChunkedBinaryBuilder;
-
-}  // namespace internal
 }  // namespace arrow
 
 namespace parquet {
+
+template <typename DType>
+class TypedEncoder;
+
+using BooleanEncoder = TypedEncoder<BooleanType>;
+using Int32Encoder = TypedEncoder<Int32Type>;
+using Int64Encoder = TypedEncoder<Int64Type>;
+using Int96Encoder = TypedEncoder<Int96Type>;
+using FloatEncoder = TypedEncoder<FloatType>;
+using DoubleEncoder = TypedEncoder<DoubleType>;
+using ByteArrayEncoder = TypedEncoder<ByteArrayType>;
+using FLBAEncoder = TypedEncoder<FLBAType>;
+
+template <typename DType>
+class TypedDecoder;
+
+class BooleanDecoder;
+using Int32Decoder = TypedDecoder<Int32Type>;
+using Int64Decoder = TypedDecoder<Int64Type>;
+using Int96Decoder = TypedDecoder<Int96Type>;
+using FloatDecoder = TypedDecoder<FloatType>;
+using DoubleDecoder = TypedDecoder<DoubleType>;
+using ByteArrayDecoder = TypedDecoder<ByteArrayType>;
+class FLBADecoder;
+
+template <typename T>
+struct EncodingTraits {
+  using Encoder = TypedEncoder<T>;
+  using Decoder = TypedDecoder<T>;
+
+  struct Accumulator {};
+  struct DictAccumulator {};
+};
+
+template <>
+struct EncodingTraits<Int32Type> {
+  using Encoder = Int32Encoder;
+  using Decoder = Int32Decoder;
+
+  using Accumulator = ::arrow::NumericBuilder<::arrow::Int32Type>;
+  using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::Int32Type>;
+};
+
+template <>
+struct EncodingTraits<BooleanType> {
+  using Encoder = BooleanEncoder;
+  using Decoder = BooleanDecoder;
+
+  struct Accumulator {};
+  struct DictAccumulator {};
+};
+
+template <>
+struct EncodingTraits<ByteArrayType> {
+  using Encoder = ByteArrayEncoder;
+  using Decoder = ByteArrayDecoder;
+
+  /// \brief Internal helper class for decoding BYTE_ARRAY data where we can
+  /// overflow the capacity of a single arrow::BinaryArray
+  struct Accumulator {
+    std::unique_ptr<::arrow::BinaryBuilder> builder;
+    std::vector<std::shared_ptr<::arrow::Array>> chunks;
+  };
+  using DictAccumulator = ::arrow::BinaryDictionary32Builder;
+};
+
+template <>
+struct EncodingTraits<FLBAType> {
+  using Encoder = FLBAEncoder;
+  using Decoder = FLBADecoder;
+
+  struct Accumulator {};
+  struct DictAccumulator {};
+};
 
 class ColumnDescriptor;
 
@@ -71,6 +145,8 @@ class TypedEncoder : virtual public Encoder {
   using Encoder::Put;
 
   virtual void Put(const T* src, int num_values) = 0;
+
+  virtual void Put(const std::vector<T>& src, int num_values = -1) = 0;
 
   virtual void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                          int64_t valid_bits_offset) = 0;
@@ -168,6 +244,30 @@ class TypedDecoder : virtual public Decoder {
     }
     return num_values;
   }
+
+  /// \brief Returns number of encoded values decoded
+  virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                          int64_t valid_bits_offset,
+                          typename EncodingTraits<DType>::DictAccumulator* builder) {
+    ParquetException::NYI("FIXME");
+  }
+
+  virtual int DecodeArrowNonNull(
+      int num_values, typename EncodingTraits<DType>::DictAccumulator* builder) {
+    ParquetException::NYI("FIXME");
+  }
+
+  /// \brief Returns number of encoded values decoded
+  virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                          int64_t valid_bits_offset,
+                          typename EncodingTraits<DType>::Accumulator* out) {
+    ParquetException::NYI("FIXME");
+  }
+
+  virtual int DecodeArrowNonNull(int num_values,
+                                 typename EncodingTraits<DType>::Accumulator* out) {
+    ParquetException::NYI("FIXME");
+  }
 };
 
 template <typename DType>
@@ -199,56 +299,10 @@ class DictDecoder : virtual public TypedDecoder<DType> {
 // ----------------------------------------------------------------------
 // TypedEncoder specializations, traits, and factory functions
 
-class BooleanEncoder : virtual public TypedEncoder<BooleanType> {
- public:
-  using TypedEncoder<BooleanType>::Put;
-  virtual void Put(const std::vector<bool>& src, int num_values) = 0;
-};
-
-using Int32Encoder = TypedEncoder<Int32Type>;
-using Int64Encoder = TypedEncoder<Int64Type>;
-using Int96Encoder = TypedEncoder<Int96Type>;
-using FloatEncoder = TypedEncoder<FloatType>;
-using DoubleEncoder = TypedEncoder<DoubleType>;
-using ByteArrayEncoder = TypedEncoder<ByteArrayType>;
-using FLBAEncoder = TypedEncoder<FLBAType>;
-
 class BooleanDecoder : virtual public TypedDecoder<BooleanType> {
  public:
   using TypedDecoder<BooleanType>::Decode;
   virtual int Decode(uint8_t* buffer, int max_values) = 0;
-};
-
-using Int32Decoder = TypedDecoder<Int32Type>;
-using Int64Decoder = TypedDecoder<Int64Type>;
-using Int96Decoder = TypedDecoder<Int96Type>;
-using FloatDecoder = TypedDecoder<FloatType>;
-using DoubleDecoder = TypedDecoder<DoubleType>;
-
-/// \brief Internal helper class for decoding BYTE_ARRAY data where we can
-/// overflow the capacity of a single arrow::BinaryArray
-struct ArrowBinaryAccumulator {
-  std::unique_ptr<::arrow::BinaryBuilder> builder;
-  std::vector<std::shared_ptr<::arrow::Array>> chunks;
-};
-
-class ByteArrayDecoder : virtual public TypedDecoder<ByteArrayType> {
- public:
-  using TypedDecoder<ByteArrayType>::DecodeSpaced;
-
-  /// \brief Returns number of encoded values decoded
-  virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                          int64_t valid_bits_offset,
-                          ::arrow::BinaryDictionary32Builder* builder) = 0;
-
-  virtual int DecodeArrowNonNull(int num_values,
-                                 ::arrow::BinaryDictionary32Builder* builder) = 0;
-
-  /// \brief Returns number of encoded values decoded
-  virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                          int64_t valid_bits_offset, ArrowBinaryAccumulator* out) = 0;
-
-  virtual int DecodeArrowNonNull(int num_values, ArrowBinaryAccumulator* out) = 0;
 };
 
 class FLBADecoder : virtual public TypedDecoder<FLBAType> {
@@ -259,57 +313,6 @@ class FLBADecoder : virtual public TypedDecoder<FLBAType> {
   // there is value in adding specialized read methods for
   // FIXED_LEN_BYTE_ARRAY. If only Decimal data can occur with this data type
   // then perhaps not
-};
-
-template <typename T>
-struct EncodingTraits {};
-
-template <>
-struct EncodingTraits<BooleanType> {
-  using Encoder = BooleanEncoder;
-  using Decoder = BooleanDecoder;
-};
-
-template <>
-struct EncodingTraits<Int32Type> {
-  using Encoder = Int32Encoder;
-  using Decoder = Int32Decoder;
-};
-
-template <>
-struct EncodingTraits<Int64Type> {
-  using Encoder = Int64Encoder;
-  using Decoder = Int64Decoder;
-};
-
-template <>
-struct EncodingTraits<Int96Type> {
-  using Encoder = Int96Encoder;
-  using Decoder = Int96Decoder;
-};
-
-template <>
-struct EncodingTraits<FloatType> {
-  using Encoder = FloatEncoder;
-  using Decoder = FloatDecoder;
-};
-
-template <>
-struct EncodingTraits<DoubleType> {
-  using Encoder = DoubleEncoder;
-  using Decoder = DoubleDecoder;
-};
-
-template <>
-struct EncodingTraits<ByteArrayType> {
-  using Encoder = ByteArrayEncoder;
-  using Decoder = ByteArrayDecoder;
-};
-
-template <>
-struct EncodingTraits<FLBAType> {
-  using Encoder = FLBAEncoder;
-  using Decoder = FLBADecoder;
 };
 
 PARQUET_EXPORT
@@ -356,7 +359,8 @@ std::unique_ptr<typename EncodingTraits<DType>::Decoder> MakeTypedDecoder(
     Encoding::type encoding, const ColumnDescriptor* descr = NULLPTR) {
   using OutType = typename EncodingTraits<DType>::Decoder;
   std::unique_ptr<Decoder> base = MakeDecoder(DType::type_num, encoding, descr);
-  return std::unique_ptr<OutType>(dynamic_cast<OutType*>(base.release()));
+  auto out = dynamic_cast<OutType*>(base.release());
+  return std::unique_ptr<OutType>(out);
 }
 
 }  // namespace parquet
