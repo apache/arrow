@@ -20,7 +20,9 @@
 #include <memory>
 #include <utility>
 
+#include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/stl.h"
 
 namespace arrow {
@@ -46,11 +48,10 @@ Status SimpleDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
   return Status::OK();
 }
 
-Status Dataset::Make(const std::vector<std::shared_ptr<DataSource>>& sources,
-                     const std::shared_ptr<Schema>& schema,
-                     std::shared_ptr<Dataset>* out) {
+Status Dataset::Make(std::vector<std::shared_ptr<DataSource>> sources,
+                     std::shared_ptr<Schema> schema, std::shared_ptr<Dataset>* out) {
   // TODO: Ensure schema and sources align.
-  *out = std::make_shared<Dataset>(sources, schema);
+  *out = std::make_shared<Dataset>(std::move(sources), std::move(schema));
 
   return Status::OK();
 }
@@ -59,6 +60,45 @@ Status Dataset::NewScan(std::unique_ptr<ScannerBuilder>* out) {
   auto context = std::make_shared<ScanContext>();
   out->reset(new ScannerBuilder(this->shared_from_this(), context));
   return Status::OK();
+}
+
+bool DataSource::AssumePartitionExpression(
+    const std::shared_ptr<ScanOptions>& scan_options,
+    std::shared_ptr<ScanOptions>* simplified_scan_options) const {
+  DCHECK_NE(simplified_scan_options, nullptr);
+  if (scan_options == nullptr) {
+    // null scan options; no selector to simplify
+    *simplified_scan_options = scan_options;
+    return true;
+  }
+
+  auto c = SelectorAssume(scan_options->selector, partition_expression_);
+  DCHECK_OK(c.status());
+  auto expr = std::move(c).ValueOrDie();
+
+  bool trivial = true;
+  if (expr->IsNull() || (expr->IsTrivialCondition(&trivial) && !trivial)) {
+    // selector is not satisfiable; yield no fragments
+    return false;
+  }
+
+  auto copy = std::make_shared<ScanOptions>(*scan_options);
+  copy->selector = ExpressionSelector(std::move(expr));
+  *simplified_scan_options = std::move(copy);
+  return true;
+}
+
+DataFragmentIterator DataSource::GetFragments(std::shared_ptr<ScanOptions> scan_options) {
+  std::shared_ptr<ScanOptions> simplified_scan_options;
+  if (!AssumePartitionExpression(scan_options, &simplified_scan_options)) {
+    return MakeEmptyIterator<std::shared_ptr<DataFragment>>();
+  }
+  return GetFragmentsImpl(std::move(simplified_scan_options));
+}
+
+DataFragmentIterator SimpleDataSource::GetFragmentsImpl(
+    std::shared_ptr<ScanOptions> scan_options) {
+  return MakeVectorIterator(fragments_);
 }
 
 }  // namespace dataset

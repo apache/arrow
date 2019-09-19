@@ -20,9 +20,11 @@
 #include <algorithm>
 #include <vector>
 
+#include "arrow/dataset/filter.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/stl.h"
 
 namespace arrow {
@@ -47,18 +49,18 @@ Status FileBasedDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
 
 FileSystemBasedDataSource::FileSystemBasedDataSource(
     fs::FileSystem* filesystem, const fs::Selector& selector,
-    std::shared_ptr<FileFormat> format, std::shared_ptr<ScanOptions> scan_options,
+    std::shared_ptr<FileFormat> format, std::shared_ptr<Expression> partition_expression,
     std::vector<fs::FileStats> stats)
-    : filesystem_(filesystem),
+    : DataSource(std::move(partition_expression)),
+      filesystem_(filesystem),
       selector_(std::move(selector)),
       format_(std::move(format)),
-      scan_options_(std::move(scan_options)),
       stats_(std::move(stats)) {}
 
 Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
                                        const fs::Selector& selector,
                                        std::shared_ptr<FileFormat> format,
-                                       std::shared_ptr<ScanOptions> scan_options,
+                                       std::shared_ptr<Expression> partition_expression,
                                        std::unique_ptr<FileSystemBasedDataSource>* out) {
   std::vector<fs::FileStats> stats;
   RETURN_NOT_OK(filesystem->GetTargetStats(selector, &stats));
@@ -71,12 +73,25 @@ Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
   stats.resize(new_end - stats.begin());
 
   out->reset(new FileSystemBasedDataSource(filesystem, selector, std::move(format),
-                                           std::move(scan_options), std::move(stats)));
+                                           std::move(partition_expression),
+                                           std::move(stats)));
   return Status::OK();
 }
 
-DataFragmentIterator FileSystemBasedDataSource::GetFragments(
-    std::shared_ptr<ScanOptions> options) {
+Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
+                                       const fs::Selector& selector,
+                                       std::shared_ptr<FileFormat> format,
+                                       std::unique_ptr<FileSystemBasedDataSource>* out) {
+  return Make(filesystem, selector, std::move(format), nullptr, out);
+}
+
+DataFragmentIterator FileSystemBasedDataSource::GetFragmentsImpl(
+    std::shared_ptr<ScanOptions> scan_options) {
+  std::shared_ptr<ScanOptions> simplified_scan_options;
+  if (!AssumePartitionExpression(scan_options, &simplified_scan_options)) {
+    return MakeEmptyIterator<std::shared_ptr<DataFragment>>();
+  }
+
   struct Impl : DataFragmentIterator {
     Impl(fs::FileSystem* filesystem, std::shared_ptr<FileFormat> format,
          std::shared_ptr<ScanOptions> scan_options, std::vector<fs::FileStats> stats)
@@ -105,7 +120,7 @@ DataFragmentIterator FileSystemBasedDataSource::GetFragments(
     std::vector<fs::FileStats> stats_;
   };
 
-  return DataFragmentIterator(Impl(filesystem_, format_, options, stats_));
+  return DataFragmentIterator(Impl(filesystem_, format_, scan_options, stats_));
 }
 
 }  // namespace dataset

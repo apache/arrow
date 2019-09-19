@@ -20,6 +20,7 @@
 #include <algorithm>
 
 #include "arrow/dataset/dataset.h"
+#include "arrow/util/iterator.h"
 
 namespace arrow {
 namespace dataset {

@@ -25,6 +25,7 @@
 #include "arrow/status.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -45,9 +46,15 @@ class Iterator {
  public:
   /// \brief Iterator may be constructed from any type which has a member function
   /// with signature Status Next(T*);
+  ///
   /// The argument is moved or copied to the heap and kept in a unique_ptr<void>. Only
   /// its destructor and its Next method (which are stored in function pointers) are
   /// referenced after construction.
+  ///
+  /// This approach is used to dodge MSVC linkage hell (ARROW-6244, ARROW-6558) when using
+  /// an abstract template base class: instead of being inlined as usual for a template
+  /// function the base's virtual destructor will be exported, leading to multiple
+  /// definition errors when linking to any other TU where the base is instantiated.
   template <typename Wrapped>
   explicit Iterator(Wrapped has_next)
       : ptr_(new Wrapped(std::move(has_next)), Delete<Wrapped>), next_(Next<Wrapped>) {}

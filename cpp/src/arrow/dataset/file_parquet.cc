@@ -37,6 +37,7 @@ using RecordBatchReaderPtr = std::unique_ptr<RecordBatchReader>;
 // A set of RowGroup identifiers
 using RowGroupSet = std::vector<int>;
 
+// TODO(bkietz) refactor this to use ProjectedRecordBatchReader
 class ParquetScanTask : public ScanTask {
  public:
   static Status Make(RowGroupSet row_groups, const std::vector<int>& columns_projection,
@@ -128,7 +129,7 @@ class ParquetScanTaskIterator {
   }
 
   Status Next(ScanTaskPtr* task) {
-    auto partition = partitionner_.Next();
+    auto partition = partitioner_.Next();
 
     // Iteration is done.
     if (partition.size() == 0) {
@@ -145,7 +146,8 @@ class ParquetScanTaskIterator {
   static Status InferColumnProjection(const parquet::FileMetaData& metadata,
                                       const std::shared_ptr<ScanOptions>& options,
                                       std::vector<int>* out) {
-    // TODO(fsaintjacques): Compute intersection _and_ validity
+    // TODO(fsaintjacques): Compute intersection _and_ validity, could probably reuse
+    // RecordBatchProjector here
     *out = internal::Iota(metadata.num_columns());
 
     return Status::OK();
@@ -155,11 +157,11 @@ class ParquetScanTaskIterator {
                           std::shared_ptr<parquet::FileMetaData> metadata,
                           std::unique_ptr<parquet::arrow::FileReader> reader)
       : columns_projection_(columns_projection),
-        partitionner_(std::move(metadata)),
+        partitioner_(std::move(metadata)),
         reader_(std::move(reader)) {}
 
   std::vector<int> columns_projection_;
-  ParquetRowGroupPartitioner partitionner_;
+  ParquetRowGroupPartitioner partitioner_;
   std::shared_ptr<parquet::arrow::FileReader> reader_;
 };
 
