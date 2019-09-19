@@ -372,6 +372,7 @@ cdef class FileSystem:
 
         stream.set_input_stream(in_handle)
         stream.is_readable = True
+        stream.is_seekable = True
 
         return self._wrap_input_stream(
             stream, path=path, compression=compression, buffer_size=buffer_size

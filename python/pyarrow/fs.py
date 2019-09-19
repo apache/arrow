@@ -17,9 +17,16 @@
 
 from __future__ import absolute_import
 
-from pyarrow._fs import *  # noqa
-
+from pyarrow._fs import (
+    Selector,
+    FileType,
+    FileStats,
+    FileSystem,
+    LocalFileSystem,
+    SubTreeFileSystem
+)
+from pyarrow._s3 import S3FileSystem
 try:
-    from pyarrow._s3 import *  # noqa
+    from pyarrow._s3 import S3FileSystem, initialize_s3, finalize_s3
 except ImportError:
     pass
