@@ -1284,13 +1284,15 @@ class ARROW_EXPORT DictionaryUnifier {
   /// \brief Append dictionary and compute transpose indices
   /// \param[in] dictionary the dictionary values to unify
   /// \param[out] out_transpose a Buffer containing computed transpose indices
+  /// as int32_t values equal in length to the passed dictionary. The value in
+  /// each slot corresponds to the new index value for each original index
   /// for a DictionaryArray with the old dictionary
   virtual Status Unify(const Array& dictionary,
                        std::shared_ptr<Buffer>* out_transpose) = 0;
 
   /// \brief Return a result DictionaryType with the smallest possible index
-  /// type to accommodate the unified dictionary and the unified
-  /// dictionary. The unifier cannot be used after this is called
+  /// type to accommodate the unified dictionary. The unifier cannot be used
+  /// after this is called
   virtual Status GetResult(std::shared_ptr<DataType>* out_type,
                            std::shared_ptr<Array>* out_dict) = 0;
 };

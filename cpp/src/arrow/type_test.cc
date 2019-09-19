@@ -912,9 +912,7 @@ TEST(TestDictionaryType, Equals) {
 }
 
 void CheckTransposeMap(const Buffer& map, std::vector<int32_t> expected) {
-  Buffer ex_buffer(reinterpret_cast<const uint8_t*>(expected.data()),
-                   static_cast<int64_t>(expected.size() * sizeof(int32_t)));
-  ASSERT_TRUE(map.Equals(ex_buffer));
+  AssertBufferEqual(map, *Buffer::Wrap(expected));
 }
 
 TEST(TestDictionaryType, UnifyNumeric) {

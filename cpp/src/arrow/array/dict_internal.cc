@@ -54,21 +54,6 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
   DictionaryUnifierImpl(MemoryPool* pool, std::shared_ptr<DataType> value_type)
       : pool_(pool), value_type_(value_type), memo_table_(pool) {}
 
-  Status Unify(const Array& dictionary) override {
-    const ArrayType& values = checked_cast<const ArrayType&>(dictionary);
-    if (dictionary.null_count() > 0) {
-      return Status::Invalid("Cannot yet unify dictionaries with nulls");
-    }
-    if (!dictionary.type()->Equals(*value_type_)) {
-      return Status::Invalid("Dictionary type different from unifier: ",
-                             dictionary.type()->ToString());
-    }
-    for (int64_t i = 0; i < values.length(); ++i) {
-      memo_table_.GetOrInsert(values.GetView(i));
-    }
-    return Status::OK();
-  }
-
   Status Unify(const Array& dictionary, std::shared_ptr<Buffer>* out) override {
     const ArrayType& values = checked_cast<const ArrayType&>(dictionary);
     if (dictionary.null_count() > 0) {
@@ -78,15 +63,24 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
       return Status::Invalid("Dictionary type different from unifier: ",
                              dictionary.type()->ToString());
     }
-    std::shared_ptr<Buffer> result;
-    RETURN_NOT_OK(AllocateBuffer(pool_, dictionary.length() * sizeof(int32_t), &result));
-    auto result_raw = reinterpret_cast<int32_t*>(result->mutable_data());
-    for (int64_t i = 0; i < values.length(); ++i) {
-      result_raw[i] = memo_table_.GetOrInsert(values.GetView(i));
+    if (out != nullptr) {
+      std::shared_ptr<Buffer> result;
+      RETURN_NOT_OK(
+          AllocateBuffer(pool_, dictionary.length() * sizeof(int32_t), &result));
+      auto result_raw = reinterpret_cast<int32_t*>(result->mutable_data());
+      for (int64_t i = 0; i < values.length(); ++i) {
+        result_raw[i] = memo_table_.GetOrInsert(values.GetView(i));
+      }
+      *out = result;
+    } else {
+      for (int64_t i = 0; i < values.length(); ++i) {
+        memo_table_.GetOrInsert(values.GetView(i));
+      }
     }
-    *out = result;
     return Status::OK();
   }
+
+  Status Unify(const Array& dictionary) override { return Unify(dictionary, nullptr); }
 
   Status GetResult(std::shared_ptr<DataType>* out_type,
                    std::shared_ptr<Array>* out_dict) override {
