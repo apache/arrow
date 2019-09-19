@@ -105,6 +105,9 @@ cdef class Message:
         return stream.getvalue()
 
     def __repr__(self):
+        if self.message == nullptr:
+            return """pyarrow.Message(unitialized)"""
+
         metadata_len = self.metadata.size
         body = self.body
         body_len = 0 if body is None else body.size
@@ -544,6 +547,9 @@ def read_message(source):
 
     with nogil:
         check_status(ReadMessage(c_stream, &result.message))
+
+    if result.message == nullptr:
+        raise EOFError("End of Arrow stream")
 
     return result
 
