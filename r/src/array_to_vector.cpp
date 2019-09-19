@@ -412,7 +412,7 @@ class Converter_Date64 : public Converter {
 
   SEXP Allocate(R_xlen_t n) const {
     Rcpp::NumericVector data(no_init(n));
-    data.attr("class") = Rcpp::CharacterVector::create("POSIXct", "POSIXt");
+    Rf_classgets(data, arrow::r::data::classes_POSIXct);
     return data;
   }
 
@@ -508,7 +508,7 @@ class Converter_Timestamp : public Converter_Time<value_type, TimestampType> {
 
   SEXP Allocate(R_xlen_t n) const {
     Rcpp::NumericVector data(no_init(n));
-    data.attr("class") = Rcpp::CharacterVector::create("POSIXct", "POSIXt");
+    Rf_classgets(data, arrow::r::data::classes_POSIXct);
     return data;
   }
 };
