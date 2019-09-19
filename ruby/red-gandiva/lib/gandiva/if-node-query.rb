@@ -16,37 +16,41 @@
 # under the License.
 
 module Gandiva
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("Gandiva", Gandiva)
-      end
+  class IfNodeQuery
+    def initialize(condition)
+      @condition_nodes = [condition]
+      @then_nodes = []
+    end
+
+    def then(node)
+      @then_nodes << node
+      self
+    end
+
+    def elsif(node)
+      @condition_nodes << node
+      self
+    end
+
+    def else(node)
+      to_node(node)
     end
 
     private
-    def load_method_info(info, klass, method_name)
-      case klass.name
-      when "Gandiva::BooleanLiteralNode"
-        case method_name
-        when "value?"
-          method_name = "value"
-        end
-        super(info, klass, method_name)
-      else
-        super
+
+    def to_node(node)
+      node_size = @condition_nodes.size - 1
+      (0..node_size).reverse_each do |i|
+        node = build_if_node(node, i)
       end
+      node
     end
 
-    def post_load(repository, namespace)
-      require_libraries
-    end
-
-    def require_libraries
-      require "gandiva/context"
-      require "gandiva/expression-buildable"
-      require "gandiva/field-node"
-      require "gandiva/if-node-query"
-      require "gandiva/record"
+    def build_if_node(node, i)
+      Gandiva::IfNode.new(@condition_nodes[i],
+                          @then_nodes[i],
+                          node,
+                          node.return_type)
     end
   end
 end

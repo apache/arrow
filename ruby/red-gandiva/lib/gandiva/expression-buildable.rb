@@ -16,37 +16,22 @@
 # under the License.
 
 module Gandiva
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("Gandiva", Gandiva)
-      end
-    end
+  module ExpressionBuildable
+    def build_expression
+      node = yield Gandiva::Record.new(self), Gandiva::Context.new
 
-    private
-    def load_method_info(info, klass, method_name)
-      case klass.name
-      when "Gandiva::BooleanLiteralNode"
-        case method_name
-        when "value?"
-          method_name = "value"
-        end
-        super(info, klass, method_name)
-      else
-        super
-      end
-    end
+      message = "The node passed to Gandiva::Expression must belong to Gandiva::Node"
+      message << ": <#{node.class}>"
+      raise ArgumentError, message unless node.is_a?(Gandiva::Node)
 
-    def post_load(repository, namespace)
-      require_libraries
+      result = Arrow::Field.new("result", node.return_type)
+      Gandiva::Expression.new(node, result)
     end
+  end
+end
 
-    def require_libraries
-      require "gandiva/context"
-      require "gandiva/expression-buildable"
-      require "gandiva/field-node"
-      require "gandiva/if-node-query"
-      require "gandiva/record"
-    end
+module Arrow
+  class Schema
+    include Gandiva::ExpressionBuildable
   end
 end

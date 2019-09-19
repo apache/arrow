@@ -16,37 +16,14 @@
 # under the License.
 
 module Gandiva
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("Gandiva", Gandiva)
-      end
+  class Record
+    def initialize(schema)
+      @schema = schema
     end
 
-    private
-    def load_method_info(info, klass, method_name)
-      case klass.name
-      when "Gandiva::BooleanLiteralNode"
-        case method_name
-        when "value?"
-          method_name = "value"
-        end
-        super(info, klass, method_name)
-      else
-        super
-      end
-    end
-
-    def post_load(repository, namespace)
-      require_libraries
-    end
-
-    def require_libraries
-      require "gandiva/context"
-      require "gandiva/expression-buildable"
-      require "gandiva/field-node"
-      require "gandiva/if-node-query"
-      require "gandiva/record"
+    def method_missing(field)
+      field = @schema[field]
+      return Gandiva::FieldNode.new(field) if field
     end
   end
 end
