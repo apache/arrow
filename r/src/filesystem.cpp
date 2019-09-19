@@ -76,8 +76,8 @@ SEXP fs___FileStats__mtime(const std::shared_ptr<arrow::fs::FileStats>& x) {
 // [[arrow::export]]
 void fs___FileStats__set_mtime(const std::shared_ptr<arrow::fs::FileStats>& x,
                                SEXP time) {
-  auto secs = std::chrono::seconds(static_cast<int64_t>(REAL(time)[0] * 1000000000));
-  x->set_mtime(arrow::fs::TimePoint(secs));
+  auto nanosecs = std::chrono::nanoseconds(static_cast<int64_t>(REAL(time)[0] * 1000000000));
+  x->set_mtime(arrow::fs::TimePoint(nanosecs));
 }
 
 // Selector
