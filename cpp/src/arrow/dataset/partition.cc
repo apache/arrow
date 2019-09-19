@@ -61,11 +61,15 @@ Status HivePartitionScheme::Parse(string_view path,
   string_view key, value;
   while (ParseOneKey(path, &key, &value, &path)) {
     auto name = key.to_string();
-    auto type = schema_->GetFieldByName(name)->type();
-    std::shared_ptr<Scalar> scalar;
-    RETURN_NOT_OK(Scalar::Parse(type, value, &scalar));
+    auto field = schema_->GetFieldByName(name);
+    if (field == nullptr) {
+      continue;
+    }
 
+    std::shared_ptr<Scalar> scalar;
+    RETURN_NOT_OK(Scalar::Parse(field->type(), value, &scalar));
     auto expr = equal(field_ref(name), ScalarExpression::Make(scalar));
+
     if (*out == nullptr) {
       *out = std::move(expr);
     } else {
