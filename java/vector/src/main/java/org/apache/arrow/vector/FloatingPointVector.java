@@ -20,7 +20,7 @@ package org.apache.arrow.vector;
 /**
  * The interface for vectors with floating point values.
  */
-public interface FloatingPointVector {
+public interface FloatingPointVector extends ValueVector {
 
   /**
    * Sets the value at the given index, note this value may be truncated internally.
