@@ -385,10 +385,8 @@ TEST(TestCodecMisc, SpecifyCompressionLevel) {
     const auto level = combination.level;
     const auto expect_success = combination.expect_success;
     std::unique_ptr<Codec> c1, c2;
-    const auto status1 =
-        ::arrow::internal::GenericToStatus(Codec::Create(compression, level, &c1));
-    const auto status2 =
-        ::arrow::internal::GenericToStatus(Codec::Create(compression, level, &c2));
+    const auto status1 = Codec::Create(compression, level, &c1);
+    const auto status2 = Codec::Create(compression, level, &c2);
     EXPECT_EQ(expect_success, status1.ok());
     EXPECT_EQ(expect_success, status2.ok());
     if (expect_success && status1.ok() && status2.ok()) {

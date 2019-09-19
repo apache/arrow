@@ -350,6 +350,9 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* compression(ParquetCompression codec)
             Builder* compression(const c_string& path,
                                  ParquetCompression codec)
+            Builder* compression_level(int compression_level)
+            Builder* compression_level(const c_string& path,
+                                       int compression_level)
             Builder* disable_dictionary()
             Builder* enable_dictionary()
             Builder* enable_dictionary(const c_string& path)

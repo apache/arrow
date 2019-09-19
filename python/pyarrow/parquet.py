@@ -371,7 +371,15 @@ flavor : {'spark'}, default None
     various target systems
 filesystem : FileSystem, default None
     If nothing passed, will be inferred from `where` if path-like, else
-    `where` is already a file-like object so no filesystem is needed."""
+    `where` is already a file-like object so no filesystem is needed.
+compression_level: int or dict, default None
+    Specify the compression level for a codec, either on a general basis or
+    per-column. If None is passed, arrow selects the compression level for
+    the compression codec in use. The compression level has a different
+    meaning for each codec, so you have to read the documentation of the
+    codec you are using.
+    An exception is thrown if the compression codec does not allow specifying
+    a compression level."""
 
 
 class ParquetWriter(object):
@@ -397,7 +405,9 @@ schema : arrow Schema
                  use_dictionary=True,
                  compression='snappy',
                  write_statistics=True,
-                 use_deprecated_int96_timestamps=None, **options):
+                 use_deprecated_int96_timestamps=None,
+                 compression_level=None,
+                 **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
             if flavor is not None and 'spark' in flavor:
@@ -431,6 +441,7 @@ schema : arrow Schema
             use_dictionary=use_dictionary,
             write_statistics=write_statistics,
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
+            compression_level=compression_level,
             **options)
         self.is_open = True
 
@@ -1287,7 +1298,9 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 coerce_timestamps=None,
                 allow_truncated_timestamps=False,
                 data_page_size=None, flavor=None,
-                filesystem=None, **kwargs):
+                filesystem=None,
+                compression_level=None,
+                **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
     try:
@@ -1303,6 +1316,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 allow_truncated_timestamps=allow_truncated_timestamps,
                 compression=compression,
                 use_deprecated_int96_timestamps=use_int96,
+                compression_level=compression_level,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:

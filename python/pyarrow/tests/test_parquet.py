@@ -632,6 +632,42 @@ def make_sample_file(table_or_df):
     return pq.ParquetFile(buf)
 
 
+def test_compression_level():
+    arr = pa.array(list(map(int, range(1000))))
+    data = [arr, arr]
+    table = pa.Table.from_arrays(data, names=['a', 'b'])
+
+    # Check one compression level.
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     compression_level=1)
+
+    # Check another one to make sure that compression_level=1 does not
+    # coincide with the default one in Arrow.
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     compression_level=5)
+
+    # Check that the user can provide a compression level per column
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     compression_level=[{'a': 2, 'b': 3}])
+
+    # Check that specifying a compression level for a codec which does allow
+    # specifying one, results into an error.
+    # Uncompressed, snappy, lz4 and lzo do not support specifying a compression
+    # level.
+    # GZIP (zlib) allows for specifying a compression level but as of up
+    # to version 1.2.11 the valid range is [-1, 9].
+    invalid_combinations = [("snappy", 4), ("lz4", 5), ("gzip", -1337),
+                            ("None", 444), ("lzo", 14)]
+    buf = io.BytesIO()
+    for (codec, level) in invalid_combinations:
+        try:
+            _write_table(table, buf, compression=codec,
+                         compression_level=level)
+            assert 0
+        except pa.ArrowException:
+            pass
+
+
 @pytest.mark.pandas
 def test_parquet_metadata_api():
     df = alltypes_sample(size=10000)
