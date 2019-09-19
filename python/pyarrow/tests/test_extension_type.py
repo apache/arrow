@@ -352,3 +352,19 @@ def test_generic_ext_type_register(registered_period_type):
     period_type = PeriodType('D')
     with pytest.raises(KeyError):
         pa.register_extension_type(period_type)
+
+
+@pytest.mark.parquet
+def test_parquet_fallback(tmpdir):
+    # extension type falls back to its storage type when writing to parquet
+    period_type = PeriodType('D')
+    storage = pa.array([1, 2, 3, 4], pa.int64())
+    arr = pa.ExtensionArray.from_storage(period_type, storage)
+    table = pa.table([arr], names=["ext"])
+
+    import pyarrow.parquet as pq
+
+    filename = tmpdir / 'extension_type.parquet'
+    pq.write_table(table, filename)
+    result = pq.read_table(filename)
+    assert result.column("ext").type == pa.int64()
