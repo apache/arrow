@@ -1102,6 +1102,22 @@ Status MakeZeroLengthArray(const std::shared_ptr<DataType>& type,
   return builder->Finish(out);
 }
 
+bool NeedDictionaryUnification(const ChunkedArray& data) {
+  if (data.num_chunks() < 2) {
+    return false;
+  }
+  const std::shared_ptr<Array> arr_first = data->chunk(0);
+  const auto& dict_arr_first = checked_cast<const DictionaryArray&>(*arr_first);
+  for (int c = 1; c < data->num_chunks(); c++) {
+    const std::shared_ptr<Array> arr = data->chunk(c);
+    const auto& dict_arr = checked_cast<const DictionaryArray&>(*arr);
+    if (!(dict_arr_first.dictionary()->Equals(dict_arr.dictionary()))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 class CategoricalBlock : public PandasBlock {
  public:
   explicit CategoricalBlock(const PandasOptions& options, int64_t num_rows)
@@ -1181,6 +1197,7 @@ class CategoricalBlock : public PandasBlock {
   Status Write(const std::shared_ptr<ChunkedArray>& data, int64_t abs_placement,
                int64_t rel_placement) override {
     std::shared_ptr<ChunkedArray> converted_data;
+    bool need_unification = false;
     if (options_.strings_to_categorical &&
         (data->type()->id() == Type::STRING || data->type()->id() == Type::BINARY)) {
       needs_copy_ = true;
@@ -1192,49 +1209,37 @@ class CategoricalBlock : public PandasBlock {
       converted_data = out.chunked_array();
     } else {
       // check if all dictionaries are equal
-      if (data->num_chunks() > 1) {
-        const std::shared_ptr<Array> arr_first = data->chunk(0);
-        const auto& dict_arr_first = checked_cast<const DictionaryArray&>(*arr_first);
-
-        for (int c = 1; c < data->num_chunks(); c++) {
-          const std::shared_ptr<Array> arr = data->chunk(c);
-          const auto& dict_arr = checked_cast<const DictionaryArray&>(*arr);
-
-          if (!(dict_arr_first.dictionary()->Equals(dict_arr.dictionary()))) {
-            return Status::NotImplemented("Variable dictionary type not supported");
-          }
-        }
-      }
+      need_unification = NeedDictionaryUnification(*data);
       converted_data = data;
     }
 
-    const auto& dict_type = checked_cast<const DictionaryType&>(*converted_data->type());
-
-    switch (dict_type.index_type()->id()) {
-      case Type::INT8:
-        RETURN_NOT_OK(WriteIndices<Int8Type>(converted_data));
-        break;
-      case Type::INT16:
-        RETURN_NOT_OK(WriteIndices<Int16Type>(converted_data));
-        break;
-      case Type::INT32:
-        RETURN_NOT_OK(WriteIndices<Int32Type>(converted_data));
-        break;
-      case Type::INT64:
-        RETURN_NOT_OK(WriteIndices<Int64Type>(converted_data));
-        break;
-      default: {
-        return Status::NotImplemented("Categorical index type not supported: ",
-                                      dict_type.index_type()->ToString());
-      }
-    }
-
-    // TODO(wesm): variable dictionaries
     std::shared_ptr<Array> dict;
     if (data->num_chunks() == 0) {
       // no dictionary values => create empty array
       RETURN_NOT_OK(MakeZeroLengthArray(dict_type.value_type(), &dict));
+    } else if (need_unification) {
+      RETURN_NOT_OK(WriteIndicesUnified(*converted_data, &dict));
     } else {
+      // Dictionaries are all the same, just write out the indices
+      const auto& dict_type = checked_cast<const DictionaryType&>(*converted_data->type());
+      switch (dict_type.index_type()->id()) {
+        case Type::INT8:
+          RETURN_NOT_OK(WriteIndices<Int8Type>(converted_data));
+          break;
+        case Type::INT16:
+          RETURN_NOT_OK(WriteIndices<Int16Type>(converted_data));
+          break;
+        case Type::INT32:
+          RETURN_NOT_OK(WriteIndices<Int32Type>(converted_data));
+          break;
+        case Type::INT64:
+          RETURN_NOT_OK(WriteIndices<Int64Type>(converted_data));
+          break;
+        default: {
+          return Status::NotImplemented("Categorical index type not supported: ",
+                                        dict_type.index_type()->ToString());
+        }
+      }
       auto arr = converted_data->chunk(0);
       const auto& dict_arr = checked_cast<const DictionaryArray&>(*arr);
       dict = dict_arr.dictionary();
