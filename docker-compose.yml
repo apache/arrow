@@ -400,6 +400,19 @@ services:
       dockerfile: r/Dockerfile
     volumes: *ubuntu-volumes
 
+  r-sanitizer:
+    # Usage:
+    #   docker-compose build r-sanitizer
+    #   docker-compose run r-sanitizer
+    image: arrow:r-sanitizer
+    cap_add:
+      # LeakSanitizer and gdb requires ptrace(2)
+      - SYS_PTRACE
+    build:
+      context: .
+      dockerfile: r/Dockerfile.sanitizer
+    volumes: *ubuntu-volumes
+
   r-conda:
     # Usage:
     #   export R_VERSION=3.5.1

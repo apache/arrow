@@ -73,6 +73,7 @@ groups:
   docker:
     - docker-r
     - docker-r-conda
+    - docker-r-sanitizer
     - docker-rust
     - docker-cpp
     - docker-cpp-alpine
@@ -164,6 +165,7 @@ groups:
     - gandiva-jar-osx
     - docker-r
     - docker-r-conda
+    - docker-r-sanitizer
     - docker-rust
     - docker-cpp
     - docker-cpp-cmake32
@@ -1120,6 +1122,15 @@ tasks:
         - docker-compose build cpp
         - docker-compose build r-conda
         - docker-compose run r-conda
+
+  docker-r-sanitizer:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build r-sanitizer
+        - docker-compose run r-sanitizer
 
   docker-rust:
     ci: circle

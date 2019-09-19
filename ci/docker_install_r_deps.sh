@@ -16,12 +16,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
-
-pushd /arrow/r
-
-Rscript -e "install.packages(c('remotes', 'dplyr', 'glue'))"
-Rscript -e "remotes::install_deps(dependencies = TRUE)"
-Rscript -e "remotes::install_github('romainfrancois/decor')"
-
-popd
+install_deps() {
+  ${R_BIN} -e "install.packages(c('remotes', 'dplyr', 'glue'))"
+  ${R_BIN} -e "remotes::install_deps(dependencies = TRUE)"
+  ${R_BIN} -e "remotes::install_github('romainfrancois/decor')"
+}

@@ -18,9 +18,7 @@
 
 set -e
 
-export ARROW_HOME=$CONDA_PREFIX
-
-: ${R_BIN:=R}
+: ${R_BIN:=RDsan}
 source /arrow/ci/docker_install_r_deps.sh
 
 # Build arrow
@@ -29,10 +27,13 @@ pushd /arrow/r
 install_deps
 
 make clean
-${R_BIN} CMD build --keep-empty-dirs .
-${R_BIN} CMD INSTALL $(ls | grep arrow_*.tar.gz)
+${R_BIN} CMD INSTALL --no-byte-compile .
 
-export _R_CHECK_FORCE_SUGGESTS_=false
-${R_BIN} CMD check $(ls | grep arrow_*.tar.gz) --as-cran --no-manual
+pushd tests
+
+export UBSAN_OPTIONS="print_stacktrace=1,suppressions=/arrow/r/tools/ubsan.supp"
+${R_BIN} < testthat.R
+
+popd
 
 popd

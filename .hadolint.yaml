@@ -21,3 +21,4 @@ ignored:
   - DL3018
   - DL3015  # Avoid additional packages by specifying `--no-install-recommends`
   - DL3028  # Ruby gem version pinning
+  - DL3007 # r-sanitizer must use latest
