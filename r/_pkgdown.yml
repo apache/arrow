@@ -116,3 +116,6 @@ reference:
   - Codec
   - MemoryPool
   - default_memory_pool
+  - FileSystem
+  - FileStats
+  - Selector
