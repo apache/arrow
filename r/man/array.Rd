@@ -46,6 +46,7 @@ a == a
 \item \code{$ToString()}: string representation of the array
 \item \code{$Slice(offset, length = NULL)} : Construct a zero-copy slice of the array with the indicated offset and length. If length is \code{NULL}, the slice goes until the end of the array.
 \item \code{$RangeEquals(other, start_idx, end_idx, other_start_idx)} :
+\item \code{$View(type)}: Construct a zero-copy view of this array with the given type.
 }
 }
 

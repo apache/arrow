@@ -56,6 +56,7 @@
 #' - `$ToString()`: string representation of the array
 #' - `$Slice(offset, length = NULL)` : Construct a zero-copy slice of the array with the indicated offset and length. If length is `NULL`, the slice goes until the end of the array.
 #' - `$RangeEquals(other, start_idx, end_idx, other_start_idx)` :
+#' - `$View(type)`: Construct a zero-copy view of this array with the given type.
 #'
 #' @rdname array
 #' @name array
@@ -87,6 +88,9 @@ Array <- R6Class("Array",
       assert_is(target_type, "DataType")
       assert_is(options, "CastOptions")
       Array$create(Array__cast(self, target_type, options))
+    },
+    View = function(type) {
+      Array$create(Array__View(self, type))
     }
   ),
   active = list(

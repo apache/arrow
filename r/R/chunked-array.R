@@ -38,6 +38,7 @@
 #' - `$chunks()`
 #' - `$num_chunks()`
 #' - `$type()`
+#' - `$View(type)`: Construct a zero-copy view of this chunked array with the given type.
 #'
 #' @rdname ChunkedArray
 #' @name ChunkedArray
@@ -59,6 +60,9 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
       assert_is(target_type, "DataType")
       assert_is(options, "CastOptions")
       shared_ptr(ChunkedArray, ChunkedArray__cast(self, target_type, options))
+    },
+    View = function(type) {
+      ChunkedArray$create(ChunkedArray__View(self, type))
     }
   ),
   active = list(

@@ -92,6 +92,14 @@ bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self,
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Array> Array__View(const std::shared_ptr<arrow::Array>& array,
+                                          const std::shared_ptr<arrow::DataType>& type) {
+  std::shared_ptr<arrow::Array> out;
+  STOP_IF_NOT_OK(array->View(type, &out));
+  return out;
+}
+
+// [[arrow::export]]
 LogicalVector Array__Mask(const std::shared_ptr<arrow::Array>& array) {
   if (array->null_count() == 0) {
     return LogicalVector(array->length(), true);
