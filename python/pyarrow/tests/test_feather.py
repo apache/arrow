@@ -34,6 +34,7 @@ from pyarrow.lib import FeatherWriter
 try:
     from pandas.util.testing import assert_frame_equal
     import pandas as pd
+    import pyarrow.pandas_compat
 except ImportError:
     pass
 
@@ -518,7 +519,7 @@ class TestFeatherReader(unittest.TestCase):
     @pytest.mark.filterwarnings("ignore:Sparse:FutureWarning")
     @pytest.mark.filterwarnings("ignore:DataFrame.to_sparse:FutureWarning")
     def test_sparse_dataframe(self):
-        if not hasattr(pd, 'SparseDataFrame'):
+        if not pa.pandas_compat._pandas_api.has_sparse:
             pytest.skip("version of pandas does not support SparseDataFrame")
         # GH #221
         data = {'A': [0, 1, 2],
