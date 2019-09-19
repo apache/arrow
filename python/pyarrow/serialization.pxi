@@ -338,8 +338,8 @@ def serialize(object value, SerializationContext context=None):
     and transport. This may have better performance and memory efficiency than
     Python pickle.
 
-    Note: this function produces data that is incompatible the standard Arrow
-    IPC binary protocol, .e. it cannot be used with ipc.open_stream or
+    Note: this function produces data that is incompatible with the standard
+    Arrow IPC binary protocol, i.e. it cannot be used with ipc.open_stream or
     ipc.open_file. You can use deserialize, deserialize_from, or
     deserialize_components to read it.
 
@@ -412,7 +412,7 @@ def read_serialized(source, base=None):
 
 def deserialize_from(source, object base, SerializationContext context=None):
     """EXPERIMENTAL: Deserialize a Python sequence from a file. This only can
-    interact with data produced by pyarrow.serialize ot pyarrow.serialize_to
+    interact with data produced by pyarrow.serialize or pyarrow.serialize_to
 
     Parameters
     ----------
@@ -454,7 +454,7 @@ def deserialize_components(components, SerializationContext context=None):
 def deserialize(obj, SerializationContext context=None):
     """EXPERIMENTAL: Deserialize Python object from Buffer or other Python
     object supporting the buffer protocol. This only can interact with data
-    produced by pyarrow.serialize ot pyarrow.serialize_to
+    produced by pyarrow.serialize or pyarrow.serialize_to
 
     Parameters
     ----------
