@@ -34,77 +34,131 @@ from pyarrow.fs import (FileType, Selector, FileSystem, LocalFileSystem,
                         SubTreeFileSystem)
 
 
-class S3Path:
+class Local:
 
-    def __init__(self, path, minio_client):
+    def __init__(self, tempdir):
+        self.impl = LocalFileSystem()
+        self.tempdir = tempdir
+
+    def pathpair(self, p):
+        path_for_wrapper = str(self.tempdir / p)
+        path_for_impl = (self.tempdir / p).as_posix()
+        return (path_for_wrapper, path_for_impl)
+
+    def mkdir(self, p):
+        return pathlib.Path(p).mkdir(parents=True)
+
+    def touch(self, p):
+        return pathlib.Path(p).touch()
+
+    def exists(self, p):
+        return pathlib.Path(p).exists()
+
+    def write_bytes(self, p, data):
+        return pathlib.Path(p).write_bytes(data)
+
+    def read_bytes(self, p):
+        return pathlib.Path(p).read_bytes()
+
+
+class SubTreeLocal(Local):
+
+    def __init__(self, tempdir, prefix='local/prefix'):
+        prefix_absolute = tempdir / prefix
+        prefix_absolute.mkdir(parents=True)
+
+        self.impl = SubTreeFileSystem(
+            prefix_absolute.as_posix(),
+            LocalFileSystem()
+        )
+        self.prefix = prefix
+        self.tempdir = tempdir
+
+    def pathpair(self, p):
+        path_for_wrapper = str(self.tempdir / self.prefix / p)
+        path_for_impl = p
+        return (path_for_wrapper, path_for_impl)
+
+
+class S3:
+
+    def __init__(self, minio_client, bucket='test-bucket', **kwargs):
+        from pyarrow.fs import S3FileSystem, initialize_s3
+        initialize_s3()
+        self.impl = S3FileSystem(**kwargs)
         self.client = minio_client
-        self.path = path
+        self.bucket = bucket
 
-    @property
-    def bucket_name(self):
-        return self.path.split('/', 1)[0]
+    def pathpair(self, p):
+        path_for_wrapper = p
+        path_for_impl = '/'.join([self.bucket, p])
+        return (path_for_wrapper, path_for_impl)
 
-    @property
-    def object_name(self):
-        return self.path.split('/', 1)[1]
-
-    @property
-    def parent(self):
-        parent, _ = self.path.rsplit('/', 1)
-        return S3Path(parent, minio_client=self.client)
-
-    def as_posix(self):
-        return self.path  # always posix
-
-    def touch(self):
-        object_name = self.object_name.rstrip('/')
+    def touch(self, p):
         self.client.put_object(
-            bucket_name=self.bucket_name,
-            object_name=object_name,
+            bucket_name=self.bucket,
+            object_name=p.rstrip('/'),
             data=io.BytesIO(b''),
             length=0
         )
 
-    def mkdir(self, parents=True):
-        object_name = self.object_name
-        if not object_name.endswith('/'):
-            object_name += '/'
+    def mkdir(self, p):
+        if not p.endswith('/'):
+            p += '/'
         self.client.put_object(
-            bucket_name=self.bucket_name,
-            object_name=object_name,
+            bucket_name=self.bucket,
+            object_name=p,
             data=io.BytesIO(b''),
             length=0
         )
 
-    def exists(self):
-        from minio.error import ResponseError, NoSuchKey, NoSuchBucket
-
+    def exists(self, p):
+        from minio.error import NoSuchKey, NoSuchBucket
         try:
             self.client.get_object(
-                bucket_name=self.bucket_name,
-                object_name=self.object_name
+                bucket_name=self.bucket,
+                object_name=p
             )
         except (NoSuchBucket, NoSuchKey):
             return False
         else:
             return True
 
-    def write_bytes(self, content):
-        assert not self.object_name.endswith('/')
+    def write_bytes(self, p, data):
+        assert not p.endswith('/')
         self.client.put_object(
-            bucket_name=self.bucket_name,
-            object_name=self.object_name,
-            data=io.BytesIO(content),
-            length=len(content)
+            bucket_name=self.bucket,
+            object_name=p,
+            data=io.BytesIO(data),
+            length=len(data)
         )
 
-    def read_bytes(self):
-        assert not self.object_name.endswith('/')
+    def read_bytes(self, p):
+        assert not p.endswith('/')
         data = self.client.get_object(
-            bucket_name=self.bucket_name,
-            object_name=self.object_name
+            bucket_name=self.bucket,
+            object_name=p
         )
         return data.read()
+
+
+class SubTreeS3(S3):
+
+    def __init__(self, minio_client, bucket='test-bucket', prefix='s3/prefix',
+                 **kwargs):
+        from pyarrow.fs import S3FileSystem
+        self.impl = SubTreeFileSystem(
+            '/'.join([bucket, prefix]),
+            S3FileSystem(**kwargs)
+        )
+        self.client = minio_client
+        self.bucket = bucket
+        self.prefix = prefix
+
+    def pathpair(self, p):
+        path_for_wrapper = '/'.join([self.prefix, p])
+        path_for_impl = p
+        return (path_for_wrapper, path_for_impl)
 
 
 @pytest.fixture(scope='module')
@@ -122,8 +176,8 @@ def minio_server():
 
     try:
         with tempfile.TemporaryDirectory() as tempdir:
-            args = ['minio', '--compat', 'server', '--address', address,
-                    tempdir]
+            args = ['minio', '--compat', 'server', '--quiet', '--address',
+                    address, tempdir]
             with subprocess.Popen(args, env=env) as proc:
                 yield address, access_key, secret_key
                 proc.terminate()
@@ -135,62 +189,43 @@ def minio_server():
 def minio_client(minio_server):
     from minio import Minio
     address, access_key, secret_key = minio_server
-    client = Minio(address, access_key=access_key, secret_key=secret_key,
-                   secure=False)
-    client.make_bucket('bucket')
-    return client
-
-
-@pytest.fixture
-def localfs(tempdir):
-    def local_paths(p):
-        path = tempdir / p
-        return (path.as_posix(), path)
-    return (LocalFileSystem(), local_paths)
-
-
-@pytest.fixture
-def s3fs(minio_server, minio_client):
-    from pyarrow.fs import S3FileSystem, initialize_s3
-
-    def s3_paths(p):
-        path = S3Path('bucket/{}'.format(p), minio_client=minio_client)
-        return (path.as_posix(), path)
-
-    initialize_s3()
-    address, access_key, secret_key = minio_server
-    fs = S3FileSystem(access_key=access_key, secret_key=secret_key,
-                      endpoint_override=address, scheme='http')
-
-    return (fs, s3_paths)
+    return Minio(
+        address,
+        access_key=access_key,
+        secret_key=secret_key,
+        secure=False
+    )
 
 
 @pytest.fixture(params=[
-    pytest.lazy_fixture('localfs'),
-    pytest.lazy_fixture('s3fs')
+    Local,
+    SubTreeLocal
 ])
-def subtreefs(request):
-    fs = SubTreeFileSystem('', request.param[0])
-    return (fs, lambda p: p)
+def localfs(request, tempdir):
+    return request.param(tempdir)
+
+
+@pytest.fixture(params=[
+    S3,
+    SubTreeS3
+])
+def s3fs(request, minio_server, minio_client):
+    address, access_key, secret_key = minio_server
+    return request.param(
+        minio_client=minio_client,
+        endpoint_override=address,
+        access_key=access_key,
+        secret_key=secret_key,
+        scheme='http'
+    )
 
 
 @pytest.fixture(params=[
     pytest.lazy_fixture('localfs'),
     pytest.lazy_fixture('s3fs'),
-    # pytest.lazy_fixture('subtreefs'),
 ])
-def filesystem(request):
+def fs(request):
     return request.param
-
-
-@pytest.fixture
-def fs(request, filesystem):
-    return filesystem[0]
-
-
-@pytest.fixture
-def paths(request, filesystem):
-    return filesystem[1]
 
 
 def test_cannot_instantiate_base_filesystem():
@@ -206,14 +241,14 @@ def test_non_path_like_input_raises(fs):
                      pathlib.Path()]
     for path in invalid_paths:
         with pytest.raises(TypeError):
-            fs.create_dir(path)
+            fs.impl.create_dir(path)
 
 
 @pytest.mark.skip()
-def test_get_target_stats(fs, tempdir, testpath):
-    aaa, aaa_ = testpath('a/aa/aaa'), tempdir / 'a' / 'aa' / 'aaa'
-    bb, bb_ = testpath('a/bb'), tempdir / 'a' / 'bb'
-    c, c_ = testpath('c.txt'), tempdir / 'c.txt'
+def test_get_target_stats(fs, paths):
+    aaa, aaa_ = paths('a/aa/aaa')
+    bb, bb_ = paths('a/bb')
+    c, c_ = paths('c.txt')
 
     aaa_.mkdir(parents=True)
     bb_.touch()
@@ -275,87 +310,88 @@ def test_get_target_stats_with_selector(fs, tempdir, testpath):
             assert st.type == FileType.File
 
 
-def test_create_dir(fs, paths):
-    directory, directory_ = paths('test-directory/')
-    assert not directory_.exists()
-    fs.create_dir(directory)
-    from pyarrow.fs import S3FileSystem
-    assert directory_.exists()
+def test_create_dir(fs):
+    _d, d = fs.pathpair('test-directory/')
+    assert not fs.exists(_d)
+    fs.impl.create_dir(d)
+    assert fs.exists(_d)
 
     # recursive
-    directory, directory_ = paths('deeply/nested/directory/')
-    assert not directory_.exists()
+    _r, r = fs.pathpair('deeply/nested/directory/')
+    assert not fs.exists(_r)
     with pytest.raises(ArrowIOError):
-        fs.create_dir(directory, recursive=False)
-    fs.create_dir(directory)
-    assert directory_.exists()
+        fs.impl.create_dir(r, recursive=False)
+    fs.impl.create_dir(r)
+    assert fs.exists(_r)
 
 
-def test_delete_dir(fs, paths):
-    folder, folder_ = paths('directory/')
-    nested, nested_ = paths('nested/directory/')
+def test_delete_dir(fs):
+    _d, d = fs.pathpair('directory/')
+    _nd, nd = fs.pathpair('directory/nested/')
+    fs.mkdir(_nd)
 
-    folder_.mkdir()
-    nested_.mkdir(parents=True)
+    assert fs.exists(_nd)
+    fs.impl.delete_dir(nd)
+    assert not fs.exists(_nd)
 
-    assert folder_.exists()
-    fs.delete_dir(folder)
-    assert not folder_.exists()
-
-    assert nested_.exists()
-    fs.delete_dir(nested)
-    assert not nested_.exists()
+    assert fs.exists(_d)
+    fs.impl.delete_dir(d)
+    assert not fs.exists(_d)
 
 
-def test_copy_file(fs, paths):
-    # copy file
-    source, source_ = paths('test-copy-source-file')
-    source_.touch()
-    target, target_ = paths('test-copy-target-file')
+def test_copy_file(fs):
+    _s, s = fs.pathpair('test-copy-source-file')
+    _t, t = fs.pathpair('test-copy-target-file')
+    fs.touch(_s)
 
-    assert not target_.exists()
-    fs.copy_file(source, target)
-    assert source_.exists()
-    assert target_.exists()
-
-
-def test_move(fs, paths):
-    # # move directory (doesn't work with S3)
-    # source, source_ = paths('source-dir/')
-    # source_.mkdir()
-    # target, target_ = paths('target-dir/')
-    # assert source_.exists()
-    # assert not target_.exists()
-
-    # fs.move(source, target)
-    # assert not source_.exists()
-    # assert target_.exists()
-
-    # move file
-    source, source_ = paths('test-move-source-file')
-    source_.touch()
-    target, target_ = paths('test-move-target-file')
-    assert source_.exists()
-    assert not target_.exists()
-
-    fs.move(source, target)
-    assert not source_.exists()
-    assert target_.exists()
+    assert not fs.exists(_t)
+    fs.impl.copy_file(s, t)
+    assert fs.exists(_s)
+    assert fs.exists(_t)
 
 
-def test_delete_file(fs, paths):
-    target, target_ = paths('test-delete-target-file')
-    target_.touch()
-    assert target_.exists()
-    fs.delete_file(target)
-    assert not target_.exists()
+def test_move_directory(localfs):
+    # move directory (doesn't work with S3)
+    _s, s = localfs.pathpair('source-dir/')
+    _t, t = localfs.pathpair('target-dir/')
+    localfs.mkdir(_s)
 
-    nested, nested_ = paths('test-delete-nested/target-file')
-    nested_.parent.mkdir()
-    nested_.touch()
-    assert nested_.exists()
-    fs.delete_file(nested)
-    assert not nested_.exists()
+    assert localfs.exists(_s)
+    assert not localfs.exists(_t)
+    localfs.impl.move(s, t)
+    assert not localfs.exists(_s)
+    assert localfs.exists(_t)
+
+
+def test_move_file(fs):
+    _s, s = fs.pathpair('test-move-source-file')
+    _t, t = fs.pathpair('test-move-target-file')
+    fs.touch(_s)
+
+    assert fs.exists(_s)
+    assert not fs.exists(_t)
+    fs.impl.move(s, t)
+    assert not fs.exists(_s)
+    assert fs.exists(_t)
+
+
+def test_delete_file(fs):
+    _p, p = fs.pathpair('test-delete-target-file')
+    fs.touch(_p)
+
+    assert fs.exists(_p)
+    fs.impl.delete_file(p)
+    assert not fs.exists(_p)
+
+    _p, p = fs.pathpair('test-delete-nested')
+    fs.mkdir(_p)
+
+    _p, p = fs.pathpair('test-delete-nested/target-file')
+    fs.touch(_p)
+
+    assert fs.exists(_p)
+    fs.impl.delete_file(p)
+    assert not fs.exists(_p)
 
 
 def identity(v):
@@ -371,25 +407,26 @@ def identity(v):
         ('gzip', 256, gzip_compress),
     ]
 )
-def test_open_input_stream(fs, paths, compression, buffer_size, compressor):
-    file, file_ = paths('open-input-stream')
+def test_open_input_stream(fs, compression, buffer_size, compressor):
+    _p, p = fs.pathpair('open-input-stream')
 
     data = b'some data for reading' * 1024
-    file_.write_bytes(compressor(data))
+    fs.write_bytes(_p, compressor(data))
 
-    with fs.open_input_stream(file, compression, buffer_size) as f:
+    with fs.impl.open_input_stream(p, compression, buffer_size) as f:
         result = f.read(len(data))
 
     assert result == data
 
 
-def test_open_input_file(fs, paths):
-    file, file_ = paths('open-input-file')
+def test_open_input_file(fs):
+    _p, p = fs.pathpair('open-input-file')
+
     data = b'some data' * 1024
-    file_.write_bytes(data)
+    fs.write_bytes(_p, data)
 
     read_from = len(b'some data') * 512
-    with fs.open_input_file(file) as f:
+    with fs.impl.open_input_file(p) as f:
         f.seek(read_from)
         result = f.read()
 
@@ -405,17 +442,18 @@ def test_open_input_file(fs, paths):
         ('gzip', 256, gzip_decompress),
     ]
 )
-def test_open_output_stream(fs, paths, compression, buffer_size, decompressor):
-    file, file_ = paths('open-output-stream-1')
+def test_open_output_stream(fs, compression, buffer_size, decompressor):
+    _p, p = fs.pathpair('open-output-stream')
 
     data = b'some data for writing' * 1024
-    with fs.open_output_stream(file, compression, buffer_size) as f:
+    with fs.impl.open_output_stream(p, compression, buffer_size) as f:
         f.write(data)
 
-    with fs.open_input_stream(file, compression, buffer_size) as f:
+    with fs.impl.open_input_stream(p, compression, buffer_size) as f:
         assert f.read(len(data)) == data
 
-    assert decompressor(file_.read_bytes()) == data
+    result = decompressor(fs.read_bytes(_p))
+    assert result == data
 
 
 @pytest.mark.parametrize(
@@ -427,12 +465,15 @@ def test_open_output_stream(fs, paths, compression, buffer_size, decompressor):
         ('gzip', 256, gzip_compress, gzip_decompress),
     ]
 )
-def test_open_append_stream(fs, paths, compression, buffer_size, compressor,
+def test_open_append_stream(localfs, compression, buffer_size, compressor,
                             decompressor):
-    file, file_ = paths('open-append-stream')
-    file_.write_bytes(compressor(b'already existing'))
+    _p, p = localfs.pathpair('open-append-stream')
 
-    with fs.open_append_stream(file, compression, buffer_size) as f:
+    data = compressor(b'already existing')
+    localfs.write_bytes(_p, data)
+
+    with localfs.impl.open_append_stream(p, compression, buffer_size) as f:
         f.write(b'\nnewly added')
 
-    assert decompressor(file_.read_bytes()) == b'already existing\nnewly added'
+    result = decompressor(localfs.read_bytes(_p))
+    assert result == b'already existing\nnewly added'
