@@ -253,8 +253,9 @@ class ArrayLoader {
 
   Status Visit(const NullType& type) {
     out_->buffers.resize(1);
-    RETURN_NOT_OK(LoadCommon());
-    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &out_->buffers[0]));
+
+    // ARROW-6379: NullType has no buffers in the IPC payload
+    RETURN_NOT_OK(context_->source->GetFieldMetadata(context_->field_index++, out_));
     return Status::OK();
   }
 
