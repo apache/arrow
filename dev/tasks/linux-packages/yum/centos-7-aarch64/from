@@ -15,42 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG FROM=centos:7
-FROM ${FROM}
-
-COPY qemu-* /usr/bin/
-
-ARG DEBUG
-
-RUN \
-  quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
-  yum update -y ${quiet} && \
-  yum install -y ${quiet} epel-release && \
-  yum groupinstall -y ${quiet} "Development Tools" && \
-  yum install -y ${quiet} \
-    autoconf-archive \
-    bison \
-    boost169-devel \
-    brotli-devel \
-    cmake3 \
-    double-conversion-devel \
-    flex \
-    gflags-devel \
-    git \
-    glog-devel \
-    gobject-introspection-devel \
-    gtk-doc \
-    libzstd-devel \
-    lz4-devel \
-    pkg-config \
-    python36 \
-    python36-devel \
-    python36-numpy \
-    rapidjson-devel \
-    rpm-build \
-    rpmdevtools \
-    snappy-devel \
-    tar \
-    thrift-devel \
-    zlib-devel && \
-  yum clean ${quiet} all
+arm64v8/centos:7

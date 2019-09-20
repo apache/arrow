@@ -90,7 +90,7 @@ else
   run cp /host/tmp/${PACKAGE}-${VERSION}.* rpmbuild/SOURCES/
 fi
 run cp \
-    /host/tmp/${distribution}/${PACKAGE}.spec \
+    /host/tmp/${PACKAGE}.spec \
     rpmbuild/SPECS/
 
 run cat <<BUILD > build.sh

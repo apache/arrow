@@ -43,8 +43,8 @@ jobs:
         rm *.deb
         pushd qemu-user-static*
         unar data.*
-        for docker_context in ../arrow/dev/tasks/linux-packages/apt/*/; do
-          cp data/usr/bin/qemu-aarch64-static ${docker_context}
+        for dockerfile in ../arrow/dev/tasks/linux-packages/*/*/Dockerfile; do
+          cp data/usr/bin/qemu-aarch64-static $(dirname ${dockerfile})
         done
         popd
       displayName: Prepare qemu-user-static
