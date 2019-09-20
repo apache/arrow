@@ -20,6 +20,7 @@
 # Apache Arrow
 
 [![Build Status](https://travis-ci.org/apache/arrow.svg?branch=master)](https://travis-ci.org/apache/arrow)
+[![Build Status](https://ci.appveyor.com/api/projects/status/github/apache/arrow/branch/master?svg=true)](https://ci.appveyor.com/project/ApacheSoftwareFoundation/arrow/branch/master)
 [![Coverage Status](https://codecov.io/gh/apache/arrow/branch/master/graph/badge.svg)](https://codecov.io/gh/apache/arrow?branch=master)
 [![Fuzzit Status](https://app.fuzzit.dev/badge?org_id=yMxZh42xl9qy6bvg3EiJ&branch=master)](https://app.fuzzit.dev/admin/yMxZh42xl9qy6bvg3EiJ/dashboard)
 [![License](http://img.shields.io/:license-Apache%202-blue.svg)](https://github.com/apache/arrow/blob/master/LICENSE.txt)
