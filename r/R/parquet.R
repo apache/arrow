@@ -196,5 +196,5 @@ write_parquet.OutputStream <- function(table, stream) {
 write_parquet.character <- function(table, stream) {
   file_stream <- FileOutputStream$create(stream)
   on.exit(file_stream$close())
-  parquet___arrow___WriteTable(to_arrow(table), stream)
+  parquet___arrow___WriteTable(to_arrow(table), file_stream)
 }
