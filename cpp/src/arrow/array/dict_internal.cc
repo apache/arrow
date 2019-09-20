@@ -55,7 +55,6 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
       : pool_(pool), value_type_(value_type), memo_table_(pool) {}
 
   Status Unify(const Array& dictionary, std::shared_ptr<Buffer>* out) override {
-    const ArrayType& values = checked_cast<const ArrayType&>(dictionary);
     if (dictionary.null_count() > 0) {
       return Status::Invalid("Cannot yet unify dictionaries with nulls");
     }
@@ -63,6 +62,7 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
       return Status::Invalid("Dictionary type different from unifier: ",
                              dictionary.type()->ToString());
     }
+    const ArrayType& values = checked_cast<const ArrayType&>(dictionary);
     if (out != nullptr) {
       std::shared_ptr<Buffer> result;
       RETURN_NOT_OK(
