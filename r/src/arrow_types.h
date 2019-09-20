@@ -19,6 +19,7 @@
 
 #include <limits>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include <RcppCommon.h>
@@ -47,6 +48,17 @@ struct data {
   } while (0)
 
 #define STOP_IF_NOT_OK(s) STOP_IF_NOT(s.ok(), s.ToString())
+
+#define ARROW_ASSIGN_OR_STOP_IMPL(status_name, lhs, rexpr) \
+  auto status_name = (rexpr);                              \
+  if (!status_name.status().ok()) {                        \
+    Rcpp::stop(status_name.status().ToString());           \
+  }                                                        \
+  lhs = std::move(status_name).ValueOrDie();
+
+#define ARROW_ASSIGN_OR_STOP(lhs, rexp)                                               \
+  ARROW_ASSIGN_OR_STOP_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                            lhs, rexp)
 
 template <typename T>
 struct NoDelete {

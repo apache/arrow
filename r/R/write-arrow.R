@@ -24,7 +24,7 @@ to_arrow.Table <- function(x) x
 
 # splice the data frame as arguments of Table$create()
 # see ?rlang::list2()
-`to_arrow.data.frame` <- function(x) Table$create(!!!x)
+to_arrow.data.frame <- function(x) Table$create(!!!x)
 
 #' Write Arrow formatted data
 #'
@@ -60,7 +60,7 @@ write_arrow.RecordBatchWriter <- function(x, stream, ...){
 }
 
 #' @export
-`write_arrow.character` <- function(x, stream, ...) {
+write_arrow.character <- function(x, stream, ...) {
   assert_that(length(stream) == 1L)
   x <- to_arrow(x)
   file_stream <- FileOutputStream$create(stream)
@@ -77,7 +77,7 @@ write_arrow.RecordBatchWriter <- function(x, stream, ...){
 }
 
 #' @export
-`write_arrow.raw` <- function(x, stream, ...) {
+write_arrow.raw <- function(x, stream, ...) {
   x <- to_arrow(x)
   schema <- x$schema
 
