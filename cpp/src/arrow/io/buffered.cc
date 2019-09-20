@@ -275,10 +275,13 @@ class BufferedInputStream::Impl : public BufferedBase {
       RETURN_NOT_OK(BufferIfNeeded());
     }
 
-    // Increase the buffer size if needed
+    // Increase the buffer size if needed.
+    // SetBufferSize(...) will reset buffer_pos_, so backup buffer_pos_ and restore it.
     if (nbytes > buffer_->size() - buffer_pos_) {
+      int64_t original_buffer_pos = buffer_pos_;
       RETURN_NOT_OK(SetBufferSize(nbytes + buffer_pos_));
       DCHECK(buffer_->size() - buffer_pos_ >= nbytes);
+      buffer_pos_ = original_buffer_pos;
     }
     // Read more data when buffer has insufficient left
     if (nbytes > bytes_buffered_) {
