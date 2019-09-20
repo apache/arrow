@@ -110,7 +110,7 @@ Selector <- R6Class("Selector",
 Selector$create <- function(base_dir, allow_non_existent = FALSE, recursive = FALSE) {
   shared_ptr(
     Selector,
-    fs___Selector__create(clean_path(base_dir), allow_non_existent, recursive)
+    fs___Selector__create(fs_relative_path(base_dir), allow_non_existent, recursive)
   )
 }
 
@@ -175,7 +175,7 @@ FileSystem <- R6Class("FileSystem", inherit = Object,
         )
       } else if (is.character(x)){
         map(
-          fs___FileSystem__GetTargetStats_Paths(self, clean_path(x)),
+          fs___FileSystem__GetTargetStats_Paths(self, fs_relative_path(x)),
           shared_ptr,
           class = FileStats
         )
@@ -185,44 +185,44 @@ FileSystem <- R6Class("FileSystem", inherit = Object,
     },
 
     CreateDir = function(path, recursive = TRUE) {
-      fs___FileSystem__CreateDir(self, clean_path(path), isTRUE(recursive))
+      fs___FileSystem__CreateDir(self, fs_relative_path(path), isTRUE(recursive))
     },
 
     DeleteDir = function(path) {
-      fs___FileSystem__DeleteDir(self, clean_path(path))
+      fs___FileSystem__DeleteDir(self, fs_relative_path(path))
     },
 
     DeleteDirContents = function(path) {
-      fs___FileSystem__DeleteDirContents(self, clean_path(path))
+      fs___FileSystem__DeleteDirContents(self, fs_relative_path(path))
     },
 
     DeleteFile = function(path) {
-      fs___FileSystem__DeleteFile(self, clean_path(path))
+      fs___FileSystem__DeleteFile(self, fs_relative_path(path))
     },
 
     DeleteFiles = function(paths) {
-      fs___FileSystem__DeleteFiles(self, clean_path(paths))
+      fs___FileSystem__DeleteFiles(self, fs_relative_path(paths))
     },
 
     Move = function(src, dest) {
-      fs___FileSystem__Move(self, clean_path(src), clean_path(dest))
+      fs___FileSystem__Move(self, clean_path(src), fs_relative_path(dest))
     },
 
     CopyFile = function(src, dest) {
-      fs___FileSystem__CopyFile(self, clean_path(src), clean_path(dest))
+      fs___FileSystem__CopyFile(self, clean_path(src), fs_relative_path(dest))
     },
 
     OpenInputStream = function(path) {
-      shared_ptr(InputStream, fs___FileSystem__OpenInputStream(self, clean_path(path)))
+      shared_ptr(InputStream, fs___FileSystem__OpenInputStream(self, fs_relative_path(path)))
     },
     OpenInputFile = function(path) {
-      shared_ptr(InputStream, fs___FileSystem__OpenInputFile(self, clean_path(path)))
+      shared_ptr(InputStream, fs___FileSystem__OpenInputFile(self, fs_relative_path(path)))
     },
     OpenOutputStream = function(path) {
-      shared_ptr(OutputStream, fs___FileSystem__OpenOutputStream(self, clean_path(path)))
+      shared_ptr(OutputStream, fs___FileSystem__OpenOutputStream(self, fs_relative_path(path)))
     },
     OpenAppendStream = function(path) {
-      shared_ptr(OutputStream, fs___FileSystem__OpenAppendStream(self, clean_path(path)))
+      shared_ptr(OutputStream, fs___FileSystem__OpenAppendStream(self, fs_relative_path(path)))
     }
   )
 )
@@ -243,11 +243,17 @@ LocalFileSystem$create <- function() {
 #' @export
 SubTreeFileSystem <- R6Class("SubTreeFileSystem", inherit = FileSystem)
 SubTreeFileSystem$create <- function(base_path, base_fs) {
-  xp <- fs___SubTreeFileSystem__create(clean_path(base_path), base_fs)
+  xp <- fs___SubTreeFileSystem__create(fs_relative_path(base_path), base_fs)
   shared_ptr(SubTreeFileSystem, xp)
 }
 
 clean_path <- function(path) {
-  # Make sure we have a valid, forward-slashed path for passing to Arrow
+  # Make sure we have a valid, absolute, forward-slashed path for passing to Arrow
   normalizePath(path, winslash = "/", mustWork = FALSE)
+}
+
+fs_relative_path <- function(path) {
+  # Make sure all path separators are "/", not "\" as on Windows
+  path_sep <- ifelse(tolower(Sys.info()[["sysname"]]) == "windows", "\\\\", "/")
+  gsub(path_sep, "/", path)
 }
