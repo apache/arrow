@@ -23,7 +23,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/internal/bitutil"
+	"github.com/apache/arrow/go/arrow/bitutil"
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/pkg/errors"
 )
