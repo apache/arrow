@@ -60,7 +60,6 @@ class BufferedBase {
       RETURN_NOT_OK(buffer_->Resize(buffer_size_));
     }
     buffer_data_ = buffer_->mutable_data();
-    buffer_pos_ = 0;
     return Status::OK();
   }
 
@@ -76,6 +75,8 @@ class BufferedBase {
   }
 
   int64_t buffer_size() const { return buffer_size_; }
+
+  int64_t buffer_pos() const { return buffer_pos_; }
 
  protected:
   MemoryPool* pool_;
@@ -220,6 +221,8 @@ Status BufferedOutputStream::SetBufferSize(int64_t new_buffer_size) {
 
 int64_t BufferedOutputStream::buffer_size() const { return impl_->buffer_size(); }
 
+int64_t BufferedOutputStream::bytes_buffered() const { return impl_->buffer_pos(); }
+
 Status BufferedOutputStream::Detach(std::shared_ptr<OutputStream>* raw) {
   return impl_->Detach(raw);
 }
@@ -305,7 +308,7 @@ class BufferedInputStream::Impl : public BufferedBase {
       RETURN_NOT_OK(BufferIfNeeded());
     }
 
-    // Increase the buffer size if needed
+    // Increase the buffer size if needed.
     if (nbytes > buffer_->size() - buffer_pos_) {
       RETURN_NOT_OK(SetBufferSize(nbytes + buffer_pos_));
       DCHECK(buffer_->size() - buffer_pos_ >= nbytes);

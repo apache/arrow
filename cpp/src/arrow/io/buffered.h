@@ -58,6 +58,10 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   /// \brief Return the current size of the internal buffer
   int64_t buffer_size() const;
 
+  /// \brief Return the number of remaining bytes that have not been flushed to
+  /// the raw OutputStream
+  int64_t bytes_buffered() const;
+
   /// \brief Flush any buffered writes and release the raw
   /// OutputStream. Further operations on this object are invalid
   /// \param[out] raw the underlying OutputStream
