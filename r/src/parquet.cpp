@@ -83,7 +83,8 @@ std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable2(
 }
 
 // [[arrow::export]]
-void parquet___arrow___WriteTable(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::io::OutputStream>& sink) {
+void parquet___arrow___WriteTable(const std::shared_ptr<arrow::Table>& table,
+                                  const std::shared_ptr<arrow::io::OutputStream>& sink) {
   PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(*table, arrow::default_memory_pool(),
                                                   sink, table->num_rows()));
 }
