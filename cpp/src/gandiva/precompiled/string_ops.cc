@@ -168,6 +168,31 @@ char* upper_utf8(int64 context, const char* data, int32 data_len, int32_t* out_l
   return ret;
 }
 
+// Convert a utf8 sequence to lower case.
+// TODO : This handles only ascii characters.
+FORCE_INLINE
+const char* lower_utf8(int64 context, const char* data, int32 data_len,
+                       int32_t* out_len) {
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, data_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  for (int32 i = 0; i < data_len; ++i) {
+    char cur = data[i];
+
+    // 'A' - 'Z' : 0x41 - 0x5a
+    // 'a' - 'z' : 0x61 - 0x7a
+    if (cur >= 0x41 && cur <= 0x5a) {
+      cur = static_cast<char>(cur + 0x20);
+    }
+    ret[i] = cur;
+  }
+  *out_len = data_len;
+  return ret;
+}
+
 // Truncates the string to given length
 FORCE_INLINE
 char* castVARCHAR_utf8_int64(int64 context, const char* data, int32 data_len,
