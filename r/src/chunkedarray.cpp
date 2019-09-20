@@ -75,4 +75,9 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__View(
   return out;
 }
 
+// [[arrow::export]]
+void ChunkedArray__Validate(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  STOP_IF_NOT_OK(chunked_array->Validate());
+}
+
 #endif

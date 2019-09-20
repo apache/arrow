@@ -69,3 +69,4 @@ site/
 **/.Rproj.user
 **/*.Rcheck/
 **/.Rhistory
+.Rproj.user

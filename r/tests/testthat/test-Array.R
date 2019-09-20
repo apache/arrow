@@ -452,3 +452,8 @@ test_that("Array$View() (ARROW-6542)", {
   expect_equal(b$type, float32())
   expect_equal(length(b), 3L)
 })
+
+test_that("Array$Validate()", {
+  a <- Array$create(1:10)
+  expect_error(a$Validate(), NA)
+})

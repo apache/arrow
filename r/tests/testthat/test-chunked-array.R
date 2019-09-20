@@ -297,3 +297,8 @@ test_that("ChunkedArray$View() (ARROW-6542)", {
     sapply(b$chunks, function(.x) .x$type == float32())
   ))
 })
+
+test_that("ChunkedArray$Validate()", {
+  a <- ChunkedArray$create(1:10)
+  expect_error(a$Validate(), NA)
+})

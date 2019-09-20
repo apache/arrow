@@ -57,6 +57,8 @@
 #' - `$Slice(offset, length = NULL)` : Construct a zero-copy slice of the array with the indicated offset and length. If length is `NULL`, the slice goes until the end of the array.
 #' - `$RangeEquals(other, start_idx, end_idx, other_start_idx)` :
 #' - `$View(type)`: Construct a zero-copy view of this array with the given type.
+#' - `$Validate()` : Perform any validation checks to determine obvious inconsistencies
+#'    within the array's internal data. This can be an expensive check, potentially `O(length)`
 #'
 #' @rdname array
 #' @name array
@@ -91,6 +93,9 @@ Array <- R6Class("Array",
     },
     View = function(type) {
       Array$create(Array__View(self, type))
+    },
+    Validate = function() {
+      Array__Validate(self)
     }
   ),
   active = list(
