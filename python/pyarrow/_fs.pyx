@@ -97,9 +97,7 @@ cdef class FileStats:
         Only regular files are guaranteed to have a size.
         """
         if self.stats.type() != CFileType_File:
-            raise ValueError(
-                'Only regular files are guaranteed to have a size'
-            )
+            return None
         return self.stats.size()
 
     @property
