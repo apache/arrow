@@ -1338,6 +1338,51 @@ RcppExport SEXP _arrow_csv___TableReader__Read(SEXP table_reader_sexp){
 }
 #endif
 
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool dataset___DataFragment__splittable(const std::shared_ptr<arrow::dataset::DataFragment>& fragment);
+RcppExport SEXP _arrow_dataset___DataFragment__splittable(SEXP fragment_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::DataFragment>&>::type fragment(fragment_sexp);
+	return Rcpp::wrap(dataset___DataFragment__splittable(fragment));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___DataFragment__splittable(SEXP fragment_sexp){
+	Rf_error("Cannot call dataset___DataFragment__splittable(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::ScanOptions> dataset___DataFragment__scan_options(const std::shared_ptr<arrow::dataset::DataFragment>& fragment);
+RcppExport SEXP _arrow_dataset___DataFragment__scan_options(SEXP fragment_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::DataFragment>&>::type fragment(fragment_sexp);
+	return Rcpp::wrap(dataset___DataFragment__scan_options(fragment));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___DataFragment__scan_options(SEXP fragment_sexp){
+	Rf_error("Cannot call dataset___DataFragment__scan_options(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::SimpleDataFragment> dataset___SimpleDataFragment__create(const std::vector<std::shared_ptr<arrow::RecordBatch>>& batches);
+RcppExport SEXP _arrow_dataset___SimpleDataFragment__create(SEXP batches_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::vector<std::shared_ptr<arrow::RecordBatch>>&>::type batches(batches_sexp);
+	return Rcpp::wrap(dataset___SimpleDataFragment__create(batches));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___SimpleDataFragment__create(SEXP batches_sexp){
+	Rf_error("Cannot call dataset___SimpleDataFragment__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool shared_ptr_is_null(SEXP xp);
@@ -5098,6 +5143,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_csv___ConvertOptions__initialize", (DL_FUNC) &_arrow_csv___ConvertOptions__initialize, 1}, 
 		{ "_arrow_csv___TableReader__Make", (DL_FUNC) &_arrow_csv___TableReader__Make, 4}, 
 		{ "_arrow_csv___TableReader__Read", (DL_FUNC) &_arrow_csv___TableReader__Read, 1}, 
+		{ "_arrow_dataset___DataFragment__splittable", (DL_FUNC) &_arrow_dataset___DataFragment__splittable, 1}, 
+		{ "_arrow_dataset___DataFragment__scan_options", (DL_FUNC) &_arrow_dataset___DataFragment__scan_options, 1}, 
+		{ "_arrow_dataset___SimpleDataFragment__create", (DL_FUNC) &_arrow_dataset___SimpleDataFragment__create, 1}, 
 		{ "_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1}, 
 		{ "_arrow_unique_ptr_is_null", (DL_FUNC) &_arrow_unique_ptr_is_null, 1}, 
 		{ "_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0}, 
