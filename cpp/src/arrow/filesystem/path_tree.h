@@ -20,6 +20,7 @@
 #include "arrow/filesystem/filesystem.h"
 
 #include <algorithm>
+#include <iosfwd>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -29,8 +30,8 @@ namespace fs {
 
 class ARROW_EXPORT PathTree;
 
-/// \brief A PathTreeForest consists of multiples PathTree
-using PathTreeForest = std::vector<std::shared_ptr<PathTree>>;
+/// \brief A PathForest consists of multiples PathTree
+using PathForest = std::vector<std::shared_ptr<PathTree>>;
 
 /// \brief A PathTree is a utility to transform a vector of FileStats into a
 /// forest representation for tree traversal purposes. Node in the graph wraps
@@ -44,7 +45,7 @@ class ARROW_EXPORT PathTree {
   /// \brief Transforms a FileStats vector into a forest of trees. Since there
   /// is no guarantee of complete trees, it is possible to have a forest
   /// (multiple roots). The caller should ensure that stats have unique path.
-  static Status Make(std::vector<FileStats> stats, PathTreeForest* out);
+  static Status Make(std::vector<FileStats> stats, PathForest* out);
 
   /// \brief Like MakeForest but fails if there's more than one root.
   static Status Make(std::vector<FileStats> stats, std::shared_ptr<PathTree>* out);
@@ -53,14 +54,6 @@ class ARROW_EXPORT PathTree {
   FileStats stats() const { return stats_; }
   /// \brief Returns the subtrees under this node.
   std::vector<std::shared_ptr<PathTree>> subtrees() const { return subtrees_; }
-
-  template <typename Visitor>
-  void Visit(Visitor v) const {
-    v(stats_);
-
-    auto recurse = [&v](const std::shared_ptr<PathTree>& tree) { tree->Visit(v); };
-    std::for_each(subtrees_.cbegin(), subtrees_.cend(), recurse);
-  }
 
   /// \brief Visit with eager pruning.
   template <typename Visitor, typename Matcher>
@@ -71,18 +64,37 @@ class ARROW_EXPORT PathTree {
 
     v(stats_);
 
-    auto recurse = [&v, &m](const std::shared_ptr<PathTree>& tree) { tree->Visit(v, m); };
+    auto recurse = [&v, &m](const std::shared_ptr<PathTree>& t) { t->Visit(v, m); };
     std::for_each(subtrees_.cbegin(), subtrees_.cend(), recurse);
   }
 
-  void AddChild(std::shared_ptr<PathTree> child) {
-    subtrees_.push_back(std::move(child));
+  template <typename Visitor>
+  void Visit(Visitor v) const {
+    auto always_match = [](const std::shared_ptr<PathTree>& t) { return true; };
+    return Visit(std::move(v), always_match);
+  }
+
+  bool operator==(const PathTree& other) const {
+    return stats_ == other.stats_ && subtrees_ == other.subtrees_;
   }
 
  protected:
   FileStats stats_;
   std::vector<std::shared_ptr<PathTree>> subtrees_;
+
+  // The AddChild method is conveninent to create trees in a top-down fashion,
+  // e.g. the Make factory constructor.
+  void AddChild(std::shared_ptr<PathTree> child) {
+    subtrees_.push_back(std::move(child));
+  }
 };
+
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
+                                      const std::shared_ptr<PathTree>& tree);
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const PathTree& tree);
+
+ARROW_EXPORT bool operator==(const std::shared_ptr<PathTree>& lhs,
+                             const std::shared_ptr<PathTree>& rhs);
 
 }  // namespace fs
 }  // namespace arrow

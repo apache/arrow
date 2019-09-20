@@ -19,110 +19,73 @@
 #include "arrow/filesystem/path_tree.h"
 
 #include <algorithm>
+#include <iostream>
+#include <map>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "arrow/filesystem/path_util.h"
 
 namespace arrow {
 namespace fs {
 
-static int PathDepth(const std::string& path) {
-  return std::count(path.begin(), path.end(), internal::kSep);
-}
-
 using PathTreeByPathMap = std::unordered_map<std::string, std::shared_ptr<PathTree>>;
 
-template <FileType Type>
-bool IsType(const std ::shared_ptr<PathTree>& tree) {
-  return tree->stats().type() == Type;
-}
-
-std::shared_ptr<PathTree> FindAncestor(PathTreeByPathMap* directories, std::string path) {
+std::shared_ptr<PathTree> FindAncestor(const PathTreeByPathMap& directories,
+                                       std::string path) {
   while (path != "") {
     auto parent = internal::GetAbstractPathParent(path).first;
-    auto found = directories->find(parent);
-    if (found != directories->end()) {
+    auto found = directories.find(parent);
+    if (found != directories.end()) {
       return found->second;
     }
 
-    path = parent;
+    path = std::move(parent);
   }
 
   return nullptr;
 }
 
-static void LinkToParentOrInsertNewRoot(FileStats stats, PathTreeByPathMap* directories,
-                                        PathTreeForest* forest) {
-  auto node = std::make_shared<PathTree>(stats);
-  if (stats.path() == "") {
-    forest->push_back(node);
-    return;
-  }
-
-  auto ancestor = FindAncestor(directories, stats.path());
-  if (ancestor) {
-    ancestor->AddChild(node);
-  } else {
-    forest->push_back(node);
-  }
-
-  if (IsType<FileType::Directory>(node)) {
-    directories->insert({stats.path(), node});
-  }
-}
-
-using DirectoryByDepthMap = std::unordered_map<int, std::vector<FileStats>>;
-
-std::vector<int> OrderedDepths(const DirectoryByDepthMap& directories_by_depth) {
-  std::vector<int> depths;
-  for (auto k_v : directories_by_depth) {
-    depths.push_back(k_v.first);
-  }
-
-  // In practice, this is going to be O(lg(n)lg(lg(n))), i.e. constant.
-  std::sort(depths.begin(), depths.end());
-  return depths;
-}
-
-Status PathTree::Make(std::vector<FileStats> stats, PathTreeForest* out) {
+Status PathTree::Make(std::vector<FileStats> stats, PathForest* out) {
   PathTreeByPathMap directories;
-  PathTreeForest forest;
+  PathForest forest;
 
-  // Partition the stats vector into (directories, others)
-  auto is_directory = [](const FileStats& stats) { return stats.IsDirectory(); };
-  std::stable_partition(stats.begin(), stats.end(), is_directory);
-  auto mid = std::partition_point(stats.begin(), stats.end(), is_directory);
+  auto link_parent_or_insert_root = [&directories, &forest](const FileStats& s) {
+    if (s.path() == "") {
+      return;
+    }
 
-  // First, partition directories by path depth.
-  DirectoryByDepthMap directories_by_depth;
-  std::for_each(stats.begin(), mid, [&directories_by_depth](FileStats s) {
-    directories_by_depth[PathDepth(s.path())].push_back(s);
-  });
+    auto ancestor = FindAncestor(directories, s.path());
+    auto node = std::make_shared<PathTree>(s);
+    if (ancestor) {
+      ancestor->AddChild(node);
+    } else {
+      forest.push_back(node);
+    }
 
-  // Insert directories by ascending depth, ensuring that children directories
-  // are always inserted after ancestors.
-  for (int d : OrderedDepths(directories_by_depth)) {
-    auto dir = directories_by_depth.at(d);
-    std::for_each(dir.begin(), dir.end(), [&directories, &forest](FileStats s) {
-      LinkToParentOrInsertNewRoot(s, &directories, &forest);
-    });
-  }
+    if (s.type() == FileType::Directory) {
+      directories[s.path()] = node;
+    }
+  };
 
-  // Second, ingest files. By the same logic, directories are added before
-  // files, hence the lookup for ancestors is valid.
-  std::for_each(mid, stats.end(), [&directories, &forest](FileStats s) {
-    LinkToParentOrInsertNewRoot(s, &directories, &forest);
-  });
+  // Insert nodes by ascending path length, ensuring that nodes are always
+  // inserted after their ancestors. Note that this strategy does not account
+  // for special directories like '..'. It is expected that path are absolute.
+  auto cmp = [](const FileStats& lhs, const FileStats& rhs) {
+    return lhs.path().size() < rhs.path().size();
+  };
+  std::stable_sort(stats.begin(), stats.end(), cmp);
+  std::for_each(stats.cbegin(), stats.cend(), link_parent_or_insert_root);
 
   *out = std::move(forest);
   return Status::OK();
 }
 
 Status PathTree::Make(std::vector<FileStats> stats, std::shared_ptr<PathTree>* out) {
-  PathTreeForest forest;
+  PathForest forest;
   RETURN_NOT_OK(Make(stats, &forest));
 
   auto size = forest.size();
@@ -133,6 +96,41 @@ Status PathTree::Make(std::vector<FileStats> stats, std::shared_ptr<PathTree>* o
   }
 
   return Status::OK();
+}
+
+std::ostream& operator<<(std::ostream& os, const PathTree& tree) {
+  os << "PathTree(" << tree.stats();
+
+  const auto& subtrees = tree.subtrees();
+  if (subtrees.size()) {
+    os << ", [";
+    for (size_t i = 0; i < subtrees.size(); i++) {
+      if (i != 0) os << ", ";
+      os << *subtrees[i];
+    }
+    os << "]";
+  }
+  os << ")";
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const std::shared_ptr<PathTree>& tree) {
+  if (tree != nullptr) {
+    return os << *tree.get();
+  }
+
+  return os;
+}
+
+bool operator==(const std::shared_ptr<PathTree>& lhs,
+                             const std::shared_ptr<PathTree>& rhs) {
+  if (lhs == NULLPTR && rhs == NULLPTR) {
+    return true;
+  } else if (lhs != NULLPTR && rhs != NULLPTR) {
+    return *lhs == *rhs;
+  }
+
+  return false;
 }
 
 }  // namespace fs

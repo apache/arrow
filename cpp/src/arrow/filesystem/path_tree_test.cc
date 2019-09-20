@@ -37,25 +37,7 @@ static std::shared_ptr<PathTree> PT(FileStats stats) {
 
 static std::shared_ptr<PathTree> PT(FileStats stats,
                                     std::vector<std::shared_ptr<PathTree>> subtrees) {
-  return std::make_shared<PathTree>(stats, std::move(subtrees));
-}
-
-// Utility functions to help testing/debugging
-std::ostream& operator<<(std::ostream& os, const PathTree& tree) {
-  return os << "PathTree(" << tree.stats() << ")";
-}
-
-std::ostream& operator<<(std::ostream& os, const std::shared_ptr<PathTree>& tree) {
-  return os << *tree;
-}
-
-bool operator==(const PathTree& lhs, const PathTree& rhs) {
-  return lhs.stats() == rhs.stats() && lhs.subtrees() == rhs.subtrees();
-}
-
-bool operator==(const std::shared_ptr<PathTree>& lhs,
-                const std::shared_ptr<PathTree>& rhs) {
-  return *lhs == *rhs;
+  return std::make_shared<PathTree>(std::move(stats), std::move(subtrees));
 }
 
 void AssertMakePathTree(std::vector<FileStats> stats,
@@ -79,11 +61,9 @@ TEST(TestPathTree, Basic) {
 
   // Multiple roots are supported.
   AssertMakePathTree({File("aa"), File("bb")}, {PT(File("aa")), PT(File("bb"))});
-  // Note that an implementation detail is leaking in this test, directories
-  // are always first in the forest.
   AssertMakePathTree(
       {File("00"), Dir("AA"), File("AA/aa"), File("BB/bb")},
-      {PT(Dir("AA"), {PT(File("AA/aa"))}), PT(File("00")), PT(File("BB/bb"))});
+      {PT(File("00")), PT(Dir("AA"), {PT(File("AA/aa"))}), PT(File("BB/bb"))});
 }
 
 TEST(TestPathTree, HourlyETL) {
@@ -107,48 +87,53 @@ TEST(TestPathTree, HourlyETL) {
   };
 
   std::vector<FileStats> stats;
-  std::vector<std::shared_ptr<PathTree>> forest;
 
+  PathForest forest;
   for (int64_t year = 0; year < kYears; year++) {
     auto year_str = std::to_string(year + 2000);
     auto year_dir = Dir(year_str);
     stats.push_back(year_dir);
 
-    auto year_pt = PT(year_dir);
-    // years are roots in the forest
-    forest.push_back(year_pt);
+    PathForest months;
     for (int64_t month = 0; month < kMonthsPerYear; month++) {
       auto month_str = join({year_str, numbers[month + 1]});
       auto month_dir = Dir(month_str);
       stats.push_back(month_dir);
 
-      auto month_pt = PT(month_dir);
-      year_pt->AddChild(month_pt);
+      PathForest days;
       for (int64_t day = 0; day < kDaysPerMonth; day++) {
         auto day_str = join({month_str, numbers[day + 1]});
         auto day_dir = Dir(day_str);
         stats.push_back(day_dir);
 
-        auto day_pt = PT(day_dir);
-        month_pt->AddChild(day_pt);
+        PathForest hours;
         for (int64_t hour = 0; hour < kHoursPerDay; hour++) {
           auto hour_str = join({day_str, numbers[hour]});
           auto hour_dir = Dir(hour_str);
           stats.push_back(hour_dir);
 
-          auto hour_pt = PT(hour_dir);
-          day_pt->AddChild(hour_pt);
+          PathForest files;
           for (int64_t file = 0; file < kFilesPerHour; file++) {
             auto file_str = join({hour_str, numbers[file] + ".parquet"});
             auto file_fd = File(file_str);
             stats.push_back(file_fd);
-
-            auto file_pt = PT(file_fd);
-            hour_pt->AddChild(file_pt);
+            files.push_back(PT(file_fd));
           }
+
+          auto hour_pt = PT(hour_dir, std::move(files));
+          hours.push_back(hour_pt);
         }
+
+        auto day_pt = PT(day_dir, std::move(hours));
+        days.push_back(day_pt);
       }
+
+      auto month_pt = PT(month_dir, std::move(days));
+      months.push_back(month_pt);
     }
+
+    auto year_pt = PT(year_dir, std::move(months));
+    forest.push_back(year_pt);
   }
 
   AssertMakePathTree(stats, forest);

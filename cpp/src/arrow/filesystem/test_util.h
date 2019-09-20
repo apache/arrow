@@ -43,15 +43,6 @@ static inline FileStats Dir(std::string path) {
   return st;
 }
 
-// Utility functions to help testing/debugging
-std::ostream& operator<<(std::ostream& os, const FileStats& stats) {
-  return os << "FileStats(" << stats.type() << ", " << stats.path() << ")";
-}
-
-bool operator==(const FileStats& lhs, const FileStats& rhs) {
-  return lhs.type() == rhs.type() && lhs.path() == rhs.path();
-}
-
 ARROW_EXPORT
 void CreateFile(FileSystem* fs, const std::string& path, const std::string& data);
 
