@@ -56,6 +56,10 @@ Array__RangeEquals <- function(self, other, start_idx, end_idx, other_start_idx)
     .Call(`_arrow_Array__RangeEquals` , self, other, start_idx, end_idx, other_start_idx)
 }
 
+Array__View <- function(array, type){
+    .Call(`_arrow_Array__View` , array, type)
+}
+
 Array__Mask <- function(array){
     .Call(`_arrow_Array__Mask` , array)
 }
@@ -202,6 +206,10 @@ ChunkArray__Slice1 <- function(chunked_array, offset){
 
 ChunkArray__Slice2 <- function(chunked_array, offset, length){
     .Call(`_arrow_ChunkArray__Slice2` , chunked_array, offset, length)
+}
+
+ChunkedArray__View <- function(array, type){
+    .Call(`_arrow_ChunkedArray__View` , array, type)
 }
 
 util___Codec__Create <- function(codec){

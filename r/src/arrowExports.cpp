@@ -227,6 +227,22 @@ RcppExport SEXP _arrow_Array__RangeEquals(SEXP self_sexp, SEXP other_sexp, SEXP 
 
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> Array__View(const std::shared_ptr<arrow::Array>& array, const std::shared_ptr<arrow::DataType>& type);
+RcppExport SEXP _arrow_Array__View(SEXP array_sexp, SEXP type_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	return Rcpp::wrap(Array__View(array, type));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Array__View(SEXP array_sexp, SEXP type_sexp){
+	Rf_error("Cannot call Array__View(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
 LogicalVector Array__Mask(const std::shared_ptr<arrow::Array>& array);
 RcppExport SEXP _arrow_Array__Mask(SEXP array_sexp){
 BEGIN_RCPP
@@ -790,6 +806,22 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_ChunkArray__Slice2(SEXP chunked_array_sexp, SEXP offset_sexp, SEXP length_sexp){
 	Rf_error("Cannot call ChunkArray__Slice2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// chunkedarray.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__View(const std::shared_ptr<arrow::ChunkedArray>& array, const std::shared_ptr<arrow::DataType>& type);
+RcppExport SEXP _arrow_ChunkedArray__View(SEXP array_sexp, SEXP type_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type array(array_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	return Rcpp::wrap(ChunkedArray__View(array, type));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ChunkedArray__View(SEXP array_sexp, SEXP type_sexp){
+	Rf_error("Cannot call ChunkedArray__View(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -4182,6 +4214,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Array__ApproxEquals", (DL_FUNC) &_arrow_Array__ApproxEquals, 2}, 
 		{ "_arrow_Array__data", (DL_FUNC) &_arrow_Array__data, 1}, 
 		{ "_arrow_Array__RangeEquals", (DL_FUNC) &_arrow_Array__RangeEquals, 5}, 
+		{ "_arrow_Array__View", (DL_FUNC) &_arrow_Array__View, 2}, 
 		{ "_arrow_Array__Mask", (DL_FUNC) &_arrow_Array__Mask, 1}, 
 		{ "_arrow_DictionaryArray__indices", (DL_FUNC) &_arrow_DictionaryArray__indices, 1}, 
 		{ "_arrow_DictionaryArray__dictionary", (DL_FUNC) &_arrow_DictionaryArray__dictionary, 1}, 
@@ -4219,6 +4252,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ChunkedArray__type", (DL_FUNC) &_arrow_ChunkedArray__type, 1}, 
 		{ "_arrow_ChunkArray__Slice1", (DL_FUNC) &_arrow_ChunkArray__Slice1, 2}, 
 		{ "_arrow_ChunkArray__Slice2", (DL_FUNC) &_arrow_ChunkArray__Slice2, 3}, 
+		{ "_arrow_ChunkedArray__View", (DL_FUNC) &_arrow_ChunkedArray__View, 2}, 
 		{ "_arrow_util___Codec__Create", (DL_FUNC) &_arrow_util___Codec__Create, 1}, 
 		{ "_arrow_io___CompressedOutputStream__Make", (DL_FUNC) &_arrow_io___CompressedOutputStream__Make, 2}, 
 		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2}, 

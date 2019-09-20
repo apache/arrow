@@ -445,3 +445,10 @@ test_that("Array$create() can handle data frame with custom struct type (not inf
   type <- struct(x = float64(), y = utf8())
   expect_error(Array$create(df, type = type), regexp = "Cannot convert R object to string array")
 })
+
+test_that("Array$View() (ARROW-6542)", {
+  a <- Array$create(1:3)
+  b <- a$View(float32())
+  expect_equal(b$type, float32())
+  expect_equal(length(b), 3L)
+})

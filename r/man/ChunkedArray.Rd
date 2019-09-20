@@ -35,6 +35,7 @@ various Arrays or R vectors. \code{chunked_array()} is an alias for it.
 \item \code{$chunks()}
 \item \code{$num_chunks()}
 \item \code{$type()}
+\item \code{$View(type)}: Construct a zero-copy view of this chunked array with the given type.
 }
 }
 
