@@ -64,6 +64,10 @@ Array__Mask <- function(array){
     .Call(`_arrow_Array__Mask` , array)
 }
 
+Array__Validate <- function(array){
+    invisible(.Call(`_arrow_Array__Validate` , array))
+}
+
 DictionaryArray__indices <- function(array){
     .Call(`_arrow_DictionaryArray__indices` , array)
 }
@@ -210,6 +214,10 @@ ChunkArray__Slice2 <- function(chunked_array, offset, length){
 
 ChunkedArray__View <- function(array, type){
     .Call(`_arrow_ChunkedArray__View` , array, type)
+}
+
+ChunkedArray__Validate <- function(chunked_array){
+    invisible(.Call(`_arrow_ChunkedArray__Validate` , chunked_array))
 }
 
 util___Codec__Create <- function(codec, compression_level){

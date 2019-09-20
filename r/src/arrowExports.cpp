@@ -258,6 +258,22 @@ RcppExport SEXP _arrow_Array__Mask(SEXP array_sexp){
 
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)
+void Array__Validate(const std::shared_ptr<arrow::Array>& array);
+RcppExport SEXP _arrow_Array__Validate(SEXP array_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	Array__Validate(array);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Array__Validate(SEXP array_sexp){
+	Rf_error("Cannot call Array__Validate(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> DictionaryArray__indices(const std::shared_ptr<arrow::DictionaryArray>& array);
 RcppExport SEXP _arrow_DictionaryArray__indices(SEXP array_sexp){
 BEGIN_RCPP
@@ -822,6 +838,22 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_ChunkedArray__View(SEXP array_sexp, SEXP type_sexp){
 	Rf_error("Cannot call ChunkedArray__View(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// chunkedarray.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void ChunkedArray__Validate(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+RcppExport SEXP _arrow_ChunkedArray__Validate(SEXP chunked_array_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	ChunkedArray__Validate(chunked_array);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ChunkedArray__Validate(SEXP chunked_array_sexp){
+	Rf_error("Cannot call ChunkedArray__Validate(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -4219,6 +4251,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Array__RangeEquals", (DL_FUNC) &_arrow_Array__RangeEquals, 5}, 
 		{ "_arrow_Array__View", (DL_FUNC) &_arrow_Array__View, 2}, 
 		{ "_arrow_Array__Mask", (DL_FUNC) &_arrow_Array__Mask, 1}, 
+		{ "_arrow_Array__Validate", (DL_FUNC) &_arrow_Array__Validate, 1}, 
 		{ "_arrow_DictionaryArray__indices", (DL_FUNC) &_arrow_DictionaryArray__indices, 1}, 
 		{ "_arrow_DictionaryArray__dictionary", (DL_FUNC) &_arrow_DictionaryArray__dictionary, 1}, 
 		{ "_arrow_StructArray__field", (DL_FUNC) &_arrow_StructArray__field, 2}, 
@@ -4256,6 +4289,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ChunkArray__Slice1", (DL_FUNC) &_arrow_ChunkArray__Slice1, 2}, 
 		{ "_arrow_ChunkArray__Slice2", (DL_FUNC) &_arrow_ChunkArray__Slice2, 3}, 
 		{ "_arrow_ChunkedArray__View", (DL_FUNC) &_arrow_ChunkedArray__View, 2}, 
+		{ "_arrow_ChunkedArray__Validate", (DL_FUNC) &_arrow_ChunkedArray__Validate, 1}, 
 		{ "_arrow_util___Codec__Create", (DL_FUNC) &_arrow_util___Codec__Create, 2}, 
 		{ "_arrow_io___CompressedOutputStream__Make", (DL_FUNC) &_arrow_io___CompressedOutputStream__Make, 2}, 
 		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2}, 

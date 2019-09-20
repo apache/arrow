@@ -39,6 +39,8 @@
 #' - `$num_chunks()`
 #' - `$type()`
 #' - `$View(type)`: Construct a zero-copy view of this chunked array with the given type.
+#' - `$Validate()` : Perform any validation checks to determine obvious inconsistencies
+#'    within the array's internal data. This can be an expensive check, potentially `O(length)`
 #'
 #' @rdname ChunkedArray
 #' @name ChunkedArray
@@ -63,6 +65,9 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
     },
     View = function(type) {
       shared_ptr(ChunkedArray, ChunkedArray__View(self, type))
+    },
+    Validate = function() {
+      ChunkedArray__Validate(self)
     }
   ),
   active = list(
