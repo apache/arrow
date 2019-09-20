@@ -64,7 +64,8 @@ std::shared_ptr<arrow::Array> RecordBatch__GetColumnByName(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__select(
-    const std::shared_ptr<arrow::RecordBatch>& batch, const Rcpp::IntegerVector& indices) {
+    const std::shared_ptr<arrow::RecordBatch>& batch,
+    const Rcpp::IntegerVector& indices) {
   R_xlen_t n = indices.size();
   auto nrows = batch->num_rows();
 
