@@ -232,6 +232,6 @@ LocalFileSystem$create <- function() {
 #' @export
 SubTreeFileSystem <- R6Class("SubTreeFileSystem", inherit = FileSystem)
 SubTreeFileSystem$create <- function(base_path, base_fs) {
-  xp <- fs___SubTreeFileSystem__create(base_path, base_fs)
+  xp <- fs___SubTreeFileSystem__create(normalizePath(base_path, "/"), base_fs)
   shared_ptr(SubTreeFileSystem, xp)
 }
