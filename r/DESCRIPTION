@@ -61,6 +61,7 @@ Collate:
     'compression.R'
     'compute.R'
     'csv.R'
+    'dataset.R'
     'dictionary.R'
     'record-batch.R'
     'table.R'
