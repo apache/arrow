@@ -827,15 +827,16 @@ RcppExport SEXP _arrow_ChunkedArray__View(SEXP array_sexp, SEXP type_sexp){
 
 // compression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::unique_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec);
-RcppExport SEXP _arrow_util___Codec__Create(SEXP codec_sexp){
+std::unique_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec, int compression_level);
+RcppExport SEXP _arrow_util___Codec__Create(SEXP codec_sexp, SEXP compression_level_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<arrow::Compression::type>::type codec(codec_sexp);
-	return Rcpp::wrap(util___Codec__Create(codec));
+	Rcpp::traits::input_parameter<int>::type compression_level(compression_level_sexp);
+	return Rcpp::wrap(util___Codec__Create(codec, compression_level));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_util___Codec__Create(SEXP codec_sexp){
+RcppExport SEXP _arrow_util___Codec__Create(SEXP codec_sexp, SEXP compression_level_sexp){
 	Rf_error("Cannot call util___Codec__Create(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
@@ -4253,7 +4254,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ChunkArray__Slice1", (DL_FUNC) &_arrow_ChunkArray__Slice1, 2}, 
 		{ "_arrow_ChunkArray__Slice2", (DL_FUNC) &_arrow_ChunkArray__Slice2, 3}, 
 		{ "_arrow_ChunkedArray__View", (DL_FUNC) &_arrow_ChunkedArray__View, 2}, 
-		{ "_arrow_util___Codec__Create", (DL_FUNC) &_arrow_util___Codec__Create, 1}, 
+		{ "_arrow_util___Codec__Create", (DL_FUNC) &_arrow_util___Codec__Create, 2}, 
 		{ "_arrow_io___CompressedOutputStream__Make", (DL_FUNC) &_arrow_io___CompressedOutputStream__Make, 2}, 
 		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2}, 
 		{ "_arrow_compute___CastOptions__initialize", (DL_FUNC) &_arrow_compute___CastOptions__initialize, 3}, 

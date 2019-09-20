@@ -18,7 +18,8 @@ The \code{CompressedInputStream$create()} and \code{CompressedOutputStream$creat
 factory methods instantiate the object and take the following arguments:
 \itemize{
 \item \code{stream} An \link{InputStream} or \link{OutputStream}, respectively
-\item \code{codec} A \code{Codec}
+\item \code{codec} A \code{Codec}, either a \link{Codec} instance or a string
+\item \code{compression_level} compression level for when the \code{codec} argument is given as a string
 }
 }
 

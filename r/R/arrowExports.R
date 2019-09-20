@@ -212,8 +212,8 @@ ChunkedArray__View <- function(array, type){
     .Call(`_arrow_ChunkedArray__View` , array, type)
 }
 
-util___Codec__Create <- function(codec){
-    .Call(`_arrow_util___Codec__Create` , codec)
+util___Codec__Create <- function(codec, compression_level){
+    .Call(`_arrow_util___Codec__Create` , codec, compression_level)
 }
 
 io___CompressedOutputStream__Make <- function(codec, raw){
