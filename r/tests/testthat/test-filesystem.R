@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("test-type")
+context("File system")
 
 test_that("LocalFilesystem", {
   fs <- LocalFileSystem$create()

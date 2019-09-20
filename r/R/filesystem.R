@@ -205,11 +205,11 @@ FileSystem <- R6Class("FileSystem", inherit = Object,
     },
 
     Move = function(src, dest) {
-      fs___FileSystem__Move(self, clean_path(src), fs_relative_path(dest))
+      fs___FileSystem__Move(self, fs_relative_path(src), fs_relative_path(dest))
     },
 
     CopyFile = function(src, dest) {
-      fs___FileSystem__CopyFile(self, clean_path(src), fs_relative_path(dest))
+      fs___FileSystem__CopyFile(self, fs_relative_path(src), fs_relative_path(dest))
     },
 
     OpenInputStream = function(path) {
