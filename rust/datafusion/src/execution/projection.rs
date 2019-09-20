@@ -116,13 +116,14 @@ mod tests {
 
         let testdata = test::arrow_testdata_path();
 
-        let ds = CsvBatchIterator::new(
+        let ds = CsvBatchIterator::try_new(
             &format!("{}/csv/aggregate_test_100.csv", testdata),
             schema.clone(),
             true,
             &None,
             1024,
-        );
+        )
+        .unwrap();
         let relation = Rc::new(RefCell::new(DataSourceRelation::new(Arc::new(
             Mutex::new(ds),
         ))));

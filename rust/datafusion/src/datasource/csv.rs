@@ -84,14 +84,14 @@ pub struct CsvBatchIterator {
 
 impl CsvBatchIterator {
     #[allow(missing_docs)]
-    pub fn new(
+    pub fn try_new(
         filename: &str,
         schema: Arc<Schema>,
         has_header: bool,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
-    ) -> Self {
-        let file = File::open(filename).unwrap();
+    ) -> Result<Self> {
+        let file = File::open(filename)?;
         let reader = csv::Reader::new(
             file,
             schema.clone(),
@@ -110,10 +110,10 @@ impl CsvBatchIterator {
             None => schema,
         };
 
-        Self {
+        Ok(Self {
             schema: projected_schema,
             reader,
-        }
+        })
     }
 }
 
