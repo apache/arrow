@@ -84,6 +84,43 @@ test_that("RecordBatch", {
   expect_identical(as.data.frame(batch4), tbl[6:7,])
 })
 
+tbl10 <- tibble::tibble(
+  int = 1:10,
+  dbl = as.numeric(1:10),
+  lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+  chr = letters[1:10],
+  fct = factor(letters[1:10])
+)
+batch <- record_batch(!!!tbl10)
+
+test_that("[ on RecordBatch", {
+  expect_identical(as.data.frame(batch[6:7,]), tbl10[6:7,])
+  expect_identical(as.data.frame(batch[6:7, 2:4]), tbl10[6:7, 2:4])
+  expect_identical(as.data.frame(batch[, c("dbl", "fct")]), tbl10[, c(2, 5)])
+  expect_identical(as.vector(batch[, "chr", drop = TRUE]), tbl10$chr)
+})
+
+test_that("[[ and $ on RecordBatch", {
+  expect_identical(as.vector(batch[["int"]]), tbl10$int)
+  expect_identical(as.vector(batch$int), tbl10$int)
+  expect_identical(as.vector(batch[[4]]), tbl10$chr)
+  expect_null(batch$qwerty)
+  expect_null(batch[["asdf"]])
+  expect_error(batch[[c(4, 3)]], 'length(i) not equal to 1', fixed = TRUE)
+  expect_error(batch[[NA]], "'i' must be character or numeric, not logical")
+  expect_error(batch[[NULL]], "'i' must be character or numeric, not NULL")
+  expect_error(batch[[c("asdf", "jkl;")]], 'length(name) not equal to 1', fixed = TRUE)
+})
+
+test_that("head and tail on RecordBatch", {
+  expect_identical(as.data.frame(head(batch)), head(tbl10))
+  expect_identical(as.data.frame(head(batch, 4)), head(tbl10, 4))
+  expect_identical(as.data.frame(head(batch, -4)), head(tbl10, -4))
+  expect_identical(as.data.frame(tail(batch)), tail(tbl10))
+  expect_identical(as.data.frame(tail(batch, 4)), tail(tbl10, 4))
+  expect_identical(as.data.frame(tail(batch, -4)), tail(tbl10, -4))
+})
+
 test_that("RecordBatch with 0 rows are supported", {
   tbl <- tibble::tibble(
     int = integer(),

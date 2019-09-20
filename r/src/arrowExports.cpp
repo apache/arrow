@@ -3524,6 +3524,38 @@ RcppExport SEXP _arrow_RecordBatch__column(SEXP batch_sexp, SEXP i_sexp){
 
 // recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> RecordBatch__GetColumnByName(const std::shared_ptr<arrow::RecordBatch>& batch, const std::string& name);
+RcppExport SEXP _arrow_RecordBatch__GetColumnByName(SEXP batch_sexp, SEXP name_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type name(name_sexp);
+	return Rcpp::wrap(RecordBatch__GetColumnByName(batch, name));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_RecordBatch__GetColumnByName(SEXP batch_sexp, SEXP name_sexp){
+	Rf_error("Cannot call RecordBatch__GetColumnByName(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// recordbatch.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::RecordBatch> RecordBatch__select(const std::shared_ptr<arrow::RecordBatch>& batch, const Rcpp::IntegerVector& indices);
+RcppExport SEXP _arrow_RecordBatch__select(SEXP batch_sexp, SEXP indices_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	Rcpp::traits::input_parameter<const Rcpp::IntegerVector&>::type indices(indices_sexp);
+	return Rcpp::wrap(RecordBatch__select(batch, indices));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_RecordBatch__select(SEXP batch_sexp, SEXP indices_sexp){
+	Rf_error("Cannot call RecordBatch__select(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// recordbatch.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl);
 RcppExport SEXP _arrow_RecordBatch__from_dataframe(SEXP tbl_sexp){
 BEGIN_RCPP
@@ -4462,6 +4494,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1}, 
 		{ "_arrow_RecordBatch__columns", (DL_FUNC) &_arrow_RecordBatch__columns, 1}, 
 		{ "_arrow_RecordBatch__column", (DL_FUNC) &_arrow_RecordBatch__column, 2}, 
+		{ "_arrow_RecordBatch__GetColumnByName", (DL_FUNC) &_arrow_RecordBatch__GetColumnByName, 2}, 
+		{ "_arrow_RecordBatch__select", (DL_FUNC) &_arrow_RecordBatch__select, 2}, 
 		{ "_arrow_RecordBatch__from_dataframe", (DL_FUNC) &_arrow_RecordBatch__from_dataframe, 1}, 
 		{ "_arrow_RecordBatch__Equals", (DL_FUNC) &_arrow_RecordBatch__Equals, 2}, 
 		{ "_arrow_RecordBatch__RemoveColumn", (DL_FUNC) &_arrow_RecordBatch__RemoveColumn, 2}, 

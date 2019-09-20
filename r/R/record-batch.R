@@ -31,14 +31,33 @@
 #' @name RecordBatch
 RecordBatch <- R6Class("RecordBatch", inherit = Object,
   public = list(
-    column = function(i) shared_ptr(Array, RecordBatch__column(self, i)),
+    column = function(i) {
+      assert_is(i, c("numeric", "integer"))
+      assert_that(length(i) == 1)
+      shared_ptr(Array, RecordBatch__column(self, i))
+    },
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
     Equals = function(other) {
       assert_is(other, "RecordBatch")
       RecordBatch__Equals(self, other)
     },
-
+    GetColumnByName = function(name) {
+      assert_is(name, "character")
+      assert_that(length(name) == 1)
+      shared_ptr(Array, RecordBatch__GetColumnByName(self, name))
+    },
+    select = function(spec) {
+      spec <- enquo(spec)
+      if (quo_is_null(spec)) {
+        self
+      } else {
+        all_vars <- self$names()
+        vars <- vars_select(all_vars, !!spec)
+        indices <- match(vars, all_vars)
+        shared_ptr(RecordBatch, RecordBatch__select(self, indices))
+      }
+    },
     RemoveColumn = function(i){
       shared_ptr(RecordBatch, RecordBatch__RemoveColumn(self, i))
     },
@@ -90,6 +109,46 @@ names.RecordBatch <- function(x) {
 }
 
 #' @export
+`[.RecordBatch` <- function(x, i, j, ..., drop = FALSE) {
+  if (!missing(i)) {
+    if (is.numeric(i) && length(i) && all(i > 0) && all.equal(i, i[1]:i[length(i)])) {
+      x <- x$Slice(i[1] - 1, length(i))
+    } else {
+      stop('Only RecordBatch "Slicing" (taking rows a:b) currently supported', call. = FALSE)
+    }
+  }
+  if (!missing(j)) {
+    x <- x$select(j)
+    if (drop && ncol(x) == 1L) {
+      x <- x$column(0)
+    }
+  }
+  x
+}
+
+#' @export
+`[[.RecordBatch` <- function(x, i, ...) {
+  if (is.character(i)) {
+    x$GetColumnByName(i)
+  } else if (is.numeric(i)) {
+    x$column(i - 1)
+  } else {
+    stop("'i' must be character or numeric, not ", class(i), call. = FALSE)
+  }
+}
+
+#' @export
+`$.RecordBatch` <- function(x, name, ...) {
+  assert_is(name, "character")
+  assert_that(length(name) == 1L)
+  if (name %in% ls(x)) {
+    get(name, x)
+  } else {
+    x$GetColumnByName(name)
+  }
+}
+
+#' @export
 dim.RecordBatch <- function(x) {
   c(x$num_rows, x$num_columns)
 }
@@ -97,6 +156,32 @@ dim.RecordBatch <- function(x) {
 #' @export
 as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
   RecordBatch__to_dataframe(x, use_threads = option_use_threads())
+}
+
+#' @importFrom utils head
+#' @export
+head.RecordBatch <- function(x, n = 6L, ...) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
+  if (n < 0) {
+    # head(x, negative) means all but the last n rows
+    n <- nrow(x) + n
+  }
+  x$Slice(0, n)
+}
+
+#' @importFrom utils tail
+#' @export
+tail.RecordBatch <- function(x, n = 6L, ...) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
+  if (n < 0) {
+    # tail(x, negative) means all but the first n rows
+    n <- -n
+  } else {
+    n <- nrow(x) - n
+  }
+  x$Slice(n)
 }
 
 #' Create an [arrow::RecordBatch][RecordBatch] from a data frame

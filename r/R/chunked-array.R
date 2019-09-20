@@ -90,3 +90,6 @@ chunked_array <- ChunkedArray$create
 
 #' @export
 length.ChunkedArray <- function(x) x$length()
+
+#' @export
+as.vector.ChunkedArray <- function(x, mode) x$as_vector()

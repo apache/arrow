@@ -908,6 +908,14 @@ RecordBatch__column <- function(batch, i){
     .Call(`_arrow_RecordBatch__column` , batch, i)
 }
 
+RecordBatch__GetColumnByName <- function(batch, name){
+    .Call(`_arrow_RecordBatch__GetColumnByName` , batch, name)
+}
+
+RecordBatch__select <- function(batch, indices){
+    .Call(`_arrow_RecordBatch__select` , batch, indices)
+}
+
 RecordBatch__from_dataframe <- function(tbl){
     .Call(`_arrow_RecordBatch__from_dataframe` , tbl)
 }
