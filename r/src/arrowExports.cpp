@@ -3416,18 +3416,18 @@ RcppExport SEXP _arrow_parquet___arrow___FileReader__ReadTable2(SEXP reader_sexp
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void write_parquet_file(const std::shared_ptr<arrow::Table>& table, std::string filename);
-RcppExport SEXP _arrow_write_parquet_file(SEXP table_sexp, SEXP filename_sexp){
+void parquet___arrow___WriteTable(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::io::OutputStream>& sink);
+RcppExport SEXP _arrow_parquet___arrow___WriteTable(SEXP table_sexp, SEXP sink_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	Rcpp::traits::input_parameter<std::string>::type filename(filename_sexp);
-	write_parquet_file(table, filename);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type sink(sink_sexp);
+	parquet___arrow___WriteTable(table, sink);
 	return R_NilValue;
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_write_parquet_file(SEXP table_sexp, SEXP filename_sexp){
-	Rf_error("Cannot call write_parquet_file(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_parquet___arrow___WriteTable(SEXP table_sexp, SEXP sink_sexp){
+	Rf_error("Cannot call parquet___arrow___WriteTable(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -4536,7 +4536,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___FileReader__OpenFile", (DL_FUNC) &_arrow_parquet___arrow___FileReader__OpenFile, 2}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable1, 1}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable2", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable2, 2}, 
-		{ "_arrow_write_parquet_file", (DL_FUNC) &_arrow_write_parquet_file, 2}, 
+		{ "_arrow_parquet___arrow___WriteTable", (DL_FUNC) &_arrow_parquet___arrow___WriteTable, 2}, 
 		{ "_arrow_parquet___arrow___FileReader__GetSchema", (DL_FUNC) &_arrow_parquet___arrow___FileReader__GetSchema, 1}, 
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
 		{ "_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1}, 

@@ -4,12 +4,12 @@
 \alias{write_parquet}
 \title{Write Parquet file to disk}
 \usage{
-write_parquet(table, file)
+write_parquet(table, stream)
 }
 \arguments{
-\item{table}{An \link[=Table]{arrow::Table}, or an object convertible to it}
+\item{table}{An \link[=Table]{arrow::Table}, or an object convertible to it with \code{\link[=to_arrow]{to_arrow()}}}
 
-\item{file}{a file path}
+\item{stream}{an \link[=OutputStream]{arrow::io::OutputStream} or a string which is interpreted as a file path}
 }
 \description{
 \href{https://parquet.apache.org/}{Parquet} is a columnar storage file format.
@@ -17,8 +17,12 @@ This function enables you to write Parquet files from R.
 }
 \examples{
 \donttest{
-tf <- tempfile(fileext = ".parquet")
-on.exit(unlink(tf))
-write_parquet(tibble::tibble(x = 1:5), tf)
+tf1 <- tempfile(fileext = ".parquet")
+write_parquet(tibble::tibble(x = 1:5), tf2)
+
+# using compression
+tf2 <- tempfile(fileext = ".gz.parquet")
+write_parquet(tibble::tibble(x = 1:5), CompressedOutputStream$create(tf2, "gzip"))
+
 }
 }

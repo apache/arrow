@@ -169,16 +169,32 @@ ParquetReaderProperties$create <- function(use_threads = option_use_threads()) {
 #' [Parquet](https://parquet.apache.org/) is a columnar storage file format.
 #' This function enables you to write Parquet files from R.
 #'
-#' @param table An [arrow::Table][Table], or an object convertible to it
-#' @param file a file path
+#' @param table An [arrow::Table][Table], or an object convertible to it with [to_arrow()]
+#' @param stream an [arrow::io::OutputStream][OutputStream] or a string which is interpreted as a file path
 #'
 #' @examples
 #' \donttest{
-#' tf <- tempfile(fileext = ".parquet")
-#' on.exit(unlink(tf))
-#' write_parquet(tibble::tibble(x = 1:5), tf)
+#' tf1 <- tempfile(fileext = ".parquet")
+#' write_parquet(tibble::tibble(x = 1:5), tf2)
+#'
+#' # using compression
+#' tf2 <- tempfile(fileext = ".gz.parquet")
+#' write_parquet(tibble::tibble(x = 1:5), CompressedOutputStream$create(tf2, "gzip"))
+#'
 #' }
 #' @export
-write_parquet <- function(table, file) {
-  write_parquet_file(to_arrow(table), file)
+write_parquet <- function(table, stream) {
+  UseMethod("write_parquet", stream)
+}
+
+#' @export
+write_parquet.OutputStream <- function(table, stream) {
+  parquet___arrow___WriteTable(to_arrow(table), stream)
+}
+
+#' @export
+write_parquet.character <- function(table, stream) {
+  file_stream <- FileOutputStream$create(stream)
+  on.exit(file_stream$close())
+  parquet___arrow___WriteTable(to_arrow(table), stream)
 }

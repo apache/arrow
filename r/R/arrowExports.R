@@ -880,8 +880,8 @@ parquet___arrow___FileReader__ReadTable2 <- function(reader, column_indices){
     .Call(`_arrow_parquet___arrow___FileReader__ReadTable2` , reader, column_indices)
 }
 
-write_parquet_file <- function(table, filename){
-    invisible(.Call(`_arrow_write_parquet_file` , table, filename))
+parquet___arrow___WriteTable <- function(table, sink){
+    invisible(.Call(`_arrow_parquet___arrow___WriteTable` , table, sink))
 }
 
 parquet___arrow___FileReader__GetSchema <- function(reader){
