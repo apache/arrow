@@ -28,16 +28,33 @@ navbar:
     - intro
     - reference
     - articles
-    - tutorials
     - news
+    - project
     right: github
   components:
     home:
-      icon: fa-home fa-lg
-      href: index.html
+      text: ❯❯❯
+      href: https://arrow.apache.org/
     reference:
       text: Reference
       href: reference/index.html
+    project:
+      text: Project docs
+      menu:
+        - text: Specification
+          href: https://arrow.apache.org/docs/format/README.html
+        - text: C GLib
+          href: https://arrow.apache.org/docs/c_glib
+        - text: C++
+          href: https://arrow.apache.org/docs/cpp
+        - text: Java
+          href: https://arrow.apache.org/docs/java
+        - text: JavaScript
+          href: https://arrow.apache.org/docs/js
+        - text: Python
+          href: https://arrow.apache.org/docs/python
+        - text: R
+          href: index.html
 reference:
 - title: Installation helpers
   contents:
@@ -55,20 +72,14 @@ reference:
   - write_parquet
 - title: C++ reader/writer interface
   contents:
-  - csv_convert_options
-  - csv_parse_options
-  - csv_read_options
-  - csv_table_reader
-  - json_parse_options
-  - json_read_options
-  - json_table_reader
   - ParquetFileReader
   - ParquetReaderProperties
   - FeatherTableReader
   - FeatherTableWriter
-  - JsonTableReader
+  - CsvTableReader
   - RecordBatchReader
   - RecordBatchWriter
+  - CsvReadOptions
 - title: Arrow data containers
   contents:
   - buffer
@@ -102,6 +113,9 @@ reference:
   - Message
   - MessageReader
   - compression
-  - compression_codec
+  - Codec
   - MemoryPool
   - default_memory_pool
+  - FileSystem
+  - FileStats
+  - Selector

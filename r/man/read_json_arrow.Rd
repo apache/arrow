@@ -27,7 +27,6 @@ Using \link{JsonTableReader}
 }
 \examples{
 \donttest{
-try({
   tf <- tempfile()
   on.exit(unlink(tf))
   writeLines('
@@ -36,6 +35,5 @@ try({
     { "hello": 0.0, "world": true, "yo": null }
   ', tf, useBytes=TRUE)
   df <- read_json_arrow(tf)
-})
 }
 }

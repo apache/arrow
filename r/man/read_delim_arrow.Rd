@@ -63,12 +63,13 @@ filled with missings.}
 
 \item{skip}{Number of lines to skip before reading data.}
 
-\item{parse_options}{see \code{\link[=csv_parse_options]{csv_parse_options()}}. If given, this overrides any
+\item{parse_options}{see \link[=CsvReadOptions]{file reader options}.
+If given, this overrides any
 parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, etc.).}
 
-\item{convert_options}{see \code{\link[=csv_convert_options]{csv_convert_options()}}}
+\item{convert_options}{see \link[=CsvReadOptions]{file reader options}}
 
-\item{read_options}{see \code{\link[=csv_read_options]{csv_read_options()}}}
+\item{read_options}{see \link[=CsvReadOptions]{file reader options}}
 
 \item{as_data_frame}{Should the function return a \code{data.frame} or an
 \link[=Table]{arrow::Table}?}
@@ -91,11 +92,10 @@ an issue if you encounter one that \code{arrow} should support.
 If you need to control Arrow-specific reader parameters that don't have an
 equivalent in \code{readr::read_csv()}, you can either provide them in the
 \code{parse_options}, \code{convert_options}, or \code{read_options} arguments, or you can
-call \code{\link[=csv_table_reader]{csv_table_reader()}} directly for lower-level access.
+use \link{CsvTableReader} directly for lower-level access.
 }
 \examples{
 \donttest{
-try({
   tf <- tempfile()
   on.exit(unlink(tf))
   write.csv(iris, file = tf)
@@ -103,6 +103,5 @@ try({
   dim(df)
   # Can select columns
   df <- read_csv_arrow(tf, col_select = starts_with("Sepal"))
-})
 }
 }
