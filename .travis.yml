@@ -81,6 +81,8 @@ matrix:
     # TODO: This fails in re2 code
     # - ARROW_TRAVIS_VALGRIND=1
     - ARROW_TRAVIS_VERBOSE=1
+    # ARROW-6509: disable MIMALLOC on xenial
+    # - ARROW_TRAVIS_MIMALLOC=1
     before_script:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
@@ -90,7 +92,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
-    # - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh || travis_terminate 1
+    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh || travis_terminate 1
   - name: "Python 3.6 unit tests w/ Valgrind, conda-forge toolchain, coverage"
     compiler: gcc
@@ -142,6 +144,7 @@ matrix:
     - ARROW_TRAVIS_OPTIONAL_INSTALL=1
     - ARROW_TRAVIS_VERBOSE=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
+    - ARROW_TRAVIS_MIMALLOC=1
     before_script:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
     # If either C++ or Python changed, we must install the C++ libraries
@@ -188,6 +191,7 @@ matrix:
     # TODO(ARROW-4764): Using system java and plasma built with conda doesn't work
     #- ARROW_TRAVIS_PLASMA=1
     #- ARROW_TRAVIS_PLASMA_JAVA_CLIENT=1
+    - ARROW_TRAVIS_MIMALLOC=1
     before_script:
     - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
@@ -221,6 +225,7 @@ matrix:
     - ARROW_TRAVIS_GANDIVA=1
     - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_PLASMA=1
+    - ARROW_TRAVIS_MIMALLOC=1
     before_script:
     - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
@@ -243,6 +248,7 @@ matrix:
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_PYTHON=1
     - ARROW_TRAVIS_VERBOSE=1
+    - ARROW_TRAVIS_MIMALLOC=1
     cache:
     addons:
     before_script:
@@ -300,6 +306,7 @@ matrix:
     env:
     - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_USE_SYSTEM=1
+    - ARROW_TRAVIS_MIMALLOC=1
     before_install:
     # Have to copy-paste this here because of how R's build steps work
     - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
