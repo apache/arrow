@@ -257,7 +257,13 @@ TEST_F(TestBufferedOutputStream, SetBufferSize) {
 
   ASSERT_EQ(10, buffered_->buffer_size());
 
-  ASSERT_OK(buffered_->Write(data + 10, 10));
+  // Shrink buffer, write some buffered bytes, then expand buffer
+  ASSERT_OK(buffered_->SetBufferSize(5));
+  ASSERT_OK(buffered_->Write(data + 10, 3));
+  ASSERT_OK(buffered_->SetBufferSize(10));
+  ASSERT_EQ(3, buffered_->bytes_buffered());
+
+  ASSERT_OK(buffered_->Write(data + 13, 7));
   ASSERT_OK(buffered_->Flush());
 
   AssertFileContents(path_, datastr);
