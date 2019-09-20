@@ -287,3 +287,13 @@ test_that("chunked_array() handles data frame -> struct arrays (ARROW-3811)", {
   expect_equal(a$type, struct(x = int32(), y = float64(), z = utf8()))
   expect_equivalent(a$as_vector(), rbind(df, df))
 })
+
+test_that("ChunkedArray$View() (ARROW-6542)", {
+  a <- ChunkedArray$create(1:3, 1:4)
+  b <- a$View(float32())
+  expect_equal(b$type, float32())
+  expect_equal(length(b), 7L)
+  expect_true(all(
+    sapply(b$chunks, function(.x) .x$type == float32())
+  ))
+})

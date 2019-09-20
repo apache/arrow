@@ -62,7 +62,7 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
       shared_ptr(ChunkedArray, ChunkedArray__cast(self, target_type, options))
     },
     View = function(type) {
-      ChunkedArray$create(ChunkedArray__View(self, type))
+      shared_ptr(ChunkedArray, ChunkedArray__View(self, type))
     }
   ),
   active = list(
@@ -82,3 +82,6 @@ ChunkedArray$create <- function(..., type = NULL) {
 #' @rdname ChunkedArray
 #' @export
 chunked_array <- ChunkedArray$create
+
+#' @export
+length.ChunkedArray <- function(x) x$length()
