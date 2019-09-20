@@ -60,7 +60,7 @@ update_versions() {
   rm -f PKGBUILD.bak
   git add PKGBUILD
   sed -i.bak -E -e \
-    "s/arrow-[0-9.]+[0-9]+/arrow-${r_version}/g" \
+    "s/arrow-[0-9.\-]+[0-9SNAPHOT]+/arrow-${version}/g" \
     apache-arrow.rb
   rm -f apache-arrow.rb.bak
   git add apache-arrow.rb
