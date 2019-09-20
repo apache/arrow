@@ -24,7 +24,7 @@ if: tag IS blank
 env:
   global:
     - TRAVIS_TAG={{ task.tag }}
-    - ARROW_FORMULA=./arrow/{{ formula }}
+    - ARROW_FORMULA=./arrow/dev/tasks/homebrew-formulae/{{ formula }}
 
 before_script:
 - git clone --no-checkout {{ arrow.remote }} arrow

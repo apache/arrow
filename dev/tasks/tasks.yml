@@ -1094,14 +1094,14 @@ tasks:
     platform: osx
     template: homebrew-formulae/travis.osx.yml
     params:
-      formula: ci/apache-arrow.rb
+      formula: apache-arrow.rb
 
   homebrew-cpp-autobrew:
     ci: travis
     platform: osx
     template: homebrew-formulae/travis.osx.yml
     params:
-      formula: r/tools/apache-arrow.rb
+      formula: apache-arrow-autobrew.rb
 
   ############################## Gandiva Tasks ################################
 

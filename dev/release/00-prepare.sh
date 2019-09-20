@@ -59,11 +59,6 @@ update_versions() {
     PKGBUILD
   rm -f PKGBUILD.bak
   git add PKGBUILD
-  sed -i.bak -E -e \
-    "s/arrow-[0-9.\-]+[0-9SNAPHOT]+/arrow-${version}/g" \
-    apache-arrow.rb
-  rm -f apache-arrow.rb.bak
-  git add apache-arrow.rb
   cd -
 
   cd "${SOURCE_DIR}/../../cpp"
@@ -80,6 +75,19 @@ update_versions() {
     Directory.Build.props
   rm -f Directory.Build.props.bak
   git add Directory.Build.props
+  cd -
+
+  cd "${SOURCE_DIR}/../../dev/tasks/homebrew-formulae"
+  sed -i.bak -E -e \
+    "s/arrow-[0-9.\-]+[0-9SNAPHOT]+/arrow-${version}/g" \
+    apache-arrow.rb
+  rm -f apache-arrow.rb.bak
+  git add apache-arrow.rb
+  sed -i.bak -E -e \
+    "s/arrow-[0-9.]+[0-9]+/arrow-${r_version}/g" \
+    apache-arrow-autobrew.rb
+  rm -f apache-arrow-autobrew.rb.bak
+  git add apache-arrow-autobrew.rb
   cd -
 
   cd "${SOURCE_DIR}/../../js"
