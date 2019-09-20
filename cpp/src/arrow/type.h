@@ -1257,29 +1257,6 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 
   bool ordered() const { return ordered_; }
 
-  /// \brief Unify dictionaries types
-  ///
-  /// Compute a resulting dictionary that will allow the union of values
-  /// of all input dictionary types.  The input types must all have the
-  /// same value type.
-  /// \param[in] pool Memory pool to allocate dictionary values from
-  /// \param[in] types A sequence of input dictionary types
-  /// \param[in] dictionaries A sequence of input dictionaries
-  /// corresponding to each type
-  /// \param[out] out_type The unified dictionary type
-  /// \param[out] out_dictionary The unified dictionary
-  /// \param[out] out_transpose_maps (optionally) A sequence of integer vectors,
-  ///     one per input type.  Each integer vector represents the transposition
-  ///     of input type indices into unified type indices.
-  // XXX Should we return something special (an empty transpose map?) when
-  // the transposition is the identity function?  Currently this case is
-  // detected in DictionaryArray::Transpose.
-  static Status Unify(MemoryPool* pool, const std::vector<const DataType*>& types,
-                      const std::vector<const Array*>& dictionaries,
-                      std::shared_ptr<DataType>* out_type,
-                      std::shared_ptr<Array>* out_dictionary,
-                      std::vector<std::vector<int32_t>>* out_transpose_maps = NULLPTR);
-
  protected:
   std::string ComputeFingerprint() const override;
 
@@ -1287,6 +1264,37 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   std::shared_ptr<DataType> index_type_;
   std::shared_ptr<DataType> value_type_;
   bool ordered_;
+};
+
+/// \brief Helper class for incremental dictionary unification
+class ARROW_EXPORT DictionaryUnifier {
+ public:
+  virtual ~DictionaryUnifier() = default;
+
+  /// \brief Construct a DictionaryUnifier
+  /// \param[in] pool MemoryPool to use for memory allocations
+  /// \param[in] value_type the data type of the dictionaries
+  /// \param[out] out the constructed unifier
+  static Status Make(MemoryPool* pool, std::shared_ptr<DataType> value_type,
+                     std::unique_ptr<DictionaryUnifier>* out);
+
+  /// \brief Append dictionary to the internal memo
+  virtual Status Unify(const Array& dictionary) = 0;
+
+  /// \brief Append dictionary and compute transpose indices
+  /// \param[in] dictionary the dictionary values to unify
+  /// \param[out] out_transpose a Buffer containing computed transpose indices
+  /// as int32_t values equal in length to the passed dictionary. The value in
+  /// each slot corresponds to the new index value for each original index
+  /// for a DictionaryArray with the old dictionary
+  virtual Status Unify(const Array& dictionary,
+                       std::shared_ptr<Buffer>* out_transpose) = 0;
+
+  /// \brief Return a result DictionaryType with the smallest possible index
+  /// type to accommodate the unified dictionary. The unifier cannot be used
+  /// after this is called
+  virtual Status GetResult(std::shared_ptr<DataType>* out_type,
+                           std::shared_ptr<Array>* out_dict) = 0;
 };
 
 // ----------------------------------------------------------------------

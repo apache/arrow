@@ -44,119 +44,108 @@ using internal::CopyBitmap;
 // ----------------------------------------------------------------------
 // DictionaryType unification
 
-struct UnifyDictionaryValues {
+template <typename T>
+class DictionaryUnifierImpl : public DictionaryUnifier {
+ public:
+  using ArrayType = typename TypeTraits<T>::ArrayType;
+  using DictTraits = typename internal::DictionaryTraits<T>;
+  using MemoTableType = typename DictTraits::MemoTableType;
+
+  DictionaryUnifierImpl(MemoryPool* pool, std::shared_ptr<DataType> value_type)
+      : pool_(pool), value_type_(value_type), memo_table_(pool) {}
+
+  Status Unify(const Array& dictionary, std::shared_ptr<Buffer>* out) override {
+    const ArrayType& values = checked_cast<const ArrayType&>(dictionary);
+    if (dictionary.null_count() > 0) {
+      return Status::Invalid("Cannot yet unify dictionaries with nulls");
+    }
+    if (!dictionary.type()->Equals(*value_type_)) {
+      return Status::Invalid("Dictionary type different from unifier: ",
+                             dictionary.type()->ToString());
+    }
+    if (out != nullptr) {
+      std::shared_ptr<Buffer> result;
+      RETURN_NOT_OK(
+          AllocateBuffer(pool_, dictionary.length() * sizeof(int32_t), &result));
+      auto result_raw = reinterpret_cast<int32_t*>(result->mutable_data());
+      for (int64_t i = 0; i < values.length(); ++i) {
+        result_raw[i] = memo_table_.GetOrInsert(values.GetView(i));
+      }
+      *out = result;
+    } else {
+      for (int64_t i = 0; i < values.length(); ++i) {
+        memo_table_.GetOrInsert(values.GetView(i));
+      }
+    }
+    return Status::OK();
+  }
+
+  Status Unify(const Array& dictionary) override { return Unify(dictionary, nullptr); }
+
+  Status GetResult(std::shared_ptr<DataType>* out_type,
+                   std::shared_ptr<Array>* out_dict) override {
+    int64_t dict_length = memo_table_.size();
+    std::shared_ptr<DataType> index_type;
+    if (dict_length <= std::numeric_limits<int8_t>::max()) {
+      index_type = int8();
+    } else if (dict_length <= std::numeric_limits<int16_t>::max()) {
+      index_type = int16();
+    } else if (dict_length <= std::numeric_limits<int32_t>::max()) {
+      index_type = int32();
+    } else {
+      index_type = int64();
+    }
+    // Build unified dictionary type with the right index type
+    *out_type = arrow::dictionary(index_type, value_type_);
+
+    // Build unified dictionary array
+    std::shared_ptr<ArrayData> data;
+    RETURN_NOT_OK(DictTraits::GetDictionaryArrayData(pool_, value_type_, memo_table_,
+                                                     0 /* start_offset */, &data));
+    *out_dict = MakeArray(data);
+    return Status::OK();
+  }
+
+ private:
   MemoryPool* pool_;
   std::shared_ptr<DataType> value_type_;
-  const std::vector<const DictionaryType*>& types_;
-  const std::vector<const Array*>& dictionaries_;
-  std::shared_ptr<Array>* out_values_;
-  std::vector<std::vector<int32_t>>* out_transpose_maps_;
+  MemoTableType memo_table_;
+};
+
+struct MakeUnifier {
+  MemoryPool* pool;
+  std::shared_ptr<DataType> value_type;
+  std::unique_ptr<DictionaryUnifier> result;
+
+  MakeUnifier(MemoryPool* pool, std::shared_ptr<DataType> value_type)
+      : pool(pool), value_type(value_type) {}
 
   template <typename T>
   enable_if_no_memoize<T, Status> Visit(const T&) {
     // Default implementation for non-dictionary-supported datatypes
-    return Status::NotImplemented("Unification of ", value_type_,
+    return Status::NotImplemented("Unification of ", value_type,
                                   " dictionaries is not implemented");
   }
 
   template <typename T>
   enable_if_memoize<T, Status> Visit(const T&) {
-    using ArrayType = typename TypeTraits<T>::ArrayType;
-    using DictTraits = typename internal::DictionaryTraits<T>;
-    using MemoTableType = typename DictTraits::MemoTableType;
-
-    MemoTableType memo_table(pool_);
-    if (out_transpose_maps_ != nullptr) {
-      out_transpose_maps_->clear();
-      out_transpose_maps_->reserve(types_.size());
-    }
-    // Build up the unified dictionary values and the transpose maps
-    for (size_t i = 0; i < types_.size(); ++i) {
-      const ArrayType& values = checked_cast<const ArrayType&>(*dictionaries_[i]);
-      if (out_transpose_maps_ != nullptr) {
-        std::vector<int32_t> transpose_map;
-        transpose_map.reserve(values.length());
-        for (int64_t i = 0; i < values.length(); ++i) {
-          int32_t dict_index = memo_table.GetOrInsert(values.GetView(i));
-          transpose_map.push_back(dict_index);
-        }
-        out_transpose_maps_->push_back(std::move(transpose_map));
-      } else {
-        for (int64_t i = 0; i < values.length(); ++i) {
-          memo_table.GetOrInsert(values.GetView(i));
-        }
-      }
-    }
-    // Build unified dictionary array
-    std::shared_ptr<ArrayData> data;
-    RETURN_NOT_OK(DictTraits::GetDictionaryArrayData(pool_, value_type_, memo_table,
-                                                     0 /* start_offset */, &data));
-    *out_values_ = MakeArray(data);
+    result.reset(new DictionaryUnifierImpl<T>(pool, value_type));
     return Status::OK();
   }
 };
 
-Status DictionaryType::Unify(MemoryPool* pool, const std::vector<const DataType*>& types,
-                             const std::vector<const Array*>& dictionaries,
-                             std::shared_ptr<DataType>* out_type,
-                             std::shared_ptr<Array>* out_dictionary,
-                             std::vector<std::vector<int32_t>>* out_transpose_maps) {
-  if (types.size() == 0) {
-    return Status::Invalid("need at least one input type");
-  }
-
-  if (types.size() != dictionaries.size()) {
-    return Status::Invalid("expecting the same number of types and dictionaries");
-  }
-
-  std::vector<const DictionaryType*> dict_types;
-  dict_types.reserve(types.size());
-  for (const auto& type : types) {
-    if (type->id() != Type::DICTIONARY) {
-      return Status::TypeError("input types must be dictionary types");
-    }
-    dict_types.push_back(checked_cast<const DictionaryType*>(type));
-  }
-
-  // XXX Should we check the ordered flag?
-  auto value_type = dict_types[0]->value_type();
-  for (size_t i = 0; i < types.size(); ++i) {
-    if (!(dictionaries[i]->type()->Equals(*value_type) &&
-          dict_types[i]->value_type()->Equals(*value_type))) {
-      return Status::TypeError("dictionary value types were not all consistent");
-    }
-    if (dictionaries[i]->null_count() != 0) {
-      return Status::TypeError("input types have null values");
-    }
-  }
-
-  std::shared_ptr<Array> values;
-  {
-    UnifyDictionaryValues visitor{pool,         value_type, dict_types,
-                                  dictionaries, &values,    out_transpose_maps};
-    RETURN_NOT_OK(VisitTypeInline(*value_type, &visitor));
-  }
-
-  // Build unified dictionary type with the right index type
-  std::shared_ptr<DataType> index_type;
-  if (values->length() <= std::numeric_limits<int8_t>::max()) {
-    index_type = int8();
-  } else if (values->length() <= std::numeric_limits<int16_t>::max()) {
-    index_type = int16();
-  } else if (values->length() <= std::numeric_limits<int32_t>::max()) {
-    index_type = int32();
-  } else {
-    index_type = int64();
-  }
-  *out_type = arrow::dictionary(index_type, values->type());
-  *out_dictionary = values;
+Status DictionaryUnifier::Make(MemoryPool* pool, std::shared_ptr<DataType> value_type,
+                               std::unique_ptr<DictionaryUnifier>* out) {
+  MakeUnifier maker(pool, value_type);
+  RETURN_NOT_OK(VisitTypeInline(*value_type, &maker));
+  *out = std::move(maker.result);
   return Status::OK();
 }
 
 // ----------------------------------------------------------------------
 // DictionaryArray transposition
 
-static bool IsTrivialTransposition(const std::vector<int32_t>& transpose_map,
+static bool IsTrivialTransposition(const int32_t* transpose_map,
                                    int64_t input_dict_size) {
   for (int64_t i = 0; i < input_dict_size; ++i) {
     if (transpose_map[i] != i) {
@@ -168,33 +157,26 @@ static bool IsTrivialTransposition(const std::vector<int32_t>& transpose_map,
 
 template <typename InType, typename OutType>
 static Status TransposeDictIndices(MemoryPool* pool, const ArrayData& in_data,
-                                   const std::vector<int32_t>& transpose_map,
+                                   const int32_t* transpose_map,
                                    const std::shared_ptr<ArrayData>& out_data,
                                    std::shared_ptr<Array>* out) {
   using in_c_type = typename InType::c_type;
   using out_c_type = typename OutType::c_type;
   internal::TransposeInts(in_data.GetValues<in_c_type>(1),
                           out_data->GetMutableValues<out_c_type>(1), in_data.length,
-                          transpose_map.data());
+                          transpose_map);
   *out = MakeArray(out_data);
   return Status::OK();
 }
 
 Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                                   const std::shared_ptr<Array>& dictionary,
-                                  const std::vector<int32_t>& transpose_map,
+                                  const int32_t* transpose_map,
                                   std::shared_ptr<Array>* out) const {
   if (type->id() != Type::DICTIONARY) {
     return Status::TypeError("Expected dictionary type");
   }
   const int64_t in_dict_len = data_->dictionary->length();
-  if (in_dict_len > static_cast<int64_t>(transpose_map.size())) {
-    return Status::Invalid(
-        "Transpose map too small for dictionary array "
-        "(has ",
-        transpose_map.size(), " values, need at least ", in_dict_len, ")");
-  }
-
   const auto& out_dict_type = checked_cast<const DictionaryType&>(*type);
 
   const auto& out_index_type =
