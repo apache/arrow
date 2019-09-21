@@ -91,9 +91,11 @@ tbl10 <- tibble::tibble(
   chr = letters[1:10],
   fct = factor(letters[1:10])
 )
-batch <- record_batch(!!!tbl10)
+batch <- NULL # Placeholder
 
 test_that("[ on RecordBatch", {
+  # Put this assignment inside test_that so that it's not run if !arrow_available()
+  batch <<- record_batch(!!!tbl10)
   expect_identical(as.data.frame(batch[6:7,]), tbl10[6:7,])
   expect_identical(as.data.frame(batch[6:7, 2:4]), tbl10[6:7, 2:4])
   expect_identical(as.data.frame(batch[, c("dbl", "fct")]), tbl10[, c(2, 5)])
