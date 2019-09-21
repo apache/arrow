@@ -21,7 +21,6 @@ set -e
 export ARROW_HOME=$CONDA_PREFIX
 
 : ${R_BIN:=R}
-source /arrow/ci/docker_install_r_deps.sh
 
 # Build arrow
 pushd /arrow/r
