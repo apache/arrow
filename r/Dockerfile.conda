@@ -18,7 +18,7 @@
 FROM arrow:cpp
 
 # install R specific packages
-ARG R_VERSION=3.5.1
+ARG R_VERSION=3.6.1
 COPY ci/conda_env_r.yml /arrow/ci/
 RUN conda install -q \
         --file arrow/ci/conda_env_r.yml \
@@ -27,7 +27,8 @@ RUN conda install -q \
     conda clean --all
 
 ENV ARROW_PYTHON=OFF \
-    ARROW_BUILD_TESTS=OFF
+    ARROW_BUILD_TESTS=OFF \
+    R_CONDA=1
 
 # build, install, test R package
 CMD ["/bin/bash", "-c", "/arrow/ci/docker_build_cpp.sh && \
