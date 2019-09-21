@@ -19,7 +19,7 @@
 class ApacheArrow < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
   homepage "https://arrow.apache.org/"
-  url "https://archive.apache.org/dist/arrow/arrow-0.14.1/apache-arrow-0.14.1.tar.gz"
+  url "https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-0.14.1.9000/apache-arrow-0.14.1.9000.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   head "https://github.com/apache/arrow.git"
 
@@ -31,11 +31,11 @@ class ApacheArrow < Formula
 
   depends_on "cmake" => :build
   depends_on "flatbuffers" => :build
-  depends_on "double-conversion"
   depends_on "boost"
+  depends_on "double-conversion"
   depends_on "lz4"
-  depends_on "thrift"
   depends_on "snappy"
+  depends_on "thrift"
 
   def install
     ENV.cxx11

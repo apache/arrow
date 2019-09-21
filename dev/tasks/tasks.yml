@@ -161,6 +161,8 @@ groups:
     - ubuntu-disco-arm64
     - centos-6
     - centos-7
+    - homebrew-cpp
+    - homebrew-cpp-autobrew
     - gandiva-jar-trusty
     - gandiva-jar-osx
     - docker-r
@@ -1084,6 +1086,22 @@ tasks:
       - plasma-glib-doc-{no_rc_version}-1.el7.x86_64.rpm
       - plasma-glib-libs-{no_rc_version}-1.el7.x86_64.rpm
       - plasma-libs-{no_rc_version}-1.el7.x86_64.rpm
+
+  ############################## Homebrew Tasks ################################
+
+  homebrew-cpp:
+    ci: travis
+    platform: osx
+    template: homebrew-formulae/travis.osx.yml
+    params:
+      formula: apache-arrow.rb
+
+  homebrew-cpp-autobrew:
+    ci: travis
+    platform: osx
+    template: homebrew-formulae/travis.osx.yml
+    params:
+      formula: autobrew/apache-arrow.rb
 
   ############################## Gandiva Tasks ################################
 

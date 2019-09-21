@@ -32,6 +32,7 @@ cpp/src/plasma/thirdparty/ae/config.h
 cpp/src/plasma/thirdparty/ae/zmalloc.h
 cpp/src/plasma/thirdparty/dlmalloc.c
 dev/release/rat_exclude_files.txt
+dev/tasks/homebrew-formulae/apache-arrow.rb
 dev/tasks/linux-packages/debian.ubuntu-xenial/compat
 dev/tasks/linux-packages/debian.ubuntu-xenial/control
 dev/tasks/linux-packages/debian.ubuntu-xenial/gir1.2-arrow-1.0.install

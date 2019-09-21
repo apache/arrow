@@ -42,14 +42,6 @@ update_versions() {
       ;;
   esac
 
-  cd "${SOURCE_DIR}/../../cpp"
-  sed -i.bak -E -e \
-    "s/^set\(ARROW_VERSION \".+\"\)/set(ARROW_VERSION \"${version}\")/" \
-    CMakeLists.txt
-  rm -f CMakeLists.txt.bak
-  git add CMakeLists.txt
-  cd -
-
   cd "${SOURCE_DIR}/../../c_glib"
   sed -i.bak -E -e \
     "s/^m4_define\(\[arrow_glib_version\], .+\)/m4_define([arrow_glib_version], ${version})/" \
@@ -61,12 +53,41 @@ update_versions() {
   git add configure.ac meson.build
   cd -
 
+  cd "${SOURCE_DIR}/../../ci"
+  sed -i.bak -E -e \
+    "s/^pkgver=.+/pkgver=${r_version}/" \
+    PKGBUILD
+  rm -f PKGBUILD.bak
+  git add PKGBUILD
+  cd -
+
+  cd "${SOURCE_DIR}/../../cpp"
+  sed -i.bak -E -e \
+    "s/^set\(ARROW_VERSION \".+\"\)/set(ARROW_VERSION \"${version}\")/" \
+    CMakeLists.txt
+  rm -f CMakeLists.txt.bak
+  git add CMakeLists.txt
+  cd -
+
   cd "${SOURCE_DIR}/../../csharp"
   sed -i.bak -E -e \
     "s/^    <Version>.+<\/Version>/    <Version>${version}<\/Version>/" \
     Directory.Build.props
   rm -f Directory.Build.props.bak
   git add Directory.Build.props
+  cd -
+
+  cd "${SOURCE_DIR}/../../dev/tasks/homebrew-formulae"
+  sed -i.bak -E -e \
+    "s/arrow-[0-9.]+[0-9]+/arrow-${r_version}/g" \
+    autobrew/apache-arrow.rb
+  rm -f autobrew/apache-arrow.rb.bak
+  git add autobrew/apache-arrow.rb
+  sed -i.bak -E -e \
+    "s/arrow-[0-9.\-]+[0-9SNAPHOT]+/arrow-${version}/g" \
+    apache-arrow.rb
+  rm -f apache-arrow.rb.bak
+  git add apache-arrow.rb
   cd -
 
   cd "${SOURCE_DIR}/../../js"
@@ -99,17 +120,6 @@ update_versions() {
     DESCRIPTION
   rm -f DESCRIPTION.bak
   git add DESCRIPTION
-  cd -
-
-  cd "${SOURCE_DIR}/../../ci"
-  sed -i.bak -E -e \
-    "s/^pkgver=.+/pkgver=${r_version}/" \
-    PKGBUILD
-  rm -f PKGBUILD.bak
-  git add PKGBUILD
-  cd -
-
-  cd "${SOURCE_DIR}/../../r"
   if [ ${type} = "snapshot" ]; then
     # Add a news entry for the new dev version
     echo "dev"
