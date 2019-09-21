@@ -16,7 +16,7 @@
 # under the License.
 
 module Gandiva
-  class Context
+  class ExpressionBuilderContext
     def if(condition)
       IfNodeQuery.new(condition)
     end

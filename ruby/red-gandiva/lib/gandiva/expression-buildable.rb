@@ -18,7 +18,7 @@
 module Gandiva
   module ExpressionBuildable
     def build_expression
-      node = yield Gandiva::Record.new(self), Gandiva::Context.new
+      node = yield Gandiva::Record.new(self), Gandiva::ExpressionBuilderContext.new
 
       message = "The node passed to Gandiva::Expression must belong to Gandiva::Node"
       message << ": <#{node.class}>"

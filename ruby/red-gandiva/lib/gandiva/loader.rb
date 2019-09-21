@@ -42,8 +42,8 @@ module Gandiva
     end
 
     def require_libraries
-      require "gandiva/context"
       require "gandiva/expression-buildable"
+      require "gandiva/expression-builder-context"
       require "gandiva/field-node"
       require "gandiva/if-node-query"
       require "gandiva/record"
