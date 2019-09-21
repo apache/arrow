@@ -28,6 +28,7 @@ LinkingTo:
 Imports:
     assertthat,
     bit64,
+    methods,
     purrr,
     R6,
     Rcpp (>= 1.0.1),

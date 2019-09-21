@@ -108,13 +108,17 @@ names.RecordBatch <- function(x) {
   x$Equals(y)
 }
 
+#' @importFrom methods as
 #' @export
 `[.RecordBatch` <- function(x, i, j, ..., drop = FALSE) {
   if (!missing(i)) {
-    if (is.numeric(i) && length(i) && all(i > 0) && all.equal(i, i[1]:i[length(i)])) {
+    if (is.numeric(i) &&
+        length(i) > 0 &&
+        all(i > 0) &&
+        identical(i, as(seq(i[1], i[length(i)], 1), class(i)))) {
       x <- x$Slice(i[1] - 1, length(i))
     } else {
-      stop('Only RecordBatch "Slicing" (taking rows a:b) currently supported', call. = FALSE)
+      stop('Only row "Slicing" (taking rows a:b) currently supported', call. = FALSE)
     }
   }
   if (!missing(j)) {

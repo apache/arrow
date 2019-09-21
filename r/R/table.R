@@ -39,7 +39,17 @@
 #' @export
 Table <- R6Class("Table", inherit = Object,
   public = list(
-    column = function(i) shared_ptr(ChunkedArray, Table__column(self, i)),
+    column = function(i) {
+      assert_is(i, c("numeric", "integer"))
+      assert_that(length(i) == 1)
+      shared_ptr(ChunkedArray, Table__column(self, i))
+    },
+    ColumnNames = function() Table__ColumnNames(self),
+    GetColumnByName = function(name) {
+      assert_is(name, "character")
+      assert_that(length(name) == 1)
+      shared_ptr(ChunkedArray, Table__GetColumnByName(self, name))
+    },
     field = function(i) shared_ptr(Field, Table__field(self, i)),
 
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
@@ -56,12 +66,18 @@ Table <- R6Class("Table", inherit = Object,
       if (quo_is_null(spec)) {
         self
       } else {
-        all_vars <- Table__column_names(self)
+        all_vars <- self$ColumnNames()
         vars <- vars_select(all_vars, !!spec)
         indices <- match(vars, all_vars)
         shared_ptr(Table, Table__select(self, indices))
       }
-
+    },
+    Slice = function(offset, length = NULL) {
+      if (is.null(length)) {
+        shared_ptr(Table, Table__Slice1(self, offset))
+      } else {
+        shared_ptr(Table, Table__Slice2(self, offset, length))
+      }
     }
   ),
 
@@ -92,3 +108,21 @@ as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, use_threa
 dim.Table <- function(x) {
   c(x$num_rows, x$num_columns)
 }
+
+#' @export
+names.Table <- function(x) x$ColumnNames()
+
+#' @export
+`[.Table` <- `[.RecordBatch`
+
+#' @export
+`[[.Table` <- `[[.RecordBatch`
+
+#' @export
+`$.Table` <- `$.RecordBatch`
+
+#' @export
+head.Table <- head.RecordBatch
+
+#' @export
+tail.Table <- tail.RecordBatch

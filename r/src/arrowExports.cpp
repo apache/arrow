@@ -4179,16 +4179,65 @@ RcppExport SEXP _arrow_Table__columns(SEXP table_sexp){
 
 // table.cpp
 #if defined(ARROW_R_WITH_ARROW)
-Rcpp::CharacterVector Table__column_names(const std::shared_ptr<arrow::Table>& table);
-RcppExport SEXP _arrow_Table__column_names(SEXP table_sexp){
+std::vector<std::string> Table__ColumnNames(const std::shared_ptr<arrow::Table>& table);
+RcppExport SEXP _arrow_Table__ColumnNames(SEXP table_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	return Rcpp::wrap(Table__column_names(table));
+	return Rcpp::wrap(Table__ColumnNames(table));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_Table__column_names(SEXP table_sexp){
-	Rf_error("Cannot call Table__column_names(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_Table__ColumnNames(SEXP table_sexp){
+	Rf_error("Cannot call Table__ColumnNames(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// table.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> Table__Slice1(const std::shared_ptr<arrow::Table>& table, int offset);
+RcppExport SEXP _arrow_Table__Slice1(SEXP table_sexp, SEXP offset_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	Rcpp::traits::input_parameter<int>::type offset(offset_sexp);
+	return Rcpp::wrap(Table__Slice1(table, offset));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Table__Slice1(SEXP table_sexp, SEXP offset_sexp){
+	Rf_error("Cannot call Table__Slice1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// table.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> Table__Slice2(const std::shared_ptr<arrow::Table>& table, int offset, int length);
+RcppExport SEXP _arrow_Table__Slice2(SEXP table_sexp, SEXP offset_sexp, SEXP length_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	Rcpp::traits::input_parameter<int>::type offset(offset_sexp);
+	Rcpp::traits::input_parameter<int>::type length(length_sexp);
+	return Rcpp::wrap(Table__Slice2(table, offset, length));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Table__Slice2(SEXP table_sexp, SEXP offset_sexp, SEXP length_sexp){
+	Rf_error("Cannot call Table__Slice2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// table.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::ChunkedArray> Table__GetColumnByName(const std::shared_ptr<arrow::Table>& table, const std::string& name);
+RcppExport SEXP _arrow_Table__GetColumnByName(SEXP table_sexp, SEXP name_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type name(name_sexp);
+	return Rcpp::wrap(Table__GetColumnByName(table, name));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Table__GetColumnByName(SEXP table_sexp, SEXP name_sexp){
+	Rf_error("Cannot call Table__GetColumnByName(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -4536,7 +4585,10 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2}, 
 		{ "_arrow_Table__field", (DL_FUNC) &_arrow_Table__field, 2}, 
 		{ "_arrow_Table__columns", (DL_FUNC) &_arrow_Table__columns, 1}, 
-		{ "_arrow_Table__column_names", (DL_FUNC) &_arrow_Table__column_names, 1}, 
+		{ "_arrow_Table__ColumnNames", (DL_FUNC) &_arrow_Table__ColumnNames, 1}, 
+		{ "_arrow_Table__Slice1", (DL_FUNC) &_arrow_Table__Slice1, 2}, 
+		{ "_arrow_Table__Slice2", (DL_FUNC) &_arrow_Table__Slice2, 3}, 
+		{ "_arrow_Table__GetColumnByName", (DL_FUNC) &_arrow_Table__GetColumnByName, 2}, 
 		{ "_arrow_Table__select", (DL_FUNC) &_arrow_Table__select, 2}, 
 		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 2}, 
 		{ "_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0}, 

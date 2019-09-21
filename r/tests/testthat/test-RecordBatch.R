@@ -26,7 +26,7 @@ test_that("RecordBatch", {
     chr = letters[1:10],
     fct = factor(letters[1:10])
   )
-  batch <- record_batch(!!!tbl)
+  batch <- record_batch(tbl)
 
   expect_true(batch == batch)
   expect_equal(
@@ -88,9 +88,15 @@ test_that("RecordBatch", {
 
 test_that("[ on RecordBatch", {
   expect_identical(as.data.frame(batch[6:7,]), tbl[6:7,])
+  expect_identical(as.data.frame(batch[c(6, 7),]), tbl[6:7,])
   expect_identical(as.data.frame(batch[6:7, 2:4]), tbl[6:7, 2:4])
   expect_identical(as.data.frame(batch[, c("dbl", "fct")]), tbl[, c(2, 5)])
   expect_identical(as.vector(batch[, "chr", drop = TRUE]), tbl$chr)
+  expect_error(
+    batch[c(3, 5, 7),],
+    'Only row "Slicing" (taking rows a:b) currently supported',
+    fixed = TRUE
+  )
 })
 
 test_that("[[ and $ on RecordBatch", {
@@ -123,7 +129,7 @@ test_that("RecordBatch with 0 rows are supported", {
     fct = factor(character(), levels = c("a", "b"))
   )
 
-  batch <- record_batch(!!!tbl)
+  batch <- record_batch(tbl)
   expect_equal(batch$num_columns, 5L)
   expect_equal(batch$num_rows, 0L)
   expect_equal(
