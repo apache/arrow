@@ -406,9 +406,6 @@ impl<R: Read + Seek> Reader<R> {
                 ipc::MessageHeader::Schema => {
                     panic!("Not expecting a schema when messages are read")
                 }
-                ipc::MessageHeader::DictionaryBatch => {
-                    unimplemented!("reading dictionary batches not yet supported")
-                }
                 ipc::MessageHeader::RecordBatch => {
                     let batch = message.header_as_record_batch().unwrap();
                     // read the block that makes up the record batch into a buffer
@@ -420,13 +417,9 @@ impl<R: Read + Seek> Reader<R> {
 
                     read_record_batch(&buf, batch, self.schema())
                 }
-                ipc::MessageHeader::SparseTensor => {
-                    unimplemented!("reading sparse tensors not yet supported")
-                }
-                ipc::MessageHeader::Tensor => {
-                    unimplemented!("reading tensors not yet supported")
-                }
-                ipc::MessageHeader::NONE => panic!("unknown message header"),
+                _ => unimplemented!(
+                    "reading types other than record batches not yet supported"
+                ),
             }
         } else {
             Ok(None)
@@ -455,34 +448,64 @@ mod tests {
     use super::*;
 
     use crate::datatypes::*;
+    use std::env;
     use std::fs::File;
 
-    // #[test]
-    // fn test_read_primitive_file() {
-    //     let file = File::open("./test/data/primitive_types.file.dat").unwrap();
+    use DataType::*;
 
-    //     let mut reader = Reader::try_new(file).unwrap();
-    //     assert_eq!(3, reader.num_batches());
-    //     for _ in 0..reader.num_batches() {
-    //         let batch = reader.next().unwrap().unwrap();
-    //         validate_batch(batch);
-    //     }
-    //     // try read a batch after all batches are exhausted
-    //     let batch = reader.next().unwrap();
-    //     assert!(batch.is_none());
+    #[test]
+    fn test_read_primitive_file() {
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let file = File::open(format!(
+            "{}/data/arrow-ipc/rust/primitive_types.file.arrow",
+            testdata
+        ))
+        .unwrap();
 
-    //     // seek a specific batch
-    //     let batch = reader.read_batch(4).unwrap().unwrap();
-    //     validate_batch(batch);
-    //     // try read a batch after seeking to the last batch
-    //     let batch = reader.next().unwrap();
-    //     assert!(batch.is_none());
-    // }
+        let mut reader = Reader::try_new(file).unwrap();
+        assert_eq!(3, reader.num_batches());
+        for _ in 0..reader.num_batches() {
+            let batch = reader.next().unwrap().unwrap();
+            validate_primitive_batch(batch);
+        }
+        // try read a batch after all batches are exhausted
+        let batch = reader.next().unwrap();
+        assert!(batch.is_none());
+
+        // seek a specific batch
+        let batch = reader.read_batch(4).unwrap().unwrap();
+        validate_primitive_batch(batch);
+        // try read a batch after seeking to the last batch
+        let batch = reader.next().unwrap();
+        assert!(batch.is_none());
+    }
+
+    #[test]
+    fn test_read_list_file() {
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let file = File::open(format!(
+            "{}/data/arrow-ipc/rust/list_types.file.arrow",
+            testdata
+        ))
+        .unwrap();
+
+        let mut reader = Reader::try_new(file).unwrap();
+        assert_eq!(3, reader.num_batches());
+        for _ in 0..reader.num_batches() {
+            let batch = reader.next().unwrap().unwrap();
+            validate_primitive_batch(batch);
+        }
+    }
 
     #[test]
     fn test_read_struct_file() {
-        use DataType::*;
-        let file = File::open("./test/data/struct_types.file.dat").unwrap();
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let file = File::open(format!(
+            "{}/data/arrow-ipc/rust/struct_types.file.arrow",
+            testdata
+        ))
+        .unwrap();
+
         let schema = Schema::new(vec![Field::new(
             "structs",
             Struct(vec![
@@ -604,34 +627,34 @@ mod tests {
         assert!(batch.is_none());
     }
 
-    // fn validate_batch(batch: RecordBatch) {
-    //     // primitive batches were created for
-    //     assert_eq!(5, batch.num_rows());
-    //     assert_eq!(1, batch.num_columns());
-    //     let arr_1 = batch.column(0);
-    //     let int32_array = arr_1.as_any().downcast_ref::<BooleanArray>().unwrap();
-    //     assert_eq!(
-    //         "PrimitiveArray<Boolean>\n[\n  true,\n  null,\n  null,\n  false,\n  true,\n]",
-    //         format!("{:?}", int32_array)
-    //     );
-    //     let arr_2 = batch.column(1);
-    //     let binary_array = BinaryArray::from(arr_2.data());
-    //     assert_eq!("foo", std::str::from_utf8(binary_array.value(0)).unwrap());
-    //     assert_eq!("bar", std::str::from_utf8(binary_array.value(1)).unwrap());
-    //     assert_eq!("baz", std::str::from_utf8(binary_array.value(2)).unwrap());
-    //     assert!(binary_array.is_null(3));
-    //     assert_eq!("quux", std::str::from_utf8(binary_array.value(4)).unwrap());
-    //     let arr_3 = batch.column(2);
-    //     let f32_array = Float32Array::from(arr_3.data());
-    //     assert_eq!(
-    //         "PrimitiveArray<Float32>\n[\n  1.0,\n  2.0,\n  null,\n  4.0,\n  5.0,\n]",
-    //         format!("{:?}", f32_array)
-    //     );
-    //     let arr_4 = batch.column(3);
-    //     let bool_array = BooleanArray::from(arr_4.data());
-    //     assert_eq!(
-    //         "PrimitiveArray<Boolean>\n[\n  true,\n  null,\n  false,\n  true,\n  false,\n]",
-    //         format!("{:?}", bool_array)
-    //     );
-    // }
+    /// Validate the `RecordBatch` of primitive arrays
+    fn validate_primitive_batch(batch: RecordBatch) {
+        assert_eq!(5, batch.num_rows());
+        assert_eq!(1, batch.num_columns());
+        let arr_1 = batch.column(0);
+        let int32_array = arr_1.as_any().downcast_ref::<BooleanArray>().unwrap();
+        assert_eq!(
+            "PrimitiveArray<Boolean>\n[\n  true,\n  null,\n  null,\n  false,\n  true,\n]",
+            format!("{:?}", int32_array)
+        );
+        let arr_2 = batch.column(1);
+        let binary_array = BinaryArray::from(arr_2.data());
+        assert_eq!("foo", std::str::from_utf8(binary_array.value(0)).unwrap());
+        assert_eq!("bar", std::str::from_utf8(binary_array.value(1)).unwrap());
+        assert_eq!("baz", std::str::from_utf8(binary_array.value(2)).unwrap());
+        assert!(binary_array.is_null(3));
+        assert_eq!("quux", std::str::from_utf8(binary_array.value(4)).unwrap());
+        let arr_3 = batch.column(2);
+        let f32_array = Float32Array::from(arr_3.data());
+        assert_eq!(
+            "PrimitiveArray<Float32>\n[\n  1.0,\n  2.0,\n  null,\n  4.0,\n  5.0,\n]",
+            format!("{:?}", f32_array)
+        );
+        let arr_4 = batch.column(3);
+        let bool_array = BooleanArray::from(arr_4.data());
+        assert_eq!(
+            "PrimitiveArray<Boolean>\n[\n  true,\n  null,\n  false,\n  true,\n  false,\n]",
+            format!("{:?}", bool_array)
+        );
+    }
 }
