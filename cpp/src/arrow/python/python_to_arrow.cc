@@ -868,8 +868,6 @@ class DecimalConverter
   using BASE =
       TypedConverter<arrow::Decimal128Type, DecimalConverter<null_coding>, null_coding>;
 
-  DecimalConverter() : BASE(), decimal_type_(nullptr) {}
-
   Status Init(ArrayBuilder* builder) override {
     RETURN_NOT_OK(BASE::Init(builder));
     decimal_type_ = checked_pointer_cast<DecimalType>(this->typed_builder_->type());
