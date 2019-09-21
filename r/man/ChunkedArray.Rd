@@ -36,6 +36,8 @@ various Arrays or R vectors. \code{chunked_array()} is an alias for it.
 \item \code{$num_chunks()}
 \item \code{$type()}
 \item \code{$View(type)}: Construct a zero-copy view of this chunked array with the given type.
+\item \code{$Validate()} : Perform any validation checks to determine obvious inconsistencies
+within the array's internal data. This can be an expensive check, potentially \code{O(length)}
 }
 }
 

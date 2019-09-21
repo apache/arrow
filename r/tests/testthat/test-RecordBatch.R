@@ -18,8 +18,10 @@
 context("RecordBatch")
 
 test_that("RecordBatch", {
+  # Note that we're reusing `tbl` and `batch` throughout the tests in this file
   tbl <- tibble::tibble(
-    int = 1:10, dbl = as.numeric(1:10),
+    int = 1:10,
+    dbl = as.numeric(1:10),
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10],
     fct = factor(letters[1:10])
@@ -84,28 +86,17 @@ test_that("RecordBatch", {
   expect_identical(as.data.frame(batch4), tbl[6:7,])
 })
 
-tbl10 <- tibble::tibble(
-  int = 1:10,
-  dbl = as.numeric(1:10),
-  lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-  chr = letters[1:10],
-  fct = factor(letters[1:10])
-)
-batch <- NULL # Placeholder
-
 test_that("[ on RecordBatch", {
-  # Put this assignment inside test_that so that it's not run if !arrow_available()
-  batch <<- record_batch(!!!tbl10)
-  expect_identical(as.data.frame(batch[6:7,]), tbl10[6:7,])
-  expect_identical(as.data.frame(batch[6:7, 2:4]), tbl10[6:7, 2:4])
-  expect_identical(as.data.frame(batch[, c("dbl", "fct")]), tbl10[, c(2, 5)])
-  expect_identical(as.vector(batch[, "chr", drop = TRUE]), tbl10$chr)
+  expect_identical(as.data.frame(batch[6:7,]), tbl[6:7,])
+  expect_identical(as.data.frame(batch[6:7, 2:4]), tbl[6:7, 2:4])
+  expect_identical(as.data.frame(batch[, c("dbl", "fct")]), tbl[, c(2, 5)])
+  expect_identical(as.vector(batch[, "chr", drop = TRUE]), tbl$chr)
 })
 
 test_that("[[ and $ on RecordBatch", {
-  expect_identical(as.vector(batch[["int"]]), tbl10$int)
-  expect_identical(as.vector(batch$int), tbl10$int)
-  expect_identical(as.vector(batch[[4]]), tbl10$chr)
+  expect_identical(as.vector(batch[["int"]]), tbl$int)
+  expect_identical(as.vector(batch$int), tbl$int)
+  expect_identical(as.vector(batch[[4]]), tbl$chr)
   expect_null(batch$qwerty)
   expect_null(batch[["asdf"]])
   expect_error(batch[[c(4, 3)]], 'length(i) not equal to 1', fixed = TRUE)
@@ -115,12 +106,12 @@ test_that("[[ and $ on RecordBatch", {
 })
 
 test_that("head and tail on RecordBatch", {
-  expect_identical(as.data.frame(head(batch)), head(tbl10))
-  expect_identical(as.data.frame(head(batch, 4)), head(tbl10, 4))
-  expect_identical(as.data.frame(head(batch, -4)), head(tbl10, -4))
-  expect_identical(as.data.frame(tail(batch)), tail(tbl10))
-  expect_identical(as.data.frame(tail(batch, 4)), tail(tbl10, 4))
-  expect_identical(as.data.frame(tail(batch, -4)), tail(tbl10, -4))
+  expect_identical(as.data.frame(head(batch)), head(tbl))
+  expect_identical(as.data.frame(head(batch, 4)), head(tbl, 4))
+  expect_identical(as.data.frame(head(batch, -4)), head(tbl, -4))
+  expect_identical(as.data.frame(tail(batch)), tail(tbl))
+  expect_identical(as.data.frame(tail(batch, 4)), tail(tbl, 4))
+  expect_identical(as.data.frame(tail(batch, -4)), tail(tbl, -4))
 })
 
 test_that("RecordBatch with 0 rows are supported", {
