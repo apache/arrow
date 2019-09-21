@@ -76,16 +76,19 @@ export class VectorAssembler extends Visitor {
                 /* istanbul ignore next */
                 throw new RangeError('Cannot write arrays larger than 2^31 - 1 in length');
             }
-            addBuffer.call(this, nullCount <= 0
-                ? new Uint8Array(0) // placeholder validity buffer
-                : truncateBitmap(data.offset, length, data.nullBitmap)
-            ).nodes.push(new FieldNode(length, nullCount));
+            if (!DataType.isNull(vector.type)) {
+                addBuffer.call(this, nullCount <= 0
+                    ? new Uint8Array(0) // placeholder validity buffer
+                    : truncateBitmap(data.offset, length, data.nullBitmap)
+                );
+            }
+            this.nodes.push(new FieldNode(length, nullCount));
         }
         return super.visit(vector);
     }
 
     public visitNull<T extends Null>(_nullV: V<T>) {
-        return addBuffer.call(this, new Uint8Array(0));
+        return this;
     }
     public visitDictionary<T extends Dictionary>(vector: V<T>) {
         // Assemble the indices here, Dictionary assembled separately.
