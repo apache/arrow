@@ -1778,3 +1778,11 @@ def test_concat_array():
 def test_concat_array_different_types():
     with pytest.raises(pa.ArrowInvalid):
         pa.concat_arrays([pa.array([1]), pa.array([2.])])
+
+
+@pytest.mark.pandas
+def test_to_pandas_timezone():
+    # https://issues.apache.org/jira/browse/ARROW-6652
+    arr = pa.array([1, 2, 3], type=pa.timestamp('s', tz='Europe/Brussels'))
+    s = arr.to_pandas()
+    assert s.dt.tz is not None

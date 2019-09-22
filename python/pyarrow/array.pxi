@@ -901,7 +901,16 @@ cdef class Array(_PandasConvertible):
         with nogil:
             check_status(ConvertArrayToPandas(c_options, self.sp_array,
                                               self, &out))
-        return pandas_api.series(wrap_array_output(out), name=self._name)
+        result = pandas_api.series(wrap_array_output(out), name=self._name)
+
+        if isinstance(self.type, TimestampType):
+            tz = self.type.tz
+            if tz is not None:
+                tz = string_to_tzinfo(tz)
+                result = (result.dt.tz_localize('utc')
+                          .dt.tz_convert(tz))
+
+        return result
 
     def __array__(self, dtype=None):
         cdef:

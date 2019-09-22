@@ -107,10 +107,6 @@ def _check_series_roundtrip(s, type_=None, expected_pa_type=None):
         assert arr.type == expected_pa_type
 
     result = pd.Series(arr.to_pandas(), name=s.name)
-    if pa.types.is_timestamp(arr.type) and arr.type.tz is not None:
-        result = (result.dt.tz_localize('utc')
-                  .dt.tz_convert(arr.type.tz))
-
     tm.assert_series_equal(s, result)
 
 
