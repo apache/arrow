@@ -367,41 +367,32 @@ TEST_P(CodecTest, CodecRoundtrip) {
   }
 }
 
-TEST_P(CodecTest, SpecifyCompressionLevel) {
-  const auto compression = GetCompression();
-  // The compression level is codec specific.
-  int compression_level;
-  switch (compression) {
-    case Compression::LZ4:
-    case Compression::LZO:
-    case Compression::UNCOMPRESSED:
-    case Compression::SNAPPY:
-      // Compression level cannot be specified for these
-      // compression types.
-      return;
-    case Compression::GZIP:
-      compression_level = 2;
-      break;
-    case Compression::BZ2:
-      // SKIP: BZ2 doesn't support one-shot compression
-      return;
-    case Compression::ZSTD:
-      compression_level = 4;
-      break;
-    case Compression::BROTLI:
-      compression_level = 10;
-      break;
-    default:
-      FAIL() << "Unhandled compression type";
-      return;
-  }
+TEST(TestCodecMisc, SpecifyCompressionLevel) {
+  struct CombinationOption {
+    Compression::type codec;
+    int level;
+    bool expect_success;
+  };
+  constexpr CombinationOption combinations[] = {
+      {Compression::GZIP, 2, true},     {Compression::BROTLI, 10, true},
+      {Compression::ZSTD, 4, true},     {Compression::LZ4, -10, false},
+      {Compression::LZO, -22, false},   {Compression::UNCOMPRESSED, 10, false},
+      {Compression::SNAPPY, 16, false}, {Compression::GZIP, -992, false}};
 
   std::vector<uint8_t> data = MakeRandomData(2000);
-  // create multiple compressors to try to break them
-  std::unique_ptr<Codec> c1, c2;
-  ASSERT_OK(Codec::Create(compression, compression_level, &c1));
-  ASSERT_OK(Codec::Create(compression, compression_level, &c2));
-  CheckCodecRoundtrip(c1, c2, data);
+  for (const auto& combination : combinations) {
+    const auto compression = combination.codec;
+    const auto level = combination.level;
+    const auto expect_success = combination.expect_success;
+    std::unique_ptr<Codec> c1, c2;
+    const auto status1 = Codec::Create(compression, level, &c1);
+    const auto status2 = Codec::Create(compression, level, &c2);
+    EXPECT_EQ(expect_success, status1.ok());
+    EXPECT_EQ(expect_success, status2.ok());
+    if (expect_success && status1.ok() && status2.ok()) {
+      CheckCodecRoundtrip(c1, c2, data);
+    }
+  }
 }
 
 TEST_P(CodecTest, OutputBufferIsSmall) {
