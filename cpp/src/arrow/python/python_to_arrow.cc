@@ -881,7 +881,7 @@ class DecimalConverter
   }
 
  private:
-  std::shared_ptr<DecimalType> decimal_type_ = nullptr;
+  std::shared_ptr<DecimalType> decimal_type_;
 };
 
 #define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                                         \
