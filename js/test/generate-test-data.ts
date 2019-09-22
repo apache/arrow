@@ -235,7 +235,7 @@ export const vecs = {
 } as { [k: string]: (...args: any[]) => any };
 
 function generateNull<T extends Null>(this: TestDataVectorGenerator, type: T, length = 100): GeneratedVector<V<T>> {
-    return { values: () => Array.from({ length }, () => null), vector: Vector.new(Data.Null(type, 0, length, 0, null)) };
+    return { values: () => Array.from({ length }, () => null), vector: Vector.new(Data.Null(type, 0, length)) };
 }
 
 function generateBool<T extends Bool>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = length * 0.2 | 0): GeneratedVector<V<T>> {

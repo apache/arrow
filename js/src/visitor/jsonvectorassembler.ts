@@ -73,13 +73,13 @@ export class JSONVectorAssembler extends Visitor {
         return {
             'name': name,
             'count': length,
-            'VALIDITY': nullCount <= 0
-                ? Array.from({ length }, () => 1)
+            'VALIDITY': DataType.isNull(type) ? undefined
+                : nullCount <= 0 ? Array.from({ length }, () => 1)
                 : [...iterateBits(nullBitmap, offset, length, null, getBit)],
             ...super.visit(Vector.new(data.clone(type, offset, length, 0, buffers)))
         };
     }
-    public visitNull() { return { 'DATA': [] }; }
+    public visitNull() { return {}; }
     public visitBool<T extends Bool>({ values, offset, length }: V<T>) {
         return { 'DATA': [...iterateBits(values, offset, length, null, getBool)] };
     }
