@@ -54,12 +54,15 @@ cimport cpython as cp
 cdef class Statistics:
     cdef:
         shared_ptr[CStatistics] statistics
+        ColumnChunkMetaData parent
 
     def __cinit__(self):
         pass
 
-    cdef init(self, const shared_ptr[CStatistics]& statistics):
+    cdef init(self, const shared_ptr[CStatistics]& statistics,
+              ColumnChunkMetaData parent):
         self.statistics = statistics
+        self.parent = parent
 
     def __repr__(self):
         return """{}
@@ -303,13 +306,15 @@ cdef class ColumnChunkMetaData:
     cdef:
         unique_ptr[CColumnChunkMetaData] up_metadata
         CColumnChunkMetaData* metadata
+        RowGroupMetaData parent
 
     def __cinit__(self):
         pass
 
-    cdef init(self, const CRowGroupMetaData& row_group_metadata, int i):
-        self.up_metadata = row_group_metadata.ColumnChunk(i)
+    cdef init(self, RowGroupMetaData parent, int i):
+        self.up_metadata = parent.metadata.ColumnChunk(i)
         self.metadata = self.up_metadata.get()
+        self.parent = parent
 
     def __repr__(self):
         statistics = indent(repr(self.statistics), 4 * ' ')
@@ -416,7 +421,7 @@ cdef class ColumnChunkMetaData:
         if not self.metadata.is_stats_set():
             return None
         statistics = Statistics()
-        statistics.init(self.metadata.statistics())
+        statistics.init(self.metadata.statistics(), self)
         return statistics
 
     @property
@@ -499,7 +504,7 @@ cdef class RowGroupMetaData:
         if i < 0 or i >= self.num_columns:
             raise IndexError('{0} out of bounds'.format(i))
         chunk = ColumnChunkMetaData()
-        chunk.init(deref(self.metadata), i)
+        chunk.init(self, i)
         return chunk
 
     def __repr__(self):
