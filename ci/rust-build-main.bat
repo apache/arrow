@@ -40,21 +40,21 @@ popd
 @echo Test (release)
 @echo --------------
 cargo test --target %TARGET% --release || exit /B
+
 @echo
 @echo Run Arrow examples (release)
 @echo ---------------------
-cd arrow
+pushd arrow
 cargo run --example builders --target %TARGET% --release || exit /B
 cargo run --example dynamic_types --target %TARGET% --release || exit /B
 cargo run --example read_csv --target %TARGET% --release || exit /B
 cargo run --example read_csv_infer_schema --target %TARGET% --release || exit /B
-
 popd
+
 @echo
 @echo Run DataFusion examples (release)
 @echo ---------------------
-cd datafusion
+pushd datafusion
 cargo run --example csv_sql --target %TARGET% --release || exit /B
 cargo run --example parquet_sql --target %TARGET% --release || exit /B
-
 popd

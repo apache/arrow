@@ -38,17 +38,15 @@ popd
 cargo test
 
 # run Arrow examples
-cd arrow
+pushd arrow
 cargo run --example builders
 cargo run --example dynamic_types
 cargo run --example read_csv
 cargo run --example read_csv_infer_schema
-
 popd
 
 # run DataFusion examples
-cd datafusion
+pushd datafusion
 cargo run --example csv_sql
 cargo run --example parquet_sql
-
 popd
