@@ -48,6 +48,29 @@ def finalize_s3():
 
 
 cdef class S3FileSystem(FileSystem):
+    """S3-backed FileSystem implementation
+
+    Note: S3 buckets are special and the operations available on them may be
+          limited or more expensive than desired.
+
+    Parameters
+    ----------
+    access_key: str, default None
+        AWS Access Key ID. Pass None to use the standard AWS environment
+        variables and/or configuration file.
+    secret_key: str, default None
+        AWS Secret Access key. Pass None to use the standard AWS environment
+        variables and/or configuration file.
+    region: str, default 'us-east-1'
+        AWS region to connect to.
+    scheme: str, default 'https'
+        S3 connection transport scheme.
+    endpoint_override: str, default None
+        Override region with a connect string such as "localhost:9000"
+    background_writes: boolean, default True
+        Whether OutputStream writes will be issued in the background, without
+        blocking.
+    """
 
     cdef:
         CS3FileSystem* s3fs

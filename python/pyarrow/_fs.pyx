@@ -126,7 +126,7 @@ cdef class Selector:
 
     Parameters
     ----------
-    base_dir : str or pathlib.Path
+    base_dir : str
         The directory in which to select files. Relative paths also work, use
         '.' for the current directory and '..' for the parent.
     allow_non_existent : bool, default False
@@ -224,7 +224,7 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        path : str or pathlib.Path
+        path : str
             The path of the new directory.
         recursive: bool, default True
             Create nested directories as well.
@@ -238,7 +238,7 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        path : str or pathlib.Path
+        path : str
             The path of the directory to be deleted.
         """
         cdef c_string directory = _path_as_bytes(path)
@@ -255,9 +255,9 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        src : str or pathlib.Path
+        src : str
             The path of the file or the directory to be moved.
-        dest : str or pathlib.Path
+        dest : str
             The destination path where the file or directory is moved to.
         """
         cdef:
@@ -274,9 +274,9 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        src : str or pathlib.Path
+        src : str
             The path of the file to be copied from.
-        dest : str or pathlib.Path
+        dest : str
             The destination path where the file is copied to.
         """
         cdef:
@@ -290,7 +290,7 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        path : str or pathlib.Path
+        path : str
             The path of the file to be deleted.
         """
         cdef c_string file = _path_as_bytes(path)
@@ -320,7 +320,7 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        path : Union[str, pathlib.Path]
+        path : str
             The source to open for reading.
 
         Returns
@@ -344,7 +344,7 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        source: str or pathlib.Path
+        source: str
             The source to open for reading.
         compression: str optional, default 'detect'
             The compression algorithm to use for on-the-fly decompression.
@@ -383,7 +383,7 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        path : str or pathlib.Path
+        path : str
             The source to open for writing.
         compression: str optional, default 'detect'
             The compression algorithm to use for on-the-fly compression.
@@ -421,7 +421,7 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        path : str or pathlib.Path
+        path : str
             The source to open for writing.
         compression: str optional, default 'detect'
             The compression algorithm to use for on-the-fly compression.
@@ -479,6 +479,13 @@ cdef class SubTreeFileSystem(FileSystem):
     Note, that this makes no security guarantee. For example, symlinks may
     allow to "escape" the subtree and access other parts of the underlying
     filesystem.
+
+    Parameters
+    ----------
+    base_path: str
+        The root of the subtree.
+    base_fs: FileSystem
+        FileSystem object the operations delegated to.
     """
 
     def __init__(self, base_path, FileSystem base_fs):

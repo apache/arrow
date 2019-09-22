@@ -25,7 +25,7 @@ from pyarrow._fs import (  # noqa
     LocalFileSystem,
     SubTreeFileSystem
 )
-from pyarrow._s3 import S3FileSystem
+
 try:
     from pyarrow._s3 import S3FileSystem, initialize_s3, finalize_s3  # noqa
 except ImportError:
