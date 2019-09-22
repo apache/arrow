@@ -16,6 +16,9 @@
 # under the License.
 
 import os
+import subprocess
+import tempfile
+
 import pytest
 import hypothesis as h
 
@@ -225,3 +228,46 @@ def tempdir(tmpdir):
 @pytest.fixture(scope='session')
 def datadir():
     return pathlib.Path(__file__).parent / 'data'
+
+
+@pytest.fixture(scope='module')
+@pytest.mark.s3
+def minio_server():
+    host, port = 'localhost', 9000
+    access_key, secret_key = 'arrow', 'apachearrow'
+
+    address = '{}:{}'.format(host, port)
+    env = os.environ.copy()
+    env.update({
+        'MINIO_ACCESS_KEY': access_key,
+        'MINIO_SECRET_KEY': secret_key
+    })
+
+    minio_dir = os.environ.get('S3FS_DIR', '')
+    minio_bin = os.path.join(minio_dir, 'minio') if minio_dir else 'minio'
+
+    with tempfile.TemporaryDirectory() as tempdir:
+        args = [minio_bin, '--compat', 'server', '--quiet', '--address',
+                address, tempdir]
+        with subprocess.Popen(args, env=env) as proc:
+            yield address, access_key, secret_key
+            proc.terminate()
+
+
+@pytest.fixture(scope='module')
+def minio_client(minio_server):
+    from minio import Minio
+    address, access_key, secret_key = minio_server
+    return Minio(
+        address,
+        access_key=access_key,
+        secret_key=secret_key,
+        secure=False
+    )
+
+
+@pytest.fixture(scope='module')
+def minio_bucket(minio_client):
+    bucket_name = 'pyarrow-bucket'
+    minio_client.make_bucket(bucket_name)
+    return bucket_name

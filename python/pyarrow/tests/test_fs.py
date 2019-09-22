@@ -16,10 +16,7 @@
 # under the License.
 
 import io
-import os
 import calendar
-import subprocess
-import tempfile
 from datetime import datetime
 try:
     import pathlib
@@ -221,45 +218,6 @@ class SubTreeS3Wrapper(S3Wrapper):
         return (path_for_wrapper, path_for_impl)
 
 
-@pytest.fixture(scope='module')
-@pytest.mark.s3
-def minio_server():
-    host, port = 'localhost', 9000
-    access_key, secret_key = 'arrow', 'apachearrow'
-
-    address = '{}:{}'.format(host, port)
-    env = os.environ.copy()
-    env.update({
-        'MINIO_ACCESS_KEY': access_key,
-        'MINIO_SECRET_KEY': secret_key
-    })
-
-    minio_dir = os.environ.get('S3FS_DIR', '')
-    minio_bin = os.path.join(minio_dir, 'minio') if minio_dir else 'minio'
-
-    with tempfile.TemporaryDirectory() as tempdir:
-        args = [minio_bin, '--compat', 'server', '--quiet', '--address',
-                address, tempdir]
-        with subprocess.Popen(args, env=env) as proc:
-            yield address, access_key, secret_key
-            proc.terminate()
-
-
-@pytest.fixture(scope='module')
-def minio_client(minio_server):
-    from minio import Minio
-    address, access_key, secret_key = minio_server
-    bucket = 'test-bucket'
-    client = Minio(
-        address,
-        access_key=access_key,
-        secret_key=secret_key,
-        secure=False
-    )
-    client.make_bucket(bucket)
-    return client, bucket
-
-
 @pytest.fixture(params=[
     LocalWrapper,
     SubTreeLocalWrapper
@@ -272,14 +230,14 @@ def localfs(request, tempdir):
     S3Wrapper,
     SubTreeS3Wrapper
 ])
-def s3fs(request, minio_server, minio_client):
+def s3fs(request, minio_server, minio_client, minio_bucket):
     from pyarrow.fs import initialize_s3
     initialize_s3()
+
     address, access_key, secret_key = minio_server
-    client, bucket = minio_client
     return request.param(
-        minio_client=client,
-        bucket=bucket,
+        minio_client=minio_client,
+        bucket=minio_bucket,
         endpoint_override=address,
         access_key=access_key,
         secret_key=secret_key,
