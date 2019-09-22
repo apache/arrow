@@ -23,7 +23,6 @@
 
 #include "arrow/array.h"
 #include "arrow/io/memory.h"
-#include "arrow/ipc/feather_generated.h"
 #include "arrow/ipc/feather_internal.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/memory_pool.h"
@@ -34,6 +33,8 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+
+#include "generated/feather_generated.h"
 
 namespace arrow {
 

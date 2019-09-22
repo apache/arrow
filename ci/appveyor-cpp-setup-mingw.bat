@@ -40,7 +40,6 @@ pacman --sync --noconfirm ^
   %MINGW_PACKAGE_PREFIX%-brotli ^
   %MINGW_PACKAGE_PREFIX%-cmake ^
   %MINGW_PACKAGE_PREFIX%-double-conversion ^
-  %MINGW_PACKAGE_PREFIX%-flatbuffers ^
   %MINGW_PACKAGE_PREFIX%-gflags ^
   %MINGW_PACKAGE_PREFIX%-gobject-introspection ^
   %MINGW_PACKAGE_PREFIX%-grpc ^

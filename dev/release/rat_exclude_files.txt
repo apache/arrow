@@ -31,6 +31,9 @@ cpp/src/plasma/thirdparty/ae/ae_select.c
 cpp/src/plasma/thirdparty/ae/config.h
 cpp/src/plasma/thirdparty/ae/zmalloc.h
 cpp/src/plasma/thirdparty/dlmalloc.c
+cpp/thirdparty/flatbuffers/include/flatbuffers/base.h
+cpp/thirdparty/flatbuffers/include/flatbuffers/flatbuffers.h
+cpp/thirdparty/flatbuffers/include/flatbuffers/stl_emulation.h
 dev/release/rat_exclude_files.txt
 dev/tasks/homebrew-formulae/apache-arrow.rb
 dev/tasks/linux-packages/debian.ubuntu-xenial/compat
