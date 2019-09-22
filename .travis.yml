@@ -110,6 +110,7 @@ matrix:
     - ARROW_TRAVIS_USE_SYSTEM_JAVA=1
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_TRAVIS_VALGRIND=1
+    - ARROW_TRAVIS_S3=1
     # TODO(wesm): Run the benchmarks outside of Travis
     # - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
     before_script:
@@ -136,6 +137,7 @@ matrix:
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_FLIGHT=1
     - ARROW_TRAVIS_ORC=1
+    - ARROW_TRAVIS_S3=1
     - ARROW_TRAVIS_PARQUET=1
     # TODO(ARROW-4763): llvm and llvmdev packages are in conflict:
     # https://github.com/conda-forge/llvmdev-feedstock/issues/60

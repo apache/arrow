@@ -236,15 +236,13 @@ def minio_server():
 
     minio_dir = os.environ.get('S3FS_DIR', '')
     minio_bin = os.path.join(minio_dir, 'minio') if minio_dir else 'minio'
-    try:
-        with tempfile.TemporaryDirectory() as tempdir:
-            args = [minio_bin, '--compat', 'server', '--quiet', '--address',
-                    address, tempdir]
-            with subprocess.Popen(args, env=env) as proc:
-                yield address, access_key, secret_key
-                proc.terminate()
-    except FileNotFoundError:
-        pytest.skip('Minio executable cannot be located')
+
+    with tempfile.TemporaryDirectory() as tempdir:
+        args = [minio_bin, '--compat', 'server', '--quiet', '--address',
+                address, tempdir]
+        with subprocess.Popen(args, env=env) as proc:
+            yield address, access_key, secret_key
+            proc.terminate()
 
 
 @pytest.fixture(scope='module')
