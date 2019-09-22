@@ -160,6 +160,10 @@ class ARROW_EXPORT Codec {
   virtual Status MakeDecompressor(std::shared_ptr<Decompressor>* out) = 0;
 
   virtual const char* name() const = 0;
+
+ private:
+  /// \brief Initializes the codec's resources.
+  virtual Status Init();
 };
 
 }  // namespace util

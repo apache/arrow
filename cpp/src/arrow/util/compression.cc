@@ -58,6 +58,8 @@ Codec::~Codec() {}
 
 int Codec::UseDefaultCompressionLevel() { return kUseDefaultCompressionLevel; }
 
+Status Codec::Init() { return Status::OK(); }
+
 std::string Codec::GetCodecAsString(Compression::type t) {
   switch (t) {
     case Compression::UNCOMPRESSED:
@@ -87,50 +89,64 @@ Status Codec::Create(Compression::type codec_type, std::unique_ptr<Codec>* resul
 
 Status Codec::Create(Compression::type codec_type, int compression_level,
                      std::unique_ptr<Codec>* result) {
-  Codec* codec = nullptr;
+  std::unique_ptr<Codec> codec;
+  const bool compression_level_set{compression_level !=
+                                   Codec::UseDefaultCompressionLevel()};
   switch (codec_type) {
     case Compression::UNCOMPRESSED:
+      if (compression_level_set) {
+        return Status::Invalid("Compression level cannot be specified for UNCOMPRESSED.");
+      }
       break;
     case Compression::SNAPPY:
 #ifdef ARROW_WITH_SNAPPY
-      codec = new SnappyCodec();
+      if (compression_level_set) {
+        return Status::Invalid("Snappy doesn't support setting a compression level.");
+      }
+      codec.reset(new SnappyCodec());
       break;
 #else
       return Status::NotImplemented("Snappy codec support not built");
 #endif
     case Compression::GZIP:
 #ifdef ARROW_WITH_ZLIB
-      codec = new GZipCodec(compression_level);
+      codec.reset(new GZipCodec(compression_level));
       break;
 #else
       return Status::NotImplemented("Gzip codec support not built");
 #endif
     case Compression::LZO:
+      if (compression_level_set) {
+        return Status::Invalid("LZ0 doesn't support setting a compression level.");
+      }
       return Status::NotImplemented("LZO codec not implemented");
     case Compression::BROTLI:
 #ifdef ARROW_WITH_BROTLI
-      codec = new BrotliCodec(compression_level);
+      codec.reset(new BrotliCodec(compression_level));
       break;
 #else
       return Status::NotImplemented("Brotli codec support not built");
 #endif
     case Compression::LZ4:
 #ifdef ARROW_WITH_LZ4
-      codec = new Lz4Codec();
+      if (compression_level_set) {
+        return Status::Invalid("LZ4 doesn't support setting a compression level.");
+      }
+      codec.reset(new Lz4Codec());
       break;
 #else
       return Status::NotImplemented("LZ4 codec support not built");
 #endif
     case Compression::ZSTD:
 #ifdef ARROW_WITH_ZSTD
-      codec = new ZSTDCodec(compression_level);
+      codec.reset(new ZSTDCodec(compression_level));
       break;
 #else
       return Status::NotImplemented("ZSTD codec support not built");
 #endif
     case Compression::BZ2:
 #ifdef ARROW_WITH_BZ2
-      codec = new BZ2Codec(compression_level);
+      codec.reset(new BZ2Codec(compression_level));
       break;
 #else
       return Status::NotImplemented("BZ2 codec support not built");
@@ -138,7 +154,13 @@ Status Codec::Create(Compression::type codec_type, int compression_level,
     default:
       return Status::Invalid("Unrecognized codec");
   }
-  result->reset(codec);
+  if (codec) {
+    const auto status = codec->Init();
+    if (status.ok()) {
+      result->reset(codec.release());
+    }
+    return status;
+  }
   return Status::OK();
 }
 
