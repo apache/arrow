@@ -1845,7 +1845,7 @@ def test_filters_read_table(tempdir):
 
 @pytest.fixture
 def s3_example(minio_server, minio_bucket):
-    import s3fs
+    s3fs = pytest.importorskip('s3fs')
 
     address, access_key, secret_key = minio_server
     bucket_name = minio_bucket
