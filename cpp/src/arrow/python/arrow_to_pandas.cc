@@ -1152,12 +1152,20 @@ class CategoricalBlock : public PandasBlock {
     for (int c = 0; c < data.num_chunks(); c++) {
       const auto& arr = checked_cast<const DictionaryArray&>(*data.chunk(c));
       const auto& indices = checked_cast<const ArrayType&>(*arr.indices());
-      auto in_values = reinterpret_cast<const T*>(indices.raw_values());
-      RETURN_NOT_OK(
-          CheckDictionaryIndices<IndexType>(indices, arr.dictionary()->length()));
+      auto values = reinterpret_cast<const T*>(indices.raw_values());
+
+      int64_t dict_length = arr.dictionary()->length();
       // Null is -1 in CategoricalBlock
       for (int i = 0; i < arr.length(); ++i) {
-        *out_values++ = indices.IsNull(i) ? -1 : in_values[i];
+        if (indices.IsValid(i)) {
+          if (ARROW_PREDICT_FALSE(values[i] < 0 || values[i] >= dict_length)) {
+            return Status::Invalid("Out of bounds dictionary index: ",
+                                   static_cast<int64_t>(values[i]));
+          }
+          *out_values++ = values[i];
+        } else {
+          *out_values++ = -1;
+        }
       }
     }
     return Status::OK();
@@ -1182,23 +1190,30 @@ class CategoricalBlock : public PandasBlock {
     for (int c = 0; c < data.num_chunks(); c++) {
       const auto& arr = checked_cast<const DictionaryArray&>(*data.chunk(c));
       const auto& indices = checked_cast<const ArrayType&>(*arr.indices());
-      auto in_values = reinterpret_cast<const T*>(indices.raw_values());
+      auto values = reinterpret_cast<const T*>(indices.raw_values());
 
       std::shared_ptr<Buffer> transpose_buffer;
       RETURN_NOT_OK(unifier->Unify(*arr.dictionary(), &transpose_buffer));
 
       auto transpose = reinterpret_cast<const int32_t*>(transpose_buffer->data());
-      RETURN_NOT_OK(
-          CheckDictionaryIndices<IndexType>(indices, arr.dictionary()->length()));
+      int64_t dict_length = arr.dictionary()->length();
+
       // Null is -1 in CategoricalBlock
       for (int i = 0; i < arr.length(); ++i) {
-        *out_values++ = indices.IsNull(i) ? -1 : transpose[in_values[i]];
+        if (indices.IsValid(i)) {
+          if (ARROW_PREDICT_FALSE(values[i] < 0 || values[i] >= dict_length)) {
+            return Status::Invalid("Out of bounds dictionary index: ",
+                                   static_cast<int64_t>(values[i]));
+          }
+          *out_values++ = transpose[values[i]];
+        } else {
+          *out_values++ = -1;
+        }
       }
     }
 
     std::shared_ptr<DataType> unused_type;
-    RETURN_NOT_OK(unifier->GetResult(&unused_type, out_dict));
-    return Status::OK();
+    return unifier->GetResult(&unused_type, out_dict);
   }
 
   template <typename IndexType>
@@ -1231,10 +1246,7 @@ class CategoricalBlock : public PandasBlock {
                                " indices nulls, but zero_copy_only was True");
       }
 
-      // check if all dictionaries are equal
-      bool need_unification = NeedDictionaryUnification(data);
-
-      if (need_unification) {
+      if (NeedDictionaryUnification(data)) {
         RETURN_NOT_OK(WriteIndicesVarying<IndexType>(data, out_dict));
       } else {
         RETURN_NOT_OK(WriteIndicesUniform<IndexType>(data));
