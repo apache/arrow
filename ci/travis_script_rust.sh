@@ -32,6 +32,9 @@ rustup show
 cargo +stable fmt --all -- --check
 
 RUSTFLAGS="-D warnings" cargo build --all-targets
+pushd arrow
+cargo build --no-default-features
+popd
 cargo test
 
 # run examples

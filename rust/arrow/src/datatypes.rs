@@ -23,10 +23,12 @@
 
 use std::fmt;
 use std::mem::size_of;
+#[cfg(feature = "simd")]
 use std::ops::{Add, Div, Mul, Sub};
 use std::slice::from_raw_parts;
 use std::str::FromStr;
 
+#[cfg(feature = "simd")]
 use packed_simd::*;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Number, Value, Value::Number as VNumber};
@@ -303,7 +305,7 @@ make_type!(
 /// A subtype of primitive type that represents numeric values.
 ///
 /// SIMD operations are defined in this trait if available on the target system.
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 pub trait ArrowNumericType: ArrowPrimitiveType
 where
     Self::Simd: Add<Output = Self::Simd>
@@ -370,12 +372,15 @@ where
     fn write(simd_result: Self::Simd, slice: &mut [Self::Native]);
 }
 
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+#[cfg(any(
+    not(any(target_arch = "x86", target_arch = "x86_64")),
+    not(feature = "simd")
+))]
 pub trait ArrowNumericType: ArrowPrimitiveType {}
 
 macro_rules! make_numeric_type {
     ($impl_ty:ty, $native_ty:ty, $simd_ty:ident, $simd_mask_ty:ident) => {
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
         impl ArrowNumericType for $impl_ty {
             type Simd = $simd_ty;
 
@@ -454,7 +459,10 @@ macro_rules! make_numeric_type {
                 unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
             }
         }
-        #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+        #[cfg(any(
+            not(any(target_arch = "x86", target_arch = "x86_64")),
+            not(feature = "simd")
+        ))]
         impl ArrowNumericType for $impl_ty {}
     };
 }
