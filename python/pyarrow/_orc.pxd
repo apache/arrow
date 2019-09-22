@@ -28,7 +28,7 @@ from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
                                         CKeyValueMetadata,
                                         CRecordBatch,
                                         CTable,
-                                        RandomAccessFile, COutputStream,
+                                        CRandomAccessFile, COutputStream,
                                         TimeUnit)
 
 

@@ -2537,9 +2537,9 @@ if(ARROW_S3)
   message(STATUS "Found AWS SDK libraries: ${AWSSDK_LINK_LIBRARIES}")
 
   if(APPLE)
-   set_target_properties(AWS::aws-c-common PROPERTIES
-    INTERFACE_LINK_LIBRARIES "-pthread;pthread;-framework CoreFoundation"
-   )
+    set_target_properties(AWS::aws-c-common
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "-pthread;pthread;-framework CoreFoundation")
   endif()
 endif()
 
