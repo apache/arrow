@@ -38,6 +38,11 @@ RUN wget -q -O /tmp/spark.tar.gz https://github.com/apache/spark/archive/$SPARK_
     tar -xzf /tmp/spark.tar.gz -C /spark --strip-components=1 && \
     rm /tmp/spark.tar.gz
 
+# patch spark to build with current Arrow Java
+COPY integration/spark/ARROW-6429.patch /tmp/
+RUN patch -d /spark -p1 -i /tmp/ARROW-6429.patch && \
+    rm /tmp/ARROW-6429.patch
+
 # build cpp with tests
 ENV CC=gcc \
     CXX=g++ \
