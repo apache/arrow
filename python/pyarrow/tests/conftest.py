@@ -127,7 +127,7 @@ except ImportError:
     pass
 
 try:
-    from pyarrow.fs import S3FileSystem
+    from pyarrow.fs import S3FileSystem  # noqa
     defaults['s3'] = True
 except ImportError:
     pass

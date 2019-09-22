@@ -22,20 +22,65 @@ import subprocess
 import tempfile
 from datetime import datetime
 try:
-
     import pathlib
 except ImportError:
     import pathlib2 as pathlib  # py2 compat
 
 import pytest
 
+import pyarrow as pa
 from pyarrow import ArrowIOError
 from pyarrow.tests.test_io import gzip_compress, gzip_decompress
 from pyarrow.fs import (FileType, Selector, FileSystem, LocalFileSystem,
                         SubTreeFileSystem)
 
 
-class Local:
+class FileSystemWrapper:
+
+    # Whether the filesystem may "implicitly" create intermediate directories
+    have_implicit_directories = False
+    # Whether the filesystem may allow writing a file "over" a directory
+    allow_write_file_over_dir = False
+    # Whether the filesystem allows moving a directory
+    allow_move_dir = True
+    # Whether the filesystem allows appending to a file
+    allow_append_to_file = False
+    # Whether the filesystem supports directory modification times
+    have_directory_mtimes = True
+
+    @property
+    def impl(self):
+        return self._impl
+
+    @impl.setter
+    def impl(self, impl):
+        self._impl = impl
+
+    def pathpair(self, p):
+        raise NotImplementedError()
+
+    def mkdir(self, p):
+        raise NotImplementedError()
+
+    def touch(self, p):
+        raise NotImplementedError()
+
+    def exists(self, p):
+        raise NotImplementedError()
+
+    def mtime(self, p):
+        raise NotImplementedError()
+
+    def write_bytes(self, p, data):
+        raise NotImplementedError()
+
+    def read_bytes(self, p):
+        raise NotImplementedError()
+
+
+class LocalWrapper(FileSystemWrapper):
+
+    allow_append_to_file = True
 
     def __init__(self, tempdir):
         self.impl = LocalFileSystem()
@@ -67,7 +112,7 @@ class Local:
         return pathlib.Path(p).read_bytes()
 
 
-class SubTreeLocal(Local):
+class SubTreeLocalWrapper(LocalWrapper):
 
     def __init__(self, tempdir, prefix='local/prefix'):
         prefix_absolute = tempdir / prefix
@@ -86,11 +131,12 @@ class SubTreeLocal(Local):
         return (path_for_wrapper, path_for_impl)
 
 
-class S3:
+class S3Wrapper(FileSystemWrapper):
+
+    allow_move_dir = False
 
     def __init__(self, minio_client, bucket='test-bucket', **kwargs):
-        from pyarrow.fs import S3FileSystem, initialize_s3
-        initialize_s3()
+        from pyarrow.fs import S3FileSystem
         self.impl = S3FileSystem(**kwargs)
         self.client = minio_client
         self.bucket = bucket
@@ -156,7 +202,7 @@ class S3:
         return data.read()
 
 
-class SubTreeS3(S3):
+class SubTreeS3Wrapper(S3Wrapper):
 
     def __init__(self, minio_client, bucket='test-bucket', prefix='s3/prefix',
                  **kwargs):
@@ -215,18 +261,20 @@ def minio_client(minio_server):
 
 
 @pytest.fixture(params=[
-    Local,
-    SubTreeLocal
+    LocalWrapper,
+    SubTreeLocalWrapper
 ])
 def localfs(request, tempdir):
     return request.param(tempdir)
 
 
 @pytest.fixture(params=[
-    S3,
-    SubTreeS3
+    S3Wrapper,
+    SubTreeS3Wrapper
 ])
 def s3fs(request, minio_server, minio_client):
+    from pyarrow.fs import initialize_s3
+    initialize_s3()
     address, access_key, secret_key = minio_server
     client, bucket = minio_client
     return request.param(
@@ -263,11 +311,6 @@ def test_non_path_like_input_raises(fs):
             fs.impl.create_dir(path)
 
 
-def test_file_stat_repr():
-    # TODO(kszucs)
-    pass
-
-
 def test_get_target_stats(fs):
     _aaa, aaa = fs.pathpair('a/aa/aaa/')
     _bb, bb = fs.pathpair('a/bb')
@@ -287,11 +330,11 @@ def test_get_target_stats(fs):
 
     assert aaa_stat.path == aaa
     assert 'aaa' in repr(aaa_stat)
+    assert aaa_stat.extension == ''
+    assert mtime_almost_equal(aaa_stat.mtime, fs.mtime(_aaa))
     # type is inconsistent base_name has a trailing slas for 'aaa' and 'aaa/'
     # assert aaa_stat.base_name == 'aaa'
-    assert aaa_stat.extension == ''
     # assert aaa_stat.type == FileType.Directory
-    assert mtime_almost_equal(aaa_stat.mtime, fs.mtime(_aaa))
     # assert aaa_stat is None
 
     assert bb_stat.path == str(bb)
@@ -372,17 +415,21 @@ def test_copy_file(fs):
     assert fs.exists(_t)
 
 
-def test_move_directory(localfs):
+def test_move_directory(fs):
     # move directory (doesn't work with S3)
-    _s, s = localfs.pathpair('source-dir/')
-    _t, t = localfs.pathpair('target-dir/')
-    localfs.mkdir(_s)
+    _s, s = fs.pathpair('source-dir/')
+    _t, t = fs.pathpair('target-dir/')
+    fs.mkdir(_s)
 
-    assert localfs.exists(_s)
-    assert not localfs.exists(_t)
-    localfs.impl.move(s, t)
-    assert not localfs.exists(_s)
-    assert localfs.exists(_t)
+    if fs.allow_move_dir:
+        assert fs.exists(_s)
+        assert not fs.exists(_t)
+        fs.impl.move(s, t)
+        assert not fs.exists(_s)
+        assert fs.exists(_t)
+    else:
+        with pytest.raises(pa.ArrowIOError):
+            fs.impl.move(s, t)
 
 
 def test_move_file(fs):
@@ -487,18 +534,18 @@ def test_open_output_stream(fs, compression, buffer_size, decompressor):
         ('gzip', 256, gzip_compress, gzip_decompress),
     ]
 )
-def test_open_append_stream(localfs, compression, buffer_size, compressor,
+def test_open_append_stream(fs, compression, buffer_size, compressor,
                             decompressor):
-    _p, p = localfs.pathpair('open-append-stream')
+    _p, p = fs.pathpair('open-append-stream')
 
     data = compressor(b'already existing')
-    localfs.write_bytes(_p, data)
+    fs.write_bytes(_p, data)
 
-    with localfs.impl.open_append_stream(p, compression, buffer_size) as f:
-        f.write(b'\nnewly added')
-
-    result = decompressor(localfs.read_bytes(_p))
-    assert result == b'already existing\nnewly added'
-
-
-# TODO(kszucs): test that open_append_stream raises for s3
+    if fs.allow_append_to_file:
+        with fs.impl.open_append_stream(p, compression, buffer_size) as f:
+            f.write(b'\nnewly added')
+        result = decompressor(fs.read_bytes(_p))
+        assert result == b'already existing\nnewly added'
+    else:
+        with pytest.raises(pa.ArrowNotImplementedError):
+            fs.impl.open_append_stream(p, compression, buffer_size)

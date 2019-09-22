@@ -811,7 +811,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         int file_descriptor()
 
     cdef cppclass CMemoryMappedFile \
-            " arrow::io::MemoryMappedFile"(ReadWriteFileInterface):
+            "arrow::io::MemoryMappedFile"(ReadWriteFileInterface):
 
         @staticmethod
         CStatus Create(const c_string& path, int64_t size,
@@ -826,7 +826,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         int file_descriptor()
 
     cdef cppclass CCompressedInputStream \
-            " arrow::io::CompressedInputStream"(CInputStream):
+            "arrow::io::CompressedInputStream"(CInputStream):
         @staticmethod
         CStatus Make(CMemoryPool* pool, CCodec* codec,
                      shared_ptr[CInputStream] raw,
@@ -837,7 +837,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
                      shared_ptr[CCompressedInputStream]* out)
 
     cdef cppclass CCompressedOutputStream \
-            " arrow::io::CompressedOutputStream"(COutputStream):
+            "arrow::io::CompressedOutputStream"(COutputStream):
         @staticmethod
         CStatus Make(CMemoryPool* pool, CCodec* codec,
                      shared_ptr[COutputStream] raw,
@@ -848,7 +848,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
                      shared_ptr[CCompressedOutputStream]* out)
 
     cdef cppclass CBufferedInputStream \
-            " arrow::io::BufferedInputStream"(CInputStream):
+            "arrow::io::BufferedInputStream"(CInputStream):
 
         @staticmethod
         CStatus Create(int64_t buffer_size, CMemoryPool* pool,
@@ -858,7 +858,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         shared_ptr[CInputStream] Detach()
 
     cdef cppclass CBufferedOutputStream \
-            " arrow::io::BufferedOutputStream"(COutputStream):
+            "arrow::io::BufferedOutputStream"(COutputStream):
 
         @staticmethod
         CStatus Create(int64_t buffer_size, CMemoryPool* pool,
@@ -903,7 +903,8 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     cdef cppclass HdfsOutputStream(COutputStream):
         pass
 
-    cdef cppclass CHadoopFileSystem" arrow::io::HadoopFileSystem"(CIOFileSystem):
+    cdef cppclass CHadoopFileSystem \
+            "arrow::io::HadoopFileSystem"(CIOFileSystem):
         @staticmethod
         CStatus Connect(const HdfsConnectionConfig* config,
                         shared_ptr[CHadoopFileSystem]* client)
@@ -939,21 +940,21 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
                              shared_ptr[HdfsOutputStream]* handle)
 
     cdef cppclass CBufferReader \
-            " arrow::io::BufferReader"(CRandomAccessFile):
+            "arrow::io::BufferReader"(CRandomAccessFile):
         CBufferReader(const shared_ptr[CBuffer]& buffer)
         CBufferReader(const uint8_t* data, int64_t nbytes)
 
     cdef cppclass CBufferOutputStream \
-            " arrow::io::BufferOutputStream"(COutputStream):
+            "arrow::io::BufferOutputStream"(COutputStream):
         CBufferOutputStream(const shared_ptr[CResizableBuffer]& buffer)
 
     cdef cppclass CMockOutputStream \
-            " arrow::io::MockOutputStream"(COutputStream):
+            "arrow::io::MockOutputStream"(COutputStream):
         CMockOutputStream()
         int64_t GetExtentBytesWritten()
 
     cdef cppclass CFixedSizeBufferWriter \
-            " arrow::io::FixedSizeBufferWriter"(WritableFile):
+            "arrow::io::FixedSizeBufferWriter"(WritableFile):
         CFixedSizeBufferWriter(const shared_ptr[CBuffer]& buffer)
 
         void set_memcopy_threads(int num_threads)

@@ -135,6 +135,7 @@ cmake -GNinja \
       -DARROW_TENSORFLOW=on \
       -DARROW_PYTHON=on \
       -DARROW_ORC=on \
+      -DARROW_S3=on \
       -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       $ARROW_CPP_DIR
@@ -164,6 +165,7 @@ export PYARROW_BUILD_TYPE=$ARROW_BUILD_TYPE
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 export PYARROW_WITH_ORC=1
+export PYARROW_WITH_S3=1
 if [ "$ARROW_TRAVIS_FLIGHT" == "1" ]; then
   export PYARROW_WITH_FLIGHT=1
 fi
@@ -177,6 +179,7 @@ python setup.py develop
 python -c "import pyarrow.parquet"
 python -c "import pyarrow.plasma"
 python -c "import pyarrow.orc"
+python -c "import pyarrow.fs"
 
 # Ensure we do eagerly import pandas (or other expensive imports)
 python < scripts/test_imports.py

@@ -44,6 +44,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         void ConfigureDefaultCredentials()
         void ConfigureAccessKey(const c_string& access_key,
                                 const c_string& secret_key)
+
         @staticmethod
         CS3Options Defaults()
         @staticmethod
