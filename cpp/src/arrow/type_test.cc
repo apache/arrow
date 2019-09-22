@@ -939,6 +939,9 @@ TEST(TestDictionaryType, UnifyNumeric) {
   ASSERT_OK(unifier->Unify(*d1));
   ASSERT_OK(unifier->Unify(*d2));
   ASSERT_OK(unifier->Unify(*d3));
+
+  ASSERT_RAISES(Invalid, unifier->Unify(*ArrayFromJSON(int32(), "[1, -200]")));
+
   ASSERT_OK(unifier->GetResult(&out_type, &out_dict));
   ASSERT_TRUE(out_type->Equals(*expected));
   ASSERT_TRUE(out_dict->Equals(*expected_dict));

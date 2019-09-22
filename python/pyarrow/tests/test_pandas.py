@@ -35,6 +35,7 @@ import pytest
 import pytz
 
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
+from pyarrow.tests.util import random_ascii
 
 import pyarrow as pa
 
@@ -2321,7 +2322,7 @@ class TestConvertMisc(object):
             cases.append(random_numbers.astype(type_name))
 
         # strings
-        cases.append(np.array([tm.rands(10) for i in range(N * K)],
+        cases.append(np.array([random_ascii(10) for i in range(N * K)],
                               dtype=object)
                      .reshape(N, K).copy())
 
@@ -3059,19 +3060,61 @@ def test_dictionary_with_pandas():
     tm.assert_series_equal(pd.Series(pandas2), pd.Series(ex_pandas2))
 
 
-def test_variable_dictionary_with_pandas():
-    a1 = pa.DictionaryArray.from_arrays([0, 1, 2], ['a', 'b', 'c'])
-    a2 = pa.DictionaryArray.from_arrays([0, 1], ['a', 'c'])
+def random_strings(n, item_size, pct_null=0, dictionary=None):
+    if dictionary is not None:
+        result = dictionary[np.random.randint(0, len(dictionary), size=n)]
+    else:
+        result = np.array([random_ascii(item_size) for i in range(n)],
+                          dtype=object)
 
-    a = pa.chunked_array([a1, a2])
-    assert a.to_pylist() == ['a', 'b', 'c', 'a', 'c']
-    with pytest.raises(NotImplementedError):
-        a.to_pandas()
+    if pct_null > 0:
+        result[np.random.rand(n) < pct_null] = None
 
-    a = pa.chunked_array([a2, a1])
-    assert a.to_pylist() == ['a', 'c', 'a', 'b', 'c']
-    with pytest.raises(NotImplementedError):
-        a.to_pandas()
+    return result
+
+
+def test_variable_dictionary_to_pandas():
+    np.random.seed(12345)
+
+    d1 = pa.array(random_strings(100, 32), type='string')
+    d2 = pa.array(random_strings(100, 16), type='string')
+    d3 = pa.array(random_strings(10000, 10), type='string')
+
+    a1 = pa.DictionaryArray.from_arrays(
+        np.random.randint(0, len(d1), size=1000, dtype='i4'),
+        d1
+    )
+    a2 = pa.DictionaryArray.from_arrays(
+        np.random.randint(0, len(d2), size=1000, dtype='i4'),
+        d2
+    )
+
+    # With some nulls
+    a3 = pa.DictionaryArray.from_arrays(
+        np.random.randint(0, len(d3), size=1000, dtype='i4'), d3)
+
+    i4 = pa.array(
+        np.random.randint(0, len(d3), size=1000, dtype='i4'),
+        mask=np.random.rand(1000) < 0.1
+    )
+    a4 = pa.DictionaryArray.from_arrays(i4, d3)
+
+    expected_dict = pa.concat_arrays([d1, d2, d3])
+
+    a = pa.chunked_array([a1, a2, a3, a4])
+    a_dense = pa.chunked_array([a1.cast('string'),
+                                a2.cast('string'),
+                                a3.cast('string'),
+                                a4.cast('string')])
+
+    result = a.to_pandas()
+    result_dense = a_dense.to_pandas()
+
+    assert (result.cat.categories == expected_dict.to_pandas()).all()
+
+    expected_dense = result.astype('str')
+    expected_dense[result_dense.isnull()] = None
+    tm.assert_series_equal(result_dense, expected_dense)
 
 
 # ----------------------------------------------------------------------

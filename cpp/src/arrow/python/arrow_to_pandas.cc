@@ -279,7 +279,7 @@ class PandasBlock {
   virtual ~PandasBlock() {}
 
   virtual Status Allocate() = 0;
-  virtual Status Write(const std::shared_ptr<ChunkedArray>& data, int64_t abs_placement,
+  virtual Status Write(std::shared_ptr<ChunkedArray> data, int64_t abs_placement,
                        int64_t rel_placement) = 0;
 
   PyObject* block_arr() const { return block_arr_.obj(); }
@@ -768,7 +768,7 @@ class ObjectBlock : public PandasBlock {
   using PandasBlock::PandasBlock;
   Status Allocate() override { return AllocateNDArray(NPY_OBJECT); }
 
-  Status Write(const std::shared_ptr<ChunkedArray>& data, int64_t abs_placement,
+  Status Write(std::shared_ptr<ChunkedArray> data, int64_t abs_placement,
                int64_t rel_placement) override {
     Type::type type = data->type()->id();
 
@@ -861,7 +861,7 @@ class IntBlock : public PandasBlock {
     return AllocateNDArray(internal::arrow_traits<ARROW_TYPE>::npy_type);
   }
 
-  Status Write(const std::shared_ptr<ChunkedArray>& data, int64_t abs_placement,
+  Status Write(std::shared_ptr<ChunkedArray> data, int64_t abs_placement,
                int64_t rel_placement) override {
     Type::type type = data->type()->id();
 
@@ -894,7 +894,7 @@ class Float16Block : public PandasBlock {
   using PandasBlock::PandasBlock;
   Status Allocate() override { return AllocateNDArray(NPY_FLOAT16); }
 
-  Status Write(const std::shared_ptr<ChunkedArray>& data, int64_t abs_placement,
+  Status Write(std::shared_ptr<ChunkedArray> data, int64_t abs_placement,
                int64_t rel_placement) override {
     Type::type type = data->type()->id();
 
@@ -918,7 +918,7 @@ class Float32Block : public PandasBlock {
   using PandasBlock::PandasBlock;
   Status Allocate() override { return AllocateNDArray(NPY_FLOAT32); }
 
-  Status Write(const std::shared_ptr<ChunkedArray>& data, int64_t abs_placement,
+  Status Write(std::shared_ptr<ChunkedArray> data, int64_t abs_placement,
                int64_t rel_placement) override {
     Type::type type = data->type()->id();
 
@@ -941,7 +941,7 @@ class Float64Block : public PandasBlock {
   using PandasBlock::PandasBlock;
   Status Allocate() override { return AllocateNDArray(NPY_FLOAT64); }
 
-  Status Write(const std::shared_ptr<ChunkedArray>& data, int64_t abs_placement,
+  Status Write(std::shared_ptr<ChunkedArray> data, int64_t abs_placement,
                int64_t rel_placement) override {
     Type::type type = data->type()->id();
 
@@ -993,7 +993,7 @@ class BoolBlock : public PandasBlock {
   using PandasBlock::PandasBlock;
   Status Allocate() override { return AllocateNDArray(NPY_BOOL); }
 
-  Status Write(const std::shared_ptr<ChunkedArray>& data, int64_t abs_placement,
+  Status Write(std::shared_ptr<ChunkedArray> data, int64_t abs_placement,
                int64_t rel_placement) override {
     if (data->type()->id() != Type::BOOL) {
       return Status::NotImplemented("Cannot write Arrow data of type ",
@@ -1025,7 +1025,7 @@ class DatetimeBlock : public PandasBlock {
 
   Status Allocate() override { return AllocateDatetime(2); }
 
-  Status Write(const std::shared_ptr<ChunkedArray>& data, int64_t abs_placement,
+  Status Write(std::shared_ptr<ChunkedArray> data, int64_t abs_placement,
                int64_t rel_placement) override {
     Type::type type = data->type()->id();
 
@@ -1102,6 +1102,34 @@ Status MakeZeroLengthArray(const std::shared_ptr<DataType>& type,
   return builder->Finish(out);
 }
 
+bool NeedDictionaryUnification(const ChunkedArray& data) {
+  if (data.num_chunks() < 2) {
+    return false;
+  }
+  const auto& arr_first = checked_cast<const DictionaryArray&>(*data.chunk(0));
+  for (int c = 1; c < data.num_chunks(); c++) {
+    const auto& arr = checked_cast<const DictionaryArray&>(*data.chunk(c));
+    if (!(arr_first.dictionary()->Equals(arr.dictionary()))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+template <typename IndexType>
+Status CheckDictionaryIndices(const Array& arr, int64_t dict_length) {
+  const auto& typed_arr =
+      checked_cast<const typename TypeTraits<IndexType>::ArrayType&>(arr);
+  const typename IndexType::c_type* values = typed_arr.raw_values();
+  for (int64_t i = 0; i < arr.length(); ++i) {
+    if (arr.IsValid(i) && (values[i] < 0 || values[i] >= dict_length)) {
+      return Status::Invalid("Out of bounds dictionary index: ",
+                             static_cast<int64_t>(values[i]));
+    }
+  }
+  return Status::OK();
+}
+
 class CategoricalBlock : public PandasBlock {
  public:
   explicit CategoricalBlock(const PandasOptions& options, int64_t num_rows)
@@ -1112,37 +1140,99 @@ class CategoricalBlock : public PandasBlock {
         "CategoricalBlock allocation happens when calling Write");
   }
 
-  template <typename ArrowType>
-  Status WriteIndices(const std::shared_ptr<ChunkedArray>& data) {
-    using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-    using TRAITS = internal::arrow_traits<ArrowType::type_id>;
+  template <typename IndexType>
+  Status WriteIndicesUniform(const ChunkedArray& data) {
+    using ArrayType = typename TypeTraits<IndexType>::ArrayType;
+    using TRAITS = internal::arrow_traits<IndexType::type_id>;
     using T = typename TRAITS::T;
-    constexpr int npy_type = TRAITS::npy_type;
 
-    if (data->num_chunks() == 0) {
-      RETURN_NOT_OK(AllocateNDArray(npy_type, 1));
-      return Status::OK();
-    }
-    // Sniff the first chunk
-    const std::shared_ptr<Array> arr_first = data->chunk(0);
-    const auto& dict_arr_first = checked_cast<const DictionaryArray&>(*arr_first);
-    const auto indices_first =
-        std::static_pointer_cast<ArrayType>(dict_arr_first.indices());
+    RETURN_NOT_OK(AllocateNDArray(TRAITS::npy_type, 1));
+    T* out_values = reinterpret_cast<T*>(block_data_);
 
-    auto CheckIndices = [](const ArrayType& arr, int64_t dict_length) {
-      const T* values = arr.raw_values();
-      for (int64_t i = 0; i < arr.length(); ++i) {
-        if (arr.IsValid(i) && (values[i] < 0 || values[i] >= dict_length)) {
-          return Status::Invalid("Out of bounds dictionary index: ",
-                                 static_cast<int64_t>(values[i]));
+    for (int c = 0; c < data.num_chunks(); c++) {
+      const auto& arr = checked_cast<const DictionaryArray&>(*data.chunk(c));
+      const auto& indices = checked_cast<const ArrayType&>(*arr.indices());
+      auto values = reinterpret_cast<const T*>(indices.raw_values());
+
+      int64_t dict_length = arr.dictionary()->length();
+      // Null is -1 in CategoricalBlock
+      for (int i = 0; i < arr.length(); ++i) {
+        if (indices.IsValid(i)) {
+          if (ARROW_PREDICT_FALSE(values[i] < 0 || values[i] >= dict_length)) {
+            return Status::Invalid("Out of bounds dictionary index: ",
+                                   static_cast<int64_t>(values[i]));
+          }
+          *out_values++ = values[i];
+        } else {
+          *out_values++ = -1;
         }
       }
-      return Status::OK();
-    };
+    }
+    return Status::OK();
+  }
 
-    if (!needs_copy_ && data->num_chunks() == 1 && indices_first->null_count() == 0) {
-      RETURN_NOT_OK(CheckIndices(*indices_first, dict_arr_first.dictionary()->length()));
-      RETURN_NOT_OK(WrapIndicesZeroCopy<T>(npy_type, indices_first));
+  template <typename IndexType>
+  Status WriteIndicesVarying(const ChunkedArray& data, std::shared_ptr<Array>* out_dict) {
+    using ArrayType = typename TypeTraits<IndexType>::ArrayType;
+    using TRAITS = internal::arrow_traits<IndexType::type_id>;
+    using T = typename TRAITS::T;
+
+    // Yield int32 indices to allow for dictionary outgrowing the current index
+    // type
+    RETURN_NOT_OK(AllocateNDArray(NPY_INT32, 1));
+    auto out_values = reinterpret_cast<int32_t*>(block_data_);
+
+    const auto& dict_type = checked_cast<const DictionaryType&>(*data.type());
+
+    std::unique_ptr<DictionaryUnifier> unifier;
+    RETURN_NOT_OK(
+        DictionaryUnifier::Make(options_.pool, dict_type.value_type(), &unifier));
+    for (int c = 0; c < data.num_chunks(); c++) {
+      const auto& arr = checked_cast<const DictionaryArray&>(*data.chunk(c));
+      const auto& indices = checked_cast<const ArrayType&>(*arr.indices());
+      auto values = reinterpret_cast<const T*>(indices.raw_values());
+
+      std::shared_ptr<Buffer> transpose_buffer;
+      RETURN_NOT_OK(unifier->Unify(*arr.dictionary(), &transpose_buffer));
+
+      auto transpose = reinterpret_cast<const int32_t*>(transpose_buffer->data());
+      int64_t dict_length = arr.dictionary()->length();
+
+      // Null is -1 in CategoricalBlock
+      for (int i = 0; i < arr.length(); ++i) {
+        if (indices.IsValid(i)) {
+          if (ARROW_PREDICT_FALSE(values[i] < 0 || values[i] >= dict_length)) {
+            return Status::Invalid("Out of bounds dictionary index: ",
+                                   static_cast<int64_t>(values[i]));
+          }
+          *out_values++ = transpose[values[i]];
+        } else {
+          *out_values++ = -1;
+        }
+      }
+    }
+
+    std::shared_ptr<DataType> unused_type;
+    return unifier->GetResult(&unused_type, out_dict);
+  }
+
+  template <typename IndexType>
+  Status WriteIndices(const ChunkedArray& data, std::shared_ptr<Array>* out_dict) {
+    using ArrayType = typename TypeTraits<IndexType>::ArrayType;
+    using TRAITS = internal::arrow_traits<IndexType::type_id>;
+    using T = typename TRAITS::T;
+
+    DCHECK_GT(data.num_chunks(), 0);
+
+    // Sniff the first chunk
+    const auto& arr_first = checked_cast<const DictionaryArray&>(*data.chunk(0));
+    const auto indices_first = std::static_pointer_cast<ArrayType>(arr_first.indices());
+
+    if (!needs_copy_ && data.num_chunks() == 1 && indices_first->null_count() == 0) {
+      RETURN_NOT_OK(CheckDictionaryIndices<IndexType>(*indices_first,
+                                                      arr_first.dictionary()->length()));
+      RETURN_NOT_OK(WrapIndicesZeroCopy<T>(TRAITS::npy_type, indices_first));
+      *out_dict = arr_first.dictionary();
     } else {
       if (options_.zero_copy_only) {
         if (needs_copy_) {
@@ -1151,36 +1241,23 @@ class CategoricalBlock : public PandasBlock {
                                  "allowed");
         }
 
-        return Status::Invalid("Needed to copy ", data->num_chunks(), " chunks with ",
+        return Status::Invalid("Needed to copy ", data.num_chunks(), " chunks with ",
                                indices_first->null_count(),
                                " indices nulls, but zero_copy_only was True");
       }
-      RETURN_NOT_OK(AllocateNDArray(npy_type, 1));
 
-      // No relative placement offset because a single column
-      T* out_values = reinterpret_cast<T*>(block_data_);
-
-      for (int c = 0; c < data->num_chunks(); c++) {
-        const std::shared_ptr<Array> arr = data->chunk(c);
-        const auto& dict_arr = checked_cast<const DictionaryArray&>(*arr);
-
-        const auto& indices = checked_cast<const ArrayType&>(*dict_arr.indices());
-        auto in_values = reinterpret_cast<const T*>(indices.raw_values());
-
-        RETURN_NOT_OK(CheckIndices(indices, dict_arr.dictionary()->length()));
-        // Null is -1 in CategoricalBlock
-        for (int i = 0; i < arr->length(); ++i) {
-          *out_values++ = indices.IsNull(i) ? -1 : in_values[i];
-        }
+      if (NeedDictionaryUnification(data)) {
+        RETURN_NOT_OK(WriteIndicesVarying<IndexType>(data, out_dict));
+      } else {
+        RETURN_NOT_OK(WriteIndicesUniform<IndexType>(data));
+        *out_dict = arr_first.dictionary();
       }
     }
-
     return Status::OK();
   }
 
-  Status Write(const std::shared_ptr<ChunkedArray>& data, int64_t abs_placement,
+  Status Write(std::shared_ptr<ChunkedArray> data, int64_t abs_placement,
                int64_t rel_placement) override {
-    std::shared_ptr<ChunkedArray> converted_data;
     if (options_.strings_to_categorical &&
         (data->type()->id() == Type::STRING || data->type()->id() == Type::BINARY)) {
       needs_copy_ = true;
@@ -1189,55 +1266,34 @@ class CategoricalBlock : public PandasBlock {
       Datum out;
       RETURN_NOT_OK(compute::DictionaryEncode(&ctx, data, &out));
       DCHECK_EQ(out.kind(), Datum::CHUNKED_ARRAY);
-      converted_data = out.chunked_array();
-    } else {
-      // check if all dictionaries are equal
-      if (data->num_chunks() > 1) {
-        const std::shared_ptr<Array> arr_first = data->chunk(0);
-        const auto& dict_arr_first = checked_cast<const DictionaryArray&>(*arr_first);
-
-        for (int c = 1; c < data->num_chunks(); c++) {
-          const std::shared_ptr<Array> arr = data->chunk(c);
-          const auto& dict_arr = checked_cast<const DictionaryArray&>(*arr);
-
-          if (!(dict_arr_first.dictionary()->Equals(dict_arr.dictionary()))) {
-            return Status::NotImplemented("Variable dictionary type not supported");
-          }
-        }
-      }
-      converted_data = data;
+      data = out.chunked_array();
     }
 
-    const auto& dict_type = checked_cast<const DictionaryType&>(*converted_data->type());
-
-    switch (dict_type.index_type()->id()) {
-      case Type::INT8:
-        RETURN_NOT_OK(WriteIndices<Int8Type>(converted_data));
-        break;
-      case Type::INT16:
-        RETURN_NOT_OK(WriteIndices<Int16Type>(converted_data));
-        break;
-      case Type::INT32:
-        RETURN_NOT_OK(WriteIndices<Int32Type>(converted_data));
-        break;
-      case Type::INT64:
-        RETURN_NOT_OK(WriteIndices<Int64Type>(converted_data));
-        break;
-      default: {
-        return Status::NotImplemented("Categorical index type not supported: ",
-                                      dict_type.index_type()->ToString());
-      }
-    }
-
-    // TODO(wesm): variable dictionaries
+    const auto& dict_type = checked_cast<const DictionaryType&>(*data->type());
     std::shared_ptr<Array> dict;
     if (data->num_chunks() == 0) {
       // no dictionary values => create empty array
+      RETURN_NOT_OK(AllocateNDArray(/* any type */ NPY_INT32, 1));
       RETURN_NOT_OK(MakeZeroLengthArray(dict_type.value_type(), &dict));
     } else {
-      auto arr = converted_data->chunk(0);
-      const auto& dict_arr = checked_cast<const DictionaryArray&>(*arr);
-      dict = dict_arr.dictionary();
+      switch (dict_type.index_type()->id()) {
+        case Type::INT8:
+          RETURN_NOT_OK(WriteIndices<Int8Type>(*data, &dict));
+          break;
+        case Type::INT16:
+          RETURN_NOT_OK(WriteIndices<Int16Type>(*data, &dict));
+          break;
+        case Type::INT32:
+          RETURN_NOT_OK(WriteIndices<Int32Type>(*data, &dict));
+          break;
+        case Type::INT64:
+          RETURN_NOT_OK(WriteIndices<Int64Type>(*data, &dict));
+          break;
+        default: {
+          return Status::NotImplemented("Categorical index type not supported: ",
+                                        dict_type.index_type()->ToString());
+        }
+      }
     }
 
     placement_data_[rel_placement] = abs_placement;
