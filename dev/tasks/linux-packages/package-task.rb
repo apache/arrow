@@ -154,7 +154,6 @@ class PackageTask
 
   def define_yum_task
     namespace :yum do
-      distribution = "centos"
       yum_dir = "yum"
       repositories_dir = "#{yum_dir}/repositories"
 
@@ -179,9 +178,7 @@ RELEASE=#{@rpm_release}
           ENV
         end
 
-        tmp_distribution_dir = "#{tmp_dir}/#{distribution}"
-        mkdir_p(tmp_distribution_dir)
-        spec = "#{tmp_distribution_dir}/#{@rpm_package}.spec"
+        spec = "#{tmp_dir}/#{@rpm_package}.spec"
         spec_in = "#{yum_dir}/#{@rpm_package}.spec.in"
         spec_in_data = File.read(spec_in)
         spec_data = spec_in_data.gsub(/@(.+?)@/) do |matched|
@@ -201,16 +198,27 @@ RELEASE=#{@rpm_release}
         end
 
         cd(yum_dir) do
-          distribution_versions = (ENV["CENTOS_VERSIONS"] || "6,7").split(",")
           threads = []
-          distribution_versions.each do |version|
+          targets = (ENV["YUM_TARGETS"] || "").split(",")
+          if targets.empty?
+            # Disable aarch64 targets by default for now
+            # because they require some setups on host.
+            targets = [
+              "centos-6",
+              "centos-7",
+              # "centos-7-aarch64",
+            ]
+          end
+          targets.each do |target|
+            next unless Dir.exist?(target)
+            distribution, version, architecture = target.split("-", 3)
             os = "#{distribution}-#{version}"
             if parallel_build?
-              threads << Thread.new(os) do |local_os|
-                run_docker(local_os)
+              threads << Thread.new(os, architecture) do |*local_values|
+                run_docker(*local_values)
               end
             else
-              run_docker(os)
+              run_docker(os, architecture)
             end
           end
           threads.each(&:join)
@@ -276,8 +284,8 @@ VERSION=#{@deb_upstream_version}
             distribution, version, architecture = target.split("-", 3)
             os = "#{distribution}-#{version}"
             if parallel_build?
-              threads << Thread.new(os) do |local_os|
-                run_docker(local_os, architecture)
+              threads << Thread.new(os, architecture) do |*local_values|
+                run_docker(*local_values)
               end
             else
               run_docker(os, architecture)
