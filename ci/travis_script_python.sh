@@ -167,6 +167,7 @@ export PYARROW_WITH_ORC=1
 export PYARROW_WITH_S3=1
 if [ "$ARROW_TRAVIS_S3" == "1" ]; then
   export PYARROW_WITH_S3=1
+fi
 if [ "$ARROW_TRAVIS_FLIGHT" == "1" ]; then
   export PYARROW_WITH_FLIGHT=1
 fi
