@@ -99,7 +99,7 @@ pip install -r requirements.txt pickle5
 set PYARROW_CXXFLAGS=%ARROW_CXXFLAGS%
 set PYARROW_CMAKE_GENERATOR=%GENERATOR%
 if "%ARROW_S3%" == "ON" (
-  set PYARROW_WITH_S3="ON"
+  set PYARROW_WITH_S3=ON
 )
 if "%ARROW_BUILD_FLIGHT%" == "ON" (
   @rem ARROW-5441: bundling Arrow Flight libraries not implemented
