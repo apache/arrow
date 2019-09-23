@@ -468,12 +468,6 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
   ~DictEncoderImpl() override { DCHECK(buffered_indices_.empty()); }
 
-  /*
-  void Put(const std::vector<T>& src, int num_values) override {
-    ParquetException::NYI("FIXME");
-  }
-  */
-
   int dict_encoded_size() override { return dict_encoded_size_; }
 
   int WriteIndices(uint8_t* buffer, int buffer_len) override {
@@ -713,7 +707,6 @@ void DictEncoderImpl<DType>::Put(const arrow::Array& values) {
       Put(data.Value(i));
     }
   } else {
-    std::vector<uint8_t> empty(type_length_, 0);
     for (int64_t i = 0; i < data.length(); i++) {
       if (data.IsValid(i)) {
         Put(data.Value(i));
@@ -1401,9 +1394,7 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
-                  typename EncodingTraits<Type>::Accumulator* out) override {
-    ParquetException::NYI("DecodeArrow from dict decoder");
-  }
+                  typename EncodingTraits<Type>::Accumulator* out) override;
 
   void InsertDictionary(arrow::ArrayBuilder* builder) override;
 
@@ -1550,6 +1541,54 @@ inline void DictDecoderImpl<FLBAType>::SetDict(TypedDecoder<FLBAType>* dictionar
     memcpy(bytes_data + offset, dict_values[i].ptr, fixed_len);
     dict_values[i].ptr = bytes_data + offset;
   }
+}
+
+template <>
+int DictDecoderImpl<Int96Type>::DecodeArrow(
+    int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    typename EncodingTraits<Int96Type>::Accumulator* builder) {
+  ParquetException::NYI("DecodeArrow to Int96Type");
+}
+
+template <>
+int DictDecoderImpl<ByteArrayType>::DecodeArrow(
+    int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    typename EncodingTraits<ByteArrayType>::Accumulator* builder) {
+  ParquetException::NYI("DecodeArrow implemented elsewhere");
+}
+
+template <>
+int DictDecoderImpl<FLBAType>::DecodeArrow(
+    int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    typename EncodingTraits<FLBAType>::Accumulator* builder) {
+  ParquetException::NYI("DecodeArrow implemented elsewhere");
+}
+
+template <typename Type>
+int DictDecoderImpl<Type>::DecodeArrow(
+    int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    typename EncodingTraits<Type>::Accumulator* builder) {
+  PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
+  arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
+
+  using value_type = typename Type::c_type;
+  auto dict_values = reinterpret_cast<const value_type*>(dictionary_->data());
+
+  for (int i = 0; i < num_values; ++i) {
+    bool is_valid = bit_reader.IsSet();
+    bit_reader.Next();
+    if (is_valid) {
+      int32_t index;
+      if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
+        throw ParquetException("");
+      }
+      builder->UnsafeAppend(dict_values[index]);
+    } else {
+      builder->UnsafeAppendNull();
+    }
+  }
+
+  return num_values - null_count;
 }
 
 template <typename Type>
@@ -1768,12 +1807,6 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
   }
 };
 
-class DictFLBADecoder : public DictDecoderImpl<FLBAType>, virtual public FLBADecoder {
- public:
-  using BASE = DictDecoderImpl<FLBAType>;
-  using BASE::DictDecoderImpl;
-};
-
 // ----------------------------------------------------------------------
 // DeltaBitPackDecoder
 
@@ -1920,7 +1953,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
-    ParquetException::NYI("DecoeArrow for DeltaLengthByteArrayDecoder");
+    ParquetException::NYI("DecodeArrow for DeltaLengthByteArrayDecoder");
   }
 
  private:
@@ -2032,7 +2065,7 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
     case Type::BYTE_ARRAY:
       return std::unique_ptr<Decoder>(new DictByteArrayDecoderImpl(descr, pool));
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::unique_ptr<Decoder>(new DictFLBADecoder(descr, pool));
+      return std::unique_ptr<Decoder>(new DictDecoderImpl<FLBAType>(descr, pool));
     default:
       break;
   }
