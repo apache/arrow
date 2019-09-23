@@ -129,7 +129,15 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   std::unique_ptr<Impl> impl_;
 };
 
-enum class S3LogLevel : int8_t { Off, Fatal, Error, Warn, Info, Debug, Trace };
+enum class ARROW_EXPORT S3LogLevel : int8_t {
+  Off,
+  Fatal,
+  Error,
+  Warn,
+  Info,
+  Debug,
+  Trace
+};
 
 struct ARROW_EXPORT S3GlobalOptions {
   S3LogLevel log_level;

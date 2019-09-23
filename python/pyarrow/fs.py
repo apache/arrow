@@ -31,4 +31,4 @@ try:
 except ImportError:
     pass
 else:
-    pass  # initialize_s3?
+    initialize_s3()
