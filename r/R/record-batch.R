@@ -16,17 +16,57 @@
 # under the License.
 
 #' @include arrow-package.R
-
-#' @title class arrow::RecordBatch
-#'
+#' @title RecordBatch class
+#' @description A record batch is a collection of equal-length arrays matching
+#' a particular [Schema]. It is a table-like data structure that is semantically
+#' a sequence of [fields][Field], each a contiguous Arrow [Array].
 #' @usage NULL
 #' @format NULL
 #' @docType class
 #'
-#' @section Methods:
+#' @section S3 Methods and Usage:
+#' Record batches are data-frame-like, and many methods you expect to work on
+#' a `data.frame` are implemented for `RecordBatch`. This includes `[`, `[[`,
+#' `$`, `names`, `dim`, `nrow`, `ncol`, `head`, and `tail`. You can also pull
+#' the data from an Arrow record batch into R with `as.data.frame()`. See the
+#' examples.
 #'
-#' TODO
+#' A caveat about the `$` method: because `RecordBatch` is an `R6` object,
+#' `$` is also used to access the object's methods (see below). Methods take
+#' precedence over the table's columns. So, `batch$Slice` would return the
+#' "Slice" method function even if there were a column in the table called
+#' "Slice".
 #'
+#' A caveat about the `[` method for row operations: only "slicing" is
+#' currently supported. That is, you can select a continuous range of rows
+#' from the table, but you can't filter with a `logical` vector or take an
+#' arbitrary selection of rows by integer indices.
+#'
+#' @section R6 Methods:
+#' In addition to the more R-friendly S3 methods, a `RecordBatch` object has
+#' the following R6 methods that map onto the underlying C++ methods:
+#'
+#' - `$Equals(other)`: Returns `TRUE` if the `other` record batch is equal
+#' - `$column(i)`: Extract an `Array` by integer position from the batch
+#' - `$column_name(i)`: Get a column's name by integer position
+#' - `$names()`: Get all column names (called by `names(batch)`)
+#' - `$GetColumnByName(name)`: Extract an `Array` by string name
+#' - `$RemoveColumn(i)`: Drops a column from the batch by integer position
+#' - `$select(spec)`: Return a new record batch with a selection of columns.
+#'    This supports the usual `character`, `numeric`, and `logical` selection
+#'    methods as well as "tidy select" expressions.
+#' - `$Slice(offset, length = NULL)`: Create a zero-copy view starting at the
+#'    indicated integer offset and going for the given length, or to the end
+#'    of the table if `NULL`, the default.
+#' - `$serialize()`: Returns a raw vector suitable for interprocess communication
+#' - `$cast(target_schema, safe = TRUE, options = cast_options(safe))`: Alter
+#'    the schema of the record batch.
+#'
+#' There are also some active bindings
+#' - `$num_columns`
+#' - `$num_rows`
+#' - `$schema`
+#' - `$columns`: Returns a list of `Array`s
 #' @rdname RecordBatch
 #' @name RecordBatch
 RecordBatch <- R6Class("RecordBatch", inherit = Object,
@@ -97,6 +137,25 @@ RecordBatch$create <- function(..., schema = NULL){
   stopifnot(length(arrays) > 0)
   shared_ptr(RecordBatch, RecordBatch__from_arrays(schema, arrays))
 }
+
+#' @param ... A `data.frame` or a named set of Arrays or vectors. If given a
+#' mixture of data.frames and vectors, the inputs will be autospliced together
+#' (see examples).
+#' @param schema a [Schema], or `NULL` (the default) to infer the schema from
+#' the data in `...`
+#' @rdname RecordBatch
+#' @examples
+#' \donttest{
+#' batch <- record_batch(name = rownames(mtcars), mtcars)
+#' dim(batch)
+#' dim(head(batch))
+#' names(batch)
+#' batch$mpg
+#' batch[["cyl"]]
+#' as.data.frame(batch[4:8, c("gear", "hp", "wt")])
+#' }
+#' @export
+record_batch <- RecordBatch$create
 
 #' @export
 names.RecordBatch <- function(x) {
@@ -187,12 +246,3 @@ tail.RecordBatch <- function(x, n = 6L, ...) {
   }
   x$Slice(n)
 }
-
-#' Create an [arrow::RecordBatch][RecordBatch] from a data frame
-#'
-#' @param ... A variable number of Array
-#' @param schema a arrow::Schema
-#'
-#' @return a [arrow::RecordBatch][RecordBatch]
-#' @export
-record_batch <- RecordBatch$create

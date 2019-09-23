@@ -15,7 +15,8 @@ chunked_array(..., type = NULL)
 }
 \description{
 A \code{ChunkedArray} is a data structure managing a list of
-primitive Arrow \link[=Array]{Arrays} logically as one large array.
+primitive Arrow \link[=Array]{Arrays} logically as one large array. Chunked arrays
+may be grouped together in a \link{Table}.
 }
 \section{Factory}{
 

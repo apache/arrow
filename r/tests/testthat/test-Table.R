@@ -119,6 +119,12 @@ test_that("head and tail on Table", {
   expect_identical(as.data.frame(tail(tab, -4)), tail(tbl, -4))
 })
 
+test_that("table active bindings", {
+  expect_identical(dim(tbl), dim(tab))
+  expect_is(tab$columns, "list")
+  expect_equal(tab$columns[[1]], tab[[1]])
+})
+
 test_that("table() handles record batches with splicing", {
   batch <- record_batch(x = 1:2, y = letters[1:2])
   tab <- Table$create(batch, batch, batch)

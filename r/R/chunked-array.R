@@ -22,7 +22,8 @@
 #' @format NULL
 #' @docType class
 #' @description A `ChunkedArray` is a data structure managing a list of
-#' primitive Arrow [Arrays][Array] logically as one large array.
+#' primitive Arrow [Arrays][Array] logically as one large array. Chunked arrays
+#' may be grouped together in a [Table].
 #' @section Factory:
 #' The `ChunkedArray$create()` factory method instantiates the object from
 #' various Arrays or R vectors. `chunked_array()` is an alias for it.

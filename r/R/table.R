@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
-#'
-#' @title class arrow::Table
-#'
+#' @title Table class
+#' @description A Table is a sequence of [chunked arrays][ChunkedArray]. They
+#' have a similar interface to [record batches][RecordBatch], but they can be
+#' composed from multiple record batches or chunked arrays.
 #' @usage NULL
 #' @format NULL
 #' @docType class
@@ -27,15 +27,66 @@
 #'
 #' The `Table$create()` function takes the following arguments:
 #'
-#' * `...` arrays, chunked arrays, or R vectors
-#' * `schema` a schema. The default (`NULL`) infers the schema from the `...`
+#' * `...` arrays, chunked arrays, or R vectors, with names; alternatively,
+#'    an unnamed series of [record batches][RecordBatch] may also be provided,
+#'    which will be stacked as rows in the table.
+#' * `schema` a [Schema], or `NULL` (the default) to infer the schema from
+#'    the data in `...`
 #'
-#' @section Methods:
+#' @section S3 Methods and Usage:
+#' Tables are data-frame-like, and many methods you expect to work on
+#' a `data.frame` are implemented for `Table`. This includes `[`, `[[`,
+#' `$`, `names`, `dim`, `nrow`, `ncol`, `head`, and `tail`. You can also pull
+#' the data from an Arrow table into R with `as.data.frame()`. See the
+#' examples.
 #'
-#' TODO
+#' A caveat about the `$` method: because `Table` is an `R6` object,
+#' `$` is also used to access the object's methods (see below). Methods take
+#' precedence over the table's columns. So, `tab$Slice` would return the
+#' "Slice" method function even if there were a column in the table called
+#' "Slice".
 #'
+#' A caveat about the `[` method for row operations: only "slicing" is
+#' currently supported. That is, you can select a continuous range of rows
+#' from the table, but you can't filter with a `logical` vector or take an
+#' arbitrary selection of rows by integer indices.
+#'
+#' @section R6 Methods:
+#' In addition to the more R-friendly S3 methods, a `Table` object has
+#' the following R6 methods that map onto the underlying C++ methods:
+#'
+#' - `$column(i)`: Extract a `ChunkedArray` by integer position from the table
+#' - `$ColumnNames()`: Get all column names (called by `names(tab)`)
+#' - `$GetColumnByName(name)`: Extract a `ChunkedArray` by string name
+#' - `$field(i)`: Extract a `Field` from the table schema by integer position
+#' - `$select(spec)`: Return a new table with a selection of columns.
+#'    This supports the usual `character`, `numeric`, and `logical` selection
+#'    methods as well as "tidy select" expressions.
+#' - `$Slice(offset, length = NULL)`: Create a zero-copy view starting at the
+#'    indicated integer offset and going for the given length, or to the end
+#'    of the table if `NULL`, the default.
+#' - `$serialize(output_stream, ...)`: Write the table to the given
+#'    [OutputStream]
+#' - `$cast(target_schema, safe = TRUE, options = cast_options(safe))`: Alter
+#'    the schema of the record batch.
+#'
+#' There are also some active bindings
+#' - `$num_columns`
+#' - `$num_rows`
+#' - `$schema`
+#' - `$columns`: Returns a list of `ChunkedArray`s
 #' @rdname Table
 #' @name Table
+#' @examples
+#' \donttest{
+#' tab <- Table$create(name = rownames(mtcars), mtcars)
+#' dim(tab)
+#' dim(head(tab))
+#' names(tab)
+#' tab$mpg
+#' tab[["cyl"]]
+#' as.data.frame(tab[4:8, c("gear", "hp", "wt")])
+#' }
 #' @export
 Table <- R6Class("Table", inherit = Object,
   public = list(
@@ -85,7 +136,7 @@ Table <- R6Class("Table", inherit = Object,
     num_columns = function() Table__num_columns(self),
     num_rows = function() Table__num_rows(self),
     schema = function() shared_ptr(Schema, Table__schema(self)),
-    columns = function() map(Table__columns(self), shared_ptr, class = Column)
+    columns = function() map(Table__columns(self), shared_ptr, class = ChunkedArray)
   )
 )
 

@@ -16,7 +16,9 @@
 # under the License.
 
 #' @include arrow-package.R
-#' @title class arrow::Field
+#' @title Field class
+#' @usage NULL
+#' @format NULL
 #' @docType class
 #' @description `field()` lets you create an `arrow::Field` that maps a
 #' [DataType][data-type] to a column name. Fields are contained in
