@@ -202,8 +202,14 @@ pub fn sum(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
 /// Invoke a compute kernel on a pair of arrays
 macro_rules! compute_op {
     ($LEFT:expr, $RIGHT:expr, $OP:ident, $DT:ident) => {{
-        let ll = $LEFT.as_any().downcast_ref::<$DT>().unwrap();
-        let rr = $RIGHT.as_any().downcast_ref::<$DT>().unwrap();
+        let ll = $LEFT
+            .as_any()
+            .downcast_ref::<$DT>()
+            .expect("compute_op failed to downcast array");
+        let rr = $RIGHT
+            .as_any()
+            .downcast_ref::<$DT>()
+            .expect("compute_op failed to downcast array");
         Ok(Arc::new($OP(&ll, &rr)?))
     }};
 }
@@ -233,8 +239,14 @@ macro_rules! comparison_op {
 /// Invoke a boolean kernel on a pair of arrays
 macro_rules! boolean_op {
     ($LEFT:expr, $RIGHT:expr, $OP:ident) => {{
-        let ll = $LEFT.as_any().downcast_ref::<BooleanArray>().unwrap();
-        let rr = $RIGHT.as_any().downcast_ref::<BooleanArray>().unwrap();
+        let ll = $LEFT
+            .as_any()
+            .downcast_ref::<BooleanArray>()
+            .expect("boolean_op failed to downcast array");
+        let rr = $RIGHT
+            .as_any()
+            .downcast_ref::<BooleanArray>()
+            .expect("boolean_op failed to downcast array");
         Ok(Arc::new($OP(&ll, &rr)?))
     }};
 }
