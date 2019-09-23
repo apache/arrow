@@ -75,9 +75,9 @@ cdef class S3FileSystem(FileSystem):
     cdef:
         CS3FileSystem* s3fs
 
-    def __init__(self, str access_key=None, str secret_key=None,
-                 str region='us-east-1', str scheme='https',
-                 str endpoint_override=None, bint background_writes=True):
+    def __init__(self, access_key=None, secret_key=None, region='us-east-1',
+                 scheme='https', endpoint_override=None,
+                 bint background_writes=True):
         cdef:
             CS3Options options = CS3Options.Defaults()
             shared_ptr[CS3FileSystem] wrapped

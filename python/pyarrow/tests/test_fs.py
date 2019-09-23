@@ -56,6 +56,15 @@ class FileSystemWrapper:
     def pathpair(self, p):
         raise NotImplementedError()
 
+    def rmdir(self, p):
+        raise NotImplementedError()
+
+    def unlink(self, p):
+        raise NotImplementedError()
+
+    def iterdir(self, p):
+        raise NotImplementedError()
+
     def mkdir(self, p):
         raise NotImplementedError()
 
@@ -88,8 +97,18 @@ class LocalWrapper(FileSystemWrapper):
         path_for_impl = '/'.join([self.tempdir.as_posix(), p])
         return (path_for_wrapper, path_for_impl)
 
+    def unlink(self, p):
+        return pathlib.Path(p).unlink()
+
+    def rmdir(self, p):
+        return pathlib.Path(p).rmdir()
+
     def mkdir(self, p):
         return pathlib.Path(p).mkdir(parents=True)
+
+    def iterdir(self, p):
+        for path in pathlib.Path(p).iterdir():
+            yield (path, path.is_dir())
 
     def touch(self, p):
         return pathlib.Path(p).touch()
@@ -151,6 +170,20 @@ class S3Wrapper(FileSystemWrapper):
             length=0
         )
 
+    def unlink(self, p):
+        self.client.remove_object(
+            bucket_name=self.bucket,
+            object_name=p.rstrip('/')
+        )
+
+    def rmdir(self, p):
+        if not p.endswith('/'):
+            p += '/'
+        self.client.remove_object(
+            bucket_name=self.bucket,
+            object_name=p
+        )
+
     def mkdir(self, p):
         if not p.endswith('/'):
             p += '/'
@@ -160,6 +193,17 @@ class S3Wrapper(FileSystemWrapper):
             data=io.BytesIO(b''),
             length=0
         )
+
+    def iterdir(self, p):
+        if not p.endswith('/'):
+            p += '/'
+        objs = self.client.list_objects(
+            bucket_name=self.bucket,
+            prefix=p,
+            recursive=False
+        )
+        for obj in objs:
+            yield (obj.object_name, obj.is_dir)
 
     def exists(self, p):
         from minio.error import NoSuchKey, NoSuchBucket
@@ -228,7 +272,7 @@ def localfs(request, tempdir):
 
 @pytest.fixture(params=[
     S3Wrapper,
-    SubTreeS3Wrapper
+    #SubTreeS3Wrapper
 ])
 def s3fs(request, minio_server, minio_client, minio_bucket):
     from pyarrow.fs import initialize_s3
@@ -310,27 +354,37 @@ def test_get_target_stats(fs):
     assert mtime_almost_equal(c_stat.mtime, fs.mtime(_c))
 
 
-@pytest.mark.skip()
-def test_get_target_stats_with_selector(fs, tempdir, testpath):
-    base_dir = testpath('.')
-    base_dir_ = tempdir
+def test_get_target_stats_with_selector(fs):
+    _base_dir, base_dir = fs.pathpair('selector-dir/')
+    _file_a, file_a = fs.pathpair('selector-dir/test_file_a')
+    _file_b, file_b = fs.pathpair('selector-dir/test_file_b')
+    _dir_a, dir_a = fs.pathpair('selector-dir/test_dir_a')
+    try:
+        fs.mkdir(_base_dir)
+        fs.touch(_file_a)
+        fs.touch(_file_b)
+        fs.mkdir(_dir_a)
 
-    selector = Selector(base_dir, allow_non_existent=False, recursive=True)
-    assert selector.base_dir == str(base_dir)
+        selector = Selector(base_dir, allow_non_existent=False, recursive=True)
+        assert selector.base_dir == base_dir
 
-    (tempdir / 'test_file').touch()
-    (tempdir / 'test_directory').mkdir()
+        stats = fs.impl.get_target_stats(selector)
+        expected = list(fs.iterdir(_base_dir))
+        assert len(stats) == len(expected)
 
-    stats = fs.get_target_stats(selector)
-    expected = list(base_dir_.iterdir())
-    assert len(stats) == len(expected)
+        left = sorted(stats, key=lambda st: st.path)
+        right = sorted(expected, key=lambda tpl: tpl[0])
 
-    for st in stats:
-        p = base_dir_ / st.path
-        if p.is_dir():
-            assert st.type == FileType.Directory
-        if p.is_file():
-            assert st.type == FileType.File
+        for l, r in zip(left, right):
+            if r[1] is True:
+                assert l.type == FileType.Directory
+            else:
+                assert l.type == FileType.File
+    finally:
+        fs.unlink(_file_a)
+        fs.unlink(_file_b)
+        fs.rmdir(_dir_a)
+        fs.rmdir(_base_dir)
 
 
 def test_create_dir(fs):
