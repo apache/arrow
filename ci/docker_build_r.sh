@@ -26,6 +26,8 @@ export ARROW_HOME=$CONDA_PREFIX
 pushd /arrow/r
 
 if [ "$R_CONDA" = "" ]; then
+  # Install R package dependencies
+  # NOTE: any changes here should also be done in docker_build_r_sanitizer.sh
   ${R_BIN} -e "install.packages(c('remotes', 'dplyr', 'glue'))"
   ${R_BIN} -e "remotes::install_deps(dependencies = TRUE)"
   ${R_BIN} -e "remotes::install_github('romainfrancois/decor')"
